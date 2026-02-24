@@ -4,7 +4,6 @@
 
 import {
   log,
-  type IssueClassSlashCommand,
   AgentStateManager,
   shouldExecuteStage,
   type ModelUsageMap,

@@ -83,9 +83,9 @@ export async function retryWithResolution<TRunResult extends AgentRunResult, TFa
   const { maxRetries, statePath, label, run, isPassed, extractFailures, resolveFailures, onRetryFailed } = config;
 
   let retryCount = 0;
-  let costUsd = 0;
+  const costUsd = 0;
   let lastFailures: TFailure[] = [];
-  let modelUsage = emptyModelUsageMap();
+  const modelUsage = emptyModelUsageMap();
   const costState = { costUsd, modelUsage };
 
   while (retryCount < maxRetries) {
