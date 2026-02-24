@@ -3,7 +3,7 @@
  */
 
 import { PRReviewWorkflowStage, log, formatCostBreakdownMarkdown } from '../core';
-import { commentOnPR } from './githubApi';
+import { commentOnPR, type RepoInfo } from './githubApi';
 import { ADW_SIGNATURE, truncateText } from './workflowCommentsBase';
 import { WorkflowContext } from './workflowCommentsIssue';
 
@@ -83,10 +83,10 @@ export function formatPRReviewWorkflowComment(stage: PRReviewWorkflowStage, ctx:
 }
 
 /** Posts a PR review workflow comment directly on the PR. */
-export function postPRWorkflowComment(prNumber: number, stage: PRReviewWorkflowStage, ctx: PRReviewWorkflowContext): void {
+export function postPRWorkflowComment(prNumber: number, stage: PRReviewWorkflowStage, ctx: PRReviewWorkflowContext, repoInfo?: RepoInfo): void {
   try {
     const comment = formatPRReviewWorkflowComment(stage, ctx);
-    commentOnPR(prNumber, comment);
+    commentOnPR(prNumber, comment, repoInfo);
   } catch (error) {
     log(`Failed to post PR workflow comment for stage '${stage}': ${error}`, 'error');
   }

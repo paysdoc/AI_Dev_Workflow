@@ -280,7 +280,7 @@ describe('initializeWorkflow', () => {
     expect(postWorkflowComment).toHaveBeenCalledWith(1, 'starting', expect.objectContaining({
       issueNumber: 1,
       adwId: 'test-id',
-    }));
+    }), undefined);
   });
 
   it('restores context and posts resuming comment in recovery mode', async () => {
@@ -300,7 +300,7 @@ describe('initializeWorkflow', () => {
     expect(getNextStage).toHaveBeenCalledWith('classified');
     expect(postWorkflowComment).toHaveBeenCalledWith(1, 'resuming', expect.objectContaining({
       branchName: 'feature/recovered',
-    }));
+    }), undefined);
   });
 
   it('checks for uncommitted changes during recovery', async () => {
@@ -415,8 +415,8 @@ describe('executePlanPhase', () => {
 
     const result = await executePlanPhase(config);
 
-    expect(postWorkflowComment).toHaveBeenCalledWith(1, 'classified', expect.anything());
-    expect(postWorkflowComment).toHaveBeenCalledWith(1, 'branch_created', expect.anything());
+    expect(postWorkflowComment).toHaveBeenCalledWith(1, 'classified', expect.anything(), undefined);
+    expect(postWorkflowComment).toHaveBeenCalledWith(1, 'branch_created', expect.anything(), undefined);
     expect(runPlanAgent).toHaveBeenCalledWith(
       expect.anything(),
       expect.anything(),
@@ -425,7 +425,7 @@ describe('executePlanPhase', () => {
       '/mock/worktree',
       'test-adw-id',
     );
-    expect(postWorkflowComment).toHaveBeenCalledWith(1, 'plan_created', expect.anything());
+    expect(postWorkflowComment).toHaveBeenCalledWith(1, 'plan_created', expect.anything(), undefined);
     expect(result.costUsd).toBe(0.5);
   });
 
@@ -568,8 +568,8 @@ describe('executeBuildPhase', () => {
 
     expect(runBuildAgent).toHaveBeenCalledTimes(2);
     expect(result.costUsd).toBeCloseTo(0.8);
-    expect(postWorkflowComment).toHaveBeenCalledWith(1, 'token_limit_recovery', expect.anything());
-    expect(postWorkflowComment).toHaveBeenCalledWith(1, 'implemented', expect.anything());
+    expect(postWorkflowComment).toHaveBeenCalledWith(1, 'token_limit_recovery', expect.anything(), undefined);
+    expect(postWorkflowComment).toHaveBeenCalledWith(1, 'implemented', expect.anything(), undefined);
   });
 });
 
@@ -638,7 +638,7 @@ describe('executePRPhase', () => {
       config.issue.body,
     );
     expect(config.ctx.prUrl).toBe('https://github.com/test/pr/1');
-    expect(postWorkflowComment).toHaveBeenCalledWith(1, 'pr_created', expect.anything());
+    expect(postWorkflowComment).toHaveBeenCalledWith(1, 'pr_created', expect.anything(), undefined);
     expect(result.costUsd).toBeCloseTo(0.1);
   });
 
@@ -726,7 +726,7 @@ describe('completeWorkflow', () => {
       '/mock/state/path',
       'Workflow completed successfully'
     );
-    expect(postWorkflowComment).toHaveBeenCalledWith(1, 'completed', config.ctx);
+    expect(postWorkflowComment).toHaveBeenCalledWith(1, 'completed', config.ctx, undefined);
   });
 
   it('includes additional metadata when provided', async () => {
@@ -753,7 +753,7 @@ describe('handleWorkflowError', () => {
     handleWorkflowError(config, new Error('test error'));
 
     expect(config.ctx.errorMessage).toBe('Error: test error');
-    expect(postWorkflowComment).toHaveBeenCalledWith(1, 'error', config.ctx);
+    expect(postWorkflowComment).toHaveBeenCalledWith(1, 'error', config.ctx, undefined);
     expect(AgentStateManager.writeState).toHaveBeenCalled();
     expect(AgentStateManager.appendLog).toHaveBeenCalledWith(
       '/mock/state/path',
@@ -989,8 +989,8 @@ describe('executePRReviewPlanPhase', () => {
 
     await executePRReviewPlanPhase(config);
 
-    expect(postPRWorkflowComment).toHaveBeenCalledWith(42, 'pr_review_planning', expect.anything());
-    expect(postPRWorkflowComment).toHaveBeenCalledWith(42, 'pr_review_planned', expect.anything());
+    expect(postPRWorkflowComment).toHaveBeenCalledWith(42, 'pr_review_planning', expect.anything(), undefined);
+    expect(postPRWorkflowComment).toHaveBeenCalledWith(42, 'pr_review_planned', expect.anything(), undefined);
   });
 });
 
@@ -1036,8 +1036,8 @@ describe('executePRReviewBuildPhase', () => {
 
     await executePRReviewBuildPhase(config, 'plan');
 
-    expect(postPRWorkflowComment).toHaveBeenCalledWith(42, 'pr_review_implementing', expect.anything());
-    expect(postPRWorkflowComment).toHaveBeenCalledWith(42, 'pr_review_implemented', expect.anything());
+    expect(postPRWorkflowComment).toHaveBeenCalledWith(42, 'pr_review_implementing', expect.anything(), undefined);
+    expect(postPRWorkflowComment).toHaveBeenCalledWith(42, 'pr_review_implemented', expect.anything(), undefined);
   });
 });
 
@@ -1070,7 +1070,7 @@ describe('executePRReviewTestPhase', () => {
 
     await executePRReviewTestPhase(config);
 
-    expect(postPRWorkflowComment).toHaveBeenCalledWith(42, 'pr_review_test_passed', expect.anything());
+    expect(postPRWorkflowComment).toHaveBeenCalledWith(42, 'pr_review_test_passed', expect.anything(), undefined);
   });
 
   it('posts onTestFailed callback with correct PR comment', async () => {
@@ -1088,7 +1088,7 @@ describe('executePRReviewTestPhase', () => {
     expect(postPRWorkflowComment).toHaveBeenCalledWith(42, 'pr_review_test_failed', expect.objectContaining({
       testAttempt: 2,
       maxTestAttempts: 5,
-    }));
+    }), undefined);
   });
 
   it('exits with code 1 on unit test max retry failure', async () => {
@@ -1098,7 +1098,7 @@ describe('executePRReviewTestPhase', () => {
 
     await executePRReviewTestPhase(config);
 
-    expect(postPRWorkflowComment).toHaveBeenCalledWith(42, 'pr_review_test_max_attempts', expect.anything());
+    expect(postPRWorkflowComment).toHaveBeenCalledWith(42, 'pr_review_test_max_attempts', expect.anything(), undefined);
     expect(mockExit).toHaveBeenCalledWith(1);
 
     mockExit.mockRestore();
@@ -1112,7 +1112,7 @@ describe('executePRReviewTestPhase', () => {
 
     await executePRReviewTestPhase(config);
 
-    expect(postPRWorkflowComment).toHaveBeenCalledWith(42, 'pr_review_test_max_attempts', expect.anything());
+    expect(postPRWorkflowComment).toHaveBeenCalledWith(42, 'pr_review_test_max_attempts', expect.anything(), undefined);
     expect(mockExit).toHaveBeenCalledWith(1);
 
     mockExit.mockRestore();
@@ -1148,8 +1148,8 @@ describe('completePRReviewWorkflow', () => {
     await completePRReviewWorkflow(config);
 
     expect(pushBranch).toHaveBeenCalledWith('feature/issue-10-test', '/mock/worktree');
-    expect(postPRWorkflowComment).toHaveBeenCalledWith(42, 'pr_review_pushed', expect.anything());
-    expect(postPRWorkflowComment).toHaveBeenCalledWith(42, 'pr_review_completed', expect.anything());
+    expect(postPRWorkflowComment).toHaveBeenCalledWith(42, 'pr_review_pushed', expect.anything(), undefined);
+    expect(postPRWorkflowComment).toHaveBeenCalledWith(42, 'pr_review_completed', expect.anything(), undefined);
   });
 
   it('writes successful execution state', async () => {
@@ -1179,7 +1179,7 @@ describe('handlePRReviewWorkflowError', () => {
     handlePRReviewWorkflowError(config, new Error('test error'));
 
     expect(config.ctx.errorMessage).toBe('Error: test error');
-    expect(postPRWorkflowComment).toHaveBeenCalledWith(42, 'pr_review_error', config.ctx);
+    expect(postPRWorkflowComment).toHaveBeenCalledWith(42, 'pr_review_error', config.ctx, undefined);
     expect(AgentStateManager.writeState).toHaveBeenCalled();
     expect(AgentStateManager.appendLog).toHaveBeenCalledWith(
       '/mock/state/path',
@@ -1274,8 +1274,8 @@ describe('executeReviewPhase', () => {
 
     await executeReviewPhase(config);
 
-    expect(postWorkflowComment).toHaveBeenCalledWith(1, 'review_running', expect.anything());
-    expect(postWorkflowComment).toHaveBeenCalledWith(1, 'review_passed', expect.anything());
+    expect(postWorkflowComment).toHaveBeenCalledWith(1, 'review_running', expect.anything(), undefined);
+    expect(postWorkflowComment).toHaveBeenCalledWith(1, 'review_passed', expect.anything(), undefined);
   });
 
   it('posts review_failed comment when review fails', async () => {
@@ -1297,7 +1297,7 @@ describe('executeReviewPhase', () => {
     const result = await executeReviewPhase(config);
 
     expect(result.reviewPassed).toBe(false);
-    expect(postWorkflowComment).toHaveBeenCalledWith(1, 'review_failed', expect.anything());
+    expect(postWorkflowComment).toHaveBeenCalledWith(1, 'review_failed', expect.anything(), undefined);
   });
 
   it('returns cost and pass/fail status', async () => {

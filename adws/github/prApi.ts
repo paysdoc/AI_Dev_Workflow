@@ -4,7 +4,7 @@
 
 import { execSync } from 'child_process';
 import { PRDetails, PRReviewComment, PRListItem, log } from '../core';
-import { getRepoInfo } from './githubApi';
+import { getRepoInfo, type RepoInfo } from './githubApi';
 
 interface RawPRDetails {
   number: number;
@@ -50,8 +50,8 @@ interface RawPRListItem {
 /**
  * Fetches PR details using the gh CLI.
  */
-export function fetchPRDetails(prNumber: number): PRDetails {
-  const { owner, repo } = getRepoInfo();
+export function fetchPRDetails(prNumber: number, repoInfo?: RepoInfo): PRDetails {
+  const { owner, repo } = repoInfo ?? getRepoInfo();
 
   try {
     const json = execSync(
@@ -116,8 +116,8 @@ export function fetchPRReviews(owner: string, repo: string, prNumber: number): P
 /**
  * Fetches all PR review comments: both line-level comments and review-body comments.
  */
-export function fetchPRReviewComments(prNumber: number): PRReviewComment[] {
-  const { owner, repo } = getRepoInfo();
+export function fetchPRReviewComments(prNumber: number, repoInfo?: RepoInfo): PRReviewComment[] {
+  const { owner, repo } = repoInfo ?? getRepoInfo();
   log(`Fetching PR review comments for ${owner}/${repo}#${prNumber}`);
 
   let lineComments: PRReviewComment[] = [];
@@ -158,8 +158,8 @@ export function fetchPRReviewComments(prNumber: number): PRReviewComment[] {
 /**
  * Posts a comment on a PR.
  */
-export function commentOnPR(prNumber: number, body: string): void {
-  const { owner, repo } = getRepoInfo();
+export function commentOnPR(prNumber: number, body: string, repoInfo?: RepoInfo): void {
+  const { owner, repo } = repoInfo ?? getRepoInfo();
 
   try {
     execSync(
@@ -175,8 +175,8 @@ export function commentOnPR(prNumber: number, body: string): void {
 /**
  * Fetches open PRs for CRON trigger polling.
  */
-export function fetchPRList(): PRListItem[] {
-  const { owner, repo } = getRepoInfo();
+export function fetchPRList(repoInfo?: RepoInfo): PRListItem[] {
+  const { owner, repo } = repoInfo ?? getRepoInfo();
 
   try {
     const json = execSync(

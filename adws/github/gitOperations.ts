@@ -129,11 +129,11 @@ export function pushBranch(branchName: string, cwd?: string): void {
  * Gets the default branch name of the repository using the GitHub CLI.
  * @returns The name of the default branch (e.g., 'main', 'master', 'develop')
  */
-export function getDefaultBranch(): string {
+export function getDefaultBranch(cwd?: string): string {
   try {
     const result = execSync(
       "gh repo view --json defaultBranchRef --jq '.defaultBranchRef.name'",
-      { encoding: 'utf-8' }
+      { encoding: 'utf-8', cwd }
     );
     const branchName = result.trim();
 

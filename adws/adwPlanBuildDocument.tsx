@@ -18,7 +18,7 @@
  * - GITHUB_PAT: (Optional) GitHub Personal Access Token
  */
 
-import { type IssueClassSlashCommand, mergeModelUsageMaps, persistTokenCounts } from './core';
+import { type IssueClassSlashCommand, mergeModelUsageMaps, persistTokenCounts, parseTargetRepoArgs } from './core';
 import {
   initializeWorkflow,
   executePlanPhase,
@@ -91,10 +91,12 @@ function parseArguments(args: string[]): {
  */
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
+  const targetRepo = parseTargetRepoArgs(args);
   const { issueNumber, adwId, providedIssueType } = parseArguments(args);
 
   const config = await initializeWorkflow(issueNumber, adwId, 'plan-build-document-orchestrator', {
     issueType: providedIssueType || undefined,
+    targetRepo: targetRepo || undefined,
   });
 
   let totalCostUsd = 0;

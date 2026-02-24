@@ -29,6 +29,7 @@ import {
   type AgentState,
   mergeModelUsageMaps,
   persistTokenCounts,
+  parseTargetRepoArgs,
 } from './core';
 import {
   fetchGitHubIssue,
@@ -102,6 +103,7 @@ function parseArguments(args: string[]): {
  */
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
+  parseTargetRepoArgs(args);
   const { issueNumber, adwId: providedAdwId, cwd } = parseArguments(args);
 
   // Fetch issue

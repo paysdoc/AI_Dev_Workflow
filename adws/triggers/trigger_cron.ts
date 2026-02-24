@@ -21,8 +21,11 @@ interface RawIssue {
   createdAt: string;
 }
 
+/** Cached repo info for the current polling session. */
+const repoInfo = getRepoInfo();
+
 function fetchOpenIssues(): RawIssue[] {
-  const { owner, repo } = getRepoInfo();
+  const { owner, repo } = repoInfo;
   try {
     const json = execSync(
       `gh issue list --repo ${owner}/${repo} --state open --json number,comments,createdAt`,
@@ -32,6 +35,18 @@ function fetchOpenIssues(): RawIssue[] {
   } catch (error) {
     log(`Failed to fetch issues: ${error}`, 'error');
     return [];
+  }
+}
+
+/** Builds --target-repo args from the local repo info for consistency with webhook triggers. */
+function buildTargetRepoArgs(): string[] {
+  const { owner, repo } = repoInfo;
+  const fullName = `${owner}/${repo}`;
+  try {
+    const cloneUrl = execSync('git remote get-url origin', { encoding: 'utf-8' }).trim();
+    return ['--target-repo', fullName, '--clone-url', cloneUrl];
+  } catch {
+    return ['--target-repo', fullName];
   }
 }
 
@@ -79,7 +94,8 @@ async function checkAndTrigger(): Promise<void> {
     );
 
     const adwIdArgs = classification.adwId ? [classification.adwId] : [];
-    const child = spawn('npx', ['tsx', workflowScript, String(issue.number), ...adwIdArgs, '--issue-type', classification.issueType], {
+    const targetRepoArgs = buildTargetRepoArgs();
+    const child = spawn('npx', ['tsx', workflowScript, String(issue.number), ...adwIdArgs, '--issue-type', classification.issueType, ...targetRepoArgs], {
       detached: true,
       stdio: 'ignore',
     });
@@ -103,7 +119,8 @@ function checkPRsForReviewComments(): void {
         processedPRs.add(pr.number);
         log(`Triggering ADW PR Review for PR #${pr.number}`, 'success');
 
-        const child = spawn('npx', ['tsx', 'adws/adwPrReview.tsx', String(pr.number)], {
+        const targetRepoArgs = buildTargetRepoArgs();
+        const child = spawn('npx', ['tsx', 'adws/adwPrReview.tsx', String(pr.number), ...targetRepoArgs], {
           detached: true,
           stdio: 'ignore',
         });

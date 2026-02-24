@@ -29,7 +29,7 @@ export async function executeTestPhase(config: WorkflowConfig): Promise<{
   e2eTestsPassed: boolean;
   totalRetries: number;
 }> {
-  const { orchestratorStatePath, issueNumber, issue, ctx, logsDir, worktreePath, applicationUrl } = config;
+  const { orchestratorStatePath, issueNumber, issue, ctx, logsDir, worktreePath, applicationUrl, repoInfo } = config;
   let costUsd = 0;
   let modelUsage = emptyModelUsageMap();
 
@@ -52,7 +52,7 @@ export async function executeTestPhase(config: WorkflowConfig): Promise<{
     log(errorMsg, 'error');
     AgentStateManager.appendLog(orchestratorStatePath, errorMsg);
     ctx.errorMessage = errorMsg;
-    postWorkflowComment(issueNumber, 'error', ctx);
+    postWorkflowComment(issueNumber, 'error', ctx, repoInfo);
 
     AgentStateManager.writeState(orchestratorStatePath, {
       execution: AgentStateManager.completeExecution(
@@ -85,7 +85,7 @@ export async function executeTestPhase(config: WorkflowConfig): Promise<{
     log(errorMsg, 'error');
     AgentStateManager.appendLog(orchestratorStatePath, errorMsg);
     ctx.errorMessage = errorMsg;
-    postWorkflowComment(issueNumber, 'error', ctx);
+    postWorkflowComment(issueNumber, 'error', ctx, repoInfo);
 
     AgentStateManager.writeState(orchestratorStatePath, {
       execution: AgentStateManager.completeExecution(

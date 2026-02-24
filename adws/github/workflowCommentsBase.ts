@@ -3,7 +3,7 @@
  */
 
 import { WorkflowStage, RecoveryState, GitHubComment, AgentStateManager } from '../core';
-import { fetchGitHubIssue } from './githubApi';
+import { fetchGitHubIssue, type RepoInfo } from './githubApi';
 
 /** Stage order for determining recovery resume point. */
 export const STAGE_ORDER: WorkflowStage[] = [
@@ -116,8 +116,8 @@ export function extractPlanPathFromComment(commentBody: string): string | null {
 const TERMINAL_STAGES: ReadonlyArray<WorkflowStage> = ['completed', 'error'];
 
 /** Returns true if an ADW workflow is currently active (not completed or errored) for the given issue. */
-export async function isAdwRunningForIssue(issueNumber: number): Promise<boolean> {
-  const issue = await fetchGitHubIssue(issueNumber);
+export async function isAdwRunningForIssue(issueNumber: number, repoInfo?: RepoInfo): Promise<boolean> {
+  const issue = await fetchGitHubIssue(issueNumber, repoInfo);
 
   const stageComments = issue.comments
     .map((c) => ({ stage: parseWorkflowStageFromComment(c.body), createdAt: c.createdAt, body: c.body }))

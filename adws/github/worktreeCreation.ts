@@ -21,10 +21,10 @@ import {
  * @param branchName - The name of the branch to look up
  * @returns The worktree path if it exists, null otherwise
  */
-export function getWorktreeForBranch(branchName: string): string | null {
+export function getWorktreeForBranch(branchName: string, baseRepoPath?: string): string | null {
   try {
-    const output = execSync('git worktree list --porcelain', { encoding: 'utf-8' });
-    const expectedWorktreePath = getWorktreePath(branchName);
+    const output = execSync('git worktree list --porcelain', { encoding: 'utf-8', cwd: baseRepoPath });
+    const expectedWorktreePath = getWorktreePath(branchName, baseRepoPath);
 
     // Parse worktree list output to find matching worktree
     const lines = output.split('\n');
@@ -77,29 +77,31 @@ export function getWorktreeForBranch(branchName: string): string | null {
  * @returns The absolute path to the created worktree
  * @throws Error if worktree creation fails
  */
-export function createWorktree(branchName: string, baseBranch?: string): string {
+export function createWorktree(branchName: string, baseBranch?: string, baseRepoPath?: string): string {
   if (!branchName || !branchName.trim()) {
     throw new Error('branchName must be a non-empty string');
   }
 
-  const worktreePath = getWorktreePath(branchName);
-  const worktreesDir = getWorktreesDir();
+  const worktreePath = getWorktreePath(branchName, baseRepoPath);
+  const worktreesDir = getWorktreesDir(baseRepoPath);
 
   // Ensure worktrees directory exists
   if (!fs.existsSync(worktreesDir)) {
     fs.mkdirSync(worktreesDir, { recursive: true });
   }
 
+  const gitOpts = baseRepoPath ? { stdio: 'pipe' as const, cwd: baseRepoPath } : { stdio: 'pipe' as const };
+
   try {
     // Check if the branch exists remotely or locally
     let branchExists = false;
     try {
-      execSync(`git rev-parse --verify "${branchName}"`, { stdio: 'pipe' });
+      execSync(`git rev-parse --verify "${branchName}"`, gitOpts);
       branchExists = true;
     } catch {
       // Branch doesn't exist locally, check remote
       try {
-        execSync(`git rev-parse --verify "origin/${branchName}"`, { stdio: 'pipe' });
+        execSync(`git rev-parse --verify "origin/${branchName}"`, gitOpts);
         branchExists = true;
       } catch {
         branchExists = false;
@@ -126,11 +128,11 @@ export function createWorktree(branchName: string, baseBranch?: string): string 
       }
 
       // Branch exists, create worktree for existing branch
-      execSync(`git worktree add "${worktreePath}" "${branchName}"`, { stdio: 'pipe' });
+      execSync(`git worktree add "${worktreePath}" "${branchName}"`, gitOpts);
       log(`Created worktree for existing branch '${branchName}' at ${worktreePath}`, 'success');
     } else if (baseBranch) {
       // Branch doesn't exist, create worktree with new branch from base
-      execSync(`git worktree add -b "${branchName}" "${worktreePath}" "${baseBranch}"`, { stdio: 'pipe' });
+      execSync(`git worktree add -b "${branchName}" "${worktreePath}" "${baseBranch}"`, gitOpts);
       log(`Created worktree with new branch '${branchName}' from '${baseBranch}' at ${worktreePath}`, 'success');
     } else {
       // No base branch provided and branch doesn't exist
@@ -183,8 +185,8 @@ export function createWorktreeForNewBranch(branchName: string, baseBranch?: stri
  * @param baseBranch - Optional base branch to create the worktree from (for new branches)
  * @returns The absolute path to the worktree
  */
-export function ensureWorktree(branchName: string, baseBranch?: string): string {
-  const existingPath = getWorktreeForBranch(branchName);
+export function ensureWorktree(branchName: string, baseBranch?: string, baseRepoPath?: string): string {
+  const existingPath = getWorktreeForBranch(branchName, baseRepoPath);
 
   if (existingPath) {
     log(`Worktree for branch '${branchName}' already exists at ${existingPath}, reusing`, 'info');
@@ -193,7 +195,7 @@ export function ensureWorktree(branchName: string, baseBranch?: string): string 
   }
 
   log(`Worktree for branch '${branchName}' does not exist, creating new worktree...`, 'info');
-  const worktreePath = createWorktree(branchName, baseBranch);
+  const worktreePath = createWorktree(branchName, baseBranch, baseRepoPath);
   copyEnvToWorktree(worktreePath);
   return worktreePath;
 }

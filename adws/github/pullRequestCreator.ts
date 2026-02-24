@@ -7,6 +7,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { GitHubIssue, log } from '../core';
+import { type RepoInfo } from './githubApi';
 import { getCurrentBranch, pushBranch } from './gitOperations';
 
 /**
@@ -57,7 +58,8 @@ export function createPullRequest(
   planSummary: string,
   buildSummary: string,
   baseBranch: string = 'develop',
-  cwd?: string
+  cwd?: string,
+  repoInfo?: RepoInfo,
 ): string {
   const branchName = getCurrentBranch(cwd);
   const prBody = generatePrBody(issue, planSummary, buildSummary);
@@ -71,8 +73,9 @@ export function createPullRequest(
 
     pushBranch(branchName, cwd);
 
+    const repoFlag = repoInfo ? ` --repo ${repoInfo.owner}/${repoInfo.repo}` : '';
     const prUrl = execSync(
-      `gh pr create --title "${prTitle.replace(/"/g, '\\"')}" --body-file "${tempFilePath}" --base ${baseBranch}`,
+      `gh pr create --title "${prTitle.replace(/"/g, '\\"')}" --body-file "${tempFilePath}" --base ${baseBranch}${repoFlag}`,
       { encoding: 'utf-8', shell: '/bin/bash', cwd }
     ).trim();
 

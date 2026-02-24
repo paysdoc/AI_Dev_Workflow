@@ -5,6 +5,8 @@
 // GitHub API
 export {
   getRepoInfo,
+  getRepoInfoFromUrl,
+  getRepoInfoFromPayload,
   fetchGitHubIssue,
   fetchPRDetails,
   fetchPRReviews,

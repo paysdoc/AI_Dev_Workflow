@@ -23,7 +23,7 @@
  */
 
 import * as path from 'path';
-import { type IssueClassSlashCommand, mergeModelUsageMaps, persistTokenCounts } from './core';
+import { type IssueClassSlashCommand, mergeModelUsageMaps, persistTokenCounts, parseTargetRepoArgs } from './core';
 import {
   initializeWorkflow,
   executePlanPhase,
@@ -108,10 +108,12 @@ function getReviewScreenshotsDir(adwId: string): string {
  */
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
+  const targetRepo = parseTargetRepoArgs(args);
   const { issueNumber, adwId, providedIssueType } = parseArguments(args);
 
   const config = await initializeWorkflow(issueNumber, adwId, 'sdlc-orchestrator', {
     issueType: providedIssueType || undefined,
+    targetRepo: targetRepo || undefined,
   });
 
   let totalCostUsd = 0;

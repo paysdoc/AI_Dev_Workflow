@@ -63,6 +63,23 @@ function spawnDetached(command: string, args: string[]): void {
   child.unref();
 }
 
+/**
+ * Extracts target repo CLI arguments from a webhook payload's repository field.
+ * Returns `['--target-repo', 'owner/repo', '--clone-url', 'https://...']` when available,
+ * or an empty array if the payload has no repository information.
+ */
+function extractTargetRepoArgs(body: Record<string, unknown>): string[] {
+  const repository = body.repository as Record<string, unknown> | undefined;
+  if (!repository) return [];
+
+  const fullName = repository.full_name as string | undefined;
+  const cloneUrl = (repository.clone_url as string | undefined) || (repository.html_url as string | undefined);
+
+  if (!fullName || !cloneUrl) return [];
+
+  return ['--target-repo', fullName, '--clone-url', cloneUrl];
+}
+
 const server = http.createServer((req, res) => {
   if (req.url === '/health' && req.method === 'GET') {
     const result: HealthCheckResult = {
@@ -137,7 +154,8 @@ const server = http.createServer((req, res) => {
       }
 
       log(`PR review comment on PR #${prNumber}, triggering ADW PR Review`);
-      spawnDetached('npx', ['tsx', 'adws/adwPrReview.tsx', String(prNumber)]);
+      const prTargetRepoArgs = extractTargetRepoArgs(body);
+      spawnDetached('npx', ['tsx', 'adws/adwPrReview.tsx', String(prNumber), ...prTargetRepoArgs]);
       jsonResponse(res, 200, { status: 'triggered', pr: prNumber });
       return;
     }
@@ -173,6 +191,7 @@ const server = http.createServer((req, res) => {
       log(`Actionable comment on issue #${issueNumber}: contains "## Take action" directive`);
 
       // Check if workflow is already running — respond quickly, handle async
+      const commentTargetRepoArgs = extractTargetRepoArgs(body);
       isAdwRunningForIssue(issueNumber)
         .then((running) => {
           if (running) {
@@ -188,12 +207,12 @@ const server = http.createServer((req, res) => {
               'success'
             );
             const adwIdArgs = classification.adwId ? [classification.adwId] : [];
-            spawnDetached('npx', ['tsx', workflowScript, String(issueNumber), ...adwIdArgs, '--issue-type', classification.issueType]);
+            spawnDetached('npx', ['tsx', workflowScript, String(issueNumber), ...adwIdArgs, '--issue-type', classification.issueType, ...commentTargetRepoArgs]);
           });
         })
         .catch((error) => {
           log(`Error handling comment on issue #${issueNumber}: ${error}`, 'error');
-          spawnDetached('npx', ['tsx', 'adws/adwPlanBuildTest.tsx', String(issueNumber)]);
+          spawnDetached('npx', ['tsx', 'adws/adwPlanBuildTest.tsx', String(issueNumber), ...commentTargetRepoArgs]);
         });
 
       jsonResponse(res, 200, { status: 'processing', issue: issueNumber });
@@ -205,7 +224,8 @@ const server = http.createServer((req, res) => {
       const action = (body.action as string) || '';
       if (action === 'closed') {
         // Handle asynchronously but respond quickly to avoid GitHub timeout
-        handlePullRequestEvent(body as unknown as PullRequestWebhookPayload)
+        const prPayload = body as unknown as PullRequestWebhookPayload;
+        handlePullRequestEvent(prPayload)
           .then((result) => {
             log(`PR close event handled: ${JSON.stringify(result)}`);
           })
@@ -250,6 +270,7 @@ const server = http.createServer((req, res) => {
 
       // Classify the issue and spawn the appropriate workflow asynchronously
       // Respond quickly to avoid GitHub timeout
+      const issueTargetRepoArgs = extractTargetRepoArgs(body);
       classifyIssueForTrigger(issueNumber)
         .then((classification) => {
           const workflowScript = getWorkflowScript(classification.issueType, classification.adwCommand);
@@ -258,11 +279,11 @@ const server = http.createServer((req, res) => {
             'success'
           );
           const adwIdArgs = classification.adwId ? [classification.adwId] : [];
-          spawnDetached('npx', ['tsx', workflowScript, String(issueNumber), ...adwIdArgs, '--issue-type', classification.issueType]);
+          spawnDetached('npx', ['tsx', workflowScript, String(issueNumber), ...adwIdArgs, '--issue-type', classification.issueType, ...issueTargetRepoArgs]);
         })
         .catch((error) => {
           log(`Error classifying issue #${issueNumber}: ${error}, defaulting to adwPlanBuildTest.tsx`, 'error');
-          spawnDetached('npx', ['tsx', 'adws/adwPlanBuildTest.tsx', String(issueNumber)]);
+          spawnDetached('npx', ['tsx', 'adws/adwPlanBuildTest.tsx', String(issueNumber), ...issueTargetRepoArgs]);
         });
 
       jsonResponse(res, 200, { status: 'processing', issue: issueNumber });

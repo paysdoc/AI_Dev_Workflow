@@ -178,7 +178,7 @@ describe('executeBuildPhase - token limit recovery', () => {
       tokenUsage: expect.objectContaining({
         totalTokens: 180000,
       }),
-    }));
+    }), undefined);
 
     // Verify costs are accumulated
     expect(result.costUsd).toBeCloseTo(0.8);
@@ -191,7 +191,7 @@ describe('executeBuildPhase - token limit recovery', () => {
     expect(continuationPlan).toContain('Do NOT re-do work');
 
     // Verify implemented comment was posted
-    expect(postWorkflowComment).toHaveBeenCalledWith(1, 'implemented', expect.anything());
+    expect(postWorkflowComment).toHaveBeenCalledWith(1, 'implemented', expect.anything(), undefined);
   });
 
   it('throws error when max continuations are exhausted', async () => {

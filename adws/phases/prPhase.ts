@@ -24,7 +24,7 @@ import type { WorkflowConfig } from './workflowLifecycle';
  * Executes the PR phase: create pull request via the /pull_request skill.
  */
 export async function executePRPhase(config: WorkflowConfig): Promise<{ costUsd: number; modelUsage: ModelUsageMap }> {
-  const { recoveryState, issueNumber, issue, issueType, ctx, worktreePath, logsDir, adwId, branchName } = config;
+  const { recoveryState, issueNumber, issue, issueType, ctx, worktreePath, logsDir, adwId, branchName, repoInfo } = config;
 
   let costUsd = 0;
   let modelUsage = emptyModelUsageMap();
@@ -37,7 +37,7 @@ export async function executePRPhase(config: WorkflowConfig): Promise<{ costUsd:
   }
 
   if (shouldExecuteStage('pr_created', recoveryState)) {
-    postWorkflowComment(issueNumber, 'pr_creating', ctx);
+    postWorkflowComment(issueNumber, 'pr_creating', ctx, repoInfo);
     log('Creating Pull Request...', 'info');
 
     const planFile = getPlanFilePath(issueNumber, worktreePath);
@@ -58,7 +58,7 @@ export async function executePRPhase(config: WorkflowConfig): Promise<{ costUsd:
     costUsd = result.totalCostUsd || 0;
     if (result.modelUsage) modelUsage = result.modelUsage;
 
-    postWorkflowComment(issueNumber, 'pr_created', ctx);
+    postWorkflowComment(issueNumber, 'pr_created', ctx, repoInfo);
     log(`Pull Request created: ${result.prUrl}`, 'success');
   } else {
     log('Skipping PR creation (already completed)', 'info');

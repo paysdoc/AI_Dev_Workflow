@@ -29,6 +29,7 @@ import {
   MAX_TEST_RETRY_ATTEMPTS,
   mergeModelUsageMaps,
   persistTokenCounts,
+  parseTargetRepoArgs,
 } from './core';
 import { runUnitTestsWithRetry, runE2ETestsWithRetry } from './agents';
 
@@ -96,6 +97,7 @@ function printTestSummary(
 /** Main test workflow. */
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
+  parseTargetRepoArgs(args);
   const { adwId, cwd } = parseArguments(args);
 
   const logsDir = ensureLogsDirectory(adwId);

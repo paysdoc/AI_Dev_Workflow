@@ -111,7 +111,7 @@ describe('handlePullRequestEvent', () => {
     const result = await handlePullRequestEvent(payload);
 
     // Should still close the issue successfully
-    expect(closeIssue).toHaveBeenCalledWith(42, expect.any(String));
+    expect(closeIssue).toHaveBeenCalledWith(42, expect.any(String), { owner: 'owner', repo: 'repo' });
     expect(result.status).toBe('closed');
   });
 
@@ -130,7 +130,7 @@ describe('handlePullRequestEvent', () => {
 
     const result = await handlePullRequestEvent(payload);
 
-    expect(closeIssue).toHaveBeenCalledWith(42, expect.any(String));
+    expect(closeIssue).toHaveBeenCalledWith(42, expect.any(String), { owner: 'owner', repo: 'repo' });
     expect(result).toEqual({ status: 'closed', issue: 42 });
   });
 });
