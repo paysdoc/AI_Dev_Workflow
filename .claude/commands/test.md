@@ -71,7 +71,8 @@ TEST_COMMAND_TIMEOUT: 5 minutes
 6. **Application Tests**
    - Command: `npm test -- --run src`
    - test_name: "app_tests"
-   - test_purpose: "Validates all ADW (AI Developer Workflow) script functionality including workflow execution and utilities"
+   - test_purpose: "Validates application-level test suites under the src/ directory in the target repository"
+   - Condition: Only execute if a `src/` directory exists in the working directory. If `src/` does not exist, skip this test and mark it as passed with a note indicating it was skipped (no src/ directory found).
 
 ## Report
 
