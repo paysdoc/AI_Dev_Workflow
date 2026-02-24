@@ -10,7 +10,7 @@
 
 import * as http from 'http';
 import { spawn } from 'child_process';
-import { log, PullRequestWebhookPayload } from '../core';
+import { log, PullRequestWebhookPayload, allocateRandomPort, isPortAvailable } from '../core';
 import { isActionableComment, isAdwRunningForIssue, truncateText } from '../github';
 import { removeWorktreesForIssue } from '../github/worktreeOperations';
 import { classifyIssueForTrigger, getWorkflowScript } from '../core/issueClassifier';
@@ -26,8 +26,6 @@ import {
 
 // Re-export for any external consumers
 export { handlePullRequestEvent, extractIssueNumberFromPRBody } from './webhookHandlers';
-
-const port = parseInt(process.env.PORT || '8001', 10);
 
 const HTTP_STATUS_DESCRIPTIONS: Record<number, string> = {
   400: 'Bad Request',
@@ -276,7 +274,41 @@ const server = http.createServer((req, res) => {
   });
 });
 
-log(`Starting webhook trigger on port ${port}`);
-server.listen(port, '0.0.0.0', () => {
-  log(`Webhook server listening on 0.0.0.0:${port}`);
+/**
+ * Resolves the port the webhook server should listen on.
+ * Uses the preferred port if available, otherwise allocates a random available port.
+ */
+export async function resolveWebhookPort(preferredPort: number): Promise<number> {
+  const available = await isPortAvailable(preferredPort, '0.0.0.0');
+  if (available) {
+    return preferredPort;
+  }
+  log(`Port ${preferredPort} is in use, allocating a random available port...`, 'warn');
+  return allocateRandomPort();
+}
+
+async function startServer(): Promise<void> {
+  const preferredPort = parseInt(process.env.PORT || '8001', 10);
+  const actualPort = await resolveWebhookPort(preferredPort);
+  log(`Starting webhook trigger on port ${actualPort}`);
+
+  server.once('error', async (err: NodeJS.ErrnoException) => {
+    if (err.code === 'EADDRINUSE') {
+      log(`Port ${actualPort} was taken (TOCTOU race), retrying with a random port...`, 'warn');
+      const retryPort = await allocateRandomPort();
+      server.listen(retryPort, '0.0.0.0', () => {
+        log(`Webhook server listening on 0.0.0.0:${retryPort}`);
+      });
+    } else {
+      throw err;
+    }
+  });
+
+  server.listen(actualPort, '0.0.0.0', () => {
+    log(`Webhook server listening on 0.0.0.0:${actualPort}`);
+  });
+}
+
+startServer().catch((error) => {
+  log(`Fatal error starting webhook server: ${error}`, 'error');
 });

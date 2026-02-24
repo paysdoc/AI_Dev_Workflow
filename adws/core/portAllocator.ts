@@ -13,14 +13,14 @@ const MAX_RETRIES = 10;
  * Tests whether a given port is available by attempting to bind a TCP server.
  * Returns true if the port is free, false if it is in use.
  */
-function isPortAvailable(port: number): Promise<boolean> {
+export function isPortAvailable(port: number, host: string = '0.0.0.0'): Promise<boolean> {
   return new Promise((resolve) => {
     const server = net.createServer();
     server.once('error', () => resolve(false));
     server.once('listening', () => {
       server.close(() => resolve(true));
     });
-    server.listen(port, '127.0.0.1');
+    server.listen(port, host);
   });
 }
 

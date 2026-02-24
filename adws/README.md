@@ -326,7 +326,7 @@ npx tsx adws/triggers/trigger_webhook.ts
 ```
 
 **Configuration:**
-- Default port: 8001
+- Default port: 8001 (automatically falls back to a random available port if 8001 is in use)
 - Endpoints:
   - `/gh-webhook` - GitHub event receiver
   - `/health` - Health check
