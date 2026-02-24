@@ -1,3 +1,14 @@
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# testing
+/coverage
+
+# typescript
+*.tsbuildinfo
+
 # misc
 /logs
 /agents
