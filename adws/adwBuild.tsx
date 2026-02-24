@@ -64,7 +64,7 @@ export { printUsageAndExit, parseArguments, printBuildSummary } from './adwBuild
  */
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
-  const targetRepo = parseTargetRepoArgs(args);
+  const _targetRepo = parseTargetRepoArgs(args);
   const { issueNumber, providedAdwId, cwd } = parseArguments(args);
 
   log(`Starting ADW Build workflow`, 'info');

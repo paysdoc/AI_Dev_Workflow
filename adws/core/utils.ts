@@ -44,7 +44,7 @@ const LOG_PREFIXES: Record<LogLevel, string> = {
   info: '\u{1F4CB}',
   error: '\u{274C}',
   success: '\u{2705}',
-  warn: '\u{26A0}\u{FE0F}'
+  warn: '\u{26A0}\u{FE0F}',
 };
 
 // ANSI color codes

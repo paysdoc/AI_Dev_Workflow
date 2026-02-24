@@ -28,7 +28,7 @@ import {
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
-  const targetRepo = parseTargetRepoArgs(args);
+  const _targetRepo = parseTargetRepoArgs(args);
 
   if (args.length < 1) {
     console.error('Usage: npx tsx adws/adwPrReview.tsx <pr-number>');
