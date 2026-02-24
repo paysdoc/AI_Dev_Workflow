@@ -19,7 +19,7 @@ vi.mock('../core/config', async () => {
 
 describe('AgentStateManager', () => {
   const testAdwId = 'adw-test-12345-abc';
-  const testStatePath = `${uniqueTestDir}/adw-test-12345-abc/orchestrator`;
+  const _testStatePath = `${uniqueTestDir}/adw-test-12345-abc/orchestrator`;
 
   beforeEach(() => {
     vi.clearAllMocks();

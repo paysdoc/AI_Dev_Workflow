@@ -6,7 +6,7 @@ import {
   classifyGitHubIssue,
   getWorkflowScript,
 } from '../core/issueClassifier';
-import { adwCommandToIssueTypeMap, adwCommandToOrchestratorMap, AdwSlashCommand, GitHubIssue } from '../core/dataTypes';
+import { adwCommandToIssueTypeMap, adwCommandToOrchestratorMap, issueTypeToOrchestratorMap, AdwSlashCommand, IssueClassSlashCommand, GitHubIssue } from '../core/dataTypes';
 
 vi.mock('../core', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../core')>();
@@ -359,16 +359,16 @@ describe('classifyGitHubIssue', () => {
 
 describe('getWorkflowScript', () => {
   // Issue-type-based routing (no ADW command)
-  it('returns adwPlanBuildTest for /feature', () => {
-    expect(getWorkflowScript('/feature')).toBe('adws/adwPlanBuildTest.tsx');
+  it('returns adwSdlc for /feature', () => {
+    expect(getWorkflowScript('/feature')).toBe('adws/adwSdlc.tsx');
   });
 
-  it('returns adwPlanBuildTest for /chore', () => {
-    expect(getWorkflowScript('/chore')).toBe('adws/adwPlanBuildTest.tsx');
+  it('returns adwPlanBuild for /chore', () => {
+    expect(getWorkflowScript('/chore')).toBe('adws/adwPlanBuild.tsx');
   });
 
-  it('returns adwPlanBuild for /bug', () => {
-    expect(getWorkflowScript('/bug')).toBe('adws/adwPlanBuild.tsx');
+  it('returns adwPlanBuildTest for /bug', () => {
+    expect(getWorkflowScript('/bug')).toBe('adws/adwPlanBuildTest.tsx');
   });
 
   it('returns adwPlanBuild for /pr_review', () => {
@@ -425,11 +425,19 @@ describe('getWorkflowScript', () => {
     expect(getWorkflowScript('/pr_review', '/adw_plan_build_test')).toBe('adws/adwPlanBuildTest.tsx');
   });
 
-  // Parametric test over all mapped entries
+  // Parametric test over all mapped ADW command entries
   it.each(Object.entries(adwCommandToOrchestratorMap))(
     'routes %s to %s via adwCommandToOrchestratorMap',
     (command, expectedScript) => {
       expect(getWorkflowScript('/feature', command as AdwSlashCommand)).toBe(expectedScript);
+    }
+  );
+
+  // Parametric test over all mapped issue type entries
+  it.each(Object.entries(issueTypeToOrchestratorMap))(
+    'routes issue type %s to %s via issueTypeToOrchestratorMap',
+    (issueType, expectedScript) => {
+      expect(getWorkflowScript(issueType as IssueClassSlashCommand)).toBe(expectedScript);
     }
   );
 });

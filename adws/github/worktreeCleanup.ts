@@ -82,7 +82,7 @@ export function removeWorktree(branchName: string): boolean {
     log(`Removed worktree for branch '${branchName}' at ${worktreePath}`, 'success');
     deleteLocalBranch(branchName);
     return true;
-  } catch (error) {
+  } catch (_error) {
     if (fs.existsSync(worktreePath)) {
       try {
         killProcessesInDirectory(worktreePath);

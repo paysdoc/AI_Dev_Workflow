@@ -7,7 +7,6 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { GitHubIssue, log } from '../core';
-import { getRepoInfo } from './githubApi';
 import { getCurrentBranch, pushBranch } from './gitOperations';
 
 /**

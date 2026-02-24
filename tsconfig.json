@@ -6,6 +6,7 @@
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
+    "jsx": "react-jsx",
     "noEmit": true,
     "esModuleInterop": true,
     "module": "ESNext",

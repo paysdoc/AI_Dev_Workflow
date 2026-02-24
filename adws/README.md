@@ -314,8 +314,10 @@ npx tsx adws/triggers/trigger_cron.ts
 - Polls every 20 seconds
 
 **Workflow selection:**
-- Uses `adwPlanBuild.tsx` by default
-- Excludes `adwBuild` (implementation-only) workflows
+- Bug issues → `adwPlanBuildTest.tsx`
+- Chore issues → `adwPlanBuild.tsx`
+- Feature issues → `adwSdlc.tsx`
+- PR review issues → `adwPlanBuild.tsx`
 
 #### trigger_webhook.ts - Real-time Events
 Webhook server for instant GitHub event processing.

@@ -161,13 +161,11 @@ vi.mock('../core/issueClassifier', () => ({
 // Import mocked modules for assertions
 import { shouldExecuteStage, hasUncommittedChanges, getNextStage, AgentStateManager, generateAdwId } from '../core';
 import {
-  fetchGitHubIssue,
   fetchPRDetails,
   getUnaddressedComments,
   postWorkflowComment,
   postPRWorkflowComment,
   pushBranch,
-  createPullRequest,
   detectRecoveryState,
   checkoutDefaultBranch,
   ensureWorktree,
@@ -177,7 +175,7 @@ import {
   findWorktreeForIssue,
   inferIssueTypeFromBranch,
 } from '../github';
-import { runPlanAgent, getPlanFilePath, planFileExists, readPlanFile, runBuildAgent, runPrReviewPlanAgent, runPrReviewBuildAgent, runGenerateBranchNameAgent, runCommitAgent, runUnitTestsWithRetry, runE2ETestsWithRetry, runReviewWithRetry, runPullRequestAgent } from '../agents';
+import { runPlanAgent, planFileExists, readPlanFile, runBuildAgent, runPrReviewPlanAgent, runPrReviewBuildAgent, runGenerateBranchNameAgent, runCommitAgent, runUnitTestsWithRetry, runE2ETestsWithRetry, runReviewWithRetry, runPullRequestAgent } from '../agents';
 import { classifyGitHubIssue } from '../core/issueClassifier';
 
 function createRecoveryState(overrides: Partial<RecoveryState> = {}): RecoveryState {
