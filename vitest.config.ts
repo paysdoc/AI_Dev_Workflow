@@ -5,12 +5,12 @@ export default defineConfig({
   test: {
     globals: true,
     // Discover tests via the real adws/ directory so filters like "adws/__tests__" work
-    include: ['adws/**/*.{test,spec}.?(c|m)[jt]s?(x)', 'src/**/*.{test,spec}.?(c|m)[jt]s?(x)'],
+    include: ['adws/**/*.{test,spec}.?(c|m)[jt]s?(x)'],
     exclude: ['**/node_modules/**', '**/dist/**', '.worktrees/**', '**/e2e-tests/**'],
   },
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
+      '@': path.resolve(__dirname, './adws'),
     },
   },
 })

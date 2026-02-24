@@ -66,6 +66,13 @@ TEST_COMMAND_TIMEOUT: 5 minutes
    - test_name: "app_build"
    - test_purpose: "Validates the complete Next.js build process including bundling, asset optimization, and production compilation"
 
+### Application Tests
+
+6. **Application Tests**
+   - Command: `npm test -- --run src`
+   - test_name: "app_tests"
+   - test_purpose: "Validates all ADW (AI Developer Workflow) script functionality including workflow execution and utilities"
+
 ## Report
 
 - IMPORTANT: Return results exclusively as a JSON array based on the `Output Structure` section below.
