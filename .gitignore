@@ -1,0 +1,18 @@
+# misc
+/logs
+/agents
+/.worktrees
+.DS_Store
+*.pem
+healthcheck.json*
+
+# debug
+*.log*
+
+# local env files
+.env
+.env*.local
+
+# cursor hooks logs
+.cursor/logs/
+.cursor/mcp.json
