@@ -62,6 +62,18 @@ export const adwCommandToOrchestratorMap: Partial<Record<AdwSlashCommand, string
 } as const;
 
 /**
+ * Maps issue classification types to their default orchestrator scripts.
+ * Used by triggers to determine which ADW workflow to spawn when no
+ * explicit ADW command is provided.
+ */
+export const issueTypeToOrchestratorMap: Record<IssueClassSlashCommand, string> = {
+  '/bug': 'adws/adwPlanBuildTest.tsx',
+  '/chore': 'adws/adwPlanBuild.tsx',
+  '/feature': 'adws/adwSdlc.tsx',
+  '/pr_review': 'adws/adwPlanBuild.tsx',
+};
+
+/**
  * Result from the /classify_adw command extraction.
  */
 export interface AdwClassificationResult {

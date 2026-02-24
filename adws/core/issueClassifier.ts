@@ -14,6 +14,7 @@ import {
   AdwClassificationResult,
   adwCommandToIssueTypeMap,
   adwCommandToOrchestratorMap,
+  issueTypeToOrchestratorMap,
   log,
   GitHubIssue,
   getModelForCommand,
@@ -251,9 +252,7 @@ ${issue.body || 'No description provided.'}`;
  *
  * Routing priority:
  * 1. If `adwCommand` is provided and exists in `adwCommandToOrchestratorMap`, use the mapped orchestrator.
- * 2. Otherwise, fall back to issue-type-based routing:
- *    - /feature and /chore use adwPlanBuildTest.tsx (includes Test phase)
- *    - /bug and /pr_review use adwPlanBuild.tsx (no Test phase)
+ * 2. Otherwise, fall back to `issueTypeToOrchestratorMap` for issue-type-based routing.
  *
  * @param issueType - The classified issue type
  * @param adwCommand - Optional ADW command for precise orchestrator routing
@@ -266,15 +265,5 @@ export function getWorkflowScript(issueType: IssueClassSlashCommand, adwCommand?
     if (orchestrator) return orchestrator;
   }
 
-  switch (issueType) {
-    case '/feature':
-    case '/chore':
-      return 'adws/adwPlanBuildTest.tsx';
-    case '/bug':
-    case '/pr_review':
-      return 'adws/adwPlanBuild.tsx';
-    default:
-      // Default to test workflow for safety
-      return 'adws/adwPlanBuildTest.tsx';
-  }
+  return issueTypeToOrchestratorMap[issueType] ?? 'adws/adwPlanBuildTest.tsx';
 }
