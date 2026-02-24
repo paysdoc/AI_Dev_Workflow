@@ -4,7 +4,7 @@
  */
 
 import * as path from 'path';
-import { log, SLASH_COMMAND_MODEL_MAP } from '../core';
+import { log, getModelForCommand } from '../core';
 import { runClaudeAgentWithCommand, AgentResult } from './claudeAgent';
 
 /**
@@ -52,6 +52,7 @@ export async function runPullRequestAgent(
   logsDir: string,
   statePath?: string,
   cwd?: string,
+  issueBody?: string,
 ): Promise<AgentResult & { prUrl: string }> {
   const args = formatPullRequestArgs(branchName, issueJson, planFile, adwId);
   const outputFile = path.join(logsDir, 'pr-agent.jsonl');
@@ -67,7 +68,7 @@ export async function runPullRequestAgent(
     args,
     'Pull Request',
     outputFile,
-    SLASH_COMMAND_MODEL_MAP['/pull_request'],
+    getModelForCommand('/pull_request', issueBody),
     undefined,
     statePath,
     cwd,

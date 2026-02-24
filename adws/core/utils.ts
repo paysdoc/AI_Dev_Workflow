@@ -38,12 +38,13 @@ export function slugify(text: string): string {
     .substring(0, 50);
 }
 
-export type LogLevel = 'info' | 'error' | 'success';
+export type LogLevel = 'info' | 'error' | 'success' | 'warn';
 
 const LOG_PREFIXES: Record<LogLevel, string> = {
   info: '\u{1F4CB}',
   error: '\u{274C}',
-  success: '\u{2705}'
+  success: '\u{2705}',
+  warn: '\u{26A0}\u{FE0F}'
 };
 
 // ANSI color codes

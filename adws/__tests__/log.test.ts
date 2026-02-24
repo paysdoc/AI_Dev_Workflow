@@ -16,7 +16,7 @@ describe('log', () => {
   it('logs without adwId bracket when no adwId is set', () => {
     log('test message');
 
-    const output: string = consoleSpy.mock.calls[0][0];
+    const output = consoleSpy.mock.calls[0][0] as string;
     expect(output).toMatch(/📋 \[\d{4}-\d{2}-\d{2}T.+Z\] test message/);
     expect(output).not.toContain('[abc123]');
   });
@@ -25,7 +25,7 @@ describe('log', () => {
     setLogAdwId('abc123');
     log('test message');
 
-    const output: string = consoleSpy.mock.calls[0][0];
+    const output = consoleSpy.mock.calls[0][0] as string;
     expect(output).toMatch(/📋 \[\d{4}-\d{2}-\d{2}T.+Z\] \[abc123\] test message/);
   });
 
@@ -33,7 +33,7 @@ describe('log', () => {
     setLogAdwId('abc123');
     log('error msg', 'error');
 
-    const output: string = consoleSpy.mock.calls[0][0];
+    const output = consoleSpy.mock.calls[0][0] as string;
     expect(output).toContain('\x1b[31m');
     expect(output).toContain('\x1b[0m');
     expect(output).toContain('[abc123]');
@@ -43,7 +43,7 @@ describe('log', () => {
     setLogAdwId('abc123');
     log('done', 'success');
 
-    const output: string = consoleSpy.mock.calls[0][0];
+    const output = consoleSpy.mock.calls[0][0] as string;
     expect(output).toContain('[abc123]');
     expect(output).toContain('✅');
   });

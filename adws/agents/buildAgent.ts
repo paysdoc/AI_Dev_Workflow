@@ -4,7 +4,7 @@
  */
 
 import * as path from 'path';
-import { GitHubIssue, PRDetails, log, SLASH_COMMAND_MODEL_MAP } from '../core';
+import { GitHubIssue, PRDetails, log, getModelForCommand } from '../core';
 import { runClaudeAgentWithCommand, AgentResult, ProgressCallback } from './claudeAgent';
 
 /**
@@ -50,18 +50,20 @@ export async function runPrReviewBuildAgent(
   logsDir: string,
   onProgress?: ProgressCallback,
   statePath?: string,
-  cwd?: string
+  cwd?: string,
+  issueBody?: string,
 ): Promise<AgentResult> {
   const args = formatPrReviewImplementArgs(prDetails, revisionPlan);
   const outputFile = path.join(logsDir, 'pr-review-build-agent.jsonl');
+  const model = getModelForCommand('/implement', issueBody);
 
   log('PR Review Build Agent starting with arguments:', 'info');
   log(`  PR: #${prDetails.number} - ${prDetails.title}`, 'info');
   log(`  Output file: ${outputFile}`, 'info');
   log(`  Revision plan length: ${revisionPlan.length} characters`, 'info');
-  log(`  Model: ${SLASH_COMMAND_MODEL_MAP['/implement']}`, 'info');
+  log(`  Model: ${model}`, 'info');
 
-  return runClaudeAgentWithCommand('/implement', args, 'PR Review Build', outputFile, SLASH_COMMAND_MODEL_MAP['/implement'], onProgress, statePath, cwd);
+  return runClaudeAgentWithCommand('/implement', args, 'PR Review Build', outputFile, model, onProgress, statePath, cwd);
 }
 
 /**
@@ -86,13 +88,15 @@ export async function runBuildAgent(
   const args = formatImplementArgs(issue, planContent);
   const outputFile = path.join(logsDir, 'build-agent.jsonl');
 
+  const model = getModelForCommand('/implement', issue.body);
+
   // Log the arguments with which the agent is started
   log('Build Agent starting with arguments:', 'info');
   log(`  Issue: #${issue.number} - ${issue.title}`, 'info');
   log(`  Issue URL: ${issue.url}`, 'info');
   log(`  Output file: ${outputFile}`, 'info');
   log(`  Plan content length: ${planContent.length} characters`, 'info');
-  log(`  Model: ${SLASH_COMMAND_MODEL_MAP['/implement']}`, 'info');
+  log(`  Model: ${model}`, 'info');
 
-  return runClaudeAgentWithCommand('/implement', args, 'Build', outputFile, SLASH_COMMAND_MODEL_MAP['/implement'], onProgress, statePath, cwd);
+  return runClaudeAgentWithCommand('/implement', args, 'Build', outputFile, model, onProgress, statePath, cwd);
 }

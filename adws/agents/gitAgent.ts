@@ -4,7 +4,7 @@
  */
 
 import * as path from 'path';
-import { GitHubIssue, IssueClassSlashCommand, log, SLASH_COMMAND_MODEL_MAP } from '../core';
+import { GitHubIssue, IssueClassSlashCommand, log, getModelForCommand } from '../core';
 import { runClaudeAgentWithCommand, AgentResult } from './claudeAgent';
 
 /**
@@ -81,7 +81,7 @@ export async function runGenerateBranchNameAgent(
     args,
     'Branch Name',
     outputFile,
-    SLASH_COMMAND_MODEL_MAP['/generate_branch_name'],
+    getModelForCommand('/generate_branch_name', issue.body),
     undefined,
     statePath,
   );
@@ -131,7 +131,8 @@ export async function runCommitAgent(
   issueContext: string,
   logsDir: string,
   statePath?: string,
-  cwd?: string
+  cwd?: string,
+  issueBody?: string,
 ): Promise<AgentResult & { commitMessage: string }> {
   const args = formatCommitArgs(agentName, issueClass, issueContext);
   const outputFile = path.join(logsDir, 'commit-agent.jsonl');
@@ -146,7 +147,7 @@ export async function runCommitAgent(
     args,
     'Commit',
     outputFile,
-    SLASH_COMMAND_MODEL_MAP['/commit'],
+    getModelForCommand('/commit', issueBody),
     undefined,
     statePath,
     cwd

@@ -4,7 +4,7 @@
  */
 
 import * as path from 'path';
-import { SLASH_COMMAND_MODEL_MAP } from '../core';
+import { getModelForCommand } from '../core';
 import { runClaudeAgentWithCommand, AgentResult } from './claudeAgent';
 import { extractJson } from '../core/jsonParser';
 
@@ -60,7 +60,8 @@ export async function runReviewAgent(
   logsDir: string,
   statePath?: string,
   cwd?: string,
-  applicationUrl?: string
+  applicationUrl?: string,
+  issueBody?: string,
 ): Promise<ReviewAgentResult> {
   const agentName = 'review_agent';
   const outputFile = path.join(logsDir, 'review-agent.jsonl');
@@ -75,7 +76,7 @@ export async function runReviewAgent(
     args,
     'Review',
     outputFile,
-    SLASH_COMMAND_MODEL_MAP['/review'],
+    getModelForCommand('/review', issueBody),
     undefined,
     statePath,
     cwd

@@ -248,6 +248,7 @@ export async function executeReviewPhase(config: WorkflowConfig): Promise<{
     },
     cwd: worktreePath,
     applicationUrl,
+    issueBody: issue.body,
   });
 
   if (reviewResult.passed) {

@@ -96,7 +96,7 @@ describe('testAgent', () => {
   });
 
   describe('runTestAgent', () => {
-    it('uses sonnet model for test execution', async () => {
+    it('uses haiku model for test execution', async () => {
       const mockSpawn = createMockSpawn({
         result: JSON.stringify([
           { test_name: 'linting', passed: true, execution_command: 'npm run lint', test_purpose: 'Check linting' }
@@ -108,7 +108,7 @@ describe('testAgent', () => {
 
       expect(spawn).toHaveBeenCalledWith(
         '/usr/local/bin/claude',
-        expect.arrayContaining(['--model', 'sonnet']),
+        expect.arrayContaining(['--model', 'haiku']),
         expect.any(Object)
       );
     });

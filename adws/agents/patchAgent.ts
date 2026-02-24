@@ -4,7 +4,7 @@
  */
 
 import * as path from 'path';
-import { log, SLASH_COMMAND_MODEL_MAP } from '../core';
+import { log, getModelForCommand } from '../core';
 import { runClaudeAgentWithCommand, AgentResult, ProgressCallback } from './claudeAgent';
 import { ReviewIssue } from './reviewAgent';
 
@@ -41,22 +41,24 @@ export async function runPatchAgent(
   specPath?: string,
   onProgress?: ProgressCallback,
   statePath?: string,
-  cwd?: string
+  cwd?: string,
+  issueBody?: string,
 ): Promise<AgentResult> {
   const args = formatPatchArgs(adwId, reviewIssue, specPath, reviewIssue.screenshotPath);
   const outputFile = path.join(logsDir, `patch-agent-issue-${reviewIssue.reviewIssueNumber}.jsonl`);
+  const model = getModelForCommand('/patch', issueBody);
 
   log(`Patch Agent starting for issue #${reviewIssue.reviewIssueNumber}:`, 'info');
   log(`  Description: ${reviewIssue.issueDescription}`, 'info');
   log(`  Resolution: ${reviewIssue.issueResolution}`, 'info');
-  log(`  Model: ${SLASH_COMMAND_MODEL_MAP['/patch']}`, 'info');
+  log(`  Model: ${model}`, 'info');
 
   return runClaudeAgentWithCommand(
     '/patch',
     args,
     `Patch: ${reviewIssue.reviewIssueNumber}`,
     outputFile,
-    SLASH_COMMAND_MODEL_MAP['/patch'],
+    model,
     onProgress,
     statePath,
     cwd

@@ -134,7 +134,7 @@ export async function executePRReviewPlanPhase(config: PRReviewWorkflowConfig): 
     metadata: { prNumber, reviewComments: unaddressedComments.length },
   });
 
-  const planResult = await runPrReviewPlanAgent(prDetails, unaddressedComments, existingPlanContent, logsDir, planAgentStatePath, worktreePath);
+  const planResult = await runPrReviewPlanAgent(prDetails, unaddressedComments, existingPlanContent, logsDir, planAgentStatePath, worktreePath, prDetails.body);
 
   if (!planResult.success) {
     AgentStateManager.writeState(planAgentStatePath, {
@@ -180,7 +180,7 @@ export async function executePRReviewBuildPhase(config: PRReviewWorkflowConfig, 
     }
   };
 
-  const buildResult = await runPrReviewBuildAgent(prDetails, planOutput, logsDir, buildProgressCallback, buildAgentStatePath, worktreePath);
+  const buildResult = await runPrReviewBuildAgent(prDetails, planOutput, logsDir, buildProgressCallback, buildAgentStatePath, worktreePath, prDetails.body);
 
   if (!buildResult.success) {
     AgentStateManager.writeState(buildAgentStatePath, {
@@ -203,7 +203,7 @@ export async function executePRReviewBuildPhase(config: PRReviewWorkflowConfig, 
  * Executes the PR review Test phase: runs unit and E2E tests with retry.
  */
 export async function executePRReviewTestPhase(config: PRReviewWorkflowConfig): Promise<void> {
-  const { prNumber, unaddressedComments, worktreePath, logsDir, orchestratorStatePath, ctx, applicationUrl } = config;
+  const { prNumber, prDetails, unaddressedComments, worktreePath, logsDir, orchestratorStatePath, ctx, applicationUrl } = config;
 
   postPRWorkflowComment(prNumber, 'pr_review_testing', ctx);
   log('Running validation tests...', 'info');
@@ -221,6 +221,7 @@ export async function executePRReviewTestPhase(config: PRReviewWorkflowConfig): 
     maxRetries: MAX_TEST_RETRY_ATTEMPTS,
     onTestFailed,
     cwd: worktreePath,
+    issueBody: prDetails.body,
   });
 
   if (!unitTestsResult.passed) {
@@ -243,6 +244,7 @@ export async function executePRReviewTestPhase(config: PRReviewWorkflowConfig): 
     onTestFailed,
     cwd: worktreePath,
     applicationUrl,
+    issueBody: prDetails.body,
   });
 
   if (!e2eTestsResult.passed) {
@@ -277,7 +279,7 @@ export async function completePRReviewWorkflow(config: PRReviewWorkflowConfig, m
 
   postPRWorkflowComment(prNumber, 'pr_review_committing', ctx);
   const issueType = inferIssueTypeFromBranch(prDetails.headBranch);
-  await runCommitAgent('pr-review-orchestrator', issueType, JSON.stringify(prDetails), logsDir, undefined, worktreePath);
+  await runCommitAgent('pr-review-orchestrator', issueType, JSON.stringify(prDetails), logsDir, undefined, worktreePath, prDetails.body);
 
   pushBranch(prDetails.headBranch, worktreePath);
   postPRWorkflowComment(prNumber, 'pr_review_pushed', ctx);

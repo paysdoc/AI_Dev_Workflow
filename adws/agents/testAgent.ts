@@ -6,7 +6,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { spawn } from 'child_process';
-import { SLASH_COMMAND_MODEL_MAP } from '../core';
+import { getModelForCommand } from '../core';
 import { runClaudeAgentWithCommand, AgentResult } from './claudeAgent';
 import { extractJsonArray } from '../core/jsonParser';
 
@@ -82,7 +82,8 @@ export function isValidE2ETestResult(result: E2ETestResult | null): result is E2
 export async function runTestAgent(
   logsDir: string,
   statePath?: string,
-  cwd?: string
+  cwd?: string,
+  issueBody?: string,
 ): Promise<TestAgentResult> {
   const outputFile = path.join(logsDir, 'test-agent.jsonl');
 
@@ -92,7 +93,7 @@ export async function runTestAgent(
     '',
     'Test Runner',
     outputFile,
-    SLASH_COMMAND_MODEL_MAP['/test'],
+    getModelForCommand('/test', issueBody),
     undefined,
     statePath,
     cwd
@@ -124,7 +125,8 @@ export async function runResolveTestAgent(
   failedTest: TestResult,
   logsDir: string,
   statePath?: string,
-  cwd?: string
+  cwd?: string,
+  issueBody?: string,
 ): Promise<AgentResult> {
   const outputFile = path.join(logsDir, `resolve-test-${failedTest.test_name}.jsonl`);
 
@@ -136,7 +138,7 @@ export async function runResolveTestAgent(
     failureJson,
     `Resolve: ${failedTest.test_name}`,
     outputFile,
-    SLASH_COMMAND_MODEL_MAP['/resolve_failed_test'],
+    getModelForCommand('/resolve_failed_test', issueBody),
     undefined,
     statePath,
     cwd
@@ -158,7 +160,8 @@ export async function runResolveE2ETestAgent(
   logsDir: string,
   statePath?: string,
   cwd?: string,
-  applicationUrl?: string
+  applicationUrl?: string,
+  issueBody?: string,
 ): Promise<AgentResult> {
   // Handle undefined or invalid testName gracefully
   const rawTestName = failedE2ETest.testName;
@@ -181,7 +184,7 @@ export async function runResolveE2ETestAgent(
     failureJson,
     `Resolve E2E: ${displayName}`,
     outputFile,
-    SLASH_COMMAND_MODEL_MAP['/resolve_failed_e2e_test'],
+    getModelForCommand('/resolve_failed_e2e_test', issueBody),
     undefined,
     statePath,
     cwd

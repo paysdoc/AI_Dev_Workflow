@@ -4,7 +4,7 @@
  */
 
 import * as path from 'path';
-import { log, SLASH_COMMAND_MODEL_MAP } from '../core';
+import { log, getModelForCommand } from '../core';
 import { runClaudeAgentWithCommand, AgentResult } from './claudeAgent';
 
 /**
@@ -45,6 +45,7 @@ export async function runDocumentAgent(
   screenshotsDir?: string,
   statePath?: string,
   cwd?: string,
+  issueBody?: string,
 ): Promise<AgentResult & { docPath: string }> {
   const args = formatDocumentArgs(adwId, specPath, screenshotsDir);
   const outputFile = path.join(logsDir, 'document-agent.jsonl');
@@ -60,7 +61,7 @@ export async function runDocumentAgent(
     args,
     'Document',
     outputFile,
-    SLASH_COMMAND_MODEL_MAP['/document'],
+    getModelForCommand('/document', issueBody),
     undefined,
     statePath,
     cwd,

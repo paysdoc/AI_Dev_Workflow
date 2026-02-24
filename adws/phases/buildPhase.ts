@@ -163,7 +163,7 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
   // Commit implementation step
   if (shouldExecuteStage('implementation_committing', recoveryState)) {
     postWorkflowComment(issueNumber, 'implementation_committing', ctx);
-    await runCommitAgent('build-agent', issueType, JSON.stringify(issue), logsDir, undefined, worktreePath);
+    await runCommitAgent('build-agent', issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body);
   } else {
     log('Skipping implementation commit (already completed)', 'info');
   }

@@ -8,37 +8,13 @@ import {
 } from '../core/issueClassifier';
 import { adwCommandToIssueTypeMap, adwCommandToOrchestratorMap, AdwSlashCommand, GitHubIssue } from '../core/dataTypes';
 
-vi.mock('../core', () => ({
-  log: vi.fn(),
-  adwCommandToIssueTypeMap: {
-    '/adw_plan': '/chore',
-    '/adw_build': '/feature',
-    '/adw_test': '/feature',
-    '/adw_review': '/pr_review',
-    '/adw_document': '/chore',
-    '/adw_patch': '/bug',
-    '/adw_plan_build': '/bug',
-    '/adw_plan_build_test': '/feature',
-    '/adw_plan_build_review': '/pr_review',
-    '/adw_plan_build_document': '/chore',
-    '/adw_plan_build_test_review': '/feature',
-    '/adw_sdlc': '/feature',
-  },
-  adwCommandToOrchestratorMap: {
-    '/adw_plan': 'adws/adwPlan.tsx',
-    '/adw_build': 'adws/adwBuild.tsx',
-    '/adw_test': 'adws/adwTest.tsx',
-    '/adw_review': 'adws/adwPrReview.tsx',
-    '/adw_document': 'adws/adwDocument.tsx',
-    '/adw_patch': 'adws/adwPatch.tsx',
-    '/adw_plan_build': 'adws/adwPlanBuild.tsx',
-    '/adw_plan_build_test': 'adws/adwPlanBuildTest.tsx',
-    '/adw_plan_build_review': 'adws/adwPlanBuildReview.tsx',
-    '/adw_plan_build_document': 'adws/adwPlanBuildDocument.tsx',
-    '/adw_plan_build_test_review': 'adws/adwPlanBuildTestReview.tsx',
-    '/adw_sdlc': 'adws/adwSdlc.tsx',
-  },
-}));
+vi.mock('../core', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../core')>();
+  return {
+    ...actual,
+    log: vi.fn(),
+  };
+});
 
 vi.mock('../github/githubApi', () => ({
   fetchGitHubIssue: vi.fn(),

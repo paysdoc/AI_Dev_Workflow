@@ -29,7 +29,7 @@ export async function executeTestPhase(config: WorkflowConfig): Promise<{
   e2eTestsPassed: boolean;
   totalRetries: number;
 }> {
-  const { orchestratorStatePath, issueNumber, ctx, logsDir, worktreePath, applicationUrl } = config;
+  const { orchestratorStatePath, issueNumber, issue, ctx, logsDir, worktreePath, applicationUrl } = config;
   let costUsd = 0;
   let modelUsage = emptyModelUsageMap();
 
@@ -42,6 +42,7 @@ export async function executeTestPhase(config: WorkflowConfig): Promise<{
     orchestratorStatePath,
     maxRetries: MAX_TEST_RETRY_ATTEMPTS,
     cwd: worktreePath,
+    issueBody: issue.body,
   });
   costUsd += unitTestsResult.costUsd;
   modelUsage = mergeModelUsageMaps(modelUsage, unitTestsResult.modelUsage);
@@ -74,6 +75,7 @@ export async function executeTestPhase(config: WorkflowConfig): Promise<{
     maxRetries: MAX_TEST_RETRY_ATTEMPTS,
     cwd: worktreePath,
     applicationUrl,
+    issueBody: issue.body,
   });
   costUsd += e2eTestsResult.costUsd;
   modelUsage = mergeModelUsageMaps(modelUsage, e2eTestsResult.modelUsage);
