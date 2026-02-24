@@ -83,11 +83,14 @@ export function getSafeSubprocessEnv(): NodeJS.ProcessEnv {
   return safeEnv as NodeJS.ProcessEnv;
 }
 
+/** Model type for slash command routing. */
+type ModelTier = 'opus' | 'sonnet' | 'haiku';
+
 /** Centralized model routing map. Maps every slash command to its model. */
-export const SLASH_COMMAND_MODEL_MAP: Record<SlashCommand, 'opus' | 'sonnet' | 'haiku'> = {
-  // Classification (fast, cheap)
+export const SLASH_COMMAND_MODEL_MAP: Record<SlashCommand, ModelTier> = {
+  // Classification
   '/classify_adw': 'haiku',
-  '/classify_issue': 'haiku',
+  '/classify_issue': 'sonnet',
   // Planning (complex reasoning)
   '/feature': 'opus',
   '/bug': 'opus',
@@ -99,7 +102,7 @@ export const SLASH_COMMAND_MODEL_MAP: Record<SlashCommand, 'opus' | 'sonnet' | '
   // Review (complex reasoning)
   '/review': 'opus',
   // Test running (structured, cheap)
-  '/test': 'sonnet',
+  '/test': 'haiku',
   // Test resolution (complex reasoning)
   '/resolve_failed_test': 'opus',
   '/resolve_failed_e2e_test': 'opus',
@@ -112,3 +115,47 @@ export const SLASH_COMMAND_MODEL_MAP: Record<SlashCommand, 'opus' | 'sonnet' | '
   // Utility
   '/find_plan_file': 'sonnet',
 };
+
+/** Cost-optimized model map used when the issue body contains `/fast` or `/cheap`. */
+export const SLASH_COMMAND_MODEL_MAP_FAST: Record<SlashCommand, ModelTier> = {
+  '/classify_adw': 'haiku',
+  '/classify_issue': 'haiku',
+  '/feature': 'opus',
+  '/bug': 'opus',
+  '/chore': 'opus',
+  '/pr_review': 'opus',
+  '/implement': 'sonnet',
+  '/patch': 'opus',
+  '/review': 'sonnet',
+  '/test': 'haiku',
+  '/resolve_failed_test': 'opus',
+  '/resolve_failed_e2e_test': 'opus',
+  '/generate_branch_name': 'haiku',
+  '/commit': 'haiku',
+  '/pull_request': 'haiku',
+  '/document': 'sonnet',
+  '/find_plan_file': 'haiku',
+};
+
+/**
+ * Detects whether `/fast` or `/cheap` keywords appear in text.
+ * Returns true if the text contains either keyword.
+ */
+export function isFastMode(issueBody?: string): boolean {
+  if (!issueBody) return false;
+  return /\/fast\b|\/cheap\b/i.test(issueBody);
+}
+
+/**
+ * Returns the model for a given slash command, selecting the fast/cheap map
+ * when the issue body contains `/fast` or `/cheap` keywords.
+ */
+export function getModelForCommand(
+  command: SlashCommand,
+  issueBody?: string,
+): ModelTier {
+  const map = isFastMode(issueBody)
+    ? SLASH_COMMAND_MODEL_MAP_FAST
+    : SLASH_COMMAND_MODEL_MAP;
+  return map[command];
+}

@@ -637,6 +637,7 @@ describe('executePRPhase', () => {
       config.logsDir,
       undefined,
       config.worktreePath,
+      config.issue.body,
     );
     expect(config.ctx.prUrl).toBe('https://github.com/test/pr/1');
     expect(postWorkflowComment).toHaveBeenCalledWith(1, 'pr_created', expect.anything());
@@ -668,6 +669,7 @@ describe('executePRPhase', () => {
       '/mock/logs',
       undefined,
       '/mock/worktree',
+      config.issue.body,
     );
 
     // Verify commit happens before PR creation
@@ -702,6 +704,7 @@ describe('executePRPhase', () => {
       '/mock/logs',
       undefined,
       '/mock/worktree',
+      config.issue.body,
     );
     expect(runPullRequestAgent).not.toHaveBeenCalled();
   });
@@ -927,7 +930,8 @@ describe('executePRReviewPlanPhase', () => {
       '# Existing plan',
       '/mock/logs',
       '/mock/state/path',
-      '/mock/worktree'
+      '/mock/worktree',
+      config.prDetails.body,
     );
     expect(result.planOutput).toBe('PR Review Plan created');
   });
@@ -944,7 +948,8 @@ describe('executePRReviewPlanPhase', () => {
       'Test PR body',
       expect.anything(),
       expect.anything(),
-      expect.anything()
+      expect.anything(),
+      config.prDetails.body,
     );
   });
 
@@ -963,7 +968,8 @@ describe('executePRReviewPlanPhase', () => {
       'Test PR body',
       expect.anything(),
       expect.anything(),
-      expect.anything()
+      expect.anything(),
+      config.prDetails.body,
     );
   });
 
@@ -1011,7 +1017,8 @@ describe('executePRReviewBuildPhase', () => {
       '/mock/logs',
       expect.any(Function),
       '/mock/state/path',
-      '/mock/worktree'
+      '/mock/worktree',
+      config.prDetails.body,
     );
   });
 
@@ -1132,7 +1139,8 @@ describe('completePRReviewWorkflow', () => {
       expect.any(String),
       '/mock/logs',
       undefined,
-      '/mock/worktree'
+      '/mock/worktree',
+      config.prDetails.body,
     );
   });
 

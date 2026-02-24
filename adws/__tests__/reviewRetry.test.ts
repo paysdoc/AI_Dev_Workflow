@@ -245,6 +245,7 @@ describe('runReviewWithRetry', () => {
       expect.any(String),
       undefined,
       'http://localhost:45678',
+      undefined,
     );
   });
 });

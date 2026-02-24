@@ -16,6 +16,7 @@ import {
   adwCommandToOrchestratorMap,
   log,
   GitHubIssue,
+  getModelForCommand,
 } from '.';
 import { extractJson } from './jsonParser';
 
@@ -78,7 +79,8 @@ export function parseAdwClassificationOutput(output: string): AdwClassificationR
 export async function classifyWithAdwCommand(
   issueContext: string,
   issueNumber: number,
-  outputFile: string
+  outputFile: string,
+  issueBody?: string,
 ): Promise<IssueClassificationResult | null> {
   try {
     const result = await runClaudeAgentWithCommand(
@@ -86,7 +88,7 @@ export async function classifyWithAdwCommand(
       issueContext,
       `adw-classifier-${issueNumber}`,
       outputFile,
-      'haiku'
+      getModelForCommand('/classify_adw', issueBody),
     );
 
     if (!result.success) {
@@ -128,14 +130,15 @@ async function classifyWithIssueCommand(
   issueContext: string,
   issueNumber: number,
   agentName: string,
-  outputFile: string
+  outputFile: string,
+  issueBody?: string,
 ): Promise<IssueClassificationResult> {
   const result = await runClaudeAgentWithCommand(
     '/classify_issue',
     issueContext,
     agentName,
     outputFile,
-    'haiku'
+    getModelForCommand('/classify_issue', issueBody),
   );
 
   if (!result.success) {
@@ -177,7 +180,8 @@ export async function classifyIssueForTrigger(
     const adwResult = await classifyWithAdwCommand(
       issueContext,
       issueNumber,
-      `/tmp/adw-trigger-adw-classifier-${issueNumber}.jsonl`
+      `/tmp/adw-trigger-adw-classifier-${issueNumber}.jsonl`,
+      issue.body,
     );
     if (adwResult) return adwResult;
 
@@ -188,7 +192,8 @@ export async function classifyIssueForTrigger(
       issueContext,
       issueNumber,
       `trigger-classifier-${issueNumber}`,
-      `/tmp/adw-trigger-classifier-${issueNumber}.jsonl`
+      `/tmp/adw-trigger-classifier-${issueNumber}.jsonl`,
+      issue.body,
     );
   } catch (error) {
     log(`Error classifying issue #${issueNumber}: ${error}`, 'error');
@@ -220,7 +225,8 @@ ${issue.body || 'No description provided.'}`;
     const adwResult = await classifyWithAdwCommand(
       issueContext,
       issue.number,
-      `/tmp/adw-adw-classifier-${issue.number}.jsonl`
+      `/tmp/adw-adw-classifier-${issue.number}.jsonl`,
+      issue.body,
     );
     if (adwResult) return adwResult;
 
@@ -231,7 +237,8 @@ ${issue.body || 'No description provided.'}`;
       issueContext,
       issue.number,
       `classifier-${issue.number}`,
-      `/tmp/adw-classifier-${issue.number}.jsonl`
+      `/tmp/adw-classifier-${issue.number}.jsonl`,
+      issue.body,
     );
   } catch (error) {
     log(`Error classifying issue #${issue.number}: ${error}`, 'error');

@@ -31,12 +31,14 @@ export interface ReviewRetryOptions {
   cwd?: string;
   /** Optional application URL for the dev server (e.g. http://localhost:12345) */
   applicationUrl?: string;
+  /** Optional issue body for fast/cheap model selection */
+  issueBody?: string;
 }
 
 export async function runReviewWithRetry(opts: ReviewRetryOptions): Promise<ReviewRetryResult> {
   const {
     adwId, specFile, logsDir, orchestratorStatePath: statePath,
-    maxRetries, branchName, issueType, issueContext, onReviewFailed, cwd, applicationUrl,
+    maxRetries, branchName, issueType, issueContext, onReviewFailed, cwd, applicationUrl, issueBody,
   } = opts;
 
   let retryCount = 0;
@@ -48,7 +50,7 @@ export async function runReviewWithRetry(opts: ReviewRetryOptions): Promise<Revi
     AgentStateManager.appendLog(statePath, `Review attempt ${retryCount + 1}/${maxRetries}`);
 
     const reviewResult: ReviewAgentResult = await runReviewAgent(
-      adwId, specFile, logsDir, initAgentState(statePath, 'review-agent'), cwd, applicationUrl,
+      adwId, specFile, logsDir, initAgentState(statePath, 'review-agent'), cwd, applicationUrl, issueBody,
     );
     trackCost(reviewResult as AgentRunResult, costState, statePath);
 
@@ -68,7 +70,7 @@ export async function runReviewWithRetry(opts: ReviewRetryOptions): Promise<Revi
       AgentStateManager.appendLog(statePath, `Patching blocker #${blockerIssue.reviewIssueNumber}`);
 
       const patchResult = await runPatchAgent(
-        adwId, blockerIssue, logsDir, specFile, undefined, initAgentState(statePath, 'patch-agent'), cwd,
+        adwId, blockerIssue, logsDir, specFile, undefined, initAgentState(statePath, 'patch-agent'), cwd, issueBody,
       );
       trackCost(patchResult as AgentRunResult, costState, statePath);
 
@@ -78,7 +80,7 @@ export async function runReviewWithRetry(opts: ReviewRetryOptions): Promise<Revi
     }
 
     // Commit and push changes before re-review
-    await runCommitAgent('review-agent', issueType, issueContext, logsDir, undefined, cwd);
+    await runCommitAgent('review-agent', issueType, issueContext, logsDir, undefined, cwd, issueBody);
     pushBranch(branchName, cwd);
     log('Changes committed and pushed', 'success');
     AgentStateManager.appendLog(statePath, 'Patch changes committed and pushed');

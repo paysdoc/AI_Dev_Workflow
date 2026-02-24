@@ -56,6 +56,7 @@ export async function executeDocumentPhase(
     screenshotsDir,
     documentAgentStatePath,
     worktreePath,
+    issue.body,
   );
 
   costUsd = result.totalCostUsd || 0;
@@ -84,7 +85,7 @@ export async function executeDocumentPhase(
   });
 
   // Commit documentation
-  await runCommitAgent('document-agent', issueType, JSON.stringify(issue), logsDir, undefined, worktreePath);
+  await runCommitAgent('document-agent', issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body);
 
   AgentStateManager.appendLog(orchestratorStatePath, `Documentation created: ${result.docPath}`);
   postWorkflowComment(issueNumber, 'document_completed', ctx);

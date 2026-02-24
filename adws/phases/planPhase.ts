@@ -118,7 +118,7 @@ export async function executePlanPhase(config: WorkflowConfig): Promise<{ costUs
   // Commit plan step
   if (shouldExecuteStage('plan_committing', recoveryState)) {
     postWorkflowComment(issueNumber, 'plan_committing', ctx);
-    await runCommitAgent('plan-orchestrator', issueType, JSON.stringify(issue), logsDir, undefined, worktreePath);
+    await runCommitAgent('plan-orchestrator', issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body);
   } else {
     log('Skipping plan commit (already completed)', 'info');
   }

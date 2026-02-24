@@ -32,7 +32,7 @@ export async function executePRPhase(config: WorkflowConfig): Promise<{ costUsd:
   // Safety net: commit any uncommitted changes before PR creation
   if (hasUncommittedChanges(worktreePath)) {
     log('Uncommitted changes detected, committing before PR creation...', 'info');
-    await runCommitAgent('pre-pr-commit', issueType, JSON.stringify(issue), logsDir, undefined, worktreePath);
+    await runCommitAgent('pre-pr-commit', issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body);
     log('Pre-PR commit completed', 'success');
   }
 
@@ -51,6 +51,7 @@ export async function executePRPhase(config: WorkflowConfig): Promise<{ costUsd:
       logsDir,
       undefined,
       worktreePath,
+      issue.body,
     );
 
     ctx.prUrl = result.prUrl;

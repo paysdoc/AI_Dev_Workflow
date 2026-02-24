@@ -35,16 +35,18 @@ export interface TestRetryOptions {
   cwd?: string;
   /** Optional application URL for the dev server (e.g. http://localhost:12345) */
   applicationUrl?: string;
+  /** Optional issue body for fast/cheap model selection */
+  issueBody?: string;
 }
 
 export async function runUnitTestsWithRetry(opts: TestRetryOptions): Promise<TestRetryResult> {
-  const { logsDir, orchestratorStatePath: statePath, maxRetries, onTestFailed, cwd } = opts;
+  const { logsDir, orchestratorStatePath: statePath, maxRetries, onTestFailed, cwd, issueBody } = opts;
 
   const result = await retryWithResolution<TestAgentResult, TestResult>({
     maxRetries,
     statePath,
     label: 'unit tests',
-    run: () => runTestAgent(logsDir, initAgentState(statePath, 'test-agent'), cwd),
+    run: () => runTestAgent(logsDir, initAgentState(statePath, 'test-agent'), cwd, issueBody),
     isPassed: (r) => r.allPassed,
     extractFailures: (r) => r.failedTests,
     onRetryFailed: onTestFailed,
@@ -55,7 +57,7 @@ export async function runUnitTestsWithRetry(opts: TestRetryOptions): Promise<Tes
       for (const failedTest of failures) {
         log(`Resolving: ${failedTest.test_name}`, 'info');
         AgentStateManager.appendLog(statePath, `Resolving failed test: ${failedTest.test_name}`);
-        const resolveResult = await runResolveTestAgent(failedTest, logsDir, initAgentState(statePath, 'test-resolver-agent'), cwd);
+        const resolveResult = await runResolveTestAgent(failedTest, logsDir, initAgentState(statePath, 'test-resolver-agent'), cwd, issueBody);
         costUsd += resolveResult.totalCostUsd || 0;
         if (resolveResult.modelUsage) modelUsage = mergeModelUsageMaps(modelUsage, resolveResult.modelUsage);
         persistTokenCounts(statePath, costUsd, modelUsage);
@@ -78,7 +80,7 @@ export async function runUnitTestsWithRetry(opts: TestRetryOptions): Promise<Tes
 }
 
 export async function runE2ETestsWithRetry(opts: TestRetryOptions): Promise<TestRetryResult> {
-  const { logsDir, orchestratorStatePath: statePath, maxRetries, onTestFailed, cwd, applicationUrl } = opts;
+  const { logsDir, orchestratorStatePath: statePath, maxRetries, onTestFailed, cwd, applicationUrl, issueBody } = opts;
   const e2eTestFiles = discoverE2ETestFiles(cwd);
   const costState = { costUsd: 0, modelUsage: emptyModelUsageMap() };
   let totalRetries = 0;
@@ -137,7 +139,7 @@ export async function runE2ETestsWithRetry(opts: TestRetryOptions): Promise<Test
       log(`Resolving E2E test: ${result.testName} (attempt ${retryCount + 1}/${maxRetries})`, 'info');
       AgentStateManager.appendLog(statePath, `Resolving E2E test: ${result.testName}`);
 
-      const resolveResult = await runResolveE2ETestAgent(result, logsDir, initAgentState(statePath, 'test-resolver-agent'), cwd, applicationUrl);
+      const resolveResult = await runResolveE2ETestAgent(result, logsDir, initAgentState(statePath, 'test-resolver-agent'), cwd, applicationUrl, issueBody);
       trackCost(resolveResult as AgentRunResult, costState, statePath);
       totalRetries++;
     }
