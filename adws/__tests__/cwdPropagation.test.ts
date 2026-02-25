@@ -13,6 +13,8 @@ vi.mock('../core/config', async (importOriginal) => {
     ...actual,
     CLAUDE_CODE_PATH: '/usr/local/bin/claude',
     AGENTS_STATE_DIR: '/tmp/test-agents',
+    resolveClaudeCodePath: () => '/usr/local/bin/claude',
+    clearClaudeCodePathCache: () => {},
   };
 });
 
