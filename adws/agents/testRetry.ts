@@ -39,6 +39,11 @@ export interface TestRetryOptions {
   issueBody?: string;
 }
 
+/**
+ * Runs unit tests with automatic retry and resolution attempts on failure.
+ * @param opts - Test retry options including logsDir, retry limits, and optional cwd for external repos.
+ * @returns The test result including pass/fail status, cost, retry count, and failed test names.
+ */
 export async function runUnitTestsWithRetry(opts: TestRetryOptions): Promise<TestRetryResult> {
   const { logsDir, orchestratorStatePath: statePath, maxRetries, onTestFailed, cwd, issueBody } = opts;
 
@@ -79,6 +84,12 @@ export async function runUnitTestsWithRetry(opts: TestRetryOptions): Promise<Tes
   };
 }
 
+/**
+ * Runs E2E tests with automatic retry and resolution attempts on failure.
+ * Discovers Playwright spec files, runs them, and resolves failures with AI agents.
+ * @param opts - Test retry options including logsDir, retry limits, optional cwd and applicationUrl for external repos.
+ * @returns The test result including pass/fail status, cost, retry count, and failed test names.
+ */
 export async function runE2ETestsWithRetry(opts: TestRetryOptions): Promise<TestRetryResult> {
   const { logsDir, orchestratorStatePath: statePath, maxRetries, onTestFailed, cwd, applicationUrl, issueBody } = opts;
   const e2eTestFiles = discoverE2ETestFiles(cwd);

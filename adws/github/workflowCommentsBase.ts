@@ -115,7 +115,11 @@ export function extractPlanPathFromComment(commentBody: string): string | null {
 
 const TERMINAL_STAGES: ReadonlyArray<WorkflowStage> = ['completed', 'error'];
 
-/** Returns true if an ADW workflow is currently active (not completed or errored) for the given issue. */
+/**
+ * Returns true if an ADW workflow is currently active (not completed or errored) for the given issue.
+ * @param issueNumber - The issue number to check
+ * @param repoInfo - Optional repository info override for targeting external repositories.
+ */
 export async function isAdwRunningForIssue(issueNumber: number, repoInfo?: RepoInfo): Promise<boolean> {
   const issue = await fetchGitHubIssue(issueNumber, repoInfo);
 

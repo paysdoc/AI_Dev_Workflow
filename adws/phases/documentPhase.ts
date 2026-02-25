@@ -21,6 +21,7 @@ import type { WorkflowConfig } from './workflowLifecycle';
 
 /**
  * Executes the Document phase: generate feature documentation.
+ * Uses `config.repoInfo` for external repository API calls when targeting a different repo.
  *
  * @param config - Workflow configuration
  * @param screenshotsDir - Optional directory containing review screenshots

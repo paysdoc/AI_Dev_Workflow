@@ -15,6 +15,7 @@ const PR_POLL_INTERVAL_MS = 60_000;
 const processedIssues = new Set<number>();
 const processedPRs = new Set<number>();
 
+/** Raw issue data returned from the GitHub CLI. */
 interface RawIssue {
   number: number;
   comments: { body: string }[];
@@ -24,6 +25,7 @@ interface RawIssue {
 /** Cached repo info for the current polling session. */
 const repoInfo = getRepoInfo();
 
+/** Fetches all open issues from the configured GitHub repository. */
 function fetchOpenIssues(): RawIssue[] {
   const { owner, repo } = repoInfo;
   try {
@@ -50,6 +52,7 @@ function buildTargetRepoArgs(): string[] {
   }
 }
 
+/** Determines whether an issue qualifies for automatic ADW processing. */
 function isQualifyingIssue(issue: RawIssue): boolean {
   if (issue.comments.length === 0) {
     log(`Issue #${issue.number}: no comments, qualifies`);
@@ -67,6 +70,7 @@ function isQualifyingIssue(issue: RawIssue): boolean {
   return false;
 }
 
+/** Checks for qualifying issues and triggers ADW workflows for each. */
 async function checkAndTrigger(): Promise<void> {
   log('Polling for new issues...');
   const issues = fetchOpenIssues();
@@ -107,6 +111,7 @@ async function checkAndTrigger(): Promise<void> {
   }
 }
 
+/** Checks open PRs for actionable review comments and triggers PR review workflows. */
 function checkPRsForReviewComments(): void {
   log('Polling for PRs with unaddressed review comments...');
   const prs = fetchPRList();

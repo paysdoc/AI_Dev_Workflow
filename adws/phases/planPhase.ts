@@ -23,6 +23,7 @@ import type { WorkflowConfig } from './workflowLifecycle';
 
 /**
  * Executes the Plan phase: classify issue, create branch, run plan agent, commit plan.
+ * Uses `config.repoInfo` for external repository API calls when targeting a different repo.
  */
 export async function executePlanPhase(config: WorkflowConfig): Promise<{ costUsd: number; modelUsage: ModelUsageMap }> {
   const { recoveryState, orchestratorStatePath, orchestratorName, adwId, issueNumber, issue, issueType, ctx, worktreePath, logsDir, repoInfo } = config;

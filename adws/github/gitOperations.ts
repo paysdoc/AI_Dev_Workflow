@@ -210,6 +210,24 @@ export function checkoutDefaultBranch(): string {
  * @param defaultBranch - The default branch name to merge from (e.g., 'main')
  * @param cwd - The working directory to run the commands in
  */
+export function mergeLatestFromDefaultBranch(defaultBranch: string, cwd: string): void {
+  log(`Fetching origin/${defaultBranch} in ${cwd}...`, 'info');
+  try {
+    execSync(`git fetch origin "${defaultBranch}"`, { stdio: 'pipe', cwd });
+  } catch (error) {
+    log(`Warning: Failed to fetch origin/${defaultBranch}: ${error}`, 'info');
+    return;
+  }
+
+  log(`Merging origin/${defaultBranch} into current branch...`, 'info');
+  try {
+    execSync(`git merge "origin/${defaultBranch}" --no-edit`, { stdio: 'pipe', cwd });
+    log(`Merged latest changes from origin/${defaultBranch}`, 'success');
+  } catch (error) {
+    log(`Warning: Failed to merge origin/${defaultBranch}: ${error}`, 'info');
+  }
+}
+
 /**
  * Protected branches that must never be deleted.
  */
@@ -258,23 +276,5 @@ export function deleteRemoteBranch(branchName: string): boolean {
   } catch (error) {
     log(`Failed to delete remote branch '${branchName}': ${error}`, 'info');
     return false;
-  }
-}
-
-export function mergeLatestFromDefaultBranch(defaultBranch: string, cwd: string): void {
-  log(`Fetching origin/${defaultBranch} in ${cwd}...`, 'info');
-  try {
-    execSync(`git fetch origin "${defaultBranch}"`, { stdio: 'pipe', cwd });
-  } catch (error) {
-    log(`Warning: Failed to fetch origin/${defaultBranch}: ${error}`, 'info');
-    return;
-  }
-
-  log(`Merging origin/${defaultBranch} into current branch...`, 'info');
-  try {
-    execSync(`git merge "origin/${defaultBranch}" --no-edit`, { stdio: 'pipe', cwd });
-    log(`Merged latest changes from origin/${defaultBranch}`, 'success');
-  } catch (error) {
-    log(`Warning: Failed to merge origin/${defaultBranch}: ${error}`, 'info');
   }
 }

@@ -33,6 +33,7 @@ const HTTP_STATUS_DESCRIPTIONS: Record<number, string> = {
   405: 'Method Not Allowed',
 };
 
+/** Sends a JSON response with the specified status code and body. */
 function jsonResponse(
   res: http.ServerResponse,
   statusCode: number,
@@ -46,6 +47,7 @@ function jsonResponse(
   res.end(JSON.stringify(body));
 }
 
+/** Result of a webhook server health check. */
 interface HealthCheckResult {
   success: boolean;
   timestamp: string;
@@ -54,6 +56,7 @@ interface HealthCheckResult {
   errors: string[];
 }
 
+/** Spawns a detached child process for running ADW orchestrator workflows. */
 function spawnDetached(command: string, args: string[]): void {
   log(`Spawning: ${command} ${args.join(' ')}`);
   const child = spawn(command, args, {

@@ -32,6 +32,13 @@ export interface WorkflowConfig {
 /**
  * Initializes a workflow: fetches issue, classifies type, sets up worktree,
  * initializes state, and detects recovery mode.
+ * @param issueNumber - The GitHub issue number to process
+ * @param adwId - Optional ADW workflow ID (recovered from prior run or generated if null)
+ * @param orchestratorName - Identifier for the orchestrator agent running the workflow
+ * @param options - Optional configuration overrides
+ * @param options.cwd - Optional working directory override
+ * @param options.issueType - Optional pre-classified issue type
+ * @param options.targetRepo - Optional target repository info for operating on an external git repository
  */
 export async function initializeWorkflow(
   issueNumber: number,

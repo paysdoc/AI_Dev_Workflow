@@ -51,6 +51,7 @@ function generatePrTitle(issue: GitHubIssue): string {
  * @param buildSummary - Summary of the build changes.
  * @param baseBranch - The base branch for the PR (default: 'develop').
  * @param cwd - Optional working directory for git operations (e.g., worktree path).
+ * @param repoInfo - Optional repository info override for targeting external repositories.
  * @returns The PR URL if successful, empty string otherwise.
  */
 export function createPullRequest(

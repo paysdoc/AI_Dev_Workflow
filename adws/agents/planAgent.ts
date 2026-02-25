@@ -80,6 +80,8 @@ function findPlanFile(issueNumber: number, worktreePath?: string): string | null
 /**
  * Gets the path to the plan file for an issue.
  * Returns the actual plan file path if it exists, otherwise returns the legacy path.
+ * @param issueNumber - The issue number to find the plan file for
+ * @param worktreePath - Optional worktree path to locate the plan file in.
  */
 export function getPlanFilePath(issueNumber: number, worktreePath?: string): string {
   const foundPath = findPlanFile(issueNumber, worktreePath);
@@ -93,6 +95,8 @@ export function getPlanFilePath(issueNumber: number, worktreePath?: string): str
 /**
  * Checks if the plan file exists for an issue.
  * Returns true if the file exists and has content.
+ * @param issueNumber - The issue number to check for
+ * @param worktreePath - Optional worktree path to locate the plan file in.
  */
 export function planFileExists(issueNumber: number, worktreePath?: string): boolean {
   const planPath = getPlanFilePath(issueNumber, worktreePath);
@@ -108,6 +112,8 @@ export function planFileExists(issueNumber: number, worktreePath?: string): bool
 /**
  * Reads the plan file content for an issue.
  * Returns the file content string on success, or null on any error.
+ * @param issueNumber - The issue number to read the plan for
+ * @param worktreePath - Optional worktree path to locate the plan file in.
  */
 export function readPlanFile(issueNumber: number, worktreePath?: string): string | null {
   const planPath = getPlanFilePath(issueNumber, worktreePath);

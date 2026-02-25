@@ -31,6 +31,7 @@ import { buildContinuationPrompt } from './planPhase';
  * Includes token limit recovery: when the agent approaches the token limit,
  * it is gracefully terminated, progress is saved, and a new agent is spawned
  * with context from the previous run. Repeats up to MAX_TOKEN_CONTINUATIONS times.
+ * Uses `config.repoInfo` for external repository API calls when targeting a different repo.
  */
 export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costUsd: number; modelUsage: ModelUsageMap }> {
   const { recoveryState, orchestratorStatePath, orchestratorName, adwId, issueNumber, issue, issueType, ctx, worktreePath, logsDir, repoInfo } = config;

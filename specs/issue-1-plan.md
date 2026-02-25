@@ -1,11 +1,13 @@
-# PR-Review: Resolve application tests and merge conflicts for external repo support
+# PR-Review: Update JSDoc for all changed files in external repo support
 
 ## PR-Review Description
-PR #4 (`feat-issue-1-run-on-external-git-repo`) has two review comments from paysdoc:
+PR #4 (`feat-issue-1-run-on-external-git-repo`) has three review comments from paysdoc:
 
-1. **Application Tests in `test.md` (line 69):** "Application tests should not be removed, they are essential, but they have to be run in the target repo." The Application Tests section was removed in commit `e81b25f` and later restored in commit `a92d0c2` along with a `src -> adws` symlink workaround. However, the reviewer's intent is that the application tests (`npm test -- --run src`) must execute inside the **target repo workspace** when ADW operates on an external repository — not be faked via a symlink pointing `src` back to `adws`. The `src -> adws` symlink and the `passWithNoTests` config are incorrect solutions; instead, the test execution logic needs to be aware of whether it's running on the ADW repo itself or an external target repo, and run the application tests in the correct context.
+1. **Application Tests in `test.md` (line 69):** "Application tests should not be removed, they are essential, but they have to be run in the target repo." — **RESOLVED** in commit `4396e42`. The test.md now includes a conditional Application Tests section (step 6) that only executes `npm test -- --run src` when a `src/` directory exists in the working directory.
 
-2. **General comment:** "resolve merge conflicts." The PR is in a CONFLICTING state on GitHub (`mergeable: CONFLICTING`). Remote `origin/main` has merged PRs #5 and #6 since this branch diverged, introducing changes across 10 files that conflict with this branch.
+2. **General comment:** "resolve merge conflicts." — **RESOLVED**. The branch is now rebased on top of `origin/main` (merge base `2d02471`). GitHub shows `mergeStateStatus: CLEAN`, `mergeable: MERGEABLE`.
+
+3. **General comment:** "Update the javadoc for all changed files where applicable." — **OPEN**. Many files modified in this PR have new or changed function signatures (added `repoInfo?`, `cwd?`, `targetRepo?`, `baseRepoPath?` parameters) without corresponding JSDoc updates. Several new functions and types also lack JSDoc entirely.
 
 ## Summary of Original Implementation Plan
 The original plan (`specs/issue-1-adw-enable-adw-to-run-on-uwva44-sdlc_planner-external-repo-workspace.md`) describes enabling ADW to operate on external git repositories by:
@@ -18,87 +20,136 @@ The original plan (`specs/issue-1-adw-enable-adw-to-run-on-uwva44-sdlc_planner-e
 ## Relevant Files
 Use these files to resolve the review:
 
-- `.claude/commands/test.md` — The test validation suite slash command. The Application Tests section (step 6) needs to be updated so the command runs in the target repo context rather than the ADW repo. Currently uses `npm test -- --run src` which only makes sense when executed in a project with a `src/` directory containing tests.
-- `src` (symlink) — The `src -> adws` symlink created in commit `14aca3a` is a workaround that must be removed. It fakes `npm test -- --run src` by pointing at `adws`, which defeats the purpose of application tests.
-- `vitest.config.ts` — Updated in commit `14aca3a` to include `src/**` patterns for the symlink. The `src/**` include pattern and the comment referencing the symlink need to be reverted.
-- `adws/core/index.ts` — Conflict with origin/main which adds new exports (`SLASH_COMMAND_MODEL_MAP_FAST`, `getModelForCommand`, `isFastMode`, `issueTypeToOrchestratorMap`).
-- `adws/core/utils.ts` — Conflict: both branches add `warn` to LogLevel but in different order within the union type.
-- `adws/github/pullRequestCreator.ts` — Conflict: origin/main removes an old `getRepoInfo` import.
-- `adws/phases/buildPhase.ts` — Conflict: origin/main adds `issue.body` as 7th parameter to `runCommitAgent`.
-- `adws/phases/planPhase.ts` — Conflict: origin/main removes unused import and adds `issue.body` parameter.
-- `adws/phases/prReviewPhase.ts` — Conflict: origin/main adds `prDetails.body` and `issueBody` parameters to multiple agent calls.
-- `adws/phases/testPhase.ts` — Conflict: origin/main adds `issue` to destructuring and `issueBody: issue.body` to test configs.
-- `adws/phases/workflowLifecycle.ts` — Conflict: origin/main removes unused import and adds `issueBody` parameter to review config.
-- `eslint.config.js` — ADD/ADD conflict: both branches created this file with slightly different content. Origin/main adds `.claude/` to ignores and adds `prefer-const` rule.
-- `package.json` — May need updating after merge conflict resolution.
+### GitHub API Layer — Missing `@param repoInfo` documentation
+- `adws/github/issueApi.ts` — 6 functions (`fetchGitHubIssue`, `commentOnIssue`, `getIssueState`, `closeIssue`, `fetchIssueCommentsRest`, `deleteIssueComment`) all added optional `repoInfo?: RepoInfo` parameter without updating JSDoc
+- `adws/github/prApi.ts` — 4 functions (`fetchPRDetails`, `fetchPRReviewComments`, `commentOnPR`, `fetchPRList`) added optional `repoInfo?: RepoInfo` parameter without updating JSDoc
+- `adws/github/pullRequestCreator.ts` — `createPullRequest()` added `repoInfo?: RepoInfo` parameter without updating existing JSDoc
+- `adws/github/workflowCommentsBase.ts` — `isAdwRunningForIssue()` added optional `repoInfo?: RepoInfo` parameter without updating JSDoc
+
+### Agent Functions — Missing `@param cwd` documentation
+- `adws/agents/buildAgent.ts` — `runBuildAgent()` and `runPrReviewBuildAgent()` added `cwd?` parameter without updating JSDoc
+- `adws/agents/planAgent.ts` — `runPlanAgent()`, `runPrReviewPlanAgent()`, `getPlanFilePath()`, `planFileExists()`, `readPlanFile()` added `cwd?`/`worktreePath?` parameters without updating JSDoc
+- `adws/agents/testAgent.ts` — `runTestAgent()`, `runResolveTestAgent()`, `runResolveE2ETestAgent()`, `discoverE2ETestFiles()`, `runPlaywrightE2ETests()` added `cwd?`/`baseDir?` parameters without updating JSDoc
+- `adws/agents/prAgent.ts` — `runPullRequestAgent()` added `cwd?` parameter without updating JSDoc
+- `adws/agents/reviewAgent.ts` — `runReviewAgent()` added `cwd?` parameter without updating JSDoc
+- `adws/agents/documentAgent.ts` — `runDocumentAgent()` added `cwd?` parameter without updating JSDoc
+- `adws/agents/gitAgent.ts` — `runCommitAgent()` added `cwd?` parameter without updating JSDoc
+- `adws/agents/patchAgent.ts` — `runPatchAgent()` added `cwd?` parameter without updating JSDoc
+
+### Retry Functions — Completely missing JSDoc
+- `adws/agents/reviewRetry.ts` — `runReviewWithRetry()` has no JSDoc at all
+- `adws/agents/testRetry.ts` — `runUnitTestsWithRetry()` and `runE2ETestsWithRetry()` have no JSDoc at all
+
+### Phase Functions — Missing `repoInfo` context documentation
+- `adws/phases/buildPhase.ts` — `executeBuildPhase()` uses `config.repoInfo` but JSDoc doesn't document it
+- `adws/phases/planPhase.ts` — `executePlanPhase()` uses `config.repoInfo` but JSDoc doesn't document it
+- `adws/phases/testPhase.ts` — `executeTestPhase()` uses `config.repoInfo` but JSDoc doesn't document it
+- `adws/phases/prPhase.ts` — `executePRPhase()` uses `config.repoInfo` but JSDoc doesn't document it
+- `adws/phases/prReviewPhase.ts` — `initializePRReviewWorkflow()`, `executePRReviewPlanPhase()`, `executePRReviewBuildPhase()`, `executePRReviewTestPhase()`, `completePRReviewWorkflow()`, `handlePRReviewWorkflowError()` all use `repoInfo` without documenting it in JSDoc
+- `adws/phases/documentPhase.ts` — `executeDocumentPhase()` uses `config.repoInfo` but JSDoc doesn't document it
+
+### Workflow Lifecycle — Missing detailed parameter documentation
+- `adws/phases/workflowLifecycle.ts` — `initializeWorkflow()` added `options?.targetRepo` parameter but JSDoc only has a brief description without `@param` details
+
+### Trigger Functions — Missing JSDoc entirely
+- `adws/triggers/trigger_webhook.ts` — `jsonResponse()`, `spawnDetached()`, and `HealthCheckResult` interface lack JSDoc
+- `adws/triggers/trigger_cron.ts` — `RawIssue` interface, `fetchOpenIssues()`, `isQualifyingIssue()`, `checkAndTrigger()`, `checkPRsForReviewComments()` all lack JSDoc
+
+### Git Operations — Missing JSDoc
+- `adws/github/gitOperations.ts` — `mergeLatestFromDefaultBranch()` has no JSDoc
 
 ## Step by Step Tasks
 IMPORTANT: Execute every step in order, top to bottom.
 
-### Step 1: Remove the `src -> adws` symlink
-- Delete the `src` symlink from the repo root: `rm src`
-- Stage the deletion: `git rm src`
-- This symlink was a workaround that made `npm test -- --run src` run ADW tests instead of real application tests, which is not what the reviewer intended
+### Step 1: Update JSDoc in `adws/github/issueApi.ts`
+- Add `@param repoInfo` documentation to all 6 functions that received the optional `repoInfo?: RepoInfo` parameter:
+  - `fetchGitHubIssue()` — add `@param repoInfo - Optional repository info override for targeting external repositories. Falls back to local git remote.`
+  - `commentOnIssue()` — add `@param repoInfo - Optional repository info override for targeting external repositories.`
+  - `getIssueState()` — add `@param repoInfo - Optional repository info override for targeting external repositories.`
+  - `closeIssue()` — add `@param repoInfo - Optional repository info override for targeting external repositories.`
+  - `fetchIssueCommentsRest()` — add `@param repoInfo - Optional repository info override for targeting external repositories.`
+  - `deleteIssueComment()` — add `@param repoInfo - Optional repository info override for targeting external repositories.`
 
-### Step 2: Revert vitest.config.ts symlink-related changes
-- In `vitest.config.ts`, remove the `src/**` pattern from the `include` array since `src` is no longer a symlink to `adws`
-- Revert the comment to its original form or remove the symlink reference
-- The include should only have: `['adws/**/*.{test,spec}.?(c|m)[jt]s?(x)']`
-- The `passWithNoTests` config added in commit `a92d0c2` should also be removed since it was added to suppress warnings from the empty symlink pattern
+### Step 2: Update JSDoc in `adws/github/prApi.ts`
+- Add `@param repoInfo` documentation to all 4 functions:
+  - `fetchPRDetails()` — add `@param repoInfo - Optional repository info override for targeting external repositories.`
+  - `fetchPRReviewComments()` — add `@param repoInfo - Optional repository info override for targeting external repositories.`
+  - `commentOnPR()` — add `@param repoInfo - Optional repository info override for targeting external repositories.`
+  - `fetchPRList()` — add `@param repoInfo - Optional repository info override for targeting external repositories.`
 
-### Step 3: Update `.claude/commands/test.md` Application Tests section
-- The Application Tests section (step 6) should remain in `test.md` as the reviewer requested
-- Update the test_purpose to correctly describe what it validates (currently it incorrectly says "ADW" — should describe application-level tests)
-- Add a note/condition that this test should only execute when running in a project that has a `src/` directory with tests (i.e., the target repo). If no `src/` directory exists, the test should be skipped
-- Updated section should be:
-  ```markdown
-  ### Application Tests
+### Step 3: Update JSDoc in `adws/github/pullRequestCreator.ts`
+- Add `@param repoInfo` to `createPullRequest()` JSDoc:
+  - `@param repoInfo - Optional repository info override for targeting external repositories.`
 
-  6. **Application Tests**
-     - Command: `npm test -- --run src`
-     - test_name: "app_tests"
-     - test_purpose: "Validates application-level test suites under the src/ directory in the target repository"
-     - Condition: Only execute if a `src/` directory exists in the working directory. If `src/` does not exist, skip this test and mark it as passed with a note indicating it was skipped (no src/ directory found).
+### Step 4: Update JSDoc in `adws/github/workflowCommentsBase.ts`
+- Add `@param repoInfo` to `isAdwRunningForIssue()`:
+  - `@param repoInfo - Optional repository info override for targeting external repositories.`
+
+### Step 5: Update JSDoc in `adws/github/gitOperations.ts`
+- Add JSDoc to `mergeLatestFromDefaultBranch()`:
+  - `/** Merges the latest changes from the default branch into the current branch. */`
+  - Include `@param cwd` if the function accepts a working directory parameter
+
+### Step 6: Update JSDoc in all agent files
+- For each agent file, add `@param cwd` documentation to functions that received it:
+  - `adws/agents/buildAgent.ts`: `runBuildAgent()` and `runPrReviewBuildAgent()` — add `@param cwd - Optional working directory for running the agent in a target repo workspace.`
+  - `adws/agents/planAgent.ts`: `runPlanAgent()`, `runPrReviewPlanAgent()` — add `@param cwd - Optional working directory for running the agent in a target repo workspace.`
+  - `adws/agents/planAgent.ts`: `getPlanFilePath()`, `planFileExists()`, `readPlanFile()` — add `@param worktreePath - Optional worktree path to locate the plan file in.`
+  - `adws/agents/testAgent.ts`: `runTestAgent()`, `runResolveTestAgent()`, `runResolveE2ETestAgent()`, `runPlaywrightE2ETests()` — add `@param cwd - Optional working directory for running the agent in a target repo workspace.`
+  - `adws/agents/testAgent.ts`: `discoverE2ETestFiles()` — add `@param baseDir - Optional base directory to search for E2E test files.`
+  - `adws/agents/prAgent.ts`: `runPullRequestAgent()` — add `@param cwd - Optional working directory for running the agent in a target repo workspace.`
+  - `adws/agents/reviewAgent.ts`: `runReviewAgent()` — add `@param cwd - Optional working directory for running the agent in a target repo workspace.`
+  - `adws/agents/documentAgent.ts`: `runDocumentAgent()` — add `@param cwd - Optional working directory for running the agent in a target repo workspace.`
+  - `adws/agents/gitAgent.ts`: `runCommitAgent()` — add `@param cwd - Optional working directory for running the agent in a target repo workspace.`
+  - `adws/agents/patchAgent.ts`: `runPatchAgent()` — add `@param cwd - Optional working directory for running the agent in a target repo workspace.`
+
+### Step 7: Add JSDoc to retry functions
+- `adws/agents/reviewRetry.ts`: Add full JSDoc to `runReviewWithRetry()`:
+  ```typescript
+  /**
+   * Runs the review agent with automatic retry logic on failure.
+   * @param <params> - Document each parameter based on the function signature.
+   * @returns The review result or throws after max retries.
+   */
+  ```
+- `adws/agents/testRetry.ts`: Add full JSDoc to `runUnitTestsWithRetry()` and `runE2ETestsWithRetry()`:
+  ```typescript
+  /**
+   * Runs unit tests with automatic retry and resolution attempts on failure.
+   * @param <params> - Document each parameter based on the function signature.
+   * @returns The test result.
+   */
   ```
 
-### Step 4: Rebase onto latest `origin/main` to resolve merge conflicts
-- Run `git fetch origin main` to ensure we have the latest remote main
-- Run `git rebase origin/main` to rebase this branch onto the latest main
-- Resolve each conflict file during the rebase as described below
+### Step 8: Update JSDoc in phase files
+- For each phase file, update the JSDoc on the main exported function to document that `config.repoInfo` is used for external repository targeting:
+  - `adws/phases/buildPhase.ts`: `executeBuildPhase()` — add note about `config.repoInfo` being used for external repo API calls
+  - `adws/phases/planPhase.ts`: `executePlanPhase()` — same
+  - `adws/phases/testPhase.ts`: `executeTestPhase()` — same
+  - `adws/phases/prPhase.ts`: `executePRPhase()` — same
+  - `adws/phases/documentPhase.ts`: `executeDocumentPhase()` — same
+  - `adws/phases/prReviewPhase.ts`: Update JSDoc on all 6 exported functions (`initializePRReviewWorkflow`, `executePRReviewPlanPhase`, `executePRReviewBuildPhase`, `executePRReviewTestPhase`, `completePRReviewWorkflow`, `handlePRReviewWorkflowError`) to document `repoInfo` usage
 
-### Step 5: Resolve conflict in `adws/core/index.ts`
-- Accept BOTH sides: keep all existing exports from the feature branch AND add the new exports from origin/main (`SLASH_COMMAND_MODEL_MAP_FAST`, `getModelForCommand`, `isFastMode`, `issueTypeToOrchestratorMap`)
-- These are independent additions that don't conflict semantically
+### Step 9: Update JSDoc in `adws/phases/workflowLifecycle.ts`
+- Update `initializeWorkflow()` JSDoc to include detailed `@param` tags:
+  - `@param options.targetRepo - Optional target repository info for operating on an external git repository.`
+  - `@param options.cwd - Optional working directory override.`
+  - `@param options.issueType - Optional issue classification type.`
 
-### Step 6: Resolve conflict in `adws/core/utils.ts`
-- Accept origin/main's ordering of the LogLevel union type: `'info' | 'error' | 'success' | 'warn'`
-- Both branches add the same `warn` level — just pick one consistent ordering (origin/main's since it's the base)
-- Ensure the `parseTargetRepoArg` function and other additions from this feature branch are preserved
-
-### Step 7: Resolve conflict in `adws/github/pullRequestCreator.ts`
-- Accept origin/main's removal of the old `getRepoInfo` import
-- Keep this branch's `RepoInfo` type import since it's used by the external repo feature
-- Ensure the `repoInfo` parameter additions from this feature branch are preserved
-
-### Step 8: Resolve conflicts in phase files (`buildPhase.ts`, `planPhase.ts`, `prReviewPhase.ts`, `testPhase.ts`, `workflowLifecycle.ts`)
-- For each phase file, accept BOTH sets of changes:
-  - From origin/main: add the `issue.body` / `issueBody` parameters to agent calls and `prDetails.body` parameters where applicable
-  - From this branch: keep all `targetRepo`, `repoInfo`, and external repo context changes
-- These are independent features that can coexist
-- In `workflowLifecycle.ts`: accept origin/main's removal of unused `shouldExecuteStage` import while keeping this branch's `TargetRepoInfo` and `ensureTargetRepoWorkspace` imports
-- In `testPhase.ts`: accept origin/main's addition of `issue` to destructuring and `issueBody` parameter while keeping this branch's `repoInfo` additions
-
-### Step 9: Resolve conflict in `eslint.config.js`
-- Accept origin/main's version as the base since it has stricter rules (`prefer-const`) and includes `.claude/` in the ignore list
-- Verify that any project-specific ignores from this branch are preserved
-
-### Step 10: Resolve conflict in `vitest.config.ts`
-- After Step 2's changes, this file should only include `adws/**` test patterns
-- Accept origin/main's comment wording about discovering tests via the real adws/ directory
-- The final config should NOT include `src/**` patterns or any symlink references
+### Step 10: Add JSDoc to trigger functions
+- `adws/triggers/trigger_webhook.ts`:
+  - Add JSDoc to `jsonResponse()`: `/** Sends a JSON response with the specified status code and body. */`
+  - Add JSDoc to `spawnDetached()`: `/** Spawns a detached child process for running ADW orchestrator workflows. */`
+  - Add JSDoc to `HealthCheckResult` interface: `/** Result of a webhook server health check. */`
+- `adws/triggers/trigger_cron.ts`:
+  - Add JSDoc to `RawIssue` interface: `/** Raw issue data returned from the GitHub CLI. */`
+  - Add JSDoc to `fetchOpenIssues()`: `/** Fetches all open issues from the configured GitHub repository. */`
+  - Add JSDoc to `isQualifyingIssue()`: `/** Determines whether an issue qualifies for automatic ADW processing. */`
+  - Add JSDoc to `checkAndTrigger()`: `/** Checks for qualifying issues and triggers ADW workflows for each. */`
+  - Add JSDoc to `checkPRsForReviewComments()`: `/** Checks open PRs for actionable review comments and triggers PR review workflows. */`
 
 ### Step 11: Run validation commands
-- Execute all validation commands listed below to confirm zero regressions after the rebase and all changes
+- Execute all validation commands listed below to confirm zero regressions after the JSDoc updates
 
 ## Validation Commands
 Execute every command to validate the review is complete with zero regressions.
@@ -108,7 +159,9 @@ Execute every command to validate the review is complete with zero regressions.
 - `npm test` - Run tests to validate the review is complete with zero regressions
 
 ## Notes
-- The `src -> adws` symlink (commit `14aca3a`) and `passWithNoTests` config (commit `a92d0c2`) were attempted fixes for the app tests review comment but are incorrect solutions. The reviewer wants real application tests to run in the target repo, not ADW tests disguised via a symlink.
-- The merge conflicts are primarily from PRs #5 and #6 merged to main, which added: (a) dynamic model selection via `getModelForCommand` and fast mode support, (b) `issueTypeToOrchestratorMap` for trigger routing, (c) systematic addition of `issueBody` parameters to agent calls across all phases, and (d) ESLint config with stricter rules. These are independent features that should merge cleanly alongside the external repo support.
-- During rebase, if `package-lock.json` conflicts arise, accept the incoming version and run `npm install` to regenerate it.
-- The rebase should be done interactively to handle each commit's conflicts separately, as the 5 branch commits may each conflict differently with the 9 new commits on origin/main.
+- **Review comments 1 and 2 are already resolved.** The `src` symlink has been removed (commit `4396e42`), `vitest.config.ts` reverted to `adws/**` only patterns, `test.md` updated with conditional Application Tests section, and the branch is rebased onto `origin/main` with `mergeStateStatus: CLEAN`.
+- The JSDoc updates are purely documentation changes and should not affect runtime behavior. No functional code changes are needed.
+- When adding `@param repoInfo` documentation, use consistent wording across all files: "Optional repository info override for targeting external repositories. Falls back to local git remote when not provided."
+- When adding `@param cwd` documentation, use consistent wording: "Optional working directory for running the agent in a target repo workspace."
+- For retry functions (`reviewRetry.ts`, `testRetry.ts`), read the full function signatures before writing JSDoc to ensure all parameters are documented.
+- The phase functions take a `WorkflowConfig` object which already has JSDoc on its interface definition in `workflowLifecycle.ts`. The phase function JSDoc updates should reference that `config.repoInfo` is used for external repo targeting rather than duplicating full parameter descriptions.

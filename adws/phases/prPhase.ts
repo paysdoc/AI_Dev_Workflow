@@ -22,6 +22,7 @@ import type { WorkflowConfig } from './workflowLifecycle';
 
 /**
  * Executes the PR phase: create pull request via the /pull_request skill.
+ * Uses `config.repoInfo` for external repository API calls when targeting a different repo.
  */
 export async function executePRPhase(config: WorkflowConfig): Promise<{ costUsd: number; modelUsage: ModelUsageMap }> {
   const { recoveryState, issueNumber, issue, issueType, ctx, worktreePath, logsDir, adwId, branchName, repoInfo } = config;

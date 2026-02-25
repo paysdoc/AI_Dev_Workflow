@@ -33,6 +33,8 @@ export interface PRReviewWorkflowConfig {
 /**
  * Initializes a PR review workflow: fetches PR details, checks for unaddressed
  * comments, sets up worktree, and initializes state.
+ * @param prNumber - The PR number to review
+ * @param adwId - Optional ADW workflow ID (generated if not provided)
  */
 export async function initializePRReviewWorkflow(prNumber: number, adwId: string | null): Promise<PRReviewWorkflowConfig> {
   const prDetails = fetchPRDetails(prNumber);
@@ -103,6 +105,7 @@ export async function initializePRReviewWorkflow(prNumber: number, adwId: string
 
 /**
  * Executes the PR review Plan phase: reads existing plan, runs PR review plan agent.
+ * Uses `config.repoInfo` for external repository API calls when targeting a different repo.
  */
 export async function executePRReviewPlanPhase(config: PRReviewWorkflowConfig): Promise<{ planOutput: string }> {
   const { prNumber, issueNumber, adwId, prDetails, unaddressedComments, worktreePath, logsDir, orchestratorStatePath, ctx, repoInfo } = config;
@@ -158,6 +161,7 @@ export async function executePRReviewPlanPhase(config: PRReviewWorkflowConfig): 
 
 /**
  * Executes the PR review Build phase: runs PR review build agent.
+ * Uses `config.repoInfo` for external repository API calls when targeting a different repo.
  */
 export async function executePRReviewBuildPhase(config: PRReviewWorkflowConfig, planOutput: string): Promise<void> {
   const { prNumber, issueNumber, adwId, prDetails, unaddressedComments, worktreePath, logsDir, orchestratorStatePath, ctx, repoInfo } = config;
@@ -202,6 +206,7 @@ export async function executePRReviewBuildPhase(config: PRReviewWorkflowConfig, 
 
 /**
  * Executes the PR review Test phase: runs unit and E2E tests with retry.
+ * Uses `config.repoInfo` for external repository API calls when targeting a different repo.
  */
 export async function executePRReviewTestPhase(config: PRReviewWorkflowConfig): Promise<void> {
   const { prNumber, prDetails, unaddressedComments, worktreePath, logsDir, orchestratorStatePath, ctx, applicationUrl, repoInfo } = config;
@@ -268,6 +273,7 @@ export async function executePRReviewTestPhase(config: PRReviewWorkflowConfig): 
 
 /**
  * Completes the PR review workflow: commits, pushes, and posts completion comments.
+ * Uses `config.repoInfo` for external repository API calls when targeting a different repo.
  */
 export async function completePRReviewWorkflow(config: PRReviewWorkflowConfig, modelUsage?: ModelUsageMap): Promise<void> {
   const { prNumber, prDetails, unaddressedComments, worktreePath, logsDir, orchestratorStatePath, ctx, repoInfo } = config;
@@ -298,6 +304,7 @@ export async function completePRReviewWorkflow(config: PRReviewWorkflowConfig, m
 
 /**
  * Handles PR review workflow errors: posts error comment, writes failed state, and exits.
+ * Uses `config.repoInfo` for external repository API calls when targeting a different repo.
  */
 export function handlePRReviewWorkflowError(config: PRReviewWorkflowConfig, error: unknown): never {
   const { prNumber, orchestratorStatePath, ctx, repoInfo } = config;

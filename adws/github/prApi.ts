@@ -49,6 +49,8 @@ interface RawPRListItem {
 
 /**
  * Fetches PR details using the gh CLI.
+ * @param prNumber - The PR number to fetch
+ * @param repoInfo - Optional repository info override for targeting external repositories.
  */
 export function fetchPRDetails(prNumber: number, repoInfo?: RepoInfo): PRDetails {
   const { owner, repo } = repoInfo ?? getRepoInfo();
@@ -115,6 +117,8 @@ export function fetchPRReviews(owner: string, repo: string, prNumber: number): P
 
 /**
  * Fetches all PR review comments: both line-level comments and review-body comments.
+ * @param prNumber - The PR number to fetch comments for
+ * @param repoInfo - Optional repository info override for targeting external repositories.
  */
 export function fetchPRReviewComments(prNumber: number, repoInfo?: RepoInfo): PRReviewComment[] {
   const { owner, repo } = repoInfo ?? getRepoInfo();
@@ -157,6 +161,9 @@ export function fetchPRReviewComments(prNumber: number, repoInfo?: RepoInfo): PR
 
 /**
  * Posts a comment on a PR.
+ * @param prNumber - The PR number to comment on
+ * @param body - The comment body text
+ * @param repoInfo - Optional repository info override for targeting external repositories.
  */
 export function commentOnPR(prNumber: number, body: string, repoInfo?: RepoInfo): void {
   const { owner, repo } = repoInfo ?? getRepoInfo();
@@ -174,6 +181,7 @@ export function commentOnPR(prNumber: number, body: string, repoInfo?: RepoInfo)
 
 /**
  * Fetches open PRs for CRON trigger polling.
+ * @param repoInfo - Optional repository info override for targeting external repositories.
  */
 export function fetchPRList(repoInfo?: RepoInfo): PRListItem[] {
   const { owner, repo } = repoInfo ?? getRepoInfo();

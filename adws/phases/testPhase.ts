@@ -21,6 +21,7 @@ import type { WorkflowConfig } from './workflowLifecycle';
 
 /**
  * Executes the Test phase: run unit tests and E2E tests with retry.
+ * Uses `config.repoInfo` for external repository API calls when targeting a different repo.
  */
 export async function executeTestPhase(config: WorkflowConfig): Promise<{
   costUsd: number;
