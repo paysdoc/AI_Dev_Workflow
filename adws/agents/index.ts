@@ -8,6 +8,8 @@ export {
   runClaudeAgent,
   runClaudeAgentWithCommand,
   computeTotalTokens,
+  computePrimaryModelTokens,
+  isModelMatch,
   type AgentResult,
   type ProgressInfo,
   type ProgressCallback,

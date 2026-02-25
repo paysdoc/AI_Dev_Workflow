@@ -6,7 +6,7 @@
  */
 
 import { ClaudeCodeResultMessage, AgentStateManager, type ModelUsageMap } from '../core';
-import { computeTotalTokens } from './tokenManager';
+import { computeTotalTokens, computePrimaryModelTokens } from './tokenManager';
 
 // ---------------------------------------------------------------------------
 // Content block types – discriminated union replacing `any` usage
@@ -100,6 +100,8 @@ export interface JsonlParserState {
   toolCount: number;
   modelUsage: ModelUsageMap | undefined;
   totalTokens: number;
+  /** When set, token totals are filtered to only the primary model (e.g., 'opus'). */
+  primaryModel?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -167,7 +169,9 @@ export function parseJsonlOutput(
         state.lastResult = parsed as unknown as ClaudeCodeResultMessage;
         if (parsed.modelUsage && typeof parsed.modelUsage === 'object') {
           state.modelUsage = parsed.modelUsage as unknown as ModelUsageMap;
-          const totals = computeTotalTokens(state.modelUsage);
+          const totals = state.primaryModel
+            ? computePrimaryModelTokens(state.modelUsage, state.primaryModel)
+            : computeTotalTokens(state.modelUsage);
           state.totalTokens = totals.total;
         }
       }
