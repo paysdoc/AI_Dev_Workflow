@@ -91,6 +91,18 @@ export {
   persistTokenCounts,
 } from './costReport';
 
+// Cost CSV writer
+export type { ProjectCostRow } from './costCsvWriter';
+export {
+  getIssueCsvPath,
+  getProjectCsvPath,
+  formatIssueCostCsv,
+  formatProjectCostCsv,
+  parseProjectCostCsv,
+  writeIssueCostCsv,
+  updateProjectCostCsv,
+} from './costCsvWriter';
+
 // Issue classifier
 export type { IssueClassificationResult } from './issueClassifier';
 export { parseAdwClassificationOutput, classifyWithAdwCommand, classifyIssueForTrigger, classifyGitHubIssue, getWorkflowScript } from './issueClassifier';
