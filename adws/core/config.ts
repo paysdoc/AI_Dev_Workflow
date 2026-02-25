@@ -2,7 +2,9 @@
  * Configuration constants for ADW Plan & Build workflow.
  */
 
+import { execSync } from 'child_process';
 import * as dotenv from 'dotenv';
+import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import type { SlashCommand } from './issueTypes';
@@ -11,7 +13,46 @@ import type { SlashCommand } from './issueTypes';
 dotenv.config();
 
 /** Path to the Claude CLI executable. */
-export const CLAUDE_CODE_PATH = process.env.CLAUDE_CODE_PATH || '/usr/local/bin/claude';
+export const CLAUDE_CODE_PATH = process.env.CLAUDE_CODE_PATH || 'claude';
+
+/** Cached resolved Claude CLI path. */
+let cachedClaudeCodePath: string | null = null;
+
+/**
+ * Resolves and validates the Claude CLI executable path.
+ * Checks the configured CLAUDE_CODE_PATH first, then falls back to PATH lookup via `which`.
+ * The result is cached for performance; use {@link clearClaudeCodePathCache} to force re-resolution.
+ */
+export function resolveClaudeCodePath(): string {
+  if (cachedClaudeCodePath) return cachedClaudeCodePath;
+
+  // If configured path is absolute and exists, use it directly
+  if (CLAUDE_CODE_PATH.startsWith('/') && fs.existsSync(CLAUDE_CODE_PATH)) {
+    cachedClaudeCodePath = CLAUDE_CODE_PATH;
+    return cachedClaudeCodePath;
+  }
+
+  // Fall back to PATH-based resolution via `which`
+  try {
+    const resolved = execSync('which claude', { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }).trim();
+    if (resolved) {
+      cachedClaudeCodePath = resolved;
+      return cachedClaudeCodePath;
+    }
+  } catch {
+    // which failed — claude not in PATH
+  }
+
+  throw new Error("Claude CLI not found. Set CLAUDE_CODE_PATH in .env or ensure 'claude' is in your PATH.");
+}
+
+/**
+ * Clears the cached Claude CLI path so the next call to {@link resolveClaudeCodePath}
+ * performs a fresh resolution. Used after ENOENT errors to pick up path changes.
+ */
+export function clearClaudeCodePathCache(): void {
+  cachedClaudeCodePath = null;
+}
 
 /** GitHub Personal Access Token (optional, gh CLI handles auth). */
 export const GITHUB_PAT = process.env.GITHUB_PAT || process.env.GITHUB_PERSONAL_ACCESS_TOKEN;

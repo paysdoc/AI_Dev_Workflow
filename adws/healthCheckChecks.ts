@@ -8,7 +8,7 @@
 import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
-import { CLAUDE_CODE_PATH, GITHUB_PAT, LOGS_DIR, SPECS_DIR } from './core';
+import { CLAUDE_CODE_PATH, GITHUB_PAT, LOGS_DIR, SPECS_DIR, resolveClaudeCodePath } from './core';
 
 /**
  * Individual check result.
@@ -135,27 +135,24 @@ export function checkGitRepository(): CheckResult {
  */
 export function checkClaudeCodeCLI(): CheckResult {
   const details: Record<string, unknown> = {};
-
-  // Check if claude CLI exists at configured path
-  const cliExists = fs.existsSync(CLAUDE_CODE_PATH);
   details.configuredPath = CLAUDE_CODE_PATH;
-  details.pathExists = cliExists;
 
-  // Also check if claude is in PATH
-  const inPath = commandExists('claude');
-  details.inPath = inPath;
-
-  if (!cliExists && !inPath) {
+  let resolvedPath: string;
+  try {
+    resolvedPath = resolveClaudeCodePath();
+    details.resolvedPath = resolvedPath;
+    details.pathExists = true;
+  } catch (err) {
+    details.pathExists = false;
     return {
       success: false,
-      error: `Claude CLI not found at ${CLAUDE_CODE_PATH} and not in PATH`,
+      error: (err as Error).message,
       details
     };
   }
 
-  // Try to get version
-  const claudePath = cliExists ? CLAUDE_CODE_PATH : 'claude';
-  const version = execCommand(`${claudePath} --version`);
+  // Try to get version using the resolved path
+  const version = execCommand(`${resolvedPath} --version`);
   details.version = version || 'unknown';
 
   return {

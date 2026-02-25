@@ -4,7 +4,7 @@
 import { spawn, type ChildProcess } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
-import { CLAUDE_CODE_PATH, log, AgentStateManager, getSafeSubprocessEnv, type ModelUsageMap, type TokenUsageSnapshot, MAX_THINKING_TOKENS, TOKEN_LIMIT_THRESHOLD } from '../core';
+import { log, AgentStateManager, getSafeSubprocessEnv, type ModelUsageMap, type TokenUsageSnapshot, MAX_THINKING_TOKENS, TOKEN_LIMIT_THRESHOLD, resolveClaudeCodePath, clearClaudeCodePathCache } from '../core';
 import { parseJsonlOutput, type JsonlParserState, type ProgressCallback } from './jsonlParser';
 import { computeTotalTokens } from './tokenManager';
 
@@ -196,6 +196,11 @@ function savePrompt(prompt: string, statePath: string): void {
   fs.writeFileSync(path.join(promptsDir, filename), prompt, 'utf-8');
 }
 
+/** Delay helper for retry logic. */
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 /**
  * Runs a Claude Code agent with the given prompt.
  * Streams output to a log file and returns the result.
@@ -232,22 +237,37 @@ export async function runClaudeAgent(
     '--model', model
   ];
 
+  const resolvedPath = resolveClaudeCodePath();
   log(`Starting ${agentName} agent...`, 'info');
-  log(`  Command: ${CLAUDE_CODE_PATH} ${args.join(' ')}`, 'info');
+  log(`  Command: ${resolvedPath} ${args.join(' ')}`, 'info');
   log(`  Model: ${model}`, 'info');
   log(`  Output file: ${outputFile}`, 'info');
   log(`  Prompt length: ${prompt.length} characters`, 'info');
 
-  const claude = spawn(CLAUDE_CODE_PATH, args, {
-    cwd: cwd || process.cwd(),
-    env: getSafeSubprocessEnv(),
-  });
+  const spawnOptions = { cwd: cwd || process.cwd(), env: getSafeSubprocessEnv() };
+  const claude = spawn(resolvedPath, args, spawnOptions);
 
   // Write prompt to stdin and close it
   claude.stdin.write(prompt);
   claude.stdin.end();
 
-  return handleAgentProcess(claude, agentName, outputFile, onProgress, statePath);
+  const result = await handleAgentProcess(claude, agentName, outputFile, onProgress, statePath);
+
+  // Retry once on ENOENT (transient path resolution failure)
+  if (!result.success && result.output.includes('ENOENT')) {
+    log(`Claude CLI not found at ${resolvedPath}, retrying after re-resolving path...`, 'warn');
+    clearClaudeCodePathCache();
+    await delay(1000);
+
+    const retryPath = resolveClaudeCodePath();
+    const retryProcess = spawn(retryPath, args, spawnOptions);
+    retryProcess.stdin.write(prompt);
+    retryProcess.stdin.end();
+
+    return handleAgentProcess(retryProcess, agentName, outputFile, onProgress, statePath);
+  }
+
+  return result;
 }
 
 /**
@@ -297,18 +317,30 @@ export async function runClaudeAgentWithCommand(
     prompt
   ];
 
+  const resolvedPath = resolveClaudeCodePath();
   log(`Starting ${agentName} agent...`, 'info');
-  log(`  Command: ${CLAUDE_CODE_PATH} ${cliArgs.slice(0, -1).join(' ')} "<prompt>"`, 'info');
+  log(`  Command: ${resolvedPath} ${cliArgs.slice(0, -1).join(' ')} "<prompt>"`, 'info');
   log(`  Slash command: ${command}`, 'info');
   log(`  Model: ${model}`, 'info');
   log(`  Output file: ${outputFile}`, 'info');
   log(`  Args length: ${Array.isArray(args) ? `${args.length} elements` : `${args.length} characters`}`, 'info');
 
-  const claude = spawn(CLAUDE_CODE_PATH, cliArgs, {
-    cwd: cwd || process.cwd(),
-    env: getSafeSubprocessEnv(),
-    stdio: ['ignore', 'pipe', 'pipe']
-  });
+  const spawnOptions = { cwd: cwd || process.cwd(), env: getSafeSubprocessEnv(), stdio: ['ignore' as const, 'pipe' as const, 'pipe' as const] };
+  const claude = spawn(resolvedPath, cliArgs, spawnOptions);
 
-  return handleAgentProcess(claude, agentName, outputFile, onProgress, statePath);
+  const result = await handleAgentProcess(claude, agentName, outputFile, onProgress, statePath);
+
+  // Retry once on ENOENT (transient path resolution failure)
+  if (!result.success && result.output.includes('ENOENT')) {
+    log(`Claude CLI not found at ${resolvedPath}, retrying after re-resolving path...`, 'warn');
+    clearClaudeCodePathCache();
+    await delay(1000);
+
+    const retryPath = resolveClaudeCodePath();
+    const retryProcess = spawn(retryPath, cliArgs, spawnOptions);
+
+    return handleAgentProcess(retryProcess, agentName, outputFile, onProgress, statePath);
+  }
+
+  return result;
 }
