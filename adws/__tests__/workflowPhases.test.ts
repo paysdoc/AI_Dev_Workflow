@@ -52,6 +52,13 @@ vi.mock('../core', async (importOriginal) => {
     MAX_REVIEW_RETRY_ATTEMPTS: 3,
     MAX_TOKEN_CONTINUATIONS: 3,
     allocateRandomPort: vi.fn().mockResolvedValue(12345),
+    buildCostBreakdown: vi.fn().mockResolvedValue({
+      totalCostUsd: 1.5,
+      modelUsage: { 'claude-sonnet-4-20250514': { inputTokens: 100, outputTokens: 50, cacheReadInputTokens: 0, cacheCreationInputTokens: 0, costUSD: 1.5 } },
+      currencies: [{ currency: 'EUR', amount: 1.35, symbol: '€' }],
+    }),
+    writeIssueCostCsv: vi.fn(),
+    updateProjectCostCsv: vi.fn(),
   };
 });
 
@@ -159,7 +166,7 @@ vi.mock('../core/issueClassifier', () => ({
 }));
 
 // Import mocked modules for assertions
-import { shouldExecuteStage, hasUncommittedChanges, getNextStage, AgentStateManager, generateAdwId } from '../core';
+import { shouldExecuteStage, hasUncommittedChanges, getNextStage, AgentStateManager, generateAdwId, writeIssueCostCsv, updateProjectCostCsv } from '../core';
 import {
   fetchPRDetails,
   getUnaddressedComments,
@@ -738,6 +745,55 @@ describe('completeWorkflow', () => {
       execution: expect.objectContaining({ status: 'completed' }),
       metadata: { totalCostUsd: 2.0, unitTestsPassed: true },
     });
+  });
+
+  it('writes cost CSVs to worktree path when no targetRepo (ADW repo issue)', async () => {
+    const config = createWorkflowConfig({ worktreePath: '/mock/worktree' });
+    const mockModelUsage = { 'claude-sonnet-4-20250514': { inputTokens: 100, outputTokens: 50, cacheReadInputTokens: 0, cacheCreationInputTokens: 0, costUSD: 1.5 } };
+
+    await completeWorkflow(config, 1.5, undefined, mockModelUsage);
+
+    expect(writeIssueCostCsv).toHaveBeenCalledWith(
+      '/mock/worktree',
+      expect.any(String),
+      config.issueNumber,
+      config.issue.title,
+      expect.any(Object),
+    );
+    expect(updateProjectCostCsv).toHaveBeenCalledWith(
+      '/mock/worktree',
+      expect.any(String),
+      config.issueNumber,
+      config.issue.title,
+      expect.any(Number),
+      expect.any(Number),
+    );
+  });
+
+  it('writes cost CSVs to process.cwd() when targetRepo is set (external repo)', async () => {
+    const config = createWorkflowConfig({
+      worktreePath: '/mock/external-worktree',
+      targetRepo: { owner: 'other', repo: 'app', cloneUrl: 'https://github.com/other/app.git' },
+    });
+    const mockModelUsage = { 'claude-sonnet-4-20250514': { inputTokens: 200, outputTokens: 100, cacheReadInputTokens: 0, cacheCreationInputTokens: 0, costUSD: 2.0 } };
+
+    await completeWorkflow(config, 2.0, undefined, mockModelUsage);
+
+    expect(writeIssueCostCsv).toHaveBeenCalledWith(
+      process.cwd(),
+      expect.any(String),
+      config.issueNumber,
+      config.issue.title,
+      expect.any(Object),
+    );
+    expect(updateProjectCostCsv).toHaveBeenCalledWith(
+      process.cwd(),
+      expect.any(String),
+      config.issueNumber,
+      config.issue.title,
+      expect.any(Number),
+      expect.any(Number),
+    );
   });
 });
 
