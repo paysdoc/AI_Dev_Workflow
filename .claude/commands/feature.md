@@ -27,14 +27,14 @@ issueJson: $3, default to empty JSON object if not provided (`{}`)
   - IMPORTANT: When you fill out the `Plan Format: Relevant Files` section, add an instruction to read `.claude/commands/test_e2e.md`, and `.claude/commands/e2e-examples/test_basic_query.md` to understand how to create an E2E test file. List your new E2E test file to the `Plan Format: New Files` section.
   - To be clear, we're not creating a new E2E test file, we're creating a task to create a new E2E test file in the `Plan Format` below
 - Respect requested files in the `Relevant Files` section.
-- IMPORTANT: Planning and implementation must strictly adhere to the coding guidelines in `/guidelines`.
-- Start your research by reading the `README.md` file and the coding guidelines in `/guidelines`.
+- IMPORTANT: If a `guidelines/` directory exists in the target repository, planning and implementation must strictly adhere to those coding guidelines.
+- Start your research by reading the `README.md` file. If a `guidelines/` directory exists in the target repository, also read those coding guidelines.
 
 ## Relevant Files
 
 Focus on the following files:
 - `README.md` - Contains the project overview and instructions.
-- `guidelines/**` - Contains coding guidelines that must be followed.
+- `guidelines/**` - Contains coding guidelines that must be followed (target repository — may not exist in all repos). If present, read and follow these guidelines.
 - `src/app/**` - Contains Next.js App Router pages, layouts, and route handlers.
 - `src/components/**` - Contains React components.
 - `src/lib/**` - Contains utility functions and shared logic.
@@ -118,7 +118,7 @@ Execute every command to validate the feature works correctly with zero regressi
 - `npm test` - Run tests to validate the feature works with zero regressions
 
 ## Notes
-- IMPORTANT: strictly adhere to the coding guidelines in `/guidelines`. If necessary, refactor existing code to meet the coding guidelines as part of implementing the feature.
+- IMPORTANT: If a `guidelines/` directory exists in the target repository, strictly adhere to those coding guidelines. If necessary, refactor existing code to meet the coding guidelines as part of implementing the feature.
 <optionally list any additional notes, future considerations, or context that are relevant to the feature that will be helpful to the developer>
 ```
 

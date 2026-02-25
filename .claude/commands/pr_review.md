@@ -11,7 +11,7 @@ Create a new plan at `specs/issue-{issueNumber}-plan.md` (where `{issueNumber}` 
 
 - IMPORTANT: You're writing a plan to resolve a review based on the `PR-Review` that will add value to the application.
 - IMPORTANT: The `PR-Review` describes the review that will be resolved but remember we're not resolving the review, we're creating the plan that will be used to resolve the review based on the `Plan Format` below.
-- IMPORTANT: Planning and implementation must strictly adhere to the coding guidelines in `/guidelines`.
+- IMPORTANT: If a `guidelines/` directory exists in the target repository, planning and implementation must strictly adhere to those coding guidelines.
 - You're writing a plan to resolve a PR review, it should be simple but we need to be thorough and precise so we don't miss anything or waste time with any second round of changes.
 - Analyze each review comment carefully and understand what changes are required to resolve the review.
 - Create a revision plan at `specs/issue-{issueNumber}-plan.md` (where `{issueNumber}` is the issue number from the GitHub Issue) that addresses ALL review comments in the `PR-Review`.
@@ -20,7 +20,7 @@ Create a new plan at `specs/issue-{issueNumber}-plan.md` (where `{issueNumber}` 
 - IMPORTANT: Replace every <placeholder> in the `Plan Format` with the requested value. Add as much detail as needed to accomplish the review.
 - Consider the plan and the steps to accomplish the review.
 - Respect requested files in the `Relevant Files` section.
-- Start your research by reading the `README.md` file and the coding guidelines in `/guidelines`.
+- Start your research by reading the `README.md` file. If a `guidelines/` directory exists in the target repository, also read those coding guidelines.
 - `adws/*.tsx` contain node tsx single file typescript scripts. So if you want to run them use `npx tsx <script_name>`.
 - When you finish creating the plan for the review, follow the `Report` section to properly report the results of your work.
 
@@ -28,7 +28,7 @@ Create a new plan at `specs/issue-{issueNumber}-plan.md` (where `{issueNumber}` 
 
 Focus on the following files:
 - `README.md` - Contains the project overview and instructions.
-- `guidelines/**` - Contains coding guidelines that must be followed.
+- `guidelines/**` - Contains coding guidelines that must be followed (target repository — may not exist in all repos). If present, read and follow these guidelines.
 - `src/app/**` - Contains Next.js App Router pages, layouts, and route handlers.
 - `src/components/**` - Contains React components.
 - `src/lib/**` - Contains utility functions and shared logic.

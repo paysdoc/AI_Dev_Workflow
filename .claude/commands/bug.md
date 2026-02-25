@@ -11,7 +11,7 @@ issueJson: $3, default to empty JSON object if not provided (`{}`)
 
 - IMPORTANT: You're writing a plan to resolve a bug based on the `Bug` that will add value to the application.
 - IMPORTANT: The `Bug` describes the bug that will be resolved but remember we're not resolving the bug, we're creating the plan that will be used to resolve the bug based on the `Plan Format` below.
-- IMPORTANT: Planning and implementation must strictly adhere to the coding guidelines in `/guidelines`.
+- IMPORTANT: If a `guidelines/` directory exists in the target repository, planning and implementation must strictly adhere to those coding guidelines.
 - You're writing a plan to resolve a bug, it should be thorough and precise so we fix the root cause and prevent regressions.
 - Create the plan in the `specs/` directory with filename: `issue-{issueNumber}-adw-{adwId}-sdlc_planner-{descriptiveName}.md`
   - Replace `{descriptiveName}` with a short, descriptive name based on the bug (e.g., "fix-login-error", "resolve-timeout", "patch-memory-leak")
@@ -29,13 +29,13 @@ issueJson: $3, default to empty JSON object if not provided (`{}`)
   - IMPORTANT: When you fill out the `Plan Format: Relevant Files` section, add an instruction to read `.claude/commands/test_e2e.md`, and `.claude/commands/e2e-examples/test_basic_query.md` to understand how to create an E2E test file. List your new E2E test file to the `Plan Format: New Files` section.
   - To be clear, we're not creating a new E2E test file, we're creating a task to create a new E2E test file in the `Plan Format` below
 - Respect requested files in the `Relevant Files` section.
-- Start your research by reading the `README.md` file and the coding guidelines in `/guidelines`.
+- Start your research by reading the `README.md` file. If a `guidelines/` directory exists in the target repository, also read those coding guidelines.
 
 ## Relevant Files
 
 Focus on the following files:
 - `README.md` - Contains the project overview and instructions.
-- `guidelines/**` - Contains coding guidelines that must be followed.
+- `guidelines/**` - Contains coding guidelines that must be followed (target repository — may not exist in all repos). If present, read and follow these guidelines.
 - `src/app/**` - Contains Next.js App Router pages, layouts, and route handlers.
 - `src/components/**` - Contains React components.
 - `src/lib/**` - Contains utility functions and shared logic.
@@ -98,7 +98,7 @@ Execute every command to validate the bug is fixed with zero regressions.
 - `npm test` - Run tests to validate the bug is fixed with zero regressions
 
 ## Notes
-- IMPORTANT: strictly adhere to the coding guidelines in `/guidelines`. If necessary, refactor existing code to meet the coding guidelines as part of fixing the bug.
+- IMPORTANT: If a `guidelines/` directory exists in the target repository, strictly adhere to those coding guidelines. If necessary, refactor existing code to meet the coding guidelines as part of fixing the bug.
 <optionally list any additional notes or context that are relevant to the bug that will be helpful to the developer>
 ```
 
