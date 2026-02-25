@@ -2,7 +2,7 @@
  * Workflow initialization, completion, error handling, and review phase.
  */
 
-import { log, setLogAdwId, ensureLogsDirectory, generateAdwId, type IssueClassSlashCommand, type GitHubIssue, AgentStateManager, type AgentState, type AgentIdentifier, type RecoveryState, hasUncommittedChanges, getNextStage, MAX_REVIEW_RETRY_ATTEMPTS, COST_REPORT_CURRENCIES, type ModelUsageMap, buildCostBreakdown, persistTokenCounts, allocateRandomPort, type TargetRepoInfo, ensureTargetRepoWorkspace } from '../core';
+import { log, setLogAdwId, ensureLogsDirectory, generateAdwId, type IssueClassSlashCommand, type GitHubIssue, AgentStateManager, type AgentState, type AgentIdentifier, type RecoveryState, hasUncommittedChanges, getNextStage, MAX_REVIEW_RETRY_ATTEMPTS, COST_REPORT_CURRENCIES, type ModelUsageMap, buildCostBreakdown, persistTokenCounts, allocateRandomPort, type TargetRepoInfo, ensureTargetRepoWorkspace, writeIssueCostCsv, updateProjectCostCsv } from '../core';
 import { fetchGitHubIssue, postWorkflowComment, type WorkflowContext, detectRecoveryState, getDefaultBranch, checkoutDefaultBranch, ensureWorktree, getWorktreeForBranch, mergeLatestFromDefaultBranch, copyEnvToWorktree, findWorktreeForIssue, type RepoInfo } from '../github';
 import { runGenerateBranchNameAgent, getPlanFilePath, runReviewWithRetry } from '../agents';
 import { classifyGitHubIssue } from '../core/issueClassifier';
@@ -239,6 +239,19 @@ export async function completeWorkflow(
   if (modelUsage && Object.keys(modelUsage).length > 0) {
     const costBreakdown = await buildCostBreakdown(modelUsage, [...COST_REPORT_CURRENCIES]);
     ctx.costBreakdown = costBreakdown;
+
+    // Write cost data to CSV files
+    try {
+      const repoName = config.targetRepo?.repo ?? config.repoInfo?.repo ?? 'unknown';
+      const adwRepoRoot = process.cwd();
+      const eurEntry = costBreakdown.currencies.find(c => c.currency === 'EUR');
+      const eurRate = eurEntry ? eurEntry.amount / costBreakdown.totalCostUsd : 0;
+
+      writeIssueCostCsv(adwRepoRoot, repoName, config.issueNumber, config.issue.title, costBreakdown);
+      updateProjectCostCsv(adwRepoRoot, repoName, config.issueNumber, config.issue.title, costBreakdown.totalCostUsd, eurRate);
+    } catch (csvError) {
+      log(`Failed to write cost CSV files: ${csvError}`, 'error');
+    }
   }
 
   AgentStateManager.writeState(orchestratorStatePath, {
