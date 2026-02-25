@@ -64,8 +64,13 @@ npm run test:watch    # Run tests in watch mode
 ## Project Structure
 
 ```
+.adw/                   # Project configuration for ADW (see adws/README.md)
+├── commands.md         # Build/test/lint command mappings
+├── project.md          # Project structure and relevant files
+└── conditional_docs.md # Conditional documentation paths
 .claude/
 ├── commands/           # Claude Code slash commands
+│   ├── adw_init.md
 │   ├── bug.md
 │   ├── chore.md
 │   ├── classify_adw.md
@@ -127,6 +132,7 @@ adws/                   # ADW workflow system
 │   ├── jsonParser.ts
 │   ├── orchestratorLib.ts
 │   ├── portAllocator.ts
+│   ├── projectConfig.ts
 │   ├── retryOrchestrator.ts
 │   ├── stateHelpers.ts
 │   ├── utils.ts
@@ -161,6 +167,7 @@ adws/                   # ADW workflow system
 ├── adwBuildHelpers.ts
 ├── adwClearComments.tsx
 ├── adwDocument.tsx
+├── adwInit.tsx
 ├── adwPatch.tsx
 ├── adwPlan.tsx
 ├── adwPlanBuild.tsx

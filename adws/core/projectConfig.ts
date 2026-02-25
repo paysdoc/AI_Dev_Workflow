@@ -1,0 +1,196 @@
+/**
+ * Project configuration loader for target repositories.
+ *
+ * Reads `.adw/commands.md`, `.adw/project.md`, and `.adw/conditional_docs.md`
+ * from a target repository to determine project-specific commands, file structure,
+ * and conditional documentation. Falls back to sensible defaults when files are absent.
+ */
+
+import * as fs from 'fs';
+import * as path from 'path';
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+export interface CommandsConfig {
+  packageManager: string;
+  installDeps: string;
+  runLinter: string;
+  typeCheck: string;
+  runTests: string;
+  runBuild: string;
+  startDevServer: string;
+  prepareApp: string;
+  runE2ETests: string;
+  additionalTypeChecks: string;
+  libraryInstall: string;
+  scriptExecution: string;
+}
+
+export interface ProjectConfig {
+  commands: CommandsConfig;
+  /** Raw content of `.adw/project.md` (empty string when absent). */
+  projectMd: string;
+  /** Raw content of `.adw/conditional_docs.md` (empty string when absent). */
+  conditionalDocsMd: string;
+  /** Whether the `.adw/` directory was found. */
+  hasAdwDir: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Section heading → CommandsConfig key mapping
+// ---------------------------------------------------------------------------
+
+const HEADING_TO_KEY: Record<string, keyof CommandsConfig> = {
+  'package manager': 'packageManager',
+  'install dependencies': 'installDeps',
+  'run linter': 'runLinter',
+  'type check': 'typeCheck',
+  'run tests': 'runTests',
+  'run build': 'runBuild',
+  'start dev server': 'startDevServer',
+  'prepare app': 'prepareApp',
+  'run e2e tests': 'runE2ETests',
+  'additional type checks': 'additionalTypeChecks',
+  'library install command': 'libraryInstall',
+  'library install': 'libraryInstall',
+  'script execution': 'scriptExecution',
+};
+
+// ---------------------------------------------------------------------------
+// Defaults (backward-compatible with current hardcoded values)
+// ---------------------------------------------------------------------------
+
+export function getDefaultCommandsConfig(): CommandsConfig {
+  return {
+    packageManager: 'npm',
+    installDeps: 'npm install',
+    runLinter: 'npm run lint',
+    typeCheck: 'npx tsc --noEmit',
+    runTests: 'npm test',
+    runBuild: 'npm run build',
+    startDevServer: 'npm run dev',
+    prepareApp: 'npm install && npx next dev --port {PORT}',
+    runE2ETests: 'npx playwright test',
+    additionalTypeChecks: 'npx tsc --noEmit -p adws/tsconfig.json',
+    libraryInstall: 'npm install',
+    scriptExecution: 'npx tsx',
+  };
+}
+
+export function getDefaultProjectConfig(): ProjectConfig {
+  return {
+    commands: getDefaultCommandsConfig(),
+    projectMd: '',
+    conditionalDocsMd: '',
+    hasAdwDir: false,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Markdown parsing helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Parses a markdown file with `## Heading` sections and returns a map of
+ * lowercased heading text → trimmed body content.
+ */
+export function parseMarkdownSections(content: string): Record<string, string> {
+  const sections: Record<string, string> = {};
+  const lines = content.split('\n');
+
+  let currentHeading: string | null = null;
+  const bodyLines: string[] = [];
+
+  function flush() {
+    if (currentHeading !== null) {
+      sections[currentHeading] = bodyLines.join('\n').trim();
+    }
+    bodyLines.length = 0;
+  }
+
+  for (const line of lines) {
+    const match = line.match(/^##\s+(.+)$/);
+    if (match) {
+      flush();
+      currentHeading = match[1].trim().toLowerCase();
+    } else {
+      bodyLines.push(line);
+    }
+  }
+  flush();
+
+  return sections;
+}
+
+/**
+ * Parses `.adw/commands.md` into a `CommandsConfig` object.
+ * Missing sections fall back to defaults.
+ */
+export function parseCommandsMd(content: string): CommandsConfig {
+  const defaults = getDefaultCommandsConfig();
+  if (!content.trim()) return defaults;
+
+  const sections = parseMarkdownSections(content);
+  const result = { ...defaults };
+
+  for (const [heading, key] of Object.entries(HEADING_TO_KEY)) {
+    if (heading in sections && sections[heading]) {
+      result[key] = sections[heading];
+    }
+  }
+
+  return result;
+}
+
+// ---------------------------------------------------------------------------
+// Main loader
+// ---------------------------------------------------------------------------
+
+/**
+ * Loads the project configuration from `<targetRepoPath>/.adw/`.
+ * Returns defaults when the directory or individual files are absent.
+ */
+export function loadProjectConfig(targetRepoPath: string): ProjectConfig {
+  const adwDir = path.join(targetRepoPath, '.adw');
+
+  if (!fs.existsSync(adwDir) || !fs.statSync(adwDir).isDirectory()) {
+    return getDefaultProjectConfig();
+  }
+
+  // commands.md
+  const commandsPath = path.join(adwDir, 'commands.md');
+  let commands: CommandsConfig;
+  try {
+    const raw = fs.readFileSync(commandsPath, 'utf-8');
+    commands = parseCommandsMd(raw);
+  } catch {
+    commands = getDefaultCommandsConfig();
+  }
+
+  // project.md
+  const projectPath = path.join(adwDir, 'project.md');
+  let projectMd = '';
+  try {
+    projectMd = fs.readFileSync(projectPath, 'utf-8');
+  } catch {
+    // file missing — keep empty
+  }
+
+  // conditional_docs.md
+  const conditionalDocsPath = path.join(adwDir, 'conditional_docs.md');
+  let conditionalDocsMd = '';
+  try {
+    conditionalDocsMd = fs.readFileSync(conditionalDocsPath, 'utf-8');
+  } catch {
+    // file missing — keep empty
+  }
+
+  return {
+    commands,
+    projectMd,
+    conditionalDocsMd,
+    hasAdwDir: true,
+  };
+}

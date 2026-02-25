@@ -20,6 +20,7 @@ import {
   type PRReviewWorkflowConfig,
 } from '../workflowPhases';
 import { RecoveryState, GitHubIssue, PRDetails, PRReviewComment } from '../core/dataTypes';
+import { getDefaultProjectConfig } from '../core/projectConfig';
 import { WorkflowContext, PRReviewWorkflowContext } from '../github/workflowComments';
 import { extractBranchNameFromComment } from '../github/workflowCommentsBase';
 
@@ -229,6 +230,7 @@ function createWorkflowConfig(overrides: Partial<WorkflowConfig> = {}): Workflow
     ctx: { issueNumber: 1, adwId: 'test-adw-id' } as WorkflowContext,
     branchName: 'feature/issue-1-test',
     applicationUrl: 'http://localhost:12345',
+    projectConfig: getDefaultProjectConfig(),
     ...overrides,
   };
 }

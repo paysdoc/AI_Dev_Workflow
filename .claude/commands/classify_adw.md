@@ -4,7 +4,7 @@ Extract ADW workflow information from the text below and return a JSON response.
 
 ## Instructions
 
-- Look for ADW workflow commands in the text (e.g., `/adw_plan`, `/adw_build`, `/adw_test`, `/adw_review`, `/adw_document`, `/adw_patch`, `/adw_plan_build`, `/adw_plan_build_test`, `/adw_plan_build_test_review`, `/adw_sdlc`)
+- Look for ADW workflow commands in the text (e.g., `/adw_plan`, `/adw_build`, `/adw_test`, `/adw_review`, `/adw_document`, `/adw_patch`, `/adw_plan_build`, `/adw_plan_build_test`, `/adw_plan_build_test_review`, `/adw_sdlc`, `/adw_init`)
 - Look for ADW IDs (8-character alphanumeric strings, often after "adwId:" or "ADW ID:" or similar)
 - Return a JSON object with the extracted information
 - If no ADW workflow is found, return empty JSON: `{}`
@@ -23,6 +23,7 @@ Extract ADW workflow information from the text below and return a JSON response.
 - `/adw_plan_build_document` - Plan + Build + Document (skips test and review)
 - `/adw_plan_build_test_review` - Plan + Build + Test + Review
 - `/adw_sdlc` - Complete SDLC: Plan + Build + Test + Review + Document
+- `/adw_init` - Initialize project configuration (.adw/ directory)
 
 ## Response Format
 

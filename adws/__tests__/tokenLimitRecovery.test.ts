@@ -5,6 +5,7 @@ import {
   type WorkflowConfig,
 } from '../workflowPhases';
 import { RecoveryState, GitHubIssue } from '../core/dataTypes';
+import { getDefaultProjectConfig } from '../core/projectConfig';
 import { WorkflowContext } from '../github/workflowCommentsIssue';
 
 vi.mock('fs');
@@ -116,6 +117,7 @@ function createWorkflowConfig(overrides: Partial<WorkflowConfig> = {}): Workflow
     ctx: { issueNumber: 1, adwId: 'test-adw-id' } as WorkflowContext,
     branchName: 'feature/issue-1-test',
     applicationUrl: 'http://localhost:3000',
+    projectConfig: getDefaultProjectConfig(),
     ...overrides,
   };
 }
