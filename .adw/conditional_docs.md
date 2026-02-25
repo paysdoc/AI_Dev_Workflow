@@ -13,3 +13,10 @@
 - adws/README.md
   - Conditions:
     - When you're operating in the `adws/` directory
+
+- app_docs/feature-the-adw-is-too-speci-tf7slv-generalize-adw-project-config.md
+  - Conditions:
+    - When working with `.adw/` project configuration files
+    - When implementing support for new target repository types
+    - When troubleshooting ADW command generalization or project config loading
+    - When modifying `adws/core/projectConfig.ts` or `.claude/commands/*.md` templates
