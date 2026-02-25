@@ -9,7 +9,7 @@ import { parseJsonlOutput, type JsonlParserState, type ProgressCallback } from '
 import { computeTotalTokens } from './tokenManager';
 
 // Backward-compatible re-exports
-export { computeTotalTokens } from './tokenManager';
+export { computeTotalTokens, computePrimaryModelTokens, isModelMatch } from './tokenManager';
 export type { TokenTotals } from './tokenManager';
 export { parseJsonlOutput, extractTextFromAssistantMessage, extractToolUseFromMessage } from './jsonlParser';
 export type {
@@ -45,6 +45,7 @@ function handleAgentProcess(
   outputFile: string,
   onProgress: ProgressCallback | undefined,
   statePath: string | undefined,
+  model: string,
 ): Promise<AgentResult> {
   return new Promise((resolve) => {
     const state: JsonlParserState = {
@@ -54,6 +55,7 @@ function handleAgentProcess(
       toolCount: 0,
       modelUsage: undefined,
       totalTokens: 0,
+      primaryModel: model,
     };
 
     let tokenLimitReached = false;
@@ -251,7 +253,7 @@ export async function runClaudeAgent(
   claude.stdin.write(prompt);
   claude.stdin.end();
 
-  const result = await handleAgentProcess(claude, agentName, outputFile, onProgress, statePath);
+  const result = await handleAgentProcess(claude, agentName, outputFile, onProgress, statePath, model);
 
   // Retry once on ENOENT (transient path resolution failure)
   if (!result.success && result.output.includes('ENOENT')) {
@@ -264,7 +266,7 @@ export async function runClaudeAgent(
     retryProcess.stdin.write(prompt);
     retryProcess.stdin.end();
 
-    return handleAgentProcess(retryProcess, agentName, outputFile, onProgress, statePath);
+    return handleAgentProcess(retryProcess, agentName, outputFile, onProgress, statePath, model);
   }
 
   return result;
@@ -328,7 +330,7 @@ export async function runClaudeAgentWithCommand(
   const spawnOptions = { cwd: cwd || process.cwd(), env: getSafeSubprocessEnv(), stdio: ['ignore' as const, 'pipe' as const, 'pipe' as const] };
   const claude = spawn(resolvedPath, cliArgs, spawnOptions);
 
-  const result = await handleAgentProcess(claude, agentName, outputFile, onProgress, statePath);
+  const result = await handleAgentProcess(claude, agentName, outputFile, onProgress, statePath, model);
 
   // Retry once on ENOENT (transient path resolution failure)
   if (!result.success && result.output.includes('ENOENT')) {
@@ -339,7 +341,7 @@ export async function runClaudeAgentWithCommand(
     const retryPath = resolveClaudeCodePath();
     const retryProcess = spawn(retryPath, cliArgs, spawnOptions);
 
-    return handleAgentProcess(retryProcess, agentName, outputFile, onProgress, statePath);
+    return handleAgentProcess(retryProcess, agentName, outputFile, onProgress, statePath, model);
   }
 
   return result;
