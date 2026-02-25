@@ -52,10 +52,12 @@ vi.mock('../core', async (importOriginal) => {
     MAX_REVIEW_RETRY_ATTEMPTS: 3,
     MAX_TOKEN_CONTINUATIONS: 3,
     allocateRandomPort: vi.fn().mockResolvedValue(12345),
+    resolveGitHubPat: vi.fn().mockReturnValue({ pat: 'ghp_mock', method: 'pat' }),
   };
 });
 
 vi.mock('../github', () => ({
+  getRepoInfo: vi.fn().mockReturnValue({ owner: 'test', repo: 'repo' }),
   fetchGitHubIssue: vi.fn().mockResolvedValue({
     number: 1,
     title: 'Test issue',

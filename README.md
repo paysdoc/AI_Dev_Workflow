@@ -36,7 +36,7 @@ Then edit `.env` with your values:
 - `GITHUB_REPO_URL` - Your GitHub repository URL
 - `ANTHROPIC_API_KEY` - Your Anthropic API key
 - `CLAUDE_CODE_PATH` - (Optional) Path to Claude CLI, defaults to `claude`
-- `GITHUB_PAT` - (Optional) GitHub personal access token, only needed if using a different account than `gh auth login`
+- `GITHUB_PAT` - (Optional) GitHub personal access token(s), comma-separated for multiple tokens. Each token is tested against the target repo; the first one with access is used. Falls back to `gh auth login` if none match.
 - `GITHUB_WEBHOOK_SECRET` - (Optional) Required only for webhook trigger
 
 ### 4. Run ADW

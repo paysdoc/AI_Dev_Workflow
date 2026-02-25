@@ -8,7 +8,7 @@
 import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
-import { CLAUDE_CODE_PATH, GITHUB_PAT, LOGS_DIR, SPECS_DIR } from './core';
+import { CLAUDE_CODE_PATH, GITHUB_PATS, LOGS_DIR, SPECS_DIR } from './core';
 
 /**
  * Individual check result.
@@ -76,7 +76,8 @@ export function checkEnvironmentVariables(): CheckResult {
     details: {
       required: present,
       missing,
-      optional: optionalPresent
+      optional: optionalPresent,
+      patCount: GITHUB_PATS.length,
     }
   };
 }
@@ -186,11 +187,11 @@ export function checkGitHubCLI(): CheckResult {
   const authStatus = execCommand('gh auth status 2>&1');
   details.authenticated = authStatus !== null && !authStatus.includes('not logged');
 
-  // Check GITHUB_PAT
-  details.hasGitHubPAT = Boolean(GITHUB_PAT);
+  // Check GITHUB_PAT(s)
+  details.githubPatCount = GITHUB_PATS.length;
 
   let warning: string | undefined;
-  if (!details.authenticated && !details.hasGitHubPAT) {
+  if (!details.authenticated && GITHUB_PATS.length === 0) {
     warning = 'GitHub CLI not authenticated and no GITHUB_PAT set';
   }
 

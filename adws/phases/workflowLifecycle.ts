@@ -2,8 +2,8 @@
  * Workflow initialization, completion, error handling, and review phase.
  */
 
-import { log, setLogAdwId, ensureLogsDirectory, generateAdwId, type IssueClassSlashCommand, type GitHubIssue, AgentStateManager, type AgentState, type AgentIdentifier, type RecoveryState, hasUncommittedChanges, getNextStage, MAX_REVIEW_RETRY_ATTEMPTS, COST_REPORT_CURRENCIES, type ModelUsageMap, buildCostBreakdown, persistTokenCounts, allocateRandomPort, type TargetRepoInfo, ensureTargetRepoWorkspace, writeIssueCostCsv, updateProjectCostCsv } from '../core';
-import { fetchGitHubIssue, postWorkflowComment, type WorkflowContext, detectRecoveryState, getDefaultBranch, checkoutDefaultBranch, ensureWorktree, getWorktreeForBranch, mergeLatestFromDefaultBranch, copyEnvToWorktree, findWorktreeForIssue, type RepoInfo } from '../github';
+import { log, setLogAdwId, ensureLogsDirectory, generateAdwId, type IssueClassSlashCommand, type GitHubIssue, AgentStateManager, type AgentState, type AgentIdentifier, type RecoveryState, hasUncommittedChanges, getNextStage, MAX_REVIEW_RETRY_ATTEMPTS, COST_REPORT_CURRENCIES, type ModelUsageMap, buildCostBreakdown, persistTokenCounts, allocateRandomPort, type TargetRepoInfo, ensureTargetRepoWorkspace, writeIssueCostCsv, updateProjectCostCsv, resolveGitHubPat } from '../core';
+import { fetchGitHubIssue, postWorkflowComment, type WorkflowContext, detectRecoveryState, getDefaultBranch, checkoutDefaultBranch, ensureWorktree, getWorktreeForBranch, mergeLatestFromDefaultBranch, copyEnvToWorktree, findWorktreeForIssue, type RepoInfo, getRepoInfo } from '../github';
 import { runGenerateBranchNameAgent, getPlanFilePath, runReviewWithRetry } from '../agents';
 import { classifyGitHubIssue } from '../core/issueClassifier';
 
@@ -51,6 +51,22 @@ export async function initializeWorkflow(
   const repoInfo: RepoInfo | undefined = targetRepo
     ? { owner: targetRepo.owner, repo: targetRepo.repo }
     : undefined;
+
+  // Resolve the correct GitHub PAT for the target repository
+  const patRepoInfo = repoInfo ?? getRepoInfo();
+  const patResult = resolveGitHubPat(patRepoInfo.owner, patRepoInfo.repo);
+  if (patResult.method === 'pat') {
+    process.env.GH_TOKEN = patResult.pat!;
+    process.env.GITHUB_PAT = patResult.pat!;
+    const masked = `...${patResult.pat!.slice(-4)}`;
+    log(`Resolved GitHub PAT for ${patRepoInfo.owner}/${patRepoInfo.repo} (token: ${masked})`, 'success');
+  } else if (patResult.method === 'gh_auth') {
+    log(`No PAT matched ${patRepoInfo.owner}/${patRepoInfo.repo}, using gh auth login credentials`, 'info');
+  } else {
+    const msg = `Cannot access ${patRepoInfo.owner}/${patRepoInfo.repo}: no valid PAT and gh auth login insufficient`;
+    log(msg, 'error');
+    throw new Error(msg);
+  }
 
   // Fetch issue (targeting external repo if specified)
   log('Fetching GitHub issue...', 'info');

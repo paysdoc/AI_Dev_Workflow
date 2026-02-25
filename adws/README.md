@@ -35,7 +35,7 @@ Workflows can be:
 export GITHUB_REPO_URL="https://github.com/owner/repository"
 export ANTHROPIC_API_KEY="sk-ant-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 export CLAUDE_CODE_PATH="/path/to/claude"  # Optional, defaults to "claude"
-export GITHUB_PAT="ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"  # Optional, only if using different account than 'gh auth login'
+export GITHUB_PAT="ghp_token1,ghp_token2"  # Optional, comma-separated PATs for multiple repos
 ```
 
 ### 2. Install Prerequisites
@@ -397,6 +397,13 @@ npx tsx adws/adwPlan.tsx 789
 # Build based on existing plan
 npx tsx adws/adwBuild.tsx 789 <adw-id>
 ```
+
+### Multiple GitHub PATs
+When working with repositories across different organizations, provide multiple PATs as a comma-separated list:
+```bash
+export GITHUB_PAT="ghp_orgA_token,ghp_orgB_token,ghp_personal_token"
+```
+ADW tests each PAT against the target repository and uses the first one with access. If no PAT matches, it falls back to `gh auth login` credentials. If the repo is still inaccessible, the workflow terminates with an error.
 
 ### Enable automatic processing
 ```bash

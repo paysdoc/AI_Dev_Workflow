@@ -6,6 +6,7 @@ import * as dotenv from 'dotenv';
 import * as os from 'os';
 import * as path from 'path';
 import type { SlashCommand } from './issueTypes';
+import { parseGitHubPats } from './githubPatResolver';
 
 // Load environment variables from .env file at project root
 dotenv.config();
@@ -15,6 +16,9 @@ export const CLAUDE_CODE_PATH = process.env.CLAUDE_CODE_PATH || '/usr/local/bin/
 
 /** GitHub Personal Access Token (optional, gh CLI handles auth). */
 export const GITHUB_PAT = process.env.GITHUB_PAT || process.env.GITHUB_PERSONAL_ACCESS_TOKEN;
+
+/** Parsed list of GitHub PATs from the comma-separated GITHUB_PAT env var. */
+export const GITHUB_PATS: string[] = parseGitHubPats(GITHUB_PAT);
 
 /** Directory for storing workflow logs. */
 export const LOGS_DIR = path.join(process.cwd(), 'logs');
