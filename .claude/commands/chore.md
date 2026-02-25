@@ -11,7 +11,7 @@ issueJson: $3, default to empty JSON object if not provided (`{}`)
 
 - IMPORTANT: You're writing a plan to resolve a chore based on the `Chore` that will add value to the application.
 - IMPORTANT: The `Chore` describes the chore that will be resolved but remember we're not resolving the chore, we're creating the plan that will be used to resolve the chore based on the `Plan Format` below.
-- IMPORTANT: Planning and implementation must strictly adhere to the coding guidelines in `/guidelines`.
+- IMPORTANT: If a `guidelines/` directory exists in the target repository, planning and implementation must strictly adhere to those coding guidelines.
 - You're writing a plan to resolve a chore, it should be simple but we need to be thorough and precise so we don't miss anything or waste time with any second round of changes.
 - Create the plan in the `specs/` directory with filename: `issue-{issueNumber}-adw-{adwId}-sdlc_planner-{descriptive-name}.md`
   - Replace `{descriptive-name}` with a short, descriptive name based on the chore (e.g., "update-readme", "fix-tests", "refactor-auth")
@@ -20,7 +20,7 @@ issueJson: $3, default to empty JSON object if not provided (`{}`)
 - IMPORTANT: Replace every <placeholder> in the `Plan Format` with the requested value. Add as much detail as needed to accomplish the chore.
 - Consider the plan and the steps to accomplish the chore.
 - Respect requested files in the `Relevant Files` section.
-- Start your research by reading the `README.md` file and the coding guidelines in `/guidelines`.
+- Start your research by reading the `README.md` file. If a `guidelines/` directory exists in the target repository, also read those coding guidelines.
 - `adws/*.tsx` contain node tsx single file typescript scripts. So if you want to run them use `npx tsx <script_name>`.
 - When you finish creating the plan for the chore, follow the `Report` section to properly report the results of your work.
 
@@ -28,7 +28,7 @@ issueJson: $3, default to empty JSON object if not provided (`{}`)
 
 Focus on the following files:
 - `README.md` - Contains the project overview and instructions.
-- `guidelines/**` - Contains coding guidelines that must be followed.
+- `guidelines/**` - Contains coding guidelines that must be followed (target repository — may not exist in all repos). If present, read and follow these guidelines.
 - `src/app/**` - Contains Next.js App Router pages, layouts, and route handlers.
 - `src/components/**` - Contains React components.
 - `src/lib/**` - Contains utility functions and shared logic.
@@ -74,7 +74,7 @@ Execute every command to validate the chore is complete with zero regressions.
 - `npm test` - Run tests to validate the chore is complete with zero regressions
 
 ## Notes
-- IMPORTANT: strictly adhere to the coding guidelines in `/guidelines`. If necessary, refactor existing code to meet the coding guidelines as part of accomplishing the chore.
+- IMPORTANT: If a `guidelines/` directory exists in the target repository, strictly adhere to those coding guidelines. If necessary, refactor existing code to meet the coding guidelines as part of accomplishing the chore.
 <optionally list any additional notes or context that are relevant to the chore that will be helpful to the developer>
 ```
 
