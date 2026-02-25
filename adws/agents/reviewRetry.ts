@@ -35,6 +35,12 @@ export interface ReviewRetryOptions {
   issueBody?: string;
 }
 
+/**
+ * Runs the review agent with automatic retry logic on failure.
+ * On each attempt: reviews code, patches any blocker issues, commits, pushes, and re-reviews.
+ * @param opts - Review retry options including adwId, specFile, logsDir, retry limits, and optional cwd for external repos.
+ * @returns The review result including pass/fail status, cost, retry count, and remaining blockers.
+ */
 export async function runReviewWithRetry(opts: ReviewRetryOptions): Promise<ReviewRetryResult> {
   const {
     adwId, specFile, logsDir, orchestratorStatePath: statePath,

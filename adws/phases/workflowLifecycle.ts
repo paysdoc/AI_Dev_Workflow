@@ -2,8 +2,8 @@
  * Workflow initialization, completion, error handling, and review phase.
  */
 
-import { log, setLogAdwId, ensureLogsDirectory, generateAdwId, type IssueClassSlashCommand, type GitHubIssue, AgentStateManager, type AgentState, type AgentIdentifier, type RecoveryState, hasUncommittedChanges, getNextStage, MAX_REVIEW_RETRY_ATTEMPTS, COST_REPORT_CURRENCIES, type ModelUsageMap, buildCostBreakdown, persistTokenCounts, allocateRandomPort } from '../core';
-import { fetchGitHubIssue, postWorkflowComment, type WorkflowContext, detectRecoveryState, getDefaultBranch, checkoutDefaultBranch, ensureWorktree, getWorktreeForBranch, mergeLatestFromDefaultBranch, copyEnvToWorktree, findWorktreeForIssue } from '../github';
+import { log, setLogAdwId, ensureLogsDirectory, generateAdwId, type IssueClassSlashCommand, type GitHubIssue, AgentStateManager, type AgentState, type AgentIdentifier, type RecoveryState, hasUncommittedChanges, getNextStage, MAX_REVIEW_RETRY_ATTEMPTS, COST_REPORT_CURRENCIES, type ModelUsageMap, buildCostBreakdown, persistTokenCounts, allocateRandomPort, type TargetRepoInfo, ensureTargetRepoWorkspace } from '../core';
+import { fetchGitHubIssue, postWorkflowComment, type WorkflowContext, detectRecoveryState, getDefaultBranch, checkoutDefaultBranch, ensureWorktree, getWorktreeForBranch, mergeLatestFromDefaultBranch, copyEnvToWorktree, findWorktreeForIssue, type RepoInfo } from '../github';
 import { runGenerateBranchNameAgent, getPlanFilePath, runReviewWithRetry } from '../agents';
 import { classifyGitHubIssue } from '../core/issueClassifier';
 
@@ -25,21 +25,36 @@ export interface WorkflowConfig {
   ctx: WorkflowContext;
   branchName: string;
   applicationUrl: string;
+  targetRepo?: TargetRepoInfo;
+  repoInfo?: RepoInfo;
 }
 
 /**
  * Initializes a workflow: fetches issue, classifies type, sets up worktree,
  * initializes state, and detects recovery mode.
+ * @param issueNumber - The GitHub issue number to process
+ * @param adwId - Optional ADW workflow ID (recovered from prior run or generated if null)
+ * @param orchestratorName - Identifier for the orchestrator agent running the workflow
+ * @param options - Optional configuration overrides
+ * @param options.cwd - Optional working directory override
+ * @param options.issueType - Optional pre-classified issue type
+ * @param options.targetRepo - Optional target repository info for operating on an external git repository
  */
 export async function initializeWorkflow(
   issueNumber: number,
   adwId: string | null,
   orchestratorName: AgentIdentifier,
-  options?: { cwd?: string; issueType?: IssueClassSlashCommand }
+  options?: { cwd?: string; issueType?: IssueClassSlashCommand; targetRepo?: TargetRepoInfo }
 ): Promise<WorkflowConfig> {
-  // Fetch issue
+  // Resolve target repo context for API calls
+  const targetRepo = options?.targetRepo;
+  const repoInfo: RepoInfo | undefined = targetRepo
+    ? { owner: targetRepo.owner, repo: targetRepo.repo }
+    : undefined;
+
+  // Fetch issue (targeting external repo if specified)
   log('Fetching GitHub issue...', 'info');
-  const issue = await fetchGitHubIssue(issueNumber);
+  const issue = await fetchGitHubIssue(issueNumber, repoInfo);
   log(`Fetched issue: ${issue.title}`, 'success');
 
   // Detect recovery state early to reuse existing ADW ID and branch name
@@ -70,14 +85,42 @@ export async function initializeWorkflow(
   // Initialize logs early so agents can use the directory
   const logsDir = ensureLogsDirectory(resolvedAdwId);
 
+  // Setup target repo workspace if targeting an external repository
+  let targetRepoWorkspacePath: string | undefined;
+  if (targetRepo) {
+    log(`Setting up target repo workspace for ${targetRepo.owner}/${targetRepo.repo}...`, 'info');
+    targetRepoWorkspacePath = ensureTargetRepoWorkspace(targetRepo);
+    targetRepo.workspacePath = targetRepoWorkspacePath;
+    log(`Target repo workspace: ${targetRepoWorkspacePath}`, 'success');
+  }
+
   // Setup worktree with branch sync
-  const defaultBranch = getDefaultBranch();
+  // When targeting an external repo, get default branch from that repo's workspace
+  const defaultBranchCwd = targetRepoWorkspacePath || undefined;
+  const defaultBranch = getDefaultBranch(defaultBranchCwd);
   let worktreePath: string;
   let branchName = '';
   if (options?.cwd) {
     mergeLatestFromDefaultBranch(defaultBranch, options.cwd);
     worktreePath = options.cwd;
     log('Using provided worktree (merged latest code)', 'info');
+  } else if (targetRepoWorkspacePath) {
+    // For external repos, create worktrees within the target repo workspace
+    // Reuse recovered branch name or generate a new one
+    if (recoveryState.branchName) {
+      branchName = recoveryState.branchName;
+      log(`Reusing branch from previous workflow: ${branchName}`, 'info');
+    } else {
+      const branchResult = await runGenerateBranchNameAgent(
+        issueType, issue, logsDir
+      );
+      branchName = branchResult.branchName;
+      log(`Branch name generated: ${branchName}`, 'success');
+    }
+
+    // Create worktree within the target repo workspace
+    worktreePath = ensureWorktree(branchName, defaultBranch, targetRepoWorkspacePath);
+    log(`Worktree path (target repo): ${worktreePath}`, 'info');
   } else {
     // Try to find an existing worktree by issue type and number first
     const issueWorktree = findWorktreeForIssue(issueType, issueNumber);
@@ -151,9 +194,9 @@ export async function initializeWorkflow(
 
     const nextStage = getNextStage(recoveryState.lastCompletedStage);
     ctx.resumeFrom = nextStage;
-    postWorkflowComment(issueNumber, 'resuming', ctx);
+    postWorkflowComment(issueNumber, 'resuming', ctx, repoInfo);
   } else {
-    postWorkflowComment(issueNumber, 'starting', ctx);
+    postWorkflowComment(issueNumber, 'starting', ctx, repoInfo);
   }
 
   // Allocate a random port for the dedicated dev server instance
@@ -176,6 +219,8 @@ export async function initializeWorkflow(
     ctx,
     branchName,
     applicationUrl,
+    targetRepo,
+    repoInfo,
   };
 }
 
@@ -188,7 +233,7 @@ export async function completeWorkflow(
   additionalMetadata?: Record<string, unknown>,
   modelUsage?: ModelUsageMap,
 ): Promise<void> {
-  const { orchestratorStatePath, orchestratorName, issueNumber, ctx } = config;
+  const { orchestratorStatePath, orchestratorName, issueNumber, ctx, repoInfo } = config;
 
   // Build cost breakdown if model usage data is available
   if (modelUsage && Object.keys(modelUsage).length > 0) {
@@ -205,7 +250,7 @@ export async function completeWorkflow(
   });
   AgentStateManager.appendLog(orchestratorStatePath, 'Workflow completed successfully');
 
-  postWorkflowComment(issueNumber, 'completed', ctx);
+  postWorkflowComment(issueNumber, 'completed', ctx, repoInfo);
 
   log('===================================', 'info');
   log(`${orchestratorName} workflow completed!`, 'success');
@@ -224,14 +269,14 @@ export async function executeReviewPhase(config: WorkflowConfig): Promise<{
   reviewPassed: boolean;
   totalRetries: number;
 }> {
-  const { orchestratorStatePath, issueNumber, issue, issueType, ctx, logsDir, worktreePath, branchName, adwId, applicationUrl } = config;
+  const { orchestratorStatePath, issueNumber, issue, issueType, ctx, logsDir, worktreePath, branchName, adwId, applicationUrl, repoInfo } = config;
 
   log('Phase: Review', 'info');
   AgentStateManager.appendLog(orchestratorStatePath, 'Starting review phase');
 
   const specFile = getPlanFilePath(issueNumber, worktreePath);
 
-  postWorkflowComment(issueNumber, 'review_running', ctx);
+  postWorkflowComment(issueNumber, 'review_running', ctx, repoInfo);
 
   const reviewResult = await runReviewWithRetry({
     adwId,
@@ -244,7 +289,7 @@ export async function executeReviewPhase(config: WorkflowConfig): Promise<{
     issueContext: JSON.stringify(issue),
     onReviewFailed: (attempt, maxAttempts) => {
       log(`Review failed (attempt ${attempt}/${maxAttempts}), patching...`, 'info');
-      postWorkflowComment(issueNumber, 'review_patching', ctx);
+      postWorkflowComment(issueNumber, 'review_patching', ctx, repoInfo);
     },
     cwd: worktreePath,
     applicationUrl,
@@ -254,13 +299,13 @@ export async function executeReviewPhase(config: WorkflowConfig): Promise<{
   if (reviewResult.passed) {
     log('Review passed!', 'success');
     AgentStateManager.appendLog(orchestratorStatePath, 'Review passed');
-    postWorkflowComment(issueNumber, 'review_passed', ctx);
+    postWorkflowComment(issueNumber, 'review_passed', ctx, repoInfo);
   } else {
     const errorMsg = `Review failed after ${MAX_REVIEW_RETRY_ATTEMPTS} attempts with ${reviewResult.blockerIssues.length} remaining blocker(s)`;
     log(errorMsg, 'error');
     AgentStateManager.appendLog(orchestratorStatePath, errorMsg);
     ctx.errorMessage = errorMsg;
-    postWorkflowComment(issueNumber, 'review_failed', ctx);
+    postWorkflowComment(issueNumber, 'review_failed', ctx, repoInfo);
 
     AgentStateManager.writeState(orchestratorStatePath, {
       execution: AgentStateManager.completeExecution(
@@ -290,14 +335,14 @@ export function handleWorkflowError(
   costUsd?: number,
   modelUsage?: ModelUsageMap,
 ): never {
-  const { orchestratorStatePath, orchestratorName, issueNumber, ctx } = config;
+  const { orchestratorStatePath, orchestratorName, issueNumber, ctx, repoInfo } = config;
 
   if (costUsd !== undefined && modelUsage) {
     persistTokenCounts(orchestratorStatePath, costUsd, modelUsage);
   }
 
   ctx.errorMessage = String(error);
-  postWorkflowComment(issueNumber, 'error', ctx);
+  postWorkflowComment(issueNumber, 'error', ctx, repoInfo);
 
   AgentStateManager.writeState(orchestratorStatePath, {
     execution: AgentStateManager.completeExecution(

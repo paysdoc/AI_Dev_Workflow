@@ -21,6 +21,7 @@ import type { WorkflowConfig } from './workflowLifecycle';
 
 /**
  * Executes the Document phase: generate feature documentation.
+ * Uses `config.repoInfo` for external repository API calls when targeting a different repo.
  *
  * @param config - Workflow configuration
  * @param screenshotsDir - Optional directory containing review screenshots
@@ -29,7 +30,7 @@ export async function executeDocumentPhase(
   config: WorkflowConfig,
   screenshotsDir?: string,
 ): Promise<{ costUsd: number; modelUsage: ModelUsageMap }> {
-  const { orchestratorStatePath, adwId, issueNumber, issueType, issue, ctx, worktreePath, logsDir } = config;
+  const { orchestratorStatePath, adwId, issueNumber, issueType, issue, ctx, worktreePath, logsDir, repoInfo } = config;
 
   let costUsd = 0;
   let modelUsage = emptyModelUsageMap();
@@ -37,7 +38,7 @@ export async function executeDocumentPhase(
   log('Phase: Document', 'info');
   AgentStateManager.appendLog(orchestratorStatePath, 'Starting document phase');
 
-  postWorkflowComment(issueNumber, 'document_running', ctx);
+  postWorkflowComment(issueNumber, 'document_running', ctx, repoInfo);
 
   const specFile = getPlanFilePath(issueNumber, worktreePath);
 
@@ -72,7 +73,7 @@ export async function executeDocumentPhase(
     });
     const errorMsg = `Document Agent failed: ${result.output}`;
     AgentStateManager.appendLog(orchestratorStatePath, errorMsg);
-    postWorkflowComment(issueNumber, 'document_failed', ctx);
+    postWorkflowComment(issueNumber, 'document_failed', ctx, repoInfo);
     throw new Error(errorMsg);
   }
 
@@ -88,7 +89,7 @@ export async function executeDocumentPhase(
   await runCommitAgent('document-agent', issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body);
 
   AgentStateManager.appendLog(orchestratorStatePath, `Documentation created: ${result.docPath}`);
-  postWorkflowComment(issueNumber, 'document_completed', ctx);
+  postWorkflowComment(issueNumber, 'document_completed', ctx, repoInfo);
   log('Document phase completed', 'success');
 
   return { costUsd, modelUsage };

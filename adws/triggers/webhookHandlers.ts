@@ -7,6 +7,7 @@
  */
 
 import { log, PullRequestWebhookPayload } from '../core';
+import type { RepoInfo } from '../github/githubApi';
 import { closeIssue, formatIssueClosureComment } from '../github/githubApi';
 import { removeWorktree } from '../github/worktreeOperations';
 import { deleteRemoteBranch } from '../github/gitOperations';
@@ -75,11 +76,17 @@ export async function handlePullRequestEvent(payload: PullRequestWebhookPayload)
 
   log(`Found linked issue #${issueNumber} in PR #${prNumber}`);
 
+  // Build repo info from the webhook payload so API calls target the correct repo
+  const repoInfo: RepoInfo = {
+    owner: repository.owner.login,
+    repo: repository.name,
+  };
+
   // Create closure comment
   const comment = formatIssueClosureComment(prNumber, prUrl, wasMerged);
 
   // Close the issue
-  const closed = await closeIssue(issueNumber, comment);
+  const closed = await closeIssue(issueNumber, comment, repoInfo);
 
   if (closed) {
     log(`Successfully closed issue #${issueNumber} after PR #${prNumber} was ${wasMerged ? 'merged' : 'closed'}`);

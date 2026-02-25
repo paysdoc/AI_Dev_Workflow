@@ -31,9 +31,10 @@ import { buildContinuationPrompt } from './planPhase';
  * Includes token limit recovery: when the agent approaches the token limit,
  * it is gracefully terminated, progress is saved, and a new agent is spawned
  * with context from the previous run. Repeats up to MAX_TOKEN_CONTINUATIONS times.
+ * Uses `config.repoInfo` for external repository API calls when targeting a different repo.
  */
 export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costUsd: number; modelUsage: ModelUsageMap }> {
-  const { recoveryState, orchestratorStatePath, orchestratorName, adwId, issueNumber, issue, issueType, ctx, worktreePath, logsDir } = config;
+  const { recoveryState, orchestratorStatePath, orchestratorName, adwId, issueNumber, issue, issueType, ctx, worktreePath, logsDir, repoInfo } = config;
 
   // Read plan content
   const planPath = path.join(worktreePath, getPlanFilePath(issueNumber, worktreePath));
@@ -51,7 +52,7 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
   const currentBranch = ctx.branchName || '';
 
   if (shouldExecuteStage('implemented', recoveryState)) {
-    postWorkflowComment(issueNumber, 'implementing', ctx);
+    postWorkflowComment(issueNumber, 'implementing', ctx, repoInfo);
     log('Running Build Agent...', 'info');
 
     let currentPlanContent = planContent;
@@ -88,7 +89,7 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
 
         const now = Date.now();
         if (now - lastProgressUpdate >= PROGRESS_UPDATE_INTERVAL_MS) {
-          postWorkflowComment(issueNumber, 'build_progress', ctx);
+          postWorkflowComment(issueNumber, 'build_progress', ctx, repoInfo);
           lastProgressUpdate = now;
         }
       };
@@ -123,7 +124,7 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
         // Post recovery comment
         ctx.tokenContinuationNumber = continuationNumber;
         ctx.tokenUsage = buildResult.tokenUsage;
-        postWorkflowComment(issueNumber, 'token_limit_recovery', ctx);
+        postWorkflowComment(issueNumber, 'token_limit_recovery', ctx, repoInfo);
 
         // Build continuation prompt with previous output
         currentPlanContent = buildContinuationPrompt(planContent, buildResult.output);
@@ -155,14 +156,14 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
     }
 
     AgentStateManager.appendLog(orchestratorStatePath, 'Build completed');
-    postWorkflowComment(issueNumber, 'implemented', ctx);
+    postWorkflowComment(issueNumber, 'implemented', ctx, repoInfo);
   } else {
     log('Skipping Build Agent (already completed)', 'info');
   }
 
   // Commit implementation step
   if (shouldExecuteStage('implementation_committing', recoveryState)) {
-    postWorkflowComment(issueNumber, 'implementation_committing', ctx);
+    postWorkflowComment(issueNumber, 'implementation_committing', ctx, repoInfo);
     await runCommitAgent('build-agent', issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body);
   } else {
     log('Skipping implementation commit (already completed)', 'info');

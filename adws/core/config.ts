@@ -3,6 +3,7 @@
  */
 
 import * as dotenv from 'dotenv';
+import * as os from 'os';
 import * as path from 'path';
 import type { SlashCommand } from './issueTypes';
 
@@ -32,6 +33,9 @@ export const MAX_REVIEW_RETRY_ATTEMPTS = parseInt(process.env.MAX_REVIEW_RETRY_A
 
 /** Directory for storing git worktrees. */
 export const WORKTREES_DIR = path.join(process.cwd(), '.worktrees');
+
+/** Directory for storing cloned target repository workspaces. */
+export const TARGET_REPOS_DIR = process.env.TARGET_REPOS_DIR || path.join(os.homedir(), '.adw', 'repos');
 
 /** Currencies to include in cost reports (comma-separated env var, default: EUR). */
 export const COST_REPORT_CURRENCIES: readonly string[] = (process.env.COST_REPORT_CURRENCIES || 'EUR')

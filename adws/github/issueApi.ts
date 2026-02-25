@@ -4,7 +4,7 @@
 
 import { execSync } from 'child_process';
 import { GitHubIssue, IssueCommentSummary, log } from '../core';
-import { getRepoInfo } from './githubApi';
+import { getRepoInfo, type RepoInfo } from './githubApi';
 
 interface RawGitHubUser {
   login?: string;
@@ -103,9 +103,11 @@ function transformIssueResponse(rawIssue: RawGitHubIssue): GitHubIssue {
 
 /**
  * Fetches a GitHub issue by number using the gh CLI.
+ * @param issueNumber - The issue number to fetch
+ * @param repoInfo - Optional repository info override for targeting external repositories. Falls back to local git remote when not provided.
  */
-export async function fetchGitHubIssue(issueNumber: number): Promise<GitHubIssue> {
-  const { owner, repo } = getRepoInfo();
+export async function fetchGitHubIssue(issueNumber: number, repoInfo?: RepoInfo): Promise<GitHubIssue> {
+  const { owner, repo } = repoInfo ?? getRepoInfo();
 
   try {
     const issueJson = execSync(
@@ -122,9 +124,12 @@ export async function fetchGitHubIssue(issueNumber: number): Promise<GitHubIssue
 
 /**
  * Posts a comment on a GitHub issue.
+ * @param issueNumber - The issue number to comment on
+ * @param body - The comment body text
+ * @param repoInfo - Optional repository info override for targeting external repositories.
  */
-export function commentOnIssue(issueNumber: number, body: string): void {
-  const { owner, repo } = getRepoInfo();
+export function commentOnIssue(issueNumber: number, body: string, repoInfo?: RepoInfo): void {
+  const { owner, repo } = repoInfo ?? getRepoInfo();
 
   try {
     execSync(
@@ -159,9 +164,11 @@ ${additionalInfo}
 /**
  * Fetches the current state of a GitHub issue.
  * Returns the issue state ('OPEN' or 'CLOSED').
+ * @param issueNumber - The issue number to check
+ * @param repoInfo - Optional repository info override for targeting external repositories.
  */
-export function getIssueState(issueNumber: number): string {
-  const { owner, repo } = getRepoInfo();
+export function getIssueState(issueNumber: number, repoInfo?: RepoInfo): string {
+  const { owner, repo } = repoInfo ?? getRepoInfo();
 
   try {
     const json = execSync(
@@ -178,16 +185,17 @@ export function getIssueState(issueNumber: number): string {
 
 /**
  * Closes a GitHub issue with an optional comment.
- * @param issueNumber The issue number to close
- * @param comment Optional comment to post before closing
+ * @param issueNumber - The issue number to close
+ * @param comment - Optional comment to post before closing
+ * @param repoInfo - Optional repository info override for targeting external repositories.
  * @returns true if the issue was closed, false if already closed or error occurred
  */
-export async function closeIssue(issueNumber: number, comment?: string): Promise<boolean> {
-  const { owner, repo } = getRepoInfo();
+export async function closeIssue(issueNumber: number, comment?: string, repoInfo?: RepoInfo): Promise<boolean> {
+  const { owner, repo } = repoInfo ?? getRepoInfo();
 
   try {
     // Check if issue is already closed
-    const state = getIssueState(issueNumber);
+    const state = getIssueState(issueNumber, repoInfo);
     if (state === 'CLOSED') {
       log(`Issue #${issueNumber} is already closed, skipping`, 'info');
       return false;
@@ -195,7 +203,7 @@ export async function closeIssue(issueNumber: number, comment?: string): Promise
 
     // Post comment before closing if provided
     if (comment) {
-      commentOnIssue(issueNumber, comment);
+      commentOnIssue(issueNumber, comment, repoInfo);
     }
 
     // Close the issue
@@ -214,9 +222,11 @@ export async function closeIssue(issueNumber: number, comment?: string): Promise
 /**
  * Fetches all comments on a GitHub issue via the REST API.
  * Returns comments with numeric IDs needed for deletion.
+ * @param issueNumber - The issue number to fetch comments for
+ * @param repoInfo - Optional repository info override for targeting external repositories.
  */
-export function fetchIssueCommentsRest(issueNumber: number): IssueCommentSummary[] {
-  const { owner, repo } = getRepoInfo();
+export function fetchIssueCommentsRest(issueNumber: number, repoInfo?: RepoInfo): IssueCommentSummary[] {
+  const { owner, repo } = repoInfo ?? getRepoInfo();
   try {
     const json = execSync(
       `gh api repos/${owner}/${repo}/issues/${issueNumber}/comments --paginate`,
@@ -236,9 +246,11 @@ export function fetchIssueCommentsRest(issueNumber: number): IssueCommentSummary
 
 /**
  * Deletes a single issue comment by its REST API numeric ID.
+ * @param commentId - The numeric ID of the comment to delete
+ * @param repoInfo - Optional repository info override for targeting external repositories.
  */
-export function deleteIssueComment(commentId: number): void {
-  const { owner, repo } = getRepoInfo();
+export function deleteIssueComment(commentId: number, repoInfo?: RepoInfo): void {
+  const { owner, repo } = repoInfo ?? getRepoInfo();
   try {
     execSync(
       `gh api -X DELETE repos/${owner}/${repo}/issues/comments/${commentId}`,

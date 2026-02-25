@@ -3,7 +3,7 @@
  */
 
 // Configuration
-export { CLAUDE_CODE_PATH, GITHUB_PAT, LOGS_DIR, SPECS_DIR, AGENTS_STATE_DIR, MAX_TEST_RETRY_ATTEMPTS, MAX_REVIEW_RETRY_ATTEMPTS, WORKTREES_DIR, COST_REPORT_CURRENCIES, MAX_THINKING_TOKENS, TOKEN_LIMIT_THRESHOLD, MAX_TOKEN_CONTINUATIONS, getSafeSubprocessEnv, SLASH_COMMAND_MODEL_MAP, SLASH_COMMAND_MODEL_MAP_FAST, getModelForCommand, isFastMode } from './config';
+export { CLAUDE_CODE_PATH, GITHUB_PAT, LOGS_DIR, SPECS_DIR, AGENTS_STATE_DIR, MAX_TEST_RETRY_ATTEMPTS, MAX_REVIEW_RETRY_ATTEMPTS, WORKTREES_DIR, TARGET_REPOS_DIR, COST_REPORT_CURRENCIES, MAX_THINKING_TOKENS, TOKEN_LIMIT_THRESHOLD, MAX_TOKEN_CONTINUATIONS, getSafeSubprocessEnv, SLASH_COMMAND_MODEL_MAP, SLASH_COMMAND_MODEL_MAP_FAST, getModelForCommand, isFastMode } from './config';
 
 // Data types
 export type {
@@ -34,6 +34,7 @@ export type {
   AgentState,
   IssueCommentSummary,
   TokenUsageSnapshot,
+  TargetRepoInfo,
 } from './dataTypes';
 
 // Prefix maps for consistent branch naming and commit messages
@@ -50,6 +51,7 @@ export {
   ensureLogsDirectory,
   ensureAgentStateDirectory,
   getAgentStatePath,
+  parseTargetRepoArgs,
   type LogLevel,
 } from './utils';
 
@@ -95,4 +97,13 @@ export { parseAdwClassificationOutput, classifyWithAdwCommand, classifyIssueForT
 
 // Port allocator
 export { allocateRandomPort, isPortAvailable } from './portAllocator';
+
+// Target repo manager
+export {
+  getTargetRepoWorkspacePath,
+  isRepoCloned,
+  cloneTargetRepo,
+  pullLatestDefaultBranch,
+  ensureTargetRepoWorkspace,
+} from './targetRepoManager';
 

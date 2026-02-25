@@ -231,7 +231,19 @@ export interface PullRequestWebhookPayload {
     name: string;
     owner: { login: string };
     full_name: string;
+    clone_url?: string;
   };
+}
+
+/**
+ * Target repository context for external repo workflows.
+ * Carries repository identity and workspace location through the workflow.
+ */
+export interface TargetRepoInfo {
+  owner: string;
+  repo: string;
+  cloneUrl: string;
+  workspacePath?: string;
 }
 
 /**

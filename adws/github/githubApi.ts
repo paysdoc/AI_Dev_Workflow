@@ -31,6 +31,32 @@ export function getRepoInfo(): RepoInfo {
   }
 }
 
+/**
+ * Parses owner and repo from a GitHub URL (HTTPS or SSH).
+ */
+export function getRepoInfoFromUrl(repoUrl: string): RepoInfo {
+  const httpsMatch = repoUrl.match(/github\.com\/([^/]+)\/([^/.]+)/);
+  const sshMatch = repoUrl.match(/git@github\.com:([^/]+)\/([^/.]+)/);
+  const match = httpsMatch || sshMatch;
+
+  if (!match) {
+    throw new Error(`Could not parse GitHub URL: ${repoUrl}`);
+  }
+
+  return { owner: match[1], repo: match[2] };
+}
+
+/**
+ * Parses owner and repo from a GitHub repository full name (e.g., "owner/repo").
+ */
+export function getRepoInfoFromPayload(repoFullName: string): RepoInfo {
+  const parts = repoFullName.split('/');
+  if (parts.length !== 2 || !parts[0] || !parts[1]) {
+    throw new Error(`Invalid repository full name: ${repoFullName}`);
+  }
+  return { owner: parts[0], repo: parts[1] };
+}
+
 // Re-export issue API functions
 export {
   fetchGitHubIssue,

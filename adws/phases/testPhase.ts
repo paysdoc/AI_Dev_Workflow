@@ -21,6 +21,7 @@ import type { WorkflowConfig } from './workflowLifecycle';
 
 /**
  * Executes the Test phase: run unit tests and E2E tests with retry.
+ * Uses `config.repoInfo` for external repository API calls when targeting a different repo.
  */
 export async function executeTestPhase(config: WorkflowConfig): Promise<{
   costUsd: number;
@@ -29,7 +30,7 @@ export async function executeTestPhase(config: WorkflowConfig): Promise<{
   e2eTestsPassed: boolean;
   totalRetries: number;
 }> {
-  const { orchestratorStatePath, issueNumber, issue, ctx, logsDir, worktreePath, applicationUrl } = config;
+  const { orchestratorStatePath, issueNumber, issue, ctx, logsDir, worktreePath, applicationUrl, repoInfo } = config;
   let costUsd = 0;
   let modelUsage = emptyModelUsageMap();
 
@@ -52,7 +53,7 @@ export async function executeTestPhase(config: WorkflowConfig): Promise<{
     log(errorMsg, 'error');
     AgentStateManager.appendLog(orchestratorStatePath, errorMsg);
     ctx.errorMessage = errorMsg;
-    postWorkflowComment(issueNumber, 'error', ctx);
+    postWorkflowComment(issueNumber, 'error', ctx, repoInfo);
 
     AgentStateManager.writeState(orchestratorStatePath, {
       execution: AgentStateManager.completeExecution(
@@ -85,7 +86,7 @@ export async function executeTestPhase(config: WorkflowConfig): Promise<{
     log(errorMsg, 'error');
     AgentStateManager.appendLog(orchestratorStatePath, errorMsg);
     ctx.errorMessage = errorMsg;
-    postWorkflowComment(issueNumber, 'error', ctx);
+    postWorkflowComment(issueNumber, 'error', ctx, repoInfo);
 
     AgentStateManager.writeState(orchestratorStatePath, {
       execution: AgentStateManager.completeExecution(

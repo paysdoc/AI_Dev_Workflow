@@ -36,10 +36,11 @@ function sanitizeBranchName(branchName: string): string {
  * This ensures worktree paths are always relative to the actual git repository,
  * not process.cwd() which may differ when running from different contexts.
  *
+ * @param baseRepoPath - Optional base repo path (for external target repos)
  * @returns The absolute path to the worktrees directory
  */
-export function getWorktreesDir(): string {
-  const mainRepoPath = getMainRepoPath();
+export function getWorktreesDir(baseRepoPath?: string): string {
+  const mainRepoPath = baseRepoPath || getMainRepoPath();
   return path.join(mainRepoPath, '.worktrees');
 }
 
@@ -47,12 +48,13 @@ export function getWorktreesDir(): string {
  * Gets the path of the main repository (not a worktree).
  * The main repository is the first worktree listed that doesn't contain '.worktrees'.
  *
+ * @param cwd - Optional working directory for the git command
  * @returns The absolute path to the main repository
  * @throws Error if unable to determine the main repository path
  */
-export function getMainRepoPath(): string {
+export function getMainRepoPath(cwd?: string): string {
   try {
-    const output = execSync('git worktree list --porcelain', { encoding: 'utf-8' });
+    const output = execSync('git worktree list --porcelain', { encoding: 'utf-8', cwd });
     const lines = output.split('\n');
 
     for (const line of lines) {
@@ -197,11 +199,12 @@ export function freeBranchFromMainRepo(branchName: string): void {
  * Returns the path where a worktree for the given branch should be located.
  *
  * @param branchName - The name of the branch
+ * @param baseRepoPath - Optional base repo path (for external target repos)
  * @returns The absolute path to the worktree directory
  */
-export function getWorktreePath(branchName: string): string {
+export function getWorktreePath(branchName: string, baseRepoPath?: string): string {
   const sanitizedName = sanitizeBranchName(branchName);
-  return path.join(getWorktreesDir(), sanitizedName);
+  return path.join(getWorktreesDir(baseRepoPath), sanitizedName);
 }
 
 /**

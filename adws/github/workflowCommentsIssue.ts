@@ -3,7 +3,7 @@
  */
 
 import { WorkflowStage, IssueClassSlashCommand, log, type CostBreakdown, formatCostBreakdownMarkdown, type TokenUsageSnapshot } from '../core';
-import { commentOnIssue } from './githubApi';
+import { commentOnIssue, type RepoInfo } from './githubApi';
 import { ADW_SIGNATURE, truncateText } from './workflowCommentsBase';
 
 /** Context information for issue workflow comments. */
@@ -153,10 +153,10 @@ export function formatWorkflowComment(stage: WorkflowStage, ctx: WorkflowContext
 }
 
 /** Posts a workflow comment to the GitHub issue. */
-export function postWorkflowComment(issueNumber: number, stage: WorkflowStage, ctx: WorkflowContext): void {
+export function postWorkflowComment(issueNumber: number, stage: WorkflowStage, ctx: WorkflowContext, repoInfo?: RepoInfo): void {
   try {
     const comment = formatWorkflowComment(stage, ctx);
-    commentOnIssue(issueNumber, comment);
+    commentOnIssue(issueNumber, comment, repoInfo);
   } catch (error) {
     log(`Failed to post workflow comment for stage '${stage}': ${error}`, 'error');
   }

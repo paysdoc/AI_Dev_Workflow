@@ -23,16 +23,17 @@ import type { WorkflowConfig } from './workflowLifecycle';
 
 /**
  * Executes the Plan phase: classify issue, create branch, run plan agent, commit plan.
+ * Uses `config.repoInfo` for external repository API calls when targeting a different repo.
  */
 export async function executePlanPhase(config: WorkflowConfig): Promise<{ costUsd: number; modelUsage: ModelUsageMap }> {
-  const { recoveryState, orchestratorStatePath, orchestratorName, adwId, issueNumber, issue, issueType, ctx, worktreePath, logsDir } = config;
+  const { recoveryState, orchestratorStatePath, orchestratorName, adwId, issueNumber, issue, issueType, ctx, worktreePath, logsDir, repoInfo } = config;
 
   // Classify step
   if (shouldExecuteStage('classified', recoveryState)) {
     AgentStateManager.writeState(orchestratorStatePath, { issueClass: issueType });
     AgentStateManager.appendLog(orchestratorStatePath, `Issue classified as: ${issueType}`);
     ctx.issueType = issueType;
-    postWorkflowComment(issueNumber, 'classified', ctx);
+    postWorkflowComment(issueNumber, 'classified', ctx, repoInfo);
   }
 
   // Branch was already created during initializeWorkflow()
@@ -43,7 +44,7 @@ export async function executePlanPhase(config: WorkflowConfig): Promise<{ costUs
 
     AgentStateManager.writeState(orchestratorStatePath, { branchName: currentBranch });
     AgentStateManager.appendLog(orchestratorStatePath, `Branch created: ${currentBranch}`);
-    postWorkflowComment(issueNumber, 'branch_created', ctx);
+    postWorkflowComment(issueNumber, 'branch_created', ctx, repoInfo);
   } else {
     log('Skipping branch creation (already completed)', 'info');
     if (recoveryState.branchName) {
@@ -58,7 +59,7 @@ export async function executePlanPhase(config: WorkflowConfig): Promise<{ costUs
   let modelUsage = emptyModelUsageMap();
 
   if (shouldExecuteStage('plan_created', recoveryState) && !planFileExists(issueNumber, worktreePath)) {
-    postWorkflowComment(issueNumber, 'plan_building', ctx);
+    postWorkflowComment(issueNumber, 'plan_building', ctx, repoInfo);
     log('Running Plan Agent...', 'info');
 
     const planAgentStatePath = AgentStateManager.initializeState(adwId, 'plan-agent', orchestratorStatePath);
@@ -107,7 +108,7 @@ export async function executePlanPhase(config: WorkflowConfig): Promise<{ costUs
       log('Could not read plan file for summary, using agent output', 'info');
     }
     ctx.planOutput = planFileContent || planResult.output;
-    postWorkflowComment(issueNumber, 'plan_created', ctx);
+    postWorkflowComment(issueNumber, 'plan_created', ctx, repoInfo);
     costUsd = planResult.totalCostUsd || 0;
     if (planResult.modelUsage) modelUsage = planResult.modelUsage;
   } else {
@@ -116,7 +117,7 @@ export async function executePlanPhase(config: WorkflowConfig): Promise<{ costUs
 
   // Commit plan step
   if (shouldExecuteStage('plan_committing', recoveryState)) {
-    postWorkflowComment(issueNumber, 'plan_committing', ctx);
+    postWorkflowComment(issueNumber, 'plan_committing', ctx, repoInfo);
     await runCommitAgent('plan-orchestrator', issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body);
   } else {
     log('Skipping plan commit (already completed)', 'info');
