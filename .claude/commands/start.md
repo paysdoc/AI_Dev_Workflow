@@ -10,9 +10,12 @@ Check to see if a process is already running on port PORT.
 
 If it is just open it in the browser with `open http://localhost:PORT`.
 
-If there is no process running on port PORT, run these commands:
+If there is no process running on port PORT:
+Read `.adw/commands.md` from the current working directory for the dev server start command.
 
-Run `npm run dev &`
+If `.adw/commands.md` exists, use the command under `## Start Dev Server`, substituting `{PORT}` if needed. Run it in the background.
+If `.adw/commands.md` does not exist, use: `npm run dev &`
+
 Run `sleep 3`
 Run `open http://localhost:PORT`
 

@@ -547,6 +547,7 @@ app_docs/                         # Generated documentation
 - `workflowTypes.ts` - Workflow-related types
 - `dataTypes.ts` - General data type definitions
 - `config.ts` - Configuration management
+- `projectConfig.ts` - Target repo `.adw/` project configuration loader
 - `utils.ts` - Utility functions
 - `issueClassifier.ts` - Issue classification logic
 
@@ -579,6 +580,7 @@ app_docs/                         # Generated documentation
 - `adwPlanBuildDocument.tsx` - Plan + build + document orchestration
 - `adwPlanBuildTestReview.tsx` - Plan + build + test + review orchestration
 - `adwSdlc.tsx` - Full SDLC orchestration (plan + build + test + review + document)
+- `adwInit.tsx` - Initialize `.adw/` project configuration in target repos
 
 **Triggers** (`triggers/`):
 - `trigger_cron.ts` - Cron-based polling monitor
@@ -589,3 +591,62 @@ app_docs/                         # Generated documentation
 {type}-{issueNumber}-{adwId}-{slug}
 ```
 Example: `feat-456-e5f6g7h8-add-user-authentication`
+
+### Project Configuration (`.adw/` Directory)
+
+Target repositories can provide project-specific configuration in a `.adw/` directory. When present, ADW slash commands read from these files instead of using hardcoded defaults. When the `.adw/` directory is absent, all commands fall back to backward-compatible defaults.
+
+**Configuration Files:**
+
+- **`.adw/commands.md`** — Maps command placeholders to actual implementations using markdown headings:
+  - `## Package Manager` — e.g., `npm`, `pip`, `cargo`
+  - `## Install Dependencies` — e.g., `npm install`, `pip install -r requirements.txt`
+  - `## Run Linter` — e.g., `npm run lint`, `ruff check .`
+  - `## Type Check` — e.g., `npx tsc --noEmit`, `mypy .`
+  - `## Additional Type Checks` — Extra type checking commands
+  - `## Run Tests` — e.g., `npm test`, `pytest`
+  - `## Run Build` — e.g., `npm run build`, `cargo build`
+  - `## Start Dev Server` — e.g., `npm run dev`, `python manage.py runserver`
+  - `## Prepare App` — Multi-step app preparation instructions (supports `{PORT}` placeholder)
+  - `## Run E2E Tests` — e.g., `npx playwright test`, `cypress run`
+  - `## Library Install Command` — e.g., `npm install`, `pip install`
+  - `## Script Execution` — e.g., `npx tsx`, `python`
+
+- **`.adw/project.md`** — Describes the project structure and context:
+  - `## Project Overview` — Brief description of the project, language, and framework
+  - `## Relevant Files` — File paths and descriptions for planning commands
+  - `## Framework Notes` — Framework-specific instructions for the ADW
+  - `## Library Install Command` — How to install new libraries
+  - `## Script Execution` — How to run project scripts
+
+- **`.adw/conditional_docs.md`** — Defines conditional documentation paths and conditions for the target project's module boundaries
+
+**Bootstrapping:**
+
+Use the `/adw_init` command (via `adwInit.tsx`) to automatically generate `.adw/` configuration for a target repository:
+
+```bash
+# Initialize .adw/ config for issue #42
+npx tsx adws/adwInit.tsx 42
+
+# Initialize for a target repo
+npx tsx adws/adwInit.tsx 42 --target-repo https://github.com/owner/repo
+```
+
+The init command analyzes the target codebase to detect language, framework, package manager, and project conventions, then generates all three config files.
+
+**Examples by Project Type:**
+
+| Project Type | Package Manager | Run Tests | Start Dev Server |
+|---|---|---|---|
+| Node.js/Next.js | `npm` | `npm test` | `npm run dev` |
+| Python/Django | `pip` | `pytest` | `python manage.py runserver` |
+| Rust | `cargo` | `cargo test` | `cargo run` |
+| Go | `go` | `go test ./...` | `go run .` |
+
+**Runtime Loading:**
+
+The `projectConfig.ts` module loads configuration during `initializeWorkflow()`. The `ProjectConfig` object is stored in `WorkflowConfig` and available throughout the workflow. The `loadProjectConfig(targetRepoPath)` function:
+1. Checks for `.adw/` directory at the target repo path
+2. Parses each markdown file using heading-based section extraction
+3. Returns defaults matching current hardcoded values when files are absent

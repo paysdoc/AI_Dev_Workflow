@@ -21,20 +21,16 @@ Create a new plan at `specs/issue-{issueNumber}-plan.md` (where `{issueNumber}` 
 - Consider the plan and the steps to accomplish the review.
 - Respect requested files in the `Relevant Files` section.
 - Start your research by reading the `README.md` file. If a `guidelines/` directory exists in the target repository, also read those coding guidelines.
-- `adws/*.tsx` contain node tsx single file typescript scripts. So if you want to run them use `npx tsx <script_name>`.
+- `adws/*.tsx` contain node tsx single file typescript scripts. Read `.adw/commands.md` for the script execution command (under `## Script Execution`). If `.adw/commands.md` does not exist, use `npx tsx <script_name>`.
 - When you finish creating the plan for the review, follow the `Report` section to properly report the results of your work.
 
 ## Relevant Files
 
-Focus on the following files:
+Read `.adw/project.md` from the current working directory to determine the relevant files for this project. Use the `## Relevant Files` section from that file.
+
+If `.adw/project.md` does not exist, use these defaults:
 - `README.md` - Contains the project overview and instructions.
 - `guidelines/**` - Contains coding guidelines that must be followed (target repository — may not exist in all repos). If present, read and follow these guidelines.
-- `src/app/**` - Contains Next.js App Router pages, layouts, and route handlers.
-- `src/components/**` - Contains React components.
-- `src/lib/**` - Contains utility functions and shared logic.
-- `src/hooks/**` - Contains custom React hooks.
-- `src/styles/**` - Contains global styles and CSS modules.
-- `public/**` - Contains static assets.
 - `adws/**` - Contains the AI Developer Workflow (ADW) scripts.
 
 Ignore all other files in the codebase.
@@ -64,6 +60,7 @@ IMPORTANT: Execute every step in order, top to bottom.
 Execute every command to validate the review is complete with zero regressions.
 
 <list commands you'll use to validate with 100% confidence the review is complete with zero regressions. every command must execute without errors so be specific about what you want to run to validate the review is complete with zero regressions. Don't validate with curl commands.>
+Read `.adw/commands.md` from the current working directory for the project-specific validation commands. If `.adw/commands.md` does not exist, use these defaults:
 - `npm run lint` - Run linter to check for code quality issues
 - `npm run build` - Build the application to verify no build errors
 - `npm test` - Run tests to validate the review is complete with zero regressions

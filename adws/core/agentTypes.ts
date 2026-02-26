@@ -100,7 +100,9 @@ export type AgentIdentifier =
   | 'commit-agent'
   // PR and document agents
   | 'pr-agent'
-  | 'document-agent';
+  | 'document-agent'
+  // Init workflow agents
+  | 'init-orchestrator';
 
 /**
  * Execution status for tracking agent progress.

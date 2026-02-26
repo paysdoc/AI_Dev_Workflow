@@ -29,14 +29,13 @@ issueScreenshots: $5 (optional) - commaSeparated list of screenshot paths if pro
 
 ## Relevant Files
 
-Focus on the following files:
+Read `.adw/project.md` from the current working directory to determine the relevant files for this project. Use the `## Relevant Files` section from that file.
+
+If `.adw/project.md` does not exist, use these defaults:
 - `README.md` - Contains the project overview and instructions.
-- `app/server/**` - Contains the codebase server.
-- `app/client/**` - Contains the codebase client.
-- `scripts/**` - Contains the scripts to start and stop the server + client.
 - `adws/**` - Contains the AI Developer Workflow (ADW) scripts.
 
-- Read `.claude/commands/conditional_docs.md` to check if your task requires additional documentation
+- Read `.adw/conditional_docs.md` from the current working directory to check if your task requires additional documentation. If `.adw/conditional_docs.md` does not exist, read `.claude/commands/conditional_docs.md` as a fallback.
 - If your task matches any of the conditions listed, reference those documentation files to understand the context better when creating your patch plan
 
 Ignore all other files in the codebase.

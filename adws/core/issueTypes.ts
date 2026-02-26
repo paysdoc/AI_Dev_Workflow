@@ -19,7 +19,8 @@ export type AdwSlashCommand =
   | '/adw_plan_build_review'
   | '/adw_plan_build_document'
   | '/adw_plan_build_test_review'
-  | '/adw_sdlc';
+  | '/adw_sdlc'
+  | '/adw_init';
 
 /**
  * Maps ADW workflow commands to issue classification types.
@@ -39,6 +40,7 @@ export const adwCommandToIssueTypeMap: Record<AdwSlashCommand, IssueClassSlashCo
   '/adw_plan_build_document': '/chore',
   '/adw_plan_build_test_review': '/feature',
   '/adw_sdlc': '/feature',
+  '/adw_init': '/chore',
 };
 
 /**
@@ -59,6 +61,7 @@ export const adwCommandToOrchestratorMap: Partial<Record<AdwSlashCommand, string
   '/adw_plan_build_document': 'adws/adwPlanBuildDocument.tsx',
   '/adw_plan_build_test_review': 'adws/adwPlanBuildTestReview.tsx',
   '/adw_sdlc': 'adws/adwSdlc.tsx',
+  '/adw_init': 'adws/adwInit.tsx',
 } as const;
 
 /**
@@ -129,7 +132,9 @@ export type SlashCommand =
   | '/review'
   | '/patch'
   // Documentation
-  | '/document';
+  | '/document'
+  // ADW initialization
+  | '/adw_init';
 
 /**
  * GitHub user model.

@@ -103,6 +103,10 @@ export {
   updateProjectCostCsv,
 } from './costCsvWriter';
 
+// Project configuration
+export type { ProjectConfig, CommandsConfig } from './projectConfig';
+export { loadProjectConfig, getDefaultProjectConfig, getDefaultCommandsConfig, parseMarkdownSections, parseCommandsMd } from './projectConfig';
+
 // Issue classifier
 export type { IssueClassificationResult } from './issueClassifier';
 export { parseAdwClassificationOutput, classifyWithAdwCommand, classifyIssueForTrigger, classifyGitHubIssue, getWorkflowScript } from './issueClassifier';

@@ -7,7 +7,7 @@ import {
 } from '../core/config';
 
 describe('SLASH_COMMAND_MODEL_MAP', () => {
-  it('has correct default values for all 17 commands', () => {
+  it('has correct default values for all 18 commands', () => {
     expect(SLASH_COMMAND_MODEL_MAP['/classify_adw']).toBe('haiku');
     expect(SLASH_COMMAND_MODEL_MAP['/classify_issue']).toBe('sonnet');
     expect(SLASH_COMMAND_MODEL_MAP['/feature']).toBe('opus');
@@ -25,15 +25,16 @@ describe('SLASH_COMMAND_MODEL_MAP', () => {
     expect(SLASH_COMMAND_MODEL_MAP['/pull_request']).toBe('sonnet');
     expect(SLASH_COMMAND_MODEL_MAP['/document']).toBe('sonnet');
     expect(SLASH_COMMAND_MODEL_MAP['/find_plan_file']).toBe('sonnet');
+    expect(SLASH_COMMAND_MODEL_MAP['/adw_init']).toBe('sonnet');
   });
 
-  it('has exactly 17 entries', () => {
-    expect(Object.keys(SLASH_COMMAND_MODEL_MAP)).toHaveLength(17);
+  it('has exactly 18 entries', () => {
+    expect(Object.keys(SLASH_COMMAND_MODEL_MAP)).toHaveLength(18);
   });
 });
 
 describe('SLASH_COMMAND_MODEL_MAP_FAST', () => {
-  it('has correct fast/cheap values for all 17 commands', () => {
+  it('has correct fast/cheap values for all 18 commands', () => {
     expect(SLASH_COMMAND_MODEL_MAP_FAST['/classify_adw']).toBe('haiku');
     expect(SLASH_COMMAND_MODEL_MAP_FAST['/classify_issue']).toBe('haiku');
     expect(SLASH_COMMAND_MODEL_MAP_FAST['/feature']).toBe('opus');
@@ -51,10 +52,11 @@ describe('SLASH_COMMAND_MODEL_MAP_FAST', () => {
     expect(SLASH_COMMAND_MODEL_MAP_FAST['/pull_request']).toBe('haiku');
     expect(SLASH_COMMAND_MODEL_MAP_FAST['/document']).toBe('sonnet');
     expect(SLASH_COMMAND_MODEL_MAP_FAST['/find_plan_file']).toBe('haiku');
+    expect(SLASH_COMMAND_MODEL_MAP_FAST['/adw_init']).toBe('haiku');
   });
 
-  it('has exactly 17 entries', () => {
-    expect(Object.keys(SLASH_COMMAND_MODEL_MAP_FAST)).toHaveLength(17);
+  it('has exactly 18 entries', () => {
+    expect(Object.keys(SLASH_COMMAND_MODEL_MAP_FAST)).toHaveLength(18);
   });
 });
 
@@ -164,6 +166,11 @@ describe('getModelForCommand', () => {
     it('/find_plan_file: sonnet -> haiku', () => {
       expect(getModelForCommand('/find_plan_file')).toBe('sonnet');
       expect(getModelForCommand('/find_plan_file', fastBody)).toBe('haiku');
+    });
+
+    it('/adw_init: sonnet -> haiku', () => {
+      expect(getModelForCommand('/adw_init')).toBe('sonnet');
+      expect(getModelForCommand('/adw_init', fastBody)).toBe('haiku');
     });
   });
 

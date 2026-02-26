@@ -159,6 +159,8 @@ export const SLASH_COMMAND_MODEL_MAP: Record<SlashCommand, ModelTier> = {
   '/document': 'sonnet',
   // Utility
   '/find_plan_file': 'sonnet',
+  // ADW initialization
+  '/adw_init': 'sonnet',
 };
 
 /** Cost-optimized model map used when the issue body contains `/fast` or `/cheap`. */
@@ -180,6 +182,7 @@ export const SLASH_COMMAND_MODEL_MAP_FAST: Record<SlashCommand, ModelTier> = {
   '/pull_request': 'haiku',
   '/document': 'sonnet',
   '/find_plan_file': 'haiku',
+  '/adw_init': 'haiku',
 };
 
 /**

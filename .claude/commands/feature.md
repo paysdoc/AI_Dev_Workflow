@@ -19,7 +19,7 @@ issueJson: $3, default to empty JSON object if not provided (`{}`)
 - Consider the feature requirements, design, and implementation approach.
 - Follow existing patterns and conventions in the codebase. Don't reinvent the wheel.
 - Design for extensibility and maintainability.
-- If you need a new library, use `npm install` and be sure to report it in the `Notes` section of the `Plan Format`.
+- If you need a new library, read `.adw/commands.md` for the library install command (under `## Library Install Command`). If `.adw/commands.md` does not exist, use `npm install`. Be sure to report it in the `Notes` section of the `Plan Format`.
 - Don't use decorators. Keep it simple.
 - IMPORTANT: If the feature includes UI components or user interactions:
   - Add a task in the `Step by Step Tasks` section to create a separate E2E test file in `e2e-tests/test_<descriptive_name>.md` based on examples in that directory
@@ -32,18 +32,14 @@ issueJson: $3, default to empty JSON object if not provided (`{}`)
 
 ## Relevant Files
 
-Focus on the following files:
+Read `.adw/project.md` from the current working directory to determine the relevant files for this project. Use the `## Relevant Files` section from that file.
+
+If `.adw/project.md` does not exist, use these defaults:
 - `README.md` - Contains the project overview and instructions.
 - `guidelines/**` - Contains coding guidelines that must be followed (target repository — may not exist in all repos). If present, read and follow these guidelines.
-- `src/app/**` - Contains Next.js App Router pages, layouts, and route handlers.
-- `src/components/**` - Contains React components.
-- `src/lib/**` - Contains utility functions and shared logic.
-- `src/hooks/**` - Contains custom React hooks.
-- `src/styles/**` - Contains global styles and CSS modules.
-- `public/**` - Contains static assets.
 - `adws/**` - Contains the AI Developer Workflow (ADW) scripts.
 
-- Read `.claude/commands/conditional_docs.md` to check if your task requires additional documentation
+- Read `.adw/conditional_docs.md` from the current working directory to check if your task requires additional documentation. If `.adw/conditional_docs.md` does not exist, read `.claude/commands/conditional_docs.md` as a fallback.
 - If your task matches any of the conditions listed, include those documentation files in the `Plan Format: Relevant Files` section of your plan
 
 Ignore all other files in the codebase.
@@ -113,6 +109,7 @@ Execute every command to validate the feature works correctly with zero regressi
 
 <If you created an E2E test, include the following validation step: `Read .claude/commands/test_e2e.md`, then read and execute your new E2E `e2e-tests/test_<descriptive_name>.md` test file to validate this functionality works.>
 
+Read `.adw/commands.md` from the current working directory for the project-specific validation commands. If `.adw/commands.md` does not exist, use these defaults:
 - `npm run lint` - Run linter to check for code quality issues
 - `npm run build` - Build the application to verify no build errors
 - `npm test` - Run tests to validate the feature works with zero regressions

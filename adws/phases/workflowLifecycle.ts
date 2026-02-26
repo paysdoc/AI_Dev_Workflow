@@ -2,7 +2,7 @@
  * Workflow initialization, completion, error handling, and review phase.
  */
 
-import { log, setLogAdwId, ensureLogsDirectory, generateAdwId, type IssueClassSlashCommand, type GitHubIssue, AgentStateManager, type AgentState, type AgentIdentifier, type RecoveryState, hasUncommittedChanges, getNextStage, MAX_REVIEW_RETRY_ATTEMPTS, COST_REPORT_CURRENCIES, type ModelUsageMap, buildCostBreakdown, persistTokenCounts, allocateRandomPort, type TargetRepoInfo, ensureTargetRepoWorkspace, writeIssueCostCsv, updateProjectCostCsv } from '../core';
+import { log, setLogAdwId, ensureLogsDirectory, generateAdwId, type IssueClassSlashCommand, type GitHubIssue, AgentStateManager, type AgentState, type AgentIdentifier, type RecoveryState, hasUncommittedChanges, getNextStage, MAX_REVIEW_RETRY_ATTEMPTS, COST_REPORT_CURRENCIES, type ModelUsageMap, buildCostBreakdown, persistTokenCounts, allocateRandomPort, type TargetRepoInfo, ensureTargetRepoWorkspace, writeIssueCostCsv, updateProjectCostCsv, type ProjectConfig, loadProjectConfig } from '../core';
 import { fetchGitHubIssue, postWorkflowComment, type WorkflowContext, detectRecoveryState, getDefaultBranch, checkoutDefaultBranch, ensureWorktree, getWorktreeForBranch, mergeLatestFromDefaultBranch, copyEnvToWorktree, findWorktreeForIssue, type RepoInfo } from '../github';
 import { runGenerateBranchNameAgent, getPlanFilePath, runReviewWithRetry } from '../agents';
 import { classifyGitHubIssue } from '../core/issueClassifier';
@@ -27,6 +27,7 @@ export interface WorkflowConfig {
   applicationUrl: string;
   targetRepo?: TargetRepoInfo;
   repoInfo?: RepoInfo;
+  projectConfig: ProjectConfig;
 }
 
 /**
@@ -199,6 +200,14 @@ export async function initializeWorkflow(
     postWorkflowComment(issueNumber, 'starting', ctx, repoInfo);
   }
 
+  // Load project configuration from target repo's .adw/ directory
+  const projectConfig = loadProjectConfig(worktreePath);
+  if (projectConfig.hasAdwDir) {
+    log('Loaded project config from .adw/ directory', 'info');
+  } else {
+    log('No .adw/ directory found, using default project config', 'info');
+  }
+
   // Allocate a random port for the dedicated dev server instance
   const port = await allocateRandomPort();
   const applicationUrl = `http://localhost:${port}`;
@@ -221,6 +230,7 @@ export async function initializeWorkflow(
     applicationUrl,
     targetRepo,
     repoInfo,
+    projectConfig,
   };
 }
 
