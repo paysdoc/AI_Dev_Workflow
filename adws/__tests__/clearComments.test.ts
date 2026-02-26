@@ -9,11 +9,18 @@ vi.mock('../core/utils', () => ({
 }));
 
 import { execSync } from 'child_process';
+import { log } from '../core/utils';
 import { fetchIssueCommentsRest, deleteIssueComment } from '../github/githubApi';
 import { clearIssueComments } from '../adwClearComments';
+import type { RepoInfo } from '../github/githubApi';
 
 function mockRepoInfo(): void {
   vi.mocked(execSync).mockReturnValueOnce('https://github.com/test-owner/test-repo.git\n');
+}
+
+function mockIssueTitleSync(title: string = 'Test Issue Title'): void {
+  mockRepoInfo();
+  vi.mocked(execSync).mockReturnValueOnce(JSON.stringify({ title }));
 }
 
 function makeRawComment(overrides: Record<string, unknown> = {}) {
@@ -89,20 +96,20 @@ describe('deleteIssueComment', () => {
 
 describe('clearIssueComments', () => {
   it('deletes all comments and returns correct summary', () => {
-    // First call: getRepoInfo for fetchIssueCommentsRest
+    // getRepoInfo for fetchIssueCommentsRest
     mockRepoInfo();
-    // Second call: fetch comments
+    // fetch comments
     vi.mocked(execSync).mockReturnValueOnce(JSON.stringify([
-      makeRawComment({ id: 1 }),
-      makeRawComment({ id: 2 }),
+      makeRawComment({ id: 1, body: 'first comment body' }),
+      makeRawComment({ id: 2, body: 'second comment' }),
     ]));
-    // Third call: getRepoInfo for deleteIssueComment (comment 1)
+    // getIssueTitleSync: getRepoInfo + gh issue view
+    mockIssueTitleSync('My Test Issue');
+    // deleteIssueComment (comment 1): getRepoInfo + delete
     mockRepoInfo();
-    // Fourth call: delete comment 1
     vi.mocked(execSync).mockReturnValueOnce('');
-    // Fifth call: getRepoInfo for deleteIssueComment (comment 2)
+    // deleteIssueComment (comment 2): getRepoInfo + delete
     mockRepoInfo();
-    // Sixth call: delete comment 2
     vi.mocked(execSync).mockReturnValueOnce('');
 
     const result = clearIssueComments(10);
@@ -113,6 +120,8 @@ describe('clearIssueComments', () => {
   it('handles issue with no comments gracefully', () => {
     mockRepoInfo();
     vi.mocked(execSync).mockReturnValueOnce(JSON.stringify([]));
+    // getIssueTitleSync: getRepoInfo + gh issue view
+    mockIssueTitleSync('Empty Issue');
 
     const result = clearIssueComments(10);
 
@@ -123,10 +132,12 @@ describe('clearIssueComments', () => {
     // Fetch comments
     mockRepoInfo();
     vi.mocked(execSync).mockReturnValueOnce(JSON.stringify([
-      makeRawComment({ id: 1 }),
-      makeRawComment({ id: 2 }),
-      makeRawComment({ id: 3 }),
+      makeRawComment({ id: 1, body: 'comment one' }),
+      makeRawComment({ id: 2, body: 'comment two' }),
+      makeRawComment({ id: 3, body: 'comment three' }),
     ]));
+    // getIssueTitleSync
+    mockIssueTitleSync('Failing Issue');
     // Delete comment 1 - success
     mockRepoInfo();
     vi.mocked(execSync).mockReturnValueOnce('');
@@ -142,5 +153,53 @@ describe('clearIssueComments', () => {
     const result = clearIssueComments(10);
 
     expect(result).toEqual({ total: 3, deleted: 2, failed: 1 });
+  });
+
+  it('passes repoInfo to API calls without falling back to getRepoInfo', () => {
+    const customRepo: RepoInfo = { owner: 'custom-owner', repo: 'custom-repo' };
+
+    // fetchIssueCommentsRest with repoInfo — no getRepoInfo call needed
+    vi.mocked(execSync).mockReturnValueOnce(JSON.stringify([
+      makeRawComment({ id: 1, body: 'repo comment' }),
+    ]));
+    // getIssueTitleSync with repoInfo — no getRepoInfo call needed
+    vi.mocked(execSync).mockReturnValueOnce(JSON.stringify({ title: 'External Issue' }));
+    // deleteIssueComment with repoInfo — no getRepoInfo call needed
+    vi.mocked(execSync).mockReturnValueOnce('');
+
+    const result = clearIssueComments(5, customRepo);
+
+    expect(result).toEqual({ total: 1, deleted: 1, failed: 0 });
+
+    // Verify the fetch call uses custom repo
+    const fetchCall = vi.mocked(execSync).mock.calls[0];
+    expect(fetchCall[0]).toContain('custom-owner/custom-repo');
+
+    // Verify the title call uses custom repo
+    const titleCall = vi.mocked(execSync).mock.calls[1];
+    expect(titleCall[0]).toContain('custom-owner/custom-repo');
+
+    // Verify the delete call uses custom repo
+    const deleteCall = vi.mocked(execSync).mock.calls[2];
+    expect(deleteCall[0]).toContain('custom-owner/custom-repo');
+  });
+
+  it('logs issue title and comment body preview', () => {
+    const customRepo: RepoInfo = { owner: 'log-owner', repo: 'log-repo' };
+
+    // fetchIssueCommentsRest
+    vi.mocked(execSync).mockReturnValueOnce(JSON.stringify([
+      makeRawComment({ id: 1, body: 'Hello world this is a long comment' }),
+    ]));
+    // getIssueTitleSync
+    vi.mocked(execSync).mockReturnValueOnce(JSON.stringify({ title: 'Bug Report' }));
+    // deleteIssueComment
+    vi.mocked(execSync).mockReturnValueOnce('');
+
+    clearIssueComments(7, customRepo);
+
+    const logCalls = vi.mocked(log).mock.calls.map((call) => call[0]);
+    expect(logCalls).toContainEqual(expect.stringContaining('"Bug Report"'));
+    expect(logCalls).toContainEqual(expect.stringContaining('"Hello worl..."'));
   });
 });

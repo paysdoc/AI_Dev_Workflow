@@ -11,6 +11,7 @@ vi.mock('../core/utils', () => ({
 import { execSync } from 'child_process';
 import { isClearComment } from '../github/workflowCommentsBase';
 import { clearIssueComments } from '../adwClearComments';
+import { getRepoInfoFromPayload, type RepoInfo } from '../github/githubApi';
 
 /**
  * Tests for the webhook clear-comment handler logic.
@@ -27,6 +28,11 @@ function mockRepoInfo(): void {
   vi.mocked(execSync).mockReturnValueOnce('https://github.com/test-owner/test-repo.git\n');
 }
 
+function mockIssueTitleSync(title: string = 'Test Issue Title'): void {
+  mockRepoInfo();
+  vi.mocked(execSync).mockReturnValueOnce(JSON.stringify({ title }));
+}
+
 function makeRawComment(overrides: Record<string, unknown> = {}) {
   return {
     id: 100,
@@ -38,9 +44,13 @@ function makeRawComment(overrides: Record<string, unknown> = {}) {
 }
 
 /** Replicates the webhook handler's clear-comment branch for testing. */
-function handleIssueComment(commentBody: string, issueNumber: number): { status: string; issue?: number; deleted?: number } | null {
+function handleIssueComment(
+  commentBody: string,
+  issueNumber: number,
+  repoInfo?: RepoInfo,
+): { status: string; issue?: number; deleted?: number } | null {
   if (isClearComment(commentBody)) {
-    const result = clearIssueComments(issueNumber);
+    const result = clearIssueComments(issueNumber, repoInfo);
     return { status: 'cleared_and_processing', issue: issueNumber, deleted: result.deleted };
   }
   return null;
@@ -54,6 +64,7 @@ describe('webhook clear-comment handler', () => {
   it('triggers clearIssueComments and returns cleared_and_processing for ## Clear comment', () => {
     mockRepoInfo();
     vi.mocked(execSync).mockReturnValueOnce(JSON.stringify([]));
+    mockIssueTitleSync('Clear Test Issue');
 
     const result = handleIssueComment('## Clear', 42);
 
@@ -63,6 +74,7 @@ describe('webhook clear-comment handler', () => {
   it('triggers clearIssueComments and returns cleared_and_processing for lowercase ## clear comment', () => {
     mockRepoInfo();
     vi.mocked(execSync).mockReturnValueOnce(JSON.stringify([]));
+    mockIssueTitleSync('Clear Test Issue');
 
     const result = handleIssueComment('## clear', 42);
 
@@ -78,6 +90,8 @@ describe('webhook clear-comment handler', () => {
       makeRawComment({ id: 2 }),
       makeRawComment({ id: 3 }),
     ]));
+    // getIssueTitleSync
+    mockIssueTitleSync('Multi Comment Issue');
     // getRepoInfo + delete for each comment
     mockRepoInfo();
     vi.mocked(execSync).mockReturnValueOnce('');
@@ -94,6 +108,7 @@ describe('webhook clear-comment handler', () => {
   it('calls clearIssueComments for ## Clear comments', () => {
     mockRepoInfo();
     vi.mocked(execSync).mockReturnValueOnce(JSON.stringify([]));
+    mockIssueTitleSync('Clear Test');
 
     const result = handleIssueComment('## Clear', 7);
 
@@ -117,5 +132,32 @@ describe('webhook clear-comment handler', () => {
     const result = handleIssueComment('## :rocket: ADW Workflow Started\n\n**ADW ID:** `adw-123-abc`', 42);
 
     expect(result).toBeNull();
+  });
+
+  it('propagates repoInfo from webhook payload to clearIssueComments', () => {
+    const webhookRepoInfo = getRepoInfoFromPayload('webhook-owner/webhook-repo');
+
+    // fetchIssueCommentsRest with repoInfo — no getRepoInfo fallback
+    vi.mocked(execSync).mockReturnValueOnce(JSON.stringify([
+      makeRawComment({ id: 1, body: 'webhook comment' }),
+    ]));
+    // getIssueTitleSync with repoInfo — no getRepoInfo fallback
+    vi.mocked(execSync).mockReturnValueOnce(JSON.stringify({ title: 'Webhook Issue' }));
+    // deleteIssueComment with repoInfo — no getRepoInfo fallback
+    vi.mocked(execSync).mockReturnValueOnce('');
+
+    const result = handleIssueComment('## Clear', 15, webhookRepoInfo);
+
+    expect(result).toEqual({ status: 'cleared_and_processing', issue: 15, deleted: 1 });
+
+    // Verify all API calls use webhook repo, not local git remote
+    const fetchCall = vi.mocked(execSync).mock.calls[0];
+    expect(fetchCall[0]).toContain('webhook-owner/webhook-repo');
+
+    const titleCall = vi.mocked(execSync).mock.calls[1];
+    expect(titleCall[0]).toContain('webhook-owner/webhook-repo');
+
+    const deleteCall = vi.mocked(execSync).mock.calls[2];
+    expect(deleteCall[0]).toContain('webhook-owner/webhook-repo');
   });
 });

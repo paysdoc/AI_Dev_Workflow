@@ -100,7 +100,7 @@ async function checkAndTrigger(): Promise<void> {
       : null;
     if (latestComment && isClearComment(latestComment.body)) {
       log(`Clear directive on issue #${issue.number}, clearing all comments before spawning workflow`);
-      const clearResult = clearIssueComments(issue.number);
+      const clearResult = clearIssueComments(issue.number, repoInfo);
       log(`Cleared ${clearResult.deleted}/${clearResult.total} comments on issue #${issue.number}`);
     }
 

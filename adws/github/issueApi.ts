@@ -220,6 +220,27 @@ export async function closeIssue(issueNumber: number, comment?: string, repoInfo
 }
 
 /**
+ * Fetches the title of a GitHub issue synchronously.
+ * Returns '(unknown)' on error to avoid breaking callers that use this for logging.
+ * @param issueNumber - The issue number to fetch the title for
+ * @param repoInfo - Optional repository info override for targeting external repositories.
+ */
+export function getIssueTitleSync(issueNumber: number, repoInfo?: RepoInfo): string {
+  const { owner, repo } = repoInfo ?? getRepoInfo();
+
+  try {
+    const json = execSync(
+      `gh issue view ${issueNumber} --repo ${owner}/${repo} --json title`,
+      { encoding: 'utf-8' }
+    );
+    const result = JSON.parse(json) as { title: string };
+    return result.title;
+  } catch {
+    return '(unknown)';
+  }
+}
+
+/**
  * Fetches all comments on a GitHub issue via the REST API.
  * Returns comments with numeric IDs needed for deletion.
  * @param issueNumber - The issue number to fetch comments for

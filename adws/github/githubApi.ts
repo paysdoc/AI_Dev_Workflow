@@ -63,6 +63,7 @@ export {
   commentOnIssue,
   formatIssueClosureComment,
   getIssueState,
+  getIssueTitleSync,
   closeIssue,
   fetchIssueCommentsRest,
   deleteIssueComment,
