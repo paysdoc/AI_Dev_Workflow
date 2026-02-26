@@ -34,4 +34,4 @@ npx playwright test
 npm install
 
 ## Script Execution
-npx tsx
+npx tsx <script name>

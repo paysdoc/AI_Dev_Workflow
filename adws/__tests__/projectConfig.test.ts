@@ -58,7 +58,7 @@ describe('getDefaultProjectConfig', () => {
     expect(config.commands.runE2ETests).toBe('npx playwright test');
     expect(config.commands.additionalTypeChecks).toBe('npx tsc --noEmit -p adws/tsconfig.json');
     expect(config.commands.libraryInstall).toBe('npm install');
-    expect(config.commands.scriptExecution).toBe('npx tsx');
+    expect(config.commands.scriptExecution).toBe('npx tsx <script name>');
   });
 });
 

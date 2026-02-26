@@ -75,7 +75,7 @@ export function getDefaultCommandsConfig(): CommandsConfig {
     runE2ETests: 'npx playwright test',
     additionalTypeChecks: 'npx tsc --noEmit -p adws/tsconfig.json',
     libraryInstall: 'npm install',
-    scriptExecution: 'npx tsx',
+    scriptExecution: 'npx tsx <script name>',
   };
 }
 
