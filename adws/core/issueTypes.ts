@@ -107,6 +107,17 @@ export const branchPrefixMap: Record<IssueClassSlashCommand, string> = {
 };
 
 /**
+ * Alternative branch name prefixes that the Claude skill may generate.
+ * Used by findWorktreeForIssue to match worktrees created with non-canonical prefixes.
+ */
+export const branchPrefixAliases: Record<IssueClassSlashCommand, readonly string[]> = {
+  '/feature': ['feat'],
+  '/bug': ['bug'],
+  '/chore': [],
+  '/pr_review': ['test'],
+};
+
+/**
  * All slash commands used in the ADW system.
  * Includes issue classification commands and ADW-specific commands.
  */

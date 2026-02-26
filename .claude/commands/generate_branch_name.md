@@ -9,7 +9,12 @@ issue: $2
 
 ## Instructions
 
-- Generate a branch name in the format: `<issueClass>-issue-<issueNumber>-<concise_name>`
+- Generate a branch name in the format: `<prefix>-issue-<issueNumber>-<concise_name>`
+- The `<prefix>` MUST match these canonical prefixes based on issueClass:
+  - `/feature` → `feature`
+  - `/bug` → `bugfix`
+  - `/chore` → `chore`
+  - `/pr_review` → `review`
 - The `<concise_name>` should be:
   - 3-6 words maximum
   - All lowercase
@@ -17,10 +22,10 @@ issue: $2
   - Descriptive of the main task/feature
   - No special characters except hyphens
 - Examples:
-  - `feat-issue-123-add-user-auth`
-  - `bug-issue-456-fix-login-error`
+  - `feature-issue-123-add-user-auth`
+  - `bugfix-issue-456-fix-login-error`
   - `chore-issue-789-update-dependencies`
-  - `test-issue-323-fix-failing-tests`
+  - `review-issue-323-fix-failing-tests`
 - Extract the issue number, title, and body from the issue JSON
 
 ## Run

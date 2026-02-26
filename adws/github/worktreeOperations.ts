@@ -8,7 +8,7 @@
 import { execSync } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
-import { log, type IssueClassSlashCommand, branchPrefixMap } from '../core';
+import { log, type IssueClassSlashCommand, branchPrefixMap, branchPrefixAliases } from '../core';
 import { getDefaultBranch } from './gitOperations';
 
 /**
@@ -288,7 +288,9 @@ export function findWorktreeForIssue(
 ): WorktreeForIssueResult | null {
   try {
     const prefix = branchPrefixMap[issueType];
-    const pattern = new RegExp('^' + prefix + '-issue-' + issueNumber + '-');
+    const aliases = branchPrefixAliases[issueType];
+    const allPrefixes = [prefix, ...aliases];
+    const pattern = new RegExp('^(' + allPrefixes.join('|') + ')-issue-' + issueNumber + '-');
     const output = execSync('git worktree list --porcelain', { encoding: 'utf-8' });
     const lines = output.split('\n');
 
