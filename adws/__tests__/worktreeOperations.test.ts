@@ -169,6 +169,43 @@ branch refs/heads/main
     const result = listWorktrees();
     expect(result).toEqual([]);
   });
+
+  it('passes cwd to execSync when provided', () => {
+    const worktreeListOutput = `worktree /target/repo
+HEAD abc123
+branch refs/heads/main
+
+worktree /target/repo/.worktrees/feature-issue-10-fix
+HEAD def456
+branch refs/heads/feature/issue-10-fix
+
+`;
+    vi.mocked(execSync).mockReturnValue(worktreeListOutput);
+
+    const result = listWorktrees('/target/repo');
+
+    expect(result).toEqual(['/target/repo/.worktrees/feature-issue-10-fix']);
+    expect(execSync).toHaveBeenCalledWith(
+      'git worktree list --porcelain',
+      expect.objectContaining({ cwd: '/target/repo' })
+    );
+  });
+
+  it('does not pass cwd to execSync when omitted', () => {
+    const worktreeListOutput = `worktree /mock/project
+HEAD abc123
+branch refs/heads/main
+
+`;
+    vi.mocked(execSync).mockReturnValue(worktreeListOutput);
+
+    listWorktrees();
+
+    expect(execSync).toHaveBeenCalledWith(
+      'git worktree list --porcelain',
+      expect.objectContaining({ cwd: undefined })
+    );
+  });
 });
 
 describe('createWorktree', () => {
@@ -1766,5 +1803,74 @@ branch refs/heads/feature/issue-99-other
     expect(result).toBe(1);
     expect(deleteLocalBranch).toHaveBeenCalledWith('feature/issue-42-add-login');
     expect(deleteLocalBranch).not.toHaveBeenCalledWith('feature/issue-99-other');
+  });
+
+  it('passes cwd to all internal execSync calls when provided', () => {
+    const worktreeListOutput = `worktree /target/repo
+HEAD abc123
+branch refs/heads/main
+
+worktree /target/repo/.worktrees/feature-issue-42-add-login
+HEAD def456
+branch refs/heads/feature/issue-42-add-login
+
+`;
+    vi.mocked(execSync).mockImplementation((cmd) => {
+      const cmdStr = String(cmd);
+      if (cmdStr.includes('git worktree list')) {
+        return worktreeListOutput;
+      }
+      if (cmdStr.includes('lsof')) {
+        throw new Error('no processes');
+      }
+      return '';
+    });
+
+    const targetCwd = '/target/repo';
+    const result = removeWorktreesForIssue(42, targetCwd);
+
+    expect(result).toBe(1);
+
+    // Verify that git worktree list calls received cwd
+    const listCalls = vi.mocked(execSync).mock.calls.filter((call) =>
+      String(call[0]).includes('git worktree list')
+    );
+    listCalls.forEach((call) => {
+      expect(call[1]).toEqual(expect.objectContaining({ cwd: targetCwd }));
+    });
+
+    // Verify that git worktree remove received cwd
+    const removeCalls = vi.mocked(execSync).mock.calls.filter((call) =>
+      String(call[0]).includes('git worktree remove')
+    );
+    removeCalls.forEach((call) => {
+      expect(call[1]).toEqual(expect.objectContaining({ cwd: targetCwd }));
+    });
+
+    // Verify that git worktree prune received cwd
+    const pruneCalls = vi.mocked(execSync).mock.calls.filter((call) =>
+      String(call[0]).includes('git worktree prune')
+    );
+    pruneCalls.forEach((call) => {
+      expect(call[1]).toEqual(expect.objectContaining({ cwd: targetCwd }));
+    });
+  });
+
+  it('does not pass cwd when omitted (existing behavior)', () => {
+    const worktreeListOutput = `worktree /mock/project
+HEAD abc123
+branch refs/heads/main
+
+`;
+    vi.mocked(execSync).mockReturnValue(worktreeListOutput);
+
+    removeWorktreesForIssue(42);
+
+    const listCalls = vi.mocked(execSync).mock.calls.filter((call) =>
+      String(call[0]).includes('git worktree list')
+    );
+    listCalls.forEach((call) => {
+      expect(call[1]).toEqual(expect.objectContaining({ cwd: undefined }));
+    });
   });
 });

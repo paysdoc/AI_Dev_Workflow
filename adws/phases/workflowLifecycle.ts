@@ -2,10 +2,46 @@
  * Workflow initialization, completion, error handling, and review phase.
  */
 
+import * as fs from 'fs';
+import * as path from 'path';
 import { log, setLogAdwId, ensureLogsDirectory, generateAdwId, type IssueClassSlashCommand, type GitHubIssue, AgentStateManager, type AgentState, type AgentIdentifier, type RecoveryState, hasUncommittedChanges, getNextStage, MAX_REVIEW_RETRY_ATTEMPTS, COST_REPORT_CURRENCIES, type ModelUsageMap, buildCostBreakdown, persistTokenCounts, allocateRandomPort, type TargetRepoInfo, ensureTargetRepoWorkspace, writeIssueCostCsv, updateProjectCostCsv, type ProjectConfig, loadProjectConfig } from '../core';
 import { fetchGitHubIssue, postWorkflowComment, type WorkflowContext, detectRecoveryState, getDefaultBranch, checkoutDefaultBranch, ensureWorktree, getWorktreeForBranch, mergeLatestFromDefaultBranch, copyEnvToWorktree, findWorktreeForIssue, type RepoInfo } from '../github';
 import { runGenerateBranchNameAgent, getPlanFilePath, runReviewWithRetry } from '../agents';
 import { classifyGitHubIssue } from '../core/issueClassifier';
+
+/**
+ * Copies the ADW repo's `.claude/commands/` directory to a target repo worktree.
+ * Only copies `.md` files that don't already exist in the destination,
+ * preserving the target repo's own commands.
+ *
+ * @param worktreePath - The absolute path to the target repo worktree
+ */
+function copyClaudeCommandsToWorktree(worktreePath: string): void {
+  const adwRepoRoot = path.resolve(__dirname, '../../');
+  const sourceDir = path.join(adwRepoRoot, '.claude', 'commands');
+  const destDir = path.join(worktreePath, '.claude', 'commands');
+
+  if (!fs.existsSync(sourceDir)) {
+    log(`No .claude/commands/ found in ADW repo at ${sourceDir}, skipping copy`, 'info');
+    return;
+  }
+
+  fs.mkdirSync(destDir, { recursive: true });
+
+  const sourceFiles = fs.readdirSync(sourceDir).filter((file) => file.endsWith('.md'));
+  const copiedFiles = sourceFiles.filter((file) => {
+    const destPath = path.join(destDir, file);
+    if (fs.existsSync(destPath)) return false;
+    fs.copyFileSync(path.join(sourceDir, file), destPath);
+    return true;
+  });
+
+  if (copiedFiles.length > 0) {
+    log(`Copied ${copiedFiles.length} slash command(s) to worktree: ${copiedFiles.join(', ')}`, 'info');
+  } else {
+    log('No new slash commands to copy (all already exist in target)', 'info');
+  }
+}
 
 /**
  * Configuration shared across all workflow phase functions.
@@ -121,6 +157,7 @@ export async function initializeWorkflow(
 
     // Create worktree within the target repo workspace
     worktreePath = ensureWorktree(branchName, defaultBranch, targetRepoWorkspacePath);
+    copyClaudeCommandsToWorktree(worktreePath);
     log(`Worktree path (target repo): ${worktreePath}`, 'info');
   } else {
     // Try to find an existing worktree by issue type and number first

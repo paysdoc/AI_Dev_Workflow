@@ -105,9 +105,11 @@ export function removeWorktree(branchName: string): boolean {
 /**
  * Parses `git worktree list --porcelain` output to extract path-to-branch mappings.
  * Only includes worktrees under `.worktrees/`.
+ *
+ * @param cwd - Optional working directory for the git command (for external target repos)
  */
-function parseWorktreeBranches(): Map<string, string> {
-  const output = execSync('git worktree list --porcelain', { encoding: 'utf-8' });
+function parseWorktreeBranches(cwd?: string): Map<string, string> {
+  const output = execSync('git worktree list --porcelain', { encoding: 'utf-8', cwd });
   const lines = output.split('\n');
   const result = new Map<string, string>();
 
@@ -127,8 +129,15 @@ function parseWorktreeBranches(): Map<string, string> {
   return result;
 }
 
-export function removeWorktreesForIssue(issueNumber: number): number {
-  const worktrees = listWorktrees();
+/**
+ * Removes all worktrees matching the given issue number.
+ *
+ * @param issueNumber - The GitHub issue number whose worktrees should be removed
+ * @param cwd - Optional working directory for git commands (for external target repos)
+ * @returns The number of worktrees successfully removed
+ */
+export function removeWorktreesForIssue(issueNumber: number, cwd?: string): number {
+  const worktrees = listWorktrees(cwd);
   const pattern = new RegExp(`-issue-${issueNumber}-`);
   const matching = worktrees.filter((wtPath) => pattern.test(path.basename(wtPath)));
 
@@ -139,7 +148,7 @@ export function removeWorktreesForIssue(issueNumber: number): number {
 
   log(`Found ${matching.length} worktree(s) matching issue #${issueNumber}`, 'info');
 
-  const worktreeBranches = parseWorktreeBranches();
+  const worktreeBranches = parseWorktreeBranches(cwd);
   let removedCount = 0;
 
   matching.forEach((wtPath) => {
@@ -148,7 +157,7 @@ export function removeWorktreesForIssue(issueNumber: number): number {
 
     try {
       log(`Removing worktree at ${wtPath}`, 'info');
-      execSync(`git worktree remove "${wtPath}" --force`, { stdio: 'pipe' });
+      execSync(`git worktree remove "${wtPath}" --force`, { stdio: 'pipe', cwd });
       log(`Removed worktree at ${wtPath}`, 'success');
       if (branchName) {
         deleteLocalBranch(branchName);
@@ -173,7 +182,7 @@ export function removeWorktreesForIssue(issueNumber: number): number {
   });
 
   try {
-    execSync('git worktree prune', { stdio: 'pipe' });
+    execSync('git worktree prune', { stdio: 'pipe', cwd });
   } catch (pruneError) {
     log(`Failed to prune worktrees: ${pruneError}`, 'error');
   }

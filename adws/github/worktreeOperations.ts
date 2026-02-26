@@ -238,11 +238,12 @@ export function worktreeExists(branchName: string): boolean {
 /**
  * Lists all existing worktrees.
  *
+ * @param cwd - Optional working directory for the git command (for external target repos)
  * @returns Array of worktree paths
  */
-export function listWorktrees(): string[] {
+export function listWorktrees(cwd?: string): string[] {
   try {
-    const output = execSync('git worktree list --porcelain', { encoding: 'utf-8' });
+    const output = execSync('git worktree list --porcelain', { encoding: 'utf-8', cwd });
     const worktrees: string[] = [];
     const lines = output.split('\n');
 
