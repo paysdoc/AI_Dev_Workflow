@@ -219,21 +219,19 @@ const server = http.createServer((req, res) => {
 
       log(`Checking comment on issue #${issueNumber}: "${truncateText(commentBody, 100)}"`);
 
+      let clearResult: { deleted: number; total: number; failed: number } | null = null;
+
       if (isClearComment(commentBody)) {
         log(`Clear directive on issue #${issueNumber}, clearing all comments`);
-        const result = clearIssueComments(issueNumber);
-        log(`Cleared ${result.deleted}/${result.total} comments on issue #${issueNumber}`);
-        jsonResponse(res, 200, { status: 'cleared', issue: issueNumber, deleted: result.deleted });
-        return;
-      }
-
-      if (!isActionableComment(commentBody)) {
+        clearResult = clearIssueComments(issueNumber);
+        log(`Cleared ${clearResult.deleted}/${clearResult.total} comments on issue #${issueNumber}`);
+      } else if (!isActionableComment(commentBody)) {
         log(`Ignored comment on issue #${issueNumber}: missing "## Take action" directive`);
         jsonResponse(res, 200, { status: 'ignored' });
         return;
+      } else {
+        log(`Actionable comment on issue #${issueNumber}: contains "## Take action" directive`);
       }
-
-      log(`Actionable comment on issue #${issueNumber}: contains "## Take action" directive`);
 
       // Check if workflow is already running — respond quickly, handle async
       const commentTargetRepoArgs = extractTargetRepoArgs(body);
@@ -260,7 +258,10 @@ const server = http.createServer((req, res) => {
           spawnDetached('npx', ['tsx', 'adws/adwPlanBuildTest.tsx', String(issueNumber), ...commentTargetRepoArgs]);
         });
 
-      jsonResponse(res, 200, { status: 'processing', issue: issueNumber });
+      const responseBody = clearResult
+        ? { status: 'cleared_and_processing', issue: issueNumber, deleted: clearResult.deleted }
+        : { status: 'processing', issue: issueNumber };
+      jsonResponse(res, 200, responseBody);
       return;
     }
 

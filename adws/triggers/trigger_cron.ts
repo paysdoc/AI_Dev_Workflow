@@ -7,8 +7,9 @@
 
 import { execSync, spawn } from 'child_process';
 import { log } from '../core';
-import { getRepoInfo, fetchPRList, hasUnaddressedComments, isActionableComment, isAdwRunningForIssue, truncateText } from '../github';
+import { getRepoInfo, fetchPRList, hasUnaddressedComments, isActionableComment, isClearComment, isAdwRunningForIssue, truncateText } from '../github';
 import { classifyIssueForTrigger, getWorkflowScript } from '../core/issueClassifier';
+import { clearIssueComments } from '../adwClearComments';
 
 const POLL_INTERVAL_MS = 20_000;
 const PR_POLL_INTERVAL_MS = 60_000;
@@ -66,6 +67,11 @@ function isQualifyingIssue(issue: RawIssue): boolean {
     return true;
   }
 
+  if (isClearComment(latestComment.body)) {
+    log(`Issue #${issue.number}: latest comment contains "## Clear" directive, qualifies`);
+    return true;
+  }
+
   log(`Issue #${issue.number}: latest comment does not contain "## Take action" directive (${truncateText(latestComment.body, 100)}), does not qualify`);
   return false;
 }
@@ -88,6 +94,15 @@ async function checkAndTrigger(): Promise<void> {
     }
 
     processedIssues.add(issue.number);
+
+    const latestComment = issue.comments.length > 0
+      ? issue.comments[issue.comments.length - 1]
+      : null;
+    if (latestComment && isClearComment(latestComment.body)) {
+      log(`Clear directive on issue #${issue.number}, clearing all comments before spawning workflow`);
+      const clearResult = clearIssueComments(issue.number);
+      log(`Cleared ${clearResult.deleted}/${clearResult.total} comments on issue #${issue.number}`);
+    }
 
     const classification = await classifyIssueForTrigger(issue.number);
     const workflowScript = getWorkflowScript(classification.issueType, classification.adwCommand);
