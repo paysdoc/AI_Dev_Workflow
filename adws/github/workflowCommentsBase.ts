@@ -66,6 +66,14 @@ export function isActionableComment(commentBody: string): boolean {
   return ACTIONABLE_COMMENT_PATTERN.test(commentBody);
 }
 
+/** Pattern matching the `## Clear` heading that signals a comment-clearing directive. */
+export const CLEAR_COMMENT_PATTERN = /^## Clear$/mi;
+
+/** Returns true if the comment body contains the `## Clear` directive heading (case-insensitive). */
+export function isClearComment(commentBody: string): boolean {
+  return CLEAR_COMMENT_PATTERN.test(commentBody);
+}
+
 /** Extracts the content following the `## Take action` heading. Returns null if no heading or empty content. */
 export function extractActionableContent(commentBody: string): string | null {
   const match = commentBody.match(ACTIONABLE_COMMENT_PATTERN);
