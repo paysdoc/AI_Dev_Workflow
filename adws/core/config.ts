@@ -157,6 +157,8 @@ export const SLASH_COMMAND_MODEL_MAP: Record<SlashCommand, ModelTier> = {
   '/pull_request': 'sonnet',
   // Documentation
   '/document': 'sonnet',
+  // Cost tracking
+  '/commit_cost': 'haiku',
   // Utility
   '/find_plan_file': 'sonnet',
   // ADW initialization
@@ -181,6 +183,7 @@ export const SLASH_COMMAND_MODEL_MAP_FAST: Record<SlashCommand, ModelTier> = {
   '/commit': 'haiku',
   '/pull_request': 'haiku',
   '/document': 'sonnet',
+  '/commit_cost': 'haiku',
   '/find_plan_file': 'haiku',
   '/adw_init': 'haiku',
 };

@@ -144,6 +144,8 @@ export type SlashCommand =
   | '/patch'
   // Documentation
   | '/document'
+  // Cost tracking
+  | '/commit_cost'
   // ADW initialization
   | '/adw_init';
 

@@ -3,7 +3,7 @@
  */
 
 import { execSync } from 'child_process';
-import { log, slugify, IssueClassSlashCommand, branchPrefixMap } from '../core';
+import { log, slugify, IssueClassSlashCommand, branchPrefixMap, getIssueCsvPath, getProjectCsvPath } from '../core';
 
 /**
  * Gets the current git branch name.
@@ -275,6 +275,53 @@ export function deleteRemoteBranch(branchName: string): boolean {
     return true;
   } catch (error) {
     log(`Failed to delete remote branch '${branchName}': ${error}`, 'info');
+    return false;
+  }
+}
+
+/**
+ * Stages, commits, and pushes only cost-related CSV files for a given issue.
+ * Targets the issue cost CSV and project total cost CSV.
+ * Returns true if changes were committed, false if no changes or on failure.
+ *
+ * @param repoName - The repository name (used to compute CSV paths)
+ * @param issueNumber - The GitHub issue number
+ * @param issueTitle - The issue title (used to compute the issue CSV filename)
+ * @param cwd - Optional working directory to run git commands in
+ */
+export function commitAndPushCostFiles(
+  repoName: string,
+  issueNumber: number,
+  issueTitle: string,
+  cwd?: string,
+): boolean {
+  try {
+    const issueCsvPath = getIssueCsvPath(repoName, issueNumber, issueTitle);
+    const projectCsvPath = getProjectCsvPath(repoName);
+
+    const status = execSync(
+      `git status --porcelain -- "${issueCsvPath}" "${projectCsvPath}"`,
+      { encoding: 'utf-8', cwd },
+    ).trim();
+
+    if (!status) {
+      log(`No cost CSV changes to commit for issue #${issueNumber}`, 'info');
+      return false;
+    }
+
+    execSync(`git add "${issueCsvPath}" "${projectCsvPath}"`, { stdio: 'pipe', cwd });
+    execSync(
+      `git commit -m "cost: add cost data for issue #${issueNumber}"`,
+      { stdio: 'pipe', cwd },
+    );
+
+    const branch = getCurrentBranch(cwd);
+    execSync(`git push origin "${branch}"`, { stdio: 'pipe', cwd });
+
+    log(`Committed and pushed cost CSV files for issue #${issueNumber}`, 'success');
+    return true;
+  } catch (error) {
+    log(`Failed to commit cost CSV files for issue #${issueNumber}: ${error}`, 'error');
     return false;
   }
 }

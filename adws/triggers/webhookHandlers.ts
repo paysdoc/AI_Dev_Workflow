@@ -10,7 +10,7 @@ import { log, PullRequestWebhookPayload } from '../core';
 import type { RepoInfo } from '../github/githubApi';
 import { closeIssue, formatIssueClosureComment } from '../github/githubApi';
 import { removeWorktree } from '../github/worktreeOperations';
-import { deleteRemoteBranch } from '../github/gitOperations';
+import { deleteRemoteBranch, commitAndPushCostFiles } from '../github/gitOperations';
 
 /**
  * Extracts issue number from PR body using the "Implements #N" pattern.
@@ -90,9 +90,18 @@ export async function handlePullRequestEvent(payload: PullRequestWebhookPayload)
 
   if (closed) {
     log(`Successfully closed issue #${issueNumber} after PR #${prNumber} was ${wasMerged ? 'merged' : 'closed'}`);
-    return { status: 'closed', issue: issueNumber };
   } else {
     log(`Issue #${issueNumber} was already closed or could not be closed`);
-    return { status: 'already_closed', issue: issueNumber };
   }
+
+  // Commit and push cost CSV files for the closed issue
+  try {
+    const repoName = repository.name;
+    const issueTitle = pull_request.title;
+    commitAndPushCostFiles(repoName, issueNumber, issueTitle);
+  } catch (error) {
+    log(`Failed to commit cost CSV files for issue #${issueNumber}: ${error}`, 'error');
+  }
+
+  return { status: closed ? 'closed' : 'already_closed', issue: issueNumber };
 }
