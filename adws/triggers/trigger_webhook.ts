@@ -27,6 +27,33 @@ import {
 // Re-export for any external consumers
 export { handlePullRequestEvent, extractIssueNumberFromPRBody } from './webhookHandlers';
 
+/** Cooldown window (ms) to deduplicate PR review webhook events for the same PR. */
+const PR_REVIEW_COOLDOWN_MS = 60_000;
+
+/** Tracks PR number → timestamp of last trigger to deduplicate rapid webhook events. */
+const recentPrReviewTriggers = new Map<number, number>();
+
+/** Returns true if the PR review should be triggered (not within cooldown). Records the trigger timestamp on success. */
+export function shouldTriggerPrReview(prNumber: number): boolean {
+  const now = Date.now();
+  const lastTrigger = recentPrReviewTriggers.get(prNumber);
+  if (lastTrigger !== undefined && now - lastTrigger < PR_REVIEW_COOLDOWN_MS) {
+    return false;
+  }
+  recentPrReviewTriggers.set(prNumber, now);
+  return true;
+}
+
+/** Clears the deduplication map. Exported for test cleanup only. */
+export function resetPrReviewTriggers(): void {
+  recentPrReviewTriggers.clear();
+}
+
+/** Provides direct access to the deduplication map for test manipulation. Exported for tests only. */
+export function getPrReviewTriggersMap(): Map<number, number> {
+  return recentPrReviewTriggers;
+}
+
 const HTTP_STATUS_DESCRIPTIONS: Record<number, string> = {
   400: 'Bad Request',
   404: 'Not Found',
@@ -153,6 +180,12 @@ const server = http.createServer((req, res) => {
       if (action !== 'created' && action !== 'submitted') {
         log(`Ignored PR review action: ${action}`);
         jsonResponse(res, 200, { status: 'ignored' });
+        return;
+      }
+
+      if (!shouldTriggerPrReview(prNumber)) {
+        log(`Deduplicated PR review trigger for PR #${prNumber}, already triggered recently`);
+        jsonResponse(res, 200, { status: 'ignored', reason: 'duplicate' });
         return;
       }
 
