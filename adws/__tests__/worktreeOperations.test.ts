@@ -1595,6 +1595,70 @@ branch refs/heads/feature/issue-42-add-login-v2
       branchName: 'feature/issue-42-add-login',
     });
   });
+
+  it('matches worktree with alias prefix for bug issues (bug- instead of bugfix-)', () => {
+    const worktreeListOutput = `worktree /mock/project
+HEAD abc123
+branch refs/heads/main
+
+worktree /mock/project/.worktrees/bug-issue-42-fix-something
+HEAD def456
+branch refs/heads/bug-issue-42-fix-something
+
+`;
+    vi.mocked(execSync).mockReturnValue(worktreeListOutput);
+
+    const result = findWorktreeForIssue('/bug', 42);
+
+    expect(result).toEqual({
+      worktreePath: '/mock/project/.worktrees/bug-issue-42-fix-something',
+      branchName: 'bug-issue-42-fix-something',
+    });
+  });
+
+  it('matches worktree with alias prefix for feature issues (feat- instead of feature-)', () => {
+    const worktreeListOutput = `worktree /mock/project
+HEAD abc123
+branch refs/heads/main
+
+worktree /mock/project/.worktrees/feat-issue-42-add-login
+HEAD def456
+branch refs/heads/feat-issue-42-add-login
+
+`;
+    vi.mocked(execSync).mockReturnValue(worktreeListOutput);
+
+    const result = findWorktreeForIssue('/feature', 42);
+
+    expect(result).toEqual({
+      worktreePath: '/mock/project/.worktrees/feat-issue-42-add-login',
+      branchName: 'feat-issue-42-add-login',
+    });
+  });
+
+  it('prefers canonical prefix over alias when both exist', () => {
+    const worktreeListOutput = `worktree /mock/project
+HEAD abc123
+branch refs/heads/main
+
+worktree /mock/project/.worktrees/bugfix-issue-42-fix-something
+HEAD def456
+branch refs/heads/bugfix/issue-42-fix-something
+
+worktree /mock/project/.worktrees/bug-issue-42-fix-something
+HEAD ghi789
+branch refs/heads/bug-issue-42-fix-something
+
+`;
+    vi.mocked(execSync).mockReturnValue(worktreeListOutput);
+
+    const result = findWorktreeForIssue('/bug', 42);
+
+    expect(result).toEqual({
+      worktreePath: '/mock/project/.worktrees/bugfix-issue-42-fix-something',
+      branchName: 'bugfix/issue-42-fix-something',
+    });
+  });
 });
 
 describe('killProcessesInDirectory', () => {

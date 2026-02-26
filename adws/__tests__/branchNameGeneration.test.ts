@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { generateBranchName } from '../github/gitOperations';
-import { IssueClassSlashCommand, branchPrefixMap } from '../core/dataTypes';
+import { IssueClassSlashCommand, branchPrefixMap, branchPrefixAliases } from '../core/dataTypes';
 
 describe('generateBranchName', () => {
   const issueNumber = 123;
@@ -120,5 +120,31 @@ describe('generateBranchName', () => {
 
       expect(result).toBe('chore/issue-0-test');
     });
+  });
+});
+
+describe('branchPrefixAliases', () => {
+  const issueTypes: IssueClassSlashCommand[] = ['/feature', '/bug', '/chore', '/pr_review'];
+
+  it('is defined for all IssueClassSlashCommand types', () => {
+    for (const issueType of issueTypes) {
+      expect(branchPrefixAliases[issueType]).toBeDefined();
+      expect(Array.isArray(branchPrefixAliases[issueType])).toBe(true);
+    }
+  });
+
+  it('/bug aliases include "bug"', () => {
+    expect(branchPrefixAliases['/bug']).toContain('bug');
+  });
+
+  it('/feature aliases include "feat"', () => {
+    expect(branchPrefixAliases['/feature']).toContain('feat');
+  });
+
+  it('aliases do not contain the canonical prefix', () => {
+    for (const issueType of issueTypes) {
+      const canonical = branchPrefixMap[issueType];
+      expect(branchPrefixAliases[issueType]).not.toContain(canonical);
+    }
   });
 });
