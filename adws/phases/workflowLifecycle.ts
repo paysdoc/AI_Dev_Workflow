@@ -10,6 +10,34 @@ import { runGenerateBranchNameAgent, getPlanFilePath, runReviewWithRetry } from 
 import { classifyGitHubIssue } from '../core/issueClassifier';
 
 /**
+ * Ensures a given entry exists in the `.gitignore` file at the specified directory.
+ * Creates the `.gitignore` file if it doesn't exist. Idempotent — safe to call
+ * multiple times without duplicating the entry.
+ *
+ * @param worktreePath - The absolute path to the directory containing `.gitignore`
+ * @param entry - The gitignore pattern to ensure is present (e.g., `.claude/commands/`)
+ */
+export function ensureGitignoreEntry(worktreePath: string, entry: string): void {
+  const gitignorePath = path.join(worktreePath, '.gitignore');
+  const existing = fs.existsSync(gitignorePath)
+    ? fs.readFileSync(gitignorePath, 'utf-8')
+    : '';
+
+  const lines = existing.split('\n').map((line) => line.trim());
+  if (lines.includes(entry.trim())) {
+    log(`Gitignore already contains '${entry}', skipping`, 'info');
+    return;
+  }
+
+  const comment = '# ADW: copied slash commands (do not commit)';
+  const suffix = existing.length > 0 && !existing.endsWith('\n') ? '\n' : '';
+  const appendContent = `${suffix}${comment}\n${entry}\n`;
+
+  fs.writeFileSync(gitignorePath, existing + appendContent, 'utf-8');
+  log(`Added '${entry}' to ${gitignorePath}`, 'info');
+}
+
+/**
  * Copies the ADW repo's `.claude/commands/` directory to a target repo worktree.
  * Only copies `.md` files that don't already exist in the destination,
  * preserving the target repo's own commands.
@@ -41,6 +69,8 @@ function copyClaudeCommandsToWorktree(worktreePath: string): void {
   } else {
     log('No new slash commands to copy (all already exist in target)', 'info');
   }
+
+  ensureGitignoreEntry(worktreePath, '.claude/commands/');
 }
 
 /**
