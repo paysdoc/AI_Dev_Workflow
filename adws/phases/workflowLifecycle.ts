@@ -4,6 +4,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { fileURLToPath } from 'node:url';
 import { log, setLogAdwId, ensureLogsDirectory, generateAdwId, type IssueClassSlashCommand, type GitHubIssue, AgentStateManager, type AgentState, type AgentIdentifier, type RecoveryState, hasUncommittedChanges, getNextStage, MAX_REVIEW_RETRY_ATTEMPTS, COST_REPORT_CURRENCIES, type ModelUsageMap, buildCostBreakdown, persistTokenCounts, allocateRandomPort, type TargetRepoInfo, ensureTargetRepoWorkspace, writeIssueCostCsv, updateProjectCostCsv, type ProjectConfig, loadProjectConfig } from '../core';
 import { fetchGitHubIssue, postWorkflowComment, type WorkflowContext, detectRecoveryState, getDefaultBranch, checkoutDefaultBranch, ensureWorktree, getWorktreeForBranch, mergeLatestFromDefaultBranch, copyEnvToWorktree, findWorktreeForIssue, type RepoInfo } from '../github';
 import { runGenerateBranchNameAgent, getPlanFilePath, runReviewWithRetry } from '../agents';
@@ -80,7 +81,8 @@ export function ensureGitignoreEntries(worktreePath: string, entries: readonly s
  * @param worktreePath - The absolute path to the target repo worktree
  */
 function copyClaudeCommandsToWorktree(worktreePath: string): void {
-  const adwRepoRoot = path.resolve(__dirname, '../../');
+  const currentDir = path.dirname(fileURLToPath(import.meta.url));
+  const adwRepoRoot = path.resolve(currentDir, '../../');
   const sourceDir = path.join(adwRepoRoot, '.claude', 'commands');
   const destDir = path.join(worktreePath, '.claude', 'commands');
 
