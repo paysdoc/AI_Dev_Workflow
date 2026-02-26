@@ -11,7 +11,8 @@
 import * as http from 'http';
 import { spawn } from 'child_process';
 import { log, PullRequestWebhookPayload, allocateRandomPort, isPortAvailable, getTargetRepoWorkspacePath } from '../core';
-import { isActionableComment, isAdwRunningForIssue, truncateText } from '../github';
+import { isActionableComment, isClearComment, isAdwRunningForIssue, truncateText } from '../github';
+import { clearIssueComments } from '../adwClearComments';
 import { removeWorktreesForIssue } from '../github/worktreeOperations';
 import { classifyIssueForTrigger, getWorkflowScript } from '../core/issueClassifier';
 import { handlePullRequestEvent } from './webhookHandlers';
@@ -217,6 +218,14 @@ const server = http.createServer((req, res) => {
       }
 
       log(`Checking comment on issue #${issueNumber}: "${truncateText(commentBody, 100)}"`);
+
+      if (isClearComment(commentBody)) {
+        log(`Clear directive on issue #${issueNumber}, clearing all comments`);
+        const result = clearIssueComments(issueNumber);
+        log(`Cleared ${result.deleted}/${result.total} comments on issue #${issueNumber}`);
+        jsonResponse(res, 200, { status: 'cleared', issue: issueNumber, deleted: result.deleted });
+        return;
+      }
 
       if (!isActionableComment(commentBody)) {
         log(`Ignored comment on issue #${issueNumber}: missing "## Take action" directive`);

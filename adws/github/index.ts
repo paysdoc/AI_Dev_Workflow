@@ -77,6 +77,8 @@ export {
   isAdwComment,
   ACTIONABLE_COMMENT_PATTERN,
   isActionableComment,
+  CLEAR_COMMENT_PATTERN,
+  isClearComment,
   isAdwRunningForIssue,
   parseWorkflowStageFromComment,
   extractAdwIdFromComment,

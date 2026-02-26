@@ -9,7 +9,7 @@ vi.mock('../core/utils', () => ({
 }));
 
 import { execSync } from 'child_process';
-import { isAdwComment, isActionableComment, extractActionableContent, isAdwRunningForIssue, ADW_SIGNATURE } from '../github/workflowCommentsBase';
+import { isAdwComment, isActionableComment, isClearComment, extractActionableContent, isAdwRunningForIssue, ADW_SIGNATURE } from '../github/workflowCommentsBase';
 import { AgentStateManager } from '../core/agentState';
 
 describe('isAdwComment', () => {
@@ -77,6 +77,40 @@ describe('isAdwComment', () => {
 
   it('returns false for human comment without signature or heading', () => {
     expect(isAdwComment('Just a regular comment with no ADW markers')).toBe(false);
+  });
+});
+
+describe('isClearComment', () => {
+  it('returns true for exact ## Clear match', () => {
+    expect(isClearComment('## Clear')).toBe(true);
+  });
+
+  it('returns true for lowercase ## clear', () => {
+    expect(isClearComment('## clear')).toBe(true);
+  });
+
+  it('returns true for uppercase ## CLEAR', () => {
+    expect(isClearComment('## CLEAR')).toBe(true);
+  });
+
+  it('returns true for ## Clear with surrounding text', () => {
+    expect(isClearComment('Some context\n\n## Clear')).toBe(true);
+  });
+
+  it('returns false for ## Take action (not a clear comment)', () => {
+    expect(isClearComment('## Take action')).toBe(false);
+  });
+
+  it('returns false for plain text containing the word "clear" without heading', () => {
+    expect(isClearComment('Please clear this issue')).toBe(false);
+  });
+
+  it('returns false for empty string', () => {
+    expect(isClearComment('')).toBe(false);
+  });
+
+  it('returns false for ADW system comment', () => {
+    expect(isClearComment('## :rocket: ADW Workflow Started\n\n**ADW ID:** `adw-123-abc`')).toBe(false);
   });
 });
 
