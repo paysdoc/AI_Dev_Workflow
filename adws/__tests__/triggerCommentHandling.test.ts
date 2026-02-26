@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isActionableComment, ADW_SIGNATURE } from '../github/workflowCommentsBase';
+import { isActionableComment, isClearComment, ADW_SIGNATURE } from '../github/workflowCommentsBase';
 
 /**
  * Tests for the qualifying-issue logic used by the cron trigger.
@@ -18,7 +18,7 @@ function isQualifyingIssue(issue: RawIssue): boolean {
   if (issue.comments.length === 0) return true;
 
   const latestComment = issue.comments[issue.comments.length - 1];
-  return isActionableComment(latestComment.body);
+  return isActionableComment(latestComment.body) || isClearComment(latestComment.body);
 }
 
 describe('isQualifyingIssue (cron trigger logic)', () => {
@@ -92,6 +92,36 @@ describe('isQualifyingIssue (cron trigger logic)', () => {
     const issue: RawIssue = {
       number: 8,
       comments: [{ body: 'Some context here\n\n## Take action\n\nPlease re-run the workflow' }],
+      createdAt: '2025-01-01T00:00:00Z',
+    };
+    expect(isQualifyingIssue(issue)).toBe(true);
+  });
+
+  it('qualifies issue where latest comment is ## Clear', () => {
+    const issue: RawIssue = {
+      number: 9,
+      comments: [
+        { body: '## :tada: ADW Workflow Completed\n\n**ADW ID:** `adw-123-abc`' },
+        { body: '## Clear' },
+      ],
+      createdAt: '2025-01-01T00:00:00Z',
+    };
+    expect(isQualifyingIssue(issue)).toBe(true);
+  });
+
+  it('qualifies issue where latest comment is ## clear (lowercase)', () => {
+    const issue: RawIssue = {
+      number: 10,
+      comments: [{ body: '## clear' }],
+      createdAt: '2025-01-01T00:00:00Z',
+    };
+    expect(isQualifyingIssue(issue)).toBe(true);
+  });
+
+  it('qualifies issue where latest comment contains ## Clear with surrounding text', () => {
+    const issue: RawIssue = {
+      number: 11,
+      comments: [{ body: 'Some context\n\n## Clear\n\nPlease reset' }],
       createdAt: '2025-01-01T00:00:00Z',
     };
     expect(isQualifyingIssue(issue)).toBe(true);

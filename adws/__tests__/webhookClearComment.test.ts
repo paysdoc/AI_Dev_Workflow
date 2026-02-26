@@ -41,7 +41,7 @@ function makeRawComment(overrides: Record<string, unknown> = {}) {
 function handleIssueComment(commentBody: string, issueNumber: number): { status: string; issue?: number; deleted?: number } | null {
   if (isClearComment(commentBody)) {
     const result = clearIssueComments(issueNumber);
-    return { status: 'cleared', issue: issueNumber, deleted: result.deleted };
+    return { status: 'cleared_and_processing', issue: issueNumber, deleted: result.deleted };
   }
   return null;
 }
@@ -51,25 +51,25 @@ describe('webhook clear-comment handler', () => {
     vi.clearAllMocks();
   });
 
-  it('triggers clearIssueComments for ## Clear comment', () => {
+  it('triggers clearIssueComments and returns cleared_and_processing for ## Clear comment', () => {
     mockRepoInfo();
     vi.mocked(execSync).mockReturnValueOnce(JSON.stringify([]));
 
     const result = handleIssueComment('## Clear', 42);
 
-    expect(result).toEqual({ status: 'cleared', issue: 42, deleted: 0 });
+    expect(result).toEqual({ status: 'cleared_and_processing', issue: 42, deleted: 0 });
   });
 
-  it('triggers clearIssueComments for lowercase ## clear comment', () => {
+  it('triggers clearIssueComments and returns cleared_and_processing for lowercase ## clear comment', () => {
     mockRepoInfo();
     vi.mocked(execSync).mockReturnValueOnce(JSON.stringify([]));
 
     const result = handleIssueComment('## clear', 42);
 
-    expect(result).toEqual({ status: 'cleared', issue: 42, deleted: 0 });
+    expect(result).toEqual({ status: 'cleared_and_processing', issue: 42, deleted: 0 });
   });
 
-  it('returns deleted count from clearIssueComments', () => {
+  it('returns deleted count from clearIssueComments with cleared_and_processing status', () => {
     // getRepoInfo for fetchIssueCommentsRest
     mockRepoInfo();
     // fetch comments
@@ -88,7 +88,17 @@ describe('webhook clear-comment handler', () => {
 
     const result = handleIssueComment('## Clear', 10);
 
-    expect(result).toEqual({ status: 'cleared', issue: 10, deleted: 3 });
+    expect(result).toEqual({ status: 'cleared_and_processing', issue: 10, deleted: 3 });
+  });
+
+  it('calls clearIssueComments for ## Clear comments', () => {
+    mockRepoInfo();
+    vi.mocked(execSync).mockReturnValueOnce(JSON.stringify([]));
+
+    const result = handleIssueComment('## Clear', 7);
+
+    expect(result).not.toBeNull();
+    expect(result!.deleted).toBe(0);
   });
 
   it('does not trigger clear logic for ## Take action comment', () => {
