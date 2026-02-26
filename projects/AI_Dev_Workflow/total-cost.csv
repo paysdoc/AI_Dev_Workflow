@@ -3,6 +3,10 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 16,Changes to ADW repo should have cost in worktree,2.3481,0.2348
 19,Several bugs in adw flow,3.3957,0.3396
 18,The ADW is too specialized,12.4169,1.2417
+22,Classifier does not recognise adw_init,0.3236,0.0324
+23,Multiple problems with the ADW,6.8050,0.6805
+25,PR Review comments get picked up twice by the trigger,2.0915,0.2091
+27,Add Clear comments,3.5333,0.3533
 
-Total Cost (USD):,27.3908
-Total Cost (EUR):,23.2583
+Total Cost (USD):,41.4195
+Total Cost (EUR):,35.0949
