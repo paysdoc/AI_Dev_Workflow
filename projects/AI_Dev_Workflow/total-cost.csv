@@ -2,6 +2,7 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 13,Allow for multiple GITHUB_PAT variables,6.7400,0.6740
 16,Changes to ADW repo should have cost in worktree,2.3481,0.2348
 19,Several bugs in adw flow,3.3957,0.3396
+18,The ADW is too specialized,12.4169,1.2417
 
-Total Cost (USD):,13.7322
-Total Cost (EUR):,11.6604
+Total Cost (USD):,27.3908
+Total Cost (EUR):,23.2583
