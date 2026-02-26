@@ -151,6 +151,9 @@ function handleAgentProcess(
           statePath
         });
       } else if (code === 0) {
+        if (state.turnCount === 0) {
+          log(`${agentName}: Agent exited successfully but produced no output (0 turns). The slash command may not be available in the working directory.`, 'warn');
+        }
         resolve({
           success: true,
           output: state.fullOutput,

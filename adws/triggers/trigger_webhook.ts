@@ -10,7 +10,7 @@
 
 import * as http from 'http';
 import { spawn } from 'child_process';
-import { log, PullRequestWebhookPayload, allocateRandomPort, isPortAvailable } from '../core';
+import { log, PullRequestWebhookPayload, allocateRandomPort, isPortAvailable, getTargetRepoWorkspacePath } from '../core';
 import { isActionableComment, isAdwRunningForIssue, truncateText } from '../github';
 import { removeWorktreesForIssue } from '../github/worktreeOperations';
 import { classifyIssueForTrigger, getWorkflowScript } from '../core/issueClassifier';
@@ -262,7 +262,13 @@ const server = http.createServer((req, res) => {
 
     if (action === 'closed') {
       log(`Issue #${issueNumber} closed, removing associated worktrees`);
-      const removed = removeWorktreesForIssue(issueNumber);
+      const closedTargetRepoArgs = extractTargetRepoArgs(body);
+      const closedTargetRepoFullName = closedTargetRepoArgs.length >= 2 ? closedTargetRepoArgs[1] : undefined;
+      const closedRepoParts = closedTargetRepoFullName?.split('/');
+      const closedRepoCwd = closedRepoParts && closedRepoParts.length === 2
+        ? getTargetRepoWorkspacePath(closedRepoParts[0], closedRepoParts[1])
+        : undefined;
+      const removed = removeWorktreesForIssue(issueNumber, closedRepoCwd);
       log(`Removed ${removed} worktree(s) for issue #${issueNumber}`, 'success');
       jsonResponse(res, 200, { status: 'worktrees_cleaned', issue: issueNumber, removed });
       return;

@@ -5,6 +5,7 @@ import {
   classifyIssueForTrigger,
   classifyGitHubIssue,
   getWorkflowScript,
+  extractAdwCommandFromText,
 } from '../core/issueClassifier';
 import { adwCommandToIssueTypeMap, adwCommandToOrchestratorMap, issueTypeToOrchestratorMap, AdwSlashCommand, IssueClassSlashCommand, GitHubIssue } from '../core/dataTypes';
 
@@ -44,6 +45,52 @@ function createMockIssue(overrides: Partial<GitHubIssue> = {}): GitHubIssue {
     ...overrides,
   };
 }
+
+// ============================================================================
+// extractAdwCommandFromText
+// ============================================================================
+
+describe('extractAdwCommandFromText', () => {
+  it('returns /adw_init when text contains /adw_init', () => {
+    expect(extractAdwCommandFromText('/adw_init')).toBe('/adw_init');
+  });
+
+  it('returns /adw_plan_build_test when text contains /adw_plan_build_test (not /adw_plan)', () => {
+    expect(extractAdwCommandFromText('Please run /adw_plan_build_test on this')).toBe('/adw_plan_build_test');
+  });
+
+  it('returns /adw_sdlc when command is embedded in prose', () => {
+    expect(extractAdwCommandFromText('We need to run /adw_sdlc for this feature request')).toBe('/adw_sdlc');
+  });
+
+  it('returns null when no ADW command is present', () => {
+    expect(extractAdwCommandFromText('This is a regular issue with no commands')).toBeNull();
+  });
+
+  it('returns null for empty text', () => {
+    expect(extractAdwCommandFromText('')).toBeNull();
+  });
+
+  it('returns null for partial matches like /adw_unknown', () => {
+    expect(extractAdwCommandFromText('/adw_unknown')).toBeNull();
+  });
+
+  it('returns the first match when multiple commands are present', () => {
+    const result = extractAdwCommandFromText('/adw_init and also /adw_sdlc');
+    // Both are valid; the longest-first sort determines order, but /adw_sdlc is longer
+    // However, /adw_init appears first in the text. Since we sort by length descending
+    // and use .find(), /adw_sdlc will be checked first and found first.
+    expect(result).toBe('/adw_sdlc');
+  });
+
+  it('matches /adw_plan_build_test_review over /adw_plan_build_test', () => {
+    expect(extractAdwCommandFromText('/adw_plan_build_test_review')).toBe('/adw_plan_build_test_review');
+  });
+
+  it('matches /adw_plan when only /adw_plan is present', () => {
+    expect(extractAdwCommandFromText('run /adw_plan for this issue')).toBe('/adw_plan');
+  });
+});
 
 // ============================================================================
 // parseAdwClassificationOutput
@@ -210,6 +257,44 @@ describe('classifyWithAdwCommand', () => {
       'haiku'
     );
   });
+
+  it('returns immediately via regex pre-check when issueBody contains explicit /adw_init', async () => {
+    const result = await classifyWithAdwCommand(
+      'issue context',
+      42,
+      '/tmp/output.jsonl',
+      'Please run /adw_init on this repo',
+    );
+
+    expect(result).toEqual({
+      issueType: '/chore',
+      success: true,
+      adwCommand: '/adw_init',
+    });
+    // Should NOT call the agent at all
+    expect(runClaudeAgentWithCommand).not.toHaveBeenCalled();
+    expect(log).toHaveBeenCalledWith(
+      expect.stringContaining('regex pre-check'),
+      'success'
+    );
+  });
+
+  it('falls through to agent when issueBody has no explicit /adw_* command', async () => {
+    vi.mocked(runClaudeAgentWithCommand).mockResolvedValue({
+      output: '{"adwSlashCommand": "/adw_build"}',
+      success: true,
+    });
+
+    const result = await classifyWithAdwCommand(
+      'issue context',
+      42,
+      '/tmp/output.jsonl',
+      'This issue has no explicit command',
+    );
+
+    expect(result?.adwCommand).toBe('/adw_build');
+    expect(runClaudeAgentWithCommand).toHaveBeenCalledTimes(1);
+  });
 });
 
 // ============================================================================
@@ -219,10 +304,26 @@ describe('classifyWithAdwCommand', () => {
 describe('classifyIssueForTrigger', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(fetchGitHubIssue).mockResolvedValue(createMockIssue());
   });
 
-  it('uses ADW classification when /classify_adw finds a command', async () => {
+  it('uses regex pre-check when issue body contains explicit ADW command', async () => {
+    vi.mocked(fetchGitHubIssue).mockResolvedValue(createMockIssue({
+      body: 'Please run /adw_plan_build_test on this',
+    }));
+
+    const result = await classifyIssueForTrigger(42);
+
+    expect(result.issueType).toBe('/feature');
+    expect(result.adwCommand).toBe('/adw_plan_build_test');
+    expect(result.success).toBe(true);
+    // Should NOT call the agent at all — regex matched deterministically
+    expect(runClaudeAgentWithCommand).not.toHaveBeenCalled();
+  });
+
+  it('uses ADW classification when /classify_adw finds a command (no regex match)', async () => {
+    vi.mocked(fetchGitHubIssue).mockResolvedValue(createMockIssue({
+      body: 'No explicit command here',
+    }));
     vi.mocked(runClaudeAgentWithCommand).mockResolvedValueOnce({
       output: '{"adwSlashCommand": "/adw_plan_build_test"}',
       success: true,
@@ -233,7 +334,6 @@ describe('classifyIssueForTrigger', () => {
     expect(result.issueType).toBe('/feature');
     expect(result.adwCommand).toBe('/adw_plan_build_test');
     expect(result.success).toBe(true);
-    // Should only call once (for /classify_adw), not twice
     expect(runClaudeAgentWithCommand).toHaveBeenCalledTimes(1);
     expect(log).toHaveBeenCalledWith(
       expect.stringContaining('Attempting ADW classification')
@@ -241,6 +341,9 @@ describe('classifyIssueForTrigger', () => {
   });
 
   it('falls back to /classify_issue when /classify_adw returns empty', async () => {
+    vi.mocked(fetchGitHubIssue).mockResolvedValue(createMockIssue({
+      body: 'No explicit command here',
+    }));
     vi.mocked(runClaudeAgentWithCommand)
       .mockResolvedValueOnce({ output: '{}', success: true })
       .mockResolvedValueOnce({ output: '/bug', success: true });
@@ -260,6 +363,9 @@ describe('classifyIssueForTrigger', () => {
   });
 
   it('defaults to /feature when both classifiers fail', async () => {
+    vi.mocked(fetchGitHubIssue).mockResolvedValue(createMockIssue({
+      body: 'No explicit command here',
+    }));
     vi.mocked(runClaudeAgentWithCommand)
       .mockResolvedValueOnce({ output: '{}', success: true })
       .mockResolvedValueOnce({ output: 'unknown output', success: true });
@@ -289,13 +395,27 @@ describe('classifyGitHubIssue', () => {
     vi.clearAllMocks();
   });
 
-  it('uses ADW classification when /classify_adw finds a command', async () => {
+  it('uses regex pre-check when issue body contains explicit ADW command', async () => {
+    const result = await classifyGitHubIssue(createMockIssue({
+      body: 'Run /adw_patch to fix this',
+    }));
+
+    expect(result.issueType).toBe('/bug');
+    expect(result.adwCommand).toBe('/adw_patch');
+    expect(result.success).toBe(true);
+    // Should NOT call the agent at all
+    expect(runClaudeAgentWithCommand).not.toHaveBeenCalled();
+  });
+
+  it('uses ADW classification when /classify_adw finds a command (no regex match)', async () => {
     vi.mocked(runClaudeAgentWithCommand).mockResolvedValueOnce({
       output: '{"adwSlashCommand": "/adw_patch"}',
       success: true,
     });
 
-    const result = await classifyGitHubIssue(createMockIssue());
+    const result = await classifyGitHubIssue(createMockIssue({
+      body: 'No explicit command here',
+    }));
 
     expect(result.issueType).toBe('/bug');
     expect(result.adwCommand).toBe('/adw_patch');
@@ -311,7 +431,9 @@ describe('classifyGitHubIssue', () => {
       .mockResolvedValueOnce({ output: '{}', success: true })
       .mockResolvedValueOnce({ output: '/chore', success: true });
 
-    const result = await classifyGitHubIssue(createMockIssue());
+    const result = await classifyGitHubIssue(createMockIssue({
+      body: 'No explicit command here',
+    }));
 
     expect(result.issueType).toBe('/chore');
     expect(result.adwCommand).toBeUndefined();
@@ -330,7 +452,9 @@ describe('classifyGitHubIssue', () => {
       .mockResolvedValueOnce({ output: '{}', success: true })
       .mockResolvedValueOnce({ output: '', success: false });
 
-    const result = await classifyGitHubIssue(createMockIssue());
+    const result = await classifyGitHubIssue(createMockIssue({
+      body: 'No explicit command here',
+    }));
 
     expect(result.issueType).toBe('/feature');
     expect(result.success).toBe(false);
@@ -342,6 +466,7 @@ describe('classifyGitHubIssue', () => {
       .mockResolvedValueOnce({ output: '/feature', success: true });
 
     const issue = createMockIssue({
+      body: 'No explicit command here',
       labels: [{ id: '1', name: 'enhancement', color: '00ff00' }],
     });
 

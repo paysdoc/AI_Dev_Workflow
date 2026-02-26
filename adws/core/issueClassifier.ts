@@ -22,6 +22,28 @@ import {
 import { extractJson } from './jsonParser';
 
 /**
+ * Extracts an explicit ADW slash command from text using deterministic regex matching.
+ * Scans for `/adw_*` patterns and validates against known commands.
+ * Commands are matched longest-first to avoid partial matches (e.g., `/adw_plan_build_test` before `/adw_plan`).
+ *
+ * @param text - The text to scan for ADW commands
+ * @returns The matched AdwSlashCommand or null if none found
+ */
+export function extractAdwCommandFromText(text: string): AdwSlashCommand | null {
+  if (!text) return null;
+
+  const validCommands = Object.keys(adwCommandToIssueTypeMap) as AdwSlashCommand[];
+  const sortedByLength = [...validCommands].sort((a, b) => b.length - a.length);
+
+  const found = sortedByLength.find((cmd) => {
+    const pattern = new RegExp(`${cmd.replace('/', '\\/')}\\b`);
+    return pattern.test(text);
+  });
+
+  return found ?? null;
+}
+
+/**
  * Result of classifying an issue for trigger purposes.
  */
 export interface IssueClassificationResult {
@@ -83,6 +105,18 @@ export async function classifyWithAdwCommand(
   outputFile: string,
   issueBody?: string,
 ): Promise<IssueClassificationResult | null> {
+  // Deterministic regex pre-check: extract explicit /adw_* commands before calling the AI agent
+  const regexMatch = extractAdwCommandFromText(issueBody ?? issueContext);
+  if (regexMatch) {
+    const issueType = adwCommandToIssueTypeMap[regexMatch];
+    log(`Issue #${issueNumber} matched ADW command ${regexMatch} via regex pre-check`, 'success');
+    return {
+      issueType,
+      success: true,
+      adwCommand: regexMatch,
+    };
+  }
+
   try {
     const result = await runClaudeAgentWithCommand(
       '/classify_adw',
