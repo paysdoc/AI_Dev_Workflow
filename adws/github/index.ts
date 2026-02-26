@@ -16,6 +16,7 @@ export {
   commentOnIssue,
   fetchIssueCommentsRest,
   deleteIssueComment,
+  getIssueTitleSync,
   type RepoInfo,
 } from './githubApi';
 
