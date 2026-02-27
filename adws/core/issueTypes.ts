@@ -2,7 +2,7 @@
  * Supported slash commands for issue classification.
  * These should align with your custom slash commands in .claude/commands that you want to run.
  */
-export type IssueClassSlashCommand = '/chore' | '/bug' | '/feature' | '/pr_review';
+export type IssueClassSlashCommand = '/chore' | '/bug' | '/feature' | '/pr_review' | '/adw_init';
 
 /**
  * Valid ADW workflow slash commands for explicit workflow routing.
@@ -40,7 +40,7 @@ export const adwCommandToIssueTypeMap: Record<AdwSlashCommand, IssueClassSlashCo
   '/adw_plan_build_document': '/chore',
   '/adw_plan_build_test_review': '/feature',
   '/adw_sdlc': '/feature',
-  '/adw_init': '/chore',
+  '/adw_init': '/adw_init',
 };
 
 /**
@@ -74,6 +74,7 @@ export const issueTypeToOrchestratorMap: Record<IssueClassSlashCommand, string> 
   '/chore': 'adws/adwPlanBuild.tsx',
   '/feature': 'adws/adwSdlc.tsx',
   '/pr_review': 'adws/adwPlanBuild.tsx',
+  '/adw_init': 'adws/adwInit.tsx',
 };
 
 /**
@@ -93,6 +94,7 @@ export const commitPrefixMap: Record<IssueClassSlashCommand, string> = {
   '/bug': 'fix:',
   '/chore': 'chore:',
   '/pr_review': 'review:',
+  '/adw_init': 'adwinit:',
 };
 
 /**
@@ -104,7 +106,8 @@ export const branchPrefixMap: Record<IssueClassSlashCommand, string> = {
   '/bug': 'bugfix',
   '/chore': 'chore',
   '/pr_review': 'review',
-};
+  '/adw_init': 'adwinit',
+  };
 
 /**
  * Alternative branch name prefixes that the Claude skill may generate.
@@ -115,6 +118,7 @@ export const branchPrefixAliases: Record<IssueClassSlashCommand, readonly string
   '/bug': ['bug'],
   '/chore': [],
   '/pr_review': ['test'],
+  '/adw_init' : ['adwinit'],
 };
 
 /**
