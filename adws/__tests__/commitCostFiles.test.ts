@@ -16,6 +16,7 @@ vi.mock('../core/utils', () => ({
 }));
 
 import { commitAndPushCostFiles } from '../github/gitOperations';
+import { log } from '../core/utils';
 
 const mockExecSync = vi.mocked(execSync);
 
@@ -24,8 +25,7 @@ describe('commitAndPushCostFiles', () => {
     vi.clearAllMocks();
   });
 
-  it('stages, commits, and pushes cost files when changes exist', () => {
-    // git status --porcelain returns changes
+  it('stages, commits, and pushes cost files when changes exist (single issue mode)', () => {
     mockExecSync.mockImplementation((cmd: string) => {
       const cmdStr = String(cmd);
       if (cmdStr.startsWith('git status --porcelain')) return ' M projects/my-repo/42-add-login.csv\n';
@@ -33,7 +33,7 @@ describe('commitAndPushCostFiles', () => {
       return '';
     });
 
-    const result = commitAndPushCostFiles('my-repo', 42, 'Add login', '/work');
+    const result = commitAndPushCostFiles({ repoName: 'my-repo', issueNumber: 42, issueTitle: 'Add login', cwd: '/work' });
 
     expect(result).toBe(true);
 
@@ -62,11 +62,10 @@ describe('commitAndPushCostFiles', () => {
       return '';
     });
 
-    const result = commitAndPushCostFiles('my-repo', 42, 'Add login');
+    const result = commitAndPushCostFiles({ repoName: 'my-repo', issueNumber: 42, issueTitle: 'Add login' });
 
     expect(result).toBe(false);
 
-    // Should not have called git add or git commit
     const addCall = mockExecSync.mock.calls.find(c => String(c[0]).startsWith('git add'));
     expect(addCall).toBeUndefined();
     const commitCall = mockExecSync.mock.calls.find(c => String(c[0]).startsWith('git commit'));
@@ -82,7 +81,7 @@ describe('commitAndPushCostFiles', () => {
       return '';
     });
 
-    const result = commitAndPushCostFiles('my-repo', 42, 'Add login');
+    const result = commitAndPushCostFiles({ repoName: 'my-repo', issueNumber: 42, issueTitle: 'Add login' });
 
     expect(result).toBe(false);
   });
@@ -95,7 +94,7 @@ describe('commitAndPushCostFiles', () => {
       return '';
     });
 
-    commitAndPushCostFiles('AI_Dev_Workflow', 34, 'Trigger should commit and push');
+    commitAndPushCostFiles({ repoName: 'AI_Dev_Workflow', issueNumber: 34, issueTitle: 'Trigger should commit and push' });
 
     const statusCall = mockExecSync.mock.calls.find(c => String(c[0]).startsWith('git status'));
     expect(String(statusCall![0])).toContain('projects/AI_Dev_Workflow/34-trigger-should-commit-and-push.csv');
@@ -110,11 +109,93 @@ describe('commitAndPushCostFiles', () => {
       return '';
     });
 
-    commitAndPushCostFiles('my-repo', 42, 'Add login', '/custom/path');
+    commitAndPushCostFiles({ repoName: 'my-repo', issueNumber: 42, issueTitle: 'Add login', cwd: '/custom/path' });
 
     for (const call of mockExecSync.mock.calls) {
       const opts = call[1] as { cwd?: string };
       expect(opts.cwd).toBe('/custom/path');
     }
+  });
+
+  it('stages all CSVs in project directory when only repoName is provided (project mode)', () => {
+    mockExecSync.mockImplementation((cmd: string) => {
+      const cmdStr = String(cmd);
+      if (cmdStr.startsWith('git status --porcelain')) return ' M projects/my-repo/total-cost.csv\n';
+      if (cmdStr.startsWith('git branch --show-current')) return 'feature/branch\n';
+      return '';
+    });
+
+    const result = commitAndPushCostFiles({ repoName: 'my-repo' });
+
+    expect(result).toBe(true);
+
+    const addCall = mockExecSync.mock.calls.find(c => String(c[0]).startsWith('git add'));
+    expect(addCall).toBeDefined();
+    expect(String(addCall![0])).toContain('projects/my-repo/*.csv');
+
+    const commitCall = mockExecSync.mock.calls.find(c => String(c[0]).startsWith('git commit'));
+    expect(commitCall).toBeDefined();
+    expect(String(commitCall![0])).toContain('cost: add cost data for my-repo');
+  });
+
+  it('stages all CSVs under projects/ when no options are provided (all projects mode)', () => {
+    mockExecSync.mockImplementation((cmd: string) => {
+      const cmdStr = String(cmd);
+      if (cmdStr.startsWith('git status --porcelain')) return ' M projects/repo-a/total-cost.csv\n';
+      if (cmdStr.startsWith('git branch --show-current')) return 'main\n';
+      return '';
+    });
+
+    const result = commitAndPushCostFiles({});
+
+    expect(result).toBe(true);
+
+    const addCall = mockExecSync.mock.calls.find(c => String(c[0]).startsWith('git add'));
+    expect(addCall).toBeDefined();
+    expect(String(addCall![0])).toBe('git add projects/');
+
+    const commitCall = mockExecSync.mock.calls.find(c => String(c[0]).startsWith('git commit'));
+    expect(commitCall).toBeDefined();
+    expect(String(commitCall![0])).toContain('cost: add cost data for all projects');
+  });
+
+  it('returns false and logs error when issueNumber is provided without repoName', () => {
+    const result = commitAndPushCostFiles({ issueNumber: 42, issueTitle: 'Some title' });
+
+    expect(result).toBe(false);
+    expect(log).toHaveBeenCalledWith('Cannot commit issue cost files without a project name', 'error');
+
+    // Should not have called any git commands
+    expect(mockExecSync).not.toHaveBeenCalled();
+  });
+
+  it('returns false when project mode has no changes', () => {
+    mockExecSync.mockImplementation((cmd: string) => {
+      const cmdStr = String(cmd);
+      if (cmdStr.startsWith('git status --porcelain')) return '';
+      return '';
+    });
+
+    const result = commitAndPushCostFiles({ repoName: 'my-repo' });
+
+    expect(result).toBe(false);
+
+    const addCall = mockExecSync.mock.calls.find(c => String(c[0]).startsWith('git add'));
+    expect(addCall).toBeUndefined();
+  });
+
+  it('returns false when all projects mode has no changes', () => {
+    mockExecSync.mockImplementation((cmd: string) => {
+      const cmdStr = String(cmd);
+      if (cmdStr.startsWith('git status --porcelain')) return '';
+      return '';
+    });
+
+    const result = commitAndPushCostFiles({});
+
+    expect(result).toBe(false);
+
+    const addCall = mockExecSync.mock.calls.find(c => String(c[0]).startsWith('git add'));
+    expect(addCall).toBeUndefined();
   });
 });

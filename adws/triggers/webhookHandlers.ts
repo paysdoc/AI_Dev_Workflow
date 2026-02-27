@@ -98,7 +98,7 @@ export async function handlePullRequestEvent(payload: PullRequestWebhookPayload)
   try {
     const repoName = repository.name;
     const issueTitle = pull_request.title;
-    commitAndPushCostFiles(repoName, issueNumber, issueTitle);
+    commitAndPushCostFiles({ repoName, issueNumber, issueTitle });
   } catch (error) {
     log(`Failed to commit cost CSV files for issue #${issueNumber}: ${error}`, 'error');
   }

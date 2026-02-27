@@ -140,7 +140,11 @@ describe('handlePullRequestEvent', () => {
 
     await handlePullRequestEvent(payload);
 
-    expect(commitAndPushCostFiles).toHaveBeenCalledWith('repo', 42, 'Add feature');
+    expect(commitAndPushCostFiles).toHaveBeenCalledWith({
+      repoName: 'repo',
+      issueNumber: 42,
+      issueTitle: 'Add feature',
+    });
   });
 
   it('does not call commitAndPushCostFiles when PR action is not closed', async () => {

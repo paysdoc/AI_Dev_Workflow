@@ -279,49 +279,78 @@ export function deleteRemoteBranch(branchName: string): boolean {
   }
 }
 
+export interface CommitCostFilesOptions {
+  repoName?: string;
+  issueNumber?: number;
+  issueTitle?: string;
+  cwd?: string;
+}
+
 /**
- * Stages, commits, and pushes only cost-related CSV files for a given issue.
- * Targets the issue cost CSV and project total cost CSV.
- * Returns true if changes were committed, false if no changes or on failure.
+ * Stages, commits, and pushes cost-related CSV files.
+ * Supports three modes:
+ * - Single issue: repoName + issueNumber + issueTitle — stages issue CSV and project total CSV
+ * - Project-wide: repoName only — stages all CSVs in projects/<repoName>/
+ * - All projects: no repoName — stages all CSVs under projects/
  *
- * @param repoName - The repository name (used to compute CSV paths)
- * @param issueNumber - The GitHub issue number
- * @param issueTitle - The issue title (used to compute the issue CSV filename)
- * @param cwd - Optional working directory to run git commands in
+ * Returns false if issueNumber is provided without repoName (invalid).
+ * Returns true if changes were committed, false if no changes or on failure.
  */
-export function commitAndPushCostFiles(
-  repoName: string,
-  issueNumber: number,
-  issueTitle: string,
-  cwd?: string,
-): boolean {
+export function commitAndPushCostFiles(options: CommitCostFilesOptions = {}): boolean {
+  const { repoName, issueNumber, issueTitle, cwd } = options;
+
+  if (issueNumber !== undefined && !repoName) {
+    log('Cannot commit issue cost files without a project name', 'error');
+    return false;
+  }
+
   try {
-    const issueCsvPath = getIssueCsvPath(repoName, issueNumber, issueTitle);
-    const projectCsvPath = getProjectCsvPath(repoName);
+    let addPath: string;
+    let statusPath: string;
+    let commitMessage: string;
+
+    if (repoName && issueNumber !== undefined && issueTitle) {
+      // Single issue mode
+      const issueCsvPath = getIssueCsvPath(repoName, issueNumber, issueTitle);
+      const projectCsvPath = getProjectCsvPath(repoName);
+      addPath = `"${issueCsvPath}" "${projectCsvPath}"`;
+      statusPath = `"${issueCsvPath}" "${projectCsvPath}"`;
+      commitMessage = `cost: add cost data for issue #${issueNumber}`;
+    } else if (repoName) {
+      // Project mode
+      addPath = `"projects/${repoName}/*.csv"`;
+      statusPath = `"projects/${repoName}/"`;
+      commitMessage = `cost: add cost data for ${repoName}`;
+    } else {
+      // All projects mode
+      addPath = 'projects/';
+      statusPath = '"projects/"';
+      commitMessage = 'cost: add cost data for all projects';
+    }
 
     const status = execSync(
-      `git status --porcelain -- "${issueCsvPath}" "${projectCsvPath}"`,
+      `git status --porcelain -- ${statusPath}`,
       { encoding: 'utf-8', cwd },
     ).trim();
 
     if (!status) {
-      log(`No cost CSV changes to commit for issue #${issueNumber}`, 'info');
+      log(`No cost CSV changes to commit`, 'info');
       return false;
     }
 
-    execSync(`git add "${issueCsvPath}" "${projectCsvPath}"`, { stdio: 'pipe', cwd });
+    execSync(`git add ${addPath}`, { stdio: 'pipe', cwd });
     execSync(
-      `git commit -m "cost: add cost data for issue #${issueNumber}"`,
+      `git commit -m "${commitMessage}"`,
       { stdio: 'pipe', cwd },
     );
 
     const branch = getCurrentBranch(cwd);
     execSync(`git push origin "${branch}"`, { stdio: 'pipe', cwd });
 
-    log(`Committed and pushed cost CSV files for issue #${issueNumber}`, 'success');
+    log(`Committed and pushed cost CSV files`, 'success');
     return true;
   } catch (error) {
-    log(`Failed to commit cost CSV files for issue #${issueNumber}: ${error}`, 'error');
+    log(`Failed to commit cost CSV files: ${error}`, 'error');
     return false;
   }
 }
