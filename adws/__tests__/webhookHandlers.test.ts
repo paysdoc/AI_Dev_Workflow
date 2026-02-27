@@ -20,10 +20,11 @@ vi.mock('../github/worktreeOperations', () => ({
 
 vi.mock('../github/gitOperations', () => ({
   deleteRemoteBranch: vi.fn(() => true),
+  commitAndPushCostFiles: vi.fn(() => true),
 }));
 
 import { removeWorktree } from '../github/worktreeOperations';
-import { deleteRemoteBranch } from '../github/gitOperations';
+import { deleteRemoteBranch, commitAndPushCostFiles } from '../github/gitOperations';
 import { closeIssue } from '../github/githubApi';
 import {
   handlePullRequestEvent,
@@ -132,5 +133,57 @@ describe('handlePullRequestEvent', () => {
 
     expect(closeIssue).toHaveBeenCalledWith(42, expect.any(String), { owner: 'owner', repo: 'repo' });
     expect(result).toEqual({ status: 'closed', issue: 42 });
+  });
+
+  it('calls commitAndPushCostFiles with correct arguments when PR is closed with issue link', async () => {
+    const payload = createPayload();
+
+    await handlePullRequestEvent(payload);
+
+    expect(commitAndPushCostFiles).toHaveBeenCalledWith({
+      repoName: 'repo',
+      issueNumber: 42,
+      issueTitle: 'Add feature',
+    });
+  });
+
+  it('does not call commitAndPushCostFiles when PR action is not closed', async () => {
+    const payload = createPayload({ action: 'opened' });
+
+    await handlePullRequestEvent(payload);
+
+    expect(commitAndPushCostFiles).not.toHaveBeenCalled();
+  });
+
+  it('does not call commitAndPushCostFiles when no issue link found', async () => {
+    const payload = createPayload({
+      pull_request: {
+        number: 1,
+        state: 'closed',
+        merged: true,
+        body: 'No issue reference here',
+        html_url: 'https://github.com/owner/repo/pull/1',
+        title: 'Add feature',
+        base: { ref: 'main' },
+        head: { ref: 'feature/issue-42-add-login' },
+      },
+    });
+
+    await handlePullRequestEvent(payload);
+
+    expect(commitAndPushCostFiles).not.toHaveBeenCalled();
+  });
+
+  it('still succeeds when commitAndPushCostFiles throws', async () => {
+    vi.mocked(commitAndPushCostFiles).mockImplementation(() => {
+      throw new Error('git push failed');
+    });
+
+    const payload = createPayload();
+
+    const result = await handlePullRequestEvent(payload);
+
+    expect(result.status).toBe('closed');
+    expect(result.issue).toBe(42);
   });
 });

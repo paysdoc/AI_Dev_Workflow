@@ -35,6 +35,8 @@ export {
   mergeLatestFromDefaultBranch,
   deleteLocalBranch,
   deleteRemoteBranch,
+  commitAndPushCostFiles,
+  type CommitCostFilesOptions,
 } from './gitOperations';
 
 // Pull Request Creator
