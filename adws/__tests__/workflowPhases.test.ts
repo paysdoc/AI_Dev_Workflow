@@ -60,6 +60,9 @@ vi.mock('../core', async (importOriginal) => {
     }),
     writeIssueCostCsv: vi.fn(),
     updateProjectCostCsv: vi.fn(),
+    mergeModelUsageMaps: actual.mergeModelUsageMaps,
+    emptyModelUsageMap: actual.emptyModelUsageMap,
+    persistTokenCounts: vi.fn(),
   };
 });
 
@@ -111,6 +114,7 @@ vi.mock('../github', () => ({
   copyEnvToWorktree: vi.fn(),
   findWorktreeForIssue: vi.fn().mockReturnValue(null),
   inferIssueTypeFromBranch: vi.fn().mockReturnValue('/feature'),
+  getRepoInfo: vi.fn().mockReturnValue({ owner: 'test', repo: 'repo' }),
 }));
 
 vi.mock('../agents', () => ({
@@ -131,11 +135,13 @@ vi.mock('../agents', () => ({
     success: true,
     output: 'PR Review Plan created',
     totalCostUsd: 0.3,
+    modelUsage: { 'claude-sonnet-4-20250514': { inputTokens: 50, outputTokens: 25, cacheReadInputTokens: 0, cacheCreationInputTokens: 0, costUSD: 0.3 } },
   }),
   runPrReviewBuildAgent: vi.fn().mockResolvedValue({
     success: true,
     output: 'PR Review Build completed',
     totalCostUsd: 0.8,
+    modelUsage: { 'claude-sonnet-4-20250514': { inputTokens: 100, outputTokens: 50, cacheReadInputTokens: 0, cacheCreationInputTokens: 0, costUSD: 0.8 } },
   }),
   runGenerateBranchNameAgent: vi.fn().mockResolvedValue({
     success: true,

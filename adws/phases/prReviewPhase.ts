@@ -4,8 +4,8 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { log, setLogAdwId, ensureLogsDirectory, generateAdwId, type PRDetails, type PRReviewComment, AgentStateManager, type AgentState, MAX_TEST_RETRY_ATTEMPTS, COST_REPORT_CURRENCIES, type ModelUsageMap, buildCostBreakdown, allocateRandomPort } from '../core';
-import { fetchPRDetails, getUnaddressedComments, pushBranch, postPRWorkflowComment, type PRReviewWorkflowContext, ensureWorktree, inferIssueTypeFromBranch, type RepoInfo } from '../github';
+import { log, setLogAdwId, ensureLogsDirectory, generateAdwId, type PRDetails, type PRReviewComment, AgentStateManager, type AgentState, MAX_TEST_RETRY_ATTEMPTS, COST_REPORT_CURRENCIES, type ModelUsageMap, buildCostBreakdown, allocateRandomPort, mergeModelUsageMaps, emptyModelUsageMap, persistTokenCounts, writeIssueCostCsv, updateProjectCostCsv } from '../core';
+import { fetchPRDetails, getUnaddressedComments, pushBranch, postPRWorkflowComment, type PRReviewWorkflowContext, ensureWorktree, inferIssueTypeFromBranch, type RepoInfo, getRepoInfo } from '../github';
 import { getPlanFilePath, runPrReviewPlanAgent, runPrReviewBuildAgent, runCommitAgent, type ProgressCallback, type ProgressInfo, runUnitTestsWithRetry, runE2ETestsWithRetry } from '../agents';
 
 // ============================================================================
@@ -107,7 +107,7 @@ export async function initializePRReviewWorkflow(prNumber: number, adwId: string
  * Executes the PR review Plan phase: reads existing plan, runs PR review plan agent.
  * Uses `config.repoInfo` for external repository API calls when targeting a different repo.
  */
-export async function executePRReviewPlanPhase(config: PRReviewWorkflowConfig): Promise<{ planOutput: string }> {
+export async function executePRReviewPlanPhase(config: PRReviewWorkflowConfig): Promise<{ planOutput: string; costUsd: number; modelUsage: ModelUsageMap }> {
   const { prNumber, issueNumber, adwId, prDetails, unaddressedComments, worktreePath, logsDir, orchestratorStatePath, ctx, repoInfo } = config;
   let existingPlanContent = '';
   if (issueNumber) {
@@ -156,14 +156,18 @@ export async function executePRReviewPlanPhase(config: PRReviewWorkflowConfig): 
   ctx.revisionPlanOutput = planResult.output;
   postPRWorkflowComment(prNumber, 'pr_review_planned', ctx, repoInfo);
 
-  return { planOutput: planResult.output };
+  return {
+    planOutput: planResult.output,
+    costUsd: planResult.totalCostUsd ?? 0,
+    modelUsage: planResult.modelUsage ?? emptyModelUsageMap(),
+  };
 }
 
 /**
  * Executes the PR review Build phase: runs PR review build agent.
  * Uses `config.repoInfo` for external repository API calls when targeting a different repo.
  */
-export async function executePRReviewBuildPhase(config: PRReviewWorkflowConfig, planOutput: string): Promise<void> {
+export async function executePRReviewBuildPhase(config: PRReviewWorkflowConfig, planOutput: string): Promise<{ costUsd: number; modelUsage: ModelUsageMap }> {
   const { prNumber, issueNumber, adwId, prDetails, unaddressedComments, worktreePath, logsDir, orchestratorStatePath, ctx, repoInfo } = config;
   postPRWorkflowComment(prNumber, 'pr_review_implementing', ctx, repoInfo);
   log('Running PR Review Build Agent...', 'info');
@@ -202,13 +206,18 @@ export async function executePRReviewBuildPhase(config: PRReviewWorkflowConfig, 
 
   ctx.revisionBuildOutput = buildResult.output;
   postPRWorkflowComment(prNumber, 'pr_review_implemented', ctx, repoInfo);
+
+  return {
+    costUsd: buildResult.totalCostUsd ?? 0,
+    modelUsage: buildResult.modelUsage ?? emptyModelUsageMap(),
+  };
 }
 
 /**
  * Executes the PR review Test phase: runs unit and E2E tests with retry.
  * Uses `config.repoInfo` for external repository API calls when targeting a different repo.
  */
-export async function executePRReviewTestPhase(config: PRReviewWorkflowConfig): Promise<void> {
+export async function executePRReviewTestPhase(config: PRReviewWorkflowConfig): Promise<{ costUsd: number; modelUsage: ModelUsageMap }> {
   const { prNumber, prDetails, unaddressedComments, worktreePath, logsDir, orchestratorStatePath, ctx, applicationUrl, repoInfo } = config;
 
   postPRWorkflowComment(prNumber, 'pr_review_testing', ctx, repoInfo);
@@ -269,6 +278,14 @@ export async function executePRReviewTestPhase(config: PRReviewWorkflowConfig): 
   postPRWorkflowComment(prNumber, 'pr_review_test_passed', ctx, repoInfo);
   log('All validation tests passed!', 'success');
   AgentStateManager.appendLog(orchestratorStatePath, 'All validation tests passed');
+
+  const combinedCostUsd = (unitTestsResult.costUsd ?? 0) + (e2eTestsResult.costUsd ?? 0);
+  const combinedModelUsage = mergeModelUsageMaps(
+    unitTestsResult.modelUsage ?? emptyModelUsageMap(),
+    e2eTestsResult.modelUsage ?? emptyModelUsageMap(),
+  );
+
+  return { costUsd: combinedCostUsd, modelUsage: combinedModelUsage };
 }
 
 /**
@@ -282,6 +299,19 @@ export async function completePRReviewWorkflow(config: PRReviewWorkflowConfig, m
   if (modelUsage && Object.keys(modelUsage).length > 0) {
     const costBreakdown = await buildCostBreakdown(modelUsage, [...COST_REPORT_CURRENCIES]);
     ctx.costBreakdown = costBreakdown;
+
+    // Write cost data to CSV files
+    try {
+      const repoName = config.repoInfo?.repo ?? getRepoInfo().repo;
+      const adwRepoRoot = process.cwd();
+      const eurEntry = costBreakdown.currencies.find(c => c.currency === 'EUR');
+      const eurRate = eurEntry ? eurEntry.amount / costBreakdown.totalCostUsd : 0;
+
+      writeIssueCostCsv(adwRepoRoot, repoName, config.issueNumber, config.prDetails.title, costBreakdown);
+      updateProjectCostCsv(adwRepoRoot, repoName, config.issueNumber, config.prDetails.title, costBreakdown.totalCostUsd, eurRate);
+    } catch (csvError) {
+      log(`Failed to write cost CSV files: ${csvError}`, 'error');
+    }
   }
 
   postPRWorkflowComment(prNumber, 'pr_review_committing', ctx, repoInfo);
@@ -294,6 +324,9 @@ export async function completePRReviewWorkflow(config: PRReviewWorkflowConfig, m
 
   AgentStateManager.writeState(orchestratorStatePath, {
     execution: AgentStateManager.completeExecution(AgentStateManager.createExecutionState('running'), true),
+    ...(modelUsage && Object.keys(modelUsage).length > 0
+      ? { metadata: { totalCostUsd: Object.values(modelUsage).reduce((sum, u) => sum + u.costUSD, 0), modelUsage } }
+      : {}),
   });
   AgentStateManager.appendLog(orchestratorStatePath, 'PR Review workflow completed successfully');
 
@@ -306,8 +339,12 @@ export async function completePRReviewWorkflow(config: PRReviewWorkflowConfig, m
  * Handles PR review workflow errors: posts error comment, writes failed state, and exits.
  * Uses `config.repoInfo` for external repository API calls when targeting a different repo.
  */
-export function handlePRReviewWorkflowError(config: PRReviewWorkflowConfig, error: unknown): never {
+export function handlePRReviewWorkflowError(config: PRReviewWorkflowConfig, error: unknown, costUsd?: number, modelUsage?: ModelUsageMap): never {
   const { prNumber, orchestratorStatePath, ctx, repoInfo } = config;
+
+  if (costUsd !== undefined && modelUsage) {
+    persistTokenCounts(orchestratorStatePath, costUsd, modelUsage);
+  }
 
   ctx.errorMessage = String(error);
   postPRWorkflowComment(prNumber, 'pr_review_error', ctx, repoInfo);

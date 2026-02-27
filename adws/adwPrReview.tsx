@@ -16,7 +16,7 @@
  * - CLAUDE_CODE_PATH: Path to Claude CLI (default: /usr/local/bin/claude)
  */
 
-import { parseTargetRepoArgs } from './core';
+import { parseTargetRepoArgs, mergeModelUsageMaps, persistTokenCounts, type ModelUsageMap } from './core';
 import {
   initializePRReviewWorkflow,
   executePRReviewPlanPhase,
@@ -43,13 +43,28 @@ async function main(): Promise<void> {
 
   const config = await initializePRReviewWorkflow(prNumber, null);
 
+  let totalCostUsd = 0;
+  let totalModelUsage: ModelUsageMap = {};
+
   try {
-    const { planOutput } = await executePRReviewPlanPhase(config);
-    await executePRReviewBuildPhase(config, planOutput);
-    await executePRReviewTestPhase(config);
-    await completePRReviewWorkflow(config);
+    const planResult = await executePRReviewPlanPhase(config);
+    totalCostUsd += planResult.costUsd;
+    totalModelUsage = mergeModelUsageMaps(totalModelUsage, planResult.modelUsage);
+    persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
+
+    const buildResult = await executePRReviewBuildPhase(config, planResult.planOutput);
+    totalCostUsd += buildResult.costUsd;
+    totalModelUsage = mergeModelUsageMaps(totalModelUsage, buildResult.modelUsage);
+    persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
+
+    const testResult = await executePRReviewTestPhase(config);
+    totalCostUsd += testResult.costUsd;
+    totalModelUsage = mergeModelUsageMaps(totalModelUsage, testResult.modelUsage);
+    persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
+
+    await completePRReviewWorkflow(config, totalModelUsage);
   } catch (error) {
-    handlePRReviewWorkflowError(config, error);
+    handlePRReviewWorkflowError(config, error, totalCostUsd, totalModelUsage);
   }
 }
 
