@@ -17,6 +17,7 @@ import {
   getPlanFilePath,
   planFileExists,
   readPlanFile,
+  correctPlanFileNaming,
   runCommitAgent,
 } from '../agents';
 import type { WorkflowConfig } from './workflowLifecycle';
@@ -85,6 +86,9 @@ export async function executePlanPhase(config: WorkflowConfig): Promise<{ costUs
       });
       throw new Error(`Plan Agent failed: ${planResult.output}`);
     }
+
+    // Correct any swapped plan file naming before resolving the path
+    correctPlanFileNaming(issueNumber, worktreePath);
 
     // Re-resolve the plan file path now that the plan agent has created the file
     const resolvedPlanPath = getPlanFilePath(issueNumber, worktreePath);

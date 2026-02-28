@@ -5,7 +5,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { GitHubIssue, IssueClassSlashCommand, PRDetails, PRReviewComment, getModelForCommand } from '../core';
+import { GitHubIssue, IssueClassSlashCommand, PRDetails, PRReviewComment, getModelForCommand, log } from '../core';
 import { runClaudeAgentWithCommand, AgentResult } from './claudeAgent';
 import { isAdwComment, extractActionableContent } from '../github/workflowCommentsBase';
 
@@ -123,6 +123,48 @@ export function readPlanFile(issueNumber: number, worktreePath?: string): string
   } catch {
     return null;
   }
+}
+
+/**
+ * Detects and corrects plan files with swapped issueNumber/adwId in the filename.
+ * The plan agent sometimes swaps $1 (issueNumber) and $2 (adwId), producing
+ * `issue-{adwId}-adw-{issueNumber}-...` instead of `issue-{issueNumber}-adw-{adwId}-...`.
+ * This function detects and renames such files to the correct convention.
+ *
+ * @returns The corrected relative path if a rename was performed, or null if no correction was needed.
+ */
+export function correctPlanFileNaming(issueNumber: number, worktreePath?: string): string | null {
+  const specsDir = worktreePath ? path.join(worktreePath, 'specs') : 'specs';
+
+  try {
+    const files = fs.readdirSync(specsDir);
+
+    // Already correctly named? No correction needed.
+    const correctPattern = new RegExp(`^issue-${issueNumber}-adw-.*-sdlc_planner-.*\\.md$`);
+    for (const file of files) {
+      if (correctPattern.test(file)) return null;
+    }
+
+    // Look for swapped naming: adwId placed in issue- position, issueNumber placed in adw- position
+    const swappedPattern = new RegExp(`^issue-(.+)-adw-${issueNumber}-sdlc_planner-(.+\\.md)$`);
+    for (const file of files) {
+      const match = file.match(swappedPattern);
+      if (match) {
+        const swappedAdwId = match[1];
+        const descriptivePart = match[2];
+        const correctedName = `issue-${issueNumber}-adw-${swappedAdwId}-sdlc_planner-${descriptivePart}`;
+        const oldPath = path.join(specsDir, file);
+        const newPath = path.join(specsDir, correctedName);
+        fs.renameSync(oldPath, newPath);
+        log(`Plan file renamed: ${file} → ${correctedName} (corrected swapped issueNumber/adwId)`, 'warn');
+        return path.join('specs', correctedName);
+      }
+    }
+  } catch {
+    // specs directory doesn't exist or other error
+  }
+
+  return null;
 }
 
 /**

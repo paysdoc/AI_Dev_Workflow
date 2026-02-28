@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as fs from 'fs';
-import { getPlanFilePath, planFileExists, readPlanFile, formatIssueContextAsArgs, runPlanAgent } from '../agents/planAgent';
+import { getPlanFilePath, planFileExists, readPlanFile, correctPlanFileNaming, formatIssueContextAsArgs, runPlanAgent } from '../agents/planAgent';
 import { GitHubIssue, GitHubComment } from '../core';
 import { runClaudeAgentWithCommand } from '../agents/claudeAgent';
 
@@ -428,5 +428,73 @@ describe('runPlanAgent', () => {
     const issueJson = JSON.parse(argsArray[2]);
 
     expect(issueJson.actionableComment).toBeNull();
+  });
+});
+
+describe('correctPlanFileNaming', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('returns null when correctly-named file already exists', () => {
+    vi.mocked(fs.readdirSync).mockReturnValue([
+      'issue-42-adw-abc-sdlc_planner-fix.md',
+    ] as any);
+
+    const result = correctPlanFileNaming(42);
+
+    expect(result).toBeNull();
+    expect(fs.renameSync).not.toHaveBeenCalled();
+  });
+
+  it('renames swapped file to correct convention', () => {
+    vi.mocked(fs.readdirSync).mockReturnValue([
+      'issue-abc123-adw-42-sdlc_planner-fix-login.md',
+    ] as any);
+
+    const result = correctPlanFileNaming(42);
+
+    expect(fs.renameSync).toHaveBeenCalledWith(
+      'specs/issue-abc123-adw-42-sdlc_planner-fix-login.md',
+      'specs/issue-42-adw-abc123-sdlc_planner-fix-login.md',
+    );
+    expect(result).toBe('specs/issue-42-adw-abc123-sdlc_planner-fix-login.md');
+  });
+
+  it('returns null when no matching files exist', () => {
+    vi.mocked(fs.readdirSync).mockReturnValue([
+      'unrelated-file.md',
+      'issue-99-adw-xyz-sdlc_planner-other.md',
+    ] as any);
+
+    const result = correctPlanFileNaming(42);
+
+    expect(result).toBeNull();
+    expect(fs.renameSync).not.toHaveBeenCalled();
+  });
+
+  it('returns null when specs directory does not exist', () => {
+    vi.mocked(fs.readdirSync).mockImplementation(() => {
+      throw new Error('ENOENT');
+    });
+
+    const result = correctPlanFileNaming(42);
+
+    expect(result).toBeNull();
+  });
+
+  it('handles worktreePath correctly', () => {
+    vi.mocked(fs.readdirSync).mockReturnValue([
+      'issue-abc123-adw-42-sdlc_planner-fix-login.md',
+    ] as any);
+
+    const result = correctPlanFileNaming(42, '/my/worktree');
+
+    expect(fs.readdirSync).toHaveBeenCalledWith('/my/worktree/specs');
+    expect(fs.renameSync).toHaveBeenCalledWith(
+      '/my/worktree/specs/issue-abc123-adw-42-sdlc_planner-fix-login.md',
+      '/my/worktree/specs/issue-42-adw-abc123-sdlc_planner-fix-login.md',
+    );
+    expect(result).toBe('specs/issue-42-adw-abc123-sdlc_planner-fix-login.md');
   });
 });
