@@ -13,6 +13,8 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 34,Trigger should commit and push all cost related CSV files,4.5129,0.4513
 37,PR Review adw should also track costs.,6.7158,0.6716
 42,Huge problems with classification,4.9941,0.4994
+44,Remove /classify_adw command,3.7199,0.3720
+0,chore: #44 - Remove /classify_adw command,0.6440,0.0644
 
-Total Cost (USD):,68.7122
-Total Cost (EUR):,58.1968
+Total Cost (USD):,73.5125
+Total Cost (EUR):,62.2625
