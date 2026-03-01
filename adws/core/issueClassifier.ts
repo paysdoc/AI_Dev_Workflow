@@ -21,9 +21,26 @@ import {
 } from '.';
 
 /**
+ * Strips fenced code block content from text.
+ * Removes all triple-backtick blocks (with or without language specifiers) so that
+ * content inside code blocks is not falsely matched by downstream regex patterns.
+ *
+ * @param text - The raw text potentially containing fenced code blocks
+ * @returns The text with all fenced code block content removed
+ */
+export function stripFencedCodeBlocks(text: string): string {
+  const stripped = text.replace(/```[\s\S]*?```/g, '');
+  if (stripped.length !== text.length) {
+    log(`stripFencedCodeBlocks: removed ${text.length - stripped.length} characters of fenced code block content`);
+  }
+  return stripped;
+}
+
+/**
  * Extracts an explicit ADW slash command from text using deterministic regex matching.
  * Scans for `/adw_*` patterns and validates against known commands.
  * Commands are matched longest-first to avoid partial matches (e.g., `/adw_plan_build_test` before `/adw_plan`).
+ * Fenced code blocks are stripped before scanning to avoid false matches from embedded content.
  *
  * @param text - The text to scan for ADW commands
  * @returns The matched AdwSlashCommand or null if none found
@@ -31,12 +48,13 @@ import {
 export function extractAdwCommandFromText(text: string): AdwSlashCommand | null {
   if (!text) return null;
 
+  const strippedText = stripFencedCodeBlocks(text);
   const validCommands = Object.keys(adwCommandToIssueTypeMap) as AdwSlashCommand[];
   const sortedByLength = [...validCommands].sort((a, b) => b.length - a.length);
 
   const found = sortedByLength.find((cmd) => {
     const pattern = new RegExp(`${cmd.replace('/', '\\/')}\\b`);
-    return pattern.test(text);
+    return pattern.test(strippedText);
   });
 
   if (found) {
@@ -67,11 +85,12 @@ export interface IssueClassificationResult {
  */
 export function extractAdwIdFromText(text: string): string | null {
   if (!text) return null;
+  const strippedText = stripFencedCodeBlocks(text);
   // Match label-prefixed patterns: "adwId: xyz" or "ADW ID: xyz" or "adw_id: xyz"
-  const labelMatch = text.match(/(?:adwId|adw[_\s-]id)\s*[:=]\s*[`"']?([a-z0-9][a-z0-9-]*[a-z0-9])[`"']?/i);
+  const labelMatch = strippedText.match(/(?:adwId|adw[_\s-]id)\s*[:=]\s*[`"']?([a-z0-9][a-z0-9-]*[a-z0-9])[`"']?/i);
   if (labelMatch) return labelMatch[1];
   // Match backtick-wrapped ADW IDs (same pattern as extractAdwIdFromComment)
-  const backtickMatch = text.match(/`(adw[-_][a-z0-9][a-z0-9-]*[a-z0-9])`/);
+  const backtickMatch = strippedText.match(/`(adw[-_][a-z0-9][a-z0-9-]*[a-z0-9])`/);
   return backtickMatch ? backtickMatch[1] : null;
 }
 
