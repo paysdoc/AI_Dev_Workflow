@@ -889,7 +889,7 @@ describe('initializePRReviewWorkflow', () => {
 
     const config = await initializePRReviewWorkflow(42, 'test-adw-id');
 
-    expect(fetchPRDetails).toHaveBeenCalledWith(42);
+    expect(fetchPRDetails).toHaveBeenCalledWith(42, undefined);
     expect(config.prNumber).toBe(42);
     expect(config.adwId).toBe('test-adw-id');
     expect(config.prDetails.title).toBe('Test PR');
@@ -956,7 +956,7 @@ describe('initializePRReviewWorkflow', () => {
     expect(postPRWorkflowComment).toHaveBeenCalledWith(42, 'pr_review_starting', expect.objectContaining({
       prNumber: 42,
       reviewComments: 1,
-    }));
+    }), undefined);
   });
 
   it('generates ADW ID from PR title when adwId is null', async () => {

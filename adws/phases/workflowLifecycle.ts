@@ -5,7 +5,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'node:url';
-import { log, setLogAdwId, ensureLogsDirectory, generateAdwId, type IssueClassSlashCommand, type GitHubIssue, AgentStateManager, type AgentState, type AgentIdentifier, type RecoveryState, hasUncommittedChanges, getNextStage, MAX_REVIEW_RETRY_ATTEMPTS, COST_REPORT_CURRENCIES, type ModelUsageMap, buildCostBreakdown, persistTokenCounts, allocateRandomPort, type TargetRepoInfo, ensureTargetRepoWorkspace, writeIssueCostCsv, updateProjectCostCsv, type ProjectConfig, loadProjectConfig } from '../core';
+import { log, setLogAdwId, ensureLogsDirectory, generateAdwId, type IssueClassSlashCommand, type GitHubIssue, AgentStateManager, type AgentState, type AgentIdentifier, type RecoveryState, hasUncommittedChanges, getNextStage, MAX_REVIEW_RETRY_ATTEMPTS, COST_REPORT_CURRENCIES, type ModelUsageMap, buildCostBreakdown, persistTokenCounts, allocateRandomPort, type TargetRepoInfo, ensureTargetRepoWorkspace, writeIssueCostCsv, updateProjectCostCsv, type ProjectConfig, loadProjectConfig, setTargetRepo } from '../core';
 import { fetchGitHubIssue, postWorkflowComment, type WorkflowContext, detectRecoveryState, getDefaultBranch, checkoutDefaultBranch, ensureWorktree, getWorktreeForBranch, mergeLatestFromDefaultBranch, copyEnvToWorktree, findWorktreeForIssue, type RepoInfo } from '../github';
 import { runGenerateBranchNameAgent, getPlanFilePath, runReviewWithRetry } from '../agents';
 import { classifyGitHubIssue } from '../core/issueClassifier';
@@ -158,6 +158,11 @@ export async function initializeWorkflow(
   const repoInfo: RepoInfo | undefined = targetRepo
     ? { owner: targetRepo.owner, repo: targetRepo.repo }
     : undefined;
+
+  // Initialize central target repo registry
+  if (repoInfo) {
+    setTargetRepo(repoInfo);
+  }
 
   // Fetch issue (targeting external repo if specified)
   log('Fetching GitHub issue...', 'info');

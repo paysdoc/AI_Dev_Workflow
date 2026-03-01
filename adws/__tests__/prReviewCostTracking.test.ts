@@ -44,6 +44,13 @@ vi.mock('../core', async (importOriginal) => {
   };
 });
 
+vi.mock('../core/targetRepoRegistry', () => ({
+  setTargetRepo: vi.fn(),
+  getTargetRepo: vi.fn().mockReturnValue({ owner: 'test', repo: 'repo' }),
+  clearTargetRepo: vi.fn(),
+  hasTargetRepo: vi.fn().mockReturnValue(false),
+}));
+
 vi.mock('../github', () => ({
   fetchPRDetails: vi.fn().mockReturnValue({
     number: 42,
