@@ -247,7 +247,7 @@ const server = http.createServer((req, res) => {
           }
 
           log(`Human comment on issue #${issueNumber}, triggering ADW workflow`);
-          return classifyIssueForTrigger(issueNumber).then((classification) => {
+          return classifyIssueForTrigger(issueNumber, webhookRepoInfo).then((classification) => {
             const workflowScript = getWorkflowScript(classification.issueType, classification.adwCommand);
             log(
               `Issue #${issueNumber} classified as ${classification.issueType}, spawning ${workflowScript}`,
@@ -324,7 +324,10 @@ const server = http.createServer((req, res) => {
       // Classify the issue and spawn the appropriate workflow asynchronously
       // Respond quickly to avoid GitHub timeout
       const issueTargetRepoArgs = extractTargetRepoArgs(body);
-      classifyIssueForTrigger(issueNumber)
+      const issueRepository = body.repository as Record<string, unknown> | undefined;
+      const issueRepoFullName = issueRepository?.full_name as string | undefined;
+      const issueRepoInfo = issueRepoFullName ? getRepoInfoFromPayload(issueRepoFullName) : undefined;
+      classifyIssueForTrigger(issueNumber, issueRepoInfo)
         .then((classification) => {
           const workflowScript = getWorkflowScript(classification.issueType, classification.adwCommand);
           log(

@@ -9,6 +9,7 @@ import {
   stripFencedCodeBlocks,
 } from '../core/issueClassifier';
 import { adwCommandToIssueTypeMap, adwCommandToOrchestratorMap, issueTypeToOrchestratorMap, AdwSlashCommand, IssueClassSlashCommand, GitHubIssue } from '../core/dataTypes';
+import type { RepoInfo } from '../github/githubApi';
 
 vi.mock('../core', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../core')>();
@@ -354,6 +355,31 @@ describe('classifyIssueForTrigger', () => {
 
     expect(result.issueType).toBe('/feature');
     expect(result.success).toBe(false);
+  });
+
+  it('passes repoInfo to fetchGitHubIssue when provided', async () => {
+    const repoInfo: RepoInfo = { owner: 'ext-owner', repo: 'ext-repo' };
+    vi.mocked(fetchGitHubIssue).mockResolvedValue(createMockIssue({
+      number: 35,
+      body: 'Please run /adw_plan_build_test on this',
+    }));
+
+    const result = await classifyIssueForTrigger(35, repoInfo);
+
+    expect(fetchGitHubIssue).toHaveBeenCalledWith(35, { owner: 'ext-owner', repo: 'ext-repo' });
+    expect(result.success).toBe(true);
+    expect(result.adwCommand).toBe('/adw_plan_build_test');
+  });
+
+  it('fetches from default repo when repoInfo is not provided', async () => {
+    vi.mocked(fetchGitHubIssue).mockResolvedValue(createMockIssue({
+      number: 42,
+      body: 'Please run /adw_plan_build_test on this',
+    }));
+
+    await classifyIssueForTrigger(42);
+
+    expect(fetchGitHubIssue).toHaveBeenCalledWith(42, undefined);
   });
 });
 
