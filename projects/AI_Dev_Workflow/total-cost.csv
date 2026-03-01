@@ -12,6 +12,7 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 33,clearComments deletes comments of another issue,2.7064,0.2706
 34,Trigger should commit and push all cost related CSV files,4.5129,0.4513
 37,PR Review adw should also track costs.,6.7158,0.6716
+42,Huge problems with classification,4.9941,0.4994
 
-Total Cost (USD):,63.2186
-Total Cost (EUR):,53.5648
+Total Cost (USD):,68.7122
+Total Cost (EUR):,58.1968
