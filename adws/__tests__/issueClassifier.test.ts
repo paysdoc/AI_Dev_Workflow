@@ -162,6 +162,9 @@ describe('classifyWithAdwCommand', () => {
       adwCommand: '/adw_build',
       adwId: 'abc12345',
     });
+    expect(log).toHaveBeenCalledWith(
+      expect.stringContaining('extracted adwId="abc12345"')
+    );
   });
 
   it('returns null when no ADW command is found in text', () => {
@@ -172,6 +175,17 @@ describe('classifyWithAdwCommand', () => {
     );
 
     expect(result).toBeNull();
+    expect(log).toHaveBeenCalledWith(
+      expect.stringContaining('no ADW command found')
+    );
+  });
+
+  it('logs truncated text when scanning', () => {
+    classifyWithAdwCommand('ctx', 42, '/adw_init');
+
+    expect(log).toHaveBeenCalledWith(
+      expect.stringContaining('scanning text for issue #42')
+    );
   });
 
   it('maps each ADW command to the correct IssueClassSlashCommand', () => {
@@ -211,6 +225,11 @@ describe('classifyIssueForTrigger', () => {
     expect(result.success).toBe(true);
     // Should NOT call the agent at all — regex matched deterministically
     expect(runClaudeAgentWithCommand).not.toHaveBeenCalled();
+    // Classification summary log with classifier=regex
+    expect(log).toHaveBeenCalledWith(
+      expect.stringContaining('Classification complete for issue #42: classifier=regex'),
+      'success'
+    );
   });
 
   it('falls back to /classify_issue when no regex match is found', async () => {
@@ -232,6 +251,11 @@ describe('classifyIssueForTrigger', () => {
     expect(log).toHaveBeenCalledWith(
       expect.stringContaining('Attempting heuristic classification')
     );
+    // Classification summary log with classifier=heuristic
+    expect(log).toHaveBeenCalledWith(
+      expect.stringContaining('Classification complete for issue #42: classifier=heuristic'),
+      'success'
+    );
   });
 
   it('defaults to /feature when classify_issue fails', async () => {
@@ -245,6 +269,27 @@ describe('classifyIssueForTrigger', () => {
 
     expect(result.issueType).toBe('/feature');
     expect(result.success).toBe(false);
+    // Heuristic summary logged with warn since success=false
+    expect(log).toHaveBeenCalledWith(
+      expect.stringContaining('classifier=heuristic, issueType=/feature'),
+      'warn'
+    );
+  });
+
+  it('logs issue title and body length after fetching', async () => {
+    vi.mocked(fetchGitHubIssue).mockResolvedValue(createMockIssue({
+      title: 'My test issue',
+      body: 'Please run /adw_plan_build_test on this',
+    }));
+
+    await classifyIssueForTrigger(42);
+
+    expect(log).toHaveBeenCalledWith(
+      expect.stringContaining('title="My test issue"')
+    );
+    expect(log).toHaveBeenCalledWith(
+      expect.stringContaining('body length=')
+    );
   });
 
   it('defaults to /feature when fetchGitHubIssue throws', async () => {
@@ -276,6 +321,11 @@ describe('classifyGitHubIssue', () => {
     expect(result.success).toBe(true);
     // Should NOT call the agent at all
     expect(runClaudeAgentWithCommand).not.toHaveBeenCalled();
+    // Classification summary log with classifier=regex
+    expect(log).toHaveBeenCalledWith(
+      expect.stringContaining('Classification complete for issue #42: classifier=regex'),
+      'success'
+    );
   });
 
   it('falls back to /classify_issue when no regex match is found', async () => {
@@ -296,6 +346,15 @@ describe('classifyGitHubIssue', () => {
     expect(log).toHaveBeenCalledWith(
       expect.stringContaining('Attempting heuristic classification')
     );
+    // Classification summary log with classifier=heuristic
+    expect(log).toHaveBeenCalledWith(
+      expect.stringContaining('Classification complete for issue #42: classifier=heuristic'),
+      'success'
+    );
+    // Raw AI output log
+    expect(log).toHaveBeenCalledWith(
+      expect.stringContaining('raw AI output for issue #42')
+    );
   });
 
   it('defaults to /feature when classify_issue fails', async () => {
@@ -308,6 +367,11 @@ describe('classifyGitHubIssue', () => {
 
     expect(result.issueType).toBe('/feature');
     expect(result.success).toBe(false);
+    // Heuristic summary logged with warn since success=false
+    expect(log).toHaveBeenCalledWith(
+      expect.stringContaining('classifier=heuristic, issueType=/feature'),
+      'warn'
+    );
   });
 
   it('recognizes /adw_init from heuristic classifier fallback', async () => {
@@ -334,7 +398,7 @@ describe('classifyGitHubIssue', () => {
     expect(result.success).toBe(true);
   });
 
-  it('includes labels in issue context for classification', async () => {
+  it('logs labels in issue context', async () => {
     vi.mocked(runClaudeAgentWithCommand)
       .mockResolvedValueOnce({ output: '/feature', success: true });
 
@@ -348,6 +412,24 @@ describe('classifyGitHubIssue', () => {
     // The call (classify_issue) should receive context with labels
     const callArgs = vi.mocked(runClaudeAgentWithCommand).mock.calls[0];
     expect(callArgs[1]).toContain('enhancement');
+    // Labels logged
+    expect(log).toHaveBeenCalledWith(
+      expect.stringContaining('labels=[enhancement]')
+    );
+  });
+
+  it('logs unparseable AI output at warn level', async () => {
+    vi.mocked(runClaudeAgentWithCommand)
+      .mockResolvedValueOnce({ output: 'gibberish response', success: true });
+
+    await classifyGitHubIssue(createMockIssue({
+      body: 'No explicit command here',
+    }));
+
+    expect(log).toHaveBeenCalledWith(
+      expect.stringContaining('could not parse command from AI output'),
+      'warn'
+    );
   });
 });
 
@@ -356,6 +438,10 @@ describe('classifyGitHubIssue', () => {
 // ============================================================================
 
 describe('getWorkflowScript', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   // Issue-type-based routing (no ADW command)
   it('returns adwSdlc for /feature', () => {
     expect(getWorkflowScript('/feature')).toBe('adws/adwSdlc.tsx');
@@ -421,6 +507,22 @@ describe('getWorkflowScript', () => {
     expect(getWorkflowScript('/chore', '/adw_plan_build_test_review')).toBe('adws/adwPlanBuildTestReview.tsx');
     expect(getWorkflowScript('/feature', '/adw_plan')).toBe('adws/adwPlan.tsx');
     expect(getWorkflowScript('/pr_review', '/adw_plan_build_test')).toBe('adws/adwPlanBuildTest.tsx');
+  });
+
+  it('logs routing via adwCommandToOrchestratorMap when adwCommand is provided', () => {
+    getWorkflowScript('/feature', '/adw_plan');
+
+    expect(log).toHaveBeenCalledWith(
+      expect.stringContaining('routed via adwCommandToOrchestratorMap[/adw_plan]')
+    );
+  });
+
+  it('logs routing via issueTypeToOrchestratorMap when no adwCommand', () => {
+    getWorkflowScript('/bug');
+
+    expect(log).toHaveBeenCalledWith(
+      expect.stringContaining('routed via issueTypeToOrchestratorMap[/bug]')
+    );
   });
 
   // Parametric test over all mapped ADW command entries
