@@ -5,7 +5,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { log, setLogAdwId, ensureLogsDirectory, generateAdwId, type PRDetails, type PRReviewComment, AgentStateManager, type AgentState, MAX_TEST_RETRY_ATTEMPTS, COST_REPORT_CURRENCIES, type ModelUsageMap, buildCostBreakdown, allocateRandomPort, mergeModelUsageMaps, emptyModelUsageMap, persistTokenCounts, writeIssueCostCsv, updateProjectCostCsv } from '../core';
-import { fetchPRDetails, getUnaddressedComments, pushBranch, postPRWorkflowComment, type PRReviewWorkflowContext, ensureWorktree, inferIssueTypeFromBranch, type RepoInfo, getRepoInfo } from '../github';
+import { fetchPRDetails, getUnaddressedComments, pushBranch, postPRWorkflowComment, type PRReviewWorkflowContext, ensureWorktree, inferIssueTypeFromBranch, type RepoInfo } from '../github';
+import { setTargetRepo, getTargetRepo } from '../core/targetRepoRegistry';
 import { getPlanFilePath, runPrReviewPlanAgent, runPrReviewBuildAgent, runCommitAgent, type ProgressCallback, type ProgressInfo, runUnitTestsWithRetry, runE2ETestsWithRetry } from '../agents';
 
 // ============================================================================
@@ -36,8 +37,13 @@ export interface PRReviewWorkflowConfig {
  * @param prNumber - The PR number to review
  * @param adwId - Optional ADW workflow ID (generated if not provided)
  */
-export async function initializePRReviewWorkflow(prNumber: number, adwId: string | null): Promise<PRReviewWorkflowConfig> {
-  const prDetails = fetchPRDetails(prNumber);
+export async function initializePRReviewWorkflow(prNumber: number, adwId: string | null, repoInfo?: RepoInfo): Promise<PRReviewWorkflowConfig> {
+  // Initialize central target repo registry
+  if (repoInfo) {
+    setTargetRepo(repoInfo);
+  }
+
+  const prDetails = fetchPRDetails(prNumber, repoInfo);
   log(`Fetched PR: ${prDetails.title}`, 'success');
   // Resolve ADW ID: use provided or generate from PR title
   const resolvedAdwId = adwId ?? generateAdwId(prDetails.title);
@@ -88,7 +94,7 @@ export async function initializePRReviewWorkflow(prNumber: number, adwId: string
   log(`Allocated port ${port} for dev server (${applicationUrl})`, 'info');
   AgentStateManager.appendLog(orchestratorStatePath, `Allocated port ${port} for dev server`);
 
-  postPRWorkflowComment(prNumber, 'pr_review_starting', ctx);
+  postPRWorkflowComment(prNumber, 'pr_review_starting', ctx, repoInfo);
   return {
     prNumber,
     issueNumber,
@@ -100,6 +106,7 @@ export async function initializePRReviewWorkflow(prNumber: number, adwId: string
     orchestratorStatePath,
     ctx,
     applicationUrl,
+    repoInfo,
   };
 }
 
@@ -302,7 +309,7 @@ export async function completePRReviewWorkflow(config: PRReviewWorkflowConfig, m
 
     // Write cost data to CSV files
     try {
-      const repoName = config.repoInfo?.repo ?? getRepoInfo().repo;
+      const repoName = config.repoInfo?.repo ?? getTargetRepo().repo;
       const adwRepoRoot = process.cwd();
       const eurEntry = costBreakdown.currencies.find(c => c.currency === 'EUR');
       const eurRate = eurEntry ? eurEntry.amount / costBreakdown.totalCostUsd : 0;

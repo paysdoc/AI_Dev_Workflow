@@ -4,7 +4,8 @@
 
 import { execSync } from 'child_process';
 import { GitHubIssue, IssueCommentSummary, log } from '../core';
-import { getRepoInfo, type RepoInfo } from './githubApi';
+import { type RepoInfo } from './githubApi';
+import { getTargetRepo } from '../core/targetRepoRegistry';
 
 interface RawGitHubUser {
   login?: string;
@@ -107,7 +108,7 @@ function transformIssueResponse(rawIssue: RawGitHubIssue): GitHubIssue {
  * @param repoInfo - Optional repository info override for targeting external repositories. Falls back to local git remote when not provided.
  */
 export async function fetchGitHubIssue(issueNumber: number, repoInfo?: RepoInfo): Promise<GitHubIssue> {
-  const { owner, repo } = repoInfo ?? getRepoInfo();
+  const { owner, repo } = repoInfo ?? getTargetRepo();
 
   try {
     const issueJson = execSync(
@@ -129,7 +130,7 @@ export async function fetchGitHubIssue(issueNumber: number, repoInfo?: RepoInfo)
  * @param repoInfo - Optional repository info override for targeting external repositories.
  */
 export function commentOnIssue(issueNumber: number, body: string, repoInfo?: RepoInfo): void {
-  const { owner, repo } = repoInfo ?? getRepoInfo();
+  const { owner, repo } = repoInfo ?? getTargetRepo();
 
   try {
     execSync(
@@ -168,7 +169,7 @@ ${additionalInfo}
  * @param repoInfo - Optional repository info override for targeting external repositories.
  */
 export function getIssueState(issueNumber: number, repoInfo?: RepoInfo): string {
-  const { owner, repo } = repoInfo ?? getRepoInfo();
+  const { owner, repo } = repoInfo ?? getTargetRepo();
 
   try {
     const json = execSync(
@@ -191,7 +192,7 @@ export function getIssueState(issueNumber: number, repoInfo?: RepoInfo): string 
  * @returns true if the issue was closed, false if already closed or error occurred
  */
 export async function closeIssue(issueNumber: number, comment?: string, repoInfo?: RepoInfo): Promise<boolean> {
-  const { owner, repo } = repoInfo ?? getRepoInfo();
+  const { owner, repo } = repoInfo ?? getTargetRepo();
 
   try {
     // Check if issue is already closed
@@ -226,7 +227,7 @@ export async function closeIssue(issueNumber: number, comment?: string, repoInfo
  * @param repoInfo - Optional repository info override for targeting external repositories.
  */
 export function getIssueTitleSync(issueNumber: number, repoInfo?: RepoInfo): string {
-  const { owner, repo } = repoInfo ?? getRepoInfo();
+  const { owner, repo } = repoInfo ?? getTargetRepo();
 
   try {
     const json = execSync(
@@ -247,7 +248,7 @@ export function getIssueTitleSync(issueNumber: number, repoInfo?: RepoInfo): str
  * @param repoInfo - Optional repository info override for targeting external repositories.
  */
 export function fetchIssueCommentsRest(issueNumber: number, repoInfo?: RepoInfo): IssueCommentSummary[] {
-  const { owner, repo } = repoInfo ?? getRepoInfo();
+  const { owner, repo } = repoInfo ?? getTargetRepo();
   try {
     const json = execSync(
       `gh api repos/${owner}/${repo}/issues/${issueNumber}/comments --paginate`,
@@ -271,7 +272,7 @@ export function fetchIssueCommentsRest(issueNumber: number, repoInfo?: RepoInfo)
  * @param repoInfo - Optional repository info override for targeting external repositories.
  */
 export function deleteIssueComment(commentId: number, repoInfo?: RepoInfo): void {
-  const { owner, repo } = repoInfo ?? getRepoInfo();
+  const { owner, repo } = repoInfo ?? getTargetRepo();
   try {
     execSync(
       `gh api -X DELETE repos/${owner}/${repo}/issues/comments/${commentId}`,

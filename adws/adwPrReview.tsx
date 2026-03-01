@@ -28,7 +28,8 @@ import {
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
-  const _targetRepo = parseTargetRepoArgs(args);
+  const targetRepo = parseTargetRepoArgs(args);
+  const repoInfo = targetRepo ? { owner: targetRepo.owner, repo: targetRepo.repo } : undefined;
 
   if (args.length < 1) {
     console.error('Usage: npx tsx adws/adwPrReview.tsx <pr-number>');
@@ -41,7 +42,7 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const config = await initializePRReviewWorkflow(prNumber, null);
+  const config = await initializePRReviewWorkflow(prNumber, null, repoInfo);
 
   let totalCostUsd = 0;
   let totalModelUsage: ModelUsageMap = {};

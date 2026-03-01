@@ -113,6 +113,9 @@ export { classifyWithAdwCommand, classifyIssueForTrigger, classifyGitHubIssue, g
 // Port allocator
 export { allocateRandomPort, isPortAvailable } from './portAllocator';
 
+// Target repo registry
+export { setTargetRepo, getTargetRepo, clearTargetRepo, hasTargetRepo } from './targetRepoRegistry';
+
 // Target repo manager
 export {
   getTargetRepoWorkspacePath,

@@ -10,7 +10,7 @@
 
 import * as http from 'http';
 import { spawn } from 'child_process';
-import { log, PullRequestWebhookPayload, allocateRandomPort, isPortAvailable, getTargetRepoWorkspacePath } from '../core';
+import { log, PullRequestWebhookPayload, allocateRandomPort, isPortAvailable, getTargetRepoWorkspacePath, setTargetRepo } from '../core';
 import { isActionableComment, isClearComment, isAdwRunningForIssue, truncateText, getRepoInfoFromPayload } from '../github';
 import { clearIssueComments } from '../adwClearComments';
 import { removeWorktreesForIssue } from '../github/worktreeOperations';
@@ -191,6 +191,11 @@ const server = http.createServer((req, res) => {
       }
 
       log(`PR review comment on PR #${prNumber}, triggering ADW PR Review`);
+      const prReviewRepository = body.repository as Record<string, unknown> | undefined;
+      const prReviewRepoFullName = prReviewRepository?.full_name as string | undefined;
+      if (prReviewRepoFullName) {
+        setTargetRepo(getRepoInfoFromPayload(prReviewRepoFullName));
+      }
       const prTargetRepoArgs = extractTargetRepoArgs(body);
       spawnDetached('npx', ['tsx', 'adws/adwPrReview.tsx', String(prNumber), ...prTargetRepoArgs]);
       jsonResponse(res, 200, { status: 'triggered', pr: prNumber });
@@ -222,6 +227,9 @@ const server = http.createServer((req, res) => {
       const repository = body.repository as Record<string, unknown> | undefined;
       const repoFullName = repository?.full_name as string | undefined;
       const webhookRepoInfo = repoFullName ? getRepoInfoFromPayload(repoFullName) : undefined;
+      if (webhookRepoInfo) {
+        setTargetRepo(webhookRepoInfo);
+      }
 
       if (isClearComment(commentBody)) {
         log(`Clear directive on issue #${issueNumber}, clearing all comments`);
@@ -247,7 +255,7 @@ const server = http.createServer((req, res) => {
           }
 
           log(`Human comment on issue #${issueNumber}, triggering ADW workflow`);
-          return classifyIssueForTrigger(issueNumber).then((classification) => {
+          return classifyIssueForTrigger(issueNumber, webhookRepoInfo).then((classification) => {
             const workflowScript = getWorkflowScript(classification.issueType, classification.adwCommand);
             log(
               `Issue #${issueNumber} classified as ${classification.issueType}, spawning ${workflowScript}`,
@@ -271,6 +279,11 @@ const server = http.createServer((req, res) => {
       const action = (body.action as string) || '';
       if (action === 'closed') {
         // Handle asynchronously but respond quickly to avoid GitHub timeout
+        const prCloseRepository = body.repository as Record<string, unknown> | undefined;
+        const prCloseRepoFullName = prCloseRepository?.full_name as string | undefined;
+        if (prCloseRepoFullName) {
+          setTargetRepo(getRepoInfoFromPayload(prCloseRepoFullName));
+        }
         const prPayload = body as unknown as PullRequestWebhookPayload;
         handlePullRequestEvent(prPayload)
           .then((result) => {
@@ -306,6 +319,11 @@ const server = http.createServer((req, res) => {
 
     if (action === 'closed') {
       log(`Issue #${issueNumber} closed, removing associated worktrees`);
+      const closedRepository = body.repository as Record<string, unknown> | undefined;
+      const closedRepoFullName = closedRepository?.full_name as string | undefined;
+      if (closedRepoFullName) {
+        setTargetRepo(getRepoInfoFromPayload(closedRepoFullName));
+      }
       const closedTargetRepoArgs = extractTargetRepoArgs(body);
       const closedTargetRepoFullName = closedTargetRepoArgs.length >= 2 ? closedTargetRepoArgs[1] : undefined;
       const closedRepoParts = closedTargetRepoFullName?.split('/');
@@ -324,7 +342,13 @@ const server = http.createServer((req, res) => {
       // Classify the issue and spawn the appropriate workflow asynchronously
       // Respond quickly to avoid GitHub timeout
       const issueTargetRepoArgs = extractTargetRepoArgs(body);
-      classifyIssueForTrigger(issueNumber)
+      const issueRepository = body.repository as Record<string, unknown> | undefined;
+      const issueRepoFullName = issueRepository?.full_name as string | undefined;
+      const issueRepoInfo = issueRepoFullName ? getRepoInfoFromPayload(issueRepoFullName) : undefined;
+      if (issueRepoInfo) {
+        setTargetRepo(issueRepoInfo);
+      }
+      classifyIssueForTrigger(issueNumber, issueRepoInfo)
         .then((classification) => {
           const workflowScript = getWorkflowScript(classification.issueType, classification.adwCommand);
           log(

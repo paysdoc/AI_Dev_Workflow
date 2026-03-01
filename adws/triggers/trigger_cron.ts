@@ -6,7 +6,7 @@
  */
 
 import { execSync, spawn } from 'child_process';
-import { log } from '../core';
+import { log, setTargetRepo } from '../core';
 import { getRepoInfo, fetchPRList, hasUnaddressedComments, isActionableComment, isClearComment, isAdwRunningForIssue, truncateText } from '../github';
 import { classifyIssueForTrigger, getWorkflowScript } from '../core/issueClassifier';
 import { clearIssueComments } from '../adwClearComments';
@@ -25,6 +25,7 @@ interface RawIssue {
 
 /** Cached repo info for the current polling session. */
 const repoInfo = getRepoInfo();
+setTargetRepo(repoInfo);
 
 /** Fetches all open issues from the configured GitHub repository. */
 function fetchOpenIssues(): RawIssue[] {

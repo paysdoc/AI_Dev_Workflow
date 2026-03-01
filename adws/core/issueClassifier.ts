@@ -6,7 +6,7 @@
  * for AI-based heuristic classification.
  */
 
-import { fetchGitHubIssue } from '../github/githubApi';
+import { fetchGitHubIssue, RepoInfo } from '../github/githubApi';
 import { runClaudeAgentWithCommand } from '../agents/claudeAgent';
 import {
   IssueClassSlashCommand,
@@ -192,12 +192,13 @@ async function classifyWithIssueCommand(
  * @returns Classification result with issue type and success status
  */
 export async function classifyIssueForTrigger(
-  issueNumber: number
+  issueNumber: number,
+  repoInfo?: RepoInfo,
 ): Promise<IssueClassificationResult> {
   try {
     log(`Classifying issue #${issueNumber} for trigger...`);
 
-    const issue = await fetchGitHubIssue(issueNumber);
+    const issue = await fetchGitHubIssue(issueNumber, repoInfo);
     log(`classifyIssueForTrigger: issue #${issueNumber} title="${issue.title}", body length=${issue.body?.length ?? 0}`);
     const issueContext = `**#${issue.number}: ${issue.title}**\n\n${issue.body}`;
 
