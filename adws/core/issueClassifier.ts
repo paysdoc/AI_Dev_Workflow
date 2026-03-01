@@ -15,6 +15,7 @@ import {
   adwCommandToIssueTypeMap,
   adwCommandToOrchestratorMap,
   issueTypeToOrchestratorMap,
+  VALID_ISSUE_TYPES,
   log,
   GitHubIssue,
   getModelForCommand,
@@ -182,8 +183,10 @@ async function classifyWithIssueCommand(
   }
 
   const output = result.output.trim();
-  const validCommands: IssueClassSlashCommand[] = ['/chore', '/bug', '/feature', '/pr_review'];
-  const matchedCommand = validCommands.find((cmd) => output.includes(cmd));
+  const commandPattern = VALID_ISSUE_TYPES.map(cmd => cmd.replace('/', '\\/')).join('|');
+  const regex = new RegExp(`(${commandPattern})(?!.*(?:${commandPattern}))`, 's');
+  const match = output.match(regex);
+  const matchedCommand = match ? match[1] as IssueClassSlashCommand : undefined;
 
   if (matchedCommand) {
     log(`Issue #${issueNumber} classified as ${matchedCommand}`, 'success');

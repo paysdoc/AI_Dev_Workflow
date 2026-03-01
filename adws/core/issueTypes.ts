@@ -4,6 +4,8 @@
  */
 export type IssueClassSlashCommand = '/chore' | '/bug' | '/feature' | '/pr_review' | '/adw_init';
 
+export const VALID_ISSUE_TYPES: readonly IssueClassSlashCommand[] = ['/chore', '/bug', '/feature', '/pr_review', '/adw_init'] as const;
+
 /**
  * Valid ADW workflow slash commands for explicit workflow routing.
  */

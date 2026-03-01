@@ -460,6 +460,32 @@ describe('classifyGitHubIssue', () => {
     expect(result.success).toBe(false);
   });
 
+  it('recognizes /adw_init from heuristic classifier fallback', async () => {
+    vi.mocked(runClaudeAgentWithCommand)
+      .mockResolvedValueOnce({ output: '{}', success: true })
+      .mockResolvedValueOnce({ output: '/adw_init', success: true });
+
+    const result = await classifyGitHubIssue(createMockIssue({
+      body: 'No explicit command here',
+    }));
+
+    expect(result.issueType).toBe('/adw_init');
+    expect(result.success).toBe(true);
+  });
+
+  it('returns last command when AI output mentions multiple commands', async () => {
+    vi.mocked(runClaudeAgentWithCommand)
+      .mockResolvedValueOnce({ output: '{}', success: true })
+      .mockResolvedValueOnce({ output: 'Not /chore, definitely /bug', success: true });
+
+    const result = await classifyGitHubIssue(createMockIssue({
+      body: 'No explicit command here',
+    }));
+
+    expect(result.issueType).toBe('/bug');
+    expect(result.success).toBe(true);
+  });
+
   it('includes labels in issue context for classification', async () => {
     vi.mocked(runClaudeAgentWithCommand)
       .mockResolvedValueOnce({ output: '{}', success: true })
