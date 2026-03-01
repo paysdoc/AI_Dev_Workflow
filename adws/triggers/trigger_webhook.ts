@@ -219,15 +219,16 @@ const server = http.createServer((req, res) => {
 
       log(`Checking comment on issue #${issueNumber}: "${truncateText(commentBody, 100)}"`);
 
-      let clearResult: { deleted: number; total: number; failed: number } | null = null;
       const repository = body.repository as Record<string, unknown> | undefined;
       const repoFullName = repository?.full_name as string | undefined;
       const webhookRepoInfo = repoFullName ? getRepoInfoFromPayload(repoFullName) : undefined;
 
       if (isClearComment(commentBody)) {
         log(`Clear directive on issue #${issueNumber}, clearing all comments`);
-        clearResult = clearIssueComments(issueNumber, webhookRepoInfo);
+        const clearResult = clearIssueComments(issueNumber, webhookRepoInfo);
         log(`Cleared ${clearResult.deleted}/${clearResult.total} comments on issue #${issueNumber}`);
+        jsonResponse(res, 200, { status: 'cleared', issue: issueNumber, deleted: clearResult.deleted });
+        return;
       } else if (!isActionableComment(commentBody)) {
         log(`Ignored comment on issue #${issueNumber}: missing "## Take action" directive`);
         jsonResponse(res, 200, { status: 'ignored' });
@@ -261,10 +262,7 @@ const server = http.createServer((req, res) => {
           spawnDetached('npx', ['tsx', 'adws/adwPlanBuildTest.tsx', String(issueNumber), ...commentTargetRepoArgs]);
         });
 
-      const responseBody = clearResult
-        ? { status: 'cleared_and_processing', issue: issueNumber, deleted: clearResult.deleted }
-        : { status: 'processing', issue: issueNumber };
-      jsonResponse(res, 200, responseBody);
+      jsonResponse(res, 200, { status: 'processing', issue: issueNumber });
       return;
     }
 

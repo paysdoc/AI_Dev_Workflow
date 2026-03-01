@@ -9,8 +9,9 @@ vi.mock('../core/utils', () => ({
 }));
 
 import { execSync } from 'child_process';
-import { isClearComment } from '../github/workflowCommentsBase';
+import { isClearComment, isActionableComment } from '../github/workflowCommentsBase';
 import { clearIssueComments } from '../adwClearComments';
+import { classifyIssueForTrigger } from '../core/issueClassifier';
 import { getRepoInfoFromPayload, type RepoInfo } from '../github/githubApi';
 
 /**
@@ -51,7 +52,7 @@ function handleIssueComment(
 ): { status: string; issue?: number; deleted?: number } | null {
   if (isClearComment(commentBody)) {
     const result = clearIssueComments(issueNumber, repoInfo);
-    return { status: 'cleared_and_processing', issue: issueNumber, deleted: result.deleted };
+    return { status: 'cleared', issue: issueNumber, deleted: result.deleted };
   }
   return null;
 }
@@ -61,27 +62,27 @@ describe('webhook clear-comment handler', () => {
     vi.clearAllMocks();
   });
 
-  it('triggers clearIssueComments and returns cleared_and_processing for ## Clear comment', () => {
+  it('triggers clearIssueComments and returns cleared for ## Clear comment', () => {
     mockRepoInfo();
     vi.mocked(execSync).mockReturnValueOnce(JSON.stringify([]));
     mockIssueTitleSync('Clear Test Issue');
 
     const result = handleIssueComment('## Clear', 42);
 
-    expect(result).toEqual({ status: 'cleared_and_processing', issue: 42, deleted: 0 });
+    expect(result).toEqual({ status: 'cleared', issue: 42, deleted: 0 });
   });
 
-  it('triggers clearIssueComments and returns cleared_and_processing for lowercase ## clear comment', () => {
+  it('triggers clearIssueComments and returns cleared for lowercase ## clear comment', () => {
     mockRepoInfo();
     vi.mocked(execSync).mockReturnValueOnce(JSON.stringify([]));
     mockIssueTitleSync('Clear Test Issue');
 
     const result = handleIssueComment('## clear', 42);
 
-    expect(result).toEqual({ status: 'cleared_and_processing', issue: 42, deleted: 0 });
+    expect(result).toEqual({ status: 'cleared', issue: 42, deleted: 0 });
   });
 
-  it('returns deleted count from clearIssueComments with cleared_and_processing status', () => {
+  it('returns deleted count from clearIssueComments with cleared status', () => {
     // getRepoInfo for fetchIssueCommentsRest
     mockRepoInfo();
     // fetch comments
@@ -102,7 +103,7 @@ describe('webhook clear-comment handler', () => {
 
     const result = handleIssueComment('## Clear', 10);
 
-    expect(result).toEqual({ status: 'cleared_and_processing', issue: 10, deleted: 3 });
+    expect(result).toEqual({ status: 'cleared', issue: 10, deleted: 3 });
   });
 
   it('calls clearIssueComments for ## Clear comments', () => {
@@ -134,6 +135,34 @@ describe('webhook clear-comment handler', () => {
     expect(result).toBeNull();
   });
 
+  it('returns early after clearing without triggering classification', () => {
+    mockRepoInfo();
+    vi.mocked(execSync).mockReturnValueOnce(JSON.stringify([]));
+    mockIssueTitleSync('Clear No Classify Issue');
+
+    const commentBody = '## Clear';
+    let classifierCalled = false;
+
+    // Replicate the webhook handler's updated branching logic
+    if (isClearComment(commentBody)) {
+      const result = clearIssueComments(42);
+      const response = { status: 'cleared', issue: 42, deleted: result.deleted };
+
+      expect(response.status).toBe('cleared');
+      expect(response.status).not.toBe('cleared_and_processing');
+
+      // Handler returns here — classifier is never reached
+    } else if (!isActionableComment(commentBody)) {
+      // Would return 'ignored'
+    } else {
+      // Only actionable comments reach the classifier
+      classifierCalled = true;
+      classifyIssueForTrigger(42);
+    }
+
+    expect(classifierCalled).toBe(false);
+  });
+
   it('propagates repoInfo from webhook payload to clearIssueComments', () => {
     const webhookRepoInfo = getRepoInfoFromPayload('webhook-owner/webhook-repo');
 
@@ -148,7 +177,7 @@ describe('webhook clear-comment handler', () => {
 
     const result = handleIssueComment('## Clear', 15, webhookRepoInfo);
 
-    expect(result).toEqual({ status: 'cleared_and_processing', issue: 15, deleted: 1 });
+    expect(result).toEqual({ status: 'cleared', issue: 15, deleted: 1 });
 
     // Verify all API calls use webhook repo, not local git remote
     const fetchCall = vi.mocked(execSync).mock.calls[0];
