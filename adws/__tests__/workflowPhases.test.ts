@@ -126,6 +126,7 @@ vi.mock('../agents', () => ({
   getPlanFilePath: vi.fn().mockReturnValue('specs/issue-1-adw-test123-sdlc_planner-test.md'),
   planFileExists: vi.fn().mockReturnValue(false),
   readPlanFile: vi.fn().mockReturnValue(null),
+  correctPlanFileNaming: vi.fn().mockReturnValue(null),
   runBuildAgent: vi.fn().mockResolvedValue({
     success: true,
     output: 'Build completed',

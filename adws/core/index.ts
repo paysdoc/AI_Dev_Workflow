@@ -38,7 +38,7 @@ export type {
 } from './dataTypes';
 
 // Prefix maps for consistent branch naming and commit messages
-export { commitPrefixMap, branchPrefixMap, branchPrefixAliases, adwCommandToIssueTypeMap, adwCommandToOrchestratorMap, issueTypeToOrchestratorMap } from './dataTypes';
+export { commitPrefixMap, branchPrefixMap, branchPrefixAliases, adwCommandToIssueTypeMap, adwCommandToOrchestratorMap, issueTypeToOrchestratorMap, VALID_ISSUE_TYPES } from './dataTypes';
 
 // Utilities
 export {

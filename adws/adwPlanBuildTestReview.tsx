@@ -21,7 +21,7 @@
  * - MAX_REVIEW_RETRY_ATTEMPTS: Maximum retry attempts for review-patch loop (default: 3)
  */
 
-import { type IssueClassSlashCommand, mergeModelUsageMaps, persistTokenCounts, parseTargetRepoArgs } from './core';
+import { type IssueClassSlashCommand, VALID_ISSUE_TYPES, mergeModelUsageMaps, persistTokenCounts, parseTargetRepoArgs } from './core';
 import {
   initializeWorkflow,
   executePlanPhase,
@@ -43,7 +43,7 @@ function printUsageAndExit(): never {
   console.error('');
   console.error('Options:');
   console.error('  --issue-type <type>  Pre-classified issue type (skips classification step)');
-  console.error('                       Valid values: /feature, /bug, /chore, /pr_review');
+  console.error(`                       Valid values: ${VALID_ISSUE_TYPES.join(', ')}`);
   console.error('');
   console.error('Environment Requirements:');
   console.error('  ANTHROPIC_API_KEY           - Anthropic API key');
@@ -71,11 +71,10 @@ function parseArguments(args: string[]): {
   const issueTypeIndex = args.indexOf('--issue-type');
   if (issueTypeIndex !== -1 && args[issueTypeIndex + 1]) {
     const typeValue = args[issueTypeIndex + 1];
-    const validTypes: IssueClassSlashCommand[] = ['/feature', '/bug', '/chore', '/pr_review'];
-    if (validTypes.includes(typeValue as IssueClassSlashCommand)) {
+    if (VALID_ISSUE_TYPES.includes(typeValue as IssueClassSlashCommand)) {
       providedIssueType = typeValue as IssueClassSlashCommand;
     } else {
-      console.error(`Invalid issue type: ${typeValue}. Valid values: ${validTypes.join(', ')}`);
+      console.error(`Invalid issue type: ${typeValue}. Valid values: ${VALID_ISSUE_TYPES.join(', ')}`);
       process.exit(1);
     }
     args.splice(issueTypeIndex, 2);
