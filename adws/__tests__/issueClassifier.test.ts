@@ -6,6 +6,7 @@ import {
   getWorkflowScript,
   extractAdwCommandFromText,
   extractAdwIdFromText,
+  stripFencedCodeBlocks,
 } from '../core/issueClassifier';
 import { adwCommandToIssueTypeMap, adwCommandToOrchestratorMap, issueTypeToOrchestratorMap, AdwSlashCommand, IssueClassSlashCommand, GitHubIssue } from '../core/dataTypes';
 
@@ -45,6 +46,40 @@ function createMockIssue(overrides: Partial<GitHubIssue> = {}): GitHubIssue {
     ...overrides,
   };
 }
+
+// ============================================================================
+// stripFencedCodeBlocks
+// ============================================================================
+
+describe('stripFencedCodeBlocks', () => {
+  it('returns text unchanged when no code blocks are present', () => {
+    const text = 'This is plain text with no code blocks.';
+    expect(stripFencedCodeBlocks(text)).toBe(text);
+  });
+
+  it('strips a single fenced code block', () => {
+    const text = 'Before\n```\ncode here\n```\nAfter';
+    expect(stripFencedCodeBlocks(text)).toBe('Before\n\nAfter');
+  });
+
+  it('strips multiple fenced code blocks', () => {
+    const text = 'Start\n```\nblock one\n```\nMiddle\n```\nblock two\n```\nEnd';
+    expect(stripFencedCodeBlocks(text)).toBe('Start\n\nMiddle\n\nEnd');
+  });
+
+  it('strips code blocks with language specifiers', () => {
+    const text = 'Before\n```json\n{"body": "/adw_init"}\n```\nAfter';
+    expect(stripFencedCodeBlocks(text)).toBe('Before\n\nAfter');
+  });
+
+  it('preserves text outside code blocks', () => {
+    const text = 'Keep this /adw_init\n```\nRemove this /adw_init\n```\nKeep this too';
+    const result = stripFencedCodeBlocks(text);
+    expect(result).toContain('Keep this /adw_init');
+    expect(result).toContain('Keep this too');
+    expect(result).not.toContain('Remove this /adw_init');
+  });
+});
 
 // ============================================================================
 // extractAdwCommandFromText
@@ -90,6 +125,21 @@ describe('extractAdwCommandFromText', () => {
   it('matches /adw_plan when only /adw_plan is present', () => {
     expect(extractAdwCommandFromText('run /adw_plan for this issue')).toBe('/adw_plan');
   });
+
+  it('returns null when /adw_init appears only inside a fenced code block', () => {
+    const text = 'Issue body text\n```\n{"body": "/adw_init"}\n```\nMore text';
+    expect(extractAdwCommandFromText(text)).toBeNull();
+  });
+
+  it('returns the command when it appears both inside a code block and outside', () => {
+    const text = '```\n{"body": "/adw_init"}\n```\nPlease run /adw_init';
+    expect(extractAdwCommandFromText(text)).toBe('/adw_init');
+  });
+
+  it('returns null when command is only in a code block with a language specifier', () => {
+    const text = 'Some description\n```json\n{"command": "/adw_plan_build_test"}\n```\nEnd';
+    expect(extractAdwCommandFromText(text)).toBeNull();
+  });
 });
 
 // ============================================================================
@@ -119,6 +169,11 @@ describe('extractAdwIdFromText', () => {
 
   it('returns null for text with no adwId patterns', () => {
     expect(extractAdwIdFromText('This is a regular issue with no adwId')).toBeNull();
+  });
+
+  it('returns null when adwId pattern appears only inside a fenced code block', () => {
+    const text = 'Issue text\n```\nadwId: hidden-id-123\n```\nMore text';
+    expect(extractAdwIdFromText(text)).toBeNull();
   });
 });
 
