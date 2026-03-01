@@ -39,6 +39,12 @@ export function extractAdwCommandFromText(text: string): AdwSlashCommand | null 
     return pattern.test(text);
   });
 
+  if (found) {
+    log(`extractAdwCommandFromText: matched command ${found} (checked ${validCommands.length} valid commands)`);
+  } else {
+    log(`extractAdwCommandFromText: no command matched (checked ${validCommands.length} valid commands)`);
+  }
+
   return found ?? null;
 }
 
@@ -84,12 +90,21 @@ export function classifyWithAdwCommand(
   issueBody?: string,
 ): IssueClassificationResult | null {
   const text = issueBody ?? issueContext;
+  const truncatedText = text.length > 100 ? `${text.substring(0, 100)}...` : text;
+  log(`classifyWithAdwCommand: scanning text for issue #${issueNumber}: "${truncatedText}"`);
+
   const adwCommand = extractAdwCommandFromText(text);
-  if (!adwCommand) return null;
+  if (!adwCommand) {
+    log(`classifyWithAdwCommand: no ADW command found in issue #${issueNumber}`);
+    return null;
+  }
 
   const issueType = adwCommandToIssueTypeMap[adwCommand];
   const adwId = extractAdwIdFromText(text);
-  log(`Issue #${issueNumber} matched ADW command ${adwCommand} via regex`, 'success');
+  if (adwId) {
+    log(`classifyWithAdwCommand: extracted adwId="${adwId}" from issue #${issueNumber}`);
+  }
+  log(`Issue #${issueNumber} matched ADW command ${adwCommand} via regex, issueType=${issueType}`, 'success');
 
   return {
     issueType,
@@ -115,6 +130,8 @@ async function classifyWithIssueCommand(
   outputFile: string,
   issueBody?: string,
 ): Promise<IssueClassificationResult> {
+  log(`classifyWithIssueCommand: starting heuristic classification for issue #${issueNumber}`);
+
   const result = await runClaudeAgentWithCommand(
     '/classify_issue',
     issueContext,
@@ -124,21 +141,26 @@ async function classifyWithIssueCommand(
   );
 
   if (!result.success) {
-    log(`Classification failed for issue #${issueNumber}, defaulting to /feature`, 'error');
+    log(`Classification agent failed for issue #${issueNumber}, defaulting to /feature`, 'error');
     return { issueType: '/feature', success: false };
   }
 
   const output = result.output.trim();
+  const truncatedOutput = output.length > 200 ? `${output.substring(0, 200)}...` : output;
+  log(`classifyWithIssueCommand: raw AI output for issue #${issueNumber}: "${truncatedOutput}"`);
+
   const commandPattern = VALID_ISSUE_TYPES.map(cmd => cmd.replace('/', '\\/')).join('|');
   const regex = new RegExp(`(${commandPattern})(?!.*(?:${commandPattern}))`, 's');
   const match = output.match(regex);
   const matchedCommand = match ? match[1] as IssueClassSlashCommand : undefined;
 
   if (matchedCommand) {
-    log(`Issue #${issueNumber} classified as ${matchedCommand}`, 'success');
+    log(`classifyWithIssueCommand: parsed command ${matchedCommand} from AI output for issue #${issueNumber}`);
+    log(`Issue #${issueNumber} classified as ${matchedCommand} via heuristic`, 'success');
     return { issueType: matchedCommand, success: true };
   }
 
+  log(`classifyWithIssueCommand: could not parse command from AI output: "${truncatedOutput}"`, 'warn');
   log(`Could not parse classification for issue #${issueNumber}, defaulting to /feature`, 'error');
   return { issueType: '/feature', success: false };
 }
@@ -157,6 +179,7 @@ export async function classifyIssueForTrigger(
     log(`Classifying issue #${issueNumber} for trigger...`);
 
     const issue = await fetchGitHubIssue(issueNumber);
+    log(`classifyIssueForTrigger: issue #${issueNumber} title="${issue.title}", body length=${issue.body?.length ?? 0}`);
     const issueContext = `**#${issue.number}: ${issue.title}**\n\n${issue.body}`;
 
     // Step 1: Try deterministic ADW command extraction
@@ -166,18 +189,23 @@ export async function classifyIssueForTrigger(
       issueNumber,
       issue.body,
     );
-    if (adwResult) return adwResult;
+    if (adwResult) {
+      log(`Classification complete for issue #${issueNumber}: classifier=regex, issueType=${adwResult.issueType}, adwCommand=${adwResult.adwCommand}, success=${adwResult.success}`, 'success');
+      return adwResult;
+    }
 
     // Step 2: Fall back to /classify_issue
     log(`No ADW command found for issue #${issueNumber}, falling back to /classify_issue`);
     log(`Attempting heuristic classification (/classify_issue) for issue #${issueNumber}...`);
-    return await classifyWithIssueCommand(
+    const heuristicResult = await classifyWithIssueCommand(
       issueContext,
       issueNumber,
       `trigger-classifier-${issueNumber}`,
       `/tmp/adw-trigger-classifier-${issueNumber}.jsonl`,
       issue.body,
     );
+    log(`Classification complete for issue #${issueNumber}: classifier=heuristic, issueType=${heuristicResult.issueType}, adwCommand=${heuristicResult.adwCommand ?? 'none'}, success=${heuristicResult.success}`, heuristicResult.success ? 'success' : 'warn');
+    return heuristicResult;
   } catch (error) {
     log(`Error classifying issue #${issueNumber}: ${error}`, 'error');
     return { issueType: '/feature', success: false };
@@ -198,6 +226,7 @@ export async function classifyGitHubIssue(
     log(`Classifying issue #${issue.number} (${issue.title})...`);
 
     const labelsText = issue.labels.map((l) => l.name).join(', ') || 'none';
+    log(`classifyGitHubIssue: issue #${issue.number} labels=[${labelsText}], body length=${issue.body?.length ?? 0}`);
     const issueContext = `**Title:** ${issue.title}
 **Labels:** ${labelsText}
 
@@ -210,18 +239,23 @@ ${issue.body || 'No description provided.'}`;
       issue.number,
       issue.body,
     );
-    if (adwResult) return adwResult;
+    if (adwResult) {
+      log(`Classification complete for issue #${issue.number}: classifier=regex, issueType=${adwResult.issueType}, adwCommand=${adwResult.adwCommand}, success=${adwResult.success}`, 'success');
+      return adwResult;
+    }
 
     // Step 2: Fall back to /classify_issue
     log(`No ADW command found for issue #${issue.number}, falling back to /classify_issue`);
     log(`Attempting heuristic classification (/classify_issue) for issue #${issue.number}...`);
-    return await classifyWithIssueCommand(
+    const heuristicResult = await classifyWithIssueCommand(
       issueContext,
       issue.number,
       `classifier-${issue.number}`,
       `/tmp/adw-classifier-${issue.number}.jsonl`,
       issue.body,
     );
+    log(`Classification complete for issue #${issue.number}: classifier=heuristic, issueType=${heuristicResult.issueType}, adwCommand=${heuristicResult.adwCommand ?? 'none'}, success=${heuristicResult.success}`, heuristicResult.success ? 'success' : 'warn');
+    return heuristicResult;
   } catch (error) {
     log(`Error classifying issue #${issue.number}: ${error}`, 'error');
     return { issueType: '/feature', success: false };
@@ -243,8 +277,13 @@ export function getWorkflowScript(issueType: IssueClassSlashCommand, adwCommand?
   // Route ADW commands to their dedicated orchestrators when mapped
   if (adwCommand) {
     const orchestrator = adwCommandToOrchestratorMap[adwCommand];
-    if (orchestrator) return orchestrator;
+    if (orchestrator) {
+      log(`getWorkflowScript: routed via adwCommandToOrchestratorMap[${adwCommand}] -> ${orchestrator}`);
+      return orchestrator;
+    }
   }
 
-  return issueTypeToOrchestratorMap[issueType] ?? 'adws/adwPlanBuildTest.tsx';
+  const script = issueTypeToOrchestratorMap[issueType] ?? 'adws/adwPlanBuildTest.tsx';
+  log(`getWorkflowScript: routed via issueTypeToOrchestratorMap[${issueType}] -> ${script}`);
+  return script;
 }
