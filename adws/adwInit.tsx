@@ -8,7 +8,8 @@
  * 1. Initialize: fetch issue, classify type, setup worktree, initialize state
  * 2. Run /adw_init slash command to generate .adw/ config files
  * 3. Commit the generated files
- * 4. Finalize: update state, post completion comment
+ * 4. PR Phase: create pull request
+ * 5. Finalize: update state, post completion comment
  *
  * Environment Requirements:
  * - ANTHROPIC_API_KEY: Anthropic API key
@@ -21,6 +22,7 @@ import { runClaudeAgentWithCommand } from './agents/claudeAgent';
 import { commitChanges } from './github';
 import {
   initializeWorkflow,
+  executePRPhase,
   completeWorkflow,
   handleWorkflowError,
 } from './workflowPhases';
@@ -136,6 +138,11 @@ async function main(): Promise<void> {
       'chore: initialize .adw/ project configuration',
       config.worktreePath,
     );
+
+    log('Phase: PR Creation', 'info');
+    const prResult = await executePRPhase(config);
+    totalCostUsd += prResult.costUsd;
+    totalModelUsage = mergeModelUsageMaps(totalModelUsage, prResult.modelUsage);
 
     persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
     await completeWorkflow(config, totalCostUsd, undefined, totalModelUsage);
