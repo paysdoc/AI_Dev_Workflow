@@ -80,14 +80,6 @@ export const issueTypeToOrchestratorMap: Record<IssueClassSlashCommand, string> 
 };
 
 /**
- * Result from the /classify_adw command extraction.
- */
-export interface AdwClassificationResult {
-  adwSlashCommand?: AdwSlashCommand;
-  adwId?: string;
-}
-
-/**
  * Maps issue classification to commit message prefixes.
  * Following conventional commits specification.
  */
@@ -134,7 +126,6 @@ export type SlashCommand =
   | '/feature'
   | '/pr_review'
   // ADW workflow commands
-  | '/classify_adw'
   | '/classify_issue'
   | '/find_plan_file'
   | '/generate_branch_name'

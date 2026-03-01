@@ -7,8 +7,7 @@ import {
 } from '../core/config';
 
 describe('SLASH_COMMAND_MODEL_MAP', () => {
-  it('has correct default values for all 19 commands', () => {
-    expect(SLASH_COMMAND_MODEL_MAP['/classify_adw']).toBe('haiku');
+  it('has correct default values for all 18 commands', () => {
     expect(SLASH_COMMAND_MODEL_MAP['/classify_issue']).toBe('sonnet');
     expect(SLASH_COMMAND_MODEL_MAP['/feature']).toBe('opus');
     expect(SLASH_COMMAND_MODEL_MAP['/bug']).toBe('opus');
@@ -29,14 +28,13 @@ describe('SLASH_COMMAND_MODEL_MAP', () => {
     expect(SLASH_COMMAND_MODEL_MAP['/adw_init']).toBe('sonnet');
   });
 
-  it('has exactly 19 entries', () => {
-    expect(Object.keys(SLASH_COMMAND_MODEL_MAP)).toHaveLength(19);
+  it('has exactly 18 entries', () => {
+    expect(Object.keys(SLASH_COMMAND_MODEL_MAP)).toHaveLength(18);
   });
 });
 
 describe('SLASH_COMMAND_MODEL_MAP_FAST', () => {
-  it('has correct fast/cheap values for all 19 commands', () => {
-    expect(SLASH_COMMAND_MODEL_MAP_FAST['/classify_adw']).toBe('haiku');
+  it('has correct fast/cheap values for all 18 commands', () => {
     expect(SLASH_COMMAND_MODEL_MAP_FAST['/classify_issue']).toBe('haiku');
     expect(SLASH_COMMAND_MODEL_MAP_FAST['/feature']).toBe('opus');
     expect(SLASH_COMMAND_MODEL_MAP_FAST['/bug']).toBe('opus');
@@ -57,8 +55,8 @@ describe('SLASH_COMMAND_MODEL_MAP_FAST', () => {
     expect(SLASH_COMMAND_MODEL_MAP_FAST['/adw_init']).toBe('haiku');
   });
 
-  it('has exactly 19 entries', () => {
-    expect(Object.keys(SLASH_COMMAND_MODEL_MAP_FAST)).toHaveLength(19);
+  it('has exactly 18 entries', () => {
+    expect(Object.keys(SLASH_COMMAND_MODEL_MAP_FAST)).toHaveLength(18);
   });
 });
 
@@ -178,11 +176,6 @@ describe('getModelForCommand', () => {
 
   describe('commands that stay the same in both maps', () => {
     const fastBody = '/fast';
-
-    it('/classify_adw stays haiku', () => {
-      expect(getModelForCommand('/classify_adw')).toBe('haiku');
-      expect(getModelForCommand('/classify_adw', fastBody)).toBe('haiku');
-    });
 
     it('/feature stays opus', () => {
       expect(getModelForCommand('/feature')).toBe('opus');
