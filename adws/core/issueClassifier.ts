@@ -65,7 +65,7 @@ export function extractAdwIdFromText(text: string): string | null {
   const labelMatch = text.match(/(?:adwId|adw[_\s-]id)\s*[:=]\s*[`"']?([a-z0-9][a-z0-9-]*[a-z0-9])[`"']?/i);
   if (labelMatch) return labelMatch[1];
   // Match backtick-wrapped ADW IDs (same pattern as extractAdwIdFromComment)
-  const backtickMatch = text.match(/`(adw-[a-z0-9][a-z0-9-]*[a-z0-9])`/);
+  const backtickMatch = text.match(/`(adw[-_][a-z0-9][a-z0-9-]*[a-z0-9])`/);
   return backtickMatch ? backtickMatch[1] : null;
 }
 

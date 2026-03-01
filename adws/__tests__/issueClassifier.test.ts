@@ -109,6 +109,10 @@ describe('extractAdwIdFromText', () => {
     expect(extractAdwIdFromText('ID: `adw-fix-bug-abc123`')).toBe('adw-fix-bug-abc123');
   });
 
+  it('returns adwId for backtick-wrapped ADW ID with underscore prefix', () => {
+    expect(extractAdwIdFromText('ID: `adw_fix-bug-abc123`')).toBe('adw_fix-bug-abc123');
+  });
+
   it('returns null for empty text', () => {
     expect(extractAdwIdFromText('')).toBeNull();
   });
