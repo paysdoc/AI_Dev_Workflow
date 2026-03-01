@@ -134,7 +134,6 @@ type ModelTier = 'opus' | 'sonnet' | 'haiku';
 /** Centralized model routing map. Maps every slash command to its model. */
 export const SLASH_COMMAND_MODEL_MAP: Record<SlashCommand, ModelTier> = {
   // Classification
-  '/classify_adw': 'haiku',
   '/classify_issue': 'sonnet',
   // Planning (complex reasoning)
   '/feature': 'opus',
@@ -167,7 +166,6 @@ export const SLASH_COMMAND_MODEL_MAP: Record<SlashCommand, ModelTier> = {
 
 /** Cost-optimized model map used when the issue body contains `/fast` or `/cheap`. */
 export const SLASH_COMMAND_MODEL_MAP_FAST: Record<SlashCommand, ModelTier> = {
-  '/classify_adw': 'haiku',
   '/classify_issue': 'haiku',
   '/feature': 'opus',
   '/bug': 'opus',

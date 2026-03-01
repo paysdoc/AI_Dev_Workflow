@@ -73,7 +73,6 @@ npm run test:watch    # Run tests in watch mode
 │   ├── adw_init.md
 │   ├── bug.md
 │   ├── chore.md
-│   ├── classify_adw.md
 │   ├── classify_issue.md
 │   ├── clean_local_repo.md
 │   ├── commit.md

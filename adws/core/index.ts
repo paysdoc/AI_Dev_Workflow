@@ -9,7 +9,6 @@ export { CLAUDE_CODE_PATH, GITHUB_PAT, LOGS_DIR, SPECS_DIR, AGENTS_STATE_DIR, MA
 export type {
   IssueClassSlashCommand,
   AdwSlashCommand,
-  AdwClassificationResult,
   SlashCommand,
   GitHubUser,
   GitHubLabel,
@@ -109,7 +108,7 @@ export { loadProjectConfig, getDefaultProjectConfig, getDefaultCommandsConfig, p
 
 // Issue classifier
 export type { IssueClassificationResult } from './issueClassifier';
-export { parseAdwClassificationOutput, classifyWithAdwCommand, classifyIssueForTrigger, classifyGitHubIssue, getWorkflowScript } from './issueClassifier';
+export { classifyWithAdwCommand, classifyIssueForTrigger, classifyGitHubIssue, getWorkflowScript, extractAdwIdFromText } from './issueClassifier';
 
 // Port allocator
 export { allocateRandomPort, isPortAvailable } from './portAllocator';

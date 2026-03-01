@@ -1,8 +1,8 @@
 /**
  * Issue classifier for ADW workflows.
  *
- * Provides two-step classification: first tries /classify_adw to detect
- * explicit ADW workflow commands, then falls back to /classify_issue
+ * Provides two-step classification: first tries deterministic regex matching
+ * to detect explicit ADW workflow commands, then falls back to /classify_issue
  * for AI-based heuristic classification.
  */
 
@@ -11,7 +11,6 @@ import { runClaudeAgentWithCommand } from '../agents/claudeAgent';
 import {
   IssueClassSlashCommand,
   AdwSlashCommand,
-  AdwClassificationResult,
   adwCommandToIssueTypeMap,
   adwCommandToOrchestratorMap,
   issueTypeToOrchestratorMap,
@@ -20,7 +19,6 @@ import {
   GitHubIssue,
   getModelForCommand,
 } from '.';
-import { extractJson } from './jsonParser';
 
 /**
  * Extracts an explicit ADW slash command from text using deterministic regex matching.
@@ -55,102 +53,50 @@ export interface IssueClassificationResult {
 }
 
 /**
- * Parses the raw string output from the /classify_adw agent into an AdwClassificationResult.
- * Uses shared JSON extraction, then validates the parsed result.
+ * Extracts an adwId from text using deterministic regex matching.
+ * Matches label-prefixed patterns (e.g., `adwId: value`) and backtick-wrapped ADW IDs.
  *
- * @param output - Raw string output from the /classify_adw agent
- * @returns Parsed AdwClassificationResult or null if empty/unparseable
+ * @param text - The text to scan for adwId patterns
+ * @returns The extracted adwId string or null if none found
  */
-export function parseAdwClassificationOutput(output: string): AdwClassificationResult | null {
-  const trimmed = output.trim();
-  if (!trimmed) return null;
-
-  const parsed = extractJson<Record<string, unknown>>(trimmed);
-  if (!parsed || Object.keys(parsed).length === 0) return null;
-
-  const result: AdwClassificationResult = {};
-
-  // Validate adwSlashCommand if present
-  if (typeof parsed['adwSlashCommand'] === 'string') {
-    const command = parsed['adwSlashCommand'];
-    if (command in adwCommandToIssueTypeMap) {
-      result.adwSlashCommand = command as AdwSlashCommand;
-    } else {
-      return null;
-    }
-  }
-
-  // Extract adwId if present
-  if (typeof parsed['adwId'] === 'string') {
-    result.adwId = parsed['adwId'];
-  }
-
-  // Must have at least adwSlashCommand to be useful
-  if (!result.adwSlashCommand) return null;
-
-  return result;
+export function extractAdwIdFromText(text: string): string | null {
+  if (!text) return null;
+  // Match label-prefixed patterns: "adwId: xyz" or "ADW ID: xyz" or "adw_id: xyz"
+  const labelMatch = text.match(/(?:adwId|adw[_\s-]id)\s*[:=]\s*[`"']?([a-z0-9][a-z0-9-]*[a-z0-9])[`"']?/i);
+  if (labelMatch) return labelMatch[1];
+  // Match backtick-wrapped ADW IDs (same pattern as extractAdwIdFromComment)
+  const backtickMatch = text.match(/`(adw[-_][a-z0-9][a-z0-9-]*[a-z0-9])`/);
+  return backtickMatch ? backtickMatch[1] : null;
 }
 
 /**
- * Attempts ADW-specific classification by calling /classify_adw.
- * Maps recognized ADW commands to IssueClassSlashCommand types.
+ * Classifies an issue by extracting explicit ADW commands and adwId via regex.
+ * No LLM call is needed — this is purely deterministic pattern matching.
  *
  * @param issueContext - The issue context string to classify
  * @param issueNumber - The GitHub issue number
- * @param outputFile - Path for agent output file
+ * @param issueBody - Optional issue body text (preferred over issueContext for matching)
  * @returns IssueClassificationResult if ADW command found, null to fall back
  */
-export async function classifyWithAdwCommand(
+export function classifyWithAdwCommand(
   issueContext: string,
   issueNumber: number,
-  outputFile: string,
   issueBody?: string,
-): Promise<IssueClassificationResult | null> {
-  // Deterministic regex pre-check: extract explicit /adw_* commands before calling the AI agent
-  const regexMatch = extractAdwCommandFromText(issueBody ?? issueContext);
-  if (regexMatch) {
-    const issueType = adwCommandToIssueTypeMap[regexMatch];
-    log(`Issue #${issueNumber} matched ADW command ${regexMatch} via regex pre-check`, 'success');
-    return {
-      issueType,
-      success: true,
-      adwCommand: regexMatch,
-    };
-  }
+): IssueClassificationResult | null {
+  const text = issueBody ?? issueContext;
+  const adwCommand = extractAdwCommandFromText(text);
+  if (!adwCommand) return null;
 
-  try {
-    const result = await runClaudeAgentWithCommand(
-      '/classify_adw',
-      issueContext,
-      `adw-classifier-${issueNumber}`,
-      outputFile,
-      getModelForCommand('/classify_adw', issueBody),
-    );
+  const issueType = adwCommandToIssueTypeMap[adwCommand];
+  const adwId = extractAdwIdFromText(text);
+  log(`Issue #${issueNumber} matched ADW command ${adwCommand} via regex`, 'success');
 
-    if (!result.success) {
-      log(`ADW classifier agent failed for issue #${issueNumber}`, 'error');
-      return null;
-    }
-
-    const parsed = parseAdwClassificationOutput(result.output);
-    if (!parsed?.adwSlashCommand) {
-      log(`ADW classifier returned no valid command for issue #${issueNumber}`);
-      return null;
-    }
-
-    const issueType = adwCommandToIssueTypeMap[parsed.adwSlashCommand];
-    log(`Issue #${issueNumber} matched ADW command ${parsed.adwSlashCommand} → ${issueType}`, 'success');
-
-    return {
-      issueType,
-      success: true,
-      adwCommand: parsed.adwSlashCommand,
-      adwId: parsed.adwId,
-    };
-  } catch (error) {
-    log(`ADW classification error for issue #${issueNumber}: ${error}`, 'error');
-    return null;
-  }
+  return {
+    issueType,
+    success: true,
+    adwCommand,
+    ...(adwId ? { adwId } : {}),
+  };
 }
 
 /**
@@ -199,7 +145,7 @@ async function classifyWithIssueCommand(
 
 /**
  * Classifies an issue to determine the appropriate workflow.
- * Uses two-step classification: /classify_adw first, then /classify_issue fallback.
+ * Uses two-step classification: regex ADW command extraction first, then /classify_issue fallback.
  *
  * @param issueNumber - The GitHub issue number to classify
  * @returns Classification result with issue type and success status
@@ -213,12 +159,11 @@ export async function classifyIssueForTrigger(
     const issue = await fetchGitHubIssue(issueNumber);
     const issueContext = `**#${issue.number}: ${issue.title}**\n\n${issue.body}`;
 
-    // Step 1: Try ADW-specific classification
-    log(`Attempting ADW classification (/classify_adw) for issue #${issueNumber}...`);
-    const adwResult = await classifyWithAdwCommand(
+    // Step 1: Try deterministic ADW command extraction
+    log(`Checking for explicit ADW command in issue #${issueNumber}...`);
+    const adwResult = classifyWithAdwCommand(
       issueContext,
       issueNumber,
-      `/tmp/adw-trigger-adw-classifier-${issueNumber}.jsonl`,
       issue.body,
     );
     if (adwResult) return adwResult;
@@ -241,7 +186,7 @@ export async function classifyIssueForTrigger(
 
 /**
  * Classifies a pre-fetched GitHub issue to determine its type.
- * Uses two-step classification: /classify_adw first, then /classify_issue fallback.
+ * Uses two-step classification: regex ADW command extraction first, then /classify_issue fallback.
  *
  * @param issue - The pre-fetched GitHub issue
  * @returns Classification result with issue type and success status
@@ -258,12 +203,11 @@ export async function classifyGitHubIssue(
 
 ${issue.body || 'No description provided.'}`;
 
-    // Step 1: Try ADW-specific classification
-    log(`Attempting ADW classification (/classify_adw) for issue #${issue.number}...`);
-    const adwResult = await classifyWithAdwCommand(
+    // Step 1: Try deterministic ADW command extraction
+    log(`Checking for explicit ADW command in issue #${issue.number}...`);
+    const adwResult = classifyWithAdwCommand(
       issueContext,
       issue.number,
-      `/tmp/adw-adw-classifier-${issue.number}.jsonl`,
       issue.body,
     );
     if (adwResult) return adwResult;
