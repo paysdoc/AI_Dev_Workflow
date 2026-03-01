@@ -36,6 +36,7 @@ const issueTypeLabels: Record<IssueClassSlashCommand, string> = {
   '/bug': 'bug',
   '/chore': 'chore',
   '/pr_review': 'pr-review',
+  '/adw_init': 'adw-init',
 };
 
 function formatStartingComment(ctx: WorkflowContext): string {

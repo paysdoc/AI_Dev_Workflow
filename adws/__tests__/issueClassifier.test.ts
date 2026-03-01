@@ -267,7 +267,7 @@ describe('classifyWithAdwCommand', () => {
     );
 
     expect(result).toEqual({
-      issueType: '/chore',
+      issueType: '/adw_init',
       success: true,
       adwCommand: '/adw_init',
     });

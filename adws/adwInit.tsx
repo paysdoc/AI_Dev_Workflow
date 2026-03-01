@@ -34,7 +34,7 @@ function printUsageAndExit(): never {
   console.error('Options:');
   console.error('  --cwd <path>         Working directory for git operations (worktree path)');
   console.error('  --issue-type <type>  Pre-classified issue type (skips classification step)');
-  console.error('                       Valid values: /feature, /bug, /chore, /pr_review');
+  console.error('                       Valid values: /feature, /bug, /chore, /pr_review, /adw_init');
   process.exit(1);
 }
 
@@ -62,7 +62,7 @@ function parseArguments(args: string[]): {
   const issueTypeIndex = args.indexOf('--issue-type');
   if (issueTypeIndex !== -1 && args[issueTypeIndex + 1]) {
     const typeValue = args[issueTypeIndex + 1];
-    const validTypes: IssueClassSlashCommand[] = ['/feature', '/bug', '/chore', '/pr_review'];
+    const validTypes: IssueClassSlashCommand[] = ['/feature', '/bug', '/chore', '/pr_review', '/adw_init'];
     if (validTypes.includes(typeValue as IssueClassSlashCommand)) {
       providedIssueType = typeValue as IssueClassSlashCommand;
     } else {
