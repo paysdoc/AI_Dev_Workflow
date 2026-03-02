@@ -15,6 +15,12 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 42,Huge problems with classification,4.9941,0.4994
 44,Remove /classify_adw command,3.7199,0.3720
 0,chore: #44 - Remove /classify_adw command,0.6440,0.0644
+46,Add logging to classifier,3.5224,0.3522
+48,Clearing issue comments triggers additional classification,0.3513,0.0351
+49,Issue #48 identified as adw init,1.6762,0.1676
+48,Clearing issue comments triggers additional classification,1.7238,0.1724
+52,Issue classifier running on incorrect repo,2.3438,0.2344
+0,bug: #52 - Issue classifier running on incorrect repo,6.3452,0.6345
 
-Total Cost (USD):,73.5125
-Total Cost (EUR):,62.2625
+Total Cost (USD):,91.0714
+Total Cost (EUR):,77.1343
