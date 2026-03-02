@@ -38,6 +38,7 @@ Then edit `.env` with your values:
 - `CLAUDE_CODE_PATH` - (Optional) Path to Claude CLI, defaults to `claude`
 - `GITHUB_PAT` - (Optional) GitHub personal access token, only needed if using a different account than `gh auth login`
 - `GITHUB_WEBHOOK_SECRET` - (Optional) Required only for webhook trigger
+- `TARGET_REPOS_DIR` - (Optional) Directory for storing cloned target repository workspaces, defaults to `~/.adw/repos`
 
 ### 4. Run ADW
 
@@ -76,6 +77,7 @@ npm run test:watch    # Run tests in watch mode
 │   ├── classify_issue.md
 │   ├── clean_local_repo.md
 │   ├── commit.md
+│   ├── commit_cost.md
 │   ├── conditional_docs.md
 │   ├── document.md
 │   ├── feature.md
@@ -103,12 +105,13 @@ npm run test:watch    # Run tests in watch mode
 │       └── constants.ts
 └── settings.json
 adws/                   # ADW workflow system
-├── __tests__/          # Unit tests (31 test files)
+├── __tests__/          # Unit tests (46 test files)
 ├── agents/             # Claude Code agent runners
 │   ├── buildAgent.ts
 │   ├── claudeAgent.ts
 │   ├── documentAgent.ts
 │   ├── gitAgent.ts
+│   ├── index.ts
 │   ├── jsonlParser.ts
 │   ├── patchAgent.ts
 │   ├── planAgent.ts
@@ -122,10 +125,12 @@ adws/                   # ADW workflow system
 │   ├── agentState.ts
 │   ├── agentTypes.ts
 │   ├── config.ts
+│   ├── costCsvWriter.ts
 │   ├── costPricing.ts
 │   ├── costReport.ts
 │   ├── costTypes.ts
 │   ├── dataTypes.ts
+│   ├── index.ts
 │   ├── issueClassifier.ts
 │   ├── issueTypes.ts
 │   ├── jsonParser.ts
@@ -134,11 +139,14 @@ adws/                   # ADW workflow system
 │   ├── projectConfig.ts
 │   ├── retryOrchestrator.ts
 │   ├── stateHelpers.ts
+│   ├── targetRepoManager.ts
+│   ├── targetRepoRegistry.ts
 │   ├── utils.ts
 │   └── workflowTypes.ts
 ├── github/             # GitHub API and git operations
 │   ├── gitOperations.ts
 │   ├── githubApi.ts
+│   ├── index.ts
 │   ├── issueApi.ts
 │   ├── prApi.ts
 │   ├── prCommentDetector.ts
@@ -153,6 +161,7 @@ adws/                   # ADW workflow system
 ├── phases/             # Workflow phase implementations
 │   ├── buildPhase.ts
 │   ├── documentPhase.ts
+│   ├── index.ts
 │   ├── planPhase.ts
 │   ├── prPhase.ts
 │   ├── prReviewPhase.ts
@@ -183,8 +192,16 @@ adws/                   # ADW workflow system
 ├── index.ts
 ├── tsconfig.json
 └── README.md
+app_docs/               # Generated feature documentation
+eslint.config.js        # ESLint configuration
+guidelines/
+└── coding_guidelines.md
+projects/               # Cost tracking CSV files per project
+specs/                  # Generated implementation specs
 .env.sample             # Environment variable template
 .gitignore
 package.json
+tsconfig.json           # Root TypeScript configuration
+vitest.config.ts        # Vitest test runner configuration
 README.md               # This file
 ```
