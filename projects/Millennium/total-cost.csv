@@ -1,6 +1,9 @@
 Issue number,Issue description,Cost (USD),Markup (10%)
 35,set up adw environment,0.3487,0.0349
 35,set up adw environment,0.4132,0.0413
+37,init adw,0.3770,0.0377
+39,Bun install does not work,39.4951,3.9495
+40,E2E tests are not found,0.8763,0.0876
 
-Total Cost (USD):,0.8382
-Total Cost (EUR):,0.7099
+Total Cost (USD):,45.6613
+Total Cost (EUR):,38.7834

@@ -21,6 +21,7 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 48,Clearing issue comments triggers additional classification,1.7238,0.1724
 52,Issue classifier running on incorrect repo,2.3438,0.2344
 0,bug: #52 - Issue classifier running on incorrect repo,6.3452,0.6345
+54,Initialization of adw should end with pr creation,2.6134,0.2613
 
-Total Cost (USD):,91.0714
-Total Cost (EUR):,77.1343
+Total Cost (USD):,93.9462
+Total Cost (EUR):,79.5691
