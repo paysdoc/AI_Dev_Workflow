@@ -374,6 +374,66 @@ branch refs/heads/main
       "Failed to create worktree for branch 'feature/issue-51'"
     );
   });
+
+  it('passes explicit baseRepoPath through resolveTargetRepoCwd', () => {
+    vi.mocked(fs.existsSync).mockReturnValue(true);
+    const worktreeListOutput = `worktree /target/repo
+HEAD abc123
+branch refs/heads/main
+
+`;
+    vi.mocked(execSync).mockImplementation((cmd) => {
+      const cmdStr = String(cmd);
+      if (cmdStr.includes('git worktree list')) {
+        return worktreeListOutput;
+      }
+      if (cmdStr.includes('git rev-parse')) {
+        return '';
+      }
+      if (cmdStr.includes('git worktree add')) {
+        return '';
+      }
+      return '';
+    });
+
+    createWorktree('feature/issue-99', undefined, '/target/repo');
+
+    expect(vi.mocked(resolveTargetRepoCwd)).toHaveBeenCalledWith('/target/repo');
+    expect(vi.mocked(execSync)).toHaveBeenCalledWith(
+      expect.stringContaining('git rev-parse'),
+      { stdio: 'pipe', cwd: '/target/repo' }
+    );
+  });
+
+  it('uses TargetRepoRegistry to resolve cwd when no explicit baseRepoPath is provided', () => {
+    vi.mocked(resolveTargetRepoCwd).mockReturnValueOnce('/mock/repos/ext-owner/ext-repo');
+    vi.mocked(fs.existsSync).mockReturnValue(true);
+    const worktreeListOutput = `worktree /mock/repos/ext-owner/ext-repo
+HEAD abc123
+branch refs/heads/main
+
+`;
+    vi.mocked(execSync).mockImplementation((cmd) => {
+      const cmdStr = String(cmd);
+      if (cmdStr.includes('git worktree list')) {
+        return worktreeListOutput;
+      }
+      if (cmdStr.includes('git rev-parse')) {
+        return '';
+      }
+      if (cmdStr.includes('git worktree add')) {
+        return '';
+      }
+      return '';
+    });
+
+    createWorktree('feature/issue-99');
+
+    expect(vi.mocked(execSync)).toHaveBeenCalledWith(
+      expect.stringContaining('git rev-parse'),
+      { stdio: 'pipe', cwd: '/mock/repos/ext-owner/ext-repo' }
+    );
+  });
 });
 
 describe('createWorktreeForNewBranch', () => {
@@ -466,6 +526,54 @@ branch refs/heads/main
 
     expect(() => createWorktreeForNewBranch('feature/issue-51')).toThrow(
       "Failed to create worktree with new branch 'feature/issue-51'"
+    );
+  });
+
+  it('passes explicit baseRepoPath through resolveTargetRepoCwd', () => {
+    vi.mocked(fs.existsSync).mockReturnValue(true);
+    const worktreeListOutput = `worktree /target/repo
+HEAD abc123
+branch refs/heads/main
+
+`;
+    vi.mocked(execSync).mockImplementation((cmd) => {
+      const cmdStr = String(cmd);
+      if (cmdStr.includes('git worktree list')) {
+        return worktreeListOutput;
+      }
+      return '';
+    });
+
+    createWorktreeForNewBranch('feature/issue-99', undefined, '/target/repo');
+
+    expect(vi.mocked(resolveTargetRepoCwd)).toHaveBeenCalledWith('/target/repo');
+    expect(vi.mocked(execSync)).toHaveBeenCalledWith(
+      expect.stringContaining('git worktree add'),
+      { stdio: 'pipe', cwd: '/target/repo' }
+    );
+  });
+
+  it('uses TargetRepoRegistry to resolve cwd when no explicit baseRepoPath is provided', () => {
+    vi.mocked(resolveTargetRepoCwd).mockReturnValueOnce('/mock/repos/ext-owner/ext-repo');
+    vi.mocked(fs.existsSync).mockReturnValue(true);
+    const worktreeListOutput = `worktree /mock/repos/ext-owner/ext-repo
+HEAD abc123
+branch refs/heads/main
+
+`;
+    vi.mocked(execSync).mockImplementation((cmd) => {
+      const cmdStr = String(cmd);
+      if (cmdStr.includes('git worktree list')) {
+        return worktreeListOutput;
+      }
+      return '';
+    });
+
+    createWorktreeForNewBranch('feature/issue-99');
+
+    expect(vi.mocked(execSync)).toHaveBeenCalledWith(
+      expect.stringContaining('git worktree add'),
+      { stdio: 'pipe', cwd: '/mock/repos/ext-owner/ext-repo' }
     );
   });
 });
@@ -599,6 +707,59 @@ branch refs/heads/feature/issue-51
     const result = getWorktreeForBranch('feature/issue-51');
     expect(result).toBeNull();
   });
+
+  it('passes explicit baseRepoPath through resolveTargetRepoCwd', () => {
+    const worktreeListOutput = `worktree /target/repo
+HEAD abc123
+branch refs/heads/main
+
+`;
+    vi.mocked(execSync).mockReturnValue(worktreeListOutput);
+    vi.mocked(fs.existsSync).mockReturnValue(false);
+
+    getWorktreeForBranch('feature/issue-99', '/target/repo');
+
+    expect(vi.mocked(resolveTargetRepoCwd)).toHaveBeenCalledWith('/target/repo');
+    expect(vi.mocked(execSync)).toHaveBeenCalledWith('git worktree list --porcelain', {
+      encoding: 'utf-8',
+      cwd: '/target/repo',
+    });
+  });
+
+  it('uses TargetRepoRegistry to resolve cwd when no explicit baseRepoPath is provided', () => {
+    vi.mocked(resolveTargetRepoCwd).mockReturnValueOnce('/mock/repos/ext-owner/ext-repo');
+    const worktreeListOutput = `worktree /mock/repos/ext-owner/ext-repo
+HEAD abc123
+branch refs/heads/main
+
+`;
+    vi.mocked(execSync).mockReturnValue(worktreeListOutput);
+    vi.mocked(fs.existsSync).mockReturnValue(false);
+
+    getWorktreeForBranch('feature/issue-99');
+
+    expect(vi.mocked(execSync)).toHaveBeenCalledWith('git worktree list --porcelain', {
+      encoding: 'utf-8',
+      cwd: '/mock/repos/ext-owner/ext-repo',
+    });
+  });
+
+  it('falls back to undefined cwd when registry is not set and no explicit baseRepoPath', () => {
+    const worktreeListOutput = `worktree /mock/project
+HEAD abc123
+branch refs/heads/main
+
+`;
+    vi.mocked(execSync).mockReturnValue(worktreeListOutput);
+    vi.mocked(fs.existsSync).mockReturnValue(false);
+
+    getWorktreeForBranch('feature/issue-99');
+
+    expect(vi.mocked(execSync)).toHaveBeenCalledWith('git worktree list --porcelain', {
+      encoding: 'utf-8',
+      cwd: undefined,
+    });
+  });
 });
 
 describe('ensureWorktree', () => {
@@ -663,6 +824,46 @@ branch refs/heads/feature/issue-51
 
     const result = ensureWorktree('feature/issue-51');
     expect(result).toBe(path.join('/mock/project/.worktrees', 'feature-issue-51'));
+  });
+
+  it('passes explicit baseRepoPath through resolveTargetRepoCwd', () => {
+    const worktreeListOutput = `worktree /target/repo
+HEAD abc123
+branch refs/heads/main
+
+worktree /target/repo/.worktrees/feature-issue-99
+HEAD def456
+branch refs/heads/feature/issue-99
+
+`;
+    vi.mocked(execSync).mockReturnValue(worktreeListOutput);
+    vi.mocked(fs.existsSync).mockReturnValue(false);
+
+    ensureWorktree('feature/issue-99', undefined, '/target/repo');
+
+    expect(vi.mocked(resolveTargetRepoCwd)).toHaveBeenCalledWith('/target/repo');
+  });
+
+  it('uses TargetRepoRegistry to resolve cwd when no explicit baseRepoPath is provided', () => {
+    vi.mocked(resolveTargetRepoCwd).mockReturnValueOnce('/mock/repos/ext-owner/ext-repo');
+    const worktreeListOutput = `worktree /mock/repos/ext-owner/ext-repo
+HEAD abc123
+branch refs/heads/main
+
+worktree /mock/repos/ext-owner/ext-repo/.worktrees/feature-issue-99
+HEAD def456
+branch refs/heads/feature/issue-99
+
+`;
+    vi.mocked(execSync).mockReturnValue(worktreeListOutput);
+    vi.mocked(fs.existsSync).mockReturnValue(false);
+
+    ensureWorktree('feature/issue-99');
+
+    expect(vi.mocked(execSync)).toHaveBeenCalledWith('git worktree list --porcelain', {
+      encoding: 'utf-8',
+      cwd: '/mock/repos/ext-owner/ext-repo',
+    });
   });
 });
 

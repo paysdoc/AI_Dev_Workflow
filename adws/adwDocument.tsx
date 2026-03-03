@@ -21,7 +21,6 @@ import {
   ensureLogsDirectory,
   AgentStateManager,
   type AgentState,
-  parseTargetRepoArgs,
 } from './core';
 import { runDocumentAgent } from './agents';
 

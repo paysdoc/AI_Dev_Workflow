@@ -14,6 +14,7 @@ import {
   freeBranchFromMainRepo,
   copyEnvToWorktree,
 } from './worktreeOperations';
+import { resolveTargetRepoCwd } from '../core/targetRepoRegistry';
 
 /**
  * Gets the existing worktree path for a branch if it exists.
@@ -23,8 +24,9 @@ import {
  */
 export function getWorktreeForBranch(branchName: string, baseRepoPath?: string): string | null {
   try {
-    const output = execSync('git worktree list --porcelain', { encoding: 'utf-8', cwd: baseRepoPath });
-    const expectedWorktreePath = getWorktreePath(branchName, baseRepoPath);
+    const resolvedBaseRepoPath = resolveTargetRepoCwd(baseRepoPath);
+    const output = execSync('git worktree list --porcelain', { encoding: 'utf-8', cwd: resolvedBaseRepoPath });
+    const expectedWorktreePath = getWorktreePath(branchName, resolvedBaseRepoPath);
 
     // Parse worktree list output to find matching worktree
     const lines = output.split('\n');
@@ -82,15 +84,16 @@ export function createWorktree(branchName: string, baseBranch?: string, baseRepo
     throw new Error('branchName must be a non-empty string');
   }
 
-  const worktreePath = getWorktreePath(branchName, baseRepoPath);
-  const worktreesDir = getWorktreesDir(baseRepoPath);
+  const resolvedBaseRepoPath = resolveTargetRepoCwd(baseRepoPath);
+  const worktreePath = getWorktreePath(branchName, resolvedBaseRepoPath);
+  const worktreesDir = getWorktreesDir(resolvedBaseRepoPath);
 
   // Ensure worktrees directory exists
   if (!fs.existsSync(worktreesDir)) {
     fs.mkdirSync(worktreesDir, { recursive: true });
   }
 
-  const gitOpts = baseRepoPath ? { stdio: 'pipe' as const, cwd: baseRepoPath } : { stdio: 'pipe' as const };
+  const gitOpts = resolvedBaseRepoPath ? { stdio: 'pipe' as const, cwd: resolvedBaseRepoPath } : { stdio: 'pipe' as const };
 
   try {
     // Check if the branch exists remotely or locally
@@ -110,13 +113,13 @@ export function createWorktree(branchName: string, baseBranch?: string, baseRepo
 
     if (branchExists) {
       // Check if branch is checked out elsewhere before attempting worktree add
-      const checkoutStatus = isBranchCheckedOutElsewhere(branchName, baseRepoPath);
+      const checkoutStatus = isBranchCheckedOutElsewhere(branchName, resolvedBaseRepoPath);
 
       if (checkoutStatus.checkedOut) {
         if (checkoutStatus.isMainRepo) {
           // Branch is checked out in main repo, free it first
           log(`Branch '${branchName}' is checked out in main repository, freeing it...`, 'info');
-          freeBranchFromMainRepo(branchName, baseRepoPath);
+          freeBranchFromMainRepo(branchName, resolvedBaseRepoPath);
         } else if (checkoutStatus.path) {
           // Branch is checked out in another worktree, reuse that worktree
           log(
@@ -160,8 +163,9 @@ export function createWorktreeForNewBranch(branchName: string, baseBranch?: stri
     throw new Error('branchName must be a non-empty string');
   }
 
-  const worktreePath = getWorktreePath(branchName, baseRepoPath);
-  const worktreesDir = getWorktreesDir(baseRepoPath);
+  const resolvedBaseRepoPath = resolveTargetRepoCwd(baseRepoPath);
+  const worktreePath = getWorktreePath(branchName, resolvedBaseRepoPath);
+  const worktreesDir = getWorktreesDir(resolvedBaseRepoPath);
 
   // Ensure worktrees directory exists
   if (!fs.existsSync(worktreesDir)) {
@@ -170,7 +174,7 @@ export function createWorktreeForNewBranch(branchName: string, baseBranch?: stri
 
   try {
     const base = baseBranch || 'HEAD';
-    const gitOpts = baseRepoPath ? { stdio: 'pipe' as const, cwd: baseRepoPath } : { stdio: 'pipe' as const };
+    const gitOpts = resolvedBaseRepoPath ? { stdio: 'pipe' as const, cwd: resolvedBaseRepoPath } : { stdio: 'pipe' as const };
     execSync(`git worktree add -b "${branchName}" "${worktreePath}" "${base}"`, gitOpts);
     log(`Created worktree with new branch '${branchName}' at ${worktreePath}`, 'success');
     return worktreePath;
@@ -188,7 +192,8 @@ export function createWorktreeForNewBranch(branchName: string, baseBranch?: stri
  * @returns The absolute path to the worktree
  */
 export function ensureWorktree(branchName: string, baseBranch?: string, baseRepoPath?: string): string {
-  const existingPath = getWorktreeForBranch(branchName, baseRepoPath);
+  const resolvedBaseRepoPath = resolveTargetRepoCwd(baseRepoPath);
+  const existingPath = getWorktreeForBranch(branchName, resolvedBaseRepoPath);
 
   if (existingPath) {
     log(`Worktree for branch '${branchName}' already exists at ${existingPath}, reusing`, 'info');
@@ -197,7 +202,7 @@ export function ensureWorktree(branchName: string, baseBranch?: string, baseRepo
   }
 
   log(`Worktree for branch '${branchName}' does not exist, creating new worktree...`, 'info');
-  const worktreePath = createWorktree(branchName, baseBranch, baseRepoPath);
+  const worktreePath = createWorktree(branchName, baseBranch, resolvedBaseRepoPath);
   copyEnvToWorktree(worktreePath);
   return worktreePath;
 }

@@ -29,7 +29,6 @@ import {
   MAX_TEST_RETRY_ATTEMPTS,
   mergeModelUsageMaps,
   persistTokenCounts,
-  parseTargetRepoArgs,
 } from './core';
 import { runUnitTestsWithRetry, runE2ETestsWithRetry } from './agents';
 
