@@ -6,6 +6,7 @@
 import * as path from 'path';
 import { log, getModelForCommand } from '../core';
 import { runClaudeAgentWithCommand, AgentResult } from './claudeAgent';
+import { getDefaultBranch } from '../github/gitOperations';
 
 /**
  * Formats structured args for the /pull_request skill.
@@ -15,8 +16,9 @@ export function formatPullRequestArgs(
   issueJson: string,
   planFile: string,
   adwId: string,
+  defaultBranch: string,
 ): string {
-  return `${branchName}\n${issueJson}\n${planFile}\n${adwId}`;
+  return `${branchName}\n${issueJson}\n${planFile}\n${adwId}\n${defaultBranch}`;
 }
 
 /**
@@ -54,11 +56,13 @@ export async function runPullRequestAgent(
   cwd?: string,
   issueBody?: string,
 ): Promise<AgentResult & { prUrl: string }> {
-  const args = formatPullRequestArgs(branchName, issueJson, planFile, adwId);
+  const defaultBranch = getDefaultBranch(cwd);
+  const args = formatPullRequestArgs(branchName, issueJson, planFile, adwId, defaultBranch);
   const outputFile = path.join(logsDir, 'pr-agent.jsonl');
 
   log('PR Agent starting:', 'info');
   log(`  Branch: ${branchName}`, 'info');
+  log(`  Default branch: ${defaultBranch}`, 'info');
   log(`  ADW ID: ${adwId}`, 'info');
   log(`  Plan file: ${planFile}`, 'info');
   if (cwd) log(`  CWD: ${cwd}`, 'info');
