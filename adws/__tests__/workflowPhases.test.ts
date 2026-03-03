@@ -59,7 +59,7 @@ vi.mock('../core', async (importOriginal) => {
       currencies: [{ currency: 'EUR', amount: 1.35, symbol: '€' }],
     }),
     writeIssueCostCsv: vi.fn(),
-    updateProjectCostCsv: vi.fn(),
+    rebuildProjectCostCsv: vi.fn(),
     mergeModelUsageMaps: actual.mergeModelUsageMaps,
     emptyModelUsageMap: actual.emptyModelUsageMap,
     persistTokenCounts: vi.fn(),
@@ -175,7 +175,7 @@ vi.mock('../core/issueClassifier', () => ({
 }));
 
 // Import mocked modules for assertions
-import { shouldExecuteStage, hasUncommittedChanges, getNextStage, AgentStateManager, generateAdwId, writeIssueCostCsv, updateProjectCostCsv } from '../core';
+import { shouldExecuteStage, hasUncommittedChanges, getNextStage, AgentStateManager, generateAdwId, writeIssueCostCsv, rebuildProjectCostCsv } from '../core';
 import {
   fetchPRDetails,
   getUnaddressedComments,
@@ -770,12 +770,9 @@ describe('completeWorkflow', () => {
       config.issue.title,
       expect.any(Object),
     );
-    expect(updateProjectCostCsv).toHaveBeenCalledWith(
+    expect(rebuildProjectCostCsv).toHaveBeenCalledWith(
       '/mock/worktree',
       expect.any(String),
-      config.issueNumber,
-      config.issue.title,
-      expect.any(Number),
       expect.any(Number),
     );
   });
@@ -796,12 +793,9 @@ describe('completeWorkflow', () => {
       config.issue.title,
       expect.any(Object),
     );
-    expect(updateProjectCostCsv).toHaveBeenCalledWith(
+    expect(rebuildProjectCostCsv).toHaveBeenCalledWith(
       process.cwd(),
       expect.any(String),
-      config.issueNumber,
-      config.issue.title,
-      expect.any(Number),
       expect.any(Number),
     );
   });

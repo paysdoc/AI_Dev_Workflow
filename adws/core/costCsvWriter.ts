@@ -100,6 +100,14 @@ export function formatProjectCostCsv(rows: ProjectCostRow[], eurRate: number): s
   return lines.join('\n') + '\n';
 }
 
+/** Parses an issue CSV file's content and extracts the Total Cost (USD) value. */
+export function parseIssueCostTotal(csvContent: string): number {
+  const line = csvContent.split('\n').find(l => l.startsWith('Total Cost (USD):,'));
+  if (!line) return 0;
+  const value = parseFloat(line.split(',')[1]);
+  return isNaN(value) ? 0 : value;
+}
+
 /** Writes a per-issue cost CSV file. */
 export function writeIssueCostCsv(
   repoRoot: string,
@@ -117,34 +125,39 @@ export function writeIssueCostCsv(
   log(`Issue cost CSV written: ${relativePath}`, 'success');
 }
 
-/** Updates the project total cost CSV, appending a new row and recalculating totals. */
-export function updateProjectCostCsv(
+/** Rebuilds the project total cost CSV from scratch by scanning all individual issue CSV files. */
+export function rebuildProjectCostCsv(
   repoRoot: string,
   repoName: string,
-  issueNumber: number,
-  issueTitle: string,
-  costUsd: number,
   eurRate: number,
 ): void {
+  const projectDir = path.join(repoRoot, 'projects', repoName);
+  fs.mkdirSync(projectDir, { recursive: true });
+
+  const csvFiles = fs.existsSync(projectDir)
+    ? fs.readdirSync(projectDir).filter(f => f.endsWith('.csv') && f !== 'total-cost.csv')
+    : [];
+
+  const rows: ProjectCostRow[] = csvFiles
+    .map(filename => {
+      const dashIndex = filename.indexOf('-');
+      if (dashIndex === -1) return null;
+
+      const issueNumber = parseInt(filename.substring(0, dashIndex), 10);
+      if (isNaN(issueNumber)) return null;
+
+      const issueDescription = filename.substring(dashIndex + 1).replace(/\.csv$/, '').replace(/-/g, ' ');
+      const content = fs.readFileSync(path.join(projectDir, filename), 'utf-8');
+      const costUsd = parseIssueCostTotal(content);
+
+      return { issueNumber, issueDescription, costUsd, markupUsd: costUsd * 0.1 };
+    })
+    .filter((row): row is ProjectCostRow => row !== null)
+    .sort((a, b) => a.issueNumber - b.issueNumber);
+
   const relativePath = getProjectCsvPath(repoName);
   const fullPath = path.join(repoRoot, relativePath);
+  fs.writeFileSync(fullPath, formatProjectCostCsv(rows, eurRate), 'utf-8');
 
-  fs.mkdirSync(path.dirname(fullPath), { recursive: true });
-
-  let existingRows: ProjectCostRow[] = [];
-  if (fs.existsSync(fullPath)) {
-    const content = fs.readFileSync(fullPath, 'utf-8');
-    existingRows = parseProjectCostCsv(content);
-  }
-
-  existingRows.push({
-    issueNumber,
-    issueDescription: issueTitle,
-    costUsd,
-    markupUsd: costUsd * 0.1,
-  });
-
-  fs.writeFileSync(fullPath, formatProjectCostCsv(existingRows, eurRate), 'utf-8');
-
-  log(`Project cost CSV updated: ${relativePath}`, 'success');
+  log(`Project cost CSV rebuilt: ${relativePath}`, 'success');
 }
