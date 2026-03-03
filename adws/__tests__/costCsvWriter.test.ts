@@ -9,7 +9,8 @@ import {
   formatProjectCostCsv,
   parseProjectCostCsv,
   writeIssueCostCsv,
-  updateProjectCostCsv,
+  parseIssueCostTotal,
+  rebuildProjectCostCsv,
 } from '../core/costCsvWriter';
 import type { CostBreakdown } from '../core/costTypes';
 import type { ProjectCostRow } from '../core/costCsvWriter';
@@ -211,7 +212,31 @@ describe('costCsvWriter', () => {
     });
   });
 
-  describe('updateProjectCostCsv', () => {
+  describe('parseIssueCostTotal', () => {
+    it('parses valid issue CSV content and returns the correct total', () => {
+      const csv = [
+        'Model,Input Tokens,Output Tokens,Cache Read,Cache Write,Cost (USD)',
+        'claude-opus-4-6,45,11896,1190928,26536,1.0589',
+        'claude-haiku-4-5-20251001,21308,1156,0,0,0.0271',
+        '',
+        'Total Cost (USD):,1.5378',
+        'Total Cost (EUR):,1.3030',
+      ].join('\n');
+
+      expect(parseIssueCostTotal(csv)).toBe(1.5378);
+    });
+
+    it('returns 0 for content without a Total Cost (USD) line', () => {
+      const csv = 'Model,Input Tokens\nsonnet,100';
+      expect(parseIssueCostTotal(csv)).toBe(0);
+    });
+
+    it('returns 0 for empty content', () => {
+      expect(parseIssueCostTotal('')).toBe(0);
+    });
+  });
+
+  describe('rebuildProjectCostCsv', () => {
     let tmpDir: string;
 
     beforeEach(() => {
@@ -222,50 +247,106 @@ describe('costCsvWriter', () => {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     });
 
-    it('creates new CSV when none exists', () => {
-      updateProjectCostCsv(tmpDir, 'test-repo', 1, 'First Issue', 2.0, 0.92);
+    const writeIssueCsv = (dir: string, filename: string, totalCostUsd: number): void => {
+      const projectDir = path.join(dir, 'projects', 'test-repo');
+      fs.mkdirSync(projectDir, { recursive: true });
+      const content = [
+        'Model,Input Tokens,Output Tokens,Cache Read,Cache Write,Cost (USD)',
+        `sonnet,100,50,0,0,${totalCostUsd.toFixed(4)}`,
+        '',
+        `Total Cost (USD):,${totalCostUsd.toFixed(4)}`,
+        `Total Cost (EUR):,N/A`,
+      ].join('\n') + '\n';
+      fs.writeFileSync(path.join(projectDir, filename), content, 'utf-8');
+    };
 
-      const csvPath = path.join(tmpDir, 'projects', 'test-repo', 'total-cost.csv');
-      expect(fs.existsSync(csvPath)).toBe(true);
+    it('rebuilds correctly from multiple issue CSV files', () => {
+      writeIssueCsv(tmpDir, '1-add-login.csv', 2.0);
+      writeIssueCsv(tmpDir, '2-fix-bug.csv', 1.0);
 
-      const content = fs.readFileSync(csvPath, 'utf-8');
-      expect(content).toContain('Issue number,Issue description,Cost (USD),Markup (10%)');
-      expect(content).toContain('1,First Issue,2.0000,0.2000');
-      // Total: 2.0 + 0.2 = 2.2; EUR: 2.2 * 0.92 = 2.024
-      expect(content).toContain('Total Cost (USD):,2.2000');
-      expect(content).toContain('Total Cost (EUR):,2.0240');
-    });
-
-    it('appends to existing CSV and updates totals', () => {
-      updateProjectCostCsv(tmpDir, 'test-repo', 1, 'First Issue', 2.0, 0.92);
-      updateProjectCostCsv(tmpDir, 'test-repo', 2, 'Second Issue', 1.0, 0.92);
-
-      const csvPath = path.join(tmpDir, 'projects', 'test-repo', 'total-cost.csv');
-      const content = fs.readFileSync(csvPath, 'utf-8');
-
-      expect(content).toContain('1,First Issue,2.0000,0.2000');
-      expect(content).toContain('2,Second Issue,1.0000,0.1000');
-      // Total: (2.0 + 0.2) + (1.0 + 0.1) = 3.3; EUR: 3.3 * 0.92 = 3.036
-      expect(content).toContain('Total Cost (USD):,3.3000');
-      expect(content).toContain('Total Cost (EUR):,3.0360');
-    });
-
-    it('handles multiple sequential updates correctly', () => {
-      updateProjectCostCsv(tmpDir, 'test-repo', 1, 'Issue A', 1.0, 0.92);
-      updateProjectCostCsv(tmpDir, 'test-repo', 2, 'Issue B', 2.0, 0.92);
-      updateProjectCostCsv(tmpDir, 'test-repo', 3, 'Issue C', 3.0, 0.92);
+      rebuildProjectCostCsv(tmpDir, 'test-repo', 0.92);
 
       const csvPath = path.join(tmpDir, 'projects', 'test-repo', 'total-cost.csv');
       const content = fs.readFileSync(csvPath, 'utf-8');
       const rows = parseProjectCostCsv(content);
 
-      expect(rows).toHaveLength(3);
-      expect(rows[0].issueNumber).toBe(1);
-      expect(rows[1].issueNumber).toBe(2);
-      expect(rows[2].issueNumber).toBe(3);
+      expect(rows).toHaveLength(2);
+      expect(rows[0]).toEqual({ issueNumber: 1, issueDescription: 'add login', costUsd: 2.0, markupUsd: 0.2 });
+      expect(rows[1]).toEqual({ issueNumber: 2, issueDescription: 'fix bug', costUsd: 1.0, markupUsd: 0.1 });
+      // Total: (2.0+0.2) + (1.0+0.1) = 3.3; EUR: 3.3 * 0.92 = 3.036
+      expect(content).toContain('Total Cost (USD):,3.3000');
+      expect(content).toContain('Total Cost (EUR):,3.0360');
+    });
 
-      // Total: (1+0.1) + (2+0.2) + (3+0.3) = 6.6
-      expect(content).toContain('Total Cost (USD):,6.6000');
+    it('creates empty CSV when project directory has no issue files', () => {
+      rebuildProjectCostCsv(tmpDir, 'test-repo', 0.92);
+
+      const csvPath = path.join(tmpDir, 'projects', 'test-repo', 'total-cost.csv');
+      const content = fs.readFileSync(csvPath, 'utf-8');
+      const rows = parseProjectCostCsv(content);
+
+      expect(rows).toHaveLength(0);
+      expect(content).toContain('Total Cost (USD):,0.0000');
+    });
+
+    it('skips total-cost.csv when scanning files', () => {
+      writeIssueCsv(tmpDir, '1-some-issue.csv', 1.5);
+      // Write a total-cost.csv with stale data
+      const projectDir = path.join(tmpDir, 'projects', 'test-repo');
+      fs.writeFileSync(path.join(projectDir, 'total-cost.csv'), 'stale data', 'utf-8');
+
+      rebuildProjectCostCsv(tmpDir, 'test-repo', 0.92);
+
+      const content = fs.readFileSync(path.join(projectDir, 'total-cost.csv'), 'utf-8');
+      const rows = parseProjectCostCsv(content);
+
+      expect(rows).toHaveLength(1);
+      expect(rows[0].issueNumber).toBe(1);
+    });
+
+    it('skips files that do not follow the {number}-{slug}.csv naming pattern', () => {
+      writeIssueCsv(tmpDir, '1-valid-issue.csv', 1.0);
+      // Write files with invalid naming patterns
+      const projectDir = path.join(tmpDir, 'projects', 'test-repo');
+      fs.writeFileSync(path.join(projectDir, 'notes.csv'), 'some notes', 'utf-8');
+      fs.writeFileSync(path.join(projectDir, 'abc-not-a-number.csv'), 'invalid', 'utf-8');
+
+      rebuildProjectCostCsv(tmpDir, 'test-repo', 0.92);
+
+      const content = fs.readFileSync(path.join(projectDir, 'total-cost.csv'), 'utf-8');
+      const rows = parseProjectCostCsv(content);
+
+      expect(rows).toHaveLength(1);
+      expect(rows[0].issueNumber).toBe(1);
+    });
+
+    it('sorts rows by issue number ascending', () => {
+      writeIssueCsv(tmpDir, '10-later-issue.csv', 3.0);
+      writeIssueCsv(tmpDir, '2-middle-issue.csv', 2.0);
+      writeIssueCsv(tmpDir, '1-first-issue.csv', 1.0);
+
+      rebuildProjectCostCsv(tmpDir, 'test-repo', 0.92);
+
+      const csvPath = path.join(tmpDir, 'projects', 'test-repo', 'total-cost.csv');
+      const rows = parseProjectCostCsv(fs.readFileSync(csvPath, 'utf-8'));
+
+      expect(rows.map(r => r.issueNumber)).toEqual([1, 2, 10]);
+    });
+
+    it('reflects latest cost with no duplicates on re-run', () => {
+      writeIssueCsv(tmpDir, '6-set-up-adw-environment.csv', 1.1719);
+      rebuildProjectCostCsv(tmpDir, 'test-repo', 0.92);
+
+      // Overwrite with updated cost (simulating a re-run)
+      writeIssueCsv(tmpDir, '6-set-up-adw-environment.csv', 1.5378);
+      rebuildProjectCostCsv(tmpDir, 'test-repo', 0.92);
+
+      const csvPath = path.join(tmpDir, 'projects', 'test-repo', 'total-cost.csv');
+      const rows = parseProjectCostCsv(fs.readFileSync(csvPath, 'utf-8'));
+
+      expect(rows).toHaveLength(1);
+      expect(rows[0].issueNumber).toBe(6);
+      expect(rows[0].costUsd).toBe(1.5378);
     });
   });
 });

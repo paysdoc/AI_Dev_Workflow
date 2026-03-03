@@ -99,7 +99,8 @@ export {
   formatProjectCostCsv,
   parseProjectCostCsv,
   writeIssueCostCsv,
-  updateProjectCostCsv,
+  parseIssueCostTotal,
+  rebuildProjectCostCsv,
 } from './costCsvWriter';
 
 // Project configuration

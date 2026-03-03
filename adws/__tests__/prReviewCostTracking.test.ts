@@ -37,7 +37,7 @@ vi.mock('../core', async (importOriginal) => {
       currencies: [{ currency: 'EUR', amount: 1.35, symbol: '€' }],
     }),
     writeIssueCostCsv: vi.fn(),
-    updateProjectCostCsv: vi.fn(),
+    rebuildProjectCostCsv: vi.fn(),
     mergeModelUsageMaps: actual.mergeModelUsageMaps,
     emptyModelUsageMap: actual.emptyModelUsageMap,
     persistTokenCounts: vi.fn(),
@@ -97,7 +97,7 @@ vi.mock('../agents', () => ({
   runE2ETestsWithRetry: vi.fn(),
 }));
 
-import { AgentStateManager, writeIssueCostCsv, updateProjectCostCsv, persistTokenCounts, buildCostBreakdown } from '../core';
+import { AgentStateManager, writeIssueCostCsv, rebuildProjectCostCsv, persistTokenCounts, buildCostBreakdown } from '../core';
 import { postPRWorkflowComment, getRepoInfo } from '../github';
 import { runPrReviewPlanAgent, runPrReviewBuildAgent, runUnitTestsWithRetry, runE2ETestsWithRetry } from '../agents';
 
@@ -280,12 +280,9 @@ describe('PR Review Cost Tracking', () => {
         'Test PR',
         expect.objectContaining({ totalCostUsd: 1.5 }),
       );
-      expect(updateProjectCostCsv).toHaveBeenCalledWith(
+      expect(rebuildProjectCostCsv).toHaveBeenCalledWith(
         process.cwd(),
         'repo',
-        10,
-        'Test PR',
-        1.5,
         expect.any(Number),
       );
     });
@@ -316,7 +313,7 @@ describe('PR Review Cost Tracking', () => {
       await completePRReviewWorkflow(config);
 
       expect(writeIssueCostCsv).not.toHaveBeenCalled();
-      expect(updateProjectCostCsv).not.toHaveBeenCalled();
+      expect(rebuildProjectCostCsv).not.toHaveBeenCalled();
     });
 
     it('does not write CSVs when modelUsage is an empty object', async () => {
@@ -325,7 +322,7 @@ describe('PR Review Cost Tracking', () => {
       await completePRReviewWorkflow(config, {});
 
       expect(writeIssueCostCsv).not.toHaveBeenCalled();
-      expect(updateProjectCostCsv).not.toHaveBeenCalled();
+      expect(rebuildProjectCostCsv).not.toHaveBeenCalled();
     });
 
     it('catches and logs CSV write failures without throwing', async () => {

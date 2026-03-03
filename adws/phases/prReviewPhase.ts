@@ -4,7 +4,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { log, setLogAdwId, ensureLogsDirectory, generateAdwId, type PRDetails, type PRReviewComment, AgentStateManager, type AgentState, MAX_TEST_RETRY_ATTEMPTS, COST_REPORT_CURRENCIES, type ModelUsageMap, buildCostBreakdown, allocateRandomPort, mergeModelUsageMaps, emptyModelUsageMap, persistTokenCounts, writeIssueCostCsv, updateProjectCostCsv } from '../core';
+import { log, setLogAdwId, ensureLogsDirectory, generateAdwId, type PRDetails, type PRReviewComment, AgentStateManager, type AgentState, MAX_TEST_RETRY_ATTEMPTS, COST_REPORT_CURRENCIES, type ModelUsageMap, buildCostBreakdown, allocateRandomPort, mergeModelUsageMaps, emptyModelUsageMap, persistTokenCounts, writeIssueCostCsv, rebuildProjectCostCsv } from '../core';
 import { fetchPRDetails, getUnaddressedComments, pushBranch, postPRWorkflowComment, type PRReviewWorkflowContext, ensureWorktree, inferIssueTypeFromBranch, type RepoInfo } from '../github';
 import { setTargetRepo, getTargetRepo } from '../core/targetRepoRegistry';
 import { getPlanFilePath, runPrReviewPlanAgent, runPrReviewBuildAgent, runCommitAgent, type ProgressCallback, type ProgressInfo, runUnitTestsWithRetry, runE2ETestsWithRetry } from '../agents';
@@ -315,7 +315,7 @@ export async function completePRReviewWorkflow(config: PRReviewWorkflowConfig, m
       const eurRate = eurEntry ? eurEntry.amount / costBreakdown.totalCostUsd : 0;
 
       writeIssueCostCsv(adwRepoRoot, repoName, config.issueNumber, config.prDetails.title, costBreakdown);
-      updateProjectCostCsv(adwRepoRoot, repoName, config.issueNumber, config.prDetails.title, costBreakdown.totalCostUsd, eurRate);
+      rebuildProjectCostCsv(adwRepoRoot, repoName, eurRate);
     } catch (csvError) {
       log(`Failed to write cost CSV files: ${csvError}`, 'error');
     }
