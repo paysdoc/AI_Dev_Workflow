@@ -12,6 +12,7 @@ import {
 } from '../core';
 import {
   postWorkflowComment,
+  moveIssueToStatus,
 } from '../github';
 import {
   getPlanFilePath,
@@ -64,6 +65,8 @@ export async function executePRPhase(config: WorkflowConfig): Promise<{ costUsd:
   } else {
     log('Skipping PR creation (already completed)', 'info');
   }
+
+  await moveIssueToStatus(issueNumber, 'Review', repoInfo);
 
   return { costUsd, modelUsage };
 }
