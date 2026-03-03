@@ -6,7 +6,7 @@
  */
 
 import { execSync, spawn } from 'child_process';
-import { log, setTargetRepo } from '../core';
+import { log, setTargetRepo, getTargetRepo } from '../core';
 import { getRepoInfo, fetchPRList, hasUnaddressedComments, isActionableComment, isClearComment, isAdwRunningForIssue, truncateText } from '../github';
 import { classifyIssueForTrigger, getWorkflowScript } from '../core/issueClassifier';
 import { clearIssueComments } from '../adwClearComments';
@@ -23,13 +23,12 @@ interface RawIssue {
   createdAt: string;
 }
 
-/** Cached repo info for the current polling session. */
-const repoInfo = getRepoInfo();
-setTargetRepo(repoInfo);
+/** Initialize the target repo registry from the local git remote. */
+setTargetRepo(getRepoInfo());
 
 /** Fetches all open issues from the configured GitHub repository. */
 function fetchOpenIssues(): RawIssue[] {
-  const { owner, repo } = repoInfo;
+  const { owner, repo } = getTargetRepo();
   try {
     const json = execSync(
       `gh issue list --repo ${owner}/${repo} --state open --json number,comments,createdAt`,
@@ -44,7 +43,7 @@ function fetchOpenIssues(): RawIssue[] {
 
 /** Builds --target-repo args from the local repo info for consistency with webhook triggers. */
 function buildTargetRepoArgs(): string[] {
-  const { owner, repo } = repoInfo;
+  const { owner, repo } = getTargetRepo();
   const fullName = `${owner}/${repo}`;
   try {
     const cloneUrl = execSync('git remote get-url origin', { encoding: 'utf-8' }).trim();
@@ -101,7 +100,7 @@ async function checkAndTrigger(): Promise<void> {
       : null;
     if (latestComment && isClearComment(latestComment.body)) {
       log(`Clear directive on issue #${issue.number}, clearing all comments before spawning workflow`);
-      const clearResult = clearIssueComments(issue.number, repoInfo);
+      const clearResult = clearIssueComments(issue.number, getTargetRepo());
       log(`Cleared ${clearResult.deleted}/${clearResult.total} comments on issue #${issue.number}`);
     }
 
@@ -136,7 +135,7 @@ function checkPRsForReviewComments(): void {
     if (processedPRs.has(pr.number)) continue;
 
     try {
-      if (hasUnaddressedComments(pr.number)) {
+      if (hasUnaddressedComments(pr.number, getTargetRepo())) {
         processedPRs.add(pr.number);
         log(`Triggering ADW PR Review for PR #${pr.number}`, 'success');
 

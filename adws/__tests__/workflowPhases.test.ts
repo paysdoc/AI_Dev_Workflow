@@ -890,6 +890,7 @@ describe('initializePRReviewWorkflow', () => {
     const config = await initializePRReviewWorkflow(42, 'test-adw-id');
 
     expect(fetchPRDetails).toHaveBeenCalledWith(42, undefined);
+    expect(getUnaddressedComments).toHaveBeenCalledWith(42, undefined);
     expect(config.prNumber).toBe(42);
     expect(config.adwId).toBe('test-adw-id');
     expect(config.prDetails.title).toBe('Test PR');
@@ -957,6 +958,14 @@ describe('initializePRReviewWorkflow', () => {
       prNumber: 42,
       reviewComments: 1,
     }), undefined);
+  });
+
+  it('forwards repoInfo to getUnaddressedComments', async () => {
+    const repoInfo = { owner: 'ext', repo: 'target' };
+
+    await initializePRReviewWorkflow(42, 'test-adw-id', repoInfo);
+
+    expect(getUnaddressedComments).toHaveBeenCalledWith(42, repoInfo);
   });
 
   it('generates ADW ID from PR title when adwId is null', async () => {

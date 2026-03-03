@@ -10,6 +10,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { log, type IssueClassSlashCommand, branchPrefixMap, branchPrefixAliases } from '../core';
 import { getDefaultBranch } from './gitOperations';
+import { resolveTargetRepoCwd } from '../core/targetRepoRegistry';
 
 /**
  * Result of checking if a branch is checked out elsewhere.
@@ -111,9 +112,10 @@ export function copyEnvToWorktree(worktreePath: string): void {
  * @param branchName - The branch name to check
  * @returns Status object with checkedOut flag, path where it's checked out, and isMainRepo flag
  */
-export function isBranchCheckedOutElsewhere(branchName: string): BranchCheckoutStatus {
+export function isBranchCheckedOutElsewhere(branchName: string, cwd?: string): BranchCheckoutStatus {
   try {
-    const output = execSync('git worktree list --porcelain', { encoding: 'utf-8' });
+    const resolvedCwd = resolveTargetRepoCwd(cwd);
+    const output = execSync('git worktree list --porcelain', { encoding: 'utf-8', cwd: resolvedCwd });
     const lines = output.split('\n');
 
     let currentWorktreePath: string | null = null;
@@ -157,8 +159,9 @@ export function isBranchCheckedOutElsewhere(branchName: string): BranchCheckoutS
  * @param branchName - The branch name to free from the main repository
  * @throws Error if unable to free the branch
  */
-export function freeBranchFromMainRepo(branchName: string): void {
-  const mainRepoPath = getMainRepoPath();
+export function freeBranchFromMainRepo(branchName: string, cwd?: string): void {
+  const resolvedCwd = resolveTargetRepoCwd(cwd);
+  const mainRepoPath = getMainRepoPath(resolvedCwd);
   log(`Freeing branch '${branchName}' from main repository at ${mainRepoPath}`, 'info');
 
   try {
@@ -187,7 +190,7 @@ export function freeBranchFromMainRepo(branchName: string): void {
     }
 
     // Switch to default branch and pull latest changes
-    const defaultBranch = getDefaultBranch();
+    const defaultBranch = getDefaultBranch(mainRepoPath);
     execSync(`git checkout "${defaultBranch}" && git pull`, { stdio: 'pipe', cwd: mainRepoPath });
     log(`Switched main repository to '${defaultBranch}' and pulled latest changes`, 'success');
   } catch (error) {
@@ -213,10 +216,11 @@ export function getWorktreePath(branchName: string, baseRepoPath?: string): stri
  * @param branchName - The name of the branch to check
  * @returns True if a worktree exists for the branch
  */
-export function worktreeExists(branchName: string): boolean {
+export function worktreeExists(branchName: string, cwd?: string): boolean {
   try {
-    const output = execSync('git worktree list --porcelain', { encoding: 'utf-8' });
-    const worktreePath = getWorktreePath(branchName);
+    const resolvedCwd = resolveTargetRepoCwd(cwd);
+    const output = execSync('git worktree list --porcelain', { encoding: 'utf-8', cwd: resolvedCwd });
+    const worktreePath = getWorktreePath(branchName, resolvedCwd);
 
     // Parse worktree list output to find matching worktree
     const lines = output.split('\n');
@@ -285,13 +289,15 @@ export interface WorktreeForIssueResult {
 export function findWorktreeForIssue(
   issueType: IssueClassSlashCommand,
   issueNumber: number,
+  cwd?: string,
 ): WorktreeForIssueResult | null {
   try {
     const prefix = branchPrefixMap[issueType];
     const aliases = branchPrefixAliases[issueType];
     const allPrefixes = [prefix, ...aliases];
     const pattern = new RegExp('^(' + allPrefixes.join('|') + ')-issue-' + issueNumber + '-');
-    const output = execSync('git worktree list --porcelain', { encoding: 'utf-8' });
+    const resolvedCwd = resolveTargetRepoCwd(cwd);
+    const output = execSync('git worktree list --porcelain', { encoding: 'utf-8', cwd: resolvedCwd });
     const lines = output.split('\n');
 
     let currentWorktreePath: string | null = null;

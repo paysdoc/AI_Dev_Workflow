@@ -11,6 +11,8 @@ import type { RepoInfo } from '../github/githubApi';
 import { closeIssue, formatIssueClosureComment } from '../github/githubApi';
 import { removeWorktree } from '../github/worktreeOperations';
 import { deleteRemoteBranch, commitAndPushCostFiles } from '../github/gitOperations';
+import { hasTargetRepo } from '../core/targetRepoRegistry';
+import { getTargetRepoWorkspacePath } from '../core/targetRepoManager';
 
 /**
  * Extracts issue number from PR body using the "Implements #N" pattern.
@@ -44,13 +46,16 @@ export async function handlePullRequestEvent(payload: PullRequestWebhookPayload)
   const wasMerged = pull_request.merged;
   const prBody = pull_request.body;
   const headBranch = pull_request.head?.ref;
+  const targetCwd = hasTargetRepo()
+    ? getTargetRepoWorkspacePath(repository.owner.login, repository.name)
+    : undefined;
 
   log(`PR #${prNumber} was ${wasMerged ? 'merged' : 'closed without merging'}`);
 
   // Clean up worktree for the PR branch
   if (headBranch) {
     try {
-      const removed = removeWorktree(headBranch);
+      const removed = removeWorktree(headBranch, targetCwd);
       if (removed) {
         log(`Cleaned up worktree for branch: ${headBranch}`, 'success');
       } else {
@@ -61,7 +66,7 @@ export async function handlePullRequestEvent(payload: PullRequestWebhookPayload)
     }
 
     try {
-      deleteRemoteBranch(headBranch);
+      deleteRemoteBranch(headBranch, targetCwd);
     } catch (error) {
       log(`Failed to delete remote branch ${headBranch}: ${error}`, 'error');
     }

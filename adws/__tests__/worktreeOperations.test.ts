@@ -25,6 +25,16 @@ vi.mock('../github/gitOperations', () => ({
   deleteLocalBranch: vi.fn(() => true),
 }));
 
+vi.mock('../core/targetRepoRegistry', () => ({
+  hasTargetRepo: vi.fn(() => false),
+  getTargetRepo: vi.fn(() => ({ owner: 'ext-owner', repo: 'ext-repo' })),
+  resolveTargetRepoCwd: vi.fn((cwd?: string) => cwd),
+}));
+
+vi.mock('../core/targetRepoManager', () => ({
+  getTargetRepoWorkspacePath: vi.fn((owner: string, repo: string) => `/mock/repos/${owner}/${repo}`),
+}));
+
 import { execSync } from 'child_process';
 import * as fs from 'fs';
 import {
@@ -45,7 +55,8 @@ import {
   copyEnvToWorktree,
   findWorktreeForIssue,
 } from '../github/worktreeOperations';
-import { deleteLocalBranch } from '../github/gitOperations';
+import { deleteLocalBranch, getDefaultBranch } from '../github/gitOperations';
+import { resolveTargetRepoCwd } from '../core/targetRepoRegistry';
 
 describe('getWorktreePath', () => {
   const worktreeListOutput = `worktree /mock/project
@@ -118,6 +129,56 @@ branch refs/heads/main
 
     const result = worktreeExists('feature/issue-51');
     expect(result).toBe(false);
+  });
+
+  it('passes explicit cwd to execSync when provided', () => {
+    const worktreeListOutput = `worktree /target/repo
+HEAD abc123
+branch refs/heads/main
+
+`;
+    vi.mocked(execSync).mockReturnValue(worktreeListOutput);
+
+    worktreeExists('feature/issue-99', '/target/repo');
+
+    expect(vi.mocked(resolveTargetRepoCwd)).toHaveBeenCalledWith('/target/repo');
+    expect(vi.mocked(execSync)).toHaveBeenCalledWith('git worktree list --porcelain', {
+      encoding: 'utf-8',
+      cwd: '/target/repo',
+    });
+  });
+
+  it('uses TargetRepoRegistry to resolve cwd when no explicit cwd is provided', () => {
+    vi.mocked(resolveTargetRepoCwd).mockReturnValueOnce('/mock/repos/ext-owner/ext-repo');
+    const worktreeListOutput = `worktree /mock/repos/ext-owner/ext-repo
+HEAD abc123
+branch refs/heads/main
+
+`;
+    vi.mocked(execSync).mockReturnValue(worktreeListOutput);
+
+    worktreeExists('feature/issue-99');
+
+    expect(vi.mocked(execSync)).toHaveBeenCalledWith('git worktree list --porcelain', {
+      encoding: 'utf-8',
+      cwd: '/mock/repos/ext-owner/ext-repo',
+    });
+  });
+
+  it('falls back to undefined cwd when registry is not set and no explicit cwd', () => {
+    const worktreeListOutput = `worktree /mock/project
+HEAD abc123
+branch refs/heads/main
+
+`;
+    vi.mocked(execSync).mockReturnValue(worktreeListOutput);
+
+    worktreeExists('feature/issue-99');
+
+    expect(vi.mocked(execSync)).toHaveBeenCalledWith('git worktree list --porcelain', {
+      encoding: 'utf-8',
+      cwd: undefined,
+    });
   });
 });
 
@@ -895,6 +956,56 @@ branch refs/heads/feature/issue-51
     const result = isBranchCheckedOutElsewhere('feature/issue-51');
     expect(result).toEqual({ checkedOut: false, path: null, isMainRepo: false });
   });
+
+  it('passes explicit cwd to execSync when provided', () => {
+    const worktreeListOutput = `worktree /target/repo
+HEAD abc123
+branch refs/heads/main
+
+`;
+    vi.mocked(execSync).mockReturnValue(worktreeListOutput);
+
+    isBranchCheckedOutElsewhere('feature/issue-99', '/target/repo');
+
+    expect(vi.mocked(resolveTargetRepoCwd)).toHaveBeenCalledWith('/target/repo');
+    expect(vi.mocked(execSync)).toHaveBeenCalledWith('git worktree list --porcelain', {
+      encoding: 'utf-8',
+      cwd: '/target/repo',
+    });
+  });
+
+  it('uses TargetRepoRegistry to resolve cwd when no explicit cwd is provided', () => {
+    vi.mocked(resolveTargetRepoCwd).mockReturnValueOnce('/mock/repos/ext-owner/ext-repo');
+    const worktreeListOutput = `worktree /mock/repos/ext-owner/ext-repo
+HEAD abc123
+branch refs/heads/main
+
+`;
+    vi.mocked(execSync).mockReturnValue(worktreeListOutput);
+
+    isBranchCheckedOutElsewhere('feature/issue-99');
+
+    expect(vi.mocked(execSync)).toHaveBeenCalledWith('git worktree list --porcelain', {
+      encoding: 'utf-8',
+      cwd: '/mock/repos/ext-owner/ext-repo',
+    });
+  });
+
+  it('falls back to undefined cwd when registry is not set and no explicit cwd', () => {
+    const worktreeListOutput = `worktree /mock/project
+HEAD abc123
+branch refs/heads/main
+
+`;
+    vi.mocked(execSync).mockReturnValue(worktreeListOutput);
+
+    isBranchCheckedOutElsewhere('feature/issue-99');
+
+    expect(vi.mocked(execSync)).toHaveBeenCalledWith('git worktree list --porcelain', {
+      encoding: 'utf-8',
+      cwd: undefined,
+    });
+  });
 });
 
 describe('freeBranchFromMainRepo', () => {
@@ -985,6 +1096,58 @@ branch refs/heads/feature/issue-51
     expect(() => freeBranchFromMainRepo('feature/issue-51')).toThrow(
       "Failed to free branch 'feature/issue-51' from main repository"
     );
+  });
+
+  it('passes explicit cwd to getMainRepoPath when provided', () => {
+    const worktreeListOutput = `worktree /target/repo
+HEAD abc123
+branch refs/heads/feature/issue-51
+
+`;
+    vi.mocked(execSync)
+      .mockReturnValueOnce(worktreeListOutput) // getMainRepoPath
+      .mockReturnValueOnce('') // git status --porcelain (no changes)
+      .mockReturnValueOnce(''); // git checkout main && git pull
+
+    freeBranchFromMainRepo('feature/issue-51', '/target/repo');
+
+    expect(vi.mocked(resolveTargetRepoCwd)).toHaveBeenCalledWith('/target/repo');
+    const execCalls = vi.mocked(execSync).mock.calls;
+    expect(execCalls[0][1]).toEqual({ encoding: 'utf-8', cwd: '/target/repo' });
+  });
+
+  it('uses TargetRepoRegistry to resolve cwd when no explicit cwd is provided', () => {
+    vi.mocked(resolveTargetRepoCwd).mockReturnValueOnce('/mock/repos/ext-owner/ext-repo');
+    const worktreeListOutput = `worktree /mock/repos/ext-owner/ext-repo
+HEAD abc123
+branch refs/heads/feature/issue-51
+
+`;
+    vi.mocked(execSync)
+      .mockReturnValueOnce(worktreeListOutput) // getMainRepoPath
+      .mockReturnValueOnce('') // git status --porcelain (no changes)
+      .mockReturnValueOnce(''); // git checkout main && git pull
+
+    freeBranchFromMainRepo('feature/issue-51');
+
+    const execCalls = vi.mocked(execSync).mock.calls;
+    expect(execCalls[0][1]).toEqual({ encoding: 'utf-8', cwd: '/mock/repos/ext-owner/ext-repo' });
+  });
+
+  it('passes mainRepoPath to getDefaultBranch', () => {
+    const worktreeListOutput = `worktree /target/repo
+HEAD abc123
+branch refs/heads/feature/issue-51
+
+`;
+    vi.mocked(execSync)
+      .mockReturnValueOnce(worktreeListOutput) // getMainRepoPath
+      .mockReturnValueOnce('') // git status --porcelain (no changes)
+      .mockReturnValueOnce(''); // git checkout main && git pull
+
+    freeBranchFromMainRepo('feature/issue-51', '/target/repo');
+
+    expect(vi.mocked(getDefaultBranch)).toHaveBeenCalledWith('/target/repo');
   });
 });
 
@@ -1659,6 +1822,60 @@ branch refs/heads/bug-issue-42-fix-something
       branchName: 'bugfix/issue-42-fix-something',
     });
   });
+
+  it('passes explicit cwd to execSync when provided', () => {
+    const worktreeListOutput = `worktree /target/repo
+HEAD abc123
+branch refs/heads/main
+
+worktree /target/repo/.worktrees/feature-issue-42-add-login
+HEAD def456
+branch refs/heads/feature/issue-42-add-login
+
+`;
+    vi.mocked(execSync).mockReturnValue(worktreeListOutput);
+
+    findWorktreeForIssue('/feature', 42, '/target/repo');
+
+    expect(vi.mocked(resolveTargetRepoCwd)).toHaveBeenCalledWith('/target/repo');
+    expect(vi.mocked(execSync)).toHaveBeenCalledWith('git worktree list --porcelain', {
+      encoding: 'utf-8',
+      cwd: '/target/repo',
+    });
+  });
+
+  it('uses TargetRepoRegistry to resolve cwd when no explicit cwd is provided', () => {
+    vi.mocked(resolveTargetRepoCwd).mockReturnValueOnce('/mock/repos/ext-owner/ext-repo');
+    const worktreeListOutput = `worktree /mock/repos/ext-owner/ext-repo
+HEAD abc123
+branch refs/heads/main
+
+`;
+    vi.mocked(execSync).mockReturnValue(worktreeListOutput);
+
+    findWorktreeForIssue('/feature', 42);
+
+    expect(vi.mocked(execSync)).toHaveBeenCalledWith('git worktree list --porcelain', {
+      encoding: 'utf-8',
+      cwd: '/mock/repos/ext-owner/ext-repo',
+    });
+  });
+
+  it('falls back to undefined cwd when registry is not set and no explicit cwd', () => {
+    const worktreeListOutput = `worktree /mock/project
+HEAD abc123
+branch refs/heads/main
+
+`;
+    vi.mocked(execSync).mockReturnValue(worktreeListOutput);
+
+    findWorktreeForIssue('/feature', 42);
+
+    expect(vi.mocked(execSync)).toHaveBeenCalledWith('git worktree list --porcelain', {
+      encoding: 'utf-8',
+      cwd: undefined,
+    });
+  });
 });
 
 describe('killProcessesInDirectory', () => {
@@ -1805,7 +2022,7 @@ branch refs/heads/main
     const result = removeWorktree('feature/issue-51');
 
     expect(result).toBe(true);
-    expect(deleteLocalBranch).toHaveBeenCalledWith('feature/issue-51');
+    expect(deleteLocalBranch).toHaveBeenCalledWith('feature/issue-51', undefined);
   });
 
   it('calls deleteLocalBranch after fallback fs.rmSync removal', () => {
@@ -1828,7 +2045,62 @@ branch refs/heads/main
     const result = removeWorktree('orphaned-branch');
 
     expect(result).toBe(true);
-    expect(deleteLocalBranch).toHaveBeenCalledWith('orphaned-branch');
+    expect(deleteLocalBranch).toHaveBeenCalledWith('orphaned-branch', undefined);
+  });
+
+  it('passes cwd to all internal git commands when provided', () => {
+    const targetRepoWorktreeList = `worktree /target/repo
+HEAD abc123
+branch refs/heads/main
+
+`;
+    vi.mocked(execSync).mockImplementation((cmd) => {
+      const cmdStr = String(cmd);
+      if (cmdStr.includes('git worktree list')) {
+        return targetRepoWorktreeList;
+      }
+      if (cmdStr.includes('lsof')) {
+        throw new Error('no processes');
+      }
+      return '';
+    });
+
+    const result = removeWorktree('feature/issue-51', '/target/repo');
+
+    expect(result).toBe(true);
+
+    const removeCalls = vi.mocked(execSync).mock.calls.filter((call) =>
+      String(call[0]).includes('git worktree remove')
+    );
+    removeCalls.forEach((call) => {
+      expect(call[1]).toEqual(expect.objectContaining({ cwd: '/target/repo' }));
+    });
+
+    expect(deleteLocalBranch).toHaveBeenCalledWith('feature/issue-51', '/target/repo');
+  });
+
+  it('does not pass cwd when omitted (existing behavior)', () => {
+    vi.mocked(execSync).mockImplementation((cmd) => {
+      const cmdStr = String(cmd);
+      if (cmdStr.includes('git worktree list')) {
+        return mainRepoWorktreeList;
+      }
+      if (cmdStr.includes('lsof')) {
+        throw new Error('no processes');
+      }
+      return '';
+    });
+
+    removeWorktree('feature/issue-51');
+
+    const removeCalls = vi.mocked(execSync).mock.calls.filter((call) =>
+      String(call[0]).includes('git worktree remove')
+    );
+    removeCalls.forEach((call) => {
+      expect(call[1]).toEqual(expect.objectContaining({ cwd: undefined }));
+    });
+
+    expect(deleteLocalBranch).toHaveBeenCalledWith('feature/issue-51', undefined);
   });
 });
 
@@ -1865,8 +2137,8 @@ branch refs/heads/feature/issue-99-other
     const result = removeWorktreesForIssue(42);
 
     expect(result).toBe(1);
-    expect(deleteLocalBranch).toHaveBeenCalledWith('feature/issue-42-add-login');
-    expect(deleteLocalBranch).not.toHaveBeenCalledWith('feature/issue-99-other');
+    expect(deleteLocalBranch).toHaveBeenCalledWith('feature/issue-42-add-login', undefined);
+    expect(deleteLocalBranch).not.toHaveBeenCalledWith('feature/issue-99-other', expect.anything());
   });
 
   it('passes cwd to all internal execSync calls when provided', () => {
@@ -1918,6 +2190,9 @@ branch refs/heads/feature/issue-42-add-login
     pruneCalls.forEach((call) => {
       expect(call[1]).toEqual(expect.objectContaining({ cwd: targetCwd }));
     });
+
+    // Verify that deleteLocalBranch received cwd
+    expect(deleteLocalBranch).toHaveBeenCalledWith('feature/issue-42-add-login', '/target/repo');
   });
 
   it('does not pass cwd when omitted (existing behavior)', () => {

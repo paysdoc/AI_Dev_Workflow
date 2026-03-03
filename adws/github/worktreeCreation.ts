@@ -110,13 +110,13 @@ export function createWorktree(branchName: string, baseBranch?: string, baseRepo
 
     if (branchExists) {
       // Check if branch is checked out elsewhere before attempting worktree add
-      const checkoutStatus = isBranchCheckedOutElsewhere(branchName);
+      const checkoutStatus = isBranchCheckedOutElsewhere(branchName, baseRepoPath);
 
       if (checkoutStatus.checkedOut) {
         if (checkoutStatus.isMainRepo) {
           // Branch is checked out in main repo, free it first
           log(`Branch '${branchName}' is checked out in main repository, freeing it...`, 'info');
-          freeBranchFromMainRepo(branchName);
+          freeBranchFromMainRepo(branchName, baseRepoPath);
         } else if (checkoutStatus.path) {
           // Branch is checked out in another worktree, reuse that worktree
           log(
@@ -151,16 +151,17 @@ export function createWorktree(branchName: string, baseBranch?: string, baseRepo
  *
  * @param branchName - The name of the new branch to create
  * @param baseBranch - Optional base branch to create the new branch from (defaults to HEAD)
+ * @param baseRepoPath - Optional base repository path for external target repos
  * @returns The absolute path to the created worktree
  * @throws Error if worktree creation fails
  */
-export function createWorktreeForNewBranch(branchName: string, baseBranch?: string): string {
+export function createWorktreeForNewBranch(branchName: string, baseBranch?: string, baseRepoPath?: string): string {
   if (!branchName || !branchName.trim()) {
     throw new Error('branchName must be a non-empty string');
   }
 
-  const worktreePath = getWorktreePath(branchName);
-  const worktreesDir = getWorktreesDir();
+  const worktreePath = getWorktreePath(branchName, baseRepoPath);
+  const worktreesDir = getWorktreesDir(baseRepoPath);
 
   // Ensure worktrees directory exists
   if (!fs.existsSync(worktreesDir)) {
@@ -169,7 +170,8 @@ export function createWorktreeForNewBranch(branchName: string, baseBranch?: stri
 
   try {
     const base = baseBranch || 'HEAD';
-    execSync(`git worktree add -b "${branchName}" "${worktreePath}" "${base}"`, { stdio: 'pipe' });
+    const gitOpts = baseRepoPath ? { stdio: 'pipe' as const, cwd: baseRepoPath } : { stdio: 'pipe' as const };
+    execSync(`git worktree add -b "${branchName}" "${worktreePath}" "${base}"`, gitOpts);
     log(`Created worktree with new branch '${branchName}' at ${worktreePath}`, 'success');
     return worktreePath;
   } catch (error) {

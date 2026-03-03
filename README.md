@@ -105,7 +105,7 @@ npm run test:watch    # Run tests in watch mode
 │       └── constants.ts
 └── settings.json
 adws/                   # ADW workflow system
-├── __tests__/          # Unit tests (46 test files)
+├── __tests__/          # Unit tests (47 test files)
 ├── agents/             # Claude Code agent runners
 │   ├── buildAgent.ts
 │   ├── claudeAgent.ts

@@ -7,6 +7,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { GitHubIssue, log } from '../core';
+import { resolveTargetRepoCwd, getTargetRepo } from '../core/targetRepoRegistry';
 import { type RepoInfo } from './githubApi';
 import { getCurrentBranch, pushBranch } from './gitOperations';
 
@@ -62,7 +63,9 @@ export function createPullRequest(
   cwd?: string,
   repoInfo?: RepoInfo,
 ): string {
-  const branchName = getCurrentBranch(cwd);
+  const resolvedCwd = resolveTargetRepoCwd(cwd);
+  const resolvedRepoInfo = repoInfo ?? getTargetRepo();
+  const branchName = getCurrentBranch(resolvedCwd);
   const prBody = generatePrBody(issue, planSummary, buildSummary);
   const prTitle = generatePrTitle(issue);
 
@@ -72,12 +75,12 @@ export function createPullRequest(
   try {
     fs.writeFileSync(tempFilePath, prBody, 'utf-8');
 
-    pushBranch(branchName, cwd);
+    pushBranch(branchName, resolvedCwd);
 
-    const repoFlag = repoInfo ? ` --repo ${repoInfo.owner}/${repoInfo.repo}` : '';
+    const repoFlag = ` --repo ${resolvedRepoInfo.owner}/${resolvedRepoInfo.repo}`;
     const prUrl = execSync(
       `gh pr create --title "${prTitle.replace(/"/g, '\\"')}" --body-file "${tempFilePath}" --base ${baseBranch}${repoFlag}`,
-      { encoding: 'utf-8', shell: '/bin/bash', cwd }
+      { encoding: 'utf-8', shell: '/bin/bash', cwd: resolvedCwd }
     ).trim();
 
     log(`Created PR: ${prUrl}`, 'success');

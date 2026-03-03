@@ -23,9 +23,18 @@ vi.mock('../github/gitOperations', () => ({
   commitAndPushCostFiles: vi.fn(() => true),
 }));
 
+vi.mock('../core/targetRepoRegistry', () => ({
+  hasTargetRepo: vi.fn(() => false),
+}));
+
+vi.mock('../core/targetRepoManager', () => ({
+  getTargetRepoWorkspacePath: vi.fn((owner: string, repo: string) => `/mock/repos/${owner}/${repo}`),
+}));
+
 import { removeWorktree } from '../github/worktreeOperations';
 import { deleteRemoteBranch, commitAndPushCostFiles } from '../github/gitOperations';
 import { closeIssue } from '../github/githubApi';
+import { hasTargetRepo } from '../core/targetRepoRegistry';
 import {
   handlePullRequestEvent,
   extractIssueNumberFromPRBody,
@@ -73,12 +82,23 @@ describe('handlePullRequestEvent', () => {
   });
 
   it('calls removeWorktree and deleteRemoteBranch when PR is closed', async () => {
+    vi.mocked(hasTargetRepo).mockReturnValue(false);
     const payload = createPayload();
 
     await handlePullRequestEvent(payload);
 
-    expect(removeWorktree).toHaveBeenCalledWith('feature/issue-42-add-login');
-    expect(deleteRemoteBranch).toHaveBeenCalledWith('feature/issue-42-add-login');
+    expect(removeWorktree).toHaveBeenCalledWith('feature/issue-42-add-login', undefined);
+    expect(deleteRemoteBranch).toHaveBeenCalledWith('feature/issue-42-add-login', undefined);
+  });
+
+  it('passes target repo cwd to removeWorktree and deleteRemoteBranch when registry is set', async () => {
+    vi.mocked(hasTargetRepo).mockReturnValue(true);
+    const payload = createPayload();
+
+    await handlePullRequestEvent(payload);
+
+    expect(removeWorktree).toHaveBeenCalledWith('feature/issue-42-add-login', '/mock/repos/owner/repo');
+    expect(deleteRemoteBranch).toHaveBeenCalledWith('feature/issue-42-add-login', '/mock/repos/owner/repo');
   });
 
   it('handles missing headBranch gracefully', async () => {

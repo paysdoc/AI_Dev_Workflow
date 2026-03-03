@@ -8,6 +8,7 @@
 
 import type { RepoInfo } from '../github/githubApi';
 import { getRepoInfo } from '../github/githubApi';
+import { getTargetRepoWorkspacePath } from './targetRepoManager';
 import { log } from './utils';
 
 let registryRepoInfo: RepoInfo | null = null;
@@ -46,4 +47,21 @@ export function clearTargetRepo(): void {
  */
 export function hasTargetRepo(): boolean {
   return registryRepoInfo !== null;
+}
+
+/**
+ * Resolves the working directory for git commands targeting the correct repository.
+ * Uses an explicit cwd if provided, otherwise falls back to the TargetRepoRegistry
+ * to resolve the workspace path for external target repositories.
+ *
+ * @param cwd - Optional explicit working directory override
+ * @returns The resolved cwd, or undefined to use process.cwd()
+ */
+export function resolveTargetRepoCwd(cwd?: string): string | undefined {
+  if (cwd) return cwd;
+  if (hasTargetRepo()) {
+    const { owner, repo } = getTargetRepo();
+    return getTargetRepoWorkspacePath(owner, repo);
+  }
+  return undefined;
 }

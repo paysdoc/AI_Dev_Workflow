@@ -7,19 +7,22 @@
 
 import { execSync } from 'child_process';
 import { PRReviewComment, log } from '../core';
+import { resolveTargetRepoCwd } from '../core/targetRepoRegistry';
 import { fetchPRDetails, fetchPRReviewComments } from './githubApi';
+import type { RepoInfo } from './githubApi';
 
 /**
  * Gets the timestamp of the last ADW commit on the given branch.
  * Looks for commits matching ADW patterns like "feat: implement #" or "feat: address PR review".
  * Returns null if no ADW commits are found.
  */
-export function getLastAdwCommitTimestamp(branchName: string): Date | null {
+export function getLastAdwCommitTimestamp(branchName: string, cwd?: string): Date | null {
   try {
+    const resolvedCwd = resolveTargetRepoCwd(cwd);
     // Get commits on the branch that match ADW commit message patterns
     const output = execSync(
       `git log "${branchName}" --format="%aI %s" --no-merges`,
-      { encoding: 'utf-8' }
+      { encoding: 'utf-8', cwd: resolvedCwd }
     );
 
     // ADW commit patterns for all issue types (feat/fix/chore)
@@ -61,10 +64,10 @@ export function getLastAdwCommitTimestamp(branchName: string): Date | null {
  * Gets unaddressed PR review comments — comments posted after the last ADW commit.
  * If no ADW commits are found, all non-bot comments are considered unaddressed.
  */
-export function getUnaddressedComments(prNumber: number): PRReviewComment[] {
+export function getUnaddressedComments(prNumber: number, repoInfo?: RepoInfo): PRReviewComment[] {
   log(`Fetching unaddressed comments for PR #${prNumber}`);
-  const prDetails = fetchPRDetails(prNumber);
-  const comments = fetchPRReviewComments(prNumber);
+  const prDetails = fetchPRDetails(prNumber, repoInfo);
+  const comments = fetchPRReviewComments(prNumber, repoInfo);
   log(`Found ${comments.length} total comments on PR #${prNumber}`);
 
   // Filter out bot comments
@@ -94,6 +97,6 @@ export function getUnaddressedComments(prNumber: number): PRReviewComment[] {
 /**
  * Returns true if the PR has any unaddressed review comments.
  */
-export function hasUnaddressedComments(prNumber: number): boolean {
-  return getUnaddressedComments(prNumber).length > 0;
+export function hasUnaddressedComments(prNumber: number, repoInfo?: RepoInfo): boolean {
+  return getUnaddressedComments(prNumber, repoInfo).length > 0;
 }

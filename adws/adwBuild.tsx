@@ -64,7 +64,7 @@ export { printUsageAndExit, parseArguments, printBuildSummary } from './adwBuild
  */
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
-  const _targetRepo = parseTargetRepoArgs(args);
+  const { owner, repo } = parseTargetRepoArgs(args) || { owner: '', repo: '' };
   const { issueNumber, providedAdwId, cwd } = parseArguments(args);
 
   log(`Starting ADW Build workflow`, 'info');
@@ -75,7 +75,7 @@ async function main(): Promise<void> {
 
   // Step 1: Fetch GitHub issue
   log('Fetching GitHub issue...', 'info');
-  const issue = await fetchGitHubIssue(issueNumber);
+  const issue = await fetchGitHubIssue(issueNumber, { owner, repo });
   log(`Fetched issue: ${issue.title}`, 'success');
 
   // Step 2: Determine ADW ID

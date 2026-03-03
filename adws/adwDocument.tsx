@@ -68,7 +68,6 @@ function parseArguments(args: string[]): { adwId: string; cwd: string | null } {
  */
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
-  parseTargetRepoArgs(args);
   const { adwId, cwd } = parseArguments(args);
 
   const logsDir = ensureLogsDirectory(adwId);

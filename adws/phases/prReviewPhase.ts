@@ -57,7 +57,7 @@ export async function initializePRReviewWorkflow(prNumber: number, adwId: string
     log(`PR #${prNumber} is ${prDetails.state}, skipping`, 'info');
     process.exit(0);
   }
-  const unaddressedComments = getUnaddressedComments(prNumber);
+  const unaddressedComments = getUnaddressedComments(prNumber, repoInfo);
   if (unaddressedComments.length === 0) {
     log(`No unaddressed review comments on PR #${prNumber}, exiting`, 'info');
     process.exit(0);

@@ -4,13 +4,15 @@
 
 import { execSync } from 'child_process';
 import { log, slugify, IssueClassSlashCommand, branchPrefixMap, getIssueCsvPath, getProjectCsvPath } from '../core';
+import { resolveTargetRepoCwd } from '../core/targetRepoRegistry';
 
 /**
  * Gets the current git branch name.
  * @param cwd - Optional working directory to run the command in
  */
 export function getCurrentBranch(cwd?: string): string {
-  return execSync('git branch --show-current', { encoding: 'utf-8', cwd }).trim();
+  const resolvedCwd = resolveTargetRepoCwd(cwd);
+  return execSync('git branch --show-current', { encoding: 'utf-8', cwd: resolvedCwd }).trim();
 }
 
 /**
@@ -61,13 +63,14 @@ export function createFeatureBranch(
   const branchName = generateBranchName(issueNumber, title, issueType);
 
   try {
-    const existingBranches = execSync('git branch -a', { encoding: 'utf-8', cwd });
+    const resolvedCwd = resolveTargetRepoCwd(cwd);
+    const existingBranches = execSync('git branch -a', { encoding: 'utf-8', cwd: resolvedCwd });
 
     if (existingBranches.includes(branchName)) {
       log(`Branch ${branchName} already exists, checking out...`, 'info');
-      execSync(`git checkout "${branchName}"`, { stdio: 'pipe', cwd });
+      execSync(`git checkout "${branchName}"`, { stdio: 'pipe', cwd: resolvedCwd });
     } else {
-      execSync(`git checkout -b "${branchName}"`, { stdio: 'pipe', cwd });
+      execSync(`git checkout -b "${branchName}"`, { stdio: 'pipe', cwd: resolvedCwd });
       log(`Created branch: ${branchName}`, 'success');
     }
 
@@ -79,11 +82,15 @@ export function createFeatureBranch(
 
 /**
  * Checks out an existing branch and pulls the latest changes.
+ *
+ * @param branchName - The branch to checkout
+ * @param cwd - Optional working directory to run the command in
  */
-export function checkoutBranch(branchName: string): void {
+export function checkoutBranch(branchName: string, cwd?: string): void {
   try {
-    execSync(`git checkout "${branchName}"`, { stdio: 'pipe' });
-    execSync(`git pull origin "${branchName}"`, { stdio: 'pipe' });
+    const resolvedCwd = resolveTargetRepoCwd(cwd);
+    execSync(`git checkout "${branchName}"`, { stdio: 'pipe', cwd: resolvedCwd });
+    execSync(`git pull origin "${branchName}"`, { stdio: 'pipe', cwd: resolvedCwd });
     log(`Checked out and pulled latest for branch: ${branchName}`, 'success');
   } catch (error) {
     throw new Error(`Failed to checkout branch ${branchName}: ${error}`);
@@ -98,15 +105,16 @@ export function checkoutBranch(branchName: string): void {
  */
 export function commitChanges(message: string, cwd?: string): boolean {
   try {
-    const status = execSync('git status --porcelain', { encoding: 'utf-8', cwd });
+    const resolvedCwd = resolveTargetRepoCwd(cwd);
+    const status = execSync('git status --porcelain', { encoding: 'utf-8', cwd: resolvedCwd });
 
     if (!status.trim()) {
       log('No changes to commit', 'info');
       return false;
     }
 
-    execSync('git add -A', { stdio: 'pipe', cwd });
-    execSync(`git commit -m "${message.replace(/"/g, '\\"')}"`, { stdio: 'pipe', cwd });
+    execSync('git add -A', { stdio: 'pipe', cwd: resolvedCwd });
+    execSync(`git commit -m "${message.replace(/"/g, '\\"')}"`, { stdio: 'pipe', cwd: resolvedCwd });
     log(`Committed: ${message}`, 'success');
     return true;
   } catch (error) {
@@ -121,7 +129,8 @@ export function commitChanges(message: string, cwd?: string): boolean {
  * @param cwd - Optional working directory to run the command in
  */
 export function pushBranch(branchName: string, cwd?: string): void {
-  execSync(`git push -u origin "${branchName}"`, { stdio: 'pipe', cwd });
+  const resolvedCwd = resolveTargetRepoCwd(cwd);
+  execSync(`git push -u origin "${branchName}"`, { stdio: 'pipe', cwd: resolvedCwd });
   log(`Pushed branch to origin`, 'success');
 }
 
@@ -131,9 +140,10 @@ export function pushBranch(branchName: string, cwd?: string): void {
  */
 export function getDefaultBranch(cwd?: string): string {
   try {
+    const resolvedCwd = resolveTargetRepoCwd(cwd);
     const result = execSync(
       "gh repo view --json defaultBranchRef --jq '.defaultBranchRef.name'",
-      { encoding: 'utf-8', cwd }
+      { encoding: 'utf-8', cwd: resolvedCwd }
     );
     const branchName = result.trim();
 
@@ -176,23 +186,26 @@ export function inferIssueTypeFromBranch(branchName: string): IssueClassSlashCom
  * Checks out the repository's default branch and pulls the latest changes.
  * This ensures the working directory is on the latest version of the default branch
  * before creating feature branches.
+ *
+ * @param cwd - Optional working directory to run the command in
  * @returns The name of the default branch that was checked out.
  */
-export function checkoutDefaultBranch(): string {
+export function checkoutDefaultBranch(cwd?: string): string {
+  const resolvedCwd = resolveTargetRepoCwd(cwd);
   log('Checking out default branch...', 'info');
 
-  const defaultBranch = getDefaultBranch();
+  const defaultBranch = getDefaultBranch(resolvedCwd);
   log(`Default branch is: ${defaultBranch}`, 'info');
 
   try {
-    execSync(`git checkout "${defaultBranch}"`, { stdio: 'pipe' });
+    execSync(`git checkout "${defaultBranch}"`, { stdio: 'pipe', cwd: resolvedCwd });
     log(`Checked out branch: ${defaultBranch}`, 'success');
   } catch (error) {
     throw new Error(`Failed to checkout default branch '${defaultBranch}': ${error}`);
   }
 
   try {
-    execSync(`git pull origin "${defaultBranch}"`, { stdio: 'pipe' });
+    execSync(`git pull origin "${defaultBranch}"`, { stdio: 'pipe', cwd: resolvedCwd });
     log(`Pulled latest changes from origin/${defaultBranch}`, 'success');
   } catch (error) {
     throw new Error(`Failed to pull latest changes for '${defaultBranch}': ${error}`);
@@ -238,16 +251,18 @@ const PROTECTED_BRANCHES = ['main', 'master', 'develop'];
  * Refuses to delete protected branches (main, master, develop).
  *
  * @param branchName - The branch to delete
+ * @param cwd - Optional working directory to run the command in
  * @returns True if successfully deleted, false otherwise
  */
-export function deleteLocalBranch(branchName: string): boolean {
+export function deleteLocalBranch(branchName: string, cwd?: string): boolean {
   if (PROTECTED_BRANCHES.includes(branchName)) {
     log(`Refusing to delete protected branch '${branchName}'`, 'info');
     return false;
   }
 
+  const resolvedCwd = resolveTargetRepoCwd(cwd);
   try {
-    execSync(`git branch -D "${branchName}"`, { stdio: 'pipe' });
+    execSync(`git branch -D "${branchName}"`, { stdio: 'pipe', cwd: resolvedCwd });
     log(`Deleted local branch '${branchName}'`, 'success');
     return true;
   } catch (error) {
@@ -261,16 +276,18 @@ export function deleteLocalBranch(branchName: string): boolean {
  * Refuses to delete protected branches (main, master, develop).
  *
  * @param branchName - The branch to delete from origin
+ * @param cwd - Optional working directory to run the command in
  * @returns True if successfully deleted, false otherwise
  */
-export function deleteRemoteBranch(branchName: string): boolean {
+export function deleteRemoteBranch(branchName: string, cwd?: string): boolean {
   if (PROTECTED_BRANCHES.includes(branchName)) {
     log(`Refusing to delete protected remote branch '${branchName}'`, 'info');
     return false;
   }
 
+  const resolvedCwd = resolveTargetRepoCwd(cwd);
   try {
-    execSync(`git push origin --delete "${branchName}"`, { stdio: 'pipe' });
+    execSync(`git push origin --delete "${branchName}"`, { stdio: 'pipe', cwd: resolvedCwd });
     log(`Deleted remote branch '${branchName}'`, 'success');
     return true;
   } catch (error) {
@@ -305,6 +322,7 @@ export function commitAndPushCostFiles(options: CommitCostFilesOptions = {}): bo
   }
 
   try {
+    const resolvedCwd = resolveTargetRepoCwd(cwd);
     let addPath: string;
     let statusPath: string;
     let commitMessage: string;
@@ -330,7 +348,7 @@ export function commitAndPushCostFiles(options: CommitCostFilesOptions = {}): bo
 
     const status = execSync(
       `git status --porcelain -- ${statusPath}`,
-      { encoding: 'utf-8', cwd },
+      { encoding: 'utf-8', cwd: resolvedCwd },
     ).trim();
 
     if (!status) {
@@ -338,14 +356,14 @@ export function commitAndPushCostFiles(options: CommitCostFilesOptions = {}): bo
       return false;
     }
 
-    execSync(`git add ${addPath}`, { stdio: 'pipe', cwd });
+    execSync(`git add ${addPath}`, { stdio: 'pipe', cwd: resolvedCwd });
     execSync(
       `git commit -m "${commitMessage}"`,
-      { stdio: 'pipe', cwd },
+      { stdio: 'pipe', cwd: resolvedCwd },
     );
 
-    const branch = getCurrentBranch(cwd);
-    execSync(`git push origin "${branch}"`, { stdio: 'pipe', cwd });
+    const branch = getCurrentBranch(resolvedCwd);
+    execSync(`git push origin "${branch}"`, { stdio: 'pipe', cwd: resolvedCwd });
 
     log(`Committed and pushed cost CSV files`, 'success');
     return true;

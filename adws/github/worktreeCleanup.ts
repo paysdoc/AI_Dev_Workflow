@@ -71,25 +71,26 @@ export function killProcessesInDirectory(directoryPath: string): void {
  * Removes a worktree for the given branch.
  *
  * @param branchName - The name of the branch whose worktree should be removed
+ * @param cwd - Optional working directory for git commands (for external target repos)
  * @returns True if the worktree was successfully removed, false if it didn't exist
  */
-export function removeWorktree(branchName: string): boolean {
-  const worktreePath = getWorktreePath(branchName);
+export function removeWorktree(branchName: string, cwd?: string): boolean {
+  const worktreePath = getWorktreePath(branchName, cwd);
 
   try {
     killProcessesInDirectory(worktreePath);
-    execSync(`git worktree remove "${worktreePath}" --force`, { stdio: 'pipe' });
+    execSync(`git worktree remove "${worktreePath}" --force`, { stdio: 'pipe', cwd });
     log(`Removed worktree for branch '${branchName}' at ${worktreePath}`, 'success');
-    deleteLocalBranch(branchName);
+    deleteLocalBranch(branchName, cwd);
     return true;
   } catch (_error) {
     if (fs.existsSync(worktreePath)) {
       try {
         killProcessesInDirectory(worktreePath);
-        execSync('git worktree prune', { stdio: 'pipe' });
+        execSync('git worktree prune', { stdio: 'pipe', cwd });
         fs.rmSync(worktreePath, { recursive: true, force: true });
         log(`Removed orphaned worktree directory at ${worktreePath}`, 'info');
-        deleteLocalBranch(branchName);
+        deleteLocalBranch(branchName, cwd);
         return true;
       } catch (cleanupError) {
         log(`Failed to cleanup worktree directory at ${worktreePath}: ${cleanupError}`, 'error');
@@ -160,7 +161,7 @@ export function removeWorktreesForIssue(issueNumber: number, cwd?: string): numb
       execSync(`git worktree remove "${wtPath}" --force`, { stdio: 'pipe', cwd });
       log(`Removed worktree at ${wtPath}`, 'success');
       if (branchName) {
-        deleteLocalBranch(branchName);
+        deleteLocalBranch(branchName, cwd);
       }
       removedCount += 1;
     } catch (error) {
@@ -169,7 +170,7 @@ export function removeWorktreesForIssue(issueNumber: number, cwd?: string): numb
           fs.rmSync(wtPath, { recursive: true, force: true });
           log(`Removed orphaned worktree directory at ${wtPath}`, 'info');
           if (branchName) {
-            deleteLocalBranch(branchName);
+            deleteLocalBranch(branchName, cwd);
           }
           removedCount += 1;
         } catch (cleanupError) {

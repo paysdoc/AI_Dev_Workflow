@@ -103,12 +103,12 @@ function parseArguments(args: string[]): {
  */
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
-  parseTargetRepoArgs(args);
+  const { owner, repo } = parseTargetRepoArgs(args) || { owner: '', repo: '' };
   const { issueNumber, adwId: providedAdwId, cwd } = parseArguments(args);
 
   // Fetch issue
   log('Fetching GitHub issue...', 'info');
-  const issue = await fetchGitHubIssue(issueNumber);
+  const issue = await fetchGitHubIssue(issueNumber, { owner, repo });
   log(`Fetched issue: ${issue.title}`, 'success');
 
   const adwId = providedAdwId || generateAdwId(issue.title);
