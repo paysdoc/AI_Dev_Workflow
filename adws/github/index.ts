@@ -64,6 +64,9 @@ export {
   type WorktreeForIssueResult,
 } from './worktreeOperations';
 
+// Project Board API
+export { moveIssueToStatus } from './projectBoardApi';
+
 // PR Comment Detector
 export {
   getLastAdwCommitTimestamp,

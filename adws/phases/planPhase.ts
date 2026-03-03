@@ -11,6 +11,7 @@ import {
 } from '../core';
 import {
   postWorkflowComment,
+  moveIssueToStatus,
 } from '../github';
 import {
   runPlanAgent,
@@ -28,6 +29,8 @@ import type { WorkflowConfig } from './workflowLifecycle';
  */
 export async function executePlanPhase(config: WorkflowConfig): Promise<{ costUsd: number; modelUsage: ModelUsageMap }> {
   const { recoveryState, orchestratorStatePath, orchestratorName, adwId, issueNumber, issue, issueType, ctx, worktreePath, logsDir, repoInfo } = config;
+
+  await moveIssueToStatus(issueNumber, 'In Progress', repoInfo);
 
   // Classify step
   if (shouldExecuteStage('classified', recoveryState)) {
