@@ -5,6 +5,7 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 39,Bun install does not work,39.4951,3.9495
 40,E2E tests are not found,0.8763,0.0876
 43,PR 41: android deployment fails,2.1039,0.2104
+0,bug: #43 - Fix expo command not found in CI build steps,1.4988,0.1499
 
-Total Cost (USD):,47.9756
-Total Cost (EUR):,40.7492
+Total Cost (USD):,49.6243
+Total Cost (EUR):,42.3884

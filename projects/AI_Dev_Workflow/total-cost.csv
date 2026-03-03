@@ -22,6 +22,8 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 52,Issue classifier running on incorrect repo,2.3438,0.2344
 0,bug: #52 - Issue classifier running on incorrect repo,6.3452,0.6345
 54,Initialization of adw should end with pr creation,2.6134,0.2613
+56,Cannot find branch on target repository,3.2376,0.3238
+58,Move issue through project boards as implementation progresses,4.6664,0.4666
 
-Total Cost (USD):,93.9462
-Total Cost (EUR):,79.5691
+Total Cost (USD):,102.6406
+Total Cost (EUR):,87.6741
