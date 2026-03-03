@@ -24,6 +24,7 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 54,Initialization of adw should end with pr creation,2.6134,0.2613
 56,Cannot find branch on target repository,3.2376,0.3238
 58,Move issue through project boards as implementation progresses,4.6664,0.4666
+60,Total cost contains unlinked item lines,3.2778,0.3278
 
-Total Cost (USD):,102.6406
-Total Cost (EUR):,87.6741
+Total Cost (USD):,106.2461
+Total Cost (EUR):,90.7539
