@@ -8,10 +8,11 @@ branchName: $1, deafult to current branch if not provided
 issue: $2
 plan_file: $3
 adwId: $4
+defaultBranch: $5, defaults to 'main' if not provided
 
 ## Instructions
 
-- retrieve the `default` branch from the remote repository using `git remote show origin` and parse the output to get the default branch name (e.g., `main` or `develop`)
+- Use the `defaultBranch` variable as the base branch for the PR
 - Generate a pull request title in the format: `<issue_type>: #<issueNumber> - <issue_title>`
 - The PR body should include:
   - A summary section with the issue context
@@ -30,11 +31,11 @@ adwId: $4
 
 ## Run
 
-1. Run `git diff origin/<default>...HEAD --stat` to see a summary of changed files
-2. Run `git log origin/<default>..HEAD --oneline` to see the commits that will be included
-3. Run `git diff origin/<default>...HEAD --name-only` to get a list of changed files
+1. Run `git diff origin/<defaultBranch>...HEAD --stat` to see a summary of changed files
+2. Run `git log origin/<defaultBranch>..HEAD --oneline` to see the commits that will be included
+3. Run `git diff origin/<defaultBranch>...HEAD --name-only` to get a list of changed files
 4. Run `git push -u origin <branchName>` to push the branch
-5. Set GH_TOKEN environment variable from GITHUB_PAT if available, then run `gh pr create --title "<pr_title>" --body "<pr_body>" --base <default>` to create the PR
+5. Set GH_TOKEN environment variable from GITHUB_PAT if available, then run `gh pr create --title "<pr_title>" --body "<pr_body>" --base <defaultBranch>` to create the PR
 6. Capture the PR URL from the output
 
 ## Report
