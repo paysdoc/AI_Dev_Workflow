@@ -6,7 +6,8 @@
  * - extractIssueNumberFromPRBody
  */
 
-import { log, PullRequestWebhookPayload } from '../core';
+import { log, PullRequestWebhookPayload, rebuildProjectCostCsv, revertIssueCostFile } from '../core';
+import { fetchExchangeRates } from '../core/costReport';
 import type { RepoInfo } from '../github/githubApi';
 import { closeIssue, formatIssueClosureComment } from '../github/githubApi';
 import { removeWorktree } from '../github/worktreeOperations';
@@ -99,13 +100,25 @@ export async function handlePullRequestEvent(payload: PullRequestWebhookPayload)
     log(`Issue #${issueNumber} was already closed or could not be closed`);
   }
 
-  // Commit and push cost CSV files for the closed issue
+  // Handle cost CSV files based on whether PR was merged or closed without merge
   try {
     const repoName = repository.name;
-    const issueTitle = pull_request.title;
-    commitAndPushCostFiles({ repoName, issueNumber, issueTitle });
+    const rates = await fetchExchangeRates(['EUR']);
+    const eurRate = rates['EUR'] ?? 0;
+
+    if (wasMerged) {
+      // PR merged: rebuild total-cost.csv then commit issue + total
+      rebuildProjectCostCsv(process.cwd(), repoName, eurRate);
+      const issueTitle = pull_request.title;
+      commitAndPushCostFiles({ repoName, issueNumber, issueTitle });
+    } else {
+      // PR closed without merge: revert issue cost, rebuild total, commit
+      revertIssueCostFile(process.cwd(), repoName, issueNumber);
+      rebuildProjectCostCsv(process.cwd(), repoName, eurRate);
+      commitAndPushCostFiles({ repoName });
+    }
   } catch (error) {
-    log(`Failed to commit cost CSV files for issue #${issueNumber}: ${error}`, 'error');
+    log(`Failed to handle cost CSV files for issue #${issueNumber}: ${error}`, 'error');
   }
 
   return { status: closed ? 'closed' : 'already_closed', issue: issueNumber };

@@ -10,7 +10,9 @@
 
 import * as http from 'http';
 import { spawn } from 'child_process';
-import { log, PullRequestWebhookPayload, allocateRandomPort, isPortAvailable, getTargetRepoWorkspacePath, setTargetRepo } from '../core';
+import { log, PullRequestWebhookPayload, allocateRandomPort, isPortAvailable, getTargetRepoWorkspacePath, setTargetRepo, revertIssueCostFile, rebuildProjectCostCsv } from '../core';
+import { fetchExchangeRates } from '../core/costReport';
+import { commitAndPushCostFiles } from '../github/gitOperations';
 import { isActionableComment, isClearComment, isAdwRunningForIssue, truncateText, getRepoInfoFromPayload } from '../github';
 import { clearIssueComments } from '../adwClearComments';
 import { removeWorktreesForIssue } from '../github/worktreeOperations';
@@ -349,6 +351,25 @@ const server = http.createServer((req, res) => {
         : undefined;
       const removed = removeWorktreesForIssue(issueNumber, closedRepoCwd);
       log(`Removed ${removed} worktree(s) for issue #${issueNumber}`, 'success');
+
+      // Revert cost CSV for the closed issue (async, fire-and-forget)
+      const closedRepoName = closedRepository?.name as string | undefined;
+      if (closedRepoName) {
+        const reverted = revertIssueCostFile(process.cwd(), closedRepoName, issueNumber);
+        if (reverted) {
+          fetchExchangeRates(['EUR'])
+            .then((rates) => {
+              const eurRate = rates['EUR'] ?? 0;
+              rebuildProjectCostCsv(process.cwd(), closedRepoName, eurRate);
+              commitAndPushCostFiles({ repoName: closedRepoName });
+              log(`Reverted cost CSV for issue #${issueNumber} in ${closedRepoName}`, 'success');
+            })
+            .catch((error) => {
+              log(`Failed to rebuild/commit after cost revert for issue #${issueNumber}: ${error}`, 'error');
+            });
+        }
+      }
+
       jsonResponse(res, 200, { status: 'worktrees_cleaned', issue: issueNumber, removed });
       return;
     }

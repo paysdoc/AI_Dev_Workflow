@@ -31,10 +31,28 @@ vi.mock('../core/targetRepoManager', () => ({
   getTargetRepoWorkspacePath: vi.fn((owner: string, repo: string) => `/mock/repos/${owner}/${repo}`),
 }));
 
+vi.mock('../core/costCsvWriter', () => ({
+  rebuildProjectCostCsv: vi.fn(),
+  revertIssueCostFile: vi.fn(() => true),
+  getIssueCsvPath: vi.fn(),
+  getProjectCsvPath: vi.fn(),
+  formatIssueCostCsv: vi.fn(),
+  formatProjectCostCsv: vi.fn(),
+  parseProjectCostCsv: vi.fn(),
+  writeIssueCostCsv: vi.fn(),
+  parseIssueCostTotal: vi.fn(),
+}));
+
+vi.mock('../core/costReport', () => ({
+  fetchExchangeRates: vi.fn(() => Promise.resolve({ EUR: 0.92 })),
+}));
+
 import { removeWorktree } from '../github/worktreeOperations';
 import { deleteRemoteBranch, commitAndPushCostFiles } from '../github/gitOperations';
 import { closeIssue } from '../github/githubApi';
 import { hasTargetRepo } from '../core/targetRepoRegistry';
+import { rebuildProjectCostCsv, revertIssueCostFile } from '../core/costCsvWriter';
+import { fetchExchangeRates } from '../core/costReport';
 import {
   handlePullRequestEvent,
   extractIssueNumberFromPRBody,
@@ -155,16 +173,48 @@ describe('handlePullRequestEvent', () => {
     expect(result).toEqual({ status: 'closed', issue: 42 });
   });
 
-  it('calls commitAndPushCostFiles with correct arguments when PR is closed with issue link', async () => {
+  it('calls rebuildProjectCostCsv before commitAndPushCostFiles for merged PRs', async () => {
     const payload = createPayload();
+    const callOrder: string[] = [];
+    vi.mocked(rebuildProjectCostCsv).mockImplementation(() => { callOrder.push('rebuild'); });
+    vi.mocked(commitAndPushCostFiles).mockImplementation(() => { callOrder.push('commit'); return true; });
 
     await handlePullRequestEvent(payload);
 
+    expect(fetchExchangeRates).toHaveBeenCalledWith(['EUR']);
+    expect(rebuildProjectCostCsv).toHaveBeenCalledWith(process.cwd(), 'repo', 0.92);
     expect(commitAndPushCostFiles).toHaveBeenCalledWith({
       repoName: 'repo',
       issueNumber: 42,
       issueTitle: 'Add feature',
     });
+    expect(callOrder).toEqual(['rebuild', 'commit']);
+  });
+
+  it('calls revertIssueCostFile, rebuildProjectCostCsv, and commitAndPushCostFiles for closed-without-merge PRs', async () => {
+    const payload = createPayload({
+      pull_request: {
+        number: 1,
+        state: 'closed',
+        merged: false,
+        body: 'Implements #42',
+        html_url: 'https://github.com/owner/repo/pull/1',
+        title: 'Add feature',
+        base: { ref: 'main' },
+        head: { ref: 'feature/issue-42-add-login' },
+      },
+    });
+    const callOrder: string[] = [];
+    vi.mocked(revertIssueCostFile).mockImplementation(() => { callOrder.push('revert'); return true; });
+    vi.mocked(rebuildProjectCostCsv).mockImplementation(() => { callOrder.push('rebuild'); });
+    vi.mocked(commitAndPushCostFiles).mockImplementation(() => { callOrder.push('commit'); return true; });
+
+    await handlePullRequestEvent(payload);
+
+    expect(revertIssueCostFile).toHaveBeenCalledWith(process.cwd(), 'repo', 42);
+    expect(rebuildProjectCostCsv).toHaveBeenCalledWith(process.cwd(), 'repo', 0.92);
+    expect(commitAndPushCostFiles).toHaveBeenCalledWith({ repoName: 'repo' });
+    expect(callOrder).toEqual(['revert', 'rebuild', 'commit']);
   });
 
   it('does not call commitAndPushCostFiles when PR action is not closed', async () => {
@@ -194,6 +244,17 @@ describe('handlePullRequestEvent', () => {
     expect(commitAndPushCostFiles).not.toHaveBeenCalled();
   });
 
+  it('still succeeds when cost operations throw', async () => {
+    vi.mocked(fetchExchangeRates).mockRejectedValue(new Error('network error'));
+
+    const payload = createPayload();
+
+    const result = await handlePullRequestEvent(payload);
+
+    expect(result.status).toBe('closed');
+    expect(result.issue).toBe(42);
+  });
+
   it('still succeeds when commitAndPushCostFiles throws', async () => {
     vi.mocked(commitAndPushCostFiles).mockImplementation(() => {
       throw new Error('git push failed');
@@ -205,5 +266,15 @@ describe('handlePullRequestEvent', () => {
 
     expect(result.status).toBe('closed');
     expect(result.issue).toBe(42);
+  });
+
+  it('uses eurRate of 0 when fetchExchangeRates returns empty map', async () => {
+    vi.mocked(fetchExchangeRates).mockResolvedValue({});
+
+    const payload = createPayload();
+
+    await handlePullRequestEvent(payload);
+
+    expect(rebuildProjectCostCsv).toHaveBeenCalledWith(process.cwd(), 'repo', 0);
   });
 });
