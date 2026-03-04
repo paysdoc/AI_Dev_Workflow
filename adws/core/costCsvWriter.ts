@@ -127,14 +127,14 @@ export function writeIssueCostCsv(
 
 /**
  * Deletes an issue's cost CSV file(s) matching the pattern `<issueNumber>-*.csv`.
- * Returns true if at least one file was deleted, false otherwise.
+ * Returns an array of deleted file relative paths, or an empty array if none were found.
  */
-export function revertIssueCostFile(repoRoot: string, repoName: string, issueNumber: number): boolean {
+export function revertIssueCostFile(repoRoot: string, repoName: string, issueNumber: number): string[] {
   const projectDir = path.join(repoRoot, 'projects', repoName);
 
   if (!fs.existsSync(projectDir)) {
     log(`Project directory does not exist: ${projectDir}`, 'info');
-    return false;
+    return [];
   }
 
   const pattern = `${issueNumber}-`;
@@ -143,15 +143,18 @@ export function revertIssueCostFile(repoRoot: string, repoName: string, issueNum
 
   if (matchingFiles.length === 0) {
     log(`No cost CSV found for issue #${issueNumber} in ${repoName}`, 'info');
-    return false;
+    return [];
   }
 
+  const deletedPaths: string[] = [];
   for (const file of matchingFiles) {
     fs.unlinkSync(path.join(projectDir, file));
-    log(`Deleted cost CSV: projects/${repoName}/${file}`, 'success');
+    const relativePath = `projects/${repoName}/${file}`;
+    log(`Deleted cost CSV: ${relativePath}`, 'success');
+    deletedPaths.push(relativePath);
   }
 
-  return true;
+  return deletedPaths;
 }
 
 /** Rebuilds the project total cost CSV from scratch by scanning all individual issue CSV files. */

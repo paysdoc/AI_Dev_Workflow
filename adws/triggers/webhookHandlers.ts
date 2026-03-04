@@ -6,7 +6,7 @@
  * - extractIssueNumberFromPRBody
  */
 
-import { log, PullRequestWebhookPayload, rebuildProjectCostCsv, revertIssueCostFile } from '../core';
+import { log, PullRequestWebhookPayload, rebuildProjectCostCsv, revertIssueCostFile, getProjectCsvPath } from '../core';
 import { fetchExchangeRates } from '../core/costReport';
 import type { RepoInfo } from '../github/githubApi';
 import { closeIssue, formatIssueClosureComment } from '../github/githubApi';
@@ -112,10 +112,11 @@ export async function handlePullRequestEvent(payload: PullRequestWebhookPayload)
       const issueTitle = pull_request.title;
       commitAndPushCostFiles({ repoName, issueNumber, issueTitle });
     } else {
-      // PR closed without merge: revert issue cost, rebuild total, commit
-      revertIssueCostFile(process.cwd(), repoName, issueNumber);
+      // PR closed without merge: revert issue cost, rebuild total, commit only affected files
+      const deletedPaths = revertIssueCostFile(process.cwd(), repoName, issueNumber);
       rebuildProjectCostCsv(process.cwd(), repoName, eurRate);
-      commitAndPushCostFiles({ repoName });
+      const totalCsvPath = getProjectCsvPath(repoName);
+      commitAndPushCostFiles({ repoName, paths: [...deletedPaths, totalCsvPath] });
     }
   } catch (error) {
     log(`Failed to handle cost CSV files for issue #${issueNumber}: ${error}`, 'error');

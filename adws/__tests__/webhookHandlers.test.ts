@@ -33,9 +33,9 @@ vi.mock('../core/targetRepoManager', () => ({
 
 vi.mock('../core/costCsvWriter', () => ({
   rebuildProjectCostCsv: vi.fn(),
-  revertIssueCostFile: vi.fn(() => true),
+  revertIssueCostFile: vi.fn(() => ['projects/repo/42-add-login.csv']),
   getIssueCsvPath: vi.fn(),
-  getProjectCsvPath: vi.fn(),
+  getProjectCsvPath: vi.fn((repoName: string) => `projects/${repoName}/total-cost.csv`),
   formatIssueCostCsv: vi.fn(),
   formatProjectCostCsv: vi.fn(),
   parseProjectCostCsv: vi.fn(),
@@ -205,7 +205,7 @@ describe('handlePullRequestEvent', () => {
       },
     });
     const callOrder: string[] = [];
-    vi.mocked(revertIssueCostFile).mockImplementation(() => { callOrder.push('revert'); return true; });
+    vi.mocked(revertIssueCostFile).mockImplementation(() => { callOrder.push('revert'); return ['projects/repo/42-add-login.csv']; });
     vi.mocked(rebuildProjectCostCsv).mockImplementation(() => { callOrder.push('rebuild'); });
     vi.mocked(commitAndPushCostFiles).mockImplementation(() => { callOrder.push('commit'); return true; });
 
@@ -213,7 +213,10 @@ describe('handlePullRequestEvent', () => {
 
     expect(revertIssueCostFile).toHaveBeenCalledWith(process.cwd(), 'repo', 42);
     expect(rebuildProjectCostCsv).toHaveBeenCalledWith(process.cwd(), 'repo', 0.92);
-    expect(commitAndPushCostFiles).toHaveBeenCalledWith({ repoName: 'repo' });
+    expect(commitAndPushCostFiles).toHaveBeenCalledWith({
+      repoName: 'repo',
+      paths: ['projects/repo/42-add-login.csv', 'projects/repo/total-cost.csv'],
+    });
     expect(callOrder).toEqual(['revert', 'rebuild', 'commit']);
   });
 

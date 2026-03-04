@@ -30,32 +30,32 @@ describe('revertIssueCostFile', () => {
     vi.clearAllMocks();
   });
 
-  it('deletes a matching issue CSV file and returns true', () => {
+  it('deletes a matching issue CSV file and returns its path', () => {
     mockExistsSync.mockReturnValue(true);
     mockReaddirSync.mockReturnValue(['42-add-login.csv'] as unknown as ReturnType<typeof fs.readdirSync>);
 
     const result = revertIssueCostFile('/repo', 'my-repo', 42);
 
-    expect(result).toBe(true);
+    expect(result).toEqual(['projects/my-repo/42-add-login.csv']);
     expect(mockUnlinkSync).toHaveBeenCalledWith('/repo/projects/my-repo/42-add-login.csv');
   });
 
-  it('returns false when no matching file exists', () => {
+  it('returns empty array when no matching file exists', () => {
     mockExistsSync.mockReturnValue(true);
     mockReaddirSync.mockReturnValue(['99-other-issue.csv', 'total-cost.csv'] as unknown as ReturnType<typeof fs.readdirSync>);
 
     const result = revertIssueCostFile('/repo', 'my-repo', 42);
 
-    expect(result).toBe(false);
+    expect(result).toEqual([]);
     expect(mockUnlinkSync).not.toHaveBeenCalled();
   });
 
-  it('returns false when the project directory does not exist', () => {
+  it('returns empty array when the project directory does not exist', () => {
     mockExistsSync.mockReturnValue(false);
 
     const result = revertIssueCostFile('/repo', 'my-repo', 42);
 
-    expect(result).toBe(false);
+    expect(result).toEqual([]);
     expect(mockReaddirSync).not.toHaveBeenCalled();
     expect(mockUnlinkSync).not.toHaveBeenCalled();
   });
@@ -69,7 +69,7 @@ describe('revertIssueCostFile', () => {
 
     const result = revertIssueCostFile('/repo', 'my-repo', 42);
 
-    expect(result).toBe(true);
+    expect(result).toEqual(['projects/my-repo/42-add-login.csv', 'projects/my-repo/42-add-login-v2.csv']);
     expect(mockUnlinkSync).toHaveBeenCalledTimes(2);
     expect(mockUnlinkSync).toHaveBeenCalledWith('/repo/projects/my-repo/42-add-login.csv');
     expect(mockUnlinkSync).toHaveBeenCalledWith('/repo/projects/my-repo/42-add-login-v2.csv');
@@ -81,7 +81,7 @@ describe('revertIssueCostFile', () => {
 
     const result = revertIssueCostFile('/repo', 'my-repo', 42);
 
-    expect(result).toBe(false);
+    expect(result).toEqual([]);
     expect(mockUnlinkSync).not.toHaveBeenCalled();
   });
 });
