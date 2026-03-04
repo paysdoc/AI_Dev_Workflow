@@ -5,7 +5,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { log, setLogAdwId, ensureLogsDirectory, generateAdwId, type PRDetails, type PRReviewComment, AgentStateManager, type AgentState, MAX_TEST_RETRY_ATTEMPTS, COST_REPORT_CURRENCIES, type ModelUsageMap, buildCostBreakdown, allocateRandomPort, mergeModelUsageMaps, emptyModelUsageMap, persistTokenCounts, writeIssueCostCsv, rebuildProjectCostCsv } from '../core';
-import { fetchPRDetails, getUnaddressedComments, pushBranch, postPRWorkflowComment, type PRReviewWorkflowContext, ensureWorktree, inferIssueTypeFromBranch, type RepoInfo } from '../github';
+import { fetchPRDetails, getUnaddressedComments, pushBranch, postPRWorkflowComment, type PRReviewWorkflowContext, ensureWorktree, inferIssueTypeFromBranch, moveIssueToStatus, type RepoInfo } from '../github';
 import { setTargetRepo, getTargetRepo } from '../core/targetRepoRegistry';
 import { getPlanFilePath, runPrReviewPlanAgent, runPrReviewBuildAgent, runCommitAgent, type ProgressCallback, type ProgressInfo, runUnitTestsWithRetry, runE2ETestsWithRetry } from '../agents';
 
@@ -328,6 +328,8 @@ export async function completePRReviewWorkflow(config: PRReviewWorkflowConfig, m
   pushBranch(prDetails.headBranch, worktreePath);
   postPRWorkflowComment(prNumber, 'pr_review_pushed', ctx, repoInfo);
   postPRWorkflowComment(prNumber, 'pr_review_completed', ctx, repoInfo);
+
+  await moveIssueToStatus(config.issueNumber, 'Review', config.repoInfo);
 
   AgentStateManager.writeState(orchestratorStatePath, {
     execution: AgentStateManager.completeExecution(AgentStateManager.createExecutionState('running'), true),
