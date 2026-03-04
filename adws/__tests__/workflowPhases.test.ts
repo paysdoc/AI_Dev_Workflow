@@ -190,6 +190,7 @@ import {
   copyEnvToWorktree,
   findWorktreeForIssue,
   inferIssueTypeFromBranch,
+  moveIssueToStatus,
 } from '../github';
 import { runPlanAgent, planFileExists, readPlanFile, runBuildAgent, runPrReviewPlanAgent, runPrReviewBuildAgent, runGenerateBranchNameAgent, runCommitAgent, runUnitTestsWithRetry, runE2ETestsWithRetry, runReviewWithRetry, runPullRequestAgent } from '../agents';
 import { classifyGitHubIssue } from '../core/issueClassifier';
@@ -1233,6 +1234,14 @@ describe('completePRReviewWorkflow', () => {
       '/mock/state/path',
       'PR Review workflow completed successfully'
     );
+  });
+
+  it('moves issue back to Review status after completion', async () => {
+    const config = createPRReviewWorkflowConfig();
+
+    await completePRReviewWorkflow(config);
+
+    expect(moveIssueToStatus).toHaveBeenCalledWith(10, 'Review', undefined);
   });
 });
 

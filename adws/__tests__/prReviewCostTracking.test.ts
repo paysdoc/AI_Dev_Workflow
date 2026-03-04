@@ -72,6 +72,7 @@ vi.mock('../github', () => ({
   ensureWorktree: vi.fn().mockReturnValue('/mock/worktree'),
   inferIssueTypeFromBranch: vi.fn().mockReturnValue('/feature'),
   getRepoInfo: vi.fn().mockReturnValue({ owner: 'test', repo: 'repo' }),
+  moveIssueToStatus: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('../agents', () => ({
