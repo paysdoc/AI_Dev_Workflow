@@ -328,18 +328,18 @@ npx tsx adws/triggers/trigger_webhook.ts
 ```
 
 **Configuration:**
-- Default port: 8001 (automatically falls back to a random available port if 8001 is in use)
+- Default port: 8001 (falls back to a random available port if 8001 is in use, unless `GITHUB_WEBHOOK_SECRET` is set — then it throws an error to prevent breaking the Cloudflare tunnel)
 - Endpoints:
-  - `/gh-webhook` - GitHub event receiver
+  - `/webhook` - GitHub event receiver
   - `/health` - Health check
 - GitHub webhook settings:
-  - Payload URL: `https://your-domain.com/gh-webhook`
+  - Payload URL: `https://api.paysdoc.nl/webhook`
   - Content type: `application/json`
-  - Events: Issues, Issue comments
+  - Events: `issues`, `issue_comment`, `pull_request`, `pull_request_review`, `pull_request_review_comment`
 
 **Security:**
-- Validates GitHub webhook signatures
-- Requires `GITHUB_WEBHOOK_SECRET` environment variable
+- When `GITHUB_WEBHOOK_SECRET` is set: validates GitHub `x-hub-signature-256` HMAC-SHA256 signatures, rejects invalid/missing signatures with HTTP 401
+- When `GITHUB_WEBHOOK_SECRET` is not set: all requests pass through without validation (backward compatible)
 
 ## How ADW Works
 
