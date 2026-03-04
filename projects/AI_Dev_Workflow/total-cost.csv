@@ -1,5 +1,6 @@
 Issue number,Issue description,Cost (USD),Markup (10%)
 0,bug 52 issue classifier running on incorrect repo,6.3452,0.6345
+0,feat 66 automatically commit cost when pr is close,1.4173,0.1417
 13,allow for multiple github pat variables,6.7400,0.6740
 16,changes to adw repo should have cost in worktree,2.3481,0.2348
 18,the adw is too specialized,12.4169,1.2417
@@ -23,6 +24,9 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 58,move issue through project boards as implementatio,4.6664,0.4666
 60,total cost contains unlinked item lines,3.2778,0.3278
 62,pr for vestmatic is not sent to default branch,2.4715,0.2471
+64,permanent webhook url portfolio site at paysdoc nl,2.9291,0.2929
+66,automatically ccommit cost when pr is closed,2.9142,0.2914
+68,pr review adw should return issue to review,2.2074,0.2207
 
-Total Cost (USD):,103.7782
-Total Cost (EUR):,88.6459
+Total Cost (USD):,114.1930
+Total Cost (EUR):,98.3142
