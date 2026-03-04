@@ -1,30 +1,28 @@
 Issue number,Issue description,Cost (USD),Markup (10%)
-13,Allow for multiple GITHUB_PAT variables,6.7400,0.6740
-16,Changes to ADW repo should have cost in worktree,2.3481,0.2348
-19,Several bugs in adw flow,3.3957,0.3396
-18,The ADW is too specialized,12.4169,1.2417
-22,Classifier does not recognise adw_init,0.3236,0.0324
-23,Multiple problems with the ADW,6.8050,0.6805
-25,PR Review comments get picked up twice by the trigger,2.0915,0.2091
-27,Add Clear comments,3.5333,0.3533
-29,CLEAR_COMMENT_PATTERN should trigger adw,2.3692,0.2369
+0,bug 52 issue classifier running on incorrect repo,6.3452,0.6345
+13,allow for multiple github pat variables,6.7400,0.6740
+16,changes to adw repo should have cost in worktree,2.3481,0.2348
+18,the adw is too specialized,12.4169,1.2417
+19,several bugs in adw flow,3.3957,0.3396
+22,classifier does not recognise adw init,0.3236,0.0324
+23,multiple problems with the adw,6.8050,0.6805
+25,pr review comments get picked up twice by the trig,2.0915,0.2092
+27,add clear comments,3.5333,0.3533
+29,clear comment pattern should trigger adw,2.3692,0.2369
 30,worktree discovery inconsistent,3.5132,0.3513
-33,clearComments deletes comments of another issue,2.7064,0.2706
-34,Trigger should commit and push all cost related CSV files,4.5129,0.4513
-37,PR Review adw should also track costs.,6.7158,0.6716
-42,Huge problems with classification,4.9941,0.4994
-44,Remove /classify_adw command,3.7199,0.3720
-0,chore: #44 - Remove /classify_adw command,0.6440,0.0644
-46,Add logging to classifier,3.5224,0.3522
-48,Clearing issue comments triggers additional classification,0.3513,0.0351
-49,Issue #48 identified as adw init,1.6762,0.1676
-48,Clearing issue comments triggers additional classification,1.7238,0.1724
-52,Issue classifier running on incorrect repo,2.3438,0.2344
-0,bug: #52 - Issue classifier running on incorrect repo,6.3452,0.6345
-54,Initialization of adw should end with pr creation,2.6134,0.2613
-56,Cannot find branch on target repository,3.2376,0.3238
-58,Move issue through project boards as implementation progresses,4.6664,0.4666
-60,Total cost contains unlinked item lines,3.2778,0.3278
+33,clearcomments deletes comments of another issue,2.7064,0.2706
+34,trigger should commit and push all cost related cs,4.5129,0.4513
+37,pr review adw should also track costs,6.7158,0.6716
+42,huge problems with classification,4.9941,0.4994
+46,add logging to classifier,3.5224,0.3522
+48,clearing issue comments triggers additional classi,1.7238,0.1724
+49,issue 48 identified as adw init,1.6762,0.1676
+52,issue classifier running on incorrect repo,2.3438,0.2344
+54,initialization of adw should end with pr creation,2.6134,0.2613
+56,cannot find branch on target repository,3.2376,0.3238
+58,move issue through project boards as implementatio,4.6664,0.4666
+60,total cost contains unlinked item lines,3.2778,0.3278
+62,pr for vestmatic is not sent to default branch,2.4715,0.2471
 
-Total Cost (USD):,106.2461
-Total Cost (EUR):,90.7539
+Total Cost (USD):,103.7782
+Total Cost (EUR):,88.6459
