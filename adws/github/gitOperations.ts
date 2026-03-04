@@ -300,6 +300,7 @@ export interface CommitCostFilesOptions {
   repoName?: string;
   issueNumber?: number;
   issueTitle?: string;
+  paths?: string[];
   cwd?: string;
 }
 
@@ -314,7 +315,7 @@ export interface CommitCostFilesOptions {
  * Returns true if changes were committed, false if no changes or on failure.
  */
 export function commitAndPushCostFiles(options: CommitCostFilesOptions = {}): boolean {
-  const { repoName, issueNumber, issueTitle, cwd } = options;
+  const { repoName, issueNumber, issueTitle, paths, cwd } = options;
 
   if (issueNumber !== undefined && !repoName) {
     log('Cannot commit issue cost files without a project name', 'error');
@@ -327,7 +328,12 @@ export function commitAndPushCostFiles(options: CommitCostFilesOptions = {}): bo
     let statusPath: string;
     let commitMessage: string;
 
-    if (repoName && issueNumber !== undefined && issueTitle) {
+    if (paths && paths.length > 0) {
+      // Explicit paths mode: stage only the specified files
+      addPath = paths.map(p => `"${p}"`).join(' ');
+      statusPath = addPath;
+      commitMessage = `cost: update cost data for ${repoName ?? 'project'}`;
+    } else if (repoName && issueNumber !== undefined && issueTitle) {
       // Single issue mode
       const issueCsvPath = getIssueCsvPath(repoName, issueNumber, issueTitle);
       const projectCsvPath = getProjectCsvPath(repoName);
