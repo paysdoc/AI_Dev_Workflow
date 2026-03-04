@@ -16,6 +16,7 @@ import { clearIssueComments } from '../adwClearComments';
 import { removeWorktreesForIssue } from '../github/worktreeOperations';
 import { classifyIssueForTrigger, getWorkflowScript } from '../core/issueClassifier';
 import { handlePullRequestEvent } from './webhookHandlers';
+import { validateWebhookSignature } from './webhookSignature';
 import {
   checkEnvironmentVariables,
   checkGitRepository,
@@ -57,6 +58,7 @@ export function getPrReviewTriggersMap(): Map<number, number> {
 
 const HTTP_STATUS_DESCRIPTIONS: Record<number, string> = {
   400: 'Bad Request',
+  401: 'Unauthorized',
   404: 'Not Found',
   405: 'Method Not Allowed',
 };
@@ -157,9 +159,24 @@ const server = http.createServer((req, res) => {
   const chunks: Buffer[] = [];
   req.on('data', (chunk: Buffer) => chunks.push(chunk));
   req.on('end', () => {
+    const rawBody = Buffer.concat(chunks);
+
+    const webhookSecret = process.env.GITHUB_WEBHOOK_SECRET;
+    if (webhookSecret) {
+      const sigResult = validateWebhookSignature(
+        rawBody,
+        webhookSecret,
+        req.headers['x-hub-signature-256'] as string | undefined,
+      );
+      if (!sigResult.valid) {
+        jsonResponse(res, 401, { error: 'invalid signature' });
+        return;
+      }
+    }
+
     let body: Record<string, unknown>;
     try {
-      body = JSON.parse(Buffer.concat(chunks).toString());
+      body = JSON.parse(rawBody.toString());
     } catch {
       jsonResponse(res, 400, { error: 'invalid json' });
       return;
@@ -381,11 +398,19 @@ export async function resolveWebhookPort(preferredPort: number): Promise<number>
   if (available) {
     return preferredPort;
   }
+  if (process.env.GITHUB_WEBHOOK_SECRET) {
+    throw new Error(
+      `Port ${preferredPort} is in use and GITHUB_WEBHOOK_SECRET is set (tunnel mode). Cannot fall back to a random port — the Cloudflare tunnel requires a fixed port. Stop the process using port ${preferredPort} and restart.`,
+    );
+  }
   log(`Port ${preferredPort} is in use, allocating a random available port...`, 'warn');
   return allocateRandomPort();
 }
 
 async function startServer(): Promise<void> {
+  if (!process.env.GITHUB_WEBHOOK_SECRET) {
+    log('GITHUB_WEBHOOK_SECRET not set — webhook signature validation disabled', 'warn');
+  }
   const preferredPort = parseInt(process.env.PORT || '8001', 10);
   const actualPort = await resolveWebhookPort(preferredPort);
   log(`Starting webhook trigger on port ${actualPort}`);
