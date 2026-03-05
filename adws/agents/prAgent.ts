@@ -17,8 +17,8 @@ export function formatPullRequestArgs(
   planFile: string,
   adwId: string,
   defaultBranch: string,
-): string {
-  return `${branchName}\n${issueJson}\n${planFile}\n${adwId}\n${defaultBranch}`;
+): string[] {
+  return [branchName, issueJson, planFile, adwId, defaultBranch];
 }
 
 /**

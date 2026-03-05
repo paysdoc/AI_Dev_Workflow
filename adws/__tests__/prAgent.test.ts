@@ -25,7 +25,7 @@ import { runClaudeAgentWithCommand } from '../agents/claudeAgent';
 import { getDefaultBranch } from '../github/gitOperations';
 
 describe('formatPullRequestArgs', () => {
-  it('returns 5-value newline-separated string including defaultBranch', () => {
+  it('returns an array of 5 elements with correct values', () => {
     const result = formatPullRequestArgs(
       'feature/issue-62-fix-pr',
       '{"number":62}',
@@ -34,20 +34,18 @@ describe('formatPullRequestArgs', () => {
       'stage-3',
     );
 
-    const lines = result.split('\n');
-    expect(lines).toHaveLength(5);
-    expect(lines[0]).toBe('feature/issue-62-fix-pr');
-    expect(lines[1]).toBe('{"number":62}');
-    expect(lines[2]).toBe('/specs/plan.md');
-    expect(lines[3]).toBe('adw-123');
-    expect(lines[4]).toBe('stage-3');
+    expect(result).toHaveLength(5);
+    expect(result[0]).toBe('feature/issue-62-fix-pr');
+    expect(result[1]).toBe('{"number":62}');
+    expect(result[2]).toBe('/specs/plan.md');
+    expect(result[3]).toBe('adw-123');
+    expect(result[4]).toBe('stage-3');
   });
 
-  it('includes the default branch as the 5th value', () => {
+  it('includes the default branch as the 5th element', () => {
     const result = formatPullRequestArgs('branch', '{}', '/plan.md', 'id', 'main');
 
-    expect(result).toContain('main');
-    expect(result.split('\n')[4]).toBe('main');
+    expect(result[4]).toBe('main');
   });
 });
 
@@ -85,9 +83,8 @@ describe('runPullRequestAgent', () => {
       '/logs',
     );
 
-    const args = vi.mocked(runClaudeAgentWithCommand).mock.calls[0][1] as string;
-    const lines = args.split('\n');
-    expect(lines[4]).toBe('stage-3');
+    const args = vi.mocked(runClaudeAgentWithCommand).mock.calls[0][1] as string[];
+    expect(args[4]).toBe('stage-3');
   });
 
   it('calls getDefaultBranch with undefined when cwd is not provided', async () => {
