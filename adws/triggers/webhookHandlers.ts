@@ -11,7 +11,7 @@ import { fetchExchangeRates } from '../core/costReport';
 import type { RepoInfo } from '../github/githubApi';
 import { closeIssue, formatIssueClosureComment } from '../github/githubApi';
 import { removeWorktree } from '../github/worktreeOperations';
-import { deleteRemoteBranch, commitAndPushCostFiles } from '../github/gitOperations';
+import { deleteRemoteBranch, commitAndPushCostFiles, pullLatestCostBranch } from '../github/gitOperations';
 import { hasTargetRepo } from '../core/targetRepoRegistry';
 import { getTargetRepoWorkspacePath } from '../core/targetRepoManager';
 
@@ -102,6 +102,7 @@ export async function handlePullRequestEvent(payload: PullRequestWebhookPayload)
 
   // Handle cost CSV files based on whether PR was merged or closed without merge
   try {
+    pullLatestCostBranch();
     const repoName = repository.name;
     const rates = await fetchExchangeRates(['EUR']);
     const eurRate = rates['EUR'] ?? 0;

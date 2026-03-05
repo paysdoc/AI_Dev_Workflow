@@ -21,6 +21,7 @@ vi.mock('../github/worktreeOperations', () => ({
 vi.mock('../github/gitOperations', () => ({
   deleteRemoteBranch: vi.fn(() => true),
   commitAndPushCostFiles: vi.fn(() => true),
+  pullLatestCostBranch: vi.fn(),
 }));
 
 vi.mock('../core/targetRepoRegistry', () => ({
@@ -48,7 +49,7 @@ vi.mock('../core/costReport', () => ({
 }));
 
 import { removeWorktree } from '../github/worktreeOperations';
-import { deleteRemoteBranch, commitAndPushCostFiles } from '../github/gitOperations';
+import { deleteRemoteBranch, commitAndPushCostFiles, pullLatestCostBranch } from '../github/gitOperations';
 import { closeIssue } from '../github/githubApi';
 import { hasTargetRepo } from '../core/targetRepoRegistry';
 import { rebuildProjectCostCsv, revertIssueCostFile } from '../core/costCsvWriter';
@@ -173,14 +174,16 @@ describe('handlePullRequestEvent', () => {
     expect(result).toEqual({ status: 'closed', issue: 42 });
   });
 
-  it('calls rebuildProjectCostCsv before commitAndPushCostFiles for merged PRs', async () => {
+  it('calls pullLatestCostBranch before cost operations for merged PRs', async () => {
     const payload = createPayload();
     const callOrder: string[] = [];
+    vi.mocked(pullLatestCostBranch).mockImplementation(() => { callOrder.push('pull'); });
     vi.mocked(rebuildProjectCostCsv).mockImplementation(() => { callOrder.push('rebuild'); });
     vi.mocked(commitAndPushCostFiles).mockImplementation(() => { callOrder.push('commit'); return true; });
 
     await handlePullRequestEvent(payload);
 
+    expect(pullLatestCostBranch).toHaveBeenCalled();
     expect(fetchExchangeRates).toHaveBeenCalledWith(['EUR']);
     expect(rebuildProjectCostCsv).toHaveBeenCalledWith(process.cwd(), 'repo', 0.92);
     expect(commitAndPushCostFiles).toHaveBeenCalledWith({
@@ -188,7 +191,7 @@ describe('handlePullRequestEvent', () => {
       issueNumber: 42,
       issueTitle: 'Add feature',
     });
-    expect(callOrder).toEqual(['rebuild', 'commit']);
+    expect(callOrder).toEqual(['pull', 'rebuild', 'commit']);
   });
 
   it('calls revertIssueCostFile, rebuildProjectCostCsv, and commitAndPushCostFiles for closed-without-merge PRs', async () => {

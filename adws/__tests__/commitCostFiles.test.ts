@@ -198,4 +198,44 @@ describe('commitAndPushCostFiles', () => {
     const addCall = mockExecSync.mock.calls.find(c => String(c[0]).startsWith('git add'));
     expect(addCall).toBeUndefined();
   });
+
+  it('performs git pull --rebase before pushing', () => {
+    const callOrder: string[] = [];
+    mockExecSync.mockImplementation((cmd: string) => {
+      const cmdStr = String(cmd);
+      if (cmdStr.startsWith('git status --porcelain')) return ' M file\n';
+      if (cmdStr.startsWith('git branch --show-current')) return 'main\n';
+      if (cmdStr.startsWith('git add')) { callOrder.push('add'); return ''; }
+      if (cmdStr.startsWith('git commit')) { callOrder.push('commit'); return ''; }
+      if (cmdStr.startsWith('git pull --rebase')) { callOrder.push('pull-rebase'); return ''; }
+      if (cmdStr.startsWith('git push')) { callOrder.push('push'); return ''; }
+      return '';
+    });
+
+    const result = commitAndPushCostFiles({ repoName: 'my-repo', issueNumber: 42, issueTitle: 'Add login' });
+
+    expect(result).toBe(true);
+
+    const pullRebaseCall = mockExecSync.mock.calls.find(c => String(c[0]).startsWith('git pull --rebase'));
+    expect(pullRebaseCall).toBeDefined();
+    expect(String(pullRebaseCall![0])).toContain('origin');
+    expect(String(pullRebaseCall![0])).toContain('main');
+
+    expect(callOrder).toEqual(['add', 'commit', 'pull-rebase', 'push']);
+  });
+
+  it('returns false when git pull --rebase fails', () => {
+    mockExecSync.mockImplementation((cmd: string) => {
+      const cmdStr = String(cmd);
+      if (cmdStr.startsWith('git status --porcelain')) return ' M file\n';
+      if (cmdStr.startsWith('git branch --show-current')) return 'main\n';
+      if (cmdStr.startsWith('git pull --rebase')) throw new Error('rebase conflict');
+      return '';
+    });
+
+    const result = commitAndPushCostFiles({ repoName: 'my-repo', issueNumber: 42, issueTitle: 'Add login' });
+
+    expect(result).toBe(false);
+    expect(log).toHaveBeenCalledWith(expect.stringContaining('Failed to commit cost CSV files'), 'error');
+  });
 });

@@ -12,7 +12,7 @@ import * as http from 'http';
 import { spawn } from 'child_process';
 import { log, PullRequestWebhookPayload, allocateRandomPort, isPortAvailable, getTargetRepoWorkspacePath, setTargetRepo, revertIssueCostFile, rebuildProjectCostCsv } from '../core';
 import { fetchExchangeRates } from '../core/costReport';
-import { commitAndPushCostFiles } from '../github/gitOperations';
+import { commitAndPushCostFiles, pullLatestCostBranch } from '../github/gitOperations';
 import { isActionableComment, isClearComment, isAdwRunningForIssue, truncateText, getRepoInfoFromPayload } from '../github';
 import { clearIssueComments } from '../adwClearComments';
 import { removeWorktreesForIssue } from '../github/worktreeOperations';
@@ -355,6 +355,9 @@ const server = http.createServer((req, res) => {
       // Revert cost CSV for the closed issue (async, fire-and-forget)
       const closedRepoName = closedRepository?.name as string | undefined;
       if (closedRepoName) {
+        try { pullLatestCostBranch(); } catch (error) {
+          log(`Failed to pull latest before cost revert: ${error}`, 'error');
+        }
         const reverted = revertIssueCostFile(process.cwd(), closedRepoName, issueNumber);
         if (reverted) {
           fetchExchangeRates(['EUR'])
