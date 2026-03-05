@@ -44,6 +44,20 @@ export interface ReviewAgentResult extends AgentResult {
 }
 
 /**
+ * Formats structured args for the /review skill.
+ */
+export function formatReviewArgs(
+  adwId: string,
+  specFile: string,
+  agentName: string,
+  applicationUrl?: string,
+): string[] {
+  return applicationUrl
+    ? [adwId, specFile, agentName, applicationUrl]
+    : [adwId, specFile, agentName];
+}
+
+/**
  * Runs the /review command and returns parsed review results.
  * Uses 'opus' model for complex reasoning.
  *
@@ -66,10 +80,7 @@ export async function runReviewAgent(
   const agentName = 'review_agent';
   const outputFile = path.join(logsDir, 'review-agent.jsonl');
 
-  // Format args as: adwId\nspec_file\nagent_name[\napplicationUrl]
-  const args = applicationUrl
-    ? `${adwId}\n${specFile}\n${agentName}\n${applicationUrl}`
-    : `${adwId}\n${specFile}\n${agentName}`;
+  const args = formatReviewArgs(adwId, specFile, agentName, applicationUrl);
 
   const result = await runClaudeAgentWithCommand(
     '/review',
