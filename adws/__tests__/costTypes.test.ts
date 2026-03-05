@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { emptyModelUsage, emptyModelUsageMap } from '../core/costTypes';
+import { emptyModelUsage, emptyModelUsageMap } from '../types/costTypes';
 
 describe('costTypes', () => {
   describe('emptyModelUsage', () => {

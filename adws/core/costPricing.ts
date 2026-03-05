@@ -4,7 +4,7 @@
  * Easy to update when Anthropic releases new models or changes pricing.
  */
 
-import type { ModelUsage } from './costTypes';
+import type { ModelUsage } from '../types/costTypes';
 
 /** Pricing per million tokens for a model. */
 export interface ModelPricing {

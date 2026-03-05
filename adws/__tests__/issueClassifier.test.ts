@@ -8,7 +8,7 @@ import {
   extractAdwIdFromText,
   stripFencedCodeBlocks,
 } from '../core/issueClassifier';
-import { adwCommandToIssueTypeMap, adwCommandToOrchestratorMap, issueTypeToOrchestratorMap, AdwSlashCommand, IssueClassSlashCommand, GitHubIssue } from '../core/dataTypes';
+import { adwCommandToIssueTypeMap, adwCommandToOrchestratorMap, issueTypeToOrchestratorMap, AdwSlashCommand, IssueClassSlashCommand, GitHubIssue } from '../types/dataTypes';
 import type { RepoInfo } from '../github/githubApi';
 
 vi.mock('../core', async (importOriginal) => {

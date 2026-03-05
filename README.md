@@ -121,18 +121,14 @@ adws/                   # ADW workflow system
 │   ├── testAgent.ts
 │   ├── testRetry.ts
 │   └── tokenManager.ts
-├── core/               # Configuration, types, utilities
+├── core/               # Configuration and utilities
 │   ├── agentState.ts
-│   ├── agentTypes.ts
 │   ├── config.ts
 │   ├── costCsvWriter.ts
 │   ├── costPricing.ts
 │   ├── costReport.ts
-│   ├── costTypes.ts
-│   ├── dataTypes.ts
 │   ├── index.ts
 │   ├── issueClassifier.ts
-│   ├── issueTypes.ts
 │   ├── jsonParser.ts
 │   ├── orchestratorLib.ts
 │   ├── portAllocator.ts
@@ -141,8 +137,7 @@ adws/                   # ADW workflow system
 │   ├── stateHelpers.ts
 │   ├── targetRepoManager.ts
 │   ├── targetRepoRegistry.ts
-│   ├── utils.ts
-│   └── workflowTypes.ts
+│   └── utils.ts
 ├── github/             # GitHub API and git operations
 │   ├── gitOperations.ts
 │   ├── githubApi.ts
@@ -167,6 +162,13 @@ adws/                   # ADW workflow system
 │   ├── prReviewPhase.ts
 │   ├── testPhase.ts
 │   └── workflowLifecycle.ts
+├── types/              # Type definitions
+│   ├── agentTypes.ts
+│   ├── costTypes.ts
+│   ├── dataTypes.ts
+│   ├── index.ts
+│   ├── issueTypes.ts
+│   └── workflowTypes.ts
 ├── triggers/           # Automation triggers
 │   ├── trigger_cron.ts
 │   ├── trigger_webhook.ts

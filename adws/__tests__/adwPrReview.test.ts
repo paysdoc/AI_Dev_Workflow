@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { formatPRReviewWorkflowComment, PRReviewWorkflowContext } from '../github/workflowComments';
-import { PRReviewWorkflowStage } from '../core/dataTypes';
+import { PRReviewWorkflowStage } from '../types/dataTypes';
 
 describe('adwPrReview test integration', () => {
   const baseContext: PRReviewWorkflowContext = {

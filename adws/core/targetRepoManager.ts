@@ -10,7 +10,7 @@ import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import { TARGET_REPOS_DIR } from './config';
-import type { TargetRepoInfo } from './issueTypes';
+import type { TargetRepoInfo } from '../types/issueTypes';
 import { log } from './utils';
 
 /**

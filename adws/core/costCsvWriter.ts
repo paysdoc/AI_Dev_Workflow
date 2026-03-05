@@ -5,7 +5,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import type { CostBreakdown } from './costTypes';
+import type { CostBreakdown } from '../types/costTypes';
 import { slugify, log } from './utils';
 
 /** A row in the project-level total cost CSV. */

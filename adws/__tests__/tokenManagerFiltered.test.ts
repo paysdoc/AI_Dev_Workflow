@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { isModelMatch, computePrimaryModelTokens } from '../agents/tokenManager';
-import type { ModelUsageMap } from '../core/costTypes';
+import type { ModelUsageMap } from '../types/costTypes';
 
 describe('isModelMatch', () => {
   it('matches opus tier against full model ID', () => {

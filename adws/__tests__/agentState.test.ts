@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import { AgentStateManager } from '../core/agentState';
-import { AgentState } from '../core/dataTypes';
+import { AgentState } from '../types/dataTypes';
 
 // Generate a unique test directory to avoid conflicts when running in parallel across worktrees
 // Use __dirname hash to ensure each worktree/location gets a unique directory

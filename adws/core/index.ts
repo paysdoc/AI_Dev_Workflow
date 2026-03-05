@@ -34,10 +34,10 @@ export type {
   IssueCommentSummary,
   TokenUsageSnapshot,
   TargetRepoInfo,
-} from './dataTypes';
+} from '../types/dataTypes';
 
 // Prefix maps for consistent branch naming and commit messages
-export { commitPrefixMap, branchPrefixMap, branchPrefixAliases, adwCommandToIssueTypeMap, adwCommandToOrchestratorMap, issueTypeToOrchestratorMap, VALID_ISSUE_TYPES } from './dataTypes';
+export { commitPrefixMap, branchPrefixMap, branchPrefixAliases, adwCommandToIssueTypeMap, adwCommandToOrchestratorMap, issueTypeToOrchestratorMap, VALID_ISSUE_TYPES } from '../types/dataTypes';
 
 // Utilities
 export {
@@ -72,8 +72,8 @@ export {
 export { shouldExecuteStage, hasUncommittedChanges, getNextStage } from './orchestratorLib';
 
 // Cost types
-export type { ModelUsage, ModelUsageMap, CurrencyAmount, CostBreakdown } from './costTypes';
-export { emptyModelUsage, emptyModelUsageMap } from './costTypes';
+export type { ModelUsage, ModelUsageMap, CurrencyAmount, CostBreakdown } from '../types/costTypes';
+export { emptyModelUsage, emptyModelUsageMap } from '../types/costTypes';
 
 // Cost pricing
 export type { ModelPricing } from './costPricing';

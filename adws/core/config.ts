@@ -7,7 +7,7 @@ import * as dotenv from 'dotenv';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import type { SlashCommand } from './issueTypes';
+import type { SlashCommand } from '../types/issueTypes';
 
 // Load environment variables from .env file at project root
 dotenv.config();

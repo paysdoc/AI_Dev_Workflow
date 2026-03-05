@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { generateBranchName } from '../github/gitOperations';
-import { IssueClassSlashCommand, branchPrefixMap, branchPrefixAliases } from '../core/dataTypes';
+import { IssueClassSlashCommand, branchPrefixMap, branchPrefixAliases } from '../types/dataTypes';
 
 describe('generateBranchName', () => {
   const issueNumber = 123;

@@ -6,7 +6,7 @@ import {
   buildCostBreakdown,
   formatCostBreakdownMarkdown,
 } from '../core/costReport';
-import type { ModelUsageMap, CostBreakdown } from '../core/costTypes';
+import type { ModelUsageMap, CostBreakdown } from '../types/costTypes';
 
 vi.mock('../core/utils', () => ({
   log: vi.fn(),

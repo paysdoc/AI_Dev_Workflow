@@ -5,7 +5,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { LOGS_DIR, AGENTS_STATE_DIR } from './config';
-import { AgentIdentifier, TargetRepoInfo } from './dataTypes';
+import { AgentIdentifier, TargetRepoInfo } from '../types/dataTypes';
 
 /**
  * Generates a unique ADW session identifier.
