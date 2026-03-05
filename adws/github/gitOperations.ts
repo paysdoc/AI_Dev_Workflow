@@ -296,6 +296,18 @@ export function deleteRemoteBranch(branchName: string, cwd?: string): boolean {
   }
 }
 
+/**
+ * Pulls the latest changes from origin using rebase on the current branch.
+ * Intended for callers that need to sync before computing cost data.
+ * @param cwd - Optional working directory to run the command in
+ */
+export function pullLatestCostBranch(cwd?: string): void {
+  const resolvedCwd = resolveTargetRepoCwd(cwd);
+  const branch = getCurrentBranch(resolvedCwd);
+  execSync(`git pull --rebase origin "${branch}"`, { stdio: 'pipe', cwd: resolvedCwd });
+  log(`Pulled latest changes from origin/${branch}`, 'success');
+}
+
 export interface CommitCostFilesOptions {
   repoName?: string;
   issueNumber?: number;
@@ -369,6 +381,7 @@ export function commitAndPushCostFiles(options: CommitCostFilesOptions = {}): bo
     );
 
     const branch = getCurrentBranch(resolvedCwd);
+    execSync(`git pull --rebase origin "${branch}"`, { stdio: 'pipe', cwd: resolvedCwd });
     execSync(`git push origin "${branch}"`, { stdio: 'pipe', cwd: resolvedCwd });
 
     log(`Committed and pushed cost CSV files`, 'success');
