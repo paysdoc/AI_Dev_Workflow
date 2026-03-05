@@ -22,16 +22,16 @@ npm test
 npm run build
 
 ## Start Dev Server
-npm run dev
+N/A — this is a CLI automation tool, not a web server
 
 ## Prepare App
-npm install && npx next dev --port {PORT}
+N/A — this is a CLI automation tool, not a web server
 
 ## Run E2E Tests
-npx playwright test
+N/A
 
 ## Library Install Command
-npm install
+npm install <package-name>
 
 ## Script Execution
-npx tsx <script name>
+npx tsx <script-path>

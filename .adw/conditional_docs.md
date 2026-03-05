@@ -2,13 +2,18 @@
 
 - README.md
   - Conditions:
-    - When operating on anything under src/
     - When first understanding the project structure
-    - When you want to learn how to start the dev server
+    - When learning how to run the ADW pipeline
 
 - adws/README.md
   - Conditions:
-    - When you're operating in the `adws/` directory
+    - When operating in the `adws/` directory
+    - When working with workflow orchestration scripts
+
+- guidelines/coding_guidelines.md
+  - Conditions:
+    - Before implementing any code changes
+    - When unsure about project conventions or patterns
 
 - app_docs/feature-the-adw-is-too-speci-tf7slv-generalize-adw-project-config.md
   - Conditions:
