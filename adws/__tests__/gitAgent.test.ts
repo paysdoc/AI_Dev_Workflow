@@ -8,7 +8,7 @@ import {
   runGenerateBranchNameAgent,
   runCommitAgent,
 } from '../agents/gitAgent';
-import { GitHubIssue, IssueClassSlashCommand } from '../core/dataTypes';
+import { GitHubIssue, IssueClassSlashCommand } from '../types/dataTypes';
 
 vi.mock('../agents/claudeAgent', () => ({
   runClaudeAgentWithCommand: vi.fn().mockResolvedValue({

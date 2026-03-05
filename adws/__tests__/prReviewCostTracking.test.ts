@@ -8,7 +8,7 @@ import {
   handlePRReviewWorkflowError,
   type PRReviewWorkflowConfig,
 } from '../workflowPhases';
-import { PRDetails, PRReviewComment } from '../core/dataTypes';
+import { PRDetails, PRReviewComment } from '../types/dataTypes';
 import { PRReviewWorkflowContext } from '../github/workflowComments';
 
 vi.mock('fs');

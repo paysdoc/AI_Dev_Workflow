@@ -4,7 +4,7 @@ import {
   executeBuildPhase,
   type WorkflowConfig,
 } from '../workflowPhases';
-import { RecoveryState, GitHubIssue } from '../core/dataTypes';
+import { RecoveryState, GitHubIssue } from '../types/dataTypes';
 import { getDefaultProjectConfig } from '../core/projectConfig';
 import { WorkflowContext } from '../github/workflowCommentsIssue';
 

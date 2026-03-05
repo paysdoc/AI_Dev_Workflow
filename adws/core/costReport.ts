@@ -3,8 +3,8 @@
  * fetching exchange rates, and formatting markdown cost tables.
  */
 
-import type { ModelUsageMap, CostBreakdown, CurrencyAmount } from './costTypes';
-import { emptyModelUsage } from './costTypes';
+import type { ModelUsageMap, CostBreakdown, CurrencyAmount } from '../types/costTypes';
+import { emptyModelUsage } from '../types/costTypes';
 import { log } from './utils';
 import { AgentStateManager } from './agentState';
 

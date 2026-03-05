@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { computeTotalTokens } from '../agents/claudeAgent';
-import type { ModelUsageMap } from '../core/costTypes';
+import type { ModelUsageMap } from '../types/costTypes';
 
 describe('computeTotalTokens', () => {
   it('sums tokens for a single model', () => {

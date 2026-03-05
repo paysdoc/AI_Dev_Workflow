@@ -19,7 +19,7 @@ import {
   type WorkflowConfig,
   type PRReviewWorkflowConfig,
 } from '../workflowPhases';
-import { RecoveryState, GitHubIssue, PRDetails, PRReviewComment } from '../core/dataTypes';
+import { RecoveryState, GitHubIssue, PRDetails, PRReviewComment } from '../types/dataTypes';
 import { getDefaultProjectConfig } from '../core/projectConfig';
 import { WorkflowContext, PRReviewWorkflowContext } from '../github/workflowComments';
 import { extractBranchNameFromComment } from '../github/workflowCommentsBase';

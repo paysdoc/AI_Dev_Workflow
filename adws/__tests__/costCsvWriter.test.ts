@@ -12,7 +12,7 @@ import {
   parseIssueCostTotal,
   rebuildProjectCostCsv,
 } from '../core/costCsvWriter';
-import type { CostBreakdown } from '../core/costTypes';
+import type { CostBreakdown } from '../types/costTypes';
 import type { ProjectCostRow } from '../core/costCsvWriter';
 
 vi.mock('../core/utils', () => ({

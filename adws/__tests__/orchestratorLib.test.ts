@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { execSync } from 'child_process';
 import { shouldExecuteStage, hasUncommittedChanges, getNextStage } from '../core/orchestratorLib';
 import { STAGE_ORDER } from '../github/workflowCommentsBase';
-import { RecoveryState, WorkflowStage } from '../core/dataTypes';
+import { RecoveryState, WorkflowStage } from '../types/dataTypes';
 
 vi.mock('child_process', () => ({
   execSync: vi.fn(),

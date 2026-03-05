@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { persistTokenCounts } from '../core/costReport';
 import { AgentStateManager } from '../core/agentState';
-import type { ModelUsageMap } from '../core/costTypes';
+import type { ModelUsageMap } from '../types/costTypes';
 
 vi.mock('../core/agentState', () => ({
   AgentStateManager: {

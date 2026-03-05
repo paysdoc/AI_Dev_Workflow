@@ -12,7 +12,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { AGENTS_STATE_DIR } from './config';
-import { AgentExecutionState } from './dataTypes';
+import { AgentExecutionState } from '../types/dataTypes';
 
 /**
  * Checks if a process with the given PID is alive.
