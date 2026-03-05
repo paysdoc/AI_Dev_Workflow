@@ -17,9 +17,9 @@ export function formatPatchArgs(
   reviewIssue: ReviewIssue,
   specPath?: string,
   screenshots?: string,
-): string {
+): string[] {
   const reviewChangeRequest = `Issue #${reviewIssue.reviewIssueNumber}: ${reviewIssue.issueDescription}\nResolution: ${reviewIssue.issueResolution}`;
-  return `${adwId}\n${reviewChangeRequest}\n${specPath ?? ''}\npatchAgent\n${screenshots ?? ''}`;
+  return [adwId, reviewChangeRequest, specPath ?? '', 'patchAgent', screenshots ?? ''];
 }
 
 /**

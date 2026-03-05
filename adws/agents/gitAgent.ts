@@ -13,9 +13,8 @@ import { runClaudeAgentWithCommand, AgentResult } from './claudeAgent';
 export function formatBranchNameArgs(
   issueClass: IssueClassSlashCommand,
   issue: GitHubIssue
-): string {
-  return `issueClass: ${issueClass}
-issue: ${JSON.stringify(issue)}`;
+): string[] {
+  return [issueClass, JSON.stringify(issue)];
 }
 
 /**
@@ -99,10 +98,8 @@ export function formatCommitArgs(
   agentName: string,
   issueClass: string,
   issueContext: string
-): string {
-  return `agentName: ${agentName}
-issueClass: ${issueClass}
-issue: ${issueContext}`;
+): string[] {
+  return [agentName, issueClass, issueContext];
 }
 
 /**

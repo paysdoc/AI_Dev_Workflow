@@ -45,18 +45,16 @@ function createMockIssue(overrides: Partial<GitHubIssue> = {}): GitHubIssue {
 }
 
 describe('formatBranchNameArgs', () => {
-  it('includes issueClass and issue JSON', () => {
+  it('returns array with issueClass and issue JSON', () => {
     const issue = createMockIssue();
     const result = formatBranchNameArgs('/feature', issue);
 
-    expect(result).toContain('issueClass: /feature');
-    expect(result).toContain('"number":123');
-    expect(result).toContain('"title":"Add user authentication"');
+    expect(result).toEqual(['/feature', JSON.stringify(issue)]);
   });
 
   it('does not include adwId', () => {
     const result = formatBranchNameArgs('/feature', createMockIssue());
-    expect(result).not.toContain('adwId');
+    expect(result.join(' ')).not.toContain('adwId');
   });
 
   it('handles different issue classes', () => {
@@ -64,7 +62,7 @@ describe('formatBranchNameArgs', () => {
 
     for (const issueClass of issueClasses) {
       const result = formatBranchNameArgs(issueClass, createMockIssue());
-      expect(result).toContain(`issueClass: ${issueClass}`);
+      expect(result[0]).toBe(issueClass);
     }
   });
 });
@@ -158,12 +156,10 @@ describe('validateBranchName', () => {
 });
 
 describe('formatCommitArgs', () => {
-  it('includes agentName, issueClass, and issue context', () => {
+  it('returns array with agentName, issueClass, and issue context', () => {
     const result = formatCommitArgs('plan-orchestrator', '/feature', '{"number":123}');
 
-    expect(result).toContain('agentName: plan-orchestrator');
-    expect(result).toContain('issueClass: /feature');
-    expect(result).toContain('issue: {"number":123}');
+    expect(result).toEqual(['plan-orchestrator', '/feature', '{"number":123}']);
   });
 
   it('handles different agent names', () => {
@@ -171,7 +167,7 @@ describe('formatCommitArgs', () => {
 
     for (const agent of agents) {
       const result = formatCommitArgs(agent, '/bug', '{}');
-      expect(result).toContain(`agentName: ${agent}`);
+      expect(result[0]).toBe(agent);
     }
   });
 });
@@ -215,7 +211,7 @@ describe('runGenerateBranchNameAgent', () => {
 
     expect(runClaudeAgentWithCommand).toHaveBeenCalledWith(
       '/generate_branch_name',
-      expect.stringContaining('issueClass: /feature'),
+      expect.arrayContaining(['/feature']),
       'Branch Name',
       expect.stringContaining('branchName-agent.jsonl'),
       'sonnet',
@@ -267,7 +263,7 @@ describe('runCommitAgent', () => {
 
     expect(runClaudeAgentWithCommand).toHaveBeenCalledWith(
       '/commit',
-      expect.stringContaining('agentName: plan-orchestrator'),
+      ['plan-orchestrator', '/feature', '{"number":123}'],
       'Commit',
       expect.stringContaining('commit-agent.jsonl'),
       'sonnet',

@@ -105,7 +105,7 @@ npm run test:watch    # Run tests in watch mode
 │       └── constants.ts
 └── settings.json
 adws/                   # ADW workflow system
-├── __tests__/          # Unit tests (47 test files)
+├── __tests__/          # Unit tests (54 test files)
 ├── agents/             # Claude Code agent runners
 │   ├── buildAgent.ts
 │   ├── claudeAgent.ts
@@ -150,6 +150,7 @@ adws/                   # ADW workflow system
 │   ├── issueApi.ts
 │   ├── prApi.ts
 │   ├── prCommentDetector.ts
+│   ├── projectBoardApi.ts
 │   ├── pullRequestCreator.ts
 │   ├── workflowComments.ts
 │   ├── workflowCommentsBase.ts
@@ -170,7 +171,8 @@ adws/                   # ADW workflow system
 ├── triggers/           # Automation triggers
 │   ├── trigger_cron.ts
 │   ├── trigger_webhook.ts
-│   └── webhookHandlers.ts
+│   ├── webhookHandlers.ts
+│   └── webhookSignature.ts
 ├── adwBuild.tsx        # Orchestrators (individual & combined)
 ├── adwBuildHelpers.ts
 ├── adwClearComments.tsx

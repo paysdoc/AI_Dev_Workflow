@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { runReviewAgent, ReviewIssue, ReviewResult } from '../agents/reviewAgent';
+import { runReviewAgent, formatReviewArgs, ReviewIssue, ReviewResult } from '../agents/reviewAgent';
 import { extractJson } from '../core/jsonParser';
 
 vi.mock('../agents/claudeAgent', () => ({
@@ -105,7 +105,7 @@ describe('runReviewAgent', () => {
 
     expect(runClaudeAgentWithCommand).toHaveBeenCalledWith(
       '/review',
-      'adw-123\nspecs/issue-1-plan.md\nreview_agent',
+      ['adw-123', 'specs/issue-1-plan.md', 'review_agent'],
       'Review',
       expect.stringContaining('review-agent.jsonl'),
       'opus',
@@ -183,7 +183,7 @@ describe('runReviewAgent', () => {
 
     expect(runClaudeAgentWithCommand).toHaveBeenCalledWith(
       '/review',
-      expect.any(String),
+      expect.any(Array),
       'Review',
       expect.any(String),
       'opus',
@@ -204,7 +204,7 @@ describe('runReviewAgent', () => {
 
     expect(runClaudeAgentWithCommand).toHaveBeenCalledWith(
       '/review',
-      'adw-123\nspecs/plan.md\nreview_agent\nhttp://localhost:45678',
+      ['adw-123', 'specs/plan.md', 'review_agent', 'http://localhost:45678'],
       'Review',
       expect.any(String),
       'opus',
@@ -225,7 +225,7 @@ describe('runReviewAgent', () => {
 
     expect(runClaudeAgentWithCommand).toHaveBeenCalledWith(
       '/review',
-      'adw-123\nspecs/plan.md\nreview_agent',
+      ['adw-123', 'specs/plan.md', 'review_agent'],
       'Review',
       expect.any(String),
       'opus',
@@ -233,5 +233,22 @@ describe('runReviewAgent', () => {
       undefined,
       undefined
     );
+  });
+});
+
+describe('formatReviewArgs', () => {
+  it('returns array with adwId, specFile, and agentName', () => {
+    const result = formatReviewArgs('adw-123', 'specs/plan.md', 'review_agent');
+    expect(result).toEqual(['adw-123', 'specs/plan.md', 'review_agent']);
+  });
+
+  it('includes applicationUrl as 4th element when provided', () => {
+    const result = formatReviewArgs('adw-123', 'specs/plan.md', 'review_agent', 'http://localhost:45678');
+    expect(result).toEqual(['adw-123', 'specs/plan.md', 'review_agent', 'http://localhost:45678']);
+  });
+
+  it('omits applicationUrl when not provided', () => {
+    const result = formatReviewArgs('adw-123', 'specs/plan.md', 'review_agent');
+    expect(result).toHaveLength(3);
   });
 });

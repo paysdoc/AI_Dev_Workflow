@@ -14,8 +14,8 @@ export function formatDocumentArgs(
   adwId: string,
   specPath?: string,
   screenshotsDir?: string,
-): string {
-  return `${adwId}\n${specPath ?? ''}\n${screenshotsDir ?? ''}`;
+): string[] {
+  return [adwId, specPath ?? '', screenshotsDir ?? ''];
 }
 
 /**

@@ -113,7 +113,7 @@ async function main(): Promise<void> {
 
     const result = await runClaudeAgentWithCommand(
       '/adw_init',
-      `${config.issueNumber} ${config.adwId} ${issueJson}`,
+      [String(config.issueNumber), config.adwId, issueJson],
       'adw-init',
       `${config.logsDir}/adw-init.jsonl`,
       'sonnet',
