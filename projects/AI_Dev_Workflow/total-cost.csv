@@ -1,5 +1,6 @@
 Issue number,Issue description,Cost (USD),Markup (10%)
 0,bug 52 issue classifier running on incorrect repo,6.3452,0.6345
+0,bug 71 pragent passes args as string,2.3623,0.2362
 0,feat 66 automatically commit cost when pr is close,1.4173,0.1417
 13,allow for multiple github pat variables,6.7400,0.6740
 16,changes to adw repo should have cost in worktree,2.3481,0.2348
@@ -27,7 +28,6 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 64,permanent webhook url portfolio site at paysdoc nl,2.9291,0.2929
 66,automatically ccommit cost when pr is closed,2.9142,0.2914
 68,pr review adw should return issue to review,2.2074,0.2207
-71,pragent passes args as string,0.8083,0.0808
 
-Total Cost (USD):,115.0821
-Total Cost (EUR):,98.9117
+Total Cost (USD):,116.7915
+Total Cost (EUR):,100.3809
