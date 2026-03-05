@@ -207,6 +207,84 @@ function matchStatusOption(
 }
 
 /**
+ * Gets the GraphQL node ID for a Pull Request using its URL.
+ * @returns The PR node ID, or null if the PR cannot be found.
+ */
+export function getPrNodeId(prUrl: string): string | null {
+  try {
+    const result = execSync(
+      `gh pr view ${prUrl} --json id --jq .id`,
+      { encoding: 'utf-8' }
+    );
+    return result.trim() || null;
+  } catch (error) {
+    log(`Failed to get PR node ID for ${prUrl}: ${error}`, 'warn');
+    return null;
+  }
+}
+
+/**
+ * Adds a content item (issue or PR) to a GitHub Project V2.
+ * @returns The created project item ID, or null on failure.
+ */
+export function addItemToProject(projectId: string, contentId: string): string | null {
+  try {
+    const mutation = `
+      mutation($projectId: ID!, $contentId: ID!) {
+        addProjectV2ItemById(input: { projectId: $projectId, contentId: $contentId }) {
+          item { id }
+        }
+      }
+    `;
+    const result = execSync(
+      `gh api graphql -f query='${mutation}' -f projectId='${projectId}' -f contentId='${contentId}'`,
+      { encoding: 'utf-8' }
+    );
+    const parsed = JSON.parse(result) as {
+      data: { addProjectV2ItemById: { item: { id: string } } };
+    };
+    return parsed.data.addProjectV2ItemById.item.id;
+  } catch (error) {
+    log(`Failed to add item to project: ${error}`, 'warn');
+    return null;
+  }
+}
+
+/**
+ * Adds a Pull Request to its repository's GitHub Project V2.
+ * This is a high-level orchestrator that silently handles all error cases.
+ *
+ * @param prUrl - The full PR URL (e.g., https://github.com/owner/repo/pull/123)
+ * @param repoInfo - Optional repository info override
+ */
+export async function addPrToProject(prUrl: string, repoInfo?: RepoInfo): Promise<void> {
+  try {
+    const { owner, repo } = repoInfo ?? getTargetRepo();
+
+    const projectId = findRepoProjectId(owner, repo);
+    if (!projectId) {
+      log(`No project linked to ${owner}/${repo}, skipping PR project addition`, 'info');
+      return;
+    }
+
+    const prNodeId = getPrNodeId(prUrl);
+    if (!prNodeId) {
+      log(`Could not resolve PR node ID for ${prUrl}, skipping project addition`, 'info');
+      return;
+    }
+
+    const itemId = addItemToProject(projectId, prNodeId);
+    if (itemId) {
+      log(`Added PR to project board: ${prUrl}`, 'success');
+    } else {
+      log(`Failed to add PR to project board: ${prUrl}`, 'warn');
+    }
+  } catch (error) {
+    log(`Failed to add PR to project: ${error}`, 'warn');
+  }
+}
+
+/**
  * Moves a GitHub issue to a target status on its project board.
  * This is a high-level orchestrator that silently handles all error cases:
  * - No project linked to the repository
