@@ -199,7 +199,7 @@ describe('commitAndPushCostFiles', () => {
     expect(addCall).toBeUndefined();
   });
 
-  it('performs git pull --rebase before pushing', () => {
+  it('performs git pull --rebase --autostash before pushing', () => {
     const callOrder: string[] = [];
     mockExecSync.mockImplementation((cmd: string) => {
       const cmdStr = String(cmd);
@@ -207,7 +207,7 @@ describe('commitAndPushCostFiles', () => {
       if (cmdStr.startsWith('git branch --show-current')) return 'main\n';
       if (cmdStr.startsWith('git add')) { callOrder.push('add'); return ''; }
       if (cmdStr.startsWith('git commit')) { callOrder.push('commit'); return ''; }
-      if (cmdStr.startsWith('git pull --rebase')) { callOrder.push('pull-rebase'); return ''; }
+      if (cmdStr.startsWith('git pull --rebase --autostash')) { callOrder.push('pull-rebase'); return ''; }
       if (cmdStr.startsWith('git push')) { callOrder.push('push'); return ''; }
       return '';
     });
@@ -216,7 +216,7 @@ describe('commitAndPushCostFiles', () => {
 
     expect(result).toBe(true);
 
-    const pullRebaseCall = mockExecSync.mock.calls.find(c => String(c[0]).startsWith('git pull --rebase'));
+    const pullRebaseCall = mockExecSync.mock.calls.find(c => String(c[0]).startsWith('git pull --rebase --autostash'));
     expect(pullRebaseCall).toBeDefined();
     expect(String(pullRebaseCall![0])).toContain('origin');
     expect(String(pullRebaseCall![0])).toContain('main');
@@ -224,12 +224,12 @@ describe('commitAndPushCostFiles', () => {
     expect(callOrder).toEqual(['add', 'commit', 'pull-rebase', 'push']);
   });
 
-  it('returns false when git pull --rebase fails', () => {
+  it('returns false when git pull --rebase --autostash fails', () => {
     mockExecSync.mockImplementation((cmd: string) => {
       const cmdStr = String(cmd);
       if (cmdStr.startsWith('git status --porcelain')) return ' M file\n';
       if (cmdStr.startsWith('git branch --show-current')) return 'main\n';
-      if (cmdStr.startsWith('git pull --rebase')) throw new Error('rebase conflict');
+      if (cmdStr.startsWith('git pull --rebase --autostash')) throw new Error('rebase conflict');
       return '';
     });
 
