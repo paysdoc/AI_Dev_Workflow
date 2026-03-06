@@ -6,7 +6,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { spawn } from 'child_process';
-import { getModelForCommand } from '../core';
+import { getModelForCommand, getEffortForCommand } from '../core';
 import { runClaudeAgentWithCommand, AgentResult } from './claudeAgent';
 import { extractJsonArray } from '../core/jsonParser';
 
@@ -94,6 +94,7 @@ export async function runTestAgent(
     'Test Runner',
     outputFile,
     getModelForCommand('/test', issueBody),
+    getEffortForCommand('/test', issueBody),
     undefined,
     statePath,
     cwd
@@ -139,6 +140,7 @@ export async function runResolveTestAgent(
     `Resolve: ${failedTest.test_name}`,
     outputFile,
     getModelForCommand('/resolve_failed_test', issueBody),
+    getEffortForCommand('/resolve_failed_test', issueBody),
     undefined,
     statePath,
     cwd
@@ -185,6 +187,7 @@ export async function runResolveE2ETestAgent(
     `Resolve E2E: ${displayName}`,
     outputFile,
     getModelForCommand('/resolve_failed_e2e_test', issueBody),
+    getEffortForCommand('/resolve_failed_e2e_test', issueBody),
     undefined,
     statePath,
     cwd

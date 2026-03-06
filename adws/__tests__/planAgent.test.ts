@@ -348,6 +348,7 @@ describe('runPlanAgent', () => {
       'Plan',
       expect.any(String),
       expect.any(String),
+      'high',
       undefined,
       undefined,
       undefined,

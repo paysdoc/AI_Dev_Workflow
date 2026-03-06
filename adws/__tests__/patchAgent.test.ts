@@ -77,6 +77,7 @@ describe('runPatchAgent', () => {
       'Patch: 1',
       expect.stringContaining('patch-agent-issue-1.jsonl'),
       'opus',
+      'high',
       undefined,
       undefined,
       undefined
@@ -93,6 +94,7 @@ describe('runPatchAgent', () => {
       'Patch: 1',
       expect.any(String),
       'opus',
+      'high',
       undefined,
       '/state',
       '/worktree'

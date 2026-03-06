@@ -214,6 +214,7 @@ function delay(ms: number): Promise<void> {
  * @param agentName - Human-readable name for logging
  * @param outputFile - Path to write JSONL output
  * @param model - The model to use (default: 'sonnet')
+ * @param effort - Optional reasoning effort level ('low' | 'medium' | 'high' | 'max')
  * @param onProgress - Optional callback for progress updates
  * @param statePath - Optional path to agent's state directory for state tracking
  * @param cwd - Optional working directory for the agent (defaults to process.cwd())
@@ -223,6 +224,7 @@ export async function runClaudeAgent(
   agentName: string,
   outputFile: string,
   model: string = 'sonnet',
+  effort?: string,
   onProgress?: ProgressCallback,
   statePath?: string,
   cwd?: string
@@ -231,6 +233,7 @@ export async function runClaudeAgent(
   if (statePath) {
     AgentStateManager.appendLog(statePath, `Starting ${agentName} agent`, prompt);
     AgentStateManager.appendLog(statePath, `Model: ${model}`);
+    if (effort) AgentStateManager.appendLog(statePath, `Reasoning effort: ${effort}`);
     savePrompt(prompt, statePath);
   }
 
@@ -239,13 +242,15 @@ export async function runClaudeAgent(
     '--verbose',
     '--dangerously-skip-permissions',
     '--output-format', 'stream-json',
-    '--model', model
+    '--model', model,
+    ...(effort ? ['--effort', effort] : []),
   ];
 
   const resolvedPath = resolveClaudeCodePath();
   log(`Starting ${agentName} agent...`, 'info');
   log(`  Command: ${resolvedPath} ${args.join(' ')}`, 'info');
   log(`  Model: ${model}`, 'info');
+  if (effort) log(`  Reasoning effort: ${effort}`, 'info');
   log(`  Output file: ${outputFile}`, 'info');
   log(`  Prompt length: ${prompt.length} characters`, 'info');
 
@@ -284,6 +289,7 @@ export async function runClaudeAgent(
  * @param agentName - Human-readable name for logging
  * @param outputFile - Path to write JSONL output
  * @param model - The model to use ('opus', 'sonnet', 'haiku')
+ * @param effort - Optional reasoning effort level ('low' | 'medium' | 'high' | 'max')
  * @param onProgress - Optional callback for progress updates
  * @param statePath - Optional path to agent's state directory for state tracking
  * @param cwd - Optional working directory for the agent (defaults to process.cwd())
@@ -294,6 +300,7 @@ export async function runClaudeAgentWithCommand(
   agentName: string,
   outputFile: string,
   model: string = 'sonnet',
+  effort?: string,
   onProgress?: ProgressCallback,
   statePath?: string,
   cwd?: string
@@ -310,6 +317,7 @@ export async function runClaudeAgentWithCommand(
   if (statePath) {
     AgentStateManager.appendLog(statePath, `Starting ${agentName} agent with command: ${command}`, prompt);
     AgentStateManager.appendLog(statePath, `Model: ${model}`);
+    if (effort) AgentStateManager.appendLog(statePath, `Reasoning effort: ${effort}`);
     savePrompt(prompt, statePath);
   }
 
@@ -319,6 +327,7 @@ export async function runClaudeAgentWithCommand(
     '--dangerously-skip-permissions',
     '--output-format', 'stream-json',
     '--model', model,
+    ...(effort ? ['--effort', effort] : []),
     prompt
   ];
 
@@ -327,6 +336,7 @@ export async function runClaudeAgentWithCommand(
   log(`  Command: ${resolvedPath} ${cliArgs.slice(0, -1).join(' ')} "<prompt>"`, 'info');
   log(`  Slash command: ${command}`, 'info');
   log(`  Model: ${model}`, 'info');
+  if (effort) log(`  Reasoning effort: ${effort}`, 'info');
   log(`  Output file: ${outputFile}`, 'info');
   log(`  Args length: ${Array.isArray(args) ? `${args.length} elements` : `${args.length} characters`}`, 'info');
 

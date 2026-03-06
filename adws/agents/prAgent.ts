@@ -4,7 +4,7 @@
  */
 
 import * as path from 'path';
-import { log, getModelForCommand } from '../core';
+import { log, getModelForCommand, getEffortForCommand } from '../core';
 import { runClaudeAgentWithCommand, AgentResult } from './claudeAgent';
 import { getDefaultBranch } from '../github/gitOperations';
 
@@ -73,6 +73,7 @@ export async function runPullRequestAgent(
     'Pull Request',
     outputFile,
     getModelForCommand('/pull_request', issueBody),
+    getEffortForCommand('/pull_request', issueBody),
     undefined,
     statePath,
     cwd,

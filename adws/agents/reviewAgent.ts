@@ -4,7 +4,7 @@
  */
 
 import * as path from 'path';
-import { getModelForCommand } from '../core';
+import { getModelForCommand, getEffortForCommand } from '../core';
 import { runClaudeAgentWithCommand, AgentResult } from './claudeAgent';
 import { extractJson } from '../core/jsonParser';
 
@@ -88,6 +88,7 @@ export async function runReviewAgent(
     'Review',
     outputFile,
     getModelForCommand('/review', issueBody),
+    getEffortForCommand('/review', issueBody),
     undefined,
     statePath,
     cwd

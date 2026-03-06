@@ -65,7 +65,7 @@ describe('cwd propagation', () => {
       const mockSpawn = createMockSpawn({ result: 'Success' });
       (spawn as unknown as ReturnType<typeof vi.fn>).mockImplementation(mockSpawn);
 
-      await runClaudeAgent('test prompt', 'Test Agent', `${testLogsDir}/test.jsonl`, 'sonnet', undefined, undefined, customCwd);
+      await runClaudeAgent('test prompt', 'Test Agent', `${testLogsDir}/test.jsonl`, 'sonnet', undefined, undefined, undefined, customCwd);
 
       expect(spawn).toHaveBeenCalledWith(
         '/usr/local/bin/claude',
@@ -97,7 +97,7 @@ describe('cwd propagation', () => {
       const mockSpawn = createMockSpawn({ result: 'Success' });
       (spawn as unknown as ReturnType<typeof vi.fn>).mockImplementation(mockSpawn);
 
-      await runClaudeAgentWithCommand('/test', 'args', 'Test Agent', `${testLogsDir}/test.jsonl`, 'sonnet', undefined, undefined, customCwd);
+      await runClaudeAgentWithCommand('/test', 'args', 'Test Agent', `${testLogsDir}/test.jsonl`, 'sonnet', undefined, undefined, undefined, customCwd);
 
       expect(spawn).toHaveBeenCalledWith(
         '/usr/local/bin/claude',
