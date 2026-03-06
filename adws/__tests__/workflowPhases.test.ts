@@ -657,6 +657,7 @@ describe('executePRPhase', () => {
     );
     expect(config.ctx.prUrl).toBe('https://github.com/test/pr/1');
     expect(postWorkflowComment).toHaveBeenCalledWith(1, 'pr_created', expect.anything(), undefined);
+    expect(moveIssueToStatus).not.toHaveBeenCalled();
     expect(result.costUsd).toBeCloseTo(0.1);
   });
 
@@ -756,6 +757,14 @@ describe('completeWorkflow', () => {
       execution: expect.objectContaining({ status: 'completed' }),
       metadata: { totalCostUsd: 2.0, unitTestsPassed: true },
     });
+  });
+
+  it('moves issue to Review status after posting completion comment', async () => {
+    const config = createWorkflowConfig();
+
+    await completeWorkflow(config, 1.5);
+
+    expect(moveIssueToStatus).toHaveBeenCalledWith(1, 'Review', undefined);
   });
 
   it('writes cost CSVs to worktree path when no targetRepo (ADW repo issue)', async () => {
