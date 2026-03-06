@@ -147,6 +147,78 @@ describe('claudeAgent ENOENT spawn retry', () => {
       expect(mockClearClaudeCodePathCache).not.toHaveBeenCalled();
     });
   });
+
+  describe('spawn arguments', () => {
+    describe('runClaudeAgent', () => {
+      it('includes --effort flag when effort is provided', async () => {
+        const mockSpawn = createMockSpawn({ result: 'Success' });
+        (spawn as unknown as ReturnType<typeof vi.fn>).mockImplementation(mockSpawn);
+
+        await runClaudeAgent('test prompt', 'Test Agent', `${testLogsDir}/test.jsonl`, 'sonnet', 'high');
+
+        const args = (spawn as unknown as ReturnType<typeof vi.fn>).mock.calls[0][1] as string[];
+        const effortIndex = args.indexOf('--effort');
+        expect(effortIndex).toBeGreaterThan(-1);
+        expect(args[effortIndex + 1]).toBe('high');
+      });
+
+      it('omits --effort flag when effort is undefined', async () => {
+        const mockSpawn = createMockSpawn({ result: 'Success' });
+        (spawn as unknown as ReturnType<typeof vi.fn>).mockImplementation(mockSpawn);
+
+        await runClaudeAgent('test prompt', 'Test Agent', `${testLogsDir}/test.jsonl`, 'sonnet');
+
+        const args = (spawn as unknown as ReturnType<typeof vi.fn>).mock.calls[0][1] as string[];
+        expect(args).not.toContain('--effort');
+      });
+
+      it('includes correct model in args', async () => {
+        const mockSpawn = createMockSpawn({ result: 'Success' });
+        (spawn as unknown as ReturnType<typeof vi.fn>).mockImplementation(mockSpawn);
+
+        await runClaudeAgent('test prompt', 'Test Agent', `${testLogsDir}/test.jsonl`, 'opus');
+
+        const args = (spawn as unknown as ReturnType<typeof vi.fn>).mock.calls[0][1] as string[];
+        const modelIndex = args.indexOf('--model');
+        expect(modelIndex).toBeGreaterThan(-1);
+        expect(args[modelIndex + 1]).toBe('opus');
+      });
+    });
+
+    describe('runClaudeAgentWithCommand', () => {
+      it('includes --effort flag when effort is provided', async () => {
+        const mockSpawn = createMockSpawn({ result: 'Success' });
+        (spawn as unknown as ReturnType<typeof vi.fn>).mockImplementation(mockSpawn);
+
+        await runClaudeAgentWithCommand('/implement', 'args', 'Test Agent', `${testLogsDir}/test.jsonl`, 'sonnet', 'max');
+
+        const args = (spawn as unknown as ReturnType<typeof vi.fn>).mock.calls[0][1] as string[];
+        const effortIndex = args.indexOf('--effort');
+        expect(effortIndex).toBeGreaterThan(-1);
+        expect(args[effortIndex + 1]).toBe('max');
+      });
+
+      it('omits --effort flag when effort is undefined', async () => {
+        const mockSpawn = createMockSpawn({ result: 'Success' });
+        (spawn as unknown as ReturnType<typeof vi.fn>).mockImplementation(mockSpawn);
+
+        await runClaudeAgentWithCommand('/implement', 'args', 'Test Agent', `${testLogsDir}/test.jsonl`, 'sonnet');
+
+        const args = (spawn as unknown as ReturnType<typeof vi.fn>).mock.calls[0][1] as string[];
+        expect(args).not.toContain('--effort');
+      });
+
+      it('includes the prompt as last argument', async () => {
+        const mockSpawn = createMockSpawn({ result: 'Success' });
+        (spawn as unknown as ReturnType<typeof vi.fn>).mockImplementation(mockSpawn);
+
+        await runClaudeAgentWithCommand('/implement', 'test arg', 'Test Agent', `${testLogsDir}/test.jsonl`);
+
+        const args = (spawn as unknown as ReturnType<typeof vi.fn>).mock.calls[0][1] as string[];
+        expect(args[args.length - 1]).toBe("/implement 'test arg'");
+      });
+    });
+  });
 });
 
 /**
