@@ -40,3 +40,11 @@
     - When working on PR close or issue close webhook handlers
     - When troubleshooting cost CSVs that were not reverted after a PR was rejected or closed
     - When implementing cost tracking changes that affect the merged vs closed-without-merge flow
+
+- app_docs/feature-add-issue-comments-f-6vrgn2-review-issue-comments.md
+  - Conditions:
+    - When working with review workflow stage comments (`review_running`, `review_passed`, `review_failed`, `review_patching`)
+    - When modifying `formatWorkflowComment()` or `WorkflowContext` in `adws/github/workflowCommentsIssue.ts`
+    - When modifying `runReviewWithRetry()` or `ReviewRetryOptions` in `adws/agents/reviewRetry.ts`
+    - When troubleshooting missing or generic review-stage GitHub issue comments
+    - When adding new review-related context fields to the workflow orchestrator
