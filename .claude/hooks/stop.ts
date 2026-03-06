@@ -1,4 +1,4 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env bunx tsx
 /**
  * Stop hook for Claude Code.
  * Logs stop events and optionally converts JSONL transcript to JSON.

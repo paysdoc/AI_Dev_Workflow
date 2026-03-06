@@ -15,10 +15,10 @@ AI Dev Workflow (ADW) is a TypeScript/Node.js project that automates software de
 - `adws/**` - Contains the AI Developer Workflow (ADW) scripts.
 
 ## Framework Notes
-This is a Next.js App Router project using React and TypeScript. Use server components by default. The `adws/` directory contains standalone TypeScript scripts that run with `npx tsx` and are separate from the Next.js application.
+This is a Next.js App Router project using React and TypeScript. Use server components by default. The `adws/` directory contains standalone TypeScript scripts that run with `bunx tsx` and are separate from the Next.js application.
 
 ## Library Install Command
-npm install
+bun install
 
 ## Script Execution
-npx tsx <script_name>
+bunx tsx <script_name>

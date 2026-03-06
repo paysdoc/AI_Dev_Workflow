@@ -291,7 +291,7 @@ export function runPlaywrightE2ETests(cwd?: string, applicationUrl?: string): Pr
       ? { ...process.env, E2E_BASE_URL: applicationUrl }
       : process.env;
 
-    const proc = spawn('npx', ['playwright', 'test'], {
+    const proc = spawn('bunx', ['playwright', 'test'], {
       cwd: workDir,
       env,
       stdio: ['ignore', 'pipe', 'pipe'],

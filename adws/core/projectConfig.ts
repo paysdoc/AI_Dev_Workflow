@@ -64,18 +64,18 @@ const HEADING_TO_KEY: Record<string, keyof CommandsConfig> = {
 
 export function getDefaultCommandsConfig(): CommandsConfig {
   return {
-    packageManager: 'npm',
-    installDeps: 'npm install',
-    runLinter: 'npm run lint',
-    typeCheck: 'npx tsc --noEmit',
-    runTests: 'npm test',
-    runBuild: 'npm run build',
-    startDevServer: 'npm run dev',
-    prepareApp: 'npm install && npx next dev --port {PORT}',
-    runE2ETests: 'npx playwright test',
-    additionalTypeChecks: 'npx tsc --noEmit -p adws/tsconfig.json',
-    libraryInstall: 'npm install',
-    scriptExecution: 'npx tsx <script name>',
+    packageManager: 'bun',
+    installDeps: 'bun install',
+    runLinter: 'bun run lint',
+    typeCheck: 'bunx tsc --noEmit',
+    runTests: 'bun run test',
+    runBuild: 'bun run build',
+    startDevServer: 'bun run dev',
+    prepareApp: 'bun install && bunx next dev --port {PORT}',
+    runE2ETests: 'bunx playwright test',
+    additionalTypeChecks: 'bunx tsc --noEmit -p adws/tsconfig.json',
+    libraryInstall: 'bun install',
+    scriptExecution: 'bunx tsx <script name>',
   };
 }
 

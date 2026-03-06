@@ -1,37 +1,37 @@
 # ADW Project Commands
 
 ## Package Manager
-npm
+bun
 
 ## Install Dependencies
-npm install
+bun install
 
 ## Run Linter
-npm run lint
+bun run lint
 
 ## Type Check
-npx tsc --noEmit
+bunx tsc --noEmit
 
 ## Additional Type Checks
-npx tsc --noEmit -p adws/tsconfig.json
+bunx tsc --noEmit -p adws/tsconfig.json
 
 ## Run Tests
-npm test
+bun run test
 
 ## Run Build
-npm run build
+bun run build
 
 ## Start Dev Server
-npm run dev
+bun run dev
 
 ## Prepare App
-npm install && npx next dev --port {PORT}
+bun install && bunx next dev --port {PORT}
 
 ## Run E2E Tests
-npx playwright test
+bunx playwright test
 
 ## Library Install Command
-npm install
+bun install
 
 ## Script Execution
-npx tsx <script name>
+bunx tsx <script name>

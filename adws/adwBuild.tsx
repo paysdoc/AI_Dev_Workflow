@@ -1,8 +1,8 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env bunx tsx
 /**
  * ADW Build - AI Developer Workflow Implementation Phase
  *
- * Usage: npx tsx adws/adwBuild.tsx <github-issueNumber> [adw-id]
+ * Usage: bunx tsx adws/adwBuild.tsx <github-issueNumber> [adw-id]
  *
  * Workflow:
  * 1. Fetch GitHub issue details

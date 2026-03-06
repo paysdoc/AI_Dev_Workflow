@@ -2,7 +2,7 @@
  * CRON trigger for ADW (AI Developer Workflow).
  *
  * Polls GitHub every 20 seconds for qualifying issues and
- * spawns adwPlanBuild.tsx for each. Start with: npx tsx adws/triggers/trigger_cron.ts
+ * spawns adwPlanBuild.tsx for each. Start with: bunx tsx adws/triggers/trigger_cron.ts
  */
 
 import { execSync, spawn } from 'child_process';
@@ -114,7 +114,7 @@ async function checkAndTrigger(): Promise<void> {
 
     const adwIdArgs = classification.adwId ? [classification.adwId] : [];
     const targetRepoArgs = buildTargetRepoArgs();
-    const child = spawn('npx', ['tsx', workflowScript, String(issue.number), ...adwIdArgs, '--issue-type', classification.issueType, ...targetRepoArgs], {
+    const child = spawn('bunx', ['tsx', workflowScript, String(issue.number), ...adwIdArgs, '--issue-type', classification.issueType, ...targetRepoArgs], {
       detached: true,
       stdio: 'ignore',
     });
@@ -140,7 +140,7 @@ function checkPRsForReviewComments(): void {
         log(`Triggering ADW PR Review for PR #${pr.number}`, 'success');
 
         const targetRepoArgs = buildTargetRepoArgs();
-        const child = spawn('npx', ['tsx', 'adws/adwPrReview.tsx', String(pr.number), ...targetRepoArgs], {
+        const child = spawn('bunx', ['tsx', 'adws/adwPrReview.tsx', String(pr.number), ...targetRepoArgs], {
           detached: true,
           stdio: 'ignore',
         });

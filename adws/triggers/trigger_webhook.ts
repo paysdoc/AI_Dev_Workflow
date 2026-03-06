@@ -1,11 +1,11 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env bunx tsx
 
 /**
  * Webhook trigger for ADW (AI Developer Workflow).
  *
  * Receives GitHub webhook events and spawns adwPlanBuild.tsx
  * for new issues and adwPrReview.tsx for PR review comments.
- * Start with: npx tsx adws/triggers/trigger_webhook.ts
+ * Start with: bunx tsx adws/triggers/trigger_webhook.ts
  */
 
 import * as http from 'http';
@@ -216,7 +216,7 @@ const server = http.createServer((req, res) => {
         setTargetRepo(getRepoInfoFromPayload(prReviewRepoFullName));
       }
       const prTargetRepoArgs = extractTargetRepoArgs(body);
-      spawnDetached('npx', ['tsx', 'adws/adwPrReview.tsx', String(prNumber), ...prTargetRepoArgs]);
+      spawnDetached('bunx', ['tsx', 'adws/adwPrReview.tsx', String(prNumber), ...prTargetRepoArgs]);
       jsonResponse(res, 200, { status: 'triggered', pr: prNumber });
       return;
     }
@@ -281,12 +281,12 @@ const server = http.createServer((req, res) => {
               'success'
             );
             const adwIdArgs = classification.adwId ? [classification.adwId] : [];
-            spawnDetached('npx', ['tsx', workflowScript, String(issueNumber), ...adwIdArgs, '--issue-type', classification.issueType, ...commentTargetRepoArgs]);
+            spawnDetached('bunx', ['tsx', workflowScript, String(issueNumber), ...adwIdArgs, '--issue-type', classification.issueType, ...commentTargetRepoArgs]);
           });
         })
         .catch((error) => {
           log(`Error handling comment on issue #${issueNumber}: ${error}`, 'error');
-          spawnDetached('npx', ['tsx', 'adws/adwPlanBuildTest.tsx', String(issueNumber), ...commentTargetRepoArgs]);
+          spawnDetached('bunx', ['tsx', 'adws/adwPlanBuildTest.tsx', String(issueNumber), ...commentTargetRepoArgs]);
         });
 
       jsonResponse(res, 200, { status: 'processing', issue: issueNumber });
@@ -397,11 +397,11 @@ const server = http.createServer((req, res) => {
             'success'
           );
           const adwIdArgs = classification.adwId ? [classification.adwId] : [];
-          spawnDetached('npx', ['tsx', workflowScript, String(issueNumber), ...adwIdArgs, '--issue-type', classification.issueType, ...issueTargetRepoArgs]);
+          spawnDetached('bunx', ['tsx', workflowScript, String(issueNumber), ...adwIdArgs, '--issue-type', classification.issueType, ...issueTargetRepoArgs]);
         })
         .catch((error) => {
           log(`Error classifying issue #${issueNumber}: ${error}, defaulting to adwPlanBuildTest.tsx`, 'error');
-          spawnDetached('npx', ['tsx', 'adws/adwPlanBuildTest.tsx', String(issueNumber), ...issueTargetRepoArgs]);
+          spawnDetached('bunx', ['tsx', 'adws/adwPlanBuildTest.tsx', String(issueNumber), ...issueTargetRepoArgs]);
         });
 
       jsonResponse(res, 200, { status: 'processing', issue: issueNumber });

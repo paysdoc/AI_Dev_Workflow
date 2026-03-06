@@ -1,11 +1,11 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env bunx tsx
 /**
  * ADW Clear Comments Script
  *
  * Removes all comments from a GitHub issue.
  * Useful for resetting an issue when a workflow has gone wrong.
  *
- * Usage: npx tsx adws/adwClearComments.tsx <issueNumber>
+ * Usage: bunx tsx adws/adwClearComments.tsx <issueNumber>
  */
 
 import { log } from './core';
@@ -21,7 +21,7 @@ interface ClearCommentsResult {
  * Prints usage information and exits.
  */
 function printUsageAndExit(): never {
-  console.error('Usage: npx tsx adws/adwClearComments.tsx <issueNumber> [--repo owner/repo]');
+  console.error('Usage: bunx tsx adws/adwClearComments.tsx <issueNumber> [--repo owner/repo]');
   console.error('');
   console.error('Removes all comments from a GitHub issue.');
   console.error('');

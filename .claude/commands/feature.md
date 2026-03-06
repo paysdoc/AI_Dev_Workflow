@@ -22,7 +22,7 @@ Example: if $1=31 and $2=init-adw-env-4qugib, the filename is `issue-31-adw-init
 - Consider the feature requirements, design, and implementation approach.
 - Follow existing patterns and conventions in the codebase. Don't reinvent the wheel.
 - Design for extensibility and maintainability.
-- If you need a new library, read `.adw/commands.md` for the library install command (under `## Library Install Command`). If `.adw/commands.md` does not exist, use `npm install`. Be sure to report it in the `Notes` section of the `Plan Format`.
+- If you need a new library, read `.adw/commands.md` for the library install command (under `## Library Install Command`). If `.adw/commands.md` does not exist, use `bun install`. Be sure to report it in the `Notes` section of the `Plan Format`.
 - Don't use decorators. Keep it simple.
 - IMPORTANT: If the feature includes UI components or user interactions:
   - Add a task in the `Step by Step Tasks` section to create a separate E2E test file in `e2e-tests/test_<descriptive_name>.md` based on examples in that directory
@@ -113,9 +113,9 @@ Execute every command to validate the feature works correctly with zero regressi
 <If you created an E2E test, include the following validation step: `Read .claude/commands/test_e2e.md`, then read and execute your new E2E `e2e-tests/test_<descriptive_name>.md` test file to validate this functionality works.>
 
 Read `.adw/commands.md` from the current working directory for the project-specific validation commands. If `.adw/commands.md` does not exist, use these defaults:
-- `npm run lint` - Run linter to check for code quality issues
-- `npm run build` - Build the application to verify no build errors
-- `npm test` - Run tests to validate the feature works with zero regressions
+- `bun run lint` - Run linter to check for code quality issues
+- `bun run build` - Build the application to verify no build errors
+- `bun run test` - Run tests to validate the feature works with zero regressions
 
 ## Notes
 - IMPORTANT: If a `guidelines/` directory exists in the target repository, strictly adhere to those coding guidelines. If necessary, refactor existing code to meet the coding guidelines as part of implementing the feature.

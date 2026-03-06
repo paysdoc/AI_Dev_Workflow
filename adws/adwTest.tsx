@@ -1,8 +1,8 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env bunx tsx
 /**
  * ADW Test - AI Developer Workflow Testing Phase
  *
- * Usage: npx tsx adws/adwTest.tsx [adw-id]
+ * Usage: bunx tsx adws/adwTest.tsx [adw-id]
  *
  * Workflow:
  * 1. Run unit tests using /test command (sonnet model)
@@ -34,7 +34,7 @@ import { runUnitTestsWithRetry, runE2ETestsWithRetry } from './agents';
 
 /** Prints usage information and exits. */
 function printUsageAndExit(): never {
-  console.error('Usage: npx tsx adws/adwTest.tsx [adw-id] [--cwd <path>]');
+  console.error('Usage: bunx tsx adws/adwTest.tsx [adw-id] [--cwd <path>]');
   console.error('');
   console.error('Runs comprehensive validation tests with automatic failure resolution.');
   console.error('');

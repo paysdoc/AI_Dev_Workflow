@@ -1,8 +1,8 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env bunx tsx
 /**
  * ADW Document - AI Developer Workflow Documentation Phase
  *
- * Usage: npx tsx adws/adwDocument.tsx [adw-id] [--cwd <path>]
+ * Usage: bunx tsx adws/adwDocument.tsx [adw-id] [--cwd <path>]
  *
  * Workflow:
  * 1. Run the /document skill to generate feature documentation
@@ -28,7 +28,7 @@ import { runDocumentAgent } from './agents';
  * Prints usage information and exits.
  */
 function printUsageAndExit(): never {
-  console.error('Usage: npx tsx adws/adwDocument.tsx [adw-id] [--cwd <path>]');
+  console.error('Usage: bunx tsx adws/adwDocument.tsx [adw-id] [--cwd <path>]');
   console.error('');
   console.error('Generates feature documentation based on git diff analysis.');
   console.error('');

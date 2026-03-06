@@ -1,4 +1,4 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env bunx tsx
 /**
  * Subagent stop hook for Claude Code.
  * Logs subagent stop events and optionally converts JSONL transcript to JSON.

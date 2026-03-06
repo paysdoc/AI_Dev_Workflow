@@ -1,8 +1,8 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env bunx tsx
 /**
  * ADW SDLC - Full Software Development Life Cycle Orchestrator
  *
- * Usage: npx tsx adws/adwSdlc.tsx <github-issueNumber> [adw-id] [--issue-type <type>]
+ * Usage: bunx tsx adws/adwSdlc.tsx <github-issueNumber> [adw-id] [--issue-type <type>]
  *
  * Workflow:
  * 1. Initialize: fetch issue, classify type, setup worktree, initialize state, detect recovery
@@ -40,7 +40,7 @@ import {
  * Prints usage information and exits.
  */
 function printUsageAndExit(): never {
-  console.error('Usage: npx tsx adws/adwSdlc.tsx <github-issueNumber> [adw-id] [--issue-type <type>]');
+  console.error('Usage: bunx tsx adws/adwSdlc.tsx <github-issueNumber> [adw-id] [--issue-type <type>]');
   console.error('');
   console.error('This orchestrator runs the full SDLC: Plan+Build+Test+PR+Review+Document.');
   console.error('');

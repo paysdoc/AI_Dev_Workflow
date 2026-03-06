@@ -148,7 +148,7 @@ describe('cwd propagation', () => {
   describe('runTestAgent', () => {
     it('passes cwd to spawn when provided', async () => {
       const testResults: TestResult[] = [
-        { test_name: 'linting', passed: true, execution_command: 'npm run lint', test_purpose: 'Check linting' },
+        { test_name: 'linting', passed: true, execution_command: 'bun run lint', test_purpose: 'Check linting' },
       ];
       const mockSpawn = createMockSpawn({ result: JSON.stringify(testResults) });
       (spawn as unknown as ReturnType<typeof vi.fn>).mockImplementation(mockSpawn);
@@ -173,7 +173,7 @@ describe('cwd propagation', () => {
       const failedTest: TestResult = {
         test_name: 'build',
         passed: false,
-        execution_command: 'npm run build',
+        execution_command: 'bun run build',
         test_purpose: 'Build app',
         error: 'Type error',
       };
