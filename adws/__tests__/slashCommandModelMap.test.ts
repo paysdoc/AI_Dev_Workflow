@@ -205,13 +205,13 @@ describe('getModelForCommand', () => {
 describe('SLASH_COMMAND_EFFORT_MAP', () => {
   it('has correct default effort values for all 18 commands', () => {
     expect(SLASH_COMMAND_EFFORT_MAP['/classify_issue']).toBe('low');
-    expect(SLASH_COMMAND_EFFORT_MAP['/feature']).toBe('max');
+    expect(SLASH_COMMAND_EFFORT_MAP['/feature']).toBe('high');
     expect(SLASH_COMMAND_EFFORT_MAP['/bug']).toBe('high');
     expect(SLASH_COMMAND_EFFORT_MAP['/chore']).toBe('high');
     expect(SLASH_COMMAND_EFFORT_MAP['/pr_review']).toBe('high');
-    expect(SLASH_COMMAND_EFFORT_MAP['/implement']).toBe('max');
+    expect(SLASH_COMMAND_EFFORT_MAP['/implement']).toBe('high');
     expect(SLASH_COMMAND_EFFORT_MAP['/patch']).toBe('high');
-    expect(SLASH_COMMAND_EFFORT_MAP['/review']).toBe('max');
+    expect(SLASH_COMMAND_EFFORT_MAP['/review']).toBe('high');
     expect(SLASH_COMMAND_EFFORT_MAP['/test']).toBeUndefined();
     expect(SLASH_COMMAND_EFFORT_MAP['/resolve_failed_test']).toBe('high');
     expect(SLASH_COMMAND_EFFORT_MAP['/resolve_failed_e2e_test']).toBe('high');
@@ -258,13 +258,13 @@ describe('SLASH_COMMAND_EFFORT_MAP_FAST', () => {
 
 describe('getEffortForCommand', () => {
   it('returns default effort when no issue body provided', () => {
-    expect(getEffortForCommand('/implement')).toBe('max');
+    expect(getEffortForCommand('/implement')).toBe('high');
     expect(getEffortForCommand('/classify_issue')).toBe('low');
     expect(getEffortForCommand('/test')).toBeUndefined();
   });
 
   it('returns default effort when body has no keywords', () => {
-    expect(getEffortForCommand('/implement', 'A regular issue body')).toBe('max');
+    expect(getEffortForCommand('/implement', 'A regular issue body')).toBe('high');
     expect(getEffortForCommand('/commit', 'No special keywords here')).toBe('medium');
   });
 
