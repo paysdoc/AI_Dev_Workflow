@@ -215,13 +215,13 @@ export type ReasoningEffort = 'low' | 'medium' | 'high' | 'max';
 /** Default reasoning effort per slash command. `undefined` means no flag is passed. */
 export const SLASH_COMMAND_EFFORT_MAP: Record<SlashCommand, ReasoningEffort | undefined> = {
   '/classify_issue': 'low',
-  '/feature': 'max',
+  '/feature': 'high',
   '/bug': 'high',
   '/chore': 'high',
   '/pr_review': 'high',
-  '/implement': 'max',
+  '/implement': 'high',
   '/patch': 'high',
-  '/review': 'max',
+  '/review': 'high',
   '/test': undefined,
   '/resolve_failed_test': 'high',
   '/resolve_failed_e2e_test': 'high',

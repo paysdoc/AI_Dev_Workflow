@@ -6,11 +6,11 @@
 
 ## Overview
 
-This feature adds per-command reasoning effort control to the ADW system by introducing a `SLASH_COMMAND_EFFORT_MAP` parallel to the existing `SLASH_COMMAND_MODEL_MAP`. Each slash command is now assigned an appropriate `--effort` level (`low`, `medium`, `high`, or `max`), enabling complex tasks like planning and reviewing to use maximum reasoning while simple tasks like branch naming use minimal effort for speed and cost efficiency.
+This feature adds per-command reasoning effort control to the ADW system by introducing a `SLASH_COMMAND_EFFORT_MAP` parallel to the existing `SLASH_COMMAND_MODEL_MAP`. Each slash command is now assigned an appropriate `--effort` level (`low`, `medium`, or `high`), enabling complex tasks like planning and reviewing to use maximum reasoning while simple tasks like branch naming use minimal effort for speed and cost efficiency.
 
 ## What Was Built
 
-- `ReasoningEffort` type alias (`'low' | 'medium' | 'high' | 'max'`)
+- `ReasoningEffort` type alias (`'low' | 'medium' | 'high'`)
 - `SLASH_COMMAND_EFFORT_MAP` — default reasoning effort per slash command (18 commands)
 - `SLASH_COMMAND_EFFORT_MAP_FAST` — cost-optimized effort map activated by `/fast` or `/cheap` in the issue body
 - `getEffortForCommand()` — getter function mirroring `getModelForCommand()` pattern
@@ -40,7 +40,7 @@ This feature adds per-command reasoning effort control to the ADW system by intr
 
 - The `effort` parameter is inserted between `model` and `onProgress` in both `runClaudeAgent()` and `runClaudeAgentWithCommand()` signatures
 - When `effort` is `undefined` (for `/test` and `/commit_cost`), no `--effort` flag is added to CLI args
-- Fast mode (triggered by `/fast` or `/cheap` in issue body) reduces effort for several commands: `/feature` max→high, `/commit` medium→low, `/pull_request` high→medium, `/document` high→medium, `/adw_init` high→medium
+- Fast mode (triggered by `/fast` or `/cheap` in issue body) reduces effort for several commands: `/commit` medium→low, `/pull_request` high→medium, `/document` high→medium, `/adw_init` high→medium
 - Effort level is logged to agent state and console alongside the model for observability
 
 ## How to Use
@@ -59,13 +59,13 @@ Effort levels are defined in `adws/core/config.ts`:
 | Command | Default Effort | Fast Effort |
 |---|---|---|
 | `/classify_issue` | `low` | `low` |
-| `/feature` | `max` | `high` |
+| `/feature` | `high` | `high` |
 | `/bug` | `high` | `high` |
 | `/chore` | `high` | `high` |
 | `/pr_review` | `high` | `high` |
-| `/implement` | `max` | `high` |
+| `/implement` | `high` | `high` |
 | `/patch` | `high` | `high` |
-| `/review` | `max` | `high` |
+| `/review` | `high` | `high` |
 | `/test` | `undefined` | `undefined` |
 | `/resolve_failed_test` | `high` | `high` |
 | `/resolve_failed_e2e_test` | `high` | `high` |

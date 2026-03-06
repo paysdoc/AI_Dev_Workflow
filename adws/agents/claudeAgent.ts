@@ -214,7 +214,7 @@ function delay(ms: number): Promise<void> {
  * @param agentName - Human-readable name for logging
  * @param outputFile - Path to write JSONL output
  * @param model - The model to use (default: 'sonnet')
- * @param effort - Optional reasoning effort level ('low' | 'medium' | 'high' | 'max')
+ * @param effort - Optional reasoning effort level ('low' | 'medium' | 'high')
  * @param onProgress - Optional callback for progress updates
  * @param statePath - Optional path to agent's state directory for state tracking
  * @param cwd - Optional working directory for the agent (defaults to process.cwd())
