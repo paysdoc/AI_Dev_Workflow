@@ -25,6 +25,14 @@
     - When using or modifying the `/commit_cost` slash command
     - When troubleshooting missing or uncommitted cost data after PR close
 
+- app_docs/feature-add-resoning-effort-4wna6z-reasoning-effort-slash-commands.md
+  - Conditions:
+    - When working with `SLASH_COMMAND_EFFORT_MAP` or reasoning effort configuration
+    - When modifying `runClaudeAgent()` or `runClaudeAgentWithCommand()` signatures
+    - When adding a new slash command that needs an effort level assigned
+    - When troubleshooting `--reasoning-effort` flag not being passed to Claude CLI
+    - When implementing fast/cheap mode effort overrides
+
 - app_docs/feature-automatically-ccommi-wdlirj-auto-commit-cost-on-pr.md
   - Conditions:
     - When working with cost CSV revert or deletion logic
