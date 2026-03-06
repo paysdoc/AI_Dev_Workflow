@@ -109,7 +109,7 @@ describe('runReviewAgent', () => {
       'Review',
       expect.stringContaining('review-agent.jsonl'),
       'opus',
-      'max',
+      'high',
       undefined,
       undefined,
       undefined
@@ -188,7 +188,7 @@ describe('runReviewAgent', () => {
       'Review',
       expect.any(String),
       'opus',
-      'max',
+      'high',
       undefined,
       '/state/path',
       '/worktree'
@@ -210,7 +210,7 @@ describe('runReviewAgent', () => {
       'Review',
       expect.any(String),
       'opus',
-      'max',
+      'high',
       undefined,
       undefined,
       undefined
@@ -232,7 +232,7 @@ describe('runReviewAgent', () => {
       'Review',
       expect.any(String),
       'opus',
-      'max',
+      'high',
       undefined,
       undefined,
       undefined
