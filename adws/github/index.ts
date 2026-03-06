@@ -65,7 +65,7 @@ export {
 } from './worktreeOperations';
 
 // Project Board API
-export { moveIssueToStatus, addPrToProject } from './projectBoardApi';
+export { moveIssueToStatus } from './projectBoardApi';
 
 // PR Comment Detector
 export {

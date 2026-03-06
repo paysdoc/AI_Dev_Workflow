@@ -13,7 +13,6 @@ import {
 import {
   postWorkflowComment,
   moveIssueToStatus,
-  addPrToProject,
 } from '../github';
 import {
   getPlanFilePath,
@@ -68,10 +67,6 @@ export async function executePRPhase(config: WorkflowConfig): Promise<{ costUsd:
   }
 
   await moveIssueToStatus(issueNumber, 'Review', repoInfo);
-
-  if (ctx.prUrl) {
-    await addPrToProject(ctx.prUrl, repoInfo);
-  }
 
   return { costUsd, modelUsage };
 }
