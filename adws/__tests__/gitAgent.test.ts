@@ -215,6 +215,7 @@ describe('runGenerateBranchNameAgent', () => {
       'Branch Name',
       expect.stringContaining('branchName-agent.jsonl'),
       'sonnet',
+      'low',
       undefined,
       undefined,
     );
@@ -238,14 +239,14 @@ describe('runGenerateBranchNameAgent', () => {
     await runGenerateBranchNameAgent('/feature', createMockIssue(), '/logs');
 
     const call = vi.mocked(runClaudeAgentWithCommand).mock.calls[0];
-    expect(call[7]).toBeUndefined();
+    expect(call[8]).toBeUndefined();
   });
 
   it('passes statePath when provided', async () => {
     await runGenerateBranchNameAgent('/feature', createMockIssue(), '/logs', '/state/path');
 
     const call = vi.mocked(runClaudeAgentWithCommand).mock.calls[0];
-    expect(call[6]).toBe('/state/path');
+    expect(call[7]).toBe('/state/path');
   });
 });
 
@@ -267,6 +268,7 @@ describe('runCommitAgent', () => {
       'Commit',
       expect.stringContaining('commit-agent.jsonl'),
       'sonnet',
+      'medium',
       undefined,
       undefined,
       undefined
@@ -291,13 +293,13 @@ describe('runCommitAgent', () => {
     await runCommitAgent('build-agent', '/feature', '{}', '/logs', undefined, '/worktree/path');
 
     const call = vi.mocked(runClaudeAgentWithCommand).mock.calls[0];
-    expect(call[7]).toBe('/worktree/path');
+    expect(call[8]).toBe('/worktree/path');
   });
 
   it('passes statePath when provided', async () => {
     await runCommitAgent('build-agent', '/feature', '{}', '/logs', '/state/path');
 
     const call = vi.mocked(runClaudeAgentWithCommand).mock.calls[0];
-    expect(call[6]).toBe('/state/path');
+    expect(call[7]).toBe('/state/path');
   });
 });

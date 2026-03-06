@@ -4,7 +4,7 @@
  */
 
 import * as path from 'path';
-import { log, getModelForCommand } from '../core';
+import { log, getModelForCommand, getEffortForCommand } from '../core';
 import { runClaudeAgentWithCommand, AgentResult } from './claudeAgent';
 
 /**
@@ -62,6 +62,7 @@ export async function runDocumentAgent(
     'Document',
     outputFile,
     getModelForCommand('/document', issueBody),
+    getEffortForCommand('/document', issueBody),
     undefined,
     statePath,
     cwd,

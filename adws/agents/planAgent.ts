@@ -5,7 +5,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { GitHubIssue, IssueClassSlashCommand, PRDetails, PRReviewComment, getModelForCommand, log } from '../core';
+import { GitHubIssue, IssueClassSlashCommand, PRDetails, PRReviewComment, getModelForCommand, getEffortForCommand, log } from '../core';
 import { runClaudeAgentWithCommand, AgentResult } from './claudeAgent';
 import { isAdwComment, extractActionableContent } from '../github/workflowCommentsBase';
 
@@ -225,7 +225,7 @@ export async function runPrReviewPlanAgent(
   const args = formatPrReviewContextAsArgs(prDetails, comments, existingPlanContent);
   const outputFile = path.join(logsDir, 'pr-review-plan-agent.jsonl');
 
-  return runClaudeAgentWithCommand('/pr_review', args, 'PR Review Plan', outputFile, getModelForCommand('/pr_review', issueBody), undefined, statePath, cwd);
+  return runClaudeAgentWithCommand('/pr_review', args, 'PR Review Plan', outputFile, getModelForCommand('/pr_review', issueBody), getEffortForCommand('/pr_review', issueBody), undefined, statePath, cwd);
 }
 
 /**
@@ -272,5 +272,5 @@ export async function runPlanAgent(
   const outputFile = path.join(logsDir, 'plan-agent.jsonl');
 
   // Use the issueType directly as the command (e.g., '/feature', '/bug', '/chore', '/pr_review')
-  return runClaudeAgentWithCommand(issueType, args, 'Plan', outputFile, getModelForCommand(issueType, issue.body), undefined, statePath, cwd);
+  return runClaudeAgentWithCommand(issueType, args, 'Plan', outputFile, getModelForCommand(issueType, issue.body), getEffortForCommand(issueType, issue.body), undefined, statePath, cwd);
 }

@@ -2,8 +2,11 @@ import { describe, it, expect } from 'vitest';
 import {
   SLASH_COMMAND_MODEL_MAP,
   SLASH_COMMAND_MODEL_MAP_FAST,
+  SLASH_COMMAND_EFFORT_MAP,
+  SLASH_COMMAND_EFFORT_MAP_FAST,
   isFastMode,
   getModelForCommand,
+  getEffortForCommand,
 } from '../core/config';
 
 describe('SLASH_COMMAND_MODEL_MAP', () => {
@@ -196,5 +199,93 @@ describe('getModelForCommand', () => {
       expect(getModelForCommand('/document')).toBe('sonnet');
       expect(getModelForCommand('/document', fastBody)).toBe('sonnet');
     });
+  });
+});
+
+describe('SLASH_COMMAND_EFFORT_MAP', () => {
+  it('has correct default effort values for all 18 commands', () => {
+    expect(SLASH_COMMAND_EFFORT_MAP['/classify_issue']).toBe('low');
+    expect(SLASH_COMMAND_EFFORT_MAP['/feature']).toBe('max');
+    expect(SLASH_COMMAND_EFFORT_MAP['/bug']).toBe('high');
+    expect(SLASH_COMMAND_EFFORT_MAP['/chore']).toBe('high');
+    expect(SLASH_COMMAND_EFFORT_MAP['/pr_review']).toBe('high');
+    expect(SLASH_COMMAND_EFFORT_MAP['/implement']).toBe('max');
+    expect(SLASH_COMMAND_EFFORT_MAP['/patch']).toBe('high');
+    expect(SLASH_COMMAND_EFFORT_MAP['/review']).toBe('max');
+    expect(SLASH_COMMAND_EFFORT_MAP['/test']).toBeUndefined();
+    expect(SLASH_COMMAND_EFFORT_MAP['/resolve_failed_test']).toBe('high');
+    expect(SLASH_COMMAND_EFFORT_MAP['/resolve_failed_e2e_test']).toBe('high');
+    expect(SLASH_COMMAND_EFFORT_MAP['/generate_branch_name']).toBe('low');
+    expect(SLASH_COMMAND_EFFORT_MAP['/commit']).toBe('medium');
+    expect(SLASH_COMMAND_EFFORT_MAP['/pull_request']).toBe('high');
+    expect(SLASH_COMMAND_EFFORT_MAP['/document']).toBe('high');
+    expect(SLASH_COMMAND_EFFORT_MAP['/commit_cost']).toBeUndefined();
+    expect(SLASH_COMMAND_EFFORT_MAP['/find_plan_file']).toBe('low');
+    expect(SLASH_COMMAND_EFFORT_MAP['/adw_init']).toBe('high');
+  });
+
+  it('has exactly 18 entries', () => {
+    expect(Object.keys(SLASH_COMMAND_EFFORT_MAP)).toHaveLength(18);
+  });
+});
+
+describe('SLASH_COMMAND_EFFORT_MAP_FAST', () => {
+  it('has correct fast effort values for all 18 commands', () => {
+    expect(SLASH_COMMAND_EFFORT_MAP_FAST['/classify_issue']).toBe('low');
+    expect(SLASH_COMMAND_EFFORT_MAP_FAST['/feature']).toBe('high');
+    expect(SLASH_COMMAND_EFFORT_MAP_FAST['/bug']).toBe('high');
+    expect(SLASH_COMMAND_EFFORT_MAP_FAST['/chore']).toBe('high');
+    expect(SLASH_COMMAND_EFFORT_MAP_FAST['/pr_review']).toBe('high');
+    expect(SLASH_COMMAND_EFFORT_MAP_FAST['/implement']).toBe('high');
+    expect(SLASH_COMMAND_EFFORT_MAP_FAST['/patch']).toBe('high');
+    expect(SLASH_COMMAND_EFFORT_MAP_FAST['/review']).toBe('high');
+    expect(SLASH_COMMAND_EFFORT_MAP_FAST['/test']).toBeUndefined();
+    expect(SLASH_COMMAND_EFFORT_MAP_FAST['/resolve_failed_test']).toBe('high');
+    expect(SLASH_COMMAND_EFFORT_MAP_FAST['/resolve_failed_e2e_test']).toBe('high');
+    expect(SLASH_COMMAND_EFFORT_MAP_FAST['/generate_branch_name']).toBe('low');
+    expect(SLASH_COMMAND_EFFORT_MAP_FAST['/commit']).toBe('low');
+    expect(SLASH_COMMAND_EFFORT_MAP_FAST['/pull_request']).toBe('medium');
+    expect(SLASH_COMMAND_EFFORT_MAP_FAST['/document']).toBe('medium');
+    expect(SLASH_COMMAND_EFFORT_MAP_FAST['/commit_cost']).toBeUndefined();
+    expect(SLASH_COMMAND_EFFORT_MAP_FAST['/find_plan_file']).toBe('low');
+    expect(SLASH_COMMAND_EFFORT_MAP_FAST['/adw_init']).toBe('medium');
+  });
+
+  it('has exactly 18 entries', () => {
+    expect(Object.keys(SLASH_COMMAND_EFFORT_MAP_FAST)).toHaveLength(18);
+  });
+});
+
+describe('getEffortForCommand', () => {
+  it('returns default effort when no issue body provided', () => {
+    expect(getEffortForCommand('/implement')).toBe('max');
+    expect(getEffortForCommand('/classify_issue')).toBe('low');
+    expect(getEffortForCommand('/test')).toBeUndefined();
+  });
+
+  it('returns default effort when body has no keywords', () => {
+    expect(getEffortForCommand('/implement', 'A regular issue body')).toBe('max');
+    expect(getEffortForCommand('/commit', 'No special keywords here')).toBe('medium');
+  });
+
+  it('returns fast effort when body contains /fast', () => {
+    const body = 'Please implement this /fast';
+    expect(getEffortForCommand('/implement', body)).toBe('high');
+    expect(getEffortForCommand('/commit', body)).toBe('low');
+    expect(getEffortForCommand('/feature', body)).toBe('high');
+  });
+
+  it('returns fast effort when body contains /cheap', () => {
+    const body = 'Use /cheap mode for this issue';
+    expect(getEffortForCommand('/implement', body)).toBe('high');
+    expect(getEffortForCommand('/pull_request', body)).toBe('medium');
+    expect(getEffortForCommand('/document', body)).toBe('medium');
+  });
+
+  it('returns undefined for haiku commands (/test, /commit_cost)', () => {
+    expect(getEffortForCommand('/test')).toBeUndefined();
+    expect(getEffortForCommand('/commit_cost')).toBeUndefined();
+    expect(getEffortForCommand('/test', '/fast')).toBeUndefined();
+    expect(getEffortForCommand('/commit_cost', '/fast')).toBeUndefined();
   });
 });

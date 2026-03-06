@@ -4,7 +4,7 @@
  */
 
 import * as path from 'path';
-import { GitHubIssue, PRDetails, log, getModelForCommand } from '../core';
+import { GitHubIssue, PRDetails, log, getModelForCommand, getEffortForCommand } from '../core';
 import { runClaudeAgentWithCommand, AgentResult, ProgressCallback } from './claudeAgent';
 
 /**
@@ -56,6 +56,7 @@ export async function runPrReviewBuildAgent(
   const args = formatPrReviewImplementArgs(prDetails, revisionPlan);
   const outputFile = path.join(logsDir, 'pr-review-build-agent.jsonl');
   const model = getModelForCommand('/implement', issueBody);
+  const effort = getEffortForCommand('/implement', issueBody);
 
   log('PR Review Build Agent starting with arguments:', 'info');
   log(`  PR: #${prDetails.number} - ${prDetails.title}`, 'info');
@@ -63,7 +64,7 @@ export async function runPrReviewBuildAgent(
   log(`  Revision plan length: ${revisionPlan.length} characters`, 'info');
   log(`  Model: ${model}`, 'info');
 
-  return runClaudeAgentWithCommand('/implement', args, 'PR Review Build', outputFile, model, onProgress, statePath, cwd);
+  return runClaudeAgentWithCommand('/implement', args, 'PR Review Build', outputFile, model, effort, onProgress, statePath, cwd);
 }
 
 /**
@@ -89,6 +90,7 @@ export async function runBuildAgent(
   const outputFile = path.join(logsDir, 'build-agent.jsonl');
 
   const model = getModelForCommand('/implement', issue.body);
+  const effort = getEffortForCommand('/implement', issue.body);
 
   // Log the arguments with which the agent is started
   log('Build Agent starting with arguments:', 'info');
@@ -98,5 +100,5 @@ export async function runBuildAgent(
   log(`  Plan content length: ${planContent.length} characters`, 'info');
   log(`  Model: ${model}`, 'info');
 
-  return runClaudeAgentWithCommand('/implement', args, 'Build', outputFile, model, onProgress, statePath, cwd);
+  return runClaudeAgentWithCommand('/implement', args, 'Build', outputFile, model, effort, onProgress, statePath, cwd);
 }

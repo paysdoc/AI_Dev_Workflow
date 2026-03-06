@@ -4,7 +4,7 @@
  */
 
 import * as path from 'path';
-import { GitHubIssue, IssueClassSlashCommand, log, getModelForCommand } from '../core';
+import { GitHubIssue, IssueClassSlashCommand, log, getModelForCommand, getEffortForCommand } from '../core';
 import { runClaudeAgentWithCommand, AgentResult } from './claudeAgent';
 
 /**
@@ -81,6 +81,7 @@ export async function runGenerateBranchNameAgent(
     'Branch Name',
     outputFile,
     getModelForCommand('/generate_branch_name', issue.body),
+    getEffortForCommand('/generate_branch_name', issue.body),
     undefined,
     statePath,
   );
@@ -145,6 +146,7 @@ export async function runCommitAgent(
     'Commit',
     outputFile,
     getModelForCommand('/commit', issueBody),
+    getEffortForCommand('/commit', issueBody),
     undefined,
     statePath,
     cwd

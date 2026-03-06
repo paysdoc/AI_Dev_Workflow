@@ -208,3 +208,64 @@ export function getModelForCommand(
     : SLASH_COMMAND_MODEL_MAP;
   return map[command];
 }
+
+/** Reasoning effort level for Claude CLI `--reasoning-effort` flag. */
+export type ReasoningEffort = 'low' | 'medium' | 'high' | 'max';
+
+/** Default reasoning effort per slash command. `undefined` means no flag is passed. */
+export const SLASH_COMMAND_EFFORT_MAP: Record<SlashCommand, ReasoningEffort | undefined> = {
+  '/classify_issue': 'low',
+  '/feature': 'max',
+  '/bug': 'high',
+  '/chore': 'high',
+  '/pr_review': 'high',
+  '/implement': 'max',
+  '/patch': 'high',
+  '/review': 'max',
+  '/test': undefined,
+  '/resolve_failed_test': 'high',
+  '/resolve_failed_e2e_test': 'high',
+  '/generate_branch_name': 'low',
+  '/commit': 'medium',
+  '/pull_request': 'high',
+  '/document': 'high',
+  '/commit_cost': undefined,
+  '/find_plan_file': 'low',
+  '/adw_init': 'high',
+};
+
+/** Cost-optimized reasoning effort map used when the issue body contains `/fast` or `/cheap`. */
+export const SLASH_COMMAND_EFFORT_MAP_FAST: Record<SlashCommand, ReasoningEffort | undefined> = {
+  '/classify_issue': 'low',
+  '/feature': 'high',
+  '/bug': 'high',
+  '/chore': 'high',
+  '/pr_review': 'high',
+  '/implement': 'high',
+  '/patch': 'high',
+  '/review': 'high',
+  '/test': undefined,
+  '/resolve_failed_test': 'high',
+  '/resolve_failed_e2e_test': 'high',
+  '/generate_branch_name': 'low',
+  '/commit': 'low',
+  '/pull_request': 'medium',
+  '/document': 'medium',
+  '/commit_cost': undefined,
+  '/find_plan_file': 'low',
+  '/adw_init': 'medium',
+};
+
+/**
+ * Returns the reasoning effort for a given slash command, selecting the fast/cheap map
+ * when the issue body contains `/fast` or `/cheap` keywords.
+ */
+export function getEffortForCommand(
+  command: SlashCommand,
+  issueBody?: string,
+): ReasoningEffort | undefined {
+  const map = isFastMode(issueBody)
+    ? SLASH_COMMAND_EFFORT_MAP_FAST
+    : SLASH_COMMAND_EFFORT_MAP;
+  return map[command];
+}

@@ -18,6 +18,7 @@ import {
   log,
   GitHubIssue,
   getModelForCommand,
+  getEffortForCommand,
 } from '.';
 
 /**
@@ -157,6 +158,7 @@ async function classifyWithIssueCommand(
     agentName,
     outputFile,
     getModelForCommand('/classify_issue', issueBody),
+    getEffortForCommand('/classify_issue', issueBody),
   );
 
   if (!result.success) {
