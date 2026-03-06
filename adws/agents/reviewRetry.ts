@@ -16,6 +16,7 @@ export interface ReviewRetryResult {
   totalRetries: number;
   blockerIssues: ReviewIssue[];
   modelUsage: ModelUsageMap;
+  reviewSummary?: string;
 }
 
 export interface ReviewRetryOptions {
@@ -27,7 +28,8 @@ export interface ReviewRetryOptions {
   branchName: string;
   issueType: IssueClassSlashCommand;
   issueContext: string;
-  onReviewFailed?: (attempt: number, maxAttempts: number) => void;
+  onReviewFailed?: (attempt: number, maxAttempts: number, blockerIssues: ReviewIssue[]) => void;
+  onPatchingIssue?: (issue: ReviewIssue) => void;
   cwd?: string;
   /** Optional application URL for the dev server (e.g. http://localhost:12345) */
   applicationUrl?: string;
@@ -44,11 +46,12 @@ export interface ReviewRetryOptions {
 export async function runReviewWithRetry(opts: ReviewRetryOptions): Promise<ReviewRetryResult> {
   const {
     adwId, specFile, logsDir, orchestratorStatePath: statePath,
-    maxRetries, branchName, issueType, issueContext, onReviewFailed, cwd, applicationUrl, issueBody,
+    maxRetries, branchName, issueType, issueContext, onReviewFailed, onPatchingIssue, cwd, applicationUrl, issueBody,
   } = opts;
 
   let retryCount = 0;
   let lastBlockerIssues: ReviewIssue[] = [];
+  let lastReviewSummary: string | undefined;
   const costState = { costUsd: 0, modelUsage: emptyModelUsageMap() };
 
   while (retryCount < maxRetries) {
@@ -60,10 +63,12 @@ export async function runReviewWithRetry(opts: ReviewRetryOptions): Promise<Revi
     );
     trackCost(reviewResult as AgentRunResult, costState, statePath);
 
+    lastReviewSummary = reviewResult.reviewResult?.reviewSummary;
+
     if (reviewResult.passed) {
       log('Review passed — no blocker issues found!', 'success');
       AgentStateManager.appendLog(statePath, 'Review passed');
-      return { passed: true, costUsd: costState.costUsd, totalRetries: retryCount, blockerIssues: [], modelUsage: costState.modelUsage };
+      return { passed: true, costUsd: costState.costUsd, totalRetries: retryCount, blockerIssues: [], modelUsage: costState.modelUsage, reviewSummary: lastReviewSummary };
     }
 
     lastBlockerIssues = reviewResult.blockerIssues;
@@ -72,6 +77,7 @@ export async function runReviewWithRetry(opts: ReviewRetryOptions): Promise<Revi
 
     // Patch each blocker issue
     for (const blockerIssue of lastBlockerIssues) {
+      onPatchingIssue?.(blockerIssue);
       log(`Patching blocker #${blockerIssue.reviewIssueNumber}: ${blockerIssue.issueDescription}`, 'info');
       AgentStateManager.appendLog(statePath, `Patching blocker #${blockerIssue.reviewIssueNumber}`);
 
@@ -91,11 +97,11 @@ export async function runReviewWithRetry(opts: ReviewRetryOptions): Promise<Revi
     log('Changes committed and pushed', 'success');
     AgentStateManager.appendLog(statePath, 'Patch changes committed and pushed');
 
-    onReviewFailed?.(retryCount + 1, maxRetries);
+    onReviewFailed?.(retryCount + 1, maxRetries, lastBlockerIssues);
     retryCount++;
   }
 
   log(`Review still has blockers after ${maxRetries} attempts`, 'error');
   AgentStateManager.appendLog(statePath, `Review still has blockers after ${maxRetries} attempts`);
-  return { passed: false, costUsd: costState.costUsd, totalRetries: retryCount, blockerIssues: lastBlockerIssues, modelUsage: costState.modelUsage };
+  return { passed: false, costUsd: costState.costUsd, totalRetries: retryCount, blockerIssues: lastBlockerIssues, modelUsage: costState.modelUsage, reviewSummary: lastReviewSummary };
 }

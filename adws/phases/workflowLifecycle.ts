@@ -411,6 +411,8 @@ export async function executeReviewPhase(config: WorkflowConfig): Promise<{
 
   const specFile = getPlanFilePath(issueNumber, worktreePath);
 
+  ctx.reviewAttempt = 1;
+  ctx.maxReviewAttempts = MAX_REVIEW_RETRY_ATTEMPTS;
   postWorkflowComment(issueNumber, 'review_running', ctx, repoInfo);
 
   const reviewResult = await runReviewWithRetry({
@@ -422,8 +424,14 @@ export async function executeReviewPhase(config: WorkflowConfig): Promise<{
     branchName,
     issueType,
     issueContext: JSON.stringify(issue),
-    onReviewFailed: (attempt, maxAttempts) => {
+    onReviewFailed: (attempt, maxAttempts, blockerIssues) => {
       log(`Review failed (attempt ${attempt}/${maxAttempts}), patching...`, 'info');
+      ctx.reviewIssues = blockerIssues;
+      ctx.reviewAttempt = attempt;
+      ctx.maxReviewAttempts = maxAttempts;
+    },
+    onPatchingIssue: (issue) => {
+      ctx.patchingIssue = issue;
       postWorkflowComment(issueNumber, 'review_patching', ctx, repoInfo);
     },
     cwd: worktreePath,
@@ -434,12 +442,15 @@ export async function executeReviewPhase(config: WorkflowConfig): Promise<{
   if (reviewResult.passed) {
     log('Review passed!', 'success');
     AgentStateManager.appendLog(orchestratorStatePath, 'Review passed');
+    ctx.reviewSummary = reviewResult.reviewSummary;
+    ctx.reviewIssues = reviewResult.blockerIssues;
     postWorkflowComment(issueNumber, 'review_passed', ctx, repoInfo);
   } else {
     const errorMsg = `Review failed after ${MAX_REVIEW_RETRY_ATTEMPTS} attempts with ${reviewResult.blockerIssues.length} remaining blocker(s)`;
     log(errorMsg, 'error');
     AgentStateManager.appendLog(orchestratorStatePath, errorMsg);
     ctx.errorMessage = errorMsg;
+    ctx.reviewIssues = reviewResult.blockerIssues;
     postWorkflowComment(issueNumber, 'review_failed', ctx, repoInfo);
 
     AgentStateManager.writeState(orchestratorStatePath, {

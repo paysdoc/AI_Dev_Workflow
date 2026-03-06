@@ -183,7 +183,7 @@ describe('runReviewWithRetry', () => {
 
     await runReviewWithRetry(createOptions({ onReviewFailed }));
 
-    expect(onReviewFailed).toHaveBeenCalledWith(1, 3);
+    expect(onReviewFailed).toHaveBeenCalledWith(1, 3, [blocker]);
   });
 
   it('accumulates cost across review and patch agents', async () => {
@@ -227,6 +227,51 @@ describe('runReviewWithRetry', () => {
     await runReviewWithRetry(createOptions());
 
     expect(runPatchAgent).toHaveBeenCalledTimes(3);
+  });
+
+  it('invokes onPatchingIssue callback for each blocker before patching', async () => {
+    const onPatchingIssue = vi.fn();
+    const blockers = [createBlockerIssue(1), createBlockerIssue(2)];
+    vi.mocked(runReviewAgent)
+      .mockResolvedValueOnce({
+        success: true, output: '{}', totalCostUsd: 0.3,
+        reviewResult: null, passed: false, blockerIssues: blockers,
+      })
+      .mockResolvedValueOnce({
+        success: true, output: '{}', totalCostUsd: 0.3,
+        reviewResult: { success: true, reviewSummary: 'Fixed', reviewIssues: [], screenshots: [] },
+        passed: true, blockerIssues: [],
+      });
+
+    await runReviewWithRetry(createOptions({ onPatchingIssue }));
+
+    expect(onPatchingIssue).toHaveBeenCalledTimes(2);
+    expect(onPatchingIssue).toHaveBeenCalledWith(blockers[0]);
+    expect(onPatchingIssue).toHaveBeenCalledWith(blockers[1]);
+  });
+
+  it('includes reviewSummary in result when review passes', async () => {
+    vi.mocked(runReviewAgent).mockResolvedValue({
+      success: true, output: '{}', totalCostUsd: 0.5,
+      reviewResult: { success: true, reviewSummary: 'Everything looks good', reviewIssues: [], screenshots: [] },
+      passed: true, blockerIssues: [],
+    });
+
+    const result = await runReviewWithRetry(createOptions());
+
+    expect(result.reviewSummary).toBe('Everything looks good');
+  });
+
+  it('includes reviewSummary in result when review fails after max retries', async () => {
+    vi.mocked(runReviewAgent).mockResolvedValue({
+      success: true, output: '{}', totalCostUsd: 0.2,
+      reviewResult: { success: false, reviewSummary: 'Issues remain', reviewIssues: [], screenshots: [] },
+      passed: false, blockerIssues: [createBlockerIssue(1)],
+    });
+
+    const result = await runReviewWithRetry(createOptions({ maxRetries: 1 }));
+
+    expect(result.reviewSummary).toBe('Issues remain');
   });
 
   it('threads applicationUrl through to runReviewAgent', async () => {

@@ -5,6 +5,7 @@
 import { WorkflowStage, IssueClassSlashCommand, log, type CostBreakdown, formatCostBreakdownMarkdown, type TokenUsageSnapshot } from '../core';
 import { commentOnIssue, type RepoInfo } from './githubApi';
 import { ADW_SIGNATURE, truncateText } from './workflowCommentsBase';
+import type { ReviewIssue } from '../agents/reviewAgent';
 
 /** Context information for issue workflow comments. */
 export interface WorkflowContext {
@@ -29,6 +30,16 @@ export interface WorkflowContext {
   tokenContinuationNumber?: number;
   /** Token usage snapshot at the time of interruption. */
   tokenUsage?: TokenUsageSnapshot;
+  /** Summary from the review agent. */
+  reviewSummary?: string;
+  /** Array of review issues found. */
+  reviewIssues?: ReviewIssue[];
+  /** The specific issue currently being patched. */
+  patchingIssue?: ReviewIssue;
+  /** Current review attempt number. */
+  reviewAttempt?: number;
+  /** Maximum review attempts. */
+  maxReviewAttempts?: number;
 }
 
 const issueTypeLabels: Record<IssueClassSlashCommand, string> = {
@@ -124,6 +135,47 @@ function formatTokenLimitRecoveryComment(ctx: WorkflowContext): string {
   return `## :warning: Token Limit Recovery\n\nThe build agent approached the token limit and was gracefully terminated. Spawning a continuation agent to resume implementation.\n\n**Continuation:** #${continuationNumber}${usageDetails}\n**ADW ID:** \`${ctx.adwId}\`${ADW_SIGNATURE}`;
 }
 
+function formatReviewIssueItem(issue: ReviewIssue): string {
+  return `- **#${issue.reviewIssueNumber}** [${issue.issueSeverity}]: ${issue.issueDescription}`;
+}
+
+function formatReviewRunningComment(ctx: WorkflowContext): string {
+  const attemptInfo = ctx.reviewAttempt && ctx.maxReviewAttempts
+    ? `\n**Attempt:** ${ctx.reviewAttempt}/${ctx.maxReviewAttempts}`
+    : '';
+  return `## :mag: Review Running\n\nRunning automated code review...${attemptInfo}\n\n**ADW ID:** \`${ctx.adwId}\`${ADW_SIGNATURE}`;
+}
+
+function formatReviewPassedComment(ctx: WorkflowContext): string {
+  const summary = ctx.reviewSummary
+    ? `\n\n${truncateText(ctx.reviewSummary, 2000)}`
+    : '';
+  const nonBlockers = (ctx.reviewIssues ?? []).filter(i => i.issueSeverity !== 'blocker');
+  const nonBlockerSection = nonBlockers.length > 0
+    ? `\n\n<details>\n<summary>Non-blocker issues (${nonBlockers.length})</summary>\n\n${nonBlockers.map(formatReviewIssueItem).join('\n')}\n\n</details>`
+    : '';
+  return `## :white_check_mark: Review Passed\n\nCode review passed with no blocker issues.${summary}${nonBlockerSection}\n\n**ADW ID:** \`${ctx.adwId}\`${ADW_SIGNATURE}`;
+}
+
+function formatReviewFailedComment(ctx: WorkflowContext): string {
+  const blockers = (ctx.reviewIssues ?? []).filter(i => i.issueSeverity === 'blocker');
+  const blockerList = blockers.length > 0
+    ? `\n\n**Remaining blocker issues (${blockers.length}):**\n${blockers.map(formatReviewIssueItem).join('\n')}`
+    : '';
+  return `## :x: Review Failed\n\nCode review failed with unresolved blocker issues.${blockerList}\n\n**ADW ID:** \`${ctx.adwId}\`${ADW_SIGNATURE}`;
+}
+
+function formatReviewPatchingComment(ctx: WorkflowContext): string {
+  const issue = ctx.patchingIssue;
+  if (!issue) {
+    return `## :wrench: Patching Review Issue\n\nApplying patch for review issue...\n\n**ADW ID:** \`${ctx.adwId}\`${ADW_SIGNATURE}`;
+  }
+  const resolution = issue.issueResolution
+    ? `\n**Proposed resolution:** ${truncateText(issue.issueResolution, 500)}`
+    : '';
+  return `## :wrench: Patching Review Issue\n\nPatching blocker **#${issue.reviewIssueNumber}**: ${truncateText(issue.issueDescription, 500)}${resolution}\n\n**ADW ID:** \`${ctx.adwId}\`${ADW_SIGNATURE}`;
+}
+
 /** Formats the resuming workflow comment. */
 export function formatResumingComment(ctx: WorkflowContext, resumeFrom: WorkflowStage): string {
   return `## :arrows_counterclockwise: ADW Workflow Resuming\n\nResuming automated development workflow from previous run.\n\n**Resuming from:** ${resumeFrom}\n**ADW ID:** \`${ctx.adwId}\`${ADW_SIGNATURE}`;
@@ -149,6 +201,10 @@ export function formatWorkflowComment(stage: WorkflowStage, ctx: WorkflowContext
     case 'completed': return formatCompletedComment(ctx);
     case 'error': return formatErrorComment(ctx);
     case 'token_limit_recovery': return formatTokenLimitRecoveryComment(ctx);
+    case 'review_running': return formatReviewRunningComment(ctx);
+    case 'review_passed': return formatReviewPassedComment(ctx);
+    case 'review_failed': return formatReviewFailedComment(ctx);
+    case 'review_patching': return formatReviewPatchingComment(ctx);
     default: return `## ADW Workflow Update\n\n**Stage:** ${stage}\n**ADW ID:** \`${ctx.adwId}\`${ADW_SIGNATURE}`;
   }
 }
