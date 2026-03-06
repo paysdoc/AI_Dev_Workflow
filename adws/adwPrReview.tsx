@@ -1,8 +1,8 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env bunx tsx
 /**
  * ADW PR Review - AI Developer Workflow for PR Review Comments
  *
- * Usage: npx tsx adws/adwPrReview.tsx <pr-number>
+ * Usage: bunx tsx adws/adwPrReview.tsx <pr-number>
  *
  * Workflow:
  * 1. Initialize: fetch PR details, detect unaddressed comments, setup worktree, initialize state
@@ -32,7 +32,7 @@ async function main(): Promise<void> {
   const repoInfo = targetRepo ? { owner: targetRepo.owner, repo: targetRepo.repo } : undefined;
 
   if (args.length < 1) {
-    console.error('Usage: npx tsx adws/adwPrReview.tsx <pr-number>');
+    console.error('Usage: bunx tsx adws/adwPrReview.tsx <pr-number>');
     process.exit(1);
   }
 

@@ -1,8 +1,8 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env bunx tsx
 /**
  * ADW Init - Initialize .adw/ Project Configuration
  *
- * Usage: npx tsx adws/adwInit.tsx <github-issueNumber> [adw-id] [--cwd <path>] [--issue-type <type>]
+ * Usage: bunx tsx adws/adwInit.tsx <github-issueNumber> [adw-id] [--cwd <path>] [--issue-type <type>]
  *
  * Workflow:
  * 1. Initialize: fetch issue, classify type, setup worktree, initialize state
@@ -31,7 +31,7 @@ import {
  * Prints usage information and exits.
  */
 function printUsageAndExit(): never {
-  console.error('Usage: npx tsx adws/adwInit.tsx <github-issueNumber> [adw-id] [--cwd <path>] [--issue-type <type>]');
+  console.error('Usage: bunx tsx adws/adwInit.tsx <github-issueNumber> [adw-id] [--cwd <path>] [--issue-type <type>]');
   console.error('');
   console.error('Options:');
   console.error('  --cwd <path>         Working directory for git operations (worktree path)');

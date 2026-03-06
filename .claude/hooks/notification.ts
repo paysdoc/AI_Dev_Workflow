@@ -1,4 +1,4 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env bunx tsx
 /**
  * Notification hook for Claude Code.
  * Logs notifications to session-specific JSON files.

@@ -46,19 +46,19 @@ describe('getDefaultProjectConfig', () => {
     expect(config.conditionalDocsMd).toBe('');
   });
 
-  it('returns npm-based default commands', () => {
+  it('returns bun-based default commands', () => {
     const config = getDefaultProjectConfig();
-    expect(config.commands.packageManager).toBe('npm');
-    expect(config.commands.installDeps).toBe('npm install');
-    expect(config.commands.runLinter).toBe('npm run lint');
-    expect(config.commands.typeCheck).toBe('npx tsc --noEmit');
-    expect(config.commands.runTests).toBe('npm test');
-    expect(config.commands.runBuild).toBe('npm run build');
-    expect(config.commands.startDevServer).toBe('npm run dev');
-    expect(config.commands.runE2ETests).toBe('npx playwright test');
-    expect(config.commands.additionalTypeChecks).toBe('npx tsc --noEmit -p adws/tsconfig.json');
-    expect(config.commands.libraryInstall).toBe('npm install');
-    expect(config.commands.scriptExecution).toBe('npx tsx <script name>');
+    expect(config.commands.packageManager).toBe('bun');
+    expect(config.commands.installDeps).toBe('bun install');
+    expect(config.commands.runLinter).toBe('bun run lint');
+    expect(config.commands.typeCheck).toBe('bunx tsc --noEmit');
+    expect(config.commands.runTests).toBe('bun run test');
+    expect(config.commands.runBuild).toBe('bun run build');
+    expect(config.commands.startDevServer).toBe('bun run dev');
+    expect(config.commands.runE2ETests).toBe('bunx playwright test');
+    expect(config.commands.additionalTypeChecks).toBe('bunx tsc --noEmit -p adws/tsconfig.json');
+    expect(config.commands.libraryInstall).toBe('bun install');
+    expect(config.commands.scriptExecution).toBe('bunx tsx <script name>');
   });
 });
 
@@ -184,9 +184,9 @@ describe('parseCommandsMd', () => {
     const config = parseCommandsMd(md);
     expect(config.runLinter).toBe('custom-lint');
     // All other fields should be defaults
-    expect(config.packageManager).toBe('npm');
-    expect(config.installDeps).toBe('npm install');
-    expect(config.runTests).toBe('npm test');
+    expect(config.packageManager).toBe('bun');
+    expect(config.installDeps).toBe('bun install');
+    expect(config.runTests).toBe('bun run test');
   });
 
   it('handles multi-line section content', () => {
@@ -300,7 +300,7 @@ describe('loadProjectConfig — edge cases', () => {
     const config = loadProjectConfig(tmpDir);
     expect(config.commands.runLinter).toBe('custom-lint');
     // Unknown sections are silently ignored; all other fields are defaults
-    expect(config.commands.packageManager).toBe('npm');
+    expect(config.commands.packageManager).toBe('bun');
   });
 
   it('treats .adw as a file (not directory) as missing', () => {

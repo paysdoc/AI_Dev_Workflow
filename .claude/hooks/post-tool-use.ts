@@ -1,4 +1,4 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env bunx tsx
 /**
  * Post-tool-use hook for Claude Code.
  * Logs tool usage to session-specific JSON files.

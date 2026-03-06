@@ -101,7 +101,7 @@ describe('testAgent', () => {
     it('uses haiku model for test execution', async () => {
       const mockSpawn = createMockSpawn({
         result: JSON.stringify([
-          { test_name: 'linting', passed: true, execution_command: 'npm run lint', test_purpose: 'Check linting' }
+          { test_name: 'linting', passed: true, execution_command: 'bun run lint', test_purpose: 'Check linting' }
         ])
       });
       (spawn as unknown as ReturnType<typeof vi.fn>).mockImplementation(mockSpawn);
@@ -117,8 +117,8 @@ describe('testAgent', () => {
 
     it('parses test results from JSON output', async () => {
       const testResults: TestResult[] = [
-        { test_name: 'linting', passed: true, execution_command: 'npm run lint', test_purpose: 'Check linting' },
-        { test_name: 'build', passed: false, execution_command: 'npm run build', test_purpose: 'Build app', error: 'Build failed' },
+        { test_name: 'linting', passed: true, execution_command: 'bun run lint', test_purpose: 'Check linting' },
+        { test_name: 'build', passed: false, execution_command: 'bun run build', test_purpose: 'Build app', error: 'Build failed' },
       ];
       const mockSpawn = createMockSpawn({ result: JSON.stringify(testResults) });
       (spawn as unknown as ReturnType<typeof vi.fn>).mockImplementation(mockSpawn);
@@ -133,8 +133,8 @@ describe('testAgent', () => {
 
     it('handles all tests passing', async () => {
       const testResults: TestResult[] = [
-        { test_name: 'linting', passed: true, execution_command: 'npm run lint', test_purpose: 'Check linting' },
-        { test_name: 'build', passed: true, execution_command: 'npm run build', test_purpose: 'Build app' },
+        { test_name: 'linting', passed: true, execution_command: 'bun run lint', test_purpose: 'Check linting' },
+        { test_name: 'build', passed: true, execution_command: 'bun run build', test_purpose: 'Build app' },
       ];
       const mockSpawn = createMockSpawn({ result: JSON.stringify(testResults) });
       (spawn as unknown as ReturnType<typeof vi.fn>).mockImplementation(mockSpawn);
@@ -147,7 +147,7 @@ describe('testAgent', () => {
   });
 
   describe('runPlaywrightE2ETests', () => {
-    it('spawns npx playwright test subprocess', async () => {
+    it('spawns bunx playwright test subprocess', async () => {
       const mockSpawn = createPlaywrightMockSpawn({ exitCode: 0, stdout: 'Running tests...' });
       (spawn as unknown as ReturnType<typeof vi.fn>).mockImplementation(mockSpawn);
 
@@ -161,7 +161,7 @@ describe('testAgent', () => {
       const result = await runPlaywrightE2ETests(testBaseDir);
 
       expect(spawn).toHaveBeenCalledWith(
-        'npx',
+        'bunx',
         ['playwright', 'test'],
         expect.objectContaining({ cwd: testBaseDir })
       );
@@ -263,7 +263,7 @@ describe('testAgent', () => {
       await runPlaywrightE2ETests(testBaseDir, 'http://localhost:34567');
 
       expect(spawn).toHaveBeenCalledWith(
-        'npx',
+        'bunx',
         ['playwright', 'test'],
         expect.objectContaining({
           cwd: testBaseDir,
@@ -299,7 +299,7 @@ describe('testAgent', () => {
       const failedTest: TestResult = {
         test_name: 'build',
         passed: false,
-        execution_command: 'npm run build',
+        execution_command: 'bun run build',
         test_purpose: 'Build app',
         error: 'Type error',
       };
@@ -320,7 +320,7 @@ describe('testAgent', () => {
       const failedTest: TestResult = {
         test_name: 'build',
         passed: false,
-        execution_command: 'npm run build',
+        execution_command: 'bun run build',
         test_purpose: 'Build app',
         error: 'Type error',
       };

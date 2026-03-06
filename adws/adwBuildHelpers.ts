@@ -13,7 +13,7 @@ import { log } from './core';
  * Prints usage information and exits.
  */
 export function printUsageAndExit(): never {
-  console.error('Usage: npx tsx adws/adwBuild.tsx <github-issueNumber> [adw-id] [--cwd <path>]');
+  console.error('Usage: bunx tsx adws/adwBuild.tsx <github-issueNumber> [adw-id] [--cwd <path>]');
   console.error('');
   console.error('Options:');
   console.error('  --cwd <path>       Working directory for git operations (worktree path)');

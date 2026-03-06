@@ -50,7 +50,7 @@ brew install gh              # macOS
 # Follow instructions at https://docs.anthropic.com/en/docs/claude-code
 
 # Node.js dependencies (tsx is included as a devDependency)
-npm install
+bun install
 
 # Authenticate GitHub
 gh auth login
@@ -60,35 +60,35 @@ gh auth login
 
 ```bash
 # Process a single issue manually (plan + build)
-npx tsx adws/adwPlanBuild.tsx 123
+bunx tsx adws/adwPlanBuild.tsx 123
 
 # Process a single issue with testing (plan + build + test)
-npx tsx adws/adwPlanBuildTest.tsx 123
+bunx tsx adws/adwPlanBuildTest.tsx 123
 
 # Process with review (plan + build + test + review)
-npx tsx adws/adwPlanBuildTestReview.tsx 123
+bunx tsx adws/adwPlanBuildTestReview.tsx 123
 
 # Process with review but skip tests (plan + build + review)
-npx tsx adws/adwPlanBuildReview.tsx 123
+bunx tsx adws/adwPlanBuildReview.tsx 123
 
 # Process with documentation (plan + build + document)
-npx tsx adws/adwPlanBuildDocument.tsx 123
+bunx tsx adws/adwPlanBuildDocument.tsx 123
 
 # Run complete SDLC (plan + build + test + review + document)
-npx tsx adws/adwSdlc.tsx 123
+bunx tsx adws/adwSdlc.tsx 123
 
 # Run individual phases
-npx tsx adws/adwPlan.tsx 123               # Planning phase only
-npx tsx adws/adwBuild.tsx 123 <adw-id>     # Build phase only (requires existing plan)
-npx tsx adws/adwTest.tsx [adw-id]          # Testing phase only
-npx tsx adws/adwDocument.tsx [adw-id]      # Documentation phase only
-npx tsx adws/adwPatch.tsx 123 [adw-id]     # Direct patch from issue
+bunx tsx adws/adwPlan.tsx 123               # Planning phase only
+bunx tsx adws/adwBuild.tsx 123 <adw-id>     # Build phase only (requires existing plan)
+bunx tsx adws/adwTest.tsx [adw-id]          # Testing phase only
+bunx tsx adws/adwDocument.tsx [adw-id]      # Documentation phase only
+bunx tsx adws/adwPatch.tsx 123 [adw-id]     # Direct patch from issue
 
 # Run continuous monitoring (polls every 20 seconds)
-npx tsx adws/triggers/trigger_cron.ts
+bunx tsx adws/triggers/trigger_cron.ts
 
 # Start webhook server (for instant GitHub events)
-npx tsx adws/triggers/trigger_webhook.ts
+bunx tsx adws/triggers/trigger_webhook.ts
 ```
 
 ## ADW Workflow Scripts
@@ -104,7 +104,7 @@ Creates implementation plans for GitHub issues.
 
 **Usage:**
 ```bash
-npx tsx adws/adwPlan.tsx <issueNumber> [adw-id]
+bunx tsx adws/adwPlan.tsx <issueNumber> [adw-id]
 ```
 
 **What it does:**
@@ -125,7 +125,7 @@ Implements solutions based on existing plans.
 **Usage:**
 ```bash
 # With explicit arguments
-npx tsx adws/adwBuild.tsx <issueNumber> <adw-id>
+bunx tsx adws/adwBuild.tsx <issueNumber> <adw-id>
 ```
 
 **What it does:**
@@ -139,7 +139,7 @@ Runs test suites and handles test failures.
 
 **Usage:**
 ```bash
-npx tsx adws/adwTest.tsx [adw-id] [--cwd <path>]
+bunx tsx adws/adwTest.tsx [adw-id] [--cwd <path>]
 ```
 
 **Requirements:**
@@ -162,7 +162,7 @@ Reviews implementation against specifications.
 
 **Usage:**
 ```bash
-npx tsx adws/adwPrReview.tsx <issueNumber> <adw-id> [--skip-resolution]
+bunx tsx adws/adwPrReview.tsx <issueNumber> <adw-id> [--skip-resolution]
 ```
 
 **What it does:**
@@ -179,7 +179,7 @@ Generates comprehensive documentation using the `/document` skill.
 
 **Usage:**
 ```bash
-npx tsx adws/adwDocument.tsx [adw-id] [--cwd <path>]
+bunx tsx adws/adwDocument.tsx [adw-id] [--cwd <path>]
 ```
 
 **Requirements:**
@@ -196,7 +196,7 @@ Creates direct patches from GitHub issues without a full plan cycle.
 
 **Usage:**
 ```bash
-npx tsx adws/adwPatch.tsx <issueNumber> [adw-id] [--cwd <path>]
+bunx tsx adws/adwPatch.tsx <issueNumber> [adw-id] [--cwd <path>]
 ```
 
 **Requirements:**
@@ -216,7 +216,7 @@ Combines planning and implementation phases.
 
 **Usage:**
 ```bash
-npx tsx adws/adwPlanBuild.tsx <issueNumber> [adw-id]
+bunx tsx adws/adwPlanBuild.tsx <issueNumber> [adw-id]
 ```
 
 #### adwPlanBuildTest.tsx - Plan + Build + Test
@@ -224,7 +224,7 @@ Full pipeline with automated testing.
 
 **Usage:**
 ```bash
-npx tsx adws/adwPlanBuildTest.tsx <issueNumber> [adw-id]
+bunx tsx adws/adwPlanBuildTest.tsx <issueNumber> [adw-id]
 ```
 
 **Phases:**
@@ -237,7 +237,7 @@ Complete pipeline with quality review.
 
 **Usage:**
 ```bash
-npx tsx adws/adwPlanBuildTestReview.tsx <issueNumber> [adw-id]
+bunx tsx adws/adwPlanBuildTestReview.tsx <issueNumber> [adw-id]
 ```
 
 **Phases:**
@@ -251,7 +251,7 @@ Pipeline with review but skipping tests.
 
 **Usage:**
 ```bash
-npx tsx adws/adwPlanBuildReview.tsx <issueNumber> [adw-id]
+bunx tsx adws/adwPlanBuildReview.tsx <issueNumber> [adw-id]
 ```
 
 **Phases:**
@@ -267,7 +267,7 @@ Fast documentation pipeline skipping tests and review.
 
 **Usage:**
 ```bash
-npx tsx adws/adwPlanBuildDocument.tsx <issueNumber> [adw-id]
+bunx tsx adws/adwPlanBuildDocument.tsx <issueNumber> [adw-id]
 ```
 
 **Phases:**
@@ -281,7 +281,7 @@ Full Software Development Life Cycle automation.
 
 **Usage:**
 ```bash
-npx tsx adws/adwSdlc.tsx <issueNumber> [adw-id]
+bunx tsx adws/adwSdlc.tsx <issueNumber> [adw-id]
 ```
 
 **Phases:**
@@ -305,7 +305,7 @@ Continuously monitors GitHub for triggers.
 
 **Usage:**
 ```bash
-npx tsx adws/triggers/trigger_cron.ts
+bunx tsx adws/triggers/trigger_cron.ts
 ```
 
 **Triggers on:**
@@ -324,7 +324,7 @@ Webhook server for instant GitHub event processing.
 
 **Usage:**
 ```bash
-npx tsx adws/triggers/trigger_webhook.ts
+bunx tsx adws/triggers/trigger_webhook.ts
 ```
 
 **Configuration:**
@@ -370,21 +370,21 @@ npx tsx adws/triggers/trigger_webhook.ts
 ### Process a bug report
 ```bash
 # User reports bug in issue #789
-npx tsx adws/adwPlanBuild.tsx 789
+bunx tsx adws/adwPlanBuild.tsx 789
 # ADW analyzes, creates fix, and opens PR
 ```
 
 ### Run full pipeline
 ```bash
 # Complete pipeline with testing
-npx tsx adws/adwPlanBuildTest.tsx 789
+bunx tsx adws/adwPlanBuildTest.tsx 789
 # ADW plans, builds, and tests the solution
 ```
 
 ### Run complete SDLC
 ```bash
 # Full SDLC with review and documentation
-npx tsx adws/adwSdlc.tsx 789
+bunx tsx adws/adwSdlc.tsx 789
 # ADW plans, builds, tests, reviews, and documents the solution
 # Creates comprehensive documentation in app_docs/
 ```
@@ -392,16 +392,16 @@ npx tsx adws/adwSdlc.tsx 789
 ### Run individual phases
 ```bash
 # Plan only
-npx tsx adws/adwPlan.tsx 789
+bunx tsx adws/adwPlan.tsx 789
 
 # Build based on existing plan
-npx tsx adws/adwBuild.tsx 789 <adw-id>
+bunx tsx adws/adwBuild.tsx 789 <adw-id>
 ```
 
 ### Enable automatic processing
 ```bash
 # Start cron monitoring
-npx tsx adws/triggers/trigger_cron.ts
+bunx tsx adws/triggers/trigger_cron.ts
 # New issues are processed automatically
 # Users can comment "adw" to trigger processing
 ```
@@ -409,7 +409,7 @@ npx tsx adws/triggers/trigger_cron.ts
 ### Deploy webhook for instant response
 ```bash
 # Start webhook server
-npx tsx adws/triggers/trigger_webhook.ts
+bunx tsx adws/triggers/trigger_webhook.ts
 # Configure in GitHub settings
 # Issues processed immediately on creation
 ```
@@ -450,7 +450,7 @@ cat agents/*/sdlc_planner/raw_output.jsonl | tail -1 | jq .
 ### Debug Mode
 ```bash
 export ADW_DEBUG=true
-npx tsx adws/adwPlanBuild.tsx 123  # Verbose output
+bunx tsx adws/adwPlanBuild.tsx 123  # Verbose output
 ```
 
 ## Configuration
@@ -479,12 +479,12 @@ The system uses a modular TypeScript architecture with composable scripts:
 Orchestrators combine phases internally, managing state between each step:
 ```bash
 # Use an orchestrator that combines the phases you need
-npx tsx adws/adwPlanBuild.tsx 123              # plan + build
-npx tsx adws/adwPlanBuildTest.tsx 123           # plan + build + test
-npx tsx adws/adwPlanBuildReview.tsx 123         # plan + build + review
-npx tsx adws/adwPlanBuildDocument.tsx 123       # plan + build + document
-npx tsx adws/adwPlanBuildTestReview.tsx 123     # plan + build + test + review
-npx tsx adws/adwSdlc.tsx 123                   # plan + build + test + review + document
+bunx tsx adws/adwPlanBuild.tsx 123              # plan + build
+bunx tsx adws/adwPlanBuildTest.tsx 123           # plan + build + test
+bunx tsx adws/adwPlanBuildReview.tsx 123         # plan + build + review
+bunx tsx adws/adwPlanBuildDocument.tsx 123       # plan + build + document
+bunx tsx adws/adwPlanBuildTestReview.tsx 123     # plan + build + test + review
+bunx tsx adws/adwSdlc.tsx 123                   # plan + build + test + review + document
 ```
 
 ### Workflow Output Structure
@@ -599,18 +599,18 @@ Target repositories can provide project-specific configuration in a `.adw/` dire
 **Configuration Files:**
 
 - **`.adw/commands.md`** — Maps command placeholders to actual implementations using markdown headings:
-  - `## Package Manager` — e.g., `npm`, `pip`, `cargo`
-  - `## Install Dependencies` — e.g., `npm install`, `pip install -r requirements.txt`
-  - `## Run Linter` — e.g., `npm run lint`, `ruff check .`
-  - `## Type Check` — e.g., `npx tsc --noEmit`, `mypy .`
+  - `## Package Manager` — e.g., `bun`, `pip`, `cargo`
+  - `## Install Dependencies` — e.g., `bun install`, `pip install -r requirements.txt`
+  - `## Run Linter` — e.g., `bun run lint`, `ruff check .`
+  - `## Type Check` — e.g., `bunx tsc --noEmit`, `mypy .`
   - `## Additional Type Checks` — Extra type checking commands
-  - `## Run Tests` — e.g., `npm test`, `pytest`
-  - `## Run Build` — e.g., `npm run build`, `cargo build`
-  - `## Start Dev Server` — e.g., `npm run dev`, `python manage.py runserver`
+  - `## Run Tests` — e.g., `bun run test`, `pytest`
+  - `## Run Build` — e.g., `bun run build`, `cargo build`
+  - `## Start Dev Server` — e.g., `bun run dev`, `python manage.py runserver`
   - `## Prepare App` — Multi-step app preparation instructions (supports `{PORT}` placeholder)
-  - `## Run E2E Tests` — e.g., `npx playwright test`, `cypress run`
-  - `## Library Install Command` — e.g., `npm install`, `pip install`
-  - `## Script Execution` — e.g., `npx tsx`, `python`
+  - `## Run E2E Tests` — e.g., `bunx playwright test`, `cypress run`
+  - `## Library Install Command` — e.g., `bun install`, `pip install`
+  - `## Script Execution` — e.g., `bunx tsx`, `python`
 
 - **`.adw/project.md`** — Describes the project structure and context:
   - `## Project Overview` — Brief description of the project, language, and framework
@@ -627,10 +627,10 @@ Use the `/adw_init` command (via `adwInit.tsx`) to automatically generate `.adw/
 
 ```bash
 # Initialize .adw/ config for issue #42
-npx tsx adws/adwInit.tsx 42
+bunx tsx adws/adwInit.tsx 42
 
 # Initialize for a target repo
-npx tsx adws/adwInit.tsx 42 --target-repo https://github.com/owner/repo
+bunx tsx adws/adwInit.tsx 42 --target-repo https://github.com/owner/repo
 ```
 
 The init command analyzes the target codebase to detect language, framework, package manager, and project conventions, then generates all three config files.
@@ -639,7 +639,7 @@ The init command analyzes the target codebase to detect language, framework, pac
 
 | Project Type | Package Manager | Run Tests | Start Dev Server |
 |---|---|---|---|
-| Node.js/Next.js | `npm` | `npm test` | `npm run dev` |
+| Node.js/Next.js | `bun` | `bun run test` | `bun run dev` |
 | Python/Django | `pip` | `pytest` | `python manage.py runserver` |
 | Rust | `cargo` | `cargo test` | `cargo run` |
 | Go | `go` | `go test ./...` | `go run .` |

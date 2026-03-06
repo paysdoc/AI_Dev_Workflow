@@ -1,8 +1,8 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env bunx tsx
 /**
  * ADW Patch - AI Developer Workflow Direct Patch
  *
- * Usage: npx tsx adws/adwPatch.tsx <issueNumber> [adw-id] [--cwd <path>]
+ * Usage: bunx tsx adws/adwPatch.tsx <issueNumber> [adw-id] [--cwd <path>]
  *
  * Workflow:
  * 1. Fetch GitHub issue
@@ -49,7 +49,7 @@ import {
  * Prints usage information and exits.
  */
 function printUsageAndExit(): never {
-  console.error('Usage: npx tsx adws/adwPatch.tsx <issueNumber> [adw-id] [--cwd <path>]');
+  console.error('Usage: bunx tsx adws/adwPatch.tsx <issueNumber> [adw-id] [--cwd <path>]');
   console.error('');
   console.error('Creates a direct patch from a GitHub issue without a full plan cycle.');
   console.error('');

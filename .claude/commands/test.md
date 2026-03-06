@@ -39,38 +39,38 @@ TEST_COMMAND_TIMEOUT: 5 minutes
 ### Linting & Type Checks
 
 1. **Linting**
-   - Command: Read `## Run Linter` from `.adw/commands.md`. Default: `npm run lint`
+   - Command: Read `## Run Linter` from `.adw/commands.md`. Default: `bun run lint`
    - test_name: "linting"
    - test_purpose: "Validates code quality for both application and ADW code, identifies unused imports, style violations, and potential bugs"
 
 2. **TypeScript Type Check**
-   - Command: Read `## Type Check` from `.adw/commands.md`. Default: `npx tsc --noEmit`
+   - Command: Read `## Type Check` from `.adw/commands.md`. Default: `bunx tsc --noEmit`
    - test_name: "typescript_check"
    - test_purpose: "Validates TypeScript type correctness for the application without generating output files, catching type errors, missing imports, and incorrect function signatures"
 
 3. **ADW TypeScript Check**
-   - Command: Read `## Additional Type Checks` from `.adw/commands.md`. Default: `npx tsc --noEmit -p adws/tsconfig.json`
+   - Command: Read `## Additional Type Checks` from `.adw/commands.md`. Default: `bunx tsc --noEmit -p adws/tsconfig.json`
    - test_name: "adw_typescript_check"
    - test_purpose: "Validates TypeScript type correctness for ADW scripts without generating output files"
 
 ### ADW Tests
 
 4. **ADW Tests**
-   - Command: Read `## Run Tests` from `.adw/commands.md` and append the ADW test subset path. Default: `npm test -- --run adws/__tests__`
+   - Command: Read `## Run Tests` from `.adw/commands.md` and append the ADW test subset path. Default: `bun run test -- --run adws/__tests__`
    - test_name: "adw_tests"
    - test_purpose: "Validates all ADW (AI Developer Workflow) script functionality including workflow execution and utilities"
 
 ### Build
 
 5. **Build**
-   - Command: Read `## Run Build` from `.adw/commands.md`. Default: `npm run build`
+   - Command: Read `## Run Build` from `.adw/commands.md`. Default: `bun run build`
    - test_name: "app_build"
    - test_purpose: "Validates the complete build process including bundling, asset optimization, and production compilation"
 
 ### Application Tests
 
 6. **Application Tests**
-   - Command: Read `## Run Tests` from `.adw/commands.md` and append the application test subset path. Default: `npm test -- --run src`
+   - Command: Read `## Run Tests` from `.adw/commands.md` and append the application test subset path. Default: `bun run test -- --run src`
    - test_name: "app_tests"
    - test_purpose: "Validates application-level test suites under the src/ directory in the target repository"
    - Condition: Only execute if a `src/` directory exists in the working directory. If `src/` does not exist, skip this test and mark it as passed with a note indicating it was skipped (no src/ directory found).
@@ -105,14 +105,14 @@ TEST_COMMAND_TIMEOUT: 5 minutes
   {
     "test_name": "app_build",
     "passed": false,
-    "execution_command": "npm run build",
+    "execution_command": "bun run build",
     "test_purpose": "Validates the complete build process including bundling, asset optimization, and production compilation",
     "error": "TS2345: Argument of type 'string' is not assignable to parameter of type 'number'"
   },
   {
     "test_name": "adw_tests",
     "passed": true,
-    "execution_command": "npm test -- --run adws/__tests__",
+    "execution_command": "bun run test -- --run adws/__tests__",
     "test_purpose": "Validates all ADW (AI Developer Workflow) script functionality including workflow execution and utilities"
   }
 ]

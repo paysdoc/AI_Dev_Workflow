@@ -25,7 +25,7 @@ Example: if $1=31 and $2=init-adw-env-4qugib, the filename is `issue-31-adw-init
 - IMPORTANT: Be surgical with your bug fix, solve the bug at hand and don't fall off track.
 - IMPORTANT: We want the minimal number of changes that will fix and address the bug.
 - Don't use decorators. Keep it simple.
-- If you need a new library, read `.adw/commands.md` for the library install command (under `## Library Install Command`). If `.adw/commands.md` does not exist, use `npm install`. Be sure to report it in the `Notes` section of the `Plan Format`.
+- If you need a new library, read `.adw/commands.md` for the library install command (under `## Library Install Command`). If `.adw/commands.md` does not exist, use `bun install`. Be sure to report it in the `Notes` section of the `Plan Format`.
 - IMPORTANT: If the bug affects the UI or user interactions:
   - Add a task in the `Step by Step Tasks` section to create a separate E2E test file in `e2e-tests/test_<descriptiveName>.md` based on examples in `.claude/commands/e2e-examples/` that validates the bug is fixed with zero regressions. Be specific about the steps to validate the bug is fixed and include screenshots if possible.
   - Add E2E test validation to your Validation Commands section
@@ -93,9 +93,9 @@ Execute every command to validate the bug is fixed with zero regressions.
 <list commands you'll use to validate with 100% confidence the bug is fixed with zero regressions. every command must execute without errors so be specific about what you want to run to validate the bug is fixed with zero regressions. Include commands to reproduce the bug before and after the fix.>
 <If you created an E2E test, include the following validation step: "Read .claude/commands/test_e2e.md`, then read and execute your new E2E `e2e-tests/test_<descriptive_name>.md` test file to validate this functionality works.">
 Read `.adw/commands.md` from the current working directory for the project-specific validation commands. If `.adw/commands.md` does not exist, use these defaults:
-- `npm run lint` - Run linter to check for code quality issues
-- `npm run build` - Build the application to verify no build errors
-- `npm test` - Run tests to validate the bug is fixed with zero regressions
+- `bun run lint` - Run linter to check for code quality issues
+- `bun run build` - Build the application to verify no build errors
+- `bun run test` - Run tests to validate the bug is fixed with zero regressions
 
 ## Notes
 - IMPORTANT: If a `guidelines/` directory exists in the target repository, strictly adhere to those coding guidelines. If necessary, refactor existing code to meet the coding guidelines as part of fixing the bug.

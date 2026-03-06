@@ -21,7 +21,7 @@ gh auth login
 ### 2. Install Dependencies
 
 ```bash
-npm install
+bun install
 ```
 
 ### 3. Configure Environment
@@ -44,13 +44,13 @@ Then edit `.env` with your values:
 
 ```bash
 # Process a single issue (plan + build)
-npx tsx adws/adwPlanBuild.tsx 123
+bunx tsx adws/adwPlanBuild.tsx 123
 
 # Full pipeline with testing
-npx tsx adws/adwPlanBuildTest.tsx 123
+bunx tsx adws/adwPlanBuildTest.tsx 123
 
 # Complete SDLC (plan + build + test + review + document)
-npx tsx adws/adwSdlc.tsx 123
+bunx tsx adws/adwSdlc.tsx 123
 ```
 
 See [adws/README.md](adws/README.md) for full usage documentation.
@@ -58,8 +58,8 @@ See [adws/README.md](adws/README.md) for full usage documentation.
 ## Testing
 
 ```bash
-npm test              # Run tests once
-npm run test:watch    # Run tests in watch mode
+bun run test          # Run tests once
+bun run test:watch    # Run tests in watch mode
 ```
 
 ## Project Structure

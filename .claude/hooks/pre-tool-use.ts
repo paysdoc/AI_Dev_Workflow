@@ -1,4 +1,4 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env bunx tsx
 /**
  * Pre-tool-use hook for Claude Code.
  * Blocks dangerous commands and .env file access.
