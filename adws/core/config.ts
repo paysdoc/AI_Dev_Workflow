@@ -209,7 +209,7 @@ export function getModelForCommand(
   return map[command];
 }
 
-/** Reasoning effort level for Claude CLI `--reasoning-effort` flag. */
+/** Reasoning effort level for Claude CLI `--effort` flag. */
 export type ReasoningEffort = 'low' | 'medium' | 'high' | 'max';
 
 /** Default reasoning effort per slash command. `undefined` means no flag is passed. */

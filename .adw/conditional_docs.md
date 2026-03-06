@@ -30,7 +30,7 @@
     - When working with `SLASH_COMMAND_EFFORT_MAP` or reasoning effort configuration
     - When modifying `runClaudeAgent()` or `runClaudeAgentWithCommand()` signatures
     - When adding a new slash command that needs an effort level assigned
-    - When troubleshooting `--reasoning-effort` flag not being passed to Claude CLI
+    - When troubleshooting `--effort` flag not being passed to Claude CLI
     - When implementing fast/cheap mode effort overrides
 
 - app_docs/feature-automatically-ccommi-wdlirj-auto-commit-cost-on-pr.md

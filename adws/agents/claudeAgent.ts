@@ -243,7 +243,7 @@ export async function runClaudeAgent(
     '--dangerously-skip-permissions',
     '--output-format', 'stream-json',
     '--model', model,
-    ...(effort ? ['--reasoning-effort', effort] : []),
+    ...(effort ? ['--effort', effort] : []),
   ];
 
   const resolvedPath = resolveClaudeCodePath();
@@ -327,7 +327,7 @@ export async function runClaudeAgentWithCommand(
     '--dangerously-skip-permissions',
     '--output-format', 'stream-json',
     '--model', model,
-    ...(effort ? ['--reasoning-effort', effort] : []),
+    ...(effort ? ['--effort', effort] : []),
     prompt
   ];
 
