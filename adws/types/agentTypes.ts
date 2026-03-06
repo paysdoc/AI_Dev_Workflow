@@ -94,6 +94,9 @@ export type AgentIdentifier =
   | 'test-resolver-agent'
   // Review workflow agents
   | 'review-agent'
+  | 'review-agent-1'
+  | 'review-agent-2'
+  | 'review-agent-3'
   | 'patch-agent'
   // Git workflow agents
   | 'branchName-agent'

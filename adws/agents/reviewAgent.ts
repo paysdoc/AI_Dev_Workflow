@@ -67,6 +67,8 @@ export function formatReviewArgs(
  * @param statePath - Optional path to agent's state directory for state tracking
  * @param cwd - Optional working directory for the agent (defaults to process.cwd())
  * @param applicationUrl - Optional application URL for the dev server (e.g. http://localhost:12345)
+ * @param issueBody - Optional issue body for fast/cheap model selection
+ * @param agentIndex - Optional index for parallel execution (1, 2, 3, etc.)
  */
 export async function runReviewAgent(
   adwId: string,
@@ -76,16 +78,18 @@ export async function runReviewAgent(
   cwd?: string,
   applicationUrl?: string,
   issueBody?: string,
+  agentIndex?: number,
 ): Promise<ReviewAgentResult> {
-  const agentName = 'review_agent';
-  const outputFile = path.join(logsDir, 'review-agent.jsonl');
+  const agentName = agentIndex !== undefined ? `review_agent_${agentIndex}` : 'review_agent';
+  const logFileName = agentIndex !== undefined ? `review-agent-${agentIndex}.jsonl` : 'review-agent.jsonl';
+  const outputFile = path.join(logsDir, logFileName);
 
   const args = formatReviewArgs(adwId, specFile, agentName, applicationUrl);
 
   const result = await runClaudeAgentWithCommand(
     '/review',
     args,
-    'Review',
+    `Review${agentIndex !== undefined ? ` #${agentIndex}` : ''}`,
     outputFile,
     getModelForCommand('/review', issueBody),
     getEffortForCommand('/review', issueBody),

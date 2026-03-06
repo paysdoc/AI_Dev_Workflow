@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { runReviewWithRetry, ReviewRetryOptions } from '../agents/reviewRetry';
-import { ReviewIssue } from '../agents/reviewAgent';
+import { runReviewWithRetry, ReviewRetryOptions, REVIEW_AGENT_COUNT } from '../agents/reviewRetry';
+import { ReviewIssue, ReviewAgentResult } from '../agents/reviewAgent';
 
 vi.mock('../agents/reviewAgent', () => ({
   runReviewAgent: vi.fn(),
@@ -61,6 +61,28 @@ function createBlockerIssue(num: number): ReviewIssue {
   };
 }
 
+function createPassingResult(): ReviewAgentResult {
+  return {
+    success: true, output: '{}', totalCostUsd: 0.5,
+    reviewResult: { success: true, reviewSummary: 'All good', reviewIssues: [], screenshots: [] },
+    passed: true, blockerIssues: [],
+  };
+}
+
+function createFailingResult(blockers: ReviewIssue[]): ReviewAgentResult {
+  return {
+    success: true, output: '{}', totalCostUsd: 0.5,
+    reviewResult: {
+      success: false,
+      reviewSummary: 'Issues found',
+      reviewIssues: blockers,
+      screenshots: [],
+    },
+    passed: false,
+    blockerIssues: blockers,
+  };
+}
+
 function createOptions(overrides: Partial<ReviewRetryOptions> = {}): ReviewRetryOptions {
   return {
     adwId: 'adw-123',
@@ -75,20 +97,44 @@ function createOptions(overrides: Partial<ReviewRetryOptions> = {}): ReviewRetry
   };
 }
 
+/** Mock all agents for one iteration to return passing results. */
+function mockPassingIteration(): void {
+  for (let i = 0; i < REVIEW_AGENT_COUNT; i++) {
+    vi.mocked(runReviewAgent).mockResolvedValueOnce(createPassingResult());
+  }
+}
+
+/** Mock all agents for one iteration where one agent finds a blocker. */
+function mockFailingIteration(blockers: ReviewIssue[]): void {
+  // First agent finds blockers, rest pass
+  vi.mocked(runReviewAgent).mockResolvedValueOnce(createFailingResult(blockers));
+  for (let i = 1; i < REVIEW_AGENT_COUNT; i++) {
+    vi.mocked(runReviewAgent).mockResolvedValueOnce(createPassingResult());
+  }
+}
+
+/** Mock all agents for one iteration where all agents find the same blocker. */
+function mockAllAgentsFailIteration(blockers: ReviewIssue[]): void {
+  for (let i = 0; i < REVIEW_AGENT_COUNT; i++) {
+    vi.mocked(runReviewAgent).mockResolvedValueOnce(createFailingResult(blockers));
+  }
+}
+
 describe('runReviewWithRetry', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('returns success when review passes on first attempt', async () => {
-    vi.mocked(runReviewAgent).mockResolvedValue({
-      success: true,
-      output: '{}',
-      totalCostUsd: 0.5,
-      reviewResult: { success: true, reviewSummary: 'All good', reviewIssues: [], screenshots: [] },
-      passed: true,
-      blockerIssues: [],
-    });
+  it('launches REVIEW_AGENT_COUNT agents per iteration', async () => {
+    mockPassingIteration();
+
+    await runReviewWithRetry(createOptions());
+
+    expect(runReviewAgent).toHaveBeenCalledTimes(REVIEW_AGENT_COUNT);
+  });
+
+  it('returns success when all agents pass on first attempt', async () => {
+    mockPassingIteration();
 
     const result = await runReviewWithRetry(createOptions());
 
@@ -102,17 +148,8 @@ describe('runReviewWithRetry', () => {
 
   it('patches blockers, commits, pushes, then passes on second attempt', async () => {
     const blocker = createBlockerIssue(1);
-    vi.mocked(runReviewAgent)
-      .mockResolvedValueOnce({
-        success: true, output: '{}', totalCostUsd: 0.5,
-        reviewResult: null, passed: false,
-        blockerIssues: [blocker],
-      })
-      .mockResolvedValueOnce({
-        success: true, output: '{}', totalCostUsd: 0.3,
-        reviewResult: { success: true, reviewSummary: 'Fixed', reviewIssues: [], screenshots: [] },
-        passed: true, blockerIssues: [],
-      });
+    mockFailingIteration([blocker]);
+    mockPassingIteration();
 
     const result = await runReviewWithRetry(createOptions());
 
@@ -125,18 +162,16 @@ describe('runReviewWithRetry', () => {
 
   it('returns failure when max retries exceeded', async () => {
     const blocker = createBlockerIssue(1);
-    vi.mocked(runReviewAgent).mockResolvedValue({
-      success: true, output: '{}', totalCostUsd: 0.2,
-      reviewResult: null, passed: false,
-      blockerIssues: [blocker],
-    });
+    mockAllAgentsFailIteration([blocker]);
+    mockAllAgentsFailIteration([blocker]);
 
     const result = await runReviewWithRetry(createOptions({ maxRetries: 2 }));
 
     expect(result.passed).toBe(false);
     expect(result.totalRetries).toBe(2);
     expect(result.blockerIssues).toHaveLength(1);
-    expect(runReviewAgent).toHaveBeenCalledTimes(2);
+    // 2 iterations * REVIEW_AGENT_COUNT agents each
+    expect(runReviewAgent).toHaveBeenCalledTimes(2 * REVIEW_AGENT_COUNT);
     expect(runPatchAgent).toHaveBeenCalledTimes(2);
     expect(runCommitAgent).toHaveBeenCalledTimes(2);
     expect(pushBranch).toHaveBeenCalledTimes(2);
@@ -144,20 +179,9 @@ describe('runReviewWithRetry', () => {
 
   it('calls commit and push after each patch round (before next review)', async () => {
     const blocker = createBlockerIssue(1);
-    vi.mocked(runReviewAgent)
-      .mockResolvedValueOnce({
-        success: true, output: '{}', totalCostUsd: 0.3,
-        reviewResult: null, passed: false, blockerIssues: [blocker],
-      })
-      .mockResolvedValueOnce({
-        success: true, output: '{}', totalCostUsd: 0.3,
-        reviewResult: null, passed: false, blockerIssues: [blocker],
-      })
-      .mockResolvedValueOnce({
-        success: true, output: '{}', totalCostUsd: 0.3,
-        reviewResult: { success: true, reviewSummary: 'Fixed', reviewIssues: [], screenshots: [] },
-        passed: true, blockerIssues: [],
-      });
+    mockFailingIteration([blocker]);
+    mockFailingIteration([blocker]);
+    mockPassingIteration();
 
     await runReviewWithRetry(createOptions({ maxRetries: 3 }));
 
@@ -170,16 +194,8 @@ describe('runReviewWithRetry', () => {
   it('invokes onReviewFailed callback with correct attempt/maxAttempts', async () => {
     const onReviewFailed = vi.fn();
     const blocker = createBlockerIssue(1);
-    vi.mocked(runReviewAgent)
-      .mockResolvedValueOnce({
-        success: true, output: '{}', totalCostUsd: 0.3,
-        reviewResult: null, passed: false, blockerIssues: [blocker],
-      })
-      .mockResolvedValueOnce({
-        success: true, output: '{}', totalCostUsd: 0.3,
-        reviewResult: { success: true, reviewSummary: 'Fixed', reviewIssues: [], screenshots: [] },
-        passed: true, blockerIssues: [],
-      });
+    mockFailingIteration([blocker]);
+    mockPassingIteration();
 
     await runReviewWithRetry(createOptions({ onReviewFailed }));
 
@@ -188,16 +204,8 @@ describe('runReviewWithRetry', () => {
 
   it('accumulates cost across review and patch agents', async () => {
     const blocker = createBlockerIssue(1);
-    vi.mocked(runReviewAgent)
-      .mockResolvedValueOnce({
-        success: true, output: '{}', totalCostUsd: 0.5,
-        reviewResult: null, passed: false, blockerIssues: [blocker],
-      })
-      .mockResolvedValueOnce({
-        success: true, output: '{}', totalCostUsd: 0.3,
-        reviewResult: { success: true, reviewSummary: 'Fixed', reviewIssues: [], screenshots: [] },
-        passed: true, blockerIssues: [],
-      });
+    mockFailingIteration([blocker]);
+    mockPassingIteration();
 
     vi.mocked(runPatchAgent).mockResolvedValue({
       success: true,
@@ -211,41 +219,86 @@ describe('runReviewWithRetry', () => {
     expect(result.costUsd).toBe(0);
   });
 
-  it('patches multiple blocker issues in a single round', async () => {
+  it('patches multiple blocker issues from merged results in a single round', async () => {
     const blockers = [createBlockerIssue(1), createBlockerIssue(2), createBlockerIssue(3)];
-    vi.mocked(runReviewAgent)
-      .mockResolvedValueOnce({
-        success: true, output: '{}', totalCostUsd: 0.5,
-        reviewResult: null, passed: false, blockerIssues: blockers,
-      })
-      .mockResolvedValueOnce({
-        success: true, output: '{}', totalCostUsd: 0.3,
-        reviewResult: { success: true, reviewSummary: 'Fixed', reviewIssues: [], screenshots: [] },
-        passed: true, blockerIssues: [],
-      });
+    // All 3 agents find all 3 blockers (deduplication will merge them)
+    mockAllAgentsFailIteration(blockers);
+    mockPassingIteration();
 
     await runReviewWithRetry(createOptions());
 
+    // 3 unique blockers after dedup, so 3 patch calls
     expect(runPatchAgent).toHaveBeenCalledTimes(3);
   });
 
   it('threads applicationUrl through to runReviewAgent', async () => {
-    vi.mocked(runReviewAgent).mockResolvedValue({
-      success: true, output: '{}', totalCostUsd: 0.5,
-      reviewResult: { success: true, reviewSummary: 'All good', reviewIssues: [], screenshots: [] },
-      passed: true, blockerIssues: [],
-    });
+    mockPassingIteration();
 
     await runReviewWithRetry(createOptions({ applicationUrl: 'http://localhost:45678' }));
 
-    expect(runReviewAgent).toHaveBeenCalledWith(
-      'adw-123',
-      'specs/issue-1-plan.md',
-      '/logs',
-      expect.any(String),
-      undefined,
-      'http://localhost:45678',
-      undefined,
-    );
+    // Each of the 3 agents should receive the applicationUrl
+    expect(runReviewAgent).toHaveBeenCalledTimes(REVIEW_AGENT_COUNT);
+    for (let i = 0; i < REVIEW_AGENT_COUNT; i++) {
+      expect(vi.mocked(runReviewAgent).mock.calls[i]).toEqual(
+        expect.arrayContaining(['http://localhost:45678'])
+      );
+    }
+  });
+
+  it('passes unique agentIndex to each parallel agent', async () => {
+    mockPassingIteration();
+
+    await runReviewWithRetry(createOptions());
+
+    // Verify each agent got a unique index (1, 2, 3)
+    for (let i = 0; i < REVIEW_AGENT_COUNT; i++) {
+      const call = vi.mocked(runReviewAgent).mock.calls[i];
+      // agentIndex is the 8th argument (index 7)
+      expect(call[7]).toBe(i + 1);
+    }
+  });
+
+  it('collects allScreenshots across iterations', async () => {
+    const blocker = createBlockerIssue(1);
+    // First iteration: one agent finds a blocker and has screenshots
+    vi.mocked(runReviewAgent).mockResolvedValueOnce({
+      success: true, output: '{}', totalCostUsd: 0.5,
+      reviewResult: {
+        success: false, reviewSummary: 'Issues found',
+        reviewIssues: [blocker], screenshots: ['/path/iter1.png'],
+      },
+      passed: false, blockerIssues: [blocker],
+    });
+    for (let i = 1; i < REVIEW_AGENT_COUNT; i++) {
+      vi.mocked(runReviewAgent).mockResolvedValueOnce(createPassingResult());
+    }
+    // Second iteration: all pass with screenshots
+    for (let i = 0; i < REVIEW_AGENT_COUNT; i++) {
+      vi.mocked(runReviewAgent).mockResolvedValueOnce({
+        success: true, output: '{}', totalCostUsd: 0.3,
+        reviewResult: {
+          success: true, reviewSummary: 'Fixed',
+          reviewIssues: [], screenshots: [`/path/iter2_${i}.png`],
+        },
+        passed: true, blockerIssues: [],
+      });
+    }
+
+    const result = await runReviewWithRetry(createOptions());
+
+    expect(result.passed).toBe(true);
+    expect(result.allScreenshots).toContain('/path/iter1.png');
+    expect(result.allScreenshots).toContain('/path/iter2_0.png');
+  });
+
+  it('collects allSummaries across iterations', async () => {
+    const blocker = createBlockerIssue(1);
+    mockFailingIteration([blocker]);
+    mockPassingIteration();
+
+    const result = await runReviewWithRetry(createOptions());
+
+    // Summaries from both iterations (REVIEW_AGENT_COUNT agents each)
+    expect(result.allSummaries.length).toBeGreaterThanOrEqual(REVIEW_AGENT_COUNT);
   });
 });

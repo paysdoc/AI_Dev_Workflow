@@ -72,11 +72,14 @@ export {
   formatPatchArgs,
 } from './patchAgent';
 
-// Review Retry (review-patch retry loop)
+// Review Retry (multi-agent review-patch retry loop)
 export {
   runReviewWithRetry,
+  mergeReviewResults,
+  REVIEW_AGENT_COUNT,
   type ReviewRetryResult,
   type ReviewRetryOptions,
+  type MergedReviewResult,
 } from './reviewRetry';
 
 // PR Agent

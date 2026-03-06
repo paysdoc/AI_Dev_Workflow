@@ -238,6 +238,50 @@ describe('runReviewAgent', () => {
       undefined
     );
   });
+
+  it('uses indexed agent name and log file when agentIndex is provided', async () => {
+    vi.mocked(runClaudeAgentWithCommand).mockResolvedValue({
+      success: true,
+      output: JSON.stringify(createReviewResult()),
+      totalCostUsd: 0.5,
+    });
+
+    await runReviewAgent('adw-123', 'specs/plan.md', '/logs', undefined, undefined, undefined, undefined, 2);
+
+    expect(runClaudeAgentWithCommand).toHaveBeenCalledWith(
+      '/review',
+      ['adw-123', 'specs/plan.md', 'review_agent_2'],
+      'Review #2',
+      expect.stringContaining('review-agent-2.jsonl'),
+      'opus',
+      'high',
+      undefined,
+      undefined,
+      undefined
+    );
+  });
+
+  it('uses default agent name when agentIndex is not provided', async () => {
+    vi.mocked(runClaudeAgentWithCommand).mockResolvedValue({
+      success: true,
+      output: JSON.stringify(createReviewResult()),
+      totalCostUsd: 0.5,
+    });
+
+    await runReviewAgent('adw-123', 'specs/plan.md', '/logs');
+
+    expect(runClaudeAgentWithCommand).toHaveBeenCalledWith(
+      '/review',
+      ['adw-123', 'specs/plan.md', 'review_agent'],
+      'Review',
+      expect.stringContaining('review-agent.jsonl'),
+      'opus',
+      'high',
+      undefined,
+      undefined,
+      undefined
+    );
+  });
 });
 
 describe('formatReviewArgs', () => {

@@ -1322,6 +1322,8 @@ describe('executeReviewPhase', () => {
       totalRetries: 0,
       blockerIssues: [],
       modelUsage: {},
+      allScreenshots: [],
+      allSummaries: [],
     });
     const config = createWorkflowConfig();
 
@@ -1347,6 +1349,8 @@ describe('executeReviewPhase', () => {
       totalRetries: 0,
       blockerIssues: [],
       modelUsage: {},
+      allScreenshots: [],
+      allSummaries: [],
     });
     const config = createWorkflowConfig();
 
@@ -1369,6 +1373,8 @@ describe('executeReviewPhase', () => {
         issueSeverity: 'blocker',
       }],
       modelUsage: {},
+      allScreenshots: [],
+      allSummaries: [],
     });
     const config = createWorkflowConfig();
 
@@ -1385,6 +1391,8 @@ describe('executeReviewPhase', () => {
       totalRetries: 1,
       blockerIssues: [],
       modelUsage: {},
+      allScreenshots: [],
+      allSummaries: [],
     });
     const config = createWorkflowConfig();
 
