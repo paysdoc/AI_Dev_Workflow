@@ -10,14 +10,14 @@
 
 import * as http from 'http';
 import { spawn } from 'child_process';
-import { log, PullRequestWebhookPayload, allocateRandomPort, isPortAvailable, getTargetRepoWorkspacePath, setTargetRepo, revertIssueCostFile, rebuildProjectCostCsv } from '../core';
+import { log, PullRequestWebhookPayload, allocateRandomPort, isPortAvailable, getTargetRepoWorkspacePath, setTargetRepo, revertIssueCostFile, rebuildProjectCostCsv, getProjectCsvPath } from '../core';
 import { fetchExchangeRates } from '../core/costReport';
 import { commitAndPushCostFiles, pullLatestCostBranch } from '../github/gitOperations';
 import { isActionableComment, isClearComment, isAdwRunningForIssue, truncateText, getRepoInfoFromPayload } from '../github';
 import { clearIssueComments } from '../adwClearComments';
 import { removeWorktreesForIssue } from '../github/worktreeOperations';
 import { classifyIssueForTrigger, getWorkflowScript } from '../core/issueClassifier';
-import { handlePullRequestEvent } from './webhookHandlers';
+import { handlePullRequestEvent, wasMergedViaPR } from './webhookHandlers';
 import { validateWebhookSignature } from './webhookSignature';
 import {
   checkEnvironmentVariables,
@@ -113,6 +113,32 @@ function extractTargetRepoArgs(body: Record<string, unknown>): string[] {
   if (!fullName || !cloneUrl) return [];
 
   return ['--target-repo', fullName, '--clone-url', cloneUrl];
+}
+
+/**
+ * Handles cost CSV revert when an issue is closed.
+ * Skips revert if the issue was already handled by a merged PR.
+ * Scopes commits to only the specific deleted files + total CSV.
+ */
+export async function handleIssueCostRevert(issueNumber: number, repoName: string): Promise<void> {
+  if (wasMergedViaPR(issueNumber)) {
+    log(`Skipping cost revert for issue #${issueNumber}: already handled by merged PR`);
+    return;
+  }
+
+  try { pullLatestCostBranch(); } catch (error) {
+    log(`Failed to pull latest before cost revert: ${error}`, 'error');
+  }
+
+  const reverted = revertIssueCostFile(process.cwd(), repoName, issueNumber);
+  if (reverted.length > 0) {
+    const rates = await fetchExchangeRates(['EUR']);
+    const eurRate = rates['EUR'] ?? 0;
+    rebuildProjectCostCsv(process.cwd(), repoName, eurRate);
+    const totalCsvPath = getProjectCsvPath(repoName);
+    commitAndPushCostFiles({ repoName, paths: [...reverted, totalCsvPath] });
+    log(`Reverted cost CSV for issue #${issueNumber} in ${repoName}`, 'success');
+  }
 }
 
 const server = http.createServer((req, res) => {
@@ -355,22 +381,9 @@ const server = http.createServer((req, res) => {
       // Revert cost CSV for the closed issue (async, fire-and-forget)
       const closedRepoName = closedRepository?.name as string | undefined;
       if (closedRepoName) {
-        try { pullLatestCostBranch(); } catch (error) {
-          log(`Failed to pull latest before cost revert: ${error}`, 'error');
-        }
-        const reverted = revertIssueCostFile(process.cwd(), closedRepoName, issueNumber);
-        if (reverted) {
-          fetchExchangeRates(['EUR'])
-            .then((rates) => {
-              const eurRate = rates['EUR'] ?? 0;
-              rebuildProjectCostCsv(process.cwd(), closedRepoName, eurRate);
-              commitAndPushCostFiles({ repoName: closedRepoName });
-              log(`Reverted cost CSV for issue #${issueNumber} in ${closedRepoName}`, 'success');
-            })
-            .catch((error) => {
-              log(`Failed to rebuild/commit after cost revert for issue #${issueNumber}: ${error}`, 'error');
-            });
-        }
+        handleIssueCostRevert(issueNumber, closedRepoName).catch((error) => {
+          log(`Failed to revert cost CSV for issue #${issueNumber}: ${error}`, 'error');
+        });
       }
 
       jsonResponse(res, 200, { status: 'worktrees_cleaned', issue: issueNumber, removed });
