@@ -107,7 +107,6 @@ export {
   writeIssueCostCsv,
   parseIssueCostTotal,
   rebuildProjectCostCsv,
-  revertIssueCostFile,
 } from './costCsvWriter';
 
 // Project configuration

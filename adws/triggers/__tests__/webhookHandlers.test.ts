@@ -34,7 +34,6 @@ vi.mock('../../core/targetRepoManager', () => ({
 
 vi.mock('../../core/costCsvWriter', () => ({
   rebuildProjectCostCsv: vi.fn(),
-  revertIssueCostFile: vi.fn(() => ['projects/repo/42-add-login.csv']),
   getIssueCsvPath: vi.fn(),
   getProjectCsvPath: vi.fn((repoName: string) => `projects/${repoName}/total-cost.csv`),
   formatIssueCostCsv: vi.fn(),
@@ -58,7 +57,7 @@ import { removeWorktree } from '../../github/worktreeOperations';
 import { deleteRemoteBranch, commitAndPushCostFiles, pullLatestCostBranch } from '../../github/gitOperations';
 import { closeIssue } from '../../github/githubApi';
 import { hasTargetRepo } from '../../core/targetRepoRegistry';
-import { rebuildProjectCostCsv, revertIssueCostFile } from '../../core/costCsvWriter';
+import { rebuildProjectCostCsv } from '../../core/costCsvWriter';
 import { fetchExchangeRates } from '../../core/costReport';
 import {
   handlePullRequestEvent,
@@ -223,7 +222,7 @@ describe('handlePullRequestEvent', () => {
     expect(callOrder).toEqual(['pull', 'rebuild', 'commit']);
   });
 
-  it('calls revertIssueCostFile, rebuildProjectCostCsv, and commitAndPushCostFiles for closed-without-merge PRs', async () => {
+  it('calls rebuildProjectCostCsv and commitAndPushCostFiles for closed-without-merge PRs', async () => {
     const payload = createPayload({
       pull_request: {
         number: 1,
@@ -237,16 +236,14 @@ describe('handlePullRequestEvent', () => {
       },
     });
     const callOrder: string[] = [];
-    vi.mocked(revertIssueCostFile).mockImplementation(() => { callOrder.push('revert'); return ['projects/repo/42-add-login.csv']; });
     vi.mocked(rebuildProjectCostCsv).mockImplementation(() => { callOrder.push('rebuild'); });
     vi.mocked(commitAndPushCostFiles).mockImplementation(() => { callOrder.push('commit'); return true; });
 
     await handlePullRequestEvent(payload);
 
-    expect(revertIssueCostFile).toHaveBeenCalledWith(process.cwd(), 'repo', 42);
     expect(rebuildProjectCostCsv).toHaveBeenCalledWith(process.cwd(), 'repo', 0.92);
     expect(commitAndPushCostFiles).toHaveBeenCalledWith({ repoName: 'repo' });
-    expect(callOrder).toEqual(['revert', 'rebuild', 'commit']);
+    expect(callOrder).toEqual(['rebuild', 'commit']);
   });
 
   it('does not call commitAndPushCostFiles when PR action is not closed', async () => {
@@ -302,7 +299,6 @@ describe('handlePullRequestEvent', () => {
 
   it('falls back to branch name for issue extraction when PR body has no Implements #N (closed without merge)', async () => {
     vi.mocked(fetchExchangeRates).mockResolvedValue({ EUR: 0.92 });
-    vi.mocked(revertIssueCostFile).mockReturnValue(['projects/repo/55-some-fix.csv']);
     vi.mocked(commitAndPushCostFiles).mockReturnValue(true);
     const payload = createPayload({
       pull_request: {
@@ -319,7 +315,7 @@ describe('handlePullRequestEvent', () => {
 
     const result = await handlePullRequestEvent(payload);
 
-    expect(revertIssueCostFile).toHaveBeenCalledWith(process.cwd(), 'repo', 55);
+    expect(rebuildProjectCostCsv).toHaveBeenCalledWith(process.cwd(), 'repo', 0.92);
     expect(commitAndPushCostFiles).toHaveBeenCalledWith({ repoName: 'repo' });
     expect(wasMergedViaPR(55)).toBe(false);
     expect(result).toEqual({ status: 'closed', issue: 55 });

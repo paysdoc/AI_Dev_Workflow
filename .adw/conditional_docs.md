@@ -35,10 +35,10 @@
 
 - app_docs/feature-automatically-ccommi-wdlirj-auto-commit-cost-on-pr.md
   - Conditions:
-    - When working with cost CSV revert or deletion logic
-    - When modifying `revertIssueCostFile` or `rebuildProjectCostCsv` in `adws/core/costCsvWriter.ts`
+    - When working with cost CSV rebuild or commit logic
+    - When modifying `rebuildProjectCostCsv` in `adws/core/costCsvWriter.ts`
     - When working on PR close or issue close webhook handlers
-    - When troubleshooting cost CSVs that were not reverted after a PR was rejected or closed
+    - When troubleshooting cost CSVs that were not rebuilt after a PR was rejected or closed
     - When implementing cost tracking changes that affect the merged vs closed-without-merge flow
 
 - app_docs/feature-add-issue-comments-f-6vrgn2-review-issue-comments.md

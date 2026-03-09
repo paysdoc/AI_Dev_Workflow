@@ -6,7 +6,7 @@
  * - extractIssueNumberFromPRBody
  */
 
-import { log, PullRequestWebhookPayload, rebuildProjectCostCsv, revertIssueCostFile } from '../core';
+import { log, PullRequestWebhookPayload, rebuildProjectCostCsv } from '../core';
 import { fetchExchangeRates } from '../core/costReport';
 import { costCommitQueue } from '../core/costCommitQueue';
 import type { RepoInfo } from '../github/githubApi';
@@ -154,7 +154,6 @@ export async function handlePullRequestEvent(payload: PullRequestWebhookPayload)
         commitAndPushCostFiles({ repoName });
         recordMergedPrIssue(issueNumber);
       } else {
-        revertIssueCostFile(process.cwd(), repoName, issueNumber);
         rebuildProjectCostCsv(process.cwd(), repoName, eurRate);
         commitAndPushCostFiles({ repoName });
       }
