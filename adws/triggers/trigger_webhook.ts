@@ -9,8 +9,9 @@
  */
 
 import * as http from 'http';
-import { log, PullRequestWebhookPayload, allocateRandomPort, isPortAvailable, getTargetRepoWorkspacePath, setTargetRepo, revertIssueCostFile, rebuildProjectCostCsv, getProjectCsvPath } from '../core';
+import { log, PullRequestWebhookPayload, allocateRandomPort, isPortAvailable, getTargetRepoWorkspacePath, setTargetRepo, revertIssueCostFile, rebuildProjectCostCsv } from '../core';
 import { fetchExchangeRates } from '../core/costReport';
+import { costCommitQueue } from '../core/costCommitQueue';
 import { commitAndPushCostFiles, pullLatestCostBranch } from '../github/gitOperations';
 import { isActionableComment, isClearComment, isAdwRunningForIssue, truncateText, getRepoInfoFromPayload } from '../github';
 import { clearIssueComments } from '../adwClearComments';
@@ -58,14 +59,16 @@ function extractTargetRepoArgs(body: Record<string, unknown>): string[] {
 
 export async function handleIssueCostRevert(issueNumber: number, repoName: string): Promise<void> {
   if (wasMergedViaPR(issueNumber)) { log(`Skipping cost revert for issue #${issueNumber}: already handled by merged PR`); return; }
-  try { pullLatestCostBranch(); } catch (error) { log(`Failed to pull latest before cost revert: ${error}`, 'error'); }
-  const reverted = revertIssueCostFile(process.cwd(), repoName, issueNumber);
-  if (reverted.length > 0) {
-    const rates = await fetchExchangeRates(['EUR']);
-    rebuildProjectCostCsv(process.cwd(), repoName, rates['EUR'] ?? 0);
-    commitAndPushCostFiles({ repoName, paths: [...reverted, getProjectCsvPath(repoName)] });
-    log(`Reverted cost CSV for issue #${issueNumber} in ${repoName}`, 'success');
-  }
+  await costCommitQueue.enqueue(async () => {
+    try { pullLatestCostBranch(); } catch (error) { log(`Failed to pull latest before cost revert: ${error}`, 'error'); }
+    const reverted = revertIssueCostFile(process.cwd(), repoName, issueNumber);
+    if (reverted.length > 0) {
+      const rates = await fetchExchangeRates(['EUR']);
+      rebuildProjectCostCsv(process.cwd(), repoName, rates['EUR'] ?? 0);
+      commitAndPushCostFiles({ repoName });
+      log(`Reverted cost CSV for issue #${issueNumber} in ${repoName}`, 'success');
+    }
+  });
 }
 
 const server = http.createServer((req, res) => {

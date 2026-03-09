@@ -6,8 +6,9 @@
  * - extractIssueNumberFromPRBody
  */
 
-import { log, PullRequestWebhookPayload, rebuildProjectCostCsv, revertIssueCostFile, getProjectCsvPath } from '../core';
+import { log, PullRequestWebhookPayload, rebuildProjectCostCsv, revertIssueCostFile } from '../core';
 import { fetchExchangeRates } from '../core/costReport';
+import { costCommitQueue } from '../core/costCommitQueue';
 import type { RepoInfo } from '../github/githubApi';
 import { closeIssue, formatIssueClosureComment } from '../github/githubApi';
 import { removeWorktree } from '../github/worktreeOperations';
@@ -19,22 +20,18 @@ import { getTargetRepoWorkspacePath } from '../core/targetRepoManager';
  * Tracks issue numbers whose PRs were merged and cost CSV was already committed.
  * Prevents the issue close handler from reverting cost CSV files that were
  * intentionally kept by the PR merge handler.
+ * Entries persist for the lifetime of the process (negligible memory per entry).
  */
 const mergedPrIssues = new Set<number>();
 
-/** Records that an issue's cost CSV was handled by a merged PR. Entry expires after 60 seconds. */
+/** Records that an issue's cost CSV was handled by a merged PR. */
 export function recordMergedPrIssue(issueNumber: number): void {
   mergedPrIssues.add(issueNumber);
-  setTimeout(() => mergedPrIssues.delete(issueNumber), 60_000);
 }
 
-/** Checks and consumes whether an issue was already handled by a merged PR. */
+/** Checks whether an issue was already handled by a merged PR. */
 export function wasMergedViaPR(issueNumber: number): boolean {
-  const exists = mergedPrIssues.has(issueNumber);
-  if (exists) {
-    mergedPrIssues.delete(issueNumber);
-  }
-  return exists;
+  return mergedPrIssues.has(issueNumber);
 }
 
 /** Clears the merged PR issue tracking set. Exported for test cleanup only. */
@@ -144,26 +141,24 @@ export async function handlePullRequestEvent(payload: PullRequestWebhookPayload)
     log(`Issue #${issueNumber} was already closed or could not be closed`);
   }
 
-  // Handle cost CSV files based on whether PR was merged or closed without merge
+  // Handle cost CSV files through serialized queue
   try {
-    pullLatestCostBranch();
     const repoName = repository.name;
-    const rates = await fetchExchangeRates(['EUR']);
-    const eurRate = rates['EUR'] ?? 0;
+    await costCommitQueue.enqueue(async () => {
+      pullLatestCostBranch();
+      const rates = await fetchExchangeRates(['EUR']);
+      const eurRate = rates['EUR'] ?? 0;
 
-    if (wasMerged) {
-      // PR merged: rebuild total-cost.csv then commit issue + total
-      rebuildProjectCostCsv(process.cwd(), repoName, eurRate);
-      const issueTitle = pull_request.title;
-      commitAndPushCostFiles({ repoName, issueNumber, issueTitle });
-      recordMergedPrIssue(issueNumber);
-    } else {
-      // PR closed without merge: revert issue cost, rebuild total, commit only affected files
-      const deletedPaths = revertIssueCostFile(process.cwd(), repoName, issueNumber);
-      rebuildProjectCostCsv(process.cwd(), repoName, eurRate);
-      const totalCsvPath = getProjectCsvPath(repoName);
-      commitAndPushCostFiles({ repoName, paths: [...deletedPaths, totalCsvPath] });
-    }
+      if (wasMerged) {
+        rebuildProjectCostCsv(process.cwd(), repoName, eurRate);
+        commitAndPushCostFiles({ repoName });
+        recordMergedPrIssue(issueNumber);
+      } else {
+        revertIssueCostFile(process.cwd(), repoName, issueNumber);
+        rebuildProjectCostCsv(process.cwd(), repoName, eurRate);
+        commitAndPushCostFiles({ repoName });
+      }
+    });
   } catch (error) {
     log(`Failed to handle cost CSV files for issue #${issueNumber}: ${error}`, 'error');
   }

@@ -48,6 +48,12 @@ vi.mock('../../core/costReport', () => ({
   fetchExchangeRates: vi.fn(() => Promise.resolve({ EUR: 0.92 })),
 }));
 
+vi.mock('../../core/costCommitQueue', () => ({
+  costCommitQueue: {
+    enqueue: vi.fn((fn: () => Promise<void>) => fn()),
+  },
+}));
+
 import { removeWorktree } from '../../github/worktreeOperations';
 import { deleteRemoteBranch, commitAndPushCostFiles, pullLatestCostBranch } from '../../github/gitOperations';
 import { closeIssue } from '../../github/githubApi';
@@ -213,11 +219,7 @@ describe('handlePullRequestEvent', () => {
     expect(pullLatestCostBranch).toHaveBeenCalled();
     expect(fetchExchangeRates).toHaveBeenCalledWith(['EUR']);
     expect(rebuildProjectCostCsv).toHaveBeenCalledWith(process.cwd(), 'repo', 0.92);
-    expect(commitAndPushCostFiles).toHaveBeenCalledWith({
-      repoName: 'repo',
-      issueNumber: 42,
-      issueTitle: 'Add feature',
-    });
+    expect(commitAndPushCostFiles).toHaveBeenCalledWith({ repoName: 'repo' });
     expect(callOrder).toEqual(['pull', 'rebuild', 'commit']);
   });
 
@@ -243,10 +245,7 @@ describe('handlePullRequestEvent', () => {
 
     expect(revertIssueCostFile).toHaveBeenCalledWith(process.cwd(), 'repo', 42);
     expect(rebuildProjectCostCsv).toHaveBeenCalledWith(process.cwd(), 'repo', 0.92);
-    expect(commitAndPushCostFiles).toHaveBeenCalledWith({
-      repoName: 'repo',
-      paths: ['projects/repo/42-add-login.csv', 'projects/repo/total-cost.csv'],
-    });
+    expect(commitAndPushCostFiles).toHaveBeenCalledWith({ repoName: 'repo' });
     expect(callOrder).toEqual(['revert', 'rebuild', 'commit']);
   });
 
@@ -296,11 +295,7 @@ describe('handlePullRequestEvent', () => {
     const result = await handlePullRequestEvent(payload);
 
     expect(rebuildProjectCostCsv).toHaveBeenCalledWith(process.cwd(), 'repo', 0.92);
-    expect(commitAndPushCostFiles).toHaveBeenCalledWith({
-      repoName: 'repo',
-      issueNumber: 55,
-      issueTitle: 'Some feature',
-    });
+    expect(commitAndPushCostFiles).toHaveBeenCalledWith({ repoName: 'repo' });
     expect(wasMergedViaPR(55)).toBe(true);
     expect(result).toEqual({ status: 'closed', issue: 55 });
   });
@@ -325,10 +320,7 @@ describe('handlePullRequestEvent', () => {
     const result = await handlePullRequestEvent(payload);
 
     expect(revertIssueCostFile).toHaveBeenCalledWith(process.cwd(), 'repo', 55);
-    expect(commitAndPushCostFiles).toHaveBeenCalledWith({
-      repoName: 'repo',
-      paths: ['projects/repo/55-some-fix.csv', 'projects/repo/total-cost.csv'],
-    });
+    expect(commitAndPushCostFiles).toHaveBeenCalledWith({ repoName: 'repo' });
     expect(wasMergedViaPR(55)).toBe(false);
     expect(result).toEqual({ status: 'closed', issue: 55 });
   });
@@ -414,9 +406,9 @@ describe('mergedPrIssues tracking', () => {
     expect(wasMergedViaPR(99)).toBe(false);
   });
 
-  it('consumes the entry — returns false on second call', () => {
+  it('does NOT consume the entry — returns true on repeated calls', () => {
     recordMergedPrIssue(91);
     expect(wasMergedViaPR(91)).toBe(true);
-    expect(wasMergedViaPR(91)).toBe(false);
+    expect(wasMergedViaPR(91)).toBe(true);
   });
 });
