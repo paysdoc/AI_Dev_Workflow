@@ -56,6 +56,14 @@ export function computeTotalCostUsd(usageMap: ModelUsageMap): number {
 /** Known fallback rates keyed by currency code. */
 const FALLBACK_RATES: Readonly<Record<string, number>> = { EUR: FALLBACK_EUR_RATE };
 
+/** Mutable cache of the most recently fetched live rates, seeded from FALLBACK_RATES. */
+let lastKnownRates: Record<string, number> = { ...FALLBACK_RATES };
+
+/** @internal Resets cached rates — for testing only. */
+export function resetLastKnownRates(): void {
+  lastKnownRates = { ...FALLBACK_RATES };
+}
+
 /**
  * Fetches exchange rates from the free ExchangeRate-API with retry,
  * timeout, and fallback. Retries up to {@link MAX_EXCHANGE_RATE_RETRIES}
@@ -86,6 +94,7 @@ export async function fetchExchangeRates(targetCurrencies: string[]): Promise<Re
         const rate = data.rates[currency];
         if (typeof rate === 'number') {
           rates[currency] = rate;
+          lastKnownRates[currency] = rate;
         }
       }
       return rates;
@@ -104,7 +113,7 @@ export async function fetchExchangeRates(targetCurrencies: string[]): Promise<Re
   log('All exchange rate fetch attempts failed, using fallback rates', 'error');
   const fallbackRates: Record<string, number> = {};
   for (const currency of targetCurrencies) {
-    const fallback = FALLBACK_RATES[currency];
+    const fallback = lastKnownRates[currency];
     if (typeof fallback === 'number') {
       fallbackRates[currency] = fallback;
     }

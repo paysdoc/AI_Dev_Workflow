@@ -6,6 +6,7 @@ import {
   buildCostBreakdown,
   formatCostBreakdownMarkdown,
   computeEurRate,
+  resetLastKnownRates,
 } from '../costReport';
 import type { ModelUsageMap, CostBreakdown } from '../../types/costTypes';
 
@@ -76,6 +77,7 @@ describe('costReport', () => {
   describe('fetchExchangeRates', () => {
     beforeEach(() => {
       vi.restoreAllMocks();
+      resetLastKnownRates();
     });
 
     it('returns fallback EUR rate after all retries are exhausted', async () => {
@@ -140,6 +142,21 @@ describe('costReport', () => {
       vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Network error')));
       const rates = await fetchExchangeRates(['GBP']);
       expect(rates).toEqual({});
+    });
+
+    it('updates fallback rate with latest fetched rate for subsequent failures', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ rates: { EUR: 0.95 } }),
+      }));
+
+      const firstRates = await fetchExchangeRates(['EUR']);
+      expect(firstRates).toEqual({ EUR: 0.95 });
+
+      vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Network error')));
+
+      const fallbackRates = await fetchExchangeRates(['EUR']);
+      expect(fallbackRates).toEqual({ EUR: 0.95 });
     });
   });
 
