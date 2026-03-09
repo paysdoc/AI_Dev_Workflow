@@ -19,7 +19,7 @@ interface RawPR {
   number: number;
   body: string;
   state: string;
-  merged: boolean;
+  mergedAt: string | null;
 }
 
 /**
@@ -44,7 +44,7 @@ function fetchOpenIssuesWithComments(repoInfo: RepoInfo): RawIssueWithComments[]
 function fetchPRsForRepo(repoInfo: RepoInfo): RawPR[] {
   try {
     const json = execSync(
-      `gh pr list --repo ${repoInfo.owner}/${repoInfo.repo} --state all --json number,body,state,merged --limit 200`,
+      `gh pr list --repo ${repoInfo.owner}/${repoInfo.repo} --state all --json number,body,state,mergedAt --limit 200`,
       { encoding: 'utf-8' },
     );
     return JSON.parse(json);
@@ -62,7 +62,7 @@ function hasLinkedMergedOrClosedPR(issueNumber: number, prs: RawPR[]): boolean {
   return prs.some(
     (pr) =>
       pr.body?.includes(`Implements #${issueNumber}`) &&
-      (pr.merged || pr.state === 'CLOSED'),
+      (pr.mergedAt != null || pr.state === 'CLOSED'),
   );
 }
 
