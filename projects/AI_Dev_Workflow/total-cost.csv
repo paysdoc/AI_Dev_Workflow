@@ -29,6 +29,8 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 64,permanent webhook url portfolio site at paysdoc nl,2.9291,0.2929
 66,automatically ccommit cost when pr is closed,2.9142,0.2914
 68,pr review adw should return issue to review,2.2074,0.2207
+88,add issue comments for the review process,5.2025,0.5202
+90,fix review process,7.0932,0.7093
 
-Total Cost (USD):,118.1085
-Total Cost (EUR):,101.7545
+Total Cost (USD):,131.6338
+Total Cost (EUR):,113.4070

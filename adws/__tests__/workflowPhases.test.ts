@@ -657,6 +657,7 @@ describe('executePRPhase', () => {
     );
     expect(config.ctx.prUrl).toBe('https://github.com/test/pr/1');
     expect(postWorkflowComment).toHaveBeenCalledWith(1, 'pr_created', expect.anything(), undefined);
+    expect(moveIssueToStatus).not.toHaveBeenCalled();
     expect(result.costUsd).toBeCloseTo(0.1);
   });
 
@@ -756,6 +757,14 @@ describe('completeWorkflow', () => {
       execution: expect.objectContaining({ status: 'completed' }),
       metadata: { totalCostUsd: 2.0, unitTestsPassed: true },
     });
+  });
+
+  it('moves issue to Review status after posting completion comment', async () => {
+    const config = createWorkflowConfig();
+
+    await completeWorkflow(config, 1.5);
+
+    expect(moveIssueToStatus).toHaveBeenCalledWith(1, 'Review', undefined);
   });
 
   it('writes cost CSVs to worktree path when no targetRepo (ADW repo issue)', async () => {
@@ -1342,13 +1351,14 @@ describe('executeReviewPhase', () => {
     expect(result.costUsd).toBe(1.5);
   });
 
-  it('posts review_running and review_passed comments on success', async () => {
+  it('posts review_running with attempt info and review_passed with summary on success', async () => {
     vi.mocked(runReviewWithRetry).mockResolvedValue({
       passed: true,
       costUsd: 1.0,
       totalRetries: 0,
       blockerIssues: [],
       modelUsage: {},
+      reviewSummary: 'All good',
       allScreenshots: [],
       allSummaries: [],
     });
@@ -1356,22 +1366,28 @@ describe('executeReviewPhase', () => {
 
     await executeReviewPhase(config);
 
-    expect(postWorkflowComment).toHaveBeenCalledWith(1, 'review_running', expect.anything(), undefined);
-    expect(postWorkflowComment).toHaveBeenCalledWith(1, 'review_passed', expect.anything(), undefined);
+    expect(postWorkflowComment).toHaveBeenCalledWith(1, 'review_running', expect.objectContaining({
+      reviewAttempt: 1,
+      maxReviewAttempts: expect.any(Number),
+    }), undefined);
+    expect(postWorkflowComment).toHaveBeenCalledWith(1, 'review_passed', expect.objectContaining({
+      reviewSummary: 'All good',
+    }), undefined);
   });
 
-  it('posts review_failed comment when review fails', async () => {
+  it('posts review_failed comment with blocker issues when review fails', async () => {
+    const blockerIssues = [{
+      reviewIssueNumber: 1,
+      screenshotPath: '/img/issue.png',
+      issueDescription: 'Button broken',
+      issueResolution: 'Fix button',
+      issueSeverity: 'blocker' as const,
+    }];
     vi.mocked(runReviewWithRetry).mockResolvedValue({
       passed: false,
       costUsd: 3.0,
       totalRetries: 3,
-      blockerIssues: [{
-        reviewIssueNumber: 1,
-        screenshotPath: '/img/issue.png',
-        issueDescription: 'Button broken',
-        issueResolution: 'Fix button',
-        issueSeverity: 'blocker',
-      }],
+      blockerIssues,
       modelUsage: {},
       allScreenshots: [],
       allSummaries: [],
@@ -1381,7 +1397,9 @@ describe('executeReviewPhase', () => {
     const result = await executeReviewPhase(config);
 
     expect(result.reviewPassed).toBe(false);
-    expect(postWorkflowComment).toHaveBeenCalledWith(1, 'review_failed', expect.anything(), undefined);
+    expect(postWorkflowComment).toHaveBeenCalledWith(1, 'review_failed', expect.objectContaining({
+      reviewIssues: blockerIssues,
+    }), undefined);
   });
 
   it('returns cost and pass/fail status', async () => {

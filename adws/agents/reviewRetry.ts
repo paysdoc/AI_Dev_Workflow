@@ -26,6 +26,7 @@ export interface ReviewRetryResult {
   totalRetries: number;
   blockerIssues: ReviewIssue[];
   modelUsage: ModelUsageMap;
+  reviewSummary?: string;
   allScreenshots: string[];
   allSummaries: string[];
 }
@@ -39,7 +40,8 @@ export interface ReviewRetryOptions {
   branchName: string;
   issueType: IssueClassSlashCommand;
   issueContext: string;
-  onReviewFailed?: (attempt: number, maxAttempts: number) => void;
+  onReviewFailed?: (attempt: number, maxAttempts: number, blockerIssues: ReviewIssue[]) => void;
+  onPatchingIssue?: (issue: ReviewIssue) => void;
   cwd?: string;
   /** Optional application URL for the dev server (e.g. http://localhost:12345) */
   applicationUrl?: string;
@@ -97,7 +99,7 @@ export function mergeReviewResults(results: readonly ReviewAgentResult[]): Merge
 export async function runReviewWithRetry(opts: ReviewRetryOptions): Promise<ReviewRetryResult> {
   const {
     adwId, specFile, logsDir, orchestratorStatePath: statePath,
-    maxRetries, branchName, issueType, issueContext, onReviewFailed, cwd, applicationUrl, issueBody,
+    maxRetries, branchName, issueType, issueContext, onReviewFailed, onPatchingIssue, cwd, applicationUrl, issueBody,
   } = opts;
 
   let retryCount = 0;
@@ -139,10 +141,11 @@ export async function runReviewWithRetry(opts: ReviewRetryOptions): Promise<Revi
     if (merged.passed) {
       log('Review passed — no blocker issues found!', 'success');
       AgentStateManager.appendLog(statePath, 'Review passed');
+      const reviewSummary = allSummaries.find(s => s.length > 0);
       return {
         passed: true, costUsd: costState.costUsd, totalRetries: retryCount,
         blockerIssues: [], modelUsage: costState.modelUsage,
-        allScreenshots, allSummaries,
+        reviewSummary, allScreenshots, allSummaries,
       };
     }
 
@@ -152,6 +155,7 @@ export async function runReviewWithRetry(opts: ReviewRetryOptions): Promise<Revi
 
     // Patch each blocker issue with a single patch agent (sequential)
     for (const blockerIssue of lastBlockerIssues) {
+      onPatchingIssue?.(blockerIssue);
       log(`Patching blocker #${blockerIssue.reviewIssueNumber}: ${blockerIssue.issueDescription}`, 'info');
       AgentStateManager.appendLog(statePath, `Patching blocker #${blockerIssue.reviewIssueNumber}`);
 
@@ -171,15 +175,16 @@ export async function runReviewWithRetry(opts: ReviewRetryOptions): Promise<Revi
     log('Changes committed and pushed', 'success');
     AgentStateManager.appendLog(statePath, 'Patch changes committed and pushed');
 
-    onReviewFailed?.(retryCount + 1, maxRetries);
+    onReviewFailed?.(retryCount + 1, maxRetries, lastBlockerIssues);
     retryCount++;
   }
 
   log(`Review still has blockers after ${maxRetries} attempts`, 'error');
   AgentStateManager.appendLog(statePath, `Review still has blockers after ${maxRetries} attempts`);
+  const reviewSummary = allSummaries.find(s => s.length > 0);
   return {
     passed: false, costUsd: costState.costUsd, totalRetries: retryCount,
     blockerIssues: lastBlockerIssues, modelUsage: costState.modelUsage,
-    allScreenshots, allSummaries,
+    reviewSummary, allScreenshots, allSummaries,
   };
 }

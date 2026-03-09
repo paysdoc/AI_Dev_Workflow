@@ -6,7 +6,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'node:url';
 import { log, setLogAdwId, ensureLogsDirectory, generateAdwId, type IssueClassSlashCommand, type GitHubIssue, AgentStateManager, type AgentState, type AgentIdentifier, type RecoveryState, hasUncommittedChanges, getNextStage, MAX_REVIEW_RETRY_ATTEMPTS, COST_REPORT_CURRENCIES, type ModelUsageMap, buildCostBreakdown, persistTokenCounts, allocateRandomPort, type TargetRepoInfo, ensureTargetRepoWorkspace, writeIssueCostCsv, rebuildProjectCostCsv, type ProjectConfig, loadProjectConfig, setTargetRepo } from '../core';
-import { fetchGitHubIssue, postWorkflowComment, type WorkflowContext, detectRecoveryState, getDefaultBranch, checkoutDefaultBranch, ensureWorktree, getWorktreeForBranch, mergeLatestFromDefaultBranch, copyEnvToWorktree, findWorktreeForIssue, type RepoInfo } from '../github';
+import { fetchGitHubIssue, postWorkflowComment, moveIssueToStatus, type WorkflowContext, detectRecoveryState, getDefaultBranch, checkoutDefaultBranch, ensureWorktree, getWorktreeForBranch, mergeLatestFromDefaultBranch, copyEnvToWorktree, findWorktreeForIssue, type RepoInfo } from '../github';
 import { runGenerateBranchNameAgent, getPlanFilePath, runReviewWithRetry } from '../agents';
 import { classifyGitHubIssue } from '../core/issueClassifier';
 
@@ -387,6 +387,8 @@ export async function completeWorkflow(
 
   postWorkflowComment(issueNumber, 'completed', ctx, repoInfo);
 
+  await moveIssueToStatus(issueNumber, 'Review', repoInfo);
+
   log('===================================', 'info');
   log(`${orchestratorName} workflow completed!`, 'success');
   if (ctx.prUrl) {
@@ -411,6 +413,8 @@ export async function executeReviewPhase(config: WorkflowConfig): Promise<{
 
   const specFile = getPlanFilePath(issueNumber, worktreePath);
 
+  ctx.reviewAttempt = 1;
+  ctx.maxReviewAttempts = MAX_REVIEW_RETRY_ATTEMPTS;
   postWorkflowComment(issueNumber, 'review_running', ctx, repoInfo);
 
   const reviewResult = await runReviewWithRetry({
@@ -422,8 +426,14 @@ export async function executeReviewPhase(config: WorkflowConfig): Promise<{
     branchName,
     issueType,
     issueContext: JSON.stringify(issue),
-    onReviewFailed: (attempt, maxAttempts) => {
+    onReviewFailed: (attempt, maxAttempts, blockerIssues) => {
       log(`Review failed (attempt ${attempt}/${maxAttempts}), patching...`, 'info');
+      ctx.reviewIssues = blockerIssues;
+      ctx.reviewAttempt = attempt;
+      ctx.maxReviewAttempts = maxAttempts;
+    },
+    onPatchingIssue: (issue) => {
+      ctx.patchingIssue = issue;
       postWorkflowComment(issueNumber, 'review_patching', ctx, repoInfo);
     },
     cwd: worktreePath,
@@ -434,12 +444,15 @@ export async function executeReviewPhase(config: WorkflowConfig): Promise<{
   if (reviewResult.passed) {
     log('Review passed!', 'success');
     AgentStateManager.appendLog(orchestratorStatePath, 'Review passed');
+    ctx.reviewSummary = reviewResult.reviewSummary;
+    ctx.reviewIssues = reviewResult.blockerIssues;
     postWorkflowComment(issueNumber, 'review_passed', ctx, repoInfo);
   } else {
     const errorMsg = `Review failed after ${MAX_REVIEW_RETRY_ATTEMPTS} attempts with ${reviewResult.blockerIssues.length} remaining blocker(s)`;
     log(errorMsg, 'error');
     AgentStateManager.appendLog(orchestratorStatePath, errorMsg);
     ctx.errorMessage = errorMsg;
+    ctx.reviewIssues = reviewResult.blockerIssues;
     postWorkflowComment(issueNumber, 'review_failed', ctx, repoInfo);
 
     AgentStateManager.writeState(orchestratorStatePath, {
