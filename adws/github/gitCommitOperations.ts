@@ -3,6 +3,8 @@
  */
 
 import { execSync } from 'child_process';
+import { existsSync } from 'fs';
+import path from 'path';
 import { log, getIssueCsvPath, getProjectCsvPath } from '../core';
 import { resolveTargetRepoCwd } from '../core/targetRepoRegistry';
 import { getCurrentBranch, PROTECTED_BRANCHES } from './gitBranchOperations';
@@ -92,8 +94,21 @@ export function commitAndPushCostFiles(options: CommitCostFilesOptions = {}): bo
     let commitMessage: string;
 
     if (paths && paths.length > 0) {
-      // Explicit paths mode: stage only the specified files
-      addPath = paths.map(p => `"${p}"`).join(' ');
+      // Explicit paths mode: filter out paths that don't exist on disk and aren't tracked by git
+      const validPaths = paths.filter(p => {
+        if (existsSync(path.join(resolvedCwd ?? process.cwd(), p))) return true;
+        const tracked = execSync(`git ls-files "${p}"`, { encoding: 'utf-8', cwd: resolvedCwd }).trim();
+        if (tracked) return true;
+        log(`Skipping untracked deleted path: ${p}`, 'info');
+        return false;
+      });
+
+      if (validPaths.length === 0) {
+        log('No valid cost CSV paths to commit', 'info');
+        return false;
+      }
+
+      addPath = validPaths.map(p => `"${p}"`).join(' ');
       statusPath = addPath;
       commitMessage = `cost: update cost data for ${repoName ?? 'project'}`;
     } else if (repoName && issueNumber !== undefined && issueTitle) {

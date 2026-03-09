@@ -1,8 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { execSync } from 'child_process';
+import { existsSync } from 'fs';
 
 vi.mock('child_process', () => ({
   execSync: vi.fn(),
+}));
+
+vi.mock('fs', () => ({
+  existsSync: vi.fn(() => true),
 }));
 
 vi.mock('../../core/utils', () => ({
@@ -18,11 +23,14 @@ vi.mock('../../core/utils', () => ({
 import { commitAndPushCostFiles } from '../gitOperations';
 import { log } from '../../core/utils';
 
+const mockExistsSync = vi.mocked(existsSync);
+
 const mockExecSync = vi.mocked(execSync);
 
 describe('commitAndPushCostFiles', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockExistsSync.mockReturnValue(true);
   });
 
   it('stages, commits, and pushes cost files when changes exist (single issue mode)', () => {
@@ -237,5 +245,106 @@ describe('commitAndPushCostFiles', () => {
 
     expect(result).toBe(false);
     expect(log).toHaveBeenCalledWith(expect.stringContaining('Failed to commit cost CSV files'), 'error');
+  });
+
+  it('filters out deleted untracked paths and commits remaining valid paths', () => {
+    const deletedPath = 'projects/my-repo/97-refactor-the-code.csv';
+    const validPath = 'projects/my-repo/total-cost.csv';
+
+    mockExistsSync.mockImplementation((p: unknown) => String(p).includes('total-cost.csv'));
+
+    mockExecSync.mockImplementation((cmd: string) => {
+      const cmdStr = String(cmd);
+      if (cmdStr.includes('git ls-files') && cmdStr.includes(deletedPath)) return '';
+      if (cmdStr.startsWith('git status --porcelain')) return ` M ${validPath}\n`;
+      if (cmdStr.startsWith('git branch --show-current')) return 'main\n';
+      return '';
+    });
+
+    const result = commitAndPushCostFiles({ repoName: 'my-repo', paths: [deletedPath, validPath] });
+
+    expect(result).toBe(true);
+    expect(log).toHaveBeenCalledWith(`Skipping untracked deleted path: ${deletedPath}`, 'info');
+
+    const addCall = mockExecSync.mock.calls.find(c => String(c[0]).startsWith('git add'));
+    expect(addCall).toBeDefined();
+    expect(String(addCall![0])).toContain(validPath);
+    expect(String(addCall![0])).not.toContain(deletedPath);
+  });
+
+  it('stages deletion of tracked files passed via paths', () => {
+    const deletedTrackedPath = 'projects/my-repo/97-refactor-the-code.csv';
+    const validPath = 'projects/my-repo/total-cost.csv';
+
+    mockExistsSync.mockImplementation((p: unknown) => {
+      return String(p).includes('total-cost.csv');
+    });
+
+    mockExecSync.mockImplementation((cmd: string) => {
+      const cmdStr = String(cmd);
+      if (cmdStr.includes('git ls-files') && cmdStr.includes(deletedTrackedPath)) return `${deletedTrackedPath}\n`;
+      if (cmdStr.startsWith('git status --porcelain')) return ` D ${deletedTrackedPath}\n M ${validPath}\n`;
+      if (cmdStr.startsWith('git branch --show-current')) return 'main\n';
+      return '';
+    });
+
+    const result = commitAndPushCostFiles({ repoName: 'my-repo', paths: [deletedTrackedPath, validPath] });
+
+    expect(result).toBe(true);
+
+    const addCall = mockExecSync.mock.calls.find(c => String(c[0]).startsWith('git add'));
+    expect(addCall).toBeDefined();
+    expect(String(addCall![0])).toContain(deletedTrackedPath);
+    expect(String(addCall![0])).toContain(validPath);
+  });
+
+  it('returns false when all paths are deleted and untracked', () => {
+    const deletedPath1 = 'projects/my-repo/97-refactor-the-code.csv';
+    const deletedPath2 = 'projects/my-repo/98-another-issue.csv';
+
+    mockExistsSync.mockReturnValue(false);
+
+    mockExecSync.mockImplementation((cmd: string) => {
+      const cmdStr = String(cmd);
+      if (cmdStr.includes('git ls-files')) return '';
+      return '';
+    });
+
+    const result = commitAndPushCostFiles({ repoName: 'my-repo', paths: [deletedPath1, deletedPath2] });
+
+    expect(result).toBe(false);
+    expect(log).toHaveBeenCalledWith('No valid cost CSV paths to commit', 'info');
+
+    const addCall = mockExecSync.mock.calls.find(c => String(c[0]).startsWith('git add'));
+    expect(addCall).toBeUndefined();
+    const commitCall = mockExecSync.mock.calls.find(c => String(c[0]).startsWith('git commit'));
+    expect(commitCall).toBeUndefined();
+  });
+
+  it('commits successfully with explicit paths when all paths are valid', () => {
+    const path1 = 'projects/my-repo/42-add-login.csv';
+    const path2 = 'projects/my-repo/total-cost.csv';
+
+    mockExistsSync.mockReturnValue(true);
+
+    mockExecSync.mockImplementation((cmd: string) => {
+      const cmdStr = String(cmd);
+      if (cmdStr.startsWith('git status --porcelain')) return ` M ${path1}\n M ${path2}\n`;
+      if (cmdStr.startsWith('git branch --show-current')) return 'main\n';
+      return '';
+    });
+
+    const result = commitAndPushCostFiles({ repoName: 'my-repo', paths: [path1, path2] });
+
+    expect(result).toBe(true);
+
+    const addCall = mockExecSync.mock.calls.find(c => String(c[0]).startsWith('git add'));
+    expect(addCall).toBeDefined();
+    expect(String(addCall![0])).toContain(path1);
+    expect(String(addCall![0])).toContain(path2);
+
+    const commitCall = mockExecSync.mock.calls.find(c => String(c[0]).startsWith('git commit'));
+    expect(commitCall).toBeDefined();
+    expect(String(commitCall![0])).toContain('cost: update cost data for my-repo');
   });
 });
