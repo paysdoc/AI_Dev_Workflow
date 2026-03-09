@@ -1,6 +1,6 @@
 # Review
 
-Follow the `Instructions` below to **review work done against a specification file** (spec/*.md) to ensure implemented features match requirements. Use the spec file to understand the requirements and then use the git diff if available to understand the changes made. Capture screenshots of critical functionality paths as documented in the `Instructions` section. If there are issues, report them if not then report success.
+Follow the `Instructions` below to **review work done against a specification file** (spec/*.md) to ensure implemented features match requirements. Use the spec file to understand the requirements and then use the git diff if available to understand the changes made. Produce proof of the review as documented in the `Proof Requirements` and `Instructions` sections. If there are issues, report them if not then report success.
 
 ## Variables
 
@@ -10,6 +10,13 @@ agentName: $3 if provided, otherwise use 'reviewAgent'
 applicationUrl: $4 if provided, otherwise use http://localhost:3000
 reviewImage_dir: `<absolute path to codebase>/agents/<adwId>/<agentName>/reviewImg/`
 
+## Proof Requirements
+
+Read the file `.adw/review_proof.md` from the current working directory.
+
+- **If the file exists and is non-empty**: Follow its instructions for what proof to produce and how to attach it. The file specifies the proof type (screenshots, test output, code-diff verification, etc.), the format, and how it gets attached to the PR. Override the default screenshot-based proof instructions below with whatever `.adw/review_proof.md` specifies.
+- **If the file does not exist or is empty**: Fall back to the default proof behavior described in the Instructions section below (screenshot-based UI validation).
+
 ## Instructions
 
 - Retrieve the `default` branch from the remote repository using `git remote show origin` and parse the output to get the default branch name (e.g., `main` or `develop`)
@@ -17,24 +24,25 @@ reviewImage_dir: `<absolute path to codebase>/agents/<adwId>/<agentName>/reviewI
 - Run `git diff origin/<default>` to see all changes made in current branch. Continue even if there are no changes related to the spec file.
 - Find the spec file by looking for spec/*.md files in the diff that match the current branch name
 - Read the identified spec file to understand requirements
-- IMPORTANT: If the work can be validated by UI validation then (if not skip the section):
-  - Look for corresponding e2e test files in ./claude/commands/e2e-examples/test*.md that mirror the feature name
-  - Use e2e test files only as navigation guides for screenshot locations, not for other purposes
-  - IMPORTANT: To be clear, we're not testing. We know the functionality works. We're reviewing the implementation against the spec to make sure it matches what was requested.
-  - IMPORTANT: Take screen shots along the way to showcase the new functionality and any issues you find
-    - Capture visual proof of working features through targeted screenshots
-    - Navigate to the application and capture screenshots of only the critical paths based on the spec
-    - Compare implemented changes with spec requirements to verify correctness
-    - Do not take screenshots of the entire process, only the critical points.
-    - IMPORTANT: Aim for `1-5` screenshots to showcase that the new functionality works as specified.
-    - If there is a review issue, take a screenshot of the issue and add it to the `reviewIssues` array. Describe the issue, resolution, and severity.
-    - Number your screenshots in the order they are taken like `01_<descriptive name>.png`, `02_<descriptive name>.png`, etc.
-    - IMPORTANT: Be absolutely sure to take a screen shot of the critical point of the new functionality
-    - IMPORTANT: Copy all screenshots to the provided `reviewImage_dir`
-    - IMPORTANT: Store the screenshots in the `reviewImage_dir` and be sure to use full absolute paths.
-    - Focus only on critical functionality paths - avoid unnecessary screenshots
-    - Ensure screenshots clearly demonstrate that features work as specified
-    - Use descriptive filenames that indicate what part of the change is being verified
+- IMPORTANT: Produce proof according to the `Proof Requirements` section above. If `.adw/review_proof.md` was loaded, follow its instructions. Otherwise, use the default UI validation approach below:
+  - If the work can be validated by UI validation then (if not skip the section):
+    - Look for corresponding e2e test files in ./claude/commands/e2e-examples/test*.md that mirror the feature name
+    - Use e2e test files only as navigation guides for screenshot locations, not for other purposes
+    - IMPORTANT: To be clear, we're not testing. We know the functionality works. We're reviewing the implementation against the spec to make sure it matches what was requested.
+    - IMPORTANT: Take screen shots along the way to showcase the new functionality and any issues you find
+      - Capture visual proof of working features through targeted screenshots
+      - Navigate to the application and capture screenshots of only the critical paths based on the spec
+      - Compare implemented changes with spec requirements to verify correctness
+      - Do not take screenshots of the entire process, only the critical points.
+      - IMPORTANT: Aim for `1-5` screenshots to showcase that the new functionality works as specified.
+      - If there is a review issue, take a screenshot of the issue and add it to the `reviewIssues` array. Describe the issue, resolution, and severity.
+      - Number your screenshots in the order they are taken like `01_<descriptive name>.png`, `02_<descriptive name>.png`, etc.
+      - IMPORTANT: Be absolutely sure to take a screen shot of the critical point of the new functionality
+      - IMPORTANT: Copy all screenshots to the provided `reviewImage_dir`
+      - IMPORTANT: Store the screenshots in the `reviewImage_dir` and be sure to use full absolute paths.
+      - Focus only on critical functionality paths - avoid unnecessary screenshots
+      - Ensure screenshots clearly demonstrate that features work as specified
+      - Use descriptive filenames that indicate what part of the change is being verified
 - IMPORTANT: Issue Severity Guidelines
   - Consider the impact of the issue on the feature and the user
   - Guidelines:
@@ -59,7 +67,7 @@ Use the `applicationUrl` when navigating to the application for screenshots.
 - `success` should be `true` if there are NO BLOCKING issues (implementation matches spec for critical functionality)
 - `success` should be `false` ONLY if there are BLOCKING issues that prevent the work from being released
 - `reviewIssues` can contain issues of any severity (skippable, tech-debt, or blocker)
-- `screenshots` should ALWAYS contain paths to screenshots showcasing the new functionality, regardless of success status. Use full absolute paths.
+- `screenshots` should ALWAYS contain paths to proof artifacts showcasing the review evidence, regardless of success status. Use full absolute paths. These can be screenshots, test output logs, or any other proof artifacts as specified by `.adw/review_proof.md`.
 - This allows subsequent agents to quickly identify and resolve blocking errors while documenting all issues
 
 ### Output Structure
@@ -79,8 +87,8 @@ Use the `applicationUrl` when navigating to the application for screenshots.
         ...
     ],
     screenshots: [
-        "string - /absolute/path/to/screenshotShowcasing_functionality.png",
-        "string - /absolute/path/to/screenshotShowcasing_functionality.png",
+        "string - /absolute/path/to/proof_artifact.png",
+        "string - /absolute/path/to/proof_artifact.png",
         "...",
     ]
 }

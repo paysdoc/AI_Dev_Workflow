@@ -1,14 +1,24 @@
 /**
- * Review-patch retry loop for automated review and patching.
- * Iterates: review -> patch blockers -> commit+push -> re-review.
+ * Review-patch retry loop with multi-agent parallel review.
+ * Iterates: 3 parallel review agents -> merge results -> patch blockers -> commit+push -> re-review.
  */
 
-import { log, AgentStateManager, type IssueClassSlashCommand, type ModelUsageMap, emptyModelUsageMap } from '../core';
+import { log, AgentStateManager, type IssueClassSlashCommand, type ModelUsageMap, emptyModelUsageMap, type AgentIdentifier } from '../core';
 import { initAgentState, trackCost, type AgentRunResult } from '../core/retryOrchestrator';
 import { runReviewAgent, type ReviewIssue, type ReviewAgentResult } from './reviewAgent';
 import { runPatchAgent } from './patchAgent';
 import { runCommitAgent } from './gitAgent';
 import { pushBranch } from '../github';
+
+/** Number of parallel review agents per iteration. */
+export const REVIEW_AGENT_COUNT = 3;
+
+export interface MergedReviewResult {
+  mergedIssues: ReviewIssue[];
+  mergedScreenshots: string[];
+  passed: boolean;
+  blockerIssues: ReviewIssue[];
+}
 
 export interface ReviewRetryResult {
   passed: boolean;
@@ -17,6 +27,8 @@ export interface ReviewRetryResult {
   blockerIssues: ReviewIssue[];
   modelUsage: ModelUsageMap;
   reviewSummary?: string;
+  allScreenshots: string[];
+  allSummaries: string[];
 }
 
 export interface ReviewRetryOptions {
@@ -38,10 +50,51 @@ export interface ReviewRetryOptions {
 }
 
 /**
- * Runs the review agent with automatic retry logic on failure.
- * On each attempt: reviews code, patches any blocker issues, commits, pushes, and re-reviews.
- * @param opts - Review retry options including adwId, specFile, logsDir, retry limits, and optional cwd for external repos.
- * @returns The review result including pass/fail status, cost, retry count, and remaining blockers.
+ * Merges review results from multiple parallel agents.
+ * Deduplicates issues by exact match on trimmed lowercase issueDescription.
+ * Deduplicates screenshots by path.
+ * Pure function with no side effects.
+ */
+export function mergeReviewResults(results: readonly ReviewAgentResult[]): MergedReviewResult {
+  const validResults = results.filter(r => r.reviewResult !== null);
+
+  // Collect and deduplicate issues
+  const seenDescriptions = new Set<string>();
+  const mergedIssues: ReviewIssue[] = [];
+
+  for (const result of validResults) {
+    for (const issue of result.reviewResult!.reviewIssues) {
+      const key = issue.issueDescription.trim().toLowerCase();
+      if (!seenDescriptions.has(key)) {
+        seenDescriptions.add(key);
+        mergedIssues.push(issue);
+      }
+    }
+  }
+
+  // Collect and deduplicate screenshots
+  const seenPaths = new Set<string>();
+  const mergedScreenshots: string[] = [];
+
+  for (const result of validResults) {
+    for (const screenshot of result.reviewResult!.screenshots) {
+      if (!seenPaths.has(screenshot)) {
+        seenPaths.add(screenshot);
+        mergedScreenshots.push(screenshot);
+      }
+    }
+  }
+
+  const blockerIssues = mergedIssues.filter(issue => issue.issueSeverity === 'blocker');
+  const passed = blockerIssues.length === 0;
+
+  return { mergedIssues, mergedScreenshots, passed, blockerIssues };
+}
+
+/**
+ * Runs multiple review agents in parallel with automatic retry logic on failure.
+ * On each attempt: launches 3 review agents concurrently, merges results,
+ * patches any blocker issues with a single patch agent, commits, pushes, and re-reviews.
  */
 export async function runReviewWithRetry(opts: ReviewRetryOptions): Promise<ReviewRetryResult> {
   const {
@@ -51,31 +104,56 @@ export async function runReviewWithRetry(opts: ReviewRetryOptions): Promise<Revi
 
   let retryCount = 0;
   let lastBlockerIssues: ReviewIssue[] = [];
-  let lastReviewSummary: string | undefined;
   const costState = { costUsd: 0, modelUsage: emptyModelUsageMap() };
+  const allScreenshots: string[] = [];
+  const allSummaries: string[] = [];
 
   while (retryCount < maxRetries) {
-    log(`Running review (attempt ${retryCount + 1}/${maxRetries})...`, 'info');
-    AgentStateManager.appendLog(statePath, `Review attempt ${retryCount + 1}/${maxRetries}`);
+    log(`Running review (attempt ${retryCount + 1}/${maxRetries}) with ${REVIEW_AGENT_COUNT} parallel agents...`, 'info');
+    AgentStateManager.appendLog(statePath, `Review attempt ${retryCount + 1}/${maxRetries} (${REVIEW_AGENT_COUNT} agents)`);
 
-    const reviewResult: ReviewAgentResult = await runReviewAgent(
-      adwId, specFile, logsDir, initAgentState(statePath, 'review-agent'), cwd, applicationUrl, issueBody,
+    // Launch REVIEW_AGENT_COUNT review agents in parallel
+    const agentIndices = Array.from({ length: REVIEW_AGENT_COUNT }, (_, i) => i + 1);
+    const reviewResults: ReviewAgentResult[] = await Promise.all(
+      agentIndices.map(index =>
+        runReviewAgent(
+          adwId, specFile, logsDir, initAgentState(statePath, `review-agent-${index}` as AgentIdentifier), cwd, applicationUrl, issueBody, index,
+        )
+      )
     );
-    trackCost(reviewResult as AgentRunResult, costState, statePath);
 
-    lastReviewSummary = reviewResult.reviewResult?.reviewSummary;
-
-    if (reviewResult.passed) {
-      log('Review passed — no blocker issues found!', 'success');
-      AgentStateManager.appendLog(statePath, 'Review passed');
-      return { passed: true, costUsd: costState.costUsd, totalRetries: retryCount, blockerIssues: [], modelUsage: costState.modelUsage, reviewSummary: lastReviewSummary };
+    // Track cost for each agent result
+    for (const result of reviewResults) {
+      trackCost(result as AgentRunResult, costState, statePath);
     }
 
-    lastBlockerIssues = reviewResult.blockerIssues;
-    log(`${lastBlockerIssues.length} blocker issue(s) found, patching...`, 'info');
-    AgentStateManager.appendLog(statePath, `${lastBlockerIssues.length} blocker issue(s) found`);
+    // Collect summaries from all agents
+    for (const result of reviewResults) {
+      if (result.reviewResult?.reviewSummary) {
+        allSummaries.push(result.reviewResult.reviewSummary);
+      }
+    }
 
-    // Patch each blocker issue
+    // Merge and deduplicate results
+    const merged = mergeReviewResults(reviewResults);
+    allScreenshots.push(...merged.mergedScreenshots);
+
+    if (merged.passed) {
+      log('Review passed — no blocker issues found!', 'success');
+      AgentStateManager.appendLog(statePath, 'Review passed');
+      const reviewSummary = allSummaries.find(s => s.length > 0);
+      return {
+        passed: true, costUsd: costState.costUsd, totalRetries: retryCount,
+        blockerIssues: [], modelUsage: costState.modelUsage,
+        reviewSummary, allScreenshots, allSummaries,
+      };
+    }
+
+    lastBlockerIssues = merged.blockerIssues;
+    log(`${lastBlockerIssues.length} merged blocker issue(s) found, patching...`, 'info');
+    AgentStateManager.appendLog(statePath, `${lastBlockerIssues.length} merged blocker issue(s) found`);
+
+    // Patch each blocker issue with a single patch agent (sequential)
     for (const blockerIssue of lastBlockerIssues) {
       onPatchingIssue?.(blockerIssue);
       log(`Patching blocker #${blockerIssue.reviewIssueNumber}: ${blockerIssue.issueDescription}`, 'info');
@@ -103,5 +181,10 @@ export async function runReviewWithRetry(opts: ReviewRetryOptions): Promise<Revi
 
   log(`Review still has blockers after ${maxRetries} attempts`, 'error');
   AgentStateManager.appendLog(statePath, `Review still has blockers after ${maxRetries} attempts`);
-  return { passed: false, costUsd: costState.costUsd, totalRetries: retryCount, blockerIssues: lastBlockerIssues, modelUsage: costState.modelUsage, reviewSummary: lastReviewSummary };
+  const reviewSummary = allSummaries.find(s => s.length > 0);
+  return {
+    passed: false, costUsd: costState.costUsd, totalRetries: retryCount,
+    blockerIssues: lastBlockerIssues, modelUsage: costState.modelUsage,
+    reviewSummary, allScreenshots, allSummaries,
+  };
 }

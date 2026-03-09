@@ -1,9 +1,10 @@
 /**
  * Project configuration loader for target repositories.
  *
- * Reads `.adw/commands.md`, `.adw/project.md`, and `.adw/conditional_docs.md`
- * from a target repository to determine project-specific commands, file structure,
- * and conditional documentation. Falls back to sensible defaults when files are absent.
+ * Reads `.adw/commands.md`, `.adw/project.md`, `.adw/conditional_docs.md`,
+ * and `.adw/review_proof.md` from a target repository to determine
+ * project-specific commands, file structure, conditional documentation,
+ * and review proof requirements. Falls back to sensible defaults when files are absent.
  */
 
 import * as fs from 'fs';
@@ -34,6 +35,8 @@ export interface ProjectConfig {
   projectMd: string;
   /** Raw content of `.adw/conditional_docs.md` (empty string when absent). */
   conditionalDocsMd: string;
+  /** Raw content of `.adw/review_proof.md` (empty string when absent). */
+  reviewProofMd: string;
   /** Whether the `.adw/` directory was found. */
   hasAdwDir: boolean;
 }
@@ -84,6 +87,7 @@ export function getDefaultProjectConfig(): ProjectConfig {
     commands: getDefaultCommandsConfig(),
     projectMd: '',
     conditionalDocsMd: '',
+    reviewProofMd: '',
     hasAdwDir: false,
   };
 }
@@ -187,10 +191,20 @@ export function loadProjectConfig(targetRepoPath: string): ProjectConfig {
     // file missing — keep empty
   }
 
+  // review_proof.md
+  const reviewProofPath = path.join(adwDir, 'review_proof.md');
+  let reviewProofMd = '';
+  try {
+    reviewProofMd = fs.readFileSync(reviewProofPath, 'utf-8');
+  } catch {
+    // file missing — keep empty
+  }
+
   return {
     commands,
     projectMd,
     conditionalDocsMd,
+    reviewProofMd,
     hasAdwDir: true,
   };
 }

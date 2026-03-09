@@ -10,3 +10,11 @@ This prompt helps you determine what documentation you should read based on the 
 - For each path, evaluate if any of the listed conditions apply to your task
 - IMPORTANT: Only read the documentation if any one of the conditions match your task
 - IMPORTANT: You don't want to excessively read documentation. Only read the documentation if it's relevant to your task.
+
+- app_docs/feature-fix-review-process-8aatht-multi-agent-review-external-proof.md
+  - Conditions:
+    - When working with the review process or `reviewRetry.ts`
+    - When implementing or modifying parallel agent orchestration
+    - When adding or changing proof requirements for a target project (`.adw/review_proof.md`)
+    - When troubleshooting multi-agent review failures or cost accumulation issues
+    - When modifying `ProjectConfig` or `loadProjectConfig()` in `projectConfig.ts`

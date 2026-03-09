@@ -40,10 +40,11 @@ describe('getDefaultProjectConfig', () => {
     expect(config.hasAdwDir).toBe(false);
   });
 
-  it('returns empty strings for projectMd and conditionalDocsMd', () => {
+  it('returns empty strings for projectMd, conditionalDocsMd, and reviewProofMd', () => {
     const config = getDefaultProjectConfig();
     expect(config.projectMd).toBe('');
     expect(config.conditionalDocsMd).toBe('');
+    expect(config.reviewProofMd).toBe('');
   });
 
   it('returns bun-based default commands', () => {
@@ -223,16 +224,18 @@ describe('loadProjectConfig — no .adw/ directory', () => {
 // ---------------------------------------------------------------------------
 
 describe('loadProjectConfig — valid .adw/ directory', () => {
-  it('loads all three files', () => {
+  it('loads all four files', () => {
     writeAdwFile('commands.md', '## Package Manager\nyarn');
     writeAdwFile('project.md', '## Project Overview\nMy project');
     writeAdwFile('conditional_docs.md', '## Conditional Documentation\n- README.md');
+    writeAdwFile('review_proof.md', '## Proof Requirements\nTest output summaries');
 
     const config = loadProjectConfig(tmpDir);
     expect(config.hasAdwDir).toBe(true);
     expect(config.commands.packageManager).toBe('yarn');
     expect(config.projectMd).toContain('My project');
     expect(config.conditionalDocsMd).toContain('README.md');
+    expect(config.reviewProofMd).toContain('Test output summaries');
   });
 });
 
@@ -264,6 +267,21 @@ describe('loadProjectConfig — partial .adw/ directory', () => {
 
     const config = loadProjectConfig(tmpDir);
     expect(config.conditionalDocsMd).toBe('');
+  });
+
+  it('returns empty reviewProofMd when review_proof.md is missing', () => {
+    writeAdwFile('commands.md', '## Run Linter\ncustom-lint');
+
+    const config = loadProjectConfig(tmpDir);
+    expect(config.reviewProofMd).toBe('');
+  });
+
+  it('loads reviewProofMd when review_proof.md exists', () => {
+    writeAdwFile('review_proof.md', '## Proof\nScreenshots and test output');
+
+    const config = loadProjectConfig(tmpDir);
+    expect(config.hasAdwDir).toBe(true);
+    expect(config.reviewProofMd).toContain('Screenshots and test output');
   });
 });
 
