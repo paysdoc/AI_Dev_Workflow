@@ -57,6 +57,21 @@ export function clearClaudeCodePathCache(): void {
 /** GitHub Personal Access Token (optional, gh CLI handles auth). */
 export const GITHUB_PAT = process.env.GITHUB_PAT || process.env.GITHUB_PERSONAL_ACCESS_TOKEN;
 
+/** Jira instance URL (e.g., https://your-domain.atlassian.net). */
+export const JIRA_BASE_URL = process.env.JIRA_BASE_URL || '';
+
+/** Email for Jira Cloud basic auth. */
+export const JIRA_EMAIL = process.env.JIRA_EMAIL || '';
+
+/** API token for Jira Cloud. */
+export const JIRA_API_TOKEN = process.env.JIRA_API_TOKEN || '';
+
+/** Personal access token for Jira Data Center/Server. */
+export const JIRA_PAT = process.env.JIRA_PAT || '';
+
+/** Default Jira project key (e.g., PROJ). */
+export const JIRA_PROJECT_KEY = process.env.JIRA_PROJECT_KEY || '';
+
 /** Directory for storing workflow logs. */
 export const LOGS_DIR = path.join(process.cwd(), 'logs');
 
