@@ -93,6 +93,7 @@ export {
   buildCostBreakdown,
   formatCostBreakdownMarkdown,
   persistTokenCounts,
+  computeEurRate,
 } from './costReport';
 
 // Cost CSV writer
