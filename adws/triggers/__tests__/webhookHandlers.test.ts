@@ -57,6 +57,7 @@ import { fetchExchangeRates } from '../../core/costReport';
 import {
   handlePullRequestEvent,
   extractIssueNumberFromPRBody,
+  extractIssueNumberFromBranch,
   recordMergedPrIssue,
   wasMergedViaPR,
   resetMergedPrIssues,
@@ -95,6 +96,28 @@ describe('extractIssueNumberFromPRBody', () => {
 
   it('returns null when no pattern matches', () => {
     expect(extractIssueNumberFromPRBody('No issue reference')).toBeNull();
+  });
+});
+
+describe('extractIssueNumberFromBranch', () => {
+  it('extracts issue number from feature branch', () => {
+    expect(extractIssueNumberFromBranch('feature/issue-42-add-login')).toBe(42);
+  });
+
+  it('extracts issue number from bugfix branch', () => {
+    expect(extractIssueNumberFromBranch('bugfix/issue-99-fix-currency-conversion')).toBe(99);
+  });
+
+  it('returns null for branch without issue pattern', () => {
+    expect(extractIssueNumberFromBranch('feature/random-branch')).toBeNull();
+  });
+
+  it('returns null for null input', () => {
+    expect(extractIssueNumberFromBranch(null)).toBeNull();
+  });
+
+  it('returns null for empty string', () => {
+    expect(extractIssueNumberFromBranch('')).toBeNull();
   });
 });
 
@@ -245,13 +268,69 @@ describe('handlePullRequestEvent', () => {
         html_url: 'https://github.com/owner/repo/pull/1',
         title: 'Add feature',
         base: { ref: 'main' },
-        head: { ref: 'feature/issue-42-add-login' },
+        head: { ref: 'feature/random-branch' },
       },
     });
 
     await handlePullRequestEvent(payload);
 
     expect(commitAndPushCostFiles).not.toHaveBeenCalled();
+  });
+
+  it('falls back to branch name for issue extraction when PR body has no Implements #N (merged PR)', async () => {
+    vi.mocked(fetchExchangeRates).mockResolvedValue({ EUR: 0.92 });
+    vi.mocked(commitAndPushCostFiles).mockReturnValue(true);
+    const payload = createPayload({
+      pull_request: {
+        number: 10,
+        state: 'closed',
+        merged: true,
+        body: 'Some PR description without issue link',
+        html_url: 'https://github.com/owner/repo/pull/10',
+        title: 'Some feature',
+        base: { ref: 'main' },
+        head: { ref: 'feature/issue-55-some-feature' },
+      },
+    });
+
+    const result = await handlePullRequestEvent(payload);
+
+    expect(rebuildProjectCostCsv).toHaveBeenCalledWith(process.cwd(), 'repo', 0.92);
+    expect(commitAndPushCostFiles).toHaveBeenCalledWith({
+      repoName: 'repo',
+      issueNumber: 55,
+      issueTitle: 'Some feature',
+    });
+    expect(wasMergedViaPR(55)).toBe(true);
+    expect(result).toEqual({ status: 'closed', issue: 55 });
+  });
+
+  it('falls back to branch name for issue extraction when PR body has no Implements #N (closed without merge)', async () => {
+    vi.mocked(fetchExchangeRates).mockResolvedValue({ EUR: 0.92 });
+    vi.mocked(revertIssueCostFile).mockReturnValue(['projects/repo/55-some-fix.csv']);
+    vi.mocked(commitAndPushCostFiles).mockReturnValue(true);
+    const payload = createPayload({
+      pull_request: {
+        number: 10,
+        state: 'closed',
+        merged: false,
+        body: 'Some PR description without issue link',
+        html_url: 'https://github.com/owner/repo/pull/10',
+        title: 'Some fix',
+        base: { ref: 'main' },
+        head: { ref: 'bugfix/issue-55-some-fix' },
+      },
+    });
+
+    const result = await handlePullRequestEvent(payload);
+
+    expect(revertIssueCostFile).toHaveBeenCalledWith(process.cwd(), 'repo', 55);
+    expect(commitAndPushCostFiles).toHaveBeenCalledWith({
+      repoName: 'repo',
+      paths: ['projects/repo/55-some-fix.csv', 'projects/repo/total-cost.csv'],
+    });
+    expect(wasMergedViaPR(55)).toBe(false);
+    expect(result).toEqual({ status: 'closed', issue: 55 });
   });
 
   it('still succeeds when cost operations throw', async () => {
