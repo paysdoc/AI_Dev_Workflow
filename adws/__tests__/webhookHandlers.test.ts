@@ -57,6 +57,9 @@ import { fetchExchangeRates } from '../core/costReport';
 import {
   handlePullRequestEvent,
   extractIssueNumberFromPRBody,
+  recordMergedPrIssue,
+  wasMergedViaPR,
+  resetMergedPrIssues,
 } from '../triggers/webhookHandlers';
 
 function createPayload(overrides: Partial<PullRequestWebhookPayload> = {}): PullRequestWebhookPayload {
@@ -98,6 +101,7 @@ describe('extractIssueNumberFromPRBody', () => {
 describe('handlePullRequestEvent', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetMergedPrIssues();
   });
 
   it('calls removeWorktree and deleteRemoteBranch when PR is closed', async () => {
@@ -282,5 +286,58 @@ describe('handlePullRequestEvent', () => {
     await handlePullRequestEvent(payload);
 
     expect(rebuildProjectCostCsv).toHaveBeenCalledWith(process.cwd(), 'repo', 0);
+  });
+
+  it('calls recordMergedPrIssue after successful merged PR cost commit', async () => {
+    vi.mocked(fetchExchangeRates).mockResolvedValue({ EUR: 0.92 });
+    vi.mocked(commitAndPushCostFiles).mockReturnValue(true);
+    const payload = createPayload();
+
+    await handlePullRequestEvent(payload);
+
+    // The issue should now be recorded as merged
+    expect(wasMergedViaPR(42)).toBe(true);
+  });
+
+  it('does NOT record merged PR issue for closed-without-merge PRs', async () => {
+    vi.mocked(fetchExchangeRates).mockResolvedValue({ EUR: 0.92 });
+    vi.mocked(commitAndPushCostFiles).mockReturnValue(true);
+    const payload = createPayload({
+      pull_request: {
+        number: 1,
+        state: 'closed',
+        merged: false,
+        body: 'Implements #42',
+        html_url: 'https://github.com/owner/repo/pull/1',
+        title: 'Add feature',
+        base: { ref: 'main' },
+        head: { ref: 'feature/issue-42-add-login' },
+      },
+    });
+
+    await handlePullRequestEvent(payload);
+
+    expect(wasMergedViaPR(42)).toBe(false);
+  });
+});
+
+describe('mergedPrIssues tracking', () => {
+  beforeEach(() => {
+    resetMergedPrIssues();
+  });
+
+  it('records an issue number and wasMergedViaPR returns true', () => {
+    recordMergedPrIssue(91);
+    expect(wasMergedViaPR(91)).toBe(true);
+  });
+
+  it('returns false for an unrecorded issue number', () => {
+    expect(wasMergedViaPR(99)).toBe(false);
+  });
+
+  it('consumes the entry — returns false on second call', () => {
+    recordMergedPrIssue(91);
+    expect(wasMergedViaPR(91)).toBe(true);
+    expect(wasMergedViaPR(91)).toBe(false);
   });
 });

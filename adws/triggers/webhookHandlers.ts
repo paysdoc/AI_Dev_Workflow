@@ -16,6 +16,33 @@ import { hasTargetRepo } from '../core/targetRepoRegistry';
 import { getTargetRepoWorkspacePath } from '../core/targetRepoManager';
 
 /**
+ * Tracks issue numbers whose PRs were merged and cost CSV was already committed.
+ * Prevents the issue close handler from reverting cost CSV files that were
+ * intentionally kept by the PR merge handler.
+ */
+const mergedPrIssues = new Set<number>();
+
+/** Records that an issue's cost CSV was handled by a merged PR. Entry expires after 60 seconds. */
+export function recordMergedPrIssue(issueNumber: number): void {
+  mergedPrIssues.add(issueNumber);
+  setTimeout(() => mergedPrIssues.delete(issueNumber), 60_000);
+}
+
+/** Checks and consumes whether an issue was already handled by a merged PR. */
+export function wasMergedViaPR(issueNumber: number): boolean {
+  const exists = mergedPrIssues.has(issueNumber);
+  if (exists) {
+    mergedPrIssues.delete(issueNumber);
+  }
+  return exists;
+}
+
+/** Clears the merged PR issue tracking set. Exported for test cleanup only. */
+export function resetMergedPrIssues(): void {
+  mergedPrIssues.clear();
+}
+
+/**
  * Extracts issue number from PR body using the "Implements #N" pattern.
  * Returns null if no issue link is found.
  */
@@ -112,6 +139,7 @@ export async function handlePullRequestEvent(payload: PullRequestWebhookPayload)
       rebuildProjectCostCsv(process.cwd(), repoName, eurRate);
       const issueTitle = pull_request.title;
       commitAndPushCostFiles({ repoName, issueNumber, issueTitle });
+      recordMergedPrIssue(issueNumber);
     } else {
       // PR closed without merge: revert issue cost, rebuild total, commit only affected files
       const deletedPaths = revertIssueCostFile(process.cwd(), repoName, issueNumber);
