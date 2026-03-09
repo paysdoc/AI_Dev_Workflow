@@ -29,6 +29,12 @@ vi.mock('../../github/gitOperations', () => ({
   pullLatestCostBranch: vi.fn(),
 }));
 
+vi.mock('../../core/costCommitQueue', () => ({
+  costCommitQueue: {
+    enqueue: vi.fn((fn: () => Promise<void>) => fn()),
+  },
+}));
+
 vi.mock('./webhookHandlers', async (importOriginal) => {
   const original = await importOriginal<typeof import('../webhookHandlers')>();
   return {
@@ -73,15 +79,12 @@ describe('handleIssueCostRevert', () => {
     expect(commitAndPushCostFiles).not.toHaveBeenCalled();
   });
 
-  it('calls commitAndPushCostFiles with specific paths when files were reverted', async () => {
+  it('calls commitAndPushCostFiles with repoName only when files were reverted', async () => {
     vi.mocked(revertIssueCostFile).mockReturnValue(['projects/my-repo/91-some-issue.csv']);
 
     await handleIssueCostRevert(91, 'my-repo');
 
     expect(rebuildProjectCostCsv).toHaveBeenCalledWith(process.cwd(), 'my-repo', 0.92);
-    expect(commitAndPushCostFiles).toHaveBeenCalledWith({
-      repoName: 'my-repo',
-      paths: ['projects/my-repo/91-some-issue.csv', 'projects/my-repo/total-cost.csv'],
-    });
+    expect(commitAndPushCostFiles).toHaveBeenCalledWith({ repoName: 'my-repo' });
   });
 });

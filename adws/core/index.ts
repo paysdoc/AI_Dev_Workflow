@@ -144,3 +144,6 @@ export {
   ensureTargetRepoWorkspace,
 } from './targetRepoManager';
 
+// Cost commit queue
+export { costCommitQueue, CostCommitQueue } from './costCommitQueue';
+

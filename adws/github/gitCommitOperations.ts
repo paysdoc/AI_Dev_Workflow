@@ -3,9 +3,7 @@
  */
 
 import { execSync } from 'child_process';
-import { existsSync } from 'fs';
-import path from 'path';
-import { log, getIssueCsvPath, getProjectCsvPath } from '../core';
+import { log } from '../core';
 import { resolveTargetRepoCwd } from '../core/targetRepoRegistry';
 import { getCurrentBranch, PROTECTED_BRANCHES } from './gitBranchOperations';
 
@@ -69,29 +67,19 @@ export function pullLatestCostBranch(cwd?: string): void {
 
 export interface CommitCostFilesOptions {
   repoName?: string;
-  issueNumber?: number;
-  issueTitle?: string;
-  paths?: string[];
   cwd?: string;
 }
 
 /**
  * Stages, commits, and pushes cost-related CSV files.
- * Supports three modes:
- * - Single issue: repoName + issueNumber + issueTitle — stages issue CSV and project total CSV
- * - Project-wide: repoName only — stages all CSVs in projects/<repoName>/
- * - All projects: no repoName — stages all CSVs under projects/
+ * Supports two modes:
+ * - Project: repoName provided — stages all changes in projects/<repoName>/
+ * - All projects: no repoName — stages all changes under projects/
  *
- * Returns false if issueNumber is provided without repoName (invalid).
  * Returns true if changes were committed, false if no changes or on failure.
  */
 export function commitAndPushCostFiles(options: CommitCostFilesOptions = {}): boolean {
-  const { repoName, issueNumber, issueTitle, paths, cwd } = options;
-
-  if (issueNumber !== undefined && !repoName) {
-    log('Cannot commit issue cost files without a project name', 'error');
-    return false;
-  }
+  const { repoName, cwd } = options;
 
   try {
     const resolvedCwd = resolveTargetRepoCwd(cwd);
@@ -99,41 +87,16 @@ export function commitAndPushCostFiles(options: CommitCostFilesOptions = {}): bo
     let statusPath: string;
     let commitMessage: string;
 
-    if (paths && paths.length > 0) {
-      // Explicit paths mode: filter out paths that don't exist on disk and aren't tracked by git
-      const validPaths = paths.filter(p => {
-        if (existsSync(path.join(resolvedCwd ?? process.cwd(), p))) return true;
-        const tracked = execSync(`git ls-files "${p}"`, { encoding: 'utf-8', cwd: resolvedCwd }).trim();
-        if (tracked) return true;
-        log(`Skipping untracked deleted path: ${p}`, 'info');
-        return false;
-      });
-
-      if (validPaths.length === 0) {
-        log('No valid cost CSV paths to commit', 'info');
-        return false;
-      }
-
-      addPath = validPaths.map(p => `"${p}"`).join(' ');
-      statusPath = addPath;
-      commitMessage = `cost: update cost data for ${repoName ?? 'project'}`;
-    } else if (repoName && issueNumber !== undefined && issueTitle) {
-      // Single issue mode
-      const issueCsvPath = getIssueCsvPath(repoName, issueNumber, issueTitle);
-      const projectCsvPath = getProjectCsvPath(repoName);
-      addPath = `"${issueCsvPath}" "${projectCsvPath}"`;
-      statusPath = `"${issueCsvPath}" "${projectCsvPath}"`;
-      commitMessage = `cost: add cost data for issue #${issueNumber}`;
-    } else if (repoName) {
+    if (repoName) {
       // Project mode
-      addPath = `"projects/${repoName}/*.csv"`;
+      addPath = `"projects/${repoName}/"`;
       statusPath = `"projects/${repoName}/"`;
-      commitMessage = `cost: add cost data for ${repoName}`;
+      commitMessage = `cost: update cost data for ${repoName}`;
     } else {
       // All projects mode
       addPath = 'projects/';
       statusPath = '"projects/"';
-      commitMessage = 'cost: add cost data for all projects';
+      commitMessage = 'cost: update cost data for all projects';
     }
 
     const status = execSync(
