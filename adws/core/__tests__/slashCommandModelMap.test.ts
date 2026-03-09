@@ -31,8 +31,8 @@ describe('SLASH_COMMAND_MODEL_MAP', () => {
     expect(SLASH_COMMAND_MODEL_MAP['/adw_init']).toBe('sonnet');
   });
 
-  it('has exactly 18 entries', () => {
-    expect(Object.keys(SLASH_COMMAND_MODEL_MAP)).toHaveLength(18);
+  it('has exactly 19 entries', () => {
+    expect(Object.keys(SLASH_COMMAND_MODEL_MAP)).toHaveLength(19);
   });
 });
 
@@ -58,8 +58,8 @@ describe('SLASH_COMMAND_MODEL_MAP_FAST', () => {
     expect(SLASH_COMMAND_MODEL_MAP_FAST['/adw_init']).toBe('haiku');
   });
 
-  it('has exactly 18 entries', () => {
-    expect(Object.keys(SLASH_COMMAND_MODEL_MAP_FAST)).toHaveLength(18);
+  it('has exactly 19 entries', () => {
+    expect(Object.keys(SLASH_COMMAND_MODEL_MAP_FAST)).toHaveLength(19);
   });
 });
 
@@ -224,8 +224,8 @@ describe('SLASH_COMMAND_EFFORT_MAP', () => {
     expect(SLASH_COMMAND_EFFORT_MAP['/adw_init']).toBe('high');
   });
 
-  it('has exactly 18 entries', () => {
-    expect(Object.keys(SLASH_COMMAND_EFFORT_MAP)).toHaveLength(18);
+  it('has exactly 19 entries', () => {
+    expect(Object.keys(SLASH_COMMAND_EFFORT_MAP)).toHaveLength(19);
   });
 });
 
@@ -251,8 +251,8 @@ describe('SLASH_COMMAND_EFFORT_MAP_FAST', () => {
     expect(SLASH_COMMAND_EFFORT_MAP_FAST['/adw_init']).toBe('medium');
   });
 
-  it('has exactly 18 entries', () => {
-    expect(Object.keys(SLASH_COMMAND_EFFORT_MAP_FAST)).toHaveLength(18);
+  it('has exactly 19 entries', () => {
+    expect(Object.keys(SLASH_COMMAND_EFFORT_MAP_FAST)).toHaveLength(19);
   });
 });
 
