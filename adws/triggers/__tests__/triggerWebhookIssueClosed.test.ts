@@ -9,7 +9,6 @@ vi.mock('../../core/utils', () => ({
 }));
 
 vi.mock('../../core/costCsvWriter', () => ({
-  revertIssueCostFile: vi.fn(() => []),
   rebuildProjectCostCsv: vi.fn(),
   getProjectCsvPath: vi.fn((repoName: string) => `projects/${repoName}/total-cost.csv`),
   getIssueCsvPath: vi.fn(),
@@ -42,7 +41,7 @@ vi.mock('./webhookHandlers', async (importOriginal) => {
   };
 });
 
-import { revertIssueCostFile, rebuildProjectCostCsv } from '../../core/costCsvWriter';
+import { rebuildProjectCostCsv } from '../../core/costCsvWriter';
 import { commitAndPushCostFiles, pullLatestCostBranch } from '../../github/gitOperations';
 import { recordMergedPrIssue, resetMergedPrIssues } from '../webhookHandlers';
 import { handleIssueCostRevert } from '../trigger_webhook';
@@ -58,30 +57,18 @@ describe('handleIssueCostRevert', () => {
 
     await handleIssueCostRevert(91, 'my-repo');
 
-    expect(revertIssueCostFile).not.toHaveBeenCalled();
     expect(rebuildProjectCostCsv).not.toHaveBeenCalled();
     expect(commitAndPushCostFiles).not.toHaveBeenCalled();
   });
 
-  it('calls revertIssueCostFile when issue was NOT handled by merged PR', async () => {
+  it('calls rebuildProjectCostCsv when issue was NOT handled by merged PR', async () => {
     await handleIssueCostRevert(91, 'my-repo');
 
     expect(pullLatestCostBranch).toHaveBeenCalled();
-    expect(revertIssueCostFile).toHaveBeenCalledWith(process.cwd(), 'my-repo', 91);
+    expect(rebuildProjectCostCsv).toHaveBeenCalledWith(process.cwd(), 'my-repo', 0.92);
   });
 
-  it('does NOT call rebuildProjectCostCsv or commitAndPushCostFiles when revert returns empty array', async () => {
-    vi.mocked(revertIssueCostFile).mockReturnValue([]);
-
-    await handleIssueCostRevert(91, 'my-repo');
-
-    expect(rebuildProjectCostCsv).not.toHaveBeenCalled();
-    expect(commitAndPushCostFiles).not.toHaveBeenCalled();
-  });
-
-  it('calls commitAndPushCostFiles with repoName only when files were reverted', async () => {
-    vi.mocked(revertIssueCostFile).mockReturnValue(['projects/my-repo/91-some-issue.csv']);
-
+  it('calls rebuildProjectCostCsv and commitAndPushCostFiles unconditionally when issue was not handled by merged PR', async () => {
     await handleIssueCostRevert(91, 'my-repo');
 
     expect(rebuildProjectCostCsv).toHaveBeenCalledWith(process.cwd(), 'my-repo', 0.92);
