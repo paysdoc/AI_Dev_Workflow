@@ -35,6 +35,7 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 88,add issue comments for the review process,5.2025,0.5202
 92,feat 90 fix review process,3.7264,0.3726
 113,define issuetracker and codehost provider interfac,3.6376,0.3638
+126,json error,0.4218,0.0422
 
-Total Cost (USD):,134.4083
-Total Cost (EUR):,116.4241
+Total Cost (USD):,134.8723
+Total Cost (EUR):,116.8260
