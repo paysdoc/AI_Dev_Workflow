@@ -3,6 +3,7 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 0,bug 71 pragent passes args as string,2.3623,0.2362
 0,bug 94 fix cost csv deletion on merged pr issue cl,0.8123,0.0812
 0,bug 99 fix currency conversion,0.6907,0.0691
+0,feat 114 implement github issuetracker provider,1.4748,0.1475
 0,feat 66 automatically commit cost when pr is close,1.4173,0.1417
 0,feat 80 add reasoning effort to slash commands,1.1973,0.1197
 0,feat 90 fix review process,0.7485,0.0749
@@ -37,7 +38,8 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 113,define issuetracker and codehost provider interfac,3.6376,0.3638
 114,implement github issuetracker provider,1.4713,0.1471
 115,implement github codehost provider,1.8497,0.1850
+123,implement jira issuetracker provider,6.2039,0.6204
 126,json error,0.4218,0.0422
 
-Total Cost (USD):,138.5254
-Total Cost (EUR):,119.9903
+Total Cost (USD):,146.9720
+Total Cost (EUR):,127.3067
