@@ -1,6 +1,3 @@
+export { createGitHubIssueTracker } from './githubIssueTracker';
 export { createGitHubCodeHost, GitHubCodeHost } from './githubCodeHost';
-export {
-  mapPRDetailsToMergeRequest,
-  mapPRReviewCommentToReviewComment,
-  mapPRListItemToMergeRequest,
-} from './mappers';
+export * from './mappers';
