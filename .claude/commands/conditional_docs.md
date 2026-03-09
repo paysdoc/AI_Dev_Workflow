@@ -11,6 +11,14 @@ This prompt helps you determine what documentation you should read based on the 
 - IMPORTANT: Only read the documentation if any one of the conditions match your task
 - IMPORTANT: You don't want to excessively read documentation. Only read the documentation if it's relevant to your task.
 
+- app_docs/feature-1773072529842-bmkqrg-jira-issue-tracker-provider.md
+  - Conditions:
+    - When working with the Jira IssueTracker provider (`adws/providers/jira/`)
+    - When implementing or extending IssueTracker providers for non-GitHub issue trackers
+    - When configuring ADW to use Jira as the issue tracking backend
+    - When troubleshooting Jira API authentication, ADF conversion, or status transitions
+    - When adding support for a new issue tracker platform following the IssueTracker interface
+
 - app_docs/feature-fix-review-process-8aatht-multi-agent-review-external-proof.md
   - Conditions:
     - When working with the review process or `reviewRetry.ts`
