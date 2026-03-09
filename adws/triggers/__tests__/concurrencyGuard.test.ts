@@ -51,7 +51,7 @@ describe('getInProgressIssueCount', () => {
       { number: 2, comments: [{ body: '## :rocket: ADW Workflow Started\n\n<!-- adw-bot -->' }] },
     ];
     const prs = [
-      { number: 10, body: 'Implements #1', state: 'MERGED', merged: true },
+      { number: 10, body: 'Implements #1', state: 'MERGED', mergedAt: '2026-01-01T00:00:00Z' },
     ];
     mockGhCalls(issues, prs);
     expect(await getInProgressIssueCount(repoInfo)).toBe(1);
@@ -72,7 +72,7 @@ describe('getInProgressIssueCount', () => {
       { number: 5, comments: [{ body: '## :rocket: ADW Workflow Started\n\n<!-- adw-bot -->' }] },
     ];
     const prs = [
-      { number: 20, body: 'Implements #5', state: 'CLOSED', merged: false },
+      { number: 20, body: 'Implements #5', state: 'CLOSED', mergedAt: null },
     ];
     mockGhCalls(issues, prs);
     expect(await getInProgressIssueCount(repoInfo)).toBe(0);
