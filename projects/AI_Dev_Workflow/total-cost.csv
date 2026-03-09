@@ -2,6 +2,7 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 0,bug 52 issue classifier running on incorrect repo,6.3452,0.6345
 0,bug 71 pragent passes args as string,2.3623,0.2362
 0,bug 94 fix cost csv deletion on merged pr issue cl,0.8123,0.0812
+0,bug 99 fix currency conversion,0.6907,0.0691
 0,feat 66 automatically commit cost when pr is close,1.4173,0.1417
 0,feat 80 add reasoning effort to slash commands,1.1973,0.1197
 0,feat 90 fix review process,0.7485,0.0749
@@ -34,5 +35,5 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 88,add issue comments for the review process,5.2025,0.5202
 92,feat 90 fix review process,3.7264,0.3726
 
-Total Cost (USD):,129.6472
-Total Cost (EUR):,112.3000
+Total Cost (USD):,130.4070
+Total Cost (EUR):,112.9581
