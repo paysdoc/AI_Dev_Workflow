@@ -118,12 +118,12 @@ export async function runE2ETestsWithRetry(opts: TestRetryOptions): Promise<Test
 
   // Track failed tests for retry
   const failedE2ETests: Map<string, { result: E2ETestResult; retryCount: number }> = new Map();
-  for (const failedResult of playwrightResult.failedResults) {
+  playwrightResult.failedResults.forEach(failedResult => {
     const testFile = failedResult.testPath ?? failedResult.testName;
     failedE2ETests.set(testFile, { result: failedResult, retryCount: 0 });
     log(`E2E test failed: ${failedResult.testName}`, 'error');
     AgentStateManager.appendLog(statePath, `E2E test failed: ${failedResult.testName}`);
-  }
+  });
 
   // Retry loop: resolve failures with AI, then re-run Playwright
   while (failedE2ETests.size > 0) {
@@ -172,22 +172,22 @@ export async function runE2ETestsWithRetry(opts: TestRetryOptions): Promise<Test
       retryPlaywrightResult.failedResults.map(r => r.testPath ?? r.testName)
     );
 
-    for (const [testFile] of Array.from(failedE2ETests.entries())) {
-      if (!stillFailingFiles.has(testFile)) {
+    Array.from(failedE2ETests.keys())
+      .filter(testFile => !stillFailingFiles.has(testFile))
+      .forEach(testFile => {
         failedE2ETests.delete(testFile);
         log(`E2E test now passing: ${testFile}`, 'success');
         AgentStateManager.appendLog(statePath, `E2E test now passing: ${testFile}`);
-      }
-    }
+      });
 
-    for (const failedResult of retryPlaywrightResult.failedResults) {
+    retryPlaywrightResult.failedResults.forEach(failedResult => {
       const testFile = failedResult.testPath ?? failedResult.testName;
       const existing = failedE2ETests.get(testFile);
       const newRetryCount = existing ? existing.retryCount + 1 : 0;
       failedE2ETests.set(testFile, { result: failedResult, retryCount: newRetryCount });
       log(`E2E test still failing: ${testFile}`, 'error');
       AgentStateManager.appendLog(statePath, `E2E test still failing: ${testFile}`);
-    }
+    });
   }
 
   const allPassed = failedE2ETests.size === 0;

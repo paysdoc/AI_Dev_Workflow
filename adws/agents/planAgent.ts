@@ -56,11 +56,10 @@ function findPlanFile(issueNumber: number, worktreePath?: string): string | null
     const files = fs.readdirSync(specsDir);
 
     // Look for new naming convention: issue-{number}-adw-{adwId}-sdlc_planner-*.md
-    for (const file of files) {
-      const pattern = new RegExp(`^issue-${issueNumber}-adw-.*-sdlc_planner-.*\\.md$`);
-      if (pattern.test(file)) {
-        return path.join('specs', file);
-      }
+    const pattern = new RegExp(`^issue-${issueNumber}-adw-.*-sdlc_planner-.*\\.md$`);
+    const matchingFile = files.find(file => pattern.test(file));
+    if (matchingFile) {
+      return path.join('specs', matchingFile);
     }
 
     // Fall back to legacy naming: issue-{number}-plan.md
@@ -141,24 +140,21 @@ export function correctPlanFileNaming(issueNumber: number, worktreePath?: string
 
     // Already correctly named? No correction needed.
     const correctPattern = new RegExp(`^issue-${issueNumber}-adw-.*-sdlc_planner-.*\\.md$`);
-    for (const file of files) {
-      if (correctPattern.test(file)) return null;
-    }
+    if (files.some(file => correctPattern.test(file))) return null;
 
     // Look for swapped naming: adwId placed in issue- position, issueNumber placed in adw- position
     const swappedPattern = new RegExp(`^issue-(.+)-adw-${issueNumber}-sdlc_planner-(.+\\.md)$`);
-    for (const file of files) {
-      const match = file.match(swappedPattern);
-      if (match) {
-        const swappedAdwId = match[1];
-        const descriptivePart = match[2];
-        const correctedName = `issue-${issueNumber}-adw-${swappedAdwId}-sdlc_planner-${descriptivePart}`;
-        const oldPath = path.join(specsDir, file);
-        const newPath = path.join(specsDir, correctedName);
-        fs.renameSync(oldPath, newPath);
-        log(`Plan file renamed: ${file} → ${correctedName} (corrected swapped issueNumber/adwId)`, 'warn');
-        return path.join('specs', correctedName);
-      }
+    const swappedFile = files.find(file => swappedPattern.test(file));
+    if (swappedFile) {
+      const match = swappedFile.match(swappedPattern)!;
+      const swappedAdwId = match[1];
+      const descriptivePart = match[2];
+      const correctedName = `issue-${issueNumber}-adw-${swappedAdwId}-sdlc_planner-${descriptivePart}`;
+      const oldPath = path.join(specsDir, swappedFile);
+      const newPath = path.join(specsDir, correctedName);
+      fs.renameSync(oldPath, newPath);
+      log(`Plan file renamed: ${swappedFile} → ${correctedName} (corrected swapped issueNumber/adwId)`, 'warn');
+      return path.join('specs', correctedName);
     }
   } catch {
     // specs directory doesn't exist or other error

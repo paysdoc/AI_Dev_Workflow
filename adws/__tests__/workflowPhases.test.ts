@@ -21,6 +21,7 @@ import {
 } from '../workflowPhases';
 import { RecoveryState, GitHubIssue, PRDetails, PRReviewComment } from '../types/dataTypes';
 import { getDefaultProjectConfig } from '../core/projectConfig';
+import { OrchestratorId } from '../core/constants';
 import { WorkflowContext, PRReviewWorkflowContext } from '../github/workflowComments';
 import { extractBranchNameFromComment } from '../github/workflowCommentsBase';
 
@@ -234,7 +235,7 @@ function createWorkflowConfig(overrides: Partial<WorkflowConfig> = {}): Workflow
     defaultBranch: 'main',
     logsDir: '/mock/logs',
     orchestratorStatePath: '/mock/state/path',
-    orchestratorName: 'plan-orchestrator',
+    orchestratorName: OrchestratorId.Plan,
     recoveryState: createRecoveryState(),
     ctx: { issueNumber: 1, adwId: 'test-adw-id' } as WorkflowContext,
     branchName: 'feature/issue-1-test',
@@ -251,7 +252,7 @@ describe('initializeWorkflow', () => {
 
   it('uses branch name agent, checkoutDefaultBranch, and ensureWorktree with baseBranch when no cwd provided', async () => {
     vi.mocked(getWorktreeForBranch).mockReturnValue(null);
-    const config = await initializeWorkflow(1, 'test-id', 'plan-orchestrator');
+    const config = await initializeWorkflow(1, 'test-id', OrchestratorId.Plan);
 
     expect(runGenerateBranchNameAgent).toHaveBeenCalled();
     expect(checkoutDefaultBranch).toHaveBeenCalled();
@@ -262,7 +263,7 @@ describe('initializeWorkflow', () => {
 
   it('reuses existing worktree and merges latest when worktree already exists', async () => {
     vi.mocked(getWorktreeForBranch).mockReturnValue('/existing/worktree');
-    const config = await initializeWorkflow(1, 'test-id', 'plan-orchestrator');
+    const config = await initializeWorkflow(1, 'test-id', OrchestratorId.Plan);
 
     expect(runGenerateBranchNameAgent).toHaveBeenCalled();
     expect(getWorktreeForBranch).toHaveBeenCalledWith('feature/issue-1-test');
@@ -274,7 +275,7 @@ describe('initializeWorkflow', () => {
   });
 
   it('uses provided cwd directly and merges latest changes', async () => {
-    const config = await initializeWorkflow(1, 'test-id', 'plan-orchestrator', {
+    const config = await initializeWorkflow(1, 'test-id', OrchestratorId.Plan, {
       cwd: '/provided/path',
     });
 
@@ -284,7 +285,7 @@ describe('initializeWorkflow', () => {
   });
 
   it('skips classification when issueType is provided', async () => {
-    const config = await initializeWorkflow(1, 'test-id', 'plan-orchestrator', {
+    const config = await initializeWorkflow(1, 'test-id', OrchestratorId.Plan, {
       issueType: '/bug',
     });
 
@@ -293,7 +294,7 @@ describe('initializeWorkflow', () => {
   });
 
   it('posts starting comment on fresh run', async () => {
-    await initializeWorkflow(1, 'test-id', 'plan-orchestrator');
+    await initializeWorkflow(1, 'test-id', OrchestratorId.Plan);
 
     expect(postWorkflowComment).toHaveBeenCalledWith(1, 'starting', expect.objectContaining({
       issueNumber: 1,
@@ -310,7 +311,7 @@ describe('initializeWorkflow', () => {
       prUrl: 'https://github.com/test/pr/1',
     }));
 
-    const config = await initializeWorkflow(1, 'test-id', 'plan-orchestrator');
+    const config = await initializeWorkflow(1, 'test-id', OrchestratorId.Plan);
 
     expect(config.ctx.branchName).toBe('feature/recovered');
     expect(config.ctx.planPath).toBe('/recovered/plan.md');
@@ -327,13 +328,13 @@ describe('initializeWorkflow', () => {
       lastCompletedStage: 'classified',
     }));
 
-    await initializeWorkflow(1, 'test-id', 'plan-orchestrator');
+    await initializeWorkflow(1, 'test-id', OrchestratorId.Plan);
 
     expect(hasUncommittedChanges).toHaveBeenCalled();
   });
 
   it('generates ADW ID from issue title when adwId is null', async () => {
-    const config = await initializeWorkflow(1, null, 'plan-orchestrator');
+    const config = await initializeWorkflow(1, null, OrchestratorId.Plan);
 
     expect(detectRecoveryState).toHaveBeenCalled();
     expect(generateAdwId).toHaveBeenCalledWith('Test issue');
@@ -354,7 +355,7 @@ describe('initializeWorkflow', () => {
     }));
     vi.mocked(getWorktreeForBranch).mockReturnValue('/existing/worktree');
 
-    const config = await initializeWorkflow(1, null, 'plan-orchestrator');
+    const config = await initializeWorkflow(1, null, OrchestratorId.Plan);
 
     expect(generateAdwId).not.toHaveBeenCalled();
     expect(runGenerateBranchNameAgent).not.toHaveBeenCalled();
@@ -366,7 +367,7 @@ describe('initializeWorkflow', () => {
     vi.mocked(detectRecoveryState).mockReturnValue(createRecoveryState());
     vi.mocked(getWorktreeForBranch).mockReturnValue(null);
 
-    const config = await initializeWorkflow(1, null, 'plan-orchestrator');
+    const config = await initializeWorkflow(1, null, OrchestratorId.Plan);
 
     expect(generateAdwId).toHaveBeenCalledWith('Test issue');
     expect(runGenerateBranchNameAgent).toHaveBeenCalled();
@@ -382,7 +383,7 @@ describe('initializeWorkflow', () => {
     }));
     vi.mocked(getWorktreeForBranch).mockReturnValue('/existing/worktree');
 
-    const config = await initializeWorkflow(1, null, 'plan-orchestrator');
+    const config = await initializeWorkflow(1, null, OrchestratorId.Plan);
 
     expect(generateAdwId).toHaveBeenCalledWith('Test issue');
     expect(runGenerateBranchNameAgent).not.toHaveBeenCalled();
@@ -395,7 +396,7 @@ describe('initializeWorkflow', () => {
       branchName: 'feature/issue-1-original-name',
     });
 
-    const config = await initializeWorkflow(1, 'test-id', 'plan-orchestrator');
+    const config = await initializeWorkflow(1, 'test-id', OrchestratorId.Plan);
 
     expect(runGenerateBranchNameAgent).not.toHaveBeenCalled();
     expect(getWorktreeForBranch).not.toHaveBeenCalled();
@@ -412,7 +413,7 @@ describe('initializeWorkflow', () => {
     vi.mocked(findWorktreeForIssue).mockReturnValue(null);
     vi.mocked(getWorktreeForBranch).mockReturnValue(null);
 
-    const config = await initializeWorkflow(1, 'test-id', 'plan-orchestrator');
+    const config = await initializeWorkflow(1, 'test-id', OrchestratorId.Plan);
 
     expect(findWorktreeForIssue).toHaveBeenCalledWith('/feature', 1);
     expect(runGenerateBranchNameAgent).toHaveBeenCalled();
@@ -946,11 +947,11 @@ describe('initializePRReviewWorkflow', () => {
   it('initializes orchestrator state with correct metadata', async () => {
     await initializePRReviewWorkflow(42, 'test-adw-id');
 
-    expect(AgentStateManager.initializeState).toHaveBeenCalledWith('test-adw-id', 'pr-review-orchestrator');
+    expect(AgentStateManager.initializeState).toHaveBeenCalledWith('test-adw-id', OrchestratorId.PrReview);
     expect(AgentStateManager.writeState).toHaveBeenCalledWith(
       '/mock/state/path',
       expect.objectContaining({
-        agentName: 'pr-review-orchestrator',
+        agentName: OrchestratorId.PrReview,
         metadata: { prNumber: 42, reviewComments: 1 },
       })
     );
@@ -1211,7 +1212,7 @@ describe('completePRReviewWorkflow', () => {
 
     expect(inferIssueTypeFromBranch).toHaveBeenCalledWith('feature/issue-10-test');
     expect(runCommitAgent).toHaveBeenCalledWith(
-      'pr-review-orchestrator',
+      OrchestratorId.PrReview,
       '/feature',
       expect.any(String),
       '/mock/logs',

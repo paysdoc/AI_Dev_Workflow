@@ -30,6 +30,8 @@ import {
   mergeModelUsageMaps,
   persistTokenCounts,
   parseTargetRepoArgs,
+  parseOrchestratorArguments,
+  OrchestratorId,
 } from './core';
 import {
   fetchGitHubIssue,
@@ -46,65 +48,16 @@ import {
 } from './agents';
 
 /**
- * Prints usage information and exits.
- */
-function printUsageAndExit(): never {
-  console.error('Usage: bunx tsx adws/adwPatch.tsx <issueNumber> [adw-id] [--cwd <path>]');
-  console.error('');
-  console.error('Creates a direct patch from a GitHub issue without a full plan cycle.');
-  console.error('');
-  console.error('Options:');
-  console.error('  --cwd <path>  Working directory for patch operations (worktree path)');
-  console.error('');
-  console.error('Environment Requirements:');
-  console.error('  ANTHROPIC_API_KEY  - Anthropic API key');
-  console.error('  CLAUDE_CODE_PATH   - Path to Claude CLI (default: /usr/local/bin/claude)');
-  console.error('  GITHUB_PAT         - (Optional) GitHub Personal Access Token');
-  process.exit(1);
-}
-
-/**
- * Parses and validates command line arguments.
- */
-function parseArguments(args: string[]): {
-  issueNumber: number;
-  adwId: string | null;
-  cwd: string | null;
-} {
-  if (args.includes('--help') || args.includes('-h')) {
-    printUsageAndExit();
-  }
-
-  // Parse --cwd option
-  let cwd: string | null = null;
-  const cwdIndex = args.indexOf('--cwd');
-  if (cwdIndex !== -1 && args[cwdIndex + 1]) {
-    cwd = args[cwdIndex + 1];
-    args.splice(cwdIndex, 2);
-  }
-
-  if (args.length < 1) {
-    printUsageAndExit();
-  }
-
-  const issueNumber = parseInt(args[0], 10);
-  if (isNaN(issueNumber)) {
-    console.error(`Invalid issue number: ${args[0]}`);
-    process.exit(1);
-  }
-
-  const adwId = args[1] || null;
-
-  return { issueNumber, adwId, cwd };
-}
-
-/**
  * Main patch workflow.
  */
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const { owner, repo } = parseTargetRepoArgs(args) || { owner: '', repo: '' };
-  const { issueNumber, adwId: providedAdwId, cwd } = parseArguments(args);
+  const { issueNumber, adwId: providedAdwId, cwd } = parseOrchestratorArguments(args, {
+    scriptName: 'adwPatch.tsx',
+    usagePattern: '<issueNumber> [adw-id] [--cwd <path>]',
+    supportsIssueType: false,
+  });
 
   // Fetch issue
   log('Fetching GitHub issue...', 'info');
@@ -128,13 +81,13 @@ async function main(): Promise<void> {
   }
   log('===================================', 'info');
 
-  const orchestratorStatePath = AgentStateManager.initializeState(adwId, 'patch-orchestrator');
+  const orchestratorStatePath = AgentStateManager.initializeState(adwId, OrchestratorId.Patch);
 
   const initialState: Partial<AgentState> = {
     adwId,
     issueNumber,
     branchName,
-    agentName: 'patch-orchestrator',
+    agentName: OrchestratorId.Patch,
     execution: AgentStateManager.createExecutionState('running'),
   };
   AgentStateManager.writeState(orchestratorStatePath, initialState);
@@ -196,7 +149,7 @@ async function main(): Promise<void> {
 
     // Step 3: Commit changes
     log('Committing changes...', 'info');
-    await runCommitAgent('patch-orchestrator', issueType, JSON.stringify(issue), logsDir, undefined, cwd || undefined);
+    await runCommitAgent(OrchestratorId.Patch, issueType, JSON.stringify(issue), logsDir, undefined, cwd || undefined);
     AgentStateManager.appendLog(orchestratorStatePath, 'Changes committed');
 
     // Step 4: Create PR

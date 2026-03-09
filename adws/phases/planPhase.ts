@@ -8,6 +8,7 @@ import {
   shouldExecuteStage,
   type ModelUsageMap,
   emptyModelUsageMap,
+  OrchestratorId,
 } from '../core';
 import {
   postWorkflowComment,
@@ -125,7 +126,7 @@ export async function executePlanPhase(config: WorkflowConfig): Promise<{ costUs
   // Commit plan step
   if (shouldExecuteStage('plan_committing', recoveryState)) {
     postWorkflowComment(issueNumber, 'plan_committing', ctx, repoInfo);
-    await runCommitAgent('plan-orchestrator', issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body);
+    await runCommitAgent(OrchestratorId.Plan, issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body);
   } else {
     log('Skipping plan commit (already completed)', 'info');
   }

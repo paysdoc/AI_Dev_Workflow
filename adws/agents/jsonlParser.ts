@@ -6,7 +6,7 @@
  */
 
 import { ClaudeCodeResultMessage, AgentStateManager, type ModelUsageMap } from '../core';
-import { computeTotalTokens, computePrimaryModelTokens } from './tokenManager';
+import { computeTotalTokens, computePrimaryModelTokens } from '../core/tokenManager';
 
 // ---------------------------------------------------------------------------
 // Content block types – discriminated union replacing `any` usage
@@ -112,33 +112,26 @@ export interface JsonlParserState {
  * Extracts text content from Claude assistant messages.
  */
 export function extractTextFromAssistantMessage(message: JsonlAssistantMessage['message'] | undefined): string {
-  let text = '';
-  if (message?.content) {
-    for (const block of message.content) {
-      if (block.type === 'text') {
-        text += block.text + '\n';
-      }
-    }
-  }
-  return text;
+  if (!message?.content) return '';
+  return message.content
+    .filter((block): block is TextContentBlock => block.type === 'text')
+    .map(block => block.text + '\n')
+    .join('');
 }
 
 /**
  * Extracts tool use information from an assistant message.
  */
 export function extractToolUseFromMessage(message: JsonlAssistantMessage['message'] | undefined): { name: string; input: string }[] {
-  const tools: { name: string; input: string }[] = [];
-  if (message?.content) {
-    for (const block of message.content) {
-      if (block.type === 'tool_use') {
-        const inputSummary = typeof block.input === 'object'
-          ? JSON.stringify(block.input).substring(0, 200)
-          : String(block.input).substring(0, 200);
-        tools.push({ name: block.name, input: inputSummary });
-      }
-    }
-  }
-  return tools;
+  if (!message?.content) return [];
+  return message.content
+    .filter((block): block is ToolUseContentBlock => block.type === 'tool_use')
+    .map(block => ({
+      name: block.name,
+      input: typeof block.input === 'object'
+        ? JSON.stringify(block.input).substring(0, 200)
+        : String(block.input).substring(0, 200),
+    }));
 }
 
 // ---------------------------------------------------------------------------
@@ -183,7 +176,7 @@ export function parseJsonlOutput(
 
         // Extract and report tool usage
         const toolUses = extractToolUseFromMessage(assistantMsg.message);
-        for (const tool of toolUses) {
+        toolUses.forEach(tool => {
           state.toolCount++;
           if (onProgress) {
             onProgress({
@@ -198,7 +191,7 @@ export function parseJsonlOutput(
           if (statePath) {
             AgentStateManager.appendLog(statePath, `[Turn ${state.turnCount}] Tool: ${tool.name}`);
           }
-        }
+        });
 
         // Report text content if present (for status updates)
         const textContent = extractTextFromAssistantMessage(assistantMsg.message).trim();

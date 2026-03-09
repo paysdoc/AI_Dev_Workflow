@@ -21,42 +21,22 @@ import {
   ensureLogsDirectory,
   AgentStateManager,
   type AgentState,
+  OrchestratorId,
 } from './core';
+import { extractCwdOption, printUsageAndExit } from './core/orchestratorCli';
 import { runDocumentAgent } from './agents';
-
-/**
- * Prints usage information and exits.
- */
-function printUsageAndExit(): never {
-  console.error('Usage: bunx tsx adws/adwDocument.tsx [adw-id] [--cwd <path>]');
-  console.error('');
-  console.error('Generates feature documentation based on git diff analysis.');
-  console.error('');
-  console.error('Options:');
-  console.error('  --cwd <path>  Working directory for documentation generation (worktree path)');
-  console.error('');
-  console.error('Environment Requirements:');
-  console.error('  ANTHROPIC_API_KEY  - Anthropic API key');
-  console.error('  CLAUDE_CODE_PATH   - Path to Claude CLI (default: /usr/local/bin/claude)');
-  process.exit(1);
-}
 
 /**
  * Parses and validates command line arguments.
  */
 function parseArguments(args: string[]): { adwId: string; cwd: string | null } {
   if (args.includes('--help') || args.includes('-h')) {
-    printUsageAndExit();
+    printUsageAndExit('adwDocument.tsx', '[adw-id] [--cwd <path>]', [
+      '--cwd <path>  Working directory for documentation generation (worktree path)',
+    ]);
   }
 
-  // Parse --cwd option
-  let cwd: string | null = null;
-  const cwdIndex = args.indexOf('--cwd');
-  if (cwdIndex !== -1 && args[cwdIndex + 1]) {
-    cwd = args[cwdIndex + 1];
-    args.splice(cwdIndex, 2);
-  }
-
+  const cwd = extractCwdOption(args);
   const adwId = args[0] || generateAdwId();
   setLogAdwId(adwId);
   return { adwId, cwd };
@@ -80,12 +60,12 @@ async function main(): Promise<void> {
   }
   log('===================================', 'info');
 
-  const orchestratorStatePath = AgentStateManager.initializeState(adwId, 'document-orchestrator');
+  const orchestratorStatePath = AgentStateManager.initializeState(adwId, OrchestratorId.Document);
 
   const initialState: Partial<AgentState> = {
     adwId,
     issueNumber: 0,
-    agentName: 'document-orchestrator',
+    agentName: OrchestratorId.Document,
     execution: AgentStateManager.createExecutionState('running'),
   };
   AgentStateManager.writeState(orchestratorStatePath, initialState);

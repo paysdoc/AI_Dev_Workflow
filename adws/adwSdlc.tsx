@@ -23,7 +23,7 @@
  */
 
 import * as path from 'path';
-import { type IssueClassSlashCommand, VALID_ISSUE_TYPES, mergeModelUsageMaps, persistTokenCounts, parseTargetRepoArgs } from './core';
+import { mergeModelUsageMaps, persistTokenCounts, parseTargetRepoArgs, parseOrchestratorArguments, OrchestratorId } from './core';
 import {
   initializeWorkflow,
   executePlanPhase,
@@ -35,64 +35,6 @@ import {
   completeWorkflow,
   handleWorkflowError,
 } from './workflowPhases';
-
-/**
- * Prints usage information and exits.
- */
-function printUsageAndExit(): never {
-  console.error('Usage: bunx tsx adws/adwSdlc.tsx <github-issueNumber> [adw-id] [--issue-type <type>]');
-  console.error('');
-  console.error('This orchestrator runs the full SDLC: Plan+Build+Test+PR+Review+Document.');
-  console.error('');
-  console.error('Options:');
-  console.error('  --issue-type <type>  Pre-classified issue type (skips classification step)');
-  console.error(`                       Valid values: ${VALID_ISSUE_TYPES.join(', ')}`);
-  console.error('');
-  console.error('Environment Requirements:');
-  console.error('  ANTHROPIC_API_KEY           - Anthropic API key');
-  console.error('  CLAUDE_CODE_PATH            - Path to Claude CLI (default: /usr/local/bin/claude)');
-  console.error('  GITHUB_PAT                  - (Optional) GitHub Personal Access Token');
-  console.error('  MAX_TEST_RETRY_ATTEMPTS     - Maximum retry attempts for tests (default: 5)');
-  console.error('  MAX_REVIEW_RETRY_ATTEMPTS   - Maximum retry attempts for review (default: 3)');
-  process.exit(1);
-}
-
-/**
- * Parses and validates command line arguments.
- */
-function parseArguments(args: string[]): {
-  issueNumber: number;
-  adwId: string | null;
-  providedIssueType: IssueClassSlashCommand | null;
-} {
-  if (args.length < 1) {
-    printUsageAndExit();
-  }
-
-  // Parse --issue-type option
-  let providedIssueType: IssueClassSlashCommand | null = null;
-  const issueTypeIndex = args.indexOf('--issue-type');
-  if (issueTypeIndex !== -1 && args[issueTypeIndex + 1]) {
-    const typeValue = args[issueTypeIndex + 1];
-    if (VALID_ISSUE_TYPES.includes(typeValue as IssueClassSlashCommand)) {
-      providedIssueType = typeValue as IssueClassSlashCommand;
-    } else {
-      console.error(`Invalid issue type: ${typeValue}. Valid values: ${VALID_ISSUE_TYPES.join(', ')}`);
-      process.exit(1);
-    }
-    args.splice(issueTypeIndex, 2);
-  }
-
-  const issueNumber = parseInt(args[0], 10);
-  if (isNaN(issueNumber)) {
-    console.error(`Invalid issue number: ${args[0]}`);
-    process.exit(1);
-  }
-
-  const adwId = args[1] || null;
-
-  return { issueNumber, adwId, providedIssueType };
-}
 
 /**
  * Derives the review screenshots directory from the review result.
@@ -108,9 +50,13 @@ function getReviewScreenshotsDir(adwId: string): string {
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const targetRepo = parseTargetRepoArgs(args);
-  const { issueNumber, adwId, providedIssueType } = parseArguments(args);
+  const { issueNumber, adwId, providedIssueType } = parseOrchestratorArguments(args, {
+    scriptName: 'adwSdlc.tsx',
+    usagePattern: '<github-issueNumber> [adw-id] [--issue-type <type>]',
+    supportsCwd: false,
+  });
 
-  const config = await initializeWorkflow(issueNumber, adwId, 'sdlc-orchestrator', {
+  const config = await initializeWorkflow(issueNumber, adwId, OrchestratorId.Sdlc, {
     issueType: providedIssueType || undefined,
     targetRepo: targetRepo || undefined,
   });

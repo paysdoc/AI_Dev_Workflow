@@ -470,10 +470,11 @@ Edit `agents/claudeAgent.ts` to change model:
 The system uses a modular TypeScript architecture with composable scripts:
 
 - **State Management**: `core/agentState.ts` manages workflow state and chaining
-- **Git Operations**: Centralized git operations in `github/gitOperations.ts`
-- **Workflow Phases**: Phase implementations in `phases/` directory
-- **Agent Integration**: Standardized Claude Code CLI interface in `agents/claudeAgent.ts`
-- **Type Definitions**: TypeScript types in `core/dataTypes.ts`, `core/agentTypes.ts`, `core/workflowTypes.ts`
+- **Git Operations**: Split into `github/gitBranchOperations.ts` (branching) and `github/gitCommitOperations.ts` (commits/push)
+- **Workflow Phases**: Phase implementations in `phases/`, with lifecycle split into `workflowInit.ts` and `workflowCompletion.ts`
+- **Agent Integration**: Standardized Claude Code CLI interface in `agents/claudeAgent.ts` with process handling in `agents/agentProcessHandler.ts`
+- **Shared CLI Utilities**: `core/orchestratorCli.ts` provides shared argument parsing for all orchestrators
+- **Type Definitions**: TypeScript types in `types/dataTypes.ts`, `types/costTypes.ts`
 
 ### Orchestrator Composition
 Orchestrators combine phases internally, managing state between each step:
@@ -530,34 +531,59 @@ app_docs/                         # Generated documentation
 ### Core Components
 
 **Agents** (`agents/`):
-- `claudeAgent.ts` - Claude Code CLI integration
+- `claudeAgent.ts` - Claude Code CLI integration and process spawning
+- `agentProcessHandler.ts` - Agent process lifecycle management (extracted from claudeAgent)
 - `planAgent.ts` - Planning agent implementation
 - `buildAgent.ts` - Build/implementation agent
-- `testAgent.ts` - Testing agent
+- `testAgent.ts` - Testing agent with retry coordination
+- `testDiscovery.ts` - Test file discovery and E2E/Playwright detection (extracted from testAgent)
 - `reviewAgent.ts` - Review agent
+- `reviewRetry.ts` - Multi-agent review retry orchestration
+- `testRetry.ts` - Test failure retry logic
 - `gitAgent.ts` - Git operations agent (branch name, commit)
 - `patchAgent.ts` - Patch/quick-fix agent
 - `prAgent.ts` - Pull request creation agent
 - `documentAgent.ts` - Documentation generation agent
-- `tokenManager.ts` - Token count management
+- `jsonlParser.ts` - JSONL output parsing and token extraction
 
 **Core** (`core/`):
-- `agentTypes.ts` - Agent type definitions
+- `config.ts` - Configuration management (env vars, model maps, effort maps)
+- `constants.ts` - Orchestrator identifier constants (`OrchestratorId`)
+- `orchestratorCli.ts` - Shared CLI argument parsing utilities (eliminates duplication across orchestrators)
 - `agentState.ts` - State management for workflow chaining
-- `workflowTypes.ts` - Workflow-related types
-- `dataTypes.ts` - General data type definitions
-- `config.ts` - Configuration management
-- `projectConfig.ts` - Target repo `.adw/` project configuration loader
-- `utils.ts` - Utility functions
+- `tokenManager.ts` - Token count management (relocated from agents/)
+- `utils.ts` - Utility functions (ID generation, logging, slugify)
 - `issueClassifier.ts` - Issue classification logic
+- `workflowMapping.ts` - Issue-type-to-workflow-script mapping (extracted from issueClassifier)
+- `projectConfig.ts` - Target repo `.adw/` project configuration loader
+- `costPricing.ts` - Model pricing definitions
+- `costReport.ts` - Cost breakdown formatting and persistence
+- `costCsvWriter.ts` - CSV-based cost tracking
+- `portAllocator.ts` - Random port allocation for dev servers
+- `targetRepoRegistry.ts` - Target repo context management
+- `targetRepoManager.ts` - Target repo workspace cloning and management
+- `orchestratorLib.ts` - Shared orchestrator stage management
+- `stateHelpers.ts` - State file helper utilities
+- `jsonParser.ts` - JSON extraction from mixed-format output
+- `retryOrchestrator.ts` - Generic retry logic for phase execution
 
 **GitHub** (`github/`):
 - `githubApi.ts` - Core GitHub API wrapper
-- `gitOperations.ts` - Git command operations (branching, commits, PRs)
+- `gitBranchOperations.ts` - Branch management (create, checkout, delete, default branch detection)
+- `gitCommitOperations.ts` - Commit and push operations
+- `gitOperations.ts` - Re-export barrel for backward compatibility
 - `issueApi.ts` - GitHub issue API operations
 - `prApi.ts` - Pull request API operations
 - `pullRequestCreator.ts` - PR creation logic
-- `workflowCommentsBase.ts` - Workflow comment management
+- `worktreeOperations.ts` - Worktree lifecycle orchestration
+- `worktreeCreation.ts` - Worktree creation and setup
+- `worktreeCleanup.ts` - Worktree removal and branch cleanup
+- `worktreeQuery.ts` - Worktree listing and issue lookup
+- `workflowCommentsBase.ts` - Base comment filtering and management
+- `workflowCommentsIssue.ts` - Issue-specific workflow comments
+- `workflowCommentsPR.ts` - PR-specific workflow comments
+- `workflowComments.ts` - Unified comment API
+- `prCommentDetector.ts` - PR comment trigger detection
 
 **Phases** (`phases/`):
 - `planPhase.ts` - Planning phase implementation
@@ -566,8 +592,14 @@ app_docs/                         # Generated documentation
 - `prPhase.ts` - PR creation phase implementation
 - `documentPhase.ts` - Documentation phase implementation
 - `prReviewPhase.ts` - PR review phase implementation
+- `workflowInit.ts` - Workflow initialization (issue fetch, worktree setup, state init)
+- `workflowCompletion.ts` - Workflow completion and error handling
+- `worktreeSetup.ts` - Gitignore management and Claude commands copy
+- `prReviewCompletion.ts` - PR review test phase and completion handlers
+- `workflowLifecycle.ts` - Re-export barrel for backward compatibility
 
 **Orchestrators** (root `.tsx` files):
+All orchestrators use shared CLI utilities from `core/orchestratorCli.ts` and constants from `core/constants.ts`.
 - `adwPlan.tsx` - Planning phase workflow
 - `adwBuild.tsx` - Implementation phase workflow
 - `adwTest.tsx` - Standalone testing workflow
@@ -581,10 +613,23 @@ app_docs/                         # Generated documentation
 - `adwPlanBuildTestReview.tsx` - Plan + build + test + review orchestration
 - `adwSdlc.tsx` - Full SDLC orchestration (plan + build + test + review + document)
 - `adwInit.tsx` - Initialize `.adw/` project configuration in target repos
+- `adwClearComments.tsx` - Clear ADW comments from GitHub issues
 
 **Triggers** (`triggers/`):
 - `trigger_cron.ts` - Cron-based polling monitor
 - `trigger_webhook.ts` - Webhook-based event handler
+- `webhookHandlers.ts` - Webhook event processing logic
+- `webhookSignature.ts` - GitHub webhook HMAC signature validation
+
+**Tests** (co-located `__tests__/` directories):
+Tests are co-located with their source modules in `__tests__/` subdirectories:
+- `core/__tests__/` - Core module tests
+- `agents/__tests__/` - Agent module tests
+- `github/__tests__/` - GitHub module tests
+- `triggers/__tests__/` - Trigger module tests
+- `phases/__tests__/` - Phase module tests
+- `types/__tests__/` - Type definition tests
+- `__tests__/` - Root-level orchestrator tests
 
 ### Branch Naming
 ```

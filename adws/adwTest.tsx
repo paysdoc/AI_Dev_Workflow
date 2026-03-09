@@ -29,39 +29,20 @@ import {
   MAX_TEST_RETRY_ATTEMPTS,
   mergeModelUsageMaps,
   persistTokenCounts,
+  OrchestratorId,
 } from './core';
+import { extractCwdOption, printUsageAndExit } from './core/orchestratorCli';
 import { runUnitTestsWithRetry, runE2ETestsWithRetry } from './agents';
-
-/** Prints usage information and exits. */
-function printUsageAndExit(): never {
-  console.error('Usage: bunx tsx adws/adwTest.tsx [adw-id] [--cwd <path>]');
-  console.error('');
-  console.error('Runs comprehensive validation tests with automatic failure resolution.');
-  console.error('');
-  console.error('Options:');
-  console.error('  --cwd <path>             Working directory for test execution (worktree path)');
-  console.error('');
-  console.error('Environment Requirements:');
-  console.error('  ANTHROPIC_API_KEY        - Anthropic API key');
-  console.error('  CLAUDE_CODE_PATH         - Path to Claude CLI (default: /usr/local/bin/claude)');
-  console.error('  MAX_TEST_RETRY_ATTEMPTS  - Maximum retry attempts (default: 5)');
-  process.exit(1);
-}
 
 /** Parses and validates command line arguments. */
 function parseArguments(args: string[]): { adwId: string; cwd: string | null } {
   if (args.includes('--help') || args.includes('-h')) {
-    printUsageAndExit();
+    printUsageAndExit('adwTest.tsx', '[adw-id] [--cwd <path>]', [
+      '--cwd <path>             Working directory for test execution (worktree path)',
+    ]);
   }
 
-  // Parse --cwd option
-  let cwd: string | null = null;
-  const cwdIndex = args.indexOf('--cwd');
-  if (cwdIndex !== -1 && args[cwdIndex + 1]) {
-    cwd = args[cwdIndex + 1];
-    args.splice(cwdIndex, 2);
-  }
-
+  const cwd = extractCwdOption(args);
   const adwId = args[0] || generateAdwId();
   setLogAdwId(adwId);
   return { adwId, cwd };
@@ -110,12 +91,12 @@ async function main(): Promise<void> {
   }
   log('===================================', 'info');
 
-  const orchestratorStatePath = AgentStateManager.initializeState(adwId, 'test-orchestrator');
+  const orchestratorStatePath = AgentStateManager.initializeState(adwId, OrchestratorId.Test);
 
   const initialState: Partial<AgentState> = {
     adwId,
     issueNumber: 0,
-    agentName: 'test-orchestrator',
+    agentName: OrchestratorId.Test,
     execution: AgentStateManager.createExecutionState('running'),
     metadata: { maxRetryAttempts: MAX_TEST_RETRY_ATTEMPTS },
   };
