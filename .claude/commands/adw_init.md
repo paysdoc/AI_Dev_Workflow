@@ -55,6 +55,20 @@ Example: if $1=31 and $2=init-adw-env-4qugib, the filename is `issue-31-adw-init
    - Include any documentation directories found in the project
    - If the project has distinct modules or sub-packages, create conditions for each
 
-5. **Report**
-   - List all files created
+5. **Create `.adw/review_proof.md`**
+   - Generate `.adw/review_proof.md` defining the proof requirements for the `/review` command
+   - Analyze the project type detected in step 1 to determine appropriate proof requirements:
+     - **Web/UI projects** (Next.js, React, Vue, Angular, Svelte, etc.): proof should include browser screenshots of key pages/components, test output summaries, visual regression checks, and dev server verification
+     - **CLI/automation tools** (no UI): proof should include code-diff verification, test output summaries, type check and lint verification — do NOT include browser screenshots
+     - **API projects** (Express, FastAPI, Django REST, etc.): proof should include API response validation (curl/httpie output), test output summaries, and endpoint verification
+     - **Library/package projects**: proof should include test output summaries, type check verification, API compatibility checks, and export validation
+   - Include the following sections in the generated file:
+     - `# Review Proof Requirements` — Intro sentence explaining this file defines proof requirements for the project and that the `/review` command reads it
+     - `## Proof Type` — State the project type and list the specific evidence to produce (numbered list), tailored to the detected project type
+     - `## Proof Format` — How to structure proof in the review JSON output: `reviewSummary` for overview, `reviewIssues` for discrepancies, `screenshots` for proof artifact paths
+     - `## Proof Attachment` — How proof gets attached to the PR via review JSON fields (`reviewSummary`, `screenshots`, `reviewIssues`)
+     - `## What NOT to Do` — Actions to avoid based on the project type (e.g., CLI projects should not take browser screenshots; UI projects should not skip visual verification)
+
+6. **Report**
+   - List all files created (`commands.md`, `project.md`, `conditional_docs.md`, `review_proof.md`)
    - Summarize the detected project type and key configuration choices
