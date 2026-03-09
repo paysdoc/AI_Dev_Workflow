@@ -5,7 +5,7 @@
  * pushing branches, posting completion comments, and error handling.
  */
 
-import { log, AgentStateManager, COST_REPORT_CURRENCIES, type ModelUsageMap, buildCostBreakdown, mergeModelUsageMaps, emptyModelUsageMap, persistTokenCounts, writeIssueCostCsv, rebuildProjectCostCsv, OrchestratorId } from '../core';
+import { log, AgentStateManager, COST_REPORT_CURRENCIES, type ModelUsageMap, buildCostBreakdown, mergeModelUsageMaps, emptyModelUsageMap, persistTokenCounts, writeIssueCostCsv, rebuildProjectCostCsv, OrchestratorId, computeEurRate } from '../core';
 import { pushBranch, postPRWorkflowComment, inferIssueTypeFromBranch, moveIssueToStatus } from '../github';
 import { getTargetRepo } from '../core/targetRepoRegistry';
 import { runCommitAgent, runUnitTestsWithRetry, runE2ETestsWithRetry } from '../agents';
@@ -103,8 +103,7 @@ export async function completePRReviewWorkflow(config: PRReviewWorkflowConfig, m
     try {
       const repoName = config.repoInfo?.repo ?? getTargetRepo().repo;
       const adwRepoRoot = process.cwd();
-      const eurEntry = costBreakdown.currencies.find(c => c.currency === 'EUR');
-      const eurRate = eurEntry ? eurEntry.amount / costBreakdown.totalCostUsd : 0;
+      const eurRate = computeEurRate(costBreakdown);
 
       writeIssueCostCsv(adwRepoRoot, repoName, config.issueNumber, config.prDetails.title, costBreakdown);
       rebuildProjectCostCsv(adwRepoRoot, repoName, eurRate);

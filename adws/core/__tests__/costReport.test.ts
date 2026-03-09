@@ -5,6 +5,8 @@ import {
   fetchExchangeRates,
   buildCostBreakdown,
   formatCostBreakdownMarkdown,
+  computeEurRate,
+  resetLastKnownRates,
 } from '../costReport';
 import type { ModelUsageMap, CostBreakdown } from '../../types/costTypes';
 
@@ -75,12 +77,13 @@ describe('costReport', () => {
   describe('fetchExchangeRates', () => {
     beforeEach(() => {
       vi.restoreAllMocks();
+      resetLastKnownRates();
     });
 
-    it('handles network errors gracefully', async () => {
+    it('returns fallback EUR rate after all retries are exhausted', async () => {
       vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Network error')));
       const rates = await fetchExchangeRates(['EUR']);
-      expect(rates).toEqual({});
+      expect(rates).toEqual({ EUR: 0.92 });
     });
 
     it('returns empty map for empty currencies', async () => {
@@ -99,14 +102,90 @@ describe('costReport', () => {
       expect(rates['GBP']).toBe(0.79);
     });
 
-    it('handles non-ok response', async () => {
+    it('returns fallback EUR rate on non-ok response after retries', async () => {
       vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
         ok: false,
         status: 500,
       }));
 
       const rates = await fetchExchangeRates(['EUR']);
+      expect(rates).toEqual({ EUR: 0.92 });
+    });
+
+    it('retries on transient failure then returns rates on success', async () => {
+      const mockFetch = vi.fn()
+        .mockRejectedValueOnce(new Error('Network error'))
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ rates: { EUR: 0.91 } }),
+        });
+      vi.stubGlobal('fetch', mockFetch);
+
+      const rates = await fetchExchangeRates(['EUR']);
+      expect(rates).toEqual({ EUR: 0.91 });
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
+    it('passes timeout signal to fetch', async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ rates: { EUR: 0.92 } }),
+      });
+      vi.stubGlobal('fetch', mockFetch);
+
+      await fetchExchangeRates(['EUR']);
+      const callArgs = mockFetch.mock.calls[0];
+      expect(callArgs[1]).toHaveProperty('signal');
+    });
+
+    it('returns empty for currencies without a known fallback after retries', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Network error')));
+      const rates = await fetchExchangeRates(['GBP']);
       expect(rates).toEqual({});
+    });
+
+    it('updates fallback rate with latest fetched rate for subsequent failures', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ rates: { EUR: 0.95 } }),
+      }));
+
+      const firstRates = await fetchExchangeRates(['EUR']);
+      expect(firstRates).toEqual({ EUR: 0.95 });
+
+      vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Network error')));
+
+      const fallbackRates = await fetchExchangeRates(['EUR']);
+      expect(fallbackRates).toEqual({ EUR: 0.95 });
+    });
+  });
+
+  describe('computeEurRate', () => {
+    it('returns correct rate with valid EUR entry and non-zero totalCostUsd', () => {
+      const breakdown: CostBreakdown = {
+        totalCostUsd: 2.0,
+        modelUsage: {},
+        currencies: [{ currency: 'EUR', amount: 1.84, symbol: '€' }],
+      };
+      expect(computeEurRate(breakdown)).toBeCloseTo(0.92);
+    });
+
+    it('returns 0 when totalCostUsd is zero', () => {
+      const breakdown: CostBreakdown = {
+        totalCostUsd: 0,
+        modelUsage: {},
+        currencies: [{ currency: 'EUR', amount: 0, symbol: '€' }],
+      };
+      expect(computeEurRate(breakdown)).toBe(0);
+    });
+
+    it('returns 0 when no EUR entry exists', () => {
+      const breakdown: CostBreakdown = {
+        totalCostUsd: 2.0,
+        modelUsage: {},
+        currencies: [{ currency: 'GBP', amount: 1.58, symbol: '£' }],
+      };
+      expect(computeEurRate(breakdown)).toBe(0);
     });
   });
 

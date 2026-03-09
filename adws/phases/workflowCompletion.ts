@@ -12,6 +12,7 @@ import {
   persistTokenCounts,
   writeIssueCostCsv,
   rebuildProjectCostCsv,
+  computeEurRate,
 } from '../core';
 import {
   postWorkflowComment,
@@ -40,8 +41,7 @@ export async function completeWorkflow(
     try {
       const repoName = config.targetRepo?.repo ?? config.repoInfo?.repo ?? 'unknown';
       const adwRepoRoot = config.targetRepo ? process.cwd() : config.worktreePath;
-      const eurEntry = costBreakdown.currencies.find(c => c.currency === 'EUR');
-      const eurRate = eurEntry ? eurEntry.amount / costBreakdown.totalCostUsd : 0;
+      const eurRate = computeEurRate(costBreakdown);
 
       writeIssueCostCsv(adwRepoRoot, repoName, config.issueNumber, config.issue.title, costBreakdown);
       rebuildProjectCostCsv(adwRepoRoot, repoName, eurRate);

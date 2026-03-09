@@ -8,6 +8,15 @@ import { emptyModelUsage } from '../types/costTypes';
 import { log } from './utils';
 import { AgentStateManager } from './agentState';
 
+/** Last-resort fallback EUR/USD rate used when the exchange rate API is unreachable after all retries. */
+const FALLBACK_EUR_RATE = 0.92;
+
+/** Maximum number of retry attempts after the initial fetch (3 total attempts). */
+const MAX_EXCHANGE_RATE_RETRIES = 2;
+
+/** Timeout in milliseconds for each exchange rate fetch request. */
+const EXCHANGE_RATE_TIMEOUT_MS = 5000;
+
 /** Maps common currency codes to their symbols. */
 export const CURRENCY_SYMBOLS: Readonly<Record<string, string>> = {
   USD: '$',
@@ -44,36 +53,72 @@ export function computeTotalCostUsd(usageMap: ModelUsageMap): number {
   return Object.values(usageMap).reduce((sum, usage) => sum + usage.costUSD, 0);
 }
 
+/** Known fallback rates keyed by currency code. */
+const FALLBACK_RATES: Readonly<Record<string, number>> = { EUR: FALLBACK_EUR_RATE };
+
+/** Mutable cache of the most recently fetched live rates, seeded from FALLBACK_RATES. */
+let lastKnownRates: Record<string, number> = { ...FALLBACK_RATES };
+
+/** @internal Resets cached rates — for testing only. */
+export function resetLastKnownRates(): void {
+  lastKnownRates = { ...FALLBACK_RATES };
+}
+
 /**
- * Fetches exchange rates from the free ExchangeRate-API.
- * Returns a map of currency code to conversion rate from USD.
- * Handles network errors gracefully by returning an empty map.
+ * Fetches exchange rates from the free ExchangeRate-API with retry,
+ * timeout, and fallback. Retries up to {@link MAX_EXCHANGE_RATE_RETRIES}
+ * additional times with exponential backoff. Falls back to approximate
+ * hardcoded rates when all attempts are exhausted.
  */
 export async function fetchExchangeRates(targetCurrencies: string[]): Promise<Record<string, number>> {
   if (targetCurrencies.length === 0) return {};
 
-  try {
-    const response = await fetch('https://open.er-api.com/v6/latest/USD');
-    if (!response.ok) {
-      log(`Exchange rate API returned status ${response.status}`, 'error');
-      return {};
-    }
+  const totalAttempts = MAX_EXCHANGE_RATE_RETRIES + 1;
 
-    const data = await response.json() as { rates?: Record<string, number> };
-    if (!data.rates) return {};
+  for (let attempt = 0; attempt < totalAttempts; attempt++) {
+    try {
+      const response = await fetch('https://open.er-api.com/v6/latest/USD', {
+        signal: AbortSignal.timeout(EXCHANGE_RATE_TIMEOUT_MS),
+      });
 
-    const rates: Record<string, number> = {};
-    for (const currency of targetCurrencies) {
-      const rate = data.rates[currency];
-      if (typeof rate === 'number') {
-        rates[currency] = rate;
+      if (!response.ok) {
+        log(`Exchange rate API returned status ${response.status}`, 'error');
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const data = await response.json() as { rates?: Record<string, number> };
+      if (!data.rates) return {};
+
+      const rates: Record<string, number> = {};
+      for (const currency of targetCurrencies) {
+        const rate = data.rates[currency];
+        if (typeof rate === 'number') {
+          rates[currency] = rate;
+          lastKnownRates[currency] = rate;
+        }
+      }
+      return rates;
+    } catch (error) {
+      log(`Failed to fetch exchange rates: ${error}`, 'error');
+
+      if (attempt < totalAttempts - 1) {
+        const delay = 500 * Math.pow(2, attempt);
+        log(`Retrying exchange rate fetch (attempt ${attempt + 2}/${totalAttempts})...`, 'info');
+        await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
-    return rates;
-  } catch (error) {
-    log(`Failed to fetch exchange rates: ${error}`, 'error');
-    return {};
   }
+
+  // All retries exhausted — return fallback rates for known currencies
+  log('All exchange rate fetch attempts failed, using fallback rates', 'error');
+  const fallbackRates: Record<string, number> = {};
+  for (const currency of targetCurrencies) {
+    const fallback = lastKnownRates[currency];
+    if (typeof fallback === 'number') {
+      fallbackRates[currency] = fallback;
+    }
+  }
+  return fallbackRates;
 }
 
 /** Builds a complete CostBreakdown by fetching exchange rates and computing totals. */
@@ -97,6 +142,15 @@ export async function buildCostBreakdown(
     modelUsage: usageMap,
     currencies: currencyAmounts,
   };
+}
+
+/** Computes the EUR exchange rate from a cost breakdown, guarding against division by zero. */
+export function computeEurRate(costBreakdown: CostBreakdown): number {
+  const eurEntry = costBreakdown.currencies.find(c => c.currency === 'EUR');
+  if (eurEntry && costBreakdown.totalCostUsd > 0) {
+    return eurEntry.amount / costBreakdown.totalCostUsd;
+  }
+  return 0;
 }
 
 /** Formats a number with commas as thousands separator. */
