@@ -9,7 +9,9 @@
  * agents/, github/, triggers/, and core/.
  */
 
-export { type WorkflowConfig, initializeWorkflow, completeWorkflow, executeReviewPhase, handleWorkflowError } from './workflowLifecycle';
+export { ensureGitignoreEntry, ensureGitignoreEntries, copyClaudeCommandsToWorktree } from './worktreeSetup';
+export { type WorkflowConfig, initializeWorkflow } from './workflowInit';
+export { completeWorkflow, executeReviewPhase, handleWorkflowError } from './workflowCompletion';
 export { executePlanPhase, buildContinuationPrompt, MAX_CONTINUATION_OUTPUT_LENGTH } from './planPhase';
 export { executeBuildPhase } from './buildPhase';
 export { executeTestPhase } from './testPhase';
@@ -20,7 +22,9 @@ export {
   initializePRReviewWorkflow,
   executePRReviewPlanPhase,
   executePRReviewBuildPhase,
+} from './prReviewPhase';
+export {
   executePRReviewTestPhase,
   completePRReviewWorkflow,
   handlePRReviewWorkflowError,
-} from './prReviewPhase';
+} from './prReviewCompletion';

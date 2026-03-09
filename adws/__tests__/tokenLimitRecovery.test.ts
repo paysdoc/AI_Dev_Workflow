@@ -7,6 +7,7 @@ import {
 import { RecoveryState, GitHubIssue } from '../types/dataTypes';
 import { getDefaultProjectConfig } from '../core/projectConfig';
 import { WorkflowContext } from '../github/workflowCommentsIssue';
+import { OrchestratorId } from '../core/constants';
 
 vi.mock('fs');
 
@@ -112,7 +113,7 @@ function createWorkflowConfig(overrides: Partial<WorkflowConfig> = {}): Workflow
     defaultBranch: 'main',
     logsDir: '/mock/logs',
     orchestratorStatePath: '/mock/state/path',
-    orchestratorName: 'plan-orchestrator',
+    orchestratorName: OrchestratorId.Plan,
     recoveryState: createRecoveryState(),
     ctx: { issueNumber: 1, adwId: 'test-adw-id' } as WorkflowContext,
     branchName: 'feature/issue-1-test',

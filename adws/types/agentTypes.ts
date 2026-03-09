@@ -1,4 +1,5 @@
 import type { IssueClassSlashCommand, SlashCommand } from './issueTypes';
+import type { OrchestratorIdType } from '../core/constants';
 
 /**
  * Claude Code agent prompt configuration.
@@ -72,24 +73,13 @@ export interface TokenUsageSnapshot {
  */
 export type AgentIdentifier =
   | 'orchestrator'
-  | 'plan-orchestrator'
-  | 'build-orchestrator'
-  | 'plan-build-orchestrator'
-  | 'plan-build-test-orchestrator'
-  | 'plan-build-test-review-orchestrator'
-  | 'plan-build-review-orchestrator'
-  | 'plan-build-document-orchestrator'
-  | 'sdlc-orchestrator'
-  | 'document-orchestrator'
-  | 'patch-orchestrator'
+  | OrchestratorIdType
   | 'classifier'
   | 'plan-agent'
   | 'build-agent'
-  | 'pr-review-orchestrator'
   | 'pr-review-plan-agent'
   | 'pr-review-build-agent'
   // Test workflow agents
-  | 'test-orchestrator'
   | 'test-agent'
   | 'test-resolver-agent'
   // Review workflow agents
@@ -103,9 +93,7 @@ export type AgentIdentifier =
   | 'commit-agent'
   // PR and document agents
   | 'pr-agent'
-  | 'document-agent'
-  // Init workflow agents
-  | 'init-orchestrator';
+  | 'document-agent';
 
 /**
  * Execution status for tracking agent progress.

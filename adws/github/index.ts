@@ -20,7 +20,7 @@ export {
   type RepoInfo,
 } from './githubApi';
 
-// Git Operations
+// Git Operations (re-exported via barrel for backwards compatibility)
 export {
   getCurrentBranch,
   generateBranchName,
@@ -36,6 +36,7 @@ export {
   deleteLocalBranch,
   deleteRemoteBranch,
   commitAndPushCostFiles,
+  PROTECTED_BRANCHES,
   type CommitCostFilesOptions,
 } from './gitOperations';
 
@@ -46,7 +47,6 @@ export { createPullRequest } from './pullRequestCreator';
 export {
   getWorktreePath,
   worktreeExists,
-  listWorktrees,
   createWorktree,
   createWorktreeForNewBranch,
   killProcessesInDirectory,
@@ -59,10 +59,15 @@ export {
   freeBranchFromMainRepo,
   getWorktreesDir,
   copyEnvToWorktree,
-  findWorktreeForIssue,
   type BranchCheckoutStatus,
-  type WorktreeForIssueResult,
 } from './worktreeOperations';
+
+// Worktree Query (listing and issue search)
+export {
+  listWorktrees,
+  findWorktreeForIssue,
+  type WorktreeForIssueResult,
+} from './worktreeQuery';
 
 // Project Board API
 export { moveIssueToStatus } from './projectBoardApi';

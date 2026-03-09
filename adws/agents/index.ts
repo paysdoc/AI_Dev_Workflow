@@ -7,9 +7,6 @@
 export {
   runClaudeAgent,
   runClaudeAgentWithCommand,
-  computeTotalTokens,
-  computePrimaryModelTokens,
-  isModelMatch,
   type AgentResult,
   type ProgressInfo,
   type ProgressCallback,
@@ -31,17 +28,22 @@ export {
   runBuildAgent,
 } from './buildAgent';
 
+// Test Discovery (E2E discovery and Playwright runner)
+export {
+  discoverE2ETestFiles,
+  isValidE2ETestResult,
+  runPlaywrightE2ETests,
+  type E2ETestResult,
+  type PlaywrightE2EResult,
+} from './testDiscovery';
+
 // Test Agent
 export {
   runTestAgent,
   runResolveTestAgent,
   runResolveE2ETestAgent,
-  discoverE2ETestFiles,
-  runPlaywrightE2ETests,
   type TestResult,
-  type E2ETestResult,
   type TestAgentResult,
-  type PlaywrightE2EResult,
 } from './testAgent';
 
 // Git Agent

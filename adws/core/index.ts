@@ -2,6 +2,10 @@
  * Core module - Configuration, types, and utilities.
  */
 
+// Constants
+export { OrchestratorId } from './constants';
+export type { OrchestratorIdType } from './constants';
+
 // Configuration
 export { CLAUDE_CODE_PATH, GITHUB_PAT, LOGS_DIR, SPECS_DIR, AGENTS_STATE_DIR, MAX_TEST_RETRY_ATTEMPTS, MAX_REVIEW_RETRY_ATTEMPTS, WORKTREES_DIR, TARGET_REPOS_DIR, COST_REPORT_CURRENCIES, MAX_THINKING_TOKENS, TOKEN_LIMIT_THRESHOLD, MAX_TOKEN_CONTINUATIONS, getSafeSubprocessEnv, SLASH_COMMAND_MODEL_MAP, SLASH_COMMAND_MODEL_MAP_FAST, getModelForCommand, isFastMode, resolveClaudeCodePath, clearClaudeCodePathCache, SLASH_COMMAND_EFFORT_MAP, SLASH_COMMAND_EFFORT_MAP_FAST, getEffortForCommand } from './config';
 export type { ReasoningEffort } from './config';
@@ -111,13 +115,24 @@ export { loadProjectConfig, getDefaultProjectConfig, getDefaultCommandsConfig, p
 
 // Issue classifier
 export type { IssueClassificationResult } from './issueClassifier';
-export { classifyWithAdwCommand, classifyIssueForTrigger, classifyGitHubIssue, getWorkflowScript, extractAdwIdFromText } from './issueClassifier';
+export { classifyWithAdwCommand, classifyIssueForTrigger, classifyGitHubIssue, extractAdwIdFromText } from './issueClassifier';
+
+// Workflow mapping
+export { getWorkflowScript } from './workflowMapping';
 
 // Port allocator
 export { allocateRandomPort, isPortAvailable } from './portAllocator';
 
 // Target repo registry
 export { setTargetRepo, getTargetRepo, clearTargetRepo, hasTargetRepo, resolveTargetRepoCwd } from './targetRepoRegistry';
+
+// Orchestrator CLI utilities
+export type { OrchestratorArgs } from './orchestratorCli';
+export { extractCwdOption, extractIssueTypeOption, parseIssueNumber, printUsageAndExit as printOrchestratorUsage, parseOrchestratorArguments } from './orchestratorCli';
+
+// Token Manager
+export type { TokenTotals } from './tokenManager';
+export { computeTotalTokens, computePrimaryModelTokens, isModelMatch } from './tokenManager';
 
 // Target repo manager
 export {

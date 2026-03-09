@@ -8,7 +8,8 @@ import { execSync } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
 import { log } from '../core';
-import { getWorktreePath, listWorktrees } from './worktreeOperations';
+import { getWorktreePath } from './worktreeOperations';
+import { listWorktrees } from './worktreeQuery';
 import { deleteLocalBranch } from './gitOperations';
 
 /**

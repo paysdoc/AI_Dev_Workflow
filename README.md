@@ -105,8 +105,10 @@ bun run test:watch    # Run tests in watch mode
 │       └── constants.ts
 └── settings.json
 adws/                   # ADW workflow system
-├── __tests__/          # Unit tests (54 test files)
+├── __tests__/          # Tests for root-level orchestrator files
 ├── agents/             # Claude Code agent runners
+│   ├── __tests__/      # Agent unit tests
+│   ├── agentProcessHandler.ts  # Process spawning handler
 │   ├── buildAgent.ts
 │   ├── claudeAgent.ts
 │   ├── documentAgent.ts
@@ -119,17 +121,20 @@ adws/                   # ADW workflow system
 │   ├── reviewAgent.ts
 │   ├── reviewRetry.ts
 │   ├── testAgent.ts
-│   ├── testRetry.ts
-│   └── tokenManager.ts
+│   ├── testDiscovery.ts  # E2E test discovery
+│   └── testRetry.ts
 ├── core/               # Configuration and utilities
+│   ├── __tests__/      # Core unit tests
 │   ├── agentState.ts
 │   ├── config.ts
+│   ├── constants.ts    # Orchestrator ID constants
 │   ├── costCsvWriter.ts
 │   ├── costPricing.ts
 │   ├── costReport.ts
 │   ├── index.ts
 │   ├── issueClassifier.ts
 │   ├── jsonParser.ts
+│   ├── orchestratorCli.ts  # Shared CLI parsing utilities
 │   ├── orchestratorLib.ts
 │   ├── portAllocator.ts
 │   ├── projectConfig.ts
@@ -137,9 +142,14 @@ adws/                   # ADW workflow system
 │   ├── stateHelpers.ts
 │   ├── targetRepoManager.ts
 │   ├── targetRepoRegistry.ts
-│   └── utils.ts
+│   ├── tokenManager.ts  # Token counting (relocated from agents/)
+│   ├── utils.ts
+│   └── workflowMapping.ts  # Issue type → orchestrator mapping
 ├── github/             # GitHub API and git operations
-│   ├── gitOperations.ts
+│   ├── __tests__/      # GitHub unit tests
+│   ├── gitBranchOperations.ts  # Branch management
+│   ├── gitCommitOperations.ts  # Commit/push operations
+│   ├── gitOperations.ts  # Re-export barrel
 │   ├── githubApi.ts
 │   ├── index.ts
 │   ├── issueApi.ts
@@ -153,17 +163,24 @@ adws/                   # ADW workflow system
 │   ├── workflowCommentsPR.ts
 │   ├── worktreeCleanup.ts
 │   ├── worktreeCreation.ts
-│   └── worktreeOperations.ts
+│   ├── worktreeOperations.ts
+│   └── worktreeQuery.ts  # Worktree query utilities
 ├── phases/             # Workflow phase implementations
+│   ├── __tests__/      # Phase unit tests
 │   ├── buildPhase.ts
 │   ├── documentPhase.ts
 │   ├── index.ts
 │   ├── planPhase.ts
 │   ├── prPhase.ts
+│   ├── prReviewCompletion.ts  # PR review completion/error handling
 │   ├── prReviewPhase.ts
 │   ├── testPhase.ts
-│   └── workflowLifecycle.ts
+│   ├── workflowCompletion.ts  # Workflow completion/error handling
+│   ├── workflowInit.ts  # Workflow initialization
+│   ├── workflowLifecycle.ts  # Re-export barrel
+│   └── worktreeSetup.ts  # Gitignore and worktree setup helpers
 ├── types/              # Type definitions
+│   ├── __tests__/      # Type unit tests
 │   ├── agentTypes.ts
 │   ├── costTypes.ts
 │   ├── dataTypes.ts
@@ -171,6 +188,7 @@ adws/                   # ADW workflow system
 │   ├── issueTypes.ts
 │   └── workflowTypes.ts
 ├── triggers/           # Automation triggers
+│   ├── __tests__/      # Trigger unit tests
 │   ├── trigger_cron.ts
 │   ├── trigger_webhook.ts
 │   ├── webhookHandlers.ts

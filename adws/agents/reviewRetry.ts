@@ -60,30 +60,24 @@ export function mergeReviewResults(results: readonly ReviewAgentResult[]): Merge
 
   // Collect and deduplicate issues
   const seenDescriptions = new Set<string>();
-  const mergedIssues: ReviewIssue[] = [];
-
-  for (const result of validResults) {
-    for (const issue of result.reviewResult!.reviewIssues) {
+  const mergedIssues = validResults
+    .flatMap(r => r.reviewResult!.reviewIssues)
+    .filter(issue => {
       const key = issue.issueDescription.trim().toLowerCase();
-      if (!seenDescriptions.has(key)) {
-        seenDescriptions.add(key);
-        mergedIssues.push(issue);
-      }
-    }
-  }
+      if (seenDescriptions.has(key)) return false;
+      seenDescriptions.add(key);
+      return true;
+    });
 
   // Collect and deduplicate screenshots
   const seenPaths = new Set<string>();
-  const mergedScreenshots: string[] = [];
-
-  for (const result of validResults) {
-    for (const screenshot of result.reviewResult!.screenshots) {
-      if (!seenPaths.has(screenshot)) {
-        seenPaths.add(screenshot);
-        mergedScreenshots.push(screenshot);
-      }
-    }
-  }
+  const mergedScreenshots = validResults
+    .flatMap(r => r.reviewResult!.screenshots)
+    .filter(screenshot => {
+      if (seenPaths.has(screenshot)) return false;
+      seenPaths.add(screenshot);
+      return true;
+    });
 
   const blockerIssues = mergedIssues.filter(issue => issue.issueSeverity === 'blocker');
   const passed = blockerIssues.length === 0;
@@ -123,16 +117,12 @@ export async function runReviewWithRetry(opts: ReviewRetryOptions): Promise<Revi
     );
 
     // Track cost for each agent result
-    for (const result of reviewResults) {
-      trackCost(result as AgentRunResult, costState, statePath);
-    }
+    reviewResults.forEach(result => trackCost(result as AgentRunResult, costState, statePath));
 
     // Collect summaries from all agents
-    for (const result of reviewResults) {
-      if (result.reviewResult?.reviewSummary) {
-        allSummaries.push(result.reviewResult.reviewSummary);
-      }
-    }
+    reviewResults
+      .filter(result => result.reviewResult?.reviewSummary)
+      .forEach(result => allSummaries.push(result.reviewResult!.reviewSummary!));
 
     // Merge and deduplicate results
     const merged = mergeReviewResults(reviewResults);

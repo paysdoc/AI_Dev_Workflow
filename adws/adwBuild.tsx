@@ -37,6 +37,7 @@ import {
   getNextStage,
   persistTokenCounts,
   parseTargetRepoArgs,
+  OrchestratorId,
 } from './core';
 import {
   fetchGitHubIssue,
@@ -57,7 +58,7 @@ import {
 import { parseArguments, printBuildSummary } from './adwBuildHelpers';
 
 // Re-export for any external consumers
-export { printUsageAndExit, parseArguments, printBuildSummary } from './adwBuildHelpers';
+export { parseArguments, printBuildSummary } from './adwBuildHelpers';
 
 /**
  * Main build workflow.
@@ -112,7 +113,7 @@ async function main(): Promise<void> {
   log(`Issue type (from branch): ${issueType}`, 'info');
 
   // Initialize orchestrator state
-  const orchestratorStatePath = AgentStateManager.initializeState(adwId, 'build-orchestrator');
+  const orchestratorStatePath = AgentStateManager.initializeState(adwId, OrchestratorId.Build);
   log(`State: ${orchestratorStatePath}`, 'info');
 
   const initialState: Partial<AgentState> = {
@@ -121,7 +122,7 @@ async function main(): Promise<void> {
     branchName,
     issueClass: issueType,
     planFile: planPath,
-    agentName: 'build-orchestrator',
+    agentName: OrchestratorId.Build,
     execution: AgentStateManager.createExecutionState('running'),
   };
   AgentStateManager.writeState(orchestratorStatePath, initialState);
@@ -170,7 +171,7 @@ async function main(): Promise<void> {
         planFile: planPath,
         issueClass: issueType,
         agentName: 'build-agent',
-        parentAgent: 'build-orchestrator',
+        parentAgent: OrchestratorId.Build,
         execution: AgentStateManager.createExecutionState('running'),
       });
 
@@ -231,7 +232,7 @@ async function main(): Promise<void> {
     // Step 6: Commit implementation
     if (shouldExecuteStage('implementation_committing', recoveryState)) {
       postWorkflowComment(issueNumber, 'implementation_committing', ctx);
-      await runCommitAgent('build-orchestrator', issueType, JSON.stringify(issue), logsDir, undefined, cwd || undefined);
+      await runCommitAgent(OrchestratorId.Build, issueType, JSON.stringify(issue), logsDir, undefined, cwd || undefined);
     } else {
       log('Skipping implementation commit (already completed)', 'info');
     }
