@@ -34,6 +34,7 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 68,pr review adw should return issue to review,2.2074,0.2207
 88,add issue comments for the review process,5.2025,0.5202
 92,feat 90 fix review process,3.7264,0.3726
+111,cost commit still not correct,3.5375,0.3538
 
-Total Cost (USD):,130.4070
-Total Cost (EUR):,112.9581
+Total Cost (USD):,134.2982
+Total Cost (EUR):,116.3287
