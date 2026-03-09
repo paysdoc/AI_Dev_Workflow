@@ -207,7 +207,7 @@ describe('commitAndPushCostFiles', () => {
     expect(addCall).toBeUndefined();
   });
 
-  it('performs git pull --rebase --autostash before pushing', () => {
+  it('performs git fetch + git rebase --autostash before pushing', () => {
     const callOrder: string[] = [];
     mockExecSync.mockImplementation((cmd: string) => {
       const cmdStr = String(cmd);
@@ -215,7 +215,8 @@ describe('commitAndPushCostFiles', () => {
       if (cmdStr.startsWith('git branch --show-current')) return 'main\n';
       if (cmdStr.startsWith('git add')) { callOrder.push('add'); return ''; }
       if (cmdStr.startsWith('git commit')) { callOrder.push('commit'); return ''; }
-      if (cmdStr.startsWith('git pull --rebase --autostash')) { callOrder.push('pull-rebase'); return ''; }
+      if (cmdStr.startsWith('git fetch origin')) { callOrder.push('fetch'); return ''; }
+      if (cmdStr.startsWith('git rebase --autostash')) { callOrder.push('rebase'); return ''; }
       if (cmdStr.startsWith('git push')) { callOrder.push('push'); return ''; }
       return '';
     });
@@ -224,20 +225,52 @@ describe('commitAndPushCostFiles', () => {
 
     expect(result).toBe(true);
 
-    const pullRebaseCall = mockExecSync.mock.calls.find(c => String(c[0]).startsWith('git pull --rebase --autostash'));
-    expect(pullRebaseCall).toBeDefined();
-    expect(String(pullRebaseCall![0])).toContain('origin');
-    expect(String(pullRebaseCall![0])).toContain('main');
+    const fetchCall = mockExecSync.mock.calls.find(c => String(c[0]).startsWith('git fetch origin'));
+    expect(fetchCall).toBeDefined();
+    expect(String(fetchCall![0])).toContain('main');
 
-    expect(callOrder).toEqual(['add', 'commit', 'pull-rebase', 'push']);
+    const rebaseCall = mockExecSync.mock.calls.find(c => String(c[0]).startsWith('git rebase --autostash'));
+    expect(rebaseCall).toBeDefined();
+    expect(String(rebaseCall![0])).toContain('origin/main');
+
+    expect(callOrder).toEqual(['add', 'commit', 'fetch', 'rebase', 'push']);
   });
 
-  it('returns false when git pull --rebase --autostash fails', () => {
+  it('returns false when git fetch fails', () => {
     mockExecSync.mockImplementation((cmd: string) => {
       const cmdStr = String(cmd);
       if (cmdStr.startsWith('git status --porcelain')) return ' M file\n';
       if (cmdStr.startsWith('git branch --show-current')) return 'main\n';
-      if (cmdStr.startsWith('git pull --rebase --autostash')) throw new Error('rebase conflict');
+      if (cmdStr.startsWith('git fetch origin')) throw new Error('fetch failed');
+      return '';
+    });
+
+    const result = commitAndPushCostFiles({ repoName: 'my-repo', issueNumber: 42, issueTitle: 'Add login' });
+
+    expect(result).toBe(false);
+    expect(log).toHaveBeenCalledWith(expect.stringContaining('Failed to commit cost CSV files'), 'error');
+  });
+
+  it('returns false when git rebase --autostash fails', () => {
+    mockExecSync.mockImplementation((cmd: string) => {
+      const cmdStr = String(cmd);
+      if (cmdStr.startsWith('git status --porcelain')) return ' M file\n';
+      if (cmdStr.startsWith('git branch --show-current')) return 'main\n';
+      if (cmdStr.startsWith('git rebase --autostash')) throw new Error('rebase conflict');
+      return '';
+    });
+
+    const result = commitAndPushCostFiles({ repoName: 'my-repo', issueNumber: 42, issueTitle: 'Add login' });
+
+    expect(result).toBe(false);
+    expect(log).toHaveBeenCalledWith(expect.stringContaining('Failed to commit cost CSV files'), 'error');
+  });
+
+  it('returns false when getCurrentBranch returns empty string (detached HEAD)', () => {
+    mockExecSync.mockImplementation((cmd: string) => {
+      const cmdStr = String(cmd);
+      if (cmdStr.startsWith('git status --porcelain')) return ' M file\n';
+      if (cmdStr.startsWith('git branch --show-current')) return '\n';
       return '';
     });
 

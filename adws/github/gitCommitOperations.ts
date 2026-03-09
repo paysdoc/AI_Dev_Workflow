@@ -57,7 +57,13 @@ export function pushBranch(branchName: string, cwd?: string): void {
 export function pullLatestCostBranch(cwd?: string): void {
   const resolvedCwd = resolveTargetRepoCwd(cwd);
   const branch = getCurrentBranch(resolvedCwd);
-  execSync(`git pull --rebase --autostash origin "${branch}"`, { stdio: 'pipe', cwd: resolvedCwd });
+
+  if (!branch) {
+    throw new Error('Cannot pull latest cost branch: no current branch detected (detached HEAD)');
+  }
+
+  execSync(`git fetch origin "${branch}"`, { stdio: 'pipe', cwd: resolvedCwd });
+  execSync(`git rebase --autostash "origin/${branch}"`, { stdio: 'pipe', cwd: resolvedCwd });
   log(`Pulled latest changes from origin/${branch}`, 'success');
 }
 
@@ -147,7 +153,13 @@ export function commitAndPushCostFiles(options: CommitCostFilesOptions = {}): bo
     );
 
     const branch = getCurrentBranch(resolvedCwd);
-    execSync(`git pull --rebase --autostash origin "${branch}"`, { stdio: 'pipe', cwd: resolvedCwd });
+
+    if (!branch) {
+      throw new Error('Cannot push cost files: no current branch detected (detached HEAD)');
+    }
+
+    execSync(`git fetch origin "${branch}"`, { stdio: 'pipe', cwd: resolvedCwd });
+    execSync(`git rebase --autostash "origin/${branch}"`, { stdio: 'pipe', cwd: resolvedCwd });
     execSync(`git push origin "${branch}"`, { stdio: 'pipe', cwd: resolvedCwd });
 
     log(`Committed and pushed cost CSV files`, 'success');
