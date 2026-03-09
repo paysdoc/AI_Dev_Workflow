@@ -55,6 +55,19 @@ export function extractIssueNumberFromPRBody(body: string | null): number | null
 }
 
 /**
+ * Extracts issue number from a branch name using the "issue-N" pattern.
+ * Handles both slash-separated (feature/issue-42-slug) and hyphen-separated (bugfix-issue-42-slug) styles.
+ * Returns null if no issue pattern is found or input is falsy.
+ */
+export function extractIssueNumberFromBranch(branchName: string | null | undefined): number | null {
+  if (!branchName) {
+    return null;
+  }
+  const match = branchName.match(/issue-(\d+)/);
+  return match ? parseInt(match[1], 10) : null;
+}
+
+/**
  * Handles pull_request webhook events.
  * When a PR is closed (merged or not), closes the linked issue.
  */
@@ -100,14 +113,18 @@ export async function handlePullRequestEvent(payload: PullRequestWebhookPayload)
     }
   }
 
-  // Extract issue number from PR body
-  const issueNumber = extractIssueNumberFromPRBody(prBody);
+  // Extract issue number from PR body, falling back to branch name
+  const issueNumber = extractIssueNumberFromPRBody(prBody) ?? extractIssueNumberFromBranch(headBranch);
   if (issueNumber === null) {
     log(`No issue link found in PR #${prNumber} body (no "Implements #N" pattern)`);
     return { status: 'ignored' };
   }
 
-  log(`Found linked issue #${issueNumber} in PR #${prNumber}`);
+  if (!extractIssueNumberFromPRBody(prBody)) {
+    log(`Found linked issue #${issueNumber} from branch name: ${headBranch}`);
+  } else {
+    log(`Found linked issue #${issueNumber} in PR #${prNumber}`);
+  }
 
   // Build repo info from the webhook payload so API calls target the correct repo
   const repoInfo: RepoInfo = {
