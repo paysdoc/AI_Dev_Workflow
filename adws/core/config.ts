@@ -84,6 +84,12 @@ export const COST_REPORT_CURRENCIES: readonly string[] = (process.env.COST_REPOR
   .map(c => c.trim())
   .filter(Boolean);
 
+/** Maximum number of concurrently in-progress issues per repository (default: 5). */
+export const MAX_CONCURRENT_PER_REPO = parseInt(process.env.MAX_CONCURRENT_PER_REPO || '5', 10);
+
+/** Grace period (ms) for cron to avoid racing with webhook processing (default: 5 minutes). */
+export const GRACE_PERIOD_MS = 300_000;
+
 /** Maximum token budget per agent session (default: 200,000). */
 export const MAX_THINKING_TOKENS = Math.max(0, parseInt(process.env.MAX_THINKING_TOKENS || '200000', 10)) || 200000;
 
@@ -160,6 +166,8 @@ export const SLASH_COMMAND_MODEL_MAP: Record<SlashCommand, ModelTier> = {
   '/commit_cost': 'haiku',
   // Utility
   '/find_plan_file': 'sonnet',
+  // Dependency checking
+  '/find_issue_dependencies': 'sonnet',
   // ADW initialization
   '/adw_init': 'sonnet',
 };
@@ -183,6 +191,7 @@ export const SLASH_COMMAND_MODEL_MAP_FAST: Record<SlashCommand, ModelTier> = {
   '/document': 'sonnet',
   '/commit_cost': 'haiku',
   '/find_plan_file': 'haiku',
+  '/find_issue_dependencies': 'haiku',
   '/adw_init': 'haiku',
 };
 
@@ -231,6 +240,7 @@ export const SLASH_COMMAND_EFFORT_MAP: Record<SlashCommand, ReasoningEffort | un
   '/document': 'high',
   '/commit_cost': undefined,
   '/find_plan_file': 'low',
+  '/find_issue_dependencies': 'low',
   '/adw_init': 'high',
 };
 
@@ -253,6 +263,7 @@ export const SLASH_COMMAND_EFFORT_MAP_FAST: Record<SlashCommand, ReasoningEffort
   '/document': 'medium',
   '/commit_cost': undefined,
   '/find_plan_file': 'low',
+  '/find_issue_dependencies': 'low',
   '/adw_init': 'medium',
 };
 
