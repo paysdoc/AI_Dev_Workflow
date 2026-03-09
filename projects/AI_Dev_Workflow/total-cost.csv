@@ -32,8 +32,7 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 66,automatically ccommit cost when pr is closed,2.9142,0.2914
 68,pr review adw should return issue to review,2.2074,0.2207
 88,add issue comments for the review process,5.2025,0.5202
-90,fix review process,7.0932,0.7093
 92,feat 90 fix review process,3.7264,0.3726
 
-Total Cost (USD):,137.4497
-Total Cost (EUR):,119.0585
+Total Cost (USD):,129.6472
+Total Cost (EUR):,112.3000
