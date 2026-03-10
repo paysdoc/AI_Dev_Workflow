@@ -1,9 +1,9 @@
 # PR-Review: Resolve merge conflicts on PR #132
 
 ## PR-Review Description
-PR #132 (`feature-issue-121-provider-config-adw`) shows as CONFLICTING on GitHub because the remote branch does not include the merge with `main`. PR #131 (RepoContext factory from issue #116) was merged into `main` while this branch was in review. Both branches modified `adws/providers/index.ts` to add new exports — main added `export * from './repoContext'` and this branch added `export * from './repoContextFactory'`. A merge commit (`e2554d4`) already exists locally that resolves this conflict by including both exports, but it has not been pushed to the remote.
+PR #132 (`feature-issue-121-provider-config-adw`) has a review comment from `paysdoc` requesting to **"resolve conflicts"**. The branch fell behind `main` after PR #131 (RepoContext factory from issue #116) was merged, causing a conflict in `adws/providers/index.ts` where both branches added new exports.
 
-The single review comment from `paysdoc` is: **"resolve conflicts"**.
+A local merge commit (`e2554d4`) already exists that merged `main` into the feature branch and resolved the `index.ts` conflict. However, the merge also brought in `adws/triggers/cloudflareTunnel.tsx` from main, which has an uncommitted import path fix (`'./core'` to `'../core'`). This uncommitted change and the merge commit need to be pushed to the remote to clear the PR's conflicting status.
 
 ## Summary of Original Implementation Plan
 The original plan (`specs/issue-121-adw-1773106318290-te97mz-sdlc_planner-provider-config.md`) added provider configuration to the `.adw/` project config system:
@@ -15,20 +15,23 @@ The original plan (`specs/issue-121-adw-1773106318290-te97mz-sdlc_planner-provid
 ## Relevant Files
 Use these files to resolve the review:
 
-- `adws/providers/index.ts` — The previously conflicted barrel export file. Now contains both `export * from './repoContext'` and `export * from './repoContextFactory'`. Verify it is correct.
-- `adws/providers/repoContextFactory.ts` — Branch's factory file. Already renamed export to `createRepoContextFromConfig` to avoid name clash with main's `createRepoContext` in `repoContext.ts`.
-- `adws/providers/repoContext.ts` — Main's factory file (from PR #131). Already includes Jira support in `resolveIssueTracker`.
-- `adws/providers/__tests__/repoContextFactory.test.ts` — Branch's factory tests. Verify imports use `createRepoContextFromConfig`.
+- `adws/providers/index.ts` — Barrel export file that had the merge conflict. Now contains both `export * from './repoContext'` (from main) and `export * from './repoContextFactory'` (from this branch). Verify correctness.
+- `adws/triggers/cloudflareTunnel.tsx` — File brought in from main during merge. Has an uncommitted import path fix (`'./core'` to `'../core'`). Must be committed before pushing.
+- `adws/providers/repoContextFactory.ts` — Branch's factory file using `createRepoContextFromConfig` (distinct from main's `createRepoContext` in `repoContext.ts`). Verify no name clashes.
+- `adws/providers/repoContext.ts` — Main's factory file (from PR #131). Already includes Jira support. Verify coexistence with `repoContextFactory.ts`.
+- `adws/providers/__tests__/repoContextFactory.test.ts` — Branch's factory tests. Verify imports and tests pass.
 - `adws/core/projectConfig.ts` — Branch's `ProvidersConfig` type and `parseProvidersMd()`. Auto-merged cleanly.
 - `adws/core/__tests__/projectConfig.test.ts` — Branch's config parsing tests. Auto-merged cleanly.
 
 ## Step by Step Tasks
 IMPORTANT: Execute every step in order, top to bottom.
 
-### Step 1: Verify the local merge is clean
-- Confirm the merge commit exists: `git log --oneline -1` should show `e2554d4 Merge branch 'main' into feature-issue-121-provider-config-adw`
-- Confirm no unresolved conflict markers remain in any tracked files: `git diff HEAD --name-only` should be empty (no unstaged changes)
-- Confirm `adws/providers/index.ts` has both exports:
+### Step 1: Verify no unresolved conflict markers
+- Search all tracked files for `<<<<<<<`, `>>>>>>>`, `=======` conflict markers
+- Confirm none are found (decorative `===` in log statements don't count)
+
+### Step 2: Verify `adws/providers/index.ts` has correct exports
+- Confirm the file contains all five exports without duplication:
   ```typescript
   export * from './types';
   export * from './jira';
@@ -37,7 +40,11 @@ IMPORTANT: Execute every step in order, top to bottom.
   export * from './repoContextFactory';
   ```
 
-### Step 2: Run validation commands to confirm zero regressions
+### Step 3: Commit the uncommitted cloudflareTunnel.tsx fix
+- `adws/triggers/cloudflareTunnel.tsx` has an uncommitted change fixing the import path from `'./core'` to `'../core'`
+- Stage and commit this fix: `git add adws/triggers/cloudflareTunnel.tsx && git commit -m "fix: correct import path in cloudflareTunnel.tsx after merge"`
+
+### Step 4: Run validation commands to confirm zero regressions
 - Execute every validation command before pushing:
   - `bun run lint`
   - `bunx tsc --noEmit`
@@ -46,11 +53,11 @@ IMPORTANT: Execute every step in order, top to bottom.
   - `bun run build`
 - All commands must pass with zero errors
 
-### Step 3: Push the resolved branch to remote
+### Step 5: Push the resolved branch to remote
 - Push the branch: `git push origin feature-issue-121-provider-config-adw`
-- This sends the local merge commit (`e2554d4`) and the main branch commits to the remote, resolving the CONFLICTING state on the PR
+- This sends the local merge commit (`e2554d4`) plus the import fix commit to the remote, resolving the CONFLICTING state on the PR
 
-### Step 4: Verify PR is no longer conflicting
+### Step 6: Verify PR is no longer conflicting
 - Check the PR mergeable status: `gh pr view 132 --json mergeable,mergeStateStatus`
 - Confirm `mergeable` is `MERGEABLE` and `mergeStateStatus` is no longer `DIRTY`
 
@@ -64,6 +71,6 @@ Execute every command to validate the review is complete with zero regressions.
 - `bun run build` — Build the application to verify no build errors
 
 ## Notes
-- The merge conflict was already resolved locally in commit `e2554d4`. The `createRepoContext` name clash was avoided by renaming the feature branch's export to `createRepoContextFromConfig`. TypeScript type checking already passes locally.
-- The only action required is to validate the merge is clean (tests, lint, build) and push the branch to resolve the GitHub PR's CONFLICTING status.
-- No code changes are needed — this is purely a validate-and-push operation.
+- The merge conflict in `adws/providers/index.ts` was already resolved locally in commit `e2554d4`. The `createRepoContext` name clash was avoided by the branch using `createRepoContextFromConfig` as its export name.
+- The `adws/triggers/cloudflareTunnel.tsx` import fix is a post-merge correction -- the file was added from main with `import { log } from './core'` but it lives in `adws/triggers/`, so the correct relative path is `'../core'`.
+- No feature code changes are needed -- this is a validate-commit-push operation.
