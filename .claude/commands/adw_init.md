@@ -55,7 +55,21 @@ Example: if $1=31 and $2=init-adw-env-4qugib, the filename is `issue-31-adw-init
    - Include any documentation directories found in the project
    - If the project has distinct modules or sub-packages, create conditions for each
 
-5. **Create `.adw/review_proof.md`**
+5. **Create `.adw/providers.md`**
+   - Detect the code host from the git remote URL:
+     - `github.com` → `github`
+     - `gitlab.com` → `gitlab`
+     - `bitbucket.org` → `bitbucket`
+     - Unknown → `github` (default)
+   - Extract the base URL from the remote (e.g., `https://github.com`)
+   - Generate `.adw/providers.md` with the following sections:
+     - `## Code Host` — The detected code host platform
+     - `## Code Host URL` — The base URL extracted from the remote
+     - `## Issue Tracker` — Same as code host (default assumption; user can change)
+     - `## Issue Tracker URL` — Same as code host URL
+     - `## Issue Tracker Project Key` — Empty (user fills in for Jira/Linear)
+
+6. **Create `.adw/review_proof.md`**
    - Generate `.adw/review_proof.md` defining the proof requirements for the `/review` command
    - Analyze the project type detected in step 1 to determine appropriate proof requirements:
      - **Web/UI projects** (Next.js, React, Vue, Angular, Svelte, etc.): proof should include browser screenshots of key pages/components, test output summaries, visual regression checks, and dev server verification
@@ -69,6 +83,6 @@ Example: if $1=31 and $2=init-adw-env-4qugib, the filename is `issue-31-adw-init
      - `## Proof Attachment` — How proof gets attached to the PR via review JSON fields (`reviewSummary`, `screenshots`, `reviewIssues`)
      - `## What NOT to Do` — Actions to avoid based on the project type (e.g., CLI projects should not take browser screenshots; UI projects should not skip visual verification)
 
-6. **Report**
-   - List all files created (`commands.md`, `project.md`, `conditional_docs.md`, `review_proof.md`)
+7. **Report**
+   - List all files created (`commands.md`, `project.md`, `conditional_docs.md`, `providers.md`, `review_proof.md`)
    - Summarize the detected project type and key configuration choices
