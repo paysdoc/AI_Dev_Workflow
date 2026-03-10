@@ -71,10 +71,13 @@ IMPORTANT: Execute every step in order, top to bottom.
 - `bun run build` — Build the application to verify no build errors
 - All commands must pass with zero errors
 
-### Step 7: Push resolved branch and verify PR status
-- If any new commits were created (merge or fixes), push to remote: `git push origin feature-issue-121-provider-config-adw`
-- Verify PR is mergeable: `gh pr view 132 --json mergeable,mergeStateStatus`
-- Confirm `mergeable: MERGEABLE` and `mergeStateStatus: CLEAN`
+### Step 7: Push the resolved branch to remote
+- Push the branch: `git push origin feature-issue-121-provider-config-adw`
+- This ensures the remote branch is up to date with main
+
+### Step 8: Verify PR is mergeable on GitHub
+- Check the PR mergeable status: `gh pr view 132 --json mergeable,mergeStateStatus`
+- Confirm `mergeable` is `MERGEABLE` and `mergeStateStatus` is `CLEAN`
 
 ## Validation Commands
 Execute every command to validate the review is complete with zero regressions.
@@ -86,8 +89,9 @@ Execute every command to validate the review is complete with zero regressions.
 - `bun run build` — Build the application to verify no build errors
 
 ## Notes
-- The merge conflict in `adws/providers/index.ts` has already been resolved locally in commit `e2554d4`. The `createRepoContext` name clash was avoided by renaming the branch's function to `createRepoContextFromConfig`.
-- There are now two complementary factory modules in `adws/providers/`: `repoContext.ts` (from main/PR #131, with full entry-point validation using `Platform` enum) and `repoContextFactory.ts` (this branch, simpler factory taking pre-parsed `ProvidersConfig` strings). Both serve different use cases and coexist without conflict.
-- There are also two provider config types: `ProviderConfig` (in `repoContext.ts`, using `Platform` enum) and `ProvidersConfig` (in `projectConfig.ts`, using plain strings). These are separate design decisions that may warrant future consolidation but are not part of this conflict resolution scope.
-- The `cloudflareTunnel.tsx` import path fix (commit `9343343`) corrected a relative import that was broken after the merge brought the file in from main.
-- As of 2026-03-10: PR is MERGEABLE/CLEAN, all 1610 tests pass (88 files), TypeScript compiles with zero errors. The branch is fully in sync with remote and up to date with main. This plan primarily serves as a validation checkpoint to confirm the conflicts are fully resolved before merge.
+- The original merge conflict in `adws/providers/index.ts` was resolved in commit `e2554d4`. The `createRepoContext` name clash between the two factory files was avoided by the branch using `createRepoContextFromConfig` as its export name in `repoContextFactory.ts`.
+- The `adws/triggers/cloudflareTunnel.tsx` import path fix (`'./core'` to `'../core'`) was committed in `9343343` and should be preserved through any new merge.
+- The branch currently shows `MERGEABLE` / `CLEAN` on GitHub and is 0 commits behind main, so Step 1 may result in "Already up to date" — in that case, skip to Step 3 and validate.
+- No feature code changes are needed — this is a merge-validate-push operation.
+- There are two complementary factory modules: `repoContext.ts` (from main/PR #131, full entry-point validation with `Platform` enum) and `repoContextFactory.ts` (this branch, simpler factory from pre-parsed `ProvidersConfig` strings). Both coexist without conflict.
+- There are two provider config types: `ProviderConfig` (in `repoContext.ts`, using `Platform` enum) and `ProvidersConfig` (in `projectConfig.ts`, using plain strings). These serve different use cases and may warrant future consolidation but are not in scope for this conflict resolution.
