@@ -41,6 +41,12 @@
     - When troubleshooting cost CSVs that were not rebuilt after a PR was rejected or closed
     - When implementing cost tracking changes that affect the merged vs closed-without-merge flow
 
+- app_docs/feature-add-provider-configu-te97mz-provider-config-adw.md
+  - Conditions:
+    - When working with `.adw/providers.md` or provider configuration
+    - When modifying `adws/providers/repoContextFactory.ts`
+    - When adding a new provider implementation
+
 - app_docs/feature-add-issue-comments-f-6vrgn2-review-issue-comments.md
   - Conditions:
     - When working with review workflow stage comments (`review_running`, `review_passed`, `review_failed`, `review_patching`)

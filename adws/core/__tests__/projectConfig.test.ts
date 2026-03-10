@@ -6,8 +6,10 @@ import {
   loadProjectConfig,
   getDefaultProjectConfig,
   getDefaultCommandsConfig,
+  getDefaultProvidersConfig,
   parseMarkdownSections,
   parseCommandsMd,
+  parseProvidersMd,
 } from '../projectConfig';
 
 // ---------------------------------------------------------------------------
@@ -326,5 +328,153 @@ describe('loadProjectConfig — edge cases', () => {
 
     const config = loadProjectConfig(tmpDir);
     expect(config).toEqual(getDefaultProjectConfig());
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getDefaultProvidersConfig
+// ---------------------------------------------------------------------------
+
+describe('getDefaultProvidersConfig', () => {
+  it('returns github defaults with empty URLs', () => {
+    const config = getDefaultProvidersConfig();
+    expect(config.codeHost).toBe('github');
+    expect(config.codeHostUrl).toBe('');
+    expect(config.issueTracker).toBe('github');
+    expect(config.issueTrackerUrl).toBe('');
+    expect(config.issueTrackerProjectKey).toBe('');
+  });
+
+  it('matches providers from getDefaultProjectConfig', () => {
+    const defaults = getDefaultProvidersConfig();
+    const projectDefaults = getDefaultProjectConfig().providers;
+    expect(defaults).toEqual(projectDefaults);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// parseProvidersMd
+// ---------------------------------------------------------------------------
+
+describe('parseProvidersMd', () => {
+  it('parses all known provider sections', () => {
+    const md = [
+      '## Code Host',
+      'gitlab',
+      '',
+      '## Code Host URL',
+      'https://gitlab.example.com',
+      '',
+      '## Issue Tracker',
+      'jira',
+      '',
+      '## Issue Tracker URL',
+      'https://jira.example.com',
+      '',
+      '## Issue Tracker Project Key',
+      'PROJ',
+    ].join('\n');
+
+    const config = parseProvidersMd(md);
+    expect(config.codeHost).toBe('gitlab');
+    expect(config.codeHostUrl).toBe('https://gitlab.example.com');
+    expect(config.issueTracker).toBe('jira');
+    expect(config.issueTrackerUrl).toBe('https://jira.example.com');
+    expect(config.issueTrackerProjectKey).toBe('PROJ');
+  });
+
+  it('returns defaults for empty content', () => {
+    const config = parseProvidersMd('');
+    expect(config).toEqual(getDefaultProvidersConfig());
+  });
+
+  it('returns defaults for whitespace-only content', () => {
+    const config = parseProvidersMd('   \n  \n  ');
+    expect(config).toEqual(getDefaultProvidersConfig());
+  });
+
+  it('handles partial configs — only code host', () => {
+    const md = '## Code Host\ngitlab';
+    const config = parseProvidersMd(md);
+    expect(config.codeHost).toBe('gitlab');
+    expect(config.issueTracker).toBe('github');
+    expect(config.issueTrackerUrl).toBe('');
+  });
+
+  it('handles partial configs — only issue tracker', () => {
+    const md = '## Issue Tracker\njira\n\n## Issue Tracker URL\nhttps://jira.example.com';
+    const config = parseProvidersMd(md);
+    expect(config.codeHost).toBe('github');
+    expect(config.issueTracker).toBe('jira');
+    expect(config.issueTrackerUrl).toBe('https://jira.example.com');
+  });
+
+  it('ignores unknown headings', () => {
+    const md = '## Unknown Section\nsome value\n\n## Code Host\ngitlab';
+    const config = parseProvidersMd(md);
+    expect(config.codeHost).toBe('gitlab');
+    expect(config.issueTracker).toBe('github');
+  });
+
+  it('trims whitespace from values via parseMarkdownSections', () => {
+    const md = '## Code Host\n  github  \n\n## Issue Tracker\n  jira  ';
+    const config = parseProvidersMd(md);
+    expect(config.codeHost).toBe('github');
+    expect(config.issueTracker).toBe('jira');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// loadProjectConfig — providers.md
+// ---------------------------------------------------------------------------
+
+describe('loadProjectConfig — providers', () => {
+  it('loads providers.md when present', () => {
+    writeAdwFile('providers.md', [
+      '## Code Host',
+      'gitlab',
+      '',
+      '## Issue Tracker',
+      'jira',
+      '',
+      '## Issue Tracker URL',
+      'https://jira.example.com',
+      '',
+      '## Issue Tracker Project Key',
+      'MYPROJ',
+    ].join('\n'));
+
+    const config = loadProjectConfig(tmpDir);
+    expect(config.hasAdwDir).toBe(true);
+    expect(config.providers.codeHost).toBe('gitlab');
+    expect(config.providers.issueTracker).toBe('jira');
+    expect(config.providers.issueTrackerUrl).toBe('https://jira.example.com');
+    expect(config.providers.issueTrackerProjectKey).toBe('MYPROJ');
+  });
+
+  it('returns default providers when providers.md is absent', () => {
+    writeAdwFile('commands.md', '## Package Manager\nyarn');
+
+    const config = loadProjectConfig(tmpDir);
+    expect(config.hasAdwDir).toBe(true);
+    expect(config.providers).toEqual(getDefaultProvidersConfig());
+  });
+
+  it('returns default providers when providers.md is empty', () => {
+    writeAdwFile('providers.md', '');
+
+    const config = loadProjectConfig(tmpDir);
+    expect(config.providers).toEqual(getDefaultProvidersConfig());
+  });
+
+  it('loads providers alongside other config files', () => {
+    writeAdwFile('commands.md', '## Package Manager\nyarn');
+    writeAdwFile('providers.md', '## Code Host\ngithub\n\n## Issue Tracker\njira');
+    writeAdwFile('project.md', '## Overview\nMy project');
+
+    const config = loadProjectConfig(tmpDir);
+    expect(config.commands.packageManager).toBe('yarn');
+    expect(config.providers.issueTracker).toBe('jira');
+    expect(config.projectMd).toContain('My project');
   });
 });

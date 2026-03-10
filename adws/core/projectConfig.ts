@@ -29,8 +29,18 @@ export interface CommandsConfig {
   scriptExecution: string;
 }
 
+export interface ProvidersConfig {
+  codeHost: string;
+  codeHostUrl: string;
+  issueTracker: string;
+  issueTrackerUrl: string;
+  issueTrackerProjectKey: string;
+}
+
 export interface ProjectConfig {
   commands: CommandsConfig;
+  /** Parsed provider configuration from `.adw/providers.md`. */
+  providers: ProvidersConfig;
   /** Raw content of `.adw/project.md` (empty string when absent). */
   projectMd: string;
   /** Raw content of `.adw/conditional_docs.md` (empty string when absent). */
@@ -42,8 +52,16 @@ export interface ProjectConfig {
 }
 
 // ---------------------------------------------------------------------------
-// Section heading → CommandsConfig key mapping
+// Section heading → key mappings
 // ---------------------------------------------------------------------------
+
+const PROVIDER_HEADING_TO_KEY: Record<string, keyof ProvidersConfig> = {
+  'code host': 'codeHost',
+  'code host url': 'codeHostUrl',
+  'issue tracker': 'issueTracker',
+  'issue tracker url': 'issueTrackerUrl',
+  'issue tracker project key': 'issueTrackerProjectKey',
+};
 
 const HEADING_TO_KEY: Record<string, keyof CommandsConfig> = {
   'package manager': 'packageManager',
@@ -82,9 +100,20 @@ export function getDefaultCommandsConfig(): CommandsConfig {
   };
 }
 
+export function getDefaultProvidersConfig(): ProvidersConfig {
+  return {
+    codeHost: 'github',
+    codeHostUrl: '',
+    issueTracker: 'github',
+    issueTrackerUrl: '',
+    issueTrackerProjectKey: '',
+  };
+}
+
 export function getDefaultProjectConfig(): ProjectConfig {
   return {
     commands: getDefaultCommandsConfig(),
+    providers: getDefaultProvidersConfig(),
     projectMd: '',
     conditionalDocsMd: '',
     reviewProofMd: '',
@@ -148,6 +177,26 @@ export function parseCommandsMd(content: string): CommandsConfig {
   return result;
 }
 
+/**
+ * Parses `.adw/providers.md` into a `ProvidersConfig` object.
+ * Missing sections fall back to defaults.
+ */
+export function parseProvidersMd(content: string): ProvidersConfig {
+  const defaults = getDefaultProvidersConfig();
+  if (!content.trim()) return defaults;
+
+  const sections = parseMarkdownSections(content);
+  const result = { ...defaults };
+
+  for (const [heading, key] of Object.entries(PROVIDER_HEADING_TO_KEY)) {
+    if (heading in sections && sections[heading]) {
+      result[key] = sections[heading];
+    }
+  }
+
+  return result;
+}
+
 // ---------------------------------------------------------------------------
 // Main loader
 // ---------------------------------------------------------------------------
@@ -200,8 +249,19 @@ export function loadProjectConfig(targetRepoPath: string): ProjectConfig {
     // file missing — keep empty
   }
 
+  // providers.md
+  const providersPath = path.join(adwDir, 'providers.md');
+  let providers: ProvidersConfig;
+  try {
+    const raw = fs.readFileSync(providersPath, 'utf-8');
+    providers = parseProvidersMd(raw);
+  } catch {
+    providers = getDefaultProvidersConfig();
+  }
+
   return {
     commands,
+    providers,
     projectMd,
     conditionalDocsMd,
     reviewProofMd,

@@ -49,13 +49,27 @@ Example: if $1=31 and $2=init-adw-env-4qugib, the filename is `issue-31-adw-init
      - `## Library Install Command` — How to add new libraries
      - `## Script Execution` — How to run project scripts
 
-4. **Create `.adw/conditional_docs.md`**
+4. **Create `.adw/providers.md`**
+   - Detect the code host from the git remote URL: run `git remote get-url origin` and inspect the hostname
+     - `github.com` → `github`
+     - `gitlab.com` → `gitlab`
+     - Default to `github` if detection fails
+   - Set the issue tracker to match the detected code host (default assumption: same platform for both)
+   - Set the Code Host URL and Issue Tracker URL based on the detected hostname (e.g., `https://github.com`, `https://gitlab.com`)
+   - Generate `.adw/providers.md` with the following sections:
+     - `## Code Host` — The detected code host (e.g., `github`)
+     - `## Code Host URL` — The code host URL (e.g., `https://github.com`)
+     - `## Issue Tracker` — The detected issue tracker (matches code host by default)
+     - `## Issue Tracker URL` — The issue tracker URL (matches code host URL by default)
+     - `## Issue Tracker Project Key` — Leave empty (to be filled manually for Jira/Linear)
+
+5. **Create `.adw/conditional_docs.md`**
    - Generate `.adw/conditional_docs.md` with conditional documentation entries based on the project structure
    - Include `README.md` with relevant conditions
    - Include any documentation directories found in the project
    - If the project has distinct modules or sub-packages, create conditions for each
 
-5. **Create `.adw/review_proof.md`**
+6. **Create `.adw/review_proof.md`**
    - Generate `.adw/review_proof.md` defining the proof requirements for the `/review` command
    - Analyze the project type detected in step 1 to determine appropriate proof requirements:
      - **Web/UI projects** (Next.js, React, Vue, Angular, Svelte, etc.): proof should include browser screenshots of key pages/components, test output summaries, visual regression checks, and dev server verification
@@ -69,6 +83,6 @@ Example: if $1=31 and $2=init-adw-env-4qugib, the filename is `issue-31-adw-init
      - `## Proof Attachment` — How proof gets attached to the PR via review JSON fields (`reviewSummary`, `screenshots`, `reviewIssues`)
      - `## What NOT to Do` — Actions to avoid based on the project type (e.g., CLI projects should not take browser screenshots; UI projects should not skip visual verification)
 
-6. **Report**
-   - List all files created (`commands.md`, `project.md`, `conditional_docs.md`, `review_proof.md`)
+7. **Report**
+   - List all files created (`commands.md`, `project.md`, `conditional_docs.md`, `providers.md`, `review_proof.md`)
    - Summarize the detected project type and key configuration choices
