@@ -39,6 +39,7 @@ Then edit `.env` with your values:
 - `GITHUB_PAT` - (Optional) GitHub personal access token, only needed if using a different account than `gh auth login`
 - `GITHUB_WEBHOOK_SECRET` - (Optional) Required only for webhook trigger
 - `TARGET_REPOS_DIR` - (Optional) Directory for storing cloned target repository workspaces, defaults to `~/.adw/repos`
+- `MAX_CONCURRENT_PER_REPO` - (Optional) Maximum concurrent in-progress issues per repository, defaults to `5`
 
 ### 4. Run ADW
 
@@ -67,8 +68,9 @@ bun run test:watch    # Run tests in watch mode
 ```
 .adw/                   # Project configuration for ADW (see adws/README.md)
 ├── commands.md         # Build/test/lint command mappings
+├── conditional_docs.md # Conditional documentation paths
 ├── project.md          # Project structure and relevant files
-└── conditional_docs.md # Conditional documentation paths
+└── review_proof.md     # Review proof requirements for target projects
 .claude/
 ├── commands/           # Claude Code slash commands
 │   ├── adw_init.md
@@ -81,6 +83,7 @@ bun run test:watch    # Run tests in watch mode
 │   ├── conditional_docs.md
 │   ├── document.md
 │   ├── feature.md
+│   ├── find_issue_dependencies.md
 │   ├── generate_branch_name.md
 │   ├── implement.md
 │   ├── install.md
@@ -128,6 +131,7 @@ adws/                   # ADW workflow system
 │   ├── agentState.ts
 │   ├── config.ts
 │   ├── constants.ts    # Orchestrator ID constants
+│   ├── costCommitQueue.ts
 │   ├── costCsvWriter.ts
 │   ├── costPricing.ts
 │   ├── costReport.ts
@@ -187,10 +191,18 @@ adws/                   # ADW workflow system
 │   ├── index.ts
 │   ├── issueTypes.ts
 │   └── workflowTypes.ts
+├── providers/          # Provider interfaces and types
+│   ├── __tests__/      # Provider unit tests
+│   ├── index.ts
+│   └── types.ts
 ├── triggers/           # Automation triggers
 │   ├── __tests__/      # Trigger unit tests
+│   ├── concurrencyGuard.ts
+│   ├── issueDependencies.ts
+│   ├── issueEligibility.ts
 │   ├── trigger_cron.ts
 │   ├── trigger_webhook.ts
+│   ├── webhookGatekeeper.ts
 │   ├── webhookHandlers.ts
 │   └── webhookSignature.ts
 ├── adwBuild.tsx        # Orchestrators (individual & combined)
@@ -215,6 +227,7 @@ adws/                   # ADW workflow system
 ├── tsconfig.json
 └── README.md
 app_docs/               # Generated feature documentation
+bun.lock                # Bun lockfile
 eslint.config.js        # ESLint configuration
 guidelines/
 └── coding_guidelines.md

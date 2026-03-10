@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { createRepoContext } from '../repoContextFactory';
+import { createRepoContextFromConfig } from '../repoContextFactory';
 import { getDefaultProvidersConfig } from '../../core/projectConfig';
 import { Platform } from '../types';
 import type { RepoIdentifier } from '../types';
@@ -27,13 +27,13 @@ const defaultRepoId: RepoIdentifier = {
 const defaultCwd = '/tmp/test-repo';
 
 // ---------------------------------------------------------------------------
-// createRepoContext — github defaults
+// createRepoContextFromConfig — github defaults
 // ---------------------------------------------------------------------------
 
-describe('createRepoContext — github defaults', () => {
+describe('createRepoContextFromConfig — github defaults', () => {
   it('creates context with github issue tracker and code host', () => {
     const config = getDefaultProvidersConfig();
-    const ctx = createRepoContext(config, defaultRepoId, defaultCwd);
+    const ctx = createRepoContextFromConfig(config, defaultRepoId, defaultCwd);
 
     expect(ctx.issueTracker).toBeDefined();
     expect(ctx.codeHost).toBeDefined();
@@ -43,10 +43,10 @@ describe('createRepoContext — github defaults', () => {
 });
 
 // ---------------------------------------------------------------------------
-// createRepoContext — jira issue tracker
+// createRepoContextFromConfig — jira issue tracker
 // ---------------------------------------------------------------------------
 
-describe('createRepoContext — jira issue tracker', () => {
+describe('createRepoContextFromConfig — jira issue tracker', () => {
   it('creates context with jira issue tracker and github code host', () => {
     const config: ProvidersConfig = {
       codeHost: 'github',
@@ -56,7 +56,7 @@ describe('createRepoContext — jira issue tracker', () => {
       issueTrackerProjectKey: 'PROJ',
     };
 
-    const ctx = createRepoContext(config, defaultRepoId, defaultCwd);
+    const ctx = createRepoContextFromConfig(config, defaultRepoId, defaultCwd);
 
     expect(ctx.issueTracker).toBeDefined();
     expect(ctx.codeHost).toBeDefined();
@@ -72,7 +72,7 @@ describe('createRepoContext — jira issue tracker', () => {
       issueTrackerProjectKey: 'PROJ',
     };
 
-    expect(() => createRepoContext(config, defaultRepoId, defaultCwd)).toThrow(
+    expect(() => createRepoContextFromConfig(config, defaultRepoId, defaultCwd)).toThrow(
       'Jira issue tracker requires "Issue Tracker URL"',
     );
   });
@@ -86,17 +86,17 @@ describe('createRepoContext — jira issue tracker', () => {
       issueTrackerProjectKey: '',
     };
 
-    expect(() => createRepoContext(config, defaultRepoId, defaultCwd)).toThrow(
+    expect(() => createRepoContextFromConfig(config, defaultRepoId, defaultCwd)).toThrow(
       'Jira issue tracker requires "Issue Tracker Project Key"',
     );
   });
 });
 
 // ---------------------------------------------------------------------------
-// createRepoContext — unsupported providers
+// createRepoContextFromConfig — unsupported providers
 // ---------------------------------------------------------------------------
 
-describe('createRepoContext — unsupported providers', () => {
+describe('createRepoContextFromConfig — unsupported providers', () => {
   it('throws for unsupported issue tracker', () => {
     const config: ProvidersConfig = {
       codeHost: 'github',
@@ -106,7 +106,7 @@ describe('createRepoContext — unsupported providers', () => {
       issueTrackerProjectKey: '',
     };
 
-    expect(() => createRepoContext(config, defaultRepoId, defaultCwd)).toThrow(
+    expect(() => createRepoContextFromConfig(config, defaultRepoId, defaultCwd)).toThrow(
       'Unsupported issue tracker provider: "linear"',
     );
   });
@@ -120,7 +120,7 @@ describe('createRepoContext — unsupported providers', () => {
       issueTrackerProjectKey: '',
     };
 
-    expect(() => createRepoContext(config, defaultRepoId, defaultCwd)).toThrow(
+    expect(() => createRepoContextFromConfig(config, defaultRepoId, defaultCwd)).toThrow(
       'Unsupported code host provider: "gitlab"',
     );
   });

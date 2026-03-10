@@ -16,10 +16,10 @@ import { createJiraIssueTracker } from './jira/jiraIssueTracker';
  * @param config - Provider configuration from `.adw/providers.md`
  * @param repoId - Repository identifier for the target repo
  * @param cwd - Working directory for the target repo
- * @returns A fully constructed RepoContext
+ * @returns A fully constructed RepoContext from ProvidersConfig
  * @throws Error if an unsupported provider is requested or required fields are missing
  */
-export function createRepoContext(
+export function createRepoContextFromConfig(
   config: ProvidersConfig,
   repoId: RepoIdentifier,
   cwd: string,
