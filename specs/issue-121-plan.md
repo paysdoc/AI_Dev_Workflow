@@ -1,48 +1,53 @@
 # PR-Review: Resolve merge conflicts on PR #132
 
 ## PR-Review Description
-PR #132 (`feature-issue-121-provider-config-adw`) received a review comment from `paysdoc`: **"resolve conflicts"**. The branch diverged from `main` after PR #131 (RepoContext factory from issue #116) was merged, which introduced `adws/providers/repoContext.ts` with its own `createRepoContext()` factory. This caused a merge conflict in `adws/providers/index.ts` where both branches added new barrel exports.
-
-The conflict was resolved by:
-1. Merging `main` into the feature branch (commit `e2554d4`)
-2. Keeping both exports in `adws/providers/index.ts` (`repoContext` from main + `repoContextFactory` from this branch)
-3. Renaming the branch's factory function from `createRepoContext` to `createRepoContextFromConfig` to avoid the duplicate export name clash
-4. Fixing an import path in `adws/triggers/cloudflareTunnel.tsx` (`'./core'` → `'../core'`) that was broken after merge (commit `9343343`)
-
-The branch is currently 7 commits ahead of `main`, 0 behind. GitHub reports the PR as `MERGEABLE` with `CLEAN` merge state. The working tree is clean and local is in sync with remote.
+PR #132 (`feature-issue-121-provider-config-adw`) has a review comment from `paysdoc` requesting to **"resolve conflicts"**. The branch originally fell behind `main` after PR #131 (RepoContext factory from issue #116) was merged, causing a conflict in `adws/providers/index.ts` where both branches added new exports. Previous automated runs resolved the conflict via merge commit `e2554d4` and committed an import path fix in `adws/triggers/cloudflareTunnel.tsx` (commit `9343343`). The branch is currently 7 commits ahead, 0 behind main, and the PR shows `MERGEABLE` / `CLEAN` status on GitHub. The task is to merge the latest `main` into the branch to ensure it remains current, resolve any new conflicts that arise, validate with the full test suite, and push.
 
 ## Summary of Original Implementation Plan
 The original plan (`specs/issue-121-adw-1773106318290-te97mz-sdlc_planner-provider-config.md`) added provider configuration to the `.adw/` project config system:
-
-1. **Phase 1 (Foundation)**: Added `ProvidersConfig` type and `parseProvidersMd()` to `adws/core/projectConfig.ts` using the existing heading-based markdown extraction pattern
-2. **Phase 2 (Core Implementation)**: Created `repoContextFactory.ts` with `createRepoContextFromConfig()` factory that maps `ProvidersConfig` values to provider implementations (GitHub + Jira support)
-3. **Phase 3 (Integration)**: Updated `adw_init.md` to generate `.adw/providers.md` with auto-detected code host, created ADW's own `.adw/providers.md`, added comprehensive tests for config parsing and factory logic
+1. Added `ProvidersConfig` type and `parseProvidersMd()` to `adws/core/projectConfig.ts` using the existing heading-based markdown extraction pattern
+2. Created `adws/providers/repoContextFactory.ts` with `createRepoContextFromConfig()` factory that maps `ProvidersConfig` values to provider implementations (GitHub + Jira support)
+3. Updated `.claude/commands/adw_init.md` to generate `.adw/providers.md` with auto-detected code host
+4. Added comprehensive tests for config parsing and factory logic
+5. Created `adws/providers/repoContext.ts` (from main via PR #131) with `createRepoContext()` — a validated factory with entry-point validation, Jira support, and `loadProviderConfig()`
 
 ## Relevant Files
 Use these files to resolve the review:
 
 - `adws/providers/index.ts` — Barrel export file that had the merge conflict. Now exports from both `./repoContext` (main) and `./repoContextFactory` (this branch). Must verify no duplicate export names.
-- `adws/providers/repoContext.ts` — Main's factory (from PR #131) with `createRepoContext(options)`, `loadProviderConfig()`, and entry-point validation. Uses `Platform` enum and `ProviderConfig` type.
+- `adws/providers/repoContext.ts` — Main's factory (from PR #131) with `createRepoContext(options)`, `loadProviderConfig()`, and entry-point validation. Includes Jira support (`IssueTrackerPlatform` type, `parseIssueTrackerPlatform()`, `resolveIssueTracker()` Jira dispatch).
 - `adws/providers/repoContextFactory.ts` — This branch's factory with `createRepoContextFromConfig(config, repoId, cwd)`. Uses `ProvidersConfig` from `projectConfig.ts` (string-based). Renamed from `createRepoContext` to avoid clash.
-- `adws/core/projectConfig.ts` — This branch's `ProvidersConfig` type and `parseProvidersMd()` function. Auto-merged cleanly.
+- `adws/core/projectConfig.ts` — This branch's `ProvidersConfig` type, `parseProvidersMd()`, and `getDefaultProvidersConfig()`. Auto-merged cleanly.
+- `adws/core/index.ts` — Core barrel file updated to export `ProvidersConfig` and related functions.
 - `adws/providers/__tests__/repoContextFactory.test.ts` — This branch's factory tests. Must verify imports use `createRepoContextFromConfig`.
-- `adws/providers/__tests__/repoContext.test.ts` — Main's factory tests (from PR #131). Must verify no conflicts with branch's tests.
+- `adws/providers/__tests__/repoContext.test.ts` — Main's factory tests plus Jira additions. Must verify no conflicts with branch's tests.
+- `adws/core/__tests__/projectConfig.test.ts` — Tests for `parseProvidersMd()` and `ProvidersConfig` defaults.
 - `adws/triggers/cloudflareTunnel.tsx` — Import path fix from `'./core'` to `'../core'` after merge brought in this file from main.
 
 ## Step by Step Tasks
 IMPORTANT: Execute every step in order, top to bottom.
 
-### Step 1: Re-merge main to ensure branch is fully up to date
-- Run `git fetch origin` to get latest remote state
-- Run `git merge origin/main` to incorporate any new main commits since the last merge
-- If merge is clean (no conflicts), proceed. If conflicts appear, resolve them manually.
+### Step 1: Fetch latest main and merge into feature branch
+- Run `git fetch origin main` to get the latest remote main
+- Run `git merge origin/main` to merge main into the feature branch
+- If the merge reports "Already up to date", proceed to Step 3 (no conflicts to resolve)
+- If conflicts arise, proceed to Step 2
 
-### Step 2: Verify no unresolved conflict markers in tracked files
-- Search all tracked files for `<<<<<<<`, `>>>>>>>`, and `=======` conflict markers
-- Run: `git grep -n '<<<<<<<\|>>>>>>>\|=======' -- ':!*.md' ':!*.csv'` (exclude markdown/csv where `===` is decorative)
+### Step 2: Resolve any merge conflicts
+- Run `git diff --name-only --diff-filter=U` to list conflicting files
+- For each conflicting file, open it and resolve the conflict:
+  - `adws/providers/index.ts`: Ensure all five exports are present (`types`, `jira`, `github`, `repoContext`, `repoContextFactory`) — no duplicates
+  - `adws/core/projectConfig.ts`: Keep both the branch's `ProvidersConfig` type / `parseProvidersMd()` and any new additions from main
+  - `adws/core/index.ts`: Ensure all exports from both branches are present
+  - For any other conflicting files: preserve functionality from both branches
+- Search all files for unresolved conflict markers (`<<<<<<<`, `>>>>>>>`, `^=======`) to confirm none remain
+- Stage resolved files with `git add <file>` and commit the merge with `git commit -m "merge: resolve conflicts with main"`
+
+### Step 3: Verify no unresolved conflict markers in tracked files
+- Search all tracked `.ts` and `.tsx` files for `<<<<<<<`, `>>>>>>>`, and start-of-line `=======` conflict markers
 - Confirm no conflict markers are found
 
-### Step 3: Verify barrel exports are correct and have no duplicate names
+### Step 4: Verify barrel exports are correct and have no duplicate names
 - Read `adws/providers/index.ts` and confirm it contains exactly:
   ```typescript
   export * from './types';
@@ -58,7 +63,13 @@ IMPORTANT: Execute every step in order, top to bottom.
 - Check `adws/providers/repoContextFactory.ts` imports from `'../core/projectConfig'`
 - Verify all relative imports in changed files resolve correctly
 
-### Step 5: Run full validation suite
+### Step 5: Verify `repoContext.ts` Jira additions are correct
+- Confirm `IssueTrackerPlatform` type is exported (`Platform | 'jira'`)
+- Confirm `parseIssueTrackerPlatform()` handles `'jira'` case-insensitively
+- Confirm `resolveIssueTracker()` accepts `IssueTrackerPlatform` and dispatches to `createJiraIssueTracker()` with URL and project key validation
+- Confirm `loadProviderConfig()` parses `## Issue Tracker URL` and `## Issue Tracker Project Key` sections when tracker is Jira
+
+### Step 6: Run full validation suite
 - `bun run lint` — Run linter to check for code quality issues
 - `bunx tsc --noEmit` — Type check the main application
 - `bunx tsc --noEmit -p adws/tsconfig.json` — Type check ADW scripts
@@ -66,7 +77,7 @@ IMPORTANT: Execute every step in order, top to bottom.
 - `bun run build` — Build the application to verify no build errors
 - All commands must pass with zero errors
 
-### Step 6: Push resolved branch and verify PR status
+### Step 7: Push resolved branch and verify PR status
 - If any new commits were created (merge or fixes), push to remote: `git push origin feature-issue-121-provider-config-adw`
 - Verify PR is mergeable: `gh pr view 132 --json mergeable,mergeStateStatus`
 - Confirm `mergeable: MERGEABLE` and `mergeStateStatus: CLEAN`
@@ -85,4 +96,4 @@ Execute every command to validate the review is complete with zero regressions.
 - There are now two complementary factory modules in `adws/providers/`: `repoContext.ts` (from main/PR #131, with full entry-point validation using `Platform` enum) and `repoContextFactory.ts` (this branch, simpler factory taking pre-parsed `ProvidersConfig` strings). Both serve different use cases and coexist without conflict.
 - There are also two provider config types: `ProviderConfig` (in `repoContext.ts`, using `Platform` enum) and `ProvidersConfig` (in `projectConfig.ts`, using plain strings). These are separate design decisions that may warrant future consolidation but are not part of this conflict resolution scope.
 - The `cloudflareTunnel.tsx` import path fix (commit `9343343`) corrected a relative import that was broken after the merge brought the file in from main.
-- The branch is currently fully in sync with remote and up to date with main. This plan primarily serves as a validation checkpoint to confirm the conflicts are fully resolved before merge.
+- As of 2026-03-10: PR is MERGEABLE/CLEAN, all 1610 tests pass (88 files), TypeScript compiles with zero errors. The branch is fully in sync with remote and up to date with main. This plan primarily serves as a validation checkpoint to confirm the conflicts are fully resolved before merge.
