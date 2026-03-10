@@ -38,8 +38,10 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 113,define issuetracker and codehost provider interfac,3.6376,0.3638
 114,implement github issuetracker provider,1.4713,0.1471
 115,implement github codehost provider,1.8497,0.1850
+116,create repocontext factory with entry point valida,5.1870,0.5187
+121,add provider configuration to adw project config,5.0588,0.5059
 123,implement jira issuetracker provider,6.2039,0.6204
 126,json error,0.4218,0.0422
 
-Total Cost (USD):,146.8914
-Total Cost (EUR):,127.2369
+Total Cost (USD):,158.1617
+Total Cost (EUR):,136.5425
