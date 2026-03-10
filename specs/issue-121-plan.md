@@ -63,12 +63,6 @@ IMPORTANT: Execute every step in order, top to bottom.
 - Check `adws/providers/repoContextFactory.ts` imports from `'../core/projectConfig'`
 - Verify all relative imports in changed files resolve correctly
 
-### Step 5: Verify `repoContext.ts` Jira additions are correct
-- Confirm `IssueTrackerPlatform` type is exported (`Platform | 'jira'`)
-- Confirm `parseIssueTrackerPlatform()` handles `'jira'` case-insensitively
-- Confirm `resolveIssueTracker()` accepts `IssueTrackerPlatform` and dispatches to `createJiraIssueTracker()` with URL and project key validation
-- Confirm `loadProviderConfig()` parses `## Issue Tracker URL` and `## Issue Tracker Project Key` sections when tracker is Jira
-
 ### Step 6: Run full validation suite
 - `bun run lint` — Run linter to check for code quality issues
 - `bunx tsc --noEmit` — Type check the main application
