@@ -26,3 +26,11 @@ This prompt helps you determine what documentation you should read based on the 
     - When adding support for new provider platforms (IssueTracker or CodeHost)
     - When troubleshooting git remote validation or working directory validation errors
     - When configuring `.adw/providers.md` for a target repository
+
+- app_docs/feature-1773073902212-9l2nv9-repo-context-factory.md
+  - Conditions:
+    - When working with `RepoContext`, `createRepoContext`, or `adws/providers/repoContext.ts`
+    - When implementing workflow entry points that need validated repo context
+    - When adding support for new provider platforms (IssueTracker or CodeHost)
+    - When troubleshooting git remote validation or working directory validation errors
+    - When configuring `.adw/providers.md` for a target repository
