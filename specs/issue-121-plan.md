@@ -58,7 +58,7 @@ IMPORTANT: Execute every step in order, top to bottom.
   ```
 - Run `bunx tsc --noEmit -p adws/tsconfig.json` to verify no duplicate identifier errors from the barrel re-exports
 
-### Step 4: Verify import paths are correct post-merge
+### Step 5: Verify import paths are correct post-merge
 - Check `adws/triggers/cloudflareTunnel.tsx` uses `'../core'` (not `'./core'`)
 - Check `adws/providers/repoContextFactory.ts` imports from `'../core/projectConfig'`
 - Verify all relative imports in changed files resolve correctly
