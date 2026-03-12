@@ -41,6 +41,7 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 115,implement github codehost provider,1.8497,0.1850
 116,create repocontext factory with entry point valida,5.1870,0.5187
 117,refactor workflow phases to consume repocontext,9.7968,0.9797
+118,refactor triggers and orchestrators to create repo,7.3359,0.7336
 121,add provider configuration to adw project config,5.6448,0.5645
 123,implement jira issuetracker provider,6.2039,0.6204
 126,json error,0.4218,0.0422
@@ -49,5 +50,5 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 137,document phase commit is not pushed lost on branch,1.0469,0.1047
 140,bug adwid format regression webhook triggers produ,1.5234,0.1523
 
-Total Cost (USD):,180.3723
-Total Cost (EUR):,155.9473
+Total Cost (USD):,188.4418
+Total Cost (EUR):,162.9241
