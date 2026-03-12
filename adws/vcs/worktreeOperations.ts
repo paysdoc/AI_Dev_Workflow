@@ -9,7 +9,7 @@ import { execSync } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
 import { log } from '../core';
-import { getDefaultBranch } from './gitOperations';
+import { getDefaultBranch } from './branchOperations';
 
 /**
  * Result of checking if a branch is checked out elsewhere.

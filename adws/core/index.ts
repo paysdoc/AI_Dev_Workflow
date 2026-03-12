@@ -143,3 +143,25 @@ export {
 // Cost commit queue
 export { costCommitQueue, CostCommitQueue } from './costCommitQueue';
 
+// Workflow comment parsing (platform-agnostic)
+export {
+  STAGE_ORDER,
+  ADW_SIGNATURE,
+  ADW_SIGNATURE_PATTERN,
+  formatModelName,
+  formatRunningTokenFooter,
+  isAdwComment,
+  ACTIONABLE_COMMENT_PATTERN,
+  isActionableComment,
+  CLEAR_COMMENT_PATTERN,
+  isClearComment,
+  extractActionableContent,
+  truncateText,
+  parseWorkflowStageFromComment,
+  extractAdwIdFromComment,
+  extractBranchNameFromComment,
+  extractPrUrlFromComment,
+  extractPlanPathFromComment,
+  detectRecoveryState,
+} from './workflowCommentParsing';
+

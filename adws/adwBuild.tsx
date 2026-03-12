@@ -45,10 +45,9 @@ import {
   postWorkflowComment,
   WorkflowContext,
   detectRecoveryState,
-  getCurrentBranch,
-  inferIssueTypeFromBranch,
   type RepoInfo,
 } from './github';
+import { getCurrentBranch, inferIssueTypeFromBranch } from './vcs';
 import {
   runBuildAgent,
   runCommitAgent,

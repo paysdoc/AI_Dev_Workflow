@@ -7,7 +7,7 @@ import type { RepoInfo } from '../../github/githubApi';
 import type { GitHubIssue } from '../../types/issueTypes';
 import { fetchPRDetails, fetchPRReviewComments, commentOnPR, fetchPRList } from '../../github/prApi';
 import { createPullRequest } from '../../github/pullRequestCreator';
-import { getDefaultBranch as ghGetDefaultBranch } from '../../github/gitBranchOperations';
+import { getDefaultBranch as ghGetDefaultBranch } from '../../vcs/branchOperations';
 import {
   type CodeHost,
   type CreateMROptions,

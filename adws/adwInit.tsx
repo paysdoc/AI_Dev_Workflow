@@ -19,7 +19,7 @@
 
 import { persistTokenCounts, parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, log, type ModelUsageMap, emptyModelUsageMap, mergeModelUsageMaps, OrchestratorId } from './core';
 import { runClaudeAgentWithCommand } from './agents/claudeAgent';
-import { commitChanges } from './github';
+import { commitChanges } from './vcs';
 import {
   initializeWorkflow,
   executePRPhase,

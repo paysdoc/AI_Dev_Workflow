@@ -20,7 +20,7 @@ vi.mock('../../core/config', () => ({
   WORKTREES_DIR: '/mock/project/.worktrees',
 }));
 
-vi.mock('../gitOperations', () => ({
+vi.mock('../branchOperations', () => ({
   getDefaultBranch: vi.fn(() => 'main'),
   deleteLocalBranch: vi.fn(() => true),
 }));
@@ -49,7 +49,7 @@ import {
   copyEnvToWorktree,
   findWorktreeForIssue,
 } from '../worktreeOperations';
-import { deleteLocalBranch, getDefaultBranch } from '../gitOperations';
+import { deleteLocalBranch, getDefaultBranch } from '../branchOperations';
 
 describe('getWorktreePath', () => {
   const worktreeListOutput = `worktree /mock/project

@@ -6,7 +6,7 @@
  */
 
 import { log, AgentStateManager, COST_REPORT_CURRENCIES, type ModelUsageMap, buildCostBreakdown, mergeModelUsageMaps, emptyModelUsageMap, persistTokenCounts, writeIssueCostCsv, rebuildProjectCostCsv, OrchestratorId, computeEurRate } from '../core';
-import { pushBranch, inferIssueTypeFromBranch } from '../github';
+import { pushBranch, inferIssueTypeFromBranch } from '../vcs';
 import { postPRStageComment } from './phaseCommentHelpers';
 import { runCommitAgent, runUnitTestsWithRetry, runE2ETestsWithRetry } from '../agents';
 import { MAX_TEST_RETRY_ATTEMPTS } from '../core';

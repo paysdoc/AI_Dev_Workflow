@@ -4,7 +4,7 @@
 
 import { PRReviewWorkflowStage, log, formatCostBreakdownMarkdown } from '../core';
 import { commentOnPR, type RepoInfo } from './githubApi';
-import { ADW_SIGNATURE, truncateText, formatRunningTokenFooter } from './workflowCommentsBase';
+import { ADW_SIGNATURE, truncateText, formatRunningTokenFooter } from '../core/workflowCommentParsing';
 import { WorkflowContext } from './workflowCommentsIssue';
 
 /** Context for PR review workflow comments. */

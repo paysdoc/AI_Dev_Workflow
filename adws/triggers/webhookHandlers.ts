@@ -12,8 +12,8 @@ import { fetchExchangeRates } from '../core/costReport';
 import { costCommitQueue } from '../core/costCommitQueue';
 import type { RepoInfo } from '../github/githubApi';
 import { closeIssue, formatIssueClosureComment } from '../github/githubApi';
-import { removeWorktree } from '../github/worktreeOperations';
-import { deleteRemoteBranch, commitAndPushCostFiles, pullLatestCostBranch } from '../github/gitOperations';
+import { removeWorktree } from '../vcs';
+import { deleteRemoteBranch, commitAndPushCostFiles, pullLatestCostBranch } from '../vcs';
 import { getTargetRepoWorkspacePath } from '../core/targetRepoManager';
 
 /**

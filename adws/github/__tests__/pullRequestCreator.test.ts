@@ -19,15 +19,18 @@ vi.mock('../../core/utils', () => ({
   log: vi.fn(),
 }));
 
-vi.mock('../gitOperations', () => ({
+vi.mock('../../vcs/branchOperations', () => ({
   getCurrentBranch: vi.fn(() => 'feat-issue-42-add-login'),
+}));
+
+vi.mock('../../vcs/commitOperations', () => ({
   pushBranch: vi.fn(),
 }));
 
 import { execSync } from 'child_process';
 import * as fs from 'fs';
 import { createPullRequest } from '../pullRequestCreator';
-import { pushBranch } from '../gitOperations';
+import { pushBranch } from '../../vcs/commitOperations';
 import type { GitHubIssue } from '../../core';
 
 const testRepoInfo = { owner: 'test-owner', repo: 'test-repo' };

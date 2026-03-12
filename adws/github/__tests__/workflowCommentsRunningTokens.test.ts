@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatRunningTokenFooter, formatModelName } from '../workflowCommentsBase';
+import { formatRunningTokenFooter, formatModelName } from '../../core/workflowCommentParsing';
 import { formatWorkflowComment, type WorkflowContext } from '../workflowCommentsIssue';
 import { formatPRReviewWorkflowComment, type PRReviewWorkflowContext } from '../workflowCommentsPR';
 

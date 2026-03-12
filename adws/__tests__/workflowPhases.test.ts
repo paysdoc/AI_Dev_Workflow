@@ -23,7 +23,7 @@ import { RecoveryState, GitHubIssue, PRDetails, PRReviewComment } from '../types
 import { getDefaultProjectConfig } from '../core/projectConfig';
 import { OrchestratorId } from '../core/constants';
 import { WorkflowContext, PRReviewWorkflowContext } from '../github/workflowComments';
-import { extractBranchNameFromComment } from '../github/workflowCommentsBase';
+import { extractBranchNameFromComment } from '../core/workflowCommentParsing';
 import { makeRepoContext, type MockRepoContext } from '../phases/__tests__/helpers/makeRepoContext';
 
 vi.mock('fs');
@@ -98,7 +98,6 @@ vi.mock('../github', () => ({
   ]),
   postWorkflowComment: vi.fn(),
   postPRWorkflowComment: vi.fn(),
-  pushBranch: vi.fn(),
   createPullRequest: vi.fn().mockReturnValue('https://github.com/test/pr/1'),
   detectRecoveryState: vi.fn().mockReturnValue({
     lastCompletedStage: null,
@@ -108,7 +107,12 @@ vi.mock('../github', () => ({
     prUrl: null,
     canResume: false,
   }),
-  getDefaultBranch: vi.fn().mockReturnValue('main'),
+  getRepoInfo: vi.fn().mockReturnValue({ owner: 'test', repo: 'repo' }),
+  moveIssueToStatus: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock('../vcs', () => ({
+  pushBranch: vi.fn(),
   checkoutDefaultBranch: vi.fn().mockReturnValue('main'),
   ensureWorktree: vi.fn().mockReturnValue('/mock/worktree'),
   getWorktreeForBranch: vi.fn().mockReturnValue(null),
@@ -116,8 +120,10 @@ vi.mock('../github', () => ({
   copyEnvToWorktree: vi.fn(),
   findWorktreeForIssue: vi.fn().mockReturnValue(null),
   inferIssueTypeFromBranch: vi.fn().mockReturnValue('/feature'),
-  getRepoInfo: vi.fn().mockReturnValue({ owner: 'test', repo: 'repo' }),
-  moveIssueToStatus: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock('../vcs/branchOperations', () => ({
+  getDefaultBranch: vi.fn().mockReturnValue('main'),
 }));
 
 vi.mock('../agents', () => ({
@@ -188,8 +194,10 @@ import { shouldExecuteStage, hasUncommittedChanges, getNextStage, AgentStateMana
 import {
   fetchPRDetails,
   getUnaddressedComments,
-  pushBranch,
   detectRecoveryState,
+} from '../github';
+import {
+  pushBranch,
   checkoutDefaultBranch,
   ensureWorktree,
   getWorktreeForBranch,
@@ -197,7 +205,8 @@ import {
   copyEnvToWorktree,
   findWorktreeForIssue,
   inferIssueTypeFromBranch,
-} from '../github';
+} from '../vcs';
+import { getDefaultBranch } from '../vcs/branchOperations';
 import { runPlanAgent, planFileExists, readPlanFile, runBuildAgent, runPrReviewPlanAgent, runPrReviewBuildAgent, runGenerateBranchNameAgent, runCommitAgent, runUnitTestsWithRetry, runE2ETestsWithRetry, runReviewWithRetry, runPullRequestAgent } from '../agents';
 import { classifyGitHubIssue } from '../core/issueClassifier';
 

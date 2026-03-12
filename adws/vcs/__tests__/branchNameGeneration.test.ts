@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { generateBranchName } from '../gitOperations';
+import { generateBranchName } from '../branchOperations';
 import { IssueClassSlashCommand, branchPrefixMap, branchPrefixAliases } from '../../types/dataTypes';
 
 describe('generateBranchName', () => {

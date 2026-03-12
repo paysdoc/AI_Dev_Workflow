@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isActionableComment, isClearComment, ADW_SIGNATURE } from '../workflowCommentsBase';
+import { isActionableComment, isClearComment, ADW_SIGNATURE } from '../../core/workflowCommentParsing';
 
 /**
  * Tests for the qualifying-issue logic used by the cron trigger.

@@ -20,7 +20,7 @@ vi.mock('../../github/workflowCommentsIssue', () => ({
   formatWorkflowComment: vi.fn().mockReturnValue('formatted comment'),
 }));
 
-vi.mock('../../github', () => ({
+vi.mock('../../vcs', () => ({
   pushBranch: vi.fn(),
 }));
 
@@ -37,7 +37,7 @@ vi.mock('../../agents', () => ({
 }));
 
 import { AgentStateManager } from '../../core';
-import { pushBranch } from '../../github';
+import { pushBranch } from '../../vcs';
 import { runDocumentAgent, runCommitAgent } from '../../agents';
 import { executeDocumentPhase } from '../documentPhase';
 import type { WorkflowConfig } from '../workflowLifecycle';

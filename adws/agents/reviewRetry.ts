@@ -8,7 +8,7 @@ import { initAgentState, trackCost, type AgentRunResult } from '../core/retryOrc
 import { runReviewAgent, type ReviewIssue, type ReviewAgentResult } from './reviewAgent';
 import { runPatchAgent } from './patchAgent';
 import { runCommitAgent } from './gitAgent';
-import { pushBranch } from '../github';
+import { pushBranch } from '../vcs';
 
 /** Number of parallel review agents per iteration. */
 export const REVIEW_AGENT_COUNT = 3;

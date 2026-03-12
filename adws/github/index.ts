@@ -1,5 +1,5 @@
 /**
- * GitHub module - GitHub API and git operations.
+ * GitHub module - GitHub API and workflow comment operations.
  */
 
 // GitHub API
@@ -20,54 +20,8 @@ export {
   type RepoInfo,
 } from './githubApi';
 
-// Git Operations (re-exported via barrel for backwards compatibility)
-export {
-  getCurrentBranch,
-  generateBranchName,
-  generateFeatureBranchName,
-  createFeatureBranch,
-  checkoutBranch,
-  commitChanges,
-  pushBranch,
-  getDefaultBranch,
-  checkoutDefaultBranch,
-  inferIssueTypeFromBranch,
-  mergeLatestFromDefaultBranch,
-  deleteLocalBranch,
-  deleteRemoteBranch,
-  commitAndPushCostFiles,
-  PROTECTED_BRANCHES,
-  type CommitCostFilesOptions,
-} from './gitOperations';
-
 // Pull Request Creator
 export { createPullRequest } from './pullRequestCreator';
-
-// Worktree Operations
-export {
-  getWorktreePath,
-  worktreeExists,
-  createWorktree,
-  createWorktreeForNewBranch,
-  killProcessesInDirectory,
-  removeWorktree,
-  removeWorktreesForIssue,
-  getWorktreeForBranch,
-  ensureWorktree,
-  getMainRepoPath,
-  isBranchCheckedOutElsewhere,
-  freeBranchFromMainRepo,
-  getWorktreesDir,
-  copyEnvToWorktree,
-  type BranchCheckoutStatus,
-} from './worktreeOperations';
-
-// Worktree Query (listing and issue search)
-export {
-  listWorktrees,
-  findWorktreeForIssue,
-  type WorktreeForIssueResult,
-} from './worktreeQuery';
 
 // Project Board API
 export { moveIssueToStatus } from './projectBoardApi';

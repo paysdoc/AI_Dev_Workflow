@@ -5,7 +5,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { log, setLogAdwId, ensureLogsDirectory, generateAdwId, type PRDetails, type PRReviewComment, AgentStateManager, type AgentState, type ModelUsageMap, allocateRandomPort, emptyModelUsageMap, OrchestratorId } from '../core';
-import { fetchPRDetails, getUnaddressedComments, type PRReviewWorkflowContext, ensureWorktree, getRepoInfo, type RepoInfo } from '../github';
+import { fetchPRDetails, getUnaddressedComments, type PRReviewWorkflowContext, getRepoInfo, type RepoInfo } from '../github';
+import { ensureWorktree } from '../vcs';
 import type { RepoContext, RepoIdentifier } from '../providers/types';
 import { Platform } from '../providers/types';
 import { createRepoContext } from '../providers/repoContext';

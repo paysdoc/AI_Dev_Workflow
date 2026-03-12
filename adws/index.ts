@@ -68,7 +68,17 @@ export {
   type ReviewRetryOptions,
 } from './agents';
 
-// GitHub module - GitHub API and git operations
+// VCS module - Git command wrappers
+export {
+  getCurrentBranch,
+  generateFeatureBranchName,
+  createFeatureBranch,
+  checkoutBranch,
+  commitChanges,
+  pushBranch,
+} from './vcs';
+
+// GitHub module - GitHub API and workflow comments
 export {
   getRepoInfo,
   fetchGitHubIssue,
@@ -81,12 +91,6 @@ export {
   fetchIssueCommentsRest,
   deleteIssueComment,
   type RepoInfo,
-  getCurrentBranch,
-  generateFeatureBranchName,
-  createFeatureBranch,
-  checkoutBranch,
-  commitChanges,
-  pushBranch,
   createPullRequest,
   getLastAdwCommitTimestamp,
   getUnaddressedComments,

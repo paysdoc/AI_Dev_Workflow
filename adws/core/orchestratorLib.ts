@@ -7,7 +7,7 @@
 
 import { execSync } from 'child_process';
 import { WorkflowStage, RecoveryState } from '../types/dataTypes';
-import { STAGE_ORDER } from '../github/workflowCommentsBase';
+import { STAGE_ORDER } from './workflowCommentParsing';
 
 /**
  * Determines if a stage should be executed based on recovery state.
