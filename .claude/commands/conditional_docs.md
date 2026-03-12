@@ -58,3 +58,11 @@ This prompt helps you determine what documentation you should read based on the 
     - When implementing token or cost visibility features in ADW comments
     - When troubleshooting missing or unexpected running token footers in comments
     - When modifying orchestrators to thread data into `ctx` between phases
+
+- app_docs/feature-1773341233172-9jw507-gitlab-codehost-provider.md
+  - Conditions:
+    - When working with the GitLab CodeHost provider (`adws/providers/gitlab/`)
+    - When implementing or extending CodeHost providers for non-GitHub code hosts
+    - When configuring ADW to use GitLab as the code hosting backend
+    - When troubleshooting GitLab API authentication, merge request creation, or review fetching
+    - When adding support for a new code host platform following the CodeHost interface
