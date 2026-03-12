@@ -1,21 +1,25 @@
 # ADW Project Configuration
 
 ## Project Overview
-AI Dev Workflow (ADW) is a TypeScript/Node.js project that automates software development by integrating GitHub issues with Claude Code CLI. It uses Next.js for the web interface, and the `adws/` directory contains the workflow automation scripts.
+AI Dev Workflow (ADW) is a TypeScript/Bun automation system that integrates GitHub issues with Claude Code CLI to classify issues, generate plans, implement solutions, and create pull requests. The `adws/` directory contains the workflow orchestrators, agents, and supporting modules.
 
 ## Relevant Files
 - `README.md` - Contains the project overview and instructions.
 - `guidelines/**` - Contains coding guidelines that must be followed (target repository — may not exist in all repos). If present, read and follow these guidelines.
-- `src/app/**` - Contains Next.js App Router pages, layouts, and route handlers.
-- `src/components/**` - Contains React components.
-- `src/lib/**` - Contains utility functions and shared logic.
-- `src/hooks/**` - Contains custom React hooks.
-- `src/styles/**` - Contains global styles and CSS modules.
-- `public/**` - Contains static assets.
-- `adws/**` - Contains the AI Developer Workflow (ADW) scripts.
+- `adws/**` - Contains the AI Developer Workflow (ADW) orchestrators, agents, and supporting modules.
+- `adws/core/**` - Configuration, state management, cost tracking, token management.
+- `adws/agents/**` - Claude Code CLI agent runners (plan, build, test, review, etc.).
+- `adws/phases/**` - Workflow phase implementations.
+- `adws/github/**` - GitHub API, issue/PR operations, workflow comments.
+- `adws/vcs/**` - VCS-agnostic git and worktree operations.
+- `adws/providers/**` - Pluggable IssueTracker and CodeHost backends.
+- `adws/triggers/**` - Cron and webhook automation triggers.
+- `adws/types/**` - Shared TypeScript types.
+- `.claude/commands/**` - Slash command prompt files.
+- `.adw/**` - Project configuration files read by planners.
 
 ## Framework Notes
-This is a Next.js App Router project using React and TypeScript. Use server components by default. The `adws/` directory contains standalone TypeScript scripts that run with `bunx tsx` and are separate from the Next.js application.
+This is a TypeScript/Bun automation project. The `adws/` directory contains standalone TypeScript orchestrator scripts that run with `bunx tsx`. There is no web UI — ADW is a pure CLI automation system.
 
 ## Library Install Command
 bun install
