@@ -12,34 +12,24 @@ import { fetchPRDetails, fetchPRReviewComments } from './githubApi';
 import type { RepoInfo } from './githubApi';
 
 /**
+ * Structural regex matching the universal ADW commit format: `<agentName>: <issueClass>: <message>`.
+ * The double colon-space prefix is distinctive to ADW commits — normal developer commits use a single
+ * prefix like `feat: message`. This pattern is forward-compatible with new agents and issue types.
+ */
+export const ADW_COMMIT_PATTERN = /^[\w/-]+: \w+: /;
+
+/**
  * Gets the timestamp of the last ADW commit on the given branch.
- * Looks for commits matching ADW patterns like "feat: implement #" or "feat: address PR review".
+ * Matches commits using the structural ADW commit format `<agentName>: <issueClass>: <message>`.
  * Returns null if no ADW commits are found.
  */
 export function getLastAdwCommitTimestamp(branchName: string, cwd?: string): Date | null {
   try {
     const resolvedCwd = resolveTargetRepoCwd(cwd);
-    // Get commits on the branch that match ADW commit message patterns
     const output = execSync(
       `git log "${branchName}" --format="%aI %s" --no-merges`,
       { encoding: 'utf-8', cwd: resolvedCwd }
     );
-
-    // ADW commit patterns for all issue types (feat/fix/chore)
-    const adwPatterns = [
-      // Implementation commits
-      /feat: implement #/,
-      /fix: implement #/,
-      /chore: implement #/,
-      // PR review commits
-      /feat: address PR review/,
-      /fix: address PR review/,
-      /chore: address PR review/,
-      // Implementation plan commits
-      /feat: add implementation plan for #/,
-      /fix: add implementation plan for #/,
-      /chore: add implementation plan for #/,
-    ];
 
     for (const line of output.split('\n')) {
       if (!line.trim()) continue;
@@ -48,7 +38,7 @@ export function getLastAdwCommitTimestamp(branchName: string, cwd?: string): Dat
       const timestamp = line.substring(0, spaceIdx);
       const message = line.substring(spaceIdx + 1);
 
-      if (adwPatterns.some(p => p.test(message))) {
+      if (ADW_COMMIT_PATTERN.test(message)) {
         return new Date(timestamp);
       }
     }
