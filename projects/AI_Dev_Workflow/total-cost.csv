@@ -43,6 +43,7 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 121,add provider configuration to adw project config,5.6448,0.5645
 123,implement jira issuetracker provider,6.2039,0.6204
 126,json error,0.4218,0.0422
+134,pr 133 in an endless loop,4.0760,0.4076
 
-Total Cost (USD):,159.9398
-Total Cost (EUR):,138.2817
+Total Cost (USD):,164.4234
+Total Cost (EUR):,142.1582
