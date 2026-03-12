@@ -4,7 +4,7 @@
  */
 
 import * as path from 'path';
-import { GitHubIssue, IssueClassSlashCommand, log, getModelForCommand, getEffortForCommand } from '../core';
+import { GitHubIssue, IssueClassSlashCommand, log, getModelForCommand, getEffortForCommand, commitPrefixMap } from '../core';
 import { runClaudeAgentWithCommand, AgentResult } from './claudeAgent';
 
 /**
@@ -93,6 +93,27 @@ export async function runGenerateBranchNameAgent(
 }
 
 /**
+ * Maps an issueClass slash command to a clean commit keyword.
+ * e.g., '/feature' -> 'feat', '/bug' -> 'fix'
+ */
+export function mapIssueClassToKeyword(issueClass: string): string {
+  const mapped = commitPrefixMap[issueClass as IssueClassSlashCommand];
+  if (mapped) {
+    return mapped.replace(/:$/, '');
+  }
+  return issueClass.replace(/^\//, '');
+}
+
+/**
+ * Builds the commit message prefix from agent name and issue class.
+ * e.g., ('build-agent', '/feature') -> 'build-agent: feat'
+ */
+export function buildCommitPrefix(agentName: string, issueClass: string): string {
+  const keyword = mapIssueClassToKeyword(issueClass);
+  return `${agentName}: ${keyword}`;
+}
+
+/**
  * Formats structured args for the /commit skill.
  */
 export function formatCommitArgs(
@@ -100,7 +121,8 @@ export function formatCommitArgs(
   issueClass: string,
   issueContext: string
 ): string[] {
-  return [agentName, issueClass, issueContext];
+  const prefix = buildCommitPrefix(agentName, issueClass);
+  return [prefix, issueContext];
 }
 
 /**
@@ -111,6 +133,35 @@ export function extractCommitMessageFromOutput(output: string): string {
   const trimmed = output.trim();
   const lines = trimmed.split('\n').filter(line => line.trim());
   return lines[lines.length - 1].trim();
+}
+
+/**
+ * Validates that a commit message starts with the expected prefix.
+ * If not, strips any malformed prefix and prepends the correct one.
+ */
+export function validateCommitMessage(message: string, expectedPrefix: string): string {
+  const trimmed = message.trim();
+  const expectedStart = `${expectedPrefix}: `;
+
+  if (trimmed.startsWith(expectedStart)) {
+    return trimmed;
+  }
+
+  // Strip known malformed prefix patterns:
+  // - /feature: feat: msg  -> msg (two-segment prefix)
+  // - /bug: #126: msg      -> msg (two-segment prefix)
+  // - agent: keyword: msg  -> msg (wrong agent/keyword, two-segment)
+  // - feat: msg            -> msg (single-segment prefix)
+  // Try two-segment first, then single-segment
+  let stripped = trimmed.replace(/^[\w/.-]+:\s*[\w#.-]+:\s*/, '');
+  if (stripped === trimmed) {
+    stripped = trimmed.replace(/^[\w/.-]+:\s*/, '');
+  }
+
+  // If stripping removed nothing, the message is just a description
+  const description = stripped || trimmed;
+
+  return `${expectedPrefix}: ${description}`;
 }
 
 /**
@@ -152,7 +203,9 @@ export async function runCommitAgent(
     cwd
   );
 
-  const commitMessage = extractCommitMessageFromOutput(result.output);
+  const rawMessage = extractCommitMessageFromOutput(result.output);
+  const expectedPrefix = buildCommitPrefix(agentName, issueClass);
+  const commitMessage = validateCommitMessage(rawMessage, expectedPrefix);
   log(`Commit message: ${commitMessage}`, 'success');
 
   return { ...result, commitMessage };

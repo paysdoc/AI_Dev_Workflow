@@ -5,6 +5,9 @@ import {
   validateBranchName,
   formatCommitArgs,
   extractCommitMessageFromOutput,
+  mapIssueClassToKeyword,
+  buildCommitPrefix,
+  validateCommitMessage,
   runGenerateBranchNameAgent,
   runCommitAgent,
 } from '../gitAgent';
@@ -156,20 +159,70 @@ describe('validateBranchName', () => {
   });
 });
 
-describe('formatCommitArgs', () => {
-  it('returns array with agentName, issueClass, and issue context', () => {
-    const result = formatCommitArgs(OrchestratorId.Plan, '/feature', '{"number":123}');
-
-    expect(result).toEqual([OrchestratorId.Plan, '/feature', '{"number":123}']);
+describe('mapIssueClassToKeyword', () => {
+  it('maps /feature to feat', () => {
+    expect(mapIssueClassToKeyword('/feature')).toBe('feat');
   });
 
-  it('handles different agent names', () => {
-    const agents = ['build-agent', OrchestratorId.PrReview, OrchestratorId.Build];
+  it('maps /bug to fix', () => {
+    expect(mapIssueClassToKeyword('/bug')).toBe('fix');
+  });
 
-    for (const agent of agents) {
-      const result = formatCommitArgs(agent, '/bug', '{}');
-      expect(result[0]).toBe(agent);
-    }
+  it('maps /chore to chore', () => {
+    expect(mapIssueClassToKeyword('/chore')).toBe('chore');
+  });
+
+  it('maps /pr_review to review', () => {
+    expect(mapIssueClassToKeyword('/pr_review')).toBe('review');
+  });
+
+  it('maps /adw_init to adwinit', () => {
+    expect(mapIssueClassToKeyword('/adw_init')).toBe('adwinit');
+  });
+
+  it('falls back to stripping leading / for unknown issue classes', () => {
+    expect(mapIssueClassToKeyword('/unknown')).toBe('unknown');
+    expect(mapIssueClassToKeyword('/custom_type')).toBe('custom_type');
+  });
+
+  it('returns value as-is if no leading /', () => {
+    expect(mapIssueClassToKeyword('feature')).toBe('feature');
+  });
+});
+
+describe('buildCommitPrefix', () => {
+  it('builds prefix for build-agent with /feature', () => {
+    expect(buildCommitPrefix('build-agent', '/feature')).toBe('build-agent: feat');
+  });
+
+  it('builds prefix for plan-orchestrator with /bug', () => {
+    expect(buildCommitPrefix('plan-orchestrator', '/bug')).toBe('plan-orchestrator: fix');
+  });
+
+  it('builds prefix for document-agent with /chore', () => {
+    expect(buildCommitPrefix('document-agent', '/chore')).toBe('document-agent: chore');
+  });
+});
+
+describe('formatCommitArgs', () => {
+  it('returns 2-element array with prefix and issue context', () => {
+    const result = formatCommitArgs(OrchestratorId.Plan, '/feature', '{"number":123}');
+
+    expect(result).toEqual(['plan-orchestrator: feat', '{"number":123}']);
+  });
+
+  it('constructs correct prefix for different agent names and issue classes', () => {
+    expect(formatCommitArgs('build-agent', '/bug', '{}')).toEqual(['build-agent: fix', '{}']);
+    expect(formatCommitArgs('document-agent', '/chore', '{}')).toEqual(['document-agent: chore', '{}']);
+    expect(formatCommitArgs(OrchestratorId.PrReview, '/pr_review', '{}')).toEqual([
+      'pr-review-orchestrator: review',
+      '{}',
+    ]);
+  });
+
+  it('returns exactly 2 elements', () => {
+    const result = formatCommitArgs('any-agent', '/feature', '{"number":1}');
+    expect(result).toHaveLength(2);
   });
 });
 
@@ -194,6 +247,48 @@ describe('extractCommitMessageFromOutput', () => {
     const output = '\n\nbuild-agent: fix: resolve login error\n\n';
     const result = extractCommitMessageFromOutput(output);
     expect(result).toBe('build-agent: fix: resolve login error');
+  });
+});
+
+describe('validateCommitMessage', () => {
+  it('returns message as-is when it already has the correct prefix', () => {
+    const msg = 'build-agent: feat: add provider config';
+    expect(validateCommitMessage(msg, 'build-agent: feat')).toBe(msg);
+  });
+
+  it('prepends prefix when message has no prefix (just a description)', () => {
+    expect(validateCommitMessage('add provider config', 'build-agent: feat')).toBe(
+      'build-agent: feat: add provider config'
+    );
+  });
+
+  it('strips malformed prefix /feature: feat: and replaces with correct prefix', () => {
+    expect(validateCommitMessage('/feature: feat: add provider config', 'build-agent: feat')).toBe(
+      'build-agent: feat: add provider config'
+    );
+  });
+
+  it('strips malformed prefix feat: (missing agent name) and replaces', () => {
+    expect(validateCommitMessage('feat: add provider config', 'build-agent: feat')).toBe(
+      'build-agent: feat: add provider config'
+    );
+  });
+
+  it('strips malformed prefix /bug: #126: and replaces with correct prefix', () => {
+    expect(validateCommitMessage('/bug: #126: fix invalid field', 'build-agent: fix')).toBe(
+      'build-agent: fix: fix invalid field'
+    );
+  });
+
+  it('handles leading/trailing whitespace', () => {
+    expect(validateCommitMessage('  build-agent: feat: add config  ', 'build-agent: feat')).toBe(
+      'build-agent: feat: add config'
+    );
+  });
+
+  it('handles whitespace-only message after stripping', () => {
+    const result = validateCommitMessage('feat: ', 'build-agent: feat');
+    expect(result.startsWith('build-agent: feat: ')).toBe(true);
   });
 });
 
@@ -260,12 +355,12 @@ describe('runCommitAgent', () => {
     });
   });
 
-  it('calls runClaudeAgentWithCommand with /commit', async () => {
+  it('calls runClaudeAgentWithCommand with /commit and 2-element args', async () => {
     await runCommitAgent(OrchestratorId.Plan, '/feature', '{"number":123}', '/logs');
 
     expect(runClaudeAgentWithCommand).toHaveBeenCalledWith(
       '/commit',
-      [OrchestratorId.Plan, '/feature', '{"number":123}'],
+      ['plan-orchestrator: feat', '{"number":123}'],
       'Commit',
       expect.stringContaining('commit-agent.jsonl'),
       'sonnet',
@@ -288,6 +383,17 @@ describe('runCommitAgent', () => {
 
     expect(result.commitMessage).toBe('plan-orchestrator: feat: add implementation plan');
     expect(result.success).toBe(true);
+  });
+
+  it('validates and corrects malformed commit message', async () => {
+    vi.mocked(runClaudeAgentWithCommand).mockResolvedValue({
+      success: true,
+      output: '/feature: feat: add provider config',
+    });
+
+    const result = await runCommitAgent('build-agent', '/feature', '{}', '/logs');
+
+    expect(result.commitMessage).toBe('build-agent: feat: add provider config');
   });
 
   it('passes cwd when provided', async () => {

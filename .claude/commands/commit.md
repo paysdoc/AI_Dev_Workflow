@@ -4,22 +4,22 @@ Based on the `Instructions` below, take the `Variables` follow the `Run` section
 
 ## Variables
 
-agentName: $1
-issueClass: $2
-issue: $3
+commitPrefix: $1
+issue: $2
 
 ## Instructions
 
-- Generate a concise commit message in the format: `<agentName>: <issueClass>: <commit message>`
-- The `<commit message>` should be:
+- Generate a commit message that starts with `$1:` followed by a space and a present-tense description of the changes (50 characters or less, no period)
+- The `$1` prefix is already formatted — do NOT modify it
+- The description should be:
   - Present tense (e.g., "add", "fix", "update", not "added", "fixed", "updated")
   - 50 characters or less
   - Descriptive of the actual changes made
   - No period at the end
 - Examples:
   - `sdlc_planner: feat: add user authentication module`
-  - `sdlc_implementor: bug: fix login validation error`
-  - `sdlc_planner: chore: update dependencies to latest versions`
+  - `build-agent: fix: resolve login validation error`
+  - `document-agent: chore: update dependencies to latest versions`
 - Extract context from the issue JSON to make the commit message relevant
 - Don't include any 'Generated with...' or 'Authored by...' in the commit message. Focus purely on the changes made.
 
