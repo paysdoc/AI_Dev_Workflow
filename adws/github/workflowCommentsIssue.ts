@@ -41,7 +41,7 @@ export interface WorkflowContext {
   /** Maximum review attempts. */
   maxReviewAttempts?: number;
   /** Running total of tokens consumed so far (set when RUNNING_TOKENS is enabled). */
-  runningTokenTotal?: { inputTokens: number; outputTokens: number; cacheCreationTokens: number; total: number };
+  runningTokenTotal?: { inputTokens: number; outputTokens: number; cacheCreationTokens: number; total: number; modelBreakdown: Array<{ model: string; total: number }> };
 }
 
 const issueTypeLabels: Record<IssueClassSlashCommand, string> = {

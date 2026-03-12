@@ -89,4 +89,55 @@ describe('Running tokens integration', () => {
 
     expect(ctx.runningTokenTotal).toBeUndefined();
   });
+
+  it('populates modelBreakdown with correct model keys and totals', () => {
+    let totalModelUsage: ModelUsageMap = {};
+
+    totalModelUsage = mergeModelUsageMaps(totalModelUsage, phaseOneUsage);
+    const afterPhaseOne = computeTotalTokens(totalModelUsage);
+
+    expect(afterPhaseOne.modelBreakdown).toHaveLength(1);
+    expect(afterPhaseOne.modelBreakdown[0]).toEqual({ model: 'claude-opus-4-6', total: 1700 });
+  });
+
+  it('includes both models with correct totals after merging multi-model phases', () => {
+    let totalModelUsage: ModelUsageMap = {};
+    totalModelUsage = mergeModelUsageMaps(totalModelUsage, phaseOneUsage);
+    totalModelUsage = mergeModelUsageMaps(totalModelUsage, phaseTwoUsage);
+    const result = computeTotalTokens(totalModelUsage);
+
+    expect(result.modelBreakdown).toHaveLength(2);
+
+    const opusEntry = result.modelBreakdown.find((e) => e.model === 'claude-opus-4-6');
+    const haikuEntry = result.modelBreakdown.find((e) => e.model === 'claude-haiku-4-5');
+
+    // opus: (1000+2000) input + (500+1000) output + (200+300) cache = 5000
+    expect(opusEntry).toEqual({ model: 'claude-opus-4-6', total: 5000 });
+    // haiku: 500 input + 200 output + 50 cache = 750
+    expect(haikuEntry).toEqual({ model: 'claude-haiku-4-5', total: 750 });
+  });
+
+  it('sorts modelBreakdown descending by total', () => {
+    let totalModelUsage: ModelUsageMap = {};
+    totalModelUsage = mergeModelUsageMaps(totalModelUsage, phaseOneUsage);
+    totalModelUsage = mergeModelUsageMaps(totalModelUsage, phaseTwoUsage);
+    const result = computeTotalTokens(totalModelUsage);
+
+    expect(result.modelBreakdown[0].model).toBe('claude-opus-4-6');
+    expect(result.modelBreakdown[1].model).toBe('claude-haiku-4-5');
+    expect(result.modelBreakdown[0].total).toBeGreaterThan(result.modelBreakdown[1].total);
+  });
+
+  it('threads modelBreakdown into ctx.runningTokenTotal', () => {
+    const ctx: WorkflowContext = { issueNumber: 1, adwId: 'test' };
+    let totalModelUsage: ModelUsageMap = {};
+    totalModelUsage = mergeModelUsageMaps(totalModelUsage, phaseOneUsage);
+    totalModelUsage = mergeModelUsageMaps(totalModelUsage, phaseTwoUsage);
+
+    ctx.runningTokenTotal = computeTotalTokens(totalModelUsage);
+
+    expect(ctx.runningTokenTotal.modelBreakdown).toHaveLength(2);
+    expect(ctx.runningTokenTotal.modelBreakdown[0].model).toBe('claude-opus-4-6');
+    expect(ctx.runningTokenTotal.modelBreakdown[1].model).toBe('claude-haiku-4-5');
+  });
 });

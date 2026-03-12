@@ -131,7 +131,7 @@ export type { OrchestratorArgs } from './orchestratorCli';
 export { extractCwdOption, extractIssueTypeOption, parseIssueNumber, printUsageAndExit as printOrchestratorUsage, parseOrchestratorArguments, buildRepoIdentifier } from './orchestratorCli';
 
 // Token Manager
-export type { TokenTotals } from './tokenManager';
+export type { TokenTotals, ModelTokenEntry } from './tokenManager';
 export { computeTotalTokens, computePrimaryModelTokens, isModelMatch } from './tokenManager';
 
 // Target repo manager
