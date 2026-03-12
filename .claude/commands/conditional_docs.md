@@ -66,3 +66,11 @@ This prompt helps you determine what documentation you should read based on the 
     - When troubleshooting missing KPI rows or incorrect metric calculations after a workflow run
     - When configuring the package manager used for inline KPI calculations (`.adw/commands.md`)
     - When implementing a new non-fatal workflow phase following the KPI phase pattern
+
+- app_docs/feature-1773341233172-9jw507-gitlab-codehost-provider.md
+  - Conditions:
+    - When working with the GitLab CodeHost provider (`adws/providers/gitlab/`)
+    - When implementing or extending CodeHost providers for non-GitHub code hosts
+    - When configuring ADW to use GitLab as the code hosting backend
+    - When troubleshooting GitLab API authentication, merge request creation, or review fetching
+    - When adding support for a new code host platform following the CodeHost interface

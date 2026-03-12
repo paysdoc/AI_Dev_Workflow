@@ -19,10 +19,15 @@ vi.mock('../github/githubCodeHost', () => ({
   createGitHubCodeHost: vi.fn(),
 }));
 
+vi.mock('../gitlab/gitlabCodeHost', () => ({
+  createGitLabCodeHost: vi.fn(),
+}));
+
 import { existsSync, readFileSync, statSync } from 'fs';
 import { execSync } from 'child_process';
 import { createGitHubIssueTracker } from '../github/githubIssueTracker';
 import { createGitHubCodeHost } from '../github/githubCodeHost';
+import { createGitLabCodeHost } from '../gitlab/gitlabCodeHost';
 import {
   createRepoContext,
   loadProviderConfig,
@@ -30,6 +35,7 @@ import {
   validateGitRemote,
   resolveIssueTracker,
   resolveCodeHost,
+  parseOwnerRepoFromUrl,
 } from '../repoContext';
 
 const validRepoId: RepoIdentifier = {
@@ -69,6 +75,7 @@ function setupValidEnvironment(): void {
   vi.mocked(execSync).mockReturnValue('https://github.com/acme/widgets.git\n');
   vi.mocked(createGitHubIssueTracker).mockReturnValue(mockIssueTracker);
   vi.mocked(createGitHubCodeHost).mockReturnValue(mockCodeHost);
+  vi.mocked(createGitLabCodeHost).mockReturnValue(mockCodeHost);
 }
 
 describe('loadProviderConfig', () => {
@@ -361,11 +368,74 @@ describe('validateGitRemote', () => {
   });
 
   it('throws when remote URL cannot be parsed', () => {
-    vi.mocked(execSync).mockReturnValue('https://example.com/some/path\n');
+    vi.mocked(execSync).mockReturnValue('ftp://example.com/repo\n');
 
     expect(() => validateGitRemote('/tmp/repo', validRepoId)).toThrow(
       'Could not parse owner/repo from git remote URL',
     );
+  });
+
+  it('passes for GitLab HTTPS remote', () => {
+    const gitlabRepoId: RepoIdentifier = { owner: 'acme', repo: 'widgets', platform: Platform.GitLab };
+    vi.mocked(execSync).mockReturnValue('https://gitlab.com/acme/widgets.git\n');
+
+    expect(() => validateGitRemote('/tmp/repo', gitlabRepoId)).not.toThrow();
+  });
+
+  it('passes for GitLab SSH remote', () => {
+    const gitlabRepoId: RepoIdentifier = { owner: 'acme', repo: 'widgets', platform: Platform.GitLab };
+    vi.mocked(execSync).mockReturnValue('git@gitlab.com:acme/widgets.git\n');
+
+    expect(() => validateGitRemote('/tmp/repo', gitlabRepoId)).not.toThrow();
+  });
+
+  it('passes for self-hosted GitLab HTTPS remote', () => {
+    const gitlabRepoId: RepoIdentifier = { owner: 'team', repo: 'project', platform: Platform.GitLab };
+    vi.mocked(execSync).mockReturnValue('https://gitlab.example.com/team/project.git\n');
+
+    expect(() => validateGitRemote('/tmp/repo', gitlabRepoId)).not.toThrow();
+  });
+});
+
+describe('parseOwnerRepoFromUrl', () => {
+  it('parses GitHub HTTPS URL', () => {
+    const result = parseOwnerRepoFromUrl('https://github.com/acme/widgets.git');
+    expect(result).toEqual({ owner: 'acme', repo: 'widgets' });
+  });
+
+  it('parses GitHub SSH URL', () => {
+    const result = parseOwnerRepoFromUrl('git@github.com:acme/widgets.git');
+    expect(result).toEqual({ owner: 'acme', repo: 'widgets' });
+  });
+
+  it('parses GitLab HTTPS URL', () => {
+    const result = parseOwnerRepoFromUrl('https://gitlab.com/acme/widgets.git');
+    expect(result).toEqual({ owner: 'acme', repo: 'widgets' });
+  });
+
+  it('parses GitLab SSH URL', () => {
+    const result = parseOwnerRepoFromUrl('git@gitlab.com:acme/widgets.git');
+    expect(result).toEqual({ owner: 'acme', repo: 'widgets' });
+  });
+
+  it('parses self-hosted GitLab HTTPS URL', () => {
+    const result = parseOwnerRepoFromUrl('https://gitlab.example.com/team/project.git');
+    expect(result).toEqual({ owner: 'team', repo: 'project' });
+  });
+
+  it('parses self-hosted GitLab SSH URL', () => {
+    const result = parseOwnerRepoFromUrl('git@gitlab.example.com:team/project.git');
+    expect(result).toEqual({ owner: 'team', repo: 'project' });
+  });
+
+  it('parses URL without .git suffix', () => {
+    const result = parseOwnerRepoFromUrl('https://gitlab.com/acme/widgets');
+    expect(result).toEqual({ owner: 'acme', repo: 'widgets' });
+  });
+
+  it('returns null for unparseable URL', () => {
+    const result = parseOwnerRepoFromUrl('ftp://example.com/repo');
+    expect(result).toBeNull();
   });
 });
 
@@ -410,10 +480,13 @@ describe('resolveCodeHost', () => {
     expect(host).toBe(mockCodeHost);
   });
 
-  it('throws for unsupported platform GitLab', () => {
-    expect(() => resolveCodeHost(Platform.GitLab, validRepoId)).toThrow(
-      'Unsupported code host platform: gitlab',
-    );
+  it('returns GitLab code host for Platform.GitLab', () => {
+    vi.mocked(createGitLabCodeHost).mockReturnValue(mockCodeHost);
+
+    const host = resolveCodeHost(Platform.GitLab, validRepoId);
+
+    expect(createGitLabCodeHost).toHaveBeenCalledWith(validRepoId);
+    expect(host).toBe(mockCodeHost);
   });
 
   it('throws for unsupported platform Bitbucket', () => {
@@ -622,15 +695,18 @@ describe('createRepoContext', () => {
       ).toThrow('Unsupported issue tracker platform: gitlab');
     });
 
-    it('throws for unsupported code host platform override', () => {
-      expect(() =>
-        createRepoContext({
-          repoId: validRepoId,
-          cwd: '/tmp/repo',
-          codeHostPlatform: Platform.GitLab,
-          issueTrackerPlatform: Platform.GitHub,
-        }),
-      ).toThrow('Unsupported code host platform: gitlab');
+    it('resolves GitLab code host when codeHostPlatform is GitLab', () => {
+      vi.mocked(createGitLabCodeHost).mockReturnValue(mockCodeHost);
+
+      const ctx = createRepoContext({
+        repoId: validRepoId,
+        cwd: '/tmp/repo',
+        codeHostPlatform: Platform.GitLab,
+        issueTrackerPlatform: Platform.GitHub,
+      });
+
+      expect(createGitLabCodeHost).toHaveBeenCalledWith(validRepoId);
+      expect(ctx.codeHost).toBe(mockCodeHost);
     });
   });
 
@@ -723,5 +799,61 @@ describe('createRepoContext', () => {
         createRepoContext({ repoId: validRepoId, cwd: '/tmp/repo' }),
       ).toThrow("Ensure the repository has an 'origin' remote configured");
     });
+  });
+});
+
+describe('parseOwnerRepoFromUrl', () => {
+  it('parses GitHub HTTPS URL', () => {
+    const result = parseOwnerRepoFromUrl('https://github.com/acme/widgets.git');
+
+    expect(result).toEqual({ owner: 'acme', repo: 'widgets' });
+  });
+
+  it('parses GitHub SSH URL', () => {
+    const result = parseOwnerRepoFromUrl('git@github.com:acme/widgets.git');
+
+    expect(result).toEqual({ owner: 'acme', repo: 'widgets' });
+  });
+
+  it('parses GitLab HTTPS URL', () => {
+    const result = parseOwnerRepoFromUrl('https://gitlab.com/acme/widgets.git');
+
+    expect(result).toEqual({ owner: 'acme', repo: 'widgets' });
+  });
+
+  it('parses GitLab SSH URL', () => {
+    const result = parseOwnerRepoFromUrl('git@gitlab.com:acme/widgets.git');
+
+    expect(result).toEqual({ owner: 'acme', repo: 'widgets' });
+  });
+
+  it('parses self-hosted GitLab HTTPS URL', () => {
+    const result = parseOwnerRepoFromUrl('https://gitlab.example.com/team/project.git');
+
+    expect(result).toEqual({ owner: 'team', repo: 'project' });
+  });
+
+  it('parses self-hosted GitLab SSH URL', () => {
+    const result = parseOwnerRepoFromUrl('git@gitlab.example.com:team/project.git');
+
+    expect(result).toEqual({ owner: 'team', repo: 'project' });
+  });
+
+  it('parses URL without .git suffix', () => {
+    const result = parseOwnerRepoFromUrl('https://github.com/acme/widgets');
+
+    expect(result).toEqual({ owner: 'acme', repo: 'widgets' });
+  });
+
+  it('returns null for unparseable URL', () => {
+    const result = parseOwnerRepoFromUrl('ftp://example.com/repo');
+
+    expect(result).toBeNull();
+  });
+
+  it('returns null for URL with only one path segment', () => {
+    const result = parseOwnerRepoFromUrl('https://example.com/only-one');
+
+    expect(result).toBeNull();
   });
 });

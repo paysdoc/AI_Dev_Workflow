@@ -72,6 +72,12 @@ export const JIRA_PAT = process.env.JIRA_PAT || '';
 /** Default Jira project key (e.g., PROJ). */
 export const JIRA_PROJECT_KEY = process.env.JIRA_PROJECT_KEY || '';
 
+/** GitLab personal access token (needs api scope). */
+export const GITLAB_TOKEN = process.env.GITLAB_TOKEN || '';
+
+/** GitLab instance URL (default: https://gitlab.com, set for self-hosted). */
+export const GITLAB_INSTANCE_URL = process.env.GITLAB_INSTANCE_URL || 'https://gitlab.com';
+
 /** Directory for storing workflow logs. */
 export const LOGS_DIR = path.join(process.cwd(), 'logs');
 
