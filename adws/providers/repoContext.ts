@@ -19,6 +19,7 @@ import {
 } from './types';
 import { createGitHubIssueTracker } from './github/githubIssueTracker';
 import { createGitHubCodeHost } from './github/githubCodeHost';
+import { createGitLabCodeHost } from './gitlab/gitlabCodeHost';
 import type { ProvidersConfig } from '../core/projectConfig';
 
 /**
@@ -133,13 +134,15 @@ export function validateWorkingDirectory(cwd: string): void {
 
 /**
  * Parses owner and repo from a git remote URL.
- * Supports HTTPS (`https://github.com/owner/repo.git`) and SSH (`git@github.com:owner/repo.git`).
+ * Supports HTTPS and SSH URLs for any host (GitHub, GitLab, Bitbucket, etc.).
  */
-function parseOwnerRepoFromUrl(
+export function parseOwnerRepoFromUrl(
   remoteUrl: string,
 ): { owner: string; repo: string } | null {
-  const httpsMatch = remoteUrl.match(/github\.com\/([^/]+)\/([^/.]+)/);
-  const sshMatch = remoteUrl.match(/git@github\.com:([^/]+)\/([^/.]+)/);
+  // HTTPS: https://hostname/owner/repo.git or https://hostname/owner/repo
+  const httpsMatch = remoteUrl.match(/https?:\/\/[^/]+\/([^/]+)\/([^/.]+)/);
+  // SSH: git@hostname:owner/repo.git or git@hostname:owner/repo
+  const sshMatch = remoteUrl.match(/git@[^:]+:([^/]+)\/([^/.]+)/);
   const match = httpsMatch || sshMatch;
   if (!match) return null;
   return { owner: match[1], repo: match[2] };
@@ -205,6 +208,9 @@ export function resolveCodeHost(
 ): CodeHost {
   if (platform === Platform.GitHub) {
     return createGitHubCodeHost(repoId);
+  }
+  if (platform === Platform.GitLab) {
+    return createGitLabCodeHost(repoId);
   }
   throw new Error(`Unsupported code host platform: ${platform}`);
 }
