@@ -17,8 +17,8 @@ vi.mock('../../core', async (importOriginal) => {
   };
 });
 
-vi.mock('../../github', () => ({
-  postWorkflowComment: vi.fn(),
+vi.mock('../../github/workflowCommentsIssue', () => ({
+  formatWorkflowComment: vi.fn().mockReturnValue('formatted comment'),
 }));
 
 vi.mock('../../agents', () => ({
@@ -37,12 +37,14 @@ vi.mock('../../agents', () => ({
 }));
 
 import { AgentStateManager } from '../../core';
-import { postWorkflowComment } from '../../github';
 import { runUnitTestsWithRetry, runE2ETestsWithRetry } from '../../agents';
 import { executeTestPhase } from '../testPhase';
 import type { WorkflowConfig } from '../workflowLifecycle';
 import type { RecoveryState, GitHubIssue } from '../../core';
 import type { WorkflowContext } from '../../github';
+import { makeRepoContext, type MockRepoContext } from './helpers/makeRepoContext';
+
+let repoContext: MockRepoContext;
 
 function makeConfig(overrides: Partial<WorkflowConfig> = {}): WorkflowConfig {
   return {
@@ -69,6 +71,7 @@ function makeConfig(overrides: Partial<WorkflowConfig> = {}): WorkflowConfig {
     branchName: 'feat-issue-42-test',
     applicationUrl: 'http://localhost:3000',
     projectConfig: { commands: {} } as any,
+    repoContext,
     ...overrides,
   };
 }
@@ -81,6 +84,7 @@ const _mockExit = vi.spyOn(process, 'exit').mockImplementation((() => {
 describe('executeTestPhase', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    repoContext = makeRepoContext();
   });
 
   it('runs unit and E2E tests and returns combined results', async () => {
@@ -127,7 +131,7 @@ describe('executeTestPhase', () => {
 
     await expect(executeTestPhase(makeConfig())).rejects.toThrow('process.exit called');
 
-    expect(postWorkflowComment).toHaveBeenCalledWith(42, 'error', expect.any(Object), undefined);
+    expect(repoContext.issueTracker.commentOnIssue).toHaveBeenCalledWith(42, 'formatted comment');
     expect(AgentStateManager.writeState).toHaveBeenCalledWith(
       '/mock/state/orchestrator',
       expect.objectContaining({
@@ -147,7 +151,7 @@ describe('executeTestPhase', () => {
 
     await expect(executeTestPhase(makeConfig())).rejects.toThrow('process.exit called');
 
-    expect(postWorkflowComment).toHaveBeenCalledWith(42, 'error', expect.any(Object), undefined);
+    expect(repoContext.issueTracker.commentOnIssue).toHaveBeenCalledWith(42, 'formatted comment');
     expect(AgentStateManager.writeState).toHaveBeenCalledWith(
       '/mock/state/orchestrator',
       expect.objectContaining({

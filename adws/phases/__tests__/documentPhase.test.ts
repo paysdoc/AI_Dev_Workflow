@@ -16,8 +16,8 @@ vi.mock('../../core', async (importOriginal) => {
   };
 });
 
-vi.mock('../../github', () => ({
-  postWorkflowComment: vi.fn(),
+vi.mock('../../github/workflowCommentsIssue', () => ({
+  formatWorkflowComment: vi.fn().mockReturnValue('formatted comment'),
 }));
 
 vi.mock('../../agents', () => ({
@@ -33,12 +33,14 @@ vi.mock('../../agents', () => ({
 }));
 
 import { AgentStateManager } from '../../core';
-import { postWorkflowComment } from '../../github';
 import { runDocumentAgent, runCommitAgent } from '../../agents';
 import { executeDocumentPhase } from '../documentPhase';
 import type { WorkflowConfig } from '../workflowLifecycle';
 import type { RecoveryState, GitHubIssue } from '../../core';
 import type { WorkflowContext } from '../../github';
+import { makeRepoContext, type MockRepoContext } from './helpers/makeRepoContext';
+
+let repoContext: MockRepoContext;
 
 function makeConfig(overrides: Partial<WorkflowConfig> = {}): WorkflowConfig {
   return {
@@ -65,6 +67,7 @@ function makeConfig(overrides: Partial<WorkflowConfig> = {}): WorkflowConfig {
     branchName: 'feat-issue-42-test',
     applicationUrl: '',
     projectConfig: { commands: {} } as any,
+    repoContext,
     ...overrides,
   };
 }
@@ -72,6 +75,7 @@ function makeConfig(overrides: Partial<WorkflowConfig> = {}): WorkflowConfig {
 describe('executeDocumentPhase', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    repoContext = makeRepoContext();
   });
 
   it('runs document agent and returns cost', async () => {
@@ -89,11 +93,11 @@ describe('executeDocumentPhase', () => {
     );
   });
 
-  it('posts document_running and document_completed comments', async () => {
+  it('posts document_running and document_completed comments via repoContext', async () => {
     await executeDocumentPhase(makeConfig());
 
-    expect(postWorkflowComment).toHaveBeenCalledWith(42, 'document_running', expect.any(Object), undefined);
-    expect(postWorkflowComment).toHaveBeenCalledWith(42, 'document_completed', expect.any(Object), undefined);
+    expect(repoContext.issueTracker.commentOnIssue).toHaveBeenCalledWith(42, 'formatted comment');
+    expect(repoContext.issueTracker.commentOnIssue).toHaveBeenCalledTimes(2);
   });
 
   it('initializes agent state', async () => {
@@ -128,7 +132,7 @@ describe('executeDocumentPhase', () => {
     await expect(executeDocumentPhase(makeConfig())).rejects.toThrow('Document Agent failed');
   });
 
-  it('posts document_failed comment on failure', async () => {
+  it('posts document_failed comment on failure via repoContext', async () => {
     vi.mocked(runDocumentAgent).mockResolvedValueOnce({
       success: false,
       output: 'Failed',
@@ -138,7 +142,7 @@ describe('executeDocumentPhase', () => {
 
     await expect(executeDocumentPhase(makeConfig())).rejects.toThrow();
 
-    expect(postWorkflowComment).toHaveBeenCalledWith(42, 'document_failed', expect.any(Object), undefined);
+    expect(repoContext.issueTracker.commentOnIssue).toHaveBeenCalledWith(42, 'formatted comment');
   });
 
   it('writes failure state when agent fails', async () => {

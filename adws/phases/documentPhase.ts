@@ -9,9 +9,7 @@ import {
   type ModelUsageMap,
   emptyModelUsageMap,
 } from '../core';
-import {
-  postWorkflowComment,
-} from '../github';
+import { postIssueStageComment } from './phaseCommentHelpers';
 import {
   getPlanFilePath,
   runDocumentAgent,
@@ -30,7 +28,7 @@ export async function executeDocumentPhase(
   config: WorkflowConfig,
   screenshotsDir?: string,
 ): Promise<{ costUsd: number; modelUsage: ModelUsageMap }> {
-  const { orchestratorStatePath, adwId, issueNumber, issueType, issue, ctx, worktreePath, logsDir, repoInfo } = config;
+  const { orchestratorStatePath, adwId, issueNumber, issueType, issue, ctx, worktreePath, logsDir, repoContext } = config;
 
   let costUsd = 0;
   let modelUsage = emptyModelUsageMap();
@@ -38,7 +36,9 @@ export async function executeDocumentPhase(
   log('Phase: Document', 'info');
   AgentStateManager.appendLog(orchestratorStatePath, 'Starting document phase');
 
-  postWorkflowComment(issueNumber, 'document_running', ctx, repoInfo);
+  if (repoContext) {
+    postIssueStageComment(repoContext, issueNumber, 'document_running', ctx);
+  }
 
   const specFile = getPlanFilePath(issueNumber, worktreePath);
 
@@ -73,7 +73,9 @@ export async function executeDocumentPhase(
     });
     const errorMsg = `Document Agent failed: ${result.output}`;
     AgentStateManager.appendLog(orchestratorStatePath, errorMsg);
-    postWorkflowComment(issueNumber, 'document_failed', ctx, repoInfo);
+    if (repoContext) {
+      postIssueStageComment(repoContext, issueNumber, 'document_failed', ctx);
+    }
     throw new Error(errorMsg);
   }
 
@@ -89,7 +91,9 @@ export async function executeDocumentPhase(
   await runCommitAgent('document-agent', issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body);
 
   AgentStateManager.appendLog(orchestratorStatePath, `Documentation created: ${result.docPath}`);
-  postWorkflowComment(issueNumber, 'document_completed', ctx, repoInfo);
+  if (repoContext) {
+    postIssueStageComment(repoContext, issueNumber, 'document_completed', ctx);
+  }
   log('Document phase completed', 'success');
 
   return { costUsd, modelUsage };

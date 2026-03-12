@@ -6,7 +6,8 @@
  */
 
 import { log, AgentStateManager, COST_REPORT_CURRENCIES, type ModelUsageMap, buildCostBreakdown, mergeModelUsageMaps, emptyModelUsageMap, persistTokenCounts, writeIssueCostCsv, rebuildProjectCostCsv, OrchestratorId, computeEurRate } from '../core';
-import { pushBranch, postPRWorkflowComment, inferIssueTypeFromBranch, moveIssueToStatus } from '../github';
+import { pushBranch, inferIssueTypeFromBranch } from '../github';
+import { postPRStageComment } from './phaseCommentHelpers';
 import { getTargetRepo } from '../core/targetRepoRegistry';
 import { runCommitAgent, runUnitTestsWithRetry, runE2ETestsWithRetry } from '../agents';
 import { MAX_TEST_RETRY_ATTEMPTS } from '../core';
@@ -17,16 +18,20 @@ import type { PRReviewWorkflowConfig } from './prReviewPhase';
  * Uses `config.repoInfo` for external repository API calls when targeting a different repo.
  */
 export async function executePRReviewTestPhase(config: PRReviewWorkflowConfig): Promise<{ costUsd: number; modelUsage: ModelUsageMap }> {
-  const { prNumber, prDetails, unaddressedComments, worktreePath, logsDir, orchestratorStatePath, ctx, applicationUrl, repoInfo } = config;
+  const { prNumber, prDetails, unaddressedComments, worktreePath, logsDir, orchestratorStatePath, ctx, applicationUrl, repoContext } = config;
 
-  postPRWorkflowComment(prNumber, 'pr_review_testing', ctx, repoInfo);
+  if (repoContext) {
+    postPRStageComment(repoContext, prNumber, 'pr_review_testing', ctx);
+  }
   log('Running validation tests...', 'info');
   AgentStateManager.appendLog(orchestratorStatePath, 'Starting validation tests');
 
   const onTestFailed = (attempt: number, maxAttempts: number) => {
     ctx.testAttempt = attempt;
     ctx.maxTestAttempts = maxAttempts;
-    postPRWorkflowComment(prNumber, 'pr_review_test_failed', ctx, repoInfo);
+    if (repoContext) {
+      postPRStageComment(repoContext, prNumber, 'pr_review_test_failed', ctx);
+    }
   };
 
   const unitTestsResult = await runUnitTestsWithRetry({
@@ -41,7 +46,9 @@ export async function executePRReviewTestPhase(config: PRReviewWorkflowConfig): 
   if (!unitTestsResult.passed) {
     ctx.failedTests = unitTestsResult.failedTests;
     ctx.maxTestAttempts = MAX_TEST_RETRY_ATTEMPTS;
-    postPRWorkflowComment(prNumber, 'pr_review_test_max_attempts', ctx, repoInfo);
+    if (repoContext) {
+      postPRStageComment(repoContext, prNumber, 'pr_review_test_max_attempts', ctx);
+    }
     AgentStateManager.writeState(orchestratorStatePath, {
       execution: AgentStateManager.completeExecution(AgentStateManager.createExecutionState('running'), false, `Unit tests failed after ${MAX_TEST_RETRY_ATTEMPTS} attempts`),
       metadata: { prNumber, reviewComments: unaddressedComments.length, testFailure: true, failedTests: unitTestsResult.failedTests },
@@ -64,7 +71,9 @@ export async function executePRReviewTestPhase(config: PRReviewWorkflowConfig): 
   if (!e2eTestsResult.passed) {
     ctx.failedTests = e2eTestsResult.failedTests;
     ctx.maxTestAttempts = MAX_TEST_RETRY_ATTEMPTS;
-    postPRWorkflowComment(prNumber, 'pr_review_test_max_attempts', ctx, repoInfo);
+    if (repoContext) {
+      postPRStageComment(repoContext, prNumber, 'pr_review_test_max_attempts', ctx);
+    }
     AgentStateManager.writeState(orchestratorStatePath, {
       execution: AgentStateManager.completeExecution(AgentStateManager.createExecutionState('running'), false, `E2E tests failed after ${MAX_TEST_RETRY_ATTEMPTS} attempts`),
       metadata: { prNumber, reviewComments: unaddressedComments.length, testFailure: true, failedTests: e2eTestsResult.failedTests },
@@ -74,7 +83,9 @@ export async function executePRReviewTestPhase(config: PRReviewWorkflowConfig): 
     process.exit(1);
   }
 
-  postPRWorkflowComment(prNumber, 'pr_review_test_passed', ctx, repoInfo);
+  if (repoContext) {
+    postPRStageComment(repoContext, prNumber, 'pr_review_test_passed', ctx);
+  }
   log('All validation tests passed!', 'success');
   AgentStateManager.appendLog(orchestratorStatePath, 'All validation tests passed');
 
@@ -92,7 +103,7 @@ export async function executePRReviewTestPhase(config: PRReviewWorkflowConfig): 
  * Uses `config.repoInfo` for external repository API calls when targeting a different repo.
  */
 export async function completePRReviewWorkflow(config: PRReviewWorkflowConfig, modelUsage?: ModelUsageMap): Promise<void> {
-  const { prNumber, prDetails, unaddressedComments, worktreePath, logsDir, orchestratorStatePath, ctx, repoInfo } = config;
+  const { prNumber, prDetails, unaddressedComments, worktreePath, logsDir, orchestratorStatePath, ctx, repoContext } = config;
 
   // Build cost breakdown if model usage data is available
   if (modelUsage && Object.keys(modelUsage).length > 0) {
@@ -112,15 +123,18 @@ export async function completePRReviewWorkflow(config: PRReviewWorkflowConfig, m
     }
   }
 
-  postPRWorkflowComment(prNumber, 'pr_review_committing', ctx, repoInfo);
+  if (repoContext) {
+    postPRStageComment(repoContext, prNumber, 'pr_review_committing', ctx);
+  }
   const issueType = inferIssueTypeFromBranch(prDetails.headBranch);
   await runCommitAgent(OrchestratorId.PrReview, issueType, JSON.stringify(prDetails), logsDir, undefined, worktreePath, prDetails.body);
 
   pushBranch(prDetails.headBranch, worktreePath);
-  postPRWorkflowComment(prNumber, 'pr_review_pushed', ctx, repoInfo);
-  postPRWorkflowComment(prNumber, 'pr_review_completed', ctx, repoInfo);
-
-  await moveIssueToStatus(config.issueNumber, 'Review', config.repoInfo);
+  if (repoContext) {
+    postPRStageComment(repoContext, prNumber, 'pr_review_pushed', ctx);
+    postPRStageComment(repoContext, prNumber, 'pr_review_completed', ctx);
+    await repoContext.issueTracker.moveToStatus(config.issueNumber, 'Review');
+  }
 
   AgentStateManager.writeState(orchestratorStatePath, {
     execution: AgentStateManager.completeExecution(AgentStateManager.createExecutionState('running'), true),
@@ -140,14 +154,16 @@ export async function completePRReviewWorkflow(config: PRReviewWorkflowConfig, m
  * Uses `config.repoInfo` for external repository API calls when targeting a different repo.
  */
 export function handlePRReviewWorkflowError(config: PRReviewWorkflowConfig, error: unknown, costUsd?: number, modelUsage?: ModelUsageMap): never {
-  const { prNumber, orchestratorStatePath, ctx, repoInfo } = config;
+  const { prNumber, orchestratorStatePath, ctx, repoContext } = config;
 
   if (costUsd !== undefined && modelUsage) {
     persistTokenCounts(orchestratorStatePath, costUsd, modelUsage);
   }
 
   ctx.errorMessage = String(error);
-  postPRWorkflowComment(prNumber, 'pr_review_error', ctx, repoInfo);
+  if (repoContext) {
+    postPRStageComment(repoContext, prNumber, 'pr_review_error', ctx);
+  }
 
   AgentStateManager.writeState(orchestratorStatePath, {
     execution: AgentStateManager.completeExecution(AgentStateManager.createExecutionState('running'), false, String(error)),

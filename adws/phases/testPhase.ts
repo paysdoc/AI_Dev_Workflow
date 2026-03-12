@@ -10,9 +10,7 @@ import {
   emptyModelUsageMap,
   mergeModelUsageMaps,
 } from '../core';
-import {
-  postWorkflowComment,
-} from '../github';
+import { postIssueStageComment } from './phaseCommentHelpers';
 import {
   runUnitTestsWithRetry,
   runE2ETestsWithRetry,
@@ -30,7 +28,7 @@ export async function executeTestPhase(config: WorkflowConfig): Promise<{
   e2eTestsPassed: boolean;
   totalRetries: number;
 }> {
-  const { orchestratorStatePath, issueNumber, issue, ctx, logsDir, worktreePath, applicationUrl, repoInfo } = config;
+  const { orchestratorStatePath, issueNumber, issue, ctx, logsDir, worktreePath, applicationUrl, repoContext } = config;
   let costUsd = 0;
   let modelUsage = emptyModelUsageMap();
 
@@ -53,7 +51,9 @@ export async function executeTestPhase(config: WorkflowConfig): Promise<{
     log(errorMsg, 'error');
     AgentStateManager.appendLog(orchestratorStatePath, errorMsg);
     ctx.errorMessage = errorMsg;
-    postWorkflowComment(issueNumber, 'error', ctx, repoInfo);
+    if (repoContext) {
+      postIssueStageComment(repoContext, issueNumber, 'error', ctx);
+    }
 
     AgentStateManager.writeState(orchestratorStatePath, {
       execution: AgentStateManager.completeExecution(
@@ -86,7 +86,9 @@ export async function executeTestPhase(config: WorkflowConfig): Promise<{
     log(errorMsg, 'error');
     AgentStateManager.appendLog(orchestratorStatePath, errorMsg);
     ctx.errorMessage = errorMsg;
-    postWorkflowComment(issueNumber, 'error', ctx, repoInfo);
+    if (repoContext) {
+      postIssueStageComment(repoContext, issueNumber, 'error', ctx);
+    }
 
     AgentStateManager.writeState(orchestratorStatePath, {
       execution: AgentStateManager.completeExecution(
