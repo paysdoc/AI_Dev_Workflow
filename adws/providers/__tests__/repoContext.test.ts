@@ -179,6 +179,82 @@ describe('loadProviderConfig', () => {
       issueTracker: Platform.GitHub,
     });
   });
+
+  it('parses Code Host URL when present', () => {
+    vi.mocked(existsSync).mockReturnValue(true);
+    vi.mocked(readFileSync).mockReturnValue(
+      '## Code Host\ngithub\n\n## Code Host URL\nhttps://github.enterprise.com\n',
+    );
+
+    const config = loadProviderConfig('/tmp/repo');
+
+    expect(config.codeHostUrl).toBe('https://github.enterprise.com');
+  });
+
+  it('parses Issue Tracker URL when present', () => {
+    vi.mocked(existsSync).mockReturnValue(true);
+    vi.mocked(readFileSync).mockReturnValue(
+      '## Issue Tracker\ngithub\n\n## Issue Tracker URL\nhttps://jira.example.com\n',
+    );
+
+    const config = loadProviderConfig('/tmp/repo');
+
+    expect(config.issueTrackerUrl).toBe('https://jira.example.com');
+  });
+
+  it('parses Issue Tracker Project Key when present', () => {
+    vi.mocked(existsSync).mockReturnValue(true);
+    vi.mocked(readFileSync).mockReturnValue(
+      '## Issue Tracker\ngithub\n\n## Issue Tracker Project Key\nMYPROJ\n',
+    );
+
+    const config = loadProviderConfig('/tmp/repo');
+
+    expect(config.issueTrackerProjectKey).toBe('MYPROJ');
+  });
+
+  it('returns undefined for URL fields when sections are absent', () => {
+    vi.mocked(existsSync).mockReturnValue(true);
+    vi.mocked(readFileSync).mockReturnValue(
+      '## Code Host\ngithub\n\n## Issue Tracker\ngithub\n',
+    );
+
+    const config = loadProviderConfig('/tmp/repo');
+
+    expect(config.codeHostUrl).toBeUndefined();
+    expect(config.issueTrackerUrl).toBeUndefined();
+    expect(config.issueTrackerProjectKey).toBeUndefined();
+  });
+
+  it('parses all fields together', () => {
+    vi.mocked(existsSync).mockReturnValue(true);
+    vi.mocked(readFileSync).mockReturnValue(
+      [
+        '## Code Host',
+        'github',
+        '',
+        '## Code Host URL',
+        'https://github.enterprise.com',
+        '',
+        '## Issue Tracker',
+        'github',
+        '',
+        '## Issue Tracker URL',
+        'https://jira.example.com',
+        '',
+        '## Issue Tracker Project Key',
+        'PROJ-KEY',
+      ].join('\n'),
+    );
+
+    const config = loadProviderConfig('/tmp/repo');
+
+    expect(config.codeHost).toBe(Platform.GitHub);
+    expect(config.codeHostUrl).toBe('https://github.enterprise.com');
+    expect(config.issueTracker).toBe(Platform.GitHub);
+    expect(config.issueTrackerUrl).toBe('https://jira.example.com');
+    expect(config.issueTrackerProjectKey).toBe('PROJ-KEY');
+  });
 });
 
 describe('validateWorkingDirectory', () => {
@@ -555,6 +631,53 @@ describe('createRepoContext', () => {
           issueTrackerPlatform: Platform.GitHub,
         }),
       ).toThrow('Unsupported code host platform: gitlab');
+    });
+  });
+
+  describe('providersConfig option', () => {
+    it('accepts ProvidersConfig and uses it for platform resolution', () => {
+      const ctx = createRepoContext({
+        repoId: validRepoId,
+        cwd: '/tmp/repo',
+        providersConfig: { codeHost: 'github', issueTracker: 'github' },
+      });
+
+      expect(ctx.issueTracker).toBe(mockIssueTracker);
+      expect(ctx.codeHost).toBe(mockCodeHost);
+    });
+
+    it('skips file read when providersConfig is provided', () => {
+      createRepoContext({
+        repoId: validRepoId,
+        cwd: '/tmp/repo',
+        providersConfig: { codeHost: 'github', issueTracker: 'github' },
+      });
+
+      expect(readFileSync).not.toHaveBeenCalled();
+    });
+
+    it('throws on unknown platform string in providersConfig', () => {
+      expect(() =>
+        createRepoContext({
+          repoId: validRepoId,
+          cwd: '/tmp/repo',
+          providersConfig: { codeHost: 'unknown', issueTracker: 'github' },
+        }),
+      ).toThrow('Unknown platform "unknown"');
+    });
+
+    it('platform overrides take precedence over providersConfig', () => {
+      createRepoContext({
+        repoId: validRepoId,
+        cwd: '/tmp/repo',
+        codeHostPlatform: Platform.GitHub,
+        issueTrackerPlatform: Platform.GitHub,
+        providersConfig: { codeHost: 'gitlab', issueTracker: 'gitlab' },
+      });
+
+      // Should not throw even though providersConfig has gitlab
+      expect(createGitHubCodeHost).toHaveBeenCalledWith(validRepoId);
+      expect(createGitHubIssueTracker).toHaveBeenCalledWith(validRepoId);
     });
   });
 

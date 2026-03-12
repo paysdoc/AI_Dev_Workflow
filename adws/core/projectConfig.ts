@@ -29,6 +29,14 @@ export interface CommandsConfig {
   scriptExecution: string;
 }
 
+export interface ProvidersConfig {
+  codeHost: string;
+  codeHostUrl?: string;
+  issueTracker: string;
+  issueTrackerUrl?: string;
+  issueTrackerProjectKey?: string;
+}
+
 export interface ProjectConfig {
   commands: CommandsConfig;
   /** Raw content of `.adw/project.md` (empty string when absent). */
@@ -39,11 +47,21 @@ export interface ProjectConfig {
   reviewProofMd: string;
   /** Whether the `.adw/` directory was found. */
   hasAdwDir: boolean;
+  /** Provider configuration from `.adw/providers.md`. */
+  providers: ProvidersConfig;
 }
 
 // ---------------------------------------------------------------------------
 // Section heading → CommandsConfig key mapping
 // ---------------------------------------------------------------------------
+
+const PROVIDERS_HEADING_TO_KEY: Record<string, keyof ProvidersConfig> = {
+  'code host': 'codeHost',
+  'code host url': 'codeHostUrl',
+  'issue tracker': 'issueTracker',
+  'issue tracker url': 'issueTrackerUrl',
+  'issue tracker project key': 'issueTrackerProjectKey',
+};
 
 const HEADING_TO_KEY: Record<string, keyof CommandsConfig> = {
   'package manager': 'packageManager',
@@ -82,6 +100,13 @@ export function getDefaultCommandsConfig(): CommandsConfig {
   };
 }
 
+export function getDefaultProvidersConfig(): ProvidersConfig {
+  return {
+    codeHost: 'github',
+    issueTracker: 'github',
+  };
+}
+
 export function getDefaultProjectConfig(): ProjectConfig {
   return {
     commands: getDefaultCommandsConfig(),
@@ -89,6 +114,7 @@ export function getDefaultProjectConfig(): ProjectConfig {
     conditionalDocsMd: '',
     reviewProofMd: '',
     hasAdwDir: false,
+    providers: getDefaultProvidersConfig(),
   };
 }
 
@@ -148,6 +174,32 @@ export function parseCommandsMd(content: string): CommandsConfig {
   return result;
 }
 
+/**
+ * Parses `.adw/providers.md` into a `ProvidersConfig` object.
+ * Missing sections fall back to defaults. Platform names are lowercased;
+ * URL values preserve their original case.
+ */
+export function parseProvidersMd(content: string): ProvidersConfig {
+  const defaults = getDefaultProvidersConfig();
+  if (!content.trim()) return defaults;
+
+  const sections = parseMarkdownSections(content);
+  const result: ProvidersConfig = { ...defaults };
+
+  for (const [heading, key] of Object.entries(PROVIDERS_HEADING_TO_KEY)) {
+    if (heading in sections && sections[heading]) {
+      const value = sections[heading];
+      if (key === 'codeHost' || key === 'issueTracker') {
+        result[key] = value.toLowerCase();
+      } else if (key === 'codeHostUrl' || key === 'issueTrackerUrl' || key === 'issueTrackerProjectKey') {
+        result[key] = value;
+      }
+    }
+  }
+
+  return result;
+}
+
 // ---------------------------------------------------------------------------
 // Main loader
 // ---------------------------------------------------------------------------
@@ -200,11 +252,22 @@ export function loadProjectConfig(targetRepoPath: string): ProjectConfig {
     // file missing — keep empty
   }
 
+  // providers.md
+  const providersPath = path.join(adwDir, 'providers.md');
+  let providers: ProvidersConfig;
+  try {
+    const raw = fs.readFileSync(providersPath, 'utf-8');
+    providers = parseProvidersMd(raw);
+  } catch {
+    providers = getDefaultProvidersConfig();
+  }
+
   return {
     commands,
     projectMd,
     conditionalDocsMd,
     reviewProofMd,
     hasAdwDir: true,
+    providers,
   };
 }
