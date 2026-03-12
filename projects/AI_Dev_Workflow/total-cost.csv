@@ -4,7 +4,7 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 0,bug 94 fix cost csv deletion on merged pr issue cl,0.8123,0.0812
 0,bug 99 fix currency conversion,0.6907,0.0691
 0,feat 114 implement github issuetracker provider,1.4015,0.1401
-0,feat 121 add provider configuration to adw project,2.3982,0.2398
+0,feat 121 add provider configuration to adw project,1.0304,0.1030
 0,feat 66 automatically commit cost when pr is close,1.4173,0.1417
 0,feat 80 add reasoning effort to slash commands,1.1973,0.1197
 0,feat 90 fix review process,0.7485,0.0749
@@ -44,5 +44,5 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 123,implement jira issuetracker provider,6.2039,0.6204
 126,json error,0.4218,0.0422
 
-Total Cost (USD):,161.4444
-Total Cost (EUR):,139.3764
+Total Cost (USD):,159.9398
+Total Cost (EUR):,138.2817
