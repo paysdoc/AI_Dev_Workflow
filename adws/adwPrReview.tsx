@@ -16,7 +16,7 @@
  * - CLAUDE_CODE_PATH: Path to Claude CLI (default: /usr/local/bin/claude)
  */
 
-import { parseTargetRepoArgs, mergeModelUsageMaps, persistTokenCounts, type ModelUsageMap } from './core';
+import { parseTargetRepoArgs, buildRepoIdentifier, mergeModelUsageMaps, persistTokenCounts, type ModelUsageMap } from './core';
 import {
   initializePRReviewWorkflow,
   executePRReviewPlanPhase,
@@ -30,6 +30,7 @@ async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const targetRepo = parseTargetRepoArgs(args);
   const repoInfo = targetRepo ? { owner: targetRepo.owner, repo: targetRepo.repo } : undefined;
+  const repoId = buildRepoIdentifier(targetRepo);
 
   if (args.length < 1) {
     console.error('Usage: bunx tsx adws/adwPrReview.tsx <pr-number>');
@@ -42,7 +43,7 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const config = await initializePRReviewWorkflow(prNumber, null, repoInfo);
+  const config = await initializePRReviewWorkflow(prNumber, null, repoInfo, repoId);
 
   let totalCostUsd = 0;
   let totalModelUsage: ModelUsageMap = {};

@@ -8,8 +8,8 @@
  */
 
 import { execSync, spawn } from 'child_process';
-import { log, GRACE_PERIOD_MS, setTargetRepo, getTargetRepo } from '../core';
-import { getRepoInfo, fetchPRList, hasUnaddressedComments, isClearComment, isAdwComment } from '../github';
+import { log, GRACE_PERIOD_MS } from '../core';
+import { getRepoInfo, fetchPRList, hasUnaddressedComments, isClearComment, isAdwComment, type RepoInfo } from '../github';
 import { clearIssueComments } from '../adwClearComments';
 import { checkIssueEligibility } from './issueEligibility';
 import { classifyAndSpawnWorkflow } from './webhookGatekeeper';
@@ -28,12 +28,12 @@ export interface RawIssue {
   updatedAt: string;
 }
 
-/** Initialize the target repo registry from the local git remote. */
-setTargetRepo(getRepoInfo());
+/** Resolved repo info for this cron process, derived from local git remote. */
+const cronRepoInfo: RepoInfo = getRepoInfo();
 
 /** Fetches all open issues with body, comments, and timestamps. */
 export function fetchOpenIssues(): RawIssue[] {
-  const { owner, repo } = getTargetRepo();
+  const { owner, repo } = cronRepoInfo;
   try {
     const json = execSync(
       `gh issue list --repo ${owner}/${repo} --state open --json number,body,comments,createdAt,updatedAt --limit 100`,
@@ -48,7 +48,7 @@ export function fetchOpenIssues(): RawIssue[] {
 
 /** Builds --target-repo args from the local repo info. */
 function buildTargetRepoArgs(): string[] {
-  const { owner, repo } = getTargetRepo();
+  const { owner, repo } = cronRepoInfo;
   const fullName = `${owner}/${repo}`;
   try {
     const cloneUrl = execSync('git remote get-url origin', { encoding: 'utf-8' }).trim();
@@ -94,7 +94,7 @@ export async function checkAndTrigger(): Promise<void> {
   const candidates = filterEligibleIssues(issues);
   log(`Found ${candidates.length} candidate issue(s) after filtering`);
 
-  const repoInfo = getTargetRepo();
+  const repoInfo = cronRepoInfo;
   const targetRepoArgs = buildTargetRepoArgs();
 
   for (const issue of candidates) {
@@ -136,7 +136,7 @@ function checkPRsForReviewComments(): void {
   for (const pr of prs) {
     if (processedPRs.has(pr.number)) continue;
     try {
-      if (hasUnaddressedComments(pr.number, getTargetRepo())) {
+      if (hasUnaddressedComments(pr.number, cronRepoInfo)) {
         processedPRs.add(pr.number);
         log(`Triggering ADW PR Review for PR #${pr.number}`, 'success');
         const targetRepoArgs = buildTargetRepoArgs();

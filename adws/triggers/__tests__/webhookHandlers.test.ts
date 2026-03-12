@@ -24,8 +24,8 @@ vi.mock('../../github/gitOperations', () => ({
   pullLatestCostBranch: vi.fn(),
 }));
 
-vi.mock('../../core/targetRepoRegistry', () => ({
-  hasTargetRepo: vi.fn(() => false),
+vi.mock('fs', () => ({
+  existsSync: vi.fn(() => false),
 }));
 
 vi.mock('../../core/targetRepoManager', () => ({
@@ -53,10 +53,10 @@ vi.mock('../../core/costCommitQueue', () => ({
   },
 }));
 
+import { existsSync } from 'fs';
 import { removeWorktree } from '../../github/worktreeOperations';
 import { deleteRemoteBranch, commitAndPushCostFiles, pullLatestCostBranch } from '../../github/gitOperations';
 import { closeIssue } from '../../github/githubApi';
-import { hasTargetRepo } from '../../core/targetRepoRegistry';
 import { rebuildProjectCostCsv } from '../../core/costCsvWriter';
 import { fetchExchangeRates } from '../../core/costReport';
 import {
@@ -132,8 +132,8 @@ describe('handlePullRequestEvent', () => {
     resetMergedPrIssues();
   });
 
-  it('calls removeWorktree and deleteRemoteBranch when PR is closed', async () => {
-    vi.mocked(hasTargetRepo).mockReturnValue(false);
+  it('calls removeWorktree and deleteRemoteBranch when PR is closed (no workspace)', async () => {
+    vi.mocked(existsSync).mockReturnValue(false);
     const payload = createPayload();
 
     await handlePullRequestEvent(payload);
@@ -142,8 +142,8 @@ describe('handlePullRequestEvent', () => {
     expect(deleteRemoteBranch).toHaveBeenCalledWith('feature/issue-42-add-login', undefined);
   });
 
-  it('passes target repo cwd to removeWorktree and deleteRemoteBranch when registry is set', async () => {
-    vi.mocked(hasTargetRepo).mockReturnValue(true);
+  it('passes target repo cwd to removeWorktree and deleteRemoteBranch when workspace exists', async () => {
+    vi.mocked(existsSync).mockReturnValue(true);
     const payload = createPayload();
 
     await handlePullRequestEvent(payload);

@@ -6,7 +6,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { log, setLogAdwId, ensureLogsDirectory, generateAdwId, type PRDetails, type PRReviewComment, AgentStateManager, type AgentState, type ModelUsageMap, allocateRandomPort, emptyModelUsageMap, OrchestratorId } from '../core';
 import { fetchPRDetails, getUnaddressedComments, type PRReviewWorkflowContext, ensureWorktree, getRepoInfo, type RepoInfo } from '../github';
-import type { RepoContext } from '../providers/types';
+import type { RepoContext, RepoIdentifier } from '../providers/types';
 import { Platform } from '../providers/types';
 import { createRepoContext } from '../providers/repoContext';
 import { setTargetRepo } from '../core/targetRepoRegistry';
@@ -43,9 +43,9 @@ export interface PRReviewWorkflowConfig {
  * @param prNumber - The PR number to review
  * @param adwId - Optional ADW workflow ID (generated if not provided)
  */
-export async function initializePRReviewWorkflow(prNumber: number, adwId: string | null, repoInfo?: RepoInfo): Promise<PRReviewWorkflowConfig> {
-  // Initialize central target repo registry
-  if (repoInfo) {
+export async function initializePRReviewWorkflow(prNumber: number, adwId: string | null, repoInfo?: RepoInfo, repoId?: RepoIdentifier): Promise<PRReviewWorkflowConfig> {
+  // Initialize central target repo registry (backward compat only when repoId not provided)
+  if (repoInfo && !repoId) {
     setTargetRepo(repoInfo);
   }
 
@@ -103,13 +103,12 @@ export async function initializePRReviewWorkflow(prNumber: number, adwId: string
   // Create RepoContext for provider-agnostic operations
   let repoContext: RepoContext | undefined;
   try {
-    const resolvedRepoInfo = repoInfo ?? getRepoInfo();
+    const repoIdForContext = repoId ?? (() => {
+      const resolvedRepoInfo = repoInfo ?? getRepoInfo();
+      return { owner: resolvedRepoInfo.owner, repo: resolvedRepoInfo.repo, platform: Platform.GitHub };
+    })();
     repoContext = createRepoContext({
-      repoId: {
-        owner: resolvedRepoInfo.owner,
-        repo: resolvedRepoInfo.repo,
-        platform: Platform.GitHub,
-      },
+      repoId: repoIdForContext,
       cwd: worktreePath,
     });
   } catch (error) {

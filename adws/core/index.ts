@@ -128,7 +128,7 @@ export { setTargetRepo, getTargetRepo, clearTargetRepo, hasTargetRepo, resolveTa
 
 // Orchestrator CLI utilities
 export type { OrchestratorArgs } from './orchestratorCli';
-export { extractCwdOption, extractIssueTypeOption, parseIssueNumber, printUsageAndExit as printOrchestratorUsage, parseOrchestratorArguments } from './orchestratorCli';
+export { extractCwdOption, extractIssueTypeOption, parseIssueNumber, printUsageAndExit as printOrchestratorUsage, parseOrchestratorArguments, buildRepoIdentifier } from './orchestratorCli';
 
 // Token Manager
 export type { TokenTotals } from './tokenManager';

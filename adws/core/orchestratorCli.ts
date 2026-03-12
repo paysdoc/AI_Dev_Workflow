@@ -5,8 +5,11 @@
  * and usage printing that are shared across all orchestrator entry points.
  */
 
-import type { IssueClassSlashCommand } from '../types/dataTypes';
+import type { IssueClassSlashCommand, TargetRepoInfo } from '../types/dataTypes';
 import { VALID_ISSUE_TYPES } from '../types/dataTypes';
+import type { RepoIdentifier } from '../providers/types';
+import { Platform } from '../providers/types';
+import { getRepoInfo } from '../github/githubApi';
 
 /**
  * Parsed orchestrator arguments returned by {@link parseOrchestratorArguments}.
@@ -122,4 +125,19 @@ export function parseOrchestratorArguments(args: string[], options: ParseOptions
   const adwId = args[requiresIssueNumber ? 1 : 0] || null;
 
   return { issueNumber, adwId, cwd, providedIssueType };
+}
+
+/**
+ * Builds a RepoIdentifier from CLI-parsed target repo info or local git remote.
+ * Centralizes repo identity resolution for all orchestrator entry points.
+ *
+ * @param targetRepo - Parsed --target-repo info, or null for local repo
+ * @returns A RepoIdentifier with owner, repo, and platform
+ */
+export function buildRepoIdentifier(targetRepo: TargetRepoInfo | null): RepoIdentifier {
+  if (targetRepo) {
+    return { owner: targetRepo.owner, repo: targetRepo.repo, platform: Platform.GitHub };
+  }
+  const localRepo = getRepoInfo();
+  return { owner: localRepo.owner, repo: localRepo.repo, platform: Platform.GitHub };
 }

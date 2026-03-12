@@ -21,7 +21,7 @@
  * - MAX_REVIEW_RETRY_ATTEMPTS: Maximum retry attempts for review-patch loop (default: 3)
  */
 
-import { mergeModelUsageMaps, persistTokenCounts, parseTargetRepoArgs, parseOrchestratorArguments, OrchestratorId } from './core';
+import { mergeModelUsageMaps, persistTokenCounts, parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId } from './core';
 import {
   initializeWorkflow,
   executePlanPhase,
@@ -45,10 +45,12 @@ async function main(): Promise<void> {
     usagePattern: '<github-issueNumber> [adw-id] [--issue-type <type>]',
     supportsCwd: false,
   });
+  const repoId = buildRepoIdentifier(targetRepo);
 
   const config = await initializeWorkflow(issueNumber, adwId, OrchestratorId.PlanBuildTestReview, {
     issueType: providedIssueType || undefined,
     targetRepo: targetRepo || undefined,
+    repoId,
   });
 
   let totalCostUsd = 0;

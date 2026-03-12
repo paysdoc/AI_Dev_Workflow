@@ -17,7 +17,7 @@
  * - GITHUB_PAT: (Optional) GitHub Personal Access Token
  */
 
-import { mergeModelUsageMaps, persistTokenCounts, parseTargetRepoArgs, parseOrchestratorArguments, OrchestratorId } from './core';
+import { mergeModelUsageMaps, persistTokenCounts, parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId } from './core';
 import {
   initializeWorkflow,
   executePlanPhase,
@@ -38,10 +38,12 @@ async function main(): Promise<void> {
     usagePattern: '<github-issueNumber> [adw-id] [--issue-type <type>]',
     supportsCwd: false,
   });
+  const repoId = buildRepoIdentifier(targetRepo);
 
   const config = await initializeWorkflow(issueNumber, adwId, OrchestratorId.PlanBuild, {
     issueType: providedIssueType || undefined,
     targetRepo: targetRepo || undefined,
+    repoId,
   });
 
   let totalCostUsd = 0;
