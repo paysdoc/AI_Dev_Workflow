@@ -16,7 +16,7 @@ describe('SLASH_COMMAND_MODEL_MAP', () => {
     expect(SLASH_COMMAND_MODEL_MAP['/bug']).toBe('opus');
     expect(SLASH_COMMAND_MODEL_MAP['/chore']).toBe('opus');
     expect(SLASH_COMMAND_MODEL_MAP['/pr_review']).toBe('opus');
-    expect(SLASH_COMMAND_MODEL_MAP['/implement']).toBe('opus');
+    expect(SLASH_COMMAND_MODEL_MAP['/implement']).toBe('sonnet');
     expect(SLASH_COMMAND_MODEL_MAP['/patch']).toBe('opus');
     expect(SLASH_COMMAND_MODEL_MAP['/review']).toBe('opus');
     expect(SLASH_COMMAND_MODEL_MAP['/test']).toBe('haiku');
@@ -111,13 +111,13 @@ describe('isFastMode', () => {
 
 describe('getModelForCommand', () => {
   it('returns default map value when no issue body provided', () => {
-    expect(getModelForCommand('/implement')).toBe('opus');
+    expect(getModelForCommand('/implement')).toBe('sonnet');
     expect(getModelForCommand('/classify_issue')).toBe('sonnet');
     expect(getModelForCommand('/test')).toBe('haiku');
   });
 
   it('returns default map value when body has no keywords', () => {
-    expect(getModelForCommand('/implement', 'A regular issue body')).toBe('opus');
+    expect(getModelForCommand('/implement', 'A regular issue body')).toBe('sonnet');
     expect(getModelForCommand('/commit', 'No special keywords here')).toBe('sonnet');
   });
 
@@ -141,11 +141,6 @@ describe('getModelForCommand', () => {
     it('/classify_issue: sonnet -> haiku', () => {
       expect(getModelForCommand('/classify_issue')).toBe('sonnet');
       expect(getModelForCommand('/classify_issue', fastBody)).toBe('haiku');
-    });
-
-    it('/implement: opus -> sonnet', () => {
-      expect(getModelForCommand('/implement')).toBe('opus');
-      expect(getModelForCommand('/implement', fastBody)).toBe('sonnet');
     });
 
     it('/review: opus -> sonnet', () => {
@@ -195,6 +190,11 @@ describe('getModelForCommand', () => {
     it('/test stays haiku', () => {
       expect(getModelForCommand('/test')).toBe('haiku');
       expect(getModelForCommand('/test', fastBody)).toBe('haiku');
+    });
+
+    it('/implement stays sonnet', () => {
+      expect(getModelForCommand('/implement')).toBe('sonnet');
+      expect(getModelForCommand('/implement', fastBody)).toBe('sonnet');
     });
 
     it('/document stays sonnet', () => {

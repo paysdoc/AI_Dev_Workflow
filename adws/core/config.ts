@@ -170,8 +170,8 @@ export const SLASH_COMMAND_MODEL_MAP: Record<SlashCommand, ModelTier> = {
   '/bug': 'opus',
   '/chore': 'opus',
   '/pr_review': 'opus',
-  // Implementation (complex reasoning)
-  '/implement': 'opus',
+  // Implementation (plan execution)
+  '/implement': 'sonnet',
   '/patch': 'opus',
   // Review (complex reasoning)
   '/review': 'opus',
