@@ -23,3 +23,8 @@ export {
   executeReviewPhase,
   handleWorkflowError,
 } from './workflowCompletion';
+
+export {
+  postIssueStageComment,
+  postPRStageComment,
+} from './phaseCommentHelpers';

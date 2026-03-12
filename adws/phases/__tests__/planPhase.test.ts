@@ -18,9 +18,8 @@ vi.mock('../../core', async (importOriginal) => {
   };
 });
 
-vi.mock('../../github', () => ({
-  postWorkflowComment: vi.fn(),
-  moveIssueToStatus: vi.fn().mockResolvedValue(undefined),
+vi.mock('../../github/workflowCommentsIssue', () => ({
+  formatWorkflowComment: vi.fn().mockReturnValue('formatted comment'),
 }));
 
 vi.mock('../../agents', () => ({
@@ -38,12 +37,14 @@ vi.mock('../../agents', () => ({
 }));
 
 import { shouldExecuteStage, AgentStateManager } from '../../core';
-import { postWorkflowComment, moveIssueToStatus } from '../../github';
 import { runPlanAgent, planFileExists, readPlanFile, runCommitAgent } from '../../agents';
 import { executePlanPhase, buildContinuationPrompt, MAX_CONTINUATION_OUTPUT_LENGTH } from '../planPhase';
 import type { WorkflowConfig } from '../workflowLifecycle';
 import type { RecoveryState, GitHubIssue } from '../../core';
 import type { WorkflowContext } from '../../github';
+import { makeRepoContext, type MockRepoContext } from './helpers/makeRepoContext';
+
+let repoContext: MockRepoContext;
 
 function makeConfig(overrides: Partial<WorkflowConfig> = {}): WorkflowConfig {
   return {
@@ -70,6 +71,7 @@ function makeConfig(overrides: Partial<WorkflowConfig> = {}): WorkflowConfig {
     branchName: 'feat-issue-42-test',
     applicationUrl: '',
     projectConfig: { commands: {} } as any,
+    repoContext,
     ...overrides,
   };
 }
@@ -77,6 +79,7 @@ function makeConfig(overrides: Partial<WorkflowConfig> = {}): WorkflowConfig {
 describe('executePlanPhase', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    repoContext = makeRepoContext();
     vi.mocked(shouldExecuteStage).mockReturnValue(true);
     vi.mocked(planFileExists).mockReturnValue(false);
     vi.mocked(readPlanFile).mockReturnValue('# Plan content');
@@ -92,9 +95,9 @@ describe('executePlanPhase', () => {
     const result = await executePlanPhase(makeConfig());
 
     expect(result.costUsd).toBe(0.5);
-    expect(moveIssueToStatus).toHaveBeenCalledWith(42, 'In Progress', undefined);
+    expect(repoContext.issueTracker.moveToStatus).toHaveBeenCalledWith(42, 'In Progress');
     expect(runPlanAgent).toHaveBeenCalled();
-    expect(postWorkflowComment).toHaveBeenCalledWith(42, 'plan_created', expect.any(Object), undefined);
+    expect(repoContext.issueTracker.commentOnIssue).toHaveBeenCalled();
   });
 
   it('writes agent state on success', async () => {
@@ -165,6 +168,13 @@ describe('executePlanPhase', () => {
 
     expect(result.modelUsage).toBeDefined();
     expect(result.modelUsage['claude-sonnet-4-20250514']).toBeDefined();
+  });
+
+  it('posts classified comment via repoContext', async () => {
+    await executePlanPhase(makeConfig());
+
+    // Should call commentOnIssue for classified, branch_created, plan_building, plan_created, plan_committing
+    expect(repoContext.issueTracker.commentOnIssue).toHaveBeenCalledWith(42, 'formatted comment');
   });
 });
 

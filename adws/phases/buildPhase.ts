@@ -13,9 +13,7 @@ import {
   emptyModelUsageMap,
   mergeModelUsageMaps,
 } from '../core';
-import {
-  postWorkflowComment,
-} from '../github';
+import { postIssueStageComment } from './phaseCommentHelpers';
 import {
   getPlanFilePath,
   runBuildAgent,
@@ -34,7 +32,7 @@ import { buildContinuationPrompt } from './planPhase';
  * Uses `config.repoInfo` for external repository API calls when targeting a different repo.
  */
 export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costUsd: number; modelUsage: ModelUsageMap }> {
-  const { recoveryState, orchestratorStatePath, orchestratorName, adwId, issueNumber, issue, issueType, ctx, worktreePath, logsDir, repoInfo } = config;
+  const { recoveryState, orchestratorStatePath, orchestratorName, adwId, issueNumber, issue, issueType, ctx, worktreePath, logsDir, repoContext } = config;
 
   // Read plan content
   const planPath = path.join(worktreePath, getPlanFilePath(issueNumber, worktreePath));
@@ -52,7 +50,9 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
   const currentBranch = ctx.branchName || '';
 
   if (shouldExecuteStage('implemented', recoveryState)) {
-    postWorkflowComment(issueNumber, 'implementing', ctx, repoInfo);
+    if (repoContext) {
+      postIssueStageComment(repoContext, issueNumber, 'implementing', ctx);
+    }
     log('Running Build Agent...', 'info');
 
     let currentPlanContent = planContent;
@@ -89,7 +89,9 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
 
         const now = Date.now();
         if (now - lastProgressUpdate >= PROGRESS_UPDATE_INTERVAL_MS) {
-          postWorkflowComment(issueNumber, 'build_progress', ctx, repoInfo);
+          if (repoContext) {
+            postIssueStageComment(repoContext, issueNumber, 'build_progress', ctx);
+          }
           lastProgressUpdate = now;
         }
       };
@@ -124,7 +126,9 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
         // Post recovery comment
         ctx.tokenContinuationNumber = continuationNumber;
         ctx.tokenUsage = buildResult.tokenUsage;
-        postWorkflowComment(issueNumber, 'token_limit_recovery', ctx, repoInfo);
+        if (repoContext) {
+          postIssueStageComment(repoContext, issueNumber, 'token_limit_recovery', ctx);
+        }
 
         // Build continuation prompt with previous output
         currentPlanContent = buildContinuationPrompt(planContent, buildResult.output);
@@ -156,14 +160,18 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
     }
 
     AgentStateManager.appendLog(orchestratorStatePath, 'Build completed');
-    postWorkflowComment(issueNumber, 'implemented', ctx, repoInfo);
+    if (repoContext) {
+      postIssueStageComment(repoContext, issueNumber, 'implemented', ctx);
+    }
   } else {
     log('Skipping Build Agent (already completed)', 'info');
   }
 
   // Commit implementation step
   if (shouldExecuteStage('implementation_committing', recoveryState)) {
-    postWorkflowComment(issueNumber, 'implementation_committing', ctx, repoInfo);
+    if (repoContext) {
+      postIssueStageComment(repoContext, issueNumber, 'implementation_committing', ctx);
+    }
     await runCommitAgent('build-agent', issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body);
   } else {
     log('Skipping implementation commit (already completed)', 'info');

@@ -42,3 +42,11 @@ This prompt helps you determine what documentation you should read based on the 
     - When adding support for new provider platforms (IssueTracker or CodeHost)
     - When troubleshooting git remote validation or working directory validation errors
     - When configuring `.adw/providers.md` for a target repository
+
+- app_docs/feature-1773312009789-vruh95-migrate-phases-to-repo-context.md
+  - Conditions:
+    - When working with workflow phases (`planPhase`, `buildPhase`, `testPhase`, `prPhase`, `documentPhase`, `workflowCompletion`, `prReviewPhase`, `prReviewCompletion`)
+    - When adding a new workflow stage comment in any phase
+    - When migrating or extending `WorkflowConfig` or `PRReviewWorkflowConfig` fields
+    - When troubleshooting comment posting failures or missing status updates in workflows
+    - When updating phase tests to use `makeRepoContext()` mock helper

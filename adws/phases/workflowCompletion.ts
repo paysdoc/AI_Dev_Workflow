@@ -14,12 +14,9 @@ import {
   rebuildProjectCostCsv,
   computeEurRate,
 } from '../core';
-import {
-  postWorkflowComment,
-  moveIssueToStatus,
-} from '../github';
 import { getPlanFilePath, runReviewWithRetry } from '../agents';
 import type { WorkflowConfig } from './workflowInit';
+import { postIssueStageComment } from './phaseCommentHelpers';
 
 /**
  * Completes the workflow: writes final state, posts completion comment, prints banner.
@@ -30,7 +27,7 @@ export async function completeWorkflow(
   additionalMetadata?: Record<string, unknown>,
   modelUsage?: ModelUsageMap,
 ): Promise<void> {
-  const { orchestratorStatePath, orchestratorName, issueNumber, ctx, repoInfo } = config;
+  const { orchestratorStatePath, orchestratorName, issueNumber, ctx, repoContext } = config;
 
   // Build cost breakdown if model usage data is available
   if (modelUsage && Object.keys(modelUsage).length > 0) {
@@ -59,9 +56,10 @@ export async function completeWorkflow(
   });
   AgentStateManager.appendLog(orchestratorStatePath, 'Workflow completed successfully');
 
-  postWorkflowComment(issueNumber, 'completed', ctx, repoInfo);
-
-  await moveIssueToStatus(issueNumber, 'Review', repoInfo);
+  if (repoContext) {
+    postIssueStageComment(repoContext, issueNumber, 'completed', ctx);
+    await repoContext.issueTracker.moveToStatus(issueNumber, 'Review');
+  }
 
   log('===================================', 'info');
   log(`${orchestratorName} workflow completed!`, 'success');
@@ -80,7 +78,7 @@ export async function executeReviewPhase(config: WorkflowConfig): Promise<{
   reviewPassed: boolean;
   totalRetries: number;
 }> {
-  const { orchestratorStatePath, issueNumber, issue, issueType, ctx, logsDir, worktreePath, branchName, adwId, applicationUrl, repoInfo } = config;
+  const { orchestratorStatePath, issueNumber, issue, issueType, ctx, logsDir, worktreePath, branchName, adwId, applicationUrl, repoContext } = config;
 
   log('Phase: Review', 'info');
   AgentStateManager.appendLog(orchestratorStatePath, 'Starting review phase');
@@ -89,7 +87,9 @@ export async function executeReviewPhase(config: WorkflowConfig): Promise<{
 
   ctx.reviewAttempt = 1;
   ctx.maxReviewAttempts = MAX_REVIEW_RETRY_ATTEMPTS;
-  postWorkflowComment(issueNumber, 'review_running', ctx, repoInfo);
+  if (repoContext) {
+    postIssueStageComment(repoContext, issueNumber, 'review_running', ctx);
+  }
 
   const reviewResult = await runReviewWithRetry({
     adwId,
@@ -108,7 +108,9 @@ export async function executeReviewPhase(config: WorkflowConfig): Promise<{
     },
     onPatchingIssue: (issue) => {
       ctx.patchingIssue = issue;
-      postWorkflowComment(issueNumber, 'review_patching', ctx, repoInfo);
+      if (repoContext) {
+        postIssueStageComment(repoContext, issueNumber, 'review_patching', ctx);
+      }
     },
     cwd: worktreePath,
     applicationUrl,
@@ -120,14 +122,18 @@ export async function executeReviewPhase(config: WorkflowConfig): Promise<{
     AgentStateManager.appendLog(orchestratorStatePath, 'Review passed');
     ctx.reviewSummary = reviewResult.reviewSummary;
     ctx.reviewIssues = reviewResult.blockerIssues;
-    postWorkflowComment(issueNumber, 'review_passed', ctx, repoInfo);
+    if (repoContext) {
+      postIssueStageComment(repoContext, issueNumber, 'review_passed', ctx);
+    }
   } else {
     const errorMsg = `Review failed after ${MAX_REVIEW_RETRY_ATTEMPTS} attempts with ${reviewResult.blockerIssues.length} remaining blocker(s)`;
     log(errorMsg, 'error');
     AgentStateManager.appendLog(orchestratorStatePath, errorMsg);
     ctx.errorMessage = errorMsg;
     ctx.reviewIssues = reviewResult.blockerIssues;
-    postWorkflowComment(issueNumber, 'review_failed', ctx, repoInfo);
+    if (repoContext) {
+      postIssueStageComment(repoContext, issueNumber, 'review_failed', ctx);
+    }
 
     AgentStateManager.writeState(orchestratorStatePath, {
       execution: AgentStateManager.completeExecution(
@@ -157,14 +163,16 @@ export function handleWorkflowError(
   costUsd?: number,
   modelUsage?: ModelUsageMap,
 ): never {
-  const { orchestratorStatePath, orchestratorName, issueNumber, ctx, repoInfo } = config;
+  const { orchestratorStatePath, orchestratorName, issueNumber, ctx, repoContext } = config;
 
   if (costUsd !== undefined && modelUsage) {
     persistTokenCounts(orchestratorStatePath, costUsd, modelUsage);
   }
 
   ctx.errorMessage = String(error);
-  postWorkflowComment(issueNumber, 'error', ctx, repoInfo);
+  if (repoContext) {
+    postIssueStageComment(repoContext, issueNumber, 'error', ctx);
+  }
 
   AgentStateManager.writeState(orchestratorStatePath, {
     execution: AgentStateManager.completeExecution(

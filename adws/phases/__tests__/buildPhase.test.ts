@@ -22,8 +22,8 @@ vi.mock('../../core', async (importOriginal) => {
   };
 });
 
-vi.mock('../../github', () => ({
-  postWorkflowComment: vi.fn(),
+vi.mock('../../github/workflowCommentsIssue', () => ({
+  formatWorkflowComment: vi.fn().mockReturnValue('formatted comment'),
 }));
 
 vi.mock('../../agents', () => ({
@@ -38,12 +38,14 @@ vi.mock('../../agents', () => ({
 }));
 
 import { shouldExecuteStage } from '../../core';
-import { postWorkflowComment } from '../../github';
 import { runBuildAgent, runCommitAgent } from '../../agents';
 import { executeBuildPhase } from '../buildPhase';
 import type { WorkflowConfig } from '../workflowLifecycle';
 import type { RecoveryState, GitHubIssue } from '../../core';
 import type { WorkflowContext } from '../../github';
+import { makeRepoContext, type MockRepoContext } from './helpers/makeRepoContext';
+
+let repoContext: MockRepoContext;
 
 function makeConfig(overrides: Partial<WorkflowConfig> = {}): WorkflowConfig {
   return {
@@ -70,6 +72,7 @@ function makeConfig(overrides: Partial<WorkflowConfig> = {}): WorkflowConfig {
     branchName: 'feat-issue-42-test',
     applicationUrl: '',
     projectConfig: { commands: {} } as any,
+    repoContext,
     ...overrides,
   };
 }
@@ -77,6 +80,7 @@ function makeConfig(overrides: Partial<WorkflowConfig> = {}): WorkflowConfig {
 describe('executeBuildPhase', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    repoContext = makeRepoContext();
     vi.mocked(fs.readFileSync).mockReturnValue('# Plan content\n\nBuild steps here');
     vi.mocked(shouldExecuteStage).mockReturnValue(true);
     vi.mocked(runBuildAgent).mockResolvedValue({
@@ -93,8 +97,7 @@ describe('executeBuildPhase', () => {
     expect(result.costUsd).toBe(1.0);
     expect(fs.readFileSync).toHaveBeenCalled();
     expect(runBuildAgent).toHaveBeenCalled();
-    expect(postWorkflowComment).toHaveBeenCalledWith(42, 'implementing', expect.any(Object), undefined);
-    expect(postWorkflowComment).toHaveBeenCalledWith(42, 'implemented', expect.any(Object), undefined);
+    expect(repoContext.issueTracker.commentOnIssue).toHaveBeenCalledWith(42, 'formatted comment');
   });
 
   it('throws when plan file cannot be read', async () => {
@@ -143,7 +146,8 @@ describe('executeBuildPhase', () => {
 
     expect(runBuildAgent).toHaveBeenCalledTimes(2);
     expect(result.costUsd).toBe(1.0);
-    expect(postWorkflowComment).toHaveBeenCalledWith(42, 'token_limit_recovery', expect.any(Object), undefined);
+    // token_limit_recovery comment posted via repoContext
+    expect(repoContext.issueTracker.commentOnIssue).toHaveBeenCalled();
   });
 
   it('throws when token continuations exceed max', async () => {

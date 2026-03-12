@@ -99,8 +99,11 @@ vi.mock('../agents', () => ({
 }));
 
 import { AgentStateManager, writeIssueCostCsv, rebuildProjectCostCsv, persistTokenCounts, buildCostBreakdown } from '../core';
-import { postPRWorkflowComment, getRepoInfo } from '../github';
+import { getRepoInfo } from '../github';
 import { runPrReviewPlanAgent, runPrReviewBuildAgent, runUnitTestsWithRetry, runE2ETestsWithRetry } from '../agents';
+import { makeRepoContext, type MockRepoContext } from '../phases/__tests__/helpers/makeRepoContext';
+
+let mockRepoContext: MockRepoContext;
 
 function createMockPRDetails(overrides: Partial<PRDetails> = {}): PRDetails {
   return {
@@ -141,6 +144,7 @@ function createPRReviewWorkflowConfig(overrides: Partial<PRReviewWorkflowConfig>
       reviewComments: 1,
       branchName: 'feature/issue-10-test',
     } as PRReviewWorkflowContext,
+    repoContext: mockRepoContext,
     ...overrides,
   };
 }
@@ -152,6 +156,7 @@ function createPRReviewWorkflowConfig(overrides: Partial<PRReviewWorkflowConfig>
 describe('PR Review Cost Tracking', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockRepoContext = makeRepoContext();
   });
 
   describe('executePRReviewPlanPhase cost data', () => {
@@ -401,7 +406,7 @@ describe('PR Review Cost Tracking', () => {
 
       handlePRReviewWorkflowError(config, new Error('test error'), 1.5, modelUsage);
 
-      expect(postPRWorkflowComment).toHaveBeenCalledWith(42, 'pr_review_error', expect.anything(), undefined);
+      expect(mockRepoContext.codeHost.commentOnMergeRequest).toHaveBeenCalledWith(42, expect.any(String));
       expect(mockExit).toHaveBeenCalledWith(1);
 
       mockExit.mockRestore();

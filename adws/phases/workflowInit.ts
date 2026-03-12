@@ -25,7 +25,6 @@ import {
 } from '../core';
 import {
   fetchGitHubIssue,
-  postWorkflowComment,
   type WorkflowContext,
   detectRecoveryState,
   getDefaultBranch,
@@ -35,11 +34,16 @@ import {
   mergeLatestFromDefaultBranch,
   copyEnvToWorktree,
   findWorktreeForIssue,
+  getRepoInfo,
   type RepoInfo,
 } from '../github';
+import type { RepoContext } from '../providers/types';
+import { Platform } from '../providers/types';
+import { createRepoContext } from '../providers/repoContext';
 import { runGenerateBranchNameAgent } from '../agents';
 import { classifyGitHubIssue } from '../core/issueClassifier';
 import { copyClaudeCommandsToWorktree } from './worktreeSetup';
+import { postIssueStageComment } from './phaseCommentHelpers';
 
 // Re-export worktree setup helpers so imports from this module still work
 export { ensureGitignoreEntry, ensureGitignoreEntries, copyClaudeCommandsToWorktree } from './worktreeSetup';
@@ -63,7 +67,9 @@ export interface WorkflowConfig {
   branchName: string;
   applicationUrl: string;
   targetRepo?: TargetRepoInfo;
+  /** @deprecated Use `repoContext` instead. Kept during transition for backward compatibility. */
   repoInfo?: RepoInfo;
+  repoContext?: RepoContext;
   projectConfig: ProjectConfig;
 }
 
@@ -206,6 +212,22 @@ export async function initializeWorkflow(
   AgentStateManager.writeState(orchestratorStatePath, initialState);
   AgentStateManager.appendLog(orchestratorStatePath, `Starting ${orchestratorName} workflow for issue #${issueNumber}`);
 
+  // Create RepoContext for provider-agnostic operations
+  let repoContext: RepoContext | undefined;
+  try {
+    const resolvedRepoInfo = repoInfo ?? getRepoInfo();
+    repoContext = createRepoContext({
+      repoId: {
+        owner: resolvedRepoInfo.owner,
+        repo: resolvedRepoInfo.repo,
+        platform: Platform.GitHub,
+      },
+      cwd: worktreePath,
+    });
+  } catch (error) {
+    log(`Failed to create RepoContext (falling back to direct API calls): ${error}`, 'info');
+  }
+
   // Initialize workflow context
   const ctx: WorkflowContext = {
     issueNumber,
@@ -224,9 +246,13 @@ export async function initializeWorkflow(
     if (recoveryState.prUrl) ctx.prUrl = recoveryState.prUrl;
     const nextStage = getNextStage(recoveryState.lastCompletedStage);
     ctx.resumeFrom = nextStage;
-    postWorkflowComment(issueNumber, 'resuming', ctx, repoInfo);
+    if (repoContext) {
+      postIssueStageComment(repoContext, issueNumber, 'resuming', ctx);
+    }
   } else {
-    postWorkflowComment(issueNumber, 'starting', ctx, repoInfo);
+    if (repoContext) {
+      postIssueStageComment(repoContext, issueNumber, 'starting', ctx);
+    }
   }
 
   // Load project configuration from target repo's .adw/ directory
@@ -259,6 +285,7 @@ export async function initializeWorkflow(
     applicationUrl,
     targetRepo,
     repoInfo,
+    repoContext,
     projectConfig,
   };
 }
