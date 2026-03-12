@@ -11,6 +11,7 @@ import {
 } from '../core';
 import {
   postWorkflowComment,
+  pushBranch,
 } from '../github';
 import {
   getPlanFilePath,
@@ -30,7 +31,7 @@ export async function executeDocumentPhase(
   config: WorkflowConfig,
   screenshotsDir?: string,
 ): Promise<{ costUsd: number; modelUsage: ModelUsageMap }> {
-  const { orchestratorStatePath, adwId, issueNumber, issueType, issue, ctx, worktreePath, logsDir, repoInfo } = config;
+  const { orchestratorStatePath, adwId, issueNumber, issueType, issue, ctx, worktreePath, logsDir, repoInfo, branchName } = config;
 
   let costUsd = 0;
   let modelUsage = emptyModelUsageMap();
@@ -87,6 +88,9 @@ export async function executeDocumentPhase(
 
   // Commit documentation
   await runCommitAgent('document-agent', issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body);
+
+  // Push documentation commit to remote
+  pushBranch(branchName, worktreePath);
 
   AgentStateManager.appendLog(orchestratorStatePath, `Documentation created: ${result.docPath}`);
   postWorkflowComment(issueNumber, 'document_completed', ctx, repoInfo);
