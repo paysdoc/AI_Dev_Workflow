@@ -206,7 +206,6 @@ import {
   findWorktreeForIssue,
   inferIssueTypeFromBranch,
 } from '../vcs';
-import { getDefaultBranch } from '../vcs/branchOperations';
 import { runPlanAgent, planFileExists, readPlanFile, runBuildAgent, runPrReviewPlanAgent, runPrReviewBuildAgent, runGenerateBranchNameAgent, runCommitAgent, runUnitTestsWithRetry, runE2ETestsWithRetry, runReviewWithRetry, runPullRequestAgent } from '../agents';
 import { classifyGitHubIssue } from '../core/issueClassifier';
 
