@@ -6,7 +6,7 @@
  * Exposes the local ADW webhook server to the internet so GitHub can deliver
  * webhook events to the local ADW instance.
  *
- * Usage: bunx tsx adws/cloudflareTunnel.tsx [options]
+ * Usage: bunx tsx adws/triggers/cloudflareTunnel.tsx [options]
  *
  * Options:
  *   --name <tunnel-name>      Tunnel name (default: adw-webhook)
@@ -151,7 +151,7 @@ function main(): void {
   const config: TunnelConfig = {
     name: cliArgs.name,
     hostname: cliArgs.hostname,
-    targetUrl: `http://0.0.0.0:${cliArgs.port}`,
+    targetUrl: `http://localhost:${cliArgs.port}`,
   };
 
   log(`Tunnel config: name=${config.name}, hostname=${config.hostname}, target=${config.targetUrl}`, 'info');
