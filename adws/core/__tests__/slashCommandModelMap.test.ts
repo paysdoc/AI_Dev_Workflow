@@ -219,12 +219,12 @@ describe('SLASH_COMMAND_EFFORT_MAP', () => {
     expect(SLASH_COMMAND_EFFORT_MAP['/resolve_failed_e2e_test']).toBe('high');
     expect(SLASH_COMMAND_EFFORT_MAP['/generate_branch_name']).toBe('low');
     expect(SLASH_COMMAND_EFFORT_MAP['/commit']).toBe('medium');
-    expect(SLASH_COMMAND_EFFORT_MAP['/pull_request']).toBe('high');
-    expect(SLASH_COMMAND_EFFORT_MAP['/document']).toBe('high');
+    expect(SLASH_COMMAND_EFFORT_MAP['/pull_request']).toBe('medium');
+    expect(SLASH_COMMAND_EFFORT_MAP['/document']).toBe('medium');
     expect(SLASH_COMMAND_EFFORT_MAP['/commit_cost']).toBeUndefined();
     expect(SLASH_COMMAND_EFFORT_MAP['/track_agentic_kpis']).toBe('medium');
     expect(SLASH_COMMAND_EFFORT_MAP['/find_plan_file']).toBe('low');
-    expect(SLASH_COMMAND_EFFORT_MAP['/adw_init']).toBe('high');
+    expect(SLASH_COMMAND_EFFORT_MAP['/adw_init']).toBe('medium');
   });
 
   it('has exactly 20 entries', () => {
@@ -243,8 +243,8 @@ describe('SLASH_COMMAND_EFFORT_MAP_FAST', () => {
     expect(SLASH_COMMAND_EFFORT_MAP_FAST['/patch']).toBe('high');
     expect(SLASH_COMMAND_EFFORT_MAP_FAST['/review']).toBe('high');
     expect(SLASH_COMMAND_EFFORT_MAP_FAST['/test']).toBeUndefined();
-    expect(SLASH_COMMAND_EFFORT_MAP_FAST['/resolve_failed_test']).toBe('high');
-    expect(SLASH_COMMAND_EFFORT_MAP_FAST['/resolve_failed_e2e_test']).toBe('high');
+    expect(SLASH_COMMAND_EFFORT_MAP_FAST['/resolve_failed_test']).toBe('medium');
+    expect(SLASH_COMMAND_EFFORT_MAP_FAST['/resolve_failed_e2e_test']).toBe('medium');
     expect(SLASH_COMMAND_EFFORT_MAP_FAST['/generate_branch_name']).toBe('low');
     expect(SLASH_COMMAND_EFFORT_MAP_FAST['/commit']).toBe('low');
     expect(SLASH_COMMAND_EFFORT_MAP_FAST['/pull_request']).toBe('medium');

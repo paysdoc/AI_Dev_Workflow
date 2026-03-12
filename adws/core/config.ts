@@ -263,13 +263,13 @@ export const SLASH_COMMAND_EFFORT_MAP: Record<SlashCommand, ReasoningEffort | un
   '/resolve_failed_e2e_test': 'high',
   '/generate_branch_name': 'low',
   '/commit': 'medium',
-  '/pull_request': 'high',
-  '/document': 'high',
+  '/pull_request': 'medium',
+  '/document': 'medium',
   '/commit_cost': undefined,
   '/track_agentic_kpis': 'medium',
   '/find_plan_file': 'low',
   '/find_issue_dependencies': 'low',
-  '/adw_init': 'high',
+  '/adw_init': 'medium',
 };
 
 /** Cost-optimized reasoning effort map used when the issue body contains `/fast` or `/cheap`. */
@@ -283,8 +283,8 @@ export const SLASH_COMMAND_EFFORT_MAP_FAST: Record<SlashCommand, ReasoningEffort
   '/patch': 'high',
   '/review': 'high',
   '/test': undefined,
-  '/resolve_failed_test': 'high',
-  '/resolve_failed_e2e_test': 'high',
+  '/resolve_failed_test': 'medium',
+  '/resolve_failed_e2e_test': 'medium',
   '/generate_branch_name': 'low',
   '/commit': 'low',
   '/pull_request': 'medium',
