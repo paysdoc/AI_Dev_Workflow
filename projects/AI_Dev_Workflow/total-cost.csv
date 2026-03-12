@@ -5,6 +5,7 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 0,bug 99 fix currency conversion,0.6907,0.0691
 0,feat 114 implement github issuetracker provider,1.4015,0.1401
 0,feat 121 add provider configuration to adw project,1.0304,0.1030
+0,feat 144 add a running total of tokens used to eac,1.1929,0.1193
 0,feat 66 automatically commit cost when pr is close,1.4173,0.1417
 0,feat 80 add reasoning effort to slash commands,1.1973,0.1197
 0,feat 90 fix review process,0.7485,0.0749
@@ -50,5 +51,5 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 137,document phase commit is not pushed lost on branch,1.0469,0.1047
 140,bug adwid format regression webhook triggers produ,1.5234,0.1523
 
-Total Cost (USD):,188.4418
-Total Cost (EUR):,162.9241
+Total Cost (USD):,189.7540
+Total Cost (EUR):,164.0586
