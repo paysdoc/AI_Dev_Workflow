@@ -98,3 +98,9 @@ export {
   extractDocPathFromOutput,
 } from './documentAgent';
 
+// KPI Agent
+export {
+  runKpiAgent,
+  formatKpiArgs,
+} from './kpiAgent';
+

@@ -25,14 +25,15 @@ describe('SLASH_COMMAND_MODEL_MAP', () => {
     expect(SLASH_COMMAND_MODEL_MAP['/generate_branch_name']).toBe('sonnet');
     expect(SLASH_COMMAND_MODEL_MAP['/commit']).toBe('sonnet');
     expect(SLASH_COMMAND_MODEL_MAP['/commit_cost']).toBe('haiku');
+    expect(SLASH_COMMAND_MODEL_MAP['/track_agentic_kpis']).toBe('haiku');
     expect(SLASH_COMMAND_MODEL_MAP['/pull_request']).toBe('sonnet');
     expect(SLASH_COMMAND_MODEL_MAP['/document']).toBe('sonnet');
     expect(SLASH_COMMAND_MODEL_MAP['/find_plan_file']).toBe('sonnet');
     expect(SLASH_COMMAND_MODEL_MAP['/adw_init']).toBe('sonnet');
   });
 
-  it('has exactly 19 entries', () => {
-    expect(Object.keys(SLASH_COMMAND_MODEL_MAP)).toHaveLength(19);
+  it('has exactly 20 entries', () => {
+    expect(Object.keys(SLASH_COMMAND_MODEL_MAP)).toHaveLength(20);
   });
 });
 
@@ -52,14 +53,15 @@ describe('SLASH_COMMAND_MODEL_MAP_FAST', () => {
     expect(SLASH_COMMAND_MODEL_MAP_FAST['/generate_branch_name']).toBe('haiku');
     expect(SLASH_COMMAND_MODEL_MAP_FAST['/commit']).toBe('haiku');
     expect(SLASH_COMMAND_MODEL_MAP_FAST['/commit_cost']).toBe('haiku');
+    expect(SLASH_COMMAND_MODEL_MAP_FAST['/track_agentic_kpis']).toBe('haiku');
     expect(SLASH_COMMAND_MODEL_MAP_FAST['/pull_request']).toBe('haiku');
     expect(SLASH_COMMAND_MODEL_MAP_FAST['/document']).toBe('sonnet');
     expect(SLASH_COMMAND_MODEL_MAP_FAST['/find_plan_file']).toBe('haiku');
     expect(SLASH_COMMAND_MODEL_MAP_FAST['/adw_init']).toBe('haiku');
   });
 
-  it('has exactly 19 entries', () => {
-    expect(Object.keys(SLASH_COMMAND_MODEL_MAP_FAST)).toHaveLength(19);
+  it('has exactly 20 entries', () => {
+    expect(Object.keys(SLASH_COMMAND_MODEL_MAP_FAST)).toHaveLength(20);
   });
 });
 
@@ -220,12 +222,13 @@ describe('SLASH_COMMAND_EFFORT_MAP', () => {
     expect(SLASH_COMMAND_EFFORT_MAP['/pull_request']).toBe('high');
     expect(SLASH_COMMAND_EFFORT_MAP['/document']).toBe('high');
     expect(SLASH_COMMAND_EFFORT_MAP['/commit_cost']).toBeUndefined();
+    expect(SLASH_COMMAND_EFFORT_MAP['/track_agentic_kpis']).toBe('medium');
     expect(SLASH_COMMAND_EFFORT_MAP['/find_plan_file']).toBe('low');
     expect(SLASH_COMMAND_EFFORT_MAP['/adw_init']).toBe('high');
   });
 
-  it('has exactly 19 entries', () => {
-    expect(Object.keys(SLASH_COMMAND_EFFORT_MAP)).toHaveLength(19);
+  it('has exactly 20 entries', () => {
+    expect(Object.keys(SLASH_COMMAND_EFFORT_MAP)).toHaveLength(20);
   });
 });
 
@@ -247,12 +250,13 @@ describe('SLASH_COMMAND_EFFORT_MAP_FAST', () => {
     expect(SLASH_COMMAND_EFFORT_MAP_FAST['/pull_request']).toBe('medium');
     expect(SLASH_COMMAND_EFFORT_MAP_FAST['/document']).toBe('medium');
     expect(SLASH_COMMAND_EFFORT_MAP_FAST['/commit_cost']).toBeUndefined();
+    expect(SLASH_COMMAND_EFFORT_MAP_FAST['/track_agentic_kpis']).toBe('low');
     expect(SLASH_COMMAND_EFFORT_MAP_FAST['/find_plan_file']).toBe('low');
     expect(SLASH_COMMAND_EFFORT_MAP_FAST['/adw_init']).toBe('medium');
   });
 
-  it('has exactly 19 entries', () => {
-    expect(Object.keys(SLASH_COMMAND_EFFORT_MAP_FAST)).toHaveLength(19);
+  it('has exactly 20 entries', () => {
+    expect(Object.keys(SLASH_COMMAND_EFFORT_MAP_FAST)).toHaveLength(20);
   });
 });
 

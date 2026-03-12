@@ -182,6 +182,8 @@ export const SLASH_COMMAND_MODEL_MAP: Record<SlashCommand, ModelTier> = {
   '/document': 'sonnet',
   // Cost tracking
   '/commit_cost': 'haiku',
+  // KPI tracking
+  '/track_agentic_kpis': 'haiku',
   // Utility
   '/find_plan_file': 'sonnet',
   // Dependency checking
@@ -208,6 +210,7 @@ export const SLASH_COMMAND_MODEL_MAP_FAST: Record<SlashCommand, ModelTier> = {
   '/pull_request': 'haiku',
   '/document': 'sonnet',
   '/commit_cost': 'haiku',
+  '/track_agentic_kpis': 'haiku',
   '/find_plan_file': 'haiku',
   '/find_issue_dependencies': 'haiku',
   '/adw_init': 'haiku',
@@ -257,6 +260,7 @@ export const SLASH_COMMAND_EFFORT_MAP: Record<SlashCommand, ReasoningEffort | un
   '/pull_request': 'high',
   '/document': 'high',
   '/commit_cost': undefined,
+  '/track_agentic_kpis': 'medium',
   '/find_plan_file': 'low',
   '/find_issue_dependencies': 'low',
   '/adw_init': 'high',
@@ -280,6 +284,7 @@ export const SLASH_COMMAND_EFFORT_MAP_FAST: Record<SlashCommand, ReasoningEffort
   '/pull_request': 'medium',
   '/document': 'medium',
   '/commit_cost': undefined,
+  '/track_agentic_kpis': 'low',
   '/find_plan_file': 'low',
   '/find_issue_dependencies': 'low',
   '/adw_init': 'medium',

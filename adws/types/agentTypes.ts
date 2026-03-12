@@ -93,7 +93,9 @@ export type AgentIdentifier =
   | 'commit-agent'
   // PR and document agents
   | 'pr-agent'
-  | 'document-agent';
+  | 'document-agent'
+  // KPI tracking agent
+  | 'kpi-agent';
 
 /**
  * Execution status for tracking agent progress.
