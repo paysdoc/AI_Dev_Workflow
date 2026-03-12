@@ -16,7 +16,7 @@
  * - CLAUDE_CODE_PATH: Path to Claude CLI (default: /usr/local/bin/claude)
  */
 
-import { parseTargetRepoArgs, buildRepoIdentifier, mergeModelUsageMaps, persistTokenCounts, type ModelUsageMap } from './core';
+import { parseTargetRepoArgs, buildRepoIdentifier, mergeModelUsageMaps, persistTokenCounts, computeTotalTokens, RUNNING_TOKENS, type ModelUsageMap } from './core';
 import {
   initializePRReviewWorkflow,
   executePRReviewPlanPhase,
@@ -53,16 +53,19 @@ async function main(): Promise<void> {
     totalCostUsd += planResult.costUsd;
     totalModelUsage = mergeModelUsageMaps(totalModelUsage, planResult.modelUsage);
     persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
+    if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeTotalTokens(totalModelUsage);
 
     const buildResult = await executePRReviewBuildPhase(config, planResult.planOutput);
     totalCostUsd += buildResult.costUsd;
     totalModelUsage = mergeModelUsageMaps(totalModelUsage, buildResult.modelUsage);
     persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
+    if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeTotalTokens(totalModelUsage);
 
     const testResult = await executePRReviewTestPhase(config);
     totalCostUsd += testResult.costUsd;
     totalModelUsage = mergeModelUsageMaps(totalModelUsage, testResult.modelUsage);
     persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
+    if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeTotalTokens(totalModelUsage);
 
     await completePRReviewWorkflow(config, totalModelUsage);
   } catch (error) {

@@ -4,7 +4,7 @@
 
 import { PRReviewWorkflowStage, log, formatCostBreakdownMarkdown } from '../core';
 import { commentOnPR, type RepoInfo } from './githubApi';
-import { ADW_SIGNATURE, truncateText } from './workflowCommentsBase';
+import { ADW_SIGNATURE, truncateText, formatRunningTokenFooter } from './workflowCommentsBase';
 import { WorkflowContext } from './workflowCommentsIssue';
 
 /** Context for PR review workflow comments. */
@@ -20,65 +20,66 @@ export interface PRReviewWorkflowContext extends WorkflowContext {
 
 /** Formats a PR review workflow comment for the given stage. */
 export function formatPRReviewWorkflowComment(stage: PRReviewWorkflowStage, ctx: PRReviewWorkflowContext): string {
+  const tokenFooter = formatRunningTokenFooter(ctx.runningTokenTotal);
   switch (stage) {
     case 'pr_review_starting':
-      return `## :eyes: Addressing PR Review Comments\n\nStarting automated review of **${ctx.reviewComments}** review comment(s).\n\n**ADW ID:** \`${ctx.adwId}\`\n\n_Analyzing review feedback..._${ADW_SIGNATURE}`;
+      return `## :eyes: Addressing PR Review Comments\n\nStarting automated review of **${ctx.reviewComments}** review comment(s).\n\n**ADW ID:** \`${ctx.adwId}\`\n\n_Analyzing review feedback..._${tokenFooter}${ADW_SIGNATURE}`;
 
     case 'pr_review_planning':
-      return `## :pencil: Planning PR Review Changes\n\nCreating a revision plan based on review feedback...\n\n**ADW ID:** \`${ctx.adwId}\`${ADW_SIGNATURE}`;
+      return `## :pencil: Planning PR Review Changes\n\nCreating a revision plan based on review feedback...\n\n**ADW ID:** \`${ctx.adwId}\`${tokenFooter}${ADW_SIGNATURE}`;
 
     case 'pr_review_planned': {
       const truncated = ctx.revisionPlanOutput ? truncateText(ctx.revisionPlanOutput, 2000) : '';
-      return `## :white_check_mark: Revision Plan Created\n\nA revision plan has been created to address the review comments.\n\n**ADW ID:** \`${ctx.adwId}\`\n\n<details>\n<summary>Revision Plan Summary</summary>\n\n${truncated}\n\n</details>${ADW_SIGNATURE}`;
+      return `## :white_check_mark: Revision Plan Created\n\nA revision plan has been created to address the review comments.\n\n**ADW ID:** \`${ctx.adwId}\`\n\n<details>\n<summary>Revision Plan Summary</summary>\n\n${truncated}\n\n</details>${tokenFooter}${ADW_SIGNATURE}`;
     }
 
     case 'pr_review_implementing':
-      return `## :hammer_and_wrench: Implementing Review Changes\n\nRunning Build Agent to implement the revision plan...\n\n**ADW ID:** \`${ctx.adwId}\`${ADW_SIGNATURE}`;
+      return `## :hammer_and_wrench: Implementing Review Changes\n\nRunning Build Agent to implement the revision plan...\n\n**ADW ID:** \`${ctx.adwId}\`${tokenFooter}${ADW_SIGNATURE}`;
 
     case 'pr_review_implemented': {
       const truncatedBuild = ctx.revisionBuildOutput ? truncateText(ctx.revisionBuildOutput, 2000) : '';
-      return `## :white_check_mark: Review Changes Implemented\n\nChanges have been implemented to address the review comments.\n\n**ADW ID:** \`${ctx.adwId}\`\n\n<details>\n<summary>Implementation Summary</summary>\n\n${truncatedBuild}\n\n</details>${ADW_SIGNATURE}`;
+      return `## :white_check_mark: Review Changes Implemented\n\nChanges have been implemented to address the review comments.\n\n**ADW ID:** \`${ctx.adwId}\`\n\n<details>\n<summary>Implementation Summary</summary>\n\n${truncatedBuild}\n\n</details>${tokenFooter}${ADW_SIGNATURE}`;
     }
 
     case 'pr_review_testing':
-      return `## :test_tube: Running Validation Tests\n\nRunning validation tests before pushing changes...\n\n**ADW ID:** \`${ctx.adwId}\`${ADW_SIGNATURE}`;
+      return `## :test_tube: Running Validation Tests\n\nRunning validation tests before pushing changes...\n\n**ADW ID:** \`${ctx.adwId}\`${tokenFooter}${ADW_SIGNATURE}`;
 
     case 'pr_review_test_failed': {
       const attemptInfo = ctx.testAttempt && ctx.maxTestAttempts ? `\n**Attempt:** ${ctx.testAttempt}/${ctx.maxTestAttempts}` : '';
-      return `## :warning: Tests Failed\n\nTests failed, attempting automatic resolution...\n${attemptInfo}\n\n**ADW ID:** \`${ctx.adwId}\`${ADW_SIGNATURE}`;
+      return `## :warning: Tests Failed\n\nTests failed, attempting automatic resolution...\n${attemptInfo}\n\n**ADW ID:** \`${ctx.adwId}\`${tokenFooter}${ADW_SIGNATURE}`;
     }
 
     case 'pr_review_test_passed':
-      return `## :white_check_mark: All Tests Passed\n\nAll validation tests passed!\n\n**ADW ID:** \`${ctx.adwId}\`${ADW_SIGNATURE}`;
+      return `## :white_check_mark: All Tests Passed\n\nAll validation tests passed!\n\n**ADW ID:** \`${ctx.adwId}\`${tokenFooter}${ADW_SIGNATURE}`;
 
     case 'pr_review_test_max_attempts': {
       const failedTestsList = ctx.failedTests?.length ? `\n\n**Failed tests:**\n${ctx.failedTests.map(t => `- ${t}`).join('\n')}` : '';
       const attemptsInfo = ctx.maxTestAttempts ? `\n**Retry attempts:** ${ctx.maxTestAttempts}` : '';
-      return `## :x: Tests Exceeded Maximum Retry Attempts\n\nTests could not be resolved after maximum retry attempts. Changes have **not** been pushed.\n${attemptsInfo}${failedTestsList}\n\n**ADW ID:** \`${ctx.adwId}\`\n\nPlease review the failing tests manually and address the issues.${ADW_SIGNATURE}`;
+      return `## :x: Tests Exceeded Maximum Retry Attempts\n\nTests could not be resolved after maximum retry attempts. Changes have **not** been pushed.\n${attemptsInfo}${failedTestsList}\n\n**ADW ID:** \`${ctx.adwId}\`\n\nPlease review the failing tests manually and address the issues.${tokenFooter}${ADW_SIGNATURE}`;
     }
 
     case 'pr_review_committing':
-      return `## :floppy_disk: Committing Review Changes\n\nCommitting and pushing changes...\n\n**ADW ID:** \`${ctx.adwId}\`${ADW_SIGNATURE}`;
+      return `## :floppy_disk: Committing Review Changes\n\nCommitting and pushing changes...\n\n**ADW ID:** \`${ctx.adwId}\`${tokenFooter}${ADW_SIGNATURE}`;
 
     case 'pr_review_pushed':
-      return `## :rocket: Changes Pushed\n\nReview changes have been committed and pushed to the branch.\n\n**ADW ID:** \`${ctx.adwId}\`${ADW_SIGNATURE}`;
+      return `## :rocket: Changes Pushed\n\nReview changes have been committed and pushed to the branch.\n\n**ADW ID:** \`${ctx.adwId}\`${tokenFooter}${ADW_SIGNATURE}`;
 
     case 'pr_review_completed': {
       const costSection = ctx.costBreakdown
         ? `\n\n<details>\n<summary>Cost Breakdown</summary>\n\n${formatCostBreakdownMarkdown(ctx.costBreakdown)}\n\n</details>`
         : '';
-      return `## :tada: PR Review Comments Addressed\n\nAll **${ctx.reviewComments}** review comment(s) have been addressed.\n\n**ADW ID:** \`${ctx.adwId}\`\n\nGenerated by ADW PR Review workflow${costSection}${ADW_SIGNATURE}`;
+      return `## :tada: PR Review Comments Addressed\n\nAll **${ctx.reviewComments}** review comment(s) have been addressed.\n\n**ADW ID:** \`${ctx.adwId}\`\n\nGenerated by ADW PR Review workflow${costSection}${tokenFooter}${ADW_SIGNATURE}`;
     }
 
     case 'pr_review_error': {
       const errorCostSection = ctx.costBreakdown
         ? `\n\n<details>\n<summary>Cost Breakdown</summary>\n\n${formatCostBreakdownMarkdown(ctx.costBreakdown)}\n\n</details>`
         : '';
-      return `## :x: PR Review Workflow Error\n\nAn error occurred while addressing review comments.\n\n**Error:** ${ctx.errorMessage || 'Unknown error'}\n**ADW ID:** \`${ctx.adwId}\`\n\nPlease check the logs for more details.${errorCostSection}${ADW_SIGNATURE}`;
+      return `## :x: PR Review Workflow Error\n\nAn error occurred while addressing review comments.\n\n**Error:** ${ctx.errorMessage || 'Unknown error'}\n**ADW ID:** \`${ctx.adwId}\`\n\nPlease check the logs for more details.${errorCostSection}${tokenFooter}${ADW_SIGNATURE}`;
     }
 
     default:
-      return `## ADW PR Review Update\n\n**Stage:** ${stage}\n**ADW ID:** \`${ctx.adwId}\`${ADW_SIGNATURE}`;
+      return `## ADW PR Review Update\n\n**Stage:** ${stage}\n**ADW ID:** \`${ctx.adwId}\`${tokenFooter}${ADW_SIGNATURE}`;
   }
 }
 

@@ -50,6 +50,12 @@ const ADW_COMMENT_PATTERN = /^## :[a-z_]+: /m;
 /** Machine-readable footer appended to all ADW workflow comments. */
 export const ADW_SIGNATURE = '\n\n---\n_Posted by ADW (AI Developer Workflow) automation_ <!-- adw-bot -->';
 
+/** Formats a running token total footer line, or returns empty string when not set. */
+export function formatRunningTokenFooter(tokenTotal?: { total: number }): string {
+  if (!tokenTotal) return '';
+  return `\n\n> **Running Token Total:** ${tokenTotal.total.toLocaleString('en-US')} tokens`;
+}
+
 /** Pattern matching the HTML comment marker in the ADW signature footer. */
 export const ADW_SIGNATURE_PATTERN = /<!-- adw-bot -->/;
 

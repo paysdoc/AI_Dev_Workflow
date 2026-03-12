@@ -114,6 +114,9 @@ export const TOKEN_LIMIT_THRESHOLD = parseFloat(process.env.TOKEN_LIMIT_THRESHOL
 /** Maximum number of continuation attempts before failing (default: 3). */
 export const MAX_TOKEN_CONTINUATIONS = Math.max(1, parseInt(process.env.MAX_TOKEN_CONTINUATIONS || '3', 10)) || 3;
 
+/** Whether to include running token totals in issue/PR comments. */
+export const RUNNING_TOKENS = Boolean(process.env.RUNNING_TOKENS);
+
 /** Allowlist of environment variable names safe to pass to Claude CLI subprocesses. */
 const SAFE_ENV_VARS: readonly string[] = [
   'ANTHROPIC_API_KEY',

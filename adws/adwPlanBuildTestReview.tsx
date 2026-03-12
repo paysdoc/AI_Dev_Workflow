@@ -21,7 +21,7 @@
  * - MAX_REVIEW_RETRY_ATTEMPTS: Maximum retry attempts for review-patch loop (default: 3)
  */
 
-import { mergeModelUsageMaps, persistTokenCounts, parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId } from './core';
+import { mergeModelUsageMaps, persistTokenCounts, parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId, computeTotalTokens, RUNNING_TOKENS } from './core';
 import {
   initializeWorkflow,
   executePlanPhase,
@@ -61,26 +61,31 @@ async function main(): Promise<void> {
     totalCostUsd += planResult.costUsd;
     totalModelUsage = mergeModelUsageMaps(totalModelUsage, planResult.modelUsage);
     persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
+    if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeTotalTokens(totalModelUsage);
 
     const buildResult = await executeBuildPhase(config);
     totalCostUsd += buildResult.costUsd;
     totalModelUsage = mergeModelUsageMaps(totalModelUsage, buildResult.modelUsage);
     persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
+    if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeTotalTokens(totalModelUsage);
 
     const testResult = await executeTestPhase(config);
     totalCostUsd += testResult.costUsd;
     totalModelUsage = mergeModelUsageMaps(totalModelUsage, testResult.modelUsage);
     persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
+    if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeTotalTokens(totalModelUsage);
 
     const prResult = await executePRPhase(config);
     totalCostUsd += prResult.costUsd;
     totalModelUsage = mergeModelUsageMaps(totalModelUsage, prResult.modelUsage);
     persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
+    if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeTotalTokens(totalModelUsage);
 
     const reviewResult = await executeReviewPhase(config);
     totalCostUsd += reviewResult.costUsd;
     totalModelUsage = mergeModelUsageMaps(totalModelUsage, reviewResult.modelUsage);
     persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
+    if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeTotalTokens(totalModelUsage);
 
     await completeWorkflow(config, totalCostUsd, {
       unitTestsPassed: testResult.unitTestsPassed,
