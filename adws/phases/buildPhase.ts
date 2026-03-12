@@ -9,10 +9,12 @@ import {
   AgentStateManager,
   shouldExecuteStage,
   MAX_TOKEN_CONTINUATIONS,
+  RUNNING_TOKENS,
   type ModelUsageMap,
   emptyModelUsageMap,
   mergeModelUsageMaps,
 } from '../core';
+import { computeDisplayTokens } from '../core/tokenManager';
 import { postIssueStageComment } from './phaseCommentHelpers';
 import {
   getPlanFilePath,
@@ -102,6 +104,12 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
       costUsd += buildResult.totalCostUsd || 0;
       if (buildResult.modelUsage) {
         modelUsage = mergeModelUsageMaps(modelUsage, buildResult.modelUsage);
+      }
+
+      // Update running token total so next build_progress comment reflects current usage
+      if (RUNNING_TOKENS && config.totalModelUsage) {
+        const combinedUsage = mergeModelUsageMaps(config.totalModelUsage, modelUsage);
+        ctx.runningTokenTotal = computeDisplayTokens(combinedUsage);
       }
 
       if (buildResult.tokenLimitExceeded) {

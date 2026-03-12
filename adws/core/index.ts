@@ -129,7 +129,7 @@ export { extractCwdOption, extractIssueTypeOption, parseIssueNumber, printUsageA
 
 // Token Manager
 export type { TokenTotals, ModelTokenEntry } from './tokenManager';
-export { computeTotalTokens, computePrimaryModelTokens, isModelMatch } from './tokenManager';
+export { computeTotalTokens, computeDisplayTokens, computePrimaryModelTokens, isModelMatch } from './tokenManager';
 
 // Target repo manager
 export {

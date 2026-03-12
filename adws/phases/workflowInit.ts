@@ -20,6 +20,7 @@ import {
   type TargetRepoInfo,
   ensureTargetRepoWorkspace,
   type ProjectConfig,
+  type ModelUsageMap,
   loadProjectConfig,
 } from '../core';
 import {
@@ -70,6 +71,7 @@ export interface WorkflowConfig {
   targetRepo?: TargetRepoInfo;
   repoContext?: RepoContext;
   projectConfig: ProjectConfig;
+  totalModelUsage?: ModelUsageMap;
 }
 
 /**

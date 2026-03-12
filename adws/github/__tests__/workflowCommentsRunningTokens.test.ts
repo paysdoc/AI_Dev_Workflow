@@ -50,7 +50,7 @@ describe('formatRunningTokenFooter', () => {
 
   it('returns formatted string with token count', () => {
     const result = formatRunningTokenFooter({ total: 1234567 });
-    expect(result).toContain('Running Token Total:');
+    expect(result).toContain('Running Token Total (I/O):');
     expect(result).toContain('1,234,567 tokens');
   });
 
@@ -66,7 +66,7 @@ describe('formatRunningTokenFooter', () => {
 
   it('uses blockquote format', () => {
     const result = formatRunningTokenFooter({ total: 100 });
-    expect(result).toContain('> **Running Token Total:**');
+    expect(result).toContain('> **Running Token Total (I/O):**');
   });
 
   it('includes model breakdown when provided', () => {
@@ -117,15 +117,15 @@ describe('formatRunningTokenFooter', () => {
     expect(sonnetIndex).toBeLessThan(haikuIndex);
   });
 
-  it('shows no parenthetical when modelBreakdown is empty', () => {
+  it('shows no model breakdown parenthetical when modelBreakdown is empty', () => {
     const result = formatRunningTokenFooter({ total: 100, modelBreakdown: [] });
     expect(result).toContain('100 tokens');
-    expect(result).not.toContain('(');
+    expect(result).not.toMatch(/tokens \(/);
   });
 
-  it('shows no parenthetical when modelBreakdown is absent', () => {
+  it('shows no model breakdown parenthetical when modelBreakdown is absent', () => {
     const result = formatRunningTokenFooter({ total: 100 });
-    expect(result).not.toContain('(');
+    expect(result).not.toMatch(/tokens \(/);
   });
 });
 
@@ -139,7 +139,7 @@ describe('formatWorkflowComment with running token footer', () => {
     const ctx = createBaseContext({ runningTokenTotal });
     const result = formatWorkflowComment('implementing', ctx);
 
-    expect(result).toContain('Running Token Total:');
+    expect(result).toContain('Running Token Total (I/O):');
     expect(result).toContain('1,000 tokens');
   });
 
@@ -215,7 +215,7 @@ describe('formatPRReviewWorkflowComment with running token footer', () => {
     const ctx = createPRContext({ runningTokenTotal });
     const result = formatPRReviewWorkflowComment('pr_review_starting', ctx);
 
-    expect(result).toContain('Running Token Total:');
+    expect(result).toContain('Running Token Total (I/O):');
     expect(result).toContain('4,000 tokens');
   });
 

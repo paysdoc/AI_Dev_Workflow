@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isModelMatch, computePrimaryModelTokens } from '../tokenManager';
+import { isModelMatch, computePrimaryModelTokens, computeDisplayTokens } from '../tokenManager';
 import type { ModelUsageMap } from '../../types/costTypes';
 
 describe('isModelMatch', () => {
@@ -138,5 +138,125 @@ describe('computePrimaryModelTokens', () => {
     const result = computePrimaryModelTokens(usage, 'opus');
 
     expect(result.total).toBe(175); // 100 + 50 + 25, not including 99999
+  });
+});
+
+describe('computeDisplayTokens', () => {
+  it('computes only inputTokens + outputTokens for a single model', () => {
+    const usage: ModelUsageMap = {
+      'claude-opus-4-6': {
+        inputTokens: 5000,
+        outputTokens: 3000,
+        cacheReadInputTokens: 100000,
+        cacheCreationInputTokens: 20000,
+        costUSD: 1.5,
+      },
+    };
+
+    const result = computeDisplayTokens(usage);
+
+    expect(result.inputTokens).toBe(5000);
+    expect(result.outputTokens).toBe(3000);
+    expect(result.total).toBe(8000);
+  });
+
+  it('always returns cacheCreationTokens as 0', () => {
+    const usage: ModelUsageMap = {
+      'claude-opus-4-6': {
+        inputTokens: 1000,
+        outputTokens: 500,
+        cacheReadInputTokens: 50000,
+        cacheCreationInputTokens: 10000,
+        costUSD: 0.5,
+      },
+    };
+
+    const result = computeDisplayTokens(usage);
+
+    expect(result.cacheCreationTokens).toBe(0);
+  });
+
+  it('excludes all cache tokens from modelBreakdown entries', () => {
+    const usage: ModelUsageMap = {
+      'claude-opus-4-6': {
+        inputTokens: 4620,
+        outputTokens: 75372,
+        cacheReadInputTokens: 8394568,
+        cacheCreationInputTokens: 336948,
+        costUSD: 8.21,
+      },
+    };
+
+    const result = computeDisplayTokens(usage);
+
+    expect(result.modelBreakdown).toHaveLength(1);
+    expect(result.modelBreakdown[0]).toEqual({ model: 'claude-opus-4-6', total: 79992 });
+  });
+
+  it('aggregates across multiple models without cache tokens', () => {
+    const usage: ModelUsageMap = {
+      'claude-opus-4-6': {
+        inputTokens: 4620,
+        outputTokens: 75372,
+        cacheReadInputTokens: 8394568,
+        cacheCreationInputTokens: 336948,
+        costUSD: 8.21,
+      },
+      'claude-haiku-4-5-20251001': {
+        inputTokens: 166,
+        outputTokens: 47910,
+        cacheReadInputTokens: 1230803,
+        cacheCreationInputTokens: 282700,
+        costUSD: 0.72,
+      },
+      'claude-sonnet-4-6': {
+        inputTokens: 6,
+        outputTokens: 1313,
+        cacheReadInputTokens: 68224,
+        cacheCreationInputTokens: 12885,
+        costUSD: 0.09,
+      },
+    };
+
+    const result = computeDisplayTokens(usage);
+
+    expect(result.inputTokens).toBe(4792);
+    expect(result.outputTokens).toBe(124595);
+    expect(result.total).toBe(129387);
+    expect(result.cacheCreationTokens).toBe(0);
+  });
+
+  it('returns zeros for empty map', () => {
+    const result = computeDisplayTokens({});
+
+    expect(result.inputTokens).toBe(0);
+    expect(result.outputTokens).toBe(0);
+    expect(result.cacheCreationTokens).toBe(0);
+    expect(result.total).toBe(0);
+    expect(result.modelBreakdown).toHaveLength(0);
+  });
+
+  it('sorts modelBreakdown descending by total', () => {
+    const usage: ModelUsageMap = {
+      'claude-haiku-4-5': {
+        inputTokens: 100,
+        outputTokens: 50,
+        cacheReadInputTokens: 0,
+        cacheCreationInputTokens: 0,
+        costUSD: 0.01,
+      },
+      'claude-opus-4-6': {
+        inputTokens: 5000,
+        outputTokens: 3000,
+        cacheReadInputTokens: 0,
+        cacheCreationInputTokens: 0,
+        costUSD: 1.0,
+      },
+    };
+
+    const result = computeDisplayTokens(usage);
+
+    expect(result.modelBreakdown[0].model).toBe('claude-opus-4-6');
+    expect(result.modelBreakdown[1].model).toBe('claude-haiku-4-5');
   });
 });
