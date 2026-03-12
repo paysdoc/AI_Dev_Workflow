@@ -55,6 +55,37 @@ export function computeTotalTokens(modelUsage: ModelUsageMap): TokenTotals {
 }
 
 /**
+ * Computes display-only token totals (input + output) across all models.
+ * Excludes all cache tokens (both cacheCreationInputTokens and cacheReadInputTokens)
+ * so the running total is easily cross-referenced with the cost breakdown table.
+ * Used exclusively for the running token total shown in GitHub comments.
+ */
+export function computeDisplayTokens(modelUsage: ModelUsageMap): TokenTotals {
+  const { inputTokens, outputTokens } = Object.values(modelUsage).reduce(
+    (acc, usage) => ({
+      inputTokens: acc.inputTokens + usage.inputTokens,
+      outputTokens: acc.outputTokens + usage.outputTokens,
+    }),
+    { inputTokens: 0, outputTokens: 0 },
+  );
+
+  const modelBreakdown: ModelTokenEntry[] = Object.entries(modelUsage)
+    .map(([model, usage]) => ({
+      model,
+      total: usage.inputTokens + usage.outputTokens,
+    }))
+    .sort((a, b) => b.total - a.total);
+
+  return {
+    inputTokens,
+    outputTokens,
+    cacheCreationTokens: 0,
+    total: inputTokens + outputTokens,
+    modelBreakdown,
+  };
+}
+
+/**
  * Checks whether a full model ID key (e.g., `claude-opus-4-6`) matches a
  * model tier shorthand (e.g., `opus`). Uses a case-insensitive includes check
  * so it works with any versioned model ID format.

@@ -24,7 +24,7 @@
  */
 
 import * as path from 'path';
-import { mergeModelUsageMaps, persistTokenCounts, parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId, computeTotalTokens, RUNNING_TOKENS } from './core';
+import { mergeModelUsageMaps, persistTokenCounts, parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId, computeDisplayTokens, RUNNING_TOKENS } from './core';
 import {
   initializeWorkflow,
   executePlanPhase,
@@ -73,38 +73,43 @@ async function main(): Promise<void> {
     totalCostUsd += planResult.costUsd;
     totalModelUsage = mergeModelUsageMaps(totalModelUsage, planResult.modelUsage);
     persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
-    if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeTotalTokens(totalModelUsage);
+    if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeDisplayTokens(totalModelUsage);
 
+    config.totalModelUsage = totalModelUsage;
     const buildResult = await executeBuildPhase(config);
     totalCostUsd += buildResult.costUsd;
     totalModelUsage = mergeModelUsageMaps(totalModelUsage, buildResult.modelUsage);
     persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
-    if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeTotalTokens(totalModelUsage);
+    if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeDisplayTokens(totalModelUsage);
 
+    config.totalModelUsage = totalModelUsage;
     const testResult = await executeTestPhase(config);
     totalCostUsd += testResult.costUsd;
     totalModelUsage = mergeModelUsageMaps(totalModelUsage, testResult.modelUsage);
     persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
-    if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeTotalTokens(totalModelUsage);
+    if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeDisplayTokens(totalModelUsage);
 
+    config.totalModelUsage = totalModelUsage;
     const prResult = await executePRPhase(config);
     totalCostUsd += prResult.costUsd;
     totalModelUsage = mergeModelUsageMaps(totalModelUsage, prResult.modelUsage);
     persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
-    if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeTotalTokens(totalModelUsage);
+    if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeDisplayTokens(totalModelUsage);
 
+    config.totalModelUsage = totalModelUsage;
     const reviewResult = await executeReviewPhase(config);
     totalCostUsd += reviewResult.costUsd;
     totalModelUsage = mergeModelUsageMaps(totalModelUsage, reviewResult.modelUsage);
     persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
-    if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeTotalTokens(totalModelUsage);
+    if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeDisplayTokens(totalModelUsage);
 
+    config.totalModelUsage = totalModelUsage;
     const screenshotsDir = getReviewScreenshotsDir(config.adwId);
     const docResult = await executeDocumentPhase(config, screenshotsDir);
     totalCostUsd += docResult.costUsd;
     totalModelUsage = mergeModelUsageMaps(totalModelUsage, docResult.modelUsage);
     persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
-    if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeTotalTokens(totalModelUsage);
+    if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeDisplayTokens(totalModelUsage);
 
     const kpiResult = await executeKpiPhase(config, reviewResult.totalRetries);
     totalCostUsd += kpiResult.costUsd;

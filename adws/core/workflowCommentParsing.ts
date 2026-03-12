@@ -65,7 +65,7 @@ export function formatModelName(modelKey: string): string {
 /** Formats a running token total footer line, or returns empty string when not set. */
 export function formatRunningTokenFooter(tokenTotal?: { total: number; modelBreakdown?: Array<{ model: string; total: number }> }): string {
   if (!tokenTotal) return '';
-  let line = `\n\n> **Running Token Total:** ${tokenTotal.total.toLocaleString('en-US')} tokens`;
+  let line = `\n\n> **Running Token Total (I/O):** ${tokenTotal.total.toLocaleString('en-US')} tokens`;
   if (tokenTotal.modelBreakdown && tokenTotal.modelBreakdown.length > 0) {
     const parts = tokenTotal.modelBreakdown.map(
       (entry) => `${formatModelName(entry.model)}: ${entry.total.toLocaleString('en-US')}`,

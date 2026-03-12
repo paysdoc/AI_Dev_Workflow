@@ -33,6 +33,7 @@ export interface PRReviewWorkflowConfig {
   ctx: PRReviewWorkflowContext;
   applicationUrl: string;
   repoContext?: RepoContext;
+  totalModelUsage?: ModelUsageMap;
 }
 
 /**
