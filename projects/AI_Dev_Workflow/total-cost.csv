@@ -46,6 +46,7 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 119,remove global targetreporegistry singleton,2.8275,0.2828
 120,extract git operations into a vcs agnostic module,9.0153,0.9015
 121,add provider configuration to adw project config,5.6448,0.5645
+122,implement gitlab codehost provider,7.3265,0.7327
 123,implement jira issuetracker provider,6.2039,0.6204
 126,json error,0.4218,0.0422
 134,pr 133 in an endless loop,4.0760,0.4076
@@ -54,5 +55,5 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 140,bug adwid format regression webhook triggers produ,1.5234,0.1523
 144,add a running total of tokens used to each issue c,8.7925,0.8793
 
-Total Cost (USD):,213.4736
-Total Cost (EUR):,184.5663
+Total Cost (USD):,221.5327
+Total Cost (EUR):,191.5341
