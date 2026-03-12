@@ -44,13 +44,6 @@ vi.mock('../core', async (importOriginal) => {
   };
 });
 
-vi.mock('../core/targetRepoRegistry', () => ({
-  setTargetRepo: vi.fn(),
-  getTargetRepo: vi.fn().mockReturnValue({ owner: 'test', repo: 'repo' }),
-  clearTargetRepo: vi.fn(),
-  hasTargetRepo: vi.fn().mockReturnValue(false),
-}));
-
 vi.mock('../github', () => ({
   fetchPRDetails: vi.fn().mockReturnValue({
     number: 42,
@@ -281,24 +274,25 @@ describe('PR Review Cost Tracking', () => {
       expect(buildCostBreakdown).toHaveBeenCalledWith(modelUsage, expect.any(Array));
       expect(writeIssueCostCsv).toHaveBeenCalledWith(
         process.cwd(),
-        'repo',
+        'test-repo',
         10,
         'Test PR',
         expect.objectContaining({ totalCostUsd: 1.5 }),
       );
       expect(rebuildProjectCostCsv).toHaveBeenCalledWith(
         process.cwd(),
-        'repo',
+        'test-repo',
         expect.any(Number),
       );
     });
 
-    it('uses config.repoInfo.repo when available', async () => {
+    it('uses config.repoContext.repoId.repo when available', async () => {
       const modelUsage = {
         'claude-sonnet-4-20250514': { inputTokens: 100, outputTokens: 50, cacheReadInputTokens: 0, cacheCreationInputTokens: 0, costUSD: 1.5 },
       };
+      const customRepoContext = { ...makeRepoContext(), repoId: { ...makeRepoContext().repoId, owner: 'custom-owner', repo: 'custom-repo' } };
       const config = createPRReviewWorkflowConfig({
-        repoInfo: { owner: 'custom-owner', repo: 'custom-repo' },
+        repoContext: customRepoContext,
       });
 
       await completePRReviewWorkflow(config, modelUsage);

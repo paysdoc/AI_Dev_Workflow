@@ -8,7 +8,6 @@
 import { log, AgentStateManager, COST_REPORT_CURRENCIES, type ModelUsageMap, buildCostBreakdown, mergeModelUsageMaps, emptyModelUsageMap, persistTokenCounts, writeIssueCostCsv, rebuildProjectCostCsv, OrchestratorId, computeEurRate } from '../core';
 import { pushBranch, inferIssueTypeFromBranch } from '../github';
 import { postPRStageComment } from './phaseCommentHelpers';
-import { getTargetRepo } from '../core/targetRepoRegistry';
 import { runCommitAgent, runUnitTestsWithRetry, runE2ETestsWithRetry } from '../agents';
 import { MAX_TEST_RETRY_ATTEMPTS } from '../core';
 import type { PRReviewWorkflowConfig } from './prReviewPhase';
@@ -112,7 +111,7 @@ export async function completePRReviewWorkflow(config: PRReviewWorkflowConfig, m
 
     // Write cost data to CSV files
     try {
-      const repoName = config.repoInfo?.repo ?? getTargetRepo().repo;
+      const repoName = config.repoContext!.repoId.repo;
       const adwRepoRoot = process.cwd();
       const eurRate = computeEurRate(costBreakdown);
 

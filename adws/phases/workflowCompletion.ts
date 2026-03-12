@@ -36,7 +36,7 @@ export async function completeWorkflow(
 
     // Write cost data to CSV files
     try {
-      const repoName = config.targetRepo?.repo ?? config.repoInfo?.repo ?? 'unknown';
+      const repoName = config.targetRepo?.repo ?? config.repoContext?.repoId.repo ?? 'unknown';
       const adwRepoRoot = config.targetRepo ? process.cwd() : config.worktreePath;
       const eurRate = computeEurRate(costBreakdown);
 

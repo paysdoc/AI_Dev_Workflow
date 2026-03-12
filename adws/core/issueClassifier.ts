@@ -194,7 +194,7 @@ async function classifyWithIssueCommand(
  */
 export async function classifyIssueForTrigger(
   issueNumber: number,
-  repoInfo?: RepoInfo,
+  repoInfo: RepoInfo,
 ): Promise<IssueClassificationResult> {
   try {
     log(`Classifying issue #${issueNumber} for trigger...`);

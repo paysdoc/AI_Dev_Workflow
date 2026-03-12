@@ -131,7 +131,7 @@ export async function checkAndTrigger(): Promise<void> {
 /** Checks open PRs for actionable review comments and triggers PR review workflows. */
 function checkPRsForReviewComments(): void {
   log('Polling for PRs with unaddressed review comments...');
-  const prs = fetchPRList();
+  const prs = fetchPRList(cronRepoInfo);
 
   for (const pr of prs) {
     if (processedPRs.has(pr.number)) continue;

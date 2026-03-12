@@ -4,7 +4,6 @@
 
 import { execSync } from 'child_process';
 import { log } from '../core';
-import { resolveTargetRepoCwd } from '../core/targetRepoRegistry';
 import { getCurrentBranch, PROTECTED_BRANCHES } from './gitBranchOperations';
 
 // Re-export PROTECTED_BRANCHES for consumers that import from this module
@@ -18,16 +17,15 @@ export { PROTECTED_BRANCHES };
  */
 export function commitChanges(message: string, cwd?: string): boolean {
   try {
-    const resolvedCwd = resolveTargetRepoCwd(cwd);
-    const status = execSync('git status --porcelain', { encoding: 'utf-8', cwd: resolvedCwd });
+    const status = execSync('git status --porcelain', { encoding: 'utf-8', cwd });
 
     if (!status.trim()) {
       log('No changes to commit', 'info');
       return false;
     }
 
-    execSync('git add -A', { stdio: 'pipe', cwd: resolvedCwd });
-    execSync(`git commit -m "${message.replace(/"/g, '\\"')}"`, { stdio: 'pipe', cwd: resolvedCwd });
+    execSync('git add -A', { stdio: 'pipe', cwd });
+    execSync(`git commit -m "${message.replace(/"/g, '\\"')}"`, { stdio: 'pipe', cwd });
     log(`Committed: ${message}`, 'success');
     return true;
   } catch (error) {
@@ -42,8 +40,7 @@ export function commitChanges(message: string, cwd?: string): boolean {
  * @param cwd - Optional working directory to run the command in
  */
 export function pushBranch(branchName: string, cwd?: string): void {
-  const resolvedCwd = resolveTargetRepoCwd(cwd);
-  execSync(`git push -u origin "${branchName}"`, { stdio: 'pipe', cwd: resolvedCwd });
+  execSync(`git push -u origin "${branchName}"`, { stdio: 'pipe', cwd });
   log(`Pushed branch to origin`, 'success');
 }
 
@@ -53,15 +50,14 @@ export function pushBranch(branchName: string, cwd?: string): void {
  * @param cwd - Optional working directory to run the command in
  */
 export function pullLatestCostBranch(cwd?: string): void {
-  const resolvedCwd = resolveTargetRepoCwd(cwd);
-  const branch = getCurrentBranch(resolvedCwd);
+  const branch = getCurrentBranch(cwd);
 
   if (!branch) {
     throw new Error('Cannot pull latest cost branch: no current branch detected (detached HEAD)');
   }
 
-  execSync(`git fetch origin "${branch}"`, { stdio: 'pipe', cwd: resolvedCwd });
-  execSync(`git rebase --autostash "origin/${branch}"`, { stdio: 'pipe', cwd: resolvedCwd });
+  execSync(`git fetch origin "${branch}"`, { stdio: 'pipe', cwd });
+  execSync(`git rebase --autostash "origin/${branch}"`, { stdio: 'pipe', cwd });
   log(`Pulled latest changes from origin/${branch}`, 'success');
 }
 
@@ -82,7 +78,6 @@ export function commitAndPushCostFiles(options: CommitCostFilesOptions = {}): bo
   const { repoName, cwd } = options;
 
   try {
-    const resolvedCwd = resolveTargetRepoCwd(cwd);
     let addPath: string;
     let statusPath: string;
     let commitMessage: string;
@@ -101,7 +96,7 @@ export function commitAndPushCostFiles(options: CommitCostFilesOptions = {}): bo
 
     const status = execSync(
       `git status --porcelain -- ${statusPath}`,
-      { encoding: 'utf-8', cwd: resolvedCwd },
+      { encoding: 'utf-8', cwd },
     ).trim();
 
     if (!status) {
@@ -109,21 +104,21 @@ export function commitAndPushCostFiles(options: CommitCostFilesOptions = {}): bo
       return false;
     }
 
-    execSync(`git add ${addPath}`, { stdio: 'pipe', cwd: resolvedCwd });
+    execSync(`git add ${addPath}`, { stdio: 'pipe', cwd });
     execSync(
       `git commit -m "${commitMessage}"`,
-      { stdio: 'pipe', cwd: resolvedCwd },
+      { stdio: 'pipe', cwd },
     );
 
-    const branch = getCurrentBranch(resolvedCwd);
+    const branch = getCurrentBranch(cwd);
 
     if (!branch) {
       throw new Error('Cannot push cost files: no current branch detected (detached HEAD)');
     }
 
-    execSync(`git fetch origin "${branch}"`, { stdio: 'pipe', cwd: resolvedCwd });
-    execSync(`git rebase --autostash "origin/${branch}"`, { stdio: 'pipe', cwd: resolvedCwd });
-    execSync(`git push origin "${branch}"`, { stdio: 'pipe', cwd: resolvedCwd });
+    execSync(`git fetch origin "${branch}"`, { stdio: 'pipe', cwd });
+    execSync(`git rebase --autostash "origin/${branch}"`, { stdio: 'pipe', cwd });
+    execSync(`git push origin "${branch}"`, { stdio: 'pipe', cwd });
 
     log(`Committed and pushed cost CSV files`, 'success');
     return true;

@@ -7,7 +7,6 @@
 
 import { execSync } from 'child_process';
 import { PRReviewComment, log } from '../core';
-import { resolveTargetRepoCwd } from '../core/targetRepoRegistry';
 import { fetchPRDetails, fetchPRReviewComments } from './githubApi';
 import type { RepoInfo } from './githubApi';
 
@@ -25,10 +24,9 @@ export const ADW_COMMIT_PATTERN = /^[\w/-]+: \w+: /;
  */
 export function getLastAdwCommitTimestamp(branchName: string, cwd?: string): Date | null {
   try {
-    const resolvedCwd = resolveTargetRepoCwd(cwd);
     const output = execSync(
       `git log "${branchName}" --format="%aI %s" --no-merges`,
-      { encoding: 'utf-8', cwd: resolvedCwd }
+      { encoding: 'utf-8', cwd }
     );
 
     for (const line of output.split('\n')) {
@@ -54,7 +52,7 @@ export function getLastAdwCommitTimestamp(branchName: string, cwd?: string): Dat
  * Gets unaddressed PR review comments — comments posted after the last ADW commit.
  * If no ADW commits are found, all non-bot comments are considered unaddressed.
  */
-export function getUnaddressedComments(prNumber: number, repoInfo?: RepoInfo): PRReviewComment[] {
+export function getUnaddressedComments(prNumber: number, repoInfo: RepoInfo): PRReviewComment[] {
   log(`Fetching unaddressed comments for PR #${prNumber}`);
   const prDetails = fetchPRDetails(prNumber, repoInfo);
   const comments = fetchPRReviewComments(prNumber, repoInfo);
@@ -87,6 +85,6 @@ export function getUnaddressedComments(prNumber: number, repoInfo?: RepoInfo): P
 /**
  * Returns true if the PR has any unaddressed review comments.
  */
-export function hasUnaddressedComments(prNumber: number, repoInfo?: RepoInfo): boolean {
+export function hasUnaddressedComments(prNumber: number, repoInfo: RepoInfo): boolean {
   return getUnaddressedComments(prNumber, repoInfo).length > 0;
 }

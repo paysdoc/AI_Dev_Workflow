@@ -132,7 +132,7 @@ export async function handlePullRequestEvent(payload: PullRequestWebhookPayload)
   const comment = formatIssueClosureComment(prNumber, prUrl, wasMerged);
 
   // Close the issue
-  const closed = await closeIssue(issueNumber, comment, repoInfo);
+  const closed = await closeIssue(issueNumber, repoInfo, comment);
 
   if (closed) {
     log(`Successfully closed issue #${issueNumber} after PR #${prNumber} was ${wasMerged ? 'merged' : 'closed'}`);

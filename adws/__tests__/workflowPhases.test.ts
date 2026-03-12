@@ -904,8 +904,8 @@ describe('initializePRReviewWorkflow', () => {
 
     const config = await initializePRReviewWorkflow(42, 'test-adw-id');
 
-    expect(fetchPRDetails).toHaveBeenCalledWith(42, undefined);
-    expect(getUnaddressedComments).toHaveBeenCalledWith(42, undefined);
+    expect(fetchPRDetails).toHaveBeenCalledWith(42, { owner: 'test', repo: 'repo' });
+    expect(getUnaddressedComments).toHaveBeenCalledWith(42, { owner: 'test', repo: 'repo' });
     expect(config.prNumber).toBe(42);
     expect(config.adwId).toBe('test-adw-id');
     expect(config.prDetails.title).toBe('Test PR');

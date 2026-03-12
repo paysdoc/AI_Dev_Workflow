@@ -7,7 +7,6 @@
 import { execSync } from 'child_process';
 import * as path from 'path';
 import { log, type IssueClassSlashCommand, branchPrefixMap, branchPrefixAliases } from '../core';
-import { resolveTargetRepoCwd } from '../core/targetRepoRegistry';
 
 /**
  * Result of finding a worktree by issue type and number.
@@ -66,8 +65,7 @@ export function findWorktreeForIssue(
     const aliases = branchPrefixAliases[issueType];
     const allPrefixes = [prefix, ...aliases];
     const pattern = new RegExp('^(' + allPrefixes.join('|') + ')-issue-' + issueNumber + '-');
-    const resolvedCwd = resolveTargetRepoCwd(cwd);
-    const output = execSync('git worktree list --porcelain', { encoding: 'utf-8', cwd: resolvedCwd });
+    const output = execSync('git worktree list --porcelain', { encoding: 'utf-8', cwd });
     const lines = output.split('\n');
 
     let currentWorktreePath: string | null = null;

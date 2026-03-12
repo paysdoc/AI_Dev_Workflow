@@ -5,7 +5,7 @@
 import { execSync } from 'child_process';
 import { PRDetails, PRReviewComment, PRListItem, log } from '../core';
 import { type RepoInfo } from './githubApi';
-import { getTargetRepo } from '../core/targetRepoRegistry';
+
 
 interface RawPRDetails {
   number: number;
@@ -53,8 +53,8 @@ interface RawPRListItem {
  * @param prNumber - The PR number to fetch
  * @param repoInfo - Optional repository info override for targeting external repositories.
  */
-export function fetchPRDetails(prNumber: number, repoInfo?: RepoInfo): PRDetails {
-  const { owner, repo } = repoInfo ?? getTargetRepo();
+export function fetchPRDetails(prNumber: number, repoInfo: RepoInfo): PRDetails {
+  const { owner, repo } = repoInfo;
 
   try {
     const json = execSync(
@@ -121,8 +121,8 @@ export function fetchPRReviews(owner: string, repo: string, prNumber: number): P
  * @param prNumber - The PR number to fetch comments for
  * @param repoInfo - Optional repository info override for targeting external repositories.
  */
-export function fetchPRReviewComments(prNumber: number, repoInfo?: RepoInfo): PRReviewComment[] {
-  const { owner, repo } = repoInfo ?? getTargetRepo();
+export function fetchPRReviewComments(prNumber: number, repoInfo: RepoInfo): PRReviewComment[] {
+  const { owner, repo } = repoInfo;
   log(`Fetching PR review comments for ${owner}/${repo}#${prNumber}`);
 
   let lineComments: PRReviewComment[] = [];
@@ -166,8 +166,8 @@ export function fetchPRReviewComments(prNumber: number, repoInfo?: RepoInfo): PR
  * @param body - The comment body text
  * @param repoInfo - Optional repository info override for targeting external repositories.
  */
-export function commentOnPR(prNumber: number, body: string, repoInfo?: RepoInfo): void {
-  const { owner, repo } = repoInfo ?? getTargetRepo();
+export function commentOnPR(prNumber: number, body: string, repoInfo: RepoInfo): void {
+  const { owner, repo } = repoInfo;
 
   try {
     execSync(
@@ -184,8 +184,8 @@ export function commentOnPR(prNumber: number, body: string, repoInfo?: RepoInfo)
  * Fetches open PRs for CRON trigger polling.
  * @param repoInfo - Optional repository info override for targeting external repositories.
  */
-export function fetchPRList(repoInfo?: RepoInfo): PRListItem[] {
-  const { owner, repo } = repoInfo ?? getTargetRepo();
+export function fetchPRList(repoInfo: RepoInfo): PRListItem[] {
+  const { owner, repo } = repoInfo;
 
   try {
     const json = execSync(

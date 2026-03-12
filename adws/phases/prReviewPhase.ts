@@ -9,7 +9,6 @@ import { fetchPRDetails, getUnaddressedComments, type PRReviewWorkflowContext, e
 import type { RepoContext, RepoIdentifier } from '../providers/types';
 import { Platform } from '../providers/types';
 import { createRepoContext } from '../providers/repoContext';
-import { setTargetRepo } from '../core/targetRepoRegistry';
 import { getPlanFilePath, runPrReviewPlanAgent, runPrReviewBuildAgent, type ProgressCallback, type ProgressInfo } from '../agents';
 import { postPRStageComment } from './phaseCommentHelpers';
 
@@ -32,8 +31,6 @@ export interface PRReviewWorkflowConfig {
   orchestratorStatePath: string;
   ctx: PRReviewWorkflowContext;
   applicationUrl: string;
-  /** @deprecated Use `repoContext` instead. Kept during transition for backward compatibility. */
-  repoInfo?: RepoInfo;
   repoContext?: RepoContext;
 }
 
@@ -44,12 +41,8 @@ export interface PRReviewWorkflowConfig {
  * @param adwId - Optional ADW workflow ID (generated if not provided)
  */
 export async function initializePRReviewWorkflow(prNumber: number, adwId: string | null, repoInfo?: RepoInfo, repoId?: RepoIdentifier): Promise<PRReviewWorkflowConfig> {
-  // Initialize central target repo registry (backward compat only when repoId not provided)
-  if (repoInfo && !repoId) {
-    setTargetRepo(repoInfo);
-  }
-
-  const prDetails = fetchPRDetails(prNumber, repoInfo);
+  const resolvedRepoInfo = repoInfo ?? getRepoInfo();
+  const prDetails = fetchPRDetails(prNumber, resolvedRepoInfo);
   log(`Fetched PR: ${prDetails.title}`, 'success');
   // Resolve ADW ID: use provided or generate from PR title
   const resolvedAdwId = adwId ?? generateAdwId(prDetails.title);
@@ -63,7 +56,7 @@ export async function initializePRReviewWorkflow(prNumber: number, adwId: string
     log(`PR #${prNumber} is ${prDetails.state}, skipping`, 'info');
     process.exit(0);
   }
-  const unaddressedComments = getUnaddressedComments(prNumber, repoInfo);
+  const unaddressedComments = getUnaddressedComments(prNumber, resolvedRepoInfo);
   if (unaddressedComments.length === 0) {
     log(`No unaddressed review comments on PR #${prNumber}, exiting`, 'info');
     process.exit(0);
@@ -129,7 +122,6 @@ export async function initializePRReviewWorkflow(prNumber: number, adwId: string
     orchestratorStatePath,
     ctx,
     applicationUrl,
-    repoInfo,
     repoContext,
   };
 }

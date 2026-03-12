@@ -241,7 +241,7 @@ describe('GitHubCodeHost', () => {
         '',
         '',
         'main',
-        undefined,
+        process.cwd(),
         { owner: 'acme', repo: 'widgets' },
       );
     });
@@ -274,7 +274,7 @@ describe('GitHubCodeHost', () => {
         '',
         '',
         'main',
-        undefined,
+        process.cwd(),
         { owner: 'acme', repo: 'widgets' },
       );
     });

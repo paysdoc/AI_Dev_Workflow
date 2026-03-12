@@ -13,7 +13,7 @@ import { log, PullRequestWebhookPayload, allocateRandomPort, isPortAvailable, ge
 import { fetchExchangeRates } from '../core/costReport';
 import { costCommitQueue } from '../core/costCommitQueue';
 import { commitAndPushCostFiles, pullLatestCostBranch } from '../github/gitOperations';
-import { isActionableComment, isClearComment, isAdwRunningForIssue, truncateText, getRepoInfoFromPayload } from '../github';
+import { isActionableComment, isClearComment, isAdwRunningForIssue, truncateText, getRepoInfoFromPayload, getRepoInfo } from '../github';
 import { clearIssueComments } from '../adwClearComments';
 import { removeWorktreesForIssue } from '../github/worktreeOperations';
 import { handlePullRequestEvent, wasMergedViaPR } from './webhookHandlers';
@@ -126,7 +126,7 @@ const server = http.createServer((req, res) => {
       }
       if (!isActionableComment(commentBody)) { jsonResponse(res, 200, { status: 'ignored' }); return; }
       const commentTargetRepoArgs = extractTargetRepoArgs(body);
-      isAdwRunningForIssue(issueNumber)
+      isAdwRunningForIssue(issueNumber, webhookRepoInfo ?? getRepoInfo())
         .then(async (running) => {
           if (running) { log(`ADW already running for issue #${issueNumber}, deferring`); return; }
           if (webhookRepoInfo) {

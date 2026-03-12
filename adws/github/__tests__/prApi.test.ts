@@ -8,10 +8,6 @@ vi.mock('../../core/utils', () => ({
   log: vi.fn(),
 }));
 
-vi.mock('../../core/targetRepoRegistry', () => ({
-  getTargetRepo: vi.fn(() => ({ owner: 'test-owner', repo: 'test-repo' })),
-}));
-
 import { execSync } from 'child_process';
 import {
   fetchPRDetails,
@@ -19,6 +15,8 @@ import {
   commentOnPR,
   fetchPRList,
 } from '../prApi';
+
+const testRepoInfo = { owner: 'test-owner', repo: 'test-repo' };
 
 function makeRawPR(overrides: Record<string, unknown> = {}) {
   return {
@@ -41,7 +39,7 @@ describe('fetchPRDetails', () => {
   it('fetches and transforms PR details', () => {
     vi.mocked(execSync).mockReturnValue(JSON.stringify(makeRawPR()));
 
-    const result = fetchPRDetails(10);
+    const result = fetchPRDetails(10, testRepoInfo);
 
     expect(result.number).toBe(10);
     expect(result.title).toBe('feat: add login');
@@ -54,7 +52,7 @@ describe('fetchPRDetails', () => {
   it('extracts issue number from PR body', () => {
     vi.mocked(execSync).mockReturnValue(JSON.stringify(makeRawPR({ body: 'Implements #99' })));
 
-    const result = fetchPRDetails(10);
+    const result = fetchPRDetails(10, testRepoInfo);
 
     expect(result.issueNumber).toBe(99);
   });
@@ -62,7 +60,7 @@ describe('fetchPRDetails', () => {
   it('returns null issueNumber when no match in body', () => {
     vi.mocked(execSync).mockReturnValue(JSON.stringify(makeRawPR({ body: 'No issue reference' })));
 
-    const result = fetchPRDetails(10);
+    const result = fetchPRDetails(10, testRepoInfo);
 
     expect(result.issueNumber).toBeNull();
   });
@@ -70,7 +68,7 @@ describe('fetchPRDetails', () => {
   it('handles empty body', () => {
     vi.mocked(execSync).mockReturnValue(JSON.stringify(makeRawPR({ body: undefined })));
 
-    const result = fetchPRDetails(10);
+    const result = fetchPRDetails(10, testRepoInfo);
 
     expect(result.body).toBe('');
     expect(result.issueNumber).toBeNull();
@@ -90,7 +88,7 @@ describe('fetchPRDetails', () => {
   it('throws on CLI failure', () => {
     vi.mocked(execSync).mockImplementation(() => { throw new Error('gh failed'); });
 
-    expect(() => fetchPRDetails(10)).toThrow('Failed to fetch PR #10');
+    expect(() => fetchPRDetails(10, testRepoInfo)).toThrow('Failed to fetch PR #10');
   });
 });
 
@@ -126,7 +124,7 @@ describe('fetchPRReviewComments', () => {
       .mockReturnValueOnce(JSON.stringify(lineComments))   // line comments
       .mockReturnValueOnce(JSON.stringify(reviews));         // reviews
 
-    const result = fetchPRReviewComments(10);
+    const result = fetchPRReviewComments(10, testRepoInfo);
 
     expect(result).toHaveLength(2);
     expect(result[0].body).toBe('Fix this line');
@@ -143,7 +141,7 @@ describe('fetchPRReviewComments', () => {
       .mockImplementationOnce(() => { throw new Error('fail'); })  // line comments fail
       .mockReturnValueOnce(JSON.stringify(reviews));                // reviews succeed
 
-    const result = fetchPRReviewComments(10);
+    const result = fetchPRReviewComments(10, testRepoInfo);
 
     expect(result).toHaveLength(1);
     expect(result[0].body).toBe('Nice work');
@@ -162,7 +160,7 @@ describe('fetchPRReviewComments', () => {
       .mockReturnValueOnce(JSON.stringify(lineComments))
       .mockReturnValueOnce(JSON.stringify([]));
 
-    const result = fetchPRReviewComments(10);
+    const result = fetchPRReviewComments(10, testRepoInfo);
 
     expect(result[0].author.isBot).toBe(true);
   });
@@ -176,7 +174,7 @@ describe('commentOnPR', () => {
   it('posts a comment via body-file stdin', () => {
     vi.mocked(execSync).mockReturnValue('');
 
-    commentOnPR(10, 'PR comment body');
+    commentOnPR(10, 'PR comment body', testRepoInfo);
 
     expect(execSync).toHaveBeenCalledWith(
       expect.stringContaining('gh pr comment 10 --repo test-owner/test-repo --body-file -'),
@@ -187,7 +185,7 @@ describe('commentOnPR', () => {
   it('does not throw on failure', () => {
     vi.mocked(execSync).mockImplementation(() => { throw new Error('fail'); });
 
-    expect(() => commentOnPR(10, 'body')).not.toThrow();
+    expect(() => commentOnPR(10, 'body', testRepoInfo)).not.toThrow();
   });
 });
 
@@ -203,7 +201,7 @@ describe('fetchPRList', () => {
     ];
     vi.mocked(execSync).mockReturnValue(JSON.stringify(raw));
 
-    const result = fetchPRList();
+    const result = fetchPRList(testRepoInfo);
 
     expect(result).toHaveLength(2);
     expect(result[0].number).toBe(1);
@@ -214,7 +212,7 @@ describe('fetchPRList', () => {
   it('returns empty array on CLI failure', () => {
     vi.mocked(execSync).mockImplementation(() => { throw new Error('fail'); });
 
-    const result = fetchPRList();
+    const result = fetchPRList(testRepoInfo);
 
     expect(result).toEqual([]);
   });

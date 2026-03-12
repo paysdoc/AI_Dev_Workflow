@@ -8,10 +8,6 @@ vi.mock('../../core/utils', () => ({
   log: vi.fn(),
 }));
 
-vi.mock('../../core/targetRepoRegistry', () => ({
-  getTargetRepo: vi.fn(() => ({ owner: 'test-owner', repo: 'test-repo' })),
-}));
-
 import { execSync } from 'child_process';
 import { log } from '../../core/utils';
 import {
@@ -22,6 +18,7 @@ import {
 } from '../projectBoardApi';
 
 const mockedExecSync = vi.mocked(execSync);
+const testRepoInfo = { owner: 'test-owner', repo: 'test-repo' };
 
 describe('findRepoProjectId', () => {
   beforeEach(() => {
@@ -504,14 +501,14 @@ describe('moveIssueToStatus', () => {
     );
   });
 
-  it('uses getTargetRepo when repoInfo is not provided', async () => {
+  it('uses provided repoInfo', async () => {
     mockedExecSync.mockReturnValueOnce(
       JSON.stringify({
         data: { repository: { projectsV2: { nodes: [] } } },
       })
     );
 
-    await moveIssueToStatus(42, 'In Progress');
+    await moveIssueToStatus(42, 'In Progress', testRepoInfo);
 
     expect(mockedExecSync).toHaveBeenCalledWith(
       expect.stringContaining('test-owner'),

@@ -12,6 +12,8 @@ import { execSync } from 'child_process';
 import { isAdwComment, isActionableComment, isClearComment, extractActionableContent, isAdwRunningForIssue, ADW_SIGNATURE } from '../workflowCommentsBase';
 import { AgentStateManager } from '../../core/agentState';
 
+const testRepoInfo = { owner: 'test-owner', repo: 'test-repo' };
+
 describe('isAdwComment', () => {
   it('returns true for ADW workflow started comment', () => {
     const body = '## :rocket: ADW Workflow Started\n\n**ADW ID:** `adw-123-abc`';
@@ -223,7 +225,7 @@ describe('isAdwRunningForIssue', () => {
 
   it('returns false when issue has no comments', async () => {
     vi.mocked(execSync).mockReturnValue(makeIssueJson([]));
-    expect(await isAdwRunningForIssue(42)).toBe(false);
+    expect(await isAdwRunningForIssue(42, testRepoInfo)).toBe(false);
   });
 
   it('returns false when issue has only non-ADW comments', async () => {
@@ -232,7 +234,7 @@ describe('isAdwRunningForIssue', () => {
         { body: 'Human comment here', createdAt: '2025-01-01T01:00:00Z' },
       ])
     );
-    expect(await isAdwRunningForIssue(42)).toBe(false);
+    expect(await isAdwRunningForIssue(42, testRepoInfo)).toBe(false);
   });
 
   it('returns false when latest ADW stage is completed', async () => {
@@ -248,7 +250,7 @@ describe('isAdwRunningForIssue', () => {
         },
       ])
     );
-    expect(await isAdwRunningForIssue(42)).toBe(false);
+    expect(await isAdwRunningForIssue(42, testRepoInfo)).toBe(false);
   });
 
   it('returns false when latest ADW stage is error', async () => {
@@ -264,7 +266,7 @@ describe('isAdwRunningForIssue', () => {
         },
       ])
     );
-    expect(await isAdwRunningForIssue(42)).toBe(false);
+    expect(await isAdwRunningForIssue(42, testRepoInfo)).toBe(false);
   });
 
   it('returns true when latest ADW stage is implementing and process is alive', async () => {
@@ -281,7 +283,7 @@ describe('isAdwRunningForIssue', () => {
         },
       ])
     );
-    expect(await isAdwRunningForIssue(42)).toBe(true);
+    expect(await isAdwRunningForIssue(42, testRepoInfo)).toBe(true);
   });
 
   it('returns true when latest ADW stage is starting and process is alive', async () => {
@@ -294,7 +296,7 @@ describe('isAdwRunningForIssue', () => {
         },
       ])
     );
-    expect(await isAdwRunningForIssue(42)).toBe(true);
+    expect(await isAdwRunningForIssue(42, testRepoInfo)).toBe(true);
   });
 
   it('ignores non-ADW comments when determining workflow state', async () => {
@@ -311,7 +313,7 @@ describe('isAdwRunningForIssue', () => {
         },
       ])
     );
-    expect(await isAdwRunningForIssue(42)).toBe(true);
+    expect(await isAdwRunningForIssue(42, testRepoInfo)).toBe(true);
   });
 
   it('returns false when latest stage is non-terminal but agent process is dead', async () => {
@@ -328,7 +330,7 @@ describe('isAdwRunningForIssue', () => {
         },
       ])
     );
-    expect(await isAdwRunningForIssue(42)).toBe(false);
+    expect(await isAdwRunningForIssue(42, testRepoInfo)).toBe(false);
   });
 
   it('returns true when latest stage is non-terminal and no ADW ID can be extracted', async () => {
@@ -340,6 +342,6 @@ describe('isAdwRunningForIssue', () => {
         },
       ])
     );
-    expect(await isAdwRunningForIssue(42)).toBe(true);
+    expect(await isAdwRunningForIssue(42, testRepoInfo)).toBe(true);
   });
 });

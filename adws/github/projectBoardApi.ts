@@ -6,7 +6,7 @@
 import { execSync } from 'child_process';
 import { log } from '../core';
 import { type RepoInfo } from './githubApi';
-import { getTargetRepo } from '../core/targetRepoRegistry';
+
 
 interface ProjectItem {
   readonly itemId: string;
@@ -222,10 +222,10 @@ function matchStatusOption(
 export async function moveIssueToStatus(
   issueNumber: number,
   targetStatus: string,
-  repoInfo?: RepoInfo,
+  repoInfo: RepoInfo,
 ): Promise<void> {
   try {
-    const { owner, repo } = repoInfo ?? getTargetRepo();
+    const { owner, repo } = repoInfo;
 
     const projectId = findRepoProjectId(owner, repo);
     if (!projectId) {
