@@ -15,10 +15,6 @@ vi.mock('../../core/issueClassifier', () => ({
   getWorkflowScript: vi.fn(),
 }));
 
-vi.mock('../../github/workflowCommentsIssue', () => ({
-  postWorkflowComment: vi.fn(),
-}));
-
 vi.mock('../issueEligibility', () => ({
   checkIssueEligibility: vi.fn(),
 }));
@@ -29,7 +25,7 @@ vi.mock('../issueDependencies', () => ({
 
 import { spawn, execSync } from 'child_process';
 import { classifyIssueForTrigger, getWorkflowScript } from '../../core/issueClassifier';
-import { postWorkflowComment } from '../../github/workflowCommentsIssue';
+
 import { checkIssueEligibility } from '../issueEligibility';
 import { parseDependencies } from '../issueDependencies';
 import { classifyAndSpawnWorkflow, handleIssueClosedDependencyUnblock, ensureCronProcess, resetCronSpawnedForRepo, logDeferral } from '../webhookGatekeeper';
@@ -41,13 +37,12 @@ describe('classifyAndSpawnWorkflow', () => {
     vi.clearAllMocks();
   });
 
-  it('posts starting comment and spawns workflow', async () => {
+  it('classifies issue and spawns workflow', async () => {
     vi.mocked(classifyIssueForTrigger).mockResolvedValue({ issueType: '/feature', success: true });
     vi.mocked(getWorkflowScript).mockReturnValue('adws/adwSdlc.tsx');
 
     await classifyAndSpawnWorkflow(42, repoInfo, ['--target-repo', 'test/repo']);
 
-    expect(postWorkflowComment).toHaveBeenCalledWith(42, 'starting', expect.objectContaining({ issueNumber: 42 }), repoInfo);
     expect(spawn).toHaveBeenCalledWith('bunx', expect.arrayContaining(['tsx', 'adws/adwSdlc.tsx', '42']), expect.any(Object));
   });
 
@@ -57,7 +52,7 @@ describe('classifyAndSpawnWorkflow', () => {
 
     await classifyAndSpawnWorkflow(10, repoInfo, []);
 
-    expect(postWorkflowComment).toHaveBeenCalledWith(10, 'starting', expect.objectContaining({ adwId: 'adw-custom-id' }), repoInfo);
+    expect(spawn).toHaveBeenCalledWith('bunx', expect.arrayContaining(['tsx', expect.any(String), '10', 'adw-custom-id']), expect.any(Object));
   });
 });
 
