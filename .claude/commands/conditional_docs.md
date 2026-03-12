@@ -59,6 +59,14 @@ This prompt helps you determine what documentation you should read based on the 
     - When troubleshooting missing or unexpected running token footers in comments
     - When modifying orchestrators to thread data into `ctx` between phases
 
+- app_docs/feature-8ar0fo-user-story-integrate-kpi-tracking.md
+  - Conditions:
+    - When working with the `/track_agentic_kpis` slash command or `app_docs/agentic_kpis.md`
+    - When adding or modifying a KPI agent or KPI phase (`kpiAgent.ts`, `kpiPhase.ts`)
+    - When troubleshooting missing KPI rows or incorrect metric calculations after a workflow run
+    - When configuring the package manager used for inline KPI calculations (`.adw/commands.md`)
+    - When implementing a new non-fatal workflow phase following the KPI phase pattern
+
 - app_docs/feature-1773341233172-9jw507-gitlab-codehost-provider.md
   - Conditions:
     - When working with the GitLab CodeHost provider (`adws/providers/gitlab/`)

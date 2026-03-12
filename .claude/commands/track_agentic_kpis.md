@@ -1,11 +1,16 @@
 # Track Agentic KPIs
 
-Update or create the ADW performance tracking tables in `app_docs/agentic_kpis.md`. This command analyzes the current ADW run's metrics and maintains both summary and detailed KPI tables. Think hard about building this, these are key KPIs for the AI Developer Workflow (ADW) system. Use the python commands as suggestions and guides for how to calculate the values. Ultimately, do whatever python calculation you need to do to get the values.
+Update or create the ADW performance tracking tables in `app_docs/agentic_kpis.md`. This command analyzes the current ADW run's metrics and maintains both summary and detailed KPI tables. Think hard about building this, these are key KPIs for the AI Developer Workflow (ADW) system. Use the `{package_manager} -e` commands as suggestions and guides for how to calculate the values. Ultimately, do whatever calculation you need to do to get the values.
 
 ## Variables
 
 state_json: $ARGUMENTS
 attempts_incrementing_adws: [`adw_plan_iso`, `adw_patch_iso`]
+
+## Setup
+- Read `.adw/commands.md` and extract the **Package Manager** value (the line after `## Package Manager`).
+- If `.adw/commands.md` does not exist or the value is missing, fall back to `node`.
+- Store the resolved value as `{package_manager}` for use in all inline calculation commands below.
 
 ## Instructions
 
@@ -16,6 +21,7 @@ attempts_incrementing_adws: [`adw_plan_iso`, `adw_patch_iso`]
   - issue_class
   - plan_file path
   - all_adws list (contains workflow names run)
+  - worktree_path (optional, for target repo diff)
 
 ### 2. Calculate Metrics
 
@@ -23,9 +29,9 @@ attempts_incrementing_adws: [`adw_plan_iso`, `adw_patch_iso`]
 - Run `date` command to get current date/time
 
 #### Calculate Attempts
-IMPORTANT: Use Python to calculate the exact count value:
+IMPORTANT: Use `{package_manager} -e` to calculate the exact count value:
 - Count occurrences of any of the adws in the attempts_incrementing_adws list in all_adws list
-- Run: `python -c "all_adws = <list>; attempts = sum(1 for w in all_adws if any(adw in w for adw in attempts_incrementing_adws)); print(attempts)"`
+- Run: `{package_manager} -e "const allAdws = <list>; const incr = ['adw_plan_iso','adw_patch_iso']; console.log(allAdws.filter(w => incr.some(a => w.includes(a))).length)"`
 
 #### Calculate Plan Size
 - If plan_file exists in state, read the file
@@ -33,7 +39,8 @@ IMPORTANT: Use Python to calculate the exact count value:
 - If file doesn't exist, use 0
 
 #### Calculate Diff Statistics
-- Run: `git diff origin/main --shortstat`
+- If `worktree_path` is present in state_json, run: `git -C <worktree_path> diff origin/main --shortstat`
+- Otherwise run: `git diff origin/main --shortstat`
 - Parse output to extract:
   - Files changed
   - Lines added
@@ -54,35 +61,35 @@ IMPORTANT: Use Python to calculate the exact count value:
 
 ### 5. Calculate Agentic KPIs
 
-IMPORTANT: All calculations must be done using Python expressions. Use `python -c "print(expression)"` for every numeric calculation.
+IMPORTANT: All calculations must be done using inline expressions. Use `{package_manager} -e "console.log(expression)"` for every numeric calculation.
 
 #### Current Streak
 - Count consecutive rows from bottom of ADW KPIs table where Attempts ≤ 2
-- Use Python: `python -c "attempts_list = <list>; streak = 0; for a in reversed(attempts_list): streak = streak + 1 if a <= 2 else break; print(streak)"`
+- Use `{package_manager} -e`: `{package_manager} -e "const a = <list>; let s = 0; for (let i = a.length - 1; i >= 0; i--) { if (a[i] <= 2) s++; else break; } console.log(s)"`
 
 #### Longest Streak
 - Find longest consecutive sequence where Attempts ≤ 2
-- Use Python to calculate
+- Use `{package_manager} -e` to calculate
 
 #### Total Plan Size
 - Sum all plan sizes from ADW KPIs table
-- Use Python: `python -c "sizes = <list>; print(sum(sizes))"`
+- Use `{package_manager} -e`: `{package_manager} -e "const s = <list>; console.log(s.reduce((a,b) => a+b, 0))"`
 
 #### Largest Plan Size
 - Find maximum plan size
-- Use Python: `python -c "sizes = <list>; print(max(sizes) if sizes else 0)"`
+- Use `{package_manager} -e`: `{package_manager} -e "const s = <list>; console.log(s.length ? Math.max(...s) : 0)"`
 
 #### Total Diff Size
 - Sum all diff statistics (added + removed lines)
-- Parse each diff entry and sum using Python
+- Parse each diff entry and sum using `{package_manager} -e`
 
 #### Largest Diff Size
 - Find maximum diff (added + removed lines)
-- Use Python to calculate
+- Use `{package_manager} -e` to calculate
 
 #### Average Presence
 - Calculate average of all attempts
-- Use Python: `python -c "attempts = <list>; print(sum(attempts) / len(attempts) if attempts else 0)"`
+- Use `{package_manager} -e`: `{package_manager} -e "const a = <list>; console.log(a.length ? (a.reduce((x,y) => x+y, 0) / a.length).toFixed(2) : 0)"`
 - Round to 2 decimal places
 
 ### 6. Write Updated File

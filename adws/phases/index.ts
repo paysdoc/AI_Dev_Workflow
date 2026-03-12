@@ -17,6 +17,7 @@ export { executeBuildPhase } from './buildPhase';
 export { executeTestPhase } from './testPhase';
 export { executePRPhase } from './prPhase';
 export { executeDocumentPhase } from './documentPhase';
+export { executeKpiPhase } from './kpiPhase';
 export {
   type PRReviewWorkflowConfig,
   initializePRReviewWorkflow,

@@ -20,6 +20,7 @@ export {
   executeTestPhase,
   executePRPhase,
   executeDocumentPhase,
+  executeKpiPhase,
   executeReviewPhase,
   completeWorkflow,
   handleWorkflowError,

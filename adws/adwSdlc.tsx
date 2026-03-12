@@ -12,7 +12,8 @@
  * 5. PR Phase: create pull request (only if all tests pass)
  * 6. Review Phase: review implementation against spec, patch blockers, retry
  * 7. Document Phase: generate feature documentation (includes review screenshots)
- * 8. Finalize: update state, post completion comment
+ * 8. KPI Phase: track agentic KPIs (non-fatal)
+ * 9. Finalize: update state, post completion comment
  *
  * Environment Requirements:
  * - ANTHROPIC_API_KEY: Anthropic API key
@@ -32,6 +33,7 @@ import {
   executePRPhase,
   executeReviewPhase,
   executeDocumentPhase,
+  executeKpiPhase,
   completeWorkflow,
   handleWorkflowError,
 } from './workflowPhases';
@@ -101,6 +103,12 @@ async function main(): Promise<void> {
     const docResult = await executeDocumentPhase(config, screenshotsDir);
     totalCostUsd += docResult.costUsd;
     totalModelUsage = mergeModelUsageMaps(totalModelUsage, docResult.modelUsage);
+    persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
+    if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeTotalTokens(totalModelUsage);
+
+    const kpiResult = await executeKpiPhase(config, reviewResult.totalRetries);
+    totalCostUsd += kpiResult.costUsd;
+    totalModelUsage = mergeModelUsageMaps(totalModelUsage, kpiResult.modelUsage);
     persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
     if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeTotalTokens(totalModelUsage);
 

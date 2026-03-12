@@ -143,6 +143,8 @@ export type SlashCommand =
   | '/document'
   // Cost tracking
   | '/commit_cost'
+  // KPI tracking
+  | '/track_agentic_kpis'
   // Dependency checking
   | '/find_issue_dependencies'
   // ADW initialization
