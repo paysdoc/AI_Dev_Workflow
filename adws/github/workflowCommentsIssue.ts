@@ -210,7 +210,7 @@ export function formatWorkflowComment(stage: WorkflowStage, ctx: WorkflowContext
 }
 
 /** Posts a workflow comment to the GitHub issue. */
-export function postWorkflowComment(issueNumber: number, stage: WorkflowStage, ctx: WorkflowContext, repoInfo?: RepoInfo): void {
+export function postWorkflowComment(issueNumber: number, stage: WorkflowStage, ctx: WorkflowContext, repoInfo: RepoInfo): void {
   try {
     const comment = formatWorkflowComment(stage, ctx);
     commentOnIssue(issueNumber, comment, repoInfo);

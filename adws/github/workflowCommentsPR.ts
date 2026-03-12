@@ -83,7 +83,7 @@ export function formatPRReviewWorkflowComment(stage: PRReviewWorkflowStage, ctx:
 }
 
 /** Posts a PR review workflow comment directly on the PR. */
-export function postPRWorkflowComment(prNumber: number, stage: PRReviewWorkflowStage, ctx: PRReviewWorkflowContext, repoInfo?: RepoInfo): void {
+export function postPRWorkflowComment(prNumber: number, stage: PRReviewWorkflowStage, ctx: PRReviewWorkflowContext, repoInfo: RepoInfo): void {
   try {
     const comment = formatPRReviewWorkflowComment(stage, ctx);
     commentOnPR(prNumber, comment, repoInfo);

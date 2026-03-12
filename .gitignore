@@ -27,3 +27,7 @@ healthcheck.json*
 # cursor hooks logs
 .cursor/logs/
 .cursor/mcp.json
+# ADW: copied slash commands (do not commit)
+.claude/commands/in_loop_review.md
+.claude/commands/test_e2e.md
+.claude/commands/track_agentic_kpis.md

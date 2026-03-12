@@ -41,11 +41,13 @@ import {
 } from './core';
 import {
   fetchGitHubIssue,
+  getRepoInfo,
   postWorkflowComment,
   WorkflowContext,
   detectRecoveryState,
   getCurrentBranch,
   inferIssueTypeFromBranch,
+  type RepoInfo,
 } from './github';
 import {
   runBuildAgent,
@@ -65,7 +67,10 @@ export { parseArguments, printBuildSummary } from './adwBuildHelpers';
  */
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
-  const { owner, repo } = parseTargetRepoArgs(args) || { owner: '', repo: '' };
+  const targetRepoArgs = parseTargetRepoArgs(args);
+  const repoInfo: RepoInfo = targetRepoArgs
+    ? { owner: targetRepoArgs.owner, repo: targetRepoArgs.repo }
+    : getRepoInfo();
   const { issueNumber, providedAdwId, cwd } = parseArguments(args);
 
   log(`Starting ADW Build workflow`, 'info');
@@ -76,7 +81,7 @@ async function main(): Promise<void> {
 
   // Step 1: Fetch GitHub issue
   log('Fetching GitHub issue...', 'info');
-  const issue = await fetchGitHubIssue(issueNumber, { owner, repo });
+  const issue = await fetchGitHubIssue(issueNumber, repoInfo);
   log(`Fetched issue: ${issue.title}`, 'success');
 
   // Step 2: Determine ADW ID
@@ -152,7 +157,7 @@ async function main(): Promise<void> {
 
     const nextStage = getNextStage(recoveryState.lastCompletedStage);
     ctx.resumeFrom = nextStage;
-    postWorkflowComment(issueNumber, 'resuming', ctx);
+    postWorkflowComment(issueNumber, 'resuming', ctx, repoInfo);
   }
 
   try {
@@ -160,7 +165,7 @@ async function main(): Promise<void> {
 
     // Step 5: Run Build Agent
     if (shouldExecuteStage('implemented', recoveryState)) {
-      postWorkflowComment(issueNumber, 'implementing', ctx);
+      postWorkflowComment(issueNumber, 'implementing', ctx, repoInfo);
       log('Running Build Agent...', 'info');
 
       const buildAgentStatePath = AgentStateManager.initializeState(adwId, 'build-agent', orchestratorStatePath);
@@ -193,7 +198,7 @@ async function main(): Promise<void> {
 
         const now = Date.now();
         if (now - lastProgressUpdate >= PROGRESS_UPDATE_INTERVAL_MS) {
-          postWorkflowComment(issueNumber, 'build_progress', ctx);
+          postWorkflowComment(issueNumber, 'build_progress', ctx, repoInfo);
           lastProgressUpdate = now;
         }
       };
@@ -224,14 +229,14 @@ async function main(): Promise<void> {
       ctx.buildOutput = buildResult.output;
       buildCostUsd = buildResult.totalCostUsd || 0;
       persistTokenCounts(orchestratorStatePath, buildCostUsd, buildResult.modelUsage ?? {});
-      postWorkflowComment(issueNumber, 'implemented', ctx);
+      postWorkflowComment(issueNumber, 'implemented', ctx, repoInfo);
     } else {
       log('Skipping Build Agent (already completed)', 'info');
     }
 
     // Step 6: Commit implementation
     if (shouldExecuteStage('implementation_committing', recoveryState)) {
-      postWorkflowComment(issueNumber, 'implementation_committing', ctx);
+      postWorkflowComment(issueNumber, 'implementation_committing', ctx, repoInfo);
       await runCommitAgent(OrchestratorId.Build, issueType, JSON.stringify(issue), logsDir, undefined, cwd || undefined);
     } else {
       log('Skipping implementation commit (already completed)', 'info');
@@ -264,7 +269,7 @@ async function main(): Promise<void> {
 
   } catch (error) {
     ctx.errorMessage = String(error);
-    postWorkflowComment(issueNumber, 'error', ctx);
+    postWorkflowComment(issueNumber, 'error', ctx, repoInfo);
 
     AgentStateManager.writeState(orchestratorStatePath, {
       execution: AgentStateManager.completeExecution(

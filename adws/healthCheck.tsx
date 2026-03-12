@@ -14,6 +14,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { log } from './core';
+import { getRepoInfo } from './github';
 import {
   checkEnvironmentVariables,
   checkGitRepository,
@@ -120,7 +121,7 @@ async function main(): Promise<void> {
   result.checks.directoryStructure = checkDirectoryStructure();
 
   log(`Checking issue #${issueNumber}...`, 'info');
-  result.checks.issueAccessibility = checkIssueNumber(issueNumber);
+  result.checks.issueAccessibility = checkIssueNumber(issueNumber, getRepoInfo());
 
   // Collect warnings and errors
   for (const [checkName, checkResult] of Object.entries(result.checks)) {

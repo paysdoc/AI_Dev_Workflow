@@ -14,6 +14,8 @@ import { clearIssueComments } from '../../adwClearComments';
 import { classifyIssueForTrigger } from '../../core/issueClassifier';
 import { getRepoInfoFromPayload, type RepoInfo } from '../../github/githubApi';
 
+const testRepoInfo: RepoInfo = { owner: 'test-owner', repo: 'test-repo' };
+
 /**
  * Tests for the webhook clear-comment handler logic.
  *
@@ -27,11 +29,6 @@ import { getRepoInfoFromPayload, type RepoInfo } from '../../github/githubApi';
 
 function mockRepoInfo(): void {
   vi.mocked(execSync).mockReturnValueOnce('https://github.com/test-owner/test-repo.git\n');
-}
-
-function mockIssueTitleSync(title: string = 'Test Issue Title'): void {
-  mockRepoInfo();
-  vi.mocked(execSync).mockReturnValueOnce(JSON.stringify({ title }));
 }
 
 function makeRawComment(overrides: Record<string, unknown> = {}) {
@@ -63,9 +60,12 @@ describe('webhook clear-comment handler', () => {
   });
 
   it('triggers clearIssueComments and returns cleared for ## Clear comment', () => {
+    // getRepoInfo fallback
     mockRepoInfo();
+    // fetchIssueCommentsRest
     vi.mocked(execSync).mockReturnValueOnce(JSON.stringify([]));
-    mockIssueTitleSync('Clear Test Issue');
+    // getIssueTitleSync
+    vi.mocked(execSync).mockReturnValueOnce(JSON.stringify({ title: 'Clear Test Issue' }));
 
     const result = handleIssueComment('## Clear', 42);
 
@@ -73,9 +73,12 @@ describe('webhook clear-comment handler', () => {
   });
 
   it('triggers clearIssueComments and returns cleared for lowercase ## clear comment', () => {
+    // getRepoInfo fallback
     mockRepoInfo();
+    // fetchIssueCommentsRest
     vi.mocked(execSync).mockReturnValueOnce(JSON.stringify([]));
-    mockIssueTitleSync('Clear Test Issue');
+    // getIssueTitleSync
+    vi.mocked(execSync).mockReturnValueOnce(JSON.stringify({ title: 'Clear Test Issue' }));
 
     const result = handleIssueComment('## clear', 42);
 
@@ -83,22 +86,19 @@ describe('webhook clear-comment handler', () => {
   });
 
   it('returns deleted count from clearIssueComments with cleared status', () => {
-    // getRepoInfo for fetchIssueCommentsRest
+    // getRepoInfo fallback
     mockRepoInfo();
-    // fetch comments
+    // fetchIssueCommentsRest
     vi.mocked(execSync).mockReturnValueOnce(JSON.stringify([
       makeRawComment({ id: 1 }),
       makeRawComment({ id: 2 }),
       makeRawComment({ id: 3 }),
     ]));
     // getIssueTitleSync
-    mockIssueTitleSync('Multi Comment Issue');
-    // getRepoInfo + delete for each comment
-    mockRepoInfo();
+    vi.mocked(execSync).mockReturnValueOnce(JSON.stringify({ title: 'Multi Comment Issue' }));
+    // deleteIssueComment for each comment
     vi.mocked(execSync).mockReturnValueOnce('');
-    mockRepoInfo();
     vi.mocked(execSync).mockReturnValueOnce('');
-    mockRepoInfo();
     vi.mocked(execSync).mockReturnValueOnce('');
 
     const result = handleIssueComment('## Clear', 10);
@@ -107,9 +107,12 @@ describe('webhook clear-comment handler', () => {
   });
 
   it('calls clearIssueComments for ## Clear comments', () => {
+    // getRepoInfo fallback
     mockRepoInfo();
+    // fetchIssueCommentsRest
     vi.mocked(execSync).mockReturnValueOnce(JSON.stringify([]));
-    mockIssueTitleSync('Clear Test');
+    // getIssueTitleSync
+    vi.mocked(execSync).mockReturnValueOnce(JSON.stringify({ title: 'Clear Test' }));
 
     const result = handleIssueComment('## Clear', 7);
 
@@ -136,9 +139,12 @@ describe('webhook clear-comment handler', () => {
   });
 
   it('returns early after clearing without triggering classification', () => {
+    // getRepoInfo fallback
     mockRepoInfo();
+    // fetchIssueCommentsRest
     vi.mocked(execSync).mockReturnValueOnce(JSON.stringify([]));
-    mockIssueTitleSync('Clear No Classify Issue');
+    // getIssueTitleSync
+    vi.mocked(execSync).mockReturnValueOnce(JSON.stringify({ title: 'Clear No Classify Issue' }));
 
     const commentBody = '## Clear';
     let classifierCalled = false;
@@ -157,7 +163,7 @@ describe('webhook clear-comment handler', () => {
     } else {
       // Only actionable comments reach the classifier
       classifierCalled = true;
-      classifyIssueForTrigger(42);
+      classifyIssueForTrigger(42, testRepoInfo);
     }
 
     expect(classifierCalled).toBe(false);

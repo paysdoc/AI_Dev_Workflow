@@ -19,11 +19,6 @@ vi.mock('../../core/utils', () => ({
   log: vi.fn(),
 }));
 
-vi.mock('../../core/targetRepoRegistry', () => ({
-  resolveTargetRepoCwd: vi.fn((cwd?: string) => cwd || '/mock/cwd'),
-  getTargetRepo: vi.fn(() => ({ owner: 'test-owner', repo: 'test-repo' })),
-}));
-
 vi.mock('../gitOperations', () => ({
   getCurrentBranch: vi.fn(() => 'feat-issue-42-add-login'),
   pushBranch: vi.fn(),
@@ -34,6 +29,9 @@ import * as fs from 'fs';
 import { createPullRequest } from '../pullRequestCreator';
 import { pushBranch } from '../gitOperations';
 import type { GitHubIssue } from '../../core';
+
+const testRepoInfo = { owner: 'test-owner', repo: 'test-repo' };
+const testCwd = '/test/cwd';
 
 function makeIssue(overrides: Partial<GitHubIssue> = {}): GitHubIssue {
   return {
@@ -62,10 +60,10 @@ describe('createPullRequest', () => {
   it('creates a PR and returns the URL', () => {
     vi.mocked(execSync).mockReturnValue('https://github.com/test-owner/test-repo/pull/55\n');
 
-    const result = createPullRequest(makeIssue(), 'Plan summary', 'Build summary');
+    const result = createPullRequest(makeIssue(), 'Plan summary', 'Build summary', 'develop', testCwd, testRepoInfo);
 
     expect(result).toBe('https://github.com/test-owner/test-repo/pull/55');
-    expect(pushBranch).toHaveBeenCalledWith('feat-issue-42-add-login', '/mock/cwd');
+    expect(pushBranch).toHaveBeenCalledWith('feat-issue-42-add-login', testCwd);
     expect(fs.writeFileSync).toHaveBeenCalledWith(
       '/tmp/adw-pr-test/pr-body.md',
       expect.stringContaining('Implements #42'),
@@ -76,7 +74,7 @@ describe('createPullRequest', () => {
   it('includes plan and build summaries in PR body', () => {
     vi.mocked(execSync).mockReturnValue('https://github.com/o/r/pull/1\n');
 
-    createPullRequest(makeIssue(), 'My plan', 'My build');
+    createPullRequest(makeIssue(), 'My plan', 'My build', 'develop', testCwd, testRepoInfo);
 
     const writtenBody = vi.mocked(fs.writeFileSync).mock.calls[0][1] as string;
     expect(writtenBody).toContain('My plan');
@@ -86,7 +84,7 @@ describe('createPullRequest', () => {
   it('generates correct PR title from issue', () => {
     vi.mocked(execSync).mockReturnValue('https://github.com/o/r/pull/1\n');
 
-    createPullRequest(makeIssue({ title: 'Fix bug', number: 99 }), '', '');
+    createPullRequest(makeIssue({ title: 'Fix bug', number: 99 }), '', '', 'develop', testCwd, testRepoInfo);
 
     expect(execSync).toHaveBeenCalledWith(
       expect.stringContaining('feat: Fix bug (#99)'),
@@ -97,7 +95,7 @@ describe('createPullRequest', () => {
   it('uses custom repoInfo when provided', () => {
     vi.mocked(execSync).mockReturnValue('https://github.com/custom/proj/pull/1\n');
 
-    createPullRequest(makeIssue(), '', '', 'develop', undefined, { owner: 'custom', repo: 'proj' });
+    createPullRequest(makeIssue(), '', '', 'develop', testCwd, { owner: 'custom', repo: 'proj' });
 
     expect(execSync).toHaveBeenCalledWith(
       expect.stringContaining('--repo custom/proj'),
@@ -108,7 +106,7 @@ describe('createPullRequest', () => {
   it('uses custom base branch', () => {
     vi.mocked(execSync).mockReturnValue('https://github.com/o/r/pull/1\n');
 
-    createPullRequest(makeIssue(), '', '', 'main');
+    createPullRequest(makeIssue(), '', '', 'main', testCwd, testRepoInfo);
 
     expect(execSync).toHaveBeenCalledWith(
       expect.stringContaining('--base main'),
@@ -119,7 +117,7 @@ describe('createPullRequest', () => {
   it('returns empty string on failure', () => {
     vi.mocked(execSync).mockImplementation(() => { throw new Error('PR create failed'); });
 
-    const result = createPullRequest(makeIssue(), '', '');
+    const result = createPullRequest(makeIssue(), '', '', 'develop', testCwd, testRepoInfo);
 
     expect(result).toBe('');
   });
@@ -127,7 +125,7 @@ describe('createPullRequest', () => {
   it('cleans up temp files after success', () => {
     vi.mocked(execSync).mockReturnValue('https://github.com/o/r/pull/1\n');
 
-    createPullRequest(makeIssue(), '', '');
+    createPullRequest(makeIssue(), '', '', 'develop', testCwd, testRepoInfo);
 
     expect(fs.unlinkSync).toHaveBeenCalledWith('/tmp/adw-pr-test/pr-body.md');
     expect(fs.rmdirSync).toHaveBeenCalledWith('/tmp/adw-pr-test');
@@ -136,7 +134,7 @@ describe('createPullRequest', () => {
   it('cleans up temp files after failure', () => {
     vi.mocked(execSync).mockImplementation(() => { throw new Error('fail'); });
 
-    createPullRequest(makeIssue(), '', '');
+    createPullRequest(makeIssue(), '', '', 'develop', testCwd, testRepoInfo);
 
     expect(fs.unlinkSync).toHaveBeenCalled();
     expect(fs.rmdirSync).toHaveBeenCalled();

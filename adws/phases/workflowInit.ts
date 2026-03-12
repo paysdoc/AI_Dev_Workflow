@@ -21,7 +21,6 @@ import {
   ensureTargetRepoWorkspace,
   type ProjectConfig,
   loadProjectConfig,
-  setTargetRepo,
 } from '../core';
 import {
   fetchGitHubIssue,
@@ -67,8 +66,6 @@ export interface WorkflowConfig {
   branchName: string;
   applicationUrl: string;
   targetRepo?: TargetRepoInfo;
-  /** @deprecated Use `repoContext` instead. Kept during transition for backward compatibility. */
-  repoInfo?: RepoInfo;
   repoContext?: RepoContext;
   projectConfig: ProjectConfig;
 }
@@ -96,14 +93,9 @@ export async function initializeWorkflow(
     ? { owner: targetRepo.owner, repo: targetRepo.repo }
     : undefined;
 
-  // Initialize central target repo registry (backward compat only when repoId not provided)
-  if (repoInfo && !options?.repoId) {
-    setTargetRepo(repoInfo);
-  }
-
   // Fetch issue (targeting external repo if specified)
   log('Fetching GitHub issue...', 'info');
-  const issue = await fetchGitHubIssue(issueNumber, repoInfo);
+  const issue = await fetchGitHubIssue(issueNumber, repoInfo ?? getRepoInfo());
   log(`Fetched issue: ${issue.title}`, 'success');
 
   // Detect recovery state early to reuse existing ADW ID and branch name
@@ -283,7 +275,6 @@ export async function initializeWorkflow(
     branchName,
     applicationUrl,
     targetRepo,
-    repoInfo,
     repoContext,
     projectConfig,
   };

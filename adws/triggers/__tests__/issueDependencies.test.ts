@@ -7,6 +7,8 @@ vi.mock('../../github/issueApi', () => ({
 import { getIssueState } from '../../github/issueApi';
 import { parseDependencies, findOpenDependencies } from '../issueDependencies';
 
+const testRepoInfo = { owner: 'test-owner', repo: 'test-repo' };
+
 describe('parseDependencies', () => {
   it('extracts hash references from Dependencies section', () => {
     const body = '## Dependencies\n- #42\n- #10\n';
@@ -71,7 +73,7 @@ describe('findOpenDependencies', () => {
     });
 
     const body = '## Dependencies\n- #42\n- #10\n';
-    const result = await findOpenDependencies(body);
+    const result = await findOpenDependencies(body, testRepoInfo);
     expect(result).toEqual([42]);
   });
 
@@ -79,12 +81,12 @@ describe('findOpenDependencies', () => {
     vi.mocked(getIssueState).mockReturnValue('CLOSED');
 
     const body = '## Dependencies\n- #42\n- #10\n';
-    const result = await findOpenDependencies(body);
+    const result = await findOpenDependencies(body, testRepoInfo);
     expect(result).toEqual([]);
   });
 
   it('returns empty array when no dependencies section exists', async () => {
-    const result = await findOpenDependencies('## Description\nNo deps here');
+    const result = await findOpenDependencies('## Description\nNo deps here', testRepoInfo);
     expect(result).toEqual([]);
     expect(getIssueState).not.toHaveBeenCalled();
   });
@@ -96,7 +98,7 @@ describe('findOpenDependencies', () => {
     });
 
     const body = '## Dependencies\n- #42\n- #10\n';
-    const result = await findOpenDependencies(body);
+    const result = await findOpenDependencies(body, testRepoInfo);
     expect(result).toEqual([10]);
   });
 

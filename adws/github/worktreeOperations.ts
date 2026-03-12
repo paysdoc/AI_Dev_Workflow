@@ -10,7 +10,6 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { log } from '../core';
 import { getDefaultBranch } from './gitOperations';
-import { resolveTargetRepoCwd } from '../core/targetRepoRegistry';
 
 /**
  * Result of checking if a branch is checked out elsewhere.
@@ -114,8 +113,7 @@ export function copyEnvToWorktree(worktreePath: string): void {
  */
 export function isBranchCheckedOutElsewhere(branchName: string, cwd?: string): BranchCheckoutStatus {
   try {
-    const resolvedCwd = resolveTargetRepoCwd(cwd);
-    const output = execSync('git worktree list --porcelain', { encoding: 'utf-8', cwd: resolvedCwd });
+    const output = execSync('git worktree list --porcelain', { encoding: 'utf-8', cwd });
     const lines = output.split('\n');
 
     let currentWorktreePath: string | null = null;
@@ -160,8 +158,7 @@ export function isBranchCheckedOutElsewhere(branchName: string, cwd?: string): B
  * @throws Error if unable to free the branch
  */
 export function freeBranchFromMainRepo(branchName: string, cwd?: string): void {
-  const resolvedCwd = resolveTargetRepoCwd(cwd);
-  const mainRepoPath = getMainRepoPath(resolvedCwd);
+  const mainRepoPath = getMainRepoPath(cwd);
   log(`Freeing branch '${branchName}' from main repository at ${mainRepoPath}`, 'info');
 
   try {
@@ -218,9 +215,8 @@ export function getWorktreePath(branchName: string, baseRepoPath?: string): stri
  */
 export function worktreeExists(branchName: string, cwd?: string): boolean {
   try {
-    const resolvedCwd = resolveTargetRepoCwd(cwd);
-    const output = execSync('git worktree list --porcelain', { encoding: 'utf-8', cwd: resolvedCwd });
-    const worktreePath = getWorktreePath(branchName, resolvedCwd);
+    const output = execSync('git worktree list --porcelain', { encoding: 'utf-8', cwd });
+    const worktreePath = getWorktreePath(branchName, cwd);
 
     // Parse worktree list output to find matching worktree
     const lines = output.split('\n');

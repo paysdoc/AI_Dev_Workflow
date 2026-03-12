@@ -8,15 +8,9 @@ vi.mock('../../core/utils', () => ({
   log: vi.fn(),
 }));
 
-vi.mock('../../core/targetRepoRegistry', () => ({
-  resolveTargetRepoCwd: vi.fn((cwd?: string) => cwd),
-}));
-
 import { execSync } from 'child_process';
 import { log } from '../../core/utils';
-import { resolveTargetRepoCwd } from '../../core/targetRepoRegistry';
 import {
-  getCurrentBranch,
   getDefaultBranch,
   checkoutDefaultBranch,
   deleteLocalBranch,
@@ -302,47 +296,3 @@ describe('deleteRemoteBranch', () => {
   });
 });
 
-describe('registry fallback', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it('getCurrentBranch uses resolved cwd from registry', () => {
-    vi.mocked(resolveTargetRepoCwd).mockReturnValueOnce('/target/repo');
-    vi.mocked(execSync).mockReturnValue('feature/test\n');
-
-    getCurrentBranch();
-
-    expect(resolveTargetRepoCwd).toHaveBeenCalledWith(undefined);
-    expect(execSync).toHaveBeenCalledWith(
-      'git branch --show-current',
-      { encoding: 'utf-8', cwd: '/target/repo' }
-    );
-  });
-
-  it('getDefaultBranch uses resolved cwd from registry', () => {
-    vi.mocked(resolveTargetRepoCwd).mockReturnValueOnce('/target/repo');
-    vi.mocked(execSync).mockReturnValue('main\n');
-
-    getDefaultBranch();
-
-    expect(resolveTargetRepoCwd).toHaveBeenCalledWith(undefined);
-    expect(execSync).toHaveBeenCalledWith(
-      "gh repo view --json defaultBranchRef --jq '.defaultBranchRef.name'",
-      { encoding: 'utf-8', cwd: '/target/repo' }
-    );
-  });
-
-  it('deleteLocalBranch uses resolved cwd from registry', () => {
-    vi.mocked(resolveTargetRepoCwd).mockReturnValueOnce('/target/repo');
-    vi.mocked(execSync).mockReturnValue('');
-
-    deleteLocalBranch('feature/issue-42-add-login');
-
-    expect(resolveTargetRepoCwd).toHaveBeenCalledWith(undefined);
-    expect(execSync).toHaveBeenCalledWith(
-      'git branch -D "feature/issue-42-add-login"',
-      { stdio: 'pipe', cwd: '/target/repo' }
-    );
-  });
-});

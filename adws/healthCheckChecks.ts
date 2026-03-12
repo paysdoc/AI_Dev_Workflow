@@ -9,7 +9,7 @@ import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import { CLAUDE_CODE_PATH, GITHUB_PAT, LOGS_DIR, SPECS_DIR, resolveClaudeCodePath } from './core';
-import { getTargetRepo } from './core/targetRepoRegistry';
+import { type RepoInfo } from './github/githubApi';
 
 /**
  * Individual check result.
@@ -236,7 +236,7 @@ export function checkDirectoryStructure(): CheckResult {
 /**
  * Validates a GitHub issue number (basic check).
  */
-export function checkIssueNumber(issueNumber: number): CheckResult {
+export function checkIssueNumber(issueNumber: number, repoInfo: RepoInfo): CheckResult {
   const details: Record<string, unknown> = {
     issueNumber
   };
@@ -250,7 +250,7 @@ export function checkIssueNumber(issueNumber: number): CheckResult {
   }
 
   // Try to fetch the issue using gh CLI
-  const { owner, repo } = getTargetRepo();
+  const { owner, repo } = repoInfo;
   const issueData = execCommand(`gh issue view ${issueNumber} --repo ${owner}/${repo} --json number,title,state 2>&1`);
 
   if (issueData === null || issueData.includes('Could not resolve')) {

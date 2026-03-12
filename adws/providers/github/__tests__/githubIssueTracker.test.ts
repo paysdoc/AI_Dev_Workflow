@@ -156,7 +156,7 @@ describe('createGitHubIssueTracker', () => {
       const tracker = createGitHubIssueTracker(validRepoId);
       const result = await tracker.closeIssue(42, 'Closing comment');
 
-      expect(ghCloseIssue).toHaveBeenCalledWith(42, 'Closing comment', expectedRepoInfo);
+      expect(ghCloseIssue).toHaveBeenCalledWith(42, expectedRepoInfo, 'Closing comment');
       expect(result).toBe(true);
     });
 
@@ -166,7 +166,7 @@ describe('createGitHubIssueTracker', () => {
       const tracker = createGitHubIssueTracker(validRepoId);
       await tracker.closeIssue(42);
 
-      expect(ghCloseIssue).toHaveBeenCalledWith(42, undefined, expectedRepoInfo);
+      expect(ghCloseIssue).toHaveBeenCalledWith(42, expectedRepoInfo, undefined);
     });
 
     it('returns false when issue is already closed', async () => {
@@ -271,7 +271,7 @@ describe('createGitHubIssueTracker', () => {
       expect(fetchGitHubIssue).toHaveBeenCalledWith(1, expectedRepoInfo);
       expect(ghCommentOnIssue).toHaveBeenCalledWith(1, 'test', expectedRepoInfo);
       expect(deleteIssueComment).toHaveBeenCalledWith(1, expectedRepoInfo);
-      expect(ghCloseIssue).toHaveBeenCalledWith(1, undefined, expectedRepoInfo);
+      expect(ghCloseIssue).toHaveBeenCalledWith(1, expectedRepoInfo, undefined);
       expect(ghGetIssueState).toHaveBeenCalledWith(1, expectedRepoInfo);
       expect(fetchIssueCommentsRest).toHaveBeenCalledWith(1, expectedRepoInfo);
       expect(moveIssueToStatus).toHaveBeenCalledWith(1, 'Done', expectedRepoInfo);

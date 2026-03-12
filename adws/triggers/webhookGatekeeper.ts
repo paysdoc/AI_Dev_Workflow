@@ -8,6 +8,7 @@
 import { spawn, execSync } from 'child_process';
 import { log, generateAdwId } from '../core';
 import type { RepoInfo } from '../github/githubApi';
+import { getRepoInfo } from '../github';
 import { classifyIssueForTrigger, getWorkflowScript } from '../core/issueClassifier';
 import { postWorkflowComment } from '../github/workflowCommentsIssue';
 import { checkIssueEligibility } from './issueEligibility';
@@ -34,12 +35,13 @@ export async function classifyAndSpawnWorkflow(
   repoInfo: RepoInfo | undefined,
   targetRepoArgs: string[],
 ): Promise<void> {
-  const classification = await classifyIssueForTrigger(issueNumber, repoInfo);
+  const resolvedRepoInfo = repoInfo ?? getRepoInfo();
+  const classification = await classifyIssueForTrigger(issueNumber, resolvedRepoInfo);
   const workflowScript = getWorkflowScript(classification.issueType, classification.adwCommand);
   const adwId = classification.adwId || generateAdwId(classification.issueTitle);
 
   // Post "starting" comment immediately to signal ownership
-  postWorkflowComment(issueNumber, 'starting', { issueNumber, adwId }, repoInfo);
+  postWorkflowComment(issueNumber, 'starting', { issueNumber, adwId }, resolvedRepoInfo);
 
   log(`Issue #${issueNumber} classified as ${classification.issueType}, spawning ${workflowScript}`, 'success');
   spawnDetached('bunx', ['tsx', workflowScript, String(issueNumber), adwId, '--issue-type', classification.issueType, ...targetRepoArgs]);

@@ -8,10 +8,6 @@ vi.mock('../../core/utils', () => ({
   log: vi.fn(),
 }));
 
-vi.mock('../../core/targetRepoRegistry', () => ({
-  getTargetRepo: vi.fn(() => ({ owner: 'test-owner', repo: 'test-repo' })),
-}));
-
 import { execSync } from 'child_process';
 import {
   fetchGitHubIssue,
@@ -23,6 +19,8 @@ import {
   fetchIssueCommentsRest,
   deleteIssueComment,
 } from '../issueApi';
+
+const testRepoInfo = { owner: 'test-owner', repo: 'test-repo' };
 
 function makeRawIssue(overrides: Record<string, unknown> = {}) {
   return {
@@ -52,7 +50,7 @@ describe('fetchGitHubIssue', () => {
     const raw = makeRawIssue();
     vi.mocked(execSync).mockReturnValue(JSON.stringify(raw));
 
-    const result = await fetchGitHubIssue(42);
+    const result = await fetchGitHubIssue(42, testRepoInfo);
 
     expect(result.number).toBe(42);
     expect(result.title).toBe('Test issue');
@@ -80,7 +78,7 @@ describe('fetchGitHubIssue', () => {
     const raw = makeRawIssue({ body: undefined, author: undefined, assignees: undefined, labels: undefined, comments: undefined });
     vi.mocked(execSync).mockReturnValue(JSON.stringify(raw));
 
-    const result = await fetchGitHubIssue(42);
+    const result = await fetchGitHubIssue(42, testRepoInfo);
 
     expect(result.body).toBe('');
     expect(result.author.login).toBe('unknown');
@@ -95,7 +93,7 @@ describe('fetchGitHubIssue', () => {
     });
     vi.mocked(execSync).mockReturnValue(JSON.stringify(raw));
 
-    const result = await fetchGitHubIssue(42);
+    const result = await fetchGitHubIssue(42, testRepoInfo);
 
     expect(result.milestone).toEqual({
       id: 'm1', number: 3, title: 'v1.0', description: null, state: 'open',
@@ -105,7 +103,7 @@ describe('fetchGitHubIssue', () => {
   it('throws on CLI failure', async () => {
     vi.mocked(execSync).mockImplementation(() => { throw new Error('gh failed'); });
 
-    await expect(fetchGitHubIssue(42)).rejects.toThrow('Failed to fetch issue #42');
+    await expect(fetchGitHubIssue(42, testRepoInfo)).rejects.toThrow('Failed to fetch issue #42');
   });
 });
 
@@ -117,7 +115,7 @@ describe('commentOnIssue', () => {
   it('posts a comment using body-file via stdin', () => {
     vi.mocked(execSync).mockReturnValue('');
 
-    commentOnIssue(42, 'Hello world');
+    commentOnIssue(42, 'Hello world', testRepoInfo);
 
     expect(execSync).toHaveBeenCalledWith(
       expect.stringContaining('gh issue comment 42 --repo test-owner/test-repo --body-file -'),
@@ -128,7 +126,7 @@ describe('commentOnIssue', () => {
   it('does not throw on failure (logs instead)', () => {
     vi.mocked(execSync).mockImplementation(() => { throw new Error('comment failed'); });
 
-    expect(() => commentOnIssue(42, 'Hello')).not.toThrow();
+    expect(() => commentOnIssue(42, 'Hello', testRepoInfo)).not.toThrow();
   });
 });
 
@@ -157,13 +155,13 @@ describe('getIssueState', () => {
   it('returns issue state string', () => {
     vi.mocked(execSync).mockReturnValue(JSON.stringify({ state: 'OPEN' }));
 
-    expect(getIssueState(42)).toBe('OPEN');
+    expect(getIssueState(42, testRepoInfo)).toBe('OPEN');
   });
 
   it('throws on CLI failure', () => {
     vi.mocked(execSync).mockImplementation(() => { throw new Error('gh failed'); });
 
-    expect(() => getIssueState(42)).toThrow();
+    expect(() => getIssueState(42, testRepoInfo)).toThrow();
   });
 });
 
@@ -177,7 +175,7 @@ describe('closeIssue', () => {
       .mockReturnValueOnce(JSON.stringify({ state: 'OPEN' }))  // getIssueState
       .mockReturnValueOnce('');                                  // gh issue close
 
-    const result = await closeIssue(42);
+    const result = await closeIssue(42, testRepoInfo);
 
     expect(result).toBe(true);
   });
@@ -185,7 +183,7 @@ describe('closeIssue', () => {
   it('returns false if issue is already closed', async () => {
     vi.mocked(execSync).mockReturnValue(JSON.stringify({ state: 'CLOSED' }));
 
-    const result = await closeIssue(42);
+    const result = await closeIssue(42, testRepoInfo);
 
     expect(result).toBe(false);
   });
@@ -196,7 +194,7 @@ describe('closeIssue', () => {
       .mockReturnValueOnce('')                                   // commentOnIssue
       .mockReturnValueOnce('');                                  // gh issue close
 
-    await closeIssue(42, 'Closing comment');
+    await closeIssue(42, testRepoInfo, 'Closing comment');
 
     expect(execSync).toHaveBeenCalledTimes(3);
   });
@@ -204,7 +202,7 @@ describe('closeIssue', () => {
   it('returns false on error', async () => {
     vi.mocked(execSync).mockImplementation(() => { throw new Error('fail'); });
 
-    const result = await closeIssue(42);
+    const result = await closeIssue(42, testRepoInfo);
 
     expect(result).toBe(false);
   });
@@ -218,13 +216,13 @@ describe('getIssueTitleSync', () => {
   it('returns issue title', () => {
     vi.mocked(execSync).mockReturnValue(JSON.stringify({ title: 'My Issue' }));
 
-    expect(getIssueTitleSync(42)).toBe('My Issue');
+    expect(getIssueTitleSync(42, testRepoInfo)).toBe('My Issue');
   });
 
   it('returns (unknown) on error', () => {
     vi.mocked(execSync).mockImplementation(() => { throw new Error('fail'); });
 
-    expect(getIssueTitleSync(42)).toBe('(unknown)');
+    expect(getIssueTitleSync(42, testRepoInfo)).toBe('(unknown)');
   });
 });
 
@@ -240,7 +238,7 @@ describe('fetchIssueCommentsRest', () => {
     ];
     vi.mocked(execSync).mockReturnValue(JSON.stringify(raw));
 
-    const result = fetchIssueCommentsRest(42);
+    const result = fetchIssueCommentsRest(42, testRepoInfo);
 
     expect(result).toHaveLength(2);
     expect(result[0].id).toBe(100);
@@ -251,7 +249,7 @@ describe('fetchIssueCommentsRest', () => {
   it('throws on CLI failure', () => {
     vi.mocked(execSync).mockImplementation(() => { throw new Error('fail'); });
 
-    expect(() => fetchIssueCommentsRest(42)).toThrow('Failed to fetch comments for issue #42');
+    expect(() => fetchIssueCommentsRest(42, testRepoInfo)).toThrow('Failed to fetch comments for issue #42');
   });
 });
 
@@ -263,7 +261,7 @@ describe('deleteIssueComment', () => {
   it('deletes a comment by ID', () => {
     vi.mocked(execSync).mockReturnValue('');
 
-    deleteIssueComment(100);
+    deleteIssueComment(100, testRepoInfo);
 
     expect(execSync).toHaveBeenCalledWith(
       expect.stringContaining('gh api -X DELETE repos/test-owner/test-repo/issues/comments/100'),
@@ -274,6 +272,6 @@ describe('deleteIssueComment', () => {
   it('throws on failure', () => {
     vi.mocked(execSync).mockImplementation(() => { throw new Error('fail'); });
 
-    expect(() => deleteIssueComment(100)).toThrow('Failed to delete comment 100');
+    expect(() => deleteIssueComment(100, testRepoInfo)).toThrow('Failed to delete comment 100');
   });
 });

@@ -93,7 +93,7 @@ export class GitHubCodeHost implements CodeHost {
       '',
       '',
       options.targetBranch,
-      undefined,
+      process.cwd(),
       this.repoInfo,
     );
   }

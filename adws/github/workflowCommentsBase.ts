@@ -128,7 +128,7 @@ const TERMINAL_STAGES: ReadonlyArray<WorkflowStage> = ['completed', 'error'];
  * @param issueNumber - The issue number to check
  * @param repoInfo - Optional repository info override for targeting external repositories.
  */
-export async function isAdwRunningForIssue(issueNumber: number, repoInfo?: RepoInfo): Promise<boolean> {
+export async function isAdwRunningForIssue(issueNumber: number, repoInfo: RepoInfo): Promise<boolean> {
   const issue = await fetchGitHubIssue(issueNumber, repoInfo);
 
   const stageComments = issue.comments

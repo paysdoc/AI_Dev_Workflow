@@ -9,7 +9,7 @@
  */
 
 import { log } from './core';
-import { fetchIssueCommentsRest, deleteIssueComment, getIssueTitleSync, getRepoInfoFromPayload, type RepoInfo } from './github';
+import { fetchIssueCommentsRest, deleteIssueComment, getIssueTitleSync, getRepoInfoFromPayload, getRepoInfo, type RepoInfo } from './github';
 
 interface ClearCommentsResult {
   total: number;
@@ -61,8 +61,9 @@ function parseArguments(args: string[]): { issueNumber: number; repoInfo?: RepoI
  * @param repoInfo - Optional repository info override for targeting external repositories.
  */
 export function clearIssueComments(issueNumber: number, repoInfo?: RepoInfo): ClearCommentsResult {
-  const comments = fetchIssueCommentsRest(issueNumber, repoInfo);
-  const issueTitle = getIssueTitleSync(issueNumber, repoInfo);
+  const resolvedRepoInfo = repoInfo ?? getRepoInfo();
+  const comments = fetchIssueCommentsRest(issueNumber, resolvedRepoInfo);
+  const issueTitle = getIssueTitleSync(issueNumber, resolvedRepoInfo);
 
   if (comments.length === 0) {
     log(`No comments found on issue #${issueNumber} ("${issueTitle}")`, 'info');
@@ -77,7 +78,7 @@ export function clearIssueComments(issueNumber: number, repoInfo?: RepoInfo): Cl
   for (const comment of comments) {
     try {
       log(`Deleting comment ${comment.id}: "${comment.body.substring(0, 10)}..."`, 'info');
-      deleteIssueComment(comment.id, repoInfo);
+      deleteIssueComment(comment.id, resolvedRepoInfo);
       deleted++;
     } catch (error) {
       log(`Failed to delete comment ${comment.id}: ${error}`, 'error');

@@ -50,7 +50,7 @@ class GitHubIssueTracker implements IssueTracker {
   }
 
   async closeIssue(issueNumber: number, comment?: string): Promise<boolean> {
-    return ghCloseIssue(issueNumber, comment, this.repoInfo);
+    return ghCloseIssue(issueNumber, this.repoInfo, comment);
   }
 
   getIssueState(issueNumber: number): string {

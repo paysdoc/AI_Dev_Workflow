@@ -16,17 +16,13 @@ vi.mock('child_process', () => ({
   execSync: vi.fn(() => ''),
 }));
 
-vi.mock('../../core/targetRepoRegistry', () => ({
-  resolveTargetRepoCwd: vi.fn((cwd?: string) => cwd),
-}));
-
 import { execSync } from 'child_process';
 import { getUnaddressedComments, hasUnaddressedComments, getLastAdwCommitTimestamp, ADW_COMMIT_PATTERN } from '../prCommentDetector';
 import { fetchPRDetails, fetchPRReviewComments } from '../githubApi';
-import { resolveTargetRepoCwd } from '../../core/targetRepoRegistry';
 
 const mockFetchPRDetails = vi.mocked(fetchPRDetails);
 const mockFetchPRReviewComments = vi.mocked(fetchPRReviewComments);
+const testRepoInfo: RepoInfo = { owner: 'test-owner', repo: 'test-repo' };
 
 const stubPRDetails: PRDetails = {
   number: 42,
@@ -56,11 +52,11 @@ describe('prCommentDetector repoInfo forwarding', () => {
     expect(mockFetchPRReviewComments).toHaveBeenCalledWith(42, repoInfo);
   });
 
-  it('calls fetchPRDetails and fetchPRReviewComments without repoInfo when omitted', () => {
-    getUnaddressedComments(42);
+  it('calls fetchPRDetails and fetchPRReviewComments with testRepoInfo', () => {
+    getUnaddressedComments(42, testRepoInfo);
 
-    expect(mockFetchPRDetails).toHaveBeenCalledWith(42, undefined);
-    expect(mockFetchPRReviewComments).toHaveBeenCalledWith(42, undefined);
+    expect(mockFetchPRDetails).toHaveBeenCalledWith(42, testRepoInfo);
+    expect(mockFetchPRReviewComments).toHaveBeenCalledWith(42, testRepoInfo);
   });
 
   it('hasUnaddressedComments forwards repoInfo', () => {
@@ -78,19 +74,7 @@ describe('getLastAdwCommitTimestamp cwd resolution', () => {
     vi.clearAllMocks();
   });
 
-  it('passes resolved cwd to execSync', () => {
-    vi.mocked(resolveTargetRepoCwd).mockReturnValueOnce('/target/repo');
-    vi.mocked(execSync).mockReturnValue('2025-01-15T10:00:00+00:00 feat: implement #42\n');
-
-    getLastAdwCommitTimestamp('feature/test');
-
-    expect(execSync).toHaveBeenCalledWith(
-      'git log "feature/test" --format="%aI %s" --no-merges',
-      expect.objectContaining({ cwd: '/target/repo' })
-    );
-  });
-
-  it('passes undefined cwd when registry is not set', () => {
+  it('passes undefined cwd when not provided', () => {
     vi.mocked(execSync).mockReturnValue('');
 
     getLastAdwCommitTimestamp('feature/test');
@@ -106,7 +90,6 @@ describe('getLastAdwCommitTimestamp cwd resolution', () => {
 
     getLastAdwCommitTimestamp('feature/test', '/explicit/path');
 
-    expect(resolveTargetRepoCwd).toHaveBeenCalledWith('/explicit/path');
     expect(execSync).toHaveBeenCalledWith(
       'git log "feature/test" --format="%aI %s" --no-merges',
       expect.objectContaining({ cwd: '/explicit/path' })
@@ -205,7 +188,7 @@ describe('getUnaddressedComments with ADW commit filtering', () => {
       },
     ]);
 
-    const result = getUnaddressedComments(42);
+    const result = getUnaddressedComments(42, testRepoInfo);
 
     expect(result).toEqual([]);
   });
@@ -225,7 +208,7 @@ describe('getUnaddressedComments with ADW commit filtering', () => {
     };
     mockFetchPRReviewComments.mockReturnValue([comment]);
 
-    const result = getUnaddressedComments(42);
+    const result = getUnaddressedComments(42, testRepoInfo);
 
     expect(result).toEqual([comment]);
   });

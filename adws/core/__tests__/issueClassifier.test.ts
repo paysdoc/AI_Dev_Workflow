@@ -40,6 +40,8 @@ import { log as logFromUtils } from '../utils';
 import { fetchGitHubIssue } from '../../github/githubApi';
 import { runClaudeAgentWithCommand } from '../../agents/claudeAgent';
 
+const testRepoInfo: RepoInfo = { owner: 'test-owner', repo: 'test-repo' };
+
 function createMockIssue(overrides: Partial<GitHubIssue> = {}): GitHubIssue {
   return {
     number: 42,
@@ -283,7 +285,7 @@ describe('classifyIssueForTrigger', () => {
       body: 'Please run /adw_plan_build_test on this',
     }));
 
-    const result = await classifyIssueForTrigger(42);
+    const result = await classifyIssueForTrigger(42, testRepoInfo);
 
     expect(result.issueType).toBe('/feature');
     expect(result.adwCommand).toBe('/adw_plan_build_test');
@@ -304,7 +306,7 @@ describe('classifyIssueForTrigger', () => {
     vi.mocked(runClaudeAgentWithCommand)
       .mockResolvedValueOnce({ output: '/bug', success: true });
 
-    const result = await classifyIssueForTrigger(42);
+    const result = await classifyIssueForTrigger(42, testRepoInfo);
 
     expect(result.issueType).toBe('/bug');
     expect(result.adwCommand).toBeUndefined();
@@ -330,7 +332,7 @@ describe('classifyIssueForTrigger', () => {
     vi.mocked(runClaudeAgentWithCommand)
       .mockResolvedValueOnce({ output: 'unknown output', success: true });
 
-    const result = await classifyIssueForTrigger(42);
+    const result = await classifyIssueForTrigger(42, testRepoInfo);
 
     expect(result.issueType).toBe('/feature');
     expect(result.success).toBe(false);
@@ -347,7 +349,7 @@ describe('classifyIssueForTrigger', () => {
       body: 'Please run /adw_plan_build_test on this',
     }));
 
-    await classifyIssueForTrigger(42);
+    await classifyIssueForTrigger(42, testRepoInfo);
 
     expect(log).toHaveBeenCalledWith(
       expect.stringContaining('title="My test issue"')
@@ -360,7 +362,7 @@ describe('classifyIssueForTrigger', () => {
   it('defaults to /feature when fetchGitHubIssue throws', async () => {
     vi.mocked(fetchGitHubIssue).mockRejectedValue(new Error('API error'));
 
-    const result = await classifyIssueForTrigger(42);
+    const result = await classifyIssueForTrigger(42, testRepoInfo);
 
     expect(result.issueType).toBe('/feature');
     expect(result.success).toBe(false);
@@ -380,15 +382,15 @@ describe('classifyIssueForTrigger', () => {
     expect(result.adwCommand).toBe('/adw_plan_build_test');
   });
 
-  it('fetches from default repo when repoInfo is not provided', async () => {
+  it('passes repoInfo to fetchGitHubIssue', async () => {
     vi.mocked(fetchGitHubIssue).mockResolvedValue(createMockIssue({
       number: 42,
       body: 'Please run /adw_plan_build_test on this',
     }));
 
-    await classifyIssueForTrigger(42);
+    await classifyIssueForTrigger(42, testRepoInfo);
 
-    expect(fetchGitHubIssue).toHaveBeenCalledWith(42, undefined);
+    expect(fetchGitHubIssue).toHaveBeenCalledWith(42, testRepoInfo);
   });
 });
 

@@ -8,10 +8,6 @@ vi.mock('../../core/utils', () => ({
   log: vi.fn(),
 }));
 
-vi.mock('../../core/targetRepoRegistry', () => ({
-  getTargetRepo: vi.fn(() => ({ owner: 'test-owner', repo: 'test-repo' })),
-}));
-
 vi.mock('../../core/costReport', () => ({
   formatCostBreakdownMarkdown: vi.fn(() => '| Model | Cost |\n|---|---|\n| claude | $0.10 |'),
 }));
@@ -23,6 +19,8 @@ import {
   type PRReviewWorkflowContext,
 } from '../workflowCommentsPR';
 import type { PRReviewWorkflowStage } from '../../core';
+
+const testRepoInfo = { owner: 'test-owner', repo: 'test-repo' };
 
 function makeCtx(overrides: Partial<PRReviewWorkflowContext> = {}): PRReviewWorkflowContext {
   return {
@@ -181,7 +179,7 @@ describe('postPRWorkflowComment', () => {
   it('formats and posts a comment to the PR', () => {
     vi.mocked(execSync).mockReturnValue('' as any);
 
-    postPRWorkflowComment(10, 'pr_review_starting', makeCtx());
+    postPRWorkflowComment(10, 'pr_review_starting', makeCtx(), testRepoInfo);
 
     expect(execSync).toHaveBeenCalledWith(
       expect.stringContaining('gh pr comment 10'),
@@ -192,6 +190,6 @@ describe('postPRWorkflowComment', () => {
   it('does not throw when comment posting fails', () => {
     vi.mocked(execSync).mockImplementation(() => { throw new Error('fail'); });
 
-    expect(() => postPRWorkflowComment(10, 'pr_review_starting', makeCtx())).not.toThrow();
+    expect(() => postPRWorkflowComment(10, 'pr_review_starting', makeCtx(), testRepoInfo)).not.toThrow();
   });
 });

@@ -123,9 +123,6 @@ export { getWorkflowScript } from './workflowMapping';
 // Port allocator
 export { allocateRandomPort, isPortAvailable } from './portAllocator';
 
-// Target repo registry
-export { setTargetRepo, getTargetRepo, clearTargetRepo, hasTargetRepo, resolveTargetRepoCwd } from './targetRepoRegistry';
-
 // Orchestrator CLI utilities
 export type { OrchestratorArgs } from './orchestratorCli';
 export { extractCwdOption, extractIssueTypeOption, parseIssueNumber, printUsageAndExit as printOrchestratorUsage, parseOrchestratorArguments, buildRepoIdentifier } from './orchestratorCli';

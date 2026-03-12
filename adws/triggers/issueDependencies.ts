@@ -52,7 +52,7 @@ export function parseDependencies(issueBody: string): number[] {
  * Calls `getIssueState()` for each dependency to check if it is still open.
  * Does NOT resolve transitive dependencies.
  */
-export async function findOpenDependencies(issueBody: string, repoInfo?: RepoInfo): Promise<number[]> {
+export async function findOpenDependencies(issueBody: string, repoInfo: RepoInfo): Promise<number[]> {
   const deps = parseDependencies(issueBody);
   if (deps.length === 0) return [];
 
