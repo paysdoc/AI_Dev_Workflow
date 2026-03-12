@@ -9,8 +9,8 @@ import { AgentIdentifier, TargetRepoInfo } from '../types/dataTypes';
 
 /**
  * Generates a unique ADW session identifier.
- * When a summary is provided, format: {slugified-summary}-{random}
- * When no summary is provided, falls back to: {timestamp}-{random}
+ * When a summary is provided, format: {random}-{slugified-summary}
+ * When no summary is provided, falls back to: {random}-{timestamp}
  *
  * Note: The `adw-` prefix is NOT included here because the branch name format
  * template already adds `adw-` before the adwId (e.g., `<issueClass>-issue-<N>-adw-<adwId>-<name>`).
@@ -20,10 +20,10 @@ export function generateAdwId(summary?: string): string {
   if (summary) {
     const slug = slugify(summary).substring(0, 20).replace(/-$/, '');
     if (slug) {
-      return `${slug}-${random}`;
+      return `${random}-${slug}`;
     }
   }
-  return `${Date.now()}-${random}`;
+  return `${random}-${Date.now()}`;
 }
 
 /**

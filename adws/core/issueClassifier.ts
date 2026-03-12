@@ -73,6 +73,7 @@ export interface IssueClassificationResult {
   success: boolean;
   adwCommand?: AdwSlashCommand;
   adwId?: string;
+  issueTitle?: string;
 }
 
 /**
@@ -211,7 +212,7 @@ export async function classifyIssueForTrigger(
     );
     if (adwResult) {
       log(`Classification complete for issue #${issueNumber}: classifier=regex, issueType=${adwResult.issueType}, adwCommand=${adwResult.adwCommand}, success=${adwResult.success}`, 'success');
-      return adwResult;
+      return { ...adwResult, issueTitle: issue.title };
     }
 
     // Step 2: Fall back to /classify_issue
@@ -225,7 +226,7 @@ export async function classifyIssueForTrigger(
       issue.body,
     );
     log(`Classification complete for issue #${issueNumber}: classifier=heuristic, issueType=${heuristicResult.issueType}, adwCommand=${heuristicResult.adwCommand ?? 'none'}, success=${heuristicResult.success}`, heuristicResult.success ? 'success' : 'warn');
-    return heuristicResult;
+    return { ...heuristicResult, issueTitle: issue.title };
   } catch (error) {
     log(`Error classifying issue #${issueNumber}: ${error}`, 'error');
     return { issueType: '/feature', success: false };

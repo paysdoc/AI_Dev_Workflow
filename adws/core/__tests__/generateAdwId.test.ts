@@ -4,60 +4,58 @@ import { extractAdwIdFromComment } from '../../github/workflowCommentsBase';
 
 describe('generateAdwId', () => {
   describe('with summary', () => {
-    it('produces {slug}-{random} format without adw- prefix', () => {
+    it('produces {random}-{slug} format without adw- prefix', () => {
       const id = generateAdwId('Fix login bug');
-      expect(id).toMatch(/^fix-login-bug-[a-z0-9]{6}$/);
+      expect(id).toMatch(/^[a-z0-9]{6}-fix-login-bug$/);
     });
 
     it('truncates summary portion to max 20 characters', () => {
       const id = generateAdwId('This is a very long issue title that exceeds twenty characters');
-      const parts = id.split('-');
-      // Remove last random suffix
-      const summaryPart = parts.slice(0, -1).join('-');
-      expect(summaryPart.length).toBeLessThanOrEqual(20);
+      // Extract slug: everything after the first 6-char random prefix and its hyphen
+      const slugPart = id.replace(/^[a-z0-9]{6}-/, '');
+      expect(slugPart.length).toBeLessThanOrEqual(20);
     });
 
     it('removes trailing hyphen caused by truncation', () => {
       const id = generateAdwId('Add new feature for users and admins');
-      const parts = id.split('-');
-      const summaryPart = parts.slice(0, -1).join('-');
-      expect(summaryPart).not.toMatch(/-$/);
+      const slugPart = id.replace(/^[a-z0-9]{6}-/, '');
+      expect(slugPart).not.toMatch(/-$/);
     });
 
     it('slugifies special characters', () => {
       const id = generateAdwId("Fix bug: can't login!");
-      expect(id).toMatch(/^fix-bug-can-t-login-[a-z0-9]{6}$/);
+      expect(id).toMatch(/^[a-z0-9]{6}-fix-bug-can-t-login$/);
     });
 
     it('converts to lowercase', () => {
       const id = generateAdwId('ADD NEW Feature');
-      expect(id).toMatch(/^add-new-feature-[a-z0-9]{6}$/);
+      expect(id).toMatch(/^[a-z0-9]{6}-add-new-feature$/);
     });
 
     it('falls back to timestamp when summary produces empty slug', () => {
       const id = generateAdwId('!!!@@@###');
-      expect(id).toMatch(/^\d+-[a-z0-9]{6}$/);
+      expect(id).toMatch(/^[a-z0-9]{6}-\d+$/);
     });
   });
 
   describe('without summary', () => {
     it('falls back to timestamp format when no summary provided', () => {
       const id = generateAdwId();
-      expect(id).toMatch(/^\d+-[a-z0-9]{6}$/);
+      expect(id).toMatch(/^[a-z0-9]{6}-\d+$/);
     });
 
     it('falls back to timestamp format for empty string', () => {
       const id = generateAdwId('');
-      expect(id).toMatch(/^\d+-[a-z0-9]{6}$/);
+      expect(id).toMatch(/^[a-z0-9]{6}-\d+$/);
     });
   });
 
-  describe('random suffix', () => {
+  describe('random prefix', () => {
     it('always has 6 alphanumeric characters', () => {
       const ids = Array.from({ length: 10 }, () => generateAdwId('test'));
       ids.forEach((id) => {
-        const suffix = id.split('-').pop();
-        expect(suffix).toMatch(/^[a-z0-9]{6}$/);
+        const prefix = id.split('-')[0];
+        expect(prefix).toMatch(/^[a-z0-9]{6}$/);
       });
     });
   });
