@@ -20,6 +20,10 @@ vi.mock('../../github/workflowCommentsIssue', () => ({
   formatWorkflowComment: vi.fn().mockReturnValue('formatted comment'),
 }));
 
+vi.mock('../../github', () => ({
+  pushBranch: vi.fn(),
+}));
+
 vi.mock('../../agents', () => ({
   getPlanFilePath: vi.fn().mockReturnValue('specs/issue-42-plan.md'),
   runDocumentAgent: vi.fn().mockResolvedValue({
@@ -33,6 +37,7 @@ vi.mock('../../agents', () => ({
 }));
 
 import { AgentStateManager } from '../../core';
+import { pushBranch } from '../../github';
 import { runDocumentAgent, runCommitAgent } from '../../agents';
 import { executeDocumentPhase } from '../documentPhase';
 import type { WorkflowConfig } from '../workflowLifecycle';
@@ -187,5 +192,24 @@ describe('executeDocumentPhase', () => {
       '/mock/state/orchestrator',
       expect.stringContaining('Documentation created'),
     );
+  });
+
+  it('pushes documentation commit to remote after commit', async () => {
+    await executeDocumentPhase(makeConfig());
+
+    expect(pushBranch).toHaveBeenCalledWith('feat-issue-42-test', '/mock/worktree');
+  });
+
+  it('does not push when document agent fails', async () => {
+    vi.mocked(runDocumentAgent).mockResolvedValueOnce({
+      success: false,
+      output: 'Failed',
+      totalCostUsd: 0.05,
+      docPath: '',
+    });
+
+    await expect(executeDocumentPhase(makeConfig())).rejects.toThrow();
+
+    expect(pushBranch).not.toHaveBeenCalled();
   });
 });

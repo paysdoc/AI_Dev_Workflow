@@ -19,6 +19,7 @@ import {
 } from './types';
 import { createGitHubIssueTracker } from './github/githubIssueTracker';
 import { createGitHubCodeHost } from './github/githubCodeHost';
+import type { ProvidersConfig } from '../core/projectConfig';
 
 /**
  * Options for creating a RepoContext.
@@ -28,6 +29,7 @@ export interface RepoContextOptions {
   cwd: string;
   codeHostPlatform?: Platform;
   issueTrackerPlatform?: Platform;
+  providersConfig?: ProvidersConfig;
 }
 
 /**
@@ -35,7 +37,10 @@ export interface RepoContextOptions {
  */
 export interface ProviderConfig {
   codeHost: Platform;
+  codeHostUrl?: string;
   issueTracker: Platform;
+  issueTrackerUrl?: string;
+  issueTrackerProjectKey?: string;
 }
 
 const PLATFORM_VALUES = new Map<string, Platform>(
@@ -86,6 +91,21 @@ export function loadProviderConfig(cwd: string): ProviderConfig {
       issueTrackerMatch[1],
       '## Issue Tracker',
     );
+  }
+
+  const codeHostUrlMatch = content.match(/^## Code Host URL\s*\n+(.+)/m);
+  if (codeHostUrlMatch) {
+    config.codeHostUrl = codeHostUrlMatch[1].trim();
+  }
+
+  const issueTrackerUrlMatch = content.match(/^## Issue Tracker URL\s*\n+(.+)/m);
+  if (issueTrackerUrlMatch) {
+    config.issueTrackerUrl = issueTrackerUrlMatch[1].trim();
+  }
+
+  const projectKeyMatch = content.match(/^## Issue Tracker Project Key\s*\n+(.+)/m);
+  if (projectKeyMatch) {
+    config.issueTrackerProjectKey = projectKeyMatch[1].trim();
   }
 
   return config;
@@ -202,14 +222,20 @@ export function createRepoContext(options: RepoContextOptions): RepoContext {
   validateWorkingDirectory(cwd);
   validateGitRemote(cwd, repoId);
 
-  const needsConfig =
-    options.codeHostPlatform === undefined ||
-    options.issueTrackerPlatform === undefined;
-  const config = needsConfig ? loadProviderConfig(cwd) : undefined;
+  let codeHostPlatform: Platform;
+  let issueTrackerPlatform: Platform;
 
-  const codeHostPlatform = options.codeHostPlatform ?? config!.codeHost;
-  const issueTrackerPlatform =
-    options.issueTrackerPlatform ?? config!.issueTracker;
+  if (options.codeHostPlatform !== undefined && options.issueTrackerPlatform !== undefined) {
+    codeHostPlatform = options.codeHostPlatform;
+    issueTrackerPlatform = options.issueTrackerPlatform;
+  } else if (options.providersConfig) {
+    codeHostPlatform = options.codeHostPlatform ?? parsePlatform(options.providersConfig.codeHost, '## Code Host');
+    issueTrackerPlatform = options.issueTrackerPlatform ?? parsePlatform(options.providersConfig.issueTracker, '## Issue Tracker');
+  } else {
+    const config = loadProviderConfig(cwd);
+    codeHostPlatform = options.codeHostPlatform ?? config.codeHost;
+    issueTrackerPlatform = options.issueTrackerPlatform ?? config.issueTracker;
+  }
 
   const issueTracker = resolveIssueTracker(issueTrackerPlatform, repoId);
   const codeHost = resolveCodeHost(codeHostPlatform, repoId);

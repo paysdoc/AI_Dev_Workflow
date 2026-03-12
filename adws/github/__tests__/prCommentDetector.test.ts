@@ -21,7 +21,7 @@ vi.mock('../../core/targetRepoRegistry', () => ({
 }));
 
 import { execSync } from 'child_process';
-import { getUnaddressedComments, hasUnaddressedComments, getLastAdwCommitTimestamp } from '../prCommentDetector';
+import { getUnaddressedComments, hasUnaddressedComments, getLastAdwCommitTimestamp, ADW_COMMIT_PATTERN } from '../prCommentDetector';
 import { fetchPRDetails, fetchPRReviewComments } from '../githubApi';
 import { resolveTargetRepoCwd } from '../../core/targetRepoRegistry';
 
@@ -111,5 +111,122 @@ describe('getLastAdwCommitTimestamp cwd resolution', () => {
       'git log "feature/test" --format="%aI %s" --no-merges',
       expect.objectContaining({ cwd: '/explicit/path' })
     );
+  });
+});
+
+describe('ADW_COMMIT_PATTERN', () => {
+  const adwMessages = [
+    'pr-review-orchestrator: feat: resolve merge conflicts',
+    'build-agent: fix: update error handling',
+    '/feature: feat: add provider config',
+    'sdlc_planner: chore: update dependencies',
+    'document-agent: feat: update docs',
+    'review-agent: review: address feedback',
+    'plan-orchestrator: adwinit: initialize project',
+  ];
+
+  it.each(adwMessages)('matches ADW commit message: %s', (message) => {
+    expect(ADW_COMMIT_PATTERN.test(message)).toBe(true);
+  });
+
+  const nonAdwMessages = [
+    'feat: add new feature',
+    'fix: resolve bug',
+    "Merge branch 'main'",
+    'Update README.md',
+    'Initial commit',
+  ];
+
+  it.each(nonAdwMessages)('does not match non-ADW commit message: %s', (message) => {
+    expect(ADW_COMMIT_PATTERN.test(message)).toBe(false);
+  });
+});
+
+describe('getLastAdwCommitTimestamp pattern matching', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('returns correct timestamp when an ADW commit is found', () => {
+    vi.mocked(execSync).mockReturnValue(
+      '2025-03-10T14:30:00+00:00 pr-review-orchestrator: feat: resolve merge conflicts\n' +
+      '2025-03-09T10:00:00+00:00 feat: add new feature\n'
+    );
+
+    const result = getLastAdwCommitTimestamp('feature/test');
+
+    expect(result).toEqual(new Date('2025-03-10T14:30:00+00:00'));
+  });
+
+  it('returns null when only non-ADW commits exist', () => {
+    vi.mocked(execSync).mockReturnValue(
+      '2025-03-10T14:30:00+00:00 feat: add new feature\n' +
+      '2025-03-09T10:00:00+00:00 fix: resolve bug\n' +
+      "2025-03-08T08:00:00+00:00 Merge branch 'main'\n"
+    );
+
+    const result = getLastAdwCommitTimestamp('feature/test');
+
+    expect(result).toBeNull();
+  });
+
+  it('returns the most recent ADW commit timestamp', () => {
+    vi.mocked(execSync).mockReturnValue(
+      '2025-03-12T12:00:00+00:00 feat: manual commit\n' +
+      '2025-03-11T10:00:00+00:00 build-orchestrator: fix: update config\n' +
+      '2025-03-10T08:00:00+00:00 sdlc_planner: feat: add module\n'
+    );
+
+    const result = getLastAdwCommitTimestamp('feature/test');
+
+    expect(result).toEqual(new Date('2025-03-11T10:00:00+00:00'));
+  });
+});
+
+describe('getUnaddressedComments with ADW commit filtering', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockFetchPRDetails.mockReturnValue(stubPRDetails);
+  });
+
+  it('does not return comments posted before an ADW commit', () => {
+    vi.mocked(execSync).mockReturnValue(
+      '2025-03-10T14:00:00+00:00 pr-review-orchestrator: feat: resolve conflicts\n'
+    );
+    mockFetchPRReviewComments.mockReturnValue([
+      {
+        id: 1,
+        body: 'Please fix this',
+        author: { login: 'reviewer', isBot: false },
+        createdAt: '2025-03-10T10:00:00+00:00',
+        path: 'src/index.ts',
+        line: 10,
+        updatedAt: '2025-03-10T10:00:00+00:00',
+      },
+    ]);
+
+    const result = getUnaddressedComments(42);
+
+    expect(result).toEqual([]);
+  });
+
+  it('returns comments posted after an ADW commit', () => {
+    vi.mocked(execSync).mockReturnValue(
+      '2025-03-10T14:00:00+00:00 pr-review-orchestrator: feat: resolve conflicts\n'
+    );
+    const comment = {
+      id: 2,
+      body: 'New issue found',
+      author: { login: 'reviewer', isBot: false },
+      createdAt: '2025-03-10T16:00:00+00:00',
+      path: 'src/index.ts',
+      line: 5,
+      updatedAt: '2025-03-10T16:00:00+00:00',
+    };
+    mockFetchPRReviewComments.mockReturnValue([comment]);
+
+    const result = getUnaddressedComments(42);
+
+    expect(result).toEqual([comment]);
   });
 });

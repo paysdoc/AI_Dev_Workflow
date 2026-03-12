@@ -36,7 +36,7 @@ export async function classifyAndSpawnWorkflow(
 ): Promise<void> {
   const classification = await classifyIssueForTrigger(issueNumber, repoInfo);
   const workflowScript = getWorkflowScript(classification.issueType, classification.adwCommand);
-  const adwId = classification.adwId || generateAdwId();
+  const adwId = classification.adwId || generateAdwId(classification.issueTitle);
 
   // Post "starting" comment immediately to signal ownership
   postWorkflowComment(issueNumber, 'starting', { issueNumber, adwId }, repoInfo);

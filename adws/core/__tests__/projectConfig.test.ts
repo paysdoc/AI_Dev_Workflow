@@ -6,6 +6,7 @@ import {
   loadProjectConfig,
   getDefaultProjectConfig,
   getDefaultCommandsConfig,
+  getDefaultProvidersConfig,
   parseMarkdownSections,
   parseCommandsMd,
 } from '../projectConfig';
@@ -45,6 +46,11 @@ describe('getDefaultProjectConfig', () => {
     expect(config.projectMd).toBe('');
     expect(config.conditionalDocsMd).toBe('');
     expect(config.reviewProofMd).toBe('');
+  });
+
+  it('returns github defaults for providers', () => {
+    const config = getDefaultProjectConfig();
+    expect(config.providers).toEqual(getDefaultProvidersConfig());
   });
 
   it('returns bun-based default commands', () => {
@@ -224,11 +230,12 @@ describe('loadProjectConfig — no .adw/ directory', () => {
 // ---------------------------------------------------------------------------
 
 describe('loadProjectConfig — valid .adw/ directory', () => {
-  it('loads all four files', () => {
+  it('loads all five files', () => {
     writeAdwFile('commands.md', '## Package Manager\nyarn');
     writeAdwFile('project.md', '## Project Overview\nMy project');
     writeAdwFile('conditional_docs.md', '## Conditional Documentation\n- README.md');
     writeAdwFile('review_proof.md', '## Proof Requirements\nTest output summaries');
+    writeAdwFile('providers.md', '## Code Host\ngitlab\n\n## Issue Tracker\ngithub\n');
 
     const config = loadProjectConfig(tmpDir);
     expect(config.hasAdwDir).toBe(true);
@@ -236,6 +243,8 @@ describe('loadProjectConfig — valid .adw/ directory', () => {
     expect(config.projectMd).toContain('My project');
     expect(config.conditionalDocsMd).toContain('README.md');
     expect(config.reviewProofMd).toContain('Test output summaries');
+    expect(config.providers.codeHost).toBe('gitlab');
+    expect(config.providers.issueTracker).toBe('github');
   });
 });
 
@@ -283,6 +292,13 @@ describe('loadProjectConfig — partial .adw/ directory', () => {
     expect(config.hasAdwDir).toBe(true);
     expect(config.reviewProofMd).toContain('Screenshots and test output');
   });
+
+  it('returns default providers when providers.md is missing', () => {
+    writeAdwFile('commands.md', '## Run Linter\ncustom-lint');
+
+    const config = loadProjectConfig(tmpDir);
+    expect(config.providers).toEqual(getDefaultProvidersConfig());
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -319,6 +335,13 @@ describe('loadProjectConfig — edge cases', () => {
     expect(config.commands.runLinter).toBe('custom-lint');
     // Unknown sections are silently ignored; all other fields are defaults
     expect(config.commands.packageManager).toBe('bun');
+  });
+
+  it('handles empty providers.md', () => {
+    writeAdwFile('providers.md', '');
+
+    const config = loadProjectConfig(tmpDir);
+    expect(config.providers).toEqual(getDefaultProvidersConfig());
   });
 
   it('treats .adw as a file (not directory) as missing', () => {
