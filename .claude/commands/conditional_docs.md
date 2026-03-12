@@ -50,3 +50,11 @@ This prompt helps you determine what documentation you should read based on the 
     - When migrating or extending `WorkflowConfig` or `PRReviewWorkflowConfig` fields
     - When troubleshooting comment posting failures or missing status updates in workflows
     - When updating phase tests to use `makeRepoContext()` mock helper
+
+- app_docs/feature-1773328453611-p5xexp-running-token-totals.md
+  - Conditions:
+    - When working with `WorkflowContext` or `PRReviewWorkflowContext` comment formatting
+    - When adding a new field to issue or PR workflow comments
+    - When implementing token or cost visibility features in ADW comments
+    - When troubleshooting missing or unexpected running token footers in comments
+    - When modifying orchestrators to thread data into `ctx` between phases

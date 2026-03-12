@@ -6,6 +6,12 @@
 
 import type { ModelUsageMap } from '../types/costTypes';
 
+/** A single model's total token count for use in per-model breakdowns. */
+export interface ModelTokenEntry {
+  model: string;
+  total: number;
+}
+
 /**
  * Aggregated token totals returned by {@link computeTotalTokens}.
  */
@@ -14,6 +20,7 @@ export interface TokenTotals {
   outputTokens: number;
   cacheCreationTokens: number;
   total: number;
+  modelBreakdown: ModelTokenEntry[];
 }
 
 /**
@@ -31,11 +38,19 @@ export function computeTotalTokens(modelUsage: ModelUsageMap): TokenTotals {
     { inputTokens: 0, outputTokens: 0, cacheCreationTokens: 0 },
   );
 
+  const modelBreakdown: ModelTokenEntry[] = Object.entries(modelUsage)
+    .map(([model, usage]) => ({
+      model,
+      total: usage.inputTokens + usage.outputTokens + usage.cacheCreationInputTokens,
+    }))
+    .sort((a, b) => b.total - a.total);
+
   return {
     inputTokens,
     outputTokens,
     cacheCreationTokens,
     total: inputTokens + outputTokens + cacheCreationTokens,
+    modelBreakdown,
   };
 }
 
@@ -55,21 +70,29 @@ export function isModelMatch(modelKey: string, modelTier: string): boolean {
  * positive terminations.
  */
 export function computePrimaryModelTokens(modelUsage: ModelUsageMap, primaryModel: string): TokenTotals {
-  const { inputTokens, outputTokens, cacheCreationTokens } = Object.entries(modelUsage)
-    .filter(([key]) => isModelMatch(key, primaryModel))
-    .reduce(
-      (acc, [, usage]) => ({
-        inputTokens: acc.inputTokens + usage.inputTokens,
-        outputTokens: acc.outputTokens + usage.outputTokens,
-        cacheCreationTokens: acc.cacheCreationTokens + usage.cacheCreationInputTokens,
-      }),
-      { inputTokens: 0, outputTokens: 0, cacheCreationTokens: 0 },
-    );
+  const matchingEntries = Object.entries(modelUsage).filter(([key]) => isModelMatch(key, primaryModel));
+
+  const { inputTokens, outputTokens, cacheCreationTokens } = matchingEntries.reduce(
+    (acc, [, usage]) => ({
+      inputTokens: acc.inputTokens + usage.inputTokens,
+      outputTokens: acc.outputTokens + usage.outputTokens,
+      cacheCreationTokens: acc.cacheCreationTokens + usage.cacheCreationInputTokens,
+    }),
+    { inputTokens: 0, outputTokens: 0, cacheCreationTokens: 0 },
+  );
+
+  const modelBreakdown: ModelTokenEntry[] = matchingEntries
+    .map(([model, usage]) => ({
+      model,
+      total: usage.inputTokens + usage.outputTokens + usage.cacheCreationInputTokens,
+    }))
+    .sort((a, b) => b.total - a.total);
 
   return {
     inputTokens,
     outputTokens,
     cacheCreationTokens,
     total: inputTokens + outputTokens + cacheCreationTokens,
+    modelBreakdown,
   };
 }

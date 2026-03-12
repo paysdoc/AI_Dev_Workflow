@@ -50,6 +50,28 @@ const ADW_COMMENT_PATTERN = /^## :[a-z_]+: /m;
 /** Machine-readable footer appended to all ADW workflow comments. */
 export const ADW_SIGNATURE = '\n\n---\n_Posted by ADW (AI Developer Workflow) automation_ <!-- adw-bot -->';
 
+/** Shortens a full model ID (e.g. `claude-opus-4-6`) to a readable tier name (`opus`). */
+export function formatModelName(modelKey: string): string {
+  const lower = modelKey.toLowerCase();
+  if (lower.includes('opus')) return 'opus';
+  if (lower.includes('sonnet')) return 'sonnet';
+  if (lower.includes('haiku')) return 'haiku';
+  return modelKey;
+}
+
+/** Formats a running token total footer line, or returns empty string when not set. */
+export function formatRunningTokenFooter(tokenTotal?: { total: number; modelBreakdown?: Array<{ model: string; total: number }> }): string {
+  if (!tokenTotal) return '';
+  let line = `\n\n> **Running Token Total:** ${tokenTotal.total.toLocaleString('en-US')} tokens`;
+  if (tokenTotal.modelBreakdown && tokenTotal.modelBreakdown.length > 0) {
+    const parts = tokenTotal.modelBreakdown.map(
+      (entry) => `${formatModelName(entry.model)}: ${entry.total.toLocaleString('en-US')}`,
+    );
+    line += ` (${parts.join(' · ')})`;
+  }
+  return line;
+}
+
 /** Pattern matching the HTML comment marker in the ADW signature footer. */
 export const ADW_SIGNATURE_PATTERN = /<!-- adw-bot -->/;
 
