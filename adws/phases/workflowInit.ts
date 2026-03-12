@@ -26,16 +26,18 @@ import {
   fetchGitHubIssue,
   type WorkflowContext,
   detectRecoveryState,
-  getDefaultBranch,
+  getRepoInfo,
+  type RepoInfo,
+} from '../github';
+import {
   checkoutDefaultBranch,
   ensureWorktree,
   getWorktreeForBranch,
   mergeLatestFromDefaultBranch,
   copyEnvToWorktree,
   findWorktreeForIssue,
-  getRepoInfo,
-  type RepoInfo,
-} from '../github';
+} from '../vcs';
+import { getDefaultBranch } from '../vcs/branchOperations';
 import type { RepoContext, RepoIdentifier } from '../providers/types';
 import { Platform } from '../providers/types';
 import { createRepoContext } from '../providers/repoContext';

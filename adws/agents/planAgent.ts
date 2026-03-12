@@ -7,7 +7,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { GitHubIssue, IssueClassSlashCommand, PRDetails, PRReviewComment, getModelForCommand, getEffortForCommand, log } from '../core';
 import { runClaudeAgentWithCommand, AgentResult } from './claudeAgent';
-import { isAdwComment, extractActionableContent } from '../github/workflowCommentsBase';
+import { isAdwComment, extractActionableContent } from '../core/workflowCommentParsing';
 
 /**
  * Formats issue context as arguments for plan commands.

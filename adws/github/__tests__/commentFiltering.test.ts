@@ -9,7 +9,8 @@ vi.mock('../../core/utils', () => ({
 }));
 
 import { execSync } from 'child_process';
-import { isAdwComment, isActionableComment, isClearComment, extractActionableContent, isAdwRunningForIssue, ADW_SIGNATURE } from '../workflowCommentsBase';
+import { isAdwComment, isActionableComment, isClearComment, extractActionableContent, ADW_SIGNATURE } from '../../core/workflowCommentParsing';
+import { isAdwRunningForIssue } from '../workflowCommentsBase';
 import { AgentStateManager } from '../../core/agentState';
 
 const testRepoInfo = { owner: 'test-owner', repo: 'test-repo' };

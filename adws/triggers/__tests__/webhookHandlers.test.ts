@@ -14,11 +14,8 @@ vi.mock('../../github/githubApi', () => ({
   formatIssueClosureComment: vi.fn(() => 'Closed by PR'),
 }));
 
-vi.mock('../../github/worktreeOperations', () => ({
+vi.mock('../../vcs', () => ({
   removeWorktree: vi.fn(() => true),
-}));
-
-vi.mock('../../github/gitOperations', () => ({
   deleteRemoteBranch: vi.fn(() => true),
   commitAndPushCostFiles: vi.fn(() => true),
   pullLatestCostBranch: vi.fn(),
@@ -54,8 +51,7 @@ vi.mock('../../core/costCommitQueue', () => ({
 }));
 
 import { existsSync } from 'fs';
-import { removeWorktree } from '../../github/worktreeOperations';
-import { deleteRemoteBranch, commitAndPushCostFiles, pullLatestCostBranch } from '../../github/gitOperations';
+import { removeWorktree, deleteRemoteBranch, commitAndPushCostFiles, pullLatestCostBranch } from '../../vcs';
 import { closeIssue } from '../../github/githubApi';
 import { rebuildProjectCostCsv } from '../../core/costCsvWriter';
 import { fetchExchangeRates } from '../../core/costReport';

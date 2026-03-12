@@ -9,7 +9,7 @@ vi.mock('../claudeAgent', () => ({
   }),
 }));
 
-vi.mock('../../github/gitOperations', () => ({
+vi.mock('../../vcs/branchOperations', () => ({
   getDefaultBranch: vi.fn().mockReturnValue('stage-3'),
 }));
 
@@ -22,7 +22,7 @@ vi.mock('../../core', async (importOriginal) => {
 });
 
 import { runClaudeAgentWithCommand } from '../claudeAgent';
-import { getDefaultBranch } from '../../github/gitOperations';
+import { getDefaultBranch } from '../../vcs/branchOperations';
 
 describe('formatPullRequestArgs', () => {
   it('returns an array of 5 elements with correct values', () => {

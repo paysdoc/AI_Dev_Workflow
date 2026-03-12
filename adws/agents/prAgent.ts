@@ -6,7 +6,7 @@
 import * as path from 'path';
 import { log, getModelForCommand, getEffortForCommand } from '../core';
 import { runClaudeAgentWithCommand, AgentResult } from './claudeAgent';
-import { getDefaultBranch } from '../github/gitOperations';
+import { getDefaultBranch } from '../vcs/branchOperations';
 
 /**
  * Formats structured args for the /pull_request skill.

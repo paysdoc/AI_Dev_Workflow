@@ -33,11 +33,8 @@ import {
   parseOrchestratorArguments,
   OrchestratorId,
 } from './core';
-import {
-  fetchGitHubIssue,
-  getCurrentBranch,
-  inferIssueTypeFromBranch,
-} from './github';
+import { fetchGitHubIssue } from './github';
+import { getCurrentBranch, inferIssueTypeFromBranch } from './vcs';
 import {
   runPatchAgent,
   runBuildAgent,

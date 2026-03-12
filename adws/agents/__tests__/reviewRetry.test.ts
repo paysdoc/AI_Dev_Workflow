@@ -22,7 +22,7 @@ vi.mock('../gitAgent', () => ({
   }),
 }));
 
-vi.mock('../../github', () => ({
+vi.mock('../../vcs', () => ({
   pushBranch: vi.fn(),
 }));
 
@@ -49,7 +49,7 @@ vi.mock('../../core/retryOrchestrator', () => ({
 import { runReviewAgent } from '../reviewAgent';
 import { runPatchAgent } from '../patchAgent';
 import { runCommitAgent } from '../gitAgent';
-import { pushBranch } from '../../github';
+import { pushBranch } from '../../vcs';
 
 function createBlockerIssue(num: number): ReviewIssue {
   return {

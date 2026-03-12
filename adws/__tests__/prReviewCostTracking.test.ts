@@ -61,11 +61,14 @@ vi.mock('../github', () => ({
   ]),
   postWorkflowComment: vi.fn(),
   postPRWorkflowComment: vi.fn(),
+  getRepoInfo: vi.fn().mockReturnValue({ owner: 'test', repo: 'repo' }),
+  moveIssueToStatus: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock('../vcs', () => ({
   pushBranch: vi.fn(),
   ensureWorktree: vi.fn().mockReturnValue('/mock/worktree'),
   inferIssueTypeFromBranch: vi.fn().mockReturnValue('/feature'),
-  getRepoInfo: vi.fn().mockReturnValue({ owner: 'test', repo: 'repo' }),
-  moveIssueToStatus: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('../agents', () => ({

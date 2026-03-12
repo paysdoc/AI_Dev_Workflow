@@ -9,7 +9,7 @@ vi.mock('../../core/utils', () => ({
 }));
 
 import { execSync } from 'child_process';
-import { isClearComment, isActionableComment } from '../../github/workflowCommentsBase';
+import { isClearComment, isActionableComment } from '../../core/workflowCommentParsing';
 import { clearIssueComments } from '../../adwClearComments';
 import { classifyIssueForTrigger } from '../../core/issueClassifier';
 import { getRepoInfoFromPayload, type RepoInfo } from '../../github/githubApi';

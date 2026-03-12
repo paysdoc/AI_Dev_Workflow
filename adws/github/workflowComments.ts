@@ -3,7 +3,7 @@
  * Re-exports from focused modules for backwards compatibility.
  */
 
-// Base utilities and parsing
+// Platform-agnostic parsing utilities (from core)
 export {
   STAGE_ORDER,
   ADW_SIGNATURE,
@@ -15,14 +15,16 @@ export {
   CLEAR_COMMENT_PATTERN,
   isClearComment,
   extractActionableContent,
-  isAdwRunningForIssue,
   parseWorkflowStageFromComment,
   extractAdwIdFromComment,
   extractBranchNameFromComment,
   extractPrUrlFromComment,
   extractPlanPathFromComment,
   detectRecoveryState,
-} from './workflowCommentsBase';
+} from '../core/workflowCommentParsing';
+
+// GitHub-specific comment utilities
+export { isAdwRunningForIssue } from './workflowCommentsBase';
 
 // Issue workflow comments
 export {

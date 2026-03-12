@@ -10,7 +10,7 @@ import * as fs from 'fs';
 import { log } from '../core';
 import { getWorktreePath } from './worktreeOperations';
 import { listWorktrees } from './worktreeQuery';
-import { deleteLocalBranch } from './gitOperations';
+import { deleteLocalBranch } from './branchOperations';
 
 /**
  * Kills processes that have open files in the given directory.

@@ -9,7 +9,7 @@ import {
   type ModelUsageMap,
   emptyModelUsageMap,
 } from '../core';
-import { pushBranch } from '../github';
+import { pushBranch } from '../vcs';
 import { postIssueStageComment } from './phaseCommentHelpers';
 import {
   getPlanFilePath,

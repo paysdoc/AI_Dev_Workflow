@@ -15,7 +15,7 @@ import {
   checkoutDefaultBranch,
   deleteLocalBranch,
   deleteRemoteBranch,
-} from '../gitOperations';
+} from '../branchOperations';
 
 describe('getDefaultBranch', () => {
   beforeEach(() => {

@@ -11,13 +11,13 @@ vi.mock('../../../github/pullRequestCreator', () => ({
   createPullRequest: vi.fn(),
 }));
 
-vi.mock('../../../github/gitBranchOperations', () => ({
+vi.mock('../../../vcs/branchOperations', () => ({
   getDefaultBranch: vi.fn(),
 }));
 
 import { fetchPRDetails, fetchPRReviewComments, commentOnPR, fetchPRList } from '../../../github/prApi';
 import { createPullRequest } from '../../../github/pullRequestCreator';
-import { getDefaultBranch } from '../../../github/gitBranchOperations';
+import { getDefaultBranch } from '../../../vcs/branchOperations';
 import { GitHubCodeHost, createGitHubCodeHost } from '../githubCodeHost';
 import { Platform, type RepoIdentifier } from '../../types';
 import type { PRDetails as PRDetailsType, PRReviewComment, PRListItem } from '../../../types/workflowTypes';

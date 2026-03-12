@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { generateAdwId } from '../utils';
-import { extractAdwIdFromComment } from '../../github/workflowCommentsBase';
+import { extractAdwIdFromComment } from '../workflowCommentParsing';
 
 describe('generateAdwId', () => {
   describe('with summary', () => {

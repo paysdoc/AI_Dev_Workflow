@@ -4,7 +4,7 @@
 
 import { execSync } from 'child_process';
 import { log } from '../core';
-import { getCurrentBranch, PROTECTED_BRANCHES } from './gitBranchOperations';
+import { getCurrentBranch, PROTECTED_BRANCHES } from './branchOperations';
 
 // Re-export PROTECTED_BRANCHES for consumers that import from this module
 export { PROTECTED_BRANCHES };

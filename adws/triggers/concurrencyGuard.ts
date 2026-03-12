@@ -8,7 +8,7 @@
 import { execSync } from 'child_process';
 import { MAX_CONCURRENT_PER_REPO, log } from '../core';
 import type { RepoInfo } from '../github/githubApi';
-import { isAdwComment } from '../github/workflowCommentsBase';
+import { isAdwComment } from '../core/workflowCommentParsing';
 
 interface RawIssueWithComments {
   number: number;

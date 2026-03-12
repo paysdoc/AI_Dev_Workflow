@@ -15,7 +15,7 @@ vi.mock('../../core/utils', () => ({
       .substring(0, 50),
 }));
 
-import { commitAndPushCostFiles } from '../gitOperations';
+import { commitAndPushCostFiles } from '../commitOperations';
 import { log } from '../../core/utils';
 
 const mockExecSync = vi.mocked(execSync);

@@ -4,7 +4,7 @@
 
 import { WorkflowStage, IssueClassSlashCommand, log, type CostBreakdown, formatCostBreakdownMarkdown, type TokenUsageSnapshot } from '../core';
 import { commentOnIssue, type RepoInfo } from './githubApi';
-import { ADW_SIGNATURE, truncateText, formatRunningTokenFooter } from './workflowCommentsBase';
+import { ADW_SIGNATURE, truncateText, formatRunningTokenFooter } from '../core/workflowCommentParsing';
 import type { ReviewIssue } from '../agents/reviewAgent';
 
 /** Context information for issue workflow comments. */

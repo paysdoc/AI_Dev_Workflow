@@ -8,7 +8,8 @@ import * as os from 'os';
 import * as path from 'path';
 import { GitHubIssue, log } from '../core';
 import { type RepoInfo } from './githubApi';
-import { getCurrentBranch, pushBranch } from './gitOperations';
+import { getCurrentBranch } from '../vcs/branchOperations';
+import { pushBranch } from '../vcs/commitOperations';
 
 /**
  * Generates the PR body with implementation details.

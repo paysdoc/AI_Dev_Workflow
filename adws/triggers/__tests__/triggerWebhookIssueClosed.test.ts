@@ -23,7 +23,7 @@ vi.mock('../../core/costReport', () => ({
   fetchExchangeRates: vi.fn(() => Promise.resolve({ EUR: 0.92 })),
 }));
 
-vi.mock('../../github/gitOperations', () => ({
+vi.mock('../../vcs', () => ({
   commitAndPushCostFiles: vi.fn(() => true),
   pullLatestCostBranch: vi.fn(),
 }));
@@ -42,7 +42,7 @@ vi.mock('./webhookHandlers', async (importOriginal) => {
 });
 
 import { rebuildProjectCostCsv } from '../../core/costCsvWriter';
-import { commitAndPushCostFiles, pullLatestCostBranch } from '../../github/gitOperations';
+import { commitAndPushCostFiles, pullLatestCostBranch } from '../../vcs';
 import { recordMergedPrIssue, resetMergedPrIssues } from '../webhookHandlers';
 import { handleIssueCostRevert } from '../trigger_webhook';
 
