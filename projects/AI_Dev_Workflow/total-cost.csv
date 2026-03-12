@@ -45,7 +45,9 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 123,implement jira issuetracker provider,6.2039,0.6204
 126,json error,0.4218,0.0422
 134,pr 133 in an endless loop,4.0760,0.4076
+136,commit message format is unreliable for non docume,2.1319,0.2132
 137,document phase commit is not pushed lost on branch,1.0469,0.1047
+140,bug adwid format regression webhook triggers produ,1.5234,0.1523
 
-Total Cost (USD):,176.3515
-Total Cost (EUR):,152.4710
+Total Cost (USD):,180.3723
+Total Cost (EUR):,155.9473
