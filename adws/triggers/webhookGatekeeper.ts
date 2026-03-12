@@ -10,7 +10,7 @@ import { log, generateAdwId } from '../core';
 import type { RepoInfo } from '../github/githubApi';
 import { getRepoInfo } from '../github';
 import { classifyIssueForTrigger, getWorkflowScript } from '../core/issueClassifier';
-import { postWorkflowComment } from '../github/workflowCommentsIssue';
+
 import { checkIssueEligibility } from './issueEligibility';
 import { parseDependencies } from './issueDependencies';
 
@@ -28,7 +28,6 @@ export function spawnDetached(command: string, args: string[]): void {
 
 /**
  * Classifies and spawns a workflow for an eligible issue.
- * Posts the "starting" workflow comment immediately before spawning.
  */
 export async function classifyAndSpawnWorkflow(
   issueNumber: number,
@@ -39,9 +38,6 @@ export async function classifyAndSpawnWorkflow(
   const classification = await classifyIssueForTrigger(issueNumber, resolvedRepoInfo);
   const workflowScript = getWorkflowScript(classification.issueType, classification.adwCommand);
   const adwId = classification.adwId || generateAdwId(classification.issueTitle);
-
-  // Post "starting" comment immediately to signal ownership
-  postWorkflowComment(issueNumber, 'starting', { issueNumber, adwId }, resolvedRepoInfo);
 
   log(`Issue #${issueNumber} classified as ${classification.issueType}, spawning ${workflowScript}`, 'success');
   spawnDetached('bunx', ['tsx', workflowScript, String(issueNumber), adwId, '--issue-type', classification.issueType, ...targetRepoArgs]);
