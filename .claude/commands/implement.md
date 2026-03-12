@@ -3,6 +3,7 @@ Follow the `Instructions` to implement the `Plan` then `Report` the completed wo
 
 ## Instructions
 - Read the plan and implement the plan.
+- IMPORTANT: Only read the files listed in the plan's `## Relevant Files` section. Do not explore, glob, or grep the codebase beyond those files. The planner has already identified everything you need. Trust the plan.
 
 ## Plan
 $ARGUMENTS
