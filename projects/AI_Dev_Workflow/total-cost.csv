@@ -43,6 +43,7 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 116,create repocontext factory with entry point valida,5.1870,0.5187
 117,refactor workflow phases to consume repocontext,9.7968,0.9797
 118,refactor triggers and orchestrators to create repo,7.3359,0.7336
+119,remove global targetreporegistry singleton,2.8275,0.2828
 121,add provider configuration to adw project config,5.6448,0.5645
 123,implement jira issuetracker provider,6.2039,0.6204
 126,json error,0.4218,0.0422
@@ -52,5 +53,5 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 140,bug adwid format regression webhook triggers produ,1.5234,0.1523
 144,add a running total of tokens used to each issue c,8.7925,0.8793
 
-Total Cost (USD):,200.4465
-Total Cost (EUR):,173.3032
+Total Cost (USD):,203.5568
+Total Cost (EUR):,175.9923
