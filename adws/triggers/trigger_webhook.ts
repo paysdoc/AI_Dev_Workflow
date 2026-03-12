@@ -9,7 +9,7 @@
  */
 
 import * as http from 'http';
-import { log, PullRequestWebhookPayload, allocateRandomPort, isPortAvailable, getTargetRepoWorkspacePath, setTargetRepo, rebuildProjectCostCsv } from '../core';
+import { log, PullRequestWebhookPayload, allocateRandomPort, isPortAvailable, getTargetRepoWorkspacePath, rebuildProjectCostCsv } from '../core';
 import { fetchExchangeRates } from '../core/costReport';
 import { costCommitQueue } from '../core/costCommitQueue';
 import { commitAndPushCostFiles, pullLatestCostBranch } from '../github/gitOperations';
@@ -105,8 +105,6 @@ const server = http.createServer((req, res) => {
       const action = (body.action as string) || '';
       if (action !== 'created' && action !== 'submitted') { jsonResponse(res, 200, { status: 'ignored' }); return; }
       if (!shouldTriggerPrReview(prNumber)) { jsonResponse(res, 200, { status: 'ignored', reason: 'duplicate' }); return; }
-      const repoFullName = (body.repository as Record<string, unknown> | undefined)?.full_name as string | undefined;
-      if (repoFullName) setTargetRepo(getRepoInfoFromPayload(repoFullName));
       spawnDetached('bunx', ['tsx', 'adws/adwPrReview.tsx', String(prNumber), ...extractTargetRepoArgs(body)]);
       jsonResponse(res, 200, { status: 'triggered', pr: prNumber });
       return;
@@ -121,7 +119,6 @@ const server = http.createServer((req, res) => {
       log(`Checking comment on issue #${issueNumber}: "${truncateText(commentBody, 100)}"`);
       const repoFullName = (body.repository as Record<string, unknown> | undefined)?.full_name as string | undefined;
       const webhookRepoInfo = repoFullName ? getRepoInfoFromPayload(repoFullName) : undefined;
-      if (webhookRepoInfo) setTargetRepo(webhookRepoInfo);
       if (isClearComment(commentBody)) {
         const r = clearIssueComments(issueNumber, webhookRepoInfo);
         jsonResponse(res, 200, { status: 'cleared', issue: issueNumber, deleted: r.deleted });
@@ -149,8 +146,6 @@ const server = http.createServer((req, res) => {
 
     if (event === 'pull_request') {
       if ((body.action as string) === 'closed') {
-        const repoFullName = (body.repository as Record<string, unknown> | undefined)?.full_name as string | undefined;
-        if (repoFullName) setTargetRepo(getRepoInfoFromPayload(repoFullName));
         handlePullRequestEvent(body as unknown as PullRequestWebhookPayload).catch((e) => log(`Error handling PR close: ${e}`, 'error'));
         jsonResponse(res, 200, { status: 'processing' });
         return;
@@ -167,7 +162,6 @@ const server = http.createServer((req, res) => {
 
     if (action === 'closed') {
       const closedRepoFullName = (body.repository as Record<string, unknown> | undefined)?.full_name as string | undefined;
-      if (closedRepoFullName) setTargetRepo(getRepoInfoFromPayload(closedRepoFullName));
       const closedTargetRepoArgs = extractTargetRepoArgs(body);
       const parts = (closedTargetRepoArgs.length >= 2 ? closedTargetRepoArgs[1] : undefined)?.split('/');
       const cwd = parts?.length === 2 ? getTargetRepoWorkspacePath(parts[0], parts[1]) : undefined;
@@ -186,7 +180,6 @@ const server = http.createServer((req, res) => {
       const issueTargetRepoArgs = extractTargetRepoArgs(body);
       const issueRepoFullName = (body.repository as Record<string, unknown> | undefined)?.full_name as string | undefined;
       const issueRepoInfo = issueRepoFullName ? getRepoInfoFromPayload(issueRepoFullName) : undefined;
-      if (issueRepoInfo) setTargetRepo(issueRepoInfo);
       (async () => {
         try {
           if (issueRepoInfo) {

@@ -37,7 +37,7 @@ import {
   getRepoInfo,
   type RepoInfo,
 } from '../github';
-import type { RepoContext } from '../providers/types';
+import type { RepoContext, RepoIdentifier } from '../providers/types';
 import { Platform } from '../providers/types';
 import { createRepoContext } from '../providers/repoContext';
 import { runGenerateBranchNameAgent } from '../agents';
@@ -88,7 +88,7 @@ export async function initializeWorkflow(
   issueNumber: number,
   adwId: string | null,
   orchestratorName: AgentIdentifier,
-  options?: { cwd?: string; issueType?: IssueClassSlashCommand; targetRepo?: TargetRepoInfo }
+  options?: { cwd?: string; issueType?: IssueClassSlashCommand; targetRepo?: TargetRepoInfo; repoId?: RepoIdentifier }
 ): Promise<WorkflowConfig> {
   // Resolve target repo context for API calls
   const targetRepo = options?.targetRepo;
@@ -96,8 +96,8 @@ export async function initializeWorkflow(
     ? { owner: targetRepo.owner, repo: targetRepo.repo }
     : undefined;
 
-  // Initialize central target repo registry
-  if (repoInfo) {
+  // Initialize central target repo registry (backward compat only when repoId not provided)
+  if (repoInfo && !options?.repoId) {
     setTargetRepo(repoInfo);
   }
 
@@ -215,13 +215,12 @@ export async function initializeWorkflow(
   // Create RepoContext for provider-agnostic operations
   let repoContext: RepoContext | undefined;
   try {
-    const resolvedRepoInfo = repoInfo ?? getRepoInfo();
+    const repoIdForContext = options?.repoId ?? (() => {
+      const resolvedRepoInfo = repoInfo ?? getRepoInfo();
+      return { owner: resolvedRepoInfo.owner, repo: resolvedRepoInfo.repo, platform: Platform.GitHub };
+    })();
     repoContext = createRepoContext({
-      repoId: {
-        owner: resolvedRepoInfo.owner,
-        repo: resolvedRepoInfo.repo,
-        platform: Platform.GitHub,
-      },
+      repoId: repoIdForContext,
       cwd: worktreePath,
     });
   } catch (error) {

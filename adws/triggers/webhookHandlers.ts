@@ -6,6 +6,7 @@
  * - extractIssueNumberFromPRBody
  */
 
+import { existsSync } from 'fs';
 import { log, PullRequestWebhookPayload, rebuildProjectCostCsv } from '../core';
 import { fetchExchangeRates } from '../core/costReport';
 import { costCommitQueue } from '../core/costCommitQueue';
@@ -13,7 +14,6 @@ import type { RepoInfo } from '../github/githubApi';
 import { closeIssue, formatIssueClosureComment } from '../github/githubApi';
 import { removeWorktree } from '../github/worktreeOperations';
 import { deleteRemoteBranch, commitAndPushCostFiles, pullLatestCostBranch } from '../github/gitOperations';
-import { hasTargetRepo } from '../core/targetRepoRegistry';
 import { getTargetRepoWorkspacePath } from '../core/targetRepoManager';
 
 /**
@@ -84,9 +84,8 @@ export async function handlePullRequestEvent(payload: PullRequestWebhookPayload)
   const wasMerged = pull_request.merged;
   const prBody = pull_request.body;
   const headBranch = pull_request.head?.ref;
-  const targetCwd = hasTargetRepo()
-    ? getTargetRepoWorkspacePath(repository.owner.login, repository.name)
-    : undefined;
+  const workspacePath = getTargetRepoWorkspacePath(repository.owner.login, repository.name);
+  const targetCwd = existsSync(workspacePath) ? workspacePath : undefined;
 
   log(`PR #${prNumber} was ${wasMerged ? 'merged' : 'closed without merging'}`);
 

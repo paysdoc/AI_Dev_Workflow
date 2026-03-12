@@ -17,7 +17,7 @@
  * - GITHUB_PAT: (Optional) GitHub Personal Access Token
  */
 
-import { persistTokenCounts, parseTargetRepoArgs, parseOrchestratorArguments, log, type ModelUsageMap, emptyModelUsageMap, mergeModelUsageMaps, OrchestratorId } from './core';
+import { persistTokenCounts, parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, log, type ModelUsageMap, emptyModelUsageMap, mergeModelUsageMaps, OrchestratorId } from './core';
 import { runClaudeAgentWithCommand } from './agents/claudeAgent';
 import { commitChanges } from './github';
 import {
@@ -37,11 +37,13 @@ async function main(): Promise<void> {
     scriptName: 'adwInit.tsx',
     usagePattern: '<github-issueNumber> [adw-id] [--cwd <path>] [--issue-type <type>]',
   });
+  const repoId = buildRepoIdentifier(targetRepo);
 
   const config = await initializeWorkflow(issueNumber, adwId, OrchestratorId.Init, {
     cwd: cwd || undefined,
     issueType: providedIssueType || '/chore',
     targetRepo: targetRepo || undefined,
+    repoId,
   });
 
   let totalModelUsage: ModelUsageMap = emptyModelUsageMap();
