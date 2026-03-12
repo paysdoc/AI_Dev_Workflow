@@ -146,8 +146,6 @@ export function extractPlanPathFromComment(commentBody: string): string | null {
   return match ? match[1] : null;
 }
 
-const TERMINAL_STAGES: ReadonlyArray<WorkflowStage> = ['completed', 'error'];
-
 /** Detects recovery state from GitHub comments. */
 export function detectRecoveryState(comments: GitHubComment[]): RecoveryState {
   const defaultState: RecoveryState = {
