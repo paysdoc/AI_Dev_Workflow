@@ -16,7 +16,7 @@
  */
 
 import { execSync, spawn, type ChildProcess } from 'child_process';
-import { log } from './core';
+import { log } from '../core';
 
 const DEFAULT_TUNNEL_NAME = 'adw-webhook';
 const DEFAULT_TUNNEL_HOSTNAME = 'adw.paysdoc.nl';
