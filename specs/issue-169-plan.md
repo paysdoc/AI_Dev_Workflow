@@ -1,7 +1,7 @@
-# PR-Review: Unit test directories still present (round 2)
+# PR-Review: Unit test directories still present
 
 ## PR-Review Description
-The reviewer (paysdoc) flagged that the `__tests__/` directories under `adws/` were never actually deleted. The PR description and checklist claim "All `adws/*/__tests__/` directories and files removed," but all 88+ test files across 12 `__tests__/` directories remain on disk. The build agent updated `.adw/project.md`, `guidelines/coding_guidelines.md`, and `README.md` correctly but failed to execute the `rm -rf` deletions. A prior review plan was created but implementation was not carried out — this is the second review round for the same issue.
+The reviewer (paysdoc) flagged that the `__tests__/` directories under `adws/` were never actually deleted. The PR description and checklist claim "All `adws/*/__tests__/` directories and files removed," but all 98 test files across 12 `__tests__/` directories remain on disk. The build agent updated `.adw/project.md`, `guidelines/coding_guidelines.md`, and `README.md` correctly but failed to execute the actual file deletions.
 
 ## Summary of Original Implementation Plan
 The original plan at `specs/issue-169-adw-1773386141689-alfbmn-sdlc_planner-remove-adw-unit-tests.md` specified:
@@ -11,12 +11,12 @@ The original plan at `specs/issue-169-adw-1773386141689-alfbmn-sdlc_planner-remo
 4. Update the `README.md` project structure tree to remove `__tests__/` references
 5. Run validation commands to confirm no `__tests__/` directories remain
 
-The original plan listed 9 directories but missed 3 nested provider directories: `adws/providers/github/__tests__/`, `adws/providers/gitlab/__tests__/`, and `adws/providers/jira/__tests__/`. Steps 2–4 were completed; step 1 (the actual deletions) was not.
+The original plan listed 9 directories but missed 3 nested provider directories: `adws/providers/github/__tests__/`, `adws/providers/gitlab/__tests__/`, and `adws/providers/jira/__tests__/`. Steps 2–4 were completed; step 1 (the actual deletions) was not executed.
 
 ## Relevant Files
 Use these files to resolve the review:
 
-- `adws/__tests__/` — 7 test files to delete (adwInitPrPhase, clearComments, healthCheckChecks, prReviewCostTracking, runningTokensIntegration, tokenLimitRecovery, workflowPhases)
+- `adws/__tests__/` — 7 test files to delete
 - `adws/agents/__tests__/` — 16 test files to delete
 - `adws/core/__tests__/` — 23 test files to delete
 - `adws/github/__tests__/` — 14 test files to delete
@@ -51,15 +51,28 @@ Use `find adws -type d -name __tests__` to discover all `__tests__/` directories
 - `adws/types/__tests__/`
 - `adws/vcs/__tests__/`
 
-Command: `find adws -type d -name __tests__ -exec rm -rf {} +`
+Use `git rm -rf` so deletions are staged automatically:
+
+```bash
+git rm -rf adws/__tests__/ adws/agents/__tests__/ adws/core/__tests__/ adws/github/__tests__/ adws/phases/__tests__/ adws/providers/__tests__/ adws/providers/github/__tests__/ adws/providers/gitlab/__tests__/ adws/providers/jira/__tests__/ adws/triggers/__tests__/ adws/types/__tests__/ adws/vcs/__tests__/
+```
 
 ### Step 2: Verify no `__tests__/` directories remain
 
 Run `find adws -type d -name __tests__` to confirm all test directories are gone. The output must be empty.
 
-### Step 3: Run validation commands
+### Step 3: Verify previously completed changes are still intact
 
-Run all validation commands to confirm zero regressions and that test infrastructure still works.
+Confirm the documentation updates from the original implementation are still in place:
+
+- `grep -q '## Unit Tests: disabled' .adw/project.md && echo "OK"`
+- `grep -q 'BDD scenarios' guidelines/coding_guidelines.md && echo "OK"`
+- `test -f vitest.config.ts && echo "vitest.config.ts exists"`
+- `grep -q '"test"' package.json && echo "test script exists"`
+
+### Step 4: Run validation commands
+
+Run all validation commands to confirm zero regressions.
 
 ## Validation Commands
 Execute every command to validate the review is complete with zero regressions.
@@ -74,7 +87,8 @@ Execute every command to validate the review is complete with zero regressions.
 - `bunx tsc --noEmit -p adws/tsconfig.json` — Type check adws specifically
 
 ## Notes
-- The original plan listed 9 directories but missed 3 nested provider directories under `adws/providers/{github,gitlab,jira}/__tests__/`. This revision uses `find adws -type d -name __tests__` to catch all of them.
-- Do NOT delete `vitest.config.ts`, `package.json` test scripts, or any test tooling — only the ADW-specific test files.
-- Do NOT run `bun run test` as a validation command — there are no test files to run after deletion, and the command may fail or produce misleading output.
+- The prior revision plan correctly identified the issue but the deletions were never executed. This plan must be followed through to completion.
+- Use `find` for dynamic discovery rather than hardcoded paths to avoid missing nested directories.
+- Do NOT delete `vitest.config.ts`, `package.json` test scripts, or any test tooling — only the ADW-specific test files under `adws/`.
+- Do NOT run `bun run test` as a validation command — there are no test files to run after deletion.
 - The `.adw/project.md`, `guidelines/coding_guidelines.md`, and `README.md` changes from the original PR are already correct and do not need further modification.
