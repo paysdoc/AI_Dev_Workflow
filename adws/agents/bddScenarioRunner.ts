@@ -1,0 +1,76 @@
+/**
+ * BDD scenario subprocess executor.
+ *
+ * Runs the tag-filtered scenario command (e.g. `@adw-{issueNumber}`) as a
+ * subprocess, captures output, and returns a structured result.
+ * Analogous to testDiscovery.ts for Playwright.
+ */
+
+import { spawn } from 'child_process';
+
+/**
+ * Result from running BDD scenarios via subprocess.
+ */
+export interface BddScenarioResult {
+  /** Whether all scenarios passed (exit code 0) */
+  allPassed: boolean;
+  /** Raw stdout from the scenario process */
+  stdout: string;
+  /** Raw stderr from the scenario process */
+  stderr: string;
+  /** Process exit code */
+  exitCode: number | null;
+}
+
+/**
+ * Runs BDD scenarios for the given issue number as a subprocess.
+ *
+ * - If `command` is `'N/A'` or empty, returns a passing result immediately
+ *   (no scenarios configured — skip gracefully).
+ * - Replaces `{issueNumber}` in the command template with the actual number.
+ * - Returns `allPassed: true` when the process exits with code 0.
+ *
+ * @param command - The scenario run command from `.adw/commands.md` (`## Run BDD Scenarios`).
+ * @param issueNumber - The issue number used to filter scenarios by tag (`@adw-{issueNumber}`).
+ * @param cwd - Optional working directory (defaults to `process.cwd()`).
+ */
+export function runBddScenarios(
+  command: string,
+  issueNumber: number,
+  cwd?: string,
+): Promise<BddScenarioResult> {
+  if (!command || command.trim() === 'N/A') {
+    return Promise.resolve({ allPassed: true, stdout: '', stderr: '', exitCode: 0 });
+  }
+
+  const resolvedCommand = command.replace(/\{issueNumber\}/g, String(issueNumber));
+  const workDir = cwd ?? process.cwd();
+
+  return new Promise((resolve) => {
+    const proc = spawn(resolvedCommand, [], {
+      cwd: workDir,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      shell: true,
+    });
+
+    let stdout = '';
+    let stderr = '';
+
+    proc.stdout.on('data', (data: Buffer) => {
+      stdout += data.toString();
+    });
+
+    proc.stderr.on('data', (data: Buffer) => {
+      stderr += data.toString();
+    });
+
+    proc.on('close', (exitCode) => {
+      resolve({
+        allPassed: exitCode === 0,
+        stdout,
+        stderr,
+        exitCode,
+      });
+    });
+  });
+}

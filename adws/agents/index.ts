@@ -52,12 +52,20 @@ export {
   runCommitAgent,
 } from './gitAgent';
 
+// BDD Scenario Runner
+export {
+  runBddScenarios,
+  type BddScenarioResult,
+} from './bddScenarioRunner';
+
 // Test Retry (shared test retry logic)
 export {
   runUnitTestsWithRetry,
   runE2ETestsWithRetry,
+  runBddScenariosWithRetry,
   type TestRetryResult,
   type TestRetryOptions,
+  type BddScenarioRetryOptions,
 } from './testRetry';
 
 // Review Agent

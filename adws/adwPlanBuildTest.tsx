@@ -8,7 +8,7 @@
  * 1. Initialize: fetch issue, classify type, setup worktree, initialize state, detect recovery
  * 2. Plan Phase: classify issue, create branch, run plan agent, commit plan
  * 3. Build Phase: run build agent, commit implementation
- * 4. Test Phase: run unit tests with retry, run E2E tests with retry
+ * 4. Test Phase: optionally run unit tests, then run BDD scenarios
  * 5. PR Phase: create pull request (only if all tests pass)
  * 6. Finalize: update state, post completion comment
  *
@@ -98,7 +98,7 @@ async function main(): Promise<void> {
 
     await completeWorkflow(config, totalCostUsd, {
       unitTestsPassed: testResult.unitTestsPassed,
-      e2eTestsPassed: testResult.e2eTestsPassed,
+      bddScenariosPassed: testResult.bddScenariosPassed,
       totalTestRetries: testResult.totalRetries,
     }, totalModelUsage);
   } catch (error) {
