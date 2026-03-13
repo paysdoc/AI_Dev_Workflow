@@ -8,11 +8,14 @@ adwId: $1
 specFile: $2
 agentName: $3 if provided, otherwise use 'reviewAgent'
 applicationUrl: $4 if provided, otherwise use http://localhost:3000
+scenarioProofPath: $5 if provided, otherwise empty
 reviewImage_dir: `<absolute path to codebase>/agents/<adwId>/<agentName>/reviewImg/`
 
 ## Proof Requirements
 
-Read the file `.adw/review_proof.md` from the current working directory.
+**If `scenarioProofPath` is provided and the file exists**: Read the scenario proof file at `scenarioProofPath`. Use the BDD scenario execution results as the **primary proof** for this review. Classify `@crucial` failures as `blocker` issues. Classify non-crucial `@adw-{issueNumber}` failures as `tech-debt` issues. The `reviewSummary` should describe scenario pass/fail results. Still run type-check and lint as supplementary checks.
+
+**If `scenarioProofPath` is NOT provided**: Read the file `.adw/review_proof.md` from the current working directory.
 
 - **If the file exists and is non-empty**: Follow its instructions for what proof to produce and how to attach it. The file specifies the proof type (screenshots, test output, code-diff verification, etc.), the format, and how it gets attached to the PR. Override the default screenshot-based proof instructions below with whatever `.adw/review_proof.md` specifies.
 - **If the file does not exist or is empty**: Fall back to the default proof behavior described in the Instructions section below (screenshot-based UI validation).
@@ -24,7 +27,19 @@ Read the file `.adw/review_proof.md` from the current working directory.
 - Run `git diff origin/<default>` to see all changes made in current branch. Continue even if there are no changes related to the spec file.
 - Find the spec file by looking for spec/*.md files in the diff that match the current branch name
 - Read the identified spec file to understand requirements
-- IMPORTANT: Produce proof according to the `Proof Requirements` section above. If `.adw/review_proof.md` was loaded, follow its instructions. Otherwise, use the default UI validation approach below:
+- IMPORTANT: Produce proof according to the `Proof Requirements` section above:
+  - **If `scenarioProofPath` is provided**:
+    - Read the scenario proof markdown file at `scenarioProofPath`
+    - Check the `## @crucial Scenarios` section status:
+      - If **FAILED**: create a `reviewIssue` with `issueSeverity: 'blocker'`, `issueDescription` summarising the @crucial failures, `issueResolution` advising investigation of the scenario proof file, and `screenshotPath` set to `scenarioProofPath`
+    - Check the `## @adw-{issueNumber} Scenarios` section status (where `{issueNumber}` is derived from the spec file name or branch name):
+      - If **FAILED**: create a `reviewIssue` with `issueSeverity: 'tech-debt'` describing the non-crucial failures
+    - Run type-check and lint as supplementary checks:
+      - Run `bunx tsc --noEmit` and report any type errors as additional `reviewIssues`
+      - Run `bun run lint` and report any lint errors as additional `reviewIssues`
+    - Set `screenshots` to include `scenarioProofPath` as a proof artifact (plus any supplementary artifacts)
+    - `reviewSummary` should describe: how many @crucial scenarios passed/failed and how many @adw-{issueNumber} scenarios passed/failed
+  - **If `scenarioProofPath` is NOT provided**: follow `.adw/review_proof.md` instructions (if present) or use the default UI validation approach below:
   - If the work can be validated by UI validation then (if not skip the section):
     - Look for corresponding e2e test files in ./claude/commands/e2e-examples/test*.md that mirror the feature name
     - Use e2e test files only as navigation guides for screenshot locations, not for other purposes
@@ -67,7 +82,7 @@ Use the `applicationUrl` when navigating to the application for screenshots.
 - `success` should be `true` if there are NO BLOCKING issues (implementation matches spec for critical functionality)
 - `success` should be `false` ONLY if there are BLOCKING issues that prevent the work from being released
 - `reviewIssues` can contain issues of any severity (skippable, tech-debt, or blocker)
-- `screenshots` should ALWAYS contain paths to proof artifacts showcasing the review evidence, regardless of success status. Use full absolute paths. These can be screenshots, test output logs, or any other proof artifacts as specified by `.adw/review_proof.md`.
+- `screenshots` should ALWAYS contain paths to proof artifacts showcasing the review evidence, regardless of success status. Use full absolute paths. These can be screenshots, test output logs, scenario proof files, or any other proof artifacts as specified by `.adw/review_proof.md` or the scenario proof path.
 - This allows subsequent agents to quickly identify and resolve blocking errors while documenting all issues
 
 ### Output Structure

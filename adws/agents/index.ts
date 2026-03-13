@@ -55,8 +55,16 @@ export {
 // BDD Scenario Runner
 export {
   runBddScenarios,
+  runScenariosByTag,
   type BddScenarioResult,
 } from './bddScenarioRunner';
+
+// Crucial Scenario Proof
+export {
+  runCrucialScenarioProof,
+  shouldRunScenarioProof,
+  type ScenarioProofResult,
+} from './crucialScenarioProof';
 
 // Test Retry (shared test retry logic)
 export {
