@@ -82,3 +82,18 @@ This prompt helps you determine what documentation you should read based on the 
     - When adding new workflow stages related to BDD scenario validation
     - When troubleshooting plan-scenario mismatch failures or resolution loop exhaustion
     - When integrating the validation phase into a new orchestrator
+
+- app_docs/feature-74itmf-dependency-logging.md
+  - Conditions:
+    - When working with `findOpenDependencies()` or `checkIssueEligibility()` in `adws/triggers/`
+    - When adding or modifying logging in the dependency resolution pipeline
+    - When troubleshooting why an issue was deferred due to blocking dependencies
+    - When diagnosing silent failures in `getIssueState()` dependency lookups
+
+- app_docs/feature-hpq6cn-implement-scenario-p-scenario-planner-agent.md
+  - Conditions:
+    - When working with BDD scenario generation or the scenario agent
+    - When modifying `adws/agents/scenarioAgent.ts` or `adws/phases/scenarioPhase.ts`
+    - When working with `.adw/scenarios.md` configuration or scenario directory setup
+    - When adding or modifying `@crucial` tag maintenance logic
+    - When implementing a new non-fatal workflow phase following the scenario or KPI phase pattern

@@ -22,6 +22,7 @@ export {
   executePRPhase,
   executeDocumentPhase,
   executeKpiPhase,
+  executeScenarioPhase,
   executeReviewPhase,
   completeWorkflow,
   handleWorkflowError,

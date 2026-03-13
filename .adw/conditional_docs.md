@@ -2,9 +2,8 @@
 
 - README.md
   - Conditions:
-    - When operating on anything under src/
     - When first understanding the project structure
-    - When you want to learn how to start the dev server
+    - When learning how to run ADW orchestrators
 
 - adws/README.md
   - Conditions:
@@ -41,10 +40,51 @@
     - When troubleshooting cost CSVs that were not rebuilt after a PR was rejected or closed
     - When implementing cost tracking changes that affect the merged vs closed-without-merge flow
 
-- app_docs/feature-add-issue-comments-f-6vrgn2-review-issue-comments.md
+- app_docs/feature-fix-review-process-8aatht-multi-agent-review-external-proof.md
   - Conditions:
-    - When working with review workflow stage comments (`review_running`, `review_passed`, `review_failed`, `review_patching`)
-    - When modifying `formatWorkflowComment()` or `WorkflowContext` in `adws/github/workflowCommentsIssue.ts`
-    - When modifying `runReviewWithRetry()` or `ReviewRetryOptions` in `adws/agents/reviewRetry.ts`
-    - When troubleshooting missing or generic review-stage GitHub issue comments
-    - When adding new review-related context fields to the workflow orchestrator
+    - When working with the review process or multi-agent review
+    - When modifying `adws/agents/reviewAgent.ts` or `adws/agents/reviewRetry.ts`
+    - When troubleshooting review proof generation or review failures
+
+- app_docs/feature-8ar0fo-user-story-integrate-kpi-tracking.md
+  - Conditions:
+    - When working with KPI tracking or agentic metrics
+    - When modifying workflow completion or reporting logic
+
+- app_docs/feature-1773072529842-bmkqrg-jira-issue-tracker-provider.md
+  - Conditions:
+    - When working with Jira integration or issue tracker providers
+    - When modifying `adws/providers/` provider types or interfaces
+
+- app_docs/feature-1773073910340-o5ncqk-repo-context-factory.md
+  - Conditions:
+    - When working with the RepoContext factory or repo context abstraction
+    - When modifying how agents interact with code host or issue tracker providers
+
+- app_docs/feature-1773312009789-vruh95-migrate-phases-to-repo-context.md
+  - Conditions:
+    - When working with phase implementations in `adws/phases/`
+    - When migrating phases to use RepoContext instead of direct GitHub calls
+
+- app_docs/feature-1773328453611-p5xexp-running-token-totals.md
+  - Conditions:
+    - When working with token counting or cost tracking
+    - When modifying `adws/core/tokenManager.ts` or cost reporting logic
+
+- app_docs/feature-1773341233172-9jw507-gitlab-codehost-provider.md
+  - Conditions:
+    - When working with GitLab integration or CodeHost providers
+    - When adding or modifying provider implementations in `adws/providers/`
+
+- app_docs/feature-1773386463517-mvb88d-bdd-scenario-config.md
+  - Conditions:
+    - When working with `.adw/scenarios.md` or BDD scenario configuration
+    - When implementing scenario-driven test phases
+    - When working with `@adw-{issueNumber}` or `@crucial` tagging conventions
+
+- app_docs/feature-implement-scenario-p-hpq6cn-scenario-planner-agent.md
+  - Conditions:
+    - When working with BDD scenario generation or the scenario agent
+    - When modifying `adws/agents/scenarioAgent.ts` or `adws/phases/scenarioPhase.ts`
+    - When working with `.adw/scenarios.md` configuration
+    - When adding or modifying `@crucial` tag maintenance logic

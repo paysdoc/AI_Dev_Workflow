@@ -7,6 +7,7 @@
 
 import { getIssueState } from '../github/issueApi';
 import type { RepoInfo } from '../github/githubApi';
+import { log } from '../core';
 
 /**
  * Parses issue dependency numbers from the `## Dependencies` section of an issue body.
@@ -16,8 +17,8 @@ import type { RepoInfo } from '../github/githubApi';
 export function parseDependencies(issueBody: string): number[] {
   if (!issueBody) return [];
 
-  // Find the ## Dependencies heading (case-insensitive)
-  const headingPattern = /^## dependencies\b/im;
+  // Find the ## Dependencies or ## Depends on heading (case-insensitive)
+  const headingPattern = /^## (?:dependencies|depends on)\b/im;
   const headingMatch = issueBody.match(headingPattern);
   if (!headingMatch || headingMatch.index === undefined) return [];
 
@@ -54,19 +55,31 @@ export function parseDependencies(issueBody: string): number[] {
  */
 export async function findOpenDependencies(issueBody: string, repoInfo: RepoInfo): Promise<number[]> {
   const deps = parseDependencies(issueBody);
-  if (deps.length === 0) return [];
+
+  if (deps.length === 0) {
+    log('No dependencies found, skipping dependency check');
+    return [];
+  }
+
+  log(`Checking dependencies: found ${deps.length} dependency(ies) to resolve`);
 
   const openDeps: number[] = [];
   for (const dep of deps) {
     try {
       const state = getIssueState(dep, repoInfo);
+      log(`Dependency #${dep}: ${state}`);
       if (state === 'OPEN') {
         openDeps.push(dep);
       }
-    } catch {
-      // If we can't check the state, skip this dependency
+    } catch (err) {
+      log(`Failed to check state of dependency #${dep}: ${err}`, 'warn');
     }
   }
+
+  const summary = openDeps.length > 0
+    ? `Dependency check complete: ${openDeps.length} open dependency(ies) found (${openDeps.map(n => `#${n}`).join(', ')})`
+    : `Dependency check complete: 0 open dependency(ies) found`;
+  log(summary);
 
   return openDeps;
 }

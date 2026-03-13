@@ -96,6 +96,8 @@ export type AgentIdentifier =
   | 'document-agent'
   // KPI tracking agent
   | 'kpi-agent'
+  // Scenario agent
+  | 'scenario-agent'
   // Plan validation agents
   | 'validation-agent'
   | 'resolution-agent';

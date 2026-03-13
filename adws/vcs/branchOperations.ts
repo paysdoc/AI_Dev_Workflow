@@ -204,6 +204,32 @@ export function mergeLatestFromDefaultBranch(defaultBranch: string, cwd: string)
 }
 
 /**
+ * Fetches the latest refs for the default branch from origin, then resets
+ * the working tree (hard) to match the remote tip exactly.
+ * Throws on failure since the reset is critical for correct worktree state.
+ *
+ * @param defaultBranch - The default branch name to sync from (e.g., 'main')
+ * @param cwd - The working directory (worktree path) to run the commands in
+ */
+export function fetchAndResetToRemote(defaultBranch: string, cwd: string): void {
+  log(`Fetching origin/${defaultBranch}...`, 'info');
+  try {
+    execSync(`git fetch origin "${defaultBranch}"`, { stdio: 'pipe', cwd });
+  } catch (error) {
+    throw new Error(`Failed to fetch origin/${defaultBranch}: ${error}`);
+  }
+
+  log(`Resetting to origin/${defaultBranch}...`, 'info');
+  try {
+    execSync(`git reset --hard "origin/${defaultBranch}"`, { stdio: 'pipe', cwd });
+  } catch (error) {
+    throw new Error(`Failed to reset to origin/${defaultBranch}: ${error}`);
+  }
+
+  log(`Synced worktree to origin/${defaultBranch}`, 'success');
+}
+
+/**
  * Deletes a local git branch using force deletion.
  * Refuses to delete protected branches (main, master, develop).
  *

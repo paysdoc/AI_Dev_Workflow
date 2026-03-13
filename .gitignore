@@ -29,5 +29,4 @@ healthcheck.json*
 .cursor/mcp.json
 # ADW: copied slash commands (do not commit)
 .claude/commands/conflict_resolve.md
-# ADW: copied slash commands (do not commit)
 .claude/commands/scenario_writer.md

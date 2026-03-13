@@ -30,3 +30,4 @@ export {
   completePRReviewWorkflow,
   handlePRReviewWorkflowError,
 } from './prReviewCompletion';
+export { executeScenarioPhase } from './scenarioPhase';

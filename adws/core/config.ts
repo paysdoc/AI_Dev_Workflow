@@ -199,6 +199,8 @@ export const SLASH_COMMAND_MODEL_MAP: Record<SlashCommand, ModelTier> = {
   '/find_issue_dependencies': 'sonnet',
   // ADW initialization
   '/adw_init': 'sonnet',
+  // Scenario writing
+  '/scenario_writer': 'sonnet',
   // Plan validation (complex reasoning, no downgrade)
   '/validate_plan_scenarios': 'opus',
   '/resolve_plan_scenarios': 'opus',
@@ -207,10 +209,10 @@ export const SLASH_COMMAND_MODEL_MAP: Record<SlashCommand, ModelTier> = {
 /** Cost-optimized model map used when the issue body contains `/fast` or `/cheap`. */
 export const SLASH_COMMAND_MODEL_MAP_FAST: Record<SlashCommand, ModelTier> = {
   '/classify_issue': 'haiku',
-  '/feature': 'opus',
-  '/bug': 'opus',
-  '/chore': 'opus',
-  '/pr_review': 'opus',
+  '/feature': 'sonnet',
+  '/bug': 'sonnet',
+  '/chore': 'sonnet',
+  '/pr_review': 'sonnet',
   '/implement': 'sonnet',
   '/patch': 'opus',
   '/review': 'sonnet',
@@ -226,6 +228,8 @@ export const SLASH_COMMAND_MODEL_MAP_FAST: Record<SlashCommand, ModelTier> = {
   '/find_plan_file': 'haiku',
   '/find_issue_dependencies': 'haiku',
   '/adw_init': 'haiku',
+  // Scenario writing
+  '/scenario_writer': 'haiku',
   // Plan validation (complex reasoning, no downgrade)
   '/validate_plan_scenarios': 'opus',
   '/resolve_plan_scenarios': 'opus',
@@ -279,6 +283,8 @@ export const SLASH_COMMAND_EFFORT_MAP: Record<SlashCommand, ReasoningEffort | un
   '/find_plan_file': 'low',
   '/find_issue_dependencies': 'low',
   '/adw_init': 'medium',
+  // Scenario writing
+  '/scenario_writer': 'high',
   // Plan validation (complex reasoning, no downgrade)
   '/validate_plan_scenarios': 'high',
   '/resolve_plan_scenarios': 'high',
@@ -287,10 +293,10 @@ export const SLASH_COMMAND_EFFORT_MAP: Record<SlashCommand, ReasoningEffort | un
 /** Cost-optimized reasoning effort map used when the issue body contains `/fast` or `/cheap`. */
 export const SLASH_COMMAND_EFFORT_MAP_FAST: Record<SlashCommand, ReasoningEffort | undefined> = {
   '/classify_issue': 'low',
-  '/feature': 'high',
-  '/bug': 'high',
-  '/chore': 'high',
-  '/pr_review': 'high',
+  '/feature': 'medium',
+  '/bug': 'medium',
+  '/chore': 'medium',
+  '/pr_review': 'medium',
   '/implement': 'high',
   '/patch': 'high',
   '/review': 'high',
@@ -306,6 +312,8 @@ export const SLASH_COMMAND_EFFORT_MAP_FAST: Record<SlashCommand, ReasoningEffort
   '/find_plan_file': 'low',
   '/find_issue_dependencies': 'low',
   '/adw_init': 'medium',
+  // Scenario writing
+  '/scenario_writer': 'medium',
   // Plan validation (complex reasoning, no downgrade)
   '/validate_plan_scenarios': 'high',
   '/resolve_plan_scenarios': 'high',

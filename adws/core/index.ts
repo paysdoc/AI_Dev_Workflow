@@ -110,8 +110,8 @@ export {
 } from './costCsvWriter';
 
 // Project configuration
-export type { ProjectConfig, CommandsConfig, ProvidersConfig } from './projectConfig';
-export { loadProjectConfig, getDefaultProjectConfig, getDefaultCommandsConfig, getDefaultProvidersConfig, parseMarkdownSections, parseCommandsMd, parseProvidersMd } from './projectConfig';
+export type { ProjectConfig, CommandsConfig, ProvidersConfig, ScenariosConfig } from './projectConfig';
+export { loadProjectConfig, getDefaultProjectConfig, getDefaultCommandsConfig, getDefaultProvidersConfig, getDefaultScenariosConfig, parseMarkdownSections, parseCommandsMd, parseProvidersMd, parseScenariosMd } from './projectConfig';
 
 // Issue classifier
 export type { IssueClassificationResult } from './issueClassifier';

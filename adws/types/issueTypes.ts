@@ -149,6 +149,8 @@ export type SlashCommand =
   | '/find_issue_dependencies'
   // ADW initialization
   | '/adw_init'
+  // Scenario writing
+  | '/scenario_writer'
   // Plan validation commands
   | '/validate_plan_scenarios'
   | '/resolve_plan_scenarios';
