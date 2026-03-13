@@ -81,3 +81,11 @@ This prompt helps you determine what documentation you should read based on the 
     - When adding or modifying logging in the dependency resolution pipeline
     - When troubleshooting why an issue was deferred due to blocking dependencies
     - When diagnosing silent failures in `getIssueState()` dependency lookups
+
+- app_docs/feature-q9kms5-bdd-scenarios-before-pr.md
+  - Conditions:
+    - When working with `testPhase.ts` or the test phase execution order
+    - When adding or modifying BDD scenario execution in workflows (`bddScenarioRunner.ts`, `runBddScenariosWithRetry`)
+    - When configuring `## Run BDD Scenarios` in `.adw/commands.md` or `## Unit Tests` in `.adw/project.md`
+    - When troubleshooting BDD scenario failures, retries, or the PR gate being blocked
+    - When updating orchestrators to include or reorder the test phase relative to PR creation
