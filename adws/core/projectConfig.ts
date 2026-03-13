@@ -27,6 +27,7 @@ export interface CommandsConfig {
   additionalTypeChecks: string;
   libraryInstall: string;
   scriptExecution: string;
+  runBddScenarios: string;
 }
 
 export interface ProvidersConfig {
@@ -77,6 +78,7 @@ const HEADING_TO_KEY: Record<string, keyof CommandsConfig> = {
   'library install command': 'libraryInstall',
   'library install': 'libraryInstall',
   'script execution': 'scriptExecution',
+  'run bdd scenarios': 'runBddScenarios',
 };
 
 // ---------------------------------------------------------------------------
@@ -97,6 +99,7 @@ export function getDefaultCommandsConfig(): CommandsConfig {
     additionalTypeChecks: 'bunx tsc --noEmit -p adws/tsconfig.json',
     libraryInstall: 'bun install',
     scriptExecution: 'bunx tsx <script name>',
+    runBddScenarios: 'N/A',
   };
 }
 
@@ -152,6 +155,31 @@ export function parseMarkdownSections(content: string): Record<string, string> {
   flush();
 
   return sections;
+}
+
+/**
+ * Returns `true` when `.adw/project.md` has unit tests enabled.
+ *
+ * Handles two formats:
+ * - `## Unit Tests: enabled` (colon-inline heading → key = "unit tests: enabled")
+ * - `## Unit Tests` with body `enabled`
+ *
+ * Returns `false` for `disabled`, absent section, or any other value.
+ */
+export function parseUnitTestsEnabled(projectMd: string): boolean {
+  const sections = parseMarkdownSections(projectMd);
+
+  for (const [key, value] of Object.entries(sections)) {
+    if (key.startsWith('unit tests')) {
+      if (key.includes(':')) {
+        const inlineValue = key.split(':').slice(1).join(':').trim();
+        return inlineValue === 'enabled';
+      }
+      return value.trim().toLowerCase() === 'enabled';
+    }
+  }
+
+  return false;
 }
 
 /**

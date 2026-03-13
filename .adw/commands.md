@@ -35,3 +35,6 @@ bun add <package>
 
 ## Script Execution
 bunx tsx <script name>
+
+## Run BDD Scenarios
+N/A

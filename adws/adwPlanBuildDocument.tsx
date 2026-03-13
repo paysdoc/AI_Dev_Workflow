@@ -1,6 +1,6 @@
 #!/usr/bin/env bunx tsx
 /**
- * ADW Plan, Build & Document - Plan+Build+PR+Document Orchestrator
+ * ADW Plan, Build & Document - Plan+Build+Test+PR+Document Orchestrator
  *
  * Usage: bunx tsx adws/adwPlanBuildDocument.tsx <github-issueNumber> [adw-id] [--issue-type <type>]
  *
@@ -8,9 +8,10 @@
  * 1. Initialize: fetch issue, classify type, setup worktree, initialize state, detect recovery
  * 2. Plan Phase: classify issue, create branch, run plan agent, commit plan
  * 3. Build Phase: run build agent, commit implementation
- * 4. PR Phase: create pull request
- * 5. Document Phase: generate feature documentation
- * 6. Finalize: update state, post completion comment
+ * 4. Test Phase: optionally run unit tests, then run BDD scenarios
+ * 5. PR Phase: create pull request (only if all tests pass)
+ * 6. Document Phase: generate feature documentation
+ * 7. Finalize: update state, post completion comment
  *
  * Environment Requirements:
  * - ANTHROPIC_API_KEY: Anthropic API key
@@ -23,6 +24,7 @@ import {
   initializeWorkflow,
   executePlanPhase,
   executeBuildPhase,
+  executeTestPhase,
   executePRPhase,
   executeDocumentPhase,
   completeWorkflow,
@@ -67,6 +69,13 @@ async function main(): Promise<void> {
     if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeDisplayTokens(totalModelUsage);
 
     config.totalModelUsage = totalModelUsage;
+    const testResult = await executeTestPhase(config);
+    totalCostUsd += testResult.costUsd;
+    totalModelUsage = mergeModelUsageMaps(totalModelUsage, testResult.modelUsage);
+    persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
+    if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeDisplayTokens(totalModelUsage);
+
+    config.totalModelUsage = totalModelUsage;
     const prResult = await executePRPhase(config);
     totalCostUsd += prResult.costUsd;
     totalModelUsage = mergeModelUsageMaps(totalModelUsage, prResult.modelUsage);
@@ -80,7 +89,11 @@ async function main(): Promise<void> {
     persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
     if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeDisplayTokens(totalModelUsage);
 
-    await completeWorkflow(config, totalCostUsd, undefined, totalModelUsage);
+    await completeWorkflow(config, totalCostUsd, {
+      unitTestsPassed: testResult.unitTestsPassed,
+      bddScenariosPassed: testResult.bddScenariosPassed,
+      totalTestRetries: testResult.totalRetries,
+    }, totalModelUsage);
   } catch (error) {
     handleWorkflowError(config, error, totalCostUsd, totalModelUsage);
   }

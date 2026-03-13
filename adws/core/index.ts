@@ -111,7 +111,7 @@ export {
 
 // Project configuration
 export type { ProjectConfig, CommandsConfig, ProvidersConfig } from './projectConfig';
-export { loadProjectConfig, getDefaultProjectConfig, getDefaultCommandsConfig, getDefaultProvidersConfig, parseMarkdownSections, parseCommandsMd, parseProvidersMd } from './projectConfig';
+export { loadProjectConfig, getDefaultProjectConfig, getDefaultCommandsConfig, getDefaultProvidersConfig, parseMarkdownSections, parseCommandsMd, parseProvidersMd, parseUnitTestsEnabled } from './projectConfig';
 
 // Issue classifier
 export type { IssueClassificationResult } from './issueClassifier';

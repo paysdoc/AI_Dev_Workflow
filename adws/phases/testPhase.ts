@@ -1,5 +1,11 @@
 /**
  * Test phase execution for workflows.
+ *
+ * New order: [Unit Tests (opt-in)] → BDD Scenarios → PR
+ *
+ * - Unit tests run only when `.adw/project.md` has `## Unit Tests: enabled`.
+ * - BDD scenarios tagged `@adw-{issueNumber}` always run (skipped gracefully
+ *   when the command is `N/A`).
  */
 
 import {
@@ -9,80 +15,100 @@ import {
   type ModelUsageMap,
   emptyModelUsageMap,
   mergeModelUsageMaps,
+  parseUnitTestsEnabled,
 } from '../core';
 import { postIssueStageComment } from './phaseCommentHelpers';
 import {
   runUnitTestsWithRetry,
-  runE2ETestsWithRetry,
+  runBddScenariosWithRetry,
 } from '../agents';
 import type { WorkflowConfig } from './workflowLifecycle';
 
 /**
- * Executes the Test phase: run unit tests and E2E tests with retry.
+ * Executes the Test phase: optionally run unit tests, then run BDD scenarios.
+ *
+ * Unit tests are skipped when `.adw/project.md` has `## Unit Tests: disabled`
+ * (or the indicator is absent — disabled is the default).
+ *
+ * BDD scenarios are run using the command from `config.projectConfig.commands.runBddScenarios`.
+ * When the command is `N/A`, scenarios are skipped gracefully and the phase passes.
+ *
  * Uses `config.repoInfo` for external repository API calls when targeting a different repo.
  */
 export async function executeTestPhase(config: WorkflowConfig): Promise<{
   costUsd: number;
   modelUsage: ModelUsageMap;
   unitTestsPassed: boolean;
-  e2eTestsPassed: boolean;
+  bddScenariosPassed: boolean;
   totalRetries: number;
 }> {
-  const { orchestratorStatePath, issueNumber, issue, ctx, logsDir, worktreePath, applicationUrl, repoContext } = config;
+  const { orchestratorStatePath, issueNumber, issue, ctx, logsDir, worktreePath, repoContext, projectConfig } = config;
   let costUsd = 0;
   let modelUsage = emptyModelUsageMap();
+  let totalRetries = 0;
 
-  // Unit tests
-  log('Phase: Unit Tests', 'info');
-  AgentStateManager.appendLog(orchestratorStatePath, 'Starting test phase: Unit Tests');
+  // --- Unit tests gate (opt-in) ---
+  const unitTestsEnabled = parseUnitTestsEnabled(projectConfig.projectMd);
 
-  const unitTestsResult = await runUnitTestsWithRetry({
-    logsDir,
-    orchestratorStatePath,
-    maxRetries: MAX_TEST_RETRY_ATTEMPTS,
-    cwd: worktreePath,
-    issueBody: issue.body,
-  });
-  costUsd += unitTestsResult.costUsd;
-  modelUsage = mergeModelUsageMaps(modelUsage, unitTestsResult.modelUsage);
+  if (unitTestsEnabled) {
+    log('Phase: Unit Tests', 'info');
+    AgentStateManager.appendLog(orchestratorStatePath, 'Starting test phase: Unit Tests');
 
-  if (!unitTestsResult.passed) {
-    const errorMsg = 'Unit tests failed after maximum retry attempts. No PR was created.';
-    log(errorMsg, 'error');
-    AgentStateManager.appendLog(orchestratorStatePath, errorMsg);
-    ctx.errorMessage = errorMsg;
-    if (repoContext) {
-      postIssueStageComment(repoContext, issueNumber, 'error', ctx);
-    }
-
-    AgentStateManager.writeState(orchestratorStatePath, {
-      execution: AgentStateManager.completeExecution(
-        AgentStateManager.createExecutionState('running'),
-        false,
-        errorMsg
-      ),
-      metadata: { totalCostUsd: costUsd, unitTestsPassed: false },
+    const unitTestsResult = await runUnitTestsWithRetry({
+      logsDir,
+      orchestratorStatePath,
+      maxRetries: MAX_TEST_RETRY_ATTEMPTS,
+      cwd: worktreePath,
+      issueBody: issue.body,
     });
-    process.exit(1);
+    costUsd += unitTestsResult.costUsd;
+    modelUsage = mergeModelUsageMaps(modelUsage, unitTestsResult.modelUsage);
+    totalRetries += unitTestsResult.totalRetries;
+
+    if (!unitTestsResult.passed) {
+      const errorMsg = 'Unit tests failed after maximum retry attempts. No PR was created.';
+      log(errorMsg, 'error');
+      AgentStateManager.appendLog(orchestratorStatePath, errorMsg);
+      ctx.errorMessage = errorMsg;
+      if (repoContext) {
+        postIssueStageComment(repoContext, issueNumber, 'error', ctx);
+      }
+
+      AgentStateManager.writeState(orchestratorStatePath, {
+        execution: AgentStateManager.completeExecution(
+          AgentStateManager.createExecutionState('running'),
+          false,
+          errorMsg
+        ),
+        metadata: { totalCostUsd: costUsd, unitTestsPassed: false },
+      });
+      process.exit(1);
+    }
+  } else {
+    log('Unit tests disabled — skipping', 'info');
+    AgentStateManager.appendLog(orchestratorStatePath, 'Unit tests disabled — skipping');
   }
 
-  // E2E tests
-  log('Phase: E2E Tests', 'info');
-  AgentStateManager.appendLog(orchestratorStatePath, 'Starting test phase: E2E Tests');
+  // --- BDD scenarios gate (always runs) ---
+  log('Phase: BDD Scenarios', 'info');
+  AgentStateManager.appendLog(orchestratorStatePath, `Starting test phase: BDD Scenarios @adw-${issueNumber}`);
 
-  const e2eTestsResult = await runE2ETestsWithRetry({
+  const scenarioCommand = projectConfig.commands.runBddScenarios;
+  const bddResult = await runBddScenariosWithRetry({
     logsDir,
     orchestratorStatePath,
     maxRetries: MAX_TEST_RETRY_ATTEMPTS,
     cwd: worktreePath,
-    applicationUrl,
     issueBody: issue.body,
+    scenarioCommand,
+    issueNumber,
   });
-  costUsd += e2eTestsResult.costUsd;
-  modelUsage = mergeModelUsageMaps(modelUsage, e2eTestsResult.modelUsage);
+  costUsd += bddResult.costUsd;
+  modelUsage = mergeModelUsageMaps(modelUsage, bddResult.modelUsage);
+  totalRetries += bddResult.totalRetries;
 
-  if (!e2eTestsResult.passed) {
-    const errorMsg = 'E2E tests failed after maximum retry attempts. No PR was created.';
+  if (!bddResult.passed) {
+    const errorMsg = 'BDD scenarios failed after maximum retry attempts. No PR was created.';
     log(errorMsg, 'error');
     AgentStateManager.appendLog(orchestratorStatePath, errorMsg);
     ctx.errorMessage = errorMsg;
@@ -96,7 +122,7 @@ export async function executeTestPhase(config: WorkflowConfig): Promise<{
         false,
         errorMsg
       ),
-      metadata: { totalCostUsd: costUsd, unitTestsPassed: true, e2eTestsPassed: false },
+      metadata: { totalCostUsd: costUsd, unitTestsPassed: true, bddScenariosPassed: false },
     });
     process.exit(1);
   }
@@ -108,7 +134,7 @@ export async function executeTestPhase(config: WorkflowConfig): Promise<{
     costUsd,
     modelUsage,
     unitTestsPassed: true,
-    e2eTestsPassed: true,
-    totalRetries: unitTestsResult.totalRetries + e2eTestsResult.totalRetries,
+    bddScenariosPassed: true,
+    totalRetries,
   };
 }

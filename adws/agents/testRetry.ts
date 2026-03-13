@@ -17,6 +17,7 @@ import {
   E2ETestResult,
   type TestAgentResult,
 } from './testAgent';
+import { runBddScenarios } from './bddScenarioRunner';
 
 export interface TestRetryResult {
   passed: boolean;
@@ -196,4 +197,78 @@ export async function runE2ETestsWithRetry(opts: TestRetryOptions): Promise<Test
   log(msg + (allPassed ? '!' : ''), allPassed ? 'success' : 'error');
   AgentStateManager.appendLog(statePath, msg);
   return { passed: allPassed, costUsd: costState.costUsd, totalRetries, failedTests: failedTestNames, modelUsage: costState.modelUsage };
+}
+
+export interface BddScenarioRetryOptions extends TestRetryOptions {
+  /** The BDD scenario run command from `.adw/commands.md` (`## Run BDD Scenarios`). */
+  scenarioCommand: string;
+  /** Issue number used to filter scenarios by tag (`@adw-{issueNumber}`). */
+  issueNumber: number;
+}
+
+/**
+ * Runs BDD scenarios with automatic retry and resolution attempts on failure.
+ * Uses `runResolveE2ETestAgent` to fix failures before each re-run.
+ * @param opts - Retry options including scenario command, issue number, retry limits, and optional cwd.
+ * @returns The test result including pass/fail status, cost, retry count, and failed test names.
+ */
+export async function runBddScenariosWithRetry(opts: BddScenarioRetryOptions): Promise<TestRetryResult> {
+  const { logsDir, orchestratorStatePath: statePath, maxRetries, cwd, issueBody, scenarioCommand, issueNumber } = opts;
+  const costState = { costUsd: 0, modelUsage: emptyModelUsageMap() };
+  let totalRetries = 0;
+
+  log(`Running BDD scenarios @adw-${issueNumber}...`, 'info');
+  AgentStateManager.appendLog(statePath, `Running BDD scenarios @adw-${issueNumber}`);
+
+  let scenarioResult = await runBddScenarios(scenarioCommand, issueNumber, cwd);
+
+  if (scenarioResult.allPassed) {
+    log('BDD scenarios passed!', 'success');
+    AgentStateManager.appendLog(statePath, 'BDD scenarios passed');
+    return { passed: true, costUsd: 0, totalRetries, failedTests: [], modelUsage: costState.modelUsage };
+  }
+
+  while (!scenarioResult.allPassed && totalRetries < maxRetries) {
+    const failedResult: E2ETestResult = {
+      testName: `BDD Scenarios @adw-${issueNumber}`,
+      status: 'failed',
+      error: scenarioResult.stderr || scenarioResult.stdout || `Exit code: ${scenarioResult.exitCode}`,
+    };
+
+    log(`BDD scenarios failed (attempt ${totalRetries + 1}/${maxRetries}), resolving...`, 'info');
+    AgentStateManager.appendLog(statePath, `BDD scenarios failed, resolving (attempt ${totalRetries + 1}/${maxRetries})`);
+
+    const resolveResult = await runResolveE2ETestAgent(
+      failedResult,
+      logsDir,
+      initAgentState(statePath, 'test-resolver-agent'),
+      cwd,
+      undefined,
+      issueBody,
+    );
+    trackCost(resolveResult as AgentRunResult, costState, statePath);
+    totalRetries++;
+
+    scenarioResult = await runBddScenarios(scenarioCommand, issueNumber, cwd);
+
+    if (scenarioResult.allPassed) {
+      log('BDD scenarios now passing!', 'success');
+      AgentStateManager.appendLog(statePath, 'BDD scenarios now passing after resolution');
+      break;
+    }
+  }
+
+  const passed = scenarioResult.allPassed;
+  if (!passed) {
+    log(`BDD scenarios still failing after ${totalRetries} attempt(s)`, 'error');
+    AgentStateManager.appendLog(statePath, `BDD scenarios still failing after ${totalRetries} attempt(s)`);
+  }
+
+  return {
+    passed,
+    costUsd: costState.costUsd,
+    totalRetries,
+    failedTests: passed ? [] : [`BDD Scenarios @adw-${issueNumber}`],
+    modelUsage: costState.modelUsage,
+  };
 }

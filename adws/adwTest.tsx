@@ -2,16 +2,15 @@
 /**
  * ADW Test - AI Developer Workflow Testing Phase
  *
- * Usage: bunx tsx adws/adwTest.tsx [adw-id]
+ * Usage: bunx tsx adws/adwTest.tsx [adw-id] [issueNumber] [--cwd <path>]
  *
  * Workflow:
- * 1. Run unit tests using /test command (sonnet model)
- * 2. If tests fail, run /resolve_failed_test for each failure (opus model)
- * 3. Retry unit tests after resolution
- * 4. Discover and run E2E tests using /test_e2e command (sonnet model)
- * 5. If E2E tests fail, run /resolve_failed_e2e_test for each failure (opus model)
- * 6. Retry E2E tests after resolution
- * 7. Continue until all tests pass or MAX_TEST_RETRY_ATTEMPTS exceeded
+ * 1. Load project config to determine unit test opt-in status
+ * 2. If unit tests enabled: run /test command, resolve failures, retry
+ * 3. Run BDD scenarios tagged @adw-{issueNumber} using command from .adw/commands.md
+ * 4. If BDD scenarios fail, run /resolve_failed_e2e_test for resolution
+ * 5. Retry BDD scenarios after resolution
+ * 6. Continue until all pass or MAX_TEST_RETRY_ATTEMPTS exceeded
  *
  * Environment Requirements:
  * - ANTHROPIC_API_KEY: Anthropic API key
@@ -30,22 +29,25 @@ import {
   mergeModelUsageMaps,
   persistTokenCounts,
   OrchestratorId,
+  loadProjectConfig,
+  parseUnitTestsEnabled,
 } from './core';
 import { extractCwdOption, printUsageAndExit } from './core/orchestratorCli';
-import { runUnitTestsWithRetry, runE2ETestsWithRetry } from './agents';
+import { runUnitTestsWithRetry, runBddScenariosWithRetry } from './agents';
 
 /** Parses and validates command line arguments. */
-function parseArguments(args: string[]): { adwId: string; cwd: string | null } {
+function parseArguments(args: string[]): { adwId: string; cwd: string | null; issueNumber: number } {
   if (args.includes('--help') || args.includes('-h')) {
-    printUsageAndExit('adwTest.tsx', '[adw-id] [--cwd <path>]', [
+    printUsageAndExit('adwTest.tsx', '[adw-id] [issueNumber] [--cwd <path>]', [
       '--cwd <path>             Working directory for test execution (worktree path)',
     ]);
   }
 
   const cwd = extractCwdOption(args);
   const adwId = args[0] || generateAdwId();
+  const issueNumber = args[1] && /^\d+$/.test(args[1]) ? parseInt(args[1], 10) : 0;
   setLogAdwId(adwId);
-  return { adwId, cwd };
+  return { adwId, cwd, issueNumber };
 }
 
 /** Prints the test phase summary. */
@@ -53,19 +55,19 @@ function printTestSummary(
   adwId: string,
   logsDir: string,
   unitTestsPassed: boolean,
-  e2eTestsPassed: boolean,
+  bddScenariosPassed: boolean,
   totalRetries: number,
   totalCostUsd: number
 ): void {
   log('===================================', 'info');
-  if (unitTestsPassed && e2eTestsPassed) {
+  if (unitTestsPassed && bddScenariosPassed) {
     log('ADW Test workflow completed!', 'success');
   } else {
     log('ADW Test workflow failed!', 'error');
   }
   log(`ADW ID: ${adwId}`, 'info');
   log(`Unit tests: ${unitTestsPassed ? 'PASSED' : 'FAILED'}`, unitTestsPassed ? 'success' : 'error');
-  log(`E2E tests: ${e2eTestsPassed ? 'PASSED' : 'FAILED'}`, e2eTestsPassed ? 'success' : 'error');
+  log(`BDD scenarios: ${bddScenariosPassed ? 'PASSED' : 'FAILED'}`, bddScenariosPassed ? 'success' : 'error');
   log(`Total retries: ${totalRetries}`, 'info');
   log(`Logs: ${logsDir}`, 'info');
   if (totalCostUsd > 0) {
@@ -77,7 +79,7 @@ function printTestSummary(
 /** Main test workflow. */
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
-  const { adwId, cwd } = parseArguments(args);
+  const { adwId, cwd, issueNumber } = parseArguments(args);
 
   const logsDir = ensureLogsDirectory(adwId);
 
@@ -95,7 +97,7 @@ async function main(): Promise<void> {
 
   const initialState: Partial<AgentState> = {
     adwId,
-    issueNumber: 0,
+    issueNumber,
     agentName: OrchestratorId.Test,
     execution: AgentStateManager.createExecutionState('running'),
     metadata: { maxRetryAttempts: MAX_TEST_RETRY_ATTEMPTS },
@@ -103,45 +105,61 @@ async function main(): Promise<void> {
   AgentStateManager.writeState(orchestratorStatePath, initialState);
   AgentStateManager.appendLog(orchestratorStatePath, 'Starting ADW Test workflow');
 
+  // Load project config to determine unit test opt-in and BDD command
+  const projectConfig = loadProjectConfig(cwd ?? process.cwd());
+  const unitTestsEnabled = parseUnitTestsEnabled(projectConfig.projectMd);
+
   try {
     let totalCostUsd = 0;
     let totalRetries = 0;
     let totalModelUsage = {};
+    let unitTestsPassed = true;
 
-    log('Phase 1: Unit Tests', 'info');
-    AgentStateManager.appendLog(orchestratorStatePath, 'Starting Phase 1: Unit Tests');
+    if (unitTestsEnabled) {
+      log('Phase 1: Unit Tests', 'info');
+      AgentStateManager.appendLog(orchestratorStatePath, 'Starting Phase 1: Unit Tests');
 
-    const unitTestsResult = await runUnitTestsWithRetry({
-      logsDir,
-      orchestratorStatePath,
-      maxRetries: MAX_TEST_RETRY_ATTEMPTS,
-    });
-    totalCostUsd += unitTestsResult.costUsd;
-    totalRetries += unitTestsResult.totalRetries;
-    totalModelUsage = mergeModelUsageMaps(totalModelUsage, unitTestsResult.modelUsage);
-    persistTokenCounts(orchestratorStatePath, totalCostUsd, totalModelUsage);
-
-    let e2eTestsPassed = true;
-    if (unitTestsResult.passed) {
-      log('Phase 2: E2E Tests', 'info');
-      AgentStateManager.appendLog(orchestratorStatePath, 'Starting Phase 2: E2E Tests');
-
-      const e2eTestsResult = await runE2ETestsWithRetry({
+      const unitTestsResult = await runUnitTestsWithRetry({
         logsDir,
         orchestratorStatePath,
         maxRetries: MAX_TEST_RETRY_ATTEMPTS,
+        cwd: cwd ?? undefined,
       });
-      totalCostUsd += e2eTestsResult.costUsd;
-      totalRetries += e2eTestsResult.totalRetries;
-      totalModelUsage = mergeModelUsageMaps(totalModelUsage, e2eTestsResult.modelUsage);
+      totalCostUsd += unitTestsResult.costUsd;
+      totalRetries += unitTestsResult.totalRetries;
+      totalModelUsage = mergeModelUsageMaps(totalModelUsage, unitTestsResult.modelUsage);
       persistTokenCounts(orchestratorStatePath, totalCostUsd, totalModelUsage);
-      e2eTestsPassed = e2eTestsResult.passed;
+      unitTestsPassed = unitTestsResult.passed;
     } else {
-      log('Skipping E2E tests due to unit test failures', 'info');
-      AgentStateManager.appendLog(orchestratorStatePath, 'Skipping E2E tests due to unit test failures');
+      log('Unit tests disabled — skipping', 'info');
+      AgentStateManager.appendLog(orchestratorStatePath, 'Unit tests disabled — skipping');
     }
 
-    const allPassed = unitTestsResult.passed && e2eTestsPassed;
+    let bddScenariosPassed = true;
+    if (unitTestsPassed) {
+      log('Phase 2: BDD Scenarios', 'info');
+      AgentStateManager.appendLog(orchestratorStatePath, `Starting Phase 2: BDD Scenarios @adw-${issueNumber}`);
+
+      const bddResult = await runBddScenariosWithRetry({
+        logsDir,
+        orchestratorStatePath,
+        maxRetries: MAX_TEST_RETRY_ATTEMPTS,
+        cwd: cwd ?? undefined,
+        scenarioCommand: projectConfig.commands.runBddScenarios,
+        issueNumber,
+      });
+      totalCostUsd += bddResult.costUsd;
+      totalRetries += bddResult.totalRetries;
+      totalModelUsage = mergeModelUsageMaps(totalModelUsage, bddResult.modelUsage);
+      persistTokenCounts(orchestratorStatePath, totalCostUsd, totalModelUsage);
+      bddScenariosPassed = bddResult.passed;
+    } else {
+      log('Skipping BDD scenarios due to unit test failures', 'info');
+      AgentStateManager.appendLog(orchestratorStatePath, 'Skipping BDD scenarios due to unit test failures');
+      bddScenariosPassed = false;
+    }
+
+    const allPassed = unitTestsPassed && bddScenariosPassed;
     AgentStateManager.writeState(orchestratorStatePath, {
       execution: AgentStateManager.completeExecution(
         AgentStateManager.createExecutionState('running'),
@@ -150,8 +168,8 @@ async function main(): Promise<void> {
       ),
       metadata: {
         maxRetryAttempts: MAX_TEST_RETRY_ATTEMPTS,
-        unitTestsPassed: unitTestsResult.passed,
-        e2eTestsPassed,
+        unitTestsPassed,
+        bddScenariosPassed,
         totalRetries,
         totalCostUsd,
       },
@@ -163,7 +181,7 @@ async function main(): Promise<void> {
       AgentStateManager.appendLog(orchestratorStatePath, 'Test workflow completed with failures');
     }
 
-    printTestSummary(adwId, logsDir, unitTestsResult.passed, e2eTestsPassed, totalRetries, totalCostUsd);
+    printTestSummary(adwId, logsDir, unitTestsPassed, bddScenariosPassed, totalRetries, totalCostUsd);
 
     if (!allPassed) {
       process.exit(1);
