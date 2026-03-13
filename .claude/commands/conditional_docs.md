@@ -113,3 +113,11 @@ This prompt helps you determine what documentation you should read based on the 
     - When working with `.adw/scenarios.md` configuration or scenario directory setup
     - When adding or modifying `@crucial` tag maintenance logic
     - When implementing a new non-fatal workflow phase following the scenario or KPI phase pattern
+
+- app_docs/feature-9emriw-bdd-scenario-review-proof.md
+  - Conditions:
+    - When working with the review proof mechanism or `crucialScenarioProof.ts`
+    - When modifying `reviewRetry.ts` or `ReviewRetryOptions` scenario-related fields
+    - When adding or changing `@crucial` / `@adw-{issueNumber}` scenario classification in review
+    - When configuring `runCrucialScenarios` or `runScenariosByTag` commands in `.adw/commands.md`
+    - When troubleshooting review proof fallback behaviour for repos without `.adw/scenarios.md`
