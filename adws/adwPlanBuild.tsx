@@ -22,6 +22,7 @@ import {
   initializeWorkflow,
   executePlanPhase,
   executeScenarioPhase,
+  executePlanValidationPhase,
   executeBuildPhase,
   executePRPhase,
   completeWorkflow,
@@ -60,6 +61,13 @@ async function main(): Promise<void> {
       mergeModelUsageMaps(totalModelUsage, planResult.modelUsage),
       scenarioResult.modelUsage,
     );
+    persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
+    if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeDisplayTokens(totalModelUsage);
+
+    config.totalModelUsage = totalModelUsage;
+    const planValidationResult = await executePlanValidationPhase(config);
+    totalCostUsd += planValidationResult.costUsd;
+    totalModelUsage = mergeModelUsageMaps(totalModelUsage, planValidationResult.modelUsage);
     persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
     if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeDisplayTokens(totalModelUsage);
 

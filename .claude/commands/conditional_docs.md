@@ -75,6 +75,14 @@ This prompt helps you determine what documentation you should read based on the 
     - When troubleshooting GitLab API authentication, merge request creation, or review fetching
     - When adding support for a new code host platform following the CodeHost interface
 
+- app_docs/feature-sinbtg-plan-scenario-validation-resolution.md
+  - Conditions:
+    - When working with `planValidationPhase`, `validationAgent`, or `resolutionAgent`
+    - When implementing or modifying the plan-scenario alignment gate between planning and build
+    - When adding new workflow stages related to BDD scenario validation
+    - When troubleshooting plan-scenario mismatch failures or resolution loop exhaustion
+    - When integrating the validation phase into a new orchestrator
+
 - app_docs/feature-74itmf-dependency-logging.md
   - Conditions:
     - When working with `findOpenDependencies()` or `checkIssueEligibility()` in `adws/triggers/`

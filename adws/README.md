@@ -212,7 +212,7 @@ bunx tsx adws/adwPatch.tsx <issueNumber> [adw-id] [--cwd <path>]
 ### Orchestrator Scripts
 
 #### adwPlanBuild.tsx - Plan + Build
-Combines planning and implementation phases.
+Combines planning, plan validation, and implementation phases.
 
 **Usage:**
 ```bash
@@ -229,8 +229,9 @@ bunx tsx adws/adwPlanBuildTest.tsx <issueNumber> [adw-id]
 
 **Phases:**
 1. Planning (creates implementation spec)
-2. Building (implements solution)
-3. Testing (runs test suite, auto-fixes failures)
+2. Plan Validation (aligns plan with BDD scenarios)
+3. Building (implements solution)
+4. Testing (runs test suite, auto-fixes failures)
 
 #### adwPlanBuildTestReview.tsx - Plan + Build + Test + Review
 Complete pipeline with quality review.
@@ -242,9 +243,10 @@ bunx tsx adws/adwPlanBuildTestReview.tsx <issueNumber> [adw-id]
 
 **Phases:**
 1. Planning (creates implementation spec)
-2. Building (implements solution)
-3. Testing (ensures functionality)
-4. Review (validates against spec, auto-fixes issues)
+2. Plan Validation (aligns plan with BDD scenarios)
+3. Building (implements solution)
+4. Testing (ensures functionality)
+5. Review (validates against spec, auto-fixes issues)
 
 #### adwPlanBuildReview.tsx - Plan + Build + Review
 Pipeline with review but skipping tests.
@@ -286,11 +288,12 @@ bunx tsx adws/adwSdlc.tsx <issueNumber> [adw-id]
 
 **Phases:**
 1. **Plan**: Creates detailed implementation spec
-2. **Build**: Implements the solution
-3. **Test**: Runs comprehensive test suite
-4. **PR**: Creates pull request
-5. **Review**: Validates implementation vs spec
-6. **Document**: Generates technical and user docs (includes review screenshots)
+2. **Plan Validation**: Aligns plan with BDD scenarios (graceful skip if none found)
+3. **Build**: Implements the solution
+4. **Test**: Runs comprehensive test suite
+5. **PR**: Creates pull request
+6. **Review**: Validates implementation vs spec
+7. **Document**: Generates technical and user docs (includes review screenshots)
 
 **Output:**
 - Feature implementation
@@ -354,13 +357,20 @@ bunx tsx adws/triggers/trigger_webhook.ts
    - File modifications
    - Testing requirements
 
-3. **Implementation**: `buildAgent` executes the plan:
+3. **Plan Validation**: `validationAgent` compares plan against BDD scenarios:
+   - Discovers `.feature` files tagged `@adw-{issueNumber}`
+   - Compares plan behaviors against scenario coverage
+   - If mismatches found, `resolutionAgent` reconciles using the issue as truth
+   - Retries up to `MAX_VALIDATION_RETRY_ATTEMPTS` times
+   - Gracefully skips if no tagged scenario files are found
+
+4. **Implementation**: `buildAgent` executes the plan:
    - Analyzes codebase
    - Implements changes
    - Runs tests
    - Ensures quality
 
-4. **Integration**: Creates git commits and pull request:
+5. **Integration**: Creates git commits and pull request:
    - Semantic commit messages
    - Links to original issue
    - Implementation summary
@@ -534,6 +544,8 @@ app_docs/                         # Generated documentation
 - `claudeAgent.ts` - Claude Code CLI integration and process spawning
 - `agentProcessHandler.ts` - Agent process lifecycle management (extracted from claudeAgent)
 - `planAgent.ts` - Planning agent implementation
+- `validationAgent.ts` - Validation agent: compares plan behaviors against BDD scenario coverage; outputs structured JSON with aligned/mismatches/summary
+- `resolutionAgent.ts` - Resolution agent: reconciles plan/scenario mismatches using the GitHub issue as sole source of truth
 - `buildAgent.ts` - Build/implementation agent
 - `testAgent.ts` - Testing agent with retry coordination
 - `testDiscovery.ts` - Test file discovery and E2E/Playwright detection (extracted from testAgent)
@@ -587,6 +599,7 @@ app_docs/                         # Generated documentation
 
 **Phases** (`phases/`):
 - `planPhase.ts` - Planning phase implementation
+- `planValidationPhase.ts` - Plan validation phase implementation (compares plan against BDD scenarios)
 - `buildPhase.ts` - Build phase implementation
 - `testPhase.ts` - Testing phase implementation
 - `prPhase.ts` - PR creation phase implementation

@@ -93,6 +93,9 @@ export const MAX_TEST_RETRY_ATTEMPTS = parseInt(process.env.MAX_TEST_RETRY_ATTEM
 /** Maximum number of retry attempts for review-patch resolution. */
 export const MAX_REVIEW_RETRY_ATTEMPTS = parseInt(process.env.MAX_REVIEW_RETRY_ATTEMPTS || '3', 10);
 
+/** Maximum number of retry attempts for plan validation resolution. */
+export const MAX_VALIDATION_RETRY_ATTEMPTS = parseInt(process.env.MAX_VALIDATION_RETRY_ATTEMPTS || '3', 10);
+
 /** Directory for storing git worktrees. */
 export const WORKTREES_DIR = path.join(process.cwd(), '.worktrees');
 
@@ -198,6 +201,9 @@ export const SLASH_COMMAND_MODEL_MAP: Record<SlashCommand, ModelTier> = {
   '/adw_init': 'sonnet',
   // Scenario writing
   '/scenario_writer': 'sonnet',
+  // Plan validation (complex reasoning, no downgrade)
+  '/validate_plan_scenarios': 'opus',
+  '/resolve_plan_scenarios': 'opus',
 };
 
 /** Cost-optimized model map used when the issue body contains `/fast` or `/cheap`. */
@@ -224,6 +230,9 @@ export const SLASH_COMMAND_MODEL_MAP_FAST: Record<SlashCommand, ModelTier> = {
   '/adw_init': 'haiku',
   // Scenario writing
   '/scenario_writer': 'haiku',
+  // Plan validation (complex reasoning, no downgrade)
+  '/validate_plan_scenarios': 'opus',
+  '/resolve_plan_scenarios': 'opus',
 };
 
 /**
@@ -276,6 +285,9 @@ export const SLASH_COMMAND_EFFORT_MAP: Record<SlashCommand, ReasoningEffort | un
   '/adw_init': 'medium',
   // Scenario writing
   '/scenario_writer': 'high',
+  // Plan validation (complex reasoning, no downgrade)
+  '/validate_plan_scenarios': 'high',
+  '/resolve_plan_scenarios': 'high',
 };
 
 /** Cost-optimized reasoning effort map used when the issue body contains `/fast` or `/cheap`. */
@@ -302,6 +314,9 @@ export const SLASH_COMMAND_EFFORT_MAP_FAST: Record<SlashCommand, ReasoningEffort
   '/adw_init': 'medium',
   // Scenario writing
   '/scenario_writer': 'medium',
+  // Plan validation (complex reasoning, no downgrade)
+  '/validate_plan_scenarios': 'high',
+  '/resolve_plan_scenarios': 'high',
 };
 
 /**

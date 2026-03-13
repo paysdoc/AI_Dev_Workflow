@@ -110,3 +110,18 @@ export {
   formatScenarioArgs,
 } from './scenarioAgent';
 
+// Validation Agent
+export {
+  runValidationAgent,
+  findScenarioFiles,
+  readScenarioContents,
+  type ValidationResult,
+  type MismatchItem,
+} from './validationAgent';
+
+// Resolution Agent
+export {
+  runResolutionAgent,
+  type ResolutionResult,
+} from './resolutionAgent';
+
