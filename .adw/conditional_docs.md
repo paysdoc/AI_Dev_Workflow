@@ -76,6 +76,12 @@
     - When working with GitLab integration or CodeHost providers
     - When adding or modifying provider implementations in `adws/providers/`
 
+- app_docs/feature-1773386463517-mvb88d-bdd-scenario-config.md
+  - Conditions:
+    - When working with `.adw/scenarios.md` or BDD scenario configuration
+    - When implementing scenario-driven test phases
+    - When working with `@adw-{issueNumber}` or `@crucial` tagging conventions
+
 - app_docs/feature-implement-scenario-p-hpq6cn-scenario-planner-agent.md
   - Conditions:
     - When working with BDD scenario generation or the scenario agent

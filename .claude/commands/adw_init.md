@@ -83,6 +83,25 @@ Example: if $1=31 and $2=init-adw-env-4qugib, the filename is `issue-31-adw-init
      - `## Proof Attachment` — How proof gets attached to the PR via review JSON fields (`reviewSummary`, `screenshots`, `reviewIssues`)
      - `## What NOT to Do` — Actions to avoid based on the project type (e.g., CLI projects should not take browser screenshots; UI projects should not skip visual verification)
 
-7. **Report**
-   - List all files created (`commands.md`, `project.md`, `conditional_docs.md`, `providers.md`, `review_proof.md`)
+7. **Create `.adw/scenarios.md`**
+   - Detect the E2E test tool from the `## Run E2E Tests` value determined in step 2
+   - If **Playwright** detected (`bunx playwright test`, `npx playwright test`, etc.):
+     - `## Scenario Directory` → `tests/e2e/` (or the detected test directory)
+     - `## Run Scenarios by Tag` → `bunx playwright test --grep "@{tag}"`
+     - `## Run Crucial Scenarios` → `bunx playwright test --grep "@crucial"`
+   - If **Cypress** detected (`npx cypress run`, `cypress run`, etc.):
+     - `## Scenario Directory` → `cypress/e2e/`
+     - `## Run Scenarios by Tag` → `npx cypress run --spec "**/*{tag}*"`
+     - `## Run Crucial Scenarios` → `npx cypress run --tag "@crucial"`
+   - If **Cucumber** detected (`cucumber-js`, `@cucumber/cucumber`, etc.):
+     - `## Scenario Directory` → `features/`
+     - `## Run Scenarios by Tag` → `cucumber-js --tags "@{tag}"`
+     - `## Run Crucial Scenarios` → `cucumber-js --tags "@crucial"`
+   - If E2E is `N/A`, absent, or tool is unrecognized — default to Cucumber/Gherkin:
+     - `## Scenario Directory` → `features/`
+     - `## Run Scenarios by Tag` → `cucumber-js --tags "@{tag}"`
+     - `## Run Crucial Scenarios` → `cucumber-js --tags "@crucial"`
+
+8. **Report**
+   - List all files created (`commands.md`, `project.md`, `conditional_docs.md`, `providers.md`, `review_proof.md`, `scenarios.md`)
    - Summarize the detected project type and key configuration choices

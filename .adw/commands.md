@@ -35,3 +35,9 @@ bun add <package>
 
 ## Script Execution
 bunx tsx <script name>
+
+## Run Scenarios by Tag
+cucumber-js --tags "@{tag}"
+
+## Run Crucial Scenarios
+cucumber-js --tags "@crucial"
