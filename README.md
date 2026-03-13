@@ -58,6 +58,8 @@ See [adws/README.md](adws/README.md) for full usage documentation.
 
 ## Testing
 
+ADW's own unit tests have been removed in favour of BDD scenarios. The test commands below remain available for target repos that opt in to unit tests via `.adw/project.md`.
+
 ```bash
 bun run test          # Run tests once
 bun run test:watch    # Run tests in watch mode
@@ -108,9 +110,7 @@ bun run test:watch    # Run tests in watch mode
 │       └── constants.ts
 └── settings.json
 adws/                   # ADW workflow system
-├── __tests__/          # Tests for root-level orchestrator files
 ├── agents/             # Claude Code agent runners
-│   ├── __tests__/      # Agent unit tests
 │   ├── agentProcessHandler.ts  # Process spawning handler
 │   ├── buildAgent.ts
 │   ├── claudeAgent.ts
@@ -127,7 +127,6 @@ adws/                   # ADW workflow system
 │   ├── testDiscovery.ts  # E2E test discovery
 │   └── testRetry.ts
 ├── core/               # Configuration and utilities
-│   ├── __tests__/      # Core unit tests
 │   ├── agentState.ts
 │   ├── config.ts
 │   ├── constants.ts    # Orchestrator ID constants
@@ -150,7 +149,6 @@ adws/                   # ADW workflow system
 │   ├── utils.ts
 │   └── workflowMapping.ts  # Issue type → orchestrator mapping
 ├── github/             # GitHub API and git operations
-│   ├── __tests__/      # GitHub unit tests
 │   ├── gitBranchOperations.ts  # Branch management
 │   ├── gitCommitOperations.ts  # Commit/push operations
 │   ├── gitOperations.ts  # Re-export barrel
@@ -170,7 +168,6 @@ adws/                   # ADW workflow system
 │   ├── worktreeOperations.ts
 │   └── worktreeQuery.ts  # Worktree query utilities
 ├── phases/             # Workflow phase implementations
-│   ├── __tests__/      # Phase unit tests
 │   ├── buildPhase.ts
 │   ├── documentPhase.ts
 │   ├── index.ts
@@ -184,7 +181,6 @@ adws/                   # ADW workflow system
 │   ├── workflowLifecycle.ts  # Re-export barrel
 │   └── worktreeSetup.ts  # Gitignore and worktree setup helpers
 ├── types/              # Type definitions
-│   ├── __tests__/      # Type unit tests
 │   ├── agentTypes.ts
 │   ├── costTypes.ts
 │   ├── dataTypes.ts
@@ -192,11 +188,9 @@ adws/                   # ADW workflow system
 │   ├── issueTypes.ts
 │   └── workflowTypes.ts
 ├── providers/          # Provider interfaces and types
-│   ├── __tests__/      # Provider unit tests
 │   ├── index.ts
 │   └── types.ts
 ├── triggers/           # Automation triggers
-│   ├── __tests__/      # Trigger unit tests
 │   ├── concurrencyGuard.ts
 │   ├── issueDependencies.ts
 │   ├── issueEligibility.ts
