@@ -11,7 +11,7 @@ AI Dev Workflow (ADW) is a TypeScript/Bun automation system that integrates GitH
 - `adws/agents/**` - Claude Code CLI agent runners (plan, build, test, review, etc.).
 - `adws/phases/**` - Workflow phase implementations.
 - `adws/github/**` - GitHub API, issue/PR operations, workflow comments.
-- `adws/vcs/**` - VCS-agnostic git and worktree operations.
+- `adws/vcs/**` - VCS-agnostic git and worktree operations (branch, commit, worktree management).
 - `adws/providers/**` - Pluggable IssueTracker and CodeHost backends.
 - `adws/triggers/**` - Cron and webhook automation triggers.
 - `adws/types/**` - Shared TypeScript types.
@@ -22,7 +22,7 @@ AI Dev Workflow (ADW) is a TypeScript/Bun automation system that integrates GitH
 This is a TypeScript/Bun automation project. The `adws/` directory contains standalone TypeScript orchestrator scripts that run with `bunx tsx`. There is no web UI — ADW is a pure CLI automation system.
 
 ## Library Install Command
-bun install
+bun add <package>
 
 ## Script Execution
 bunx tsx <script_name>

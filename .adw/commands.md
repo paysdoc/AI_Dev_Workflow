@@ -22,16 +22,16 @@ bun run test
 bun run build
 
 ## Start Dev Server
-bun run dev
+N/A
 
 ## Prepare App
-bun install && bunx next dev --port {PORT}
+bun install
 
 ## Run E2E Tests
-bunx playwright test
+N/A
 
 ## Library Install Command
-bun install
+bun add <package>
 
 ## Script Execution
 bunx tsx <script name>
