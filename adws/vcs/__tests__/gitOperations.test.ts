@@ -15,6 +15,7 @@ import {
   checkoutDefaultBranch,
   deleteLocalBranch,
   deleteRemoteBranch,
+  fetchAndResetToRemote,
 } from '../branchOperations';
 
 describe('getDefaultBranch', () => {
@@ -143,6 +144,69 @@ describe('checkoutDefaultBranch', () => {
     });
 
     expect(() => checkoutDefaultBranch()).toThrow('Failed to get default branch');
+  });
+});
+
+describe('fetchAndResetToRemote', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('fetches and resets to remote default branch', () => {
+    vi.mocked(execSync).mockReturnValue('');
+
+    fetchAndResetToRemote('main', '/mock/worktree');
+
+    expect(execSync).toHaveBeenCalledTimes(2);
+    expect(execSync).toHaveBeenNthCalledWith(
+      1,
+      'git fetch origin "main"',
+      { stdio: 'pipe', cwd: '/mock/worktree' }
+    );
+    expect(execSync).toHaveBeenNthCalledWith(
+      2,
+      'git reset --hard "origin/main"',
+      { stdio: 'pipe', cwd: '/mock/worktree' }
+    );
+  });
+
+  it('works with non-main default branch', () => {
+    vi.mocked(execSync).mockReturnValue('');
+
+    fetchAndResetToRemote('develop', '/mock/worktree');
+
+    expect(execSync).toHaveBeenNthCalledWith(
+      1,
+      'git fetch origin "develop"',
+      { stdio: 'pipe', cwd: '/mock/worktree' }
+    );
+    expect(execSync).toHaveBeenNthCalledWith(
+      2,
+      'git reset --hard "origin/develop"',
+      { stdio: 'pipe', cwd: '/mock/worktree' }
+    );
+  });
+
+  it('throws on fetch failure', () => {
+    vi.mocked(execSync).mockImplementationOnce(() => {
+      throw new Error('fatal: unable to connect to remote');
+    });
+
+    expect(() => fetchAndResetToRemote('main', '/mock/worktree')).toThrow(
+      'Failed to fetch origin/main'
+    );
+  });
+
+  it('throws on reset failure', () => {
+    vi.mocked(execSync)
+      .mockReturnValueOnce('') // fetch succeeds
+      .mockImplementationOnce(() => {
+        throw new Error('fatal: Cannot do a hard reset in the middle of a merge');
+      });
+
+    expect(() => fetchAndResetToRemote('main', '/mock/worktree')).toThrow(
+      'Failed to reset to origin/main'
+    );
   });
 });
 
@@ -296,3 +360,65 @@ describe('deleteRemoteBranch', () => {
   });
 });
 
+describe('fetchAndResetToRemote', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('fetches and resets to remote default branch', () => {
+    vi.mocked(execSync).mockReturnValue('');
+
+    fetchAndResetToRemote('main', '/mock/worktree');
+
+    expect(execSync).toHaveBeenCalledTimes(2);
+    expect(execSync).toHaveBeenNthCalledWith(
+      1,
+      'git fetch origin "main"',
+      { stdio: 'pipe', cwd: '/mock/worktree' }
+    );
+    expect(execSync).toHaveBeenNthCalledWith(
+      2,
+      'git reset --hard "origin/main"',
+      { stdio: 'pipe', cwd: '/mock/worktree' }
+    );
+  });
+
+  it('works with non-main default branch', () => {
+    vi.mocked(execSync).mockReturnValue('');
+
+    fetchAndResetToRemote('develop', '/mock/worktree');
+
+    expect(execSync).toHaveBeenNthCalledWith(
+      1,
+      'git fetch origin "develop"',
+      { stdio: 'pipe', cwd: '/mock/worktree' }
+    );
+    expect(execSync).toHaveBeenNthCalledWith(
+      2,
+      'git reset --hard "origin/develop"',
+      { stdio: 'pipe', cwd: '/mock/worktree' }
+    );
+  });
+
+  it('throws on fetch failure', () => {
+    vi.mocked(execSync).mockImplementationOnce(() => {
+      throw new Error('fatal: unable to connect to remote');
+    });
+
+    expect(() => fetchAndResetToRemote('main', '/mock/worktree')).toThrow(
+      'Failed to fetch origin/main'
+    );
+  });
+
+  it('throws on reset failure', () => {
+    vi.mocked(execSync)
+      .mockReturnValueOnce('') // fetch succeeds
+      .mockImplementationOnce(() => {
+        throw new Error('fatal: Cannot do a hard reset in the middle of a merge');
+      });
+
+    expect(() => fetchAndResetToRemote('main', '/mock/worktree')).toThrow(
+      'Failed to reset to origin/main'
+    );
+  });
+});

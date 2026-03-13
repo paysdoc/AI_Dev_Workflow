@@ -44,7 +44,7 @@ vi.mock('../github', () => ({
   createPullRequest: vi.fn(),
   detectRecoveryState: vi.fn(),
   getDefaultBranch: vi.fn().mockReturnValue('main'),
-  checkoutDefaultBranch: vi.fn(),
+  fetchAndResetToRemote: vi.fn(),
   ensureWorktree: vi.fn(),
   getWorktreeForBranch: vi.fn(),
   mergeLatestFromDefaultBranch: vi.fn(),

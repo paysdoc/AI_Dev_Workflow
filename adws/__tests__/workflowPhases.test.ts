@@ -113,13 +113,19 @@ vi.mock('../github', () => ({
 
 vi.mock('../vcs', () => ({
   pushBranch: vi.fn(),
-  checkoutDefaultBranch: vi.fn().mockReturnValue('main'),
+  fetchAndResetToRemote: vi.fn(),
   ensureWorktree: vi.fn().mockReturnValue('/mock/worktree'),
   getWorktreeForBranch: vi.fn().mockReturnValue(null),
   mergeLatestFromDefaultBranch: vi.fn(),
   copyEnvToWorktree: vi.fn(),
   findWorktreeForIssue: vi.fn().mockReturnValue(null),
   inferIssueTypeFromBranch: vi.fn().mockReturnValue('/feature'),
+}));
+
+vi.mock('../phases/worktreeSetup', () => ({
+  copyClaudeCommandsToWorktree: vi.fn(),
+  ensureGitignoreEntry: vi.fn(),
+  ensureGitignoreEntries: vi.fn(),
 }));
 
 vi.mock('../vcs/branchOperations', () => ({
@@ -198,7 +204,7 @@ import {
 } from '../github';
 import {
   pushBranch,
-  checkoutDefaultBranch,
+  fetchAndResetToRemote,
   ensureWorktree,
   getWorktreeForBranch,
   mergeLatestFromDefaultBranch,
@@ -206,6 +212,7 @@ import {
   findWorktreeForIssue,
   inferIssueTypeFromBranch,
 } from '../vcs';
+import { copyClaudeCommandsToWorktree } from '../phases/worktreeSetup';
 import { runPlanAgent, planFileExists, readPlanFile, runBuildAgent, runPrReviewPlanAgent, runPrReviewBuildAgent, runGenerateBranchNameAgent, runCommitAgent, runUnitTestsWithRetry, runE2ETestsWithRetry, runReviewWithRetry, runPullRequestAgent } from '../agents';
 import { classifyGitHubIssue } from '../core/issueClassifier';
 
@@ -274,13 +281,14 @@ describe('initializeWorkflow', () => {
     vi.clearAllMocks();
   });
 
-  it('uses branch name agent, checkoutDefaultBranch, and ensureWorktree with baseBranch when no cwd provided', async () => {
+  it('creates worktree, copies commands, and syncs to remote when no cwd provided', async () => {
     vi.mocked(getWorktreeForBranch).mockReturnValue(null);
     const config = await initializeWorkflow(1, 'test-id', OrchestratorId.Plan);
 
     expect(runGenerateBranchNameAgent).toHaveBeenCalled();
-    expect(checkoutDefaultBranch).toHaveBeenCalled();
     expect(ensureWorktree).toHaveBeenCalledWith('feature/issue-1-test', 'main');
+    expect(copyClaudeCommandsToWorktree).toHaveBeenCalledWith('/mock/worktree');
+    expect(fetchAndResetToRemote).toHaveBeenCalledWith('main', '/mock/worktree');
     expect(config.worktreePath).toBe('/mock/worktree');
     expect(config.branchName).toBe('feature/issue-1-test');
   });
@@ -293,7 +301,7 @@ describe('initializeWorkflow', () => {
     expect(getWorktreeForBranch).toHaveBeenCalledWith('feature/issue-1-test');
     expect(mergeLatestFromDefaultBranch).toHaveBeenCalledWith('main', '/existing/worktree');
     expect(copyEnvToWorktree).toHaveBeenCalledWith('/existing/worktree');
-    expect(checkoutDefaultBranch).not.toHaveBeenCalled();
+    expect(fetchAndResetToRemote).not.toHaveBeenCalled();
     expect(ensureWorktree).not.toHaveBeenCalled();
     expect(config.worktreePath).toBe('/existing/worktree');
   });
@@ -420,7 +428,7 @@ describe('initializeWorkflow', () => {
     expect(runGenerateBranchNameAgent).not.toHaveBeenCalled();
     expect(getWorktreeForBranch).not.toHaveBeenCalled();
     expect(ensureWorktree).not.toHaveBeenCalled();
-    expect(checkoutDefaultBranch).not.toHaveBeenCalled();
+    expect(fetchAndResetToRemote).not.toHaveBeenCalled();
     expect(mergeLatestFromDefaultBranch).toHaveBeenCalledWith('main', '/existing/issue-worktree');
     expect(copyEnvToWorktree).toHaveBeenCalledWith('/existing/issue-worktree');
     expect(config.worktreePath).toBe('/existing/issue-worktree');
