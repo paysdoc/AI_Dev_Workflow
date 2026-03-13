@@ -89,3 +89,11 @@ This prompt helps you determine what documentation you should read based on the 
     - When implementing or modifying cron process lifecycle management in ADW
     - When the webhook server restarts and cron processes behave unexpectedly
     - When adding PID-file-based process deduplication to new trigger types
+
+- app_docs/feature-hpq6cn-implement-scenario-p-scenario-planner-agent.md
+  - Conditions:
+    - When working with BDD scenario generation or the scenario agent
+    - When modifying `adws/agents/scenarioAgent.ts` or `adws/phases/scenarioPhase.ts`
+    - When working with `.adw/scenarios.md` configuration or scenario directory setup
+    - When adding or modifying `@crucial` tag maintenance logic
+    - When implementing a new non-fatal workflow phase following the scenario or KPI phase pattern

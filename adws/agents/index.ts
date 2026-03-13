@@ -104,3 +104,9 @@ export {
   formatKpiArgs,
 } from './kpiAgent';
 
+// Scenario Agent
+export {
+  runScenarioAgent,
+  formatScenarioArgs,
+} from './scenarioAgent';
+

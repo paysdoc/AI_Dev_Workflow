@@ -27,3 +27,5 @@ healthcheck.json*
 # cursor hooks logs
 .cursor/logs/
 .cursor/mcp.json
+# ADW: copied slash commands (do not commit)
+.claude/commands/conflict_resolve.md

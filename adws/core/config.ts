@@ -196,6 +196,8 @@ export const SLASH_COMMAND_MODEL_MAP: Record<SlashCommand, ModelTier> = {
   '/find_issue_dependencies': 'sonnet',
   // ADW initialization
   '/adw_init': 'sonnet',
+  // Scenario writing
+  '/scenario_writer': 'sonnet',
 };
 
 /** Cost-optimized model map used when the issue body contains `/fast` or `/cheap`. */
@@ -220,6 +222,8 @@ export const SLASH_COMMAND_MODEL_MAP_FAST: Record<SlashCommand, ModelTier> = {
   '/find_plan_file': 'haiku',
   '/find_issue_dependencies': 'haiku',
   '/adw_init': 'haiku',
+  // Scenario writing
+  '/scenario_writer': 'haiku',
 };
 
 /**
@@ -270,6 +274,8 @@ export const SLASH_COMMAND_EFFORT_MAP: Record<SlashCommand, ReasoningEffort | un
   '/find_plan_file': 'low',
   '/find_issue_dependencies': 'low',
   '/adw_init': 'medium',
+  // Scenario writing
+  '/scenario_writer': 'high',
 };
 
 /** Cost-optimized reasoning effort map used when the issue body contains `/fast` or `/cheap`. */
@@ -294,6 +300,8 @@ export const SLASH_COMMAND_EFFORT_MAP_FAST: Record<SlashCommand, ReasoningEffort
   '/find_plan_file': 'low',
   '/find_issue_dependencies': 'low',
   '/adw_init': 'medium',
+  // Scenario writing
+  '/scenario_writer': 'medium',
 };
 
 /**
