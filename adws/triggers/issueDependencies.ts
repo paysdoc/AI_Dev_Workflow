@@ -16,8 +16,8 @@ import type { RepoInfo } from '../github/githubApi';
 export function parseDependencies(issueBody: string): number[] {
   if (!issueBody) return [];
 
-  // Find the ## Dependencies heading (case-insensitive)
-  const headingPattern = /^## dependencies\b/im;
+  // Find the ## Dependencies or ## Depends on heading (case-insensitive)
+  const headingPattern = /^## (?:dependencies|depends on)\b/im;
   const headingMatch = issueBody.match(headingPattern);
   if (!headingMatch || headingMatch.index === undefined) return [];
 

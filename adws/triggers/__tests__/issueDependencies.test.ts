@@ -46,6 +46,27 @@ describe('parseDependencies', () => {
     expect(parseDependencies('## Dependencies\n- #5\n')).toEqual([5]);
   });
 
+  it('extracts hash references from "Depends on" section', () => {
+    const body = '## Depends on\n- #42\n- #10\n';
+    expect(parseDependencies(body)).toEqual([42, 10]);
+  });
+
+  it('handles case-insensitive "Depends on" heading', () => {
+    expect(parseDependencies('## depends on\n- #5\n')).toEqual([5]);
+    expect(parseDependencies('## DEPENDS ON\n- #5\n')).toEqual([5]);
+    expect(parseDependencies('## Depends On\n- #5\n')).toEqual([5]);
+  });
+
+  it('extracts full GitHub URLs from "Depends on" section', () => {
+    const body = '## Depends on\n- https://github.com/owner/repo/issues/42\n';
+    expect(parseDependencies(body)).toEqual([42]);
+  });
+
+  it('stops extracting at next ## heading after "Depends on"', () => {
+    const body = '## Depends on\n- #42\n## Other\n- #99\n';
+    expect(parseDependencies(body)).toEqual([42]);
+  });
+
   it('stops extracting at next ## heading', () => {
     const body = '## Dependencies\n- #42\n## Other\n- #99\n';
     expect(parseDependencies(body)).toEqual([42]);
