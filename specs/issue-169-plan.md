@@ -1,7 +1,7 @@
-# PR-Review: Unit test directories still present
+# PR-Review: Unit test directories still present (round 2)
 
 ## PR-Review Description
-The reviewer (paysdoc) flagged that the `__tests__/` directories under `adws/` were never actually deleted. The PR description and checklist claim "All `adws/*/__tests__/` directories and files removed," but all 90+ test files across 12 `__tests__/` directories remain on disk. The build agent updated `.adw/project.md`, `guidelines/coding_guidelines.md`, and `README.md` correctly but failed to execute the `rm -rf` deletions from the original plan.
+The reviewer (paysdoc) flagged that the `__tests__/` directories under `adws/` were never actually deleted. The PR description and checklist claim "All `adws/*/__tests__/` directories and files removed," but all 88+ test files across 12 `__tests__/` directories remain on disk. The build agent updated `.adw/project.md`, `guidelines/coding_guidelines.md`, and `README.md` correctly but failed to execute the `rm -rf` deletions. A prior review plan was created but implementation was not carried out — this is the second review round for the same issue.
 
 ## Summary of Original Implementation Plan
 The original plan at `specs/issue-169-adw-1773386141689-alfbmn-sdlc_planner-remove-adw-unit-tests.md` specified:
@@ -11,7 +11,7 @@ The original plan at `specs/issue-169-adw-1773386141689-alfbmn-sdlc_planner-remo
 4. Update the `README.md` project structure tree to remove `__tests__/` references
 5. Run validation commands to confirm no `__tests__/` directories remain
 
-The original plan listed 9 directories but missed 3 nested provider directories: `adws/providers/github/__tests__/`, `adws/providers/gitlab/__tests__/`, and `adws/providers/jira/__tests__/`.
+The original plan listed 9 directories but missed 3 nested provider directories: `adws/providers/github/__tests__/`, `adws/providers/gitlab/__tests__/`, and `adws/providers/jira/__tests__/`. Steps 2–4 were completed; step 1 (the actual deletions) was not.
 
 ## Relevant Files
 Use these files to resolve the review:
@@ -36,20 +36,22 @@ IMPORTANT: Execute every step in order, top to bottom.
 
 ### Step 1: Delete all ADW unit test directories
 
-Delete all 12 `__tests__/` directories under `adws/` (including the 3 nested provider directories missed by the original plan):
+Use `find adws -type d -name __tests__` to discover all `__tests__/` directories dynamically, then delete each one. This catches any directories missed by manual enumeration. The known 12 directories are:
 
-- `rm -rf adws/__tests__/`
-- `rm -rf adws/agents/__tests__/`
-- `rm -rf adws/core/__tests__/`
-- `rm -rf adws/github/__tests__/`
-- `rm -rf adws/phases/__tests__/`
-- `rm -rf adws/providers/__tests__/`
-- `rm -rf adws/providers/github/__tests__/`
-- `rm -rf adws/providers/gitlab/__tests__/`
-- `rm -rf adws/providers/jira/__tests__/`
-- `rm -rf adws/triggers/__tests__/`
-- `rm -rf adws/types/__tests__/`
-- `rm -rf adws/vcs/__tests__/`
+- `adws/__tests__/`
+- `adws/agents/__tests__/`
+- `adws/core/__tests__/`
+- `adws/github/__tests__/`
+- `adws/phases/__tests__/`
+- `adws/providers/__tests__/`
+- `adws/providers/github/__tests__/`
+- `adws/providers/gitlab/__tests__/`
+- `adws/providers/jira/__tests__/`
+- `adws/triggers/__tests__/`
+- `adws/types/__tests__/`
+- `adws/vcs/__tests__/`
+
+Command: `find adws -type d -name __tests__ -exec rm -rf {} +`
 
 ### Step 2: Verify no `__tests__/` directories remain
 
