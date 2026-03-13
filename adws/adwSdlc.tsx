@@ -115,7 +115,7 @@ async function main(): Promise<void> {
     totalCostUsd += kpiResult.costUsd;
     totalModelUsage = mergeModelUsageMaps(totalModelUsage, kpiResult.modelUsage);
     persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
-    if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeTotalTokens(totalModelUsage);
+    if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeDisplayTokens(totalModelUsage);
 
     await completeWorkflow(config, totalCostUsd, {
       unitTestsPassed: testResult.unitTestsPassed,
