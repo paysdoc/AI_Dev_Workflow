@@ -148,7 +148,12 @@ export type SlashCommand =
   // Dependency checking
   | '/find_issue_dependencies'
   // ADW initialization
-  | '/adw_init';
+  | '/adw_init'
+  // Scenario writing
+  | '/scenario_writer'
+  // Plan validation commands
+  | '/validate_plan_scenarios'
+  | '/resolve_plan_scenarios';
 
 /**
  * GitHub user model.

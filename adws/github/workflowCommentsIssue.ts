@@ -178,6 +178,26 @@ function formatReviewPatchingComment(ctx: WorkflowContext): string {
   return `## :wrench: Patching Review Issue\n\nPatching blocker **#${issue.reviewIssueNumber}**: ${truncateText(issue.issueDescription, 500)}${resolution}\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
 }
 
+function formatPlanValidatingComment(ctx: WorkflowContext): string {
+  return `## :mag: Validating Plan-Scenario Alignment\n\nComparing implementation plan against BDD scenarios...\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+}
+
+function formatPlanValidatedComment(ctx: WorkflowContext): string {
+  return `## :white_check_mark: Plan and Scenarios Aligned\n\nImplementation plan and BDD scenarios are aligned.\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+}
+
+function formatPlanResolvingComment(ctx: WorkflowContext): string {
+  return `## :wrench: Resolving Plan-Scenario Mismatches\n\nReconciling mismatches using the GitHub issue as the sole arbiter of truth...\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+}
+
+function formatPlanResolvedComment(ctx: WorkflowContext): string {
+  return `## :white_check_mark: Plan-Scenario Mismatches Resolved\n\nMismatches between the plan and scenarios have been resolved.\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+}
+
+function formatPlanValidationFailedComment(ctx: WorkflowContext): string {
+  return `## :x: Plan-Scenario Validation Failed\n\nPlan and scenarios could not be aligned after maximum resolution attempts.\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+}
+
 /** Formats the resuming workflow comment. */
 export function formatResumingComment(ctx: WorkflowContext, resumeFrom: WorkflowStage): string {
   return `## :arrows_counterclockwise: ADW Workflow Resuming\n\nResuming automated development workflow from previous run.\n\n**Resuming from:** ${resumeFrom}\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
@@ -207,6 +227,11 @@ export function formatWorkflowComment(stage: WorkflowStage, ctx: WorkflowContext
     case 'review_passed': return formatReviewPassedComment(ctx);
     case 'review_failed': return formatReviewFailedComment(ctx);
     case 'review_patching': return formatReviewPatchingComment(ctx);
+    case 'plan_validating': return formatPlanValidatingComment(ctx);
+    case 'plan_validated': return formatPlanValidatedComment(ctx);
+    case 'plan_resolving': return formatPlanResolvingComment(ctx);
+    case 'plan_resolved': return formatPlanResolvedComment(ctx);
+    case 'plan_validation_failed': return formatPlanValidationFailedComment(ctx);
     default: return `## ADW Workflow Update\n\n**Stage:** ${stage}\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
   }
 }

@@ -23,6 +23,8 @@ import { mergeModelUsageMaps, persistTokenCounts, parseTargetRepoArgs, parseOrch
 import {
   initializeWorkflow,
   executePlanPhase,
+  executeScenarioPhase,
+  executePlanValidationPhase,
   executeBuildPhase,
   executeTestPhase,
   executePRPhase,
@@ -55,9 +57,22 @@ async function main(): Promise<void> {
   let totalModelUsage = {};
 
   try {
-    const planResult = await executePlanPhase(config);
-    totalCostUsd += planResult.costUsd;
-    totalModelUsage = mergeModelUsageMaps(totalModelUsage, planResult.modelUsage);
+    const [planResult, scenarioResult] = await Promise.all([
+      executePlanPhase(config),
+      executeScenarioPhase(config),
+    ]);
+    totalCostUsd += planResult.costUsd + scenarioResult.costUsd;
+    totalModelUsage = mergeModelUsageMaps(
+      mergeModelUsageMaps(totalModelUsage, planResult.modelUsage),
+      scenarioResult.modelUsage,
+    );
+    persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
+    if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeDisplayTokens(totalModelUsage);
+
+    config.totalModelUsage = totalModelUsage;
+    const planValidationResult = await executePlanValidationPhase(config);
+    totalCostUsd += planValidationResult.costUsd;
+    totalModelUsage = mergeModelUsageMaps(totalModelUsage, planValidationResult.modelUsage);
     persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
     if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeDisplayTokens(totalModelUsage);
 

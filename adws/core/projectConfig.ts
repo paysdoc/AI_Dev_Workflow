@@ -2,9 +2,10 @@
  * Project configuration loader for target repositories.
  *
  * Reads `.adw/commands.md`, `.adw/project.md`, `.adw/conditional_docs.md`,
- * and `.adw/review_proof.md` from a target repository to determine
+ * `.adw/review_proof.md`, and `.adw/scenarios.md` from a target repository to determine
  * project-specific commands, file structure, conditional documentation,
- * and review proof requirements. Falls back to sensible defaults when files are absent.
+ * review proof requirements, and BDD scenario configuration. Falls back to sensible
+ * defaults when files are absent.
  */
 
 import * as fs from 'fs';
@@ -28,6 +29,14 @@ export interface CommandsConfig {
   libraryInstall: string;
   scriptExecution: string;
   runBddScenarios: string;
+  runScenariosByTag: string;
+  runCrucialScenarios: string;
+}
+
+export interface ScenariosConfig {
+  scenarioDirectory: string;
+  runByTag: string;
+  runCrucial: string;
 }
 
 export interface ProvidersConfig {
@@ -50,11 +59,21 @@ export interface ProjectConfig {
   hasAdwDir: boolean;
   /** Provider configuration from `.adw/providers.md`. */
   providers: ProvidersConfig;
+  /** BDD scenario configuration from `.adw/scenarios.md`. */
+  scenarios: ScenariosConfig;
+  /** Raw content of `.adw/scenarios.md` (empty string when absent). */
+  scenariosMd: string;
 }
 
 // ---------------------------------------------------------------------------
 // Section heading → CommandsConfig key mapping
 // ---------------------------------------------------------------------------
+
+const SCENARIOS_HEADING_TO_KEY: Record<string, keyof ScenariosConfig> = {
+  'scenario directory': 'scenarioDirectory',
+  'run scenarios by tag': 'runByTag',
+  'run crucial scenarios': 'runCrucial',
+};
 
 const PROVIDERS_HEADING_TO_KEY: Record<string, keyof ProvidersConfig> = {
   'code host': 'codeHost',
@@ -79,6 +98,8 @@ const HEADING_TO_KEY: Record<string, keyof CommandsConfig> = {
   'library install': 'libraryInstall',
   'script execution': 'scriptExecution',
   'run bdd scenarios': 'runBddScenarios',
+  'run scenarios by tag': 'runScenariosByTag',
+  'run crucial scenarios': 'runCrucialScenarios',
 };
 
 // ---------------------------------------------------------------------------
@@ -100,6 +121,16 @@ export function getDefaultCommandsConfig(): CommandsConfig {
     libraryInstall: 'bun install',
     scriptExecution: 'bunx tsx <script name>',
     runBddScenarios: 'N/A',
+    runScenariosByTag: 'cucumber-js --tags "@{tag}"',
+    runCrucialScenarios: 'cucumber-js --tags "@crucial"',
+  };
+}
+
+export function getDefaultScenariosConfig(): ScenariosConfig {
+  return {
+    scenarioDirectory: 'features/',
+    runByTag: 'cucumber-js --tags "@{tag}"',
+    runCrucial: 'cucumber-js --tags "@crucial"',
   };
 }
 
@@ -118,6 +149,8 @@ export function getDefaultProjectConfig(): ProjectConfig {
     reviewProofMd: '',
     hasAdwDir: false,
     providers: getDefaultProvidersConfig(),
+    scenarios: getDefaultScenariosConfig(),
+    scenariosMd: '',
   };
 }
 
@@ -228,6 +261,26 @@ export function parseProvidersMd(content: string): ProvidersConfig {
   return result;
 }
 
+/**
+ * Parses `.adw/scenarios.md` into a `ScenariosConfig` object.
+ * Missing sections fall back to defaults.
+ */
+export function parseScenariosMd(content: string): ScenariosConfig {
+  const defaults = getDefaultScenariosConfig();
+  if (!content.trim()) return defaults;
+
+  const sections = parseMarkdownSections(content);
+  const result = { ...defaults };
+
+  for (const [heading, key] of Object.entries(SCENARIOS_HEADING_TO_KEY)) {
+    if (heading in sections && sections[heading]) {
+      result[key] = sections[heading];
+    }
+  }
+
+  return result;
+}
+
 // ---------------------------------------------------------------------------
 // Main loader
 // ---------------------------------------------------------------------------
@@ -290,6 +343,17 @@ export function loadProjectConfig(targetRepoPath: string): ProjectConfig {
     providers = getDefaultProvidersConfig();
   }
 
+  // scenarios.md
+  const scenariosPath = path.join(adwDir, 'scenarios.md');
+  let scenarios: ScenariosConfig;
+  let scenariosMd = '';
+  try {
+    scenariosMd = fs.readFileSync(scenariosPath, 'utf-8');
+    scenarios = parseScenariosMd(scenariosMd);
+  } catch {
+    scenarios = getDefaultScenariosConfig();
+  }
+
   return {
     commands,
     projectMd,
@@ -297,5 +361,7 @@ export function loadProjectConfig(targetRepoPath: string): ProjectConfig {
     reviewProofMd,
     hasAdwDir: true,
     providers,
+    scenarios,
+    scenariosMd,
   };
 }

@@ -38,3 +38,9 @@ bunx tsx <script name>
 
 ## Run BDD Scenarios
 N/A
+
+## Run Scenarios by Tag
+cucumber-js --tags "@{tag}"
+
+## Run Crucial Scenarios
+cucumber-js --tags "@crucial"
