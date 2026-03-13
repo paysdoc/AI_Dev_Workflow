@@ -57,6 +57,10 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 148,user story integrate agentic kpi tracking into adw,2.1788,0.2179
 150,race condition for starting workflow,1.8708,0.1871
 152,token counts do not make sense,6.1993,0.6199
+158,extend fast mode to downgrade planning model and e,0.7593,0.0759
+163,refactor initialize worktree from current root sta,1.2637,0.1264
+164,define bdd scenario configuration in adw and estab,0.5979,0.0598
+169,remove adw unit test files disable unit tests in a,0.7004,0.0700
 
-Total Cost (USD):,232.8065
-Total Cost (EUR):,201.2813
+Total Cost (USD):,236.4600
+Total Cost (EUR):,205.0616
