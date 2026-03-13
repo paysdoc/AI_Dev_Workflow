@@ -40,10 +40,10 @@ describe('SLASH_COMMAND_MODEL_MAP', () => {
 describe('SLASH_COMMAND_MODEL_MAP_FAST', () => {
   it('has correct fast/cheap values for all 18 commands', () => {
     expect(SLASH_COMMAND_MODEL_MAP_FAST['/classify_issue']).toBe('haiku');
-    expect(SLASH_COMMAND_MODEL_MAP_FAST['/feature']).toBe('opus');
-    expect(SLASH_COMMAND_MODEL_MAP_FAST['/bug']).toBe('opus');
-    expect(SLASH_COMMAND_MODEL_MAP_FAST['/chore']).toBe('opus');
-    expect(SLASH_COMMAND_MODEL_MAP_FAST['/pr_review']).toBe('opus');
+    expect(SLASH_COMMAND_MODEL_MAP_FAST['/feature']).toBe('sonnet');
+    expect(SLASH_COMMAND_MODEL_MAP_FAST['/bug']).toBe('sonnet');
+    expect(SLASH_COMMAND_MODEL_MAP_FAST['/chore']).toBe('sonnet');
+    expect(SLASH_COMMAND_MODEL_MAP_FAST['/pr_review']).toBe('sonnet');
     expect(SLASH_COMMAND_MODEL_MAP_FAST['/implement']).toBe('sonnet');
     expect(SLASH_COMMAND_MODEL_MAP_FAST['/patch']).toBe('opus');
     expect(SLASH_COMMAND_MODEL_MAP_FAST['/review']).toBe('sonnet');
@@ -172,15 +172,30 @@ describe('getModelForCommand', () => {
       expect(getModelForCommand('/adw_init')).toBe('sonnet');
       expect(getModelForCommand('/adw_init', fastBody)).toBe('haiku');
     });
+
+    it('/feature: opus -> sonnet', () => {
+      expect(getModelForCommand('/feature')).toBe('opus');
+      expect(getModelForCommand('/feature', fastBody)).toBe('sonnet');
+    });
+
+    it('/bug: opus -> sonnet', () => {
+      expect(getModelForCommand('/bug')).toBe('opus');
+      expect(getModelForCommand('/bug', fastBody)).toBe('sonnet');
+    });
+
+    it('/chore: opus -> sonnet', () => {
+      expect(getModelForCommand('/chore')).toBe('opus');
+      expect(getModelForCommand('/chore', fastBody)).toBe('sonnet');
+    });
+
+    it('/pr_review: opus -> sonnet', () => {
+      expect(getModelForCommand('/pr_review')).toBe('opus');
+      expect(getModelForCommand('/pr_review', fastBody)).toBe('sonnet');
+    });
   });
 
   describe('commands that stay the same in both maps', () => {
     const fastBody = '/fast';
-
-    it('/feature stays opus', () => {
-      expect(getModelForCommand('/feature')).toBe('opus');
-      expect(getModelForCommand('/feature', fastBody)).toBe('opus');
-    });
 
     it('/patch stays opus', () => {
       expect(getModelForCommand('/patch')).toBe('opus');
@@ -235,10 +250,10 @@ describe('SLASH_COMMAND_EFFORT_MAP', () => {
 describe('SLASH_COMMAND_EFFORT_MAP_FAST', () => {
   it('has correct fast effort values for all 18 commands', () => {
     expect(SLASH_COMMAND_EFFORT_MAP_FAST['/classify_issue']).toBe('low');
-    expect(SLASH_COMMAND_EFFORT_MAP_FAST['/feature']).toBe('high');
-    expect(SLASH_COMMAND_EFFORT_MAP_FAST['/bug']).toBe('high');
-    expect(SLASH_COMMAND_EFFORT_MAP_FAST['/chore']).toBe('high');
-    expect(SLASH_COMMAND_EFFORT_MAP_FAST['/pr_review']).toBe('high');
+    expect(SLASH_COMMAND_EFFORT_MAP_FAST['/feature']).toBe('medium');
+    expect(SLASH_COMMAND_EFFORT_MAP_FAST['/bug']).toBe('medium');
+    expect(SLASH_COMMAND_EFFORT_MAP_FAST['/chore']).toBe('medium');
+    expect(SLASH_COMMAND_EFFORT_MAP_FAST['/pr_review']).toBe('medium');
     expect(SLASH_COMMAND_EFFORT_MAP_FAST['/implement']).toBe('high');
     expect(SLASH_COMMAND_EFFORT_MAP_FAST['/patch']).toBe('high');
     expect(SLASH_COMMAND_EFFORT_MAP_FAST['/review']).toBe('high');
@@ -276,7 +291,7 @@ describe('getEffortForCommand', () => {
     const body = 'Please implement this /fast';
     expect(getEffortForCommand('/implement', body)).toBe('high');
     expect(getEffortForCommand('/commit', body)).toBe('low');
-    expect(getEffortForCommand('/feature', body)).toBe('high');
+    expect(getEffortForCommand('/feature', body)).toBe('medium');
   });
 
   it('returns fast effort when body contains /cheap', () => {
