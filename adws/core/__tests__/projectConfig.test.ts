@@ -7,8 +7,10 @@ import {
   getDefaultProjectConfig,
   getDefaultCommandsConfig,
   getDefaultProvidersConfig,
+  getDefaultScenariosConfig,
   parseMarkdownSections,
   parseCommandsMd,
+  parseScenariosMd,
 } from '../projectConfig';
 
 // ---------------------------------------------------------------------------
@@ -349,5 +351,198 @@ describe('loadProjectConfig — edge cases', () => {
 
     const config = loadProjectConfig(tmpDir);
     expect(config).toEqual(getDefaultProjectConfig());
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getDefaultScenariosConfig
+// ---------------------------------------------------------------------------
+
+describe('getDefaultScenariosConfig', () => {
+  it('returns expected default values', () => {
+    const defaults = getDefaultScenariosConfig();
+    expect(defaults.scenarioDirectory).toBe('features/');
+    expect(defaults.runByTag).toBe('cucumber-js --tags "@{tag}"');
+    expect(defaults.runCrucial).toBe('cucumber-js --tags "@crucial"');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getDefaultProjectConfig — scenarios fields
+// ---------------------------------------------------------------------------
+
+describe('getDefaultProjectConfig — scenarios fields', () => {
+  it('includes scenarios and scenariosMd fields', () => {
+    const config = getDefaultProjectConfig();
+    expect(config.scenarios).toEqual(getDefaultScenariosConfig());
+    expect(config.scenariosMd).toBe('');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getDefaultCommandsConfig — scenario command fields
+// ---------------------------------------------------------------------------
+
+describe('getDefaultCommandsConfig — scenario command fields', () => {
+  it('includes runScenariosByTag and runCrucialScenarios', () => {
+    const defaults = getDefaultCommandsConfig();
+    expect(defaults.runScenariosByTag).toBe('cucumber-js --tags "@{tag}"');
+    expect(defaults.runCrucialScenarios).toBe('cucumber-js --tags "@crucial"');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// parseCommandsMd — scenario command headings
+// ---------------------------------------------------------------------------
+
+describe('parseCommandsMd — scenario command headings', () => {
+  it('parses runScenariosByTag from "## Run Scenarios by Tag"', () => {
+    const md = '## Run Scenarios by Tag\nbunx playwright test --grep "@{tag}"';
+    const config = parseCommandsMd(md);
+    expect(config.runScenariosByTag).toBe('bunx playwright test --grep "@{tag}"');
+  });
+
+  it('parses runCrucialScenarios from "## Run Crucial Scenarios"', () => {
+    const md = '## Run Crucial Scenarios\nbunx playwright test --grep "@crucial"';
+    const config = parseCommandsMd(md);
+    expect(config.runCrucialScenarios).toBe('bunx playwright test --grep "@crucial"');
+  });
+
+  it('returns defaults for missing scenario command headings', () => {
+    const config = parseCommandsMd('## Run Linter\ncustom-lint');
+    expect(config.runScenariosByTag).toBe('cucumber-js --tags "@{tag}"');
+    expect(config.runCrucialScenarios).toBe('cucumber-js --tags "@crucial"');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// parseScenariosMd
+// ---------------------------------------------------------------------------
+
+describe('parseScenariosMd', () => {
+  it('parses all three sections', () => {
+    const md = [
+      '# Scenarios',
+      '',
+      '## Scenario Directory',
+      'tests/e2e/',
+      '',
+      '## Run Scenarios by Tag',
+      'bunx playwright test --grep "@{tag}"',
+      '',
+      '## Run Crucial Scenarios',
+      'bunx playwright test --grep "@crucial"',
+    ].join('\n');
+
+    const config = parseScenariosMd(md);
+    expect(config.scenarioDirectory).toBe('tests/e2e/');
+    expect(config.runByTag).toBe('bunx playwright test --grep "@{tag}"');
+    expect(config.runCrucial).toBe('bunx playwright test --grep "@crucial"');
+  });
+
+  it('returns defaults for empty content', () => {
+    expect(parseScenariosMd('')).toEqual(getDefaultScenariosConfig());
+  });
+
+  it('returns defaults for whitespace-only content', () => {
+    expect(parseScenariosMd('   \n  \n  ')).toEqual(getDefaultScenariosConfig());
+  });
+
+  it('handles partial sections — only scenarioDirectory present', () => {
+    const md = '## Scenario Directory\nfeatures/';
+    const config = parseScenariosMd(md);
+    expect(config.scenarioDirectory).toBe('features/');
+    expect(config.runByTag).toBe(getDefaultScenariosConfig().runByTag);
+    expect(config.runCrucial).toBe(getDefaultScenariosConfig().runCrucial);
+  });
+
+  it('ignores unknown headings', () => {
+    const md = '## Unknown Section\nignored\n\n## Scenario Directory\ncustom/';
+    const config = parseScenariosMd(md);
+    expect(config.scenarioDirectory).toBe('custom/');
+  });
+
+  it('parses Playwright-style config', () => {
+    const md = [
+      '## Scenario Directory',
+      'tests/e2e/',
+      '',
+      '## Run Scenarios by Tag',
+      'bunx playwright test --grep "@{tag}"',
+      '',
+      '## Run Crucial Scenarios',
+      'bunx playwright test --grep "@crucial"',
+    ].join('\n');
+
+    const config = parseScenariosMd(md);
+    expect(config.scenarioDirectory).toBe('tests/e2e/');
+    expect(config.runByTag).toBe('bunx playwright test --grep "@{tag}"');
+    expect(config.runCrucial).toBe('bunx playwright test --grep "@crucial"');
+  });
+
+  it('parses Cucumber-style config', () => {
+    const md = [
+      '## Scenario Directory',
+      'features/',
+      '',
+      '## Run Scenarios by Tag',
+      'cucumber-js --tags "@{tag}"',
+      '',
+      '## Run Crucial Scenarios',
+      'cucumber-js --tags "@crucial"',
+    ].join('\n');
+
+    const config = parseScenariosMd(md);
+    expect(config.scenarioDirectory).toBe('features/');
+    expect(config.runByTag).toBe('cucumber-js --tags "@{tag}"');
+    expect(config.runCrucial).toBe('cucumber-js --tags "@crucial"');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// loadProjectConfig — scenarios.md
+// ---------------------------------------------------------------------------
+
+describe('loadProjectConfig — scenarios.md', () => {
+  it('loads scenarios and scenariosMd when scenarios.md is present', () => {
+    const content = [
+      '## Scenario Directory',
+      'tests/e2e/',
+      '',
+      '## Run Scenarios by Tag',
+      'bunx playwright test --grep "@{tag}"',
+      '',
+      '## Run Crucial Scenarios',
+      'bunx playwright test --grep "@crucial"',
+    ].join('\n');
+    writeAdwFile('scenarios.md', content);
+
+    const config = loadProjectConfig(tmpDir);
+    expect(config.hasAdwDir).toBe(true);
+    expect(config.scenarios.scenarioDirectory).toBe('tests/e2e/');
+    expect(config.scenarios.runByTag).toBe('bunx playwright test --grep "@{tag}"');
+    expect(config.scenarios.runCrucial).toBe('bunx playwright test --grep "@crucial"');
+    expect(config.scenariosMd).toBe(content);
+  });
+
+  it('returns default scenarios config when scenarios.md is missing', () => {
+    writeAdwFile('commands.md', '## Run Linter\ncustom-lint');
+
+    const config = loadProjectConfig(tmpDir);
+    expect(config.scenarios).toEqual(getDefaultScenariosConfig());
+  });
+
+  it('returns empty scenariosMd when scenarios.md is missing', () => {
+    writeAdwFile('commands.md', '## Run Linter\ncustom-lint');
+
+    const config = loadProjectConfig(tmpDir);
+    expect(config.scenariosMd).toBe('');
+  });
+
+  it('returns default scenarios when scenarios.md is empty', () => {
+    writeAdwFile('scenarios.md', '');
+
+    const config = loadProjectConfig(tmpDir);
+    expect(config.scenarios).toEqual(getDefaultScenariosConfig());
   });
 });
