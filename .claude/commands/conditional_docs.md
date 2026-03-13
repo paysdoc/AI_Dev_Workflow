@@ -74,3 +74,10 @@ This prompt helps you determine what documentation you should read based on the 
     - When configuring ADW to use GitLab as the code hosting backend
     - When troubleshooting GitLab API authentication, merge request creation, or review fetching
     - When adding support for a new code host platform following the CodeHost interface
+
+- app_docs/feature-74itmf-dependency-logging.md
+  - Conditions:
+    - When working with `findOpenDependencies()` or `checkIssueEligibility()` in `adws/triggers/`
+    - When adding or modifying logging in the dependency resolution pipeline
+    - When troubleshooting why an issue was deferred due to blocking dependencies
+    - When diagnosing silent failures in `getIssueState()` dependency lookups
