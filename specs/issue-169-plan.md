@@ -1,9 +1,11 @@
 # PR-Review: Unit test directories still present
 
 ## PR-Review Description
-The reviewer (paysdoc) flagged that the `__tests__/` directories under `adws/` were never actually deleted. The PR description and checklist claimed "All `adws/*/__tests__/` directories and files removed," but at the time of the review (after commit `c958612`), all 98 test files across 12 `__tests__/` directories remained on disk. The build agent had updated `.adw/project.md`, `guidelines/coding_guidelines.md`, and `vitest.config.ts` but failed to execute the actual file deletions.
+The reviewer (paysdoc) flagged that the `__tests__/` directories under `adws/` were never actually deleted. The PR description and checklist claimed "All `adws/*/__tests__/` directories and files removed," but at the time of the review (after commit `c958612`), all 93 test files across 12 `__tests__/` directories remained on disk. The build agent had updated `.adw/project.md`, `guidelines/coding_guidelines.md`, and `README.md` but failed to execute the actual file deletions.
 
-This was subsequently fixed in commit `3231e57` which deleted all test files. The plan below documents the fix and verification steps.
+Subsequent automated fix attempts (`88664df`, `3231e57`, `f1a5c36`) deleted the test files but also introduced unrelated changes that need to be reverted:
+- `adws/adwSdlc.tsx` — renamed `computeTotalTokens` to `computeDisplayTokens` (unrelated)
+- `eslint.config.js` — added `'**/*.md'` to ignores (unrelated)
 
 ## Summary of Original Implementation Plan
 The original plan at `specs/issue-169-adw-1773386141689-alfbmn-sdlc_planner-remove-adw-unit-tests.md` specified:
@@ -13,42 +15,56 @@ The original plan at `specs/issue-169-adw-1773386141689-alfbmn-sdlc_planner-remo
 4. Update the `README.md` project structure tree to remove `__tests__/` references
 5. Run validation commands to confirm no `__tests__/` directories remain
 
-The original plan listed 9 directories but missed 3 nested provider directories: `adws/providers/github/__tests__/`, `adws/providers/gitlab/__tests__/`, and `adws/providers/jira/__tests__/`. Steps 2–4 were completed in commit `c958612`; step 1 (the actual deletions) was executed in follow-up commit `3231e57`.
+Steps 2–4 were completed in commit `c958612`. Step 1 was completed in follow-up commit `3231e57`. `vitest.config.ts` was updated with `passWithNoTests: true` in commit `f1a5c36`.
 
 ## Relevant Files
 Use these files to resolve the review:
 
-- `adws/__tests__/` — 7 test files deleted
-- `adws/agents/__tests__/` — 16 test files deleted
-- `adws/core/__tests__/` — 23 test files deleted
-- `adws/github/__tests__/` — 14 test files deleted
-- `adws/phases/__tests__/` — 10 test files + 1 helper deleted
-- `adws/providers/__tests__/` — 2 test files deleted
-- `adws/providers/github/__tests__/` — 3 test files deleted
-- `adws/providers/gitlab/__tests__/` — 3 test files deleted
-- `adws/providers/jira/__tests__/` — 3 test files deleted
-- `adws/triggers/__tests__/` — 12 test files deleted
-- `adws/types/__tests__/` — 1 test file deleted
-- `adws/vcs/__tests__/` — 4 test files deleted
-- `vitest.config.ts` — Added `passWithNoTests: true` so `bun run test` doesn't fail with zero test files
-- `package.json` — Must remain intact (verify only, no changes)
+- `adws/**/__tests__/` — 12 directories totalling 93 test files; must all be deleted (already done in `3231e57`, verify only).
+- `vitest.config.ts` — Added `passWithNoTests: true` so `bun run test` succeeds with zero test files (already done in `f1a5c36`, verify only).
+- `adws/adwSdlc.tsx` — Has an unrelated change (`computeTotalTokens` → `computeDisplayTokens`) from commit `88664df` that must be reverted.
+- `eslint.config.js` — Has an unrelated change (added `'**/*.md'` to ignores) from commit `f1a5c36` that must be reverted.
+- `.adw/project.md` — Already has `## Unit Tests: disabled` (verify only).
+- `guidelines/coding_guidelines.md` — Already updated with BDD rationale (verify only).
+- `README.md` — Already updated to remove `__tests__/` references (verify only).
+- `package.json` — Must remain intact (verify only).
 
 ## Step by Step Tasks
 IMPORTANT: Execute every step in order, top to bottom.
 
 ### Step 1: Verify all ADW unit test directories are deleted
 
-The deletions were applied in commit `3231e57`. Confirm no `__tests__/` directories remain under `adws/`:
+Confirm no `__tests__/` directories remain under `adws/`:
 
 ```bash
 find adws -type d -name __tests__
 ```
 
-Output must be empty. If any directories remain, delete them with `git rm -rf`.
+Output must be empty. If any directories remain, delete them with `git rm -rf <path>`.
 
-### Step 2: Verify previously completed changes are intact
+### Step 2: Revert unrelated change in `adws/adwSdlc.tsx`
 
-Confirm the documentation and config updates are in place:
+Commit `88664df` changed `computeTotalTokens` to `computeDisplayTokens` on line ~118. This is unrelated to issue #169. Revert this single line:
+
+```diff
+-    if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeDisplayTokens(totalModelUsage);
++    if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeTotalTokens(totalModelUsage);
+```
+
+Also verify the import statement still references `computeTotalTokens` (not `computeDisplayTokens`). Search for the import and update if needed.
+
+### Step 3: Revert unrelated change in `eslint.config.js`
+
+Commit `f1a5c36` added `'**/*.md'` to the eslint ignores array. This is unrelated to issue #169. Revert this change:
+
+```diff
+-    ignores: ['node_modules/', 'dist/', '.claude/', '**/*.md'],
++    ignores: ['node_modules/', 'dist/', '.claude/'],
+```
+
+### Step 4: Verify previously completed changes are intact
+
+Confirm the documentation and config updates from the original implementation are still in place:
 
 - `grep -q '## Unit Tests: disabled' .adw/project.md && echo "OK"`
 - `grep -q 'BDD scenarios' guidelines/coding_guidelines.md && echo "OK"`
@@ -56,7 +72,7 @@ Confirm the documentation and config updates are in place:
 - `grep -q 'passWithNoTests' vitest.config.ts && echo "passWithNoTests configured"`
 - `grep -q '"test"' package.json && echo "test script exists"`
 
-### Step 3: Run validation commands
+### Step 5: Run validation commands
 
 Run all validation commands to confirm zero regressions.
 
@@ -73,8 +89,8 @@ Execute every command to validate the review is complete with zero regressions.
 - `bunx tsc --noEmit -p adws/tsconfig.json` — Type check adws specifically
 
 ## Notes
-- The review comment has already been addressed in commit `3231e57` which deleted all 98 test files across 12 `__tests__/` directories.
-- Commit `88664df` also updated token display in `adwSdlc.tsx` (unrelated to the review).
-- `vitest.config.ts` was updated with `passWithNoTests: true` so the test infrastructure continues to work even with zero ADW test files.
-- Do NOT run `bun run test` as a validation command — there are no test files to run after deletion, though `passWithNoTests` means it would pass.
+- The core review issue (test files not deleted) was already addressed in commit `3231e57`.
+- The main remaining work is reverting 2 unrelated changes that were introduced by automated fix attempts.
+- `vitest.config.ts` addition of `passWithNoTests: true` is a valid related change — keeps the test command working with zero test files.
+- Do NOT run `bun run test` as a validation command — `passWithNoTests` means it passes, but there are no meaningful tests to run.
 - Target repos that use ADW and have their own unit tests are unaffected by this change.
