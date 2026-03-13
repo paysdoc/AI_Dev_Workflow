@@ -13,6 +13,7 @@ import { getRepoInfo, fetchPRList, hasUnaddressedComments, isClearComment, isAdw
 import { clearIssueComments } from '../adwClearComments';
 import { checkIssueEligibility } from './issueEligibility';
 import { classifyAndSpawnWorkflow } from './webhookGatekeeper';
+import { registerAndGuard } from './cronProcessGuard';
 
 const POLL_INTERVAL_MS = 20_000;
 const PR_POLL_INTERVAL_MS = 60_000;
@@ -150,6 +151,13 @@ function checkPRsForReviewComments(): void {
       log(`Error checking PR #${pr.number}: ${error}`, 'error');
     }
   }
+}
+
+const cronRepoKey = `${cronRepoInfo.owner}/${cronRepoInfo.repo}`;
+const canProceed = registerAndGuard(cronRepoKey, process.pid);
+if (!canProceed) {
+  log(`Another cron process is already running for ${cronRepoKey}, exiting duplicate`, 'warn');
+  process.exit(0);
 }
 
 log('CRON trigger (backlog sweeper) started');
