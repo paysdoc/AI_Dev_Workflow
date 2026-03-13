@@ -13,6 +13,7 @@ import { classifyIssueForTrigger, getWorkflowScript } from '../core/issueClassif
 
 import { checkIssueEligibility } from './issueEligibility';
 import { parseDependencies } from './issueDependencies';
+import { isCronAliveForRepo, writeCronPid } from './cronProcessGuard';
 
 /**
  * Spawns a detached child process for running ADW orchestrator workflows.
@@ -93,12 +94,20 @@ export function ensureCronProcess(repoInfo: RepoInfo, targetRepoArgs: string[]):
   const repoKey = `${repoInfo.owner}/${repoInfo.repo}`;
   if (cronSpawnedForRepo.has(repoKey)) return;
 
+  if (isCronAliveForRepo(repoKey)) {
+    cronSpawnedForRepo.add(repoKey); // sync in-memory cache
+    return;
+  }
+
   cronSpawnedForRepo.add(repoKey);
   log(`Spawning cron trigger for ${repoKey}`);
   const child = spawn('bunx', ['tsx', 'adws/triggers/trigger_cron.ts', ...targetRepoArgs], {
     detached: true,
     stdio: 'ignore',
   });
+  if (child.pid) {
+    writeCronPid(repoKey, child.pid);
+  }
   child.unref();
 }
 
