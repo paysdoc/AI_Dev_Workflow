@@ -26,3 +26,5 @@ bun add <package>
 
 ## Script Execution
 bunx tsx <script_name>
+
+## Unit Tests: disabled
