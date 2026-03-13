@@ -67,15 +67,15 @@ Effort levels are defined in `adws/core/config.ts`:
 | `/patch` | `high` | `high` |
 | `/review` | `high` | `high` |
 | `/test` | `undefined` | `undefined` |
-| `/resolve_failed_test` | `high` | `high` |
-| `/resolve_failed_e2e_test` | `high` | `high` |
+| `/resolve_failed_test` | `high` | `medium` |
+| `/resolve_failed_e2e_test` | `high` | `medium` |
 | `/generate_branch_name` | `low` | `low` |
 | `/commit` | `medium` | `low` |
-| `/pull_request` | `high` | `medium` |
-| `/document` | `high` | `medium` |
+| `/pull_request` | `medium` | `medium` |
+| `/document` | `medium` | `medium` |
 | `/commit_cost` | `undefined` | `undefined` |
 | `/find_plan_file` | `low` | `low` |
-| `/adw_init` | `high` | `medium` |
+| `/adw_init` | `medium` | `medium` |
 
 `undefined` means no `--effort` flag is passed (haiku commands where the flag may not apply).
 
