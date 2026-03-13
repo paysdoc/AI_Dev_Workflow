@@ -666,6 +666,8 @@ Target repositories can provide project-specific configuration in a `.adw/` dire
 
 - **`.adw/conditional_docs.md`** — Defines conditional documentation paths and conditions for the target project's module boundaries
 
+- **`.adw/scenarios.md`** — BDD scenario configuration (see [BDD Scenario Configuration](#bdd-scenario-configuration) below)
+
 **Bootstrapping:**
 
 Use the `/adw_init` command (via `adwInit.tsx`) to automatically generate `.adw/` configuration for a target repository:
@@ -695,3 +697,60 @@ The `projectConfig.ts` module loads configuration during `initializeWorkflow()`.
 1. Checks for `.adw/` directory at the target repo path
 2. Parses each markdown file using heading-based section extraction
 3. Returns defaults matching current hardcoded values when files are absent
+
+### BDD Scenario Configuration
+
+ADW supports BDD/scenario-driven testing as the primary validation mechanism. The `.adw/scenarios.md` file configures how ADW agents discover and run scenario tests.
+
+**File: `.adw/scenarios.md`**
+
+Three required sections:
+
+- `## Scenario Directory` — Relative path in the target repo where scenario files live
+- `## Run Scenarios by Tag` — Tool-specific command to run scenarios filtered by tag; use `{tag}` as a placeholder (substituted at runtime)
+- `## Run Crucial Scenarios` — Command to run all `@crucial`-tagged regression scenarios
+
+**Playwright example:**
+
+```markdown
+## Scenario Directory
+tests/e2e/
+
+## Run Scenarios by Tag
+bunx playwright test --grep "@{tag}"
+
+## Run Crucial Scenarios
+bunx playwright test --grep "@crucial"
+```
+
+**Cucumber/Gherkin example:**
+
+```markdown
+## Scenario Directory
+features/
+
+## Run Scenarios by Tag
+cucumber-js --tags "@{tag}"
+
+## Run Crucial Scenarios
+cucumber-js --tags "@crucial"
+```
+
+**`commands.md` additions:**
+
+The same scenario commands can also be specified in `.adw/commands.md` for use by workflow phase commands:
+
+- `## Run Scenarios by Tag` — same `{tag}` placeholder convention
+- `## Run Crucial Scenarios` — runs all `@crucial`-tagged scenarios
+
+**Tagging conventions:**
+
+- `@adw-{issueNumber}` — marks scenarios created, modified, or flagged as relevant for a specific GitHub issue (e.g., `@adw-164`)
+- `@crucial` — marks scenarios that form the regression safety net; maintained over time by the Scenario Planner Agent
+
+**Scenario file format resolution:**
+
+The file format for scenario files is determined by the testing tool:
+
+- If `## Run E2E Tests` in `commands.md` contains a real CLI command (e.g., `bunx playwright test`, `cucumber-js`) → scenario files use that tool's expected format (`.spec.ts` for Playwright, `.feature` for Cucumber, etc.)
+- If `## Run E2E Tests` is `N/A` or absent → default to Gherkin `.feature` files; a Cucumber setup will be bootstrapped by the Scenario Planner Agent
