@@ -35,7 +35,13 @@ export type WorkflowStage =
   | 'document_completed'
   | 'document_failed'
   // Token limit recovery
-  | 'token_limit_recovery';
+  | 'token_limit_recovery'
+  // Plan validation stages
+  | 'plan_validating'
+  | 'plan_validated'
+  | 'plan_resolving'
+  | 'plan_resolved'
+  | 'plan_validation_failed';
 
 /**
  * PR review comment from GitHub API.

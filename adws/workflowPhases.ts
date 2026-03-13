@@ -16,6 +16,7 @@ export {
   executePlanPhase,
   buildContinuationPrompt,
   MAX_CONTINUATION_OUTPUT_LENGTH,
+  executePlanValidationPhase,
   executeBuildPhase,
   executeTestPhase,
   executePRPhase,
