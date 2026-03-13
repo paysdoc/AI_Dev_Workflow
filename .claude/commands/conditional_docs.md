@@ -81,3 +81,11 @@ This prompt helps you determine what documentation you should read based on the 
     - When adding or modifying logging in the dependency resolution pipeline
     - When troubleshooting why an issue was deferred due to blocking dependencies
     - When diagnosing silent failures in `getIssueState()` dependency lookups
+
+- app_docs/feature-ak5lea-trigger-cron-process-prevent-duplicate-cron.md
+  - Conditions:
+    - When working with `trigger_cron.ts`, `webhookGatekeeper.ts`, or `cronProcessGuard.ts`
+    - When troubleshooting duplicate cron processes running for the same repository
+    - When implementing or modifying cron process lifecycle management in ADW
+    - When the webhook server restarts and cron processes behave unexpectedly
+    - When adding PID-file-based process deduplication to new trigger types
