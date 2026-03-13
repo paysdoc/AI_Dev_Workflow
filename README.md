@@ -70,7 +70,8 @@ bun run test:watch    # Run tests in watch mode
 ├── commands.md         # Build/test/lint command mappings
 ├── conditional_docs.md # Conditional documentation paths
 ├── project.md          # Project structure and relevant files
-└── review_proof.md     # Review proof requirements for target projects
+├── review_proof.md     # Review proof requirements for target projects
+└── scenarios.md        # BDD scenario configuration and tagging
 .claude/
 ├── commands/           # Claude Code slash commands
 │   ├── adw_init.md

@@ -2,9 +2,9 @@
  * Project configuration loader for target repositories.
  *
  * Reads `.adw/commands.md`, `.adw/project.md`, `.adw/conditional_docs.md`,
- * and `.adw/review_proof.md` from a target repository to determine
+ * `.adw/review_proof.md`, and `.adw/scenarios.md` from a target repository to determine
  * project-specific commands, file structure, conditional documentation,
- * and review proof requirements. Falls back to sensible defaults when files are absent.
+ * review proof requirements, and BDD scenario configuration. Falls back to sensible defaults when files are absent.
  */
 
 import * as fs from 'fs';
@@ -45,6 +45,8 @@ export interface ProjectConfig {
   conditionalDocsMd: string;
   /** Raw content of `.adw/review_proof.md` (empty string when absent). */
   reviewProofMd: string;
+  /** Raw content of `.adw/scenarios.md` (empty string when absent). */
+  scenariosMd: string;
   /** Whether the `.adw/` directory was found. */
   hasAdwDir: boolean;
   /** Provider configuration from `.adw/providers.md`. */
@@ -113,6 +115,7 @@ export function getDefaultProjectConfig(): ProjectConfig {
     projectMd: '',
     conditionalDocsMd: '',
     reviewProofMd: '',
+    scenariosMd: '',
     hasAdwDir: false,
     providers: getDefaultProvidersConfig(),
   };
@@ -252,6 +255,15 @@ export function loadProjectConfig(targetRepoPath: string): ProjectConfig {
     // file missing — keep empty
   }
 
+  // scenarios.md
+  const scenariosPath = path.join(adwDir, 'scenarios.md');
+  let scenariosMd = '';
+  try {
+    scenariosMd = fs.readFileSync(scenariosPath, 'utf-8');
+  } catch {
+    // file missing — keep empty
+  }
+
   // providers.md
   const providersPath = path.join(adwDir, 'providers.md');
   let providers: ProvidersConfig;
@@ -267,6 +279,7 @@ export function loadProjectConfig(targetRepoPath: string): ProjectConfig {
     projectMd,
     conditionalDocsMd,
     reviewProofMd,
+    scenariosMd,
     hasAdwDir: true,
     providers,
   };

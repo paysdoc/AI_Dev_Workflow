@@ -35,3 +35,9 @@ bun install
 
 ## Script Execution
 bunx tsx <script name>
+
+## Run Scenarios by Tag
+bunx playwright test --grep "@{tag}"
+
+## Run Crucial Scenarios
+bunx playwright test --grep "@crucial"

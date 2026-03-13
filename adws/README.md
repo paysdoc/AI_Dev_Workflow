@@ -656,6 +656,8 @@ Target repositories can provide project-specific configuration in a `.adw/` dire
   - `## Run E2E Tests` — e.g., `bunx playwright test`, `cypress run`
   - `## Library Install Command` — e.g., `bun install`, `pip install`
   - `## Script Execution` — e.g., `bunx tsx`, `python`
+  - `## Run Scenarios by Tag` — command to run scenarios by tag, with `{tag}` placeholder
+  - `## Run Crucial Scenarios` — command to run all `@crucial`-tagged scenarios
 
 - **`.adw/project.md`** — Describes the project structure and context:
   - `## Project Overview` — Brief description of the project, language, and framework
@@ -663,6 +665,11 @@ Target repositories can provide project-specific configuration in a `.adw/` dire
   - `## Framework Notes` — Framework-specific instructions for the ADW
   - `## Library Install Command` — How to install new libraries
   - `## Script Execution` — How to run project scripts
+
+- **`.adw/scenarios.md`** — BDD scenario configuration:
+  - `## Scenario Directory` — relative path where scenario files live (e.g., `features/`, `tests/e2e/`)
+  - `## Run Scenarios by Tag` — command to run scenarios by tag, with `{tag}` placeholder (e.g., `bunx playwright test --grep "@{tag}"`, `cucumber-js --tags "@{tag}"`)
+  - `## Run Crucial Scenarios` — command to run all `@crucial`-tagged scenarios
 
 - **`.adw/conditional_docs.md`** — Defines conditional documentation paths and conditions for the target project's module boundaries
 
@@ -695,3 +702,39 @@ The `projectConfig.ts` module loads configuration during `initializeWorkflow()`.
 1. Checks for `.adw/` directory at the target repo path
 2. Parses each markdown file using heading-based section extraction
 3. Returns defaults matching current hardcoded values when files are absent
+
+**Scenario Tagging Conventions:**
+
+- `@adw-{issueNumber}` — marks scenarios created, modified, or flagged as relevant for a specific GitHub issue (e.g., `@adw-164`)
+- `@crucial` — marks scenarios that form the regression safety net; maintained over time by the Scenario Planner Agent
+
+**Scenario File Format Resolution:**
+
+The scenario file format is determined by the tool specified in `## Run E2E Tests` in `.adw/commands.md`:
+
+- If `## Run E2E Tests` contains a real CLI command (e.g., `bunx playwright test`, `cucumber-js`) → scenario files match whatever that tool expects (`.spec.ts` for Playwright, `.feature` for Cucumber)
+- If `## Run E2E Tests` is `n/a` or absent → default to Gherkin `.feature` files; a Cucumber setup will be bootstrapped by the Scenario Planner Agent
+
+**Playwright example** (`.adw/scenarios.md`):
+```markdown
+## Scenario Directory
+tests/e2e/
+
+## Run Scenarios by Tag
+bunx playwright test --grep "@{tag}"
+
+## Run Crucial Scenarios
+bunx playwright test --grep "@crucial"
+```
+
+**Cucumber example** (`.adw/scenarios.md`):
+```markdown
+## Scenario Directory
+features/
+
+## Run Scenarios by Tag
+cucumber-js --tags "@{tag}"
+
+## Run Crucial Scenarios
+cucumber-js --tags "@crucial"
+```

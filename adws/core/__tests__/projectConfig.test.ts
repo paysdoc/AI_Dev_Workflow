@@ -41,11 +41,12 @@ describe('getDefaultProjectConfig', () => {
     expect(config.hasAdwDir).toBe(false);
   });
 
-  it('returns empty strings for projectMd, conditionalDocsMd, and reviewProofMd', () => {
+  it('returns empty strings for projectMd, conditionalDocsMd, reviewProofMd, and scenariosMd', () => {
     const config = getDefaultProjectConfig();
     expect(config.projectMd).toBe('');
     expect(config.conditionalDocsMd).toBe('');
     expect(config.reviewProofMd).toBe('');
+    expect(config.scenariosMd).toBe('');
   });
 
   it('returns github defaults for providers', () => {
@@ -230,11 +231,12 @@ describe('loadProjectConfig — no .adw/ directory', () => {
 // ---------------------------------------------------------------------------
 
 describe('loadProjectConfig — valid .adw/ directory', () => {
-  it('loads all five files', () => {
+  it('loads all six files', () => {
     writeAdwFile('commands.md', '## Package Manager\nyarn');
     writeAdwFile('project.md', '## Project Overview\nMy project');
     writeAdwFile('conditional_docs.md', '## Conditional Documentation\n- README.md');
     writeAdwFile('review_proof.md', '## Proof Requirements\nTest output summaries');
+    writeAdwFile('scenarios.md', '## Scenario Directory\ntests/e2e/');
     writeAdwFile('providers.md', '## Code Host\ngitlab\n\n## Issue Tracker\ngithub\n');
 
     const config = loadProjectConfig(tmpDir);
@@ -243,6 +245,7 @@ describe('loadProjectConfig — valid .adw/ directory', () => {
     expect(config.projectMd).toContain('My project');
     expect(config.conditionalDocsMd).toContain('README.md');
     expect(config.reviewProofMd).toContain('Test output summaries');
+    expect(config.scenariosMd).toContain('tests/e2e/');
     expect(config.providers.codeHost).toBe('gitlab');
     expect(config.providers.issueTracker).toBe('github');
   });
@@ -291,6 +294,22 @@ describe('loadProjectConfig — partial .adw/ directory', () => {
     const config = loadProjectConfig(tmpDir);
     expect(config.hasAdwDir).toBe(true);
     expect(config.reviewProofMd).toContain('Screenshots and test output');
+  });
+
+  it('returns empty scenariosMd when scenarios.md is missing', () => {
+    writeAdwFile('commands.md', '## Run Linter\ncustom-lint');
+
+    const config = loadProjectConfig(tmpDir);
+    expect(config.scenariosMd).toBe('');
+  });
+
+  it('loads scenariosMd when scenarios.md exists', () => {
+    writeAdwFile('scenarios.md', '## Scenario Directory\nfeatures/\n\n## Run Scenarios by Tag\ncucumber-js --tags "@{tag}"');
+
+    const config = loadProjectConfig(tmpDir);
+    expect(config.hasAdwDir).toBe(true);
+    expect(config.scenariosMd).toContain('features/');
+    expect(config.scenariosMd).toContain('cucumber-js --tags "@{tag}"');
   });
 
   it('returns default providers when providers.md is missing', () => {
