@@ -3,6 +3,7 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 0,bug 71 pragent passes args as string,2.3623,0.2362
 0,bug 94 fix cost csv deletion on merged pr issue cl,0.8123,0.0812
 0,bug 99 fix currency conversion,0.6907,0.0691
+0,chore 169 remove adw unit test files disable unit ,0.7299,0.0730
 0,feat 114 implement github issuetracker provider,1.4015,0.1401
 0,feat 121 add provider configuration to adw project,1.0304,0.1030
 0,feat 144 add a running total of tokens used to eac,2.1209,0.2121
@@ -58,9 +59,9 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 150,race condition for starting workflow,1.8708,0.1871
 152,token counts do not make sense,6.1993,0.6199
 158,extend fast mode to downgrade planning model and e,0.7593,0.0759
-163,refactor initialize worktree from current root sta,1.2637,0.1264
-164,define bdd scenario configuration in adw and estab,0.5979,0.0598
+163,refactor initialize worktree from current root sta,1.5476,0.1548
+164,define bdd scenario configuration in adw and estab,1.4513,0.1451
 169,remove adw unit test files disable unit tests in a,0.7004,0.0700
 
-Total Cost (USD):,236.4600
-Total Cost (EUR):,205.0616
+Total Cost (USD):,238.5139
+Total Cost (EUR):,206.8428
