@@ -61,8 +61,12 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 158,extend fast mode to downgrade planning model and e,0.7593,0.0759
 163,refactor initialize worktree from current root sta,1.5476,0.1548
 164,define bdd scenario configuration in adw and estab,1.4513,0.1451
+165,implement scenario planner agent generate and main,5.0301,0.5030
+166,implement plan scenario validation and resolution ,6.8366,0.6837
+167,refactor test phase run relevant bdd scenarios aft,5.5434,0.5543
 169,remove adw unit test files disable unit tests in a,0.7004,0.0700
 175,add logging when determining whether there is an i,1.8536,0.1854
+177,trigger cron process may not be running more than ,2.6237,0.2624
 
-Total Cost (USD):,240.5528
-Total Cost (EUR):,208.6110
+Total Cost (USD):,262.5900
+Total Cost (EUR):,227.7220
