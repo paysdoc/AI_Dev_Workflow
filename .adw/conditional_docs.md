@@ -75,3 +75,10 @@
   - Conditions:
     - When working with GitLab integration or CodeHost providers
     - When adding or modifying provider implementations in `adws/providers/`
+
+- app_docs/feature-implement-scenario-p-hpq6cn-scenario-planner-agent.md
+  - Conditions:
+    - When working with BDD scenario generation or the scenario agent
+    - When modifying `adws/agents/scenarioAgent.ts` or `adws/phases/scenarioPhase.ts`
+    - When working with `.adw/scenarios.md` configuration
+    - When adding or modifying `@crucial` tag maintenance logic
