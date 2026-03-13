@@ -31,12 +31,12 @@ import {
   type RepoInfo,
 } from '../github';
 import {
-  checkoutDefaultBranch,
   ensureWorktree,
   getWorktreeForBranch,
   mergeLatestFromDefaultBranch,
   copyEnvToWorktree,
   findWorktreeForIssue,
+  fetchAndResetToRemote,
 } from '../vcs';
 import { getDefaultBranch } from '../vcs/branchOperations';
 import type { RepoContext, RepoIdentifier } from '../providers/types';
@@ -187,8 +187,9 @@ export async function initializeWorkflow(
         copyEnvToWorktree(existingWorktree);
         worktreePath = existingWorktree;
       } else {
-        checkoutDefaultBranch();
         worktreePath = ensureWorktree(branchName, defaultBranch);
+        copyClaudeCommandsToWorktree(worktreePath);
+        fetchAndResetToRemote(defaultBranch, worktreePath);
       }
     }
     log(`Worktree path: ${worktreePath}`, 'info');

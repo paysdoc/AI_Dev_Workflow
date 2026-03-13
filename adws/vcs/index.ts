@@ -15,6 +15,7 @@ export {
   inferIssueTypeFromBranch,
   checkoutDefaultBranch,
   mergeLatestFromDefaultBranch,
+  fetchAndResetToRemote,
   deleteLocalBranch,
   deleteRemoteBranch,
   PROTECTED_BRANCHES,

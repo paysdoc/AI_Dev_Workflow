@@ -201,10 +201,10 @@ export const SLASH_COMMAND_MODEL_MAP: Record<SlashCommand, ModelTier> = {
 /** Cost-optimized model map used when the issue body contains `/fast` or `/cheap`. */
 export const SLASH_COMMAND_MODEL_MAP_FAST: Record<SlashCommand, ModelTier> = {
   '/classify_issue': 'haiku',
-  '/feature': 'opus',
-  '/bug': 'opus',
-  '/chore': 'opus',
-  '/pr_review': 'opus',
+  '/feature': 'sonnet',
+  '/bug': 'sonnet',
+  '/chore': 'sonnet',
+  '/pr_review': 'sonnet',
   '/implement': 'sonnet',
   '/patch': 'opus',
   '/review': 'sonnet',
@@ -275,10 +275,10 @@ export const SLASH_COMMAND_EFFORT_MAP: Record<SlashCommand, ReasoningEffort | un
 /** Cost-optimized reasoning effort map used when the issue body contains `/fast` or `/cheap`. */
 export const SLASH_COMMAND_EFFORT_MAP_FAST: Record<SlashCommand, ReasoningEffort | undefined> = {
   '/classify_issue': 'low',
-  '/feature': 'high',
-  '/bug': 'high',
-  '/chore': 'high',
-  '/pr_review': 'high',
+  '/feature': 'medium',
+  '/bug': 'medium',
+  '/chore': 'medium',
+  '/pr_review': 'medium',
   '/implement': 'high',
   '/patch': 'high',
   '/review': 'high',

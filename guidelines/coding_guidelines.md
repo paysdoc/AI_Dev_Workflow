@@ -12,7 +12,7 @@
 ## General Practices
 
 - **Error handling** — Use try-catch at system boundaries. Provide meaningful error messages.
-- **Testing** — Write unit tests for all components. Cover edge cases. Use mocking to isolate tests.
+- **Testing** — ADW itself does not use unit tests; agent-written unit tests are unreliable as quality gates because an agent can write tests that always pass, and they primarily test mocked implementations rather than real behaviour. BDD scenarios are ADW's validation mechanism. Unit tests remain available as an opt-in for target repos configured via `.adw/project.md`.
 - **Performance** — Optimize critical paths (rendering, data processing). Profile before optimizing.
 - **Security** — Validate inputs, use secure authentication, encrypt sensitive data. Regularly review code for vulnerabilities.
 
