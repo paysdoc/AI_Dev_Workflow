@@ -95,7 +95,9 @@ export type AgentIdentifier =
   | 'pr-agent'
   | 'document-agent'
   // KPI tracking agent
-  | 'kpi-agent';
+  | 'kpi-agent'
+  // Scenario agent
+  | 'scenario-agent';
 
 /**
  * Execution status for tracking agent progress.

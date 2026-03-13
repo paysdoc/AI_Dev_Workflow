@@ -81,3 +81,10 @@
     - When working with `.adw/scenarios.md` or BDD scenario configuration
     - When implementing scenario-driven test phases
     - When working with `@adw-{issueNumber}` or `@crucial` tagging conventions
+
+- app_docs/feature-implement-scenario-p-hpq6cn-scenario-planner-agent.md
+  - Conditions:
+    - When working with BDD scenario generation or the scenario agent
+    - When modifying `adws/agents/scenarioAgent.ts` or `adws/phases/scenarioPhase.ts`
+    - When working with `.adw/scenarios.md` configuration
+    - When adding or modifying `@crucial` tag maintenance logic
