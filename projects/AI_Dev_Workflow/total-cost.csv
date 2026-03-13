@@ -62,6 +62,7 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 163,refactor initialize worktree from current root sta,1.5476,0.1548
 164,define bdd scenario configuration in adw and estab,1.4513,0.1451
 169,remove adw unit test files disable unit tests in a,0.7004,0.0700
+175,add logging when determining whether there is an i,1.8536,0.1854
 
-Total Cost (USD):,238.5139
-Total Cost (EUR):,206.8428
+Total Cost (USD):,240.5528
+Total Cost (EUR):,208.6110
