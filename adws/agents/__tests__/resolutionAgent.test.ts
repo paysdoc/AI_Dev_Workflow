@@ -3,7 +3,6 @@ import {
   buildResolutionPrompt,
   parseResolutionResult,
   runResolutionAgent,
-  type ResolutionResult,
 } from '../resolutionAgent';
 import type { MismatchItem } from '../validationAgent';
 

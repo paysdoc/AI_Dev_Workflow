@@ -6,7 +6,6 @@ import {
   buildValidationPrompt,
   parseValidationResult,
   runValidationAgent,
-  type ValidationResult,
   type MismatchItem,
 } from '../validationAgent';
 
@@ -43,6 +42,7 @@ import { runClaudeAgent } from '../claudeAgent';
 describe('findScenarioFiles', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(fs.existsSync).mockReturnValue(true);
   });
 
   it('returns files that contain the issue tag', () => {
@@ -89,9 +89,7 @@ describe('findScenarioFiles', () => {
   });
 
   it('returns empty array when directory does not exist', () => {
-    vi.mocked(fs.readdirSync).mockImplementation(() => {
-      throw new Error('ENOENT');
-    });
+    vi.mocked(fs.existsSync).mockReturnValue(false);
 
     const result = findScenarioFiles(42, '/nonexistent');
 

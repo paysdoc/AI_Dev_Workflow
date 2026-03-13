@@ -149,13 +149,13 @@ describe('config', () => {
 
   describe('getModelForCommand', () => {
     it('returns default model when no issue body is provided', () => {
-      expect(config.getModelForCommand('/implement')).toBe('opus');
+      expect(config.getModelForCommand('/implement')).toBe('sonnet');
       expect(config.getModelForCommand('/classify_issue')).toBe('sonnet');
       expect(config.getModelForCommand('/test')).toBe('haiku');
     });
 
     it('returns default model when body has no /fast or /cheap keywords', () => {
-      expect(config.getModelForCommand('/implement', 'A regular issue body')).toBe('opus');
+      expect(config.getModelForCommand('/implement', 'A regular issue body')).toBe('sonnet');
       expect(config.getModelForCommand('/commit', 'No special keywords here')).toBe('sonnet');
     });
 

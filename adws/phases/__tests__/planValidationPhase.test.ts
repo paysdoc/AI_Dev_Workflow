@@ -1,5 +1,25 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+const {
+  mockRunValidationAgent,
+  mockRunResolutionAgent,
+  mockFindScenarioFiles,
+  mockReadScenarioContents,
+  mockReadPlanFile,
+  mockGetPlanFilePath,
+  mockRunCommitAgent,
+  mockFormatIssueContextAsArgs,
+} = vi.hoisted(() => ({
+  mockRunValidationAgent: vi.fn(),
+  mockRunResolutionAgent: vi.fn(),
+  mockFindScenarioFiles: vi.fn(),
+  mockReadScenarioContents: vi.fn(),
+  mockReadPlanFile: vi.fn(),
+  mockGetPlanFilePath: vi.fn().mockReturnValue("specs/issue-42-plan.md"),
+  mockRunCommitAgent: vi.fn().mockResolvedValue({ success: true, output: "", commitMessage: "commit" }),
+  mockFormatIssueContextAsArgs: vi.fn().mockReturnValue("## GitHub Issue #42"),
+}));
+
 vi.mock("../../core", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../core")>();
   return {
@@ -21,15 +41,6 @@ vi.mock("../../core", async (importOriginal) => {
 vi.mock("../../github/workflowCommentsIssue", () => ({
   formatWorkflowComment: vi.fn().mockReturnValue("formatted comment"),
 }));
-
-const mockRunValidationAgent = vi.fn();
-const mockRunResolutionAgent = vi.fn();
-const mockFindScenarioFiles = vi.fn();
-const mockReadScenarioContents = vi.fn();
-const mockReadPlanFile = vi.fn();
-const mockGetPlanFilePath = vi.fn().mockReturnValue("specs/issue-42-plan.md");
-const mockRunCommitAgent = vi.fn().mockResolvedValue({ success: true, output: "", commitMessage: "commit" });
-const mockFormatIssueContextAsArgs = vi.fn().mockReturnValue("## GitHub Issue #42");
 
 vi.mock("../../agents", () => ({
   runValidationAgent: mockRunValidationAgent,
