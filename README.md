@@ -276,7 +276,9 @@ adws/                   # ADW workflow system
 app_docs/               # Generated feature documentation
 bun.lock                # Bun lockfile
 eslint.config.js        # ESLint configuration
+cucumber.js             # Cucumber.js configuration
 features/               # BDD feature files
+└── step_definitions/   # BDD step definitions
 guidelines/
 └── coding_guidelines.md
 projects/               # Cost tracking CSV files per project
