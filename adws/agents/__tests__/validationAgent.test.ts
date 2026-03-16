@@ -3,7 +3,6 @@ import * as fs from 'fs';
 import {
   findScenarioFiles,
   readScenarioContents,
-  buildValidationPrompt,
   parseValidationResult,
   runValidationAgent,
   type MismatchItem,
@@ -12,7 +11,7 @@ import {
 vi.mock('fs');
 
 vi.mock('../claudeAgent', () => ({
-  runClaudeAgent: vi.fn().mockResolvedValue({
+  runClaudeAgentWithCommand: vi.fn().mockResolvedValue({
     success: true,
     output: '{"aligned": true, "mismatches": [], "summary": "Aligned"}',
     totalCostUsd: 0.5,
@@ -37,7 +36,7 @@ vi.mock('../../core', async (importOriginal) => {
   };
 });
 
-import { runClaudeAgent } from '../claudeAgent';
+import { runClaudeAgentWithCommand } from '../claudeAgent';
 
 describe('findScenarioFiles', () => {
   beforeEach(() => {
@@ -123,41 +122,6 @@ describe('readScenarioContents', () => {
   });
 });
 
-describe('buildValidationPrompt', () => {
-  it('includes plan content in the prompt', () => {
-    const prompt = buildValidationPrompt('# My Plan', '# Scenarios', 'Issue #42');
-
-    expect(prompt).toContain('# My Plan');
-  });
-
-  it('includes scenario content in the prompt', () => {
-    const prompt = buildValidationPrompt('# Plan', 'Feature: Login', 'Issue #42');
-
-    expect(prompt).toContain('Feature: Login');
-  });
-
-  it('includes issue context in the prompt', () => {
-    const prompt = buildValidationPrompt('# Plan', '# Scenarios', 'Issue #42: Add login');
-
-    expect(prompt).toContain('Issue #42: Add login');
-  });
-
-  it('includes instructions about mismatch types', () => {
-    const prompt = buildValidationPrompt('# Plan', '# Scenarios', 'Issue #42');
-
-    expect(prompt).toContain('plan_only');
-    expect(prompt).toContain('scenario_only');
-    expect(prompt).toContain('conflicting');
-  });
-
-  it('instructs agent to output JSON', () => {
-    const prompt = buildValidationPrompt('# Plan', '# Scenarios', 'Issue #42');
-
-    expect(prompt).toContain('"aligned"');
-    expect(prompt).toContain('"mismatches"');
-  });
-});
-
 describe('parseValidationResult', () => {
   it('parses valid aligned JSON result', () => {
     const output = JSON.stringify({ aligned: true, mismatches: [], summary: 'All good' });
@@ -213,7 +177,7 @@ describe('parseValidationResult', () => {
 describe('runValidationAgent', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(runClaudeAgent).mockResolvedValue({
+    vi.mocked(runClaudeAgentWithCommand).mockResolvedValue({
       success: true,
       output: '{"aligned": true, "mismatches": [], "summary": "Aligned"}',
       totalCostUsd: 0.5,
@@ -221,11 +185,12 @@ describe('runValidationAgent', () => {
     });
   });
 
-  it('calls runClaudeAgent and returns validation result (aligned)', async () => {
-    const result = await runValidationAgent('# Plan', '# Scenarios', 'Issue #42', '/logs');
+  it('calls runClaudeAgentWithCommand with /validate_plan_scenarios and returns validation result (aligned)', async () => {
+    const result = await runValidationAgent('adw123', 42, '/path/to/plan.md', '/worktree', '/logs');
 
-    expect(runClaudeAgent).toHaveBeenCalledWith(
-      expect.stringContaining('# Plan'),
+    expect(runClaudeAgentWithCommand).toHaveBeenCalledWith(
+      '/validate_plan_scenarios',
+      expect.arrayContaining(['adw123', '42', '/path/to/plan.md', '/worktree']),
       'validation-agent',
       expect.stringContaining('validation-agent'),
       'opus',
@@ -239,7 +204,7 @@ describe('runValidationAgent', () => {
   });
 
   it('returns mismatched validation result when agent reports mismatches', async () => {
-    vi.mocked(runClaudeAgent).mockResolvedValue({
+    vi.mocked(runClaudeAgentWithCommand).mockResolvedValue({
       success: true,
       output: JSON.stringify({
         aligned: false,
@@ -250,9 +215,25 @@ describe('runValidationAgent', () => {
       modelUsage: {},
     });
 
-    const result = await runValidationAgent('# Plan', '# Scenarios', 'Issue #42', '/logs');
+    const result = await runValidationAgent('adw123', 42, '/path/to/plan.md', '/worktree', '/logs');
 
     expect(result.validationResult.aligned).toBe(false);
     expect(result.validationResult.mismatches).toHaveLength(1);
+  });
+
+  it('forwards statePath and cwd to runClaudeAgentWithCommand', async () => {
+    await runValidationAgent('adw123', 42, '/path/to/plan.md', '/worktree', '/logs', '/mock/state', '/mock/cwd');
+
+    expect(runClaudeAgentWithCommand).toHaveBeenCalledWith(
+      '/validate_plan_scenarios',
+      expect.any(Array),
+      'validation-agent',
+      expect.any(String),
+      'opus',
+      'high',
+      undefined,
+      '/mock/state',
+      '/mock/cwd',
+    );
   });
 });

@@ -7,11 +7,6 @@ import type { WorkflowConfig } from '../phases/workflowLifecycle';
 import type { ValidationResult } from '../agents/validationAgent';
 import type { ResolutionResult } from '../agents/resolutionAgent';
 
-vi.mock('fs', () => ({
-  writeFileSync: vi.fn(),
-  default: { writeFileSync: vi.fn() },
-}));
-
 vi.mock('../core', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../core')>();
   return {
@@ -34,14 +29,9 @@ vi.mock('../agents', () => ({
   readPlanFile: vi.fn(),
   getPlanFilePath: vi.fn().mockReturnValue('specs/issue-1-plan.md'),
   findScenarioFiles: vi.fn(),
-  readScenarioContents: vi.fn(),
   runValidationAgent: vi.fn(),
   runResolutionAgent: vi.fn(),
   runCommitAgent: vi.fn().mockResolvedValue({ success: true, output: '', totalCostUsd: 0 }),
-}));
-
-vi.mock('../agents/planAgent', () => ({
-  formatIssueContextAsArgs: vi.fn().mockReturnValue('## GitHub Issue #1'),
 }));
 
 vi.mock('../phases/phaseCommentHelpers', () => ({
@@ -52,7 +42,6 @@ import { executePlanValidationPhase } from '../phases/planValidationPhase';
 import {
   readPlanFile,
   findScenarioFiles,
-  readScenarioContents,
   runValidationAgent,
   runResolutionAgent,
   runCommitAgent,
@@ -62,7 +51,6 @@ import { AgentStateManager } from '../core';
 
 const mockReadPlanFile = vi.mocked(readPlanFile);
 const mockFindScenarioFiles = vi.mocked(findScenarioFiles);
-const mockReadScenarioContents = vi.mocked(readScenarioContents);
 const mockRunValidationAgent = vi.mocked(runValidationAgent);
 const mockRunResolutionAgent = vi.mocked(runResolutionAgent);
 const mockRunCommitAgent = vi.mocked(runCommitAgent);
@@ -87,8 +75,8 @@ function makeAgentResolutionResult(): Awaited<ReturnType<typeof runResolutionAge
     output: '{}',
     totalCostUsd: 0.2,
     resolutionResult: {
-      reasoning: 'Updated plan to match issue',
-      decision: 'plan_updated',
+      resolved: true,
+      decisions: [{ mismatch: 'Missing scenario', action: 'updated_plan', reasoning: 'Updated plan to match issue' }],
     } satisfies ResolutionResult,
   };
 }
@@ -138,7 +126,6 @@ describe('executePlanValidationPhase', () => {
     vi.clearAllMocks();
     mockReadPlanFile.mockReturnValue('# Implementation Plan\n\n## Feature X\nDo something');
     mockFindScenarioFiles.mockReturnValue(['/mock/worktree/features/test.feature']);
-    mockReadScenarioContents.mockReturnValue('@adw-1\nFeature: Test X\n  Scenario: ...');
   });
 
   describe('no scenario files found', () => {
@@ -220,14 +207,11 @@ describe('executePlanValidationPhase', () => {
       expect(result.costUsd).toBeCloseTo(0.45, 5);
     });
 
-    it('commits updated artifacts after resolution', async () => {
+    it('commits updated artifacts after resolution when decisions are present', async () => {
       mockRunValidationAgent
         .mockResolvedValueOnce(makeAgentValidationResult(false))
         .mockResolvedValueOnce(makeAgentValidationResult(true));
-      mockRunResolutionAgent.mockResolvedValue({
-        ...makeAgentResolutionResult(),
-        resolutionResult: { reasoning: 'done', decision: 'plan_updated', updatedPlan: '# New plan' },
-      });
+      mockRunResolutionAgent.mockResolvedValue(makeAgentResolutionResult());
 
       await executePlanValidationPhase(makeConfig());
       expect(mockRunCommitAgent).toHaveBeenCalled();
