@@ -74,6 +74,7 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 189,add runprimedclaudeagentwithcommand to prime agent,7.2881,0.7288
 190,review retry loop consolidate patch plans and impl,1.3516,0.1352
 196,push adw kpis,2.0142,0.2014
+199,remove unnecessary exports across the codebase,4.1651,0.4165
 
-Total Cost (USD):,295.3663
-Total Cost (EUR):,258.3403
+Total Cost (USD):,299.9479
+Total Cost (EUR):,262.3476
