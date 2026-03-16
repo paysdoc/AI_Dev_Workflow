@@ -11,7 +11,7 @@ import { runPatchAgent } from './patchAgent';
 import { runBuildAgent } from './buildAgent';
 import { runCommitAgent } from './gitAgent';
 import { pushBranch } from '../vcs';
-import { shouldRunScenarioProof, runCrucialScenarioProof, type ScenarioProofResult } from './crucialScenarioProof';
+import { shouldRunScenarioProof, runRegressionScenarioProof, type ScenarioProofResult } from './regressionScenarioProof';
 
 /** Number of parallel review agents per iteration. */
 const REVIEW_AGENT_COUNT = 3;
@@ -57,8 +57,8 @@ export interface ReviewRetryOptions {
   issueNumber: number;
   /** Raw content of .adw/scenarios.md — empty string when absent (disables scenario proof). */
   scenariosMd: string;
-  /** Command to run @crucial scenarios (from .adw/commands.md). */
-  runCrucialCommand: string;
+  /** Command to run @regression scenarios (from .adw/commands.md). */
+  runRegressionCommand: string;
   /** Command template with {tag} placeholder for tag-filtered scenarios. */
   runByTagCommand: string;
 }
@@ -101,7 +101,7 @@ function mergeReviewResults(results: readonly ReviewAgentResult[]): MergedReview
 
 /**
  * Runs multiple review agents in parallel with automatic retry logic on failure.
- * On each attempt: optionally runs @crucial BDD scenarios first, then launches
+ * On each attempt: optionally runs @regression BDD scenarios first, then launches
  * 3 review agents concurrently, merges results, patches any blocker issues with
  * a single patch agent, commits, pushes, and re-reviews.
  */
@@ -109,7 +109,7 @@ export async function runReviewWithRetry(opts: ReviewRetryOptions): Promise<Revi
   const {
     adwId, issue, specFile, logsDir, orchestratorStatePath: statePath,
     maxRetries, branchName, issueType, issueContext, onReviewFailed, onPatchingIssue, cwd,
-    applicationUrl, issueBody, issueNumber, scenariosMd, runCrucialCommand, runByTagCommand,
+    applicationUrl, issueBody, issueNumber, scenariosMd, runRegressionCommand, runByTagCommand,
   } = opts;
 
   let retryCount = 0;
@@ -126,35 +126,35 @@ export async function runReviewWithRetry(opts: ReviewRetryOptions): Promise<Revi
     // Run scenario proof once per iteration before launching review agents
     let scenarioProof: ScenarioProofResult | undefined;
     if (shouldRunScenarioProof(scenariosMd)) {
-      log('Running @crucial and issue BDD scenarios for proof...', 'info');
+      log('Running @regression and issue BDD scenarios for proof...', 'info');
       AgentStateManager.appendLog(statePath, 'Running BDD scenario proof');
 
       const proofDir = path.join(logsDir, 'scenario_proof');
-      scenarioProof = await runCrucialScenarioProof({
+      scenarioProof = await runRegressionScenarioProof({
         scenariosMd,
         runByTagCommand,
-        runCrucialCommand,
+        runRegressionCommand,
         issueNumber,
         proofDir,
         cwd,
       });
       lastScenarioProof = scenarioProof;
 
-      const crucialStatus = scenarioProof.crucialPassed ? 'passed' : 'FAILED';
-      log(`@crucial scenarios: ${crucialStatus}`, scenarioProof.crucialPassed ? 'success' : 'error');
-      AgentStateManager.appendLog(statePath, `@crucial scenarios: ${crucialStatus}`);
+      const regressionStatus = scenarioProof.regressionPassed ? 'passed' : 'FAILED';
+      log(`@regression scenarios: ${regressionStatus}`, scenarioProof.regressionPassed ? 'success' : 'error');
+      AgentStateManager.appendLog(statePath, `@regression scenarios: ${regressionStatus}`);
       allScreenshots.push(scenarioProof.resultsFilePath);
 
-      // On the final attempt, if @crucial scenarios still fail — return immediately with blockers
+      // On the final attempt, if @regression scenarios still fail — return immediately with blockers
       const isLastAttempt = retryCount === maxRetries - 1;
-      if (!scenarioProof.crucialPassed && isLastAttempt) {
-        log('@crucial scenarios failed on final attempt — returning blocker immediately', 'error');
-        AgentStateManager.appendLog(statePath, '@crucial scenarios failed on final attempt');
+      if (!scenarioProof.regressionPassed && isLastAttempt) {
+        log('@regression scenarios failed on final attempt — returning blocker immediately', 'error');
+        AgentStateManager.appendLog(statePath, '@regression scenarios failed on final attempt');
         const blockerIssue: ReviewIssue = {
           reviewIssueNumber: 1,
           screenshotPath: scenarioProof.resultsFilePath,
-          issueDescription: '@crucial BDD scenarios failed — see scenario proof file for details',
-          issueResolution: 'Fix the failing @crucial BDD scenarios before re-running the review',
+          issueDescription: '@regression BDD scenarios failed — see scenario proof file for details',
+          issueResolution: 'Fix the failing @regression BDD scenarios before re-running the review',
           issueSeverity: 'blocker',
         };
         const reviewSummary = allSummaries.find(s => s.length > 0);

@@ -26,7 +26,7 @@ If `## Run E2E Tests` is absent or its value is `n/a`:
 - Update `.adw/commands.md` with the following sections (creating the file if absent):
   - `## Run E2E Tests` — command to run all Cucumber scenarios
   - `## Run Scenarios by Tag` — command to run scenarios by tag (e.g. `npx cucumber-js --tags "@tagname"`)
-  - `## Run Crucial Scenarios` — command to run `@crucial`-tagged scenarios
+  - `## Run Regression Scenarios` — command to run `@regression`-tagged scenarios
 
 If a tool is already configured, use the existing file format and runner.
 
@@ -54,19 +54,19 @@ Rules:
 - Each scenario must have a clear Given/When/Then structure
 - Scenario names should be specific and descriptive
 
-### 6. `@crucial` tag maintenance sweep
+### 6. `@regression` tag maintenance sweep
 
-After writing the current issue's scenarios, sweep **all** existing `@crucial`-tagged scenarios in the repository.
+After writing the current issue's scenarios, sweep **all** existing `@regression`-tagged scenarios in the repository.
 
-For each `@crucial` scenario:
+For each `@regression` scenario:
 - Re-evaluate whether the designation is still appropriate given:
   - Current `app_docs/` documentation
   - The new issue's requirements
-- Promote (add `@crucial`) scenarios that have become critical
-- Demote (remove `@crucial`) scenarios that are no longer critical
+- Promote (add `@regression`) scenarios that have become critical
+- Demote (remove `@regression`) scenarios that are no longer critical
 - Leave unchanged scenarios that are still appropriately tagged
 
-Document all changes to `@crucial` designations.
+Document all changes to `@regression` designations.
 
 ### 7. Output
 
@@ -83,7 +83,7 @@ Return ONLY the following summary (no additional prose):
 ### Tags applied
 - @adw-$1 applied to: <list of scenario names>
 
-### @crucial maintenance
+### @regression maintenance
 - <promoted: list, or "none">
 - <demoted: list, or "none">
 - <unchanged: count>

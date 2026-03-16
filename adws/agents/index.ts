@@ -59,10 +59,10 @@ export {
   type BddScenarioResult,
 } from './bddScenarioRunner';
 
-// Crucial Scenario Proof
+// Regression Scenario Proof
 export {
   type ScenarioProofResult,
-} from './crucialScenarioProof';
+} from './regressionScenarioProof';
 
 // Test Retry (shared test retry logic)
 export {

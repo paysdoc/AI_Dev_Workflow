@@ -9,7 +9,7 @@ Feature: LLM-Based Issue Dependency Extraction
     Given the ADW workflow is configured for a target repository
     And the `/extract_dependencies` Claude command exists at ".claude/commands/extract_dependencies.md"
 
-  @adw-91v6qi-llm-based-issue-depe @crucial
+  @adw-91v6qi-llm-based-issue-depe @regression
   Scenario: extract_dependencies command returns a JSON array for explicit section dependencies
     Given an issue body with a "## Dependencies" heading listing "#42 and #10"
     When the `/extract_dependencies` command is invoked with that issue body
@@ -17,13 +17,13 @@ Feature: LLM-Based Issue Dependency Extraction
     And the array contains 42 and 10
     And the output contains no surrounding explanation or prose
 
-  @adw-91v6qi-llm-based-issue-depe @crucial
+  @adw-91v6qi-llm-based-issue-depe @regression
   Scenario: extract_dependencies detects natural-language blocking relationship
     Given an issue body containing "blocked by #42"
     When the `/extract_dependencies` command is invoked with that issue body
     Then the output is the JSON array "[42]"
 
-  @adw-91v6qi-llm-based-issue-depe @crucial
+  @adw-91v6qi-llm-based-issue-depe @regression
   Scenario: extract_dependencies detects prerequisite expressions
     Given an issue body containing "prerequisite: #7" and "can't start until #10 lands"
     When the `/extract_dependencies` command is invoked with that issue body
@@ -44,7 +44,7 @@ Feature: LLM-Based Issue Dependency Extraction
     Then the output is a valid JSON array
     And the array contains 33
 
-  @adw-91v6qi-llm-based-issue-depe @crucial
+  @adw-91v6qi-llm-based-issue-depe @regression
   Scenario: extract_dependencies excludes mere mentions (related to, see also)
     Given an issue body containing "related to #5" and "see also #8"
     And the issue body does not express a blocking or prerequisite relationship
@@ -57,7 +57,7 @@ Feature: LLM-Based Issue Dependency Extraction
     When the `/extract_dependencies` command is invoked with that issue body
     Then the output is the JSON array "[]"
 
-  @adw-91v6qi-llm-based-issue-depe @crucial
+  @adw-91v6qi-llm-based-issue-depe @regression
   Scenario: extract_dependencies returns empty array when no dependencies are present
     Given an issue body with no dependency language
     When the `/extract_dependencies` command is invoked with that issue body
@@ -70,7 +70,7 @@ Feature: LLM-Based Issue Dependency Extraction
     Then the output is the JSON array "[42]"
     And the array contains no duplicate entries
 
-  @adw-91v6qi-llm-based-issue-depe @crucial
+  @adw-91v6qi-llm-based-issue-depe @regression
   Scenario: runDependencyExtractionAgent calls the command with the haiku model
     Given the `runDependencyExtractionAgent` function is invoked with a non-empty issue body
     When the agent executes
@@ -78,7 +78,7 @@ Feature: LLM-Based Issue Dependency Extraction
     And the model parameter is "haiku"
     And the issue body is passed as the single argument to the command
 
-  @adw-91v6qi-llm-based-issue-depe @crucial
+  @adw-91v6qi-llm-based-issue-depe @regression
   Scenario: runDependencyExtractionAgent parses the JSON array from agent output
     Given the agent output contains the text "[42, 10, 7]"
     When `runDependencyExtractionAgent` parses the output
@@ -93,7 +93,7 @@ Feature: LLM-Based Issue Dependency Extraction
     And the returned `dependencies` field is an empty array
     And the agent does not throw an exception
 
-  @adw-91v6qi-llm-based-issue-depe @crucial
+  @adw-91v6qi-llm-based-issue-depe @regression
   Scenario: findOpenDependencies uses LLM extraction as the primary path
     Given an issue body containing "blocked by #42"
     And issue #42 is OPEN in the repository
@@ -101,7 +101,7 @@ Feature: LLM-Based Issue Dependency Extraction
     Then `runDependencyExtractionAgent` is invoked to extract dependencies
     And the result includes issue number 42
 
-  @adw-91v6qi-llm-based-issue-depe @crucial
+  @adw-91v6qi-llm-based-issue-depe @regression
   Scenario: findOpenDependencies falls back to regex when LLM extraction fails
     Given an issue body with a "## Dependencies" section listing "#10"
     And the LLM agent call throws an error

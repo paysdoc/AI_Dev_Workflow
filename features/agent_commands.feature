@@ -9,21 +9,21 @@ Feature: Validation and resolution agents use slash commands
     Given the ADW workflow is configured for a target repository
     And the target repository has a plan file and BDD scenario files
 
-  @adw-cahdcr-fix-validation-and-r @crucial
+  @adw-cahdcr-fix-validation-and-r @regression
   Scenario: Validation agent delegates to /validate_plan_scenarios command
     Given the plan validation phase is executing
     When the validation agent runs
     Then it calls runClaudeAgentWithCommand with command "/validate_plan_scenarios"
     And it does not call runClaudeAgent directly
 
-  @adw-cahdcr-fix-validation-and-r @crucial
+  @adw-cahdcr-fix-validation-and-r @regression
   Scenario: Resolution agent delegates to /resolve_plan_scenarios command
     Given the plan validation phase has found mismatches
     When the resolution agent runs
     Then it calls runClaudeAgentWithCommand with command "/resolve_plan_scenarios"
     And it does not call runClaudeAgent directly
 
-  @adw-cahdcr-fix-validation-and-r @crucial
+  @adw-cahdcr-fix-validation-and-r @regression
   Scenario: runClaudeAgent function is removed from the codebase
     Given the ADW codebase
     When searching for usages of runClaudeAgent

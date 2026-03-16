@@ -6,5 +6,5 @@ features/
 ## Run Scenarios by Tag
 cucumber-js --tags "@{tag}"
 
-## Run Crucial Scenarios
-cucumber-js --tags "@crucial"
+## Run Regression Scenarios
+cucumber-js --tags "@regression"

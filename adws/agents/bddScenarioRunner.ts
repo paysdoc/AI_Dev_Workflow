@@ -84,8 +84,8 @@ export function runBddScenarios(
  * - Returns `allPassed: true` when the process exits with code 0.
  *
  * @param tagCommand - The run-by-tag command template (e.g. `cucumber-js --tags "@{tag}"`),
- *   or a full command without `{tag}` placeholder (e.g. `cucumber-js --tags "@crucial"`).
- * @param tag - The tag value to substitute for `{tag}` (e.g. `crucial`, `adw-168`).
+ *   or a full command without `{tag}` placeholder (e.g. `cucumber-js --tags "@regression"`).
+ * @param tag - The tag value to substitute for `{tag}` (e.g. `regression`, `adw-168`).
  * @param cwd - Optional working directory (defaults to `process.cwd()`).
  */
 export function runScenariosByTag(

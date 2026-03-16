@@ -13,7 +13,7 @@ Feature: runPrimedClaudeAgentWithCommand primes context before executing a comma
     And the ADW codebase contains "adws/agents/scenarioAgent.ts"
     And the ADW codebase contains "adws/agents/index.ts"
 
-  @adw-uzfskg-add-runprimedclaudea @crucial
+  @adw-uzfskg-add-runprimedclaudea @regression
   Scenario: runPrimedClaudeAgentWithCommand is exported from claudeAgent.ts
     Given "adws/agents/claudeAgent.ts" is read
     When searching for the exported symbol "runPrimedClaudeAgentWithCommand"
@@ -21,7 +21,7 @@ Feature: runPrimedClaudeAgentWithCommand primes context before executing a comma
     And its signature accepts command, args, agentName, outputFile, model, effort, onProgress, statePath, and cwd parameters
     And it returns a Promise<AgentResult>
 
-  @adw-uzfskg-add-runprimedclaudea @crucial
+  @adw-uzfskg-add-runprimedclaudea @regression
   Scenario: runPrimedClaudeAgentWithCommand composes a prompt with /install first
     Given runPrimedClaudeAgentWithCommand is called with command "/feature" and args ["42", "abc123", "{}"]
     When the composed prompt is constructed
@@ -29,21 +29,21 @@ Feature: runPrimedClaudeAgentWithCommand primes context before executing a comma
     And the prompt contains "Once /install completes, run: /feature"
     And the prompt contains the provided args in single-quoted form
 
-  @adw-uzfskg-add-runprimedclaudea @crucial
+  @adw-uzfskg-add-runprimedclaudea @regression
   Scenario: Plan agent calls runPrimedClaudeAgentWithCommand instead of runClaudeAgentWithCommand
     Given "adws/agents/planAgent.ts" is read
     When searching for the call that launches the plan agent subprocess
     Then it calls "runPrimedClaudeAgentWithCommand"
     And it does not call "runClaudeAgentWithCommand" for the plan agent subprocess
 
-  @adw-uzfskg-add-runprimedclaudea @crucial
+  @adw-uzfskg-add-runprimedclaudea @regression
   Scenario: Scenario agent calls runPrimedClaudeAgentWithCommand instead of runClaudeAgentWithCommand
     Given "adws/agents/scenarioAgent.ts" is read
     When searching for the call that launches the scenario agent subprocess
     Then it calls "runPrimedClaudeAgentWithCommand"
     And it does not call "runClaudeAgentWithCommand" for the scenario agent subprocess
 
-  @adw-uzfskg-add-runprimedclaudea @crucial
+  @adw-uzfskg-add-runprimedclaudea @regression
   Scenario: runPrimedClaudeAgentWithCommand is re-exported from the agents barrel
     Given "adws/agents/index.ts" is read
     When searching for the export of "runPrimedClaudeAgentWithCommand"

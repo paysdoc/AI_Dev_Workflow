@@ -30,13 +30,13 @@ export interface CommandsConfig {
   scriptExecution: string;
   runBddScenarios: string;
   runScenariosByTag: string;
-  runCrucialScenarios: string;
+  runRegressionScenarios: string;
 }
 
 export interface ScenariosConfig {
   scenarioDirectory: string;
   runByTag: string;
-  runCrucial: string;
+  runRegression: string;
 }
 
 export interface ProvidersConfig {
@@ -72,7 +72,7 @@ export interface ProjectConfig {
 const SCENARIOS_HEADING_TO_KEY: Record<string, keyof ScenariosConfig> = {
   'scenario directory': 'scenarioDirectory',
   'run scenarios by tag': 'runByTag',
-  'run crucial scenarios': 'runCrucial',
+  'run regression scenarios': 'runRegression',
 };
 
 const PROVIDERS_HEADING_TO_KEY: Record<string, keyof ProvidersConfig> = {
@@ -99,7 +99,7 @@ const HEADING_TO_KEY: Record<string, keyof CommandsConfig> = {
   'script execution': 'scriptExecution',
   'run bdd scenarios': 'runBddScenarios',
   'run scenarios by tag': 'runScenariosByTag',
-  'run crucial scenarios': 'runCrucialScenarios',
+  'run regression scenarios': 'runRegressionScenarios',
 };
 
 // ---------------------------------------------------------------------------
@@ -122,7 +122,7 @@ export function getDefaultCommandsConfig(): CommandsConfig {
     scriptExecution: 'bunx tsx <script name>',
     runBddScenarios: 'N/A',
     runScenariosByTag: 'cucumber-js --tags "@{tag}"',
-    runCrucialScenarios: 'cucumber-js --tags "@crucial"',
+    runRegressionScenarios: 'cucumber-js --tags "@regression"',
   };
 }
 
@@ -130,7 +130,7 @@ export function getDefaultScenariosConfig(): ScenariosConfig {
   return {
     scenarioDirectory: 'features/',
     runByTag: 'cucumber-js --tags "@{tag}"',
-    runCrucial: 'cucumber-js --tags "@crucial"',
+    runRegression: 'cucumber-js --tags "@regression"',
   };
 }
 

@@ -135,7 +135,7 @@ adws/                   # ADW workflow system
 │   ├── bddScenarioRunner.ts  # BDD scenario execution
 │   ├── buildAgent.ts
 │   ├── claudeAgent.ts
-│   ├── crucialScenarioProof.ts  # Crucial scenario proof for reviews
+│   ├── regressionScenarioProof.ts  # Regression scenario proof for reviews
 │   ├── dependencyExtractionAgent.ts  # LLM-based issue dependency extraction
 │   ├── documentAgent.ts
 │   ├── gitAgent.ts
