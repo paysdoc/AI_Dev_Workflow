@@ -141,3 +141,8 @@ export {
   type ResolutionResult,
 } from './resolutionAgent';
 
+// Dependency Extraction Agent
+export {
+  runDependencyExtractionAgent,
+  parseDependencyArray,
+} from './dependencyExtractionAgent';
