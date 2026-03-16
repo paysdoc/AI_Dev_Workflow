@@ -197,6 +197,7 @@ export const SLASH_COMMAND_MODEL_MAP: Record<SlashCommand, ModelTier> = {
   '/find_plan_file': 'sonnet',
   // Dependency checking
   '/find_issue_dependencies': 'sonnet',
+  '/extract_dependencies': 'haiku',
   // ADW initialization
   '/adw_init': 'sonnet',
   // Scenario writing
@@ -227,6 +228,7 @@ export const SLASH_COMMAND_MODEL_MAP_FAST: Record<SlashCommand, ModelTier> = {
   '/track_agentic_kpis': 'haiku',
   '/find_plan_file': 'haiku',
   '/find_issue_dependencies': 'haiku',
+  '/extract_dependencies': 'haiku',
   '/adw_init': 'haiku',
   // Scenario writing
   '/scenario_writer': 'haiku',
@@ -282,6 +284,7 @@ export const SLASH_COMMAND_EFFORT_MAP: Record<SlashCommand, ReasoningEffort | un
   '/track_agentic_kpis': 'medium',
   '/find_plan_file': 'low',
   '/find_issue_dependencies': 'low',
+  '/extract_dependencies': 'low',
   '/adw_init': 'medium',
   // Scenario writing
   '/scenario_writer': 'high',
@@ -311,6 +314,7 @@ export const SLASH_COMMAND_EFFORT_MAP_FAST: Record<SlashCommand, ReasoningEffort
   '/track_agentic_kpis': 'low',
   '/find_plan_file': 'low',
   '/find_issue_dependencies': 'low',
+  '/extract_dependencies': 'low',
   '/adw_init': 'medium',
   // Scenario writing
   '/scenario_writer': 'medium',

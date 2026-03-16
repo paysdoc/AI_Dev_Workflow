@@ -144,3 +144,8 @@ export {
   type ResolutionDecision,
 } from './resolutionAgent';
 
+// Dependency Extraction Agent
+export {
+  runDependencyExtractionAgent,
+  parseDependencyArray,
+} from './dependencyExtractionAgent';

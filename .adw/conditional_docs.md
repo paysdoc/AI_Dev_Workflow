@@ -136,6 +136,14 @@
     - When configuring `runCrucialScenarios` or `runScenariosByTag` commands in `.adw/commands.md`
     - When troubleshooting review proof fallback behaviour for repos without `.adw/scenarios.md`
 
+- app_docs/feature-91v6qi-llm-dependency-extraction.md
+  - Conditions:
+    - When working with `findOpenDependencies()`, `extractDependencies()`, or `parseDependencies()` in `adws/triggers/issueDependencies.ts`
+    - When adding or modifying dependency extraction logic or the `/extract_dependencies` command
+    - When implementing a new agent that calls `runClaudeAgentWithCommand` with a slash command
+    - When troubleshooting why an issue with natural-language dependencies was not deferred
+    - When working with `dependencyExtractionAgent.ts` or `parseDependencyArray`
+
 - app_docs/feature-uzfskg-add-primed-claude-agent.md
   - Conditions:
     - When working with `runPrimedClaudeAgentWithCommand` or agent context priming

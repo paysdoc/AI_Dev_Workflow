@@ -100,7 +100,9 @@ export type AgentIdentifier =
   | 'scenario-agent'
   // Plan validation agents
   | 'validation-agent'
-  | 'resolution-agent';
+  | 'resolution-agent'
+  // Dependency extraction agent
+  | 'dependency-extraction-agent';
 
 /**
  * Execution status for tracking agent progress.
