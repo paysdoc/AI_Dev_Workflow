@@ -7,6 +7,7 @@ export {
   getRepoInfo,
   getRepoInfoFromUrl,
   getRepoInfoFromPayload,
+  getAuthenticatedUser,
   fetchGitHubIssue,
   fetchPRDetails,
   fetchPRReviews,

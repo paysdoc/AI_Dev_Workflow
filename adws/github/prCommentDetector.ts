@@ -7,8 +7,9 @@
 
 import { execSync } from 'child_process';
 import { PRReviewComment, log } from '../core';
-import { fetchPRDetails, fetchPRReviewComments } from './githubApi';
+import { fetchPRDetails, fetchPRReviewComments, getAuthenticatedUser } from './githubApi';
 import type { RepoInfo } from './githubApi';
+import { isAdwComment } from '../core/workflowCommentParsing';
 
 /**
  * Structural regex matching the universal ADW commit format: `<agentName>: <issueClass>: <message>`.
@@ -58,9 +59,15 @@ export function getUnaddressedComments(prNumber: number, repoInfo: RepoInfo): PR
   const comments = fetchPRReviewComments(prNumber, repoInfo);
   log(`Found ${comments.length} total comments on PR #${prNumber}`);
 
-  // Filter out bot comments
-  const humanComments = comments.filter(c => !c.author.isBot);
-  log(`Found ${humanComments.length} human comments (filtered ${comments.length - humanComments.length} bot comments)`);
+  // Filter out bot, self-review, and ADW-signed comments
+  const authenticatedUser = getAuthenticatedUser();
+  const humanComments = comments.filter(c => {
+    if (c.author.isBot) return false;
+    if (authenticatedUser && c.author.login === authenticatedUser) return false;
+    if (isAdwComment(c.body)) return false;
+    return true;
+  });
+  log(`Found ${humanComments.length} human comments (filtered ${comments.length - humanComments.length} bot/self/ADW comments)`);
 
   if (humanComments.length === 0) {
     log(`No human comments found on PR #${prNumber}, returning empty`);
