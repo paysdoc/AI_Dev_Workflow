@@ -47,7 +47,7 @@ export function extractCwdOption(args: string[]): string | null {
  * Extracts and removes an `--issue-type <type>` option from args (mutates the array).
  * Exits with an error if the provided type is invalid.
  */
-export function extractIssueTypeOption(args: string[]): IssueClassSlashCommand | null {
+function extractIssueTypeOption(args: string[]): IssueClassSlashCommand | null {
   const issueTypeIndex = args.indexOf('--issue-type');
   if (issueTypeIndex === -1 || !args[issueTypeIndex + 1]) return null;
 
@@ -64,7 +64,7 @@ export function extractIssueTypeOption(args: string[]): IssueClassSlashCommand |
  * Validates and parses a string as an issue number.
  * Exits with an error message if invalid.
  */
-export function parseIssueNumber(value: string): number {
+function parseIssueNumber(value: string): number {
   const issueNumber = parseInt(value, 10);
   if (isNaN(issueNumber)) {
     console.error(`Invalid issue number: ${value}`);

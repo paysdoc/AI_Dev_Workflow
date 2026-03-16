@@ -25,18 +25,13 @@ import { getTargetRepoWorkspacePath } from '../core/targetRepoManager';
 const mergedPrIssues = new Set<number>();
 
 /** Records that an issue's cost CSV was handled by a merged PR. */
-export function recordMergedPrIssue(issueNumber: number): void {
+function recordMergedPrIssue(issueNumber: number): void {
   mergedPrIssues.add(issueNumber);
 }
 
 /** Checks whether an issue was already handled by a merged PR. */
 export function wasMergedViaPR(issueNumber: number): boolean {
   return mergedPrIssues.has(issueNumber);
-}
-
-/** Clears the merged PR issue tracking set. Exported for test cleanup only. */
-export function resetMergedPrIssues(): void {
-  mergedPrIssues.clear();
 }
 
 /**

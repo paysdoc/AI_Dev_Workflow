@@ -16,7 +16,7 @@ import { isAdwComment } from '../core/workflowCommentParsing';
  * The double colon-space prefix is distinctive to ADW commits — normal developer commits use a single
  * prefix like `feat: message`. This pattern is forward-compatible with new agents and issue types.
  */
-export const ADW_COMMIT_PATTERN = /^[\w/-]+: \w+: /;
+const ADW_COMMIT_PATTERN = /^[\w/-]+: \w+: /;
 
 /**
  * Gets the timestamp of the last ADW commit on the given branch.

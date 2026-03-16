@@ -22,7 +22,7 @@ export interface ResolutionResult {
 /**
  * Returns positional args for the /resolve_plan_scenarios command.
  */
-export function formatResolutionArgs(
+function formatResolutionArgs(
   adwId: string,
   issueNumber: number,
   planFilePath: string,

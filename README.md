@@ -136,7 +136,7 @@ adws/                   # ADW workflow system
 │   ├── buildAgent.ts
 │   ├── claudeAgent.ts
 │   ├── regressionScenarioProof.ts  # Regression scenario proof for reviews
-│   ├── dependencyExtractionAgent.ts  # LLM-based dependency extraction
+│   ├── dependencyExtractionAgent.ts  # LLM-based issue dependency extraction
 │   ├── documentAgent.ts
 │   ├── gitAgent.ts
 │   ├── index.ts

@@ -27,6 +27,7 @@ export {
   pushBranch,
   pullLatestCostBranch,
   commitAndPushCostFiles,
+  commitAndPushKpiFile,
   type CommitCostFilesOptions,
 } from './commitOperations';
 

@@ -36,7 +36,7 @@ export const MODEL_PRICING: Readonly<Record<string, ModelPricing>> = {
 const DEFAULT_PRICING = MODEL_PRICING['sonnet'];
 
 /** Returns pricing for a model, falling back to sonnet pricing for unknown models. */
-export function getModelPricing(modelName: string): ModelPricing {
+function getModelPricing(modelName: string): ModelPricing {
   return MODEL_PRICING[modelName] ?? DEFAULT_PRICING;
 }
 

@@ -27,7 +27,7 @@ import {
  * @param text - The raw text potentially containing fenced code blocks
  * @returns The text with all fenced code block content removed
  */
-export function stripFencedCodeBlocks(text: string): string {
+function stripFencedCodeBlocks(text: string): string {
   const stripped = text.replace(/```[\s\S]*?```/g, '');
   if (stripped.length !== text.length) {
     log(`stripFencedCodeBlocks: removed ${text.length - stripped.length} characters of fenced code block content`);
@@ -44,7 +44,7 @@ export function stripFencedCodeBlocks(text: string): string {
  * @param text - The text to scan for ADW commands
  * @returns The matched AdwSlashCommand or null if none found
  */
-export function extractAdwCommandFromText(text: string): AdwSlashCommand | null {
+function extractAdwCommandFromText(text: string): AdwSlashCommand | null {
   if (!text) return null;
 
   const strippedText = stripFencedCodeBlocks(text);
