@@ -40,7 +40,7 @@ bunx tsx <script name>
 N/A
 
 ## Run Scenarios by Tag
-cucumber-js --tags "@{tag}"
+N/A
 
 ## Run Crucial Scenarios
-cucumber-js --tags "@crucial"
+N/A
