@@ -127,3 +127,40 @@ export function commitAndPushCostFiles(options: CommitCostFilesOptions = {}): bo
     return false;
   }
 }
+
+/**
+ * Stages, commits, and pushes the agentic KPI file.
+ * Returns true if changes were committed, false if no changes or on failure.
+ */
+export function commitAndPushKpiFile(cwd?: string): boolean {
+  try {
+    const status = execSync(
+      'git status --porcelain -- "app_docs/agentic_kpis.md"',
+      { encoding: 'utf-8', cwd },
+    ).trim();
+
+    if (!status) {
+      log(`No KPI file changes to commit`, 'info');
+      return false;
+    }
+
+    execSync('git add "app_docs/agentic_kpis.md"', { stdio: 'pipe', cwd });
+    execSync('git commit -m "kpis: update agentic_kpis"', { stdio: 'pipe', cwd });
+
+    const branch = getCurrentBranch(cwd);
+
+    if (!branch) {
+      throw new Error('Cannot push KPI file: no current branch detected (detached HEAD)');
+    }
+
+    execSync(`git fetch origin "${branch}"`, { stdio: 'pipe', cwd });
+    execSync(`git rebase --autostash "origin/${branch}"`, { stdio: 'pipe', cwd });
+    execSync(`git push origin "${branch}"`, { stdio: 'pipe', cwd });
+
+    log(`Committed and pushed agentic_kpis.md`, 'success');
+    return true;
+  } catch (error) {
+    log(`Failed to commit KPI file: ${error}`, 'error');
+    return false;
+  }
+}
