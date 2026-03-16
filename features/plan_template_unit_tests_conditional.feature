@@ -27,10 +27,10 @@ Feature: Plan templates conditionally include unit tests based on project config
     And the "### Unit Tests" section describes unit tests needed for the feature
 
   @adw-jjxkk9-plan-templates-inclu @crucial
-  Scenario: Feature plan includes Unit Tests section when no unit tests setting is present
+  Scenario: Feature plan omits Unit Tests section when no unit tests setting is present
     Given ".adw/project.md" does not contain a "## Unit Tests" setting
     When the plan agent runs the "/feature" command for an issue
-    Then the generated plan file contains a "### Unit Tests" section
+    Then the generated plan file does not contain a "### Unit Tests" section
 
   @adw-jjxkk9-plan-templates-inclu
   Scenario: feature.md instructs the plan agent to read project config for unit test setting
