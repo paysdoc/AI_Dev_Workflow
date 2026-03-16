@@ -40,7 +40,7 @@ bunx tsx <script name>
 N/A
 
 ## Run Scenarios by Tag
-cucumber-js --tags "@{tag}"
+bunx cucumber-js --tags "@{tag}"
 
 ## Run Regression Scenarios
 cucumber-js --tags "@regression"

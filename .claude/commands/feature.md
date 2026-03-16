@@ -89,6 +89,8 @@ Use these files to implement the feature:
 ## Step by Step Tasks
 IMPORTANT: Execute every step in order, top to bottom.
 
+IMPORTANT: Read `.adw/project.md` from the current working directory. If it contains `## Unit Tests: disabled` or the `## Unit Tests` section is absent, do NOT include any tasks for creating, writing, or running unit tests. Do not create unit test files. Only include unit test tasks when `.adw/project.md` explicitly contains `## Unit Tests: enabled`.
+
 <list step by step tasks as h3 headers plus bullet points. use as many h3 headers as needed to implement the feature. Order matters, start with the foundational shared changes required then move on to the specific implementation. Include creating tests throughout the implementation process.>
 
 <If the feature affects UI, include a task to create a E2E test file (like `.claude/commands/e2e-examples/test_basic_query.md` and `.claude/commands/e2e-examples/test_complex_query.md`) as one of your early tasks. That e2e test should validate the feature works as expected, be specific with the steps to demonstrate the new functionality. We want the minimal set of steps to validate the feature works as expected and screen shots to prove it if possible.>
@@ -97,7 +99,8 @@ IMPORTANT: Execute every step in order, top to bottom.
 
 ## Testing Strategy
 ### Unit Tests
-<describe unit tests needed for the feature>
+Read `.adw/project.md` from the current working directory. If it contains `## Unit Tests: disabled` or the `## Unit Tests` section is absent, OMIT this entire `### Unit Tests` subsection from the plan. Do not plan any unit test tasks or unit test file creation.
+If `.adw/project.md` contains `## Unit Tests: enabled` (inline) or a `## Unit Tests` section with body `enabled`, describe the unit tests needed for the feature here.
 
 ### Edge Cases
 <list edge cases that need to be tested>
