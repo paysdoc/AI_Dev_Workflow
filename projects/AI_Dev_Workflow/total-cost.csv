@@ -73,8 +73,9 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 185,llm based issue dependency extraction,7.9817,0.7982
 189,add runprimedclaudeagentwithcommand to prime agent,7.2881,0.7288
 190,review retry loop consolidate patch plans and impl,1.3516,0.1352
+194,replace crucial with regression,11.6427,1.1643
 196,push adw kpis,2.0142,0.2014
 199,remove unnecessary exports across the codebase,4.1651,0.4165
 
-Total Cost (USD):,299.9479
-Total Cost (EUR):,262.3476
+Total Cost (USD):,312.7549
+Total Cost (EUR):,273.5492
