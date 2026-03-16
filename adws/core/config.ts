@@ -114,8 +114,8 @@ export const MAX_CONCURRENT_PER_REPO = parseInt(process.env.MAX_CONCURRENT_PER_R
 /** Grace period (ms) for cron to avoid racing with webhook processing (default: 5 minutes). */
 export const GRACE_PERIOD_MS = 300_000;
 
-/** Maximum token budget per agent session (default: 200,000). */
-export const MAX_THINKING_TOKENS = Math.max(0, parseInt(process.env.MAX_THINKING_TOKENS || '200000', 10)) || 200000;
+/** Maximum token budget per agent session (default: 63,999). */
+export const MAX_THINKING_TOKENS = Math.max(0, parseInt(process.env.MAX_THINKING_TOKENS || '63999', 10)) || 63999;
 
 /** Fraction of MAX_THINKING_TOKENS at which to trigger recovery (default: 0.9). */
 export const TOKEN_LIMIT_THRESHOLD = parseFloat(process.env.TOKEN_LIMIT_THRESHOLD || '0.9') || 0.9;

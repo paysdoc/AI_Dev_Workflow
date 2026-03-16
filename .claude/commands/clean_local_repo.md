@@ -1,8 +1,3 @@
----
-name: clean-local-repo
-description: Remove all branches except develop and main
----
-
 # Clean Local Repo
 
 ## Read

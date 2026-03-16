@@ -40,6 +40,14 @@ Then edit `.env` with your values:
 - `GITHUB_WEBHOOK_SECRET` - (Optional) Required only for webhook trigger
 - `TARGET_REPOS_DIR` - (Optional) Directory for storing cloned target repository workspaces, defaults to `~/.adw/repos`
 - `MAX_CONCURRENT_PER_REPO` - (Optional) Maximum concurrent in-progress issues per repository, defaults to `5`
+- `RUNNING_TOKENS` - (Optional) Show running token totals in issue comments, defaults to `false`
+- `JIRA_BASE_URL` - (Optional) Jira instance URL, required only when using Jira as the issue tracker
+- `JIRA_PROJECT_KEY` - (Optional) Default Jira project key
+- `JIRA_EMAIL` - (Optional) Jira Cloud auth email
+- `JIRA_API_TOKEN` - (Optional) Jira Cloud API token
+- `JIRA_PAT` - (Optional) Jira Data Center/Server personal access token (use instead of email + API token)
+- `GITLAB_TOKEN` - (Optional) GitLab personal access token (needs api scope), required only when using GitLab
+- `GITLAB_INSTANCE_URL` - (Optional) GitLab instance URL, defaults to `https://gitlab.com`
 
 ### 4. Run ADW
 
@@ -72,7 +80,9 @@ bun run test:watch    # Run tests in watch mode
 ├── commands.md         # Build/test/lint command mappings
 ├── conditional_docs.md # Conditional documentation paths
 ├── project.md          # Project structure and relevant files
-└── review_proof.md     # Review proof requirements for target projects
+├── providers.md        # Provider configuration (issue tracker, code host)
+├── review_proof.md     # Review proof requirements for target projects
+└── scenarios.md        # BDD scenario configuration
 .claude/
 ├── commands/           # Claude Code slash commands
 │   ├── adw_init.md
@@ -88,18 +98,25 @@ bun run test:watch    # Run tests in watch mode
 │   ├── find_issue_dependencies.md
 │   ├── generate_branch_name.md
 │   ├── implement.md
+│   ├── in_loop_review.md
 │   ├── install.md
 │   ├── patch.md
 │   ├── pr_review.md
 │   ├── prepare_app.md
 │   ├── prime.md
 │   ├── pull_request.md
+│   ├── resolve_conflict.md
 │   ├── resolve_failed_e2e_test.md
 │   ├── resolve_failed_test.md
+│   ├── resolve_plan_scenarios.md
 │   ├── review.md
+│   ├── scenario_writer.md
 │   ├── start.md
 │   ├── test.md
-│   └── tools.md
+│   ├── test_e2e.md
+│   ├── tools.md
+│   ├── track_agentic_kpis.md
+│   └── validate_plan_scenarios.md
 ├── hooks/              # Claude Code hooks
 │   ├── notification.ts
 │   ├── post-tool-use.ts
@@ -110,22 +127,30 @@ bun run test:watch    # Run tests in watch mode
 │       └── constants.ts
 └── settings.json
 adws/                   # ADW workflow system
+├── __tests__/          # Root-level orchestrator tests
 ├── agents/             # Claude Code agent runners
+│   ├── __tests__/      # Agent tests
 │   ├── agentProcessHandler.ts  # Process spawning handler
+│   ├── bddScenarioRunner.ts  # BDD scenario execution
 │   ├── buildAgent.ts
 │   ├── claudeAgent.ts
+│   ├── crucialScenarioProof.ts  # Crucial scenario proof for reviews
 │   ├── documentAgent.ts
 │   ├── gitAgent.ts
 │   ├── index.ts
 │   ├── jsonlParser.ts
+│   ├── kpiAgent.ts     # KPI tracking agent
 │   ├── patchAgent.ts
 │   ├── planAgent.ts
 │   ├── prAgent.ts
+│   ├── resolutionAgent.ts  # Plan-scenario mismatch resolution
 │   ├── reviewAgent.ts
 │   ├── reviewRetry.ts
+│   ├── scenarioAgent.ts  # BDD scenario planner agent
 │   ├── testAgent.ts
 │   ├── testDiscovery.ts  # E2E test discovery
-│   └── testRetry.ts
+│   ├── testRetry.ts
+│   └── validationAgent.ts  # Plan-scenario validation
 ├── core/               # Configuration and utilities
 │   ├── agentState.ts
 │   ├── config.ts
@@ -144,14 +169,11 @@ adws/                   # ADW workflow system
 │   ├── retryOrchestrator.ts
 │   ├── stateHelpers.ts
 │   ├── targetRepoManager.ts
-│   ├── targetRepoRegistry.ts
 │   ├── tokenManager.ts  # Token counting (relocated from agents/)
 │   ├── utils.ts
+│   ├── workflowCommentParsing.ts  # Comment parsing utilities
 │   └── workflowMapping.ts  # Issue type → orchestrator mapping
-├── github/             # GitHub API and git operations
-│   ├── gitBranchOperations.ts  # Branch management
-│   ├── gitCommitOperations.ts  # Commit/push operations
-│   ├── gitOperations.ts  # Re-export barrel
+├── github/             # GitHub API operations
 │   ├── githubApi.ts
 │   ├── index.ts
 │   ├── issueApi.ts
@@ -162,19 +184,28 @@ adws/                   # ADW workflow system
 │   ├── workflowComments.ts
 │   ├── workflowCommentsBase.ts
 │   ├── workflowCommentsIssue.ts
-│   ├── workflowCommentsPR.ts
+│   └── workflowCommentsPR.ts
+├── vcs/                # Version control operations (git)
+│   ├── branchOperations.ts  # Branch management
+│   ├── commitOperations.ts  # Commit/push operations
+│   ├── index.ts
 │   ├── worktreeCleanup.ts
 │   ├── worktreeCreation.ts
 │   ├── worktreeOperations.ts
 │   └── worktreeQuery.ts  # Worktree query utilities
 ├── phases/             # Workflow phase implementations
+│   ├── __tests__/      # Phase tests
 │   ├── buildPhase.ts
 │   ├── documentPhase.ts
 │   ├── index.ts
+│   ├── kpiPhase.ts     # KPI tracking phase
+│   ├── phaseCommentHelpers.ts  # Shared phase comment utilities
 │   ├── planPhase.ts
+│   ├── planValidationPhase.ts  # Plan-scenario validation phase
 │   ├── prPhase.ts
 │   ├── prReviewCompletion.ts  # PR review completion/error handling
 │   ├── prReviewPhase.ts
+│   ├── scenarioPhase.ts  # BDD scenario generation phase
 │   ├── testPhase.ts
 │   ├── workflowCompletion.ts  # Workflow completion/error handling
 │   ├── workflowInit.ts  # Workflow initialization
@@ -187,11 +218,31 @@ adws/                   # ADW workflow system
 │   ├── index.ts
 │   ├── issueTypes.ts
 │   └── workflowTypes.ts
-├── providers/          # Provider interfaces and types
+├── providers/          # Provider interfaces and implementations
+│   ├── github/         # GitHub provider
+│   │   ├── githubCodeHost.ts
+│   │   ├── githubIssueTracker.ts
+│   │   ├── index.ts
+│   │   └── mappers.ts
+│   ├── gitlab/         # GitLab provider
+│   │   ├── gitlabApiClient.ts
+│   │   ├── gitlabCodeHost.ts
+│   │   ├── gitlabTypes.ts
+│   │   ├── index.ts
+│   │   └── mappers.ts
+│   ├── jira/           # Jira provider
+│   │   ├── adfConverter.ts
+│   │   ├── index.ts
+│   │   ├── jiraApiClient.ts
+│   │   ├── jiraIssueTracker.ts
+│   │   └── jiraTypes.ts
 │   ├── index.ts
+│   ├── repoContext.ts  # RepoContext factory
 │   └── types.ts
 ├── triggers/           # Automation triggers
+│   ├── cloudflareTunnel.tsx  # Cloudflare tunnel for webhooks
 │   ├── concurrencyGuard.ts
+│   ├── cronProcessGuard.ts  # Duplicate cron process prevention
 │   ├── issueDependencies.ts
 │   ├── issueEligibility.ts
 │   ├── trigger_cron.ts
@@ -223,6 +274,7 @@ adws/                   # ADW workflow system
 app_docs/               # Generated feature documentation
 bun.lock                # Bun lockfile
 eslint.config.js        # ESLint configuration
+features/               # BDD feature files
 guidelines/
 └── coding_guidelines.md
 projects/               # Cost tracking CSV files per project

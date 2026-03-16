@@ -1,8 +1,3 @@
----
-name: pr_review
-description: Create a plan to resolve a specified PR review
----
-
 # PR-review Planning
 
 Create a new plan at `specs/issue-{issueNumber}-plan.md` (where `{issueNumber}` is the issue number) to resolve the `PR-Review` using the exact specified markdown `Plan Format`. Follow the `Instructions` to create the plan use the `Relevant Files` to focus on the right files. Follow the `Report` section to properly report the results of your work.
