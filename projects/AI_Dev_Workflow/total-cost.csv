@@ -68,6 +68,8 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 169,remove adw unit test files disable unit tests in a,0.7004,0.0700
 175,add logging when determining whether there is an i,1.8536,0.1854
 177,trigger cron process may not be running more than ,2.6237,0.2624
+183,fix validation and resolution agents to use comman,3.3632,0.3363
+184,cron pr polling re triggers adwprreview on adw s o,2.1207,0.2121
 
-Total Cost (USD):,268.8348
-Total Cost (EUR):,235.1348
+Total Cost (USD):,274.8671
+Total Cost (EUR):,240.4109
