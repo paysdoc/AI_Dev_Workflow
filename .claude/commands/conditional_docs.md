@@ -121,3 +121,11 @@ This prompt helps you determine what documentation you should read based on the 
     - When adding or changing `@crucial` / `@adw-{issueNumber}` scenario classification in review
     - When configuring `runCrucialScenarios` or `runScenariosByTag` commands in `.adw/commands.md`
     - When troubleshooting review proof fallback behaviour for repos without `.adw/scenarios.md`
+
+- app_docs/feature-91v6qi-llm-dependency-extraction.md
+  - Conditions:
+    - When working with `findOpenDependencies()`, `extractDependencies()`, or `parseDependencies()` in `adws/triggers/issueDependencies.ts`
+    - When adding or modifying dependency extraction logic or the `/extract_dependencies` command
+    - When implementing a new agent that calls `runClaudeAgentWithCommand` with a slash command
+    - When troubleshooting why an issue with natural-language dependencies was not deferred
+    - When working with `dependencyExtractionAgent.ts` or `parseDependencyArray`
