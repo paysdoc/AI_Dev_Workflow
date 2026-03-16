@@ -1,7 +1,7 @@
 /**
- * Crucial scenario proof orchestrator.
+ * Regression scenario proof orchestrator.
  *
- * Runs @crucial and @adw-{issueNumber} BDD scenarios, writes combined results
+ * Runs @regression and @adw-{issueNumber} BDD scenarios, writes combined results
  * to a proof markdown file, and returns a structured outcome for the review retry loop.
  */
 
@@ -13,15 +13,15 @@ import { runScenariosByTag } from './bddScenarioRunner';
 const MAX_OUTPUT_LENGTH = 10_000;
 
 /**
- * Structured result from running crucial and issue-specific scenario proofs.
+ * Structured result from running regression and issue-specific scenario proofs.
  */
 export interface ScenarioProofResult {
-  /** Whether all @crucial scenarios passed (exit code 0). */
-  crucialPassed: boolean;
-  /** Stdout from the @crucial run (truncated if over 10,000 chars). */
-  crucialOutput: string;
-  /** Exit code from the @crucial run. */
-  crucialExitCode: number | null;
+  /** Whether all @regression scenarios passed (exit code 0). */
+  regressionPassed: boolean;
+  /** Stdout from the @regression run (truncated if over 10,000 chars). */
+  regressionOutput: string;
+  /** Exit code from the @regression run. */
+  regressionExitCode: number | null;
   /** Whether the @adw-{issueNumber} scenarios passed (exit code 0). */
   issueScenariosPassed: boolean;
   /** Stdout from the issue-specific run (truncated if over 10,000 chars). */
@@ -48,14 +48,14 @@ function truncate(output: string): string {
 
 function buildProofMarkdown(
   issueNumber: number,
-  crucialOutput: string,
-  crucialExitCode: number | null,
-  crucialPassed: boolean,
+  regressionOutput: string,
+  regressionExitCode: number | null,
+  regressionPassed: boolean,
   issueOutput: string,
   issueExitCode: number | null,
   issueScenariosPassed: boolean,
 ): string {
-  const crucialStatus = crucialPassed ? '✅ PASSED' : '❌ FAILED';
+  const regressionStatus = regressionPassed ? '✅ PASSED' : '❌ FAILED';
   const issueStatus = issueScenariosPassed ? '✅ PASSED' : '❌ FAILED';
 
   return [
@@ -63,15 +63,15 @@ function buildProofMarkdown(
     '',
     `Generated at: ${new Date().toISOString()}`,
     '',
-    '## @crucial Scenarios',
+    '## @regression Scenarios',
     '',
-    `**Status:** ${crucialStatus}`,
-    `**Exit Code:** ${crucialExitCode ?? 'null'}`,
+    `**Status:** ${regressionStatus}`,
+    `**Exit Code:** ${regressionExitCode ?? 'null'}`,
     '',
     '### Output',
     '',
     '```',
-    crucialOutput || '(no output)',
+    regressionOutput || '(no output)',
     '```',
     '',
     `## @adw-${issueNumber} Scenarios`,
@@ -88,29 +88,29 @@ function buildProofMarkdown(
 }
 
 /**
- * Runs @crucial and @adw-{issueNumber} BDD scenarios, writes combined results
+ * Runs @regression and @adw-{issueNumber} BDD scenarios, writes combined results
  * to a proof markdown file, and returns a structured ScenarioProofResult.
  *
  * @param options.scenariosMd - Raw content of .adw/scenarios.md (used for guard check only).
  * @param options.runByTagCommand - Command template with `{tag}` placeholder for issue scenarios.
- * @param options.runCrucialCommand - Command (or template) to run @crucial scenarios.
+ * @param options.runRegressionCommand - Command (or template) to run @regression scenarios.
  * @param options.issueNumber - Current issue number for @adw-{issueNumber} tag filtering.
  * @param options.proofDir - Directory in which to write `scenario_proof.md`.
  * @param options.cwd - Optional working directory for scenario subprocesses.
  */
-export async function runCrucialScenarioProof(options: {
+export async function runRegressionScenarioProof(options: {
   scenariosMd: string;
   runByTagCommand: string;
-  runCrucialCommand: string;
+  runRegressionCommand: string;
   issueNumber: number;
   proofDir: string;
   cwd?: string;
 }): Promise<ScenarioProofResult> {
-  const { runByTagCommand, runCrucialCommand, issueNumber, proofDir, cwd } = options;
+  const { runByTagCommand, runRegressionCommand, issueNumber, proofDir, cwd } = options;
 
-  // Run @crucial scenarios — use runCrucialCommand directly (may contain {tag} or full command)
-  const crucialResult = await runScenariosByTag(runCrucialCommand, 'crucial', cwd);
-  const crucialOutput = truncate(crucialResult.stdout);
+  // Run @regression scenarios — use runRegressionCommand directly (may contain {tag} or full command)
+  const regressionResult = await runScenariosByTag(runRegressionCommand, 'regression', cwd);
+  const regressionOutput = truncate(regressionResult.stdout);
 
   // Run @adw-{issueNumber} scenarios via the tag-based command template
   const issueTag = `adw-${issueNumber}`;
@@ -122,9 +122,9 @@ export async function runCrucialScenarioProof(options: {
   const resultsFilePath = path.resolve(proofDir, 'scenario_proof.md');
   const proofContent = buildProofMarkdown(
     issueNumber,
-    crucialOutput,
-    crucialResult.exitCode,
-    crucialResult.allPassed,
+    regressionOutput,
+    regressionResult.exitCode,
+    regressionResult.allPassed,
     issueOutput,
     issueResult.exitCode,
     issueResult.allPassed,
@@ -132,9 +132,9 @@ export async function runCrucialScenarioProof(options: {
   fs.writeFileSync(resultsFilePath, proofContent, 'utf-8');
 
   return {
-    crucialPassed: crucialResult.allPassed,
-    crucialOutput,
-    crucialExitCode: crucialResult.exitCode,
+    regressionPassed: regressionResult.allPassed,
+    regressionOutput,
+    regressionExitCode: regressionResult.exitCode,
     issueScenariosPassed: issueResult.allPassed,
     issueScenarioOutput: issueOutput,
     issueScenarioExitCode: issueResult.exitCode,

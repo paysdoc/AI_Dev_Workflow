@@ -17,7 +17,7 @@ AI Dev Workflow (ADW) is a TypeScript/Bun automation system that integrates GitH
 - `adws/types/**` - Shared TypeScript types.
 - `.claude/commands/**` - Slash command prompt files.
 - `.adw/**` - Project configuration files read by planners.
-  - `.adw/scenarios.md` - BDD scenario configuration (scenario directory, run-by-tag command, crucial scenarios command)
+  - `.adw/scenarios.md` - BDD scenario configuration (scenario directory, run-by-tag command, regression scenarios command)
 
 ## Framework Notes
 This is a TypeScript/Bun automation project. The `adws/` directory contains standalone TypeScript orchestrator scripts that run with `bunx tsx`. There is no web UI — ADW is a pure CLI automation system.

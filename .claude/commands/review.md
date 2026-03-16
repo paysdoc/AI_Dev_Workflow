@@ -13,7 +13,7 @@ reviewImage_dir: `<absolute path to codebase>/agents/<adwId>/<agentName>/reviewI
 
 ## Proof Requirements
 
-**If `scenarioProofPath` is provided and the file exists**: Read the scenario proof file at `scenarioProofPath`. Use the BDD scenario execution results as the **primary proof** for this review. Classify `@crucial` failures as `blocker` issues. Classify non-crucial `@adw-{issueNumber}` failures as `tech-debt` issues. The `reviewSummary` should describe scenario pass/fail results. Still run type-check and lint as supplementary checks.
+**If `scenarioProofPath` is provided and the file exists**: Read the scenario proof file at `scenarioProofPath`. Use the BDD scenario execution results as the **primary proof** for this review. Classify `@regression` failures as `blocker` issues. Classify non-regression `@adw-{issueNumber}` failures as `tech-debt` issues. The `reviewSummary` should describe scenario pass/fail results. Still run type-check and lint as supplementary checks.
 
 **If `scenarioProofPath` is NOT provided**: Read the file `.adw/review_proof.md` from the current working directory.
 
@@ -30,15 +30,15 @@ reviewImage_dir: `<absolute path to codebase>/agents/<adwId>/<agentName>/reviewI
 - IMPORTANT: Produce proof according to the `Proof Requirements` section above:
   - **If `scenarioProofPath` is provided**:
     - Read the scenario proof markdown file at `scenarioProofPath`
-    - Check the `## @crucial Scenarios` section status:
-      - If **FAILED**: create a `reviewIssue` with `issueSeverity: 'blocker'`, `issueDescription` summarising the @crucial failures, `issueResolution` advising investigation of the scenario proof file, and `screenshotPath` set to `scenarioProofPath`
+    - Check the `## @regression Scenarios` section status:
+      - If **FAILED**: create a `reviewIssue` with `issueSeverity: 'blocker'`, `issueDescription` summarising the @regression failures, `issueResolution` advising investigation of the scenario proof file, and `screenshotPath` set to `scenarioProofPath`
     - Check the `## @adw-{issueNumber} Scenarios` section status (where `{issueNumber}` is derived from the spec file name or branch name):
-      - If **FAILED**: create a `reviewIssue` with `issueSeverity: 'tech-debt'` describing the non-crucial failures
+      - If **FAILED**: create a `reviewIssue` with `issueSeverity: 'tech-debt'` describing the non-regression failures
     - Run type-check and lint as supplementary checks:
       - Run `bunx tsc --noEmit` and report any type errors as additional `reviewIssues`
       - Run `bun run lint` and report any lint errors as additional `reviewIssues`
     - Set `screenshots` to include `scenarioProofPath` as a proof artifact (plus any supplementary artifacts)
-    - `reviewSummary` should describe: how many @crucial scenarios passed/failed and how many @adw-{issueNumber} scenarios passed/failed
+    - `reviewSummary` should describe: how many @regression scenarios passed/failed and how many @adw-{issueNumber} scenarios passed/failed
   - **If `scenarioProofPath` is NOT provided**: follow `.adw/review_proof.md` instructions (if present) or use the default UI validation approach below:
   - If the work can be validated by UI validation then (if not skip the section):
     - Look for corresponding e2e test files in ./claude/commands/e2e-examples/test*.md that mirror the feature name

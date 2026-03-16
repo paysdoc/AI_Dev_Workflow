@@ -721,7 +721,7 @@ Three required sections:
 
 - `## Scenario Directory` — Relative path in the target repo where scenario files live
 - `## Run Scenarios by Tag` — Tool-specific command to run scenarios filtered by tag; use `{tag}` as a placeholder (substituted at runtime)
-- `## Run Crucial Scenarios` — Command to run all `@crucial`-tagged regression scenarios
+- `## Run Regression Scenarios` — Command to run all `@regression`-tagged regression scenarios
 
 **Playwright example:**
 
@@ -732,8 +732,8 @@ tests/e2e/
 ## Run Scenarios by Tag
 bunx playwright test --grep "@{tag}"
 
-## Run Crucial Scenarios
-bunx playwright test --grep "@crucial"
+## Run Regression Scenarios
+bunx playwright test --grep "@regression"
 ```
 
 **Cucumber/Gherkin example:**
@@ -745,8 +745,8 @@ features/
 ## Run Scenarios by Tag
 cucumber-js --tags "@{tag}"
 
-## Run Crucial Scenarios
-cucumber-js --tags "@crucial"
+## Run Regression Scenarios
+cucumber-js --tags "@regression"
 ```
 
 **`commands.md` additions:**
@@ -754,12 +754,12 @@ cucumber-js --tags "@crucial"
 The same scenario commands can also be specified in `.adw/commands.md` for use by workflow phase commands:
 
 - `## Run Scenarios by Tag` — same `{tag}` placeholder convention
-- `## Run Crucial Scenarios` — runs all `@crucial`-tagged scenarios
+- `## Run Regression Scenarios` — runs all `@regression`-tagged scenarios
 
 **Tagging conventions:**
 
 - `@adw-{issueNumber}` — marks scenarios created, modified, or flagged as relevant for a specific GitHub issue (e.g., `@adw-164`)
-- `@crucial` — marks scenarios that form the regression safety net; maintained over time by the Scenario Planner Agent
+- `@regression` — marks scenarios that form the regression safety net; maintained over time by the Scenario Planner Agent
 
 **Scenario file format resolution:**
 

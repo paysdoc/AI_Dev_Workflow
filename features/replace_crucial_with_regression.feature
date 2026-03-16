@@ -9,60 +9,60 @@ Feature: Replace @crucial tag with @regression throughout ADW
   Background:
     Given the ADW codebase is at the current working directory
 
-  @adw-20eum6-replace-crucial-with @crucial
-  Scenario: .adw/scenarios.md Run Crucial Scenarios command uses @regression tag
+  @adw-20eum6-replace-crucial-with @regression
+  Scenario: .adw/scenarios.md Run Regression Scenarios command uses @regression tag
     Given the file ".adw/scenarios.md" is read
-    When the "## Run Crucial Scenarios" section is found
+    When the "## Run Regression Scenarios" section is found
     Then the command contains "@regression"
     And the command does not contain "@crucial"
 
-  @adw-20eum6-replace-crucial-with @crucial
-  Scenario: .adw/commands.md Run Crucial Scenarios command uses @regression tag
+  @adw-20eum6-replace-crucial-with @regression
+  Scenario: .adw/commands.md Run Regression Scenarios command uses @regression tag
     Given the file ".adw/commands.md" is read
-    When the "## Run Crucial Scenarios" section is found
+    When the "## Run Regression Scenarios" section is found
     Then the command contains "@regression"
     And the command does not contain "@crucial"
 
-  @adw-20eum6-replace-crucial-with @crucial
+  @adw-20eum6-replace-crucial-with @regression
   Scenario: No feature file retains the @crucial tag
     Given all ".feature" files in the "features/" directory are scanned
     When searching for scenarios tagged "@crucial"
     Then no scenario with the "@crucial" tag is found
     And all scenarios that previously used "@crucial" are now tagged "@regression"
 
-  @adw-20eum6-replace-crucial-with @crucial
-  Scenario: crucialScenarioProof.ts source file does not reference @crucial in tag strings
-    Given the file "adws/agents/crucialScenarioProof.ts" is read
+  @adw-20eum6-replace-crucial-with @regression
+  Scenario: regressionScenarioProof.ts source file does not reference @crucial in tag strings
+    Given the file "adws/agents/regressionScenarioProof.ts" is read
     When searching for the string "@crucial"
     Then no occurrence of "@crucial" is found
     And the string "@regression" is present where the regression tag is referenced
 
-  @adw-20eum6-replace-crucial-with @crucial
-  Scenario: projectConfig.ts default for runCrucialScenarios uses @regression
+  @adw-20eum6-replace-crucial-with @regression
+  Scenario: projectConfig.ts default for runRegressionScenarios uses @regression
     Given the file "adws/core/projectConfig.ts" is read
-    When searching for the default value of the "runCrucialScenarios" field
+    When searching for the default value of the "runRegressionScenarios" field
     Then the default command contains "@regression"
     And the default command does not contain "@crucial"
 
-  @adw-20eum6-replace-crucial-with @crucial
+  @adw-20eum6-replace-crucial-with @regression
   Scenario: reviewRetry.ts log messages reference @regression not @crucial
     Given the file "adws/agents/reviewRetry.ts" is read
     When searching for log message strings that reference a BDD tag name
     Then the log messages contain "@regression"
     And no log message contains "@crucial"
 
-  @adw-20eum6-replace-crucial-with @crucial
+  @adw-20eum6-replace-crucial-with @regression
   Scenario: ScenarioProofResult interface uses regressionPassed instead of crucialPassed
-    Given the file "adws/agents/crucialScenarioProof.ts" is read
+    Given the file "adws/agents/regressionScenarioProof.ts" is read
     When the "ScenarioProofResult" interface definition is found
     Then the interface contains a field named "regressionPassed"
     And the interface does not contain a field named "crucialPassed"
 
-  @adw-20eum6-replace-crucial-with @crucial
-  Scenario: runCrucialScenarioProof function runs the regression scenarios command
-    Given the "runCrucialScenarioProof" function (or its renamed equivalent) in "adws/agents/crucialScenarioProof.ts" is read
+  @adw-20eum6-replace-crucial-with @regression
+  Scenario: runRegressionScenarioProof function runs the regression scenarios command
+    Given the "runRegressionScenarioProof" function in "adws/agents/regressionScenarioProof.ts" is read
     When searching for the call to runScenariosByTag that runs the regression scenarios
-    Then it passes "regression" (or the resolved tag from runCrucialCommand) as the tag argument
+    Then it passes "regression" (or the resolved tag from runRegressionCommand) as the tag argument
     And it does not hard-code the string "crucial" as the tag argument
 
   @adw-20eum6-replace-crucial-with

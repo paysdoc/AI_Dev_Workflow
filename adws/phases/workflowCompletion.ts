@@ -118,7 +118,7 @@ export async function executeReviewPhase(config: WorkflowConfig): Promise<{
     issueBody: issue.body,
     issueNumber,
     scenariosMd: config.projectConfig.scenariosMd,
-    runCrucialCommand: config.projectConfig.commands.runCrucialScenarios,
+    runRegressionCommand: config.projectConfig.commands.runRegressionScenarios,
     runByTagCommand: config.projectConfig.commands.runScenariosByTag,
   });
 

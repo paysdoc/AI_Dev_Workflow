@@ -7,9 +7,9 @@ The `/review` command reads this file to determine what evidence to produce and 
 
 ## Proof Type
 
-ADW is a CLI/automation tool with no UI. Primary proof is `@crucial` BDD scenario execution results. Supplementary proof consists of:
+ADW is a CLI/automation tool with no UI. Primary proof is `@regression` BDD scenario execution results. Supplementary proof consists of:
 
-1. **@crucial scenario execution** - The primary proof. Results are provided via a scenario proof file (path passed as the `scenarioProofPath` argument to `/review`). Read and classify results: `@crucial` failures = `blocker`, `@adw-{issueNumber}` non-crucial failures = `tech-debt`.
+1. **@regression scenario execution** - The primary proof. Results are provided via a scenario proof file (path passed as the `scenarioProofPath` argument to `/review`). Read and classify results: `@regression` failures = `blocker`, `@adw-{issueNumber}` non-regression failures = `tech-debt`.
 2. **Type check verification** - Run `bunx tsc --noEmit` and `bunx tsc --noEmit -p adws/tsconfig.json`. Report whether type checking passed cleanly.
 3. **Lint verification** - Run `bun run lint` and report whether linting passed cleanly.
 4. **Spec compliance checklist** - For each acceptance criterion in the spec, state whether it is met or not with a brief justification.
@@ -30,8 +30,8 @@ Proof is attached to the PR via the review JSON output fields:
 
 ## Classification Rules
 
-- `@crucial` scenario failures → `issueSeverity: 'blocker'`
-- `@adw-{issueNumber}` non-crucial failures → `issueSeverity: 'tech-debt'`
+- `@regression` scenario failures → `issueSeverity: 'blocker'`
+- `@adw-{issueNumber}` non-regression failures → `issueSeverity: 'tech-debt'`
 - Type-check or lint failures → `issueSeverity: 'blocker'` (prevents release)
 
 ## What NOT to Do

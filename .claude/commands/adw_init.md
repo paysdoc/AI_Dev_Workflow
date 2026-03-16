@@ -88,19 +88,19 @@ Example: if $1=31 and $2=init-adw-env-4qugib, the filename is `issue-31-adw-init
    - If **Playwright** detected (`bunx playwright test`, `npx playwright test`, etc.):
      - `## Scenario Directory` → `tests/e2e/` (or the detected test directory)
      - `## Run Scenarios by Tag` → `bunx playwright test --grep "@{tag}"`
-     - `## Run Crucial Scenarios` → `bunx playwright test --grep "@crucial"`
+     - `## Run Regression Scenarios` → `bunx playwright test --grep "@regression"`
    - If **Cypress** detected (`npx cypress run`, `cypress run`, etc.):
      - `## Scenario Directory` → `cypress/e2e/`
      - `## Run Scenarios by Tag` → `npx cypress run --spec "**/*{tag}*"`
-     - `## Run Crucial Scenarios` → `npx cypress run --tag "@crucial"`
+     - `## Run Regression Scenarios` → `npx cypress run --tag "@regression"`
    - If **Cucumber** detected (`cucumber-js`, `@cucumber/cucumber`, etc.):
      - `## Scenario Directory` → `features/`
      - `## Run Scenarios by Tag` → `cucumber-js --tags "@{tag}"`
-     - `## Run Crucial Scenarios` → `cucumber-js --tags "@crucial"`
+     - `## Run Regression Scenarios` → `cucumber-js --tags "@regression"`
    - If E2E is `N/A`, absent, or tool is unrecognized — default to Cucumber/Gherkin:
      - `## Scenario Directory` → `features/`
      - `## Run Scenarios by Tag` → `cucumber-js --tags "@{tag}"`
-     - `## Run Crucial Scenarios` → `cucumber-js --tags "@crucial"`
+     - `## Run Regression Scenarios` → `cucumber-js --tags "@regression"`
 
 8. **Report**
    - List all files created (`commands.md`, `project.md`, `conditional_docs.md`, `providers.md`, `review_proof.md`, `scenarios.md`)
