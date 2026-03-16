@@ -93,6 +93,7 @@ export async function executeReviewPhase(config: WorkflowConfig): Promise<{
 
   const reviewResult = await runReviewWithRetry({
     adwId,
+    issue,
     specFile,
     logsDir,
     orchestratorStatePath,

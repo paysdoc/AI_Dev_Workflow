@@ -4,10 +4,11 @@
  */
 
 import * as path from 'path';
-import { log, AgentStateManager, type IssueClassSlashCommand, type ModelUsageMap, emptyModelUsageMap, type AgentIdentifier } from '../core';
+import { log, AgentStateManager, type IssueClassSlashCommand, type ModelUsageMap, emptyModelUsageMap, type AgentIdentifier, type GitHubIssue } from '../core';
 import { initAgentState, trackCost, type AgentRunResult } from '../core/retryOrchestrator';
 import { runReviewAgent, type ReviewIssue, type ReviewAgentResult } from './reviewAgent';
 import { runPatchAgent } from './patchAgent';
+import { runBuildAgent } from './buildAgent';
 import { runCommitAgent } from './gitAgent';
 import { pushBranch } from '../vcs';
 import { shouldRunScenarioProof, runCrucialScenarioProof, type ScenarioProofResult } from './crucialScenarioProof';
@@ -37,6 +38,7 @@ export interface ReviewRetryResult {
 
 export interface ReviewRetryOptions {
   adwId: string;
+  issue: GitHubIssue;
   specFile: string;
   logsDir: string;
   orchestratorStatePath: string;
@@ -105,7 +107,7 @@ export function mergeReviewResults(results: readonly ReviewAgentResult[]): Merge
  */
 export async function runReviewWithRetry(opts: ReviewRetryOptions): Promise<ReviewRetryResult> {
   const {
-    adwId, specFile, logsDir, orchestratorStatePath: statePath,
+    adwId, issue, specFile, logsDir, orchestratorStatePath: statePath,
     maxRetries, branchName, issueType, issueContext, onReviewFailed, onPatchingIssue, cwd,
     applicationUrl, issueBody, issueNumber, scenariosMd, runCrucialCommand, runByTagCommand,
   } = opts;
@@ -219,9 +221,23 @@ export async function runReviewWithRetry(opts: ReviewRetryOptions): Promise<Revi
       );
       trackCost(patchResult as AgentRunResult, costState, statePath);
 
-      const msg = patchResult.success ? 'Patch applied for' : 'Patch failed for';
-      log(`${msg} blocker #${blockerIssue.reviewIssueNumber}`, patchResult.success ? 'success' : 'error');
-      AgentStateManager.appendLog(statePath, `${msg} blocker #${blockerIssue.reviewIssueNumber}`);
+      const patchMsg = patchResult.success ? 'Patch plan created for' : 'Patch failed for';
+      log(`${patchMsg} blocker #${blockerIssue.reviewIssueNumber}`, patchResult.success ? 'success' : 'error');
+      AgentStateManager.appendLog(statePath, `${patchMsg} blocker #${blockerIssue.reviewIssueNumber}`);
+
+      if (patchResult.success) {
+        log(`Implementing patch for blocker #${blockerIssue.reviewIssueNumber}...`, 'info');
+        AgentStateManager.appendLog(statePath, `Implementing patch for blocker #${blockerIssue.reviewIssueNumber}`);
+
+        const buildResult = await runBuildAgent(
+          issue, logsDir, patchResult.output, undefined, initAgentState(statePath, 'build-agent'), cwd,
+        );
+        trackCost(buildResult as AgentRunResult, costState, statePath);
+
+        const buildMsg = buildResult.success ? 'Build implemented for' : 'Build failed for';
+        log(`${buildMsg} blocker #${blockerIssue.reviewIssueNumber}`, buildResult.success ? 'success' : 'error');
+        AgentStateManager.appendLog(statePath, `${buildMsg} blocker #${blockerIssue.reviewIssueNumber}`);
+      }
     }
 
     // Commit and push changes before re-review
