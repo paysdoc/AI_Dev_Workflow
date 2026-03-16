@@ -4,9 +4,9 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// Mock runClaudeAgent and extractJson before importing the modules under test
+// Mock runClaudeAgentWithCommand and extractJson before importing the modules under test
 vi.mock('../agents/claudeAgent', () => ({
-  runClaudeAgent: vi.fn(),
+  runClaudeAgentWithCommand: vi.fn(),
 }));
 
 vi.mock('../core/jsonParser', () => ({
@@ -19,7 +19,6 @@ vi.mock('../core/config', () => ({
 }));
 
 import {
-  buildValidationPrompt,
   parseValidationResult,
   findScenarioFiles,
   readScenarioContents,
@@ -28,38 +27,15 @@ import {
   type MismatchItem,
 } from '../agents/validationAgent';
 import {
-  buildResolutionPrompt,
   parseResolutionResult,
   runResolutionAgent,
   type ResolutionResult,
 } from '../agents/resolutionAgent';
-import { runClaudeAgent } from '../agents/claudeAgent';
+import { runClaudeAgentWithCommand } from '../agents/claudeAgent';
 import { extractJson } from '../core/jsonParser';
 
-const mockRunClaudeAgent = vi.mocked(runClaudeAgent);
+const mockRunClaudeAgentWithCommand = vi.mocked(runClaudeAgentWithCommand);
 const mockExtractJson = vi.mocked(extractJson);
-
-describe('buildValidationPrompt', () => {
-  it('includes plan content, scenario content, and issue context', () => {
-    const prompt = buildValidationPrompt('## Plan\nDo X', '## Feature\nGiven X', 'Issue #1');
-    expect(prompt).toContain('## Plan\nDo X');
-    expect(prompt).toContain('## Feature\nGiven X');
-    expect(prompt).toContain('Issue #1');
-  });
-
-  it('includes instructions about mismatch types', () => {
-    const prompt = buildValidationPrompt('plan', 'scenarios', 'issue');
-    expect(prompt).toContain('plan_only');
-    expect(prompt).toContain('scenario_only');
-    expect(prompt).toContain('conflicting');
-  });
-
-  it('specifies JSON output format with aligned field', () => {
-    const prompt = buildValidationPrompt('plan', 'scenarios', 'issue');
-    expect(prompt).toContain('"aligned"');
-    expect(prompt).toContain('"mismatches"');
-  });
-});
 
 describe('parseValidationResult', () => {
   beforeEach(() => {
@@ -124,23 +100,20 @@ describe('readScenarioContents', () => {
 
 describe('runValidationAgent', () => {
   beforeEach(() => {
-    mockRunClaudeAgent.mockReset();
+    mockRunClaudeAgentWithCommand.mockReset();
     mockExtractJson.mockReset();
   });
 
-  it('calls runClaudeAgent with correct model and effort', async () => {
-    const mockResult = {
-      success: true,
-      output: JSON.stringify({ aligned: true, mismatches: [], summary: 'ok' }),
-      totalCostUsd: 0.5,
-    };
-    mockRunClaudeAgent.mockResolvedValue(mockResult as ReturnType<typeof runClaudeAgent> extends Promise<infer T> ? T : never);
-    mockExtractJson.mockReturnValue({ aligned: true, mismatches: [], summary: 'ok' });
+  it('calls runClaudeAgentWithCommand with /validate_plan_scenarios, correct model and effort', async () => {
+    const mockOutput = { aligned: true, mismatches: [], summary: 'ok' };
+    mockRunClaudeAgentWithCommand.mockResolvedValue({ success: true, output: JSON.stringify(mockOutput), totalCostUsd: 0.5 } as Awaited<ReturnType<typeof runClaudeAgentWithCommand>>);
+    mockExtractJson.mockReturnValue(mockOutput);
 
-    await runValidationAgent('plan content', 'scenario content', 'issue context', '/logs', '/state', '/cwd');
+    await runValidationAgent('adw123', 42, '/path/to/plan.md', '/worktree', '/logs', '/state', '/cwd');
 
-    expect(mockRunClaudeAgent).toHaveBeenCalledWith(
-      expect.stringContaining('plan content'),
+    expect(mockRunClaudeAgentWithCommand).toHaveBeenCalledWith(
+      '/validate_plan_scenarios',
+      expect.arrayContaining(['adw123', '42', '/path/to/plan.md', '/worktree']),
       'validation-agent',
       expect.stringContaining('validation-agent.jsonl'),
       'opus',
@@ -153,10 +126,10 @@ describe('runValidationAgent', () => {
 
   it('returns validationResult with aligned=true', async () => {
     const mockOutput = { aligned: true, mismatches: [], summary: 'All aligned' };
-    mockRunClaudeAgent.mockResolvedValue({ success: true, output: JSON.stringify(mockOutput), totalCostUsd: 0.1 } as Awaited<ReturnType<typeof runClaudeAgent>>);
+    mockRunClaudeAgentWithCommand.mockResolvedValue({ success: true, output: JSON.stringify(mockOutput), totalCostUsd: 0.1 } as Awaited<ReturnType<typeof runClaudeAgentWithCommand>>);
     mockExtractJson.mockReturnValue(mockOutput);
 
-    const result = await runValidationAgent('plan', 'scenarios', 'issue', '/logs');
+    const result = await runValidationAgent('adw123', 42, '/path/to/plan.md', '/worktree', '/logs');
     expect(result.validationResult.aligned).toBe(true);
     expect(result.success).toBe(true);
   });
@@ -164,45 +137,21 @@ describe('runValidationAgent', () => {
   it('returns validationResult with mismatches when not aligned', async () => {
     const mismatches: MismatchItem[] = [{ type: 'scenario_only', description: 'Extra scenario' }];
     const mockOutput = { aligned: false, mismatches, summary: '1 mismatch' };
-    mockRunClaudeAgent.mockResolvedValue({ success: true, output: JSON.stringify(mockOutput), totalCostUsd: 0.2 } as Awaited<ReturnType<typeof runClaudeAgent>>);
+    mockRunClaudeAgentWithCommand.mockResolvedValue({ success: true, output: JSON.stringify(mockOutput), totalCostUsd: 0.2 } as Awaited<ReturnType<typeof runClaudeAgentWithCommand>>);
     mockExtractJson.mockReturnValue(mockOutput);
 
-    const result = await runValidationAgent('plan', 'scenarios', 'issue', '/logs');
+    const result = await runValidationAgent('adw123', 42, '/path/to/plan.md', '/worktree', '/logs');
     expect(result.validationResult.aligned).toBe(false);
     expect(result.validationResult.mismatches).toHaveLength(1);
   });
 
   it('propagates the agent cost', async () => {
     const mockOutput = { aligned: true, mismatches: [], summary: '' };
-    mockRunClaudeAgent.mockResolvedValue({ success: true, output: JSON.stringify(mockOutput), totalCostUsd: 1.23 } as Awaited<ReturnType<typeof runClaudeAgent>>);
+    mockRunClaudeAgentWithCommand.mockResolvedValue({ success: true, output: JSON.stringify(mockOutput), totalCostUsd: 1.23 } as Awaited<ReturnType<typeof runClaudeAgentWithCommand>>);
     mockExtractJson.mockReturnValue(mockOutput);
 
-    const result = await runValidationAgent('plan', 'scenarios', 'issue', '/logs');
+    const result = await runValidationAgent('adw123', 42, '/path/to/plan.md', '/worktree', '/logs');
     expect(result.totalCostUsd).toBe(1.23);
-  });
-});
-
-describe('buildResolutionPrompt', () => {
-  it('includes the GitHub issue body as the source of truth', () => {
-    const prompt = buildResolutionPrompt('issue body', 'plan', 'scenarios', []);
-    expect(prompt).toContain('issue body');
-    expect(prompt).toContain('SOLE ARBITER OF TRUTH');
-  });
-
-  it('formats each mismatch in the prompt', () => {
-    const mismatches: MismatchItem[] = [
-      { type: 'plan_only', description: 'Mismatch A', planReference: 'Section 1' },
-    ];
-    const prompt = buildResolutionPrompt('issue', 'plan', 'scenarios', mismatches);
-    expect(prompt).toContain('Mismatch A');
-    expect(prompt).toContain('plan_only');
-    expect(prompt).toContain('Section 1');
-  });
-
-  it('specifies JSON output format with decision field', () => {
-    const prompt = buildResolutionPrompt('issue', 'plan', 'scenarios', []);
-    expect(prompt).toContain('"decision"');
-    expect(prompt).toContain('"reasoning"');
   });
 });
 
@@ -211,29 +160,30 @@ describe('parseResolutionResult', () => {
     mockExtractJson.mockReset();
   });
 
-  it('parses a valid resolution result', () => {
+  it('parses a valid resolved result with decisions', () => {
     const raw: ResolutionResult = {
-      updatedPlan: '# Updated plan',
-      reasoning: 'Issue said X',
-      decision: 'plan_updated',
+      resolved: true,
+      decisions: [{ mismatch: 'Login flow', action: 'updated_plan', reasoning: 'Plan updated to match issue' }],
     };
     mockExtractJson.mockReturnValue(raw);
     const result = parseResolutionResult(JSON.stringify(raw));
-    expect(result.decision).toBe('plan_updated');
-    expect(result.reasoning).toBe('Issue said X');
-    expect(result.updatedPlan).toBe('# Updated plan');
+    expect(result.resolved).toBe(true);
+    expect(result.decisions).toHaveLength(1);
+    expect(result.decisions[0].action).toBe('updated_plan');
   });
 
-  it('parses a result with updated scenarios', () => {
+  it('parses a result with multiple decisions', () => {
     const raw: ResolutionResult = {
-      updatedScenarios: [{ path: '/a.feature', content: 'Feature: ...' }],
-      reasoning: 'Scenario updated',
-      decision: 'scenarios_updated',
+      resolved: false,
+      decisions: [
+        { mismatch: 'Login flow', action: 'updated_plan', reasoning: 'Updated plan' },
+        { mismatch: 'Signup flow', action: 'updated_scenarios', reasoning: 'Updated scenarios' },
+      ],
     };
     mockExtractJson.mockReturnValue(raw);
     const result = parseResolutionResult(JSON.stringify(raw));
-    expect(result.updatedScenarios).toHaveLength(1);
-    expect(result.decision).toBe('scenarios_updated');
+    expect(result.resolved).toBe(false);
+    expect(result.decisions).toHaveLength(2);
   });
 
   it('throws when output is not valid JSON', () => {
@@ -241,33 +191,34 @@ describe('parseResolutionResult', () => {
     expect(() => parseResolutionResult('bad output')).toThrow(/invalid result/i);
   });
 
-  it('throws when reasoning or decision are missing', () => {
-    mockExtractJson.mockReturnValue({ updatedPlan: 'x' } as unknown as ResolutionResult);
+  it('throws when resolved field is missing', () => {
+    mockExtractJson.mockReturnValue({ decisions: [] } as unknown as ResolutionResult);
     expect(() => parseResolutionResult('{}')).toThrow(/invalid result/i);
   });
 
-  it('defaults updatedScenarios to undefined when not an array', () => {
-    mockExtractJson.mockReturnValue({ reasoning: 'ok', decision: 'plan_updated' } as ResolutionResult);
+  it('defaults decisions to empty array when missing', () => {
+    mockExtractJson.mockReturnValue({ resolved: true } as unknown as ResolutionResult);
     const result = parseResolutionResult('{}');
-    expect(result.updatedScenarios).toBeUndefined();
+    expect(result.decisions).toEqual([]);
   });
 });
 
 describe('runResolutionAgent', () => {
   beforeEach(() => {
-    mockRunClaudeAgent.mockReset();
+    mockRunClaudeAgentWithCommand.mockReset();
     mockExtractJson.mockReset();
   });
 
-  it('calls runClaudeAgent with correct model and effort', async () => {
-    const mockOutput: ResolutionResult = { reasoning: 'ok', decision: 'plan_updated' };
-    mockRunClaudeAgent.mockResolvedValue({ success: true, output: JSON.stringify(mockOutput), totalCostUsd: 0.8 } as Awaited<ReturnType<typeof runClaudeAgent>>);
+  it('calls runClaudeAgentWithCommand with /resolve_plan_scenarios, correct model and effort', async () => {
+    const mockOutput: ResolutionResult = { resolved: true, decisions: [] };
+    mockRunClaudeAgentWithCommand.mockResolvedValue({ success: true, output: JSON.stringify(mockOutput), totalCostUsd: 0.8 } as Awaited<ReturnType<typeof runClaudeAgentWithCommand>>);
     mockExtractJson.mockReturnValue(mockOutput);
 
-    await runResolutionAgent('issue body', 'plan', 'scenarios', [], '/logs', '/state', '/cwd');
+    await runResolutionAgent('adw123', 42, '/path/to/plan.md', '/worktree', '{"number":42}', [], '/logs', '/state', '/cwd');
 
-    expect(mockRunClaudeAgent).toHaveBeenCalledWith(
-      expect.stringContaining('issue body'),
+    expect(mockRunClaudeAgentWithCommand).toHaveBeenCalledWith(
+      '/resolve_plan_scenarios',
+      expect.arrayContaining(['adw123', '42', '/path/to/plan.md', '/worktree']),
       'resolution-agent',
       expect.stringContaining('resolution-agent.jsonl'),
       'opus',
@@ -278,23 +229,26 @@ describe('runResolutionAgent', () => {
     );
   });
 
-  it('returns resolutionResult with decision', async () => {
-    const mockOutput: ResolutionResult = { reasoning: 'Updated plan to match issue', decision: 'plan_updated', updatedPlan: '# New plan' };
-    mockRunClaudeAgent.mockResolvedValue({ success: true, output: JSON.stringify(mockOutput), totalCostUsd: 0.9 } as Awaited<ReturnType<typeof runClaudeAgent>>);
+  it('returns resolutionResult with resolved and decisions', async () => {
+    const mockOutput: ResolutionResult = {
+      resolved: true,
+      decisions: [{ mismatch: 'Login flow', action: 'updated_plan', reasoning: 'Plan updated to match issue' }],
+    };
+    mockRunClaudeAgentWithCommand.mockResolvedValue({ success: true, output: JSON.stringify(mockOutput), totalCostUsd: 0.9 } as Awaited<ReturnType<typeof runClaudeAgentWithCommand>>);
     mockExtractJson.mockReturnValue(mockOutput);
 
-    const result = await runResolutionAgent('issue', 'plan', 'scenarios', [], '/logs');
-    expect(result.resolutionResult.decision).toBe('plan_updated');
-    expect(result.resolutionResult.updatedPlan).toBe('# New plan');
+    const result = await runResolutionAgent('adw123', 42, '/path/to/plan.md', '/worktree', '{"number":42}', [], '/logs');
+    expect(result.resolutionResult.resolved).toBe(true);
+    expect(result.resolutionResult.decisions).toHaveLength(1);
     expect(result.success).toBe(true);
   });
 
   it('propagates the agent cost', async () => {
-    const mockOutput: ResolutionResult = { reasoning: 'done', decision: 'both_updated' };
-    mockRunClaudeAgent.mockResolvedValue({ success: true, output: JSON.stringify(mockOutput), totalCostUsd: 2.5 } as Awaited<ReturnType<typeof runClaudeAgent>>);
+    const mockOutput: ResolutionResult = { resolved: true, decisions: [] };
+    mockRunClaudeAgentWithCommand.mockResolvedValue({ success: true, output: JSON.stringify(mockOutput), totalCostUsd: 2.5 } as Awaited<ReturnType<typeof runClaudeAgentWithCommand>>);
     mockExtractJson.mockReturnValue(mockOutput);
 
-    const result = await runResolutionAgent('issue', 'plan', 'scenarios', [], '/logs');
+    const result = await runResolutionAgent('adw123', 42, '/path/to/plan.md', '/worktree', '{"number":42}', [], '/logs');
     expect(result.totalCostUsd).toBe(2.5);
   });
 });

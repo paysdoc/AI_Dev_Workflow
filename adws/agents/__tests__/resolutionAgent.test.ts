@@ -1,18 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
-  buildResolutionPrompt,
   parseResolutionResult,
   runResolutionAgent,
 } from '../resolutionAgent';
 import type { MismatchItem } from '../validationAgent';
 
 vi.mock('../claudeAgent', () => ({
-  runClaudeAgent: vi.fn().mockResolvedValue({
+  runClaudeAgentWithCommand: vi.fn().mockResolvedValue({
     success: true,
     output: JSON.stringify({
-      reasoning: 'Updated plan to match issue',
-      decision: 'plan_updated',
-      updatedPlan: '# Updated Plan',
+      resolved: true,
+      decisions: [{ mismatch: 'Plan updated', action: 'updated_plan', reasoning: 'Updated plan to match issue' }],
     }),
     totalCostUsd: 0.8,
     modelUsage: {},
@@ -36,160 +34,109 @@ vi.mock('../../core', async (importOriginal) => {
   };
 });
 
-import { runClaudeAgent } from '../claudeAgent';
+import { runClaudeAgentWithCommand } from '../claudeAgent';
 
 const mockMismatches: MismatchItem[] = [
   { type: 'plan_only', description: 'Missing login scenario', planReference: 'Section 2.1' },
   { type: 'scenario_only', description: 'Extra signup scenario', scenarioReference: 'Scenario: User signup' },
 ];
 
-describe('buildResolutionPrompt', () => {
-  it('includes the issue body prominently as the source of truth', () => {
-    const prompt = buildResolutionPrompt(
-      'The login feature should support MFA',
-      '# Plan',
-      '# Scenarios',
-      mockMismatches,
-    );
-
-    expect(prompt).toContain('The login feature should support MFA');
-    expect(prompt).toContain('SOURCE OF TRUTH');
-  });
-
-  it('labels the issue as the sole arbiter of truth', () => {
-    const prompt = buildResolutionPrompt('issue body', '# Plan', '# Scenarios', mockMismatches);
-
-    expect(prompt).toContain('SOLE ARBITER OF TRUTH');
-  });
-
-  it('includes all identified mismatches', () => {
-    const prompt = buildResolutionPrompt('issue body', '# Plan', '# Scenarios', mockMismatches);
-
-    expect(prompt).toContain('Missing login scenario');
-    expect(prompt).toContain('Extra signup scenario');
-    expect(prompt).toContain('plan_only');
-    expect(prompt).toContain('scenario_only');
-  });
-
-  it('includes mismatch plan and scenario references', () => {
-    const prompt = buildResolutionPrompt('issue body', '# Plan', '# Scenarios', mockMismatches);
-
-    expect(prompt).toContain('Section 2.1');
-    expect(prompt).toContain('User signup');
-  });
-
-  it('includes plan and scenario content', () => {
-    const prompt = buildResolutionPrompt('issue body', '# The Plan', '# The Scenarios', mockMismatches);
-
-    expect(prompt).toContain('# The Plan');
-    expect(prompt).toContain('# The Scenarios');
-  });
-
-  it('instructs agent to output JSON with required fields', () => {
-    const prompt = buildResolutionPrompt('issue body', '# Plan', '# Scenarios', mockMismatches);
-
-    expect(prompt).toContain('"reasoning"');
-    expect(prompt).toContain('"decision"');
-    expect(prompt).toContain('"updatedPlan"');
-  });
-});
-
 describe('parseResolutionResult', () => {
-  it('parses a valid plan_updated result', () => {
+  it('parses a valid resolved result with decisions', () => {
     const output = JSON.stringify({
-      updatedPlan: '# Updated Plan',
-      reasoning: 'Changed plan to match issue',
-      decision: 'plan_updated',
+      resolved: true,
+      decisions: [{ mismatch: 'Login flow', action: 'updated_plan', reasoning: 'Plan updated to match issue' }],
     });
 
     const result = parseResolutionResult(output);
 
-    expect(result.updatedPlan).toBe('# Updated Plan');
-    expect(result.reasoning).toBe('Changed plan to match issue');
-    expect(result.decision).toBe('plan_updated');
+    expect(result.resolved).toBe(true);
+    expect(result.decisions).toHaveLength(1);
+    expect(result.decisions[0].action).toBe('updated_plan');
+    expect(result.decisions[0].reasoning).toBe('Plan updated to match issue');
   });
 
-  it('parses a valid scenarios_updated result', () => {
+  it('parses a result with multiple decisions', () => {
     const output = JSON.stringify({
-      updatedScenarios: [{ path: '/features/login.feature', content: 'Feature: Login' }],
-      reasoning: 'Added missing scenario',
-      decision: 'scenarios_updated',
+      resolved: false,
+      decisions: [
+        { mismatch: 'Login flow', action: 'updated_plan', reasoning: 'Updated plan' },
+        { mismatch: 'Signup flow', action: 'updated_scenarios', reasoning: 'Updated scenarios' },
+      ],
     });
 
     const result = parseResolutionResult(output);
 
-    expect(result.updatedScenarios).toHaveLength(1);
-    expect(result.updatedScenarios![0].path).toBe('/features/login.feature');
-    expect(result.decision).toBe('scenarios_updated');
+    expect(result.resolved).toBe(false);
+    expect(result.decisions).toHaveLength(2);
+    expect(result.decisions[1].action).toBe('updated_scenarios');
   });
 
-  it('parses a valid both_updated result', () => {
+  it('parses a result with updated_both action', () => {
     const output = JSON.stringify({
-      updatedPlan: '# New Plan',
-      updatedScenarios: [{ path: '/f.feature', content: 'Feature: X' }],
-      reasoning: 'Both needed updating',
-      decision: 'both_updated',
+      resolved: true,
+      decisions: [{ mismatch: 'Auth flow', action: 'updated_both', reasoning: 'Both artifacts updated' }],
     });
 
     const result = parseResolutionResult(output);
 
-    expect(result.updatedPlan).toBe('# New Plan');
-    expect(result.updatedScenarios).toHaveLength(1);
-    expect(result.decision).toBe('both_updated');
+    expect(result.decisions[0].action).toBe('updated_both');
   });
 
   it('handles JSON embedded in text output', () => {
-    const json = JSON.stringify({ reasoning: 'Updated', decision: 'plan_updated' });
+    const json = JSON.stringify({ resolved: true, decisions: [] });
     const output = `Here is my analysis:\n${json}\nEnd.`;
 
     const result = parseResolutionResult(output);
 
-    expect(result.reasoning).toBe('Updated');
+    expect(result.resolved).toBe(true);
+  });
+
+  it('defaults decisions to empty array if field is missing', () => {
+    const output = JSON.stringify({ resolved: true });
+
+    const result = parseResolutionResult(output);
+
+    expect(result.decisions).toEqual([]);
   });
 
   it('throws on malformed JSON output', () => {
     expect(() => parseResolutionResult('not valid json')).toThrow();
   });
 
-  it('throws when required fields are missing', () => {
-    expect(() => parseResolutionResult('{"updatedPlan": "x"}')).toThrow();
-  });
-
-  it('sets updatedScenarios to undefined when field is missing', () => {
-    const output = JSON.stringify({ reasoning: 'Updated plan', decision: 'plan_updated' });
-
-    const result = parseResolutionResult(output);
-
-    expect(result.updatedScenarios).toBeUndefined();
+  it('throws when resolved field is missing', () => {
+    expect(() => parseResolutionResult('{"decisions": []}')).toThrow();
   });
 });
 
 describe('runResolutionAgent', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(runClaudeAgent).mockResolvedValue({
+    vi.mocked(runClaudeAgentWithCommand).mockResolvedValue({
       success: true,
       output: JSON.stringify({
-        updatedPlan: '# Updated Plan',
-        reasoning: 'Updated plan to match issue',
-        decision: 'plan_updated',
+        resolved: true,
+        decisions: [{ mismatch: 'Plan updated', action: 'updated_plan', reasoning: 'Updated plan to match issue' }],
       }),
       totalCostUsd: 0.8,
       modelUsage: {},
     });
   });
 
-  it('calls runClaudeAgent with a prompt containing the issue body', async () => {
+  it('calls runClaudeAgentWithCommand with /resolve_plan_scenarios', async () => {
     await runResolutionAgent(
-      'The issue body with requirements',
-      '# Plan',
-      '# Scenarios',
+      'adw123',
+      42,
+      '/path/to/plan.md',
+      '/worktree',
+      '{"number":42,"body":"issue body"}',
       mockMismatches,
       '/logs',
     );
 
-    expect(runClaudeAgent).toHaveBeenCalledWith(
-      expect.stringContaining('The issue body with requirements'),
+    expect(runClaudeAgentWithCommand).toHaveBeenCalledWith(
+      '/resolve_plan_scenarios',
+      expect.arrayContaining(['adw123', '42', '/path/to/plan.md', '/worktree']),
       'resolution-agent',
       expect.any(String),
       'opus',
@@ -200,27 +147,55 @@ describe('runResolutionAgent', () => {
     );
   });
 
-  it('returns resolutionResult with updatedPlan', async () => {
-    const result = await runResolutionAgent('issue body', '# Plan', '# Scenarios', mockMismatches, '/logs');
+  it('passes issueJson and mismatches in args', async () => {
+    const issueJson = '{"number":42,"body":"issue body"}';
+    await runResolutionAgent('adw123', 42, '/path/to/plan.md', '/worktree', issueJson, mockMismatches, '/logs');
 
-    expect(result.resolutionResult.updatedPlan).toBe('# Updated Plan');
-    expect(result.resolutionResult.decision).toBe('plan_updated');
+    expect(runClaudeAgentWithCommand).toHaveBeenCalledWith(
+      '/resolve_plan_scenarios',
+      expect.arrayContaining([issueJson, JSON.stringify(mockMismatches)]),
+      expect.any(String),
+      expect.any(String),
+      expect.any(String),
+      expect.any(String),
+      undefined,
+      undefined,
+      undefined,
+    );
+  });
+
+  it('returns resolutionResult with resolved and decisions', async () => {
+    const result = await runResolutionAgent(
+      'adw123',
+      42,
+      '/path/to/plan.md',
+      '/worktree',
+      '{"number":42}',
+      mockMismatches,
+      '/logs',
+    );
+
+    expect(result.resolutionResult.resolved).toBe(true);
+    expect(result.resolutionResult.decisions).toHaveLength(1);
     expect(result.totalCostUsd).toBe(0.8);
   });
 
-  it('forwards statePath and cwd to runClaudeAgent', async () => {
+  it('forwards statePath and cwd to runClaudeAgentWithCommand', async () => {
     await runResolutionAgent(
-      'issue body',
-      '# Plan',
-      '# Scenarios',
+      'adw123',
+      42,
+      '/path/to/plan.md',
+      '/worktree',
+      '{"number":42}',
       mockMismatches,
       '/logs',
       '/mock/state',
       '/mock/cwd',
     );
 
-    expect(runClaudeAgent).toHaveBeenCalledWith(
-      expect.any(String),
+    expect(runClaudeAgentWithCommand).toHaveBeenCalledWith(
+      '/resolve_plan_scenarios',
+      expect.any(Array),
       'resolution-agent',
       expect.any(String),
       'opus',

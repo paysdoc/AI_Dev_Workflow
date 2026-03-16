@@ -5,7 +5,6 @@
 
 // Claude Agent (base runners)
 export {
-  runClaudeAgent,
   runClaudeAgentWithCommand,
   type AgentResult,
   type ProgressInfo,
@@ -129,6 +128,7 @@ export {
 // Validation Agent
 export {
   runValidationAgent,
+  formatValidationArgs,
   findScenarioFiles,
   readScenarioContents,
   type ValidationResult,
@@ -138,6 +138,8 @@ export {
 // Resolution Agent
 export {
   runResolutionAgent,
+  formatResolutionArgs,
   type ResolutionResult,
+  type ResolutionDecision,
 } from './resolutionAgent';
 

@@ -4,20 +4,16 @@ const {
   mockRunValidationAgent,
   mockRunResolutionAgent,
   mockFindScenarioFiles,
-  mockReadScenarioContents,
   mockReadPlanFile,
   mockGetPlanFilePath,
   mockRunCommitAgent,
-  mockFormatIssueContextAsArgs,
 } = vi.hoisted(() => ({
   mockRunValidationAgent: vi.fn(),
   mockRunResolutionAgent: vi.fn(),
   mockFindScenarioFiles: vi.fn(),
-  mockReadScenarioContents: vi.fn(),
   mockReadPlanFile: vi.fn(),
   mockGetPlanFilePath: vi.fn().mockReturnValue("specs/issue-42-plan.md"),
   mockRunCommitAgent: vi.fn().mockResolvedValue({ success: true, output: "", commitMessage: "commit" }),
-  mockFormatIssueContextAsArgs: vi.fn().mockReturnValue("## GitHub Issue #42"),
 }));
 
 vi.mock("../../core", async (importOriginal) => {
@@ -46,18 +42,9 @@ vi.mock("../../agents", () => ({
   runValidationAgent: mockRunValidationAgent,
   runResolutionAgent: mockRunResolutionAgent,
   findScenarioFiles: mockFindScenarioFiles,
-  readScenarioContents: mockReadScenarioContents,
   readPlanFile: mockReadPlanFile,
   getPlanFilePath: mockGetPlanFilePath,
   runCommitAgent: mockRunCommitAgent,
-}));
-
-vi.mock("../../agents/planAgent", () => ({
-  formatIssueContextAsArgs: mockFormatIssueContextAsArgs,
-}));
-
-vi.mock("fs", () => ({
-  writeFileSync: vi.fn(),
 }));
 
 import { executePlanValidationPhase } from "../planValidationPhase";
@@ -151,13 +138,12 @@ function makeMismatchedValidation(attempt = 1) {
 function makeResolution() {
   return {
     success: true,
-    output: '{"reasoning": "Updated plan", "decision": "plan_updated"}',
+    output: '{"resolved": true, "decisions": [{"mismatch": "Missing scenario", "action": "updated_plan", "reasoning": "Updated plan"}]}',
     totalCostUsd: 0.8,
     modelUsage: mockModelUsage,
     resolutionResult: {
-      updatedPlan: "Updated plan content",
-      reasoning: "Updated plan to align with scenarios",
-      decision: "plan_updated" as const,
+      resolved: true,
+      decisions: [{ mismatch: "Missing scenario", action: "updated_plan" as const, reasoning: "Updated plan to align with scenarios" }],
     },
   };
 }
@@ -211,7 +197,6 @@ describe("executePlanValidationPhase", () => {
 
     mockReadPlanFile.mockReturnValue("# Plan content");
     mockFindScenarioFiles.mockReturnValue(["/mock/worktree/features/login.feature"]);
-    mockReadScenarioContents.mockReturnValue("Feature: Login\n  Scenario: ...");
   });
 
   it("returns cost and model usage when plan and scenarios are aligned on first check", async () => {
@@ -302,7 +287,7 @@ describe("executePlanValidationPhase", () => {
     expect(repoContext.issueTracker.commentOnIssue).toHaveBeenCalledWith(42, "formatted comment");
   });
 
-  it("logs resolution reasoning to ADW state", async () => {
+  it("logs resolution decisions to ADW state", async () => {
     mockRunValidationAgent
       .mockResolvedValueOnce(makeMismatchedValidation())
       .mockResolvedValueOnce(makeAlignedValidation());
@@ -313,7 +298,7 @@ describe("executePlanValidationPhase", () => {
 
     expect(asm.appendLog).toHaveBeenCalledWith(
       "/mock/state/orchestrator",
-      expect.stringContaining("Resolution 1 reasoning:")
+      expect.stringContaining("Resolution 1:")
     );
   });
 

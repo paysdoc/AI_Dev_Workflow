@@ -3,8 +3,6 @@
  * Validates implementation plan against BDD scenarios and resolves mismatches.
  */
 
-import * as fs from "fs";
-import * as path from "path";
 import {
   log,
   AgentStateManager,
@@ -19,11 +17,9 @@ import {
   getPlanFilePath,
   runCommitAgent,
   findScenarioFiles,
-  readScenarioContents,
   runValidationAgent,
   runResolutionAgent,
 } from "../agents";
-import { formatIssueContextAsArgs } from "../agents/planAgent";
 import type { WorkflowConfig } from "./workflowLifecycle";
 
 /**
@@ -51,12 +47,14 @@ export async function executePlanValidationPhase(
   log("Phase: Plan Validation", "info");
   AgentStateManager.appendLog(orchestratorStatePath, "Starting plan validation phase");
 
-  // Step 1: Read plan content
+  // Step 1: Verify plan file exists
   const planContent = readPlanFile(issueNumber, worktreePath);
   if (!planContent) {
     const planPath = getPlanFilePath(issueNumber, worktreePath);
     throw new Error(`Cannot read plan file at ${planPath}`);
   }
+
+  const planFilePath = getPlanFilePath(issueNumber, worktreePath);
 
   // Step 2: Discover scenario files
   const scenarioPaths = findScenarioFiles(issueNumber, worktreePath);
@@ -67,18 +65,12 @@ export async function executePlanValidationPhase(
   }
   log(`Found ${scenarioPaths.length} scenario file(s) for validation`, "info");
 
-  // Step 3: Read scenario contents
-  const scenarioContent = readScenarioContents(scenarioPaths);
-
-  // Step 4: Format issue context
-  const issueContext = formatIssueContextAsArgs(issue);
-
-  // Step 5: Post plan_validating stage comment
+  // Step 3: Post plan_validating stage comment
   if (repoContext) {
     postIssueStageComment(repoContext, issueNumber, "plan_validating", ctx);
   }
 
-  // Step 6: Run initial Validation Agent
+  // Step 4: Run initial Validation Agent
   const validationAgentStatePath = AgentStateManager.initializeState(adwId, "validation-agent", orchestratorStatePath);
   AgentStateManager.writeState(validationAgentStatePath, {
     adwId,
@@ -88,9 +80,10 @@ export async function executePlanValidationPhase(
   });
 
   const initialValidation = await runValidationAgent(
-    planContent,
-    scenarioContent,
-    issueContext,
+    adwId,
+    issueNumber,
+    planFilePath,
+    worktreePath,
     logsDir,
     validationAgentStatePath,
     worktreePath
@@ -108,7 +101,7 @@ export async function executePlanValidationPhase(
     ),
   });
 
-  // Step 7: If aligned, we're done
+  // Step 5: If aligned, we're done
   if (initialValidation.validationResult.aligned) {
     log("Plan validation passed: plan and scenarios are aligned.", "success");
     AgentStateManager.appendLog(orchestratorStatePath, "Plan validation passed: aligned");
@@ -118,12 +111,10 @@ export async function executePlanValidationPhase(
     return { costUsd, modelUsage };
   }
 
-  // Step 8: Mismatch found — enter resolve loop
+  // Step 6: Mismatch found — enter resolve loop
   log(`Plan validation found ${initialValidation.validationResult.mismatches.length} mismatch(es). Entering resolution loop.`, "info");
   AgentStateManager.appendLog(orchestratorStatePath, `Plan validation found mismatches: ${initialValidation.validationResult.summary}`);
 
-  let currentPlanContent = planContent;
-  const currentScenarioPaths = scenarioPaths;
   let currentMismatches = initialValidation.validationResult.mismatches;
   let artifactsChanged = false;
 
@@ -144,11 +135,12 @@ export async function executePlanValidationPhase(
       execution: AgentStateManager.createExecutionState("running"),
     });
 
-    const currentScenarioContent = readScenarioContents(currentScenarioPaths);
     const resolution = await runResolutionAgent(
-      issue.body,
-      currentPlanContent,
-      currentScenarioContent,
+      adwId,
+      issueNumber,
+      planFilePath,
+      worktreePath,
+      JSON.stringify(issue),
       currentMismatches,
       logsDir,
       resolutionAgentStatePath,
@@ -161,34 +153,17 @@ export async function executePlanValidationPhase(
 
     AgentStateManager.writeState(resolutionAgentStatePath, {
       output: resolution.output.substring(0, 1000),
-      metadata: { decision: resolution.resolutionResult.decision },
+      metadata: { resolved: resolution.resolutionResult.resolved, decisionsCount: resolution.resolutionResult.decisions.length },
       execution: AgentStateManager.completeExecution(
         AgentStateManager.createExecutionState("running"),
         resolution.success
       ),
     });
 
-    // Write updated plan file to disk if present
-    if (resolution.resolutionResult.updatedPlan) {
-      const planFilePath = path.join(worktreePath, getPlanFilePath(issueNumber, worktreePath));
-      fs.writeFileSync(planFilePath, resolution.resolutionResult.updatedPlan, "utf-8");
-      currentPlanContent = resolution.resolutionResult.updatedPlan;
-      artifactsChanged = true;
-      log("Updated plan file written to disk.", "info");
-    }
+    artifactsChanged = resolution.resolutionResult.decisions.length > 0;
 
-    // Write updated scenario files to disk if present
-    if (resolution.resolutionResult.updatedScenarios && resolution.resolutionResult.updatedScenarios.length > 0) {
-      for (const { path: scenarioPath, content } of resolution.resolutionResult.updatedScenarios) {
-        fs.writeFileSync(scenarioPath, content, "utf-8");
-        log(`Updated scenario file written: ${scenarioPath}`, "info");
-      }
-      artifactsChanged = true;
-    }
-
-    // Log resolution reasoning to ADW state
-    const truncatedReasoning = resolution.resolutionResult.reasoning.substring(0, 1000);
-    AgentStateManager.appendLog(orchestratorStatePath, `Resolution ${attempt} reasoning: ${truncatedReasoning}`);
+    // Log resolution decisions to ADW state
+    AgentStateManager.appendLog(orchestratorStatePath, `Resolution ${attempt}: ${resolution.resolutionResult.decisions.length} decision(s)`);
 
     // Post plan_resolved stage comment
     if (repoContext) {
@@ -204,11 +179,11 @@ export async function executePlanValidationPhase(
       execution: AgentStateManager.createExecutionState("running"),
     });
 
-    const updatedScenarioContent = readScenarioContents(currentScenarioPaths);
     const reValidation = await runValidationAgent(
-      currentPlanContent,
-      updatedScenarioContent,
-      issueContext,
+      adwId,
+      issueNumber,
+      planFilePath,
+      worktreePath,
       logsDir,
       reValidationStatePath,
       worktreePath
