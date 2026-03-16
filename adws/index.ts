@@ -58,7 +58,6 @@ export {
   runBuildAgent,
   runReviewAgent,
   runPatchAgent,
-  formatPatchArgs,
   runReviewWithRetry,
   type ReviewIssue,
   type ReviewResult,

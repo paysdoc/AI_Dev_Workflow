@@ -58,9 +58,6 @@ import {
 } from './agents';
 import { parseArguments, printBuildSummary } from './adwBuildHelpers';
 
-// Re-export for any external consumers
-export { parseArguments, printBuildSummary } from './adwBuildHelpers';
-
 /**
  * Main build workflow.
  */

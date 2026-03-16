@@ -27,7 +27,7 @@ interface StatusFieldInfo {
  * Finds the first GitHub Project V2 linked to the repository.
  * @returns The project ID, or null if no project is linked.
  */
-export function findRepoProjectId(owner: string, repo: string): string | null {
+function findRepoProjectId(owner: string, repo: string): string | null {
   try {
     const query = `
       query($owner: String!, $repo: String!) {
@@ -57,7 +57,7 @@ export function findRepoProjectId(owner: string, repo: string): string | null {
  * Finds an issue's item within a GitHub Project V2.
  * @returns The item ID and current status, or null if the issue isn't in the project.
  */
-export function findIssueProjectItem(
+function findIssueProjectItem(
   owner: string,
   repo: string,
   issueNumber: number,
@@ -120,7 +120,7 @@ export function findIssueProjectItem(
  * Gets the Status field metadata and available options for a project.
  * @returns The field ID and options, or null if no Status field exists.
  */
-export function getStatusFieldOptions(projectId: string): StatusFieldInfo | null {
+function getStatusFieldOptions(projectId: string): StatusFieldInfo | null {
   try {
     const query = `
       query($projectId: ID!) {
@@ -163,7 +163,7 @@ export function getStatusFieldOptions(projectId: string): StatusFieldInfo | null
 /**
  * Updates the status of a project item.
  */
-export function updateProjectItemStatus(
+function updateProjectItemStatus(
   projectId: string,
   itemId: string,
   fieldId: string,

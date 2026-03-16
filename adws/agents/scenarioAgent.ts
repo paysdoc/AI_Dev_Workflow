@@ -13,7 +13,7 @@ import { isAdwComment, extractActionableContent } from '../core/workflowCommentP
  * Formats args for the /scenario_writer skill.
  * Returns [issueNumber, adwId, issueJson] matching the plan agent arg format.
  */
-export function formatScenarioArgs(
+function formatScenarioArgs(
   issueNumber: number,
   adwId: string,
   issueJson: string,

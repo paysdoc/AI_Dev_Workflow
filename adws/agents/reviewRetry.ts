@@ -14,7 +14,7 @@ import { pushBranch } from '../vcs';
 import { shouldRunScenarioProof, runCrucialScenarioProof, type ScenarioProofResult } from './crucialScenarioProof';
 
 /** Number of parallel review agents per iteration. */
-export const REVIEW_AGENT_COUNT = 3;
+const REVIEW_AGENT_COUNT = 3;
 
 export interface MergedReviewResult {
   mergedIssues: ReviewIssue[];
@@ -69,7 +69,7 @@ export interface ReviewRetryOptions {
  * Deduplicates screenshots by path.
  * Pure function with no side effects.
  */
-export function mergeReviewResults(results: readonly ReviewAgentResult[]): MergedReviewResult {
+function mergeReviewResults(results: readonly ReviewAgentResult[]): MergedReviewResult {
   const validResults = results.filter(r => r.reviewResult !== null);
 
   // Collect and deduplicate issues

@@ -111,11 +111,6 @@ export function ensureCronProcess(repoInfo: RepoInfo, targetRepoArgs: string[]):
   child.unref();
 }
 
-/** Resets the cron process tracking. Exported for tests only. */
-export function resetCronSpawnedForRepo(): void {
-  cronSpawnedForRepo.clear();
-}
-
 /**
  * Logs the deferral reason for an ineligible issue.
  */

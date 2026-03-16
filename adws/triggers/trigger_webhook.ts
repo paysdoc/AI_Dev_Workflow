@@ -29,16 +29,13 @@ export { classifyAndSpawnWorkflow, handleIssueClosedDependencyUnblock, ensureCro
 const PR_REVIEW_COOLDOWN_MS = 60_000;
 const recentPrReviewTriggers = new Map<number, number>();
 
-export function shouldTriggerPrReview(prNumber: number): boolean {
+function shouldTriggerPrReview(prNumber: number): boolean {
   const now = Date.now();
   const lastTrigger = recentPrReviewTriggers.get(prNumber);
   if (lastTrigger !== undefined && now - lastTrigger < PR_REVIEW_COOLDOWN_MS) return false;
   recentPrReviewTriggers.set(prNumber, now);
   return true;
 }
-
-export function resetPrReviewTriggers(): void { recentPrReviewTriggers.clear(); }
-export function getPrReviewTriggersMap(): Map<number, number> { return recentPrReviewTriggers; }
 
 function jsonResponse(res: http.ServerResponse, statusCode: number, body: Record<string, unknown>): void {
   if (statusCode >= 400) log(`HTTP ${statusCode}: ${JSON.stringify(body)}`, 'error');
@@ -57,7 +54,7 @@ function extractTargetRepoArgs(body: Record<string, unknown>): string[] {
   return ['--target-repo', fullName, '--clone-url', cloneUrl];
 }
 
-export async function handleIssueCostRevert(issueNumber: number, repoName: string): Promise<void> {
+async function handleIssueCostRevert(issueNumber: number, repoName: string): Promise<void> {
   if (wasMergedViaPR(issueNumber)) { log(`Skipping cost revert for issue #${issueNumber}: already handled by merged PR`); return; }
   await costCommitQueue.enqueue(async () => {
     try { pullLatestCostBranch(); } catch (error) { log(`Failed to pull latest before cost revert: ${error}`, 'error'); }
@@ -200,7 +197,7 @@ const server = http.createServer((req, res) => {
   });
 });
 
-export async function resolveWebhookPort(preferredPort: number): Promise<number> {
+async function resolveWebhookPort(preferredPort: number): Promise<number> {
   if (await isPortAvailable(preferredPort, '0.0.0.0')) return preferredPort;
   if (process.env.GITHUB_WEBHOOK_SECRET) throw new Error(`Port ${preferredPort} is in use and GITHUB_WEBHOOK_SECRET is set (tunnel mode).`);
   log(`Port ${preferredPort} is in use, allocating a random available port...`, 'warn');

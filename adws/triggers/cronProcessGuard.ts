@@ -20,7 +20,7 @@ interface CronPidRecord {
 }
 
 /** Returns the PID file path for a given repo key (e.g. `owner/repo` → `agents/cron/owner_repo.json`). */
-export function getCronPidFilePath(repoKey: string): string {
+function getCronPidFilePath(repoKey: string): string {
   return path.join(AGENTS_STATE_DIR, 'cron', repoKey.replace('/', '_') + '.json');
 }
 
@@ -37,7 +37,7 @@ export function writeCronPid(repoKey: string, pid: number): void {
 }
 
 /** Reads and parses the PID record for a repo key. Returns null if missing or malformed. */
-export function readCronPid(repoKey: string): CronPidRecord | null {
+function readCronPid(repoKey: string): CronPidRecord | null {
   const filePath = getCronPidFilePath(repoKey);
   try {
     if (!fs.existsSync(filePath)) return null;
@@ -48,7 +48,7 @@ export function readCronPid(repoKey: string): CronPidRecord | null {
 }
 
 /** Removes the PID file for a repo key if it exists. */
-export function removeCronPid(repoKey: string): void {
+function removeCronPid(repoKey: string): void {
   const filePath = getCronPidFilePath(repoKey);
   try {
     if (fs.existsSync(filePath)) fs.unlinkSync(filePath);

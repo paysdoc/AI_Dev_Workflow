@@ -21,7 +21,7 @@ const processedIssues = new Set<number>();
 const processedPRs = new Set<number>();
 
 /** Raw issue data returned from the GitHub CLI. */
-export interface RawIssue {
+interface RawIssue {
   number: number;
   body: string;
   comments: { body: string }[];
@@ -33,7 +33,7 @@ export interface RawIssue {
 const cronRepoInfo: RepoInfo = getRepoInfo();
 
 /** Fetches all open issues with body, comments, and timestamps. */
-export function fetchOpenIssues(): RawIssue[] {
+function fetchOpenIssues(): RawIssue[] {
   const { owner, repo } = cronRepoInfo;
   try {
     const json = execSync(
@@ -60,12 +60,12 @@ function buildTargetRepoArgs(): string[] {
 }
 
 /** Returns true if the issue has any ADW workflow comment (already picked up). */
-export function hasAdwWorkflowComment(issue: RawIssue): boolean {
+function hasAdwWorkflowComment(issue: RawIssue): boolean {
   return issue.comments.some((c) => isAdwComment(c.body));
 }
 
 /** Returns true if the issue was updated within the grace period. */
-export function isWithinGracePeriod(issue: RawIssue, now: number = Date.now()): boolean {
+function isWithinGracePeriod(issue: RawIssue, now: number = Date.now()): boolean {
   const updatedAt = new Date(issue.updatedAt).getTime();
   return now - updatedAt < GRACE_PERIOD_MS;
 }
@@ -78,7 +78,7 @@ export function isWithinGracePeriod(issue: RawIssue, now: number = Date.now()): 
  * 3. Haven't been processed in this session
  * Sorted by createdAt ascending (oldest first).
  */
-export function filterEligibleIssues(issues: RawIssue[], now: number = Date.now()): RawIssue[] {
+function filterEligibleIssues(issues: RawIssue[], now: number = Date.now()): RawIssue[] {
   return issues
     .filter((issue) => !processedIssues.has(issue.number))
     .filter((issue) => !hasAdwWorkflowComment(issue))
@@ -87,7 +87,7 @@ export function filterEligibleIssues(issues: RawIssue[], now: number = Date.now(
 }
 
 /** Checks for eligible issues and triggers ADW workflows for each. */
-export async function checkAndTrigger(): Promise<void> {
+async function checkAndTrigger(): Promise<void> {
   log('Polling for backlog issues...');
   const issues = fetchOpenIssues();
   log(`Fetched ${issues.length} open issue(s)`);
