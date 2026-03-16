@@ -82,9 +82,56 @@
     - When implementing scenario-driven test phases
     - When working with `@adw-{issueNumber}` or `@crucial` tagging conventions
 
+- app_docs/feature-1773073902212-9l2nv9-repo-context-factory.md
+  - Conditions:
+    - When working with `RepoContext`, `createRepoContext`, or `adws/providers/repoContext.ts`
+    - When implementing workflow entry points that need validated repo context
+    - When adding support for new provider platforms (IssueTracker or CodeHost)
+    - When troubleshooting git remote validation or working directory validation errors
+    - When configuring `.adw/providers.md` for a target repository
+
+- app_docs/feature-sinbtg-plan-scenario-validation-resolution.md
+  - Conditions:
+    - When working with `planValidationPhase`, `validationAgent`, or `resolutionAgent`
+    - When implementing or modifying the plan-scenario alignment gate between planning and build
+    - When adding new workflow stages related to BDD scenario validation
+    - When troubleshooting plan-scenario mismatch failures or resolution loop exhaustion
+    - When integrating the validation phase into a new orchestrator
+
+- app_docs/feature-74itmf-dependency-logging.md
+  - Conditions:
+    - When working with `findOpenDependencies()` or `checkIssueEligibility()` in `adws/triggers/`
+    - When adding or modifying logging in the dependency resolution pipeline
+    - When troubleshooting why an issue was deferred due to blocking dependencies
+    - When diagnosing silent failures in `getIssueState()` dependency lookups
+
+- app_docs/feature-q9kms5-bdd-scenarios-before-pr.md
+  - Conditions:
+    - When working with `testPhase.ts` or the test phase execution order
+    - When adding or modifying BDD scenario execution in workflows (`bddScenarioRunner.ts`, `runBddScenariosWithRetry`)
+    - When configuring `## Run BDD Scenarios` in `.adw/commands.md` or `## Unit Tests` in `.adw/project.md`
+    - When troubleshooting BDD scenario failures, retries, or the PR gate being blocked
+    - When updating orchestrators to include or reorder the test phase relative to PR creation
+
+- app_docs/feature-ak5lea-trigger-cron-process-prevent-duplicate-cron.md
+  - Conditions:
+    - When working with `trigger_cron.ts`, `webhookGatekeeper.ts`, or `cronProcessGuard.ts`
+    - When troubleshooting duplicate cron processes running for the same repository
+    - When implementing or modifying cron process lifecycle management in ADW
+    - When the webhook server restarts and cron processes behave unexpectedly
+    - When adding PID-file-based process deduplication to new trigger types
+
 - app_docs/feature-implement-scenario-p-hpq6cn-scenario-planner-agent.md
   - Conditions:
     - When working with BDD scenario generation or the scenario agent
     - When modifying `adws/agents/scenarioAgent.ts` or `adws/phases/scenarioPhase.ts`
     - When working with `.adw/scenarios.md` configuration
     - When adding or modifying `@crucial` tag maintenance logic
+
+- app_docs/feature-9emriw-bdd-scenario-review-proof.md
+  - Conditions:
+    - When working with the review proof mechanism or `crucialScenarioProof.ts`
+    - When modifying `reviewRetry.ts` or `ReviewRetryOptions` scenario-related fields
+    - When adding or changing `@crucial` / `@adw-{issueNumber}` scenario classification in review
+    - When configuring `runCrucialScenarios` or `runScenariosByTag` commands in `.adw/commands.md`
+    - When troubleshooting review proof fallback behaviour for repos without `.adw/scenarios.md`
