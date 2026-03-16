@@ -635,16 +635,6 @@ All orchestrators use shared CLI utilities from `core/orchestratorCli.ts` and co
 - `webhookHandlers.ts` - Webhook event processing logic
 - `webhookSignature.ts` - GitHub webhook HMAC signature validation
 
-**Tests** (co-located `__tests__/` directories):
-Tests are co-located with their source modules in `__tests__/` subdirectories:
-- `core/__tests__/` - Core module tests
-- `agents/__tests__/` - Agent module tests
-- `github/__tests__/` - GitHub module tests
-- `triggers/__tests__/` - Trigger module tests
-- `phases/__tests__/` - Phase module tests
-- `types/__tests__/` - Type definition tests
-- `__tests__/` - Root-level orchestrator tests
-
 ### Branch Naming
 ```
 {type}-{issueNumber}-{adwId}-{slug}

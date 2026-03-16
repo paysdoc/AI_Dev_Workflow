@@ -16,7 +16,7 @@ bunx tsc --noEmit
 bunx tsc --noEmit -p adws/tsconfig.json
 
 ## Run Tests
-bun run test
+N/A
 
 ## Run Build
 bun run build

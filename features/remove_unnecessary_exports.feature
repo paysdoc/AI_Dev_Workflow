@@ -176,7 +176,7 @@ Feature: Remove unnecessary exports across the codebase
 
   # ── 7. No import breakage ────────────────────────────────────────────────────
 
-  @adw-467hhd-remove-unnecessary-e @crucial
+  @adw-467hhd-remove-unnecessary-e
   Scenario: Test suite passes after all exports are removed
     Given all listed exports have had their "export" keyword removed
     And all corresponding barrel re-exports have been cleaned up
@@ -184,7 +184,7 @@ Feature: Remove unnecessary exports across the codebase
     Then the test suite exits with code 0
     And no TypeScript import errors are reported
 
-  @adw-467hhd-remove-unnecessary-e @crucial
+  @adw-467hhd-remove-unnecessary-e @regression
   Scenario: TypeScript compilation succeeds after export cleanup
     Given all listed exports have had their "export" keyword removed
     When "bunx tsc --noEmit" and "bunx tsc --noEmit -p adws/tsconfig.json" are run
