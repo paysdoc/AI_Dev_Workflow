@@ -10,7 +10,7 @@ import { runClaudeAgentWithCommand, AgentResult } from './claudeAgent';
 /**
  * Formats structured args for the /document skill.
  */
-export function formatDocumentArgs(
+function formatDocumentArgs(
   adwId: string,
   specPath?: string,
   screenshotsDir?: string,
@@ -22,7 +22,7 @@ export function formatDocumentArgs(
  * Extracts the documentation file path from the agent's output.
  * The skill returns ONLY the path to the created documentation file.
  */
-export function extractDocPathFromOutput(output: string): string {
+function extractDocPathFromOutput(output: string): string {
   const trimmed = output.trim();
   const lines = trimmed.split('\n').filter(line => line.trim());
   return lines[lines.length - 1]?.trim() ?? '';

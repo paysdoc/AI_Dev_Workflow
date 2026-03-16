@@ -80,7 +80,7 @@
   - Conditions:
     - When working with `.adw/scenarios.md` or BDD scenario configuration
     - When implementing scenario-driven test phases
-    - When working with `@adw-{issueNumber}` or `@crucial` tagging conventions
+    - When working with `@adw-{issueNumber}` or `@regression` tagging conventions
 
 - app_docs/feature-1773073902212-9l2nv9-repo-context-factory.md
   - Conditions:
@@ -126,15 +126,23 @@
     - When working with BDD scenario generation or the scenario agent
     - When modifying `adws/agents/scenarioAgent.ts` or `adws/phases/scenarioPhase.ts`
     - When working with `.adw/scenarios.md` configuration
-    - When adding or modifying `@crucial` tag maintenance logic
+    - When adding or modifying `@regression` tag maintenance logic
 
 - app_docs/feature-9emriw-bdd-scenario-review-proof.md
   - Conditions:
-    - When working with the review proof mechanism or `crucialScenarioProof.ts`
+    - When working with the review proof mechanism or `regressionScenarioProof.ts`
     - When modifying `reviewRetry.ts` or `ReviewRetryOptions` scenario-related fields
-    - When adding or changing `@crucial` / `@adw-{issueNumber}` scenario classification in review
-    - When configuring `runCrucialScenarios` or `runScenariosByTag` commands in `.adw/commands.md`
+    - When adding or changing `@regression` / `@adw-{issueNumber}` scenario classification in review
+    - When configuring `runRegressionScenarios` or `runScenariosByTag` commands in `.adw/commands.md`
     - When troubleshooting review proof fallback behaviour for repos without `.adw/scenarios.md`
+
+- app_docs/feature-91v6qi-llm-dependency-extraction.md
+  - Conditions:
+    - When working with `findOpenDependencies()`, `extractDependencies()`, or `parseDependencies()` in `adws/triggers/issueDependencies.ts`
+    - When adding or modifying dependency extraction logic or the `/extract_dependencies` command
+    - When implementing a new agent that calls `runClaudeAgentWithCommand` with a slash command
+    - When troubleshooting why an issue with natural-language dependencies was not deferred
+    - When working with `dependencyExtractionAgent.ts` or `parseDependencyArray`
 
 - app_docs/feature-uzfskg-add-primed-claude-agent.md
   - Conditions:
@@ -149,5 +157,13 @@
     - When working with `.claude/commands/feature.md` plan template
     - When the `## Unit Tests` setting in `.adw/project.md` should affect plan generation
     - When troubleshooting plans that include unit test tasks despite unit tests being disabled
-    - When modifying `crucialScenarioProof.ts` or the `@crucial` tag convention in review proof
+    - When modifying `regressionScenarioProof.ts` or the `@regression` tag convention in review proof
     - When auditing plan templates (`bug.md`, `chore.md`, `patch.md`) for unit-test awareness
+
+- app_docs/feature-20eum6-replace-crucial-with-regression.md
+  - Conditions:
+    - When working with `@regression` tag or `regressionScenarioProof.ts`
+    - When configuring `## Run Regression Scenarios` in `.adw/commands.md` or `.adw/scenarios.md`
+    - When modifying `ReviewRetryOptions.runRegressionCommand` or scenario proof identifiers
+    - When troubleshooting regression scenario proof failures during the review phase
+    - When adding new BDD scenarios to the regression safety net

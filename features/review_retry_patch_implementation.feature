@@ -9,7 +9,7 @@ Feature: Review retry loop consolidates blockers and implements patches before r
     Given the ADW workflow is running a review-retry loop
     And the review retry loop has reached the patching phase
 
-  @adw-bm8138-review-retry-loop-co @crucial
+  @adw-bm8138-review-retry-loop-co @regression
   Scenario: Build agent is called after each patch agent to implement the patch plan
     Given a blocker issue has been identified by the review agents
     And runPatchAgent has produced a patch plan file in "specs/patch/"
@@ -18,7 +18,7 @@ Feature: Review retry loop consolidates blockers and implements patches before r
     And the build agent applies actual code changes to the repository
     And the subsequent commit contains code changes, not only a plan file
 
-  @adw-bm8138-review-retry-loop-co @crucial
+  @adw-bm8138-review-retry-loop-co @regression
   Scenario: Re-review does not find the same blockers after a patch cycle
     Given a previous review iteration identified blocker issues
     And the patch phase ran runPatchAgent and runBuildAgent for each blocker
@@ -26,7 +26,7 @@ Feature: Review retry loop consolidates blockers and implements patches before r
     Then the previously identified blockers are no longer present
     And the retry loop makes forward progress toward a passing review
 
-  @adw-bm8138-review-retry-loop-co @crucial
+  @adw-bm8138-review-retry-loop-co @regression
   Scenario: Related blocker issues are consolidated into a single patch invocation
     Given three review agents report overlapping blocker issues
     And two of the blockers share the same root cause or affected file
@@ -43,7 +43,7 @@ Feature: Review retry loop consolidates blockers and implements patches before r
     And runBuildAgent is called once for each resulting patch plan
     And the patch invocations do not conflict with each other
 
-  @adw-bm8138-review-retry-loop-co @crucial
+  @adw-bm8138-review-retry-loop-co @regression
   Scenario: Cost tracking includes build agent calls in the review retry loop
     Given the review retry loop has patched one blocker issue
     And runPatchAgent was called for the blocker

@@ -13,7 +13,7 @@ Feature: Cron PR polling filters ADW's own review submissions
     And ADW has completed a full workflow (plan → build → review) on a PR
     And the PR has no human review comments
 
-  @adw-3yayf1-cron-pr-polling-re-t @crucial
+  @adw-3yayf1-cron-pr-polling-re-t @regression
   Scenario: ADW review submission is not treated as unaddressed human feedback
     Given ADW has submitted a review on PR #42 from the authenticated user account
     And the review has `user.type` equal to "User" (not "Bot")
@@ -22,7 +22,7 @@ Feature: Cron PR polling filters ADW's own review submissions
     Then `hasUnaddressedComments()` returns false for PR #42
     And `adwPrReview` is not spawned for PR #42
 
-  @adw-3yayf1-cron-pr-polling-re-t @crucial
+  @adw-3yayf1-cron-pr-polling-re-t @regression
   Scenario: Cron does not re-trigger adwPrReview after cron restart when only ADW reviews exist
     Given ADW has submitted a review on PR #42 and `processedPRs` is empty (fresh start)
     And there are no human review comments on PR #42
@@ -30,7 +30,7 @@ Feature: Cron PR polling filters ADW's own review submissions
     Then `adwPrReview` is not spawned for PR #42
     And PR #42 is not added to `processedPRs`
 
-  @adw-3yayf1-cron-pr-polling-re-t @crucial
+  @adw-3yayf1-cron-pr-polling-re-t @regression
   Scenario: Genuine human review after ADW review does trigger adwPrReview
     Given ADW has submitted a review on PR #42
     And a human reviewer has subsequently left a review comment on PR #42

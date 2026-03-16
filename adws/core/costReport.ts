@@ -56,13 +56,8 @@ export function computeTotalCostUsd(usageMap: ModelUsageMap): number {
 /** Known fallback rates keyed by currency code. */
 const FALLBACK_RATES: Readonly<Record<string, number>> = { EUR: FALLBACK_EUR_RATE };
 
-/** Mutable cache of the most recently fetched live rates, seeded from FALLBACK_RATES. */
-let lastKnownRates: Record<string, number> = { ...FALLBACK_RATES };
-
-/** @internal Resets cached rates — for testing only. */
-export function resetLastKnownRates(): void {
-  lastKnownRates = { ...FALLBACK_RATES };
-}
+/** Cache of the most recently fetched live rates, seeded from FALLBACK_RATES. */
+const lastKnownRates: Record<string, number> = { ...FALLBACK_RATES };
 
 /**
  * Fetches exchange rates from the free ExchangeRate-API with retry,

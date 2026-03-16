@@ -59,12 +59,10 @@ export {
   type BddScenarioResult,
 } from './bddScenarioRunner';
 
-// Crucial Scenario Proof
+// Regression Scenario Proof
 export {
-  runCrucialScenarioProof,
-  shouldRunScenarioProof,
   type ScenarioProofResult,
-} from './crucialScenarioProof';
+} from './regressionScenarioProof';
 
 // Test Retry (shared test retry logic)
 export {
@@ -87,14 +85,11 @@ export {
 // Patch Agent
 export {
   runPatchAgent,
-  formatPatchArgs,
 } from './patchAgent';
 
 // Review Retry (multi-agent review-patch retry loop)
 export {
   runReviewWithRetry,
-  mergeReviewResults,
-  REVIEW_AGENT_COUNT,
   type ReviewRetryResult,
   type ReviewRetryOptions,
   type MergedReviewResult,
@@ -103,33 +98,26 @@ export {
 // PR Agent
 export {
   runPullRequestAgent,
-  formatPullRequestArgs,
-  extractPrUrlFromOutput,
 } from './prAgent';
 
 // Document Agent
 export {
   runDocumentAgent,
-  formatDocumentArgs,
-  extractDocPathFromOutput,
 } from './documentAgent';
 
 // KPI Agent
 export {
   runKpiAgent,
-  formatKpiArgs,
 } from './kpiAgent';
 
 // Scenario Agent
 export {
   runScenarioAgent,
-  formatScenarioArgs,
 } from './scenarioAgent';
 
 // Validation Agent
 export {
   runValidationAgent,
-  formatValidationArgs,
   findScenarioFiles,
   readScenarioContents,
   type ValidationResult,
@@ -139,8 +127,12 @@ export {
 // Resolution Agent
 export {
   runResolutionAgent,
-  formatResolutionArgs,
   type ResolutionResult,
   type ResolutionDecision,
 } from './resolutionAgent';
 
+// Dependency Extraction Agent
+export {
+  runDependencyExtractionAgent,
+  parseDependencyArray,
+} from './dependencyExtractionAgent';

@@ -42,5 +42,5 @@ N/A
 ## Run Scenarios by Tag
 bunx cucumber-js --tags "@{tag}"
 
-## Run Crucial Scenarios
-bunx cucumber-js --tags "@crucial"
+## Run Regression Scenarios
+cucumber-js --tags "@regression"

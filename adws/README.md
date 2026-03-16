@@ -572,7 +572,6 @@ app_docs/                         # Generated documentation
 - `costReport.ts` - Cost breakdown formatting and persistence
 - `costCsvWriter.ts` - CSV-based cost tracking
 - `portAllocator.ts` - Random port allocation for dev servers
-- `targetRepoRegistry.ts` - Target repo context management
 - `targetRepoManager.ts` - Target repo workspace cloning and management
 - `orchestratorLib.ts` - Shared orchestrator stage management
 - `stateHelpers.ts` - State file helper utilities
@@ -581,21 +580,23 @@ app_docs/                         # Generated documentation
 
 **GitHub** (`github/`):
 - `githubApi.ts` - Core GitHub API wrapper
-- `gitBranchOperations.ts` - Branch management (create, checkout, delete, default branch detection)
-- `gitCommitOperations.ts` - Commit and push operations
-- `gitOperations.ts` - Re-export barrel for backward compatibility
 - `issueApi.ts` - GitHub issue API operations
 - `prApi.ts` - Pull request API operations
 - `pullRequestCreator.ts` - PR creation logic
-- `worktreeOperations.ts` - Worktree lifecycle orchestration
-- `worktreeCreation.ts` - Worktree creation and setup
-- `worktreeCleanup.ts` - Worktree removal and branch cleanup
-- `worktreeQuery.ts` - Worktree listing and issue lookup
 - `workflowCommentsBase.ts` - Base comment filtering and management
 - `workflowCommentsIssue.ts` - Issue-specific workflow comments
 - `workflowCommentsPR.ts` - PR-specific workflow comments
 - `workflowComments.ts` - Unified comment API
 - `prCommentDetector.ts` - PR comment trigger detection
+
+**VCS** (`vcs/`):
+- `branchOperations.ts` - Branch management (create, checkout, delete, default branch detection)
+- `commitOperations.ts` - Commit and push operations
+- `index.ts` - VCS module exports
+- `worktreeOperations.ts` - Worktree lifecycle orchestration
+- `worktreeCreation.ts` - Worktree creation and setup
+- `worktreeCleanup.ts` - Worktree removal and branch cleanup
+- `worktreeQuery.ts` - Worktree listing and issue lookup
 
 **Phases** (`phases/`):
 - `planPhase.ts` - Planning phase implementation
@@ -721,7 +722,7 @@ Three required sections:
 
 - `## Scenario Directory` — Relative path in the target repo where scenario files live
 - `## Run Scenarios by Tag` — Tool-specific command to run scenarios filtered by tag; use `{tag}` as a placeholder (substituted at runtime)
-- `## Run Crucial Scenarios` — Command to run all `@crucial`-tagged regression scenarios
+- `## Run Regression Scenarios` — Command to run all `@regression`-tagged regression scenarios
 
 **Playwright example:**
 
@@ -732,8 +733,8 @@ tests/e2e/
 ## Run Scenarios by Tag
 bunx playwright test --grep "@{tag}"
 
-## Run Crucial Scenarios
-bunx playwright test --grep "@crucial"
+## Run Regression Scenarios
+bunx playwright test --grep "@regression"
 ```
 
 **Cucumber/Gherkin example:**
@@ -745,8 +746,8 @@ features/
 ## Run Scenarios by Tag
 cucumber-js --tags "@{tag}"
 
-## Run Crucial Scenarios
-cucumber-js --tags "@crucial"
+## Run Regression Scenarios
+cucumber-js --tags "@regression"
 ```
 
 **`commands.md` additions:**
@@ -754,12 +755,12 @@ cucumber-js --tags "@crucial"
 The same scenario commands can also be specified in `.adw/commands.md` for use by workflow phase commands:
 
 - `## Run Scenarios by Tag` — same `{tag}` placeholder convention
-- `## Run Crucial Scenarios` — runs all `@crucial`-tagged scenarios
+- `## Run Regression Scenarios` — runs all `@regression`-tagged scenarios
 
 **Tagging conventions:**
 
 - `@adw-{issueNumber}` — marks scenarios created, modified, or flagged as relevant for a specific GitHub issue (e.g., `@adw-164`)
-- `@crucial` — marks scenarios that form the regression safety net; maintained over time by the Scenario Planner Agent
+- `@regression` — marks scenarios that form the regression safety net; maintained over time by the Scenario Planner Agent
 
 **Scenario file format resolution:**
 

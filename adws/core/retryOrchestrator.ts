@@ -47,7 +47,7 @@ export interface RetryConfig<TRunResult extends AgentRunResult, TFailure> {
 /**
  * Helper to get ADW ID from state path.
  */
-export function getAdwIdFromState(statePath: string): string {
+function getAdwIdFromState(statePath: string): string {
   return AgentStateManager.readState(statePath)?.adwId || '';
 }
 
