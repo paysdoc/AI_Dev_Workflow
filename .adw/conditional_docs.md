@@ -151,3 +151,11 @@
     - When adding a new agent that needs project context pre-loaded before its slash command
     - When troubleshooting plan or scenario agents running redundant codebase exploration
     - When deciding whether a new agent should use the primed or base variant
+
+- app_docs/feature-20eum6-replace-crucial-with-regression.md
+  - Conditions:
+    - When working with `@regression` tag or `regressionScenarioProof.ts`
+    - When configuring `## Run Regression Scenarios` in `.adw/commands.md` or `.adw/scenarios.md`
+    - When modifying `ReviewRetryOptions.runRegressionCommand` or scenario proof identifiers
+    - When troubleshooting regression scenario proof failures during the review phase
+    - When adding new BDD scenarios to the regression safety net
