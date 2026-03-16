@@ -70,6 +70,9 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 177,trigger cron process may not be running more than ,2.6237,0.2624
 183,fix validation and resolution agents to use comman,3.3632,0.3363
 184,cron pr polling re triggers adwprreview on adw s o,2.1207,0.2121
+185,llm based issue dependency extraction,7.9817,0.7982
+189,add runprimedclaudeagentwithcommand to prime agent,7.2881,0.7288
+190,review retry loop consolidate patch plans and impl,1.3516,0.1352
 
-Total Cost (USD):,274.8671
-Total Cost (EUR):,240.4109
+Total Cost (USD):,293.1507
+Total Cost (EUR):,256.4025
