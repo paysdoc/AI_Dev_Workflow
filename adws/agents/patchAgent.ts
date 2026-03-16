@@ -12,7 +12,7 @@ import { ReviewIssue } from './reviewAgent';
  * Formats the patch arguments for the /patch command.
  * Combines issue description and resolution into a review change request.
  */
-export function formatPatchArgs(
+function formatPatchArgs(
   adwId: string,
   reviewIssue: ReviewIssue,
   specPath?: string,

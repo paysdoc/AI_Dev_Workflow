@@ -71,7 +71,7 @@ function hasLinkedMergedOrClosedPR(issueNumber: number, prs: RawPR[]): boolean {
  * An issue is "in progress" when it has an ADW workflow comment and
  * does not yet have a linked merged/closed PR.
  */
-export async function getInProgressIssueCount(repoInfo: RepoInfo): Promise<number> {
+async function getInProgressIssueCount(repoInfo: RepoInfo): Promise<number> {
   const issues = fetchOpenIssuesWithComments(repoInfo);
   const prs = fetchPRsForRepo(repoInfo);
 

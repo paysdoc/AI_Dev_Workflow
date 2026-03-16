@@ -11,7 +11,7 @@ import { getDefaultBranch } from '../vcs/branchOperations';
 /**
  * Formats structured args for the /pull_request skill.
  */
-export function formatPullRequestArgs(
+function formatPullRequestArgs(
   branchName: string,
   issueJson: string,
   planFile: string,
@@ -25,7 +25,7 @@ export function formatPullRequestArgs(
  * Extracts the PR URL from the agent's output.
  * The skill returns ONLY the PR URL.
  */
-export function extractPrUrlFromOutput(output: string): string {
+function extractPrUrlFromOutput(output: string): string {
   const trimmed = output.trim();
   const lines = trimmed.split('\n').filter(line => line.trim());
   // The PR URL is the last non-empty line

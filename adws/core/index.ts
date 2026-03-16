@@ -82,7 +82,7 @@ export { emptyModelUsage, emptyModelUsageMap } from '../types/costTypes';
 
 // Cost pricing
 export type { ModelPricing } from './costPricing';
-export { MODEL_PRICING, getModelPricing, computeModelCost } from './costPricing';
+export { MODEL_PRICING } from './costPricing';
 
 // Cost report
 export {
@@ -115,7 +115,7 @@ export { loadProjectConfig, getDefaultProjectConfig, getDefaultCommandsConfig, g
 
 // Issue classifier
 export type { IssueClassificationResult } from './issueClassifier';
-export { classifyWithAdwCommand, classifyIssueForTrigger, classifyGitHubIssue, extractAdwIdFromText } from './issueClassifier';
+export { classifyIssueForTrigger, classifyGitHubIssue, extractAdwIdFromText } from './issueClassifier';
 
 // Workflow mapping
 export { getWorkflowScript } from './workflowMapping';
@@ -125,7 +125,7 @@ export { allocateRandomPort, isPortAvailable } from './portAllocator';
 
 // Orchestrator CLI utilities
 export type { OrchestratorArgs } from './orchestratorCli';
-export { extractCwdOption, extractIssueTypeOption, parseIssueNumber, printUsageAndExit as printOrchestratorUsage, parseOrchestratorArguments, buildRepoIdentifier } from './orchestratorCli';
+export { extractCwdOption, printUsageAndExit as printOrchestratorUsage, parseOrchestratorArguments, buildRepoIdentifier } from './orchestratorCli';
 
 // Token Manager
 export type { TokenTotals, ModelTokenEntry } from './tokenManager';

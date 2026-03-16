@@ -11,7 +11,7 @@ import { runClaudeAgentWithCommand, type AgentResult } from './claudeAgent';
  * Formats structured args for the /track_agentic_kpis skill.
  * Returns a single-element array containing a JSON string with all KPI state data.
  */
-export function formatKpiArgs(
+function formatKpiArgs(
   adwId: string,
   issueNumber: number,
   issueClass: string,

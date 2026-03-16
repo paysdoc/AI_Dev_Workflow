@@ -71,7 +71,7 @@ export function readScenarioContents(scenarioPaths: string[]): string {
 /**
  * Returns positional args for the /validate_plan_scenarios command.
  */
-export function formatValidationArgs(
+function formatValidationArgs(
   adwId: string,
   issueNumber: number,
   planFilePath: string,

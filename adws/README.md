@@ -572,7 +572,6 @@ app_docs/                         # Generated documentation
 - `costReport.ts` - Cost breakdown formatting and persistence
 - `costCsvWriter.ts` - CSV-based cost tracking
 - `portAllocator.ts` - Random port allocation for dev servers
-- `targetRepoRegistry.ts` - Target repo context management
 - `targetRepoManager.ts` - Target repo workspace cloning and management
 - `orchestratorLib.ts` - Shared orchestrator stage management
 - `stateHelpers.ts` - State file helper utilities
@@ -581,21 +580,23 @@ app_docs/                         # Generated documentation
 
 **GitHub** (`github/`):
 - `githubApi.ts` - Core GitHub API wrapper
-- `gitBranchOperations.ts` - Branch management (create, checkout, delete, default branch detection)
-- `gitCommitOperations.ts` - Commit and push operations
-- `gitOperations.ts` - Re-export barrel for backward compatibility
 - `issueApi.ts` - GitHub issue API operations
 - `prApi.ts` - Pull request API operations
 - `pullRequestCreator.ts` - PR creation logic
-- `worktreeOperations.ts` - Worktree lifecycle orchestration
-- `worktreeCreation.ts` - Worktree creation and setup
-- `worktreeCleanup.ts` - Worktree removal and branch cleanup
-- `worktreeQuery.ts` - Worktree listing and issue lookup
 - `workflowCommentsBase.ts` - Base comment filtering and management
 - `workflowCommentsIssue.ts` - Issue-specific workflow comments
 - `workflowCommentsPR.ts` - PR-specific workflow comments
 - `workflowComments.ts` - Unified comment API
 - `prCommentDetector.ts` - PR comment trigger detection
+
+**VCS** (`vcs/`):
+- `branchOperations.ts` - Branch management (create, checkout, delete, default branch detection)
+- `commitOperations.ts` - Commit and push operations
+- `index.ts` - VCS module exports
+- `worktreeOperations.ts` - Worktree lifecycle orchestration
+- `worktreeCreation.ts` - Worktree creation and setup
+- `worktreeCleanup.ts` - Worktree removal and branch cleanup
+- `worktreeQuery.ts` - Worktree listing and issue lookup
 
 **Phases** (`phases/`):
 - `planPhase.ts` - Planning phase implementation
