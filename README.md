@@ -94,6 +94,7 @@ bun run test:watch    # Run tests in watch mode
 │   ├── commit_cost.md
 │   ├── conditional_docs.md
 │   ├── document.md
+│   ├── extract_dependencies.md
 │   ├── feature.md
 │   ├── find_issue_dependencies.md
 │   ├── generate_branch_name.md
@@ -135,6 +136,7 @@ adws/                   # ADW workflow system
 │   ├── buildAgent.ts
 │   ├── claudeAgent.ts
 │   ├── crucialScenarioProof.ts  # Crucial scenario proof for reviews
+│   ├── dependencyExtractionAgent.ts  # LLM-based issue dependency extraction
 │   ├── documentAgent.ts
 │   ├── gitAgent.ts
 │   ├── index.ts

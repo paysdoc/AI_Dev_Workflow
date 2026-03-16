@@ -14,6 +14,7 @@ import {
   getPlanFilePath,
   runKpiAgent,
 } from '../agents';
+import { commitAndPushKpiFile } from '../vcs';
 import type { WorkflowConfig } from './workflowLifecycle';
 
 /**
@@ -86,6 +87,8 @@ export async function executeKpiPhase(
         true,
       ),
     });
+
+    commitAndPushKpiFile();
 
     AgentStateManager.appendLog(orchestratorStatePath, 'KPI tracking completed');
     log('KPI phase completed', 'success');
