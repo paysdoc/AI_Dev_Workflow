@@ -57,6 +57,28 @@ export function getRepoInfoFromPayload(repoFullName: string): RepoInfo {
   return { owner: parts[0], repo: parts[1] };
 }
 
+/** Cached authenticated GitHub username. `undefined` = not yet fetched, `null` = fetch failed. */
+let cachedAuthenticatedUser: string | null | undefined = undefined;
+
+/**
+ * Returns the currently authenticated GitHub username via the gh CLI.
+ * Caches the result for the lifetime of the process.
+ * Returns null on failure (graceful degradation).
+ */
+export function getAuthenticatedUser(): string | null {
+  if (cachedAuthenticatedUser !== undefined) return cachedAuthenticatedUser;
+
+  try {
+    const login = execSync('gh api user --jq .login', { encoding: 'utf-8' }).trim();
+    cachedAuthenticatedUser = login || null;
+  } catch (error) {
+    console.warn(`[githubApi] Could not determine authenticated GitHub user: ${error}`);
+    cachedAuthenticatedUser = null;
+  }
+
+  return cachedAuthenticatedUser;
+}
+
 // Re-export issue API functions
 export {
   fetchGitHubIssue,
