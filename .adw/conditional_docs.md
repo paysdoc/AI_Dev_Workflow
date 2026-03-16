@@ -135,3 +135,11 @@
     - When adding or changing `@crucial` / `@adw-{issueNumber}` scenario classification in review
     - When configuring `runCrucialScenarios` or `runScenariosByTag` commands in `.adw/commands.md`
     - When troubleshooting review proof fallback behaviour for repos without `.adw/scenarios.md`
+
+- app_docs/feature-uzfskg-add-primed-claude-agent.md
+  - Conditions:
+    - When working with `runPrimedClaudeAgentWithCommand` or agent context priming
+    - When modifying `adws/agents/claudeAgent.ts`, `planAgent.ts`, or `scenarioAgent.ts`
+    - When adding a new agent that needs project context pre-loaded before its slash command
+    - When troubleshooting plan or scenario agents running redundant codebase exploration
+    - When deciding whether a new agent should use the primed or base variant
