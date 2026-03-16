@@ -3,12 +3,14 @@
  * Iterates: 3 parallel review agents -> merge results -> patch blockers -> commit+push -> re-review.
  */
 
+import * as path from 'path';
 import { log, AgentStateManager, type IssueClassSlashCommand, type ModelUsageMap, emptyModelUsageMap, type AgentIdentifier } from '../core';
 import { initAgentState, trackCost, type AgentRunResult } from '../core/retryOrchestrator';
 import { runReviewAgent, type ReviewIssue, type ReviewAgentResult } from './reviewAgent';
 import { runPatchAgent } from './patchAgent';
 import { runCommitAgent } from './gitAgent';
 import { pushBranch } from '../vcs';
+import { shouldRunScenarioProof, runCrucialScenarioProof, type ScenarioProofResult } from './crucialScenarioProof';
 
 /** Number of parallel review agents per iteration. */
 export const REVIEW_AGENT_COUNT = 3;
@@ -29,6 +31,8 @@ export interface ReviewRetryResult {
   reviewSummary?: string;
   allScreenshots: string[];
   allSummaries: string[];
+  /** Scenario proof from the final iteration, if scenario proof was run. */
+  scenarioProof?: ScenarioProofResult;
 }
 
 export interface ReviewRetryOptions {
@@ -47,6 +51,14 @@ export interface ReviewRetryOptions {
   applicationUrl?: string;
   /** Optional issue body for fast/cheap model selection */
   issueBody?: string;
+  /** Issue number for @adw-{issueNumber} scenario tag filtering. */
+  issueNumber: number;
+  /** Raw content of .adw/scenarios.md — empty string when absent (disables scenario proof). */
+  scenariosMd: string;
+  /** Command to run @crucial scenarios (from .adw/commands.md). */
+  runCrucialCommand: string;
+  /** Command template with {tag} placeholder for tag-filtered scenarios. */
+  runByTagCommand: string;
 }
 
 /**
@@ -87,13 +99,15 @@ export function mergeReviewResults(results: readonly ReviewAgentResult[]): Merge
 
 /**
  * Runs multiple review agents in parallel with automatic retry logic on failure.
- * On each attempt: launches 3 review agents concurrently, merges results,
- * patches any blocker issues with a single patch agent, commits, pushes, and re-reviews.
+ * On each attempt: optionally runs @crucial BDD scenarios first, then launches
+ * 3 review agents concurrently, merges results, patches any blocker issues with
+ * a single patch agent, commits, pushes, and re-reviews.
  */
 export async function runReviewWithRetry(opts: ReviewRetryOptions): Promise<ReviewRetryResult> {
   const {
     adwId, specFile, logsDir, orchestratorStatePath: statePath,
-    maxRetries, branchName, issueType, issueContext, onReviewFailed, onPatchingIssue, cwd, applicationUrl, issueBody,
+    maxRetries, branchName, issueType, issueContext, onReviewFailed, onPatchingIssue, cwd,
+    applicationUrl, issueBody, issueNumber, scenariosMd, runCrucialCommand, runByTagCommand,
   } = opts;
 
   let retryCount = 0;
@@ -101,17 +115,68 @@ export async function runReviewWithRetry(opts: ReviewRetryOptions): Promise<Revi
   const costState = { costUsd: 0, modelUsage: emptyModelUsageMap() };
   const allScreenshots: string[] = [];
   const allSummaries: string[] = [];
+  let lastScenarioProof: ScenarioProofResult | undefined;
 
   while (retryCount < maxRetries) {
     log(`Running review (attempt ${retryCount + 1}/${maxRetries}) with ${REVIEW_AGENT_COUNT} parallel agents...`, 'info');
     AgentStateManager.appendLog(statePath, `Review attempt ${retryCount + 1}/${maxRetries} (${REVIEW_AGENT_COUNT} agents)`);
+
+    // Run scenario proof once per iteration before launching review agents
+    let scenarioProof: ScenarioProofResult | undefined;
+    if (shouldRunScenarioProof(scenariosMd)) {
+      log('Running @crucial and issue BDD scenarios for proof...', 'info');
+      AgentStateManager.appendLog(statePath, 'Running BDD scenario proof');
+
+      const proofDir = path.join(logsDir, 'scenario_proof');
+      scenarioProof = await runCrucialScenarioProof({
+        scenariosMd,
+        runByTagCommand,
+        runCrucialCommand,
+        issueNumber,
+        proofDir,
+        cwd,
+      });
+      lastScenarioProof = scenarioProof;
+
+      const crucialStatus = scenarioProof.crucialPassed ? 'passed' : 'FAILED';
+      log(`@crucial scenarios: ${crucialStatus}`, scenarioProof.crucialPassed ? 'success' : 'error');
+      AgentStateManager.appendLog(statePath, `@crucial scenarios: ${crucialStatus}`);
+      allScreenshots.push(scenarioProof.resultsFilePath);
+
+      // On the final attempt, if @crucial scenarios still fail — return immediately with blockers
+      const isLastAttempt = retryCount === maxRetries - 1;
+      if (!scenarioProof.crucialPassed && isLastAttempt) {
+        log('@crucial scenarios failed on final attempt — returning blocker immediately', 'error');
+        AgentStateManager.appendLog(statePath, '@crucial scenarios failed on final attempt');
+        const blockerIssue: ReviewIssue = {
+          reviewIssueNumber: 1,
+          screenshotPath: scenarioProof.resultsFilePath,
+          issueDescription: '@crucial BDD scenarios failed — see scenario proof file for details',
+          issueResolution: 'Fix the failing @crucial BDD scenarios before re-running the review',
+          issueSeverity: 'blocker',
+        };
+        const reviewSummary = allSummaries.find(s => s.length > 0);
+        return {
+          passed: false,
+          costUsd: costState.costUsd,
+          totalRetries: retryCount,
+          blockerIssues: [blockerIssue],
+          modelUsage: costState.modelUsage,
+          reviewSummary,
+          allScreenshots,
+          allSummaries,
+          scenarioProof,
+        };
+      }
+    }
 
     // Launch REVIEW_AGENT_COUNT review agents in parallel
     const agentIndices = Array.from({ length: REVIEW_AGENT_COUNT }, (_, i) => i + 1);
     const reviewResults: ReviewAgentResult[] = await Promise.all(
       agentIndices.map(index =>
         runReviewAgent(
-          adwId, specFile, logsDir, initAgentState(statePath, `review-agent-${index}` as AgentIdentifier), cwd, applicationUrl, issueBody, index,
+          adwId, specFile, logsDir, initAgentState(statePath, `review-agent-${index}` as AgentIdentifier),
+          cwd, applicationUrl, issueBody, index, scenarioProof?.resultsFilePath,
         )
       )
     );
@@ -135,7 +200,7 @@ export async function runReviewWithRetry(opts: ReviewRetryOptions): Promise<Revi
       return {
         passed: true, costUsd: costState.costUsd, totalRetries: retryCount,
         blockerIssues: [], modelUsage: costState.modelUsage,
-        reviewSummary, allScreenshots, allSummaries,
+        reviewSummary, allScreenshots, allSummaries, scenarioProof: lastScenarioProof,
       };
     }
 
@@ -175,6 +240,6 @@ export async function runReviewWithRetry(opts: ReviewRetryOptions): Promise<Revi
   return {
     passed: false, costUsd: costState.costUsd, totalRetries: retryCount,
     blockerIssues: lastBlockerIssues, modelUsage: costState.modelUsage,
-    reviewSummary, allScreenshots, allSummaries,
+    reviewSummary, allScreenshots, allSummaries, scenarioProof: lastScenarioProof,
   };
 }

@@ -51,7 +51,12 @@ export function formatReviewArgs(
   specFile: string,
   agentName: string,
   applicationUrl?: string,
+  scenarioProofPath?: string,
 ): string[] {
+  if (scenarioProofPath) {
+    // $5 requires $4 to be present — use empty string for applicationUrl if absent
+    return [adwId, specFile, agentName, applicationUrl ?? '', scenarioProofPath];
+  }
   return applicationUrl
     ? [adwId, specFile, agentName, applicationUrl]
     : [adwId, specFile, agentName];
@@ -79,12 +84,13 @@ export async function runReviewAgent(
   applicationUrl?: string,
   issueBody?: string,
   agentIndex?: number,
+  scenarioProofPath?: string,
 ): Promise<ReviewAgentResult> {
   const agentName = agentIndex !== undefined ? `review_agent_${agentIndex}` : 'review_agent';
   const logFileName = agentIndex !== undefined ? `review-agent-${agentIndex}.jsonl` : 'review-agent.jsonl';
   const outputFile = path.join(logsDir, logFileName);
 
-  const args = formatReviewArgs(adwId, specFile, agentName, applicationUrl);
+  const args = formatReviewArgs(adwId, specFile, agentName, applicationUrl, scenarioProofPath);
 
   const result = await runClaudeAgentWithCommand(
     '/review',

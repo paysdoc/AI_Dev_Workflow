@@ -115,6 +115,10 @@ export async function executeReviewPhase(config: WorkflowConfig): Promise<{
     cwd: worktreePath,
     applicationUrl,
     issueBody: issue.body,
+    issueNumber,
+    scenariosMd: config.projectConfig.scenariosMd,
+    runCrucialCommand: config.projectConfig.commands.runCrucialScenarios,
+    runByTagCommand: config.projectConfig.commands.runScenariosByTag,
   });
 
   if (reviewResult.passed) {
