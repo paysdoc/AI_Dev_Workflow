@@ -143,3 +143,11 @@
     - When adding a new agent that needs project context pre-loaded before its slash command
     - When troubleshooting plan or scenario agents running redundant codebase exploration
     - When deciding whether a new agent should use the primed or base variant
+
+- app_docs/feature-jjxkk9-conditional-unit-tests-plan-template.md
+  - Conditions:
+    - When working with `.claude/commands/feature.md` plan template
+    - When the `## Unit Tests` setting in `.adw/project.md` should affect plan generation
+    - When troubleshooting plans that include unit test tasks despite unit tests being disabled
+    - When modifying `crucialScenarioProof.ts` or the `@crucial` tag convention in review proof
+    - When auditing plan templates (`bug.md`, `chore.md`, `patch.md`) for unit-test awareness
