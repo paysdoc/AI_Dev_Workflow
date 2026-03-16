@@ -9,7 +9,7 @@ Feature: KPI phase commits and pushes the updated agentic_kpis.md file
     Given the ADW workflow has completed at least the plan and build phases
     And the KPI agent has successfully written updates to "app_docs/agentic_kpis.md"
 
-  @adw-jm6pnw-push-adw-kpis @crucial
+  @adw-jm6pnw-push-adw-kpis @regression
   Scenario: KPI phase commits the updated agentic_kpis.md after agent completion
     Given the KPI agent has written changes to "app_docs/agentic_kpis.md"
     And the file has uncommitted changes in the working tree
@@ -17,14 +17,14 @@ Feature: KPI phase commits and pushes the updated agentic_kpis.md file
     Then a git commit is created that includes "app_docs/agentic_kpis.md"
     And the commit message references KPI tracking
 
-  @adw-jm6pnw-push-adw-kpis @crucial
+  @adw-jm6pnw-push-adw-kpis @regression
   Scenario: KPI phase pushes the commit to the remote branch
     Given the KPI agent has written and committed changes to "app_docs/agentic_kpis.md"
     When the KPI phase push step executes
     Then the commit is pushed to the remote tracking branch
     And "app_docs/agentic_kpis.md" is visible on the remote branch
 
-  @adw-jm6pnw-push-adw-kpis @crucial
+  @adw-jm6pnw-push-adw-kpis @regression
   Scenario: agentic_kpis.md is present in remote branch after full SDLC run
     Given an ADW SDLC workflow (plan + build + test + review + document + KPI) has completed
     When the remote branch is inspected

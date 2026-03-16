@@ -66,12 +66,7 @@ See [adws/README.md](adws/README.md) for full usage documentation.
 
 ## Testing
 
-ADW's own unit tests have been removed in favour of BDD scenarios. The test commands below remain available for target repos that opt in to unit tests via `.adw/project.md`.
-
-```bash
-bun run test          # Run tests once
-bun run test:watch    # Run tests in watch mode
-```
+ADW uses BDD scenarios for validation (see `.adw/scenarios.md`).
 
 ## Project Structure
 
@@ -128,9 +123,7 @@ bun run test:watch    # Run tests in watch mode
 │       └── constants.ts
 └── settings.json
 adws/                   # ADW workflow system
-├── __tests__/          # Root-level orchestrator tests
 ├── agents/             # Claude Code agent runners
-│   ├── __tests__/      # Agent tests
 │   ├── agentProcessHandler.ts  # Process spawning handler
 │   ├── bddScenarioRunner.ts  # BDD scenario execution
 │   ├── buildAgent.ts
@@ -196,7 +189,6 @@ adws/                   # ADW workflow system
 │   ├── worktreeOperations.ts
 │   └── worktreeQuery.ts  # Worktree query utilities
 ├── phases/             # Workflow phase implementations
-│   ├── __tests__/      # Phase tests
 │   ├── buildPhase.ts
 │   ├── documentPhase.ts
 │   ├── index.ts
@@ -287,6 +279,5 @@ specs/                  # Generated implementation specs
 .gitignore
 package.json
 tsconfig.json           # Root TypeScript configuration
-vitest.config.ts        # Vitest test runner configuration
 README.md               # This file
 ```

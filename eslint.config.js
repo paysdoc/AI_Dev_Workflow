@@ -18,10 +18,4 @@ export default tseslint.config(
       'no-useless-assignment': 'off',
     },
   },
-  {
-    files: ['**/__tests__/**/*.ts'],
-    rules: {
-      '@typescript-eslint/no-explicit-any': 'off',
-    },
-  }
 );
