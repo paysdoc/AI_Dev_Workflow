@@ -176,7 +176,7 @@ Feature: Remove unnecessary exports across the codebase
 
   # ── 7. No import breakage ────────────────────────────────────────────────────
 
-  @adw-467hhd-remove-unnecessary-e
+  @adw-467hhd-remove-unnecessary-e @regression
   Scenario: Test suite passes after all exports are removed
     Given all listed exports have had their "export" keyword removed
     And all corresponding barrel re-exports have been cleaned up

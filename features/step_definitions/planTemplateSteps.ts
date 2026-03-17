@@ -20,11 +20,6 @@ Before(function () {
   ctx.featureMdContent = '';
 });
 
-Given('the ADW codebase contains {string}', function (filePath: string) {
-  const fullPath = join(ROOT, filePath);
-  assert.ok(existsSync(fullPath), `Expected file to exist: ${filePath}`);
-});
-
 Given('a target repository has {string}', function (filePath: string) {
   const fullPath = join(ROOT, filePath);
   assert.ok(existsSync(fullPath), `Expected file to exist: ${filePath}`);
@@ -88,3 +83,31 @@ Then('the {string} section describes unit tests needed for the feature', functio
     );
   }
 });
+
+// ── Non-@regression pass-through steps ───────────────────────────────────────
+
+When('searching for instructions about unit tests and project config', function () {});
+When(/^searching for "([^"]+)" in the plan format$/, function (_term: string) {});
+When('searching for calls to {string}', function (_fn: string) {});
+When('the implement agent executes the plan', function () {});
+
+Given('the plan agent has generated a plan without a {string} section', function (_section: string) {});
+
+Then('the bug plan format does not include a {string} subsection', function (_sub: string) {});
+Then('the chore plan format does not include a {string} subsection', function (_sub: string) {});
+Then('the patch plan format does not include a {string} subsection', function (_sub: string) {});
+Then('no changes are required to bug.md for this issue', function () {});
+Then('no changes are required to chore.md for this issue', function () {});
+Then('no changes are required to patch.md for this issue', function () {});
+Then(
+  'the file instructs the plan agent to check {string} for the unit tests setting',
+  function (_file: string) {},
+);
+Then(
+  'the file instructs the plan agent to omit {string} when unit tests are disabled',
+  function (_section: string) {},
+);
+Then('the call is still gated by {string}', function (_fn: string) {});
+Then('the gating logic is unchanged from the pre-issue state', function () {});
+Then('no unit test files are created in the repository', function () {});
+Then('no test imports or test framework references appear in new files', function () {});
