@@ -25,6 +25,7 @@ import { checkEnvironmentVariables, checkGitRepository, checkClaudeCodeCLI, chec
 // Re-export for any external consumers
 export { handlePullRequestEvent, extractIssueNumberFromPRBody } from './webhookHandlers';
 export { classifyAndSpawnWorkflow, handleIssueClosedDependencyUnblock, ensureCronProcess } from './webhookGatekeeper';
+export { shouldTriggerIssueWorkflow };
 
 const PR_REVIEW_COOLDOWN_MS = 60_000;
 const recentPrReviewTriggers = new Map<number, number>();
@@ -34,6 +35,17 @@ function shouldTriggerPrReview(prNumber: number): boolean {
   const lastTrigger = recentPrReviewTriggers.get(prNumber);
   if (lastTrigger !== undefined && now - lastTrigger < PR_REVIEW_COOLDOWN_MS) return false;
   recentPrReviewTriggers.set(prNumber, now);
+  return true;
+}
+
+const ISSUE_COOLDOWN_MS = 60_000;
+const recentIssueTriggers = new Map<number, number>();
+
+function shouldTriggerIssueWorkflow(issueNumber: number): boolean {
+  const now = Date.now();
+  const lastTrigger = recentIssueTriggers.get(issueNumber);
+  if (lastTrigger !== undefined && now - lastTrigger < ISSUE_COOLDOWN_MS) return false;
+  recentIssueTriggers.set(issueNumber, now);
   return true;
 }
 
@@ -122,6 +134,11 @@ const server = http.createServer((req, res) => {
         return;
       }
       if (!isActionableComment(commentBody)) { jsonResponse(res, 200, { status: 'ignored' }); return; }
+      if (!shouldTriggerIssueWorkflow(issueNumber)) {
+        log(`Issue #${issueNumber} cooldown active, ignoring duplicate webhook`);
+        jsonResponse(res, 200, { status: 'ignored', reason: 'duplicate' });
+        return;
+      }
       const commentTargetRepoArgs = extractTargetRepoArgs(body);
       isAdwRunningForIssue(issueNumber, webhookRepoInfo ?? getRepoInfo())
         .then(async (running) => {
@@ -173,6 +190,10 @@ const server = http.createServer((req, res) => {
     }
 
     if (action === 'opened') {
+      if (!shouldTriggerIssueWorkflow(issueNumber)) {
+        jsonResponse(res, 200, { status: 'ignored', reason: 'duplicate' });
+        return;
+      }
       log(`New issue #${issueNumber} detected, evaluating eligibility`);
       const issueTargetRepoArgs = extractTargetRepoArgs(body);
       const issueRepoFullName = (body.repository as Record<string, unknown> | undefined)?.full_name as string | undefined;

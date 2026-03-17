@@ -122,9 +122,9 @@ export function parseWorkflowStageFromComment(commentBody: string): WorkflowStag
   return STAGE_HEADER_MAP[headerMatch[1]] || null;
 }
 
-/** Extracts the ADW ID from a comment body. Matches both old format `adw-{timestamp}-{random}` and new format `adw-{slug}-{random}`. */
+/** Extracts the ADW ID from a comment body. Matches the `{random}-{slug}` format produced by generateAdwId. */
 export function extractAdwIdFromComment(commentBody: string): string | null {
-  const match = commentBody.match(/`(adw-[a-z0-9][a-z0-9-]*[a-z0-9])`/);
+  const match = commentBody.match(/\*\*ADW ID:\*\*\s*`([a-z0-9][a-z0-9-]*[a-z0-9])`/);
   return match ? match[1] : null;
 }
 
