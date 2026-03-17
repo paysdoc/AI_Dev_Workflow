@@ -175,3 +175,10 @@
     - When working with KPI metrics, streak tracking, or ADW run statistics
     - When querying or interpreting historical ADW workflow performance data
     - When troubleshooting KPI reporting or the `/track_agentic_kpis` command
+
+- app_docs/feature-fla3u2-1773754088098-cucumber-step-definitions.md
+  - Conditions:
+    - When adding or modifying Cucumber step definitions in `features/step_definitions/`
+    - When a `bunx cucumber-js --dry-run` reports undefined steps
+    - When implementing steps that scan source files with `findFiles()` or execute commands via `spawnSync`
+    - When working with `removeRunBddScenariosSteps.ts` or `removeUnitTestsSteps.ts`
