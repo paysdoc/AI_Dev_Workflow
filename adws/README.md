@@ -317,7 +317,7 @@ bunx tsx adws/triggers/trigger_cron.ts
 - Polls every 20 seconds
 
 **Workflow selection:**
-- Bug issues → `adwPlanBuildTest.tsx`
+- Bug issues → `adwSdlc.tsx`
 - Chore issues → `adwPlanBuild.tsx`
 - Feature issues → `adwSdlc.tsx`
 - PR review issues → `adwPlanBuild.tsx`
@@ -380,7 +380,7 @@ bunx tsx adws/triggers/trigger_webhook.ts
 ### Process a bug report
 ```bash
 # User reports bug in issue #789
-bunx tsx adws/adwPlanBuild.tsx 789
+bunx tsx adws/adwSdlc.tsx 789
 # ADW analyzes, creates fix, and opens PR
 ```
 

@@ -72,7 +72,7 @@ export const adwCommandToOrchestratorMap: Partial<Record<AdwSlashCommand, string
  * explicit ADW command is provided.
  */
 export const issueTypeToOrchestratorMap: Record<IssueClassSlashCommand, string> = {
-  '/bug': 'adws/adwPlanBuildTest.tsx',
+  '/bug': 'adws/adwSdlc.tsx',
   '/chore': 'adws/adwPlanBuild.tsx',
   '/feature': 'adws/adwSdlc.tsx',
   '/pr_review': 'adws/adwPlanBuild.tsx',

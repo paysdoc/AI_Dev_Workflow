@@ -167,3 +167,11 @@
     - When modifying `ReviewRetryOptions.runRegressionCommand` or scenario proof identifiers
     - When troubleshooting regression scenario proof failures during the review phase
     - When adding new BDD scenarios to the regression safety net
+
+- app_docs/feature-u8okxe-bug-sdlc-chore-classifier.md
+  - Conditions:
+    - When working with `issueTypeToOrchestratorMap` in `adws/types/issueTypes.ts`
+    - When modifying issue classification logic or the `/classify_issue` command
+    - When troubleshooting bug issues that are not receiving review or documentation phases
+    - When investigating why an issue was classified as `/chore` and skipped quality gates
+    - When updating orchestrator routing for any issue type

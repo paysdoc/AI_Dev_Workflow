@@ -20,7 +20,7 @@ import {
 import { postIssueStageComment } from './phaseCommentHelpers';
 import {
   runUnitTestsWithRetry,
-  runBddScenariosWithRetry,
+  runScenariosByTag,
 } from '../agents';
 import type { WorkflowConfig } from './workflowLifecycle';
 
@@ -94,21 +94,10 @@ export async function executeTestPhase(config: WorkflowConfig): Promise<{
   AgentStateManager.appendLog(orchestratorStatePath, `Starting test phase: BDD Scenarios @adw-${issueNumber}`);
 
   const scenarioCommand = projectConfig.commands.runScenariosByTag;
-  const bddResult = await runBddScenariosWithRetry({
-    logsDir,
-    orchestratorStatePath,
-    maxRetries: MAX_TEST_RETRY_ATTEMPTS,
-    cwd: worktreePath,
-    issueBody: issue.body,
-    tagCommand: scenarioCommand,
-    issueNumber,
-  });
-  costUsd += bddResult.costUsd;
-  modelUsage = mergeModelUsageMaps(modelUsage, bddResult.modelUsage);
-  totalRetries += bddResult.totalRetries;
+  const bddResult = await runScenariosByTag(scenarioCommand, `adw-${issueNumber}`, worktreePath);
 
-  if (!bddResult.passed) {
-    const errorMsg = 'BDD scenarios failed after maximum retry attempts. No PR was created.';
+  if (!bddResult.allPassed) {
+    const errorMsg = 'BDD scenarios failed. No PR was created.';
     log(errorMsg, 'error');
     AgentStateManager.appendLog(orchestratorStatePath, errorMsg);
     ctx.errorMessage = errorMsg;
