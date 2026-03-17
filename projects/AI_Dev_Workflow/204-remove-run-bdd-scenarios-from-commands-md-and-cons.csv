@@ -1,0 +1,5 @@
+Model,Input Tokens,Output Tokens,Cache Read,Cache Write,Cost (USD)
+claude-sonnet-4-6,4358,25683,2068086,172979,1.6674
+
+Total Cost (USD):,1.6674
+Total Cost (EUR):,1.4516

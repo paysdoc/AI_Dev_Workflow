@@ -36,11 +36,8 @@ bun add <package>
 ## Script Execution
 bunx tsx <script name>
 
-## Run BDD Scenarios
-N/A
-
 ## Run Scenarios by Tag
 bunx cucumber-js --tags "@{tag}"
 
 ## Run Regression Scenarios
-cucumber-js --tags "@regression"
+bunx cucumber-js --tags "@regression"
