@@ -40,6 +40,9 @@ Example: if $1=31 and $2=init-adw-env-4qugib, the filename is `issue-31-adw-init
      - `## Additional Type Checks` — Extra type checks (if applicable, otherwise "N/A")
      - `## Library Install Command` — Command to install a new library
      - `## Script Execution` — How to run project scripts
+     - `## Run Scenarios by Tag` — Command to run scenarios by tag, using `{tag}` placeholder (values determined by E2E tool detection in step 7)
+     - `## Run Regression Scenarios` — Command to run all `@regression`-tagged scenarios (values determined by E2E tool detection in step 7)
+   - Note: the values for `## Run Scenarios by Tag` and `## Run Regression Scenarios` must be consistent with the E2E tool detected in step 7 (Playwright, Cypress, Cucumber, or default Cucumber)
 
 3. **Create `.adw/project.md`**
    - Generate `.adw/project.md` with the following sections:
