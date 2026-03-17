@@ -104,7 +104,15 @@ export function createWorktree(branchName: string, baseBranch?: string, baseRepo
         execSync(`git rev-parse --verify "origin/${branchName}"`, gitOpts);
         branchExists = true;
       } catch {
-        branchExists = false;
+        // Remote ref not found locally, try fetching from origin
+        try {
+          execSync(`git fetch origin "${branchName}"`, gitOpts);
+          execSync(`git rev-parse --verify "origin/${branchName}"`, gitOpts);
+          branchExists = true;
+          log(`Fetched branch '${branchName}' from origin`, 'info');
+        } catch {
+          branchExists = false;
+        }
       }
     }
 

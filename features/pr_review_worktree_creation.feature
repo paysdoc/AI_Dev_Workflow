@@ -17,8 +17,7 @@ Feature: PR review creates worktree for branch that exists only on the remote
   @adw-217 @regression
   Scenario: createWorktree fetches from remote when branch is not in remote-tracking refs
     Given "adws/vcs/worktreeCreation.ts" is read
-    Then createWorktree or ensureWorktree performs a git fetch for the target branch
-    before attempting git worktree add
+    Then createWorktree or ensureWorktree performs a git fetch for the target branch before attempting git worktree add
 
   @adw-217 @regression
   Scenario: PR review worktree is created for a branch that exists on remote but not locally
