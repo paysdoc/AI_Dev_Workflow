@@ -9,7 +9,8 @@
 
 import { execSync, spawn } from 'child_process';
 import { log, GRACE_PERIOD_MS } from '../core';
-import { getRepoInfo, fetchPRList, hasUnaddressedComments, isClearComment, isAdwComment, type RepoInfo } from '../github';
+import { getRepoInfo, fetchPRList, hasUnaddressedComments, isClearComment, isAdwComment, activateGitHubAppAuth, refreshTokenIfNeeded, type RepoInfo } from '../github';
+
 import { clearIssueComments } from '../adwClearComments';
 import { checkIssueEligibility } from './issueEligibility';
 import { classifyAndSpawnWorkflow } from './webhookGatekeeper';
@@ -28,6 +29,9 @@ interface RawIssue {
   createdAt: string;
   updatedAt: string;
 }
+
+// Activate GitHub App auth before any gh CLI calls
+activateGitHubAppAuth();
 
 /** Resolved repo info for this cron process, derived from local git remote. */
 const cronRepoInfo: RepoInfo = getRepoInfo();
@@ -162,6 +166,6 @@ if (!canProceed) {
 
 log('CRON trigger (backlog sweeper) started');
 void checkAndTrigger();
-setInterval(() => void checkAndTrigger(), POLL_INTERVAL_MS);
+setInterval(() => { refreshTokenIfNeeded(); void checkAndTrigger(); }, POLL_INTERVAL_MS);
 checkPRsForReviewComments();
 setInterval(checkPRsForReviewComments, PR_POLL_INTERVAL_MS);

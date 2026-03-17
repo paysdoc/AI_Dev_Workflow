@@ -27,6 +27,15 @@ export { createPullRequest } from './pullRequestCreator';
 // Project Board API
 export { moveIssueToStatus } from './projectBoardApi';
 
+// GitHub App Authentication
+export {
+  isGitHubAppConfigured,
+  activateGitHubAppAuth,
+  ensureAppAuthForRepo,
+  refreshTokenIfNeeded,
+  getInstallationToken,
+} from './githubAppAuth';
+
 // PR Comment Detector
 export {
   getLastAdwCommitTimestamp,

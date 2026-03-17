@@ -13,7 +13,7 @@ import { log, PullRequestWebhookPayload, allocateRandomPort, isPortAvailable, ge
 import { fetchExchangeRates } from '../core/costReport';
 import { costCommitQueue } from '../core/costCommitQueue';
 import { commitAndPushCostFiles, pullLatestCostBranch } from '../vcs';
-import { isActionableComment, isClearComment, isAdwRunningForIssue, truncateText, getRepoInfoFromPayload, getRepoInfo } from '../github';
+import { isActionableComment, isClearComment, isAdwRunningForIssue, truncateText, getRepoInfoFromPayload, getRepoInfo, activateGitHubAppAuth, ensureAppAuthForRepo } from '../github';
 import { clearIssueComments } from '../adwClearComments';
 import { removeWorktreesForIssue } from '../vcs';
 import { handlePullRequestEvent, wasMergedViaPR } from './webhookHandlers';
@@ -107,6 +107,14 @@ const server = http.createServer((req, res) => {
     let body: Record<string, unknown>;
     try { body = JSON.parse(rawBody.toString()); } catch { jsonResponse(res, 400, { error: 'invalid json' }); return; }
     const event = req.headers['x-github-event'] as string | undefined;
+
+    // Ensure app auth targets the correct repo/org for this request
+    const webhookRepo = body.repository as Record<string, unknown> | undefined;
+    if (webhookRepo) {
+      const repoOwner = (webhookRepo.owner as Record<string, unknown> | undefined)?.login as string | undefined;
+      const repoName = webhookRepo.name as string | undefined;
+      if (repoOwner && repoName) ensureAppAuthForRepo(repoOwner, repoName);
+    }
 
     if (event === 'pull_request_review_comment' || event === 'pull_request_review') {
       const prNumber = (body.pull_request as Record<string, unknown> | undefined)?.number as number | undefined;
@@ -226,6 +234,7 @@ async function resolveWebhookPort(preferredPort: number): Promise<number> {
 }
 
 async function startServer(): Promise<void> {
+  activateGitHubAppAuth();
   if (!process.env.GITHUB_WEBHOOK_SECRET) log('GITHUB_WEBHOOK_SECRET not set — webhook signature validation disabled', 'warn');
   const preferredPort = parseInt(process.env.PORT || '8001', 10);
   const actualPort = await resolveWebhookPort(preferredPort);
