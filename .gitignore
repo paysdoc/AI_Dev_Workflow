@@ -16,6 +16,7 @@
 .DS_Store
 *.pem
 healthcheck.json*
+output.jsonl
 
 # debug
 *.log*
