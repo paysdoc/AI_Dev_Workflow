@@ -1,5 +1,5 @@
 export default {
-  paths: ['features/plan_template_unit_tests_conditional.feature'],
-  import: ['features/step_definitions/planTemplateSteps.ts'],
+  paths: ['features/**/*.feature'],
+  import: ['features/step_definitions/**/*.ts'],
   format: ['progress'],
 };

@@ -12,21 +12,21 @@ Feature: Plan templates conditionally include unit tests based on project config
     And the ADW codebase contains "adws/agents/planAgent.ts"
     And a target repository has ".adw/project.md"
 
-  @adw-jjxkk9-plan-templates-inclu @crucial
+  @adw-jjxkk9-plan-templates-inclu @regression
   Scenario: Feature plan omits Unit Tests section when unit tests are disabled
     Given ".adw/project.md" contains "## Unit Tests: disabled"
     When the plan agent runs the "/feature" command for an issue
     Then the generated plan file does not contain a "### Unit Tests" section
     And the generated plan file still contains an "### Edge Cases" section
 
-  @adw-jjxkk9-plan-templates-inclu @crucial
+  @adw-jjxkk9-plan-templates-inclu @regression
   Scenario: Feature plan includes Unit Tests section when unit tests are enabled
     Given ".adw/project.md" contains "## Unit Tests: enabled"
     When the plan agent runs the "/feature" command for an issue
     Then the generated plan file contains a "### Unit Tests" section
     And the "### Unit Tests" section describes unit tests needed for the feature
 
-  @adw-jjxkk9-plan-templates-inclu @crucial
+  @adw-jjxkk9-plan-templates-inclu @regression
   Scenario: Feature plan omits Unit Tests section when no unit tests setting is present
     Given ".adw/project.md" does not contain a "## Unit Tests" setting
     When the plan agent runs the "/feature" command for an issue
