@@ -87,6 +87,7 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 213,bug orchestrator child processes inherit stale gh ,2.0341,0.2034
 215,implement all undefined cucumber step definitions,6.5883,0.6588
 218,adw init is not working correctly,0.2998,0.0300
+221,adw init broken,3.1728,0.3173
 
-Total Cost (USD):,366.9090
-Total Cost (EUR):,319.4137
+Total Cost (USD):,370.3990
+Total Cost (EUR):,322.4520
