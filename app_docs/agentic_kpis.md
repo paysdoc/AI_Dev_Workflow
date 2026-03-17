@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value          | Last Updated |
 | ----------------- | -------------- | ------------ |
-| Current Streak    | 0              | 2026-03-16   |
-| Longest Streak    | 6              | 2026-03-16   |
-| Total Plan Size   | 0 lines        | 2026-03-16   |
-| Largest Plan Size | 0 lines        | 2026-03-16   |
-| Total Diff Size   | 40341 lines    | 2026-03-16   |
-| Largest Diff Size | 29151 lines    | 2026-03-16   |
-| Average Presence  | 1.80           | 2026-03-16   |
+| Current Streak    | 0              | 2026-03-17   |
+| Longest Streak    | 6              | 2026-03-17   |
+| Total Plan Size   | 0 lines        | 2026-03-17   |
+| Largest Plan Size | 0 lines        | 2026-03-17   |
+| Total Diff Size   | 41208 lines    | 2026-03-17   |
+| Largest Diff Size | 29151 lines    | 2026-03-17   |
+| Average Presence  | 1.91           | 2026-03-17   |
 
 ## ADW KPIs
 
@@ -32,3 +32,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-03-16 | uzfskg-add-runprimedclaudea | 189          | /feature    | 3        | 0                 | 770/5/13                        | 2026-03-16 | 2026-03-16 |
 | 2026-03-16 | 20eum6-replace-crucial-with | 194          | /feature    | 3        | 0                 | 819/720/62                      | 2026-03-16 | 2026-03-16 |
 | 2026-03-16 | jjxkk9-plan-templates-inclu | 193          | /feature    | 3        | 0                 | 1157/2486/91                    | 2026-03-16 | 2026-03-16 |
+| 2026-03-17 | u8okxe-bug-issues-should-us | 211          | /feature    | 3        | 0                 | 848/19/14                       | 2026-03-17 | 2026-03-17 |
