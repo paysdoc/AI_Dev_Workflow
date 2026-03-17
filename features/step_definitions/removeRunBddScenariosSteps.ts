@@ -206,3 +206,78 @@ Then(
     // Pass-through — TypeScript compilation success is verified by exit code assertion
   },
 );
+
+// ── Steps for HEADING_TO_KEY map scenarios ────────────────────────────────────
+
+When('searching for the {string} map', function (_map: string) {
+  // Context only — assertions happen in Then steps
+});
+
+Then('the map does not contain an entry mapping to {string}', function (mapping: string) {
+  assert.ok(
+    !sharedCtx.fileContent.includes(mapping),
+    `Expected "${sharedCtx.filePath}" not to contain an entry mapping to "${mapping}"`,
+  );
+});
+
+Then('the map still contains an entry mapping to {string}', function (mapping: string) {
+  assert.ok(
+    sharedCtx.fileContent.includes(mapping),
+    `Expected "${sharedCtx.filePath}" to contain an entry mapping to "${mapping}"`,
+  );
+});
+
+// ── Steps for function body scenarios ────────────────────────────────────────
+
+When('searching for the {string} function body', function (_fn: string) {
+  // Context only — assertions happen in Then steps
+});
+
+Then('the returned object does not contain a {string} property', function (prop: string) {
+  assert.ok(
+    !sharedCtx.fileContent.includes(prop),
+    `Expected "${sharedCtx.filePath}" not to contain a "${prop}" property`,
+  );
+});
+
+Then('the returned object still contains a {string} property', function (prop: string) {
+  assert.ok(
+    sharedCtx.fileContent.includes(prop),
+    `Expected "${sharedCtx.filePath}" to contain a "${prop}" property`,
+  );
+});
+
+// ── Steps for adwTest.tsx scenario ────────────────────────────────────────────
+
+Then(
+  'the BDD scenario execution uses the {string} command from project config',
+  function (cmd: string) {
+    assert.ok(
+      sharedCtx.fileContent.includes(cmd),
+      `Expected "${sharedCtx.filePath}" to reference command "${cmd}" from project config`,
+    );
+  },
+);
+
+Then('the tag argument is derived from the issue number', function () {
+  assert.ok(
+    sharedCtx.fileContent.includes('adw-'),
+    `Expected "${sharedCtx.filePath}" to construct an adw- tag from the issue number`,
+  );
+});
+
+// ── Steps for conditional_docs.md scenario ───────────────────────────────────
+
+Then('no reference to {string} is found in {string}', function (ref: string, _filePath: string) {
+  assert.ok(
+    !sharedCtx.fileContent.includes(ref),
+    `Expected "${sharedCtx.filePath}" not to contain a reference to "${ref}"`,
+  );
+});
+
+Then('{string} is referenced in its place where applicable', function (replacement: string) {
+  assert.ok(
+    sharedCtx.fileContent.includes(replacement),
+    `Expected "${sharedCtx.filePath}" to contain a reference to "${replacement}"`,
+  );
+});

@@ -1,5 +1,6 @@
 import { Given, When, Then } from '@cucumber/cucumber';
 import { existsSync, readFileSync, readdirSync, statSync } from 'fs';
+import { spawnSync } from 'child_process';
 import { join } from 'path';
 import assert from 'assert';
 
@@ -163,3 +164,79 @@ Then(
     assert.ok(!combined.includes(errorType), `Expected no "${errorType}" errors`);
   },
 );
+
+// ── Scenario: No vitest imports remain in any source file ─────────────────────
+
+Given('all unit test files have been deleted', function () {
+  // Context-only: deletion already happened
+});
+
+Then('no file contains an import from {string}', function (module: string) {
+  const files = findFiles(join(ROOT, 'adws'), /\.ts$/);
+  for (const file of files) {
+    const content = readFileSync(file, 'utf-8');
+    const importPattern = new RegExp(`from\\s+['"]${module}['"]`);
+    assert.ok(
+      !importPattern.test(content),
+      `Expected "${file}" not to contain an import from "${module}"`,
+    );
+  }
+});
+
+Then(
+  'no file references vitest globals such as {string}, {string}, {string}, or {string} in a test context',
+  function (g1: string, g2: string, g3: string, g4: string) {
+    const globals = [g1, g2, g3, g4];
+    const files = findFiles(join(ROOT, 'adws'), /\.ts$/);
+    for (const file of files) {
+      const content = readFileSync(file, 'utf-8');
+      for (const global of globals) {
+        const vitestImportPattern = new RegExp(
+          `import[^;]*\\b${global}\\b[^;]*from\\s+['"]vitest['"]`,
+          's',
+        );
+        assert.ok(
+          !vitestImportPattern.test(content),
+          `Expected "${file}" not to import vitest global "${global}"`,
+        );
+      }
+    }
+  },
+);
+
+// ── Scenario: bun install completes without errors ────────────────────────────
+
+Given(
+  '{string} has been removed from {string} devDependencies',
+  function (_dep: string, _file: string) {
+    // Context-only: removal already happened
+  },
+);
+
+When('{string} is run', function (this: Record<string, unknown>, command: string) {
+  const [cmd, ...args] = command.split(' ');
+  const result = spawnSync(cmd, args, { cwd: ROOT, encoding: 'utf-8', timeout: 120000 });
+  this.__commandResult = result;
+  this.__commandName = command;
+});
+
+Then(
+  'bun install exits with code {int}',
+  function (this: Record<string, unknown>, expectedCode: number) {
+    const result = this.__commandResult as ReturnType<typeof spawnSync>;
+    assert.strictEqual(
+      result.status,
+      expectedCode,
+      `Expected "${this.__commandName}" to exit with code ${expectedCode}, got ${result.status}.\nStdout: ${result.stdout}\nStderr: ${result.stderr}`,
+    );
+  },
+);
+
+Then('no missing dependency errors are reported', function (this: Record<string, unknown>) {
+  const result = this.__commandResult as ReturnType<typeof spawnSync>;
+  const output = String(result.stdout ?? '') + String(result.stderr ?? '');
+  assert.ok(
+    !output.includes('missing dependency') && !output.includes('Cannot find package'),
+    `Expected no missing dependency errors.\nStdout: ${result.stdout}\nStderr: ${result.stderr}`,
+  );
+});

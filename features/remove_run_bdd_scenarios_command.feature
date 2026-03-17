@@ -27,14 +27,14 @@ Feature: Remove ## Run BDD Scenarios command and consolidate into ## Run Scenari
     Then the interface does not contain a "runBddScenarios" field
     And the interface still contains a "runScenariosByTag" field
 
-  @adw-lv8mwj-remove-run-bdd-scena
+  @adw-lv8mwj-remove-run-bdd-scena @adw-fla3u2-1773754088098
   Scenario: runBddScenarios is removed from HEADING_TO_KEY map in projectConfig.ts
     Given "adws/core/projectConfig.ts" is read
     When searching for the "HEADING_TO_KEY" map
     Then the map does not contain an entry mapping to "runBddScenarios"
     And the map still contains an entry mapping to "runScenariosByTag"
 
-  @adw-lv8mwj-remove-run-bdd-scena
+  @adw-lv8mwj-remove-run-bdd-scena @adw-fla3u2-1773754088098
   Scenario: runBddScenarios is removed from getDefaultCommandsConfig in projectConfig.ts
     Given "adws/core/projectConfig.ts" is read
     When searching for the "getDefaultCommandsConfig" function body
@@ -67,7 +67,7 @@ Feature: Remove ## Run BDD Scenarios command and consolidate into ## Run Scenari
     And the BDD scenario execution uses "projectConfig.commands.runScenariosByTag" as the command
     And the tag passed to the scenario runner is constructed from the issue number (e.g. "adw-{issueNumber}")
 
-  @adw-lv8mwj-remove-run-bdd-scena
+  @adw-lv8mwj-remove-run-bdd-scena @adw-fla3u2-1773754088098
   Scenario: adwTest.tsx uses runScenariosByTag with adw-issueNumber tag instead of runBddScenarios
     Given "adws/adwTest.tsx" is read
     When searching for BDD scenario execution calls
@@ -104,7 +104,7 @@ Feature: Remove ## Run BDD Scenarios command and consolidate into ## Run Scenari
 
   # ── 6. Documentation ─────────────────────────────────────────────────────────
 
-  @adw-lv8mwj-remove-run-bdd-scena
+  @adw-lv8mwj-remove-run-bdd-scena @adw-fla3u2-1773754088098
   Scenario: .adw/conditional_docs.md does not reference ## Run BDD Scenarios
     Given ".adw/conditional_docs.md" is read
     When searching for "## Run BDD Scenarios"
