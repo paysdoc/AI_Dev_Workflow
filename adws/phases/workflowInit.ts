@@ -29,6 +29,7 @@ import {
   detectRecoveryState,
   getRepoInfo,
   type RepoInfo,
+  activateGitHubAppAuth,
 } from '../github';
 import {
   ensureWorktree,
@@ -96,6 +97,11 @@ export async function initializeWorkflow(
   const repoInfo: RepoInfo | undefined = targetRepo
     ? { owner: targetRepo.owner, repo: targetRepo.repo }
     : undefined;
+
+  // Activate GitHub App auth to generate a fresh token for this process.
+  // Ensures child processes spawned by triggers don't rely on stale inherited GH_TOKEN.
+  const resolvedRepoForAuth = repoInfo ?? getRepoInfo();
+  activateGitHubAppAuth(resolvedRepoForAuth.owner, resolvedRepoForAuth.repo);
 
   // Fetch issue (targeting external repo if specified)
   log('Fetching GitHub issue...', 'info');
