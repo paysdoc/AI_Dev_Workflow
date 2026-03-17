@@ -84,6 +84,7 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 207,add issue level deduplication to prevent concurren,3.0388,0.3039
 209,bug cron process guard has toctou race allowing du,2.5000,0.2500
 211,bug issues should use full sdlc orchestrator tight,11.4324,1.1432
+213,bug orchestrator child processes inherit stale gh ,2.0341,0.2034
 
-Total Cost (USD):,357.0945
-Total Cost (EUR):,310.8697
+Total Cost (USD):,359.3320
+Total Cost (EUR):,312.8176
