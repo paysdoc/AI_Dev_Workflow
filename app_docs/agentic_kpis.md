@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value          | Last Updated |
 | ----------------- | -------------- | ------------ |
-| Current Streak    | 1              | 2026-03-17   |
+| Current Streak    | 2              | 2026-03-17   |
 | Longest Streak    | 6              | 2026-03-17   |
 | Total Plan Size   | 0 lines        | 2026-03-17   |
 | Largest Plan Size | 0 lines        | 2026-03-17   |
-| Total Diff Size   | 41648 lines    | 2026-03-17   |
+| Total Diff Size   | 42102 lines    | 2026-03-17   |
 | Largest Diff Size | 29151 lines    | 2026-03-17   |
-| Average Presence  | 1.92           | 2026-03-17   |
+| Average Presence  | 1.85           | 2026-03-17   |
 
 ## ADW KPIs
 
@@ -34,3 +34,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-03-16 | jjxkk9-plan-templates-inclu | 193          | /feature    | 3        | 0                 | 1157/2486/91                    | 2026-03-16 | 2026-03-16 |
 | 2026-03-17 | u8okxe-bug-issues-should-us | 211          | /feature    | 3        | 0                 | 848/19/14                       | 2026-03-17 | 2026-03-17 |
 | 2026-03-17 | fla3u2-1773754088098        | 215          | /feature    | 2        | 0                 | 430/10/9                        | 2026-03-17 | 2026-03-17 |
+| 2026-03-17 | 8w4fep-adw-init-broken      | 221          | /bug        | 1        | 0                 | 445/9/8                         | 2026-03-17 | 2026-03-17 |
