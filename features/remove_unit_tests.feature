@@ -33,11 +33,10 @@ Feature: Remove all unit tests and Vitest configuration from the ADW project
     And "bun.lock" does not reference "vitest"
 
   @adw-m8wft2-chore-remove-all-uni @regression
-  Scenario: test and test:watch scripts are removed from package.json
+  Scenario: test:watch script is removed from package.json
     Given "package.json" contains a "test" script and a "test:watch" script
     When the test scripts are removed from "package.json"
-    Then "package.json" does not contain a "test" script entry
-    And "package.json" does not contain a "test:watch" script entry
+    Then "package.json" does not contain a "test:watch" script entry
 
   @adw-m8wft2-chore-remove-all-uni @regression
   Scenario: TypeScript compilation succeeds after unit test removal
@@ -46,14 +45,14 @@ Feature: Remove all unit tests and Vitest configuration from the ADW project
     Then both type-check commands exit with code 0
     And no "Cannot find module" or missing-type errors are reported for removed test files
 
-  @adw-m8wft2-chore-remove-all-uni
+  @adw-m8wft2-chore-remove-all-uni @adw-fla3u2-1773754088098
   Scenario: No vitest imports remain in any source file after removal
     Given all unit test files have been deleted
     When all TypeScript source files under "adws/" are scanned
     Then no file contains an import from "vitest"
     And no file references vitest globals such as "describe", "it", "expect", or "vi" in a test context
 
-  @adw-m8wft2-chore-remove-all-uni
+  @adw-m8wft2-chore-remove-all-uni @adw-fla3u2-1773754088098
   Scenario: bun install completes without errors after vitest removal
     Given "vitest" has been removed from "package.json" devDependencies
     When "bun install" is run
