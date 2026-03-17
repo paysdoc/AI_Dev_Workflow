@@ -64,6 +64,10 @@ Feature: Cucumber config discovers all feature files and step definitions
   Scenario: Step definition file exists for review_retry_patch_implementation feature
     Given the file "features/step_definitions/reviewRetryPatchImplementationSteps.ts" exists
 
+  @adw-1epy28-cucumber-regression @adw-7eqwrp-cucumber-regression @adw-8af0pz-add-issue-level-dedu @regression
+  Scenario: Step definition file exists for webhook_issue_dedup_cooldown feature
+    Given the file "features/step_definitions/webhookIssueDedupCooldownSteps.ts" exists
+
   @adw-1epy28-cucumber-regression @adw-7eqwrp-cucumber-regression
   Scenario: No feature file retains the deprecated @crucial tag
     Given all feature files in "features/" are scanned for "@crucial"
