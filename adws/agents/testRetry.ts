@@ -17,7 +17,7 @@ import {
   E2ETestResult,
   type TestAgentResult,
 } from './testAgent';
-import { runBddScenarios } from './bddScenarioRunner';
+import { runScenariosByTag } from './bddScenarioRunner';
 
 export interface TestRetryResult {
   passed: boolean;
@@ -200,8 +200,8 @@ export async function runE2ETestsWithRetry(opts: TestRetryOptions): Promise<Test
 }
 
 export interface BddScenarioRetryOptions extends TestRetryOptions {
-  /** The BDD scenario run command from `.adw/commands.md` (`## Run BDD Scenarios`). */
-  scenarioCommand: string;
+  /** The run-by-tag command template from `.adw/commands.md` (`## Run Scenarios by Tag`). */
+  tagCommand: string;
   /** Issue number used to filter scenarios by tag (`@adw-{issueNumber}`). */
   issueNumber: number;
 }
@@ -213,14 +213,15 @@ export interface BddScenarioRetryOptions extends TestRetryOptions {
  * @returns The test result including pass/fail status, cost, retry count, and failed test names.
  */
 export async function runBddScenariosWithRetry(opts: BddScenarioRetryOptions): Promise<TestRetryResult> {
-  const { logsDir, orchestratorStatePath: statePath, maxRetries, cwd, issueBody, scenarioCommand, issueNumber } = opts;
+  const { logsDir, orchestratorStatePath: statePath, maxRetries, cwd, issueBody, tagCommand, issueNumber } = opts;
   const costState = { costUsd: 0, modelUsage: emptyModelUsageMap() };
   let totalRetries = 0;
+  const tag = `adw-${issueNumber}`;
 
   log(`Running BDD scenarios @adw-${issueNumber}...`, 'info');
   AgentStateManager.appendLog(statePath, `Running BDD scenarios @adw-${issueNumber}`);
 
-  let scenarioResult = await runBddScenarios(scenarioCommand, issueNumber, cwd);
+  let scenarioResult = await runScenariosByTag(tagCommand, tag, cwd);
 
   if (scenarioResult.allPassed) {
     log('BDD scenarios passed!', 'success');
@@ -249,7 +250,7 @@ export async function runBddScenariosWithRetry(opts: BddScenarioRetryOptions): P
     trackCost(resolveResult as AgentRunResult, costState, statePath);
     totalRetries++;
 
-    scenarioResult = await runBddScenarios(scenarioCommand, issueNumber, cwd);
+    scenarioResult = await runScenariosByTag(tagCommand, tag, cwd);
 
     if (scenarioResult.allPassed) {
       log('BDD scenarios now passing!', 'success');

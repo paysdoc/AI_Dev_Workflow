@@ -30,7 +30,7 @@ import type { WorkflowConfig } from './workflowLifecycle';
  * Unit tests are skipped when `.adw/project.md` has `## Unit Tests: disabled`
  * (or the indicator is absent — disabled is the default).
  *
- * BDD scenarios are run using the command from `config.projectConfig.commands.runBddScenarios`.
+ * BDD scenarios are run using the command from `config.projectConfig.commands.runScenariosByTag`.
  * When the command is `N/A`, scenarios are skipped gracefully and the phase passes.
  *
  * Uses `config.repoInfo` for external repository API calls when targeting a different repo.
@@ -93,14 +93,14 @@ export async function executeTestPhase(config: WorkflowConfig): Promise<{
   log('Phase: BDD Scenarios', 'info');
   AgentStateManager.appendLog(orchestratorStatePath, `Starting test phase: BDD Scenarios @adw-${issueNumber}`);
 
-  const scenarioCommand = projectConfig.commands.runBddScenarios;
+  const scenarioCommand = projectConfig.commands.runScenariosByTag;
   const bddResult = await runBddScenariosWithRetry({
     logsDir,
     orchestratorStatePath,
     maxRetries: MAX_TEST_RETRY_ATTEMPTS,
     cwd: worktreePath,
     issueBody: issue.body,
-    scenarioCommand,
+    tagCommand: scenarioCommand,
     issueNumber,
   });
   costUsd += bddResult.costUsd;

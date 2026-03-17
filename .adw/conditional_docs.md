@@ -109,7 +109,7 @@
   - Conditions:
     - When working with `testPhase.ts` or the test phase execution order
     - When adding or modifying BDD scenario execution in workflows (`bddScenarioRunner.ts`, `runBddScenariosWithRetry`)
-    - When configuring `## Run BDD Scenarios` in `.adw/commands.md` or `## Unit Tests` in `.adw/project.md`
+    - When configuring `## Run Scenarios by Tag` in `.adw/commands.md` or `## Unit Tests` in `.adw/project.md`
     - When troubleshooting BDD scenario failures, retries, or the PR gate being blocked
     - When updating orchestrators to include or reorder the test phase relative to PR creation
 

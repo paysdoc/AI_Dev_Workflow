@@ -28,7 +28,6 @@ export interface CommandsConfig {
   additionalTypeChecks: string;
   libraryInstall: string;
   scriptExecution: string;
-  runBddScenarios: string;
   runScenariosByTag: string;
   runRegressionScenarios: string;
 }
@@ -97,7 +96,6 @@ const HEADING_TO_KEY: Record<string, keyof CommandsConfig> = {
   'library install command': 'libraryInstall',
   'library install': 'libraryInstall',
   'script execution': 'scriptExecution',
-  'run bdd scenarios': 'runBddScenarios',
   'run scenarios by tag': 'runScenariosByTag',
   'run regression scenarios': 'runRegressionScenarios',
 };
@@ -120,7 +118,6 @@ export function getDefaultCommandsConfig(): CommandsConfig {
     additionalTypeChecks: 'bunx tsc --noEmit -p adws/tsconfig.json',
     libraryInstall: 'bun install',
     scriptExecution: 'bunx tsx <script name>',
-    runBddScenarios: 'N/A',
     runScenariosByTag: 'cucumber-js --tags "@{tag}"',
     runRegressionScenarios: 'cucumber-js --tags "@regression"',
   };
