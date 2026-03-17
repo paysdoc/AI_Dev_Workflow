@@ -274,7 +274,6 @@ features/               # BDD feature files
 guidelines/
 └── coding_guidelines.md
 projects/               # Cost tracking CSV files per project
-prompts/                # Prompt templates (e.g., adw_init.txt)
 specs/                  # Generated implementation specs
 .env.sample             # Environment variable template
 .gitignore
