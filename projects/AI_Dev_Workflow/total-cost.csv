@@ -77,6 +77,7 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 194,replace crucial with regression,11.6427,1.1643
 196,push adw kpis,2.0142,0.2014
 199,remove unnecessary exports across the codebase,4.1651,0.4165
+202,chore remove all unit tests,1.8329,0.1833
 
-Total Cost (USD):,326.1515
-Total Cost (EUR):,285.2665
+Total Cost (USD):,328.1677
+Total Cost (EUR):,287.0299

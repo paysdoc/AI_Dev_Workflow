@@ -53,23 +53,16 @@ TEST_COMMAND_TIMEOUT: 5 minutes
    - test_name: "adw_typescript_check"
    - test_purpose: "Validates TypeScript type correctness for ADW scripts without generating output files"
 
-### ADW Tests
-
-4. **ADW Tests**
-   - Command: Read `## Run Tests` from `.adw/commands.md` and append the ADW test subset path. Default: `bun run test -- --run adws/__tests__`
-   - test_name: "adw_tests"
-   - test_purpose: "Validates all ADW (AI Developer Workflow) script functionality including workflow execution and utilities"
-
 ### Build
 
-5. **Build**
+4. **Build**
    - Command: Read `## Run Build` from `.adw/commands.md`. Default: `bun run build`
    - test_name: "app_build"
    - test_purpose: "Validates the complete build process including bundling, asset optimization, and production compilation"
 
 ### Application Tests
 
-6. **Application Tests**
+5. **Application Tests**
    - Command: Read `## Run Tests` from `.adw/commands.md` and append the application test subset path. Default: `bun run test -- --run src`
    - test_name: "app_tests"
    - test_purpose: "Validates application-level test suites under the src/ directory in the target repository"
