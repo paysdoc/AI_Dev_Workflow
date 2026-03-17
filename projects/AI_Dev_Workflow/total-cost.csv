@@ -80,6 +80,7 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 201,cucumber regression tests run nothing config and s,6.8628,0.6863
 202,chore remove all unit tests,1.8329,0.1833
 204,remove run bdd scenarios from commands md and cons,1.6674,0.1667
+207,add issue level deduplication to prevent concurren,3.0388,0.3039
 
-Total Cost (USD):,337.5510
-Total Cost (EUR):,293.8560
+Total Cost (USD):,340.8936
+Total Cost (EUR):,296.7660
