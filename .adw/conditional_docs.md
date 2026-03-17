@@ -76,12 +76,6 @@
     - When working with GitLab integration or CodeHost providers
     - When adding or modifying provider implementations in `adws/providers/`
 
-- app_docs/feature-1773386463517-mvb88d-bdd-scenario-config.md
-  - Conditions:
-    - When working with `.adw/scenarios.md` or BDD scenario configuration
-    - When implementing scenario-driven test phases
-    - When working with `@adw-{issueNumber}` or `@regression` tagging conventions
-
 - app_docs/feature-1773073902212-9l2nv9-repo-context-factory.md
   - Conditions:
     - When working with `RepoContext`, `createRepoContext`, or `adws/providers/repoContext.ts`
@@ -121,7 +115,7 @@
     - When the webhook server restarts and cron processes behave unexpectedly
     - When adding PID-file-based process deduplication to new trigger types
 
-- app_docs/feature-implement-scenario-p-hpq6cn-scenario-planner-agent.md
+- app_docs/feature-hpq6cn-implement-scenario-p-scenario-planner-agent.md
   - Conditions:
     - When working with BDD scenario generation or the scenario agent
     - When modifying `adws/agents/scenarioAgent.ts` or `adws/phases/scenarioPhase.ts`
@@ -175,3 +169,9 @@
     - When troubleshooting bug issues that are not receiving review or documentation phases
     - When investigating why an issue was classified as `/chore` and skipped quality gates
     - When updating orchestrator routing for any issue type
+
+- app_docs/agentic_kpis.md
+  - Conditions:
+    - When working with KPI metrics, streak tracking, or ADW run statistics
+    - When querying or interpreting historical ADW workflow performance data
+    - When troubleshooting KPI reporting or the `/track_agentic_kpis` command

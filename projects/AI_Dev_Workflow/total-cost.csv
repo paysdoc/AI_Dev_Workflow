@@ -83,6 +83,7 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 204,remove run bdd scenarios from commands md and cons,1.6674,0.1667
 207,add issue level deduplication to prevent concurren,3.0388,0.3039
 209,bug cron process guard has toctou race allowing du,2.5000,0.2500
+211,bug issues should use full sdlc orchestrator tight,11.4324,1.1432
 
-Total Cost (USD):,344.5189
-Total Cost (EUR):,299.9220
+Total Cost (USD):,357.0945
+Total Cost (EUR):,310.8697
