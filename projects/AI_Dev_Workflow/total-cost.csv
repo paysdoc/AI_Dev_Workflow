@@ -85,6 +85,7 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 209,bug cron process guard has toctou race allowing du,2.5000,0.2500
 211,bug issues should use full sdlc orchestrator tight,11.4324,1.1432
 213,bug orchestrator child processes inherit stale gh ,2.0341,0.2034
+215,implement all undefined cucumber step definitions,6.5883,0.6588
 
-Total Cost (USD):,359.3320
-Total Cost (EUR):,312.8176
+Total Cost (USD):,366.5792
+Total Cost (EUR):,319.1266
