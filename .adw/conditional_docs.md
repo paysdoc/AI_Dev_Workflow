@@ -182,3 +182,10 @@
     - When a `bunx cucumber-js --dry-run` reports undefined steps
     - When implementing steps that scan source files with `findFiles()` or execute commands via `spawnSync`
     - When working with `removeRunBddScenariosSteps.ts` or `removeUnitTestsSteps.ts`
+
+- app_docs/feature-8w4fep-adw-init-commands-md-scenario-sections.md
+  - Conditions:
+    - When modifying `.claude/commands/adw_init.md` or the sections it generates in `.adw/commands.md`
+    - When troubleshooting missing `## Run Scenarios by Tag` or `## Run Regression Scenarios` in generated `commands.md`
+    - When working with `/adw_init` and E2E tool detection in step 7
+    - When `projectConfig.ts` `runScenariosByTag` or `runRegressionScenarios` are falling back to defaults unexpectedly
