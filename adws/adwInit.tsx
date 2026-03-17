@@ -64,9 +64,10 @@ async function main(): Promise<void> {
       'adw-init',
       `${config.logsDir}/adw-init.jsonl`,
       'sonnet',
+      undefined, // effort
       undefined, // onProgress
       undefined, // statePath
-      config.worktreePath,
+      config.worktreePath, // cwd - run in target repo worktree
     );
 
     if (result.modelUsage) {
