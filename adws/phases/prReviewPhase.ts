@@ -4,7 +4,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { log, setLogAdwId, ensureLogsDirectory, generateAdwId, type PRDetails, type PRReviewComment, AgentStateManager, type AgentState, type ModelUsageMap, allocateRandomPort, emptyModelUsageMap, OrchestratorId } from '../core';
+import { log, setLogAdwId, ensureLogsDirectory, generateAdwId, type PRDetails, type PRReviewComment, AgentStateManager, type AgentState, type ModelUsageMap, allocateRandomPort, emptyModelUsageMap, OrchestratorId, type TargetRepoInfo, ensureTargetRepoWorkspace } from '../core';
 import { fetchPRDetails, getUnaddressedComments, type PRReviewWorkflowContext, getRepoInfo, type RepoInfo, activateGitHubAppAuth } from '../github';
 import { ensureWorktree } from '../vcs';
 import type { RepoContext, RepoIdentifier } from '../providers/types';
@@ -42,7 +42,7 @@ export interface PRReviewWorkflowConfig {
  * @param prNumber - The PR number to review
  * @param adwId - Optional ADW workflow ID (generated if not provided)
  */
-export async function initializePRReviewWorkflow(prNumber: number, adwId: string | null, repoInfo?: RepoInfo, repoId?: RepoIdentifier): Promise<PRReviewWorkflowConfig> {
+export async function initializePRReviewWorkflow(prNumber: number, adwId: string | null, repoInfo?: RepoInfo, repoId?: RepoIdentifier, targetRepo?: TargetRepoInfo): Promise<PRReviewWorkflowConfig> {
   const resolvedRepoInfo = repoInfo ?? getRepoInfo();
   // Activate GitHub App auth to generate a fresh token for this process.
   // Ensures child processes spawned by triggers don't rely on stale inherited GH_TOKEN.
@@ -89,7 +89,13 @@ export async function initializePRReviewWorkflow(prNumber: number, adwId: string
     reviewComments: unaddressedComments.length,
     branchName: prDetails.headBranch,
   };
-  const worktreePath = ensureWorktree(prDetails.headBranch);
+  let targetRepoWorkspacePath: string | undefined;
+  if (targetRepo) {
+    log(`Setting up target repo workspace for ${targetRepo.owner}/${targetRepo.repo}...`, 'info');
+    targetRepoWorkspacePath = ensureTargetRepoWorkspace(targetRepo);
+    log(`Target repo workspace: ${targetRepoWorkspacePath}`, 'success');
+  }
+  const worktreePath = ensureWorktree(prDetails.headBranch, undefined, targetRepoWorkspacePath);
   log(`Worktree path: ${worktreePath}`, 'info');
 
   // Allocate a random port for the dedicated dev server instance

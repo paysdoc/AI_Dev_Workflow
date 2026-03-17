@@ -43,7 +43,7 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const config = await initializePRReviewWorkflow(prNumber, null, repoInfo, repoId);
+  const config = await initializePRReviewWorkflow(prNumber, null, repoInfo, repoId, targetRepo ?? undefined);
 
   let totalCostUsd = 0;
   let totalModelUsage: ModelUsageMap = {};
