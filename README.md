@@ -37,6 +37,9 @@ Then edit `.env` with your values:
 - `ANTHROPIC_API_KEY` - Your Anthropic API key
 - `CLAUDE_CODE_PATH` - (Optional) Path to Claude CLI, defaults to `claude`
 - `GITHUB_PAT` - (Optional) GitHub personal access token, only needed if using a different account than `gh auth login`
+- `GITHUB_APP_ID` - (Optional) GitHub App ID for app-based authentication (comments appear as the app)
+- `GITHUB_APP_SLUG` - (Optional) GitHub App slug, used with `GITHUB_APP_ID`
+- `GITHUB_APP_PRIVATE_KEY_PATH` - (Optional) Path to GitHub App private key PEM file
 - `GITHUB_WEBHOOK_SECRET` - (Optional) Required only for webhook trigger
 - `TARGET_REPOS_DIR` - (Optional) Directory for storing cloned target repository workspaces, defaults to `~/.adw/repos`
 - `MAX_CONCURRENT_PER_REPO` - (Optional) Maximum concurrent in-progress issues per repository, defaults to `5`
@@ -170,6 +173,7 @@ adws/                   # ADW workflow system
 │   └── workflowMapping.ts  # Issue type → orchestrator mapping
 ├── github/             # GitHub API operations
 │   ├── githubApi.ts
+│   ├── githubAppAuth.ts  # GitHub App authentication
 │   ├── index.ts
 │   ├── issueApi.ts
 │   ├── prApi.ts

@@ -71,22 +71,48 @@ export function isCronAliveForRepo(repoKey: string): boolean {
 }
 
 /**
- * Registers `ownPid` as the cron process for `repoKey` after verifying no live duplicate exists.
+ * Atomically attempts to create the PID file for `repoKey` using the `wx` (exclusive create) flag.
+ * Returns `true` if the file was created exclusively (this process won the race).
+ * Returns `false` if the file already exists (EEXIST — another process got there first).
+ * Re-throws any unexpected filesystem error.
+ */
+function tryExclusiveCreate(repoKey: string, pid: number): boolean {
+  ensureCronDir();
+  const record: CronPidRecord = { pid, repoKey, startedAt: new Date().toISOString() };
+  try {
+    fs.writeFileSync(getCronPidFilePath(repoKey), JSON.stringify(record, null, 2), { flag: 'wx' });
+    return true;
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'EEXIST') return false;
+    throw err;
+  }
+}
+
+/**
+ * Registers `ownPid` as the cron process for `repoKey` using atomic exclusive file creation
+ * to prevent TOCTOU races.
  *
- * Returns `true` if this process may proceed (no live duplicate found, PID written).
+ * Returns `true` if this process may proceed (exclusively created the PID file or re-registered self).
  * Returns `false` if another live cron process is already registered for the same repo
  * (caller should exit immediately).
  */
 export function registerAndGuard(repoKey: string, ownPid: number): boolean {
+  // Attempt atomic exclusive create — only one process can win this, no race possible.
+  if (tryExclusiveCreate(repoKey, ownPid)) return true;
+
+  // File already exists — inspect who owns it.
   const record = readCronPid(repoKey);
-  if (record) {
-    if (record.pid !== ownPid && isProcessAlive(record.pid)) {
-      return false;
-    }
-    if (!isProcessAlive(record.pid)) {
-      removeCronPid(repoKey);
-    }
+
+  if (record !== null) {
+    if (record.pid === ownPid) return true; // Re-registration of self.
+    if (isProcessAlive(record.pid)) return false; // Another live cron is running.
   }
-  writeCronPid(repoKey, ownPid);
-  return true;
+
+  // Record is null/malformed or the recorded PID is dead — stale file, clean it up and retry.
+  const stalePid = record?.pid ?? 'unknown';
+  log(`Removing stale cron PID file for ${repoKey} (PID ${stalePid} is dead)`);
+  removeCronPid(repoKey);
+
+  // Retry exclusive create — only one process wins even if multiple are racing here.
+  return tryExclusiveCreate(repoKey, ownPid);
 }
