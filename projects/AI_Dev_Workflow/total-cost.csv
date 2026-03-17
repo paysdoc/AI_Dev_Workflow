@@ -4,6 +4,7 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 0,bug 94 fix cost csv deletion on merged pr issue cl,0.8123,0.0812
 0,bug 99 fix currency conversion,0.6907,0.0691
 0,chore 169 remove adw unit test files disable unit ,0.7299,0.0730
+0,chore 204 remove run bdd scenarios command and con,0.7957,0.0796
 0,feat 114 implement github issuetracker provider,1.4015,0.1401
 0,feat 121 add provider configuration to adw project,1.0304,0.1030
 0,feat 144 add a running total of tokens used to eac,2.1209,0.2121
@@ -81,6 +82,7 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 202,chore remove all unit tests,1.8329,0.1833
 204,remove run bdd scenarios from commands md and cons,1.6674,0.1667
 207,add issue level deduplication to prevent concurren,3.0388,0.3039
+209,bug cron process guard has toctou race allowing du,2.5000,0.2500
 
-Total Cost (USD):,340.8936
-Total Cost (EUR):,296.7660
+Total Cost (USD):,344.5189
+Total Cost (EUR):,299.9220
