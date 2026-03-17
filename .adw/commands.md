@@ -12,9 +12,6 @@ bun run lint
 ## Type Check
 bunx tsc --noEmit
 
-## Additional Type Checks
-bunx tsc --noEmit -p adws/tsconfig.json
-
 ## Run Tests
 N/A
 
@@ -28,7 +25,10 @@ N/A
 bun install
 
 ## Run E2E Tests
-N/A
+bunx cucumber-js
+
+## Additional Type Checks
+bunx tsc --noEmit -p adws/tsconfig.json
 
 ## Library Install Command
 bun add <package>
