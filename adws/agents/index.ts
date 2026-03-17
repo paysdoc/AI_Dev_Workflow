@@ -54,7 +54,6 @@ export {
 
 // BDD Scenario Runner
 export {
-  runBddScenarios,
   runScenariosByTag,
   type BddScenarioResult,
 } from './bddScenarioRunner';

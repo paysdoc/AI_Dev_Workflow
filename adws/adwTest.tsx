@@ -145,7 +145,7 @@ async function main(): Promise<void> {
         orchestratorStatePath,
         maxRetries: MAX_TEST_RETRY_ATTEMPTS,
         cwd: cwd ?? undefined,
-        scenarioCommand: projectConfig.commands.runBddScenarios,
+        tagCommand: projectConfig.commands.runScenariosByTag,
         issueNumber,
       });
       totalCostUsd += bddResult.costUsd;
