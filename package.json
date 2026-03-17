@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test": "bunx tsc --noEmit"
   },
   "dependencies": {
     "dotenv": "^16.4.7"

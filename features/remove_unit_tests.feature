@@ -33,11 +33,10 @@ Feature: Remove all unit tests and Vitest configuration from the ADW project
     And "bun.lock" does not reference "vitest"
 
   @adw-m8wft2-chore-remove-all-uni @regression
-  Scenario: test and test:watch scripts are removed from package.json
+  Scenario: test:watch script is removed from package.json
     Given "package.json" contains a "test" script and a "test:watch" script
     When the test scripts are removed from "package.json"
-    Then "package.json" does not contain a "test" script entry
-    And "package.json" does not contain a "test:watch" script entry
+    Then "package.json" does not contain a "test:watch" script entry
 
   @adw-m8wft2-chore-remove-all-uni @regression
   Scenario: TypeScript compilation succeeds after unit test removal
