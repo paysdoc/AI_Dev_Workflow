@@ -56,9 +56,9 @@ Feature: Orchestrator child processes refresh GH_TOKEN via activateGitHubAppAuth
   @adw-4kk6lc-bug-orchestrator-chi
   Scenario: githubAppAuth is imported from the github module in workflowInit.ts
     Given "adws/phases/workflowInit.ts" is read
-    Then the file contains "githubAppAuth"
+    Then the file contains "activateGitHubAppAuth"
 
   @adw-4kk6lc-bug-orchestrator-chi
   Scenario: githubAppAuth is imported from the github module in prReviewPhase.ts
     Given "adws/phases/prReviewPhase.ts" is read
-    Then the file contains "githubAppAuth"
+    Then the file contains "activateGitHubAppAuth"
