@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value          | Last Updated |
 | ----------------- | -------------- | ------------ |
-| Current Streak    | 6              | 2026-03-18   |
-| Longest Streak    | 6              | 2026-03-18   |
-| Total Plan Size   | 145 lines      | 2026-03-18   |
+| Current Streak    | 7              | 2026-03-18   |
+| Longest Streak    | 7              | 2026-03-18   |
+| Total Plan Size   | 240 lines      | 2026-03-18   |
 | Largest Plan Size | 145 lines      | 2026-03-18   |
-| Total Diff Size   | 447232 lines   | 2026-03-18   |
-| Largest Diff Size | 202069 lines   | 2026-03-18   |
-| Average Presence  | 1.71           | 2026-03-18   |
+| Total Diff Size   | 650747 lines   | 2026-03-18   |
+| Largest Diff Size | 203515 lines   | 2026-03-18   |
+| Average Presence  | 1.72           | 2026-03-18   |
 
 ## ADW KPIs
 
@@ -39,3 +39,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-03-18 | cmrrlz-add-timeout-and-retr | 21           | /feature    | 1        | 145               | 10810/190885/1024               | 2026-03-18 | 2026-03-18 |
 | 2026-03-18 | ja92nb-wire-r2-prompts-into | 22           | /feature    | 1        | 0                 | 11183/190886/1027               | 2026-03-18 | 2026-03-18 |
 | 2026-03-18 | cwiuik-1773818764164        | 225          | /feature    | 2        | 0                 | 882/4/14                        | 2026-03-18 | 2026-03-18 |
+| 2026-03-18 | dn3czh-split-system-vs-user | 23           | /feature    | 2        | 95                | 12629/190886/1036               | 2026-03-18 | 2026-03-18 |
