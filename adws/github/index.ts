@@ -13,6 +13,7 @@ export {
   fetchPRReviews,
   fetchPRReviewComments,
   commentOnPR,
+  mergePR,
   fetchPRList,
   commentOnIssue,
   fetchIssueCommentsRest,

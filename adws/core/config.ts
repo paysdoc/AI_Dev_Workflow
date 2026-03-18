@@ -208,7 +208,7 @@ export const SLASH_COMMAND_MODEL_MAP: Record<SlashCommand, ModelTier> = {
   // ADW initialization
   '/adw_init': 'sonnet',
   // Scenario writing
-  '/scenario_writer': 'sonnet',
+  '/scenario_writer': 'opus',
   // Plan validation (complex reasoning, no downgrade)
   '/validate_plan_scenarios': 'opus',
   '/resolve_plan_scenarios': 'opus',
@@ -238,7 +238,7 @@ export const SLASH_COMMAND_MODEL_MAP_FAST: Record<SlashCommand, ModelTier> = {
   '/extract_dependencies': 'haiku',
   '/adw_init': 'haiku',
   // Scenario writing
-  '/scenario_writer': 'haiku',
+  '/scenario_writer': 'sonnet',
   // Plan validation (complex reasoning, no downgrade)
   '/validate_plan_scenarios': 'opus',
   '/resolve_plan_scenarios': 'opus',

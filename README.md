@@ -238,13 +238,14 @@ adws/                   # ADW workflow system
 │   ├── repoContext.ts  # RepoContext factory
 │   └── types.ts
 ├── triggers/           # Automation triggers
+│   ├── autoMergeHandler.ts  # Auto-merge approved PRs
 │   ├── cloudflareTunnel.tsx  # Cloudflare tunnel for webhooks
 │   ├── concurrencyGuard.ts
 │   ├── cronProcessGuard.ts  # Duplicate cron process prevention
 │   ├── issueDependencies.ts
 │   ├── issueEligibility.ts
 │   ├── trigger_cron.ts
-│   ├── trigger_shutdown.ts
+│   ├── trigger_shutdown.ts  # Graceful shutdown handler
 │   ├── trigger_webhook.ts
 │   ├── webhookGatekeeper.ts
 │   ├── webhookHandlers.ts
@@ -264,6 +265,10 @@ adws/                   # ADW workflow system
 ├── adwPrReview.tsx
 ├── adwSdlc.tsx
 ├── adwTest.tsx
+├── healthCheck.tsx     # Health check orchestrator
+├── healthCheckChecks.ts
+├── workflowPhases.ts   # Workflow phase re-exports
+├── index.ts
 ├── healthCheck.tsx
 ├── healthCheckChecks.ts
 ├── workflowPhases.ts

@@ -205,3 +205,18 @@
     - When adding intermediate project board status transitions to workflow phases
     - When troubleshooting project board status updates that fail silently or with stale tokens
     - When implementing GitHub App token refresh before GraphQL calls in `projectBoardApi.ts`
+
+- app_docs/feature-cwiuik-1773818764164-auto-merge-approved-pr.md
+  - Conditions:
+    - When working with the `pull_request_review` webhook event handler in `trigger_webhook.ts`
+    - When modifying auto-merge logic in `adws/triggers/autoMergeHandler.ts`
+    - When adding or changing merge conflict detection or resolution via the `/resolve_conflict` agent
+    - When troubleshooting approved PRs that were not automatically merged
+    - When adjusting `MAX_AUTO_MERGE_ATTEMPTS` or the retry loop behavior
+
+- app_docs/feature-tepq39-scenario-writer-opus-model.md
+  - Conditions:
+    - When working with `SLASH_COMMAND_MODEL_MAP` or `SLASH_COMMAND_MODEL_MAP_FAST` in `adws/core/config.ts`
+    - When modifying or reviewing the model tier assigned to `/scenario_writer`
+    - When adding a new slash command and deciding which model tier to assign
+    - When troubleshooting scenario writer producing lower-quality output or using unexpected model

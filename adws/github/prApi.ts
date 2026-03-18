@@ -181,6 +181,28 @@ export function commentOnPR(prNumber: number, body: string, repoInfo: RepoInfo):
 }
 
 /**
+ * Attempts to merge a PR using the gh CLI with a merge commit strategy.
+ * @param prNumber - The PR number to merge
+ * @param repoInfo - Repository info (owner/repo)
+ * @returns Success flag and optional error message
+ */
+export function mergePR(prNumber: number, repoInfo: RepoInfo): { success: boolean; error?: string } {
+  const { owner, repo } = repoInfo;
+  try {
+    execSync(
+      `gh pr merge ${prNumber} --merge --repo ${owner}/${repo}`,
+      { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }
+    );
+    log(`Merged PR #${prNumber} in ${owner}/${repo}`, 'success');
+    return { success: true };
+  } catch (error) {
+    const stderr = (error as { stderr?: string }).stderr || String(error);
+    log(`Failed to merge PR #${prNumber}: ${stderr}`, 'error');
+    return { success: false, error: stderr };
+  }
+}
+
+/**
  * Fetches open PRs for CRON trigger polling.
  * @param repoInfo - Optional repository info override for targeting external repositories.
  */
