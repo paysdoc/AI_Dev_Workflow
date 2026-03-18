@@ -88,6 +88,7 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 215,implement all undefined cucumber step definitions,6.5883,0.6588
 218,adw init is not working correctly,0.2998,0.0300
 221,adw init broken,3.1728,0.3173
+223,wrong repository being targeted,5.4049,0.5405
 
-Total Cost (USD):,370.3990
-Total Cost (EUR):,322.4520
+Total Cost (USD):,376.3444
+Total Cost (EUR):,326.3670
