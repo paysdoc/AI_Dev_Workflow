@@ -5,7 +5,7 @@
  */
 
 import type { IssueTracker, RepoIdentifier, WorkItem, WorkItemComment } from '../types';
-import { validateRepoIdentifier } from '../types';
+import { validateRepoIdentifier, BoardStatus } from '../types';
 import type { RepoInfo } from '../../github/githubApi';
 import {
   fetchGitHubIssue,
@@ -62,7 +62,7 @@ class GitHubIssueTracker implements IssueTracker {
     return comments.map(mapIssueCommentSummaryToWorkItemComment);
   }
 
-  async moveToStatus(issueNumber: number, status: string): Promise<boolean> {
+  async moveToStatus(issueNumber: number, status: BoardStatus): Promise<boolean> {
     return moveIssueToStatus(issueNumber, status, this.repoInfo);
   }
 }

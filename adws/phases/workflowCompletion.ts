@@ -17,6 +17,7 @@ import {
 import { getPlanFilePath, runReviewWithRetry } from '../agents';
 import type { WorkflowConfig } from './workflowInit';
 import { postIssueStageComment } from './phaseCommentHelpers';
+import { BoardStatus } from '../providers/types';
 
 /**
  * Completes the workflow: writes final state, posts completion comment, prints banner.
@@ -58,7 +59,7 @@ export async function completeWorkflow(
 
   if (repoContext) {
     postIssueStageComment(repoContext, issueNumber, 'completed', ctx);
-    await repoContext.issueTracker.moveToStatus(issueNumber, 'Review');
+    await repoContext.issueTracker.moveToStatus(issueNumber, BoardStatus.Review);
   }
 
   log('===================================', 'info');
@@ -177,7 +178,7 @@ export function handleWorkflowError(
   ctx.errorMessage = String(error);
   if (repoContext) {
     postIssueStageComment(repoContext, issueNumber, 'error', ctx);
-    repoContext.issueTracker.moveToStatus(issueNumber, 'In Progress').catch(() => {});
+    repoContext.issueTracker.moveToStatus(issueNumber, BoardStatus.InProgress).catch(() => {});
   }
 
   AgentStateManager.writeState(orchestratorStatePath, {

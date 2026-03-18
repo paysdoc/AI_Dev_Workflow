@@ -62,6 +62,17 @@ export interface WorkItem {
 }
 
 /**
+ * Named constants for project board status values.
+ * Use these instead of raw strings when calling moveToStatus.
+ */
+export enum BoardStatus {
+  InProgress = 'In Progress',
+  Building = 'Building',
+  Testing = 'Testing',
+  Review = 'Review',
+}
+
+/**
  * Interface for issue tracking operations across platforms.
  * Maps 1:1 to existing GitHub issue operations for seamless migration.
  */
@@ -72,7 +83,7 @@ export interface IssueTracker {
   closeIssue(issueNumber: number, comment?: string): Promise<boolean>;
   getIssueState(issueNumber: number): string;
   fetchComments(issueNumber: number): WorkItemComment[];
-  moveToStatus(issueNumber: number, status: string): Promise<boolean>;
+  moveToStatus(issueNumber: number, status: BoardStatus): Promise<boolean>;
 }
 
 /**

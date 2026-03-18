@@ -20,6 +20,7 @@ import {
   runCommitAgent,
 } from '../agents';
 import type { WorkflowConfig } from './workflowLifecycle';
+import { BoardStatus } from '../providers/types';
 
 /**
  * Executes the Plan phase: classify issue, create branch, run plan agent, commit plan.
@@ -29,7 +30,7 @@ export async function executePlanPhase(config: WorkflowConfig): Promise<{ costUs
   const { recoveryState, orchestratorStatePath, orchestratorName, adwId, issueNumber, issue, issueType, ctx, worktreePath, logsDir, repoContext } = config;
 
   if (repoContext) {
-    await repoContext.issueTracker.moveToStatus(issueNumber, 'In Progress');
+    await repoContext.issueTracker.moveToStatus(issueNumber, BoardStatus.InProgress);
   }
 
   // Classify step

@@ -5,6 +5,7 @@
 
 import { log, JIRA_EMAIL, JIRA_API_TOKEN, JIRA_PAT } from '../../core';
 import type { IssueTracker, WorkItem, WorkItemComment } from '../types';
+import { BoardStatus } from '../types';
 import { JiraApiClient } from './jiraApiClient';
 import type { JiraIssueResponse, JiraCommentResponse } from './jiraTypes';
 import { markdownToAdf, adfToPlainText } from './adfConverter';
@@ -176,7 +177,7 @@ export class JiraIssueTracker implements IssueTracker {
     return comments;
   }
 
-  async moveToStatus(issueNumber: number, status: string): Promise<boolean> {
+  async moveToStatus(issueNumber: number, status: BoardStatus): Promise<boolean> {
     const issueKey = this.toJiraKey(issueNumber);
 
     try {

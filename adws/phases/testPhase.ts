@@ -23,6 +23,7 @@ import {
   runScenariosByTag,
 } from '../agents';
 import type { WorkflowConfig } from './workflowLifecycle';
+import { BoardStatus } from '../providers/types';
 
 /**
  * Executes the Test phase: optionally run unit tests, then run BDD scenarios.
@@ -48,7 +49,7 @@ export async function executeTestPhase(config: WorkflowConfig): Promise<{
   let totalRetries = 0;
 
   if (repoContext) {
-    await repoContext.issueTracker.moveToStatus(issueNumber, 'Testing');
+    await repoContext.issueTracker.moveToStatus(issueNumber, BoardStatus.Testing);
   }
 
   // --- Unit tests gate (opt-in) ---
