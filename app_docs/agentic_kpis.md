@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value          | Last Updated |
 | ----------------- | -------------- | ------------ |
-| Current Streak    | 17             | 2026-03-18   |
-| Longest Streak    | 17             | 2026-03-18   |
-| Total Plan Size   | 441 lines      | 2026-03-18   |
-| Largest Plan Size | 201 lines      | 2026-03-18   |
-| Total Diff Size   | 1065383 lines  | 2026-03-18   |
-| Largest Diff Size | 205314 lines   | 2026-03-18   |
-| Average Presence  | 1.46           | 2026-03-18   |
+| Current Streak    | 15             | 2026-03-18   |
+| Longest Streak    | 15             | 2026-03-18   |
+| Total Plan Size   | 240 lines      | 2026-03-18   |
+| Largest Plan Size | 145 lines      | 2026-03-18   |
+| Total Diff Size   | 1270851 lines  | 2026-03-18   |
+| Largest Diff Size | 205468 lines   | 2026-03-18   |
+| Average Presence  | 1.54           | 2026-03-18   |
 
 ## ADW KPIs
 
@@ -48,3 +48,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-03-18 | 2umujr-prs-created-by-paysd | 236          | /bug        | 1        | 0                 | 234/580/20                      | 2026-03-18 | 2026-03-18 |
 | 2026-03-18 | 7cc62i-parallelize-independ | 26           | /feature    | 1        | 201               | 14417/190897/1048               | 2026-03-18 | 2026-03-18 |
 | 2026-03-18 | 6ukg3s-1773849789984        | 237          | /feature    | 1        | 0                 | 690/23/12                       | 2026-03-18 | 2026-03-18 |
+| 2026-03-18 | 389mfj-add-call-level-llm-p | 25           | /feature    | 1        | 0                 | 14576/190892/1049               | 2026-03-18 | 2026-03-18 |
