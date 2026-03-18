@@ -269,10 +269,6 @@ adws/                   # ADW workflow system
 ├── healthCheckChecks.ts
 ├── workflowPhases.ts   # Workflow phase re-exports
 ├── index.ts
-├── healthCheck.tsx
-├── healthCheckChecks.ts
-├── workflowPhases.ts
-├── index.ts
 ├── tsconfig.json
 └── README.md
 app_docs/               # Generated feature documentation
