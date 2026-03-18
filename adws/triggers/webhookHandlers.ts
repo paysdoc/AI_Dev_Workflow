@@ -47,16 +47,22 @@ export function extractIssueNumberFromPRBody(body: string | null): number | null
 }
 
 /**
- * Extracts issue number from a branch name using the "issue-N" pattern.
- * Handles both slash-separated (feature/issue-42-slug) and hyphen-separated (bugfix-issue-42-slug) styles.
- * Returns null if no issue pattern is found or input is falsy.
+ * Extracts issue number from a branch name.
+ * Tries the legacy "issue-N" pattern first (e.g., feature/issue-42-slug),
+ * then falls back to the ADW branch format {type}-{issueNumber}-{adwId}-{slug}
+ * (e.g., bugfix-233-y000tl-fix-issue).
+ * Returns null if neither pattern matches or input is falsy.
  */
 export function extractIssueNumberFromBranch(branchName: string | null | undefined): number | null {
   if (!branchName) {
     return null;
   }
-  const match = branchName.match(/issue-(\d+)/);
-  return match ? parseInt(match[1], 10) : null;
+  const legacyMatch = branchName.match(/issue-(\d+)/);
+  if (legacyMatch) {
+    return parseInt(legacyMatch[1], 10);
+  }
+  const adwMatch = branchName.match(/^(?:feat|feature|bug|bugfix|chore|fix|hotfix)-(\d+)-/);
+  return adwMatch ? parseInt(adwMatch[1], 10) : null;
 }
 
 /**

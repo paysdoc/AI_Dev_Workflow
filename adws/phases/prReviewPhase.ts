@@ -23,7 +23,7 @@ import { postPRStageComment } from './phaseCommentHelpers';
  */
 export interface PRReviewWorkflowConfig {
   prNumber: number;
-  issueNumber: number;
+  issueNumber: number | null;
   adwId: string;
   prDetails: PRDetails;
   unaddressedComments: PRReviewComment[];
@@ -68,7 +68,7 @@ export async function initializePRReviewWorkflow(prNumber: number, adwId: string
   }
   log(`Found ${unaddressedComments.length} unaddressed review comment(s)`, 'info');
   const logsDir = ensureLogsDirectory(resolvedAdwId);
-  const issueNumber = prDetails.issueNumber || 0;
+  const issueNumber = prDetails.issueNumber;
   const orchestratorStatePath = AgentStateManager.initializeState(resolvedAdwId, OrchestratorId.PrReview);
   log(`State: ${orchestratorStatePath}`, 'info');
   const initialState: Partial<AgentState> = {
