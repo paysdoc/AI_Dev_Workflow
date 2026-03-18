@@ -178,7 +178,6 @@ adws/                   # ADW workflow system
 │   ├── issueApi.ts
 │   ├── prApi.ts
 │   ├── prCommentDetector.ts
-│   ├── projectBoardApi.ts
 │   ├── pullRequestCreator.ts
 │   ├── workflowComments.ts
 │   ├── workflowCommentsBase.ts

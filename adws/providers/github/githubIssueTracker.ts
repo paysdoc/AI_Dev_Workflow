@@ -1,6 +1,6 @@
 /**
  * GitHub implementation of the IssueTracker provider interface.
- * Wraps existing issueApi.ts and projectBoardApi.ts functions, binding them
+ * Wraps existing issueApi.ts functions, binding them
  * to a specific RepoIdentifier at construction time.
  */
 
@@ -15,7 +15,6 @@ import {
   getIssueState as ghGetIssueState,
   fetchIssueCommentsRest,
 } from '../../github/issueApi';
-import { moveIssueToStatus } from '../../github/projectBoardApi';
 import {
   mapGitHubIssueToWorkItem,
   mapIssueCommentSummaryToWorkItemComment,
@@ -60,10 +59,6 @@ class GitHubIssueTracker implements IssueTracker {
   fetchComments(issueNumber: number): WorkItemComment[] {
     const comments = fetchIssueCommentsRest(issueNumber, this.repoInfo);
     return comments.map(mapIssueCommentSummaryToWorkItemComment);
-  }
-
-  async moveToStatus(issueNumber: number, status: string): Promise<void> {
-    await moveIssueToStatus(issueNumber, status, this.repoInfo);
   }
 }
 

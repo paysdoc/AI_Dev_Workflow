@@ -41,13 +41,6 @@ Feature: Remove unnecessary exports across the codebase
     And "getAdwIdFromState" is still defined in the file
 
   @adw-467hhd-remove-unnecessary-e
-  Scenario: projectBoardApi.ts internal helpers are not exported
-    Given "adws/github/projectBoardApi.ts" is read
-    When searching for exports of "findRepoProjectId", "findIssueProjectItem", "getStatusFieldOptions", and "updateProjectItemStatus"
-    Then none of those four symbols are prefixed with the "export" keyword
-    And "moveIssueToStatus" remains exported for external callers
-
-  @adw-467hhd-remove-unnecessary-e
   Scenario: ADW_COMMIT_PATTERN is not exported from prCommentDetector.ts
     Given "adws/github/prCommentDetector.ts" is read
     When searching for "export" before "ADW_COMMIT_PATTERN"

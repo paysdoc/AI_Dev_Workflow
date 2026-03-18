@@ -132,7 +132,6 @@ export async function completePRReviewWorkflow(config: PRReviewWorkflowConfig, m
   if (repoContext) {
     postPRStageComment(repoContext, prNumber, 'pr_review_pushed', ctx);
     postPRStageComment(repoContext, prNumber, 'pr_review_completed', ctx);
-    await repoContext.issueTracker.moveToStatus(config.issueNumber, 'Review');
   }
 
   AgentStateManager.writeState(orchestratorStatePath, {

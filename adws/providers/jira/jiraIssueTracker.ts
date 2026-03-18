@@ -16,23 +16,6 @@ const STATUS_CATEGORY_MAP: Record<string, string> = {
   done: 'CLOSED',
 };
 
-/**
- * Matches a target status name against available transition names using fuzzy logic.
- * Exact match takes priority, then substring match.
- */
-function matchTransition(
-  targetStatus: string,
-  transitions: readonly { readonly id: string; readonly name: string }[],
-): { readonly id: string; readonly name: string } | null {
-  const target = targetStatus.toLowerCase();
-
-  const exact = transitions.find(t => t.name.toLowerCase() === target);
-  if (exact) return exact;
-
-  const fuzzy = transitions.find(t => t.name.toLowerCase().includes(target));
-  return fuzzy ?? null;
-}
-
 export class JiraIssueTracker implements IssueTracker {
   private readonly client: JiraApiClient;
   private readonly projectKey: string;
@@ -174,34 +157,6 @@ export class JiraIssueTracker implements IssueTracker {
     });
 
     return comments;
-  }
-
-  async moveToStatus(issueNumber: number, status: string): Promise<void> {
-    const issueKey = this.toJiraKey(issueNumber);
-
-    try {
-      const jiraIssue = await this.client.getIssue(issueKey);
-      const currentStatus = jiraIssue.fields.status.name;
-
-      if (currentStatus.toLowerCase() === status.toLowerCase()) {
-        log(`Jira issue ${issueKey} already in "${currentStatus}", skipping`, 'info');
-        return;
-      }
-
-      const transitions = await this.client.getTransitions(issueKey);
-      const matched = matchTransition(status, transitions);
-
-      if (!matched) {
-        const available = transitions.map(t => t.name).join(', ');
-        log(`Status "${status}" not found in available transitions for ${issueKey}. Available: ${available}`, 'warn');
-        return;
-      }
-
-      await this.client.doTransition(issueKey, matched.id);
-      log(`Moved Jira issue ${issueKey} to "${matched.name}"`, 'success');
-    } catch (error) {
-      log(`Failed to move Jira issue ${issueKey} to "${status}": ${error}`, 'warn');
-    }
   }
 }
 

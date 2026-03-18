@@ -58,7 +58,6 @@ export async function completeWorkflow(
 
   if (repoContext) {
     postIssueStageComment(repoContext, issueNumber, 'completed', ctx);
-    await repoContext.issueTracker.moveToStatus(issueNumber, 'Review');
   }
 
   log('===================================', 'info');

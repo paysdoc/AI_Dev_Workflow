@@ -28,10 +28,6 @@ import type { WorkflowConfig } from './workflowLifecycle';
 export async function executePlanPhase(config: WorkflowConfig): Promise<{ costUsd: number; modelUsage: ModelUsageMap }> {
   const { recoveryState, orchestratorStatePath, orchestratorName, adwId, issueNumber, issue, issueType, ctx, worktreePath, logsDir, repoContext } = config;
 
-  if (repoContext) {
-    await repoContext.issueTracker.moveToStatus(issueNumber, 'In Progress');
-  }
-
   // Classify step
   if (shouldExecuteStage('classified', recoveryState)) {
     AgentStateManager.writeState(orchestratorStatePath, { issueClass: issueType });
