@@ -5,8 +5,9 @@
 
 import { execSync } from 'child_process';
 import { log } from '../core';
+import { GITHUB_PAT } from '../core/config';
 import { type RepoInfo } from './githubApi';
-import { refreshTokenIfNeeded } from './githubAppAuth';
+import { isGitHubAppConfigured, refreshTokenIfNeeded } from './githubAppAuth';
 
 
 interface ProjectItem {
@@ -225,20 +226,34 @@ export async function moveIssueToStatus(
   targetStatus: string,
   repoInfo: RepoInfo,
 ): Promise<boolean> {
+  let savedToken: string | undefined;
+  let usingPatFallback = false;
   try {
     const { owner, repo } = repoInfo;
 
     refreshTokenIfNeeded(owner, repo);
 
-    const projectId = findRepoProjectId(owner, repo);
+    let projectId = findRepoProjectId(owner, repo);
+
+    // PAT fallback: if app token can't access Projects V2, retry with GITHUB_PAT
+    if (!projectId && isGitHubAppConfigured() && GITHUB_PAT && GITHUB_PAT !== process.env.GH_TOKEN) {
+      log('App token cannot access Projects V2, retrying with GITHUB_PAT', 'info');
+      savedToken = process.env.GH_TOKEN;
+      process.env.GH_TOKEN = GITHUB_PAT;
+      usingPatFallback = true;
+      projectId = findRepoProjectId(owner, repo);
+    }
+
     if (!projectId) {
-      log(`No project linked to ${owner}/${repo}, skipping status update`, 'info');
+      log(`No project linked to ${owner}/${repo}, skipping status update`, 'warn');
       return false;
     }
 
+    const authLabel = usingPatFallback ? 'GITHUB_PAT' : 'app token';
+
     const projectItem = findIssueProjectItem(owner, repo, issueNumber, projectId);
     if (!projectItem) {
-      log(`Issue #${issueNumber} not found in project, skipping status update`, 'info');
+      log(`Issue #${issueNumber} not found in project, skipping status update`, 'warn');
       return false;
     }
 
@@ -250,13 +265,13 @@ export async function moveIssueToStatus(
 
     const statusField = getStatusFieldOptions(projectId);
     if (!statusField) {
-      log(`No Status field found in project, skipping status update`, 'info');
+      log(`No Status field found in project, skipping status update`, 'warn');
       return false;
     }
 
     const matchedOption = matchStatusOption(targetStatus, statusField.options);
     if (!matchedOption) {
-      log(`Status "${targetStatus}" not found in project options, skipping`, 'info');
+      log(`Status "${targetStatus}" not found in project options, skipping`, 'warn');
       return false;
     }
 
@@ -267,10 +282,15 @@ export async function moveIssueToStatus(
     }
 
     updateProjectItemStatus(projectId, projectItem.itemId, statusField.fieldId, matchedOption.id);
-    log(`Moved issue #${issueNumber} to "${matchedOption.name}" on project board`, 'success');
+    log(`Moved issue #${issueNumber} to "${matchedOption.name}" on project board (auth: ${authLabel})`, 'success');
     return true;
   } catch (error) {
     log(`Failed to move issue #${issueNumber} to "${targetStatus}": ${error}`, 'error');
     return false;
+  } finally {
+    // Restore original GH_TOKEN if PAT fallback was used
+    if (usingPatFallback) {
+      process.env.GH_TOKEN = savedToken;
+    }
   }
 }
