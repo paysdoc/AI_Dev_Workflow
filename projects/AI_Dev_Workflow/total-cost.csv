@@ -97,6 +97,7 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 233,fix issue number resolution in pr review workflow ,5.5114,0.5511
 235,project board fall back to github pat when app tok,4.1553,0.4155
 236,prs created by paysdoc user instead of paysdoc adw,3.3402,0.3340
+237,prs target main instead of default branch and issu,2.5855,0.2586
 
-Total Cost (USD):,409.2180
-Total Cost (EUR):,354.8751
+Total Cost (USD):,412.0621
+Total Cost (EUR):,357.3415
