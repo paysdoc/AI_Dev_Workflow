@@ -44,6 +44,9 @@ export async function executePRPhase(config: WorkflowConfig): Promise<{ costUsd:
     const planFile = getPlanFilePath(issueNumber, worktreePath);
     const currentBranch = ctx.branchName || branchName || '';
 
+    const repoOwner = repoContext?.repoId.owner ?? '';
+    const repoName = repoContext?.repoId.repo ?? '';
+
     const result = await runPullRequestAgent(
       currentBranch,
       JSON.stringify(issue),
@@ -53,6 +56,8 @@ export async function executePRPhase(config: WorkflowConfig): Promise<{ costUsd:
       undefined,
       worktreePath,
       issue.body,
+      repoOwner,
+      repoName,
     );
 
     ctx.prUrl = result.prUrl;

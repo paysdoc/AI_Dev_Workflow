@@ -4,11 +4,13 @@ Based on the `Instructions` below, take the `Variables` follow the `Run` section
 
 ## Variables
 
-branchName: $1, deafult to current branch if not provided
+branchName: $1, default to current branch if not provided
 issue: $2
 plan_file: $3
 adwId: $4
-defaultBranch: $5, defaults to 'main' if not provided
+defaultBranch: $5, defaults to the output of `gh repo view --json defaultBranchRef --jq '.defaultBranchRef.name'` if not provided
+repoOwner: $6, the owner of the repository where the issue lives (may be empty for same-repo PRs)
+repoName: $7, the name of the repository where the issue lives (may be empty for same-repo PRs)
 
 ## Instructions
 
@@ -17,7 +19,7 @@ defaultBranch: $5, defaults to 'main' if not provided
 - The PR body should include:
   - A summary section with the issue context
   - Link to the implementation `plan_file` if it exists
-  - Reference to the issue (Closes #<issueNumber>)
+  - Reference to the issue: if `repoOwner` and `repoName` are provided and non-empty, use `Closes repoOwner/repoName#<issueNumber>`; otherwise use `Closes #<issueNumber>`
   - ADW tracking ID
   - A checklist of what was done
   - A summary of key changes made

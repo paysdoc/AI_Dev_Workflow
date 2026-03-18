@@ -17,8 +17,10 @@ function formatPullRequestArgs(
   planFile: string,
   adwId: string,
   defaultBranch: string,
+  repoOwner: string,
+  repoName: string,
 ): string[] {
-  return [branchName, issueJson, planFile, adwId, defaultBranch];
+  return [branchName, issueJson, planFile, adwId, defaultBranch, repoOwner, repoName];
 }
 
 /**
@@ -45,6 +47,9 @@ function extractPrUrlFromOutput(output: string): string {
  * @param logsDir - Directory to write agent logs
  * @param statePath - Optional path to agent's state directory
  * @param cwd - Optional working directory (worktree path)
+ * @param issueBody - Optional issue body for model selection
+ * @param repoOwner - Optional owner of the repo where the issue lives (for cross-repo PRs)
+ * @param repoName - Optional name of the repo where the issue lives (for cross-repo PRs)
  */
 export async function runPullRequestAgent(
   branchName: string,
@@ -55,9 +60,11 @@ export async function runPullRequestAgent(
   statePath?: string,
   cwd?: string,
   issueBody?: string,
+  repoOwner?: string,
+  repoName?: string,
 ): Promise<AgentResult & { prUrl: string }> {
   const defaultBranch = getDefaultBranch(cwd);
-  const args = formatPullRequestArgs(branchName, issueJson, planFile, adwId, defaultBranch);
+  const args = formatPullRequestArgs(branchName, issueJson, planFile, adwId, defaultBranch, repoOwner ?? '', repoName ?? '');
   const outputFile = path.join(logsDir, 'pr-agent.jsonl');
 
   log('PR Agent starting:', 'info');
@@ -65,6 +72,8 @@ export async function runPullRequestAgent(
   log(`  Default branch: ${defaultBranch}`, 'info');
   log(`  ADW ID: ${adwId}`, 'info');
   log(`  Plan file: ${planFile}`, 'info');
+  if (repoOwner) log(`  Repo owner: ${repoOwner}`, 'info');
+  if (repoName) log(`  Repo name: ${repoName}`, 'info');
   if (cwd) log(`  CWD: ${cwd}`, 'info');
 
   const result = await runClaudeAgentWithCommand(
