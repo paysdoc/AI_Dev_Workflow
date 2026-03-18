@@ -135,7 +135,7 @@ export interface AgentState {
   /** Unique ADW session identifier */
   adwId: string;
   /** GitHub issue number being addressed */
-  issueNumber: number;
+  issueNumber: number | null;
   /** Git branch name for the feature/fix */
   branchName?: string;
   /** Path to the implementation plan file */

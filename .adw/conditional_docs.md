@@ -228,3 +228,12 @@
     - When the GitHub App token cannot access Projects V2 (user-owned repos like `paysdoc/AI_Dev_Workflow`)
     - When configuring `GITHUB_PAT` as a fallback for project board GraphQL calls
     - When investigating why issues remain in "Todo" despite workflow phases completing
+
+- app_docs/feature-y000tl-fix-issue-number-res-pr-review-issue-number.md
+  - Conditions:
+    - When working with `fetchPRDetails()` or issue number extraction in `adws/github/prApi.ts`
+    - When modifying `extractIssueNumberFromBranch()` in `adws/triggers/webhookHandlers.ts`
+    - When working with `PRReviewWorkflowConfig` or `initializePRReviewWorkflow()` in `adws/phases/prReviewPhase.ts`
+    - When modifying cost CSV writing in `completePRReviewWorkflow()` or `adws/core/costCsvWriter.ts`
+    - When troubleshooting `Could not resolve to an Issue with the number of 0` errors in PR review workflows
+    - When investigating `0-*.csv` cost files or serialised PR review CSV naming

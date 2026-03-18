@@ -108,6 +108,33 @@ export function parseIssueCostTotal(csvContent: string): number {
   return isNaN(value) ? 0 : value;
 }
 
+/**
+ * Returns the next available serialised CSV path for a PR review cost file.
+ * PR review runs may occur multiple times for the same issue, so each run
+ * gets a unique serial suffix (e.g., `30-update-adw-settings-1.csv`, `-2.csv`).
+ */
+export function getNextSerialCsvPath(repoRoot: string, repoName: string, issueNumber: number, issueTitle: string): string {
+  const basePath = getIssueCsvPath(repoName, issueNumber, issueTitle);
+  const baseName = basePath.replace(/\.csv$/, '');
+  const baseFilename = path.basename(baseName);
+  const projectDir = path.join(repoRoot, 'projects', repoName);
+
+  let maxSerial = 0;
+  if (fs.existsSync(projectDir)) {
+    const escapedBase = baseFilename.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const serialPattern = new RegExp(`^${escapedBase}-(\\d+)\\.csv$`);
+    for (const file of fs.readdirSync(projectDir)) {
+      const match = file.match(serialPattern);
+      if (match) {
+        const serial = parseInt(match[1], 10);
+        if (serial > maxSerial) maxSerial = serial;
+      }
+    }
+  }
+
+  return `${baseName}-${maxSerial + 1}.csv`;
+}
+
 /** Writes a per-issue cost CSV file. */
 export function writeIssueCostCsv(
   repoRoot: string,
