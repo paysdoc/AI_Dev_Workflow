@@ -10,10 +10,10 @@ Summary metrics across all ADW runs.
 | ----------------- | -------------- | ------------ |
 | Current Streak    | 13             | 2026-03-18   |
 | Longest Streak    | 13             | 2026-03-18   |
-| Total Plan Size   | 240 lines      | 2026-03-18   |
-| Largest Plan Size | 145 lines      | 2026-03-18   |
-| Total Diff Size   | 645462 lines   | 2026-03-18   |
-| Largest Diff Size | 203515 lines   | 2026-03-18   |
+| Total Plan Size   | 441 lines      | 2026-03-18   |
+| Largest Plan Size | 201 lines      | 2026-03-18   |
+| Total Diff Size   | 313214 lines   | 2026-03-18   |
+| Largest Diff Size | 205334 lines   | 2026-03-18   |
 | Average Presence  | 1.54           | 2026-03-18   |
 
 ## ADW KPIs
@@ -46,3 +46,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-03-18 | y000tl-fix-issue-number-res | 233          | /bug        | 1        | 0                 | 570/26/14                       | 2026-03-18 | 2026-03-18 |
 | 2026-03-18 | 9tknkw-project-board-fall-b | 235          | /bug        | 1        | 0                 | 485/595/24                      | 2026-03-18 | 2026-03-18 |
 | 2026-03-18 | 2umujr-prs-created-by-paysd | 236          | /bug        | 1        | 0                 | 234/580/20                      | 2026-03-18 | 2026-03-18 |
+| 2026-03-18 | 7cc62i-parallelize-independ | 26           | /feature    | 1        | 201               | 14417/190897/1048               | 2026-03-18 | 2026-03-18 |
