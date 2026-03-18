@@ -244,3 +244,11 @@
     - When modifying cost CSV writing in `completePRReviewWorkflow()` or `adws/core/costCsvWriter.ts`
     - When troubleshooting `Could not resolve to an Issue with the number of 0` errors in PR review workflows
     - When investigating `0-*.csv` cost files or serialised PR review CSV naming
+
+- app_docs/feature-6ukg3s-1773849789984-fix-pr-default-branch-linking.md
+  - Conditions:
+    - When working with cross-repo PR creation or `runPullRequestAgent()` in `adws/agents/prAgent.ts`
+    - When troubleshooting PRs targeting `main` instead of the repo's actual default branch
+    - When modifying issue reference format (`#N` vs `owner/repo#N`) in `pullRequestCreator.ts` or `pull_request.md`
+    - When adding `repoOwner`/`repoName` context to the PR creation chain
+    - When investigating cross-repo GitHub issue linking failures in PR bodies
