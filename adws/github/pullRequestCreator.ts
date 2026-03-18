@@ -17,10 +17,15 @@ import { pushBranch } from '../vcs/commitOperations';
 function generatePrBody(
   issue: GitHubIssue,
   planSummary: string,
-  buildSummary: string
+  buildSummary: string,
+  repoOwner?: string,
+  repoName?: string,
 ): string {
+  const issueRef = repoOwner && repoName
+    ? `${repoOwner}/${repoName}#${issue.number}`
+    : `#${issue.number}`;
   return `## Summary
-Implements #${issue.number} - ${issue.title}
+Implements ${issueRef} - ${issue.title}
 
 ## Implementation Plan
 ${planSummary}
@@ -62,9 +67,11 @@ export function createPullRequest(
   baseBranch: string = 'develop',
   cwd: string,
   repoInfo: RepoInfo,
+  repoOwner?: string,
+  repoName?: string,
 ): string {
   const branchName = getCurrentBranch(cwd);
-  const prBody = generatePrBody(issue, planSummary, buildSummary);
+  const prBody = generatePrBody(issue, planSummary, buildSummary, repoOwner, repoName);
   const prTitle = generatePrTitle(issue);
 
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'adw-pr-'));
