@@ -95,6 +95,8 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 229,harden project board status propagation,1.9406,0.1941
 231,scenario writer should be opus,3.1223,0.3122
 233,fix issue number resolution in pr review workflow ,5.5114,0.5511
+235,project board fall back to github pat when app tok,4.1553,0.4155
+236,prs created by paysdoc user instead of paysdoc adw,3.3402,0.3340
 
-Total Cost (USD):,400.9730
-Total Cost (EUR):,347.7250
+Total Cost (USD):,409.2180
+Total Cost (EUR):,354.8751
