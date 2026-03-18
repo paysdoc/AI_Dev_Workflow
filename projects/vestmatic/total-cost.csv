@@ -1,10 +1,12 @@
 Issue number,Issue description,Cost (USD),Markup (10%)
+0,chore 30 update adw settings,0.6073,0.0607
 0,feat 12 create vestmatic ai homepage,0.6834,0.0683
 6,set up adw environment,1.5378,0.1538
 9,subdomain based routing homepage vs demo app,3.5084,0.3508
 12,create vestmatic ai homepage,4.8943,0.4894
 16,update adw settings,0.2802,0.0280
 28,update command md,0.3639,0.0364
+30,update adw settings,0.3166,0.0317
 
-Total Cost (USD):,12.3948
-Total Cost (EUR):,10.7903
+Total Cost (USD):,13.4111
+Total Cost (EUR):,11.6301
