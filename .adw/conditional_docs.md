@@ -205,3 +205,10 @@
     - When adding or changing merge conflict detection or resolution via the `/resolve_conflict` agent
     - When troubleshooting approved PRs that were not automatically merged
     - When adjusting `MAX_AUTO_MERGE_ATTEMPTS` or the retry loop behavior
+
+- app_docs/feature-tepq39-scenario-writer-opus-model.md
+  - Conditions:
+    - When working with `SLASH_COMMAND_MODEL_MAP` or `SLASH_COMMAND_MODEL_MAP_FAST` in `adws/core/config.ts`
+    - When modifying or reviewing the model tier assigned to `/scenario_writer`
+    - When adding a new slash command and deciding which model tier to assign
+    - When troubleshooting scenario writer producing lower-quality output or using unexpected model
