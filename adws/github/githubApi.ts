@@ -98,4 +98,5 @@ export {
   fetchPRReviewComments,
   commentOnPR,
   fetchPRList,
+  mergePR,
 } from './prApi';

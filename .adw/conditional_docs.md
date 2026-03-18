@@ -197,3 +197,11 @@
     - When modifying `adwPrReview.tsx` target-repo argument handling
     - When `ensureWorktree` is called without `baseRepoPath` in the PR review path
     - When investigating the "wrong repository" class of bugs (#23, #33, #52, #56, #62, #119, #217, #223)
+
+- app_docs/feature-cwiuik-1773818764164-auto-merge-approved-pr.md
+  - Conditions:
+    - When working with the `pull_request_review` webhook event handler in `trigger_webhook.ts`
+    - When modifying auto-merge logic in `adws/triggers/autoMergeHandler.ts`
+    - When adding or changing merge conflict detection or resolution via the `/resolve_conflict` agent
+    - When troubleshooting approved PRs that were not automatically merged
+    - When adjusting `MAX_AUTO_MERGE_ATTEMPTS` or the retry loop behavior

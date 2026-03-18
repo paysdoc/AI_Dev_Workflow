@@ -3,7 +3,7 @@
  */
 
 // Constants
-export { OrchestratorId } from './constants';
+export { OrchestratorId, MAX_AUTO_MERGE_ATTEMPTS } from './constants';
 export type { OrchestratorIdType } from './constants';
 
 // Configuration
