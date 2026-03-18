@@ -220,3 +220,10 @@
     - When modifying or reviewing the model tier assigned to `/scenario_writer`
     - When adding a new slash command and deciding which model tier to assign
     - When troubleshooting scenario writer producing lower-quality output or using unexpected model
+
+- app_docs/feature-2umujr-fix-pr-auth-token-override.md
+  - Conditions:
+    - When working with the `/pull_request` slash command in `.claude/commands/pull_request.md`
+    - When troubleshooting PRs authored by the personal user instead of the GitHub App bot
+    - When modifying auth token handling in the PR creation flow
+    - When investigating `GH_TOKEN` vs `GITHUB_PAT` conflicts in subprocess environments
