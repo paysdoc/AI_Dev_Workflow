@@ -17,6 +17,7 @@ import { isActionableComment, isClearComment, isAdwRunningForIssue, truncateText
 import { clearIssueComments } from '../adwClearComments';
 import { removeWorktreesForIssue } from '../vcs';
 import { handlePullRequestEvent, wasMergedViaPR } from './webhookHandlers';
+import { handleApprovedReview } from './autoMergeHandler';
 import { validateWebhookSignature } from './webhookSignature';
 import { checkIssueEligibility } from './issueEligibility';
 import { spawnDetached, classifyAndSpawnWorkflow, handleIssueClosedDependencyUnblock, ensureCronProcess, logDeferral } from './webhookGatekeeper';
@@ -116,14 +117,29 @@ const server = http.createServer((req, res) => {
       if (repoOwner && repoName) ensureAppAuthForRepo(repoOwner, repoName);
     }
 
-    if (event === 'pull_request_review_comment' || event === 'pull_request_review') {
+    if (event === 'pull_request_review_comment') {
       const prNumber = (body.pull_request as Record<string, unknown> | undefined)?.number as number | undefined;
       if (prNumber == null) { jsonResponse(res, 200, { status: 'ignored' }); return; }
-      const action = (body.action as string) || '';
-      if (action !== 'created' && action !== 'submitted') { jsonResponse(res, 200, { status: 'ignored' }); return; }
+      if ((body.action as string) !== 'created') { jsonResponse(res, 200, { status: 'ignored' }); return; }
       if (!shouldTriggerPrReview(prNumber)) { jsonResponse(res, 200, { status: 'ignored', reason: 'duplicate' }); return; }
       spawnDetached('bunx', ['tsx', 'adws/adwPrReview.tsx', String(prNumber), ...extractTargetRepoArgs(body)]);
       jsonResponse(res, 200, { status: 'triggered', pr: prNumber });
+      return;
+    }
+
+    if (event === 'pull_request_review') {
+      const prNumber = (body.pull_request as Record<string, unknown> | undefined)?.number as number | undefined;
+      if (prNumber == null) { jsonResponse(res, 200, { status: 'ignored' }); return; }
+      if ((body.action as string) !== 'submitted') { jsonResponse(res, 200, { status: 'ignored' }); return; }
+      if (!shouldTriggerPrReview(prNumber)) { jsonResponse(res, 200, { status: 'ignored', reason: 'duplicate' }); return; }
+      const reviewState = ((body.review as Record<string, unknown> | undefined)?.state as string | undefined) || '';
+      if (reviewState === 'approved') {
+        handleApprovedReview(body).catch((error) => log(`Auto-merge error for PR #${prNumber}: ${error}`, 'error'));
+        jsonResponse(res, 200, { status: 'auto_merge_triggered', pr: prNumber });
+      } else {
+        spawnDetached('bunx', ['tsx', 'adws/adwPrReview.tsx', String(prNumber), ...extractTargetRepoArgs(body)]);
+        jsonResponse(res, 200, { status: 'triggered', pr: prNumber });
+      }
       return;
     }
 
