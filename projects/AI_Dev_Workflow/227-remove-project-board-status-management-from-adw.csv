@@ -1,0 +1,7 @@
+Model,Input Tokens,Output Tokens,Cache Read,Cache Write,Cost (USD)
+claude-opus-4-6,264,8361,708134,75987,1.0393
+claude-sonnet-4-6,371,31009,2029819,140783,1.6031
+claude-haiku-4-5-20251001,10,4617,12562,47634,0.0839
+
+Total Cost (USD):,2.7264
+Total Cost (EUR):,2.3643
