@@ -5,6 +5,7 @@
 import { execSync } from 'child_process';
 import { PRDetails, PRReviewComment, PRListItem, log } from '../core';
 import { type RepoInfo } from './githubApi';
+import { extractIssueNumberFromBranch } from '../triggers/webhookHandlers';
 
 
 interface RawPRDetails {
@@ -63,9 +64,11 @@ export function fetchPRDetails(prNumber: number, repoInfo: RepoInfo): PRDetails 
     );
     const raw = JSON.parse(json) as RawPRDetails;
 
-    // Extract issue number from PR body (e.g., "Implements #12")
+    // Extract issue number from PR body (e.g., "Implements #12"), falling back to branch name
     const issueMatch = raw.body?.match(/Implements #(\d+)/);
-    const issueNumber = issueMatch ? parseInt(issueMatch[1], 10) : null;
+    const issueNumber = issueMatch
+      ? parseInt(issueMatch[1], 10)
+      : extractIssueNumberFromBranch(raw.headRefName);
 
     return {
       number: raw.number,

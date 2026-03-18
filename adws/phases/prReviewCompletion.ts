@@ -5,7 +5,9 @@
  * pushing branches, posting completion comments, and error handling.
  */
 
-import { log, AgentStateManager, COST_REPORT_CURRENCIES, type ModelUsageMap, buildCostBreakdown, mergeModelUsageMaps, emptyModelUsageMap, persistTokenCounts, writeIssueCostCsv, rebuildProjectCostCsv, OrchestratorId, computeEurRate } from '../core';
+import * as fs from 'fs';
+import * as path from 'path';
+import { log, AgentStateManager, COST_REPORT_CURRENCIES, type ModelUsageMap, buildCostBreakdown, mergeModelUsageMaps, emptyModelUsageMap, persistTokenCounts, getNextSerialCsvPath, formatIssueCostCsv, rebuildProjectCostCsv, OrchestratorId, computeEurRate } from '../core';
 import { BoardStatus } from '../providers/types';
 import { pushBranch, inferIssueTypeFromBranch } from '../vcs';
 import { postPRStageComment } from './phaseCommentHelpers';
@@ -111,15 +113,22 @@ export async function completePRReviewWorkflow(config: PRReviewWorkflowConfig, m
     ctx.costBreakdown = costBreakdown;
 
     // Write cost data to CSV files
-    try {
-      const repoName = config.repoContext!.repoId.repo;
-      const adwRepoRoot = process.cwd();
-      const eurRate = computeEurRate(costBreakdown);
+    if (config.issueNumber) {
+      try {
+        const repoName = config.repoContext!.repoId.repo;
+        const adwRepoRoot = process.cwd();
+        const eurRate = computeEurRate(costBreakdown);
 
-      writeIssueCostCsv(adwRepoRoot, repoName, config.issueNumber, config.prDetails.title, costBreakdown);
-      rebuildProjectCostCsv(adwRepoRoot, repoName, eurRate);
-    } catch (csvError) {
-      log(`Failed to write cost CSV files: ${csvError}`, 'error');
+        const serialRelativePath = getNextSerialCsvPath(adwRepoRoot, repoName, config.issueNumber, config.prDetails.title);
+        const serialFullPath = path.join(adwRepoRoot, serialRelativePath);
+        fs.mkdirSync(path.dirname(serialFullPath), { recursive: true });
+        fs.writeFileSync(serialFullPath, formatIssueCostCsv(costBreakdown), 'utf-8');
+        log(`PR review cost CSV written: ${serialRelativePath}`, 'success');
+
+        rebuildProjectCostCsv(adwRepoRoot, repoName, eurRate);
+      } catch (csvError) {
+        log(`Failed to write cost CSV files: ${csvError}`, 'error');
+      }
     }
   }
 
@@ -133,7 +142,9 @@ export async function completePRReviewWorkflow(config: PRReviewWorkflowConfig, m
   if (repoContext) {
     postPRStageComment(repoContext, prNumber, 'pr_review_pushed', ctx);
     postPRStageComment(repoContext, prNumber, 'pr_review_completed', ctx);
-    await repoContext.issueTracker.moveToStatus(config.issueNumber, BoardStatus.Review);
+    if (config.issueNumber) {
+      await repoContext.issueTracker.moveToStatus(config.issueNumber, BoardStatus.Review);
+    }
   }
 
   AgentStateManager.writeState(orchestratorStatePath, {

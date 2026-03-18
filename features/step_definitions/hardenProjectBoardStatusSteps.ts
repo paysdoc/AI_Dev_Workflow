@@ -53,6 +53,21 @@ Then('the IssueTracker moveToStatus method returns Promise<boolean>', function (
 });
 
 Then(
+  'the {string} log in moveIssueToStatus uses warn level',
+  function (logFragment: string) {
+    const content = sharedCtx.fileContent;
+    const funcStart = content.indexOf('async function moveIssueToStatus');
+    assert.ok(funcStart !== -1, 'Expected "async function moveIssueToStatus" in the file');
+    const funcBody = content.slice(funcStart);
+    const idx = funcBody.indexOf(logFragment);
+    assert.ok(idx !== -1, `Expected log message containing "${logFragment}" in moveIssueToStatus`);
+    const context = funcBody.slice(idx, idx + 200);
+    const hasWarn = context.includes("'warn'") || context.includes('"warn"');
+    assert.ok(hasWarn, `Expected the "${logFragment}" log in moveIssueToStatus to use 'warn' level`);
+  },
+);
+
+Then(
   'refreshTokenIfNeeded is called before findRepoProjectId in moveIssueToStatus',
   function () {
     const content = sharedCtx.fileContent;

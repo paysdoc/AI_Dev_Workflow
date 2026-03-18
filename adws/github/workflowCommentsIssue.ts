@@ -9,7 +9,7 @@ import type { ReviewIssue } from '../agents/reviewAgent';
 
 /** Context information for issue workflow comments. */
 export interface WorkflowContext {
-  issueNumber: number;
+  issueNumber: number | null;
   adwId: string;
   branchName?: string;
   issueType?: IssueClassSlashCommand;

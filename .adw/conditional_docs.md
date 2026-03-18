@@ -227,3 +227,20 @@
     - When troubleshooting PRs authored by the personal user instead of the GitHub App bot
     - When modifying auth token handling in the PR creation flow
     - When investigating `GH_TOKEN` vs `GITHUB_PAT` conflicts in subprocess environments
+
+- app_docs/feature-9tknkw-project-board-pat-fallback.md
+  - Conditions:
+    - When working with `moveIssueToStatus()` or `findRepoProjectId()` in `adws/github/projectBoardApi.ts`
+    - When troubleshooting project board status updates that silently skip on user-owned repositories
+    - When the GitHub App token cannot access Projects V2 (user-owned repos like `paysdoc/AI_Dev_Workflow`)
+    - When configuring `GITHUB_PAT` as a fallback for project board GraphQL calls
+    - When investigating why issues remain in "Todo" despite workflow phases completing
+
+- app_docs/feature-y000tl-fix-issue-number-res-pr-review-issue-number.md
+  - Conditions:
+    - When working with `fetchPRDetails()` or issue number extraction in `adws/github/prApi.ts`
+    - When modifying `extractIssueNumberFromBranch()` in `adws/triggers/webhookHandlers.ts`
+    - When working with `PRReviewWorkflowConfig` or `initializePRReviewWorkflow()` in `adws/phases/prReviewPhase.ts`
+    - When modifying cost CSV writing in `completePRReviewWorkflow()` or `adws/core/costCsvWriter.ts`
+    - When troubleshooting `Could not resolve to an Issue with the number of 0` errors in PR review workflows
+    - When investigating `0-*.csv` cost files or serialised PR review CSV naming

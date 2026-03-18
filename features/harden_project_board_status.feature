@@ -112,3 +112,25 @@ Feature: Harden project board status propagation
   Scenario: TypeScript type-check passes after project board hardening changes
     Given the ADW codebase is checked out
     Then the ADW TypeScript type-check passes
+
+  # ── F: PAT fallback for user-owned Projects V2 ───────────────────────────────
+
+  @adw-wrzj5j-harden-project-board @regression
+  Scenario: projectBoardApi.ts imports GITHUB_PAT from core config
+    Given "adws/github/projectBoardApi.ts" is read
+    Then the file contains "GITHUB_PAT"
+
+  @adw-wrzj5j-harden-project-board @regression
+  Scenario: projectBoardApi.ts imports isGitHubAppConfigured from githubAppAuth
+    Given "adws/github/projectBoardApi.ts" is read
+    Then the file contains "isGitHubAppConfigured"
+
+  @adw-wrzj5j-harden-project-board @regression
+  Scenario: moveIssueToStatus logs warn level when no project is found
+    Given "adws/github/projectBoardApi.ts" is read
+    Then the "No project linked" log in moveIssueToStatus uses warn level
+
+  @adw-wrzj5j-harden-project-board @regression
+  Scenario: moveIssueToStatus attempts PAT fallback when app token fails
+    Given "adws/github/projectBoardApi.ts" is read
+    Then the file contains "retrying with GITHUB_PAT"

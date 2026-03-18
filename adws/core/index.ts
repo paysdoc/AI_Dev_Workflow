@@ -101,6 +101,7 @@ export type { ProjectCostRow } from './costCsvWriter';
 export {
   getIssueCsvPath,
   getProjectCsvPath,
+  getNextSerialCsvPath,
   formatIssueCostCsv,
   formatProjectCostCsv,
   parseProjectCostCsv,

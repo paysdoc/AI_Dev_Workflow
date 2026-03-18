@@ -26,13 +26,14 @@ bun install
 
 ### 3. Configure Environment
 
-Copy `.env.sample` to `.env` and fill in the required values:
+Copy the root-level `.env.sample` to `.env` and fill in the required values:
 
 ```bash
 cp .env.sample .env
+# Then edit .env with your actual credentials and configuration
 ```
 
-Then edit `.env` with your values:
+Required and optional environment variables (see `.env.sample` for full reference):
 - `GITHUB_REPO_URL` - Your GitHub repository URL
 - `ANTHROPIC_API_KEY` - Your Anthropic API key
 - `CLAUDE_CODE_PATH` - (Optional) Path to Claude CLI, defaults to `claude`
@@ -275,8 +276,8 @@ app_docs/               # Generated feature documentation
 bun.lock                # Bun lockfile
 eslint.config.js        # ESLint configuration
 cucumber.js             # Cucumber.js configuration
-features/               # BDD feature files
-└── step_definitions/   # BDD step definitions
+features/               # BDD feature files (Gherkin .feature)
+└── step_definitions/   # Cucumber step definition files (.ts)
 guidelines/
 └── coding_guidelines.md
 projects/               # Cost tracking CSV files per project
