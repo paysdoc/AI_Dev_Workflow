@@ -8,6 +8,7 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 0,feat 114 implement github issuetracker provider,1.4015,0.1401
 0,feat 121 add provider configuration to adw project,1.0304,0.1030
 0,feat 144 add a running total of tokens used to eac,2.1209,0.2121
+0,feat 229 harden project board status propagation,2.2065,0.2207
 0,feat 66 automatically commit cost when pr is close,1.4173,0.1417
 0,feat 80 add reasoning effort to slash commands,1.1973,0.1197
 0,feat 90 fix review process,0.7485,0.0749
@@ -92,6 +93,7 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 225,auto merge pr on approved review resolve conflicts,6.8824,0.6882
 227,remove project board status management from adw,2.7264,0.2726
 229,harden project board status propagation,1.9406,0.1941
+231,scenario writer should be opus,3.1223,0.3122
 
-Total Cost (USD):,389.0488
-Total Cost (EUR):,337.3843
+Total Cost (USD):,394.9105
+Total Cost (EUR):,342.4675
