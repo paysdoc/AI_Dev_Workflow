@@ -5,6 +5,7 @@
 
 import { log, JIRA_EMAIL, JIRA_API_TOKEN, JIRA_PAT } from '../../core';
 import type { IssueTracker, WorkItem, WorkItemComment } from '../types';
+import { BoardStatus } from '../types';
 import { JiraApiClient } from './jiraApiClient';
 import type { JiraIssueResponse, JiraCommentResponse } from './jiraTypes';
 import { markdownToAdf, adfToPlainText } from './adfConverter';
@@ -176,7 +177,7 @@ export class JiraIssueTracker implements IssueTracker {
     return comments;
   }
 
-  async moveToStatus(issueNumber: number, status: string): Promise<void> {
+  async moveToStatus(issueNumber: number, status: BoardStatus): Promise<boolean> {
     const issueKey = this.toJiraKey(issueNumber);
 
     try {
@@ -185,7 +186,7 @@ export class JiraIssueTracker implements IssueTracker {
 
       if (currentStatus.toLowerCase() === status.toLowerCase()) {
         log(`Jira issue ${issueKey} already in "${currentStatus}", skipping`, 'info');
-        return;
+        return true;
       }
 
       const transitions = await this.client.getTransitions(issueKey);
@@ -194,13 +195,15 @@ export class JiraIssueTracker implements IssueTracker {
       if (!matched) {
         const available = transitions.map(t => t.name).join(', ');
         log(`Status "${status}" not found in available transitions for ${issueKey}. Available: ${available}`, 'warn');
-        return;
+        return false;
       }
 
       await this.client.doTransition(issueKey, matched.id);
       log(`Moved Jira issue ${issueKey} to "${matched.name}"`, 'success');
+      return true;
     } catch (error) {
-      log(`Failed to move Jira issue ${issueKey} to "${status}": ${error}`, 'warn');
+      log(`Failed to move Jira issue ${issueKey} to "${status}": ${error}`, 'error');
+      return false;
     }
   }
 }

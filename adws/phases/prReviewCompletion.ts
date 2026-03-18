@@ -6,6 +6,7 @@
  */
 
 import { log, AgentStateManager, COST_REPORT_CURRENCIES, type ModelUsageMap, buildCostBreakdown, mergeModelUsageMaps, emptyModelUsageMap, persistTokenCounts, writeIssueCostCsv, rebuildProjectCostCsv, OrchestratorId, computeEurRate } from '../core';
+import { BoardStatus } from '../providers/types';
 import { pushBranch, inferIssueTypeFromBranch } from '../vcs';
 import { postPRStageComment } from './phaseCommentHelpers';
 import { runCommitAgent, runUnitTestsWithRetry, runE2ETestsWithRetry } from '../agents';
@@ -132,7 +133,7 @@ export async function completePRReviewWorkflow(config: PRReviewWorkflowConfig, m
   if (repoContext) {
     postPRStageComment(repoContext, prNumber, 'pr_review_pushed', ctx);
     postPRStageComment(repoContext, prNumber, 'pr_review_completed', ctx);
-    await repoContext.issueTracker.moveToStatus(config.issueNumber, 'Review');
+    await repoContext.issueTracker.moveToStatus(config.issueNumber, BoardStatus.Review);
   }
 
   AgentStateManager.writeState(orchestratorStatePath, {

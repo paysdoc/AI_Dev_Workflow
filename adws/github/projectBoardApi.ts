@@ -6,6 +6,7 @@
 import { execSync } from 'child_process';
 import { log } from '../core';
 import { type RepoInfo } from './githubApi';
+import { refreshTokenIfNeeded } from './githubAppAuth';
 
 
 interface ProjectItem {
@@ -223,49 +224,53 @@ export async function moveIssueToStatus(
   issueNumber: number,
   targetStatus: string,
   repoInfo: RepoInfo,
-): Promise<void> {
+): Promise<boolean> {
   try {
     const { owner, repo } = repoInfo;
+
+    refreshTokenIfNeeded(owner, repo);
 
     const projectId = findRepoProjectId(owner, repo);
     if (!projectId) {
       log(`No project linked to ${owner}/${repo}, skipping status update`, 'info');
-      return;
+      return false;
     }
 
     const projectItem = findIssueProjectItem(owner, repo, issueNumber, projectId);
     if (!projectItem) {
       log(`Issue #${issueNumber} not found in project, skipping status update`, 'info');
-      return;
+      return false;
     }
 
     // Check if already in the target status
     if (projectItem.currentStatus?.toLowerCase() === targetStatus.toLowerCase()) {
       log(`Issue #${issueNumber} already in "${targetStatus}", skipping`, 'info');
-      return;
+      return true;
     }
 
     const statusField = getStatusFieldOptions(projectId);
     if (!statusField) {
       log(`No Status field found in project, skipping status update`, 'info');
-      return;
+      return false;
     }
 
     const matchedOption = matchStatusOption(targetStatus, statusField.options);
     if (!matchedOption) {
       log(`Status "${targetStatus}" not found in project options, skipping`, 'info');
-      return;
+      return false;
     }
 
     // Also check fuzzy-matched current status
     if (projectItem.currentStatus?.toLowerCase() === matchedOption.name.toLowerCase()) {
       log(`Issue #${issueNumber} already in "${matchedOption.name}", skipping`, 'info');
-      return;
+      return true;
     }
 
     updateProjectItemStatus(projectId, projectItem.itemId, statusField.fieldId, matchedOption.id);
     log(`Moved issue #${issueNumber} to "${matchedOption.name}" on project board`, 'success');
+    return true;
   } catch (error) {
-    log(`Failed to move issue #${issueNumber} to "${targetStatus}": ${error}`, 'warn');
+    log(`Failed to move issue #${issueNumber} to "${targetStatus}": ${error}`, 'error');
+    return false;
   }
 }

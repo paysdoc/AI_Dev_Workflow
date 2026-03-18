@@ -80,6 +80,10 @@ Feature: Cucumber config discovers all feature files and step definitions
   Scenario: Step definition file exists for stale_gh_token_inheritance feature
     Given the file "features/step_definitions/staleGhTokenInheritanceSteps.ts" exists
 
+  @adw-1epy28-cucumber-regression @adw-7eqwrp-cucumber-regression @adw-wrzj5j-harden-project-board @regression
+  Scenario: Step definition file exists for harden_project_board_status feature
+    Given the file "features/step_definitions/hardenProjectBoardStatusSteps.ts" exists
+
   @adw-1epy28-cucumber-regression @adw-7eqwrp-cucumber-regression
   Scenario: No feature file retains the deprecated @crucial tag
     Given all feature files in "features/" are scanned for "@crucial"

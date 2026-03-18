@@ -25,6 +25,7 @@ import {
 } from '../agents';
 import type { WorkflowConfig } from './workflowLifecycle';
 import { buildContinuationPrompt } from './planPhase';
+import { BoardStatus } from '../providers/types';
 
 /**
  * Executes the Build phase: read plan, run build agent, commit implementation.
@@ -35,6 +36,10 @@ import { buildContinuationPrompt } from './planPhase';
  */
 export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costUsd: number; modelUsage: ModelUsageMap }> {
   const { recoveryState, orchestratorStatePath, orchestratorName, adwId, issueNumber, issue, issueType, ctx, worktreePath, logsDir, repoContext } = config;
+
+  if (repoContext) {
+    await repoContext.issueTracker.moveToStatus(issueNumber, BoardStatus.Building);
+  }
 
   // Read plan content
   const planPath = path.join(worktreePath, getPlanFilePath(issueNumber, worktreePath));
