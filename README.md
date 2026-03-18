@@ -244,6 +244,7 @@ adws/                   # ADW workflow system
 │   ├── issueDependencies.ts
 │   ├── issueEligibility.ts
 │   ├── trigger_cron.ts
+│   ├── trigger_shutdown.ts
 │   ├── trigger_webhook.ts
 │   ├── webhookGatekeeper.ts
 │   ├── webhookHandlers.ts
