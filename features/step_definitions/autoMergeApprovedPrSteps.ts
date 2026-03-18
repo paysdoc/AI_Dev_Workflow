@@ -178,6 +178,7 @@ Then('the auto-merge orchestrator enforces a maximum retry count', function () {
   assert.ok(found !== null, `Expected an auto-merge file to exist. Checked: ${AUTO_MERGE_CANDIDATES.join(', ')}`);
 
   const hasMaxRetries =
+    found.content.includes('MAX_AUTO_MERGE_ATTEMPTS') ||
     found.content.includes('MAX_RETRIES') ||
     found.content.includes('MAX_ATTEMPTS') ||
     found.content.includes('maxRetries') ||

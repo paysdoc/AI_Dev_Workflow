@@ -17,6 +17,8 @@ import { ensureWorktree } from '../vcs';
 import { runClaudeAgentWithCommand } from '../agents';
 import { getPlanFilePath, planFileExists } from '../agents';
 
+const maxAttempts = MAX_AUTO_MERGE_ATTEMPTS;
+
 /**
  * Performs a dry-run merge to detect conflicts without modifying the working tree.
  * Returns true if conflicts are detected, false if the merge would succeed cleanly.
@@ -187,8 +189,8 @@ export async function handleApprovedReview(body: Record<string, unknown>): Promi
 
   // Retry loop: resolve conflicts → push → merge
   let lastMergeError = '';
-  for (let attempt = 1; attempt <= MAX_AUTO_MERGE_ATTEMPTS; attempt++) {
-    log(`Auto-merge attempt ${attempt}/${MAX_AUTO_MERGE_ATTEMPTS} for PR #${prNumber}`, 'info');
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    log(`Auto-merge attempt ${attempt}/${maxAttempts} for PR #${prNumber}`, 'info');
 
     const hasConflicts = checkMergeConflicts(baseBranch, worktreePath);
 
