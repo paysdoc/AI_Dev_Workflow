@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value          | Last Updated |
 | ----------------- | -------------- | ------------ |
-| Current Streak    | 10             | 2026-03-18   |
-| Longest Streak    | 10             | 2026-03-18   |
+| Current Streak    | 11             | 2026-03-18   |
+| Longest Streak    | 11             | 2026-03-18   |
 | Total Plan Size   | 240 lines      | 2026-03-18   |
 | Largest Plan Size | 145 lines      | 2026-03-18   |
-| Total Diff Size   | 856866 lines   | 2026-03-18   |
+| Total Diff Size   | 857462 lines   | 2026-03-18   |
 | Largest Diff Size | 204407 lines   | 2026-03-18   |
-| Average Presence  | 1.67           | 2026-03-18   |
+| Average Presence  | 1.64           | 2026-03-18   |
 
 ## ADW KPIs
 
@@ -43,3 +43,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-03-18 | wrzj5j-harden-project-board | 229          | /feature    | 1        | 0                 | 441/895/27                      | 2026-03-18 | 2026-03-18 |
 | 2026-03-18 | tepq39-scenario-writer-shou | 231          | /feature    | 1        | 0                 | 374/2/7                         | 2026-03-18 | 2026-03-18 |
 | 2026-03-18 | ovackn-abstract-llm-calls-b | 24           | /feature    | 2        | 0                 | 13518/190889/1044               | 2026-03-18 | 2026-03-18 |
+| 2026-03-18 | y000tl-fix-issue-number-res | 233          | /bug        | 1        | 0                 | 570/26/14                       | 2026-03-18 | 2026-03-18 |
