@@ -94,6 +94,7 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 227,remove project board status management from adw,2.7264,0.2726
 229,harden project board status propagation,1.9406,0.1941
 231,scenario writer should be opus,3.1223,0.3122
+233,fix issue number resolution in pr review workflow ,5.5114,0.5511
 
-Total Cost (USD):,394.9105
-Total Cost (EUR):,342.4675
+Total Cost (USD):,400.9730
+Total Cost (EUR):,347.7250
