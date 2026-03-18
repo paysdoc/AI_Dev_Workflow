@@ -177,6 +177,7 @@ export function handleWorkflowError(
   ctx.errorMessage = String(error);
   if (repoContext) {
     postIssueStageComment(repoContext, issueNumber, 'error', ctx);
+    repoContext.issueTracker.moveToStatus(issueNumber, 'In Progress').catch(() => {});
   }
 
   AgentStateManager.writeState(orchestratorStatePath, {

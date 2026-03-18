@@ -36,6 +36,10 @@ import { buildContinuationPrompt } from './planPhase';
 export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costUsd: number; modelUsage: ModelUsageMap }> {
   const { recoveryState, orchestratorStatePath, orchestratorName, adwId, issueNumber, issue, issueType, ctx, worktreePath, logsDir, repoContext } = config;
 
+  if (repoContext) {
+    await repoContext.issueTracker.moveToStatus(issueNumber, 'Building');
+  }
+
   // Read plan content
   const planPath = path.join(worktreePath, getPlanFilePath(issueNumber, worktreePath));
   let planContent: string;

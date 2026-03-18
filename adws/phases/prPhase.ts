@@ -61,6 +61,7 @@ export async function executePRPhase(config: WorkflowConfig): Promise<{ costUsd:
 
     if (repoContext) {
       postIssueStageComment(repoContext, issueNumber, 'pr_created', ctx);
+      await repoContext.issueTracker.moveToStatus(issueNumber, 'In Review');
     }
     log(`Pull Request created: ${result.prUrl}`, 'success');
   } else {

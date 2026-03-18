@@ -47,6 +47,10 @@ export async function executeTestPhase(config: WorkflowConfig): Promise<{
   let modelUsage = emptyModelUsageMap();
   let totalRetries = 0;
 
+  if (repoContext) {
+    await repoContext.issueTracker.moveToStatus(issueNumber, 'Testing');
+  }
+
   // --- Unit tests gate (opt-in) ---
   const unitTestsEnabled = parseUnitTestsEnabled(projectConfig.projectMd);
 

@@ -62,8 +62,8 @@ class GitHubIssueTracker implements IssueTracker {
     return comments.map(mapIssueCommentSummaryToWorkItemComment);
   }
 
-  async moveToStatus(issueNumber: number, status: string): Promise<void> {
-    await moveIssueToStatus(issueNumber, status, this.repoInfo);
+  async moveToStatus(issueNumber: number, status: string): Promise<boolean> {
+    return moveIssueToStatus(issueNumber, status, this.repoInfo);
   }
 }
 

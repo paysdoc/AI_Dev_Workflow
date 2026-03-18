@@ -72,7 +72,7 @@ export interface IssueTracker {
   closeIssue(issueNumber: number, comment?: string): Promise<boolean>;
   getIssueState(issueNumber: number): string;
   fetchComments(issueNumber: number): WorkItemComment[];
-  moveToStatus(issueNumber: number, status: string): Promise<void>;
+  moveToStatus(issueNumber: number, status: string): Promise<boolean>;
 }
 
 /**
