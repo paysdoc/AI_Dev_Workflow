@@ -35,7 +35,7 @@ defaultBranch: $5, defaults to 'main' if not provided
 2. Run `git log origin/<defaultBranch>..HEAD --oneline` to see the commits that will be included
 3. Run `git diff origin/<defaultBranch>...HEAD --name-only` to get a list of changed files
 4. Run `git push -u origin <branchName>` to push the branch
-5. Set GH_TOKEN environment variable from GITHUB_PAT if available, then run `gh pr create --title "<pr_title>" --body "<pr_body>" --base <defaultBranch>` to create the PR
+5. Run `gh pr create --title "<pr_title>" --body "<pr_body>" --base <defaultBranch>` to create the PR
 6. Capture the PR URL from the output
 
 ## Report
