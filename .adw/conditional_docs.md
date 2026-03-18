@@ -220,3 +220,11 @@
     - When modifying or reviewing the model tier assigned to `/scenario_writer`
     - When adding a new slash command and deciding which model tier to assign
     - When troubleshooting scenario writer producing lower-quality output or using unexpected model
+
+- app_docs/feature-9tknkw-project-board-pat-fallback.md
+  - Conditions:
+    - When working with `moveIssueToStatus()` or `findRepoProjectId()` in `adws/github/projectBoardApi.ts`
+    - When troubleshooting project board status updates that silently skip on user-owned repositories
+    - When the GitHub App token cannot access Projects V2 (user-owned repos like `paysdoc/AI_Dev_Workflow`)
+    - When configuring `GITHUB_PAT` as a fallback for project board GraphQL calls
+    - When investigating why issues remain in "Todo" despite workflow phases completing
