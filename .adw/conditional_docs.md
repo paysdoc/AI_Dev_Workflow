@@ -189,3 +189,11 @@
     - When troubleshooting missing `## Run Scenarios by Tag` or `## Run Regression Scenarios` in generated `commands.md`
     - When working with `/adw_init` and E2E tool detection in step 7
     - When `projectConfig.ts` `runScenariosByTag` or `runRegressionScenarios` are falling back to defaults unexpectedly
+
+- app_docs/feature-ie8l08-fix-pr-review-target-repo.md
+  - Conditions:
+    - When working with `initializePRReviewWorkflow` in `adws/phases/prReviewPhase.ts`
+    - When troubleshooting PR review workflows targeting the wrong repository (ADW repo instead of target repo)
+    - When modifying `adwPrReview.tsx` target-repo argument handling
+    - When `ensureWorktree` is called without `baseRepoPath` in the PR review path
+    - When investigating the "wrong repository" class of bugs (#23, #33, #52, #56, #62, #119, #217, #223)
