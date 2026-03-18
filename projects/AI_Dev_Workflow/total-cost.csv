@@ -91,6 +91,7 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 223,wrong repository being targeted,5.4049,0.5405
 225,auto merge pr on approved review resolve conflicts,6.8824,0.6882
 227,remove project board status management from adw,2.7264,0.2726
+229,harden project board status propagation,1.9406,0.1941
 
-Total Cost (USD):,386.9141
-Total Cost (EUR):,335.5331
+Total Cost (USD):,389.0488
+Total Cost (EUR):,337.3843
