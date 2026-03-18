@@ -197,3 +197,11 @@
     - When modifying `adwPrReview.tsx` target-repo argument handling
     - When `ensureWorktree` is called without `baseRepoPath` in the PR review path
     - When investigating the "wrong repository" class of bugs (#23, #33, #52, #56, #62, #119, #217, #223)
+
+- app_docs/feature-wrzj5j-harden-project-board-status.md
+  - Conditions:
+    - When working with `moveIssueToStatus` or `moveToStatus` in `adws/github/projectBoardApi.ts`
+    - When modifying `IssueTracker.moveToStatus` in `adws/providers/types.ts` or provider implementations
+    - When adding intermediate project board status transitions to workflow phases
+    - When troubleshooting project board status updates that fail silently or with stale tokens
+    - When implementing GitHub App token refresh before GraphQL calls in `projectBoardApi.ts`
