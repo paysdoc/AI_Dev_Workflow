@@ -9,9 +9,10 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 22,wire r2 prompts into worker runtime,3.1419,0.3142
 23,split system vs user messages in llm calls,9.2831,0.9283
 24,abstract llm calls behind a provider interface,9.1651,0.9165
+25,add call level llm parameters temperature max toke,6.2612,0.6261
 26,parallelize independent ai calls in the pipeline,5.1807,0.5181
 28,update command md,0.3639,0.0364
 30,update adw settings,0.3166,0.0317
 
-Total Cost (USD):,45.3088
-Total Cost (EUR):,39.2919
+Total Cost (USD):,52.1961
+Total Cost (EUR):,45.2646
