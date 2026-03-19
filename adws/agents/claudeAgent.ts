@@ -133,39 +133,3 @@ export async function runClaudeAgentWithCommand(
 
   return result;
 }
-
-/**
- * Runs a Claude Code agent with /install priming before executing the given slash command.
- * Composes a two-step prompt that first runs /install to prime project context, then
- * executes the actual command — all in the same CLI invocation so both share context.
- *
- * @param command - The slash command to invoke after priming (e.g., '/feature', '/scenario_writer')
- * @param args - Arguments to pass to the command
- * @param agentName - Human-readable name for logging
- * @param outputFile - Path to write JSONL output
- * @param model - The model to use ('opus', 'sonnet', 'haiku')
- * @param effort - Optional reasoning effort level ('low' | 'medium' | 'high' | 'max')
- * @param onProgress - Optional callback for progress updates
- * @param statePath - Optional path to agent's state directory for state tracking
- * @param cwd - Optional working directory for the agent (defaults to process.cwd())
- */
-export async function runPrimedClaudeAgentWithCommand(
-  command: string,
-  args: string | readonly string[],
-  agentName: string,
-  outputFile: string,
-  model: string = 'sonnet',
-  effort?: string,
-  onProgress?: ProgressCallback,
-  statePath?: string,
-  cwd?: string
-): Promise<AgentResult> {
-  const escapeArg = (a: string): string => `'${a.replace(/'/g, "'\\''")}'`;
-  const quotedArgs = typeof args === 'string'
-    ? escapeArg(args)
-    : args.map(escapeArg).join(' ');
-  const commandPart = quotedArgs ? `${command} ${quotedArgs}` : command;
-  const primedPrompt = `/install\n\nOnce /install completes, run: ${commandPart}`;
-
-  return runClaudeAgentWithCommand(primedPrompt, [], agentName, outputFile, model, effort, onProgress, statePath, cwd);
-}

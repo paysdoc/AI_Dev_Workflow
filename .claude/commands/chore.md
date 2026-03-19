@@ -10,6 +10,9 @@ issueJson: $3 — JSON string containing full issue details. Default: `{}`
 IMPORTANT: $1 is ALWAYS the numeric issue number. $2 is ALWAYS the ADW ID string. Do NOT swap these values.
 Example: if $1=31 and $2=init-adw-env-4qugib, the filename is `issue-31-adw-init-adw-env-4qugib-sdlc_planner-{descriptiveName}.md`
 
+## Before you do anything else
+Read and exectute .claude/commands/install.md
+
 ## Instructions
 
 - IMPORTANT: You're writing a plan to resolve a chore based on the `Chore` that will add value to the application.

@@ -144,18 +144,3 @@ When(
     this.filePath = filePath;
   },
 );
-
-Then(
-  'runPrimedClaudeAgentWithCommand receives model {string} for the \\/scenario_writer command',
-  function (this: Record<string, string>, _expectedModel: string) {
-    const content = this.fileContent ?? scenarioAgentContent;
-    // scenarioAgent must call getModelForCommand('/scenario_writer', ...) so the model is
-    // resolved at runtime via the map — verify the agent delegates to getModelForCommand
-    assert.ok(
-      content.includes("getModelForCommand('/scenario_writer'") ||
-        content.includes('getModelForCommand("/scenario_writer"') ||
-        content.includes("getModelForCommand('/scenario_writer',"),
-      `Expected scenarioAgent.ts to resolve the model via getModelForCommand('/scenario_writer', ...)`,
-    );
-  },
-);

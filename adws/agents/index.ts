@@ -6,7 +6,6 @@
 // Claude Agent (base runners)
 export {
   runClaudeAgentWithCommand,
-  runPrimedClaudeAgentWithCommand,
   type AgentResult,
   type ProgressInfo,
   type ProgressCallback,

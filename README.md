@@ -125,6 +125,25 @@ ADW uses BDD scenarios for validation (see `.adw/scenarios.md`).
 │   ├── subagent-stop.ts
 │   └── utils/
 │       └── constants.ts
+├── skills/             # Claude Code skills
+│   ├── grill-me/
+│   │   └── SKILL.md
+│   ├── improve-codebase-architecture/
+│   │   ├── REFERENCE.md
+│   │   └── SKILL.md
+│   ├── prd-to-issues/
+│   │   └── SKILL.md
+│   ├── tdd/
+│   │   ├── SKILL.md
+│   │   ├── deep-modules.md
+│   │   ├── interface-design.md
+│   │   ├── mocking.md
+│   │   ├── refactoring.md
+│   │   └── tests.md
+│   ├── ubiquitous-language/
+│   │   └── SKILL.md
+│   └── write-a-prd/
+│       └── SKILL.md
 └── settings.json
 adws/                   # ADW workflow system
 ├── agents/             # Claude Code agent runners

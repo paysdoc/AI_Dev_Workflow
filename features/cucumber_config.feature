@@ -41,10 +41,6 @@ Feature: Cucumber config discovers all feature files and step definitions
     Given the file "features/step_definitions/llmDependencyExtractionSteps.ts" exists
 
   @adw-1epy28-cucumber-regression @adw-7eqwrp-cucumber-regression @regression
-  Scenario: Step definition file exists for primed_claude_agent feature
-    Given the file "features/step_definitions/primedClaudeAgentSteps.ts" exists
-
-  @adw-1epy28-cucumber-regression @adw-7eqwrp-cucumber-regression @regression
   Scenario: Step definition file exists for push_adw_kpis feature
     Given the file "features/step_definitions/pushAdwKpisSteps.ts" exists
 

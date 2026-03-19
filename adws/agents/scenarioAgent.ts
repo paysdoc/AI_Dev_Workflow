@@ -5,7 +5,7 @@
 
 import * as path from 'path';
 import { log, getModelForCommand, getEffortForCommand } from '../core';
-import { runPrimedClaudeAgentWithCommand, type AgentResult } from './claudeAgent';
+import { runClaudeAgentWithCommand, type AgentResult } from './claudeAgent';
 import type { GitHubIssue } from '../core';
 import { isAdwComment, extractActionableContent } from '../core/workflowCommentParsing';
 
@@ -67,7 +67,7 @@ export async function runScenarioAgent(
   log(`  ADW ID: ${adwId || 'adw-unknown'}`, 'info');
   log(`  Issue: #${issue.number}`, 'info');
 
-  const result = await runPrimedClaudeAgentWithCommand(
+  const result = await runClaudeAgentWithCommand(
     '/scenario_writer',
     args,
     'Scenario',
