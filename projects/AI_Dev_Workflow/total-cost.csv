@@ -100,7 +100,7 @@ Issue number,Issue description,Cost (USD),Markup (10%)
 237,prs target main instead of default branch and issu,2.5855,0.2586
 241,cost revamp core computation anthropic extractor a,10.2798,1.0280
 242,cost revamp wire extractor into agent process hand,10.9987,1.0999
-243,cost revamp phasecostrecord csv output and per pha,14.4465,1.4447
+243,cost revamp phasecostrecord csv output and per pha,2.3094,0.2309
 
-Total Cost (USD):,451.3596
-Total Cost (EUR):,393.2592
+Total Cost (USD):,438.0088
+Total Cost (EUR):,381.6270
