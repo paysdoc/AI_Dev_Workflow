@@ -1,2 +1,2 @@
-export { AnthropicTokenUsageExtractor } from './extractor';
-export { ANTHROPIC_PRICING, DEFAULT_ANTHROPIC_PRICING, getAnthropicPricing } from './pricing';
+export { AnthropicTokenUsageExtractor } from './extractor.ts';
+export { ANTHROPIC_PRICING, DEFAULT_ANTHROPIC_PRICING, getAnthropicPricing } from './pricing.ts';

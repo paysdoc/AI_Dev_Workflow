@@ -2,7 +2,7 @@
  * Generic, provider-agnostic cost computation functions.
  */
 
-import type { TokenUsageMap, PricingMap, DivergenceResult } from './types';
+import type { TokenUsageMap, PricingMap, DivergenceResult } from './types.ts';
 
 /**
  * Computes total cost in USD by multiplying matching keys in usage and pricing maps.

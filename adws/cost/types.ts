@@ -22,6 +22,12 @@ export interface TokenUsageExtractor {
   isFinalized(): boolean;
   /** CLI-reported total cost in USD (available after finalization). */
   getReportedCostUsd(): number | undefined;
+  /**
+   * Returns the pre-finalization estimated usage snapshot for estimate-vs-actual comparison.
+   * Before finalization, returns the current accumulated per-turn estimates.
+   * After finalization, returns the snapshot captured just before the result message replaced estimates with actuals.
+   */
+  getEstimatedUsage(): ModelUsageMap;
 }
 
 /** Result of a divergence check between locally computed and CLI-reported costs. */
