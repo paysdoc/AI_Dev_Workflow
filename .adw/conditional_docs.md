@@ -244,3 +244,12 @@
     - When modifying issue reference format (`#N` vs `owner/repo#N`) in `pullRequestCreator.ts` or `pull_request.md`
     - When adding `repoOwner`/`repoName` context to the PR creation chain
     - When investigating cross-repo GitHub issue linking failures in PR bodies
+
+- app_docs/feature-ku956a-cost-revamp-core-com-cost-module-core-vitest.md
+  - Conditions:
+    - When working with `adws/cost/` module types, computation, or the Anthropic extractor
+    - When implementing or extending `TokenUsageExtractor` for a new provider
+    - When modifying `computeCost()`, `checkDivergence()`, or Anthropic pricing tables
+    - When adding Vitest unit tests for cost-related code
+    - When troubleshooting the snake_case/camelCase mismatch in CLI `result` message parsing
+    - When wiring the cost module into workflow phases or agents
