@@ -71,7 +71,7 @@ Set up Vitest infrastructure and define core type interfaces. This establishes t
 ### Phase 2: Core Implementation
 Implement the generic computation engine and Anthropic provider.
 
-1. Implement `computeCost(usage, pricing)` in `adws/cost/computation.ts` — iterates over usage map keys, multiplies by matching pricing entry (per-million), returns total USD
+1. Implement `computeCost(usage, pricing)` in `adws/cost/computation.ts` — iterates over usage map keys, multiplies by matching pricing entry (per-token), returns total USD
 2. Implement `checkDivergence(computedCost, reportedCost, thresholdPercent)` in the same file — returns a `DivergenceResult` with `isDivergent`, `percentDiff`, and both cost values
 3. Create Anthropic pricing tables in `adws/cost/providers/anthropic/pricing.ts` using the new `PricingMap` format with snake_case keys (`input`, `output`, `cache_read`, `cache_write`)
 4. Implement `AnthropicTokenUsageExtractor` in `adws/cost/providers/anthropic/extractor.ts` — handles `result` JSONL message parsing with correct snake_case field names (`total_cost_usd`, `input_tokens`, etc.)
@@ -107,7 +107,7 @@ IMPORTANT: Execute every step in order, top to bottom.
 ### Task 2: Define core types in `adws/cost/types.ts`
 - Create `adws/cost/types.ts` with:
   - `TokenUsageMap`: `Record<string, number>` — extensible token counts with provider-specific keys
-  - `PricingMap`: `Record<string, number>` — per-million-token pricing with provider-specific keys
+  - `PricingMap`: `Record<string, number>` — per-token pricing with provider-specific keys
   - `ModelUsageMap`: `Record<string, TokenUsageMap>` — token usage keyed by model identifier
   - `TokenUsageExtractor` interface with four methods:
     - `onChunk(chunk: string): void` — feed raw stdout chunks
@@ -118,7 +118,7 @@ IMPORTANT: Execute every step in order, top to bottom.
     - `isDivergent: boolean`
     - `percentDiff: number`
     - `computedCostUsd: number`
-    - `reportedCostUsd: number`
+    - `reportedCostUsd: number | undefined`
   - `PhaseCostRecord` interface with fields from the PRD:
     - `workflowId: string` (adwId)
     - `issueNumber: number`
@@ -143,13 +143,15 @@ IMPORTANT: Execute every step in order, top to bottom.
   - `computeCost(usage: TokenUsageMap, pricing: PricingMap): number`
     - Iterate over keys in the `usage` map
     - For each key, look up the matching key in `pricing`
-    - If found, multiply `usage[key] * pricing[key] / 1_000_000` and add to total
+    - If found, multiply `usage[key] * pricing[key]` and add to total
     - If not found (no pricing entry), that token type costs zero — skip it
     - Return the total as a number
-  - `checkDivergence(computedCostUsd: number, reportedCostUsd: number, thresholdPercent?: number): DivergenceResult`
+  - `checkDivergence(computedCostUsd: number, reportedCostUsd: number | undefined, thresholdPercent?: number): DivergenceResult`
     - Default `thresholdPercent` to `5`
-    - Calculate `percentDiff` as `Math.abs(computedCostUsd - reportedCostUsd) / reportedCostUsd * 100`
-    - Handle edge case: if `reportedCostUsd` is 0, divergence is `computedCostUsd > 0`
+    - If `reportedCostUsd` is `undefined`, return `{ isDivergent: false, percentDiff: 0, computedCostUsd, reportedCostUsd: undefined }` — cannot check divergence without a reported cost
+    - If both costs are 0, return `{ isDivergent: false, percentDiff: 0, computedCostUsd, reportedCostUsd }`
+    - If `reportedCostUsd` is 0 and `computedCostUsd` > 0, return `{ isDivergent: true, percentDiff: Infinity, computedCostUsd, reportedCostUsd }`
+    - Otherwise calculate `percentDiff` as `Math.abs(computedCostUsd - reportedCostUsd) / reportedCostUsd * 100`
     - Return `{ isDivergent: percentDiff > thresholdPercent, percentDiff, computedCostUsd, reportedCostUsd }`
 - Import types from `./types`
 
@@ -157,16 +159,16 @@ IMPORTANT: Execute every step in order, top to bottom.
 - Create `adws/cost/providers/anthropic/pricing.ts` with:
   - Import `PricingMap` from `../../types`
   - Define pricing using snake_case keys matching the token type keys the extractor will produce:
-    - `input` — input tokens (per million)
-    - `output` — output tokens (per million)
-    - `cache_read` — cache read tokens (per million)
-    - `cache_write` — cache creation tokens (per million)
-  - `ANTHROPIC_PRICING: Readonly<Record<string, PricingMap>>` mapping model identifiers to pricing:
-    - `'claude-opus-4-6'`: `{ input: 5.0, output: 25.0, cache_read: 0.5, cache_write: 6.25 }`
+    - `input` — input tokens (per token)
+    - `output` — output tokens (per token)
+    - `cache_read` — cache read tokens (per token)
+    - `cache_write` — cache creation tokens (per token)
+  - `ANTHROPIC_PRICING: Readonly<Record<string, PricingMap>>` mapping model identifiers to pricing (per-token values, i.e., per-million price divided by 1,000,000):
+    - `'claude-opus-4-6'`: `{ input: 0.000005, output: 0.000025, cache_read: 0.0000005, cache_write: 0.00000625 }`
     - `'opus'`: same as above (alias)
-    - `'claude-sonnet-4-5-20250929'`: `{ input: 3.0, output: 15.0, cache_read: 0.3, cache_write: 3.75 }`
+    - `'claude-sonnet-4-5-20250929'`: `{ input: 0.000003, output: 0.000015, cache_read: 0.0000003, cache_write: 0.00000375 }`
     - `'sonnet'`: same as above (alias)
-    - `'claude-haiku-4-5-20251001'`: `{ input: 1.0, output: 5.0, cache_read: 0.1, cache_write: 1.25 }`
+    - `'claude-haiku-4-5-20251001'`: `{ input: 0.000001, output: 0.000005, cache_read: 0.0000001, cache_write: 0.00000125 }`
     - `'haiku'`: same as above (alias)
   - `DEFAULT_ANTHROPIC_PRICING`: fallback to sonnet pricing
   - `getAnthropicPricing(model: string): PricingMap` — lookup with fallback
