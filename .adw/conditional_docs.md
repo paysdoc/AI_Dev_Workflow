@@ -253,3 +253,12 @@
     - When adding Vitest unit tests for cost-related code
     - When troubleshooting the snake_case/camelCase mismatch in CLI `result` message parsing
     - When wiring the cost module into workflow phases or agents
+
+- app_docs/feature-tgs1li-cost-revamp-wire-ext-wire-extractor-agent-handler.md
+  - Conditions:
+    - When working with real-time token tracking in `agentProcessHandler.ts`
+    - When modifying `AnthropicTokenUsageExtractor` streaming or deduplication logic
+    - When troubleshooting cost fields missing for failed or token-limit-terminated agent runs
+    - When implementing estimate-vs-actual logging or interpreting its output
+    - When modifying `formatRunningTokenFooter` or the `isEstimated` display format
+    - When adding `tokenEstimate` to `ProgressInfo` or the progress callback chain
