@@ -4,7 +4,7 @@
  * Values are per-token (i.e. per-million price / 1,000,000).
  */
 
-import type { PricingMap } from '../../types';
+import type { PricingMap } from '../../types.ts';
 
 const OPUS_PRICING: PricingMap = {
   input: 0.000005,

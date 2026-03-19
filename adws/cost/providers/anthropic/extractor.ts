@@ -9,7 +9,7 @@
  *   - Per-turn message.usage uses snake_case: input_tokens, cache_creation_input_tokens, etc.
  */
 
-import type { TokenUsageExtractor, ModelUsageMap, TokenUsageMap } from '../../types';
+import type { TokenUsageExtractor, ModelUsageMap, TokenUsageMap } from '../../types.ts';
 
 /** Shape of a per-model entry in the result message's modelUsage object. */
 interface RawModelUsageEntry {
