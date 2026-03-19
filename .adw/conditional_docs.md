@@ -253,3 +253,21 @@
     - When troubleshooting missing cost data after a workflow crash mid-execution
     - When working with `appendIssueCostCsv`, `rebuildProjectTotalCsv`, or `commitPhasesCostData`
     - When adding support for new token types or providers in cost tracking
+
+- app_docs/feature-ku956a-cost-revamp-core-com-cost-module-core-vitest.md
+  - Conditions:
+    - When working with `adws/cost/` module types, computation, or the Anthropic extractor
+    - When implementing or extending `TokenUsageExtractor` for a new provider
+    - When modifying `computeCost()`, `checkDivergence()`, or Anthropic pricing tables
+    - When adding Vitest unit tests for cost-related code
+    - When troubleshooting the snake_case/camelCase mismatch in CLI `result` message parsing
+    - When wiring the cost module into workflow phases or agents
+
+- app_docs/feature-tgs1li-cost-revamp-wire-ext-wire-extractor-agent-handler.md
+  - Conditions:
+    - When working with real-time token tracking in `agentProcessHandler.ts`
+    - When modifying `AnthropicTokenUsageExtractor` streaming or deduplication logic
+    - When troubleshooting cost fields missing for failed or token-limit-terminated agent runs
+    - When implementing estimate-vs-actual logging or interpreting its output
+    - When modifying `formatRunningTokenFooter` or the `isEstimated` display format
+    - When adding `tokenEstimate` to `ProgressInfo` or the progress callback chain

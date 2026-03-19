@@ -2,8 +2,19 @@
  * Barrel exports for the adws/cost module.
  */
 
-export type { PhaseCostRecord, CreatePhaseCostRecordsOptions } from './types';
+export type {
+  TokenUsageMap,
+  PricingMap,
+  ModelUsageMap,
+  TokenUsageExtractor,
+  DivergenceResult,
+  PhaseCostRecord,
+  CreatePhaseCostRecordsOptions,
+} from './types';
 export { PhaseCostStatus, createPhaseCostRecords } from './types';
+
+export { computeCost, checkDivergence } from './computation';
+export { AnthropicTokenUsageExtractor, ANTHROPIC_PRICING, DEFAULT_ANTHROPIC_PRICING, getAnthropicPricing } from './providers/anthropic/index';
 
 export {
   FALLBACK_EUR_RATE,

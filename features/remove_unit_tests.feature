@@ -10,7 +10,7 @@ Feature: Remove all unit tests and Vitest configuration from the ADW project
     Given the ADW codebase is checked out
     And the repository is at the current working directory
 
-  @adw-m8wft2-chore-remove-all-uni @regression
+  @adw-m8wft2-chore-remove-all-uni
   Scenario: All *.test.ts files are deleted from the repository
     Given the repository contains unit test files under "adws/__tests__/", "adws/agents/__tests__/", and "adws/phases/__tests__/"
     When all unit test files are deleted as part of issue 202
@@ -19,20 +19,20 @@ Feature: Remove all unit tests and Vitest configuration from the ADW project
     And the "adws/agents/__tests__/" directory does not exist
     And the "adws/phases/__tests__/" directory does not exist
 
-  @adw-m8wft2-chore-remove-all-uni @regression
+  @adw-m8wft2-chore-remove-all-uni
   Scenario: vitest.config.ts is removed from the project root
     Given "vitest.config.ts" exists at the project root
     When the Vitest configuration file is deleted
     Then "vitest.config.ts" does not exist in the repository
 
-  @adw-m8wft2-chore-remove-all-uni @regression
+  @adw-m8wft2-chore-remove-all-uni
   Scenario: vitest dependency is removed from package.json
     Given "package.json" lists "vitest" under devDependencies
     When the vitest package and related test dependencies are removed from "package.json"
     Then "package.json" does not contain "vitest" as a dependency
     And "bun.lock" does not reference "vitest"
 
-  @adw-m8wft2-chore-remove-all-uni @regression
+  @adw-m8wft2-chore-remove-all-uni
   Scenario: test:watch script is removed from package.json
     Given "package.json" contains a "test" script and a "test:watch" script
     When the test scripts are removed from "package.json"
