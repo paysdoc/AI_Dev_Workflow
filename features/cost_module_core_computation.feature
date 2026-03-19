@@ -7,13 +7,13 @@ Feature: Cost module core computation, Anthropic extractor, and Vitest infrastru
 
   # --- Core types ---
 
-  @adw-241-cost-revamp-core @regression
+  @adw-241-cost-revamp-core
   Scenario: TokenUsageExtractor interface is defined in types.ts
     Given the file "adws/cost/types.ts" exists
     Then it exports a "TokenUsageExtractor" interface
     And the interface defines methods "onChunk", "getCurrentUsage", "isFinalized", and "getReportedCostUsd"
 
-  @adw-241-cost-revamp-core @regression
+  @adw-241-cost-revamp-core
   Scenario: PhaseCostRecord type is defined in types.ts
     Given the file "adws/cost/types.ts" exists
     Then it exports a "PhaseCostRecord" type
@@ -27,7 +27,7 @@ Feature: Cost module core computation, Anthropic extractor, and Vitest infrastru
 
   # --- Generic computeCost ---
 
-  @adw-241-cost-revamp-core @regression
+  @adw-241-cost-revamp-core
   Scenario: computeCost multiplies matching keys in usage and pricing maps
     Given a token usage map with "input" = 1000 and "output" = 500
     And a pricing map with "input" = 0.000003 and "output" = 0.000015
@@ -78,14 +78,14 @@ Feature: Cost module core computation, Anthropic extractor, and Vitest infrastru
 
   # --- Divergence check ---
 
-  @adw-241-cost-revamp-core @regression
+  @adw-241-cost-revamp-core
   Scenario: Divergence check flags when computed cost exceeds reported cost by more than 5%
     Given a computed cost of 1.06
     And a reported cost of 1.00
     When the divergence check is performed
     Then the result indicates divergence
 
-  @adw-241-cost-revamp-core @regression
+  @adw-241-cost-revamp-core
   Scenario: Divergence check does not flag at exactly 5% divergence
     Given a computed cost of 1.05
     And a reported cost of 1.00
@@ -145,7 +145,7 @@ Feature: Cost module core computation, Anthropic extractor, and Vitest infrastru
 
   # --- Anthropic pricing tables ---
 
-  @adw-241-cost-revamp-core @regression
+  @adw-241-cost-revamp-core
   Scenario: Anthropic pricing tables include current Claude models
     Given the file "adws/cost/providers/anthropic/pricing.ts" exists
     Then it contains pricing entries for "claude-opus-4-6"
@@ -165,7 +165,7 @@ Feature: Cost module core computation, Anthropic extractor, and Vitest infrastru
 
   # --- Anthropic extractor ---
 
-  @adw-241-cost-revamp-core @regression
+  @adw-241-cost-revamp-core
   Scenario: Anthropic extractor parses a result JSONL message with snake_case fields
     Given an Anthropic result JSONL message containing "total_cost_usd" and modelUsage with camelCase token fields
     When the message is fed to the Anthropic extractor via onChunk
@@ -239,12 +239,12 @@ Feature: Cost module core computation, Anthropic extractor, and Vitest infrastru
 
   # --- Vitest infrastructure ---
 
-  @adw-241-cost-revamp-core @regression
+  @adw-241-cost-revamp-core
   Scenario: Vitest is added as a dev dependency
     Given the file "package.json" exists
     Then "vitest" appears in the "devDependencies" section
 
-  @adw-241-cost-revamp-core @regression
+  @adw-241-cost-revamp-core
   Scenario: Vitest test script is configured and runnable
     Given the project has a test script that runs Vitest
     When the test script is executed
@@ -267,7 +267,7 @@ Feature: Cost module core computation, Anthropic extractor, and Vitest infrastru
 
   # --- Backward compatibility ---
 
-  @adw-241-cost-revamp-core @regression
+  @adw-241-cost-revamp-core
   Scenario: Existing type checks still pass
     Given the ADW codebase with the new cost module added
     When "bunx tsc --noEmit" is run
