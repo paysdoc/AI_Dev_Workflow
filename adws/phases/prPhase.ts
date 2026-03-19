@@ -10,6 +10,7 @@ import {
   type ModelUsageMap,
   emptyModelUsageMap,
 } from '../core';
+import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
 import { postIssueStageComment } from './phaseCommentHelpers';
 import {
   getPlanFilePath,
@@ -22,8 +23,9 @@ import type { WorkflowConfig } from './workflowLifecycle';
  * Executes the PR phase: create pull request via the /pull_request skill.
  * Uses `config.repoInfo` for external repository API calls when targeting a different repo.
  */
-export async function executePRPhase(config: WorkflowConfig): Promise<{ costUsd: number; modelUsage: ModelUsageMap }> {
+export async function executePRPhase(config: WorkflowConfig): Promise<{ costUsd: number; modelUsage: ModelUsageMap; phaseCostRecords: PhaseCostRecord[] }> {
   const { recoveryState, issueNumber, issue, issueType, ctx, worktreePath, logsDir, adwId, branchName, repoContext } = config;
+  const phaseStartTime = Date.now();
 
   let costUsd = 0;
   let modelUsage = emptyModelUsageMap();
@@ -72,5 +74,16 @@ export async function executePRPhase(config: WorkflowConfig): Promise<{ costUsd:
     log('Skipping PR creation (already completed)', 'info');
   }
 
-  return { costUsd, modelUsage };
+  const phaseCostRecords = createPhaseCostRecords({
+    workflowId: adwId,
+    issueNumber,
+    phase: 'pr',
+    status: PhaseCostStatus.Success,
+    retryCount: 0,
+    continuationCount: 0,
+    durationMs: Date.now() - phaseStartTime,
+    modelUsage,
+  });
+
+  return { costUsd, modelUsage, phaseCostRecords };
 }

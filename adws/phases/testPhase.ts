@@ -17,6 +17,7 @@ import {
   mergeModelUsageMaps,
   parseUnitTestsEnabled,
 } from '../core';
+import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
 import { postIssueStageComment } from './phaseCommentHelpers';
 import {
   runUnitTestsWithRetry,
@@ -42,8 +43,10 @@ export async function executeTestPhase(config: WorkflowConfig): Promise<{
   unitTestsPassed: boolean;
   bddScenariosPassed: boolean;
   totalRetries: number;
+  phaseCostRecords: PhaseCostRecord[];
 }> {
-  const { orchestratorStatePath, issueNumber, issue, ctx, logsDir, worktreePath, repoContext, projectConfig } = config;
+  const { orchestratorStatePath, issueNumber, issue, ctx, logsDir, worktreePath, repoContext, projectConfig, adwId } = config;
+  const phaseStartTime = Date.now();
   let costUsd = 0;
   let modelUsage = emptyModelUsageMap();
   let totalRetries = 0;
@@ -124,11 +127,23 @@ export async function executeTestPhase(config: WorkflowConfig): Promise<{
   log('All tests passed!', 'success');
   AgentStateManager.appendLog(orchestratorStatePath, 'All tests passed');
 
+  const phaseCostRecords = createPhaseCostRecords({
+    workflowId: adwId,
+    issueNumber,
+    phase: 'test',
+    status: PhaseCostStatus.Success,
+    retryCount: totalRetries,
+    continuationCount: 0,
+    durationMs: Date.now() - phaseStartTime,
+    modelUsage,
+  });
+
   return {
     costUsd,
     modelUsage,
     unitTestsPassed: true,
     bddScenariosPassed: true,
     totalRetries,
+    phaseCostRecords,
   };
 }
