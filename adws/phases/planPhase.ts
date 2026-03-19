@@ -10,6 +10,7 @@ import {
   emptyModelUsageMap,
   OrchestratorId,
 } from '../core';
+import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
 import { postIssueStageComment } from './phaseCommentHelpers';
 import {
   runPlanAgent,
@@ -26,8 +27,9 @@ import { BoardStatus } from '../providers/types';
  * Executes the Plan phase: classify issue, create branch, run plan agent, commit plan.
  * Uses `config.repoInfo` for external repository API calls when targeting a different repo.
  */
-export async function executePlanPhase(config: WorkflowConfig): Promise<{ costUsd: number; modelUsage: ModelUsageMap }> {
+export async function executePlanPhase(config: WorkflowConfig): Promise<{ costUsd: number; modelUsage: ModelUsageMap; phaseCostRecords: PhaseCostRecord[] }> {
   const { recoveryState, orchestratorStatePath, orchestratorName, adwId, issueNumber, issue, issueType, ctx, worktreePath, logsDir, repoContext } = config;
+  const phaseStartTime = Date.now();
 
   if (repoContext) {
     await repoContext.issueTracker.moveToStatus(issueNumber, BoardStatus.InProgress);
@@ -141,7 +143,18 @@ export async function executePlanPhase(config: WorkflowConfig): Promise<{ costUs
     log('Skipping plan commit (already completed)', 'info');
   }
 
-  return { costUsd, modelUsage };
+  const phaseCostRecords = createPhaseCostRecords({
+    workflowId: adwId,
+    issueNumber,
+    phase: 'plan',
+    status: PhaseCostStatus.Success,
+    retryCount: 0,
+    continuationCount: 0,
+    durationMs: Date.now() - phaseStartTime,
+    modelUsage,
+  });
+
+  return { costUsd, modelUsage, phaseCostRecords };
 }
 
 /** Maximum characters of previous output to include in a continuation prompt. */

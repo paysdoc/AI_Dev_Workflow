@@ -10,6 +10,7 @@ import {
   type ModelUsageMap,
   emptyModelUsageMap,
 } from '../core';
+import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
 import {
   getPlanFilePath,
   runKpiAgent,
@@ -27,8 +28,9 @@ import type { WorkflowConfig } from './workflowLifecycle';
 export async function executeKpiPhase(
   config: WorkflowConfig,
   reviewRetries?: number,
-): Promise<{ costUsd: number; modelUsage: ModelUsageMap }> {
+): Promise<{ costUsd: number; modelUsage: ModelUsageMap; phaseCostRecords: PhaseCostRecord[] }> {
   const { orchestratorStatePath, adwId, issueNumber, issueType, issue, worktreePath, logsDir } = config;
+  const phaseStartTime = Date.now();
 
   let costUsd = 0;
   let modelUsage = emptyModelUsageMap();
@@ -77,7 +79,7 @@ export async function executeKpiPhase(
       });
       log(`KPI Agent failed: ${result.output}`, 'warn');
       AgentStateManager.appendLog(orchestratorStatePath, `KPI tracking failed: ${result.output}`);
-      return { costUsd, modelUsage };
+      return { costUsd, modelUsage, phaseCostRecords: [] };
     }
 
     AgentStateManager.writeState(kpiAgentStatePath, {
@@ -96,8 +98,19 @@ export async function executeKpiPhase(
     const errorMsg = error instanceof Error ? error.message : String(error);
     log(`KPI phase error (non-fatal): ${errorMsg}`, 'warn');
     AgentStateManager.appendLog(orchestratorStatePath, `KPI tracking error: ${errorMsg}`);
-    return { costUsd: 0, modelUsage: emptyModelUsageMap() };
+    return { costUsd: 0, modelUsage: emptyModelUsageMap(), phaseCostRecords: [] };
   }
 
-  return { costUsd, modelUsage };
+  const phaseCostRecords = createPhaseCostRecords({
+    workflowId: adwId,
+    issueNumber,
+    phase: 'kpi',
+    status: PhaseCostStatus.Success,
+    retryCount: 0,
+    continuationCount: 0,
+    durationMs: Date.now() - phaseStartTime,
+    modelUsage,
+  });
+
+  return { costUsd, modelUsage, phaseCostRecords };
 }

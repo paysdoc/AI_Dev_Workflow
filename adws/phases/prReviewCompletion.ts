@@ -5,9 +5,10 @@
  * pushing branches, posting completion comments, and error handling.
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
-import { log, AgentStateManager, COST_REPORT_CURRENCIES, type ModelUsageMap, buildCostBreakdown, mergeModelUsageMaps, emptyModelUsageMap, persistTokenCounts, getNextSerialCsvPath, formatIssueCostCsv, rebuildProjectCostCsv, OrchestratorId, computeEurRate } from '../core';
+import { log, AgentStateManager, COST_REPORT_CURRENCIES, type ModelUsageMap, buildCostBreakdown, mergeModelUsageMaps, emptyModelUsageMap, persistTokenCounts, OrchestratorId } from '../core';
+import { createPhaseCostRecords, PhaseCostStatus } from '../cost';
+import { appendIssueCostCsv, rebuildProjectTotalCsv } from '../cost/reporting';
+import { fetchExchangeRates } from '../cost/exchangeRates';
 import { BoardStatus } from '../providers/types';
 import { pushBranch, inferIssueTypeFromBranch } from '../vcs';
 import { postPRStageComment } from './phaseCommentHelpers';
@@ -107,25 +108,31 @@ export async function executePRReviewTestPhase(config: PRReviewWorkflowConfig): 
 export async function completePRReviewWorkflow(config: PRReviewWorkflowConfig, modelUsage?: ModelUsageMap): Promise<void> {
   const { prNumber, prDetails, unaddressedComments, worktreePath, logsDir, orchestratorStatePath, ctx, repoContext } = config;
 
-  // Build cost breakdown if model usage data is available
+  // Build cost breakdown for GitHub comment and write new-format CSV
   if (modelUsage && Object.keys(modelUsage).length > 0) {
     const costBreakdown = await buildCostBreakdown(modelUsage, [...COST_REPORT_CURRENCIES]);
     ctx.costBreakdown = costBreakdown;
 
-    // Write cost data to CSV files
-    if (config.issueNumber) {
+    if (config.issueNumber && config.repoContext) {
       try {
-        const repoName = config.repoContext!.repoId.repo;
+        const repoName = config.repoContext.repoId.repo;
         const adwRepoRoot = process.cwd();
-        const eurRate = computeEurRate(costBreakdown);
 
-        const serialRelativePath = getNextSerialCsvPath(adwRepoRoot, repoName, config.issueNumber, config.prDetails.title);
-        const serialFullPath = path.join(adwRepoRoot, serialRelativePath);
-        fs.mkdirSync(path.dirname(serialFullPath), { recursive: true });
-        fs.writeFileSync(serialFullPath, formatIssueCostCsv(costBreakdown), 'utf-8');
-        log(`PR review cost CSV written: ${serialRelativePath}`, 'success');
+        const phaseCostRecords = createPhaseCostRecords({
+          workflowId: config.adwId,
+          issueNumber: config.issueNumber,
+          phase: 'pr_review',
+          status: PhaseCostStatus.Success,
+          retryCount: 0,
+          continuationCount: 0,
+          durationMs: 0,
+          modelUsage,
+        });
 
-        rebuildProjectCostCsv(adwRepoRoot, repoName, eurRate);
+        appendIssueCostCsv(adwRepoRoot, repoName, config.issueNumber, config.prDetails.title, phaseCostRecords);
+
+        const rates = await fetchExchangeRates(['EUR']);
+        rebuildProjectTotalCsv(adwRepoRoot, repoName, rates['EUR'] ?? 0);
       } catch (csvError) {
         log(`Failed to write cost CSV files: ${csvError}`, 'error');
       }

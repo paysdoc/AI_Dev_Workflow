@@ -10,10 +10,8 @@ import {
   COST_REPORT_CURRENCIES,
   buildCostBreakdown,
   persistTokenCounts,
-  writeIssueCostCsv,
-  rebuildProjectCostCsv,
-  computeEurRate,
 } from '../core';
+import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
 import { getPlanFilePath, runReviewWithRetry } from '../agents';
 import type { WorkflowConfig } from './workflowInit';
 import { postIssueStageComment } from './phaseCommentHelpers';
@@ -30,22 +28,10 @@ export async function completeWorkflow(
 ): Promise<void> {
   const { orchestratorStatePath, orchestratorName, issueNumber, ctx, repoContext } = config;
 
-  // Build cost breakdown if model usage data is available
+  // Build cost breakdown for GitHub comment (CSV is now written per-phase by the orchestrator)
   if (modelUsage && Object.keys(modelUsage).length > 0) {
     const costBreakdown = await buildCostBreakdown(modelUsage, [...COST_REPORT_CURRENCIES]);
     ctx.costBreakdown = costBreakdown;
-
-    // Write cost data to CSV files
-    try {
-      const repoName = config.targetRepo?.repo ?? config.repoContext?.repoId.repo ?? 'unknown';
-      const adwRepoRoot = config.targetRepo ? process.cwd() : config.worktreePath;
-      const eurRate = computeEurRate(costBreakdown);
-
-      writeIssueCostCsv(adwRepoRoot, repoName, config.issueNumber, config.issue.title, costBreakdown);
-      rebuildProjectCostCsv(adwRepoRoot, repoName, eurRate);
-    } catch (csvError) {
-      log(`Failed to write cost CSV files: ${csvError}`, 'error');
-    }
   }
 
   AgentStateManager.writeState(orchestratorStatePath, {
@@ -78,8 +64,10 @@ export async function executeReviewPhase(config: WorkflowConfig): Promise<{
   modelUsage: ModelUsageMap;
   reviewPassed: boolean;
   totalRetries: number;
+  phaseCostRecords: PhaseCostRecord[];
 }> {
   const { orchestratorStatePath, issueNumber, issue, issueType, ctx, logsDir, worktreePath, branchName, adwId, applicationUrl, repoContext } = config;
+  const phaseStartTime = Date.now();
 
   log('Phase: Review', 'info');
   AgentStateManager.appendLog(orchestratorStatePath, 'Starting review phase');
@@ -151,11 +139,23 @@ export async function executeReviewPhase(config: WorkflowConfig): Promise<{
     });
   }
 
+  const phaseCostRecords = createPhaseCostRecords({
+    workflowId: adwId,
+    issueNumber,
+    phase: 'review',
+    status: reviewResult.passed ? PhaseCostStatus.Success : PhaseCostStatus.Failed,
+    retryCount: reviewResult.totalRetries,
+    continuationCount: 0,
+    durationMs: Date.now() - phaseStartTime,
+    modelUsage: reviewResult.modelUsage,
+  });
+
   return {
     costUsd: reviewResult.costUsd,
     modelUsage: reviewResult.modelUsage,
     reviewPassed: reviewResult.passed,
     totalRetries: reviewResult.totalRetries,
+    phaseCostRecords,
   };
 }
 

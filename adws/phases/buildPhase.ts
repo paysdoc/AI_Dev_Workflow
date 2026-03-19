@@ -14,6 +14,7 @@ import {
   emptyModelUsageMap,
   mergeModelUsageMaps,
 } from '../core';
+import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
 import { computeDisplayTokens } from '../core/tokenManager';
 import { postIssueStageComment } from './phaseCommentHelpers';
 import {
@@ -34,8 +35,9 @@ import { BoardStatus } from '../providers/types';
  * with context from the previous run. Repeats up to MAX_TOKEN_CONTINUATIONS times.
  * Uses `config.repoInfo` for external repository API calls when targeting a different repo.
  */
-export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costUsd: number; modelUsage: ModelUsageMap }> {
+export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costUsd: number; modelUsage: ModelUsageMap; phaseCostRecords: PhaseCostRecord[] }> {
   const { recoveryState, orchestratorStatePath, orchestratorName, adwId, issueNumber, issue, issueType, ctx, worktreePath, logsDir, repoContext } = config;
+  const phaseStartTime = Date.now();
 
   if (repoContext) {
     await repoContext.issueTracker.moveToStatus(issueNumber, BoardStatus.Building);
@@ -55,6 +57,7 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
   let costUsd = 0;
   let modelUsage = emptyModelUsageMap();
   const currentBranch = ctx.branchName || '';
+  let continuationCount = 0;
 
   if (shouldExecuteStage('implemented', recoveryState)) {
     if (repoContext) {
@@ -183,6 +186,7 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
 
       if (buildResult.tokenLimitExceeded) {
         continuationNumber++;
+        continuationCount++;
         log(`Build agent hit token limit (continuation ${continuationNumber}/${MAX_TOKEN_CONTINUATIONS})`, 'info');
 
         // Save partial state
@@ -254,5 +258,16 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
     log('Skipping implementation commit (already completed)', 'info');
   }
 
-  return { costUsd, modelUsage };
+  const phaseCostRecords = createPhaseCostRecords({
+    workflowId: adwId,
+    issueNumber,
+    phase: 'build',
+    status: PhaseCostStatus.Success,
+    retryCount: 0,
+    continuationCount,
+    durationMs: Date.now() - phaseStartTime,
+    modelUsage,
+  });
+
+  return { costUsd, modelUsage, phaseCostRecords };
 }

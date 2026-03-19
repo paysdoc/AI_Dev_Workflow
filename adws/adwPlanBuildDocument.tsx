@@ -32,6 +32,7 @@ import {
   completeWorkflow,
   handleWorkflowError,
 } from './workflowPhases';
+import { commitPhasesCostData } from './phases/phaseCostCommit';
 
 
 /**
@@ -68,6 +69,7 @@ async function main(): Promise<void> {
     );
     persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
     if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeDisplayTokens(totalModelUsage);
+    await commitPhasesCostData(config, [...planResult.phaseCostRecords, ...scenarioResult.phaseCostRecords]);
 
     config.totalModelUsage = totalModelUsage;
     const planValidationResult = await executePlanValidationPhase(config);
@@ -82,6 +84,7 @@ async function main(): Promise<void> {
     totalModelUsage = mergeModelUsageMaps(totalModelUsage, buildResult.modelUsage);
     persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
     if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeDisplayTokens(totalModelUsage);
+    await commitPhasesCostData(config, buildResult.phaseCostRecords);
 
     config.totalModelUsage = totalModelUsage;
     const testResult = await executeTestPhase(config);
@@ -89,6 +92,7 @@ async function main(): Promise<void> {
     totalModelUsage = mergeModelUsageMaps(totalModelUsage, testResult.modelUsage);
     persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
     if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeDisplayTokens(totalModelUsage);
+    await commitPhasesCostData(config, testResult.phaseCostRecords);
 
     config.totalModelUsage = totalModelUsage;
     const prResult = await executePRPhase(config);
@@ -96,6 +100,7 @@ async function main(): Promise<void> {
     totalModelUsage = mergeModelUsageMaps(totalModelUsage, prResult.modelUsage);
     persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
     if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeDisplayTokens(totalModelUsage);
+    await commitPhasesCostData(config, prResult.phaseCostRecords);
 
     config.totalModelUsage = totalModelUsage;
     const docResult = await executeDocumentPhase(config);
@@ -103,6 +108,7 @@ async function main(): Promise<void> {
     totalModelUsage = mergeModelUsageMaps(totalModelUsage, docResult.modelUsage);
     persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
     if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeDisplayTokens(totalModelUsage);
+    await commitPhasesCostData(config, docResult.phaseCostRecords);
 
     await completeWorkflow(config, totalCostUsd, {
       unitTestsPassed: testResult.unitTestsPassed,

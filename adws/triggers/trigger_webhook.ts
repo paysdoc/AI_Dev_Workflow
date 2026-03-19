@@ -9,8 +9,9 @@
  */
 
 import * as http from 'http';
-import { log, PullRequestWebhookPayload, allocateRandomPort, isPortAvailable, getTargetRepoWorkspacePath, rebuildProjectCostCsv } from '../core';
-import { fetchExchangeRates } from '../core/costReport';
+import { log, PullRequestWebhookPayload, allocateRandomPort, isPortAvailable, getTargetRepoWorkspacePath } from '../core';
+import { rebuildProjectTotalCsv } from '../cost/reporting';
+import { fetchExchangeRates } from '../cost/exchangeRates';
 import { costCommitQueue } from '../core/costCommitQueue';
 import { commitAndPushCostFiles, pullLatestCostBranch } from '../vcs';
 import { isActionableComment, isClearComment, isAdwRunningForIssue, truncateText, getRepoInfoFromPayload, getRepoInfo, activateGitHubAppAuth, ensureAppAuthForRepo } from '../github';
@@ -72,7 +73,7 @@ async function handleIssueCostRevert(issueNumber: number, repoName: string): Pro
   await costCommitQueue.enqueue(async () => {
     try { pullLatestCostBranch(); } catch (error) { log(`Failed to pull latest before cost revert: ${error}`, 'error'); }
     const rates = await fetchExchangeRates(['EUR']);
-    rebuildProjectCostCsv(process.cwd(), repoName, rates['EUR'] ?? 0);
+    rebuildProjectTotalCsv(process.cwd(), repoName, rates['EUR'] ?? 0);
     commitAndPushCostFiles({ repoName });
   });
 }

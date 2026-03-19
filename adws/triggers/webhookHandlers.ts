@@ -7,8 +7,9 @@
  */
 
 import { existsSync } from 'fs';
-import { log, PullRequestWebhookPayload, rebuildProjectCostCsv } from '../core';
-import { fetchExchangeRates } from '../core/costReport';
+import { log, PullRequestWebhookPayload } from '../core';
+import { rebuildProjectTotalCsv } from '../cost/reporting';
+import { fetchExchangeRates } from '../cost/exchangeRates';
 import { costCommitQueue } from '../core/costCommitQueue';
 import type { RepoInfo } from '../github/githubApi';
 import { closeIssue, formatIssueClosureComment } from '../github/githubApi';
@@ -150,11 +151,11 @@ export async function handlePullRequestEvent(payload: PullRequestWebhookPayload)
       const eurRate = rates['EUR'] ?? 0;
 
       if (wasMerged) {
-        rebuildProjectCostCsv(process.cwd(), repoName, eurRate);
+        rebuildProjectTotalCsv(process.cwd(), repoName, eurRate);
         commitAndPushCostFiles({ repoName });
         recordMergedPrIssue(issueNumber);
       } else {
-        rebuildProjectCostCsv(process.cwd(), repoName, eurRate);
+        rebuildProjectTotalCsv(process.cwd(), repoName, eurRate);
         commitAndPushCostFiles({ repoName });
       }
     });

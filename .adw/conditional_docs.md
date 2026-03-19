@@ -245,6 +245,15 @@
     - When adding `repoOwner`/`repoName` context to the PR creation chain
     - When investigating cross-repo GitHub issue linking failures in PR bodies
 
+- app_docs/feature-h01a4p-cost-revamp-phasecos-phase-cost-record-csv.md
+  - Conditions:
+    - When working with `PhaseCostRecord`, `PhaseCostStatus`, or `createPhaseCostRecords()` in `adws/cost/`
+    - When modifying or extending the per-issue or project total CSV format
+    - When adding a new phase that needs to produce cost records
+    - When troubleshooting missing cost data after a workflow crash mid-execution
+    - When working with `appendIssueCostCsv`, `rebuildProjectTotalCsv`, or `commitPhasesCostData`
+    - When adding support for new token types or providers in cost tracking
+
 - app_docs/feature-ku956a-cost-revamp-core-com-cost-module-core-vitest.md
   - Conditions:
     - When working with `adws/cost/` module types, computation, or the Anthropic extractor
