@@ -193,7 +193,7 @@ Feature: Wire Anthropic extractor into agent process handler with real-time stre
 
   # --- Type checks ---
 
-  @adw-tgs1li-cost-revamp-wire-ext
+  @adw-tgs1li-cost-revamp-wire-ext @regression
   Scenario: All existing type checks still pass
     Given the ADW codebase with the extractor wired into agentProcessHandler
     When "bunx tsc --noEmit" is run

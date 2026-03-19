@@ -33,6 +33,18 @@ export interface AgentResult {
   tokenUsage?: TokenUsageSnapshot;
   /** Partial output captured before token limit termination. */
   partialOutput?: string;
+  /**
+   * Pre-finalization estimated usage snapshot (input + cache from per-turn streaming, output from estimation).
+   * Available for estimate-vs-actual comparison when costSource is 'extractor_finalized'.
+   */
+  estimatedUsage?: Record<string, Record<string, number>>;
+  /**
+   * Actual usage from the extractor after finalization (mirrors result message data in snake_case format).
+   * Only available when costSource is 'extractor_finalized'.
+   */
+  actualUsage?: Record<string, Record<string, number>>;
+  /** Indicates whether cost data came from a finalized result message or from streaming estimates. */
+  costSource?: 'extractor_finalized' | 'extractor_estimated';
 }
 
 /**

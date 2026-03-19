@@ -7,10 +7,38 @@
 
 import type { ChildProcess } from 'child_process';
 import * as fs from 'fs';
-import { log, AgentStateManager, type TokenUsageSnapshot, MAX_THINKING_TOKENS, TOKEN_LIMIT_THRESHOLD } from '../core';
-import { parseJsonlOutput, type JsonlParserState, type ProgressCallback } from './jsonlParser';
+import { log, AgentStateManager, type TokenUsageSnapshot, MAX_THINKING_TOKENS, TOKEN_LIMIT_THRESHOLD, type ModelUsageMap } from '../core';
+import { parseJsonlOutput, type JsonlParserState, type ProgressCallback, type ProgressInfo } from './jsonlParser';
 import { computeTotalTokens } from '../core/tokenManager';
 import type { AgentResult } from './claudeAgent';
+import { AnthropicTokenUsageExtractor, computeCost, getAnthropicPricing } from '../cost';
+import type { ModelUsageMap as CostModelUsageMap } from '../cost/types';
+
+/** Computes estimated total cost USD by summing across all models using Anthropic pricing. */
+function computeEstimatedCostUsd(usage: CostModelUsageMap): number {
+  return Object.entries(usage).reduce((total, [model, tokens]) => {
+    return total + computeCost(tokens, getAnthropicPricing(model));
+  }, 0);
+}
+
+/**
+ * Converts the new-format ModelUsageMap (snake_case keys) to the old-format
+ * ModelUsageMap (camelCase fields) for backward compatibility with existing cost reporting.
+ */
+function toOldModelUsageMap(usage: CostModelUsageMap): ModelUsageMap {
+  return Object.fromEntries(
+    Object.entries(usage).map(([model, tokens]) => [
+      model,
+      {
+        inputTokens: tokens['input'] ?? 0,
+        outputTokens: tokens['output'] ?? 0,
+        cacheReadInputTokens: tokens['cache_read'] ?? 0,
+        cacheCreationInputTokens: tokens['cache_write'] ?? 0,
+        costUSD: computeCost(tokens, getAnthropicPricing(model)),
+      },
+    ]),
+  );
+}
 
 /**
  * Attaches stdout/stderr/close/error handlers to a spawned Claude process and
@@ -35,15 +63,23 @@ export function handleAgentProcess(
       primaryModel: model,
     };
 
+    const extractor = new AnthropicTokenUsageExtractor(model);
+
     let tokenLimitReached = false;
     const tokenThreshold = MAX_THINKING_TOKENS * TOKEN_LIMIT_THRESHOLD;
 
     const outputStream = fs.createWriteStream(outputFile, { flags: 'a' });
 
+    // Wrap onProgress to inject real-time token estimate from the extractor
+    const wrappedOnProgress: ProgressCallback | undefined = onProgress
+      ? (info: ProgressInfo) => onProgress({ ...info, tokenEstimate: extractor.getCurrentUsage() })
+      : undefined;
+
     claude.stdout!.on('data', (data: Buffer) => {
       const text = data.toString();
       outputStream.write(text);
-      parseJsonlOutput(text, state, onProgress, statePath);
+      extractor.onChunk(text);
+      parseJsonlOutput(text, state, wrappedOnProgress, statePath);
 
       if (!tokenLimitReached && state.totalTokens >= tokenThreshold) {
         tokenLimitReached = true;
@@ -75,6 +111,7 @@ export function handleAgentProcess(
           type: 'summary',
           turnCount: state.turnCount,
           toolCount: state.toolCount,
+          tokenEstimate: extractor.getCurrentUsage(),
         });
       }
 
@@ -86,9 +123,27 @@ export function handleAgentProcess(
         );
       }
 
+      // Build cost fields from extractor
+      const extractorFinalized = extractor.isFinalized();
+      const extractorUsage = extractor.getCurrentUsage();
+      const estimatedUsage = extractor.getEstimatedUsage();
+
+      const totalCostUsd = extractorFinalized
+        ? extractor.getReportedCostUsd()
+        : computeEstimatedCostUsd(extractorUsage);
+
+      // Use old-format modelUsage from parseJsonlOutput when finalized (preserves costUSD per model),
+      // otherwise convert extractor estimated data for failed/partial runs.
+      const resolvedModelUsage: ModelUsageMap | undefined = state.modelUsage
+        ?? (Object.keys(extractorUsage).length > 0 ? toOldModelUsageMap(extractorUsage) : undefined);
+
+      const costSource: AgentResult['costSource'] = extractorFinalized
+        ? 'extractor_finalized'
+        : 'extractor_estimated';
+
       if (tokenLimitReached) {
         log(`${agentName} terminated due to token limit`, 'info');
-        const tokenTotals = state.modelUsage ? computeTotalTokens(state.modelUsage) : undefined;
+        const tokenTotals = resolvedModelUsage ? computeTotalTokens(resolvedModelUsage) : undefined;
         const snapshot: TokenUsageSnapshot | undefined = tokenTotals ? {
           totalInputTokens: tokenTotals.inputTokens,
           totalOutputTokens: tokenTotals.outputTokens,
@@ -103,8 +158,11 @@ export function handleAgentProcess(
           output: state.lastResult?.result || state.fullOutput,
           partialOutput: state.fullOutput,
           tokenUsage: snapshot,
-          totalCostUsd: state.lastResult?.totalCostUsd,
-          modelUsage: state.modelUsage,
+          totalCostUsd,
+          modelUsage: resolvedModelUsage,
+          estimatedUsage,
+          actualUsage: extractorFinalized ? extractorUsage : undefined,
+          costSource,
           statePath,
         });
         return;
@@ -112,20 +170,23 @@ export function handleAgentProcess(
 
       if (code === 0 && state.lastResult) {
         log(`${agentName} completed successfully`, 'success');
-        if (state.lastResult.totalCostUsd) {
-          log(`  Cost: $${state.lastResult.totalCostUsd.toFixed(4)}`, 'info');
+        if (totalCostUsd) {
+          log(`  Cost: $${totalCostUsd.toFixed(4)}`, 'info');
         }
-        if (state.modelUsage) {
-          const modelNames = Object.keys(state.modelUsage);
+        if (resolvedModelUsage) {
+          const modelNames = Object.keys(resolvedModelUsage);
           log(`  Models used: ${modelNames.join(', ')}`, 'info');
         }
         resolve({
           success: !state.lastResult.isError,
           output: state.lastResult.result || state.fullOutput,
           sessionId: state.lastResult.sessionId,
-          totalCostUsd: state.lastResult.totalCostUsd,
-          modelUsage: state.modelUsage,
-          statePath
+          totalCostUsd,
+          modelUsage: resolvedModelUsage,
+          estimatedUsage,
+          actualUsage: extractorFinalized ? extractorUsage : undefined,
+          costSource,
+          statePath,
         });
       } else if (code === 0) {
         if (state.turnCount === 0) {
@@ -134,16 +195,27 @@ export function handleAgentProcess(
         resolve({
           success: true,
           output: state.fullOutput,
-          modelUsage: state.modelUsage,
-          statePath
+          totalCostUsd,
+          modelUsage: resolvedModelUsage,
+          estimatedUsage,
+          actualUsage: extractorFinalized ? extractorUsage : undefined,
+          costSource,
+          statePath,
         });
       } else {
         log(`${agentName} exited with code ${code}`, 'error');
+        if (totalCostUsd !== undefined) {
+          log(`  Accumulated cost (estimates): $${totalCostUsd.toFixed(4)}`, 'info');
+        }
         resolve({
           success: false,
           output: state.fullOutput || 'Agent failed without output',
-          modelUsage: state.modelUsage,
-          statePath
+          totalCostUsd,
+          modelUsage: resolvedModelUsage,
+          estimatedUsage,
+          actualUsage: extractorFinalized ? extractorUsage : undefined,
+          costSource,
+          statePath,
         });
       }
     });
@@ -158,7 +230,7 @@ export function handleAgentProcess(
       resolve({
         success: false,
         output: error.message,
-        statePath
+        statePath,
       });
     });
   });
