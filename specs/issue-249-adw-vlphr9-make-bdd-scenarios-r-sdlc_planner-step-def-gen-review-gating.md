@@ -48,7 +48,7 @@ Use these files to implement the feature:
 - `.claude/commands/scenario_writer.md` — Pattern reference for new `/generate_step_definitions` command
 - `adws/adwPlanBuildTestReview.tsx` — Reorder phases: scenarios → validation → build → test → step defs → review → PR
 - `adws/adwSdlc.tsx` — Reorder phases: scenarios → validation → build → test → step defs → review → document → PR → KPI
-- `adws/adwPlanBuildReview.tsx` — Reorder phases: scenarios → validation → build → step defs → review → PR
+- `adws/adwPlanBuildReview.tsx` — Reorder phases: scenarios → validation → build → test → step defs → review → PR
 - `adws/adwPlanBuild.tsx` — Remove scenario writing and plan validation; simplify to plan → build → test → PR
 - `adws/adwPlanBuildTest.tsx` — Remove scenario writing and plan validation; simplify to plan → build → test → PR
 - `adws/adwPlanBuildDocument.tsx` — Remove scenario writing and plan validation; simplify to plan → build → test → document → PR
@@ -173,7 +173,7 @@ Create the `/generate_step_definitions` slash command, agent wrapper, and phase 
   - Import `executeStepDefPhase`
 
 ### Task 9: Reorder `adwPlanBuildReview.tsx` — plan+build+review orchestrator
-- Reorder phases to: Plan → Scenarios → Plan Validation → Build → Step Def Gen → Review → PR
+- Reorder phases to: Plan → Scenarios → Plan Validation → Build → Test (unit only) → Step Def Gen → Review → PR
 - Specific changes:
   - Keep `Promise.all([executePlanPhase, executeScenarioPhase])` parallel execution
   - Keep plan validation and build in same order

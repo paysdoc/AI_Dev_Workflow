@@ -92,7 +92,7 @@ Feature: Step definition generation, review-first gating, and guidelines check
 
   @adw-249 @regression
   Scenario: Review failure is a hard fail that blocks PR creation
-    Given the file "adws/phases/prReviewPhase.ts" exists
+    Given the file "adws/phases/workflowCompletion.ts" exists
     Then when review fails it should post an error comment on the issue
     And when review fails the workflow should exit with code 1
     And no PR should be created when review fails
@@ -155,6 +155,7 @@ Feature: Step definition generation, review-first gating, and guidelines check
       | scenarios          |
       | plan validation    |
       | build              |
+      | test               |
       | step def gen       |
       | review             |
       | pr                 |
@@ -224,7 +225,21 @@ Feature: Step definition generation, review-first gating, and guidelines check
     Given the file "adws/core/config.ts" exists
     Then SLASH_COMMAND_MODEL_MAP should contain an entry for "/generate_step_definitions"
 
-  # ── 10. TypeScript integrity ──
+  @adw-249
+  Scenario: generate_step_definitions is registered in SLASH_COMMAND_EFFORT_MAP
+    Given the file "adws/core/config.ts" exists
+    Then SLASH_COMMAND_EFFORT_MAP should contain an entry for "/generate_step_definitions"
+
+  # ── 10. stepDefPhase non-fatal error handling ──
+
+  @adw-249
+  Scenario: stepDefPhase handles errors gracefully as a non-fatal phase
+    Given the file "adws/phases/stepDefPhase.ts" exists
+    Then it should wrap execution in a try-catch block
+    And it should log errors when the step def agent fails
+    And it should return empty cost records on failure
+
+  # ── 11. TypeScript integrity ──
 
   @adw-249 @regression
   Scenario: TypeScript type-check passes after all changes
