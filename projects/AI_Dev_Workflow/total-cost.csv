@@ -1,6 +1,10 @@
 Issue number,Issue description,Phase,Model,Cost (USD)
 244,cost revamp github comment formatting divergence w,scenario,claude-opus-4-6,1.148309
 244,cost revamp github comment formatting divergence w,scenario,claude-haiku-4-5-20251001,0.089264
+249,make bdd scenarios runnable step def generation re,plan,claude-opus-4-6,1.638258
+249,make bdd scenarios runnable step def generation re,plan,claude-haiku-4-5-20251001,0.168733
+249,make bdd scenarios runnable step def generation re,scenario,claude-opus-4-6,1.394644
+249,make bdd scenarios runnable step def generation re,scenario,claude-haiku-4-5-20251001,0.218115
 
-Total Cost (USD):,1.2376
-Total Cost (EUR):,1.0723
+Total Cost (USD):,4.6573
+Total Cost (EUR):,4.0353

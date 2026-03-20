@@ -1,0 +1,5 @@
+workflow_id,issue_number,phase,model,provider,computed_cost_usd,reported_cost_usd,status,retry_count,continuation_count,duration_ms,timestamp,estimated_tokens,actual_tokens,input,output,cache_read,cache_write,reasoning
+x3tb32-make-bdd-scenarios-r,249,plan,claude-opus-4-6,anthropic,1.638258,1.638258,success,0,0,2049384,2026-03-20T11:08:33.062Z,undefined,undefined,5065,17211,1225803,91161,0
+x3tb32-make-bdd-scenarios-r,249,plan,claude-haiku-4-5-20251001,anthropic,0.168733,0.168733,success,0,0,2049384,2026-03-20T11:08:33.062Z,undefined,undefined,7949,12034,165326,67265,0
+x3tb32-make-bdd-scenarios-r,249,scenario,claude-opus-4-6,anthropic,1.394644,1.394644,success,0,0,1967915,2026-03-20T11:07:16.168Z,undefined,undefined,1390,10603,1272413,77826,0
+x3tb32-make-bdd-scenarios-r,249,scenario,claude-haiku-4-5-20251001,anthropic,0.218115,0.218115,success,0,0,1967915,2026-03-20T11:07:16.168Z,undefined,undefined,1045,18786,96987,90753,0
