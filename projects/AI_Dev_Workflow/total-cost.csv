@@ -2,6 +2,7 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 244,cost revamp github comment formatting divergence w,scenario,claude-opus-4-6,1.148309
 244,cost revamp github comment formatting divergence w,scenario,claude-haiku-4-5-20251001,0.089264
 249,make bdd scenarios runnable step def generation re,build,claude-sonnet-4-6,2.816408
+249,make bdd scenarios runnable step def generation re,build,claude-sonnet-4-6,3.860037
 249,make bdd scenarios runnable step def generation re,plan,claude-opus-4-6,1.638258
 249,make bdd scenarios runnable step def generation re,plan,claude-haiku-4-5-20251001,0.168733
 249,make bdd scenarios runnable step def generation re,plan,claude-opus-4-6,1.184251
@@ -19,5 +20,5 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 250,ensurecronprocess in memory cache prevents respawn,scenario,claude-haiku-4-5-20251001,0.158858
 250,ensurecronprocess in memory cache prevents respawn,scenario,claude-opus-4-6,0.565859
 
-Total Cost (USD):,13.7489
-Total Cost (EUR):,11.9127
+Total Cost (USD):,17.6089
+Total Cost (EUR):,15.2572
