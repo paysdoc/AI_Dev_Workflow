@@ -2,4 +2,5 @@ workflow_id,issue_number,phase,model,provider,computed_cost_usd,reported_cost_us
 0rndbm-ensurecronprocess-in,250,plan,claude-opus-4-6,anthropic,0.575950,0.575950,success,0,0,208972,2026-03-20T13:29:01.013Z,0,0,12,8003,300718,36073,0
 0rndbm-ensurecronprocess-in,250,scenario,claude-opus-4-6,anthropic,0.653438,0.653438,success,0,0,214351,2026-03-20T13:29:07.826Z,0,0,14,5506,469998,44915,0
 0rndbm-ensurecronprocess-in,250,scenario,claude-haiku-4-5-20251001,anthropic,0.158858,0.158858,success,0,0,214351,2026-03-20T13:29:07.826Z,0,0,54,8750,325961,65966,0
-0rndbm-ensurecronprocess-in,250,build,claude-sonnet-4-6,anthropic,0.165641,0.165641,success,0,0,73545,2026-03-20T13:30:27.147Z,undefined,undefined,12,1480,235466,19404,0
+0rndbm-ensurecronprocess-in,250,build,claude-sonnet-4-6,anthropic,0.165641,0.165641,success,0,0,73545,2026-03-20T13:30:27.147Z,0,0,12,1480,235466,19404,0
+bagrdu-ensurecronprocess-in,250,scenario,claude-opus-4-6,anthropic,0.565859,0.565859,success,0,0,114922,2026-03-20T15:32:27.765Z,undefined,undefined,14,4423,445678,37180,0
