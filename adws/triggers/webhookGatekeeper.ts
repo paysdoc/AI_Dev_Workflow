@@ -92,7 +92,10 @@ const cronSpawnedForRepo = new Set<string>();
 /** Spawns a cron trigger process for the repo if one isn't already running. */
 export function ensureCronProcess(repoInfo: RepoInfo, targetRepoArgs: string[]): void {
   const repoKey = `${repoInfo.owner}/${repoInfo.repo}`;
-  if (cronSpawnedForRepo.has(repoKey)) return;
+  if (cronSpawnedForRepo.has(repoKey)) {
+    if (isCronAliveForRepo(repoKey)) return;
+    cronSpawnedForRepo.delete(repoKey);
+  }
 
   if (isCronAliveForRepo(repoKey)) {
     cronSpawnedForRepo.add(repoKey); // sync in-memory cache
