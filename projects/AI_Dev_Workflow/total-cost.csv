@@ -13,10 +13,11 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 249,make bdd scenarios runnable step def generation re,scenario,claude-opus-4-6,0.782876
 249,make bdd scenarios runnable step def generation re,scenario,claude-haiku-4-5-20251001,0.283337
 250,ensurecronprocess in memory cache prevents respawn,build,claude-sonnet-4-6,0.165641
+250,ensurecronprocess in memory cache prevents respawn,build,claude-sonnet-4-6,0.218193
 250,ensurecronprocess in memory cache prevents respawn,plan,claude-opus-4-6,0.575950
 250,ensurecronprocess in memory cache prevents respawn,scenario,claude-opus-4-6,0.653438
 250,ensurecronprocess in memory cache prevents respawn,scenario,claude-haiku-4-5-20251001,0.158858
 250,ensurecronprocess in memory cache prevents respawn,scenario,claude-opus-4-6,0.565859
 
-Total Cost (USD):,13.5307
-Total Cost (EUR):,11.7236
+Total Cost (USD):,13.7489
+Total Cost (EUR):,11.9127
