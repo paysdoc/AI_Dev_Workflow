@@ -113,6 +113,13 @@ export {
   runScenarioAgent,
 } from './scenarioAgent';
 
+// Step Definition Agent
+export {
+  runStepDefAgent,
+  type StepDefAgentResult,
+  type RemovedScenario,
+} from './stepDefAgent';
+
 // Validation Agent
 export {
   runValidationAgent,

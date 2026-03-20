@@ -209,6 +209,8 @@ export const SLASH_COMMAND_MODEL_MAP: Record<SlashCommand, ModelTier> = {
   '/adw_init': 'sonnet',
   // Scenario writing
   '/scenario_writer': 'opus',
+  // Step definition generation
+  '/generate_step_definitions': 'sonnet',
   // Plan validation (complex reasoning, no downgrade)
   '/validate_plan_scenarios': 'opus',
   '/resolve_plan_scenarios': 'opus',
@@ -239,6 +241,8 @@ export const SLASH_COMMAND_MODEL_MAP_FAST: Record<SlashCommand, ModelTier> = {
   '/adw_init': 'haiku',
   // Scenario writing
   '/scenario_writer': 'sonnet',
+  // Step definition generation
+  '/generate_step_definitions': 'sonnet',
   // Plan validation (complex reasoning, no downgrade)
   '/validate_plan_scenarios': 'opus',
   '/resolve_plan_scenarios': 'opus',
@@ -295,6 +299,8 @@ export const SLASH_COMMAND_EFFORT_MAP: Record<SlashCommand, ReasoningEffort | un
   '/adw_init': 'medium',
   // Scenario writing
   '/scenario_writer': 'high',
+  // Step definition generation
+  '/generate_step_definitions': 'low',
   // Plan validation (complex reasoning, no downgrade)
   '/validate_plan_scenarios': 'high',
   '/resolve_plan_scenarios': 'high',
@@ -325,6 +331,8 @@ export const SLASH_COMMAND_EFFORT_MAP_FAST: Record<SlashCommand, ReasoningEffort
   '/adw_init': 'medium',
   // Scenario writing
   '/scenario_writer': 'medium',
+  // Step definition generation
+  '/generate_step_definitions': 'low',
   // Plan validation (complex reasoning, no downgrade)
   '/validate_plan_scenarios': 'high',
   '/resolve_plan_scenarios': 'high',

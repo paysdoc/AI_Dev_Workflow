@@ -6,14 +6,16 @@
  *
  * Workflow:
  * 1. Initialize: fetch issue, classify type, setup worktree, initialize state, detect recovery
- * 2. Plan Phase: classify issue, create branch, run plan agent, commit plan
- * 3. Build Phase: run build agent, commit implementation
- * 4. Test Phase: optionally run unit tests, then run BDD scenarios
- * 5. PR Phase: create pull request (only if all tests pass)
- * 6. Review Phase: review implementation against spec, patch blockers, retry
- * 7. Document Phase: generate feature documentation (includes review screenshots)
- * 8. KPI Phase: track agentic KPIs (non-fatal)
- * 9. Finalize: update state, post completion comment
+ * 2. Plan Phase + Scenario Phase (parallel): run plan agent, write BDD scenarios
+ * 3. Plan Validation Phase: validate plan against scenarios
+ * 4. Build Phase: run build agent, commit implementation
+ * 5. Test Phase: optionally run unit tests (unit only)
+ * 6. Step Def Gen Phase: generate step definitions, remove ungeneratable scenarios
+ * 7. Review Phase: review implementation + run BDD scenarios, patch blockers, retry
+ * 8. Document Phase: generate feature documentation (includes review screenshots)
+ * 9. PR Phase: create pull request (only after review passes)
+ * 10. KPI Phase: track agentic KPIs (non-fatal)
+ * 11. Finalize: update state, post completion comment
  *
  * Environment Requirements:
  * - ANTHROPIC_API_KEY: Anthropic API key
@@ -32,6 +34,7 @@ import {
   executePlanValidationPhase,
   executeBuildPhase,
   executeTestPhase,
+  executeStepDefPhase,
   executePRPhase,
   executeReviewPhase,
   executeDocumentPhase,
@@ -109,12 +112,12 @@ async function main(): Promise<void> {
     await commitPhasesCostData(config, testResult.phaseCostRecords);
 
     config.totalModelUsage = totalModelUsage;
-    const prResult = await executePRPhase(config);
-    totalCostUsd += prResult.costUsd;
-    totalModelUsage = mergeModelUsageMaps(totalModelUsage, prResult.modelUsage);
+    const stepDefResult = await executeStepDefPhase(config);
+    totalCostUsd += stepDefResult.costUsd;
+    totalModelUsage = mergeModelUsageMaps(totalModelUsage, stepDefResult.modelUsage);
     persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
     if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeDisplayTokens(totalModelUsage);
-    await commitPhasesCostData(config, prResult.phaseCostRecords);
+    await commitPhasesCostData(config, stepDefResult.phaseCostRecords);
 
     config.totalModelUsage = totalModelUsage;
     const reviewResult = await executeReviewPhase(config);
@@ -133,6 +136,14 @@ async function main(): Promise<void> {
     if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeDisplayTokens(totalModelUsage);
     await commitPhasesCostData(config, docResult.phaseCostRecords);
 
+    config.totalModelUsage = totalModelUsage;
+    const prResult = await executePRPhase(config);
+    totalCostUsd += prResult.costUsd;
+    totalModelUsage = mergeModelUsageMaps(totalModelUsage, prResult.modelUsage);
+    persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
+    if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeDisplayTokens(totalModelUsage);
+    await commitPhasesCostData(config, prResult.phaseCostRecords);
+
     const kpiResult = await executeKpiPhase(config, reviewResult.totalRetries);
     totalCostUsd += kpiResult.costUsd;
     totalModelUsage = mergeModelUsageMaps(totalModelUsage, kpiResult.modelUsage);
@@ -142,7 +153,6 @@ async function main(): Promise<void> {
 
     await completeWorkflow(config, totalCostUsd, {
       unitTestsPassed: testResult.unitTestsPassed,
-      bddScenariosPassed: testResult.bddScenariosPassed,
       totalTestRetries: testResult.totalRetries,
       reviewPassed: reviewResult.reviewPassed,
       totalReviewRetries: reviewResult.totalRetries,
