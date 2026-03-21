@@ -286,3 +286,11 @@
     - When modifying the in-memory cron process cache or the PID-file liveness check (`isCronAliveForRepo`)
     - When troubleshooting cron processes that die mid-session and are never respawned
     - When adding regression tests for the two-layer cron guard (in-memory Set + PID file)
+
+- app_docs/feature-1vil1v-skip-scenario-writer-on-resume.md
+  - Conditions:
+    - When working with `executeScenarioPhase` or `executePlanValidationPhase` in `adws/phases/`
+    - When modifying `STAGE_ORDER` or `STAGE_HEADER_MAP` in `adws/core/workflowCommentParsing.ts`
+    - When adding recovery guards to new phases using `shouldExecuteStage`
+    - When troubleshooting the scenario writer or plan validation phase running unnecessarily on workflow resume
+    - When investigating why `plan_validating` was not detected as a completed stage during recovery

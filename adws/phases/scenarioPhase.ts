@@ -7,6 +7,7 @@
 import {
   log,
   AgentStateManager,
+  shouldExecuteStage,
   type ModelUsageMap,
   emptyModelUsageMap,
 } from '../core';
@@ -23,7 +24,13 @@ import type { WorkflowConfig } from './workflowLifecycle';
 export async function executeScenarioPhase(
   config: WorkflowConfig,
 ): Promise<{ costUsd: number; modelUsage: ModelUsageMap; phaseCostRecords: PhaseCostRecord[] }> {
-  const { orchestratorStatePath, adwId, issueNumber, issue, worktreePath, logsDir } = config;
+  const { recoveryState, orchestratorStatePath, adwId, issueNumber, issue, worktreePath, logsDir } = config;
+
+  if (!shouldExecuteStage('plan_validating', recoveryState)) {
+    log('Skipping scenario phase (already completed in previous run)', 'info');
+    return { costUsd: 0, modelUsage: emptyModelUsageMap(), phaseCostRecords: [] };
+  }
+
   const phaseStartTime = Date.now();
 
   let costUsd = 0;
