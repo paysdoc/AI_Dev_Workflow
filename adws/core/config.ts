@@ -300,7 +300,7 @@ export const SLASH_COMMAND_EFFORT_MAP: Record<SlashCommand, ReasoningEffort | un
   // Scenario writing
   '/scenario_writer': 'high',
   // Step definition generation
-  '/generate_step_definitions': 'low',
+  '/generate_step_definitions': 'high',
   // Plan validation (complex reasoning, no downgrade)
   '/validate_plan_scenarios': 'high',
   '/resolve_plan_scenarios': 'high',
