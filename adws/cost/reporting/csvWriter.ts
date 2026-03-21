@@ -7,9 +7,9 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import type { PhaseCostRecord } from '../types';
-import { PhaseCostStatus } from '../types';
-import { slugify, log } from '../../core/utils';
+import type { PhaseCostRecord } from '../types.ts';
+import { PhaseCostStatus } from '../types.ts';
+import { slugify, log } from '../../core/utils.ts';
 
 /** Fixed superset of token columns always present in every CSV, in display order. */
 export const FIXED_TOKEN_COLUMNS = ['input', 'output', 'cache_read', 'cache_write', 'reasoning'] as const;

@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value          | Last Updated |
 | ----------------- | -------------- | ------------ |
-| Current Streak    | 20             | 2026-03-19   |
-| Longest Streak    | 20             | 2026-03-19   |
-| Total Plan Size   | 441 lines      | 2026-03-19   |
-| Largest Plan Size | 201 lines      | 2026-03-19   |
-| Total Diff Size   | 1280769 lines  | 2026-03-19   |
-| Largest Diff Size | 205468 lines   | 2026-03-19   |
-| Average Presence  | 1.58           | 2026-03-19   |
+| Current Streak    | 25             | 2026-03-21   |
+| Longest Streak    | 25             | 2026-03-21   |
+| Total Plan Size   | 441 lines      | 2026-03-21   |
+| Largest Plan Size | 201 lines      | 2026-03-21   |
+| Total Diff Size   | 1297951 lines  | 2026-03-21   |
+| Largest Diff Size | 205468 lines   | 2026-03-21   |
+| Average Presence  | 1.53           | 2026-03-21   |
 
 ## ADW KPIs
 
@@ -53,3 +53,5 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-03-19 | tgs1li-cost-revamp-wire-ext | 242          | /feature    | 2        | 0                 | 3725/377/60                     | 2026-03-19 | 2026-03-19 |
 | 2026-03-19 | h01a4p-cost-revamp-phasecos | 243          | /feature    | 2        | 0                 | 2642/478/62                     | 2026-03-19 | 2026-03-19 |
 | 2026-03-19 | l1x9x9-cost-revamp-phasecos | 243          | /feature    | 1        | 0                 | 2642/478/62                     | 2026-03-19 | 2026-03-19 |
+| 2026-03-21 | 7nl59l-ensurecronprocess-in | 250          | /bug        | 2        | 0                 | 5779/620/102                    | 2026-03-21 | 2026-03-21 |
+| 2026-03-21 | ex60ng-make-bdd-scenarios-r | 249          | /feature    | 2        | 0                 | 6905/758/110                    | 2026-03-21 | 2026-03-21 |

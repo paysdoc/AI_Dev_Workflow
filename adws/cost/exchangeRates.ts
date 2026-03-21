@@ -3,7 +3,7 @@
  * Moved from adws/core/costReport.ts for modular cost architecture.
  */
 
-import { log } from '../core/utils';
+import { log } from '../core/utils.ts';
 
 /** Last-resort fallback EUR/USD rate used when the exchange rate API is unreachable after all retries. */
 export const FALLBACK_EUR_RATE = 0.92;

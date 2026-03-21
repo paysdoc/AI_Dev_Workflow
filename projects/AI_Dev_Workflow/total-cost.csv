@@ -2,16 +2,40 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 244,cost revamp github comment formatting divergence w,scenario,claude-opus-4-6,1.148309
 244,cost revamp github comment formatting divergence w,scenario,claude-haiku-4-5-20251001,0.089264
 249,make bdd scenarios runnable step def generation re,build,claude-sonnet-4-6,2.816408
+249,make bdd scenarios runnable step def generation re,build,claude-sonnet-4-6,3.860037
+249,make bdd scenarios runnable step def generation re,document,claude-sonnet-4-6,0.229365
+249,make bdd scenarios runnable step def generation re,kpi,claude-haiku-4-5-20251001,0.080768
 249,make bdd scenarios runnable step def generation re,plan,claude-opus-4-6,1.638258
 249,make bdd scenarios runnable step def generation re,plan,claude-haiku-4-5-20251001,0.168733
+249,make bdd scenarios runnable step def generation re,plan,claude-opus-4-6,1.184251
+249,make bdd scenarios runnable step def generation re,plan,claude-haiku-4-5-20251001,0.133963
+249,make bdd scenarios runnable step def generation re,pr,claude-sonnet-4-6,0.155253
+249,make bdd scenarios runnable step def generation re,review,claude-opus-4-6,4.619032
+249,make bdd scenarios runnable step def generation re,review,claude-sonnet-4-6,0.289564
 249,make bdd scenarios runnable step def generation re,scenario,claude-opus-4-6,1.394644
 249,make bdd scenarios runnable step def generation re,scenario,claude-haiku-4-5-20251001,0.218115
 249,make bdd scenarios runnable step def generation re,scenario,claude-opus-4-6,1.307552
 249,make bdd scenarios runnable step def generation re,scenario,claude-haiku-4-5-20251001,0.245254
+249,make bdd scenarios runnable step def generation re,scenario,claude-opus-4-6,0.782876
+249,make bdd scenarios runnable step def generation re,scenario,claude-haiku-4-5-20251001,0.283337
+249,make bdd scenarios runnable step def generation re,scenario,claude-opus-4-6,1.283148
+249,make bdd scenarios runnable step def generation re,scenario,claude-haiku-4-5-20251001,0.230341
+249,make bdd scenarios runnable step def generation re,test,claude-opus-4-6,4.621021
+249,make bdd scenarios runnable step def generation re,test,claude-haiku-4-5-20251001,0.085682
 250,ensurecronprocess in memory cache prevents respawn,build,claude-sonnet-4-6,0.165641
+250,ensurecronprocess in memory cache prevents respawn,build,claude-sonnet-4-6,0.218193
+250,ensurecronprocess in memory cache prevents respawn,document,claude-sonnet-4-6,0.199327
+250,ensurecronprocess in memory cache prevents respawn,kpi,claude-haiku-4-5-20251001,0.073980
 250,ensurecronprocess in memory cache prevents respawn,plan,claude-opus-4-6,0.575950
+250,ensurecronprocess in memory cache prevents respawn,pr,claude-sonnet-4-6,0.111336
+250,ensurecronprocess in memory cache prevents respawn,review,claude-opus-4-6,3.157828
+250,ensurecronprocess in memory cache prevents respawn,review,claude-sonnet-4-6,0.299088
 250,ensurecronprocess in memory cache prevents respawn,scenario,claude-opus-4-6,0.653438
 250,ensurecronprocess in memory cache prevents respawn,scenario,claude-haiku-4-5-20251001,0.158858
+250,ensurecronprocess in memory cache prevents respawn,scenario,claude-opus-4-6,0.565859
+250,ensurecronprocess in memory cache prevents respawn,scenario,claude-opus-4-6,1.322491
+250,ensurecronprocess in memory cache prevents respawn,scenario,claude-opus-4-6,0.945017
+250,ensurecronprocess in memory cache prevents respawn,test,claude-opus-4-6,7.085805
 
-Total Cost (USD):,10.5804
-Total Cost (EUR):,9.1674
+Total Cost (USD):,42.3980
+Total Cost (EUR):,36.6978
