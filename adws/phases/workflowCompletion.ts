@@ -137,6 +137,7 @@ export async function executeReviewPhase(config: WorkflowConfig): Promise<{
       ),
       metadata: { totalCostUsd: reviewResult.costUsd, reviewPassed: false },
     });
+    process.exit(1);
   }
 
   const phaseCostRecords = createPhaseCostRecords({

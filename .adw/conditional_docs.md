@@ -263,6 +263,14 @@
     - When troubleshooting the snake_case/camelCase mismatch in CLI `result` message parsing
     - When wiring the cost module into workflow phases or agents
 
+- app_docs/feature-ex60ng-step-def-gen-review-gating.md
+  - Conditions:
+    - When working with `/generate_step_definitions`, `stepDefAgent.ts`, or `stepDefPhase.ts`
+    - When modifying the phase ordering in any orchestrator (`adwSdlc`, `adwPlanBuildTestReview`, `adwPlanBuildReview`, `adwPlanBuild`, `adwPlanBuildTest`, `adwPlanBuildDocument`)
+    - When troubleshooting review phase hard failures or PR-gating behaviour
+    - When adding or changing the coding guidelines check in `review.md`
+    - When investigating ungeneratable scenario removal or the warning comment posted on the issue
+
 - app_docs/feature-tgs1li-cost-revamp-wire-ext-wire-extractor-agent-handler.md
   - Conditions:
     - When working with real-time token tracking in `agentProcessHandler.ts`

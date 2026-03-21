@@ -1,11 +1,11 @@
 /**
  * Test phase execution for workflows.
  *
- * New order: [Unit Tests (opt-in)] → BDD Scenarios → PR
+ * Runs unit tests only (opt-in). BDD scenario execution has moved to the
+ * Review phase where step definitions are guaranteed to exist.
  *
  * - Unit tests run only when `.adw/project.md` has `## Unit Tests: enabled`.
- * - BDD scenarios tagged `@adw-{issueNumber}` always run (skipped gracefully
- *   when the command is `N/A`).
+ * - When unit tests are disabled, the phase passes immediately.
  */
 
 import {
@@ -21,19 +21,17 @@ import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '.
 import { postIssueStageComment } from './phaseCommentHelpers';
 import {
   runUnitTestsWithRetry,
-  runBddScenariosWithRetry,
 } from '../agents';
 import type { WorkflowConfig } from './workflowLifecycle';
 import { BoardStatus } from '../providers/types';
 
 /**
- * Executes the Test phase: optionally run unit tests, then run BDD scenarios.
+ * Executes the Test phase: optionally run unit tests (unit tests only).
  *
  * Unit tests are skipped when `.adw/project.md` has `## Unit Tests: disabled`
  * (or the indicator is absent — disabled is the default).
  *
- * BDD scenarios are run using the command from `config.projectConfig.commands.runScenariosByTag`.
- * When the command is `N/A`, scenarios are skipped gracefully and the phase passes.
+ * BDD scenarios are now run in the Review phase after step definitions are generated.
  *
  * Uses `config.repoInfo` for external repository API calls when targeting a different repo.
  */
@@ -41,7 +39,6 @@ export async function executeTestPhase(config: WorkflowConfig): Promise<{
   costUsd: number;
   modelUsage: ModelUsageMap;
   unitTestsPassed: boolean;
-  bddScenariosPassed: boolean;
   totalRetries: number;
   phaseCostRecords: PhaseCostRecord[];
 }> {
@@ -97,46 +94,8 @@ export async function executeTestPhase(config: WorkflowConfig): Promise<{
     AgentStateManager.appendLog(orchestratorStatePath, 'Unit tests disabled — skipping');
   }
 
-  // --- BDD scenarios gate (always runs, with retry + AI resolution) ---
-  log('Phase: BDD Scenarios', 'info');
-  AgentStateManager.appendLog(orchestratorStatePath, `Starting test phase: BDD Scenarios @adw-${issueNumber}`);
-
-  const scenarioCommand = projectConfig.commands.runScenariosByTag;
-  const bddResult = await runBddScenariosWithRetry({
-    tagCommand: scenarioCommand,
-    issueNumber,
-    logsDir,
-    orchestratorStatePath,
-    maxRetries: MAX_TEST_RETRY_ATTEMPTS,
-    cwd: worktreePath,
-    issueBody: issue.body,
-  });
-  costUsd += bddResult.costUsd;
-  modelUsage = mergeModelUsageMaps(modelUsage, bddResult.modelUsage);
-  totalRetries += bddResult.totalRetries;
-
-  if (!bddResult.passed) {
-    const errorMsg = 'BDD scenarios failed after maximum retry attempts. No PR was created.';
-    log(errorMsg, 'error');
-    AgentStateManager.appendLog(orchestratorStatePath, errorMsg);
-    ctx.errorMessage = errorMsg;
-    if (repoContext) {
-      postIssueStageComment(repoContext, issueNumber, 'error', ctx);
-    }
-
-    AgentStateManager.writeState(orchestratorStatePath, {
-      execution: AgentStateManager.completeExecution(
-        AgentStateManager.createExecutionState('running'),
-        false,
-        errorMsg
-      ),
-      metadata: { totalCostUsd: costUsd, unitTestsPassed: true, bddScenariosPassed: false },
-    });
-    process.exit(1);
-  }
-
-  log('All tests passed!', 'success');
-  AgentStateManager.appendLog(orchestratorStatePath, 'All tests passed');
+  log('Unit tests passed!', 'success');
+  AgentStateManager.appendLog(orchestratorStatePath, 'Unit tests passed');
 
   const phaseCostRecords = createPhaseCostRecords({
     workflowId: adwId,
@@ -153,7 +112,6 @@ export async function executeTestPhase(config: WorkflowConfig): Promise<{
     costUsd,
     modelUsage,
     unitTestsPassed: true,
-    bddScenariosPassed: true,
     totalRetries,
     phaseCostRecords,
   };
