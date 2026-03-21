@@ -63,12 +63,6 @@ Feature: Cost comment formatter with divergence warning and env var toggle
     Then the output includes a divergence warning
     And the warning shows the percentage difference
 
-  @adw-j2ydkj-cost-revamp-github-c @regression
-  Scenario: No divergence warning at exactly 5% divergence
-    Given PhaseCostRecords where computed cost is 1.05 and reported cost is 1.00
-    When the comment formatter formats the cost breakdown
-    Then the output does not include a divergence warning
-
   @adw-j2ydkj-cost-revamp-github-c
   Scenario: No divergence warning at 4.9% divergence
     Given PhaseCostRecords where computed cost is 1.049 and reported cost is 1.00

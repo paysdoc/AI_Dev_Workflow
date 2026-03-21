@@ -102,6 +102,57 @@ export async function executePRReviewTestPhase(config: PRReviewWorkflowConfig): 
   return { costUsd: combinedCostUsd, modelUsage: combinedModelUsage };
 }
 
+async function buildPRReviewCostSection(config: PRReviewWorkflowConfig, modelUsage: ModelUsageMap): Promise<void> {
+  const { ctx } = config;
+
+  // Keep legacy costBreakdown for backward compatibility
+  const costBreakdown = await buildCostBreakdown(modelUsage, [...COST_REPORT_CURRENCIES]);
+  ctx.costBreakdown = costBreakdown;
+
+  if (config.issueNumber && config.repoContext) {
+    try {
+      const repoName = config.repoContext.repoId.repo;
+      const adwRepoRoot = process.cwd();
+
+      const phaseCostRecords = createPhaseCostRecords({
+        workflowId: config.adwId,
+        issueNumber: config.issueNumber,
+        phase: 'pr_review',
+        status: PhaseCostStatus.Success,
+        retryCount: 0,
+        continuationCount: 0,
+        durationMs: 0,
+        modelUsage,
+      });
+
+      appendIssueCostCsv(adwRepoRoot, repoName, config.issueNumber, config.prDetails.title, phaseCostRecords);
+
+      const rates = await fetchExchangeRates(['EUR']);
+      rebuildProjectTotalCsv(adwRepoRoot, repoName, rates['EUR'] ?? 0);
+
+      // Pre-compute cost section using the new formatter
+      ctx.phaseCostRecords = phaseCostRecords;
+      ctx.costSection = await formatCostCommentSection(phaseCostRecords);
+    } catch (csvError) {
+      log(`Failed to write cost CSV files: ${csvError}`, 'error');
+    }
+  } else {
+    // No issue number/repoContext — still pre-compute cost section from modelUsage
+    const phaseCostRecords = createPhaseCostRecords({
+      workflowId: config.adwId,
+      issueNumber: config.issueNumber ?? 0,
+      phase: 'pr_review',
+      status: PhaseCostStatus.Success,
+      retryCount: 0,
+      continuationCount: 0,
+      durationMs: 0,
+      modelUsage,
+    });
+    ctx.phaseCostRecords = phaseCostRecords;
+    ctx.costSection = await formatCostCommentSection(phaseCostRecords);
+  }
+}
+
 /**
  * Completes the PR review workflow: commits, pushes, and posts completion comments.
  * Uses `config.repoInfo` for external repository API calls when targeting a different repo.
@@ -111,52 +162,7 @@ export async function completePRReviewWorkflow(config: PRReviewWorkflowConfig, m
 
   // Build cost section for GitHub comment and write new-format CSV
   if (modelUsage && Object.keys(modelUsage).length > 0) {
-    // Keep legacy costBreakdown for backward compatibility
-    const costBreakdown = await buildCostBreakdown(modelUsage, [...COST_REPORT_CURRENCIES]);
-    ctx.costBreakdown = costBreakdown;
-
-    if (config.issueNumber && config.repoContext) {
-      try {
-        const repoName = config.repoContext.repoId.repo;
-        const adwRepoRoot = process.cwd();
-
-        const phaseCostRecords = createPhaseCostRecords({
-          workflowId: config.adwId,
-          issueNumber: config.issueNumber,
-          phase: 'pr_review',
-          status: PhaseCostStatus.Success,
-          retryCount: 0,
-          continuationCount: 0,
-          durationMs: 0,
-          modelUsage,
-        });
-
-        appendIssueCostCsv(adwRepoRoot, repoName, config.issueNumber, config.prDetails.title, phaseCostRecords);
-
-        const rates = await fetchExchangeRates(['EUR']);
-        rebuildProjectTotalCsv(adwRepoRoot, repoName, rates['EUR'] ?? 0);
-
-        // Pre-compute cost section using the new formatter
-        ctx.phaseCostRecords = phaseCostRecords;
-        ctx.costSection = await formatCostCommentSection(phaseCostRecords);
-      } catch (csvError) {
-        log(`Failed to write cost CSV files: ${csvError}`, 'error');
-      }
-    } else {
-      // No issue number/repoContext — still pre-compute cost section from modelUsage
-      const phaseCostRecords = createPhaseCostRecords({
-        workflowId: config.adwId,
-        issueNumber: config.issueNumber ?? 0,
-        phase: 'pr_review',
-        status: PhaseCostStatus.Success,
-        retryCount: 0,
-        continuationCount: 0,
-        durationMs: 0,
-        modelUsage,
-      });
-      ctx.phaseCostRecords = phaseCostRecords;
-      ctx.costSection = await formatCostCommentSection(phaseCostRecords);
-    }
+    await buildPRReviewCostSection(config, modelUsage);
   }
 
   if (repoContext) {
