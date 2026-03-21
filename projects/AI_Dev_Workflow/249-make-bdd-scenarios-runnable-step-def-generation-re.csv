@@ -18,4 +18,5 @@ ex60ng-make-bdd-scenarios-r,249,test,claude-haiku-4-5-20251001,anthropic,0.08568
 ex60ng-make-bdd-scenarios-r,249,pr,claude-sonnet-4-6,anthropic,0.155253,0.155253,success,0,0,65243,2026-03-21T15:27:40.078Z,0,0,6,1209,111975,27602,0
 ex60ng-make-bdd-scenarios-r,249,review,claude-opus-4-6,anthropic,4.619032,4.619032,success,1,0,719942,2026-03-21T15:39:47.130Z,0,0,832,40181,2835781,350793,0
 ex60ng-make-bdd-scenarios-r,249,review,claude-sonnet-4-6,anthropic,0.289564,0.289564,success,1,0,719942,2026-03-21T15:39:47.130Z,0,0,29,3555,416522,29652,0
-ex60ng-make-bdd-scenarios-r,249,document,claude-sonnet-4-6,anthropic,0.229365,0.229365,success,0,0,100814,2026-03-21T15:41:33.796Z,undefined,undefined,9,3358,192172,32351,0
+ex60ng-make-bdd-scenarios-r,249,document,claude-sonnet-4-6,anthropic,0.229365,0.229365,success,0,0,100814,2026-03-21T15:41:33.796Z,0,0,9,3358,192172,32351,0
+ex60ng-make-bdd-scenarios-r,249,kpi,claude-haiku-4-5-20251001,anthropic,0.080768,0.080768,success,0,0,68263,2026-03-21T15:42:47.793Z,undefined,undefined,2902,7871,147465,19012,0
