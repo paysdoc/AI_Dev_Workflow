@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value          | Last Updated |
 | ----------------- | -------------- | ------------ |
-| Current Streak    | 25             | 2026-03-21   |
-| Longest Streak    | 25             | 2026-03-21   |
-| Total Plan Size   | 441 lines      | 2026-03-21   |
+| Current Streak    | 22             | 2026-03-21   |
+| Longest Streak    | 22             | 2026-03-21   |
+| Total Plan Size   | 446 lines      | 2026-03-21   |
 | Largest Plan Size | 201 lines      | 2026-03-21   |
-| Total Diff Size   | 1297951 lines  | 2026-03-21   |
+| Total Diff Size   | 1306483 lines  | 2026-03-21   |
 | Largest Diff Size | 205468 lines   | 2026-03-21   |
-| Average Presence  | 1.53           | 2026-03-21   |
+| Average Presence  | 1.61           | 2026-03-21   |
 
 ## ADW KPIs
 
@@ -55,3 +55,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-03-19 | l1x9x9-cost-revamp-phasecos | 243          | /feature    | 1        | 0                 | 2642/478/62                     | 2026-03-19 | 2026-03-19 |
 | 2026-03-21 | 7nl59l-ensurecronprocess-in | 250          | /bug        | 2        | 0                 | 5779/620/102                    | 2026-03-21 | 2026-03-21 |
 | 2026-03-21 | ex60ng-make-bdd-scenarios-r | 249          | /feature    | 2        | 0                 | 6905/758/110                    | 2026-03-21 | 2026-03-21 |
+| 2026-03-21 | 1vil1v-skip-scenario-writer | 254          | /feature    | 1        | 0                 | 7768/764/125                    | 2026-03-21 | 2026-03-21 |
