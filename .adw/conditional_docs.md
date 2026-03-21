@@ -286,3 +286,12 @@
     - When modifying the in-memory cron process cache or the PID-file liveness check (`isCronAliveForRepo`)
     - When troubleshooting cron processes that die mid-session and are never respawned
     - When adding regression tests for the two-layer cron guard (in-memory Set + PID file)
+
+- app_docs/feature-71pdjz-cache-install-context.md
+  - Conditions:
+    - When working with `installPhase.ts`, `installAgent.ts`, or `extractInstallContext()`
+    - When modifying `runClaudeAgentWithCommand()` signature or the `contextPreamble` injection mechanism
+    - When adding a new orchestrator that needs to run the install phase
+    - When troubleshooting agents that are re-reading files despite the install cache being present
+    - When working with `WorkflowConfig.installContext` or `PRReviewWorkflowConfig.installContext`
+    - When modifying how `/install` is registered in model/effort maps in `adws/core/config.ts`
