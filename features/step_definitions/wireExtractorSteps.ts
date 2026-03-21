@@ -3,7 +3,8 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import assert from 'assert';
 import { spawnSync } from 'child_process';
-import { AnthropicTokenUsageExtractor, computeCost, getAnthropicPricing } from '../../adws/cost/index.ts';
+import { AnthropicTokenUsageExtractor, getAnthropicPricing } from '../../adws/cost/providers/anthropic/index.ts';
+import { computeCost } from '../../adws/cost/computation.ts';
 
 const ROOT = process.cwd();
 

@@ -84,14 +84,14 @@ export function formatIssueCostCsv(records: readonly PhaseCostRecord[]): string 
     csvField(r.model),
     csvField(r.provider),
     csvField(r.computedCostUsd.toFixed(6)),
-    csvField(r.reportedCostUsd.toFixed(6)),
+    csvField((r.reportedCostUsd ?? 0).toFixed(6)),
     csvField(r.status),
     csvField(r.retryCount),
     csvField(r.continuationCount),
     csvField(r.durationMs),
     csvField(r.timestamp),
-    csvField(r.estimatedTokens),
-    csvField(r.actualTokens),
+    csvField(r.estimatedTokens ? JSON.stringify(r.estimatedTokens) : ''),
+    csvField(r.actualTokens ? JSON.stringify(r.actualTokens) : ''),
     ...tokenColumns.map(col => csvField(r.tokenUsage[col] ?? 0)),
   ].join(','));
 
@@ -165,8 +165,8 @@ export function parseIssueCostCsv(csvContent: string): PhaseCostRecord[] {
       continuationCount: parseInt(get('continuation_count'), 10) || 0,
       durationMs: parseInt(get('duration_ms'), 10) || 0,
       timestamp: get('timestamp'),
-      estimatedTokens: parseInt(get('estimated_tokens'), 10) || 0,
-      actualTokens: parseInt(get('actual_tokens'), 10) || 0,
+      estimatedTokens: get('estimated_tokens') ? JSON.parse(get('estimated_tokens')) as Record<string, number> : undefined,
+      actualTokens: get('actual_tokens') ? JSON.parse(get('actual_tokens')) as Record<string, number> : undefined,
       tokenUsage,
     };
   });

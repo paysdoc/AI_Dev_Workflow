@@ -58,7 +58,7 @@ Feature: Remove ## Run BDD Scenarios command and consolidate into ## Run Scenari
 
   # ── 3. Caller refactoring ─────────────────────────────────────────────────────
 
-  @adw-lv8mwj-remove-run-bdd-scena @regression
+  @adw-lv8mwj-remove-run-bdd-scena
   Scenario: testPhase.ts uses runScenariosByTag with adw-issueNumber tag instead of runBddScenarios
     Given "adws/phases/testPhase.ts" is read
     When searching for BDD scenario execution calls

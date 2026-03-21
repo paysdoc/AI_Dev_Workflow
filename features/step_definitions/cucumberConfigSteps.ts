@@ -2,11 +2,15 @@ import { Given, Then } from '@cucumber/cucumber';
 import { existsSync, readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 import assert from 'assert';
+import { sharedCtx } from './commonSteps.ts';
 
 const ROOT = process.cwd();
 
 Given('the file {string} exists', function (filePath: string) {
-  assert.ok(existsSync(join(ROOT, filePath)), `Expected file to exist: ${filePath}`);
+  const fullPath = join(ROOT, filePath);
+  assert.ok(existsSync(fullPath), `Expected file to exist: ${filePath}`);
+  sharedCtx.fileContent = readFileSync(fullPath, 'utf-8');
+  sharedCtx.filePath = filePath;
 });
 
 Given('all feature files in {string} are scanned for {string}', function (_dir: string, _tag: string) {
