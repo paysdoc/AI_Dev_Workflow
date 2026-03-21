@@ -3,4 +3,11 @@ x3tb32-make-bdd-scenarios-r,249,plan,claude-opus-4-6,anthropic,1.638258,1.638258
 x3tb32-make-bdd-scenarios-r,249,plan,claude-haiku-4-5-20251001,anthropic,0.168733,0.168733,success,0,0,2049384,2026-03-20T11:08:33.062Z,0,0,7949,12034,165326,67265,0
 x3tb32-make-bdd-scenarios-r,249,scenario,claude-opus-4-6,anthropic,1.394644,1.394644,success,0,0,1967915,2026-03-20T11:07:16.168Z,0,0,1390,10603,1272413,77826,0
 x3tb32-make-bdd-scenarios-r,249,scenario,claude-haiku-4-5-20251001,anthropic,0.218115,0.218115,success,0,0,1967915,2026-03-20T11:07:16.168Z,0,0,1045,18786,96987,90753,0
-x3tb32-make-bdd-scenarios-r,249,build,claude-sonnet-4-6,anthropic,2.816408,2.816408,success,0,1,3693378,2026-03-20T12:50:06.345Z,undefined,undefined,74,35170,6092536,122900,0
+x3tb32-make-bdd-scenarios-r,249,build,claude-sonnet-4-6,anthropic,2.816408,2.816408,success,0,1,3693378,2026-03-20T12:50:06.345Z,0,0,74,35170,6092536,122900,0
+a014pc-make-bdd-scenarios-r,249,scenario,claude-opus-4-6,anthropic,1.307552,1.307552,success,0,0,3812506,2026-03-20T14:45:26.597Z,0,0,1889,12843,1002565,76120,0
+a014pc-make-bdd-scenarios-r,249,scenario,claude-haiku-4-5-20251001,anthropic,0.245254,0.245254,success,0,0,3812506,2026-03-20T14:45:26.597Z,0,0,1663,19981,77623,108739,0
+vlphr9-make-bdd-scenarios-r,249,plan,claude-opus-4-6,anthropic,1.184251,1.184251,success,0,0,313402,2026-03-20T15:18:52.619Z,0,0,1849,10886,843313,76992,0
+vlphr9-make-bdd-scenarios-r,249,plan,claude-haiku-4-5-20251001,anthropic,0.133963,0.133963,success,0,0,313402,2026-03-20T15:18:52.619Z,0,0,37,10613,103589,56402,0
+vlphr9-make-bdd-scenarios-r,249,scenario,claude-opus-4-6,anthropic,0.782876,0.782876,success,0,0,290406,2026-03-20T15:18:31.035Z,0,0,1735,6072,473440,61709,0
+vlphr9-make-bdd-scenarios-r,249,scenario,claude-haiku-4-5-20251001,anthropic,0.283337,0.283337,success,0,0,290406,2026-03-20T15:18:31.035Z,0,0,1155,14510,460246,130886,0
+vlphr9-make-bdd-scenarios-r,249,build,claude-sonnet-4-6,anthropic,3.860037,3.860037,success,0,1,791456,2026-03-20T15:39:51.770Z,undefined,undefined,2419,36228,6525551,360452,0
