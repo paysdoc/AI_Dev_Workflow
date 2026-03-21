@@ -212,12 +212,28 @@ adws/                   # ADW workflow system
 │   ├── worktreeCreation.ts
 │   ├── worktreeOperations.ts
 │   └── worktreeQuery.ts  # Worktree query utilities
+├── cost/               # Cost tracking module
+│   ├── __tests__/      # Vitest unit tests
+│   │   ├── computation.test.ts
+│   │   └── extractor.test.ts
+│   ├── providers/anthropic/  # Anthropic token usage extraction
+│   │   ├── extractor.ts
+│   │   ├── index.ts
+│   │   └── pricing.ts
+│   ├── reporting/      # Cost CSV reporting
+│   │   ├── csvWriter.ts
+│   │   └── index.ts
+│   ├── computation.ts  # Cost computation logic
+│   ├── exchangeRates.ts
+│   ├── index.ts
+│   └── types.ts
 ├── phases/             # Workflow phase implementations
 │   ├── buildPhase.ts
 │   ├── documentPhase.ts
 │   ├── index.ts
 │   ├── kpiPhase.ts     # KPI tracking phase
 │   ├── phaseCommentHelpers.ts  # Shared phase comment utilities
+│   ├── phaseCostCommit.ts  # Phase cost data commit logic
 │   ├── planPhase.ts
 │   ├── planValidationPhase.ts  # Plan-scenario validation phase
 │   ├── prPhase.ts
