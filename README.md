@@ -157,6 +157,7 @@ adws/                   # ADW workflow system
 │   ├── gitAgent.ts
 │   ├── index.ts
 │   ├── jsonlParser.ts
+│   ├── installAgent.ts # Install phase agent
 │   ├── kpiAgent.ts     # KPI tracking agent
 │   ├── patchAgent.ts
 │   ├── planAgent.ts
@@ -165,6 +166,7 @@ adws/                   # ADW workflow system
 │   ├── reviewAgent.ts
 │   ├── reviewRetry.ts
 │   ├── scenarioAgent.ts  # BDD scenario planner agent
+│   ├── stepDefAgent.ts  # Step definition generation agent
 │   ├── testAgent.ts
 │   ├── testDiscovery.ts  # E2E test discovery
 │   ├── testRetry.ts
@@ -231,6 +233,7 @@ adws/                   # ADW workflow system
 │   ├── buildPhase.ts
 │   ├── documentPhase.ts
 │   ├── index.ts
+│   ├── installPhase.ts # Install phase implementation
 │   ├── kpiPhase.ts     # KPI tracking phase
 │   ├── phaseCommentHelpers.ts  # Shared phase comment utilities
 │   ├── phaseCostCommit.ts  # Phase cost data commit logic
@@ -240,6 +243,7 @@ adws/                   # ADW workflow system
 │   ├── prReviewCompletion.ts  # PR review completion/error handling
 │   ├── prReviewPhase.ts
 │   ├── scenarioPhase.ts  # BDD scenario generation phase
+│   ├── stepDefPhase.ts  # Step definition generation phase
 │   ├── testPhase.ts
 │   ├── workflowCompletion.ts  # Workflow completion/error handling
 │   ├── workflowInit.ts  # Workflow initialization
