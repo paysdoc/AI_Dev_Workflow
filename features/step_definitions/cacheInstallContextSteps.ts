@@ -79,7 +79,7 @@ Then('it should extract raw file contents from tool use events', function () {
   );
 });
 
-Then('it should write the extracted context to {string}', function (cachePath: string) {
+Then('it should write the extracted context to {string}', function (_cachePath: string) {
   const content = sharedCtx.fileContent;
   // Normalise the template path: agents/{adwId}/install_cache.md
   const filename = 'install_cache.md';

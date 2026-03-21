@@ -295,3 +295,11 @@
     - When troubleshooting agents that are re-reading files despite the install cache being present
     - When working with `WorkflowConfig.installContext` or `PRReviewWorkflowConfig.installContext`
     - When modifying how `/install` is registered in model/effort maps in `adws/core/config.ts`
+
+- app_docs/feature-1vil1v-skip-scenario-writer-on-resume.md
+  - Conditions:
+    - When working with `executeScenarioPhase` or `executePlanValidationPhase` in `adws/phases/`
+    - When modifying `STAGE_ORDER` or `STAGE_HEADER_MAP` in `adws/core/workflowCommentParsing.ts`
+    - When adding recovery guards to new phases using `shouldExecuteStage`
+    - When troubleshooting the scenario writer or plan validation phase running unnecessarily on workflow resume
+    - When investigating why `plan_validating` was not detected as a completed stage during recovery
