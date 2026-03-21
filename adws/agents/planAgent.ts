@@ -217,11 +217,12 @@ export async function runPrReviewPlanAgent(
   statePath?: string,
   cwd?: string,
   issueBody?: string,
+  contextPreamble?: string,
 ): Promise<AgentResult> {
   const args = formatPrReviewContextAsArgs(prDetails, comments, existingPlanContent);
   const outputFile = path.join(logsDir, 'pr-review-plan-agent.jsonl');
 
-  return runClaudeAgentWithCommand('/pr_review', args, 'PR Review Plan', outputFile, getModelForCommand('/pr_review', issueBody), getEffortForCommand('/pr_review', issueBody), undefined, statePath, cwd);
+  return runClaudeAgentWithCommand('/pr_review', args, 'PR Review Plan', outputFile, getModelForCommand('/pr_review', issueBody), getEffortForCommand('/pr_review', issueBody), undefined, statePath, cwd, contextPreamble);
 }
 
 /**
@@ -241,7 +242,8 @@ export async function runPlanAgent(
   issueType: IssueClassSlashCommand = '/feature',
   statePath?: string,
   cwd?: string,
-  adwId?: string
+  adwId?: string,
+  contextPreamble?: string,
 ): Promise<AgentResult> {
   const humanComments = issue.comments.filter(c => !isAdwComment(c.body));
 
@@ -268,5 +270,5 @@ export async function runPlanAgent(
   const outputFile = path.join(logsDir, 'plan-agent.jsonl');
 
   // Use the issueType directly as the command (e.g., '/feature', '/bug', '/chore', '/pr_review')
-  return runClaudeAgentWithCommand(issueType, args, 'Plan', outputFile, getModelForCommand(issueType, issue.body), getEffortForCommand(issueType, issue.body), undefined, statePath, cwd);
+  return runClaudeAgentWithCommand(issueType, args, 'Plan', outputFile, getModelForCommand(issueType, issue.body), getEffortForCommand(issueType, issue.body), undefined, statePath, cwd, contextPreamble);
 }

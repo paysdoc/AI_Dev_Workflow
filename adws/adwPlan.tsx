@@ -15,9 +15,10 @@
  * - GITHUB_PAT: (Optional) GitHub Personal Access Token
  */
 
-import { persistTokenCounts, parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId } from './core';
+import { persistTokenCounts, mergeModelUsageMaps, parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId } from './core';
 import {
   initializeWorkflow,
+  executeInstallPhase,
   executePlanPhase,
   completeWorkflow,
   handleWorkflowError,
@@ -43,9 +44,16 @@ async function main(): Promise<void> {
   });
 
   try {
+    const installResult = await executeInstallPhase(config);
+    let totalCostUsd = installResult.costUsd;
+    let totalModelUsage = installResult.modelUsage;
+    persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
+
     const planResult = await executePlanPhase(config);
-    persistTokenCounts(config.orchestratorStatePath, planResult.costUsd, planResult.modelUsage);
-    await completeWorkflow(config, planResult.costUsd, undefined, planResult.modelUsage);
+    totalCostUsd += planResult.costUsd;
+    totalModelUsage = mergeModelUsageMaps(totalModelUsage, planResult.modelUsage);
+    persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
+    await completeWorkflow(config, totalCostUsd, undefined, totalModelUsage);
   } catch (error) {
     handleWorkflowError(config, error);
   }

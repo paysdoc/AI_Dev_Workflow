@@ -34,6 +34,7 @@ export interface PRReviewWorkflowConfig {
   applicationUrl: string;
   repoContext?: RepoContext;
   totalModelUsage?: ModelUsageMap;
+  installContext?: string;
 }
 
 /**
@@ -174,7 +175,7 @@ export async function executePRReviewPlanPhase(config: PRReviewWorkflowConfig): 
     metadata: { prNumber, reviewComments: unaddressedComments.length },
   });
 
-  const planResult = await runPrReviewPlanAgent(prDetails, unaddressedComments, existingPlanContent, logsDir, planAgentStatePath, worktreePath, prDetails.body);
+  const planResult = await runPrReviewPlanAgent(prDetails, unaddressedComments, existingPlanContent, logsDir, planAgentStatePath, worktreePath, prDetails.body, config.installContext);
 
   if (!planResult.success) {
     AgentStateManager.writeState(planAgentStatePath, {

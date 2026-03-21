@@ -120,6 +120,11 @@ export {
   type RemovedScenario,
 } from './stepDefAgent';
 
+// Install Agent
+export {
+  runInstallAgent,
+} from './installAgent';
+
 // Validation Agent
 export {
   runValidationAgent,

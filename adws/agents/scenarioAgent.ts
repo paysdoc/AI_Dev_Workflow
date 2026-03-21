@@ -37,6 +37,7 @@ export async function runScenarioAgent(
   statePath?: string,
   cwd?: string,
   adwId?: string,
+  contextPreamble?: string,
 ): Promise<AgentResult> {
   const humanComments = issue.comments.filter(c => !isAdwComment(c.body));
 
@@ -77,6 +78,7 @@ export async function runScenarioAgent(
     undefined,
     statePath,
     cwd,
+    contextPreamble,
   );
 
   log('Scenario Agent completed', 'success');

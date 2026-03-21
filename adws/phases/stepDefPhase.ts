@@ -42,7 +42,7 @@ export async function executeStepDefPhase(
       execution: AgentStateManager.createExecutionState('running'),
     });
 
-    const result = await runStepDefAgent(issueNumber, adwId, logsDir, stepDefAgentStatePath, worktreePath, issue.body);
+    const result = await runStepDefAgent(issueNumber, adwId, logsDir, stepDefAgentStatePath, worktreePath, issue.body, config.installContext);
 
     costUsd = result.totalCostUsd || 0;
     if (result.modelUsage) modelUsage = result.modelUsage;

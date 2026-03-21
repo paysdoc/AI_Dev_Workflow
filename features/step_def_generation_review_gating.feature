@@ -116,11 +116,12 @@ Feature: Step definition generation, review-first gating, and guidelines check
 
   # ── 6. Orchestrator phase ordering: review orchestrators ──
 
-  @adw-249 @regression
+  @adw-249 @adw-71pdjz-cache-install-contex @regression
   Scenario: adwPlanBuildTestReview.tsx follows new phase ordering
     Given the file "adws/adwPlanBuildTestReview.tsx" exists
     Then the phase ordering should be:
       | phase              |
+      | install            |
       | plan               |
       | scenarios          |
       | plan validation    |
@@ -130,11 +131,12 @@ Feature: Step definition generation, review-first gating, and guidelines check
       | review             |
       | pr                 |
 
-  @adw-249 @regression
+  @adw-249 @adw-71pdjz-cache-install-contex @regression
   Scenario: adwSdlc.tsx follows new phase ordering
     Given the file "adws/adwSdlc.tsx" exists
     Then the phase ordering should be:
       | phase              |
+      | install            |
       | plan               |
       | scenarios          |
       | plan validation    |
@@ -146,11 +148,12 @@ Feature: Step definition generation, review-first gating, and guidelines check
       | pr                 |
       | kpi                |
 
-  @adw-249 @regression
+  @adw-249 @adw-71pdjz-cache-install-contex @regression
   Scenario: adwPlanBuildReview.tsx follows new phase ordering
     Given the file "adws/adwPlanBuildReview.tsx" exists
     Then the phase ordering should be:
       | phase              |
+      | install            |
       | plan               |
       | scenarios          |
       | plan validation    |
@@ -162,7 +165,7 @@ Feature: Step definition generation, review-first gating, and guidelines check
 
   # ── 7. Orchestrator phase ordering: non-review orchestrators ──
 
-  @adw-249 @regression
+  @adw-249 @adw-71pdjz-cache-install-contex @regression
   Scenario: adwPlanBuild.tsx skips scenario writing, plan validation, and step def generation
     Given the file "adws/adwPlanBuild.tsx" exists
     Then it should not invoke the scenario phase
@@ -170,12 +173,13 @@ Feature: Step definition generation, review-first gating, and guidelines check
     And it should not invoke the step def phase
     And the phase ordering should be:
       | phase              |
+      | install            |
       | plan               |
       | build              |
       | test               |
       | pr                 |
 
-  @adw-249 @regression
+  @adw-249 @adw-71pdjz-cache-install-contex @regression
   Scenario: adwPlanBuildTest.tsx skips scenario writing, plan validation, and step def generation
     Given the file "adws/adwPlanBuildTest.tsx" exists
     Then it should not invoke the scenario phase
@@ -183,12 +187,13 @@ Feature: Step definition generation, review-first gating, and guidelines check
     And it should not invoke the step def phase
     And the phase ordering should be:
       | phase              |
+      | install            |
       | plan               |
       | build              |
       | test               |
       | pr                 |
 
-  @adw-249 @regression
+  @adw-249 @adw-71pdjz-cache-install-contex @regression
   Scenario: adwPlanBuildDocument.tsx skips scenario writing, plan validation, and step def generation
     Given the file "adws/adwPlanBuildDocument.tsx" exists
     Then it should not invoke the scenario phase
@@ -196,6 +201,7 @@ Feature: Step definition generation, review-first gating, and guidelines check
     And it should not invoke the step def phase
     And the phase ordering should be:
       | phase              |
+      | install            |
       | plan               |
       | build              |
       | test               |

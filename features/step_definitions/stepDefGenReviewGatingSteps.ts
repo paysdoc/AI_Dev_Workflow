@@ -16,6 +16,7 @@ function readProjectFile(relPath: string): string {
 
 /** Map feature-level phase names to the function identifiers in orchestrator source. */
 const PHASE_FUNCTION_MAP: Record<string, string> = {
+  'install': 'executeInstallPhase',
   'plan': 'executePlanPhase',
   'scenarios': 'executeScenarioPhase',
   'plan validation': 'executePlanValidationPhase',

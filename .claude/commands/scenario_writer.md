@@ -8,9 +8,6 @@ You are the Scenario Writer Agent. Your job is to generate and maintain BDD scen
 - `$2` — ADW workflow ID
 - `$3` — Issue JSON (stringified object with `number`, `title`, `body`, `state`, `author`, `labels`, `createdAt`, `comments`, `actionableComment`)
 
-## Before you do anything else
-Read and exectute .claude/commands/install.md
-
 ## Instructions
 
 ### 1. Read configuration

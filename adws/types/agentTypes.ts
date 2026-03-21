@@ -100,6 +100,8 @@ export type AgentIdentifier =
   | 'scenario-agent'
   // Step definition agent
   | 'step-def-agent'
+  // Install agent
+  | 'install-agent'
   // Plan validation agents
   | 'validation-agent'
   | 'resolution-agent'

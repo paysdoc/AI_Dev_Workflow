@@ -86,7 +86,7 @@ export async function executePlanPhase(config: WorkflowConfig): Promise<{ costUs
       execution: AgentStateManager.createExecutionState('running'),
     });
 
-    const planResult = await runPlanAgent(issue, logsDir, issueType, planAgentStatePath, worktreePath, adwId);
+    const planResult = await runPlanAgent(issue, logsDir, issueType, planAgentStatePath, worktreePath, adwId, config.installContext);
 
     if (!planResult.success) {
       AgentStateManager.writeState(planAgentStatePath, {

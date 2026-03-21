@@ -24,6 +24,7 @@ export {
   executeKpiPhase,
   executeScenarioPhase,
   executeStepDefPhase,
+  executeInstallPhase,
   executeReviewPhase,
   completeWorkflow,
   handleWorkflowError,
