@@ -206,6 +206,43 @@ export function mergePR(prNumber: number, repoInfo: RepoInfo): { success: boolea
 }
 
 /**
+ * Approves a PR using the personal gh auth login identity.
+ *
+ * When a GitHub App is active (`GH_TOKEN` is set to the app token), the PR was authored
+ * by the bot. GitHub does not allow a user to approve their own PR, so we temporarily
+ * unset `GH_TOKEN` to force `gh` to fall back to the personal `gh auth login` identity,
+ * which is a different actor from the bot author.
+ *
+ * @param prNumber - The PR number to approve
+ * @param repoInfo - Repository info (owner/repo)
+ * @returns Success flag and optional error message
+ */
+export function approvePR(prNumber: number, repoInfo: RepoInfo): { success: boolean; error?: string } {
+  const { owner, repo } = repoInfo;
+  const savedToken = process.env.GH_TOKEN;
+
+  try {
+    // Temporarily unset GH_TOKEN so gh uses the personal gh auth login identity
+    delete process.env.GH_TOKEN;
+    execSync(
+      `gh pr review ${prNumber} --approve --repo ${owner}/${repo}`,
+      { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] },
+    );
+    log(`Approved PR #${prNumber} in ${owner}/${repo}`, 'success');
+    return { success: true };
+  } catch (error) {
+    const stderr = (error as { stderr?: string }).stderr || String(error);
+    log(`Failed to approve PR #${prNumber}: ${stderr}`, 'error');
+    return { success: false, error: stderr };
+  } finally {
+    // Restore GH_TOKEN regardless of outcome
+    if (savedToken !== undefined) {
+      process.env.GH_TOKEN = savedToken;
+    }
+  }
+}
+
+/**
  * Fetches open PRs for CRON trigger polling.
  * @param repoInfo - Optional repository info override for targeting external repositories.
  */

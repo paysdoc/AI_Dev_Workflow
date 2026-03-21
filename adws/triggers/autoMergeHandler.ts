@@ -120,6 +120,64 @@ function isMergeConflictError(error: string): boolean {
 }
 
 /**
+ * Core retry loop: resolve conflicts → push → merge.
+ * Extracted so it can be reused by both the webhook auto-merge handler and the
+ * in-process autoMergePhase.
+ *
+ * @returns `{ success: true }` on successful merge, or `{ success: false, error }` after
+ *          exhausting retries or encountering a non-conflict failure.
+ */
+export async function mergeWithConflictResolution(
+  prNumber: number,
+  repoInfo: RepoInfo,
+  headBranch: string,
+  baseBranch: string,
+  worktreePath: string,
+  adwId: string,
+  logsDir: string,
+  specPath: string,
+): Promise<{ success: boolean; error?: string }> {
+  let lastMergeError = '';
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    log(`Auto-merge attempt ${attempt}/${maxAttempts} for PR #${prNumber}`, 'info');
+
+    const hasConflicts = checkMergeConflicts(baseBranch, worktreePath);
+
+    if (hasConflicts) {
+      log(`Merge conflicts detected on attempt ${attempt}, invoking /resolve_conflict`, 'info');
+      const resolved = await resolveConflictsViaAgent(adwId, specPath, baseBranch, logsDir, worktreePath);
+      if (!resolved) {
+        log(`Conflict resolution failed on attempt ${attempt}, retrying`, 'warn');
+        continue;
+      }
+    }
+
+    const pushed = pushBranchChanges(headBranch, worktreePath);
+    if (!pushed) {
+      log(`Push failed on attempt ${attempt}, retrying`, 'warn');
+      continue;
+    }
+
+    const mergeResult = mergePR(prNumber, repoInfo);
+    if (mergeResult.success) {
+      log(`PR #${prNumber} merged successfully on attempt ${attempt}`, 'success');
+      return { success: true };
+    }
+
+    lastMergeError = mergeResult.error || '';
+    log(`Merge failed on attempt ${attempt}: ${lastMergeError}`, 'warn');
+
+    if (!isMergeConflictError(lastMergeError)) {
+      log(`Non-conflict merge failure — stopping retries for PR #${prNumber}`, 'error');
+      break;
+    }
+  }
+
+  return { success: false, error: lastMergeError };
+}
+
+/**
  * Main handler invoked when a pull_request_review webhook arrives with state "approved".
  * Runs asynchronously (fire-and-forget) from the webhook response.
  */
@@ -188,43 +246,23 @@ export async function handleApprovedReview(body: Record<string, unknown>): Promi
   }
 
   // Retry loop: resolve conflicts → push → merge
-  let lastMergeError = '';
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    log(`Auto-merge attempt ${attempt}/${maxAttempts} for PR #${prNumber}`, 'info');
+  const mergeOutcome = await mergeWithConflictResolution(
+    prNumber,
+    repoInfo,
+    headBranch,
+    baseBranch,
+    worktreePath,
+    adwId,
+    logsDir,
+    specPath,
+  );
 
-    const hasConflicts = checkMergeConflicts(baseBranch, worktreePath);
-
-    if (hasConflicts) {
-      log(`Merge conflicts detected on attempt ${attempt}, invoking /resolve_conflict`, 'info');
-      const resolved = await resolveConflictsViaAgent(adwId, specPath, baseBranch, logsDir, worktreePath);
-      if (!resolved) {
-        log(`Conflict resolution failed on attempt ${attempt}, retrying`, 'warn');
-        continue;
-      }
-    }
-
-    const pushed = pushBranchChanges(headBranch, worktreePath);
-    if (!pushed) {
-      log(`Push failed on attempt ${attempt}, retrying`, 'warn');
-      continue;
-    }
-
-    const mergeResult = mergePR(prNumber, repoInfo);
-    if (mergeResult.success) {
-      log(`PR #${prNumber} merged successfully on attempt ${attempt}`, 'success');
-      return;
-    }
-
-    lastMergeError = mergeResult.error || '';
-    log(`Merge failed on attempt ${attempt}: ${lastMergeError}`, 'warn');
-
-    if (!isMergeConflictError(lastMergeError)) {
-      log(`Non-conflict merge failure — stopping retries for PR #${prNumber}`, 'error');
-      break;
-    }
+  if (mergeOutcome.success) {
+    return;
   }
 
   // All attempts exhausted or non-recoverable error — post failure comment
+  const lastMergeError = mergeOutcome.error || '';
   const failureComment = [
     `## Auto-merge failed for PR #${prNumber}`,
     '',

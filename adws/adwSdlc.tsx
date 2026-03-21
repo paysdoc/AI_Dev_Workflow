@@ -15,7 +15,8 @@
  * 8. Document Phase: generate feature documentation (includes review screenshots)
  * 9. PR Phase: create pull request (only after review passes)
  * 10. KPI Phase: track agentic KPIs (non-fatal)
- * 11. Finalize: update state, post completion comment
+ * 11. AutoMerge Phase: approve and merge the PR (non-fatal)
+ * 12. Finalize: update state, post completion comment
  *
  * Environment Requirements:
  * - ANTHROPIC_API_KEY: Anthropic API key
@@ -40,6 +41,7 @@ import {
   executeReviewPhase,
   executeDocumentPhase,
   executeKpiPhase,
+  executeAutoMergePhase,
   completeWorkflow,
   handleWorkflowError,
 } from './workflowPhases';
@@ -157,6 +159,9 @@ async function main(): Promise<void> {
     persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
     if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeDisplayTokens(totalModelUsage);
     await commitPhasesCostData(config, kpiResult.phaseCostRecords);
+
+    const autoMergeResult = await executeAutoMergePhase(config);
+    await commitPhasesCostData(config, autoMergeResult.phaseCostRecords);
 
     await completeWorkflow(config, totalCostUsd, {
       unitTestsPassed: testResult.unitTestsPassed,

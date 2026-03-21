@@ -599,6 +599,7 @@ app_docs/                         # Generated documentation
 - `worktreeQuery.ts` - Worktree listing and issue lookup
 
 **Phases** (`phases/`):
+- `autoMergePhase.ts` - Auto-approve and merge PR after review passes (non-fatal, last phase in review orchestrators)
 - `planPhase.ts` - Planning phase implementation
 - `planValidationPhase.ts` - Plan validation phase implementation (compares plan against BDD scenarios)
 - `buildPhase.ts` - Build phase implementation

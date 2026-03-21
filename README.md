@@ -228,6 +228,7 @@ adws/                   # ADW workflow system
 │   ├── index.ts
 │   └── types.ts
 ├── phases/             # Workflow phase implementations
+│   ├── autoMergePhase.ts  # Auto-approve and merge PR after review passes
 │   ├── buildPhase.ts
 │   ├── documentPhase.ts
 │   ├── index.ts

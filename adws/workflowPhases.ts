@@ -26,6 +26,7 @@ export {
   executeStepDefPhase,
   executeInstallPhase,
   executeReviewPhase,
+  executeAutoMergePhase,
   completeWorkflow,
   handleWorkflowError,
   initializePRReviewWorkflow,
