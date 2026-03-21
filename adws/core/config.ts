@@ -126,6 +126,9 @@ export const MAX_TOKEN_CONTINUATIONS = Math.max(1, parseInt(process.env.MAX_TOKE
 /** Whether to include running token totals in issue/PR comments. */
 export const RUNNING_TOKENS = Boolean(process.env.RUNNING_TOKENS);
 
+/** Whether to include cost breakdowns in GitHub issue/PR comments. */
+export const SHOW_COST_IN_COMMENTS = Boolean(process.env.SHOW_COST_IN_COMMENTS);
+
 /** Allowlist of environment variable names safe to pass to Claude CLI subprocesses. */
 const SAFE_ENV_VARS: readonly string[] = [
   'ANTHROPIC_API_KEY',

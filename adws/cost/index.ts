@@ -37,4 +37,9 @@ export {
   parseIssueCostTotal,
   formatProjectTotalCsv,
   rebuildProjectTotalCsv,
+  formatCostTable,
+  formatDivergenceWarning,
+  formatEstimateVsActual,
+  formatCurrencyTotals,
+  formatCostCommentSection,
 } from './reporting/index.ts';

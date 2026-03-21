@@ -311,3 +311,11 @@
     - When adding recovery guards to new phases using `shouldExecuteStage`
     - When troubleshooting the scenario writer or plan validation phase running unnecessarily on workflow resume
     - When investigating why `plan_validating` was not detected as a completed stage during recovery
+
+- app_docs/feature-j2ydkj-cost-comment-formatter.md
+  - Conditions:
+    - When working with `formatCostCommentSection`, `formatCostTable`, `formatDivergenceWarning`, or `formatEstimateVsActual` in `adws/cost/reporting/commentFormatter.ts`
+    - When implementing or modifying cost section rendering in GitHub issue or PR comments
+    - When adding the `SHOW_COST_IN_COMMENTS` env var toggle or changing cost comment visibility
+    - When troubleshooting divergence warnings not appearing or cost sections showing when they should be hidden
+    - When extending `WorkflowContext` with new cost-related fields (`costSection`, `phaseCostRecords`)

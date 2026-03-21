@@ -112,7 +112,7 @@ Then(
     const content = sharedCtx.fileContent;
     const funcStart = content.indexOf('function completePRReviewWorkflow');
     assert.ok(funcStart !== -1, 'Expected completePRReviewWorkflow function');
-    const funcBody = content.slice(funcStart, funcStart + 2000);
+    const funcBody = content.slice(funcStart, funcStart + 4000);
     // moveToStatus should be preceded by a guard on issueNumber
     const moveIdx = funcBody.indexOf('moveToStatus');
     assert.ok(moveIdx !== -1, 'Expected moveToStatus call in completePRReviewWorkflow');
@@ -132,12 +132,15 @@ Then(
     const content = sharedCtx.fileContent;
     const funcStart = content.indexOf('function completePRReviewWorkflow');
     assert.ok(funcStart !== -1, 'Expected completePRReviewWorkflow function');
-    const funcBody = content.slice(funcStart, funcStart + 2000);
+    // Cost CSV writing may live inline or in a helper function called from completePRReviewWorkflow
+    const helperStart = content.indexOf('function buildPRReviewCostSection');
+    const searchStart = helperStart !== -1 ? helperStart : funcStart;
+    const funcBody = content.slice(searchStart, searchStart + 2000);
     // Cost CSV writing (writeIssueCostCsv or serialised variant) should be guarded
     const csvWriteIdx = funcBody.indexOf('CostCsv') !== -1
       ? funcBody.indexOf('CostCsv')
       : funcBody.indexOf('costCsv');
-    assert.ok(csvWriteIdx !== -1, 'Expected a cost CSV write call in completePRReviewWorkflow');
+    assert.ok(csvWriteIdx !== -1, 'Expected a cost CSV write call in completePRReviewWorkflow or its helper');
     const surroundingBefore = funcBody.slice(Math.max(0, csvWriteIdx - 300), csvWriteIdx);
     assert.ok(
       surroundingBefore.includes('issueNumber') ||
