@@ -25,7 +25,7 @@ N/A
 bun install
 
 ## Run E2E Tests
-bunx cucumber-js
+NODE_OPTIONS="--import tsx" bunx cucumber-js
 
 ## Additional Type Checks
 bunx tsc --noEmit -p adws/tsconfig.json
@@ -37,7 +37,7 @@ bun add <package>
 bunx tsx <script name>
 
 ## Run Scenarios by Tag
-bunx cucumber-js --tags "@{tag}"
+NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@{tag}"
 
 ## Run Regression Scenarios
-bunx cucumber-js --tags "@regression"
+NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@regression"

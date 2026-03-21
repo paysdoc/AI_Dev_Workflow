@@ -2,7 +2,7 @@
  * Barrel exports for the cost reporting sub-module.
  */
 
-export type { ProjectTotalRow } from './csvWriter';
+export type { ProjectTotalRow } from './csvWriter.ts';
 export {
   FIXED_TOKEN_COLUMNS,
   collectAllTokenTypes,
@@ -13,4 +13,4 @@ export {
   parseIssueCostTotal,
   formatProjectTotalCsv,
   rebuildProjectTotalCsv,
-} from './csvWriter';
+} from './csvWriter.ts';

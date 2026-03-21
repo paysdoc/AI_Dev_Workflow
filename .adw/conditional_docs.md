@@ -271,3 +271,10 @@
     - When implementing estimate-vs-actual logging or interpreting its output
     - When modifying `formatRunningTokenFooter` or the `isEstimated` display format
     - When adding `tokenEstimate` to `ProgressInfo` or the progress callback chain
+
+- app_docs/feature-7nl59l-fix-cron-respawn-cache.md
+  - Conditions:
+    - When working with `ensureCronProcess` or `cronSpawnedForRepo` in `adws/triggers/webhookGatekeeper.ts`
+    - When modifying the in-memory cron process cache or the PID-file liveness check (`isCronAliveForRepo`)
+    - When troubleshooting cron processes that die mid-session and are never respawned
+    - When adding regression tests for the two-layer cron guard (in-memory Set + PID file)
