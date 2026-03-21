@@ -33,3 +33,4 @@ export {
 export { executeScenarioPhase } from './scenarioPhase';
 export { executeStepDefPhase } from './stepDefPhase';
 export { executeInstallPhase, extractInstallContext } from './installPhase';
+export { executeAutoMergePhase } from './autoMergePhase';

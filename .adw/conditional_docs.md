@@ -206,6 +206,14 @@
     - When troubleshooting approved PRs that were not automatically merged
     - When adjusting `MAX_AUTO_MERGE_ATTEMPTS` or the retry loop behavior
 
+- app_docs/feature-fvzdz7-auto-approve-merge-after-review.md
+  - Conditions:
+    - When working with `executeAutoMergePhase` in `adws/phases/autoMergePhase.ts`
+    - When modifying `mergeWithConflictResolution()` in `adws/triggers/autoMergeHandler.ts`
+    - When working with `approvePR()` in `adws/github/prApi.ts` or the `GH_TOKEN` identity swap
+    - When adding the auto-merge phase to a new orchestrator
+    - When troubleshooting PRs that were not merged after the review phase passed
+
 - app_docs/feature-tepq39-scenario-writer-opus-model.md
   - Conditions:
     - When working with `SLASH_COMMAND_MODEL_MAP` or `SLASH_COMMAND_MODEL_MAP_FAST` in `adws/core/config.ts`

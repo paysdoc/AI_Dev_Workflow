@@ -14,6 +14,7 @@ export {
   fetchPRReviewComments,
   commentOnPR,
   mergePR,
+  approvePR,
   fetchPRList,
   commentOnIssue,
   fetchIssueCommentsRest,

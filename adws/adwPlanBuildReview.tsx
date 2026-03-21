@@ -13,7 +13,8 @@
  * 6. Step Def Gen Phase: generate step definitions, remove ungeneratable scenarios
  * 7. Review Phase: review implementation + run BDD scenarios, patch blockers, retry
  * 8. PR Phase: create pull request (only after review passes)
- * 9. Finalize: update state, post completion comment
+ * 9. AutoMerge Phase: approve and merge the PR (non-fatal)
+ * 10. Finalize: update state, post completion comment
  *
  * Environment Requirements:
  * - ANTHROPIC_API_KEY: Anthropic API key
@@ -34,6 +35,7 @@ import {
   executeStepDefPhase,
   executePRPhase,
   executeReviewPhase,
+  executeAutoMergePhase,
   completeWorkflow,
   handleWorkflowError,
 } from './workflowPhases';
@@ -128,6 +130,9 @@ async function main(): Promise<void> {
     persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
     if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeDisplayTokens(totalModelUsage);
     await commitPhasesCostData(config, prResult.phaseCostRecords);
+
+    const autoMergeResult = await executeAutoMergePhase(config);
+    await commitPhasesCostData(config, autoMergeResult.phaseCostRecords);
 
     await completeWorkflow(config, totalCostUsd, {
       unitTestsPassed: testResult.unitTestsPassed,
