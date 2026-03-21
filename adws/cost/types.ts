@@ -4,7 +4,7 @@
  * plus the PhaseCostRecord model for per-phase cost tracking.
  */
 
-import type { ModelUsageMap as LegacyModelUsageMap } from '../types/costTypes';
+import type { ModelUsageMap as LegacyModelUsageMap } from '../types/costTypes.ts';
 
 /** Extensible token count map with provider-specific keys (e.g. input, output, cache_read, cache_write). */
 export type TokenUsageMap = Record<string, number>;
@@ -42,11 +42,13 @@ export interface DivergenceResult {
 }
 
 /** Lifecycle status of a phase cost record. */
-export enum PhaseCostStatus {
-  Success = 'success',
-  Partial = 'partial',
-  Failed = 'failed',
-}
+export const PhaseCostStatus = {
+  Success: 'success',
+  Partial: 'partial',
+  Failed: 'failed',
+} as const;
+
+export type PhaseCostStatus = (typeof PhaseCostStatus)[keyof typeof PhaseCostStatus];
 
 /** Granular cost record for a single model within a single workflow phase. */
 export interface PhaseCostRecord {

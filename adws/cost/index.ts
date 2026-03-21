@@ -10,11 +10,11 @@ export type {
   DivergenceResult,
   PhaseCostRecord,
   CreatePhaseCostRecordsOptions,
-} from './types';
-export { PhaseCostStatus, createPhaseCostRecords } from './types';
+} from './types.ts';
+export { PhaseCostStatus, createPhaseCostRecords } from './types.ts';
 
-export { computeCost, checkDivergence } from './computation';
-export { AnthropicTokenUsageExtractor, ANTHROPIC_PRICING, DEFAULT_ANTHROPIC_PRICING, getAnthropicPricing } from './providers/anthropic/index';
+export { computeCost, checkDivergence } from './computation.ts';
+export { AnthropicTokenUsageExtractor, ANTHROPIC_PRICING, DEFAULT_ANTHROPIC_PRICING, getAnthropicPricing } from './providers/anthropic/index.ts';
 
 export {
   FALLBACK_EUR_RATE,
@@ -24,9 +24,9 @@ export {
   FALLBACK_RATES,
   lastKnownRates,
   fetchExchangeRates,
-} from './exchangeRates';
+} from './exchangeRates.ts';
 
-export type { ProjectTotalRow } from './reporting';
+export type { ProjectTotalRow } from './reporting/index.ts';
 export {
   FIXED_TOKEN_COLUMNS,
   collectAllTokenTypes,
@@ -37,4 +37,4 @@ export {
   parseIssueCostTotal,
   formatProjectTotalCsv,
   rebuildProjectTotalCsv,
-} from './reporting';
+} from './reporting/index.ts';
