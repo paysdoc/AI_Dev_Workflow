@@ -14,3 +14,11 @@ export {
   formatProjectTotalCsv,
   rebuildProjectTotalCsv,
 } from './csvWriter.ts';
+
+export {
+  formatCostTable,
+  formatDivergenceWarning,
+  formatEstimateVsActual,
+  formatCurrencyTotals,
+  formatCostCommentSection,
+} from './commentFormatter.ts';

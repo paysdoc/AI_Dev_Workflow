@@ -9,6 +9,7 @@ import { log, AgentStateManager, COST_REPORT_CURRENCIES, type ModelUsageMap, bui
 import { createPhaseCostRecords, PhaseCostStatus } from '../cost';
 import { appendIssueCostCsv, rebuildProjectTotalCsv } from '../cost/reporting';
 import { fetchExchangeRates } from '../cost/exchangeRates';
+import { formatCostCommentSection } from '../cost/reporting/commentFormatter';
 import { BoardStatus } from '../providers/types';
 import { pushBranch, inferIssueTypeFromBranch } from '../vcs';
 import { postPRStageComment } from './phaseCommentHelpers';
@@ -108,8 +109,9 @@ export async function executePRReviewTestPhase(config: PRReviewWorkflowConfig): 
 export async function completePRReviewWorkflow(config: PRReviewWorkflowConfig, modelUsage?: ModelUsageMap): Promise<void> {
   const { prNumber, prDetails, unaddressedComments, worktreePath, logsDir, orchestratorStatePath, ctx, repoContext } = config;
 
-  // Build cost breakdown for GitHub comment and write new-format CSV
+  // Build cost section for GitHub comment and write new-format CSV
   if (modelUsage && Object.keys(modelUsage).length > 0) {
+    // Keep legacy costBreakdown for backward compatibility
     const costBreakdown = await buildCostBreakdown(modelUsage, [...COST_REPORT_CURRENCIES]);
     ctx.costBreakdown = costBreakdown;
 
@@ -133,9 +135,27 @@ export async function completePRReviewWorkflow(config: PRReviewWorkflowConfig, m
 
         const rates = await fetchExchangeRates(['EUR']);
         rebuildProjectTotalCsv(adwRepoRoot, repoName, rates['EUR'] ?? 0);
+
+        // Pre-compute cost section using the new formatter
+        ctx.phaseCostRecords = phaseCostRecords;
+        ctx.costSection = await formatCostCommentSection(phaseCostRecords);
       } catch (csvError) {
         log(`Failed to write cost CSV files: ${csvError}`, 'error');
       }
+    } else {
+      // No issue number/repoContext — still pre-compute cost section from modelUsage
+      const phaseCostRecords = createPhaseCostRecords({
+        workflowId: config.adwId,
+        issueNumber: config.issueNumber ?? 0,
+        phase: 'pr_review',
+        status: PhaseCostStatus.Success,
+        retryCount: 0,
+        continuationCount: 0,
+        durationMs: 0,
+        modelUsage,
+      });
+      ctx.phaseCostRecords = phaseCostRecords;
+      ctx.costSection = await formatCostCommentSection(phaseCostRecords);
     }
   }
 

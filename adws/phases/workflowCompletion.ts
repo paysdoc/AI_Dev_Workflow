@@ -12,6 +12,7 @@ import {
   persistTokenCounts,
 } from '../core';
 import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
+import { formatCostCommentSection } from '../cost/reporting/commentFormatter';
 import { getPlanFilePath, runReviewWithRetry } from '../agents';
 import type { WorkflowConfig } from './workflowInit';
 import { postIssueStageComment } from './phaseCommentHelpers';
@@ -25,11 +26,16 @@ export async function completeWorkflow(
   totalCostUsd: number,
   additionalMetadata?: Record<string, unknown>,
   modelUsage?: ModelUsageMap,
+  phaseCostRecords?: PhaseCostRecord[],
 ): Promise<void> {
   const { orchestratorStatePath, orchestratorName, issueNumber, ctx, repoContext } = config;
 
-  // Build cost breakdown for GitHub comment (CSV is now written per-phase by the orchestrator)
-  if (modelUsage && Object.keys(modelUsage).length > 0) {
+  // Build cost section for GitHub comment (CSV is written per-phase by the orchestrator)
+  if (phaseCostRecords && phaseCostRecords.length > 0) {
+    ctx.phaseCostRecords = phaseCostRecords;
+    ctx.costSection = await formatCostCommentSection(phaseCostRecords);
+  } else if (modelUsage && Object.keys(modelUsage).length > 0) {
+    // Legacy path: build CostBreakdown from ModelUsageMap
     const costBreakdown = await buildCostBreakdown(modelUsage, [...COST_REPORT_CURRENCIES]);
     ctx.costBreakdown = costBreakdown;
   }
