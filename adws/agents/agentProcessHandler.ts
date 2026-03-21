@@ -7,6 +7,7 @@
 
 import type { ChildProcess } from 'child_process';
 import * as fs from 'fs';
+import * as path from 'path';
 import { log, AgentStateManager, type TokenUsageSnapshot, MAX_THINKING_TOKENS, TOKEN_LIMIT_THRESHOLD, type ModelUsageMap } from '../core';
 import { parseJsonlOutput, type JsonlParserState, type ProgressCallback, type ProgressInfo } from './jsonlParser';
 import { computeTotalTokens } from '../core/tokenManager';
@@ -68,6 +69,7 @@ export function handleAgentProcess(
     let tokenLimitReached = false;
     const tokenThreshold = MAX_THINKING_TOKENS * TOKEN_LIMIT_THRESHOLD;
 
+    fs.mkdirSync(path.dirname(outputFile), { recursive: true });
     const outputStream = fs.createWriteStream(outputFile, { flags: 'a' });
 
     // Wrap onProgress to inject real-time token estimate from the extractor
