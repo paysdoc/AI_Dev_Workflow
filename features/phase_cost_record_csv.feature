@@ -29,8 +29,8 @@ Feature: PhaseCostRecord data model, CSV output in new format, and per-phase cos
     And PhaseCostRecord includes field "continuationCount" of type number
     And PhaseCostRecord includes field "durationMs" of type number
     And PhaseCostRecord includes field "timestamp" of type string
-    And PhaseCostRecord includes field "estimatedTokens" of type number
-    And PhaseCostRecord includes field "actualTokens" of type number
+    And PhaseCostRecord includes field "estimatedTokens" as a Record of string to number
+    And PhaseCostRecord includes field "actualTokens" as a Record of string to number
 
   @adw-l1x9x9-cost-revamp-phasecos @regression
   Scenario: PhaseCostRecord status field accepts success, partial, and failed values
