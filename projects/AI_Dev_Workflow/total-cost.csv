@@ -17,6 +17,8 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 250,ensurecronprocess in memory cache prevents respawn,build,claude-sonnet-4-6,0.218193
 250,ensurecronprocess in memory cache prevents respawn,plan,claude-opus-4-6,0.575950
 250,ensurecronprocess in memory cache prevents respawn,pr,claude-sonnet-4-6,0.111336
+250,ensurecronprocess in memory cache prevents respawn,review,claude-opus-4-6,3.157828
+250,ensurecronprocess in memory cache prevents respawn,review,claude-sonnet-4-6,0.299088
 250,ensurecronprocess in memory cache prevents respawn,scenario,claude-opus-4-6,0.653438
 250,ensurecronprocess in memory cache prevents respawn,scenario,claude-haiku-4-5-20251001,0.158858
 250,ensurecronprocess in memory cache prevents respawn,scenario,claude-opus-4-6,0.565859
@@ -24,5 +26,5 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 250,ensurecronprocess in memory cache prevents respawn,scenario,claude-opus-4-6,0.945017
 250,ensurecronprocess in memory cache prevents respawn,test,claude-opus-4-6,7.085805
 
-Total Cost (USD):,27.0736
-Total Cost (EUR):,23.4337
+Total Cost (USD):,30.5305
+Total Cost (EUR):,26.4258

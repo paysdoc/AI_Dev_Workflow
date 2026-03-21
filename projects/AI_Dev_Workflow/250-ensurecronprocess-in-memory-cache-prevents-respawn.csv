@@ -8,4 +8,6 @@ bagrdu-ensurecronprocess-in,250,build,claude-sonnet-4-6,anthropic,0.218193,0.218
 9imxcf-ensurecronprocess-in,250,scenario,claude-opus-4-6,anthropic,1.322491,1.322491,success,0,0,241937,2026-03-21T07:18:39.738Z,0,0,29,11140,1300893,62944,0
 9imxcf-ensurecronprocess-in,250,test,claude-opus-4-6,anthropic,7.085805,7.085805,success,5,0,5301461,2026-03-21T08:47:09.502Z,0,0,180,75205,7757823,212139,0
 7nl59l-ensurecronprocess-in,250,scenario,claude-opus-4-6,anthropic,0.945017,0.945017,success,0,0,157943,2026-03-21T12:19:11.627Z,0,0,20,6264,869547,56567,0
-7nl59l-ensurecronprocess-in,250,pr,claude-sonnet-4-6,anthropic,0.111336,0.111336,success,0,0,42766,2026-03-21T12:20:04.963Z,undefined,undefined,6,1003,86496,18753,0
+7nl59l-ensurecronprocess-in,250,pr,claude-sonnet-4-6,anthropic,0.111336,0.111336,success,0,0,42766,2026-03-21T12:20:04.963Z,0,0,6,1003,86496,18753,0
+7nl59l-ensurecronprocess-in,250,review,claude-opus-4-6,anthropic,3.157828,3.157828,success,1,0,701986,2026-03-21T12:31:52.601Z,undefined,undefined,5119,38237,1452428,232015,0
+7nl59l-ensurecronprocess-in,250,review,claude-sonnet-4-6,anthropic,0.299088,0.299088,success,1,0,701986,2026-03-21T12:31:52.601Z,undefined,undefined,25,2880,354524,39855,0
