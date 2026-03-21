@@ -11,5 +11,7 @@ vlphr9-make-bdd-scenarios-r,249,plan,claude-haiku-4-5-20251001,anthropic,0.13396
 vlphr9-make-bdd-scenarios-r,249,scenario,claude-opus-4-6,anthropic,0.782876,0.782876,success,0,0,290406,2026-03-20T15:18:31.035Z,0,0,1735,6072,473440,61709,0
 vlphr9-make-bdd-scenarios-r,249,scenario,claude-haiku-4-5-20251001,anthropic,0.283337,0.283337,success,0,0,290406,2026-03-20T15:18:31.035Z,0,0,1155,14510,460246,130886,0
 vlphr9-make-bdd-scenarios-r,249,build,claude-sonnet-4-6,anthropic,3.860037,3.860037,success,0,1,791456,2026-03-20T15:39:51.770Z,0,0,2419,36228,6525551,360452,0
-ex60ng-make-bdd-scenarios-r,249,scenario,claude-opus-4-6,anthropic,1.283148,1.283148,success,0,0,363551,2026-03-21T15:00:26.605Z,undefined,undefined,52,12262,964864,79025,0
-ex60ng-make-bdd-scenarios-r,249,scenario,claude-haiku-4-5-20251001,anthropic,0.230341,0.230341,success,0,0,363551,2026-03-21T15:00:26.605Z,undefined,undefined,3250,15278,212113,103592,0
+ex60ng-make-bdd-scenarios-r,249,scenario,claude-opus-4-6,anthropic,1.283148,1.283148,success,0,0,363551,2026-03-21T15:00:26.605Z,0,0,52,12262,964864,79025,0
+ex60ng-make-bdd-scenarios-r,249,scenario,claude-haiku-4-5-20251001,anthropic,0.230341,0.230341,success,0,0,363551,2026-03-21T15:00:26.605Z,0,0,3250,15278,212113,103592,0
+ex60ng-make-bdd-scenarios-r,249,test,claude-opus-4-6,anthropic,4.621021,4.621021,success,2,0,1456895,2026-03-21T15:26:26.848Z,undefined,undefined,101,51306,4941570,138733,0
+ex60ng-make-bdd-scenarios-r,249,test,claude-haiku-4-5-20251001,anthropic,0.085682,0.085682,success,2,0,1456895,2026-03-21T15:26:26.848Z,undefined,undefined,22,4318,79472,44898,0
