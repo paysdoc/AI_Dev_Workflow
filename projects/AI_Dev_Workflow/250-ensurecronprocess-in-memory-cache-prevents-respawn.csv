@@ -6,4 +6,5 @@ workflow_id,issue_number,phase,model,provider,computed_cost_usd,reported_cost_us
 bagrdu-ensurecronprocess-in,250,scenario,claude-opus-4-6,anthropic,0.565859,0.565859,success,0,0,114922,2026-03-20T15:32:27.765Z,0,0,14,4423,445678,37180,0
 bagrdu-ensurecronprocess-in,250,build,claude-sonnet-4-6,anthropic,0.218193,0.218193,success,0,0,94381,2026-03-20T15:34:07.898Z,0,0,14,2738,304670,22848,0
 9imxcf-ensurecronprocess-in,250,scenario,claude-opus-4-6,anthropic,1.322491,1.322491,success,0,0,241937,2026-03-21T07:18:39.738Z,0,0,29,11140,1300893,62944,0
-9imxcf-ensurecronprocess-in,250,test,claude-opus-4-6,anthropic,7.085805,7.085805,success,5,0,5301461,2026-03-21T08:47:09.502Z,undefined,undefined,180,75205,7757823,212139,0
+9imxcf-ensurecronprocess-in,250,test,claude-opus-4-6,anthropic,7.085805,7.085805,success,5,0,5301461,2026-03-21T08:47:09.502Z,0,0,180,75205,7757823,212139,0
+7nl59l-ensurecronprocess-in,250,scenario,claude-opus-4-6,anthropic,0.945017,0.945017,success,0,0,157943,2026-03-21T12:19:11.627Z,undefined,undefined,20,6264,869547,56567,0

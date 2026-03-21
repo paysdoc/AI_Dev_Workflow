@@ -20,7 +20,8 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 250,ensurecronprocess in memory cache prevents respawn,scenario,claude-haiku-4-5-20251001,0.158858
 250,ensurecronprocess in memory cache prevents respawn,scenario,claude-opus-4-6,0.565859
 250,ensurecronprocess in memory cache prevents respawn,scenario,claude-opus-4-6,1.322491
+250,ensurecronprocess in memory cache prevents respawn,scenario,claude-opus-4-6,0.945017
 250,ensurecronprocess in memory cache prevents respawn,test,claude-opus-4-6,7.085805
 
-Total Cost (USD):,26.0172
-Total Cost (EUR):,22.5193
+Total Cost (USD):,26.9623
+Total Cost (EUR):,23.3373
