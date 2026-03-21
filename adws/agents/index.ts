@@ -6,7 +6,6 @@
 // Claude Agent (base runners)
 export {
   runClaudeAgentWithCommand,
-  runPrimedClaudeAgentWithCommand,
   type AgentResult,
   type ProgressInfo,
   type ProgressCallback,
@@ -113,6 +112,18 @@ export {
 export {
   runScenarioAgent,
 } from './scenarioAgent';
+
+// Step Definition Agent
+export {
+  runStepDefAgent,
+  type StepDefAgentResult,
+  type RemovedScenario,
+} from './stepDefAgent';
+
+// Install Agent
+export {
+  runInstallAgent,
+} from './installAgent';
 
 // Validation Agent
 export {

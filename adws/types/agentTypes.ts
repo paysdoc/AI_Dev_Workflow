@@ -98,6 +98,10 @@ export type AgentIdentifier =
   | 'kpi-agent'
   // Scenario agent
   | 'scenario-agent'
+  // Step definition agent
+  | 'step-def-agent'
+  // Install agent
+  | 'install-agent'
   // Plan validation agents
   | 'validation-agent'
   | 'resolution-agent'

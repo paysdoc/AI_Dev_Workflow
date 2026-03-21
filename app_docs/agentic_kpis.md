@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value          | Last Updated |
 | ----------------- | -------------- | ------------ |
-| Current Streak    | 15             | 2026-03-18   |
-| Longest Streak    | 15             | 2026-03-18   |
-| Total Plan Size   | 240 lines      | 2026-03-18   |
-| Largest Plan Size | 145 lines      | 2026-03-18   |
-| Total Diff Size   | 1270851 lines  | 2026-03-18   |
-| Largest Diff Size | 205468 lines   | 2026-03-18   |
-| Average Presence  | 1.54           | 2026-03-18   |
+| Current Streak    | 24             | 2026-03-21   |
+| Longest Streak    | 24             | 2026-03-21   |
+| Total Plan Size   | 441 lines      | 2026-03-21   |
+| Largest Plan Size | 201 lines      | 2026-03-21   |
+| Total Diff Size   | 156705 lines   | 2026-03-21   |
+| Largest Diff Size | 29151 lines    | 2026-03-21   |
+| Average Presence  | 1.60           | 2026-03-21   |
 
 ## ADW KPIs
 
@@ -49,3 +49,11 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-03-18 | 7cc62i-parallelize-independ | 26           | /feature    | 1        | 201               | 14417/190897/1048               | 2026-03-18 | 2026-03-18 |
 | 2026-03-18 | 6ukg3s-1773849789984        | 237          | /feature    | 1        | 0                 | 690/23/12                       | 2026-03-18 | 2026-03-18 |
 | 2026-03-18 | 389mfj-add-call-level-llm-p | 25           | /feature    | 1        | 0                 | 14576/190892/1049               | 2026-03-18 | 2026-03-18 |
+| 2026-03-19 | ku956a-cost-revamp-core-com | 241          | /feature    | 2        | 0                 | 2350/346/46                     | 2026-03-19 | 2026-03-19 |
+| 2026-03-19 | tgs1li-cost-revamp-wire-ext | 242          | /feature    | 2        | 0                 | 3725/377/60                     | 2026-03-19 | 2026-03-19 |
+| 2026-03-19 | h01a4p-cost-revamp-phasecos | 243          | /feature    | 2        | 0                 | 2642/478/62                     | 2026-03-19 | 2026-03-19 |
+| 2026-03-19 | l1x9x9-cost-revamp-phasecos | 243          | /feature    | 1        | 0                 | 2642/478/62                     | 2026-03-19 | 2026-03-19 |
+| 2026-03-21 | 7nl59l-ensurecronprocess-in | 250          | /bug        | 2        | 0                 | 5779/620/102                    | 2026-03-21 | 2026-03-21 |
+| 2026-03-21 | ex60ng-make-bdd-scenarios-r | 249          | /feature    | 2        | 0                 | 6905/758/110                    | 2026-03-21 | 2026-03-21 |
+| 2026-03-21 | 1vil1v-skip-scenario-writer | 254          | /feature    | 1        | 0                 | 7768/764/125                    | 2026-03-21 | 2026-03-21 |
+| 2026-03-21 | 71pdjz-cache-install-contex | 253          | /feature    | 2        | 0                 | 8573/769/128                    | 2026-03-21 | 2026-03-21 |

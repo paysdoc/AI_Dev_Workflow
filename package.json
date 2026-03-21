@@ -6,7 +6,9 @@
   "scripts": {
     "build": "tsc",
     "lint": "eslint .",
-    "test": "bunx tsc --noEmit"
+    "test": "bunx tsc --noEmit",
+    "test:unit": "vitest run",
+    "test:unit:watch": "vitest"
   },
   "dependencies": {
     "dotenv": "^16.4.7"
@@ -19,6 +21,7 @@
     "ts-node": "^10.9.2",
     "tsx": "^4.19.3",
     "typescript": "^5.7.3",
-    "typescript-eslint": "^8.56.1"
+    "typescript-eslint": "^8.56.1",
+    "vitest": "^4.1.0"
   }
 }

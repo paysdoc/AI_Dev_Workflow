@@ -23,6 +23,8 @@ export {
   executeDocumentPhase,
   executeKpiPhase,
   executeScenarioPhase,
+  executeStepDefPhase,
+  executeInstallPhase,
   executeReviewPhase,
   completeWorkflow,
   handleWorkflowError,

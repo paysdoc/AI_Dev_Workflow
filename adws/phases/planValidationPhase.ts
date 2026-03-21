@@ -7,6 +7,7 @@ import {
   log,
   AgentStateManager,
   MAX_VALIDATION_RETRY_ATTEMPTS,
+  shouldExecuteStage,
   type ModelUsageMap,
   emptyModelUsageMap,
   mergeModelUsageMaps,
@@ -30,6 +31,7 @@ export async function executePlanValidationPhase(
   config: WorkflowConfig
 ): Promise<{ costUsd: number; modelUsage: ModelUsageMap }> {
   const {
+    recoveryState,
     orchestratorStatePath,
     adwId,
     issueNumber,
@@ -40,6 +42,11 @@ export async function executePlanValidationPhase(
     repoContext,
     ctx,
   } = config;
+
+  if (!shouldExecuteStage('plan_validating', recoveryState)) {
+    log('Skipping plan validation phase (already completed in previous run)', 'info');
+    return { costUsd: 0, modelUsage: emptyModelUsageMap() };
+  }
 
   let costUsd = 0;
   let modelUsage = emptyModelUsageMap();

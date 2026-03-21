@@ -1,5 +1,5 @@
 export default {
   paths: ['features/**/*.feature'],
-  import: ['features/step_definitions/**/*.ts'],
+  import: ['features/support/register-tsx.mjs', 'features/step_definitions/**/*.ts'],
   format: ['progress'],
 };

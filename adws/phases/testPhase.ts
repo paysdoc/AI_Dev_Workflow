@@ -1,11 +1,11 @@
 /**
  * Test phase execution for workflows.
  *
- * New order: [Unit Tests (opt-in)] → BDD Scenarios → PR
+ * Runs unit tests only (opt-in). BDD scenario execution has moved to the
+ * Review phase where step definitions are guaranteed to exist.
  *
  * - Unit tests run only when `.adw/project.md` has `## Unit Tests: enabled`.
- * - BDD scenarios tagged `@adw-{issueNumber}` always run (skipped gracefully
- *   when the command is `N/A`).
+ * - When unit tests are disabled, the phase passes immediately.
  */
 
 import {
@@ -17,22 +17,21 @@ import {
   mergeModelUsageMaps,
   parseUnitTestsEnabled,
 } from '../core';
+import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
 import { postIssueStageComment } from './phaseCommentHelpers';
 import {
   runUnitTestsWithRetry,
-  runScenariosByTag,
 } from '../agents';
 import type { WorkflowConfig } from './workflowLifecycle';
 import { BoardStatus } from '../providers/types';
 
 /**
- * Executes the Test phase: optionally run unit tests, then run BDD scenarios.
+ * Executes the Test phase: optionally run unit tests (unit tests only).
  *
  * Unit tests are skipped when `.adw/project.md` has `## Unit Tests: disabled`
  * (or the indicator is absent — disabled is the default).
  *
- * BDD scenarios are run using the command from `config.projectConfig.commands.runScenariosByTag`.
- * When the command is `N/A`, scenarios are skipped gracefully and the phase passes.
+ * BDD scenarios are now run in the Review phase after step definitions are generated.
  *
  * Uses `config.repoInfo` for external repository API calls when targeting a different repo.
  */
@@ -40,10 +39,11 @@ export async function executeTestPhase(config: WorkflowConfig): Promise<{
   costUsd: number;
   modelUsage: ModelUsageMap;
   unitTestsPassed: boolean;
-  bddScenariosPassed: boolean;
   totalRetries: number;
+  phaseCostRecords: PhaseCostRecord[];
 }> {
-  const { orchestratorStatePath, issueNumber, issue, ctx, logsDir, worktreePath, repoContext, projectConfig } = config;
+  const { orchestratorStatePath, issueNumber, issue, ctx, logsDir, worktreePath, repoContext, projectConfig, adwId } = config;
+  const phaseStartTime = Date.now();
   let costUsd = 0;
   let modelUsage = emptyModelUsageMap();
   let totalRetries = 0;
@@ -94,41 +94,25 @@ export async function executeTestPhase(config: WorkflowConfig): Promise<{
     AgentStateManager.appendLog(orchestratorStatePath, 'Unit tests disabled — skipping');
   }
 
-  // --- BDD scenarios gate (always runs) ---
-  log('Phase: BDD Scenarios', 'info');
-  AgentStateManager.appendLog(orchestratorStatePath, `Starting test phase: BDD Scenarios @adw-${issueNumber}`);
+  log('Unit tests passed!', 'success');
+  AgentStateManager.appendLog(orchestratorStatePath, 'Unit tests passed');
 
-  const scenarioCommand = projectConfig.commands.runScenariosByTag;
-  const bddResult = await runScenariosByTag(scenarioCommand, `adw-${issueNumber}`, worktreePath);
-
-  if (!bddResult.allPassed) {
-    const errorMsg = 'BDD scenarios failed. No PR was created.';
-    log(errorMsg, 'error');
-    AgentStateManager.appendLog(orchestratorStatePath, errorMsg);
-    ctx.errorMessage = errorMsg;
-    if (repoContext) {
-      postIssueStageComment(repoContext, issueNumber, 'error', ctx);
-    }
-
-    AgentStateManager.writeState(orchestratorStatePath, {
-      execution: AgentStateManager.completeExecution(
-        AgentStateManager.createExecutionState('running'),
-        false,
-        errorMsg
-      ),
-      metadata: { totalCostUsd: costUsd, unitTestsPassed: true, bddScenariosPassed: false },
-    });
-    process.exit(1);
-  }
-
-  log('All tests passed!', 'success');
-  AgentStateManager.appendLog(orchestratorStatePath, 'All tests passed');
+  const phaseCostRecords = createPhaseCostRecords({
+    workflowId: adwId,
+    issueNumber,
+    phase: 'test',
+    status: PhaseCostStatus.Success,
+    retryCount: totalRetries,
+    continuationCount: 0,
+    durationMs: Date.now() - phaseStartTime,
+    modelUsage,
+  });
 
   return {
     costUsd,
     modelUsage,
     unitTestsPassed: true,
-    bddScenariosPassed: true,
     totalRetries,
+    phaseCostRecords,
   };
 }

@@ -58,6 +58,15 @@ reviewImage_dir: `<absolute path to codebase>/agents/<adwId>/<agentName>/reviewI
       - Focus only on critical functionality paths - avoid unnecessary screenshots
       - Ensure screenshots clearly demonstrate that features work as specified
       - Use descriptive filenames that indicate what part of the change is being verified
+## Coding Guidelines Check
+
+- Read `.adw/coding_guidelines.md` from the current working directory if it exists
+- If not found, read `guidelines/coding_guidelines.md` as a fallback
+- If neither file exists, skip the coding guidelines check entirely
+- Compare the implementation changes (from `git diff origin/<default>`) against the coding guidelines
+- Report any guideline violations as `reviewIssues` with `issueSeverity: 'tech-debt'`
+- Include the specific guideline violated and the file/line location of the violation in `issueDescription`
+
 - IMPORTANT: Issue Severity Guidelines
   - Consider the impact of the issue on the feature and the user
   - Guidelines:

@@ -31,3 +31,5 @@ export {
   handlePRReviewWorkflowError,
 } from './prReviewCompletion';
 export { executeScenarioPhase } from './scenarioPhase';
+export { executeStepDefPhase } from './stepDefPhase';
+export { executeInstallPhase, extractInstallContext } from './installPhase';

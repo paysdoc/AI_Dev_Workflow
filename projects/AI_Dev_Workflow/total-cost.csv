@@ -1,103 +1,44 @@
-Issue number,Issue description,Cost (USD),Markup (10%)
-0,bug 52 issue classifier running on incorrect repo,6.3452,0.6345
-0,bug 71 pragent passes args as string,2.3623,0.2362
-0,bug 94 fix cost csv deletion on merged pr issue cl,0.8123,0.0812
-0,bug 99 fix currency conversion,0.6907,0.0691
-0,chore 169 remove adw unit test files disable unit ,0.7299,0.0730
-0,chore 204 remove run bdd scenarios command and con,0.7957,0.0796
-0,feat 114 implement github issuetracker provider,1.4015,0.1401
-0,feat 121 add provider configuration to adw project,1.0304,0.1030
-0,feat 144 add a running total of tokens used to eac,2.1209,0.2121
-0,feat 229 harden project board status propagation,2.2065,0.2207
-0,feat 66 automatically commit cost when pr is close,1.4173,0.1417
-0,feat 80 add reasoning effort to slash commands,1.1973,0.1197
-0,feat 90 fix review process,0.7485,0.0749
-13,allow for multiple github pat variables,6.7400,0.6740
-16,changes to adw repo should have cost in worktree,2.3481,0.2348
-18,the adw is too specialized,12.4169,1.2417
-19,several bugs in adw flow,3.3957,0.3396
-22,classifier does not recognise adw init,0.3236,0.0324
-23,multiple problems with the adw,6.8050,0.6805
-25,pr review comments get picked up twice by the trig,2.0915,0.2092
-27,add clear comments,3.5333,0.3533
-29,clear comment pattern should trigger adw,2.3692,0.2369
-30,worktree discovery inconsistent,3.5132,0.3513
-33,clearcomments deletes comments of another issue,2.7064,0.2706
-34,trigger should commit and push all cost related cs,4.5129,0.4513
-37,pr review adw should also track costs,6.7158,0.6716
-42,huge problems with classification,4.9941,0.4994
-46,add logging to classifier,3.5224,0.3522
-48,clearing issue comments triggers additional classi,1.7238,0.1724
-49,issue 48 identified as adw init,1.6762,0.1676
-52,issue classifier running on incorrect repo,2.3438,0.2344
-54,initialization of adw should end with pr creation,2.6134,0.2613
-56,cannot find branch on target repository,3.2376,0.3238
-58,move issue through project boards as implementatio,4.6664,0.4666
-60,total cost contains unlinked item lines,3.2778,0.3278
-62,pr for vestmatic is not sent to default branch,2.4715,0.2471
-64,permanent webhook url portfolio site at paysdoc nl,2.9291,0.2929
-66,automatically ccommit cost when pr is closed,2.9142,0.2914
-68,pr review adw should return issue to review,2.2074,0.2207
-88,add issue comments for the review process,5.2025,0.5202
-92,feat 90 fix review process,3.7264,0.3726
-113,define issuetracker and codehost provider interfac,3.6376,0.3638
-114,implement github issuetracker provider,1.4713,0.1471
-115,implement github codehost provider,1.8497,0.1850
-116,create repocontext factory with entry point valida,5.1870,0.5187
-117,refactor workflow phases to consume repocontext,9.7968,0.9797
-118,refactor triggers and orchestrators to create repo,7.3359,0.7336
-119,remove global targetreporegistry singleton,2.8275,0.2828
-120,extract git operations into a vcs agnostic module,9.0153,0.9015
-121,add provider configuration to adw project config,5.6448,0.5645
-122,implement gitlab codehost provider,7.3265,0.7327
-123,implement jira issuetracker provider,6.2039,0.6204
-126,json error,0.4218,0.0422
-134,pr 133 in an endless loop,4.0760,0.4076
-136,commit message format is unreliable for non docume,2.1319,0.2132
-137,document phase commit is not pushed lost on branch,1.0469,0.1047
-140,bug adwid format regression webhook triggers produ,1.5234,0.1523
-144,add a running total of tokens used to each issue c,8.7925,0.8793
-148,user story integrate agentic kpi tracking into adw,2.1788,0.2179
-150,race condition for starting workflow,1.8708,0.1871
-152,token counts do not make sense,6.1993,0.6199
-158,extend fast mode to downgrade planning model and e,0.7593,0.0759
-163,refactor initialize worktree from current root sta,1.5476,0.1548
-164,define bdd scenario configuration in adw and estab,1.4513,0.1451
-165,implement scenario planner agent generate and main,5.0301,0.5030
-166,implement plan scenario validation and resolution ,6.8366,0.6837
-167,refactor test phase run relevant bdd scenarios aft,5.5434,0.5543
-168,refactor review phase replace code diff proof with,5.6771,0.5677
-169,remove adw unit test files disable unit tests in a,0.7004,0.0700
-175,add logging when determining whether there is an i,1.8536,0.1854
-177,trigger cron process may not be running more than ,2.6237,0.2624
-183,fix validation and resolution agents to use comman,3.3632,0.3363
-184,cron pr polling re triggers adwprreview on adw s o,2.1207,0.2121
-185,llm based issue dependency extraction,7.9817,0.7982
-189,add runprimedclaudeagentwithcommand to prime agent,7.2881,0.7288
-190,review retry loop consolidate patch plans and impl,1.3516,0.1352
-193,plan templates include unit tests even when disabl,12.1788,1.2179
-194,replace crucial with regression,11.6427,1.1643
-196,push adw kpis,2.0142,0.2014
-199,remove unnecessary exports across the codebase,4.1651,0.4165
-201,cucumber regression tests run nothing config and s,6.8628,0.6863
-202,chore remove all unit tests,1.8329,0.1833
-204,remove run bdd scenarios from commands md and cons,1.6674,0.1667
-207,add issue level deduplication to prevent concurren,3.0388,0.3039
-209,bug cron process guard has toctou race allowing du,2.5000,0.2500
-211,bug issues should use full sdlc orchestrator tight,11.4324,1.1432
-213,bug orchestrator child processes inherit stale gh ,2.0341,0.2034
-215,implement all undefined cucumber step definitions,6.5883,0.6588
-218,adw init is not working correctly,0.2998,0.0300
-221,adw init broken,3.1728,0.3173
-223,wrong repository being targeted,5.4049,0.5405
-225,auto merge pr on approved review resolve conflicts,6.8824,0.6882
-227,remove project board status management from adw,2.7264,0.2726
-229,harden project board status propagation,1.9406,0.1941
-231,scenario writer should be opus,3.1223,0.3122
-233,fix issue number resolution in pr review workflow ,5.5114,0.5511
-235,project board fall back to github pat when app tok,4.1553,0.4155
-236,prs created by paysdoc user instead of paysdoc adw,3.3402,0.3340
-237,prs target main instead of default branch and issu,2.5855,0.2586
+Issue number,Issue description,Phase,Model,Cost (USD)
+244,cost revamp github comment formatting divergence w,scenario,claude-opus-4-6,1.148309
+244,cost revamp github comment formatting divergence w,scenario,claude-haiku-4-5-20251001,0.089264
+249,make bdd scenarios runnable step def generation re,build,claude-sonnet-4-6,2.816408
+249,make bdd scenarios runnable step def generation re,build,claude-sonnet-4-6,3.860037
+249,make bdd scenarios runnable step def generation re,document,claude-sonnet-4-6,0.229365
+249,make bdd scenarios runnable step def generation re,kpi,claude-haiku-4-5-20251001,0.080768
+249,make bdd scenarios runnable step def generation re,plan,claude-opus-4-6,1.638258
+249,make bdd scenarios runnable step def generation re,plan,claude-haiku-4-5-20251001,0.168733
+249,make bdd scenarios runnable step def generation re,plan,claude-opus-4-6,1.184251
+249,make bdd scenarios runnable step def generation re,plan,claude-haiku-4-5-20251001,0.133963
+249,make bdd scenarios runnable step def generation re,pr,claude-sonnet-4-6,0.155253
+249,feat 249 make bdd scenarios runnable step def gene,pr_review,claude-opus-4-6,0.588449
+249,feat 249 make bdd scenarios runnable step def gene,pr_review,claude-sonnet-4-6,0.076202
+249,feat 249 make bdd scenarios runnable step def gene,pr_review,claude-haiku-4-5-20251001,0.044115
+249,make bdd scenarios runnable step def generation re,review,claude-opus-4-6,4.619032
+249,make bdd scenarios runnable step def generation re,review,claude-sonnet-4-6,0.289564
+249,make bdd scenarios runnable step def generation re,scenario,claude-opus-4-6,1.394644
+249,make bdd scenarios runnable step def generation re,scenario,claude-haiku-4-5-20251001,0.218115
+249,make bdd scenarios runnable step def generation re,scenario,claude-opus-4-6,1.307552
+249,make bdd scenarios runnable step def generation re,scenario,claude-haiku-4-5-20251001,0.245254
+249,make bdd scenarios runnable step def generation re,scenario,claude-opus-4-6,0.782876
+249,make bdd scenarios runnable step def generation re,scenario,claude-haiku-4-5-20251001,0.283337
+249,make bdd scenarios runnable step def generation re,scenario,claude-opus-4-6,1.283148
+249,make bdd scenarios runnable step def generation re,scenario,claude-haiku-4-5-20251001,0.230341
+249,make bdd scenarios runnable step def generation re,test,claude-opus-4-6,4.621021
+249,make bdd scenarios runnable step def generation re,test,claude-haiku-4-5-20251001,0.085682
+250,ensurecronprocess in memory cache prevents respawn,build,claude-sonnet-4-6,0.165641
+250,ensurecronprocess in memory cache prevents respawn,build,claude-sonnet-4-6,0.218193
+250,ensurecronprocess in memory cache prevents respawn,document,claude-sonnet-4-6,0.199327
+250,ensurecronprocess in memory cache prevents respawn,kpi,claude-haiku-4-5-20251001,0.073980
+250,ensurecronprocess in memory cache prevents respawn,plan,claude-opus-4-6,0.575950
+250,ensurecronprocess in memory cache prevents respawn,pr,claude-sonnet-4-6,0.111336
+250,ensurecronprocess in memory cache prevents respawn,review,claude-opus-4-6,3.157828
+250,ensurecronprocess in memory cache prevents respawn,review,claude-sonnet-4-6,0.299088
+250,ensurecronprocess in memory cache prevents respawn,scenario,claude-opus-4-6,0.653438
+250,ensurecronprocess in memory cache prevents respawn,scenario,claude-haiku-4-5-20251001,0.158858
+250,ensurecronprocess in memory cache prevents respawn,scenario,claude-opus-4-6,0.565859
+250,ensurecronprocess in memory cache prevents respawn,scenario,claude-opus-4-6,1.322491
+250,ensurecronprocess in memory cache prevents respawn,scenario,claude-opus-4-6,0.945017
+250,ensurecronprocess in memory cache prevents respawn,test,claude-opus-4-6,7.085805
 
-Total Cost (USD):,412.0621
-Total Cost (EUR):,357.3415
+Total Cost (USD):,43.1068
+Total Cost (EUR):,37.3113

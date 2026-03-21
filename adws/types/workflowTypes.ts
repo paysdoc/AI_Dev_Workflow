@@ -41,7 +41,11 @@ export type WorkflowStage =
   | 'plan_validated'
   | 'plan_resolving'
   | 'plan_resolved'
-  | 'plan_validation_failed';
+  | 'plan_validation_failed'
+  // Install phase stages
+  | 'install_running'
+  | 'install_completed'
+  | 'install_failed';
 
 /**
  * PR review comment from GitHub API.

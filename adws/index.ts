@@ -120,6 +120,7 @@ export {
   executeTestPhase,
   executePRPhase,
   executeReviewPhase,
+  executeInstallPhase,
   executePRReviewPlanPhase,
   executePRReviewBuildPhase,
   executePRReviewTestPhase,

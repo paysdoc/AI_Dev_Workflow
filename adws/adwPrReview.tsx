@@ -16,7 +16,9 @@
  * - CLAUDE_CODE_PATH: Path to Claude CLI (default: /usr/local/bin/claude)
  */
 
-import { parseTargetRepoArgs, buildRepoIdentifier, mergeModelUsageMaps, persistTokenCounts, computeDisplayTokens, RUNNING_TOKENS, type ModelUsageMap } from './core';
+import * as fs from 'fs';
+import * as path from 'path';
+import { parseTargetRepoArgs, buildRepoIdentifier, mergeModelUsageMaps, persistTokenCounts, computeDisplayTokens, RUNNING_TOKENS, AgentStateManager, type ModelUsageMap } from './core';
 import {
   initializePRReviewWorkflow,
   executePRReviewPlanPhase,
@@ -25,6 +27,8 @@ import {
   completePRReviewWorkflow,
   handlePRReviewWorkflowError,
 } from './workflowPhases';
+import { runInstallAgent } from './agents';
+import { extractInstallContext } from './phases';
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
@@ -49,6 +53,28 @@ async function main(): Promise<void> {
   let totalModelUsage: ModelUsageMap = {};
 
   try {
+    // Run install phase inline (PRReviewWorkflowConfig is not compatible with executeInstallPhase)
+    try {
+      const installAgentStatePath = AgentStateManager.initializeState(config.adwId, 'install-agent', config.orchestratorStatePath);
+      const installResult = await runInstallAgent(config.prNumber, config.adwId, config.logsDir, installAgentStatePath, config.worktreePath, config.prDetails.body);
+      if (installResult.success) {
+        const jsonlPath = path.join(config.logsDir, 'install-agent.jsonl');
+        const contextString = extractInstallContext(jsonlPath);
+        if (contextString) {
+          const cacheDir = path.join('agents', config.adwId);
+          fs.mkdirSync(cacheDir, { recursive: true });
+          fs.writeFileSync(path.join(cacheDir, 'install_cache.md'), contextString, 'utf-8');
+          config.installContext = contextString;
+        }
+        totalCostUsd += installResult.totalCostUsd ?? 0;
+        if (installResult.modelUsage) totalModelUsage = mergeModelUsageMaps(totalModelUsage, installResult.modelUsage);
+        persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
+      }
+    } catch (installError) {
+      const msg = installError instanceof Error ? installError.message : String(installError);
+      AgentStateManager.appendLog(config.orchestratorStatePath, `Install phase error (non-fatal): ${msg}`);
+    }
+
     const planResult = await executePRReviewPlanPhase(config);
     totalCostUsd += planResult.costUsd;
     totalModelUsage = mergeModelUsageMaps(totalModelUsage, planResult.modelUsage);

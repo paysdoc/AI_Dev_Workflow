@@ -38,8 +38,7 @@ Then('it calls runClaudeAgentWithCommand with command {string}', function (this:
 
 Then('it does not call runClaudeAgent directly', function (this: Record<string, string>) {
   const stripped = this.fileContent
-    .replace(/runClaudeAgentWithCommand/g, 'PLACEHOLDER')
-    .replace(/runPrimedClaudeAgentWithCommand/g, 'PLACEHOLDER');
+    .replace(/runClaudeAgentWithCommand/g, 'PLACEHOLDER');
   assert.ok(
     !stripped.includes('runClaudeAgent('),
     `Expected ${this.filePath} not to call runClaudeAgent directly`,
@@ -82,8 +81,7 @@ Then('runClaudeAgent is not defined anywhere in the codebase', function () {
   for (const file of filesToCheck) {
     const content = readFileSync(join(ROOT, file), 'utf-8');
     const stripped = content
-      .replace(/runClaudeAgentWithCommand/g, 'PLACEHOLDER')
-      .replace(/runPrimedClaudeAgentWithCommand/g, 'PLACEHOLDER');
+      .replace(/runClaudeAgentWithCommand/g, 'PLACEHOLDER');
     const defined = /(?:export\s+)?(?:async\s+)?function\s+runClaudeAgent\b/.test(stripped);
     assert.ok(!defined, `Expected runClaudeAgent not to be defined in ${file}`);
   }
@@ -102,8 +100,7 @@ Then('runClaudeAgent is not called anywhere in the codebase', function () {
     if (!existsSync(fullPath)) continue;
     const content = readFileSync(fullPath, 'utf-8');
     const stripped = content
-      .replace(/runClaudeAgentWithCommand/g, 'PLACEHOLDER')
-      .replace(/runPrimedClaudeAgentWithCommand/g, 'PLACEHOLDER');
+      .replace(/runClaudeAgentWithCommand/g, 'PLACEHOLDER');
     assert.ok(
       !stripped.includes('runClaudeAgent('),
       `Expected runClaudeAgent not to be called in ${file}`,

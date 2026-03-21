@@ -14,6 +14,7 @@ import {
   emptyModelUsageMap,
   mergeModelUsageMaps,
 } from '../core';
+import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
 import { computeDisplayTokens } from '../core/tokenManager';
 import { postIssueStageComment } from './phaseCommentHelpers';
 import {
@@ -34,8 +35,9 @@ import { BoardStatus } from '../providers/types';
  * with context from the previous run. Repeats up to MAX_TOKEN_CONTINUATIONS times.
  * Uses `config.repoInfo` for external repository API calls when targeting a different repo.
  */
-export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costUsd: number; modelUsage: ModelUsageMap }> {
+export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costUsd: number; modelUsage: ModelUsageMap; phaseCostRecords: PhaseCostRecord[] }> {
   const { recoveryState, orchestratorStatePath, orchestratorName, adwId, issueNumber, issue, issueType, ctx, worktreePath, logsDir, repoContext } = config;
+  const phaseStartTime = Date.now();
 
   if (repoContext) {
     await repoContext.issueTracker.moveToStatus(issueNumber, BoardStatus.Building);
@@ -55,6 +57,7 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
   let costUsd = 0;
   let modelUsage = emptyModelUsageMap();
   const currentBranch = ctx.branchName || '';
+  let continuationCount = 0;
 
   if (shouldExecuteStage('implemented', recoveryState)) {
     if (repoContext) {
@@ -94,6 +97,40 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
           log(`  [Turn ${info.turnCount}] Tool: ${info.toolName}`, 'info');
         }
 
+        // Update running token total with real-time extractor estimates during streaming
+        if (RUNNING_TOKENS && info.tokenEstimate && Object.keys(info.tokenEstimate).length > 0) {
+          let totalInput = 0;
+          let totalOutput = 0;
+          const modelBreakdown: Array<{ model: string; total: number }> = [];
+
+          for (const [model, usage] of Object.entries(info.tokenEstimate)) {
+            const input = usage['input'] ?? 0;
+            const output = usage['output'] ?? 0;
+            totalInput += input;
+            totalOutput += output;
+            if (input + output > 0) {
+              modelBreakdown.push({ model, total: input + output });
+            }
+          }
+
+          // Add previous phases' accumulated usage if available
+          if (config.totalModelUsage) {
+            for (const usage of Object.values(config.totalModelUsage)) {
+              totalInput += usage.inputTokens;
+              totalOutput += usage.outputTokens;
+            }
+          }
+
+          ctx.runningTokenTotal = {
+            inputTokens: totalInput,
+            outputTokens: totalOutput,
+            cacheCreationTokens: 0,
+            total: totalInput + totalOutput,
+            isEstimated: true,
+            modelBreakdown: modelBreakdown.sort((a, b) => b.total - a.total),
+          };
+        }
+
         const now = Date.now();
         if (now - lastProgressUpdate >= PROGRESS_UPDATE_INTERVAL_MS) {
           if (repoContext) {
@@ -111,7 +148,37 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
         modelUsage = mergeModelUsageMaps(modelUsage, buildResult.modelUsage);
       }
 
-      // Update running token total so next build_progress comment reflects current usage
+      // Log estimate-vs-actual comparison at phase completion
+      if (buildResult.costSource === 'extractor_finalized' && buildResult.estimatedUsage && buildResult.actualUsage) {
+        const estimated = buildResult.estimatedUsage;
+        const actual = buildResult.actualUsage;
+        const allModels = new Set([...Object.keys(estimated), ...Object.keys(actual)]);
+
+        for (const model of allModels) {
+          const est = estimated[model] ?? {};
+          const act = actual[model] ?? {};
+          const tokenTypes: Array<[string, string]> = [['input', 'input'], ['output', 'output'], ['cache_read', 'cache_read'], ['cache_write', 'cache_write']];
+
+          const parts: string[] = [];
+          for (const [key, label] of tokenTypes) {
+            const estVal = est[key] ?? 0;
+            const actVal = act[key] ?? 0;
+            if (estVal === 0 && actVal === 0) continue;
+            const diff = actVal - estVal;
+            const pct = estVal > 0 ? ((diff / estVal) * 100).toFixed(1) : 'N/A';
+            const sign = diff >= 0 ? '+' : '';
+            parts.push(`${label}: ${estVal.toLocaleString()} estimated → ${actVal.toLocaleString()} actual (${sign}${pct}%)`);
+          }
+
+          if (parts.length > 0) {
+            log(`Estimate vs actual [${model}]: ${parts.join(', ')}`, 'info');
+          }
+        }
+      } else if (buildResult.costSource === 'extractor_estimated') {
+        log('Build agent cost is from streaming estimates only (no result message received).', 'info');
+      }
+
+      // Update running token total so next build_progress comment reflects current usage (now actual)
       if (RUNNING_TOKENS && config.totalModelUsage) {
         const combinedUsage = mergeModelUsageMaps(config.totalModelUsage, modelUsage);
         ctx.runningTokenTotal = computeDisplayTokens(combinedUsage);
@@ -119,6 +186,7 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
 
       if (buildResult.tokenLimitExceeded) {
         continuationNumber++;
+        continuationCount++;
         log(`Build agent hit token limit (continuation ${continuationNumber}/${MAX_TOKEN_CONTINUATIONS})`, 'info');
 
         // Save partial state
@@ -190,5 +258,16 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
     log('Skipping implementation commit (already completed)', 'info');
   }
 
-  return { costUsd, modelUsage };
+  const phaseCostRecords = createPhaseCostRecords({
+    workflowId: adwId,
+    issueNumber,
+    phase: 'build',
+    status: PhaseCostStatus.Success,
+    retryCount: 0,
+    continuationCount,
+    durationMs: Date.now() - phaseStartTime,
+    modelUsage,
+  });
+
+  return { costUsd, modelUsage, phaseCostRecords };
 }

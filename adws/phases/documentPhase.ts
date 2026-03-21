@@ -9,6 +9,7 @@ import {
   type ModelUsageMap,
   emptyModelUsageMap,
 } from '../core';
+import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
 import { pushBranch } from '../vcs';
 import { postIssueStageComment } from './phaseCommentHelpers';
 import {
@@ -28,8 +29,9 @@ import type { WorkflowConfig } from './workflowLifecycle';
 export async function executeDocumentPhase(
   config: WorkflowConfig,
   screenshotsDir?: string,
-): Promise<{ costUsd: number; modelUsage: ModelUsageMap }> {
+): Promise<{ costUsd: number; modelUsage: ModelUsageMap; phaseCostRecords: PhaseCostRecord[] }> {
   const { orchestratorStatePath, adwId, issueNumber, issueType, issue, ctx, worktreePath, logsDir, repoContext, branchName } = config;
+  const phaseStartTime = Date.now();
 
   let costUsd = 0;
   let modelUsage = emptyModelUsageMap();
@@ -100,5 +102,16 @@ export async function executeDocumentPhase(
   }
   log('Document phase completed', 'success');
 
-  return { costUsd, modelUsage };
+  const phaseCostRecords = createPhaseCostRecords({
+    workflowId: adwId,
+    issueNumber,
+    phase: 'document',
+    status: PhaseCostStatus.Success,
+    retryCount: 0,
+    continuationCount: 0,
+    durationMs: Date.now() - phaseStartTime,
+    modelUsage,
+  });
+
+  return { costUsd, modelUsage, phaseCostRecords };
 }

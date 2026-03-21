@@ -79,6 +79,8 @@ export interface ProgressInfo {
   text?: string;
   turnCount?: number;
   toolCount?: number;
+  /** Real-time estimated token usage by model (injected by agentProcessHandler via the extractor). */
+  tokenEstimate?: Record<string, Record<string, number>>;
 }
 
 /**

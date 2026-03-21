@@ -18,6 +18,7 @@ export const STAGE_ORDER: WorkflowStage[] = [
   'plan_created',
   'planFile_created',
   'plan_committing',
+  'plan_validating',
   'implementing',
   'build_progress',
   'implemented',
@@ -37,6 +38,7 @@ const STAGE_HEADER_MAP: Record<string, WorkflowStage> = {
   ':white_check_mark: Implementation Plan Created': 'plan_created',
   ':page_facing_up: Plan File Created': 'planFile_created',
   ':floppy_disk: Committing Plan': 'plan_committing',
+  ':mag: Validating Plan-Scenario Alignment': 'plan_validating',
   ':hammer_and_wrench: Implementing Solution': 'implementing',
   ':white_check_mark: Implementation Complete': 'implemented',
   ':floppy_disk: Committing Implementation': 'implementation_committing',
@@ -63,9 +65,11 @@ export function formatModelName(modelKey: string): string {
 }
 
 /** Formats a running token total footer line, or returns empty string when not set. */
-export function formatRunningTokenFooter(tokenTotal?: { total: number; modelBreakdown?: Array<{ model: string; total: number }> }): string {
+export function formatRunningTokenFooter(tokenTotal?: { total: number; isEstimated?: boolean; modelBreakdown?: Array<{ model: string; total: number }> }): string {
   if (!tokenTotal) return '';
-  let line = `\n\n> **Running Token Total (I/O):** ${tokenTotal.total.toLocaleString('en-US')} tokens`;
+  const prefix = tokenTotal.isEstimated ? '~' : '';
+  const suffix = tokenTotal.isEstimated ? ' (estimated)' : '';
+  let line = `\n\n> **Running Token Total (I/O):** ${prefix}${tokenTotal.total.toLocaleString('en-US')} tokens${suffix}`;
   if (tokenTotal.modelBreakdown && tokenTotal.modelBreakdown.length > 0) {
     const parts = tokenTotal.modelBreakdown.map(
       (entry) => `${formatModelName(entry.model)}: ${entry.total.toLocaleString('en-US')}`,

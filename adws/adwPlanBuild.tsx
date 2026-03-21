@@ -1,6 +1,6 @@
 #!/usr/bin/env bunx tsx
 /**
- * ADW Plan & Build - Plan+Build+Test+PR Orchestrator
+ * ADW Plan & Build - Plan+Build+Test+PR Orchestrator (no review)
  *
  * Usage: bunx tsx adws/adwPlanBuild.tsx <github-issueNumber> [adw-id] [--issue-type <type>]
  *
@@ -8,8 +8,8 @@
  * 1. Initialize: fetch issue, classify type, setup worktree, initialize state, detect recovery
  * 2. Plan Phase: classify issue, create branch, run plan agent, commit plan
  * 3. Build Phase: run build agent, commit implementation
- * 4. Test Phase: optionally run unit tests, then run BDD scenarios
- * 5. PR Phase: create pull request (only if all tests pass)
+ * 4. Test Phase: optionally run unit tests (unit only)
+ * 5. PR Phase: create pull request
  * 6. Finalize: update state, post completion comment
  *
  * Environment Requirements:
@@ -21,15 +21,15 @@
 import { mergeModelUsageMaps, persistTokenCounts, parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId, computeDisplayTokens, RUNNING_TOKENS } from './core';
 import {
   initializeWorkflow,
+  executeInstallPhase,
   executePlanPhase,
-  executeScenarioPhase,
-  executePlanValidationPhase,
   executeBuildPhase,
   executeTestPhase,
   executePRPhase,
   completeWorkflow,
   handleWorkflowError,
 } from './workflowPhases';
+import { commitPhasesCostData } from './phases/phaseCostCommit';
 
 /**
  * Main orchestrator workflow.
@@ -54,24 +54,18 @@ async function main(): Promise<void> {
   let totalModelUsage = {};
 
   try {
-    const [planResult, scenarioResult] = await Promise.all([
-      executePlanPhase(config),
-      executeScenarioPhase(config),
-    ]);
-    totalCostUsd += planResult.costUsd + scenarioResult.costUsd;
-    totalModelUsage = mergeModelUsageMaps(
-      mergeModelUsageMaps(totalModelUsage, planResult.modelUsage),
-      scenarioResult.modelUsage,
-    );
+    const installResult = await executeInstallPhase(config);
+    totalCostUsd += installResult.costUsd;
+    totalModelUsage = mergeModelUsageMaps(totalModelUsage, installResult.modelUsage);
     persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
-    if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeDisplayTokens(totalModelUsage);
+    await commitPhasesCostData(config, installResult.phaseCostRecords);
 
-    config.totalModelUsage = totalModelUsage;
-    const planValidationResult = await executePlanValidationPhase(config);
-    totalCostUsd += planValidationResult.costUsd;
-    totalModelUsage = mergeModelUsageMaps(totalModelUsage, planValidationResult.modelUsage);
+    const planResult = await executePlanPhase(config);
+    totalCostUsd += planResult.costUsd;
+    totalModelUsage = mergeModelUsageMaps(totalModelUsage, planResult.modelUsage);
     persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
     if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeDisplayTokens(totalModelUsage);
+    await commitPhasesCostData(config, planResult.phaseCostRecords);
 
     config.totalModelUsage = totalModelUsage;
     const buildResult = await executeBuildPhase(config);
@@ -79,6 +73,7 @@ async function main(): Promise<void> {
     totalModelUsage = mergeModelUsageMaps(totalModelUsage, buildResult.modelUsage);
     persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
     if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeDisplayTokens(totalModelUsage);
+    await commitPhasesCostData(config, buildResult.phaseCostRecords);
 
     config.totalModelUsage = totalModelUsage;
     const testResult = await executeTestPhase(config);
@@ -86,6 +81,7 @@ async function main(): Promise<void> {
     totalModelUsage = mergeModelUsageMaps(totalModelUsage, testResult.modelUsage);
     persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
     if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeDisplayTokens(totalModelUsage);
+    await commitPhasesCostData(config, testResult.phaseCostRecords);
 
     config.totalModelUsage = totalModelUsage;
     const prResult = await executePRPhase(config);
@@ -93,10 +89,10 @@ async function main(): Promise<void> {
     totalModelUsage = mergeModelUsageMaps(totalModelUsage, prResult.modelUsage);
     persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
     if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeDisplayTokens(totalModelUsage);
+    await commitPhasesCostData(config, prResult.phaseCostRecords);
 
     await completeWorkflow(config, totalCostUsd, {
       unitTestsPassed: testResult.unitTestsPassed,
-      bddScenariosPassed: testResult.bddScenariosPassed,
       totalTestRetries: testResult.totalRetries,
     }, totalModelUsage);
   } catch (error) {

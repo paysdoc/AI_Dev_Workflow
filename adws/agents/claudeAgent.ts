@@ -33,6 +33,18 @@ export interface AgentResult {
   tokenUsage?: TokenUsageSnapshot;
   /** Partial output captured before token limit termination. */
   partialOutput?: string;
+  /**
+   * Pre-finalization estimated usage snapshot (input + cache from per-turn streaming, output from estimation).
+   * Available for estimate-vs-actual comparison when costSource is 'extractor_finalized'.
+   */
+  estimatedUsage?: Record<string, Record<string, number>>;
+  /**
+   * Actual usage from the extractor after finalization (mirrors result message data in snake_case format).
+   * Only available when costSource is 'extractor_finalized'.
+   */
+  actualUsage?: Record<string, Record<string, number>>;
+  /** Indicates whether cost data came from a finalized result message or from streaming estimates. */
+  costSource?: 'extractor_finalized' | 'extractor_estimated';
 }
 
 /**
@@ -67,6 +79,7 @@ function delay(ms: number): Promise<void> {
  * @param onProgress - Optional callback for progress updates
  * @param statePath - Optional path to agent's state directory for state tracking
  * @param cwd - Optional working directory for the agent (defaults to process.cwd())
+ * @param contextPreamble - Optional context string prepended to the prompt (e.g., cached install context)
  */
 export async function runClaudeAgentWithCommand(
   command: string,
@@ -77,7 +90,8 @@ export async function runClaudeAgentWithCommand(
   effort?: string,
   onProgress?: ProgressCallback,
   statePath?: string,
-  cwd?: string
+  cwd?: string,
+  contextPreamble?: string
 ): Promise<AgentResult> {
   // Build the prompt as "command 'args'" for the CLI
   // Each arg is single-quoted to preserve formatting
@@ -85,7 +99,9 @@ export async function runClaudeAgentWithCommand(
   const quotedArgs = typeof args === 'string'
     ? escapeArg(args)
     : args.map(escapeArg).join(' ');
-  const prompt = `${command} ${quotedArgs}`;
+  const prompt = contextPreamble
+    ? `${contextPreamble}\n\n${command} ${quotedArgs}`
+    : `${command} ${quotedArgs}`;
 
   // Write initial state if state path provided
   if (statePath) {
@@ -94,6 +110,8 @@ export async function runClaudeAgentWithCommand(
     if (effort) AgentStateManager.appendLog(statePath, `Reasoning effort: ${effort}`);
     savePrompt(prompt, statePath);
   }
+
+  if (contextPreamble) log(`  Context preamble: ${contextPreamble.length} chars`, 'info');
 
   const cliArgs = [
     '--print',
@@ -132,40 +150,4 @@ export async function runClaudeAgentWithCommand(
   }
 
   return result;
-}
-
-/**
- * Runs a Claude Code agent with /install priming before executing the given slash command.
- * Composes a two-step prompt that first runs /install to prime project context, then
- * executes the actual command — all in the same CLI invocation so both share context.
- *
- * @param command - The slash command to invoke after priming (e.g., '/feature', '/scenario_writer')
- * @param args - Arguments to pass to the command
- * @param agentName - Human-readable name for logging
- * @param outputFile - Path to write JSONL output
- * @param model - The model to use ('opus', 'sonnet', 'haiku')
- * @param effort - Optional reasoning effort level ('low' | 'medium' | 'high' | 'max')
- * @param onProgress - Optional callback for progress updates
- * @param statePath - Optional path to agent's state directory for state tracking
- * @param cwd - Optional working directory for the agent (defaults to process.cwd())
- */
-export async function runPrimedClaudeAgentWithCommand(
-  command: string,
-  args: string | readonly string[],
-  agentName: string,
-  outputFile: string,
-  model: string = 'sonnet',
-  effort?: string,
-  onProgress?: ProgressCallback,
-  statePath?: string,
-  cwd?: string
-): Promise<AgentResult> {
-  const escapeArg = (a: string): string => `'${a.replace(/'/g, "'\\''")}'`;
-  const quotedArgs = typeof args === 'string'
-    ? escapeArg(args)
-    : args.map(escapeArg).join(' ');
-  const commandPart = quotedArgs ? `${command} ${quotedArgs}` : command;
-  const primedPrompt = `/install\n\nOnce /install completes, run: ${commandPart}`;
-
-  return runClaudeAgentWithCommand(primedPrompt, [], agentName, outputFile, model, effort, onProgress, statePath, cwd);
 }

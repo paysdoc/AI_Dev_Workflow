@@ -7,9 +7,11 @@
 import {
   log,
   AgentStateManager,
+  shouldExecuteStage,
   type ModelUsageMap,
   emptyModelUsageMap,
 } from '../core';
+import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
 import { runScenarioAgent } from '../agents';
 import type { WorkflowConfig } from './workflowLifecycle';
 
@@ -21,8 +23,15 @@ import type { WorkflowConfig } from './workflowLifecycle';
  */
 export async function executeScenarioPhase(
   config: WorkflowConfig,
-): Promise<{ costUsd: number; modelUsage: ModelUsageMap }> {
-  const { orchestratorStatePath, adwId, issueNumber, issue, worktreePath, logsDir } = config;
+): Promise<{ costUsd: number; modelUsage: ModelUsageMap; phaseCostRecords: PhaseCostRecord[] }> {
+  const { recoveryState, orchestratorStatePath, adwId, issueNumber, issue, worktreePath, logsDir } = config;
+
+  if (!shouldExecuteStage('plan_validating', recoveryState)) {
+    log('Skipping scenario phase (already completed in previous run)', 'info');
+    return { costUsd: 0, modelUsage: emptyModelUsageMap(), phaseCostRecords: [] };
+  }
+
+  const phaseStartTime = Date.now();
 
   let costUsd = 0;
   let modelUsage = emptyModelUsageMap();
@@ -39,7 +48,7 @@ export async function executeScenarioPhase(
       execution: AgentStateManager.createExecutionState('running'),
     });
 
-    const result = await runScenarioAgent(issue, logsDir, scenarioAgentStatePath, worktreePath, adwId);
+    const result = await runScenarioAgent(issue, logsDir, scenarioAgentStatePath, worktreePath, adwId, config.installContext);
 
     costUsd = result.totalCostUsd || 0;
     if (result.modelUsage) modelUsage = result.modelUsage;
@@ -54,7 +63,7 @@ export async function executeScenarioPhase(
       });
       log(`Scenario Agent failed: ${result.output}`, 'warn');
       AgentStateManager.appendLog(orchestratorStatePath, `Scenario planning failed: ${result.output}`);
-      return { costUsd, modelUsage };
+      return { costUsd, modelUsage, phaseCostRecords: [] };
     }
 
     AgentStateManager.writeState(scenarioAgentStatePath, {
@@ -71,8 +80,19 @@ export async function executeScenarioPhase(
     const errorMsg = error instanceof Error ? error.message : String(error);
     log(`Scenario phase error (non-fatal): ${errorMsg}`, 'warn');
     AgentStateManager.appendLog(orchestratorStatePath, `Scenario planning error: ${errorMsg}`);
-    return { costUsd: 0, modelUsage: emptyModelUsageMap() };
+    return { costUsd: 0, modelUsage: emptyModelUsageMap(), phaseCostRecords: [] };
   }
 
-  return { costUsd, modelUsage };
+  const phaseCostRecords = createPhaseCostRecords({
+    workflowId: adwId,
+    issueNumber,
+    phase: 'scenario',
+    status: PhaseCostStatus.Success,
+    retryCount: 0,
+    continuationCount: 0,
+    durationMs: Date.now() - phaseStartTime,
+    modelUsage,
+  });
+
+  return { costUsd, modelUsage, phaseCostRecords };
 }

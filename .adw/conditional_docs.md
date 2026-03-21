@@ -138,14 +138,6 @@
     - When troubleshooting why an issue with natural-language dependencies was not deferred
     - When working with `dependencyExtractionAgent.ts` or `parseDependencyArray`
 
-- app_docs/feature-uzfskg-add-primed-claude-agent.md
-  - Conditions:
-    - When working with `runPrimedClaudeAgentWithCommand` or agent context priming
-    - When modifying `adws/agents/claudeAgent.ts`, `planAgent.ts`, or `scenarioAgent.ts`
-    - When adding a new agent that needs project context pre-loaded before its slash command
-    - When troubleshooting plan or scenario agents running redundant codebase exploration
-    - When deciding whether a new agent should use the primed or base variant
-
 - app_docs/feature-jjxkk9-conditional-unit-tests-plan-template.md
   - Conditions:
     - When working with `.claude/commands/feature.md` plan template
@@ -252,3 +244,62 @@
     - When modifying issue reference format (`#N` vs `owner/repo#N`) in `pullRequestCreator.ts` or `pull_request.md`
     - When adding `repoOwner`/`repoName` context to the PR creation chain
     - When investigating cross-repo GitHub issue linking failures in PR bodies
+
+- app_docs/feature-h01a4p-cost-revamp-phasecos-phase-cost-record-csv.md
+  - Conditions:
+    - When working with `PhaseCostRecord`, `PhaseCostStatus`, or `createPhaseCostRecords()` in `adws/cost/`
+    - When modifying or extending the per-issue or project total CSV format
+    - When adding a new phase that needs to produce cost records
+    - When troubleshooting missing cost data after a workflow crash mid-execution
+    - When working with `appendIssueCostCsv`, `rebuildProjectTotalCsv`, or `commitPhasesCostData`
+    - When adding support for new token types or providers in cost tracking
+
+- app_docs/feature-ku956a-cost-revamp-core-com-cost-module-core-vitest.md
+  - Conditions:
+    - When working with `adws/cost/` module types, computation, or the Anthropic extractor
+    - When implementing or extending `TokenUsageExtractor` for a new provider
+    - When modifying `computeCost()`, `checkDivergence()`, or Anthropic pricing tables
+    - When adding Vitest unit tests for cost-related code
+    - When troubleshooting the snake_case/camelCase mismatch in CLI `result` message parsing
+    - When wiring the cost module into workflow phases or agents
+
+- app_docs/feature-ex60ng-step-def-gen-review-gating.md
+  - Conditions:
+    - When working with `/generate_step_definitions`, `stepDefAgent.ts`, or `stepDefPhase.ts`
+    - When modifying the phase ordering in any orchestrator (`adwSdlc`, `adwPlanBuildTestReview`, `adwPlanBuildReview`, `adwPlanBuild`, `adwPlanBuildTest`, `adwPlanBuildDocument`)
+    - When troubleshooting review phase hard failures or PR-gating behaviour
+    - When adding or changing the coding guidelines check in `review.md`
+    - When investigating ungeneratable scenario removal or the warning comment posted on the issue
+
+- app_docs/feature-tgs1li-cost-revamp-wire-ext-wire-extractor-agent-handler.md
+  - Conditions:
+    - When working with real-time token tracking in `agentProcessHandler.ts`
+    - When modifying `AnthropicTokenUsageExtractor` streaming or deduplication logic
+    - When troubleshooting cost fields missing for failed or token-limit-terminated agent runs
+    - When implementing estimate-vs-actual logging or interpreting its output
+    - When modifying `formatRunningTokenFooter` or the `isEstimated` display format
+    - When adding `tokenEstimate` to `ProgressInfo` or the progress callback chain
+
+- app_docs/feature-7nl59l-fix-cron-respawn-cache.md
+  - Conditions:
+    - When working with `ensureCronProcess` or `cronSpawnedForRepo` in `adws/triggers/webhookGatekeeper.ts`
+    - When modifying the in-memory cron process cache or the PID-file liveness check (`isCronAliveForRepo`)
+    - When troubleshooting cron processes that die mid-session and are never respawned
+    - When adding regression tests for the two-layer cron guard (in-memory Set + PID file)
+
+- app_docs/feature-71pdjz-cache-install-context.md
+  - Conditions:
+    - When working with `installPhase.ts`, `installAgent.ts`, or `extractInstallContext()`
+    - When modifying `runClaudeAgentWithCommand()` signature or the `contextPreamble` injection mechanism
+    - When adding a new orchestrator that needs to run the install phase
+    - When troubleshooting agents that are re-reading files despite the install cache being present
+    - When working with `WorkflowConfig.installContext` or `PRReviewWorkflowConfig.installContext`
+    - When modifying how `/install` is registered in model/effort maps in `adws/core/config.ts`
+
+- app_docs/feature-1vil1v-skip-scenario-writer-on-resume.md
+  - Conditions:
+    - When working with `executeScenarioPhase` or `executePlanValidationPhase` in `adws/phases/`
+    - When modifying `STAGE_ORDER` or `STAGE_HEADER_MAP` in `adws/core/workflowCommentParsing.ts`
+    - When adding recovery guards to new phases using `shouldExecuteStage`
+    - When troubleshooting the scenario writer or plan validation phase running unnecessarily on workflow resume
+    - When investigating why `plan_validating` was not detected as a completed stage during recovery

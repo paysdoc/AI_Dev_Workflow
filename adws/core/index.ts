@@ -144,6 +144,22 @@ export {
 // Cost commit queue
 export { costCommitQueue, CostCommitQueue } from './costCommitQueue';
 
+// New cost module (PhaseCostRecord, exchange rates, new CSV writer)
+export type { PhaseCostRecord, CreatePhaseCostRecordsOptions, ProjectTotalRow } from '../cost';
+export {
+  PhaseCostStatus,
+  createPhaseCostRecords,
+  appendIssueCostCsv,
+  writeIssueCostCsv as writeIssueCostCsvNew,
+  parseIssueCostCsv,
+  parseIssueCostTotal as parseIssueCostTotalNew,
+  rebuildProjectTotalCsv,
+  formatIssueCostCsv as formatIssueCostCsvNew,
+  formatProjectTotalCsv,
+  collectAllTokenTypes,
+  FIXED_TOKEN_COLUMNS,
+} from '../cost';
+
 // Workflow comment parsing (platform-agnostic)
 export {
   STAGE_ORDER,

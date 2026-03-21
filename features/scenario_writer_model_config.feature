@@ -32,15 +32,3 @@ Feature: Scenario writer uses opus model in standard mode and sonnet in fast mod
     Given the issue body contains "/fast"
     When getModelForCommand is called with "/scenario_writer"
     Then it returns "sonnet"
-
-  @adw-231-scenario-writer-opus-model
-  Scenario: scenarioAgent passes the correct model to runPrimedClaudeAgentWithCommand
-    Given "adws/agents/scenarioAgent.ts" is read
-    When the scenario agent is invoked with a standard issue (no /fast keyword)
-    Then runPrimedClaudeAgentWithCommand receives model "opus" for the /scenario_writer command
-
-  @adw-231-scenario-writer-opus-model
-  Scenario: scenarioAgent passes sonnet model in fast mode
-    Given "adws/agents/scenarioAgent.ts" is read
-    When the scenario agent is invoked with an issue body containing "/fast"
-    Then runPrimedClaudeAgentWithCommand receives model "sonnet" for the /scenario_writer command

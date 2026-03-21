@@ -152,9 +152,13 @@ export type SlashCommand =
   | '/adw_init'
   // Scenario writing
   | '/scenario_writer'
+  // Step definition generation
+  | '/generate_step_definitions'
   // Plan validation commands
   | '/validate_plan_scenarios'
-  | '/resolve_plan_scenarios';
+  | '/resolve_plan_scenarios'
+  // Install and prime
+  | '/install';
 
 /**
  * GitHub user model.
