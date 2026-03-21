@@ -29,6 +29,7 @@ import * as path from 'path';
 import { mergeModelUsageMaps, persistTokenCounts, parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId, computeDisplayTokens, RUNNING_TOKENS } from './core';
 import {
   initializeWorkflow,
+  executeInstallPhase,
   executePlanPhase,
   executeScenarioPhase,
   executePlanValidationPhase,
@@ -75,6 +76,12 @@ async function main(): Promise<void> {
   let totalModelUsage = {};
 
   try {
+    const installResult = await executeInstallPhase(config);
+    totalCostUsd += installResult.costUsd;
+    totalModelUsage = mergeModelUsageMaps(totalModelUsage, installResult.modelUsage);
+    persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
+    await commitPhasesCostData(config, installResult.phaseCostRecords);
+
     const [planResult, scenarioResult] = await Promise.all([
       executePlanPhase(config),
       executeScenarioPhase(config),

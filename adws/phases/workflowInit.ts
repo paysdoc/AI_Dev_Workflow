@@ -73,6 +73,7 @@ export interface WorkflowConfig {
   repoContext?: RepoContext;
   projectConfig: ProjectConfig;
   totalModelUsage?: ModelUsageMap;
+  installContext?: string;
 }
 
 /**

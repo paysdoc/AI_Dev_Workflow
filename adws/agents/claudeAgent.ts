@@ -79,6 +79,7 @@ function delay(ms: number): Promise<void> {
  * @param onProgress - Optional callback for progress updates
  * @param statePath - Optional path to agent's state directory for state tracking
  * @param cwd - Optional working directory for the agent (defaults to process.cwd())
+ * @param contextPreamble - Optional context string prepended to the prompt (e.g., cached install context)
  */
 export async function runClaudeAgentWithCommand(
   command: string,
@@ -89,7 +90,8 @@ export async function runClaudeAgentWithCommand(
   effort?: string,
   onProgress?: ProgressCallback,
   statePath?: string,
-  cwd?: string
+  cwd?: string,
+  contextPreamble?: string
 ): Promise<AgentResult> {
   // Build the prompt as "command 'args'" for the CLI
   // Each arg is single-quoted to preserve formatting
@@ -97,7 +99,9 @@ export async function runClaudeAgentWithCommand(
   const quotedArgs = typeof args === 'string'
     ? escapeArg(args)
     : args.map(escapeArg).join(' ');
-  const prompt = `${command} ${quotedArgs}`;
+  const prompt = contextPreamble
+    ? `${contextPreamble}\n\n${command} ${quotedArgs}`
+    : `${command} ${quotedArgs}`;
 
   // Write initial state if state path provided
   if (statePath) {
@@ -106,6 +110,8 @@ export async function runClaudeAgentWithCommand(
     if (effort) AgentStateManager.appendLog(statePath, `Reasoning effort: ${effort}`);
     savePrompt(prompt, statePath);
   }
+
+  if (contextPreamble) log(`  Context preamble: ${contextPreamble.length} chars`, 'info');
 
   const cliArgs = [
     '--print',

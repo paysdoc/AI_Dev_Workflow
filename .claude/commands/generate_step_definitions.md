@@ -7,9 +7,6 @@ You are the Step Definition Generator Agent. Your job is to generate Cucumber st
 - `$1` — Issue number
 - `$2` — ADW workflow ID
 
-## Before you do anything else
-Read and execute .claude/commands/install.md
-
 ## Instructions
 
 ### 1. Read configuration

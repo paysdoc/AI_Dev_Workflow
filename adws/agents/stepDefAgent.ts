@@ -50,6 +50,7 @@ export async function runStepDefAgent(
   statePath?: string,
   cwd?: string,
   issueBody?: string,
+  contextPreamble?: string,
 ): Promise<StepDefAgentResult> {
   const args = [String(issueNumber), adwId];
   const outputFile = path.join(logsDir, 'step-def-agent.jsonl');
@@ -68,6 +69,7 @@ export async function runStepDefAgent(
     undefined,
     statePath,
     cwd,
+    contextPreamble,
   );
 
   const removedScenarios = parseRemovedScenarios(result.output);

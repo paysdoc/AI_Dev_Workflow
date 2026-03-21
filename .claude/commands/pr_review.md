@@ -2,9 +2,6 @@
 
 Create a new plan at `specs/issue-{issueNumber}-plan.md` (where `{issueNumber}` is the issue number) to resolve the `PR-Review` using the exact specified markdown `Plan Format`. Follow the `Instructions` to create the plan use the `Relevant Files` to focus on the right files. Follow the `Report` section to properly report the results of your work.
 
-## Before you do anything else
-Read and exectute .claude/commands/install.md
-
 ## Instructions
 
 - IMPORTANT: You're writing a plan to resolve a review based on the `PR-Review` that will add value to the application.
