@@ -97,6 +97,7 @@ ADW uses BDD scenarios for validation (see `.adw/scenarios.md`).
 │   ├── feature.md
 │   ├── find_issue_dependencies.md
 │   ├── generate_branch_name.md
+│   ├── generate_step_definitions.md
 │   ├── implement.md
 │   ├── in_loop_review.md
 │   ├── install.md
