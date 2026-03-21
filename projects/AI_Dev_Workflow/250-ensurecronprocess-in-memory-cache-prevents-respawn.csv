@@ -11,4 +11,5 @@ bagrdu-ensurecronprocess-in,250,build,claude-sonnet-4-6,anthropic,0.218193,0.218
 7nl59l-ensurecronprocess-in,250,pr,claude-sonnet-4-6,anthropic,0.111336,0.111336,success,0,0,42766,2026-03-21T12:20:04.963Z,0,0,6,1003,86496,18753,0
 7nl59l-ensurecronprocess-in,250,review,claude-opus-4-6,anthropic,3.157828,3.157828,success,1,0,701986,2026-03-21T12:31:52.601Z,0,0,5119,38237,1452428,232015,0
 7nl59l-ensurecronprocess-in,250,review,claude-sonnet-4-6,anthropic,0.299088,0.299088,success,1,0,701986,2026-03-21T12:31:52.601Z,0,0,25,2880,354524,39855,0
-7nl59l-ensurecronprocess-in,250,document,claude-sonnet-4-6,anthropic,0.199327,0.199327,success,0,0,1950752,2026-03-21T13:04:28.905Z,undefined,undefined,11,3106,246112,21032,0
+7nl59l-ensurecronprocess-in,250,document,claude-sonnet-4-6,anthropic,0.199327,0.199327,success,0,0,1950752,2026-03-21T13:04:28.905Z,0,0,11,3106,246112,21032,0
+7nl59l-ensurecronprocess-in,250,kpi,claude-haiku-4-5-20251001,anthropic,0.073980,0.073980,success,0,0,2920913,2026-03-21T13:53:15.488Z,undefined,undefined,44,6690,182946,17753,0
