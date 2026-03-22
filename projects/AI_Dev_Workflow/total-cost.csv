@@ -102,6 +102,7 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 265,architectural improvement opportunities,install,claude-sonnet-4-6,0.443107
 265,architectural improvement opportunities,plan,claude-opus-4-6,1.193647
 265,architectural improvement opportunities,plan,claude-haiku-4-5-20251001,0.770612
+265,architectural improvement opportunities,pr,claude-sonnet-4-6,0.161671
 265,architectural improvement opportunities,review,claude-opus-4-6,7.069424
 265,architectural improvement opportunities,review,claude-haiku-4-5-20251001,0.482726
 265,architectural improvement opportunities,review,claude-sonnet-4-6,1.360778
@@ -112,5 +113,5 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 265,architectural improvement opportunities,step-def-gen,claude-sonnet-4-6,1.193231
 265,architectural improvement opportunities,step-def-gen,claude-sonnet-4-6,0.236564
 
-Total Cost (USD):,111.3383
-Total Cost (EUR):,96.3634
+Total Cost (USD):,111.4999
+Total Cost (EUR):,96.5033
