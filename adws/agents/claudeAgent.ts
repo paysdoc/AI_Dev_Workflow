@@ -1,7 +1,7 @@
 /**
  * Claude Code agent runner for executing AI agents.
  */
-import { spawn } from 'child_process';
+import { spawn, execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import { log, AgentStateManager, getSafeSubprocessEnv, type TokenUsageSnapshot, resolveClaudeCodePath, clearClaudeCodePathCache } from '../core';
@@ -46,6 +46,8 @@ export interface AgentResult {
   actualUsage?: Record<string, Record<string, number>>;
   /** Indicates whether cost data came from a finalized result message or from streaming estimates. */
   costSource?: 'extractor_finalized' | 'extractor_estimated';
+  /** True when the agent was terminated due to an expired OAuth token or authentication failure. */
+  authExpired?: boolean;
 }
 
 /**
@@ -148,6 +150,38 @@ export async function runClaudeAgentWithCommand(
     const retryProcess = spawn(retryPath, cliArgs, spawnOptions);
 
     return handleAgentProcess(retryProcess, agentName, outputFile, onProgress, statePath, model);
+  }
+
+  // Retry once on expired OAuth token — verify auth is still valid then respawn the agent.
+  // A fresh CLI process handles OAuth token refresh automatically on startup.
+  if (!result.success && result.authExpired) {
+    log(`${agentName}: OAuth token expired. Checking auth status before retry...`, 'warn');
+    try {
+      const statusOutput = execSync(`${resolvedPath} auth status --json`, {
+        timeout: 15_000,
+        // Inherit full env so the CLI can access its own config/credentials at HOME
+        env: { ...process.env },
+      }).toString();
+      const status = JSON.parse(statusOutput);
+      if (!status.loggedIn) {
+        log(`${agentName}: Claude CLI reports not logged in. Manual re-auth required (claude auth login).`, 'error');
+        return result;
+      }
+      log(`${agentName}: Auth valid (${status.email || status.authMethod}, ${status.subscriptionType || 'unknown plan'}). Restarting agent...`, 'info');
+    } catch (refreshErr) {
+      log(`${agentName}: Auth status check failed: ${refreshErr}. Manual re-auth may be required (claude auth login).`, 'error');
+      return result;
+    }
+
+    await delay(2000);
+    const retryProcess = spawn(resolvedPath, cliArgs, spawnOptions);
+    const retryResult = await handleAgentProcess(retryProcess, agentName, outputFile, onProgress, statePath, model);
+
+    // If the retry also fails with auth, don't loop — require manual intervention
+    if (retryResult.authExpired) {
+      log(`${agentName}: Auth still failing after retry. Manual re-auth required (claude auth login).`, 'error');
+    }
+    return retryResult;
   }
 
   return result;

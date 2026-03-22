@@ -64,6 +64,7 @@ export function handleAgentProcess(
     const extractor = new AnthropicTokenUsageExtractor(model);
 
     let tokenLimitReached = false;
+    let authErrorDetected = false;
     const tokenThreshold = MAX_THINKING_TOKENS * TOKEN_LIMIT_THRESHOLD;
 
     fs.mkdirSync(path.dirname(outputFile), { recursive: true });
@@ -79,6 +80,17 @@ export function handleAgentProcess(
       outputStream.write(text);
       extractor.onChunk(text);
       parseJsonlOutput(text, state, wrappedOnProgress, statePath);
+
+      // Detect fatal authentication errors (e.g. expired OAuth tokens) and kill immediately
+      // rather than letting Claude Code CLI retry for hours with exponential backoff.
+      if (!authErrorDetected && text.includes('"subtype":"api_retry"') && text.includes('authentication_error')) {
+        authErrorDetected = true;
+        log(`${agentName}: Fatal authentication error detected — killing process to avoid hours of futile retries.`, 'error');
+        if (statePath) {
+          AgentStateManager.appendLog(statePath, 'Terminated: OAuth token expired or authentication failed');
+        }
+        claude.kill('SIGTERM');
+      }
 
       if (!tokenLimitReached) {
         const currentUsage = extractor.getCurrentUsage();
@@ -225,6 +237,7 @@ export function handleAgentProcess(
           actualUsage: extractorFinalized ? extractorUsage : undefined,
           costSource,
           statePath,
+          authExpired: authErrorDetected,
         });
       }
     });
