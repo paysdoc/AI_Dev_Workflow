@@ -84,6 +84,7 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 262,chore explore codebase for architectural improveme,install,claude-sonnet-4-6,0.206374
 262,chore explore codebase for architectural improveme,plan,claude-opus-4-6,0.433833
 262,chore explore codebase for architectural improveme,plan,claude-haiku-4-5-20251001,0.648026
+263,plan file not saved,install,claude-sonnet-4-6,0.309993
 
-Total Cost (USD):,83.5170
-Total Cost (EUR):,72.2840
+Total Cost (USD):,83.8270
+Total Cost (EUR):,72.5523
