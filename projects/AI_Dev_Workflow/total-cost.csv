@@ -95,6 +95,7 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 263,plan file not saved,plan,claude-haiku-4-5-20251001,0.132275
 263,plan file not saved,scenario,claude-opus-4-6,0.742454
 263,plan file not saved,scenario,claude-haiku-4-5-20251001,0.233973
+265,architectural improvement opportunities,install,claude-sonnet-4-6,0.251733
 
-Total Cost (USD):,87.7436
-Total Cost (EUR):,75.9422
+Total Cost (USD):,87.9953
+Total Cost (EUR):,76.1601

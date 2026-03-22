@@ -1,0 +1,2 @@
+workflow_id,issue_number,phase,model,provider,computed_cost_usd,reported_cost_usd,status,retry_count,continuation_count,duration_ms,timestamp,estimated_tokens,actual_tokens,input,output,cache_read,cache_write,reasoning
+btrko8-architectural-improv,265,install,claude-sonnet-4-6,anthropic,0.251733,0.251733,success,0,0,85808,2026-03-22T19:17:38.227Z,,,7,5215,103378,37993,0
