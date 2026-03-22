@@ -5,3 +5,4 @@ btrko8-architectural-improv,265,plan,claude-haiku-4-5-20251001,anthropic,0.77061
 btrko8-architectural-improv,265,scenario,claude-opus-4-6,anthropic,0.446107,0.446107,success,0,0,219012,2026-03-22T19:21:25.043Z,,,3178,5078,170859,34854,0
 btrko8-architectural-improv,265,scenario,claude-haiku-4-5-20251001,anthropic,0.383892,0.383892,success,0,0,219012,2026-03-22T19:21:25.043Z,,,1855,15480,947030,167947,0
 btrko8-architectural-improv,265,build,claude-sonnet-4-6,anthropic,7.762141,7.762141,success,0,1,1549084,2026-03-22T19:49:48.410Z,,,1384,75891,16215802,467969,0
+btrko8-architectural-improv,265,step-def-gen,claude-sonnet-4-6,anthropic,1.193231,1.193231,success,0,0,318626,2026-03-22T19:55:14.466Z,,,47,18872,2073967,76752,0
