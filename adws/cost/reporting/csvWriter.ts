@@ -122,6 +122,16 @@ export function writeIssueCostCsv(
   log(`Issue cost CSV written: ${relativePath}`, 'success');
 }
 
+/** Safely parses a JSON object string, returning undefined for empty/invalid values. */
+function safeParseJsonRecord(value: string): Record<string, number> | undefined {
+  if (!value || value === 'undefined' || value === 'null') return undefined;
+  try {
+    return JSON.parse(value) as Record<string, number>;
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * Parses a new-format issue cost CSV back into PhaseCostRecord[].
  * Returns an empty array when csvContent is empty or the format is unrecognised
@@ -165,8 +175,8 @@ export function parseIssueCostCsv(csvContent: string): PhaseCostRecord[] {
       continuationCount: parseInt(get('continuation_count'), 10) || 0,
       durationMs: parseInt(get('duration_ms'), 10) || 0,
       timestamp: get('timestamp'),
-      estimatedTokens: get('estimated_tokens') ? JSON.parse(get('estimated_tokens')) as Record<string, number> : undefined,
-      actualTokens: get('actual_tokens') ? JSON.parse(get('actual_tokens')) as Record<string, number> : undefined,
+      estimatedTokens: safeParseJsonRecord(get('estimated_tokens')),
+      actualTokens: safeParseJsonRecord(get('actual_tokens')),
       tokenUsage,
     };
   });
