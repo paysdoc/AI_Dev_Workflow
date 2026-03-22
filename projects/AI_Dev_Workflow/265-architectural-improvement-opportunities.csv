@@ -9,3 +9,4 @@ btrko8-architectural-improv,265,step-def-gen,claude-sonnet-4-6,anthropic,1.19323
 btrko8-architectural-improv,265,review,claude-opus-4-6,anthropic,7.069424,7.069424,success,1,0,1870811,2026-03-22T20:26:31.202Z,,,27646,84597,3984226,451865,0
 btrko8-architectural-improv,265,review,claude-haiku-4-5-20251001,anthropic,0.482726,0.482726,success,1,0,1870811,2026-03-22T20:26:31.202Z,,,7336,22496,1132470,199730,0
 btrko8-architectural-improv,265,review,claude-sonnet-4-6,anthropic,1.360778,1.360778,success,1,0,1870811,2026-03-22T20:26:31.202Z,,,50,23777,1821838,121979,0
+btrko8-architectural-improv,265,document,claude-sonnet-4-6,anthropic,0.244404,0.244404,success,0,0,107989,2026-03-22T20:28:24.623Z,,,8,4154,170136,34941,0
