@@ -4,13 +4,14 @@
 import { spawn } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
-import { log, AgentStateManager, getSafeSubprocessEnv, type ModelUsageMap, type TokenUsageSnapshot, resolveClaudeCodePath, clearClaudeCodePathCache } from '../core';
+import { log, AgentStateManager, getSafeSubprocessEnv, type TokenUsageSnapshot, resolveClaudeCodePath, clearClaudeCodePathCache } from '../core';
+import { type ModelUsageMap } from '../cost';
 import type { ProgressCallback } from './jsonlParser';
 import { handleAgentProcess } from './agentProcessHandler';
 
 // Backward-compatible re-exports
-export { computeTotalTokens, computePrimaryModelTokens, isModelMatch } from '../core/tokenManager';
-export type { TokenTotals } from '../core/tokenManager';
+export { computeTotalTokens, computePrimaryModelTokens, isModelMatch } from '../cost';
+export type { TokenTotals } from '../cost';
 export { parseJsonlOutput, extractTextFromAssistantMessage, extractToolUseFromMessage } from './jsonlParser';
 export type {
   ProgressInfo, ProgressCallback, JsonlParserState,

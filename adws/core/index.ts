@@ -76,39 +76,21 @@ export {
 // Orchestrator shared utilities
 export { shouldExecuteStage, hasUncommittedChanges, getNextStage } from './orchestratorLib';
 
-// Cost types
-export type { ModelUsage, ModelUsageMap, CurrencyAmount, CostBreakdown } from '../types/costTypes';
-export { emptyModelUsage, emptyModelUsageMap } from '../types/costTypes';
+// Cost types (re-exported from adws/cost for backward compatibility)
+export type { ModelUsage, ModelUsageMap, CurrencyAmount, CostBreakdown } from '../cost';
+export { emptyModelUsage, emptyModelUsageMap } from '../cost';
 
-// Cost pricing
-export type { ModelPricing } from './costPricing';
-export { MODEL_PRICING } from './costPricing';
-
-// Cost report
+// Cost helpers (re-exported from adws/cost for backward compatibility)
 export {
   CURRENCY_SYMBOLS,
+  fetchExchangeRates,
   mergeModelUsageMaps,
   computeTotalCostUsd,
-  fetchExchangeRates,
   buildCostBreakdown,
   formatCostBreakdownMarkdown,
   persistTokenCounts,
   computeEurRate,
-} from './costReport';
-
-// Cost CSV writer
-export type { ProjectCostRow } from './costCsvWriter';
-export {
-  getIssueCsvPath,
-  getProjectCsvPath,
-  getNextSerialCsvPath,
-  formatIssueCostCsv,
-  formatProjectCostCsv,
-  parseProjectCostCsv,
-  writeIssueCostCsv,
-  parseIssueCostTotal,
-  rebuildProjectCostCsv,
-} from './costCsvWriter';
+} from '../cost';
 
 // Project configuration
 export type { ProjectConfig, CommandsConfig, ProvidersConfig, ScenariosConfig } from './projectConfig';
@@ -128,9 +110,9 @@ export { allocateRandomPort, isPortAvailable } from './portAllocator';
 export type { OrchestratorArgs } from './orchestratorCli';
 export { extractCwdOption, printUsageAndExit as printOrchestratorUsage, parseOrchestratorArguments, buildRepoIdentifier } from './orchestratorCli';
 
-// Token Manager
-export type { TokenTotals, ModelTokenEntry } from './tokenManager';
-export { computeTotalTokens, computeDisplayTokens, computePrimaryModelTokens, isModelMatch } from './tokenManager';
+// Token utilities (re-exported from adws/cost for backward compatibility)
+export type { TokenTotals, ModelTokenEntry } from '../cost';
+export { computeTotalTokens, computeDisplayTokens, computePrimaryModelTokens, isModelMatch } from '../cost';
 
 // Target repo manager
 export {
@@ -144,17 +126,17 @@ export {
 // Cost commit queue
 export { costCommitQueue, CostCommitQueue } from './costCommitQueue';
 
-// New cost module (PhaseCostRecord, exchange rates, new CSV writer)
+// Cost module (PhaseCostRecord, exchange rates, CSV writer)
 export type { PhaseCostRecord, CreatePhaseCostRecordsOptions, ProjectTotalRow } from '../cost';
 export {
   PhaseCostStatus,
   createPhaseCostRecords,
   appendIssueCostCsv,
-  writeIssueCostCsv as writeIssueCostCsvNew,
+  writeIssueCostCsv,
   parseIssueCostCsv,
-  parseIssueCostTotal as parseIssueCostTotalNew,
+  parseIssueCostTotal,
   rebuildProjectTotalCsv,
-  formatIssueCostCsv as formatIssueCostCsvNew,
+  formatIssueCostCsv,
   formatProjectTotalCsv,
   collectAllTokenTypes,
   FIXED_TOKEN_COLUMNS,

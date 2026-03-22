@@ -45,6 +45,7 @@ Required and optional environment variables (see `.env.sample` for full referenc
 - `TARGET_REPOS_DIR` - (Optional) Directory for storing cloned target repository workspaces, defaults to `~/.adw/repos`
 - `MAX_CONCURRENT_PER_REPO` - (Optional) Maximum concurrent in-progress issues per repository, defaults to `5`
 - `RUNNING_TOKENS` - (Optional) Show running token totals in issue comments, defaults to `false`
+- `SHOW_COST_IN_COMMENTS` - (Optional) Show cost breakdowns in GitHub issue/PR comments, defaults to `false`
 - `JIRA_BASE_URL` - (Optional) Jira instance URL, required only when using Jira as the issue tracker
 - `JIRA_PROJECT_KEY` - (Optional) Default Jira project key
 - `JIRA_EMAIL` - (Optional) Jira Cloud auth email
@@ -177,9 +178,6 @@ adws/                   # ADW workflow system
 │   ├── config.ts
 │   ├── constants.ts    # Orchestrator ID constants
 │   ├── costCommitQueue.ts
-│   ├── costCsvWriter.ts
-│   ├── costPricing.ts
-│   ├── costReport.ts
 │   ├── index.ts
 │   ├── issueClassifier.ts
 │   ├── jsonParser.ts
@@ -190,7 +188,6 @@ adws/                   # ADW workflow system
 │   ├── retryOrchestrator.ts
 │   ├── stateHelpers.ts
 │   ├── targetRepoManager.ts
-│   ├── tokenManager.ts  # Token counting (relocated from agents/)
 │   ├── utils.ts
 │   ├── workflowCommentParsing.ts  # Comment parsing utilities
 │   └── workflowMapping.ts  # Issue type → orchestrator mapping
@@ -224,9 +221,11 @@ adws/                   # ADW workflow system
 │   │   ├── index.ts
 │   │   └── pricing.ts
 │   ├── reporting/      # Cost CSV reporting
+│   │   ├── commentFormatter.ts
 │   │   ├── csvWriter.ts
 │   │   └── index.ts
 │   ├── computation.ts  # Cost computation logic
+│   ├── costHelpers.ts  # Shared cost utility helpers
 │   ├── exchangeRates.ts
 │   ├── index.ts
 │   └── types.ts
@@ -253,7 +252,6 @@ adws/                   # ADW workflow system
 │   └── worktreeSetup.ts  # Gitignore and worktree setup helpers
 ├── types/              # Type definitions
 │   ├── agentTypes.ts
-│   ├── costTypes.ts
 │   ├── dataTypes.ts
 │   ├── index.ts
 │   ├── issueTypes.ts
@@ -327,5 +325,6 @@ specs/                  # Generated implementation specs
 .gitignore
 package.json
 tsconfig.json           # Root TypeScript configuration
+vitest.config.ts        # Vitest test configuration
 README.md               # This file
 ```

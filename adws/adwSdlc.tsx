@@ -27,7 +27,8 @@
  */
 
 import * as path from 'path';
-import { mergeModelUsageMaps, persistTokenCounts, parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId, computeDisplayTokens, RUNNING_TOKENS } from './core';
+import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId, RUNNING_TOKENS } from './core';
+import { mergeModelUsageMaps, persistTokenCounts, computeDisplayTokens } from './cost';
 import {
   initializeWorkflow,
   executeInstallPhase,

@@ -10,6 +10,12 @@ const ROOT = process.cwd();
 // "not exported" assertions pass vacuously (nothing is exported from a deleted file).
 const REMOVED_FILES = new Set([
   'adws/agents/crucialScenarioProof.ts', // renamed to regressionScenarioProof.ts
+  // Deleted in issue #245 — cost module migration cleanup
+  'adws/core/costPricing.ts',
+  'adws/core/costReport.ts',
+  'adws/core/costCsvWriter.ts',
+  'adws/core/tokenManager.ts',
+  'adws/types/costTypes.ts',
 ]);
 
 // Shared mutable context for cross-file step definitions.

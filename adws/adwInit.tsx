@@ -17,7 +17,8 @@
  * - GITHUB_PAT: (Optional) GitHub Personal Access Token
  */
 
-import { persistTokenCounts, parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, log, type ModelUsageMap, emptyModelUsageMap, mergeModelUsageMaps, OrchestratorId } from './core';
+import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, log, OrchestratorId } from './core';
+import { persistTokenCounts, type ModelUsageMap, emptyModelUsageMap, mergeModelUsageMaps } from './cost';
 import { runClaudeAgentWithCommand } from './agents/claudeAgent';
 import { commitChanges } from './vcs';
 import {
