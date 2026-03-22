@@ -319,3 +319,11 @@
     - When adding the `SHOW_COST_IN_COMMENTS` env var toggle or changing cost comment visibility
     - When troubleshooting divergence warnings not appearing or cost sections showing when they should be hidden
     - When extending `WorkflowContext` with new cost-related fields (`costSection`, `phaseCostRecords`)
+
+- app_docs/feature-sgdfol-cost-revamp-orchestr-cost-orchestrator-migration-cleanup.md
+  - Conditions:
+    - When working with `adws/cost/` as the authoritative cost module
+    - When importing cost types (`ModelUsageMap`, `ModelUsage`, `CostBreakdown`) or helpers (`mergeModelUsageMaps`, `persistTokenCounts`, `buildCostBreakdown`, etc.)
+    - When adding a new orchestrator that needs cost tracking
+    - When troubleshooting imports that previously came from `core/costReport`, `core/tokenManager`, or `types/costTypes`
+    - When modifying `ClaudeCodeResultMessage` or cost extraction in `jsonlParser.ts`

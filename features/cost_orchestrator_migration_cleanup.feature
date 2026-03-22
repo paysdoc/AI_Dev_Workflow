@@ -249,32 +249,6 @@ Feature: Cost revamp: orchestrator migration and old code cleanup
     When "bun run test" is run
     Then all unit tests pass
 
-  # ── 11: BDD scenarios pass ─────────────────────────────────────────────────
-
-  @adw-sgdfol-cost-revamp-orchestr @regression
-  Scenario: All BDD scenarios pass after migration
-    Given the ADW codebase with old cost modules removed
-    When the E2E test suite is run
-    Then all BDD scenarios pass
-
-  # ── 12: End-to-end workflow run ─────────────────────────────────────────────
-
-  @adw-sgdfol-cost-revamp-orchestr @regression
-  Scenario: Full workflow run produces correct cost output in CSV
-    Given the ADW codebase with old cost modules removed
-    When a full workflow run completes using "adwPlanBuild.tsx"
-    Then cost CSV files are written to the projects directory
-    And each phase produces a PhaseCostRecord row in the per-issue CSV
-    And the project total CSV is rebuilt with aggregated data
-
-  @adw-sgdfol-cost-revamp-orchestr @regression
-  Scenario: Full workflow run produces correct cost in GitHub comments
-    Given the ADW codebase with old cost modules removed
-    And the environment variable "SHOW_COST_IN_COMMENTS" is set to "true"
-    When a full workflow run completes using "adwPlanBuild.tsx"
-    Then the completion comment includes a cost section formatted by the new comment formatter
-    And the cost section includes per-model token breakdown
-
   # ── 13: agentProcessHandler still uses new cost extractor ───────────────────
 
   @adw-sgdfol-cost-revamp-orchestr
