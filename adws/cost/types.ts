@@ -2,9 +2,8 @@
  * Core type definitions for the cost module.
  * Extensible provider-agnostic interfaces for token usage and cost tracking,
  * plus the PhaseCostRecord model for per-phase cost tracking.
+ * Also contains legacy camelCase types migrated from types/costTypes.ts.
  */
-
-import type { ModelUsageMap as LegacyModelUsageMap } from '../types/costTypes.ts';
 
 /** Extensible token count map with provider-specific keys (e.g. input, output, cache_read, cache_write). */
 export type TokenUsageMap = Record<string, number>;
@@ -12,8 +11,54 @@ export type TokenUsageMap = Record<string, number>;
 /** Per-token pricing map with provider-specific keys matching TokenUsageMap keys. */
 export type PricingMap = Record<string, number>;
 
-/** Token usage keyed by model identifier. */
+/** Token usage keyed by model identifier (new snake_case format, used by extractors). */
 export type ModelUsageMap = Record<string, TokenUsageMap>;
+
+// ---------------------------------------------------------------------------
+// Legacy camelCase types (migrated from types/costTypes.ts)
+// ---------------------------------------------------------------------------
+
+/** Per-model token usage counts and cost (legacy camelCase format). */
+export interface LegacyModelUsage {
+  readonly inputTokens: number;
+  readonly outputTokens: number;
+  readonly cacheReadInputTokens: number;
+  readonly cacheCreationInputTokens: number;
+  readonly costUSD: number;
+}
+
+/** Map of model name/ID to its token usage (legacy camelCase format). */
+export type LegacyModelUsageMap = Record<string, LegacyModelUsage>;
+
+/** A cost amount in a specific currency. */
+export interface CurrencyAmount {
+  readonly currency: string;
+  readonly amount: number;
+  readonly symbol: string;
+}
+
+/** Complete cost breakdown for a workflow run. */
+export interface CostBreakdown {
+  readonly totalCostUsd: number;
+  readonly modelUsage: LegacyModelUsageMap;
+  readonly currencies: readonly CurrencyAmount[];
+}
+
+/** Creates a zero-valued LegacyModelUsage. */
+export function emptyLegacyModelUsage(): LegacyModelUsage {
+  return {
+    inputTokens: 0,
+    outputTokens: 0,
+    cacheReadInputTokens: 0,
+    cacheCreationInputTokens: 0,
+    costUSD: 0,
+  };
+}
+
+/** Creates an empty LegacyModelUsageMap. */
+export function emptyLegacyModelUsageMap(): LegacyModelUsageMap {
+  return {};
+}
 
 /** Pull-model interface for streaming token usage extraction. */
 export interface TokenUsageExtractor {
@@ -92,7 +137,7 @@ export interface CreatePhaseCostRecordsOptions {
   readonly retryCount: number;
   readonly continuationCount: number;
   readonly durationMs: number;
-  readonly modelUsage: LegacyModelUsageMap;
+  readonly modelUsage: LegacyModelUsageMap; // legacy camelCase format from orchestrators
 }
 
 /**

@@ -18,7 +18,8 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { parseTargetRepoArgs, buildRepoIdentifier, mergeModelUsageMaps, persistTokenCounts, computeDisplayTokens, RUNNING_TOKENS, AgentStateManager, type ModelUsageMap } from './core';
+import { parseTargetRepoArgs, buildRepoIdentifier, RUNNING_TOKENS, AgentStateManager } from './core';
+import { mergeModelUsageMaps, persistTokenCounts, computeDisplayTokens, type ModelUsageMap } from './cost';
 import {
   initializePRReviewWorkflow,
   executePRReviewPlanPhase,

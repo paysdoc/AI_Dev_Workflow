@@ -14,8 +14,7 @@ import {
   emptyModelUsageMap,
   mergeModelUsageMaps,
 } from '../core';
-import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
-import { computeDisplayTokens } from '../core/tokenManager';
+import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord, computeDisplayTokens } from '../cost';
 import { postIssueStageComment } from './phaseCommentHelpers';
 import {
   getPlanFilePath,

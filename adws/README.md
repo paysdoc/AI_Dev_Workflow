@@ -484,7 +484,7 @@ The system uses a modular TypeScript architecture with composable scripts:
 - **Workflow Phases**: Phase implementations in `phases/`, with lifecycle split into `workflowInit.ts` and `workflowCompletion.ts`
 - **Agent Integration**: Standardized Claude Code CLI interface in `agents/claudeAgent.ts` with process handling in `agents/agentProcessHandler.ts`
 - **Shared CLI Utilities**: `core/orchestratorCli.ts` provides shared argument parsing for all orchestrators
-- **Type Definitions**: TypeScript types in `types/dataTypes.ts`, `types/costTypes.ts`
+- **Type Definitions**: TypeScript types in `types/dataTypes.ts`, `types/agentTypes.ts`
 
 ### Orchestrator Composition
 Orchestrators combine phases internally, managing state between each step:
@@ -556,21 +556,17 @@ app_docs/                         # Generated documentation
 - `patchAgent.ts` - Patch/quick-fix agent
 - `prAgent.ts` - Pull request creation agent
 - `documentAgent.ts` - Documentation generation agent
-- `jsonlParser.ts` - JSONL output parsing and token extraction
+- `jsonlParser.ts` - JSONL output parsing (text, tool calls, progress)
 
 **Core** (`core/`):
 - `config.ts` - Configuration management (env vars, model maps, effort maps)
 - `constants.ts` - Orchestrator identifier constants (`OrchestratorId`)
 - `orchestratorCli.ts` - Shared CLI argument parsing utilities (eliminates duplication across orchestrators)
 - `agentState.ts` - State management for workflow chaining
-- `tokenManager.ts` - Token count management (relocated from agents/)
 - `utils.ts` - Utility functions (ID generation, logging, slugify)
 - `issueClassifier.ts` - Issue classification logic
 - `workflowMapping.ts` - Issue-type-to-workflow-script mapping (extracted from issueClassifier)
 - `projectConfig.ts` - Target repo `.adw/` project configuration loader
-- `costPricing.ts` - Model pricing definitions
-- `costReport.ts` - Cost breakdown formatting and persistence
-- `costCsvWriter.ts` - CSV-based cost tracking
 - `portAllocator.ts` - Random port allocation for dev servers
 - `targetRepoManager.ts` - Target repo workspace cloning and management
 - `orchestratorLib.ts` - Shared orchestrator stage management

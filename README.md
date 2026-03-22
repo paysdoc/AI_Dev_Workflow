@@ -178,9 +178,6 @@ adws/                   # ADW workflow system
 │   ├── config.ts
 │   ├── constants.ts    # Orchestrator ID constants
 │   ├── costCommitQueue.ts
-│   ├── costCsvWriter.ts
-│   ├── costPricing.ts
-│   ├── costReport.ts
 │   ├── index.ts
 │   ├── issueClassifier.ts
 │   ├── jsonParser.ts
@@ -191,7 +188,6 @@ adws/                   # ADW workflow system
 │   ├── retryOrchestrator.ts
 │   ├── stateHelpers.ts
 │   ├── targetRepoManager.ts
-│   ├── tokenManager.ts  # Token counting (relocated from agents/)
 │   ├── utils.ts
 │   ├── workflowCommentParsing.ts  # Comment parsing utilities
 │   └── workflowMapping.ts  # Issue type → orchestrator mapping
@@ -229,6 +225,7 @@ adws/                   # ADW workflow system
 │   │   ├── csvWriter.ts
 │   │   └── index.ts
 │   ├── computation.ts  # Cost computation logic
+│   ├── costHelpers.ts  # Shared cost utility helpers
 │   ├── exchangeRates.ts
 │   ├── index.ts
 │   └── types.ts
@@ -255,7 +252,6 @@ adws/                   # ADW workflow system
 │   └── worktreeSetup.ts  # Gitignore and worktree setup helpers
 ├── types/              # Type definitions
 │   ├── agentTypes.ts
-│   ├── costTypes.ts
 │   ├── dataTypes.ts
 │   ├── index.ts
 │   ├── issueTypes.ts

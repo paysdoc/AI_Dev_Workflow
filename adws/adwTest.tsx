@@ -26,12 +26,11 @@ import {
   AgentStateManager,
   AgentState,
   MAX_TEST_RETRY_ATTEMPTS,
-  mergeModelUsageMaps,
-  persistTokenCounts,
   OrchestratorId,
   loadProjectConfig,
   parseUnitTestsEnabled,
 } from './core';
+import { mergeModelUsageMaps, persistTokenCounts } from './cost';
 import { extractCwdOption, printUsageAndExit } from './core/orchestratorCli';
 import { runUnitTestsWithRetry, runBddScenariosWithRetry } from './agents';
 

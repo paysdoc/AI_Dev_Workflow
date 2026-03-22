@@ -35,6 +35,7 @@ export interface AgentTemplateRequest {
 
 /**
  * Claude Code JSONL result message (last line).
+ * Cost fields are handled by AnthropicTokenUsageExtractor — not parsed here.
  */
 export interface ClaudeCodeResultMessage {
   type: string;
@@ -45,15 +46,6 @@ export interface ClaudeCodeResultMessage {
   numTurns: number;
   result: string;
   sessionId: string;
-  totalCostUsd: number;
-  /** Per-model token usage breakdown from the Claude CLI (available in recent versions). */
-  modelUsage?: Record<string, {
-    inputTokens: number;
-    outputTokens: number;
-    cacheReadInputTokens: number;
-    cacheCreationInputTokens: number;
-    costUSD: number;
-  }>;
 }
 
 /**

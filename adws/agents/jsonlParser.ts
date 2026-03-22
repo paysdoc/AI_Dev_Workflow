@@ -5,8 +5,7 @@
  * tool usage, and result information.
  */
 
-import { ClaudeCodeResultMessage, AgentStateManager, type ModelUsageMap } from '../core';
-import { computeTotalTokens, computePrimaryModelTokens } from '../core/tokenManager';
+import { ClaudeCodeResultMessage, AgentStateManager } from '../core';
 
 // ---------------------------------------------------------------------------
 // Content block types – discriminated union replacing `any` usage
@@ -55,7 +54,6 @@ export interface JsonlAssistantMessage {
 /** A result-type JSONL message returned at the end of an agent run. */
 export interface JsonlResultMessage {
   type: 'result';
-  modelUsage?: ModelUsageMap;
   [key: string]: unknown;
 }
 
@@ -100,9 +98,7 @@ export interface JsonlParserState {
   fullOutput: string;
   turnCount: number;
   toolCount: number;
-  modelUsage: ModelUsageMap | undefined;
-  totalTokens: number;
-  /** When set, token totals are filtered to only the primary model (e.g., 'opus'). */
+  /** When set, token limit checks are filtered to only the primary model (e.g., 'opus'). */
   primaryModel?: string;
 }
 
@@ -162,13 +158,6 @@ export function parseJsonlOutput(
 
       if (parsed.type === 'result') {
         state.lastResult = parsed as unknown as ClaudeCodeResultMessage;
-        if (parsed.modelUsage && typeof parsed.modelUsage === 'object') {
-          state.modelUsage = parsed.modelUsage as unknown as ModelUsageMap;
-          const totals = state.primaryModel
-            ? computePrimaryModelTokens(state.modelUsage, state.primaryModel)
-            : computeTotalTokens(state.modelUsage);
-          state.totalTokens = totals.total;
-        }
       }
 
       if (parsed.type === 'assistant') {

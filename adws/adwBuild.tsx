@@ -35,10 +35,10 @@ import {
   shouldExecuteStage,
   hasUncommittedChanges,
   getNextStage,
-  persistTokenCounts,
   parseTargetRepoArgs,
   OrchestratorId,
 } from './core';
+import { persistTokenCounts } from './cost';
 import {
   fetchGitHubIssue,
   getRepoInfo,

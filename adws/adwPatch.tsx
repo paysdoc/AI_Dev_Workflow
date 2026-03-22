@@ -27,12 +27,11 @@ import {
   ensureLogsDirectory,
   AgentStateManager,
   type AgentState,
-  mergeModelUsageMaps,
-  persistTokenCounts,
   parseTargetRepoArgs,
   parseOrchestratorArguments,
   OrchestratorId,
 } from './core';
+import { mergeModelUsageMaps, persistTokenCounts } from './cost';
 import { fetchGitHubIssue } from './github';
 import { getCurrentBranch, inferIssueTypeFromBranch } from './vcs';
 import {
