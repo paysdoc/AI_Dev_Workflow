@@ -107,6 +107,7 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 265,architectural improvement opportunities,scenario,claude-opus-4-6,0.446107
 265,architectural improvement opportunities,scenario,claude-haiku-4-5-20251001,0.383892
 265,architectural improvement opportunities,step-def-gen,claude-sonnet-4-6,1.193231
+265,architectural improvement opportunities,step-def-gen,claude-sonnet-4-6,0.236564
 
-Total Cost (USD):,109.3454
-Total Cost (EUR):,94.6386
+Total Cost (USD):,109.5820
+Total Cost (EUR):,94.8433
