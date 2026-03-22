@@ -12,3 +12,5 @@ btrko8-architectural-improv,265,review,claude-sonnet-4-6,anthropic,1.360778,1.36
 btrko8-architectural-improv,265,document,claude-sonnet-4-6,anthropic,0.244404,0.244404,success,0,0,107989,2026-03-22T20:28:24.623Z,,,8,4154,170136,34941,0
 2gp7qi-architectural-improv,265,install,claude-sonnet-4-6,anthropic,0.443107,0.443107,success,0,0,109182,2026-03-22T21:42:12.920Z,,,16,6248,564140,48026,0
 2gp7qi-architectural-improv,265,step-def-gen,claude-sonnet-4-6,anthropic,0.236564,0.236564,success,0,0,52860,2026-03-22T21:43:16.830Z,,,12,2828,113038,42719,0
+2gp7qi-architectural-improv,265,review,claude-opus-4-6,anthropic,1.257548,1.257548,success,0,0,224498,2026-03-22T21:47:06.694Z,,,7124,16574,542606,85804,0
+2gp7qi-architectural-improv,265,review,claude-haiku-4-5-20251001,anthropic,0.211962,0.211962,success,0,0,224498,2026-03-22T21:47:06.694Z,,,40,7278,990106,61217,0
