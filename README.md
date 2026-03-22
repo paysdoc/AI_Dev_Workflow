@@ -153,6 +153,7 @@ adws/                   # ADW workflow system
 │   ├── bddScenarioRunner.ts  # BDD scenario execution
 │   ├── buildAgent.ts
 │   ├── claudeAgent.ts
+│   ├── commandAgent.ts  # Generic thin-wrapper agent for slash commands
 │   ├── regressionScenarioProof.ts  # Regression scenario proof for reviews
 │   ├── dependencyExtractionAgent.ts  # LLM-based issue dependency extraction
 │   ├── documentAgent.ts
@@ -174,15 +175,20 @@ adws/                   # ADW workflow system
 │   ├── testRetry.ts
 │   └── validationAgent.ts  # Plan-scenario validation
 ├── core/               # Configuration and utilities
+│   ├── adwId.ts        # ADW ID generation
 │   ├── agentState.ts
+│   ├── claudeStreamParser.ts  # Claude JSONL stream parsing
 │   ├── config.ts
 │   ├── constants.ts    # Orchestrator ID constants
-│   ├── costCommitQueue.ts
+│   ├── environment.ts  # Environment variable accessors
 │   ├── index.ts
 │   ├── issueClassifier.ts
 │   ├── jsonParser.ts
+│   ├── logger.ts       # Structured logging utilities
+│   ├── modelRouting.ts # Model/effort routing utilities
 │   ├── orchestratorCli.ts  # Shared CLI parsing utilities
 │   ├── orchestratorLib.ts
+│   ├── phaseRunner.ts  # PhaseRunner / CostTracker composition
 │   ├── portAllocator.ts
 │   ├── projectConfig.ts
 │   ├── retryOrchestrator.ts
@@ -224,6 +230,7 @@ adws/                   # ADW workflow system
 │   │   ├── commentFormatter.ts
 │   │   ├── csvWriter.ts
 │   │   └── index.ts
+│   ├── commitQueue.ts  # Cost CSV commit queue
 │   ├── computation.ts  # Cost computation logic
 │   ├── costHelpers.ts  # Shared cost utility helpers
 │   ├── exchangeRates.ts
@@ -248,12 +255,12 @@ adws/                   # ADW workflow system
 │   ├── testPhase.ts
 │   ├── workflowCompletion.ts  # Workflow completion/error handling
 │   ├── workflowInit.ts  # Workflow initialization
-│   ├── workflowLifecycle.ts  # Re-export barrel
 │   └── worktreeSetup.ts  # Gitignore and worktree setup helpers
 ├── types/              # Type definitions
 │   ├── agentTypes.ts
 │   ├── dataTypes.ts
 │   ├── index.ts
+│   ├── issueRouting.ts  # Issue routing type definitions
 │   ├── issueTypes.ts
 │   └── workflowTypes.ts
 ├── providers/          # Provider interfaces and implementations
