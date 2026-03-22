@@ -11,9 +11,9 @@ Break a PRD into independently-grabbable GitHub issues using vertical slices (tr
 
 ### 1. Locate the PRD
 
-Ask the user for the PRD GitHub issue number (or URL).
+Locate the PRD file in $ARGUMENTS. If it is not provided, ask the user for the file path or PRD GitHub issue number (or URL).
 
-If the PRD is not already in your context window, fetch it with `gh issue view <number>` (with comments).
+If the PRD is not already in your context window, read the file or fetch it with `gh issue view <number>` (with comments).
 
 ### 2. Explore the codebase (optional)
 
@@ -58,7 +58,7 @@ Create issues in dependency order (blockers first) so you can reference real iss
 <issue-template>
 ## Parent PRD
 
-#<prd-issue-number>
+Link to the PRD GitHub issue (`#<number>`) or the local PRD file path (`specs/prd/<filename>.md`).
 
 ## What to build
 

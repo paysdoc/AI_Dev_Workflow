@@ -316,7 +316,8 @@ bun.lock                # Bun lockfile
 eslint.config.js        # ESLint configuration
 cucumber.js             # Cucumber.js configuration
 features/               # BDD feature files (Gherkin .feature)
-└── step_definitions/   # Cucumber step definition files (.ts)
+├── step_definitions/   # Cucumber step definition files (.ts)
+└── support/            # Cucumber support files (tsx registration)
 guidelines/
 └── coding_guidelines.md
 projects/               # Cost tracking CSV files per project
