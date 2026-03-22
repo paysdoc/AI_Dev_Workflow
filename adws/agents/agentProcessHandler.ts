@@ -98,14 +98,14 @@ export function handleAgentProcess(
         const currentTotalTokens = Object.entries(currentUsage)
           .filter(([m]) => !primaryModel || m.toLowerCase().includes(primaryModel.toLowerCase()))
           .reduce(
-            (sum, [, tokens]) => sum + (tokens['input'] ?? 0) + (tokens['output'] ?? 0) + (tokens['cache_write'] ?? 0),
+            (sum, [, tokens]) => sum + (tokens['output'] ?? 0),
             0,
           );
         if (currentTotalTokens >= tokenThreshold) {
           tokenLimitReached = true;
-          log(`${agentName}: Token limit threshold reached (${currentTotalTokens}/${MAX_THINKING_TOKENS} tokens, ${(TOKEN_LIMIT_THRESHOLD * 100).toFixed(0)}%). Terminating agent.`, 'info');
+          log(`${agentName}: Output token limit threshold reached (${currentTotalTokens}/${MAX_THINKING_TOKENS} output tokens, ${(TOKEN_LIMIT_THRESHOLD * 100).toFixed(0)}%). Terminating agent.`, 'info');
           if (statePath) {
-            AgentStateManager.appendLog(statePath, `Token limit threshold reached: ${currentTotalTokens}/${MAX_THINKING_TOKENS}`);
+            AgentStateManager.appendLog(statePath, `Output token limit threshold reached: ${currentTotalTokens}/${MAX_THINKING_TOKENS}`);
           }
           claude.kill('SIGTERM');
         }
