@@ -15,7 +15,7 @@ let activeMap: 'standard' | 'fast' = 'standard';
 When(
   'searching for the SLASH_COMMAND_MODEL_MAP entry for {string}',
   function (this: Record<string, string>, command: string) {
-    const filePath = 'adws/core/config.ts';
+    const filePath = 'adws/core/modelRouting.ts';
     const fullPath = join(ROOT, filePath);
     assert.ok(existsSync(fullPath), `Expected ${filePath} to exist`);
     configContent = readFileSync(fullPath, 'utf-8');
@@ -55,7 +55,7 @@ Then('the model is {string}', function (this: Record<string, string>, expectedMo
 When(
   'searching for the SLASH_COMMAND_MODEL_MAP_FAST entry for {string}',
   function (this: Record<string, string>, command: string) {
-    const filePath = 'adws/core/config.ts';
+    const filePath = 'adws/core/modelRouting.ts';
     const fullPath = join(ROOT, filePath);
     assert.ok(existsSync(fullPath), `Expected ${filePath} to exist`);
     configContent = readFileSync(fullPath, 'utf-8');
@@ -72,7 +72,7 @@ When(
 Given(
   'the issue body does not contain {string} or {string}',
   function (this: Record<string, string>, _kw1: string, _kw2: string) {
-    const filePath = 'adws/core/config.ts';
+    const filePath = 'adws/core/modelRouting.ts';
     const fullPath = join(ROOT, filePath);
     assert.ok(existsSync(fullPath), `Expected ${filePath} to exist`);
     configContent = readFileSync(fullPath, 'utf-8');
@@ -84,7 +84,7 @@ Given(
 );
 
 Given('the issue body contains {string}', function (this: Record<string, string>, _keyword: string) {
-  const filePath = 'adws/core/config.ts';
+  const filePath = 'adws/core/modelRouting.ts';
   const fullPath = join(ROOT, filePath);
   assert.ok(existsSync(fullPath), `Expected ${filePath} to exist`);
   configContent = readFileSync(fullPath, 'utf-8');

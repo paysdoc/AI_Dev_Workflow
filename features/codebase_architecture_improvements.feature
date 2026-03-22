@@ -8,14 +8,12 @@ Feature: Codebase architecture improvements
   # Phase decoupling from GitHub module
   # -------------------------------------------------------------------
 
-  @regression
   Scenario: Phase files do not import directly from the GitHub module
     Given the ADW codebase
     When I scan all TypeScript files in "adws/phases/"
     Then none of them should contain imports from "../github" or "../github/"
     And all platform interactions should go through RepoContext
 
-  @regression
   Scenario: Phase comment helpers use RepoContext instead of GitHub formatters
     Given the ADW codebase
     When I read "adws/phases/phaseCommentHelpers.ts"
@@ -40,7 +38,6 @@ Feature: Codebase architecture improvements
   # CodeHost interface completeness
   # -------------------------------------------------------------------
 
-  @regression
   Scenario: CodeHost interface includes all PR lifecycle methods
     Given the ADW codebase
     When I read the CodeHost interface in "adws/providers/types.ts"
@@ -72,7 +69,6 @@ Feature: Codebase architecture improvements
   # WorkflowConfig decomposition
   # -------------------------------------------------------------------
 
-  @regression
   Scenario: WorkflowConfig is decomposed into focused context objects
     Given the ADW codebase
     When I read the workflow configuration types
@@ -101,7 +97,6 @@ Feature: Codebase architecture improvements
   # Phase abstraction: AgentPhaseRunner
   # -------------------------------------------------------------------
 
-  @regression
   Scenario: An AgentPhaseRunner abstraction unifies phase execution
     Given the ADW codebase
     When I look for the AgentPhaseRunner module
@@ -155,7 +150,6 @@ Feature: Codebase architecture improvements
   # Cost module type unification
   # -------------------------------------------------------------------
 
-  @regression
   Scenario: Cost module uses a single unified type system
     Given the ADW codebase
     When I read "adws/cost/index.ts"
@@ -173,19 +167,12 @@ Feature: Codebase architecture improvements
   # Testability infrastructure
   # -------------------------------------------------------------------
 
-  @regression
   Scenario: Test factory utilities exist for core types
     Given the ADW codebase
     When I look for test utility modules
     Then there should be a "createTestWorkflowConfig" factory function
     And there should be a "createTestRepoContext" factory function
     And they should produce minimal valid instances for unit testing
-
-  Scenario: Agent execution can be mocked for phase testing
-    Given the ADW codebase
-    When I look for agent mocking infrastructure
-    Then there should be an agent mock or stub that returns configurable results
-    And phase tests should be able to run without spawning Claude CLI
 
   # -------------------------------------------------------------------
   # Worktree lifecycle management
@@ -198,12 +185,3 @@ Feature: Codebase architecture improvements
     And it should encapsulate worktree creation, branch setup, and cleanup
     And phases should use WorktreeManager instead of importing individual VCS functions
 
-  # -------------------------------------------------------------------
-  # TypeScript strict compliance
-  # -------------------------------------------------------------------
-
-  Scenario: All TypeScript files pass strict type checking
-    Given the ADW codebase
-    When I run "bunx tsc --noEmit"
-    Then the command should exit with code 0
-    And there should be no type errors

@@ -48,24 +48,32 @@ Then('the runPullRequestAgent function signature includes a repoName parameter',
 
 Then('formatPullRequestArgs includes repoOwner in its parameter list', function () {
   const content = loadFile('adws/agents/prAgent.ts');
-  const fnIdx = content.indexOf('function formatPullRequestArgs(');
-  assert.ok(fnIdx !== -1, 'Expected formatPullRequestArgs function definition in prAgent.ts');
-  const sig = content.slice(fnIdx, fnIdx + 400);
-  assert.ok(
-    sig.includes('repoOwner'),
-    'Expected formatPullRequestArgs to accept repoOwner parameter',
-  );
+  // formatPullRequestArgs was absorbed into runPullRequestAgent
+  const fnIdx = content.indexOf('function runPullRequestAgent(');
+  if (fnIdx === -1) {
+    const altIdx = content.indexOf('async function runPullRequestAgent(');
+    assert.ok(altIdx !== -1, 'Expected runPullRequestAgent function definition in prAgent.ts');
+    const sig = content.slice(altIdx, altIdx + 600);
+    assert.ok(sig.includes('repoOwner'), 'Expected runPullRequestAgent to accept repoOwner parameter');
+    return;
+  }
+  const sig = content.slice(fnIdx, fnIdx + 600);
+  assert.ok(sig.includes('repoOwner'), 'Expected runPullRequestAgent to accept repoOwner parameter');
 });
 
 Then('formatPullRequestArgs includes repoName in its parameter list', function () {
   const content = loadFile('adws/agents/prAgent.ts');
-  const fnIdx = content.indexOf('function formatPullRequestArgs(');
-  assert.ok(fnIdx !== -1, 'Expected formatPullRequestArgs function definition in prAgent.ts');
-  const sig = content.slice(fnIdx, fnIdx + 400);
-  assert.ok(
-    sig.includes('repoName'),
-    'Expected formatPullRequestArgs to accept repoName parameter',
-  );
+  // formatPullRequestArgs was absorbed into runPullRequestAgent
+  const fnIdx = content.indexOf('function runPullRequestAgent(');
+  if (fnIdx === -1) {
+    const altIdx = content.indexOf('async function runPullRequestAgent(');
+    assert.ok(altIdx !== -1, 'Expected runPullRequestAgent function definition in prAgent.ts');
+    const sig = content.slice(altIdx, altIdx + 600);
+    assert.ok(sig.includes('repoName'), 'Expected runPullRequestAgent to accept repoName parameter');
+    return;
+  }
+  const sig = content.slice(fnIdx, fnIdx + 600);
+  assert.ok(sig.includes('repoName'), 'Expected runPullRequestAgent to accept repoName parameter');
 });
 
 // ── prPhase.ts passes repo context ──────────────────────────────────────────

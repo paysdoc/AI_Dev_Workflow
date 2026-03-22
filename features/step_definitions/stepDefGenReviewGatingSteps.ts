@@ -3,7 +3,7 @@ import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { execSync } from 'child_process';
 import assert from 'assert';
-import { sharedCtx } from './commonSteps.ts';
+import { sharedCtx, findFunctionUsageIndex } from './commonSteps.ts';
 
 const ROOT = process.cwd();
 
@@ -276,9 +276,7 @@ Then('the phase ordering should be:', function (dataTable: { rawTable: string[][
   for (const phase of expectedPhases) {
     const fn = PHASE_FUNCTION_MAP[phase];
     assert.ok(fn, `Unknown phase name: "${phase}"`);
-    const callPattern = `${fn}(`;
-    // Find the last occurrence to ensure we're in the function body, not imports
-    const idx = content.lastIndexOf(callPattern);
+    const idx = findFunctionUsageIndex(content, fn);
     assert.ok(idx !== -1, `Expected "${sharedCtx.filePath}" to contain a call to ${fn}() for phase "${phase}"`);
     positions.push({ phase, index: idx });
   }
@@ -324,8 +322,8 @@ Then('in each review orchestrator the PR phase should come after the review phas
 
   for (const file of reviewOrchestrators) {
     const content = readProjectFile(file);
-    const reviewIdx = content.lastIndexOf('executeReviewPhase(');
-    const prIdx = content.lastIndexOf('executePRPhase(');
+    const reviewIdx = findFunctionUsageIndex(content, 'executeReviewPhase');
+    const prIdx = findFunctionUsageIndex(content, 'executePRPhase');
     assert.ok(reviewIdx !== -1, `Expected "${file}" to call executeReviewPhase`);
     assert.ok(prIdx !== -1, `Expected "${file}" to call executePRPhase`);
     assert.ok(
