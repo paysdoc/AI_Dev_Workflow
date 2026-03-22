@@ -13,7 +13,7 @@ import {
 } from '../core';
 import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
 import { runScenarioAgent } from '../agents';
-import type { WorkflowConfig } from './workflowLifecycle';
+import type { WorkflowConfig } from './workflowInit';
 
 /**
  * Executes the Scenario phase: generate and maintain BDD scenarios for the current issue.

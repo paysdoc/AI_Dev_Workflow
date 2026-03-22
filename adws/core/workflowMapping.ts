@@ -5,8 +5,8 @@
  * and optional ADW command, using the centralized mapping constants.
  */
 
-import type { IssueClassSlashCommand, AdwSlashCommand } from '../types/dataTypes';
-import { adwCommandToOrchestratorMap, issueTypeToOrchestratorMap } from '../types/dataTypes';
+import type { IssueClassSlashCommand, AdwSlashCommand } from '../types/issueTypes';
+import { adwCommandToOrchestratorMap, issueTypeToOrchestratorMap } from '../types/issueRouting';
 import { log } from './utils';
 
 /**

@@ -20,7 +20,7 @@ import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '.
 import { commentOnPR, approvePR, isGitHubAppConfigured, type RepoInfo } from '../github';
 import { mergeWithConflictResolution } from '../triggers/autoMergeHandler';
 import { getPlanFilePath, planFileExists } from '../agents';
-import type { WorkflowConfig } from './workflowLifecycle';
+import type { WorkflowConfig } from './workflowInit';
 
 /**
  * Extracts the PR number from a GitHub PR URL (e.g. https://github.com/owner/repo/pull/42).

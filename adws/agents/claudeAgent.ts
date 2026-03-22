@@ -4,51 +4,24 @@
 import { spawn, execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
-import { log, AgentStateManager, getSafeSubprocessEnv, type TokenUsageSnapshot, resolveClaudeCodePath, clearClaudeCodePathCache } from '../core';
-import { type ModelUsageMap } from '../cost';
-import type { ProgressCallback } from './jsonlParser';
+import { log, AgentStateManager, getSafeSubprocessEnv, resolveClaudeCodePath, clearClaudeCodePathCache } from '../core';
+import type { ProgressCallback } from '../core/claudeStreamParser';
+import type { AgentResult } from '../types/agentTypes';
 import { handleAgentProcess } from './agentProcessHandler';
 
 // Backward-compatible re-exports
 export { computeTotalTokens, computePrimaryModelTokens, isModelMatch } from '../cost';
 export type { TokenTotals } from '../cost';
-export { parseJsonlOutput, extractTextFromAssistantMessage, extractToolUseFromMessage } from './jsonlParser';
+export { parseJsonlOutput, extractTextFromAssistantMessage, extractToolUseFromMessage } from '../core/claudeStreamParser';
 export type {
   ProgressInfo, ProgressCallback, JsonlParserState,
   ContentBlock, TextContentBlock, ToolUseContentBlock, ToolResultContentBlock,
   JsonlMessage, JsonlAssistantMessage, JsonlResultMessage,
-} from './jsonlParser';
+} from '../core/claudeStreamParser';
 
-export interface AgentResult {
-  success: boolean;
-  output: string;
-  sessionId?: string;
-  totalCostUsd?: number;
-  /** Per-model token usage breakdown from the Claude CLI. */
-  modelUsage?: ModelUsageMap;
-  /** The state path if state tracking was enabled */
-  statePath?: string;
-  /** True when the agent was terminated due to approaching the token limit. */
-  tokenLimitExceeded?: boolean;
-  /** Token usage snapshot at the time of interruption. */
-  tokenUsage?: TokenUsageSnapshot;
-  /** Partial output captured before token limit termination. */
-  partialOutput?: string;
-  /**
-   * Pre-finalization estimated usage snapshot (input + cache from per-turn streaming, output from estimation).
-   * Available for estimate-vs-actual comparison when costSource is 'extractor_finalized'.
-   */
-  estimatedUsage?: Record<string, Record<string, number>>;
-  /**
-   * Actual usage from the extractor after finalization (mirrors result message data in snake_case format).
-   * Only available when costSource is 'extractor_finalized'.
-   */
-  actualUsage?: Record<string, Record<string, number>>;
-  /** Indicates whether cost data came from a finalized result message or from streaming estimates. */
-  costSource?: 'extractor_finalized' | 'extractor_estimated';
-  /** True when the agent was terminated due to an expired OAuth token or authentication failure. */
-  authExpired?: boolean;
-}
+// AgentResult lives in types/agentTypes.ts to eliminate bidirectional coupling
+// with agentProcessHandler.ts. Re-exported here for backward compatibility.
+export type { AgentResult } from '../types/agentTypes';
 
 /**
  * Saves the prompt to a file in the agent's state directory for replay and audit.

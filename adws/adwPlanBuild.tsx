@@ -18,8 +18,8 @@
  * - GITHUB_PAT: (Optional) GitHub Personal Access Token
  */
 
-import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId, RUNNING_TOKENS } from './core';
-import { mergeModelUsageMaps, persistTokenCounts, computeDisplayTokens } from './cost';
+import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId } from './core';
+import { CostTracker, runPhase } from './core/phaseRunner';
 import {
   initializeWorkflow,
   executeInstallPhase,
@@ -30,7 +30,6 @@ import {
   completeWorkflow,
   handleWorkflowError,
 } from './workflowPhases';
-import { commitPhasesCostData } from './phases/phaseCostCommit';
 
 /**
  * Main orchestrator workflow.
@@ -51,53 +50,21 @@ async function main(): Promise<void> {
     repoId,
   });
 
-  let totalCostUsd = 0;
-  let totalModelUsage = {};
+  const tracker = new CostTracker();
 
   try {
-    const installResult = await executeInstallPhase(config);
-    totalCostUsd += installResult.costUsd;
-    totalModelUsage = mergeModelUsageMaps(totalModelUsage, installResult.modelUsage);
-    persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
-    await commitPhasesCostData(config, installResult.phaseCostRecords);
+    await runPhase(config, tracker, executeInstallPhase);
+    await runPhase(config, tracker, executePlanPhase);
+    await runPhase(config, tracker, executeBuildPhase);
+    const testResult = await runPhase(config, tracker, executeTestPhase);
+    await runPhase(config, tracker, executePRPhase);
 
-    const planResult = await executePlanPhase(config);
-    totalCostUsd += planResult.costUsd;
-    totalModelUsage = mergeModelUsageMaps(totalModelUsage, planResult.modelUsage);
-    persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
-    if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeDisplayTokens(totalModelUsage);
-    await commitPhasesCostData(config, planResult.phaseCostRecords);
-
-    config.totalModelUsage = totalModelUsage;
-    const buildResult = await executeBuildPhase(config);
-    totalCostUsd += buildResult.costUsd;
-    totalModelUsage = mergeModelUsageMaps(totalModelUsage, buildResult.modelUsage);
-    persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
-    if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeDisplayTokens(totalModelUsage);
-    await commitPhasesCostData(config, buildResult.phaseCostRecords);
-
-    config.totalModelUsage = totalModelUsage;
-    const testResult = await executeTestPhase(config);
-    totalCostUsd += testResult.costUsd;
-    totalModelUsage = mergeModelUsageMaps(totalModelUsage, testResult.modelUsage);
-    persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
-    if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeDisplayTokens(totalModelUsage);
-    await commitPhasesCostData(config, testResult.phaseCostRecords);
-
-    config.totalModelUsage = totalModelUsage;
-    const prResult = await executePRPhase(config);
-    totalCostUsd += prResult.costUsd;
-    totalModelUsage = mergeModelUsageMaps(totalModelUsage, prResult.modelUsage);
-    persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
-    if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeDisplayTokens(totalModelUsage);
-    await commitPhasesCostData(config, prResult.phaseCostRecords);
-
-    await completeWorkflow(config, totalCostUsd, {
+    await completeWorkflow(config, tracker.totalCostUsd, {
       unitTestsPassed: testResult.unitTestsPassed,
       totalTestRetries: testResult.totalRetries,
-    }, totalModelUsage);
+    }, tracker.totalModelUsage);
   } catch (error) {
-    handleWorkflowError(config, error, totalCostUsd, totalModelUsage);
+    handleWorkflowError(config, error, tracker.totalCostUsd, tracker.totalModelUsage);
   }
 }
 
