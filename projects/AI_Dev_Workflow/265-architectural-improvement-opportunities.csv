@@ -1,2 +1,6 @@
 workflow_id,issue_number,phase,model,provider,computed_cost_usd,reported_cost_usd,status,retry_count,continuation_count,duration_ms,timestamp,estimated_tokens,actual_tokens,input,output,cache_read,cache_write,reasoning
 btrko8-architectural-improv,265,install,claude-sonnet-4-6,anthropic,0.251733,0.251733,success,0,0,85808,2026-03-22T19:17:38.227Z,,,7,5215,103378,37993,0
+btrko8-architectural-improv,265,plan,claude-opus-4-6,anthropic,1.193647,1.193647,success,0,0,370062,2026-03-22T19:23:53.777Z,,,264,11739,765916,82543,0
+btrko8-architectural-improv,265,plan,claude-haiku-4-5-20251001,anthropic,0.770612,0.770612,success,0,0,370062,2026-03-22T19:23:53.777Z,,,4709,40019,2246219,272949,0
+btrko8-architectural-improv,265,scenario,claude-opus-4-6,anthropic,0.446107,0.446107,success,0,0,219012,2026-03-22T19:21:25.043Z,,,3178,5078,170859,34854,0
+btrko8-architectural-improv,265,scenario,claude-haiku-4-5-20251001,anthropic,0.383892,0.383892,success,0,0,219012,2026-03-22T19:21:25.043Z,,,1855,15480,947030,167947,0
