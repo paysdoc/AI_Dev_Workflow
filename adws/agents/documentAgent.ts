@@ -3,20 +3,8 @@
  * Uses the /document slash command from .claude/commands/document.md
  */
 
-import * as path from 'path';
-import { log, getModelForCommand, getEffortForCommand } from '../core';
-import { runClaudeAgentWithCommand, AgentResult } from './claudeAgent';
-
-/**
- * Formats structured args for the /document skill.
- */
-function formatDocumentArgs(
-  adwId: string,
-  specPath?: string,
-  screenshotsDir?: string,
-): string[] {
-  return [adwId, specPath ?? '', screenshotsDir ?? ''];
-}
+import { runCommandAgent, type CommandAgentConfig } from './commandAgent';
+import type { AgentResult } from './claudeAgent';
 
 /**
  * Extracts the documentation file path from the agent's output.
@@ -28,6 +16,13 @@ function extractDocPathFromOutput(output: string): string {
   return lines[lines.length - 1]?.trim() ?? '';
 }
 
+const documentAgentConfig: CommandAgentConfig<string> = {
+  command: '/document',
+  agentName: 'Document',
+  outputFileName: 'document-agent.jsonl',
+  extractOutput: extractDocPathFromOutput,
+};
+
 /**
  * Runs the /document skill to generate feature documentation.
  *
@@ -37,6 +32,7 @@ function extractDocPathFromOutput(output: string): string {
  * @param screenshotsDir - Optional directory containing review screenshots
  * @param statePath - Optional path to agent's state directory
  * @param cwd - Optional working directory (worktree path)
+ * @param issueBody - Optional issue body for model/effort selection
  */
 export async function runDocumentAgent(
   adwId: string,
@@ -47,29 +43,12 @@ export async function runDocumentAgent(
   cwd?: string,
   issueBody?: string,
 ): Promise<AgentResult & { docPath: string }> {
-  const args = formatDocumentArgs(adwId, specPath, screenshotsDir);
-  const outputFile = path.join(logsDir, 'document-agent.jsonl');
-
-  log('Document Agent starting:', 'info');
-  log(`  ADW ID: ${adwId}`, 'info');
-  if (specPath) log(`  Spec: ${specPath}`, 'info');
-  if (screenshotsDir) log(`  Screenshots: ${screenshotsDir}`, 'info');
-  if (cwd) log(`  CWD: ${cwd}`, 'info');
-
-  const result = await runClaudeAgentWithCommand(
-    '/document',
-    args,
-    'Document',
-    outputFile,
-    getModelForCommand('/document', issueBody),
-    getEffortForCommand('/document', issueBody),
-    undefined,
+  const result = await runCommandAgent(documentAgentConfig, {
+    args: [adwId, specPath ?? '', screenshotsDir ?? ''],
+    logsDir,
+    issueBody,
     statePath,
     cwd,
-  );
-
-  const docPath = extractDocPathFromOutput(result.output);
-  log(`Documentation created: ${docPath}`, 'success');
-
-  return { ...result, docPath };
+  });
+  return { ...result, docPath: result.parsed };
 }

@@ -3,10 +3,12 @@
  *
  * Provides composable functions for argument parsing, option extraction,
  * and usage printing that are shared across all orchestrator entry points.
+ * Also owns parseTargetRepoArgs (moved from utils.ts) since it logically
+ * belongs with orchestrator CLI utilities.
  */
 
-import type { IssueClassSlashCommand, TargetRepoInfo } from '../types/dataTypes';
-import { VALID_ISSUE_TYPES } from '../types/dataTypes';
+import type { IssueClassSlashCommand, TargetRepoInfo } from '../types/issueTypes';
+import { VALID_ISSUE_TYPES } from '../types/issueTypes';
 import type { RepoIdentifier } from '../providers/types';
 import { Platform } from '../providers/types';
 import { getRepoInfo } from '../github/githubApi';
@@ -140,4 +142,47 @@ export function buildRepoIdentifier(targetRepo: TargetRepoInfo | null): RepoIden
   }
   const localRepo = getRepoInfo();
   return { owner: localRepo.owner, repo: localRepo.repo, platform: Platform.GitHub };
+}
+
+/**
+ * Parses --target-repo and --clone-url CLI arguments from the given args array.
+ * Mutates the args array by removing the consumed arguments.
+ *
+ * Moved from utils.ts — logically belongs with orchestrator CLI utilities.
+ *
+ * @param args - The CLI arguments array (will be mutated)
+ * @returns A TargetRepoInfo object if --target-repo was provided, null otherwise
+ */
+export function parseTargetRepoArgs(args: string[]): TargetRepoInfo | null {
+  const targetRepoIndex = args.indexOf('--target-repo');
+  if (targetRepoIndex === -1) return null;
+
+  const fullName = args[targetRepoIndex + 1];
+  if (!fullName) {
+    console.error('--target-repo requires a value in the format owner/repo');
+    process.exit(1);
+  }
+
+  const parts = fullName.split('/');
+  if (parts.length !== 2 || !parts[0] || !parts[1]) {
+    console.error(`Invalid --target-repo format: ${fullName}. Expected owner/repo`);
+    process.exit(1);
+  }
+
+  // Remove --target-repo and its value
+  args.splice(targetRepoIndex, 2);
+
+  // Parse optional --clone-url
+  let cloneUrl = `https://github.com/${fullName}.git`;
+  const cloneUrlIndex = args.indexOf('--clone-url');
+  if (cloneUrlIndex !== -1 && args[cloneUrlIndex + 1]) {
+    cloneUrl = args[cloneUrlIndex + 1];
+    args.splice(cloneUrlIndex, 2);
+  }
+
+  return {
+    owner: parts[0],
+    repo: parts[1],
+    cloneUrl,
+  };
 }

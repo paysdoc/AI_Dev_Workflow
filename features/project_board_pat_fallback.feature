@@ -50,5 +50,5 @@ Feature: Project board PAT fallback when app token cannot access Projects V2
 
   @adw-9tknkw-project-board-fall-b @regression
   Scenario: GITHUB_PAT is exported from config.ts
-    Given "adws/core/config.ts" is read
+    Given "adws/core/environment.ts" is read
     Then the file contains "export const GITHUB_PAT"

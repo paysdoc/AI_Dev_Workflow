@@ -17,7 +17,7 @@ import {
   runDocumentAgent,
   runCommitAgent,
 } from '../agents';
-import type { WorkflowConfig } from './workflowLifecycle';
+import type { WorkflowConfig } from './workflowInit';
 
 /**
  * Executes the Document phase: generate feature documentation.

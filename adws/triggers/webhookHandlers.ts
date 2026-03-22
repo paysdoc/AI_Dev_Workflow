@@ -10,7 +10,7 @@ import { existsSync } from 'fs';
 import { log, PullRequestWebhookPayload } from '../core';
 import { rebuildProjectTotalCsv } from '../cost/reporting';
 import { fetchExchangeRates } from '../cost/exchangeRates';
-import { costCommitQueue } from '../core/costCommitQueue';
+import { costCommitQueue } from '../cost/commitQueue';
 import type { RepoInfo } from '../github/githubApi';
 import { closeIssue, formatIssueClosureComment } from '../github/githubApi';
 import { removeWorktree } from '../vcs';

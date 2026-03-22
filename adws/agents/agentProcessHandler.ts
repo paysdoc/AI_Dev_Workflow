@@ -9,10 +9,10 @@ import type { ChildProcess } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import { log, AgentStateManager, type TokenUsageSnapshot, MAX_THINKING_TOKENS, TOKEN_LIMIT_THRESHOLD } from '../core';
-import { parseJsonlOutput, type JsonlParserState, type ProgressCallback, type ProgressInfo } from './jsonlParser';
+import { parseJsonlOutput, type JsonlParserState, type ProgressCallback, type ProgressInfo } from '../core/claudeStreamParser';
 import { AnthropicTokenUsageExtractor, computeCost, getAnthropicPricing, type ModelUsageMap, computeTotalTokens } from '../cost';
 import type { ModelUsageMap as CostModelUsageMap } from '../cost/types';
-import type { AgentResult } from './claudeAgent';
+import type { AgentResult } from '../types/agentTypes';
 
 /** Computes estimated total cost USD by summing across all models using Anthropic pricing. */
 function computeEstimatedCostUsd(usage: CostModelUsageMap): number {

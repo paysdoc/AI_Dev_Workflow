@@ -12,7 +12,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { AGENTS_STATE_DIR } from './config';
-import { AgentIdentifier, AgentState } from '../types/dataTypes';
+import { AgentIdentifier, AgentState } from '../types/agentTypes';
 import {
   isProcessAlive as _isProcessAlive,
   createExecutionState as _createExecutionState,

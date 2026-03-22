@@ -3,9 +3,9 @@
  * Uses the /extract_dependencies slash command with the haiku model for fast, cheap extraction.
  */
 
-import * as path from 'path';
-import { runClaudeAgentWithCommand, AgentResult } from './claudeAgent';
-import { log, getModelForCommand, getEffortForCommand } from '../core';
+import { log } from '../core';
+import { runCommandAgent, type CommandAgentConfig } from './commandAgent';
+import type { AgentResult } from './claudeAgent';
 
 /**
  * Extracts a JSON array of dependency issue numbers from agent output.
@@ -32,6 +32,13 @@ export function parseDependencyArray(output: string): number[] {
   }
 }
 
+const dependencyExtractionAgentConfig: CommandAgentConfig<number[]> = {
+  command: '/extract_dependencies',
+  agentName: 'Dependency Extraction',
+  outputFileName: 'dependency-extraction-agent.jsonl',
+  extractOutput: parseDependencyArray,
+};
+
 /**
  * Runs the Dependency Extraction Agent to extract issue dependency numbers
  * from a raw issue body using LLM-based natural-language understanding.
@@ -47,20 +54,11 @@ export async function runDependencyExtractionAgent(
   statePath?: string,
   cwd?: string,
 ): Promise<AgentResult & { dependencies: number[] }> {
-  const outputFile = path.join(logsDir, 'dependency-extraction-agent.jsonl');
-
-  const result = await runClaudeAgentWithCommand(
-    '/extract_dependencies',
-    issueBody,
-    'Dependency Extraction',
-    outputFile,
-    getModelForCommand('/extract_dependencies'),
-    getEffortForCommand('/extract_dependencies'),
-    undefined,
+  const result = await runCommandAgent(dependencyExtractionAgentConfig, {
+    args: issueBody,
+    logsDir,
     statePath,
     cwd,
-  );
-
-  const dependencies = parseDependencyArray(result.output);
-  return { ...result, dependencies };
+  });
+  return { ...result, dependencies: result.parsed };
 }

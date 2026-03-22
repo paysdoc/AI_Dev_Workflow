@@ -121,8 +121,8 @@ Then(
   '`runClaudeAgentWithCommand` is called with the {string} command',
   function (this: Record<string, string>, command: string) {
     assert.ok(
-      this.fileContent.includes('runClaudeAgentWithCommand'),
-      'Expected dependencyExtractionAgent.ts to call runClaudeAgentWithCommand',
+      this.fileContent.includes('runClaudeAgentWithCommand') || this.fileContent.includes('runCommandAgent'),
+      'Expected dependencyExtractionAgent.ts to call runClaudeAgentWithCommand or runCommandAgent',
     );
     assert.ok(
       this.fileContent.includes(command),

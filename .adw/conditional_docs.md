@@ -327,3 +327,19 @@
     - When adding a new orchestrator that needs cost tracking
     - When troubleshooting imports that previously came from `core/costReport`, `core/tokenManager`, or `types/costTypes`
     - When modifying `ClaudeCodeResultMessage` or cost extraction in `jsonlParser.ts`
+
+- app_docs/feature-btrko8-codebase-architecture-improvements.md
+  - Conditions:
+    - When adding a new orchestrator and need to understand the PhaseRunner / CostTracker composition pattern
+    - When implementing a new thin-wrapper agent and want to use `runCommandAgent<T>()`
+    - When looking for model routing utilities (`getModelForCommand`, `isFastMode`) or environment constants after the `config.ts` split
+    - When troubleshooting import errors after module relocations (`claudeStreamParser`, `issueRouting`, `cost/commitQueue`)
+    - When working with `adws/core/logger.ts`, `adws/core/adwId.ts`, or `adws/core/environment.ts` to understand what was extracted from `utils.ts` / `config.ts`
+
+- app_docs/feature-2gp7qi-architectural-improv-codebase-architecture.md
+  - Conditions:
+    - When adding a new orchestrator and need to understand the PhaseRunner / CostTracker composition pattern
+    - When implementing a new thin-wrapper agent and want to use `runCommandAgent<T>()`
+    - When looking for model routing utilities (`getModelForCommand`, `isFastMode`) or environment constants after the `config.ts` split
+    - When troubleshooting import errors after module relocations (`claudeStreamParser`, `issueRouting`, `cost/commitQueue`)
+    - When working with `adws/core/logger.ts`, `adws/core/adwId.ts`, or `adws/core/environment.ts` to understand what was extracted from `utils.ts` / `config.ts`

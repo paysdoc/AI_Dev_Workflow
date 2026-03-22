@@ -17,7 +17,7 @@ import {
   runCommitAgent,
   runPullRequestAgent,
 } from '../agents';
-import type { WorkflowConfig } from './workflowLifecycle';
+import type { WorkflowConfig } from './workflowInit';
 
 /**
  * Executes the PR phase: create pull request via the /pull_request skill.

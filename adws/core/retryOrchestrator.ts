@@ -4,7 +4,7 @@
  */
 
 import { type ModelUsageMap, emptyModelUsageMap, mergeModelUsageMaps, persistTokenCounts } from '../cost';
-import { type AgentIdentifier } from '../types/dataTypes';
+import { type AgentIdentifier } from '../types/agentTypes';
 import { AgentStateManager } from './agentState';
 import { log } from './utils';
 

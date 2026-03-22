@@ -7,17 +7,17 @@ Feature: Scenario writer uses opus model in standard mode and sonnet in fast mod
   downgrade to sonnet (not haiku) in fast mode.
 
   Background:
-    Given the ADW codebase contains "adws/core/config.ts"
+    Given the ADW codebase contains "adws/core/modelRouting.ts"
 
   @adw-231-scenario-writer-opus-model @regression
   Scenario: SLASH_COMMAND_MODEL_MAP assigns opus to /scenario_writer
-    Given "adws/core/config.ts" is read
+    Given "adws/core/modelRouting.ts" is read
     When searching for the SLASH_COMMAND_MODEL_MAP entry for "/scenario_writer"
     Then the model is "opus"
 
   @adw-231-scenario-writer-opus-model @regression
   Scenario: SLASH_COMMAND_MODEL_MAP_FAST assigns sonnet to /scenario_writer
-    Given "adws/core/config.ts" is read
+    Given "adws/core/modelRouting.ts" is read
     When searching for the SLASH_COMMAND_MODEL_MAP_FAST entry for "/scenario_writer"
     Then the model is "sonnet"
 

@@ -1,6 +1,6 @@
 import { Then } from '@cucumber/cucumber';
 import assert from 'assert';
-import { sharedCtx } from './commonSteps.ts';
+import { sharedCtx, findFunctionUsageIndex } from './commonSteps.ts';
 
 // ── Export checks ─────────────────────────────────────────────────────────────
 
@@ -193,37 +193,18 @@ Then(
 
 Then('{string} is called after {string}', function (laterFunc: string, earlierFunc: string) {
   const content = sharedCtx.fileContent;
-  // Use function-call syntax (name followed by `(`) to find actual call sites, not imports.
-  const laterIdx = content.indexOf(`${laterFunc}(`);
-  const earlierIdx = content.indexOf(`${earlierFunc}(`);
-  assert.ok(
-    laterIdx !== -1,
-    `Expected "${laterFunc}" to be called in "${sharedCtx.filePath}"`,
-  );
-  assert.ok(
-    earlierIdx !== -1,
-    `Expected "${earlierFunc}" to be called in "${sharedCtx.filePath}"`,
-  );
-  assert.ok(
-    laterIdx > earlierIdx,
-    `Expected "${laterFunc}" to be called after "${earlierFunc}" in "${sharedCtx.filePath}"`,
-  );
+  const laterIdx = findFunctionUsageIndex(content, laterFunc);
+  const earlierIdx = findFunctionUsageIndex(content, earlierFunc);
+  assert.ok(laterIdx !== -1, `Expected "${laterFunc}" to be called in "${sharedCtx.filePath}"`);
+  assert.ok(earlierIdx !== -1, `Expected "${earlierFunc}" to be called in "${sharedCtx.filePath}"`);
+  assert.ok(laterIdx > earlierIdx, `Expected "${laterFunc}" to be called after "${earlierFunc}" in "${sharedCtx.filePath}"`);
 });
 
 Then('{string} is called before {string}', function (earlierFunc: string, laterFunc: string) {
   const content = sharedCtx.fileContent;
-  const earlierIdx = content.indexOf(`${earlierFunc}(`);
-  const laterIdx = content.indexOf(`${laterFunc}(`);
-  assert.ok(
-    earlierIdx !== -1,
-    `Expected "${earlierFunc}" to be called in "${sharedCtx.filePath}"`,
-  );
-  assert.ok(
-    laterIdx !== -1,
-    `Expected "${laterFunc}" to be called in "${sharedCtx.filePath}"`,
-  );
-  assert.ok(
-    earlierIdx < laterIdx,
-    `Expected "${earlierFunc}" to be called before "${laterFunc}" in "${sharedCtx.filePath}"`,
-  );
+  const earlierIdx = findFunctionUsageIndex(content, earlierFunc);
+  const laterIdx = findFunctionUsageIndex(content, laterFunc);
+  assert.ok(earlierIdx !== -1, `Expected "${earlierFunc}" to be called in "${sharedCtx.filePath}"`);
+  assert.ok(laterIdx !== -1, `Expected "${laterFunc}" to be called in "${sharedCtx.filePath}"`);
+  assert.ok(earlierIdx < laterIdx, `Expected "${earlierFunc}" to be called before "${laterFunc}" in "${sharedCtx.filePath}"`);
 });

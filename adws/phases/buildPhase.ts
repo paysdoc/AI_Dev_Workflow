@@ -23,7 +23,7 @@ import {
   type ProgressCallback,
   type ProgressInfo,
 } from '../agents';
-import type { WorkflowConfig } from './workflowLifecycle';
+import type { WorkflowConfig } from './workflowInit';
 import { buildContinuationPrompt } from './planPhase';
 import { BoardStatus } from '../providers/types';
 
