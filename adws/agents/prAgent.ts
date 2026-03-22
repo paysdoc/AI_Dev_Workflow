@@ -7,6 +7,7 @@ import * as path from 'path';
 import { log, getModelForCommand, getEffortForCommand } from '../core';
 import { runClaudeAgentWithCommand, AgentResult } from './claudeAgent';
 import { getDefaultBranch } from '../vcs/branchOperations';
+import { refreshTokenIfNeeded } from '../github/githubAppAuth';
 
 /**
  * Formats structured args for the /pull_request skill.
@@ -63,6 +64,7 @@ export async function runPullRequestAgent(
   repoOwner?: string,
   repoName?: string,
 ): Promise<AgentResult & { prUrl: string }> {
+  refreshTokenIfNeeded();
   const defaultBranch = getDefaultBranch(cwd);
   const args = formatPullRequestArgs(branchName, issueJson, planFile, adwId, defaultBranch, repoOwner ?? '', repoName ?? '');
   const outputFile = path.join(logsDir, 'pr-agent.jsonl');
