@@ -1,0 +1,2 @@
+workflow_id,issue_number,phase,model,provider,computed_cost_usd,reported_cost_usd,status,retry_count,continuation_count,duration_ms,timestamp,estimated_tokens,actual_tokens,input,output,cache_read,cache_write,reasoning
+lzfnve-chore-explore-codeba,262,install,claude-sonnet-4-6,anthropic,0.206374,0.206374,success,0,0,35987,2026-03-22T09:53:45.373Z,,,330,1701,118875,38455,0
