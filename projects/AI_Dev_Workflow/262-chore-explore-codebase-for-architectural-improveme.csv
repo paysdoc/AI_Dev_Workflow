@@ -2,3 +2,4 @@ workflow_id,issue_number,phase,model,provider,computed_cost_usd,reported_cost_us
 lzfnve-chore-explore-codeba,262,install,claude-sonnet-4-6,anthropic,0.206374,0.206374,success,0,0,35987,2026-03-22T09:53:45.373Z,,,330,1701,118875,38455,0
 lzfnve-chore-explore-codeba,262,plan,claude-opus-4-6,anthropic,0.433833,0.433833,success,0,0,274314,2026-03-22T09:58:25.313Z,,,986,27,87605,61508,0
 lzfnve-chore-explore-codeba,262,plan,claude-haiku-4-5-20251001,anthropic,0.648026,0.648026,success,0,0,274314,2026-03-22T09:58:25.313Z,,,458,0,3273094,256207,0
+4y4lmi-chore-explore-codeba,262,install,claude-sonnet-4-6,anthropic,0.230760,0.230760,success,0,0,92239,2026-03-22T18:58:19.914Z,,,7,5270,115566,31205,0

@@ -82,6 +82,7 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 258,auto approve and merge prs after review passes in ,step-def-gen,claude-sonnet-4-6,0.643367
 258,auto approve and merge prs after review passes in ,step-def-gen,claude-haiku-4-5-20251001,0.224715
 262,chore explore codebase for architectural improveme,install,claude-sonnet-4-6,0.206374
+262,chore explore codebase for architectural improveme,install,claude-sonnet-4-6,0.230760
 262,chore explore codebase for architectural improveme,plan,claude-opus-4-6,0.433833
 262,chore explore codebase for architectural improveme,plan,claude-haiku-4-5-20251001,0.648026
 263,plan file not saved,install,claude-sonnet-4-6,0.309993
@@ -91,5 +92,5 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 263,plan file not saved,scenario,claude-opus-4-6,0.742454
 263,plan file not saved,scenario,claude-haiku-4-5-20251001,0.233973
 
-Total Cost (USD):,85.7199
-Total Cost (EUR):,74.1907
+Total Cost (USD):,85.9507
+Total Cost (EUR):,74.3904
