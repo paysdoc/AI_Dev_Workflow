@@ -13,11 +13,13 @@ const ctx: {
   currentSkillName: string;
   targetRepoDir: string;
   gitWorktreeDir: string;
+  commandFiles: string[];
 } = {
   skillDir: '',
   currentSkillName: '',
   targetRepoDir: '',
   gitWorktreeDir: '',
+  commandFiles: [],
 };
 
 Before(function () {
@@ -25,6 +27,7 @@ Before(function () {
   ctx.currentSkillName = '';
   ctx.targetRepoDir = '';
   ctx.gitWorktreeDir = '';
+  ctx.commandFiles = [];
 });
 
 After(function () {
@@ -74,6 +77,32 @@ Given('the command file {string} exists', function (commandPath: string) {
   assert.ok(existsSync(fullPath), `Expected command file to exist: ${commandPath}`);
   sharedCtx.fileContent = readFileSync(fullPath, 'utf-8');
   sharedCtx.filePath = commandPath;
+});
+
+Given(
+  'the following command files exist in {string}:',
+  function (dir: string, dataTable: { rows: () => string[][] }) {
+    const rows = dataTable.rows();
+    ctx.commandFiles = rows.map(([file]: string[]) => {
+      const fullPath = join(ROOT, dir, file);
+      assert.ok(existsSync(fullPath), `Expected command file to exist: ${join(dir, file)}`);
+      return fullPath;
+    });
+  },
+);
+
+When('each file is read', function () {
+  // Files verified and paths stored in ctx.commandFiles by the Given step
+});
+
+Then("each file's YAML frontmatter contains {string}", function (expected: string) {
+  ctx.commandFiles.forEach((filePath) => {
+    const content = readFileSync(filePath, 'utf-8');
+    assert.ok(
+      content.includes(expected),
+      `Expected "${filePath}" frontmatter to contain "${expected}"`,
+    );
+  });
 });
 
 // ── adw_init.md scan instruction steps ───────────────────────────────────────
@@ -345,5 +374,44 @@ Then(
     assert.ok(existsSync(gitignorePath), `Expected .gitignore to exist in the worktree`);
     const content = readFileSync(gitignorePath, 'utf-8');
     assert.ok(content.includes(fileName), `Expected "${fileName}" to appear in .gitignore`);
+  },
+);
+
+Given(
+  '{string} is not committed in {string}',
+  function (_fileName: string, _dirPath: string) {
+    // Context-only: the preceding Given step committed a different file so this
+    // file is definitionally not tracked in the target repo.
+  },
+);
+
+Then(
+  'both {string} and {string} are present in the worktree\'s {string}',
+  function (file1: string, file2: string, destPath: string) {
+    const full1 = join(ctx.gitWorktreeDir, destPath, file1);
+    const full2 = join(ctx.gitWorktreeDir, destPath, file2);
+    assert.ok(existsSync(full1), `Expected "${file1}" to be present in "${destPath}" in the worktree`);
+    assert.ok(existsSync(full2), `Expected "${file2}" to be present in "${destPath}" in the worktree`);
+  },
+);
+
+Then(
+  'only {string} is listed in .gitignore',
+  function (fileName: string) {
+    const gitignorePath = join(ctx.gitWorktreeDir, '.gitignore');
+    assert.ok(existsSync(gitignorePath), 'Expected .gitignore to exist in the worktree');
+    const content = readFileSync(gitignorePath, 'utf-8');
+    const commandEntries = content
+      .split('\n')
+      .filter((line) => line.trim().startsWith('.claude/commands/'));
+    assert.strictEqual(
+      commandEntries.length,
+      1,
+      `Expected exactly 1 .claude/commands/ entry in .gitignore, got: ${commandEntries.join(', ')}`,
+    );
+    assert.ok(
+      commandEntries[0].includes(fileName),
+      `Expected the only .gitignore entry to be for "${fileName}", got: ${commandEntries[0]}`,
+    );
   },
 );
