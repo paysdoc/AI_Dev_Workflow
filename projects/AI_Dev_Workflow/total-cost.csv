@@ -116,9 +116,10 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 267,copy target true skills and commands to target rep,build,claude-sonnet-4-6,2.016614
 267,copy target true skills and commands to target rep,install,claude-sonnet-4-6,0.384874
 267,copy target true skills and commands to target rep,plan,claude-opus-4-6,0.924475
+267,copy target true skills and commands to target rep,review,claude-opus-4-6,1.618858
 267,copy target true skills and commands to target rep,scenario,claude-opus-4-6,0.595628
 267,copy target true skills and commands to target rep,scenario,claude-haiku-4-5-20251001,0.262210
 267,copy target true skills and commands to target rep,step-def-gen,claude-sonnet-4-6,0.668757
 
-Total Cost (USD):,116.4325
-Total Cost (EUR):,100.7193
+Total Cost (USD):,118.0514
+Total Cost (EUR):,102.1196
