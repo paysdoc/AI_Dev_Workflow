@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value          | Last Updated |
 | ----------------- | -------------- | ------------ |
-| Current Streak    | 30             | 2026-03-22   |
-| Longest Streak    | 30             | 2026-03-22   |
-| Total Plan Size   | 441 lines      | 2026-03-22   |
-| Largest Plan Size | 201 lines      | 2026-03-22   |
-| Total Diff Size   | 1330461 lines  | 2026-03-22   |
-| Largest Diff Size | 205468 lines   | 2026-03-22   |
-| Average Presence  | 1.61           | 2026-03-22   |
+| Current Streak    | 6              | 2026-03-23   |
+| Longest Streak    | 29             | 2026-03-23   |
+| Total Plan Size   | 441 lines      | 2026-03-23   |
+| Largest Plan Size | 201 lines      | 2026-03-23   |
+| Total Diff Size   | 1343718 lines  | 2026-03-23   |
+| Largest Diff Size | 205468 lines   | 2026-03-23   |
+| Average Presence  | 1.52           | 2026-03-23   |
 
 ## ADW KPIs
 
@@ -61,3 +61,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-03-22 | j2ydkj-cost-revamp-github-c | 244          | /feature    | 2        | 0                 | 1456/44/19                      | 2026-03-22 | 2026-03-22 |
 | 2026-03-22 | sgdfol-cost-revamp-orchestr | 245          | /feature    | 1        | 0                 | 4100/770/66                     | 2026-03-22 | 2026-03-22 |
 | 2026-03-22 | 2gp7qi-architectural-improv | 265          | /feature    | 1        | 0                 | 7303/2408/136                   | 2026-03-22 | 2026-03-22 |
+| 2026-03-23 | sgud8b-copy-target-true-ski | 267          | /feature    | 1        | 0                 | 8431/2418/179                   | 2026-03-23 | 2026-03-23 |
