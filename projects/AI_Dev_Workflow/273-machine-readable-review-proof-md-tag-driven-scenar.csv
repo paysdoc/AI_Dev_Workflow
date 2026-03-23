@@ -1,0 +1,2 @@
+workflow_id,issue_number,phase,model,provider,computed_cost_usd,reported_cost_usd,status,retry_count,continuation_count,duration_ms,timestamp,estimated_tokens,actual_tokens,input,output,cache_read,cache_write,reasoning
+s18k21-machine-readable-rev,273,install,claude-sonnet-4-6,anthropic,0.237434,0.237434,success,0,0,63510,2026-03-23T17:01:55.556Z,,,909,3072,120606,40652,0
