@@ -1,0 +1,2 @@
+workflow_id,issue_number,phase,model,provider,computed_cost_usd,reported_cost_usd,status,retry_count,continuation_count,duration_ms,timestamp,estimated_tokens,actual_tokens,input,output,cache_read,cache_write,reasoning
+vqsvik-r2-upload-utility-sc,274,install,claude-sonnet-4-6,anthropic,0.215821,0.215821,success,0,0,88488,2026-03-23T17:05:16.152Z,,,1869,3145,103975,35159,0
