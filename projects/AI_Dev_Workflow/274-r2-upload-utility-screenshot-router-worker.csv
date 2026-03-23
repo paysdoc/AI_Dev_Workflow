@@ -1,2 +1,6 @@
 workflow_id,issue_number,phase,model,provider,computed_cost_usd,reported_cost_usd,status,retry_count,continuation_count,duration_ms,timestamp,estimated_tokens,actual_tokens,input,output,cache_read,cache_write,reasoning
 vqsvik-r2-upload-utility-sc,274,install,claude-sonnet-4-6,anthropic,0.215821,0.215821,success,0,0,88488,2026-03-23T17:05:16.152Z,,,1869,3145,103975,35159,0
+vqsvik-r2-upload-utility-sc,274,plan,claude-opus-4-6,anthropic,0.745945,0.745945,success,0,0,283646,2026-03-23T17:10:05.583Z,,,23,8786,441297,48885,0
+vqsvik-r2-upload-utility-sc,274,plan,claude-haiku-4-5-20251001,anthropic,0.095534,0.095534,success,0,0,283646,2026-03-23T17:10:05.583Z,,,74,4993,335184,29581,0
+vqsvik-r2-upload-utility-sc,274,scenario,claude-opus-4-6,anthropic,0.504569,0.504569,success,0,0,207867,2026-03-23T17:08:54.526Z,,,13,4809,330083,35078,0
+vqsvik-r2-upload-utility-sc,274,scenario,claude-haiku-4-5-20251001,anthropic,0.199491,0.199491,success,0,0,207867,2026-03-23T17:08:54.526Z,,,46,11881,188053,96988,0
