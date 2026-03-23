@@ -113,6 +113,7 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 265,architectural improvement opportunities,scenario,claude-haiku-4-5-20251001,0.383892
 265,architectural improvement opportunities,step-def-gen,claude-sonnet-4-6,1.193231
 265,architectural improvement opportunities,step-def-gen,claude-sonnet-4-6,0.236564
+267,copy target true skills and commands to target rep,install,claude-sonnet-4-6,0.384874
 
-Total Cost (USD):,111.5800
-Total Cost (EUR):,96.5726
+Total Cost (USD):,111.9648
+Total Cost (EUR):,96.8545

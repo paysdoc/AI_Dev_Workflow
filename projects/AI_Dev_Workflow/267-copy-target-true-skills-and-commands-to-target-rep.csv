@@ -1,0 +1,2 @@
+workflow_id,issue_number,phase,model,provider,computed_cost_usd,reported_cost_usd,status,retry_count,continuation_count,duration_ms,timestamp,estimated_tokens,actual_tokens,input,output,cache_read,cache_write,reasoning
+sgud8b-copy-target-true-ski,267,install,claude-sonnet-4-6,anthropic,0.384874,0.384874,success,0,0,112590,2026-03-23T08:02:28.307Z,,,15,4691,475738,45798,0
