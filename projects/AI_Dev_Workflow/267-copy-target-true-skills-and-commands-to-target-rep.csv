@@ -3,3 +3,4 @@ sgud8b-copy-target-true-ski,267,install,claude-sonnet-4-6,anthropic,0.384874,0.3
 sgud8b-copy-target-true-ski,267,plan,claude-opus-4-6,anthropic,0.924475,0.924475,success,0,0,245566,2026-03-23T08:06:39.695Z,,,17,12288,575293,52727,0
 sgud8b-copy-target-true-ski,267,scenario,claude-opus-4-6,anthropic,0.595628,0.595628,success,0,0,200639,2026-03-23T08:05:57.216Z,,,1597,7104,385998,34727,0
 sgud8b-copy-target-true-ski,267,scenario,claude-haiku-4-5-20251001,anthropic,0.262210,0.262210,success,0,0,200639,2026-03-23T08:05:57.216Z,,,73,9089,997278,93571,0
+sgud8b-copy-target-true-ski,267,build,claude-sonnet-4-6,anthropic,2.016614,2.016614,success,0,0,732224,2026-03-23T08:18:57.715Z,,,58,37898,3492265,106744,0
