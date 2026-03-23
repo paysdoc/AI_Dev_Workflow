@@ -114,6 +114,9 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 265,architectural improvement opportunities,step-def-gen,claude-sonnet-4-6,1.193231
 265,architectural improvement opportunities,step-def-gen,claude-sonnet-4-6,0.236564
 267,copy target true skills and commands to target rep,install,claude-sonnet-4-6,0.384874
+267,copy target true skills and commands to target rep,plan,claude-opus-4-6,0.924475
+267,copy target true skills and commands to target rep,scenario,claude-opus-4-6,0.595628
+267,copy target true skills and commands to target rep,scenario,claude-haiku-4-5-20251001,0.262210
 
-Total Cost (USD):,111.9648
-Total Cost (EUR):,96.8545
+Total Cost (USD):,113.7471
+Total Cost (EUR):,98.3963
