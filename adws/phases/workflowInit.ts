@@ -49,7 +49,7 @@ import { copyClaudeCommandsToWorktree } from './worktreeSetup';
 import { postIssueStageComment } from './phaseCommentHelpers';
 
 // Re-export worktree setup helpers so imports from this module still work
-export { ensureGitignoreEntry, ensureGitignoreEntries, copyClaudeCommandsToWorktree } from './worktreeSetup';
+export { ensureGitignoreEntry, ensureGitignoreEntries, copyClaudeCommandsToWorktree, copyTargetSkillsAndCommands } from './worktreeSetup';
 
 /**
  * Configuration shared across all workflow phase functions.

@@ -1,3 +1,6 @@
+---
+target: false
+---
 # Patch Plan
 
 Create a **focused patch plan** to resolve a specific issue based on the `reviewChangeRequest`. Follow the `Instructions` to create a concise plan that addresses the issue with minimal, targeted changes.

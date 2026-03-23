@@ -1,3 +1,6 @@
+---
+target: false
+---
 # Feature Planning
 
 Create a new plan to implement the `Feature` using the exact specified markdown `Plan Format`. Follow the `Instructions` to create the plan use the `Relevant Files` to focus on the right files.

@@ -26,6 +26,7 @@ import {
   executePRPhase,
   completeWorkflow,
   handleWorkflowError,
+  copyTargetSkillsAndCommands,
 } from './workflowPhases';
 
 /**
@@ -80,11 +81,14 @@ async function main(): Promise<void> {
       throw new Error('ADW init command failed');
     }
 
-    log('ADW init completed, committing files...', 'info');
+    log('ADW init completed, copying target skills and commands...', 'info');
+    copyTargetSkillsAndCommands(config.worktreePath);
 
-    // Commit the generated .adw/ files
+    log('Committing files...', 'info');
+
+    // Commit the generated .adw/ files along with target skills and commands
     commitChanges(
-      'chore: initialize .adw/ project configuration',
+      'chore: initialize .adw/ config with target skills and commands',
       config.worktreePath,
     );
 

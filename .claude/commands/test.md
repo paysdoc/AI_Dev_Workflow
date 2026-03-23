@@ -1,3 +1,6 @@
+---
+target: false
+---
 # Application Validation Test Suite
 
 Execute comprehensive validation tests for the application and ADW (AI Developer Workflow) scripts, returning results in a standardized JSON format for automated processing.

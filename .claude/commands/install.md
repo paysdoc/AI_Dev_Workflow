@@ -1,3 +1,6 @@
+---
+target: true
+---
 # Install & Prime
 
 ## Read

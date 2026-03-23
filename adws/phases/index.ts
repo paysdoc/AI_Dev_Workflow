@@ -9,7 +9,7 @@
  * agents/, github/, triggers/, and core/.
  */
 
-export { ensureGitignoreEntry, ensureGitignoreEntries, copyClaudeCommandsToWorktree } from './worktreeSetup';
+export { ensureGitignoreEntry, ensureGitignoreEntries, copyClaudeCommandsToWorktree, copyTargetSkillsAndCommands } from './worktreeSetup';
 export { type WorkflowConfig, initializeWorkflow } from './workflowInit';
 export { completeWorkflow, executeReviewPhase, handleWorkflowError } from './workflowCompletion';
 export { executePlanPhase, buildContinuationPrompt, MAX_CONTINUATION_OUTPUT_LENGTH } from './planPhase';
