@@ -180,6 +180,7 @@ adws/                   # ADW workflow system
 │   ├── claudeStreamParser.ts  # Claude JSONL stream parsing
 │   ├── config.ts
 │   ├── constants.ts    # Orchestrator ID constants
+│   ├── costCommitQueue.ts  # Cost CSV commit queue (core module)
 │   ├── environment.ts  # Environment variable accessors
 │   ├── index.ts
 │   ├── issueClassifier.ts
