@@ -123,6 +123,7 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 267,copy target true skills and commands to target rep,scenario,claude-opus-4-6,0.595628
 267,copy target true skills and commands to target rep,scenario,claude-haiku-4-5-20251001,0.262210
 267,copy target true skills and commands to target rep,step-def-gen,claude-sonnet-4-6,0.668757
+271,fix boardstatus enum contains non existent project,install,claude-sonnet-4-6,0.297629
 
-Total Cost (USD):,118.4408
-Total Cost (EUR):,102.4565
+Total Cost (USD):,118.7384
+Total Cost (EUR):,102.7139

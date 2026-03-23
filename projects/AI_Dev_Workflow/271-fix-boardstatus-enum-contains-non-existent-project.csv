@@ -1,0 +1,2 @@
+workflow_id,issue_number,phase,model,provider,computed_cost_usd,reported_cost_usd,status,retry_count,continuation_count,duration_ms,timestamp,estimated_tokens,actual_tokens,input,output,cache_read,cache_write,reasoning
+tdlgz7-fix-boardstatus-enum,271,install,claude-sonnet-4-6,anthropic,0.297629,0.297629,success,0,0,64349,2026-03-23T09:26:05.660Z,,,12,2355,342203,42562,0
