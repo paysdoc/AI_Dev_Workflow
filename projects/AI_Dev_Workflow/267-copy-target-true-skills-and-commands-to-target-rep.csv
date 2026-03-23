@@ -8,3 +8,4 @@ sgud8b-copy-target-true-ski,267,step-def-gen,claude-sonnet-4-6,anthropic,0.66875
 sgud8b-copy-target-true-ski,267,review,claude-opus-4-6,anthropic,1.618858,1.618858,success,0,0,166008,2026-03-23T08:26:38.633Z,,,58,16293,719360,136250,0
 sgud8b-copy-target-true-ski,267,document,claude-sonnet-4-6,anthropic,0.240171,0.240171,success,0,0,99369,2026-03-23T08:28:23.826Z,,,8,3768,172841,35140,0
 sgud8b-copy-target-true-ski,267,pr,claude-sonnet-4-6,anthropic,0.088726,0.088726,success,0,0,36063,2026-03-23T08:29:05.441Z,,,6,1054,70542,13796,0
+sgud8b-copy-target-true-ski,267,kpi,claude-haiku-4-5-20251001,anthropic,0.060491,0.060491,success,0,0,50715,2026-03-23T08:30:01.786Z,,,37,4929,150042,16644,0
