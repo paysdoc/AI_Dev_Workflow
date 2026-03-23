@@ -127,10 +127,11 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 271,fix boardstatus enum contains non existent project,document,claude-sonnet-4-6,0.213881
 271,fix boardstatus enum contains non existent project,install,claude-sonnet-4-6,0.297629
 271,fix boardstatus enum contains non existent project,plan,claude-opus-4-6,0.582658
+271,fix boardstatus enum contains non existent project,pr,claude-sonnet-4-6,0.111457
 271,fix boardstatus enum contains non existent project,review,claude-opus-4-6,0.907870
 271,fix boardstatus enum contains non existent project,scenario,claude-opus-4-6,0.616608
 271,fix boardstatus enum contains non existent project,scenario,claude-haiku-4-5-20251001,0.133453
 271,fix boardstatus enum contains non existent project,step-def-gen,claude-sonnet-4-6,0.232663
 
-Total Cost (USD):,121.6369
-Total Cost (EUR):,105.2212
+Total Cost (USD):,121.7483
+Total Cost (EUR):,105.3177
