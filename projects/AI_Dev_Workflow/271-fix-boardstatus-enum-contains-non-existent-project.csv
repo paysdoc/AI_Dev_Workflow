@@ -8,3 +8,4 @@ tdlgz7-fix-boardstatus-enum,271,step-def-gen,claude-sonnet-4-6,anthropic,0.23266
 tdlgz7-fix-boardstatus-enum,271,review,claude-opus-4-6,anthropic,0.907870,0.907870,success,0,0,98955,2026-03-23T09:34:40.920Z,,,1576,10154,316067,78097,0
 tdlgz7-fix-boardstatus-enum,271,document,claude-sonnet-4-6,anthropic,0.213881,0.213881,success,0,0,74259,2026-03-23T09:36:00.904Z,,,8,2745,165706,32792,0
 tdlgz7-fix-boardstatus-enum,271,pr,claude-sonnet-4-6,anthropic,0.111457,0.111457,success,0,0,30043,2026-03-23T09:36:36.691Z,,,6,911,81852,19525,0
+tdlgz7-fix-boardstatus-enum,271,kpi,claude-haiku-4-5-20251001,anthropic,0.115444,0.115444,success,0,0,127844,2026-03-23T09:38:50.173Z,,,37,15309,150278,19067,0
