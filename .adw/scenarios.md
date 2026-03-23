@@ -4,7 +4,7 @@
 features/
 
 ## Run Scenarios by Tag
-bunx cucumber-js --tags "@{tag}"
+NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@{tag}"
 
 ## Run Regression Scenarios
-bunx cucumber-js --tags "@regression"
+NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@regression"
