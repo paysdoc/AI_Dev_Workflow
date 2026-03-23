@@ -3,3 +3,4 @@ tdlgz7-fix-boardstatus-enum,271,install,claude-sonnet-4-6,anthropic,0.297629,0.2
 tdlgz7-fix-boardstatus-enum,271,plan,claude-opus-4-6,anthropic,0.582658,0.582658,success,0,0,172023,2026-03-23T09:29:03.599Z,,,85,7360,305566,39272,0
 tdlgz7-fix-boardstatus-enum,271,scenario,claude-opus-4-6,anthropic,0.616608,0.616608,success,0,0,188548,2026-03-23T09:29:22.698Z,,,18,7196,437636,34848,0
 tdlgz7-fix-boardstatus-enum,271,scenario,claude-haiku-4-5-20251001,anthropic,0.133453,0.133453,success,0,0,188548,2026-03-23T09:29:22.698Z,,,46,6301,217345,64134,0
+tdlgz7-fix-boardstatus-enum,271,build,claude-sonnet-4-6,anthropic,0.211349,0.211349,success,0,0,124369,2026-03-23T09:31:32.820Z,,,11,3718,235536,22636,0
