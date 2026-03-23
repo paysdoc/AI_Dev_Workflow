@@ -5,3 +5,4 @@ workflow_id,issue_number,phase,model,provider,computed_cost_usd,reported_cost_us
 3n5bwi-mock-infrastructure,275,scenario,claude-opus-4-6,anthropic,0.752457,0.752457,success,0,0,331317,2026-03-23T17:08:44.702Z,,,17,9700,497931,41745,0
 3n5bwi-mock-infrastructure,275,scenario,claude-haiku-4-5-20251001,anthropic,0.164289,0.164289,success,0,0,331317,2026-03-23T17:08:44.702Z,,,36,4841,319841,86451,0
 3n5bwi-mock-infrastructure,275,build,claude-sonnet-4-6,anthropic,3.619276,3.619276,success,0,1,1339868,2026-03-23T17:32:25.026Z,,,71,69376,6506168,167086,0
+3n5bwi-mock-infrastructure,275,step-def-gen,claude-sonnet-4-6,anthropic,2.461533,2.461533,success,0,0,1282352,2026-03-23T17:53:55.283Z,,,41,82358,2919039,93421,0

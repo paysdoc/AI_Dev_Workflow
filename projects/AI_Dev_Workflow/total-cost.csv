@@ -148,6 +148,7 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 275,mock infrastructure claude cli stub github api moc,plan,claude-opus-4-6,0.771232
 275,mock infrastructure claude cli stub github api moc,scenario,claude-opus-4-6,0.752457
 275,mock infrastructure claude cli stub github api moc,scenario,claude-haiku-4-5-20251001,0.164289
+275,mock infrastructure claude cli stub github api moc,step-def-gen,claude-sonnet-4-6,2.461533
 
-Total Cost (USD):,132.3492
-Total Cost (EUR):,114.4879
+Total Cost (USD):,134.8108
+Total Cost (EUR):,116.6172
