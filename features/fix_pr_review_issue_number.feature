@@ -57,21 +57,21 @@ Feature: Fix issue number resolution in PR review workflow and serialise cost CS
     Given "adws/phases/prReviewCompletion.ts" is read
     Then cost CSV writing is guarded by an issueNumber check in completePRReviewWorkflow
 
-  # ── 4: Serialised cost CSV naming for PR reviews ──────────────────────────
+  # ── 4: Cost CSV naming (migrated to adws/cost/reporting/csvWriter.ts in #245) ─
 
-  @adw-233 @regression
+  @adw-233
   Scenario: costCsvWriter exports a function to resolve serialised cost CSV path
-    Given "adws/core/costCsvWriter.ts" is read
+    Given "adws/cost/reporting/csvWriter.ts" is read
     Then the file contains a function for resolving serialised cost CSV paths
 
-  @adw-233 @regression
+  @adw-233
   Scenario: Serialised cost CSV path appends a serial number suffix
-    Given "adws/core/costCsvWriter.ts" is read
+    Given "adws/cost/reporting/csvWriter.ts" is read
     Then the serialised CSV path function appends a numeric serial suffix
 
-  @adw-233 @regression
+  @adw-233
   Scenario: rebuildProjectCostCsv correctly parses serialised filenames
-    Given "adws/core/costCsvWriter.ts" is read
+    Given "adws/cost/reporting/csvWriter.ts" is read
     Then rebuildProjectCostCsv extracts issue number from the first dash-separated segment
 
   # ── Cross-cutting: Type-check passes ───────────────────────────────────────

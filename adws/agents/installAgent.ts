@@ -3,9 +3,14 @@
  * Uses the /install slash command from .claude/commands/install.md
  */
 
-import * as path from 'path';
-import { log, getModelForCommand, getEffortForCommand } from '../core';
-import { runClaudeAgentWithCommand, type AgentResult } from './claudeAgent';
+import { runCommandAgent, type CommandAgentConfig } from './commandAgent';
+import type { AgentResult } from './claudeAgent';
+
+const installAgentConfig: CommandAgentConfig<void> = {
+  command: '/install',
+  agentName: 'Install',
+  outputFileName: 'install-agent.jsonl',
+};
 
 /**
  * Runs the /install skill to prime agent context with project files.
@@ -26,26 +31,11 @@ export async function runInstallAgent(
   cwd?: string,
   issueBody?: string,
 ): Promise<AgentResult> {
-  const args = [String(issueNumber), adwId];
-  const outputFile = path.join(logsDir, 'install-agent.jsonl');
-
-  log('Install Agent starting:', 'info');
-  log(`  ADW ID: ${adwId}`, 'info');
-  log(`  Issue: #${issueNumber}`, 'info');
-
-  const result = await runClaudeAgentWithCommand(
-    '/install',
-    args,
-    'Install',
-    outputFile,
-    getModelForCommand('/install', issueBody),
-    getEffortForCommand('/install', issueBody),
-    undefined,
+  return runCommandAgent(installAgentConfig, {
+    args: [String(issueNumber), adwId],
+    logsDir,
+    issueBody,
     statePath,
     cwd,
-  );
-
-  log('Install Agent completed', result.success ? 'success' : 'warn');
-
-  return result;
+  });
 }

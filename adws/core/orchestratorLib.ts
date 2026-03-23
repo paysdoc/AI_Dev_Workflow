@@ -6,7 +6,7 @@
  */
 
 import { execSync } from 'child_process';
-import { WorkflowStage, RecoveryState } from '../types/dataTypes';
+import { WorkflowStage, RecoveryState } from '../types/workflowTypes';
 import { STAGE_ORDER } from './workflowCommentParsing';
 
 /**

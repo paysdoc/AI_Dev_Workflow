@@ -3,9 +3,8 @@
  * Consolidates the common retry loop pattern from testRetry.ts and reviewRetry.ts.
  */
 
-import { type ModelUsageMap, emptyModelUsageMap } from '../types/costTypes';
-import { mergeModelUsageMaps, persistTokenCounts } from './costReport';
-import { type AgentIdentifier } from '../types/dataTypes';
+import { type ModelUsageMap, emptyModelUsageMap, mergeModelUsageMaps, persistTokenCounts } from '../cost';
+import { type AgentIdentifier } from '../types/agentTypes';
 import { AgentStateManager } from './agentState';
 import { log } from './utils';
 

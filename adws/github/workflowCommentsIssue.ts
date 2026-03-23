@@ -6,6 +6,7 @@ import { WorkflowStage, IssueClassSlashCommand, log, type CostBreakdown, formatC
 import { commentOnIssue, type RepoInfo } from './githubApi';
 import { ADW_SIGNATURE, truncateText, formatRunningTokenFooter } from '../core/workflowCommentParsing';
 import type { ReviewIssue } from '../agents/reviewAgent';
+import type { PhaseCostRecord } from '../cost/types';
 
 /** Context information for issue workflow comments. */
 export interface WorkflowContext {
@@ -26,6 +27,14 @@ export interface WorkflowContext {
     lastText?: string;
   };
   costBreakdown?: CostBreakdown;
+  /** Phase cost records for the new cost formatter. */
+  phaseCostRecords?: PhaseCostRecord[];
+  /**
+   * Pre-computed cost section string from the new comment formatter.
+   * When set, takes precedence over `costBreakdown` in comment formatting.
+   * An empty string means the formatter ran but cost display is disabled.
+   */
+  costSection?: string;
   /** Which continuation attempt this is (1, 2, 3...) for token limit recovery. */
   tokenContinuationNumber?: number;
   /** Token usage snapshot at the time of interruption. */
@@ -113,7 +122,13 @@ function formatPrCreatedComment(ctx: WorkflowContext): string {
   return `## :link: Pull Request Created\n\nA pull request has been created for this issue.\n\n**PR:** ${ctx.prUrl}\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
 }
 
-function formatCostSection(ctx: WorkflowContext): string {
+/**
+ * Returns the cost section for a workflow comment.
+ * Prefers `ctx.costSection` (pre-computed by the new formatter) when set.
+ * Falls back to the legacy `formatCostBreakdownMarkdown` when only `costBreakdown` is available.
+ */
+export function formatCostSection(ctx: WorkflowContext): string {
+  if (ctx.costSection !== undefined) return ctx.costSection;
   if (!ctx.costBreakdown) return '';
   return `\n\n<details>\n<summary>Cost Breakdown</summary>\n\n${formatCostBreakdownMarkdown(ctx.costBreakdown)}\n\n</details>`;
 }

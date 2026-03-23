@@ -1,3 +1,6 @@
+---
+target: false
+---
 # In-Loop Review
 
 Quick checkout and review workflow for agent work validation.

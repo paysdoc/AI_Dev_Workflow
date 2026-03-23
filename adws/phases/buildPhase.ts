@@ -14,8 +14,7 @@ import {
   emptyModelUsageMap,
   mergeModelUsageMaps,
 } from '../core';
-import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
-import { computeDisplayTokens } from '../core/tokenManager';
+import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord, computeDisplayTokens } from '../cost';
 import { postIssueStageComment } from './phaseCommentHelpers';
 import {
   getPlanFilePath,
@@ -24,7 +23,7 @@ import {
   type ProgressCallback,
   type ProgressInfo,
 } from '../agents';
-import type { WorkflowConfig } from './workflowLifecycle';
+import type { WorkflowConfig } from './workflowInit';
 import { buildContinuationPrompt } from './planPhase';
 import { BoardStatus } from '../providers/types';
 
@@ -40,7 +39,7 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
   const phaseStartTime = Date.now();
 
   if (repoContext) {
-    await repoContext.issueTracker.moveToStatus(issueNumber, BoardStatus.Building);
+    await repoContext.issueTracker.moveToStatus(issueNumber, BoardStatus.InProgress);
   }
 
   // Read plan content

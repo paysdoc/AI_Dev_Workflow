@@ -17,7 +17,8 @@
  * - GITHUB_PAT: (Optional) GitHub Personal Access Token
  */
 
-import { persistTokenCounts, parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, log, type ModelUsageMap, emptyModelUsageMap, mergeModelUsageMaps, OrchestratorId } from './core';
+import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, log, OrchestratorId } from './core';
+import { persistTokenCounts, type ModelUsageMap, emptyModelUsageMap, mergeModelUsageMaps } from './cost';
 import { runClaudeAgentWithCommand } from './agents/claudeAgent';
 import { commitChanges } from './vcs';
 import {
@@ -25,6 +26,7 @@ import {
   executePRPhase,
   completeWorkflow,
   handleWorkflowError,
+  copyTargetSkillsAndCommands,
 } from './workflowPhases';
 
 /**
@@ -79,11 +81,14 @@ async function main(): Promise<void> {
       throw new Error('ADW init command failed');
     }
 
-    log('ADW init completed, committing files...', 'info');
+    log('ADW init completed, copying target skills and commands...', 'info');
+    copyTargetSkillsAndCommands(config.worktreePath);
 
-    // Commit the generated .adw/ files
+    log('Committing files...', 'info');
+
+    // Commit the generated .adw/ files along with target skills and commands
     commitChanges(
-      'chore: initialize .adw/ project configuration',
+      'chore: initialize .adw/ config with target skills and commands',
       config.worktreePath,
     );
 

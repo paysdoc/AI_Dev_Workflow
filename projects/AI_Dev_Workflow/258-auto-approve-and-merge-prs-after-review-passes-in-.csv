@@ -1,0 +1,12 @@
+workflow_id,issue_number,phase,model,provider,computed_cost_usd,reported_cost_usd,status,retry_count,continuation_count,duration_ms,timestamp,estimated_tokens,actual_tokens,input,output,cache_read,cache_write,reasoning
+fvzdz7-auto-approve-and-mer,258,install,claude-sonnet-4-6,anthropic,1.887212,1.887212,success,0,0,760402,2026-03-21T21:38:14.554Z,,,3825,25016,3801933,95978,0
+fvzdz7-auto-approve-and-mer,258,plan,claude-opus-4-6,anthropic,0.816153,0.816153,success,0,0,188756,2026-03-21T21:41:23.433Z,,,11,9020,418708,60999,0
+fvzdz7-auto-approve-and-mer,258,scenario,claude-opus-4-6,anthropic,0.601039,0.601039,success,0,0,175149,2026-03-21T21:41:12.637Z,,,8,6804,247297,49160,0
+fvzdz7-auto-approve-and-mer,258,scenario,claude-haiku-4-5-20251001,anthropic,0.183156,0.183156,success,0,0,175149,2026-03-21T21:41:12.637Z,,,2676,4727,531661,82943,0
+fvzdz7-auto-approve-and-mer,258,build,claude-sonnet-4-6,anthropic,0.440825,0.440825,success,0,0,108895,2026-03-21T21:43:12.470Z,,,17,4058,607148,52736,0
+fvzdz7-auto-approve-and-mer,258,step-def-gen,claude-sonnet-4-6,anthropic,0.643367,0.643367,success,0,0,370791,2026-03-21T21:49:25.661Z,,,613,21666,392228,53032,0
+fvzdz7-auto-approve-and-mer,258,step-def-gen,claude-haiku-4-5-20251001,anthropic,0.224715,0.224715,success,0,0,370791,2026-03-21T21:49:25.661Z,,,27,9508,339691,114543,0
+fvzdz7-auto-approve-and-mer,258,review,claude-opus-4-6,anthropic,1.529041,1.529041,success,0,0,161630,2026-03-21T21:52:07.378Z,,,6729,17886,758754,107019,0
+fvzdz7-auto-approve-and-mer,258,document,claude-sonnet-4-6,anthropic,0.222195,0.222195,success,0,0,91361,2026-03-21T21:53:39.013Z,,,9,3195,188435,31390,0
+fvzdz7-auto-approve-and-mer,258,pr,claude-sonnet-4-6,anthropic,0.083719,0.083719,success,0,0,37828,2026-03-21T21:54:16.961Z,,,6,994,68928,12830,0
+fvzdz7-auto-approve-and-mer,258,kpi,claude-haiku-4-5-20251001,anthropic,0.071460,0.071460,success,0,0,61119,2026-03-21T21:55:18.152Z,,,41,5814,185048,19075,0

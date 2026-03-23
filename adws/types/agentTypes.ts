@@ -1,5 +1,41 @@
 import type { IssueClassSlashCommand, SlashCommand } from './issueTypes';
 import type { OrchestratorIdType } from '../core/constants';
+import type { LegacyModelUsageMap } from '../cost/types';
+
+/**
+ * Result returned by runClaudeAgentWithCommand.
+ * Shared between claudeAgent.ts and agentProcessHandler.ts to avoid bidirectional coupling.
+ */
+export interface AgentResult {
+  success: boolean;
+  output: string;
+  sessionId?: string;
+  totalCostUsd?: number;
+  /** Per-model token usage breakdown from the Claude CLI. */
+  modelUsage?: LegacyModelUsageMap;
+  /** The state path if state tracking was enabled */
+  statePath?: string;
+  /** True when the agent was terminated due to approaching the token limit. */
+  tokenLimitExceeded?: boolean;
+  /** Token usage snapshot at the time of interruption. */
+  tokenUsage?: TokenUsageSnapshot;
+  /** Partial output captured before token limit termination. */
+  partialOutput?: string;
+  /**
+   * Pre-finalization estimated usage snapshot (input + cache from per-turn streaming, output from estimation).
+   * Available for estimate-vs-actual comparison when costSource is 'extractor_finalized'.
+   */
+  estimatedUsage?: Record<string, Record<string, number>>;
+  /**
+   * Actual usage from the extractor after finalization (mirrors result message data in snake_case format).
+   * Only available when costSource is 'extractor_finalized'.
+   */
+  actualUsage?: Record<string, Record<string, number>>;
+  /** Indicates whether cost data came from a finalized result message or from streaming estimates. */
+  costSource?: 'extractor_finalized' | 'extractor_estimated';
+  /** True when the agent was terminated due to an expired OAuth token or authentication failure. */
+  authExpired?: boolean;
+}
 
 /**
  * Claude Code agent prompt configuration.
@@ -35,6 +71,7 @@ export interface AgentTemplateRequest {
 
 /**
  * Claude Code JSONL result message (last line).
+ * Cost fields are handled by AnthropicTokenUsageExtractor — not parsed here.
  */
 export interface ClaudeCodeResultMessage {
   type: string;
@@ -45,15 +82,6 @@ export interface ClaudeCodeResultMessage {
   numTurns: number;
   result: string;
   sessionId: string;
-  totalCostUsd: number;
-  /** Per-model token usage breakdown from the Claude CLI (available in recent versions). */
-  modelUsage?: Record<string, {
-    inputTokens: number;
-    outputTokens: number;
-    cacheReadInputTokens: number;
-    cacheCreationInputTokens: number;
-    costUSD: number;
-  }>;
 }
 
 /**

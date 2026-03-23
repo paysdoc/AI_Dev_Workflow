@@ -11,6 +11,14 @@ export {
   type ProgressCallback,
 } from './claudeAgent';
 
+// Command Agent (shared helper for thin wrapper agents)
+export {
+  runCommandAgent,
+  type CommandAgentConfig,
+  type CommandAgentOptions,
+  type CommandAgentResult,
+} from './commandAgent';
+
 // Plan Agent
 export {
   getPlanFilePath,

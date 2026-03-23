@@ -10,6 +10,7 @@ import { GitHubIssue, log } from '../core';
 import { type RepoInfo } from './githubApi';
 import { getCurrentBranch } from '../vcs/branchOperations';
 import { pushBranch } from '../vcs/commitOperations';
+import { refreshTokenIfNeeded } from './githubAppAuth';
 
 /**
  * Generates the PR body with implementation details.
@@ -80,6 +81,7 @@ export function createPullRequest(
   try {
     fs.writeFileSync(tempFilePath, prBody, 'utf-8');
 
+    refreshTokenIfNeeded();
     pushBranch(branchName, cwd);
 
     const repoFlag = ` --repo ${repoInfo.owner}/${repoInfo.repo}`;

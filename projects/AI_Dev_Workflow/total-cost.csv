@@ -1,6 +1,17 @@
 Issue number,Issue description,Phase,Model,Cost (USD)
 244,cost revamp github comment formatting divergence w,scenario,claude-opus-4-6,1.148309
 244,cost revamp github comment formatting divergence w,scenario,claude-haiku-4-5-20251001,0.089264
+245,cost revamp orchestrator migration and old code cl,build,claude-sonnet-4-6,7.889665
+245,cost revamp orchestrator migration and old code cl,document,claude-sonnet-4-6,0.234940
+245,cost revamp orchestrator migration and old code cl,install,claude-sonnet-4-6,0.273409
+245,cost revamp orchestrator migration and old code cl,kpi,claude-haiku-4-5-20251001,0.069326
+245,cost revamp orchestrator migration and old code cl,plan,claude-opus-4-6,1.364571
+245,cost revamp orchestrator migration and old code cl,plan,claude-haiku-4-5-20251001,0.446128
+245,cost revamp orchestrator migration and old code cl,pr,claude-sonnet-4-6,0.094421
+245,cost revamp orchestrator migration and old code cl,review,claude-opus-4-6,1.749273
+245,cost revamp orchestrator migration and old code cl,scenario,claude-opus-4-6,1.435523
+245,cost revamp orchestrator migration and old code cl,scenario,claude-haiku-4-5-20251001,0.214428
+245,cost revamp orchestrator migration and old code cl,step-def-gen,claude-sonnet-4-6,0.533404
 249,make bdd scenarios runnable step def generation re,build,claude-sonnet-4-6,2.816408
 249,make bdd scenarios runnable step def generation re,build,claude-sonnet-4-6,3.860037
 249,make bdd scenarios runnable step def generation re,document,claude-sonnet-4-6,0.229365
@@ -39,6 +50,79 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 250,ensurecronprocess in memory cache prevents respawn,scenario,claude-opus-4-6,1.322491
 250,ensurecronprocess in memory cache prevents respawn,scenario,claude-opus-4-6,0.945017
 250,ensurecronprocess in memory cache prevents respawn,test,claude-opus-4-6,7.085805
+253,cache install context to eliminate redundant agent,build,claude-sonnet-4-6,4.564787
+253,cache install context to eliminate redundant agent,document,claude-sonnet-4-6,0.232530
+253,cache install context to eliminate redundant agent,kpi,claude-haiku-4-5-20251001,0.070987
+253,cache install context to eliminate redundant agent,plan,claude-opus-4-6,1.538358
+253,cache install context to eliminate redundant agent,plan,claude-haiku-4-5-20251001,0.193760
+253,cache install context to eliminate redundant agent,pr,claude-sonnet-4-6,0.093917
+253,cache install context to eliminate redundant agent,review,claude-opus-4-6,3.532367
+253,cache install context to eliminate redundant agent,review,claude-sonnet-4-6,0.234266
+253,cache install context to eliminate redundant agent,scenario,claude-opus-4-6,1.237092
+253,cache install context to eliminate redundant agent,scenario,claude-haiku-4-5-20251001,0.343526
+253,cache install context to eliminate redundant agent,step-def-gen,claude-sonnet-4-6,1.624063
+254,skip scenario writer on take action resume past pl,build,claude-sonnet-4-6,0.344571
+254,skip scenario writer on take action resume past pl,document,claude-sonnet-4-6,0.207073
+254,skip scenario writer on take action resume past pl,kpi,claude-haiku-4-5-20251001,0.072666
+254,skip scenario writer on take action resume past pl,plan,claude-opus-4-6,1.086324
+254,skip scenario writer on take action resume past pl,pr,claude-sonnet-4-6,0.080400
+254,skip scenario writer on take action resume past pl,review,claude-opus-4-6,1.020926
+254,skip scenario writer on take action resume past pl,scenario,claude-opus-4-6,0.788559
+254,skip scenario writer on take action resume past pl,scenario,claude-haiku-4-5-20251001,0.200784
+254,skip scenario writer on take action resume past pl,step-def-gen,claude-sonnet-4-6,0.647088
+258,auto approve and merge prs after review passes in ,build,claude-sonnet-4-6,0.440825
+258,auto approve and merge prs after review passes in ,document,claude-sonnet-4-6,0.222195
+258,auto approve and merge prs after review passes in ,install,claude-sonnet-4-6,1.887212
+258,auto approve and merge prs after review passes in ,kpi,claude-haiku-4-5-20251001,0.071460
+258,auto approve and merge prs after review passes in ,plan,claude-opus-4-6,0.816153
+258,auto approve and merge prs after review passes in ,pr,claude-sonnet-4-6,0.083719
+258,auto approve and merge prs after review passes in ,review,claude-opus-4-6,1.529041
+258,auto approve and merge prs after review passes in ,scenario,claude-opus-4-6,0.601039
+258,auto approve and merge prs after review passes in ,scenario,claude-haiku-4-5-20251001,0.183156
+258,auto approve and merge prs after review passes in ,step-def-gen,claude-sonnet-4-6,0.643367
+258,auto approve and merge prs after review passes in ,step-def-gen,claude-haiku-4-5-20251001,0.224715
+262,chore explore codebase for architectural improveme,build,claude-sonnet-4-6,0.098769
+262,chore explore codebase for architectural improveme,install,claude-sonnet-4-6,0.206374
+262,chore explore codebase for architectural improveme,install,claude-sonnet-4-6,0.230760
+262,chore explore codebase for architectural improveme,plan,claude-opus-4-6,0.433833
+262,chore explore codebase for architectural improveme,plan,claude-haiku-4-5-20251001,0.648026
+262,chore explore codebase for architectural improveme,plan,claude-opus-4-6,0.789590
+262,chore explore codebase for architectural improveme,plan,claude-haiku-4-5-20251001,0.839690
+262,chore explore codebase for architectural improveme,pr,claude-sonnet-4-6,0.064859
+263,plan file not saved,install,claude-sonnet-4-6,0.309993
+263,plan file not saved,install,claude-sonnet-4-6,0.294024
+263,plan file not saved,plan,claude-opus-4-6,0.490221
+263,plan file not saved,plan,claude-haiku-4-5-20251001,0.132275
+263,plan file not saved,scenario,claude-opus-4-6,0.742454
+263,plan file not saved,scenario,claude-haiku-4-5-20251001,0.233973
+265,architectural improvement opportunities,build,claude-sonnet-4-6,7.762141
+265,architectural improvement opportunities,document,claude-sonnet-4-6,0.244404
+265,architectural improvement opportunities,document,claude-sonnet-4-6,0.286792
+265,architectural improvement opportunities,install,claude-sonnet-4-6,0.251733
+265,architectural improvement opportunities,install,claude-sonnet-4-6,0.443107
+265,architectural improvement opportunities,kpi,claude-haiku-4-5-20251001,0.080014
+265,architectural improvement opportunities,plan,claude-opus-4-6,1.193647
+265,architectural improvement opportunities,plan,claude-haiku-4-5-20251001,0.770612
+265,architectural improvement opportunities,pr,claude-sonnet-4-6,0.161671
+265,architectural improvement opportunities,review,claude-opus-4-6,7.069424
+265,architectural improvement opportunities,review,claude-haiku-4-5-20251001,0.482726
+265,architectural improvement opportunities,review,claude-sonnet-4-6,1.360778
+265,architectural improvement opportunities,review,claude-opus-4-6,1.257548
+265,architectural improvement opportunities,review,claude-haiku-4-5-20251001,0.211962
+265,architectural improvement opportunities,scenario,claude-opus-4-6,0.446107
+265,architectural improvement opportunities,scenario,claude-haiku-4-5-20251001,0.383892
+265,architectural improvement opportunities,step-def-gen,claude-sonnet-4-6,1.193231
+265,architectural improvement opportunities,step-def-gen,claude-sonnet-4-6,0.236564
+267,copy target true skills and commands to target rep,build,claude-sonnet-4-6,2.016614
+267,copy target true skills and commands to target rep,document,claude-sonnet-4-6,0.240171
+267,copy target true skills and commands to target rep,install,claude-sonnet-4-6,0.384874
+267,copy target true skills and commands to target rep,kpi,claude-haiku-4-5-20251001,0.060491
+267,copy target true skills and commands to target rep,plan,claude-opus-4-6,0.924475
+267,copy target true skills and commands to target rep,pr,claude-sonnet-4-6,0.088726
+267,copy target true skills and commands to target rep,review,claude-opus-4-6,1.618858
+267,copy target true skills and commands to target rep,scenario,claude-opus-4-6,0.595628
+267,copy target true skills and commands to target rep,scenario,claude-haiku-4-5-20251001,0.262210
+267,copy target true skills and commands to target rep,step-def-gen,claude-sonnet-4-6,0.668757
 
-Total Cost (USD):,43.1068
-Total Cost (EUR):,37.3113
+Total Cost (USD):,118.4408
+Total Cost (EUR):,102.4565

@@ -2,7 +2,7 @@ import { Given, When, Then } from '@cucumber/cucumber';
 import { existsSync, readFileSync, writeFileSync, mkdirSync, rmSync } from 'fs';
 import { join, dirname } from 'path';
 import assert from 'assert';
-import { sharedCtx } from './commonSteps.ts';
+import { sharedCtx, findFunctionUsageIndex } from './commonSteps.ts';
 
 const ROOT = process.cwd();
 
@@ -23,8 +23,8 @@ Then('it should invoke the \\/install command via runClaudeAgentWithCommand', fu
     `Expected "${sharedCtx.filePath}" to invoke the /install command`,
   );
   assert.ok(
-    content.includes('runClaudeAgentWithCommand'),
-    `Expected "${sharedCtx.filePath}" to call runClaudeAgentWithCommand`,
+    content.includes('runClaudeAgentWithCommand') || content.includes('runCommandAgent'),
+    `Expected "${sharedCtx.filePath}" to call runClaudeAgentWithCommand or runCommandAgent`,
   );
 });
 
@@ -190,11 +190,11 @@ Then('installPhase should be called after initializeWorkflow', function () {
   const content = sharedCtx.fileContent;
   // Accept either initializeWorkflow or initializePRReviewWorkflow
   const initIdx = content.includes('initializePRReviewWorkflow')
-    ? content.indexOf('initializePRReviewWorkflow')
-    : content.indexOf('initializeWorkflow');
-  const installIdx = content.indexOf('executeInstallPhase') !== -1
-    ? content.indexOf('executeInstallPhase')
-    : content.indexOf('runInstallAgent');
+    ? findFunctionUsageIndex(content, 'initializePRReviewWorkflow')
+    : findFunctionUsageIndex(content, 'initializeWorkflow');
+  const installIdx = findFunctionUsageIndex(content, 'executeInstallPhase') !== -1
+    ? findFunctionUsageIndex(content, 'executeInstallPhase')
+    : findFunctionUsageIndex(content, 'runInstallAgent');
   assert.ok(
     initIdx !== -1,
     `Expected "${sharedCtx.filePath}" to call initializeWorkflow or initializePRReviewWorkflow`,
@@ -209,24 +209,14 @@ Then('installPhase should be called after initializeWorkflow', function () {
 Then('installPhase should be called before the first task phase', function () {
   const content = sharedCtx.fileContent;
 
-  // Find the index of the install phase *call* (not import).
-  // We look for the await expression: "await executeInstallPhase" or "await runInstallAgent"
-  function findCallIdx(fnName: string): number {
-    const awaitIdx = content.indexOf(`await ${fnName}`);
-    if (awaitIdx !== -1) return awaitIdx;
-    // Also accept non-awaited call: "fnName("
-    const callIdx = content.indexOf(`${fnName}(`);
-    return callIdx;
-  }
-
-  const installIdx = findCallIdx('executeInstallPhase') !== -1
-    ? findCallIdx('executeInstallPhase')
-    : findCallIdx('runInstallAgent');
+  const installIdx = findFunctionUsageIndex(content, 'executeInstallPhase') !== -1
+    ? findFunctionUsageIndex(content, 'executeInstallPhase')
+    : findFunctionUsageIndex(content, 'runInstallAgent');
 
   // First task phase calls (plan, build, PR review plan)
-  const planIdx = findCallIdx('executePlanPhase');
-  const buildIdx = findCallIdx('executeBuildPhase');
-  const prReviewPlanIdx = findCallIdx('executePRReviewPlanPhase');
+  const planIdx = findFunctionUsageIndex(content, 'executePlanPhase');
+  const buildIdx = findFunctionUsageIndex(content, 'executeBuildPhase');
+  const prReviewPlanIdx = findFunctionUsageIndex(content, 'executePRReviewPlanPhase');
 
   const firstTaskIdx = Math.min(
     planIdx !== -1 ? planIdx : Infinity,

@@ -99,4 +99,5 @@ export {
   commentOnPR,
   fetchPRList,
   mergePR,
+  approvePR,
 } from './prApi';

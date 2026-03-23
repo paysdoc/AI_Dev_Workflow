@@ -6,14 +6,17 @@
  */
 
 import { spawn, execSync } from 'child_process';
+import * as fs from 'fs';
+import * as path from 'path';
 import { log, generateAdwId } from '../core';
+import { AGENTS_STATE_DIR } from '../core/config';
 import type { RepoInfo } from '../github/githubApi';
 import { getRepoInfo } from '../github';
 import { classifyIssueForTrigger, getWorkflowScript } from '../core/issueClassifier';
 
 import { checkIssueEligibility } from './issueEligibility';
 import { parseDependencies } from './issueDependencies';
-import { isCronAliveForRepo, writeCronPid } from './cronProcessGuard';
+import { isCronAliveForRepo } from './cronProcessGuard';
 
 /**
  * Spawns a detached child process for running ADW orchestrator workflows.
@@ -104,14 +107,15 @@ export function ensureCronProcess(repoInfo: RepoInfo, targetRepoArgs: string[]):
 
   cronSpawnedForRepo.add(repoKey);
   log(`Spawning cron trigger for ${repoKey}`);
+  const cronLogDir = path.join(AGENTS_STATE_DIR, 'cron');
+  fs.mkdirSync(cronLogDir, { recursive: true });
+  const logFd = fs.openSync(path.join(cronLogDir, `${repoKey.replace('/', '_')}.log`), 'a');
   const child = spawn('bunx', ['tsx', 'adws/triggers/trigger_cron.ts', ...targetRepoArgs], {
     detached: true,
-    stdio: 'ignore',
+    stdio: ['ignore', logFd, logFd],
   });
-  if (child.pid) {
-    writeCronPid(repoKey, child.pid);
-  }
   child.unref();
+  fs.closeSync(logFd);
 }
 
 /**

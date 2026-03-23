@@ -1,3 +1,6 @@
+---
+target: false
+---
 # Validate Plan Scenarios
 
 Compare an implementation plan against BDD scenarios to determine if they are aligned.

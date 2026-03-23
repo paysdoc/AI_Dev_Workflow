@@ -16,7 +16,7 @@ import {
   runKpiAgent,
 } from '../agents';
 import { commitAndPushKpiFile } from '../vcs';
-import type { WorkflowConfig } from './workflowLifecycle';
+import type { WorkflowConfig } from './workflowInit';
 
 /**
  * Executes the KPI phase: track agentic KPIs for the current workflow run.

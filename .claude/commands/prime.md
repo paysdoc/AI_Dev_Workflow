@@ -1,3 +1,6 @@
+---
+target: true
+---
 # Prime
 > Execute the following sections to understand the codebase then summarize your understanding.
 

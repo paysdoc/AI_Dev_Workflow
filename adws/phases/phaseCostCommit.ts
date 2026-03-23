@@ -9,7 +9,7 @@ import { appendIssueCostCsv, rebuildProjectTotalCsv } from '../cost/reporting';
 import { fetchExchangeRates } from '../cost/exchangeRates';
 import { commitAndPushCostFiles } from '../vcs';
 import type { PhaseCostRecord } from '../cost';
-import type { WorkflowConfig } from './workflowLifecycle';
+import type { WorkflowConfig } from './workflowInit';
 
 export interface PhaseCostCommitOptions {
   /** ADW repo root directory (process.cwd() for standard workflows). */

@@ -3,31 +3,14 @@
  * Uses the /track_agentic_kpis slash command from .claude/commands/track_agentic_kpis.md
  */
 
-import * as path from 'path';
-import { log, getModelForCommand, getEffortForCommand } from '../core';
-import { runClaudeAgentWithCommand, type AgentResult } from './claudeAgent';
+import { runCommandAgent, type CommandAgentConfig } from './commandAgent';
+import type { AgentResult } from './claudeAgent';
 
-/**
- * Formats structured args for the /track_agentic_kpis skill.
- * Returns a single-element array containing a JSON string with all KPI state data.
- */
-function formatKpiArgs(
-  adwId: string,
-  issueNumber: number,
-  issueClass: string,
-  planFile: string,
-  allAdws: readonly string[],
-  worktreePath?: string,
-): string[] {
-  return [JSON.stringify({
-    adw_id: adwId,
-    issue_number: issueNumber,
-    issue_class: issueClass,
-    plan_file: planFile,
-    all_adws: allAdws,
-    worktree_path: worktreePath,
-  })];
-}
+const kpiAgentConfig: CommandAgentConfig<void> = {
+  command: '/track_agentic_kpis',
+  agentName: 'KPI',
+  outputFileName: 'kpi-agent.jsonl',
+};
 
 /**
  * Runs the /track_agentic_kpis skill to update agentic KPI tracking.
@@ -54,26 +37,19 @@ export async function runKpiAgent(
   worktreePath?: string,
   issueBody?: string,
 ): Promise<AgentResult> {
-  const args = formatKpiArgs(adwId, issueNumber, issueClass, planFile, allAdws, worktreePath);
-  const outputFile = path.join(logsDir, 'kpi-agent.jsonl');
+  const args = [JSON.stringify({
+    adw_id: adwId,
+    issue_number: issueNumber,
+    issue_class: issueClass,
+    plan_file: planFile,
+    all_adws: allAdws,
+    worktree_path: worktreePath,
+  })];
 
-  log('KPI Agent starting:', 'info');
-  log(`  ADW ID: ${adwId}`, 'info');
-  log(`  Issue: #${issueNumber}`, 'info');
-
-  const result = await runClaudeAgentWithCommand(
-    '/track_agentic_kpis',
+  return runCommandAgent(kpiAgentConfig, {
     args,
-    'KPI',
-    outputFile,
-    getModelForCommand('/track_agentic_kpis', issueBody),
-    getEffortForCommand('/track_agentic_kpis', issueBody),
-    undefined,
+    logsDir,
+    issueBody,
     statePath,
-    undefined,
-  );
-
-  log('KPI Agent completed', 'success');
-
-  return result;
+  });
 }

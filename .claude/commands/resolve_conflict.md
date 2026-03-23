@@ -1,3 +1,6 @@
+---
+target: false
+---
 # Resolve Merge Conflicts
 
 Resolve git merge conflicts by analyzing the implementation plans from **both branches** to produce a merge strategy that preserves the intent of each change. Follow the `Instructions` to understand the conflict, formulate a strategy, and resolve every conflict. Then follow the `Report` section to report the results of your work.

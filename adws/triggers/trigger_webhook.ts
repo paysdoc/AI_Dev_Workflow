@@ -12,7 +12,7 @@ import * as http from 'http';
 import { log, PullRequestWebhookPayload, allocateRandomPort, isPortAvailable, getTargetRepoWorkspacePath } from '../core';
 import { rebuildProjectTotalCsv } from '../cost/reporting';
 import { fetchExchangeRates } from '../cost/exchangeRates';
-import { costCommitQueue } from '../core/costCommitQueue';
+import { costCommitQueue } from '../cost/commitQueue';
 import { commitAndPushCostFiles, pullLatestCostBranch } from '../vcs';
 import { isActionableComment, isClearComment, isAdwRunningForIssue, truncateText, getRepoInfoFromPayload, getRepoInfo, activateGitHubAppAuth, ensureAppAuthForRepo } from '../github';
 import { clearIssueComments } from '../adwClearComments';

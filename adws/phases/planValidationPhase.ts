@@ -21,7 +21,7 @@ import {
   runValidationAgent,
   runResolutionAgent,
 } from "../agents";
-import type { WorkflowConfig } from "./workflowLifecycle";
+import type { WorkflowConfig } from "./workflowInit";
 
 /**
  * Executes the Plan Validation phase: compares plan against BDD scenarios,

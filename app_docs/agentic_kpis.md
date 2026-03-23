@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value          | Last Updated |
 | ----------------- | -------------- | ------------ |
-| Current Streak    | 24             | 2026-03-21   |
-| Longest Streak    | 24             | 2026-03-21   |
-| Total Plan Size   | 441 lines      | 2026-03-21   |
-| Largest Plan Size | 201 lines      | 2026-03-21   |
-| Total Diff Size   | 156705 lines   | 2026-03-21   |
-| Largest Diff Size | 29151 lines    | 2026-03-21   |
-| Average Presence  | 1.60           | 2026-03-21   |
+| Current Streak    | 6              | 2026-03-23   |
+| Longest Streak    | 29             | 2026-03-23   |
+| Total Plan Size   | 441 lines      | 2026-03-23   |
+| Largest Plan Size | 201 lines      | 2026-03-23   |
+| Total Diff Size   | 1343718 lines  | 2026-03-23   |
+| Largest Diff Size | 205468 lines   | 2026-03-23   |
+| Average Presence  | 1.52           | 2026-03-23   |
 
 ## ADW KPIs
 
@@ -57,3 +57,8 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-03-21 | ex60ng-make-bdd-scenarios-r | 249          | /feature    | 2        | 0                 | 6905/758/110                    | 2026-03-21 | 2026-03-21 |
 | 2026-03-21 | 1vil1v-skip-scenario-writer | 254          | /feature    | 1        | 0                 | 7768/764/125                    | 2026-03-21 | 2026-03-21 |
 | 2026-03-21 | 71pdjz-cache-install-contex | 253          | /feature    | 2        | 0                 | 8573/769/128                    | 2026-03-21 | 2026-03-21 |
+| 2026-03-21 | fvzdz7-auto-approve-and-mer | 258          | /feature    | 1        | 0                 | 927/36/17                       | 2026-03-21 | 2026-03-21 |
+| 2026-03-22 | j2ydkj-cost-revamp-github-c | 244          | /feature    | 2        | 0                 | 1456/44/19                      | 2026-03-22 | 2026-03-22 |
+| 2026-03-22 | sgdfol-cost-revamp-orchestr | 245          | /feature    | 1        | 0                 | 4100/770/66                     | 2026-03-22 | 2026-03-22 |
+| 2026-03-22 | 2gp7qi-architectural-improv | 265          | /feature    | 1        | 0                 | 7303/2408/136                   | 2026-03-22 | 2026-03-22 |
+| 2026-03-23 | sgud8b-copy-target-true-ski | 267          | /feature    | 1        | 0                 | 8431/2418/179                   | 2026-03-23 | 2026-03-23 |

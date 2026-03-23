@@ -206,6 +206,14 @@
     - When troubleshooting approved PRs that were not automatically merged
     - When adjusting `MAX_AUTO_MERGE_ATTEMPTS` or the retry loop behavior
 
+- app_docs/feature-fvzdz7-auto-approve-merge-after-review.md
+  - Conditions:
+    - When working with `executeAutoMergePhase` in `adws/phases/autoMergePhase.ts`
+    - When modifying `mergeWithConflictResolution()` in `adws/triggers/autoMergeHandler.ts`
+    - When working with `approvePR()` in `adws/github/prApi.ts` or the `GH_TOKEN` identity swap
+    - When adding the auto-merge phase to a new orchestrator
+    - When troubleshooting PRs that were not merged after the review phase passed
+
 - app_docs/feature-tepq39-scenario-writer-opus-model.md
   - Conditions:
     - When working with `SLASH_COMMAND_MODEL_MAP` or `SLASH_COMMAND_MODEL_MAP_FAST` in `adws/core/config.ts`
@@ -303,3 +311,50 @@
     - When adding recovery guards to new phases using `shouldExecuteStage`
     - When troubleshooting the scenario writer or plan validation phase running unnecessarily on workflow resume
     - When investigating why `plan_validating` was not detected as a completed stage during recovery
+
+- app_docs/feature-j2ydkj-cost-comment-formatter.md
+  - Conditions:
+    - When working with `formatCostCommentSection`, `formatCostTable`, `formatDivergenceWarning`, or `formatEstimateVsActual` in `adws/cost/reporting/commentFormatter.ts`
+    - When implementing or modifying cost section rendering in GitHub issue or PR comments
+    - When adding the `SHOW_COST_IN_COMMENTS` env var toggle or changing cost comment visibility
+    - When troubleshooting divergence warnings not appearing or cost sections showing when they should be hidden
+    - When extending `WorkflowContext` with new cost-related fields (`costSection`, `phaseCostRecords`)
+
+- app_docs/feature-sgdfol-cost-revamp-orchestr-cost-orchestrator-migration-cleanup.md
+  - Conditions:
+    - When working with `adws/cost/` as the authoritative cost module
+    - When importing cost types (`ModelUsageMap`, `ModelUsage`, `CostBreakdown`) or helpers (`mergeModelUsageMaps`, `persistTokenCounts`, `buildCostBreakdown`, etc.)
+    - When adding a new orchestrator that needs cost tracking
+    - When troubleshooting imports that previously came from `core/costReport`, `core/tokenManager`, or `types/costTypes`
+    - When modifying `ClaudeCodeResultMessage` or cost extraction in `jsonlParser.ts`
+
+- app_docs/feature-btrko8-codebase-architecture-improvements.md
+  - Conditions:
+    - When adding a new orchestrator and need to understand the PhaseRunner / CostTracker composition pattern
+    - When implementing a new thin-wrapper agent and want to use `runCommandAgent<T>()`
+    - When looking for model routing utilities (`getModelForCommand`, `isFastMode`) or environment constants after the `config.ts` split
+    - When troubleshooting import errors after module relocations (`claudeStreamParser`, `issueRouting`, `cost/commitQueue`)
+    - When working with `adws/core/logger.ts`, `adws/core/adwId.ts`, or `adws/core/environment.ts` to understand what was extracted from `utils.ts` / `config.ts`
+
+- app_docs/feature-2gp7qi-architectural-improv-codebase-architecture.md
+  - Conditions:
+    - When adding a new orchestrator and need to understand the PhaseRunner / CostTracker composition pattern
+    - When implementing a new thin-wrapper agent and want to use `runCommandAgent<T>()`
+    - When looking for model routing utilities (`getModelForCommand`, `isFastMode`) or environment constants after the `config.ts` split
+    - When troubleshooting import errors after module relocations (`claudeStreamParser`, `issueRouting`, `cost/commitQueue`)
+    - When working with `adws/core/logger.ts`, `adws/core/adwId.ts`, or `adws/core/environment.ts` to understand what was extracted from `utils.ts` / `config.ts`
+
+- app_docs/feature-sgud8b-copy-target-skills-adw-init.md
+  - Conditions:
+    - When working with `copyTargetSkillsAndCommands()` or `parseFrontmatterTarget()` in `adws/phases/worktreeSetup.ts`
+    - When adding a new skill or command and need to decide whether to set `target: true` or `target: false`
+    - When modifying `adwInit.tsx` to change what is committed during `adw_init`
+    - When troubleshooting skills or commands that are missing in a target repo after `adw_init`
+    - When investigating why `workflowInit` is gitignoring commands that were already committed
+
+- app_docs/feature-tdlgz7-fix-boardstatus-invalid-values.md
+  - Conditions:
+    - When working with `BoardStatus` enum in `adws/providers/types.ts`
+    - When adding or removing project board status transitions in `buildPhase.ts` or `testPhase.ts`
+    - When troubleshooting `moveToStatus()` calls that silently fail due to unmatched board column names
+    - When the GitHub project board columns change and enum values need to stay in sync

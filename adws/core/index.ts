@@ -7,10 +7,10 @@ export { OrchestratorId, MAX_AUTO_MERGE_ATTEMPTS } from './constants';
 export type { OrchestratorIdType } from './constants';
 
 // Configuration
-export { CLAUDE_CODE_PATH, GITHUB_PAT, JIRA_BASE_URL, JIRA_EMAIL, JIRA_API_TOKEN, JIRA_PAT, JIRA_PROJECT_KEY, GITLAB_TOKEN, GITLAB_INSTANCE_URL, LOGS_DIR, SPECS_DIR, AGENTS_STATE_DIR, MAX_TEST_RETRY_ATTEMPTS, MAX_REVIEW_RETRY_ATTEMPTS, MAX_VALIDATION_RETRY_ATTEMPTS, WORKTREES_DIR, TARGET_REPOS_DIR, COST_REPORT_CURRENCIES, MAX_CONCURRENT_PER_REPO, GRACE_PERIOD_MS, MAX_THINKING_TOKENS, TOKEN_LIMIT_THRESHOLD, MAX_TOKEN_CONTINUATIONS, RUNNING_TOKENS, getSafeSubprocessEnv, SLASH_COMMAND_MODEL_MAP, SLASH_COMMAND_MODEL_MAP_FAST, getModelForCommand, isFastMode, resolveClaudeCodePath, clearClaudeCodePathCache, SLASH_COMMAND_EFFORT_MAP, SLASH_COMMAND_EFFORT_MAP_FAST, getEffortForCommand } from './config';
+export { CLAUDE_CODE_PATH, GITHUB_PAT, JIRA_BASE_URL, JIRA_EMAIL, JIRA_API_TOKEN, JIRA_PAT, JIRA_PROJECT_KEY, GITLAB_TOKEN, GITLAB_INSTANCE_URL, LOGS_DIR, SPECS_DIR, AGENTS_STATE_DIR, MAX_TEST_RETRY_ATTEMPTS, MAX_REVIEW_RETRY_ATTEMPTS, MAX_VALIDATION_RETRY_ATTEMPTS, WORKTREES_DIR, TARGET_REPOS_DIR, COST_REPORT_CURRENCIES, MAX_CONCURRENT_PER_REPO, GRACE_PERIOD_MS, MAX_THINKING_TOKENS, TOKEN_LIMIT_THRESHOLD, MAX_TOKEN_CONTINUATIONS, RUNNING_TOKENS, SHOW_COST_IN_COMMENTS, getSafeSubprocessEnv, SLASH_COMMAND_MODEL_MAP, SLASH_COMMAND_MODEL_MAP_FAST, getModelForCommand, isFastMode, resolveClaudeCodePath, clearClaudeCodePathCache, SLASH_COMMAND_EFFORT_MAP, SLASH_COMMAND_EFFORT_MAP_FAST, getEffortForCommand } from './config';
 export type { ReasoningEffort } from './config';
 
-// Data types
+// Data types (from issueTypes.ts)
 export type {
   IssueClassSlashCommand,
   AdwSlashCommand,
@@ -21,28 +21,38 @@ export type {
   GitHubComment,
   GitHubIssueListItem,
   GitHubIssue,
+  PullRequestWebhookPayload,
+  IssueCommentSummary,
+  TargetRepoInfo,
+} from '../types/issueTypes';
+export { VALID_ISSUE_TYPES } from '../types/issueTypes';
+
+// Data types (from agentTypes.ts)
+export type {
+  AgentResult,
   AgentPromptRequest,
   AgentPromptResponse,
   AgentTemplateRequest,
   ClaudeCodeResultMessage,
+  AgentIdentifier,
+  AgentExecutionStatus,
+  AgentExecutionState,
+  AgentState,
+  TokenUsageSnapshot,
+} from '../types/agentTypes';
+
+// Data types (from workflowTypes.ts)
+export type {
   WorkflowStage,
   PRReviewComment,
   PRDetails,
   PRListItem,
   PRReviewWorkflowStage,
   RecoveryState,
-  PullRequestWebhookPayload,
-  AgentIdentifier,
-  AgentExecutionStatus,
-  AgentExecutionState,
-  AgentState,
-  IssueCommentSummary,
-  TokenUsageSnapshot,
-  TargetRepoInfo,
-} from '../types/dataTypes';
+} from '../types/workflowTypes';
 
-// Prefix maps for consistent branch naming and commit messages
-export { commitPrefixMap, branchPrefixMap, branchPrefixAliases, adwCommandToIssueTypeMap, adwCommandToOrchestratorMap, issueTypeToOrchestratorMap, VALID_ISSUE_TYPES } from '../types/dataTypes';
+// Prefix maps and routing maps for consistent branch naming, commit messages, and orchestrator dispatch
+export { commitPrefixMap, branchPrefixMap, branchPrefixAliases, adwCommandToIssueTypeMap, adwCommandToOrchestratorMap, issueTypeToOrchestratorMap } from '../types/issueRouting';
 
 // Utilities
 export {
@@ -53,8 +63,6 @@ export {
   getLogAdwId,
   resetLogAdwId,
   ensureLogsDirectory,
-  ensureAgentStateDirectory,
-  getAgentStatePath,
   parseTargetRepoArgs,
   type LogLevel,
 } from './utils';
@@ -76,39 +84,21 @@ export {
 // Orchestrator shared utilities
 export { shouldExecuteStage, hasUncommittedChanges, getNextStage } from './orchestratorLib';
 
-// Cost types
-export type { ModelUsage, ModelUsageMap, CurrencyAmount, CostBreakdown } from '../types/costTypes';
-export { emptyModelUsage, emptyModelUsageMap } from '../types/costTypes';
+// Cost types (re-exported from adws/cost for backward compatibility)
+export type { ModelUsage, ModelUsageMap, CurrencyAmount, CostBreakdown } from '../cost';
+export { emptyModelUsage, emptyModelUsageMap } from '../cost';
 
-// Cost pricing
-export type { ModelPricing } from './costPricing';
-export { MODEL_PRICING } from './costPricing';
-
-// Cost report
+// Cost helpers (re-exported from adws/cost for backward compatibility)
 export {
   CURRENCY_SYMBOLS,
+  fetchExchangeRates,
   mergeModelUsageMaps,
   computeTotalCostUsd,
-  fetchExchangeRates,
   buildCostBreakdown,
   formatCostBreakdownMarkdown,
   persistTokenCounts,
   computeEurRate,
-} from './costReport';
-
-// Cost CSV writer
-export type { ProjectCostRow } from './costCsvWriter';
-export {
-  getIssueCsvPath,
-  getProjectCsvPath,
-  getNextSerialCsvPath,
-  formatIssueCostCsv,
-  formatProjectCostCsv,
-  parseProjectCostCsv,
-  writeIssueCostCsv,
-  parseIssueCostTotal,
-  rebuildProjectCostCsv,
-} from './costCsvWriter';
+} from '../cost';
 
 // Project configuration
 export type { ProjectConfig, CommandsConfig, ProvidersConfig, ScenariosConfig } from './projectConfig';
@@ -128,9 +118,9 @@ export { allocateRandomPort, isPortAvailable } from './portAllocator';
 export type { OrchestratorArgs } from './orchestratorCli';
 export { extractCwdOption, printUsageAndExit as printOrchestratorUsage, parseOrchestratorArguments, buildRepoIdentifier } from './orchestratorCli';
 
-// Token Manager
-export type { TokenTotals, ModelTokenEntry } from './tokenManager';
-export { computeTotalTokens, computeDisplayTokens, computePrimaryModelTokens, isModelMatch } from './tokenManager';
+// Token utilities (re-exported from adws/cost for backward compatibility)
+export type { TokenTotals, ModelTokenEntry } from '../cost';
+export { computeTotalTokens, computeDisplayTokens, computePrimaryModelTokens, isModelMatch } from '../cost';
 
 // Target repo manager
 export {
@@ -141,24 +131,33 @@ export {
   ensureTargetRepoWorkspace,
 } from './targetRepoManager';
 
-// Cost commit queue
-export { costCommitQueue, CostCommitQueue } from './costCommitQueue';
+// Cost commit queue (re-exported from adws/cost for backward compatibility)
+export { costCommitQueue, CostCommitQueue } from '../cost/commitQueue';
 
-// New cost module (PhaseCostRecord, exchange rates, new CSV writer)
+// Cost module (PhaseCostRecord, exchange rates, CSV writer)
 export type { PhaseCostRecord, CreatePhaseCostRecordsOptions, ProjectTotalRow } from '../cost';
 export {
   PhaseCostStatus,
   createPhaseCostRecords,
   appendIssueCostCsv,
-  writeIssueCostCsv as writeIssueCostCsvNew,
+  writeIssueCostCsv,
   parseIssueCostCsv,
-  parseIssueCostTotal as parseIssueCostTotalNew,
+  parseIssueCostTotal,
   rebuildProjectTotalCsv,
-  formatIssueCostCsv as formatIssueCostCsvNew,
+  formatIssueCostCsv,
   formatProjectTotalCsv,
   collectAllTokenTypes,
   FIXED_TOKEN_COLUMNS,
+  formatCostTable,
+  formatDivergenceWarning,
+  formatEstimateVsActual,
+  formatCurrencyTotals,
+  formatCostCommentSection,
 } from '../cost';
+
+// Phase runner utilities
+export type { PhaseResult, PhaseFn } from './phaseRunner';
+export { CostTracker, runPhase, runPhasesSequential, runPhasesParallel } from './phaseRunner';
 
 // Workflow comment parsing (platform-agnostic)
 export {

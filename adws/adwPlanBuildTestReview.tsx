@@ -4,6 +4,9 @@
  *
  * Usage: bunx tsx adws/adwPlanBuildTestReview.tsx <github-issueNumber> [adw-id] [--issue-type <type>]
  *
+ * Identical workflow to adwPlanBuildReview.tsx, distinguished only by the OrchestratorId
+ * (PlanBuildTestReview vs PlanBuildReview) for state-tracking and cost attribution.
+ *
  * Workflow:
  * 1. Initialize: fetch issue, classify type, setup worktree, initialize state, detect recovery
  * 2. Plan Phase + Scenario Phase (parallel): run plan agent, write BDD scenarios
@@ -13,7 +16,8 @@
  * 6. Step Def Gen Phase: generate step definitions, remove ungeneratable scenarios
  * 7. Review Phase: review implementation + run BDD scenarios, patch blockers, retry
  * 8. PR Phase: create pull request (only after review passes)
- * 9. Finalize: update state, post completion comment
+ * 9. AutoMerge Phase: approve and merge the PR (non-fatal)
+ * 10. Finalize: update state, post completion comment
  *
  * Environment Requirements:
  * - ANTHROPIC_API_KEY: Anthropic API key
@@ -23,7 +27,8 @@
  * - MAX_REVIEW_RETRY_ATTEMPTS: Maximum retry attempts for review-patch loop (default: 3)
  */
 
-import { mergeModelUsageMaps, persistTokenCounts, parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId, computeDisplayTokens, RUNNING_TOKENS } from './core';
+import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId } from './core';
+import { CostTracker, runPhase, runPhasesParallel } from './core/phaseRunner';
 import {
   initializeWorkflow,
   executeInstallPhase,
@@ -35,10 +40,10 @@ import {
   executeStepDefPhase,
   executePRPhase,
   executeReviewPhase,
+  executeAutoMergePhase,
   completeWorkflow,
   handleWorkflowError,
 } from './workflowPhases';
-import { commitPhasesCostData } from './phases/phaseCostCommit';
 
 
 /**
@@ -60,84 +65,27 @@ async function main(): Promise<void> {
     repoId,
   });
 
-  let totalCostUsd = 0;
-  let totalModelUsage = {};
+  const tracker = new CostTracker();
 
   try {
-    const installResult = await executeInstallPhase(config);
-    totalCostUsd += installResult.costUsd;
-    totalModelUsage = mergeModelUsageMaps(totalModelUsage, installResult.modelUsage);
-    persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
-    await commitPhasesCostData(config, installResult.phaseCostRecords);
+    await runPhase(config, tracker, executeInstallPhase);
+    await runPhasesParallel(config, tracker, [executePlanPhase, executeScenarioPhase]);
+    await runPhase(config, tracker, executePlanValidationPhase);
+    await runPhase(config, tracker, executeBuildPhase);
+    const testResult = await runPhase(config, tracker, executeTestPhase);
+    await runPhase(config, tracker, executeStepDefPhase);
+    const reviewResult = await runPhase(config, tracker, executeReviewPhase);
+    await runPhase(config, tracker, executePRPhase);
+    await runPhase(config, tracker, executeAutoMergePhase);
 
-    const [planResult, scenarioResult] = await Promise.all([
-      executePlanPhase(config),
-      executeScenarioPhase(config),
-    ]);
-    totalCostUsd += planResult.costUsd + scenarioResult.costUsd;
-    totalModelUsage = mergeModelUsageMaps(
-      mergeModelUsageMaps(totalModelUsage, planResult.modelUsage),
-      scenarioResult.modelUsage,
-    );
-    persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
-    if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeDisplayTokens(totalModelUsage);
-    await commitPhasesCostData(config, [...planResult.phaseCostRecords, ...scenarioResult.phaseCostRecords]);
-
-    config.totalModelUsage = totalModelUsage;
-    const planValidationResult = await executePlanValidationPhase(config);
-    totalCostUsd += planValidationResult.costUsd;
-    totalModelUsage = mergeModelUsageMaps(totalModelUsage, planValidationResult.modelUsage);
-    persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
-    if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeDisplayTokens(totalModelUsage);
-
-    config.totalModelUsage = totalModelUsage;
-    const buildResult = await executeBuildPhase(config);
-    totalCostUsd += buildResult.costUsd;
-    totalModelUsage = mergeModelUsageMaps(totalModelUsage, buildResult.modelUsage);
-    persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
-    if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeDisplayTokens(totalModelUsage);
-    await commitPhasesCostData(config, buildResult.phaseCostRecords);
-
-    config.totalModelUsage = totalModelUsage;
-    const testResult = await executeTestPhase(config);
-    totalCostUsd += testResult.costUsd;
-    totalModelUsage = mergeModelUsageMaps(totalModelUsage, testResult.modelUsage);
-    persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
-    if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeDisplayTokens(totalModelUsage);
-    await commitPhasesCostData(config, testResult.phaseCostRecords);
-
-    config.totalModelUsage = totalModelUsage;
-    const stepDefResult = await executeStepDefPhase(config);
-    totalCostUsd += stepDefResult.costUsd;
-    totalModelUsage = mergeModelUsageMaps(totalModelUsage, stepDefResult.modelUsage);
-    persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
-    if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeDisplayTokens(totalModelUsage);
-    await commitPhasesCostData(config, stepDefResult.phaseCostRecords);
-
-    config.totalModelUsage = totalModelUsage;
-    const reviewResult = await executeReviewPhase(config);
-    totalCostUsd += reviewResult.costUsd;
-    totalModelUsage = mergeModelUsageMaps(totalModelUsage, reviewResult.modelUsage);
-    persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
-    if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeDisplayTokens(totalModelUsage);
-    await commitPhasesCostData(config, reviewResult.phaseCostRecords);
-
-    config.totalModelUsage = totalModelUsage;
-    const prResult = await executePRPhase(config);
-    totalCostUsd += prResult.costUsd;
-    totalModelUsage = mergeModelUsageMaps(totalModelUsage, prResult.modelUsage);
-    persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
-    if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeDisplayTokens(totalModelUsage);
-    await commitPhasesCostData(config, prResult.phaseCostRecords);
-
-    await completeWorkflow(config, totalCostUsd, {
+    await completeWorkflow(config, tracker.totalCostUsd, {
       unitTestsPassed: testResult.unitTestsPassed,
       totalTestRetries: testResult.totalRetries,
       reviewPassed: reviewResult.reviewPassed,
       totalReviewRetries: reviewResult.totalRetries,
-    }, totalModelUsage);
+    }, tracker.totalModelUsage);
   } catch (error) {
-    handleWorkflowError(config, error, totalCostUsd, totalModelUsage);
+    handleWorkflowError(config, error, tracker.totalCostUsd, tracker.totalModelUsage);
   }
 }
 

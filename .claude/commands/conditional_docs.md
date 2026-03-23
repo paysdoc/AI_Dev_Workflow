@@ -1,3 +1,6 @@
+---
+target: false
+---
 # Conditional Documentation Guide
 
 This prompt helps you determine what documentation you should read based on the specific changes you need to make in the codebase.

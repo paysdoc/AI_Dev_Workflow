@@ -45,6 +45,7 @@ Required and optional environment variables (see `.env.sample` for full referenc
 - `TARGET_REPOS_DIR` - (Optional) Directory for storing cloned target repository workspaces, defaults to `~/.adw/repos`
 - `MAX_CONCURRENT_PER_REPO` - (Optional) Maximum concurrent in-progress issues per repository, defaults to `5`
 - `RUNNING_TOKENS` - (Optional) Show running token totals in issue comments, defaults to `false`
+- `SHOW_COST_IN_COMMENTS` - (Optional) Show cost breakdowns in GitHub issue/PR comments, defaults to `false`
 - `JIRA_BASE_URL` - (Optional) Jira instance URL, required only when using Jira as the issue tracker
 - `JIRA_PROJECT_KEY` - (Optional) Default Jira project key
 - `JIRA_EMAIL` - (Optional) Jira Cloud auth email
@@ -97,6 +98,7 @@ ADW uses BDD scenarios for validation (see `.adw/scenarios.md`).
 │   ├── feature.md
 │   ├── find_issue_dependencies.md
 │   ├── generate_branch_name.md
+│   ├── generate_step_definitions.md
 │   ├── implement.md
 │   ├── in_loop_review.md
 │   ├── install.md
@@ -151,12 +153,14 @@ adws/                   # ADW workflow system
 │   ├── bddScenarioRunner.ts  # BDD scenario execution
 │   ├── buildAgent.ts
 │   ├── claudeAgent.ts
+│   ├── commandAgent.ts  # Generic thin-wrapper agent for slash commands
 │   ├── regressionScenarioProof.ts  # Regression scenario proof for reviews
 │   ├── dependencyExtractionAgent.ts  # LLM-based issue dependency extraction
 │   ├── documentAgent.ts
 │   ├── gitAgent.ts
 │   ├── index.ts
 │   ├── jsonlParser.ts
+│   ├── installAgent.ts # Install phase agent
 │   ├── kpiAgent.ts     # KPI tracking agent
 │   ├── patchAgent.ts
 │   ├── planAgent.ts
@@ -165,29 +169,32 @@ adws/                   # ADW workflow system
 │   ├── reviewAgent.ts
 │   ├── reviewRetry.ts
 │   ├── scenarioAgent.ts  # BDD scenario planner agent
+│   ├── stepDefAgent.ts  # Step definition generation agent
 │   ├── testAgent.ts
 │   ├── testDiscovery.ts  # E2E test discovery
 │   ├── testRetry.ts
 │   └── validationAgent.ts  # Plan-scenario validation
 ├── core/               # Configuration and utilities
+│   ├── adwId.ts        # ADW ID generation
 │   ├── agentState.ts
+│   ├── claudeStreamParser.ts  # Claude JSONL stream parsing
 │   ├── config.ts
 │   ├── constants.ts    # Orchestrator ID constants
-│   ├── costCommitQueue.ts
-│   ├── costCsvWriter.ts
-│   ├── costPricing.ts
-│   ├── costReport.ts
+│   ├── costCommitQueue.ts  # Cost CSV commit queue (core module)
+│   ├── environment.ts  # Environment variable accessors
 │   ├── index.ts
 │   ├── issueClassifier.ts
 │   ├── jsonParser.ts
+│   ├── logger.ts       # Structured logging utilities
+│   ├── modelRouting.ts # Model/effort routing utilities
 │   ├── orchestratorCli.ts  # Shared CLI parsing utilities
 │   ├── orchestratorLib.ts
+│   ├── phaseRunner.ts  # PhaseRunner / CostTracker composition
 │   ├── portAllocator.ts
 │   ├── projectConfig.ts
 │   ├── retryOrchestrator.ts
 │   ├── stateHelpers.ts
 │   ├── targetRepoManager.ts
-│   ├── tokenManager.ts  # Token counting (relocated from agents/)
 │   ├── utils.ts
 │   ├── workflowCommentParsing.ts  # Comment parsing utilities
 │   └── workflowMapping.ts  # Issue type → orchestrator mapping
@@ -221,16 +228,21 @@ adws/                   # ADW workflow system
 │   │   ├── index.ts
 │   │   └── pricing.ts
 │   ├── reporting/      # Cost CSV reporting
+│   │   ├── commentFormatter.ts
 │   │   ├── csvWriter.ts
 │   │   └── index.ts
+│   ├── commitQueue.ts  # Cost CSV commit queue
 │   ├── computation.ts  # Cost computation logic
+│   ├── costHelpers.ts  # Shared cost utility helpers
 │   ├── exchangeRates.ts
 │   ├── index.ts
 │   └── types.ts
 ├── phases/             # Workflow phase implementations
+│   ├── autoMergePhase.ts  # Auto-approve and merge PR after review passes
 │   ├── buildPhase.ts
 │   ├── documentPhase.ts
 │   ├── index.ts
+│   ├── installPhase.ts # Install phase implementation
 │   ├── kpiPhase.ts     # KPI tracking phase
 │   ├── phaseCommentHelpers.ts  # Shared phase comment utilities
 │   ├── phaseCostCommit.ts  # Phase cost data commit logic
@@ -240,16 +252,16 @@ adws/                   # ADW workflow system
 │   ├── prReviewCompletion.ts  # PR review completion/error handling
 │   ├── prReviewPhase.ts
 │   ├── scenarioPhase.ts  # BDD scenario generation phase
+│   ├── stepDefPhase.ts  # Step definition generation phase
 │   ├── testPhase.ts
 │   ├── workflowCompletion.ts  # Workflow completion/error handling
 │   ├── workflowInit.ts  # Workflow initialization
-│   ├── workflowLifecycle.ts  # Re-export barrel
 │   └── worktreeSetup.ts  # Gitignore and worktree setup helpers
 ├── types/              # Type definitions
 │   ├── agentTypes.ts
-│   ├── costTypes.ts
 │   ├── dataTypes.ts
 │   ├── index.ts
+│   ├── issueRouting.ts  # Issue routing type definitions
 │   ├── issueTypes.ts
 │   └── workflowTypes.ts
 ├── providers/          # Provider interfaces and implementations
@@ -312,7 +324,8 @@ bun.lock                # Bun lockfile
 eslint.config.js        # ESLint configuration
 cucumber.js             # Cucumber.js configuration
 features/               # BDD feature files (Gherkin .feature)
-└── step_definitions/   # Cucumber step definition files (.ts)
+├── step_definitions/   # Cucumber step definition files (.ts)
+└── support/            # Cucumber support files (tsx registration)
 guidelines/
 └── coding_guidelines.md
 projects/               # Cost tracking CSV files per project
@@ -321,5 +334,6 @@ specs/                  # Generated implementation specs
 .gitignore
 package.json
 tsconfig.json           # Root TypeScript configuration
+vitest.config.ts        # Vitest test configuration
 README.md               # This file
 ```

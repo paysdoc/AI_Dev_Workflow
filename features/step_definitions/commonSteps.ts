@@ -10,6 +10,12 @@ const ROOT = process.cwd();
 // "not exported" assertions pass vacuously (nothing is exported from a deleted file).
 const REMOVED_FILES = new Set([
   'adws/agents/crucialScenarioProof.ts', // renamed to regressionScenarioProof.ts
+  // Deleted in issue #245 — cost module migration cleanup
+  'adws/core/costPricing.ts',
+  'adws/core/costReport.ts',
+  'adws/core/costCsvWriter.ts',
+  'adws/core/tokenManager.ts',
+  'adws/types/costTypes.ts',
 ]);
 
 // Shared mutable context for cross-file step definitions.
@@ -95,3 +101,24 @@ Then('no occurrence of {string} is found', function (this: Record<string, string
     `Expected no occurrence of "${unexpected}" in "${this.filePath}"`,
   );
 });
+
+/**
+ * Finds the index of a function being used in source code — either as a direct
+ * call `func(` or passed as a callback to runPhase / runPhasesParallel.
+ * Returns -1 if not found.
+ */
+export function findFunctionUsageIndex(content: string, funcName: string): number {
+  // Direct call: funcName(
+  const directIdx = content.indexOf(`${funcName}(`);
+  if (directIdx !== -1) return directIdx;
+  // Passed as callback to runPhase: , funcName)
+  const callbackIdx = content.indexOf(`, ${funcName})`);
+  if (callbackIdx !== -1) return callbackIdx;
+  // Passed in array to runPhasesParallel: , funcName]
+  const arrayLastIdx = content.indexOf(`, ${funcName}]`);
+  if (arrayLastIdx !== -1) return arrayLastIdx;
+  // First element in array: [funcName,
+  const arrayFirstIdx = content.indexOf(`[${funcName},`);
+  if (arrayFirstIdx !== -1) return arrayFirstIdx;
+  return -1;
+}

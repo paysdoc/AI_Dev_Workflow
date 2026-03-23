@@ -1,3 +1,6 @@
+---
+target: false
+---
 # Chore Planning
 
 Create a new plan to resolve the `Chore` using the exact specified markdown `Plan Format`. Follow the `Instructions` to create the plan use the `Relevant Files` to focus on the right files. Follow the `Report` section to properly report the results of your work.

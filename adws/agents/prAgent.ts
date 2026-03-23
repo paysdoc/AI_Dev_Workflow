@@ -3,25 +3,10 @@
  * Uses the /pull_request slash command from .claude/commands/pull_request.md
  */
 
-import * as path from 'path';
-import { log, getModelForCommand, getEffortForCommand } from '../core';
-import { runClaudeAgentWithCommand, AgentResult } from './claudeAgent';
+import { runCommandAgent, type CommandAgentConfig } from './commandAgent';
+import type { AgentResult } from './claudeAgent';
 import { getDefaultBranch } from '../vcs/branchOperations';
-
-/**
- * Formats structured args for the /pull_request skill.
- */
-function formatPullRequestArgs(
-  branchName: string,
-  issueJson: string,
-  planFile: string,
-  adwId: string,
-  defaultBranch: string,
-  repoOwner: string,
-  repoName: string,
-): string[] {
-  return [branchName, issueJson, planFile, adwId, defaultBranch, repoOwner, repoName];
-}
+import { refreshTokenIfNeeded } from '../github/githubAppAuth';
 
 /**
  * Extracts the PR URL from the agent's output.
@@ -30,12 +15,17 @@ function formatPullRequestArgs(
 function extractPrUrlFromOutput(output: string): string {
   const trimmed = output.trim();
   const lines = trimmed.split('\n').filter(line => line.trim());
-  // The PR URL is the last non-empty line
   const lastLine = lines[lines.length - 1]?.trim() ?? '';
-  // Extract URL if embedded in text
   const urlMatch = lastLine.match(/https:\/\/github\.com\/[^\s)]+\/pull\/\d+/);
   return urlMatch ? urlMatch[0] : lastLine;
 }
+
+const prAgentConfig: CommandAgentConfig<string> = {
+  command: '/pull_request',
+  agentName: 'Pull Request',
+  outputFileName: 'pr-agent.jsonl',
+  extractOutput: extractPrUrlFromOutput,
+};
 
 /**
  * Runs the /pull_request skill to create a pull request.
@@ -63,33 +53,16 @@ export async function runPullRequestAgent(
   repoOwner?: string,
   repoName?: string,
 ): Promise<AgentResult & { prUrl: string }> {
+  refreshTokenIfNeeded();
   const defaultBranch = getDefaultBranch(cwd);
-  const args = formatPullRequestArgs(branchName, issueJson, planFile, adwId, defaultBranch, repoOwner ?? '', repoName ?? '');
-  const outputFile = path.join(logsDir, 'pr-agent.jsonl');
+  const args = [branchName, issueJson, planFile, adwId, defaultBranch, repoOwner ?? '', repoName ?? ''];
 
-  log('PR Agent starting:', 'info');
-  log(`  Branch: ${branchName}`, 'info');
-  log(`  Default branch: ${defaultBranch}`, 'info');
-  log(`  ADW ID: ${adwId}`, 'info');
-  log(`  Plan file: ${planFile}`, 'info');
-  if (repoOwner) log(`  Repo owner: ${repoOwner}`, 'info');
-  if (repoName) log(`  Repo name: ${repoName}`, 'info');
-  if (cwd) log(`  CWD: ${cwd}`, 'info');
-
-  const result = await runClaudeAgentWithCommand(
-    '/pull_request',
+  const result = await runCommandAgent(prAgentConfig, {
     args,
-    'Pull Request',
-    outputFile,
-    getModelForCommand('/pull_request', issueBody),
-    getEffortForCommand('/pull_request', issueBody),
-    undefined,
+    logsDir,
+    issueBody,
     statePath,
     cwd,
-  );
-
-  const prUrl = extractPrUrlFromOutput(result.output);
-  log(`Pull request created: ${prUrl}`, 'success');
-
-  return { ...result, prUrl };
+  });
+  return { ...result, prUrl: result.parsed };
 }

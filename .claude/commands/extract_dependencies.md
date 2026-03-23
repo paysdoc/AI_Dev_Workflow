@@ -1,3 +1,6 @@
+---
+target: false
+---
 # Extract Dependencies
 
 Analyze the following issue body and extract all dependency issue numbers.

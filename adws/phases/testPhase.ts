@@ -22,7 +22,7 @@ import { postIssueStageComment } from './phaseCommentHelpers';
 import {
   runUnitTestsWithRetry,
 } from '../agents';
-import type { WorkflowConfig } from './workflowLifecycle';
+import type { WorkflowConfig } from './workflowInit';
 import { BoardStatus } from '../providers/types';
 
 /**
@@ -49,7 +49,7 @@ export async function executeTestPhase(config: WorkflowConfig): Promise<{
   let totalRetries = 0;
 
   if (repoContext) {
-    await repoContext.issueTracker.moveToStatus(issueNumber, BoardStatus.Testing);
+    await repoContext.issueTracker.moveToStatus(issueNumber, BoardStatus.InProgress);
   }
 
   // --- Unit tests gate (opt-in) ---

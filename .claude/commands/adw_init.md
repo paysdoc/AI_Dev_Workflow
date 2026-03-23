@@ -1,3 +1,6 @@
+---
+target: false
+---
 # Initialize ADW Project Configuration
 
 Analyze the current working directory's codebase and generate the `.adw/` configuration directory with project-specific configuration files.

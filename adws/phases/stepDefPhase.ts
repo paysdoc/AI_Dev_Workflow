@@ -12,7 +12,7 @@ import {
 } from '../core';
 import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
 import { runStepDefAgent } from '../agents';
-import type { WorkflowConfig } from './workflowLifecycle';
+import type { WorkflowConfig } from './workflowInit';
 
 /**
  * Executes the Step Definition phase: generate step definitions for BDD scenarios,

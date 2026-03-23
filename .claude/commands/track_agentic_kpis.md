@@ -1,3 +1,6 @@
+---
+target: false
+---
 # Track Agentic KPIs
 
 Update or create the ADW performance tracking tables in `app_docs/agentic_kpis.md`. This command analyzes the current ADW run's metrics and maintains both summary and detailed KPI tables. Think hard about building this, these are key KPIs for the AI Developer Workflow (ADW) system. Use the `{package_manager} -e` commands as suggestions and guides for how to calculate the values. Ultimately, do whatever calculation you need to do to get the values.

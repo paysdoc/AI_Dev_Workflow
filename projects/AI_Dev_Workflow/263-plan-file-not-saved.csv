@@ -1,0 +1,7 @@
+workflow_id,issue_number,phase,model,provider,computed_cost_usd,reported_cost_usd,status,retry_count,continuation_count,duration_ms,timestamp,estimated_tokens,actual_tokens,input,output,cache_read,cache_write,reasoning
+o9el5x-plan-file-not-saved,263,install,claude-sonnet-4-6,anthropic,0.309993,0.309993,success,0,0,93797,2026-03-22T10:06:04.309Z,,,334,3817,308756,42429,0
+jxwtjf-plan-file-not-saved,263,install,claude-sonnet-4-6,anthropic,0.294024,0.294024,success,0,0,116495,2026-03-22T18:13:29.995Z,,,332,134,231247,59105,0
+jxwtjf-plan-file-not-saved,263,plan,claude-opus-4-6,anthropic,0.490221,0.490221,success,0,0,191307,2026-03-22T18:16:46.904Z,,,1843,89,232899,57973,0
+jxwtjf-plan-file-not-saved,263,plan,claude-haiku-4-5-20251001,anthropic,0.132275,0.132275,success,0,0,191307,2026-03-22T18:16:46.904Z,,,97,0,693960,50226,0
+jxwtjf-plan-file-not-saved,263,scenario,claude-opus-4-6,anthropic,0.742454,0.742454,success,0,0,263519,2026-03-22T18:18:00.611Z,,,1890,5962,466733,56094,0
+jxwtjf-plan-file-not-saved,263,scenario,claude-haiku-4-5-20251001,anthropic,0.233973,0.233973,success,0,0,263519,2026-03-22T18:18:00.611Z,,,3532,9070,796243,84373,0

@@ -9,22 +9,11 @@ import { runClaudeAgentWithCommand, AgentResult, ProgressCallback } from './clau
 import { ReviewIssue } from './reviewAgent';
 
 /**
- * Formats the patch arguments for the /patch command.
- * Combines issue description and resolution into a review change request.
- */
-function formatPatchArgs(
-  adwId: string,
-  reviewIssue: ReviewIssue,
-  specPath?: string,
-  screenshots?: string,
-): string[] {
-  const reviewChangeRequest = `Issue #${reviewIssue.reviewIssueNumber}: ${reviewIssue.issueDescription}\nResolution: ${reviewIssue.issueResolution}`;
-  return [adwId, reviewChangeRequest, specPath ?? '', 'patchAgent', screenshots ?? ''];
-}
-
-/**
  * Runs the /patch command to resolve a single review blocker issue.
  * Uses 'opus' model for complex code modifications.
+ *
+ * The patch agent uses a dynamic output file name (per-issue), so it cannot
+ * use the shared CommandAgentConfig approach directly.
  *
  * @param adwId - ADW session identifier
  * @param reviewIssue - The blocker issue to patch
@@ -33,6 +22,7 @@ function formatPatchArgs(
  * @param onProgress - Optional callback for progress updates
  * @param statePath - Optional path to agent's state directory for state tracking
  * @param cwd - Optional working directory for the agent (defaults to process.cwd())
+ * @param issueBody - Optional issue body for model/effort selection
  */
 export async function runPatchAgent(
   adwId: string,
@@ -44,7 +34,8 @@ export async function runPatchAgent(
   cwd?: string,
   issueBody?: string,
 ): Promise<AgentResult> {
-  const args = formatPatchArgs(adwId, reviewIssue, specPath, reviewIssue.screenshotPath);
+  const reviewChangeRequest = `Issue #${reviewIssue.reviewIssueNumber}: ${reviewIssue.issueDescription}\nResolution: ${reviewIssue.issueResolution}`;
+  const args = [adwId, reviewChangeRequest, specPath ?? '', 'patchAgent', reviewIssue.screenshotPath ?? ''];
   const outputFile = path.join(logsDir, `patch-agent-issue-${reviewIssue.reviewIssueNumber}.jsonl`);
   const model = getModelForCommand('/patch', issueBody);
   const effort = getEffortForCommand('/patch', issueBody);
@@ -54,15 +45,5 @@ export async function runPatchAgent(
   log(`  Resolution: ${reviewIssue.issueResolution}`, 'info');
   log(`  Model: ${model}`, 'info');
 
-  return runClaudeAgentWithCommand(
-    '/patch',
-    args,
-    `Patch: ${reviewIssue.reviewIssueNumber}`,
-    outputFile,
-    model,
-    effort,
-    onProgress,
-    statePath,
-    cwd
-  );
+  return runClaudeAgentWithCommand('/patch', args, `Patch: ${reviewIssue.reviewIssueNumber}`, outputFile, model, effort, onProgress, statePath, cwd);
 }

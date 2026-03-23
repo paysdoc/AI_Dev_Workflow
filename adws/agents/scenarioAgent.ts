@@ -3,23 +3,16 @@
  * Uses the /scenario_writer slash command from .claude/commands/scenario_writer.md
  */
 
-import * as path from 'path';
-import { log, getModelForCommand, getEffortForCommand } from '../core';
-import { runClaudeAgentWithCommand, type AgentResult } from './claudeAgent';
+import { runCommandAgent, type CommandAgentConfig } from './commandAgent';
+import type { AgentResult } from './claudeAgent';
 import type { GitHubIssue } from '../core';
 import { isAdwComment, extractActionableContent } from '../core/workflowCommentParsing';
 
-/**
- * Formats args for the /scenario_writer skill.
- * Returns [issueNumber, adwId, issueJson] matching the plan agent arg format.
- */
-function formatScenarioArgs(
-  issueNumber: number,
-  adwId: string,
-  issueJson: string,
-): string[] {
-  return [String(issueNumber), adwId, issueJson];
-}
+const scenarioAgentConfig: CommandAgentConfig<void> = {
+  command: '/scenario_writer',
+  agentName: 'Scenario',
+  outputFileName: 'scenario-agent.jsonl',
+};
 
 /**
  * Runs the /scenario_writer skill to generate and maintain BDD scenarios.
@@ -30,6 +23,7 @@ function formatScenarioArgs(
  * @param statePath - Optional path to agent's state directory
  * @param cwd - Optional working directory for the agent (worktree path)
  * @param adwId - Optional ADW workflow ID
+ * @param contextPreamble - Optional context preamble for the agent
  */
 export async function runScenarioAgent(
   issue: GitHubIssue,
@@ -40,7 +34,6 @@ export async function runScenarioAgent(
   contextPreamble?: string,
 ): Promise<AgentResult> {
   const humanComments = issue.comments.filter(c => !isAdwComment(c.body));
-
   const latestActionableContent = [...issue.comments]
     .reverse()
     .reduce<string | null>((found, c) => found ?? extractActionableContent(c.body), null);
@@ -61,27 +54,12 @@ export async function runScenarioAgent(
     actionableComment: latestActionableContent,
   });
 
-  const args = formatScenarioArgs(issue.number, adwId || 'adw-unknown', issueJson);
-  const outputFile = path.join(logsDir, 'scenario-agent.jsonl');
-
-  log('Scenario Agent starting:', 'info');
-  log(`  ADW ID: ${adwId || 'adw-unknown'}`, 'info');
-  log(`  Issue: #${issue.number}`, 'info');
-
-  const result = await runClaudeAgentWithCommand(
-    '/scenario_writer',
-    args,
-    'Scenario',
-    outputFile,
-    getModelForCommand('/scenario_writer', issue.body),
-    getEffortForCommand('/scenario_writer', issue.body),
-    undefined,
+  return runCommandAgent(scenarioAgentConfig, {
+    args: [String(issue.number), adwId ?? 'adw-unknown', issueJson],
+    logsDir,
+    issueBody: issue.body,
     statePath,
     cwd,
     contextPreamble,
-  );
-
-  log('Scenario Agent completed', 'success');
-
-  return result;
+  });
 }
