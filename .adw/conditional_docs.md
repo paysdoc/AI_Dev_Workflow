@@ -351,3 +351,10 @@
     - When modifying `adwInit.tsx` to change what is committed during `adw_init`
     - When troubleshooting skills or commands that are missing in a target repo after `adw_init`
     - When investigating why `workflowInit` is gitignoring commands that were already committed
+
+- app_docs/feature-tdlgz7-fix-boardstatus-invalid-values.md
+  - Conditions:
+    - When working with `BoardStatus` enum in `adws/providers/types.ts`
+    - When adding or removing project board status transitions in `buildPhase.ts` or `testPhase.ts`
+    - When troubleshooting `moveToStatus()` calls that silently fail due to unmatched board column names
+    - When the GitHub project board columns change and enum values need to stay in sync

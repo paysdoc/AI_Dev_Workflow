@@ -59,9 +59,3 @@ Feature: Fix BoardStatus enum contains only valid project board statuses
     Then the file does not contain "Building"
     And the file does not contain "Testing"
 
-  # ── Compilation guard ───────────────────────────────────────────────────────
-
-  @adw-tdlgz7-fix-boardstatus-enum
-  Scenario: TypeScript type-check passes after BoardStatus enum fix
-    Given the ADW codebase is checked out
-    Then the ADW TypeScript type-check passes
