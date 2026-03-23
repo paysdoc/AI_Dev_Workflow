@@ -1,3 +1,6 @@
+---
+target: false
+---
 # Find Issue Dependencies
 
 Analyze the dependencies of GitHub issue #$ARGUMENTS.

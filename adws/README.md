@@ -607,7 +607,6 @@ app_docs/                         # Generated documentation
 - `workflowCompletion.ts` - Workflow completion and error handling
 - `worktreeSetup.ts` - Gitignore management and Claude commands copy
 - `prReviewCompletion.ts` - PR review test phase and completion handlers
-- `workflowLifecycle.ts` - Re-export barrel for backward compatibility
 
 **Orchestrators** (root `.tsx` files):
 All orchestrators use shared CLI utilities from `core/orchestratorCli.ts` and constants from `core/constants.ts`.

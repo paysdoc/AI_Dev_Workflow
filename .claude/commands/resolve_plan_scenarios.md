@@ -1,3 +1,6 @@
+---
+target: false
+---
 # Resolve Plan Scenarios
 
 Reconcile mismatches between an implementation plan and BDD scenarios using the GitHub issue as the sole arbiter of truth.

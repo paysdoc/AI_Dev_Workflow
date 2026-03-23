@@ -343,3 +343,11 @@
     - When looking for model routing utilities (`getModelForCommand`, `isFastMode`) or environment constants after the `config.ts` split
     - When troubleshooting import errors after module relocations (`claudeStreamParser`, `issueRouting`, `cost/commitQueue`)
     - When working with `adws/core/logger.ts`, `adws/core/adwId.ts`, or `adws/core/environment.ts` to understand what was extracted from `utils.ts` / `config.ts`
+
+- app_docs/feature-sgud8b-copy-target-skills-adw-init.md
+  - Conditions:
+    - When working with `copyTargetSkillsAndCommands()` or `parseFrontmatterTarget()` in `adws/phases/worktreeSetup.ts`
+    - When adding a new skill or command and need to decide whether to set `target: true` or `target: false`
+    - When modifying `adwInit.tsx` to change what is committed during `adw_init`
+    - When troubleshooting skills or commands that are missing in a target repo after `adw_init`
+    - When investigating why `workflowInit` is gitignoring commands that were already committed

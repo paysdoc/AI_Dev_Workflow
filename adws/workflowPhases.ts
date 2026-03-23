@@ -13,6 +13,7 @@ export {
   type WorkflowConfig,
   type PRReviewWorkflowConfig,
   initializeWorkflow,
+  copyTargetSkillsAndCommands,
   executePlanPhase,
   buildContinuationPrompt,
   MAX_CONTINUATION_OUTPUT_LENGTH,
