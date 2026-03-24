@@ -196,6 +196,7 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 280,jsonl schema probe ci conformance check,plan,claude-haiku-4-5-20251001,0.161076
 280,jsonl schema probe ci conformance check,scenario,claude-opus-4-6,0.625446
 280,jsonl schema probe ci conformance check,scenario,claude-haiku-4-5-20251001,0.342336
+280,jsonl schema probe ci conformance check,step-def-gen,claude-sonnet-4-6,1.594376
 
-Total Cost (USD):,173.2664
-Total Cost (EUR):,149.4199
+Total Cost (USD):,174.8608
+Total Cost (EUR):,150.7949

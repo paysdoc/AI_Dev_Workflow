@@ -5,3 +5,4 @@ workflow_id,issue_number,phase,model,provider,computed_cost_usd,reported_cost_us
 02r4w9-jsonl-schema-probe-c,280,scenario,claude-opus-4-6,anthropic,0.625446,0.625446,success,0,0,390922,2026-03-24T19:03:24.427Z,,,14,6621,407327,40990,0
 02r4w9-jsonl-schema-probe-c,280,scenario,claude-haiku-4-5-20251001,anthropic,0.342336,0.342336,success,0,0,390922,2026-03-24T19:03:24.427Z,,,2148,19241,908283,122524,0
 02r4w9-jsonl-schema-probe-c,280,build,claude-sonnet-4-6,anthropic,1.508340,1.508340,success,0,0,612689,2026-03-24T19:13:42.938Z,,,37,35577,1979705,101510,0
+02r4w9-jsonl-schema-probe-c,280,step-def-gen,claude-sonnet-4-6,anthropic,1.594376,1.594376,success,0,0,674710,2026-03-24T19:25:05.356Z,,,33,42911,2117782,84074,0
