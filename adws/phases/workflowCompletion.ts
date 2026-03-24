@@ -119,6 +119,10 @@ export async function executeReviewPhase(config: WorkflowConfig): Promise<{
     AgentStateManager.appendLog(orchestratorStatePath, 'Review passed');
     ctx.reviewSummary = reviewResult.reviewSummary;
     ctx.reviewIssues = reviewResult.blockerIssues;
+    ctx.scenarioProof = reviewResult.scenarioProof;
+    ctx.allSummaries = reviewResult.allSummaries;
+    ctx.allScreenshots = reviewResult.allScreenshots;
+    ctx.nonBlockerIssues = reviewResult.nonBlockerIssues;
     if (repoContext) {
       postIssueStageComment(repoContext, issueNumber, 'review_passed', ctx);
     }
@@ -128,6 +132,10 @@ export async function executeReviewPhase(config: WorkflowConfig): Promise<{
     AgentStateManager.appendLog(orchestratorStatePath, errorMsg);
     ctx.errorMessage = errorMsg;
     ctx.reviewIssues = reviewResult.blockerIssues;
+    ctx.scenarioProof = reviewResult.scenarioProof;
+    ctx.allSummaries = reviewResult.allSummaries;
+    ctx.allScreenshots = reviewResult.allScreenshots;
+    ctx.nonBlockerIssues = reviewResult.nonBlockerIssues;
     if (repoContext) {
       postIssueStageComment(repoContext, issueNumber, 'review_failed', ctx);
     }
