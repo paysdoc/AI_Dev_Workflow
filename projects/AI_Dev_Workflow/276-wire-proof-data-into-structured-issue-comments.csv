@@ -1,0 +1,2 @@
+workflow_id,issue_number,phase,model,provider,computed_cost_usd,reported_cost_usd,status,retry_count,continuation_count,duration_ms,timestamp,estimated_tokens,actual_tokens,input,output,cache_read,cache_write,reasoning
+ekd5o1-wire-proof-data-into,276,install,claude-sonnet-4-6,anthropic,0.333729,0.333729,success,0,0,60979,2026-03-24T18:56:08.387Z,,,10,2682,266431,56944,0
