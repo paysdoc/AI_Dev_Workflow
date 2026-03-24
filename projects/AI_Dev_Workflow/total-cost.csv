@@ -193,6 +193,7 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 280,jsonl schema probe ci conformance check,build,claude-sonnet-4-6,1.508340
 280,jsonl schema probe ci conformance check,document,claude-sonnet-4-6,0.267596
 280,jsonl schema probe ci conformance check,install,claude-sonnet-4-6,0.281592
+280,jsonl schema probe ci conformance check,kpi,claude-haiku-4-5-20251001,0.106026
 280,jsonl schema probe ci conformance check,plan,claude-opus-4-6,0.980700
 280,jsonl schema probe ci conformance check,plan,claude-haiku-4-5-20251001,0.161076
 280,jsonl schema probe ci conformance check,pr,claude-sonnet-4-6,0.091417
@@ -201,5 +202,5 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 280,jsonl schema probe ci conformance check,scenario,claude-haiku-4-5-20251001,0.342336
 280,jsonl schema probe ci conformance check,step-def-gen,claude-sonnet-4-6,1.594376
 
-Total Cost (USD):,177.2641
-Total Cost (EUR):,152.8674
+Total Cost (USD):,177.3702
+Total Cost (EUR):,152.9589
