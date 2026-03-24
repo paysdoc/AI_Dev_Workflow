@@ -119,7 +119,33 @@ Feature: Wire proof data into structured issue comments
     Then the blocker issues section uses a "<details>" HTML element
     And the "<details>" element has a "<summary>" describing the section
 
-  # ── 5. Skipped optional tags in proof table ──────────────────────────────────
+  # ── 5. Backward-compatible fallback ─────────────────────────────────────────
+
+  @adw-276
+  Scenario: Review without scenario proof falls back to simple comment format
+    Given a passed review with summary "All checks passed"
+    And no scenario proof results are provided
+    And no verification results are provided
+    When the proof comment formatter formats the review comment
+    Then the output contains a review status header indicating "passed"
+    And the output contains the review summary text
+    And the output does not contain a scenario proof table
+    And the output does not contain a verification section
+
+  # ── 5b. Empty allSummaries edge case ────────────────────────────────────────
+
+  @adw-276
+  Scenario: Review with empty allSummaries omits summary section
+    Given a passed review with no summary text
+    And scenario proof results where all tags passed
+    And verification results where all checks passed
+    And 0 non-blocker issues
+    And empty allSummaries
+    When the proof comment formatter formats the review comment
+    Then the output contains a review status header indicating "passed"
+    And the output does not contain a review summary section
+
+  # ── 6. Skipped optional tags in proof table ──────────────────────────────────
 
   @adw-276
   Scenario: Proof table shows skipped optional tags appropriately
@@ -129,7 +155,17 @@ Feature: Wire proof data into structured issue comments
     Then the proof table shows "@adw-276" as skipped
     And the skipped entry does not count as a failure
 
-  # ── 6. Verification section formatting ───────────────────────────────────────
+  @adw-276
+  Scenario: All scenario tags skipped shows skipped entries with no blocker failures
+    Given scenario proof results where all tags are optional and no matching scenarios exist
+    And "@review-proof" was skipped because no matching scenarios exist
+    And "@adw-276" was skipped because no matching scenarios exist
+    When the proof comment formatter formats the review comment
+    Then the proof table shows all entries as skipped
+    And the overall review status is not failed
+    And the output does not contain a blocker issues section
+
+  # ── 7. Verification section formatting ───────────────────────────────────────
 
   @adw-276
   Scenario: Verification section shows supplementary check results
@@ -144,7 +180,7 @@ Feature: Wire proof data into structured issue comments
     When the proof comment formatter formats the review comment
     Then the output does not contain a verification section
 
-  # ── 7. reviewRetry.ts passes proof data through ─────────────────────────────
+  # ── 8. reviewRetry.ts passes proof data through ─────────────────────────────
 
   @adw-276 @regression
   Scenario: reviewRetry.ts returns scenarioProof in ReviewRetryResult
@@ -153,6 +189,7 @@ Feature: Wire proof data into structured issue comments
     Then it includes a "scenarioProof" field of type ScenarioProofResult
     And it includes an "allScreenshots" field
     And it includes an "allSummaries" field
+    And it includes a "nonBlockerIssues" field of type ReviewIssue array
 
   @adw-276
   Scenario: reviewRetry.ts populates scenarioProof from the final review iteration
@@ -161,7 +198,7 @@ Feature: Wire proof data into structured issue comments
     Then scenarioProof is assigned from the scenario proof execution result
     And the scenarioProof value is included in the returned ReviewRetryResult
 
-  # ── 8. workflowCompletion.ts consumes proof data ────────────────────────────
+  # ── 9. workflowCompletion.ts consumes proof data ────────────────────────────
 
   @adw-276 @regression
   Scenario: workflowCompletion.ts extracts proof data from review result
@@ -170,13 +207,14 @@ Feature: Wire proof data into structured issue comments
     Then it extracts "scenarioProof" from the ReviewRetryResult
     And it extracts "allScreenshots" from the ReviewRetryResult
     And it extracts "allSummaries" from the ReviewRetryResult
+    And it extracts "nonBlockerIssues" from the ReviewRetryResult
 
   @adw-276 @regression
   Scenario: workflowCompletion.ts passes proof data to the comment formatter
     Given the file "adws/phases/workflowCompletion.ts" is read
     When the review comment posting logic is inspected
     Then it passes scenarioProof to the proof comment formatter or comment context
-    And it passes verification results to the proof comment formatter or comment context
+    And it passes nonBlockerIssues to the proof comment formatter or comment context
 
   @adw-276
   Scenario: workflowCompletion.ts posts structured comment to the issue
@@ -184,7 +222,7 @@ Feature: Wire proof data into structured issue comments
     When the review phase completion logic is inspected
     Then it calls the issue comment posting function with the formatted proof comment
 
-  # ── 9. workflowCommentsIssue.ts uses new comment format ─────────────────────
+  # ── 10. workflowCommentsIssue.ts uses new comment format ────────────────────
 
   @adw-276 @regression
   Scenario: workflowCommentsIssue.ts review_passed format uses proof comment formatter
@@ -208,9 +246,11 @@ Feature: Wire proof data into structured issue comments
     Given the file "adws/github/workflowCommentsIssue.ts" is read
     When the comment context type or parameter is inspected
     Then it accepts scenarioProof as an optional field
-    And it accepts verification results as an optional field
+    And it accepts nonBlockerIssues as an optional field
+    And it accepts allSummaries as an optional field
+    And it accepts allScreenshots as an optional field
 
-  # ── 10. Unit tests for Proof Comment Formatter ──────────────────────────────
+  # ── 11. Unit tests for Proof Comment Formatter ──────────────────────────────
 
   @adw-276 @regression
   Scenario: Unit tests exist for the proof comment formatter
@@ -237,7 +277,7 @@ Feature: Wire proof data into structured issue comments
     And there is a test verifying scenario output uses a details element
     And there is a test verifying blocker issues use a details element on failure
 
-  # ── 11. TypeScript integrity ─────────────────────────────────────────────────
+  # ── 12. TypeScript integrity ─────────────────────────────────────────────────
 
   @adw-276 @regression
   Scenario: TypeScript type-check passes after all changes for issue 276

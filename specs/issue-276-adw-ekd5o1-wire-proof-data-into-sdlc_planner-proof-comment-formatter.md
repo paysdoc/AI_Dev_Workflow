@@ -41,7 +41,7 @@ Use these files to implement the feature:
 
 ### New Files
 - `adws/github/proofCommentFormatter.ts` — New Proof Comment Formatter module with pure formatting functions.
-- `features/proof_comment_formatter.feature` — BDD scenarios validating the proof comment output.
+- `features/wire_proof_comment_formatter.feature` — BDD scenarios validating the proof comment output.
 - `features/step_definitions/proofCommentFormatterSteps.ts` — Step definitions for the proof comment formatter BDD scenarios.
 
 ## Implementation Plan
@@ -79,7 +79,7 @@ Execute every step in order, top to bottom.
   - `verificationResults?: VerificationResult[]` — type-check, lint results (optional, for future wiring)
   - `allSummaries?: string[]` — all review agent summaries
   - `screenshotUrls?: string[]` — optional screenshot URLs (placeholder for later issue)
-- Implement `formatProofTable(tagResults: TagProofResult[]): string` — renders a markdown table with columns: Suite (resolved tag), Status (pass/fail/skipped emoji), Severity.
+- Implement `formatProofTable(tagResults: TagProofResult[]): string` — renders a markdown table with columns: Suite (resolved tag), Scenarios (count passed/total), Status (pass/fail/skipped emoji), Severity.
 - Implement `formatVerificationSection(results: VerificationResult[]): string` — renders verification check status.
 - Implement `formatNonBlockerSection(issues: ReviewIssue[]): string` — renders non-blockers in a collapsible `<details>` section.
 - Implement `formatBlockerSection(issues: ReviewIssue[]): string` — renders blockers in a collapsible `<details>` section.
@@ -103,6 +103,7 @@ Execute every step in order, top to bottom.
   - `scenarioProof?: ScenarioProofResult` — import `ScenarioProofResult` from agents
   - `nonBlockerIssues?: ReviewIssue[]` — non-blocker issues for the proof formatter
   - `allSummaries?: string[]` — all review agent summaries
+  - `allScreenshots?: string[]` — screenshot URLs from review iterations (passed through for future formatter use)
 
 ### Step 5: Update formatReviewPassedComment and formatReviewFailedComment
 - In `adws/github/workflowCommentsIssue.ts`, rewrite `formatReviewPassedComment()`:
@@ -115,6 +116,7 @@ Execute every step in order, top to bottom.
 - In `adws/phases/workflowCompletion.ts`, after `runReviewWithRetry()` returns:
   - Set `ctx.scenarioProof = reviewResult.scenarioProof` (the `ScenarioProofResult` from the final iteration).
   - Set `ctx.allSummaries = reviewResult.allSummaries`.
+  - Set `ctx.allScreenshots = reviewResult.allScreenshots` — pass screenshots through to the context for future formatter use (per issue wiring spec).
   - Compute `ctx.nonBlockerIssues` by filtering merged review issues for non-blocker severities. For passed reviews, this comes from `reviewResult.blockerIssues` (which is `[]`) plus any non-blocker issues. However, `ReviewRetryResult` only returns `blockerIssues` — non-blockers are not currently surfaced.
   - To surface non-blockers: the merged review results in `reviewRetry.ts` have `mergedIssues` which includes both blockers and non-blockers, but only `blockerIssues` are returned. Add `nonBlockerIssues` to `ReviewRetryResult`.
 - Wire these fields in both the passed and failed code paths before calling `postIssueStageComment()`.
@@ -124,9 +126,10 @@ Execute every step in order, top to bottom.
 - In `runReviewWithRetry()`, when the review passes, compute `nonBlockerIssues` from the merged results (filter `mergedIssues` for `issueSeverity !== 'blocker'`).
 - In the early-exit path (blocker scenario proof failure) and the exhausted-retries path, also compute and return `nonBlockerIssues` (may be empty).
 - Update the `MergedReviewResult` interface to include `nonBlockerIssues: ReviewIssue[]` and compute it in `mergeReviewResults()`.
+- The BDD scenario for `ReviewRetryResult` must verify the `nonBlockerIssues` field is present alongside `scenarioProof`, `allScreenshots`, and `allSummaries`.
 
 ### Step 8: Write BDD scenarios for the Proof Comment Formatter
-- Create `features/proof_comment_formatter.feature` with scenarios tagged `@adw-276`:
+- Create `features/wire_proof_comment_formatter.feature` with scenarios tagged `@adw-276`:
   - Scenario: Passed review with scenario proof produces structured comment with proof table, summary, and non-blockers
   - Scenario: Failed review with blockers produces structured comment with blocker section and scenario output
   - Scenario: Review without scenario proof falls back to simple comment format
@@ -136,6 +139,7 @@ Execute every step in order, top to bottom.
 - Create `features/step_definitions/proofCommentFormatterSteps.ts` with step definitions that:
   - Import and call `formatReviewProofComment()` directly with test data
   - Assert the output contains expected markdown sections, tables, and `<details>` blocks
+- Note: Module-level exports (Step 3) and existing formatting suffixes like `formatRunningTokenFooter`/`ADW_SIGNATURE` (Step 5) are implementation details that do not need dedicated BDD scenarios — they are validated by the TypeScript type-check and the existing integration test suite.
 
 ### Step 9: Run validation commands
 - Run `bun run lint` to verify no lint errors.
