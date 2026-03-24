@@ -84,11 +84,11 @@ Feature: Step definition generation, review-first gating, and guidelines check
     Then it should instruct running git diff against the default branch
     And it should not require a pull request number as input
 
-  @adw-249 @regression
-  Scenario: review.md runs both issue-tagged and regression BDD scenarios
+  @adw-249 @adw-3tkya9-machine-readable-rev @regression
+  Scenario: review.md runs tag-driven BDD scenarios from review_proof.md config
     Given the file ".claude/commands/review.md" exists
-    Then it should instruct running @adw-{issueNumber} tagged scenarios
-    And it should instruct running @regression tagged scenarios
+    Then it should instruct reading tags from ".adw/review_proof.md"
+    And it should instruct running scenarios for each configured tag
 
   @adw-249 @regression
   Scenario: Review failure is a hard fail that blocks PR creation

@@ -298,6 +298,12 @@ adws/                   # ADW workflow system
 │   ├── webhookGatekeeper.ts
 │   ├── webhookHandlers.ts
 │   └── webhookSignature.ts
+├── r2/                 # Cloudflare R2 upload module
+│   ├── bucketManager.ts  # R2 bucket creation and lifecycle rules
+│   ├── r2Client.ts     # R2 client factory
+│   ├── types.ts        # R2 type definitions
+│   ├── uploadService.ts  # File upload logic
+│   └── index.ts
 ├── adwBuild.tsx        # Orchestrators (individual & combined)
 ├── adwBuildHelpers.ts
 ├── adwClearComments.tsx
@@ -319,6 +325,8 @@ adws/                   # ADW workflow system
 ├── index.ts
 ├── tsconfig.json
 └── README.md
+workers/                # Cloudflare Workers
+└── screenshot-router/  # Screenshot URL routing worker
 app_docs/               # Generated feature documentation
 bun.lock                # Bun lockfile
 eslint.config.js        # ESLint configuration

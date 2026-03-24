@@ -110,7 +110,7 @@ export async function executeReviewPhase(config: WorkflowConfig): Promise<{
     issueBody: issue.body,
     issueNumber,
     scenariosMd: config.projectConfig.scenariosMd,
-    runRegressionCommand: config.projectConfig.commands.runRegressionScenarios,
+    reviewProofConfig: config.projectConfig.reviewProofConfig,
     runByTagCommand: config.projectConfig.commands.runScenariosByTag,
   });
 

@@ -625,6 +625,12 @@ All orchestrators use shared CLI utilities from `core/orchestratorCli.ts` and co
 - `adwInit.tsx` - Initialize `.adw/` project configuration in target repos
 - `adwClearComments.tsx` - Clear ADW comments from GitHub issues
 
+**R2** (`r2/`):
+- `r2Client.ts` - Cloudflare R2 client factory
+- `bucketManager.ts` - R2 bucket creation and lifecycle rule management
+- `uploadService.ts` - File upload logic with public URL construction
+- `types.ts` - R2 type definitions
+
 **Triggers** (`triggers/`):
 - `trigger_cron.ts` - Cron-based polling monitor
 - `trigger_webhook.ts` - Webhook-based event handler
