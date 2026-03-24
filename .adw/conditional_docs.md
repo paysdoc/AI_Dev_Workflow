@@ -367,3 +367,12 @@
     - When changing which BDD tags run during the review phase or their severity classification
     - When troubleshooting optional tag skipping or `{issueNumber}` substitution in tag patterns
     - When updating the `/review` slash command's severity reading logic
+
+- app_docs/feature-ekd5o1-wire-proof-comment-formatter.md
+  - Conditions:
+    - When working with `proofCommentFormatter.ts` or `formatReviewProofComment()`
+    - When modifying `formatReviewPassedComment()` or `formatReviewFailedComment()` in `workflowCommentsIssue.ts`
+    - When extending `WorkflowContext` with new proof-related fields
+    - When adding new sections to review proof GitHub comments (verification, screenshots, etc.)
+    - When troubleshooting proof data not appearing in `review_passed` or `review_failed` issue comments
+    - When wiring `nonBlockerIssues`, `scenarioProof`, or `allSummaries` through the review phase pipeline
