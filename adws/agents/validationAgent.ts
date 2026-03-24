@@ -7,6 +7,7 @@ import type { AgentResult } from "./claudeAgent";
 import { runClaudeAgentWithCommand } from "./claudeAgent";
 import { getModelForCommand, getEffortForCommand } from "../core/config";
 import { extractJson } from "../core/jsonParser";
+import { log } from "../core/logger";
 
 export interface MismatchItem {
   type: "plan_only" | "scenario_only" | "conflicting";
@@ -82,13 +83,24 @@ function formatValidationArgs(
 
 /**
  * Parses and validates the JSON output from the validation agent.
+ * Returns a fallback "unaligned" result if parsing fails, so the
+ * resolution loop can retry instead of crashing the workflow.
  */
 export function parseValidationResult(agentOutput: string): ValidationResult {
   const parsed = extractJson<ValidationResult>(agentOutput);
   if (!parsed || typeof parsed.aligned !== "boolean") {
-    throw new Error(
-      `Validation agent returned invalid result. Expected JSON with 'aligned' boolean. Got: ${agentOutput.substring(0, 200)}`
-    );
+    const preview = agentOutput.substring(0, 200);
+    log(`Validation agent returned non-JSON output, treating as unaligned: ${preview}`, "warn");
+    return {
+      aligned: false,
+      mismatches: [
+        {
+          type: "plan_only",
+          description: `Validation agent did not return valid JSON. Raw output starts with: ${preview}`,
+        },
+      ],
+      summary: "Validation output could not be parsed; treating as unaligned.",
+    };
   }
   return {
     aligned: parsed.aligned,
