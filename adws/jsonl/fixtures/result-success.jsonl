@@ -1,0 +1,1 @@
+{"type":"result","subtype":"success","isError":false,"durationMs":5000,"durationApiMs":3000,"numTurns":1,"result":"Done.","sessionId":"session_fixture_1","total_cost_usd":0.001,"modelUsage":{"claude-sonnet-4-6":{"inputTokens":100,"outputTokens":50,"cacheReadInputTokens":0,"cacheCreationInputTokens":0,"costUSD":0.001}}}
