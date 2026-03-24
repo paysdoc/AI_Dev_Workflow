@@ -134,6 +134,7 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 271,fix boardstatus enum contains non existent project,scenario,claude-haiku-4-5-20251001,0.133453
 271,fix boardstatus enum contains non existent project,step-def-gen,claude-sonnet-4-6,0.232663
 273,machine readable review proof md tag driven scenar,build,claude-sonnet-4-6,1.243698
+273,machine readable review proof md tag driven scenar,document,claude-sonnet-4-6,0.290257
 273,machine readable review proof md tag driven scenar,install,claude-sonnet-4-6,0.237434
 273,machine readable review proof md tag driven scenar,install,claude-sonnet-4-6,0.591053
 273,machine readable review proof md tag driven scenar,install,claude-sonnet-4-6,0.608362
@@ -180,5 +181,5 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 275,mock infrastructure claude cli stub github api moc,step-def-gen,claude-sonnet-4-6,2.461533
 275,mock infrastructure claude cli stub github api moc,step-def-gen,claude-sonnet-4-6,0.536473
 
-Total Cost (USD):,165.4383
-Total Cost (EUR):,142.6692
+Total Cost (USD):,165.7285
+Total Cost (EUR):,142.9195
