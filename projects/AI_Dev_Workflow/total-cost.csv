@@ -191,6 +191,10 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 277,regression periodic github action,plan,claude-opus-4-6,0.540311
 277,regression periodic github action,pr,claude-sonnet-4-6,0.062604
 280,jsonl schema probe ci conformance check,install,claude-sonnet-4-6,0.281592
+280,jsonl schema probe ci conformance check,plan,claude-opus-4-6,0.980700
+280,jsonl schema probe ci conformance check,plan,claude-haiku-4-5-20251001,0.161076
+280,jsonl schema probe ci conformance check,scenario,claude-opus-4-6,0.625446
+280,jsonl schema probe ci conformance check,scenario,claude-haiku-4-5-20251001,0.342336
 
-Total Cost (USD):,169.6485
-Total Cost (EUR):,146.2999
+Total Cost (USD):,171.7581
+Total Cost (EUR):,148.1192
