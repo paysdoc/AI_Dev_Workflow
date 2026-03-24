@@ -5,3 +5,4 @@ s18k21-machine-readable-rev,273,scenario,claude-opus-4-6,anthropic,1.251474,1.25
 s18k21-machine-readable-rev,273,scenario,claude-haiku-4-5-20251001,anthropic,0.151012,0.151012,success,0,0,406716,2026-03-23T17:08:52.391Z,,,32,5311,219125,82010,0
 3tkya9-machine-readable-rev,273,install,claude-sonnet-4-6,anthropic,0.591053,0.591053,success,0,0,254232,2026-03-24T01:26:50.879Z,,,12,14442,406283,67334,0
 3tkya9-machine-readable-rev,273,scenario,claude-opus-4-6,anthropic,0.863157,0.863157,success,0,0,870437,2026-03-24T01:41:28.119Z,,,17,8776,564281,57845,0
+9k4ut2-machine-readable-rev,273,install,claude-sonnet-4-6,anthropic,0.608362,0.608362,success,0,0,129232,2026-03-24T17:08:01.698Z,,,19,6000,885545,67371,0
