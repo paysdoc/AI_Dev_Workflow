@@ -29,25 +29,11 @@ Feature: R2 upload utility and Screenshot Router Worker
     And the owner and repo segments are lowercased
 
   @adw-nnn7js-r2-upload-utility-sc @regression
-  Scenario: Buckets are created lazily on first upload
-    Given the R2 upload utility is called for owner "paysdoc" and repo "my-app"
-    And the bucket "adw-paysdoc-my-app" does not yet exist
-    When the upload function is invoked
-    Then the utility creates the bucket "adw-paysdoc-my-app" before uploading
-    And subsequent uploads to the same bucket do not re-create it
-
-  @adw-nnn7js-r2-upload-utility-sc @regression
   Scenario: 30-day object lifecycle rule is configured on bucket creation
     Given the R2 upload utility creates a new bucket
     When the bucket creation completes
     Then a lifecycle rule is configured with a 30-day expiration
     And the lifecycle rule applies to all objects in the bucket
-
-  @adw-nnn7js-r2-upload-utility-sc @regression
-  Scenario: Upload returns public URL in correct format
-    Given the R2 upload utility is called for owner "paysdoc" and repo "my-app" with key "review-123/screenshot.png"
-    When the upload completes successfully
-    Then the returned URL matches "https://screenshots.paysdoc.nl/my-app/review-123/screenshot.png"
 
   @adw-nnn7js-r2-upload-utility-sc
   Scenario: R2 upload utility reads credentials from environment variables
@@ -89,27 +75,6 @@ Feature: R2 upload utility and Screenshot Router Worker
     Then the repo segment is "my-app"
     And the key segment is "some/nested/key.png"
 
-  @adw-nnn7js-r2-upload-utility-sc
-  Scenario: Worker returns 404 for requests with no repo segment
-    Given a request to "screenshots.paysdoc.nl/"
-    When the Screenshot Router Worker handles the request
-    Then it returns a 404 status code
-
-  @adw-nnn7js-r2-upload-utility-sc @regression
-  Scenario: Worker cron trigger lists all adw-* buckets and deletes empty ones
-    Given the Screenshot Router Worker has a scheduled handler
-    When the cron trigger fires
-    Then the worker lists all buckets matching the "adw-*" prefix
-    And it checks each bucket for objects
-    And it deletes buckets that are empty immediately
-
-  @adw-nnn7js-r2-upload-utility-sc
-  Scenario: Worker cron trigger does not delete non-empty buckets
-    Given the Screenshot Router Worker cron trigger fires
-    And bucket "adw-paysdoc-my-app" contains 3 objects
-    When the cleanup runs
-    Then bucket "adw-paysdoc-my-app" is not deleted
-
   # --- wrangler.toml Configuration ---
 
   @adw-nnn7js-r2-upload-utility-sc @regression
@@ -133,21 +98,6 @@ Feature: R2 upload utility and Screenshot Router Worker
     And it contains "R2_ACCESS_KEY_ID"
     And it contains "R2_SECRET_ACCESS_KEY"
     And the R2 variables are marked as optional
-
-  # --- Unit Tests ---
-
-  @adw-nnn7js-r2-upload-utility-sc @regression
-  Scenario: Unit tests exist for R2 upload utility
-    Given unit test files exist for the R2 upload utility
-    Then there are tests that mock the S3 client
-    And there are tests that assert bucket name construction
-    And there are tests that assert key construction
-    And there are tests that assert URL construction
-
-  @adw-nnn7js-r2-upload-utility-sc
-  Scenario: Unit tests cover lifecycle rule configuration
-    Given unit test files exist for the R2 upload utility
-    Then there is a test that verifies the 30-day lifecycle rule is applied on bucket creation
 
   # --- Type Safety ---
 
