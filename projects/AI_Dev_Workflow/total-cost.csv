@@ -182,6 +182,25 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 275,mock infrastructure claude cli stub github api moc,scenario,claude-haiku-4-5-20251001,0.164289
 275,mock infrastructure claude cli stub github api moc,step-def-gen,claude-sonnet-4-6,2.461533
 275,mock infrastructure claude cli stub github api moc,step-def-gen,claude-sonnet-4-6,0.536473
+276,wire proof data into structured issue comments,install,claude-sonnet-4-6,0.333729
+276,wire proof data into structured issue comments,plan,claude-opus-4-6,1.336844
+276,wire proof data into structured issue comments,scenario,claude-opus-4-6,0.513313
+276,wire proof data into structured issue comments,scenario,claude-haiku-4-5-20251001,0.202663
+277,regression periodic github action,build,claude-sonnet-4-6,0.132209
+277,regression periodic github action,install,claude-sonnet-4-6,0.293780
+277,regression periodic github action,plan,claude-opus-4-6,0.540311
+277,regression periodic github action,pr,claude-sonnet-4-6,0.062604
+280,jsonl schema probe ci conformance check,build,claude-sonnet-4-6,1.508340
+280,jsonl schema probe ci conformance check,document,claude-sonnet-4-6,0.267596
+280,jsonl schema probe ci conformance check,install,claude-sonnet-4-6,0.281592
+280,jsonl schema probe ci conformance check,kpi,claude-haiku-4-5-20251001,0.106026
+280,jsonl schema probe ci conformance check,plan,claude-opus-4-6,0.980700
+280,jsonl schema probe ci conformance check,plan,claude-haiku-4-5-20251001,0.161076
+280,jsonl schema probe ci conformance check,pr,claude-sonnet-4-6,0.091417
+280,jsonl schema probe ci conformance check,review,claude-opus-4-6,2.044348
+280,jsonl schema probe ci conformance check,scenario,claude-opus-4-6,0.625446
+280,jsonl schema probe ci conformance check,scenario,claude-haiku-4-5-20251001,0.342336
+280,jsonl schema probe ci conformance check,step-def-gen,claude-sonnet-4-6,1.594376
 
-Total Cost (USD):,165.9515
-Total Cost (EUR):,143.1117
+Total Cost (USD):,177.3702
+Total Cost (EUR):,152.9589

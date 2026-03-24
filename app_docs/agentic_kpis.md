@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value          | Last Updated |
 | ----------------- | -------------- | ------------ |
-| Current Streak    | 33             | 2026-03-24   |
-| Longest Streak    | 33             | 2026-03-24   |
+| Current Streak    | 34             | 2026-03-24   |
+| Longest Streak    | 34             | 2026-03-24   |
 | Total Plan Size   | 441 lines      | 2026-03-24   |
 | Largest Plan Size | 201 lines      | 2026-03-24   |
 | Total Diff Size   | 1367302 lines  | 2026-03-24   |
 | Largest Diff Size | 205468 lines   | 2026-03-24   |
-| Average Presence  | 1.55           | 2026-03-24   |
+| Average Presence  | 1.53           | 2026-03-24   |
 
 ## ADW KPIs
 
@@ -66,3 +66,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-03-24 | lnef5d-mock-infrastructure  | 275          | /feature    | 2        | 0                 | 3283/284/43                     | 2026-03-24 | 2026-03-24 |
 | 2026-03-24 | nnn7js-r2-upload-utility-sc | 274          | /feature    | 2        | 0                 | 1721/284/37                     | 2026-03-24 | 2026-03-24 |
 | 2026-03-24 | 9k4ut2-machine-readable-rev | 273          | /feature    | 2        | 0                 | 3043/3819/88                    | 2026-03-24 | 2026-03-24 |
+| 2026-03-24 | 02r4w9-jsonl-schema-probe-c | 280          | /feature    | 1        | 0                 | 5136/3819/104                   | 2026-03-24 | 2026-03-24 |
