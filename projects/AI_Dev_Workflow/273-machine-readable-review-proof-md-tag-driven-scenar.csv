@@ -8,3 +8,6 @@ s18k21-machine-readable-rev,273,scenario,claude-haiku-4-5-20251001,anthropic,0.1
 9k4ut2-machine-readable-rev,273,install,claude-sonnet-4-6,anthropic,0.608362,0.608362,success,0,0,129232,2026-03-24T17:08:01.698Z,,,19,6000,885545,67371,0
 9k4ut2-machine-readable-rev,273,build,claude-sonnet-4-6,anthropic,1.243698,1.243698,success,0,0,439682,2026-03-24T17:15:28.613Z,,,31,25618,1934287,74413,0
 9k4ut2-machine-readable-rev,273,step-def-gen,claude-sonnet-4-6,anthropic,1.960055,1.960055,success,0,0,660473,2026-03-24T17:26:36.708Z,,,64,27818,3866702,102022,0
+9k4ut2-machine-readable-rev,273,review,claude-opus-4-6,anthropic,5.110295,5.110295,success,1,0,875926,2026-03-24T17:41:18.219Z,,,2042,71594,2148546,357754,0
+9k4ut2-machine-readable-rev,273,review,claude-haiku-4-5-20251001,anthropic,0.060719,0.060719,success,1,0,875926,2026-03-24T17:41:18.219Z,,,22,2092,78681,33895,0
+9k4ut2-machine-readable-rev,273,review,claude-sonnet-4-6,anthropic,0.270299,0.270299,success,1,0,875926,2026-03-24T17:41:18.219Z,,,18,3984,281816,33584,0
