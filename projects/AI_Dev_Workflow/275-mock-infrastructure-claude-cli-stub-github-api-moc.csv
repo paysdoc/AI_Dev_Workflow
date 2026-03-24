@@ -11,3 +11,4 @@ lnef5d-mock-infrastructure,275,step-def-gen,claude-sonnet-4-6,anthropic,0.536473
 lnef5d-mock-infrastructure,275,review,claude-opus-4-6,anthropic,6.181344,6.181344,success,1,0,2060781,2026-03-24T02:01:38.597Z,,,11260,85678,2870451,407659,0
 lnef5d-mock-infrastructure,275,review,claude-haiku-4-5-20251001,anthropic,0.244961,0.244961,success,1,0,2060781,2026-03-24T02:01:38.597Z,,,55,9184,766649,97857,0
 lnef5d-mock-infrastructure,275,review,claude-sonnet-4-6,anthropic,1.938225,1.938225,success,1,0,2060781,2026-03-24T02:01:38.597Z,,,6985,32019,3009963,142399,0
+lnef5d-mock-infrastructure,275,document,claude-sonnet-4-6,anthropic,0.239419,0.239419,success,0,0,100386,2026-03-24T02:03:24.570Z,,,8,4069,159821,34777,0
