@@ -16,3 +16,4 @@ nnn7js-r2-upload-utility-sc,274,step-def-gen,claude-sonnet-4-6,anthropic,1.30921
 nnn7js-r2-upload-utility-sc,274,review,claude-opus-4-6,anthropic,4.451998,4.451998,success,1,0,981625,2026-03-24T02:09:05.885Z,,,4832,55552,2039613,323077,0
 nnn7js-r2-upload-utility-sc,274,review,claude-sonnet-4-6,anthropic,0.633693,0.633693,success,1,0,981625,2026-03-24T02:09:05.885Z,,,43,12177,893443,48767,0
 nnn7js-r2-upload-utility-sc,274,document,claude-sonnet-4-6,anthropic,0.228628,0.228628,success,0,0,90903,2026-03-24T02:10:42.301Z,,,8,3630,168414,32968,0
+nnn7js-r2-upload-utility-sc,274,pr,claude-sonnet-4-6,anthropic,0.085618,0.085618,success,0,0,30164,2026-03-24T02:11:17.910Z,,,6,877,70785,13656,0
