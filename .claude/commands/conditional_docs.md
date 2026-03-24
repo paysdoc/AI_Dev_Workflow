@@ -11,6 +11,5 @@ This prompt helps you determine what documentation you should read based on the 
 - Review the task you've been asked to perform
 - Check each documentation path in the conditional documentation
 - For each path, evaluate if any of the listed conditions apply to your task
-- IMPORTANT: Only read the documentation if any one of the conditions match your task
-- IMPORTANT: You don't want to excessively read documentation. Only read the documentation if it's relevant to your task.
+- Only read the documentation if any one of the conditions match your task. Avoid excessively reading documentation.
 

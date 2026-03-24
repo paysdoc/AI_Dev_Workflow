@@ -22,17 +22,14 @@ TEST_COMMAND_TIMEOUT: 5 minutes
 - Read `.adw/commands.md` from the current working directory for all project-specific commands. If `.adw/commands.md` does not exist, use the default commands shown in each test step below.
 - Execute each test in the sequence provided below
 - Capture the result (passed/failed) and any error messages
-- IMPORTANT: Return ONLY the JSON array with test results
-  - IMPORTANT: Do not include any additional text, explanations, or markdown formatting
-  - We'll immediately run JSON.parse() on the output, so make sure it's valid JSON
+- CRITICAL: Return ONLY the JSON array with test results. No additional text, explanations, or markdown formatting — `JSON.parse()` runs directly on your output.
 - If a test passes, omit the error field
 - If a test fails, include the error message in the error field
-- Execute all tests even if some fail
+- Execute all tests even if some fail — do not stop on failure
 - Error Handling:
-  - If a command returns non-zero exit code, mark as failed and immediately stop processing tests
+  - If a command returns non-zero exit code, mark as failed and continue to the next test
   - Capture stderr output for error field
   - Timeout commands after `TEST_COMMAND_TIMEOUT`
-  - IMPORTANT: If a test fails, stop processing tests and return the results thus far
 - Test execution order is important - dependencies should be validated first
 - log the start, end and result of each test to the console for visibility
 - All file paths are relative to the project root
@@ -73,7 +70,7 @@ TEST_COMMAND_TIMEOUT: 5 minutes
 
 ## Report
 
-- IMPORTANT: Return results exclusively as a JSON array based on the `Output Structure` section below.
+- Return results exclusively as a JSON array based on the `Output Structure` section below.
 - Sort the JSON array with failed tests (passed: false) at the top
 - Include all tests in the output, both passed and failed
 - The execution_command field should contain the exact command that can be run to reproduce the test

@@ -7,33 +7,30 @@ Execute end-to-end (E2E) tests using Playwright browser automation (MCP Server).
 
 ## Variables
 
-adw_id: $ARGUMENT if provided, otherwise generate a random 8 character hex string
-agent_name: $ARGUMENT if provided, otherwise use 'test_e2e'
-e2e_test_file: $ARGUMENT
-application_url: $ARGUMENT if provided, otherwise determine from port configuration:
+adwId: $1 if provided, otherwise generate a random 8 character hex string
+agentName: $2 if provided, otherwise use 'test_e2e'
+e2eTestFile: $3
+applicationUrl: $4 if provided, otherwise determine from port configuration:
   - If `.ports.env` exists, source it and use http://localhost:${FRONTEND_PORT}
   - Otherwise use default http://localhost:5173
 
 ## Instructions
 
-- If `application_url` was not provided, check for `.ports.env`:
+- If `applicationUrl` was not provided, check for `.ports.env`:
   - If it exists, source it and use http://localhost:${FRONTEND_PORT}
   - Otherwise use default http://localhost:5173
-- Read the `e2e_test_file`
+- Read the `e2eTestFile`
 - Digest the `User Story` to first understand what we're validating
-- IMPORTANT: Execute the `Test Steps` detailed in the `e2e_test_file` using Playwright browser automation
-- Review the `Success Criteria` and if any of them fail, mark the test as failed and explain exactly what went wrong
-- Review the steps that say '**Verify**...' and if they fail, mark the test as failed and explain exactly what went wrong
-- Capture screenshots as specified
-- IMPORTANT: Return results in the format requested by the `Output Format`
-- Initialize Playwright browser in headed mode for visibility
-- Use the determined `application_url`
-- Allow time for async operations and element visibility
-- IMPORTANT: After taking each screenshot, save it to `Screenshot Directory` with descriptive names. Use absolute paths to move the files to the `Screenshot Directory` with the correct name.
-- Capture and report any errors encountered
-- Ultra think about the `Test Steps` and execute them in order
-- If you encounter an error, mark the test as failed immediately and explain exactly what went wrong and on what step it occurred. For example: '(Step 1 ❌) Failed to find element with selector "query-input" on page "http://localhost:5173"'
-- Use `pwd` or equivalent to get the absolute path to the codebase for writing and displaying the correct paths to the screenshots
+- Execute the `Test Steps` detailed in the `e2eTestFile` using Playwright browser automation.
+- Review the `Success Criteria` and if any of them fail, mark the test as failed and explain exactly what went wrong.
+- Review the steps that say '**Verify**...' and if they fail, mark the test as failed and explain exactly what went wrong.
+- Capture screenshots as specified.
+- CRITICAL: Return results in the JSON format requested by the `Output Format`.
+- Initialize Playwright browser in headed mode for visibility.
+- Use the determined `applicationUrl`.
+- Allow time for async operations and element visibility.
+- After taking each screenshot, save it to `Screenshot Directory` with descriptive names using absolute paths.
+- If you encounter an error, mark the test as failed immediately and explain exactly what went wrong and on what step it occurred. For example: '(Step 1) Failed to find element with selector "query-input" on page "http://localhost:5173"'
 
 ## Setup
 
@@ -41,7 +38,7 @@ Read and Execute `.claude/commands/prepare_app.md` now to prepare the applicatio
 
 ## Screenshot Directory
 
-<absolute path to codebase>/agents/<adw_id>/<agent_name>/img/<directory name based on test file name>/*.png
+<absolute path to codebase>/agents/<adwId>/<agentName>/img/<directory name based on test file name>/*.png
 
 Each screenshot should be saved with a descriptive name that reflects what is being captured. The directory structure ensures that:
 - Screenshots are organized by ADW ID (workflow run)
@@ -50,9 +47,9 @@ Each screenshot should be saved with a descriptive name that reflects what is be
 
 ## Report
 
-- Exclusively return the JSON output as specified in the test file
-- Capture any unexpected errors
-- IMPORTANT: Ensure all screenshots are saved in the `Screenshot Directory`
+- Exclusively return the JSON output as specified in the test file.
+- Capture any unexpected errors.
+- Ensure all screenshots are saved in the `Screenshot Directory`.
 
 ### Output Format
 
@@ -61,9 +58,9 @@ Each screenshot should be saved with a descriptive name that reflects what is be
   "test_name": "Test Name Here",
   "status": "passed|failed",
   "screenshots": [
-    "<absolute path to codebase>/agents/<adw_id>/<agent_name>/img/<test name>/01_<descriptive name>.png",
-    "<absolute path to codebase>/agents/<adw_id>/<agent_name>/img/<test name>/02_<descriptive name>.png",
-    "<absolute path to codebase>/agents/<adw_id>/<agent_name>/img/<test name>/03_<descriptive name>.png"
+    "<absolute path to codebase>/agents/<adwId>/<agentName>/img/<test name>/01_<descriptive name>.png",
+    "<absolute path to codebase>/agents/<adwId>/<agentName>/img/<test name>/02_<descriptive name>.png",
+    "<absolute path to codebase>/agents/<adwId>/<agentName>/img/<test name>/03_<descriptive name>.png"
   ],
   "error": null
 }

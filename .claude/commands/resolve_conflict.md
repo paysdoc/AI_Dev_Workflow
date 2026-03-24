@@ -14,7 +14,7 @@ incomingBranch: $3 - the branch being merged in (e.g., `main`, `develop`, `featu
 ## Instructions
 
 - IMPORTANT: You are resolving merge conflicts, not re-implementing features. Stay surgical — only modify conflicted regions and their immediate context.
-- IMPORTANT: If a `guidelines/` directory exists in the target repository, conflict resolution must strictly adhere to those coding guidelines.
+- If a `guidelines/` directory exists in the target repository, conflict resolution must strictly adhere to those coding guidelines.
 
 ### 1. Understand the Current State
 
@@ -46,7 +46,7 @@ For each conflicted file:
 
 ### 4. Formulate Merge Strategy
 
-Ultra think about the right merge strategy before making any changes. For each conflicted file, decide one of:
+Before making any changes, determine the merge strategy for each conflicted file. For each file, decide one of:
 
 - **Combine**: Both changes are complementary and can be merged together (e.g., both branches added different functions to the same file)
 - **Prefer current**: The current branch's change takes priority because it is more aligned with the active work
@@ -58,8 +58,8 @@ Document your strategy before executing it.
 ### 5. Resolve Conflicts
 
 - Resolve each conflict according to the strategy from Step 4
-- IMPORTANT: After resolving all conflicts, ensure the code is syntactically valid and logically consistent
-- IMPORTANT: Do not introduce changes outside of the conflicted regions unless absolutely necessary for the resolved code to compile or function
+- After resolving all conflicts, ensure the code is syntactically valid and logically consistent.
+- Do not introduce changes outside of the conflicted regions unless absolutely necessary for the resolved code to compile or function.
 - Stage each resolved file with `git add <file>`
 
 ### 6. Validate

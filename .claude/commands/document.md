@@ -128,5 +128,5 @@ After creating the documentation, add this entry to `.adw/conditional_docs.md`:
 ```
 
 ## Report
-
-- IMPORTANT: Return exclusively the path to the documentation file created and nothing else.
+- Summarize the work you've just done in a concise bullet point list.
+- Include the full path to the documentation file you created (e.g., `app_docs/feature-abc123-user-auth.md`)

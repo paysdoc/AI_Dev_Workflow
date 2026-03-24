@@ -352,6 +352,30 @@
     - When troubleshooting skills or commands that are missing in a target repo after `adw_init`
     - When investigating why `workflowInit` is gitignoring commands that were already committed
 
+- app_docs/feature-nnn7js-r2-upload-screenshot-router.md
+  - Conditions:
+    - When working with `adws/r2/` module (uploadToR2, ensureBucket, createR2Client)
+    - When implementing screenshot upload from any ADW phase
+    - When modifying or deploying `workers/screenshot-router/`
+    - When troubleshooting R2 bucket creation, lifecycle rules, or public URL construction
+    - When configuring `CLOUDFLARE_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, or `R2_SECRET_ACCESS_KEY`
+
+- app_docs/feature-9k4ut2-machine-readable-review-proof.md
+  - Conditions:
+    - When working with `.adw/review_proof.md` configuration format or `ReviewProofConfig` types
+    - When modifying `regressionScenarioProof.ts`, `runScenarioProof()`, or `TagProofResult`
+    - When changing which BDD tags run during the review phase or their severity classification
+    - When troubleshooting optional tag skipping or `{issueNumber}` substitution in tag patterns
+    - When updating the `/review` slash command's severity reading logic
+
+- app_docs/feature-02r4w9-jsonl-schema-probe-ci-check.md
+  - Conditions:
+    - When working with `adws/jsonl/` module (schemaProbe, conformanceCheck, fixtureUpdater)
+    - When adding or modifying JSONL fixture files in `adws/jsonl/fixtures/`
+    - When running or troubleshooting `bun run jsonl:check` in CI
+    - When the Claude CLI JSONL output schema changes and fixtures need updating
+    - When implementing new parsers that depend on the JSONL envelope structure
+
 - app_docs/feature-lnef5d-mock-infrastructure-layer.md
   - Conditions:
     - When working with `test/mocks/` (Claude CLI stub, GitHub API mock server, git remote mock, test harness)

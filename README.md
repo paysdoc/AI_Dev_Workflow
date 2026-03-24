@@ -53,6 +53,9 @@ Required and optional environment variables (see `.env.sample` for full referenc
 - `JIRA_PAT` - (Optional) Jira Data Center/Server personal access token (use instead of email + API token)
 - `GITLAB_TOKEN` - (Optional) GitLab personal access token (needs api scope), required only when using GitLab
 - `GITLAB_INSTANCE_URL` - (Optional) GitLab instance URL, defaults to `https://gitlab.com`
+- `CLOUDFLARE_ACCOUNT_ID` - (Optional) Cloudflare account ID, required only for screenshot upload functionality
+- `R2_ACCESS_KEY_ID` - (Optional) R2 access key ID, required only for screenshot upload functionality
+- `R2_SECRET_ACCESS_KEY` - (Optional) R2 secret access key, required only for screenshot upload functionality
 
 ### 4. Run ADW
 
@@ -298,6 +301,12 @@ adws/                   # ADW workflow system
 │   ├── webhookGatekeeper.ts
 │   ├── webhookHandlers.ts
 │   └── webhookSignature.ts
+├── r2/                 # Cloudflare R2 upload module
+│   ├── bucketManager.ts  # R2 bucket creation and lifecycle rules
+│   ├── r2Client.ts     # R2 client factory
+│   ├── types.ts        # R2 type definitions
+│   ├── uploadService.ts  # File upload logic
+│   └── index.ts
 ├── adwBuild.tsx        # Orchestrators (individual & combined)
 ├── adwBuildHelpers.ts
 ├── adwClearComments.tsx
@@ -319,6 +328,8 @@ adws/                   # ADW workflow system
 ├── index.ts
 ├── tsconfig.json
 └── README.md
+workers/                # Cloudflare Workers
+└── screenshot-router/  # Screenshot URL routing worker
 test/                   # Integration test infrastructure
 ├── fixtures/           # Static test fixtures
 │   ├── github/         # GitHub API response fixtures (issue, PR, comments)

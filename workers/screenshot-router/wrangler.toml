@@ -1,0 +1,22 @@
+name = "screenshot-router"
+main = "src/index.ts"
+compatibility_date = "2026-03-24"
+
+# Route all requests for screenshots.paysdoc.nl to this Worker
+[[routes]]
+pattern = "screenshots.paysdoc.nl/*"
+zone_name = "paysdoc.nl"
+
+# Daily cron at 03:00 UTC — garbage-collects empty adw-* R2 buckets
+[triggers]
+crons = ["0 3 * * *"]
+
+# Note: This Worker accesses R2 buckets dynamically via the S3-compatible API
+# (credentials injected as secrets below) rather than static R2 bindings.
+# Static R2 bindings would require one [[r2_buckets]] entry per repo bucket,
+# which does not scale. Bucket names are derived from the request path at runtime.
+#
+# Required Worker secrets (set via `wrangler secret put`):
+#   CLOUDFLARE_ACCOUNT_ID
+#   R2_ACCESS_KEY_ID
+#   R2_SECRET_ACCESS_KEY

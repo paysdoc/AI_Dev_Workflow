@@ -7,7 +7,7 @@ target: true
 ## Before you do anything else
 Read and execute .claude/commands/prime.md
 
-This skill will be invoked when the user wants to create a PRD. You may skip steps if you don't consider them necessary.
+This skill will be invoked when the user wants to create a PRD.
 
 1. Ask the user for a long, detailed description of the problem they want to solve and any potential ideas for solutions.
 

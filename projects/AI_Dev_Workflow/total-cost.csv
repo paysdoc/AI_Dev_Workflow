@@ -133,20 +133,34 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 271,fix boardstatus enum contains non existent project,scenario,claude-opus-4-6,0.616608
 271,fix boardstatus enum contains non existent project,scenario,claude-haiku-4-5-20251001,0.133453
 271,fix boardstatus enum contains non existent project,step-def-gen,claude-sonnet-4-6,0.232663
+273,machine readable review proof md tag driven scenar,build,claude-sonnet-4-6,1.243698
+273,machine readable review proof md tag driven scenar,document,claude-sonnet-4-6,0.290257
 273,machine readable review proof md tag driven scenar,install,claude-sonnet-4-6,0.237434
 273,machine readable review proof md tag driven scenar,install,claude-sonnet-4-6,0.591053
+273,machine readable review proof md tag driven scenar,install,claude-sonnet-4-6,0.608362
+273,machine readable review proof md tag driven scenar,kpi,claude-haiku-4-5-20251001,0.112526
 273,machine readable review proof md tag driven scenar,plan,claude-opus-4-6,1.105535
+273,machine readable review proof md tag driven scenar,pr,claude-sonnet-4-6,0.110413
+273,machine readable review proof md tag driven scenar,review,claude-opus-4-6,5.110295
+273,machine readable review proof md tag driven scenar,review,claude-haiku-4-5-20251001,0.060719
+273,machine readable review proof md tag driven scenar,review,claude-sonnet-4-6,0.270299
 273,machine readable review proof md tag driven scenar,scenario,claude-opus-4-6,1.251474
 273,machine readable review proof md tag driven scenar,scenario,claude-haiku-4-5-20251001,0.151012
 273,machine readable review proof md tag driven scenar,scenario,claude-opus-4-6,0.863157
+273,machine readable review proof md tag driven scenar,step-def-gen,claude-sonnet-4-6,1.960055
 274,r2 upload utility screenshot router worker,build,claude-sonnet-4-6,0.988793
+274,r2 upload utility screenshot router worker,document,claude-sonnet-4-6,0.228628
 274,r2 upload utility screenshot router worker,install,claude-sonnet-4-6,0.215821
 274,r2 upload utility screenshot router worker,install,claude-sonnet-4-6,0.326138
 274,r2 upload utility screenshot router worker,install,claude-sonnet-4-6,0.232754
+274,r2 upload utility screenshot router worker,kpi,claude-haiku-4-5-20251001,0.074879
 274,r2 upload utility screenshot router worker,plan,claude-opus-4-6,0.745945
 274,r2 upload utility screenshot router worker,plan,claude-haiku-4-5-20251001,0.095534
 274,r2 upload utility screenshot router worker,plan,claude-opus-4-6,0.551740
 274,r2 upload utility screenshot router worker,plan,claude-haiku-4-5-20251001,0.151602
+274,r2 upload utility screenshot router worker,pr,claude-sonnet-4-6,0.085618
+274,r2 upload utility screenshot router worker,review,claude-opus-4-6,4.451998
+274,r2 upload utility screenshot router worker,review,claude-sonnet-4-6,0.633693
 274,r2 upload utility screenshot router worker,scenario,claude-opus-4-6,0.504569
 274,r2 upload utility screenshot router worker,scenario,claude-haiku-4-5-20251001,0.199491
 274,r2 upload utility screenshot router worker,scenario,claude-opus-4-6,0.442196
@@ -168,6 +182,25 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 275,mock infrastructure claude cli stub github api moc,scenario,claude-haiku-4-5-20251001,0.164289
 275,mock infrastructure claude cli stub github api moc,step-def-gen,claude-sonnet-4-6,2.461533
 275,mock infrastructure claude cli stub github api moc,step-def-gen,claude-sonnet-4-6,0.536473
+276,wire proof data into structured issue comments,install,claude-sonnet-4-6,0.333729
+276,wire proof data into structured issue comments,plan,claude-opus-4-6,1.336844
+276,wire proof data into structured issue comments,scenario,claude-opus-4-6,0.513313
+276,wire proof data into structured issue comments,scenario,claude-haiku-4-5-20251001,0.202663
+277,regression periodic github action,build,claude-sonnet-4-6,0.132209
+277,regression periodic github action,install,claude-sonnet-4-6,0.293780
+277,regression periodic github action,plan,claude-opus-4-6,0.540311
+277,regression periodic github action,pr,claude-sonnet-4-6,0.062604
+280,jsonl schema probe ci conformance check,build,claude-sonnet-4-6,1.508340
+280,jsonl schema probe ci conformance check,document,claude-sonnet-4-6,0.267596
+280,jsonl schema probe ci conformance check,install,claude-sonnet-4-6,0.281592
+280,jsonl schema probe ci conformance check,kpi,claude-haiku-4-5-20251001,0.106026
+280,jsonl schema probe ci conformance check,plan,claude-opus-4-6,0.980700
+280,jsonl schema probe ci conformance check,plan,claude-haiku-4-5-20251001,0.161076
+280,jsonl schema probe ci conformance check,pr,claude-sonnet-4-6,0.091417
+280,jsonl schema probe ci conformance check,review,claude-opus-4-6,2.044348
+280,jsonl schema probe ci conformance check,scenario,claude-opus-4-6,0.625446
+280,jsonl schema probe ci conformance check,scenario,claude-haiku-4-5-20251001,0.342336
+280,jsonl schema probe ci conformance check,step-def-gen,claude-sonnet-4-6,1.594376
 
-Total Cost (USD):,150.7100
-Total Cost (EUR):,129.9679
+Total Cost (USD):,177.3702
+Total Cost (EUR):,152.9589

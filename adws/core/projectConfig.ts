@@ -46,6 +46,26 @@ export interface ProvidersConfig {
   issueTrackerProjectKey?: string;
 }
 
+export interface ReviewTagEntry {
+  /** Tag pattern, e.g. `@review-proof`, `@adw-{issueNumber}`. */
+  tag: string;
+  severity: 'blocker' | 'tech-debt';
+  /** When true, gracefully skip if no matching scenarios exist. */
+  optional?: boolean;
+}
+
+export interface SupplementaryCheck {
+  name: string;
+  /** Shell command to run, e.g. `bunx tsc --noEmit`. */
+  command: string;
+  severity: 'blocker' | 'tech-debt';
+}
+
+export interface ReviewProofConfig {
+  tags: ReviewTagEntry[];
+  supplementaryChecks: SupplementaryCheck[];
+}
+
 export interface ProjectConfig {
   commands: CommandsConfig;
   /** Raw content of `.adw/project.md` (empty string when absent). */
@@ -62,6 +82,8 @@ export interface ProjectConfig {
   scenarios: ScenariosConfig;
   /** Raw content of `.adw/scenarios.md` (empty string when absent). */
   scenariosMd: string;
+  /** Parsed review proof config from `.adw/review_proof.md`. */
+  reviewProofConfig: ReviewProofConfig;
 }
 
 // ---------------------------------------------------------------------------
@@ -138,6 +160,16 @@ export function getDefaultProvidersConfig(): ProvidersConfig {
   };
 }
 
+export function getDefaultReviewProofConfig(): ReviewProofConfig {
+  return {
+    tags: [
+      { tag: '@regression', severity: 'blocker', optional: false },
+      { tag: '@adw-{issueNumber}', severity: 'blocker', optional: true },
+    ],
+    supplementaryChecks: [],
+  };
+}
+
 export function getDefaultProjectConfig(): ProjectConfig {
   return {
     commands: getDefaultCommandsConfig(),
@@ -148,6 +180,7 @@ export function getDefaultProjectConfig(): ProjectConfig {
     providers: getDefaultProvidersConfig(),
     scenarios: getDefaultScenariosConfig(),
     scenariosMd: '',
+    reviewProofConfig: getDefaultReviewProofConfig(),
   };
 }
 
@@ -278,6 +311,59 @@ export function parseScenariosMd(content: string): ScenariosConfig {
   return result;
 }
 
+/** Returns true for markdown table separator rows (e.g. `|---|---|`). */
+function isSeparatorRow(line: string): boolean {
+  return /^[|:\-\s]+$/.test(line);
+}
+
+/** Parses a markdown table body into an array of cell arrays, skipping the header and separator rows. */
+function parseMarkdownTableRows(content: string): string[][] {
+  const dataRows = content
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line.startsWith('|') && !isSeparatorRow(line))
+    .map(line => line.split('|').slice(1, -1).map(cell => cell.trim()));
+  // First row is the header — skip it
+  return dataRows.slice(1);
+}
+
+function parseTagsTable(content: string): ReviewTagEntry[] {
+  return parseMarkdownTableRows(content)
+    .filter(cells => cells.length >= 2 && cells[0])
+    .map(cells => {
+      const severity = cells[1] === 'tech-debt' ? 'tech-debt' : 'blocker';
+      return { tag: cells[0], severity, optional: cells[2]?.toLowerCase() === 'yes' };
+    });
+}
+
+function parseSupplementaryChecksTable(content: string): SupplementaryCheck[] {
+  return parseMarkdownTableRows(content)
+    .filter(cells => cells.length >= 3 && cells[0] && cells[1])
+    .map(cells => {
+      const severity = cells[2] === 'tech-debt' ? 'tech-debt' : 'blocker';
+      return { name: cells[0], command: cells[1], severity };
+    });
+}
+
+/**
+ * Parses `.adw/review_proof.md` into a `ReviewProofConfig`.
+ * Falls back to defaults when the file is absent, empty, or has no `## Tags` section.
+ */
+export function parseReviewProofMd(content: string): ReviewProofConfig {
+  const defaults = getDefaultReviewProofConfig();
+  if (!content.trim()) return defaults;
+
+  const sections = parseMarkdownSections(content);
+  if (!('tags' in sections)) return defaults;
+
+  const tags = parseTagsTable(sections['tags'] ?? '');
+  const supplementaryChecks = 'supplementary checks' in sections
+    ? parseSupplementaryChecksTable(sections['supplementary checks'] ?? '')
+    : [];
+
+  return { tags, supplementaryChecks };
+}
+
 // ---------------------------------------------------------------------------
 // Main loader
 // ---------------------------------------------------------------------------
@@ -329,6 +415,7 @@ export function loadProjectConfig(targetRepoPath: string): ProjectConfig {
   } catch {
     // file missing — keep empty
   }
+  const reviewProofConfig = parseReviewProofMd(reviewProofMd);
 
   // providers.md
   const providersPath = path.join(adwDir, 'providers.md');
@@ -360,5 +447,6 @@ export function loadProjectConfig(targetRepoPath: string): ProjectConfig {
     providers,
     scenarios,
     scenariosMd,
+    reviewProofConfig,
   };
 }

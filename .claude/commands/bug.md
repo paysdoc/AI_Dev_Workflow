@@ -10,31 +10,27 @@ issueNumber: $1 — MUST be a numeric GitHub issue number (e.g., 31, 456). Defau
 adwId: $2 — MUST be the alphanumeric ADW workflow ID string (e.g., "init-adw-env-4qugib", "abc123"). Default: `adw-unknown`
 issueJson: $3 — JSON string containing full issue details. Default: `{}`
 
-IMPORTANT: $1 is ALWAYS the numeric issue number. $2 is ALWAYS the ADW ID string. Do NOT swap these values.
+CRITICAL: $1 is ALWAYS the numeric issue number. $2 is ALWAYS the ADW ID string. Do NOT swap these values.
 Example: if $1=31 and $2=init-adw-env-4qugib, the filename is `issue-31-adw-init-adw-env-4qugib-sdlc_planner-{descriptiveName}.md`
 
 ## Instructions
 
-- IMPORTANT: You're writing a plan to resolve a bug based on the `Bug` that will add value to the application.
-- IMPORTANT: The `Bug` describes the bug that will be resolved but remember we're not resolving the bug, we're creating the plan that will be used to resolve the bug based on the `Plan Format` below.
-- IMPORTANT: If a `guidelines/` directory exists in the target repository, planning and implementation must strictly adhere to those coding guidelines.
-- You're writing a plan to resolve a bug, it should be thorough and precise so we fix the root cause and prevent regressions.
+- IMPORTANT: You are writing a **plan**, not fixing the bug. The output is a plan document in `Plan Format` below, not code changes.
+- The plan should be thorough and precise so we fix the root cause and prevent regressions.
 - Create the plan in the `specs/` directory with filename: `issue-{issueNumber}-adw-{adwId}-sdlc_planner-{descriptiveName}.md`
   - Replace `{descriptiveName}` with a short, descriptive name based on the bug (e.g., "fix-login-error", "resolve-timeout", "patch-memory-leak")
-- Use the plan format below to create the plan. 
+- Use the plan format below to create the plan. Replace every `<placeholder>` with the requested value.
 - Research the codebase to understand the bug, reproduce it, and put together a plan to fix it.
-- IMPORTANT: Replace every <placeholder> in the `Plan Format` with the requested value. Add as much detail as needed to fix the bug.
-- Consider the bug, its root cause, and the steps to fix it properly.
-- IMPORTANT: Be surgical with your bug fix, solve the bug at hand and don't fall off track.
-- IMPORTANT: We want the minimal number of changes that will fix and address the bug.
+- Be surgical: solve the bug at hand with the minimal number of changes. Don't fall off track.
 - Don't use decorators. Keep it simple.
 - If you need a new library, read `.adw/commands.md` for the library install command (under `## Library Install Command`). If `.adw/commands.md` does not exist, use `bun install`. Be sure to report it in the `Notes` section of the `Plan Format`.
-- IMPORTANT: If the bug affects the UI or user interactions:
-  - Add a task in the `Step by Step Tasks` section to create a separate E2E test file in `e2e-tests/test_<descriptiveName>.md` based on examples in `.claude/commands/e2e-examples/` that validates the bug is fixed with zero regressions. Be specific about the steps to validate the bug is fixed and include screenshots if possible.
+- If the bug affects the UI or user interactions:
+  - Add a task in the `Step by Step Tasks` section to create a separate E2E test file in `e2e-tests/test_<descriptiveName>.md` based on examples in `.claude/commands/e2e-examples/` that validates the bug is fixed with zero regressions.
   - Add E2E test validation to your Validation Commands section
-  - IMPORTANT: When you fill out the `Plan Format: Relevant Files` section, add an instruction to read `.claude/commands/test_e2e.md`, and `.claude/commands/e2e-examples/test_basic_query.md` to understand how to create an E2E test file. List your new E2E test file to the `Plan Format: New Files` section.
-  - To be clear, we're not creating a new E2E test file, we're creating a task to create a new E2E test file in the `Plan Format` below
+  - In the `Plan Format: Relevant Files` section, add an instruction to read `.claude/commands/test_e2e.md` and `.claude/commands/e2e-examples/test_basic_query.md`. List your new E2E test file in the `Plan Format: New Files` section.
+  - Note: you are creating a **task** to create the E2E test file, not creating it directly
 - Respect requested files in the `Relevant Files` section.
+- If a `guidelines/` directory exists in the target repository, planning and implementation must strictly adhere to those coding guidelines.
 - Start your research by reading the `README.md` file. If a `guidelines/` directory exists in the target repository, also read those coding guidelines.
 
 ## Relevant Files
@@ -101,7 +97,7 @@ Read `.adw/commands.md` from the current working directory for the project-speci
 - `bun run test` - Run tests to validate the bug is fixed with zero regressions
 
 ## Notes
-- IMPORTANT: If a `guidelines/` directory exists in the target repository, strictly adhere to those coding guidelines. If necessary, refactor existing code to meet the coding guidelines as part of fixing the bug.
+- If a `guidelines/` directory exists in the target repository, strictly adhere to those coding guidelines. If necessary, refactor existing code to meet the coding guidelines as part of fixing the bug.
 <optionally list any additional notes or context that are relevant to the bug that will be helpful to the developer>
 ```
 
