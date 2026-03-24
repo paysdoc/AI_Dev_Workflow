@@ -63,15 +63,15 @@ Feature: Harden project board status propagation
 
   # ── D: Intermediate status transitions ───────────────────────────────────────
 
-  @adw-wrzj5j-harden-project-board @regression
-  Scenario: buildPhase.ts calls moveToStatus with Building at phase entry
+  @adw-wrzj5j-harden-project-board @adw-tdlgz7-fix-boardstatus-enum @regression
+  Scenario: buildPhase.ts calls moveToStatus with InProgress at phase entry
     Given "adws/phases/buildPhase.ts" is read
-    Then the file contains "Building"
+    Then the file contains "InProgress"
 
-  @adw-wrzj5j-harden-project-board @regression
-  Scenario: testPhase.ts calls moveToStatus with Testing at phase entry
+  @adw-wrzj5j-harden-project-board @adw-tdlgz7-fix-boardstatus-enum @regression
+  Scenario: testPhase.ts calls moveToStatus with InProgress at phase entry
     Given "adws/phases/testPhase.ts" is read
-    Then the file contains "Testing"
+    Then the file contains "InProgress"
 
   @adw-wrzj5j-harden-project-board @regression
   Scenario: prPhase.ts does not contain a moveToStatus call
@@ -85,28 +85,28 @@ Feature: Harden project board status propagation
     Given "adws/providers/types.ts" is read
     Then the file contains "BoardStatus"
 
-  @adw-wrzj5j-harden-project-board @regression
+  @adw-wrzj5j-harden-project-board @adw-tdlgz7-fix-boardstatus-enum @regression
   Scenario: BoardStatus enum contains the expected values
     Given "adws/providers/types.ts" is read
     Then the file contains "In Progress"
-    And the file contains "Building"
-    And the file contains "Testing"
     And the file contains "Review"
+    And the file does not contain "Building"
+    And the file does not contain "Testing"
 
   @adw-wrzj5j-harden-project-board @regression
   Scenario: Phase files use BoardStatus enum references instead of raw strings
     Given "adws/phases/planPhase.ts" is read
     Then the file contains "BoardStatus.InProgress"
 
-  @adw-wrzj5j-harden-project-board @regression
+  @adw-wrzj5j-harden-project-board @adw-tdlgz7-fix-boardstatus-enum @regression
   Scenario: buildPhase.ts uses BoardStatus enum reference
     Given "adws/phases/buildPhase.ts" is read
-    Then the file contains "BoardStatus.Building"
+    Then the file contains "BoardStatus.InProgress"
 
-  @adw-wrzj5j-harden-project-board @regression
+  @adw-wrzj5j-harden-project-board @adw-tdlgz7-fix-boardstatus-enum @regression
   Scenario: testPhase.ts uses BoardStatus enum reference
     Given "adws/phases/testPhase.ts" is read
-    Then the file contains "BoardStatus.Testing"
+    Then the file contains "BoardStatus.InProgress"
 
   @adw-wrzj5j-harden-project-board @regression
   Scenario: TypeScript type-check passes after project board hardening changes

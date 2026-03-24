@@ -67,8 +67,6 @@ export interface WorkItem {
  */
 export enum BoardStatus {
   InProgress = 'In Progress',
-  Building = 'Building',
-  Testing = 'Testing',
   Review = 'Review',
 }
 

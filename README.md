@@ -53,6 +53,9 @@ Required and optional environment variables (see `.env.sample` for full referenc
 - `JIRA_PAT` - (Optional) Jira Data Center/Server personal access token (use instead of email + API token)
 - `GITLAB_TOKEN` - (Optional) GitLab personal access token (needs api scope), required only when using GitLab
 - `GITLAB_INSTANCE_URL` - (Optional) GitLab instance URL, defaults to `https://gitlab.com`
+- `CLOUDFLARE_ACCOUNT_ID` - (Optional) Cloudflare account ID, required only for screenshot upload functionality
+- `R2_ACCESS_KEY_ID` - (Optional) R2 access key ID, required only for screenshot upload functionality
+- `R2_SECRET_ACCESS_KEY` - (Optional) R2 secret access key, required only for screenshot upload functionality
 
 ### 4. Run ADW
 
@@ -327,6 +330,18 @@ adws/                   # ADW workflow system
 └── README.md
 workers/                # Cloudflare Workers
 └── screenshot-router/  # Screenshot URL routing worker
+test/                   # Integration test infrastructure
+├── fixtures/           # Static test fixtures
+│   ├── github/         # GitHub API response fixtures (issue, PR, comments)
+│   └── jsonl/          # JSONL envelope and payload fixtures
+│       ├── envelopes/
+│       └── payloads/
+└── mocks/              # Mock implementations
+    ├── claude-cli-stub.ts      # Claude CLI process stub
+    ├── git-remote-mock.ts      # Git remote mock
+    ├── github-api-server.ts    # GitHub API mock HTTP server
+    ├── test-harness.ts         # Test harness orchestrating all mocks
+    └── types.ts                # Mock type definitions
 app_docs/               # Generated feature documentation
 bun.lock                # Bun lockfile
 eslint.config.js        # ESLint configuration
