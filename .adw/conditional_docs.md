@@ -360,3 +360,10 @@
     - When troubleshooting `@mock-infrastructure` or `@regression` scenario failures
     - When configuring `MOCK_FIXTURE_PATH`, `MOCK_STREAM_DELAY_MS`, `GH_HOST`, or `CLAUDE_CODE_PATH` for test runs
     - When extending mock fixtures in `test/fixtures/jsonl/` or `test/fixtures/github/`
+
+- app_docs/feature-tdlgz7-fix-boardstatus-invalid-values.md
+  - Conditions:
+    - When working with `BoardStatus` enum in `adws/providers/types.ts`
+    - When adding or removing project board status transitions in `buildPhase.ts` or `testPhase.ts`
+    - When troubleshooting `moveToStatus()` calls that silently fail due to unmatched board column names
+    - When the GitHub project board columns change and enum values need to stay in sync
