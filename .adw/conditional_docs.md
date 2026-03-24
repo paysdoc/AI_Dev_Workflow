@@ -367,3 +367,11 @@
     - When changing which BDD tags run during the review phase or their severity classification
     - When troubleshooting optional tag skipping or `{issueNumber}` substitution in tag patterns
     - When updating the `/review` slash command's severity reading logic
+
+- app_docs/feature-02r4w9-jsonl-schema-probe-ci-check.md
+  - Conditions:
+    - When working with `adws/jsonl/` module (schemaProbe, conformanceCheck, fixtureUpdater)
+    - When adding or modifying JSONL fixture files in `adws/jsonl/fixtures/`
+    - When running or troubleshooting `bun run jsonl:check` in CI
+    - When the Claude CLI JSONL output schema changes and fixtures need updating
+    - When implementing new parsers that depend on the JSONL envelope structure
