@@ -152,6 +152,7 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 274,r2 upload utility screenshot router worker,scenario,claude-opus-4-6,0.442196
 274,r2 upload utility screenshot router worker,scenario,claude-haiku-4-5-20251001,0.184533
 274,r2 upload utility screenshot router worker,scenario,claude-opus-4-6,0.693234
+274,r2 upload utility screenshot router worker,step-def-gen,claude-sonnet-4-6,1.309212
 275,mock infrastructure claude cli stub github api moc,build,claude-sonnet-4-6,3.619276
 275,mock infrastructure claude cli stub github api moc,install,claude-sonnet-4-6,0.282529
 275,mock infrastructure claude cli stub github api moc,install,claude-sonnet-4-6,0.211566
@@ -162,5 +163,5 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 275,mock infrastructure claude cli stub github api moc,step-def-gen,claude-sonnet-4-6,2.461533
 275,mock infrastructure claude cli stub github api moc,step-def-gen,claude-sonnet-4-6,0.536473
 
-Total Cost (USD):,140.5840
-Total Cost (EUR):,121.2356
+Total Cost (USD):,141.8932
+Total Cost (EUR):,122.3646

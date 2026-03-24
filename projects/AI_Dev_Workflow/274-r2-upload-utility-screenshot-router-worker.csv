@@ -12,3 +12,4 @@ nnn7js-r2-upload-utility-sc,274,plan,claude-opus-4-6,anthropic,0.551740,0.551740
 nnn7js-r2-upload-utility-sc,274,plan,claude-haiku-4-5-20251001,anthropic,0.151602,0.151602,success,0,0,235161,2026-03-24T01:37:32.150Z,,,80,6040,656854,44509,0
 nnn7js-r2-upload-utility-sc,274,scenario,claude-opus-4-6,anthropic,0.693234,0.693234,success,0,0,156417,2026-03-24T01:36:14.825Z,,,18,7087,538900,39443,0
 nnn7js-r2-upload-utility-sc,274,build,claude-sonnet-4-6,anthropic,0.988793,0.988793,success,0,0,314907,2026-03-24T01:42:52.596Z,,,43,17417,1808383,49305,0
+nnn7js-r2-upload-utility-sc,274,step-def-gen,claude-sonnet-4-6,anthropic,1.309212,1.309212,success,0,0,579050,2026-03-24T01:52:38.670Z,,,28,37009,1511974,80107,0
