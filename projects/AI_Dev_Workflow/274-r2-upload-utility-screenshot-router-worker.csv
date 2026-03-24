@@ -8,3 +8,6 @@ bsy8bq-r2-upload-utility-sc,274,install,claude-sonnet-4-6,anthropic,0.326138,0.3
 bsy8bq-r2-upload-utility-sc,274,scenario,claude-opus-4-6,anthropic,0.442196,0.442196,success,0,0,189946,2026-03-24T01:29:54.286Z,,,8,5230,170125,36215,0
 bsy8bq-r2-upload-utility-sc,274,scenario,claude-haiku-4-5-20251001,anthropic,0.184533,0.184533,success,0,0,189946,2026-03-24T01:29:54.286Z,,,19,11266,41981,99189,0
 nnn7js-r2-upload-utility-sc,274,install,claude-sonnet-4-6,anthropic,0.232754,0.232754,success,0,0,64004,2026-03-24T01:33:31.261Z,,,7,3358,125127,38620,0
+nnn7js-r2-upload-utility-sc,274,plan,claude-opus-4-6,anthropic,0.551740,0.551740,success,0,0,235161,2026-03-24T01:37:32.150Z,,,12,7092,301009,35820,0
+nnn7js-r2-upload-utility-sc,274,plan,claude-haiku-4-5-20251001,anthropic,0.151602,0.151602,success,0,0,235161,2026-03-24T01:37:32.150Z,,,80,6040,656854,44509,0
+nnn7js-r2-upload-utility-sc,274,scenario,claude-opus-4-6,anthropic,0.693234,0.693234,success,0,0,156417,2026-03-24T01:36:14.825Z,,,18,7087,538900,39443,0
