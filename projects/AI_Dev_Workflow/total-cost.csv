@@ -185,6 +185,7 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 276,wire proof data into structured issue comments,build,claude-sonnet-4-6,2.786549
 276,wire proof data into structured issue comments,document,claude-sonnet-4-6,0.257333
 276,wire proof data into structured issue comments,install,claude-sonnet-4-6,0.333729
+276,wire proof data into structured issue comments,kpi,claude-haiku-4-5-20251001,0.105786
 276,wire proof data into structured issue comments,plan,claude-opus-4-6,1.336844
 276,wire proof data into structured issue comments,pr,claude-sonnet-4-6,0.092346
 276,wire proof data into structured issue comments,review,claude-opus-4-6,1.555131
@@ -207,5 +208,5 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 280,jsonl schema probe ci conformance check,scenario,claude-haiku-4-5-20251001,0.342336
 280,jsonl schema probe ci conformance check,step-def-gen,claude-sonnet-4-6,1.594376
 
-Total Cost (USD):,182.5833
-Total Cost (EUR):,157.4546
+Total Cost (USD):,182.6891
+Total Cost (EUR):,157.5458
