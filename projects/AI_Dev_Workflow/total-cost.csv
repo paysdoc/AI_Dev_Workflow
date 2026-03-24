@@ -139,6 +139,7 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 273,machine readable review proof md tag driven scenar,install,claude-sonnet-4-6,0.591053
 273,machine readable review proof md tag driven scenar,install,claude-sonnet-4-6,0.608362
 273,machine readable review proof md tag driven scenar,plan,claude-opus-4-6,1.105535
+273,machine readable review proof md tag driven scenar,pr,claude-sonnet-4-6,0.110413
 273,machine readable review proof md tag driven scenar,review,claude-opus-4-6,5.110295
 273,machine readable review proof md tag driven scenar,review,claude-haiku-4-5-20251001,0.060719
 273,machine readable review proof md tag driven scenar,review,claude-sonnet-4-6,0.270299
@@ -181,5 +182,5 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 275,mock infrastructure claude cli stub github api moc,step-def-gen,claude-sonnet-4-6,2.461533
 275,mock infrastructure claude cli stub github api moc,step-def-gen,claude-sonnet-4-6,0.536473
 
-Total Cost (USD):,165.7285
-Total Cost (EUR):,142.9195
+Total Cost (USD):,165.8389
+Total Cost (EUR):,143.0147
