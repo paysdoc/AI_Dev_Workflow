@@ -53,6 +53,9 @@ Required and optional environment variables (see `.env.sample` for full referenc
 - `JIRA_PAT` - (Optional) Jira Data Center/Server personal access token (use instead of email + API token)
 - `GITLAB_TOKEN` - (Optional) GitLab personal access token (needs api scope), required only when using GitLab
 - `GITLAB_INSTANCE_URL` - (Optional) GitLab instance URL, defaults to `https://gitlab.com`
+- `CLOUDFLARE_ACCOUNT_ID` - (Optional) Cloudflare account ID, required only for screenshot upload functionality
+- `R2_ACCESS_KEY_ID` - (Optional) R2 access key ID, required only for screenshot upload functionality
+- `R2_SECRET_ACCESS_KEY` - (Optional) R2 secret access key, required only for screenshot upload functionality
 
 ### 4. Run ADW
 
