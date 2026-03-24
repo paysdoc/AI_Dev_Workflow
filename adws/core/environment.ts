@@ -90,6 +90,15 @@ export const GITLAB_TOKEN = process.env.GITLAB_TOKEN || '';
 /** GitLab instance URL (default: https://gitlab.com, set for self-hosted). */
 export const GITLAB_INSTANCE_URL = process.env.GITLAB_INSTANCE_URL || 'https://gitlab.com';
 
+/** Cloudflare account ID for R2 storage access. */
+export const CLOUDFLARE_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID || '';
+
+/** R2 S3-compatible API access key ID. */
+export const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID || '';
+
+/** R2 S3-compatible API secret access key. */
+export const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY || '';
+
 // ---------------------------------------------------------------------------
 // Path / directory constants
 // ---------------------------------------------------------------------------
