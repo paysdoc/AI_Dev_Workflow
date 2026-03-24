@@ -39,7 +39,7 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
   const phaseStartTime = Date.now();
 
   if (repoContext) {
-    await repoContext.issueTracker.moveToStatus(issueNumber, BoardStatus.Building);
+    await repoContext.issueTracker.moveToStatus(issueNumber, BoardStatus.InProgress);
   }
 
   // Read plan content
