@@ -138,6 +138,7 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 273,machine readable review proof md tag driven scenar,scenario,claude-opus-4-6,1.251474
 273,machine readable review proof md tag driven scenar,scenario,claude-haiku-4-5-20251001,0.151012
 274,r2 upload utility screenshot router worker,install,claude-sonnet-4-6,0.215821
+274,r2 upload utility screenshot router worker,install,claude-sonnet-4-6,0.326138
 274,r2 upload utility screenshot router worker,plan,claude-opus-4-6,0.745945
 274,r2 upload utility screenshot router worker,plan,claude-haiku-4-5-20251001,0.095534
 274,r2 upload utility screenshot router worker,scenario,claude-opus-4-6,0.504569
@@ -151,5 +152,5 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 275,mock infrastructure claude cli stub github api moc,scenario,claude-haiku-4-5-20251001,0.164289
 275,mock infrastructure claude cli stub github api moc,step-def-gen,claude-sonnet-4-6,2.461533
 
-Total Cost (USD):,135.0223
-Total Cost (EUR):,116.4393
+Total Cost (USD):,135.3485
+Total Cost (EUR):,116.7206
