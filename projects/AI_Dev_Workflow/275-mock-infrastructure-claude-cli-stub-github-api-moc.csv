@@ -7,3 +7,4 @@ workflow_id,issue_number,phase,model,provider,computed_cost_usd,reported_cost_us
 3n5bwi-mock-infrastructure,275,build,claude-sonnet-4-6,anthropic,3.619276,3.619276,success,0,1,1339868,2026-03-23T17:32:25.026Z,,,71,69376,6506168,167086,0
 3n5bwi-mock-infrastructure,275,step-def-gen,claude-sonnet-4-6,anthropic,2.461533,2.461533,success,0,0,1282352,2026-03-23T17:53:55.283Z,,,41,82358,2919039,93421,0
 lnef5d-mock-infrastructure,275,install,claude-sonnet-4-6,anthropic,0.211566,0.211566,success,0,0,41612,2026-03-24T01:24:50.826Z,,,10,1871,230559,30481,0
+lnef5d-mock-infrastructure,275,step-def-gen,claude-sonnet-4-6,anthropic,0.536473,0.536473,success,0,0,130960,2026-03-24T01:27:12.380Z,,,22,6651,519524,74876,0
