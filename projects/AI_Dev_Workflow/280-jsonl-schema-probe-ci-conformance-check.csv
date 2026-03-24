@@ -1,0 +1,2 @@
+workflow_id,issue_number,phase,model,provider,computed_cost_usd,reported_cost_usd,status,retry_count,continuation_count,duration_ms,timestamp,estimated_tokens,actual_tokens,input,output,cache_read,cache_write,reasoning
+02r4w9-jsonl-schema-probe-c,280,install,claude-sonnet-4-6,anthropic,0.281592,0.281592,success,0,0,77332,2026-03-24T18:56:45.185Z,,,9,4473,199475,41234,0
