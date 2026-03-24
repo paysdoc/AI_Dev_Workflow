@@ -3,3 +3,4 @@ ekd5o1-wire-proof-data-into,276,install,claude-sonnet-4-6,anthropic,0.333729,0.3
 ekd5o1-wire-proof-data-into,276,plan,claude-opus-4-6,anthropic,1.336844,1.336844,success,0,0,283466,2026-03-24T19:00:57.688Z,,,20,12376,1005875,83905,0
 ekd5o1-wire-proof-data-into,276,scenario,claude-opus-4-6,anthropic,0.513313,0.513313,success,0,0,226749,2026-03-24T19:00:03.828Z,,,11,6765,236553,36137,0
 ekd5o1-wire-proof-data-into,276,scenario,claude-haiku-4-5-20251001,anthropic,0.202663,0.202663,success,0,0,226749,2026-03-24T19:00:03.828Z,,,5165,6641,919197,57899,0
+ekd5o1-wire-proof-data-into,276,build,claude-sonnet-4-6,anthropic,2.786549,2.786549,success,0,0,1460296,2026-03-24T19:38:30.024Z,,,49,53180,4959483,133562,0
