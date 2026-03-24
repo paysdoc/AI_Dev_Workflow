@@ -53,11 +53,12 @@ let serverState: MockServerState = loadDefaultState();
 let recordedRequests: RecordedRequest[] = [];
 
 function loadDefaultState(): MockServerState {
-  const issue = JSON.parse(readFileSync(join(FIXTURES_DIR, 'default-issue.json'), 'utf-8'));
+  const issue = JSON.parse(readFileSync(join(FIXTURES_DIR, 'default-issue.json'), 'utf-8')) as Record<string, unknown>;
   const pr = JSON.parse(readFileSync(join(FIXTURES_DIR, 'default-pr.json'), 'utf-8'));
   const comments = JSON.parse(readFileSync(join(FIXTURES_DIR, 'default-comments.json'), 'utf-8'));
+  const issue42 = { ...issue, number: 42, url: 'https://github.com/test-owner/test-repo/issues/42' };
   return {
-    issues: { '1': issue },
+    issues: { '1': issue, '42': issue42 },
     prs: { '1': pr },
     comments: { '1': comments },
     labels: {},
@@ -146,6 +147,14 @@ const patchIssue: RouteHandler = (params, body) => {
 
 const deleteIssueComment: RouteHandler = () => ({ status: 204, body: '' });
 
+const postIssueLabels: RouteHandler = (_params, body) => {
+  let parsed: Record<string, unknown> = {};
+  try { parsed = JSON.parse(body) as Record<string, unknown>; } catch { /* ignore */ }
+  const names = (parsed['labels'] as string[] | undefined) ?? [];
+  const labels = names.map((name) => ({ id: Date.now(), name, color: 'ededed', default: false }));
+  return jsonResponse(labels);
+};
+
 // ---------------------------------------------------------------------------
 // PR handlers
 // ---------------------------------------------------------------------------
@@ -205,6 +214,7 @@ const ROUTES: RouteDefinition[] = [
   { method: 'GET',    pattern: '/repos/:owner/:repo/issues/:issueNumber/comments', handler: getIssueComments },
   { method: 'PATCH',  pattern: '/repos/:owner/:repo/issues/:issueNumber', handler: patchIssue },
   { method: 'DELETE', pattern: '/repos/:owner/:repo/issues/comments/:commentId', handler: deleteIssueComment },
+  { method: 'POST',   pattern: '/repos/:owner/:repo/issues/:issueNumber/labels', handler: postIssueLabels },
   { method: 'POST',   pattern: '/repos/:owner/:repo/pulls', handler: postPr },
   { method: 'GET',    pattern: '/repos/:owner/:repo/pulls/:prNumber', handler: getPr },
   { method: 'GET',    pattern: '/repos/:owner/:repo/pulls/:prNumber/reviews', handler: getPrReviews },

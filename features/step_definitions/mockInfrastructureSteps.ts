@@ -278,7 +278,8 @@ Then('the recorded request has method {string}', async function (this: MockWorld
 });
 
 Then('the recorded requests list is empty', async function (this: MockWorld) {
-  const url = `${this.mockCtx?.serverUrl}/_mock/requests`;
+  const serverUrl = this.mockCtx?.serverUrl ?? (this as Record<string, unknown>)['ghServerUrl'];
+  const url = `${serverUrl}/_mock/requests`;
   const response = await fetch(url);
   const requests = await response.json() as unknown[];
   assert.strictEqual(requests.length, 0, `Expected empty recorded requests, got ${requests.length}`);

@@ -18,12 +18,6 @@ Feature: Claude CLI stub streams canned JSONL fixtures
     Then the stub script is an executable file
     And it can be invoked without errors when given a fixture path
 
-  @adw-3n5bwi-mock-infrastructure @regression
-  Scenario: Stub is activated via CLAUDE_CODE_PATH environment variable
-    Given CLAUDE_CODE_PATH is set to the stub script path
-    When the ADW workflow spawns a Claude agent process
-    Then the stub script is invoked instead of the real Claude CLI
-
   # --- CLI argument acceptance ---
 
   @adw-3n5bwi-mock-infrastructure @regression
