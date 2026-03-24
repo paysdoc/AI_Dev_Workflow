@@ -3,7 +3,7 @@ target: false
 ---
 # Review
 
-Follow the `Instructions` below to **review work done against a specification file** (spec/*.md) to ensure implemented features match requirements. Use the spec file to understand the requirements and then use the git diff if available to understand the changes made. Produce proof of the review as documented in the `Proof Requirements` and `Instructions` sections. If there are issues, report them if not then report success.
+Review implementation against a specification file and produce proof that the work matches requirements.
 
 ## Variables
 
@@ -12,110 +12,90 @@ specFile: $2
 agentName: $3 if provided, otherwise use 'reviewAgent'
 applicationUrl: $4 if provided, otherwise use http://localhost:3000
 scenarioProofPath: $5 if provided, otherwise empty
-reviewImage_dir: `<absolute path to codebase>/agents/<adwId>/<agentName>/reviewImg/`
+reviewImageDir: `<absolute path to codebase>/agents/<adwId>/<agentName>/reviewImg/`
 
-## Proof Requirements
+## Step 1: Setup
 
-**If `scenarioProofPath` is provided and the file exists**: Read the scenario proof file at `scenarioProofPath`. Use the BDD scenario execution results as the **primary proof** for this review. Classify `@regression` failures as `blocker` issues. Classify non-regression `@adw-{issueNumber}` failures as `tech-debt` issues. The `reviewSummary` should describe scenario pass/fail results. Still run type-check and lint as supplementary checks.
+Extract the port number from `applicationUrl` (e.g., `http://localhost:12345` → port `12345`).
+Read and execute `.claude/commands/prepare_app.md` with the extracted port number.
 
-**If `scenarioProofPath` is NOT provided**: Read the file `.adw/review_proof.md` from the current working directory.
+## Step 2: Gather Context
 
-- **If the file exists and is non-empty**: Follow its instructions for what proof to produce and how to attach it. The file specifies the proof type (screenshots, test output, code-diff verification, etc.), the format, and how it gets attached to the PR. Override the default screenshot-based proof instructions below with whatever `.adw/review_proof.md` specifies.
-- **If the file does not exist or is empty**: Fall back to the default proof behavior described in the Instructions section below (screenshot-based UI validation).
+- Retrieve the default branch: `git remote show origin` (parse for `main`, `develop`, etc.)
+- Check current branch: `git branch`
+- View all changes: `git diff origin/<default>`
+- Read the spec file at `specFile` to understand requirements
 
-## Instructions
+## Step 3: Produce Proof
 
-- Retrieve the `default` branch from the remote repository using `git remote show origin` and parse the output to get the default branch name (e.g., `main` or `develop`)
-- Check current git branch using `git branch` to understand context
-- Run `git diff origin/<default>` to see all changes made in current branch. Continue even if there are no changes related to the spec file.
-- Find the spec file by looking for spec/*.md files in the diff that match the current branch name
-- Read the identified spec file to understand requirements
-- IMPORTANT: Produce proof according to the `Proof Requirements` section above:
-  - **If `scenarioProofPath` is provided**:
-    - Read the scenario proof markdown file at `scenarioProofPath`
-    - Check the `## @regression Scenarios` section status:
-      - If **FAILED**: create a `reviewIssue` with `issueSeverity: 'blocker'`, `issueDescription` summarising the @regression failures, `issueResolution` advising investigation of the scenario proof file, and `screenshotPath` set to `scenarioProofPath`
-    - Check the `## @adw-{issueNumber} Scenarios` section status (where `{issueNumber}` is derived from the spec file name or branch name):
-      - If **FAILED**: create a `reviewIssue` with `issueSeverity: 'tech-debt'` describing the non-regression failures
-    - Run type-check and lint as supplementary checks:
-      - Run `bunx tsc --noEmit` and report any type errors as additional `reviewIssues`
-      - Run `bun run lint` and report any lint errors as additional `reviewIssues`
-    - Set `screenshots` to include `scenarioProofPath` as a proof artifact (plus any supplementary artifacts)
-    - `reviewSummary` should describe: how many @regression scenarios passed/failed and how many @adw-{issueNumber} scenarios passed/failed
-  - **If `scenarioProofPath` is NOT provided**: follow `.adw/review_proof.md` instructions (if present) or use the default UI validation approach below:
-  - If the work can be validated by UI validation then (if not skip the section):
-    - Look for corresponding e2e test files in ./claude/commands/e2e-examples/test*.md that mirror the feature name
-    - Use e2e test files only as navigation guides for screenshot locations, not for other purposes
-    - IMPORTANT: To be clear, we're not testing. We know the functionality works. We're reviewing the implementation against the spec to make sure it matches what was requested.
-    - IMPORTANT: Take screen shots along the way to showcase the new functionality and any issues you find
-      - Capture visual proof of working features through targeted screenshots
-      - Navigate to the application and capture screenshots of only the critical paths based on the spec
-      - Compare implemented changes with spec requirements to verify correctness
-      - Do not take screenshots of the entire process, only the critical points.
-      - IMPORTANT: Aim for `1-5` screenshots to showcase that the new functionality works as specified.
-      - If there is a review issue, take a screenshot of the issue and add it to the `reviewIssues` array. Describe the issue, resolution, and severity.
-      - Number your screenshots in the order they are taken like `01_<descriptive name>.png`, `02_<descriptive name>.png`, etc.
-      - IMPORTANT: Be absolutely sure to take a screen shot of the critical point of the new functionality
-      - IMPORTANT: Copy all screenshots to the provided `reviewImage_dir`
-      - IMPORTANT: Store the screenshots in the `reviewImage_dir` and be sure to use full absolute paths.
-      - Focus only on critical functionality paths - avoid unnecessary screenshots
-      - Ensure screenshots clearly demonstrate that features work as specified
-      - Use descriptive filenames that indicate what part of the change is being verified
-## Coding Guidelines Check
+Determine which proof strategy to use, in priority order:
 
-- Read `.adw/coding_guidelines.md` from the current working directory if it exists
-- If not found, read `guidelines/coding_guidelines.md` as a fallback
-- If neither file exists, skip the coding guidelines check entirely
-- Compare the implementation changes (from `git diff origin/<default>`) against the coding guidelines
-- Report any guideline violations as `reviewIssues` with `issueSeverity: 'tech-debt'`
-- Include the specific guideline violated and the file/line location of the violation in `issueDescription`
+### Strategy A: Scenario Proof (if `scenarioProofPath` is provided)
 
-- IMPORTANT: Issue Severity Guidelines
-  - Consider the impact of the issue on the feature and the user
-  - Guidelines:
-    - `skippable` - the issue is nonBlocker for the work to be released but is still a problem
-    - `tech-debt` - the issue is nonBlocker for the work to be released but will create technical debt that should be addressed in the future
-    - `blocker` - the issue is a blocker for the work to be released and should be addressed immediately. It will harm the user experience or will not function as expected.
-- IMPORTANT: Return ONLY the JSON array with test results
-  - IMPORTANT: Output your result in JSON format based on the `Report` section below.
-  - IMPORTANT: Do not include any additional text, explanations, or markdown formatting
-  - We'll immediately run JSON.parse() on the output, so make sure it's valid JSON
-- Ultra think as you work through the review process. Focus on the critical functionality paths and the user experience. Don't report issues if they are not critical to the feature.
+1. Read the scenario proof file at `scenarioProofPath`
+2. Check `## @regression Scenarios` — if FAILED, create a `blocker` reviewIssue summarising the failures
+3. Check `## @adw-{issueNumber} Scenarios` — if FAILED, create a `tech-debt` reviewIssue
+4. Run supplementary checks: `bunx tsc --noEmit` and `bun run lint` — report errors as additional reviewIssues
+5. Set `screenshots` to include `scenarioProofPath` as a proof artifact
+6. Write `reviewSummary` describing scenario pass/fail counts
 
-## Setup
+### Strategy B: Custom Proof (if `.adw/review_proof.md` exists and is non-empty)
 
-Extract the port number from the `applicationUrl` (e.g. if applicationUrl is `http://localhost:12345`, the port is `12345`).
-IMPORTANT: Read and **Execute** `.claude/commands/prepare_app.md` with the extracted port number to prepare the application for the review.
-Use the `applicationUrl` when navigating to the application for screenshots.
+Follow the instructions in `.adw/review_proof.md` for what proof to produce, what format to use, and how to attach it. Override the default screenshot approach entirely.
+
+### Strategy C: Default UI Validation (fallback)
+
+Use this when neither Strategy A nor B applies:
+
+1. Look for e2e test files in `./claude/commands/e2e-examples/test*.md` as navigation guides only
+2. Navigate to the application at `applicationUrl`
+3. Compare implemented changes with spec requirements — you are **reviewing**, not testing
+4. Take 1-5 targeted screenshots of critical functionality paths:
+   - Number them `01_<descriptive name>.png`, `02_<descriptive name>.png`, etc.
+   - If a review issue is found, screenshot it and add it to `reviewIssues`
+5. CRITICAL: Copy all screenshots to `reviewImageDir` using full absolute paths
+
+## Step 4: Coding Guidelines Check
+
+- Read `.adw/coding_guidelines.md` (fall back to `guidelines/coding_guidelines.md`)
+- If neither exists, skip this step
+- Compare changes from `git diff origin/<default>` against the guidelines
+- Report violations as `tech-debt` reviewIssues with the specific guideline and file/line location
+
+## Issue Severity Reference
+
+- `skippable` — non-blocking but still a problem
+- `tech-debt` — non-blocking but creates technical debt to address later
+- `blocker` — blocks release; harms user experience or breaks expected functionality
+
+Focus on critical functionality and user experience. Don't report non-critical issues.
 
 ## Report
 
-- IMPORTANT: Return results exclusively as a JSON array based on the `Output Structure` section below.
-- `success` should be `true` if there are NO BLOCKING issues (implementation matches spec for critical functionality)
-- `success` should be `false` ONLY if there are BLOCKING issues that prevent the work from being released
-- `reviewIssues` can contain issues of any severity (skippable, tech-debt, or blocker)
-- `screenshots` should ALWAYS contain paths to proof artifacts showcasing the review evidence, regardless of success status. Use full absolute paths. These can be screenshots, test output logs, scenario proof files, or any other proof artifacts as specified by `.adw/review_proof.md` or the scenario proof path.
-- This allows subsequent agents to quickly identify and resolve blocking errors while documenting all issues
+CRITICAL: Return ONLY a JSON object. No additional text or markdown — `JSON.parse()` runs directly on your output.
+
+- `success`: `true` if no `blocker` issues (can have skippable/tech-debt), `false` if any blockers exist
+- `reviewSummary`: 2-4 sentences describing what was built and whether it matches the spec
+- `reviewIssues`: all issues found, any severity
+- `screenshots`: full absolute paths to all proof artifacts, regardless of success status
 
 ### Output Structure
 
 ```json
 {
-    success: "boolean - true if there are NO BLOCKING issues (can have skippable/tech-debt issues), false if there are BLOCKING issues",
-    reviewSummary: "string - 2-4 sentences describing what was built and whether it matches the spec. Written as if reporting during a standup meeting. Example: 'The natural language query feature has been implemented with drag-and-drop file upload and interactive table display. The implementation matches the spec requirements for SQL injection protection and supports both CSV and JSON formats. Minor UI improvements could be made but all core functionality is working as specified.'",
-    reviewIssues: [
+    "success": true,
+    "reviewSummary": "The feature has been implemented as specified. All core functionality works correctly. Minor style improvements could be made but nothing blocks release.",
+    "reviewIssues": [
         {
-            "reviewIssueNumber": "number - the issue number based on the index of this issue",
-            "screenshotPath": "string - /absolute/path/to/screenshotThat_showsReview_issue.png",
-            "issueDescription": "string - description of the issue",
-            "issueResolution": "string - description of the resolution",
-            "issueSeverity": "string - severity of the issue between 'skippable', 'tech-debt', 'blocker'"
-        },
-        ...
+            "reviewIssueNumber": 1,
+            "screenshotPath": "/absolute/path/to/screenshot.png",
+            "issueDescription": "Description of the issue",
+            "issueResolution": "How to resolve it",
+            "issueSeverity": "skippable | tech-debt | blocker"
+        }
     ],
-    screenshots: [
-        "string - /absolute/path/to/proof_artifact.png",
-        "string - /absolute/path/to/proof_artifact.png",
-        "...",
+    "screenshots": [
+        "/absolute/path/to/proof_artifact.png"
     ]
 }
+```

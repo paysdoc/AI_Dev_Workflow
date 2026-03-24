@@ -10,25 +10,21 @@ issueNumber: $1 — MUST be a numeric GitHub issue number (e.g., 31, 456). Defau
 adwId: $2 — MUST be the alphanumeric ADW workflow ID string (e.g., "init-adw-env-4qugib", "abc123"). Default: `adw-unknown`
 issueJson: $3 — JSON string containing full issue details. Default: `{}`
 
-IMPORTANT: $1 is ALWAYS the numeric issue number. $2 is ALWAYS the ADW ID string. Do NOT swap these values.
+CRITICAL: $1 is ALWAYS the numeric issue number. $2 is ALWAYS the ADW ID string. Do NOT swap these values.
 Example: if $1=31 and $2=init-adw-env-4qugib, the filename is `issue-31-adw-init-adw-env-4qugib-sdlc_planner-{descriptiveName}.md`
 
 ## Instructions
 
-- IMPORTANT: You're writing a plan to resolve a chore based on the `Chore` that will add value to the application.
-- IMPORTANT: The `Chore` describes the chore that will be resolved but remember we're not resolving the chore, we're creating the plan that will be used to resolve the chore based on the `Plan Format` below.
-- IMPORTANT: If a `guidelines/` directory exists in the target repository, planning and implementation must strictly adhere to those coding guidelines.
-- You're writing a plan to resolve a chore, it should be simple but we need to be thorough and precise so we don't miss anything or waste time with any second round of changes.
+- IMPORTANT: You are writing a **plan**, not resolving the chore. The output is a plan document in `Plan Format` below, not code changes.
+- The plan should be simple but thorough and precise so we don't miss anything or waste time with any second round of changes.
 - Create the plan in the `specs/` directory with filename: `issue-{issueNumber}-adw-{adwId}-sdlc_planner-{descriptive-name}.md`
   - Replace `{descriptive-name}` with a short, descriptive name based on the chore (e.g., "update-readme", "fix-tests", "refactor-auth")
-- Use the plan format below to create the plan. 
+- Use the plan format below to create the plan. Replace every `<placeholder>` with the requested value.
 - Research the codebase and put together a plan to accomplish the chore.
-- IMPORTANT: Replace every <placeholder> in the `Plan Format` with the requested value. Add as much detail as needed to accomplish the chore.
-- Consider the plan and the steps to accomplish the chore.
 - Respect requested files in the `Relevant Files` section.
+- If a `guidelines/` directory exists in the target repository, planning and implementation must strictly adhere to those coding guidelines.
 - Start your research by reading the `README.md` file. If a `guidelines/` directory exists in the target repository, also read those coding guidelines.
 - `adws/*.tsx` contain node tsx single file typescript scripts. Read `.adw/commands.md` for the script execution command (under `## Script Execution`). If `.adw/commands.md` does not exist, use `bunx tsx <script_name>`.
-- When you finish creating the plan for the chore, follow the `Report` section to properly report the results of your work.
 
 ## Relevant Files
 
@@ -77,7 +73,7 @@ Read `.adw/commands.md` from the current working directory for the project-speci
 - `bun run test` - Run tests to validate the chore is complete with zero regressions
 
 ## Notes
-- IMPORTANT: If a `guidelines/` directory exists in the target repository, strictly adhere to those coding guidelines. If necessary, refactor existing code to meet the coding guidelines as part of accomplishing the chore.
+- If a `guidelines/` directory exists in the target repository, strictly adhere to those coding guidelines. If necessary, refactor existing code to meet the coding guidelines as part of accomplishing the chore.
 <optionally list any additional notes or context that are relevant to the chore that will be helpful to the developer>
 ```
 
@@ -86,5 +82,5 @@ If the `issueJson` variable contains a valid JSON object with `title` and `body`
 Otherwise, use the text passed as the argument to this command as the chore description directly.
 
 ## Report
-
-- IMPORTANT: Return exclusively the path to the plan file created and nothing else.
+- Summarize the work you've just done in a concise bullet point list.
+- Include the full path to the plan file you created (e.g., `specs/issue-456-adw-xyz789-sdlc_planner-update-readme.md`)

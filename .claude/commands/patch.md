@@ -15,20 +15,19 @@ issueScreenshots: $5 (optional) - commaSeparated list of screenshot paths if pro
 
 ## Instructions
 
-- IMPORTANT: You're creating a patch plan to fix a specific review issue. Keep changes small, focused, and targeted
-- Read the original specification (spec) file at `specPath` if provided to understand the context and requirements
-- IMPORTANT Use the `reviewChangeRequest` to understand exactly what needs and use it as the basis for your patch plan
-- If `issueScreenshots` are provided, examine them to better understand the visual context of the issue
+- You are creating a patch plan to fix a specific review issue. Keep changes small, focused, and targeted.
+- Read the original specification (spec) file at `specPath` if provided to understand the context and requirements.
+- Use the `reviewChangeRequest` as the basis for your patch plan.
+- If `issueScreenshots` are provided, examine them to better understand the visual context of the issue.
 - Create the patch plan in `specs/patch/` directory with filename: `patch-adw-{adwId}-{descriptive-name}.md`
   - Replace `{descriptive-name}` with a short name based on the issue (e.g., "fix-button-color", "update-validation", "correct-layout")
-- IMPORTANT: This is a PATCH - keep the scope minimal. Only fix what's described in the `reviewChangeRequest` and nothing more. Address only the `reviewChangeRequest`.
-- Run `git diff --stat`. If changes are available, use them to understand what's been done in the codebase and so you can understand the exact changes you should detail in the patch plan.
-- Ultra think about the most efficient way to implement the solution with minimal code changes
-- Base your `Plan Format: Validation` on the validation steps from `specPath` if provided
+- IMPORTANT: This is a PATCH — keep the scope minimal. Only fix what's described in the `reviewChangeRequest` and nothing more.
+- Before detailing the implementation, consider multiple approaches and pick the one with the fewest code changes.
+- Run `git diff --stat` to understand what's been done in the codebase.
+- Base your `Plan Format: Validation` on the validation steps from `specPath` if provided.
   - If any tests fail in the validation steps, you must fix them.
-  - If not provided, READ `.claude/commands/test.md: ## Test Execution Sequence` and execute the tests to understand the tests that need to be run to validate the patch.
-- Replace every <placeholder> in the `Plan Format` with specific implementation details
-- IMPORTANT: When you finish writing the patch plan, return exclusively the path to the patch plan file created and nothing else.
+  - If not provided, read `.claude/commands/test.md: ## Test Execution Sequence` and execute the tests to understand the tests that need to be run to validate the patch.
+- Replace every `<placeholder>` in the `Plan Format` with specific implementation details.
 
 ## Relevant Files
 
@@ -90,5 +89,5 @@ Execute every command to validate the patch is complete with zero regressions.
 ```
 
 ## Report
-
-- IMPORTANT: Return exclusively the path to the patch plan file created and nothing else.
+- Summarize the work you've just done in a concise bullet point list.
+- Include the full path to the patch plan file you created (e.g., `specs/patch/patch-adw-abc123-fix-button-color.md`)

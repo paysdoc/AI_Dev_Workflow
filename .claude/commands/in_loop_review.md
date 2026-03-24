@@ -27,7 +27,8 @@ Follow these steps to quickly checkout and review work done by agents:
 
 ### Step 4: Manual Review
 - The application is now running and ready for manual review
-- Run `open http://localhost:5173` to let the engineer inspect the changes
+- Determine the port from `.ports.env` if it exists (use `FRONTEND_PORT`), otherwise fall back to the port used by `prepare_app.md` / `start.md`
+- Run `open http://localhost:{port}` to let the engineer inspect the changes
 
 ## Report
 

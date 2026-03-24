@@ -7,20 +7,16 @@ Create a new plan at `specs/issue-{issueNumber}-plan.md` (where `{issueNumber}` 
 
 ## Instructions
 
-- IMPORTANT: You're writing a plan to resolve a review based on the `PR-Review` that will add value to the application.
-- IMPORTANT: The `PR-Review` describes the review that will be resolved but remember we're not resolving the review, we're creating the plan that will be used to resolve the review based on the `Plan Format` below.
-- IMPORTANT: If a `guidelines/` directory exists in the target repository, planning and implementation must strictly adhere to those coding guidelines.
-- You're writing a plan to resolve a PR review, it should be simple but we need to be thorough and precise so we don't miss anything or waste time with any second round of changes.
+- IMPORTANT: You are writing a **plan**, not resolving the review. The output is a plan document in `Plan Format` below, not code changes.
+- The plan should be thorough and precise so we don't miss anything or waste time with any second round of changes.
 - Analyze each review comment carefully and understand what changes are required to resolve the review.
 - Create a revision plan at `specs/issue-{issueNumber}-plan.md` (where `{issueNumber}` is the issue number from the GitHub Issue) that addresses ALL review comments in the `PR-Review`.
-- Use the plan format below to create the plan.
+- Use the plan format below to create the plan. Replace every `<placeholder>` with the requested value.
 - Research the codebase and put together a plan to accomplish the review.
-- IMPORTANT: Replace every <placeholder> in the `Plan Format` with the requested value. Add as much detail as needed to accomplish the review.
-- Consider the plan and the steps to accomplish the review.
 - Respect requested files in the `Relevant Files` section.
+- If a `guidelines/` directory exists in the target repository, planning and implementation must strictly adhere to those coding guidelines.
 - Start your research by reading the `README.md` file. If a `guidelines/` directory exists in the target repository, also read those coding guidelines.
 - `adws/*.tsx` contain node tsx single file typescript scripts. Read `.adw/commands.md` for the script execution command (under `## Script Execution`). If `.adw/commands.md` does not exist, use `bunx tsx <script_name>`.
-- When you finish creating the plan for the review, follow the `Report` section to properly report the results of your work.
 
 ## Relevant Files
 
