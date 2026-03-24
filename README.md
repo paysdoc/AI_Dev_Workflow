@@ -325,6 +325,9 @@ adws/                   # ADW workflow system
 ├── index.ts
 ├── tsconfig.json
 └── README.md
+.github/
+└── workflows/
+    └── regression.yml  # Periodic @regression BDD scenario runner
 workers/                # Cloudflare Workers
 └── screenshot-router/  # Screenshot URL routing worker
 app_docs/               # Generated feature documentation
