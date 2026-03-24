@@ -352,6 +352,15 @@
     - When troubleshooting skills or commands that are missing in a target repo after `adw_init`
     - When investigating why `workflowInit` is gitignoring commands that were already committed
 
+- app_docs/feature-lnef5d-mock-infrastructure-layer.md
+  - Conditions:
+    - When working with `test/mocks/` (Claude CLI stub, GitHub API mock server, git remote mock, test harness)
+    - When writing or modifying Cucumber BDD scenarios that require mocked external services
+    - When adding new GitHub API endpoints to the mock server route table
+    - When troubleshooting `@mock-infrastructure` or `@regression` scenario failures
+    - When configuring `MOCK_FIXTURE_PATH`, `MOCK_STREAM_DELAY_MS`, `GH_HOST`, or `CLAUDE_CODE_PATH` for test runs
+    - When extending mock fixtures in `test/fixtures/jsonl/` or `test/fixtures/github/`
+
 - app_docs/feature-tdlgz7-fix-boardstatus-invalid-values.md
   - Conditions:
     - When working with `BoardStatus` enum in `adws/providers/types.ts`

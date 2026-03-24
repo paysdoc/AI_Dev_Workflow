@@ -18,19 +18,17 @@ You are validating alignment between an implementation plan and BDD scenarios fo
 
 ### Step 1: Read the implementation plan
 
-Read the file at `$3`. If the file does not exist, output:
-```json
-{"aligned": false, "mismatches": [{"type": "plan_uncovered", "description": "Plan file not found at $3"}]}
-```
+Read the file at `$3`. If the file does not exist, skip directly to the Final Output step with:
+- aligned: false
+- one mismatch of type "plan_uncovered" describing the missing file
 
 ### Step 2: Discover and read scenario files
 
 Search recursively from `$4` for `.feature` files that contain the tag `@adw-$2`. Read each file you find.
 
-If no scenario files are found, output:
-```json
-{"aligned": false, "mismatches": [{"type": "plan_uncovered", "description": "No BDD scenario files tagged @adw-$2 were found. All plan behaviours lack scenario coverage."}]}
-```
+If no scenario files are found, skip directly to the Final Output step with:
+- aligned: false
+- one mismatch of type "plan_uncovered" noting that no scenario files tagged @adw-$2 were found
 
 ### Step 3: Compare plan sections against scenario coverage
 
@@ -41,25 +39,16 @@ Identify mismatches of these types:
 - `plan_uncovered`: A behaviour described in the plan has no corresponding scenario
 - `scenario_untested`: A scenario tests behaviour not described in the plan
 
-### Step 4: Output result
+### Step 4: Final Output
 
-Output a single JSON object — no other text, no markdown, no code fences:
+CRITICAL: Your very last message must be ONLY a raw JSON object — no markdown, no code fences, no explanation before or after it. The JSON is parsed programmatically and any surrounding text will cause a fatal parse error.
 
-```
-{
-  "aligned": true | false,
-  "mismatches": [
-    {
-      "type": "plan_uncovered" | "scenario_untested",
-      "description": "Description of the mismatch",
-      "planSection": "Optional: relevant section or quote from the plan",
-      "scenarioFile": "Optional: path to the relevant scenario file"
-    }
-  ]
-}
-```
+The JSON object must match this exact structure:
 
-Set `"aligned": true` and `"mismatches": []` if the plan and scenarios are fully aligned.
-Set `"aligned": false` and list all mismatches if any are found.
+    {"aligned": true | false, "mismatches": [{"type": "plan_uncovered | scenario_untested", "description": "string", "planSection": "string or null", "scenarioFile": "string or null"}], "summary": "string"}
 
-Output only the raw JSON object. Do not wrap it in markdown or add any explanation.
+Rules:
+- Set "aligned" to true and "mismatches" to [] when plan and scenarios are fully aligned.
+- Set "aligned" to false and list every mismatch when any are found.
+- The "summary" field is a one-sentence summary of the validation result.
+- Your final message must start with `{` and end with `}`. Nothing else.

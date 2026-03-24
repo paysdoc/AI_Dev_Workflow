@@ -1,0 +1,11 @@
+workflow_id,issue_number,phase,model,provider,computed_cost_usd,reported_cost_usd,status,retry_count,continuation_count,duration_ms,timestamp,estimated_tokens,actual_tokens,input,output,cache_read,cache_write,reasoning
+tdlgz7-fix-boardstatus-enum,271,install,claude-sonnet-4-6,anthropic,0.297629,0.297629,success,0,0,64349,2026-03-23T09:26:05.660Z,,,12,2355,342203,42562,0
+tdlgz7-fix-boardstatus-enum,271,plan,claude-opus-4-6,anthropic,0.582658,0.582658,success,0,0,172023,2026-03-23T09:29:03.599Z,,,85,7360,305566,39272,0
+tdlgz7-fix-boardstatus-enum,271,scenario,claude-opus-4-6,anthropic,0.616608,0.616608,success,0,0,188548,2026-03-23T09:29:22.698Z,,,18,7196,437636,34848,0
+tdlgz7-fix-boardstatus-enum,271,scenario,claude-haiku-4-5-20251001,anthropic,0.133453,0.133453,success,0,0,188548,2026-03-23T09:29:22.698Z,,,46,6301,217345,64134,0
+tdlgz7-fix-boardstatus-enum,271,build,claude-sonnet-4-6,anthropic,0.211349,0.211349,success,0,0,124369,2026-03-23T09:31:32.820Z,,,11,3718,235536,22636,0
+tdlgz7-fix-boardstatus-enum,271,step-def-gen,claude-sonnet-4-6,anthropic,0.232663,0.232663,success,0,0,75105,2026-03-23T09:32:56.011Z,,,13,3083,159275,36959,0
+tdlgz7-fix-boardstatus-enum,271,review,claude-opus-4-6,anthropic,0.907870,0.907870,success,0,0,98955,2026-03-23T09:34:40.920Z,,,1576,10154,316067,78097,0
+tdlgz7-fix-boardstatus-enum,271,document,claude-sonnet-4-6,anthropic,0.213881,0.213881,success,0,0,74259,2026-03-23T09:36:00.904Z,,,8,2745,165706,32792,0
+tdlgz7-fix-boardstatus-enum,271,pr,claude-sonnet-4-6,anthropic,0.111457,0.111457,success,0,0,30043,2026-03-23T09:36:36.691Z,,,6,911,81852,19525,0
+tdlgz7-fix-boardstatus-enum,271,kpi,claude-haiku-4-5-20251001,anthropic,0.115444,0.115444,success,0,0,127844,2026-03-23T09:38:50.173Z,,,37,15309,150278,19067,0

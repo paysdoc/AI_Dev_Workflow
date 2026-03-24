@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value          | Last Updated |
 | ----------------- | -------------- | ------------ |
-| Current Streak    | 6              | 2026-03-23   |
-| Longest Streak    | 29             | 2026-03-23   |
-| Total Plan Size   | 441 lines      | 2026-03-23   |
-| Largest Plan Size | 201 lines      | 2026-03-23   |
-| Total Diff Size   | 1343718 lines  | 2026-03-23   |
-| Largest Diff Size | 205468 lines   | 2026-03-23   |
-| Average Presence  | 1.52           | 2026-03-23   |
+| Current Streak    | 30             | 2026-03-24   |
+| Longest Streak    | 30             | 2026-03-24   |
+| Total Plan Size   | 461 lines      | 2026-03-24   |
+| Largest Plan Size | 201 lines      | 2026-03-24   |
+| Total Diff Size   | 1358435 lines  | 2026-03-24   |
+| Largest Diff Size | 205468 lines   | 2026-03-24   |
+| Average Presence  | 1.59           | 2026-03-24   |
 
 ## ADW KPIs
 
@@ -62,3 +62,5 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-03-22 | sgdfol-cost-revamp-orchestr | 245          | /feature    | 1        | 0                 | 4100/770/66                     | 2026-03-22 | 2026-03-22 |
 | 2026-03-22 | 2gp7qi-architectural-improv | 265          | /feature    | 1        | 0                 | 7303/2408/136                   | 2026-03-22 | 2026-03-22 |
 | 2026-03-23 | sgud8b-copy-target-true-ski | 267          | /feature    | 1        | 0                 | 8431/2418/179                   | 2026-03-23 | 2026-03-23 |
+| 2026-03-23 | tdlgz7-fix-boardstatus-enum | 271          | /bug        | 1        | 0                 | 8710/2440/186                   | 2026-03-23 | 2026-03-23 |
+| 2026-03-24 | lnef5d-mock-infrastructure  | 275          | /feature    | 2        | 0                 | 3283/284/43                     | 2026-03-24 | 2026-03-24 |

@@ -319,6 +319,18 @@ adws/                   # ADW workflow system
 ├── index.ts
 ├── tsconfig.json
 └── README.md
+test/                   # Integration test infrastructure
+├── fixtures/           # Static test fixtures
+│   ├── github/         # GitHub API response fixtures (issue, PR, comments)
+│   └── jsonl/          # JSONL envelope and payload fixtures
+│       ├── envelopes/
+│       └── payloads/
+└── mocks/              # Mock implementations
+    ├── claude-cli-stub.ts      # Claude CLI process stub
+    ├── git-remote-mock.ts      # Git remote mock
+    ├── github-api-server.ts    # GitHub API mock HTTP server
+    ├── test-harness.ts         # Test harness orchestrating all mocks
+    └── types.ts                # Mock type definitions
 app_docs/               # Generated feature documentation
 bun.lock                # Bun lockfile
 eslint.config.js        # ESLint configuration

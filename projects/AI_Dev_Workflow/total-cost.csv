@@ -123,6 +123,51 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 267,copy target true skills and commands to target rep,scenario,claude-opus-4-6,0.595628
 267,copy target true skills and commands to target rep,scenario,claude-haiku-4-5-20251001,0.262210
 267,copy target true skills and commands to target rep,step-def-gen,claude-sonnet-4-6,0.668757
+271,fix boardstatus enum contains non existent project,build,claude-sonnet-4-6,0.211349
+271,fix boardstatus enum contains non existent project,document,claude-sonnet-4-6,0.213881
+271,fix boardstatus enum contains non existent project,install,claude-sonnet-4-6,0.297629
+271,fix boardstatus enum contains non existent project,kpi,claude-haiku-4-5-20251001,0.115444
+271,fix boardstatus enum contains non existent project,plan,claude-opus-4-6,0.582658
+271,fix boardstatus enum contains non existent project,pr,claude-sonnet-4-6,0.111457
+271,fix boardstatus enum contains non existent project,review,claude-opus-4-6,0.907870
+271,fix boardstatus enum contains non existent project,scenario,claude-opus-4-6,0.616608
+271,fix boardstatus enum contains non existent project,scenario,claude-haiku-4-5-20251001,0.133453
+271,fix boardstatus enum contains non existent project,step-def-gen,claude-sonnet-4-6,0.232663
+273,machine readable review proof md tag driven scenar,install,claude-sonnet-4-6,0.237434
+273,machine readable review proof md tag driven scenar,install,claude-sonnet-4-6,0.591053
+273,machine readable review proof md tag driven scenar,plan,claude-opus-4-6,1.105535
+273,machine readable review proof md tag driven scenar,scenario,claude-opus-4-6,1.251474
+273,machine readable review proof md tag driven scenar,scenario,claude-haiku-4-5-20251001,0.151012
+273,machine readable review proof md tag driven scenar,scenario,claude-opus-4-6,0.863157
+274,r2 upload utility screenshot router worker,build,claude-sonnet-4-6,0.988793
+274,r2 upload utility screenshot router worker,install,claude-sonnet-4-6,0.215821
+274,r2 upload utility screenshot router worker,install,claude-sonnet-4-6,0.326138
+274,r2 upload utility screenshot router worker,install,claude-sonnet-4-6,0.232754
+274,r2 upload utility screenshot router worker,plan,claude-opus-4-6,0.745945
+274,r2 upload utility screenshot router worker,plan,claude-haiku-4-5-20251001,0.095534
+274,r2 upload utility screenshot router worker,plan,claude-opus-4-6,0.551740
+274,r2 upload utility screenshot router worker,plan,claude-haiku-4-5-20251001,0.151602
+274,r2 upload utility screenshot router worker,scenario,claude-opus-4-6,0.504569
+274,r2 upload utility screenshot router worker,scenario,claude-haiku-4-5-20251001,0.199491
+274,r2 upload utility screenshot router worker,scenario,claude-opus-4-6,0.442196
+274,r2 upload utility screenshot router worker,scenario,claude-haiku-4-5-20251001,0.184533
+274,r2 upload utility screenshot router worker,scenario,claude-opus-4-6,0.693234
+274,r2 upload utility screenshot router worker,step-def-gen,claude-sonnet-4-6,1.309212
+275,mock infrastructure claude cli stub github api moc,build,claude-sonnet-4-6,3.619276
+275,mock infrastructure claude cli stub github api moc,document,claude-sonnet-4-6,0.239419
+275,mock infrastructure claude cli stub github api moc,install,claude-sonnet-4-6,0.282529
+275,mock infrastructure claude cli stub github api moc,install,claude-sonnet-4-6,0.211566
+275,mock infrastructure claude cli stub github api moc,kpi,claude-haiku-4-5-20251001,0.059803
+275,mock infrastructure claude cli stub github api moc,plan,claude-haiku-4-5-20251001,0.388860
+275,mock infrastructure claude cli stub github api moc,plan,claude-opus-4-6,0.771232
+275,mock infrastructure claude cli stub github api moc,pr,claude-sonnet-4-6,0.153043
+275,mock infrastructure claude cli stub github api moc,review,claude-opus-4-6,6.181344
+275,mock infrastructure claude cli stub github api moc,review,claude-haiku-4-5-20251001,0.244961
+275,mock infrastructure claude cli stub github api moc,review,claude-sonnet-4-6,1.938225
+275,mock infrastructure claude cli stub github api moc,scenario,claude-opus-4-6,0.752457
+275,mock infrastructure claude cli stub github api moc,scenario,claude-haiku-4-5-20251001,0.164289
+275,mock infrastructure claude cli stub github api moc,step-def-gen,claude-sonnet-4-6,2.461533
+275,mock infrastructure claude cli stub github api moc,step-def-gen,claude-sonnet-4-6,0.536473
 
-Total Cost (USD):,118.4408
-Total Cost (EUR):,102.4565
+Total Cost (USD):,150.7100
+Total Cost (EUR):,129.9679
