@@ -187,6 +187,7 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 276,wire proof data into structured issue comments,plan,claude-opus-4-6,1.336844
 276,wire proof data into structured issue comments,scenario,claude-opus-4-6,0.513313
 276,wire proof data into structured issue comments,scenario,claude-haiku-4-5-20251001,0.202663
+276,wire proof data into structured issue comments,step-def-gen,claude-sonnet-4-6,0.521803
 277,regression periodic github action,build,claude-sonnet-4-6,0.132209
 277,regression periodic github action,install,claude-sonnet-4-6,0.293780
 277,regression periodic github action,plan,claude-opus-4-6,0.540311
@@ -203,5 +204,5 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 280,jsonl schema probe ci conformance check,scenario,claude-haiku-4-5-20251001,0.342336
 280,jsonl schema probe ci conformance check,step-def-gen,claude-sonnet-4-6,1.594376
 
-Total Cost (USD):,180.1567
-Total Cost (EUR):,155.3619
+Total Cost (USD):,180.6785
+Total Cost (EUR):,155.8119
