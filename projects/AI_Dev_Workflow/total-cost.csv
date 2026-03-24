@@ -184,7 +184,8 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 275,mock infrastructure claude cli stub github api moc,step-def-gen,claude-sonnet-4-6,0.536473
 276,wire proof data into structured issue comments,install,claude-sonnet-4-6,0.333729
 277,regression periodic github action,install,claude-sonnet-4-6,0.293780
+277,regression periodic github action,plan,claude-opus-4-6,0.540311
 280,jsonl schema probe ci conformance check,install,claude-sonnet-4-6,0.281592
 
-Total Cost (USD):,166.8606
-Total Cost (EUR):,143.8957
+Total Cost (USD):,167.4009
+Total Cost (EUR):,144.3617
