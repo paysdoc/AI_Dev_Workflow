@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value          | Last Updated |
 | ----------------- | -------------- | ------------ |
-| Current Streak    | 30             | 2026-03-24   |
-| Longest Streak    | 30             | 2026-03-24   |
-| Total Plan Size   | 461 lines      | 2026-03-24   |
+| Current Streak    | 33             | 2026-03-24   |
+| Longest Streak    | 33             | 2026-03-24   |
+| Total Plan Size   | 441 lines      | 2026-03-24   |
 | Largest Plan Size | 201 lines      | 2026-03-24   |
-| Total Diff Size   | 1358435 lines  | 2026-03-24   |
-| Largest Diff Size | 205468 lines   | 2026-03-24   |
-| Average Presence  | 1.59           | 2026-03-24   |
+| Total Diff Size   | 222913 lines   | 2026-03-24   |
+| Largest Diff Size | 29151 lines    | 2026-03-24   |
+| Average Presence  | 1.55           | 2026-03-24   |
 
 ## ADW KPIs
 
@@ -64,3 +64,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-03-23 | sgud8b-copy-target-true-ski | 267          | /feature    | 1        | 0                 | 8431/2418/179                   | 2026-03-23 | 2026-03-23 |
 | 2026-03-23 | tdlgz7-fix-boardstatus-enum | 271          | /bug        | 1        | 0                 | 8710/2440/186                   | 2026-03-23 | 2026-03-23 |
 | 2026-03-24 | lnef5d-mock-infrastructure  | 275          | /feature    | 2        | 0                 | 3283/284/43                     | 2026-03-24 | 2026-03-24 |
+| 2026-03-24 | nnn7js-r2-upload-utility-sc | 274          | /feature    | 2        | 0                 | 1721/284/37                     | 2026-03-24 | 2026-03-24 |
