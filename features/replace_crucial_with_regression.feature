@@ -31,11 +31,11 @@ Feature: Replace @crucial tag with @regression throughout ADW
     And all scenarios that previously used "@crucial" are now tagged "@regression"
 
   @adw-20eum6-replace-crucial-with @regression
-  Scenario: regressionScenarioProof.ts source file does not reference @crucial in tag strings
+  Scenario: regressionScenarioProof.ts source file does not reference @crucial and uses config-driven tags
     Given the file "adws/agents/regressionScenarioProof.ts" is read
     When searching for the string "@crucial"
     Then no occurrence of "@crucial" is found
-    And the string "@regression" is present where the regression tag is referenced
+    And the string "ReviewProofConfig" is present where the regression tag is referenced
 
   @adw-20eum6-replace-crucial-with @regression
   Scenario: projectConfig.ts default for runRegressionScenarios uses @regression
@@ -52,17 +52,18 @@ Feature: Replace @crucial tag with @regression throughout ADW
     And no log message contains "@crucial"
 
   @adw-20eum6-replace-crucial-with @regression
-  Scenario: ScenarioProofResult interface uses regressionPassed instead of crucialPassed
+  Scenario: ScenarioProofResult interface uses tagResults instead of crucialPassed
     Given the file "adws/agents/regressionScenarioProof.ts" is read
     When the "ScenarioProofResult" interface definition is found
-    Then the interface contains a field named "regressionPassed"
+    Then the interface contains a field named "tagResults"
     And the interface does not contain a field named "crucialPassed"
+    And the interface does not contain a field named "regressionPassed"
 
   @adw-20eum6-replace-crucial-with @regression
-  Scenario: runRegressionScenarioProof function runs the regression scenarios command
-    Given the "runRegressionScenarioProof" function in "adws/agents/regressionScenarioProof.ts" is read
+  Scenario: runScenarioProof function iterates config-driven tags instead of hardcoded regression
+    Given the "runScenarioProof" function in "adws/agents/regressionScenarioProof.ts" is read
     When searching for the call to runScenariosByTag that runs the regression scenarios
-    Then it passes "regression" (or the resolved tag from runRegressionCommand) as the tag argument
+    Then it passes "reviewProofConfig" (or the resolved tag from runRegressionCommand) as the tag argument
     And it does not hard-code the string "crucial" as the tag argument
 
   @adw-20eum6-replace-crucial-with

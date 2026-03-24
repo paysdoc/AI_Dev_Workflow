@@ -359,3 +359,11 @@
     - When modifying or deploying `workers/screenshot-router/`
     - When troubleshooting R2 bucket creation, lifecycle rules, or public URL construction
     - When configuring `CLOUDFLARE_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, or `R2_SECRET_ACCESS_KEY`
+
+- app_docs/feature-9k4ut2-machine-readable-review-proof.md
+  - Conditions:
+    - When working with `.adw/review_proof.md` configuration format or `ReviewProofConfig` types
+    - When modifying `regressionScenarioProof.ts`, `runScenarioProof()`, or `TagProofResult`
+    - When changing which BDD tags run during the review phase or their severity classification
+    - When troubleshooting optional tag skipping or `{issueNumber}` substitution in tag patterns
+    - When updating the `/review` slash command's severity reading logic

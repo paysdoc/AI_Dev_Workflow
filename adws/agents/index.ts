@@ -67,6 +67,9 @@ export {
 
 // Regression Scenario Proof
 export {
+  shouldRunScenarioProof,
+  runScenarioProof,
+  type TagProofResult,
   type ScenarioProofResult,
 } from './regressionScenarioProof';
 

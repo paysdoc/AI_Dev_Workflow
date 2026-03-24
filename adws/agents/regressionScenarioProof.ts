@@ -1,33 +1,46 @@
 /**
- * Regression scenario proof orchestrator.
+ * Scenario proof orchestrator.
  *
- * Runs @regression and @adw-{issueNumber} BDD scenarios, writes combined results
- * to a proof markdown file, and returns a structured outcome for the review retry loop.
+ * Iterates over config-driven tag entries from ReviewProofConfig, runs each tag
+ * via the tag-based scenario runner, writes combined results to a proof markdown
+ * file, and returns a structured outcome for the review retry loop.
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
 import { runScenariosByTag } from './bddScenarioRunner';
+import type { ReviewProofConfig } from '../core/projectConfig';
 
 /** Maximum characters of scenario output retained in the proof file. */
 const MAX_OUTPUT_LENGTH = 10_000;
 
 /**
- * Structured result from running regression and issue-specific scenario proofs.
+ * Per-tag result from running BDD scenario proof.
+ */
+export interface TagProofResult {
+  /** Original tag pattern from config, e.g. `@review-proof`, `@adw-{issueNumber}`. */
+  tag: string;
+  /** Tag after `{issueNumber}` substitution, e.g. `@adw-273`. */
+  resolvedTag: string;
+  severity: 'blocker' | 'tech-debt';
+  optional: boolean;
+  /** Whether the tag's scenarios passed (exit code 0). False when skipped. */
+  passed: boolean;
+  /** Stdout from the scenario run (truncated if over 10,000 chars). */
+  output: string;
+  /** Process exit code. */
+  exitCode: number | null;
+  /** True when the tag is optional and no matching scenarios were found. */
+  skipped: boolean;
+}
+
+/**
+ * Structured result from running the config-driven scenario proof.
  */
 export interface ScenarioProofResult {
-  /** Whether all @regression scenarios passed (exit code 0). */
-  regressionPassed: boolean;
-  /** Stdout from the @regression run (truncated if over 10,000 chars). */
-  regressionOutput: string;
-  /** Exit code from the @regression run. */
-  regressionExitCode: number | null;
-  /** Whether the @adw-{issueNumber} scenarios passed (exit code 0). */
-  issueScenariosPassed: boolean;
-  /** Stdout from the issue-specific run (truncated if over 10,000 chars). */
-  issueScenarioOutput: string;
-  /** Exit code from the issue-specific run. */
-  issueScenarioExitCode: number | null;
+  tagResults: TagProofResult[];
+  /** True when any non-skipped tag with severity `blocker` did not pass. */
+  hasBlockerFailures: boolean;
   /** Absolute path to the written scenario proof markdown file. */
   resultsFilePath: string;
 }
@@ -46,98 +59,107 @@ function truncate(output: string): string {
   return `${output.slice(0, MAX_OUTPUT_LENGTH)}\n\n[...output truncated at ${MAX_OUTPUT_LENGTH} characters...]`;
 }
 
-function buildProofMarkdown(
-  issueNumber: number,
-  regressionOutput: string,
-  regressionExitCode: number | null,
-  regressionPassed: boolean,
-  issueOutput: string,
-  issueExitCode: number | null,
-  issueScenariosPassed: boolean,
-): string {
-  const regressionStatus = regressionPassed ? '✅ PASSED' : '❌ FAILED';
-  const issueStatus = issueScenariosPassed ? '✅ PASSED' : '❌ FAILED';
+/** Returns true when the scenario output indicates zero matching scenarios were found. */
+function isNoScenariosOutput(stdout: string): boolean {
+  return stdout.trim().length === 0 || /\b0 scenarios\b/i.test(stdout);
+}
 
-  return [
+function buildProofMarkdown(tagResults: readonly TagProofResult[]): string {
+  const lines: string[] = [
     '# Scenario Proof',
     '',
     `Generated at: ${new Date().toISOString()}`,
     '',
-    '## @regression Scenarios',
-    '',
-    `**Status:** ${regressionStatus}`,
-    `**Exit Code:** ${regressionExitCode ?? 'null'}`,
-    '',
-    '### Output',
-    '',
-    '```',
-    regressionOutput || '(no output)',
-    '```',
-    '',
-    `## @adw-${issueNumber} Scenarios`,
-    '',
-    `**Status:** ${issueStatus}`,
-    `**Exit Code:** ${issueExitCode ?? 'null'}`,
-    '',
-    '### Output',
-    '',
-    '```',
-    issueOutput || '(no output)',
-    '```',
-  ].join('\n');
+  ];
+
+  for (const result of tagResults) {
+    const statusLabel = result.skipped
+      ? '⏭️ SKIPPED (no matching scenarios)'
+      : result.passed
+        ? '✅ PASSED'
+        : '❌ FAILED';
+
+    lines.push(
+      `## ${result.resolvedTag} Scenarios (severity: ${result.severity})`,
+      '',
+      `**Status:** ${statusLabel}`,
+      `**Exit Code:** ${result.exitCode ?? 'null'}`,
+      '',
+      '### Output',
+      '',
+      '```',
+      result.skipped ? '(skipped — no matching scenarios)' : (result.output || '(no output)'),
+      '```',
+      '',
+    );
+  }
+
+  return lines.join('\n');
 }
 
 /**
- * Runs @regression and @adw-{issueNumber} BDD scenarios, writes combined results
- * to a proof markdown file, and returns a structured ScenarioProofResult.
+ * Iterates over `reviewProofConfig.tags`, runs each via `runScenariosByTag`,
+ * writes combined results to `scenario_proof.md`, and returns a structured result.
  *
  * @param options.scenariosMd - Raw content of .adw/scenarios.md (used for guard check only).
- * @param options.runByTagCommand - Command template with `{tag}` placeholder for issue scenarios.
- * @param options.runRegressionCommand - Command (or template) to run @regression scenarios.
- * @param options.issueNumber - Current issue number for @adw-{issueNumber} tag filtering.
+ * @param options.reviewProofConfig - Parsed review proof config with tags and severities.
+ * @param options.runByTagCommand - Command template with `{tag}` placeholder.
+ * @param options.issueNumber - Current issue number for `{issueNumber}` substitution in tag patterns.
  * @param options.proofDir - Directory in which to write `scenario_proof.md`.
  * @param options.cwd - Optional working directory for scenario subprocesses.
  */
-export async function runRegressionScenarioProof(options: {
+export async function runScenarioProof(options: {
   scenariosMd: string;
+  reviewProofConfig: ReviewProofConfig;
   runByTagCommand: string;
-  runRegressionCommand: string;
   issueNumber: number;
   proofDir: string;
   cwd?: string;
 }): Promise<ScenarioProofResult> {
-  const { runByTagCommand, runRegressionCommand, issueNumber, proofDir, cwd } = options;
+  const { reviewProofConfig, runByTagCommand, issueNumber, proofDir, cwd } = options;
 
-  // Run @regression scenarios — use runRegressionCommand directly (may contain {tag} or full command)
-  const regressionResult = await runScenariosByTag(runRegressionCommand, 'regression', cwd);
-  const regressionOutput = truncate(regressionResult.stdout);
+  const tagResults: TagProofResult[] = [];
 
-  // Run @adw-{issueNumber} scenarios via the tag-based command template
-  const issueTag = `adw-${issueNumber}`;
-  const issueResult = await runScenariosByTag(runByTagCommand, issueTag, cwd);
-  const issueOutput = truncate(issueResult.stdout);
+  for (const entry of reviewProofConfig.tags) {
+    const resolvedTag = entry.tag.replace('{issueNumber}', String(issueNumber));
+    // runScenariosByTag expects the tag without the @ prefix
+    const tagName = resolvedTag.startsWith('@') ? resolvedTag.slice(1) : resolvedTag;
 
-  // Write proof file — create directory if it doesn't exist
+    const result = await runScenariosByTag(runByTagCommand, tagName, cwd);
+
+    const noScenarios = result.allPassed && isNoScenariosOutput(result.stdout);
+    if (entry.optional && noScenarios) {
+      tagResults.push({
+        tag: entry.tag,
+        resolvedTag,
+        severity: entry.severity,
+        optional: true,
+        passed: true,
+        output: '',
+        exitCode: result.exitCode,
+        skipped: true,
+      });
+    } else {
+      tagResults.push({
+        tag: entry.tag,
+        resolvedTag,
+        severity: entry.severity,
+        optional: entry.optional ?? false,
+        passed: result.allPassed,
+        output: truncate(result.stdout),
+        exitCode: result.exitCode,
+        skipped: false,
+      });
+    }
+  }
+
+  const hasBlockerFailures = tagResults.some(
+    r => r.severity === 'blocker' && !r.passed && !r.skipped,
+  );
+
   fs.mkdirSync(proofDir, { recursive: true });
   const resultsFilePath = path.resolve(proofDir, 'scenario_proof.md');
-  const proofContent = buildProofMarkdown(
-    issueNumber,
-    regressionOutput,
-    regressionResult.exitCode,
-    regressionResult.allPassed,
-    issueOutput,
-    issueResult.exitCode,
-    issueResult.allPassed,
-  );
-  fs.writeFileSync(resultsFilePath, proofContent, 'utf-8');
+  fs.writeFileSync(resultsFilePath, buildProofMarkdown(tagResults), 'utf-8');
 
-  return {
-    regressionPassed: regressionResult.allPassed,
-    regressionOutput,
-    regressionExitCode: regressionResult.exitCode,
-    issueScenariosPassed: issueResult.allPassed,
-    issueScenarioOutput: issueOutput,
-    issueScenarioExitCode: issueResult.exitCode,
-    resultsFilePath,
-  };
+  return { tagResults, hasBlockerFailures, resultsFilePath };
 }
