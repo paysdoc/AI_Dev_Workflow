@@ -464,3 +464,11 @@
     - When adding `test_compaction_recovery` or `review_compaction_recovery` stage comments
     - When troubleshooting test or review agents restarting due to context compaction
     - When extending `RetryConfig` or `RetryResult` with new continuation-tracking fields
+
+- app_docs/feature-x2q5aa-review-step-def-independence-check.md
+  - Conditions:
+    - When working with `.claude/commands/review.md` Step 5 or the step definition independence check
+    - When adding or modifying the anti-pattern detection logic in the review slash command
+    - When troubleshooting review issues classified as `blocker` or `tech-debt` due to tautological/internal step definitions
+    - When writing BDD scenarios that exercise the independence check in `features/review_step_def_independence.feature`
+    - When the review agent skips or incorrectly applies the independence check guard clauses
