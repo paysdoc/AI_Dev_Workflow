@@ -2,6 +2,8 @@
  * Workflow completion, review phase execution, and error handling.
  */
 
+import * as fs from 'fs';
+import * as path from 'path';
 import {
   log,
   AgentStateManager,
@@ -15,6 +17,7 @@ import { getPlanFilePath, runReviewWithRetry } from '../agents';
 import type { WorkflowConfig } from './workflowInit';
 import { postIssueStageComment } from './phaseCommentHelpers';
 import { BoardStatus } from '../providers/types';
+import { uploadToR2 } from '../r2';
 
 /**
  * Completes the workflow: writes final state, posts completion comment, prints banner.
@@ -113,6 +116,47 @@ export async function executeReviewPhase(config: WorkflowConfig): Promise<{
     reviewProofConfig: config.projectConfig.reviewProofConfig,
     runByTagCommand: config.projectConfig.commands.runScenariosByTag,
   });
+
+  // Upload screenshots to R2 for web apps (non-fatal — errors are logged and skipped)
+  if (config.projectConfig.applicationType === 'web' && reviewResult.allScreenshots.length > 0 && repoContext) {
+    const imageExtensions = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp']);
+    const contentTypeMap: Record<string, string> = {
+      '.png': 'image/png',
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.gif': 'image/gif',
+      '.webp': 'image/webp',
+    };
+    const imageFiles = reviewResult.allScreenshots.filter(p =>
+      imageExtensions.has(path.extname(p).toLowerCase())
+    );
+    const uploadedUrls: string[] = [];
+    for (const filePath of imageFiles) {
+      try {
+        if (!fs.existsSync(filePath)) {
+          log(`Screenshot file not found, skipping: ${filePath}`, 'warn');
+          continue;
+        }
+        const buffer = fs.readFileSync(filePath);
+        const filename = path.basename(filePath);
+        const ext = path.extname(filePath).toLowerCase();
+        const result = await uploadToR2({
+          owner: repoContext.repoId.owner,
+          repo: repoContext.repoId.repo,
+          key: `review/${adwId}/${filename}`,
+          body: buffer,
+          contentType: contentTypeMap[ext] ?? 'image/png',
+        });
+        uploadedUrls.push(result.url);
+      } catch (uploadError) {
+        log(`Screenshot upload failed for ${filePath}: ${uploadError}`, 'warn');
+      }
+    }
+    if (uploadedUrls.length > 0) {
+      ctx.screenshotUrls = uploadedUrls;
+      log(`Uploaded ${uploadedUrls.length} screenshot(s) to R2`, 'info');
+    }
+  }
 
   if (reviewResult.passed) {
     log('Review passed!', 'success');

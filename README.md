@@ -333,6 +333,11 @@ adws/                   # ADW workflow system
     └── regression.yml  # Periodic @regression BDD scenario runner
 workers/                # Cloudflare Workers
 └── screenshot-router/  # Screenshot URL routing worker
+    ├── src/
+    │   └── index.ts    # Worker entry point
+    ├── package.json
+    ├── tsconfig.json
+    └── wrangler.toml   # Cloudflare Workers config
 test/                   # Integration test infrastructure
 ├── fixtures/           # Static test fixtures
 │   ├── github/         # GitHub API response fixtures (issue, PR, comments)

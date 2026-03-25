@@ -376,6 +376,14 @@
     - When diagnosing stale-code issues from orchestrator startup logs (ADW version hash)
     - When working with `ReviewRetryResult` or `MergedReviewResult` interface shapes
 
+- app_docs/feature-x4wwk7-app-type-screenshot-upload.md
+  - Conditions:
+    - When working with `applicationType` in `ProjectConfig` or `parseApplicationType()` in `projectConfig.ts`
+    - When implementing screenshot upload from the review phase to Cloudflare R2
+    - When modifying `WorkflowContext.screenshotUrls` or the screenshot section in review comments
+    - When adding a new target repo and need to set `## Application Type` in `.adw/project.md`
+    - When troubleshooting screenshots not appearing in issue comments for web-type applications
+
 - app_docs/feature-wqzfqj-ensure-cron-before-webhook-gates.md
   - Conditions:
     - When working with `ensureCronProcess` placement in `trigger_webhook.ts`
