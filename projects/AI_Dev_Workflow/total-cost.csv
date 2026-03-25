@@ -224,11 +224,12 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 289,error in issue 288,scenario,claude-haiku-4-5-20251001,0.476562
 289,error in issue 288,step-def-gen,claude-sonnet-4-6,1.199329
 291,ensurecronprocess not called when webhook gates re,build,claude-sonnet-4-6,0.583988
+291,ensurecronprocess not called when webhook gates re,document,claude-sonnet-4-6,0.202088
 291,ensurecronprocess not called when webhook gates re,install,claude-sonnet-4-6,0.429428
 291,ensurecronprocess not called when webhook gates re,plan,claude-opus-4-6,0.676941
 291,ensurecronprocess not called when webhook gates re,review,claude-opus-4-6,0.941798
 291,ensurecronprocess not called when webhook gates re,scenario,claude-opus-4-6,0.499400
 291,ensurecronprocess not called when webhook gates re,step-def-gen,claude-sonnet-4-6,0.156378
 
-Total Cost (USD):,201.9081
-Total Cost (EUR):,174.1098
+Total Cost (USD):,202.1102
+Total Cost (EUR):,174.2841
