@@ -8,3 +8,4 @@ u7lut9-extend-compaction-re,299,plan,claude-opus-4-6,anthropic,1.300405,1.300405
 u7lut9-extend-compaction-re,299,plan,claude-haiku-4-5-20251001,anthropic,0.209965,0.209965,success,0,0,404490,2026-03-25T12:40:50.172Z,,,65,8490,821886,68209,0
 u7lut9-extend-compaction-re,299,scenario,claude-opus-4-6,anthropic,0.534245,0.534245,success,0,0,185017,2026-03-25T12:37:12.078Z,,,12,7078,343245,29698,0
 u7lut9-extend-compaction-re,299,scenario,claude-haiku-4-5-20251001,anthropic,0.124425,0.124425,success,0,0,185017,2026-03-25T12:37:12.078Z,,,53,4074,303195,58946,0
+u7lut9-extend-compaction-re,299,build,claude-sonnet-4-6,anthropic,2.850575,2.850575,success,0,0,948046,2026-03-25T12:56:43.762Z,,,10056,55926,4213518,191323,0
