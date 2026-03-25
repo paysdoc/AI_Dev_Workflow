@@ -5,3 +5,4 @@ workflow_id,issue_number,phase,model,provider,computed_cost_usd,reported_cost_us
 78celh-docker-image-for-beh,281,scenario,claude-opus-4-6,anthropic,0.710989,0.710989,success,0,0,141541,2026-03-25T11:49:30.588Z,,,13,6427,467022,50678,0
 78celh-docker-image-for-beh,281,build,claude-sonnet-4-6,anthropic,4.484099,4.484099,success,0,1,3139220,2026-03-25T12:43:32.713Z,,,98,66950,9615491,158642,0
 78celh-docker-image-for-beh,281,step-def-gen,claude-sonnet-4-6,anthropic,0.355378,0.355378,success,0,0,101367,2026-03-25T12:45:21.280Z,,,17,5283,361623,44692,0
+78celh-docker-image-for-beh,281,review,claude-opus-4-6,anthropic,2.749362,2.749362,success,0,0,253823,2026-03-25T12:49:40.765Z,,,135,27735,1916523,175528,0
