@@ -4,3 +4,4 @@ workflow_id,issue_number,phase,model,provider,computed_cost_usd,reported_cost_us
 9zcqhw-detect-context-compa,298,plan,claude-haiku-4-5-20251001,anthropic,0.133408,0.133408,success,0,0,283547,2026-03-25T11:53:56.127Z,,,1205,5628,436039,48367,0
 9zcqhw-detect-context-compa,298,scenario,claude-opus-4-6,anthropic,0.767480,0.767480,success,0,0,235466,2026-03-25T11:53:10.384Z,,,18,6304,578404,51294,0
 9zcqhw-detect-context-compa,298,scenario,claude-haiku-4-5-20251001,anthropic,0.140917,0.140917,success,0,0,235466,2026-03-25T11:53:10.384Z,,,150,6879,549640,41126,0
+9zcqhw-detect-context-compa,298,build,claude-sonnet-4-6,anthropic,0.510604,0.510604,success,0,0,132699,2026-03-25T11:56:14.641Z,,,19,5225,834685,48471,0
