@@ -153,6 +153,8 @@ const server = http.createServer((req, res) => {
       log(`Checking comment on issue #${issueNumber}: "${truncateText(commentBody, 100)}"`);
       const repoFullName = (body.repository as Record<string, unknown> | undefined)?.full_name as string | undefined;
       const webhookRepoInfo = repoFullName ? getRepoInfoFromPayload(repoFullName) : undefined;
+      const commentTargetRepoArgs = extractTargetRepoArgs(body);
+      if (webhookRepoInfo) ensureCronProcess(webhookRepoInfo, commentTargetRepoArgs);
       if (isClearComment(commentBody)) {
         const r = clearIssueComments(issueNumber, webhookRepoInfo);
         jsonResponse(res, 200, { status: 'cleared', issue: issueNumber, deleted: r.deleted });
@@ -164,14 +166,12 @@ const server = http.createServer((req, res) => {
         jsonResponse(res, 200, { status: 'ignored', reason: 'duplicate' });
         return;
       }
-      const commentTargetRepoArgs = extractTargetRepoArgs(body);
       isAdwRunningForIssue(issueNumber, webhookRepoInfo ?? getRepoInfo())
         .then(async (running) => {
           if (running) { log(`ADW already running for issue #${issueNumber}, deferring`); return; }
           if (webhookRepoInfo) {
             const eligibility = await checkIssueEligibility(issueNumber, (issue?.body as string) || '', webhookRepoInfo);
             if (!eligibility.eligible) { logDeferral(issueNumber, eligibility); return; }
-            ensureCronProcess(webhookRepoInfo, commentTargetRepoArgs);
           }
           await classifyAndSpawnWorkflow(issueNumber, webhookRepoInfo, commentTargetRepoArgs);
         })
@@ -223,12 +223,12 @@ const server = http.createServer((req, res) => {
       const issueTargetRepoArgs = extractTargetRepoArgs(body);
       const issueRepoFullName = (body.repository as Record<string, unknown> | undefined)?.full_name as string | undefined;
       const issueRepoInfo = issueRepoFullName ? getRepoInfoFromPayload(issueRepoFullName) : undefined;
+      if (issueRepoInfo) ensureCronProcess(issueRepoInfo, issueTargetRepoArgs);
       (async () => {
         try {
           if (issueRepoInfo) {
             const eligibility = await checkIssueEligibility(issueNumber, (issue?.body as string) || '', issueRepoInfo);
             if (!eligibility.eligible) { logDeferral(issueNumber, eligibility); return; }
-            ensureCronProcess(issueRepoInfo, issueTargetRepoArgs);
           }
           await classifyAndSpawnWorkflow(issueNumber, issueRepoInfo, issueTargetRepoArgs);
         } catch (error) {

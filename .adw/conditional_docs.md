@@ -384,6 +384,13 @@
     - When adding a new target repo and need to set `## Application Type` in `.adw/project.md`
     - When troubleshooting screenshots not appearing in issue comments for web-type applications
 
+- app_docs/feature-wqzfqj-ensure-cron-before-webhook-gates.md
+  - Conditions:
+    - When working with `ensureCronProcess` placement in `trigger_webhook.ts`
+    - When troubleshooting the cron poller dying and not being respawned after non-actionable webhook events
+    - When modifying the `issue_comment` or `issues.opened` handler gate ordering in `trigger_webhook.ts`
+    - When adding new webhook event gates that could prevent `ensureCronProcess` from being reached
+
 - app_docs/feature-ekd5o1-wire-proof-comment-formatter.md
   - Conditions:
     - When working with `proofCommentFormatter.ts` or `formatReviewProofComment()`
