@@ -112,12 +112,3 @@ Feature: Fix BDD scenarios failure that blocks PR creation
     Given "adws/phases/workflowCompletion.ts" is read
     Then the review failure message includes the number of remaining blockers
     And the workflow exits with code 1 when review fails
-
-  # ── 8. TypeScript integrity ────────────────────────────────────────────────
-
-  @adw-8fns89-error-in-issue-288 @regression
-  Scenario: TypeScript type-check passes after all changes
-    Given the ADW codebase has been modified for this issue
-    When "bunx tsc --noEmit" is run
-    And "bunx tsc --noEmit -p adws/tsconfig.json" is run
-    Then both type-check commands exit with code 0

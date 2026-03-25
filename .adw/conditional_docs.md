@@ -367,3 +367,11 @@
     - When changing which BDD tags run during the review phase or their severity classification
     - When troubleshooting optional tag skipping or `{issueNumber}` substitution in tag patterns
     - When updating the `/review` slash command's severity reading logic
+
+- app_docs/feature-8fns89-fix-bdd-scenarios-failure.md
+  - Conditions:
+    - When troubleshooting BDD scenarios failing immediately in the review phase with "undefined steps"
+    - When `regressionScenarioProof.ts` or `runScenarioProof()` exits early before step definitions exist
+    - When the "Unit tests passed!" message appears despite unit tests being disabled
+    - When diagnosing stale-code issues from orchestrator startup logs (ADW version hash)
+    - When working with `ReviewRetryResult` or `MergedReviewResult` interface shapes
