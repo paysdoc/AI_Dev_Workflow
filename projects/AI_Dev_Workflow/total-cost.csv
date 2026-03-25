@@ -209,6 +209,7 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 279,fixture target repo test harness first behavioral ,install,claude-sonnet-4-6,0.415455
 279,fixture target repo test harness first behavioral ,plan,claude-opus-4-6,0.984256
 279,fixture target repo test harness first behavioral ,plan,claude-haiku-4-5-20251001,0.133829
+279,fixture target repo test harness first behavioral ,review,claude-opus-4-6,2.560620
 279,fixture target repo test harness first behavioral ,scenario,claude-opus-4-6,0.929580
 279,fixture target repo test harness first behavioral ,step-def-gen,claude-sonnet-4-6,0.794827
 280,jsonl schema probe ci conformance check,build,claude-sonnet-4-6,1.508340
@@ -252,5 +253,5 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 295,fix issue status propagation pr routing and pr to ,scenario,claude-opus-4-6,1.298977
 295,fix issue status propagation pr routing and pr to ,step-def-gen,claude-sonnet-4-6,0.770174
 
-Total Cost (USD):,218.5176
-Total Cost (EUR):,188.4326
+Total Cost (USD):,221.0783
+Total Cost (EUR):,190.6407
