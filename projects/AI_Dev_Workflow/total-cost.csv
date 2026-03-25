@@ -224,6 +224,7 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 291,ensurecronprocess not called when webhook gates re,install,claude-sonnet-4-6,0.429428
 291,ensurecronprocess not called when webhook gates re,plan,claude-opus-4-6,0.676941
 291,ensurecronprocess not called when webhook gates re,scenario,claude-opus-4-6,0.499400
+291,ensurecronprocess not called when webhook gates re,step-def-gen,claude-sonnet-4-6,0.156378
 
-Total Cost (USD):,194.6418
-Total Cost (EUR):,167.8439
+Total Cost (USD):,194.7982
+Total Cost (EUR):,167.9788
