@@ -7,3 +7,4 @@ irs6vj-single-pass-alignmen,305,install,claude-sonnet-4-6,anthropic,0.288730,0.2
 irs6vj-single-pass-alignmen,305,build,claude-sonnet-4-6,anthropic,2.918879,2.918879,success,0,0,1843130,2026-03-25T15:44:25.131Z,,,54,50447,5442383,141146,0
 irs6vj-single-pass-alignmen,305,step-def-gen,claude-sonnet-4-6,anthropic,1.463934,1.463934,success,0,0,652343,2026-03-25T15:55:25.180Z,,,31,38327,1918509,83569,0
 irs6vj-single-pass-alignmen,305,review,claude-opus-4-6,anthropic,1.717834,1.717834,success,0,0,231486,2026-03-25T15:59:23.788Z,,,246,24903,688396,119973,0
+irs6vj-single-pass-alignmen,305,document,claude-sonnet-4-6,anthropic,0.250883,0.250883,success,0,0,146330,2026-03-25T16:01:58.587Z,,,8,3773,174373,37854,0
