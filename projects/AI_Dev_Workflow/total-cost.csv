@@ -304,11 +304,14 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 304,create implement tdd skill with core tdd workflow,scenario,claude-opus-4-6,0.570800
 304,create implement tdd skill with core tdd workflow,scenario,claude-haiku-4-5-20251001,0.037991
 305,single pass alignment command phase replaces plan ,install,claude-sonnet-4-6,2.939524
+305,single pass alignment command phase replaces plan ,plan,claude-haiku-4-5-20251001,0.345433
+305,single pass alignment command phase replaces plan ,plan,claude-opus-4-6,1.101640
+305,single pass alignment command phase replaces plan ,scenario,claude-opus-4-6,0.820791
 307,review phase step definition independence check,build,claude-sonnet-4-6,0.713374
 307,review phase step definition independence check,install,claude-sonnet-4-6,0.283197
 307,review phase step definition independence check,plan,claude-opus-4-6,0.793046
 307,review phase step definition independence check,scenario,claude-opus-4-6,0.489819
 307,review phase step definition independence check,step-def-gen,claude-sonnet-4-6,0.632139
 
-Total Cost (USD):,272.4959
-Total Cost (EUR):,234.9792
+Total Cost (USD):,274.7638
+Total Cost (EUR):,236.9349
