@@ -423,3 +423,12 @@
     - When adding or removing project board status transitions in `buildPhase.ts` or `testPhase.ts`
     - When troubleshooting `moveToStatus()` calls that silently fail due to unmatched board column names
     - When the GitHub project board columns change and enum values need to stay in sync
+
+- app_docs/feature-7sunv4-fix-pr-routing-and-status.md
+  - Conditions:
+    - When working with `prPhase.ts`, `prAgent.ts`, or `CodeHost.createMergeRequest()`
+    - When the `/pull_request` slash command or PR creation flow needs to be modified
+    - When troubleshooting PRs targeting the wrong base branch (e.g., `main` instead of `dev`)
+    - When issues are not transitioning to "Review" status after PR creation
+    - When modifying `extractIssueNumberFromBranch()` or webhook PR-to-issue linking in `webhookHandlers.ts`
+    - When implementing or updating `MergeRequestResult` in provider implementations

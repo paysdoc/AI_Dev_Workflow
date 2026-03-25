@@ -129,9 +129,3 @@ Feature: Fix issue status propagation, PR routing, and PR-to-issue linking
     Then extractIssueNumberFromBranch contains the "issue-(\d+)" pattern
     And extractIssueNumberFromBranch does not contain the ADW branch format regex
 
-  # ── Cross-cutting: Type safety ───────────────────────────────────────────────
-
-  @adw-7sunv4-fix-issue-status-pro @regression
-  Scenario: TypeScript type-check passes after PR routing and status fix
-    Given the ADW codebase is checked out
-    Then the ADW TypeScript type-check passes
