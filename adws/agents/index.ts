@@ -152,6 +152,13 @@ export {
   type ResolutionDecision,
 } from './resolutionAgent';
 
+// Alignment Agent (single-pass alignment)
+export {
+  runAlignmentAgent,
+  parseAlignmentResult,
+  type AlignmentResult,
+} from './alignmentAgent';
+
 // Dependency Extraction Agent
 export {
   runDependencyExtractionAgent,

@@ -473,6 +473,14 @@
     - When writing BDD scenarios that exercise the independence check in `features/review_step_def_independence.feature`
     - When the review agent skips or incorrectly applies the independence check guard clauses
 
+- app_docs/feature-irs6vj-single-pass-alignment-phase.md
+  - Conditions:
+    - When working with `executeAlignmentPhase` in `adws/phases/alignmentPhase.ts`
+    - When modifying `runAlignmentAgent` or `parseAlignmentResult` in `adws/agents/alignmentAgent.ts`
+    - When implementing or modifying the plan-scenario alignment gate between planning and build
+    - When troubleshooting the `/align_plan_scenarios` slash command or its JSON output parsing
+    - When adding new workflow stages related to plan-scenario alignment
+
 - app_docs/feature-aym0n5-create-implement-tdd.md
   - Conditions:
     - When working with the `/implement_tdd` skill or `.claude/skills/implement-tdd/`

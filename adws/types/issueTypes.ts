@@ -76,6 +76,8 @@ export type SlashCommand =
   // Plan validation commands
   | '/validate_plan_scenarios'
   | '/resolve_plan_scenarios'
+  // Single-pass alignment command
+  | '/align_plan_scenarios'
   // Install and prime
   | '/install';
 

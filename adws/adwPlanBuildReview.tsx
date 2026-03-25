@@ -7,7 +7,7 @@
  * Workflow:
  * 1. Initialize: fetch issue, classify type, setup worktree, initialize state, detect recovery
  * 2. Plan Phase + Scenario Phase (parallel): run plan agent, write BDD scenarios
- * 3. Plan Validation Phase: validate plan against scenarios
+ * 3. Alignment Phase: single-pass alignment of plan against scenarios
  * 4. Build Phase: run build agent, commit implementation
  * 5. Test Phase: optionally run unit tests (unit only)
  * 6. Step Def Gen Phase: generate step definitions, remove ungeneratable scenarios
@@ -30,7 +30,7 @@ import {
   executeInstallPhase,
   executePlanPhase,
   executeScenarioPhase,
-  executePlanValidationPhase,
+  executeAlignmentPhase,
   executeBuildPhase,
   executeTestPhase,
   executeStepDefPhase,
@@ -66,7 +66,7 @@ async function main(): Promise<void> {
   try {
     await runPhase(config, tracker, executeInstallPhase);
     await runPhasesParallel(config, tracker, [executePlanPhase, executeScenarioPhase]);
-    await runPhase(config, tracker, executePlanValidationPhase);
+    await runPhase(config, tracker, executeAlignmentPhase);
     await runPhase(config, tracker, executeBuildPhase);
     const testResult = await runPhase(config, tracker, executeTestPhase);
     await runPhase(config, tracker, executeStepDefPhase);

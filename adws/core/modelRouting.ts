@@ -66,6 +66,8 @@ export const SLASH_COMMAND_MODEL_MAP: Record<SlashCommand, ModelTier> = {
   // Plan validation (complex reasoning, no downgrade)
   '/validate_plan_scenarios': 'opus',
   '/resolve_plan_scenarios': 'opus',
+  // Single-pass alignment (complex reasoning, no downgrade)
+  '/align_plan_scenarios': 'opus',
   // Install and prime
   '/install': 'sonnet',
 };
@@ -100,6 +102,8 @@ export const SLASH_COMMAND_MODEL_MAP_FAST: Record<SlashCommand, ModelTier> = {
   // Plan validation (complex reasoning, no downgrade)
   '/validate_plan_scenarios': 'opus',
   '/resolve_plan_scenarios': 'opus',
+  // Single-pass alignment (complex reasoning, no downgrade)
+  '/align_plan_scenarios': 'sonnet',
   // Install and prime
   '/install': 'sonnet',
 };
@@ -138,6 +142,8 @@ export const SLASH_COMMAND_EFFORT_MAP: Record<SlashCommand, ReasoningEffort | un
   // Plan validation (complex reasoning, no downgrade)
   '/validate_plan_scenarios': 'high',
   '/resolve_plan_scenarios': 'high',
+  // Single-pass alignment
+  '/align_plan_scenarios': 'high',
   // Install and prime
   '/install': 'medium',
 };
@@ -172,6 +178,8 @@ export const SLASH_COMMAND_EFFORT_MAP_FAST: Record<SlashCommand, ReasoningEffort
   // Plan validation (complex reasoning, no downgrade)
   '/validate_plan_scenarios': 'high',
   '/resolve_plan_scenarios': 'high',
+  // Single-pass alignment
+  '/align_plan_scenarios': 'medium',
   // Install and prime
   '/install': 'low',
 };
