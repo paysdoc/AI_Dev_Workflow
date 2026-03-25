@@ -440,3 +440,11 @@
     - When writing BDD scenarios that need a real git-initialized working directory
     - When troubleshooting `@review-harness` or `@adw-6bi1qq-fixture-target-repo` scenario failures
     - When adding new fixture repos under `test/fixtures/` for behavioral testing
+
+- app_docs/feature-9zcqhw-detect-compaction-restart-build-agent.md
+  - Conditions:
+    - When working with `agentProcessHandler.ts` stdout detection logic (auth errors, token limit, compaction)
+    - When the build agent is restarting unexpectedly or posting `compaction_recovery` comments
+    - When modifying `buildContinuationPrompt()` or the `buildPhase.ts` continuation while loop
+    - When adding a new `WorkflowStage` type or `STAGE_HEADER_MAP` entry in `workflowCommentParsing.ts`
+    - When troubleshooting `MAX_TOKEN_CONTINUATIONS` being exhausted due to repeated context compaction
