@@ -472,3 +472,11 @@
     - When troubleshooting review issues classified as `blocker` or `tech-debt` due to tautological/internal step definitions
     - When writing BDD scenarios that exercise the independence check in `features/review_step_def_independence.feature`
     - When the review agent skips or incorrectly applies the independence check guard clauses
+
+- app_docs/feature-aym0n5-create-implement-tdd.md
+  - Conditions:
+    - When working with the `/implement_tdd` skill or `.claude/skills/implement-tdd/`
+    - When wiring the TDD build agent into an orchestrator (replacing `/implement` with `/implement_tdd`)
+    - When adding or modifying the red-green-refactor loop in autonomous build workflows
+    - When troubleshooting step definition generation during the TDD build phase
+    - When deciding whether to set `target: true` on a new skill for `adw_init` deployment
