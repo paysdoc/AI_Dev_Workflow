@@ -204,6 +204,8 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 278,application type config screenshot upload in revie,review,claude-sonnet-4-6,0.555336
 278,application type config screenshot upload in revie,review,claude-haiku-4-5-20251001,0.048859
 278,application type config screenshot upload in revie,step-def-gen,claude-sonnet-4-6,0.484023
+279,fixture target repo test harness first behavioral ,build,claude-sonnet-4-6,4.502200
+279,fixture target repo test harness first behavioral ,build,claude-haiku-4-5-20251001,0.025569
 279,fixture target repo test harness first behavioral ,install,claude-sonnet-4-6,0.415455
 279,fixture target repo test harness first behavioral ,plan,claude-opus-4-6,0.984256
 279,fixture target repo test harness first behavioral ,plan,claude-haiku-4-5-20251001,0.133829
@@ -249,5 +251,5 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 295,fix issue status propagation pr routing and pr to ,scenario,claude-opus-4-6,1.298977
 295,fix issue status propagation pr routing and pr to ,step-def-gen,claude-sonnet-4-6,0.770174
 
-Total Cost (USD):,213.1950
-Total Cost (EUR):,183.8428
+Total Cost (USD):,217.7228
+Total Cost (EUR):,187.7472
