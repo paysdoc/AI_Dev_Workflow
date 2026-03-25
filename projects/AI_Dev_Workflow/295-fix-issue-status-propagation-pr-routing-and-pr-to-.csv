@@ -5,3 +5,4 @@ workflow_id,issue_number,phase,model,provider,computed_cost_usd,reported_cost_us
 7sunv4-fix-issue-status-pro,295,build,claude-sonnet-4-6,anthropic,1.753474,1.753474,success,0,0,1342527,2026-03-25T10:56:59.183Z,,,61,21661,3776055,78816,0
 7sunv4-fix-issue-status-pro,295,step-def-gen,claude-sonnet-4-6,anthropic,0.770174,0.770174,success,0,0,234929,2026-03-25T11:01:01.733Z,,,29,11192,1158895,67877,0
 7sunv4-fix-issue-status-pro,295,review,claude-opus-4-6,anthropic,2.385197,2.385197,success,0,0,247489,2026-03-25T11:05:15.130Z,,,1032,29020,1224561,166761,0
+7sunv4-fix-issue-status-pro,295,document,claude-sonnet-4-6,anthropic,0.250863,0.250863,success,0,0,119162,2026-03-25T11:07:19.808Z,,,8,4332,168418,36089,0
