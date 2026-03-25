@@ -8,3 +8,4 @@ x2q5aa-review-phase-step-de,307,install,claude-sonnet-4-6,anthropic,0.282980,0.2
 x2q5aa-review-phase-step-de,307,step-def-gen,claude-sonnet-4-6,anthropic,0.248037,0.248037,success,0,0,102787,2026-03-25T15:14:50.001Z,,,1948,5559,163073,29303,0
 x2q5aa-review-phase-step-de,307,review,claude-opus-4-6,anthropic,7.454624,7.454624,success,2,0,1754577,2026-03-25T15:44:10.055Z,,,7095,99207,3055374,545806,0
 x2q5aa-review-phase-step-de,307,review,claude-sonnet-4-6,anthropic,1.833816,1.833816,success,2,0,1754577,2026-03-25T15:44:10.055Z,,,50,16915,1549806,297333,0
+x2q5aa-review-phase-step-de,307,document,claude-sonnet-4-6,anthropic,0.399042,0.399042,success,0,0,187690,2026-03-25T15:47:23.801Z,,,1803,7023,417523,43475,0
