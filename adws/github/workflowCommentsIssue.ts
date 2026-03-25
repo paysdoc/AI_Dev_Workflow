@@ -51,6 +51,8 @@ export interface WorkflowContext {
   maxReviewAttempts?: number;
   /** Running total of tokens consumed so far (set when RUNNING_TOKENS is enabled). */
   runningTokenTotal?: { inputTokens: number; outputTokens: number; cacheCreationTokens: number; total: number; isEstimated?: boolean; modelBreakdown: Array<{ model: string; total: number }> };
+  /** Public URLs of screenshots uploaded to R2 (set when applicationType is 'web'). */
+  screenshotUrls?: string[];
 }
 
 const issueTypeLabels: Record<IssueClassSlashCommand, string> = {
@@ -163,15 +165,26 @@ function formatReviewRunningComment(ctx: WorkflowContext): string {
   return `## :mag: Review Running\n\nRunning automated code review...${attemptInfo}\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
 }
 
+function formatScreenshotSection(screenshotUrls: string[]): string {
+  if (screenshotUrls.length === 0) return '';
+  const images = screenshotUrls
+    .map((url, i) => `[![Screenshot ${i + 1}](${url})](${url})`)
+    .join('\n');
+  return `\n\n<details>\n<summary>Screenshots (${screenshotUrls.length})</summary>\n\n${images}\n\n</details>`;
+}
+
 function formatReviewPassedComment(ctx: WorkflowContext): string {
   const summary = ctx.reviewSummary
     ? `\n\n${truncateText(ctx.reviewSummary, 2000)}`
+    : '';
+  const screenshotSection = ctx.screenshotUrls && ctx.screenshotUrls.length > 0
+    ? formatScreenshotSection(ctx.screenshotUrls)
     : '';
   const nonBlockers = (ctx.reviewIssues ?? []).filter(i => i.issueSeverity !== 'blocker');
   const nonBlockerSection = nonBlockers.length > 0
     ? `\n\n<details>\n<summary>Non-blocker issues (${nonBlockers.length})</summary>\n\n${nonBlockers.map(formatReviewIssueItem).join('\n')}\n\n</details>`
     : '';
-  return `## :white_check_mark: Review Passed\n\nCode review passed with no blocker issues.${summary}${nonBlockerSection}\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+  return `## :white_check_mark: Review Passed\n\nCode review passed with no blocker issues.${summary}${screenshotSection}${nonBlockerSection}\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
 }
 
 function formatReviewFailedComment(ctx: WorkflowContext): string {
@@ -179,7 +192,10 @@ function formatReviewFailedComment(ctx: WorkflowContext): string {
   const blockerList = blockers.length > 0
     ? `\n\n**Remaining blocker issues (${blockers.length}):**\n${blockers.map(formatReviewIssueItem).join('\n')}`
     : '';
-  return `## :x: Review Failed\n\nCode review failed with unresolved blocker issues.${blockerList}\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+  const screenshotSection = ctx.screenshotUrls && ctx.screenshotUrls.length > 0
+    ? formatScreenshotSection(ctx.screenshotUrls)
+    : '';
+  return `## :x: Review Failed\n\nCode review failed with unresolved blocker issues.${blockerList}${screenshotSection}\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
 }
 
 function formatReviewPatchingComment(ctx: WorkflowContext): string {

@@ -15,6 +15,8 @@ import * as path from 'path';
 // Types
 // ---------------------------------------------------------------------------
 
+export type ApplicationType = 'cli' | 'web';
+
 export interface CommandsConfig {
   packageManager: string;
   installDeps: string;
@@ -84,6 +86,8 @@ export interface ProjectConfig {
   scenariosMd: string;
   /** Parsed review proof config from `.adw/review_proof.md`. */
   reviewProofConfig: ReviewProofConfig;
+  /** Application type from `.adw/project.md` `## Application Type` section. Defaults to `'cli'`. */
+  applicationType: ApplicationType;
 }
 
 // ---------------------------------------------------------------------------
@@ -181,6 +185,7 @@ export function getDefaultProjectConfig(): ProjectConfig {
     scenarios: getDefaultScenariosConfig(),
     scenariosMd: '',
     reviewProofConfig: getDefaultReviewProofConfig(),
+    applicationType: 'cli',
   };
 }
 
@@ -243,6 +248,18 @@ export function parseUnitTestsEnabled(projectMd: string): boolean {
   }
 
   return false;
+}
+
+/**
+ * Parses the `## Application Type` section from `.adw/project.md`.
+ * Returns `'web'` when the section value (trimmed, lowercased) is `'web'`.
+ * Defaults to `'cli'` when the section is absent or has any other value.
+ */
+export function parseApplicationType(projectMd: string): ApplicationType {
+  const sections = parseMarkdownSections(projectMd);
+  const value = sections['application type'];
+  if (value !== undefined && value.trim().toLowerCase() === 'web') return 'web';
+  return 'cli';
 }
 
 /**
@@ -448,5 +465,6 @@ export function loadProjectConfig(targetRepoPath: string): ProjectConfig {
     scenarios,
     scenariosMd,
     reviewProofConfig,
+    applicationType: parseApplicationType(projectMd),
   };
 }
