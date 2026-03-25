@@ -302,6 +302,7 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 303,remove ungeneratable classification from step def ,plan,claude-opus-4-6,0.690090
 303,remove ungeneratable classification from step def ,plan,claude-opus-4-6,0.776619
 303,remove ungeneratable classification from step def ,review,claude-opus-4-6,1.978317
+303,remove ungeneratable classification from step def ,review,claude-opus-4-6,1.442256
 303,remove ungeneratable classification from step def ,scenario,claude-opus-4-6,0.722457
 303,remove ungeneratable classification from step def ,scenario,claude-opus-4-6,0.633051
 303,remove ungeneratable classification from step def ,scenario,claude-haiku-4-5-20251001,0.119734
@@ -344,5 +345,5 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 307,review phase step definition independence check,step-def-gen,claude-sonnet-4-6,0.632139
 307,review phase step definition independence check,step-def-gen,claude-sonnet-4-6,0.248037
 
-Total Cost (USD):,307.2492
-Total Cost (EUR):,264.9478
+Total Cost (USD):,308.6915
+Total Cost (EUR):,266.1914

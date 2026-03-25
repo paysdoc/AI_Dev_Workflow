@@ -18,3 +18,4 @@ y55dlm-remove-ungeneratable,303,scenario,claude-opus-4-6,anthropic,0.799530,0.79
 y55dlm-remove-ungeneratable,303,alignment,claude-opus-4-6,anthropic,0.257422,0.257422,success,0,0,102688,2026-03-25T20:49:31.168Z,,,4,4696,53253,18140,0
 y55dlm-remove-ungeneratable,303,build,claude-sonnet-4-6,anthropic,1.292536,1.292536,success,0,0,733001,2026-03-25T21:01:49.682Z,,,36,29028,1963657,71443,0
 y55dlm-remove-ungeneratable,303,step-def-gen,claude-sonnet-4-6,anthropic,0.485450,0.485450,success,0,0,154656,2026-03-25T21:04:31.605Z,,,25,6505,668590,49926,0
+y55dlm-remove-ungeneratable,303,review,claude-opus-4-6,anthropic,1.442256,1.442256,success,0,0,166761,2026-03-25T21:07:23.971Z,,,909,16566,735634,104919,0
