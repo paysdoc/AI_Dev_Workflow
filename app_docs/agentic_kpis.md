@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value          | Last Updated       |
 | ----------------- | -------------- | ------------------ |
-| Current Streak    | 66             | 2026-03-25 15:18:43|
-| Longest Streak    | 66             | 2026-03-25 15:18:43|
-| Total Plan Size   | 441 lines      | 2026-03-25 15:18:43|
-| Largest Plan Size | 201 lines      | 2026-03-25 15:18:43|
-| Total Diff Size   | 1420108 lines  | 2026-03-25 15:18:43|
-| Largest Diff Size | 205468 lines   | 2026-03-25 15:18:43|
-| Average Presence  | 1.47           | 2026-03-25 15:18:43|
+| Current Streak    | 57             | 2026-03-25 23:30:52|
+| Longest Streak    | 57             | 2026-03-25 23:30:52|
+| Total Plan Size   | 441 lines      | 2026-03-25 23:30:52|
+| Largest Plan Size | 201 lines      | 2026-03-25 23:30:52|
+| Total Diff Size   | 1431908 lines  | 2026-03-25 23:30:52|
+| Largest Diff Size | 205468 lines   | 2026-03-25 23:30:52|
+| Average Presence  | 1.46           | 2026-03-25 23:30:52|
 
 ## ADW KPIs
 
@@ -74,3 +74,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-03-25 | 7sunv4-fix-issue-status-pro | 295          | /bug        | 1        | 0                 | 959/466/22                      | 2026-03-25 | 2026-03-25 |
 | 2026-03-25 | 6bi1qq-fixture-target-repo  | 279          | /feature    | 1        | 0                 | 2610/238/44                     | 2026-03-25 | 2026-03-25 |
 | 2026-03-25 | u7lut9-extend-compaction-re | 299          | /feature    | 1        | 0                 | 5456/264/68                     | 2026-03-25 | 2026-03-25 |
+| 2026-03-25 | 0s1m68-build-agent-routing  | 306          | /feature    | 1        | 0                 | 11476/324/122                   | 2026-03-25 | 2026-03-25 |

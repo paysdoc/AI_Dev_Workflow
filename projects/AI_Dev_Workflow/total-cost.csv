@@ -292,6 +292,8 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 299,extend compaction recovery to test and review phas,step-def-gen,claude-sonnet-4-6,2.590701
 303,remove ungeneratable classification from step def ,alignment,claude-opus-4-6,0.257422
 303,remove ungeneratable classification from step def ,build,claude-sonnet-4-6,0.527263
+303,remove ungeneratable classification from step def ,build,claude-sonnet-4-6,1.292536
+303,remove ungeneratable classification from step def ,document,claude-sonnet-4-6,0.230517
 303,remove ungeneratable classification from step def ,install,claude-sonnet-4-6,0.353740
 303,remove ungeneratable classification from step def ,install,claude-sonnet-4-6,0.416738
 303,remove ungeneratable classification from step def ,install,claude-sonnet-4-6,0.426541
@@ -301,12 +303,14 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 303,remove ungeneratable classification from step def ,plan,claude-opus-4-6,0.690090
 303,remove ungeneratable classification from step def ,plan,claude-opus-4-6,0.776619
 303,remove ungeneratable classification from step def ,review,claude-opus-4-6,1.978317
+303,remove ungeneratable classification from step def ,review,claude-opus-4-6,1.442256
 303,remove ungeneratable classification from step def ,scenario,claude-opus-4-6,0.722457
 303,remove ungeneratable classification from step def ,scenario,claude-opus-4-6,0.633051
 303,remove ungeneratable classification from step def ,scenario,claude-haiku-4-5-20251001,0.119734
 303,remove ungeneratable classification from step def ,scenario,claude-opus-4-6,0.799530
 303,remove ungeneratable classification from step def ,step-def-gen,claude-sonnet-4-6,0.948882
 303,remove ungeneratable classification from step def ,step-def-gen,claude-sonnet-4-6,0.281966
+303,remove ungeneratable classification from step def ,step-def-gen,claude-sonnet-4-6,0.485450
 304,create implement tdd skill with core tdd workflow,build,claude-sonnet-4-6,0.468995
 304,create implement tdd skill with core tdd workflow,document,claude-sonnet-4-6,0.245391
 304,create implement tdd skill with core tdd workflow,install,claude-sonnet-4-6,0.275102
@@ -326,6 +330,17 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 305,single pass alignment command phase replaces plan ,review,claude-opus-4-6,1.717834
 305,single pass alignment command phase replaces plan ,scenario,claude-opus-4-6,0.820791
 305,single pass alignment command phase replaces plan ,step-def-gen,claude-sonnet-4-6,1.463934
+306,build agent routing orchestrator pipeline restruct,alignment,claude-opus-4-6,1.068469
+306,build agent routing orchestrator pipeline restruct,build,claude-sonnet-4-6,0.932890
+306,build agent routing orchestrator pipeline restruct,document,claude-sonnet-4-6,0.269823
+306,build agent routing orchestrator pipeline restruct,install,claude-sonnet-4-6,0.386697
+306,build agent routing orchestrator pipeline restruct,kpi,claude-haiku-4-5-20251001,0.130295
+306,build agent routing orchestrator pipeline restruct,plan,claude-opus-4-6,1.087977
+306,build agent routing orchestrator pipeline restruct,pr,claude-sonnet-4-6,0.067501
+306,build agent routing orchestrator pipeline restruct,review,claude-opus-4-6,1.048549
+306,build agent routing orchestrator pipeline restruct,scenario,claude-opus-4-6,1.321689
+306,build agent routing orchestrator pipeline restruct,scenario,claude-haiku-4-5-20251001,0.064518
+306,build agent routing orchestrator pipeline restruct,step-def-gen,claude-sonnet-4-6,2.418791
 307,review phase step definition independence check,build,claude-sonnet-4-6,0.713374
 307,review phase step definition independence check,document,claude-sonnet-4-6,0.399042
 307,review phase step definition independence check,install,claude-sonnet-4-6,0.283197
@@ -337,5 +352,5 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 307,review phase step definition independence check,step-def-gen,claude-sonnet-4-6,0.632139
 307,review phase step definition independence check,step-def-gen,claude-sonnet-4-6,0.248037
 
-Total Cost (USD):,301.5419
-Total Cost (EUR):,260.0262
+Total Cost (USD):,313.7898
+Total Cost (EUR):,270.5879

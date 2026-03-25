@@ -496,3 +496,11 @@
     - When modifying any scenario-aware orchestrator (`adwSdlc`, `adwPlanBuildReview`, `adwPlanBuildTestReview`) pipeline order
     - When troubleshooting why the build agent is using `/implement` instead of `/implement_tdd` (or vice versa)
     - When `executeStepDefPhase` or `executePlanValidationPhase` are referenced but not found in orchestrators
+
+- app_docs/feature-y55dlm-remove-ungeneratable-step-def-classification.md
+  - Conditions:
+    - When working with the `/generate_step_definitions` command
+    - When modifying or extending step definition generation behavior
+    - When a scenario requires runtime infrastructure (mock servers, LLM stubs, git remotes) and you need to generate step definitions for it
+    - When troubleshooting why `removedScenarios` is always empty in step def agent output
+    - When modifying `adws/phases/stepDefPhase.ts` or `adws/agents/stepDefAgent.ts`
