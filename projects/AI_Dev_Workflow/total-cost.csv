@@ -198,6 +198,7 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 277,regression periodic github action,pr,claude-sonnet-4-6,0.062604
 278,application type config screenshot upload in revie,document,claude-sonnet-4-6,0.239721
 278,application type config screenshot upload in revie,install,claude-sonnet-4-6,0.392957
+278,application type config screenshot upload in revie,kpi,claude-haiku-4-5-20251001,0.078987
 278,application type config screenshot upload in revie,pr,claude-sonnet-4-6,0.132915
 278,application type config screenshot upload in revie,review,claude-opus-4-6,5.563908
 278,application type config screenshot upload in revie,review,claude-sonnet-4-6,0.555336
@@ -234,5 +235,5 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 291,ensurecronprocess not called when webhook gates re,scenario,claude-opus-4-6,0.499400
 291,ensurecronprocess not called when webhook gates re,step-def-gen,claude-sonnet-4-6,0.156378
 
-Total Cost (USD):,202.5635
-Total Cost (EUR):,174.6749
+Total Cost (USD):,202.6425
+Total Cost (EUR):,174.7430
