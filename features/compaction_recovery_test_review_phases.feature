@@ -129,6 +129,31 @@ Feature: Extend compaction recovery to test and review phases
     Then the continuation prompt again receives the original review blocker details
     And the continuation prompt receives the second agent's partial resolution output
 
+  # --- Review phase agent-specific compaction recovery ---
+
+  @adw-l9w3wm-extend-compaction-re
+  Scenario: Parallel review agent restarts individually when compactionDetected is true
+    Given the review retry loop is running parallel review agents
+    When one of the review agents returns with compactionDetected = true
+    Then that review agent is restarted with fresh context
+    And the other review agents' results are preserved
+    And the restarted agent's result is merged with the others
+
+  @adw-l9w3wm-extend-compaction-re
+  Scenario: Patch agent restarts when compactionDetected is true during review patching
+    Given the review retry loop is patching a blocker issue
+    And runPatchAgent is called for the blocker
+    When the patch agent returns with compactionDetected = true
+    Then the patch agent is restarted with fresh context
+    And the restart uses the original blocker context and partial output
+
+  @adw-l9w3wm-extend-compaction-re
+  Scenario: Build agent in review retry restarts when compactionDetected is true
+    Given the review retry loop is implementing a patch via runBuildAgent
+    When the build agent returns with compactionDetected = true
+    Then the build agent is restarted with fresh context
+    And the restart uses the original patch plan and partial output
+
   # --- Review phase compaction recovery comment ---
 
   @adw-u7lut9-extend-compaction-re @adw-l9w3wm-extend-compaction-re @regression
@@ -198,6 +223,17 @@ Feature: Extend compaction recovery to test and review phases
     When the first review resolution agent returns with compactionDetected = true and modelUsage data
     And the continuation review resolution agent completes successfully with its own modelUsage data
     Then the total model usage is the merged sum of both runs
+
+  # --- Cross-cutting: compaction scope expansion ---
+
+  @adw-l9w3wm-extend-compaction-re
+  Scenario: compactionDetected is handled by test, review, and build phases
+    Given the agentProcessHandler sets compactionDetected on AgentResult
+    When the test retry loop receives an AgentResult with compactionDetected = true
+    Then the test phase acts on the flag to trigger continuation
+    When the review retry loop receives an AgentResult with compactionDetected = true
+    Then the review phase acts on the flag to trigger continuation
+    And the build phase continues to handle compactionDetected as before
 
   # --- Type checks ---
 
