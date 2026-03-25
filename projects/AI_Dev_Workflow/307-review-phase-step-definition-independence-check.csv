@@ -5,3 +5,4 @@ yxq5og-review-phase-step-de,307,scenario,claude-opus-4-6,anthropic,0.489819,0.48
 yxq5og-review-phase-step-de,307,build,claude-sonnet-4-6,anthropic,0.713374,0.713374,success,0,0,260983,2026-03-25T13:59:32.796Z,,,22,11872,868456,73251,0
 yxq5og-review-phase-step-de,307,step-def-gen,claude-sonnet-4-6,anthropic,0.632139,0.632139,success,0,0,220963,2026-03-25T14:03:20.700Z,,,34,9746,1031676,47025,0
 x2q5aa-review-phase-step-de,307,install,claude-sonnet-4-6,anthropic,0.282980,0.282980,success,0,0,62831,2026-03-25T15:12:56.491Z,,,10,2302,190030,51043,0
+x2q5aa-review-phase-step-de,307,step-def-gen,claude-sonnet-4-6,anthropic,0.248037,0.248037,success,0,0,102787,2026-03-25T15:14:50.001Z,,,1948,5559,163073,29303,0
