@@ -47,6 +47,7 @@ export async function executeTestPhase(config: WorkflowConfig): Promise<{
   let costUsd = 0;
   let modelUsage = emptyModelUsageMap();
   let totalRetries = 0;
+  let phaseContinuationCount = 0;
 
   if (repoContext) {
     await repoContext.issueTracker.moveToStatus(issueNumber, BoardStatus.InProgress);
@@ -65,10 +66,19 @@ export async function executeTestPhase(config: WorkflowConfig): Promise<{
       maxRetries: MAX_TEST_RETRY_ATTEMPTS,
       cwd: worktreePath,
       issueBody: issue.body,
+      onCompactionDetected: (continuationNumber) => {
+        ctx.tokenContinuationNumber = continuationNumber;
+        log(`Test phase: context compacted, spawning continuation #${continuationNumber}`, 'info');
+        AgentStateManager.appendLog(orchestratorStatePath, `Test phase context compacted (continuation ${continuationNumber})`);
+        if (repoContext) {
+          postIssueStageComment(repoContext, issueNumber, 'test_compaction_recovery', ctx);
+        }
+      },
     });
     costUsd += unitTestsResult.costUsd;
     modelUsage = mergeModelUsageMaps(modelUsage, unitTestsResult.modelUsage);
     totalRetries += unitTestsResult.totalRetries;
+    phaseContinuationCount = unitTestsResult.continuationCount;
 
     if (!unitTestsResult.passed) {
       const errorMsg = 'Unit tests failed after maximum retry attempts. No PR was created.';
@@ -103,7 +113,7 @@ export async function executeTestPhase(config: WorkflowConfig): Promise<{
     phase: 'test',
     status: PhaseCostStatus.Success,
     retryCount: totalRetries,
-    continuationCount: 0,
+    continuationCount: phaseContinuationCount,
     durationMs: Date.now() - phaseStartTime,
     modelUsage,
   });

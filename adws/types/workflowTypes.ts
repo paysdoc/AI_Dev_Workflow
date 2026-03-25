@@ -38,6 +38,9 @@ export type WorkflowStage =
   | 'token_limit_recovery'
   // Context compaction recovery
   | 'compaction_recovery'
+  // Phase-specific compaction recovery
+  | 'test_compaction_recovery'
+  | 'review_compaction_recovery'
   // Plan validation stages
   | 'plan_validating'
   | 'plan_validated'

@@ -86,6 +86,7 @@ export async function executeReviewPhase(config: WorkflowConfig): Promise<{
     postIssueStageComment(repoContext, issueNumber, 'review_running', ctx);
   }
 
+  let reviewContinuationCount = 0;
   const reviewResult = await runReviewWithRetry({
     adwId,
     issue,
@@ -108,6 +109,15 @@ export async function executeReviewPhase(config: WorkflowConfig): Promise<{
         postIssueStageComment(repoContext, issueNumber, 'review_patching', ctx);
       }
     },
+    onCompactionDetected: (continuationNumber) => {
+      reviewContinuationCount = continuationNumber;
+      ctx.tokenContinuationNumber = continuationNumber;
+      log(`Review phase: context compacted, spawning continuation #${continuationNumber}`, 'info');
+      AgentStateManager.appendLog(orchestratorStatePath, `Review phase context compacted (continuation ${continuationNumber})`);
+      if (repoContext) {
+        postIssueStageComment(repoContext, issueNumber, 'review_compaction_recovery', ctx);
+      }
+    },
     cwd: worktreePath,
     applicationUrl,
     issueBody: issue.body,
@@ -116,6 +126,7 @@ export async function executeReviewPhase(config: WorkflowConfig): Promise<{
     reviewProofConfig: config.projectConfig.reviewProofConfig,
     runByTagCommand: config.projectConfig.commands.runScenariosByTag,
   });
+  reviewContinuationCount = reviewResult.continuationCount;
 
   // Upload screenshots to R2 for web apps (non-fatal — errors are logged and skipped)
   if (config.projectConfig.applicationType === 'web' && reviewResult.allScreenshots.length > 0 && repoContext) {
@@ -201,7 +212,7 @@ export async function executeReviewPhase(config: WorkflowConfig): Promise<{
     phase: 'review',
     status: reviewResult.passed ? PhaseCostStatus.Success : PhaseCostStatus.Failed,
     retryCount: reviewResult.totalRetries,
-    continuationCount: 0,
+    continuationCount: reviewContinuationCount,
     durationMs: Date.now() - phaseStartTime,
     modelUsage: reviewResult.modelUsage,
   });
