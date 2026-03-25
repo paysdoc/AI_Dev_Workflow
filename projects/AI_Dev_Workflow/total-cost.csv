@@ -270,6 +270,9 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 298,detect context compaction and restart build agent ,step-def-gen,claude-sonnet-4-6,0.729003
 299,extend compaction recovery to test and review phas,install,claude-sonnet-4-6,0.195881
 299,extend compaction recovery to test and review phas,install,claude-sonnet-4-6,0.310002
+299,extend compaction recovery to test and review phas,plan,claude-opus-4-6,1.316734
+299,extend compaction recovery to test and review phas,scenario,claude-opus-4-6,1.844260
+299,extend compaction recovery to test and review phas,scenario,claude-haiku-4-5-20251001,0.040383
 
-Total Cost (USD):,228.9109
-Total Cost (EUR):,197.3949
+Total Cost (USD):,232.1123
+Total Cost (EUR):,200.1556
