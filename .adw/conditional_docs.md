@@ -375,3 +375,10 @@
     - When the "Unit tests passed!" message appears despite unit tests being disabled
     - When diagnosing stale-code issues from orchestrator startup logs (ADW version hash)
     - When working with `ReviewRetryResult` or `MergedReviewResult` interface shapes
+
+- app_docs/feature-wqzfqj-ensure-cron-before-webhook-gates.md
+  - Conditions:
+    - When working with `ensureCronProcess` placement in `trigger_webhook.ts`
+    - When troubleshooting the cron poller dying and not being respawned after non-actionable webhook events
+    - When modifying the `issue_comment` or `issues.opened` handler gate ordering in `trigger_webhook.ts`
+    - When adding new webhook event gates that could prevent `ensureCronProcess` from being reached
