@@ -243,20 +243,10 @@ adws/                   # ADW workflow system
 │   ├── prCommentDetector.ts
 │   ├── projectBoardApi.ts
 │   ├── proofCommentFormatter.ts
-│   ├── pullRequestCreator.ts
-│   ├── proofCommentFormatter.ts
 │   ├── workflowComments.ts
 │   ├── workflowCommentsBase.ts
 │   ├── workflowCommentsIssue.ts
 │   └── workflowCommentsPR.ts
-├── jsonl/              # JSONL schema validation and fixtures
-│   ├── fixtures/       # Reference JSONL fixtures for conformance checks
-│   ├── conformanceCheck.ts
-│   ├── fixtureUpdater.ts
-│   ├── index.ts
-│   ├── schema.json
-│   ├── schemaProbe.ts
-│   └── types.ts
 ├── vcs/                # Version control operations (git)
 │   ├── branchOperations.ts  # Branch management
 │   ├── commitOperations.ts  # Commit/push operations

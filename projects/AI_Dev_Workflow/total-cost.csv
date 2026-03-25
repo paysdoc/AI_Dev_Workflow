@@ -226,6 +226,14 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 280,jsonl schema probe ci conformance check,scenario,claude-opus-4-6,0.625446
 280,jsonl schema probe ci conformance check,scenario,claude-haiku-4-5-20251001,0.342336
 280,jsonl schema probe ci conformance check,step-def-gen,claude-sonnet-4-6,1.594376
+281,docker image for behavioral test isolation,build,claude-sonnet-4-6,4.484099
+281,docker image for behavioral test isolation,document,claude-sonnet-4-6,0.217550
+281,docker image for behavioral test isolation,install,claude-sonnet-4-6,0.304609
+281,docker image for behavioral test isolation,plan,claude-opus-4-6,0.543167
+281,docker image for behavioral test isolation,plan,claude-haiku-4-5-20251001,0.148161
+281,docker image for behavioral test isolation,review,claude-opus-4-6,2.749362
+281,docker image for behavioral test isolation,scenario,claude-opus-4-6,0.710989
+281,docker image for behavioral test isolation,step-def-gen,claude-sonnet-4-6,0.355378
 289,error in issue 288,build,claude-sonnet-4-6,0.310941
 289,error in issue 288,document,claude-sonnet-4-6,0.233395
 289,error in issue 288,install,claude-sonnet-4-6,0.495521
@@ -255,6 +263,26 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 295,fix issue status propagation pr routing and pr to ,review,claude-opus-4-6,2.385197
 295,fix issue status propagation pr routing and pr to ,scenario,claude-opus-4-6,1.298977
 295,fix issue status propagation pr routing and pr to ,step-def-gen,claude-sonnet-4-6,0.770174
+298,detect context compaction and restart build agent ,build,claude-sonnet-4-6,0.510604
+298,detect context compaction and restart build agent ,document,claude-sonnet-4-6,0.221524
+298,detect context compaction and restart build agent ,install,claude-sonnet-4-6,0.382838
+298,detect context compaction and restart build agent ,plan,claude-opus-4-6,0.850872
+298,detect context compaction and restart build agent ,plan,claude-haiku-4-5-20251001,0.133408
+298,detect context compaction and restart build agent ,review,claude-opus-4-6,1.428592
+298,detect context compaction and restart build agent ,scenario,claude-opus-4-6,0.767480
+298,detect context compaction and restart build agent ,scenario,claude-haiku-4-5-20251001,0.140917
+298,detect context compaction and restart build agent ,step-def-gen,claude-sonnet-4-6,0.729003
+299,extend compaction recovery to test and review phas,build,claude-sonnet-4-6,2.850575
+299,extend compaction recovery to test and review phas,build,claude-sonnet-4-6,3.503169
+299,extend compaction recovery to test and review phas,install,claude-sonnet-4-6,0.195881
+299,extend compaction recovery to test and review phas,install,claude-sonnet-4-6,0.310002
+299,extend compaction recovery to test and review phas,plan,claude-opus-4-6,1.316734
+299,extend compaction recovery to test and review phas,plan,claude-opus-4-6,1.300405
+299,extend compaction recovery to test and review phas,plan,claude-haiku-4-5-20251001,0.209965
+299,extend compaction recovery to test and review phas,scenario,claude-opus-4-6,1.844260
+299,extend compaction recovery to test and review phas,scenario,claude-haiku-4-5-20251001,0.040383
+299,extend compaction recovery to test and review phas,scenario,claude-opus-4-6,0.534245
+299,extend compaction recovery to test and review phas,scenario,claude-haiku-4-5-20251001,0.124425
 
-Total Cost (USD):,221.5329
-Total Cost (EUR):,191.0327
+Total Cost (USD):,248.4415
+Total Cost (EUR):,214.2366

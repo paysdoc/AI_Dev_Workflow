@@ -448,3 +448,11 @@
     - When modifying the `test:docker` or `test:docker:build` scripts in `package.json`
     - When adding the Docker runtime path to CI (`regression.yml` `runtime` input)
     - When troubleshooting `@docker-isolation` scenarios or the `adw-bdd-runner` image
+
+- app_docs/feature-9zcqhw-detect-compaction-restart-build-agent.md
+  - Conditions:
+    - When working with `agentProcessHandler.ts` stdout detection logic (auth errors, token limit, compaction)
+    - When the build agent is restarting unexpectedly or posting `compaction_recovery` comments
+    - When modifying `buildContinuationPrompt()` or the `buildPhase.ts` continuation while loop
+    - When adding a new `WorkflowStage` type or `STAGE_HEADER_MAP` entry in `workflowCommentParsing.ts`
+    - When troubleshooting `MAX_TOKEN_CONTINUATIONS` being exhausted due to repeated context compaction
