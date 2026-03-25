@@ -197,6 +197,9 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 277,regression periodic github action,plan,claude-opus-4-6,0.540311
 277,regression periodic github action,pr,claude-sonnet-4-6,0.062604
 278,application type config screenshot upload in revie,install,claude-sonnet-4-6,0.392957
+278,application type config screenshot upload in revie,review,claude-opus-4-6,5.563908
+278,application type config screenshot upload in revie,review,claude-sonnet-4-6,0.555336
+278,application type config screenshot upload in revie,review,claude-haiku-4-5-20251001,0.048859
 278,application type config screenshot upload in revie,step-def-gen,claude-sonnet-4-6,0.484023
 280,jsonl schema probe ci conformance check,build,claude-sonnet-4-6,1.508340
 280,jsonl schema probe ci conformance check,document,claude-sonnet-4-6,0.267596
@@ -226,5 +229,5 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 291,ensurecronprocess not called when webhook gates re,scenario,claude-opus-4-6,0.499400
 291,ensurecronprocess not called when webhook gates re,step-def-gen,claude-sonnet-4-6,0.156378
 
-Total Cost (USD):,194.7982
-Total Cost (EUR):,167.9788
+Total Cost (USD):,200.9663
+Total Cost (EUR):,173.2977
