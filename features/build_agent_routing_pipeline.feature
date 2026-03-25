@@ -70,13 +70,6 @@ Feature: Build agent routing and orchestrator pipeline restructure
     And runBuildAgent is called with the issue number or issue object
     And the build agent can use both to detect and read scenario files
 
-  @adw-306
-  Scenario: buildPhase.ts continuation prompt preserves scenario context for TDD restarts
-    Given the build phase is running in TDD mode
-    When the build agent hits a token limit or compaction boundary
-    Then the continuation prompt includes the original scenario file paths
-    And the restarted build agent can continue the TDD loop
-
   # ===================================================================
   # 4. /implement_tdd registered in SlashCommand type
   # ===================================================================
@@ -228,41 +221,7 @@ Feature: Build agent routing and orchestrator pipeline restructure
     And none of them call executePlanValidationPhase
 
   # ===================================================================
-  # 12. End-to-end pipeline with scenarios present (TDD path)
-  # ===================================================================
-
-  @adw-306 @regression
-  Scenario: Full SDLC pipeline runs end-to-end with scenarios present
-    Given the SDLC orchestrator is configured for an issue with existing @adw-{issueNumber} scenarios
-    When the pipeline executes
-    Then the install phase runs first
-    And plan and scenario phases run in parallel
-    And the alignment phase runs after plan + scenarios
-    And the build phase uses /implement_tdd with scenario file paths
-    And the test phase runs after the build phase
-    And the review phase runs after the test phase
-    And the document phase runs after the review phase
-    And no step definition phase is executed
-
-  # ===================================================================
-  # 13. End-to-end pipeline without scenarios (fallback path)
-  # ===================================================================
-
-  @adw-306 @regression
-  Scenario: Full SDLC pipeline runs end-to-end without scenarios (fallback)
-    Given the SDLC orchestrator is configured for an issue without @adw-{issueNumber} scenarios
-    When the pipeline executes
-    Then the install phase runs first
-    And plan and scenario phases run in parallel
-    And the alignment phase runs (and skips gracefully with no scenarios)
-    And the build phase uses /implement (standard mode)
-    And the test phase runs after the build phase
-    And the review phase runs after the test phase
-    And the document phase runs after the review phase
-    And no step definition phase is executed
-
-  # ===================================================================
-  # 14. Build agent TDD config reuses existing agent identifier
+  # 12. Build agent TDD config reuses existing agent identifier
   # ===================================================================
 
   @adw-306

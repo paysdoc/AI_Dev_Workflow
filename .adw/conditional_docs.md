@@ -488,3 +488,11 @@
     - When adding or modifying the red-green-refactor loop in autonomous build workflows
     - When troubleshooting step definition generation during the TDD build phase
     - When deciding whether to set `target: true` on a new skill for `adw_init` deployment
+
+- app_docs/feature-0s1m68-build-agent-routing-pipeline.md
+  - Conditions:
+    - When working with `buildAgent.ts` routing logic or `findScenarioFiles` integration
+    - When adding a new slash command that needs model/effort routing entries
+    - When modifying any scenario-aware orchestrator (`adwSdlc`, `adwPlanBuildReview`, `adwPlanBuildTestReview`) pipeline order
+    - When troubleshooting why the build agent is using `/implement` instead of `/implement_tdd` (or vice versa)
+    - When `executeStepDefPhase` or `executePlanValidationPhase` are referenced but not found in orchestrators
