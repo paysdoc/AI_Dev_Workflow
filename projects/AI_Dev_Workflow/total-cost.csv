@@ -293,6 +293,7 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 303,remove ungeneratable classification from step def ,alignment,claude-opus-4-6,0.257422
 303,remove ungeneratable classification from step def ,build,claude-sonnet-4-6,0.527263
 303,remove ungeneratable classification from step def ,build,claude-sonnet-4-6,1.292536
+303,remove ungeneratable classification from step def ,document,claude-sonnet-4-6,0.230517
 303,remove ungeneratable classification from step def ,install,claude-sonnet-4-6,0.353740
 303,remove ungeneratable classification from step def ,install,claude-sonnet-4-6,0.416738
 303,remove ungeneratable classification from step def ,install,claude-sonnet-4-6,0.426541
@@ -345,5 +346,5 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 307,review phase step definition independence check,step-def-gen,claude-sonnet-4-6,0.632139
 307,review phase step definition independence check,step-def-gen,claude-sonnet-4-6,0.248037
 
-Total Cost (USD):,308.6915
-Total Cost (EUR):,266.1914
+Total Cost (USD):,308.9220
+Total Cost (EUR):,266.3902
