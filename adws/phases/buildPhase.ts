@@ -62,7 +62,7 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
     if (repoContext) {
       postIssueStageComment(repoContext, issueNumber, 'implementing', ctx);
     }
-    log('Running Build Agent...', 'info');
+    log('Running Build Agent (scenario detection delegated to build agent)...', 'info');
 
     let currentPlanContent = planContent;
     let continuationNumber = 0;

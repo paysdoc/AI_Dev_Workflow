@@ -51,6 +51,7 @@ export type SlashCommand =
   | '/commit'
   | '/pull_request'
   | '/implement'
+  | '/implement_tdd'
   // Test commands
   | '/test'
   | '/resolve_failed_test'

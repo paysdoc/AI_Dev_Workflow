@@ -116,50 +116,44 @@ Feature: Step definition generation, review-first gating, and guidelines check
 
   # ── 6. Orchestrator phase ordering: review orchestrators ──
 
-  @adw-249 @adw-71pdjz-cache-install-contex @regression
-  Scenario: adwPlanBuildTestReview.tsx follows new phase ordering
+  @adw-249 @adw-71pdjz-cache-install-contex @adw-306
+  Scenario: adwPlanBuildTestReview.tsx follows post-306 phase ordering
     Given the file "adws/adwPlanBuildTestReview.tsx" exists
     Then the phase ordering should be:
       | phase              |
       | install            |
-      | plan               |
-      | scenarios          |
-      | plan validation    |
+      | plan + scenarios   |
+      | alignment          |
       | build              |
       | test               |
-      | step def gen       |
       | review             |
       | pr                 |
 
-  @adw-249 @adw-71pdjz-cache-install-contex @regression
-  Scenario: adwSdlc.tsx follows new phase ordering
+  @adw-249 @adw-71pdjz-cache-install-contex @adw-306
+  Scenario: adwSdlc.tsx follows post-306 phase ordering
     Given the file "adws/adwSdlc.tsx" exists
     Then the phase ordering should be:
       | phase              |
       | install            |
-      | plan               |
-      | scenarios          |
-      | plan validation    |
+      | plan + scenarios   |
+      | alignment          |
       | build              |
       | test               |
-      | step def gen       |
       | review             |
       | document           |
       | pr                 |
       | kpi                |
 
-  @adw-249 @adw-71pdjz-cache-install-contex @regression
-  Scenario: adwPlanBuildReview.tsx follows new phase ordering
+  @adw-249 @adw-71pdjz-cache-install-contex @adw-306
+  Scenario: adwPlanBuildReview.tsx follows post-306 phase ordering
     Given the file "adws/adwPlanBuildReview.tsx" exists
     Then the phase ordering should be:
       | phase              |
       | install            |
-      | plan               |
-      | scenarios          |
-      | plan validation    |
+      | plan + scenarios   |
+      | alignment          |
       | build              |
       | test               |
-      | step def gen       |
       | review             |
       | pr                 |
 

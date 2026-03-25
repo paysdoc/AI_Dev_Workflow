@@ -18,7 +18,9 @@ function readProjectFile(relPath: string): string {
 const PHASE_FUNCTION_MAP: Record<string, string> = {
   'install': 'executeInstallPhase',
   'plan': 'executePlanPhase',
+  'plan + scenarios': 'executePlanPhase',  // parallel execution via runPhasesParallel([executePlanPhase, executeScenarioPhase])
   'scenarios': 'executeScenarioPhase',
+  'alignment': 'executeAlignmentPhase',
   'plan validation': 'executeAlignmentPhase',
   'build': 'executeBuildPhase',
   'test': 'executeTestPhase',
