@@ -84,22 +84,27 @@ Then('it should allow modifying existing step definition files', function () {
   );
 });
 
-Then('it should instruct removing scenarios that require runtime infrastructure, mocked LLMs, or external services', function () {
+Then('it should instruct generating step definitions for every tagged scenario without classification', function () {
   const content = sharedCtx.fileContent;
   assert.ok(
-    content.includes('Ungeneratable') || content.includes('ungeneratable'),
-    `Expected "${sharedCtx.filePath}" to classify ungeneratable scenarios`,
+    !content.includes('Ungeneratable') && !content.includes('ungeneratable'),
+    `Expected "${sharedCtx.filePath}" not to classify scenarios as ungeneratable`,
   );
   assert.ok(
-    content.includes('Remove') || content.includes('remove'),
-    `Expected "${sharedCtx.filePath}" to instruct removing ungeneratable scenarios`,
+    content.includes('setupMockInfrastructure') || content.includes('test harness') || content.includes('mock infrastructure'),
+    `Expected "${sharedCtx.filePath}" to document the test harness infrastructure`,
   );
 });
 
-Then('it should instruct returning the list of removed scenarios in the output', function () {
+Then('it should instruct returning an empty removedScenarios array in the output', function () {
+  const content = sharedCtx.fileContent;
   assert.ok(
-    sharedCtx.fileContent.includes('removedScenarios'),
+    content.includes('removedScenarios'),
     `Expected "${sharedCtx.filePath}" to include removedScenarios in output`,
+  );
+  assert.ok(
+    content.includes('removedScenarios": []') || content.includes("removedScenarios: []") || content.includes('always be an empty array'),
+    `Expected "${sharedCtx.filePath}" to specify removedScenarios is always an empty array`,
   );
 });
 
