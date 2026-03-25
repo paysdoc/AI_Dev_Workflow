@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value          | Last Updated       |
 | ----------------- | -------------- | ------------------ |
-| Current Streak    | 38             | 2026-03-25 10:54:26|
-| Longest Streak    | 38             | 2026-03-25 10:54:26|
-| Total Plan Size   | 441 lines      | 2026-03-25 10:54:26|
-| Largest Plan Size | 201 lines      | 2026-03-25 10:54:26|
-| Total Diff Size   | 1410115 lines  | 2026-03-25 10:54:26|
-| Largest Diff Size | 205468 lines   | 2026-03-25 10:54:26|
-| Average Presence  | 1.51           | 2026-03-25 10:54:26|
+| Current Streak    | 39             | 2026-03-25 13:08:08|
+| Longest Streak    | 39             | 2026-03-25 13:08:08|
+| Total Plan Size   | 441 lines      | 2026-03-25 13:08:08|
+| Largest Plan Size | 201 lines      | 2026-03-25 13:08:08|
+| Total Diff Size   | 1411540 lines  | 2026-03-25 13:08:08|
+| Largest Diff Size | 205468 lines   | 2026-03-25 13:08:08|
+| Average Presence  | 1.50           | 2026-03-25 13:08:08|
 
 ## ADW KPIs
 
@@ -71,3 +71,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-03-25 | 8fns89-error-in-issue-288   | 289          | /bug        | 1        | 0                 | 552/7317/70                     | 2026-03-25 | 2026-03-25 |
 | 2026-03-25 | x4wwk7-application-type-con | 278          | /feature    | 2        | 0                 | 1833/7321/83                    | 2026-03-25 | 2026-03-25 |
 | 2026-03-25 | wqzfqj-ensurecronprocess-no | 291          | /bug        | 1        | 0                 | 968/7325/77                     | 2026-03-25 | 2026-03-25 |
+| 2026-03-25 | 7sunv4-fix-issue-status-pro | 295          | /bug        | 1        | 0                 | 959/466/22                      | 2026-03-25 | 2026-03-25 |
