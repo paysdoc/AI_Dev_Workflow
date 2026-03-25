@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value          | Last Updated       |
 | ----------------- | -------------- | ------------------ |
-| Current Streak    | 39             | 2026-03-25 13:08:08|
-| Longest Streak    | 39             | 2026-03-25 13:08:08|
-| Total Plan Size   | 441 lines      | 2026-03-25 13:08:08|
-| Largest Plan Size | 201 lines      | 2026-03-25 13:08:08|
-| Total Diff Size   | 1411540 lines  | 2026-03-25 13:08:08|
-| Largest Diff Size | 205468 lines   | 2026-03-25 13:08:08|
-| Average Presence  | 1.50           | 2026-03-25 13:08:08|
+| Current Streak    | 63             | 2026-03-25 13:43:35|
+| Longest Streak    | 63             | 2026-03-25 13:43:35|
+| Total Plan Size   | 441 lines      | 2026-03-25 13:43:35|
+| Largest Plan Size | 201 lines      | 2026-03-25 13:43:35|
+| Total Diff Size   | 1414388 lines  | 2026-03-25 13:43:35|
+| Largest Diff Size | 205468 lines   | 2026-03-25 13:43:35|
+| Average Presence  | 1.47           | 2026-03-25 13:43:35|
 
 ## ADW KPIs
 
@@ -72,3 +72,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-03-25 | x4wwk7-application-type-con | 278          | /feature    | 2        | 0                 | 1833/7321/83                    | 2026-03-25 | 2026-03-25 |
 | 2026-03-25 | wqzfqj-ensurecronprocess-no | 291          | /bug        | 1        | 0                 | 968/7325/77                     | 2026-03-25 | 2026-03-25 |
 | 2026-03-25 | 7sunv4-fix-issue-status-pro | 295          | /bug        | 1        | 0                 | 959/466/22                      | 2026-03-25 | 2026-03-25 |
+| 2026-03-25 | 6bi1qq-fixture-target-repo  | 279          | /feature    | 1        | 0                 | 2610/238/44                     | 2026-03-25 | 2026-03-25 |
