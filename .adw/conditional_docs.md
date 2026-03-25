@@ -472,3 +472,11 @@
     - When implementing or modifying the plan-scenario alignment gate between planning and build
     - When troubleshooting the `/align_plan_scenarios` slash command or its JSON output parsing
     - When adding new workflow stages related to plan-scenario alignment
+
+- app_docs/feature-aym0n5-create-implement-tdd.md
+  - Conditions:
+    - When working with the `/implement_tdd` skill or `.claude/skills/implement-tdd/`
+    - When wiring the TDD build agent into an orchestrator (replacing `/implement` with `/implement_tdd`)
+    - When adding or modifying the red-green-refactor loop in autonomous build workflows
+    - When troubleshooting step definition generation during the TDD build phase
+    - When deciding whether to set `target: true` on a new skill for `adw_init` deployment

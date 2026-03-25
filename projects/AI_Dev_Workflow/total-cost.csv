@@ -290,8 +290,46 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 299,extend compaction recovery to test and review phas,scenario,claude-haiku-4-5-20251001,0.124425
 299,extend compaction recovery to test and review phas,step-def-gen,claude-sonnet-4-6,3.116679
 299,extend compaction recovery to test and review phas,step-def-gen,claude-sonnet-4-6,2.590701
+303,remove ungeneratable classification from step def ,build,claude-sonnet-4-6,0.527263
+303,remove ungeneratable classification from step def ,install,claude-sonnet-4-6,0.353740
+303,remove ungeneratable classification from step def ,install,claude-sonnet-4-6,0.416738
+303,remove ungeneratable classification from step def ,install,claude-sonnet-4-6,0.426541
+303,remove ungeneratable classification from step def ,plan,claude-opus-4-6,0.715450
+303,remove ungeneratable classification from step def ,plan,claude-opus-4-6,0.690090
+303,remove ungeneratable classification from step def ,review,claude-opus-4-6,1.978317
+303,remove ungeneratable classification from step def ,scenario,claude-opus-4-6,0.722457
+303,remove ungeneratable classification from step def ,scenario,claude-opus-4-6,0.633051
+303,remove ungeneratable classification from step def ,scenario,claude-haiku-4-5-20251001,0.119734
+303,remove ungeneratable classification from step def ,step-def-gen,claude-sonnet-4-6,0.948882
+304,create implement tdd skill with core tdd workflow,build,claude-sonnet-4-6,0.468995
+304,create implement tdd skill with core tdd workflow,document,claude-sonnet-4-6,0.245391
 304,create implement tdd skill with core tdd workflow,install,claude-sonnet-4-6,0.275102
+304,create implement tdd skill with core tdd workflow,install,claude-sonnet-4-6,0.995076
+304,create implement tdd skill with core tdd workflow,plan,claude-opus-4-6,0.660145
+304,create implement tdd skill with core tdd workflow,plan,claude-haiku-4-5-20251001,0.117525
+304,create implement tdd skill with core tdd workflow,review,claude-opus-4-6,1.711862
+304,create implement tdd skill with core tdd workflow,scenario,claude-opus-4-6,0.570800
+304,create implement tdd skill with core tdd workflow,scenario,claude-haiku-4-5-20251001,0.037991
+304,create implement tdd skill with core tdd workflow,step-def-gen,claude-sonnet-4-6,0.517947
+305,single pass alignment command phase replaces plan ,build,claude-sonnet-4-6,2.918879
+305,single pass alignment command phase replaces plan ,document,claude-sonnet-4-6,0.250883
+305,single pass alignment command phase replaces plan ,install,claude-sonnet-4-6,2.939524
+305,single pass alignment command phase replaces plan ,install,claude-sonnet-4-6,0.288730
+305,single pass alignment command phase replaces plan ,plan,claude-haiku-4-5-20251001,0.345433
+305,single pass alignment command phase replaces plan ,plan,claude-opus-4-6,1.101640
+305,single pass alignment command phase replaces plan ,review,claude-opus-4-6,1.717834
+305,single pass alignment command phase replaces plan ,scenario,claude-opus-4-6,0.820791
+305,single pass alignment command phase replaces plan ,step-def-gen,claude-sonnet-4-6,1.463934
+307,review phase step definition independence check,build,claude-sonnet-4-6,0.713374
+307,review phase step definition independence check,document,claude-sonnet-4-6,0.399042
 307,review phase step definition independence check,install,claude-sonnet-4-6,0.283197
+307,review phase step definition independence check,install,claude-sonnet-4-6,0.282980
+307,review phase step definition independence check,plan,claude-opus-4-6,0.793046
+307,review phase step definition independence check,review,claude-opus-4-6,7.454624
+307,review phase step definition independence check,review,claude-sonnet-4-6,1.833816
+307,review phase step definition independence check,scenario,claude-opus-4-6,0.489819
+307,review phase step definition independence check,step-def-gen,claude-sonnet-4-6,0.632139
+307,review phase step definition independence check,step-def-gen,claude-sonnet-4-6,0.248037
 
-Total Cost (USD):,261.3630
-Total Cost (EUR):,225.3791
+Total Cost (USD):,298.9156
+Total Cost (EUR):,257.7615

@@ -1,0 +1,12 @@
+workflow_id,issue_number,phase,model,provider,computed_cost_usd,reported_cost_usd,status,retry_count,continuation_count,duration_ms,timestamp,estimated_tokens,actual_tokens,input,output,cache_read,cache_write,reasoning
+5oiek8-remove-ungeneratable,303,install,claude-sonnet-4-6,anthropic,0.353740,0.353740,success,0,0,77951,2026-03-25T13:56:17.538Z,,,326,2797,362998,53842,0
+p6ud7v-remove-ungeneratable,303,install,claude-sonnet-4-6,anthropic,0.416738,0.416738,success,0,0,151637,2026-03-25T13:57:34.989Z,,,327,7630,411944,47393,0
+5oiek8-remove-ungeneratable,303,plan,claude-opus-4-6,anthropic,0.715450,0.715450,success,0,0,180692,2026-03-25T13:59:24.002Z,,,955,6709,445163,51259,0
+5oiek8-remove-ungeneratable,303,scenario,claude-opus-4-6,anthropic,0.722457,0.722457,success,0,0,149103,2026-03-25T13:58:54.915Z,,,19,5858,585712,45289,0
+p6ud7v-remove-ungeneratable,303,plan,claude-opus-4-6,anthropic,0.690090,0.690090,success,0,0,180294,2026-03-25T14:00:40.766Z,,,9,7696,295177,56009,0
+p6ud7v-remove-ungeneratable,303,scenario,claude-opus-4-6,anthropic,0.633051,0.633051,success,0,0,288643,2026-03-25T14:02:30.455Z,,,12,6535,369645,45567,0
+p6ud7v-remove-ungeneratable,303,scenario,claude-haiku-4-5-20251001,anthropic,0.119734,0.119734,success,0,0,288643,2026-03-25T14:02:30.455Z,,,25,11029,318075,26205,0
+p6ud7v-remove-ungeneratable,303,build,claude-sonnet-4-6,anthropic,0.527263,0.527263,success,0,0,385049,2026-03-25T14:09:01.093Z,,,9,17094,281602,49692,0
+jsbua8-remove-ungeneratable,303,install,claude-sonnet-4-6,anthropic,0.426541,0.426541,success,0,0,133692,2026-03-25T15:15:41.981Z,,,12,5488,419258,58242,0
+jsbua8-remove-ungeneratable,303,step-def-gen,claude-sonnet-4-6,anthropic,0.948882,0.948882,success,0,0,461724,2026-03-25T15:23:33.585Z,,,1448,28774,862036,67818,0
+jsbua8-remove-ungeneratable,303,review,claude-opus-4-6,anthropic,1.978317,1.978317,success,0,0,203715,2026-03-25T15:27:03.483Z,,,1558,27000,974728,129306,0
