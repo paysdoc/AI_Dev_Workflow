@@ -182,14 +182,28 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 275,mock infrastructure claude cli stub github api moc,scenario,claude-haiku-4-5-20251001,0.164289
 275,mock infrastructure claude cli stub github api moc,step-def-gen,claude-sonnet-4-6,2.461533
 275,mock infrastructure claude cli stub github api moc,step-def-gen,claude-sonnet-4-6,0.536473
+276,wire proof data into structured issue comments,build,claude-sonnet-4-6,2.786549
+276,wire proof data into structured issue comments,document,claude-sonnet-4-6,0.257333
 276,wire proof data into structured issue comments,install,claude-sonnet-4-6,0.333729
+276,wire proof data into structured issue comments,kpi,claude-haiku-4-5-20251001,0.105786
 276,wire proof data into structured issue comments,plan,claude-opus-4-6,1.336844
+276,wire proof data into structured issue comments,pr,claude-sonnet-4-6,0.092346
+276,wire proof data into structured issue comments,review,claude-opus-4-6,1.555131
 276,wire proof data into structured issue comments,scenario,claude-opus-4-6,0.513313
 276,wire proof data into structured issue comments,scenario,claude-haiku-4-5-20251001,0.202663
+276,wire proof data into structured issue comments,step-def-gen,claude-sonnet-4-6,0.521803
 277,regression periodic github action,build,claude-sonnet-4-6,0.132209
 277,regression periodic github action,install,claude-sonnet-4-6,0.293780
 277,regression periodic github action,plan,claude-opus-4-6,0.540311
 277,regression periodic github action,pr,claude-sonnet-4-6,0.062604
+278,application type config screenshot upload in revie,document,claude-sonnet-4-6,0.239721
+278,application type config screenshot upload in revie,install,claude-sonnet-4-6,0.392957
+278,application type config screenshot upload in revie,kpi,claude-haiku-4-5-20251001,0.078987
+278,application type config screenshot upload in revie,pr,claude-sonnet-4-6,0.132915
+278,application type config screenshot upload in revie,review,claude-opus-4-6,5.563908
+278,application type config screenshot upload in revie,review,claude-sonnet-4-6,0.555336
+278,application type config screenshot upload in revie,review,claude-haiku-4-5-20251001,0.048859
+278,application type config screenshot upload in revie,step-def-gen,claude-sonnet-4-6,0.484023
 280,jsonl schema probe ci conformance check,build,claude-sonnet-4-6,1.508340
 280,jsonl schema probe ci conformance check,document,claude-sonnet-4-6,0.267596
 280,jsonl schema probe ci conformance check,install,claude-sonnet-4-6,0.281592
@@ -201,6 +215,26 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 280,jsonl schema probe ci conformance check,scenario,claude-opus-4-6,0.625446
 280,jsonl schema probe ci conformance check,scenario,claude-haiku-4-5-20251001,0.342336
 280,jsonl schema probe ci conformance check,step-def-gen,claude-sonnet-4-6,1.594376
+289,error in issue 288,build,claude-sonnet-4-6,0.310941
+289,error in issue 288,document,claude-sonnet-4-6,0.233395
+289,error in issue 288,install,claude-sonnet-4-6,0.495521
+289,error in issue 288,kpi,claude-haiku-4-5-20251001,0.102556
+289,error in issue 288,plan,claude-haiku-4-5-20251001,0.331153
+289,error in issue 288,plan,claude-opus-4-6,2.973749
+289,error in issue 288,pr,claude-sonnet-4-6,0.088007
+289,error in issue 288,review,claude-opus-4-6,1.334351
+289,error in issue 288,scenario,claude-opus-4-6,1.340422
+289,error in issue 288,scenario,claude-haiku-4-5-20251001,0.476562
+289,error in issue 288,step-def-gen,claude-sonnet-4-6,1.199329
+291,ensurecronprocess not called when webhook gates re,build,claude-sonnet-4-6,0.583988
+291,ensurecronprocess not called when webhook gates re,document,claude-sonnet-4-6,0.202088
+291,ensurecronprocess not called when webhook gates re,install,claude-sonnet-4-6,0.429428
+291,ensurecronprocess not called when webhook gates re,kpi,claude-haiku-4-5-20251001,0.139589
+291,ensurecronprocess not called when webhook gates re,plan,claude-opus-4-6,0.676941
+291,ensurecronprocess not called when webhook gates re,pr,claude-sonnet-4-6,0.080637
+291,ensurecronprocess not called when webhook gates re,review,claude-opus-4-6,0.941798
+291,ensurecronprocess not called when webhook gates re,scenario,claude-opus-4-6,0.499400
+291,ensurecronprocess not called when webhook gates re,step-def-gen,claude-sonnet-4-6,0.156378
 
-Total Cost (USD):,177.3702
-Total Cost (EUR):,152.9589
+Total Cost (USD):,202.7820
+Total Cost (EUR):,174.8634

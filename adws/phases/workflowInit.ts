@@ -3,6 +3,7 @@
  * detects recovery mode, and returns a WorkflowConfig for all subsequent phases.
  */
 
+import { execSync } from 'child_process';
 import {
   log,
   setLogAdwId,
@@ -120,6 +121,12 @@ export async function initializeWorkflow(
   log(`${orchestratorName}`, 'info');
   log(`Issue: #${issueNumber}`, 'info');
   log(`ADW ID: ${resolvedAdwId}`, 'info');
+  try {
+    const commitHash = execSync('git rev-parse --short HEAD', { encoding: 'utf-8' }).trim();
+    log(`ADW version: ${commitHash}`, 'info');
+  } catch {
+    // Not in a git repo or git unavailable — skip version logging
+  }
   log('===================================', 'info');
 
   // Classify issue type

@@ -368,6 +368,21 @@
     - When troubleshooting optional tag skipping or `{issueNumber}` substitution in tag patterns
     - When updating the `/review` slash command's severity reading logic
 
+- app_docs/feature-8fns89-fix-bdd-scenarios-failure.md
+  - Conditions:
+    - When troubleshooting BDD scenarios failing immediately in the review phase with "undefined steps"
+    - When `regressionScenarioProof.ts` or `runScenarioProof()` exits early before step definitions exist
+    - When the "Unit tests passed!" message appears despite unit tests being disabled
+    - When diagnosing stale-code issues from orchestrator startup logs (ADW version hash)
+    - When working with `ReviewRetryResult` or `MergedReviewResult` interface shapes
+
+- app_docs/feature-wqzfqj-ensure-cron-before-webhook-gates.md
+  - Conditions:
+    - When working with `ensureCronProcess` placement in `trigger_webhook.ts`
+    - When troubleshooting the cron poller dying and not being respawned after non-actionable webhook events
+    - When modifying the `issue_comment` or `issues.opened` handler gate ordering in `trigger_webhook.ts`
+    - When adding new webhook event gates that could prevent `ensureCronProcess` from being reached
+
 - app_docs/feature-ekd5o1-wire-proof-comment-formatter.md
   - Conditions:
     - When working with `proofCommentFormatter.ts` or `formatReviewProofComment()`

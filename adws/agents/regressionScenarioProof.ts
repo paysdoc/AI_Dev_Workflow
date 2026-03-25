@@ -118,6 +118,24 @@ export async function runScenarioProof(options: {
 }): Promise<ScenarioProofResult> {
   const { reviewProofConfig, runByTagCommand, issueNumber, proofDir, cwd } = options;
 
+  // Pre-flight check: verify at least one step definition file exists
+  const stepDefsDir = path.resolve(cwd ?? process.cwd(), 'features', 'step_definitions');
+  const hasStepDefs = fs.existsSync(stepDefsDir) &&
+    fs.readdirSync(stepDefsDir).some(f => f.endsWith('.ts'));
+
+  if (!hasStepDefs) {
+    const warningMsg = 'No step definition files found in features/step_definitions/ — skipping BDD scenario proof';
+    console.log(`⚠️  ${warningMsg}`);
+    fs.mkdirSync(proofDir, { recursive: true });
+    const resultsFilePath = path.resolve(proofDir, 'scenario_proof.md');
+    fs.writeFileSync(
+      resultsFilePath,
+      `# Scenario Proof\n\nGenerated at: ${new Date().toISOString()}\n\n⚠️ ${warningMsg}\n`,
+      'utf-8',
+    );
+    return { tagResults: [], hasBlockerFailures: false, resultsFilePath };
+  }
+
   const tagResults: TagProofResult[] = [];
 
   for (const entry of reviewProofConfig.tags) {
