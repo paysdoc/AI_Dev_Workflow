@@ -1,0 +1,2 @@
+workflow_id,issue_number,phase,model,provider,computed_cost_usd,reported_cost_usd,status,retry_count,continuation_count,duration_ms,timestamp,estimated_tokens,actual_tokens,input,output,cache_read,cache_write,reasoning
+9zcqhw-detect-context-compa,298,install,claude-sonnet-4-6,anthropic,0.382838,0.382838,success,0,0,99524,2026-03-25T11:49:06.989Z,,,243,5168,418960,47707,0
