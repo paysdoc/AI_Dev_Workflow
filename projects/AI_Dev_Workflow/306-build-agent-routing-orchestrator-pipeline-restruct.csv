@@ -9,3 +9,4 @@ workflow_id,issue_number,phase,model,provider,computed_cost_usd,reported_cost_us
 0s1m68-build-agent-routing,306,review,claude-opus-4-6,anthropic,1.048549,1.048549,success,0,0,99203,2026-03-25T21:28:15.858Z,,,157,13752,387827,81608,0
 0s1m68-build-agent-routing,306,document,claude-sonnet-4-6,anthropic,0.269823,0.269823,success,0,0,97549,2026-03-25T21:29:59.189Z,,,8,3812,181641,42167,0
 0s1m68-build-agent-routing,306,pr,claude-sonnet-4-6,anthropic,0.067501,0.067501,success,0,0,29260,2026-03-25T21:30:34.135Z,,,4,947,28062,11964,0
+0s1m68-build-agent-routing,306,kpi,claude-haiku-4-5-20251001,anthropic,0.130295,0.130295,success,0,0,125188,2026-03-25T21:32:44.896Z,,,37,15664,157013,28989,0
