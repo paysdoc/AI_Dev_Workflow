@@ -7,3 +7,4 @@ workflow_id,issue_number,phase,model,provider,computed_cost_usd,reported_cost_us
 aym0n5-create-implement-tdd,304,install,claude-sonnet-4-6,anthropic,0.995076,0.995076,success,0,0,364550,2026-03-25T15:18:33.596Z,,,31,14839,1714199,68837,0
 aym0n5-create-implement-tdd,304,build,claude-sonnet-4-6,anthropic,0.468995,0.468995,success,0,0,237505,2026-03-25T15:22:38.442Z,,,21,8805,678820,35523,0
 aym0n5-create-implement-tdd,304,step-def-gen,claude-sonnet-4-6,anthropic,0.517947,0.517947,success,0,0,240795,2026-03-25T15:26:49.065Z,,,15,13001,513376,45033,0
+aym0n5-create-implement-tdd,304,review,claude-opus-4-6,anthropic,1.711862,1.711862,success,0,0,184820,2026-03-25T15:30:00.141Z,,,1279,23925,780309,114750,0
