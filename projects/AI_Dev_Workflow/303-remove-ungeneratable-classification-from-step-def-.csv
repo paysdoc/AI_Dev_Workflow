@@ -6,3 +6,4 @@ p6ud7v-remove-ungeneratable,303,install,claude-sonnet-4-6,anthropic,0.416738,0.4
 p6ud7v-remove-ungeneratable,303,plan,claude-opus-4-6,anthropic,0.690090,0.690090,success,0,0,180294,2026-03-25T14:00:40.766Z,,,9,7696,295177,56009,0
 p6ud7v-remove-ungeneratable,303,scenario,claude-opus-4-6,anthropic,0.633051,0.633051,success,0,0,288643,2026-03-25T14:02:30.455Z,,,12,6535,369645,45567,0
 p6ud7v-remove-ungeneratable,303,scenario,claude-haiku-4-5-20251001,anthropic,0.119734,0.119734,success,0,0,288643,2026-03-25T14:02:30.455Z,,,25,11029,318075,26205,0
+p6ud7v-remove-ungeneratable,303,build,claude-sonnet-4-6,anthropic,0.527263,0.527263,success,0,0,385049,2026-03-25T14:09:01.093Z,,,9,17094,281602,49692,0
