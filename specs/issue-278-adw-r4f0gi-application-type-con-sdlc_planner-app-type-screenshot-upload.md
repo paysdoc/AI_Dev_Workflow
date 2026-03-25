@@ -121,7 +121,6 @@ Execute every step in order, top to bottom.
 - `allScreenshots` contains non-image files (e.g., `.md` scenario proof paths) → filter to only image extensions before upload
 - `allScreenshots` is empty even for `web` type → skip upload gracefully, no error
 - R2 upload fails for one screenshot → log warning but continue uploading remaining screenshots; do not fail the workflow
-- `repoContext` is undefined → skip upload (no owner/repo info available)
 - Screenshot file path doesn't exist on disk → skip that file with a warning log
 
 ## Acceptance Criteria
