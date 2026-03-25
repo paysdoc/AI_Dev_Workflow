@@ -206,6 +206,15 @@ Then('it should instruct the agent to use mock infrastructure for scenarios requ
 
 // ── 3. removedScenarios backward compatibility ───────────────────────────────
 
+Then('the output format should remain valid JSON without markdown fences', function () {
+  const content = sharedCtx.fileContent;
+  // The output section should describe returning JSON and mention no markdown fences
+  assert.ok(
+    content.includes('no markdown fences') || content.includes('no prose') || content.includes('Return ONLY the following JSON'),
+    `Expected "${sharedCtx.filePath}" to describe output format as valid JSON without markdown fences`,
+  );
+});
+
 Then('the output JSON schema should contain a {string} field', function (field: string) {
   assert.ok(
     sharedCtx.fileContent.includes(field),
@@ -218,6 +227,16 @@ Then('the output instructions should specify that {string} is always an empty ar
   assert.ok(
     content.includes('always be an empty array') || content.includes(`"${field}": []`) || content.includes(`${field}: []`),
     `Expected "${sharedCtx.filePath}" to specify that "${field}" is always an empty array`,
+  );
+});
+
+// ── 4. Existing command structure preserved ───────────────────────────────────
+
+Then('it should instruct reading {string} for the scenario directory path', function (configFile: string) {
+  const content = sharedCtx.fileContent;
+  assert.ok(
+    content.includes(configFile),
+    `Expected "${sharedCtx.filePath}" to instruct reading "${configFile}" for the scenario directory path`,
   );
 });
 

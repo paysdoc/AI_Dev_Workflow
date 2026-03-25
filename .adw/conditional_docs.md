@@ -488,3 +488,11 @@
     - When adding or modifying the red-green-refactor loop in autonomous build workflows
     - When troubleshooting step definition generation during the TDD build phase
     - When deciding whether to set `target: true` on a new skill for `adw_init` deployment
+
+- app_docs/feature-y55dlm-remove-ungeneratable-step-def-classification.md
+  - Conditions:
+    - When working with the `/generate_step_definitions` command
+    - When modifying or extending step definition generation behavior
+    - When a scenario requires runtime infrastructure (mock servers, LLM stubs, git remotes) and you need to generate step definitions for it
+    - When troubleshooting why `removedScenarios` is always empty in step def agent output
+    - When modifying `adws/phases/stepDefPhase.ts` or `adws/agents/stepDefAgent.ts`
