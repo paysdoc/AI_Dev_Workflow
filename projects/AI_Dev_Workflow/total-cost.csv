@@ -260,6 +260,7 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 295,fix issue status propagation pr routing and pr to ,scenario,claude-opus-4-6,1.298977
 295,fix issue status propagation pr routing and pr to ,step-def-gen,claude-sonnet-4-6,0.770174
 298,detect context compaction and restart build agent ,build,claude-sonnet-4-6,0.510604
+298,detect context compaction and restart build agent ,document,claude-sonnet-4-6,0.221524
 298,detect context compaction and restart build agent ,install,claude-sonnet-4-6,0.382838
 298,detect context compaction and restart build agent ,plan,claude-opus-4-6,0.850872
 298,detect context compaction and restart build agent ,plan,claude-haiku-4-5-20251001,0.133408
@@ -268,5 +269,5 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 298,detect context compaction and restart build agent ,scenario,claude-haiku-4-5-20251001,0.140917
 298,detect context compaction and restart build agent ,step-def-gen,claude-sonnet-4-6,0.729003
 
-Total Cost (USD):,228.1835
-Total Cost (EUR):,196.7677
+Total Cost (USD):,228.4051
+Total Cost (EUR):,196.9587
