@@ -6,7 +6,9 @@ import { WorkflowStage, IssueClassSlashCommand, log, type CostBreakdown, formatC
 import { commentOnIssue, type RepoInfo } from './githubApi';
 import { ADW_SIGNATURE, truncateText, formatRunningTokenFooter } from '../core/workflowCommentParsing';
 import type { ReviewIssue } from '../agents/reviewAgent';
+import type { ScenarioProofResult } from '../agents/regressionScenarioProof';
 import type { PhaseCostRecord } from '../cost/types';
+import { formatReviewProofComment, type ProofCommentInput } from './proofCommentFormatter';
 
 /** Context information for issue workflow comments. */
 export interface WorkflowContext {
@@ -53,6 +55,14 @@ export interface WorkflowContext {
   runningTokenTotal?: { inputTokens: number; outputTokens: number; cacheCreationTokens: number; total: number; isEstimated?: boolean; modelBreakdown: Array<{ model: string; total: number }> };
   /** Public URLs of screenshots uploaded to R2 (set when applicationType is 'web'). */
   screenshotUrls?: string[];
+  /** Scenario proof result from the final review iteration. */
+  scenarioProof?: ScenarioProofResult;
+  /** Non-blocker issues (tech-debt, skippable) from the review. */
+  nonBlockerIssues?: ReviewIssue[];
+  /** All review agent summaries across iterations. */
+  allSummaries?: string[];
+  /** Screenshot URLs from review iterations (passed through for future formatter use). */
+  allScreenshots?: string[];
 }
 
 const issueTypeLabels: Record<IssueClassSlashCommand, string> = {
@@ -174,6 +184,19 @@ function formatScreenshotSection(screenshotUrls: string[]): string {
 }
 
 function formatReviewPassedComment(ctx: WorkflowContext): string {
+  if (ctx.scenarioProof) {
+    const input: ProofCommentInput = {
+      passed: true,
+      reviewSummary: ctx.reviewSummary,
+      scenarioProof: ctx.scenarioProof,
+      blockerIssues: [],
+      nonBlockerIssues: ctx.nonBlockerIssues ?? [],
+      allSummaries: ctx.allSummaries,
+    };
+    const body = formatReviewProofComment(input);
+    return `${body}\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+  }
+  // Fallback: simple format for repos without scenario proof
   const summary = ctx.reviewSummary
     ? `\n\n${truncateText(ctx.reviewSummary, 2000)}`
     : '';
@@ -188,6 +211,20 @@ function formatReviewPassedComment(ctx: WorkflowContext): string {
 }
 
 function formatReviewFailedComment(ctx: WorkflowContext): string {
+  if (ctx.scenarioProof) {
+    const blockers = (ctx.reviewIssues ?? []).filter(i => i.issueSeverity === 'blocker');
+    const input: ProofCommentInput = {
+      passed: false,
+      reviewSummary: ctx.reviewSummary,
+      scenarioProof: ctx.scenarioProof,
+      blockerIssues: blockers,
+      nonBlockerIssues: ctx.nonBlockerIssues ?? [],
+      allSummaries: ctx.allSummaries,
+    };
+    const body = formatReviewProofComment(input);
+    return `${body}\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+  }
+  // Fallback: simple format for repos without scenario proof
   const blockers = (ctx.reviewIssues ?? []).filter(i => i.issueSeverity === 'blocker');
   const blockerList = blockers.length > 0
     ? `\n\n**Remaining blocker issues (${blockers.length}):**\n${blockers.map(formatReviewIssueItem).join('\n')}`

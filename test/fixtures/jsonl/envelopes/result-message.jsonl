@@ -1,0 +1,1 @@
+{"type":"result","subtype":"success","isError":false,"durationMs":5000,"durationApiMs":4500,"numTurns":3,"result":"Task completed successfully.","sessionId":"stub-session-001","total_cost_usd":0.05,"modelUsage":{"claude-sonnet-4-6":{"inputTokens":1000,"outputTokens":500,"cacheReadInputTokens":500,"cacheCreationInputTokens":0,"costUSD":0.05}}}

@@ -383,3 +383,36 @@
     - When modifying `WorkflowContext.screenshotUrls` or the screenshot section in review comments
     - When adding a new target repo and need to set `## Application Type` in `.adw/project.md`
     - When troubleshooting screenshots not appearing in issue comments for web-type applications
+
+- app_docs/feature-ekd5o1-wire-proof-comment-formatter.md
+  - Conditions:
+    - When working with `proofCommentFormatter.ts` or `formatReviewProofComment()`
+    - When modifying `formatReviewPassedComment()` or `formatReviewFailedComment()` in `workflowCommentsIssue.ts`
+    - When extending `WorkflowContext` with new proof-related fields
+    - When adding new sections to review proof GitHub comments (verification, screenshots, etc.)
+    - When troubleshooting proof data not appearing in `review_passed` or `review_failed` issue comments
+    - When wiring `nonBlockerIssues`, `scenarioProof`, or `allSummaries` through the review phase pipeline
+
+- app_docs/feature-02r4w9-jsonl-schema-probe-ci-check.md
+  - Conditions:
+    - When working with `adws/jsonl/` module (schemaProbe, conformanceCheck, fixtureUpdater)
+    - When adding or modifying JSONL fixture files in `adws/jsonl/fixtures/`
+    - When running or troubleshooting `bun run jsonl:check` in CI
+    - When the Claude CLI JSONL output schema changes and fixtures need updating
+    - When implementing new parsers that depend on the JSONL envelope structure
+
+- app_docs/feature-lnef5d-mock-infrastructure-layer.md
+  - Conditions:
+    - When working with `test/mocks/` (Claude CLI stub, GitHub API mock server, git remote mock, test harness)
+    - When writing or modifying Cucumber BDD scenarios that require mocked external services
+    - When adding new GitHub API endpoints to the mock server route table
+    - When troubleshooting `@mock-infrastructure` or `@regression` scenario failures
+    - When configuring `MOCK_FIXTURE_PATH`, `MOCK_STREAM_DELAY_MS`, `GH_HOST`, or `CLAUDE_CODE_PATH` for test runs
+    - When extending mock fixtures in `test/fixtures/jsonl/` or `test/fixtures/github/`
+
+- app_docs/feature-tdlgz7-fix-boardstatus-invalid-values.md
+  - Conditions:
+    - When working with `BoardStatus` enum in `adws/providers/types.ts`
+    - When adding or removing project board status transitions in `buildPhase.ts` or `testPhase.ts`
+    - When troubleshooting `moveToStatus()` calls that silently fail due to unmatched board column names
+    - When the GitHub project board columns change and enum values need to stay in sync
