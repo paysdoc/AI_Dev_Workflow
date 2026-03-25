@@ -302,6 +302,7 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 303,remove ungeneratable classification from step def ,scenario,claude-opus-4-6,0.633051
 303,remove ungeneratable classification from step def ,scenario,claude-haiku-4-5-20251001,0.119734
 303,remove ungeneratable classification from step def ,step-def-gen,claude-sonnet-4-6,0.948882
+303,remove ungeneratable classification from step def ,step-def-gen,claude-sonnet-4-6,0.281966
 304,create implement tdd skill with core tdd workflow,build,claude-sonnet-4-6,0.468995
 304,create implement tdd skill with core tdd workflow,document,claude-sonnet-4-6,0.245391
 304,create implement tdd skill with core tdd workflow,install,claude-sonnet-4-6,0.275102
@@ -332,5 +333,5 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 307,review phase step definition independence check,step-def-gen,claude-sonnet-4-6,0.632139
 307,review phase step definition independence check,step-def-gen,claude-sonnet-4-6,0.248037
 
-Total Cost (USD):,299.2014
-Total Cost (EUR):,258.0079
+Total Cost (USD):,299.4833
+Total Cost (EUR):,258.2511
