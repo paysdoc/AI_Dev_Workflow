@@ -432,3 +432,11 @@
     - When issues are not transitioning to "Review" status after PR creation
     - When modifying `extractIssueNumberFromBranch()` or webhook PR-to-issue linking in `webhookHandlers.ts`
     - When implementing or updating `MergeRequestResult` in provider implementations
+
+- app_docs/feature-6bi1qq-fixture-repo-test-harness.md
+  - Conditions:
+    - When working with `test/fixtures/cli-tool/` or the fixture target repo structure
+    - When using or extending `setupFixtureRepo()` / `teardownFixtureRepo()` in test harness setup
+    - When writing BDD scenarios that need a real git-initialized working directory
+    - When troubleshooting `@review-harness` or `@adw-6bi1qq-fixture-target-repo` scenario failures
+    - When adding new fixture repos under `test/fixtures/` for behavioral testing
