@@ -3,7 +3,6 @@
  *
  * Contains event handler functions extracted from trigger_webhook.ts:
  * - handlePullRequestEvent
- * - extractIssueNumberFromPRBody
  */
 
 import { existsSync } from 'fs';
@@ -36,34 +35,16 @@ export function wasMergedViaPR(issueNumber: number): boolean {
 }
 
 /**
- * Extracts issue number from PR body using the "Implements #N" pattern.
- * Returns null if no issue link is found.
- */
-export function extractIssueNumberFromPRBody(body: string | null): number | null {
-  if (!body) {
-    return null;
-  }
-  const match = body.match(/Implements #(\d+)/);
-  return match ? parseInt(match[1], 10) : null;
-}
-
-/**
- * Extracts issue number from a branch name.
- * Tries the legacy "issue-N" pattern first (e.g., feature/issue-42-slug),
- * then falls back to the ADW branch format {type}-{issueNumber}-{adwId}-{slug}
- * (e.g., bugfix-233-y000tl-fix-issue).
- * Returns null if neither pattern matches or input is falsy.
+ * Extracts issue number from a branch name using the "issue-N" pattern.
+ * All ADW branches follow the format {prefix}/issue-{number}-{slug}.
+ * Returns null if the pattern does not match or input is falsy.
  */
 export function extractIssueNumberFromBranch(branchName: string | null | undefined): number | null {
   if (!branchName) {
     return null;
   }
-  const legacyMatch = branchName.match(/issue-(\d+)/);
-  if (legacyMatch) {
-    return parseInt(legacyMatch[1], 10);
-  }
-  const adwMatch = branchName.match(/^(?:feat|feature|bug|bugfix|chore|fix|hotfix)-(\d+)-/);
-  return adwMatch ? parseInt(adwMatch[1], 10) : null;
+  const match = branchName.match(/issue-(\d+)/);
+  return match ? parseInt(match[1], 10) : null;
 }
 
 /**
@@ -84,7 +65,6 @@ export async function handlePullRequestEvent(payload: PullRequestWebhookPayload)
   const prNumber = pull_request.number;
   const prUrl = pull_request.html_url;
   const wasMerged = pull_request.merged;
-  const prBody = pull_request.body;
   const headBranch = pull_request.head?.ref;
   const workspacePath = getTargetRepoWorkspacePath(repository.owner.login, repository.name);
   const targetCwd = existsSync(workspacePath) ? workspacePath : undefined;
@@ -111,18 +91,14 @@ export async function handlePullRequestEvent(payload: PullRequestWebhookPayload)
     }
   }
 
-  // Extract issue number from PR body, falling back to branch name
-  const issueNumber = extractIssueNumberFromPRBody(prBody) ?? extractIssueNumberFromBranch(headBranch);
+  // Extract issue number from branch name (sole mechanism — branch names are deterministic)
+  const issueNumber = extractIssueNumberFromBranch(headBranch);
   if (issueNumber === null) {
-    log(`No issue link found in PR #${prNumber} body (no "Implements #N" pattern)`);
+    log(`No issue link found in PR #${prNumber} (no \`issue-N\` pattern in branch name: ${headBranch})`);
     return { status: 'ignored' };
   }
 
-  if (!extractIssueNumberFromPRBody(prBody)) {
-    log(`Found linked issue #${issueNumber} from branch name: ${headBranch}`);
-  } else {
-    log(`Found linked issue #${issueNumber} in PR #${prNumber}`);
-  }
+  log(`Found linked issue #${issueNumber} from branch name: ${headBranch}`);
 
   // Build repo info from the webhook payload so API calls target the correct repo
   const repoInfo: RepoInfo = {

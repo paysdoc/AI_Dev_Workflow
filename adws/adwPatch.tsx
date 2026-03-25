@@ -33,7 +33,10 @@ import {
 } from './core';
 import { mergeModelUsageMaps, persistTokenCounts } from './cost';
 import { fetchGitHubIssue } from './github';
-import { getCurrentBranch, inferIssueTypeFromBranch } from './vcs';
+import { getCurrentBranch, inferIssueTypeFromBranch, pushBranch } from './vcs';
+import { getDefaultBranch } from './vcs/branchOperations';
+import { createGitHubCodeHost } from './providers/github/githubCodeHost';
+import { Platform } from './providers/types';
 import {
   runPatchAgent,
   runBuildAgent,
@@ -167,12 +170,25 @@ async function main(): Promise<void> {
     }
     persistTokenCounts(orchestratorStatePath, totalCostUsd, totalModelUsage);
 
+    // Push branch and create PR programmatically
+    const { prContent } = prResult;
+    pushBranch(branchName, cwd || undefined);
+    const defaultBranch = getDefaultBranch(cwd || undefined);
+    const codeHost = createGitHubCodeHost({ owner, repo, platform: Platform.GitHub });
+    const mrResult = codeHost.createMergeRequest({
+      title: prContent.title,
+      body: prContent.body,
+      sourceBranch: branchName,
+      targetBranch: defaultBranch,
+      linkedIssueNumber: issueNumber,
+    });
+
     AgentStateManager.writeState(orchestratorStatePath, {
       execution: AgentStateManager.completeExecution(
         AgentStateManager.createExecutionState('running'),
         true,
       ),
-      metadata: { totalCostUsd, prUrl: prResult.prUrl },
+      metadata: { totalCostUsd, prUrl: mrResult.url },
     });
     AgentStateManager.appendLog(orchestratorStatePath, 'Patch workflow completed successfully');
 
@@ -180,8 +196,8 @@ async function main(): Promise<void> {
     log('ADW Patch workflow completed!', 'success');
     log(`Issue: #${issueNumber} - ${issue.title}`, 'info');
     log(`ADW ID: ${adwId}`, 'info');
-    if (prResult.prUrl) {
-      log(`PR: ${prResult.prUrl}`, 'info');
+    if (mrResult.url) {
+      log(`PR: ${mrResult.url}`, 'info');
     }
     log(`Logs: ${logsDir}`, 'info');
     if (totalCostUsd > 0) {

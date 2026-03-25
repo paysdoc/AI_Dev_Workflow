@@ -7,6 +7,7 @@ import {
   type CodeHost,
   type CreateMROptions,
   type MergeRequest,
+  type MergeRequestResult,
   type RepoIdentifier,
   type ReviewComment,
   validateRepoIdentifier,
@@ -68,15 +69,15 @@ export class GitLabCodeHost implements CodeHost {
     return [...mrs].map(mapGitLabMRToMergeRequest);
   }
 
-  /** Creates a merge request and returns its URL. */
-  createMergeRequest(options: CreateMROptions): string {
+  /** Creates a merge request and returns its URL and number. */
+  createMergeRequest(options: CreateMROptions): MergeRequestResult {
     const mr = this.client.createMergeRequest(this.projectPath, {
       source_branch: options.sourceBranch,
       target_branch: options.targetBranch,
       title: options.title,
       description: options.body,
     });
-    return mr.web_url;
+    return { url: mr.web_url, number: mr.iid };
   }
 }
 

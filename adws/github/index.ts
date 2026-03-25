@@ -23,9 +23,6 @@ export {
   type RepoInfo,
 } from './githubApi';
 
-// Pull Request Creator
-export { createPullRequest } from './pullRequestCreator';
-
 // Project Board API
 export { moveIssueToStatus } from './projectBoardApi';
 

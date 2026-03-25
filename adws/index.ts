@@ -89,7 +89,6 @@ export {
   fetchIssueCommentsRest,
   deleteIssueComment,
   type RepoInfo,
-  createPullRequest,
   getLastAdwCommitTimestamp,
   getUnaddressedComments,
   hasUnaddressedComments,

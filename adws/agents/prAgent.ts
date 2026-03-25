@@ -1,6 +1,7 @@
 /**
- * PR Agent - Pull request creation via Claude skills.
+ * PR Agent - Pull request content generation via Claude skills.
  * Uses the /pull_request slash command from .claude/commands/pull_request.md
+ * The agent generates PR title and body as JSON; the caller handles git push and PR creation.
  */
 
 import { runCommandAgent, type CommandAgentConfig } from './commandAgent';
@@ -9,26 +10,54 @@ import { getDefaultBranch } from '../vcs/branchOperations';
 import { refreshTokenIfNeeded } from '../github/githubAppAuth';
 
 /**
- * Extracts the PR URL from the agent's output.
- * The skill returns ONLY the PR URL.
+ * Structured PR content returned by the agent.
  */
-function extractPrUrlFromOutput(output: string): string {
-  const trimmed = output.trim();
-  const lines = trimmed.split('\n').filter(line => line.trim());
-  const lastLine = lines[lines.length - 1]?.trim() ?? '';
-  const urlMatch = lastLine.match(/https:\/\/github\.com\/[^\s)]+\/pull\/\d+/);
-  return urlMatch ? urlMatch[0] : lastLine;
+export interface PrContent {
+  title: string;
+  body: string;
 }
 
-const prAgentConfig: CommandAgentConfig<string> = {
+/**
+ * Extracts PR title and body from the agent's JSON output.
+ * Handles markdown code fences. Falls back to first-line title + remaining body
+ * if JSON parsing fails.
+ */
+function extractPrContentFromOutput(output: string): PrContent {
+  const trimmed = output.trim();
+
+  // Strip markdown code fences if present
+  const fenceStripped = trimmed.replace(/^```(?:json)?\s*/m, '').replace(/\s*```\s*$/m, '').trim();
+
+  // Find the first JSON object in the output
+  const jsonMatch = fenceStripped.match(/\{[\s\S]*\}/);
+  if (jsonMatch) {
+    try {
+      const parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
+      if (typeof parsed.title === 'string' && typeof parsed.body === 'string') {
+        return { title: parsed.title, body: parsed.body };
+      }
+    } catch {
+      // Fall through to fallback
+    }
+  }
+
+  // Fallback: first non-empty line as title, rest as body
+  const lines = trimmed.split('\n').filter(line => line.trim());
+  const title = lines[0]?.trim() ?? '';
+  const body = lines.slice(1).join('\n').trim();
+  return { title, body };
+}
+
+const prAgentConfig: CommandAgentConfig<PrContent> = {
   command: '/pull_request',
   agentName: 'Pull Request',
   outputFileName: 'pr-agent.jsonl',
-  extractOutput: extractPrUrlFromOutput,
+  extractOutput: extractPrContentFromOutput,
 };
 
 /**
- * Runs the /pull_request skill to create a pull request.
+ * Runs the /pull_request skill to generate PR title and body as structured JSON.
+ * The caller is responsible for pushing the branch and creating the PR programmatically.
  *
  * @param branchName - Branch to create PR from
  * @param issueJson - JSON string of the GitHub issue
@@ -52,7 +81,7 @@ export async function runPullRequestAgent(
   issueBody?: string,
   repoOwner?: string,
   repoName?: string,
-): Promise<AgentResult & { prUrl: string }> {
+): Promise<AgentResult & { prContent: PrContent }> {
   refreshTokenIfNeeded();
   const defaultBranch = getDefaultBranch(cwd);
   const args = [branchName, issueJson, planFile, adwId, defaultBranch, repoOwner ?? '', repoName ?? ''];
@@ -64,5 +93,5 @@ export async function runPullRequestAgent(
     statePath,
     cwd,
   });
-  return { ...result, prUrl: result.parsed };
+  return { ...result, prContent: result.parsed };
 }

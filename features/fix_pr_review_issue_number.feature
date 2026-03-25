@@ -13,10 +13,11 @@ Feature: Fix issue number resolution in PR review workflow and serialise cost CS
 
   # ── 1: Branch-name fallback for issue number extraction ────────────────────
 
-  @adw-233 @regression
-  Scenario: extractIssueNumberFromBranch matches ADW branch format
+  @adw-233 @adw-7sunv4-fix-issue-status-pro @regression
+  Scenario: extractIssueNumberFromBranch uses only issue-N pattern after PR linking simplification
     Given "adws/triggers/webhookHandlers.ts" is read
-    Then extractIssueNumberFromBranch matches ADW-style branches like "feature-42-abcd1234-slug"
+    Then extractIssueNumberFromBranch matches branches containing "issue-(\d+)"
+    And extractIssueNumberFromBranch does not contain the ADW branch format regex
 
   @adw-233 @regression
   Scenario: extractIssueNumberFromBranch still matches legacy issue-N pattern

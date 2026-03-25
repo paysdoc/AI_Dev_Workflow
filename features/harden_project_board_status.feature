@@ -73,10 +73,11 @@ Feature: Harden project board status propagation
     Given "adws/phases/testPhase.ts" is read
     Then the file contains "InProgress"
 
-  @adw-wrzj5j-harden-project-board @regression
-  Scenario: prPhase.ts does not contain a moveToStatus call
+  @adw-wrzj5j-harden-project-board @adw-7sunv4-fix-issue-status-pro @regression
+  Scenario: prPhase.ts calls moveToStatus with Review after successful PR creation
     Given "adws/phases/prPhase.ts" is read
-    Then the file does not contain "moveToStatus"
+    Then the file contains "moveToStatus"
+    And the file contains "BoardStatus.Review"
 
   # ── E: BoardStatus enum ───────────────────────────────────────────────────────
 
