@@ -1,0 +1,2 @@
+workflow_id,issue_number,phase,model,provider,computed_cost_usd,reported_cost_usd,status,retry_count,continuation_count,duration_ms,timestamp,estimated_tokens,actual_tokens,input,output,cache_read,cache_write,reasoning
+dfrwyt-unit-test-support-in,308,install,claude-sonnet-4-6,anthropic,0.498561,0.498561,success,0,0,175121,2026-03-25T22:00:54.404Z,,,329,6948,571481,59176,0
