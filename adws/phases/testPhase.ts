@@ -89,13 +89,13 @@ export async function executeTestPhase(config: WorkflowConfig): Promise<{
       });
       process.exit(1);
     }
+
+    log('Unit tests passed!', 'success');
+    AgentStateManager.appendLog(orchestratorStatePath, 'Unit tests passed');
   } else {
     log('Unit tests disabled — skipping', 'info');
     AgentStateManager.appendLog(orchestratorStatePath, 'Unit tests disabled — skipping');
   }
-
-  log('Unit tests passed!', 'success');
-  AgentStateManager.appendLog(orchestratorStatePath, 'Unit tests passed');
 
   const phaseCostRecords = createPhaseCostRecords({
     workflowId: adwId,
