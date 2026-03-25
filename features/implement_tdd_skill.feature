@@ -82,6 +82,16 @@ Feature: /implement_tdd skill with core TDD workflow
     Then it references test harness or mock infrastructure for step definitions
     And it acknowledges that step definitions may need runtime support from the test harness
 
+  # --- Unit test conditional logic ---
+
+  @adw-304-implement-tdd
+  Scenario: SKILL.md includes conditional unit test instructions based on project config
+    Given the file ".claude/skills/implement-tdd/SKILL.md" is read
+    When the content is inspected
+    Then it contains instructions to check ".adw/project.md" for unit test configuration
+    And it describes writing unit tests when unit tests are enabled
+    And it describes skipping unit tests when unit tests are disabled
+
   # --- Verification frequency ---
 
   @adw-304-implement-tdd
