@@ -14,3 +14,4 @@ u7lut9-extend-compaction-re,299,step-def-gen,claude-sonnet-4-6,anthropic,3.11667
 u7lut9-extend-compaction-re,299,review,claude-opus-4-6,anthropic,3.729052,3.729052,success,0,0,385675,2026-03-25T13:15:34.891Z,,,5352,37126,1856084,295376,0
 l9w3wm-extend-compaction-re,299,step-def-gen,claude-sonnet-4-6,anthropic,2.590701,2.590701,success,0,0,1149132,2026-03-25T13:17:09.086Z,,,27,75922,2963724,150046,0
 u7lut9-extend-compaction-re,299,document,claude-sonnet-4-6,anthropic,0.317841,0.317841,success,0,0,119565,2026-03-25T13:17:40.417Z,,,44,4035,266705,47246,0
+u7lut9-extend-compaction-re,299,pr,claude-sonnet-4-6,anthropic,0.087931,0.087931,success,0,0,43903,2026-03-25T13:18:29.804Z,,,4,1906,26837,13674,0
