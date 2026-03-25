@@ -1,4 +1,4 @@
-@adw-yxq5og-review-phase-step-de
+@adw-307 @adw-yxq5og-review-phase-step-de
 Feature: Review phase step definition independence verification
 
   The review phase must verify that step definitions generated during the build
