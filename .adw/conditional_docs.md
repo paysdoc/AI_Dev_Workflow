@@ -464,3 +464,11 @@
     - When adding `test_compaction_recovery` or `review_compaction_recovery` stage comments
     - When troubleshooting test or review agents restarting due to context compaction
     - When extending `RetryConfig` or `RetryResult` with new continuation-tracking fields
+
+- app_docs/feature-irs6vj-single-pass-alignment-phase.md
+  - Conditions:
+    - When working with `executeAlignmentPhase` in `adws/phases/alignmentPhase.ts`
+    - When modifying `runAlignmentAgent` or `parseAlignmentResult` in `adws/agents/alignmentAgent.ts`
+    - When implementing or modifying the plan-scenario alignment gate between planning and build
+    - When troubleshooting the `/align_plan_scenarios` slash command or its JSON output parsing
+    - When adding new workflow stages related to plan-scenario alignment

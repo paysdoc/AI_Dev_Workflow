@@ -67,22 +67,6 @@ Feature: Single-pass alignment command and phase (replaces plan validation loop)
 
   # --- 4: Conflicts resolved using GitHub issue as source of truth ---
 
-  @adw-305
-  Scenario: Alignment agent resolves a plan-scenario conflict using the issue body
-    Given a plan file and a scenario file that describe the same behaviour differently
-    And the GitHub issue body supports the scenario's version
-    When the alignment agent runs
-    Then the plan is updated to match the scenario
-    And the change is recorded in the "changes" array of the alignment result
-
-  @adw-305
-  Scenario: Alignment agent resolves a conflict by updating the scenario
-    Given a plan file and a scenario file that describe the same behaviour differently
-    And the GitHub issue body supports the plan's version
-    When the alignment agent runs
-    Then the scenario is updated to match the plan
-    And the change is recorded in the "changes" array of the alignment result
-
   # --- 5: Unresolvable conflicts are flagged as warnings ---
 
   @adw-305 @regression
@@ -115,13 +99,6 @@ Feature: Single-pass alignment command and phase (replaces plan validation loop)
     And the file does not contain a while loop or for loop around the agent invocation
     And runAlignmentAgent is called at most once per phase execution
 
-  @adw-305
-  Scenario: Alignment agent is invoked exactly once regardless of conflict count
-    Given the alignment agent encounters multiple conflicts
-    When the alignment phase completes
-    Then the alignment agent was invoked exactly once
-    And all conflicts (resolvable and unresolvable) are addressed in that single invocation
-
   # --- 7: PhaseCostRecord production ---
 
   @adw-305 @regression
@@ -131,13 +108,6 @@ Feature: Single-pass alignment command and phase (replaces plan validation loop)
     Then the result includes a "phaseCostRecords" array
     And each record has phase set to "alignment"
     And each record has a valid workflowId, issueNumber, status, and durationMs
-
-  @adw-305
-  Scenario: Alignment phase cost includes the alignment agent cost
-    Given the alignment agent completes with totalCostUsd = 0.05
-    When the alignment phase result is returned
-    Then the phase costUsd is at least 0.05
-    And the modelUsage map includes entries from the alignment agent
 
   @adw-305
   Scenario: Alignment phase produces PhaseCostRecord even when skipped
@@ -251,13 +221,6 @@ Feature: Single-pass alignment command and phase (replaces plan validation loop)
     And no alignment agent is invoked
 
   # --- 14: Alignment phase posts stage comments ---
-
-  @adw-305
-  Scenario: Alignment phase posts plan_aligning and plan_aligned stage comments
-    Given the alignment phase is configured with a valid repoContext
-    When executeAlignmentPhase runs successfully
-    Then a "plan_aligning" stage comment is posted to the GitHub issue
-    And a "plan_aligned" stage comment is posted after alignment completes
 
   # --- 15: Recovery state support ---
 

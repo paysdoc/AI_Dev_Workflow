@@ -387,3 +387,303 @@ Given('the ADW codebase with alignment phase implemented', function () {
     'Expected adws/phases/alignmentPhase.ts to exist',
   );
 });
+
+// ── /align_plan_scenarios command: JSON output requirements ───────────────────
+
+Then('the command instructions require the agent to output a JSON object as its final message', function () {
+  const content = sharedCtx.fileContent;
+  assert.ok(
+    content.includes('JSON') && (content.includes('final message') || content.includes('last message') || content.includes('ONLY a raw JSON')),
+    `Expected "${sharedCtx.filePath}" to instruct the agent to output a raw JSON object as its final message`,
+  );
+});
+
+Then('the JSON object must include "aligned", "warnings", "changes", and "summary" fields', function () {
+  const content = sharedCtx.fileContent;
+  for (const field of ['aligned', 'warnings', 'changes', 'summary']) {
+    assert.ok(content.includes(field), `Expected "${sharedCtx.filePath}" to mention field "${field}"`);
+  }
+});
+
+// ── /align_plan_scenarios command: issue as source of truth ──────────────────
+
+Then('the command instructions state the GitHub issue is the sole arbiter of truth', function () {
+  const content = sharedCtx.fileContent;
+  assert.ok(
+    content.includes('ARBITER') || content.includes('arbiter') || content.includes('SOLE'),
+    `Expected "${sharedCtx.filePath}" to state the GitHub issue is the sole arbiter of truth`,
+  );
+});
+
+Then('conflict resolution favours the issue body over both the plan and scenarios', function () {
+  const content = sharedCtx.fileContent;
+  assert.ok(
+    content.includes('issue') && content.includes('conflict'),
+    `Expected "${sharedCtx.filePath}" to describe conflict resolution favouring the issue body`,
+  );
+});
+
+// ── Alignment phase: single agent invocation ──────────────────────────────────
+
+Given('the alignment phase has discovered the plan file and scenario files', function () {
+  local.alignmentPhaseContent = readAlignmentPhase();
+  sharedCtx.fileContent = local.alignmentPhaseContent;
+  sharedCtx.filePath = 'adws/phases/alignmentPhase.ts';
+});
+
+When('the alignment agent is run', function () {
+  // Context only — assertions happen in Then steps (code inspection)
+});
+
+Then('runAlignmentAgent is called exactly once', function () {
+  const content = local.alignmentPhaseContent;
+  const awaitCalls = (content.match(/await runAlignmentAgent/g) || []).length;
+  assert.strictEqual(
+    awaitCalls,
+    1,
+    `Expected runAlignmentAgent to be called exactly once, found ${awaitCalls} await call(s)`,
+  );
+});
+
+Then('the agent receives the plan file path, worktree path, and issue JSON', function () {
+  const content = local.alignmentPhaseContent;
+  assert.ok(content.includes('planFilePath'), 'Expected alignmentPhase.ts to pass planFilePath to runAlignmentAgent');
+  assert.ok(content.includes('worktreePath'), 'Expected alignmentPhase.ts to pass worktreePath to runAlignmentAgent');
+  assert.ok(
+    content.includes('JSON.stringify(issue)') || content.includes('issueJson'),
+    'Expected alignmentPhase.ts to pass issue JSON to runAlignmentAgent',
+  );
+});
+
+// ── Unresolvable conflicts: inline HTML warning comments ──────────────────────
+
+Given('the alignment agent encounters an unresolvable conflict', function () {
+  const filePath = join(ROOT, '.claude/commands/align_plan_scenarios.md');
+  assert.ok(existsSync(filePath), 'Expected .claude/commands/align_plan_scenarios.md to exist');
+  sharedCtx.fileContent = readFileSync(filePath, 'utf-8');
+  sharedCtx.filePath = '.claude/commands/align_plan_scenarios.md';
+});
+
+When('the alignment agent updates the plan file', function () {
+  // Context only — assertions happen in Then steps (code inspection)
+});
+
+Then('the plan contains an inline {string} comment at the relevant location', function (commentPrefix: string) {
+  const content = sharedCtx.fileContent;
+  assert.ok(
+    content.includes(commentPrefix),
+    `Expected "${sharedCtx.filePath}" to describe inserting "${commentPrefix}" comments for unresolvable conflicts`,
+  );
+});
+
+// ── PhaseCostRecord when skipped (no plan file) ───────────────────────────────
+
+Given('the plan file does not exist for the given issue', function () {
+  local.alignmentPhaseContent = readAlignmentPhase();
+  sharedCtx.fileContent = local.alignmentPhaseContent;
+  sharedCtx.filePath = 'adws/phases/alignmentPhase.ts';
+});
+
+Then('the phase returns phaseCostRecords with status {string}', function (status: string) {
+  const content = local.alignmentPhaseContent;
+  assert.ok(
+    content.includes('PhaseCostStatus.Success') || content.includes(`'${status}'`) || content.includes(`"${status}"`),
+    `Expected alignmentPhase.ts to return phaseCostRecords with status "${status}"`,
+  );
+});
+
+Then('the costUsd is 0', function () {
+  const content = local.alignmentPhaseContent;
+  assert.ok(
+    content.includes('let costUsd = 0') || content.includes('costUsd = 0') || content.includes('costUsd: 0'),
+    'Expected alignmentPhase.ts to initialize costUsd to 0 for skip paths',
+  );
+});
+
+// ── Orchestrator integration: called after parallel + before build ────────────
+
+Then('executeAlignmentPhase is called after the parallel plan + scenario phase', function () {
+  const content = sharedCtx.fileContent;
+  const parallelIdx = content.indexOf('runPhasesParallel');
+  const alignmentIdx = findFunctionUsageIndex(content, 'executeAlignmentPhase');
+  assert.ok(parallelIdx !== -1, `Expected "${sharedCtx.filePath}" to call runPhasesParallel for plan+scenario`);
+  assert.ok(alignmentIdx !== -1, `Expected "${sharedCtx.filePath}" to call executeAlignmentPhase`);
+  assert.ok(
+    alignmentIdx > parallelIdx,
+    `Expected executeAlignmentPhase to come after runPhasesParallel in "${sharedCtx.filePath}"`,
+  );
+});
+
+Then('executeAlignmentPhase is called before executeBuildPhase', function () {
+  const content = sharedCtx.fileContent;
+  const alignmentIdx = findFunctionUsageIndex(content, 'executeAlignmentPhase');
+  const buildIdx = findFunctionUsageIndex(content, 'executeBuildPhase');
+  assert.ok(alignmentIdx !== -1, `Expected "${sharedCtx.filePath}" to call executeAlignmentPhase`);
+  assert.ok(buildIdx !== -1, `Expected "${sharedCtx.filePath}" to call executeBuildPhase`);
+  assert.ok(
+    buildIdx > alignmentIdx,
+    `Expected executeBuildPhase to come after executeAlignmentPhase in "${sharedCtx.filePath}"`,
+  );
+});
+
+// ── STAGE_HEADER_MAP and STAGE_ORDER ─────────────────────────────────────────
+
+Then('the STAGE_HEADER_MAP maps a header to {string}', function (stage: string) {
+  const content = sharedCtx.fileContent;
+  assert.ok(
+    content.includes(`'${stage}'`) || content.includes(`"${stage}"`),
+    `Expected "${sharedCtx.filePath}" STAGE_HEADER_MAP to include a mapping to "${stage}"`,
+  );
+});
+
+Then('the STAGE_ORDER array includes {string}', function (stage: string) {
+  const content = sharedCtx.fileContent;
+  assert.ok(
+    content.includes(`'${stage}'`) || content.includes(`"${stage}"`),
+    `Expected "${sharedCtx.filePath}" STAGE_ORDER to include "${stage}"`,
+  );
+});
+
+Then('{string} appears after {string} and before {string}', function (target: string, after: string, before: string) {
+  const content = sharedCtx.fileContent;
+  const idx = (s: string) => {
+    const single = content.indexOf(`'${s}'`);
+    return single !== -1 ? single : content.indexOf(`"${s}"`);
+  };
+  const targetIdx = idx(target);
+  const afterIdx = idx(after);
+  const beforeIdx = idx(before);
+  assert.ok(targetIdx !== -1, `Expected "${sharedCtx.filePath}" to include "${target}"`);
+  assert.ok(afterIdx !== -1, `Expected "${sharedCtx.filePath}" to include "${after}"`);
+  assert.ok(beforeIdx !== -1, `Expected "${sharedCtx.filePath}" to include "${before}"`);
+  assert.ok(
+    afterIdx < targetIdx && targetIdx < beforeIdx,
+    `Expected "${target}" to appear after "${after}" and before "${before}" in "${sharedCtx.filePath}"`,
+  );
+});
+
+// ── AlignmentResult interface fields ─────────────────────────────────────────
+
+Then('AlignmentResult includes field {string} of type boolean', function (fieldName: string) {
+  const content = sharedCtx.fileContent;
+  assert.ok(
+    content.includes(`${fieldName}: boolean`) || content.includes(`${fieldName}?: boolean`),
+    `Expected "${sharedCtx.filePath}" AlignmentResult to include field "${fieldName}" of type boolean`,
+  );
+});
+
+Then('AlignmentResult includes field {string} as an array of strings', function (fieldName: string) {
+  const content = sharedCtx.fileContent;
+  assert.ok(
+    content.includes(`${fieldName}: string[]`) || content.includes(`${fieldName}?: string[]`),
+    `Expected "${sharedCtx.filePath}" AlignmentResult to include field "${fieldName}" as string[]`,
+  );
+});
+
+Then('AlignmentResult includes field {string} of type string', function (fieldName: string) {
+  const content = sharedCtx.fileContent;
+  assert.ok(
+    content.includes(`${fieldName}: string`) || content.includes(`${fieldName}?: string`),
+    `Expected "${sharedCtx.filePath}" AlignmentResult to include field "${fieldName}" of type string`,
+  );
+});
+
+// ── Model routing specifics ───────────────────────────────────────────────────
+
+Then('SLASH_COMMAND_MODEL_MAP maps {string} to {string}', function (command: string, model: string) {
+  const content = sharedCtx.fileContent;
+  const cmdIdx = content.indexOf(`'${command}'`);
+  assert.ok(cmdIdx !== -1, `Expected "${sharedCtx.filePath}" SLASH_COMMAND_MODEL_MAP to include "${command}"`);
+  const nearbyContent = content.substring(cmdIdx, cmdIdx + 60);
+  assert.ok(
+    nearbyContent.includes(`'${model}'`) || nearbyContent.includes(`"${model}"`),
+    `Expected SLASH_COMMAND_MODEL_MAP to map "${command}" to "${model}"`,
+  );
+});
+
+Then('SLASH_COMMAND_EFFORT_MAP maps {string} to {string}', function (command: string, effort: string) {
+  const content = sharedCtx.fileContent;
+  const effortMapIdx = content.indexOf('SLASH_COMMAND_EFFORT_MAP');
+  assert.ok(effortMapIdx !== -1, `Expected "${sharedCtx.filePath}" to define SLASH_COMMAND_EFFORT_MAP`);
+  const effortSection = content.substring(effortMapIdx);
+  const cmdIdx = effortSection.indexOf(`'${command}'`);
+  assert.ok(cmdIdx !== -1, `Expected SLASH_COMMAND_EFFORT_MAP to include "${command}"`);
+  const nearbyContent = effortSection.substring(cmdIdx, cmdIdx + 60);
+  assert.ok(
+    nearbyContent.includes(`'${effort}'`) || nearbyContent.includes(`"${effort}"`),
+    `Expected SLASH_COMMAND_EFFORT_MAP to map "${command}" to "${effort}"`,
+  );
+});
+
+// ── Skip gracefully: no plan file ────────────────────────────────────────────
+
+Given('no plan file exists for the current issue', function () {
+  local.alignmentPhaseContent = readAlignmentPhase();
+  sharedCtx.fileContent = local.alignmentPhaseContent;
+  sharedCtx.filePath = 'adws/phases/alignmentPhase.ts';
+});
+
+Then('the phase logs {string} and returns', function (logMessage: string) {
+  const content = local.alignmentPhaseContent;
+  assert.ok(
+    content.includes(logMessage),
+    `Expected alignmentPhase.ts to log "${logMessage}" and return early`,
+  );
+});
+
+Then('no alignment agent is invoked', function () {
+  const content = local.alignmentPhaseContent;
+  const noPlantFileReturnIdx = content.indexOf('No plan file found');
+  const noScenarioReturnIdx = content.indexOf('No BDD scenario files');
+  const agentCallIdx = content.indexOf('await runAlignmentAgent');
+  assert.ok(agentCallIdx !== -1, 'Expected alignmentPhase.ts to call runAlignmentAgent in normal path');
+  assert.ok(
+    (noPlantFileReturnIdx !== -1 && noPlantFileReturnIdx < agentCallIdx) ||
+    (noScenarioReturnIdx !== -1 && noScenarioReturnIdx < agentCallIdx),
+    'Expected alignmentPhase.ts to return before invoking the alignment agent in skip paths',
+  );
+});
+
+// ── Skip gracefully: no scenario files ───────────────────────────────────────
+
+Given('a plan file exists but no scenario files are tagged @adw-\\{issueNumber\\}', function () {
+  local.alignmentPhaseContent = readAlignmentPhase();
+  sharedCtx.fileContent = local.alignmentPhaseContent;
+  sharedCtx.filePath = 'adws/phases/alignmentPhase.ts';
+});
+
+// ── Commits changes when agent made modifications ─────────────────────────────
+
+Given('the alignment agent returns changes to plan or scenario files', function () {
+  local.alignmentPhaseContent = readAlignmentPhase();
+  sharedCtx.fileContent = local.alignmentPhaseContent;
+  sharedCtx.filePath = 'adws/phases/alignmentPhase.ts';
+});
+
+Then('runCommitAgent is called to commit the updated artifacts', function () {
+  const content = local.alignmentPhaseContent;
+  assert.ok(content.includes('runCommitAgent'), 'Expected alignmentPhase.ts to call runCommitAgent');
+  const changesCheckIdx = content.indexOf('changes.length > 0');
+  const commitIdx = content.indexOf('runCommitAgent');
+  assert.ok(changesCheckIdx !== -1, 'Expected alignmentPhase.ts to check changes.length > 0 before committing');
+  assert.ok(
+    commitIdx > changesCheckIdx,
+    'Expected runCommitAgent to be called after the changes.length > 0 check',
+  );
+});
+
+// ── Does not commit when no changes ──────────────────────────────────────────
+
+Given('the alignment agent returns an empty changes array', function () {
+  local.alignmentPhaseContent = readAlignmentPhase();
+  sharedCtx.fileContent = local.alignmentPhaseContent;
+  sharedCtx.filePath = 'adws/phases/alignmentPhase.ts';
+});
+
+Then('runCommitAgent is not called', function () {
+  const content = local.alignmentPhaseContent;
+  assert.ok(
+    content.includes('changes.length > 0'),
+    'Expected alignmentPhase.ts to guard runCommitAgent behind a changes.length > 0 check',
+  );
+});
