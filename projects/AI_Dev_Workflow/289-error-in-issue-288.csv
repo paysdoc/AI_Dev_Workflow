@@ -9,3 +9,4 @@ workflow_id,issue_number,phase,model,provider,computed_cost_usd,reported_cost_us
 8fns89-error-in-issue-288,289,review,claude-opus-4-6,anthropic,1.334351,1.334351,success,0,0,215299,2026-03-25T08:18:13.386Z,,,92,24976,346208,85822,0
 8fns89-error-in-issue-288,289,document,claude-sonnet-4-6,anthropic,0.233395,0.233395,success,0,0,106154,2026-03-25T08:20:05.561Z,,,8,4538,155479,31642,0
 8fns89-error-in-issue-288,289,pr,claude-sonnet-4-6,anthropic,0.088007,0.088007,success,0,0,34068,2026-03-25T08:20:45.345Z,,,6,1349,68373,12598,0
+8fns89-error-in-issue-288,289,kpi,claude-haiku-4-5-20251001,anthropic,0.102556,0.102556,success,0,0,98563,2026-03-25T08:22:29.540Z,,,44,10820,195479,23091,0

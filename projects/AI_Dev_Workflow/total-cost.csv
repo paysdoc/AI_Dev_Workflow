@@ -210,6 +210,7 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 289,error in issue 288,build,claude-sonnet-4-6,0.310941
 289,error in issue 288,document,claude-sonnet-4-6,0.233395
 289,error in issue 288,install,claude-sonnet-4-6,0.495521
+289,error in issue 288,kpi,claude-haiku-4-5-20251001,0.102556
 289,error in issue 288,plan,claude-haiku-4-5-20251001,0.331153
 289,error in issue 288,plan,claude-opus-4-6,2.973749
 289,error in issue 288,pr,claude-sonnet-4-6,0.088007
@@ -218,5 +219,5 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 289,error in issue 288,scenario,claude-haiku-4-5-20251001,0.476562
 289,error in issue 288,step-def-gen,claude-sonnet-4-6,1.199329
 
-Total Cost (USD):,191.4725
-Total Cost (EUR):,165.1110
+Total Cost (USD):,191.5751
+Total Cost (EUR):,165.1994
