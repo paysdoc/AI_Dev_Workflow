@@ -121,12 +121,20 @@ export interface CreateMROptions {
 }
 
 /**
+ * Result returned by a successful merge/pull request creation.
+ */
+export interface MergeRequestResult {
+  url: string;
+  number: number;
+}
+
+/**
  * Interface for code hosting operations across platforms.
  * Maps 1:1 to existing GitHub code hosting operations for seamless migration.
  */
 export interface CodeHost {
   getDefaultBranch(): string;
-  createMergeRequest(options: CreateMROptions): string;
+  createMergeRequest(options: CreateMROptions): MergeRequestResult;
   fetchMergeRequest(mrNumber: number): MergeRequest;
   commentOnMergeRequest(mrNumber: number, body: string): void;
   fetchReviewComments(mrNumber: number): ReviewComment[];

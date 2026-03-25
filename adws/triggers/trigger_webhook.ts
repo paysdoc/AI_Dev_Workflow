@@ -25,7 +25,7 @@ import { spawnDetached, classifyAndSpawnWorkflow, handleIssueClosedDependencyUnb
 import { checkEnvironmentVariables, checkGitRepository, checkClaudeCodeCLI, checkGitHubCLI, checkDirectoryStructure, type CheckResult } from '../healthCheckChecks';
 
 // Re-export for any external consumers
-export { handlePullRequestEvent, extractIssueNumberFromPRBody } from './webhookHandlers';
+export { handlePullRequestEvent, extractIssueNumberFromBranch } from './webhookHandlers';
 export { classifyAndSpawnWorkflow, handleIssueClosedDependencyUnblock, ensureCronProcess } from './webhookGatekeeper';
 export { shouldTriggerIssueWorkflow };
 

@@ -39,10 +39,8 @@ repoName: $7, the name of the repository where the issue lives (may be empty for
 1. Run `git diff origin/<defaultBranch>...HEAD --stat` to see a summary of changed files
 2. Run `git log origin/<defaultBranch>..HEAD --oneline` to see the commits that will be included
 3. Run `git diff origin/<defaultBranch>...HEAD --name-only` to get a list of changed files
-4. Run `git push -u origin <branchName>` to push the branch
-5. Run `gh pr create --title "<pr_title>" --body "<pr_body>" --base <defaultBranch>` to create the PR
-6. Capture the PR URL from the output
 
 ## Report
 
-Return ONLY the PR URL that was created (no other text)
+Return ONLY a JSON object with the PR title and body (no other text):
+{"title": "<pr_title>", "body": "<pr_body>"}

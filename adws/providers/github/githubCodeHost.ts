@@ -1,17 +1,21 @@
 /**
  * GitHub implementation of the CodeHost interface.
- * Delegates to existing prApi, pullRequestCreator, and gitBranchOperations functions.
+ * Delegates to existing prApi and gitBranchOperations functions.
  */
 
+import { execSync } from 'child_process';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import type { RepoInfo } from '../../github/githubApi';
-import type { GitHubIssue } from '../../types/issueTypes';
 import { fetchPRDetails, fetchPRReviewComments, commentOnPR, fetchPRList } from '../../github/prApi';
-import { createPullRequest } from '../../github/pullRequestCreator';
 import { getDefaultBranch as ghGetDefaultBranch } from '../../vcs/branchOperations';
+import { refreshTokenIfNeeded } from '../../github/githubAppAuth';
 import {
   type CodeHost,
   type CreateMROptions,
   type MergeRequest,
+  type MergeRequestResult,
   type RepoIdentifier,
   type ReviewComment,
   validateRepoIdentifier,
@@ -69,33 +73,39 @@ export class GitHubCodeHost implements CodeHost {
   }
 
   /**
-   * Creates a pull request by adapting CreateMROptions to the existing
-   * createPullRequest signature. Constructs a minimal GitHubIssue from
-   * the options, with plan/build summaries baked into the body.
+   * Creates a pull request via `gh pr create` with the provided title and body.
+   * Writes the body to a temp file to avoid shell-escaping issues.
+   * Returns the PR URL and number.
    */
-  createMergeRequest(options: CreateMROptions): string {
-    const minimalIssue: GitHubIssue = {
-      number: options.linkedIssueNumber ?? 0,
-      title: options.title,
-      body: options.body,
-      state: 'OPEN',
-      author: { login: '', isBot: false },
-      assignees: [],
-      labels: [],
-      comments: [],
-      createdAt: '',
-      updatedAt: '',
-      url: '',
-    };
+  createMergeRequest(options: CreateMROptions): MergeRequestResult {
+    refreshTokenIfNeeded();
 
-    return createPullRequest(
-      minimalIssue,
-      '',
-      '',
-      options.targetBranch,
-      process.cwd(),
-      this.repoInfo,
-    );
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'adw-pr-'));
+    const tempFilePath = path.join(tempDir, 'pr-body.md');
+
+    try {
+      fs.writeFileSync(tempFilePath, options.body, 'utf-8');
+
+      const repoFlag = `--repo ${this.repoInfo.owner}/${this.repoInfo.repo}`;
+      const prUrl = execSync(
+        `gh pr create --title "${options.title.replace(/"/g, '\\"')}" --body-file "${tempFilePath}" --base "${options.targetBranch}" --head "${options.sourceBranch}" ${repoFlag}`,
+        { encoding: 'utf-8', shell: '/bin/bash' },
+      ).trim();
+
+      const numberMatch = prUrl.match(/\/pull\/(\d+)$/);
+      if (!numberMatch) {
+        throw new Error(`Could not extract PR number from URL: ${prUrl}`);
+      }
+
+      return { url: prUrl, number: parseInt(numberMatch[1], 10) };
+    } finally {
+      try {
+        fs.unlinkSync(tempFilePath);
+        fs.rmdirSync(tempDir);
+      } catch {
+        // Ignore cleanup errors
+      }
+    }
   }
 }
 

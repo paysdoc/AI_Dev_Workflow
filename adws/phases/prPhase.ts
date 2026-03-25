@@ -1,6 +1,7 @@
 /**
  * PR creation phase for workflows.
- * Uses the /pull_request skill via a Claude agent.
+ * Generates PR title/body via the /pull_request skill, then programmatically
+ * pushes the branch and creates the PR via CodeHost.createMergeRequest().
  */
 
 import {
@@ -17,10 +18,13 @@ import {
   runCommitAgent,
   runPullRequestAgent,
 } from '../agents';
+import { pushBranch } from '../vcs';
+import { getDefaultBranch } from '../vcs/branchOperations';
+import { BoardStatus } from '../providers/types';
 import type { WorkflowConfig } from './workflowInit';
 
 /**
- * Executes the PR phase: create pull request via the /pull_request skill.
+ * Executes the PR phase: generate PR title/body via agent, push branch, create PR via CodeHost.
  * Uses `config.repoInfo` for external repository API calls when targeting a different repo.
  */
 export async function executePRPhase(config: WorkflowConfig): Promise<{ costUsd: number; modelUsage: ModelUsageMap; phaseCostRecords: PhaseCostRecord[] }> {
@@ -62,14 +66,37 @@ export async function executePRPhase(config: WorkflowConfig): Promise<{ costUsd:
       repoName,
     );
 
-    ctx.prUrl = result.prUrl;
     costUsd = result.totalCostUsd || 0;
     if (result.modelUsage) modelUsage = result.modelUsage;
 
     if (repoContext) {
+      // Push branch and create PR programmatically via the provider
+      const { prContent } = result;
+      pushBranch(currentBranch, worktreePath);
+      const defaultBranch = getDefaultBranch(worktreePath);
+      const mrResult = repoContext.codeHost.createMergeRequest({
+        title: prContent.title,
+        body: prContent.body,
+        sourceBranch: currentBranch,
+        targetBranch: defaultBranch,
+        linkedIssueNumber: issueNumber,
+      });
+      ctx.prUrl = mrResult.url;
+
       postIssueStageComment(repoContext, issueNumber, 'pr_created', ctx);
+      log(`Pull Request created: ${mrResult.url}`, 'success');
+
+      // Transition issue to Review status now that the PR is open
+      try {
+        await repoContext.issueTracker.moveToStatus(issueNumber, BoardStatus.Review);
+        log(`Issue #${issueNumber} moved to Review`, 'success');
+      } catch (error) {
+        log(`Failed to move issue #${issueNumber} to Review: ${error}`, 'error');
+      }
+    } else {
+      // No repoContext — log agent output for diagnostics
+      log(`PR content generated (no repoContext to create PR): ${result.prContent.title}`, 'info');
     }
-    log(`Pull Request created: ${result.prUrl}`, 'success');
   } else {
     log('Skipping PR creation (already completed)', 'info');
   }
