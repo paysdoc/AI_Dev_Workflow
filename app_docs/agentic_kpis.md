@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value          | Last Updated       |
 | ----------------- | -------------- | ------------------ |
-| Current Streak    | 56             | 2026-03-25 10:20:59|
-| Longest Streak    | 56             | 2026-03-25 10:20:59|
-| Total Plan Size   | 441 lines      | 2026-03-25 10:20:59|
-| Largest Plan Size | 201 lines      | 2026-03-25 10:20:59|
-| Total Diff Size   | 1392668 lines  | 2026-03-25 10:20:59|
-| Largest Diff Size | 205468 lines   | 2026-03-25 10:20:59|
-| Average Presence  | 1.49           | 2026-03-25 10:20:59|
+| Current Streak    | 45             | 2026-03-25 10:54:05|
+| Longest Streak    | 45             | 2026-03-25 10:54:05|
+| Total Plan Size   | 441 lines      | 2026-03-25 10:54:05|
+| Largest Plan Size | 201 lines      | 2026-03-25 10:54:05|
+| Total Diff Size   | 1401822 lines  | 2026-03-25 10:54:05|
+| Largest Diff Size | 205468 lines   | 2026-03-25 10:54:05|
+| Average Presence  | 1.54           | 2026-03-25 10:54:05|
 
 ## ADW KPIs
 
@@ -69,3 +69,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-03-24 | 02r4w9-jsonl-schema-probe-c | 280          | /feature    | 1        | 0                 | 5136/3819/104                   | 2026-03-24 | 2026-03-24 |
 | 2026-03-24 | ekd5o1-wire-proof-data-into | 276          | /feature    | 1        | 0                 | 4718/3824/96                    | 2026-03-24 | 2026-03-24 |
 | 2026-03-25 | 8fns89-error-in-issue-288   | 289          | /bug        | 1        | 0                 | 552/7317/70                     | 2026-03-25 | 2026-03-25 |
+| 2026-03-25 | x4wwk7-application-type-con | 278          | /feature    | 2        | 0                 | 1833/7321/83                    | 2026-03-25 | 2026-03-25 |
