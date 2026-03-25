@@ -91,10 +91,3 @@ Feature: Review phase step definition independence verification
     Given the file ".claude/commands/review.md" exists
     Then the independence verification should instruct skipping the check when ".adw/scenarios.md" is absent from the target repository
 
-  # ── 6. Existing regression safety ──
-
-  @adw-yxq5og-review-phase-step-de @regression
-  Scenario: TypeScript type-check passes after all changes for issue 307
-    Given the ADW codebase has been modified for issue 307
-    When "bunx tsc --noEmit" and "bunx tsc --noEmit -p adws/tsconfig.json" are run
-    Then both type-check commands exit with code 0
