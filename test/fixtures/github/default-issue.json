@@ -1,0 +1,26 @@
+{
+  "number": 1,
+  "title": "Test Issue",
+  "body": "This is a test issue for mock infrastructure testing.",
+  "state": "OPEN",
+  "author": {
+    "login": "test-user",
+    "name": "Test User",
+    "is_bot": false
+  },
+  "assignees": [],
+  "labels": [
+    {
+      "id": "label-001",
+      "name": "enhancement",
+      "color": "84b6eb",
+      "description": "New feature or request"
+    }
+  ],
+  "milestone": null,
+  "comments": [],
+  "createdAt": "2026-01-01T00:00:00Z",
+  "updatedAt": "2026-01-01T00:00:00Z",
+  "closedAt": null,
+  "url": "https://github.com/test-owner/test-repo/issues/1"
+}

@@ -1,0 +1,15 @@
+[
+  {
+    "type": "text",
+    "text": "I'll analyze the issue and create an implementation plan.\n\n## Implementation Plan\n\n### Overview\nThis plan outlines the steps to implement the requested feature.\n\n### Steps\n1. Analyze requirements\n2. Design solution\n3. Implement changes\n4. Write tests\n5. Review and finalize\n\n### Files to Create/Modify\n- `src/feature.ts` — Main feature implementation\n- `test/feature.test.ts` — Tests for the feature\n"
+  },
+  {
+    "type": "tool_use",
+    "id": "tool_stub_001",
+    "name": "Write",
+    "input": {
+      "file_path": "specs/plan-stub.md",
+      "content": "# Implementation Plan\n\nStub plan for testing.\n"
+    }
+  }
+]

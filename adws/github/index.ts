@@ -45,6 +45,18 @@ export {
   hasUnaddressedComments,
 } from './prCommentDetector';
 
+// Proof Comment Formatter
+export {
+  formatReviewProofComment,
+  formatProofTable,
+  formatVerificationSection,
+  formatNonBlockerSection,
+  formatBlockerSection,
+  formatScenarioOutputSection,
+  type ProofCommentInput,
+  type VerificationResult,
+} from './proofCommentFormatter';
+
 // Workflow Comments
 export {
   STAGE_ORDER,

@@ -1,0 +1,28 @@
+[
+  {
+    "type": "text",
+    "text": "I'll implement the plan by creating the necessary files and making the required changes.\n"
+  },
+  {
+    "type": "tool_use",
+    "id": "tool_stub_002",
+    "name": "Read",
+    "input": {
+      "file_path": "src/index.ts"
+    }
+  },
+  {
+    "type": "tool_use",
+    "id": "tool_stub_003",
+    "name": "Edit",
+    "input": {
+      "file_path": "src/feature.ts",
+      "old_string": "",
+      "new_string": "export function feature(): string {\n  return 'implemented';\n}\n"
+    }
+  },
+  {
+    "type": "text",
+    "text": "Implementation complete. All changes have been made according to the plan.\n"
+  }
+]
