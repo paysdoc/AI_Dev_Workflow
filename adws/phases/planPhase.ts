@@ -163,16 +163,24 @@ export const MAX_CONTINUATION_OUTPUT_LENGTH = 5000;
 /**
  * Builds a continuation prompt that includes the original plan and previous agent's output.
  */
-export function buildContinuationPrompt(originalPlanContent: string, previousOutput: string): string {
+export function buildContinuationPrompt(
+  originalPlanContent: string,
+  previousOutput: string,
+  reason: 'token_limit' | 'compaction' = 'token_limit',
+): string {
   const truncatedOutput = previousOutput.length > MAX_CONTINUATION_OUTPUT_LENGTH
     ? previousOutput.slice(-MAX_CONTINUATION_OUTPUT_LENGTH)
     : previousOutput;
+
+  const reasonMessage = reason === 'compaction'
+    ? 'terminated because Claude Code compacted the conversation context, which is lossy'
+    : 'terminated because it approached the token usage limit';
 
   return `${originalPlanContent}
 
 ## Continuation Context
 
-The previous build agent was terminated because it approached the token usage limit.
+The previous build agent was ${reasonMessage}.
 Below is a summary of what the previous agent accomplished. Continue implementing
 the plan from where the previous agent left off. Do NOT re-do work that was already completed.
 

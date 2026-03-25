@@ -164,6 +164,11 @@ function formatTokenLimitRecoveryComment(ctx: WorkflowContext): string {
   return `## :warning: Token Limit Recovery\n\nThe build agent approached the token limit and was gracefully terminated. Spawning a continuation agent to resume implementation.\n\n**Continuation:** #${continuationNumber}${usageDetails}\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
 }
 
+function formatCompactionRecoveryComment(ctx: WorkflowContext): string {
+  const continuationNumber = ctx.tokenContinuationNumber ?? 1;
+  return `## :warning: Context Compaction Recovery\n\nThe build agent's context was compacted by Claude Code, which is lossy. Terminating and spawning a continuation agent with fresh context.\n\n**Continuation:** #${continuationNumber}\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+}
+
 function formatReviewIssueItem(issue: ReviewIssue): string {
   return `- **#${issue.reviewIssueNumber}** [${issue.issueSeverity}]: ${issue.issueDescription}`;
 }
@@ -291,6 +296,7 @@ export function formatWorkflowComment(stage: WorkflowStage, ctx: WorkflowContext
     case 'completed': return formatCompletedComment(ctx);
     case 'error': return formatErrorComment(ctx);
     case 'token_limit_recovery': return formatTokenLimitRecoveryComment(ctx);
+    case 'compaction_recovery': return formatCompactionRecoveryComment(ctx);
     case 'review_running': return formatReviewRunningComment(ctx);
     case 'review_passed': return formatReviewPassedComment(ctx);
     case 'review_failed': return formatReviewFailedComment(ctx);

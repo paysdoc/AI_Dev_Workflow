@@ -17,6 +17,8 @@ export interface AgentResult {
   statePath?: string;
   /** True when the agent was terminated due to approaching the token limit. */
   tokenLimitExceeded?: boolean;
+  /** True when the agent was terminated due to context compaction detection. */
+  compactionDetected?: boolean;
   /** Token usage snapshot at the time of interruption. */
   tokenUsage?: TokenUsageSnapshot;
   /** Partial output captured before token limit termination. */
