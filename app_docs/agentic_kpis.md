@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value          | Last Updated       |
 | ----------------- | -------------- | ------------------ |
-| Current Streak    | 63             | 2026-03-25 13:43:35|
-| Longest Streak    | 63             | 2026-03-25 13:43:35|
-| Total Plan Size   | 441 lines      | 2026-03-25 13:43:35|
-| Largest Plan Size | 201 lines      | 2026-03-25 13:43:35|
-| Total Diff Size   | 1414388 lines  | 2026-03-25 13:43:35|
-| Largest Diff Size | 205468 lines   | 2026-03-25 13:43:35|
-| Average Presence  | 1.47           | 2026-03-25 13:43:35|
+| Current Streak    | 66             | 2026-03-25 15:18:43|
+| Longest Streak    | 66             | 2026-03-25 15:18:43|
+| Total Plan Size   | 441 lines      | 2026-03-25 15:18:43|
+| Largest Plan Size | 201 lines      | 2026-03-25 15:18:43|
+| Total Diff Size   | 1420108 lines  | 2026-03-25 15:18:43|
+| Largest Diff Size | 205468 lines   | 2026-03-25 15:18:43|
+| Average Presence  | 1.47           | 2026-03-25 15:18:43|
 
 ## ADW KPIs
 
@@ -73,3 +73,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-03-25 | wqzfqj-ensurecronprocess-no | 291          | /bug        | 1        | 0                 | 968/7325/77                     | 2026-03-25 | 2026-03-25 |
 | 2026-03-25 | 7sunv4-fix-issue-status-pro | 295          | /bug        | 1        | 0                 | 959/466/22                      | 2026-03-25 | 2026-03-25 |
 | 2026-03-25 | 6bi1qq-fixture-target-repo  | 279          | /feature    | 1        | 0                 | 2610/238/44                     | 2026-03-25 | 2026-03-25 |
+| 2026-03-25 | u7lut9-extend-compaction-re | 299          | /feature    | 1        | 0                 | 5456/264/68                     | 2026-03-25 | 2026-03-25 |
