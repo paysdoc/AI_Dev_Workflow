@@ -351,10 +351,11 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 307,review phase step definition independence check,scenario,claude-opus-4-6,0.489819
 307,review phase step definition independence check,step-def-gen,claude-sonnet-4-6,0.632139
 307,review phase step definition independence check,step-def-gen,claude-sonnet-4-6,0.248037
+308,unit test support in implement tdd when enabled in,alignment,claude-opus-4-6,0.387500
 308,unit test support in implement tdd when enabled in,install,claude-sonnet-4-6,0.498561
 308,unit test support in implement tdd when enabled in,plan,claude-opus-4-6,0.755191
 308,unit test support in implement tdd when enabled in,plan,claude-haiku-4-5-20251001,0.165343
 308,unit test support in implement tdd when enabled in,scenario,claude-opus-4-6,0.735639
 
-Total Cost (USD):,315.9446
-Total Cost (EUR):,272.4460
+Total Cost (USD):,316.3321
+Total Cost (EUR):,272.7801
