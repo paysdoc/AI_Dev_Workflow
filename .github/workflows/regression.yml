@@ -5,6 +5,15 @@ on:
     # Run daily at 06:00 UTC — adjust cron expression to change frequency
     - cron: '0 6 * * *'
   workflow_dispatch:
+    inputs:
+      runtime:
+        description: 'Execution runtime: host or docker'
+        required: false
+        default: 'host'
+        type: choice
+        options:
+          - host
+          - docker
 
 jobs:
   regression:
@@ -62,6 +71,14 @@ jobs:
               "
             fi
           fi
+
+      - name: Build Docker image (docker runtime only)
+        if: ${{ github.event.inputs.runtime == 'docker' }}
+        run: bun run test:docker:build
+
+      - name: Run @regression scenarios in Docker (docker runtime only)
+        if: ${{ github.event.inputs.runtime == 'docker' }}
+        run: bash test/docker-run.sh --tags "@regression"
 
       - name: Upload results artifact
         if: always()
