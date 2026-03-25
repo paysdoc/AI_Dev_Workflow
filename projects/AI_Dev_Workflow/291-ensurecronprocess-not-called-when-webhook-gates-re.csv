@@ -6,3 +6,4 @@ wqzfqj-ensurecronprocess-no,291,build,claude-sonnet-4-6,anthropic,0.583988,0.583
 wqzfqj-ensurecronprocess-no,291,step-def-gen,claude-sonnet-4-6,anthropic,0.156378,0.156378,success,0,0,52074,2026-03-25T08:49:25.230Z,,,7,2854,124554,20315,0
 wqzfqj-ensurecronprocess-no,291,review,claude-opus-4-6,anthropic,0.941798,0.941798,success,0,0,119730,2026-03-25T08:51:30.612Z,,,200,13086,249621,78214,0
 wqzfqj-ensurecronprocess-no,291,document,claude-sonnet-4-6,anthropic,0.202088,0.202088,success,0,0,82543,2026-03-25T08:52:58.620Z,,,8,3030,152008,29603,0
+wqzfqj-ensurecronprocess-no,291,pr,claude-sonnet-4-6,anthropic,0.080637,0.080637,success,0,0,30095,2026-03-25T08:53:34.285Z,,,6,831,68367,12705,0
