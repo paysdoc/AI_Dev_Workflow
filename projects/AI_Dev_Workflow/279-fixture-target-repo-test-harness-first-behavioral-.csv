@@ -1,0 +1,2 @@
+workflow_id,issue_number,phase,model,provider,computed_cost_usd,reported_cost_usd,status,retry_count,continuation_count,duration_ms,timestamp,estimated_tokens,actual_tokens,input,output,cache_read,cache_write,reasoning
+6bi1qq-fixture-target-repo,279,install,claude-sonnet-4-6,anthropic,0.415455,0.415455,success,0,0,100782,2026-03-25T10:28:55.964Z,,,13,4246,443182,58339,0
