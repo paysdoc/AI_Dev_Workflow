@@ -1,2 +1,5 @@
 workflow_id,issue_number,phase,model,provider,computed_cost_usd,reported_cost_usd,status,retry_count,continuation_count,duration_ms,timestamp,estimated_tokens,actual_tokens,input,output,cache_read,cache_write,reasoning
 78celh-docker-image-for-beh,281,install,claude-sonnet-4-6,anthropic,0.304609,0.304609,success,0,0,59394,2026-03-25T11:47:00.862Z,,,2471,2304,229703,51660,0
+78celh-docker-image-for-beh,281,plan,claude-opus-4-6,anthropic,0.543167,0.543167,success,0,0,241475,2026-03-25T11:51:07.936Z,,,9,6267,267207,40455,0
+78celh-docker-image-for-beh,281,plan,claude-haiku-4-5-20251001,anthropic,0.148161,0.148161,success,0,0,241475,2026-03-25T11:51:07.936Z,,,3308,5946,429384,57748,0
+78celh-docker-image-for-beh,281,scenario,claude-opus-4-6,anthropic,0.710989,0.710989,success,0,0,141541,2026-03-25T11:49:30.588Z,,,13,6427,467022,50678,0
