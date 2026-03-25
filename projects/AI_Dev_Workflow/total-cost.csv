@@ -243,6 +243,7 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 295,fix issue status propagation pr routing and pr to ,install,claude-sonnet-4-6,0.359258
 295,fix issue status propagation pr routing and pr to ,plan,claude-opus-4-6,0.971674
 295,fix issue status propagation pr routing and pr to ,scenario,claude-opus-4-6,1.298977
+295,fix issue status propagation pr routing and pr to ,step-def-gen,claude-sonnet-4-6,0.770174
 
-Total Cost (USD):,209.6285
-Total Cost (EUR):,180.7673
+Total Cost (USD):,210.3987
+Total Cost (EUR):,181.4314
