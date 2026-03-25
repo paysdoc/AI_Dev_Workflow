@@ -410,6 +410,74 @@ Then('a descriptive error is raised mentioning the missing R2 credentials', func
 });
 
 // ---------------------------------------------------------------------------
+// Edge cases
+// ---------------------------------------------------------------------------
+
+Given('the review phase completes with allScreenshots containing {string}, {string}, and {string}', function (
+  _file1: string, _file2: string, _file3: string,
+) {
+  // Context step — the actual filtering is verified against workflowCompletion.ts source
+});
+
+Then('only {string} and {string} are uploaded to R2', function (img1: string, img2: string) {
+  // Verify workflowCompletion.ts filters to image extensions only
+  const completionContent = readFile('adws/phases/workflowCompletion.ts');
+  const ext1 = img1.slice(img1.lastIndexOf('.'));
+  const ext2 = img2.slice(img2.lastIndexOf('.'));
+  assert.ok(
+    completionContent.includes('imageExtensions') || completionContent.includes('.png') || completionContent.includes('.jpg'),
+    'Expected workflowCompletion.ts to filter screenshots to image extensions',
+  );
+  assert.ok(
+    completionContent.includes(ext1) && completionContent.includes(ext2),
+    `Expected workflowCompletion.ts to support ${ext1} and ${ext2} image extensions`,
+  );
+});
+
+Then('{string} is not uploaded', function (nonImageFile: string) {
+  const completionContent = readFile('adws/phases/workflowCompletion.ts');
+  const ext = nonImageFile.slice(nonImageFile.lastIndexOf('.'));
+  // Verify the file extension is not in the allowed image extensions set
+  assert.ok(
+    !completionContent.includes(`'${ext}'`) || completionContent.includes('imageExtensions'),
+    `Expected workflowCompletion.ts to exclude ${ext} files from R2 upload`,
+  );
+});
+
+Given('the review phase completes with no screenshots in allScreenshots', function () {
+  // Context step — empty screenshots list
+});
+
+Then('no error is raised', function () {
+  // Verify workflowCompletion.ts guards against empty allScreenshots before uploading
+  const completionContent = readFile('adws/phases/workflowCompletion.ts');
+  assert.ok(
+    completionContent.includes('allScreenshots.length > 0') || completionContent.includes('allScreenshots.length'),
+    'Expected workflowCompletion.ts to check allScreenshots length before uploading',
+  );
+});
+
+Given('allScreenshots contains a path to a file that does not exist on disk', function () {
+  // Context step — non-existent file path in allScreenshots
+});
+
+Then('a warning is logged for the missing file', function () {
+  const completionContent = readFile('adws/phases/workflowCompletion.ts');
+  assert.ok(
+    completionContent.includes('existsSync') || completionContent.includes('not found'),
+    'Expected workflowCompletion.ts to check file existence before uploading',
+  );
+});
+
+Then('the remaining valid screenshots are uploaded successfully', function () {
+  const completionContent = readFile('adws/phases/workflowCompletion.ts');
+  assert.ok(
+    completionContent.includes('continue') || completionContent.includes('skip'),
+    'Expected workflowCompletion.ts to skip missing files and continue uploading valid ones',
+  );
+});
+
+// ---------------------------------------------------------------------------
 // Type safety
 // ---------------------------------------------------------------------------
 

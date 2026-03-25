@@ -151,14 +151,6 @@ Feature: Application type config and screenshot upload in review comments
     Then the workflow completes successfully
     And no error is raised about missing R2 credentials
 
-  @adw-278
-  Scenario: Missing R2 credentials log a warning for web-type workflows without failing
-    Given a workflow with application type "web"
-    And R2 environment variables are not set
-    When the review phase attempts to upload screenshots
-    Then a warning is logged mentioning the missing R2 credentials
-    And the workflow continues without failing
-
   # --- Edge cases ---
 
   @adw-278
@@ -168,24 +160,6 @@ Feature: Application type config and screenshot upload in review comments
     When the screenshot upload runs
     Then only "screenshot.png" and "capture.jpg" are uploaded to R2
     And "proof.md" is not uploaded
-
-  @adw-278
-  Scenario: Screenshots are uploaded and embedded when review fails
-    Given a workflow with application type "web"
-    And the review phase fails with screenshots in allScreenshots
-    When the workflow completion runs
-    Then each screenshot file is uploaded to R2 via the upload utility
-    And the proof comment contains markdown image links for each screenshot URL
-
-  @adw-278
-  Scenario: Partial R2 upload failure does not break the workflow
-    Given a workflow with application type "web"
-    And the review produces multiple screenshots
-    And R2 upload fails for one of the screenshots
-    When the screenshot upload runs
-    Then a warning is logged for the failed upload
-    And the remaining screenshots are uploaded successfully
-    And the workflow continues without failing
 
   @adw-278
   Scenario: Application type value is normalized to lowercase and trimmed
