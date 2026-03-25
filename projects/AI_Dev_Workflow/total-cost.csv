@@ -226,6 +226,7 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 280,jsonl schema probe ci conformance check,scenario,claude-opus-4-6,0.625446
 280,jsonl schema probe ci conformance check,scenario,claude-haiku-4-5-20251001,0.342336
 280,jsonl schema probe ci conformance check,step-def-gen,claude-sonnet-4-6,1.594376
+281,docker image for behavioral test isolation,install,claude-sonnet-4-6,0.304609
 289,error in issue 288,build,claude-sonnet-4-6,0.310941
 289,error in issue 288,document,claude-sonnet-4-6,0.233395
 289,error in issue 288,install,claude-sonnet-4-6,0.495521
@@ -256,5 +257,5 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 295,fix issue status propagation pr routing and pr to ,scenario,claude-opus-4-6,1.298977
 295,fix issue status propagation pr routing and pr to ,step-def-gen,claude-sonnet-4-6,0.770174
 
-Total Cost (USD):,221.5329
-Total Cost (EUR):,191.0327
+Total Cost (USD):,221.8375
+Total Cost (EUR):,191.2954
