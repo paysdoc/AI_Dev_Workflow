@@ -464,3 +464,11 @@
     - When adding `test_compaction_recovery` or `review_compaction_recovery` stage comments
     - When troubleshooting test or review agents restarting due to context compaction
     - When extending `RetryConfig` or `RetryResult` with new continuation-tracking fields
+
+- app_docs/feature-aym0n5-create-implement-tdd.md
+  - Conditions:
+    - When working with the `/implement_tdd` skill or `.claude/skills/implement-tdd/`
+    - When wiring the TDD build agent into an orchestrator (replacing `/implement` with `/implement_tdd`)
+    - When adding or modifying the red-green-refactor loop in autonomous build workflows
+    - When troubleshooting step definition generation during the TDD build phase
+    - When deciding whether to set `target: true` on a new skill for `adw_init` deployment
