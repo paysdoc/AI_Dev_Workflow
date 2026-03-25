@@ -1,0 +1,44 @@
+{
+  "probedAt": "2026-03-24T00:00:00.000Z",
+  "messageTypes": {
+    "assistant": [
+      { "name": "type", "required": true, "type": "string" },
+      {
+        "name": "message",
+        "required": true,
+        "type": "object",
+        "fields": [
+          { "name": "id", "required": false, "type": "string" },
+          { "name": "model", "required": true, "type": "string" },
+          {
+            "name": "usage",
+            "required": true,
+            "type": "object",
+            "fields": [
+              { "name": "input_tokens", "required": true, "type": "number" },
+              { "name": "cache_creation_input_tokens", "required": false, "type": "number" },
+              { "name": "cache_read_input_tokens", "required": false, "type": "number" }
+            ]
+          },
+          { "name": "content", "required": true, "type": "array" }
+        ]
+      }
+    ],
+    "result": [
+      { "name": "type", "required": true, "type": "string" },
+      { "name": "subtype", "required": true, "type": "string" },
+      { "name": "isError", "required": true, "type": "boolean" },
+      { "name": "durationMs", "required": false, "type": "number" },
+      { "name": "durationApiMs", "required": false, "type": "number" },
+      { "name": "numTurns", "required": false, "type": "number" },
+      { "name": "result", "required": true, "type": "string" },
+      { "name": "sessionId", "required": false, "type": "string" },
+      { "name": "total_cost_usd", "required": false, "type": "number" },
+      { "name": "modelUsage", "required": false, "type": "object" }
+    ],
+    "system": [
+      { "name": "type", "required": true, "type": "string" },
+      { "name": "subtype", "required": true, "type": "string" }
+    ]
+  }
+}

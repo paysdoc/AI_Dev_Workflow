@@ -22,6 +22,7 @@ export interface MergedReviewResult {
   mergedScreenshots: string[];
   passed: boolean;
   blockerIssues: ReviewIssue[];
+  nonBlockerIssues: ReviewIssue[];
 }
 
 export interface ReviewRetryResult {
@@ -29,6 +30,7 @@ export interface ReviewRetryResult {
   costUsd: number;
   totalRetries: number;
   blockerIssues: ReviewIssue[];
+  nonBlockerIssues: ReviewIssue[];
   modelUsage: ModelUsageMap;
   reviewSummary?: string;
   allScreenshots: string[];
@@ -95,9 +97,10 @@ function mergeReviewResults(results: readonly ReviewAgentResult[]): MergedReview
     });
 
   const blockerIssues = mergedIssues.filter(issue => issue.issueSeverity === 'blocker');
+  const nonBlockerIssues = mergedIssues.filter(issue => issue.issueSeverity !== 'blocker');
   const passed = blockerIssues.length === 0;
 
-  return { mergedIssues, mergedScreenshots, passed, blockerIssues };
+  return { mergedIssues, mergedScreenshots, passed, blockerIssues, nonBlockerIssues };
 }
 
 /**
@@ -115,6 +118,7 @@ export async function runReviewWithRetry(opts: ReviewRetryOptions): Promise<Revi
 
   let retryCount = 0;
   let lastBlockerIssues: ReviewIssue[] = [];
+  let lastNonBlockerIssues: ReviewIssue[] = [];
   const costState = { costUsd: 0, modelUsage: emptyModelUsageMap() };
   const allScreenshots: string[] = [];
   const allSummaries: string[] = [];
@@ -164,6 +168,7 @@ export async function runReviewWithRetry(opts: ReviewRetryOptions): Promise<Revi
           costUsd: costState.costUsd,
           totalRetries: retryCount,
           blockerIssues: [blockerIssue],
+          nonBlockerIssues: [],
           modelUsage: costState.modelUsage,
           reviewSummary,
           allScreenshots,
@@ -202,12 +207,14 @@ export async function runReviewWithRetry(opts: ReviewRetryOptions): Promise<Revi
       const reviewSummary = allSummaries.find(s => s.length > 0);
       return {
         passed: true, costUsd: costState.costUsd, totalRetries: retryCount,
-        blockerIssues: [], modelUsage: costState.modelUsage,
+        blockerIssues: [], nonBlockerIssues: merged.nonBlockerIssues,
+        modelUsage: costState.modelUsage,
         reviewSummary, allScreenshots, allSummaries, scenarioProof: lastScenarioProof,
       };
     }
 
     lastBlockerIssues = merged.blockerIssues;
+    lastNonBlockerIssues = merged.nonBlockerIssues;
     log(`${lastBlockerIssues.length} merged blocker issue(s) found, patching...`, 'info');
     AgentStateManager.appendLog(statePath, `${lastBlockerIssues.length} merged blocker issue(s) found`);
 
@@ -256,7 +263,8 @@ export async function runReviewWithRetry(opts: ReviewRetryOptions): Promise<Revi
   const reviewSummary = allSummaries.find(s => s.length > 0);
   return {
     passed: false, costUsd: costState.costUsd, totalRetries: retryCount,
-    blockerIssues: lastBlockerIssues, modelUsage: costState.modelUsage,
+    blockerIssues: lastBlockerIssues, nonBlockerIssues: lastNonBlockerIssues,
+    modelUsage: costState.modelUsage,
     reviewSummary, allScreenshots, allSummaries, scenarioProof: lastScenarioProof,
   };
 }

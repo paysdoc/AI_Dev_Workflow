@@ -1,0 +1,72 @@
+name: Regression Scenarios
+
+on:
+  schedule:
+    # Run daily at 06:00 UTC — adjust cron expression to change frequency
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+jobs:
+  regression:
+    name: Run @regression BDD scenarios
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Run @regression scenarios
+        id: scenarios
+        run: |
+          set +e
+          NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@regression" --format summary --format json:regression-results.json
+          EXIT_CODE=$?
+          echo "exit_code=$EXIT_CODE" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Report results
+        if: always()
+        run: |
+          if [ -f regression-results.json ]; then
+            PASSED=$(node -e "
+              const r = require('./regression-results.json');
+              const scenarios = r.flatMap(f => f.elements || []);
+              const passed = scenarios.filter(s => s.steps.every(st => st.result.status === 'passed')).length;
+              const failed = scenarios.filter(s => s.steps.some(st => ['failed','undefined','skipped','pending'].includes(st.result.status))).length;
+              console.log('passed=' + passed);
+              console.log('failed=' + failed);
+              console.log('total=' + scenarios.length);
+            ")
+            echo "$PASSED"
+            TOTAL=$(echo "$PASSED" | grep total | cut -d= -f2)
+            PASS_COUNT=$(echo "$PASSED" | grep ^passed | cut -d= -f2)
+            FAIL_COUNT=$(echo "$PASSED" | grep ^failed | cut -d= -f2)
+            echo ""
+            echo "### @regression scenario results"
+            echo "Total: $TOTAL | Passed: $PASS_COUNT | Failed: $FAIL_COUNT"
+            if [ "$FAIL_COUNT" -gt 0 ]; then
+              echo ""
+              echo "Failing scenarios:"
+              node -e "
+                const r = require('./regression-results.json');
+                const scenarios = r.flatMap(f => f.elements || []);
+                scenarios
+                  .filter(s => s.steps.some(st => ['failed','undefined'].includes(st.result.status)))
+                  .forEach(s => console.log('  - ' + s.name));
+              "
+            fi
+          fi
+
+      - name: Upload results artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: regression-results
+          path: regression-results.json
+          if-no-files-found: ignore

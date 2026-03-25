@@ -1,0 +1,9 @@
+{
+  "number": 1,
+  "title": "Test PR",
+  "body": "Implements #1\n\nThis is a test pull request for mock infrastructure testing.",
+  "state": "OPEN",
+  "headRefName": "feature/issue-1-test-pr",
+  "baseRefName": "main",
+  "url": "https://github.com/test-owner/test-repo/pull/1"
+}

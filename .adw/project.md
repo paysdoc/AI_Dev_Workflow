@@ -15,6 +15,9 @@ AI Dev Workflow (ADW) is a TypeScript/Bun automation system that integrates GitH
 - `adws/providers/**` - Pluggable IssueTracker and CodeHost backends.
 - `adws/triggers/**` - Cron and webhook automation triggers.
 - `adws/types/**` - Shared TypeScript types.
+- `adws/r2/**` - Cloudflare R2 upload module (R2 client, bucket management, upload service).
+- `adws/core/projectConfig.ts` - Loads and exposes `.adw/project.md` config values (including application type).
+- `adws/phases/workflowCompletion.ts` - Workflow completion/error handling; screenshot upload integration point.
 - `.claude/commands/**` - Slash command prompt files.
 - `.adw/**` - Project configuration files read by planners.
   - `.adw/scenarios.md` - BDD scenario configuration (scenario directory, run-by-tag command, regression scenarios command)
@@ -29,3 +32,6 @@ bun add <package>
 bunx tsx <script_name>
 
 ## Unit Tests: disabled
+
+## Application Type
+cli
