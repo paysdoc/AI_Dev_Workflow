@@ -211,7 +211,35 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
         }
 
         // Build continuation prompt with previous output
-        currentPlanContent = buildContinuationPrompt(planContent, buildResult.output);
+        currentPlanContent = buildContinuationPrompt(planContent, buildResult.output, 'token_limit');
+        continue;
+      }
+
+      if (buildResult.compactionDetected) {
+        continuationNumber++;
+        continuationCount++;
+        log(`Build agent context compacted (continuation ${continuationNumber}/${MAX_TOKEN_CONTINUATIONS})`, 'info');
+
+        AgentStateManager.writeState(buildAgentStatePath, {
+          output: buildResult.output.substring(0, 1000),
+          metadata: { compactionDetected: true },
+          execution: AgentStateManager.completeExecution(
+            AgentStateManager.createExecutionState('running'),
+            true
+          ),
+        });
+        AgentStateManager.appendLog(orchestratorStatePath, `Build agent context compacted (continuation ${continuationNumber})`);
+
+        if (continuationNumber > MAX_TOKEN_CONTINUATIONS) {
+          throw new Error(`Build agent exceeded maximum continuations (${MAX_TOKEN_CONTINUATIONS}) due to context compaction. Last partial output: ${buildResult.output.substring(0, 500)}`);
+        }
+
+        ctx.tokenContinuationNumber = continuationNumber;
+        if (repoContext) {
+          postIssueStageComment(repoContext, issueNumber, 'compaction_recovery', ctx);
+        }
+
+        currentPlanContent = buildContinuationPrompt(planContent, buildResult.output, 'compaction');
         continue;
       }
 

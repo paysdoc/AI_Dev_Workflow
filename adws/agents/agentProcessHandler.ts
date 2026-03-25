@@ -65,6 +65,7 @@ export function handleAgentProcess(
 
     let tokenLimitReached = false;
     let authErrorDetected = false;
+    let compactionDetected = false;
     const tokenThreshold = MAX_THINKING_TOKENS * TOKEN_LIMIT_THRESHOLD;
 
     fs.mkdirSync(path.dirname(outputFile), { recursive: true });
@@ -88,6 +89,15 @@ export function handleAgentProcess(
         log(`${agentName}: Fatal authentication error detected — killing process to avoid hours of futile retries.`, 'error');
         if (statePath) {
           AgentStateManager.appendLog(statePath, 'Terminated: OAuth token expired or authentication failed');
+        }
+        claude.kill('SIGTERM');
+      }
+
+      if (!compactionDetected && text.includes('"subtype":"compact_boundary"')) {
+        compactionDetected = true;
+        log(`${agentName}: Context compaction detected — killing process to restart with fresh context.`, 'info');
+        if (statePath) {
+          AgentStateManager.appendLog(statePath, 'Terminated: Context compaction detected');
         }
         claude.kill('SIGTERM');
       }
@@ -179,6 +189,23 @@ export function handleAgentProcess(
           output: state.lastResult?.result || state.fullOutput,
           partialOutput: state.fullOutput,
           tokenUsage: snapshot,
+          totalCostUsd,
+          modelUsage: resolvedModelUsage,
+          estimatedUsage,
+          actualUsage: extractorFinalized ? extractorUsage : undefined,
+          costSource,
+          statePath,
+        });
+        return;
+      }
+
+      if (compactionDetected) {
+        log(`${agentName} terminated due to context compaction`, 'info');
+        resolve({
+          success: true,
+          compactionDetected: true,
+          output: state.lastResult?.result || state.fullOutput,
+          partialOutput: state.fullOutput,
           totalCostUsd,
           modelUsage: resolvedModelUsage,
           estimatedUsage,

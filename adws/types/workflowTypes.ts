@@ -36,6 +36,8 @@ export type WorkflowStage =
   | 'document_failed'
   // Token limit recovery
   | 'token_limit_recovery'
+  // Context compaction recovery
+  | 'compaction_recovery'
   // Plan validation stages
   | 'plan_validating'
   | 'plan_validated'
