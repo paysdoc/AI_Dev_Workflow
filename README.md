@@ -353,6 +353,9 @@ workers/                # Cloudflare Workers
     └── wrangler.toml   # Cloudflare Workers config
 test/                   # Integration test infrastructure
 ├── fixtures/           # Static test fixtures
+│   ├── cli-tool/       # Fixture target repo for BDD scenario testing
+│   │   ├── .adw/       # ADW config for fixture repo
+│   │   └── src/        # Minimal CLI tool source
 │   ├── github/         # GitHub API response fixtures (issue, PR, comments)
 │   └── jsonl/          # JSONL envelope and payload fixtures
 │       ├── envelopes/
