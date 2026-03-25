@@ -291,9 +291,13 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 299,extend compaction recovery to test and review phas,step-def-gen,claude-sonnet-4-6,3.116679
 299,extend compaction recovery to test and review phas,step-def-gen,claude-sonnet-4-6,2.590701
 304,create implement tdd skill with core tdd workflow,install,claude-sonnet-4-6,0.275102
+304,create implement tdd skill with core tdd workflow,plan,claude-opus-4-6,0.660145
+304,create implement tdd skill with core tdd workflow,plan,claude-haiku-4-5-20251001,0.117525
+304,create implement tdd skill with core tdd workflow,scenario,claude-opus-4-6,0.570800
+304,create implement tdd skill with core tdd workflow,scenario,claude-haiku-4-5-20251001,0.037991
 307,review phase step definition independence check,install,claude-sonnet-4-6,0.283197
 307,review phase step definition independence check,plan,claude-opus-4-6,0.793046
 307,review phase step definition independence check,scenario,claude-opus-4-6,0.489819
 
-Total Cost (USD):,262.6459
-Total Cost (EUR):,226.4853
+Total Cost (USD):,264.0324
+Total Cost (EUR):,227.6809

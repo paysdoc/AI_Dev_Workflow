@@ -1,2 +1,6 @@
 workflow_id,issue_number,phase,model,provider,computed_cost_usd,reported_cost_usd,status,retry_count,continuation_count,duration_ms,timestamp,estimated_tokens,actual_tokens,input,output,cache_read,cache_write,reasoning
 78f2zu-create-implement-tdd,304,install,claude-sonnet-4-6,anthropic,0.275102,0.275102,success,0,0,64826,2026-03-25T13:50:44.975Z,,,10,2490,252882,43162,0
+78f2zu-create-implement-tdd,304,plan,claude-opus-4-6,anthropic,0.660145,0.660145,success,0,0,300555,2026-03-25T13:55:51.176Z,,,2848,9106,305784,42458,0
+78f2zu-create-implement-tdd,304,plan,claude-haiku-4-5-20251001,anthropic,0.117525,0.117525,success,0,0,300555,2026-03-25T13:55:51.176Z,,,6853,5977,347608,36821,0
+78f2zu-create-implement-tdd,304,scenario,claude-opus-4-6,anthropic,0.570800,0.570800,success,0,0,159817,2026-03-25T13:53:33.594Z,,,885,5804,395762,35743,0
+78f2zu-create-implement-tdd,304,scenario,claude-haiku-4-5-20251001,anthropic,0.037991,0.037991,success,0,0,159817,2026-03-25T13:53:33.594Z,,,17,2103,29856,19579,0
