@@ -15,8 +15,7 @@ import { runStepDefAgent } from '../agents';
 import type { WorkflowConfig } from './workflowInit';
 
 /**
- * Executes the Step Definition phase: generate step definitions for BDD scenarios,
- * remove ungeneratable scenarios, and post a warning comment listing removed scenarios.
+ * Executes the Step Definition phase: generate step definitions for BDD scenarios.
  * This phase is non-fatal — errors are caught and logged, never thrown.
  *
  * @param config - Workflow configuration
@@ -24,7 +23,7 @@ import type { WorkflowConfig } from './workflowInit';
 export async function executeStepDefPhase(
   config: WorkflowConfig,
 ): Promise<{ costUsd: number; modelUsage: ModelUsageMap; phaseCostRecords: PhaseCostRecord[] }> {
-  const { orchestratorStatePath, adwId, issueNumber, issue, worktreePath, logsDir, repoContext } = config;
+  const { orchestratorStatePath, adwId, issueNumber, issue, worktreePath, logsDir } = config;
   const phaseStartTime = Date.now();
 
   let costUsd = 0;
@@ -67,22 +66,6 @@ export async function executeStepDefPhase(
         true,
       ),
     });
-
-    if (result.removedScenarios.length > 0 && repoContext) {
-      const scenarioList = result.removedScenarios
-        .map(s => `- **${s.scenarioName}** (\`${s.featureFile}\`): ${s.reason}`)
-        .join('\n');
-      const warningComment = [
-        '⚠️ **Step Definition Generation: Scenarios Removed**',
-        '',
-        'The following scenarios could not have step definitions generated (runtime infrastructure required) and were removed from the feature files:',
-        '',
-        scenarioList,
-        '',
-        'These scenarios can be re-added once dynamic BDD testing infrastructure is in place.',
-      ].join('\n');
-      repoContext.issueTracker.commentOnIssue(issueNumber, warningComment);
-    }
 
     AgentStateManager.appendLog(orchestratorStatePath, 'Step definition generation completed');
     log('Step definition phase completed', 'success');

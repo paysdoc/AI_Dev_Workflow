@@ -35,11 +35,11 @@ Feature: Step definition generation, review-first gating, and guidelines check
     Then it should allow creating new step definition files
     And it should allow modifying existing step definition files
 
-  @adw-249 @regression
-  Scenario: generate_step_definitions command removes ungeneratable scenarios
+  @adw-249 @adw-y55dlm-remove-ungeneratable @regression
+  Scenario: generate_step_definitions command generates step definitions for all scenarios
     Given the file ".claude/commands/generate_step_definitions.md" exists
-    Then it should instruct removing scenarios that require runtime infrastructure, mocked LLMs, or external services
-    And it should instruct returning the list of removed scenarios in the output
+    Then it should instruct generating step definitions for every tagged scenario without classification
+    And it should instruct returning an empty removedScenarios array in the output
 
   # ── 2. Step definition agent and phase ──
 
