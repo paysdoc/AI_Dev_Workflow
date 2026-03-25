@@ -18,8 +18,8 @@ The current pipeline runs a separate `executeStepDefPhase` after build to genera
 
 ## Solution Statement
 1. Add `/implement_tdd` to the `SlashCommand` type and model/effort routing maps.
-2. Modify `buildAgent.ts` to accept a `scenarioPaths` parameter; when populated, route to `/implement_tdd` instead of `/implement` and include scenario file paths in the agent context.
-3. Modify `buildPhase.ts` to discover scenarios via `findScenarioFiles()` and pass them to the build agent.
+2. Modify `buildAgent.ts` to call `findScenarioFiles()` internally; when scenarios are found, route to `/implement_tdd` instead of `/implement` and include scenario file paths in the agent context.
+3. Modify `buildPhase.ts` to pass worktree path and issue number to the build agent for scenario detection.
 4. Remove `executeStepDefPhase` calls from the three scenario-aware orchestrators.
 5. Verify `adwPlanBuild.tsx` and `adwPlanBuildTest.tsx` remain unchanged.
 
@@ -28,9 +28,9 @@ Use these files to implement the feature:
 
 - `adws/types/issueTypes.ts` — Add `/implement_tdd` to the `SlashCommand` union type
 - `adws/core/modelRouting.ts` — Add `/implement_tdd` entries to all four routing maps (`SLASH_COMMAND_MODEL_MAP`, `SLASH_COMMAND_MODEL_MAP_FAST`, `SLASH_COMMAND_EFFORT_MAP`, `SLASH_COMMAND_EFFORT_MAP_FAST`)
-- `adws/agents/buildAgent.ts` — Add scenario-aware routing: accept optional `scenarioPaths`, select `/implement_tdd` vs `/implement`, include scenario context in args
+- `adws/agents/buildAgent.ts` — Add scenario-aware routing: call `findScenarioFiles` internally, select `/implement_tdd` vs `/implement`, include scenario context in args
 - `adws/agents/index.ts` — Export new function/type from buildAgent if needed
-- `adws/phases/buildPhase.ts` — Call `findScenarioFiles()` to discover scenarios, pass them to the build agent
+- `adws/phases/buildPhase.ts` — Pass worktree path and issue number to the build agent for scenario detection
 - `adws/adwSdlc.tsx` — Remove `executeStepDefPhase` call, remove unused import
 - `adws/adwPlanBuildReview.tsx` — Remove `executeStepDefPhase` call, remove unused import
 - `adws/adwPlanBuildTestReview.tsx` — Remove `executeStepDefPhase` call, remove unused import
@@ -69,20 +69,21 @@ Execute every step in order, top to bottom.
 
 ### Step 3: Add TDD-aware routing to build agent
 - In `adws/agents/buildAgent.ts`:
+  - Import `findScenarioFiles` from `'./validationAgent'`
   - Add a new `CommandAgentConfig` for TDD mode: `buildAgentTddConfig` using command `'/implement_tdd'` (same agent name and output file pattern as the existing config, but with the TDD command)
-  - Modify `runBuildAgent` to accept an optional `scenarioPaths?: string[]` parameter
-  - When `scenarioPaths` is provided and non-empty:
+  - Modify `runBuildAgent` to accept the issue number and worktree path (if not already parameters)
+  - Internally call `findScenarioFiles(issueNumber, worktreePath)` to detect `.feature` files tagged `@adw-{issueNumber}`
+  - When scenario files are found (non-empty result):
     - Use `buildAgentTddConfig` instead of `buildAgentConfig`
     - Append a `## BDD Scenario Files` section to the args listing the scenario file paths, so the TDD skill has context on which feature files to use
-  - When `scenarioPaths` is absent or empty: fall back to existing `/implement` behavior (unchanged)
+  - When no scenario files are found: fall back to existing `/implement` behavior (unchanged)
   - Log which mode was selected (TDD vs standard)
 
-### Step 4: Update build phase to discover scenarios and pass to build agent
+### Step 4: Update build phase to pass scenario context to the build agent
 - In `adws/phases/buildPhase.ts`:
-  - Import `findScenarioFiles` from `'../agents'`
-  - Before calling `runBuildAgent`, call `findScenarioFiles(issueNumber, worktreePath)` to discover scenario files tagged `@adw-{issueNumber}`
-  - Pass the discovered scenario paths to `runBuildAgent` via the new `scenarioPaths` parameter
-  - Log the discovery result (number of scenarios found, and whether TDD mode is active)
+  - Ensure `runBuildAgent` is called with the worktree path and issue number (or issue object) so the build agent can detect and read scenario files internally
+  - The build agent handles scenario discovery and routing internally (no `findScenarioFiles` call needed in `buildPhase.ts`)
+  - Log confirmation that the build phase is delegating scenario detection to the build agent
 
 ### Step 5: Remove `executeStepDefPhase` from `adwSdlc.tsx`
 - Remove the `executeStepDefPhase` import from the imports block
@@ -116,8 +117,8 @@ Execute every step in order, top to bottom.
 
 ## Acceptance Criteria
 - `/implement_tdd` is a valid `SlashCommand` with model and effort routing entries
-- `buildAgent.ts` routes to `/implement_tdd` when `scenarioPaths` is non-empty, `/implement` otherwise
-- `buildPhase.ts` calls `findScenarioFiles()` and passes results to the build agent
+- `buildAgent.ts` calls `findScenarioFiles()` internally and routes to `/implement_tdd` when scenarios are found, `/implement` otherwise
+- `buildPhase.ts` passes worktree path and issue number to `runBuildAgent` for scenario detection
 - `executeStepDefPhase` is not called in `adwSdlc.tsx`, `adwPlanBuildReview.tsx`, or `adwPlanBuildTestReview.tsx`
 - `executePlanValidationPhase` is not called in any orchestrator (already the case — verify)
 - `adwPlanBuild.tsx` and `adwPlanBuildTest.tsx` remain unchanged

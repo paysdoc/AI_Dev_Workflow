@@ -10,13 +10,12 @@
  * 3. Alignment Phase: single-pass alignment of plan against scenarios
  * 4. Build Phase: run build agent, commit implementation
  * 5. Test Phase: optionally run unit tests (unit only)
- * 6. Step Def Gen Phase: generate step definitions, remove ungeneratable scenarios
- * 7. Review Phase: review implementation + run BDD scenarios, patch blockers, retry
- * 8. Document Phase: generate feature documentation (includes review screenshots)
- * 9. PR Phase: create pull request (only after review passes)
- * 10. KPI Phase: track agentic KPIs (non-fatal)
- * 11. AutoMerge Phase: approve and merge the PR (non-fatal)
- * 12. Finalize: update state, post completion comment
+ * 6. Review Phase: review implementation + run BDD scenarios, patch blockers, retry
+ * 7. Document Phase: generate feature documentation (includes review screenshots)
+ * 8. PR Phase: create pull request (only after review passes)
+ * 9. KPI Phase: track agentic KPIs (non-fatal)
+ * 10. AutoMerge Phase: approve and merge the PR (non-fatal)
+ * 11. Finalize: update state, post completion comment
  *
  * Environment Requirements:
  * - ANTHROPIC_API_KEY: Anthropic API key
@@ -37,7 +36,6 @@ import {
   executeAlignmentPhase,
   executeBuildPhase,
   executeTestPhase,
-  executeStepDefPhase,
   executePRPhase,
   executeReviewPhase,
   executeDocumentPhase,
@@ -83,7 +81,6 @@ async function main(): Promise<void> {
     await runPhase(config, tracker, executeAlignmentPhase);
     await runPhase(config, tracker, executeBuildPhase);
     const testResult = await runPhase(config, tracker, executeTestPhase);
-    await runPhase(config, tracker, executeStepDefPhase);
     const reviewResult = await runPhase(config, tracker, executeReviewPhase);
 
     // Document phase uses review screenshots: bind screenshotsDir via wrapper.

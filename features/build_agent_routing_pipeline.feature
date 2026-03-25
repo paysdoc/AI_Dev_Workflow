@@ -262,13 +262,14 @@ Feature: Build agent routing and orchestrator pipeline restructure
     And no step definition phase is executed
 
   # ===================================================================
-  # 14. AgentIdentifier type includes build-tdd-agent
+  # 14. Build agent TDD config reuses existing agent identifier
   # ===================================================================
 
   @adw-306
-  Scenario: AgentIdentifier includes build-tdd-agent or equivalent
-    Given the file "adws/types/agentTypes.ts" is read
-    Then the AgentIdentifier type includes a value for the TDD build agent
+  Scenario: Build agent TDD config reuses the existing build agent identifier
+    Given the file "adws/agents/buildAgent.ts" is read
+    Then buildAgentTddConfig uses the same agent name as the standard buildAgentConfig
+    And no new AgentIdentifier value is required for TDD mode
 
   # ===================================================================
   # 15. TypeScript type-check passes

@@ -34,6 +34,7 @@ export const SLASH_COMMAND_MODEL_MAP: Record<SlashCommand, ModelTier> = {
   '/pr_review': 'opus',
   // Implementation (plan execution)
   '/implement': 'sonnet',
+  '/implement_tdd': 'sonnet',
   '/patch': 'opus',
   // Review (complex reasoning)
   '/review': 'opus',
@@ -80,6 +81,7 @@ export const SLASH_COMMAND_MODEL_MAP_FAST: Record<SlashCommand, ModelTier> = {
   '/chore': 'sonnet',
   '/pr_review': 'sonnet',
   '/implement': 'sonnet',
+  '/implement_tdd': 'sonnet',
   '/patch': 'opus',
   '/review': 'sonnet',
   '/test': 'haiku',
@@ -120,6 +122,7 @@ export const SLASH_COMMAND_EFFORT_MAP: Record<SlashCommand, ReasoningEffort | un
   '/chore': 'high',
   '/pr_review': 'high',
   '/implement': 'high',
+  '/implement_tdd': 'high',
   '/patch': 'high',
   '/review': 'high',
   '/test': undefined,
@@ -156,6 +159,7 @@ export const SLASH_COMMAND_EFFORT_MAP_FAST: Record<SlashCommand, ReasoningEffort
   '/chore': 'medium',
   '/pr_review': 'medium',
   '/implement': 'high',
+  '/implement_tdd': 'high',
   '/patch': 'high',
   '/review': 'high',
   '/test': undefined,
