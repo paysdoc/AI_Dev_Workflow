@@ -12,3 +12,4 @@ jsbua8-remove-ungeneratable,303,step-def-gen,claude-sonnet-4-6,anthropic,0.94888
 jsbua8-remove-ungeneratable,303,review,claude-opus-4-6,anthropic,1.978317,1.978317,success,0,0,203715,2026-03-25T15:27:03.483Z,,,1558,27000,974728,129306,0
 2nngpw-remove-ungeneratable,303,install,claude-sonnet-4-6,anthropic,0.285802,0.285802,success,0,0,77877,2026-03-25T20:20:10.875Z,,,323,3678,178957,46927,0
 2nngpw-remove-ungeneratable,303,step-def-gen,claude-sonnet-4-6,anthropic,0.281966,0.281966,success,0,0,138205,2026-03-25T20:22:39.136Z,,,10,6691,224513,30458,0
+y55dlm-remove-ungeneratable,303,install,claude-sonnet-4-6,anthropic,0.224970,0.224970,success,0,0,38897,2026-03-25T20:44:17.857Z,,,9,1581,129149,43329,0
