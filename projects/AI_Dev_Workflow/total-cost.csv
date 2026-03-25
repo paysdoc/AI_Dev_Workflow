@@ -231,6 +231,7 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 281,docker image for behavioral test isolation,plan,claude-opus-4-6,0.543167
 281,docker image for behavioral test isolation,plan,claude-haiku-4-5-20251001,0.148161
 281,docker image for behavioral test isolation,scenario,claude-opus-4-6,0.710989
+281,docker image for behavioral test isolation,step-def-gen,claude-sonnet-4-6,0.355378
 289,error in issue 288,build,claude-sonnet-4-6,0.310941
 289,error in issue 288,document,claude-sonnet-4-6,0.233395
 289,error in issue 288,install,claude-sonnet-4-6,0.495521
@@ -279,5 +280,5 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 299,extend compaction recovery to test and review phas,scenario,claude-opus-4-6,0.534245
 299,extend compaction recovery to test and review phas,scenario,claude-haiku-4-5-20251001,0.124425
 
-Total Cost (USD):,238.7655
-Total Cost (EUR):,205.8927
+Total Cost (USD):,239.1208
+Total Cost (EUR):,206.1992
