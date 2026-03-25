@@ -1,3 +1,5 @@
 workflow_id,issue_number,phase,model,provider,computed_cost_usd,reported_cost_usd,status,retry_count,continuation_count,duration_ms,timestamp,estimated_tokens,actual_tokens,input,output,cache_read,cache_write,reasoning
 5oiek8-remove-ungeneratable,303,install,claude-sonnet-4-6,anthropic,0.353740,0.353740,success,0,0,77951,2026-03-25T13:56:17.538Z,,,326,2797,362998,53842,0
 p6ud7v-remove-ungeneratable,303,install,claude-sonnet-4-6,anthropic,0.416738,0.416738,success,0,0,151637,2026-03-25T13:57:34.989Z,,,327,7630,411944,47393,0
+5oiek8-remove-ungeneratable,303,plan,claude-opus-4-6,anthropic,0.715450,0.715450,success,0,0,180692,2026-03-25T13:59:24.002Z,,,955,6709,445163,51259,0
+5oiek8-remove-ungeneratable,303,scenario,claude-opus-4-6,anthropic,0.722457,0.722457,success,0,0,149103,2026-03-25T13:58:54.915Z,,,19,5858,585712,45289,0
