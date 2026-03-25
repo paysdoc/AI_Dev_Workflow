@@ -456,3 +456,11 @@
     - When modifying `buildContinuationPrompt()` or the `buildPhase.ts` continuation while loop
     - When adding a new `WorkflowStage` type or `STAGE_HEADER_MAP` entry in `workflowCommentParsing.ts`
     - When troubleshooting `MAX_TOKEN_CONTINUATIONS` being exhausted due to repeated context compaction
+
+- app_docs/feature-u7lut9-compaction-recovery-test-review-phases.md
+  - Conditions:
+    - When working with `testRetry.ts`, `reviewRetry.ts`, or `retryOrchestrator.ts` compaction handling
+    - When modifying `onCompactionDetected` callbacks in `testPhase.ts`, `workflowCompletion.ts`, or `prReviewCompletion.ts`
+    - When adding `test_compaction_recovery` or `review_compaction_recovery` stage comments
+    - When troubleshooting test or review agents restarting due to context compaction
+    - When extending `RetryConfig` or `RetryResult` with new continuation-tracking fields

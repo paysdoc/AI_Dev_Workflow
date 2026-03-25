@@ -4,7 +4,7 @@
  */
 
 import * as path from 'path';
-import { log, AgentStateManager, type IssueClassSlashCommand, type ModelUsageMap, emptyModelUsageMap, type AgentIdentifier, type GitHubIssue } from '../core';
+import { log, AgentStateManager, type IssueClassSlashCommand, type ModelUsageMap, emptyModelUsageMap, type AgentIdentifier, type GitHubIssue, MAX_TOKEN_CONTINUATIONS } from '../core';
 import { initAgentState, trackCost, type AgentRunResult } from '../core/retryOrchestrator';
 import { runReviewAgent, type ReviewIssue, type ReviewAgentResult } from './reviewAgent';
 import { runPatchAgent } from './patchAgent';
@@ -35,6 +35,7 @@ export interface ReviewRetryResult {
   reviewSummary?: string;
   allScreenshots: string[];
   allSummaries: string[];
+  continuationCount: number;
   /** Scenario proof from the final iteration, if scenario proof was run. */
   scenarioProof?: ScenarioProofResult;
 }
@@ -51,6 +52,8 @@ export interface ReviewRetryOptions {
   issueContext: string;
   onReviewFailed?: (attempt: number, maxAttempts: number, blockerIssues: ReviewIssue[]) => void;
   onPatchingIssue?: (issue: ReviewIssue) => void;
+  /** Called when any review/patch/build agent's context is compacted; continuation number is 1-based */
+  onCompactionDetected?: (continuationNumber: number) => void;
   cwd?: string;
   /** Optional application URL for the dev server (e.g. http://localhost:12345) */
   applicationUrl?: string;
@@ -112,11 +115,12 @@ function mergeReviewResults(results: readonly ReviewAgentResult[]): MergedReview
 export async function runReviewWithRetry(opts: ReviewRetryOptions): Promise<ReviewRetryResult> {
   const {
     adwId, issue, specFile, logsDir, orchestratorStatePath: statePath,
-    maxRetries, branchName, issueType, issueContext, onReviewFailed, onPatchingIssue, cwd,
+    maxRetries, branchName, issueType, issueContext, onReviewFailed, onPatchingIssue, onCompactionDetected, cwd,
     applicationUrl, issueBody, issueNumber, scenariosMd, reviewProofConfig, runByTagCommand,
   } = opts;
 
   let retryCount = 0;
+  let continuationCount = 0;
   let lastBlockerIssues: ReviewIssue[] = [];
   let lastNonBlockerIssues: ReviewIssue[] = [];
   const costState = { costUsd: 0, modelUsage: emptyModelUsageMap() };
@@ -173,6 +177,7 @@ export async function runReviewWithRetry(opts: ReviewRetryOptions): Promise<Revi
           reviewSummary,
           allScreenshots,
           allSummaries,
+          continuationCount,
           scenarioProof,
         };
       }
@@ -192,6 +197,28 @@ export async function runReviewWithRetry(opts: ReviewRetryOptions): Promise<Revi
     // Track cost for each agent result
     reviewResults.forEach(result => trackCost(result as AgentRunResult, costState, statePath));
 
+    // Handle compacted review agents: re-run individually without counting as a retry iteration
+    if (onCompactionDetected) {
+      for (let i = 0; i < reviewResults.length; i++) {
+        while ((reviewResults[i] as AgentRunResult).compactionDetected) {
+          continuationCount++;
+          const agentIndex = i + 1;
+          log(`Review agent ${agentIndex} context compacted (continuation ${continuationCount}/${MAX_TOKEN_CONTINUATIONS})`, 'info');
+          AgentStateManager.appendLog(statePath, `Review agent ${agentIndex} compacted (continuation ${continuationCount})`);
+          if (continuationCount > MAX_TOKEN_CONTINUATIONS) {
+            throw new Error(`Review phase exceeded maximum continuations (${MAX_TOKEN_CONTINUATIONS}) due to context compaction`);
+          }
+          onCompactionDetected(continuationCount);
+          const newResult = await runReviewAgent(
+            adwId, specFile, logsDir, initAgentState(statePath, `review-agent-${agentIndex}` as AgentIdentifier),
+            cwd, applicationUrl, issueBody, agentIndex, scenarioProof?.resultsFilePath,
+          );
+          trackCost(newResult as AgentRunResult, costState, statePath);
+          reviewResults[i] = newResult;
+        }
+      }
+    }
+
     // Collect summaries from all agents
     reviewResults
       .filter(result => result.reviewResult?.reviewSummary)
@@ -209,7 +236,7 @@ export async function runReviewWithRetry(opts: ReviewRetryOptions): Promise<Revi
         passed: true, costUsd: costState.costUsd, totalRetries: retryCount,
         blockerIssues: [], nonBlockerIssues: merged.nonBlockerIssues,
         modelUsage: costState.modelUsage,
-        reviewSummary, allScreenshots, allSummaries, scenarioProof: lastScenarioProof,
+        reviewSummary, allScreenshots, allSummaries, continuationCount, scenarioProof: lastScenarioProof,
       };
     }
 
@@ -224,10 +251,27 @@ export async function runReviewWithRetry(opts: ReviewRetryOptions): Promise<Revi
       log(`Patching blocker #${blockerIssue.reviewIssueNumber}: ${blockerIssue.issueDescription}`, 'info');
       AgentStateManager.appendLog(statePath, `Patching blocker #${blockerIssue.reviewIssueNumber}`);
 
-      const patchResult = await runPatchAgent(
+      let patchResult = await runPatchAgent(
         adwId, blockerIssue, logsDir, specFile, undefined, initAgentState(statePath, 'patch-agent'), cwd, issueBody,
       );
       trackCost(patchResult as AgentRunResult, costState, statePath);
+
+      // Handle patch agent compaction: re-run with fresh context without counting as a retry
+      if (onCompactionDetected) {
+        while ((patchResult as AgentRunResult).compactionDetected) {
+          continuationCount++;
+          log(`Patch agent compacted (continuation ${continuationCount}/${MAX_TOKEN_CONTINUATIONS})`, 'info');
+          AgentStateManager.appendLog(statePath, `Patch agent compacted (continuation ${continuationCount})`);
+          if (continuationCount > MAX_TOKEN_CONTINUATIONS) {
+            throw new Error(`Review phase patch agent exceeded maximum continuations (${MAX_TOKEN_CONTINUATIONS})`);
+          }
+          onCompactionDetected(continuationCount);
+          patchResult = await runPatchAgent(
+            adwId, blockerIssue, logsDir, specFile, undefined, initAgentState(statePath, 'patch-agent'), cwd, issueBody,
+          );
+          trackCost(patchResult as AgentRunResult, costState, statePath);
+        }
+      }
 
       const patchMsg = patchResult.success ? 'Patch plan created for' : 'Patch failed for';
       log(`${patchMsg} blocker #${blockerIssue.reviewIssueNumber}`, patchResult.success ? 'success' : 'error');
@@ -237,10 +281,27 @@ export async function runReviewWithRetry(opts: ReviewRetryOptions): Promise<Revi
         log(`Implementing patch for blocker #${blockerIssue.reviewIssueNumber}...`, 'info');
         AgentStateManager.appendLog(statePath, `Implementing patch for blocker #${blockerIssue.reviewIssueNumber}`);
 
-        const buildResult = await runBuildAgent(
+        let buildResult = await runBuildAgent(
           issue, logsDir, patchResult.output, undefined, initAgentState(statePath, 'build-agent'), cwd,
         );
         trackCost(buildResult as AgentRunResult, costState, statePath);
+
+        // Handle build agent compaction: re-run with fresh context without counting as a retry
+        if (onCompactionDetected) {
+          while ((buildResult as AgentRunResult).compactionDetected) {
+            continuationCount++;
+            log(`Build agent (review patch) compacted (continuation ${continuationCount}/${MAX_TOKEN_CONTINUATIONS})`, 'info');
+            AgentStateManager.appendLog(statePath, `Build agent (review patch) compacted (continuation ${continuationCount})`);
+            if (continuationCount > MAX_TOKEN_CONTINUATIONS) {
+              throw new Error(`Review phase build agent exceeded maximum continuations (${MAX_TOKEN_CONTINUATIONS})`);
+            }
+            onCompactionDetected(continuationCount);
+            buildResult = await runBuildAgent(
+              issue, logsDir, patchResult.output, undefined, initAgentState(statePath, 'build-agent'), cwd,
+            );
+            trackCost(buildResult as AgentRunResult, costState, statePath);
+          }
+        }
 
         const buildMsg = buildResult.success ? 'Build implemented for' : 'Build failed for';
         log(`${buildMsg} blocker #${blockerIssue.reviewIssueNumber}`, buildResult.success ? 'success' : 'error');
@@ -265,6 +326,6 @@ export async function runReviewWithRetry(opts: ReviewRetryOptions): Promise<Revi
     passed: false, costUsd: costState.costUsd, totalRetries: retryCount,
     blockerIssues: lastBlockerIssues, nonBlockerIssues: lastNonBlockerIssues,
     modelUsage: costState.modelUsage,
-    reviewSummary, allScreenshots, allSummaries, scenarioProof: lastScenarioProof,
+    reviewSummary, allScreenshots, allSummaries, continuationCount, scenarioProof: lastScenarioProof,
   };
 }

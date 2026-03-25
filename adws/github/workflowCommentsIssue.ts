@@ -169,6 +169,16 @@ function formatCompactionRecoveryComment(ctx: WorkflowContext): string {
   return `## :warning: Context Compaction Recovery\n\nThe build agent's context was compacted by Claude Code, which is lossy. Terminating and spawning a continuation agent with fresh context.\n\n**Continuation:** #${continuationNumber}\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
 }
 
+function formatTestCompactionRecoveryComment(ctx: WorkflowContext): string {
+  const continuationNumber = ctx.tokenContinuationNumber ?? 1;
+  return `## :warning: Test Compaction Recovery\n\nThe test resolution agent's context was compacted by Claude Code, which is lossy. Terminating and spawning a continuation agent with fresh context.\n\n**Continuation:** #${continuationNumber}\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+}
+
+function formatReviewCompactionRecoveryComment(ctx: WorkflowContext): string {
+  const continuationNumber = ctx.tokenContinuationNumber ?? 1;
+  return `## :warning: Review Compaction Recovery\n\nThe review/patch agent's context was compacted by Claude Code, which is lossy. Terminating and spawning a continuation agent with fresh context.\n\n**Continuation:** #${continuationNumber}\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+}
+
 function formatReviewIssueItem(issue: ReviewIssue): string {
   return `- **#${issue.reviewIssueNumber}** [${issue.issueSeverity}]: ${issue.issueDescription}`;
 }
@@ -297,6 +307,8 @@ export function formatWorkflowComment(stage: WorkflowStage, ctx: WorkflowContext
     case 'error': return formatErrorComment(ctx);
     case 'token_limit_recovery': return formatTokenLimitRecoveryComment(ctx);
     case 'compaction_recovery': return formatCompactionRecoveryComment(ctx);
+    case 'test_compaction_recovery': return formatTestCompactionRecoveryComment(ctx);
+    case 'review_compaction_recovery': return formatReviewCompactionRecoveryComment(ctx);
     case 'review_running': return formatReviewRunningComment(ctx);
     case 'review_passed': return formatReviewPassedComment(ctx);
     case 'review_failed': return formatReviewFailedComment(ctx);

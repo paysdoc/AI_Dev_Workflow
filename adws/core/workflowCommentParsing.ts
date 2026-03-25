@@ -48,6 +48,8 @@ const STAGE_HEADER_MAP: Record<string, WorkflowStage> = {
   ':x: ADW Workflow Error': 'error',
   ':warning: Token Limit Recovery': 'token_limit_recovery',
   ':warning: Context Compaction Recovery': 'compaction_recovery',
+  ':warning: Test Compaction Recovery': 'test_compaction_recovery',
+  ':warning: Review Compaction Recovery': 'review_compaction_recovery',
 };
 
 /** ADW comment heading pattern: `## :emoji_name: Title` */

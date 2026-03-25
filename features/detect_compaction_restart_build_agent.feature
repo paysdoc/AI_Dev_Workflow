@@ -157,12 +157,14 @@ Feature: Detect context compaction and restart build agent with fresh context
 
   # --- Build agent scope only ---
 
-  @adw-9zcqhw-detect-context-compa
-  Scenario: Compaction detection is limited to the build agent
+  @adw-9zcqhw-detect-context-compa @adw-u7lut9-extend-compaction-re @adw-l9w3wm-extend-compaction-re
+  Scenario: Compaction recovery is handled by build, test, and review phases
     Given the build phase uses agentProcessHandler for the build agent
-    When a non-build agent (e.g. plan, review) runs via agentProcessHandler
-    Then compaction detection is still present in the handler
-    But only buildPhase.ts acts on the compactionDetected flag to trigger continuation
+    And the test phase uses agentProcessHandler for the test resolution agent
+    And the review phase uses agentProcessHandler for the review resolution agent
+    When any agent runs via agentProcessHandler
+    Then compaction detection is present in the handler
+    And buildPhase.ts, testPhase.ts, and prReviewPhase.ts all act on the compactionDetected flag to trigger continuation
 
   # --- Type checks ---
 

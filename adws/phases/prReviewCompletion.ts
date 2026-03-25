@@ -12,7 +12,7 @@ import { fetchExchangeRates } from '../cost/exchangeRates';
 import { formatCostCommentSection } from '../cost/reporting/commentFormatter';
 import { BoardStatus } from '../providers/types';
 import { pushBranch, inferIssueTypeFromBranch } from '../vcs';
-import { postPRStageComment } from './phaseCommentHelpers';
+import { postPRStageComment, postIssueStageComment } from './phaseCommentHelpers';
 import { runCommitAgent, runUnitTestsWithRetry, runE2ETestsWithRetry } from '../agents';
 import { MAX_TEST_RETRY_ATTEMPTS } from '../core';
 import type { PRReviewWorkflowConfig } from './prReviewPhase';
@@ -38,11 +38,22 @@ export async function executePRReviewTestPhase(config: PRReviewWorkflowConfig): 
     }
   };
 
+  const onCompactionDetected = (continuationNumber: number) => {
+    ctx.tokenContinuationNumber = continuationNumber;
+    log(`PR review test phase: context compacted, spawning continuation #${continuationNumber}`, 'info');
+    AgentStateManager.appendLog(orchestratorStatePath, `PR review test phase context compacted (continuation ${continuationNumber})`);
+    // Post to associated issue when available; PRReviewWorkflowContext extends WorkflowContext
+    if (repoContext && config.issueNumber) {
+      postIssueStageComment(repoContext, config.issueNumber, 'test_compaction_recovery', ctx);
+    }
+  };
+
   const unitTestsResult = await runUnitTestsWithRetry({
     logsDir,
     orchestratorStatePath,
     maxRetries: MAX_TEST_RETRY_ATTEMPTS,
     onTestFailed,
+    onCompactionDetected,
     cwd: worktreePath,
     issueBody: prDetails.body,
   });
@@ -67,6 +78,7 @@ export async function executePRReviewTestPhase(config: PRReviewWorkflowConfig): 
     orchestratorStatePath,
     maxRetries: MAX_TEST_RETRY_ATTEMPTS,
     onTestFailed,
+    onCompactionDetected,
     cwd: worktreePath,
     applicationUrl,
     issueBody: prDetails.body,
