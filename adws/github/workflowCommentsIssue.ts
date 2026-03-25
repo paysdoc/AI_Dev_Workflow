@@ -281,6 +281,14 @@ function formatPlanValidationFailedComment(ctx: WorkflowContext): string {
   return `## :x: Plan-Scenario Validation Failed\n\nPlan and scenarios could not be aligned after maximum resolution attempts.\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
 }
 
+function formatPlanAligningComment(ctx: WorkflowContext): string {
+  return `## :arrows_counterclockwise: Aligning Plan and Scenarios\n\nPerforming single-pass alignment of implementation plan against BDD scenarios...\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+}
+
+function formatPlanAlignedComment(ctx: WorkflowContext): string {
+  return `## :white_check_mark: Plan and Scenarios Aligned\n\nImplementation plan and BDD scenarios have been aligned.\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+}
+
 /** Formats the resuming workflow comment. */
 export function formatResumingComment(ctx: WorkflowContext, resumeFrom: WorkflowStage): string {
   return `## :arrows_counterclockwise: ADW Workflow Resuming\n\nResuming automated development workflow from previous run.\n\n**Resuming from:** ${resumeFrom}\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
@@ -318,6 +326,8 @@ export function formatWorkflowComment(stage: WorkflowStage, ctx: WorkflowContext
     case 'plan_resolving': return formatPlanResolvingComment(ctx);
     case 'plan_resolved': return formatPlanResolvedComment(ctx);
     case 'plan_validation_failed': return formatPlanValidationFailedComment(ctx);
+    case 'plan_aligning': return formatPlanAligningComment(ctx);
+    case 'plan_aligned': return formatPlanAlignedComment(ctx);
     default: return `## ADW Workflow Update\n\n**Stage:** ${stage}\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
   }
 }

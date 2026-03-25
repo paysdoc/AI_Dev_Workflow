@@ -47,6 +47,9 @@ export type WorkflowStage =
   | 'plan_resolving'
   | 'plan_resolved'
   | 'plan_validation_failed'
+  // Single-pass alignment stages
+  | 'plan_aligning'
+  | 'plan_aligned'
   // Install phase stages
   | 'install_running'
   | 'install_completed'
