@@ -307,6 +307,7 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 307,review phase step definition independence check,install,claude-sonnet-4-6,0.283197
 307,review phase step definition independence check,plan,claude-opus-4-6,0.793046
 307,review phase step definition independence check,scenario,claude-opus-4-6,0.489819
+307,review phase step definition independence check,step-def-gen,claude-sonnet-4-6,0.632139
 
-Total Cost (USD):,271.3365
-Total Cost (EUR):,233.9795
+Total Cost (USD):,271.9687
+Total Cost (EUR):,234.5246
