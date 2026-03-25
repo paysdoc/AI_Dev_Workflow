@@ -1,0 +1,2 @@
+workflow_id,issue_number,phase,model,provider,computed_cost_usd,reported_cost_usd,status,retry_count,continuation_count,duration_ms,timestamp,estimated_tokens,actual_tokens,input,output,cache_read,cache_write,reasoning
+78f2zu-create-implement-tdd,304,install,claude-sonnet-4-6,anthropic,0.275102,0.275102,success,0,0,64826,2026-03-25T13:50:44.975Z,,,10,2490,252882,43162,0
