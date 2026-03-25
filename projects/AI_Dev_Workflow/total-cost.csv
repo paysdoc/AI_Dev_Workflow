@@ -213,6 +213,7 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 289,error in issue 288,plan,claude-opus-4-6,2.973749
 289,error in issue 288,scenario,claude-opus-4-6,1.340422
 289,error in issue 288,scenario,claude-haiku-4-5-20251001,0.476562
+289,error in issue 288,step-def-gen,claude-sonnet-4-6,1.199329
 
-Total Cost (USD):,188.6175
-Total Cost (EUR):,162.6490
+Total Cost (USD):,189.8168
+Total Cost (EUR):,163.6832
