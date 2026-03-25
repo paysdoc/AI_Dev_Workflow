@@ -1,0 +1,2 @@
+workflow_id,issue_number,phase,model,provider,computed_cost_usd,reported_cost_usd,status,retry_count,continuation_count,duration_ms,timestamp,estimated_tokens,actual_tokens,input,output,cache_read,cache_write,reasoning
+l9w3wm-extend-compaction-re,299,install,claude-sonnet-4-6,anthropic,0.195881,0.195881,success,0,0,41446,2026-03-25T12:33:51.537Z,,,7,1722,133829,34635,0
