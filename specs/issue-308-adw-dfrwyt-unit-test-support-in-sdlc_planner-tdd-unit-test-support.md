@@ -99,7 +99,6 @@ Write BDD scenarios in a new feature file to verify the enhanced SKILL.md conten
   - SKILL.md describes skipping unit tests when disabled or absent
   - SKILL.md references `tests.md` for unit test quality when enabled
   - SKILL.md references `mocking.md` for unit test mocking when enabled
-  - SKILL.md instructs reading `.adw/commands.md` `## Run Tests` for unit test runner when enabled
   - SKILL.md describes verifying both unit tests and BDD scenarios pass in GREEN phase
   - SKILL.md describes BDD scenarios as the independent proof layer
 - Tag key regression scenarios with both `@adw-308` and `@regression`
@@ -132,7 +131,6 @@ Write BDD scenarios in a new feature file to verify the enhanced SKILL.md conten
 - [ ] When disabled or absent, SKILL.md instructs skipping unit tests entirely — only BDD scenarios drive the TDD loop
 - [ ] SKILL.md references `tests.md` for unit test quality guidance when enabled
 - [ ] SKILL.md references `mocking.md` for unit test mocking guidance when enabled
-- [ ] SKILL.md instructs reading `.adw/commands.md` `## Run Tests` for the project's unit test runner
 - [ ] SKILL.md describes verifying both unit tests and BDD scenarios pass in the GREEN phase
 - [ ] SKILL.md reminds that BDD scenarios are the independent proof layer
 - [ ] BDD scenarios tagged `@adw-308` pass
