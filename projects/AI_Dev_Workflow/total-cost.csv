@@ -320,9 +320,11 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 307,review phase step definition independence check,install,claude-sonnet-4-6,0.283197
 307,review phase step definition independence check,install,claude-sonnet-4-6,0.282980
 307,review phase step definition independence check,plan,claude-opus-4-6,0.793046
+307,review phase step definition independence check,review,claude-opus-4-6,7.454624
+307,review phase step definition independence check,review,claude-sonnet-4-6,1.833816
 307,review phase step definition independence check,scenario,claude-opus-4-6,0.489819
 307,review phase step definition independence check,step-def-gen,claude-sonnet-4-6,0.632139
 307,review phase step definition independence check,step-def-gen,claude-sonnet-4-6,0.248037
 
-Total Cost (USD):,282.8766
-Total Cost (EUR):,243.9307
+Total Cost (USD):,292.1650
+Total Cost (EUR):,251.9403
