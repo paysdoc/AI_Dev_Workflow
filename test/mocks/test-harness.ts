@@ -6,10 +6,11 @@
  * hooks. Environment variable changes are fully reversible.
  */
 
-import { mkdirSync, writeFileSync, existsSync } from 'fs';
+import { mkdirSync, mkdtempSync, cpSync, writeFileSync, existsSync } from 'fs';
 import { join, resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
+import { tmpdir } from 'os';
 import {
   startMockServer,
   stopMockServer,
@@ -17,7 +18,7 @@ import {
   applyState,
   resetMockServer,
 } from './github-api-server.ts';
-import type { MockConfig, MockContext, MockServerState } from './types.ts';
+import type { MockConfig, MockContext, MockServerState, FixtureRepoContext } from './types.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -178,4 +179,49 @@ export async function teardownMockInfrastructure(): Promise<void> {
  */
 export function resetMock(): void {
   resetMockServer();
+}
+
+/**
+ * Copies a fixture template to a temp directory and initializes it as a git repo.
+ *
+ * - Copies `test/fixtures/{fixtureName}/` to a fresh temp directory
+ * - Runs `git init`, `git add .`, and `git commit` using the real git binary
+ * - Returns the temp directory path and a cleanup function
+ *
+ * Must be called after `setupMockInfrastructure()` so that `REAL_GIT_PATH` is
+ * already set, ensuring the real git is used rather than the mock wrapper.
+ *
+ * @param fixtureName - Subdirectory under test/fixtures/ to copy (default: 'cli-tool')
+ */
+export function setupFixtureRepo(fixtureName = 'cli-tool'): FixtureRepoContext {
+  const sourceDir = resolve(process.cwd(), 'test/fixtures', fixtureName);
+  if (!existsSync(sourceDir)) {
+    throw new Error(`Fixture source directory not found: ${sourceDir}`);
+  }
+
+  const tempBase = mkdtempSync(join(tmpdir(), 'adw-fixture-'));
+  const repoDir = join(tempBase, 'repo');
+  cpSync(sourceDir, repoDir, { recursive: true });
+
+  const gitBin = process.env['REAL_GIT_PATH'] ?? findRealGit();
+  execSync(`"${gitBin}" init`, { cwd: repoDir, stdio: 'pipe' });
+  execSync(`"${gitBin}" config user.email "test@adw.local"`, { cwd: repoDir, stdio: 'pipe' });
+  execSync(`"${gitBin}" config user.name "ADW Test"`, { cwd: repoDir, stdio: 'pipe' });
+  execSync(`"${gitBin}" add .`, { cwd: repoDir, stdio: 'pipe' });
+  execSync(`"${gitBin}" commit -m "Initial fixture commit"`, { cwd: repoDir, stdio: 'pipe' });
+
+  const cleanup = (): void => {
+    try {
+      execSync(`rm -rf "${tempBase}"`, { stdio: 'pipe' });
+    } catch {
+      // best-effort cleanup
+    }
+  };
+
+  return { repoDir, cleanup };
+}
+
+/** Removes the fixture repo temp directory. */
+export function teardownFixtureRepo(ctx: FixtureRepoContext): void {
+  ctx.cleanup();
 }

@@ -48,6 +48,14 @@ export interface MockServerState {
   labels: Record<string, unknown[]>;
 }
 
+/** Context returned by setupFixtureRepo. */
+export interface FixtureRepoContext {
+  /** Absolute path to the temporary fixture repo working directory. */
+  repoDir: string;
+  /** Removes the temp directory. */
+  cleanup: () => void;
+}
+
 /** Context returned by setupMockInfrastructure. */
 export interface MockContext {
   /** Base URL of the GitHub API mock server, e.g. http://localhost:3456. */

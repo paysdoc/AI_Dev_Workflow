@@ -1,0 +1,6 @@
+[
+  {
+    "type": "text",
+    "text": "I have reviewed the implementation against the spec.\n\nHere is my assessment:\n\n```json\n{\"success\":true,\"reviewSummary\":\"Review passed. Implementation follows the spec with clean code structure.\",\"reviewIssues\":[{\"reviewIssueNumber\":1,\"screenshotPath\":\"\",\"issueDescription\":\"Minor: consider adding JSDoc to exported functions\",\"issueResolution\":\"Add documentation comments to public API\",\"issueSeverity\":\"tech-debt\"}],\"screenshots\":[]}\n```\n"
+  }
+]
