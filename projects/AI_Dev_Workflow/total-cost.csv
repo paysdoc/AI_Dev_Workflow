@@ -292,6 +292,7 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 299,extend compaction recovery to test and review phas,step-def-gen,claude-sonnet-4-6,2.590701
 303,remove ungeneratable classification from step def ,alignment,claude-opus-4-6,0.257422
 303,remove ungeneratable classification from step def ,build,claude-sonnet-4-6,0.527263
+303,remove ungeneratable classification from step def ,build,claude-sonnet-4-6,1.292536
 303,remove ungeneratable classification from step def ,install,claude-sonnet-4-6,0.353740
 303,remove ungeneratable classification from step def ,install,claude-sonnet-4-6,0.416738
 303,remove ungeneratable classification from step def ,install,claude-sonnet-4-6,0.426541
@@ -341,5 +342,5 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 307,review phase step definition independence check,step-def-gen,claude-sonnet-4-6,0.632139
 307,review phase step definition independence check,step-def-gen,claude-sonnet-4-6,0.248037
 
-Total Cost (USD):,304.4028
-Total Cost (EUR):,262.4932
+Total Cost (USD):,305.6953
+Total Cost (EUR):,263.6078
