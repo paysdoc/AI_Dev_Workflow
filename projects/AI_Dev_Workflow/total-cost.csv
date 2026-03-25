@@ -316,6 +316,7 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 305,single pass alignment command phase replaces plan ,install,claude-sonnet-4-6,0.288730
 305,single pass alignment command phase replaces plan ,plan,claude-haiku-4-5-20251001,0.345433
 305,single pass alignment command phase replaces plan ,plan,claude-opus-4-6,1.101640
+305,single pass alignment command phase replaces plan ,review,claude-opus-4-6,1.717834
 305,single pass alignment command phase replaces plan ,scenario,claude-opus-4-6,0.820791
 305,single pass alignment command phase replaces plan ,step-def-gen,claude-sonnet-4-6,1.463934
 307,review phase step definition independence check,build,claude-sonnet-4-6,0.713374
@@ -329,5 +330,5 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 307,review phase step definition independence check,step-def-gen,claude-sonnet-4-6,0.632139
 307,review phase step definition independence check,step-def-gen,claude-sonnet-4-6,0.248037
 
-Total Cost (USD):,296.9468
-Total Cost (EUR):,256.0638
+Total Cost (USD):,298.6647
+Total Cost (EUR):,257.5451
