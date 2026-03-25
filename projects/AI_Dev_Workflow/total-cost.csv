@@ -285,6 +285,7 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 299,extend compaction recovery to test and review phas,scenario,claude-opus-4-6,0.534245
 299,extend compaction recovery to test and review phas,scenario,claude-haiku-4-5-20251001,0.124425
 299,extend compaction recovery to test and review phas,step-def-gen,claude-sonnet-4-6,3.116679
+299,extend compaction recovery to test and review phas,step-def-gen,claude-sonnet-4-6,2.590701
 
-Total Cost (USD):,255.2872
-Total Cost (EUR):,220.1398
+Total Cost (USD):,257.8779
+Total Cost (EUR):,222.3738
