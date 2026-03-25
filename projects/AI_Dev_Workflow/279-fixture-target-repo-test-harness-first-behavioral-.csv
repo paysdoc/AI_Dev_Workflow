@@ -7,3 +7,4 @@ workflow_id,issue_number,phase,model,provider,computed_cost_usd,reported_cost_us
 6bi1qq-fixture-target-repo,279,build,claude-haiku-4-5-20251001,anthropic,0.025569,0.025569,success,0,1,3397587,2026-03-25T11:31:39.955Z,,,8,609,13972,16895,0
 6bi1qq-fixture-target-repo,279,step-def-gen,claude-sonnet-4-6,anthropic,0.794827,0.794827,success,0,0,313423,2026-03-25T11:37:00.695Z,,,35,13234,1248547,59106,0
 6bi1qq-fixture-target-repo,279,review,claude-opus-4-6,anthropic,2.560620,2.560620,success,0,0,209919,2026-03-25T11:40:36.339Z,,,1196,23346,1729142,177027,0
+6bi1qq-fixture-target-repo,279,document,claude-sonnet-4-6,anthropic,0.242843,0.242843,success,0,0,111513,2026-03-25T11:42:33.295Z,,,8,3988,167233,35421,0
