@@ -52,28 +52,21 @@ Feature: PRs target the repo's default branch and use qualified issue references
     Given ".claude/commands/pull_request.md" is read
     Then the file does not contain "defaults to 'main' if not provided"
 
-  # ── pullRequestCreator uses qualified references ──────────────────────────
+  # ── pullRequestCreator removed — PR creation moved to CodeHost provider ───
+  # These scenarios are superseded by adw-7sunv4-fix-issue-status-pro.
+  # pullRequestCreator.ts is deleted; qualified references are now handled
+  # by pull_request.md and the CodeHost.createMergeRequest() provider method.
 
-  @adw-237 @regression
-  Scenario: generatePrBody does not use bare issue number references
-    Given "adws/github/pullRequestCreator.ts" is read
-    Then the file does not contain "Implements #${issue.number}"
+  @adw-237 @adw-7sunv4-fix-issue-status-pro @regression
+  Scenario: pullRequestCreator.ts has been removed after PR creation refactor
+    Given the ADW codebase is checked out
+    Then the file "adws/github/pullRequestCreator.ts" does not exist
 
-  @adw-237 @regression
-  Scenario: generatePrBody produces qualified owner/repo#N references when both params are provided
-    Given "adws/github/pullRequestCreator.ts" is read
-    Then generatePrBody uses repoOwner and repoName to build a qualified issue reference
-
-  @adw-237 @regression
-  Scenario: generatePrBody falls back to bare #N when repoOwner and repoName are absent
-    Given "adws/github/pullRequestCreator.ts" is read
-    Then generatePrBody falls back to bare issue reference when repo params are missing
-
-  @adw-237 @regression
-  Scenario: createPullRequest accepts repoOwner and repoName parameters
-    Given "adws/github/pullRequestCreator.ts" is read
-    Then createPullRequest function signature includes repoOwner parameter
-    And createPullRequest function signature includes repoName parameter
+  @adw-237 @adw-7sunv4-fix-issue-status-pro @regression
+  Scenario: pull_request.md handles qualified issue references for cross-repo PRs
+    Given ".claude/commands/pull_request.md" is read
+    Then the file contains "repoOwner"
+    And the file contains "repoName"
 
   # ── Default branch detection ──────────────────────────────────────────────
 

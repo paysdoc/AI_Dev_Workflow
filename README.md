@@ -210,6 +210,7 @@ adws/                   # ADW workflow system
 │   ├── prCommentDetector.ts
 │   ├── projectBoardApi.ts
 │   ├── pullRequestCreator.ts
+│   ├── proofCommentFormatter.ts
 │   ├── workflowComments.ts
 │   ├── workflowCommentsBase.ts
 │   ├── workflowCommentsIssue.ts
@@ -239,6 +240,19 @@ adws/                   # ADW workflow system
 │   ├── costHelpers.ts  # Shared cost utility helpers
 │   ├── exchangeRates.ts
 │   ├── index.ts
+│   └── types.ts
+├── jsonl/              # JSONL schema validation and fixtures
+│   ├── fixtures/       # JSONL fixture files for testing
+│   │   ├── README.md
+│   │   ├── assistant-text.jsonl
+│   │   ├── assistant-tool-use.jsonl
+│   │   ├── result-error.jsonl
+│   │   └── result-success.jsonl
+│   ├── conformanceCheck.ts  # JSONL conformance validation
+│   ├── fixtureUpdater.ts    # Fixture update utility
+│   ├── index.ts
+│   ├── schema.json          # JSONL envelope schema
+│   ├── schemaProbe.ts       # Schema probe utility
 │   └── types.ts
 ├── phases/             # Workflow phase implementations
 │   ├── autoMergePhase.ts  # Auto-approve and merge PR after review passes
