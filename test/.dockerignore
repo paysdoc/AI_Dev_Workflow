@@ -1,0 +1,12 @@
+# Minimise the Docker build context.
+# The Dockerfile only installs system packages — no source files are copied
+# into the image, so this file is mostly defensive hygiene.
+
+node_modules/
+.git/
+projects/
+specs/
+app_docs/
+.env
+.env.*
+*.log

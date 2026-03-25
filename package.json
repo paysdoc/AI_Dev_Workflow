@@ -9,6 +9,8 @@
     "test": "bunx tsc --noEmit",
     "test:unit": "vitest run",
     "test:unit:watch": "vitest",
+    "test:docker": "bash test/docker-run.sh",
+    "test:docker:build": "docker build -t adw-bdd-runner:latest -f test/Dockerfile test/",
     "jsonl:probe": "bunx tsx adws/jsonl/schemaProbe.ts",
     "jsonl:check": "bunx tsx adws/jsonl/conformanceCheck.ts",
     "jsonl:update": "bunx tsx adws/jsonl/fixtureUpdater.ts"

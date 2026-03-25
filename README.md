@@ -76,6 +76,39 @@ See [adws/README.md](adws/README.md) for full usage documentation.
 
 ADW uses BDD scenarios for validation (see `.adw/scenarios.md`).
 
+### Running BDD scenarios on the host
+
+```bash
+# Run all @regression scenarios
+NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@regression"
+
+# Run a specific tag
+NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@mock-infrastructure"
+```
+
+### Docker (optional)
+
+A generic Docker image (`test/Dockerfile`) provides an isolated runtime (Bun + Git) so
+the full `@regression` suite can run inside a container without host-specific dependencies.
+The image is generic — no ADW source code is baked in; the repo is mounted read-only at run
+time. `TEST_RUNTIME=docker` is set automatically inside the container.
+
+```bash
+# Build the image once
+bun run test:docker:build
+
+# Run @regression scenarios inside the container (same results as host)
+bun run test:docker
+
+# Run a specific tag inside the container
+bash test/docker-run.sh --tags "@mock-infrastructure"
+
+# Open an interactive shell for debugging
+bash test/docker-run.sh --shell
+```
+
+Docker execution is entirely optional — the test suite runs identically on the host without it.
+
 ## Project Structure
 
 ```

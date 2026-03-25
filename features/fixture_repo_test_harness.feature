@@ -123,7 +123,7 @@ Feature: Fixture target repo, test harness, and first behavioral review scenario
 
   # ── 5. Host execution (no Docker required) ─────────────────────────────────
 
-  @adw-6bi1qq-fixture-target-repo @regression
+  @adw-6bi1qq-fixture-target-repo @adw-78celh-docker-image-for-beh @regression
   Scenario: Harness works on host without Docker
     Given the test harness is configured for host execution
     When the test harness setup is called

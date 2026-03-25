@@ -441,6 +441,14 @@
     - When troubleshooting `@review-harness` or `@adw-6bi1qq-fixture-target-repo` scenario failures
     - When adding new fixture repos under `test/fixtures/` for behavioral testing
 
+- app_docs/feature-78celh-docker-behavioral-test-isolation.md
+  - Conditions:
+    - When working with `test/Dockerfile`, `test/docker-run.sh`, or `test/.dockerignore`
+    - When running or troubleshooting BDD tests inside a Docker container (`bun run test:docker`)
+    - When modifying the `test:docker` or `test:docker:build` scripts in `package.json`
+    - When adding the Docker runtime path to CI (`regression.yml` `runtime` input)
+    - When troubleshooting `@docker-isolation` scenarios or the `adw-bdd-runner` image
+
 - app_docs/feature-9zcqhw-detect-compaction-restart-build-agent.md
   - Conditions:
     - When working with `agentProcessHandler.ts` stdout detection logic (auth errors, token limit, compaction)
