@@ -332,6 +332,7 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 305,single pass alignment command phase replaces plan ,step-def-gen,claude-sonnet-4-6,1.463934
 306,build agent routing orchestrator pipeline restruct,alignment,claude-opus-4-6,1.068469
 306,build agent routing orchestrator pipeline restruct,build,claude-sonnet-4-6,0.932890
+306,build agent routing orchestrator pipeline restruct,document,claude-sonnet-4-6,0.269823
 306,build agent routing orchestrator pipeline restruct,install,claude-sonnet-4-6,0.386697
 306,build agent routing orchestrator pipeline restruct,plan,claude-opus-4-6,1.087977
 306,build agent routing orchestrator pipeline restruct,review,claude-opus-4-6,1.048549
@@ -349,5 +350,5 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 307,review phase step definition independence check,step-def-gen,claude-sonnet-4-6,0.632139
 307,review phase step definition independence check,step-def-gen,claude-sonnet-4-6,0.248037
 
-Total Cost (USD):,313.3222
-Total Cost (EUR):,270.1846
+Total Cost (USD):,313.5920
+Total Cost (EUR):,270.4173
