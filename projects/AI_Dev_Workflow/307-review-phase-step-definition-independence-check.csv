@@ -1,2 +1,4 @@
 workflow_id,issue_number,phase,model,provider,computed_cost_usd,reported_cost_usd,status,retry_count,continuation_count,duration_ms,timestamp,estimated_tokens,actual_tokens,input,output,cache_read,cache_write,reasoning
 yxq5og-review-phase-step-de,307,install,claude-sonnet-4-6,anthropic,0.283197,0.283197,success,0,0,67778,2026-03-25T13:51:26.300Z,,,327,2046,283807,44369,0
+yxq5og-review-phase-step-de,307,plan,claude-opus-4-6,anthropic,0.793046,0.793046,success,0,0,214288,2026-03-25T13:55:06.227Z,,,2734,6809,407115,64895,0
+yxq5og-review-phase-step-de,307,scenario,claude-opus-4-6,anthropic,0.489819,0.489819,success,0,0,141855,2026-03-25T13:53:56.569Z,,,2604,5132,214873,38570,0
