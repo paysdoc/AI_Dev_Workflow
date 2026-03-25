@@ -4,3 +4,4 @@ workflow_id,issue_number,phase,model,provider,computed_cost_usd,reported_cost_us
 78f2zu-create-implement-tdd,304,plan,claude-haiku-4-5-20251001,anthropic,0.117525,0.117525,success,0,0,300555,2026-03-25T13:55:51.176Z,,,6853,5977,347608,36821,0
 78f2zu-create-implement-tdd,304,scenario,claude-opus-4-6,anthropic,0.570800,0.570800,success,0,0,159817,2026-03-25T13:53:33.594Z,,,885,5804,395762,35743,0
 78f2zu-create-implement-tdd,304,scenario,claude-haiku-4-5-20251001,anthropic,0.037991,0.037991,success,0,0,159817,2026-03-25T13:53:33.594Z,,,17,2103,29856,19579,0
+aym0n5-create-implement-tdd,304,install,claude-sonnet-4-6,anthropic,0.995076,0.995076,success,0,0,364550,2026-03-25T15:18:33.596Z,,,31,14839,1714199,68837,0
