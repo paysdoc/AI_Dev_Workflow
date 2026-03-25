@@ -1,0 +1,2 @@
+workflow_id,issue_number,phase,model,provider,computed_cost_usd,reported_cost_usd,status,retry_count,continuation_count,duration_ms,timestamp,estimated_tokens,actual_tokens,input,output,cache_read,cache_write,reasoning
+8fns89-error-in-issue-288,289,install,claude-sonnet-4-6,anthropic,0.495521,0.495521,success,0,0,152039,2026-03-25T07:47:31.210Z,,,89,5445,614297,61144,0
