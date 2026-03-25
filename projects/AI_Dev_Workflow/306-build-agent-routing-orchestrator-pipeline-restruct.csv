@@ -1,0 +1,2 @@
+workflow_id,issue_number,phase,model,provider,computed_cost_usd,reported_cost_usd,status,retry_count,continuation_count,duration_ms,timestamp,estimated_tokens,actual_tokens,input,output,cache_read,cache_write,reasoning
+0s1m68-build-agent-routing,306,install,claude-sonnet-4-6,anthropic,0.386697,0.386697,success,0,0,134972,2026-03-25T20:55:27.467Z,,,10,5974,293289,55752,0
