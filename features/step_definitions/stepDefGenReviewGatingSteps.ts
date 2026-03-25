@@ -19,7 +19,7 @@ const PHASE_FUNCTION_MAP: Record<string, string> = {
   'install': 'executeInstallPhase',
   'plan': 'executePlanPhase',
   'scenarios': 'executeScenarioPhase',
-  'plan validation': 'executePlanValidationPhase',
+  'plan validation': 'executeAlignmentPhase',
   'build': 'executeBuildPhase',
   'test': 'executeTestPhase',
   'step def gen': 'executeStepDefPhase',

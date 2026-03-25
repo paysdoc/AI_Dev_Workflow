@@ -122,6 +122,7 @@ Docker execution is entirely optional — the test suite runs identically on the
 .claude/
 ├── commands/           # Claude Code slash commands
 │   ├── adw_init.md
+│   ├── align_plan_scenarios.md
 │   ├── bug.md
 │   ├── chore.md
 │   ├── classify_issue.md
@@ -186,6 +187,7 @@ Docker execution is entirely optional — the test suite runs identically on the
 adws/                   # ADW workflow system
 ├── agents/             # Claude Code agent runners
 │   ├── agentProcessHandler.ts  # Process spawning handler
+│   ├── alignmentAgent.ts  # Single-pass alignment agent
 │   ├── bddScenarioRunner.ts  # BDD scenario execution
 │   ├── buildAgent.ts
 │   ├── claudeAgent.ts
@@ -287,6 +289,7 @@ adws/                   # ADW workflow system
 │   ├── schemaProbe.ts       # Schema probe utility
 │   └── types.ts
 ├── phases/             # Workflow phase implementations
+│   ├── alignmentPhase.ts  # Single-pass alignment phase
 │   ├── autoMergePhase.ts  # Auto-approve and merge PR after review passes
 │   ├── buildPhase.ts
 │   ├── documentPhase.ts
