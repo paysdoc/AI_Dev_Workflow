@@ -357,6 +357,7 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 308,unit test support in implement tdd when enabled in,plan,claude-haiku-4-5-20251001,0.165343
 308,unit test support in implement tdd when enabled in,scenario,claude-opus-4-6,0.735639
 314,orchestrator refactor generic pipeline runner with,install,claude-sonnet-4-6,0.520766
+315,robustness hardening retry logic pre flight checks,install,claude-sonnet-4-6,0.546578
 
-Total Cost (USD):,316.8528
-Total Cost (EUR):,273.7060
+Total Cost (USD):,317.3994
+Total Cost (EUR):,274.1782
