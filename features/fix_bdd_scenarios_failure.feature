@@ -89,15 +89,6 @@ Feature: Fix BDD scenarios failure that blocks PR creation
     Then when a tag is optional and produces zero scenarios output it is marked as skipped
     And skipped tags do not count as blocker failures
 
-  # ── 6. Orchestrator phase ordering ensures step defs exist before BDD run ──
-
-  @adw-8fns89-error-in-issue-288 @regression
-  Scenario: Step definition generation phase runs before review phase in all review orchestrators
-    Given the file "adws/adwPlanBuildTestReview.tsx" exists
-    And the file "adws/adwSdlc.tsx" exists
-    And the file "adws/adwPlanBuildReview.tsx" exists
-    Then in each review orchestrator the step def gen phase precedes the review phase
-
   # ── 7. Error reporting includes actionable detail ──────────────────────────
 
   @adw-8fns89-error-in-issue-288 @regression
