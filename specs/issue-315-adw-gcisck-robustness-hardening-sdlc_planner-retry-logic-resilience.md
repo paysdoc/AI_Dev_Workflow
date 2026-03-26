@@ -65,6 +65,7 @@ Create the centralized retry utility in `adws/core/utils.ts` following the expon
 Execute every step in order, top to bottom.
 
 ### Step 1: Create `execWithRetry` utility in `adws/core/utils.ts`
+<!-- ADW-WARNING: The issue acceptance criteria say "retry on transient failures" but the referenced exchangeRates.ts pattern retries ALL errors indiscriminately. The BDD scenario expects non-transient errors (e.g., "not found") to throw immediately without retrying. The issue is internally contradictory on this point — implementation must decide whether to classify errors or retry all. -->
 - Add a new exported function `execWithRetry(command: string, options?: ExecSyncOptions & { maxAttempts?: number }): string`
 - Default to 3 attempts with exponential backoff: 500ms, 1000ms, 2000ms (matching `exchangeRates.ts` pattern)
 - On each failed attempt, log the error and attempt number using `log()` from `../core/logger`
@@ -153,9 +154,12 @@ Execute every step in order, top to bottom.
 
 ### Step 13: Write skip reason files on auto-merge early exits
 - In `adws/triggers/autoMergeHandler.ts` `handleApprovedReview()`:
-  - After `ensureLogsDirectory()` (line ~224), on each subsequent early return write a skip reason file:
-    - Worktree failure (line ~233): write `skip_reason.txt` with "Worktree creation failed for branch: <branch>"
-  - For early returns BEFORE `ensureLogsDirectory()` (lines 189, 196, 204, 214, 219): these don't have a log dir yet, so no change needed
+  - After `ensureLogsDirectory()`, on each subsequent early return write a `skip_reason.txt` file to the log directory:
+    - PR already merged: write "PR already merged, skipping auto-merge"
+    - Worktree failure: write "Worktree creation failed for branch: <branch>"
+    - Missing PR URL: write "No PR URL available, skipping auto-merge"
+    - Missing repo context: write "No repo context available, skipping auto-merge"
+  - For early returns BEFORE `ensureLogsDirectory()` that guard webhook payload fields: no log dir exists yet, so no change needed for those
 - In `adws/phases/autoMergePhase.ts` `executeAutoMergePhase()`:
   - On the early return for missing PR URL (line ~48): write `skip_reason.txt` to `config.logsDir` with "No PR URL found, skipping auto-merge"
   - On the early return for missing repo context (line ~55): write `skip_reason.txt` to `config.logsDir` with "No repo context available, skipping auto-merge"
@@ -183,7 +187,10 @@ Execute every step in order, top to bottom.
 - Resolution agent: retry returns JSON → uses retry result
 - Validation agent: non-JSON output → existing graceful fallback (already handles this)
 - Review issues array: contains `undefined` elements → filtered out before `.issueDescription` access
+- Auto-merge skip: PR already merged → `skip_reason.txt` written with reason
 - Auto-merge skip: worktree failure → `skip_reason.txt` written with failure details
+- Auto-merge skip: missing PR URL → `skip_reason.txt` written with reason
+- Auto-merge skip: missing repo context → `skip_reason.txt` written with reason
 
 ## Acceptance Criteria
 - [ ] New `execWithRetry` utility in `adws/core/utils.ts` with 3 attempts and exponential backoff (500ms → 1s → 2s)
