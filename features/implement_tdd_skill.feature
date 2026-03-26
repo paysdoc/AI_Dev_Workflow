@@ -84,7 +84,7 @@ Feature: /implement_tdd skill with core TDD workflow
 
   # --- Unit test conditional logic ---
 
-  @adw-304-implement-tdd
+  @adw-304-implement-tdd @adw-308 @regression
   Scenario: SKILL.md includes conditional unit test instructions based on project config
     Given the file ".claude/skills/implement-tdd/SKILL.md" is read
     When the content is inspected

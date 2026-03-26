@@ -63,8 +63,32 @@ If a scenario cannot be made to pass and the plan does not address it, add a `//
 ### 4. Unit Tests (Conditional)
 
 Check `.adw/project.md` for the `## Unit Tests` section:
-- If unit tests are **enabled**: write Vitest/Jest unit tests for any non-trivial logic introduced, following the guidelines in [tests.md](tests.md) and [mocking.md](mocking.md). The BDD scenario remains the independent proof layer.
-- If unit tests are **disabled** or the section is absent: skip unit tests entirely.
+- If unit tests are **disabled** or the section is **absent**: skip unit tests entirely — only BDD scenarios drive the TDD loop.
+- If unit tests are **enabled**: integrate unit tests as a first-class part of the red-green-refactor loop for each scenario.
+
+**When unit tests are enabled — red-green-refactor per scenario:**
+
+| phase    | activity                                          |
+| -------- | ------------------------------------------------- |
+| RED      | Write step definition + unit test                 |
+| GREEN    | Implement code to pass both scenario and unit test |
+| REFACTOR | Clean up while keeping both green                 |
+
+**When unit tests are disabled or absent:**
+
+| phase    | activity                              |
+| -------- | ------------------------------------- |
+| RED      | Write step definition                 |
+| GREEN    | Implement code to pass scenario       |
+| REFACTOR | Clean up while keeping scenario green |
+
+**RED phase (when enabled):** Write the step definition AND a unit test alongside it, before implementation code (test-first). The unit test targets the specific function/module introduced for this scenario's vertical slice. Do NOT write all unit tests first then all implementation — unit tests are written as part of the vertical slice for each scenario, following the same principle as step definitions. Follow [tests.md](tests.md) for guidance on writing good unit tests. Follow [mocking.md](mocking.md) for guidance on mocking in unit tests.
+
+**GREEN phase (when enabled):** The GREEN phase verifies that both the BDD scenario and unit tests pass. Implementation is considered GREEN only when both pass.
+
+**REFACTOR phase (when enabled):** Clean up while keeping both the BDD scenario and unit test green.
+
+**BDD scenarios are the independent proof layer** — they were written by a separate agent and verify behavior independently. Unit tests provide finer-grained coverage but are written by the same agent as the implementation, so they carry accommodation risk. They supplement, not replace, BDD scenarios.
 
 ### 5. Verification Frequency
 
