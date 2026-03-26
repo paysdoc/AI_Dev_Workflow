@@ -1,2 +1,6 @@
 workflow_id,issue_number,phase,model,provider,computed_cost_usd,reported_cost_usd,status,retry_count,continuation_count,duration_ms,timestamp,estimated_tokens,actual_tokens,input,output,cache_read,cache_write,reasoning
 chpy1a-orchestrator-refacto,314,install,claude-sonnet-4-6,anthropic,0.520766,0.520766,success,0,0,7152341,2026-03-26T01:28:26.202Z,,,10,4343,216524,104169,0
+chpy1a-orchestrator-refacto,314,plan,claude-opus-4-6,anthropic,1.151641,1.151641,success,0,0,17527251,2026-03-26T06:32:33.112Z,,,1122,11513,618538,87830,0
+chpy1a-orchestrator-refacto,314,plan,claude-haiku-4-5-20251001,anthropic,0.231330,0.231330,success,0,0,17527251,2026-03-26T06:32:33.112Z,,,8454,10909,693371,79195,0
+chpy1a-orchestrator-refacto,314,scenario,claude-opus-4-6,anthropic,1.487232,1.487232,success,0,0,17739360,2026-03-26T06:36:08.550Z,,,11,27357,508542,87837,0
+chpy1a-orchestrator-refacto,314,scenario,claude-haiku-4-5-20251001,anthropic,0.442446,0.442446,success,0,0,17739360,2026-03-26T06:36:08.550Z,,,865,23150,1262408,159672,0
