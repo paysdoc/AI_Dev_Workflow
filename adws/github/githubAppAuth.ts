@@ -167,9 +167,10 @@ export function getInstallationToken(owner: string, repo: string): string {
  *
  * @param owner - Repository owner (user or org)
  * @param repo - Repository name
+ * @param cwd - Optional working directory for git remote fallback (defaults to process.cwd())
  * @returns true if activation succeeded, false if app is not configured or activation failed.
  */
-export function activateGitHubAppAuth(owner?: string, repo?: string): boolean {
+export function activateGitHubAppAuth(owner?: string, repo?: string, cwd?: string): boolean {
   if (!isGitHubAppConfigured()) {
     return false;
   }
@@ -177,7 +178,7 @@ export function activateGitHubAppAuth(owner?: string, repo?: string): boolean {
   // If no repo specified, try to resolve from local git remote
   if (!owner || !repo) {
     try {
-      const remote = execSync('git remote get-url origin', { encoding: 'utf-8' }).trim();
+      const remote = execSync('git remote get-url origin', { encoding: 'utf-8', cwd }).trim();
       const match = remote.match(/github\.com[:/]([^/]+)\/([^/.]+)/);
       if (match) {
         owner = match[1];

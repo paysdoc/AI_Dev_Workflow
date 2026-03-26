@@ -77,10 +77,11 @@ export function getMainRepoPath(cwd?: string): string {
  * This is necessary because these files are in .gitignore and won't be included in worktrees.
  *
  * @param worktreePath - The absolute path to the worktree
+ * @param baseRepoPath - Optional base repo path (for external target repos); defaults to the ADW repo
  */
-export function copyEnvToWorktree(worktreePath: string): void {
+export function copyEnvToWorktree(worktreePath: string, baseRepoPath?: string): void {
   try {
-    const mainRepoPath = getMainRepoPath();
+    const mainRepoPath = getMainRepoPath(baseRepoPath);
     const sourceEnvPath = path.join(mainRepoPath, '.env');
     const destEnvPath = path.join(worktreePath, '.env');
 

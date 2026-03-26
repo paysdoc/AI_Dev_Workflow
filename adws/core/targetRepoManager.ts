@@ -29,18 +29,37 @@ export function isRepoCloned(workspacePath: string): boolean {
 }
 
 /**
+ * Converts an HTTPS GitHub clone URL to SSH format.
+ * Handles URLs like https://github.com/{owner}/{repo} (with or without .git suffix).
+ * Non-HTTPS URLs (e.g., already SSH) are returned unchanged.
+ *
+ * @param cloneUrl - The clone URL to convert
+ * @returns The SSH-format URL, or the original URL if no conversion is needed
+ */
+export function convertToSshUrl(cloneUrl: string): string {
+  const httpsMatch = cloneUrl.match(/^https:\/\/github\.com\/([^/]+)\/([^/.]+)(\.git)?$/);
+  if (httpsMatch) {
+    const sshUrl = `git@github.com:${httpsMatch[1]}/${httpsMatch[2]}.git`;
+    log(`Converting HTTPS clone URL to SSH: ${cloneUrl} → ${sshUrl}`, 'info');
+    return sshUrl;
+  }
+  return cloneUrl;
+}
+
+/**
  * Clones a target repository into the given workspace path.
  */
 export function cloneTargetRepo(cloneUrl: string, workspacePath: string): void {
   const parentDir = path.dirname(workspacePath);
   fs.mkdirSync(parentDir, { recursive: true });
 
-  log(`Cloning ${cloneUrl} into ${workspacePath}...`, 'info');
-  execSync(`git clone "${cloneUrl}" "${workspacePath}"`, {
+  const sshUrl = convertToSshUrl(cloneUrl);
+  log(`Cloning ${sshUrl} into ${workspacePath}...`, 'info');
+  execSync(`git clone "${sshUrl}" "${workspacePath}"`, {
     stdio: 'pipe',
     encoding: 'utf-8',
   });
-  log(`Cloned ${cloneUrl} into ${workspacePath}`, 'success');
+  log(`Cloned ${sshUrl} into ${workspacePath}`, 'success');
 }
 
 /**

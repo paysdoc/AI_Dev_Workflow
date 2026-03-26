@@ -92,6 +92,14 @@
     - When troubleshooting plan-scenario mismatch failures or resolution loop exhaustion
     - When integrating the validation phase into a new orchestrator
 
+- app_docs/feature-kbzbn6-fix-git-repo-context.md
+  - Conditions:
+    - When working with VCS functions (`copyEnvToWorktree`, `ensureWorktree`, `getRepoInfo`)
+    - When adding new git operations that must target an external target repository
+    - When troubleshooting worktree creation, `.env` copy, or git remote errors in target repo workflows
+    - When modifying `autoMergeHandler.ts`, `workflowInit.ts`, or `targetRepoManager.ts`
+    - When cloning new target repositories (SSH vs HTTPS URL handling)
+
 - app_docs/feature-74itmf-dependency-logging.md
   - Conditions:
     - When working with `findOpenDependencies()` or `checkIssueEligibility()` in `adws/triggers/`

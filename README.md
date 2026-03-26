@@ -236,6 +236,7 @@ adws/                   # ADW workflow system
 │   ├── orchestratorLib.ts
 │   ├── pauseQueue.ts   # Pause queue for rate-limit pause/resume
 │   ├── phaseRunner.ts  # PhaseRunner / CostTracker composition
+│   ├── pauseQueue.ts       # Pause/resume queue management
 │   ├── portAllocator.ts
 │   ├── projectConfig.ts
 │   ├── retryOrchestrator.ts
@@ -352,6 +353,7 @@ adws/                   # ADW workflow system
 │   ├── cronProcessGuard.ts  # Duplicate cron process prevention
 │   ├── issueDependencies.ts
 │   ├── issueEligibility.ts
+│   ├── pauseQueueScanner.ts  # Cron probe for paused issue queue
 │   ├── trigger_cron.ts
 │   ├── trigger_shutdown.ts  # Graceful shutdown handler
 │   ├── trigger_webhook.ts
@@ -404,12 +406,15 @@ test/                   # Integration test infrastructure
 │   └── jsonl/          # JSONL envelope and payload fixtures
 │       ├── envelopes/
 │       └── payloads/
-└── mocks/              # Mock implementations
-    ├── claude-cli-stub.ts      # Claude CLI process stub
-    ├── git-remote-mock.ts      # Git remote mock
-    ├── github-api-server.ts    # GitHub API mock HTTP server
-    ├── test-harness.ts         # Test harness orchestrating all mocks
-    └── types.ts                # Mock type definitions
+├── mocks/              # Mock implementations
+│   ├── claude-cli-stub.ts      # Claude CLI process stub
+│   ├── git-remote-mock.ts      # Git remote mock
+│   ├── github-api-server.ts    # GitHub API mock HTTP server
+│   ├── test-harness.ts         # Test harness orchestrating all mocks
+│   └── types.ts                # Mock type definitions
+├── Dockerfile          # Generic Docker image for isolated @regression runs
+├── docker-run.sh       # Helper script to run scenarios inside Docker
+└── .dockerignore       # Files excluded from Docker build context
 app_docs/               # Generated feature documentation
 bun.lock                # Bun lockfile
 eslint.config.js        # ESLint configuration
