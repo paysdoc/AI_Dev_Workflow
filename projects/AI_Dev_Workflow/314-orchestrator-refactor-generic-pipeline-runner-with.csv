@@ -6,3 +6,5 @@ chpy1a-orchestrator-refacto,314,scenario,claude-opus-4-6,anthropic,1.487232,1.48
 chpy1a-orchestrator-refacto,314,scenario,claude-haiku-4-5-20251001,anthropic,0.442446,0.442446,success,0,0,17739360,2026-03-26T06:36:08.550Z,,,865,23150,1262408,159672,0
 chpy1a-orchestrator-refacto,314,build,claude-sonnet-4-6,anthropic,4.076922,4.076922,success,0,1,1843175,2026-03-26T07:06:57.830Z,,,83,74278,7942798,154577,0
 chpy1a-orchestrator-refacto,314,build,claude-haiku-4-5-20251001,anthropic,0.111432,0.111432,success,0,1,1843175,2026-03-26T07:06:57.830Z,,,10,2505,12530,78115,0
+chpy1a-orchestrator-refacto,314,review,claude-opus-4-6,anthropic,2.433464,2.433464,success,0,0,1986527,2026-03-26T07:40:11.175Z,,,358,28031,1554686,152569,0
+chpy1a-orchestrator-refacto,314,review,claude-haiku-4-5-20251001,anthropic,0.325989,0.325989,success,0,0,1986527,2026-03-26T07:40:11.175Z,,,1637,9691,1696321,85012,0
