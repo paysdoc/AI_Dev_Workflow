@@ -92,6 +92,17 @@
     - When troubleshooting plan-scenario mismatch failures or resolution loop exhaustion
     - When integrating the validation phase into a new orchestrator
 
+- app_docs/feature-hx6dg4-robustness-hardening-retry-logic-resilience.md
+  - Conditions:
+    - When working with `execWithRetry` or adding retry logic to `gh` CLI calls
+    - When modifying `claudeAgent.ts` ENOENT handling or Claude CLI path resolution
+    - When implementing pre-flight checks in `initializeWorkflow()`
+    - When working on `createWorktree()` or `createWorktreeForNewBranch()` base ref logic
+    - When modifying `createMergeRequest()` or PR creation/duplicate handling
+    - When troubleshooting `resolutionAgent` or `validationAgent` JSON parse failures
+    - When adding or modifying auto-merge early-exit paths in `autoMergeHandler.ts` or `autoMergePhase.ts`
+    - When troubleshooting empty log directories from skipped auto-merge runs
+
 - app_docs/feature-74itmf-dependency-logging.md
   - Conditions:
     - When working with `findOpenDependencies()` or `checkIssueEligibility()` in `adws/triggers/`
