@@ -139,9 +139,24 @@ export function createWorktree(branchName: string, baseBranch?: string, baseRepo
       execSync(`git worktree add "${worktreePath}" "${branchName}"`, gitOpts);
       log(`Created worktree for existing branch '${branchName}' at ${worktreePath}`, 'success');
     } else if (baseBranch) {
-      // Branch doesn't exist, create worktree with new branch from base
-      execSync(`git worktree add -b "${branchName}" "${worktreePath}" "${baseBranch}"`, gitOpts);
-      log(`Created worktree with new branch '${branchName}' from '${baseBranch}' at ${worktreePath}`, 'success');
+      // Branch doesn't exist, create worktree with new branch from origin/<baseBranch>
+      try {
+        execSync(`git fetch origin "${baseBranch}"`, gitOpts);
+      } catch {
+        // Fetch failure is non-fatal — proceed with local ref if available
+      }
+      // Warn if local branch differs from remote
+      try {
+        const localHash = execSync(`git rev-parse "${baseBranch}"`, gitOpts).toString().trim();
+        const remoteHash = execSync(`git rev-parse "origin/${baseBranch}"`, gitOpts).toString().trim();
+        if (localHash !== remoteHash) {
+          log(`Local ${baseBranch} differs from origin/${baseBranch}, using remote ref`, 'warn');
+        }
+      } catch {
+        // Non-fatal: refs may not exist locally
+      }
+      execSync(`git worktree add -b "${branchName}" "${worktreePath}" "origin/${baseBranch}"`, gitOpts);
+      log(`Created worktree with new branch '${branchName}' from 'origin/${baseBranch}' at ${worktreePath}`, 'success');
     } else {
       // No base branch provided and branch doesn't exist
       throw new Error(`Branch '${branchName}' does not exist and no base branch was provided`);
@@ -177,8 +192,16 @@ export function createWorktreeForNewBranch(branchName: string, baseBranch?: stri
   }
 
   try {
-    const base = baseBranch || 'HEAD';
     const gitOpts = baseRepoPath ? { stdio: 'pipe' as const, cwd: baseRepoPath } : { stdio: 'pipe' as const };
+    let base = 'HEAD';
+    if (baseBranch) {
+      try {
+        execSync(`git fetch origin "${baseBranch}"`, gitOpts);
+      } catch {
+        // Non-fatal
+      }
+      base = `origin/${baseBranch}`;
+    }
     execSync(`git worktree add -b "${branchName}" "${worktreePath}" "${base}"`, gitOpts);
     log(`Created worktree with new branch '${branchName}' at ${worktreePath}`, 'success');
     return worktreePath;

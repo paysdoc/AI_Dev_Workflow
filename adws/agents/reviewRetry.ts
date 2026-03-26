@@ -78,10 +78,11 @@ export interface ReviewRetryOptions {
 function mergeReviewResults(results: readonly ReviewAgentResult[]): MergedReviewResult {
   const validResults = results.filter(r => r.reviewResult !== null);
 
-  // Collect and deduplicate issues
+  // Collect and deduplicate issues (filter nulls/undefineds to guard against malformed agent output)
   const seenDescriptions = new Set<string>();
   const mergedIssues = validResults
     .flatMap(r => r.reviewResult!.reviewIssues)
+    .filter((issue): issue is ReviewIssue => issue != null)
     .filter(issue => {
       const key = issue.issueDescription.trim().toLowerCase();
       if (seenDescriptions.has(key)) return false;
@@ -89,10 +90,11 @@ function mergeReviewResults(results: readonly ReviewAgentResult[]): MergedReview
       return true;
     });
 
-  // Collect and deduplicate screenshots
+  // Collect and deduplicate screenshots (filter nulls/undefineds)
   const seenPaths = new Set<string>();
   const mergedScreenshots = validResults
     .flatMap(r => r.reviewResult!.screenshots)
+    .filter((s): s is string => s != null)
     .filter(screenshot => {
       if (seenPaths.has(screenshot)) return false;
       seenPaths.add(screenshot);

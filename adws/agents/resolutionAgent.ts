@@ -6,6 +6,7 @@ import type { AgentResult } from "./claudeAgent";
 import { runClaudeAgentWithCommand } from "./claudeAgent";
 import { getModelForCommand, getEffortForCommand } from "../core/config";
 import { extractJson } from "../core/jsonParser";
+import { log } from "../core/logger";
 import type { MismatchItem } from "./validationAgent";
 
 export interface ResolutionDecision {
@@ -35,13 +36,13 @@ function formatResolutionArgs(
 
 /**
  * Parses and validates the JSON output from the resolution agent.
+ * Returns a graceful fallback result instead of throwing on invalid JSON.
  */
 export function parseResolutionResult(agentOutput: string): ResolutionResult {
   const parsed = extractJson<ResolutionResult>(agentOutput);
   if (!parsed || typeof parsed.resolved !== "boolean") {
-    throw new Error(
-      `Resolution agent returned invalid result. Expected JSON with 'resolved' boolean. Got: ${agentOutput.substring(0, 200)}`
-    );
+    log("Resolution agent returned invalid JSON, falling back to unresolved", "warn");
+    return { resolved: false, decisions: [] };
   }
   return {
     resolved: parsed.resolved,
@@ -79,6 +80,25 @@ export async function runResolutionAgent(
     cwd
   );
 
-  const resolutionResult = parseResolutionResult(result.output);
+  let resolutionResult = parseResolutionResult(result.output);
+
+  // Retry once if the first output produced a non-JSON graceful fallback
+  if (!resolutionResult.resolved && resolutionResult.decisions.length === 0 && extractJson(result.output) === null) {
+    log("Resolution agent returned non-JSON output, retrying once...", "warn");
+    const retryResult = await runClaudeAgentWithCommand(
+      "/resolve_plan_scenarios",
+      formatResolutionArgs(adwId, issueNumber, planFilePath, scenarioGlob, issueJson, mismatches),
+      "resolution-agent",
+      outputFile,
+      model,
+      effort,
+      undefined,
+      statePath,
+      cwd
+    );
+    resolutionResult = parseResolutionResult(retryResult.output);
+    return { ...retryResult, resolutionResult };
+  }
+
   return { ...result, resolutionResult };
 }

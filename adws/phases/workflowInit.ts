@@ -4,11 +4,13 @@
  */
 
 import { execSync } from 'child_process';
+import { accessSync, constants as fsConstants } from 'fs';
 import {
   log,
   setLogAdwId,
   ensureLogsDirectory,
   generateAdwId,
+  resolveClaudeCodePath,
   type IssueClassSlashCommand,
   type GitHubIssue,
   AgentStateManager,
@@ -96,6 +98,17 @@ export async function initializeWorkflow(
   orchestratorName: AgentIdentifier,
   options?: { cwd?: string; issueType?: IssueClassSlashCommand; targetRepo?: TargetRepoInfo; repoId?: RepoIdentifier }
 ): Promise<WorkflowConfig> {
+  // Pre-flight: verify Claude CLI is present and executable before starting the pipeline
+  const claudePath = resolveClaudeCodePath();
+  try {
+    accessSync(claudePath, fsConstants.X_OK);
+    log(`Pre-flight check passed: Claude CLI found at ${claudePath}`, 'info');
+  } catch {
+    throw new Error(
+      `Pre-flight check failed: Claude CLI not found or not executable at ${claudePath}. Ensure 'claude' is installed and in PATH, or set CLAUDE_CODE_PATH in .env.`
+    );
+  }
+
   // Resolve target repo context for API calls
   const targetRepo = options?.targetRepo;
   const repoInfo: RepoInfo | undefined = targetRepo

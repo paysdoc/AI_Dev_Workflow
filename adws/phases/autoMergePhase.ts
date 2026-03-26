@@ -11,6 +11,8 @@
  * workflow continues to its completion comment.
  */
 
+import { writeFileSync } from 'fs';
+import * as path from 'path';
 import {
   log,
   type ModelUsageMap,
@@ -46,6 +48,7 @@ export async function executeAutoMergePhase(config: WorkflowConfig): Promise<{ c
   const prNumber = extractPrNumber(ctx.prUrl);
   if (!prNumber) {
     log('executeAutoMergePhase: no PR URL found, skipping auto-merge', 'warn');
+    writeFileSync(path.join(logsDir, 'skip_reason.txt'), 'No PR URL found, skipping auto-merge');
     return { costUsd: 0, modelUsage: emptyModelUsageMap(), phaseCostRecords: [] };
   }
 
@@ -53,6 +56,7 @@ export async function executeAutoMergePhase(config: WorkflowConfig): Promise<{ c
   const repo = repoContext?.repoId.repo ?? '';
   if (!owner || !repo) {
     log('executeAutoMergePhase: no repo context, skipping auto-merge', 'warn');
+    writeFileSync(path.join(logsDir, 'skip_reason.txt'), 'No repo context available, skipping auto-merge');
     return { costUsd: 0, modelUsage: emptyModelUsageMap(), phaseCostRecords: [] };
   }
 
