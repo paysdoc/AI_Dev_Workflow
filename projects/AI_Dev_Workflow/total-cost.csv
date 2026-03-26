@@ -373,6 +373,7 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 314,orchestrator refactor generic pipeline runner with,scenario,claude-haiku-4-5-20251001,0.442446
 315,robustness hardening retry logic pre flight checks,alignment,claude-opus-4-6,0.680072
 315,robustness hardening retry logic pre flight checks,alignment,claude-haiku-4-5-20251001,0.022791
+315,robustness hardening retry logic pre flight checks,document,claude-sonnet-4-6,0.293757
 315,robustness hardening retry logic pre flight checks,install,claude-sonnet-4-6,0.546578
 315,robustness hardening retry logic pre flight checks,install,claude-sonnet-4-6,0.276697
 315,robustness hardening retry logic pre flight checks,plan,claude-opus-4-6,1.045279
@@ -394,5 +395,5 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 317,fix ensure all git operations target the correct r,scenario,claude-opus-4-6,0.631179
 317,fix ensure all git operations target the correct r,scenario,claude-haiku-4-5-20251001,0.067708
 
-Total Cost (USD):,366.1472
-Total Cost (EUR):,316.2878
+Total Cost (USD):,366.4409
+Total Cost (EUR):,316.5416
