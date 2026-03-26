@@ -352,6 +352,7 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 307,review phase step definition independence check,step-def-gen,claude-sonnet-4-6,0.632139
 307,review phase step definition independence check,step-def-gen,claude-sonnet-4-6,0.248037
 308,unit test support in implement tdd when enabled in,alignment,claude-opus-4-6,0.387500
+308,unit test support in implement tdd when enabled in,document,claude-sonnet-4-6,0.295887
 308,unit test support in implement tdd when enabled in,install,claude-sonnet-4-6,0.498561
 308,unit test support in implement tdd when enabled in,install,claude-sonnet-4-6,0.556345
 308,unit test support in implement tdd when enabled in,plan,claude-opus-4-6,0.755191
@@ -384,5 +385,5 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 317,fix ensure all git operations target the correct r,scenario,claude-opus-4-6,0.631179
 317,fix ensure all git operations target the correct r,scenario,claude-haiku-4-5-20251001,0.067708
 
-Total Cost (USD):,341.0158
-Total Cost (EUR):,294.5787
+Total Cost (USD):,341.3117
+Total Cost (EUR):,294.8343
