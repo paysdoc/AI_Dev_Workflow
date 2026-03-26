@@ -9,3 +9,4 @@ kbzbn6-fix-ensure-all-git-o,317,install,claude-sonnet-4-6,anthropic,0.279761,0.2
 kbzbn6-fix-ensure-all-git-o,317,review,claude-opus-4-6,anthropic,6.578353,6.578353,success,1,0,4076259,2026-03-26T12:05:31.001Z,,,15115,82297,3798394,407385,0
 kbzbn6-fix-ensure-all-git-o,317,review,claude-haiku-4-5-20251001,anthropic,0.135928,0.135928,success,1,0,4076259,2026-03-26T12:05:31.001Z,,,2414,6372,144942,69728,0
 kbzbn6-fix-ensure-all-git-o,317,review,claude-sonnet-4-6,anthropic,3.614409,3.614409,success,1,0,4076259,2026-03-26T12:05:31.001Z,,,3738,34817,5827049,355420,0
+kbzbn6-fix-ensure-all-git-o,317,document,claude-sonnet-4-6,anthropic,0.233934,0.233934,success,0,0,93668,2026-03-26T12:07:10.114Z,,,9,3661,212165,30758,0
