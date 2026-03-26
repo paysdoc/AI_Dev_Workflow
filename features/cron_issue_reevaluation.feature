@@ -74,22 +74,22 @@ Feature: Cron Trigger Issue Re-evaluation and Improvements
 
   @adw-chpy1a-orchestrator-refacto @regression
   Scenario: Primary parser uses regex to find all #N references in body
-    Given an issue body containing "#42, #43, and see #44"
-    When the dependency extractor parses the body
+    Given an issue body text "#42, #43, and see #44"
+    When the dependency proximity extractor parses the body
     Then it finds issue references [42, 43, 44]
 
   @adw-chpy1a-orchestrator-refacto @regression
   Scenario: Static keyword proximity check classifies dependency references
-    Given an issue body containing "blocked by #42, see also #43"
-    When the dependency extractor applies keyword proximity analysis
-    Then #42 is classified as a dependency
-    And #43 is not classified as a dependency
+    Given a dependency extraction body with keyword ref and plain ref
+    When the proximity extractor applies keyword analysis
+    Then the keyword-adjacent ref is a detected dependency
+    And the distant plain ref is not a detected dependency
 
   @adw-chpy1a-orchestrator-refacto @regression
   Scenario Outline: Keyword "<keyword>" near #N classifies it as a dependency
-    Given an issue body containing "<keyword> #99"
-    When the dependency extractor applies keyword proximity analysis
-    Then #99 is classified as a dependency
+    Given an issue body text "<keyword> #99"
+    When the proximity extractor applies keyword analysis
+    Then issue #99 is a detected dependency
 
     Examples:
       | keyword        |
@@ -101,22 +101,22 @@ Feature: Cron Trigger Issue Re-evaluation and Improvements
 
   @adw-chpy1a-orchestrator-refacto @regression
   Scenario: Heading regex matches "## Blocked by" section
-    Given an issue body with a "## Blocked by" heading listing "#50"
-    When the dependency extractor parses the body
-    Then #50 is classified as a dependency
+    Given an issue body text with a "## Blocked by" heading listing "#50"
+    When the dependency proximity extractor parses the body
+    Then issue #50 is a detected dependency
 
   @adw-chpy1a-orchestrator-refacto @regression
   Scenario: LLM fallback only when fewer dependencies matched than total references
-    Given an issue body with 5 #N references
-    And the regex parser classified 3 as dependencies
-    And 2 references remain unclassified
+    Given an issue body text with 5 hash-N references
+    And the regex parser classified 3 of them as dependencies
+    And 2 of the references remain unclassified
     When the dependency extractor evaluates whether LLM fallback is needed
     Then LLM extraction is triggered for the unclassified references
 
   @adw-chpy1a-orchestrator-refacto @regression
   Scenario: No LLM fallback when all references are classified by regex
-    Given an issue body with 3 #N references
-    And the regex parser classified all 3 as dependencies or non-dependencies
+    Given an issue body text with 3 hash-N references
+    And the regex parser classified all 3 references as dependencies
     When the dependency extractor evaluates whether LLM fallback is needed
     Then LLM extraction is not triggered
 
