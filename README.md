@@ -236,7 +236,6 @@ adws/                   # ADW workflow system
 │   ├── orchestratorLib.ts
 │   ├── pauseQueue.ts   # Pause queue for rate-limit pause/resume
 │   ├── phaseRunner.ts  # PhaseRunner / CostTracker composition
-│   ├── pauseQueue.ts       # Pause/resume queue management
 │   ├── portAllocator.ts
 │   ├── projectConfig.ts
 │   ├── retryOrchestrator.ts
