@@ -358,6 +358,7 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 308,unit test support in implement tdd when enabled in,scenario,claude-opus-4-6,0.735639
 314,orchestrator refactor generic pipeline runner with,build,claude-sonnet-4-6,4.076922
 314,orchestrator refactor generic pipeline runner with,build,claude-haiku-4-5-20251001,0.111432
+314,orchestrator refactor generic pipeline runner with,document,claude-sonnet-4-6,0.330420
 314,orchestrator refactor generic pipeline runner with,install,claude-sonnet-4-6,0.520766
 314,orchestrator refactor generic pipeline runner with,plan,claude-opus-4-6,1.151641
 314,orchestrator refactor generic pipeline runner with,plan,claude-haiku-4-5-20251001,0.231330
@@ -373,5 +374,5 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 315,robustness hardening retry logic pre flight checks,scenario,claude-opus-4-6,0.608479
 315,robustness hardening retry logic pre flight checks,scenario,claude-haiku-4-5-20251001,0.302844
 
-Total Cost (USD):,330.4144
-Total Cost (EUR):,285.4209
+Total Cost (USD):,330.7448
+Total Cost (EUR):,285.7063
