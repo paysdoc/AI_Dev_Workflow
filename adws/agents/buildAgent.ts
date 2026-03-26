@@ -1,7 +1,7 @@
 /**
  * Build Agent - Implements solutions based on implementation plans.
  * Uses the /implement slash command from .claude/commands/implement.md
- * or /implement_tdd when BDD scenarios tagged @adw-{issueNumber} are present.
+ * or /implement-tdd when BDD scenarios tagged @adw-{issueNumber} are present.
  */
 
 import { GitHubIssue, PRDetails, log } from '../core';
@@ -16,7 +16,7 @@ const buildAgentConfig: CommandAgentConfig<void> = {
 };
 
 const buildAgentTddConfig: CommandAgentConfig<void> = {
-  command: '/implement_tdd',
+  command: '/implement-tdd',
   agentName: 'Build',
   outputFileName: 'build-agent.jsonl',
 };
@@ -72,7 +72,7 @@ ${revisionPlan}`;
 /**
  * Runs the Build Agent to implement the solution.
  * Detects BDD scenario files tagged @adw-{issueNumber} in the worktree.
- * When scenarios are found, routes to /implement_tdd (TDD red-green-refactor mode)
+ * When scenarios are found, routes to /implement-tdd (TDD red-green-refactor mode)
  * and includes scenario file paths in the agent context.
  * Falls back to /implement when no scenarios are found.
  *
@@ -95,7 +95,7 @@ export async function runBuildAgent(
   const scenarioFiles = findScenarioFiles(issue.number, worktreePath);
   const useTdd = scenarioFiles.length > 0;
 
-  log(`Build Agent mode: ${useTdd ? 'TDD (/implement_tdd)' : 'standard (/implement)'}`, 'info');
+  log(`Build Agent mode: ${useTdd ? 'TDD (/implement-tdd)' : 'standard (/implement)'}`, 'info');
   if (useTdd) {
     log(`  Scenario files found: ${scenarioFiles.join(', ')}`, 'info');
   }

@@ -45,7 +45,7 @@ When('runBuildAgent is called with or without scenarios present', function () {
   // Context-only — verified by source code inspection in Then steps
 });
 
-When('runBuildAgent selects \\/implement_tdd', function () {
+When('runBuildAgent selects \\/implement-tdd', function () {
   // Context-only — verified by source code inspection in Then steps
 });
 
@@ -132,7 +132,7 @@ Then('the build agent can use both to detect and read scenario files', function 
 // ── 4. SlashCommand type ──────────────────────────────────────────────────────
 // Note: 'Then the SlashCommand union type includes {string}' is already in singlePassAlignmentPhaseSteps.ts
 
-// ── 5. /implement_tdd in model routing tables ────────────────────────────────
+// ── 5. /implement-tdd in model routing tables ────────────────────────────────
 // Note: 'Then SLASH_COMMAND_MODEL_MAP includes an entry for {string}' is in singlePassAlignmentPhaseSteps.ts
 // Note: 'Then SLASH_COMMAND_EFFORT_MAP includes an entry for {string}' is in singlePassAlignmentPhaseSteps.ts
 
@@ -164,7 +164,7 @@ Then('SLASH_COMMAND_EFFORT_MAP maps {string} to the same effort as {string}', fu
 
 /** Extracts the mapped value for a slash command key from source containing a Record literal. */
 function getCommandMapping(content: string, command: string): string | undefined {
-  // Matches lines like: '/implement_tdd': 'sonnet',  or  '/implement': 'high',
+  // Matches lines like: '/implement-tdd': 'sonnet',  or  '/implement': 'high',
   const escapedCmd = command.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const match = content.match(new RegExp(`'${escapedCmd}'\\s*:\\s*'([^']+)'`));
   return match ? match[1] : undefined;

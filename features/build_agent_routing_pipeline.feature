@@ -1,8 +1,8 @@
 @adw-306
 Feature: Build agent routing and orchestrator pipeline restructure
 
-  Wire the new /implement_tdd skill and alignment phase into the ADW pipeline
-  end-to-end. The build agent conditionally selects /implement_tdd when BDD
+  Wire the new /implement-tdd skill and alignment phase into the ADW pipeline
+  end-to-end. The build agent conditionally selects /implement-tdd when BDD
   scenarios tagged @adw-{issueNumber} exist, falling back to /implement when
   they don't. Orchestrators drop executeStepDefPhase and use executeAlignmentPhase
   instead of executePlanValidationPhase.
@@ -21,11 +21,11 @@ Feature: Build agent routing and orchestrator pipeline restructure
     And the detection uses the issue number passed to runBuildAgent
 
   @adw-306 @regression
-  Scenario: buildAgent.ts selects /implement_tdd when scenarios exist
+  Scenario: buildAgent.ts selects /implement-tdd when scenarios exist
     Given the file "adws/agents/buildAgent.ts" is read
     And .feature files tagged @adw-{issueNumber} exist in the worktree
     When runBuildAgent is called
-    Then the agent config uses "/implement_tdd" as the command
+    Then the agent config uses "/implement-tdd" as the command
 
   @adw-306 @regression
   Scenario: buildAgent.ts falls back to /implement when no scenarios exist
@@ -48,7 +48,7 @@ Feature: Build agent routing and orchestrator pipeline restructure
   Scenario: buildAgent.ts passes scenario file paths to the build agent in TDD mode
     Given the file "adws/agents/buildAgent.ts" is read
     And .feature files tagged @adw-{issueNumber} exist in the worktree
-    When runBuildAgent selects /implement_tdd
+    When runBuildAgent selects /implement-tdd
     Then the agent arguments include the scenario file paths
     And the scenario file paths are passed alongside the plan content
 
@@ -71,37 +71,37 @@ Feature: Build agent routing and orchestrator pipeline restructure
     And the build agent can use both to detect and read scenario files
 
   # ===================================================================
-  # 4. /implement_tdd registered in SlashCommand type
+  # 4. /implement-tdd registered in SlashCommand type
   # ===================================================================
 
   @adw-306 @regression
-  Scenario: SlashCommand type includes /implement_tdd
+  Scenario: SlashCommand type includes /implement-tdd
     Given the file "adws/types/issueTypes.ts" is read
-    Then the SlashCommand union type includes "/implement_tdd"
+    Then the SlashCommand union type includes "/implement-tdd"
 
   # ===================================================================
-  # 5. /implement_tdd registered in model routing tables
+  # 5. /implement-tdd registered in model routing tables
   # ===================================================================
 
   @adw-306 @regression
-  Scenario: /implement_tdd is mapped in SLASH_COMMAND_MODEL_MAP
+  Scenario: /implement-tdd is mapped in SLASH_COMMAND_MODEL_MAP
     Given the file "adws/core/modelRouting.ts" is read
-    Then SLASH_COMMAND_MODEL_MAP includes an entry for "/implement_tdd"
+    Then SLASH_COMMAND_MODEL_MAP includes an entry for "/implement-tdd"
 
   @adw-306 @regression
-  Scenario: /implement_tdd is mapped in SLASH_COMMAND_EFFORT_MAP
+  Scenario: /implement-tdd is mapped in SLASH_COMMAND_EFFORT_MAP
     Given the file "adws/core/modelRouting.ts" is read
-    Then SLASH_COMMAND_EFFORT_MAP includes an entry for "/implement_tdd"
+    Then SLASH_COMMAND_EFFORT_MAP includes an entry for "/implement-tdd"
 
   @adw-306
-  Scenario: /implement_tdd uses the same model as /implement in default mode
+  Scenario: /implement-tdd uses the same model as /implement in default mode
     Given the file "adws/core/modelRouting.ts" is read
-    Then SLASH_COMMAND_MODEL_MAP maps "/implement_tdd" to the same model as "/implement"
+    Then SLASH_COMMAND_MODEL_MAP maps "/implement-tdd" to the same model as "/implement"
 
   @adw-306
-  Scenario: /implement_tdd uses the same effort as /implement
+  Scenario: /implement-tdd uses the same effort as /implement
     Given the file "adws/core/modelRouting.ts" is read
-    Then SLASH_COMMAND_EFFORT_MAP maps "/implement_tdd" to the same effort as "/implement"
+    Then SLASH_COMMAND_EFFORT_MAP maps "/implement-tdd" to the same effort as "/implement"
 
   # ===================================================================
   # 6. Orchestrator: adwSdlc.tsx pipeline restructure
