@@ -5,14 +5,11 @@
  * Usage: bunx tsx adws/adwPatch.tsx <issueNumber> [adw-id] [--cwd <path>]
  *
  * Workflow:
- * 1. Fetch GitHub issue
- * 2. Generate a patch plan using the /patch skill
- * 3. Implement the patch using the build agent
- * 4. Commit changes
- * 5. Create pull request
- *
- * This is a streamlined workflow for direct patches from issues,
- * skipping the full planning cycle.
+ * 1. Initialize: fetch issue, classify type, setup worktree, initialize state, detect recovery
+ * 2. Patch Phase: generate patch plan using the /patch skill, write to spec file
+ * 3. Build Phase: run build agent, commit implementation
+ * 4. PR Phase: create pull request
+ * 5. Finalize: update state, post completion comment
  *
  * Environment Requirements:
  * - ANTHROPIC_API_KEY: Anthropic API key
@@ -20,201 +17,96 @@
  * - GITHUB_PAT: (Optional) GitHub Personal Access Token
  */
 
+import * as fs from 'fs';
+import * as path from 'path';
+import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId } from './core';
+import { CostTracker, runPhase } from './core/phaseRunner';
+import type { PhaseResult } from './core/phaseRunner';
+import type { ModelUsageMap } from './cost';
 import {
-  log,
-  setLogAdwId,
-  generateAdwId,
-  ensureLogsDirectory,
-  AgentStateManager,
-  type AgentState,
-  parseTargetRepoArgs,
-  parseOrchestratorArguments,
-  OrchestratorId,
-} from './core';
-import { mergeModelUsageMaps, persistTokenCounts } from './cost';
-import { fetchGitHubIssue } from './github';
-import { getCurrentBranch, inferIssueTypeFromBranch, pushBranch } from './vcs';
-import { getDefaultBranch } from './vcs/branchOperations';
-import { createGitHubCodeHost } from './providers/github/githubCodeHost';
-import { Platform } from './providers/types';
-import {
-  runPatchAgent,
-  runBuildAgent,
-  runCommitAgent,
-  runPullRequestAgent,
-  getPlanFilePath,
-  type ReviewIssue,
-} from './agents';
+  initializeWorkflow,
+  executeInstallPhase,
+  executeBuildPhase,
+  executePRPhase,
+  completeWorkflow,
+  handleWorkflowError,
+} from './workflowPhases';
+import type { WorkflowConfig } from './phases';
+import { runPatchAgent, getPlanFilePath, type ReviewIssue } from './agents';
 
 /**
- * Main patch workflow.
+ * Executes the Patch planning phase: runs the /patch skill and writes output to the spec file.
+ * This makes executeBuildPhase usable in the standard pipeline (it reads from the spec file).
+ */
+async function executePatchPhase(config: WorkflowConfig): Promise<PhaseResult> {
+  const { adwId, issueNumber, issue, logsDir, worktreePath, orchestratorStatePath } = config;
+
+  const reviewIssue: ReviewIssue = {
+    reviewIssueNumber: issueNumber,
+    screenshotPath: '',
+    issueDescription: `${issue.title}\n\n${issue.body}`,
+    issueResolution: `Resolve issue #${issueNumber} as described`,
+    issueSeverity: 'blocker',
+  };
+
+  const specPath = getPlanFilePath(issueNumber, worktreePath);
+
+  const patchResult = await runPatchAgent(
+    adwId,
+    reviewIssue,
+    logsDir,
+    specPath,
+    undefined,
+    orchestratorStatePath,
+    worktreePath,
+  );
+
+  if (!patchResult.success) {
+    throw new Error(`Patch Agent failed: ${patchResult.output}`);
+  }
+
+  // Write the patch plan to the spec file so executeBuildPhase can read it
+  const fullSpecPath = path.join(worktreePath, specPath);
+  fs.mkdirSync(path.dirname(fullSpecPath), { recursive: true });
+  fs.writeFileSync(fullSpecPath, patchResult.output, 'utf-8');
+
+  return {
+    costUsd: patchResult.totalCostUsd ?? 0,
+    modelUsage: (patchResult.modelUsage ?? {}) as ModelUsageMap,
+  };
+}
+
+/**
+ * Main orchestrator workflow.
  */
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
-  const { owner, repo } = parseTargetRepoArgs(args) || { owner: '', repo: '' };
-  const { issueNumber, adwId: providedAdwId, cwd } = parseOrchestratorArguments(args, {
+  const targetRepo = parseTargetRepoArgs(args);
+  const { issueNumber, adwId, cwd } = parseOrchestratorArguments(args, {
     scriptName: 'adwPatch.tsx',
     usagePattern: '<issueNumber> [adw-id] [--cwd <path>]',
     supportsIssueType: false,
+    supportsCwd: true,
+  });
+  const repoId = buildRepoIdentifier(targetRepo);
+
+  const config = await initializeWorkflow(issueNumber, adwId, OrchestratorId.Patch, {
+    targetRepo: targetRepo || undefined,
+    repoId,
+    cwd: cwd || undefined,
   });
 
-  // Fetch issue
-  log('Fetching GitHub issue...', 'info');
-  const issue = await fetchGitHubIssue(issueNumber, { owner, repo });
-  log(`Fetched issue: ${issue.title}`, 'success');
-
-  const adwId = providedAdwId || generateAdwId(issue.title);
-  setLogAdwId(adwId);
-  const logsDir = ensureLogsDirectory(adwId);
-  const branchName = getCurrentBranch(cwd || undefined);
-  const issueType = inferIssueTypeFromBranch(branchName);
-
-  log('===================================', 'info');
-  log('ADW Patch Workflow', 'info');
-  log(`Issue: #${issueNumber} - ${issue.title}`, 'info');
-  log(`ADW ID: ${adwId}`, 'info');
-  log(`Branch: ${branchName}`, 'info');
-  log(`Logs: ${logsDir}`, 'info');
-  if (cwd) {
-    log(`Working directory: ${cwd}`, 'info');
-  }
-  log('===================================', 'info');
-
-  const orchestratorStatePath = AgentStateManager.initializeState(adwId, OrchestratorId.Patch);
-
-  const initialState: Partial<AgentState> = {
-    adwId,
-    issueNumber,
-    branchName,
-    agentName: OrchestratorId.Patch,
-    execution: AgentStateManager.createExecutionState('running'),
-  };
-  AgentStateManager.writeState(orchestratorStatePath, initialState);
-  AgentStateManager.appendLog(orchestratorStatePath, `Starting ADW Patch workflow for issue #${issueNumber}`);
-
-  let totalCostUsd = 0;
-  let totalModelUsage = {};
+  const tracker = new CostTracker();
 
   try {
-    // Step 1: Generate patch plan using the /patch skill
-    log('Running Patch Agent...', 'info');
-    const reviewIssue: ReviewIssue = {
-      reviewIssueNumber: issueNumber,
-      screenshotPath: '',
-      issueDescription: `${issue.title}\n\n${issue.body}`,
-      issueResolution: `Resolve issue #${issueNumber} as described`,
-      issueSeverity: 'blocker',
-    };
+    await runPhase(config, tracker, executeInstallPhase, 'install');
+    await runPhase(config, tracker, executePatchPhase, 'patch');
+    await runPhase(config, tracker, executeBuildPhase, 'build');
+    await runPhase(config, tracker, executePRPhase, 'pr');
 
-    const specPath = getPlanFilePath(issueNumber, cwd || undefined);
-
-    const patchResult = await runPatchAgent(
-      adwId,
-      reviewIssue,
-      logsDir,
-      specPath,
-      undefined,
-      undefined,
-      cwd || undefined,
-    );
-
-    totalCostUsd += patchResult.totalCostUsd || 0;
-    if (patchResult.modelUsage) {
-      totalModelUsage = mergeModelUsageMaps(totalModelUsage, patchResult.modelUsage);
-    }
-
-    if (!patchResult.success) {
-      throw new Error(`Patch Agent failed: ${patchResult.output}`);
-    }
-
-    AgentStateManager.appendLog(orchestratorStatePath, 'Patch plan created');
-    persistTokenCounts(orchestratorStatePath, totalCostUsd, totalModelUsage);
-
-    // Step 2: Implement the patch using the build agent
-    log('Running Build Agent...', 'info');
-    const buildResult = await runBuildAgent(issue, logsDir, patchResult.output, undefined, undefined, cwd || undefined);
-
-    totalCostUsd += buildResult.totalCostUsd || 0;
-    if (buildResult.modelUsage) {
-      totalModelUsage = mergeModelUsageMaps(totalModelUsage, buildResult.modelUsage);
-    }
-
-    if (!buildResult.success) {
-      throw new Error(`Build Agent failed: ${buildResult.output}`);
-    }
-
-    AgentStateManager.appendLog(orchestratorStatePath, 'Patch implementation completed');
-    persistTokenCounts(orchestratorStatePath, totalCostUsd, totalModelUsage);
-
-    // Step 3: Commit changes
-    log('Committing changes...', 'info');
-    await runCommitAgent(OrchestratorId.Patch, issueType, JSON.stringify(issue), logsDir, undefined, cwd || undefined);
-    AgentStateManager.appendLog(orchestratorStatePath, 'Changes committed');
-
-    // Step 4: Create PR
-    log('Creating Pull Request...', 'info');
-    const planFile = getPlanFilePath(issueNumber, cwd || undefined);
-    const prResult = await runPullRequestAgent(
-      branchName,
-      JSON.stringify(issue),
-      planFile,
-      adwId,
-      logsDir,
-      undefined,
-      cwd || undefined,
-    );
-
-    totalCostUsd += prResult.totalCostUsd || 0;
-    if (prResult.modelUsage) {
-      totalModelUsage = mergeModelUsageMaps(totalModelUsage, prResult.modelUsage);
-    }
-    persistTokenCounts(orchestratorStatePath, totalCostUsd, totalModelUsage);
-
-    // Push branch and create PR programmatically
-    const { prContent } = prResult;
-    pushBranch(branchName, cwd || undefined);
-    const defaultBranch = getDefaultBranch(cwd || undefined);
-    const codeHost = createGitHubCodeHost({ owner, repo, platform: Platform.GitHub });
-    const mrResult = codeHost.createMergeRequest({
-      title: prContent.title,
-      body: prContent.body,
-      sourceBranch: branchName,
-      targetBranch: defaultBranch,
-      linkedIssueNumber: issueNumber,
-    });
-
-    AgentStateManager.writeState(orchestratorStatePath, {
-      execution: AgentStateManager.completeExecution(
-        AgentStateManager.createExecutionState('running'),
-        true,
-      ),
-      metadata: { totalCostUsd, prUrl: mrResult.url },
-    });
-    AgentStateManager.appendLog(orchestratorStatePath, 'Patch workflow completed successfully');
-
-    log('===================================', 'info');
-    log('ADW Patch workflow completed!', 'success');
-    log(`Issue: #${issueNumber} - ${issue.title}`, 'info');
-    log(`ADW ID: ${adwId}`, 'info');
-    if (mrResult.url) {
-      log(`PR: ${mrResult.url}`, 'info');
-    }
-    log(`Logs: ${logsDir}`, 'info');
-    if (totalCostUsd > 0) {
-      log(`Cost: $${totalCostUsd.toFixed(4)}`, 'info');
-    }
-    log('===================================', 'info');
+    await completeWorkflow(config, tracker.totalCostUsd, {}, tracker.totalModelUsage);
   } catch (error) {
-    AgentStateManager.writeState(orchestratorStatePath, {
-      execution: AgentStateManager.completeExecution(
-        AgentStateManager.createExecutionState('running'),
-        false,
-        String(error),
-      ),
-    });
-    AgentStateManager.appendLog(orchestratorStatePath, `Patch workflow failed: ${error}`);
-    log(`Patch workflow failed: ${error}`, 'error');
-    process.exit(1);
+    handleWorkflowError(config, error, tracker.totalCostUsd, tracker.totalModelUsage);
   }
 }
 

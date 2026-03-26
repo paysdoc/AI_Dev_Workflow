@@ -66,6 +66,7 @@ export function handleAgentProcess(
     let tokenLimitReached = false;
     let authErrorDetected = false;
     let compactionDetected = false;
+    let rateLimitDetected = false;
     const tokenThreshold = MAX_THINKING_TOKENS * TOKEN_LIMIT_THRESHOLD;
 
     fs.mkdirSync(path.dirname(outputFile), { recursive: true });
@@ -89,6 +90,20 @@ export function handleAgentProcess(
         log(`${agentName}: Fatal authentication error detected — killing process to avoid hours of futile retries.`, 'error');
         if (statePath) {
           AgentStateManager.appendLog(statePath, 'Terminated: OAuth token expired or authentication failed');
+        }
+        claude.kill('SIGTERM');
+      }
+
+      if (!rateLimitDetected && (
+        text.includes("You've hit your limit") ||
+        text.includes("You're out of extra usage") ||
+        text.includes('502 Bad Gateway') ||
+        text.includes('Invalid authentication credentials')
+      )) {
+        rateLimitDetected = true;
+        log(`${agentName}: Rate limit / API outage detected — killing process to trigger pause.`, 'warn');
+        if (statePath) {
+          AgentStateManager.appendLog(statePath, 'Terminated: Rate limit or API outage detected');
         }
         claude.kill('SIGTERM');
       }
@@ -171,6 +186,22 @@ export function handleAgentProcess(
       const costSource: AgentResult['costSource'] = extractorFinalized
         ? 'extractor_finalized'
         : 'extractor_estimated';
+
+      if (rateLimitDetected) {
+        log(`${agentName} terminated due to rate limit / API outage`, 'warn');
+        resolve({
+          success: false,
+          rateLimited: true,
+          output: state.fullOutput || 'Rate limit or API outage detected',
+          totalCostUsd,
+          modelUsage: resolvedModelUsage,
+          estimatedUsage,
+          actualUsage: extractorFinalized ? extractorUsage : undefined,
+          costSource,
+          statePath,
+        });
+        return;
+      }
 
       if (tokenLimitReached) {
         log(`${agentName} terminated due to token limit`, 'info');

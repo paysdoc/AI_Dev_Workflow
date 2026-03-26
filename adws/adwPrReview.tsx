@@ -18,7 +18,8 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { parseTargetRepoArgs, buildRepoIdentifier, RUNNING_TOKENS, AgentStateManager } from './core';
+import { parseTargetRepoArgs, buildRepoIdentifier, RUNNING_TOKENS, AgentStateManager, log } from './core';
+import { RateLimitError } from './types/agentTypes';
 import { mergeModelUsageMaps, persistTokenCounts, computeDisplayTokens, type ModelUsageMap } from './cost';
 import {
   initializePRReviewWorkflow,
@@ -98,6 +99,11 @@ async function main(): Promise<void> {
 
     await completePRReviewWorkflow(config, totalModelUsage);
   } catch (error) {
+    if (error instanceof RateLimitError) {
+      log(`PR Review workflow rate-limited at '${error.phaseName}'. Manual restart required once limit clears.`, 'warn');
+      persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
+      process.exit(0);
+    }
     handlePRReviewWorkflowError(config, error, totalCostUsd, totalModelUsage);
   }
 }

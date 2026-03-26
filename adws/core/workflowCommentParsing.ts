@@ -27,6 +27,8 @@ export const STAGE_ORDER: WorkflowStage[] = [
   'pr_creating',
   'pr_created',
   'completed',
+  'paused',
+  'resumed',
 ];
 
 /** Maps comment header patterns to workflow stages. */
@@ -48,6 +50,8 @@ const STAGE_HEADER_MAP: Record<string, WorkflowStage> = {
   ':link: Pull Request Created': 'pr_created',
   ':tada: ADW Workflow Completed': 'completed',
   ':x: ADW Workflow Error': 'error',
+  ':pause_button: ADW Workflow Paused': 'paused',
+  ':arrow_forward: ADW Workflow Resuming': 'resumed',
   ':warning: Token Limit Recovery': 'token_limit_recovery',
   ':warning: Context Compaction Recovery': 'compaction_recovery',
   ':warning: Test Compaction Recovery': 'test_compaction_recovery',

@@ -93,23 +93,22 @@ Feature: LLM-Based Issue Dependency Extraction
     And the returned `dependencies` field is an empty array
     And the agent does not throw an exception
 
-  @adw-91v6qi-llm-based-issue-depe @regression
-  Scenario: findOpenDependencies uses LLM extraction as the primary path
+  @adw-91v6qi-llm-based-issue-depe @adw-chpy1a-orchestrator-refacto @regression
+  Scenario: findOpenDependencies uses regex with keyword proximity as the primary path
     Given an issue body containing "blocked by #42"
     And issue #42 is OPEN in the repository
     When `findOpenDependencies` is called with that issue body
-    Then `runDependencyExtractionAgent` is invoked to extract dependencies
+    Then the regex-based parser with keyword proximity is used as the primary extractor
     And the result includes issue number 42
 
-  @adw-91v6qi-llm-based-issue-depe @regression
-  Scenario: findOpenDependencies falls back to regex when LLM extraction fails
-    Given an issue body with a "## Dependencies" section listing "#10"
-    And the LLM agent call throws an error
+  @adw-91v6qi-llm-based-issue-depe @adw-chpy1a-orchestrator-refacto @regression
+  Scenario: findOpenDependencies falls back to LLM when regex classifies fewer dependencies than total references
+    Given an issue body with 5 #N references and only 3 classified by regex
     And issue #10 is OPEN in the repository
     When `findOpenDependencies` is called with that issue body
-    Then the regex-based parser is used as a fallback
+    Then `runDependencyExtractionAgent` is invoked for the unclassified references
     And the result includes issue number 10
-    And a warning is logged indicating the LLM fallback was triggered
+    And a log message indicates the LLM fallback was triggered
 
   @adw-91v6qi-llm-based-issue-depe
   Scenario: findOpenDependencies returns only open dependencies

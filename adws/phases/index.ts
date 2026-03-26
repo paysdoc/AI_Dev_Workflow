@@ -11,7 +11,7 @@
 
 export { ensureGitignoreEntry, ensureGitignoreEntries, copyClaudeCommandsToWorktree, copyTargetSkillsAndCommands } from './worktreeSetup';
 export { type WorkflowConfig, initializeWorkflow } from './workflowInit';
-export { completeWorkflow, executeReviewPhase, handleWorkflowError } from './workflowCompletion';
+export { completeWorkflow, executeReviewPhase, handleWorkflowError, handleRateLimitPause } from './workflowCompletion';
 export { executePlanPhase, buildContinuationPrompt, MAX_CONTINUATION_OUTPUT_LENGTH } from './planPhase';
 export { executeBuildPhase } from './buildPhase';
 export { executeTestPhase } from './testPhase';

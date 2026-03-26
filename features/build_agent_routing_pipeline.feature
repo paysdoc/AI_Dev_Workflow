@@ -107,7 +107,7 @@ Feature: Build agent routing and orchestrator pipeline restructure
   # 6. Orchestrator: adwSdlc.tsx pipeline restructure
   # ===================================================================
 
-  @adw-306 @regression
+  @adw-306 @adw-chpy1a-orchestrator-refacto @regression
   Scenario: adwSdlc.tsx uses new pipeline with alignment, no step def phase
     Given the file "adws/adwSdlc.tsx" is read
     Then the phase ordering should be:
@@ -124,7 +124,7 @@ Feature: Build agent routing and orchestrator pipeline restructure
     And executeStepDefPhase is not called
     And executePlanValidationPhase is not called
 
-  @adw-306
+  @adw-306 @adw-chpy1a-orchestrator-refacto
   Scenario: adwSdlc.tsx preserves parallel plan + scenario execution
     Given the file "adws/adwSdlc.tsx" is read
     Then executePlanPhase and executeScenarioPhase run in parallel (Promise.all or equivalent)
@@ -134,7 +134,7 @@ Feature: Build agent routing and orchestrator pipeline restructure
   # 7. Orchestrator: adwPlanBuildReview.tsx pipeline restructure
   # ===================================================================
 
-  @adw-306 @regression
+  @adw-306 @adw-chpy1a-orchestrator-refacto @regression
   Scenario: adwPlanBuildReview.tsx uses new pipeline with alignment, no step def phase
     Given the file "adws/adwPlanBuildReview.tsx" is read
     Then the phase ordering should be:
@@ -153,7 +153,7 @@ Feature: Build agent routing and orchestrator pipeline restructure
   # 8. Orchestrator: adwPlanBuildTestReview.tsx pipeline restructure
   # ===================================================================
 
-  @adw-306 @regression
+  @adw-306 @adw-chpy1a-orchestrator-refacto @regression
   Scenario: adwPlanBuildTestReview.tsx uses new pipeline with alignment, no step def phase
     Given the file "adws/adwPlanBuildTestReview.tsx" is read
     Then the phase ordering should be:
@@ -172,7 +172,7 @@ Feature: Build agent routing and orchestrator pipeline restructure
   # 9. Non-scenario orchestrators remain unchanged
   # ===================================================================
 
-  @adw-306 @regression
+  @adw-306 @adw-chpy1a-orchestrator-refacto @regression
   Scenario: adwPlanBuild.tsx continues working without scenario or alignment phases
     Given the file "adws/adwPlanBuild.tsx" is read
     Then it should not invoke executeScenarioPhase
@@ -186,7 +186,7 @@ Feature: Build agent routing and orchestrator pipeline restructure
       | test               |
       | pr                 |
 
-  @adw-306 @regression
+  @adw-306 @adw-chpy1a-orchestrator-refacto @regression
   Scenario: adwPlanBuildTest.tsx continues working without scenario or alignment phases
     Given the file "adws/adwPlanBuildTest.tsx" is read
     Then it should not invoke executeScenarioPhase

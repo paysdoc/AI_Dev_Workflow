@@ -18,6 +18,7 @@ import type { WorkflowConfig } from './workflowInit';
 import { postIssueStageComment } from './phaseCommentHelpers';
 import { BoardStatus } from '../providers/types';
 import { uploadToR2 } from '../r2';
+import { appendToPauseQueue } from '../core/pauseQueue';
 
 /**
  * Completes the workflow: writes final state, posts completion comment, prints banner.
@@ -224,6 +225,90 @@ export async function executeReviewPhase(config: WorkflowConfig): Promise<{
     totalRetries: reviewResult.totalRetries,
     phaseCostRecords,
   };
+}
+
+/**
+ * Derives the orchestrator script path from the orchestratorName identifier.
+ * Assumes scripts live at adws/{camelCase}.tsx.
+ */
+function deriveOrchestratorScript(orchestratorName: string): string {
+  // e.g. 'sdlc-orchestrator' → 'adwSdlc', 'plan-build-orchestrator' → 'adwPlanBuild'
+  const nameMap: Record<string, string> = {
+    'sdlc-orchestrator': 'adwSdlc',
+    'plan-build-orchestrator': 'adwPlanBuild',
+    'plan-build-test-orchestrator': 'adwPlanBuild',
+    'plan-build-review-orchestrator': 'adwPlanBuildReview',
+    'plan-build-test-review-orchestrator': 'adwPlanBuildTestReview',
+    'plan-build-document-orchestrator': 'adwPlanBuildDocument',
+    'build-orchestrator': 'adwBuild',
+    'patch-orchestrator': 'adwPatch',
+    'test-orchestrator': 'adwTest',
+    'pr-review-orchestrator': 'adwPrReview',
+  };
+  return `adws/${nameMap[orchestratorName] ?? 'adwSdlc'}.tsx`;
+}
+
+/**
+ * Pauses the workflow: records completed phases, enqueues for probe/resume, posts comment, exits 0.
+ * Called by runPhase() when a RateLimitError is caught.
+ */
+export function handleRateLimitPause(
+  config: WorkflowConfig,
+  pausedAtPhase: string,
+  pauseReason: 'rate_limited' | 'unknown_error',
+  costUsd?: number,
+  modelUsage?: ModelUsageMap,
+): never {
+  const { orchestratorStatePath, orchestratorName, issueNumber, adwId, ctx, repoContext, worktreePath, branchName } = config;
+
+  if (costUsd !== undefined && modelUsage) {
+    persistTokenCounts(orchestratorStatePath, costUsd, modelUsage);
+  }
+
+  // Write completedPhases + pausedAtPhase to state metadata
+  const existingState = AgentStateManager.readState(orchestratorStatePath);
+  const existingMeta = (existingState?.metadata ?? {}) as Record<string, unknown>;
+  AgentStateManager.writeState(orchestratorStatePath, {
+    execution: {
+      status: 'paused',
+      startedAt: existingState?.execution?.startedAt ?? new Date().toISOString(),
+      completedAt: new Date().toISOString(),
+    },
+    metadata: {
+      ...existingMeta,
+      totalCostUsd: costUsd,
+      pausedAtPhase,
+      pauseReason,
+    },
+  });
+  AgentStateManager.appendLog(orchestratorStatePath, `Workflow paused at phase '${pausedAtPhase}': ${pauseReason}`);
+
+  // Enqueue for probe + resume
+  appendToPauseQueue({
+    adwId,
+    issueNumber,
+    orchestratorScript: deriveOrchestratorScript(orchestratorName),
+    pausedAtPhase,
+    pauseReason,
+    pausedAt: new Date().toISOString(),
+    worktreePath,
+    branchName,
+  });
+
+  // Post paused comment
+  ctx.pausedAtPhase = pausedAtPhase;
+  ctx.pauseReason = pauseReason === 'rate_limited'
+    ? 'Rate limit or API outage detected'
+    : 'Unknown API error';
+  ctx.completedPhases = (existingMeta.completedPhases as string[] | undefined) ?? [];
+
+  if (repoContext) {
+    postIssueStageComment(repoContext, issueNumber, 'paused', ctx);
+    repoContext.issueTracker.moveToStatus(issueNumber, BoardStatus.InProgress).catch(() => {});
+  }
+
+  log(`${orchestratorName} workflow paused at '${pausedAtPhase}': ${pauseReason}`, 'warn');
+  process.exit(0);
 }
 
 /**
