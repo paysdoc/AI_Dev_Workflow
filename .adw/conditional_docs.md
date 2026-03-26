@@ -504,3 +504,13 @@
     - When a scenario requires runtime infrastructure (mock servers, LLM stubs, git remotes) and you need to generate step definitions for it
     - When troubleshooting why `removedScenarios` is always empty in step def agent output
     - When modifying `adws/phases/stepDefPhase.ts` or `adws/agents/stepDefAgent.ts`
+
+- app_docs/feature-chpy1a-generic-pipeline-runner-pause-resume.md
+  - Conditions:
+    - When working with rate limit handling, pause/resume mechanics, or `agents/paused_queue.json`
+    - When modifying `adws/core/phaseRunner.ts` (`runPhase`) or adding new phase names for skip-on-resume support
+    - When implementing or debugging the cron probe loop (`pauseQueueScanner.ts`)
+    - When adding new orchestrators that should benefit from pause/resume (must use `initializeWorkflow + CostTracker + runPhase()`)
+    - When troubleshooting why a `⏸️ Paused` or `▶️ Resumed` comment is not appearing on a GitHub issue
+    - When modifying cron trigger issue eligibility logic (`trigger_cron.ts` `evaluateIssue`)
+    - When changing dependency extraction behavior in `issueDependencies.ts`

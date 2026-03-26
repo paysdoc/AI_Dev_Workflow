@@ -7,6 +7,7 @@ import * as path from 'path';
 import { log, AgentStateManager, getSafeSubprocessEnv, resolveClaudeCodePath, clearClaudeCodePathCache } from '../core';
 import type { ProgressCallback } from '../core/claudeStreamParser';
 import type { AgentResult } from '../types/agentTypes';
+import { RateLimitError } from '../types/agentTypes';
 import { handleAgentProcess } from './agentProcessHandler';
 
 // Backward-compatible re-exports
@@ -19,9 +20,10 @@ export type {
   JsonlMessage, JsonlAssistantMessage, JsonlResultMessage,
 } from '../core/claudeStreamParser';
 
-// AgentResult lives in types/agentTypes.ts to eliminate bidirectional coupling
+// AgentResult and RateLimitError live in types/agentTypes.ts to eliminate bidirectional coupling
 // with agentProcessHandler.ts. Re-exported here for backward compatibility.
 export type { AgentResult } from '../types/agentTypes';
+export { RateLimitError } from '../types/agentTypes';
 
 /**
  * Saves the prompt to a file in the agent's state directory for replay and audit.
@@ -123,6 +125,11 @@ export async function runClaudeAgentWithCommand(
     const retryProcess = spawn(retryPath, cliArgs, spawnOptions);
 
     return handleAgentProcess(retryProcess, agentName, outputFile, onProgress, statePath, model);
+  }
+
+  // Rate limit detected — do NOT retry. Throw RateLimitError so runPhase() can trigger pause.
+  if (result.rateLimited) {
+    throw new RateLimitError(agentName);
   }
 
   // Retry once on expired OAuth token — verify auth is still valid then respawn the agent.

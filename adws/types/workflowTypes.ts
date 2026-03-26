@@ -53,7 +53,10 @@ export type WorkflowStage =
   // Install phase stages
   | 'install_running'
   | 'install_completed'
-  | 'install_failed';
+  | 'install_failed'
+  // Pause/resume stages
+  | 'paused'
+  | 'resumed';
 
 /**
  * PR review comment from GitHub API.

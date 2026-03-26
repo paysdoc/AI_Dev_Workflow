@@ -31,6 +31,7 @@ export {
   executeAutoMergePhase,
   completeWorkflow,
   handleWorkflowError,
+  handleRateLimitPause,
   initializePRReviewWorkflow,
   executePRReviewPlanPhase,
   executePRReviewBuildPhase,

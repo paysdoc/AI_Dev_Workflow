@@ -10,16 +10,19 @@
 import { execSync, spawn } from 'child_process';
 import { log, GRACE_PERIOD_MS } from '../core';
 import { getRepoInfo, fetchPRList, hasUnaddressedComments, isClearComment, isAdwComment, activateGitHubAppAuth, refreshTokenIfNeeded, type RepoInfo } from '../github';
+import { parseWorkflowStageFromComment } from '../core/workflowCommentParsing';
 
 import { clearIssueComments } from '../adwClearComments';
 import { checkIssueEligibility } from './issueEligibility';
 import { classifyAndSpawnWorkflow } from './webhookGatekeeper';
 import { registerAndGuard } from './cronProcessGuard';
+import { scanPauseQueue } from './pauseQueueScanner';
 
 const POLL_INTERVAL_MS = 20_000;
 const PR_POLL_INTERVAL_MS = 60_000;
 const processedIssues = new Set<number>();
 const processedPRs = new Set<number>();
+let cycleCount = 0;
 
 /** Raw issue data returned from the GitHub CLI. */
 interface RawIssue {
@@ -29,6 +32,19 @@ interface RawIssue {
   createdAt: string;
   updatedAt: string;
 }
+
+/** Workflow stages that mean the issue is re-eligible for processing. */
+const RETRIABLE_STAGES = new Set(['error', 'paused', 'review_failed', 'build_failed']);
+
+/** Workflow stages that mean the issue is actively in-progress (exclude). */
+const ACTIVE_STAGES = new Set([
+  'starting', 'resuming', 'classified', 'branch_created',
+  'plan_building', 'plan_created', 'planFile_created', 'plan_committing',
+  'plan_validating', 'plan_aligning', 'implementing', 'build_progress',
+  'implemented', 'implementation_committing', 'pr_creating',
+  'review_running', 'review_patching', 'test_running', 'test_resolving',
+  'document_running', 'install_running', 'resumed',
+]);
 
 // Activate GitHub App auth before any gh CLI calls
 activateGitHubAppAuth();
@@ -63,11 +79,6 @@ function buildTargetRepoArgs(): string[] {
   }
 }
 
-/** Returns true if the issue has any ADW workflow comment (already picked up). */
-function hasAdwWorkflowComment(issue: RawIssue): boolean {
-  return issue.comments.some((c) => isAdwComment(c.body));
-}
-
 /** Returns true if the issue was updated within the grace period. */
 function isWithinGracePeriod(issue: RawIssue, now: number = Date.now()): boolean {
   const updatedAt = new Date(issue.updatedAt).getTime();
@@ -75,29 +86,89 @@ function isWithinGracePeriod(issue: RawIssue, now: number = Date.now()): boolean
 }
 
 /**
- * Filters and sorts issues for backlog sweep processing.
- * Returns issues that:
- * 1. Have no ADW workflow comments (never picked up)
- * 2. Were not recently updated (grace period)
- * 3. Haven't been processed in this session
- * Sorted by createdAt ascending (oldest first).
+ * Returns the current ADW workflow stage for an issue by inspecting its latest ADW comment.
+ * Returns null if the issue has no ADW comments.
  */
-function filterEligibleIssues(issues: RawIssue[], now: number = Date.now()): RawIssue[] {
-  return issues
-    .filter((issue) => !processedIssues.has(issue.number))
-    .filter((issue) => !hasAdwWorkflowComment(issue))
-    .filter((issue) => !isWithinGracePeriod(issue, now))
-    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+function getIssueWorkflowStage(issue: RawIssue): string | null {
+  const adwComments = issue.comments.filter(c => isAdwComment(c.body));
+  if (adwComments.length === 0) return null;
+  const latest = adwComments[adwComments.length - 1];
+  return parseWorkflowStageFromComment(latest.body);
+}
+
+/** Filter result for explaining why an issue was excluded. */
+interface FilterResult {
+  eligible: boolean;
+  reason?: string;
+}
+
+/** Determines if an issue should be processed by the cron backlog sweeper. */
+function evaluateIssue(issue: RawIssue, now: number): FilterResult {
+  if (processedIssues.has(issue.number)) {
+    return { eligible: false, reason: 'processed' };
+  }
+  if (isWithinGracePeriod(issue, now)) {
+    return { eligible: false, reason: 'grace_period' };
+  }
+
+  const stage = getIssueWorkflowStage(issue);
+  if (stage === null) {
+    // No ADW comment — fresh issue, eligible
+    return { eligible: true };
+  }
+  if (stage === 'completed') {
+    return { eligible: false, reason: 'completed' };
+  }
+  if (ACTIVE_STAGES.has(stage)) {
+    return { eligible: false, reason: 'active' };
+  }
+  if (RETRIABLE_STAGES.has(stage)) {
+    // Previously failed/paused — re-evaluate
+    return { eligible: true };
+  }
+  // Any other ADW stage means in-flight or unknown — exclude
+  return { eligible: false, reason: `adw_stage:${stage}` };
+}
+
+/**
+ * Filters and sorts issues for backlog sweep processing.
+ * Returns eligible issues sorted oldest-first.
+ * Builds an annotation map of excluded issues for verbose logging.
+ */
+function filterEligibleIssues(
+  issues: RawIssue[],
+  now: number = Date.now(),
+): { eligible: RawIssue[]; filteredAnnotations: string[] } {
+  const eligible: RawIssue[] = [];
+  const filteredAnnotations: string[] = [];
+
+  for (const issue of issues) {
+    const result = evaluateIssue(issue, now);
+    if (result.eligible) {
+      eligible.push(issue);
+    } else {
+      filteredAnnotations.push(`#${issue.number}(${result.reason})`);
+    }
+  }
+
+  eligible.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  return { eligible, filteredAnnotations };
 }
 
 /** Checks for eligible issues and triggers ADW workflows for each. */
 async function checkAndTrigger(): Promise<void> {
-  log('Polling for backlog issues...');
-  const issues = fetchOpenIssues();
-  log(`Fetched ${issues.length} open issue(s)`);
+  cycleCount += 1;
 
-  const candidates = filterEligibleIssues(issues);
-  log(`Found ${candidates.length} candidate issue(s) after filtering`);
+  // Scan pause queue every PROBE_INTERVAL_CYCLES cycles
+  await scanPauseQueue(cycleCount);
+
+  const now = Date.now();
+  const issues = fetchOpenIssues();
+  const { eligible: candidates, filteredAnnotations } = filterEligibleIssues(issues, now);
+
+  const candidateList = candidates.map(i => `#${i.number}`).join(', ') || 'none';
+  const filteredList = filteredAnnotations.join(', ') || 'none';
+  log(`POLL: ${issues.length} open, ${candidates.length} candidate(s) [${candidateList}], filtered: ${filteredList}`);
 
   const repoInfo = cronRepoInfo;
   const targetRepoArgs = buildTargetRepoArgs();
@@ -111,9 +182,11 @@ async function checkAndTrigger(): Promise<void> {
       } else {
         log(`Issue #${issue.number} deferred: ${eligibility.reason}`);
       }
+      // Don't add dependency-deferred issues to processedIssues — re-check next cycle
       continue;
     }
 
+    // Only add to processedIssues when actually spawning
     processedIssues.add(issue.number);
 
     // Handle clear directive before spawning
@@ -126,10 +199,6 @@ async function checkAndTrigger(): Promise<void> {
 
     log(`Triggering ADW workflow for backlog issue #${issue.number}`, 'success');
     await classifyAndSpawnWorkflow(issue.number, repoInfo, targetRepoArgs);
-  }
-
-  if (candidates.length === 0) {
-    log('No eligible backlog issues found');
   }
 }
 

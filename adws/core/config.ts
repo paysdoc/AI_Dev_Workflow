@@ -96,3 +96,13 @@ export const RUNNING_TOKENS = Boolean(process.env.RUNNING_TOKENS);
 
 /** Whether to include cost breakdowns in GitHub issue/PR comments. */
 export const SHOW_COST_IN_COMMENTS = Boolean(process.env.SHOW_COST_IN_COMMENTS);
+
+// ---------------------------------------------------------------------------
+// Pause/resume constants
+// ---------------------------------------------------------------------------
+
+/** Number of cron poll cycles between pause-queue probe attempts (default: 15 ≈ 5 min at 20s poll). */
+export const PROBE_INTERVAL_CYCLES = parseInt(process.env.PROBE_INTERVAL_CYCLES || '15', 10);
+
+/** Max consecutive non-rate-limit probe failures before removing a paused entry (default: 3). */
+export const MAX_UNKNOWN_PROBE_FAILURES = parseInt(process.env.MAX_UNKNOWN_PROBE_FAILURES || '3', 10);

@@ -63,6 +63,12 @@ export interface WorkflowContext {
   allSummaries?: string[];
   /** Screenshot URLs from review iterations (passed through for future formatter use). */
   allScreenshots?: string[];
+  /** Phases completed before the pause (for paused/resumed comments). */
+  completedPhases?: string[];
+  /** Phase where the workflow was paused. */
+  pausedAtPhase?: string;
+  /** Human-readable reason for the pause. */
+  pauseReason?: string;
 }
 
 const issueTypeLabels: Record<IssueClassSlashCommand, string> = {
@@ -289,6 +295,20 @@ function formatPlanAlignedComment(ctx: WorkflowContext): string {
   return `## :white_check_mark: Plan and Scenarios Aligned\n\nImplementation plan and BDD scenarios have been aligned.\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
 }
 
+function formatPausedComment(ctx: WorkflowContext): string {
+  const completedList = ctx.completedPhases && ctx.completedPhases.length > 0
+    ? `\n\n**Completed phases:** ${ctx.completedPhases.join(', ')}`
+    : '';
+  const pausedAt = ctx.pausedAtPhase ? `\n**Paused at phase:** \`${ctx.pausedAtPhase}\`` : '';
+  const reason = ctx.pauseReason ? `\n**Reason:** ${ctx.pauseReason}` : '';
+  return `## :pause_button: ADW Workflow Paused\n\nWorkflow paused due to rate limit or API outage. It will resume automatically when capacity returns.${completedList}${pausedAt}${reason}\n\n**ADW ID:** \`${ctx.adwId}\`${ADW_SIGNATURE}`;
+}
+
+function formatResumedComment(ctx: WorkflowContext): string {
+  const resumingFrom = ctx.pausedAtPhase ? `\n**Resuming from phase:** \`${ctx.pausedAtPhase}\`` : '';
+  return `## :arrow_forward: ADW Workflow Resuming\n\nRate limit cleared — resuming workflow from paused phase.${resumingFrom}\n\n**ADW ID:** \`${ctx.adwId}\`${ADW_SIGNATURE}`;
+}
+
 /** Formats the resuming workflow comment. */
 export function formatResumingComment(ctx: WorkflowContext, resumeFrom: WorkflowStage): string {
   return `## :arrows_counterclockwise: ADW Workflow Resuming\n\nResuming automated development workflow from previous run.\n\n**Resuming from:** ${resumeFrom}\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
@@ -328,6 +348,8 @@ export function formatWorkflowComment(stage: WorkflowStage, ctx: WorkflowContext
     case 'plan_validation_failed': return formatPlanValidationFailedComment(ctx);
     case 'plan_aligning': return formatPlanAligningComment(ctx);
     case 'plan_aligned': return formatPlanAlignedComment(ctx);
+    case 'paused': return formatPausedComment(ctx);
+    case 'resumed': return formatResumedComment(ctx);
     default: return `## ADW Workflow Update\n\n**Stage:** ${stage}\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
   }
 }

@@ -16,6 +16,8 @@ import { mergeModelUsageMaps, persistTokenCounts, computeDisplayTokens } from '.
 import type { ModelUsageMap, PhaseCostRecord } from '../cost';
 import { commitPhasesCostData } from '../phases/phaseCostCommit';
 import type { WorkflowConfig } from '../phases/workflowInit';
+import { RateLimitError } from '../types/agentTypes';
+import { AgentStateManager } from './agentState';
 
 /**
  * The result shape every phase function must return.
@@ -81,24 +83,60 @@ export class CostTracker {
 }
 
 /**
+ * Appends a phase name to the completedPhases list in the orchestrator state metadata.
+ * Reads existing metadata to avoid clobbering other fields.
+ */
+function recordCompletedPhase(config: WorkflowConfig, phaseName: string): void {
+  const existing = AgentStateManager.readState(config.orchestratorStatePath);
+  const existingMeta = (existing?.metadata ?? {}) as Record<string, unknown>;
+  const prior = Array.isArray(existingMeta.completedPhases) ? existingMeta.completedPhases as string[] : [];
+  if (!prior.includes(phaseName)) {
+    AgentStateManager.writeState(config.orchestratorStatePath, {
+      metadata: { ...existingMeta, completedPhases: [...prior, phaseName] },
+    });
+  }
+}
+
+/**
  * Runs a single phase, accumulates its results into the tracker,
  * persists token counts, and commits cost data.
+ *
+ * Catches RateLimitError and delegates to handleRateLimitPause (exits 0).
+ * When phaseName is provided and config.completedPhases includes it, the phase is skipped.
  *
  * @param config - Mutable WorkflowConfig shared across all phases.
  * @param tracker - CostTracker accumulating totals across the workflow.
  * @param fn - The phase function to execute.
+ * @param phaseName - Optional name for skip-on-resume and cost-record tracking.
  * @returns The phase result (for callers that need phase-specific fields).
  */
 export async function runPhase<R extends PhaseResult>(
   config: WorkflowConfig,
   tracker: CostTracker,
   fn: (config: WorkflowConfig) => Promise<R>,
+  phaseName?: string,
 ): Promise<R> {
-  const result = await fn(config);
-  tracker.accumulate(result);
-  tracker.persist(config);
-  await tracker.commit(config, result.phaseCostRecords ?? []);
-  return result;
+  // Skip already-completed phases on resume
+  if (phaseName && config.completedPhases?.includes(phaseName)) {
+    const emptyResult = { costUsd: 0, modelUsage: {}, phaseCostRecords: [] } as unknown as R;
+    return emptyResult;
+  }
+
+  try {
+    const result = await fn(config);
+    tracker.accumulate(result);
+    tracker.persist(config);
+    await tracker.commit(config, result.phaseCostRecords ?? []);
+    if (phaseName) recordCompletedPhase(config, phaseName);
+    return result;
+  } catch (err) {
+    if (err instanceof RateLimitError) {
+      // Lazy import to avoid circular deps at module load time
+      const { handleRateLimitPause } = await import('../phases/workflowCompletion');
+      handleRateLimitPause(config, err.phaseName, 'rate_limited', tracker.totalCostUsd, tracker.totalModelUsage);
+    }
+    throw err;
+  }
 }
 
 /**

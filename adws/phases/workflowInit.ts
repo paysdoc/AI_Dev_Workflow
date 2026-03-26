@@ -75,6 +75,8 @@ export interface WorkflowConfig {
   projectConfig: ProjectConfig;
   totalModelUsage?: ModelUsageMap;
   installContext?: string;
+  /** Phase names already completed in a previous run (populated on pause/resume). */
+  completedPhases?: string[];
 }
 
 /**
@@ -245,6 +247,21 @@ export async function initializeWorkflow(
     issueType,
   };
 
+  // Read completedPhases from existing orchestrator state (populated by pause mechanism)
+  let completedPhases: string[] | undefined;
+  if (recoveryState.adwId) {
+    const { findOrchestratorStatePath } = await import('../core/stateHelpers');
+    const existingStatePath = findOrchestratorStatePath(recoveryState.adwId);
+    if (existingStatePath) {
+      const existingState = AgentStateManager.readState(existingStatePath);
+      const meta = existingState?.metadata as Record<string, unknown> | undefined;
+      if (Array.isArray(meta?.completedPhases) && meta.completedPhases.length > 0) {
+        completedPhases = meta.completedPhases as string[];
+        log(`Resume: found ${completedPhases.length} completed phase(s): ${completedPhases.join(', ')}`, 'info');
+      }
+    }
+  }
+
   // Handle recovery mode
   if (recoveryState.canResume && recoveryState.lastCompletedStage) {
     log(`Recovery mode active: last completed stage was '${recoveryState.lastCompletedStage}'`, 'info');
@@ -296,5 +313,6 @@ export async function initializeWorkflow(
     targetRepo,
     repoContext,
     projectConfig,
+    completedPhases,
   };
 }

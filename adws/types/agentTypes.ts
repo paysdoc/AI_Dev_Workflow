@@ -37,6 +37,21 @@ export interface AgentResult {
   costSource?: 'extractor_finalized' | 'extractor_estimated';
   /** True when the agent was terminated due to an expired OAuth token or authentication failure. */
   authExpired?: boolean;
+  /** True when the agent was terminated due to a rate limit, billing limit, or transient API outage. */
+  rateLimited?: boolean;
+}
+
+/**
+ * Thrown when a Claude agent encounters a rate limit, billing limit, or API outage.
+ * Propagates through runPhase() to trigger pause-and-resume mechanics.
+ */
+export class RateLimitError extends Error {
+  readonly phaseName: string;
+  constructor(phaseName: string) {
+    super(`Rate limit detected during phase: ${phaseName}`);
+    this.name = 'RateLimitError';
+    this.phaseName = phaseName;
+  }
 }
 
 /**
@@ -147,7 +162,8 @@ export type AgentExecutionStatus =
   | 'pending'
   | 'running'
   | 'completed'
-  | 'failed';
+  | 'failed'
+  | 'paused';
 
 /**
  * Agent execution state for tracking progress.

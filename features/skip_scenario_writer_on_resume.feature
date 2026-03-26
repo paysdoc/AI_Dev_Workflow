@@ -62,7 +62,7 @@ Feature: Skip scenario writer and plan validation on Take action resume past pla
 
   # ── 4. No orchestrator changes required ──
 
-  @adw-254
+  @adw-254 @adw-chpy1a-orchestrator-refacto
   Scenario: Orchestrators do not need modification for skip behavior
     Given the file "adws/adwSdlc.tsx" exists
     And the file "adws/adwPlanBuildTestReview.tsx" exists
