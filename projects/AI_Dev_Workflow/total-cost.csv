@@ -361,11 +361,13 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 314,orchestrator refactor generic pipeline runner with,plan,claude-haiku-4-5-20251001,0.231330
 314,orchestrator refactor generic pipeline runner with,scenario,claude-opus-4-6,1.487232
 314,orchestrator refactor generic pipeline runner with,scenario,claude-haiku-4-5-20251001,0.442446
+315,robustness hardening retry logic pre flight checks,alignment,claude-opus-4-6,0.680072
+315,robustness hardening retry logic pre flight checks,alignment,claude-haiku-4-5-20251001,0.022791
 315,robustness hardening retry logic pre flight checks,install,claude-sonnet-4-6,0.546578
 315,robustness hardening retry logic pre flight checks,plan,claude-opus-4-6,1.045279
 315,robustness hardening retry logic pre flight checks,plan,claude-haiku-4-5-20251001,0.095051
 315,robustness hardening retry logic pre flight checks,scenario,claude-opus-4-6,0.608479
 315,robustness hardening retry logic pre flight checks,scenario,claude-haiku-4-5-20251001,0.302844
 
-Total Cost (USD):,322.7637
-Total Cost (EUR):,278.8120
+Total Cost (USD):,323.4666
+Total Cost (EUR):,279.4192
