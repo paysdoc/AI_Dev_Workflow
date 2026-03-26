@@ -1,2 +1,6 @@
 workflow_id,issue_number,phase,model,provider,computed_cost_usd,reported_cost_usd,status,retry_count,continuation_count,duration_ms,timestamp,estimated_tokens,actual_tokens,input,output,cache_read,cache_write,reasoning
 tphvsj-fix-ensure-all-git-o,317,install,claude-sonnet-4-6,anthropic,0.401734,0.401734,success,0,0,127075,2026-03-26T07:48:14.568Z,,,11,6076,361479,53898,0
+tphvsj-fix-ensure-all-git-o,317,plan,claude-opus-4-6,anthropic,1.265637,1.265637,success,0,0,317040,2026-03-26T07:53:37.037Z,,,19,12353,844760,85494,0
+tphvsj-fix-ensure-all-git-o,317,plan,claude-haiku-4-5-20251001,anthropic,0.127992,0.127992,success,0,0,317040,2026-03-26T07:53:37.037Z,,,132,5845,384889,48117,0
+tphvsj-fix-ensure-all-git-o,317,scenario,claude-opus-4-6,anthropic,0.631179,0.631179,success,0,0,180649,2026-03-26T07:51:24.192Z,,,19,6508,499356,34993,0
+tphvsj-fix-ensure-all-git-o,317,scenario,claude-haiku-4-5-20251001,anthropic,0.067708,0.067708,success,0,0,180649,2026-03-26T07:51:24.192Z,,,65,3329,116359,31490,0
