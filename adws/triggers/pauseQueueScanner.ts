@@ -42,7 +42,7 @@ function probeRateLimit(): 'clear' | 'limited' | 'unknown' {
   try {
     const claudePath = resolveClaudeCodePath();
     const output = execSync(
-      `${claudePath} --print "ping" --model haiku --max-turns 1 --dangerously-skip-permissions --output-format stream-json`,
+      `${claudePath} --print "ping" --model haiku --max-turns 1 --dangerously-skip-permissions`,
       { encoding: 'utf-8', timeout: 30_000 },
     );
     if (containsRateLimitText(output)) return 'limited';
