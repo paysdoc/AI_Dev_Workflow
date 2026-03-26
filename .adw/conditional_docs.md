@@ -514,3 +514,11 @@
     - When troubleshooting why a `⏸️ Paused` or `▶️ Resumed` comment is not appearing on a GitHub issue
     - When modifying cron trigger issue eligibility logic (`trigger_cron.ts` `evaluateIssue`)
     - When changing dependency extraction behavior in `issueDependencies.ts`
+
+- app_docs/feature-6w7p98-unit-test-tdd-integration.md
+  - Conditions:
+    - When working with the `/implement_tdd` skill (`SKILL.md`) and unit test integration
+    - When a target repo has `## Unit Tests: enabled` in `.adw/project.md`
+    - When implementing or extending the red-green-refactor loop in the TDD skill
+    - When troubleshooting why unit tests are not being written during the TDD loop
+    - When adding or modifying `@adw-308` BDD scenarios or their step definitions
