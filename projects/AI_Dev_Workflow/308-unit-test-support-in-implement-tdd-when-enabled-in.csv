@@ -4,3 +4,4 @@ dfrwyt-unit-test-support-in,308,plan,claude-opus-4-6,anthropic,0.755191,0.755191
 dfrwyt-unit-test-support-in,308,plan,claude-haiku-4-5-20251001,anthropic,0.165343,0.165343,success,0,0,248992,2026-03-25T22:05:21.481Z,,,1336,5181,429328,76135,0
 dfrwyt-unit-test-support-in,308,scenario,claude-opus-4-6,anthropic,0.735639,0.735639,success,0,0,162307,2026-03-25T22:03:57.265Z,,,1514,7867,489326,45877,0
 dfrwyt-unit-test-support-in,308,alignment,claude-opus-4-6,anthropic,0.387500,0.387500,success,0,0,130099,2026-03-25T22:07:37.612Z,,,6,6373,119178,26969,0
+6w7p98-unit-test-support-in,308,install,claude-sonnet-4-6,anthropic,0.556345,0.556345,success,0,0,122269,2026-03-26T10:13:59.681Z,,,19,5039,873142,58336,0
