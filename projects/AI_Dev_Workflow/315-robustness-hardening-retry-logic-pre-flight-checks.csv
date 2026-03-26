@@ -1,2 +1,6 @@
 workflow_id,issue_number,phase,model,provider,computed_cost_usd,reported_cost_usd,status,retry_count,continuation_count,duration_ms,timestamp,estimated_tokens,actual_tokens,input,output,cache_read,cache_write,reasoning
 gcisck-robustness-hardening,315,install,claude-sonnet-4-6,anthropic,0.546578,0.546578,success,0,0,23182518,2026-03-26T06:25:37.872Z,,,11,5011,293892,102190,0
+gcisck-robustness-hardening,315,plan,claude-opus-4-6,anthropic,1.045279,1.045279,success,0,0,335900,2026-03-26T06:31:27.052Z,,,1164,9993,603993,78022,0
+gcisck-robustness-hardening,315,plan,claude-haiku-4-5-20251001,anthropic,0.095051,0.095051,success,0,0,335900,2026-03-26T06:31:27.052Z,,,17,7364,64224,41433,0
+gcisck-robustness-hardening,315,scenario,claude-opus-4-6,anthropic,0.608479,0.608479,success,0,0,285668,2026-03-26T06:30:40.719Z,,,9,9533,249867,39228,0
+gcisck-robustness-hardening,315,scenario,claude-haiku-4-5-20251001,anthropic,0.302844,0.302844,success,0,0,285668,2026-03-26T06:30:40.719Z,,,90,13094,716138,132536,0
