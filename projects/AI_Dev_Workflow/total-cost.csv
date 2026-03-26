@@ -384,8 +384,11 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 317,fix ensure all git operations target the correct r,install,claude-sonnet-4-6,0.279761
 317,fix ensure all git operations target the correct r,plan,claude-opus-4-6,1.265637
 317,fix ensure all git operations target the correct r,plan,claude-haiku-4-5-20251001,0.127992
+317,fix ensure all git operations target the correct r,review,claude-opus-4-6,6.578353
+317,fix ensure all git operations target the correct r,review,claude-haiku-4-5-20251001,0.135928
+317,fix ensure all git operations target the correct r,review,claude-sonnet-4-6,3.614409
 317,fix ensure all git operations target the correct r,scenario,claude-opus-4-6,0.631179
 317,fix ensure all git operations target the correct r,scenario,claude-haiku-4-5-20251001,0.067708
 
-Total Cost (USD):,341.8682
-Total Cost (EUR):,295.3150
+Total Cost (USD):,352.1969
+Total Cost (EUR):,304.2372
