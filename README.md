@@ -235,6 +235,7 @@ adws/                   # ADW workflow system
 │   ├── orchestratorCli.ts  # Shared CLI parsing utilities
 │   ├── orchestratorLib.ts
 │   ├── phaseRunner.ts  # PhaseRunner / CostTracker composition
+│   ├── pauseQueue.ts       # Pause/resume queue management
 │   ├── portAllocator.ts
 │   ├── projectConfig.ts
 │   ├── retryOrchestrator.ts
@@ -351,6 +352,7 @@ adws/                   # ADW workflow system
 │   ├── cronProcessGuard.ts  # Duplicate cron process prevention
 │   ├── issueDependencies.ts
 │   ├── issueEligibility.ts
+│   ├── pauseQueueScanner.ts  # Cron probe for paused issue queue
 │   ├── trigger_cron.ts
 │   ├── trigger_shutdown.ts  # Graceful shutdown handler
 │   ├── trigger_webhook.ts
