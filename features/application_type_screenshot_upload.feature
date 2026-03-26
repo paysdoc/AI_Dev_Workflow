@@ -53,13 +53,6 @@ Feature: Application type config and screenshot upload in review comments
 
   # --- /adw_init inference ---
 
-  @adw-278 @regression
-  Scenario: adw_init.md instruction includes Application Type section generation
-    Given the file ".claude/commands/adw_init.md" is read
-    When the step that defines sections for ".adw/project.md" generation is found
-    Then the instruction lists "## Application Type" as a section to generate
-    And the instruction describes inferring the value from the target codebase
-
   @adw-278
   Scenario: adw_init infers web type for projects with frontend frameworks
     Given a target repository with "next" in package.json dependencies

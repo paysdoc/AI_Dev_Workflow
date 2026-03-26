@@ -395,7 +395,8 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 317,fix ensure all git operations target the correct r,scenario,claude-opus-4-6,0.631179
 317,fix ensure all git operations target the correct r,scenario,claude-haiku-4-5-20251001,0.067708
 321,remove 75 stale bdd scenarios with no regression c,install,claude-sonnet-4-6,0.306872
+321,remove 75 stale bdd scenarios with no regression c,install,claude-sonnet-4-6,0.360621
 321,remove 75 stale bdd scenarios with no regression c,plan,claude-opus-4-6,0.382067
 
-Total Cost (USD):,367.1299
-Total Cost (EUR):,317.1367
+Total Cost (USD):,367.4905
+Total Cost (EUR):,317.4482
