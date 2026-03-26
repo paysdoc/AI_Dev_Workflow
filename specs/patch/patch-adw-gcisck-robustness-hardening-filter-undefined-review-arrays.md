@@ -2,7 +2,7 @@
 
 ## Metadata
 adwId: `gcisck-robustness-hardening`
-reviewChangeRequest: `Issue #9: reviewRetry.ts mergeReviewResults() filters null results but does not filter undefined elements within reviewIssues and screenshots arrays, leaving TypeError risk.`
+reviewChangeRequest: `Issue #9: Undefined review issue array filter (spec Step 12) not implemented. reviewRetry.ts mergeReviewResults() does not filter null/undefined entries from reviewIssues or screenshots arrays before accessing .issueDescription. Resolution: Add .filter((issue): issue is ReviewIssue => issue != null) after .flatMap() for reviewIssues and screenshots arrays in mergeReviewResults().`
 
 ## Issue Summary
 **Original Spec:** specs/issue-315-adw-gcisck-robustness-hardening-sdlc_planner-retry-logic-resilience.md
