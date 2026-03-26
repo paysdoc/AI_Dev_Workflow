@@ -33,8 +33,12 @@ interface RawIssue {
   updatedAt: string;
 }
 
-/** Workflow stages that mean the issue is re-eligible for processing. */
-const RETRIABLE_STAGES = new Set(['error', 'paused', 'review_failed', 'build_failed']);
+/** Workflow stages that mean the issue is re-eligible for processing.
+ *  Note: 'paused' is intentionally excluded — paused workflows are handled
+ *  exclusively by the pause queue scanner (pauseQueueScanner.ts), not the
+ *  backlog sweeper. Including it here would spawn a brand-new workflow from
+ *  scratch while the scanner tries to resume the original. */
+const RETRIABLE_STAGES = new Set(['error', 'review_failed', 'build_failed']);
 
 /** Workflow stages that mean the issue is actively in-progress (exclude). */
 const ACTIVE_STAGES = new Set([
