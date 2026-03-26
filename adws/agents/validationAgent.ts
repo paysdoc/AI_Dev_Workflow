@@ -137,6 +137,25 @@ export async function runValidationAgent(
     cwd
   );
 
-  const validationResult = parseValidationResult(result.output);
+  let validationResult = parseValidationResult(result.output);
+
+  // Retry once if the first output produced a non-JSON fallback
+  if (!validationResult.aligned && extractJson(result.output) === null) {
+    log("Validation agent returned non-JSON output, retrying once...", "warn");
+    const retryResult = await runClaudeAgentWithCommand(
+      "/validate_plan_scenarios",
+      formatValidationArgs(adwId, issueNumber, planFilePath, scenarioGlob),
+      "validation-agent",
+      outputFile,
+      model,
+      effort,
+      undefined,
+      statePath,
+      cwd
+    );
+    validationResult = parseValidationResult(retryResult.output);
+    return { ...retryResult, validationResult };
+  }
+
   return { ...result, validationResult };
 }

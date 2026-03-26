@@ -2,7 +2,7 @@
  * GitHub Issue API functions using the gh CLI.
  */
 
-import { execSync } from 'child_process';
+import { execWithRetry } from '../core';
 import { GitHubIssue, IssueCommentSummary, log } from '../core';
 import { type RepoInfo } from './githubApi';
 
@@ -111,9 +111,8 @@ export async function fetchGitHubIssue(issueNumber: number, repoInfo: RepoInfo):
   const { owner, repo } = repoInfo;
 
   try {
-    const issueJson = execSync(
-      `gh issue view ${issueNumber} --repo ${owner}/${repo} --json number,title,body,state,author,assignees,labels,milestone,comments,createdAt,updatedAt,closedAt,url`,
-      { encoding: 'utf-8' }
+    const issueJson = execWithRetry(
+      `gh issue view ${issueNumber} --repo ${owner}/${repo} --json number,title,body,state,author,assignees,labels,milestone,comments,createdAt,updatedAt,closedAt,url`
     );
 
     const rawIssue = JSON.parse(issueJson) as RawGitHubIssue;
@@ -133,9 +132,9 @@ export function commentOnIssue(issueNumber: number, body: string, repoInfo: Repo
   const { owner, repo } = repoInfo;
 
   try {
-    execSync(
+    execWithRetry(
       `gh issue comment ${issueNumber} --repo ${owner}/${repo} --body-file -`,
-      { encoding: 'utf-8', input: body, stdio: ['pipe', 'pipe', 'pipe'] }
+      { input: body, stdio: ['pipe', 'pipe', 'pipe'] }
     );
     log(`Commented on issue #${issueNumber}`, 'success');
   } catch (error) {
@@ -172,9 +171,8 @@ export function getIssueState(issueNumber: number, repoInfo: RepoInfo): string {
   const { owner, repo } = repoInfo;
 
   try {
-    const json = execSync(
-      `gh issue view ${issueNumber} --repo ${owner}/${repo} --json state`,
-      { encoding: 'utf-8' }
+    const json = execWithRetry(
+      `gh issue view ${issueNumber} --repo ${owner}/${repo} --json state`
     );
     const result = JSON.parse(json);
     return result.state;
@@ -208,9 +206,8 @@ export async function closeIssue(issueNumber: number, repoInfo: RepoInfo, commen
     }
 
     // Close the issue
-    execSync(
-      `gh issue close ${issueNumber} --repo ${owner}/${repo}`,
-      { encoding: 'utf-8' }
+    execWithRetry(
+      `gh issue close ${issueNumber} --repo ${owner}/${repo}`
     );
     log(`Closed issue #${issueNumber}`, 'success');
     return true;
@@ -230,9 +227,8 @@ export function getIssueTitleSync(issueNumber: number, repoInfo: RepoInfo): stri
   const { owner, repo } = repoInfo;
 
   try {
-    const json = execSync(
-      `gh issue view ${issueNumber} --repo ${owner}/${repo} --json title`,
-      { encoding: 'utf-8' }
+    const json = execWithRetry(
+      `gh issue view ${issueNumber} --repo ${owner}/${repo} --json title`
     );
     const result = JSON.parse(json) as { title: string };
     return result.title;
@@ -250,9 +246,8 @@ export function getIssueTitleSync(issueNumber: number, repoInfo: RepoInfo): stri
 export function fetchIssueCommentsRest(issueNumber: number, repoInfo: RepoInfo): IssueCommentSummary[] {
   const { owner, repo } = repoInfo;
   try {
-    const json = execSync(
-      `gh api repos/${owner}/${repo}/issues/${issueNumber}/comments --paginate`,
-      { encoding: 'utf-8' }
+    const json = execWithRetry(
+      `gh api repos/${owner}/${repo}/issues/${issueNumber}/comments --paginate`
     );
     const raw = JSON.parse(json);
     return (raw as Record<string, unknown>[]).map((c: Record<string, unknown>) => ({
@@ -274,9 +269,9 @@ export function fetchIssueCommentsRest(issueNumber: number, repoInfo: RepoInfo):
 export function deleteIssueComment(commentId: number, repoInfo: RepoInfo): void {
   const { owner, repo } = repoInfo;
   try {
-    execSync(
+    execWithRetry(
       `gh api -X DELETE repos/${owner}/${repo}/issues/comments/${commentId}`,
-      { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }
+      { stdio: ['pipe', 'pipe', 'pipe'] }
     );
     log(`Deleted comment ${commentId}`, 'success');
   } catch (error) {

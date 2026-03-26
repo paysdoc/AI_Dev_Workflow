@@ -72,7 +72,7 @@ Feature: Robustness hardening — retry logic, pre-flight checks, and graceful d
     When the spawn fails with ENOENT on the first attempt
     Then resolveClaudeCodePath is called again before the second attempt
     And resolveClaudeCodePath is called again before the third attempt
-    So that later attempts pick up the new symlink target
+    And later attempts pick up the new symlink target
 
   @adw-gcisck-robustness-hardening
   Scenario: Claude CLI ENOENT exhausts all retries

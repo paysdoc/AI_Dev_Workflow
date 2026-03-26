@@ -10,6 +10,7 @@
  */
 
 import { execSync } from 'child_process';
+import { writeFileSync } from 'fs';
 import * as path from 'path';
 import { log, generateAdwId, ensureLogsDirectory, MAX_AUTO_MERGE_ATTEMPTS } from '../core';
 import { fetchPRDetails, commentOnPR, mergePR, getRepoInfoFromPayload, type RepoInfo } from '../github';
@@ -214,14 +215,27 @@ export async function handleApprovedReview(body: Record<string, unknown>): Promi
     return;
   }
 
-  if (prDetails.state === 'CLOSED' || prDetails.state === 'MERGED') {
-    log(`PR #${prNumber} is already ${prDetails.state}, skipping auto-merge`, 'info');
-    return;
-  }
-
   const { headBranch, baseBranch } = prDetails;
   const adwId = generateAdwId(`auto-merge-pr-${prNumber}`);
   const logsDir = ensureLogsDirectory(adwId);
+
+  if (!prDetails.url) {
+    log('handleApprovedReview: no PR URL available, skipping auto-merge', 'warn');
+    writeFileSync(path.join(logsDir, 'skip_reason.txt'), 'missing PR URL, skipping auto-merge');
+    return;
+  }
+
+  if (!repoInfo.owner || !repoInfo.repo) {
+    log('handleApprovedReview: no repo context available, skipping auto-merge', 'warn');
+    writeFileSync(path.join(logsDir, 'skip_reason.txt'), 'missing repo context, skipping auto-merge');
+    return;
+  }
+
+  if (prDetails.state === 'CLOSED' || prDetails.state === 'MERGED') {
+    log(`PR #${prNumber} is already ${prDetails.state}, skipping auto-merge`, 'info');
+    writeFileSync(path.join(logsDir, 'skip_reason.txt'), 'PR already merged, skipping auto-merge');
+    return;
+  }
 
   log(`Auto-merge: head=${headBranch}, base=${baseBranch}, adwId=${adwId}`, 'info');
 
@@ -231,6 +245,7 @@ export async function handleApprovedReview(body: Record<string, unknown>): Promi
     worktreePath = ensureWorktree(headBranch);
   } catch (error) {
     log(`handleApprovedReview: failed to ensure worktree for '${headBranch}': ${error}`, 'error');
+    writeFileSync(path.join(logsDir, 'skip_reason.txt'), `Worktree creation failed for branch: ${headBranch}`);
     return;
   }
 

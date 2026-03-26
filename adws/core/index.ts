@@ -64,6 +64,7 @@ export {
   resetLogAdwId,
   ensureLogsDirectory,
   parseTargetRepoArgs,
+  execWithRetry,
   type LogLevel,
 } from './utils';
 

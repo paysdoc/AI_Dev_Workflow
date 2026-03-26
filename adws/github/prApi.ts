@@ -2,7 +2,7 @@
  * GitHub PR API functions using the gh CLI.
  */
 
-import { execSync } from 'child_process';
+import { execWithRetry } from '../core';
 import { PRDetails, PRReviewComment, PRListItem, log } from '../core';
 import { type RepoInfo } from './githubApi';
 import { extractIssueNumberFromBranch } from '../triggers/webhookHandlers';
@@ -58,9 +58,8 @@ export function fetchPRDetails(prNumber: number, repoInfo: RepoInfo): PRDetails 
   const { owner, repo } = repoInfo;
 
   try {
-    const json = execSync(
-      `gh pr view ${prNumber} --repo ${owner}/${repo} --json number,title,body,state,headRefName,baseRefName,url`,
-      { encoding: 'utf-8' }
+    const json = execWithRetry(
+      `gh pr view ${prNumber} --repo ${owner}/${repo} --json number,title,body,state,headRefName,baseRefName,url`
     );
     const raw = JSON.parse(json) as RawPRDetails;
 
@@ -92,9 +91,8 @@ export function fetchPRDetails(prNumber: number, repoInfo: RepoInfo): PRDetails 
  */
 export function fetchPRReviews(owner: string, repo: string, prNumber: number): PRReviewComment[] {
   try {
-    const json = execSync(
-      `gh api repos/${owner}/${repo}/pulls/${prNumber}/reviews --paginate`,
-      { encoding: 'utf-8' }
+    const json = execWithRetry(
+      `gh api repos/${owner}/${repo}/pulls/${prNumber}/reviews --paginate`
     );
     const raw = JSON.parse(json) as RawPRReview[];
 
@@ -130,9 +128,8 @@ export function fetchPRReviewComments(prNumber: number, repoInfo: RepoInfo): PRR
 
   let lineComments: PRReviewComment[] = [];
   try {
-    const json = execSync(
-      `gh api repos/${owner}/${repo}/pulls/${prNumber}/comments --paginate`,
-      { encoding: 'utf-8' }
+    const json = execWithRetry(
+      `gh api repos/${owner}/${repo}/pulls/${prNumber}/comments --paginate`
     );
     const raw = JSON.parse(json) as RawPRLineComment[];
 
@@ -173,9 +170,9 @@ export function commentOnPR(prNumber: number, body: string, repoInfo: RepoInfo):
   const { owner, repo } = repoInfo;
 
   try {
-    execSync(
+    execWithRetry(
       `gh pr comment ${prNumber} --repo ${owner}/${repo} --body-file -`,
-      { encoding: 'utf-8', input: body, stdio: ['pipe', 'pipe', 'pipe'] }
+      { input: body, stdio: ['pipe', 'pipe', 'pipe'] }
     );
     log(`Commented on PR #${prNumber}`, 'success');
   } catch (error) {
@@ -192,9 +189,9 @@ export function commentOnPR(prNumber: number, body: string, repoInfo: RepoInfo):
 export function mergePR(prNumber: number, repoInfo: RepoInfo): { success: boolean; error?: string } {
   const { owner, repo } = repoInfo;
   try {
-    execSync(
+    execWithRetry(
       `gh pr merge ${prNumber} --merge --repo ${owner}/${repo}`,
-      { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }
+      { stdio: ['pipe', 'pipe', 'pipe'] }
     );
     log(`Merged PR #${prNumber} in ${owner}/${repo}`, 'success');
     return { success: true };
@@ -224,9 +221,9 @@ export function approvePR(prNumber: number, repoInfo: RepoInfo): { success: bool
   try {
     // Temporarily unset GH_TOKEN so gh uses the personal gh auth login identity
     delete process.env.GH_TOKEN;
-    execSync(
+    execWithRetry(
       `gh pr review ${prNumber} --approve --repo ${owner}/${repo}`,
-      { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] },
+      { stdio: ['pipe', 'pipe', 'pipe'] },
     );
     log(`Approved PR #${prNumber} in ${owner}/${repo}`, 'success');
     return { success: true };
@@ -250,9 +247,8 @@ export function fetchPRList(repoInfo: RepoInfo): PRListItem[] {
   const { owner, repo } = repoInfo;
 
   try {
-    const json = execSync(
-      `gh pr list --repo ${owner}/${repo} --state open --json number,headRefName,updatedAt`,
-      { encoding: 'utf-8' }
+    const json = execWithRetry(
+      `gh pr list --repo ${owner}/${repo} --state open --json number,headRefName,updatedAt`
     );
     const raw = JSON.parse(json) as RawPRListItem[];
 

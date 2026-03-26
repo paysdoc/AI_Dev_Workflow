@@ -3,6 +3,7 @@
  */
 
 import { execSync } from 'child_process';
+import { execWithRetry } from '../core';
 
 export interface RepoInfo {
   owner: string;
@@ -69,7 +70,7 @@ export function getAuthenticatedUser(): string | null {
   if (cachedAuthenticatedUser !== undefined) return cachedAuthenticatedUser;
 
   try {
-    const login = execSync('gh api user --jq .login', { encoding: 'utf-8' }).trim();
+    const login = execWithRetry('gh api user --jq .login');
     cachedAuthenticatedUser = login || null;
   } catch (error) {
     console.warn(`[githubApi] Could not determine authenticated GitHub user: ${error}`);

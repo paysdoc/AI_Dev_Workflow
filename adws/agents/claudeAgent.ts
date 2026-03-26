@@ -115,16 +115,22 @@ export async function runClaudeAgentWithCommand(
 
   const result = await handleAgentProcess(claude, agentName, outputFile, onProgress, statePath, model);
 
-  // Retry once on ENOENT (transient path resolution failure)
+  // Retry up to 3 total attempts on ENOENT (transient path resolution failure)
   if (!result.success && result.output.includes('ENOENT')) {
-    log(`Claude CLI not found at ${resolvedPath}, retrying after re-resolving path...`, 'warn');
-    clearClaudeCodePathCache();
-    await delay(1000);
-
-    const retryPath = resolveClaudeCodePath();
-    const retryProcess = spawn(retryPath, cliArgs, spawnOptions);
-
-    return handleAgentProcess(retryProcess, agentName, outputFile, onProgress, statePath, model);
+    let lastResult = result;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      clearClaudeCodePathCache();
+      const backoff = 500 * Math.pow(2, attempt);
+      await delay(backoff);
+      const newPath = resolveClaudeCodePath();
+      log(`Claude CLI ENOENT retry (attempt ${attempt + 2}/3), re-resolved path: ${newPath}`, 'warn');
+      const retryProcess = spawn(newPath, cliArgs, spawnOptions);
+      lastResult = await handleAgentProcess(retryProcess, agentName, outputFile, onProgress, statePath, model);
+      if (lastResult.success || !lastResult.output.includes('ENOENT')) {
+        return lastResult;
+      }
+    }
+    return lastResult;
   }
 
   // Rate limit detected — do NOT retry. Throw RateLimitError so runPhase() can trigger pause.

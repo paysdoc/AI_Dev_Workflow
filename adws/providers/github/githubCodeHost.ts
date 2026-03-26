@@ -3,11 +3,11 @@
  * Delegates to existing prApi and gitBranchOperations functions.
  */
 
-import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import type { RepoInfo } from '../../github/githubApi';
+import { execWithRetry, log } from '../../core';
 import { fetchPRDetails, fetchPRReviewComments, commentOnPR, fetchPRList } from '../../github/prApi';
 import { getDefaultBranch as ghGetDefaultBranch } from '../../vcs/branchOperations';
 import { refreshTokenIfNeeded } from '../../github/githubAppAuth';
@@ -80,17 +80,33 @@ export class GitHubCodeHost implements CodeHost {
   createMergeRequest(options: CreateMROptions): MergeRequestResult {
     refreshTokenIfNeeded();
 
+    const repoFlag = `--repo ${this.repoInfo.owner}/${this.repoInfo.repo}`;
+
+    // Check for an existing open PR on this branch before creating a new one
+    try {
+      const existing = execWithRetry(
+        `gh pr list --head "${options.sourceBranch}" ${repoFlag} --json url,number --limit 1`
+      );
+      const parsed = JSON.parse(existing) as Array<{ url: string; number: number }>;
+      if (parsed.length > 0) {
+        const { url, number } = parsed[0];
+        log(`Existing PR #${number} found for branch ${options.sourceBranch}, reusing`, 'info');
+        return { url, number };
+      }
+    } catch {
+      // If the check fails, fall through to normal PR creation
+    }
+
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'adw-pr-'));
     const tempFilePath = path.join(tempDir, 'pr-body.md');
 
     try {
       fs.writeFileSync(tempFilePath, options.body, 'utf-8');
 
-      const repoFlag = `--repo ${this.repoInfo.owner}/${this.repoInfo.repo}`;
-      const prUrl = execSync(
+      const prUrl = execWithRetry(
         `gh pr create --title "${options.title.replace(/"/g, '\\"')}" --body-file "${tempFilePath}" --base "${options.targetBranch}" --head "${options.sourceBranch}" ${repoFlag}`,
-        { encoding: 'utf-8', shell: '/bin/bash' },
-      ).trim();
+        { shell: '/bin/bash' },
+      );
 
       const numberMatch = prUrl.match(/\/pull\/(\d+)$/);
       if (!numberMatch) {
