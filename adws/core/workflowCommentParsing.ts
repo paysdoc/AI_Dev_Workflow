@@ -188,7 +188,7 @@ export function detectRecoveryState(comments: GitHubComment[]): RecoveryState {
 
   for (const comment of sortedComments.reverse()) {
     const stage = parseWorkflowStageFromComment(comment.body);
-    if (!stage || stage === 'error') continue;
+    if (!stage || stage === 'error' || stage === 'paused' || stage === 'resumed') continue;
 
     const stageIndex = STAGE_ORDER.indexOf(stage);
     const lastIndex = lastCompletedStage ? STAGE_ORDER.indexOf(lastCompletedStage) : -1;
