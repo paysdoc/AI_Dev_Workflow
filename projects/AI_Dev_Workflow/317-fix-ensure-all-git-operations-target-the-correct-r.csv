@@ -5,3 +5,4 @@ tphvsj-fix-ensure-all-git-o,317,plan,claude-haiku-4-5-20251001,anthropic,0.12799
 tphvsj-fix-ensure-all-git-o,317,scenario,claude-opus-4-6,anthropic,0.631179,0.631179,success,0,0,180649,2026-03-26T07:51:24.192Z,,,19,6508,499356,34993,0
 tphvsj-fix-ensure-all-git-o,317,scenario,claude-haiku-4-5-20251001,anthropic,0.067708,0.067708,success,0,0,180649,2026-03-26T07:51:24.192Z,,,65,3329,116359,31490,0
 tphvsj-fix-ensure-all-git-o,317,alignment,claude-opus-4-6,anthropic,0.235169,0.235169,success,0,0,57240,2026-03-26T07:54:39.659Z,,,4,2914,62022,21006,0
+kbzbn6-fix-ensure-all-git-o,317,install,claude-sonnet-4-6,anthropic,0.279761,0.279761,success,0,0,65618,2026-03-26T10:57:24.946Z,,,10,2725,265088,42488,0

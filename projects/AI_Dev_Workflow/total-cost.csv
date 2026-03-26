@@ -380,10 +380,11 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 315,robustness hardening retry logic pre flight checks,scenario,claude-haiku-4-5-20251001,0.302844
 317,fix ensure all git operations target the correct r,alignment,claude-opus-4-6,0.235169
 317,fix ensure all git operations target the correct r,install,claude-sonnet-4-6,0.401734
+317,fix ensure all git operations target the correct r,install,claude-sonnet-4-6,0.279761
 317,fix ensure all git operations target the correct r,plan,claude-opus-4-6,1.265637
 317,fix ensure all git operations target the correct r,plan,claude-haiku-4-5-20251001,0.127992
 317,fix ensure all git operations target the correct r,scenario,claude-opus-4-6,0.631179
 317,fix ensure all git operations target the correct r,scenario,claude-haiku-4-5-20251001,0.067708
 
-Total Cost (USD):,341.3117
-Total Cost (EUR):,294.8343
+Total Cost (USD):,341.5915
+Total Cost (EUR):,295.0759
