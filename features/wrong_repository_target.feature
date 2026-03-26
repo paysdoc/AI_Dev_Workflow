@@ -28,7 +28,7 @@ Feature: PR review targets the correct repository
     Given "adws/phases/prReviewPhase.ts" is read
     Then initializePRReviewWorkflow imports and calls ensureTargetRepoWorkspace
 
-  @adw-223 @regression
+  @adw-223 @adw-317 @regression
   Scenario: ensureWorktree is called with the target repo workspace path as baseRepoPath
     Given "adws/phases/prReviewPhase.ts" is read
     Then ensureWorktree is called with a baseRepoPath derived from the target repo workspace

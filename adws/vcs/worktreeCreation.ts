@@ -223,12 +223,12 @@ export function ensureWorktree(branchName: string, baseBranch?: string, baseRepo
 
   if (existingPath) {
     log(`Worktree for branch '${branchName}' already exists at ${existingPath}, reusing`, 'info');
-    copyEnvToWorktree(existingPath);
+    copyEnvToWorktree(existingPath, baseRepoPath);
     return existingPath;
   }
 
   log(`Worktree for branch '${branchName}' does not exist, creating new worktree...`, 'info');
   const worktreePath = createWorktree(branchName, baseBranch, baseRepoPath);
-  copyEnvToWorktree(worktreePath);
+  copyEnvToWorktree(worktreePath, baseRepoPath);
   return worktreePath;
 }

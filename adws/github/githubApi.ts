@@ -13,10 +13,12 @@ export interface RepoInfo {
 /**
  * Extracts owner and repo from the git remote URL.
  * Supports both HTTPS and SSH URL formats.
+ *
+ * @param cwd - Optional working directory for the git command (defaults to process.cwd())
  */
-export function getRepoInfo(): RepoInfo {
+export function getRepoInfo(cwd?: string): RepoInfo {
   try {
-    const remoteUrl = execSync('git remote get-url origin', { encoding: 'utf-8' }).trim();
+    const remoteUrl = execSync('git remote get-url origin', { encoding: 'utf-8', cwd }).trim();
 
     const httpsMatch = remoteUrl.match(/github\.com\/([^/]+)\/([^/.]+)/);
     const sshMatch = remoteUrl.match(/git@github\.com:([^/]+)\/([^/.]+)/);

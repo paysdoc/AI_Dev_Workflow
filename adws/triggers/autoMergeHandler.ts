@@ -12,7 +12,8 @@
 import { execSync } from 'child_process';
 import { writeFileSync } from 'fs';
 import * as path from 'path';
-import { log, generateAdwId, ensureLogsDirectory, MAX_AUTO_MERGE_ATTEMPTS } from '../core';
+import { existsSync } from 'fs';
+import { log, generateAdwId, ensureLogsDirectory, MAX_AUTO_MERGE_ATTEMPTS, getTargetRepoWorkspacePath } from '../core';
 import { fetchPRDetails, commentOnPR, mergePR, getRepoInfoFromPayload, type RepoInfo } from '../github';
 import { ensureWorktree } from '../vcs';
 import { runClaudeAgentWithCommand } from '../agents';
@@ -239,10 +240,16 @@ export async function handleApprovedReview(body: Record<string, unknown>): Promi
 
   log(`Auto-merge: head=${headBranch}, base=${baseBranch}, adwId=${adwId}`, 'info');
 
+  // Derive target repo workspace path from webhook payload
+  const targetRepoWorkspacePath = (() => {
+    const workspacePath = getTargetRepoWorkspacePath(repoInfo.owner, repoInfo.repo);
+    return existsSync(workspacePath) ? workspacePath : undefined;
+  })();
+
   // Ensure worktree exists for the PR branch
   let worktreePath: string;
   try {
-    worktreePath = ensureWorktree(headBranch);
+    worktreePath = ensureWorktree(headBranch, undefined, targetRepoWorkspacePath);
   } catch (error) {
     log(`handleApprovedReview: failed to ensure worktree for '${headBranch}': ${error}`, 'error');
     writeFileSync(path.join(logsDir, 'skip_reason.txt'), `Worktree creation failed for branch: ${headBranch}`);

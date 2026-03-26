@@ -103,6 +103,14 @@
     - When adding or modifying auto-merge early-exit paths in `autoMergeHandler.ts` or `autoMergePhase.ts`
     - When troubleshooting empty log directories from skipped auto-merge runs
 
+- app_docs/feature-kbzbn6-fix-git-repo-context.md
+  - Conditions:
+    - When working with VCS functions (`copyEnvToWorktree`, `ensureWorktree`, `getRepoInfo`)
+    - When adding new git operations that must target an external target repository
+    - When troubleshooting worktree creation, `.env` copy, or git remote errors in target repo workflows
+    - When modifying `autoMergeHandler.ts`, `workflowInit.ts`, or `targetRepoManager.ts`
+    - When cloning new target repositories (SSH vs HTTPS URL handling)
+
 - app_docs/feature-74itmf-dependency-logging.md
   - Conditions:
     - When working with `findOpenDependencies()` or `checkIssueEligibility()` in `adws/triggers/`
@@ -525,3 +533,11 @@
     - When troubleshooting why a `⏸️ Paused` or `▶️ Resumed` comment is not appearing on a GitHub issue
     - When modifying cron trigger issue eligibility logic (`trigger_cron.ts` `evaluateIssue`)
     - When changing dependency extraction behavior in `issueDependencies.ts`
+
+- app_docs/feature-6w7p98-unit-test-tdd-integration.md
+  - Conditions:
+    - When working with the `/implement_tdd` skill (`SKILL.md`) and unit test integration
+    - When a target repo has `## Unit Tests: enabled` in `.adw/project.md`
+    - When implementing or extending the red-green-refactor loop in the TDD skill
+    - When troubleshooting why unit tests are not being written during the TDD loop
+    - When adding or modifying `@adw-308` BDD scenarios or their step definitions

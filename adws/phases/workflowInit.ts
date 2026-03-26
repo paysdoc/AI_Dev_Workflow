@@ -193,12 +193,12 @@ export async function initializeWorkflow(
     log(`Worktree path (target repo): ${worktreePath}`, 'info');
   } else {
     // Try to find an existing worktree by issue type and number first
-    const issueWorktree = findWorktreeForIssue(issueType, issueNumber);
+    const issueWorktree = findWorktreeForIssue(issueType, issueNumber, targetRepoWorkspacePath);
     if (issueWorktree) {
       branchName = issueWorktree.branchName;
       worktreePath = issueWorktree.worktreePath;
       mergeLatestFromDefaultBranch(defaultBranch, worktreePath);
-      copyEnvToWorktree(worktreePath);
+      copyEnvToWorktree(worktreePath, targetRepoWorkspacePath);
       log(`Reusing existing worktree found by issue pattern at ${worktreePath}`, 'info');
     } else {
       if (recoveryState.branchName) {
@@ -213,7 +213,7 @@ export async function initializeWorkflow(
       if (existingWorktree) {
         log(`Reusing existing worktree at ${existingWorktree}`, 'info');
         mergeLatestFromDefaultBranch(defaultBranch, existingWorktree);
-        copyEnvToWorktree(existingWorktree);
+        copyEnvToWorktree(existingWorktree, targetRepoWorkspacePath);
         worktreePath = existingWorktree;
       } else {
         worktreePath = ensureWorktree(branchName, defaultBranch);

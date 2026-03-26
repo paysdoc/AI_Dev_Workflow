@@ -352,9 +352,14 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 307,review phase step definition independence check,step-def-gen,claude-sonnet-4-6,0.632139
 307,review phase step definition independence check,step-def-gen,claude-sonnet-4-6,0.248037
 308,unit test support in implement tdd when enabled in,alignment,claude-opus-4-6,0.387500
+308,unit test support in implement tdd when enabled in,document,claude-sonnet-4-6,0.295887
 308,unit test support in implement tdd when enabled in,install,claude-sonnet-4-6,0.498561
+308,unit test support in implement tdd when enabled in,install,claude-sonnet-4-6,0.556345
 308,unit test support in implement tdd when enabled in,plan,claude-opus-4-6,0.755191
 308,unit test support in implement tdd when enabled in,plan,claude-haiku-4-5-20251001,0.165343
+308,unit test support in implement tdd when enabled in,review,claude-opus-4-6,5.101399
+308,unit test support in implement tdd when enabled in,review,claude-sonnet-4-6,1.790203
+308,unit test support in implement tdd when enabled in,review,claude-haiku-4-5-20251001,0.093659
 308,unit test support in implement tdd when enabled in,scenario,claude-opus-4-6,0.735639
 314,orchestrator refactor generic pipeline runner with,build,claude-sonnet-4-6,4.076922
 314,orchestrator refactor generic pipeline runner with,build,claude-haiku-4-5-20251001,0.111432
@@ -368,17 +373,27 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 314,orchestrator refactor generic pipeline runner with,scenario,claude-haiku-4-5-20251001,0.442446
 315,robustness hardening retry logic pre flight checks,alignment,claude-opus-4-6,0.680072
 315,robustness hardening retry logic pre flight checks,alignment,claude-haiku-4-5-20251001,0.022791
+315,robustness hardening retry logic pre flight checks,document,claude-sonnet-4-6,0.293757
 315,robustness hardening retry logic pre flight checks,install,claude-sonnet-4-6,0.546578
+315,robustness hardening retry logic pre flight checks,install,claude-sonnet-4-6,0.276697
 315,robustness hardening retry logic pre flight checks,plan,claude-opus-4-6,1.045279
 315,robustness hardening retry logic pre flight checks,plan,claude-haiku-4-5-20251001,0.095051
+315,robustness hardening retry logic pre flight checks,review,claude-opus-4-6,7.912771
+315,robustness hardening retry logic pre flight checks,review,claude-haiku-4-5-20251001,0.602336
+315,robustness hardening retry logic pre flight checks,review,claude-sonnet-4-6,5.201267
 315,robustness hardening retry logic pre flight checks,scenario,claude-opus-4-6,0.608479
 315,robustness hardening retry logic pre flight checks,scenario,claude-haiku-4-5-20251001,0.302844
 317,fix ensure all git operations target the correct r,alignment,claude-opus-4-6,0.235169
+317,fix ensure all git operations target the correct r,document,claude-sonnet-4-6,0.233934
 317,fix ensure all git operations target the correct r,install,claude-sonnet-4-6,0.401734
+317,fix ensure all git operations target the correct r,install,claude-sonnet-4-6,0.279761
 317,fix ensure all git operations target the correct r,plan,claude-opus-4-6,1.265637
 317,fix ensure all git operations target the correct r,plan,claude-haiku-4-5-20251001,0.127992
+317,fix ensure all git operations target the correct r,review,claude-opus-4-6,6.578353
+317,fix ensure all git operations target the correct r,review,claude-haiku-4-5-20251001,0.135928
+317,fix ensure all git operations target the correct r,review,claude-sonnet-4-6,3.614409
 317,fix ensure all git operations target the correct r,scenario,claude-opus-4-6,0.631179
 317,fix ensure all git operations target the correct r,scenario,claude-haiku-4-5-20251001,0.067708
 
-Total Cost (USD):,333.4742
-Total Cost (EUR):,288.0640
+Total Cost (USD):,366.4409
+Total Cost (EUR):,316.5416
