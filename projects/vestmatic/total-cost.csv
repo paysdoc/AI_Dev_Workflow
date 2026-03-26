@@ -1,18 +1,4 @@
-Issue number,Issue description,Cost (USD),Markup (10%)
-0,chore 30 update adw settings,0.6073,0.0607
-0,feat 12 create vestmatic ai homepage,0.6834,0.0683
-6,set up adw environment,1.5378,0.1538
-9,subdomain based routing homepage vs demo app,3.5084,0.3508
-12,create vestmatic ai homepage,4.8943,0.4894
-16,update adw settings,0.2802,0.0280
-21,add timeout and retry logic for llm calls,2.2271,0.2227
-22,wire r2 prompts into worker runtime,3.1419,0.3142
-23,split system vs user messages in llm calls,9.2831,0.9283
-24,abstract llm calls behind a provider interface,9.1651,0.9165
-25,add call level llm parameters temperature max toke,6.2612,0.6261
-26,parallelize independent ai calls in the pipeline,5.1807,0.5181
-28,update command md,0.3639,0.0364
-30,update adw settings,0.3166,0.0317
+Issue number,Issue description,Phase,Model,Cost (USD)
 
-Total Cost (USD):,52.1961
-Total Cost (EUR):,45.2646
+Total Cost (USD):,0.0000
+Total Cost (EUR):,0.0000
