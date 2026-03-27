@@ -3,3 +3,7 @@ g2u55r-adw-d1-client-and-du,334,install,claude-sonnet-4-6,anthropic,0.383934,0.3
 92py6q-adw-d1-client-and-du,334,install,claude-sonnet-4-6,anthropic,0.399097,0.399097,success,0,0,140831,2026-03-27T11:41:38.160Z,,,12,6449,371690,50885,0
 92py6q-adw-d1-client-and-du,334,plan,claude-opus-4-6,anthropic,0.967756,0.967756,success,0,0,232955,2026-03-27T11:45:36.549Z,,,13,10335,574683,67516,0
 92py6q-adw-d1-client-and-du,334,scenario,claude-opus-4-6,anthropic,0.598484,0.598484,success,0,0,175224,2026-03-27T11:44:40.144Z,,,9,6148,307204,46582,0
+g2u55r-adw-d1-client-and-du,334,plan,claude-opus-4-6,anthropic,1.161415,1.161415,success,0,0,313143,2026-03-27T11:46:46.174Z,,,27,9470,1016459,66608,0
+g2u55r-adw-d1-client-and-du,334,plan,claude-haiku-4-5-20251001,anthropic,0.069139,0.069139,success,0,0,313143,2026-03-27T11:46:46.174Z,,,52,3669,170358,26965,0
+g2u55r-adw-d1-client-and-du,334,scenario,claude-opus-4-6,anthropic,0.663025,0.663025,success,0,0,300633,2026-03-27T11:46:35.843Z,,,11,8683,369064,41818,0
+g2u55r-adw-d1-client-and-du,334,scenario,claude-haiku-4-5-20251001,anthropic,0.249657,0.249657,success,0,0,300633,2026-03-27T11:46:35.843Z,,,1161,12193,560170,105211,0
