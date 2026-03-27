@@ -484,6 +484,7 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 332,github actions worker deploy workflow,review,claude-opus-4-6,1.231677
 332,github actions worker deploy workflow,review,claude-sonnet-4-6,0.128095
 332,github actions worker deploy workflow,review,claude-opus-4-6,0.372359
+332,github actions worker deploy workflow,review,claude-opus-4-6,0.332287
 333,csv migration script upload historical cost data t,build,claude-sonnet-4-6,0.511511
 333,csv migration script upload historical cost data t,document,claude-sonnet-4-6,0.211174
 333,csv migration script upload historical cost data t,install,claude-sonnet-4-6,0.409843
@@ -517,5 +518,5 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 335,remove csv cost pipeline,plan,claude-opus-4-6,1.567346
 335,remove csv cost pipeline,plan,claude-haiku-4-5-20251001,0.172613
 
-Total Cost (USD):,421.9687
-Total Cost (EUR):,365.4806
+Total Cost (USD):,422.3010
+Total Cost (EUR):,365.7684
