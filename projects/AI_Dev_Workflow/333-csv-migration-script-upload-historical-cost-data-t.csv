@@ -8,3 +8,4 @@ e5wrpe-csv-migration-script,333,build,claude-sonnet-4-6,anthropic,0.511511,0.511
 e5wrpe-csv-migration-script,333,review,claude-opus-4-6,anthropic,0.503869,0.503869,success,0,0,206916,2026-03-27T09:52:32.376Z,,,131,7227,255316,31181,0
 e5wrpe-csv-migration-script,333,document,claude-sonnet-4-6,anthropic,0.211174,0.211174,success,0,0,108049,2026-03-27T09:54:26.204Z,,,10,3710,207839,24838,0
 e5wrpe-csv-migration-script,333,pr,claude-sonnet-4-6,anthropic,0.052323,0.052323,success,0,0,28454,2026-03-27T09:55:00.437Z,,,4,796,30021,8364,0
+e5wrpe-csv-migration-script,333,kpi,claude-haiku-4-5-20251001,anthropic,0.090492,0.090492,success,0,0,79684,2026-03-27T09:56:25.609Z,,,41,8303,193345,23681,0
