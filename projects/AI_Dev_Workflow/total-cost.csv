@@ -445,6 +445,9 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 331,deploy cost api worker to cloudflare,install,claude-sonnet-4-6,0.450156
 333,csv migration script upload historical cost data t,install,claude-sonnet-4-6,0.409843
 333,csv migration script upload historical cost data t,install,claude-sonnet-4-6,0.378462
+333,csv migration script upload historical cost data t,plan,claude-opus-4-6,1.018351
+333,csv migration script upload historical cost data t,scenario,claude-opus-4-6,0.582044
+333,csv migration script upload historical cost data t,scenario,claude-haiku-4-5-20251001,0.095340
 
-Total Cost (USD):,397.2382
-Total Cost (EUR):,344.0607
+Total Cost (USD):,398.9339
+Total Cost (EUR):,345.5294
