@@ -262,6 +262,29 @@ export function fetchIssueCommentsRest(issueNumber: number, repoInfo: RepoInfo):
 }
 
 /**
+ * Checks whether a GitHub issue has a specific label by performing a real-time
+ * `gh issue view --json labels` call. Returns `false` on error (fail-open design —
+ * if the check cannot be completed, auto-merge proceeds normally).
+ * @param issueNumber - The issue number to inspect
+ * @param labelName - The label name to look for (case-sensitive)
+ * @param repoInfo - Repository owner and repo name
+ */
+export function issueHasLabel(issueNumber: number, labelName: string, repoInfo: RepoInfo): boolean {
+  const { owner, repo } = repoInfo;
+
+  try {
+    const json = execWithRetry(
+      `gh issue view ${issueNumber} --repo ${owner}/${repo} --json labels`
+    );
+    const result = JSON.parse(json) as { labels: { name: string }[] };
+    return (result.labels || []).some((l) => l.name === labelName);
+  } catch (error) {
+    log(`issueHasLabel: failed to check label "${labelName}" on issue #${issueNumber}: ${error}`, 'warn');
+    return false;
+  }
+}
+
+/**
  * Deletes a single issue comment by its REST API numeric ID.
  * @param commentId - The numeric ID of the comment to delete
  * @param repoInfo - Optional repository info override for targeting external repositories.

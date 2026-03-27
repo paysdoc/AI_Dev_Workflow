@@ -92,6 +92,7 @@ export {
   closeIssue,
   fetchIssueCommentsRest,
   deleteIssueComment,
+  issueHasLabel,
 } from './issueApi';
 
 // Re-export PR API functions
