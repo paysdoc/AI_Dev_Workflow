@@ -21,6 +21,8 @@ export interface IngestRecord {
   readonly timestamp?: string;
   /** Map of token type → count (e.g. `{ input: 100, output: 200, cache_read: 1500 }`). */
   readonly token_usage: Readonly<Record<string, number>>;
+  /** Set to true for records ingested via the historical CSV migration script. */
+  readonly migrated?: boolean;
 }
 
 /** Top-level ingest request body. */
