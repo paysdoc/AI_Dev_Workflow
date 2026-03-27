@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value          | Last Updated       |
 | ----------------- | -------------- | ------------------ |
-| Current Streak    | 68             | 2026-03-27 10:45:30|
-| Longest Streak    | 68             | 2026-03-27 10:45:30|
-| Total Plan Size   | 443 lines      | 2026-03-27 10:45:30|
-| Largest Plan Size | 201 lines      | 2026-03-27 10:45:30|
-| Total Diff Size   | 1465840 lines  | 2026-03-27 10:45:30|
-| Largest Diff Size | 205468 lines   | 2026-03-27 10:45:30|
-| Average Presence  | 1.48           | 2026-03-27 10:45:30|
+| Current Streak    | 64             | 2026-03-27 11:25:38|
+| Longest Streak    | 64             | 2026-03-27 11:25:38|
+| Total Plan Size   | 441 lines      | 2026-03-27 11:25:38|
+| Largest Plan Size | 201 lines      | 2026-03-27 11:25:38|
+| Total Diff Size   | 1500360 lines  | 2026-03-27 11:25:38|
+| Largest Diff Size | 205468 lines   | 2026-03-27 11:25:38|
+| Average Presence  | 1.36           | 2026-03-27 11:25:38|
 
 ## ADW KPIs
 
@@ -76,3 +76,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-03-25 | u7lut9-extend-compaction-re | 299          | /feature    | 1        | 0                 | 5456/264/68                     | 2026-03-25 | 2026-03-25 |
 | 2026-03-25 | 0s1m68-build-agent-routing  | 306          | /feature    | 1        | 0                 | 11476/324/122                   | 2026-03-25 | 2026-03-25 |
 | 2026-03-27 | wc1uva-auto-approve-and-mer | 327          | /feature    | 1        | 0                 | 32629/1303/320                  | 2026-03-27 | 2026-03-27 |
+| 2026-03-27 | fygx90-add-hitl-label-gate  | 329          | /feature    | 1        | 0                 | 33212/1308/327                  | 2026-03-27 | 2026-03-27 |
