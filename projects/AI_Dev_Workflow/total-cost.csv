@@ -24,6 +24,7 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 335,remove csv cost pipeline,install,claude-haiku-4-5-20251001,0.136743
 335,remove csv cost pipeline,plan,claude-opus-4-6,1.567346
 335,remove csv cost pipeline,plan,claude-haiku-4-5-20251001,0.172613
+335,remove csv cost pipeline,review,claude-opus-4-6,0.961885
 
-Total Cost (USD):,13.2704
-Total Cost (EUR):,11.4939
+Total Cost (USD):,14.2323
+Total Cost (EUR):,12.3271
