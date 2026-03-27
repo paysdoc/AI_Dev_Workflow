@@ -9,3 +9,4 @@ fygx90-add-hitl-label-gate,329,build,claude-sonnet-4-6,anthropic,1.238921,1.2389
 fygx90-add-hitl-label-gate,329,build,claude-haiku-4-5-20251001,anthropic,0.043159,0.043159,success,0,0,448514,2026-03-27T09:19:45.065Z,,,10,1753,13317,26442,0
 fygx90-add-hitl-label-gate,329,review,claude-opus-4-6,anthropic,0.461612,0.461612,success,0,0,154309,2026-03-27T09:22:26.298Z,,,82,5909,244530,30594,0
 fygx90-add-hitl-label-gate,329,document,claude-sonnet-4-6,anthropic,0.261823,0.261823,success,0,0,126494,2026-03-27T09:24:38.399Z,,,12,4255,296973,29032,0
+fygx90-add-hitl-label-gate,329,pr,claude-sonnet-4-6,anthropic,0.075319,0.075319,success,0,0,38277,2026-03-27T09:25:22.177Z,,,5,1603,50402,9637,0
