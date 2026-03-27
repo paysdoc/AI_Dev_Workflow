@@ -476,6 +476,7 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 334,adw d1 client and dual write integration,build,claude-sonnet-4-6,0.517689
 334,adw d1 client and dual write integration,build,claude-sonnet-4-6,0.539859
 334,adw d1 client and dual write integration,document,claude-sonnet-4-6,0.196528
+334,adw d1 client and dual write integration,document,claude-sonnet-4-6,0.178485
 334,adw d1 client and dual write integration,install,claude-sonnet-4-6,0.383934
 334,adw d1 client and dual write integration,install,claude-sonnet-4-6,0.399097
 334,adw d1 client and dual write integration,plan,claude-opus-4-6,0.967756
@@ -487,5 +488,5 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 334,adw d1 client and dual write integration,scenario,claude-opus-4-6,0.663025
 334,adw d1 client and dual write integration,scenario,claude-haiku-4-5-20251001,0.249657
 
-Total Cost (USD):,412.7010
-Total Cost (EUR):,357.4536
+Total Cost (USD):,412.8795
+Total Cost (EUR):,357.6082
