@@ -110,8 +110,8 @@ async function insertCostRecords(
       INSERT INTO cost_records
         (project_id, workflow_id, issue_number, issue_description, phase, model, provider,
          computed_cost_usd, reported_cost_usd, status, retry_count, continuation_count,
-         duration_ms, timestamp)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         duration_ms, timestamp, migrated)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       RETURNING id
     `).bind(
       projectId,
@@ -128,6 +128,7 @@ async function insertCostRecords(
       record.continuation_count ?? 0,
       record.duration_ms ?? null,
       record.timestamp ?? null,
+      record.migrated ?? false,
     )
   );
 
