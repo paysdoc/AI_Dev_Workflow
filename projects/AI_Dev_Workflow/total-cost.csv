@@ -399,6 +399,8 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 321,remove 75 stale bdd scenarios with no regression c,plan,claude-opus-4-6,0.382067
 323,chore align codebase with ubiquitous language glos,install,claude-sonnet-4-6,0.372163
 323,chore align codebase with ubiquitous language glos,install,claude-haiku-4-5-20251001,0.176803
+323,chore align codebase with ubiquitous language glos,plan,claude-opus-4-6,0.940702
+323,chore align codebase with ubiquitous language glos,plan,claude-haiku-4-5-20251001,0.384187
 
-Total Cost (USD):,368.0395
-Total Cost (EUR):,318.7707
+Total Cost (USD):,369.3643
+Total Cost (EUR):,319.9183
