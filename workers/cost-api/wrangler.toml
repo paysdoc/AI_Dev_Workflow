@@ -1,0 +1,17 @@
+name = "cost-api"
+main = "src/index.ts"
+compatibility_date = "2026-03-24"
+
+# Route all requests for costs.paysdoc.nl to this Worker
+[[routes]]
+pattern = "costs.paysdoc.nl/*"
+zone_name = "paysdoc.nl"
+
+# D1 database binding — create with: npx wrangler d1 create adw-costs --jurisdiction eu
+[[d1_databases]]
+binding = "DB"
+database_name = "adw-costs"
+database_id = "00000000-0000-0000-0000-000000000000"
+
+# Required Worker secrets (set via `wrangler secret put`):
+#   COST_API_TOKEN
