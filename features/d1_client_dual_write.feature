@@ -140,27 +140,12 @@ Feature: D1 client module and dual-write integration
     Then a warning is logged mentioning the 500 status
     And no error is thrown
 
-  # -- 6: Dual-write integration in phaseCostCommit ---------------------------------
+  # -- 6: D1-only write integration in phaseRunner ---------------------------------
 
   @adw-g2u55r-adw-d1-client-and-du @regression
-  Scenario: phaseCostCommit writes to both CSV and D1
-    Given the file "adws/phases/phaseCostCommit.ts" is read
-    Then the commitPhaseCostData function calls the CSV writer
-    And the commitPhaseCostData function calls the D1 client
-
-  @adw-g2u55r-adw-d1-client-and-du
-  Scenario: D1 write failure does not prevent CSV write
-    Given COST_API_URL is set and the D1 client will fail
-    When commitPhaseCostData is called with PhaseCostRecords
-    Then the CSV write completes successfully
-    And the D1 failure is logged as a warning
-
-  @adw-g2u55r-adw-d1-client-and-du
-  Scenario: CSV write failure does not prevent D1 write
-    Given COST_API_URL is set and the CSV writer will fail
-    When commitPhaseCostData is called with PhaseCostRecords
-    Then the D1 write completes successfully
-    And the CSV failure is logged as an error
+  Scenario: phaseRunner writes cost data to D1
+    Given the file "adws/core/phaseRunner.ts" is read
+    Then the file imports "postCostRecordsToD1" from the cost module
 
   # -- 7: Environment variable configuration ----------------------------------------
 

@@ -1,4 +1,0 @@
-workflow_id,issue_number,phase,model,provider,computed_cost_usd,reported_cost_usd,status,retry_count,continuation_count,duration_ms,timestamp,estimated_tokens,actual_tokens,input,output,cache_read,cache_write,reasoning
-coszrf-feat-249-make-bdd-sc,249,pr_review,claude-opus-4-6,anthropic,0.588449,0.588449,success,0,0,0,2026-03-21T19:10:22.294Z,,,14,3179,407608,48816,0
-coszrf-feat-249-make-bdd-sc,249,pr_review,claude-sonnet-4-6,anthropic,0.076202,0.076202,success,0,0,0,2026-03-21T19:10:22.294Z,,,6,657,61195,12792,0
-coszrf-feat-249-make-bdd-sc,249,pr_review,claude-haiku-4-5-20251001,anthropic,0.044115,0.044115,success,0,0,0,2026-03-21T19:10:22.294Z,,,61,1792,226526,9953,0

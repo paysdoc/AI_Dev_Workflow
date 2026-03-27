@@ -367,39 +367,6 @@ function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-// ── Then: costCommitQueue assertions ─────────────────────────────────────────
-
-Then(
-  'the file exports {string} and {string}',
-  function (this: Record<string, string>, export1: string, export2: string) {
-    const content = readFileSync(
-      join(ROOT, 'adws/core/costCommitQueue.ts'),
-      'utf-8',
-    );
-    assert.ok(
-      content.includes(export1),
-      `costCommitQueue.ts must export "${export1}"`,
-    );
-    assert.ok(
-      content.includes(export2),
-      `costCommitQueue.ts must export "${export2}"`,
-    );
-  },
-);
-
-Then(
-  'the file still exports {string} from {string}',
-  function (this: Record<string, string>, symbol: string, source: string) {
-    const content = this.fileContent ?? sharedCtx.fileContent;
-    const filePath = this.filePath ?? sharedCtx.filePath;
-    const sourceBasename = source.replace('./', '');
-    assert.ok(
-      content.includes(symbol) && content.includes(sourceBasename),
-      `"${filePath}" must still export "${symbol}" from "${source}"`,
-    );
-  },
-);
-
 // ── Then: phase cost record assertions ───────────────────────────────────────
 
 Then(
@@ -474,24 +441,6 @@ Then(
     assert.ok(
       hasSymbol && hasPath,
       `"${filePath}": expected to import "${symbol}" from "${path1}" or "${path2}"`,
-    );
-  },
-);
-
-Then(
-  'the file imports {string} from the cost reporting module',
-  function (this: Record<string, string>, symbol: string) {
-    const content = this.fileContent ?? sharedCtx.fileContent;
-    const filePath = this.filePath ?? sharedCtx.filePath;
-    assert.ok(
-      content.includes(symbol),
-      `"${filePath}": expected to import "${symbol}" from the cost reporting module`,
-    );
-    // Verify the import comes from a cost/reporting path
-    const importRegex = new RegExp(`from\\s+['"][^'"]*cost[^'"]*['"]`);
-    assert.ok(
-      importRegex.test(content),
-      `"${filePath}": expected "${symbol}" to be imported from a cost module`,
     );
   },
 );

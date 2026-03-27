@@ -132,23 +132,11 @@ export {
   ensureTargetRepoWorkspace,
 } from './targetRepoManager';
 
-// Cost commit queue (re-exported from adws/cost for backward compatibility)
-export { costCommitQueue, CostCommitQueue } from '../cost/commitQueue';
-
-// Cost module (PhaseCostRecord, exchange rates, CSV writer)
-export type { PhaseCostRecord, CreatePhaseCostRecordsOptions, ProjectTotalRow } from '../cost';
+// Cost module (PhaseCostRecord, comment formatters)
+export type { PhaseCostRecord, CreatePhaseCostRecordsOptions } from '../cost';
 export {
   PhaseCostStatus,
   createPhaseCostRecords,
-  appendIssueCostCsv,
-  writeIssueCostCsv,
-  parseIssueCostCsv,
-  parseIssueCostTotal,
-  rebuildProjectTotalCsv,
-  formatIssueCostCsv,
-  formatProjectTotalCsv,
-  collectAllTokenTypes,
-  FIXED_TOKEN_COLUMNS,
   formatCostTable,
   formatDivergenceWarning,
   formatEstimateVsActual,

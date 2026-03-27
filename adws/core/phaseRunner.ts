@@ -5,7 +5,7 @@
  *   1. Accumulate costUsd and modelUsage into running totals.
  *   2. Persist token counts to the orchestrator state file.
  *   3. Optionally update config.ctx.runningTokenTotal for live GitHub comments.
- *   4. Commit phase cost records to the CSV.
+ *   4. Commit phase cost records to D1.
  *
  * PhaseRunner captures that pattern so orchestrators only list which phases
  * to run rather than repeating the bookkeeping lines.
@@ -14,10 +14,11 @@
 import { RUNNING_TOKENS } from './config';
 import { mergeModelUsageMaps, persistTokenCounts, computeDisplayTokens } from '../cost';
 import type { ModelUsageMap, PhaseCostRecord } from '../cost';
-import { commitPhasesCostData } from '../phases/phaseCostCommit';
+import { postCostRecordsToD1 } from '../cost/d1Client';
 import type { WorkflowConfig } from '../phases/workflowInit';
 import { RateLimitError } from '../types/agentTypes';
 import { AgentStateManager } from './agentState';
+import { log } from './utils';
 
 /**
  * The result shape every phase function must return.
@@ -74,11 +75,13 @@ export class CostTracker {
   }
 
   /**
-   * Commits phase cost records to the per-issue CSV and triggers a git commit.
-   * Errors are swallowed so cost failures never abort a workflow.
+   * Posts phase cost records to D1. Errors are swallowed so cost failures never abort a workflow.
    */
   async commit(config: WorkflowConfig, records: PhaseCostRecord[]): Promise<void> {
-    await commitPhasesCostData(config, records);
+    if (records.length === 0) return;
+    const repoName = config.targetRepo?.repo ?? config.repoContext?.repoId.repo ?? 'unknown';
+    postCostRecordsToD1({ project: repoName, repoUrl: process.env.GITHUB_REPO_URL, records })
+      .catch(error => log(`Failed to post cost records to D1: ${error}`, 'error'));
   }
 }
 

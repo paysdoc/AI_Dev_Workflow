@@ -132,84 +132,19 @@ Then(
     const content = sharedCtx.fileContent;
     const funcStart = content.indexOf('function completePRReviewWorkflow');
     assert.ok(funcStart !== -1, 'Expected completePRReviewWorkflow function');
-    // Cost CSV writing may live inline or in a helper function called from completePRReviewWorkflow
+    // Cost D1 writing lives in a helper function called from completePRReviewWorkflow
     const helperStart = content.indexOf('function buildPRReviewCostSection');
     const searchStart = helperStart !== -1 ? helperStart : funcStart;
     const funcBody = content.slice(searchStart, searchStart + 2000);
-    // Cost CSV writing (writeIssueCostCsv or serialised variant) should be guarded
-    const csvWriteIdx = funcBody.indexOf('CostCsv') !== -1
-      ? funcBody.indexOf('CostCsv')
-      : funcBody.indexOf('costCsv');
-    assert.ok(csvWriteIdx !== -1, 'Expected a cost CSV write call in completePRReviewWorkflow or its helper');
-    const surroundingBefore = funcBody.slice(Math.max(0, csvWriteIdx - 300), csvWriteIdx);
+    // Cost D1 write (postCostRecordsToD1) should be guarded by issueNumber check
+    const costWriteIdx = funcBody.indexOf('postCostRecordsToD1');
+    assert.ok(costWriteIdx !== -1, 'Expected a cost write call in completePRReviewWorkflow or its helper');
+    const surroundingBefore = funcBody.slice(Math.max(0, costWriteIdx - 300), costWriteIdx);
     assert.ok(
       surroundingBefore.includes('issueNumber') ||
       surroundingBefore.includes('config.issueNumber'),
-      'Expected cost CSV writing to be guarded by an issueNumber check',
+      'Expected cost writing to be guarded by an issueNumber check',
     );
   },
 );
 
-// ── 4: Cost CSV naming (migrated from core/costCsvWriter.ts to cost/reporting/csvWriter.ts in #245)
-
-Then(
-  'the file contains a function for resolving serialised cost CSV paths',
-  function () {
-    const content = sharedCtx.fileContent;
-    // After #245 migration, path resolution lives in getIssueCsvPath / writeIssueCostCsv.
-    // Also pass vacuously if content is empty (file was deleted/moved).
-    if (!content) return;
-    const hasPathFn =
-      content.includes('Serial') ||
-      content.includes('serial') ||
-      content.includes('getIssueCsvPath') ||
-      content.includes('writeIssueCostCsv') ||
-      content.includes('issueNumber') ||
-      content.includes('csvPath');
-    assert.ok(
-      hasPathFn,
-      'Expected cost CSV writer to contain a function for resolving cost CSV paths',
-    );
-  },
-);
-
-Then(
-  'the serialised CSV path function appends a numeric serial suffix',
-  function () {
-    const content = sharedCtx.fileContent;
-    // After #245 migration, CSV files use {issueNumber}-{slug}.csv naming (no serial suffix).
-    // Pass vacuously if content is empty (file was deleted/moved).
-    if (!content) return;
-    const hasNumericPrefix =
-      (content.includes('-${') && content.includes('serial')) ||
-      content.includes('serial}') ||
-      content.includes('Serial') ||
-      content.includes('issueNumber') ||
-      content.match(/`[^`]*-\$\{[^}]*serial[^}]*\}[^`]*\.csv`/i) !== null ||
-      content.match(/-\d+\.csv/) !== null;
-    assert.ok(
-      hasNumericPrefix,
-      'Expected cost CSV writer to include issue number in CSV path',
-    );
-  },
-);
-
-Then(
-  'rebuildProjectCostCsv extracts issue number from the first dash-separated segment',
-  function () {
-    const content = sharedCtx.fileContent;
-    // After #245 migration, function renamed to rebuildProjectTotalCsv.
-    // Pass vacuously if content is empty (file was deleted/moved).
-    if (!content) return;
-    const funcStart =
-      content.indexOf('function rebuildProjectCostCsv') !== -1
-        ? content.indexOf('function rebuildProjectCostCsv')
-        : content.indexOf('function rebuildProjectTotalCsv');
-    assert.ok(funcStart !== -1, 'Expected rebuildProjectCostCsv or rebuildProjectTotalCsv function');
-    const funcBody = content.slice(funcStart, funcStart + 1000);
-    assert.ok(
-      funcBody.includes('indexOf') || funcBody.includes('substring') || funcBody.includes('split'),
-      'Expected rebuildProject CSV function to parse issue number from the first dash-separated segment',
-    );
-  },
-);

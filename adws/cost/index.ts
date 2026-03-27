@@ -38,26 +38,13 @@ export {
   fetchExchangeRates,
 } from './exchangeRates.ts';
 
-export type { ProjectTotalRow } from './reporting/index.ts';
 export {
-  FIXED_TOKEN_COLUMNS,
-  collectAllTokenTypes,
-  formatIssueCostCsv,
-  writeIssueCostCsv,
-  appendIssueCostCsv,
-  parseIssueCostCsv,
-  parseIssueCostTotal,
-  formatProjectTotalCsv,
-  rebuildProjectTotalCsv,
   formatCostTable,
   formatDivergenceWarning,
   formatEstimateVsActual,
   formatCurrencyTotals,
   formatCostCommentSection,
 } from './reporting/index.ts';
-
-// Commit queue (serializes cost-related git operations)
-export { costCommitQueue, CostCommitQueue } from './commitQueue.ts';
 
 // D1 HTTP client
 export { postCostRecordsToD1 } from './d1Client.ts';

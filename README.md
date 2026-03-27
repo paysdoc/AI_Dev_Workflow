@@ -136,7 +136,6 @@ Docker execution is entirely optional — the test suite runs identically on the
 │   ├── clean_local_repo.md
 │   ├── commit.md
 │   ├── diff_evaluator.md
-│   ├── commit_cost.md
 │   ├── conditional_docs.md
 │   ├── document.md
 │   ├── extract_dependencies.md
@@ -234,7 +233,6 @@ adws/                   # ADW workflow system
 │   ├── claudeStreamParser.ts  # Claude JSONL stream parsing
 │   ├── config.ts
 │   ├── constants.ts    # Orchestrator ID constants
-│   ├── costCommitQueue.ts  # Cost CSV commit queue (core module)
 │   ├── environment.ts  # Environment variable accessors
 │   ├── index.ts
 │   ├── issueClassifier.ts
@@ -282,11 +280,9 @@ adws/                   # ADW workflow system
 │   │   ├── extractor.ts
 │   │   ├── index.ts
 │   │   └── pricing.ts
-│   ├── reporting/      # Cost CSV reporting
+│   ├── reporting/      # Cost reporting
 │   │   ├── commentFormatter.ts
-│   │   ├── csvWriter.ts
 │   │   └── index.ts
-│   ├── commitQueue.ts  # Cost CSV commit queue
 │   ├── computation.ts  # Cost computation logic
 │   ├── costHelpers.ts  # Shared cost utility helpers
 │   ├── d1Client.ts     # HTTP client for posting cost records to Cost API Worker (D1)
@@ -316,7 +312,6 @@ adws/                   # ADW workflow system
 │   ├── installPhase.ts # Install phase implementation
 │   ├── kpiPhase.ts     # KPI tracking phase
 │   ├── phaseCommentHelpers.ts  # Shared phase comment utilities
-│   ├── phaseCostCommit.ts  # Phase cost data commit logic
 │   ├── planPhase.ts
 │   ├── planValidationPhase.ts  # Plan-scenario validation phase
 │   ├── prPhase.ts
@@ -451,7 +446,6 @@ features/               # BDD feature files (Gherkin .feature)
 └── support/            # Cucumber support files (tsx registration)
 guidelines/
 └── coding_guidelines.md
-projects/               # Cost tracking CSV files per project
 specs/                  # Generated implementation specs
 .env.sample             # Environment variable template
 .gitignore

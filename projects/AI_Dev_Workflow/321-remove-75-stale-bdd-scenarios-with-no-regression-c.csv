@@ -1,4 +1,0 @@
-workflow_id,issue_number,phase,model,provider,computed_cost_usd,reported_cost_usd,status,retry_count,continuation_count,duration_ms,timestamp,estimated_tokens,actual_tokens,input,output,cache_read,cache_write,reasoning
-z9k27x-remove-75-stale-bdd,321,install,claude-sonnet-4-6,anthropic,0.306872,0.306872,success,0,0,99230,2026-03-26T15:48:07.388Z,,,873,5163,319226,34944,0
-z9k27x-remove-75-stale-bdd,321,plan,claude-opus-4-6,anthropic,0.382067,0.382067,success,0,0,145416,2026-03-26T15:50:38.784Z,,,8,5614,156204,26172,0
-z9k27x-remove-75-stale-bdd,321,install,claude-sonnet-4-6,anthropic,0.360621,0.360621,success,0,0,130038,2026-03-26T17:06:35.315Z,,,12,7085,355788,39353,0

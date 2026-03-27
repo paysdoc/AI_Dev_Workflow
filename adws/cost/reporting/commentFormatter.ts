@@ -6,9 +6,30 @@
 
 import type { PhaseCostRecord } from '../types.ts';
 import { checkDivergence } from '../computation.ts';
-import { collectAllTokenTypes } from './csvWriter.ts';
 import { fetchExchangeRates, CURRENCY_SYMBOLS } from '../exchangeRates.ts';
 import { SHOW_COST_IN_COMMENTS, COST_REPORT_CURRENCIES } from '../../core/config.ts';
+
+/** Fixed superset of token columns always present in every CSV, in display order. */
+const FIXED_TOKEN_COLUMNS = ['input', 'output', 'cache_read', 'cache_write', 'reasoning'] as const;
+
+/**
+ * Collects all token type keys across all records.
+ * Returns FIXED_TOKEN_COLUMNS first, then any unknown types appended alphabetically.
+ */
+function collectAllTokenTypes(records: readonly PhaseCostRecord[]): string[] {
+  const known = new Set<string>(FIXED_TOKEN_COLUMNS);
+  const extras = new Set<string>();
+
+  for (const record of records) {
+    for (const key of Object.keys(record.tokenUsage)) {
+      if (!known.has(key)) {
+        extras.add(key);
+      }
+    }
+  }
+
+  return [...FIXED_TOKEN_COLUMNS, ...[...extras].sort()];
+}
 
 /** Formats a number with commas as thousands separator. */
 function formatTokenCount(n: number): string {

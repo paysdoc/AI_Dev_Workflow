@@ -1,7 +1,0 @@
-workflow_id,issue_number,phase,model,provider,computed_cost_usd,reported_cost_usd,status,retry_count,continuation_count,duration_ms,timestamp,estimated_tokens,actual_tokens,input,output,cache_read,cache_write,reasoning
-bbmxlp-chore-align-codebase,323,install,claude-sonnet-4-6,anthropic,0.372163,0.372163,success,0,0,201423,2026-03-27T07:15:30.895Z,,,69,6143,417965,41179,0
-bbmxlp-chore-align-codebase,323,install,claude-haiku-4-5-20251001,anthropic,0.176803,0.176803,success,0,0,201423,2026-03-27T07:15:30.895Z,,,1121,7374,675145,57038,0
-bbmxlp-chore-align-codebase,323,plan,claude-opus-4-6,anthropic,0.940702,0.940702,success,0,0,442105,2026-03-27T07:22:58.811Z,,,51,17051,389506,51107,0
-bbmxlp-chore-align-codebase,323,plan,claude-haiku-4-5-20251001,anthropic,0.384187,0.384187,success,0,0,442105,2026-03-27T07:22:58.811Z,,,206,21775,909232,147346,0
-bbmxlp-chore-align-codebase,323,build,claude-sonnet-4-6,anthropic,7.837588,7.837588,success,0,1,1845900,2026-03-27T07:53:50.888Z,,,8601,52572,19694108,297326,0
-bbmxlp-chore-align-codebase,323,pr,claude-sonnet-4-6,anthropic,0.221621,0.221621,success,0,0,85554,2026-03-27T07:55:23.630Z,,,12,3570,248878,24899,0

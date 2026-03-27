@@ -10,14 +10,10 @@
 
 import * as http from 'http';
 import { log, PullRequestWebhookPayload, allocateRandomPort, isPortAvailable, getTargetRepoWorkspacePath } from '../core';
-import { rebuildProjectTotalCsv } from '../cost/reporting';
-import { fetchExchangeRates } from '../cost/exchangeRates';
-import { costCommitQueue } from '../cost/commitQueue';
-import { commitAndPushCostFiles, pullLatestCostBranch } from '../vcs';
 import { isActionableComment, isClearComment, isAdwRunningForIssue, truncateText, getRepoInfoFromPayload, getRepoInfo, activateGitHubAppAuth, ensureAppAuthForRepo } from '../github';
 import { clearIssueComments } from '../adwClearComments';
 import { removeWorktreesForIssue } from '../vcs';
-import { handlePullRequestEvent, wasMergedViaPR } from './webhookHandlers';
+import { handlePullRequestEvent } from './webhookHandlers';
 import { handleApprovedReview } from './autoMergeHandler';
 import { validateWebhookSignature } from './webhookSignature';
 import { checkIssueEligibility } from './issueEligibility';
@@ -66,16 +62,6 @@ function extractTargetRepoArgs(body: Record<string, unknown>): string[] {
   const cloneUrl = (repository.clone_url as string | undefined) || (repository.html_url as string | undefined);
   if (!fullName || !cloneUrl) return [];
   return ['--target-repo', fullName, '--clone-url', cloneUrl];
-}
-
-async function handleIssueCostRevert(issueNumber: number, repoName: string): Promise<void> {
-  if (wasMergedViaPR(issueNumber)) { log(`Skipping cost revert for issue #${issueNumber}: already handled by merged PR`); return; }
-  await costCommitQueue.enqueue(async () => {
-    try { pullLatestCostBranch(); } catch (error) { log(`Failed to pull latest before cost revert: ${error}`, 'error'); }
-    const rates = await fetchExchangeRates(['EUR']);
-    rebuildProjectTotalCsv(process.cwd(), repoName, rates['EUR'] ?? 0);
-    commitAndPushCostFiles({ repoName });
-  });
 }
 
 const server = http.createServer((req, res) => {
@@ -206,8 +192,6 @@ const server = http.createServer((req, res) => {
       const cwd = parts?.length === 2 ? getTargetRepoWorkspacePath(parts[0], parts[1]) : undefined;
       const removed = removeWorktreesForIssue(issueNumber, cwd);
       log(`Removed ${removed} worktree(s) for issue #${issueNumber}`, 'success');
-      const repoName = (body.repository as Record<string, unknown> | undefined)?.name as string | undefined;
-      if (repoName) handleIssueCostRevert(issueNumber, repoName).catch((e) => log(`Cost revert failed: ${e}`, 'error'));
       const closedRepoInfo = closedRepoFullName ? getRepoInfoFromPayload(closedRepoFullName) : undefined;
       if (closedRepoInfo) handleIssueClosedDependencyUnblock(issueNumber, closedRepoInfo, closedTargetRepoArgs).catch((e) => log(`Dependency unblock failed: ${e}`, 'error'));
       jsonResponse(res, 200, { status: 'worktrees_cleaned', issue: issueNumber, removed });

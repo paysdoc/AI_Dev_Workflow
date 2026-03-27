@@ -1,5 +1,0 @@
-workflow_id,issue_number,phase,model,provider,computed_cost_usd,reported_cost_usd,status,retry_count,continuation_count,duration_ms,timestamp,estimated_tokens,actual_tokens,input,output,cache_read,cache_write,reasoning
-mi7p5k-chore-add-github-act,324,install,claude-sonnet-4-6,anthropic,0.269045,0.269045,success,0,0,77221,2026-03-27T07:43:52.081Z,,,81,3081,295283,35734,0
-mi7p5k-chore-add-github-act,324,plan,claude-opus-4-6,anthropic,0.353039,0.353039,success,0,0,121065,2026-03-27T07:45:58.767Z,,,7,4450,134096,27953,0
-mi7p5k-chore-add-github-act,324,build,claude-sonnet-4-6,anthropic,0.199929,0.199929,success,0,0,74821,2026-03-27T07:47:19.086Z,,,10,2648,235366,23885,0
-mi7p5k-chore-add-github-act,324,pr,claude-sonnet-4-6,anthropic,0.149750,0.149750,success,0,0,59327,2026-03-27T07:48:25.780Z,,,9,2532,155578,17352,0
