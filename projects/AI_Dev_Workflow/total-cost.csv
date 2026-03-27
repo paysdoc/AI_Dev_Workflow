@@ -402,10 +402,11 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 323,chore align codebase with ubiquitous language glos,install,claude-haiku-4-5-20251001,0.176803
 323,chore align codebase with ubiquitous language glos,plan,claude-opus-4-6,0.940702
 323,chore align codebase with ubiquitous language glos,plan,claude-haiku-4-5-20251001,0.384187
+323,chore align codebase with ubiquitous language glos,pr,claude-sonnet-4-6,0.221621
 324,chore add github actions workflow to deploy cloudf,build,claude-sonnet-4-6,0.199929
 324,chore add github actions workflow to deploy cloudf,install,claude-sonnet-4-6,0.269045
 324,chore add github actions workflow to deploy cloudf,plan,claude-opus-4-6,0.353039
 324,chore add github actions workflow to deploy cloudf,pr,claude-sonnet-4-6,0.149750
 
-Total Cost (USD):,378.1737
-Total Cost (EUR):,327.5483
+Total Cost (USD):,378.3953
+Total Cost (EUR):,327.7403
