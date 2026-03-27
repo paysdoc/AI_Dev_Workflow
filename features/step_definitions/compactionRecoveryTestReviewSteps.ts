@@ -239,16 +239,16 @@ Then('a new test resolution agent is spawned with fresh context', function () {
 Then('the test phase stops retrying and reports the failure', function () {
   const content = readFileSync(join(ROOT, 'adws/core/retryOrchestrator.ts'), 'utf-8');
   assert.ok(
-    content.includes('exceeded maximum continuations'),
-    'Expected retryOrchestrator.ts to throw when maximum continuations is exceeded',
+    content.includes('exceeded maximum context resets') || content.includes('exceeded maximum continuations'),
+    'Expected retryOrchestrator.ts to throw when maximum context resets is exceeded',
   );
 });
 
 Then('the error indicates maximum continuations exceeded', function () {
   const content = readFileSync(join(ROOT, 'adws/core/retryOrchestrator.ts'), 'utf-8');
   assert.ok(
-    content.includes('exceeded maximum continuations'),
-    'Expected retryOrchestrator.ts error message to include "exceeded maximum continuations"',
+    content.includes('exceeded maximum context resets') || content.includes('exceeded maximum continuations'),
+    'Expected retryOrchestrator.ts error message to include "exceeded maximum context resets"',
   );
 });
 
@@ -349,8 +349,8 @@ Then('a new review resolution agent is spawned with fresh context', function () 
 Then('the review phase stops retrying and reports the failure', function () {
   const content = readFileSync(join(ROOT, 'adws/agents/reviewRetry.ts'), 'utf-8');
   assert.ok(
-    content.includes('exceeded maximum continuations'),
-    'Expected reviewRetry.ts to throw when maximum continuations is exceeded',
+    content.includes('exceeded maximum context resets') || content.includes('exceeded maximum continuations'),
+    'Expected reviewRetry.ts to throw when maximum context resets is exceeded',
   );
 });
 

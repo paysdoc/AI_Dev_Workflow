@@ -13,17 +13,17 @@ import { getDefaultBranch as ghGetDefaultBranch } from '../../vcs/branchOperatio
 import { refreshTokenIfNeeded } from '../../github/githubAppAuth';
 import {
   type CodeHost,
-  type CreateMROptions,
-  type MergeRequest,
-  type MergeRequestResult,
+  type CreatePROptions,
+  type PullRequest,
+  type PullRequestResult,
   type RepoIdentifier,
   type ReviewComment,
   validateRepoIdentifier,
 } from '../types';
 import {
-  mapPRDetailsToMergeRequest,
+  mapPRDetailsToPullRequest,
   mapPRReviewCommentToReviewComment,
-  mapPRListItemToMergeRequest,
+  mapPRListItemToPullRequest,
 } from './mappers';
 
 /**
@@ -49,27 +49,27 @@ export class GitHubCodeHost implements CodeHost {
     return ghGetDefaultBranch();
   }
 
-  /** Fetches PR details and maps to MergeRequest. */
-  fetchMergeRequest(mrNumber: number): MergeRequest {
-    const pr = fetchPRDetails(mrNumber, this.repoInfo);
-    return mapPRDetailsToMergeRequest(pr);
+  /** Fetches PR details and maps to PullRequest. */
+  fetchPullRequest(prNumber: number): PullRequest {
+    const pr = fetchPRDetails(prNumber, this.repoInfo);
+    return mapPRDetailsToPullRequest(pr);
   }
 
   /** Posts a comment on the specified PR. */
-  commentOnMergeRequest(mrNumber: number, body: string): void {
-    commentOnPR(mrNumber, body, this.repoInfo);
+  commentOnPullRequest(prNumber: number, body: string): void {
+    commentOnPR(prNumber, body, this.repoInfo);
   }
 
   /** Fetches review comments and maps to ReviewComment[]. */
-  fetchReviewComments(mrNumber: number): ReviewComment[] {
-    const comments = fetchPRReviewComments(mrNumber, this.repoInfo);
+  fetchReviewComments(prNumber: number): ReviewComment[] {
+    const comments = fetchPRReviewComments(prNumber, this.repoInfo);
     return comments.map(mapPRReviewCommentToReviewComment);
   }
 
-  /** Lists open PRs and maps to MergeRequest[]. */
-  listOpenMergeRequests(): MergeRequest[] {
+  /** Lists open PRs and maps to PullRequest[]. */
+  listOpenPullRequests(): PullRequest[] {
     const items = fetchPRList(this.repoInfo);
-    return items.map(mapPRListItemToMergeRequest);
+    return items.map(mapPRListItemToPullRequest);
   }
 
   /**
@@ -77,7 +77,7 @@ export class GitHubCodeHost implements CodeHost {
    * Writes the body to a temp file to avoid shell-escaping issues.
    * Returns the PR URL and number.
    */
-  createMergeRequest(options: CreateMROptions): MergeRequestResult {
+  createPullRequest(options: CreatePROptions): PullRequestResult {
     refreshTokenIfNeeded();
 
     const repoFlag = `--repo ${this.repoInfo.owner}/${this.repoInfo.repo}`;

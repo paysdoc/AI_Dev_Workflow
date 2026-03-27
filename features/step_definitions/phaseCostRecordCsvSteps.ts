@@ -113,12 +113,12 @@ Then('the per-issue CSV writer produces one row per model per phase from PhaseCo
 });
 
 Then(
-  'the per-issue CSV header includes columns for workflowId, issueNumber, phase, model, provider, computedCostUsd, reportedCostUsd, status, retryCount, continuationCount, durationMs, and timestamp',
+  'the per-issue CSV header includes columns for workflowId, issueNumber, phase, model, provider, computedCostUsd, reportedCostUsd, status, retryCount, contextResetCount, durationMs, and timestamp',
   function () {
     const fields = [
       'workflowId', 'issueNumber', 'phase', 'model', 'provider',
       'computedCostUsd', 'reportedCostUsd', 'status',
-      'retryCount', 'continuationCount', 'durationMs', 'timestamp',
+      'retryCount', 'contextResetCount', 'durationMs', 'timestamp',
     ];
     for (const field of fields) {
       assert.ok(

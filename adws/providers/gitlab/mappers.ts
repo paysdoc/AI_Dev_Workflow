@@ -4,7 +4,7 @@
  * All functions are pure — no side effects, no imports of global state.
  */
 
-import type { MergeRequest, ReviewComment, RepoIdentifier } from '../types';
+import type { PullRequest, ReviewComment, RepoIdentifier } from '../types';
 import type { GitLabMergeRequest, GitLabNote, GitLabDiscussion } from './gitlabTypes';
 
 /**
@@ -26,10 +26,10 @@ function extractLinkedIssueNumber(description: string): number | undefined {
 }
 
 /**
- * Maps a GitLab MergeRequest API response to a platform-agnostic MergeRequest.
+ * Maps a GitLab MergeRequest API response to a platform-agnostic PullRequest.
  * Uses `iid` (project-scoped ID) as the `number` field.
  */
-export function mapGitLabMRToMergeRequest(mr: GitLabMergeRequest): MergeRequest {
+export function mapGitLabMRToPullRequest(mr: GitLabMergeRequest): PullRequest {
   return {
     number: mr.iid,
     title: mr.title,

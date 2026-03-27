@@ -4,7 +4,7 @@
  */
 
 import * as path from 'path';
-import { log, AgentStateManager, type ModelUsageMap, mergeModelUsageMaps, emptyModelUsageMap, persistTokenCounts, MAX_TOKEN_CONTINUATIONS } from '../core';
+import { log, AgentStateManager, type ModelUsageMap, mergeModelUsageMaps, emptyModelUsageMap, persistTokenCounts, MAX_CONTEXT_RESETS } from '../core';
 import { retryWithResolution, initAgentState, trackCost, type AgentRunResult } from '../core/retryOrchestrator';
 import {
   runTestAgent,
@@ -25,7 +25,7 @@ export interface TestRetryResult {
   totalRetries: number;
   failedTests: string[];
   modelUsage: ModelUsageMap;
-  continuationCount: number;
+  contextResetCount: number;
 }
 
 export interface TestRetryOptions {
@@ -92,7 +92,7 @@ export async function runUnitTestsWithRetry(opts: TestRetryOptions): Promise<Tes
     totalRetries: result.totalRetries,
     failedTests: result.failures.map(t => t.test_name),
     modelUsage: result.modelUsage,
-    continuationCount: result.continuationCount,
+    contextResetCount: result.contextResetCount,
   };
 }
 
@@ -107,12 +107,12 @@ export async function runE2ETestsWithRetry(opts: TestRetryOptions): Promise<Test
   const e2eTestFiles = discoverE2ETestFiles(cwd);
   const costState = { costUsd: 0, modelUsage: emptyModelUsageMap() };
   let totalRetries = 0;
-  let continuationCount = 0;
+  let contextResetCount = 0;
 
   if (e2eTestFiles.length === 0) {
     log('No E2E test files found in e2e-tests/ directory', 'info');
     AgentStateManager.appendLog(statePath, 'No E2E test files found - skipping E2E tests');
-    return { passed: true, costUsd: 0, totalRetries, failedTests: [], modelUsage: costState.modelUsage, continuationCount };
+    return { passed: true, costUsd: 0, totalRetries, failedTests: [], modelUsage: costState.modelUsage, contextResetCount };
   }
 
   log(`Discovered ${e2eTestFiles.length} E2E test file(s)`, 'info');
@@ -126,7 +126,7 @@ export async function runE2ETestsWithRetry(opts: TestRetryOptions): Promise<Test
   if (playwrightResult.allPassed) {
     log('All E2E tests passed!', 'success');
     AgentStateManager.appendLog(statePath, 'All E2E tests passed');
-    return { passed: true, costUsd: 0, totalRetries, failedTests: [], modelUsage: costState.modelUsage, continuationCount };
+    return { passed: true, costUsd: 0, totalRetries, failedTests: [], modelUsage: costState.modelUsage, contextResetCount };
   }
 
   // Track failed tests for retry
@@ -168,13 +168,13 @@ export async function runE2ETestsWithRetry(opts: TestRetryOptions): Promise<Test
 
       // Handle compaction: re-run resolver with fresh context without counting as a retry
       while (onCompactionDetected && (resolveResult as AgentRunResult).compactionDetected) {
-        continuationCount++;
-        log(`E2E test resolver compacted (continuation ${continuationCount}/${MAX_TOKEN_CONTINUATIONS})`, 'info');
-        AgentStateManager.appendLog(statePath, `E2E test resolver compacted (continuation ${continuationCount})`);
-        if (continuationCount > MAX_TOKEN_CONTINUATIONS) {
-          throw new Error(`E2E test resolver exceeded maximum continuations (${MAX_TOKEN_CONTINUATIONS})`);
+        contextResetCount++;
+        log(`E2E test resolver compacted (context reset ${contextResetCount}/${MAX_CONTEXT_RESETS})`, 'info');
+        AgentStateManager.appendLog(statePath, `E2E test resolver compacted (context reset ${contextResetCount})`);
+        if (contextResetCount > MAX_CONTEXT_RESETS) {
+          throw new Error(`E2E test resolver exceeded maximum context resets (${MAX_CONTEXT_RESETS})`);
         }
-        onCompactionDetected(continuationCount);
+        onCompactionDetected(contextResetCount);
         resolveResult = await runResolveE2ETestAgent(result, logsDir, initAgentState(statePath, 'test-resolver-agent'), cwd, applicationUrl, issueBody);
         trackCost(resolveResult as AgentRunResult, costState, statePath);
       }
@@ -222,7 +222,7 @@ export async function runE2ETestsWithRetry(opts: TestRetryOptions): Promise<Test
   const msg = allPassed ? 'All E2E tests passed' : `${failedE2ETests.size} E2E test(s) still failing`;
   log(msg + (allPassed ? '!' : ''), allPassed ? 'success' : 'error');
   AgentStateManager.appendLog(statePath, msg);
-  return { passed: allPassed, costUsd: costState.costUsd, totalRetries, failedTests: failedTestNames, modelUsage: costState.modelUsage, continuationCount };
+  return { passed: allPassed, costUsd: costState.costUsd, totalRetries, failedTests: failedTestNames, modelUsage: costState.modelUsage, contextResetCount };
 }
 
 export interface BddScenarioRetryOptions extends TestRetryOptions {
@@ -242,7 +242,7 @@ export async function runBddScenariosWithRetry(opts: BddScenarioRetryOptions): P
   const { logsDir, orchestratorStatePath: statePath, maxRetries, onCompactionDetected, cwd, issueBody, tagCommand, issueNumber } = opts;
   const costState = { costUsd: 0, modelUsage: emptyModelUsageMap() };
   let totalRetries = 0;
-  let continuationCount = 0;
+  let contextResetCount = 0;
   const tag = `adw-${issueNumber}`;
 
   log(`Running BDD scenarios @adw-${issueNumber}...`, 'info');
@@ -253,7 +253,7 @@ export async function runBddScenariosWithRetry(opts: BddScenarioRetryOptions): P
   if (scenarioResult.allPassed) {
     log('BDD scenarios passed!', 'success');
     AgentStateManager.appendLog(statePath, 'BDD scenarios passed');
-    return { passed: true, costUsd: 0, totalRetries, failedTests: [], modelUsage: costState.modelUsage, continuationCount };
+    return { passed: true, costUsd: 0, totalRetries, failedTests: [], modelUsage: costState.modelUsage, contextResetCount };
   }
 
   while (!scenarioResult.allPassed && totalRetries < maxRetries) {
@@ -278,13 +278,13 @@ export async function runBddScenariosWithRetry(opts: BddScenarioRetryOptions): P
 
     // Handle compaction: re-run resolver with fresh context without counting as a retry
     while (onCompactionDetected && (resolveResult as AgentRunResult).compactionDetected) {
-      continuationCount++;
-      log(`BDD resolver compacted (continuation ${continuationCount}/${MAX_TOKEN_CONTINUATIONS})`, 'info');
-      AgentStateManager.appendLog(statePath, `BDD resolver compacted (continuation ${continuationCount})`);
-      if (continuationCount > MAX_TOKEN_CONTINUATIONS) {
-        throw new Error(`BDD resolver exceeded maximum continuations (${MAX_TOKEN_CONTINUATIONS})`);
+      contextResetCount++;
+      log(`BDD resolver compacted (context reset ${contextResetCount}/${MAX_CONTEXT_RESETS})`, 'info');
+      AgentStateManager.appendLog(statePath, `BDD resolver compacted (context reset ${contextResetCount})`);
+      if (contextResetCount > MAX_CONTEXT_RESETS) {
+        throw new Error(`BDD resolver exceeded maximum context resets (${MAX_CONTEXT_RESETS})`);
       }
-      onCompactionDetected(continuationCount);
+      onCompactionDetected(contextResetCount);
       resolveResult = await runResolveE2ETestAgent(
         failedResult,
         logsDir,
@@ -319,6 +319,6 @@ export async function runBddScenariosWithRetry(opts: BddScenarioRetryOptions): P
     totalRetries,
     failedTests: passed ? [] : [`BDD Scenarios @adw-${issueNumber}`],
     modelUsage: costState.modelUsage,
-    continuationCount,
+    contextResetCount,
   };
 }

@@ -6,15 +6,15 @@
 
 import type { GitHubIssue, GitHubComment, IssueCommentSummary } from '../../types/issueTypes';
 import type { PRDetails, PRReviewComment, PRListItem } from '../../types/workflowTypes';
-import type { WorkItem, WorkItemComment, MergeRequest, ReviewComment, RepoIdentifier } from '../types';
+import type { Issue, IssueComment, PullRequest, ReviewComment, RepoIdentifier } from '../types';
 import type { RepoInfo } from '../../github/githubApi';
 
 // ── IssueTracker mappers ──────────────────────────────────────────────
 
 /**
- * Maps a GitHubComment to a platform-agnostic WorkItemComment.
+ * Maps a GitHubComment to a platform-agnostic IssueComment.
  */
-export function mapGitHubCommentToWorkItemComment(comment: GitHubComment): WorkItemComment {
+export function mapGitHubCommentToIssueComment(comment: GitHubComment): IssueComment {
   return {
     id: comment.id,
     body: comment.body,
@@ -24,9 +24,9 @@ export function mapGitHubCommentToWorkItemComment(comment: GitHubComment): WorkI
 }
 
 /**
- * Maps a GitHubIssue to a platform-agnostic WorkItem.
+ * Maps a GitHubIssue to a platform-agnostic Issue.
  */
-export function mapGitHubIssueToWorkItem(issue: GitHubIssue): WorkItem {
+export function mapGitHubIssueToIssue(issue: GitHubIssue): Issue {
   return {
     id: issue.number.toString(),
     number: issue.number,
@@ -35,14 +35,14 @@ export function mapGitHubIssueToWorkItem(issue: GitHubIssue): WorkItem {
     state: issue.state,
     author: issue.author.login,
     labels: issue.labels.map((l) => l.name),
-    comments: issue.comments.map(mapGitHubCommentToWorkItemComment),
+    comments: issue.comments.map(mapGitHubCommentToIssueComment),
   };
 }
 
 /**
- * Maps an IssueCommentSummary (REST API format) to a platform-agnostic WorkItemComment.
+ * Maps an IssueCommentSummary (REST API format) to a platform-agnostic IssueComment.
  */
-export function mapIssueCommentSummaryToWorkItemComment(comment: IssueCommentSummary): WorkItemComment {
+export function mapIssueCommentSummaryToIssueComment(comment: IssueCommentSummary): IssueComment {
   return {
     id: comment.id.toString(),
     body: comment.body,
@@ -61,9 +61,9 @@ export function toRepoInfo(repoId: RepoIdentifier): RepoInfo {
 // ── CodeHost mappers ──────────────────────────────────────────────────
 
 /**
- * Maps a GitHub PRDetails object to a platform-agnostic MergeRequest.
+ * Maps a GitHub PRDetails object to a platform-agnostic PullRequest.
  */
-export function mapPRDetailsToMergeRequest(pr: PRDetails): MergeRequest {
+export function mapPRDetailsToPullRequest(pr: PRDetails): PullRequest {
   return {
     number: pr.number,
     title: pr.title,
@@ -90,10 +90,10 @@ export function mapPRReviewCommentToReviewComment(comment: PRReviewComment): Rev
 }
 
 /**
- * Maps a GitHub PRListItem to a platform-agnostic MergeRequest.
+ * Maps a GitHub PRListItem to a platform-agnostic PullRequest.
  * PRListItem carries only number and headBranch, so remaining fields are empty strings.
  */
-export function mapPRListItemToMergeRequest(item: PRListItem): MergeRequest {
+export function mapPRListItemToPullRequest(item: PRListItem): PullRequest {
   return {
     number: item.number,
     title: '',

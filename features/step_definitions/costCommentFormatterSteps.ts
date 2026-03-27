@@ -35,7 +35,7 @@ function makeRecord(overrides: Partial<PhaseCostRecord> = {}): PhaseCostRecord {
     reportedCostUsd: 0.10,
     status: 'success',
     retryCount: 0,
-    continuationCount: 0,
+    contextResetCount: 0,
     durationMs: 1000,
     timestamp: '2026-01-01T00:00:00.000Z',
     estimatedTokens: undefined,

@@ -26,7 +26,7 @@ Feature: PhaseCostRecord data model, CSV output in new format, and per-phase cos
     And PhaseCostRecord includes field "reportedCostUsd" of type number
     And PhaseCostRecord includes field "status" of type string
     And PhaseCostRecord includes field "retryCount" of type number
-    And PhaseCostRecord includes field "continuationCount" of type number
+    And PhaseCostRecord includes field "contextResetCount" of type number
     And PhaseCostRecord includes field "durationMs" of type number
     And PhaseCostRecord includes field "timestamp" of type string
     And PhaseCostRecord includes field "estimatedTokens" as a Record of string to number
@@ -89,7 +89,7 @@ Feature: PhaseCostRecord data model, CSV output in new format, and per-phase cos
   @adw-l1x9x9-cost-revamp-phasecos @regression
   Scenario: Per-issue CSV includes all PhaseCostRecord fields as columns
     Given "adws/cost/reporting/csvWriter.ts" is read
-    Then the per-issue CSV header includes columns for workflowId, issueNumber, phase, model, provider, computedCostUsd, reportedCostUsd, status, retryCount, continuationCount, durationMs, and timestamp
+    Then the per-issue CSV header includes columns for workflowId, issueNumber, phase, model, provider, computedCostUsd, reportedCostUsd, status, retryCount, contextResetCount, durationMs, and timestamp
 
   @adw-l1x9x9-cost-revamp-phasecos @regression
   Scenario: Per-issue CSV includes fixed superset token columns

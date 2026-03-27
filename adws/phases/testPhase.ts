@@ -47,7 +47,7 @@ export async function executeTestPhase(config: WorkflowConfig): Promise<{
   let costUsd = 0;
   let modelUsage = emptyModelUsageMap();
   let totalRetries = 0;
-  let phaseContinuationCount = 0;
+  let phaseContextResetCount = 0;
 
   if (repoContext) {
     await repoContext.issueTracker.moveToStatus(issueNumber, BoardStatus.InProgress);
@@ -78,7 +78,7 @@ export async function executeTestPhase(config: WorkflowConfig): Promise<{
     costUsd += unitTestsResult.costUsd;
     modelUsage = mergeModelUsageMaps(modelUsage, unitTestsResult.modelUsage);
     totalRetries += unitTestsResult.totalRetries;
-    phaseContinuationCount = unitTestsResult.continuationCount;
+    phaseContextResetCount = unitTestsResult.contextResetCount;
 
     if (!unitTestsResult.passed) {
       const errorMsg = 'Unit tests failed after maximum retry attempts. No PR was created.';
@@ -113,7 +113,7 @@ export async function executeTestPhase(config: WorkflowConfig): Promise<{
     phase: 'test',
     status: PhaseCostStatus.Success,
     retryCount: totalRetries,
-    continuationCount: phaseContinuationCount,
+    contextResetCount: phaseContextResetCount,
     durationMs: Date.now() - phaseStartTime,
     modelUsage,
   });

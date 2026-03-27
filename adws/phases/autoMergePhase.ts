@@ -119,7 +119,7 @@ export async function executeAutoMergePhase(config: WorkflowConfig): Promise<{ c
     phase: 'auto_merge',
     status: PhaseCostStatus.Success,
     retryCount: 0,
-    continuationCount: 0,
+    contextResetCount: 0,
     durationMs: Date.now() - phaseStartTime,
     modelUsage: emptyModelUsageMap(),
   });

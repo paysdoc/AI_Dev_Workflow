@@ -54,46 +54,46 @@ Feature: Fix issue status propagation, PR routing, and PR-to-issue linking
   @adw-7sunv4-fix-issue-status-pro @regression
   Scenario: prPhase.ts pushes the branch programmatically before creating the PR
     Given "adws/phases/prPhase.ts" is read
-    Then the file contains "pushBranch" or a programmatic git push call before createMergeRequest
+    Then the file contains "pushBranch" or a programmatic git push call before createPullRequest
 
   @adw-7sunv4-fix-issue-status-pro @regression
-  Scenario: prPhase.ts calls codeHost.createMergeRequest to create the PR
+  Scenario: prPhase.ts calls codeHost.createPullRequest to create the PR
     Given "adws/phases/prPhase.ts" is read
-    Then the file contains "createMergeRequest"
+    Then the file contains "createPullRequest"
 
   @adw-7sunv4-fix-issue-status-pro @regression
-  Scenario: prPhase.ts stores PR url and number from createMergeRequest result
+  Scenario: prPhase.ts stores PR url and number from createPullRequest result
     Given "adws/phases/prPhase.ts" is read
-    Then ctx receives prUrl from the createMergeRequest result
-    And ctx receives a PR number from the createMergeRequest result
+    Then ctx receives prUrl from the createPullRequest result
+    And ctx receives a PR number from the createPullRequest result
 
   # ── C: CodeHost interface and implementation fixes ───────────────────────────
 
   @adw-7sunv4-fix-issue-status-pro @regression
-  Scenario: CodeHost.createMergeRequest returns an object with url and number
+  Scenario: CodeHost.createPullRequest returns an object with url and number
     Given "adws/providers/types.ts" is read
-    Then the createMergeRequest return type includes url and number fields
+    Then the createPullRequest return type includes url and number fields
 
   @adw-7sunv4-fix-issue-status-pro @regression
-  Scenario: GitHubCodeHost.createMergeRequest does not delegate to pullRequestCreator
+  Scenario: GitHubCodeHost.createPullRequest does not delegate to pullRequestCreator
     Given "adws/providers/github/githubCodeHost.ts" is read
     Then the file does not contain "pullRequestCreator"
     And the file does not contain "import" referencing "pullRequestCreator"
 
   @adw-7sunv4-fix-issue-status-pro @regression
-  Scenario: GitHubCodeHost.createMergeRequest calls gh pr create directly
+  Scenario: GitHubCodeHost.createPullRequest calls gh pr create directly
     Given "adws/providers/github/githubCodeHost.ts" is read
     Then the file contains "gh pr create"
 
   @adw-7sunv4-fix-issue-status-pro @regression
-  Scenario: GitHubCodeHost.createMergeRequest returns an object with url and number
+  Scenario: GitHubCodeHost.createPullRequest returns an object with url and number
     Given "adws/providers/github/githubCodeHost.ts" is read
-    Then the createMergeRequest method returns an object with url and number properties
+    Then the createPullRequest method returns an object with url and number properties
 
   @adw-7sunv4-fix-issue-status-pro @regression
-  Scenario: GitLabCodeHost.createMergeRequest returns an object with url and number
+  Scenario: GitLabCodeHost.createPullRequest returns an object with url and number
     Given "adws/providers/gitlab/gitlabCodeHost.ts" is read
-    Then the createMergeRequest method returns an object with url and number properties
+    Then the createPullRequest method returns an object with url and number properties
 
   @adw-7sunv4-fix-issue-status-pro @regression
   Scenario: pullRequestCreator.ts has been deleted

@@ -84,8 +84,8 @@ export const MAX_THINKING_TOKENS = Math.max(0, parseInt(process.env.MAX_THINKING
 /** Fraction of MAX_THINKING_TOKENS at which to trigger recovery (default: 0.9). */
 export const TOKEN_LIMIT_THRESHOLD = parseFloat(process.env.TOKEN_LIMIT_THRESHOLD || '0.9') || 0.9;
 
-/** Maximum number of continuation attempts before failing (default: 3). */
-export const MAX_TOKEN_CONTINUATIONS = Math.max(1, parseInt(process.env.MAX_TOKEN_CONTINUATIONS || '3', 10)) || 3;
+/** Maximum number of context reset attempts before failing (default: 3). */
+export const MAX_CONTEXT_RESETS = Math.max(1, parseInt(process.env.MAX_CONTEXT_RESETS || '3', 10)) || 3;
 
 // ---------------------------------------------------------------------------
 // Comment display flags

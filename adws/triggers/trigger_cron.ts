@@ -44,8 +44,8 @@ const RETRIABLE_STAGES = new Set(['error', 'review_failed', 'build_failed']);
 const ACTIVE_STAGES = new Set([
   'starting', 'resuming', 'classified', 'branch_created',
   'plan_building', 'plan_created', 'planFile_created', 'plan_committing',
-  'plan_validating', 'plan_aligning', 'implementing', 'build_progress',
-  'implemented', 'implementation_committing', 'pr_creating',
+  'plan_validating', 'plan_aligning', 'build_running', 'build_progress',
+  'build_completed', 'build_committing', 'pr_creating',
   'review_running', 'review_patching', 'test_running', 'test_resolving',
   'document_running', 'install_running', 'resumed',
 ]);

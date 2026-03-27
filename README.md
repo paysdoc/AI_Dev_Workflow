@@ -74,7 +74,7 @@ See [adws/README.md](adws/README.md) for full usage documentation.
 
 ## Domain Language
 
-ADW uses a shared vocabulary for all domain concepts. See [UBIQUITOUS_LANGUAGE.md](UBIQUITOUS_LANGUAGE.md) for canonical term definitions, aliases to avoid, and a worked example dialogue.
+ADW uses a DDD-style ubiquitous language to keep code, documentation, and conversation aligned. See [UBIQUITOUS_LANGUAGE.md](UBIQUITOUS_LANGUAGE.md) for canonical term definitions, aliases to avoid, and a worked example dialogue.
 
 ## Testing
 
@@ -436,4 +436,5 @@ package.json
 tsconfig.json           # Root TypeScript configuration
 vitest.config.ts        # Vitest test configuration
 README.md               # This file
+UBIQUITOUS_LANGUAGE.md  # DDD ubiquitous language glossary
 ```

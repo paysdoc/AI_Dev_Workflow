@@ -54,7 +54,7 @@ function csvField(value: string | number): string {
 /**
  * Formats a PhaseCostRecord[] to CSV content with dynamic token type columns.
  * Header: workflow_id, issue_number, phase, model, provider, computed_cost_usd,
- *         reported_cost_usd, status, retry_count, continuation_count, duration_ms,
+ *         reported_cost_usd, status, retry_count, context_reset_count, duration_ms,
  *         timestamp, estimated_tokens, actual_tokens, [token columns...]
  */
 export function formatIssueCostCsv(records: readonly PhaseCostRecord[]): string {
@@ -69,7 +69,7 @@ export function formatIssueCostCsv(records: readonly PhaseCostRecord[]): string 
     'reported_cost_usd',
     'status',
     'retry_count',
-    'continuation_count',
+    'context_reset_count',
     'duration_ms',
     'timestamp',
     'estimated_tokens',
@@ -87,7 +87,7 @@ export function formatIssueCostCsv(records: readonly PhaseCostRecord[]): string 
     csvField((r.reportedCostUsd ?? 0).toFixed(6)),
     csvField(r.status),
     csvField(r.retryCount),
-    csvField(r.continuationCount),
+    csvField(r.contextResetCount),
     csvField(r.durationMs),
     csvField(r.timestamp),
     csvField(r.estimatedTokens ? JSON.stringify(r.estimatedTokens) : ''),
@@ -149,7 +149,7 @@ export function parseIssueCostCsv(csvContent: string): PhaseCostRecord[] {
   const fixedCols = new Set([
     'workflow_id', 'issue_number', 'phase', 'model', 'provider',
     'computed_cost_usd', 'reported_cost_usd', 'status', 'retry_count',
-    'continuation_count', 'duration_ms', 'timestamp', 'estimated_tokens', 'actual_tokens',
+    'context_reset_count', 'duration_ms', 'timestamp', 'estimated_tokens', 'actual_tokens',
   ]);
   const tokenCols = header.filter(h => !fixedCols.has(h));
 
@@ -172,7 +172,7 @@ export function parseIssueCostCsv(csvContent: string): PhaseCostRecord[] {
       reportedCostUsd: parseFloat(get('reported_cost_usd')) || 0,
       status: (get('status') as PhaseCostStatus) || PhaseCostStatus.Success,
       retryCount: parseInt(get('retry_count'), 10) || 0,
-      continuationCount: parseInt(get('continuation_count'), 10) || 0,
+      contextResetCount: parseInt(get('context_reset_count'), 10) || 0,
       durationMs: parseInt(get('duration_ms'), 10) || 0,
       timestamp: get('timestamp'),
       estimatedTokens: safeParseJsonRecord(get('estimated_tokens')),
