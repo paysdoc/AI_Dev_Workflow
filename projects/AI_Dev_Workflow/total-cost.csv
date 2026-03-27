@@ -1,7 +1,8 @@
 Issue number,Issue description,Phase,Model,Cost (USD)
 335,remove csv cost pipeline,document,claude-sonnet-4-6,0.129659
+335,remove csv cost pipeline,pr,claude-sonnet-4-6,0.191369
 335,remove csv cost pipeline,review,claude-opus-4-6,1.715438
 335,remove csv cost pipeline,review,claude-sonnet-4-6,0.109202
 
-Total Cost (USD):,1.9543
-Total Cost (EUR):,1.6927
+Total Cost (USD):,2.1457
+Total Cost (EUR):,1.8584
