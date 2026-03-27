@@ -7,6 +7,7 @@
 import { log, costCommitQueue } from '../core';
 import { appendIssueCostCsv, rebuildProjectTotalCsv } from '../cost/reporting';
 import { fetchExchangeRates } from '../cost/exchangeRates';
+import { postCostRecordsToD1 } from '../cost/d1Client';
 import { commitAndPushCostFiles } from '../vcs';
 import type { PhaseCostRecord } from '../cost';
 import type { WorkflowConfig } from './workflowInit';
@@ -43,6 +44,12 @@ export async function commitPhaseCostData(options: PhaseCostCommitOptions): Prom
 
     costCommitQueue.enqueue(async () => {
       commitAndPushCostFiles({ repoName, cwd: repoRoot });
+    });
+
+    void postCostRecordsToD1({
+      project: repoName,
+      repoUrl: process.env.GITHUB_REPO_URL,
+      records: newRecords,
     });
   } catch (error) {
     log(`Failed to commit phase cost data: ${error}`, 'error');

@@ -99,6 +99,12 @@ export const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID || '';
 /** R2 S3-compatible API secret access key. */
 export const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY || '';
 
+/** Cost API Worker base URL (e.g., https://costs.paysdoc.nl). Empty string disables D1 writes. */
+export const COST_API_URL = process.env.COST_API_URL || '';
+
+/** Bearer token for Cost API authentication. */
+export const COST_API_TOKEN = process.env.COST_API_TOKEN || '';
+
 // ---------------------------------------------------------------------------
 // Path / directory constants
 // ---------------------------------------------------------------------------

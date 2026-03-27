@@ -57,6 +57,8 @@ Required and optional environment variables (see `.env.sample` for full referenc
 - `CLOUDFLARE_ACCOUNT_ID` - (Optional) Cloudflare account ID, required only for screenshot upload functionality
 - `R2_ACCESS_KEY_ID` - (Optional) R2 access key ID, required only for screenshot upload functionality
 - `R2_SECRET_ACCESS_KEY` - (Optional) R2 secret access key, required only for screenshot upload functionality
+- `COST_API_URL` - (Optional) Cost API Worker URL for D1 cost database writes (e.g., `https://costs.paysdoc.nl`)
+- `COST_API_TOKEN` - (Optional) Bearer token for Cost API authentication
 
 ### 4. Run ADW
 
@@ -404,7 +406,7 @@ workers/                # Cloudflare Workers
 │   ├── src/
 │   │   ├── auth.ts         # Bearer token authentication
 │   │   ├── index.ts        # Worker entry point
-│   │   ├── ingest.ts       # POST /ingest handler
+│   │   ├── ingest.ts       # POST /api/cost handler
 │   │   ├── migrations/     # D1 SQL migrations
 │   │   ├── schema.sql      # D1 database schema
 │   │   └── types.ts        # Worker type definitions
