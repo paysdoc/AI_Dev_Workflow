@@ -404,7 +404,7 @@ workers/                # Cloudflare Workers
 │   ├── src/
 │   │   ├── auth.ts         # Bearer token authentication
 │   │   ├── index.ts        # Worker entry point
-│   │   ├── ingest.ts       # POST /ingest handler
+│   │   ├── ingest.ts       # POST /api/cost handler
 │   │   ├── migrations/     # D1 SQL migrations
 │   │   ├── schema.sql      # D1 database schema
 │   │   └── types.ts        # Worker type definitions
