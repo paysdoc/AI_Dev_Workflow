@@ -397,6 +397,7 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 321,remove 75 stale bdd scenarios with no regression c,install,claude-sonnet-4-6,0.306872
 321,remove 75 stale bdd scenarios with no regression c,install,claude-sonnet-4-6,0.360621
 321,remove 75 stale bdd scenarios with no regression c,plan,claude-opus-4-6,0.382067
+323,chore align codebase with ubiquitous language glos,build,claude-sonnet-4-6,7.837588
 323,chore align codebase with ubiquitous language glos,install,claude-sonnet-4-6,0.372163
 323,chore align codebase with ubiquitous language glos,install,claude-haiku-4-5-20251001,0.176803
 323,chore align codebase with ubiquitous language glos,plan,claude-opus-4-6,0.940702
@@ -406,5 +407,5 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 324,chore add github actions workflow to deploy cloudf,plan,claude-opus-4-6,0.353039
 324,chore add github actions workflow to deploy cloudf,pr,claude-sonnet-4-6,0.149750
 
-Total Cost (USD):,370.3361
-Total Cost (EUR):,320.7600
+Total Cost (USD):,378.1737
+Total Cost (EUR):,327.5483
