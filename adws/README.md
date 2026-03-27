@@ -578,7 +578,6 @@ app_docs/                         # Generated documentation
 - `githubApi.ts` - Core GitHub API wrapper
 - `issueApi.ts` - GitHub issue API operations
 - `prApi.ts` - Pull request API operations
-- `pullRequestCreator.ts` - PR creation logic
 - `workflowCommentsBase.ts` - Base comment filtering and management
 - `workflowCommentsIssue.ts` - Issue-specific workflow comments
 - `workflowCommentsPR.ts` - PR-specific workflow comments
