@@ -442,6 +442,7 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 330,cost api worker d1 schema auth and ingest endpoint,review,claude-opus-4-6,0.199465
 330,cost api worker d1 schema auth and ingest endpoint,review,claude-opus-4-6,0.744502
 330,cost api worker d1 schema auth and ingest endpoint,scenario,claude-opus-4-6,0.736876
+333,csv migration script upload historical cost data t,install,claude-sonnet-4-6,0.409843
 
-Total Cost (USD):,395.9997
-Total Cost (EUR):,342.9880
+Total Cost (USD):,396.4096
+Total Cost (EUR):,343.3430
