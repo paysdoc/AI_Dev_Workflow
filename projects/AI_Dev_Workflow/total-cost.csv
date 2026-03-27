@@ -473,6 +473,7 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 332,github actions worker deploy workflow,install,claude-sonnet-4-6,0.376275
 332,github actions worker deploy workflow,install,claude-sonnet-4-6,0.306756
 332,github actions worker deploy workflow,install,claude-haiku-4-5-20251001,0.189209
+332,github actions worker deploy workflow,install,claude-sonnet-4-6,0.358057
 332,github actions worker deploy workflow,plan,claude-opus-4-6,0.396734
 332,github actions worker deploy workflow,plan,claude-opus-4-6,0.499299
 332,github actions worker deploy workflow,review,claude-opus-4-6,0.328754
@@ -514,5 +515,5 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 335,remove csv cost pipeline,plan,claude-opus-4-6,1.567346
 335,remove csv cost pipeline,plan,claude-haiku-4-5-20251001,0.172613
 
-Total Cost (USD):,421.1002
-Total Cost (EUR):,364.7284
+Total Cost (USD):,421.4583
+Total Cost (EUR):,365.0385
