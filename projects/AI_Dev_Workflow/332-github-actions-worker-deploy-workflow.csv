@@ -23,3 +23,4 @@ avb4f5-github-actions-worke,332,review,claude-sonnet-4-6,anthropic,0.128095,0.12
 avb4f5-github-actions-worke,332,document,claude-sonnet-4-6,anthropic,0.110810,0.110810,success,0,0,86219,2026-03-27T12:10:16.031Z,,,8,1256,121873,14769,0
 efcqzc-github-actions-worke,332,install,claude-sonnet-4-6,anthropic,0.306756,0.306756,success,0,0,209746,2026-03-27T12:12:57.371Z,,,13,4331,290227,41249,0
 efcqzc-github-actions-worke,332,install,claude-haiku-4-5-20251001,anthropic,0.189209,0.189209,success,0,0,209746,2026-03-27T12:12:57.371Z,,,111,7134,866114,53453,0
+efcqzc-github-actions-worke,332,review,claude-opus-4-6,anthropic,0.372359,0.372359,success,0,0,114731,2026-03-27T12:15:07.059Z,,,73,4895,125750,29879,0
