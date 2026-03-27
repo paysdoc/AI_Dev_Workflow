@@ -416,6 +416,7 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 327,auto approve and merge chore prs with llm diff gat,plan,claude-haiku-4-5-20251001,0.069482
 327,auto approve and merge chore prs with llm diff gat,pr,claude-sonnet-4-6,0.068960
 327,auto approve and merge chore prs with llm diff gat,review,claude-opus-4-6,1.423052
+329,add hitl label gate to prevent auto merge,alignment,claude-opus-4-6,0.190037
 329,add hitl label gate to prevent auto merge,install,claude-sonnet-4-6,0.454803
 329,add hitl label gate to prevent auto merge,plan,claude-haiku-4-5-20251001,0.147669
 329,add hitl label gate to prevent auto merge,plan,claude-opus-4-6,0.493820
@@ -423,5 +424,5 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 329,add hitl label gate to prevent auto merge,scenario,claude-haiku-4-5-20251001,0.133393
 330,cost api worker d1 schema auth and ingest endpoint,install,claude-sonnet-4-6,0.475561
 
-Total Cost (USD):,386.8615
-Total Cost (EUR):,335.0731
+Total Cost (USD):,387.0515
+Total Cost (EUR):,335.2377
