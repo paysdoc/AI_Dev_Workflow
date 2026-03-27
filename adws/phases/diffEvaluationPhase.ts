@@ -111,7 +111,7 @@ export async function executeDiffEvaluationPhase(
 
   let verdict: 'safe' | 'regression_possible' = 'regression_possible';
   let reason = 'Diff evaluation failed — defaulting to regression_possible (fail-safe)';
-  let costUsd = 0;
+  const costUsd = 0;
   let modelUsage = emptyModelUsageMap();
 
   try {
