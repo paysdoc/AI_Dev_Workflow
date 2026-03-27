@@ -30,3 +30,4 @@ avb4f5-github-actions-worke,332,install,claude-haiku-4-5-20251001,anthropic,0.08
 avb4f5-github-actions-worke,332,review,claude-opus-4-6,anthropic,0.332287,0.332287,success,0,0,128965,2026-03-27T12:29:29.032Z,,,74,5588,130822,20289,0
 avb4f5-github-actions-worke,332,document,claude-sonnet-4-6,anthropic,0.120818,0.120818,success,0,0,65455,2026-03-27T12:30:40.098Z,,,7,1873,100733,16662,0
 avb4f5-github-actions-worke,332,pr,claude-sonnet-4-6,anthropic,0.240097,0.240097,success,0,0,70239,2026-03-27T12:31:55.887Z,,,7,1547,213627,40742,0
+avb4f5-github-actions-worke,332,kpi,claude-haiku-4-5-20251001,anthropic,0.094025,0.094025,success,0,0,84121,2026-03-27T12:33:25.936Z,,,44,9272,193819,22591,0
