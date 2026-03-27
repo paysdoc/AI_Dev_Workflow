@@ -18,6 +18,7 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 334,adw d1 client and dual write integration,scenario,claude-opus-4-6,0.663025
 334,adw d1 client and dual write integration,scenario,claude-haiku-4-5-20251001,0.249657
 335,remove csv cost pipeline,build,claude-sonnet-4-6,2.975482
+335,remove csv cost pipeline,document,claude-sonnet-4-6,0.225670
 335,remove csv cost pipeline,install,claude-sonnet-4-6,0.315089
 335,remove csv cost pipeline,install,claude-haiku-4-5-20251001,0.153299
 335,remove csv cost pipeline,install,claude-sonnet-4-6,0.294426
@@ -26,5 +27,5 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 335,remove csv cost pipeline,plan,claude-haiku-4-5-20251001,0.172613
 335,remove csv cost pipeline,review,claude-opus-4-6,0.961885
 
-Total Cost (USD):,14.2323
-Total Cost (EUR):,12.3271
+Total Cost (USD):,14.4580
+Total Cost (EUR):,12.5225
