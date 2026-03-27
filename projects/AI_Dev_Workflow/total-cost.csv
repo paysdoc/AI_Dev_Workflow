@@ -417,6 +417,7 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 327,auto approve and merge chore prs with llm diff gat,pr,claude-sonnet-4-6,0.068960
 327,auto approve and merge chore prs with llm diff gat,review,claude-opus-4-6,1.423052
 329,add hitl label gate to prevent auto merge,install,claude-sonnet-4-6,0.454803
+330,cost api worker d1 schema auth and ingest endpoint,install,claude-sonnet-4-6,0.475561
 
-Total Cost (USD):,385.1730
-Total Cost (EUR):,333.6106
+Total Cost (USD):,385.6485
+Total Cost (EUR):,334.0225
