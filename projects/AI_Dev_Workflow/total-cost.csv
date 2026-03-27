@@ -434,6 +434,7 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 330,cost api worker d1 schema auth and ingest endpoint,document,claude-sonnet-4-6,0.221335
 330,cost api worker d1 schema auth and ingest endpoint,install,claude-sonnet-4-6,0.475561
 330,cost api worker d1 schema auth and ingest endpoint,install,claude-sonnet-4-6,0.498734
+330,cost api worker d1 schema auth and ingest endpoint,kpi,claude-haiku-4-5-20251001,0.068025
 330,cost api worker d1 schema auth and ingest endpoint,plan,claude-opus-4-6,0.512661
 330,cost api worker d1 schema auth and ingest endpoint,pr,claude-sonnet-4-6,0.096784
 330,cost api worker d1 schema auth and ingest endpoint,pr,claude-sonnet-4-6,0.080094
@@ -441,5 +442,5 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 330,cost api worker d1 schema auth and ingest endpoint,review,claude-opus-4-6,0.744502
 330,cost api worker d1 schema auth and ingest endpoint,scenario,claude-opus-4-6,0.736876
 
-Total Cost (USD):,395.8059
-Total Cost (EUR):,342.8202
+Total Cost (USD):,395.8739
+Total Cost (EUR):,342.8791
