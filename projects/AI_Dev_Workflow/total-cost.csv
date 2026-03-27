@@ -434,7 +434,8 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 330,cost api worker d1 schema auth and ingest endpoint,install,claude-sonnet-4-6,0.498734
 330,cost api worker d1 schema auth and ingest endpoint,plan,claude-opus-4-6,0.512661
 330,cost api worker d1 schema auth and ingest endpoint,review,claude-opus-4-6,0.199465
+330,cost api worker d1 schema auth and ingest endpoint,review,claude-opus-4-6,0.744502
 330,cost api worker d1 schema auth and ingest endpoint,scenario,claude-opus-4-6,0.736876
 
-Total Cost (USD):,394.3975
-Total Cost (EUR):,341.6003
+Total Cost (USD):,395.1420
+Total Cost (EUR):,342.2451
