@@ -1,3 +1,5 @@
 workflow_id,issue_number,phase,model,provider,computed_cost_usd,reported_cost_usd,status,retry_count,context_reset_count,duration_ms,timestamp,estimated_tokens,actual_tokens,input,output,cache_read,cache_write,reasoning
 g2u55r-adw-d1-client-and-du,334,install,claude-sonnet-4-6,anthropic,0.383934,0.383934,success,0,0,129270,2026-03-27T11:41:27.520Z,,,325,6318,303919,52537,0
 92py6q-adw-d1-client-and-du,334,install,claude-sonnet-4-6,anthropic,0.399097,0.399097,success,0,0,140831,2026-03-27T11:41:38.160Z,,,12,6449,371690,50885,0
+92py6q-adw-d1-client-and-du,334,plan,claude-opus-4-6,anthropic,0.967756,0.967756,success,0,0,232955,2026-03-27T11:45:36.549Z,,,13,10335,574683,67516,0
+92py6q-adw-d1-client-and-du,334,scenario,claude-opus-4-6,anthropic,0.598484,0.598484,success,0,0,175224,2026-03-27T11:44:40.144Z,,,9,6148,307204,46582,0
