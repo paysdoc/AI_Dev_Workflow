@@ -1,2 +1,7 @@
 workflow_id,issue_number,phase,model,provider,computed_cost_usd,reported_cost_usd,status,retry_count,context_reset_count,duration_ms,timestamp,estimated_tokens,actual_tokens,input,output,cache_read,cache_write,reasoning
 wuzgen-deploy-cost-api-work,331,install,claude-sonnet-4-6,anthropic,0.450156,0.450156,success,0,0,125188,2026-03-27T09:40:13.833Z,,,16,4298,612561,53832,0
+a7d21i-deploy-cost-api-work,331,install,claude-sonnet-4-6,anthropic,0.413022,0.413022,success,0,0,149444,2026-03-27T10:56:12.353Z,,,15,6150,519440,43972,0
+a7d21i-deploy-cost-api-work,331,install,claude-haiku-4-5-20251001,anthropic,0.060239,0.060239,success,0,0,149444,2026-03-27T10:56:12.353Z,,,17,2975,37529,33275,0
+a7d21i-deploy-cost-api-work,331,plan,claude-opus-4-6,anthropic,0.419271,0.419271,success,0,0,188931,2026-03-27T10:59:27.108Z,,,11,5001,226982,28912,0
+a7d21i-deploy-cost-api-work,331,plan,claude-haiku-4-5-20251001,anthropic,0.090237,0.090237,success,0,0,188931,2026-03-27T10:59:27.108Z,,,236,3922,103602,48025,0
+a7d21i-deploy-cost-api-work,331,build,claude-sonnet-4-6,anthropic,0.501522,0.501522,success,0,0,357301,2026-03-27T11:05:30.483Z,,,33,7648,937761,28100,0
