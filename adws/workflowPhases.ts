@@ -29,6 +29,8 @@ export {
   executeInstallPhase,
   executeReviewPhase,
   executeAutoMergePhase,
+  executeDiffEvaluationPhase,
+  type DiffEvaluationPhaseResult,
   completeWorkflow,
   handleWorkflowError,
   handleRateLimitPause,

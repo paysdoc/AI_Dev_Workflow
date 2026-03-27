@@ -164,3 +164,9 @@ export {
   runDependencyExtractionAgent,
   parseDependencyArray,
 } from './dependencyExtractionAgent';
+
+// Diff Evaluator Agent
+export {
+  runDiffEvaluatorAgent,
+  type DiffEvaluatorVerdict,
+} from './diffEvaluatorAgent';

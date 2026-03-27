@@ -541,3 +541,11 @@
     - When implementing or extending the red-green-refactor loop in the TDD skill
     - When troubleshooting why unit tests are not being written during the TDD loop
     - When adding or modifying `@adw-308` BDD scenarios or their step definitions
+
+- app_docs/feature-wc1uva-auto-approve-and-mer-chore-llm-diff-gate.md
+  - Conditions:
+    - When working with `adwChore.tsx` or the chore orchestrator pipeline
+    - When modifying `diffEvaluatorAgent.ts`, `diffEvaluationPhase.ts`, or `.claude/commands/diff_evaluator.md`
+    - When changing the routing of `/chore` issues in `adws/types/issueRouting.ts`
+    - When adding a new issue type that should auto-approve and auto-merge after an LLM diff gate
+    - When troubleshooting why a chore PR was not auto-merged or was unexpectedly escalated to review
