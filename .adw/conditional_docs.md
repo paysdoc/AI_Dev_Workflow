@@ -595,3 +595,17 @@
     - When wiring ADW phases to POST cost records to `costs.paysdoc.nl/api/cost`
     - When troubleshooting bearer token auth, project auto-creation, or token usage fan-out in the cost API
     - When deploying or migrating the `adw-costs` D1 database
+
+- app_docs/feature-avb4f5-deploy-workers-github-actions.md
+  - Conditions:
+    - When working with `.github/workflows/deploy-workers.yml`
+    - When adding or modifying Cloudflare Worker deploy jobs in GitHub Actions
+    - When troubleshooting why a worker deploy job was skipped or did not trigger
+    - When adding a new Worker that needs CI/CD deployment
+
+- app_docs/feature-efcqzc-deploy-workers-github-actions.md
+  - Conditions:
+    - When working with `.github/workflows/deploy-workers.yml`
+    - When adding or modifying Cloudflare Worker deploy jobs in GitHub Actions
+    - When troubleshooting `dorny/paths-filter@v3` or `cloudflare/wrangler-action@v3` configuration
+    - When adding a new Worker under `workers/` that should be auto-deployed on push to `main`
