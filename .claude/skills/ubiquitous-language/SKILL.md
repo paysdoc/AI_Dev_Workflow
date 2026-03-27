@@ -78,8 +78,22 @@ When invoked again in the same conversation:
 5. Re-flag any new ambiguities
 6. Rewrite the example dialogue to incorporate new terms
 
+## Sync mode (invoked from /install or without conversation context)
+
+When invoked without prior conversation (e.g., from `/install`):
+
+1. Read the existing `UBIQUITOUS_LANGUAGE.md`
+2. Scan all of `adws/` (types, phases, agents, triggers, core, providers, cost) for domain types, interfaces, enums, and constants
+3. Compare glossary terms against code reality
+4. **Report drift only -- do NOT auto-update the file.** Output a summary:
+   - `NEW in code, missing from glossary`: types/concepts found in code but not in glossary
+   - `RENAMED in code`: glossary term no longer matches code (e.g., type was renamed)
+   - `REMOVED from code`: glossary references a type/concept that no longer exists
+   - `No drift`: count of terms that match
+5. If no `UBIQUITOUS_LANGUAGE.md` exists, fall back to the standard Process above using the codebase as source material instead of conversation
+
 ## Post-output instruction
 
-After writing the file, state:
+After writing or syncing the file, state:
 
-> I've written/updated `UBIQUITOUS_LANGUAGE.md`. From this point forward I will use these terms consistently. If I drift from this language or you notice a term that should be added, let me know.
+> I've written/updated/synced `UBIQUITOUS_LANGUAGE.md`. From this point forward I will use these terms consistently. If I drift from this language or you notice a term that should be added, let me know.
