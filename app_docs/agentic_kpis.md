@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value          | Last Updated       |
 | ----------------- | -------------- | ------------------ |
-| Current Streak    | 56             | 2026-03-27 11:36:23|
-| Longest Streak    | 56             | 2026-03-27 11:36:23|
-| Total Plan Size   | 441 lines      | 2026-03-27 11:36:23|
-| Largest Plan Size | 201 lines      | 2026-03-27 11:36:23|
-| Total Diff Size   | 1539826 lines  | 2026-03-27 11:36:23|
-| Largest Diff Size | 205468 lines   | 2026-03-27 11:36:23|
-| Average Presence  | 1.45           | 2026-03-27 11:36:23|
+| Current Streak    | 31             | 2026-03-27 11:55:25|
+| Longest Streak    | 31             | 2026-03-27 11:55:25|
+| Total Plan Size   | 441 lines      | 2026-03-27 11:55:25|
+| Largest Plan Size | 201 lines      | 2026-03-27 11:55:25|
+| Total Diff Size   | 1580699 lines  | 2026-03-27 11:55:25|
+| Largest Diff Size | 205468 lines   | 2026-03-27 11:55:25|
+| Average Presence  | 1.58           | 2026-03-27 11:55:25|
 
 ## ADW KPIs
 
@@ -78,3 +78,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-03-27 | wc1uva-auto-approve-and-mer | 327          | /feature    | 1        | 0                 | 32629/1303/320                  | 2026-03-27 | 2026-03-27 |
 | 2026-03-27 | fygx90-add-hitl-label-gate  | 329          | /feature    | 1        | 0                 | 33212/1308/327                  | 2026-03-27 | 2026-03-27 |
 | 2026-03-27 | es3uts-cost-api-worker-d1-s | 330          | /feature    | 1        | 0                 | 38160/1306/340                  | 2026-03-27 | 2026-03-27 |
+| 2026-03-27 | e5wrpe-csv-migration-script | 333          | /feature    | 1        | 0                 | 39565/1308/350                  | 2026-03-27 | 2026-03-27 |
