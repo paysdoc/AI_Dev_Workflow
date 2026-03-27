@@ -72,6 +72,10 @@ bunx tsx adws/adwSdlc.tsx 123
 
 See [adws/README.md](adws/README.md) for full usage documentation.
 
+## Domain Language
+
+ADW uses a shared vocabulary for all domain concepts. See [UBIQUITOUS_LANGUAGE.md](UBIQUITOUS_LANGUAGE.md) for canonical term definitions, aliases to avoid, and a worked example dialogue.
+
 ## Testing
 
 ADW uses BDD scenarios for validation (see `.adw/scenarios.md`).
