@@ -429,10 +429,11 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 329,add hitl label gate to prevent auto merge,scenario,claude-opus-4-6,0.438076
 329,add hitl label gate to prevent auto merge,scenario,claude-haiku-4-5-20251001,0.133393
 330,cost api worker d1 schema auth and ingest endpoint,build,claude-sonnet-4-6,0.954908
+330,cost api worker d1 schema auth and ingest endpoint,build,claude-sonnet-4-6,2.259360
 330,cost api worker d1 schema auth and ingest endpoint,install,claude-sonnet-4-6,0.475561
 330,cost api worker d1 schema auth and ingest endpoint,install,claude-sonnet-4-6,0.498734
 330,cost api worker d1 schema auth and ingest endpoint,plan,claude-opus-4-6,0.512661
 330,cost api worker d1 schema auth and ingest endpoint,scenario,claude-opus-4-6,0.736876
 
-Total Cost (USD):,391.9386
-Total Cost (EUR):,339.4706
+Total Cost (USD):,394.1980
+Total Cost (EUR):,341.4275

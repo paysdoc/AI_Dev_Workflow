@@ -4,3 +4,4 @@ viahyb-cost-api-worker-d1-s,330,plan,claude-opus-4-6,anthropic,0.512661,0.512661
 viahyb-cost-api-worker-d1-s,330,scenario,claude-opus-4-6,anthropic,0.736876,0.736876,success,0,0,150953,2026-03-27T09:12:58.169Z,,,15,6375,517226,51010,0
 es3uts-cost-api-worker-d1-s,330,install,claude-sonnet-4-6,anthropic,0.498734,0.498734,success,0,0,179071,2026-03-27T09:22:06.629Z,,,17,7513,674064,49005,0
 es3uts-cost-api-worker-d1-s,330,build,claude-sonnet-4-6,anthropic,0.954908,0.954908,success,0,0,382058,2026-03-27T09:28:43.298Z,,,29,19007,1436237,63692,0
+viahyb-cost-api-worker-d1-s,330,build,claude-sonnet-4-6,anthropic,2.259360,2.259360,success,0,0,911365,2026-03-27T09:28:48.148Z,,,48,50444,3808558,95997,0
