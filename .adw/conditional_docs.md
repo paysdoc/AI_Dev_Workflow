@@ -1,5 +1,13 @@
 # Conditional Documentation
 
+- app_docs/feature-viahyb-cost-api-worker-d1-s-cost-api-worker.md
+  - Conditions:
+    - When working with the `workers/cost-api/` Cloudflare Worker
+    - When implementing or modifying the `POST /api/cost` ingest endpoint
+    - When working with the `adw-costs` D1 database schema (projects, cost_records, token_usage)
+    - When troubleshooting bearer token auth or cost record ingestion failures
+    - When wiring ADW phases to post cost data to the Cost API Worker
+
 - README.md
   - Conditions:
     - When first understanding the project structure
@@ -549,3 +557,11 @@
     - When changing the routing of `/chore` issues in `adws/types/issueRouting.ts`
     - When adding a new issue type that should auto-approve and auto-merge after an LLM diff gate
     - When troubleshooting why a chore PR was not auto-merged or was unexpectedly escalated to review
+
+- app_docs/feature-es3uts-cost-api-worker-d1-ingest.md
+  - Conditions:
+    - When working with the `workers/cost-api/` Cloudflare Worker
+    - When implementing the D1 cost database schema (`projects`, `cost_records`, `token_usage`)
+    - When wiring ADW phases to POST cost records to `costs.paysdoc.nl/api/cost`
+    - When troubleshooting bearer token auth, project auto-creation, or token usage fan-out in the cost API
+    - When deploying or migrating the `adw-costs` D1 database
