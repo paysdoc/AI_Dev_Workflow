@@ -1,5 +1,12 @@
 # Conditional Documentation
 
+- app_docs/feature-avb4f5-deploy-workers-github-actions.md
+  - Conditions:
+    - When working with `.github/workflows/deploy-workers.yml`
+    - When adding a new Cloudflare Worker under `workers/` that needs CI deployment
+    - When troubleshooting GitHub Actions deploy jobs for `screenshot-router` or `cost-api`
+    - When configuring `CLOUDFLARE_API_TOKEN` or `CLOUDFLARE_ACCOUNT_ID` secrets for Worker CI
+
 - app_docs/feature-a72ezx-deploy-cost-api-worker.md
   - Conditions:
     - When deploying or re-deploying the `cost-api` Cloudflare Worker to production
