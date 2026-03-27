@@ -456,6 +456,13 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 331,deploy cost api worker to cloudflare,pr,claude-sonnet-4-6,0.164758
 331,deploy cost api worker to cloudflare,pr,claude-sonnet-4-6,0.100325
 331,deploy cost api worker to cloudflare,review,claude-opus-4-6,0.291999
+332,github actions worker deploy workflow,build,claude-sonnet-4-6,0.209023
+332,github actions worker deploy workflow,build,claude-sonnet-4-6,0.138772
+332,github actions worker deploy workflow,install,claude-sonnet-4-6,0.436392
+332,github actions worker deploy workflow,install,claude-sonnet-4-6,0.365940
+332,github actions worker deploy workflow,install,claude-haiku-4-5-20251001,0.184693
+332,github actions worker deploy workflow,plan,claude-opus-4-6,0.396734
+332,github actions worker deploy workflow,plan,claude-opus-4-6,0.499299
 333,csv migration script upload historical cost data t,build,claude-sonnet-4-6,0.511511
 333,csv migration script upload historical cost data t,document,claude-sonnet-4-6,0.211174
 333,csv migration script upload historical cost data t,install,claude-sonnet-4-6,0.409843
@@ -466,6 +473,15 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 333,csv migration script upload historical cost data t,review,claude-opus-4-6,0.503869
 333,csv migration script upload historical cost data t,scenario,claude-opus-4-6,0.582044
 333,csv migration script upload historical cost data t,scenario,claude-haiku-4-5-20251001,0.095340
+334,adw d1 client and dual write integration,build,claude-sonnet-4-6,0.517689
+334,adw d1 client and dual write integration,install,claude-sonnet-4-6,0.383934
+334,adw d1 client and dual write integration,install,claude-sonnet-4-6,0.399097
+334,adw d1 client and dual write integration,plan,claude-opus-4-6,0.967756
+334,adw d1 client and dual write integration,plan,claude-opus-4-6,1.161415
+334,adw d1 client and dual write integration,plan,claude-haiku-4-5-20251001,0.069139
+334,adw d1 client and dual write integration,scenario,claude-opus-4-6,0.598484
+334,adw d1 client and dual write integration,scenario,claude-opus-4-6,0.663025
+334,adw d1 client and dual write integration,scenario,claude-haiku-4-5-20251001,0.249657
 
-Total Cost (USD):,403.3236
-Total Cost (EUR):,349.3315
+Total Cost (USD):,410.5647
+Total Cost (EUR):,355.6032
