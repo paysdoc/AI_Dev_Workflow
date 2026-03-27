@@ -1,0 +1,103 @@
+[
+  {
+    "session_id": "67cc672a-e28d-4261-aceb-e82698540878",
+    "transcript_path": "/Users/martin/.claude/projects/-Users-martin-projects-paysdoc-AI-Dev-Workflow--worktrees-chore-issue-332-deploy-workers-github-actions/67cc672a-e28d-4261-aceb-e82698540878.jsonl",
+    "cwd": "/Users/martin/projects/paysdoc/AI_Dev_Workflow/.worktrees/chore-issue-332-deploy-workers-github-actions/workers/screenshot-router",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "PreToolUse",
+    "tool_name": "Read",
+    "tool_input": {
+      "file_path": "/Users/martin/projects/paysdoc/AI_Dev_Workflow/.worktrees/chore-issue-332-deploy-workers-github-actions/.adw/conditional_docs.md",
+      "limit": 100
+    },
+    "tool_use_id": "toolu_01SrEkyCAZ2H7fohHz95RoWD"
+  },
+  {
+    "session_id": "67cc672a-e28d-4261-aceb-e82698540878",
+    "transcript_path": "/Users/martin/.claude/projects/-Users-martin-projects-paysdoc-AI-Dev-Workflow--worktrees-chore-issue-332-deploy-workers-github-actions/67cc672a-e28d-4261-aceb-e82698540878.jsonl",
+    "cwd": "/Users/martin/projects/paysdoc/AI_Dev_Workflow/.worktrees/chore-issue-332-deploy-workers-github-actions/workers/screenshot-router",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "PreToolUse",
+    "tool_name": "Read",
+    "tool_input": {
+      "file_path": "/Users/martin/projects/paysdoc/AI_Dev_Workflow/.worktrees/chore-issue-332-deploy-workers-github-actions/app_docs/feature-avb4f5-deploy-workers-github-actions.md"
+    },
+    "tool_use_id": "toolu_01HKCX3mh5Sb5RSAEqjCdozB"
+  },
+  {
+    "session_id": "67cc672a-e28d-4261-aceb-e82698540878",
+    "transcript_path": "/Users/martin/.claude/projects/-Users-martin-projects-paysdoc-AI-Dev-Workflow--worktrees-chore-issue-332-deploy-workers-github-actions/67cc672a-e28d-4261-aceb-e82698540878.jsonl",
+    "cwd": "/Users/martin/projects/paysdoc/AI_Dev_Workflow/.worktrees/chore-issue-332-deploy-workers-github-actions/workers/screenshot-router",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "PreToolUse",
+    "tool_name": "Read",
+    "tool_input": {
+      "file_path": "/Users/martin/projects/paysdoc/AI_Dev_Workflow/.worktrees/chore-issue-332-deploy-workers-github-actions/.github/workflows/deploy-workers.yml"
+    },
+    "tool_use_id": "toolu_01Wfx19qZ6YhSuFtZtr2HnZL"
+  },
+  {
+    "session_id": "67cc672a-e28d-4261-aceb-e82698540878",
+    "transcript_path": "/Users/martin/.claude/projects/-Users-martin-projects-paysdoc-AI-Dev-Workflow--worktrees-chore-issue-332-deploy-workers-github-actions/67cc672a-e28d-4261-aceb-e82698540878.jsonl",
+    "cwd": "/Users/martin/projects/paysdoc/AI_Dev_Workflow/.worktrees/chore-issue-332-deploy-workers-github-actions/workers/screenshot-router",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "PreToolUse",
+    "tool_name": "Read",
+    "tool_input": {
+      "file_path": "/Users/martin/projects/paysdoc/AI_Dev_Workflow/.worktrees/chore-issue-332-deploy-workers-github-actions/UBIQUITOUS_LANGUAGE.md"
+    },
+    "tool_use_id": "toolu_01GyetiXS7nuJo7PkGXDpYr5"
+  },
+  {
+    "session_id": "67cc672a-e28d-4261-aceb-e82698540878",
+    "transcript_path": "/Users/martin/.claude/projects/-Users-martin-projects-paysdoc-AI-Dev-Workflow--worktrees-chore-issue-332-deploy-workers-github-actions/67cc672a-e28d-4261-aceb-e82698540878.jsonl",
+    "cwd": "/Users/martin/projects/paysdoc/AI_Dev_Workflow/.worktrees/chore-issue-332-deploy-workers-github-actions/workers/screenshot-router",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "PreToolUse",
+    "tool_name": "Bash",
+    "tool_input": {
+      "command": "grep -r \"export type\\|export interface\\|export enum\\|export const.*=.*{\" /Users/martin/projects/paysdoc/AI_Dev_Workflow/.worktrees/chore-issue-332-deploy-workers-github-actions/adws/types/ 2>/dev/null | grep -v \"node_modules\"",
+      "description": "Scan domain types for UL drift check"
+    },
+    "tool_use_id": "toolu_01AKCQvRN8niHi2ZKiBkdRYk"
+  },
+  {
+    "session_id": "67cc672a-e28d-4261-aceb-e82698540878",
+    "transcript_path": "/Users/martin/.claude/projects/-Users-martin-projects-paysdoc-AI-Dev-Workflow--worktrees-chore-issue-332-deploy-workers-github-actions/67cc672a-e28d-4261-aceb-e82698540878.jsonl",
+    "cwd": "/Users/martin/projects/paysdoc/AI_Dev_Workflow/.worktrees/chore-issue-332-deploy-workers-github-actions/workers/screenshot-router",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "PreToolUse",
+    "tool_name": "Bash",
+    "tool_input": {
+      "command": "git -C /Users/martin/projects/paysdoc/AI_Dev_Workflow/.worktrees/chore-issue-332-deploy-workers-github-actions ls-files | grep -v \"^\\.claude\\|^\\.adw\\|^workers\\|^test\\|^features\\|^specs\\|^app_docs\\|^projects\\|^guidelines\\|^adws/__tests__\\|\\.lock$\\|\\.json$\\|\\.js$\\|\\.sql$\\|\\.jsonl$\\|\\.md$\\|\\.dockerignore$\\|\\.sh$\\|\\.env\\|\\.gitignore\" | head -50",
+      "description": "List tracked source files to compare with README"
+    },
+    "tool_use_id": "toolu_01NjFPSWsVB8jK691p4NAZMz"
+  },
+  {
+    "session_id": "67cc672a-e28d-4261-aceb-e82698540878",
+    "transcript_path": "/Users/martin/.claude/projects/-Users-martin-projects-paysdoc-AI-Dev-Workflow--worktrees-chore-issue-332-deploy-workers-github-actions/67cc672a-e28d-4261-aceb-e82698540878.jsonl",
+    "cwd": "/Users/martin/projects/paysdoc/AI_Dev_Workflow/.worktrees/chore-issue-332-deploy-workers-github-actions/workers/screenshot-router",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "PreToolUse",
+    "tool_name": "Bash",
+    "tool_input": {
+      "command": "git -C /Users/martin/projects/paysdoc/AI_Dev_Workflow/.worktrees/chore-issue-332-deploy-workers-github-actions ls-files adws/ | grep -v \"node_modules\\|__tests__\" | grep \"\\.ts$\\|\\.tsx$\" | sort",
+      "description": "List all adws TypeScript files"
+    },
+    "tool_use_id": "toolu_01GLLNty7giHJRY4ioB62pJT"
+  },
+  {
+    "session_id": "67cc672a-e28d-4261-aceb-e82698540878",
+    "transcript_path": "/Users/martin/.claude/projects/-Users-martin-projects-paysdoc-AI-Dev-Workflow--worktrees-chore-issue-332-deploy-workers-github-actions/67cc672a-e28d-4261-aceb-e82698540878.jsonl",
+    "cwd": "/Users/martin/projects/paysdoc/AI_Dev_Workflow/.worktrees/chore-issue-332-deploy-workers-github-actions/workers/screenshot-router",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "PreToolUse",
+    "tool_name": "Bash",
+    "tool_input": {
+      "command": "git -C /Users/martin/projects/paysdoc/AI_Dev_Workflow/.worktrees/chore-issue-332-deploy-workers-github-actions ls-files adws/ | grep -v \"\\.ts$\\|\\.tsx$\\|node_modules\\|__tests__\" | sort",
+      "description": "List non-TypeScript adws tracked files"
+    },
+    "tool_use_id": "toolu_0169PhXm9VJAHeWUmvDPfNRF"
+  }
+]

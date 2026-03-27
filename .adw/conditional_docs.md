@@ -7,6 +7,13 @@
     - When troubleshooting GitHub Actions deploy jobs for `screenshot-router` or `cost-api`
     - When configuring `CLOUDFLARE_API_TOKEN` or `CLOUDFLARE_ACCOUNT_ID` secrets for Worker CI
 
+- app_docs/feature-efcqzc-deploy-workers-github-actions.md
+  - Conditions:
+    - When working with `.github/workflows/deploy-workers.yml` and the per-worker job structure
+    - When adding a new Cloudflare Worker under `workers/` that needs CI auto-deployment
+    - When troubleshooting `dorny/paths-filter@v3` change detection or `cloudflare/wrangler-action@v3` deploy jobs
+    - When configuring `CLOUDFLARE_API_TOKEN` or `CLOUDFLARE_ACCOUNT_ID` secrets for Worker CI
+
 - app_docs/feature-92py6q-d1-client-dual-write.md
   - Conditions:
     - When working with `adws/cost/d1Client.ts` or the D1 dual-write pipeline
