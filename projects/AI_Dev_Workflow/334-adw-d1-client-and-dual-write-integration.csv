@@ -15,3 +15,4 @@ g2u55r-adw-d1-client-and-du,334,document,claude-sonnet-4-6,anthropic,0.196528,0.
 92py6q-adw-d1-client-and-du,334,document,claude-sonnet-4-6,anthropic,0.178485,0.178485,success,0,0,86748,2026-03-27T11:55:35.436Z,,,9,3196,172621,20995,0
 g2u55r-adw-d1-client-and-du,334,pr,claude-sonnet-4-6,anthropic,0.053851,0.053851,success,0,0,45369,2026-03-27T11:56:10.358Z,,,4,797,30112,8760,0
 92py6q-adw-d1-client-and-du,334,pr,claude-sonnet-4-6,anthropic,0.054953,0.054953,success,0,0,30164,2026-03-27T11:56:19.647Z,,,4,870,30110,8762,0
+g2u55r-adw-d1-client-and-du,334,kpi,claude-haiku-4-5-20251001,anthropic,0.080780,0.080780,success,0,0,64007,2026-03-27T11:57:20.026Z,,,58,5890,271190,19322,0
