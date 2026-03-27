@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value          | Last Updated       |
 | ----------------- | -------------- | ------------------ |
-| Current Streak    | 47             | 2026-03-27 13:56:32|
-| Longest Streak    | 47             | 2026-03-27 13:56:32|
-| Total Plan Size   | 441 lines      | 2026-03-27 13:56:32|
-| Largest Plan Size | 201 lines      | 2026-03-27 13:56:32|
-| Total Diff Size   | 1622658 lines  | 2026-03-27 13:56:32|
-| Largest Diff Size | 205468 lines   | 2026-03-27 13:56:32|
-| Average Presence  | 1.34           | 2026-03-27 13:56:32|
+| Current Streak    | 37             | 2026-03-27 14:32:16|
+| Longest Streak    | 37             | 2026-03-27 14:32:16|
+| Total Plan Size   | 441 lines      | 2026-03-27 14:32:16|
+| Largest Plan Size | 201 lines      | 2026-03-27 14:32:16|
+| Total Diff Size   | 1666236 lines  | 2026-03-27 14:32:16|
+| Largest Diff Size | 205468 lines   | 2026-03-27 14:32:16|
+| Average Presence  | 1.58           | 2026-03-27 14:32:16|
 
 ## ADW KPIs
 
@@ -80,3 +80,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-03-27 | es3uts-cost-api-worker-d1-s | 330          | /feature    | 1        | 0                 | 38160/1306/340                  | 2026-03-27 | 2026-03-27 |
 | 2026-03-27 | e5wrpe-csv-migration-script | 333          | /feature    | 1        | 0                 | 39565/1308/350                  | 2026-03-27 | 2026-03-27 |
 | 2026-03-27 | 92py6q-adw-d1-client-and-du | 334          | /feature    | 1        | 0                 | 40650/1309/364                  | 2026-03-27 | 2026-03-27 |
+| 2026-03-27 | avb4f5-github-actions-worke | 332          | /chore     | 1        | 0                 | 42268/1310/378                  | 2026-03-27 | 2026-03-27 |
