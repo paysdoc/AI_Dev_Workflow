@@ -48,7 +48,7 @@ Feature: Auto-approve and merge PRs after review passes in review orchestrators
     Given "adws/github/prApi.ts" is read
     Then the file contains "gh pr review" and "--approve"
 
-  @adw-fvzdz7-auto-approve-and-mer
+  @adw-fvzdz7-auto-approve-and-mer @regression
   Scenario: approvePR is exported from github/index.ts barrel
     Given "adws/github/index.ts" is read
     Then the file exports "approvePR"

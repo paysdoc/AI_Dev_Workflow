@@ -19,6 +19,7 @@
 | **Issue Type** | The classification of an Issue as one of `/feature`, `/bug`, `/chore`, or `/pr_review`, determining which Orchestrator handles it | Category, kind, label |
 | **Classification** | The process of determining an Issue's Issue Type, either by regex-matching an explicit ADW Command or by AI-based heuristic | Triage, routing |
 | **ADW Command** | An explicit slash command (e.g., `/adw_sdlc`, `/adw_plan_build`) embedded in an Issue that overrides Issue Type routing to select a specific Orchestrator | Override command, explicit command |
+| **HITL** | A GitHub label (`hitl`) applied to an Issue to gate auto-merge. When present at auto-merge time, the Orchestrator skips PR approval and merge, leaving the PR open for human review. The label is checked in real time via a fresh API call, not cached from Workflow start. | human-review, manual-merge, hold |
 
 ## Agents
 

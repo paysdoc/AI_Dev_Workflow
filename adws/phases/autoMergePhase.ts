@@ -19,7 +19,7 @@ import {
   emptyModelUsageMap,
 } from '../core';
 import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
-import { commentOnPR, approvePR, isGitHubAppConfigured, type RepoInfo } from '../github';
+import { commentOnPR, approvePR, isGitHubAppConfigured, commentOnIssue, issueHasLabel, type RepoInfo } from '../github';
 import { mergeWithConflictResolution } from '../triggers/autoMergeHandler';
 import { getPlanFilePath, planFileExists } from '../agents';
 import type { WorkflowConfig } from './workflowInit';
@@ -61,6 +61,19 @@ export async function executeAutoMergePhase(config: WorkflowConfig): Promise<{ c
   }
 
   const repoInfo: RepoInfo = { owner, repo };
+
+  // Gate: if the issue has the `hitl` label, skip auto-approval and auto-merge.
+  // The label is checked in real time so it can be added/removed during the workflow.
+  if (issueHasLabel(issueNumber, 'hitl', repoInfo)) {
+    log(`hitl label detected on issue #${issueNumber}, skipping auto-approval and auto-merge`, 'info');
+    commentOnIssue(
+      issueNumber,
+      `## ✋ Awaiting human approval — PR #${prNumber} ready for review`,
+      repoInfo,
+    );
+    return { costUsd: 0, modelUsage: emptyModelUsageMap(), phaseCostRecords: [] };
+  }
+
   const headBranch = ctx.branchName || branchName;
   const baseBranch = defaultBranch;
 

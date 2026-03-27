@@ -251,6 +251,14 @@
   - Conditions:
     - When working with `moveIssueToStatus()` or `findRepoProjectId()` in `adws/github/projectBoardApi.ts`
     - When troubleshooting project board status updates that silently skip on user-owned repositories
+
+- app_docs/feature-fygx90-hitl-label-gate-automerge.md
+  - Conditions:
+    - When working with `executeAutoMergePhase` in `adws/phases/autoMergePhase.ts`
+    - When adding or modifying label-based gates in the auto-merge flow
+    - When troubleshooting PRs that were intentionally skipped by the HITL gate
+    - When implementing `issueHasLabel()` or other real-time label checks in `adws/github/issueApi.ts`
+    - When the `hitl` label is present on an issue and auto-merge is expected to be skipped
     - When the GitHub App token cannot access Projects V2 (user-owned repos like `paysdoc/AI_Dev_Workflow`)
     - When configuring `GITHUB_PAT` as a fallback for project board GraphQL calls
     - When investigating why issues remain in "Todo" despite workflow phases completing

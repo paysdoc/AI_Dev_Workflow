@@ -20,6 +20,7 @@ export {
   fetchIssueCommentsRest,
   deleteIssueComment,
   getIssueTitleSync,
+  issueHasLabel,
   type RepoInfo,
 } from './githubApi';
 
