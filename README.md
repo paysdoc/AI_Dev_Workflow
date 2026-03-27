@@ -132,6 +132,7 @@ Docker execution is entirely optional — the test suite runs identically on the
 │   ├── classify_issue.md
 │   ├── clean_local_repo.md
 │   ├── commit.md
+│   ├── diff_evaluator.md
 │   ├── commit_cost.md
 │   ├── conditional_docs.md
 │   ├── document.md
@@ -203,6 +204,7 @@ adws/                   # ADW workflow system
 │   ├── buildAgent.ts
 │   ├── claudeAgent.ts
 │   ├── commandAgent.ts  # Generic thin-wrapper agent for slash commands
+│   ├── diffEvaluatorAgent.ts  # LLM-based diff safety classification (Haiku)
 │   ├── regressionScenarioProof.ts  # Regression scenario proof for reviews
 │   ├── dependencyExtractionAgent.ts  # LLM-based issue dependency extraction
 │   ├── documentAgent.ts
@@ -303,6 +305,7 @@ adws/                   # ADW workflow system
 ├── phases/             # Workflow phase implementations
 │   ├── alignmentPhase.ts  # Single-pass alignment phase
 │   ├── autoMergePhase.ts  # Auto-approve and merge PR after review passes
+│   ├── diffEvaluationPhase.ts  # LLM diff evaluation phase (safe vs regression_possible)
 │   ├── buildPhase.ts
 │   ├── documentPhase.ts
 │   ├── index.ts
@@ -370,6 +373,7 @@ adws/                   # ADW workflow system
 │   ├── uploadService.ts  # File upload logic
 │   └── index.ts
 ├── adwBuild.tsx        # Orchestrators (individual & combined)
+├── adwChore.tsx        # Chore pipeline with LLM diff gate (auto-merge)
 ├── adwBuildHelpers.ts
 ├── adwClearComments.tsx
 ├── adwDocument.tsx

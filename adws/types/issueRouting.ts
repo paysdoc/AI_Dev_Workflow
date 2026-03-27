@@ -57,7 +57,7 @@ export const adwCommandToOrchestratorMap: Partial<Record<AdwSlashCommand, string
  */
 export const issueTypeToOrchestratorMap: Record<IssueClassSlashCommand, string> = {
   '/bug': 'adws/adwSdlc.tsx',
-  '/chore': 'adws/adwPlanBuild.tsx',
+  '/chore': 'adws/adwChore.tsx',
   '/feature': 'adws/adwSdlc.tsx',
   '/pr_review': 'adws/adwPlanBuild.tsx',
   '/adw_init': 'adws/adwInit.tsx',

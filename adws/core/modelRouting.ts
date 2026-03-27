@@ -71,6 +71,8 @@ export const SLASH_COMMAND_MODEL_MAP: Record<SlashCommand, ModelTier> = {
   '/align_plan_scenarios': 'opus',
   // Install and prime
   '/install': 'sonnet',
+  // Diff evaluation (binary classification, cheap)
+  '/diff_evaluator': 'haiku',
 };
 
 /** Cost-optimized model map used when the issue body contains `/fast` or `/cheap`. */
@@ -108,6 +110,8 @@ export const SLASH_COMMAND_MODEL_MAP_FAST: Record<SlashCommand, ModelTier> = {
   '/align_plan_scenarios': 'sonnet',
   // Install and prime
   '/install': 'sonnet',
+  // Diff evaluation (binary classification, cheap)
+  '/diff_evaluator': 'haiku',
 };
 
 // ---------------------------------------------------------------------------
@@ -149,6 +153,8 @@ export const SLASH_COMMAND_EFFORT_MAP: Record<SlashCommand, ReasoningEffort | un
   '/align_plan_scenarios': 'high',
   // Install and prime
   '/install': 'medium',
+  // Diff evaluation (binary classification, cheap)
+  '/diff_evaluator': 'low',
 };
 
 /** Cost-optimized reasoning effort map used when the issue body contains `/fast` or `/cheap`. */
@@ -186,6 +192,8 @@ export const SLASH_COMMAND_EFFORT_MAP_FAST: Record<SlashCommand, ReasoningEffort
   '/align_plan_scenarios': 'medium',
   // Install and prime
   '/install': 'low',
+  // Diff evaluation (binary classification, cheap)
+  '/diff_evaluator': 'low',
 };
 
 // ---------------------------------------------------------------------------

@@ -278,6 +278,29 @@ bunx tsx adws/adwPlanBuildDocument.tsx <issueNumber> [adw-id]
 3. PR creation
 4. Document (generates documentation without screenshots)
 
+#### adwChore.tsx - Chore Pipeline with LLM Diff Gate
+Dedicated chore pipeline with automatic approval guarded by an LLM diff evaluator.
+
+**Usage:**
+```bash
+bunx tsx adws/adwChore.tsx <issueNumber> [adw-id]
+```
+
+**Phases:**
+1. Install (installs dependencies)
+2. Planning (creates implementation spec)
+3. Building (implements solution)
+4. Testing (unit tests only)
+5. PR (creates pull request)
+6. Diff Evaluation (Haiku classifies diff as `safe` or `regression_possible`)
+   - `safe` → auto-approve + auto-merge
+   - `regression_possible` → review → document → auto-merge
+
+**Notes:**
+- No scenario writer, plan-scenario alignment, or KPI tracking on this path
+- Diff verdict is posted as an audit comment on the issue
+- On agent failure, defaults to `regression_possible` (fail-safe)
+
 #### adwSdlc.tsx - Complete SDLC
 Full Software Development Life Cycle automation.
 
@@ -318,7 +341,7 @@ bunx tsx adws/triggers/trigger_cron.ts
 
 **Workflow selection:**
 - Bug issues → `adwSdlc.tsx`
-- Chore issues → `adwPlanBuild.tsx`
+- Chore issues → `adwChore.tsx`
 - Feature issues → `adwSdlc.tsx`
 - PR review issues → `adwPlanBuild.tsx`
 

@@ -80,7 +80,9 @@ export type SlashCommand =
   // Single-pass alignment command
   | '/align_plan_scenarios'
   // Install and prime
-  | '/install';
+  | '/install'
+  // Diff evaluation
+  | '/diff_evaluator';
 
 /**
  * GitHub user model.
