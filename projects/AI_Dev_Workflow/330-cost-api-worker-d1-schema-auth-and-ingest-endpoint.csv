@@ -9,3 +9,4 @@ es3uts-cost-api-worker-d1-s,330,review,claude-opus-4-6,anthropic,0.199465,0.1994
 viahyb-cost-api-worker-d1-s,330,review,claude-opus-4-6,anthropic,0.744502,0.744502,success,0,0,254935,2026-03-27T09:33:10.045Z,,,502,8515,341572,57333,0
 es3uts-cost-api-worker-d1-s,330,document,claude-sonnet-4-6,anthropic,0.265739,0.265739,success,0,0,130805,2026-03-27T09:35:09.673Z,,,12,4074,306590,30031,0
 viahyb-cost-api-worker-d1-s,330,document,claude-sonnet-4-6,anthropic,0.221335,0.221335,success,0,0,127073,2026-03-27T09:35:22.829Z,,,10,4033,214782,25700,0
+es3uts-cost-api-worker-d1-s,330,pr,claude-sonnet-4-6,anthropic,0.096784,0.096784,success,0,0,45646,2026-03-27T09:36:01.062Z,,,5,1819,58363,13860,0
