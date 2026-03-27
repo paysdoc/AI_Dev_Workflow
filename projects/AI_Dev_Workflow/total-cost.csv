@@ -1,0 +1,6 @@
+Issue number,Issue description,Phase,Model,Cost (USD)
+335,remove csv cost pipeline,review,claude-opus-4-6,1.715438
+335,remove csv cost pipeline,review,claude-sonnet-4-6,0.109202
+
+Total Cost (USD):,1.8246
+Total Cost (EUR):,1.5804
