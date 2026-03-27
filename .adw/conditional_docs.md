@@ -1,5 +1,13 @@
 # Conditional Documentation
 
+- app_docs/feature-92py6q-d1-client-dual-write.md
+  - Conditions:
+    - When working with `adws/cost/d1Client.ts` or the D1 dual-write pipeline
+    - When configuring `COST_API_URL` or `COST_API_TOKEN` in ADW
+    - When modifying `adws/phases/phaseCostCommit.ts` or the phase cost commit flow
+    - When troubleshooting D1 write failures or missing cost records in the D1 database
+    - When implementing future changes to the `PhaseCostRecord` → `IngestPayload` transformation
+
 - app_docs/feature-a72ezx-deploy-cost-api-worker.md
   - Conditions:
     - When deploying or re-deploying the `cost-api` Cloudflare Worker to production
