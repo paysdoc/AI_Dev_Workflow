@@ -289,6 +289,7 @@ adws/                   # ADW workflow system
 │   ├── commitQueue.ts  # Cost CSV commit queue
 │   ├── computation.ts  # Cost computation logic
 │   ├── costHelpers.ts  # Shared cost utility helpers
+│   ├── d1Client.ts     # HTTP client for posting cost records to Cost API Worker (D1)
 │   ├── exchangeRates.ts
 │   ├── index.ts
 │   └── types.ts
