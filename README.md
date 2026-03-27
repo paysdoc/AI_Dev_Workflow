@@ -285,7 +285,7 @@ adws/                   # ADW workflow system
 │   │   └── index.ts
 │   ├── computation.ts  # Cost computation logic
 │   ├── costHelpers.ts  # Shared cost utility helpers
-│   ├── d1Client.ts     # HTTP client for posting cost records to Cost API Worker (D1)
+│   ├── d1Client.ts     # D1 HTTP client — posts PhaseCostRecords to Cost API Worker
 │   ├── exchangeRates.ts
 │   ├── index.ts
 │   └── types.ts
@@ -408,7 +408,6 @@ workers/                # Cloudflare Workers
 │   │   └── types.ts        # Worker type definitions
 │   ├── test/
 │   │   └── ingest.test.ts  # Vitest tests
-│   ├── migrate.ts          # Migration runner script
 │   ├── package.json
 │   ├── tsconfig.json
 │   ├── vitest.config.ts

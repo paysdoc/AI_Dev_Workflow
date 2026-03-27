@@ -1,5 +1,19 @@
 # Conditional Documentation
 
+- app_docs/feature-avb4f5-deploy-workers-github-actions.md
+  - Conditions:
+    - When working with `.github/workflows/deploy-workers.yml`
+    - When adding a new Cloudflare Worker under `workers/` that needs CI deployment
+    - When troubleshooting GitHub Actions deploy jobs for `screenshot-router` or `cost-api`
+    - When configuring `CLOUDFLARE_API_TOKEN` or `CLOUDFLARE_ACCOUNT_ID` secrets for Worker CI
+
+- app_docs/feature-efcqzc-deploy-workers-github-actions.md
+  - Conditions:
+    - When working with `.github/workflows/deploy-workers.yml` and the per-worker job structure
+    - When adding a new Cloudflare Worker under `workers/` that needs CI auto-deployment
+    - When troubleshooting `dorny/paths-filter@v3` change detection or `cloudflare/wrangler-action@v3` deploy jobs
+    - When configuring `CLOUDFLARE_API_TOKEN` or `CLOUDFLARE_ACCOUNT_ID` secrets for Worker CI
+
 - app_docs/feature-92py6q-d1-client-dual-write.md
   - Conditions:
     - When working with `adws/cost/d1Client.ts` or the D1 dual-write pipeline
@@ -612,3 +626,4 @@
     - When wiring ADW phases to POST cost records to `costs.paysdoc.nl/api/cost`
     - When troubleshooting bearer token auth, project auto-creation, or token usage fan-out in the cost API
     - When deploying or migrating the `adw-costs` D1 database
+
