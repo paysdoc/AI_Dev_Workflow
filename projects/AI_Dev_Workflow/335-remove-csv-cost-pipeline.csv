@@ -3,3 +3,4 @@ ak03s5-remove-csv-cost-pipe,335,install,claude-sonnet-4-6,anthropic,0.315089,0.3
 ak03s5-remove-csv-cost-pipe,335,install,claude-haiku-4-5-20251001,anthropic,0.153299,0.153299,success,0,0,156084,2026-03-27T12:00:54.498Z,,,8747,4945,604662,47489,0
 ak03s5-remove-csv-cost-pipe,335,plan,claude-opus-4-6,anthropic,1.567346,1.567346,success,0,0,436862,2026-03-27T12:08:17.773Z,,,5392,15646,988910,104765,0
 ak03s5-remove-csv-cost-pipe,335,plan,claude-haiku-4-5-20251001,anthropic,0.172613,0.172613,success,0,0,436862,2026-03-27T12:08:17.773Z,,,5267,7607,525681,61394,0
+ak03s5-remove-csv-cost-pipe,335,build,claude-sonnet-4-6,anthropic,2.975482,2.975482,success,0,0,1105870,2026-03-27T12:26:50.724Z,,,79,47331,4483296,245411,0
