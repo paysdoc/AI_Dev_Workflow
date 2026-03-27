@@ -8,3 +8,4 @@ g2u55r-adw-d1-client-and-du,334,plan,claude-haiku-4-5-20251001,anthropic,0.06913
 g2u55r-adw-d1-client-and-du,334,scenario,claude-opus-4-6,anthropic,0.663025,0.663025,success,0,0,300633,2026-03-27T11:46:35.843Z,,,11,8683,369064,41818,0
 g2u55r-adw-d1-client-and-du,334,scenario,claude-haiku-4-5-20251001,anthropic,0.249657,0.249657,success,0,0,300633,2026-03-27T11:46:35.843Z,,,1161,12193,560170,105211,0
 92py6q-adw-d1-client-and-du,334,build,claude-sonnet-4-6,anthropic,0.517689,0.517689,success,0,0,187345,2026-03-27T11:48:49.352Z,,,24,6936,915990,37008,0
+g2u55r-adw-d1-client-and-du,334,build,claude-sonnet-4-6,anthropic,0.539859,0.539859,success,0,0,167619,2026-03-27T11:49:39.500Z,,,20,7212,862854,46070,0
