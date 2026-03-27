@@ -4,7 +4,7 @@
  */
 
 import * as path from 'path';
-import { log, AgentStateManager, type IssueClassSlashCommand, type ModelUsageMap, emptyModelUsageMap, type AgentIdentifier, type GitHubIssue, MAX_CONTEXT_RESETS } from '../core';
+import { log, AgentStateManager, type IssueClassSlashCommand, type ModelUsageMap, emptyModelUsageMap, type AgentIdentifier, type GitHubIssue, MAX_CONTEXT_RESETS, REVIEW_AGENT_COUNT } from '../core';
 import { initAgentState, trackCost, type AgentRunResult } from '../core/retryOrchestrator';
 import { runReviewAgent, type ReviewIssue, type ReviewAgentResult } from './reviewAgent';
 import { runPatchAgent } from './patchAgent';
@@ -13,9 +13,6 @@ import { runCommitAgent } from './gitAgent';
 import { pushBranch } from '../vcs';
 import { shouldRunScenarioProof, runScenarioProof, type ScenarioProofResult } from './regressionScenarioProof';
 import type { ReviewProofConfig } from '../core/projectConfig';
-
-/** Number of parallel review agents per iteration. */
-const REVIEW_AGENT_COUNT = 1;
 
 export interface MergedReviewResult {
   mergedIssues: ReviewIssue[];
