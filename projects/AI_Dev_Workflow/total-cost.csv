@@ -460,6 +460,7 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 332,github actions worker deploy workflow,build,claude-sonnet-4-6,0.138772
 332,github actions worker deploy workflow,document,claude-sonnet-4-6,0.183904
 332,github actions worker deploy workflow,document,claude-sonnet-4-6,0.252083
+332,github actions worker deploy workflow,document,claude-sonnet-4-6,0.155834
 332,github actions worker deploy workflow,install,claude-sonnet-4-6,0.436392
 332,github actions worker deploy workflow,install,claude-sonnet-4-6,0.365940
 332,github actions worker deploy workflow,install,claude-haiku-4-5-20251001,0.184693
@@ -503,5 +504,5 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 334,adw d1 client and dual write integration,scenario,claude-opus-4-6,0.663025
 334,adw d1 client and dual write integration,scenario,claude-haiku-4-5-20251001,0.249657
 
-Total Cost (USD):,416.3971
-Total Cost (EUR):,360.6549
+Total Cost (USD):,416.5530
+Total Cost (EUR):,360.7899
