@@ -1,5 +1,13 @@
 # Conditional Documentation
 
+- app_docs/feature-a72ezx-deploy-cost-api-worker.md
+  - Conditions:
+    - When deploying or re-deploying the `cost-api` Cloudflare Worker to production
+    - When troubleshooting the `adw-costs` D1 database connection or `database_id` in `wrangler.toml`
+    - When configuring `COST_API_TOKEN` or rotating the bearer secret on the Worker
+    - When adding a new Worker to `workers/` and relying on the CI auto-deploy workflow
+    - When verifying `costs.paysdoc.nl` is live and responding correctly
+
 - app_docs/feature-viahyb-cost-api-worker-d1-s-cost-api-worker.md
   - Conditions:
     - When working with the `workers/cost-api/` Cloudflare Worker
