@@ -453,8 +453,8 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 331,deploy cost api worker to cloudflare,install,claude-sonnet-4-6,0.352527
 331,deploy cost api worker to cloudflare,plan,claude-opus-4-6,0.419271
 331,deploy cost api worker to cloudflare,plan,claude-haiku-4-5-20251001,0.090237
-331,deploy cost api worker to cloudflare,pr,claude-sonnet-4-6,0.100325
 331,deploy cost api worker to cloudflare,pr,claude-sonnet-4-6,0.164758
+331,deploy cost api worker to cloudflare,pr,claude-sonnet-4-6,0.100325
 331,deploy cost api worker to cloudflare,review,claude-opus-4-6,0.291999
 333,csv migration script upload historical cost data t,build,claude-sonnet-4-6,0.511511
 333,csv migration script upload historical cost data t,document,claude-sonnet-4-6,0.211174
