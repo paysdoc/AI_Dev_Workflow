@@ -132,7 +132,7 @@ async function buildPRReviewCostSection(config: PRReviewWorkflowConfig, modelUsa
         phase: 'pr_review',
         status: PhaseCostStatus.Success,
         retryCount: 0,
-        continuationCount: 0,
+        contextResetCount: 0,
         durationMs: 0,
         modelUsage,
       });
@@ -156,7 +156,7 @@ async function buildPRReviewCostSection(config: PRReviewWorkflowConfig, modelUsa
       phase: 'pr_review',
       status: PhaseCostStatus.Success,
       retryCount: 0,
-      continuationCount: 0,
+      contextResetCount: 0,
       durationMs: 0,
       modelUsage,
     });

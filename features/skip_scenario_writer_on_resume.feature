@@ -13,11 +13,11 @@ Feature: Skip scenario writer and plan validation on Take action resume past pla
   # ── 1. Register plan_validating in the recovery system ──
 
   @adw-254 @regression
-  Scenario: STAGE_ORDER includes plan_validating between plan_committing and implementing
+  Scenario: STAGE_ORDER includes plan_validating between plan_committing and build_running
     Given "adws/core/workflowCommentParsing.ts" is read
     Then the STAGE_ORDER array should contain "plan_validating"
     And "plan_validating" should appear after "plan_committing" in STAGE_ORDER
-    And "plan_validating" should appear before "implementing" in STAGE_ORDER
+    And "plan_validating" should appear before "build_running" in STAGE_ORDER
 
   @adw-254 @regression
   Scenario: STAGE_HEADER_MAP maps the plan validation heading to plan_validating

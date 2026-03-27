@@ -5,9 +5,9 @@
 
 import {
   type CodeHost,
-  type CreateMROptions,
-  type MergeRequest,
-  type MergeRequestResult,
+  type CreatePROptions,
+  type PullRequest,
+  type PullRequestResult,
   type RepoIdentifier,
   type ReviewComment,
   validateRepoIdentifier,
@@ -15,7 +15,7 @@ import {
 import { GITLAB_TOKEN, GITLAB_INSTANCE_URL } from '../../core';
 import { GitLabApiClient } from './gitlabApiClient';
 import {
-  mapGitLabMRToMergeRequest,
+  mapGitLabMRToPullRequest,
   mapGitLabDiscussionsToReviewComments,
   toProjectPath,
 } from './mappers';
@@ -46,31 +46,31 @@ export class GitLabCodeHost implements CodeHost {
     return project.default_branch;
   }
 
-  /** Fetches MR details and maps to MergeRequest. */
-  fetchMergeRequest(mrNumber: number): MergeRequest {
-    const mr = this.client.getMergeRequest(this.projectPath, mrNumber);
-    return mapGitLabMRToMergeRequest(mr);
+  /** Fetches MR details and maps to PullRequest. */
+  fetchPullRequest(prNumber: number): PullRequest {
+    const mr = this.client.getMergeRequest(this.projectPath, prNumber);
+    return mapGitLabMRToPullRequest(mr);
   }
 
   /** Posts a comment (note) on the specified MR. */
-  commentOnMergeRequest(mrNumber: number, body: string): void {
-    this.client.createNote(this.projectPath, mrNumber, body);
+  commentOnPullRequest(prNumber: number, body: string): void {
+    this.client.createNote(this.projectPath, prNumber, body);
   }
 
   /** Fetches review comments from MR discussions. */
-  fetchReviewComments(mrNumber: number): ReviewComment[] {
-    const discussions = this.client.listDiscussions(this.projectPath, mrNumber);
+  fetchReviewComments(prNumber: number): ReviewComment[] {
+    const discussions = this.client.listDiscussions(this.projectPath, prNumber);
     return mapGitLabDiscussionsToReviewComments(discussions);
   }
 
-  /** Lists open MRs and maps to MergeRequest[]. */
-  listOpenMergeRequests(): MergeRequest[] {
+  /** Lists open MRs and maps to PullRequest[]. */
+  listOpenPullRequests(): PullRequest[] {
     const mrs = this.client.listMergeRequests(this.projectPath, 'opened');
-    return [...mrs].map(mapGitLabMRToMergeRequest);
+    return [...mrs].map(mapGitLabMRToPullRequest);
   }
 
-  /** Creates a merge request and returns its URL and number. */
-  createMergeRequest(options: CreateMROptions): MergeRequestResult {
+  /** Creates a pull request (MR) and returns its URL and number. */
+  createPullRequest(options: CreatePROptions): PullRequestResult {
     const mr = this.client.createMergeRequest(this.projectPath, {
       source_branch: options.sourceBranch,
       target_branch: options.targetBranch,

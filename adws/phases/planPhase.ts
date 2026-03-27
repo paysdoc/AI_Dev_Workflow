@@ -149,7 +149,7 @@ export async function executePlanPhase(config: WorkflowConfig): Promise<{ costUs
     phase: 'plan',
     status: PhaseCostStatus.Success,
     retryCount: 0,
-    continuationCount: 0,
+    contextResetCount: 0,
     durationMs: Date.now() - phaseStartTime,
     modelUsage,
   });

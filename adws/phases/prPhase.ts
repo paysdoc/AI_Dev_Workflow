@@ -74,17 +74,18 @@ export async function executePRPhase(config: WorkflowConfig): Promise<{ costUsd:
       const { prContent } = result;
       pushBranch(currentBranch, worktreePath);
       const defaultBranch = getDefaultBranch(worktreePath);
-      const mrResult = repoContext.codeHost.createMergeRequest({
+      const prResult = repoContext.codeHost.createPullRequest({
         title: prContent.title,
         body: prContent.body,
         sourceBranch: currentBranch,
         targetBranch: defaultBranch,
         linkedIssueNumber: issueNumber,
       });
-      ctx.prUrl = mrResult.url;
+      ctx.prUrl = prResult.url;
+      ctx.prNumber = prResult.number;
 
       postIssueStageComment(repoContext, issueNumber, 'pr_created', ctx);
-      log(`Pull Request created: ${mrResult.url}`, 'success');
+      log(`Pull Request created: ${prResult.url}`, 'success');
 
       // Transition issue to Review status now that the PR is open
       try {
@@ -107,7 +108,7 @@ export async function executePRPhase(config: WorkflowConfig): Promise<{ costUsd:
     phase: 'pr',
     status: PhaseCostStatus.Success,
     retryCount: 0,
-    continuationCount: 0,
+    contextResetCount: 0,
     durationMs: Date.now() - phaseStartTime,
     modelUsage,
   });

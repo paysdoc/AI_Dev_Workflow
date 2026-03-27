@@ -44,7 +44,7 @@ export function postPRStageComment(
   try {
     refreshTokenIfNeeded();
     const comment = formatPRReviewWorkflowComment(stage, ctx);
-    repoContext.codeHost.commentOnMergeRequest(prNumber, comment);
+    repoContext.codeHost.commentOnPullRequest(prNumber, comment);
   } catch (error) {
     log(`Failed to post PR workflow comment for stage '${stage}': ${error}`, 'error');
   }

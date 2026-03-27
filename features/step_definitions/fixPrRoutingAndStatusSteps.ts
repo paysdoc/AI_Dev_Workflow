@@ -45,10 +45,10 @@ Then('the extractOutput function parses JSON with title and body fields', functi
   );
 });
 
-// ── B: prPhase.ts — programmatic push before createMergeRequest ─────────────
+// ── B: prPhase.ts — programmatic push before createPullRequest ─────────────
 
 Then(
-  'the file contains {string} or a programmatic git push call before createMergeRequest',
+  'the file contains {string} or a programmatic git push call before createPullRequest',
   function (keyword: string) {
     const content = sharedCtx.fileContent;
     const hasPushBranch =
@@ -57,20 +57,20 @@ Then(
       content.includes('git push');
     assert.ok(
       hasPushBranch,
-      `Expected "${sharedCtx.filePath}" to contain "${keyword}" or a programmatic git push call before createMergeRequest`,
+      `Expected "${sharedCtx.filePath}" to contain "${keyword}" or a programmatic git push call before createPullRequest`,
     );
-    // Verify push comes before createMergeRequest
+    // Verify push comes before createPullRequest
     const pushIdx =
       content.indexOf(keyword) !== -1
         ? content.indexOf(keyword)
         : content.indexOf('pushBranch') !== -1
           ? content.indexOf('pushBranch')
           : content.indexOf('git push');
-    const createIdx = content.indexOf('createMergeRequest');
+    const createIdx = content.indexOf('createPullRequest');
     if (createIdx !== -1 && pushIdx !== -1) {
       assert.ok(
         pushIdx < createIdx,
-        `Expected push call to appear before createMergeRequest in "${sharedCtx.filePath}"`,
+        `Expected push call to appear before createPullRequest in "${sharedCtx.filePath}"`,
       );
     }
   },
@@ -78,65 +78,65 @@ Then(
 
 // ── B: prPhase.ts — ctx receives prUrl and PR number ────────────────────────
 
-Then('ctx receives prUrl from the createMergeRequest result', function () {
+Then('ctx receives prUrl from the createPullRequest result', function () {
   const content = sharedCtx.fileContent;
-  // prPhase.ts sets ctx.prUrl from the createMergeRequest result
+  // prPhase.ts sets ctx.prUrl from the createPullRequest result
   const hasCtxPrUrl =
     content.includes('ctx.prUrl') &&
-    (content.includes('.url') || content.includes('mrResult'));
+    (content.includes('.url') || content.includes('prResult'));
   assert.ok(
     hasCtxPrUrl,
-    `Expected "${sharedCtx.filePath}" to assign ctx.prUrl from the createMergeRequest result`,
+    `Expected "${sharedCtx.filePath}" to assign ctx.prUrl from the createPullRequest result`,
   );
 });
 
-Then('ctx receives a PR number from the createMergeRequest result', function () {
+Then('ctx receives a PR number from the createPullRequest result', function () {
   const content = sharedCtx.fileContent;
-  // prPhase.ts should store the PR number from mrResult.number or similar
+  // prPhase.ts should store the PR number from prResult.number or similar
   const hasPrNumber =
-    content.includes('mrResult.number') ||
+    content.includes('prResult.number') ||
     content.includes('ctx.prNumber') ||
-    (content.includes('.number') && content.includes('mrResult'));
+    (content.includes('.number') && content.includes('prResult'));
   assert.ok(
     hasPrNumber,
-    `Expected "${sharedCtx.filePath}" to store a PR number from the createMergeRequest result`,
+    `Expected "${sharedCtx.filePath}" to store a PR number from the createPullRequest result`,
   );
 });
 
-// ── C: CodeHost interface — createMergeRequest return type ──────────────────
+// ── C: CodeHost interface — createPullRequest return type ──────────────────
 
-Then('the createMergeRequest return type includes url and number fields', function () {
+Then('the createPullRequest return type includes url and number fields', function () {
   const content = sharedCtx.fileContent;
-  // MergeRequestResult interface should have url and number
-  const hasMergeRequestResult =
-    content.includes('MergeRequestResult') ||
-    (content.includes('url') && content.includes('number') && content.includes('createMergeRequest'));
+  // PullRequestResult interface should have url and number
+  const hasPullRequestResult =
+    content.includes('PullRequestResult') ||
+    (content.includes('url') && content.includes('number') && content.includes('createPullRequest'));
   assert.ok(
-    hasMergeRequestResult,
-    `Expected "${sharedCtx.filePath}" to define a createMergeRequest return type with url and number fields`,
+    hasPullRequestResult,
+    `Expected "${sharedCtx.filePath}" to define a createPullRequest return type with url and number fields`,
   );
   // Verify both url and number are present in the result type definition
-  const resultTypeIdx = content.indexOf('MergeRequestResult');
+  const resultTypeIdx = content.indexOf('PullRequestResult');
   if (resultTypeIdx !== -1) {
     const typeBody = content.slice(resultTypeIdx, resultTypeIdx + 200);
     assert.ok(
       typeBody.includes('url') && typeBody.includes('number'),
-      `Expected MergeRequestResult to contain both url and number fields`,
+      `Expected PullRequestResult to contain both url and number fields`,
     );
   }
 });
 
-// ── C: provider createMergeRequest returns { url, number } ──────────────────
+// ── C: provider createPullRequest returns { url, number } ──────────────────
 
 Then(
-  'the createMergeRequest method returns an object with url and number properties',
+  'the createPullRequest method returns an object with url and number properties',
   function () {
     const content = sharedCtx.fileContent;
-    // Find the createMergeRequest method body
-    const methodIdx = content.indexOf('createMergeRequest(');
+    // Find the createPullRequest method body
+    const methodIdx = content.indexOf('createPullRequest(');
     assert.ok(
       methodIdx !== -1,
-      `Expected "${sharedCtx.filePath}" to contain a createMergeRequest method`,
+      `Expected "${sharedCtx.filePath}" to contain a createPullRequest method`,
     );
     // Slice from the method definition onwards to find its body
     const methodBody = content.slice(methodIdx, methodIdx + 1000);
@@ -151,11 +151,11 @@ Then(
       methodBody.includes('.iid');
     assert.ok(
       returnsUrl,
-      `Expected createMergeRequest in "${sharedCtx.filePath}" to return an object with a url property`,
+      `Expected createPullRequest in "${sharedCtx.filePath}" to return an object with a url property`,
     );
     assert.ok(
       returnsNumber,
-      `Expected createMergeRequest in "${sharedCtx.filePath}" to return an object with a number property`,
+      `Expected createPullRequest in "${sharedCtx.filePath}" to return an object with a number property`,
     );
   },
 );

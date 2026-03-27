@@ -73,7 +73,7 @@ export async function executeAlignmentPhase(
       phase: 'alignment',
       status: PhaseCostStatus.Success,
       retryCount: 0,
-      continuationCount: 0,
+      contextResetCount: 0,
       durationMs: Date.now() - phaseStartTime,
       modelUsage,
     });
@@ -93,7 +93,7 @@ export async function executeAlignmentPhase(
       phase: 'alignment',
       status: PhaseCostStatus.Success,
       retryCount: 0,
-      continuationCount: 0,
+      contextResetCount: 0,
       durationMs: Date.now() - phaseStartTime,
       modelUsage,
     });
@@ -176,7 +176,7 @@ export async function executeAlignmentPhase(
     phase: 'alignment',
     status: PhaseCostStatus.Success,
     retryCount: 0,
-    continuationCount: 0,
+    contextResetCount: 0,
     durationMs: Date.now() - phaseStartTime,
     modelUsage,
   });

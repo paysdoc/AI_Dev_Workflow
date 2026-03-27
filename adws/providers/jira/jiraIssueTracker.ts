@@ -4,7 +4,7 @@
  */
 
 import { log, JIRA_EMAIL, JIRA_API_TOKEN, JIRA_PAT } from '../../core';
-import type { IssueTracker, WorkItem, WorkItemComment } from '../types';
+import type { IssueTracker, Issue, IssueComment } from '../types';
 import { BoardStatus } from '../types';
 import { JiraApiClient } from './jiraApiClient';
 import type { JiraIssueResponse, JiraCommentResponse } from './jiraTypes';
@@ -52,7 +52,7 @@ export class JiraIssueTracker implements IssueTracker {
     return STATUS_CATEGORY_MAP[statusCategoryKey] ?? statusCategoryKey.toUpperCase();
   }
 
-  private toWorkItemComment(jiraComment: JiraCommentResponse, issueKey: string): WorkItemComment {
+  private toIssueComment(jiraComment: JiraCommentResponse, issueKey: string): IssueComment {
     this.commentIssueMap.set(jiraComment.id, issueKey);
     return {
       id: jiraComment.id,
@@ -62,9 +62,9 @@ export class JiraIssueTracker implements IssueTracker {
     };
   }
 
-  private toWorkItem(jiraIssue: JiraIssueResponse): WorkItem {
+  private toIssue(jiraIssue: JiraIssueResponse): Issue {
     const comments = (jiraIssue.fields.comment?.comments ?? []).map(
-      c => this.toWorkItemComment(c, jiraIssue.key),
+      c => this.toIssueComment(c, jiraIssue.key),
     );
 
     return {
@@ -79,10 +79,10 @@ export class JiraIssueTracker implements IssueTracker {
     };
   }
 
-  async fetchIssue(issueNumber: number): Promise<WorkItem> {
+  async fetchIssue(issueNumber: number): Promise<Issue> {
     const issueKey = this.toJiraKey(issueNumber);
     const jiraIssue = await this.client.getIssue(issueKey);
-    return this.toWorkItem(jiraIssue);
+    return this.toIssue(jiraIssue);
   }
 
   commentOnIssue(issueNumber: number, body: string): void {
@@ -162,13 +162,13 @@ export class JiraIssueTracker implements IssueTracker {
     return state;
   }
 
-  fetchComments(issueNumber: number): WorkItemComment[] {
+  fetchComments(issueNumber: number): IssueComment[] {
     const issueKey = this.toJiraKey(issueNumber);
-    const comments: WorkItemComment[] = [];
+    const comments: IssueComment[] = [];
 
     this.client.getComments(issueKey).then(jiraComments => {
       for (const jc of jiraComments) {
-        comments.push(this.toWorkItemComment(jc, issueKey));
+        comments.push(this.toIssueComment(jc, issueKey));
       }
     }).catch(error => {
       log(`Failed to fetch comments for Jira issue ${issueKey}: ${error}`, 'error');

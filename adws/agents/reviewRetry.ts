@@ -4,7 +4,7 @@
  */
 
 import * as path from 'path';
-import { log, AgentStateManager, type IssueClassSlashCommand, type ModelUsageMap, emptyModelUsageMap, type AgentIdentifier, type GitHubIssue, MAX_TOKEN_CONTINUATIONS } from '../core';
+import { log, AgentStateManager, type IssueClassSlashCommand, type ModelUsageMap, emptyModelUsageMap, type AgentIdentifier, type GitHubIssue, MAX_CONTEXT_RESETS } from '../core';
 import { initAgentState, trackCost, type AgentRunResult } from '../core/retryOrchestrator';
 import { runReviewAgent, type ReviewIssue, type ReviewAgentResult } from './reviewAgent';
 import { runPatchAgent } from './patchAgent';
@@ -35,7 +35,7 @@ export interface ReviewRetryResult {
   reviewSummary?: string;
   allScreenshots: string[];
   allSummaries: string[];
-  continuationCount: number;
+  contextResetCount: number;
   /** Scenario proof from the final iteration, if scenario proof was run. */
   scenarioProof?: ScenarioProofResult;
 }
@@ -122,7 +122,7 @@ export async function runReviewWithRetry(opts: ReviewRetryOptions): Promise<Revi
   } = opts;
 
   let retryCount = 0;
-  let continuationCount = 0;
+  let contextResetCount = 0;
   let lastBlockerIssues: ReviewIssue[] = [];
   let lastNonBlockerIssues: ReviewIssue[] = [];
   const costState = { costUsd: 0, modelUsage: emptyModelUsageMap() };
@@ -179,7 +179,7 @@ export async function runReviewWithRetry(opts: ReviewRetryOptions): Promise<Revi
           reviewSummary,
           allScreenshots,
           allSummaries,
-          continuationCount,
+          contextResetCount,
           scenarioProof,
         };
       }
@@ -203,14 +203,14 @@ export async function runReviewWithRetry(opts: ReviewRetryOptions): Promise<Revi
     if (onCompactionDetected) {
       for (let i = 0; i < reviewResults.length; i++) {
         while ((reviewResults[i] as AgentRunResult).compactionDetected) {
-          continuationCount++;
+          contextResetCount++;
           const agentIndex = i + 1;
-          log(`Review agent ${agentIndex} context compacted (continuation ${continuationCount}/${MAX_TOKEN_CONTINUATIONS})`, 'info');
-          AgentStateManager.appendLog(statePath, `Review agent ${agentIndex} compacted (continuation ${continuationCount})`);
-          if (continuationCount > MAX_TOKEN_CONTINUATIONS) {
-            throw new Error(`Review phase exceeded maximum continuations (${MAX_TOKEN_CONTINUATIONS}) due to context compaction`);
+          log(`Review agent ${agentIndex} context compacted (context reset ${contextResetCount}/${MAX_CONTEXT_RESETS})`, 'info');
+          AgentStateManager.appendLog(statePath, `Review agent ${agentIndex} compacted (context reset ${contextResetCount})`);
+          if (contextResetCount > MAX_CONTEXT_RESETS) {
+            throw new Error(`Review phase exceeded maximum context resets (${MAX_CONTEXT_RESETS}) due to context compaction`);
           }
-          onCompactionDetected(continuationCount);
+          onCompactionDetected(contextResetCount);
           const newResult = await runReviewAgent(
             adwId, specFile, logsDir, initAgentState(statePath, `review-agent-${agentIndex}` as AgentIdentifier),
             cwd, applicationUrl, issueBody, agentIndex, scenarioProof?.resultsFilePath,
@@ -238,7 +238,7 @@ export async function runReviewWithRetry(opts: ReviewRetryOptions): Promise<Revi
         passed: true, costUsd: costState.costUsd, totalRetries: retryCount,
         blockerIssues: [], nonBlockerIssues: merged.nonBlockerIssues,
         modelUsage: costState.modelUsage,
-        reviewSummary, allScreenshots, allSummaries, continuationCount, scenarioProof: lastScenarioProof,
+        reviewSummary, allScreenshots, allSummaries, contextResetCount, scenarioProof: lastScenarioProof,
       };
     }
 
@@ -261,13 +261,13 @@ export async function runReviewWithRetry(opts: ReviewRetryOptions): Promise<Revi
       // Handle patch agent compaction: re-run with fresh context without counting as a retry
       if (onCompactionDetected) {
         while ((patchResult as AgentRunResult).compactionDetected) {
-          continuationCount++;
-          log(`Patch agent compacted (continuation ${continuationCount}/${MAX_TOKEN_CONTINUATIONS})`, 'info');
-          AgentStateManager.appendLog(statePath, `Patch agent compacted (continuation ${continuationCount})`);
-          if (continuationCount > MAX_TOKEN_CONTINUATIONS) {
-            throw new Error(`Review phase patch agent exceeded maximum continuations (${MAX_TOKEN_CONTINUATIONS})`);
+          contextResetCount++;
+          log(`Patch agent compacted (context reset ${contextResetCount}/${MAX_CONTEXT_RESETS})`, 'info');
+          AgentStateManager.appendLog(statePath, `Patch agent compacted (context reset ${contextResetCount})`);
+          if (contextResetCount > MAX_CONTEXT_RESETS) {
+            throw new Error(`Review phase patch agent exceeded maximum context resets (${MAX_CONTEXT_RESETS})`);
           }
-          onCompactionDetected(continuationCount);
+          onCompactionDetected(contextResetCount);
           patchResult = await runPatchAgent(
             adwId, blockerIssue, logsDir, specFile, undefined, initAgentState(statePath, 'patch-agent'), cwd, issueBody,
           );
@@ -291,13 +291,13 @@ export async function runReviewWithRetry(opts: ReviewRetryOptions): Promise<Revi
         // Handle build agent compaction: re-run with fresh context without counting as a retry
         if (onCompactionDetected) {
           while ((buildResult as AgentRunResult).compactionDetected) {
-            continuationCount++;
-            log(`Build agent (review patch) compacted (continuation ${continuationCount}/${MAX_TOKEN_CONTINUATIONS})`, 'info');
-            AgentStateManager.appendLog(statePath, `Build agent (review patch) compacted (continuation ${continuationCount})`);
-            if (continuationCount > MAX_TOKEN_CONTINUATIONS) {
-              throw new Error(`Review phase build agent exceeded maximum continuations (${MAX_TOKEN_CONTINUATIONS})`);
+            contextResetCount++;
+            log(`Build agent (review patch) compacted (context reset ${contextResetCount}/${MAX_CONTEXT_RESETS})`, 'info');
+            AgentStateManager.appendLog(statePath, `Build agent (review patch) compacted (context reset ${contextResetCount})`);
+            if (contextResetCount > MAX_CONTEXT_RESETS) {
+              throw new Error(`Review phase build agent exceeded maximum context resets (${MAX_CONTEXT_RESETS})`);
             }
-            onCompactionDetected(continuationCount);
+            onCompactionDetected(contextResetCount);
             buildResult = await runBuildAgent(
               issue, logsDir, patchResult.output, undefined, initAgentState(statePath, 'build-agent'), cwd,
             );
@@ -328,6 +328,6 @@ export async function runReviewWithRetry(opts: ReviewRetryOptions): Promise<Revi
     passed: false, costUsd: costState.costUsd, totalRetries: retryCount,
     blockerIssues: lastBlockerIssues, nonBlockerIssues: lastNonBlockerIssues,
     modelUsage: costState.modelUsage,
-    reviewSummary, allScreenshots, allSummaries, continuationCount, scenarioProof: lastScenarioProof,
+    reviewSummary, allScreenshots, allSummaries, contextResetCount, scenarioProof: lastScenarioProof,
   };
 }

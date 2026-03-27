@@ -7,7 +7,7 @@ import { type ModelUsageMap, emptyModelUsageMap, mergeModelUsageMaps, persistTok
 import { type AgentIdentifier } from '../types/agentTypes';
 import { AgentStateManager } from './agentState';
 import { log } from './utils';
-import { MAX_TOKEN_CONTINUATIONS } from './config';
+import { MAX_CONTEXT_RESETS } from './config';
 
 export interface RetryResult<TFailure> {
   passed: boolean;
@@ -15,7 +15,7 @@ export interface RetryResult<TFailure> {
   totalRetries: number;
   failures: TFailure[];
   modelUsage: ModelUsageMap;
-  continuationCount: number;
+  contextResetCount: number;
 }
 
 export interface AgentRunResult {
@@ -45,11 +45,11 @@ export interface RetryConfig<TRunResult extends AgentRunResult, TFailure> {
   /** Optional callback when a retry attempt fails */
   onRetryFailed?: (attempt: number, maxAttempts: number) => void;
 
-  /** Optional callback when context compaction is detected; triggers a continuation without incrementing retryCount */
-  onCompactionDetected?: (continuationNumber: number) => void;
+  /** Optional callback when context compaction is detected; triggers a context reset without incrementing retryCount */
+  onCompactionDetected?: (contextResetNumber: number) => void;
 
-  /** Maximum compaction continuations before throwing (defaults to MAX_TOKEN_CONTINUATIONS) */
-  maxContinuations?: number;
+  /** Maximum context resets before throwing (defaults to MAX_CONTEXT_RESETS) */
+  maxContextResets?: number;
 }
 
 /**
@@ -91,10 +91,10 @@ export async function retryWithResolution<TRunResult extends AgentRunResult, TFa
   config: RetryConfig<TRunResult, TFailure>,
 ): Promise<RetryResult<TFailure>> {
   const { maxRetries, statePath, label, run, isPassed, extractFailures, resolveFailures, onRetryFailed, onCompactionDetected } = config;
-  const maxContinuations = config.maxContinuations ?? MAX_TOKEN_CONTINUATIONS;
+  const maxContextResets = config.maxContextResets ?? MAX_CONTEXT_RESETS;
 
   let retryCount = 0;
-  let continuationCount = 0;
+  let contextResetCount = 0;
   const costUsd = 0;
   let lastFailures: TFailure[] = [];
   const modelUsage = emptyModelUsageMap();
@@ -109,13 +109,13 @@ export async function retryWithResolution<TRunResult extends AgentRunResult, TFa
 
     // Handle compaction recovery for run() — only when callback is provided
     if (onCompactionDetected && result.compactionDetected) {
-      continuationCount++;
-      log(`${label} agent context compacted (continuation ${continuationCount}/${maxContinuations})`, 'info');
-      AgentStateManager.appendLog(statePath, `${label} agent context compacted (continuation ${continuationCount})`);
-      if (continuationCount > maxContinuations) {
-        throw new Error(`${label} exceeded maximum continuations (${maxContinuations}) due to context compaction`);
+      contextResetCount++;
+      log(`${label} agent context compacted (context reset ${contextResetCount}/${maxContextResets})`, 'info');
+      AgentStateManager.appendLog(statePath, `${label} agent context compacted (context reset ${contextResetCount})`);
+      if (contextResetCount > maxContextResets) {
+        throw new Error(`${label} exceeded maximum context resets (${maxContextResets}) due to context compaction`);
       }
-      onCompactionDetected(continuationCount);
+      onCompactionDetected(contextResetCount);
       continue; // don't increment retryCount
     }
 
@@ -129,7 +129,7 @@ export async function retryWithResolution<TRunResult extends AgentRunResult, TFa
     if (isPassed(result)) {
       log(`${label} passed!`, 'success');
       AgentStateManager.appendLog(statePath, `${label} passed`);
-      return { passed: true, costUsd: costState.costUsd, totalRetries: retryCount, failures: [], modelUsage: costState.modelUsage, continuationCount };
+      return { passed: true, costUsd: costState.costUsd, totalRetries: retryCount, failures: [], modelUsage: costState.modelUsage, contextResetCount };
     }
 
     lastFailures = extractFailures(result);
@@ -142,13 +142,13 @@ export async function retryWithResolution<TRunResult extends AgentRunResult, TFa
 
     // Handle compaction recovery for resolveFailures() — only when callback is provided
     if (onCompactionDetected && resolveResult.compactionDetected) {
-      continuationCount++;
-      log(`${label} resolver context compacted (continuation ${continuationCount}/${maxContinuations})`, 'info');
-      AgentStateManager.appendLog(statePath, `${label} resolver context compacted (continuation ${continuationCount})`);
-      if (continuationCount > maxContinuations) {
-        throw new Error(`${label} exceeded maximum continuations (${maxContinuations}) due to context compaction during resolution`);
+      contextResetCount++;
+      log(`${label} resolver context compacted (context reset ${contextResetCount}/${maxContextResets})`, 'info');
+      AgentStateManager.appendLog(statePath, `${label} resolver context compacted (context reset ${contextResetCount})`);
+      if (contextResetCount > maxContextResets) {
+        throw new Error(`${label} exceeded maximum context resets (${maxContextResets}) due to context compaction during resolution`);
       }
-      onCompactionDetected(continuationCount);
+      onCompactionDetected(contextResetCount);
       continue; // don't increment retryCount
     }
 
@@ -157,5 +157,5 @@ export async function retryWithResolution<TRunResult extends AgentRunResult, TFa
 
   log(`${label} still failing after ${maxRetries} attempts`, 'error');
   AgentStateManager.appendLog(statePath, `${label} still failing after ${maxRetries} attempts`);
-  return { passed: false, costUsd: costState.costUsd, totalRetries: retryCount, failures: lastFailures, modelUsage: costState.modelUsage, continuationCount };
+  return { passed: false, costUsd: costState.costUsd, totalRetries: retryCount, failures: lastFailures, modelUsage: costState.modelUsage, contextResetCount };
 }

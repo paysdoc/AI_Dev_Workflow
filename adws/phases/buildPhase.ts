@@ -8,7 +8,7 @@ import {
   log,
   AgentStateManager,
   shouldExecuteStage,
-  MAX_TOKEN_CONTINUATIONS,
+  MAX_CONTEXT_RESETS,
   RUNNING_TOKENS,
   type ModelUsageMap,
   emptyModelUsageMap,
@@ -31,7 +31,7 @@ import { BoardStatus } from '../providers/types';
  * Executes the Build phase: read plan, run build agent, commit implementation.
  * Includes token limit recovery: when the agent approaches the token limit,
  * it is gracefully terminated, progress is saved, and a new agent is spawned
- * with context from the previous run. Repeats up to MAX_TOKEN_CONTINUATIONS times.
+ * with context from the previous run. Repeats up to MAX_CONTEXT_RESETS times.
  * Uses `config.repoInfo` for external repository API calls when targeting a different repo.
  */
 export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costUsd: number; modelUsage: ModelUsageMap; phaseCostRecords: PhaseCostRecord[] }> {
@@ -56,11 +56,11 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
   let costUsd = 0;
   let modelUsage = emptyModelUsageMap();
   const currentBranch = ctx.branchName || '';
-  let continuationCount = 0;
+  let contextResetCount = 0;
 
-  if (shouldExecuteStage('implemented', recoveryState)) {
+  if (shouldExecuteStage('build_completed', recoveryState)) {
     if (repoContext) {
-      postIssueStageComment(repoContext, issueNumber, 'implementing', ctx);
+      postIssueStageComment(repoContext, issueNumber, 'build_running', ctx);
     }
     log('Running Build Agent (scenario detection delegated to build agent)...', 'info');
 
@@ -68,7 +68,7 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
     let continuationNumber = 0;
     let buildCompleted = false;
 
-    while (continuationNumber <= MAX_TOKEN_CONTINUATIONS && !buildCompleted) {
+    while (continuationNumber <= MAX_CONTEXT_RESETS && !buildCompleted) {
       const buildAgentStatePath = AgentStateManager.initializeState(adwId, 'build-agent', orchestratorStatePath);
       AgentStateManager.writeState(buildAgentStatePath, {
         adwId,
@@ -185,8 +185,8 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
 
       if (buildResult.tokenLimitExceeded) {
         continuationNumber++;
-        continuationCount++;
-        log(`Build agent hit token limit (continuation ${continuationNumber}/${MAX_TOKEN_CONTINUATIONS})`, 'info');
+        contextResetCount++;
+        log(`Build agent hit token limit (context reset ${continuationNumber}/${MAX_CONTEXT_RESETS})`, 'info');
 
         // Save partial state
         AgentStateManager.writeState(buildAgentStatePath, {
@@ -197,10 +197,10 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
             true
           ),
         });
-        AgentStateManager.appendLog(orchestratorStatePath, `Build agent hit token limit (continuation ${continuationNumber})`);
+        AgentStateManager.appendLog(orchestratorStatePath, `Build agent hit token limit (context reset ${continuationNumber})`);
 
-        if (continuationNumber > MAX_TOKEN_CONTINUATIONS) {
-          throw new Error(`Build agent exceeded maximum token continuations (${MAX_TOKEN_CONTINUATIONS}). Last partial output: ${buildResult.output.substring(0, 500)}`);
+        if (continuationNumber > MAX_CONTEXT_RESETS) {
+          throw new Error(`Build agent exceeded maximum context resets (${MAX_CONTEXT_RESETS}). Last partial output: ${buildResult.output.substring(0, 500)}`);
         }
 
         // Post recovery comment
@@ -217,8 +217,8 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
 
       if (buildResult.compactionDetected) {
         continuationNumber++;
-        continuationCount++;
-        log(`Build agent context compacted (continuation ${continuationNumber}/${MAX_TOKEN_CONTINUATIONS})`, 'info');
+        contextResetCount++;
+        log(`Build agent context compacted (context reset ${continuationNumber}/${MAX_CONTEXT_RESETS})`, 'info');
 
         AgentStateManager.writeState(buildAgentStatePath, {
           output: buildResult.output.substring(0, 1000),
@@ -228,10 +228,10 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
             true
           ),
         });
-        AgentStateManager.appendLog(orchestratorStatePath, `Build agent context compacted (continuation ${continuationNumber})`);
+        AgentStateManager.appendLog(orchestratorStatePath, `Build agent context compacted (context reset ${continuationNumber})`);
 
-        if (continuationNumber > MAX_TOKEN_CONTINUATIONS) {
-          throw new Error(`Build agent exceeded maximum continuations (${MAX_TOKEN_CONTINUATIONS}) due to context compaction. Last partial output: ${buildResult.output.substring(0, 500)}`);
+        if (continuationNumber > MAX_CONTEXT_RESETS) {
+          throw new Error(`Build agent exceeded maximum context resets (${MAX_CONTEXT_RESETS}) due to context compaction. Last partial output: ${buildResult.output.substring(0, 500)}`);
         }
 
         ctx.tokenContinuationNumber = continuationNumber;
@@ -269,16 +269,16 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
 
     AgentStateManager.appendLog(orchestratorStatePath, 'Build completed');
     if (repoContext) {
-      postIssueStageComment(repoContext, issueNumber, 'implemented', ctx);
+      postIssueStageComment(repoContext, issueNumber, 'build_completed', ctx);
     }
   } else {
     log('Skipping Build Agent (already completed)', 'info');
   }
 
   // Commit implementation step
-  if (shouldExecuteStage('implementation_committing', recoveryState)) {
+  if (shouldExecuteStage('build_committing', recoveryState)) {
     if (repoContext) {
-      postIssueStageComment(repoContext, issueNumber, 'implementation_committing', ctx);
+      postIssueStageComment(repoContext, issueNumber, 'build_committing', ctx);
     }
     await runCommitAgent('build-agent', issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body);
   } else {
@@ -291,7 +291,7 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
     phase: 'build',
     status: PhaseCostStatus.Success,
     retryCount: 0,
-    continuationCount,
+    contextResetCount,
     durationMs: Date.now() - phaseStartTime,
     modelUsage,
   });

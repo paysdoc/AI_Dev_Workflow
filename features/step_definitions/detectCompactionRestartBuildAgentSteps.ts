@@ -282,10 +282,10 @@ Then('the returned AgentResult does not have compactionDetected set to true', fu
 
 Then('the continuation counter is incremented', function () {
   const content = sharedCtx.fileContent;
-  // buildPhase.ts uses continuationNumber++; retryOrchestrator/testRetry/reviewRetry use continuationCount++
+  // buildPhase.ts uses contextResetNumber++; retryOrchestrator/testRetry/reviewRetry use contextResetCount++
   assert.ok(
-    content.includes('continuationNumber++') || content.includes('continuationCount++'),
-    'Expected file to increment a continuation counter (continuationNumber++ or continuationCount++) on compaction',
+    content.includes('contextResetNumber++') || content.includes('contextResetCount++'),
+    'Expected file to increment a context reset counter (contextResetNumber++ or contextResetCount++) on compaction',
   );
 });
 
@@ -312,16 +312,16 @@ Then('a new build agent is spawned with the continuation prompt', function () {
 
 Then('the shared continuation counter is 2', function () {
   const content = sharedCtx.fileContent;
-  // buildPhase.ts: both tokenLimitExceeded and compactionDetected use the same continuationNumber variable
-  // retryOrchestrator.ts / reviewRetry.ts / testRetry.ts: use a single continuationCount variable
+  // buildPhase.ts: both tokenLimitExceeded and compactionDetected use the same contextResetNumber variable
+  // retryOrchestrator.ts / reviewRetry.ts / testRetry.ts: use a single contextResetCount variable
   const hasBuildPhasePattern =
     content.includes('if (buildResult.tokenLimitExceeded)') &&
     content.includes('if (buildResult.compactionDetected)');
   const hasRetryOrchestratorPattern =
-    content.includes('continuationCount') && content.includes('MAX_TOKEN_CONTINUATIONS');
+    content.includes('contextResetCount') && content.includes('MAX_CONTEXT_RESETS');
   assert.ok(
     hasBuildPhasePattern || hasRetryOrchestratorPattern,
-    'Expected file to share a single continuation counter for both tokenLimitExceeded and compactionDetected',
+    'Expected file to share a single context reset counter for both tokenLimitExceeded and compactionDetected',
   );
   if (hasBuildPhasePattern) {
     const tokenBlock = content.indexOf('if (buildResult.tokenLimitExceeded)');
@@ -329,12 +329,12 @@ Then('the shared continuation counter is 2', function () {
     const tokenSection = content.slice(tokenBlock, tokenBlock + 300);
     const compactionSection = content.slice(compactionBlock, compactionBlock + 300);
     assert.ok(
-      tokenSection.includes('continuationNumber++'),
-      'Expected build token limit block to increment continuationNumber',
+      tokenSection.includes('contextResetNumber++'),
+      'Expected build token limit block to increment contextResetNumber',
     );
     assert.ok(
-      compactionSection.includes('continuationNumber++'),
-      'Expected build compaction block to increment continuationNumber',
+      compactionSection.includes('contextResetNumber++'),
+      'Expected build compaction block to increment contextResetNumber',
     );
   }
 });
@@ -342,30 +342,30 @@ Then('the shared continuation counter is 2', function () {
 Then('the total number of continuations does not exceed MAX_TOKEN_CONTINUATIONS', function () {
   const content = sharedCtx.fileContent;
   assert.ok(
-    content.includes('MAX_TOKEN_CONTINUATIONS'),
-    'Expected file to use MAX_TOKEN_CONTINUATIONS as the continuation limit',
+    content.includes('MAX_CONTEXT_RESETS'),
+    'Expected file to use MAX_CONTEXT_RESETS as the context reset limit',
   );
-  // buildPhase.ts uses `continuationNumber <= MAX_TOKEN_CONTINUATIONS` as a while-loop guard.
-  // retryOrchestrator.ts / reviewRetry.ts use `continuationCount > maxContinuations` with a throw.
-  const hasWhileGuard = content.includes('continuationNumber <= MAX_TOKEN_CONTINUATIONS');
+  // buildPhase.ts uses `contextResetNumber <= MAX_CONTEXT_RESETS` as a while-loop guard.
+  // retryOrchestrator.ts / reviewRetry.ts use `contextResetCount > maxContextResets` with a throw.
+  const hasWhileGuard = content.includes('contextResetNumber <= MAX_CONTEXT_RESETS');
   const hasThrowGuard =
-    content.includes('continuationCount > MAX_TOKEN_CONTINUATIONS') ||
-    content.includes('continuationCount > maxContinuations');
+    content.includes('contextResetCount > MAX_CONTEXT_RESETS') ||
+    content.includes('contextResetCount > maxContextResets');
   assert.ok(
     hasWhileGuard || hasThrowGuard,
-    'Expected file to enforce MAX_TOKEN_CONTINUATIONS via a while-loop guard or a throw',
+    'Expected file to enforce MAX_CONTEXT_RESETS via a while-loop guard or a throw',
   );
 });
 
 Then('the build phase throws an error indicating maximum continuations exceeded', function () {
   const content = sharedCtx.fileContent;
   assert.ok(
-    content.includes('exceeded maximum continuations') || content.includes('exceeded maximum token continuations'),
-    'Expected buildPhase.ts to throw an error when MAX_TOKEN_CONTINUATIONS is exceeded for compaction',
+    content.includes('exceeded maximum context resets') || content.includes('exceeded maximum continuations'),
+    'Expected buildPhase.ts to throw an error when MAX_CONTEXT_RESETS is exceeded for compaction',
   );
   assert.ok(
-    content.includes('context compaction') || content.includes('MAX_TOKEN_CONTINUATIONS'),
-    'Expected the error message to mention context compaction or the max continuations limit',
+    content.includes('context compaction') || content.includes('MAX_CONTEXT_RESETS'),
+    'Expected the error message to mention context compaction or the max context resets limit',
   );
 });
 

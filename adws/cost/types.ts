@@ -117,8 +117,8 @@ export interface PhaseCostRecord {
   readonly status: PhaseCostStatus;
   /** Number of times the phase was retried (e.g. test/review retry loops). */
   readonly retryCount: number;
-  /** Number of token-limit continuation spawns within this phase (build phase only). */
-  readonly continuationCount: number;
+  /** Number of context resets within this phase (build phase only). */
+  readonly contextResetCount: number;
   /** Wall-clock duration of the phase in milliseconds. */
   readonly durationMs: number;
   /** ISO 8601 timestamp for when the record was created (phase completion time). */
@@ -135,7 +135,7 @@ export interface CreatePhaseCostRecordsOptions {
   readonly phase: string;
   readonly status: PhaseCostStatus;
   readonly retryCount: number;
-  readonly continuationCount: number;
+  readonly contextResetCount: number;
   readonly durationMs: number;
   readonly modelUsage: LegacyModelUsageMap; // legacy camelCase format from orchestrators
 }
@@ -145,7 +145,7 @@ export interface CreatePhaseCostRecordsOptions {
  * one per model. Returns an empty array when modelUsage is empty.
  */
 export function createPhaseCostRecords(options: CreatePhaseCostRecordsOptions): PhaseCostRecord[] {
-  const { workflowId, issueNumber, phase, status, retryCount, continuationCount, durationMs, modelUsage } = options;
+  const { workflowId, issueNumber, phase, status, retryCount, contextResetCount, durationMs, modelUsage } = options;
   const timestamp = new Date().toISOString();
 
   return Object.entries(modelUsage).map(([model, usage]) => ({
@@ -164,7 +164,7 @@ export function createPhaseCostRecords(options: CreatePhaseCostRecordsOptions): 
     reportedCostUsd: usage.costUSD,
     status,
     retryCount,
-    continuationCount,
+    contextResetCount,
     durationMs,
     timestamp,
     estimatedTokens: undefined,

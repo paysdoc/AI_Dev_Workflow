@@ -4,7 +4,7 @@
  * to a specific RepoIdentifier at construction time.
  */
 
-import type { IssueTracker, RepoIdentifier, WorkItem, WorkItemComment } from '../types';
+import type { IssueTracker, RepoIdentifier, Issue, IssueComment } from '../types';
 import { validateRepoIdentifier, BoardStatus } from '../types';
 import type { RepoInfo } from '../../github/githubApi';
 import {
@@ -17,8 +17,8 @@ import {
 } from '../../github/issueApi';
 import { moveIssueToStatus } from '../../github/projectBoardApi';
 import {
-  mapGitHubIssueToWorkItem,
-  mapIssueCommentSummaryToWorkItemComment,
+  mapGitHubIssueToIssue,
+  mapIssueCommentSummaryToIssueComment,
   toRepoInfo,
 } from './mappers';
 
@@ -36,9 +36,9 @@ class GitHubIssueTracker implements IssueTracker {
     this.repoInfo = toRepoInfo(repoId);
   }
 
-  async fetchIssue(issueNumber: number): Promise<WorkItem> {
+  async fetchIssue(issueNumber: number): Promise<Issue> {
     const issue = await fetchGitHubIssue(issueNumber, this.repoInfo);
-    return mapGitHubIssueToWorkItem(issue);
+    return mapGitHubIssueToIssue(issue);
   }
 
   commentOnIssue(issueNumber: number, body: string): void {
@@ -57,9 +57,9 @@ class GitHubIssueTracker implements IssueTracker {
     return ghGetIssueState(issueNumber, this.repoInfo);
   }
 
-  fetchComments(issueNumber: number): WorkItemComment[] {
+  fetchComments(issueNumber: number): IssueComment[] {
     const comments = fetchIssueCommentsRest(issueNumber, this.repoInfo);
-    return comments.map(mapIssueCommentSummaryToWorkItemComment);
+    return comments.map(mapIssueCommentSummaryToIssueComment);
   }
 
   async moveToStatus(issueNumber: number, status: BoardStatus): Promise<boolean> {

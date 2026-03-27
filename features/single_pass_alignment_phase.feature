@@ -155,7 +155,7 @@ Feature: Single-pass alignment command and phase (replaces plan validation loop)
   Scenario: STAGE_ORDER includes plan_aligning in the correct position
     Given the file "adws/core/workflowCommentParsing.ts" is read
     Then the STAGE_ORDER array includes "plan_aligning"
-    And "plan_aligning" appears after "plan_committing" and before "implementing"
+    And "plan_aligning" appears after "plan_committing" and before "build_running"
 
   # --- 10: Alignment agent type definitions ---
 
