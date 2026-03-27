@@ -448,9 +448,10 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 333,csv migration script upload historical cost data t,install,claude-sonnet-4-6,0.409843
 333,csv migration script upload historical cost data t,install,claude-sonnet-4-6,0.378462
 333,csv migration script upload historical cost data t,plan,claude-opus-4-6,1.018351
+333,csv migration script upload historical cost data t,pr,claude-sonnet-4-6,0.052323
 333,csv migration script upload historical cost data t,review,claude-opus-4-6,0.503869
 333,csv migration script upload historical cost data t,scenario,claude-opus-4-6,0.582044
 333,csv migration script upload historical cost data t,scenario,claude-haiku-4-5-20251001,0.095340
 
-Total Cost (USD):,400.1605
-Total Cost (EUR):,346.5918
+Total Cost (USD):,400.2128
+Total Cost (EUR):,346.6371
