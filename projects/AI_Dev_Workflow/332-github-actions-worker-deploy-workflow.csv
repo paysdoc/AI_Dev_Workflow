@@ -1,0 +1,2 @@
+workflow_id,issue_number,phase,model,provider,computed_cost_usd,reported_cost_usd,status,retry_count,context_reset_count,duration_ms,timestamp,estimated_tokens,actual_tokens,input,output,cache_read,cache_write,reasoning
+avb4f5-github-actions-worke,332,install,claude-sonnet-4-6,anthropic,0.436392,0.436392,success,0,0,154405,2026-03-27T11:41:48.892Z,,,10,9710,268826,56017,0

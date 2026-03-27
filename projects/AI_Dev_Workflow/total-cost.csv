@@ -456,6 +456,7 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 331,deploy cost api worker to cloudflare,pr,claude-sonnet-4-6,0.164758
 331,deploy cost api worker to cloudflare,pr,claude-sonnet-4-6,0.100325
 331,deploy cost api worker to cloudflare,review,claude-opus-4-6,0.291999
+332,github actions worker deploy workflow,install,claude-sonnet-4-6,0.436392
 333,csv migration script upload historical cost data t,build,claude-sonnet-4-6,0.511511
 333,csv migration script upload historical cost data t,document,claude-sonnet-4-6,0.211174
 333,csv migration script upload historical cost data t,install,claude-sonnet-4-6,0.409843
@@ -469,5 +470,5 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 334,adw d1 client and dual write integration,install,claude-sonnet-4-6,0.383934
 334,adw d1 client and dual write integration,install,claude-sonnet-4-6,0.399097
 
-Total Cost (USD):,404.1066
-Total Cost (EUR):,350.0097
+Total Cost (USD):,404.5430
+Total Cost (EUR):,350.3877
