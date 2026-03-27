@@ -1,2 +1,3 @@
 workflow_id,issue_number,phase,model,provider,computed_cost_usd,reported_cost_usd,status,retry_count,context_reset_count,duration_ms,timestamp,estimated_tokens,actual_tokens,input,output,cache_read,cache_write,reasoning
 e5wrpe-csv-migration-script,333,install,claude-sonnet-4-6,anthropic,0.409843,0.409843,success,0,0,132246,2026-03-27T09:40:02.925Z,,,14,5937,477979,47294,0
+5lh1p2-csv-migration-script,333,install,claude-sonnet-4-6,anthropic,0.378462,0.378462,success,0,0,136406,2026-03-27T09:40:16.222Z,,,13,5134,440347,45149,0
