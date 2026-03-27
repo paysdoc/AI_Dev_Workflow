@@ -7,3 +7,4 @@ wc1uva-auto-approve-and-mer,327,build,claude-sonnet-4-6,anthropic,2.349073,2.349
 wc1uva-auto-approve-and-mer,327,review,claude-opus-4-6,anthropic,1.423052,1.423052,success,0,0,198158,2026-03-27T08:42:00.853Z,,,24,21744,580527,94251,0
 wc1uva-auto-approve-and-mer,327,document,claude-sonnet-4-6,anthropic,0.360156,0.360156,success,0,0,141847,2026-03-27T08:44:28.499Z,,,15,4718,458181,40503,0
 wc1uva-auto-approve-and-mer,327,pr,claude-sonnet-4-6,anthropic,0.068960,0.068960,success,0,0,39111,2026-03-27T08:45:13.370Z,,,5,1019,51278,10207,0
+wc1uva-auto-approve-and-mer,327,kpi,claude-haiku-4-5-20251001,anthropic,0.100731,0.100731,success,0,0,87162,2026-03-27T08:46:46.338Z,,,51,9822,231949,22700,0
