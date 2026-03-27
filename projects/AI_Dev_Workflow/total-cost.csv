@@ -468,6 +468,7 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 332,github actions worker deploy workflow,plan,claude-opus-4-6,0.396734
 332,github actions worker deploy workflow,plan,claude-opus-4-6,0.499299
 332,github actions worker deploy workflow,review,claude-opus-4-6,0.328754
+332,github actions worker deploy workflow,review,claude-opus-4-6,0.356626
 333,csv migration script upload historical cost data t,build,claude-sonnet-4-6,0.511511
 333,csv migration script upload historical cost data t,document,claude-sonnet-4-6,0.211174
 333,csv migration script upload historical cost data t,install,claude-sonnet-4-6,0.409843
@@ -488,5 +489,5 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 334,adw d1 client and dual write integration,scenario,claude-opus-4-6,0.663025
 334,adw d1 client and dual write integration,scenario,claude-haiku-4-5-20251001,0.249657
 
-Total Cost (USD):,411.8606
-Total Cost (EUR):,356.7256
+Total Cost (USD):,412.2172
+Total Cost (EUR):,357.0345
