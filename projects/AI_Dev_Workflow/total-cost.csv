@@ -467,6 +467,7 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 333,csv migration script upload historical cost data t,scenario,claude-opus-4-6,0.582044
 333,csv migration script upload historical cost data t,scenario,claude-haiku-4-5-20251001,0.095340
 334,adw d1 client and dual write integration,install,claude-sonnet-4-6,0.383934
+334,adw d1 client and dual write integration,install,claude-sonnet-4-6,0.399097
 
-Total Cost (USD):,403.7075
-Total Cost (EUR):,349.6640
+Total Cost (USD):,404.1066
+Total Cost (EUR):,350.0097
