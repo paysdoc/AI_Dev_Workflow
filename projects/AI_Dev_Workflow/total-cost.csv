@@ -412,6 +412,7 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 327,auto approve and merge chore prs with llm diff gat,install,claude-haiku-4-5-20251001,0.149821
 327,auto approve and merge chore prs with llm diff gat,plan,claude-opus-4-6,1.481537
 327,auto approve and merge chore prs with llm diff gat,plan,claude-haiku-4-5-20251001,0.069482
+327,auto approve and merge chore prs with llm diff gat,review,claude-opus-4-6,1.423052
 
-Total Cost (USD):,382.7652
-Total Cost (EUR):,331.5252
+Total Cost (USD):,384.1883
+Total Cost (EUR):,332.7578
