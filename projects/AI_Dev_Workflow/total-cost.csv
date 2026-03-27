@@ -467,10 +467,13 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 332,github actions worker deploy workflow,install,claude-haiku-4-5-20251001,0.029165
 332,github actions worker deploy workflow,install,claude-sonnet-4-6,0.377865
 332,github actions worker deploy workflow,install,claude-haiku-4-5-20251001,0.091242
+332,github actions worker deploy workflow,install,claude-sonnet-4-6,0.330174
+332,github actions worker deploy workflow,install,claude-sonnet-4-6,0.376275
 332,github actions worker deploy workflow,plan,claude-opus-4-6,0.396734
 332,github actions worker deploy workflow,plan,claude-opus-4-6,0.499299
 332,github actions worker deploy workflow,review,claude-opus-4-6,0.328754
 332,github actions worker deploy workflow,review,claude-opus-4-6,0.356626
+332,github actions worker deploy workflow,review,claude-opus-4-6,0.392267
 333,csv migration script upload historical cost data t,build,claude-sonnet-4-6,0.511511
 333,csv migration script upload historical cost data t,document,claude-sonnet-4-6,0.211174
 333,csv migration script upload historical cost data t,install,claude-sonnet-4-6,0.409843
@@ -482,14 +485,23 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 333,csv migration script upload historical cost data t,scenario,claude-opus-4-6,0.582044
 333,csv migration script upload historical cost data t,scenario,claude-haiku-4-5-20251001,0.095340
 334,adw d1 client and dual write integration,build,claude-sonnet-4-6,0.517689
+334,adw d1 client and dual write integration,build,claude-sonnet-4-6,0.539859
+334,adw d1 client and dual write integration,document,claude-sonnet-4-6,0.196528
+334,adw d1 client and dual write integration,document,claude-sonnet-4-6,0.178485
 334,adw d1 client and dual write integration,install,claude-sonnet-4-6,0.383934
 334,adw d1 client and dual write integration,install,claude-sonnet-4-6,0.399097
+334,adw d1 client and dual write integration,kpi,claude-haiku-4-5-20251001,0.080780
+334,adw d1 client and dual write integration,kpi,claude-haiku-4-5-20251001,0.140788
 334,adw d1 client and dual write integration,plan,claude-opus-4-6,0.967756
 334,adw d1 client and dual write integration,plan,claude-opus-4-6,1.161415
 334,adw d1 client and dual write integration,plan,claude-haiku-4-5-20251001,0.069139
+334,adw d1 client and dual write integration,pr,claude-sonnet-4-6,0.053851
+334,adw d1 client and dual write integration,pr,claude-sonnet-4-6,0.054953
+334,adw d1 client and dual write integration,review,claude-opus-4-6,0.754751
+334,adw d1 client and dual write integration,review,claude-opus-4-6,0.645229
 334,adw d1 client and dual write integration,scenario,claude-opus-4-6,0.598484
 334,adw d1 client and dual write integration,scenario,claude-opus-4-6,0.663025
 334,adw d1 client and dual write integration,scenario,claude-haiku-4-5-20251001,0.249657
 
-Total Cost (USD):,412.6532
-Total Cost (EUR):,357.4121
+Total Cost (USD):,416.3971
+Total Cost (EUR):,360.6549

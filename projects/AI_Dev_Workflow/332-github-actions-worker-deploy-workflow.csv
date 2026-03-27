@@ -14,3 +14,6 @@ avb4f5-github-actions-worke,332,review,claude-opus-4-6,anthropic,0.328754,0.3287
 efcqzc-github-actions-worke,332,review,claude-opus-4-6,anthropic,0.356626,0.356626,success,0,0,124053,2026-03-27T11:54:42.785Z,,,42,6020,89094,25819,0
 avb4f5-github-actions-worke,332,document,claude-sonnet-4-6,anthropic,0.183904,0.183904,success,0,0,79062,2026-03-27T11:55:29.058Z,,,8,3252,159382,23276,0
 efcqzc-github-actions-worke,332,document,claude-sonnet-4-6,anthropic,0.252083,0.252083,success,0,0,138768,2026-03-27T11:57:04.433Z,,,11,6813,222480,22163,0
+avb4f5-github-actions-worke,332,install,claude-sonnet-4-6,anthropic,0.330174,0.330174,success,0,0,123101,2026-03-27T12:01:32.640Z,,,10,5642,279580,43104,0
+efcqzc-github-actions-worke,332,install,claude-sonnet-4-6,anthropic,0.376275,0.376275,success,0,0,128274,2026-03-27T12:01:36.683Z,,,17,4749,488191,42275,0
+efcqzc-github-actions-worke,332,review,claude-opus-4-6,anthropic,0.392267,0.392267,success,0,0,95775,2026-03-27T12:03:20.580Z,,,9035,4656,124697,26935,0

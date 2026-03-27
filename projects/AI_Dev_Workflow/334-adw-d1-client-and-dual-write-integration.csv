@@ -8,3 +8,12 @@ g2u55r-adw-d1-client-and-du,334,plan,claude-haiku-4-5-20251001,anthropic,0.06913
 g2u55r-adw-d1-client-and-du,334,scenario,claude-opus-4-6,anthropic,0.663025,0.663025,success,0,0,300633,2026-03-27T11:46:35.843Z,,,11,8683,369064,41818,0
 g2u55r-adw-d1-client-and-du,334,scenario,claude-haiku-4-5-20251001,anthropic,0.249657,0.249657,success,0,0,300633,2026-03-27T11:46:35.843Z,,,1161,12193,560170,105211,0
 92py6q-adw-d1-client-and-du,334,build,claude-sonnet-4-6,anthropic,0.517689,0.517689,success,0,0,187345,2026-03-27T11:48:49.352Z,,,24,6936,915990,37008,0
+g2u55r-adw-d1-client-and-du,334,build,claude-sonnet-4-6,anthropic,0.539859,0.539859,success,0,0,167619,2026-03-27T11:49:39.500Z,,,20,7212,862854,46070,0
+g2u55r-adw-d1-client-and-du,334,review,claude-opus-4-6,anthropic,0.754751,0.754751,success,0,0,248145,2026-03-27T11:53:54.877Z,,,60,10221,476265,41727,0
+92py6q-adw-d1-client-and-du,334,review,claude-opus-4-6,anthropic,0.645229,0.645229,success,0,0,306651,2026-03-27T11:54:03.027Z,,,11,9850,315010,38627,0
+g2u55r-adw-d1-client-and-du,334,document,claude-sonnet-4-6,anthropic,0.196528,0.196528,success,0,0,79003,2026-03-27T11:55:19.514Z,,,8,2932,170576,27027,0
+92py6q-adw-d1-client-and-du,334,document,claude-sonnet-4-6,anthropic,0.178485,0.178485,success,0,0,86748,2026-03-27T11:55:35.436Z,,,9,3196,172621,20995,0
+g2u55r-adw-d1-client-and-du,334,pr,claude-sonnet-4-6,anthropic,0.053851,0.053851,success,0,0,45369,2026-03-27T11:56:10.358Z,,,4,797,30112,8760,0
+92py6q-adw-d1-client-and-du,334,pr,claude-sonnet-4-6,anthropic,0.054953,0.054953,success,0,0,30164,2026-03-27T11:56:19.647Z,,,4,870,30110,8762,0
+g2u55r-adw-d1-client-and-du,334,kpi,claude-haiku-4-5-20251001,anthropic,0.080780,0.080780,success,0,0,64007,2026-03-27T11:57:20.026Z,,,58,5890,271190,19322,0
+92py6q-adw-d1-client-and-du,334,kpi,claude-haiku-4-5-20251001,anthropic,0.140788,0.140788,success,0,0,118043,2026-03-27T11:58:23.173Z,,,51,14611,260673,33292,0

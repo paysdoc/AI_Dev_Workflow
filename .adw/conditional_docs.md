@@ -1,11 +1,21 @@
 # Conditional Documentation
 
+<<<<<<< HEAD
 - app_docs/feature-avb4f5-deploy-workers-github-actions.md
   - Conditions:
     - When working with `.github/workflows/deploy-workers.yml`
     - When adding a new Cloudflare Worker under `workers/` that needs CI deployment
     - When troubleshooting GitHub Actions deploy jobs for `screenshot-router` or `cost-api`
     - When configuring `CLOUDFLARE_API_TOKEN` or `CLOUDFLARE_ACCOUNT_ID` secrets for Worker CI
+=======
+- app_docs/feature-92py6q-d1-client-dual-write.md
+  - Conditions:
+    - When working with `adws/cost/d1Client.ts` or the D1 dual-write pipeline
+    - When configuring `COST_API_URL` or `COST_API_TOKEN` in ADW
+    - When modifying `adws/phases/phaseCostCommit.ts` or the phase cost commit flow
+    - When troubleshooting D1 write failures or missing cost records in the D1 database
+    - When implementing future changes to the `PhaseCostRecord` → `IngestPayload` transformation
+>>>>>>> origin/dev
 
 - app_docs/feature-a72ezx-deploy-cost-api-worker.md
   - Conditions:
@@ -29,6 +39,14 @@
     - When parsing old-format or new-format cost CSV files for D1 ingestion
     - When working with the `migrated` field on `IngestRecord` or `cost_records` in D1
     - When troubleshooting historical cost data upload failures or duplicate records
+
+- app_docs/feature-g2u55r-d1-client-dual-write.md
+  - Conditions:
+    - When working with `adws/cost/d1Client.ts` or the `postCostRecordsToD1` function
+    - When modifying phase cost commit logic (`phaseCostCommit.ts`) or the dual-write path
+    - When configuring `COST_API_URL` or `COST_API_TOKEN` for D1 cost writes
+    - When troubleshooting D1 write failures or silent-skip behavior
+    - When extending the `PhaseCostRecord` → ingest payload transformation
 
 - README.md
   - Conditions:
