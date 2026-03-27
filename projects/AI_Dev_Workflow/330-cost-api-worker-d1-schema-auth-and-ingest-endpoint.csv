@@ -2,3 +2,4 @@ workflow_id,issue_number,phase,model,provider,computed_cost_usd,reported_cost_us
 viahyb-cost-api-worker-d1-s,330,install,claude-sonnet-4-6,anthropic,0.475561,0.475561,success,0,0,169020,2026-03-27T09:10:18.317Z,,,15,8012,567028,49394,0
 viahyb-cost-api-worker-d1-s,330,plan,claude-opus-4-6,anthropic,0.512661,0.512661,success,0,0,187060,2026-03-27T09:13:31.083Z,,,8,6657,191992,40032,0
 viahyb-cost-api-worker-d1-s,330,scenario,claude-opus-4-6,anthropic,0.736876,0.736876,success,0,0,150953,2026-03-27T09:12:58.169Z,,,15,6375,517226,51010,0
+es3uts-cost-api-worker-d1-s,330,install,claude-sonnet-4-6,anthropic,0.498734,0.498734,success,0,0,179071,2026-03-27T09:22:06.629Z,,,17,7513,674064,49005,0
