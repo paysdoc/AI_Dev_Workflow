@@ -6,3 +6,4 @@ a7d21i-deploy-cost-api-work,331,plan,claude-opus-4-6,anthropic,0.419271,0.419271
 a7d21i-deploy-cost-api-work,331,plan,claude-haiku-4-5-20251001,anthropic,0.090237,0.090237,success,0,0,188931,2026-03-27T10:59:27.108Z,,,236,3922,103602,48025,0
 a7d21i-deploy-cost-api-work,331,build,claude-sonnet-4-6,anthropic,0.501522,0.501522,success,0,0,357301,2026-03-27T11:05:30.483Z,,,33,7648,937761,28100,0
 a72ezx-deploy-cost-api-work,331,install,claude-sonnet-4-6,anthropic,0.352527,0.352527,success,0,0,133556,2026-03-27T11:17:16.252Z,,,2058,6792,302597,40985,0
+a72ezx-deploy-cost-api-work,331,build,claude-sonnet-4-6,anthropic,0.150673,0.150673,success,0,0,83225,2026-03-27T11:19:04.201Z,,,9,2917,158142,15853,0
