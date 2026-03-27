@@ -23,6 +23,14 @@
     - When working with the `migrated` field on `IngestRecord` or `cost_records` in D1
     - When troubleshooting historical cost data upload failures or duplicate records
 
+- app_docs/feature-g2u55r-d1-client-dual-write.md
+  - Conditions:
+    - When working with `adws/cost/d1Client.ts` or the `postCostRecordsToD1` function
+    - When modifying phase cost commit logic (`phaseCostCommit.ts`) or the dual-write path
+    - When configuring `COST_API_URL` or `COST_API_TOKEN` for D1 cost writes
+    - When troubleshooting D1 write failures or silent-skip behavior
+    - When extending the `PhaseCostRecord` → ingest payload transformation
+
 - README.md
   - Conditions:
     - When first understanding the project structure
