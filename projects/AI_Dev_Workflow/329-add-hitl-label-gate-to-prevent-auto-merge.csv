@@ -1,2 +1,6 @@
 workflow_id,issue_number,phase,model,provider,computed_cost_usd,reported_cost_usd,status,retry_count,context_reset_count,duration_ms,timestamp,estimated_tokens,actual_tokens,input,output,cache_read,cache_write,reasoning
 fygx90-add-hitl-label-gate,329,install,claude-sonnet-4-6,anthropic,0.454803,0.454803,success,0,0,171269,2026-03-27T09:06:21.949Z,,,13,8173,466093,51291,0
+fygx90-add-hitl-label-gate,329,plan,claude-haiku-4-5-20251001,anthropic,0.147669,0.147669,success,0,0,236579,2026-03-27T09:10:25.235Z,,,34,16215,84999,46448,0
+fygx90-add-hitl-label-gate,329,plan,claude-opus-4-6,anthropic,0.493820,0.493820,success,0,0,236579,2026-03-27T09:10:25.235Z,,,9,6089,242262,35267,0
+fygx90-add-hitl-label-gate,329,scenario,claude-opus-4-6,anthropic,0.438076,0.438076,success,0,0,170488,2026-03-27T09:09:21.703Z,,,915,4305,247989,32301,0
+fygx90-add-hitl-label-gate,329,scenario,claude-haiku-4-5-20251001,anthropic,0.133393,0.133393,success,0,0,170488,2026-03-27T09:09:21.703Z,,,64,5454,750068,24842,0
