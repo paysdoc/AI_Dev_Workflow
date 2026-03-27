@@ -7,8 +7,6 @@
  *
  * Also exports a `scheduled` handler that runs daily (cron: `0 3 * * *`) to
  * garbage-collect empty `adw-*` R2 buckets via the Cloudflare API.
- *
- * HITL note: Deploy via `wrangler deploy` after manual verification.
  */
 
 import { DeleteBucketCommand, GetObjectCommand, ListBucketsCommand, ListObjectsV2Command, S3Client } from '@aws-sdk/client-s3';
