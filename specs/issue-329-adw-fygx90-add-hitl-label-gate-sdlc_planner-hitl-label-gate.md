@@ -66,7 +66,7 @@ Execute every step in order, top to bottom.
   - Call `issueHasLabel(issueNumber, 'hitl', repoInfo)`
   - If `true`:
     - Log: `hitl label detected on issue #${issueNumber}, skipping auto-approval and auto-merge`
-    - Post comment on the issue using `commentOnIssue(issueNumber, '## ✋ Awaiting human approval\n\nPR #${prNumber} is ready for review. The `hitl` label was detected — auto-merge has been skipped.\n\nPlease review and merge manually.', repoInfo)`
+    - Post comment on the issue using `commentOnIssue(issueNumber, '## ✋ Awaiting human approval — PR #${prNumber} ready for review', repoInfo)`
     - Return `{ costUsd: 0, modelUsage: emptyModelUsageMap(), phaseCostRecords: [] }`
 - The existing approval and merge logic remains untouched for the non-HITL path
 
