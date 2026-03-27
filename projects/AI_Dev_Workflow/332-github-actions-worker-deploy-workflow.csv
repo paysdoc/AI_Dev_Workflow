@@ -8,3 +8,5 @@ efcqzc-github-actions-worke,332,plan,claude-opus-4-6,anthropic,0.499299,0.499299
 efcqzc-github-actions-worke,332,build,claude-sonnet-4-6,anthropic,0.138772,0.138772,success,0,0,68081,2026-03-27T11:47:40.745Z,,,9,1808,166585,16440,0
 avb4f5-github-actions-worke,332,install,claude-sonnet-4-6,anthropic,0.468896,0.468896,success,0,0,179177,2026-03-27T11:52:22.649Z,,,17,7220,544954,52549,0
 avb4f5-github-actions-worke,332,install,claude-haiku-4-5-20251001,anthropic,0.029165,0.029165,success,0,0,179177,2026-03-27T11:52:22.649Z,,,10,1487,25679,15322,0
+efcqzc-github-actions-worke,332,install,claude-sonnet-4-6,anthropic,0.377865,0.377865,success,0,0,186852,2026-03-27T11:52:31.340Z,,,13,6242,403645,43494,0
+efcqzc-github-actions-worke,332,install,claude-haiku-4-5-20251001,anthropic,0.091242,0.091242,success,0,0,186852,2026-03-27T11:52:31.340Z,,,45,4078,224311,38701,0
