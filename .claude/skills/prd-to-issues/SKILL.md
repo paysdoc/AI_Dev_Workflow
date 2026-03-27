@@ -52,7 +52,13 @@ Iterate until the user approves the breakdown.
 
 ### 5. Create the GitHub issues
 
-For each approved slice, create a GitHub issue using `gh issue create`. Use the issue body template below.
+If any approved slice is HITL, ensure the `hitl` label exists on the repo before creating issues:
+
+```bash
+gh label create hitl --description "Requires human review before merge" --color FBCA04 2>/dev/null || true
+```
+
+For each approved slice, create a GitHub issue using `gh issue create`. For HITL slices, add `--label hitl` to the command. Use the issue body template below.
 
 Create issues in dependency order (blockers first) so you can reference real issue numbers in the "Blocked by" field.
 
