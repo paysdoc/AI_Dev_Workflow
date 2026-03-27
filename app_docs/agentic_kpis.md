@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value          | Last Updated       |
 | ----------------- | -------------- | ------------------ |
-| Current Streak    | 64             | 2026-03-27 11:25:38|
-| Longest Streak    | 64             | 2026-03-27 11:25:38|
-| Total Plan Size   | 441 lines      | 2026-03-27 11:25:38|
-| Largest Plan Size | 201 lines      | 2026-03-27 11:25:38|
-| Total Diff Size   | 1500360 lines  | 2026-03-27 11:25:38|
-| Largest Diff Size | 205468 lines   | 2026-03-27 11:25:38|
-| Average Presence  | 1.36           | 2026-03-27 11:25:38|
+| Current Streak    | 56             | 2026-03-27 11:36:23|
+| Longest Streak    | 56             | 2026-03-27 11:36:23|
+| Total Plan Size   | 441 lines      | 2026-03-27 11:36:23|
+| Largest Plan Size | 201 lines      | 2026-03-27 11:36:23|
+| Total Diff Size   | 1539826 lines  | 2026-03-27 11:36:23|
+| Largest Diff Size | 205468 lines   | 2026-03-27 11:36:23|
+| Average Presence  | 1.45           | 2026-03-27 11:36:23|
 
 ## ADW KPIs
 
@@ -77,3 +77,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-03-25 | 0s1m68-build-agent-routing  | 306          | /feature    | 1        | 0                 | 11476/324/122                   | 2026-03-25 | 2026-03-25 |
 | 2026-03-27 | wc1uva-auto-approve-and-mer | 327          | /feature    | 1        | 0                 | 32629/1303/320                  | 2026-03-27 | 2026-03-27 |
 | 2026-03-27 | fygx90-add-hitl-label-gate  | 329          | /feature    | 1        | 0                 | 33212/1308/327                  | 2026-03-27 | 2026-03-27 |
+| 2026-03-27 | viahyb-cost-api-worker-d1-s | 330          | /feature    | 1        | 0                 | 38160/1306/340                  | 2026-03-27 | 2026-03-27 |
