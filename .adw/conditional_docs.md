@@ -8,6 +8,13 @@
     - When troubleshooting bearer token auth or cost record ingestion failures
     - When wiring ADW phases to post cost data to the Cost API Worker
 
+- app_docs/feature-e5wrpe-csv-migration-script-migrate-csv-to-d1.md
+  - Conditions:
+    - When running or modifying the one-time CSV migration script (`workers/cost-api/migrate.ts`)
+    - When parsing old-format or new-format cost CSV files for D1 ingestion
+    - When working with the `migrated` field on `IngestRecord` or `cost_records` in D1
+    - When troubleshooting historical cost data upload failures or duplicate records
+
 - README.md
   - Conditions:
     - When first understanding the project structure
