@@ -10,3 +10,4 @@ g2u55r-adw-d1-client-and-du,334,scenario,claude-haiku-4-5-20251001,anthropic,0.2
 92py6q-adw-d1-client-and-du,334,build,claude-sonnet-4-6,anthropic,0.517689,0.517689,success,0,0,187345,2026-03-27T11:48:49.352Z,,,24,6936,915990,37008,0
 g2u55r-adw-d1-client-and-du,334,build,claude-sonnet-4-6,anthropic,0.539859,0.539859,success,0,0,167619,2026-03-27T11:49:39.500Z,,,20,7212,862854,46070,0
 g2u55r-adw-d1-client-and-du,334,review,claude-opus-4-6,anthropic,0.754751,0.754751,success,0,0,248145,2026-03-27T11:53:54.877Z,,,60,10221,476265,41727,0
+92py6q-adw-d1-client-and-du,334,review,claude-opus-4-6,anthropic,0.645229,0.645229,success,0,0,306651,2026-03-27T11:54:03.027Z,,,11,9850,315010,38627,0
