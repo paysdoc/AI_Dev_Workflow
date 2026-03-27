@@ -458,11 +458,36 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 331,deploy cost api worker to cloudflare,review,claude-opus-4-6,0.291999
 332,github actions worker deploy workflow,build,claude-sonnet-4-6,0.209023
 332,github actions worker deploy workflow,build,claude-sonnet-4-6,0.138772
+332,github actions worker deploy workflow,document,claude-sonnet-4-6,0.183904
+332,github actions worker deploy workflow,document,claude-sonnet-4-6,0.252083
+332,github actions worker deploy workflow,document,claude-sonnet-4-6,0.155834
+332,github actions worker deploy workflow,document,claude-sonnet-4-6,0.110810
+332,github actions worker deploy workflow,document,claude-sonnet-4-6,0.120818
 332,github actions worker deploy workflow,install,claude-sonnet-4-6,0.436392
 332,github actions worker deploy workflow,install,claude-sonnet-4-6,0.365940
 332,github actions worker deploy workflow,install,claude-haiku-4-5-20251001,0.184693
+332,github actions worker deploy workflow,install,claude-sonnet-4-6,0.468896
+332,github actions worker deploy workflow,install,claude-haiku-4-5-20251001,0.029165
+332,github actions worker deploy workflow,install,claude-sonnet-4-6,0.377865
+332,github actions worker deploy workflow,install,claude-haiku-4-5-20251001,0.091242
+332,github actions worker deploy workflow,install,claude-sonnet-4-6,0.330174
+332,github actions worker deploy workflow,install,claude-sonnet-4-6,0.376275
+332,github actions worker deploy workflow,install,claude-sonnet-4-6,0.306756
+332,github actions worker deploy workflow,install,claude-haiku-4-5-20251001,0.189209
+332,github actions worker deploy workflow,install,claude-sonnet-4-6,0.358057
+332,github actions worker deploy workflow,install,claude-sonnet-4-6,0.429609
+332,github actions worker deploy workflow,install,claude-haiku-4-5-20251001,0.080783
+332,github actions worker deploy workflow,kpi,claude-haiku-4-5-20251001,0.094025
 332,github actions worker deploy workflow,plan,claude-opus-4-6,0.396734
 332,github actions worker deploy workflow,plan,claude-opus-4-6,0.499299
+332,github actions worker deploy workflow,pr,claude-sonnet-4-6,0.240097
+332,github actions worker deploy workflow,review,claude-opus-4-6,0.328754
+332,github actions worker deploy workflow,review,claude-opus-4-6,0.356626
+332,github actions worker deploy workflow,review,claude-opus-4-6,0.392267
+332,github actions worker deploy workflow,review,claude-opus-4-6,1.231677
+332,github actions worker deploy workflow,review,claude-sonnet-4-6,0.128095
+332,github actions worker deploy workflow,review,claude-opus-4-6,0.372359
+332,github actions worker deploy workflow,review,claude-opus-4-6,0.332287
 333,csv migration script upload historical cost data t,build,claude-sonnet-4-6,0.511511
 333,csv migration script upload historical cost data t,document,claude-sonnet-4-6,0.211174
 333,csv migration script upload historical cost data t,install,claude-sonnet-4-6,0.409843
@@ -497,5 +522,5 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 335,remove csv cost pipeline,plan,claude-opus-4-6,1.567346
 335,remove csv cost pipeline,plan,claude-haiku-4-5-20251001,0.172613
 
-Total Cost (USD):,418.3937
-Total Cost (EUR):,362.3842
+Total Cost (USD):,422.7559
+Total Cost (EUR):,366.1624
