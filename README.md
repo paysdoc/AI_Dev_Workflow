@@ -400,16 +400,17 @@ adws/                   # ADW workflow system
     ├── deploy-workers.yml  # Auto-deploy Cloudflare Workers on push to main
     └── regression.yml      # Periodic @regression BDD scenario runner
 workers/                # Cloudflare Workers
-├── cost-api/           # Cost API Worker (D1-backed cost ingest endpoint)
+├── cost-api/           # Cost data ingestion API (costs.paysdoc.nl, D1-backed)
 │   ├── src/
 │   │   ├── auth.ts         # Bearer token authentication
 │   │   ├── index.ts        # Worker entry point
-│   │   ├── ingest.ts       # POST /api/cost ingest handler
+│   │   ├── ingest.ts       # POST /ingest handler
 │   │   ├── migrations/     # D1 SQL migrations
 │   │   ├── schema.sql      # D1 database schema
 │   │   └── types.ts        # Worker type definitions
 │   ├── test/
 │   │   └── ingest.test.ts  # Vitest tests
+│   ├── migrate.ts          # Migration runner script
 │   ├── package.json
 │   ├── tsconfig.json
 │   ├── vitest.config.ts
