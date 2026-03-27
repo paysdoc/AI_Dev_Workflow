@@ -77,4 +77,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-03-25 | 0s1m68-build-agent-routing  | 306          | /feature    | 1        | 0                 | 11476/324/122                   | 2026-03-25 | 2026-03-25 |
 | 2026-03-27 | wc1uva-auto-approve-and-mer | 327          | /feature    | 1        | 0                 | 32629/1303/320                  | 2026-03-27 | 2026-03-27 |
 | 2026-03-27 | fygx90-add-hitl-label-gate  | 329          | /feature    | 1        | 0                 | 33212/1308/327                  | 2026-03-27 | 2026-03-27 |
-| 2026-03-27 | viahyb-cost-api-worker-d1-s | 330          | /feature    | 1        | 0                 | 38160/1306/340                  | 2026-03-27 | 2026-03-27 |
+| 2026-03-27 | es3uts-cost-api-worker-d1-s | 330          | /feature    | 1        | 0                 | 38160/1306/340                  | 2026-03-27 | 2026-03-27 |
