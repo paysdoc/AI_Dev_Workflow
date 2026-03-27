@@ -98,7 +98,8 @@ export function handleAgentProcess(
         text.includes("You've hit your limit") ||
         text.includes("You're out of extra usage") ||
         text.includes('502 Bad Gateway') ||
-        text.includes('Invalid authentication credentials')
+        text.includes('Invalid authentication credentials') ||
+        text.includes('overloaded_error')
       )) {
         rateLimitDetected = true;
         log(`${agentName}: Rate limit / API outage detected — killing process to trigger pause.`, 'warn');
