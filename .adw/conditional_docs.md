@@ -77,6 +77,14 @@
     - When using or modifying the `/commit_cost` slash command
     - When troubleshooting missing or uncommitted cost data after PR close
 
+- app_docs/feature-ak03s5-remove-csv-cost-pipeline.md
+  - Conditions:
+    - When working with cost tracking and wondering why there are no CSV files or `projects/` directory
+    - When modifying `adws/cost/d1Client.ts` or `postCostRecordsToD1` and needing context on the D1-only migration
+    - When troubleshooting `CostTracker.commit()` in `phaseRunner.ts` or cost writes in `prReviewCompletion.ts`
+    - When looking for `commitAndPushCostFiles`, `pullLatestCostBranch`, or `CostCommitQueue` and finding them absent
+    - When modifying `adws/cost/reporting/commentFormatter.ts` and wondering where `FIXED_TOKEN_COLUMNS` came from
+
 - app_docs/feature-add-resoning-effort-4wna6z-reasoning-effort-slash-commands.md
   - Conditions:
     - When working with `SLASH_COMMAND_EFFORT_MAP` or reasoning effort configuration

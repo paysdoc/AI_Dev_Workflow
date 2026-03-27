@@ -122,13 +122,6 @@ Feature: Remove unnecessary exports across the codebase
     And "resetCronSpawnedForRepo" is still defined in the file
 
   @adw-467hhd-remove-unnecessary-e
-  Scenario: recordMergedPrIssue and resetMergedPrIssues are not exported from webhookHandlers.ts
-    Given "adws/triggers/webhookHandlers.ts" is read
-    When searching for exports of "recordMergedPrIssue" and "resetMergedPrIssues"
-    Then neither symbol is prefixed with the "export" keyword
-    And both symbols are still defined in the file
-
-  @adw-467hhd-remove-unnecessary-e
   Scenario: resetPrReviewTriggers and getPrReviewTriggersMap are not exported from trigger_webhook.ts
     Given "adws/triggers/trigger_webhook.ts" is read
     When searching for exports of "resetPrReviewTriggers" and "getPrReviewTriggersMap"
@@ -147,9 +140,9 @@ Feature: Remove unnecessary exports across the codebase
   @adw-467hhd-remove-unnecessary-e
   Scenario: trigger_webhook.ts internal functions are not exported
     Given "adws/triggers/trigger_webhook.ts" is read
-    When searching for exports of "shouldTriggerPrReview", "handleIssueCostRevert", and "resolveWebhookPort"
+    When searching for exports of "shouldTriggerPrReview" and "resolveWebhookPort"
     Then none of those symbols are prefixed with the "export" keyword
-    And all symbols are still defined in the file
+    And both symbols are still defined in the file
 
   @adw-467hhd-remove-unnecessary-e
   Scenario: getInProgressIssueCount is not exported from concurrencyGuard.ts

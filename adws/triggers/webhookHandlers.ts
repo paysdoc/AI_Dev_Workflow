@@ -7,32 +7,11 @@
 
 import { existsSync } from 'fs';
 import { log, PullRequestWebhookPayload } from '../core';
-import { rebuildProjectTotalCsv } from '../cost/reporting';
-import { fetchExchangeRates } from '../cost/exchangeRates';
-import { costCommitQueue } from '../cost/commitQueue';
 import type { RepoInfo } from '../github/githubApi';
 import { closeIssue, formatIssueClosureComment } from '../github/githubApi';
 import { removeWorktree } from '../vcs';
-import { deleteRemoteBranch, commitAndPushCostFiles, pullLatestCostBranch } from '../vcs';
+import { deleteRemoteBranch } from '../vcs';
 import { getTargetRepoWorkspacePath } from '../core/targetRepoManager';
-
-/**
- * Tracks issue numbers whose PRs were merged and cost CSV was already committed.
- * Prevents the issue close handler from reverting cost CSV files that were
- * intentionally kept by the PR merge handler.
- * Entries persist for the lifetime of the process (negligible memory per entry).
- */
-const mergedPrIssues = new Set<number>();
-
-/** Records that an issue's cost CSV was handled by a merged PR. */
-function recordMergedPrIssue(issueNumber: number): void {
-  mergedPrIssues.add(issueNumber);
-}
-
-/** Checks whether an issue was already handled by a merged PR. */
-export function wasMergedViaPR(issueNumber: number): boolean {
-  return mergedPrIssues.has(issueNumber);
-}
 
 /**
  * Extracts issue number from a branch name using the "issue-N" pattern.
@@ -116,27 +95,6 @@ export async function handlePullRequestEvent(payload: PullRequestWebhookPayload)
     log(`Successfully closed issue #${issueNumber} after PR #${prNumber} was ${wasMerged ? 'merged' : 'closed'}`);
   } else {
     log(`Issue #${issueNumber} was already closed or could not be closed`);
-  }
-
-  // Handle cost CSV files through serialized queue
-  try {
-    const repoName = repository.name;
-    await costCommitQueue.enqueue(async () => {
-      pullLatestCostBranch();
-      const rates = await fetchExchangeRates(['EUR']);
-      const eurRate = rates['EUR'] ?? 0;
-
-      if (wasMerged) {
-        rebuildProjectTotalCsv(process.cwd(), repoName, eurRate);
-        commitAndPushCostFiles({ repoName });
-        recordMergedPrIssue(issueNumber);
-      } else {
-        rebuildProjectTotalCsv(process.cwd(), repoName, eurRate);
-        commitAndPushCostFiles({ repoName });
-      }
-    });
-  } catch (error) {
-    log(`Failed to handle cost CSV files for issue #${issueNumber}: ${error}`, 'error');
   }
 
   return { status: closed ? 'closed' : 'already_closed', issue: issueNumber };

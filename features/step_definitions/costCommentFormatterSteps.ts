@@ -11,7 +11,6 @@ import {
   formatEstimateVsActual,
   formatCurrencyTotals,
 } from '../../adws/cost/reporting/commentFormatter.ts';
-import { formatIssueCostCsv } from '../../adws/cost/reporting/csvWriter.ts';
 
 const ROOT = process.cwd();
 
@@ -397,39 +396,6 @@ Then('the output does not include cost content', function (this: CostWorld) {
     'Expected formatter output to contain no cost content',
   );
 });
-
-// ── Section 7: CSV output unaffected by env var ──────────────────────────────
-
-When('cost data is written to CSV', function (this: CostWorld) {
-  this.csvOutput = formatIssueCostCsv(this.records ?? []);
-});
-
-Then('the CSV file contains the cost records', function (this: CostWorld) {
-  assert.ok(
-    this.csvOutput.length > 0,
-    'Expected CSV output to be non-empty',
-  );
-  for (const record of this.records ?? []) {
-    assert.ok(
-      this.csvOutput.includes(record.model),
-      `Expected CSV output to include model "${record.model}"`,
-    );
-  }
-});
-
-Then(
-  'the CSV output is identical to when SHOW_COST_IN_COMMENTS is {string}',
-  function (this: CostWorld, _envValue: string) {
-    // The CSV formatter does not consult SHOW_COST_IN_COMMENTS.
-    // Verify by checking the source file for the absence of the env var reference.
-    const csvWriterPath = join(ROOT, 'adws/cost/reporting/csvWriter.ts');
-    const csvSource = readFileSync(csvWriterPath, 'utf-8');
-    assert.ok(
-      !csvSource.includes('SHOW_COST_IN_COMMENTS'),
-      'Expected csvWriter.ts not to reference SHOW_COST_IN_COMMENTS (CSV output must be env-var-agnostic)',
-    );
-  },
-);
 
 // ── Section 8: phase comment helpers ────────────────────────────────────────
 

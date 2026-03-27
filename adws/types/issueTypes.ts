@@ -61,8 +61,6 @@ export type SlashCommand =
   | '/patch'
   // Documentation
   | '/document'
-  // Cost tracking
-  | '/commit_cost'
   // KPI tracking
   | '/track_agentic_kpis'
   // Dependency checking

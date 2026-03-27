@@ -199,18 +199,6 @@ Feature: Cost revamp: orchestrator migration and old code cleanup
     And the file does not export from "tokenManager"
     And the file does not export from "costTypes"
 
-  # ── 6: costCommitQueue.ts unchanged and functional ──────────────────────────
-
-  @adw-sgdfol-cost-revamp-orchestr @regression
-  Scenario: costCommitQueue.ts remains in core/ and is unchanged
-    Given the file "adws/core/costCommitQueue.ts" exists
-    Then the file exports "costCommitQueue" and "CostCommitQueue"
-
-  @adw-sgdfol-cost-revamp-orchestr
-  Scenario: costCommitQueue is still re-exported from core/index.ts
-    Given "adws/core/index.ts" is read
-    Then the file still exports "costCommitQueue" from "./costCommitQueue"
-
   # ── 7: retryOrchestrator uses new cost imports ──────────────────────────────
 
   @adw-sgdfol-cost-revamp-orchestr
@@ -272,10 +260,3 @@ Feature: Cost revamp: orchestrator migration and old code cleanup
     Then the file imports from "adws/cost" or "../cost"
     And the file does not import from deleted cost modules
 
-  # ── 15: Trigger files use new cost imports ──────────────────────────────────
-
-  @adw-sgdfol-cost-revamp-orchestr
-  Scenario: Webhook handler uses new cost reporting imports
-    Given "adws/triggers/webhookHandlers.ts" is read
-    Then the file imports "rebuildProjectTotalCsv" from the cost reporting module
-    And the file does not import from deleted cost modules

@@ -7,8 +7,7 @@
 
 import { log, AgentStateManager, COST_REPORT_CURRENCIES, type ModelUsageMap, buildCostBreakdown, mergeModelUsageMaps, emptyModelUsageMap, persistTokenCounts, OrchestratorId } from '../core';
 import { createPhaseCostRecords, PhaseCostStatus } from '../cost';
-import { appendIssueCostCsv, rebuildProjectTotalCsv } from '../cost/reporting';
-import { fetchExchangeRates } from '../cost/exchangeRates';
+import { postCostRecordsToD1 } from '../cost/d1Client';
 import { formatCostCommentSection } from '../cost/reporting/commentFormatter';
 import { BoardStatus } from '../providers/types';
 import { pushBranch, inferIssueTypeFromBranch } from '../vcs';
@@ -124,7 +123,6 @@ async function buildPRReviewCostSection(config: PRReviewWorkflowConfig, modelUsa
   if (config.issueNumber && config.repoContext) {
     try {
       const repoName = config.repoContext.repoId.repo;
-      const adwRepoRoot = process.cwd();
 
       const phaseCostRecords = createPhaseCostRecords({
         workflowId: config.adwId,
@@ -137,16 +135,17 @@ async function buildPRReviewCostSection(config: PRReviewWorkflowConfig, modelUsa
         modelUsage,
       });
 
-      appendIssueCostCsv(adwRepoRoot, repoName, config.issueNumber, config.prDetails.title, phaseCostRecords);
-
-      const rates = await fetchExchangeRates(['EUR']);
-      rebuildProjectTotalCsv(adwRepoRoot, repoName, rates['EUR'] ?? 0);
+      void postCostRecordsToD1({
+        project: repoName,
+        repoUrl: process.env.GITHUB_REPO_URL,
+        records: phaseCostRecords,
+      });
 
       // Pre-compute cost section using the new formatter
       ctx.phaseCostRecords = phaseCostRecords;
       ctx.costSection = await formatCostCommentSection(phaseCostRecords);
-    } catch (csvError) {
-      log(`Failed to write cost CSV files: ${csvError}`, 'error');
+    } catch (costError) {
+      log(`Failed to post cost records to D1: ${costError}`, 'error');
     }
   } else {
     // No issue number/repoContext — still pre-compute cost section from modelUsage
