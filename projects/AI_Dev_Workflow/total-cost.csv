@@ -443,6 +443,8 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 330,cost api worker d1 schema auth and ingest endpoint,review,claude-opus-4-6,0.744502
 330,cost api worker d1 schema auth and ingest endpoint,scenario,claude-opus-4-6,0.736876
 331,deploy cost api worker to cloudflare,install,claude-sonnet-4-6,0.450156
+331,deploy cost api worker to cloudflare,install,claude-sonnet-4-6,0.413022
+331,deploy cost api worker to cloudflare,install,claude-haiku-4-5-20251001,0.060239
 333,csv migration script upload historical cost data t,build,claude-sonnet-4-6,0.511511
 333,csv migration script upload historical cost data t,document,claude-sonnet-4-6,0.211174
 333,csv migration script upload historical cost data t,install,claude-sonnet-4-6,0.409843
@@ -454,5 +456,5 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 333,csv migration script upload historical cost data t,scenario,claude-opus-4-6,0.582044
 333,csv migration script upload historical cost data t,scenario,claude-haiku-4-5-20251001,0.095340
 
-Total Cost (USD):,400.3033
-Total Cost (EUR):,346.7155
+Total Cost (USD):,400.7766
+Total Cost (EUR):,347.1254
