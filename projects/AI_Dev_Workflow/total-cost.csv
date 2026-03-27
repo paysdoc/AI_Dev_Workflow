@@ -401,6 +401,7 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 323,chore align codebase with ubiquitous language glos,install,claude-haiku-4-5-20251001,0.176803
 323,chore align codebase with ubiquitous language glos,plan,claude-opus-4-6,0.940702
 323,chore align codebase with ubiquitous language glos,plan,claude-haiku-4-5-20251001,0.384187
+324,chore add github actions workflow to deploy cloudf,install,claude-sonnet-4-6,0.269045
 
-Total Cost (USD):,369.3643
-Total Cost (EUR):,319.9183
+Total Cost (USD):,369.6334
+Total Cost (EUR):,320.1513
