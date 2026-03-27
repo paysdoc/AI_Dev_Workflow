@@ -445,6 +445,7 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 331,deploy cost api worker to cloudflare,build,claude-sonnet-4-6,0.501522
 331,deploy cost api worker to cloudflare,build,claude-sonnet-4-6,0.150673
 331,deploy cost api worker to cloudflare,diff_evaluation,claude-haiku-4-5-20251001,0.026804
+331,deploy cost api worker to cloudflare,document,claude-sonnet-4-6,0.137472
 331,deploy cost api worker to cloudflare,install,claude-sonnet-4-6,0.450156
 331,deploy cost api worker to cloudflare,install,claude-sonnet-4-6,0.413022
 331,deploy cost api worker to cloudflare,install,claude-haiku-4-5-20251001,0.060239
@@ -464,5 +465,5 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 333,csv migration script upload historical cost data t,scenario,claude-opus-4-6,0.582044
 333,csv migration script upload historical cost data t,scenario,claude-haiku-4-5-20251001,0.095340
 
-Total Cost (USD):,402.7099
-Total Cost (EUR):,348.7999
+Total Cost (USD):,402.8474
+Total Cost (EUR):,348.9190

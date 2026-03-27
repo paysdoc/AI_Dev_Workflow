@@ -10,3 +10,4 @@ a72ezx-deploy-cost-api-work,331,build,claude-sonnet-4-6,anthropic,0.150673,0.150
 a72ezx-deploy-cost-api-work,331,pr,claude-sonnet-4-6,anthropic,0.100325,0.100325,success,0,0,29027,2026-03-27T11:19:40.316Z,,,4,697,42203,20586,0
 a72ezx-deploy-cost-api-work,331,diff_evaluation,claude-haiku-4-5-20251001,anthropic,0.026804,0.026804,success,0,0,11940,2026-03-27T11:19:57.992Z,,,9,846,20708,16395,0
 a72ezx-deploy-cost-api-work,331,review,claude-opus-4-6,anthropic,0.291999,0.291999,success,0,0,95572,2026-03-27T11:21:40.796Z,,,3189,3744,109421,20439,0
+a72ezx-deploy-cost-api-work,331,document,claude-sonnet-4-6,anthropic,0.137472,0.137472,success,0,0,98013,2026-03-27T11:23:24.800Z,,,7,3315,100871,15324,0
