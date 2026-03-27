@@ -4,3 +4,4 @@ e5wrpe-csv-migration-script,333,install,claude-sonnet-4-6,anthropic,0.409843,0.4
 e5wrpe-csv-migration-script,333,plan,claude-opus-4-6,anthropic,1.018351,1.018351,success,0,0,326917,2026-03-27T09:45:36.373Z,,,500,13847,625089,57141,0
 e5wrpe-csv-migration-script,333,scenario,claude-opus-4-6,anthropic,0.582044,0.582044,success,0,0,203011,2026-03-27T09:43:35.149Z,,,7,6819,194006,50325,0
 e5wrpe-csv-migration-script,333,scenario,claude-haiku-4-5-20251001,anthropic,0.095340,0.095340,success,0,0,203011,2026-03-27T09:43:35.149Z,,,73,4381,355079,30283,0
+e5wrpe-csv-migration-script,333,build,claude-sonnet-4-6,anthropic,0.511511,0.511511,success,0,0,196251,2026-03-27T09:48:58.345Z,,,21,8228,792228,40096,0
