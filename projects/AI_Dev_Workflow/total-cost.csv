@@ -480,9 +480,10 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 334,adw d1 client and dual write integration,plan,claude-opus-4-6,0.967756
 334,adw d1 client and dual write integration,plan,claude-opus-4-6,1.161415
 334,adw d1 client and dual write integration,plan,claude-haiku-4-5-20251001,0.069139
+334,adw d1 client and dual write integration,review,claude-opus-4-6,0.754751
 334,adw d1 client and dual write integration,scenario,claude-opus-4-6,0.598484
 334,adw d1 client and dual write integration,scenario,claude-opus-4-6,0.663025
 334,adw d1 client and dual write integration,scenario,claude-haiku-4-5-20251001,0.249657
 
-Total Cost (USD):,411.1045
-Total Cost (EUR):,356.0708
+Total Cost (USD):,411.8593
+Total Cost (EUR):,356.7245
