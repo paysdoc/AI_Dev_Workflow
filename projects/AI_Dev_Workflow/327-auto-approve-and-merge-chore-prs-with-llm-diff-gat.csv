@@ -1,3 +1,5 @@
 workflow_id,issue_number,phase,model,provider,computed_cost_usd,reported_cost_usd,status,retry_count,context_reset_count,duration_ms,timestamp,estimated_tokens,actual_tokens,input,output,cache_read,cache_write,reasoning
 wc1uva-auto-approve-and-mer,327,install,claude-sonnet-4-6,anthropic,0.320021,0.320021,success,0,0,170151,2026-03-27T08:21:11.913Z,,,943,4520,308406,41832,0
 wc1uva-auto-approve-and-mer,327,install,claude-haiku-4-5-20251001,anthropic,0.149821,0.149821,success,0,0,170151,2026-03-27T08:21:11.913Z,,,177,4842,657202,47771,0
+wc1uva-auto-approve-and-mer,327,plan,claude-opus-4-6,anthropic,1.481537,1.481537,success,0,0,402396,2026-03-27T08:28:00.293Z,,,1232,12508,1109130,97298,0
+wc1uva-auto-approve-and-mer,327,plan,claude-haiku-4-5-20251001,anthropic,0.069482,0.069482,success,0,0,402396,2026-03-27T08:28:00.293Z,,,17,4359,37590,35129,0
