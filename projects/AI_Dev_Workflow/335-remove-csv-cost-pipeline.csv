@@ -1,0 +1,3 @@
+workflow_id,issue_number,phase,model,provider,computed_cost_usd,reported_cost_usd,status,retry_count,context_reset_count,duration_ms,timestamp,estimated_tokens,actual_tokens,input,output,cache_read,cache_write,reasoning
+ak03s5-remove-csv-cost-pipe,335,install,claude-sonnet-4-6,anthropic,0.315089,0.315089,success,0,0,156084,2026-03-27T12:00:54.498Z,,,12,4084,343938,40163,0
+ak03s5-remove-csv-cost-pipe,335,install,claude-haiku-4-5-20251001,anthropic,0.153299,0.153299,success,0,0,156084,2026-03-27T12:00:54.498Z,,,8747,4945,604662,47489,0

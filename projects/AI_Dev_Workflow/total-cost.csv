@@ -491,6 +491,8 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 334,adw d1 client and dual write integration,scenario,claude-opus-4-6,0.598484
 334,adw d1 client and dual write integration,scenario,claude-opus-4-6,0.663025
 334,adw d1 client and dual write integration,scenario,claude-haiku-4-5-20251001,0.249657
+335,remove csv cost pipeline,install,claude-sonnet-4-6,0.315089
+335,remove csv cost pipeline,install,claude-haiku-4-5-20251001,0.153299
 
-Total Cost (USD):,413.2099
-Total Cost (EUR):,357.8943
+Total Cost (USD):,413.6783
+Total Cost (EUR):,358.3000
