@@ -1,0 +1,2 @@
+workflow_id,issue_number,phase,model,provider,computed_cost_usd,reported_cost_usd,status,retry_count,context_reset_count,duration_ms,timestamp,estimated_tokens,actual_tokens,input,output,cache_read,cache_write,reasoning
+wuzgen-deploy-cost-api-work,331,install,claude-sonnet-4-6,anthropic,0.450156,0.450156,success,0,0,125188,2026-03-27T09:40:13.833Z,,,16,4298,612561,53832,0
