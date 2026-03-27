@@ -15,7 +15,7 @@ import { shouldRunScenarioProof, runScenarioProof, type ScenarioProofResult } fr
 import type { ReviewProofConfig } from '../core/projectConfig';
 
 /** Number of parallel review agents per iteration. */
-const REVIEW_AGENT_COUNT = 3;
+const REVIEW_AGENT_COUNT = 1;
 
 export interface MergedReviewResult {
   mergedIssues: ReviewIssue[];
