@@ -392,7 +392,8 @@ adws/                   # ADW workflow system
 └── README.md
 .github/
 └── workflows/
-    └── regression.yml  # Periodic @regression BDD scenario runner
+    ├── deploy-workers.yml  # Auto-deploy Cloudflare Workers on push to main
+    └── regression.yml      # Periodic @regression BDD scenario runner
 workers/                # Cloudflare Workers
 └── screenshot-router/  # Screenshot URL routing worker
     ├── src/
