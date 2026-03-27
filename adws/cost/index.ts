@@ -59,6 +59,9 @@ export {
 // Commit queue (serializes cost-related git operations)
 export { costCommitQueue, CostCommitQueue } from './commitQueue.ts';
 
+// D1 HTTP client
+export { postCostRecordsToD1 } from './d1Client.ts';
+
 // Cost helpers (migrated from core/costReport.ts and core/tokenManager.ts)
 export type { ModelTokenEntry, TokenTotals } from './costHelpers.ts';
 export {
