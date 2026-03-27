@@ -407,6 +407,8 @@ Issue number,Issue description,Phase,Model,Cost (USD)
 324,chore add github actions workflow to deploy cloudf,install,claude-sonnet-4-6,0.269045
 324,chore add github actions workflow to deploy cloudf,plan,claude-opus-4-6,0.353039
 324,chore add github actions workflow to deploy cloudf,pr,claude-sonnet-4-6,0.149750
+327,auto approve and merge chore prs with llm diff gat,install,claude-sonnet-4-6,0.320021
+327,auto approve and merge chore prs with llm diff gat,install,claude-haiku-4-5-20251001,0.149821
 
-Total Cost (USD):,378.3953
-Total Cost (EUR):,327.7403
+Total Cost (USD):,378.8652
+Total Cost (EUR):,328.1472
