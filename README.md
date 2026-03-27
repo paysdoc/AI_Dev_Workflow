@@ -74,7 +74,7 @@ See [adws/README.md](adws/README.md) for full usage documentation.
 
 ## Domain Language
 
-ADW uses a DDD-style ubiquitous language to keep code, documentation, and conversation aligned. See [UBIQUITOUS_LANGUAGE.md](UBIQUITOUS_LANGUAGE.md) for the canonical glossary of terms used across the project.
+ADW uses a DDD-style ubiquitous language to keep code, documentation, and conversation aligned. See [UBIQUITOUS_LANGUAGE.md](UBIQUITOUS_LANGUAGE.md) for canonical term definitions, aliases to avoid, and a worked example dialogue.
 
 ## Testing
 
@@ -392,7 +392,8 @@ adws/                   # ADW workflow system
 └── README.md
 .github/
 └── workflows/
-    └── regression.yml  # Periodic @regression BDD scenario runner
+    ├── deploy-workers.yml  # Auto-deploy Cloudflare Workers on push to main
+    └── regression.yml      # Periodic @regression BDD scenario runner
 workers/                # Cloudflare Workers
 └── screenshot-router/  # Screenshot URL routing worker
     ├── src/
