@@ -45,6 +45,14 @@
     - When accessing typed phase results via `PhaseResultStore` in a `completionMetadata` callback
     - When troubleshooting the declarative runner's CLI parsing, CostTracker lifecycle, or phase execution order
 
+- app_docs/feature-2mxfnj-refactor-structured-state-declarative-orchestrator.md
+  - Conditions:
+    - When working with `WorkflowPhaseState` / `createEmptyPhaseState()` or `config.phaseState` in phases
+    - When using per-phase `completionMetadata` on a `PhaseDescriptor`
+    - When migrating away from `buildPhaseOnTokenLimit` / `runPhaseWithContinuation`
+    - When calling `defineOrchestrator()` and hitting validation errors (empty phases, duplicate names)
+    - When troubleshooting `config.phaseState` not being populated or namespaced state not threading between phases
+
 - app_docs/feature-tcff7s-branch-primitive-adwchore-migration.md
   - Conditions:
     - When adding conditional branching to a declarative orchestrator using `branch()`
