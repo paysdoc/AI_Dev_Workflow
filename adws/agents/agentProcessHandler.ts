@@ -94,12 +94,20 @@ export function handleAgentProcess(
         claude.kill('SIGTERM');
       }
 
+      // Rate limit / API outage detection.
+      // Patterns must be specific enough to avoid false positives from agent output
+      // (e.g., git log containing commit messages with these keywords).
+      // "You've hit your limit" and "You're out of extra usage" are Claude CLI UI messages
+      // that don't appear in tool output. The others use "type":"error" JSON prefix to
+      // ensure we only match actual API error responses, not arbitrary text.
       if (!rateLimitDetected && (
         text.includes("You've hit your limit") ||
         text.includes("You're out of extra usage") ||
-        text.includes('502 Bad Gateway') ||
-        text.includes('Invalid authentication credentials') ||
-        text.includes('overloaded_error')
+        (text.includes('"type":"error"') && (
+          text.includes('"overloaded_error"') ||
+          text.includes('502 Bad Gateway') ||
+          text.includes('"Invalid authentication credentials"')
+        ))
       )) {
         rateLimitDetected = true;
         log(`${agentName}: Rate limit / API outage detected — killing process to trigger pause.`, 'warn');

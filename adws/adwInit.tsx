@@ -19,13 +19,14 @@
 
 import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, log, OrchestratorId } from './core';
 import { persistTokenCounts, type ModelUsageMap, emptyModelUsageMap, mergeModelUsageMaps } from './cost';
-import { runClaudeAgentWithCommand } from './agents/claudeAgent';
+import { runClaudeAgentWithCommand, RateLimitError } from './agents/claudeAgent';
 import { commitChanges } from './vcs';
 import {
   initializeWorkflow,
   executePRPhase,
   completeWorkflow,
   handleWorkflowError,
+  handleRateLimitPause,
   copyTargetSkillsAndCommands,
 } from './workflowPhases';
 
@@ -100,6 +101,9 @@ async function main(): Promise<void> {
     persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
     await completeWorkflow(config, totalCostUsd, undefined, totalModelUsage);
   } catch (error) {
+    if (error instanceof RateLimitError) {
+      handleRateLimitPause(config, 'init', 'rate_limited', totalCostUsd, totalModelUsage);
+    }
     handleWorkflowError(config, error, totalCostUsd, totalModelUsage);
   }
 }
