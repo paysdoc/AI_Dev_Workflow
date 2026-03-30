@@ -8,6 +8,8 @@
 import { defineOrchestrator, runOrchestrator, OrchestratorId } from './core';
 import { executeInstallPhase, executePlanPhase, executeBuildPhase, executeTestPhase, executePRPhase } from './workflowPhases';
 
+type TestPhaseResult = Awaited<ReturnType<typeof executeTestPhase>>;
+
 runOrchestrator(defineOrchestrator({
   id: OrchestratorId.PlanBuild,
   scriptName: 'adwPlanBuild.tsx',
@@ -16,7 +18,14 @@ runOrchestrator(defineOrchestrator({
     { name: 'install', execute: executeInstallPhase },
     { name: 'plan', execute: executePlanPhase },
     { name: 'build', execute: executeBuildPhase },
-    { name: 'test', execute: executeTestPhase, completionMetadata: (r) => ({ unitTestsPassed: (r as unknown as { unitTestsPassed: boolean }).unitTestsPassed, totalTestRetries: (r as unknown as { totalRetries: number }).totalRetries }) },
+    { name: 'test', execute: executeTestPhase },
     { name: 'pr', execute: executePRPhase },
   ],
+  completionMetadata: (results) => {
+    const test = results.get<TestPhaseResult>('test');
+    return {
+      unitTestsPassed: test?.unitTestsPassed ?? false,
+      totalTestRetries: test?.totalRetries ?? 0,
+    };
+  },
 }));

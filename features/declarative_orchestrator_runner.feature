@@ -219,10 +219,9 @@ Feature: Structured state + declarative runner + adwPlanBuild migration
 
   # ── 6: Backward compatibility ─────────────────────────────────────────────
 
-  @adw-modak4-refactor-structured @regression
-  Scenario: Existing orchestrators continue to work during migration
-    Given "adws/adwSdlc.tsx" is read
-    And "adws/adwPlanBuildTest.tsx" is read
+  @adw-modak4-refactor-structured @adw-bxch84-refactor-runner-para @regression
+  Scenario: Non-migrated orchestrators continue to work during migration
+    Given "adws/adwPlanBuildTest.tsx" is read
     And "adws/adwPlanBuildReview.tsx" is read
     And "adws/adwChore.tsx" is read
     Then each orchestrator still compiles without errors

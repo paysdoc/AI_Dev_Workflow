@@ -241,7 +241,7 @@ adws/                   # ADW workflow system
 │   ├── modelRouting.ts # Model/effort routing utilities
 │   ├── orchestratorCli.ts  # Shared CLI parsing utilities
 │   ├── orchestratorLib.ts
-│   ├── orchestratorRunner.ts  # Declarative orchestrator runner (defineOrchestrator/runOrchestrator)
+│   ├── orchestratorRunner.ts  # Declarative orchestrator runner (defineOrchestrator / runOrchestrator)
 │   ├── pauseQueue.ts   # Pause queue for rate-limit pause/resume
 │   ├── phaseRunner.ts  # PhaseRunner / CostTracker composition
 │   ├── portAllocator.ts

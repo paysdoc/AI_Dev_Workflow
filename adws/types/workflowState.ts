@@ -106,6 +106,74 @@ export function createEmptyPhaseState(): WorkflowPhaseState {
 }
 
 /**
+ * Semantic output of the Scenario phase.
+ */
+export interface ScenarioPhaseState {
+  /** Path to the generated scenarios file, or undefined if not produced. */
+  readonly scenariosPath: string | undefined;
+}
+
+/**
+ * Semantic output of the Step Definition phase.
+ */
+export interface StepDefPhaseState {
+  /** Path to the generated step definitions file, or undefined if not produced. */
+  readonly stepDefsPath: string | undefined;
+}
+
+/**
+ * Semantic output of the Alignment phase.
+ */
+export interface AlignmentPhaseState {
+  /** Whether the plan was successfully aligned against scenarios. */
+  readonly aligned: boolean;
+}
+
+/**
+ * Semantic output of the Review phase.
+ * Captures review results for downstream phases (document, KPI) to consume
+ * via PhaseResultStore instead of closure bindings.
+ */
+export interface ReviewPhaseState {
+  /** Whether the review passed. */
+  readonly reviewPassed: boolean;
+  /** Total number of review-patch retry iterations. */
+  readonly totalRetries: number;
+  /** URLs of screenshots uploaded to R2 (web apps only). */
+  readonly screenshotUrls: readonly string[];
+  /** Local paths to all captured screenshots. */
+  readonly allScreenshots: readonly string[];
+  /** Review summaries from all attempts. */
+  readonly allSummaries: readonly string[];
+  /** Non-blocker issues identified during review. */
+  readonly nonBlockerIssues: readonly unknown[];
+}
+
+/**
+ * Semantic output of the Document phase.
+ */
+export interface DocumentPhaseState {
+  /** Path to the generated documentation file, or undefined if not produced. */
+  readonly docPath: string | undefined;
+}
+
+/**
+ * Semantic output of the KPI phase.
+ */
+export interface KpiPhaseState {
+  /** Whether KPI tracking completed successfully. */
+  readonly tracked: boolean;
+}
+
+/**
+ * Semantic output of the AutoMerge phase.
+ */
+export interface AutoMergePhaseState {
+  /** Whether the PR was successfully merged. */
+  readonly merged: boolean;
+}
+
+/**
  * Semantic output of the Diff Evaluation phase.
  * Captures the LLM diff evaluator verdict used for branch routing.
  */
@@ -126,9 +194,16 @@ export interface DiffEvalPhaseState {
 export interface WorkflowState {
   readonly install?: InstallPhaseState;
   readonly plan?: PlanPhaseState;
+  readonly scenario?: ScenarioPhaseState;
+  readonly stepDef?: StepDefPhaseState;
+  readonly alignment?: AlignmentPhaseState;
   readonly build?: BuildPhaseState;
   readonly test?: TestPhaseState;
+  readonly review?: ReviewPhaseState;
+  readonly document?: DocumentPhaseState;
   readonly pr?: PRPhaseState;
+  readonly kpi?: KpiPhaseState;
+  readonly autoMerge?: AutoMergePhaseState;
   readonly diffEval?: DiffEvalPhaseState;
 }
 

@@ -1,94 +1,163 @@
 /**
- * Declarative orchestrator runner.
+ * Declarative orchestrator runner — define orchestrators as typed phase lists.
  *
- * Replaces ~40 lines of boilerplate in every orchestrator with a concise
- * declarative definition. The runner owns: CLI arg parsing, initializeWorkflow(),
- * CostTracker lifecycle, sequential phase execution, try/catch,
- * completeWorkflow() / handleWorkflowError().
+ * Replaces per-orchestrator boilerplate (CLI parsing, initializeWorkflow(),
+ * CostTracker lifecycle, try/catch, completeWorkflow()) with a single
+ * defineOrchestrator() + runOrchestrator() call.
+ *
+ * Supports four phase execution variants:
+ *   - Sequential (default): runs one phase at a time in declared order.
+ *   - Parallel: runs a group of phases concurrently via Promise.all.
+ *   - Optional: wraps a phase so errors are caught and logged without halting the pipeline.
+ *   - Branch: evaluates a predicate and executes the matching branch's phases.
  */
 
 import type { OrchestratorIdType } from './constants';
-import type { PhaseFn, PhaseResult } from './phaseRunner';
-import { CostTracker, runPhase } from './phaseRunner';
-import {
-  parseTargetRepoArgs,
-  parseOrchestratorArguments,
-  buildRepoIdentifier,
-} from './orchestratorCli';
+import { CostTracker, runPhase, runPhasesParallel } from './phaseRunner';
+import type { PhaseResult } from './phaseRunner';
+import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier } from './orchestratorCli';
 import { initializeWorkflow } from '../phases/workflowInit';
-import { createEmptyPhaseState, PhaseResultStore } from '../types/workflowState';
+import type { WorkflowConfig } from '../phases/workflowInit';
 import { completeWorkflow, handleWorkflowError } from '../phases/workflowCompletion';
+import { createEmptyPhaseState, PhaseResultStore } from '../types/workflowState';
+import { log } from './utils';
 
 /**
- * Describes a single sequential phase in a declarative orchestrator.
+ * A phase function that receives the current WorkflowConfig and PhaseResultStore,
+ * and returns a PhaseResult. The second argument allows phases to access prior
+ * phase results without closure bindings.
+ *
+ * Backward compatible: existing single-argument phase functions are assignable
+ * to this type since TypeScript allows functions with fewer parameters.
  */
-export interface PhaseDescriptor {
+export type DeclarativePhaseFn = (config: WorkflowConfig, results: PhaseResultStore) => Promise<PhaseResult>;
+
+/**
+ * A single sequential phase in a declarative orchestrator definition.
+ */
+export interface PhaseDefinition {
   /** Discriminant — absent or 'phase' for regular sequential phases. */
   readonly type?: 'phase';
-  /** Phase name used for resume-skip and cost-record tracking. */
+  /** Display name used for skip-on-resume tracking and cost records. */
   readonly name: string;
   /** The phase function to execute. */
-  readonly execute: PhaseFn;
-  /**
-   * Optional extractor for phase-specific result fields to include in
-   * completeWorkflow() metadata. Receives the PhaseResult returned by execute().
-   */
-  readonly completionMetadata?: (result: PhaseResult) => Record<string, unknown>;
+  readonly execute: DeclarativePhaseFn;
 }
 
 /**
- * A conditional branch node — for orchestrators that need conditional execution.
- * Not supported in OrchestratorDefinition.phases directly; build branching logic
- * using the branch() helper outside the declarative runner if needed.
+ * A parallel group of phases in a declarative orchestrator definition.
+ * All sub-phases run concurrently via Promise.all.
+ * Costs from all sub-phases are accumulated in one shot.
+ */
+export interface ParallelPhaseDefinition {
+  readonly type: 'parallel';
+  /** Display name for logging the parallel group. */
+  readonly name: string;
+  /** Phases to execute concurrently. Each sub-phase result is stored by its name. */
+  readonly phases: ReadonlyArray<PhaseDefinition>;
+}
+
+/**
+ * An optional phase in a declarative orchestrator definition.
+ * Errors are caught and logged without halting the pipeline.
+ */
+export interface OptionalPhaseDefinition {
+  readonly type: 'optional';
+  /** Display name used for skip-on-resume tracking and cost records. */
+  readonly name: string;
+  /** The phase function to execute. Errors are caught and logged. */
+  readonly execute: DeclarativePhaseFn;
+}
+
+/**
+ * A conditional branch node in a declarative orchestrator definition.
+ * After the preceding phase completes, the runner evaluates the predicate
+ * against the accumulated PhaseResultStore and executes the matching branch.
  */
 export interface BranchPhaseDefinition {
-  /** Discriminant — must be 'branch' to distinguish from PhaseDescriptor. */
+  /** Discriminant — must be 'branch' to distinguish from PhaseDefinition. */
   readonly type: 'branch';
   /** Display name for the branch decision point (used in logs). */
   readonly name: string;
   /** Evaluates to true to take the true branch, false to take the false branch. */
   readonly predicate: (results: PhaseResultStore) => boolean;
   /** Phases to execute when predicate returns true. */
-  readonly trueBranch: ReadonlyArray<PhaseDescriptor>;
+  readonly trueBranch: ReadonlyArray<PhaseDefinition>;
   /** Phases to execute when predicate returns false. */
-  readonly falseBranch: ReadonlyArray<PhaseDescriptor>;
+  readonly falseBranch: ReadonlyArray<PhaseDefinition>;
 }
 
 /**
- * A discriminated union of phase entry types.
+ * Discriminated union of all phase entry types supported by the declarative runner.
  */
-export type PhaseEntry = PhaseDescriptor | BranchPhaseDefinition;
+export type PhaseEntry = PhaseDefinition | ParallelPhaseDefinition | OptionalPhaseDefinition | BranchPhaseDefinition;
 
 /**
- * A validated, frozen orchestrator definition created by defineOrchestrator().
+ * Factory function for creating a parallel phase group.
+ *
+ * @param name - Display name for the parallel group.
+ * @param phases - Phases to run concurrently.
+ * @returns A ParallelPhaseDefinition with type 'parallel'.
+ */
+export function parallel(name: string, phases: ReadonlyArray<PhaseDefinition>): ParallelPhaseDefinition {
+  return { type: 'parallel', name, phases };
+}
+
+/**
+ * Factory function for wrapping a phase as optional (non-fatal).
+ * If the phase throws, the error is logged and the pipeline continues.
+ *
+ * @param phase - The sequential phase definition to wrap.
+ * @returns An OptionalPhaseDefinition with type 'optional'.
+ */
+export function optional(phase: PhaseDefinition): OptionalPhaseDefinition {
+  return { type: 'optional', name: phase.name, execute: phase.execute };
+}
+
+/**
+ * Type guard — returns true if the entry is a BranchPhaseDefinition.
+ */
+function isBranchPhase(entry: PhaseEntry): entry is BranchPhaseDefinition {
+  return entry.type === 'branch';
+}
+
+/**
+ * Ergonomic helper for constructing a BranchPhaseDefinition at the call site.
+ *
+ * @param name - Display name for the branch decision point (shown in logs).
+ * @param predicate - Evaluates the PhaseResultStore; true → trueBranch, false → falseBranch.
+ * @param trueBranch - Phases to run when predicate returns true.
+ * @param falseBranch - Phases to run when predicate returns false.
+ * @returns A fully typed BranchPhaseDefinition.
+ */
+export function branch(
+  name: string,
+  predicate: (results: PhaseResultStore) => boolean,
+  trueBranch: ReadonlyArray<PhaseDefinition>,
+  falseBranch: ReadonlyArray<PhaseDefinition>,
+): BranchPhaseDefinition {
+  return { type: 'branch', name, predicate, trueBranch, falseBranch };
+}
+
+/**
+ * A declarative orchestrator definition.
+ * Pass to runOrchestrator() to execute the workflow.
  */
 export interface OrchestratorDefinition {
-  /** Identifies the orchestrator for state tracking and logging. */
+  /** Orchestrator identifier used for state tracking and log context. */
   readonly id: OrchestratorIdType;
-  /** Script file name for usage messages (e.g. 'adwPlanBuild.tsx'). */
+  /** Script filename (without path), used in usage messages. */
   readonly scriptName: string;
-  /** Usage pattern for help output (e.g. '<issueNumber> [adw-id]'). */
+  /** CLI usage pattern printed by --help and on arg errors. */
   readonly usagePattern: string;
-  /** Ordered list of phases (sequential PhaseDescriptor or conditional BranchPhaseDefinition) to execute. */
-  readonly phases: ReadonlyArray<PhaseDescriptor | BranchPhaseDefinition>;
+  /** Ordered list of phase entries (sequential, parallel, optional, or branch). */
+  readonly phases: ReadonlyArray<PhaseEntry>;
   /**
    * Optional callback to derive completion metadata from phase results.
    * Called only on the success path, before completeWorkflow().
    * Return value is merged into the workflow completion state.
    */
   readonly completionMetadata?: (results: PhaseResultStore) => Record<string, unknown>;
-}
-
-/**
- * Ergonomic helper for constructing a BranchPhaseDefinition.
- */
-export function branch(
-  name: string,
-  predicate: (results: PhaseResultStore) => boolean,
-  trueBranch: ReadonlyArray<PhaseDescriptor>,
-  falseBranch: ReadonlyArray<PhaseDescriptor>,
-): BranchPhaseDefinition {
-  return { type: 'branch', name, predicate, trueBranch, falseBranch };
 }
 
 /**
@@ -108,9 +177,13 @@ export function defineOrchestrator(def: OrchestratorDefinition): OrchestratorDef
 }
 
 /**
- * Runs a declarative orchestrator definition end-to-end:
- * CLI arg parsing → initializeWorkflow → CostTracker → sequential phases →
- * completeWorkflow / handleWorkflowError.
+ * Executes a declarative orchestrator definition end-to-end.
+ *
+ * Handles: CLI arg parsing, initializeWorkflow(), CostTracker lifecycle,
+ * phase execution (sequential, parallel, optional, branch), completeWorkflow() on success,
+ * and handleWorkflowError() on failure.
+ *
+ * @param def - The orchestrator definition to run.
  */
 export async function runOrchestrator(def: OrchestratorDefinition): Promise<void> {
   const args = process.argv.slice(2);
@@ -131,43 +204,43 @@ export async function runOrchestrator(def: OrchestratorDefinition): Promise<void
   config.phaseState = createEmptyPhaseState();
 
   const tracker = new CostTracker();
-  const mergedMetadata: Record<string, unknown> = {};
   const results = new PhaseResultStore();
 
   try {
     for (const entry of def.phases) {
-      if (entry.type === 'branch') {
-        const branchEntry = entry as BranchPhaseDefinition;
-        const predicateResult = branchEntry.predicate(results);
-        const selectedBranch = predicateResult ? branchEntry.trueBranch : branchEntry.falseBranch;
+      if (entry.type === 'parallel') {
+        const fns = entry.phases.map(
+          (p): ((cfg: WorkflowConfig) => Promise<PhaseResult>) =>
+            (cfg) => p.execute(cfg, results),
+        );
+        const parallelResults = await runPhasesParallel(config, tracker, fns);
+        entry.phases.forEach((p, i) => results.set(p.name, parallelResults[i]));
+      } else if (entry.type === 'optional') {
+        try {
+          const result = await runPhase(config, tracker, (cfg) => entry.execute(cfg, results), entry.name);
+          results.set(entry.name, result);
+        } catch (error) {
+          log(`Optional phase '${entry.name}' failed (non-fatal): ${error}`, 'warn');
+          results.set(entry.name, { costUsd: 0, modelUsage: {} });
+        }
+      } else if (isBranchPhase(entry)) {
+        const predicateResult = entry.predicate(results);
+        const selectedBranch = predicateResult ? entry.trueBranch : entry.falseBranch;
+        const path = predicateResult ? 'true' : 'false';
+        log(`Branch '${entry.name}': took ${path} path`, 'info');
         for (const phase of selectedBranch) {
-          const result = await runPhase(config, tracker, phase.execute, phase.name);
+          const result = await runPhase(config, tracker, (cfg) => phase.execute(cfg, results), phase.name);
           results.set(phase.name, result);
-          if (phase.completionMetadata) {
-            Object.assign(mergedMetadata, phase.completionMetadata(result));
-          }
         }
       } else {
-        const phase = entry as PhaseDescriptor;
-        const result = await runPhase(config, tracker, phase.execute, phase.name);
-        results.set(phase.name, result);
-        if (phase.completionMetadata) {
-          Object.assign(mergedMetadata, phase.completionMetadata(result));
-        }
+        const result = await runPhase(config, tracker, (cfg) => entry.execute(cfg, results), entry.name);
+        results.set(entry.name, result);
       }
     }
-    // Top-level completionMetadata (legacy API) — merges on top of per-phase metadata
-    if (def.completionMetadata) {
-      Object.assign(mergedMetadata, def.completionMetadata(results));
-    }
-    await completeWorkflow(config, tracker.totalCostUsd, mergedMetadata, tracker.totalModelUsage);
+
+    const metadata = def.completionMetadata?.(results) ?? {};
+    await completeWorkflow(config, tracker.totalCostUsd, metadata, tracker.totalModelUsage);
   } catch (error) {
     handleWorkflowError(config, error, tracker.totalCostUsd, tracker.totalModelUsage);
   }
 }
-
-/**
- * @deprecated Use PhaseDescriptor instead.
- */
-export type PhaseDefinition = PhaseDescriptor;
-
