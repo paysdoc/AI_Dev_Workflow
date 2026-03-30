@@ -155,28 +155,28 @@ Feature: Robustness hardening — retry logic, pre-flight checks, and graceful d
 
   # ── 6. JSON parse retry + graceful degradation ─────────────────────────
 
-  @adw-gcisck-robustness-hardening @regression
+  @adw-gcisck-robustness-hardening @adw-u8xr9v-add-output-validatio @regression
   Scenario: Resolution agent retries once when JSON extraction fails
     Given the resolution agent receives free-text output instead of JSON
     When extractJson returns null on the first attempt
     Then the agent is re-run once
     And the second output is parsed for JSON
 
-  @adw-gcisck-robustness-hardening @regression
+  @adw-gcisck-robustness-hardening @adw-u8xr9v-add-output-validatio @regression
   Scenario: Resolution agent degrades gracefully when retry also fails
     Given the resolution agent receives free-text output on both attempts
     When extractJson returns null on both the first and retry attempts
     Then the agent returns a fallback result with resolved=false and decisions=[]
     And the validation retry loop handles the unresolved result
 
-  @adw-gcisck-robustness-hardening @regression
+  @adw-gcisck-robustness-hardening @adw-u8xr9v-add-output-validatio @regression
   Scenario: Validation agent retries once when JSON extraction fails
     Given the validation agent receives free-text output instead of JSON
     When extractJson returns null on the first attempt
     Then the agent is re-run once
     And the second output is parsed for JSON
 
-  @adw-gcisck-robustness-hardening @regression
+  @adw-gcisck-robustness-hardening @adw-u8xr9v-add-output-validatio @regression
   Scenario: Validation agent degrades gracefully when retry also fails
     Given the validation agent receives free-text output on both attempts
     When extractJson returns null on both the first and retry attempts

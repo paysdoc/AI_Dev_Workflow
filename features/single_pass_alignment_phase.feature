@@ -233,7 +233,7 @@ Feature: Single-pass alignment command and phase (replaces plan validation loop)
 
   # --- 16: Alignment agent parses non-JSON output gracefully ---
 
-  @adw-305 @regression
+  @adw-305 @adw-u8xr9v-add-output-validatio @regression
   Scenario: parseAlignmentResult returns a safe default for non-JSON agent output
     Given the alignment agent returns non-JSON text output
     When parseAlignmentResult is called
