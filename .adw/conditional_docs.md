@@ -1,5 +1,13 @@
 # Conditional Documentation
 
+- app_docs/feature-locx5w-runner-token-limit-continuation.md
+  - Conditions:
+    - When working with `adws/core/phaseRunner.ts` or the runner continuation loop
+    - When implementing `onTokenLimit` for a new phase that needs token-limit recovery
+    - When troubleshooting mid-workflow context resets or `MAX_CONTEXT_RESETS` errors
+    - When migrating an imperative orchestrator to use `runPhaseWithContinuation`
+    - When adding `PhaseDefinition.onTokenLimit` to a declarative orchestrator
+
 - app_docs/feature-pwsvyi-provider-interface-phase-routing.md
   - Conditions:
     - When working with `adws/providers/types.ts` (CodeHost or IssueTracker interfaces)
