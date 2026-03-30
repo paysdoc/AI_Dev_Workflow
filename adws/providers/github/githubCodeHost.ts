@@ -8,13 +8,15 @@ import * as os from 'os';
 import * as path from 'path';
 import type { RepoInfo } from '../../github/githubApi';
 import { execWithRetry, log } from '../../core';
-import { fetchPRDetails, fetchPRReviewComments, commentOnPR, fetchPRList } from '../../github/prApi';
+import { fetchPRDetails as ghFetchPRDetails, fetchPRReviewComments, commentOnPR, fetchPRList, approvePR as ghApprovePR } from '../../github/prApi';
 import { getDefaultBranch as ghGetDefaultBranch } from '../../vcs/branchOperations';
 import { refreshTokenIfNeeded } from '../../github/githubAppAuth';
 import {
+  type ApproveResult,
   type CodeHost,
   type CreatePROptions,
   type PullRequest,
+  type PullRequestDetails,
   type PullRequestResult,
   type RepoIdentifier,
   type ReviewComment,
@@ -22,6 +24,7 @@ import {
 } from '../types';
 import {
   mapPRDetailsToPullRequest,
+  mapPRDetailsToPullRequestDetails,
   mapPRReviewCommentToReviewComment,
   mapPRListItemToPullRequest,
 } from './mappers';
@@ -51,8 +54,19 @@ export class GitHubCodeHost implements CodeHost {
 
   /** Fetches PR details and maps to PullRequest. */
   fetchPullRequest(prNumber: number): PullRequest {
-    const pr = fetchPRDetails(prNumber, this.repoInfo);
+    const pr = ghFetchPRDetails(prNumber, this.repoInfo);
     return mapPRDetailsToPullRequest(pr);
+  }
+
+  /** Approves the specified PR using the personal gh auth login identity. */
+  approvePR(prNumber: number): ApproveResult {
+    return ghApprovePR(prNumber, this.repoInfo);
+  }
+
+  /** Fetches full PR details (including state) and maps to PullRequestDetails. */
+  fetchPRDetails(prNumber: number): PullRequestDetails {
+    const pr = ghFetchPRDetails(prNumber, this.repoInfo);
+    return mapPRDetailsToPullRequestDetails(pr);
   }
 
   /** Posts a comment on the specified PR. */

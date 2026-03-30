@@ -7,7 +7,7 @@ import * as path from 'path';
 import { log, setLogAdwId, ensureLogsDirectory, generateAdwId, type PRDetails, type PRReviewComment, AgentStateManager, type AgentState, type ModelUsageMap, allocateRandomPort, emptyModelUsageMap, OrchestratorId, type TargetRepoInfo, ensureTargetRepoWorkspace } from '../core';
 import { fetchPRDetails, getUnaddressedComments, type PRReviewWorkflowContext, getRepoInfo, type RepoInfo, activateGitHubAppAuth } from '../github';
 import { ensureWorktree } from '../vcs';
-import type { RepoContext, RepoIdentifier } from '../providers/types';
+import type { PullRequestDetails, RepoContext, RepoIdentifier } from '../providers/types';
 import { Platform } from '../providers/types';
 import { createRepoContext } from '../providers/repoContext';
 import { getPlanFilePath, runPrReviewPlanAgent, runPrReviewBuildAgent, type ProgressCallback, type ProgressInfo } from '../agents';
@@ -48,7 +48,36 @@ export async function initializePRReviewWorkflow(prNumber: number, adwId: string
   // Activate GitHub App auth to generate a fresh token for this process.
   // Ensures child processes spawned by triggers don't rely on stale inherited GH_TOKEN.
   activateGitHubAppAuth(resolvedRepoInfo.owner, resolvedRepoInfo.repo);
-  const prDetails = fetchPRDetails(prNumber, resolvedRepoInfo);
+
+  // Create RepoContext early so fetchPRDetails can go through the provider.
+  let repoContext: RepoContext | undefined;
+  try {
+    const repoIdForContext = repoId ?? { owner: resolvedRepoInfo.owner, repo: resolvedRepoInfo.repo, platform: Platform.GitHub };
+    repoContext = createRepoContext({
+      repoId: repoIdForContext,
+      cwd: process.cwd(), // temporary cwd; will be updated after worktree setup
+    });
+  } catch (error) {
+    log(`Failed to create RepoContext (falling back to direct API calls): ${error}`, 'info');
+  }
+
+  let prDetails: PRDetails;
+  if (repoContext) {
+    const prd: PullRequestDetails = repoContext.codeHost.fetchPRDetails(prNumber);
+    prDetails = {
+      number: prd.number,
+      title: prd.title,
+      body: prd.body,
+      state: prd.state,
+      headBranch: prd.sourceBranch,
+      baseBranch: prd.targetBranch,
+      url: prd.url,
+      issueNumber: prd.linkedIssueNumber ?? null,
+      reviewComments: [],
+    };
+  } else {
+    prDetails = fetchPRDetails(prNumber, resolvedRepoInfo);
+  }
   log(`Fetched PR: ${prDetails.title}`, 'success');
   // Resolve ADW ID: use provided or generate from PR title
   const resolvedAdwId = adwId ?? generateAdwId(prDetails.title);
@@ -99,26 +128,19 @@ export async function initializePRReviewWorkflow(prNumber: number, adwId: string
   const worktreePath = ensureWorktree(prDetails.headBranch, undefined, targetRepoWorkspacePath);
   log(`Worktree path: ${worktreePath}`, 'info');
 
+  // Recreate repoContext with the worktree cwd now that the worktree is set up.
+  if (repoContext) {
+    repoContext = createRepoContext({
+      repoId: repoContext.repoId,
+      cwd: worktreePath,
+    });
+  }
+
   // Allocate a random port for the dedicated dev server instance
   const port = await allocateRandomPort();
   const applicationUrl = `http://localhost:${port}`;
   log(`Allocated port ${port} for dev server (${applicationUrl})`, 'info');
   AgentStateManager.appendLog(orchestratorStatePath, `Allocated port ${port} for dev server`);
-
-  // Create RepoContext for provider-agnostic operations
-  let repoContext: RepoContext | undefined;
-  try {
-    const repoIdForContext = repoId ?? (() => {
-      const resolvedRepoInfo = repoInfo ?? getRepoInfo();
-      return { owner: resolvedRepoInfo.owner, repo: resolvedRepoInfo.repo, platform: Platform.GitHub };
-    })();
-    repoContext = createRepoContext({
-      repoId: repoIdForContext,
-      cwd: worktreePath,
-    });
-  } catch (error) {
-    log(`Failed to create RepoContext (falling back to direct API calls): ${error}`, 'info');
-  }
 
   if (repoContext) {
     postPRStageComment(repoContext, prNumber, 'pr_review_starting', ctx);

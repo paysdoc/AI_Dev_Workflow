@@ -206,6 +206,11 @@ export class JiraIssueTracker implements IssueTracker {
       return false;
     }
   }
+
+  /** Not yet implemented for Jira. */
+  issueHasLabel(_issueNumber: number, _labelName: string): boolean {
+    throw new Error('issueHasLabel is not yet implemented for the Jira provider');
+  }
 }
 
 /**

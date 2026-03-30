@@ -4,9 +4,11 @@
  */
 
 import {
+  type ApproveResult,
   type CodeHost,
   type CreatePROptions,
   type PullRequest,
+  type PullRequestDetails,
   type PullRequestResult,
   type RepoIdentifier,
   type ReviewComment,
@@ -78,6 +80,16 @@ export class GitLabCodeHost implements CodeHost {
       description: options.body,
     });
     return { url: mr.web_url, number: mr.iid };
+  }
+
+  /** Not yet implemented for GitLab. */
+  approvePR(_prNumber: number): ApproveResult {
+    throw new Error('approvePR is not yet implemented for the GitLab provider');
+  }
+
+  /** Not yet implemented for GitLab. */
+  fetchPRDetails(_prNumber: number): PullRequestDetails {
+    throw new Error('fetchPRDetails is not yet implemented for the GitLab provider');
   }
 }
 

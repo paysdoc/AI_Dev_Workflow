@@ -14,6 +14,7 @@ import {
   closeIssue as ghCloseIssue,
   getIssueState as ghGetIssueState,
   fetchIssueCommentsRest,
+  issueHasLabel as ghIssueHasLabel,
 } from '../../github/issueApi';
 import { moveIssueToStatus } from '../../github/projectBoardApi';
 import {
@@ -60,6 +61,10 @@ class GitHubIssueTracker implements IssueTracker {
   fetchComments(issueNumber: number): IssueComment[] {
     const comments = fetchIssueCommentsRest(issueNumber, this.repoInfo);
     return comments.map(mapIssueCommentSummaryToIssueComment);
+  }
+
+  issueHasLabel(issueNumber: number, labelName: string): boolean {
+    return ghIssueHasLabel(issueNumber, labelName, this.repoInfo);
   }
 
   async moveToStatus(issueNumber: number, status: BoardStatus): Promise<boolean> {
