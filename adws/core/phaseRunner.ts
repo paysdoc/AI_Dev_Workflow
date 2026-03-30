@@ -136,7 +136,11 @@ export async function runPhase<R extends PhaseResult>(
     if (err instanceof RateLimitError) {
       // Lazy import to avoid circular deps at module load time
       const { handleRateLimitPause } = await import('../phases/workflowCompletion');
+      // handleRateLimitPause calls process.exit(0) but exit is async —
+      // the throw below may run before the process dies. The return prevents
+      // the throw from reaching the orchestrator's generic catch block.
       handleRateLimitPause(config, err.phaseName, 'rate_limited', tracker.totalCostUsd, tracker.totalModelUsage);
+      return undefined as never;
     }
     throw err;
   }

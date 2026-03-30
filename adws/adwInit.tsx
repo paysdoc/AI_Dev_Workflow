@@ -18,10 +18,12 @@
  */
 
 import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, log, OrchestratorId } from './core';
-import { persistTokenCounts, type ModelUsageMap, emptyModelUsageMap, mergeModelUsageMaps } from './cost';
+import { createPhaseCostRecords, PhaseCostStatus } from './cost';
+import { CostTracker, runPhase, type PhaseResult } from './core/phaseRunner';
 import { runClaudeAgentWithCommand, RateLimitError } from './agents/claudeAgent';
 import { commitChanges } from './vcs';
 import {
+  type WorkflowConfig,
   initializeWorkflow,
   executePRPhase,
   completeWorkflow,
@@ -29,6 +31,55 @@ import {
   handleRateLimitPause,
   copyTargetSkillsAndCommands,
 } from './workflowPhases';
+
+async function executeInitPhase(config: WorkflowConfig): Promise<PhaseResult> {
+  log('Phase: ADW Init', 'info');
+  const issueJson = JSON.stringify({
+    number: config.issue.number,
+    title: config.issue.title,
+    body: config.issue.body,
+  });
+
+  const result = await runClaudeAgentWithCommand(
+    '/adw_init',
+    [String(config.issueNumber), config.adwId, issueJson],
+    'adw-init',
+    `${config.logsDir}/adw-init.jsonl`,
+    'sonnet',
+    undefined, // effort
+    undefined, // onProgress
+    undefined, // statePath
+    config.worktreePath, // cwd - run in target repo worktree
+  );
+
+  if (!result.success) {
+    throw new Error('ADW init command failed');
+  }
+
+  log('ADW init completed, copying target skills and commands...', 'info');
+  copyTargetSkillsAndCommands(config.worktreePath);
+
+  log('Committing files...', 'info');
+  commitChanges(
+    'chore: initialize .adw/ config with target skills and commands',
+    config.worktreePath,
+  );
+
+  const costUsd = result.totalCostUsd ?? 0;
+  const modelUsage = result.modelUsage ?? {};
+  const phaseCostRecords = createPhaseCostRecords({
+    workflowId: config.adwId,
+    issueNumber: config.issueNumber,
+    phase: 'init',
+    status: PhaseCostStatus.Success,
+    retryCount: 0,
+    contextResetCount: 0,
+    durationMs: 0,
+    modelUsage,
+  });
+
+  return { costUsd, modelUsage, phaseCostRecords };
+}
 
 /**
  * Main ADW init workflow.
@@ -49,62 +100,18 @@ async function main(): Promise<void> {
     repoId,
   });
 
-  let totalModelUsage: ModelUsageMap = emptyModelUsageMap();
-  let totalCostUsd = 0;
+  const tracker = new CostTracker();
 
   try {
-    // Run the /adw_init slash command
-    log('Phase: ADW Init', 'info');
-    const issueJson = JSON.stringify({
-      number: config.issue.number,
-      title: config.issue.title,
-      body: config.issue.body,
-    });
-
-    const result = await runClaudeAgentWithCommand(
-      '/adw_init',
-      [String(config.issueNumber), config.adwId, issueJson],
-      'adw-init',
-      `${config.logsDir}/adw-init.jsonl`,
-      'sonnet',
-      undefined, // effort
-      undefined, // onProgress
-      undefined, // statePath
-      config.worktreePath, // cwd - run in target repo worktree
-    );
-
-    if (result.modelUsage) {
-      totalModelUsage = mergeModelUsageMaps(totalModelUsage, result.modelUsage);
-    }
-    totalCostUsd += result.totalCostUsd ?? 0;
-
-    if (!result.success) {
-      throw new Error('ADW init command failed');
-    }
-
-    log('ADW init completed, copying target skills and commands...', 'info');
-    copyTargetSkillsAndCommands(config.worktreePath);
-
-    log('Committing files...', 'info');
-
-    // Commit the generated .adw/ files along with target skills and commands
-    commitChanges(
-      'chore: initialize .adw/ config with target skills and commands',
-      config.worktreePath,
-    );
-
+    await runPhase(config, tracker, executeInitPhase, 'init');
     log('Phase: PR Creation', 'info');
-    const prResult = await executePRPhase(config);
-    totalCostUsd += prResult.costUsd;
-    totalModelUsage = mergeModelUsageMaps(totalModelUsage, prResult.modelUsage);
-
-    persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
-    await completeWorkflow(config, totalCostUsd, undefined, totalModelUsage);
+    await runPhase(config, tracker, executePRPhase, 'pr');
+    await completeWorkflow(config, tracker.totalCostUsd, undefined, tracker.totalModelUsage);
   } catch (error) {
     if (error instanceof RateLimitError) {
-      handleRateLimitPause(config, 'init', 'rate_limited', totalCostUsd, totalModelUsage);
+      handleRateLimitPause(config, 'init', 'rate_limited', tracker.totalCostUsd, tracker.totalModelUsage);
     }
-    handleWorkflowError(config, error, totalCostUsd, totalModelUsage);
+    handleWorkflowError(config, error, tracker.totalCostUsd, tracker.totalModelUsage);
   }
 }
 

@@ -7,6 +7,14 @@
     - When routing phase files through `repoContext` instead of direct `../github` imports
     - When troubleshooting auto-merge or PR review flows through the provider abstraction layer
 
+- app_docs/feature-ce43gr-fix-missing-d1-cost-writes.md
+  - Conditions:
+    - When working with `adwInit.tsx`, `adwPlan.tsx`, `adwDocument.tsx`, or `adwPrReview.tsx` cost tracking
+    - When troubleshooting missing cost records in D1 for init, plan, document, or PR review workflows
+    - When adding D1 cost writes to an orchestrator that uses `PRReviewWorkflowConfig` or no `WorkflowConfig`
+    - When enabling Cloudflare Worker observability in `wrangler.toml`
+    - When migrating an orchestrator from manual `persistTokenCounts` to `CostTracker`/`runPhase`
+
 - app_docs/feature-avb4f5-deploy-workers-github-actions.md
   - Conditions:
     - When working with `.github/workflows/deploy-workers.yml`
