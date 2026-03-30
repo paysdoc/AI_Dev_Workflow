@@ -23,10 +23,9 @@
  * - GITHUB_PAT: (Optional) GitHub Personal Access Token
  */
 
-import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId, log } from './core';
-import { CostTracker, runPhase } from './core/phaseRunner';
+import { OrchestratorId, log, emptyModelUsageMap } from './core';
+import { defineOrchestrator, runOrchestrator, branch } from './core/orchestratorRunner';
 import {
-  initializeWorkflow,
   executeInstallPhase,
   executePlanPhase,
   executeBuildPhase,
@@ -36,86 +35,81 @@ import {
   executeDocumentPhase,
   executeAutoMergePhase,
   executeDiffEvaluationPhase,
-  completeWorkflow,
-  handleWorkflowError,
 } from './workflowPhases';
-import type { WorkflowConfig } from './phases';
+import type { WorkflowConfig } from './workflowPhases';
+import type { DiffEvaluationPhaseResult } from './workflowPhases';
+import type { PhaseResult } from './core/phaseRunner';
+
+type TestPhaseResult = Awaited<ReturnType<typeof executeTestPhase>>;
+type ReviewPhaseResult = Awaited<ReturnType<typeof executeReviewPhase>>;
 
 /**
- * Posts an escalation comment on the issue when the diff evaluator detects
- * possible regressions and the chore is escalated to the full review pipeline.
+ * Phase function that posts an escalation comment on the issue when the diff
+ * evaluator detects possible regressions. Returns zero-cost result.
  */
-function postEscalationComment(config: WorkflowConfig): void {
+async function executeEscalationCommentPhase(config: WorkflowConfig): Promise<PhaseResult> {
   const { repoContext, issueNumber } = config;
-  if (!repoContext) return;
-  try {
-    repoContext.issueTracker.commentOnIssue(
-      issueNumber,
-      [
-        '## Chore Escalation: Regression Possible',
-        '',
-        'The diff evaluator detected changes that may affect application behaviour. Escalating to the full review pipeline.',
-        '',
-        'Phases: review → document → auto-merge',
-      ].join('\n'),
-    );
-  } catch (error) {
-    log(`Failed to post escalation comment: ${error}`, 'warn');
-  }
-}
-
-/**
- * Main orchestrator workflow.
- */
-async function main(): Promise<void> {
-  const args = process.argv.slice(2);
-  const targetRepo = parseTargetRepoArgs(args);
-  const { issueNumber, adwId, providedIssueType } = parseOrchestratorArguments(args, {
-    scriptName: 'adwChore.tsx',
-    usagePattern: '<github-issueNumber> [adw-id] [--issue-type <type>]',
-    supportsCwd: false,
-  });
-  const repoId = buildRepoIdentifier(targetRepo);
-
-  const config = await initializeWorkflow(issueNumber, adwId, OrchestratorId.Chore, {
-    issueType: providedIssueType || undefined,
-    targetRepo: targetRepo || undefined,
-    repoId,
-  });
-
-  const tracker = new CostTracker();
-
-  try {
-    await runPhase(config, tracker, executeInstallPhase);
-    await runPhase(config, tracker, executePlanPhase);
-    await runPhase(config, tracker, executeBuildPhase);
-    const testResult = await runPhase(config, tracker, executeTestPhase);
-    await runPhase(config, tracker, executePRPhase);
-    const diffResult = await runPhase(config, tracker, executeDiffEvaluationPhase);
-
-    if (diffResult.verdict === 'safe') {
-      await runPhase(config, tracker, executeAutoMergePhase);
-      await completeWorkflow(config, tracker.totalCostUsd, {
-        unitTestsPassed: testResult.unitTestsPassed,
-        totalTestRetries: testResult.totalRetries,
-        diffVerdict: 'safe',
-      }, tracker.totalModelUsage);
-    } else {
-      postEscalationComment(config);
-      const reviewResult = await runPhase(config, tracker, executeReviewPhase);
-      await runPhase(config, tracker, (cfg: WorkflowConfig) => executeDocumentPhase(cfg));
-      await runPhase(config, tracker, executeAutoMergePhase);
-      await completeWorkflow(config, tracker.totalCostUsd, {
-        unitTestsPassed: testResult.unitTestsPassed,
-        totalTestRetries: testResult.totalRetries,
-        diffVerdict: 'regression_possible',
-        reviewPassed: reviewResult.reviewPassed,
-        totalReviewRetries: reviewResult.totalRetries,
-      }, tracker.totalModelUsage);
+  if (repoContext) {
+    try {
+      repoContext.issueTracker.commentOnIssue(
+        issueNumber,
+        [
+          '## Chore Escalation: Regression Possible',
+          '',
+          'The diff evaluator detected changes that may affect application behaviour. Escalating to the full review pipeline.',
+          '',
+          'Phases: review → document → auto-merge',
+        ].join('\n'),
+      );
+    } catch (error) {
+      log(`Failed to post escalation comment: ${error}`, 'warn');
     }
-  } catch (error) {
-    handleWorkflowError(config, error, tracker.totalCostUsd, tracker.totalModelUsage);
   }
+  return { costUsd: 0, modelUsage: emptyModelUsageMap(), phaseCostRecords: [] };
 }
 
-main();
+runOrchestrator(defineOrchestrator({
+  id: OrchestratorId.Chore,
+  scriptName: 'adwChore.tsx',
+  usagePattern: '<github-issueNumber> [adw-id] [--issue-type <type>]',
+  phases: [
+    { name: 'install', execute: executeInstallPhase },
+    { name: 'plan', execute: executePlanPhase },
+    { name: 'build', execute: executeBuildPhase },
+    { name: 'test', execute: executeTestPhase },
+    { name: 'pr', execute: executePRPhase },
+    { name: 'diffEvaluation', execute: executeDiffEvaluationPhase },
+    branch(
+      'diff-verdict',
+      (results) => results.get<DiffEvaluationPhaseResult>('diffEvaluation')?.verdict === 'safe',
+      [
+        { name: 'autoMerge', execute: executeAutoMergePhase },
+      ],
+      [
+        { name: 'escalation', execute: executeEscalationCommentPhase },
+        { name: 'review', execute: executeReviewPhase },
+        { name: 'document', execute: (cfg: WorkflowConfig) => executeDocumentPhase(cfg) },
+        { name: 'autoMerge', execute: executeAutoMergePhase },
+      ],
+    ),
+  ],
+  completionMetadata: (results) => {
+    const test = results.get<TestPhaseResult>('test');
+    const diff = results.get<DiffEvaluationPhaseResult>('diffEvaluation');
+    const review = results.get<ReviewPhaseResult>('review');
+    const verdict = diff?.verdict ?? 'regression_possible';
+
+    const base: Record<string, unknown> = {
+      unitTestsPassed: test?.unitTestsPassed ?? false,
+      totalTestRetries: test?.totalRetries ?? 0,
+      diffVerdict: verdict,
+    };
+
+    if (verdict === 'regression_possible' && review) {
+      base.reviewPassed = review.reviewPassed;
+      base.totalReviewRetries = review.totalRetries;
+    }
+
+    return base;
+  },
+}));

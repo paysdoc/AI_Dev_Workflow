@@ -16,16 +16,43 @@ import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier } 
 import { initializeWorkflow } from '../phases/workflowInit';
 import { completeWorkflow, handleWorkflowError } from '../phases/workflowCompletion';
 import { PhaseResultStore } from '../types/workflowState';
+import { log } from './utils';
 
 /**
  * A single sequential phase in a declarative orchestrator definition.
  */
 export interface PhaseDefinition {
+  /** Discriminant — absent or 'phase' for regular sequential phases. */
+  readonly type?: 'phase';
   /** Display name used for skip-on-resume tracking and cost records. */
   readonly name: string;
   /** The phase function to execute. */
   readonly execute: PhaseFn;
 }
+
+/**
+ * A conditional branch node in a declarative orchestrator definition.
+ * After the preceding phase completes, the runner evaluates the predicate
+ * against the accumulated PhaseResultStore and executes the matching branch.
+ */
+export interface BranchPhaseDefinition {
+  /** Discriminant — must be 'branch' to distinguish from PhaseDefinition. */
+  readonly type: 'branch';
+  /** Display name for the branch decision point (used in logs). */
+  readonly name: string;
+  /** Evaluates to true to take the true branch, false to take the false branch. */
+  readonly predicate: (results: PhaseResultStore) => boolean;
+  /** Phases to execute when predicate returns true. */
+  readonly trueBranch: ReadonlyArray<PhaseDefinition>;
+  /** Phases to execute when predicate returns false. */
+  readonly falseBranch: ReadonlyArray<PhaseDefinition>;
+}
+
+/**
+ * A discriminated union of the two valid phase entry types.
+ * Use PhaseDefinition for sequential phases, BranchPhaseDefinition for conditional branches.
+ */
+export type PhaseEntry = PhaseDefinition | BranchPhaseDefinition;
 
 /**
  * A declarative orchestrator definition.
@@ -38,14 +65,39 @@ export interface OrchestratorDefinition {
   readonly scriptName: string;
   /** CLI usage pattern printed by --help and on arg errors. */
   readonly usagePattern: string;
-  /** Ordered list of phases to execute sequentially. */
-  readonly phases: ReadonlyArray<PhaseDefinition>;
+  /** Ordered list of phases (sequential or branch) to execute. */
+  readonly phases: ReadonlyArray<PhaseEntry>;
   /**
    * Optional callback to derive completion metadata from phase results.
    * Called only on the success path, before completeWorkflow().
    * Return value is merged into the workflow completion state.
    */
   readonly completionMetadata?: (results: PhaseResultStore) => Record<string, unknown>;
+}
+
+/**
+ * Type guard — returns true if the entry is a BranchPhaseDefinition.
+ */
+function isBranchPhase(entry: PhaseEntry): entry is BranchPhaseDefinition {
+  return entry.type === 'branch';
+}
+
+/**
+ * Ergonomic helper for constructing a BranchPhaseDefinition at the call site.
+ *
+ * @param name - Display name for the branch decision point (shown in logs).
+ * @param predicate - Evaluates the PhaseResultStore; true → trueBranch, false → falseBranch.
+ * @param trueBranch - Phases to run when predicate returns true.
+ * @param falseBranch - Phases to run when predicate returns false.
+ * @returns A fully typed BranchPhaseDefinition.
+ */
+export function branch(
+  name: string,
+  predicate: (results: PhaseResultStore) => boolean,
+  trueBranch: ReadonlyArray<PhaseDefinition>,
+  falseBranch: ReadonlyArray<PhaseDefinition>,
+): BranchPhaseDefinition {
+  return { type: 'branch', name, predicate, trueBranch, falseBranch };
 }
 
 /**
@@ -89,9 +141,20 @@ export async function runOrchestrator(def: OrchestratorDefinition): Promise<void
   const results = new PhaseResultStore();
 
   try {
-    for (const phase of def.phases) {
-      const result = await runPhase(config, tracker, phase.execute, phase.name);
-      results.set(phase.name, result);
+    for (const entry of def.phases) {
+      if (isBranchPhase(entry)) {
+        const predicateResult = entry.predicate(results);
+        const selectedBranch = predicateResult ? entry.trueBranch : entry.falseBranch;
+        const path = predicateResult ? 'true' : 'false';
+        log(`Branch '${entry.name}': took ${path} path`, 'info');
+        for (const phase of selectedBranch) {
+          const result = await runPhase(config, tracker, phase.execute, phase.name);
+          results.set(phase.name, result);
+        }
+      } else {
+        const result = await runPhase(config, tracker, entry.execute, entry.name);
+        results.set(entry.name, result);
+      }
     }
 
     const metadata = def.completionMetadata?.(results) ?? {};

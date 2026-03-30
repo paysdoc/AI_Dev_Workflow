@@ -64,6 +64,15 @@ export interface PRPhaseState {
 }
 
 /**
+ * Semantic output of the Diff Evaluation phase.
+ * Captures the LLM diff evaluator verdict used for branch routing.
+ */
+export interface DiffEvalPhaseState {
+  /** The diff evaluation verdict: 'safe' for auto-merge, 'regression_possible' for escalation. */
+  readonly verdict: 'safe' | 'regression_possible';
+}
+
+/**
  * Aggregate workflow state collecting optional per-phase output.
  * Properties are optional because phases execute incrementally —
  * a phase's section is populated only after that phase completes.
@@ -76,6 +85,7 @@ export interface WorkflowState {
   readonly build?: BuildPhaseState;
   readonly test?: TestPhaseState;
   readonly pr?: PRPhaseState;
+  readonly diffEval?: DiffEvalPhaseState;
 }
 
 /**
