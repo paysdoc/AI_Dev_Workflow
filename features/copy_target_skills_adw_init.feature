@@ -192,4 +192,6 @@ Feature: Copy target: true skills and commands to target repos during adw_init
     And "feature.md" is not committed in ".claude/commands/"
     When copyClaudeCommandsToWorktree runs for a new worktree
     Then both "prime.md" and "feature.md" are present in the worktree's ".claude/commands/"
-    And only "feature.md" is listed in .gitignore
+    And "feature.md" is added to .gitignore in the worktree
+    And "prime.md" is not added to .gitignore in the worktree
+    And "install.md" is not added to .gitignore in the worktree

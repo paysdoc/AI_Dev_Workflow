@@ -202,7 +202,9 @@ export function copyClaudeCommandsToWorktree(worktreePath: string): void {
       .filter(Boolean)
       .map((f) => path.basename(f));
 
-    const filesToGitignore = copiedFiles.filter((f) => !trackedFiles.includes(f));
+    const filesToGitignore = copiedFiles.filter((f) =>
+      !trackedFiles.includes(f) && !parseFrontmatterTarget(path.join(sourceDir, f))
+    );
 
     if (filesToGitignore.length > 0) {
       const gitignoreEntries = filesToGitignore.map((file) => `.claude/commands/${file}`);
