@@ -20,6 +20,7 @@ export {
   executePlanValidationPhase,
   executeAlignmentPhase,
   executeBuildPhase,
+  buildPhaseOnTokenLimit,
   executeTestPhase,
   executePRPhase,
   executeDocumentPhase,

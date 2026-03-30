@@ -11,7 +11,8 @@
  * to run rather than repeating the bookkeeping lines.
  */
 
-import { RUNNING_TOKENS } from './config';
+import { RUNNING_TOKENS, MAX_CONTEXT_RESETS } from './config';
+import type { TokenUsageSnapshot } from '../types/agentTypes';
 import { mergeModelUsageMaps, persistTokenCounts, computeDisplayTokens } from '../cost';
 import type { ModelUsageMap, PhaseCostRecord } from '../cost';
 import { postCostRecordsToD1 } from '../cost/d1Client';
@@ -29,6 +30,14 @@ export interface PhaseResult {
   costUsd: number;
   modelUsage: ModelUsageMap;
   phaseCostRecords?: PhaseCostRecord[];
+  /** True when the phase was interrupted by a token limit or context compaction. */
+  readonly tokenLimitExceeded?: boolean;
+  /** Distinguishes between a token-limit termination and context compaction. */
+  readonly tokenLimitReason?: 'token_limit' | 'compaction';
+  /** Agent output captured before interruption; used by onTokenLimit callbacks. */
+  readonly previousOutput?: string;
+  /** Token usage snapshot at interruption time; forwarded to the continuation loop. */
+  readonly tokenUsage?: TokenUsageSnapshot;
 }
 
 /**
@@ -130,7 +139,7 @@ export async function runPhase<R extends PhaseResult>(
     tracker.accumulate(result);
     tracker.persist(config);
     await tracker.commit(config, result.phaseCostRecords ?? []);
-    if (phaseName) recordCompletedPhase(config, phaseName);
+    if (phaseName && !result.tokenLimitExceeded) recordCompletedPhase(config, phaseName);
     return result;
   } catch (err) {
     if (err instanceof RateLimitError) {
@@ -160,6 +169,65 @@ export async function runPhasesSequential<R extends PhaseResult>(
     results.push(await runPhase(config, tracker, fn));
   }
   return results;
+}
+
+/**
+ * Wraps runPhase() with a token-limit continuation loop.
+ *
+ * On each invocation, if the phase returns tokenLimitExceeded, the loop:
+ *   1. Calls onTokenLimit(config, result) to obtain a continuation prompt string.
+ *   2. Sets config.continuationPrompt so the phase reads it on the next invocation.
+ *   3. Posts a recovery comment via postIssueStageComment().
+ *   4. Re-invokes runPhase() up to MAX_CONTEXT_RESETS times.
+ *
+ * After the loop exits (success or max resets exceeded), config.continuationPrompt
+ * is cleared so subsequent phases start fresh.
+ *
+ * Phases without an onTokenLimit callback should use runPhase() directly — they will
+ * receive the tokenLimitExceeded result as-is (safe-by-default behavior).
+ */
+export async function runPhaseWithContinuation<R extends PhaseResult>(
+  config: WorkflowConfig,
+  tracker: CostTracker,
+  fn: (config: WorkflowConfig) => Promise<R>,
+  onTokenLimit: (config: WorkflowConfig, result: R) => string,
+  phaseName?: string,
+): Promise<R> {
+  let result = await runPhase(config, tracker, fn, phaseName);
+
+  if (!result.tokenLimitExceeded) {
+    return result;
+  }
+
+  // Lazy import to avoid circular deps (phaseCommentHelpers → core → phaseRunner).
+  const { postIssueStageComment } = await import('../phases/phaseCommentHelpers');
+  let resets = 0;
+
+  while (result.tokenLimitExceeded) {
+    resets++;
+    if (resets > MAX_CONTEXT_RESETS) {
+      throw new Error(
+        `Phase '${phaseName ?? 'unknown'}' exceeded maximum context resets (${MAX_CONTEXT_RESETS}).`,
+      );
+    }
+
+    log(`Context reset ${resets}/${MAX_CONTEXT_RESETS} for phase '${phaseName ?? 'unknown'}'`, 'info');
+    config.ctx.tokenContinuationNumber = resets;
+    if (result.tokenUsage) {
+      config.ctx.tokenUsage = result.tokenUsage;
+    }
+
+    const stage = result.tokenLimitReason === 'compaction' ? 'compaction_recovery' : 'token_limit_recovery';
+    if (config.repoContext) {
+      postIssueStageComment(config.repoContext, config.issueNumber, stage, config.ctx);
+    }
+
+    config.continuationPrompt = onTokenLimit(config, result);
+    result = await runPhase(config, tracker, fn, phaseName);
+  }
+
+  config.continuationPrompt = undefined;
+  return result;
 }
 
 /**

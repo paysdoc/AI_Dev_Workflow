@@ -20,13 +20,14 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId } from './core';
-import { CostTracker, runPhase } from './core/phaseRunner';
+import { CostTracker, runPhase, runPhaseWithContinuation } from './core/phaseRunner';
 import type { PhaseResult } from './core/phaseRunner';
 import type { ModelUsageMap } from './cost';
 import {
   initializeWorkflow,
   executeInstallPhase,
   executeBuildPhase,
+  buildPhaseOnTokenLimit,
   executePRPhase,
   completeWorkflow,
   handleWorkflowError,
@@ -101,7 +102,7 @@ async function main(): Promise<void> {
   try {
     await runPhase(config, tracker, executeInstallPhase, 'install');
     await runPhase(config, tracker, executePatchPhase, 'patch');
-    await runPhase(config, tracker, executeBuildPhase, 'build');
+    await runPhaseWithContinuation(config, tracker, executeBuildPhase, buildPhaseOnTokenLimit, 'build');
     await runPhase(config, tracker, executePRPhase, 'pr');
 
     await completeWorkflow(config, tracker.totalCostUsd, {}, tracker.totalModelUsage);

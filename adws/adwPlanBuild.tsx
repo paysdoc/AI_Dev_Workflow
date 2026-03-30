@@ -7,7 +7,7 @@
 
 import { OrchestratorId } from './core';
 import { defineOrchestrator, runOrchestrator } from './core/orchestratorRunner';
-import { executeInstallPhase, executePlanPhase, executeBuildPhase, executeTestPhase, executePRPhase } from './workflowPhases';
+import { executeInstallPhase, executePlanPhase, executeBuildPhase, buildPhaseOnTokenLimit, executeTestPhase, executePRPhase } from './workflowPhases';
 
 type TestPhaseResult = Awaited<ReturnType<typeof executeTestPhase>>;
 
@@ -18,7 +18,7 @@ runOrchestrator(defineOrchestrator({
   phases: [
     { name: 'install', execute: executeInstallPhase },
     { name: 'plan', execute: executePlanPhase },
-    { name: 'build', execute: executeBuildPhase },
+    { name: 'build', execute: executeBuildPhase, onTokenLimit: buildPhaseOnTokenLimit },
     { name: 'test', execute: executeTestPhase },
     { name: 'pr', execute: executePRPhase },
   ],

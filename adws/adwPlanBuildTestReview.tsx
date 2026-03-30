@@ -27,7 +27,7 @@
  */
 
 import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId } from './core';
-import { CostTracker, runPhase, runPhasesParallel } from './core/phaseRunner';
+import { CostTracker, runPhase, runPhaseWithContinuation, runPhasesParallel } from './core/phaseRunner';
 import {
   initializeWorkflow,
   executeInstallPhase,
@@ -35,6 +35,7 @@ import {
   executeScenarioPhase,
   executeAlignmentPhase,
   executeBuildPhase,
+  buildPhaseOnTokenLimit,
   executeTestPhase,
   executePRPhase,
   executeReviewPhase,
@@ -69,7 +70,7 @@ async function main(): Promise<void> {
     await runPhase(config, tracker, executeInstallPhase);
     await runPhasesParallel(config, tracker, [executePlanPhase, executeScenarioPhase]);
     await runPhase(config, tracker, executeAlignmentPhase);
-    await runPhase(config, tracker, executeBuildPhase);
+    await runPhaseWithContinuation(config, tracker, executeBuildPhase, buildPhaseOnTokenLimit);
     const testResult = await runPhase(config, tracker, executeTestPhase);
     const reviewResult = await runPhase(config, tracker, executeReviewPhase);
     await runPhase(config, tracker, executePRPhase);

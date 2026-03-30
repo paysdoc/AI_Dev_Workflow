@@ -10,8 +10,9 @@
  */
 
 import type { OrchestratorIdType } from './constants';
-import { CostTracker, runPhase } from './phaseRunner';
-import type { PhaseFn } from './phaseRunner';
+import { CostTracker, runPhase, runPhaseWithContinuation } from './phaseRunner';
+import type { PhaseFn, PhaseResult } from './phaseRunner';
+import type { WorkflowConfig } from '../phases/workflowInit';
 import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier } from './orchestratorCli';
 import { initializeWorkflow } from '../phases/workflowInit';
 import { completeWorkflow, handleWorkflowError } from '../phases/workflowCompletion';
@@ -25,6 +26,13 @@ export interface PhaseDefinition {
   readonly name: string;
   /** The phase function to execute. */
   readonly execute: PhaseFn;
+  /**
+   * Optional callback invoked by runPhaseWithContinuation() when the phase returns
+   * tokenLimitExceeded. Returns a continuation prompt string that is set on
+   * config.continuationPrompt before the next invocation.
+   * Phases without this callback receive the tokenLimitExceeded result as-is.
+   */
+  readonly onTokenLimit?: (config: WorkflowConfig, previousResult: PhaseResult) => string;
 }
 
 /**
@@ -90,7 +98,9 @@ export async function runOrchestrator(def: OrchestratorDefinition): Promise<void
 
   try {
     for (const phase of def.phases) {
-      const result = await runPhase(config, tracker, phase.execute, phase.name);
+      const result = phase.onTokenLimit
+        ? await runPhaseWithContinuation(config, tracker, phase.execute, phase.onTokenLimit, phase.name)
+        : await runPhase(config, tracker, phase.execute, phase.name);
       results.set(phase.name, result);
     }
 

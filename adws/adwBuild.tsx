@@ -22,11 +22,12 @@
 import * as path from 'path';
 import * as fs from 'fs';
 import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId } from './core';
-import { CostTracker, runPhase } from './core/phaseRunner';
+import { CostTracker, runPhase, runPhaseWithContinuation } from './core/phaseRunner';
 import {
   initializeWorkflow,
   executeInstallPhase,
   executeBuildPhase,
+  buildPhaseOnTokenLimit,
   completeWorkflow,
   handleWorkflowError,
 } from './workflowPhases';
@@ -62,7 +63,7 @@ async function main(): Promise<void> {
 
   try {
     await runPhase(config, tracker, executeInstallPhase, 'install');
-    await runPhase(config, tracker, executeBuildPhase, 'build');
+    await runPhaseWithContinuation(config, tracker, executeBuildPhase, buildPhaseOnTokenLimit, 'build');
 
     await completeWorkflow(config, tracker.totalCostUsd, {}, tracker.totalModelUsage);
   } catch (error) {

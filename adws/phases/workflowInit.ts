@@ -79,6 +79,11 @@ export interface WorkflowConfig {
   installContext?: string;
   /** Phase names already completed in a previous run (populated on pause/resume). */
   completedPhases?: string[];
+  /**
+   * When set by runPhaseWithContinuation(), the phase reads this as its input
+   * prompt instead of the original plan file. Cleared after the phase exits.
+   */
+  continuationPrompt?: string;
 }
 
 /**

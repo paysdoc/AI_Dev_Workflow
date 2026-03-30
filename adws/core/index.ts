@@ -146,7 +146,7 @@ export {
 
 // Phase runner utilities
 export type { PhaseResult, PhaseFn } from './phaseRunner';
-export { CostTracker, runPhase, runPhasesSequential, runPhasesParallel } from './phaseRunner';
+export { CostTracker, runPhase, runPhaseWithContinuation, runPhasesSequential, runPhasesParallel } from './phaseRunner';
 
 // Declarative orchestrator runner
 export type { PhaseDefinition, OrchestratorDefinition } from './orchestratorRunner';
