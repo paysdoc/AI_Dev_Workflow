@@ -6,6 +6,7 @@
 import * as path from 'path';
 import { getModelForCommand, getEffortForCommand } from '../core';
 import { runClaudeAgentWithCommand, AgentResult } from './claudeAgent';
+import { runCommandAgent, type CommandAgentConfig, type ExtractionResult } from './commandAgent';
 import { extractJsonArray } from '../core/jsonParser';
 
 // Backward-compatible re-exports from testDiscovery
@@ -44,6 +45,48 @@ export interface TestAgentResult extends AgentResult {
   failedTests: TestResult[];
 }
 
+export const testResultsSchema: Record<string, unknown> = {
+  type: 'array',
+  items: {
+    type: 'object',
+    required: ['test_name', 'passed', 'execution_command', 'test_purpose'],
+    properties: {
+      test_name: { type: 'string' },
+      passed: { type: 'boolean' },
+      execution_command: { type: 'string' },
+      test_purpose: { type: 'string' },
+      error: { type: 'string' },
+    },
+  },
+};
+
+/**
+ * Extracts test results from the agent output.
+ * Returns a structured error if no valid JSON array is found.
+ */
+function extractTestResults(output: string): ExtractionResult<TestResult[]> {
+  const results = extractJsonArray<TestResult>(output);
+  if (results.length === 0) {
+    // Check if there really is no JSON array (vs an empty array meaning no tests)
+    const hasArrayMatch = /\[[\s\S]*\]/.test(output);
+    if (!hasArrayMatch) {
+      return {
+        success: false,
+        error: 'No JSON array found in test agent output',
+      };
+    }
+  }
+  return { success: true, data: results };
+}
+
+const testAgentConfig: CommandAgentConfig<TestResult[]> = {
+  command: '/test',
+  agentName: 'Test Runner',
+  outputFileName: 'test-agent.jsonl',
+  extractOutput: extractTestResults,
+  outputSchema: testResultsSchema,
+};
+
 /**
  * Runs the /test command and returns parsed test results.
  * Uses 'sonnet' model for cost efficiency.
@@ -58,23 +101,15 @@ export async function runTestAgent(
   cwd?: string,
   issueBody?: string,
 ): Promise<TestAgentResult> {
-  const outputFile = path.join(logsDir, 'test-agent.jsonl');
-
-  // Run /test command with empty args (command has no required arguments)
-  const result = await runClaudeAgentWithCommand(
-    '/test',
-    '',
-    'Test Runner',
-    outputFile,
-    getModelForCommand('/test', issueBody),
-    getEffortForCommand('/test', issueBody),
-    undefined,
+  const result = await runCommandAgent(testAgentConfig, {
+    args: '',
+    logsDir,
+    issueBody,
     statePath,
-    cwd
-  );
+    cwd,
+  });
 
-  // Parse the test results from the output
-  const testResults = extractJsonArray<TestResult>(result.output);
+  const testResults = result.parsed;
   const failedTests = testResults.filter(t => !t.passed);
   const allPassed = testResults.length > 0 && failedTests.length === 0;
 

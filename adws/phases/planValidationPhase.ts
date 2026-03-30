@@ -20,7 +20,9 @@ import {
   findScenarioFiles,
   runValidationAgent,
   runResolutionAgent,
+  OutputValidationError,
 } from "../agents";
+import type { ValidationResult } from "../agents";
 import type { WorkflowConfig } from "./workflowInit";
 
 /**
@@ -86,15 +88,32 @@ export async function executePlanValidationPhase(
     execution: AgentStateManager.createExecutionState("running"),
   });
 
-  const initialValidation = await runValidationAgent(
-    adwId,
-    issueNumber,
-    planFilePath,
-    worktreePath,
-    logsDir,
-    validationAgentStatePath,
-    worktreePath
-  );
+  const failedValidationResult: ValidationResult = {
+    aligned: false,
+    mismatches: [{ type: 'plan_only', description: 'Validation output could not be parsed after retries.' }],
+    summary: 'Validation output could not be parsed; treating as unaligned.',
+  };
+
+  let initialValidation: Awaited<ReturnType<typeof runValidationAgent>>;
+  try {
+    initialValidation = await runValidationAgent(
+      adwId,
+      issueNumber,
+      planFilePath,
+      worktreePath,
+      logsDir,
+      validationAgentStatePath,
+      worktreePath
+    );
+  } catch (err) {
+    if (err instanceof OutputValidationError) {
+      log(`Validation agent output validation exhausted: ${err.lastValidationError}`, 'warn');
+      // Return a failed validation result so the orchestrator can handle it
+      return { costUsd, modelUsage };
+    }
+    throw err;
+  }
+
   costUsd += initialValidation.totalCostUsd || 0;
   if (initialValidation.modelUsage) {
     modelUsage = mergeModelUsageMaps(modelUsage, initialValidation.modelUsage);
@@ -142,17 +161,33 @@ export async function executePlanValidationPhase(
       execution: AgentStateManager.createExecutionState("running"),
     });
 
-    const resolution = await runResolutionAgent(
-      adwId,
-      issueNumber,
-      planFilePath,
-      worktreePath,
-      JSON.stringify(issue),
-      currentMismatches,
-      logsDir,
-      resolutionAgentStatePath,
-      worktreePath
-    );
+    let resolution: Awaited<ReturnType<typeof runResolutionAgent>>;
+    try {
+      resolution = await runResolutionAgent(
+        adwId,
+        issueNumber,
+        planFilePath,
+        worktreePath,
+        JSON.stringify(issue),
+        currentMismatches,
+        logsDir,
+        resolutionAgentStatePath,
+        worktreePath
+      );
+    } catch (err) {
+      if (err instanceof OutputValidationError) {
+        log(`Resolution agent output validation exhausted: ${err.lastValidationError}`, 'warn');
+        // Degrade gracefully: return resolved=false with empty decisions
+        resolution = {
+          success: false,
+          output: '',
+          resolutionResult: { resolved: false, decisions: [] },
+        };
+      } else {
+        throw err;
+      }
+    }
+
     costUsd += resolution.totalCostUsd || 0;
     if (resolution.modelUsage) {
       modelUsage = mergeModelUsageMaps(modelUsage, resolution.modelUsage);
@@ -186,15 +221,26 @@ export async function executePlanValidationPhase(
       execution: AgentStateManager.createExecutionState("running"),
     });
 
-    const reValidation = await runValidationAgent(
-      adwId,
-      issueNumber,
-      planFilePath,
-      worktreePath,
-      logsDir,
-      reValidationStatePath,
-      worktreePath
-    );
+    let reValidation: Awaited<ReturnType<typeof runValidationAgent>>;
+    try {
+      reValidation = await runValidationAgent(
+        adwId,
+        issueNumber,
+        planFilePath,
+        worktreePath,
+        logsDir,
+        reValidationStatePath,
+        worktreePath
+      );
+    } catch (err) {
+      if (err instanceof OutputValidationError) {
+        log(`Re-validation output validation exhausted: ${err.lastValidationError}`, 'warn');
+        reValidation = { success: false, output: '', validationResult: failedValidationResult };
+      } else {
+        throw err;
+      }
+    }
+
     costUsd += reValidation.totalCostUsd || 0;
     if (reValidation.modelUsage) {
       modelUsage = mergeModelUsageMaps(modelUsage, reValidation.modelUsage);

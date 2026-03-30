@@ -17,6 +17,7 @@ import { checkIssueEligibility } from './issueEligibility';
 import { classifyAndSpawnWorkflow } from './webhookGatekeeper';
 import { registerAndGuard } from './cronProcessGuard';
 import { scanPauseQueue } from './pauseQueueScanner';
+import { resolveCronRepo, buildCronTargetRepoArgs } from './cronRepoResolver';
 
 const POLL_INTERVAL_MS = 20_000;
 const PR_POLL_INTERVAL_MS = 60_000;
@@ -50,11 +51,12 @@ const ACTIVE_STAGES = new Set([
   'document_running', 'install_running', 'resumed',
 ]);
 
-// Activate GitHub App auth before any gh CLI calls
-activateGitHubAppAuth();
+// Resolve repo identity from --target-repo CLI args (or fall back to local git remote).
+const { repoInfo: cronRepoInfo, targetRepo } = resolveCronRepo(process.argv.slice(2), getRepoInfo);
 
-/** Resolved repo info for this cron process, derived from local git remote. */
-const cronRepoInfo: RepoInfo = getRepoInfo();
+// Activate GitHub App auth before any gh CLI calls (pass target repo so the
+// correct installation token is obtained when running for a non-local repo).
+activateGitHubAppAuth(cronRepoInfo.owner, cronRepoInfo.repo);
 
 /** Fetches all open issues with body, comments, and timestamps. */
 function fetchOpenIssues(): RawIssue[] {
@@ -71,16 +73,13 @@ function fetchOpenIssues(): RawIssue[] {
   }
 }
 
-/** Builds --target-repo args from the local repo info. */
+/** Builds --target-repo args to pass to spawned workflows. */
 function buildTargetRepoArgs(): string[] {
-  const { owner, repo } = cronRepoInfo;
-  const fullName = `${owner}/${repo}`;
-  try {
-    const cloneUrl = execSync('git remote get-url origin', { encoding: 'utf-8' }).trim();
-    return ['--target-repo', fullName, '--clone-url', cloneUrl];
-  } catch {
-    return ['--target-repo', fullName];
-  }
+  return buildCronTargetRepoArgs(
+    cronRepoInfo,
+    targetRepo,
+    () => { try { return execSync('git remote get-url origin', { encoding: 'utf-8' }).trim(); } catch { return null; } },
+  );
 }
 
 /** Returns true if the issue was updated within the grace period. */

@@ -1,5 +1,13 @@
 # Conditional Documentation
 
+- app_docs/feature-u8xr9v-output-validation-retry-loop.md
+  - Conditions:
+    - When working with `adws/agents/commandAgent.ts` or adding structured output to a new agent
+    - When implementing or troubleshooting `ExtractionResult<T>` or `OutputValidationError`
+    - When adding `outputSchema` to a `CommandAgentConfig` to enable retry on malformed LLM output
+    - When migrating an agent from direct `runClaudeAgentWithCommand` to `commandAgent`
+    - When debugging retry loop behavior (consecutive error early exit, Haiku retry invocations)
+
 - app_docs/feature-avb4f5-deploy-workers-github-actions.md
   - Conditions:
     - When working with `.github/workflows/deploy-workers.yml`

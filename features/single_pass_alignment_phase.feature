@@ -233,13 +233,13 @@ Feature: Single-pass alignment command and phase (replaces plan validation loop)
 
   # --- 16: Alignment agent parses non-JSON output gracefully ---
 
-  @adw-305 @regression
-  Scenario: parseAlignmentResult returns a safe default for non-JSON agent output
+  @adw-305 @adw-u8xr9v-add-output-validatio @regression
+  Scenario: Alignment phase returns a safe default when output validation retries are exhausted
     Given the alignment agent returns non-JSON text output
-    When parseAlignmentResult is called
-    Then the result has aligned = true
-    And the result has a single warning describing the parse failure
-    And the result has empty changes array
+    And the commandAgent retry loop exhausts all retries
+    When the alignment phase catches the output validation error
+    Then the phase returns aligned = true with a warning describing the validation failure
+    And the phase returns an empty changes array
 
   # --- 17: Commits updated artifacts ---
 
