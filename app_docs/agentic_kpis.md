@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value          | Last Updated       |
 | ----------------- | -------------- | ------------------ |
-| Current Streak    | 63             | 2026-03-27 14:53:16|
-| Longest Streak    | 63             | 2026-03-27 14:53:16|
-| Total Plan Size   | 441 lines      | 2026-03-27 14:53:16|
-| Largest Plan Size | 201 lines      | 2026-03-27 14:53:16|
-| Total Diff Size   | 1711772 lines  | 2026-03-27 14:53:16|
-| Largest Diff Size | 205468 lines   | 2026-03-27 14:53:16|
-| Average Presence  | 1.35           | 2026-03-27 14:53:16|
+| Current Streak    | 56             | 2026-03-30 17:51:28|
+| Longest Streak    | 56             | 2026-03-30 17:51:28|
+| Total Plan Size   | 441 lines      | 2026-03-30 17:51:28|
+| Largest Plan Size | 201 lines      | 2026-03-30 17:51:28|
+| Total Diff Size   | 1714135 lines  | 2026-03-30 17:51:28|
+| Largest Diff Size | 205468 lines   | 2026-03-30 17:51:28|
+| Average Presence  | 1.44           | 2026-03-30 17:51:28|
 
 ## ADW KPIs
 
@@ -82,3 +82,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-03-27 | 92py6q-adw-d1-client-and-du | 334          | /feature    | 1        | 0                 | 40650/1309/364                  | 2026-03-27 | 2026-03-27 |
 | 2026-03-27 | avb4f5-github-actions-worke | 332          | /chore     | 1        | 0                 | 42268/1310/378                  | 2026-03-27 | 2026-03-27 |
 | 2026-03-27 | ak03s5-remove-csv-cost-pipe | 335          | /chore     | 2        | 0                 | 41586/3950/515                  | 2026-03-27 | 2026-03-27 |
+| 2026-03-30 | u8xr9v-add-output-validatio | 362          | /feature    | 1        | 0                 | 2068/295/24                     | 2026-03-30 | 2026-03-30 |
