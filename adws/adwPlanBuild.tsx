@@ -1,71 +1,29 @@
 #!/usr/bin/env bunx tsx
 /**
- * ADW Plan & Build - Plan+Build+Test+PR Orchestrator (no review)
+ * ADW Plan & Build — Plan+Build+Test+PR Orchestrator (no review)
  *
  * Usage: bunx tsx adws/adwPlanBuild.tsx <github-issueNumber> [adw-id] [--issue-type <type>]
- *
- * Workflow:
- * 1. Initialize: fetch issue, classify type, setup worktree, initialize state, detect recovery
- * 2. Plan Phase: classify issue, create branch, run plan agent, commit plan
- * 3. Build Phase: run build agent, commit implementation
- * 4. Test Phase: optionally run unit tests (unit only)
- * 5. PR Phase: create pull request
- * 6. Finalize: update state, post completion comment
- *
- * Environment Requirements:
- * - ANTHROPIC_API_KEY: Anthropic API key
- * - CLAUDE_CODE_PATH: Path to Claude CLI (default: /usr/local/bin/claude)
- * - GITHUB_PAT: (Optional) GitHub Personal Access Token
  */
 
-import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId } from './core';
-import { CostTracker, runPhase } from './core/phaseRunner';
-import {
-  initializeWorkflow,
-  executeInstallPhase,
-  executePlanPhase,
-  executeBuildPhase,
-  executeTestPhase,
-  executePRPhase,
-  completeWorkflow,
-  handleWorkflowError,
-} from './workflowPhases';
+import { OrchestratorId } from './core';
+import { defineOrchestrator, runOrchestrator } from './core/orchestratorRunner';
+import { executeInstallPhase, executePlanPhase, executeBuildPhase, executeTestPhase, executePRPhase } from './workflowPhases';
 
-/**
- * Main orchestrator workflow.
- */
-async function main(): Promise<void> {
-  const args = process.argv.slice(2);
-  const targetRepo = parseTargetRepoArgs(args);
-  const { issueNumber, adwId, providedIssueType } = parseOrchestratorArguments(args, {
-    scriptName: 'adwPlanBuild.tsx',
-    usagePattern: '<github-issueNumber> [adw-id] [--issue-type <type>]',
-    supportsCwd: false,
-  });
-  const repoId = buildRepoIdentifier(targetRepo);
+type TestPhaseResult = Awaited<ReturnType<typeof executeTestPhase>>;
 
-  const config = await initializeWorkflow(issueNumber, adwId, OrchestratorId.PlanBuild, {
-    issueType: providedIssueType || undefined,
-    targetRepo: targetRepo || undefined,
-    repoId,
-  });
-
-  const tracker = new CostTracker();
-
-  try {
-    await runPhase(config, tracker, executeInstallPhase);
-    await runPhase(config, tracker, executePlanPhase);
-    await runPhase(config, tracker, executeBuildPhase);
-    const testResult = await runPhase(config, tracker, executeTestPhase);
-    await runPhase(config, tracker, executePRPhase);
-
-    await completeWorkflow(config, tracker.totalCostUsd, {
-      unitTestsPassed: testResult.unitTestsPassed,
-      totalTestRetries: testResult.totalRetries,
-    }, tracker.totalModelUsage);
-  } catch (error) {
-    handleWorkflowError(config, error, tracker.totalCostUsd, tracker.totalModelUsage);
-  }
-}
-
-main();
+runOrchestrator(defineOrchestrator({
+  id: OrchestratorId.PlanBuild,
+  scriptName: 'adwPlanBuild.tsx',
+  usagePattern: '<github-issueNumber> [adw-id] [--issue-type <type>]',
+  phases: [
+    { name: 'install', execute: executeInstallPhase },
+    { name: 'plan', execute: executePlanPhase },
+    { name: 'build', execute: executeBuildPhase },
+    { name: 'test', execute: executeTestPhase },
+    { name: 'pr', execute: executePRPhase },
+  ],
+  completionMetadata: (results) => {
+    const test = results.get<TestPhaseResult>('test');
+    return { unitTestsPassed: test?.unitTestsPassed ?? false, totalTestRetries: test?.totalRetries ?? 0 };
+  },
+}));
