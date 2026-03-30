@@ -50,6 +50,10 @@ export async function executePlanPhase(config: WorkflowConfig): Promise<{ costUs
   if (shouldExecuteStage('branch_created', recoveryState)) {
     log(`Using branch: ${currentBranch}`, 'success');
     ctx.branchName = currentBranch;
+    if (config.phaseState) {
+      config.phaseState.plan.branchName = currentBranch;
+      config.phaseState.plan.issueType = issueType;
+    }
 
     AgentStateManager.writeState(orchestratorStatePath, { branchName: currentBranch });
     AgentStateManager.appendLog(orchestratorStatePath, `Branch created: ${currentBranch}`);
@@ -141,6 +145,11 @@ export async function executePlanPhase(config: WorkflowConfig): Promise<{ costUs
     await runCommitAgent(OrchestratorId.Plan, issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body);
   } else {
     log('Skipping plan commit (already completed)', 'info');
+  }
+
+  if (config.phaseState) {
+    config.phaseState.plan.planPath = ctx.planPath;
+    config.phaseState.plan.planOutput = ctx.planOutput;
   }
 
   const phaseCostRecords = createPhaseCostRecords({

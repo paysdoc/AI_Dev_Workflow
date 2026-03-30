@@ -83,6 +83,10 @@ export async function executePRPhase(config: WorkflowConfig): Promise<{ costUsd:
       });
       ctx.prUrl = prResult.url;
       ctx.prNumber = prResult.number;
+      if (config.phaseState) {
+        config.phaseState.pr.prUrl = prResult.url;
+        config.phaseState.pr.prNumber = prResult.number;
+      }
 
       postIssueStageComment(repoContext, issueNumber, 'pr_created', ctx);
       log(`Pull Request created: ${prResult.url}`, 'success');

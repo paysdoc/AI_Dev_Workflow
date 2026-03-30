@@ -2,14 +2,15 @@
  * Structured workflow state types — namespaced per-phase output interfaces.
  *
  * Each phase produces a typed state object capturing its semantic output.
- * The aggregate WorkflowState collects them under optional namespaced keys.
- * All interfaces are JSON-serializable: no functions, class instances, or
- * circular references.
+ * The aggregate WorkflowState and WorkflowPhaseState collect them under
+ * namespaced keys. All interfaces are JSON-serializable: no functions,
+ * class instances, or circular references.
  *
  * The PhaseResultStore class provides a runtime mechanism for orchestrators
  * to access phase results with type safety via a bounded generic accessor.
  */
 
+import type { IssueClassSlashCommand } from './issueTypes';
 import type { PhaseResult } from '../core/phaseRunner';
 
 /**
@@ -18,27 +19,38 @@ import type { PhaseResult } from '../core/phaseRunner';
  */
 export interface InstallPhaseState {
   /** The cached project context string, or undefined if install failed or produced no context. */
-  readonly installContext: string | undefined;
+  installContext?: string;
 }
 
 /**
  * Semantic output of the Plan phase.
- * Captures plan file path and branch name written to config.ctx after plan completes.
+ * Captures plan file path, branch name, and output written to config.ctx after plan completes.
  */
 export interface PlanPhaseState {
-  /** Path to the generated plan file (relative to worktree). */
-  readonly planPath: string | undefined;
+  /** The issue type classified during the plan phase. */
+  issueType?: IssueClassSlashCommand;
   /** Branch name created for this workflow. */
-  readonly branchName: string | undefined;
+  branchName?: string;
+  /** Path to the generated plan file (relative to worktree). */
+  planPath?: string;
+  /** Raw plan output captured from the plan agent. */
+  planOutput?: string;
 }
 
 /**
  * Semantic output of the Build phase.
- * Captures the primary output written to config.ctx after build completes.
+ * Captures the primary output and progress written to config.ctx after build completes.
  */
 export interface BuildPhaseState {
   /** Build output summary, or undefined if not captured. */
-  readonly buildOutput: string | undefined;
+  buildOutput?: string;
+  /** Build progress snapshot at phase completion. */
+  buildProgress?: {
+    turnCount: number;
+    toolCount: number;
+    lastToolName?: string;
+    lastText?: string;
+  };
 }
 
 /**
@@ -47,9 +59,9 @@ export interface BuildPhaseState {
  */
 export interface TestPhaseState {
   /** Whether unit tests passed. */
-  readonly unitTestsPassed: boolean;
+  unitTestsPassed?: boolean;
   /** Total number of test retry attempts. */
-  readonly totalRetries: number;
+  totalRetries?: number;
 }
 
 /**
@@ -58,9 +70,39 @@ export interface TestPhaseState {
  */
 export interface PRPhaseState {
   /** URL of the created pull request, or undefined if creation failed. */
-  readonly prUrl: string | undefined;
+  prUrl?: string;
   /** Number of the created pull request, or undefined if creation failed. */
-  readonly prNumber: number | undefined;
+  prNumber?: number;
+}
+
+/**
+ * Namespaced per-phase state for declarative orchestrators.
+ * Replaces flat WorkflowContext for orchestrators that opt in via the
+ * declarative runner. Each namespace holds only phase-produced data —
+ * init-time data (issue, adwId, worktreePath, branchName, projectConfig)
+ * stays on WorkflowConfig.
+ *
+ * All types are JSON-serializable (primitives, plain objects, arrays only).
+ */
+export interface WorkflowPhaseState {
+  install: Partial<InstallPhaseState>;
+  plan: Partial<PlanPhaseState>;
+  build: Partial<BuildPhaseState>;
+  test: Partial<TestPhaseState>;
+  pr: Partial<PRPhaseState>;
+}
+
+/**
+ * Returns an empty WorkflowPhaseState with all namespaces initialized.
+ */
+export function createEmptyPhaseState(): WorkflowPhaseState {
+  return {
+    install: {},
+    plan: {},
+    build: {},
+    test: {},
+    pr: {},
+  };
 }
 
 /**
@@ -78,6 +120,8 @@ export interface DiffEvalPhaseState {
  * a phase's section is populated only after that phase completes.
  *
  * JSON-serializable: no functions, class instances, or circular references.
+ *
+ * @deprecated Use WorkflowPhaseState with createEmptyPhaseState() for new orchestrators.
  */
 export interface WorkflowState {
   readonly install?: InstallPhaseState;

@@ -26,6 +26,7 @@ import {
   type ModelUsageMap,
   loadProjectConfig,
 } from '../core';
+import type { WorkflowPhaseState } from '../types/workflowState';
 import {
   fetchGitHubIssue,
   type WorkflowContext,
@@ -79,6 +80,8 @@ export interface WorkflowConfig {
   installContext?: string;
   /** Phase names already completed in a previous run (populated on pause/resume). */
   completedPhases?: string[];
+  /** Structured per-phase state. Set by declarative runner; undefined for non-migrated orchestrators. */
+  phaseState?: WorkflowPhaseState;
 }
 
 /**

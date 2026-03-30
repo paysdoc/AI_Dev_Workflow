@@ -149,8 +149,19 @@ export type { PhaseResult, PhaseFn } from './phaseRunner';
 export { CostTracker, runPhase, runPhasesSequential, runPhasesParallel } from './phaseRunner';
 
 // Declarative orchestrator runner
-export type { PhaseDefinition, BranchPhaseDefinition, PhaseEntry, OrchestratorDefinition } from './orchestratorRunner';
+export type { PhaseDescriptor, PhaseDefinition, BranchPhaseDefinition, PhaseEntry, OrchestratorDefinition } from './orchestratorRunner';
 export { defineOrchestrator, runOrchestrator, branch } from './orchestratorRunner';
+
+// Structured workflow state types
+export type {
+  InstallPhaseState,
+  PlanPhaseState,
+  BuildPhaseState,
+  TestPhaseState,
+  PRPhaseState,
+  WorkflowPhaseState,
+} from '../types/workflowState';
+export { createEmptyPhaseState } from '../types/workflowState';
 
 // Pause queue
 export type { PausedWorkflow } from './pauseQueue';

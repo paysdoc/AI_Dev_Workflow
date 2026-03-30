@@ -285,6 +285,12 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
     log('Skipping implementation commit (already completed)', 'info');
   }
 
+  if (config.phaseState) {
+    if (ctx.buildProgress) {
+      config.phaseState.build.buildProgress = ctx.buildProgress;
+    }
+  }
+
   const phaseCostRecords = createPhaseCostRecords({
     workflowId: adwId,
     issueNumber,

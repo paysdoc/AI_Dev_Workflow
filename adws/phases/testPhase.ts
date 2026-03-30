@@ -118,6 +118,11 @@ export async function executeTestPhase(config: WorkflowConfig): Promise<{
     modelUsage,
   });
 
+  if (config.phaseState) {
+    config.phaseState.test.unitTestsPassed = true;
+    config.phaseState.test.totalRetries = totalRetries;
+  }
+
   return {
     costUsd,
     modelUsage,

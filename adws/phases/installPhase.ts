@@ -154,6 +154,9 @@ export async function executeInstallPhase(
       fs.mkdirSync(cacheDir, { recursive: true });
       fs.writeFileSync(path.join(cacheDir, 'install_cache.md'), contextString, 'utf-8');
       config.installContext = contextString;
+      if (config.phaseState) {
+        config.phaseState.install.installContext = contextString;
+      }
       log(`Install context cached (${contextString.length} chars)`, 'success');
     } else {
       log('Install agent ran but no file context extracted', 'warn');
