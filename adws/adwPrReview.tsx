@@ -20,8 +20,10 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { parseTargetRepoArgs, buildRepoIdentifier, RUNNING_TOKENS, AgentStateManager, log } from './core';
 import { RateLimitError } from './types/agentTypes';
-import { mergeModelUsageMaps, persistTokenCounts, computeDisplayTokens, type ModelUsageMap } from './cost';
+import { mergeModelUsageMaps, persistTokenCounts, computeDisplayTokens, type ModelUsageMap, createPhaseCostRecords, PhaseCostStatus } from './cost';
+import { postCostRecordsToD1 } from './cost/d1Client';
 import {
+  type PRReviewWorkflowConfig,
   initializePRReviewWorkflow,
   executePRReviewPlanPhase,
   executePRReviewBuildPhase,
@@ -31,6 +33,26 @@ import {
 } from './workflowPhases';
 import { runInstallAgent } from './agents';
 import { extractInstallContext } from './phases';
+
+function commitPhaseToD1(config: PRReviewWorkflowConfig, phaseName: string, modelUsage: ModelUsageMap): void {
+  if (!modelUsage || Object.keys(modelUsage).length === 0) return;
+  const repoName = config.repoContext?.repoId.repo ?? 'unknown';
+  const records = createPhaseCostRecords({
+    workflowId: config.adwId,
+    issueNumber: config.issueNumber ?? 0,
+    phase: phaseName,
+    status: PhaseCostStatus.Success,
+    retryCount: 0,
+    contextResetCount: 0,
+    durationMs: 0,
+    modelUsage,
+  });
+  void postCostRecordsToD1({
+    project: repoName,
+    repoUrl: process.env.GITHUB_REPO_URL,
+    records,
+  });
+}
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
@@ -71,6 +93,7 @@ async function main(): Promise<void> {
         totalCostUsd += installResult.totalCostUsd ?? 0;
         if (installResult.modelUsage) totalModelUsage = mergeModelUsageMaps(totalModelUsage, installResult.modelUsage);
         persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
+        commitPhaseToD1(config, 'pr_review_install', installResult.modelUsage ?? {});
       }
     } catch (installError) {
       const msg = installError instanceof Error ? installError.message : String(installError);
@@ -81,6 +104,7 @@ async function main(): Promise<void> {
     totalCostUsd += planResult.costUsd;
     totalModelUsage = mergeModelUsageMaps(totalModelUsage, planResult.modelUsage);
     persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
+    commitPhaseToD1(config, 'pr_review_plan', planResult.modelUsage);
     if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeDisplayTokens(totalModelUsage);
 
     config.totalModelUsage = totalModelUsage;
@@ -88,6 +112,7 @@ async function main(): Promise<void> {
     totalCostUsd += buildResult.costUsd;
     totalModelUsage = mergeModelUsageMaps(totalModelUsage, buildResult.modelUsage);
     persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
+    commitPhaseToD1(config, 'pr_review_build', buildResult.modelUsage);
     if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeDisplayTokens(totalModelUsage);
 
     config.totalModelUsage = totalModelUsage;

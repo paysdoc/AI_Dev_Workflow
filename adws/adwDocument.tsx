@@ -24,6 +24,8 @@ import {
   OrchestratorId,
 } from './core';
 import { extractCwdOption, printUsageAndExit } from './core/orchestratorCli';
+import { createPhaseCostRecords, PhaseCostStatus } from './cost';
+import { postCostRecordsToD1 } from './cost/d1Client';
 import { runDocumentAgent } from './agents';
 
 /**
@@ -82,6 +84,26 @@ async function main(): Promise<void> {
     );
 
     const totalCostUsd = result.totalCostUsd || 0;
+
+    // Post cost records to D1
+    if (result.modelUsage && Object.keys(result.modelUsage).length > 0) {
+      const phaseCostRecords = createPhaseCostRecords({
+        workflowId: adwId,
+        issueNumber: 0,
+        phase: 'document',
+        status: result.success ? PhaseCostStatus.Success : PhaseCostStatus.Failed,
+        retryCount: 0,
+        contextResetCount: 0,
+        durationMs: 0,
+        modelUsage: result.modelUsage,
+      });
+      const repoName = process.env.GITHUB_REPO_URL?.split('/').pop()?.replace('.git', '') ?? 'unknown';
+      void postCostRecordsToD1({
+        project: repoName,
+        repoUrl: process.env.GITHUB_REPO_URL,
+        records: phaseCostRecords,
+      });
+    }
 
     AgentStateManager.writeState(orchestratorStatePath, {
       execution: AgentStateManager.completeExecution(
