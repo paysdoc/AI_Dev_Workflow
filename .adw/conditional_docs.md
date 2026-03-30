@@ -30,6 +30,14 @@
     - When troubleshooting D1 write failures or missing cost records in the D1 database
     - When implementing future changes to the `PhaseCostRecord` → `IngestPayload` transformation
 
+- app_docs/feature-modak4-refactor-structured-declarative-orchestrator-runner.md
+  - Conditions:
+    - When defining a new orchestrator using `defineOrchestrator()` / `runOrchestrator()`
+    - When migrating an existing imperative orchestrator to the declarative pattern
+    - When working with `adws/core/orchestratorRunner.ts` or `adws/types/workflowState.ts`
+    - When accessing typed phase results via `PhaseResultStore` in a `completionMetadata` callback
+    - When troubleshooting the declarative runner's CLI parsing, CostTracker lifecycle, or phase execution order
+
 - app_docs/feature-a72ezx-deploy-cost-api-worker.md
   - Conditions:
     - When deploying or re-deploying the `cost-api` Cloudflare Worker to production
