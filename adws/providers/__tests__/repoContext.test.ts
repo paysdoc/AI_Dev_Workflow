@@ -37,6 +37,13 @@ describe('parseOwnerRepoFromUrl', () => {
         repo: 'api.v2.staging',
       });
     });
+
+    it('parses URL with trailing slash', () => {
+      expect(parseOwnerRepoFromUrl('https://github.com/owner/repo/')).toEqual({
+        owner: 'owner',
+        repo: 'repo',
+      });
+    });
   });
 
   describe('SSH URLs', () => {
@@ -79,6 +86,10 @@ describe('parseOwnerRepoFromUrl', () => {
   describe('edge cases', () => {
     it('returns null for unrecognised URL format', () => {
       expect(parseOwnerRepoFromUrl('not-a-url')).toBeNull();
+    });
+
+    it('returns null for an empty string', () => {
+      expect(parseOwnerRepoFromUrl('')).toBeNull();
     });
   });
 });
