@@ -4,7 +4,7 @@
  * The agent generates PR title and body as JSON; the caller handles git push and PR creation.
  */
 
-import { runCommandAgent, type CommandAgentConfig } from './commandAgent';
+import { runCommandAgent, type CommandAgentConfig, type ExtractionResult } from './commandAgent';
 import type { AgentResult } from './claudeAgent';
 import { getDefaultBranch } from '../vcs/branchOperations';
 import { refreshTokenIfNeeded } from '../github/githubAppAuth';
@@ -17,12 +17,21 @@ export interface PrContent {
   body: string;
 }
 
+export const prContentSchema: Record<string, unknown> = {
+  type: 'object',
+  required: ['title', 'body'],
+  properties: {
+    title: { type: 'string', minLength: 1 },
+    body: { type: 'string' },
+  },
+  additionalProperties: false,
+};
+
 /**
  * Extracts PR title and body from the agent's JSON output.
- * Handles markdown code fences. Falls back to first-line title + remaining body
- * if JSON parsing fails.
+ * Handles markdown code fences. Returns structured error if extraction fails.
  */
-function extractPrContentFromOutput(output: string): PrContent {
+function extractPrContentFromOutput(output: string): ExtractionResult<PrContent> {
   const trimmed = output.trim();
 
   // Strip markdown code fences if present
@@ -34,10 +43,11 @@ function extractPrContentFromOutput(output: string): PrContent {
     try {
       const parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
       if (typeof parsed.title === 'string' && typeof parsed.body === 'string') {
-        return { title: parsed.title, body: parsed.body };
+        return { success: true, data: { title: parsed.title, body: parsed.body } };
       }
-    } catch {
-      // Fall through to fallback
+      return { success: false, error: 'Parsed JSON missing required "title" or "body" string fields' };
+    } catch (err) {
+      return { success: false, error: `Failed to parse PR content JSON: ${String(err)}` };
     }
   }
 
@@ -45,7 +55,10 @@ function extractPrContentFromOutput(output: string): PrContent {
   const lines = trimmed.split('\n').filter(line => line.trim());
   const title = lines[0]?.trim() ?? '';
   const body = lines.slice(1).join('\n').trim();
-  return { title, body };
+  if (!title) {
+    return { success: false, error: 'No JSON object found and no fallback title available' };
+  }
+  return { success: true, data: { title, body } };
 }
 
 const prAgentConfig: CommandAgentConfig<PrContent> = {
@@ -53,6 +66,7 @@ const prAgentConfig: CommandAgentConfig<PrContent> = {
   agentName: 'Pull Request',
   outputFileName: 'pr-agent.jsonl',
   extractOutput: extractPrContentFromOutput,
+  outputSchema: prContentSchema,
 };
 
 /**

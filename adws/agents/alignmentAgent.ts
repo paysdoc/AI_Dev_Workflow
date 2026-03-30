@@ -3,10 +3,8 @@
  * Resolves conflicts using the GitHub issue as the sole source of truth.
  * Flags unresolvable conflicts as inline warnings in the plan rather than throwing.
  */
-import { join } from "path";
 import type { AgentResult } from "./claudeAgent";
-import { runClaudeAgentWithCommand } from "./claudeAgent";
-import { getModelForCommand, getEffortForCommand } from "../core/config";
+import { runCommandAgent, type CommandAgentConfig, type ExtractionResult } from "./commandAgent";
 import { extractJson } from "../core/jsonParser";
 import { log } from "../core/logger";
 import { findScenarioFiles } from "./validationAgent";
@@ -22,6 +20,17 @@ export interface AlignmentResult {
   summary: string;
 }
 
+export const alignmentResultSchema: Record<string, unknown> = {
+  type: 'object',
+  required: ['aligned', 'warnings', 'changes', 'summary'],
+  properties: {
+    aligned: { type: 'boolean' },
+    warnings: { type: 'array', items: { type: 'string' } },
+    changes: { type: 'array', items: { type: 'string' } },
+    summary: { type: 'string' },
+  },
+};
+
 /**
  * Returns positional args for the /align_plan_scenarios command.
  */
@@ -36,37 +45,66 @@ function formatAlignmentArgs(
 }
 
 /**
- * Parses and validates the JSON output from the alignment agent.
- * Returns a fully-aligned result on parse failure so the workflow is never
- * blocked by a malformed response — the warning is logged instead.
+ * Extracts and validates the JSON output from the alignment agent.
+ * Returns a structured error on parse failure (retry loop handles recovery).
  */
-export function parseAlignmentResult(agentOutput: string): AlignmentResult {
+function extractAlignmentResult(agentOutput: string): ExtractionResult<AlignmentResult> {
   const parsed = extractJson<AlignmentResult>(agentOutput);
   if (!parsed || typeof parsed.aligned !== "boolean") {
     const preview = agentOutput.substring(0, 200);
-    log(
-      `Alignment agent returned non-JSON output, treating as aligned with warning: ${preview}`,
-      "warn"
-    );
     return {
-      aligned: true,
-      warnings: [
-        `Alignment agent did not return valid JSON. Raw output starts with: ${preview}`,
-      ],
-      changes: [],
-      summary: "Alignment output could not be parsed; proceeding with warnings.",
+      success: false,
+      error: `Alignment agent output missing required "aligned" boolean field. Output starts with: ${preview}`,
     };
   }
   return {
-    aligned: parsed.aligned,
-    warnings: Array.isArray(parsed.warnings) ? parsed.warnings : [],
-    changes: Array.isArray(parsed.changes) ? parsed.changes : [],
-    summary: parsed.summary ?? "",
+    success: true,
+    data: {
+      aligned: parsed.aligned,
+      warnings: Array.isArray(parsed.warnings) ? parsed.warnings : [],
+      changes: Array.isArray(parsed.changes) ? parsed.changes : [],
+      summary: parsed.summary ?? "",
+    },
   };
 }
 
 /**
+ * Parses the alignment result from raw agent output.
+ * Returns a fully-aligned result on parse failure so the workflow is never
+ * blocked by a malformed response — the warning is logged instead.
+ * Used by the alignment phase as a fallback when the retry loop is exhausted.
+ */
+export function parseAlignmentResult(agentOutput: string): AlignmentResult {
+  const result = extractAlignmentResult(agentOutput);
+  if (result.success) {
+    return result.data;
+  }
+  const preview = agentOutput.substring(0, 200);
+  log(
+    `Alignment agent returned non-JSON output, treating as aligned with warning: ${preview}`,
+    "warn"
+  );
+  return {
+    aligned: true,
+    warnings: [
+      `Alignment agent did not return valid JSON. Raw output starts with: ${preview}`,
+    ],
+    changes: [],
+    summary: "Alignment output could not be parsed; proceeding with warnings.",
+  };
+}
+
+const alignmentAgentConfig: CommandAgentConfig<AlignmentResult> = {
+  command: "/align_plan_scenarios",
+  agentName: "alignment-agent",
+  outputFileName: "alignment-agent.jsonl",
+  extractOutput: extractAlignmentResult,
+  outputSchema: alignmentResultSchema,
+};
+
+/**
  * Runs the Alignment Agent to align a plan against BDD scenarios in a single pass.
+ * Output validation retries are handled by the commandAgent retry loop.
  */
 export async function runAlignmentAgent(
   adwId: string,
@@ -78,24 +116,14 @@ export async function runAlignmentAgent(
   statePath?: string,
   cwd?: string
 ): Promise<AgentResult & { alignmentResult: AlignmentResult }> {
-  const model = getModelForCommand("/align_plan_scenarios");
-  const effort = getEffortForCommand("/align_plan_scenarios");
-  const outputFile = join(logsDir, "alignment-agent.jsonl");
-
-  const result = await runClaudeAgentWithCommand(
-    "/align_plan_scenarios",
-    formatAlignmentArgs(adwId, issueNumber, planFilePath, worktreePath, issueJson),
-    "alignment-agent",
-    outputFile,
-    model,
-    effort,
-    undefined,
+  const result = await runCommandAgent(alignmentAgentConfig, {
+    args: formatAlignmentArgs(adwId, issueNumber, planFilePath, worktreePath, issueJson),
+    logsDir,
     statePath,
-    cwd
-  );
+    cwd,
+  });
 
-  const alignmentResult = parseAlignmentResult(result.output);
-  return { ...result, alignmentResult };
+  return { ...result, alignmentResult: result.parsed };
 }
 
 // Re-export findScenarioFiles so the phase doesn't need to import from validationAgent

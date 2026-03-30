@@ -26,9 +26,11 @@ When('the validation agent runs', function () {
 });
 
 Then('it calls runClaudeAgentWithCommand with command {string}', function (this: Record<string, string>, command: string) {
+  // Agents may delegate via runCommandAgent (which internally calls runClaudeAgentWithCommand)
+  // or directly via runClaudeAgentWithCommand — both are valid delegation patterns.
   assert.ok(
-    this.fileContent.includes('runClaudeAgentWithCommand'),
-    `Expected ${this.filePath} to call runClaudeAgentWithCommand`,
+    this.fileContent.includes('runClaudeAgentWithCommand') || this.fileContent.includes('runCommandAgent'),
+    `Expected ${this.filePath} to delegate via runClaudeAgentWithCommand or runCommandAgent`,
   );
   assert.ok(
     this.fileContent.includes(command),

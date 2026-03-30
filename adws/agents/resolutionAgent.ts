@@ -1,12 +1,10 @@
 /**
  * Resolution Agent - Reconciles mismatches between an implementation plan and BDD scenarios.
+ * Output validation retries are delegated to the commandAgent retry loop.
  */
-import { join } from "path";
 import type { AgentResult } from "./claudeAgent";
-import { runClaudeAgentWithCommand } from "./claudeAgent";
-import { getModelForCommand, getEffortForCommand } from "../core/config";
+import { runCommandAgent, type CommandAgentConfig, type ExtractionResult } from "./commandAgent";
 import { extractJson } from "../core/jsonParser";
-import { log } from "../core/logger";
 import type { MismatchItem } from "./validationAgent";
 
 export interface ResolutionDecision {
@@ -19,6 +17,26 @@ export interface ResolutionResult {
   resolved: boolean;
   decisions: ResolutionDecision[];
 }
+
+export const resolutionResultSchema: Record<string, unknown> = {
+  type: 'object',
+  required: ['resolved', 'decisions'],
+  properties: {
+    resolved: { type: 'boolean' },
+    decisions: {
+      type: 'array',
+      items: {
+        type: 'object',
+        required: ['mismatch', 'action', 'reasoning'],
+        properties: {
+          mismatch: { type: 'string' },
+          action: { type: 'string', enum: ['updated_plan', 'updated_scenarios', 'updated_both'] },
+          reasoning: { type: 'string' },
+        },
+      },
+    },
+  },
+};
 
 /**
  * Returns positional args for the /resolve_plan_scenarios command.
@@ -35,23 +53,38 @@ function formatResolutionArgs(
 }
 
 /**
- * Parses and validates the JSON output from the resolution agent.
- * Returns a graceful fallback result instead of throwing on invalid JSON.
+ * Extracts and validates the JSON output from the resolution agent.
+ * Returns a structured error on invalid JSON (retry loop handles recovery).
  */
-export function parseResolutionResult(agentOutput: string): ResolutionResult {
+function extractResolutionResult(agentOutput: string): ExtractionResult<ResolutionResult> {
   const parsed = extractJson<ResolutionResult>(agentOutput);
   if (!parsed || typeof parsed.resolved !== "boolean") {
-    log("Resolution agent returned invalid JSON, falling back to unresolved", "warn");
-    return { resolved: false, decisions: [] };
+    return {
+      success: false,
+      error: 'Resolution agent output missing required "resolved" boolean field',
+    };
   }
   return {
-    resolved: parsed.resolved,
-    decisions: Array.isArray(parsed.decisions) ? parsed.decisions : [],
+    success: true,
+    data: {
+      resolved: parsed.resolved,
+      decisions: Array.isArray(parsed.decisions) ? parsed.decisions : [],
+    },
   };
 }
 
+const resolutionAgentConfig: CommandAgentConfig<ResolutionResult> = {
+  command: "/resolve_plan_scenarios",
+  agentName: "resolution-agent",
+  outputFileName: "resolution-agent.jsonl",
+  extractOutput: extractResolutionResult,
+  outputSchema: resolutionResultSchema,
+};
+
 /**
  * Runs the Resolution Agent to reconcile mismatches between plan and BDD scenarios.
+ * Output validation retries are handled by the commandAgent retry loop.
+ * On exhaustion, throws OutputValidationError; the resolution phase catches and handles gracefully.
  */
 export async function runResolutionAgent(
   adwId: string,
@@ -64,41 +97,12 @@ export async function runResolutionAgent(
   statePath?: string,
   cwd?: string
 ): Promise<AgentResult & { resolutionResult: ResolutionResult }> {
-  const model = getModelForCommand("/resolve_plan_scenarios");
-  const effort = getEffortForCommand("/resolve_plan_scenarios");
-  const outputFile = join(logsDir, "resolution-agent.jsonl");
-
-  const result = await runClaudeAgentWithCommand(
-    "/resolve_plan_scenarios",
-    formatResolutionArgs(adwId, issueNumber, planFilePath, scenarioGlob, issueJson, mismatches),
-    "resolution-agent",
-    outputFile,
-    model,
-    effort,
-    undefined,
+  const result = await runCommandAgent(resolutionAgentConfig, {
+    args: formatResolutionArgs(adwId, issueNumber, planFilePath, scenarioGlob, issueJson, mismatches),
+    logsDir,
     statePath,
-    cwd
-  );
+    cwd,
+  });
 
-  let resolutionResult = parseResolutionResult(result.output);
-
-  // Retry once if the first output produced a non-JSON graceful fallback
-  if (!resolutionResult.resolved && resolutionResult.decisions.length === 0 && extractJson(result.output) === null) {
-    log("Resolution agent returned non-JSON output, retrying once...", "warn");
-    const retryResult = await runClaudeAgentWithCommand(
-      "/resolve_plan_scenarios",
-      formatResolutionArgs(adwId, issueNumber, planFilePath, scenarioGlob, issueJson, mismatches),
-      "resolution-agent",
-      outputFile,
-      model,
-      effort,
-      undefined,
-      statePath,
-      cwd
-    );
-    resolutionResult = parseResolutionResult(retryResult.output);
-    return { ...retryResult, resolutionResult };
-  }
-
-  return { ...result, resolutionResult };
+  return { ...result, resolutionResult: result.parsed };
 }

@@ -2,10 +2,9 @@
  * Validation Agent - Compares an implementation plan against BDD scenarios.
  */
 import { readdirSync, readFileSync, existsSync } from "fs";
-import { join, join as pathJoin } from "path";
+import { join } from "path";
 import type { AgentResult } from "./claudeAgent";
-import { runClaudeAgentWithCommand } from "./claudeAgent";
-import { getModelForCommand, getEffortForCommand } from "../core/config";
+import { runCommandAgent, type CommandAgentConfig, type ExtractionResult } from "./commandAgent";
 import { extractJson } from "../core/jsonParser";
 import { log } from "../core/logger";
 
@@ -21,6 +20,28 @@ export interface ValidationResult {
   mismatches: MismatchItem[];
   summary: string;
 }
+
+export const validationResultSchema: Record<string, unknown> = {
+  type: 'object',
+  required: ['aligned', 'mismatches', 'summary'],
+  properties: {
+    aligned: { type: 'boolean' },
+    mismatches: {
+      type: 'array',
+      items: {
+        type: 'object',
+        required: ['type', 'description'],
+        properties: {
+          type: { type: 'string', enum: ['plan_only', 'scenario_only', 'conflicting'] },
+          description: { type: 'string' },
+          planReference: { type: 'string' },
+          scenarioReference: { type: 'string' },
+        },
+      },
+    },
+    summary: { type: 'string' },
+  },
+};
 
 /**
  * Scans recursively for .feature files containing the @adw-{issueNumber} tag.
@@ -82,35 +103,40 @@ function formatValidationArgs(
 }
 
 /**
- * Parses and validates the JSON output from the validation agent.
- * Returns a fallback "unaligned" result if parsing fails, so the
- * resolution loop can retry instead of crashing the workflow.
+ * Extracts and validates the JSON output from the validation agent.
+ * Returns a structured error if parsing fails (retry loop handles recovery).
  */
-export function parseValidationResult(agentOutput: string): ValidationResult {
+function extractValidationResult(agentOutput: string): ExtractionResult<ValidationResult> {
   const parsed = extractJson<ValidationResult>(agentOutput);
   if (!parsed || typeof parsed.aligned !== "boolean") {
     const preview = agentOutput.substring(0, 200);
-    log(`Validation agent returned non-JSON output, treating as unaligned: ${preview}`, "warn");
     return {
-      aligned: false,
-      mismatches: [
-        {
-          type: "plan_only",
-          description: `Validation agent did not return valid JSON. Raw output starts with: ${preview}`,
-        },
-      ],
-      summary: "Validation output could not be parsed; treating as unaligned.",
+      success: false,
+      error: `Validation agent output missing required "aligned" boolean field. Output starts with: ${preview}`,
     };
   }
   return {
-    aligned: parsed.aligned,
-    mismatches: Array.isArray(parsed.mismatches) ? parsed.mismatches : [],
-    summary: parsed.summary ?? "",
+    success: true,
+    data: {
+      aligned: parsed.aligned,
+      mismatches: Array.isArray(parsed.mismatches) ? parsed.mismatches : [],
+      summary: parsed.summary ?? "",
+    },
   };
 }
 
+const validationAgentConfig: CommandAgentConfig<ValidationResult> = {
+  command: "/validate_plan_scenarios",
+  agentName: "validation-agent",
+  outputFileName: "validation-agent.jsonl",
+  extractOutput: extractValidationResult,
+  outputSchema: validationResultSchema,
+};
+
 /**
  * Runs the Validation Agent to compare a plan against BDD scenarios.
+ * Output validation retries are handled by the commandAgent retry loop.
+ * On exhaustion, throws OutputValidationError; callers catch and handle gracefully.
  */
 export async function runValidationAgent(
   adwId: string,
@@ -121,41 +147,14 @@ export async function runValidationAgent(
   statePath?: string,
   cwd?: string
 ): Promise<AgentResult & { validationResult: ValidationResult }> {
-  const model = getModelForCommand("/validate_plan_scenarios");
-  const effort = getEffortForCommand("/validate_plan_scenarios");
-  const outputFile = pathJoin(logsDir, "validation-agent.jsonl");
+  log(`Running validation agent for issue ${issueNumber}`, "info");
 
-  const result = await runClaudeAgentWithCommand(
-    "/validate_plan_scenarios",
-    formatValidationArgs(adwId, issueNumber, planFilePath, scenarioGlob),
-    "validation-agent",
-    outputFile,
-    model,
-    effort,
-    undefined,
+  const result = await runCommandAgent(validationAgentConfig, {
+    args: formatValidationArgs(adwId, issueNumber, planFilePath, scenarioGlob),
+    logsDir,
     statePath,
-    cwd
-  );
+    cwd,
+  });
 
-  let validationResult = parseValidationResult(result.output);
-
-  // Retry once if the first output produced a non-JSON fallback
-  if (!validationResult.aligned && extractJson(result.output) === null) {
-    log("Validation agent returned non-JSON output, retrying once...", "warn");
-    const retryResult = await runClaudeAgentWithCommand(
-      "/validate_plan_scenarios",
-      formatValidationArgs(adwId, issueNumber, planFilePath, scenarioGlob),
-      "validation-agent",
-      outputFile,
-      model,
-      effort,
-      undefined,
-      statePath,
-      cwd
-    );
-    validationResult = parseValidationResult(retryResult.output);
-    return { ...retryResult, validationResult };
-  }
-
-  return { ...result, validationResult };
+  return { ...result, validationResult: result.parsed };
 }

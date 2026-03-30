@@ -22,6 +22,7 @@ import {
   runCommitAgent,
   findScenarioFiles,
   runAlignmentAgent,
+  OutputValidationError,
 } from "../agents";
 import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from "../cost";
 import type { WorkflowConfig } from "./workflowInit";
@@ -115,36 +116,59 @@ export async function executeAlignmentPhase(
     execution: AgentStateManager.createExecutionState("running"),
   });
 
-  const alignmentResult = await runAlignmentAgent(
-    adwId,
-    issueNumber,
-    planFilePath,
-    worktreePath,
-    JSON.stringify(issue),
-    logsDir,
-    alignmentAgentStatePath,
-    worktreePath
-  );
-  costUsd += alignmentResult.totalCostUsd || 0;
-  if (alignmentResult.modelUsage) {
-    modelUsage = mergeModelUsageMaps(modelUsage, alignmentResult.modelUsage);
+  let alignmentResult: Awaited<ReturnType<typeof runAlignmentAgent>> | null = null;
+  let alignmentResultData = {
+    aligned: true,
+    warnings: [] as string[],
+    changes: [] as string[],
+    summary: '',
+  };
+
+  try {
+    alignmentResult = await runAlignmentAgent(
+      adwId,
+      issueNumber,
+      planFilePath,
+      worktreePath,
+      JSON.stringify(issue),
+      logsDir,
+      alignmentAgentStatePath,
+      worktreePath
+    );
+    costUsd += alignmentResult.totalCostUsd || 0;
+    if (alignmentResult.modelUsage) {
+      modelUsage = mergeModelUsageMaps(modelUsage, alignmentResult.modelUsage);
+    }
+    alignmentResultData = alignmentResult.alignmentResult;
+  } catch (err) {
+    const validationError = err instanceof OutputValidationError ? err.lastValidationError : String(err);
+    const warning = `Alignment agent failed: ${validationError}`;
+    log(warning, 'warn');
+    alignmentResultData = {
+      aligned: true,
+      warnings: [warning],
+      changes: [],
+      summary: 'Alignment could not be completed; proceeding with warnings.',
+    };
   }
 
-  AgentStateManager.writeState(alignmentAgentStatePath, {
-    output: alignmentResult.output.substring(0, 1000),
-    metadata: {
-      aligned: alignmentResult.alignmentResult.aligned,
-      warningsCount: alignmentResult.alignmentResult.warnings.length,
-      changesCount: alignmentResult.alignmentResult.changes.length,
-    },
-    execution: AgentStateManager.completeExecution(
-      AgentStateManager.createExecutionState("running"),
-      alignmentResult.success
-    ),
-  });
+  if (alignmentResult) {
+    AgentStateManager.writeState(alignmentAgentStatePath, {
+      output: alignmentResult.output.substring(0, 1000),
+      metadata: {
+        aligned: alignmentResultData.aligned,
+        warningsCount: alignmentResultData.warnings.length,
+        changesCount: alignmentResultData.changes.length,
+      },
+      execution: AgentStateManager.completeExecution(
+        AgentStateManager.createExecutionState("running"),
+        alignmentResult.success
+      ),
+    });
+  }
 
   // Step 5: Log results
-  const { aligned, warnings, changes, summary } = alignmentResult.alignmentResult;
+  const { aligned, warnings, changes, summary } = alignmentResultData;
 
   if (changes.length > 0) {
     log(`Alignment made ${changes.length} change(s): ${changes.join('; ')}`, "info");

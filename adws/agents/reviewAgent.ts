@@ -4,8 +4,8 @@
  */
 
 import * as path from 'path';
-import { getModelForCommand, getEffortForCommand } from '../core';
-import { runClaudeAgentWithCommand, AgentResult } from './claudeAgent';
+import { runCommandAgent, type CommandAgentConfig, type ExtractionResult } from './commandAgent';
+import type { AgentResult } from './claudeAgent';
 import { extractJson } from '../core/jsonParser';
 
 /**
@@ -41,6 +41,45 @@ export interface ReviewAgentResult extends AgentResult {
   passed: boolean;
   /** Blocker issues that need patching */
   blockerIssues: ReviewIssue[];
+}
+
+export const reviewResultSchema: Record<string, unknown> = {
+  type: 'object',
+  required: ['success', 'reviewSummary', 'reviewIssues', 'screenshots'],
+  properties: {
+    success: { type: 'boolean' },
+    reviewSummary: { type: 'string' },
+    reviewIssues: {
+      type: 'array',
+      items: {
+        type: 'object',
+        required: ['reviewIssueNumber', 'screenshotPath', 'issueDescription', 'issueResolution', 'issueSeverity'],
+        properties: {
+          reviewIssueNumber: { type: 'number' },
+          screenshotPath: { type: 'string' },
+          issueDescription: { type: 'string' },
+          issueResolution: { type: 'string' },
+          issueSeverity: { type: 'string', enum: ['skippable', 'tech-debt', 'blocker'] },
+        },
+      },
+    },
+    screenshots: { type: 'array', items: { type: 'string' } },
+  },
+};
+
+/**
+ * Extracts ReviewResult from raw agent output.
+ * Returns a structured error if the output cannot be parsed.
+ */
+function extractReviewResult(output: string): ExtractionResult<ReviewResult> {
+  const parsed = extractJson<ReviewResult>(output);
+  if (!parsed || typeof parsed.success !== 'boolean') {
+    return {
+      success: false,
+      error: 'Review agent output missing required "success" boolean field',
+    };
+  }
+  return { success: true, data: parsed };
 }
 
 /**
@@ -86,26 +125,28 @@ export async function runReviewAgent(
   agentIndex?: number,
   scenarioProofPath?: string,
 ): Promise<ReviewAgentResult> {
-  const agentName = agentIndex !== undefined ? `review_agent_${agentIndex}` : 'review_agent';
+  const displayName = agentIndex !== undefined ? `Review #${agentIndex}` : 'Review';
   const logFileName = agentIndex !== undefined ? `review-agent-${agentIndex}.jsonl` : 'review-agent.jsonl';
-  const outputFile = path.join(logsDir, logFileName);
 
-  const args = formatReviewArgs(adwId, specFile, agentName, applicationUrl, scenarioProofPath);
+  const args = formatReviewArgs(adwId, specFile, displayName, applicationUrl, scenarioProofPath);
 
-  const result = await runClaudeAgentWithCommand(
-    '/review',
+  const reviewAgentConfig: CommandAgentConfig<ReviewResult> = {
+    command: '/review',
+    agentName: displayName,
+    outputFileName: path.basename(logFileName),
+    extractOutput: extractReviewResult,
+    outputSchema: reviewResultSchema,
+  };
+
+  const result = await runCommandAgent(reviewAgentConfig, {
     args,
-    `Review${agentIndex !== undefined ? ` #${agentIndex}` : ''}`,
-    outputFile,
-    getModelForCommand('/review', issueBody),
-    getEffortForCommand('/review', issueBody),
-    undefined,
+    logsDir,
+    issueBody,
     statePath,
-    cwd
-  );
+    cwd,
+  });
 
-  // Parse the review result from the output
-  const reviewResult = extractJson<ReviewResult>(result.output);
+  const reviewResult = result.parsed;
   const blockerIssues = reviewResult?.reviewIssues?.filter(
     issue => issue.issueSeverity === 'blocker'
   ) ?? [];

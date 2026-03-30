@@ -17,6 +17,8 @@ export {
   type CommandAgentConfig,
   type CommandAgentOptions,
   type CommandAgentResult,
+  type ExtractionResult,
+  OutputValidationError,
 } from './commandAgent';
 
 // Plan Agent
