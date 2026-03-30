@@ -72,7 +72,7 @@ Feature: Detect context compaction and restart build agent with fresh context
 
   # --- buildPhase continuation loop handles compaction ---
 
-  @adw-9zcqhw-detect-context-compa @regression
+  @adw-9zcqhw-detect-context-compa @adw-locx5w-refactor-runner-toke @regression
   Scenario: buildPhase restarts the build agent when compactionDetected is true
     Given the build phase is running with a plan and a build agent
     When the build agent returns with compactionDetected = true
@@ -80,7 +80,7 @@ Feature: Detect context compaction and restart build agent with fresh context
     And buildContinuationPrompt is called with the original plan and the partial output
     And a new build agent is spawned with the continuation prompt
 
-  @adw-9zcqhw-detect-context-compa
+  @adw-9zcqhw-detect-context-compa @adw-locx5w-refactor-runner-toke
   Scenario: Compaction continuation shares the same counter as token limit continuations
     Given the build phase is running with a plan and a build agent
     When the first build agent returns with tokenLimitExceeded = true
@@ -88,14 +88,14 @@ Feature: Detect context compaction and restart build agent with fresh context
     Then the shared continuation counter is 2
     And the total number of continuations does not exceed MAX_TOKEN_CONTINUATIONS
 
-  @adw-9zcqhw-detect-context-compa @regression
+  @adw-9zcqhw-detect-context-compa @adw-locx5w-refactor-runner-toke @regression
   Scenario: Compaction continuation respects MAX_TOKEN_CONTINUATIONS limit
     Given the build phase is running with MAX_TOKEN_CONTINUATIONS = 3
     And 3 continuations have already occurred (any mix of token limit and compaction)
     When the next build agent returns with compactionDetected = true
     Then the build phase throws an error indicating maximum continuations exceeded
 
-  @adw-9zcqhw-detect-context-compa
+  @adw-9zcqhw-detect-context-compa @adw-locx5w-refactor-runner-toke
   Scenario: Compaction continuation passes original plan content not accumulated continuation prompts
     Given the build phase is running with a plan
     When the first build agent returns with compactionDetected = true
@@ -105,14 +105,14 @@ Feature: Detect context compaction and restart build agent with fresh context
     Then buildContinuationPrompt again receives the original plan content
     And buildContinuationPrompt receives the second agent's output
 
-  @adw-9zcqhw-detect-context-compa
+  @adw-9zcqhw-detect-context-compa @adw-locx5w-refactor-runner-toke
   Scenario: Compaction continuation accumulates cost across restarts
     Given the build phase is running with a plan and a build agent
     When the first build agent returns with compactionDetected = true and totalCostUsd = 0.05
     And the continuation build agent completes successfully with totalCostUsd = 0.03
     Then the total accumulated cost for the build phase is 0.08
 
-  @adw-9zcqhw-detect-context-compa
+  @adw-9zcqhw-detect-context-compa @adw-locx5w-refactor-runner-toke
   Scenario: Compaction continuation accumulates model usage across restarts
     Given the build phase is running with a plan and a build agent
     When the first build agent returns with compactionDetected = true and modelUsage data

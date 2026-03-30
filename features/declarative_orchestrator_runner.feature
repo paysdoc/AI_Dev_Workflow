@@ -127,7 +127,7 @@ Feature: Structured state + declarative runner + adwPlanBuild migration
     And runOrchestrator has explicit parameter and return types
     And no function signature uses "any" or implicit shapes
 
-  @adw-modak4-refactor-structured @regression
+  @adw-modak4-refactor-structured @adw-locx5w-refactor-runner-toke @regression
   Scenario: Phase definition interface has explicit types
     Given the phase definition type is read
     Then it specifies an explicit phase name type
@@ -151,7 +151,7 @@ Feature: Structured state + declarative runner + adwPlanBuild migration
     And it does not contain manual CostTracker instantiation
     And it does not contain a try/catch block for phase execution
 
-  @adw-modak4-refactor-structured @regression
+  @adw-modak4-refactor-structured @adw-locx5w-refactor-runner-toke @regression
   Scenario: adwPlanBuild declares install, plan, build, test, PR phases
     Given "adws/adwPlanBuild.tsx" is read
     Then the declarative definition includes the install phase

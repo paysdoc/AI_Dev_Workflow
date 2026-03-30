@@ -241,6 +241,7 @@ adws/                   # ADW workflow system
 │   ├── modelRouting.ts # Model/effort routing utilities
 │   ├── orchestratorCli.ts  # Shared CLI parsing utilities
 │   ├── orchestratorLib.ts
+│   ├── orchestratorRunner.ts  # Declarative runner: defineOrchestrator() / runOrchestrator()
 │   ├── pauseQueue.ts   # Pause queue for rate-limit pause/resume
 │   ├── phaseRunner.ts  # PhaseRunner / CostTracker composition
 │   ├── portAllocator.ts
@@ -329,6 +330,7 @@ adws/                   # ADW workflow system
 │   ├── index.ts
 │   ├── issueRouting.ts  # Issue routing type definitions
 │   ├── issueTypes.ts
+│   ├── workflowState.ts  # Per-phase state interfaces and PhaseResultStore
 │   └── workflowTypes.ts
 ├── providers/          # Provider interfaces and implementations
 │   ├── __tests__/      # Vitest unit tests
@@ -350,8 +352,6 @@ adws/                   # ADW workflow system
 │   │   ├── jiraApiClient.ts
 │   │   ├── jiraIssueTracker.ts
 │   │   └── jiraTypes.ts
-│   ├── __tests__/      # Vitest unit tests
-│   │   └── repoContext.test.ts
 │   ├── index.ts
 │   ├── repoContext.ts  # RepoContext factory
 │   └── types.ts
