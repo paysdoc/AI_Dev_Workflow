@@ -26,10 +26,9 @@
  */
 
 import * as path from 'path';
-import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId } from './core';
-import { CostTracker, runPhase, runPhasesParallel } from './core/phaseRunner';
+import { OrchestratorId } from './core';
+import { defineOrchestrator, runOrchestrator, parallel, optional } from './core/orchestratorRunner';
 import {
-  initializeWorkflow,
   executeInstallPhase,
   executePlanPhase,
   executeScenarioPhase,
@@ -41,72 +40,45 @@ import {
   executeDocumentPhase,
   executeKpiPhase,
   executeAutoMergePhase,
-  completeWorkflow,
-  handleWorkflowError,
 } from './workflowPhases';
-import type { WorkflowConfig } from './phases';
 
-/**
- * Derives the review screenshots directory from the review result.
- * Review screenshots are stored in the agent state directory.
- */
+type TestPhaseResult = Awaited<ReturnType<typeof executeTestPhase>>;
+type ReviewPhaseResult = Awaited<ReturnType<typeof executeReviewPhase>>;
+
 function getReviewScreenshotsDir(adwId: string): string {
   return path.join('agents', adwId, 'review-agent', 'review_img');
 }
 
-/**
- * Main orchestrator workflow.
- */
-async function main(): Promise<void> {
-  const args = process.argv.slice(2);
-  const targetRepo = parseTargetRepoArgs(args);
-  const { issueNumber, adwId, providedIssueType } = parseOrchestratorArguments(args, {
-    scriptName: 'adwSdlc.tsx',
-    usagePattern: '<github-issueNumber> [adw-id] [--issue-type <type>]',
-    supportsCwd: false,
-  });
-  const repoId = buildRepoIdentifier(targetRepo);
-
-  const config = await initializeWorkflow(issueNumber, adwId, OrchestratorId.Sdlc, {
-    issueType: providedIssueType || undefined,
-    targetRepo: targetRepo || undefined,
-    repoId,
-  });
-
-  const tracker = new CostTracker();
-
-  try {
-    await runPhase(config, tracker, executeInstallPhase);
-    await runPhasesParallel(config, tracker, [executePlanPhase, executeScenarioPhase]);
-    await runPhase(config, tracker, executeAlignmentPhase);
-    await runPhase(config, tracker, executeBuildPhase);
-    const testResult = await runPhase(config, tracker, executeTestPhase);
-    const reviewResult = await runPhase(config, tracker, executeReviewPhase);
-
-    // Document phase uses review screenshots: bind screenshotsDir via wrapper.
-    const screenshotsDir = getReviewScreenshotsDir(config.adwId);
-    const executeDocumentWithScreenshots = (cfg: WorkflowConfig) =>
-      executeDocumentPhase(cfg, screenshotsDir);
-    await runPhase(config, tracker, executeDocumentWithScreenshots);
-
-    await runPhase(config, tracker, executePRPhase);
-
-    // KPI phase takes an extra argument: bind reviewRetries via wrapper.
-    const executeKpiWithRetries = (cfg: WorkflowConfig) =>
-      executeKpiPhase(cfg, reviewResult.totalRetries);
-    await runPhase(config, tracker, executeKpiWithRetries);
-
-    await runPhase(config, tracker, executeAutoMergePhase);
-
-    await completeWorkflow(config, tracker.totalCostUsd, {
-      unitTestsPassed: testResult.unitTestsPassed,
-      totalTestRetries: testResult.totalRetries,
-      reviewPassed: reviewResult.reviewPassed,
-      totalReviewRetries: reviewResult.totalRetries,
-    }, tracker.totalModelUsage);
-  } catch (error) {
-    handleWorkflowError(config, error, tracker.totalCostUsd, tracker.totalModelUsage);
-  }
-}
-
-main();
+runOrchestrator(defineOrchestrator({
+  id: OrchestratorId.Sdlc,
+  scriptName: 'adwSdlc.tsx',
+  usagePattern: '<github-issueNumber> [adw-id] [--issue-type <type>]',
+  phases: [
+    { name: 'install', execute: executeInstallPhase },
+    parallel('plan+scenario', [
+      { name: 'plan', execute: executePlanPhase },
+      { name: 'scenario', execute: executeScenarioPhase },
+    ]),
+    { name: 'alignment', execute: executeAlignmentPhase },
+    { name: 'build', execute: executeBuildPhase },
+    { name: 'test', execute: executeTestPhase },
+    { name: 'review', execute: executeReviewPhase },
+    { name: 'document', execute: (cfg) => executeDocumentPhase(cfg, getReviewScreenshotsDir(cfg.adwId)) },
+    { name: 'pr', execute: executePRPhase },
+    optional({ name: 'kpi', execute: (cfg, results) => {
+      const review = results.get<ReviewPhaseResult>('review');
+      return executeKpiPhase(cfg, review?.totalRetries);
+    } }),
+    optional({ name: 'autoMerge', execute: executeAutoMergePhase }),
+  ],
+  completionMetadata: (results) => {
+    const test = results.get<TestPhaseResult>('test');
+    const review = results.get<ReviewPhaseResult>('review');
+    return {
+      unitTestsPassed: test?.unitTestsPassed ?? false,
+      totalTestRetries: test?.totalRetries ?? 0,
+      reviewPassed: review?.reviewPassed ?? false,
+      totalReviewRetries: review?.totalRetries ?? 0,
+    };
+  },
+}));
