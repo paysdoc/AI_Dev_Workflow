@@ -178,6 +178,7 @@ Remove ad-hoc per-agent retry logic from validationAgent and resolutionAgent. Up
 - Replace direct `runClaudeAgentWithCommand` call with `runCommandAgent`
 - Keep `formatAlignmentArgs()` as pre-logic
 - **Remove `parseAlignmentResult` export** — replaced by `extractAlignmentResult` inside the config; phase-level callers that need graceful degradation handle it at their level
+<!-- ADW-WARNING: Removing parseAlignmentResult will break the @adw-305 @regression scenario "AlignmentResult interface is exported from the agents module" in features/single_pass_alignment_phase.feature (line 163) which asserts parseAlignmentResult is exported. That scenario is not tagged @adw-u8xr9v-add-output-validatio and must be updated separately. -->
 - Update exports
 
 ### Step 12: Migrate resolutionAgent to commandAgent

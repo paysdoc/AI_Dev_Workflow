@@ -156,31 +156,31 @@ Feature: Robustness hardening — retry logic, pre-flight checks, and graceful d
   # ── 6. JSON parse retry + graceful degradation ─────────────────────────
 
   @adw-gcisck-robustness-hardening @adw-u8xr9v-add-output-validatio @regression
-  Scenario: Resolution agent retries once when JSON extraction fails
-    Given the resolution agent receives free-text output instead of JSON
-    When extractJson returns null on the first attempt
-    Then the agent is re-run once
-    And the second output is parsed for JSON
+  Scenario: Resolution agent delegates output validation retries to commandAgent
+    Given the resolution agent uses commandAgent with extractOutput and outputSchema
+    When the agent output fails JSON Schema validation
+    Then the commandAgent retry loop handles retries with a Haiku corrective prompt
+    And the resolution agent does not implement its own retry-on-parse-failure logic
 
   @adw-gcisck-robustness-hardening @adw-u8xr9v-add-output-validatio @regression
-  Scenario: Resolution agent degrades gracefully when retry also fails
-    Given the resolution agent receives free-text output on both attempts
-    When extractJson returns null on both the first and retry attempts
-    Then the agent returns a fallback result with resolved=false and decisions=[]
-    And the validation retry loop handles the unresolved result
+  Scenario: Resolution phase degrades gracefully when commandAgent retries are exhausted
+    Given the resolution agent output fails validation on all retry attempts
+    When the commandAgent retry loop throws after exhausting retries
+    Then the resolution phase catches the error and returns resolved=false with decisions=[]
+    And the orchestrator handles the unresolved result
 
   @adw-gcisck-robustness-hardening @adw-u8xr9v-add-output-validatio @regression
-  Scenario: Validation agent retries once when JSON extraction fails
-    Given the validation agent receives free-text output instead of JSON
-    When extractJson returns null on the first attempt
-    Then the agent is re-run once
-    And the second output is parsed for JSON
+  Scenario: Validation agent delegates output validation retries to commandAgent
+    Given the validation agent uses commandAgent with extractOutput and outputSchema
+    When the agent output fails JSON Schema validation
+    Then the commandAgent retry loop handles retries with a Haiku corrective prompt
+    And the validation agent does not implement its own retry-on-parse-failure logic
 
   @adw-gcisck-robustness-hardening @adw-u8xr9v-add-output-validatio @regression
-  Scenario: Validation agent degrades gracefully when retry also fails
-    Given the validation agent receives free-text output on both attempts
-    When extractJson returns null on both the first and retry attempts
-    Then the agent returns a failed validation result
+  Scenario: Validation phase degrades gracefully when commandAgent retries are exhausted
+    Given the validation agent output fails validation on all retry attempts
+    When the commandAgent retry loop throws after exhausting retries
+    Then the validation phase returns a failed validation result
     And the orchestrator retries up to MAX_VALIDATION_RETRY_ATTEMPTS
 
   @adw-gcisck-robustness-hardening @regression
