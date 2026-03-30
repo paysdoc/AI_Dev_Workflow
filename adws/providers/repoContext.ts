@@ -140,9 +140,9 @@ export function parseOwnerRepoFromUrl(
   remoteUrl: string,
 ): { owner: string; repo: string } | null {
   // HTTPS: https://hostname/owner/repo.git or https://hostname/owner/repo
-  const httpsMatch = remoteUrl.match(/https?:\/\/[^/]+\/([^/]+)\/([^/.]+)/);
+  const httpsMatch = remoteUrl.match(/https?:\/\/[^/]+\/([^/]+)\/([^/]+?)(?:\.git)?\/?$/);
   // SSH: git@hostname:owner/repo.git or git@hostname:owner/repo
-  const sshMatch = remoteUrl.match(/git@[^:]+:([^/]+)\/([^/.]+)/);
+  const sshMatch = remoteUrl.match(/git@[^:]+:([^/]+)\/([^/]+?)(?:\.git)?\/?$/);
   const match = httpsMatch || sshMatch;
   if (!match) return null;
   return { owner: match[1], repo: match[2] };
