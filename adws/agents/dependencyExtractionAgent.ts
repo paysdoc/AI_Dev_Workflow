@@ -4,31 +4,41 @@
  */
 
 import { log } from '../core';
-import { runCommandAgent, type CommandAgentConfig } from './commandAgent';
+import { runCommandAgent, type CommandAgentConfig, type ExtractionResult } from './commandAgent';
 import type { AgentResult } from './claudeAgent';
+
+export const dependencyExtractionSchema: Record<string, unknown> = {
+  type: 'array',
+  items: { type: 'integer', minimum: 1 },
+  description: 'Array of unique positive integer GitHub issue numbers',
+};
 
 /**
  * Extracts a JSON array of dependency issue numbers from agent output.
  * Finds the first JSON array pattern in the output, parses it, and filters
  * to unique positive integers.
- * Returns `[]` on any parse failure.
+ * Returns a structured error on any parse failure.
  */
-export function parseDependencyArray(output: string): number[] {
+export function parseDependencyArray(output: string): ExtractionResult<number[]> {
   try {
     const match = output.match(/\[[-\d,\s]*\]/);
-    if (!match) return [];
+    if (!match) {
+      return { success: false, error: 'No JSON array found in dependency extraction output' };
+    }
 
     const parsed: unknown = JSON.parse(match[0]);
-    if (!Array.isArray(parsed)) return [];
+    if (!Array.isArray(parsed)) {
+      return { success: false, error: 'Parsed value is not an array' };
+    }
 
     const unique = new Set(
       parsed
         .filter((v): v is number => typeof v === 'number' && Number.isInteger(v) && v > 0)
     );
-    return [...unique];
-  } catch {
+    return { success: true, data: [...unique] };
+  } catch (err) {
     log('parseDependencyArray: failed to parse agent output', 'warn');
-    return [];
+    return { success: false, error: `Failed to parse dependency array: ${String(err)}` };
   }
 }
 
@@ -37,6 +47,7 @@ const dependencyExtractionAgentConfig: CommandAgentConfig<number[]> = {
   agentName: 'Dependency Extraction',
   outputFileName: 'dependency-extraction-agent.jsonl',
   extractOutput: parseDependencyArray,
+  outputSchema: dependencyExtractionSchema,
 };
 
 /**

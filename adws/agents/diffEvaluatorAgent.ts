@@ -3,35 +3,48 @@
  *
  * LLM-based diff evaluation using Haiku for binary classification.
  * Classifies a git diff as "safe" (auto-merge) or "regression_possible" (escalate).
+ *
+ * The fallback to 'regression_possible' on parse failure moves to phase level
+ * (diffEvaluationPhase.ts) — this agent returns a structured error instead.
  */
 
 import { runCommandAgent } from './commandAgent';
-import type { CommandAgentOptions } from './commandAgent';
+import type { CommandAgentOptions, ExtractionResult } from './commandAgent';
 
 export type DiffEvaluatorVerdict = {
   verdict: 'safe' | 'regression_possible';
   reason: string;
 };
 
+export const diffEvaluatorSchema: Record<string, unknown> = {
+  type: 'object',
+  required: ['verdict', 'reason'],
+  properties: {
+    verdict: { type: 'string', enum: ['safe', 'regression_possible'] },
+    reason: { type: 'string' },
+  },
+  additionalProperties: false,
+};
+
 /**
  * Extracts a DiffEvaluatorVerdict from raw agent output.
- * Defaults to 'regression_possible' if parsing fails (fail-safe).
+ * Returns a structured error if parsing fails (retry loop handles recovery).
  */
-function extractDiffVerdict(output: string): DiffEvaluatorVerdict {
+function extractDiffVerdict(output: string): ExtractionResult<DiffEvaluatorVerdict> {
   try {
     const jsonMatch = output.match(/\{[\s\S]*?"verdict"[\s\S]*?\}/);
     if (!jsonMatch) {
-      return { verdict: 'regression_possible', reason: 'Could not parse verdict from agent output' };
+      return { success: false, error: 'Could not find JSON with verdict field in agent output' };
     }
     const parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
     const verdict = parsed['verdict'];
     const reason = typeof parsed['reason'] === 'string' ? parsed['reason'] : 'No reason provided';
     if (verdict === 'safe' || verdict === 'regression_possible') {
-      return { verdict, reason };
+      return { success: true, data: { verdict, reason } };
     }
-    return { verdict: 'regression_possible', reason: 'Invalid verdict value in agent output' };
-  } catch {
-    return { verdict: 'regression_possible', reason: 'Failed to parse agent output as JSON' };
+    return { success: false, error: `Invalid verdict value: ${String(verdict)}` };
+  } catch (err) {
+    return { success: false, error: `Failed to parse agent output as JSON: ${String(err)}` };
   }
 }
 
@@ -51,6 +64,7 @@ export async function runDiffEvaluatorAgent(
       agentName: 'diff-evaluator',
       outputFileName: 'diff-evaluator-agent.jsonl',
       extractOutput: extractDiffVerdict,
+      outputSchema: diffEvaluatorSchema,
     },
     { ...options, args: diff },
   );
