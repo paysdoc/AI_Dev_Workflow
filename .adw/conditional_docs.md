@@ -53,6 +53,14 @@
     - When accessing typed phase results via `PhaseResultStore` in a `completionMetadata` callback
     - When troubleshooting the declarative runner's CLI parsing, CostTracker lifecycle, or phase execution order
 
+- app_docs/feature-tcff7s-branch-primitive-adwchore-migration.md
+  - Conditions:
+    - When adding conditional branching to a declarative orchestrator using `branch()`
+    - When working with `BranchPhaseDefinition`, `PhaseEntry`, or `isBranchPhase()` in `adws/core/orchestratorRunner.ts`
+    - When reading diff evaluation verdict or other phase results inside a branch predicate
+    - When migrating an orchestrator that has `if/else` logic on phase results to the declarative `branch()` pattern
+    - When troubleshooting the chore pipeline's safe vs regression_possible routing in `adwChore.tsx`
+
 - app_docs/feature-a72ezx-deploy-cost-api-worker.md
   - Conditions:
     - When deploying or re-deploying the `cost-api` Cloudflare Worker to production

@@ -149,8 +149,8 @@ export type { PhaseResult, PhaseFn } from './phaseRunner';
 export { CostTracker, runPhase, runPhaseWithContinuation, runPhasesSequential, runPhasesParallel } from './phaseRunner';
 
 // Declarative orchestrator runner
-export type { PhaseDefinition, OrchestratorDefinition } from './orchestratorRunner';
-export { defineOrchestrator, runOrchestrator } from './orchestratorRunner';
+export type { PhaseDefinition, BranchPhaseDefinition, PhaseEntry, OrchestratorDefinition } from './orchestratorRunner';
+export { defineOrchestrator, runOrchestrator, branch } from './orchestratorRunner';
 
 // Pause queue
 export type { PausedWorkflow } from './pauseQueue';
