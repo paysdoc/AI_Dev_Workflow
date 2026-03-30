@@ -331,6 +331,8 @@ adws/                   # ADW workflow system
 │   ├── issueTypes.ts
 │   └── workflowTypes.ts
 ├── providers/          # Provider interfaces and implementations
+│   ├── __tests__/      # Vitest unit tests
+│   │   └── repoContext.test.ts
 │   ├── github/         # GitHub provider
 │   │   ├── githubCodeHost.ts
 │   │   ├── githubIssueTracker.ts

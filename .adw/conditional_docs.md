@@ -1,5 +1,12 @@
 # Conditional Documentation
 
+- app_docs/feature-pwsvyi-provider-interface-phase-routing.md
+  - Conditions:
+    - When working with `adws/providers/types.ts` (CodeHost or IssueTracker interfaces)
+    - When adding new operations to the provider interface (`approvePR`, `fetchPRDetails`, `issueHasLabel`, etc.)
+    - When routing phase files through `repoContext` instead of direct `../github` imports
+    - When troubleshooting auto-merge or PR review flows through the provider abstraction layer
+
 - app_docs/feature-ce43gr-fix-missing-d1-cost-writes.md
   - Conditions:
     - When working with `adwInit.tsx`, `adwPlan.tsx`, `adwDocument.tsx`, or `adwPrReview.tsx` cost tracking

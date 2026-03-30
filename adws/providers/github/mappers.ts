@@ -6,7 +6,7 @@
 
 import type { GitHubIssue, GitHubComment, IssueCommentSummary } from '../../types/issueTypes';
 import type { PRDetails, PRReviewComment, PRListItem } from '../../types/workflowTypes';
-import type { Issue, IssueComment, PullRequest, ReviewComment, RepoIdentifier } from '../types';
+import type { Issue, IssueComment, PullRequest, PullRequestDetails, ReviewComment, RepoIdentifier } from '../types';
 import type { RepoInfo } from '../../github/githubApi';
 
 // ── IssueTracker mappers ──────────────────────────────────────────────
@@ -59,6 +59,22 @@ export function toRepoInfo(repoId: RepoIdentifier): RepoInfo {
 }
 
 // ── CodeHost mappers ──────────────────────────────────────────────────
+
+/**
+ * Maps a GitHub PRDetails object to a platform-agnostic PullRequestDetails (includes state).
+ */
+export function mapPRDetailsToPullRequestDetails(pr: PRDetails): PullRequestDetails {
+  return {
+    number: pr.number,
+    title: pr.title,
+    body: pr.body,
+    state: pr.state,
+    sourceBranch: pr.headBranch,
+    targetBranch: pr.baseBranch,
+    url: pr.url,
+    linkedIssueNumber: pr.issueNumber ?? undefined,
+  };
+}
 
 /**
  * Maps a GitHub PRDetails object to a platform-agnostic PullRequest.

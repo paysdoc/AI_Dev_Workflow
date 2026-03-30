@@ -81,6 +81,7 @@ export interface IssueTracker {
   closeIssue(issueNumber: number, comment?: string): Promise<boolean>;
   getIssueState(issueNumber: number): string;
   fetchComments(issueNumber: number): IssueComment[];
+  issueHasLabel(issueNumber: number, labelName: string): boolean;
   moveToStatus(issueNumber: number, status: BoardStatus): Promise<boolean>;
 }
 
@@ -129,6 +130,22 @@ export interface PullRequestResult {
 }
 
 /**
+ * Result returned by a PR approval operation.
+ */
+export interface ApproveResult {
+  success: boolean;
+  error?: string;
+}
+
+/**
+ * Extended pull request representation including runtime state.
+ * Used when full PR details (including open/closed/merged state) are needed.
+ */
+export interface PullRequestDetails extends PullRequest {
+  state: string;
+}
+
+/**
  * Interface for code hosting operations across platforms.
  * Maps 1:1 to existing GitHub code hosting operations for seamless migration.
  */
@@ -136,6 +153,8 @@ export interface CodeHost {
   getDefaultBranch(): string;
   createPullRequest(options: CreatePROptions): PullRequestResult;
   fetchPullRequest(prNumber: number): PullRequest;
+  approvePR(prNumber: number): ApproveResult;
+  fetchPRDetails(prNumber: number): PullRequestDetails;
   commentOnPullRequest(prNumber: number, body: string): void;
   fetchReviewComments(prNumber: number): ReviewComment[];
   listOpenPullRequests(): PullRequest[];

@@ -19,7 +19,7 @@ import {
   emptyModelUsageMap,
 } from '../core';
 import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
-import { commentOnPR, approvePR, isGitHubAppConfigured, commentOnIssue, issueHasLabel, type RepoInfo } from '../github';
+import { isGitHubAppConfigured } from '../github';
 import { mergeWithConflictResolution } from '../triggers/autoMergeHandler';
 import { getPlanFilePath, planFileExists } from '../agents';
 import type { WorkflowConfig } from './workflowInit';
@@ -52,24 +52,21 @@ export async function executeAutoMergePhase(config: WorkflowConfig): Promise<{ c
     return { costUsd: 0, modelUsage: emptyModelUsageMap(), phaseCostRecords: [] };
   }
 
-  const owner = repoContext?.repoId.owner ?? '';
-  const repo = repoContext?.repoId.repo ?? '';
-  if (!owner || !repo) {
+  if (!repoContext) {
     log('executeAutoMergePhase: no repo context, skipping auto-merge', 'warn');
     writeFileSync(path.join(logsDir, 'skip_reason.txt'), 'No repo context available, skipping auto-merge');
     return { costUsd: 0, modelUsage: emptyModelUsageMap(), phaseCostRecords: [] };
   }
 
-  const repoInfo: RepoInfo = { owner, repo };
+  const repoInfo = { owner: repoContext.repoId.owner, repo: repoContext.repoId.repo };
 
   // Gate: if the issue has the `hitl` label, skip auto-approval and auto-merge.
   // The label is checked in real time so it can be added/removed during the workflow.
-  if (issueHasLabel(issueNumber, 'hitl', repoInfo)) {
+  if (repoContext.issueTracker.issueHasLabel(issueNumber, 'hitl')) {
     log(`hitl label detected on issue #${issueNumber}, skipping auto-approval and auto-merge`, 'info');
-    commentOnIssue(
+    repoContext.issueTracker.commentOnIssue(
       issueNumber,
       `## ✋ Awaiting human approval — PR #${prNumber} ready for review`,
-      repoInfo,
     );
     return { costUsd: 0, modelUsage: emptyModelUsageMap(), phaseCostRecords: [] };
   }
@@ -87,7 +84,7 @@ export async function executeAutoMergePhase(config: WorkflowConfig): Promise<{ c
   // Approve the PR when a GitHub App is configured (bot authored → personal account approves)
   if (isGitHubAppConfigured()) {
     log(`Approving PR #${prNumber} with personal gh auth login identity...`, 'info');
-    const approveResult = approvePR(prNumber, repoInfo);
+    const approveResult = repoContext.codeHost.approvePR(prNumber);
     if (!approveResult.success) {
       log(`PR approval failed (non-fatal, proceeding to merge): ${approveResult.error}`, 'warn');
     }
@@ -120,7 +117,7 @@ export async function executeAutoMergePhase(config: WorkflowConfig): Promise<{ c
       'Please resolve any remaining merge conflicts manually and merge the PR.',
     ].filter((line, i, arr) => !(line === '' && arr[i - 1] === '')).join('\n');
 
-    commentOnPR(prNumber, failureComment, repoInfo);
+    repoContext.codeHost.commentOnPullRequest(prNumber, failureComment);
     log(`Posted auto-merge failure comment on PR #${prNumber}`, 'info');
   } else {
     log(`PR #${prNumber} merged successfully`, 'success');
