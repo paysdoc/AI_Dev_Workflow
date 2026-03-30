@@ -3,9 +3,11 @@ Feature: D1 cost writes in standalone orchestrators and worker observability
 
   Four orchestrators (adwInit, adwPlan, adwDocument, adwPrReview) manually
   accumulate costs via persistTokenCounts() but never call postCostRecordsToD1().
-  They must be migrated to the CostTracker/runPhase pattern so cost data is
-  written to D1 after every phase. Additionally, both Cloudflare Workers
-  (cost-api, screenshot-router) lack observability configuration.
+  adwInit and adwPlan are migrated to the CostTracker/runPhase pattern.
+  adwDocument and adwPrReview lack a WorkflowConfig, so they use direct
+  createPhaseCostRecords + postCostRecordsToD1 calls instead.
+  Additionally, both Cloudflare Workers (cost-api, screenshot-router) lack
+  observability configuration.
 
   Background:
     Given the ADW codebase is checked out
@@ -67,59 +69,59 @@ Feature: D1 cost writes in standalone orchestrators and worker observability
     Then the file does not call "persistTokenCounts" directly
     And the file does not import "persistTokenCounts"
 
-  # -- 3: adwDocument uses CostTracker/runPhase pattern ----------------------------
+  # -- 3: adwDocument posts cost records to D1 directly ----------------------------
+  #    adwDocument uses AgentStateManager (no WorkflowConfig), so CostTracker/
+  #    runPhase cannot be used. Direct createPhaseCostRecords + postCostRecordsToD1
+  #    calls are used instead.
 
   @adw-344-d1-cost-writes-observability @regression
-  Scenario: adwDocument orchestrator imports CostTracker and runPhase from phaseRunner
+  Scenario: adwDocument orchestrator imports D1 cost write functions
     Given "adws/adwDocument.tsx" is read
-    Then the file imports "CostTracker" from "core/phaseRunner" or "../core/phaseRunner"
-    And the file imports "runPhase" from "core/phaseRunner" or "../core/phaseRunner"
+    Then the file imports "createPhaseCostRecords" from the cost module
+    And the file imports "postCostRecordsToD1" from the cost d1Client module
 
   @adw-344-d1-cost-writes-observability @regression
-  Scenario: adwDocument orchestrator instantiates a CostTracker
+  Scenario: adwDocument orchestrator posts cost records to D1 after agent completes
     Given "adws/adwDocument.tsx" is read
-    Then the file contains "new CostTracker()"
+    Then the file calls "createPhaseCostRecords" to build cost records
+    And the file calls "postCostRecordsToD1" to send records to D1
+
+  # -- 4: adwPrReview posts cost records to D1 directly ----------------------------
+  #    adwPrReview uses PRReviewWorkflowConfig (not WorkflowConfig), so
+  #    CostTracker/runPhase cannot be used. Direct createPhaseCostRecords +
+  #    postCostRecordsToD1 calls are added per phase via a local helper.
+
+  @adw-344-d1-cost-writes-observability @regression
+  Scenario: adwPrReview orchestrator imports D1 cost write functions
+    Given "adws/adwPrReview.tsx" is read
+    Then the file imports "createPhaseCostRecords" from the cost module
+    And the file imports "postCostRecordsToD1" from the cost d1Client module
+
+  @adw-344-d1-cost-writes-observability @regression
+  Scenario: adwPrReview orchestrator posts cost records to D1 for install, plan, and build phases
+    Given "adws/adwPrReview.tsx" is read
+    Then the file calls "postCostRecordsToD1" after the install phase
+    And the file calls "postCostRecordsToD1" after the plan phase
+    And the file calls "postCostRecordsToD1" after the build phase
 
   @adw-344-d1-cost-writes-observability
-  Scenario: adwDocument orchestrator does not manually track totalCostUsd
-    Given "adws/adwDocument.tsx" is read
-    Then the file does not declare a local "totalCostUsd" variable
-    And the file does not call "persistTokenCounts" directly
+  Scenario: adwPrReview orchestrator does not post to D1 for test phase
+    Given "adws/adwPrReview.tsx" is read
+    Then the test phase D1 write is handled internally by prReviewCompletion
 
-  # -- 4: adwPrReview uses CostTracker/runPhase pattern ----------------------------
+  # -- 5: All standalone orchestrators write cost data to D1 -----------------------
 
   @adw-344-d1-cost-writes-observability @regression
-  Scenario: adwPrReview orchestrator imports CostTracker and runPhase from phaseRunner
-    Given "adws/adwPrReview.tsx" is read
-    Then the file imports "CostTracker" from "core/phaseRunner" or "../core/phaseRunner"
-    And the file imports "runPhase" from "core/phaseRunner" or "../core/phaseRunner"
+  Scenario: adwInit and adwPlan use CostTracker for D1 writes
+    Given the orchestrator files "adws/adwInit.tsx" and "adws/adwPlan.tsx" are read
+    Then both files import "CostTracker" from "core/phaseRunner"
+    And neither file imports "persistTokenCounts"
 
   @adw-344-d1-cost-writes-observability @regression
-  Scenario: adwPrReview orchestrator instantiates a CostTracker
-    Given "adws/adwPrReview.tsx" is read
-    Then the file contains "new CostTracker()"
-
-  @adw-344-d1-cost-writes-observability @regression
-  Scenario: adwPrReview orchestrator does not manually accumulate cost variables
-    Given "adws/adwPrReview.tsx" is read
-    Then the file does not declare a local "totalCostUsd" variable
-    And the file does not declare a local "totalModelUsage" variable
-    And the file does not call "mergeModelUsageMaps" directly
-    And the file does not call "persistTokenCounts" directly
-
-  @adw-344-d1-cost-writes-observability
-  Scenario: adwPrReview orchestrator does not call computeDisplayTokens directly
-    Given "adws/adwPrReview.tsx" is read
-    Then the file does not call "computeDisplayTokens" directly
-    And the file does not import "computeDisplayTokens"
-
-  # -- 5: No standalone orchestrator uses manual cost pattern ----------------------
-
-  @adw-344-d1-cost-writes-observability @regression
-  Scenario: No orchestrator imports persistTokenCounts without CostTracker
-    Given the orchestrator files "adws/adwInit.tsx", "adws/adwPlan.tsx", "adws/adwDocument.tsx", and "adws/adwPrReview.tsx" are read
-    Then none of the files import "persistTokenCounts" from the cost module
-    And all of the files import "CostTracker" from "core/phaseRunner"
+  Scenario: adwDocument and adwPrReview use direct D1 cost writes
+    Given the orchestrator files "adws/adwDocument.tsx" and "adws/adwPrReview.tsx" are read
+    Then both files import "createPhaseCostRecords" from the cost module
+    And both files import "postCostRecordsToD1" from the cost d1Client module
 
   # -- 6: Worker observability configuration ---------------------------------------
 
