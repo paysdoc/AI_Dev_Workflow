@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value          | Last Updated       |
 | ----------------- | -------------- | ------------------ |
-| Current Streak    | 51             | 2026-03-30 10:32:54|
-| Longest Streak    | 51             | 2026-03-30 10:32:54|
-| Total Plan Size   | 441 lines      | 2026-03-30 10:32:54|
-| Largest Plan Size | 201 lines      | 2026-03-30 10:32:54|
-| Total Diff Size   | 1758393 lines  | 2026-03-30 10:32:54|
-| Largest Diff Size | 205468 lines   | 2026-03-30 10:32:54|
-| Average Presence  | 1.42           | 2026-03-30 10:32:54|
+| Current Streak    | 51             | 2026-03-30 10:59:25|
+| Longest Streak    | 51             | 2026-03-30 10:59:25|
+| Total Plan Size   | 441 lines      | 2026-03-30 10:59:25|
+| Largest Plan Size | 201 lines      | 2026-03-30 10:59:25|
+| Total Diff Size   | 1805897 lines  | 2026-03-30 10:59:25|
+| Largest Diff Size | 205468 lines   | 2026-03-30 10:59:25|
+| Average Presence  | 1.44           | 2026-03-30 10:59:25|
 
 ## ADW KPIs
 
@@ -83,3 +83,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-03-27 | avb4f5-github-actions-worke | 332          | /chore     | 1        | 0                 | 42268/1310/378                  | 2026-03-27 | 2026-03-27 |
 | 2026-03-27 | ak03s5-remove-csv-cost-pipe | 335          | /chore     | 2        | 0                 | 41586/3950/515                  | 2026-03-27 | 2026-03-27 |
 | 2026-03-30 | ce43gr-fix-missing-d1-cost  | 344          | /bug       | 2        | 0                 | 42600/4021/528                  | 2026-03-30 | 2026-03-30 |
+| 2026-03-30 | modak4-refactor-structured | 346          | /feature   | 1        | 0                 | 43422/4082/535                  | 2026-03-30 | 2026-03-30 |
