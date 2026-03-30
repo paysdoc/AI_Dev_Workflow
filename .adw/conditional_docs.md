@@ -1,5 +1,13 @@
 # Conditional Documentation
 
+- app_docs/feature-bxch84-parallel-optional-primitives-sdlc.md
+  - Conditions:
+    - When working with `adws/core/orchestratorRunner.ts` (declarative runner, `parallel()`, `optional()`)
+    - When adding parallel or optional phases to any orchestrator definition
+    - When accessing prior phase results via `PhaseResultStore` in phase wrappers or `completionMetadata`
+    - When migrating an imperative orchestrator to use `defineOrchestrator()` + `runOrchestrator()`
+    - When troubleshooting non-fatal phase failures in the SDLC pipeline (KPI, autoMerge)
+
 - app_docs/feature-pwsvyi-provider-interface-phase-routing.md
   - Conditions:
     - When working with `adws/providers/types.ts` (CodeHost or IssueTracker interfaces)
