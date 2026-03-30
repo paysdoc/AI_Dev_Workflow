@@ -26,14 +26,25 @@ export { parseTargetRepoArgs } from './orchestratorCli';
 // Retry-wrapped execSync (exponential backoff, synchronous sleep via Atomics)
 // ---------------------------------------------------------------------------
 
+/** Error messages that indicate a logical (non-transient) failure — retrying will not help. */
+const NON_RETRYABLE_PATTERNS = [
+  'No commits between',
+  'already exists',
+  'is not mergeable',
+  'Could not resolve to a',
+  'was submitted too quickly',
+];
+
 /**
  * Executes a shell command with retry logic and exponential backoff.
  * Drop-in synchronous replacement for execSync at gh CLI callsites.
+ * Non-transient errors (e.g., "No commits between", "already exists") are
+ * thrown immediately without retrying.
  *
  * @param command - The shell command to run
  * @param options - execSync options plus optional `maxAttempts` (default: 3)
  * @returns The trimmed stdout string
- * @throws The last error after all attempts are exhausted
+ * @throws The last error after all attempts are exhausted, or immediately for non-retryable errors
  */
 export function execWithRetry(command: string, options?: ExecSyncOptions & { maxAttempts?: number }): string {
   const maxAttempts = options?.maxAttempts ?? 3;
@@ -46,6 +57,14 @@ export function execWithRetry(command: string, options?: ExecSyncOptions & { max
       return (result as string).trim();
     } catch (error) {
       lastError = error;
+      const errorStr = String(error);
+
+      // Don't retry non-transient errors
+      if (NON_RETRYABLE_PATTERNS.some(p => errorStr.includes(p))) {
+        log(`execWithRetry: non-retryable error, failing immediately: ${errorStr.substring(0, 200)}`, 'error');
+        throw error;
+      }
+
       log(`execWithRetry failed (attempt ${attempt + 1}/${maxAttempts}): ${error}`, 'error');
       if (attempt < maxAttempts - 1) {
         const backoff = 500 * Math.pow(2, attempt);
