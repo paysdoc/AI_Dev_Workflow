@@ -350,6 +350,8 @@ adws/                   # ADW workflow system
 │   │   ├── jiraApiClient.ts
 │   │   ├── jiraIssueTracker.ts
 │   │   └── jiraTypes.ts
+│   ├── __tests__/      # Vitest unit tests
+│   │   └── repoContext.test.ts
 │   ├── index.ts
 │   ├── repoContext.ts  # RepoContext factory
 │   └── types.ts
