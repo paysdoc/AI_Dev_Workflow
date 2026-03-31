@@ -76,7 +76,7 @@ export function pullLatestDefaultBranch(workspacePath: string): string {
   ).trim();
 
   execSync(`git checkout "${defaultBranch}"`, { stdio: 'pipe', cwd: workspacePath });
-  execSync(`git pull origin "${defaultBranch}"`, { stdio: 'pipe', cwd: workspacePath });
+  execSync(`git pull --rebase origin "${defaultBranch}"`, { stdio: 'pipe', cwd: workspacePath });
   log(`Checked out and pulled ${defaultBranch} in ${workspacePath}`, 'success');
 
   return defaultBranch;
