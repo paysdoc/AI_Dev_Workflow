@@ -1,5 +1,13 @@
 # Conditional Documentation
 
+- app_docs/feature-2sqt1r-fix-rate-limit-plan-phase.md
+  - Conditions:
+    - When working with `adws/adwPlan.tsx` or adding rate limit handling to an orchestrator
+    - When troubleshooting plan workflows that exit 1 instead of pausing on rate limits
+    - When implementing a new orchestrator and ensuring it uses `CostTracker` + `runPhase()`
+    - When debugging `deriveOrchestratorScript()` mapping (wrong resume script selected from pause queue)
+    - When working with `adws/core/phaseRunner.ts` `runPhase()` or `runPhasesParallel()` error handling
+
 - app_docs/feature-u8xr9v-output-validation-retry-loop.md
   - Conditions:
     - When working with `adws/agents/commandAgent.ts` or adding structured output to a new agent
