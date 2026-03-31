@@ -9,7 +9,7 @@ Feature: Detect context compaction and restart build agent with fresh context
 
   # --- JSONL stream compaction detection in agentProcessHandler ---
 
-  @adw-9zcqhw-detect-context-compa @regression
+  @adw-9zcqhw-detect-context-compa @adw-2sqt1r-error @regression
   Scenario: agentProcessHandler detects compact_boundary in the JSONL stream
     Given the file "adws/agents/agentProcessHandler.ts" exists
     And the stdout data handler processes incoming JSONL chunks

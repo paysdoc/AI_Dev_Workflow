@@ -228,6 +228,8 @@ adws/                   # ADW workflow system
 │   ├── testRetry.ts
 │   └── validationAgent.ts  # Plan-scenario validation
 ├── core/               # Configuration and utilities
+│   ├── __tests__/      # Vitest unit tests
+│   │   └── claudeStreamParser.test.ts
 │   ├── adwId.ts        # ADW ID generation
 │   ├── agentState.ts
 │   ├── claudeStreamParser.ts  # Claude JSONL stream parsing
