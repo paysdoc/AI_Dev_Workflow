@@ -167,16 +167,24 @@ export async function runPhasesParallel<R extends PhaseResult>(
   tracker: CostTracker,
   fns: ReadonlyArray<(config: WorkflowConfig) => Promise<R>>,
 ): Promise<R[]> {
-  const results = await Promise.all(fns.map(fn => fn(config)));
-  const mergedRecords: PhaseCostRecord[] = results.flatMap(r => r.phaseCostRecords ?? []);
-  const mergedUsage = results.reduce(
-    (acc, r) => mergeModelUsageMaps(acc, r.modelUsage),
-    {} as ModelUsageMap,
-  );
-  const mergedCost = results.reduce((sum, r) => sum + r.costUsd, 0);
-  // Accumulate merged totals in one shot so persist() reflects all parallel phases.
-  tracker.accumulate({ costUsd: mergedCost, modelUsage: mergedUsage, phaseCostRecords: mergedRecords });
-  tracker.persist(config);
-  await tracker.commit(config, mergedRecords);
-  return results;
+  try {
+    const results = await Promise.all(fns.map(fn => fn(config)));
+    const mergedRecords: PhaseCostRecord[] = results.flatMap(r => r.phaseCostRecords ?? []);
+    const mergedUsage = results.reduce(
+      (acc, r) => mergeModelUsageMaps(acc, r.modelUsage),
+      {} as ModelUsageMap,
+    );
+    const mergedCost = results.reduce((sum, r) => sum + r.costUsd, 0);
+    // Accumulate merged totals in one shot so persist() reflects all parallel phases.
+    tracker.accumulate({ costUsd: mergedCost, modelUsage: mergedUsage, phaseCostRecords: mergedRecords });
+    tracker.persist(config);
+    await tracker.commit(config, mergedRecords);
+    return results;
+  } catch (err) {
+    if (err instanceof RateLimitError) {
+      const { handleRateLimitPause } = await import('../phases/workflowCompletion');
+      handleRateLimitPause(config, err.phaseName, 'rate_limited', tracker.totalCostUsd, tracker.totalModelUsage);
+    }
+    throw err;
+  }
 }
