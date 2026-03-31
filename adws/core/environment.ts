@@ -153,6 +153,8 @@ const SAFE_ENV_VARS: readonly string[] = [
   'NODE_ENV',
   'PWD',
   'PORT',
+  'ADW_WORKTREE_PATH',
+  'ADW_MAIN_REPO_PATH',
 ];
 
 /**

@@ -642,3 +642,12 @@
     - When adding or modifying `git pull` calls anywhere in the VCS layer
     - When ADW crashes during `pullLatestDefaultBranch` or `checkoutBranch` in CI/automation environments
 
+- app_docs/feature-qr9z6g-fix-worktree-path-rewriting.md
+  - Conditions:
+    - When working with `.claude/hooks/pre-tool-use.ts` or the pre-tool-use hook
+    - When Claude agents write files to the wrong directory (main repo root instead of worktree)
+    - When modifying `claudeAgent.ts` spawn env or `getSafeSubprocessEnv()` / `SAFE_ENV_VARS` in `environment.ts`
+    - When adding new env vars that must propagate from ADW orchestrator to spawned Claude CLI subprocesses
+    - When working with `fetchLatestRefs` or `pullLatestDefaultBranch` in `targetRepoManager.ts`
+    - When troubleshooting worktree contamination or dangerous `git pull` crashes in the main repo root
+

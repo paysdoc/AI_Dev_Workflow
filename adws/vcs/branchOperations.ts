@@ -83,12 +83,15 @@ export function createFeatureBranch(
 }
 
 /**
+ * @deprecated Runs `git pull --rebase` which crashes on divergent branches.
+ * Use `git fetch origin` + worktree-based workflows instead.
  * Checks out an existing branch and pulls the latest changes.
  *
  * @param branchName - The branch to checkout
  * @param cwd - Optional working directory to run the command in
  */
 export function checkoutBranch(branchName: string, cwd?: string): void {
+  log('WARNING: checkoutBranch is deprecated. Use `git fetch origin` + worktree-based workflows instead.', 'warn');
   try {
     execSync(`git checkout "${branchName}"`, { stdio: 'pipe', cwd });
     execSync(`git pull --rebase origin "${branchName}"`, { stdio: 'pipe', cwd });
@@ -146,6 +149,8 @@ export function getDefaultBranch(cwd?: string): string {
 }
 
 /**
+ * @deprecated Runs `git pull --rebase` which crashes on divergent branches.
+ * Use `git fetch origin` + worktree-based workflows instead.
  * Checks out the repository's default branch and pulls the latest changes.
  * This ensures the working directory is on the latest version of the default branch
  * before creating feature branches.
@@ -154,6 +159,7 @@ export function getDefaultBranch(cwd?: string): string {
  * @returns The name of the default branch that was checked out.
  */
 export function checkoutDefaultBranch(cwd?: string): string {
+  log('WARNING: checkoutDefaultBranch is deprecated. Use `git fetch origin` + worktree-based workflows instead.', 'warn');
   log('Checking out default branch...', 'info');
 
   const defaultBranch = getDefaultBranch(cwd);

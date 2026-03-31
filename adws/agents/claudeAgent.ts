@@ -5,6 +5,7 @@ import { spawn, execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import { log, AgentStateManager, getSafeSubprocessEnv, resolveClaudeCodePath, clearClaudeCodePathCache } from '../core';
+import { getMainRepoPath } from '../vcs/worktreeOperations';
 import type { ProgressCallback } from '../core/claudeStreamParser';
 import type { AgentResult } from '../types/agentTypes';
 import { RateLimitError } from '../types/agentTypes';
@@ -110,7 +111,18 @@ export async function runClaudeAgentWithCommand(
   log(`  Output file: ${outputFile}`, 'info');
   log(`  Args length: ${Array.isArray(args) ? `${args.length} elements` : `${args.length} characters`}`, 'info');
 
-  const spawnOptions = { cwd: cwd || process.cwd(), env: getSafeSubprocessEnv(), stdio: ['ignore' as const, 'pipe' as const, 'pipe' as const] };
+  const spawnEnv = getSafeSubprocessEnv();
+  const resolvedCwd = cwd || process.cwd();
+  if (cwd && cwd.includes('.worktrees/')) {
+    try {
+      const mainRepoPath = getMainRepoPath(cwd);
+      spawnEnv['ADW_WORKTREE_PATH'] = cwd;
+      spawnEnv['ADW_MAIN_REPO_PATH'] = mainRepoPath;
+    } catch {
+      // Non-fatal: if we can't resolve the main repo path, skip env var injection
+    }
+  }
+  const spawnOptions = { cwd: resolvedCwd, env: spawnEnv, stdio: ['ignore' as const, 'pipe' as const, 'pipe' as const] };
   const claude = spawn(resolvedPath, cliArgs, spawnOptions);
 
   const result = await handleAgentProcess(claude, agentName, outputFile, onProgress, statePath, model);
