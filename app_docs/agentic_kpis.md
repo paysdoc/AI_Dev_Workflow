@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value          | Last Updated       |
 | ----------------- | -------------- | ------------------ |
-| Current Streak    | 51             | 2026-03-30 18:14:29|
-| Longest Streak    | 51             | 2026-03-30 18:14:29|
-| Total Plan Size   | 441 lines      | 2026-03-30 18:14:29|
-| Largest Plan Size | 201 lines      | 2026-03-30 18:14:29|
-| Total Diff Size   | 2132288 lines  | 2026-03-30 18:14:29|
-| Largest Diff Size | 418153 lines   | 2026-03-30 18:14:29|
-| Average Presence  | 1.53           | 2026-03-30 18:14:29|
+| Current Streak    | 43             | 2026-03-31 09:07:17|
+| Longest Streak    | 43             | 2026-03-31 09:07:17|
+| Total Plan Size   | 441 lines      | 2026-03-31 09:07:17|
+| Largest Plan Size | 201 lines      | 2026-03-31 09:07:17|
+| Total Diff Size   | 2130126 lines  | 2026-03-31 09:07:17|
+| Largest Diff Size | 418153 lines   | 2026-03-31 09:07:17|
+| Average Presence  | 1.52           | 2026-03-31 09:07:17|
 
 ## ADW KPIs
 
@@ -83,3 +83,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-03-27 | avb4f5-github-actions-worke | 332          | /chore     | 1        | 0                 | 42268/1310/378                  | 2026-03-27 | 2026-03-27 |
 | 2026-03-27 | ak03s5-remove-csv-cost-pipe | 335          | /chore     | 2        | 0                 | 41586/3950/515                  | 2026-03-27 | 2026-03-27 |
 | 2026-03-30 | id4hh3-auth-bootstrap-socia | 4            | /feature    | 1        | 0                 | 416737/1416/1414                | 2026-03-30 | 2026-03-30 |
+| 2026-03-31 | zt8gjc-aonther-error        | 368          | /bug        | 1        | 0                 | 195/6/8                         | 2026-03-31 | 2026-03-31 |
