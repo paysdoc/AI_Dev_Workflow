@@ -235,6 +235,8 @@ function deriveOrchestratorScript(orchestratorName: string): string {
   // e.g. 'sdlc-orchestrator' → 'adwSdlc', 'plan-build-orchestrator' → 'adwPlanBuild'
   const nameMap: Record<string, string> = {
     'sdlc-orchestrator': 'adwSdlc',
+    'plan-orchestrator': 'adwPlan',
+    'chore-orchestrator': 'adwChore',
     'plan-build-orchestrator': 'adwPlanBuild',
     'plan-build-test-orchestrator': 'adwPlanBuild',
     'plan-build-review-orchestrator': 'adwPlanBuildReview',

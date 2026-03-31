@@ -15,7 +15,8 @@
  * - GITHUB_PAT: (Optional) GitHub Personal Access Token
  */
 
-import { persistTokenCounts, mergeModelUsageMaps, parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId } from './core';
+import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId } from './core';
+import { CostTracker, runPhase } from './core/phaseRunner';
 import {
   initializeWorkflow,
   executeInstallPhase,
@@ -43,19 +44,14 @@ async function main(): Promise<void> {
     repoId,
   });
 
-  try {
-    const installResult = await executeInstallPhase(config);
-    let totalCostUsd = installResult.costUsd;
-    let totalModelUsage = installResult.modelUsage;
-    persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
+  const tracker = new CostTracker();
 
-    const planResult = await executePlanPhase(config);
-    totalCostUsd += planResult.costUsd;
-    totalModelUsage = mergeModelUsageMaps(totalModelUsage, planResult.modelUsage);
-    persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
-    await completeWorkflow(config, totalCostUsd, undefined, totalModelUsage);
+  try {
+    await runPhase(config, tracker, executeInstallPhase);
+    await runPhase(config, tracker, executePlanPhase);
+    await completeWorkflow(config, tracker.totalCostUsd, undefined, tracker.totalModelUsage);
   } catch (error) {
-    handleWorkflowError(config, error);
+    handleWorkflowError(config, error, tracker.totalCostUsd, tracker.totalModelUsage);
   }
 }
 
