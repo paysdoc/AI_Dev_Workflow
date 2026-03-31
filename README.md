@@ -331,6 +331,8 @@ adws/                   # ADW workflow system
 │   ├── issueTypes.ts
 │   └── workflowTypes.ts
 ├── providers/          # Provider interfaces and implementations
+│   ├── __tests__/      # Vitest unit tests
+│   │   └── repoContext.test.ts
 │   ├── github/         # GitHub provider
 │   │   ├── githubCodeHost.ts
 │   │   ├── githubIssueTracker.ts
@@ -352,10 +354,13 @@ adws/                   # ADW workflow system
 │   ├── repoContext.ts  # RepoContext factory
 │   └── types.ts
 ├── triggers/           # Automation triggers
+│   ├── __tests__/      # Vitest unit tests
+│   │   └── cronRepoResolver.test.ts
 │   ├── autoMergeHandler.ts  # Auto-merge approved PRs
 │   ├── cloudflareTunnel.tsx  # Cloudflare tunnel for webhooks
 │   ├── concurrencyGuard.ts
 │   ├── cronProcessGuard.ts  # Duplicate cron process prevention
+│   ├── cronRepoResolver.ts  # Cron repo identity resolution (testable, extracted from trigger_cron)
 │   ├── issueDependencies.ts
 │   ├── issueEligibility.ts
 │   ├── pauseQueueScanner.ts  # Cron probe for paused issue queue
@@ -422,7 +427,10 @@ test/                   # Integration test infrastructure
 ├── fixtures/           # Static test fixtures
 │   ├── cli-tool/       # Fixture target repo for BDD scenario testing
 │   │   ├── .adw/       # ADW config for fixture repo
-│   │   └── src/        # Minimal CLI tool source
+│   │   ├── src/        # Minimal CLI tool source
+│   │   ├── README.md
+│   │   ├── package.json
+│   │   └── tsconfig.json
 │   ├── github/         # GitHub API response fixtures (issue, PR, comments)
 │   └── jsonl/          # JSONL envelope and payload fixtures
 │       ├── envelopes/
@@ -446,6 +454,8 @@ features/               # BDD feature files (Gherkin .feature)
 guidelines/
 └── coding_guidelines.md
 specs/                  # Generated implementation specs
+├── patch/              # Generated patch specs
+└── prd/                # Product requirement documents
 .env.sample             # Environment variable template
 .gitignore
 package.json
