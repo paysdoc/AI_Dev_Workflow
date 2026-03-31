@@ -9,7 +9,7 @@
 
 import { execSync, spawn } from 'child_process';
 import { log, GRACE_PERIOD_MS } from '../core';
-import { getRepoInfo, fetchPRList, hasUnaddressedComments, isClearComment, isAdwComment, activateGitHubAppAuth, refreshTokenIfNeeded, type RepoInfo } from '../github';
+import { getRepoInfo, fetchPRList, hasUnaddressedComments, isClearComment, isAdwComment, activateGitHubAppAuth, refreshTokenIfNeeded } from '../github';
 import { parseWorkflowStageFromComment } from '../core/workflowCommentParsing';
 
 import { clearIssueComments } from '../adwClearComments';

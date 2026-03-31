@@ -91,7 +91,7 @@ export function createFeatureBranch(
 export function checkoutBranch(branchName: string, cwd?: string): void {
   try {
     execSync(`git checkout "${branchName}"`, { stdio: 'pipe', cwd });
-    execSync(`git pull origin "${branchName}"`, { stdio: 'pipe', cwd });
+    execSync(`git pull --rebase origin "${branchName}"`, { stdio: 'pipe', cwd });
     log(`Checked out and pulled latest for branch: ${branchName}`, 'success');
   } catch (error) {
     throw new Error(`Failed to checkout branch ${branchName}: ${error}`);
@@ -167,7 +167,7 @@ export function checkoutDefaultBranch(cwd?: string): string {
   }
 
   try {
-    execSync(`git pull origin "${defaultBranch}"`, { stdio: 'pipe', cwd });
+    execSync(`git pull --rebase origin "${defaultBranch}"`, { stdio: 'pipe', cwd });
     log(`Pulled latest changes from origin/${defaultBranch}`, 'success');
   } catch (error) {
     throw new Error(`Failed to pull latest changes for '${defaultBranch}': ${error}`);

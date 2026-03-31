@@ -635,3 +635,10 @@
     - When troubleshooting bearer token auth, project auto-creation, or token usage fan-out in the cost API
     - When deploying or migrating the `adw-costs` D1 database
 
+- app_docs/feature-zt8gjc-fix-divergent-branch-pull.md
+  - Conditions:
+    - When working with `adws/core/targetRepoManager.ts` or `adws/vcs/branchOperations.ts`
+    - When troubleshooting `fatal: Need to specify how to reconcile divergent branches` errors
+    - When adding or modifying `git pull` calls anywhere in the VCS layer
+    - When ADW crashes during `pullLatestDefaultBranch` or `checkoutBranch` in CI/automation environments
+
