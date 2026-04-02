@@ -18,6 +18,7 @@ const BASE_URL = 'http://localhost';
 // ---------------------------------------------------------------------------
 
 async function applySchema(): Promise<void> {
+  // Re-apply schema before each test so every case starts with a clean DB shape.
   await applyD1Migrations(env.DB, JSON.parse(env.TEST_MIGRATIONS));
 }
 
@@ -25,6 +26,7 @@ function post(
   body: unknown,
   token: string | null = TEST_TOKEN,
 ): Promise<Response> {
+  // Shared request helper for the ingest endpoint. Passing null omits auth entirely.
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (token !== null) headers['Authorization'] = `Bearer ${token}`;
   return SELF.fetch(`${BASE_URL}/api/cost`, {
@@ -43,6 +45,7 @@ const minimalRecord = {
 } as const;
 
 beforeEach(async () => {
+  // Keep tests independent by ensuring the latest migrations are applied per run.
   await applySchema();
 });
 
@@ -156,6 +159,7 @@ describe('successful insert', () => {
 
   it('inserts the cost_record row into D1', async () => {
     await post({ project: 'test-project', records: [minimalRecord] });
+    // Verify persistence and default enrichment performed by the ingest handler.
     const row = await env.DB
       .prepare('SELECT * FROM cost_records WHERE issue_number = 42')
       .first<Record<string, unknown>>();
@@ -234,6 +238,7 @@ describe('project auto-creation', () => {
     await post({ project: 'dup-project', records: [minimalRecord] });
     await post({ project: 'dup-project', records: [minimalRecord] });
 
+    // Both inserts should point at exactly one project row for that slug.
     const { results } = await env.DB
       .prepare('SELECT DISTINCT project_id FROM cost_records')
       .all<{ project_id: number }>();
@@ -263,6 +268,7 @@ describe('token_usage fan-out', () => {
     const { results } = await env.DB
       .prepare('SELECT token_type, count FROM token_usage ORDER BY token_type')
       .all<{ token_type: string; count: number }>();
+    // Token map keys should fan out into separate rows.
     expect(results).toHaveLength(4);
     expect(results.map(r => r.token_type)).toEqual(['cache_read', 'cache_write', 'input', 'output']);
     expect(results.find(r => r.token_type === 'input')?.count).toBe(100);
@@ -288,6 +294,7 @@ describe('token_usage fan-out', () => {
     const { results } = await env.DB
       .prepare('SELECT cost_record_id FROM token_usage')
       .all<{ cost_record_id: number }>();
+    // Every token_usage entry should reference the same inserted parent record.
     expect(results.every(r => r.cost_record_id === costRecord?.id)).toBe(true);
   });
 });
