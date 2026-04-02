@@ -7,6 +7,10 @@ compatibility_date = "2026-03-24"
 pattern = "screenshots.paysdoc.nl/*"
 zone_name = "paysdoc.nl"
 
+# Smart Placement — co-locates the Worker in the EU
+[placement]
+mode = "smart"
+
 # Daily cron at 03:00 UTC — garbage-collects empty adw-* R2 buckets
 [triggers]
 crons = ["0 3 * * *"]

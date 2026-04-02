@@ -100,7 +100,7 @@ export async function ensureBucket(client: S3Client, owner: string, repo: string
 
   // Bucket does not exist — create it
   try {
-    await client.send(new CreateBucketCommand({ Bucket: bucket }));
+    await client.send(new CreateBucketCommand({ Bucket: bucket, CreateBucketConfiguration: { LocationConstraint: 'eu' } }));
     log(`R2 bucket created: ${bucket}`, 'info');
   } catch (err: unknown) {
     const isAlreadyExists =
