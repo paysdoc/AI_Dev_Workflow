@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value          | Last Updated       |
 | ----------------- | -------------- | ------------------ |
-| Current Streak    | 1              | 2026-04-02 16:30:05|
-| Longest Streak    | 61             | 2026-04-02 16:30:05|
-| Total Plan Size   | 441 lines      | 2026-04-02 16:30:05|
-| Largest Plan Size | 201 lines      | 2026-04-02 16:30:05|
-| Total Diff Size   | 2137529 lines  | 2026-04-02 16:30:05|
-| Largest Diff Size | 418153 lines   | 2026-04-02 16:30:05|
-| Average Presence  | 1.48           | 2026-04-02 16:30:05|
+| Current Streak    | 3              | 2026-04-02 20:06:18|
+| Longest Streak    | 71             | 2026-04-02 20:06:18|
+| Total Plan Size   | 441 lines      | 2026-04-02 20:06:18|
+| Largest Plan Size | 201 lines      | 2026-04-02 20:06:18|
+| Total Diff Size   | 2138307 lines  | 2026-04-02 20:06:18|
+| Largest Diff Size | 418153 lines   | 2026-04-02 20:06:18|
+| Average Presence  | 1.42           | 2026-04-02 20:06:18|
 
 ## ADW KPIs
 
@@ -87,3 +87,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-03-31 | qr9z6g-fix-worktree-root-co | 370          | /bug        | 8        | 0                 | 2426/25/33                      | 2026-03-31 | 2026-03-31 |
 | 2026-03-31 | 2sqt1r-error                | 367          | /bug        | 1        | 0                 | 3523/62/47                      | 2026-03-31 | 2026-03-31 |
 | 2026-04-02 | 48ki7w-add-get-endpoints-fo | 375          | /feature    | 1        | 0                 | 1349/18/15                      | 2026-04-02 | 2026-04-02 |
+| 2026-04-02 | ncd0ia-interest-capture-api | 17           | /feature    | 1        | 0                 | 597/181/21                      | 2026-04-02 | 2026-04-02 |
