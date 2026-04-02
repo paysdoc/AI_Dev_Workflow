@@ -7,11 +7,16 @@ compatibility_date = "2026-03-24"
 pattern = "costs.paysdoc.nl/*"
 zone_name = "paysdoc.nl"
 
-# D1 database binding — create with: npx wrangler d1 create adw-costs --jurisdiction eu
+# Smart Placement — co-locates the Worker near the EU-jurisdiction D1 database
+[placement]
+mode = "smart"
+
+# D1 database binding (EU jurisdiction)
+# Created with: npx wrangler d1 create adw-costs --jurisdiction eu
 [[d1_databases]]
 binding = "DB"
 database_name = "adw-costs"
-database_id = "188080b5-92a6-4b70-97c4-1b6ce1e9cfb0"
+database_id = "0b6b3419-ba17-45d5-95fc-9e878a5aafe3"
 migrations_dir = "src/migrations"
 
 # Required Worker secrets (set via `wrangler secret put`):
