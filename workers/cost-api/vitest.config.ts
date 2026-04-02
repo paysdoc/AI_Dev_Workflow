@@ -20,6 +20,7 @@ export default defineWorkersConfig({
         miniflare: {
           bindings: {
             COST_API_TOKEN: 'test-secret-token',
+            ALLOWED_ORIGINS: 'http://localhost',
             // Serialised D1Migration[] — deserialised in beforeEach via applyD1Migrations.
             TEST_MIGRATIONS: JSON.stringify(migrations),
           },

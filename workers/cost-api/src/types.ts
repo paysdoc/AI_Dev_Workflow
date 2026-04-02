@@ -2,6 +2,7 @@
 export interface Env {
   readonly DB: D1Database;
   readonly COST_API_TOKEN: string;
+  readonly ALLOWED_ORIGINS?: string;
 }
 
 /** A single cost record within an ingest payload. */
