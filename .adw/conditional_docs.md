@@ -659,3 +659,11 @@
     - When working with `fetchLatestRefs` or `pullLatestDefaultBranch` in `targetRepoManager.ts`
     - When troubleshooting worktree contamination or dangerous `git pull` crashes in the main repo root
 
+
+- app_docs/feature-48ki7w-cost-api-get-endpoints.md
+  - Conditions:
+    - When working with the `workers/cost-api/` Cloudflare Worker GET endpoints
+    - When implementing or consuming `/api/projects`, `/api/projects/:id/costs/breakdown`, or `/api/projects/:id/costs/issues`
+    - When configuring CORS for the cost-api Worker (`ALLOWED_ORIGINS` env var)
+    - When troubleshooting 404 responses for project ID lookups or phase ordering in cost issues
+    - When adding new read endpoints to the cost-api Worker
