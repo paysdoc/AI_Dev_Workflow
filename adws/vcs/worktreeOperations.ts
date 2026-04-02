@@ -187,10 +187,10 @@ export function freeBranchFromMainRepo(branchName: string, cwd?: string): void {
       }
     }
 
-    // Switch to default branch and pull latest changes
+    // Switch to default branch to free the branch for worktree use
     const defaultBranch = getDefaultBranch(mainRepoPath);
-    execSync(`git checkout "${defaultBranch}" && git pull`, { stdio: 'pipe', cwd: mainRepoPath });
-    log(`Switched main repository to '${defaultBranch}' and pulled latest changes`, 'success');
+    execSync(`git checkout "${defaultBranch}"`, { stdio: 'pipe', cwd: mainRepoPath });
+    log(`Switched main repository to '${defaultBranch}'`, 'success');
   } catch (error) {
     throw new Error(`Failed to free branch '${branchName}' from main repository: ${error}`);
   }

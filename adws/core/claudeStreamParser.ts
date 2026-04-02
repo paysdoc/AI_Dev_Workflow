@@ -104,6 +104,18 @@ export interface JsonlParserState {
   toolCount: number;
   /** When set, token limit checks are filtered to only the primary model (e.g., 'opus'). */
   primaryModel?: string;
+  /** Accumulates partial JSONL lines across `data` chunks. */
+  lineBuffer: string;
+  /** Set when a `rate_limit_event` with `status === "rejected"` is parsed. */
+  rateLimitRejected: boolean;
+  /** Set when a `system` `api_retry` with `error === "authentication_error"` is parsed. */
+  authErrorDetected: boolean;
+  /** Set when a `system` `api_retry` with non-auth error and `attempt >= 2` is parsed. */
+  serverErrorDetected: boolean;
+  /** Set when a `system` `api_retry` with `error === "overloaded_error"` (HTTP 529) is parsed. */
+  overloadedErrorDetected: boolean;
+  /** Set when a `system` `compact_boundary` is parsed. */
+  compactionDetected: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -149,7 +161,18 @@ export function parseJsonlOutput(
   onProgress?: ProgressCallback,
   statePath?: string
 ): void {
-  const lines = text.split('\n').filter(line => line.trim());
+  // Cross-chunk line buffering: prepend any leftover partial line from previous chunk
+  const combined = state.lineBuffer + text;
+  const segments = combined.split('\n');
+
+  // If the chunk does not end with \n, the last segment is a partial line — buffer it
+  if (!text.endsWith('\n')) {
+    state.lineBuffer = segments.pop()!;
+  } else {
+    state.lineBuffer = '';
+  }
+
+  const lines = segments.filter(line => line.trim());
 
   for (const line of lines) {
     try {
@@ -158,6 +181,35 @@ export function parseJsonlOutput(
       // Write raw JSONL to state output file if statePath provided
       if (statePath) {
         AgentStateManager.writeRawOutput(statePath, 'output.jsonl', parsed, true);
+      }
+
+      // --- Structured detection: rate_limit_event ---
+      if (parsed.type === 'rate_limit_event') {
+        const info = (parsed as Record<string, unknown>).rate_limit_info as Record<string, unknown> | undefined;
+        if (info?.status === 'rejected') {
+          state.rateLimitRejected = true;
+        }
+      }
+
+      // --- Structured detection: system messages ---
+      if (parsed.type === 'system') {
+        const subtype = (parsed as Record<string, unknown>).subtype as string | undefined;
+        if (subtype === 'api_retry') {
+          const error = (parsed as Record<string, unknown>).error as string | undefined;
+          if (error === 'authentication_error') {
+            state.authErrorDetected = true;
+          } else if (error === 'overloaded_error') {
+            state.overloadedErrorDetected = true;
+          } else {
+            const attempt = (parsed as Record<string, unknown>).attempt as number | undefined;
+            if (attempt !== undefined && attempt >= 2) {
+              state.serverErrorDetected = true;
+            }
+          }
+        }
+        if (subtype === 'compact_boundary') {
+          state.compactionDetected = true;
+        }
       }
 
       if (parsed.type === 'result') {

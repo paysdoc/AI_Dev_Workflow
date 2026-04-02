@@ -111,6 +111,49 @@ function isEnvFileAccess(
   return false;
 }
 
+/**
+ * Rewrites file paths from the main repo root to the worktree path.
+ * When Claude Code agents run inside a worktree, their file tool calls
+ * resolve against the git repository root instead of the worktree cwd.
+ * This intercepts those calls and redirects them to the worktree.
+ *
+ * Returns modified toolInput if rewriting occurred, null otherwise.
+ */
+function rewriteWorktreePath(toolName: string, toolInput: ToolInput): ToolInput | null {
+  const worktreePath = process.env.ADW_WORKTREE_PATH;
+  const mainRepoPath = process.env.ADW_MAIN_REPO_PATH;
+
+  if (!worktreePath || !mainRepoPath) {
+    return null;
+  }
+
+  const rewritableTools = ['Write', 'Edit', 'Read', 'Glob', 'Grep', 'MultiEdit'];
+  if (!rewritableTools.includes(toolName)) {
+    return null;
+  }
+
+  let modified = false;
+  const result = { ...toolInput };
+
+  // Rewrite file_path parameter (Write, Edit, Read, MultiEdit)
+  if (typeof result.file_path === 'string') {
+    if (result.file_path.startsWith(mainRepoPath) && !result.file_path.startsWith(worktreePath)) {
+      result.file_path = worktreePath + result.file_path.slice(mainRepoPath.length);
+      modified = true;
+    }
+  }
+
+  // Rewrite path parameter (Glob, Grep)
+  if (typeof result.path === 'string') {
+    if (result.path.startsWith(mainRepoPath) && !result.path.startsWith(worktreePath)) {
+      result.path = worktreePath + (result.path as string).slice(mainRepoPath.length);
+      modified = true;
+    }
+  }
+
+  return modified ? result : null;
+}
+
 async function main(): Promise<void> {
   try {
     // Read JSON input from stdin
@@ -123,8 +166,17 @@ async function main(): Promise<void> {
     const toolName = inputData.tool_name || '';
     const toolInput = inputData.tool_input || {};
 
+    // Rewrite paths from main repo root to worktree when running inside a worktree
+    const rewrittenInput = rewriteWorktreePath(toolName, toolInput);
+    if (rewrittenInput) {
+      console.log(JSON.stringify({ tool_input: rewrittenInput }));
+    }
+
+    // Use the potentially-rewritten input for subsequent safety checks
+    const effectiveInput = rewrittenInput || toolInput;
+
     // Check for .env file access (blocks access to sensitive environment files)
-    if (isEnvFileAccess(toolName, toolInput)) {
+    if (isEnvFileAccess(toolName, effectiveInput)) {
       console.error(
         'BLOCKED: Access to .env files containing sensitive data is prohibited'
       );
@@ -134,7 +186,7 @@ async function main(): Promise<void> {
 
     // Check for dangerous rm -rf commands
     if (toolName === 'Bash') {
-      const command = toolInput.command || '';
+      const command = effectiveInput.command || '';
 
       // Block rm -rf commands with comprehensive pattern matching
       if (isDangerousRmCommand(command)) {
@@ -162,7 +214,7 @@ async function main(): Promise<void> {
     }
 
     // Append new data
-    logData.push(inputData);
+    logData.push({ ...inputData, tool_input: effectiveInput });
 
     // Write back to file with formatting
     fs.writeFileSync(logPath, JSON.stringify(logData, null, 2));

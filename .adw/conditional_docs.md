@@ -1,5 +1,13 @@
 # Conditional Documentation
 
+- app_docs/feature-2sqt1r-fix-rate-limit-plan-phase.md
+  - Conditions:
+    - When working with `adws/adwPlan.tsx` or adding rate limit handling to an orchestrator
+    - When troubleshooting plan workflows that exit 1 instead of pausing on rate limits
+    - When implementing a new orchestrator and ensuring it uses `CostTracker` + `runPhase()`
+    - When debugging `deriveOrchestratorScript()` mapping (wrong resume script selected from pause queue)
+    - When working with `adws/core/phaseRunner.ts` `runPhase()` or `runPhasesParallel()` error handling
+
 - app_docs/feature-u8xr9v-output-validation-retry-loop.md
   - Conditions:
     - When working with `adws/agents/commandAgent.ts` or adding structured output to a new agent
@@ -634,4 +642,20 @@
     - When wiring ADW phases to POST cost records to `costs.paysdoc.nl/api/cost`
     - When troubleshooting bearer token auth, project auto-creation, or token usage fan-out in the cost API
     - When deploying or migrating the `adw-costs` D1 database
+
+- app_docs/feature-zt8gjc-fix-divergent-branch-pull.md
+  - Conditions:
+    - When working with `adws/core/targetRepoManager.ts` or `adws/vcs/branchOperations.ts`
+    - When troubleshooting `fatal: Need to specify how to reconcile divergent branches` errors
+    - When adding or modifying `git pull` calls anywhere in the VCS layer
+    - When ADW crashes during `pullLatestDefaultBranch` or `checkoutBranch` in CI/automation environments
+
+- app_docs/feature-qr9z6g-fix-worktree-path-rewriting.md
+  - Conditions:
+    - When working with `.claude/hooks/pre-tool-use.ts` or the pre-tool-use hook
+    - When Claude agents write files to the wrong directory (main repo root instead of worktree)
+    - When modifying `claudeAgent.ts` spawn env or `getSafeSubprocessEnv()` / `SAFE_ENV_VARS` in `environment.ts`
+    - When adding new env vars that must propagate from ADW orchestrator to spawned Claude CLI subprocesses
+    - When working with `fetchLatestRefs` or `pullLatestDefaultBranch` in `targetRepoManager.ts`
+    - When troubleshooting worktree contamination or dangerous `git pull` crashes in the main repo root
 

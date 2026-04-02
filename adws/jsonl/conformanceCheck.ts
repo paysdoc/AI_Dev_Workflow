@@ -85,6 +85,12 @@ function runParserCheck(fixtureLine: string, messageType: string): string[] {
     fullOutput: '',
     turnCount: 0,
     toolCount: 0,
+    lineBuffer: '',
+    rateLimitRejected: false,
+    authErrorDetected: false,
+    serverErrorDetected: false,
+    overloadedErrorDetected: false,
+    compactionDetected: false,
   };
 
   try {

@@ -59,6 +59,12 @@ export function handleAgentProcess(
       turnCount: 0,
       toolCount: 0,
       primaryModel: model,
+      lineBuffer: '',
+      rateLimitRejected: false,
+      authErrorDetected: false,
+      serverErrorDetected: false,
+      overloadedErrorDetected: false,
+      compactionDetected: false,
     };
 
     const extractor = new AnthropicTokenUsageExtractor(model);
@@ -83,9 +89,8 @@ export function handleAgentProcess(
       extractor.onChunk(text);
       parseJsonlOutput(text, state, wrappedOnProgress, statePath);
 
-      // Detect fatal authentication errors (e.g. expired OAuth tokens) and kill immediately
-      // rather than letting Claude Code CLI retry for hours with exponential backoff.
-      if (!authErrorDetected && text.includes('"subtype":"api_retry"') && text.includes('authentication_error')) {
+      // Structured JSONL detection: check parser state flags set by parseJsonlOutput()
+      if (!authErrorDetected && state.authErrorDetected) {
         authErrorDetected = true;
         log(`${agentName}: Fatal authentication error detected — killing process to avoid hours of futile retries.`, 'error');
         if (statePath) {
@@ -94,13 +99,7 @@ export function handleAgentProcess(
         claude.kill('SIGTERM');
       }
 
-      if (!rateLimitDetected && (
-        text.includes("You've hit your limit") ||
-        text.includes("You're out of extra usage") ||
-        text.includes('502 Bad Gateway') ||
-        text.includes('Invalid authentication credentials') ||
-        text.includes('overloaded_error')
-      )) {
+      if (!rateLimitDetected && (state.rateLimitRejected || state.serverErrorDetected || state.overloadedErrorDetected)) {
         rateLimitDetected = true;
         log(`${agentName}: Rate limit / API outage detected — killing process to trigger pause.`, 'warn');
         if (statePath) {
@@ -109,7 +108,7 @@ export function handleAgentProcess(
         claude.kill('SIGTERM');
       }
 
-      if (!compactionDetected && text.includes('"subtype":"compact_boundary"')) {
+      if (!compactionDetected && state.compactionDetected) {
         compactionDetected = true;
         log(`${agentName}: Context compaction detected — killing process to restart with fresh context.`, 'info');
         if (statePath) {

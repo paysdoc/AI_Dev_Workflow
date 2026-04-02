@@ -63,11 +63,11 @@ export function cloneTargetRepo(cloneUrl: string, workspacePath: string): void {
 }
 
 /**
- * Fetches latest changes and checks out the default branch.
+ * Fetches latest refs from origin.
  * Returns the name of the default branch.
  */
-export function pullLatestDefaultBranch(workspacePath: string): string {
-  log(`Fetching latest changes in ${workspacePath}...`, 'info');
+export function fetchLatestRefs(workspacePath: string): string {
+  log(`Fetching latest refs in ${workspacePath}...`, 'info');
   execSync('git fetch origin', { stdio: 'pipe', cwd: workspacePath });
 
   const defaultBranch = execSync(
@@ -75,11 +75,17 @@ export function pullLatestDefaultBranch(workspacePath: string): string {
     { encoding: 'utf-8', cwd: workspacePath }
   ).trim();
 
-  execSync(`git checkout "${defaultBranch}"`, { stdio: 'pipe', cwd: workspacePath });
-  execSync(`git pull origin "${defaultBranch}"`, { stdio: 'pipe', cwd: workspacePath });
-  log(`Checked out and pulled ${defaultBranch} in ${workspacePath}`, 'success');
+  log(`Fetched latest refs for ${defaultBranch} in ${workspacePath}`, 'success');
 
   return defaultBranch;
+}
+
+/**
+ * @deprecated Use {@link fetchLatestRefs} instead. This function previously ran `git checkout`
+ * and `git pull --rebase` in the main repo root, which crashes on divergent branches.
+ */
+export function pullLatestDefaultBranch(workspacePath: string): string {
+  return fetchLatestRefs(workspacePath);
 }
 
 /**
@@ -93,7 +99,7 @@ export function ensureTargetRepoWorkspace(targetRepo: TargetRepoInfo): string {
 
   if (isRepoCloned(workspacePath)) {
     log(`Target repo ${targetRepo.owner}/${targetRepo.repo} already cloned at ${workspacePath}`, 'info');
-    pullLatestDefaultBranch(workspacePath);
+    fetchLatestRefs(workspacePath);
   } else {
     cloneTargetRepo(targetRepo.cloneUrl, workspacePath);
   }
