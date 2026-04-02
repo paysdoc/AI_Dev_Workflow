@@ -19,6 +19,11 @@ database_name = "adw-costs"
 database_id = "0b6b3419-ba17-45d5-95fc-9e878a5aafe3"
 migrations_dir = "src/migrations"
 
+# Secrets Store binding — resolves COST_API_TOKEN from the centralised Secrets Store.
+[[secrets_store_secrets]]
+binding = "COST_API_TOKEN"
+store_id = "1b912ba249fb4664a0bf42e8b01e4a1d"
+secret_name = "COST_API_TOKEN"
+
 # Required Worker secrets (set via `wrangler secret put`):
-#   COST_API_TOKEN
 #   ALLOWED_ORIGINS
