@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value          | Last Updated       |
 | ----------------- | -------------- | ------------------ |
-| Current Streak    | 5              | 2026-04-02 20:15:33|
-| Longest Streak    | 66             | 2026-04-02 20:15:33|
-| Total Plan Size   | 441 lines      | 2026-04-02 20:15:33|
-| Largest Plan Size | 201 lines      | 2026-04-02 20:15:33|
-| Total Diff Size   | 2139716 lines  | 2026-04-02 20:15:33|
-| Largest Diff Size | 418153 lines   | 2026-04-02 20:15:33|
-| Average Presence  | 1.47           | 2026-04-02 20:15:33|
+| Current Streak    | 7              | 2026-04-02 20:29:25|
+| Longest Streak    | 57             | 2026-04-02 20:29:25|
+| Total Plan Size   | 441 lines      | 2026-04-02 20:29:25|
+| Largest Plan Size | 201 lines      | 2026-04-02 20:29:25|
+| Total Diff Size   | 2140407 lines  | 2026-04-02 20:29:25|
+| Largest Diff Size | 418153 lines   | 2026-04-02 20:29:25|
+| Average Presence  | 1.45           | 2026-04-02 20:29:25|
 
 ## ADW KPIs
 
@@ -89,3 +89,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-04-02 | 48ki7w-add-get-endpoints-fo | 375          | /feature    | 1        | 0                 | 1349/18/15                      | 2026-04-02 | 2026-04-02 |
 | 2026-04-02 | ncd0ia-interest-capture-api | 17           | /feature    | 1        | 0                 | 597/181/21                      | 2026-04-02 | 2026-04-02 |
 | 2026-04-02 | g2tow2-brand-rebrand-stylin | 16           | /feature    | 1        | 0                 | 786/623/36                      | 2026-04-02 | 2026-04-02 |
+| 2026-04-02 | 6q5dst-services-page-rewrit | 20           | /feature    | 1        | 0                 | 650/41/9                        | 2026-04-02 | 2026-04-02 |
