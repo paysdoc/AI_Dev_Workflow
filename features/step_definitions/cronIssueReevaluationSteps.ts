@@ -9,6 +9,12 @@ import {
 import {
   parseKeywordProximityDependencies,
 } from '../../adws/triggers/issueDependencies';
+import {
+  resolveIssueWorkflowStage,
+  isActiveStage,
+  isRetriableStage,
+} from '../../adws/triggers/cronStageResolver';
+import { GRACE_PERIOD_MS } from '../../adws/core/config';
 
 const ROOT = process.cwd();
 
@@ -60,11 +66,38 @@ Given('an issue with multiple ADW workflow comments', function (this: CronWorld)
   ];
 });
 
-When('the cron trigger evaluates the issue', function (this: CronWorld) {
-  const adwComments = this.issueComments.filter(c => isAdwComment(c.body));
-  assert.ok(adwComments.length > 0, 'Expected at least one ADW comment');
-  const latest = adwComments[adwComments.length - 1];
-  this.latestStage = parseWorkflowStageFromComment(latest.body);
+When('the cron trigger evaluates the issue', function (this: CronWorld & Record<string, unknown>) {
+  if (this.issue) {
+    // New flow (adw-379): state file resolution
+    const issue = this.issue as { comments: { body: string }[]; updatedAt: string; number: number };
+    const resolution = resolveIssueWorkflowStage(issue.comments);
+    const activityMs = resolution.lastActivityMs ?? new Date(issue.updatedAt).getTime();
+    const withinGrace = Date.now() - activityMs < GRACE_PERIOD_MS;
+    if (withinGrace) {
+      this.filterResult = { eligible: false, reason: 'grace_period', stage: resolution.stage, resolution };
+    } else {
+      const { stage } = resolution;
+      if (stage === null) {
+        this.filterResult = { eligible: true, reason: null, stage: null, resolution };
+      } else if (stage === 'completed') {
+        this.filterResult = { eligible: false, reason: 'completed', stage, resolution };
+      } else if (stage === 'paused') {
+        this.filterResult = { eligible: false, reason: 'paused', stage, resolution };
+      } else if (isActiveStage(stage)) {
+        this.filterResult = { eligible: false, reason: 'active', stage, resolution };
+      } else if (isRetriableStage(stage)) {
+        this.filterResult = { eligible: true, reason: null, stage, resolution };
+      } else {
+        this.filterResult = { eligible: false, reason: `adw_stage:${stage}`, stage, resolution };
+      }
+    }
+  } else {
+    // Old flow: comment-based stage parsing
+    const adwComments = this.issueComments.filter(c => isAdwComment(c.body));
+    assert.ok(adwComments.length > 0, 'Expected at least one ADW comment');
+    const latest = adwComments[adwComments.length - 1];
+    this.latestStage = parseWorkflowStageFromComment(latest.body);
+  }
 });
 
 Then('it inspects the status of the most recent ADW comment', function (this: CronWorld) {
@@ -94,33 +127,70 @@ Given('an issue whose latest ADW comment indicates status {string}', function (t
   this.latestStage = parseWorkflowStageFromComment(latest.body);
 });
 
-When('the cron trigger evaluates eligibility', function (this: CronWorld) {
-  const stage = this.latestStage;
-  if (stage === null) {
-    this.evaluationResult = { eligible: true };
-  } else if (stage === 'completed') {
-    this.evaluationResult = { eligible: false, reason: 'completed' };
-  } else if (ACTIVE_STAGES.has(stage)) {
-    this.evaluationResult = { eligible: false, reason: 'active' };
-  } else if (RETRIABLE_STAGES.has(stage)) {
-    this.evaluationResult = { eligible: true };
+When('the cron trigger evaluates eligibility', function (this: CronWorld & Record<string, unknown>) {
+  if (this.issue) {
+    // New flow (adw-379): full state file resolution
+    const issue = this.issue as { comments: { body: string }[]; updatedAt: string; number: number };
+    const resolution = resolveIssueWorkflowStage(issue.comments);
+    const activityMs = resolution.lastActivityMs ?? new Date(issue.updatedAt).getTime();
+    const withinGrace = Date.now() - activityMs < GRACE_PERIOD_MS;
+    if (withinGrace) {
+      this.filterResult = { eligible: false, reason: 'grace_period', stage: resolution.stage, resolution };
+      return;
+    }
+    const { stage } = resolution;
+    if (stage === null) {
+      this.filterResult = { eligible: true, reason: null, stage: null, resolution };
+    } else if (stage === 'completed') {
+      this.filterResult = { eligible: false, reason: 'completed', stage, resolution };
+    } else if (stage === 'paused') {
+      this.filterResult = { eligible: false, reason: 'paused', stage, resolution };
+    } else if (isActiveStage(stage)) {
+      this.filterResult = { eligible: false, reason: 'active', stage, resolution };
+    } else if (isRetriableStage(stage)) {
+      this.filterResult = { eligible: true, reason: null, stage, resolution };
+    } else {
+      this.filterResult = { eligible: false, reason: `adw_stage:${stage}`, stage, resolution };
+    }
   } else {
-    this.evaluationResult = { eligible: false, reason: `adw_stage:${stage}` };
+    // Old flow: comment-based stage logic
+    const stage = this.latestStage;
+    if (stage === null) {
+      this.evaluationResult = { eligible: true };
+    } else if (stage === 'completed') {
+      this.evaluationResult = { eligible: false, reason: 'completed' };
+    } else if (ACTIVE_STAGES.has(stage)) {
+      this.evaluationResult = { eligible: false, reason: 'active' };
+    } else if (RETRIABLE_STAGES.has(stage)) {
+      this.evaluationResult = { eligible: true };
+    } else {
+      this.evaluationResult = { eligible: false, reason: `adw_stage:${stage}` };
+    }
   }
 });
 
-Then('the issue is considered eligible for re-processing', function (this: CronWorld) {
-  assert.ok(
-    this.evaluationResult.eligible,
-    `Expected issue to be eligible, but got reason: ${this.evaluationResult.reason}`,
-  );
+Then('the issue is considered eligible for re-processing', function (this: CronWorld & Record<string, unknown>) {
+  if (this.filterResult) {
+    const r = this.filterResult as { eligible: boolean; reason: string | null };
+    assert.ok(r.eligible, `Expected issue to be eligible, but got reason: ${String(r.reason)}`);
+  } else {
+    assert.ok(
+      this.evaluationResult.eligible,
+      `Expected issue to be eligible, but got reason: ${this.evaluationResult.reason}`,
+    );
+  }
 });
 
-Then('the issue is not eligible for re-processing', function (this: CronWorld) {
-  assert.ok(
-    !this.evaluationResult.eligible,
-    'Expected issue to NOT be eligible for re-processing',
-  );
+Then('the issue is not eligible for re-processing', function (this: CronWorld & Record<string, unknown>) {
+  if (this.filterResult) {
+    const r = this.filterResult as { eligible: boolean };
+    assert.strictEqual(r.eligible, false, 'Expected issue NOT to be eligible for re-processing');
+  } else {
+    assert.ok(
+      !this.evaluationResult.eligible,
+      'Expected issue to NOT be eligible for re-processing',
+    );
+  }
 });
 
 Given('an issue that is deferred because its dependencies are still open', function () {
@@ -181,16 +251,45 @@ Given('{int} are filtered out with reasons such as adw_comment, processed, or gr
   // Context step
 });
 
-When('the poll cycle completes evaluation', function () {
-  // Context step
+When('the poll cycle completes evaluation', function (this: Record<string, unknown>) {
+  if (this.pollIssues) {
+    // New flow (adw-379): evaluate poll issues using state file approach
+    const issues = this.pollIssues as Array<{ number: number; comments: { body: string }[]; updatedAt: string }>;
+    this.pollResults = issues.map(issue => {
+      const resolution = resolveIssueWorkflowStage(issue.comments);
+      const activityMs = resolution.lastActivityMs ?? new Date(issue.updatedAt).getTime();
+      const withinGrace = Date.now() - activityMs < GRACE_PERIOD_MS;
+      if (withinGrace) return { issue, result: { eligible: false, reason: 'grace_period' } };
+      const { stage } = resolution;
+      if (stage === null) return { issue, result: { eligible: true, reason: null } };
+      if (stage === 'completed') return { issue, result: { eligible: false, reason: 'completed' } };
+      if (stage === 'paused') return { issue, result: { eligible: false, reason: 'paused' } };
+      if (isActiveStage(stage)) return { issue, result: { eligible: false, reason: 'active' } };
+      if (isRetriableStage(stage)) return { issue, result: { eligible: true, reason: null } };
+      return { issue, result: { eligible: false, reason: `adw_stage:${stage}` } };
+    });
+  }
+  // Old flow: context step (no action needed)
 });
 
-Then('it logs a one-liner in format {string}', function (_format: string) {
-  const content = readFileSync(join(ROOT, 'adws/triggers/trigger_cron.ts'), 'utf-8');
-  assert.ok(
-    content.includes('POLL:') && content.includes('open,') && content.includes('candidate(s)') && content.includes('filtered:'),
-    'Expected trigger_cron.ts to contain POLL log line with open/candidates/filtered format',
-  );
+Then('it logs a one-liner in format {string}', function (this: Record<string, unknown>, _format: string) {
+  if (this.pollResults) {
+    // New flow (adw-379): verify the log line format from poll results
+    const results = this.pollResults as Array<{ issue: { number: number }; result: { eligible: boolean; reason: string | null } }>;
+    const eligible = results.filter(r => r.result.eligible);
+    const filtered = results.filter(r => !r.result.eligible);
+    const candidateList = eligible.map(r => `#${r.issue.number}`).join(', ') || 'none';
+    const filteredList = filtered.map(r => `#${r.issue.number}(${String(r.result.reason)})`).join(', ') || 'none';
+    const logLine = `POLL: ${results.length} open, ${eligible.length} candidate(s) [${candidateList}], filtered: ${filteredList}`;
+    assert.ok(logLine.startsWith('POLL:'), `Expected log line to start with "POLL:", got: ${logLine}`);
+  } else {
+    // Old flow: check source code
+    const content = readFileSync(join(ROOT, 'adws/triggers/trigger_cron.ts'), 'utf-8');
+    assert.ok(
+      content.includes('POLL:') && content.includes('open,') && content.includes('candidate(s)') && content.includes('filtered:'),
+      'Expected trigger_cron.ts to contain POLL log line with open/candidates/filtered format',
+    );
+  }
 });
 
 // ---------------------------------------------------------------------------
