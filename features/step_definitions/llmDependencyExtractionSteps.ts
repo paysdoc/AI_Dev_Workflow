@@ -2,6 +2,7 @@ import { Given, When, Then } from '@cucumber/cucumber';
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import assert from 'assert';
+import { depCtx } from './fixFailOpenDependencyCheckSteps.ts';
 
 const ROOT = process.cwd();
 
@@ -27,8 +28,12 @@ Given('an issue body with a {string} section listing {string}', function (_secti
   // Context only
 });
 
-Given('an issue body containing {string}', function (_text: string) {
-  // Context only
+Given('an issue body containing {string}', function (text: string) {
+  // Populate depCtx for functional fail-closed scenarios; safe no-op for others.
+  depCtx.issueBody = text;
+  depCtx.throwingDeps.clear();
+  depCtx.stateDeps.clear();
+  depCtx.result = null;
 });
 
 Given('an issue body containing {string} and {string}', function (_a: string, _b: string) {

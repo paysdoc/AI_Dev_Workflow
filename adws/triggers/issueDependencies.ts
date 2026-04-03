@@ -208,7 +208,8 @@ export async function findOpenDependencies(
         openDeps.push(dep);
       }
     } catch (err) {
-      log(`Failed to check state of dependency #${dep}: ${err}`, 'warn');
+      log(`Failed to check state of dependency #${dep}, treating as OPEN (fail-closed): ${err}`, 'warn');
+      openDeps.push(dep);
     }
   }
 
