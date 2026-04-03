@@ -725,3 +725,10 @@
     - When troubleshooting issues with open dependencies being started prematurely or duplicate orchestrators
     - When the GitHub API is under contention and dependency checks may fail silently
     - When adding new catch blocks in webhook handlers that involve eligibility checks
+
+- app_docs/feature-b0y6j4-fix-token-limit-comment.md
+  - Conditions:
+    - When working with `formatTokenLimitRecoveryComment()` in `adws/github/workflowCommentsIssue.ts`
+    - When modifying `TokenUsageSnapshot` fields in `adws/types/agentTypes.ts`
+    - When troubleshooting token limit recovery comments on GitHub issues showing incorrect or inflated token counts
+    - When the token limit comment numerator exceeds the denominator (total vs output-only mismatch)
