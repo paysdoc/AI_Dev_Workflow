@@ -27,7 +27,7 @@ Feature: ensureCronProcess is called before webhook gates reject the event
     Given "adws/triggers/trigger_webhook.ts" is read
     Then "ensureCronProcess" is not called inside the isAdwRunningForIssue then-callback in the issue_comment handler
 
-  @adw-wqzfqj-ensurecronprocess-no @regression
+  @adw-wqzfqj-ensurecronprocess-no @adw-fequcj-fix-fail-open-depend @regression
   Scenario: ensureCronProcess is called before checkIssueEligibility in the issues.opened handler
     Given "adws/triggers/trigger_webhook.ts" is read
     Then in the issues opened handler "ensureCronProcess" is called before "checkIssueEligibility"
