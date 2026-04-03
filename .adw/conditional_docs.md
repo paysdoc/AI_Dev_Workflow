@@ -78,6 +78,15 @@
   - Conditions:
     - When you're operating in the `adws/` directory
 
+- app_docs/feature-z16ycm-add-top-level-workfl-top-level-workflow-state.md
+  - Conditions:
+    - When working with `agents/<adwId>/state.json` or querying workflow status/phase timing
+    - When modifying `runPhase()`, skip-on-resume logic, or phase status tracking in `adws/core/phaseRunner.ts`
+    - When modifying `AgentStateManager` in `adws/core/agentState.ts` (top-level state methods)
+    - When implementing or troubleshooting workflow resume/pause and `completedPhases` recovery
+    - When reading or writing `workflowStage` transitions (`starting`, `completed`, `paused`, `abandoned`)
+    - When working with `PhaseExecutionState` or the `phases` map on `AgentState`
+
 - app_docs/feature-the-adw-is-too-speci-tf7slv-generalize-adw-project-config.md
   - Conditions:
     - When working with `.adw/` project configuration files
