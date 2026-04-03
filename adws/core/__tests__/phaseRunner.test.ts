@@ -3,6 +3,13 @@ import { CostTracker, runPhase } from '../phaseRunner';
 import { RateLimitError } from '../../types/agentTypes';
 import type { WorkflowConfig } from '../../phases/workflowInit';
 
+// Hoist mock variables so they are available when vi.mock factory runs
+const { writeTopLevelStateMock, readTopLevelStateMock } = vi.hoisted(() => ({
+  writeTopLevelStateMock: vi.fn(),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  readTopLevelStateMock: vi.fn(() => null as any),
+}));
+
 // Mock dependencies to avoid filesystem/network side effects
 vi.mock('../config', () => ({ RUNNING_TOKENS: false }));
 vi.mock('../../cost', () => ({
@@ -17,6 +24,9 @@ vi.mock('../agentState', () => ({
   AgentStateManager: {
     readState: vi.fn(() => null),
     writeState: vi.fn(),
+    writeTopLevelState: writeTopLevelStateMock,
+    readTopLevelState: readTopLevelStateMock,
+    getTopLevelStatePath: vi.fn((id: string) => `/tmp/agents/${id}/state.json`),
   },
 }));
 
@@ -28,7 +38,8 @@ vi.mock('../../phases/workflowCompletion', () => ({
 
 function makeConfig(overrides?: Partial<WorkflowConfig>): WorkflowConfig {
   return {
-    orchestratorStatePath: '/tmp/test-state.json',
+    adwId: 'test-adwid',
+    orchestratorStatePath: '/tmp/test-state',
     ctx: {},
     completedPhases: [],
     ...overrides,
@@ -69,6 +80,10 @@ describe('CostTracker', () => {
 describe('runPhase()', () => {
   beforeEach(() => {
     mockHandleRateLimitPause.mockClear();
+    writeTopLevelStateMock.mockClear();
+    readTopLevelStateMock.mockReset();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    readTopLevelStateMock.mockReturnValue(null as any);
   });
 
   it('returns the phase result and accumulates cost into the tracker', async () => {
@@ -130,5 +145,98 @@ describe('runPhase()', () => {
 
     expect(phaseFn).toHaveBeenCalled();
     expect(tracker.totalCostUsd).toBe(0.03);
+  });
+
+  it('writes running status to top-level state before executing phase', async () => {
+    const config = makeConfig();
+    const tracker = new CostTracker();
+    const phaseFn = vi.fn().mockResolvedValue({ costUsd: 0, modelUsage: {}, phaseCostRecords: [] });
+
+    await runPhase(config, tracker, phaseFn, 'build');
+
+    type CallArg = { phases?: { build?: { status: string } }; workflowStage?: string };
+    const runningCall = writeTopLevelStateMock.mock.calls.find(
+      (call: unknown[]) => (call[1] as CallArg)?.phases?.build?.status === 'running'
+    );
+    expect(runningCall).toBeDefined();
+    expect((runningCall![1] as CallArg).workflowStage).toBe('build_running');
+  });
+
+  it('writes completed status to top-level state after successful phase', async () => {
+    const config = makeConfig();
+    const tracker = new CostTracker();
+    const phaseFn = vi.fn().mockResolvedValue({ costUsd: 0, modelUsage: {}, phaseCostRecords: [] });
+
+    await runPhase(config, tracker, phaseFn, 'build');
+
+    type CallArg = { phases?: { build?: { status: string } }; workflowStage?: string };
+    const completedCall = writeTopLevelStateMock.mock.calls.find(
+      (call: unknown[]) => (call[1] as CallArg)?.phases?.build?.status === 'completed'
+    );
+    expect(completedCall).toBeDefined();
+    expect((completedCall![1] as CallArg).workflowStage).toBe('build_completed');
+  });
+
+  it('writes failed status to top-level state when phase throws', async () => {
+    const config = makeConfig();
+    const tracker = new CostTracker();
+    const phaseFn = vi.fn().mockRejectedValue(new Error('phase failed'));
+
+    await expect(runPhase(config, tracker, phaseFn, 'build')).rejects.toThrow('phase failed');
+
+    type CallArg = { phases?: { build?: { status: string } } };
+    const failedCall = writeTopLevelStateMock.mock.calls.find(
+      (call: unknown[]) => (call[1] as CallArg)?.phases?.build?.status === 'failed'
+    );
+    expect(failedCall).toBeDefined();
+  });
+
+  it('skips phase when top-level phases map shows completed status', async () => {
+    readTopLevelStateMock.mockReturnValue(
+      { phases: { install: { status: 'completed', startedAt: '2024-01-01T00:00:00Z' } } // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    const config = makeConfig({ completedPhases: [] });
+    const tracker = new CostTracker();
+    const phaseFn = vi.fn().mockResolvedValue({ costUsd: 0.05, modelUsage: {} });
+
+    const result = await runPhase(config, tracker, phaseFn, 'install');
+
+    expect(phaseFn).not.toHaveBeenCalled();
+    expect(result.costUsd).toBe(0);
+  });
+
+  it('does not skip phase when top-level phases map shows failed status', async () => {
+    readTopLevelStateMock.mockReturnValue(
+      { phases: { build: { status: 'failed', startedAt: '2024-01-01T00:00:00Z' } } // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    const config = makeConfig({ completedPhases: ['build'] });
+    const tracker = new CostTracker();
+    const phaseFn = vi.fn().mockResolvedValue({ costUsd: 0.01, modelUsage: {}, phaseCostRecords: [] });
+
+    await runPhase(config, tracker, phaseFn, 'build');
+
+    expect(phaseFn).toHaveBeenCalled();
+  });
+
+  it('falls back to config.completedPhases when top-level state has no phases map', async () => {
+    readTopLevelStateMock.mockReturnValue({ workflowStage: 'starting' } as Record<string, unknown>); // no phases
+    const config = makeConfig({ completedPhases: ['install'] });
+    const tracker = new CostTracker();
+    const phaseFn = vi.fn().mockResolvedValue({ costUsd: 0.05, modelUsage: {} });
+
+    const result = await runPhase(config, tracker, phaseFn, 'install');
+
+    expect(phaseFn).not.toHaveBeenCalled();
+    expect(result.costUsd).toBe(0);
+  });
+
+  it('does not write top-level state when phaseName is undefined', async () => {
+    const config = makeConfig();
+    const tracker = new CostTracker();
+    const phaseFn = vi.fn().mockResolvedValue({ costUsd: 0, modelUsage: {}, phaseCostRecords: [] });
+
+    await runPhase(config, tracker, phaseFn);
+
+    expect(writeTopLevelStateMock).not.toHaveBeenCalled();
   });
 });

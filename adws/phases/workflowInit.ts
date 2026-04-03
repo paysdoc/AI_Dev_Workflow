@@ -48,6 +48,7 @@ import { Platform } from '../providers/types';
 import { createRepoContext } from '../providers/repoContext';
 import { runGenerateBranchNameAgent } from '../agents';
 import { classifyGitHubIssue } from '../core/issueClassifier';
+import { deriveOrchestratorScript } from '../core/orchestratorLib';
 import { copyClaudeCommandsToWorktree } from './worktreeSetup';
 import { postIssueStageComment } from './phaseCommentHelpers';
 
@@ -79,6 +80,8 @@ export interface WorkflowConfig {
   installContext?: string;
   /** Phase names already completed in a previous run (populated on pause/resume). */
   completedPhases?: string[];
+  /** Absolute path to the top-level workflow state file: agents/{adwId}/state.json */
+  topLevelStatePath: string;
 }
 
 /**
@@ -225,8 +228,17 @@ export async function initializeWorkflow(
   }
 
   const orchestratorStatePath = AgentStateManager.initializeState(resolvedAdwId, orchestratorName);
+  const topLevelStatePath = AgentStateManager.getTopLevelStatePath(resolvedAdwId);
   log(`State: ${orchestratorStatePath}`, 'info');
   log(`Logs: ${logsDir}`, 'info');
+
+  // Initialize top-level workflow state file
+  AgentStateManager.writeTopLevelState(resolvedAdwId, {
+    adwId: resolvedAdwId,
+    issueNumber,
+    workflowStage: 'starting',
+    orchestratorScript: deriveOrchestratorScript(orchestratorName),
+  });
 
   const initialState: Partial<AgentState> = {
     adwId: resolvedAdwId,
@@ -263,14 +275,28 @@ export async function initializeWorkflow(
   // Read completedPhases from existing orchestrator state (populated by pause mechanism)
   let completedPhases: string[] | undefined;
   if (recoveryState.adwId) {
-    const { findOrchestratorStatePath } = await import('../core/stateHelpers');
-    const existingStatePath = findOrchestratorStatePath(recoveryState.adwId);
-    if (existingStatePath) {
-      const existingState = AgentStateManager.readState(existingStatePath);
-      const meta = existingState?.metadata as Record<string, unknown> | undefined;
-      if (Array.isArray(meta?.completedPhases) && meta.completedPhases.length > 0) {
-        completedPhases = meta.completedPhases as string[];
-        log(`Resume: found ${completedPhases.length} completed phase(s): ${completedPhases.join(', ')}`, 'info');
+    // Prefer top-level phases map (new format) over metadata string array (legacy format)
+    const topLevelState = AgentStateManager.readTopLevelState(recoveryState.adwId);
+    if (topLevelState?.phases && Object.keys(topLevelState.phases).length > 0) {
+      const fromPhasesMap = Object.entries(topLevelState.phases)
+        .filter(([, entry]) => entry.status === 'completed')
+        .map(([name]) => name);
+      if (fromPhasesMap.length > 0) {
+        completedPhases = fromPhasesMap;
+        log(`Resume: found ${completedPhases.length} completed phase(s) from top-level phases map: ${completedPhases.join(', ')}`, 'info');
+      }
+    }
+
+    if (!completedPhases) {
+      const { findOrchestratorStatePath } = await import('../core/stateHelpers');
+      const existingStatePath = findOrchestratorStatePath(recoveryState.adwId);
+      if (existingStatePath) {
+        const existingState = AgentStateManager.readState(existingStatePath);
+        const meta = existingState?.metadata as Record<string, unknown> | undefined;
+        if (Array.isArray(meta?.completedPhases) && meta.completedPhases.length > 0) {
+          completedPhases = meta.completedPhases as string[];
+          log(`Resume: found ${completedPhases.length} completed phase(s) from legacy metadata: ${completedPhases.join(', ')}`, 'info');
+        }
       }
     }
   }
@@ -327,5 +353,6 @@ export async function initializeWorkflow(
     repoContext,
     projectConfig,
     completedPhases,
+    topLevelStatePath,
   };
 }

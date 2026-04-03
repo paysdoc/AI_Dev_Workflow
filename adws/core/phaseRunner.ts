@@ -20,6 +20,7 @@ import { RateLimitError } from '../types/agentTypes';
 import { AgentStateManager } from './agentState';
 import { log } from './utils';
 
+
 /**
  * The result shape every phase function must return.
  * Matches the existing return type of all executeXxxPhase() functions.
@@ -119,10 +120,34 @@ export async function runPhase<R extends PhaseResult>(
   fn: (config: WorkflowConfig) => Promise<R>,
   phaseName?: string,
 ): Promise<R> {
-  // Skip already-completed phases on resume
-  if (phaseName && config.completedPhases?.includes(phaseName)) {
-    const emptyResult = { costUsd: 0, modelUsage: {}, phaseCostRecords: [] } as unknown as R;
-    return emptyResult;
+  // Skip already-completed phases on resume.
+  // When the top-level phases map has an entry for this phase, its status is authoritative.
+  // Fall back to the legacy completedPhases string array only when no phases map entry exists.
+  if (phaseName) {
+    if (config.adwId) {
+      const topState = AgentStateManager.readTopLevelState(config.adwId);
+      const phaseEntry = topState?.phases?.[phaseName];
+      if (phaseEntry !== undefined) {
+        // phases map entry exists — use it exclusively; 'failed' or 'running' must NOT skip
+        if (phaseEntry.status === 'completed') {
+          return { costUsd: 0, modelUsage: {}, phaseCostRecords: [] } as unknown as R;
+        }
+      } else if (config.completedPhases?.includes(phaseName)) {
+        // No phases map entry — fall back to legacy string array for in-flight workflows
+        return { costUsd: 0, modelUsage: {}, phaseCostRecords: [] } as unknown as R;
+      }
+    } else if (config.completedPhases?.includes(phaseName)) {
+      return { costUsd: 0, modelUsage: {}, phaseCostRecords: [] } as unknown as R;
+    }
+  }
+
+  // Record phase as running before execution
+  const startedAt = new Date().toISOString();
+  if (phaseName && config.adwId) {
+    AgentStateManager.writeTopLevelState(config.adwId, {
+      workflowStage: `${phaseName}_running`,
+      phases: { [phaseName]: { status: 'running', startedAt } },
+    });
   }
 
   try {
@@ -130,9 +155,22 @@ export async function runPhase<R extends PhaseResult>(
     tracker.accumulate(result);
     tracker.persist(config);
     await tracker.commit(config, result.phaseCostRecords ?? []);
-    if (phaseName) recordCompletedPhase(config, phaseName);
+    if (phaseName) {
+      if (config.adwId) {
+        AgentStateManager.writeTopLevelState(config.adwId, {
+          workflowStage: `${phaseName}_completed`,
+          phases: { [phaseName]: { status: 'completed', startedAt, completedAt: new Date().toISOString() } },
+        });
+      }
+      recordCompletedPhase(config, phaseName);
+    }
     return result;
   } catch (err) {
+    if (phaseName && config.adwId) {
+      AgentStateManager.writeTopLevelState(config.adwId, {
+        phases: { [phaseName]: { status: 'failed', startedAt, completedAt: new Date().toISOString() } },
+      });
+    }
     if (err instanceof RateLimitError) {
       // Lazy import to avoid circular deps at module load time
       const { handleRateLimitPause } = await import('../phases/workflowCompletion');

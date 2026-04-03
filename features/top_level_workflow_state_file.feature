@@ -61,7 +61,7 @@ Feature: Top-level workflow state file with workflowStage and phases map
     Given the top-level state file exists for "abc12345"
     When the orchestrator enters the build phase
     Then the top-level state file "workflowStage" should be "build_running"
-    When the workflow completes successfully
+    When the top-level workflow completes successfully
     Then the top-level state file "workflowStage" should be "completed"
 
   @adw-378
@@ -152,7 +152,7 @@ Feature: Top-level workflow state file with workflowStage and phases map
     And the orchestrator metadata contains completedPhases ["build"]
     When runPhase is called for phase "build"
     Then the phase function should be executed
-    Because the phases map status "failed" overrides the legacy "completed" signal
+    And the phases map status "failed" overrides the legacy "completed" signal
 
   @adw-378 @regression
   Scenario: New workflows use phases map exclusively after migration
