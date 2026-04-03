@@ -21,7 +21,7 @@ Feature: Auto-approve and merge PRs after review passes in review orchestrators
     Given "adws/triggers/autoMergeHandler.ts" is read
     Then the file exports a function named "mergeWithConflictResolution"
 
-  @adw-fvzdz7-auto-approve-and-mer @regression
+  @adw-fvzdz7-auto-approve-and-mer @adw-lvakyr-remove-webhook-auto
   Scenario: handleApprovedReview delegates to mergeWithConflictResolution
     Given "adws/triggers/autoMergeHandler.ts" is read
     Then the function "handleApprovedReview" calls "mergeWithConflictResolution"

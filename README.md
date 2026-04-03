@@ -199,6 +199,8 @@ Docker execution is entirely optional — the test suite runs identically on the
 │       └── SKILL.md
 └── settings.json
 adws/                   # ADW workflow system
+├── __tests__/          # Vitest integration tests
+│   └── adwMerge.test.ts
 ├── agents/             # Claude Code agent runners
 │   ├── __tests__/      # Vitest unit tests
 │   │   └── gitAgent.test.ts
@@ -363,10 +365,12 @@ adws/                   # ADW workflow system
 ├── triggers/           # Automation triggers
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── cronRepoResolver.test.ts
-│   │   └── cronStageResolver.test.ts
+│   │   ├── cronStageResolver.test.ts
+│   │   └── triggerCronAwaitingMerge.test.ts
 │   ├── autoMergeHandler.ts  # Auto-merge approved PRs
 │   ├── cloudflareTunnel.tsx  # Cloudflare tunnel for webhooks
 │   ├── concurrencyGuard.ts
+│   ├── cronIssueFilter.ts  # Issue filtering logic for cron trigger
 │   ├── cronProcessGuard.ts  # Duplicate cron process prevention
 │   ├── cronRepoResolver.ts  # Cron repo identity resolution (testable, extracted from trigger_cron)
 │   ├── cronStageResolver.ts  # Cron stage resolution from top-level state file (testable)
@@ -388,6 +392,7 @@ adws/                   # ADW workflow system
 ├── known_issues.md     # Known issues registry
 ├── adwBuild.tsx        # Orchestrators (individual & combined)
 ├── adwChore.tsx        # Chore pipeline with LLM diff gate (auto-merge)
+├── adwMerge.tsx        # Merge orchestrator (awaiting_merge handoff)
 ├── adwBuildHelpers.ts
 ├── adwClearComments.tsx
 ├── adwDocument.tsx
