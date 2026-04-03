@@ -684,3 +684,11 @@
     - When configuring CORS for the cost-api Worker (`ALLOWED_ORIGINS` env var)
     - When troubleshooting 404 responses for project ID lookups or phase ordering in cost issues
     - When adding new read endpoints to the cost-api Worker
+
+- app_docs/feature-gq51dc-migrate-cron-stage-from-state-file.md
+  - Conditions:
+    - When working with `trigger_cron.ts` stage resolution or `evaluateIssue()` eligibility logic
+    - When modifying or extending `adws/triggers/cronStageResolver.ts` (stage classification, adw-id extraction)
+    - When adding new `workflowStage` values and need to understand how `isActiveStage()` / `isRetriableStage()` classify them
+    - When troubleshooting cron filters incorrectly including or excluding issues (grace period, active, retriable, paused)
+    - When implementing a new trigger that needs to read workflow stage from the state file
