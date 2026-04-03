@@ -205,6 +205,14 @@
     - When modifying `autoMergeHandler.ts`, `workflowInit.ts`, or `targetRepoManager.ts`
     - When cloning new target repositories (SSH vs HTTPS URL handling)
 
+- app_docs/feature-bpn4sv-orchestrators-awaiting-merge-handoff.md
+  - Conditions:
+    - When working with orchestrator phase ordering in `adwSdlc.tsx`, `adwChore.tsx`, `adwPlanBuildReview.tsx`, or `adwPlanBuildTestReview.tsx`
+    - When adding or modifying post-PR logic (approve, `awaiting_merge` write) in an orchestrator
+    - When troubleshooting why `executeAutoMergePhase` is absent from orchestrators (it was replaced by inline approve + handoff)
+    - When implementing a new orchestrator that should follow the approve-and-handoff exit pattern
+    - When working with `workflowStage: 'awaiting_merge'` transitions or the `extractPrNumber()` helper
+
 - app_docs/feature-74itmf-dependency-logging.md
   - Conditions:
     - When working with `findOpenDependencies()` or `checkIssueEligibility()` in `adws/triggers/`

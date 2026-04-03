@@ -10,12 +10,11 @@
  * 3. Plan Phase: classify issue, create branch, run plan agent, commit plan
  * 4. Build Phase: run build agent, commit implementation
  * 5. Test Phase: optionally run unit tests (unit only)
- * 6. PR Phase: create pull request
- * 7. Diff Evaluation Phase: LLM evaluates the diff (Haiku, low effort)
- *    → if "safe":              auto-approve + auto-merge
- *    → if "regression_possible": post escalation comment
- *                               → review → document → auto-merge
- * 8. Finalize: update state, post completion comment
+ * 6. Diff Evaluation Phase: LLM evaluates the diff (Haiku, low effort — worktree-dependent)
+ *    → if "regression_possible": post escalation comment → review → document
+ * 7. PR Phase: create pull request
+ * 8. Approve PR + write awaiting_merge to state (API calls only — no worktree required)
+ * 9. Finalize: update state, post completion comment
  *
  * Environment Requirements:
  * - ANTHROPIC_API_KEY: Anthropic API key
@@ -23,7 +22,7 @@
  * - GITHUB_PAT: (Optional) GitHub Personal Access Token
  */
 
-import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId, log } from './core';
+import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId, AgentStateManager, log } from './core';
 import { CostTracker, runPhase } from './core/phaseRunner';
 import {
   initializeWorkflow,
@@ -34,12 +33,13 @@ import {
   executePRPhase,
   executeReviewPhase,
   executeDocumentPhase,
-  executeAutoMergePhase,
   executeDiffEvaluationPhase,
   completeWorkflow,
   handleWorkflowError,
 } from './workflowPhases';
 import type { WorkflowConfig } from './phases';
+import { approvePR, isGitHubAppConfigured, issueHasLabel, commentOnIssue, type RepoInfo } from './github';
+import { extractPrNumber } from './adwBuildHelpers';
 
 /**
  * Posts an escalation comment on the issue when the diff evaluator detects
@@ -56,7 +56,7 @@ function postEscalationComment(config: WorkflowConfig): void {
         '',
         'The diff evaluator detected changes that may affect application behaviour. Escalating to the full review pipeline.',
         '',
-        'Phases: review → document → auto-merge',
+        'Phases: review → document → PR',
       ].join('\n'),
     );
   } catch (error) {
@@ -90,27 +90,53 @@ async function main(): Promise<void> {
     await runPhase(config, tracker, executePlanPhase);
     await runPhase(config, tracker, executeBuildPhase);
     const testResult = await runPhase(config, tracker, executeTestPhase);
-    await runPhase(config, tracker, executePRPhase);
+
+    // Diff evaluation uses git diff against the default branch (worktree-dependent).
+    // Runs before PR so the worktree is still available.
     const diffResult = await runPhase(config, tracker, executeDiffEvaluationPhase);
 
-    if (diffResult.verdict === 'safe') {
-      await runPhase(config, tracker, executeAutoMergePhase);
-      await completeWorkflow(config, tracker.totalCostUsd, {
-        unitTestsPassed: testResult.unitTestsPassed,
-        totalTestRetries: testResult.totalRetries,
-        diffVerdict: 'safe',
-      }, tracker.totalModelUsage);
-    } else {
+    let reviewResult: { reviewPassed: boolean; totalRetries: number } | undefined;
+    if (diffResult.verdict !== 'safe') {
       postEscalationComment(config);
-      const reviewResult = await runPhase(config, tracker, executeReviewPhase);
+      reviewResult = await runPhase(config, tracker, executeReviewPhase);
+      // Document phase runs Claude agent + git commit/push — worktree-dependent, must run before PR.
       await runPhase(config, tracker, (cfg: WorkflowConfig) => executeDocumentPhase(cfg));
-      await runPhase(config, tracker, executeAutoMergePhase);
+    }
+
+    await runPhase(config, tracker, executePRPhase);
+
+    // Post-PR: approve and write awaiting_merge (API calls only — no worktree required).
+    const prNumber = extractPrNumber(config.ctx.prUrl);
+    const owner = config.repoContext?.repoId.owner ?? '';
+    const repo = config.repoContext?.repoId.repo ?? '';
+    if (prNumber && owner && repo) {
+      const repoInfo: RepoInfo = { owner, repo };
+      if (issueHasLabel(issueNumber, 'hitl', repoInfo)) {
+        log(`hitl label detected on issue #${issueNumber}, skipping auto-approval`, 'info');
+        commentOnIssue(issueNumber, `## ✋ Awaiting human approval — PR #${prNumber} ready for review`, repoInfo);
+      } else if (isGitHubAppConfigured()) {
+        log(`Approving PR #${prNumber} with personal gh auth login identity...`, 'info');
+        const approveResult = approvePR(prNumber, repoInfo);
+        if (!approveResult.success) log(`PR approval failed (non-fatal): ${approveResult.error}`, 'warn');
+      } else {
+        log('No GitHub App configured — skipping PR approval', 'info');
+      }
+    }
+    AgentStateManager.writeTopLevelState(config.adwId, { workflowStage: 'awaiting_merge' });
+
+    if (reviewResult) {
       await completeWorkflow(config, tracker.totalCostUsd, {
         unitTestsPassed: testResult.unitTestsPassed,
         totalTestRetries: testResult.totalRetries,
         diffVerdict: 'regression_possible',
         reviewPassed: reviewResult.reviewPassed,
         totalReviewRetries: reviewResult.totalRetries,
+      }, tracker.totalModelUsage);
+    } else {
+      await completeWorkflow(config, tracker.totalCostUsd, {
+        unitTestsPassed: testResult.unitTestsPassed,
+        totalTestRetries: testResult.totalRetries,
+        diffVerdict: 'safe',
       }, tracker.totalModelUsage);
     }
   } catch (error) {
