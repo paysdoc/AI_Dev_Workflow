@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value          | Last Updated       |
 | ----------------- | -------------- | ------------------ |
-| Current Streak    | 48             | 2026-04-03 13:11:51|
-| Longest Streak    | 48             | 2026-04-03 13:11:51|
-| Total Plan Size   | 931 lines      | 2026-04-03 13:11:51|
-| Largest Plan Size | 201 lines      | 2026-04-03 13:11:51|
-| Total Diff Size   | 910368 lines   | 2026-04-03 13:11:51|
-| Largest Diff Size | 418153 lines   | 2026-04-03 13:11:51|
-| Average Presence  | 1.42           | 2026-04-03 13:11:51|
+| Current Streak    | 20             | 2026-04-03 13:59:18|
+| Longest Streak    | 67             | 2026-04-03 13:59:18|
+| Total Plan Size   | 441 lines      | 2026-04-03 13:59:18|
+| Largest Plan Size | 201 lines      | 2026-04-03 13:59:18|
+| Total Diff Size   | 2158051 lines  | 2026-04-03 13:59:18|
+| Largest Diff Size | 418153 lines   | 2026-04-03 13:59:18|
+| Average Presence  | 1.31           | 2026-04-03 13:59:18|
 
 ## ADW KPIs
 
@@ -98,3 +98,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-04-03 | gq51dc-migrate-cron-stage-d | 379          | /feature    | 1        | 0                 | 3850/133/34                     | 2026-04-03 | 2026-04-03 |
 | 2026-04-03 | xngqn4-orchestrators-exit-a | 380          | /feature    | 1        | 0                 | 3124/116/37                     | 2026-04-03 | 2026-04-03 |
 | 2026-04-03 | bpn4sv-orchestrators-exit-a | 380          | /feature    | 1        | 0                 | 3399/123/36                     | 2026-04-03 | 2026-04-03 |
+| 2026-04-03 | dcy9qz-create-thin-merge-or | 381          | /feature    | 1        | 0                 | 6090/261/53                     | 2026-04-03 | 2026-04-03 |
