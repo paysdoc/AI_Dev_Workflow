@@ -366,7 +366,8 @@ adws/                   # ADW workflow system
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── cronRepoResolver.test.ts
 │   │   ├── cronStageResolver.test.ts
-│   │   └── triggerCronAwaitingMerge.test.ts
+│   │   ├── triggerCronAwaitingMerge.test.ts
+│   │   └── webhookHandlers.test.ts
 │   ├── autoMergeHandler.ts  # Auto-merge approved PRs
 │   ├── cloudflareTunnel.tsx  # Cloudflare tunnel for webhooks
 │   ├── concurrencyGuard.ts
