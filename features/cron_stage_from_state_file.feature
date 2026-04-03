@@ -89,25 +89,21 @@ Feature: Cron reads workflow stage from state file instead of parsing issue comm
     And the filter reason includes "active"
 
     Examples:
-      | stage            |
-      | starting         |
-      | build_running    |
-      | review_running   |
-      | pr_creating      |
-      | install_running  |
+      | stage              |
+      | starting           |
+      | build_running      |
+      | review_running     |
+      | install_running    |
+      | plan_running       |
+      | install_completed  |
+      | plan_completed     |
 
   @adw-379 @regression
-  Scenario Outline: Issue with retriable stage "<stage>" from state file is re-eligible
+  Scenario: Issue with retriable stage "abandoned" from state file is re-eligible
     Given an issue with adw-id "retry123" extracted from comments
-    And a state file exists at "agents/retry123/state.json" with workflowStage "<stage>"
+    And a state file exists at "agents/retry123/state.json" with workflowStage "abandoned"
     When the cron trigger evaluates eligibility
     Then the issue is considered eligible for re-processing
-
-    Examples:
-      | stage          |
-      | error          |
-      | review_failed  |
-      | build_failed   |
 
   @adw-379 @regression
   Scenario: Issue with completed stage from state file is excluded
@@ -116,6 +112,14 @@ Feature: Cron reads workflow stage from state file instead of parsing issue comm
     When the cron trigger evaluates eligibility
     Then the issue is not eligible for re-processing
     And the filter reason includes "completed"
+
+  @adw-379
+  Scenario: Issue with paused stage from state file is excluded
+    Given an issue with adw-id "paused123" extracted from comments
+    And a state file exists at "agents/paused123/state.json" with workflowStage "paused"
+    When the cron trigger evaluates eligibility
+    Then the issue is not eligible for re-processing
+    And the filter reason includes "paused"
 
   @adw-379
   Scenario: Issue with unknown stage from state file is excluded
@@ -129,17 +133,17 @@ Feature: Cron reads workflow stage from state file instead of parsing issue comm
   # ===================================================================
 
   @adw-379 @regression
-  Scenario: Grace period uses state file timestamp instead of issue updatedAt
+  Scenario: Grace period uses state file phase timestamps instead of issue updatedAt
     Given an issue with adw-id "grace12345" extracted from comments
-    And a state file exists at "agents/grace12345/state.json" with a recent updatedAt timestamp
+    And a state file exists at "agents/grace12345/state.json" with recent phase timestamps
     When the cron trigger checks the grace period
-    Then the grace period is evaluated against the state file timestamp
+    Then the grace period is evaluated against the last activity timestamp from the state file phases
     And the issue is excluded due to grace period
 
   @adw-379 @regression
   Scenario: Issue outside state file grace period is not excluded
     Given an issue with adw-id "old1234567" extracted from comments
-    And a state file exists at "agents/old1234567/state.json" with an updatedAt timestamp older than the grace period
+    And a state file exists at "agents/old1234567/state.json" with phase timestamps older than the grace period
     When the cron trigger checks the grace period
     Then the issue is not excluded by grace period
 

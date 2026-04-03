@@ -52,7 +52,7 @@ Update `trigger_cron.ts` to:
 1. Import `resolveIssueWorkflowStage` and the stage classification helper from `cronStageResolver.ts`
 2. Replace `getIssueWorkflowStage()` with `resolveIssueWorkflowStage()` in `evaluateIssue()`
 3. Replace explicit `ACTIVE_STAGES` and `RETRIABLE_STAGES` sets with pattern-based classification that matches state file stage names:
-   - Active: `starting`, `resuming`, `resumed`, any `*_running`, any `*_completed` (intermediate phases, not the terminal `completed`)
+   - Active: `starting`, any `*_running`, any `*_completed` (intermediate phases, not the terminal `completed`)
    - Retriable: `abandoned` (state file equivalent of the old `error`/`review_failed`/`build_failed`)
    - Excluded: `paused` (handled by pause queue scanner), `completed` (terminal)
 4. Update grace period check to prefer state file phase timestamps when available, falling back to `issue.updatedAt`
@@ -77,7 +77,7 @@ Update `trigger_cron.ts` to:
 - Create `adws/triggers/cronStageResolver.ts` with the following exports:
   - `extractLatestAdwId(comments: { body: string }[]): string | null` — scans comments newest-to-oldest, returns first adw-id found via `extractAdwIdFromComment()`
   - `getLastActivityFromState(state: AgentState): number | null` — computes the most recent `startedAt`/`completedAt` timestamp across all phases in the state file
-  - `isActiveStage(stage: string): boolean` — returns true for `starting`, `resuming`, `resumed`, and any stage matching `*_running` or `*_completed` (but not the terminal `completed`)
+  - `isActiveStage(stage: string): boolean` — returns true for `starting` and any stage matching `*_running` or `*_completed` (but not the terminal `completed`)
   - `isRetriableStage(stage: string): boolean` — returns true for `abandoned`
   - `StageResolution` interface: `{ stage: string | null; adwId: string | null; lastActivityMs: number | null }`
   - `resolveIssueWorkflowStage(comments, readState?): StageResolution` — composes adw-id extraction + state file reading + last activity computation. Accepts an injectable `readState` function defaulting to `AgentStateManager.readTopLevelState`
@@ -122,7 +122,7 @@ Update `trigger_cron.ts` to:
 Tests for `cronStageResolver.ts` covering:
 - **`extractLatestAdwId`**: extracts adw-id from newest comment first; returns null when no ADW comments exist; handles mixed ADW/non-ADW comments
 - **`getLastActivityFromState`**: returns most recent timestamp across all phases; returns null for state with no phases; handles phases with only startedAt (no completedAt)
-- **`isActiveStage`**: recognizes `starting`, `resuming`, `resumed` as active; recognizes `install_running`, `build_running` etc. as active; recognizes `install_completed`, `plan_completed` as active; rejects terminal `completed`, `paused`, `abandoned`
+- **`isActiveStage`**: recognizes `starting` as active; recognizes `install_running`, `build_running` etc. as active; recognizes `install_completed`, `plan_completed` as active; rejects terminal `completed`, `paused`, `abandoned`
 - **`isRetriableStage`**: recognizes `abandoned` as retriable; rejects all other stages
 - **`resolveIssueWorkflowStage`**: integration of all components: returns null stage for no comments; returns null stage when adw-id found but state file missing; returns correct stage and lastActivityMs when state file exists
 
