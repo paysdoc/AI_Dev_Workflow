@@ -10,3 +10,4 @@ Read and execute .claude/commands/prime.md
 Interview me relentlessly about every aspect of this plan until we reach a shared understanding. Walk down each branch of the design tree, resolving dependencies between decisions one-by-one.
 
 If a question can be answered by exploring the codebase, explore the codebase instead.
+IMPORTANT: ask only one question at a time, and wait for my answer before asking the next question. Do not ask multiple questions at once.
