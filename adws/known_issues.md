@@ -322,6 +322,42 @@ Each entry contains:
   (issue #308 open with closed dependencies but filtered out by hasAdwWorkflowComment)
   ```
 
+## duplicate-auto-merge
+
+- **pattern**: `Auto-merge triggered for PR #N` appearing twice for the same PR, or `spawnSync /bin/sh ENOENT` in auto-merge handler after PR already merged
+- **description**: Both the orchestrator (`executeAutoMergePhase`) and the webhook (`handleApprovedReview`) attempted to merge the same PR simultaneously. The orchestrator approves the PR, which fires the webhook's `pull_request_review` (approved) handler. Both invoke `/resolve_conflict` agents independently, both try to push and merge. Whichever merges first triggers PR close cleanup (worktree deletion), causing the other to fail with `spawnSync /bin/sh ENOENT` (CWD gone). Wasted compute on duplicate conflict resolution agents.
+- **status**: solved
+- **solution**: Webhook's `handleApprovedReview()` removed entirely. Auto-merge is now exclusively handled by a thin `adwMerge.tsx` orchestrator spawned by the cron when it detects `workflowStage === 'awaiting_merge'` in the state file. The orchestrator approves the PR and exits; the cron picks up the merge within 20 seconds.
+- **fix_attempts**: 1
+- **linked_issues**: #382, #381
+- **first_seen**: 2026-04-02
+- **sample_log**:
+  ```
+  📋 [2026-04-02T18:32:53.328Z] [8z0la0-how-it-works-page-ne] Auto-merge attempt 1/3 for PR #25
+  📋 [2026-04-02T18:32:56.455Z] Auto-merge triggered for PR #25 in paysdoc/paysdoc.nl
+  ✅ [2026-04-02T18:35:06.787Z] [8z0la0-how-it-works-page-ne] Merged PR #25 (orchestrator won)
+  ❌ [2026-04-02T18:35:22.164Z] Failed to push branch 'feature-issue-21-how-it-works-page': Error: spawnSync /bin/sh ENOENT
+  (webhook auto-merge handler lost — worktree already deleted by orchestrator's cleanup)
+  ```
+
+## duplicate-workflow-start
+
+- **pattern**: Two `## :rocket: ADW Workflow Started` comments on the same issue with different adw-ids
+- **description**: Both the webhook (`issues.opened`) and the cron (backlog sweeper) start workflows for the same issue before either posts an ADW comment. The `isAdwRunningForIssue()` check reads issue comments, but neither orchestrator has posted its "Started" comment when the other checks. This is a TOCTOU (Time of Check, Time of Use) race. Exacerbated when the dependency check fails silently (see `dependency-check-fail-open`), allowing both paths to proceed even for issues with open blockers.
+- **status**: mitigated
+- **solution**: The `dependency-check-fail-open` fix (#389) prevents the most damaging variant (starting despite open dependencies). The TOCTOU race on the "Started" comment still exists in theory but is less likely to cause harm since both orchestrators would work on the same issue. Full fix requires adw-id-based coordination via the top-level state file.
+- **fix_attempts**: 1
+- **linked_issues**: #389, #378
+- **first_seen**: 2026-04-03
+- **sample_log**:
+  ```
+  ## :rocket: ADW Workflow Started
+  **ADW ID:** `dcy9qz-create-thin-merge-or`
+  ## :rocket: ADW Workflow Started
+  **ADW ID:** `wipg06-create-thin-merge-or`
+  (two competing orchestrators on issue #381, creating different branches)
+  ```
+
 ## context-compaction-degradation
 
 - **pattern**: `"subtype":"compact_boundary"`

@@ -14,8 +14,7 @@
  * 7. Document Phase: generate feature documentation (includes review screenshots)
  * 8. KPI Phase: track agentic KPIs (non-fatal, worktree-dependent — runs before PR)
  * 9. PR Phase: create pull request (only after review passes)
- * 10. Approve PR + write awaiting_merge to state (API calls only — no worktree required)
- * 11. Finalize: update state, post completion comment
+ * 10. Approve PR + write awaiting_merge to state, then exit (merge handled by adwMerge.tsx via cron)
  *
  * Environment Requirements:
  * - ANTHROPIC_API_KEY: Anthropic API key
@@ -40,9 +39,9 @@ import {
   executeReviewPhase,
   executeDocumentPhase,
   executeKpiPhase,
-  completeWorkflow,
   handleWorkflowError,
 } from './workflowPhases';
+import { persistTokenCounts } from './cost';
 import type { WorkflowConfig } from './phases';
 import { approvePR, isGitHubAppConfigured, issueHasLabel, commentOnIssue, type RepoInfo } from './github';
 import { extractPrNumber } from './adwBuildHelpers';
@@ -115,14 +114,23 @@ async function main(): Promise<void> {
         log('No GitHub App configured — skipping PR approval', 'info');
       }
     }
+    // Write awaiting_merge and persist costs. Do NOT call completeWorkflow —
+    // that overwrites the stage with 'completed'. adwMerge.tsx handles completion after merge.
     AgentStateManager.writeTopLevelState(config.adwId, { workflowStage: 'awaiting_merge' });
-
-    await completeWorkflow(config, tracker.totalCostUsd, {
-      unitTestsPassed: testResult.unitTestsPassed,
-      totalTestRetries: testResult.totalRetries,
-      reviewPassed: reviewResult.reviewPassed,
-      totalReviewRetries: reviewResult.totalRetries,
-    }, tracker.totalModelUsage);
+    AgentStateManager.writeState(config.orchestratorStatePath, {
+      metadata: {
+        totalCostUsd: tracker.totalCostUsd,
+        unitTestsPassed: testResult.unitTestsPassed,
+        totalTestRetries: testResult.totalRetries,
+        reviewPassed: reviewResult.reviewPassed,
+        totalReviewRetries: reviewResult.totalRetries,
+      },
+    });
+    persistTokenCounts(config.orchestratorStatePath, tracker.totalCostUsd, tracker.totalModelUsage);
+    log('===================================', 'info');
+    log('Orchestrator finished — PR approved, awaiting merge via cron', 'success');
+    if (config.ctx.prUrl) log(`PR: ${config.ctx.prUrl}`, 'info');
+    log('===================================', 'info');
   } catch (error) {
     handleWorkflowError(config, error, tracker.totalCostUsd, tracker.totalModelUsage);
   }

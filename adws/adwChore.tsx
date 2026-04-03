@@ -34,9 +34,9 @@ import {
   executeReviewPhase,
   executeDocumentPhase,
   executeDiffEvaluationPhase,
-  completeWorkflow,
   handleWorkflowError,
 } from './workflowPhases';
+import { persistTokenCounts } from './cost';
 import type { WorkflowConfig } from './phases';
 import { approvePR, isGitHubAppConfigured, issueHasLabel, commentOnIssue, type RepoInfo } from './github';
 import { extractPrNumber } from './adwBuildHelpers';
@@ -123,22 +123,23 @@ async function main(): Promise<void> {
       }
     }
     AgentStateManager.writeTopLevelState(config.adwId, { workflowStage: 'awaiting_merge' });
-
-    if (reviewResult) {
-      await completeWorkflow(config, tracker.totalCostUsd, {
+    AgentStateManager.writeState(config.orchestratorStatePath, {
+      metadata: {
+        totalCostUsd: tracker.totalCostUsd,
         unitTestsPassed: testResult.unitTestsPassed,
         totalTestRetries: testResult.totalRetries,
-        diffVerdict: 'regression_possible',
-        reviewPassed: reviewResult.reviewPassed,
-        totalReviewRetries: reviewResult.totalRetries,
-      }, tracker.totalModelUsage);
-    } else {
-      await completeWorkflow(config, tracker.totalCostUsd, {
-        unitTestsPassed: testResult.unitTestsPassed,
-        totalTestRetries: testResult.totalRetries,
-        diffVerdict: 'safe',
-      }, tracker.totalModelUsage);
-    }
+        diffVerdict: reviewResult ? 'regression_possible' : 'safe',
+        ...(reviewResult ? {
+          reviewPassed: reviewResult.reviewPassed,
+          totalReviewRetries: reviewResult.totalRetries,
+        } : {}),
+      },
+    });
+    persistTokenCounts(config.orchestratorStatePath, tracker.totalCostUsd, tracker.totalModelUsage);
+    log('===================================', 'info');
+    log('Orchestrator finished — PR approved, awaiting merge via cron', 'success');
+    if (config.ctx.prUrl) log(`PR: ${config.ctx.prUrl}`, 'info');
+    log('===================================', 'info');
   } catch (error) {
     handleWorkflowError(config, error, tracker.totalCostUsd, tracker.totalModelUsage);
   }
