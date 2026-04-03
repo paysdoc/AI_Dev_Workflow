@@ -39,14 +39,14 @@ Feature: Fix fail-open dependency check and webhook eligibility bypass
     Given "adws/triggers/issueDependencies.ts" is read
     Then the findOpenDependencies catch block logs the error at warn level
 
-  @adw-fequcj-fix-fail-open-depend
+  @adw-fequcj-fix-fail-open-depend @regression
   Scenario: findOpenDependencies returns all dependencies as open when all getIssueState calls fail
     Given an issue body containing "blocked by #10 and #20"
     And getIssueState throws for both #10 and #20
     When findOpenDependencies is called
     Then the result contains both 10 and 20
 
-  @adw-fequcj-fix-fail-open-depend
+  @adw-fequcj-fix-fail-open-depend @regression
   Scenario: findOpenDependencies treats a mix of successful and failed checks correctly
     Given an issue body containing "blocked by #10, #20, and #30"
     And getIssueState returns CLOSED for #10
@@ -75,7 +75,7 @@ Feature: Fix fail-open dependency check and webhook eligibility bypass
     Given "adws/triggers/trigger_webhook.ts" is read
     Then the issues opened handler catch block contains only logging and a return statement
 
-  @adw-fequcj-fix-fail-open-depend
+  @adw-fequcj-fix-fail-open-depend @regression
   Scenario: Cron picks up issue after webhook eligibility check failure
     Given an issue that was not spawned because checkIssueEligibility threw in the webhook
     When the cron trigger polls for open issues

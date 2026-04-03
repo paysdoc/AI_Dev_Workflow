@@ -58,6 +58,7 @@ Add the `dependency-check-fail-open` entry to `known_issues.md`. Run lint, type 
 ## Step by Step Tasks
 
 ### Step 1: Fix `findOpenDependencies()` fail-open catch block
+<!-- ADW-WARNING: Log level conflict — plan uses 'error', BDD scenario (line 40) expects 'warn'. Issue #389 is silent on the target log level. Resolve before implementation: pick one and update the other. -->
 - Open `adws/triggers/issueDependencies.ts`
 - In the `findOpenDependencies()` function, locate the catch block at line 210-212:
   ```typescript
@@ -91,6 +92,7 @@ Add the `dependency-check-fail-open` entry to `known_issues.md`. Run lint, type 
   ```
 
 ### Step 3: Fix webhook `issue_comment` catch block
+<!-- ADW-WARNING: Extra scope — issue #389 only mentions the issues.opened catch block. The issue_comment fix is the same bug class but is not in the issue's acceptance criteria or BDD scenarios. Confirm with issue author before implementing. -->
 - In the same file `adws/triggers/trigger_webhook.ts`, locate the `issue_comment` handler's catch block at lines 164-167:
   ```typescript
   .catch((error) => {
