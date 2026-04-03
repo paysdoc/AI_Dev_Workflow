@@ -1,5 +1,13 @@
 # Conditional Documentation
 
+- app_docs/feature-643xf3-fix-retry-and-commit-leak.md
+  - Conditions:
+    - When working with `adws/core/utils.ts` `execWithRetry` or adding non-retryable error patterns
+    - When troubleshooting `gh pr merge` retrying on "is not mergeable" conflicts
+    - When working with `adws/agents/gitAgent.ts` `runCommitAgent` or commit message extraction
+    - When troubleshooting garbage commit messages containing ENOENT or spawn error strings
+    - When extending `NON_RETRYABLE_PATTERNS` with new non-retryable error classes
+
 - app_docs/feature-2sqt1r-fix-rate-limit-plan-phase.md
   - Conditions:
     - When working with `adws/adwPlan.tsx` or adding rate limit handling to an orchestrator

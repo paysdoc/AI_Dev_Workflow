@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value          | Last Updated       |
 | ----------------- | -------------- | ------------------ |
-| Current Streak    | 13             | 2026-04-02 20:34:10|
-| Longest Streak    | 47             | 2026-04-02 20:34:10|
-| Total Plan Size   | 931 lines      | 2026-04-02 20:34:10|
-| Largest Plan Size | 201 lines      | 2026-04-02 20:34:10|
-| Total Diff Size   | 2144774 lines  | 2026-04-02 20:34:10|
-| Largest Diff Size | 418153 lines   | 2026-04-02 20:34:10|
-| Average Presence  | 1.44           | 2026-04-02 20:34:10|
+| Current Streak    | 12             | 2026-04-03 12:22:12|
+| Longest Streak    | 66             | 2026-04-03 12:22:12|
+| Total Plan Size   | 441 lines      | 2026-04-03 12:22:12|
+| Largest Plan Size | 201 lines      | 2026-04-03 12:22:12|
+| Total Diff Size   | 2147306 lines  | 2026-04-03 12:22:12|
+| Largest Diff Size | 418153 lines   | 2026-04-03 12:22:12|
+| Average Presence  | 1.38           | 2026-04-03 12:22:12|
 
 ## ADW KPIs
 
@@ -93,3 +93,5 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-04-02 | 8z0la0-how-it-works-page-ne | 21           | /feature    | 1        | 149               | 612/652/16                      | 2026-04-02 | 2026-04-02 |
 | 2026-04-02 | tu81jj-home-page-rewrite    | 18           | /feature    | 1        | 154               | 957/698/21                      | 2026-04-02 | 2026-04-02 |
 | 2026-04-02 | cl62as-about-page-rewrite   | 19           | /feature    | 1        | 187               | 757/691/16                      | 2026-04-02 | 2026-04-02 |
+| 2026-04-03 | 643xf3-fix-is-not-mergeable | 377          | /feature    | 1        | 0                 | 809/8/12                        | 2026-04-03 | 2026-04-03 |
+| 2026-04-03 | z16ycm-add-top-level-workfl | 378          | /feature    | 1        | 0                 | 1675/40/14                      | 2026-04-03 | 2026-04-03 |

@@ -145,6 +145,21 @@ Each entry contains:
   ❌ [2026-03-25T13:20:17.088Z] [l9w3wm-extend-compaction-re] sdlc-orchestrator workflow failed: Error: Document Agent failed: spawn /Users/martin/.local/bin/claude ENOENT
   ```
 
+## enoent-commit-message-leak
+
+- **pattern**: `Commit message:` followed by `spawn` or `ENOENT` error strings (e.g., `Commit message: review-agent: feat: spawn /Users/martin/.local/bin/claude ENOENT`)
+- **description**: When the commit agent fails (ENOENT or other spawn error), the error string flows through `extractCommitMessageFromOutput` and `validateCommitMessage` unchecked, resulting in a garbage commit with the error text as the message.
+- **status**: `solved`
+- **solution**: Added `result.success` guard in `runCommitAgent` (`agents/gitAgent.ts`). If `result.success` is `false`, throws `Error("Commit agent '<name>' failed: <output excerpt>")` instead of extracting a commit message from error output.
+- **fix_attempts**: 1
+- **linked_issues**: #377
+- **first_seen**: 2026-04
+- **sample_log**:
+  ```
+  ✅ [2026-04-01T10:12:33.000Z] [abc123-fix-issue] Commit message: review-agent: feat: spawn /Users/martin/.local/bin/claude ENOENT
+  (garbage commit created with the ENOENT error string as the commit message)
+  ```
+
 ## pr-already-exists
 
 - **pattern**: `a pull request for branch .* already exists`
@@ -181,18 +196,17 @@ Each entry contains:
 
 ## non-retryable-error-retried
 
-- **pattern**: `execWithRetry failed (attempt 2/3)` or `(attempt 3/3)` with non-transient errors
+- **pattern**: `execWithRetry failed (attempt 2/3)` or `(attempt 3/3)` with non-transient errors including `"No commits between"`, `"already exists"`, `"is not mergeable"`
 - **description**: `execWithRetry` retried errors that can never succeed on retry (e.g., "No commits between", "already exists", "is not mergeable").
 - **status**: solved
-- **solution**: Added `NON_RETRYABLE_PATTERNS` list to `execWithRetry` in `core/utils.ts`. Matching errors are thrown immediately without retry.
+- **solution**: Added `NON_RETRYABLE_PATTERNS` list to `execWithRetry` in `core/utils.ts`. Matching errors are thrown immediately without retry. Patterns include: `"No commits between"`, `"already exists"`, `"is not mergeable"`.
 - **fix_attempts**: 1
-- **linked_issues**: none
+- **linked_issues**: #377
 - **first_seen**: 2026-03-30
 - **sample_log**:
   ```
   ❌ [2026-03-30T07:47:45.305Z] [9bjsqg-fix-missing-d1-cost] execWithRetry failed (attempt 1/3): Error: Command failed: gh pr create ...
-  ❌ [2026-03-30T07:47:47.324Z] [9bjsqg-fix-missing-d1-cost] execWithRetry failed (attempt 2/3): Error: Command failed: gh pr create ...
-  ❌ [2026-03-30T07:47:49.860Z] [9bjsqg-fix-missing-d1-cost] execWithRetry failed (attempt 3/3): Error: Command failed: gh pr create ...
+  ❌ [2026-03-30T07:47:45.305Z] [9bjsqg-fix-missing-d1-cost] execWithRetry: non-retryable error, failing immediately
   ```
 
 ## json-parse-failure-crash

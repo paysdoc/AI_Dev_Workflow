@@ -398,6 +398,7 @@ adws/                   # ADW workflow system
 ├── adwTest.tsx
 ├── healthCheck.tsx     # Health check orchestrator
 ├── healthCheckChecks.ts
+├── known_issues.md     # Known issues registry
 ├── workflowPhases.ts   # Workflow phase re-exports
 ├── index.ts
 ├── tsconfig.json
@@ -418,9 +419,9 @@ workers/                # Cloudflare Workers
 │   │   ├── schema.sql      # D1 database schema
 │   │   └── types.ts        # Worker type definitions
 │   ├── test/
-│   │   ├── cors.test.ts    # CORS tests
+│   │   ├── cors.test.ts    # CORS middleware tests
 │   │   ├── ingest.test.ts  # Ingest endpoint tests
-│   │   └── queries.test.ts # Query helper tests
+│   │   └── queries.test.ts # D1 query tests
 │   ├── package.json
 │   ├── tsconfig.json
 │   ├── vitest.config.ts
