@@ -210,7 +210,6 @@ export function handleAgentProcess(
           totalInputTokens: tokenTotals.inputTokens,
           totalOutputTokens: tokenTotals.outputTokens,
           totalCacheCreationTokens: tokenTotals.cacheCreationTokens,
-          totalTokens: tokenTotals.total,
           maxTokens: MAX_THINKING_TOKENS,
           thresholdPercent: TOKEN_LIMIT_THRESHOLD,
         } : undefined;
