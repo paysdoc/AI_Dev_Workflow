@@ -229,7 +229,8 @@ adws/                   # ADW workflow system
 │   └── validationAgent.ts  # Plan-scenario validation
 ├── core/               # Configuration and utilities
 │   ├── __tests__/      # Vitest unit tests
-│   │   └── claudeStreamParser.test.ts
+│   │   ├── claudeStreamParser.test.ts
+│   │   └── phaseRunner.test.ts
 │   ├── adwId.ts        # ADW ID generation
 │   ├── agentState.ts
 │   ├── claudeStreamParser.ts  # Claude JSONL stream parsing
@@ -378,6 +379,7 @@ adws/                   # ADW workflow system
 │   ├── types.ts        # R2 type definitions
 │   ├── uploadService.ts  # File upload logic
 │   └── index.ts
+├── known_issues.md     # Known issues registry
 ├── adwBuild.tsx        # Orchestrators (individual & combined)
 ├── adwChore.tsx        # Chore pipeline with LLM diff gate (auto-merge)
 ├── adwBuildHelpers.ts
@@ -408,13 +410,17 @@ workers/                # Cloudflare Workers
 ├── cost-api/           # Cost data ingestion API (costs.paysdoc.nl, D1-backed)
 │   ├── src/
 │   │   ├── auth.ts         # Bearer token authentication
+│   │   ├── cors.ts         # CORS middleware
 │   │   ├── index.ts        # Worker entry point
 │   │   ├── ingest.ts       # POST /api/cost handler
 │   │   ├── migrations/     # D1 SQL migrations
+│   │   ├── queries.ts      # D1 query helpers
 │   │   ├── schema.sql      # D1 database schema
 │   │   └── types.ts        # Worker type definitions
 │   ├── test/
-│   │   └── ingest.test.ts  # Vitest tests
+│   │   ├── cors.test.ts    # CORS tests
+│   │   ├── ingest.test.ts  # Ingest endpoint tests
+│   │   └── queries.test.ts # Query helper tests
 │   ├── package.json
 │   ├── tsconfig.json
 │   ├── vitest.config.ts
