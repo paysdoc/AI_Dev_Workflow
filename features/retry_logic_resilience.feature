@@ -21,7 +21,7 @@ Feature: Robustness hardening — retry logic, pre-flight checks, and graceful d
     Then the utility throws the last error after 3 attempts
     And all 3 attempts are logged with their attempt number
 
-  @adw-gcisck-robustness-hardening
+  @adw-gcisck-robustness-hardening @adw-643xf3-fix-is-not-mergeable
   Scenario: execWithRetry does not retry on non-transient errors
     Given an execWithRetry utility wrapping execSync
     When a gh CLI command fails with a non-transient error such as "not found"
