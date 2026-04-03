@@ -166,7 +166,7 @@ function formatTokenLimitRecoveryComment(ctx: WorkflowContext): string {
   const continuationNumber = ctx.tokenContinuationNumber ?? 1;
   const usage = ctx.tokenUsage;
   const usageDetails = usage
-    ? `\n**Tokens used:** ${usage.totalTokens.toLocaleString()} / ${usage.maxTokens.toLocaleString()} (${(usage.thresholdPercent * 100).toFixed(0)}% threshold)`
+    ? `\n**Tokens used:** ${usage.totalOutputTokens.toLocaleString()} / ${usage.maxTokens.toLocaleString()} (${(usage.thresholdPercent * 100).toFixed(0)}% threshold)`
     : '';
   return `## :warning: Token Limit Recovery\n\nThe build agent approached the token limit and was gracefully terminated. Spawning a continuation agent to resume implementation.\n\n**Continuation:** #${continuationNumber}${usageDetails}\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
 }

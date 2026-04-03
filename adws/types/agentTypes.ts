@@ -108,7 +108,6 @@ export interface TokenUsageSnapshot {
   readonly totalInputTokens: number;
   readonly totalOutputTokens: number;
   readonly totalCacheCreationTokens: number;
-  readonly totalTokens: number;
   readonly maxTokens: number;
   readonly thresholdPercent: number;
 }
