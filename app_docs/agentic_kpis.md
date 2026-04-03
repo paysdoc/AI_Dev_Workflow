@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value          | Last Updated       |
 | ----------------- | -------------- | ------------------ |
-| Current Streak    | 12             | 2026-04-03 12:22:12|
-| Longest Streak    | 66             | 2026-04-03 12:22:12|
-| Total Plan Size   | 441 lines      | 2026-04-03 12:22:12|
-| Largest Plan Size | 201 lines      | 2026-04-03 12:22:12|
-| Total Diff Size   | 2147306 lines  | 2026-04-03 12:22:12|
-| Largest Diff Size | 418153 lines   | 2026-04-03 12:22:12|
-| Average Presence  | 1.38           | 2026-04-03 12:22:12|
+| Current Streak    | 12             | 2026-04-03 13:11:29|
+| Longest Streak    | 51             | 2026-04-03 13:11:29|
+| Total Plan Size   | 931 lines      | 2026-04-03 13:11:29|
+| Largest Plan Size | 201 lines      | 2026-04-03 13:11:29|
+| Total Diff Size   | 2154529 lines  | 2026-04-03 13:11:29|
+| Largest Diff Size | 418153 lines   | 2026-04-03 13:11:29|
+| Average Presence  | 1.44           | 2026-04-03 13:11:29|
 
 ## ADW KPIs
 
@@ -95,3 +95,5 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-04-02 | cl62as-about-page-rewrite   | 19           | /feature    | 1        | 187               | 757/691/16                      | 2026-04-02 | 2026-04-02 |
 | 2026-04-03 | 643xf3-fix-is-not-mergeable | 377          | /feature    | 1        | 0                 | 809/8/12                        | 2026-04-03 | 2026-04-03 |
 | 2026-04-03 | z16ycm-add-top-level-workfl | 378          | /feature    | 1        | 0                 | 1675/40/14                      | 2026-04-03 | 2026-04-03 |
+| 2026-04-03 | gq51dc-migrate-cron-stage-d | 379          | /feature    | 1        | 0                 | 3850/133/34                     | 2026-04-03 | 2026-04-03 |
+| 2026-04-03 | xngqn4-orchestrators-exit-a | 380          | /feature    | 1        | 0                 | 3124/116/37                     | 2026-04-03 | 2026-04-03 |
