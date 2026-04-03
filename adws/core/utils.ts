@@ -27,6 +27,16 @@ export { parseTargetRepoArgs } from './orchestratorCli';
 // ---------------------------------------------------------------------------
 
 /**
+ * Errors that can never be resolved by retrying the same command.
+ * When execWithRetry catches one of these, it throws immediately without backoff.
+ */
+const NON_RETRYABLE_PATTERNS = [
+  'No commits between',
+  'already exists',
+  'is not mergeable',
+];
+
+/**
  * Executes a shell command with retry logic and exponential backoff.
  * Drop-in synchronous replacement for execSync at gh CLI callsites.
  *
@@ -47,6 +57,11 @@ export function execWithRetry(command: string, options?: ExecSyncOptions & { max
     } catch (error) {
       lastError = error;
       log(`execWithRetry failed (attempt ${attempt + 1}/${maxAttempts}): ${error}`, 'error');
+      const errorMessage = String(error);
+      if (NON_RETRYABLE_PATTERNS.some(pattern => errorMessage.includes(pattern))) {
+        log('execWithRetry: non-retryable error, failing immediately', 'error');
+        throw error;
+      }
       if (attempt < maxAttempts - 1) {
         const backoff = 500 * Math.pow(2, attempt);
         Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, backoff);

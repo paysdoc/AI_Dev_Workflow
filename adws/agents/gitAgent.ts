@@ -203,6 +203,10 @@ export async function runCommitAgent(
     cwd
   );
 
+  if (!result.success) {
+    throw new Error(`Commit agent '${agentName}' failed: ${result.output.slice(0, 200)}`);
+  }
+
   const rawMessage = extractCommitMessageFromOutput(result.output);
   const expectedPrefix = buildCommitPrefix(agentName, issueClass);
   const commitMessage = validateCommitMessage(rawMessage, expectedPrefix);
