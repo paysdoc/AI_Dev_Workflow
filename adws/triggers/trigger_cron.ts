@@ -9,8 +9,8 @@
 
 import { execSync, spawn } from 'child_process';
 import { log, GRACE_PERIOD_MS } from '../core';
-import { getRepoInfo, fetchPRList, hasUnaddressedComments, isClearComment, isAdwComment, activateGitHubAppAuth, refreshTokenIfNeeded } from '../github';
-import { parseWorkflowStageFromComment } from '../core/workflowCommentParsing';
+import { getRepoInfo, fetchPRList, hasUnaddressedComments, isClearComment, activateGitHubAppAuth, refreshTokenIfNeeded } from '../github';
+import { resolveIssueWorkflowStage, isActiveStage, isRetriableStage } from './cronStageResolver';
 
 import { clearIssueComments } from '../adwClearComments';
 import { checkIssueEligibility } from './issueEligibility';
@@ -34,22 +34,6 @@ interface RawIssue {
   updatedAt: string;
 }
 
-/** Workflow stages that mean the issue is re-eligible for processing.
- *  Note: 'paused' is intentionally excluded — paused workflows are handled
- *  exclusively by the pause queue scanner (pauseQueueScanner.ts), not the
- *  backlog sweeper. Including it here would spawn a brand-new workflow from
- *  scratch while the scanner tries to resume the original. */
-const RETRIABLE_STAGES = new Set(['error', 'review_failed', 'build_failed']);
-
-/** Workflow stages that mean the issue is actively in-progress (exclude). */
-const ACTIVE_STAGES = new Set([
-  'starting', 'resuming', 'classified', 'branch_created',
-  'plan_building', 'plan_created', 'planFile_created', 'plan_committing',
-  'plan_validating', 'plan_aligning', 'build_running', 'build_progress',
-  'build_completed', 'build_committing', 'pr_creating',
-  'review_running', 'review_patching', 'test_running', 'test_resolving',
-  'document_running', 'install_running', 'resumed',
-]);
 
 // Resolve repo identity from --target-repo CLI args (or fall back to local git remote).
 const { repoInfo: cronRepoInfo, targetRepo } = resolveCronRepo(process.argv.slice(2), getRepoInfo);
@@ -82,22 +66,6 @@ function buildTargetRepoArgs(): string[] {
   );
 }
 
-/** Returns true if the issue was updated within the grace period. */
-function isWithinGracePeriod(issue: RawIssue, now: number = Date.now()): boolean {
-  const updatedAt = new Date(issue.updatedAt).getTime();
-  return now - updatedAt < GRACE_PERIOD_MS;
-}
-
-/**
- * Returns the current ADW workflow stage for an issue by inspecting its latest ADW comment.
- * Returns null if the issue has no ADW comments.
- */
-function getIssueWorkflowStage(issue: RawIssue): string | null {
-  const adwComments = issue.comments.filter(c => isAdwComment(c.body));
-  if (adwComments.length === 0) return null;
-  const latest = adwComments[adwComments.length - 1];
-  return parseWorkflowStageFromComment(latest.body);
-}
 
 /** Filter result for explaining why an issue was excluded. */
 interface FilterResult {
@@ -110,26 +78,35 @@ function evaluateIssue(issue: RawIssue, now: number): FilterResult {
   if (processedIssues.has(issue.number)) {
     return { eligible: false, reason: 'processed' };
   }
-  if (isWithinGracePeriod(issue, now)) {
+
+  const resolution = resolveIssueWorkflowStage(issue.comments);
+  // Prefer state file phase timestamp; fall back to issue.updatedAt for fresh issues
+  const activityMs = resolution.lastActivityMs ?? new Date(issue.updatedAt).getTime();
+  if (now - activityMs < GRACE_PERIOD_MS) {
     return { eligible: false, reason: 'grace_period' };
   }
 
-  const stage = getIssueWorkflowStage(issue);
+  const { stage } = resolution;
   if (stage === null) {
-    // No ADW comment — fresh issue, eligible
+    // No adw-id in comments, or no state file — fresh issue, eligible
     return { eligible: true };
   }
   if (stage === 'completed') {
     return { eligible: false, reason: 'completed' };
   }
-  if (ACTIVE_STAGES.has(stage)) {
+  // Paused workflows are handled exclusively by the pause queue scanner
+  // (pauseQueueScanner.ts), not the backlog sweeper. Including paused here
+  // would spawn a brand-new workflow while the scanner tries to resume the original.
+  if (stage === 'paused') {
+    return { eligible: false, reason: 'paused' };
+  }
+  if (isActiveStage(stage)) {
     return { eligible: false, reason: 'active' };
   }
-  if (RETRIABLE_STAGES.has(stage)) {
-    // Previously failed/paused — re-evaluate
+  if (isRetriableStage(stage)) {
     return { eligible: true };
   }
-  // Any other ADW stage means in-flight or unknown — exclude
+  // Unknown stage — exclude
   return { eligible: false, reason: `adw_stage:${stage}` };
 }
 

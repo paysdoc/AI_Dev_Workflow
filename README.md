@@ -200,6 +200,8 @@ Docker execution is entirely optional — the test suite runs identically on the
 └── settings.json
 adws/                   # ADW workflow system
 ├── agents/             # Claude Code agent runners
+│   ├── __tests__/      # Vitest unit tests
+│   │   └── gitAgent.test.ts
 │   ├── agentProcessHandler.ts  # Process spawning handler
 │   ├── alignmentAgent.ts  # Single-pass alignment agent
 │   ├── bddScenarioRunner.ts  # BDD scenario execution
@@ -230,7 +232,9 @@ adws/                   # ADW workflow system
 ├── core/               # Configuration and utilities
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── claudeStreamParser.test.ts
-│   │   └── phaseRunner.test.ts
+│   │   ├── execWithRetry.test.ts
+│   │   ├── phaseRunner.test.ts
+│   │   └── topLevelState.test.ts
 │   ├── adwId.ts        # ADW ID generation
 │   ├── agentState.ts
 │   ├── claudeStreamParser.ts  # Claude JSONL stream parsing
