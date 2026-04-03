@@ -18,6 +18,22 @@ Each entry contains:
 
 ---
 
+## dependency-check-fail-open
+
+- **pattern**: `Failed to check state of dependency`
+- **description**: `getIssueState()` throws under API contention (rate limit, CLI contention from rapid issue creation). The catch block in `findOpenDependencies()` silently skipped the dependency, treating it as resolved (fail-open). Combined with webhook catch blocks that spawned workflows on error, this allowed issues with open dependencies to be started prematurely. Observed during issue #381 creation: `Blocked by #379` and `Blocked by #380` (both open) but both webhook and cron started workflows simultaneously because the dependency check failed silently under API contention from 6 issues being created rapidly.
+- **status**: solved
+- **solution**: `findOpenDependencies()` now treats failed `getIssueState()` calls as OPEN (fail-closed) — `openDeps.push(dep)` is called in the catch block. Webhook `issues.opened` and `issue_comment` catch blocks log and return instead of spawning fallback workflows. Cron trigger re-evaluates the issue on its next poll cycle.
+- **fix_attempts**: 1
+- **linked_issues**: #389, #381
+- **first_seen**: 2026-04-03
+- **sample_log**:
+  ```
+  ⚠️ [2026-04-03T12:00:00.000Z] Failed to check state of dependency #379: Error: Command failed: gh issue view 379
+  ⚠️ [2026-04-03T12:00:00.100Z] Failed to check state of dependency #380: Error: Command failed: gh issue view 380
+  (both deps silently skipped → issue #381 started despite open blockers)
+  ```
+
 ## rate-limit-crash
 
 - **pattern**: `You've hit your limit`, `You're out of extra usage`
