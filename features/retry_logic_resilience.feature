@@ -199,14 +199,14 @@ Feature: Robustness hardening — retry logic, pre-flight checks, and graceful d
 
   # ── 7. Empty log directory logging ─────────────────────────────────────
 
-  @adw-gcisck-robustness-hardening @regression
+  @adw-gcisck-robustness-hardening
   Scenario: Auto-merge handler writes skip reason on early return — PR already merged
     Given the auto-merge handler creates a log directory
     When the handler detects the PR is already merged and exits early
     Then a skip_reason.txt file is written to the log directory
     And the file contains the reason "PR already merged"
 
-  @adw-gcisck-robustness-hardening @regression
+  @adw-gcisck-robustness-hardening
   Scenario: Auto-merge handler writes skip reason on early return — worktree failure
     Given the auto-merge handler creates a log directory
     When the handler fails to create a worktree and exits early

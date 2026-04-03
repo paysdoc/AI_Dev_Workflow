@@ -2,16 +2,20 @@
  * Webhook Event Handlers
  *
  * Contains event handler functions extracted from trigger_webhook.ts:
- * - handlePullRequestEvent
+ * - handlePullRequestEvent: handles abandoned PRs (closed without merge)
+ * - handleIssueClosedEvent: cleans up worktrees, branch, and dependencies
  */
 
-import { existsSync } from 'fs';
-import { log, PullRequestWebhookPayload } from '../core';
+import { log, PullRequestWebhookPayload, GRACE_PERIOD_MS } from '../core';
 import type { RepoInfo } from '../github/githubApi';
-import { closeIssue, formatIssueClosureComment } from '../github/githubApi';
-import { removeWorktree } from '../vcs';
-import { deleteRemoteBranch } from '../vcs';
-import { getTargetRepoWorkspacePath } from '../core/targetRepoManager';
+import { closeIssue, fetchIssueCommentsRest } from '../github/issueApi';
+import { removeWorktreesForIssue } from '../vcs/worktreeCleanup';
+import { deleteRemoteBranch } from '../vcs/branchOperations';
+import { AgentStateManager } from '../core/agentState';
+import { findOrchestratorStatePath } from '../core/stateHelpers';
+import { extractLatestAdwId, isActiveStage, getLastActivityFromState } from './cronStageResolver';
+import { closeAbandonedDependents, handleIssueClosedDependencyUnblock } from './webhookGatekeeper';
+import type { AgentState } from '../types/agentTypes';
 
 /**
  * Extracts issue number from a branch name using the "issue-N" pattern.
@@ -19,83 +23,189 @@ import { getTargetRepoWorkspacePath } from '../core/targetRepoManager';
  * Returns null if the pattern does not match or input is falsy.
  */
 export function extractIssueNumberFromBranch(branchName: string | null | undefined): number | null {
-  if (!branchName) {
-    return null;
-  }
+  if (!branchName) return null;
   const match = branchName.match(/issue-(\d+)/);
   return match ? parseInt(match[1], 10) : null;
 }
 
-/**
- * Handles pull_request webhook events.
- * When a PR is closed (merged or not), closes the linked issue.
- */
-export async function handlePullRequestEvent(payload: PullRequestWebhookPayload): Promise<{ status: string; issue?: number }> {
-  const { action, pull_request, repository } = payload;
+// ── Injectable dependencies ────────────────────────────────────────────────
 
+export interface PrClosedDeps {
+  fetchIssueComments: (issueNumber: number, repoInfo: RepoInfo) => { body: string }[];
+  writeTopLevelState: (adwId: string, state: Partial<AgentState>) => void;
+  closeIssue: (issueNumber: number, repoInfo: RepoInfo, comment?: string) => Promise<boolean>;
+}
+
+export interface IssueClosedDeps {
+  fetchIssueComments: (issueNumber: number, repoInfo: RepoInfo) => { body: string }[];
+  readTopLevelState: (adwId: string) => AgentState | null;
+  removeWorktreesForIssue: (issueNumber: number, cwd?: string) => number;
+  findOrchestratorStatePath: (adwId: string) => string | null;
+  readOrchestratorState: (statePath: string) => AgentState | null;
+  deleteRemoteBranch: (branchName: string, cwd?: string) => boolean;
+  closeAbandonedDependents: (closedIssueNumber: number, repoInfo: RepoInfo) => Promise<void>;
+  handleIssueClosedDependencyUnblock: (closedIssueNumber: number, repoInfo: RepoInfo, targetRepoArgs: string[]) => Promise<void>;
+}
+
+function defaultPrClosedDeps(): PrClosedDeps {
+  return {
+    fetchIssueComments: fetchIssueCommentsRest,
+    writeTopLevelState: (adwId, state) => AgentStateManager.writeTopLevelState(adwId, state),
+    closeIssue,
+  };
+}
+
+function defaultIssueClosedDeps(): IssueClosedDeps {
+  return {
+    fetchIssueComments: fetchIssueCommentsRest,
+    readTopLevelState: (adwId) => AgentStateManager.readTopLevelState(adwId),
+    removeWorktreesForIssue,
+    findOrchestratorStatePath,
+    readOrchestratorState: (statePath) => AgentStateManager.readState(statePath),
+    deleteRemoteBranch,
+    closeAbandonedDependents,
+    handleIssueClosedDependencyUnblock,
+  };
+}
+
+// ── PR close handler ────────────────────────────────────────────────────────
+
+/**
+ * Handles pull_request.closed webhook events.
+ * - Merged PRs: ignored (cleanup flows through issues.closed via GitHub auto-close).
+ * - Abandoned PRs (closed without merge): writes 'abandoned' to state and closes the linked issue.
+ */
+export async function handlePullRequestEvent(
+  payload: PullRequestWebhookPayload,
+  deps: PrClosedDeps = defaultPrClosedDeps(),
+): Promise<{ status: string; issue?: number }> {
+  const { action, pull_request, repository } = payload;
   log(`Received pull_request event: action=${action}, PR=#${pull_request.number}, repo=${repository.full_name}`);
 
-  // Only handle closed PRs
   if (action !== 'closed') {
-    log(`Ignored pull_request action: ${action}`);
     return { status: 'ignored' };
   }
 
-  const prNumber = pull_request.number;
-  const prUrl = pull_request.html_url;
-  const wasMerged = pull_request.merged;
-  const headBranch = pull_request.head?.ref;
-  const workspacePath = getTargetRepoWorkspacePath(repository.owner.login, repository.name);
-  const targetCwd = existsSync(workspacePath) ? workspacePath : undefined;
-
-  log(`PR #${prNumber} was ${wasMerged ? 'merged' : 'closed without merging'}`);
-
-  // Clean up worktree for the PR branch
-  if (headBranch) {
-    try {
-      const removed = removeWorktree(headBranch, targetCwd);
-      if (removed) {
-        log(`Cleaned up worktree for branch: ${headBranch}`, 'success');
-      } else {
-        log(`No worktree found for branch: ${headBranch}`, 'info');
-      }
-    } catch (error) {
-      log(`Failed to clean up worktree for branch ${headBranch}: ${error}`, 'error');
-    }
-
-    try {
-      deleteRemoteBranch(headBranch, targetCwd);
-    } catch (error) {
-      log(`Failed to delete remote branch ${headBranch}: ${error}`, 'error');
-    }
+  // Merged PRs: GitHub auto-close fires issues.closed which handles all cleanup
+  if (pull_request.merged) {
+    log(`PR #${pull_request.number} was merged — cleanup flows through issues.closed`);
+    return { status: 'ignored' };
   }
 
-  // Extract issue number from branch name (sole mechanism — branch names are deterministic)
+  // Abandoned PR (closed without merge)
+  const headBranch = pull_request.head?.ref;
   const issueNumber = extractIssueNumberFromBranch(headBranch);
   if (issueNumber === null) {
-    log(`No issue link found in PR #${prNumber} (no \`issue-N\` pattern in branch name: ${headBranch})`);
+    log(`No issue link found in PR #${pull_request.number} (no \`issue-N\` pattern in branch name: ${headBranch})`);
     return { status: 'ignored' };
   }
 
-  log(`Found linked issue #${issueNumber} from branch name: ${headBranch}`);
+  log(`PR #${pull_request.number} abandoned — linked to issue #${issueNumber}`);
+  const repoInfo: RepoInfo = { owner: repository.owner.login, repo: repository.name };
 
-  // Build repo info from the webhook payload so API calls target the correct repo
-  const repoInfo: RepoInfo = {
-    owner: repository.owner.login,
-    repo: repository.name,
-  };
-
-  // Create closure comment
-  const comment = formatIssueClosureComment(prNumber, prUrl, wasMerged);
-
-  // Close the issue
-  const closed = await closeIssue(issueNumber, repoInfo, comment);
-
-  if (closed) {
-    log(`Successfully closed issue #${issueNumber} after PR #${prNumber} was ${wasMerged ? 'merged' : 'closed'}`);
-  } else {
-    log(`Issue #${issueNumber} was already closed or could not be closed`);
+  // Write abandoned state so issues.closed handler sees it and routes to the abandoned path
+  try {
+    const comments = deps.fetchIssueComments(issueNumber, repoInfo);
+    const adwId = extractLatestAdwId(comments);
+    if (adwId) {
+      deps.writeTopLevelState(adwId, { workflowStage: 'abandoned' });
+      log(`Wrote abandoned state for adwId=${adwId}`, 'info');
+    }
+  } catch (error) {
+    log(`Failed to fetch comments/write state for issue #${issueNumber}: ${error}`, 'warn');
   }
 
-  return { status: closed ? 'closed' : 'already_closed', issue: issueNumber };
+  const comment = [
+    '## PR Abandoned',
+    '',
+    `PR #${pull_request.number} was closed without merging.`,
+    '',
+    'This issue is being closed. Reopen this issue and its PR if you want to retry.',
+  ].join('\n');
+
+  const closed = await deps.closeIssue(issueNumber, repoInfo, comment);
+  log(closed ? `Closed issue #${issueNumber} after abandoned PR` : `Issue #${issueNumber} already closed`);
+
+  return { status: 'abandoned', issue: issueNumber };
+}
+
+// ── Issue close handler ─────────────────────────────────────────────────────
+
+export interface IssueClosedResult {
+  status: 'skipped' | 'cleaned';
+  reason?: string;
+  worktreesRemoved: number;
+  branchDeleted: boolean;
+}
+
+/**
+ * Handles issues.closed webhook events.
+ * - Reads workflow state to detect abandoned vs. normal closure.
+ * - Grace period guard: skips cleanup when orchestrator is still actively running.
+ * - Cleans up worktrees and deletes the remote branch.
+ * - Abandoned closure: closes dependent issues with an error comment.
+ * - Normal closure: unblocks dependent issues and spawns their workflows.
+ */
+export async function handleIssueClosedEvent(
+  issueNumber: number,
+  repoInfo: RepoInfo | undefined,
+  cwd: string | undefined,
+  targetRepoArgs: string[] = [],
+  deps: IssueClosedDeps = defaultIssueClosedDeps(),
+): Promise<IssueClosedResult> {
+  let adwId: string | null = null;
+  let workflowStage: string | undefined;
+  let state: AgentState | null = null;
+
+  // Fetch comments and resolve adw-id + state (requires repoInfo)
+  if (repoInfo) {
+    try {
+      const comments = deps.fetchIssueComments(issueNumber, repoInfo);
+      adwId = extractLatestAdwId(comments);
+    } catch (error) {
+      log(`Failed to fetch comments for issue #${issueNumber}: ${error}`, 'warn');
+    }
+  }
+
+  if (adwId) {
+    state = deps.readTopLevelState(adwId);
+    workflowStage = state?.workflowStage;
+
+    // Grace period guard: skip cleanup when orchestrator is actively in progress
+    if (state && workflowStage && isActiveStage(workflowStage)) {
+      const lastActivity = getLastActivityFromState(state);
+      if (lastActivity !== null && Date.now() - lastActivity < GRACE_PERIOD_MS) {
+        log(`Issue #${issueNumber}: skipping cleanup — stage '${workflowStage}' is active within grace period`, 'info');
+        return { status: 'skipped', reason: 'active_within_grace_period', worktreesRemoved: 0, branchDeleted: false };
+      }
+    }
+  }
+
+  // Worktree cleanup
+  const worktreesRemoved = deps.removeWorktreesForIssue(issueNumber, cwd);
+  log(`Removed ${worktreesRemoved} worktree(s) for issue #${issueNumber}`, 'success');
+
+  // Remote branch deletion via orchestrator state
+  let branchDeleted = false;
+  if (adwId && state) {
+    const orchestratorPath = deps.findOrchestratorStatePath(adwId);
+    if (orchestratorPath) {
+      const orchestratorState = deps.readOrchestratorState(orchestratorPath);
+      const branchName = orchestratorState?.branchName;
+      if (branchName) {
+        branchDeleted = deps.deleteRemoteBranch(branchName, cwd);
+      }
+    }
+  }
+
+  // Dependency handling
+  if (repoInfo) {
+    if (workflowStage === 'abandoned') {
+      await deps.closeAbandonedDependents(issueNumber, repoInfo);
+    } else {
+      await deps.handleIssueClosedDependencyUnblock(issueNumber, repoInfo, targetRepoArgs);
+    }
+  }
+
+  return { status: 'cleaned', worktreesRemoved, branchDeleted };
 }

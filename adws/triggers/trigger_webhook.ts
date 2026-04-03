@@ -12,17 +12,15 @@ import * as http from 'http';
 import { log, PullRequestWebhookPayload, allocateRandomPort, isPortAvailable, getTargetRepoWorkspacePath } from '../core';
 import { isActionableComment, isClearComment, isAdwRunningForIssue, truncateText, getRepoInfoFromPayload, getRepoInfo, activateGitHubAppAuth, ensureAppAuthForRepo } from '../github';
 import { clearIssueComments } from '../adwClearComments';
-import { removeWorktreesForIssue } from '../vcs';
-import { handlePullRequestEvent } from './webhookHandlers';
-import { handleApprovedReview } from './autoMergeHandler';
+import { handlePullRequestEvent, handleIssueClosedEvent } from './webhookHandlers';
 import { validateWebhookSignature } from './webhookSignature';
 import { checkIssueEligibility } from './issueEligibility';
-import { spawnDetached, classifyAndSpawnWorkflow, handleIssueClosedDependencyUnblock, ensureCronProcess, logDeferral } from './webhookGatekeeper';
+import { spawnDetached, classifyAndSpawnWorkflow, ensureCronProcess, logDeferral } from './webhookGatekeeper';
 import { checkEnvironmentVariables, checkGitRepository, checkClaudeCodeCLI, checkGitHubCLI, checkDirectoryStructure, type CheckResult } from '../healthCheckChecks';
 
 // Re-export for any external consumers
-export { handlePullRequestEvent, extractIssueNumberFromBranch } from './webhookHandlers';
-export { classifyAndSpawnWorkflow, handleIssueClosedDependencyUnblock, ensureCronProcess } from './webhookGatekeeper';
+export { handlePullRequestEvent, handleIssueClosedEvent, extractIssueNumberFromBranch } from './webhookHandlers';
+export { classifyAndSpawnWorkflow, handleIssueClosedDependencyUnblock, closeAbandonedDependents, ensureCronProcess } from './webhookGatekeeper';
 export { shouldTriggerIssueWorkflow };
 
 const PR_REVIEW_COOLDOWN_MS = 60_000;
@@ -118,15 +116,12 @@ const server = http.createServer((req, res) => {
       const prNumber = (body.pull_request as Record<string, unknown> | undefined)?.number as number | undefined;
       if (prNumber == null) { jsonResponse(res, 200, { status: 'ignored' }); return; }
       if ((body.action as string) !== 'submitted') { jsonResponse(res, 200, { status: 'ignored' }); return; }
-      if (!shouldTriggerPrReview(prNumber)) { jsonResponse(res, 200, { status: 'ignored', reason: 'duplicate' }); return; }
       const reviewState = ((body.review as Record<string, unknown> | undefined)?.state as string | undefined) || '';
-      if (reviewState === 'approved') {
-        handleApprovedReview(body).catch((error) => log(`Auto-merge error for PR #${prNumber}: ${error}`, 'error'));
-        jsonResponse(res, 200, { status: 'auto_merge_triggered', pr: prNumber });
-      } else {
-        spawnDetached('bunx', ['tsx', 'adws/adwPrReview.tsx', String(prNumber), ...extractTargetRepoArgs(body)]);
-        jsonResponse(res, 200, { status: 'triggered', pr: prNumber });
-      }
+      // Approved reviews are no-ops: merge is handled by cron + adwMerge.tsx
+      if (reviewState === 'approved') { jsonResponse(res, 200, { status: 'ignored' }); return; }
+      if (!shouldTriggerPrReview(prNumber)) { jsonResponse(res, 200, { status: 'ignored', reason: 'duplicate' }); return; }
+      spawnDetached('bunx', ['tsx', 'adws/adwPrReview.tsx', String(prNumber), ...extractTargetRepoArgs(body)]);
+      jsonResponse(res, 200, { status: 'triggered', pr: prNumber });
       return;
     }
 
@@ -190,11 +185,11 @@ const server = http.createServer((req, res) => {
       const closedTargetRepoArgs = extractTargetRepoArgs(body);
       const parts = (closedTargetRepoArgs.length >= 2 ? closedTargetRepoArgs[1] : undefined)?.split('/');
       const cwd = parts?.length === 2 ? getTargetRepoWorkspacePath(parts[0], parts[1]) : undefined;
-      const removed = removeWorktreesForIssue(issueNumber, cwd);
-      log(`Removed ${removed} worktree(s) for issue #${issueNumber}`, 'success');
       const closedRepoInfo = closedRepoFullName ? getRepoInfoFromPayload(closedRepoFullName) : undefined;
-      if (closedRepoInfo) handleIssueClosedDependencyUnblock(issueNumber, closedRepoInfo, closedTargetRepoArgs).catch((e) => log(`Dependency unblock failed: ${e}`, 'error'));
-      jsonResponse(res, 200, { status: 'worktrees_cleaned', issue: issueNumber, removed });
+      handleIssueClosedEvent(issueNumber, closedRepoInfo, cwd, closedTargetRepoArgs)
+        .then((result) => log(`Issue #${issueNumber} closed: worktrees=${result.worktreesRemoved}, branch=${result.branchDeleted}, status=${result.status}`))
+        .catch((e) => log(`Issue close handler failed for #${issueNumber}: ${e}`, 'error'));
+      jsonResponse(res, 200, { status: 'processing', issue: issueNumber });
       return;
     }
 
