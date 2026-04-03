@@ -44,7 +44,7 @@ Feature: Cron Trigger Issue Re-evaluation and Improvements
     When the cron trigger evaluates eligibility
     Then the issue is not eligible for re-processing
 
-  @adw-chpy1a-orchestrator-refacto @regression
+  @adw-chpy1a-orchestrator-refacto @adw-fequcj-fix-fail-open-depend @regression
   Scenario: Dependency-deferred issues are not added to processedIssues
     Given an issue that is deferred because its dependencies are still open
     When the cron trigger skips the issue

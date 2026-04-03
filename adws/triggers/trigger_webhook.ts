@@ -157,7 +157,7 @@ const server = http.createServer((req, res) => {
           await classifyAndSpawnWorkflow(issueNumber, webhookRepoInfo, commentTargetRepoArgs);
         })
         .catch((error) => {
-          log(`Error handling comment on issue #${issueNumber}: ${error}`, 'error');
+          log(`Error handling comment on issue #${issueNumber}: ${error}. Cron will retry.`, 'error');
         });
       jsonResponse(res, 200, { status: 'processing', issue: issueNumber });
       return;
@@ -210,7 +210,7 @@ const server = http.createServer((req, res) => {
           }
           await classifyAndSpawnWorkflow(issueNumber, issueRepoInfo, issueTargetRepoArgs);
         } catch (error) {
-          log(`Error processing issue #${issueNumber}: ${error}`, 'error');
+          log(`Error processing issue #${issueNumber}: ${error}. Cron will retry.`, 'error');
         }
       })();
       jsonResponse(res, 200, { status: 'processing', issue: issueNumber });

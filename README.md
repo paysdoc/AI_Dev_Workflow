@@ -370,7 +370,7 @@ adws/                   # ADW workflow system
 │   ├── autoMergeHandler.ts  # Auto-merge approved PRs
 │   ├── cloudflareTunnel.tsx  # Cloudflare tunnel for webhooks
 │   ├── concurrencyGuard.ts
-│   ├── cronIssueFilter.ts  # Issue filtering logic for cron trigger
+│   ├── cronIssueFilter.ts  # Cron issue evaluation and filtering logic (testable, extracted from trigger_cron)
 │   ├── cronProcessGuard.ts  # Duplicate cron process prevention
 │   ├── cronRepoResolver.ts  # Cron repo identity resolution (testable, extracted from trigger_cron)
 │   ├── cronStageResolver.ts  # Cron stage resolution from top-level state file (testable)

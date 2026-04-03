@@ -717,3 +717,11 @@
     - When implementing or changing the grace period guard for active orchestrators in `handleIssueClosedEvent()`
     - When working with `closeAbandonedDependents()` in `adws/triggers/webhookGatekeeper.ts`
     - When wondering why `handleApprovedReview()` is absent from `autoMergeHandler.ts` (removed in this feature)
+
+- app_docs/feature-fequcj-fix-fail-open-dependency-check.md
+  - Conditions:
+    - When working with `findOpenDependencies()` in `adws/triggers/issueDependencies.ts`
+    - When modifying error handling in `trigger_webhook.ts` (`issues.opened` or `issue_comment` handlers)
+    - When troubleshooting issues with open dependencies being started prematurely or duplicate orchestrators
+    - When the GitHub API is under contention and dependency checks may fail silently
+    - When adding new catch blocks in webhook handlers that involve eligibility checks
