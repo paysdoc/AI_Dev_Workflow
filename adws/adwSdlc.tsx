@@ -12,9 +12,9 @@
  * 5. Test Phase: optionally run unit tests (unit only)
  * 6. Review Phase: review implementation + run BDD scenarios, patch blockers, retry
  * 7. Document Phase: generate feature documentation (includes review screenshots)
- * 8. PR Phase: create pull request (only after review passes)
- * 9. KPI Phase: track agentic KPIs (non-fatal)
- * 10. AutoMerge Phase: approve and merge the PR (non-fatal)
+ * 8. KPI Phase: track agentic KPIs (non-fatal, worktree-dependent — runs before PR)
+ * 9. PR Phase: create pull request (only after review passes)
+ * 10. Approve PR + write awaiting_merge to state (API calls only — no worktree required)
  * 11. Finalize: update state, post completion comment
  *
  * Environment Requirements:
@@ -26,7 +26,7 @@
  */
 
 import * as path from 'path';
-import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId } from './core';
+import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId, AgentStateManager, log } from './core';
 import { CostTracker, runPhase, runPhasesParallel } from './core/phaseRunner';
 import {
   initializeWorkflow,
@@ -40,11 +40,12 @@ import {
   executeReviewPhase,
   executeDocumentPhase,
   executeKpiPhase,
-  executeAutoMergePhase,
   completeWorkflow,
   handleWorkflowError,
 } from './workflowPhases';
 import type { WorkflowConfig } from './phases';
+import { approvePR, isGitHubAppConfigured, issueHasLabel, commentOnIssue, type RepoInfo } from './github';
+import { extractPrNumber } from './adwBuildHelpers';
 
 /**
  * Derives the review screenshots directory from the review result.
@@ -89,14 +90,32 @@ async function main(): Promise<void> {
       executeDocumentPhase(cfg, screenshotsDir);
     await runPhase(config, tracker, executeDocumentWithScreenshots);
 
-    await runPhase(config, tracker, executePRPhase);
-
     // KPI phase takes an extra argument: bind reviewRetries via wrapper.
+    // Runs before PR because it does git commit/push (worktree-dependent).
     const executeKpiWithRetries = (cfg: WorkflowConfig) =>
       executeKpiPhase(cfg, reviewResult.totalRetries);
     await runPhase(config, tracker, executeKpiWithRetries);
 
-    await runPhase(config, tracker, executeAutoMergePhase);
+    await runPhase(config, tracker, executePRPhase);
+
+    // Post-PR: approve and write awaiting_merge (API calls only — no worktree required).
+    const prNumber = extractPrNumber(config.ctx.prUrl);
+    const owner = config.repoContext?.repoId.owner ?? '';
+    const repo = config.repoContext?.repoId.repo ?? '';
+    if (prNumber && owner && repo) {
+      const repoInfo: RepoInfo = { owner, repo };
+      if (issueHasLabel(issueNumber, 'hitl', repoInfo)) {
+        log(`hitl label detected on issue #${issueNumber}, skipping auto-approval`, 'info');
+        commentOnIssue(issueNumber, `## ✋ Awaiting human approval — PR #${prNumber} ready for review`, repoInfo);
+      } else if (isGitHubAppConfigured()) {
+        log(`Approving PR #${prNumber} with personal gh auth login identity...`, 'info');
+        const approveResult = approvePR(prNumber, repoInfo);
+        if (!approveResult.success) log(`PR approval failed (non-fatal): ${approveResult.error}`, 'warn');
+      } else {
+        log('No GitHub App configured — skipping PR approval', 'info');
+      }
+    }
+    AgentStateManager.writeTopLevelState(config.adwId, { workflowStage: 'awaiting_merge' });
 
     await completeWorkflow(config, tracker.totalCostUsd, {
       unitTestsPassed: testResult.unitTestsPassed,

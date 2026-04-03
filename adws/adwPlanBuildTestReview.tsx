@@ -15,7 +15,7 @@
  * 5. Test Phase: optionally run unit tests (unit only)
  * 6. Review Phase: review implementation + run BDD scenarios, patch blockers, retry
  * 7. PR Phase: create pull request (only after review passes)
- * 8. AutoMerge Phase: approve and merge the PR (non-fatal)
+ * 8. Approve PR + write awaiting_merge to state (API calls only — no worktree required)
  * 9. Finalize: update state, post completion comment
  *
  * Environment Requirements:
@@ -26,7 +26,7 @@
  * - MAX_REVIEW_RETRY_ATTEMPTS: Maximum retry attempts for review-patch loop (default: 3)
  */
 
-import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId } from './core';
+import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId, AgentStateManager, log } from './core';
 import { CostTracker, runPhase, runPhasesParallel } from './core/phaseRunner';
 import {
   initializeWorkflow,
@@ -38,10 +38,11 @@ import {
   executeTestPhase,
   executePRPhase,
   executeReviewPhase,
-  executeAutoMergePhase,
   completeWorkflow,
   handleWorkflowError,
 } from './workflowPhases';
+import { approvePR, isGitHubAppConfigured, issueHasLabel, commentOnIssue, type RepoInfo } from './github';
+import { extractPrNumber } from './adwBuildHelpers';
 
 
 /**
@@ -73,7 +74,25 @@ async function main(): Promise<void> {
     const testResult = await runPhase(config, tracker, executeTestPhase);
     const reviewResult = await runPhase(config, tracker, executeReviewPhase);
     await runPhase(config, tracker, executePRPhase);
-    await runPhase(config, tracker, executeAutoMergePhase);
+
+    // Post-PR: approve and write awaiting_merge (API calls only — no worktree required).
+    const prNumber = extractPrNumber(config.ctx.prUrl);
+    const owner = config.repoContext?.repoId.owner ?? '';
+    const repo = config.repoContext?.repoId.repo ?? '';
+    if (prNumber && owner && repo) {
+      const repoInfo: RepoInfo = { owner, repo };
+      if (issueHasLabel(issueNumber, 'hitl', repoInfo)) {
+        log(`hitl label detected on issue #${issueNumber}, skipping auto-approval`, 'info');
+        commentOnIssue(issueNumber, `## ✋ Awaiting human approval — PR #${prNumber} ready for review`, repoInfo);
+      } else if (isGitHubAppConfigured()) {
+        log(`Approving PR #${prNumber} with personal gh auth login identity...`, 'info');
+        const approveResult = approvePR(prNumber, repoInfo);
+        if (!approveResult.success) log(`PR approval failed (non-fatal): ${approveResult.error}`, 'warn');
+      } else {
+        log('No GitHub App configured — skipping PR approval', 'info');
+      }
+    }
+    AgentStateManager.writeTopLevelState(config.adwId, { workflowStage: 'awaiting_merge' });
 
     await completeWorkflow(config, tracker.totalCostUsd, {
       unitTestsPassed: testResult.unitTestsPassed,

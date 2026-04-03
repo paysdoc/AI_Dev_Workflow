@@ -119,8 +119,8 @@ Feature: Build agent routing and orchestrator pipeline restructure
       | test               |
       | review             |
       | document           |
-      | pr                 |
       | kpi                |
+      | pr                 |
     And executeStepDefPhase is not called
     And executePlanValidationPhase is not called
 
