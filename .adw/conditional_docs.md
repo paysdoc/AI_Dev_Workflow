@@ -684,3 +684,11 @@
     - When configuring CORS for the cost-api Worker (`ALLOWED_ORIGINS` env var)
     - When troubleshooting 404 responses for project ID lookups or phase ordering in cost issues
     - When adding new read endpoints to the cost-api Worker
+
+- app_docs/feature-xngqn4-orchestrators-awaiting-merge-handoff.md
+  - Conditions:
+    - When working with orchestrator phase ordering in `adwSdlc.tsx`, `adwChore.tsx`, `adwPlanBuildReview.tsx`, or `adwPlanBuildTestReview.tsx`
+    - When implementing `adwMerge.tsx` or any merge handler that consumes the `awaiting_merge` workflow stage
+    - When adding a new orchestrator that should follow the post-PR handoff pattern
+    - When troubleshooting why a PR was approved but not merged (orchestrator now exits at `awaiting_merge`)
+    - When working with `WorkflowStage` values or top-level state file lifecycle transitions
