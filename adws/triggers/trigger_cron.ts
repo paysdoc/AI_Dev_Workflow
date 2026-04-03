@@ -10,14 +10,15 @@
 import { execSync, spawn } from 'child_process';
 import { log, GRACE_PERIOD_MS } from '../core';
 import { getRepoInfo, fetchPRList, hasUnaddressedComments, isClearComment, activateGitHubAppAuth, refreshTokenIfNeeded } from '../github';
-import { resolveIssueWorkflowStage, isActiveStage, isRetriableStage } from './cronStageResolver';
 
+import { resolveIssueWorkflowStage } from './cronStageResolver';
 import { clearIssueComments } from '../adwClearComments';
 import { checkIssueEligibility } from './issueEligibility';
 import { classifyAndSpawnWorkflow } from './webhookGatekeeper';
 import { registerAndGuard } from './cronProcessGuard';
 import { scanPauseQueue } from './pauseQueueScanner';
 import { resolveCronRepo, buildCronTargetRepoArgs } from './cronRepoResolver';
+import { filterEligibleIssues } from './cronIssueFilter';
 
 const POLL_INTERVAL_MS = 20_000;
 const PR_POLL_INTERVAL_MS = 60_000;
@@ -66,75 +67,6 @@ function buildTargetRepoArgs(): string[] {
   );
 }
 
-
-/** Filter result for explaining why an issue was excluded. */
-interface FilterResult {
-  eligible: boolean;
-  reason?: string;
-}
-
-/** Determines if an issue should be processed by the cron backlog sweeper. */
-function evaluateIssue(issue: RawIssue, now: number): FilterResult {
-  if (processedIssues.has(issue.number)) {
-    return { eligible: false, reason: 'processed' };
-  }
-
-  const resolution = resolveIssueWorkflowStage(issue.comments);
-  // Prefer state file phase timestamp; fall back to issue.updatedAt for fresh issues
-  const activityMs = resolution.lastActivityMs ?? new Date(issue.updatedAt).getTime();
-  if (now - activityMs < GRACE_PERIOD_MS) {
-    return { eligible: false, reason: 'grace_period' };
-  }
-
-  const { stage } = resolution;
-  if (stage === null) {
-    // No adw-id in comments, or no state file — fresh issue, eligible
-    return { eligible: true };
-  }
-  if (stage === 'completed') {
-    return { eligible: false, reason: 'completed' };
-  }
-  // Paused workflows are handled exclusively by the pause queue scanner
-  // (pauseQueueScanner.ts), not the backlog sweeper. Including paused here
-  // would spawn a brand-new workflow while the scanner tries to resume the original.
-  if (stage === 'paused') {
-    return { eligible: false, reason: 'paused' };
-  }
-  if (isActiveStage(stage)) {
-    return { eligible: false, reason: 'active' };
-  }
-  if (isRetriableStage(stage)) {
-    return { eligible: true };
-  }
-  // Unknown stage — exclude
-  return { eligible: false, reason: `adw_stage:${stage}` };
-}
-
-/**
- * Filters and sorts issues for backlog sweep processing.
- * Returns eligible issues sorted oldest-first.
- * Builds an annotation map of excluded issues for verbose logging.
- */
-function filterEligibleIssues(
-  issues: RawIssue[],
-  now: number = Date.now(),
-): { eligible: RawIssue[]; filteredAnnotations: string[] } {
-  const eligible: RawIssue[] = [];
-  const filteredAnnotations: string[] = [];
-
-  for (const issue of issues) {
-    const result = evaluateIssue(issue, now);
-    if (result.eligible) {
-      eligible.push(issue);
-    } else {
-      filteredAnnotations.push(`#${issue.number}(${result.reason})`);
-    }
-  }
-
-  eligible.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-  return { eligible, filteredAnnotations };
-}
-
 /** Checks for eligible issues and triggers ADW workflows for each. */
 async function checkAndTrigger(): Promise<void> {
   cycleCount += 1;
@@ -144,17 +76,32 @@ async function checkAndTrigger(): Promise<void> {
 
   const now = Date.now();
   const issues = fetchOpenIssues();
-  const { eligible: candidates, filteredAnnotations } = filterEligibleIssues(issues, now);
+  const { eligible: candidates, filteredAnnotations } = filterEligibleIssues(issues, now, processedIssues, GRACE_PERIOD_MS, resolveIssueWorkflowStage);
 
-  const candidateList = candidates.map(i => `#${i.number}`).join(', ') || 'none';
+  const candidateList = candidates.map(c => `#${c.issue.number}`).join(', ') || 'none';
   const filteredList = filteredAnnotations.join(', ') || 'none';
   log(`POLL: ${issues.length} open, ${candidates.length} candidate(s) [${candidateList}], filtered: ${filteredList}`);
 
   const repoInfo = cronRepoInfo;
   const targetRepoArgs = buildTargetRepoArgs();
 
-  for (const issue of candidates) {
-    // Check eligibility (dependencies + concurrency)
+  for (const candidate of candidates) {
+    const { issue, action, adwId } = candidate;
+
+    // awaiting_merge: spawn merge orchestrator directly, skipping dependency/concurrency checks
+    if (action === 'merge' && adwId) {
+      processedIssues.add(issue.number);
+      log(`Spawning merge orchestrator for issue #${issue.number} adwId=${adwId}`, 'success');
+      const child = spawn(
+        'bunx',
+        ['tsx', 'adws/adwMerge.tsx', String(issue.number), adwId, ...targetRepoArgs],
+        { detached: true, stdio: 'ignore' },
+      );
+      child.unref();
+      continue;
+    }
+
+    // Standard spawn path: check eligibility (dependencies + concurrency)
     const eligibility = await checkIssueEligibility(issue.number, issue.body || '', repoInfo);
     if (!eligibility.eligible) {
       if (eligibility.reason === 'open_dependencies') {

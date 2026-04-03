@@ -1,0 +1,131 @@
+/**
+ * Cron issue evaluation and filtering logic.
+ *
+ * Extracted from trigger_cron.ts so the logic is testable without triggering
+ * the cron's module-level side effects (setInterval, process guard).
+ *
+ * Evaluates whether a given issue should be processed, and if so, determines
+ * the action to take ('spawn' a new workflow or 'merge' an awaiting_merge PR).
+ */
+
+import { isActiveStage, isRetriableStage, resolveIssueWorkflowStage } from './cronStageResolver';
+import type { StageResolution } from './cronStageResolver';
+
+/** Minimal issue shape required for evaluation. */
+export interface CronIssue {
+  readonly number: number;
+  readonly body?: string;
+  readonly comments: { body: string }[];
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+/** Result of evaluating a single issue. */
+export interface FilterResult {
+  readonly eligible: boolean;
+  readonly reason?: string;
+  /** 'merge' for awaiting_merge issues; 'spawn' for all standard-eligible issues. */
+  readonly action?: 'spawn' | 'merge';
+  /** The adw-id associated with the issue (set for awaiting_merge issues). */
+  readonly adwId?: string;
+}
+
+/** Eligible issue enriched with cron action metadata. */
+export interface EligibleIssue {
+  readonly issue: CronIssue;
+  readonly action: 'spawn' | 'merge';
+  readonly adwId?: string;
+}
+
+/**
+ * Determines if an issue should be processed by the cron backlog sweeper.
+ *
+ * `awaiting_merge` bypasses the grace period entirely — the original orchestrator
+ * has already exited and there is no race condition risk.
+ *
+ * @param issue           - The issue to evaluate
+ * @param now             - Current timestamp in ms
+ * @param processedIssues - Set of issue numbers already queued this cycle
+ * @param gracePeriodMs   - Minimum ms of inactivity before a fresh issue is eligible
+ * @param resolveStage    - Injectable stage resolver (defaults to the real implementation)
+ */
+export function evaluateIssue(
+  issue: CronIssue,
+  now: number,
+  processedIssues: ReadonlySet<number>,
+  gracePeriodMs: number,
+  resolveStage: (comments: { body: string }[]) => StageResolution = resolveIssueWorkflowStage,
+): FilterResult {
+  if (processedIssues.has(issue.number)) {
+    return { eligible: false, reason: 'processed' };
+  }
+
+  const resolution = resolveStage(issue.comments);
+
+  // awaiting_merge bypasses grace period — spawn merge orchestrator immediately
+  if (resolution.stage === 'awaiting_merge') {
+    if (!resolution.adwId) {
+      return { eligible: false, reason: 'awaiting_merge_no_adwid' };
+    }
+    return { eligible: true, action: 'merge', adwId: resolution.adwId };
+  }
+
+  // Prefer state file phase timestamp; fall back to issue.updatedAt for fresh issues
+  const activityMs = resolution.lastActivityMs ?? new Date(issue.updatedAt).getTime();
+  if (now - activityMs < gracePeriodMs) {
+    return { eligible: false, reason: 'grace_period' };
+  }
+
+  const { stage } = resolution;
+  if (stage === null) {
+    // No adw-id in comments, or no state file — fresh issue, eligible
+    return { eligible: true, action: 'spawn' };
+  }
+  if (stage === 'completed') {
+    return { eligible: false, reason: 'completed' };
+  }
+  // Paused workflows are handled exclusively by the pause queue scanner
+  if (stage === 'paused') {
+    return { eligible: false, reason: 'paused' };
+  }
+  if (isActiveStage(stage)) {
+    return { eligible: false, reason: 'active' };
+  }
+  if (isRetriableStage(stage)) {
+    return { eligible: true, action: 'spawn' };
+  }
+  // Unknown stage — exclude
+  return { eligible: false, reason: `adw_stage:${stage}` };
+}
+
+/**
+ * Filters and sorts issues for backlog sweep processing.
+ * Returns eligible issues (with action metadata) sorted oldest-first.
+ * Builds an annotation list of excluded issues for verbose logging.
+ */
+export function filterEligibleIssues(
+  issues: readonly CronIssue[],
+  now: number,
+  processedIssues: ReadonlySet<number>,
+  gracePeriodMs: number,
+  resolveStage?: (comments: { body: string }[]) => StageResolution,
+): { eligible: EligibleIssue[]; filteredAnnotations: string[] } {
+  const eligible: EligibleIssue[] = [];
+  const filteredAnnotations: string[] = [];
+
+  for (const issue of issues) {
+    const result = evaluateIssue(issue, now, processedIssues, gracePeriodMs, resolveStage);
+    if (result.eligible) {
+      eligible.push({
+        issue,
+        action: result.action ?? 'spawn',
+        adwId: result.adwId,
+      });
+    } else {
+      filteredAnnotations.push(`#${issue.number}(${result.reason})`);
+    }
+  }
+
+  eligible.sort((a, b) => new Date(a.issue.createdAt).getTime() - new Date(b.issue.createdAt).getTime());
+  return { eligible, filteredAnnotations };
+}
