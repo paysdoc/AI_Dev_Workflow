@@ -19,13 +19,13 @@ Feature: Cron Trigger Issue Re-evaluation and Improvements
     Given the file "adws/triggers/trigger_cron.ts" is read
     Then eligible issue filtering does not use hasAdwWorkflowComment as a blanket exclusion
 
-  @adw-chpy1a-orchestrator-refacto @regression
+  @adw-chpy1a-orchestrator-refacto
   Scenario: Cron checks latest ADW comment status for re-eligibility
     Given an issue with multiple ADW workflow comments
     When the cron trigger evaluates the issue
     Then it inspects the status of the most recent ADW comment
 
-  @adw-chpy1a-orchestrator-refacto @regression
+  @adw-chpy1a-orchestrator-refacto
   Scenario Outline: Issue with latest status "<status>" is re-eligible
     Given an issue whose latest ADW comment indicates status "<status>"
     When the cron trigger evaluates eligibility
@@ -38,7 +38,7 @@ Feature: Cron Trigger Issue Re-evaluation and Improvements
       | review_failed  |
       | build_failed   |
 
-  @adw-chpy1a-orchestrator-refacto @regression
+  @adw-chpy1a-orchestrator-refacto
   Scenario: Completed issues are excluded from re-evaluation
     Given an issue whose latest ADW comment indicates status "completed"
     When the cron trigger evaluates eligibility
