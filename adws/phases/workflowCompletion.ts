@@ -19,6 +19,7 @@ import { postIssueStageComment } from './phaseCommentHelpers';
 import { BoardStatus } from '../providers/types';
 import { uploadToR2 } from '../r2';
 import { appendToPauseQueue } from '../core/pauseQueue';
+import { deriveOrchestratorScript } from '../core/orchestratorLib';
 
 /**
  * Completes the workflow: writes final state, posts completion comment, prints banner.
@@ -49,6 +50,7 @@ export async function completeWorkflow(
     ),
     metadata: { totalCostUsd, ...additionalMetadata },
   });
+  AgentStateManager.writeTopLevelState(config.adwId, { workflowStage: 'completed' });
   AgentStateManager.appendLog(orchestratorStatePath, 'Workflow completed successfully');
 
   if (repoContext) {
@@ -228,29 +230,6 @@ export async function executeReviewPhase(config: WorkflowConfig): Promise<{
 }
 
 /**
- * Derives the orchestrator script path from the orchestratorName identifier.
- * Assumes scripts live at adws/{camelCase}.tsx.
- */
-function deriveOrchestratorScript(orchestratorName: string): string {
-  // e.g. 'sdlc-orchestrator' → 'adwSdlc', 'plan-build-orchestrator' → 'adwPlanBuild'
-  const nameMap: Record<string, string> = {
-    'sdlc-orchestrator': 'adwSdlc',
-    'plan-orchestrator': 'adwPlan',
-    'chore-orchestrator': 'adwChore',
-    'plan-build-orchestrator': 'adwPlanBuild',
-    'plan-build-test-orchestrator': 'adwPlanBuild',
-    'plan-build-review-orchestrator': 'adwPlanBuildReview',
-    'plan-build-test-review-orchestrator': 'adwPlanBuildTestReview',
-    'plan-build-document-orchestrator': 'adwPlanBuildDocument',
-    'build-orchestrator': 'adwBuild',
-    'patch-orchestrator': 'adwPatch',
-    'test-orchestrator': 'adwTest',
-    'pr-review-orchestrator': 'adwPrReview',
-  };
-  return `adws/${nameMap[orchestratorName] ?? 'adwSdlc'}.tsx`;
-}
-
-/**
  * Pauses the workflow: records completed phases, enqueues for probe/resume, posts comment, exits 0.
  * Called by runPhase() when a RateLimitError is caught.
  */
@@ -284,6 +263,8 @@ export function handleRateLimitPause(
     },
   });
   AgentStateManager.appendLog(orchestratorStatePath, `Workflow paused at phase '${pausedAtPhase}': ${pauseReason}`);
+
+  AgentStateManager.writeTopLevelState(adwId, { workflowStage: 'paused' });
 
   // Enqueue for probe + resume
   appendToPauseQueue({
@@ -342,6 +323,7 @@ export function handleWorkflowError(
       String(error)
     ),
   });
+  AgentStateManager.writeTopLevelState(config.adwId, { workflowStage: 'abandoned' });
   AgentStateManager.appendLog(orchestratorStatePath, `${orchestratorName} workflow failed: ${error}`);
 
   log(`${orchestratorName} workflow failed: ${error}`, 'error');

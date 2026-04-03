@@ -379,6 +379,7 @@ adws/                   # ADW workflow system
 │   ├── types.ts        # R2 type definitions
 │   ├── uploadService.ts  # File upload logic
 │   └── index.ts
+├── known_issues.md     # Known issues registry
 ├── adwBuild.tsx        # Orchestrators (individual & combined)
 ├── adwChore.tsx        # Chore pipeline with LLM diff gate (auto-merge)
 ├── adwBuildHelpers.ts
@@ -419,7 +420,7 @@ workers/                # Cloudflare Workers
 │   │   └── types.ts        # Worker type definitions
 │   ├── test/
 │   │   ├── cors.test.ts    # CORS middleware tests
-│   │   ├── ingest.test.ts  # Vitest tests
+│   │   ├── ingest.test.ts  # Ingest endpoint tests
 │   │   └── queries.test.ts # D1 query tests
 │   ├── package.json
 │   ├── tsconfig.json

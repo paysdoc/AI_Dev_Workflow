@@ -12,7 +12,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { AGENTS_STATE_DIR } from './config';
-import { AgentIdentifier, AgentState } from '../types/agentTypes';
+import { AgentIdentifier, AgentState, PhaseExecutionState } from '../types/agentTypes';
 import {
   isProcessAlive as _isProcessAlive,
   createExecutionState as _createExecutionState,
@@ -235,6 +235,74 @@ export class AgentStateManager {
   static stateExists(statePath: string): boolean {
     const stateFile = path.join(statePath, STATE_FILE);
     return fs.existsSync(stateFile);
+  }
+
+  /**
+   * Returns the path to the top-level workflow state file.
+   * This file is distinct from per-agent state files.
+   *
+   * @param adwId - The ADW session identifier
+   * @returns Path to agents/{adwId}/state.json
+   */
+  static getTopLevelStatePath(adwId: string): string {
+    return path.join(AGENTS_STATE_DIR, adwId, STATE_FILE);
+  }
+
+  /**
+   * Reads the top-level workflow state file.
+   *
+   * @param adwId - The ADW session identifier
+   * @returns The parsed state, or null if not found or unreadable
+   */
+  static readTopLevelState(adwId: string): AgentState | null {
+    const filePath = AgentStateManager.getTopLevelStatePath(adwId);
+    try {
+      if (!fs.existsSync(filePath)) return null;
+      return JSON.parse(fs.readFileSync(filePath, 'utf-8')) as AgentState;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Writes (merges) state into the top-level workflow state file at agents/{adwId}/state.json.
+   * Shallow-merges top-level fields; deep-merges the `phases` map so individual phase
+   * entries are updated without clobbering sibling phase entries.
+   *
+   * @param adwId - The ADW session identifier
+   * @param state - Partial state to merge in
+   */
+  static writeTopLevelState(adwId: string, state: Partial<AgentState>): void {
+    const filePath = AgentStateManager.getTopLevelStatePath(adwId);
+    const dir = path.dirname(filePath);
+
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+
+    let existing: Partial<AgentState> = {};
+    try {
+      if (fs.existsSync(filePath)) {
+        existing = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+      }
+    } catch {
+      existing = {};
+    }
+
+    const merged: Partial<AgentState> = { ...existing, ...state };
+
+    // Deep-merge phases: preserve existing phase entries, update individual entries
+    if (state.phases !== undefined) {
+      const existingPhases = (existing.phases ?? {}) as Record<string, PhaseExecutionState>;
+      const newPhases = state.phases as Record<string, PhaseExecutionState>;
+      const mergedPhases: Record<string, PhaseExecutionState> = { ...existingPhases };
+      for (const [name, entry] of Object.entries(newPhases)) {
+        mergedPhases[name] = { ...(existingPhases[name] ?? {} as PhaseExecutionState), ...entry };
+      }
+      merged.phases = mergedPhases;
+    }
+
+    fs.writeFileSync(filePath, JSON.stringify(merged, null, 2), 'utf-8');
   }
 
   // Delegate to standalone functions from stateHelpers.ts

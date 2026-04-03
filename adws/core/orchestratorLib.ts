@@ -53,3 +53,26 @@ export function getNextStage(lastCompletedStage: WorkflowStage): WorkflowStage {
   }
   return STAGE_ORDER[index + 1];
 }
+
+/**
+ * Derives the orchestrator script path from the orchestratorName identifier.
+ * Assumes scripts live at adws/{camelCase}.tsx.
+ */
+export function deriveOrchestratorScript(orchestratorName: string): string {
+  const nameMap: Record<string, string> = {
+    'sdlc-orchestrator': 'adwSdlc',
+    'plan-orchestrator': 'adwPlan',
+    'chore-orchestrator': 'adwChore',
+    'plan-build-orchestrator': 'adwPlanBuild',
+    'plan-build-test-orchestrator': 'adwPlanBuild',
+    'plan-build-review-orchestrator': 'adwPlanBuildReview',
+    'plan-build-test-review-orchestrator': 'adwPlanBuildTestReview',
+    'plan-build-document-orchestrator': 'adwPlanBuildDocument',
+    'build-orchestrator': 'adwBuild',
+    'patch-orchestrator': 'adwPatch',
+    'test-orchestrator': 'adwTest',
+    'pr-review-orchestrator': 'adwPrReview',
+    'feature-orchestrator': 'adwSdlc',
+  };
+  return `adws/${nameMap[orchestratorName] ?? 'adwSdlc'}.tsx`;
+}

@@ -180,6 +180,20 @@ export interface AgentExecutionState {
 }
 
 /**
+ * Execution state for a single workflow phase.
+ * Stored in the top-level state file's `phases` map.
+ */
+export interface PhaseExecutionState {
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  /** ISO 8601 timestamp when the phase started */
+  startedAt: string;
+  /** ISO 8601 timestamp when the phase completed (success or failure) */
+  completedAt?: string;
+  /** Optional output or summary captured from the phase */
+  output?: string;
+}
+
+/**
  * Core agent state stored in state.json.
  * Contains all context needed for workflow execution and recovery.
  */
@@ -206,4 +220,10 @@ export interface AgentState {
   output?: string;
   /** Additional metadata for agent-specific data */
   metadata?: Record<string, unknown>;
+  /** Granular lifecycle stage of the workflow (e.g. "build_running", "completed") */
+  workflowStage?: string;
+  /** Per-phase execution state map: phaseName → PhaseExecutionState */
+  phases?: Record<string, PhaseExecutionState>;
+  /** Orchestrator script path (e.g. "adws/adwSdlc.tsx") */
+  orchestratorScript?: string;
 }
