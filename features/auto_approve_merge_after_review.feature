@@ -102,39 +102,11 @@ Feature: Auto-approve and merge PRs after review passes in review orchestrators
     Then the function "executeAutoMergePhase" returns a result object instead of throwing on failure
 
   # ── Orchestrator wiring ────────────────────────────────────────────────────
-
-  @adw-fvzdz7-auto-approve-and-mer @regression
-  Scenario: adwPlanBuildReview.tsx imports executeAutoMergePhase
-    Given "adws/adwPlanBuildReview.tsx" is read
-    Then the file imports "executeAutoMergePhase" from "./workflowPhases"
-
-  @adw-fvzdz7-auto-approve-and-mer @regression
-  Scenario: adwPlanBuildReview.tsx calls executeAutoMergePhase after PR phase
-    Given "adws/adwPlanBuildReview.tsx" is read
-    Then "executeAutoMergePhase" is called after "executePRPhase"
-    And "executeAutoMergePhase" is called before "completeWorkflow"
-
-  @adw-fvzdz7-auto-approve-and-mer @regression
-  Scenario: adwPlanBuildTestReview.tsx imports executeAutoMergePhase
-    Given "adws/adwPlanBuildTestReview.tsx" is read
-    Then the file imports "executeAutoMergePhase" from "./workflowPhases"
-
-  @adw-fvzdz7-auto-approve-and-mer @regression
-  Scenario: adwPlanBuildTestReview.tsx calls executeAutoMergePhase after PR phase
-    Given "adws/adwPlanBuildTestReview.tsx" is read
-    Then "executeAutoMergePhase" is called after "executePRPhase"
-    And "executeAutoMergePhase" is called before "completeWorkflow"
-
-  @adw-fvzdz7-auto-approve-and-mer @regression
-  Scenario: adwSdlc.tsx imports executeAutoMergePhase
-    Given "adws/adwSdlc.tsx" is read
-    Then the file imports "executeAutoMergePhase" from "./workflowPhases"
-
-  @adw-fvzdz7-auto-approve-and-mer @regression
-  Scenario: adwSdlc.tsx calls executeAutoMergePhase after KPI phase
-    Given "adws/adwSdlc.tsx" is read
-    Then "executeAutoMergePhase" is called after "executeKpiPhase"
-    And "executeAutoMergePhase" is called before "completeWorkflow"
+  # NOTE: Orchestrator-specific scenarios for executeAutoMergePhase removed
+  # by issue #380 (orchestrators_awaiting_merge_handoff.feature).
+  # executeAutoMergePhase is no longer called by adwSdlc, adwChore,
+  # adwPlanBuildReview, or adwPlanBuildTestReview. It remains available
+  # for the webhook auto-merge path (autoMergeHandler.ts).
 
   # ── TypeScript type-check ──────────────────────────────────────────────────
 

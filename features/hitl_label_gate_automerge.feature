@@ -28,7 +28,7 @@ Feature: HITL label gate prevents auto-merge
     Given "adws/github/issueApi.ts" is read
     Then the function "issueHasLabel" calls "gh issue view" with "--json labels"
 
-  @adw-329-hitl-label-gate
+  @adw-329-hitl-label-gate @regression
   Scenario: issueHasLabel is exported from github/index.ts barrel
     Given "adws/github/index.ts" is read
     Then the file exports "issueHasLabel"
