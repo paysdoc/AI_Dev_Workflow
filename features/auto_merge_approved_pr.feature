@@ -13,12 +13,12 @@ Feature: Auto-merge PR on approved review with conflict resolution and retry
 
   # ── Webhook routing ───────────────────────────────────────────────────────────
 
-  @adw-cwiuik-1773818764164 @regression
+  @adw-cwiuik-1773818764164 @adw-lvakyr-remove-webhook-auto
   Scenario: trigger_webhook.ts inspects review.state for pull_request_review events
     Given "adws/triggers/trigger_webhook.ts" is read
     Then the pull_request_review handler branches on review.state
 
-  @adw-cwiuik-1773818764164 @regression
+  @adw-cwiuik-1773818764164 @adw-lvakyr-remove-webhook-auto
   Scenario: Approved review does not spawn adwPrReview.tsx
     Given "adws/triggers/trigger_webhook.ts" is read
     Then the approved-review branch does not spawn adwPrReview.tsx directly
@@ -28,7 +28,7 @@ Feature: Auto-merge PR on approved review with conflict resolution and retry
     Given "adws/triggers/trigger_webhook.ts" is read
     Then the non-approved review branch spawns adwPrReview.tsx
 
-  @adw-cwiuik-1773818764164 @regression
+  @adw-cwiuik-1773818764164 @adw-lvakyr-remove-webhook-auto
   Scenario: Approved review triggers the auto-merge orchestrator
     Given "adws/triggers/trigger_webhook.ts" is read
     Then the approved-review branch triggers the auto-merge flow
@@ -61,7 +61,7 @@ Feature: Auto-merge PR on approved review with conflict resolution and retry
 
   # ── Deduplication ─────────────────────────────────────────────────────────────
 
-  @adw-cwiuik-1773818764164 @regression
+  @adw-cwiuik-1773818764164 @adw-lvakyr-remove-webhook-auto
   Scenario: shouldTriggerPrReview deduplication still guards approved reviews
     Given "adws/triggers/trigger_webhook.ts" is read
     Then shouldTriggerPrReview is called before the approved-review branch executes

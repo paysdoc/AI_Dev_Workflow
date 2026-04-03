@@ -12,6 +12,7 @@ import { log, generateAdwId } from '../core';
 import { AGENTS_STATE_DIR } from '../core/config';
 import type { RepoInfo } from '../github/githubApi';
 import { getRepoInfo } from '../github';
+import { closeIssue } from '../github/issueApi';
 import { classifyIssueForTrigger, getWorkflowScript } from '../core/issueClassifier';
 
 import { checkIssueEligibility } from './issueEligibility';
@@ -116,6 +117,49 @@ export function ensureCronProcess(repoInfo: RepoInfo, targetRepoArgs: string[]):
   });
   child.unref();
   fs.closeSync(logFd);
+}
+
+/**
+ * Closes open issues that depend on the given abandoned issue.
+ * Posts an error comment on each dependent explaining the parent was abandoned.
+ */
+export async function closeAbandonedDependents(
+  closedIssueNumber: number,
+  repoInfo: RepoInfo,
+): Promise<void> {
+  try {
+    const json = execSync(
+      `gh issue list --repo ${repoInfo.owner}/${repoInfo.repo} --state open --json number,body --limit 100`,
+      { encoding: 'utf-8' },
+    );
+    const issues = JSON.parse(json) as { number: number; body: string }[];
+
+    const dependents = issues.filter((issue) => {
+      const deps = parseDependencies(issue.body || '');
+      return deps.includes(closedIssueNumber);
+    });
+
+    if (dependents.length === 0) {
+      log(`No issues depend on abandoned issue #${closedIssueNumber}`);
+      return;
+    }
+
+    log(`Found ${dependents.length} issue(s) depending on abandoned issue #${closedIssueNumber}`);
+
+    for (const dependent of dependents) {
+      const comment = [
+        '## Blocked Issue Abandoned',
+        '',
+        `This issue depends on #${closedIssueNumber} which was abandoned (PR closed without merge). Closing this issue as it can no longer proceed.`,
+        '',
+        'Reopen this issue and its parent if you want to retry.',
+      ].join('\n');
+      await closeIssue(dependent.number, repoInfo, comment);
+      log(`Closed dependent issue #${dependent.number} due to abandoned parent #${closedIssueNumber}`);
+    }
+  } catch (error) {
+    log(`Error closing dependents of abandoned issue #${closedIssueNumber}: ${error}`, 'error');
+  }
 }
 
 /**

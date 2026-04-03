@@ -199,6 +199,8 @@ Docker execution is entirely optional — the test suite runs identically on the
 │       └── SKILL.md
 └── settings.json
 adws/                   # ADW workflow system
+├── __tests__/          # Vitest integration tests
+│   └── adwMerge.test.ts
 ├── agents/             # Claude Code agent runners
 │   ├── __tests__/      # Vitest unit tests
 │   │   └── gitAgent.test.ts
@@ -390,6 +392,7 @@ adws/                   # ADW workflow system
 ├── known_issues.md     # Known issues registry
 ├── adwBuild.tsx        # Orchestrators (individual & combined)
 ├── adwChore.tsx        # Chore pipeline with LLM diff gate (auto-merge)
+├── adwMerge.tsx        # Merge orchestrator (awaiting_merge handoff)
 ├── adwBuildHelpers.ts
 ├── adwClearComments.tsx
 ├── adwDocument.tsx

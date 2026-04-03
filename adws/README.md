@@ -301,6 +301,27 @@ bunx tsx adws/adwChore.tsx <issueNumber> [adw-id]
 - Diff verdict is posted as an audit comment on the issue
 - On agent failure, defaults to `regression_possible` (fail-safe)
 
+#### adwMerge.tsx - Merge Orchestrator
+Thin merge orchestrator for `awaiting_merge` handoff — called by the cron trigger when a workflow has exited and left its PR open for merging.
+
+**Usage:**
+```bash
+bunx tsx adws/adwMerge.tsx <issueNumber> <adw-id> [--target-repo owner/repo]
+```
+
+**What it does:**
+1. Reads the top-level state file for the given ADW ID
+2. Looks up the PR by branch via GitHub CLI
+3. If already merged: writes `completed` to state, posts comment, exits
+4. If closed (not merged): writes `abandoned` to state, exits
+5. If open: resolves merge conflicts if any, then merges the PR
+6. On success: writes `completed` and posts completion comment
+7. On failure: posts failure comment, writes `abandoned`
+
+**Notes:**
+- Does NOT use `initializeWorkflow()` — reads state directly, no worktree setup
+- Spawned by the cron trigger when it detects an `awaiting_merge` issue
+
 #### adwSdlc.tsx - Complete SDLC
 Full Software Development Life Cycle automation.
 
@@ -638,6 +659,7 @@ All orchestrators use shared CLI utilities from `core/orchestratorCli.ts` and co
 - `adwDocument.tsx` - Standalone documentation workflow
 - `adwPatch.tsx` - Standalone direct patch workflow
 - `adwPrReview.tsx` - Standalone PR review orchestration
+- `adwMerge.tsx` - Merge orchestrator for `awaiting_merge` handoff
 - `adwPlanBuild.tsx` - Plan + build orchestration
 - `adwPlanBuildTest.tsx` - Plan + build + test orchestration
 - `adwPlanBuildReview.tsx` - Plan + build + review orchestration
@@ -656,6 +678,7 @@ All orchestrators use shared CLI utilities from `core/orchestratorCli.ts` and co
 **Triggers** (`triggers/`):
 - `trigger_cron.ts` - Cron-based polling monitor
 - `trigger_webhook.ts` - Webhook-based event handler
+- `cronIssueFilter.ts` - Issue eligibility evaluation and cron action resolution (testable, extracted from trigger_cron)
 - `webhookHandlers.ts` - Webhook event processing logic
 - `webhookSignature.ts` - GitHub webhook HMAC signature validation
 

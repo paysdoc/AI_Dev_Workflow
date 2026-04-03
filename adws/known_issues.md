@@ -147,11 +147,15 @@ Each entry contains:
 ## claude-cli-enoent
 
 - **pattern**: `spawn /Users/martin/.local/bin/claude ENOENT`, `spawn claude ENOENT`
-- **description**: Claude CLI binary not found at spawn time. Typically caused by Claude auto-update replacing the symlink target. The old version directory is deleted before the new symlink is written.
+- **description**: Two distinct failure modes share this ENOENT pattern:
+  1. **Binary missing**: Claude CLI binary not found at spawn time. Typically caused by Claude auto-update replacing the symlink target — the old version directory is deleted before the new symlink is written.
+  2. **CWD gone**: The orchestrator process is running inside a worktree directory that was deleted while it was still active (e.g., issues.closed fired and cleaned up the worktree before the orchestrator finished). The spawn fails because the working directory no longer exists.
 - **status**: mitigated
-- **solution**: Retry upgraded to 3 attempts with exponential backoff (500ms → 1s → 2s). Path is re-resolved on every attempt via `clearClaudeCodePathCache()` to pick up new symlink target. Pre-flight CLI validation added at workflow start.
-- **fix_attempts**: 1
-- **linked_issues**: #315
+- **solution**:
+  - *Binary missing*: Retry upgraded to 3 attempts with exponential backoff (500ms → 1s → 2s). Path is re-resolved on every attempt via `clearClaudeCodePathCache()` to pick up new symlink target. Pre-flight CLI validation added at workflow start.
+  - *CWD gone*: Mitigated by the grace period guard in `handleIssueClosedEvent()` — if the workflow stage is ACTIVE and the last phase activity was within 5 minutes, `issues.closed` skips worktree cleanup entirely, letting the orchestrator finish before the directory is removed.
+- **fix_attempts**: 2
+- **linked_issues**: #315, #382
 - **first_seen**: 2026-03
 - **sample_log**:
   ```

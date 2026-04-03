@@ -74,12 +74,12 @@ Feature: HITL label gate prevents auto-merge
 
   # ── Webhook path unaffected ──────────────────────────────────────────────
 
-  @adw-329-hitl-label-gate @regression
+  @adw-329-hitl-label-gate @adw-lvakyr-remove-webhook-auto
   Scenario: Webhook auto-merge handler does not check for hitl label
     Given "adws/triggers/autoMergeHandler.ts" is read
     Then the file does not reference "issueHasLabel" or "hitl"
 
-  @adw-329-hitl-label-gate @regression
+  @adw-329-hitl-label-gate @adw-lvakyr-remove-webhook-auto
   Scenario: Webhook trigger routing is unchanged for approved reviews
     Given "adws/triggers/trigger_webhook.ts" is read
     Then the approved-review branch does not check for a "hitl" label

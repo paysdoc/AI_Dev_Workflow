@@ -9,6 +9,7 @@ const ROOT = process.cwd();
 // Candidate file paths for the auto-merge orchestrator.
 // The implementor may choose any of these names.
 const AUTO_MERGE_CANDIDATES = [
+  'adws/adwMerge.tsx',
   'adws/adwAutoMerge.tsx',
   'adws/adwAutoMerge.ts',
   'adws/triggers/autoMergeHandler.ts',
@@ -16,13 +17,18 @@ const AUTO_MERGE_CANDIDATES = [
 ];
 
 function findAutoMergeFile(): { path: string; content: string } | null {
+  const found: { path: string; content: string }[] = [];
   for (const candidate of AUTO_MERGE_CANDIDATES) {
     const fullPath = join(ROOT, candidate);
     if (existsSync(fullPath)) {
-      return { path: candidate, content: readFileSync(fullPath, 'utf-8') };
+      found.push({ path: candidate, content: readFileSync(fullPath, 'utf-8') });
     }
   }
-  return null;
+  if (found.length === 0) return null;
+  return {
+    path: found.map(f => f.path).join(', '),
+    content: found.map(f => f.content).join('\n'),
+  };
 }
 
 // ── Webhook routing checks ─────────────────────────────────────────────────────

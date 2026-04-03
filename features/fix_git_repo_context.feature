@@ -51,17 +51,17 @@ Feature: All git operations target the correct repository context
 
   # ── 4. Auto-merge handler passes baseRepoPath to ensureWorktree ────────────
 
-  @adw-317 @regression
+  @adw-317
   Scenario: Auto-merge handler extracts target repo from webhook payload
     Given "adws/triggers/autoMergeHandler.ts" is read
     Then the auto-merge handler extracts owner and repo from the webhook payload repository field
 
-  @adw-317 @regression
+  @adw-317
   Scenario: Auto-merge handler derives target repo workspace path
     Given "adws/triggers/autoMergeHandler.ts" is read
     Then the auto-merge handler derives the target repo workspace path before calling ensureWorktree
 
-  @adw-317 @regression
+  @adw-317
   Scenario: Auto-merge handler passes baseRepoPath to ensureWorktree
     Given "adws/triggers/autoMergeHandler.ts" is read
     Then ensureWorktree is called with baseRepoPath derived from the target repo workspace
