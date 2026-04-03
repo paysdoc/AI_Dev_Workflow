@@ -12,9 +12,9 @@
  * 5. Test Phase: optionally run unit tests (unit only)
  * 6. Review Phase: review implementation + run BDD scenarios, patch blockers, retry
  * 7. Document Phase: generate feature documentation (includes review screenshots)
- * 8. PR Phase: create pull request (only after review passes)
- * 9. KPI Phase: track agentic KPIs (non-fatal)
- * 10. AutoMerge Phase: approve and merge the PR (non-fatal)
+ * 8. KPI Phase: track agentic KPIs (non-fatal)
+ * 9. PR Phase: create pull request (only after review passes)
+ * 10. Approve PR + write awaiting_merge to top-level state file
  * 11. Finalize: update state, post completion comment
  *
  * Environment Requirements:
@@ -26,7 +26,7 @@
  */
 
 import * as path from 'path';
-import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId } from './core';
+import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId, AgentStateManager, log } from './core';
 import { CostTracker, runPhase, runPhasesParallel } from './core/phaseRunner';
 import {
   initializeWorkflow,
@@ -40,10 +40,10 @@ import {
   executeReviewPhase,
   executeDocumentPhase,
   executeKpiPhase,
-  executeAutoMergePhase,
   completeWorkflow,
   handleWorkflowError,
 } from './workflowPhases';
+import { approvePR, isGitHubAppConfigured } from './github';
 import type { WorkflowConfig } from './phases';
 
 /**
@@ -89,14 +89,25 @@ async function main(): Promise<void> {
       executeDocumentPhase(cfg, screenshotsDir);
     await runPhase(config, tracker, executeDocumentWithScreenshots);
 
-    await runPhase(config, tracker, executePRPhase);
-
     // KPI phase takes an extra argument: bind reviewRetries via wrapper.
     const executeKpiWithRetries = (cfg: WorkflowConfig) =>
       executeKpiPhase(cfg, reviewResult.totalRetries);
     await runPhase(config, tracker, executeKpiWithRetries);
 
-    await runPhase(config, tracker, executeAutoMergePhase);
+    await runPhase(config, tracker, executePRPhase);
+
+    // Post-PR: approve PR (when GitHub App is configured) and write awaiting_merge handoff
+    const prNum = config.ctx.prNumber;
+    const owner = config.repoContext?.repoId.owner ?? '';
+    const repo = config.repoContext?.repoId.repo ?? '';
+    if (prNum && owner && repo && isGitHubAppConfigured()) {
+      const approveResult = approvePR(prNum, { owner, repo });
+      if (!approveResult.success) {
+        log(`PR approval failed (non-fatal): ${approveResult.error}`, 'warn');
+      }
+    }
+    AgentStateManager.writeTopLevelState(config.adwId, { workflowStage: 'awaiting_merge' });
+    log('Workflow handed off: awaiting_merge', 'info');
 
     await completeWorkflow(config, tracker.totalCostUsd, {
       unitTestsPassed: testResult.unitTestsPassed,

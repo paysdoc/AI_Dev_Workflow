@@ -10,12 +10,11 @@
  * 3. Plan Phase: classify issue, create branch, run plan agent, commit plan
  * 4. Build Phase: run build agent, commit implementation
  * 5. Test Phase: optionally run unit tests (unit only)
- * 6. PR Phase: create pull request
- * 7. Diff Evaluation Phase: LLM evaluates the diff (Haiku, low effort)
- *    → if "safe":              auto-approve + auto-merge
+ * 6. Diff Evaluation Phase: LLM evaluates the diff (Haiku, low effort)
+ *    → if "safe":              PR → approve + awaiting_merge
  *    → if "regression_possible": post escalation comment
- *                               → review → document → auto-merge
- * 8. Finalize: update state, post completion comment
+ *                               → review → document → PR → approve + awaiting_merge
+ * 7. Finalize: update state, post completion comment
  *
  * Environment Requirements:
  * - ANTHROPIC_API_KEY: Anthropic API key
@@ -23,7 +22,7 @@
  * - GITHUB_PAT: (Optional) GitHub Personal Access Token
  */
 
-import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId, log } from './core';
+import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId, AgentStateManager, log } from './core';
 import { CostTracker, runPhase } from './core/phaseRunner';
 import {
   initializeWorkflow,
@@ -34,11 +33,11 @@ import {
   executePRPhase,
   executeReviewPhase,
   executeDocumentPhase,
-  executeAutoMergePhase,
   executeDiffEvaluationPhase,
   completeWorkflow,
   handleWorkflowError,
 } from './workflowPhases';
+import { approvePR, isGitHubAppConfigured } from './github';
 import type { WorkflowConfig } from './phases';
 
 /**
@@ -56,7 +55,7 @@ function postEscalationComment(config: WorkflowConfig): void {
         '',
         'The diff evaluator detected changes that may affect application behaviour. Escalating to the full review pipeline.',
         '',
-        'Phases: review → document → auto-merge',
+        'Phases: review → document → PR',
       ].join('\n'),
     );
   } catch (error) {
@@ -90,11 +89,24 @@ async function main(): Promise<void> {
     await runPhase(config, tracker, executePlanPhase);
     await runPhase(config, tracker, executeBuildPhase);
     const testResult = await runPhase(config, tracker, executeTestPhase);
-    await runPhase(config, tracker, executePRPhase);
     const diffResult = await runPhase(config, tracker, executeDiffEvaluationPhase);
 
     if (diffResult.verdict === 'safe') {
-      await runPhase(config, tracker, executeAutoMergePhase);
+      await runPhase(config, tracker, executePRPhase);
+      // Post-PR: approve PR (when GitHub App is configured) and write awaiting_merge handoff
+      {
+        const prNum = config.ctx.prNumber;
+        const owner = config.repoContext?.repoId.owner ?? '';
+        const repo = config.repoContext?.repoId.repo ?? '';
+        if (prNum && owner && repo && isGitHubAppConfigured()) {
+          const approveResult = approvePR(prNum, { owner, repo });
+          if (!approveResult.success) {
+            log(`PR approval failed (non-fatal): ${approveResult.error}`, 'warn');
+          }
+        }
+        AgentStateManager.writeTopLevelState(config.adwId, { workflowStage: 'awaiting_merge' });
+        log('Workflow handed off: awaiting_merge', 'info');
+      }
       await completeWorkflow(config, tracker.totalCostUsd, {
         unitTestsPassed: testResult.unitTestsPassed,
         totalTestRetries: testResult.totalRetries,
@@ -104,7 +116,21 @@ async function main(): Promise<void> {
       postEscalationComment(config);
       const reviewResult = await runPhase(config, tracker, executeReviewPhase);
       await runPhase(config, tracker, (cfg: WorkflowConfig) => executeDocumentPhase(cfg));
-      await runPhase(config, tracker, executeAutoMergePhase);
+      await runPhase(config, tracker, executePRPhase);
+      // Post-PR: approve PR (when GitHub App is configured) and write awaiting_merge handoff
+      {
+        const prNum = config.ctx.prNumber;
+        const owner = config.repoContext?.repoId.owner ?? '';
+        const repo = config.repoContext?.repoId.repo ?? '';
+        if (prNum && owner && repo && isGitHubAppConfigured()) {
+          const approveResult = approvePR(prNum, { owner, repo });
+          if (!approveResult.success) {
+            log(`PR approval failed (non-fatal): ${approveResult.error}`, 'warn');
+          }
+        }
+        AgentStateManager.writeTopLevelState(config.adwId, { workflowStage: 'awaiting_merge' });
+        log('Workflow handed off: awaiting_merge', 'info');
+      }
       await completeWorkflow(config, tracker.totalCostUsd, {
         unitTestsPassed: testResult.unitTestsPassed,
         totalTestRetries: testResult.totalRetries,

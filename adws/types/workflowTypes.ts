@@ -56,7 +56,9 @@ export type WorkflowStage =
   | 'install_failed'
   // Pause/resume stages
   | 'paused'
-  | 'resumed';
+  | 'resumed'
+  // Handoff stages
+  | 'awaiting_merge';
 
 /**
  * PR review comment from GitHub API.

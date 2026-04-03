@@ -1,4 +1,4 @@
-@adw-xngqn4-orchestrators-exit-a
+@adw-xngqn4-orchestrators-exit-a @adw-380 @regression
 Feature: Orchestrators exit after PR approval with awaiting_merge handoff
 
   All orchestrators (adwSdlc, adwChore, adwPlanBuildReview, adwPlanBuildTestReview)

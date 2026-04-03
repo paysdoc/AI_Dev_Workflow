@@ -12,7 +12,7 @@
  * 5. Test Phase: optionally run unit tests (unit only)
  * 6. Review Phase: review implementation + run BDD scenarios, patch blockers, retry
  * 7. PR Phase: create pull request (only after review passes)
- * 8. AutoMerge Phase: approve and merge the PR (non-fatal)
+ * 8. Approve PR + write awaiting_merge to top-level state file
  * 9. Finalize: update state, post completion comment
  *
  * Environment Requirements:
@@ -22,7 +22,7 @@
  * - MAX_REVIEW_RETRY_ATTEMPTS: Maximum retry attempts for review-patch loop (default: 3)
  */
 
-import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId } from './core';
+import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId, AgentStateManager, log } from './core';
 import { CostTracker, runPhase, runPhasesParallel } from './core/phaseRunner';
 import {
   initializeWorkflow,
@@ -34,10 +34,10 @@ import {
   executeTestPhase,
   executePRPhase,
   executeReviewPhase,
-  executeAutoMergePhase,
   completeWorkflow,
   handleWorkflowError,
 } from './workflowPhases';
+import { approvePR, isGitHubAppConfigured } from './github';
 
 
 /**
@@ -69,7 +69,19 @@ async function main(): Promise<void> {
     const testResult = await runPhase(config, tracker, executeTestPhase);
     const reviewResult = await runPhase(config, tracker, executeReviewPhase);
     await runPhase(config, tracker, executePRPhase);
-    await runPhase(config, tracker, executeAutoMergePhase);
+
+    // Post-PR: approve PR (when GitHub App is configured) and write awaiting_merge handoff
+    const prNum = config.ctx.prNumber;
+    const owner = config.repoContext?.repoId.owner ?? '';
+    const repo = config.repoContext?.repoId.repo ?? '';
+    if (prNum && owner && repo && isGitHubAppConfigured()) {
+      const approveResult = approvePR(prNum, { owner, repo });
+      if (!approveResult.success) {
+        log(`PR approval failed (non-fatal): ${approveResult.error}`, 'warn');
+      }
+    }
+    AgentStateManager.writeTopLevelState(config.adwId, { workflowStage: 'awaiting_merge' });
+    log('Workflow handed off: awaiting_merge', 'info');
 
     await completeWorkflow(config, tracker.totalCostUsd, {
       unitTestsPassed: testResult.unitTestsPassed,
