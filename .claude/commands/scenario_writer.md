@@ -7,9 +7,9 @@ You are the Scenario Writer Agent. Your job is to generate and maintain BDD scen
 
 ## Arguments
 
-- `$1` — Issue number
-- `$2` — ADW workflow ID
-- `$3` — Issue JSON (stringified object with `number`, `title`, `body`, `state`, `author`, `labels`, `createdAt`, `comments`, `actionableComment`)
+- `$0` — Issue number
+- `$1` — ADW workflow ID
+- `$2` — Issue JSON (stringified object with `number`, `title`, `body`, `state`, `author`, `labels`, `createdAt`, `comments`, `actionableComment`)
 
 ## Instructions
 
@@ -35,7 +35,7 @@ If a tool is already configured, use the existing file format and runner.
 
 ### 3. Parse the issue
 
-Parse the JSON from `$3` to extract the issue details. Use the issue body and title to understand the requirements.
+Parse the JSON from `$2` to extract the issue details. Use the issue body and title to understand the requirements.
 
 ### 4. Read existing scenario files
 
@@ -48,11 +48,11 @@ Read all existing scenario files in the scenario directory. Identify:
 Based on the issue requirements:
 - **Create** new scenario files or add new scenarios to existing files
 - **Modify** existing scenarios where requirements have changed
-- **Flag** existing scenarios as relevant by adding the `@adw-$1` tag
+- **Flag** existing scenarios as relevant by adding the `@adw-$0` tag
 
 Rules:
-- Tag every created, modified, or flagged scenario with `@adw-$1`
-- Do **not** add `@adw-$1` to scenarios from other issues that you are not touching
+- Tag every created, modified, or flagged scenario with `@adw-$0`
+- Do **not** add `@adw-$0` to scenarios from other issues that you are not touching
 - Write scenarios as Gherkin `.feature` files
 - Each scenario must have a clear Given/When/Then structure
 - Scenario names should be specific and descriptive
@@ -78,13 +78,13 @@ Return ONLY the following summary (no additional prose):
 ```
 ## Scenario Writer Output
 
-### Issue: #$1 ($2)
+### Issue: #$0 ($1)
 
 ### Scenario files written
 - <list each file path and what was done: created/modified/flagged>
 
 ### Tags applied
-- @adw-$1 applied to: <list of scenario names>
+- @adw-$0 applied to: <list of scenario names>
 
 ### @regression maintenance
 - <promoted: list, or "none">

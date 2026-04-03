@@ -7,13 +7,13 @@ Based on the `Instructions` below, take the `Variables` follow the `Run` section
 
 ## Variables
 
-branchName: $1, default to current branch if not provided
-issue: $2
-plan_file: $3
-adwId: $4
-defaultBranch: $5, defaults to the output of `gh repo view --json defaultBranchRef --jq '.defaultBranchRef.name'` if not provided
-repoOwner: $6, the owner of the repository where the issue lives (may be empty for same-repo PRs)
-repoName: $7, the name of the repository where the issue lives (may be empty for same-repo PRs)
+branchName: $0, default to current branch if not provided
+issue: $1
+plan_file: $2
+adwId: $3
+defaultBranch: $4, defaults to the output of `gh repo view --json defaultBranchRef --jq '.defaultBranchRef.name'` if not provided
+repoOwner: $5, the owner of the repository where the issue lives (may be empty for same-repo PRs)
+repoName: $6, the name of the repository where the issue lives (may be empty for same-repo PRs)
 
 ## Instructions
 

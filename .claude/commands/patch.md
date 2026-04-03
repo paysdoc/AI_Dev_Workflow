@@ -7,11 +7,11 @@ Create a **focused patch plan** to resolve a specific issue based on the `review
 
 ## Variables
 
-adwId: $1
-reviewChangeRequest: $2
-specPath: $3 if provided, otherwise leave it blank
-agentName: $4 if provided, otherwise use 'patchAgent'
-issueScreenshots: $5 (optional) - commaSeparated list of screenshot paths if provided
+adwId: $0
+reviewChangeRequest: $1
+specPath: $2 if provided, otherwise leave it blank
+agentName: $3 if provided, otherwise use 'patchAgent'
+issueScreenshots: $4 (optional) - commaSeparated list of screenshot paths if provided
 
 ## Instructions
 

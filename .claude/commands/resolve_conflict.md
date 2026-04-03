@@ -7,9 +7,9 @@ Resolve git merge conflicts by analyzing the implementation plans from **both br
 
 ## Variables
 
-adwId: $1
-specPath: $2 - path to the current branch's implementation plan (spec file)
-incomingBranch: $3 - the branch being merged in (e.g., `main`, `develop`, `feature-42-adw-abc123-add-auth`)
+adwId: $0
+specPath: $1 - path to the current branch's implementation plan (spec file)
+incomingBranch: $2 - the branch being merged in (e.g., `main`, `develop`, `feature-42-adw-abc123-add-auth`)
 
 ## Instructions
 

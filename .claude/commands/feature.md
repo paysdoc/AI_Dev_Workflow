@@ -6,12 +6,12 @@ target: false
 Create a new plan to implement the `Feature` using the exact specified markdown `Plan Format`. Follow the `Instructions` to create the plan use the `Relevant Files` to focus on the right files.
 
 ## Variables
-issueNumber: $1 — MUST be a numeric GitHub issue number (e.g., 31, 456). Default: 0
-adwId: $2 — MUST be the alphanumeric ADW workflow ID string (e.g., "init-adw-env-4qugib", "abc123"). Default: `adw-unknown`
-issueJson: $3 — JSON string containing full issue details. Default: `{}`
+issueNumber: $0 — MUST be a numeric GitHub issue number (e.g., 31, 456). Default: 0
+adwId: $1 — MUST be the alphanumeric ADW workflow ID string (e.g., "init-adw-env-4qugib", "abc123"). Default: `adw-unknown`
+issueJson: $2 — JSON string containing full issue details. Default: `{}`
 
-CRITICAL: $1 is ALWAYS the numeric issue number. $2 is ALWAYS the ADW ID string. Do NOT swap these values.
-Example: if $1=31 and $2=init-adw-env-4qugib, the filename is `issue-31-adw-init-adw-env-4qugib-sdlc_planner-{descriptiveName}.md`
+CRITICAL: $0 is ALWAYS the numeric issue number. $1 is ALWAYS the ADW ID string. Do NOT swap these values.
+Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init-adw-env-4qugib-sdlc_planner-{descriptiveName}.md`
 
 ## Instructions
 

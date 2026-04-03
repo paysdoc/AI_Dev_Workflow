@@ -7,7 +7,7 @@ Prepare the application for review by installing dependencies and starting the d
 
 ## Variables
 
-PORT: $1 if provided, otherwise use 3000
+PORT: $0 if provided, otherwise use 3000
 
 ## Instructions
 

@@ -7,25 +7,25 @@ Align an implementation plan with BDD scenarios in a single pass. Reads both the
 
 ## Arguments
 
-$1 - adwId: The ADW session identifier
-$2 - issueNumber: The GitHub issue number
-$3 - planFilePath: Path to the implementation plan (spec) file
-$4 - scenarioGlob: Directory to search for .feature files tagged @adw-{issueNumber}
-$5 - issueJson: JSON string containing the full GitHub issue (number, title, body, labels, comments)
+$0 - adwId: The ADW session identifier
+$1 - issueNumber: The GitHub issue number
+$2 - planFilePath: Path to the implementation plan (spec) file
+$3 - scenarioGlob: Directory to search for .feature files tagged @adw-{issueNumber}
+$4 - issueJson: JSON string containing the full GitHub issue (number, title, body, labels, comments)
 
 ## Instructions
 
-You are performing a single-pass plan-scenario alignment for GitHub issue #$2 (ADW session: $1).
+You are performing a single-pass plan-scenario alignment for GitHub issue #$1 (ADW session: $0).
 
 **CRITICAL: The GitHub issue is the SOLE ARBITER OF TRUTH.** When the plan and scenarios disagree, the issue body defines what is correct.
 
 ### Step 1: Parse inputs
 
-Parse the issue JSON from `$5`. Extract the issue title, body, and any relevant context about what must be built.
+Parse the issue JSON from `$4`. Extract the issue title, body, and any relevant context about what must be built.
 
 ### Step 2: Read the implementation plan
 
-Read the file at `$3`. If the file does not exist, skip to the Final Output with:
+Read the file at `$2`. If the file does not exist, skip to the Final Output with:
 - aligned: true
 - warnings: []
 - changes: []
@@ -33,13 +33,13 @@ Read the file at `$3`. If the file does not exist, skip to the Final Output with
 
 ### Step 3: Discover and read scenario files
 
-Search recursively from `$4` for `.feature` files that contain the tag `@adw-$2`. Read each file you find.
+Search recursively from `$3` for `.feature` files that contain the tag `@adw-$1`. Read each file you find.
 
 If no scenario files are found, skip to the Final Output with:
 - aligned: true
 - warnings: []
 - changes: []
-- summary: "No BDD scenario files tagged @adw-$2 found — skipping alignment"
+- summary: "No BDD scenario files tagged @adw-$1 found — skipping alignment"
 
 ### Step 4: Identify conflicts
 
@@ -58,7 +58,7 @@ For each conflict, consult the GitHub issue body to determine the correct behavi
 - If the conflict cannot be resolved from the issue: it is an unresolvable conflict — do NOT modify either file for this conflict; instead record it as a warning.
 
 Write all updated files directly to disk using your file writing tools:
-- For the plan: overwrite `$3` with the updated content.
+- For the plan: overwrite `$2` with the updated content.
 - For scenarios: overwrite each scenario file at its existing path with the updated content.
 
 For each unresolvable conflict, append an inline `<!-- ADW-WARNING: <description> -->` comment at the relevant location in the plan file. This allows the build agent to see the warning without the workflow failing.

@@ -5,7 +5,7 @@ target: false
 
 ## Variables
 
-PORT: $1 if provided, otherwise 3000
+PORT: $0 if provided, otherwise 3000
 
 ## Workflow
 

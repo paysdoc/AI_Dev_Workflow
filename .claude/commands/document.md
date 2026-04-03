@@ -7,9 +7,9 @@ Generate concise markdown documentation for implemented features by analyzing co
 
 ## Variables
 
-adwId: $1
-specPath: $2 if provided, otherwise leave it blank
-documentationScreenshots_dir: $3 if provided, otherwise leave it blank
+adwId: $0
+specPath: $1 if provided, otherwise leave it blank
+documentationScreenshots_dir: $2 if provided, otherwise leave it blank
 
 ## Instructions
 

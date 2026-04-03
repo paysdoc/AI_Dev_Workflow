@@ -7,10 +7,10 @@ Execute end-to-end (E2E) tests using Playwright browser automation (MCP Server).
 
 ## Variables
 
-adwId: $1 if provided, otherwise generate a random 8 character hex string
-agentName: $2 if provided, otherwise use 'test_e2e'
-e2eTestFile: $3
-applicationUrl: $4 if provided, otherwise determine from port configuration:
+adwId: $0 if provided, otherwise generate a random 8 character hex string
+agentName: $1 if provided, otherwise use 'test_e2e'
+e2eTestFile: $2
+applicationUrl: $3 if provided, otherwise determine from port configuration:
   - If `.ports.env` exists, source it and use http://localhost:${FRONTEND_PORT}
   - Otherwise use default http://localhost:5173
 

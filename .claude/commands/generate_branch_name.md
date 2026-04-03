@@ -7,8 +7,8 @@ Based on the `Instructions` below, take the `Variables` follow the `Run` section
 
 ## Variables
 
-issueClass: $1
-issue: $2
+issueClass: $0
+issue: $1
 
 ## Instructions
 

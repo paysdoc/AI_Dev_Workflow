@@ -7,11 +7,11 @@ Review implementation against a specification file and produce proof that the wo
 
 ## Variables
 
-adwId: $1
-specFile: $2
-agentName: $3 if provided, otherwise use 'reviewAgent'
-applicationUrl: $4 if provided, otherwise use http://localhost:3000
-scenarioProofPath: $5 if provided, otherwise empty
+adwId: $0
+specFile: $1
+agentName: $2 if provided, otherwise use 'reviewAgent'
+applicationUrl: $3 if provided, otherwise use http://localhost:3000
+scenarioProofPath: $4 if provided, otherwise empty
 reviewImageDir: `<absolute path to codebase>/agents/<adwId>/<agentName>/reviewImg/`
 
 ## Step 1: Setup

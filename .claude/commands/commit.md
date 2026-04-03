@@ -7,13 +7,13 @@ Based on the `Instructions` below, take the `Variables` follow the `Run` section
 
 ## Variables
 
-commitPrefix: $1
-issue: $2
+commitPrefix: $0
+issue: $1
 
 ## Instructions
 
-- Generate a commit message that starts with `$1:` followed by a space and a present-tense description of the changes (50 characters or less, no period)
-- The `$1` prefix is already formatted — do NOT modify it
+- Generate a commit message that starts with `$0:` followed by a space and a present-tense description of the changes (50 characters or less, no period)
+- The `$0` prefix is already formatted — do NOT modify it
 - The description should be:
   - Present tense (e.g., "add", "fix", "update", not "added", "fixed", "updated")
   - 50 characters or less

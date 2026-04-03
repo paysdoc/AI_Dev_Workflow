@@ -7,8 +7,8 @@ You are the Step Definition Generator Agent. Your job is to generate Cucumber st
 
 ## Arguments
 
-- `$1` — Issue number
-- `$2` — ADW workflow ID
+- `$0` — Issue number
+- `$1` — ADW workflow ID
 
 ## Instructions
 
@@ -20,7 +20,7 @@ The step definitions directory is `<scenario-directory>/step_definitions/`.
 
 ### 2. Read feature files for this issue
 
-Find all `.feature` files in the scenario directory that contain the tag `@adw-$1`. Read each file in full.
+Find all `.feature` files in the scenario directory that contain the tag `@adw-$0`. Read each file in full.
 
 ### 3. Read existing step definitions
 
@@ -62,7 +62,7 @@ When generating step definitions for scenarios that require runtime infrastructu
 
 ### 6. Generate step definitions
 
-For each scenario tagged `@adw-$1`, generate the step definitions:
+For each scenario tagged `@adw-$0`, generate the step definitions:
 
 - Import `Given`, `When`, `Then` from `@cucumber/cucumber`
 - Match step text patterns exactly (use regex or string templates as appropriate)
