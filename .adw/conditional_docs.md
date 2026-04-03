@@ -708,3 +708,12 @@
     - When adding new `workflowStage` values and need to understand how `isActiveStage()` / `isRetriableStage()` classify them
     - When troubleshooting cron filters incorrectly including or excluding issues (grace period, active, retriable, paused)
     - When implementing a new trigger that needs to read workflow stage from the state file
+
+- app_docs/feature-7fy9ry-simplify-webhook-handlers.md
+  - Conditions:
+    - When working with `handlePullRequestEvent()` or `handleIssueClosedEvent()` in `adws/triggers/webhookHandlers.ts`
+    - When modifying the `pull_request.closed` or `issues.closed` webhook handler dispatch in `trigger_webhook.ts`
+    - When troubleshooting abandoned PR flows (state write, issue close cascade, dependent closing)
+    - When implementing or changing the grace period guard for active orchestrators in `handleIssueClosedEvent()`
+    - When working with `closeAbandonedDependents()` in `adws/triggers/webhookGatekeeper.ts`
+    - When wondering why `handleApprovedReview()` is absent from `autoMergeHandler.ts` (removed in this feature)
