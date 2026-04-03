@@ -362,12 +362,14 @@ adws/                   # ADW workflow system
 │   └── types.ts
 ├── triggers/           # Automation triggers
 │   ├── __tests__/      # Vitest unit tests
-│   │   └── cronRepoResolver.test.ts
+│   │   ├── cronRepoResolver.test.ts
+│   │   └── cronStageResolver.test.ts
 │   ├── autoMergeHandler.ts  # Auto-merge approved PRs
 │   ├── cloudflareTunnel.tsx  # Cloudflare tunnel for webhooks
 │   ├── concurrencyGuard.ts
 │   ├── cronProcessGuard.ts  # Duplicate cron process prevention
 │   ├── cronRepoResolver.ts  # Cron repo identity resolution (testable, extracted from trigger_cron)
+│   ├── cronStageResolver.ts  # Cron stage resolution from top-level state file (testable)
 │   ├── issueDependencies.ts
 │   ├── issueEligibility.ts
 │   ├── pauseQueueScanner.ts  # Cron probe for paused issue queue
