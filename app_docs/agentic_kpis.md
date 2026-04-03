@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value          | Last Updated       |
 | ----------------- | -------------- | ------------------ |
-| Current Streak    | 7              | 2026-04-03 14:25:26|
-| Longest Streak    | 60             | 2026-04-03 14:25:26|
-| Total Plan Size   | 548 lines      | 2026-04-03 14:25:26|
-| Largest Plan Size | 201 lines      | 2026-04-03 14:25:26|
-| Total Diff Size   | 2171620 lines  | 2026-04-03 14:25:26|
-| Largest Diff Size | 418153 lines   | 2026-04-03 14:25:26|
-| Average Presence  | 1.39           | 2026-04-03 14:25:26|
+| Current Streak    | 20             | 2026-04-03 14:57:15|
+| Longest Streak    | 66             | 2026-04-03 14:57:15|
+| Total Plan Size   | 548 lines      | 2026-04-03 14:57:15|
+| Largest Plan Size | 201 lines      | 2026-04-03 14:57:15|
+| Total Diff Size   | 2180241 lines  | 2026-04-03 14:57:15|
+| Largest Diff Size | 418153 lines   | 2026-04-03 14:57:15|
+| Average Presence  | 1.38           | 2026-04-03 14:57:15|
 
 ## ADW KPIs
 
@@ -100,3 +100,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-04-03 | bpn4sv-orchestrators-exit-a | 380          | /feature    | 1        | 0                 | 3399/123/36                     | 2026-04-03 | 2026-04-03 |
 | 2026-04-03 | dcy9qz-create-thin-merge-or | 381          | /feature    | 1        | 0                 | 6090/261/53                     | 2026-04-03 | 2026-04-03 |
 | 2026-04-03 | fequcj-fix-fail-open-depend | 389          | /feature    | 1        | 107               | 6945/273/64                     | 2026-04-03 | 2026-04-03 |
+| 2026-04-03 | 7fy9ry-remove-webhook-auto | 382          | /feature    | 2        | 0                 | 8129/492/76                     | 2026-04-03 | 2026-04-03 |
