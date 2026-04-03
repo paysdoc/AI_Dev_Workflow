@@ -93,7 +93,7 @@ Update `initializeWorkflow()` to create the top-level state file at workflow sta
 - In `adws/phases/workflowCompletion.ts`:
   - In `completeWorkflow()`, write `workflowStage: 'completed'` to top-level state via `AgentStateManager.writeTopLevelState(config.adwId, { workflowStage: 'completed' })`
   - In `handleRateLimitPause()`, write `workflowStage: 'paused'` to top-level state
-  - In `handleWorkflowError()`, write `workflowStage: 'error'` to top-level state
+  - In `handleWorkflowError()`, write `workflowStage: 'abandoned'` to top-level state
   - In `executeReviewPhase()`, no changes needed — `runPhase()` handles phase tracking
 
 ### Step 6: Update `workflowStage` at phase transitions (comment posts)
