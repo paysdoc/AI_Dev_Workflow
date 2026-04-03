@@ -708,3 +708,11 @@
     - When adding new `workflowStage` values and need to understand how `isActiveStage()` / `isRetriableStage()` classify them
     - When troubleshooting cron filters incorrectly including or excluding issues (grace period, active, retriable, paused)
     - When implementing a new trigger that needs to read workflow stage from the state file
+
+- app_docs/feature-fequcj-fix-fail-open-dependency-check.md
+  - Conditions:
+    - When working with `findOpenDependencies()` in `adws/triggers/issueDependencies.ts`
+    - When modifying error handling in `trigger_webhook.ts` (`issues.opened` or `issue_comment` handlers)
+    - When troubleshooting issues with open dependencies being started prematurely or duplicate orchestrators
+    - When the GitHub API is under contention and dependency checks may fail silently
+    - When adding new catch blocks in webhook handlers that involve eligibility checks
