@@ -1,5 +1,13 @@
 # Conditional Documentation
 
+- app_docs/feature-dcy9qz-merge-orchestrator-cron-handoff.md
+  - Conditions:
+    - When working with `adws/adwMerge.tsx` or the merge orchestrator spawn flow
+    - When working with `adws/triggers/cronIssueFilter.ts` or `cronStageResolver.ts`
+    - When adding a new handoff stage that bypasses the cron grace period
+    - When troubleshooting `awaiting_merge` issues not being picked up by the cron
+    - When working with `deriveOrchestratorScript()` and adding a new orchestrator mapping
+
 - app_docs/feature-643xf3-fix-retry-and-commit-leak.md
   - Conditions:
     - When working with `adws/core/utils.ts` `execWithRetry` or adding non-retryable error patterns

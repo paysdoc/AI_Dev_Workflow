@@ -73,6 +73,7 @@ export function deriveOrchestratorScript(orchestratorName: string): string {
     'test-orchestrator': 'adwTest',
     'pr-review-orchestrator': 'adwPrReview',
     'feature-orchestrator': 'adwSdlc',
+    'merge-orchestrator': 'adwMerge',
   };
   return `adws/${nameMap[orchestratorName] ?? 'adwSdlc'}.tsx`;
 }

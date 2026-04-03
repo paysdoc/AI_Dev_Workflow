@@ -134,6 +134,20 @@ describe('isActiveStage', () => {
   });
 });
 
+// ── awaiting_merge is NOT active or retriable ───────────────────────────────
+
+describe('isActiveStage — awaiting_merge', () => {
+  it('does NOT classify "awaiting_merge" as active', () => {
+    expect(isActiveStage('awaiting_merge')).toBe(false);
+  });
+});
+
+describe('isRetriableStage — awaiting_merge', () => {
+  it('does NOT classify "awaiting_merge" as retriable', () => {
+    expect(isRetriableStage('awaiting_merge')).toBe(false);
+  });
+});
+
 // ── isRetriableStage ────────────────────────────────────────────────────────
 
 describe('isRetriableStage', () => {

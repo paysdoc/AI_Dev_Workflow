@@ -26,6 +26,7 @@ export const OrchestratorId = {
   PlanBuildTestReview: 'plan-build-test-review-orchestrator',
   PrReview: 'pr-review-orchestrator',
   Chore: 'chore-orchestrator',
+  Merge: 'merge-orchestrator',
 } as const;
 
 export type OrchestratorIdType = typeof OrchestratorId[keyof typeof OrchestratorId];
