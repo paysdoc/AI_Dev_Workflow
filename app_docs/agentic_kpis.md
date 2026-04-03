@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value          | Last Updated       |
 | ----------------- | -------------- | ------------------ |
-| Current Streak    | 20             | 2026-04-03 14:57:15|
-| Longest Streak    | 66             | 2026-04-03 14:57:15|
-| Total Plan Size   | 548 lines      | 2026-04-03 14:57:15|
-| Largest Plan Size | 201 lines      | 2026-04-03 14:57:15|
-| Total Diff Size   | 2180241 lines  | 2026-04-03 14:57:15|
-| Largest Diff Size | 418153 lines   | 2026-04-03 14:57:15|
-| Average Presence  | 1.38           | 2026-04-03 14:57:15|
+| Current Streak    | 37             | 2026-04-03 15:17:44|
+| Longest Streak    | 37             | 2026-04-03 15:17:44|
+| Total Plan Size   | 441 lines      | 2026-04-03 15:17:44|
+| Largest Plan Size | 201 lines      | 2026-04-03 15:17:44|
+| Total Diff Size   | 2189341 lines  | 2026-04-03 15:17:44|
+| Largest Diff Size | 418153 lines   | 2026-04-03 15:17:44|
+| Average Presence  | 1.41           | 2026-04-03 15:17:44|
 
 ## ADW KPIs
 
@@ -101,3 +101,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-04-03 | dcy9qz-create-thin-merge-or | 381          | /feature    | 1        | 0                 | 6090/261/53                     | 2026-04-03 | 2026-04-03 |
 | 2026-04-03 | fequcj-fix-fail-open-depend | 389          | /feature    | 1        | 107               | 6945/273/64                     | 2026-04-03 | 2026-04-03 |
 | 2026-04-03 | 7fy9ry-remove-webhook-auto | 382          | /feature    | 2        | 0                 | 8129/492/76                     | 2026-04-03 | 2026-04-03 |
+| 2026-04-03 | b0y6j4-fix-token-limit-reco | 392          | /bug        | 1        | 0                 | 8598/502/85                     | 2026-04-03 | 2026-04-03 |
