@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value          | Last Updated       |
 | ----------------- | -------------- | ------------------ |
-| Current Streak    | 20             | 2026-04-03 13:59:18|
-| Longest Streak    | 67             | 2026-04-03 13:59:18|
-| Total Plan Size   | 441 lines      | 2026-04-03 13:59:18|
-| Largest Plan Size | 201 lines      | 2026-04-03 13:59:18|
-| Total Diff Size   | 2158051 lines  | 2026-04-03 13:59:18|
-| Largest Diff Size | 418153 lines   | 2026-04-03 13:59:18|
-| Average Presence  | 1.31           | 2026-04-03 13:59:18|
+| Current Streak    | 7              | 2026-04-03 14:25:26|
+| Longest Streak    | 60             | 2026-04-03 14:25:26|
+| Total Plan Size   | 548 lines      | 2026-04-03 14:25:26|
+| Largest Plan Size | 201 lines      | 2026-04-03 14:25:26|
+| Total Diff Size   | 2171620 lines  | 2026-04-03 14:25:26|
+| Largest Diff Size | 418153 lines   | 2026-04-03 14:25:26|
+| Average Presence  | 1.39           | 2026-04-03 14:25:26|
 
 ## ADW KPIs
 
@@ -99,3 +99,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-04-03 | xngqn4-orchestrators-exit-a | 380          | /feature    | 1        | 0                 | 3124/116/37                     | 2026-04-03 | 2026-04-03 |
 | 2026-04-03 | bpn4sv-orchestrators-exit-a | 380          | /feature    | 1        | 0                 | 3399/123/36                     | 2026-04-03 | 2026-04-03 |
 | 2026-04-03 | dcy9qz-create-thin-merge-or | 381          | /feature    | 1        | 0                 | 6090/261/53                     | 2026-04-03 | 2026-04-03 |
+| 2026-04-03 | fequcj-fix-fail-open-depend | 389          | /feature    | 1        | 107               | 6945/273/64                     | 2026-04-03 | 2026-04-03 |
