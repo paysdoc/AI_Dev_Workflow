@@ -123,6 +123,7 @@ export {
   executePRReviewPlanPhase,
   executePRReviewBuildPhase,
   executePRReviewTestPhase,
+  executePRReviewCommitPushPhase,
   completePRReviewWorkflow,
   handlePRReviewWorkflowError,
   completeWorkflow,

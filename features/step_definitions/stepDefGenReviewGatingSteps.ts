@@ -35,6 +35,10 @@ const PHASE_FUNCTION_MAP: Record<string, string> = {
   'diffEvaluation': 'executeDiffEvaluationPhase',
   'pr': 'executePRPhase',
   'kpi': 'executeKpiPhase',
+  // PR review orchestrator phases
+  'pr_review_plan': 'executePRReviewPlanPhase',
+  'pr_review_build': 'executePRReviewBuildPhase',
+  'commit_push': 'executePRReviewCommitPushPhase',
 };
 
 // ── 1. Slash command: /generate_step_definitions ────────────────────────────

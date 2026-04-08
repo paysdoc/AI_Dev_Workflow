@@ -26,6 +26,7 @@ import {
   initializePRReviewWorkflow,
   executePRReviewPlanPhase,
   executePRReviewBuildPhase,
+  executePRReviewCommitPushPhase,
   completePRReviewWorkflow,
   handlePRReviewWorkflowError,
   executeStepDefPhase,
@@ -78,6 +79,8 @@ async function main(): Promise<void> {
         await runPhase(config.base, tracker, fixWrapper);
       }
     }
+
+    await runPhase(config.base, tracker, _ => executePRReviewCommitPushPhase(config), 'pr_review_commit_push');
 
     await completePRReviewWorkflow(config, tracker.totalModelUsage);
   } catch (error) {
