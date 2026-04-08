@@ -107,7 +107,7 @@ Feature: Build agent routing and orchestrator pipeline restructure
   # 6. Orchestrator: adwSdlc.tsx pipeline restructure
   # ===================================================================
 
-  @adw-306 @adw-chpy1a-orchestrator-refacto @regression
+  @adw-306 @adw-chpy1a-orchestrator-refacto @adw-397 @regression
   Scenario: adwSdlc.tsx uses new pipeline with alignment, no step def phase
     Given the file "adws/adwSdlc.tsx" is read
     Then the phase ordering should be:
@@ -134,7 +134,7 @@ Feature: Build agent routing and orchestrator pipeline restructure
   # 7. Orchestrator: adwPlanBuildReview.tsx pipeline restructure
   # ===================================================================
 
-  @adw-306 @adw-chpy1a-orchestrator-refacto @regression
+  @adw-306 @adw-chpy1a-orchestrator-refacto @adw-397 @regression
   Scenario: adwPlanBuildReview.tsx uses new pipeline with alignment, no step def phase
     Given the file "adws/adwPlanBuildReview.tsx" is read
     Then the phase ordering should be:
@@ -153,7 +153,7 @@ Feature: Build agent routing and orchestrator pipeline restructure
   # 8. Orchestrator: adwPlanBuildTestReview.tsx pipeline restructure
   # ===================================================================
 
-  @adw-306 @adw-chpy1a-orchestrator-refacto @regression
+  @adw-306 @adw-chpy1a-orchestrator-refacto @adw-397 @regression
   Scenario: adwPlanBuildTestReview.tsx uses new pipeline with alignment, no step def phase
     Given the file "adws/adwPlanBuildTestReview.tsx" is read
     Then the phase ordering should be:
@@ -186,7 +186,7 @@ Feature: Build agent routing and orchestrator pipeline restructure
       | test               |
       | pr                 |
 
-  @adw-306 @adw-chpy1a-orchestrator-refacto @regression
+  @adw-306 @adw-chpy1a-orchestrator-refacto @adw-397 @regression
   Scenario: adwPlanBuildTest.tsx continues working without scenario or alignment phases
     Given the file "adws/adwPlanBuildTest.tsx" is read
     Then it should not invoke executeScenarioPhase
@@ -204,7 +204,7 @@ Feature: Build agent routing and orchestrator pipeline restructure
   # 10. executeStepDefPhase removed from all orchestrators
   # ===================================================================
 
-  @adw-306 @regression
+  @adw-306 @adw-397 @regression
   Scenario: executeStepDefPhase is not called in any orchestrator
     Given the files "adws/adwSdlc.tsx", "adws/adwPlanBuildReview.tsx", and "adws/adwPlanBuildTestReview.tsx" are read
     Then none of them import executeStepDefPhase
