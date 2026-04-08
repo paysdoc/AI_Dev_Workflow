@@ -1,6 +1,10 @@
 /**
  * Review Agent - Reviews implemented features against their spec files.
  * Uses the /review slash command from .claude/commands/review.md
+ *
+ * Passive judge: reads scenario_proof.md artifact, calls a single agent,
+ * returns reviewIssues + passed. Does not run tests, start a dev server, or
+ * take screenshots.
  */
 
 import * as path from 'path';
@@ -14,7 +18,6 @@ import { extractJson } from '../core/jsonParser';
  */
 export interface ReviewIssue {
   reviewIssueNumber: number;
-  screenshotPath: string;
   issueDescription: string;
   issueResolution: string;
   issueSeverity: 'skippable' | 'tech-debt' | 'blocker';
@@ -53,10 +56,9 @@ export const reviewResultSchema: Record<string, unknown> = {
       type: 'array',
       items: {
         type: 'object',
-        required: ['reviewIssueNumber', 'screenshotPath', 'issueDescription', 'issueResolution', 'issueSeverity'],
+        required: ['reviewIssueNumber', 'issueDescription', 'issueResolution', 'issueSeverity'],
         properties: {
           reviewIssueNumber: { type: 'number' },
-          screenshotPath: { type: 'string' },
           issueDescription: { type: 'string' },
           issueResolution: { type: 'string' },
           issueSeverity: { type: 'string', enum: ['skippable', 'tech-debt', 'blocker'] },
@@ -69,7 +71,6 @@ export const reviewResultSchema: Record<string, unknown> = {
 
 /**
  * Extracts ReviewResult from raw agent output.
- * Returns a structured error if the output cannot be parsed.
  */
 function extractReviewResult(output: string): ExtractionResult<ReviewResult> {
   const parsed = extractJson<ReviewResult>(output);
@@ -84,35 +85,30 @@ function extractReviewResult(output: string): ExtractionResult<ReviewResult> {
 
 /**
  * Formats structured args for the /review skill.
+ * Args: adwId ($0), specFile ($1), agentName ($2), scenarioProofPath ($3 if provided)
  */
 export function formatReviewArgs(
   adwId: string,
   specFile: string,
   agentName: string,
-  applicationUrl?: string,
   scenarioProofPath?: string,
 ): string[] {
-  if (scenarioProofPath) {
-    // $5 requires $4 to be present — use empty string for applicationUrl if absent
-    return [adwId, specFile, agentName, applicationUrl ?? '', scenarioProofPath];
-  }
-  return applicationUrl
-    ? [adwId, specFile, agentName, applicationUrl]
+  return scenarioProofPath
+    ? [adwId, specFile, agentName, scenarioProofPath]
     : [adwId, specFile, agentName];
 }
 
 /**
  * Runs the /review command and returns parsed review results.
- * Uses 'opus' model for complex reasoning.
+ * Single agent invocation — no parallelism.
  *
  * @param adwId - ADW session identifier
  * @param specFile - Path to the spec file to review against
  * @param logsDir - Directory to write agent logs
- * @param statePath - Optional path to agent's state directory for state tracking
- * @param cwd - Optional working directory for the agent (defaults to process.cwd())
- * @param applicationUrl - Optional application URL for the dev server (e.g. http://localhost:12345)
+ * @param statePath - Optional path to agent's state directory
+ * @param cwd - Optional working directory for the agent
  * @param issueBody - Optional issue body for fast/cheap model selection
- * @param agentIndex - Optional index for parallel execution (1, 2, 3, etc.)
+ * @param scenarioProofPath - Path to the scenario_proof.md file produced by scenarioTestPhase
  */
 export async function runReviewAgent(
   adwId: string,
@@ -120,20 +116,15 @@ export async function runReviewAgent(
   logsDir: string,
   statePath?: string,
   cwd?: string,
-  applicationUrl?: string,
   issueBody?: string,
-  agentIndex?: number,
   scenarioProofPath?: string,
 ): Promise<ReviewAgentResult> {
-  const displayName = agentIndex !== undefined ? `Review #${agentIndex}` : 'Review';
-  const logFileName = agentIndex !== undefined ? `review-agent-${agentIndex}.jsonl` : 'review-agent.jsonl';
-
-  const args = formatReviewArgs(adwId, specFile, displayName, applicationUrl, scenarioProofPath);
+  const args = formatReviewArgs(adwId, specFile, 'Review', scenarioProofPath);
 
   const reviewAgentConfig: CommandAgentConfig<ReviewResult> = {
     command: '/review',
-    agentName: displayName,
-    outputFileName: path.basename(logFileName),
+    agentName: 'Review',
+    outputFileName: path.basename('review-agent.jsonl'),
     extractOutput: extractReviewResult,
     outputSchema: reviewResultSchema,
   };

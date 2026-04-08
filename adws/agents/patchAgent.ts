@@ -35,7 +35,7 @@ export async function runPatchAgent(
   issueBody?: string,
 ): Promise<AgentResult> {
   const reviewChangeRequest = `Issue #${reviewIssue.reviewIssueNumber}: ${reviewIssue.issueDescription}\nResolution: ${reviewIssue.issueResolution}`;
-  const args = [adwId, reviewChangeRequest, specPath ?? '', 'patchAgent', reviewIssue.screenshotPath ?? ''];
+  const args = [adwId, reviewChangeRequest, specPath ?? '', 'patchAgent'];
   const outputFile = path.join(logsDir, `patch-agent-issue-${reviewIssue.reviewIssueNumber}.jsonl`);
   const model = getModelForCommand('/patch', issueBody);
   const effort = getEffortForCommand('/patch', issueBody);

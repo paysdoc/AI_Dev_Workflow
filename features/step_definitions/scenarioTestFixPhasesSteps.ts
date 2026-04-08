@@ -608,5 +608,10 @@ Then('the workflow reports scenario failure', function () {
 // ---------------------------------------------------------------------------
 // TypeScript compilation
 // ---------------------------------------------------------------------------
+
+// Note: When('{string} is run') is already defined in removeUnitTestsSteps.ts.
+// It stores the result in this.__commandResult (spawnSync result).
+// The Then steps below use the parameterized wireExtractorSteps.ts definitions
+// to avoid ambiguity with the literal-0 variants that previously lived here.
 // Note: 'the command exits with code {int}' and '{string} also exits with code {int}'
 // are defined in wireExtractorSteps.ts and used here. Duplicates removed.

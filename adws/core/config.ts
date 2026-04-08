@@ -70,9 +70,6 @@ export const COST_REPORT_CURRENCIES: readonly string[] = (process.env.COST_REPOR
   .map(c => c.trim())
   .filter(Boolean);
 
-/** Number of parallel review agents per iteration (default: 3). */
-export const REVIEW_AGENT_COUNT = Math.max(1, parseInt(process.env.REVIEW_AGENT_COUNT || '3', 10)) || 3;
-
 /** Maximum number of concurrently in-progress issues per repository (default: 5). */
 export const MAX_CONCURRENT_PER_REPO = parseInt(process.env.MAX_CONCURRENT_PER_REPO || '5', 10);
 

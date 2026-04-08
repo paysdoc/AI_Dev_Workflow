@@ -28,6 +28,8 @@ export {
   executeStepDefPhase,
   executeInstallPhase,
   executeReviewPhase,
+  executeReviewPatchCycle,
+  type ReviewIssue,
   executeAutoMergePhase,
   executeDiffEvaluationPhase,
   type DiffEvaluationPhaseResult,
