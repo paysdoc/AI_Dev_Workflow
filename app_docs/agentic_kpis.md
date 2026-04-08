@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated       |
 | ----------------- | ---------------- | ------------------ |
-| Current Streak    | 14               | 2026-04-08 14:41:36|
-| Longest Streak    | 75               | 2026-04-08 14:41:36|
-| Total Plan Size   | 1149 lines       | 2026-04-08 14:41:36|
-| Largest Plan Size | 201 lines        | 2026-04-08 14:41:36|
-| Total Diff Size   | 2190034 lines    | 2026-04-08 14:41:36|
-| Largest Diff Size | 418153 lines     | 2026-04-08 14:41:36|
-| Average Presence  | 1.31             | 2026-04-08 14:41:36|
+| Current Streak    | 99               | 2026-04-08 14:43:00|
+| Longest Streak    | 99               | 2026-04-08 14:43:00|
+| Total Plan Size   | 552 lines        | 2026-04-08 14:43:00|
+| Largest Plan Size | 201 lines        | 2026-04-08 14:43:00|
+| Total Diff Size   | 2193370 lines    | 2026-04-08 14:43:00|
+| Largest Diff Size | 418153 lines     | 2026-04-08 14:43:00|
+| Average Presence  | 1.35             | 2026-04-08 14:43:00|
 
 ## ADW KPIs
 
@@ -104,3 +104,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-04-03 | b0y6j4-fix-token-limit-reco | 392          | /bug        | 1        | 0                 | 8598/502/85                     | 2026-04-03 | 2026-04-03 |
 | 2026-04-08 | zqb2k1-wire-stepdefphase-in | 397          | /feature    | 1        | 111               | 670/23/15                       | 2026-04-08 | 2026-04-08 |
 | 2026-04-08 | f704s2-cron-janitor-for-orp | 394          | /feature    | 1        | 0                 | 1691/9/13                       | 2026-04-08 | 2026-04-08 |
+| 2026-04-08 | dd5jfe-dev-server-lifecycle | 395          | /feature    | 1        | 0                 | 1626/10/15                      | 2026-04-08 | 2026-04-08 |
