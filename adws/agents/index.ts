@@ -50,7 +50,7 @@ export {
 export {
   runTestAgent,
   runResolveTestAgent,
-  runResolveE2ETestAgent,
+  runResolveScenarioAgent,
   type TestResult,
   type TestAgentResult,
 } from './testAgent';

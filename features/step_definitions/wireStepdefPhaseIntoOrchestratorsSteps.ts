@@ -223,10 +223,14 @@ Then('executeStepDefPhase runs and generates step definitions', function () {
 Then('the test phase does not start until step definition generation completes', function () {
   const content: string = this.sdlcContent;
   const stepDefIdx = findFunctionUsageIndex(content, 'executeStepDefPhase');
-  const testIdx = findFunctionUsageIndex(content, 'executeTestPhase');
+  // Accept either the old name (executeTestPhase) or the renamed function (executeUnitTestPhase)
+  const testIdx = Math.max(
+    findFunctionUsageIndex(content, 'executeUnitTestPhase'),
+    findFunctionUsageIndex(content, 'executeTestPhase'),
+  );
   assert.ok(
     stepDefIdx < testIdx,
-    'Expected executeStepDefPhase to appear before executeTestPhase in adwSdlc.tsx',
+    'Expected executeStepDefPhase to appear before executeUnitTestPhase in adwSdlc.tsx',
   );
 });
 

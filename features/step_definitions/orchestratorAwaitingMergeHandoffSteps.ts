@@ -107,7 +107,7 @@ const WORKTREE_PHASES = [
   'executeDocumentPhase',
   'executeDiffEvaluationPhase',
   'executeBuildPhase',
-  'executeTestPhase',
+  'executeUnitTestPhase',
   'executeReviewPhase',
   'executeAutoMergePhase',
 ];
