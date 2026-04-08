@@ -63,16 +63,16 @@ Feature: Step definition generation, review-first gating, and guidelines check
 
   # ── 3. Test phase: remove BDD, unit tests only ──
 
-  @adw-249 @regression
-  Scenario: testPhase.ts does not execute BDD scenarios
-    Given the file "adws/phases/testPhase.ts" exists
+  @adw-249 @adw-399 @regression
+  Scenario: unitTestPhase.ts does not execute BDD scenarios
+    Given the file "adws/phases/unitTestPhase.ts" exists
     Then it should not call runBddScenariosWithRetry
     And it should not call runScenariosByTag
     And it should not reference bddScenarioRunner
 
-  @adw-249 @regression
-  Scenario: testPhase.ts preserves unit test opt-in behavior
-    Given the file "adws/phases/testPhase.ts" exists
+  @adw-249 @adw-399 @regression
+  Scenario: unitTestPhase.ts preserves unit test opt-in behavior
+    Given the file "adws/phases/unitTestPhase.ts" exists
     Then it should check the project config for unit test enablement
     And it should log a skip message when unit tests are disabled
 
@@ -130,21 +130,22 @@ Feature: Step definition generation, review-first gating, and guidelines check
       | review             |
       | pr                 |
 
-  @adw-249 @adw-71pdjz-cache-install-contex @adw-306 @adw-397
-  Scenario: adwSdlc.tsx follows post-397 phase ordering
+  @adw-249 @adw-71pdjz-cache-install-contex @adw-306 @adw-397 @adw-399
+  Scenario: adwSdlc.tsx follows post-399 phase ordering
     Given the file "adws/adwSdlc.tsx" exists
     Then the phase ordering should be:
-      | phase              |
-      | install            |
-      | plan + scenarios   |
-      | alignment          |
-      | build              |
-      | stepDef            |
-      | test               |
-      | review             |
-      | document           |
-      | kpi                |
-      | pr                 |
+      | phase                         |
+      | install                       |
+      | plan + scenarios              |
+      | alignment                     |
+      | build                         |
+      | stepDef                       |
+      | unitTest                      |
+      | scenarioTest [-> fix -> loop] |
+      | review                        |
+      | document                      |
+      | kpi                           |
+      | pr                            |
 
   @adw-249 @adw-71pdjz-cache-install-contex @adw-306
   Scenario: adwPlanBuildReview.tsx follows post-306 phase ordering

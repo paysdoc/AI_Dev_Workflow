@@ -116,7 +116,7 @@ export {
   initializePRReviewWorkflow,
   executePlanPhase,
   executeBuildPhase,
-  executeTestPhase,
+  executeUnitTestPhase,
   executePRPhase,
   executeReviewPhase,
   executeInstallPhase,

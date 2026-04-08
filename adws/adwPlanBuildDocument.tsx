@@ -26,7 +26,7 @@ import {
   executeInstallPhase,
   executePlanPhase,
   executeBuildPhase,
-  executeTestPhase,
+  executeUnitTestPhase,
   executePRPhase,
   executeDocumentPhase,
   completeWorkflow,
@@ -59,7 +59,7 @@ async function main(): Promise<void> {
     await runPhase(config, tracker, executeInstallPhase);
     await runPhase(config, tracker, executePlanPhase);
     await runPhase(config, tracker, executeBuildPhase);
-    const testResult = await runPhase(config, tracker, executeTestPhase);
+    const testResult = await runPhase(config, tracker, executeUnitTestPhase);
     await runPhase(config, tracker, executeDocumentPhase);
     await runPhase(config, tracker, executePRPhase);
 

@@ -1,9 +1,9 @@
 ---
 target: false
 ---
-# Resolve Failed E2E Test
+# Resolve Failed Scenario
 
-Fix a specific failing E2E test using the provided failure details.
+Fix a specific failing BDD scenario using the provided failure details.
 
 ## Instructions
 

@@ -1,5 +1,20 @@
 # Conditional Documentation
 
+- app_docs/feature-1bg58c-scenario-test-fix-phases.md
+  - Conditions:
+    - When working with `adws/phases/scenarioTestPhase.ts` or `adws/phases/scenarioFixPhase.ts`
+    - When adding or modifying the scenario test/fix retry loop in any orchestrator
+    - When understanding how `adwSdlc.tsx` decouples scenario execution from the review phase
+    - When troubleshooting `runResolveScenarioAgent` or the `/resolve_failed_scenario` command
+    - When configuring `## Run Scenarios by Tag`, `## Start Dev Server`, or `## Health Check Path` in `.adw/commands.md`
+
+- app_docs/feature-8ogjrg-scenario-test-fix-phases.md
+  - Conditions:
+    - When working with `features/scenario_test_fix_phases.feature` or `features/step_definitions/scenarioTestFixPhasesSteps.ts`
+    - When writing or updating BDD acceptance scenarios for scenario test/fix phases
+    - When understanding the full SDLC phase sequence after scenario test/fix wiring
+    - When reviewing `ScenarioProofResult` shape and how it flows between `scenarioTestPhase` and `scenarioFixPhase`
+
 - app_docs/feature-dd5jfe-dev-server-lifecycle.md
   - Conditions:
     - When working with `adws/core/devServerLifecycle.ts` or integrating `withDevServer` into a test/scenario phase
