@@ -145,7 +145,7 @@ Feature: Wire scenarioTestPhase + scenarioFixPhase into remaining orchestrators
     Then it imports "executeScenarioTestPhase" from workflowPhases or phases
     And it imports "executeScenarioFixPhase" from workflowPhases or phases
 
-  @adw-400 @regression
+  @adw-400 @adw-402 @regression
   Scenario: adwPrReview.tsx runs the new phase sequence with scenarios via phaseRunner
     Given the file "adws/adwPrReview.tsx" is read
     Then the phase ordering should be:
@@ -156,6 +156,7 @@ Feature: Wire scenarioTestPhase + scenarioFixPhase into remaining orchestrators
       | stepDef                       |
       | unitTest                      |
       | scenarioTest [-> fix -> loop] |
+      | commit_push                   |
 
   @adw-400 @regression
   Scenario: adwPrReview.tsx wires scenario phases through runPhase with config.base
