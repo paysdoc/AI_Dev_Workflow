@@ -32,9 +32,13 @@ N/A
 echo "build ok"
 ```
 
-## Run E2E Tests
+## Start Dev Server
 
 N/A
+
+## Health Check Path
+
+/
 
 ## Run Scenarios by Tag
 

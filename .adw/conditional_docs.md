@@ -1,5 +1,82 @@
 # Conditional Documentation
 
+- app_docs/feature-s59wpc-adwprreview-phaserunner-migration.md
+  - Conditions:
+    - When working with `adws/adwPrReview.tsx` or the PR review orchestrator
+    - When working with `adws/phases/prReviewPhase.ts` or `prReviewCompletion.ts`
+    - When adding a new phase to the PR review workflow (follow closure-wrapper pattern)
+    - When troubleshooting rate-limit pause/resume for PR review workflows
+    - When debugging D1 cost posting or `phaseCostRecords` in PR review phases
+
+- app_docs/feature-1bg58c-scenario-test-fix-phases.md
+  - Conditions:
+    - When working with `adws/phases/scenarioTestPhase.ts` or `adws/phases/scenarioFixPhase.ts`
+    - When adding or modifying the scenario test/fix retry loop in any orchestrator
+    - When understanding how `adwSdlc.tsx` decouples scenario execution from the review phase
+    - When troubleshooting `runResolveScenarioAgent` or the `/resolve_failed_scenario` command
+    - When configuring `## Run Scenarios by Tag`, `## Start Dev Server`, or `## Health Check Path` in `.adw/commands.md`
+
+- app_docs/feature-8ogjrg-scenario-test-fix-phases.md
+  - Conditions:
+    - When working with `features/scenario_test_fix_phases.feature` or `features/step_definitions/scenarioTestFixPhasesSteps.ts`
+    - When writing or updating BDD acceptance scenarios for scenario test/fix phases
+    - When understanding the full SDLC phase sequence after scenario test/fix wiring
+    - When reviewing `ScenarioProofResult` shape and how it flows between `scenarioTestPhase` and `scenarioFixPhase`
+
+- app_docs/feature-4jvczx-adw-init-schema-updates.md
+  - Conditions:
+    - When running `/adw_init` and need to understand `## Start Dev Server` detection logic
+    - When a newly initialized `.adw/commands.md` is missing `## Health Check Path` or has `## Run E2E Tests`
+    - When adding a new project type and need to determine the correct `## Start Dev Server` value
+    - When troubleshooting `{PORT}` substitution failures in `devServerLifecycle.ts`
+    - When updating `adw_init.md` to support a new test runner or web framework
+
+- app_docs/feature-dd5jfe-dev-server-lifecycle.md
+  - Conditions:
+    - When working with `adws/core/devServerLifecycle.ts` or integrating `withDevServer` into a test/scenario phase
+    - When implementing dev server startup, health probing, retry, or cleanup in any orchestrator
+    - When adding or modifying `healthCheckPath` in `.adw/commands.md` for a target repo
+    - When troubleshooting leaked dev server processes or stale `next dev` / `bun dev` workers
+    - When working with `adws/triggers/devServerJanitor.ts` or extending the janitor pass
+
+- app_docs/feature-f704s2-dev-server-janitor-cron.md
+  - Conditions:
+    - When working with `adws/triggers/devServerJanitor.ts` or the janitor probe
+    - When adding or modifying cron probes in `adws/triggers/trigger_cron.ts`
+    - When troubleshooting orphaned dev server processes in target repo worktrees
+    - When working with `shouldCleanWorktree` kill decision logic or grace period tuning
+    - When writing tests that inject `JanitorDeps` or mock worktree fs operations
+
+- app_docs/feature-zqb2k1-wire-stepdefphase-into-orchestrators.md
+  - Conditions:
+    - When working with any orchestrator (`adwSdlc`, `adwPlanBuildTest`, `adwPlanBuildTestReview`, `adwChore`, `adwPrReview`) and adding or modifying phase order
+    - When implementing a new orchestrator that should run BDD step definition generation
+    - When troubleshooting step definitions not being present before the test phase runs
+    - When working with `adws/phases/stepDefPhase.ts` or `executeStepDefPhase`
+    - When understanding how `adwPrReview.tsx` adapts `PRReviewWorkflowConfig` to call `WorkflowConfig`-typed phases
+
+- app_docs/feature-cudwfe-passive-judge-review-phase.md
+  - Conditions:
+    - When working with `adws/phases/reviewPhase.ts` or the passive judge review implementation
+    - When adding a review retry loop to a new orchestrator (follow the `adwPlanBuildReview.tsx` pattern)
+    - When working with `adws/agents/reviewAgent.ts` or the `/review` slash command
+    - When troubleshooting why review no longer starts a dev server or captures screenshots
+    - When understanding `executeReviewPatchCycle` and how it differs from `scenarioFixPhase`
+
+- app_docs/feature-o1w8wg-wire-scenarios-remaining-orchestrators.md
+  - Conditions:
+    - When working with `adwPlanBuildTest.tsx`, `adwPlanBuildTestReview.tsx`, `adwChore.tsx`, or `adwPrReview.tsx` and the scenario test/fix retry loop
+    - When adding or extending the scenario test/fix pattern to a new orchestrator
+    - When understanding why `adwPlanBuildTestReview` patches `scenariosMd` to empty before calling review
+    - When troubleshooting `adwPrReview` scenario phases running through `config.base` vs the full `PRReviewWorkflowConfig`
+    - When understanding the diff evaluator ordering in `adwChore` relative to scenario testing
+
+- app_docs/feature-8zhro4-prreviewworkflowconfig-composition.md
+  - Conditions:
+    - When working with `PRReviewWorkflowConfig` or `adws/phases/prReviewPhase.ts`
+    - When adding a new field to `PRReviewWorkflowConfig` (decide: top-level PR-specific, or `base`)
+    - When troubleshooting field-access patterns in PR review phase functions
+
 - app_docs/feature-dcy9qz-merge-orchestrator-cron-handoff.md
   - Conditions:
     - When working with `adws/adwMerge.tsx` or the merge orchestrator spawn flow
@@ -7,6 +84,14 @@
     - When adding a new handoff stage that bypasses the cron grace period
     - When troubleshooting `awaiting_merge` issues not being picked up by the cron
     - When working with `deriveOrchestratorScript()` and adding a new orchestrator mapping
+
+- app_docs/feature-01s6z7-delete-legacy-e2e-machinery.md
+  - Conditions:
+    - When looking for `runE2ETestsWithRetry`, `runBddScenariosWithRetry`, `discoverE2ETestFiles`, or `runPlaywrightE2ETests` (all deleted)
+    - When looking for `executePRReviewTestPhase` (deleted — use `executeScenarioTestPhase` + `executeScenarioFixPhase`)
+    - When importing `ScenarioProofResult`, `TagProofResult`, `shouldRunScenarioProof`, or `runScenarioProof` (now in `adws/phases/scenarioProof.ts`)
+    - When troubleshooting a missing `runE2ETests` field in `CommandsConfig` or `.adw/commands.md`
+    - When understanding why `agents/regressionScenarioProof.ts` and `agents/testDiscovery.ts` no longer exist
 
 - app_docs/feature-643xf3-fix-retry-and-commit-leak.md
   - Conditions:
@@ -732,3 +817,11 @@
     - When modifying `TokenUsageSnapshot` fields in `adws/types/agentTypes.ts`
     - When troubleshooting token limit recovery comments on GitHub issues showing incorrect or inflated token counts
     - When the token limit comment numerator exceeds the denominator (total vs output-only mismatch)
+
+- app_docs/feature-vv4ie0-relocate-test-phase-extract-commit-push.md
+  - Conditions:
+    - When working with `adws/phases/prReviewPhase.ts` and adding or relocating PR review phases
+    - When working with `adws/phases/prReviewCompletion.ts` and expecting it to contain phase-execution logic (it no longer does — it is terminal-only)
+    - When wiring a new commit+push step in the PR review orchestrator (`adwPrReview.tsx`)
+    - When troubleshooting why `completePRReviewWorkflow` no longer calls `runCommitAgent` or `pushBranch`
+    - When understanding the anti-pattern resolution described in `specs/prd/test-review-refactor.md`

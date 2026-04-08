@@ -9,32 +9,41 @@
  * 2. Install Phase: install dependencies
  * 3. Plan Phase: classify issue, create branch, run plan agent, commit plan
  * 4. Build Phase: run build agent, commit implementation
- * 5. Test Phase: optionally run unit tests (unit only)
- * 6. Diff Evaluation Phase: LLM evaluates the diff (Haiku, low effort — worktree-dependent)
+ * 5. Step Def Phase: generate BDD step definitions
+ * 6. Unit Test Phase: optionally run unit tests (unit only)
+ * 7. Scenario Test Phase [→ Scenario Fix Phase → retry]: run BDD scenarios, fix failures
+ * 8. Diff Evaluation Phase: LLM evaluates the diff (Haiku, low effort — worktree-dependent)
  *    → if "regression_possible": post escalation comment → review → document
- * 7. PR Phase: create pull request
- * 8. Approve PR + write awaiting_merge to state (API calls only — no worktree required)
- * 9. Finalize: update state, post completion comment
+ * 9. PR Phase: create pull request
+ * 10. Approve PR + write awaiting_merge to state (API calls only — no worktree required)
+ * 11. Finalize: update state, post completion comment
  *
  * Environment Requirements:
  * - ANTHROPIC_API_KEY: Anthropic API key
  * - CLAUDE_CODE_PATH: Path to Claude CLI (default: /usr/local/bin/claude)
  * - GITHUB_PAT: (Optional) GitHub Personal Access Token
+ * - MAX_TEST_RETRY_ATTEMPTS: Maximum retry attempts for tests (default: 5)
+ * - MAX_REVIEW_RETRY_ATTEMPTS: Maximum retry attempts for review-patch loop (default: 3)
  */
 
-import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId, AgentStateManager, log } from './core';
+import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId, AgentStateManager, log, MAX_TEST_RETRY_ATTEMPTS, MAX_REVIEW_RETRY_ATTEMPTS } from './core';
 import { CostTracker, runPhase } from './core/phaseRunner';
 import {
   initializeWorkflow,
   executeInstallPhase,
   executePlanPhase,
   executeBuildPhase,
-  executeTestPhase,
+  executeStepDefPhase,
+  executeUnitTestPhase,
+  executeScenarioTestPhase,
+  executeScenarioFixPhase,
   executePRPhase,
   executeReviewPhase,
+  executeReviewPatchCycle,
   executeDocumentPhase,
   executeDiffEvaluationPhase,
   handleWorkflowError,
+  type ReviewIssue,
 } from './workflowPhases';
 import { persistTokenCounts } from './cost';
 import type { WorkflowConfig } from './phases';
@@ -89,16 +98,53 @@ async function main(): Promise<void> {
     await runPhase(config, tracker, executeInstallPhase);
     await runPhase(config, tracker, executePlanPhase);
     await runPhase(config, tracker, executeBuildPhase);
-    const testResult = await runPhase(config, tracker, executeTestPhase);
+    await runPhase(config, tracker, executeStepDefPhase, 'stepDef');
+    const testResult = await runPhase(config, tracker, executeUnitTestPhase);
+
+    // Scenario test → fix retry loop (orchestrator-level, bounded by MAX_TEST_RETRY_ATTEMPTS)
+    let scenarioProofPath = '';
+    let scenarioRetries = 0;
+    for (let attempt = 0; attempt < MAX_TEST_RETRY_ATTEMPTS; attempt++) {
+      const scenarioResult = await runPhase(config, tracker, executeScenarioTestPhase);
+      scenarioProofPath = scenarioResult.scenarioProof?.resultsFilePath ?? '';
+      if (!scenarioResult.scenarioProof?.hasBlockerFailures) break;
+      scenarioRetries++;
+      if (attempt < MAX_TEST_RETRY_ATTEMPTS - 1) {
+        const fixWrapper = (cfg: WorkflowConfig) =>
+          executeScenarioFixPhase(cfg, scenarioResult.scenarioProof!);
+        await runPhase(config, tracker, fixWrapper);
+      }
+    }
 
     // Diff evaluation uses git diff against the default branch (worktree-dependent).
     // Runs before PR so the worktree is still available.
     const diffResult = await runPhase(config, tracker, executeDiffEvaluationPhase);
 
-    let reviewResult: { reviewPassed: boolean; totalRetries: number } | undefined;
+    let reviewPassed: boolean | undefined;
+    let reviewRetries = 0;
     if (diffResult.verdict !== 'safe') {
       postEscalationComment(config);
-      reviewResult = await runPhase(config, tracker, executeReviewPhase);
+
+      // Review → patch+retest retry loop (orchestrator-level, bounded by MAX_REVIEW_RETRY_ATTEMPTS)
+      let proofPath = scenarioProofPath;
+      let reviewBlockers: ReviewIssue[] = [];
+      for (let attempt = 0; attempt < MAX_REVIEW_RETRY_ATTEMPTS; attempt++) {
+        const reviewFn = (cfg: WorkflowConfig) => executeReviewPhase(cfg, proofPath);
+        const reviewResult = await runPhase(config, tracker, reviewFn);
+        reviewPassed = reviewResult.reviewPassed;
+        reviewBlockers = reviewResult.reviewIssues.filter(i => i.issueSeverity === 'blocker');
+        if (reviewPassed) break;
+        reviewRetries++;
+        if (attempt < MAX_REVIEW_RETRY_ATTEMPTS - 1) {
+          const patchWrapper = (cfg: WorkflowConfig) =>
+            executeReviewPatchCycle(cfg, reviewBlockers);
+          await runPhase(config, tracker, patchWrapper);
+          // Re-run scenario tests to verify patch didn't break scenarios
+          const retestResult = await runPhase(config, tracker, executeScenarioTestPhase);
+          proofPath = retestResult.scenarioProof?.resultsFilePath ?? '';
+        }
+      }
+
       // Document phase runs Claude agent + git commit/push — worktree-dependent, must run before PR.
       await runPhase(config, tracker, (cfg: WorkflowConfig) => executeDocumentPhase(cfg));
     }
@@ -128,10 +174,11 @@ async function main(): Promise<void> {
         totalCostUsd: tracker.totalCostUsd,
         unitTestsPassed: testResult.unitTestsPassed,
         totalTestRetries: testResult.totalRetries,
-        diffVerdict: reviewResult ? 'regression_possible' : 'safe',
-        ...(reviewResult ? {
-          reviewPassed: reviewResult.reviewPassed,
-          totalReviewRetries: reviewResult.totalRetries,
+        scenarioRetries,
+        diffVerdict: reviewPassed !== undefined ? 'regression_possible' : 'safe',
+        ...(reviewPassed !== undefined ? {
+          reviewPassed,
+          totalReviewRetries: reviewRetries,
         } : {}),
       },
     });

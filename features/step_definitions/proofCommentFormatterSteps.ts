@@ -10,7 +10,7 @@ import {
   type ProofCommentInput,
   type VerificationResult,
 } from '../../adws/github/proofCommentFormatter.ts';
-import type { ScenarioProofResult, TagProofResult } from '../../adws/agents/regressionScenarioProof.ts';
+import type { ScenarioProofResult, TagProofResult } from '../../adws/phases/scenarioProof.ts';
 import type { ReviewIssue } from '../../adws/agents/reviewAgent.ts';
 
 const ROOT = process.cwd();
@@ -48,7 +48,6 @@ function makeTagResult(overrides: Partial<TagProofResult> = {}): TagProofResult 
 function makeReviewIssue(overrides: Partial<ReviewIssue> = {}): ReviewIssue {
   return {
     reviewIssueNumber: 1,
-    screenshotPath: '',
     issueDescription: 'Test issue description',
     issueResolution: 'Fix it',
     issueSeverity: 'tech-debt',

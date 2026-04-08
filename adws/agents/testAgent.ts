@@ -9,17 +9,12 @@ import { runClaudeAgentWithCommand, AgentResult } from './claudeAgent';
 import { runCommandAgent, type CommandAgentConfig, type ExtractionResult } from './commandAgent';
 import { extractJsonArray } from '../core/jsonParser';
 
-// Backward-compatible re-exports from testDiscovery
-export {
-  discoverE2ETestFiles,
-  isValidE2ETestResult,
-  runPlaywrightE2ETests,
-  type E2ETestResult,
-  type PlaywrightE2EResult,
-} from './testDiscovery';
-
-// Re-import E2ETestResult for local use
-import type { E2ETestResult } from './testDiscovery';
+export interface E2ETestResult {
+  testName: string;
+  status: 'passed' | 'failed';
+  error: string | null;
+  testPath?: string;
+}
 
 /**
  * Individual test result from the /test command.
@@ -165,7 +160,7 @@ export async function runResolveTestAgent(
  * @param cwd - Optional working directory for the agent (defaults to process.cwd())
  * @param applicationUrl - Optional application URL for the dev server (e.g. http://localhost:12345)
  */
-export async function runResolveE2ETestAgent(
+export async function runResolveScenarioAgent(
   failedE2ETest: E2ETestResult,
   logsDir: string,
   statePath?: string,
@@ -190,12 +185,12 @@ export async function runResolveE2ETestAgent(
   const displayName = rawTestName ?? 'unknown';
 
   return runClaudeAgentWithCommand(
-    '/resolve_failed_e2e_test',
+    '/resolve_failed_scenario',
     failureJson,
-    `Resolve E2E: ${displayName}`,
+    `Resolve Scenario: ${displayName}`,
     outputFile,
-    getModelForCommand('/resolve_failed_e2e_test', issueBody),
-    getEffortForCommand('/resolve_failed_e2e_test', issueBody),
+    getModelForCommand('/resolve_failed_scenario', issueBody),
+    getEffortForCommand('/resolve_failed_scenario', issueBody),
     undefined,
     statePath,
     cwd

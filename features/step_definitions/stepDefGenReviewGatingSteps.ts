@@ -23,12 +23,22 @@ const PHASE_FUNCTION_MAP: Record<string, string> = {
   'alignment': 'executeAlignmentPhase',
   'plan validation': 'executeAlignmentPhase',
   'build': 'executeBuildPhase',
-  'test': 'executeTestPhase',
+  'test': 'executeUnitTestPhase',
+  'unitTest': 'executeUnitTestPhase',
   'step def gen': 'executeStepDefPhase',
+  'stepDef': 'executeStepDefPhase',
+  'scenarioTest [-> fix -> loop]': 'executeScenarioTestPhase',
   'review': 'executeReviewPhase',
+  'review (conditional)': 'executeReviewPhase',
   'document': 'executeDocumentPhase',
+  'document (conditional)': 'executeDocumentPhase',
+  'diffEvaluation': 'executeDiffEvaluationPhase',
   'pr': 'executePRPhase',
   'kpi': 'executeKpiPhase',
+  // PR review orchestrator phases
+  'pr_review_plan': 'executePRReviewPlanPhase',
+  'pr_review_build': 'executePRReviewBuildPhase',
+  'commit_push': 'executePRReviewCommitPushPhase',
 };
 
 // ── 1. Slash command: /generate_step_definitions ────────────────────────────

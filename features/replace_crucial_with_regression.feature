@@ -30,9 +30,9 @@ Feature: Replace @crucial tag with @regression throughout ADW
     Then no scenario with the "@crucial" tag is found
     And all scenarios that previously used "@crucial" are now tagged "@regression"
 
-  @adw-20eum6-replace-crucial-with @regression
+  @adw-20eum6-replace-crucial-with
   Scenario: regressionScenarioProof.ts source file does not reference @crucial and uses config-driven tags
-    Given the file "adws/agents/regressionScenarioProof.ts" is read
+    Given the file "adws/phases/scenarioProof.ts" is read
     When searching for the string "@crucial"
     Then no occurrence of "@crucial" is found
     And the string "ReviewProofConfig" is present where the regression tag is referenced
@@ -51,17 +51,17 @@ Feature: Replace @crucial tag with @regression throughout ADW
     Then the log messages contain "@regression"
     And no log message contains "@crucial"
 
-  @adw-20eum6-replace-crucial-with @regression
+  @adw-20eum6-replace-crucial-with
   Scenario: ScenarioProofResult interface uses tagResults instead of crucialPassed
-    Given the file "adws/agents/regressionScenarioProof.ts" is read
+    Given the file "adws/phases/scenarioProof.ts" is read
     When the "ScenarioProofResult" interface definition is found
     Then the interface contains a field named "tagResults"
     And the interface does not contain a field named "crucialPassed"
     And the interface does not contain a field named "regressionPassed"
 
-  @adw-20eum6-replace-crucial-with @regression
+  @adw-20eum6-replace-crucial-with
   Scenario: runScenarioProof function iterates config-driven tags instead of hardcoded regression
-    Given the "runScenarioProof" function in "adws/agents/regressionScenarioProof.ts" is read
+    Given the "runScenarioProof" function in "adws/phases/scenarioProof.ts" is read
     When searching for the call to runScenariosByTag that runs the regression scenarios
     Then it passes "reviewProofConfig" (or the resolved tag from runRegressionCommand) as the tag argument
     And it does not hard-code the string "crucial" as the tag argument

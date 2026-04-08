@@ -1,8 +1,10 @@
 import { Given, When, Then } from '@cucumber/cucumber';
-import { existsSync, readFileSync } from 'fs';
-import { join } from 'path';
+import { existsSync, readFileSync, mkdtempSync, mkdirSync, writeFileSync } from 'fs';
+import { join, dirname } from 'path';
+import { tmpdir } from 'os';
 import assert from 'assert';
 import { sharedCtx } from './commonSteps.ts';
+import { loadProjectConfig } from '../../adws/core/projectConfig.ts';
 
 const ROOT = process.cwd();
 
@@ -37,9 +39,10 @@ function extractSection(content: string, heading: string): string | null {
 Then('the value under that section is {string}', function (this: Record<string, string>, expected: string) {
   const content = this.fileContent || sharedCtx.fileContent;
   assert.ok(content, 'No file content loaded');
-  const section = extractSection(content, 'Application Type');
-  assert.ok(section !== null, 'Expected "## Application Type" section to exist');
-  assert.strictEqual(section, expected, `Expected Application Type to be "${expected}" but got "${section}"`);
+  const sectionName = sharedCtx.lastCheckedSection || 'Application Type';
+  const section = extractSection(content, sectionName);
+  assert.ok(section !== null, `Expected "## ${sectionName}" section to exist`);
+  assert.strictEqual(section, expected, `Expected ${sectionName} to be "${expected}" but got "${section}"`);
 });
 
 Given('a {string} file with {string} set to {string}', function (
@@ -119,13 +122,26 @@ Then('the returned applicationType is {string}', function (expected: string) {
 });
 
 Given('a target repository with {string} containing {string}', function (
-  _filePath: string, _content: string,
+  this: Record<string, string>, filePath: string, content: string,
 ) {
-  // Context step
+  // Store for the When step to create a temp repo and load config
+  this.targetFilePath = filePath;
+  this.targetContent = content.replace(/\\n/g, '\n');
 });
 
-When('loadProjectConfig is called for that repository', function () {
-  // Context step
+When('loadProjectConfig is called for that repository', function (
+  this: Record<string, unknown>,
+) {
+  const filePath = (this as Record<string, string>).targetFilePath;
+  const content = (this as Record<string, string>).targetContent;
+  if (filePath && content !== undefined) {
+    const tmpDir = mkdtempSync(join(tmpdir(), 'adw-test-'));
+    const fullFilePath = join(tmpDir, filePath);
+    mkdirSync(dirname(fullFilePath), { recursive: true });
+    writeFileSync(fullFilePath, content, 'utf-8');
+    this.loadedProjectConfig = loadProjectConfig(tmpDir);
+  }
+  // If no stored state (context-only scenario), nothing to do
 });
 
 Then('the returned ProjectConfig has applicationType set to {string}', function (expected: string) {

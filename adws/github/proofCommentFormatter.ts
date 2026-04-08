@@ -5,7 +5,7 @@
  * No side effects, no I/O. Caller is responsible for appending ADW footer.
  */
 
-import type { ScenarioProofResult, TagProofResult } from '../agents/regressionScenarioProof';
+import type { ScenarioProofResult, TagProofResult } from '../phases/scenarioProof';
 import type { ReviewIssue } from '../agents/reviewAgent';
 
 // ── Types ────────────────────────────────────────────────────────────────────

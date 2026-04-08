@@ -10,6 +10,8 @@ const ROOT = process.cwd();
 // "not exported" assertions pass vacuously (nothing is exported from a deleted file).
 const REMOVED_FILES = new Set([
   'adws/agents/crucialScenarioProof.ts', // renamed to regressionScenarioProof.ts
+  'adws/agents/regressionScenarioProof.ts', // relocated to adws/phases/scenarioProof.ts in issue #403
+  'adws/agents/testDiscovery.ts', // deleted in issue #403 — legacy E2E machinery cleanup
   // Deleted in issue #245 — cost module migration cleanup
   'adws/core/costPricing.ts',
   'adws/core/costReport.ts',
@@ -21,9 +23,10 @@ const REMOVED_FILES = new Set([
 // Shared mutable context for cross-file step definitions.
 // Populated by the file-reading Given steps so that step defs in other files
 // can access the last-read file's content without needing Cucumber World.
-export const sharedCtx: { fileContent: string; filePath: string } = {
+export const sharedCtx: { fileContent: string; filePath: string; lastCheckedSection: string } = {
   fileContent: '',
   filePath: '',
+  lastCheckedSection: '',
 };
 
 // World state is stored on `this` — all step functions use function() syntax.
@@ -111,9 +114,12 @@ export function findFunctionUsageIndex(content: string, funcName: string): numbe
   // Direct call: funcName(
   const directIdx = content.indexOf(`${funcName}(`);
   if (directIdx !== -1) return directIdx;
-  // Passed as callback to runPhase: , funcName)
+  // Passed as callback to runPhase (last arg): , funcName)
   const callbackIdx = content.indexOf(`, ${funcName})`);
   if (callbackIdx !== -1) return callbackIdx;
+  // Passed as callback to runPhase (non-last arg): , funcName,
+  const middleArgIdx = content.indexOf(`, ${funcName},`);
+  if (middleArgIdx !== -1) return middleArgIdx;
   // Passed in array to runPhasesParallel: , funcName]
   const arrayLastIdx = content.indexOf(`, ${funcName}]`);
   if (arrayLastIdx !== -1) return arrayLastIdx;

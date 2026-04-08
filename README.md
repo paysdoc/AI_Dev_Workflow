@@ -153,6 +153,7 @@ Docker execution is entirely optional — the test suite runs identically on the
 │   ├── pull_request.md
 │   ├── resolve_conflict.md
 │   ├── resolve_failed_e2e_test.md
+│   ├── resolve_failed_scenario.md
 │   ├── resolve_failed_test.md
 │   ├── resolve_plan_scenarios.md
 │   ├── review.md
@@ -200,7 +201,9 @@ Docker execution is entirely optional — the test suite runs identically on the
 └── settings.json
 adws/                   # ADW workflow system
 ├── __tests__/          # Vitest integration tests
-│   └── adwMerge.test.ts
+│   ├── adwMerge.test.ts
+│   ├── issueDependencies.test.ts
+│   └── triggerWebhook.test.ts
 ├── agents/             # Claude Code agent runners
 │   ├── __tests__/      # Vitest unit tests
 │   │   └── gitAgent.test.ts
@@ -211,7 +214,6 @@ adws/                   # ADW workflow system
 │   ├── claudeAgent.ts
 │   ├── commandAgent.ts  # Generic thin-wrapper agent for slash commands
 │   ├── diffEvaluatorAgent.ts  # LLM-based diff safety classification (Haiku)
-│   ├── regressionScenarioProof.ts  # Regression scenario proof for reviews
 │   ├── dependencyExtractionAgent.ts  # LLM-based issue dependency extraction
 │   ├── documentAgent.ts
 │   ├── gitAgent.ts
@@ -224,18 +226,18 @@ adws/                   # ADW workflow system
 │   ├── prAgent.ts
 │   ├── resolutionAgent.ts  # Plan-scenario mismatch resolution
 │   ├── reviewAgent.ts
-│   ├── reviewRetry.ts
 │   ├── scenarioAgent.ts  # BDD scenario planner agent
 │   ├── stepDefAgent.ts  # Step definition generation agent
 │   ├── testAgent.ts
-│   ├── testDiscovery.ts  # E2E test discovery
 │   ├── testRetry.ts
 │   └── validationAgent.ts  # Plan-scenario validation
 ├── core/               # Configuration and utilities
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── claudeStreamParser.test.ts
+│   │   ├── devServerLifecycle.test.ts
 │   │   ├── execWithRetry.test.ts
 │   │   ├── phaseRunner.test.ts
+│   │   ├── projectConfig.test.ts
 │   │   └── topLevelState.test.ts
 │   ├── adwId.ts        # ADW ID generation
 │   ├── agentState.ts
@@ -259,7 +261,8 @@ adws/                   # ADW workflow system
 │   ├── targetRepoManager.ts
 │   ├── utils.ts
 │   ├── workflowCommentParsing.ts  # Comment parsing utilities
-│   └── workflowMapping.ts  # Issue type → orchestrator mapping
+│   ├── workflowMapping.ts  # Issue type → orchestrator mapping
+│   └── devServerLifecycle.ts  # Dev server spawn, health probe, and cleanup helpers
 ├── github/             # GitHub API operations
 │   ├── githubApi.ts
 │   ├── githubAppAuth.ts  # GitHub App authentication
@@ -312,6 +315,8 @@ adws/                   # ADW workflow system
 │   ├── schemaProbe.ts       # Schema probe utility
 │   └── types.ts
 ├── phases/             # Workflow phase implementations
+│   ├── __tests__/      # Vitest unit tests
+│   │   └── scenarioTestPhase.test.ts
 │   ├── alignmentPhase.ts  # Single-pass alignment phase
 │   ├── autoMergePhase.ts  # Auto-approve and merge PR after review passes
 │   ├── diffEvaluationPhase.ts  # LLM diff evaluation phase (safe vs regression_possible)
@@ -325,10 +330,14 @@ adws/                   # ADW workflow system
 │   ├── planValidationPhase.ts  # Plan-scenario validation phase
 │   ├── prPhase.ts
 │   ├── prReviewCompletion.ts  # PR review completion/error handling
-│   ├── prReviewPhase.ts
+│   ├── prReviewPhase.ts  # PR review phase implementation
+│   ├── reviewPhase.ts  # Passive judge review phase (reads scenario proof, no dev server)
+│   ├── scenarioFixPhase.ts  # Fixes failed scenarios from a previous scenarioTestPhase run
 │   ├── scenarioPhase.ts  # BDD scenario generation phase
+│   ├── scenarioProof.ts  # Scenario proof orchestrator (relocated from agents/)
+│   ├── scenarioTestPhase.ts  # Runs BDD scenarios tagged @adw-{issueNumber} and @regression
 │   ├── stepDefPhase.ts  # Step definition generation phase
-│   ├── testPhase.ts
+│   ├── unitTestPhase.ts  # Unit test phase (opt-in, BDD scenarios moved to scenarioTestPhase)
 │   ├── workflowCompletion.ts  # Workflow completion/error handling
 │   ├── workflowInit.ts  # Workflow initialization
 │   └── worktreeSetup.ts  # Gitignore and worktree setup helpers
@@ -366,12 +375,14 @@ adws/                   # ADW workflow system
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── cronRepoResolver.test.ts
 │   │   ├── cronStageResolver.test.ts
+│   │   ├── devServerJanitor.test.ts
 │   │   ├── triggerCronAwaitingMerge.test.ts
 │   │   └── webhookHandlers.test.ts
 │   ├── autoMergeHandler.ts  # Auto-merge approved PRs
 │   ├── cloudflareTunnel.tsx  # Cloudflare tunnel for webhooks
 │   ├── concurrencyGuard.ts
 │   ├── cronIssueFilter.ts  # Cron issue evaluation and filtering logic (testable, extracted from trigger_cron)
+│   ├── devServerJanitor.ts  # Janitor probe that kills stale dev server processes in target repo worktrees
 │   ├── cronProcessGuard.ts  # Duplicate cron process prevention
 │   ├── cronRepoResolver.ts  # Cron repo identity resolution (testable, extracted from trigger_cron)
 │   ├── cronStageResolver.ts  # Cron stage resolution from top-level state file (testable)
@@ -390,7 +401,7 @@ adws/                   # ADW workflow system
 │   ├── types.ts        # R2 type definitions
 │   ├── uploadService.ts  # File upload logic
 │   └── index.ts
-├── known_issues.md     # Known issues registry
+├── known_issues.md     # Known issues and workarounds
 ├── adwBuild.tsx        # Orchestrators (individual & combined)
 ├── adwChore.tsx        # Chore pipeline with LLM diff gate (auto-merge)
 ├── adwMerge.tsx        # Merge orchestrator (awaiting_merge handoff)
@@ -410,7 +421,6 @@ adws/                   # ADW workflow system
 ├── adwTest.tsx
 ├── healthCheck.tsx     # Health check orchestrator
 ├── healthCheckChecks.ts
-├── known_issues.md     # Known issues registry
 ├── workflowPhases.ts   # Workflow phase re-exports
 ├── index.ts
 ├── tsconfig.json

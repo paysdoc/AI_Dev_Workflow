@@ -45,9 +45,9 @@ Feature: adw_init generates complete commands.md including scenario runner secti
     Then both files specify a "## Run Scenarios by Tag" command using the same E2E tool
     And the "{tag}" placeholder appears in both commands
 
-  @adw-221 @regression
-  Scenario: Run Scenarios by Tag in commands.md matches Cucumber when E2E is N/A
-    Given adw_init was run on a repository where "## Run E2E Tests" is "N/A"
+  @adw-221 @adw-405 @regression
+  Scenario: Run Scenarios by Tag in commands.md defaults to Cucumber when no E2E tool is detected
+    Given adw_init was run on a repository where no E2E tool is detected
     When ".adw/commands.md" is read
     Then the "## Run Scenarios by Tag" section uses a cucumber-js command
     And the "## Run Regression Scenarios" section uses a cucumber-js command with "@regression"

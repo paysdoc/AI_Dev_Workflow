@@ -11,10 +11,11 @@
 
 export { ensureGitignoreEntry, ensureGitignoreEntries, copyClaudeCommandsToWorktree, copyTargetSkillsAndCommands } from './worktreeSetup';
 export { type WorkflowConfig, initializeWorkflow } from './workflowInit';
-export { completeWorkflow, executeReviewPhase, handleWorkflowError, handleRateLimitPause } from './workflowCompletion';
+export { completeWorkflow, handleWorkflowError, handleRateLimitPause } from './workflowCompletion';
+export { executeReviewPhase, executeReviewPatchCycle, type ReviewIssue } from './reviewPhase';
 export { executePlanPhase, buildContinuationPrompt, MAX_CONTINUATION_OUTPUT_LENGTH } from './planPhase';
 export { executeBuildPhase } from './buildPhase';
-export { executeTestPhase } from './testPhase';
+export { executeUnitTestPhase } from './unitTestPhase';
 export { executePRPhase } from './prPhase';
 export { executeDocumentPhase } from './documentPhase';
 export { executeKpiPhase } from './kpiPhase';
@@ -25,9 +26,9 @@ export {
   initializePRReviewWorkflow,
   executePRReviewPlanPhase,
   executePRReviewBuildPhase,
+  executePRReviewCommitPushPhase,
 } from './prReviewPhase';
 export {
-  executePRReviewTestPhase,
   completePRReviewWorkflow,
   handlePRReviewWorkflowError,
 } from './prReviewCompletion';
@@ -36,3 +37,11 @@ export { executeStepDefPhase } from './stepDefPhase';
 export { executeInstallPhase, extractInstallContext } from './installPhase';
 export { executeAutoMergePhase } from './autoMergePhase';
 export { executeDiffEvaluationPhase, type DiffEvaluationPhaseResult } from './diffEvaluationPhase';
+export { executeScenarioTestPhase } from './scenarioTestPhase';
+export { executeScenarioFixPhase } from './scenarioFixPhase';
+export {
+  shouldRunScenarioProof,
+  runScenarioProof,
+  type TagProofResult,
+  type ScenarioProofResult,
+} from './scenarioProof';

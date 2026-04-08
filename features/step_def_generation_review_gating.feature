@@ -63,16 +63,16 @@ Feature: Step definition generation, review-first gating, and guidelines check
 
   # ── 3. Test phase: remove BDD, unit tests only ──
 
-  @adw-249 @regression
-  Scenario: testPhase.ts does not execute BDD scenarios
-    Given the file "adws/phases/testPhase.ts" exists
+  @adw-249 @adw-399 @regression
+  Scenario: unitTestPhase.ts does not execute BDD scenarios
+    Given the file "adws/phases/unitTestPhase.ts" exists
     Then it should not call runBddScenariosWithRetry
     And it should not call runScenariosByTag
     And it should not reference bddScenarioRunner
 
-  @adw-249 @regression
-  Scenario: testPhase.ts preserves unit test opt-in behavior
-    Given the file "adws/phases/testPhase.ts" exists
+  @adw-249 @adw-399 @regression
+  Scenario: unitTestPhase.ts preserves unit test opt-in behavior
+    Given the file "adws/phases/unitTestPhase.ts" exists
     Then it should check the project config for unit test enablement
     And it should log a skip message when unit tests are disabled
 
@@ -116,33 +116,37 @@ Feature: Step definition generation, review-first gating, and guidelines check
 
   # ── 6. Orchestrator phase ordering: review orchestrators ──
 
-  @adw-249 @adw-71pdjz-cache-install-contex @adw-306
-  Scenario: adwPlanBuildTestReview.tsx follows post-306 phase ordering
+  @adw-249 @adw-71pdjz-cache-install-contex @adw-306 @adw-397 @adw-400
+  Scenario: adwPlanBuildTestReview.tsx follows post-400 phase ordering
     Given the file "adws/adwPlanBuildTestReview.tsx" exists
     Then the phase ordering should be:
-      | phase              |
-      | install            |
-      | plan + scenarios   |
-      | alignment          |
-      | build              |
-      | test               |
-      | review             |
-      | pr                 |
+      | phase                         |
+      | install                       |
+      | plan + scenarios              |
+      | alignment                     |
+      | build                         |
+      | stepDef                       |
+      | unitTest                      |
+      | scenarioTest [-> fix -> loop] |
+      | review                        |
+      | pr                            |
 
-  @adw-249 @adw-71pdjz-cache-install-contex @adw-306
-  Scenario: adwSdlc.tsx follows post-306 phase ordering
+  @adw-249 @adw-71pdjz-cache-install-contex @adw-306 @adw-397 @adw-399
+  Scenario: adwSdlc.tsx follows post-399 phase ordering
     Given the file "adws/adwSdlc.tsx" exists
     Then the phase ordering should be:
-      | phase              |
-      | install            |
-      | plan + scenarios   |
-      | alignment          |
-      | build              |
-      | test               |
-      | review             |
-      | document           |
-      | pr                 |
-      | kpi                |
+      | phase                         |
+      | install                       |
+      | plan + scenarios              |
+      | alignment                     |
+      | build                         |
+      | stepDef                       |
+      | unitTest                      |
+      | scenarioTest [-> fix -> loop] |
+      | review                        |
+      | document                      |
+      | kpi                           |
+      | pr                            |
 
   @adw-249 @adw-71pdjz-cache-install-contex @adw-306
   Scenario: adwPlanBuildReview.tsx follows post-306 phase ordering
@@ -173,19 +177,20 @@ Feature: Step definition generation, review-first gating, and guidelines check
       | test               |
       | pr                 |
 
-  @adw-249 @adw-71pdjz-cache-install-contex @regression
-  Scenario: adwPlanBuildTest.tsx skips scenario writing, plan validation, and step def generation
+  @adw-249 @adw-71pdjz-cache-install-contex @adw-397 @adw-400
+  Scenario: adwPlanBuildTest.tsx skips scenario writing and plan validation
     Given the file "adws/adwPlanBuildTest.tsx" exists
     Then it should not invoke the scenario phase
     And it should not invoke the plan validation phase
-    And it should not invoke the step def phase
     And the phase ordering should be:
-      | phase              |
-      | install            |
-      | plan               |
-      | build              |
-      | test               |
-      | pr                 |
+      | phase                         |
+      | install                       |
+      | plan                          |
+      | build                         |
+      | stepDef                       |
+      | unitTest                      |
+      | scenarioTest [-> fix -> loop] |
+      | pr                            |
 
   @adw-249 @adw-71pdjz-cache-install-contex @regression
   Scenario: adwPlanBuildDocument.tsx skips scenario writing, plan validation, and step def generation

@@ -58,12 +58,9 @@ export {
   runBuildAgent,
   runReviewAgent,
   runPatchAgent,
-  runReviewWithRetry,
   type ReviewIssue,
   type ReviewResult,
   type ReviewAgentResult,
-  type ReviewRetryResult,
-  type ReviewRetryOptions,
 } from './agents';
 
 // VCS module - Git command wrappers
@@ -116,13 +113,13 @@ export {
   initializePRReviewWorkflow,
   executePlanPhase,
   executeBuildPhase,
-  executeTestPhase,
+  executeUnitTestPhase,
   executePRPhase,
   executeReviewPhase,
   executeInstallPhase,
   executePRReviewPlanPhase,
   executePRReviewBuildPhase,
-  executePRReviewTestPhase,
+  executePRReviewCommitPushPhase,
   completePRReviewWorkflow,
   handlePRReviewWorkflowError,
   completeWorkflow,

@@ -592,9 +592,7 @@ app_docs/                         # Generated documentation
 - `resolutionAgent.ts` - Resolution agent: reconciles plan/scenario mismatches using the GitHub issue as sole source of truth
 - `buildAgent.ts` - Build/implementation agent
 - `testAgent.ts` - Testing agent with retry coordination
-- `testDiscovery.ts` - Test file discovery and E2E/Playwright detection (extracted from testAgent)
 - `reviewAgent.ts` - Review agent
-- `reviewRetry.ts` - Multi-agent review retry orchestration
 - `testRetry.ts` - Test failure retry logic
 - `gitAgent.ts` - Git operations agent (branch name, commit)
 - `patchAgent.ts` - Patch/quick-fix agent
@@ -646,6 +644,7 @@ app_docs/                         # Generated documentation
 - `prPhase.ts` - PR creation phase implementation
 - `documentPhase.ts` - Documentation phase implementation
 - `prReviewPhase.ts` - PR review phase implementation
+- `reviewPhase.ts` - Passive judge review phase (reads scenario proof, no dev server)
 - `workflowInit.ts` - Workflow initialization (issue fetch, worktree setup, state init)
 - `workflowCompletion.ts` - Workflow completion and error handling
 - `worktreeSetup.ts` - Gitignore management and Claude commands copy

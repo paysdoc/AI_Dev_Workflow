@@ -43,7 +43,6 @@ async function executePatchPhase(config: WorkflowConfig): Promise<PhaseResult> {
 
   const reviewIssue: ReviewIssue = {
     reviewIssueNumber: issueNumber,
-    screenshotPath: '',
     issueDescription: `${issue.title}\n\n${issue.body}`,
     issueResolution: `Resolve issue #${issueNumber} as described`,
     issueSeverity: 'blocker',

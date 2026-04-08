@@ -37,15 +37,20 @@ Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init
      - `## Type Check` — Command for type checking (if applicable, otherwise "N/A")
      - `## Run Tests` — Command to run the test suite
      - `## Run Build` — Command to build the project
-     - `## Start Dev Server` — Command to start the dev server
-     - `## Prepare App` — Multi-step preparation (install + start), use `{PORT}` as placeholder
-     - `## Run E2E Tests` — Command for E2E tests (if applicable, otherwise "N/A")
+     - `## Start Dev Server` — Determine the correct value using these detection rules:
+       - **CLI-only target repos** (no web framework, no dev server needed) → set `N/A`
+       - **Playwright with a `webServer` block** in `playwright.config.{ts,js}` → set `N/A` (Playwright manages its own dev server)
+       - **Any other test runner that self-manages its server** → set `N/A`
+       - **Web framework targets without a self-managing runner** → set the framework's dev command with `{PORT}` substituted (e.g., `bun run dev --port {PORT}`, `bunx next dev --port {PORT}`)
+       - Note: `{PORT}` is a substitution placeholder used at runtime by the dev server lifecycle helper to allocate dynamic ports for parallel workflows, avoiding port collisions between concurrent workflow runs
+     - `## Health Check Path` — HTTP path the dev server health probe hits (default `/`). Can be overridden per target repo if `/` is slow or redirects to a login page.
+     - `## Prepare App` — Multi-step preparation (install + start), use `{PORT}` as placeholder in any dev server start command
      - `## Additional Type Checks` — Extra type checks (if applicable, otherwise "N/A")
      - `## Library Install Command` — Command to install a new library
      - `## Script Execution` — How to run project scripts
-     - `## Run Scenarios by Tag` — Command to run scenarios by tag, using `{tag}` placeholder (values determined by E2E tool detection in step 7)
-     - `## Run Regression Scenarios` — Command to run all `@regression`-tagged scenarios (values determined by E2E tool detection in step 7)
-   - Note: the values for `## Run Scenarios by Tag` and `## Run Regression Scenarios` must be consistent with the E2E tool detected in step 7 (Playwright, Cypress, Cucumber, or default Cucumber)
+     - `## Run Scenarios by Tag` — Command to run scenarios by tag, using `{tag}` placeholder (values determined by scenario tool detection in step 7)
+     - `## Run Regression Scenarios` — Command to run all `@regression`-tagged scenarios (values determined by scenario tool detection in step 7)
+   - Note: the values for `## Run Scenarios by Tag` and `## Run Regression Scenarios` must be consistent with the scenario tool detected in step 7 (Playwright, Cypress, Cucumber, or default Cucumber)
 
 3. **Create `.adw/project.md`**
    - Generate `.adw/project.md` with the following sections:
@@ -90,7 +95,7 @@ Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init
      - `## What NOT to Do` — Actions to avoid based on the project type (e.g., CLI projects should not take browser screenshots; UI projects should not skip visual verification)
 
 7. **Create `.adw/scenarios.md`**
-   - Detect the E2E test tool from the `## Run E2E Tests` value determined in step 2
+   - Detect the scenario tool from the project's test configuration
    - If **Playwright** detected (`bunx playwright test`, `npx playwright test`, etc.):
      - `## Scenario Directory` → `tests/e2e/` (or the detected test directory)
      - `## Run Scenarios by Tag` → `bunx playwright test --grep "@{tag}"`

@@ -6,31 +6,41 @@
  *
  * Workflow:
  * 1. Initialize: fetch PR details, detect unaddressed comments, setup worktree, initialize state
- * 2. Plan Phase: read existing plan, run PR review plan agent
- * 3. Build Phase: run PR review build agent to implement revision plan
- * 4. Test Phase: run unit tests with retry, run E2E tests with retry
- * 5. Finalize: commit and push changes, post completion comment
+ * 2. Install Phase: install dependencies
+ * 3. Plan Phase: read existing plan, run PR review plan agent
+ * 4. Build Phase: run PR review build agent to implement revision plan
+ * 5. Step Def Phase: generate BDD step definitions
+ * 6. Unit Test Phase: run unit tests
+ * 7. Scenario Test Phase [→ Scenario Fix Phase → retry]: run BDD scenarios, fix failures
+ * 8. Review Phase [→ Patch Cycle → Scenario Retest → retry]: passive judge, patch blockers
+ * 9. Finalize: commit and push changes, post completion comment
  *
  * Environment Requirements:
  * - ANTHROPIC_API_KEY: Anthropic API key
  * - CLAUDE_CODE_PATH: Path to Claude CLI (default: /usr/local/bin/claude)
+ * - MAX_TEST_RETRY_ATTEMPTS: Maximum retry attempts for tests (default: 5)
+ * - MAX_REVIEW_RETRY_ATTEMPTS: Maximum retry attempts for review-patch loop (default: 3)
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
-import { parseTargetRepoArgs, buildRepoIdentifier, RUNNING_TOKENS, AgentStateManager, log } from './core';
-import { RateLimitError } from './types/agentTypes';
-import { mergeModelUsageMaps, persistTokenCounts, computeDisplayTokens, type ModelUsageMap } from './cost';
+import { parseTargetRepoArgs, buildRepoIdentifier, MAX_TEST_RETRY_ATTEMPTS, MAX_REVIEW_RETRY_ATTEMPTS } from './core';
+import { CostTracker, runPhase } from './core/phaseRunner';
 import {
   initializePRReviewWorkflow,
   executePRReviewPlanPhase,
   executePRReviewBuildPhase,
-  executePRReviewTestPhase,
+  executePRReviewCommitPushPhase,
   completePRReviewWorkflow,
   handlePRReviewWorkflowError,
+  executeStepDefPhase,
+  executeInstallPhase,
+  executeUnitTestPhase,
+  executeScenarioTestPhase,
+  executeScenarioFixPhase,
+  executeReviewPhase,
+  executeReviewPatchCycle,
+  type ReviewIssue,
 } from './workflowPhases';
-import { runInstallAgent } from './agents';
-import { extractInstallContext } from './phases';
+import type { WorkflowConfig } from './phases';
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
@@ -50,61 +60,56 @@ async function main(): Promise<void> {
   }
 
   const config = await initializePRReviewWorkflow(prNumber, null, repoInfo, repoId, targetRepo ?? undefined);
-
-  let totalCostUsd = 0;
-  let totalModelUsage: ModelUsageMap = {};
+  const tracker = new CostTracker();
 
   try {
-    // Run install phase inline (PRReviewWorkflowConfig is not compatible with executeInstallPhase)
-    try {
-      const installAgentStatePath = AgentStateManager.initializeState(config.adwId, 'install-agent', config.orchestratorStatePath);
-      const installResult = await runInstallAgent(config.prNumber, config.adwId, config.logsDir, installAgentStatePath, config.worktreePath, config.prDetails.body);
-      if (installResult.success) {
-        const jsonlPath = path.join(config.logsDir, 'install-agent.jsonl');
-        const contextString = extractInstallContext(jsonlPath);
-        if (contextString) {
-          const cacheDir = path.join('agents', config.adwId);
-          fs.mkdirSync(cacheDir, { recursive: true });
-          fs.writeFileSync(path.join(cacheDir, 'install_cache.md'), contextString, 'utf-8');
-          config.installContext = contextString;
-        }
-        totalCostUsd += installResult.totalCostUsd ?? 0;
-        if (installResult.modelUsage) totalModelUsage = mergeModelUsageMaps(totalModelUsage, installResult.modelUsage);
-        persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
+    await runPhase(config.base, tracker, executeInstallPhase, 'install');
+
+    const planResult = await runPhase(config.base, tracker, _ => executePRReviewPlanPhase(config), 'pr_review_plan');
+
+    await runPhase(config.base, tracker, _ => executePRReviewBuildPhase(config, planResult.planOutput), 'pr_review_build');
+
+    await runPhase(config.base, tracker, executeStepDefPhase, 'stepDef');
+
+    // Unit tests
+    await runPhase(config.base, tracker, executeUnitTestPhase);
+
+    // Scenario test → fix retry loop (orchestrator-level, bounded by MAX_TEST_RETRY_ATTEMPTS)
+    let scenarioProofPath = '';
+    for (let attempt = 0; attempt < MAX_TEST_RETRY_ATTEMPTS; attempt++) {
+      const scenarioResult = await runPhase(config.base, tracker, executeScenarioTestPhase);
+      scenarioProofPath = scenarioResult.scenarioProof?.resultsFilePath ?? '';
+      if (!scenarioResult.scenarioProof?.hasBlockerFailures) break;
+      if (attempt < MAX_TEST_RETRY_ATTEMPTS - 1) {
+        const fixWrapper = (cfg: WorkflowConfig) =>
+          executeScenarioFixPhase(cfg, scenarioResult.scenarioProof!);
+        await runPhase(config.base, tracker, fixWrapper);
       }
-    } catch (installError) {
-      const msg = installError instanceof Error ? installError.message : String(installError);
-      AgentStateManager.appendLog(config.orchestratorStatePath, `Install phase error (non-fatal): ${msg}`);
     }
 
-    const planResult = await executePRReviewPlanPhase(config);
-    totalCostUsd += planResult.costUsd;
-    totalModelUsage = mergeModelUsageMaps(totalModelUsage, planResult.modelUsage);
-    persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
-    if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeDisplayTokens(totalModelUsage);
+    // Review → patch+retest retry loop (orchestrator-level, bounded by MAX_REVIEW_RETRY_ATTEMPTS)
+    let proofPath = scenarioProofPath;
+    let reviewBlockers: ReviewIssue[] = [];
+    for (let attempt = 0; attempt < MAX_REVIEW_RETRY_ATTEMPTS; attempt++) {
+      const reviewFn = (cfg: WorkflowConfig) => executeReviewPhase(cfg, proofPath);
+      const reviewResult = await runPhase(config.base, tracker, reviewFn);
+      reviewBlockers = reviewResult.reviewIssues.filter(i => i.issueSeverity === 'blocker');
+      if (reviewResult.reviewPassed) break;
+      if (attempt < MAX_REVIEW_RETRY_ATTEMPTS - 1) {
+        const patchWrapper = (cfg: WorkflowConfig) =>
+          executeReviewPatchCycle(cfg, reviewBlockers);
+        await runPhase(config.base, tracker, patchWrapper);
+        // Re-run scenario tests to verify patch didn't break scenarios
+        const retestResult = await runPhase(config.base, tracker, executeScenarioTestPhase);
+        proofPath = retestResult.scenarioProof?.resultsFilePath ?? '';
+      }
+    }
 
-    config.totalModelUsage = totalModelUsage;
-    const buildResult = await executePRReviewBuildPhase(config, planResult.planOutput);
-    totalCostUsd += buildResult.costUsd;
-    totalModelUsage = mergeModelUsageMaps(totalModelUsage, buildResult.modelUsage);
-    persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
-    if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeDisplayTokens(totalModelUsage);
+    await runPhase(config.base, tracker, _ => executePRReviewCommitPushPhase(config), 'pr_review_commit_push');
 
-    config.totalModelUsage = totalModelUsage;
-    const testResult = await executePRReviewTestPhase(config);
-    totalCostUsd += testResult.costUsd;
-    totalModelUsage = mergeModelUsageMaps(totalModelUsage, testResult.modelUsage);
-    persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
-    if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeDisplayTokens(totalModelUsage);
-
-    await completePRReviewWorkflow(config, totalModelUsage);
+    await completePRReviewWorkflow(config, tracker.totalModelUsage);
   } catch (error) {
-    if (error instanceof RateLimitError) {
-      log(`PR Review workflow rate-limited at '${error.phaseName}'. Manual restart required once limit clears.`, 'warn');
-      persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
-      process.exit(0);
-    }
-    handlePRReviewWorkflowError(config, error, totalCostUsd, totalModelUsage);
+    handlePRReviewWorkflowError(config, error, tracker.totalCostUsd, tracker.totalModelUsage);
   }
 }
 

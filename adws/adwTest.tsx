@@ -19,7 +19,7 @@ import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, O
 import { CostTracker, runPhase } from './core/phaseRunner';
 import {
   initializeWorkflow,
-  executeTestPhase,
+  executeUnitTestPhase,
   completeWorkflow,
   handleWorkflowError,
 } from './workflowPhases';
@@ -47,7 +47,7 @@ async function main(): Promise<void> {
   const tracker = new CostTracker();
 
   try {
-    const testResult = await runPhase(config, tracker, executeTestPhase, 'test');
+    const testResult = await runPhase(config, tracker, executeUnitTestPhase, 'test');
 
     await completeWorkflow(config, tracker.totalCostUsd, {
       unitTestsPassed: testResult.unitTestsPassed,

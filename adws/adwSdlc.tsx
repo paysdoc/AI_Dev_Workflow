@@ -9,12 +9,14 @@
  * 2. Plan Phase + Scenario Phase (parallel): run plan agent, write BDD scenarios
  * 3. Alignment Phase: single-pass alignment of plan against scenarios
  * 4. Build Phase: run build agent, commit implementation
- * 5. Test Phase: optionally run unit tests (unit only)
- * 6. Review Phase: review implementation + run BDD scenarios, patch blockers, retry
- * 7. Document Phase: generate feature documentation (includes review screenshots)
- * 8. KPI Phase: track agentic KPIs (non-fatal, worktree-dependent — runs before PR)
- * 9. PR Phase: create pull request (only after review passes)
- * 10. Approve PR + write awaiting_merge to state, then exit (merge handled by adwMerge.tsx via cron)
+ * 5. Step Def Phase: generate BDD step definitions
+ * 6. Unit Test Phase: optionally run unit tests (unit only)
+ * 7. Scenario Test Phase [→ Scenario Fix Phase → retry]: run BDD scenarios, fix failures
+ * 8. Review Phase [→ Patch Cycle → Scenario Retest → retry]: passive judge, patch blockers
+ * 9. Document Phase: generate feature documentation
+ * 10. KPI Phase: track agentic KPIs (non-fatal, worktree-dependent — runs before PR)
+ * 11. PR Phase: create pull request (only after review passes)
+ * 12. Approve PR + write awaiting_merge to state, then exit (merge handled by adwMerge.tsx via cron)
  *
  * Environment Requirements:
  * - ANTHROPIC_API_KEY: Anthropic API key
@@ -24,8 +26,7 @@
  * - MAX_REVIEW_RETRY_ATTEMPTS: Maximum retry attempts for review-patch loop (default: 3)
  */
 
-import * as path from 'path';
-import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId, AgentStateManager, log } from './core';
+import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId, AgentStateManager, log, MAX_TEST_RETRY_ATTEMPTS, MAX_REVIEW_RETRY_ATTEMPTS } from './core';
 import { CostTracker, runPhase, runPhasesParallel } from './core/phaseRunner';
 import {
   initializeWorkflow,
@@ -34,25 +35,22 @@ import {
   executeScenarioPhase,
   executeAlignmentPhase,
   executeBuildPhase,
-  executeTestPhase,
+  executeStepDefPhase,
+  executeUnitTestPhase,
+  executeScenarioTestPhase,
+  executeScenarioFixPhase,
   executePRPhase,
   executeReviewPhase,
+  executeReviewPatchCycle,
   executeDocumentPhase,
   executeKpiPhase,
   handleWorkflowError,
+  type ReviewIssue,
 } from './workflowPhases';
 import { persistTokenCounts } from './cost';
 import type { WorkflowConfig } from './phases';
 import { approvePR, isGitHubAppConfigured, issueHasLabel, commentOnIssue, type RepoInfo } from './github';
 import { extractPrNumber } from './adwBuildHelpers';
-
-/**
- * Derives the review screenshots directory from the review result.
- * Review screenshots are stored in the agent state directory.
- */
-function getReviewScreenshotsDir(adwId: string): string {
-  return path.join('agents', adwId, 'review-agent', 'review_img');
-}
 
 /**
  * Main orchestrator workflow.
@@ -80,19 +78,53 @@ async function main(): Promise<void> {
     await runPhasesParallel(config, tracker, [executePlanPhase, executeScenarioPhase]);
     await runPhase(config, tracker, executeAlignmentPhase);
     await runPhase(config, tracker, executeBuildPhase);
-    const testResult = await runPhase(config, tracker, executeTestPhase);
-    const reviewResult = await runPhase(config, tracker, executeReviewPhase);
+    await runPhase(config, tracker, executeStepDefPhase, 'stepDef');
+    const unitTestResult = await runPhase(config, tracker, executeUnitTestPhase);
 
-    // Document phase uses review screenshots: bind screenshotsDir via wrapper.
-    const screenshotsDir = getReviewScreenshotsDir(config.adwId);
-    const executeDocumentWithScreenshots = (cfg: WorkflowConfig) =>
-      executeDocumentPhase(cfg, screenshotsDir);
-    await runPhase(config, tracker, executeDocumentWithScreenshots);
+    // Scenario test → fix retry loop (orchestrator-level, bounded by MAX_TEST_RETRY_ATTEMPTS)
+    let scenarioProofPath = '';
+    let scenarioRetries = 0;
+    for (let attempt = 0; attempt < MAX_TEST_RETRY_ATTEMPTS; attempt++) {
+      const scenarioResult = await runPhase(config, tracker, executeScenarioTestPhase);
+      scenarioProofPath = scenarioResult.scenarioProof?.resultsFilePath ?? '';
+      if (!scenarioResult.scenarioProof?.hasBlockerFailures) break;
+      scenarioRetries++;
+      if (attempt < MAX_TEST_RETRY_ATTEMPTS - 1) {
+        const fixWrapper = (cfg: WorkflowConfig) =>
+          executeScenarioFixPhase(cfg, scenarioResult.scenarioProof!);
+        await runPhase(config, tracker, fixWrapper);
+      }
+    }
+
+    // Review → patch+retest retry loop (orchestrator-level, bounded by MAX_REVIEW_RETRY_ATTEMPTS)
+    let reviewRetries = 0;
+    let proofPath = scenarioProofPath;
+    let reviewPassed = false;
+    let reviewBlockers: ReviewIssue[] = [];
+    for (let attempt = 0; attempt < MAX_REVIEW_RETRY_ATTEMPTS; attempt++) {
+      const reviewFn = (cfg: WorkflowConfig) => executeReviewPhase(cfg, proofPath);
+      const reviewResult = await runPhase(config, tracker, reviewFn);
+      reviewPassed = reviewResult.reviewPassed;
+      reviewBlockers = reviewResult.reviewIssues.filter(i => i.issueSeverity === 'blocker');
+      if (reviewPassed) break;
+      reviewRetries++;
+      if (attempt < MAX_REVIEW_RETRY_ATTEMPTS - 1) {
+        const patchWrapper = (cfg: WorkflowConfig) =>
+          executeReviewPatchCycle(cfg, reviewBlockers);
+        await runPhase(config, tracker, patchWrapper);
+        // Re-run scenario tests to verify patch didn't break scenarios
+        const retestResult = await runPhase(config, tracker, executeScenarioTestPhase);
+        proofPath = retestResult.scenarioProof?.resultsFilePath ?? '';
+      }
+    }
+
+    // Document phase: no screenshots dir needed (review no longer produces images)
+    await runPhase(config, tracker, (cfg: WorkflowConfig) => executeDocumentPhase(cfg));
 
     // KPI phase takes an extra argument: bind reviewRetries via wrapper.
     // Runs before PR because it does git commit/push (worktree-dependent).
     const executeKpiWithRetries = (cfg: WorkflowConfig) =>
-      executeKpiPhase(cfg, reviewResult.totalRetries);
+      executeKpiPhase(cfg, reviewRetries);
     await runPhase(config, tracker, executeKpiWithRetries);
 
     await runPhase(config, tracker, executePRPhase);
@@ -120,10 +152,11 @@ async function main(): Promise<void> {
     AgentStateManager.writeState(config.orchestratorStatePath, {
       metadata: {
         totalCostUsd: tracker.totalCostUsd,
-        unitTestsPassed: testResult.unitTestsPassed,
-        totalTestRetries: testResult.totalRetries,
-        reviewPassed: reviewResult.reviewPassed,
-        totalReviewRetries: reviewResult.totalRetries,
+        unitTestsPassed: unitTestResult.unitTestsPassed,
+        totalTestRetries: unitTestResult.totalRetries,
+        scenarioRetries,
+        reviewPassed,
+        totalReviewRetries: reviewRetries,
       },
     });
     persistTokenCounts(config.orchestratorStatePath, tracker.totalCostUsd, tracker.totalModelUsage);
