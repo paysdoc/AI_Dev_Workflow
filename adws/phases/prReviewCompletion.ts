@@ -6,8 +6,7 @@
  */
 
 import { log, AgentStateManager, COST_REPORT_CURRENCIES, type ModelUsageMap, buildCostBreakdown, mergeModelUsageMaps, emptyModelUsageMap, persistTokenCounts, OrchestratorId } from '../core';
-import { createPhaseCostRecords, PhaseCostStatus } from '../cost';
-import { postCostRecordsToD1 } from '../cost/d1Client';
+import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
 import { formatCostCommentSection } from '../cost/reporting/commentFormatter';
 import { BoardStatus } from '../providers/types';
 import { pushBranch, inferIssueTypeFromBranch } from '../vcs';
@@ -20,9 +19,10 @@ import type { PRReviewWorkflowConfig } from './prReviewPhase';
  * Executes the PR review Test phase: runs unit and E2E tests with retry.
  * Uses `config.repoInfo` for external repository API calls when targeting a different repo.
  */
-export async function executePRReviewTestPhase(config: PRReviewWorkflowConfig): Promise<{ costUsd: number; modelUsage: ModelUsageMap }> {
+export async function executePRReviewTestPhase(config: PRReviewWorkflowConfig): Promise<{ costUsd: number; modelUsage: ModelUsageMap; phaseCostRecords: PhaseCostRecord[] }> {
   const { prNumber, prDetails, unaddressedComments, ctx } = config;
-  const { worktreePath, logsDir, orchestratorStatePath, applicationUrl, repoContext } = config.base;
+  const { issueNumber, adwId, worktreePath, logsDir, orchestratorStatePath, applicationUrl, repoContext } = config.base;
+  const phaseStartTime = Date.now();
 
   if (repoContext) {
     postPRStageComment(repoContext, prNumber, 'pr_review_testing', ctx);
@@ -111,7 +111,18 @@ export async function executePRReviewTestPhase(config: PRReviewWorkflowConfig): 
     e2eTestsResult.modelUsage ?? emptyModelUsageMap(),
   );
 
-  return { costUsd: combinedCostUsd, modelUsage: combinedModelUsage };
+  const phaseCostRecords = createPhaseCostRecords({
+    workflowId: adwId,
+    issueNumber,
+    phase: 'pr_review_test',
+    status: PhaseCostStatus.Success,
+    retryCount: 0,
+    contextResetCount: 0,
+    durationMs: Date.now() - phaseStartTime,
+    modelUsage: combinedModelUsage,
+  });
+
+  return { costUsd: combinedCostUsd, modelUsage: combinedModelUsage, phaseCostRecords };
 }
 
 async function buildPRReviewCostSection(config: PRReviewWorkflowConfig, modelUsage: ModelUsageMap): Promise<void> {
@@ -121,35 +132,9 @@ async function buildPRReviewCostSection(config: PRReviewWorkflowConfig, modelUsa
   const costBreakdown = await buildCostBreakdown(modelUsage, [...COST_REPORT_CURRENCIES]);
   ctx.costBreakdown = costBreakdown;
 
-  if (config.base.issueNumber && config.base.repoContext) {
-    try {
-      const repoName = config.base.repoContext.repoId.repo;
-
-      const phaseCostRecords = createPhaseCostRecords({
-        workflowId: config.base.adwId,
-        issueNumber: config.base.issueNumber,
-        phase: 'pr_review',
-        status: PhaseCostStatus.Success,
-        retryCount: 0,
-        contextResetCount: 0,
-        durationMs: 0,
-        modelUsage,
-      });
-
-      void postCostRecordsToD1({
-        project: repoName,
-        repoUrl: process.env.GITHUB_REPO_URL,
-        records: phaseCostRecords,
-      });
-
-      // Pre-compute cost section using the new formatter
-      ctx.phaseCostRecords = phaseCostRecords;
-      ctx.costSection = await formatCostCommentSection(phaseCostRecords);
-    } catch (costError) {
-      log(`Failed to post cost records to D1: ${costError}`, 'error');
-    }
-  } else {
-    // No issue number/repoContext — still pre-compute cost section from modelUsage
+  // Pre-compute cost section for the GitHub comment using per-phase modelUsage totals.
+  // D1 posting is now handled per-phase by runPhase via tracker.commit().
+  try {
     const phaseCostRecords = createPhaseCostRecords({
       workflowId: config.base.adwId,
       issueNumber: config.base.issueNumber,
@@ -162,6 +147,8 @@ async function buildPRReviewCostSection(config: PRReviewWorkflowConfig, modelUsa
     });
     ctx.phaseCostRecords = phaseCostRecords;
     ctx.costSection = await formatCostCommentSection(phaseCostRecords);
+  } catch (costError) {
+    log(`Failed to build cost section: ${costError}`, 'error');
   }
 }
 

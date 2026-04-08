@@ -16,11 +16,8 @@
  * - CLAUDE_CODE_PATH: Path to Claude CLI (default: /usr/local/bin/claude)
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
-import { parseTargetRepoArgs, buildRepoIdentifier, RUNNING_TOKENS, AgentStateManager, log } from './core';
-import { RateLimitError } from './types/agentTypes';
-import { mergeModelUsageMaps, persistTokenCounts, computeDisplayTokens, type ModelUsageMap } from './cost';
+import { parseTargetRepoArgs, buildRepoIdentifier } from './core';
+import { CostTracker, runPhase } from './core/phaseRunner';
 import {
   initializePRReviewWorkflow,
   executePRReviewPlanPhase,
@@ -29,10 +26,8 @@ import {
   completePRReviewWorkflow,
   handlePRReviewWorkflowError,
   executeStepDefPhase,
+  executeInstallPhase,
 } from './workflowPhases';
-import { runInstallAgent } from './agents';
-import { extractInstallContext } from './phases';
-import type { WorkflowConfig } from './phases';
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
@@ -52,82 +47,22 @@ async function main(): Promise<void> {
   }
 
   const config = await initializePRReviewWorkflow(prNumber, null, repoInfo, repoId, targetRepo ?? undefined);
-
-  let totalCostUsd = 0;
-  let totalModelUsage: ModelUsageMap = {};
+  const tracker = new CostTracker();
 
   try {
-    // Run install phase inline (PRReviewWorkflowConfig is not compatible with executeInstallPhase)
-    try {
-      const installAgentStatePath = AgentStateManager.initializeState(config.base.adwId, 'install-agent', config.base.orchestratorStatePath);
-      const installResult = await runInstallAgent(config.prNumber, config.base.adwId, config.base.logsDir, installAgentStatePath, config.base.worktreePath, config.prDetails.body);
-      if (installResult.success) {
-        const jsonlPath = path.join(config.base.logsDir, 'install-agent.jsonl');
-        const contextString = extractInstallContext(jsonlPath);
-        if (contextString) {
-          const cacheDir = path.join('agents', config.base.adwId);
-          fs.mkdirSync(cacheDir, { recursive: true });
-          fs.writeFileSync(path.join(cacheDir, 'install_cache.md'), contextString, 'utf-8');
-          config.base.installContext = contextString;
-        }
-        totalCostUsd += installResult.totalCostUsd ?? 0;
-        if (installResult.modelUsage) totalModelUsage = mergeModelUsageMaps(totalModelUsage, installResult.modelUsage);
-        persistTokenCounts(config.base.orchestratorStatePath, totalCostUsd, totalModelUsage);
-      }
-    } catch (installError) {
-      const msg = installError instanceof Error ? installError.message : String(installError);
-      AgentStateManager.appendLog(config.base.orchestratorStatePath, `Install phase error (non-fatal): ${msg}`);
-    }
+    await runPhase(config.base, tracker, executeInstallPhase, 'install');
 
-    const planResult = await executePRReviewPlanPhase(config);
-    totalCostUsd += planResult.costUsd;
-    totalModelUsage = mergeModelUsageMaps(totalModelUsage, planResult.modelUsage);
-    persistTokenCounts(config.base.orchestratorStatePath, totalCostUsd, totalModelUsage);
-    if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeDisplayTokens(totalModelUsage);
+    const planResult = await runPhase(config.base, tracker, _ => executePRReviewPlanPhase(config), 'pr_review_plan');
 
-    config.base.totalModelUsage = totalModelUsage;
-    const buildResult = await executePRReviewBuildPhase(config, planResult.planOutput);
-    totalCostUsd += buildResult.costUsd;
-    totalModelUsage = mergeModelUsageMaps(totalModelUsage, buildResult.modelUsage);
-    persistTokenCounts(config.base.orchestratorStatePath, totalCostUsd, totalModelUsage);
-    if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeDisplayTokens(totalModelUsage);
+    await runPhase(config.base, tracker, _ => executePRReviewBuildPhase(config, planResult.planOutput), 'pr_review_build');
 
-    try {
-      const stepDefConfig = {
-        orchestratorStatePath: config.base.orchestratorStatePath,
-        adwId: config.base.adwId,
-        issueNumber: config.base.issueNumber ?? config.prNumber,
-        issue: { body: config.prDetails.body },
-        worktreePath: config.base.worktreePath,
-        logsDir: config.base.logsDir,
-        installContext: config.base.installContext,
-        ctx: {},
-        topLevelStatePath: '',
-      } as unknown as WorkflowConfig;
-      const stepDefResult = await executeStepDefPhase(stepDefConfig);
-      totalCostUsd += stepDefResult.costUsd;
-      totalModelUsage = mergeModelUsageMaps(totalModelUsage, stepDefResult.modelUsage);
-      persistTokenCounts(config.base.orchestratorStatePath, totalCostUsd, totalModelUsage);
-    } catch (stepDefError) {
-      const msg = stepDefError instanceof Error ? stepDefError.message : String(stepDefError);
-      AgentStateManager.appendLog(config.base.orchestratorStatePath, `Step def phase error (non-fatal): ${msg}`);
-    }
+    await runPhase(config.base, tracker, executeStepDefPhase, 'stepDef');
 
-    config.base.totalModelUsage = totalModelUsage;
-    const testResult = await executePRReviewTestPhase(config);
-    totalCostUsd += testResult.costUsd;
-    totalModelUsage = mergeModelUsageMaps(totalModelUsage, testResult.modelUsage);
-    persistTokenCounts(config.base.orchestratorStatePath, totalCostUsd, totalModelUsage);
-    if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeDisplayTokens(totalModelUsage);
+    await runPhase(config.base, tracker, _ => executePRReviewTestPhase(config), 'pr_review_test');
 
-    await completePRReviewWorkflow(config, totalModelUsage);
+    await completePRReviewWorkflow(config, tracker.totalModelUsage);
   } catch (error) {
-    if (error instanceof RateLimitError) {
-      log(`PR Review workflow rate-limited at '${error.phaseName}'. Manual restart required once limit clears.`, 'warn');
-      persistTokenCounts(config.base.orchestratorStatePath, totalCostUsd, totalModelUsage);
-      process.exit(0);
-    }
-    handlePRReviewWorkflowError(config, error, totalCostUsd, totalModelUsage);
+    handlePRReviewWorkflowError(config, error, tracker.totalCostUsd, tracker.totalModelUsage);
   }
 }
 

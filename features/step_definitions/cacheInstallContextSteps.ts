@@ -154,22 +154,28 @@ Then('it should not contain a reference to {string}', function (ref: string) {
 
 Then('it should accept an installContext parameter', function () {
   const content = sharedCtx.fileContent;
+  // Accept direct reference to installContext/contextPreamble, OR delegation to
+  // executeInstallPhase which sets config.installContext internally.
   assert.ok(
-    content.includes('installContext') || content.includes('contextPreamble'),
-    `Expected "${sharedCtx.filePath}" to accept an installContext or contextPreamble parameter`,
+    content.includes('installContext') ||
+      content.includes('contextPreamble') ||
+      content.includes('executeInstallPhase'),
+    `Expected "${sharedCtx.filePath}" to manage installContext (directly or via executeInstallPhase)`,
   );
 });
 
 Then('it should pass installContext as contextPreamble to runClaudeAgentWithCommand', function () {
   const content = sharedCtx.fileContent;
   // The file must either directly use contextPreamble, or set config.installContext which
-  // the downstream phase passes as contextPreamble (as in adwPrReview.tsx).
+  // the downstream phase passes as contextPreamble (as in adwPrReview.tsx), OR delegate
+  // to executeInstallPhase which manages config.installContext internally.
   const forwardsContextPreamble =
     content.includes('contextPreamble') ||
-    (content.includes('installContext') && content.includes('config.installContext'));
+    (content.includes('installContext') && content.includes('config.installContext')) ||
+    content.includes('executeInstallPhase');
   assert.ok(
     forwardsContextPreamble,
-    `Expected "${sharedCtx.filePath}" to pass installContext as contextPreamble (directly or via config.installContext)`,
+    `Expected "${sharedCtx.filePath}" to forward installContext (directly, via config, or via executeInstallPhase)`,
   );
 });
 
