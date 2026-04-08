@@ -4,8 +4,9 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { log, setLogAdwId, ensureLogsDirectory, generateAdwId, type PRDetails, type PRReviewComment, AgentStateManager, type AgentState, type ModelUsageMap, allocateRandomPort, emptyModelUsageMap, OrchestratorId, type TargetRepoInfo, ensureTargetRepoWorkspace } from '../core';
+import { log, setLogAdwId, ensureLogsDirectory, generateAdwId, type PRDetails, type PRReviewComment, AgentStateManager, type AgentState, type ModelUsageMap, allocateRandomPort, emptyModelUsageMap, OrchestratorId, type TargetRepoInfo, ensureTargetRepoWorkspace, loadProjectConfig, type GitHubIssue, type IssueClassSlashCommand, type RecoveryState } from '../core';
 import { fetchPRDetails, getUnaddressedComments, type PRReviewWorkflowContext, getRepoInfo, type RepoInfo, activateGitHubAppAuth } from '../github';
+import type { WorkflowConfig } from './workflowInit';
 import { ensureWorktree } from '../vcs';
 import type { RepoContext, RepoIdentifier } from '../providers/types';
 import { Platform } from '../providers/types';
@@ -22,19 +23,11 @@ import { postPRStageComment } from './phaseCommentHelpers';
  * Created by initializePRReviewWorkflow() and passed to every phase.
  */
 export interface PRReviewWorkflowConfig {
+  base: WorkflowConfig;
   prNumber: number;
-  issueNumber: number | null;
-  adwId: string;
   prDetails: PRDetails;
   unaddressedComments: PRReviewComment[];
-  worktreePath: string;
-  logsDir: string;
-  orchestratorStatePath: string;
   ctx: PRReviewWorkflowContext;
-  applicationUrl: string;
-  repoContext?: RepoContext;
-  totalModelUsage?: ModelUsageMap;
-  installContext?: string;
 }
 
 /**
@@ -123,18 +116,54 @@ export async function initializePRReviewWorkflow(prNumber: number, adwId: string
   if (repoContext) {
     postPRStageComment(repoContext, prNumber, 'pr_review_starting', ctx);
   }
-  return {
-    prNumber,
-    issueNumber,
+
+  const issueStub: GitHubIssue = {
+    number: prNumber,
+    title: prDetails.title,
+    body: prDetails.body,
+    state: 'open',
+    author: { login: '', isBot: false },
+    assignees: [],
+    labels: [],
+    comments: [],
+    createdAt: '',
+    updatedAt: '',
+    url: prDetails.url,
+  };
+  const defaultRecoveryState: RecoveryState = {
+    lastCompletedStage: null,
+    adwId: null,
+    branchName: null,
+    planPath: null,
+    prUrl: null,
+    canResume: false,
+  };
+  const projectConfig = loadProjectConfig(worktreePath);
+  const topLevelStatePath = AgentStateManager.getTopLevelStatePath(resolvedAdwId);
+  const base: WorkflowConfig = {
+    issueNumber: issueNumber ?? 0,
     adwId: resolvedAdwId,
-    prDetails,
-    unaddressedComments,
+    issue: issueStub,
+    issueType: '/pr_review' as IssueClassSlashCommand,
     worktreePath,
+    defaultBranch: prDetails.baseBranch,
     logsDir,
     orchestratorStatePath,
+    orchestratorName: OrchestratorId.PrReview,
+    recoveryState: defaultRecoveryState,
     ctx,
+    branchName: prDetails.headBranch,
     applicationUrl,
     repoContext,
+    projectConfig,
+    topLevelStatePath,
+  };
+  return {
+    base,
+    prNumber,
+    prDetails,
+    unaddressedComments,
+    ctx,
   };
 }
 
@@ -143,7 +172,8 @@ export async function initializePRReviewWorkflow(prNumber: number, adwId: string
  * Uses `config.repoInfo` for external repository API calls when targeting a different repo.
  */
 export async function executePRReviewPlanPhase(config: PRReviewWorkflowConfig): Promise<{ planOutput: string; costUsd: number; modelUsage: ModelUsageMap }> {
-  const { prNumber, issueNumber, adwId, prDetails, unaddressedComments, worktreePath, logsDir, orchestratorStatePath, ctx, repoContext } = config;
+  const { prNumber, prDetails, unaddressedComments, ctx } = config;
+  const { issueNumber, adwId, worktreePath, logsDir, orchestratorStatePath, repoContext } = config.base;
   let existingPlanContent = '';
   if (issueNumber) {
     const planPath = path.join(worktreePath, getPlanFilePath(issueNumber, worktreePath));
@@ -175,7 +205,7 @@ export async function executePRReviewPlanPhase(config: PRReviewWorkflowConfig): 
     metadata: { prNumber, reviewComments: unaddressedComments.length },
   });
 
-  const planResult = await runPrReviewPlanAgent(prDetails, unaddressedComments, existingPlanContent, logsDir, planAgentStatePath, worktreePath, prDetails.body, config.installContext);
+  const planResult = await runPrReviewPlanAgent(prDetails, unaddressedComments, existingPlanContent, logsDir, planAgentStatePath, worktreePath, prDetails.body, config.base.installContext);
 
   if (!planResult.success) {
     AgentStateManager.writeState(planAgentStatePath, {
@@ -207,7 +237,8 @@ export async function executePRReviewPlanPhase(config: PRReviewWorkflowConfig): 
  * Uses `config.repoInfo` for external repository API calls when targeting a different repo.
  */
 export async function executePRReviewBuildPhase(config: PRReviewWorkflowConfig, planOutput: string): Promise<{ costUsd: number; modelUsage: ModelUsageMap }> {
-  const { prNumber, issueNumber, adwId, prDetails, unaddressedComments, worktreePath, logsDir, orchestratorStatePath, ctx, repoContext } = config;
+  const { prNumber, prDetails, unaddressedComments, ctx } = config;
+  const { issueNumber, adwId, worktreePath, logsDir, orchestratorStatePath, repoContext } = config.base;
   if (repoContext) {
     postPRStageComment(repoContext, prNumber, 'pr_review_implementing', ctx);
   }
