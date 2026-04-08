@@ -6,7 +6,7 @@ import { WorkflowStage, IssueClassSlashCommand, log, type CostBreakdown, formatC
 import { commentOnIssue, type RepoInfo } from './githubApi';
 import { ADW_SIGNATURE, truncateText, formatRunningTokenFooter } from '../core/workflowCommentParsing';
 import type { ReviewIssue } from '../agents/reviewAgent';
-import type { ScenarioProofResult } from '../agents/regressionScenarioProof';
+import type { ScenarioProofResult } from '../phases/scenarioProof';
 import type { PhaseCostRecord } from '../cost/types';
 import { formatReviewProofComment, type ProofCommentInput } from './proofCommentFormatter';
 

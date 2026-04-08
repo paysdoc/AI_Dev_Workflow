@@ -51,32 +51,6 @@ Then('it returns allPassed true when the command is skipped', function () {
   );
 });
 
-// ── Scenario: runBddScenariosWithRetry includes stderr in failure error field ──
-
-Then('the BDD scenario retry failure result includes scenarioResult.stderr as part of the error field', function () {
-  const content = sharedCtx.fileContent;
-  assert.ok(
-    content.includes('scenarioResult.stderr'),
-    `Expected "${sharedCtx.filePath}" to use scenarioResult.stderr in the error field`,
-  );
-});
-
-Then('it falls back to scenarioResult.stdout when stderr is empty', function () {
-  const content = sharedCtx.fileContent;
-  assert.ok(
-    content.includes('scenarioResult.stdout'),
-    `Expected "${sharedCtx.filePath}" to fall back to scenarioResult.stdout`,
-  );
-});
-
-Then('it falls back to the exit code when both are empty', function () {
-  const content = sharedCtx.fileContent;
-  assert.ok(
-    content.includes('scenarioResult.exitCode'),
-    `Expected "${sharedCtx.filePath}" to fall back to the exit code when both are empty`,
-  );
-});
-
 // ── Scenario: Scenario proof detects blocker failures from non-passing tags ───
 
 Then('hasBlockerFailures is true when any non-skipped tag with severity blocker did not pass', function () {

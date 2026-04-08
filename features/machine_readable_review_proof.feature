@@ -58,28 +58,28 @@ Feature: Machine-readable review_proof.md + tag-driven scenario execution
 
   @adw-3tkya9-machine-readable-rev
   Scenario: regressionScenarioProof.ts accepts tag config from review_proof.md
-    Given the file "adws/agents/regressionScenarioProof.ts" is read
+    Given the file "adws/phases/scenarioProof.ts" is read
     When searching for the runScenarioProof function signature
     Then it accepts a parameter for tag-severity entries from the review proof config
     And it does not hardcode which tags to run
 
   @adw-3tkya9-machine-readable-rev
   Scenario: regressionScenarioProof.ts iterates over config tags instead of hardcoded values
-    Given the file "adws/agents/regressionScenarioProof.ts" is read
+    Given the file "adws/phases/scenarioProof.ts" is read
     When searching for the scenario execution loop
     Then it iterates over the tags defined in the review proof config
     And it does not hardcode "@regression" as a tag to execute during review
 
   @adw-3tkya9-machine-readable-rev
   Scenario: regressionScenarioProof.ts classifies failures using per-tag severity from config
-    Given the file "adws/agents/regressionScenarioProof.ts" is read
+    Given the file "adws/phases/scenarioProof.ts" is read
     When searching for severity classification logic
     Then severity is determined by the per-tag severity from the config
     And the severity is not hardcoded per tag name
 
   @adw-3tkya9-machine-readable-rev
   Scenario: ScenarioProofResult reflects config-driven tag results
-    Given the file "adws/agents/regressionScenarioProof.ts" is read
+    Given the file "adws/phases/scenarioProof.ts" is read
     When the "ScenarioProofResult" interface is found
     Then it can represent results for an arbitrary set of tags
     And it is not limited to only @regression and @adw-{issueNumber} fields

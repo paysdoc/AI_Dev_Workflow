@@ -18,7 +18,7 @@ import {
   type ModelUsageMap,
 } from '../core';
 import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
-import { runScenarioProof, type ScenarioProofResult } from '../agents/regressionScenarioProof';
+import { runScenarioProof, type ScenarioProofResult } from './scenarioProof';
 import { withDevServer } from '../core/devServerLifecycle';
 import type { WorkflowConfig } from './workflowInit';
 

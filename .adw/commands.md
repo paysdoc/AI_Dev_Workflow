@@ -24,9 +24,6 @@ N/A
 ## Prepare App
 bun install
 
-## Run E2E Tests
-NODE_OPTIONS="--import tsx" bunx cucumber-js
-
 ## Additional Type Checks
 bunx tsc --noEmit -p adws/tsconfig.json
 

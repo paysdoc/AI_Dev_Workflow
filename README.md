@@ -213,7 +213,6 @@ adws/                   # ADW workflow system
 │   ├── claudeAgent.ts
 │   ├── commandAgent.ts  # Generic thin-wrapper agent for slash commands
 │   ├── diffEvaluatorAgent.ts  # LLM-based diff safety classification (Haiku)
-│   ├── regressionScenarioProof.ts  # Regression scenario proof for reviews
 │   ├── dependencyExtractionAgent.ts  # LLM-based issue dependency extraction
 │   ├── documentAgent.ts
 │   ├── gitAgent.ts
@@ -229,7 +228,6 @@ adws/                   # ADW workflow system
 │   ├── scenarioAgent.ts  # BDD scenario planner agent
 │   ├── stepDefAgent.ts  # Step definition generation agent
 │   ├── testAgent.ts
-│   ├── testDiscovery.ts  # E2E test discovery
 │   ├── testRetry.ts
 │   └── validationAgent.ts  # Plan-scenario validation
 ├── core/               # Configuration and utilities
@@ -335,6 +333,7 @@ adws/                   # ADW workflow system
 │   ├── reviewPhase.ts  # Passive judge review phase (reads scenario proof, no dev server)
 │   ├── scenarioFixPhase.ts  # Fixes failed scenarios from a previous scenarioTestPhase run
 │   ├── scenarioPhase.ts  # BDD scenario generation phase
+│   ├── scenarioProof.ts  # Scenario proof orchestrator (relocated from agents/)
 │   ├── scenarioTestPhase.ts  # Runs BDD scenarios tagged @adw-{issueNumber} and @regression
 │   ├── stepDefPhase.ts  # Step definition generation phase
 │   ├── unitTestPhase.ts  # Unit test phase (opt-in, BDD scenarios moved to scenarioTestPhase)

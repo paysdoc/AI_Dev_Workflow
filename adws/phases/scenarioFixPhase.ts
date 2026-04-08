@@ -20,7 +20,7 @@ import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '.
 import { runResolveScenarioAgent } from '../agents/testAgent';
 import { runCommitAgent } from '../agents/gitAgent';
 import { pushBranch } from '../vcs';
-import type { ScenarioProofResult } from '../agents/regressionScenarioProof';
+import type { ScenarioProofResult } from './scenarioProof';
 import type { WorkflowConfig } from './workflowInit';
 
 /**

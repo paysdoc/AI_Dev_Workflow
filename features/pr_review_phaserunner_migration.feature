@@ -38,7 +38,6 @@ Feature: Migrate adwPrReview to phaseRunner (resolves 4 disparities)
     And every phase execution is wrapped in a runPhase call
     And the file does not directly call executePRReviewPlanPhase outside a runPhase wrapper
     And the file does not directly call executePRReviewBuildPhase outside a runPhase wrapper
-    And the file does not directly call executePRReviewTestPhase outside a runPhase wrapper
 
   # --- 3: Closure-wrapper pattern for PR-specific phases ---
 
@@ -47,7 +46,7 @@ Feature: Migrate adwPrReview to phaseRunner (resolves 4 disparities)
     Given "adws/adwPrReview.tsx" is read
     Then the PR review plan phase is called via a closure: runPhase(config.base, tracker, _ => executePRReviewPlanPhase(config))
     And the PR review build phase is called via a closure wrapping executePRReviewBuildPhase
-    And the PR review test phase is called via a closure wrapping executePRReviewTestPhase
+    And the PR review unit test phase is called via executeUnitTestPhase
 
   @adw-398
   Scenario: runPhase receives config.base (WorkflowConfig) not config (PRReviewWorkflowConfig)
@@ -174,7 +173,6 @@ Feature: Migrate adwPrReview to phaseRunner (resolves 4 disparities)
     Given the PR review phase functions in "adws/phases/prReviewPhase.ts"
     Then executePRReviewPlanPhase returns an object extending PhaseResult
     And executePRReviewBuildPhase returns an object extending PhaseResult
-    And executePRReviewTestPhase returns an object extending PhaseResult
     And executePRReviewCommitPushPhase returns an object extending PhaseResult
     And each return value includes costUsd and modelUsage fields
 

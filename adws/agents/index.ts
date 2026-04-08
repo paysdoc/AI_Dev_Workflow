@@ -37,15 +37,6 @@ export {
   runBuildAgent,
 } from './buildAgent';
 
-// Test Discovery (E2E discovery and Playwright runner)
-export {
-  discoverE2ETestFiles,
-  isValidE2ETestResult,
-  runPlaywrightE2ETests,
-  type E2ETestResult,
-  type PlaywrightE2EResult,
-} from './testDiscovery';
-
 // Test Agent
 export {
   runTestAgent,
@@ -67,22 +58,11 @@ export {
   type BddScenarioResult,
 } from './bddScenarioRunner';
 
-// Regression Scenario Proof
-export {
-  shouldRunScenarioProof,
-  runScenarioProof,
-  type TagProofResult,
-  type ScenarioProofResult,
-} from './regressionScenarioProof';
-
 // Test Retry (shared test retry logic)
 export {
   runUnitTestsWithRetry,
-  runE2ETestsWithRetry,
-  runBddScenariosWithRetry,
   type TestRetryResult,
   type TestRetryOptions,
-  type BddScenarioRetryOptions,
 } from './testRetry';
 
 // Review Agent

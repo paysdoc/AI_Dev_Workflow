@@ -78,20 +78,18 @@ Feature: Remove ## Run BDD Scenarios command and consolidate into ## Run Scenari
   # ── 4. Retry infrastructure ───────────────────────────────────────────────────
 
   @adw-lv8mwj-remove-run-bdd-scena @regression
-  Scenario: testRetry.ts implements BDD retry via runScenariosByTag not runBddScenarios
+  Scenario: testRetry.ts no longer contains runBddScenarios
     Given "adws/agents/testRetry.ts" is read
     When searching for BDD scenario execution calls in the retry path
     Then "runBddScenarios" is not imported in "adws/agents/testRetry.ts"
-    And the BDD scenario retry function calls "runScenariosByTag" internally
-    And the tag passed is "adw-{issueNumber}" constructed from the issueNumber option
+    And the file does not contain "runBddScenarios" 
 
   @adw-lv8mwj-remove-run-bdd-scena @regression
-  Scenario: BddScenarioRetryOptions uses runScenariosByTag command field not scenarioCommand
+  Scenario: BddScenarioRetryOptions type is removed from testRetry.ts
     Given "adws/agents/testRetry.ts" is read
     When searching for the "BddScenarioRetryOptions" interface or type definition
-    Then the options type does not contain a "scenarioCommand" field sourced from "runBddScenarios" config
-    And the options type contains a field for the "runScenariosByTag" command
-    And the options type still contains an "issueNumber" field
+    Then "BddScenarioRetryOptions" is not defined in "adws/agents/testRetry.ts"
+    And the options type does not contain a "scenarioCommand" field sourced from "runBddScenarios" config
 
   # ── 5. No remaining runBddScenarios references ────────────────────────────────
 

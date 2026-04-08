@@ -77,6 +77,14 @@
     - When troubleshooting `awaiting_merge` issues not being picked up by the cron
     - When working with `deriveOrchestratorScript()` and adding a new orchestrator mapping
 
+- app_docs/feature-01s6z7-delete-legacy-e2e-machinery.md
+  - Conditions:
+    - When looking for `runE2ETestsWithRetry`, `runBddScenariosWithRetry`, `discoverE2ETestFiles`, or `runPlaywrightE2ETests` (all deleted)
+    - When looking for `executePRReviewTestPhase` (deleted — use `executeScenarioTestPhase` + `executeScenarioFixPhase`)
+    - When importing `ScenarioProofResult`, `TagProofResult`, `shouldRunScenarioProof`, or `runScenarioProof` (now in `adws/phases/scenarioProof.ts`)
+    - When troubleshooting a missing `runE2ETests` field in `CommandsConfig` or `.adw/commands.md`
+    - When understanding why `agents/regressionScenarioProof.ts` and `agents/testDiscovery.ts` no longer exist
+
 - app_docs/feature-643xf3-fix-retry-and-commit-leak.md
   - Conditions:
     - When working with `adws/core/utils.ts` `execWithRetry` or adding non-retryable error patterns

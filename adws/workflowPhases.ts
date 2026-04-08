@@ -41,7 +41,6 @@ export {
   initializePRReviewWorkflow,
   executePRReviewPlanPhase,
   executePRReviewBuildPhase,
-  executePRReviewTestPhase,
   executePRReviewCommitPushPhase,
   completePRReviewWorkflow,
   handlePRReviewWorkflowError,

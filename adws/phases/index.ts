@@ -26,7 +26,6 @@ export {
   initializePRReviewWorkflow,
   executePRReviewPlanPhase,
   executePRReviewBuildPhase,
-  executePRReviewTestPhase,
   executePRReviewCommitPushPhase,
 } from './prReviewPhase';
 export {
@@ -40,3 +39,9 @@ export { executeAutoMergePhase } from './autoMergePhase';
 export { executeDiffEvaluationPhase, type DiffEvaluationPhaseResult } from './diffEvaluationPhase';
 export { executeScenarioTestPhase } from './scenarioTestPhase';
 export { executeScenarioFixPhase } from './scenarioFixPhase';
+export {
+  shouldRunScenarioProof,
+  runScenarioProof,
+  type TagProofResult,
+  type ScenarioProofResult,
+} from './scenarioProof';

@@ -9,17 +9,12 @@ import { runClaudeAgentWithCommand, AgentResult } from './claudeAgent';
 import { runCommandAgent, type CommandAgentConfig, type ExtractionResult } from './commandAgent';
 import { extractJsonArray } from '../core/jsonParser';
 
-// Backward-compatible re-exports from testDiscovery
-export {
-  discoverE2ETestFiles,
-  isValidE2ETestResult,
-  runPlaywrightE2ETests,
-  type E2ETestResult,
-  type PlaywrightE2EResult,
-} from './testDiscovery';
-
-// Re-import E2ETestResult for local use
-import type { E2ETestResult } from './testDiscovery';
+export interface E2ETestResult {
+  testName: string;
+  status: 'passed' | 'failed';
+  error: string | null;
+  testPath?: string;
+}
 
 /**
  * Individual test result from the /test command.
