@@ -90,11 +90,11 @@ async function main(): Promise<void> {
     const unitTestResult = await runPhase(config, tracker, executeUnitTestPhase);
 
     // Scenario test → fix retry loop (orchestrator-level, bounded by MAX_TEST_RETRY_ATTEMPTS)
-    let scenarioProof: ScenarioProofResult | undefined;
+    let _scenarioProof: ScenarioProofResult | undefined;
     let scenarioRetries = 0;
     for (let attempt = 0; attempt < MAX_TEST_RETRY_ATTEMPTS; attempt++) {
       const scenarioResult = await runPhase(config, tracker, executeScenarioTestPhase);
-      scenarioProof = scenarioResult.scenarioProof;
+      _scenarioProof = scenarioResult.scenarioProof;
       if (!scenarioResult.scenarioProof?.hasBlockerFailures) break;
       scenarioRetries++;
       if (attempt < MAX_TEST_RETRY_ATTEMPTS - 1) {

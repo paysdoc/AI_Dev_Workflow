@@ -65,7 +65,7 @@ function makeConfig(overrides: {
     orchestratorStatePath: '/state.json',
     orchestratorName: 'sdlc',
     recoveryState: { isRecovery: false, adwId: null, branchName: null },
-    ctx: {} as any,
+    ctx: {} as unknown as Parameters<typeof executeScenarioTestPhase>[0]['ctx'],
     branchName: 'feature-42-test',
     applicationUrl: 'http://localhost:4567',
     topLevelStatePath: '/agents/test-id/state.json',
@@ -103,7 +103,7 @@ function makeConfig(overrides: {
       },
       applicationType: 'cli',
     },
-  } as any;
+  } as unknown as Parameters<typeof executeScenarioTestPhase>[0];
 }
 
 beforeEach(() => {
@@ -306,7 +306,7 @@ describe('executeScenarioTestPhase — phase cost records', () => {
 
   it('returns phaseCostRecords from createPhaseCostRecords', async () => {
     mockRunScenarioProof.mockResolvedValueOnce(passingProof);
-    mockCreatePhaseCostRecords.mockReturnValueOnce([{ id: 'record-1' } as any]);
+    mockCreatePhaseCostRecords.mockReturnValueOnce([{ id: 'record-1' } as unknown as import('../../cost').PhaseCostRecord]);
     const config = makeConfig();
 
     const result = await executeScenarioTestPhase(config);
