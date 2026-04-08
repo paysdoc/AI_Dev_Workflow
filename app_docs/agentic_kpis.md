@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated       |
 | ----------------- | ---------------- | ------------------ |
-| Current Streak    | 51               | 2026-04-08 18:28:57|
-| Longest Streak    | 51               | 2026-04-08 18:28:57|
-| Total Plan Size   | 552 lines        | 2026-04-08 18:28:57|
-| Largest Plan Size | 201 lines        | 2026-04-08 18:28:57|
-| Total Diff Size   | 2218387 lines    | 2026-04-08 18:28:57|
-| Largest Diff Size | 418153 lines     | 2026-04-08 18:28:57|
-| Average Presence  | 1.27             | 2026-04-08 18:28:57|
+| Current Streak    | 18               | 2026-04-08 19:01:58|
+| Longest Streak    | 56               | 2026-04-08 19:01:58|
+| Total Plan Size   | 552 lines        | 2026-04-08 19:01:58|
+| Largest Plan Size | 201 lines        | 2026-04-08 19:01:58|
+| Total Diff Size   | 2228083 lines    | 2026-04-08 19:01:58|
+| Largest Diff Size | 418153 lines     | 2026-04-08 19:01:58|
+| Average Presence  | 1.44             | 2026-04-08 19:01:58|
 
 ## ADW KPIs
 
@@ -109,3 +109,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-04-08 | 1bg58c-scenariotestphase-sc | 399          | /feature    | 1        | 0                 | 6644/161/62                     | 2026-04-08 | 2026-04-08 |
 | 2026-04-08 | 8ogjrg-scenariotestphase-sc | 399          | /feature    | 1        | 0                 | 6751/161/63                     | 2026-04-08 | 2026-04-08 |
 | 2026-04-08 | o1w8wg-wire-scenarios-into | 400          | /feature    | 1        | 0                 | 8783/643/75                     | 2026-04-08 | 2026-04-08 |
+| 2026-04-08 | vv4ie0-executeprreviewtestp | 402          | /feature    | 1        | 0                 | 9696/403/76                     | 2026-04-08 | 2026-04-08 |
