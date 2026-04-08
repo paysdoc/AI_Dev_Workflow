@@ -28,9 +28,11 @@ import {
   executePRReviewTestPhase,
   completePRReviewWorkflow,
   handlePRReviewWorkflowError,
+  executeStepDefPhase,
 } from './workflowPhases';
 import { runInstallAgent } from './agents';
 import { extractInstallContext } from './phases';
+import type { WorkflowConfig } from './phases';
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
@@ -89,6 +91,27 @@ async function main(): Promise<void> {
     totalModelUsage = mergeModelUsageMaps(totalModelUsage, buildResult.modelUsage);
     persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
     if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeDisplayTokens(totalModelUsage);
+
+    try {
+      const stepDefConfig = {
+        orchestratorStatePath: config.orchestratorStatePath,
+        adwId: config.adwId,
+        issueNumber: config.issueNumber ?? config.prNumber,
+        issue: { body: config.prDetails.body },
+        worktreePath: config.worktreePath,
+        logsDir: config.logsDir,
+        installContext: config.installContext,
+        ctx: {},
+        topLevelStatePath: '',
+      } as unknown as WorkflowConfig;
+      const stepDefResult = await executeStepDefPhase(stepDefConfig);
+      totalCostUsd += stepDefResult.costUsd;
+      totalModelUsage = mergeModelUsageMaps(totalModelUsage, stepDefResult.modelUsage);
+      persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
+    } catch (stepDefError) {
+      const msg = stepDefError instanceof Error ? stepDefError.message : String(stepDefError);
+      AgentStateManager.appendLog(config.orchestratorStatePath, `Step def phase error (non-fatal): ${msg}`);
+    }
 
     config.totalModelUsage = totalModelUsage;
     const testResult = await executePRReviewTestPhase(config);

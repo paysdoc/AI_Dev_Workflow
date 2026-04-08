@@ -34,6 +34,7 @@ import {
   executeScenarioPhase,
   executeAlignmentPhase,
   executeBuildPhase,
+  executeStepDefPhase,
   executeTestPhase,
   executePRPhase,
   executeReviewPhase,
@@ -80,6 +81,7 @@ async function main(): Promise<void> {
     await runPhasesParallel(config, tracker, [executePlanPhase, executeScenarioPhase]);
     await runPhase(config, tracker, executeAlignmentPhase);
     await runPhase(config, tracker, executeBuildPhase);
+    await runPhase(config, tracker, executeStepDefPhase, 'stepDef');
     const testResult = await runPhase(config, tracker, executeTestPhase);
     const reviewResult = await runPhase(config, tracker, executeReviewPhase);
 
