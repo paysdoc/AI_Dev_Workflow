@@ -47,7 +47,6 @@ Follow the instructions in `.adw/review_proof.md` for what proof to produce, wha
 
 Use this when neither Strategy A nor B applies:
 
-1. Look for e2e test files in `./claude/commands/e2e-examples/test*.md` as navigation guides only
 2. Navigate to the application at `applicationUrl`
 3. Compare implemented changes with spec requirements — you are **reviewing**, not testing
 4. Take 1-5 targeted screenshots of critical functionality paths:

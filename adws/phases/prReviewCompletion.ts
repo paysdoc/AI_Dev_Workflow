@@ -5,23 +5,23 @@
  * pushing branches, posting completion comments, and error handling.
  */
 
-import { log, AgentStateManager, COST_REPORT_CURRENCIES, type ModelUsageMap, buildCostBreakdown, mergeModelUsageMaps, emptyModelUsageMap, persistTokenCounts, OrchestratorId } from '../core';
+import { log, AgentStateManager, COST_REPORT_CURRENCIES, type ModelUsageMap, buildCostBreakdown, emptyModelUsageMap, persistTokenCounts, OrchestratorId } from '../core';
 import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
 import { formatCostCommentSection } from '../cost/reporting/commentFormatter';
 import { BoardStatus } from '../providers/types';
 import { pushBranch, inferIssueTypeFromBranch } from '../vcs';
 import { postPRStageComment, postIssueStageComment } from './phaseCommentHelpers';
-import { runCommitAgent, runUnitTestsWithRetry, runE2ETestsWithRetry } from '../agents';
+import { runCommitAgent, runUnitTestsWithRetry } from '../agents';
 import { MAX_TEST_RETRY_ATTEMPTS } from '../core';
 import type { PRReviewWorkflowConfig } from './prReviewPhase';
 
 /**
- * Executes the PR review Test phase: runs unit and E2E tests with retry.
+ * Executes the PR review Test phase: runs unit tests with retry.
  * Uses `config.repoInfo` for external repository API calls when targeting a different repo.
  */
 export async function executePRReviewTestPhase(config: PRReviewWorkflowConfig): Promise<{ costUsd: number; modelUsage: ModelUsageMap; phaseCostRecords: PhaseCostRecord[] }> {
   const { prNumber, prDetails, unaddressedComments, ctx } = config;
-  const { issueNumber, adwId, worktreePath, logsDir, orchestratorStatePath, applicationUrl, repoContext } = config.base;
+  const { issueNumber, adwId, worktreePath, logsDir, orchestratorStatePath, repoContext } = config.base;
   const phaseStartTime = Date.now();
 
   if (repoContext) {
@@ -73,43 +73,14 @@ export async function executePRReviewTestPhase(config: PRReviewWorkflowConfig): 
     process.exit(1);
   }
 
-  const e2eTestsResult = await runE2ETestsWithRetry({
-    logsDir,
-    orchestratorStatePath,
-    maxRetries: MAX_TEST_RETRY_ATTEMPTS,
-    onTestFailed,
-    onCompactionDetected,
-    cwd: worktreePath,
-    applicationUrl,
-    issueBody: prDetails.body,
-  });
-
-  if (!e2eTestsResult.passed) {
-    ctx.failedTests = e2eTestsResult.failedTests;
-    ctx.maxTestAttempts = MAX_TEST_RETRY_ATTEMPTS;
-    if (repoContext) {
-      postPRStageComment(repoContext, prNumber, 'pr_review_test_max_attempts', ctx);
-    }
-    AgentStateManager.writeState(orchestratorStatePath, {
-      execution: AgentStateManager.completeExecution(AgentStateManager.createExecutionState('running'), false, `E2E tests failed after ${MAX_TEST_RETRY_ATTEMPTS} attempts`),
-      metadata: { prNumber, reviewComments: unaddressedComments.length, testFailure: true, failedTests: e2eTestsResult.failedTests },
-    });
-    AgentStateManager.appendLog(orchestratorStatePath, 'PR Review workflow failed: E2E tests exceeded max retry attempts');
-    log(`E2E tests failed after ${MAX_TEST_RETRY_ATTEMPTS} attempts. Changes not pushed.`, 'error');
-    process.exit(1);
-  }
-
   if (repoContext) {
     postPRStageComment(repoContext, prNumber, 'pr_review_test_passed', ctx);
   }
   log('All validation tests passed!', 'success');
   AgentStateManager.appendLog(orchestratorStatePath, 'All validation tests passed');
 
-  const combinedCostUsd = (unitTestsResult.costUsd ?? 0) + (e2eTestsResult.costUsd ?? 0);
-  const combinedModelUsage = mergeModelUsageMaps(
-    unitTestsResult.modelUsage ?? emptyModelUsageMap(),
-    e2eTestsResult.modelUsage ?? emptyModelUsageMap(),
-  );
+  const combinedCostUsd = unitTestsResult.costUsd ?? 0;
+  const combinedModelUsage = unitTestsResult.modelUsage ?? emptyModelUsageMap();
 
   const phaseCostRecords = createPhaseCostRecords({
     workflowId: adwId,

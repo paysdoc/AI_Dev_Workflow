@@ -24,11 +24,6 @@ Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init
 - Design for extensibility and maintainability.
 - If you need a new library, read `.adw/commands.md` for the library install command (under `## Library Install Command`). If `.adw/commands.md` does not exist, use `bun install`. Be sure to report it in the `Notes` section of the `Plan Format`.
 - Don't use decorators. Keep it simple.
-- If the feature includes UI components or user interactions:
-  - Add a task in the `Step by Step Tasks` section to create a separate E2E test file in `e2e-tests/test_<descriptive_name>.md` based on examples in that directory
-  - Add E2E test validation to your Validation Commands section
-  - In the `Plan Format: Relevant Files` section, add an instruction to read `.claude/commands/test_e2e.md` and `.claude/commands/e2e-examples/test_basic_query.md`. List your new E2E test file in the `Plan Format: New Files` section.
-  - Note: you are creating a **task** to create the E2E test file, not creating it directly
 - Respect requested files in the `Relevant Files` section.
 - If a `guidelines/` directory exists in the target repository, planning and implementation must strictly adhere to those coding guidelines.
 - Start your research by reading the `README.md` file. If a `guidelines/` directory exists in the target repository, also read those coding guidelines.
@@ -93,7 +88,6 @@ IMPORTANT: Read `.adw/project.md` from the current working directory. If it cont
 
 <list step by step tasks as h3 headers plus bullet points. use as many h3 headers as needed to implement the feature. Order matters, start with the foundational shared changes required then move on to the specific implementation. Include creating tests throughout the implementation process.>
 
-<If the feature affects UI, include a task to create a E2E test file (like `.claude/commands/e2e-examples/test_basic_query.md` and `.claude/commands/e2e-examples/test_complex_query.md`) as one of your early tasks. That e2e test should validate the feature works as expected, be specific with the steps to demonstrate the new functionality. We want the minimal set of steps to validate the feature works as expected and screen shots to prove it if possible.>
 
 <Your last step should be running the `Validation Commands` to validate the feature works correctly with zero regressions.>
 
@@ -113,7 +107,6 @@ Execute every command to validate the feature works correctly with zero regressi
 
 <list commands you'll use to validate with 100% confidence the feature is implemented correctly with zero regressions. every command must execute without errors so be specific about what you want to run to validate the feature works as expected. Include commands to test the feature end-to-end.>
 
-<If you created an E2E test, include the following validation step: `Read .claude/commands/test_e2e.md`, then read and execute your new E2E `e2e-tests/test_<descriptive_name>.md` test file to validate this functionality works.>
 
 Read `.adw/commands.md` from the current working directory for the project-specific validation commands. If `.adw/commands.md` does not exist, use these defaults:
 - `bun run lint` - Run linter to check for code quality issues

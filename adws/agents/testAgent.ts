@@ -9,17 +9,16 @@ import { runClaudeAgentWithCommand, AgentResult } from './claudeAgent';
 import { runCommandAgent, type CommandAgentConfig, type ExtractionResult } from './commandAgent';
 import { extractJsonArray } from '../core/jsonParser';
 
-// Backward-compatible re-exports from testDiscovery
-export {
-  discoverE2ETestFiles,
-  isValidE2ETestResult,
-  runPlaywrightE2ETests,
-  type E2ETestResult,
-  type PlaywrightE2EResult,
-} from './testDiscovery';
-
-// Re-import E2ETestResult for local use
-import type { E2ETestResult } from './testDiscovery';
+/**
+ * Test result structure used by the scenario resolution agent.
+ */
+export interface E2ETestResult {
+  testName: string;
+  status: 'passed' | 'failed';
+  error: string | null;
+  /** The path to the spec file */
+  testPath?: string;
+}
 
 /**
  * Individual test result from the /test command.
@@ -156,7 +155,7 @@ export async function runResolveTestAgent(
 }
 
 /**
- * Runs the /resolve_failed_e2e_test command with failure details.
+ * Runs the /resolve_failed_scenario command with failure details.
  * Uses 'opus' model for complex reasoning.
  *
  * @param failedE2ETest - The E2E test result that failed

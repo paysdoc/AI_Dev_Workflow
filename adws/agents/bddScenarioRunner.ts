@@ -3,7 +3,6 @@
  *
  * Runs tag-filtered scenario commands as a subprocess, captures output,
  * and returns a structured result.
- * Analogous to testDiscovery.ts for Playwright.
  */
 
 import { spawn } from 'child_process';

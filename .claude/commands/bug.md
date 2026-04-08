@@ -24,11 +24,6 @@ Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init
 - Be surgical: solve the bug at hand with the minimal number of changes. Don't fall off track.
 - Don't use decorators. Keep it simple.
 - If you need a new library, read `.adw/commands.md` for the library install command (under `## Library Install Command`). If `.adw/commands.md` does not exist, use `bun install`. Be sure to report it in the `Notes` section of the `Plan Format`.
-- If the bug affects the UI or user interactions:
-  - Add a task in the `Step by Step Tasks` section to create a separate E2E test file in `e2e-tests/test_<descriptiveName>.md` based on examples in `.claude/commands/e2e-examples/` that validates the bug is fixed with zero regressions.
-  - Add E2E test validation to your Validation Commands section
-  - In the `Plan Format: Relevant Files` section, add an instruction to read `.claude/commands/test_e2e.md` and `.claude/commands/e2e-examples/test_basic_query.md`. List your new E2E test file in the `Plan Format: New Files` section.
-  - Note: you are creating a **task** to create the E2E test file, not creating it directly
 - Respect requested files in the `Relevant Files` section.
 - If a `guidelines/` directory exists in the target repository, planning and implementation must strictly adhere to those coding guidelines.
 - Start your research by reading the `README.md` file. If a `guidelines/` directory exists in the target repository, also read those coding guidelines.
@@ -82,7 +77,6 @@ IMPORTANT: Execute every step in order, top to bottom.
 
 <list step by step tasks as h3 headers plus bullet points. use as many h3 headers as needed to fix the bug. Order matters, start with the foundational shared changes required to fix the bug then move on to the specific changes required to fix the bug. Include tests that will validate the bug is fixed with zero regressions.>
 
-<If the bug affects UI, include a task to create a E2E test file. Your task should look like: "Read `.claude/commands/e2e-examples/test_basic_query.md` and `.claude/commands/e2e-examples/test_complex_query.md` and create a new E2E test file in `e2e-tests/test_<descriptive_name>.md` that validates the bug is fixed, be specific with the steps to prove the bug is fixed. We want the minimal set of steps to validate the bug is fixed and screen shots to prove it if possible.">
 
 <Your last step should be running the `Validation Commands` to validate the bug is fixed with zero regressions.>
 
@@ -90,7 +84,6 @@ IMPORTANT: Execute every step in order, top to bottom.
 Execute every command to validate the bug is fixed with zero regressions.
 
 <list commands you'll use to validate with 100% confidence the bug is fixed with zero regressions. every command must execute without errors so be specific about what you want to run to validate the bug is fixed with zero regressions. Include commands to reproduce the bug before and after the fix.>
-<If you created an E2E test, include the following validation step: "Read .claude/commands/test_e2e.md`, then read and execute your new E2E `e2e-tests/test_<descriptive_name>.md` test file to validate this functionality works.">
 Read `.adw/commands.md` from the current working directory for the project-specific validation commands. If `.adw/commands.md` does not exist, use these defaults:
 - `bun run lint` - Run linter to check for code quality issues
 - `bun run build` - Build the application to verify no build errors
