@@ -1,5 +1,13 @@
 # Conditional Documentation
 
+- app_docs/feature-zqb2k1-wire-stepdefphase-into-orchestrators.md
+  - Conditions:
+    - When working with any orchestrator (`adwSdlc`, `adwPlanBuildTest`, `adwPlanBuildTestReview`, `adwChore`, `adwPrReview`) and adding or modifying phase order
+    - When implementing a new orchestrator that should run BDD step definition generation
+    - When troubleshooting step definitions not being present before the test phase runs
+    - When working with `adws/phases/stepDefPhase.ts` or `executeStepDefPhase`
+    - When understanding how `adwPrReview.tsx` adapts `PRReviewWorkflowConfig` to call `WorkflowConfig`-typed phases
+
 - app_docs/feature-8zhro4-prreviewworkflowconfig-composition.md
   - Conditions:
     - When working with `PRReviewWorkflowConfig` or `adws/phases/prReviewPhase.ts`
