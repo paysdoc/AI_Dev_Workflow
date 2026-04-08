@@ -10,10 +10,11 @@
  * 3. Alignment Phase: single-pass alignment of plan against scenarios
  * 4. Build Phase: run build agent, commit implementation
  * 5. Test Phase: optionally run unit tests (unit only)
- * 6. Review Phase: review implementation + run BDD scenarios, patch blockers, retry
- * 7. PR Phase: create pull request (only after review passes)
- * 8. Approve PR + write awaiting_merge to state (API calls only — no worktree required)
- * 9. Finalize: update state, post completion comment
+ * 6. Scenario Test Phase: run BDD scenarios
+ * 7. Review Phase [→ Patch Cycle → Scenario Retest → retry]: passive judge, patch blockers
+ * 8. PR Phase: create pull request (only after review passes)
+ * 9. Approve PR + write awaiting_merge to state (API calls only — no worktree required)
+ * 10. Finalize: update state, post completion comment
  *
  * Environment Requirements:
  * - ANTHROPIC_API_KEY: Anthropic API key
@@ -22,7 +23,7 @@
  * - MAX_REVIEW_RETRY_ATTEMPTS: Maximum retry attempts for review-patch loop (default: 3)
  */
 
-import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId, AgentStateManager, log } from './core';
+import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId, AgentStateManager, log, MAX_REVIEW_RETRY_ATTEMPTS } from './core';
 import { CostTracker, runPhase, runPhasesParallel } from './core/phaseRunner';
 import {
   initializeWorkflow,
@@ -32,11 +33,15 @@ import {
   executeAlignmentPhase,
   executeBuildPhase,
   executeUnitTestPhase,
+  executeScenarioTestPhase,
   executePRPhase,
   executeReviewPhase,
+  executeReviewPatchCycle,
   handleWorkflowError,
+  type ReviewIssue,
 } from './workflowPhases';
 import { persistTokenCounts } from './cost';
+import type { WorkflowConfig } from './phases';
 import { approvePR, isGitHubAppConfigured, issueHasLabel, commentOnIssue, type RepoInfo } from './github';
 import { extractPrNumber } from './adwBuildHelpers';
 
@@ -68,7 +73,32 @@ async function main(): Promise<void> {
     await runPhase(config, tracker, executeAlignmentPhase);
     await runPhase(config, tracker, executeBuildPhase);
     const testResult = await runPhase(config, tracker, executeUnitTestPhase);
-    const reviewResult = await runPhase(config, tracker, executeReviewPhase);
+
+    // Scenario test phase — proof path needed for review
+    const scenarioResult = await runPhase(config, tracker, executeScenarioTestPhase);
+    let proofPath = scenarioResult.scenarioProof?.resultsFilePath ?? '';
+
+    // Review → patch+retest retry loop (orchestrator-level, bounded by MAX_REVIEW_RETRY_ATTEMPTS)
+    let reviewRetries = 0;
+    let reviewPassed = false;
+    let reviewBlockers: ReviewIssue[] = [];
+    for (let attempt = 0; attempt < MAX_REVIEW_RETRY_ATTEMPTS; attempt++) {
+      const reviewFn = (cfg: WorkflowConfig) => executeReviewPhase(cfg, proofPath);
+      const reviewResult = await runPhase(config, tracker, reviewFn);
+      reviewPassed = reviewResult.reviewPassed;
+      reviewBlockers = reviewResult.reviewIssues.filter(i => i.issueSeverity === 'blocker');
+      if (reviewPassed) break;
+      reviewRetries++;
+      if (attempt < MAX_REVIEW_RETRY_ATTEMPTS - 1) {
+        const patchWrapper = (cfg: WorkflowConfig) =>
+          executeReviewPatchCycle(cfg, reviewBlockers);
+        await runPhase(config, tracker, patchWrapper);
+        // Re-run scenario tests to verify patch didn't break scenarios
+        const retestResult = await runPhase(config, tracker, executeScenarioTestPhase);
+        proofPath = retestResult.scenarioProof?.resultsFilePath ?? '';
+      }
+    }
+
     await runPhase(config, tracker, executePRPhase);
 
     // Post-PR: approve and write awaiting_merge (API calls only — no worktree required).
@@ -94,8 +124,8 @@ async function main(): Promise<void> {
         totalCostUsd: tracker.totalCostUsd,
         unitTestsPassed: testResult.unitTestsPassed,
         totalTestRetries: testResult.totalRetries,
-        reviewPassed: reviewResult.reviewPassed,
-        totalReviewRetries: reviewResult.totalRetries,
+        reviewPassed,
+        totalReviewRetries: reviewRetries,
       },
     });
     persistTokenCounts(config.orchestratorStatePath, tracker.totalCostUsd, tracker.totalModelUsage);

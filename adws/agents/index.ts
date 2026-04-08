@@ -78,14 +78,6 @@ export {
   runPatchAgent,
 } from './patchAgent';
 
-// Review Retry (multi-agent review-patch retry loop)
-export {
-  runReviewWithRetry,
-  type ReviewRetryResult,
-  type ReviewRetryOptions,
-  type MergedReviewResult,
-} from './reviewRetry';
-
 // PR Agent
 export {
   runPullRequestAgent,

@@ -315,6 +315,8 @@ adws/                   # ADW workflow system
 │   ├── schemaProbe.ts       # Schema probe utility
 │   └── types.ts
 ├── phases/             # Workflow phase implementations
+│   ├── __tests__/      # Vitest unit tests
+│   │   └── scenarioTestPhase.test.ts
 │   ├── alignmentPhase.ts  # Single-pass alignment phase
 │   ├── autoMergePhase.ts  # Auto-approve and merge PR after review passes
 │   ├── diffEvaluationPhase.ts  # LLM diff evaluation phase (safe vs regression_possible)
@@ -328,13 +330,12 @@ adws/                   # ADW workflow system
 │   ├── planValidationPhase.ts  # Plan-scenario validation phase
 │   ├── prPhase.ts
 │   ├── prReviewCompletion.ts  # PR review completion/error handling
-│   ├── prReviewPhase.ts
+│   ├── prReviewPhase.ts  # PR review phase implementation
 │   ├── scenarioFixPhase.ts  # Fixes failed scenarios from a previous scenarioTestPhase run
 │   ├── scenarioPhase.ts  # BDD scenario generation phase
 │   ├── scenarioProof.ts  # Scenario proof orchestrator (relocated from agents/)
 │   ├── scenarioTestPhase.ts  # Runs BDD scenarios tagged @adw-{issueNumber} and @regression
 │   ├── stepDefPhase.ts  # Step definition generation phase
-│   ├── testPhase.ts
 │   ├── unitTestPhase.ts  # Unit test phase (opt-in, BDD scenarios moved to scenarioTestPhase)
 │   ├── workflowCompletion.ts  # Workflow completion/error handling
 │   ├── workflowInit.ts  # Workflow initialization

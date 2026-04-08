@@ -12,20 +12,23 @@
  * 5. Step Def Phase: generate BDD step definitions
  * 6. Unit Test Phase: run unit tests
  * 7. Scenario Test Phase [→ Scenario Fix Phase → retry]: run BDD scenarios, fix failures
- * 8. Finalize: commit and push changes, post completion comment
+ * 8. Review Phase [→ Patch Cycle → Scenario Retest → retry]: passive judge, patch blockers
+ * 9. Finalize: commit and push changes, post completion comment
  *
  * Environment Requirements:
  * - ANTHROPIC_API_KEY: Anthropic API key
  * - CLAUDE_CODE_PATH: Path to Claude CLI (default: /usr/local/bin/claude)
  * - MAX_TEST_RETRY_ATTEMPTS: Maximum retry attempts for tests (default: 5)
+ * - MAX_REVIEW_RETRY_ATTEMPTS: Maximum retry attempts for review-patch loop (default: 3)
  */
 
-import { parseTargetRepoArgs, buildRepoIdentifier, MAX_TEST_RETRY_ATTEMPTS } from './core';
+import { parseTargetRepoArgs, buildRepoIdentifier, MAX_TEST_RETRY_ATTEMPTS, MAX_REVIEW_RETRY_ATTEMPTS } from './core';
 import { CostTracker, runPhase } from './core/phaseRunner';
 import {
   initializePRReviewWorkflow,
   executePRReviewPlanPhase,
   executePRReviewBuildPhase,
+  executePRReviewCommitPushPhase,
   completePRReviewWorkflow,
   handlePRReviewWorkflowError,
   executeStepDefPhase,
@@ -33,6 +36,9 @@ import {
   executeUnitTestPhase,
   executeScenarioTestPhase,
   executeScenarioFixPhase,
+  executeReviewPhase,
+  executeReviewPatchCycle,
+  type ReviewIssue,
 } from './workflowPhases';
 import type { WorkflowConfig } from './phases';
 
@@ -69,8 +75,10 @@ async function main(): Promise<void> {
     await runPhase(config.base, tracker, executeUnitTestPhase);
 
     // Scenario test → fix retry loop (orchestrator-level, bounded by MAX_TEST_RETRY_ATTEMPTS)
+    let scenarioProofPath = '';
     for (let attempt = 0; attempt < MAX_TEST_RETRY_ATTEMPTS; attempt++) {
       const scenarioResult = await runPhase(config.base, tracker, executeScenarioTestPhase);
+      scenarioProofPath = scenarioResult.scenarioProof?.resultsFilePath ?? '';
       if (!scenarioResult.scenarioProof?.hasBlockerFailures) break;
       if (attempt < MAX_TEST_RETRY_ATTEMPTS - 1) {
         const fixWrapper = (cfg: WorkflowConfig) =>
@@ -78,6 +86,26 @@ async function main(): Promise<void> {
         await runPhase(config.base, tracker, fixWrapper);
       }
     }
+
+    // Review → patch+retest retry loop (orchestrator-level, bounded by MAX_REVIEW_RETRY_ATTEMPTS)
+    let proofPath = scenarioProofPath;
+    let reviewBlockers: ReviewIssue[] = [];
+    for (let attempt = 0; attempt < MAX_REVIEW_RETRY_ATTEMPTS; attempt++) {
+      const reviewFn = (cfg: WorkflowConfig) => executeReviewPhase(cfg, proofPath);
+      const reviewResult = await runPhase(config.base, tracker, reviewFn);
+      reviewBlockers = reviewResult.reviewIssues.filter(i => i.issueSeverity === 'blocker');
+      if (reviewResult.reviewPassed) break;
+      if (attempt < MAX_REVIEW_RETRY_ATTEMPTS - 1) {
+        const patchWrapper = (cfg: WorkflowConfig) =>
+          executeReviewPatchCycle(cfg, reviewBlockers);
+        await runPhase(config.base, tracker, patchWrapper);
+        // Re-run scenario tests to verify patch didn't break scenarios
+        const retestResult = await runPhase(config.base, tracker, executeScenarioTestPhase);
+        proofPath = retestResult.scenarioProof?.resultsFilePath ?? '';
+      }
+    }
+
+    await runPhase(config.base, tracker, _ => executePRReviewCommitPushPhase(config), 'pr_review_commit_push');
 
     await completePRReviewWorkflow(config, tracker.totalModelUsage);
   } catch (error) {

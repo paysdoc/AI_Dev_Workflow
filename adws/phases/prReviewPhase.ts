@@ -7,11 +7,11 @@ import * as path from 'path';
 import { log, setLogAdwId, ensureLogsDirectory, generateAdwId, type PRDetails, type PRReviewComment, AgentStateManager, type AgentState, type ModelUsageMap, allocateRandomPort, emptyModelUsageMap, OrchestratorId, type TargetRepoInfo, ensureTargetRepoWorkspace, loadProjectConfig, type GitHubIssue, type IssueClassSlashCommand, type RecoveryState } from '../core';
 import { fetchPRDetails, getUnaddressedComments, type PRReviewWorkflowContext, getRepoInfo, type RepoInfo, activateGitHubAppAuth } from '../github';
 import type { WorkflowConfig } from './workflowInit';
-import { ensureWorktree } from '../vcs';
+import { ensureWorktree, pushBranch, inferIssueTypeFromBranch } from '../vcs';
 import type { RepoContext, RepoIdentifier } from '../providers/types';
 import { Platform } from '../providers/types';
 import { createRepoContext } from '../providers/repoContext';
-import { getPlanFilePath, runPrReviewPlanAgent, runPrReviewBuildAgent, type ProgressCallback, type ProgressInfo } from '../agents';
+import { getPlanFilePath, runPrReviewPlanAgent, runPrReviewBuildAgent, runCommitAgent, type ProgressCallback, type ProgressInfo } from '../agents';
 import { postPRStageComment } from './phaseCommentHelpers';
 import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
 
@@ -314,6 +314,41 @@ export async function executePRReviewBuildPhase(config: PRReviewWorkflowConfig, 
     modelUsage,
     phaseCostRecords,
   };
+}
+
+/**
+ * Executes the PR review commit+push phase: commits changes, pushes the branch.
+ * Extracted from completePRReviewWorkflow to be a discrete, visible phase.
+ */
+export async function executePRReviewCommitPushPhase(config: PRReviewWorkflowConfig): Promise<{ costUsd: number; modelUsage: ModelUsageMap; phaseCostRecords: PhaseCostRecord[] }> {
+  const { prNumber, prDetails, ctx } = config;
+  const { issueNumber, adwId, worktreePath, logsDir, repoContext } = config.base;
+  const phaseStartTime = Date.now();
+
+  if (repoContext) {
+    postPRStageComment(repoContext, prNumber, 'pr_review_committing', ctx);
+  }
+  const issueType = inferIssueTypeFromBranch(prDetails.headBranch);
+  const commitResult = await runCommitAgent(OrchestratorId.PrReview, issueType, JSON.stringify(prDetails), logsDir, undefined, worktreePath, prDetails.body);
+
+  pushBranch(prDetails.headBranch, worktreePath);
+  if (repoContext) {
+    postPRStageComment(repoContext, prNumber, 'pr_review_pushed', ctx);
+  }
+
+  const modelUsage = commitResult.modelUsage ?? emptyModelUsageMap();
+  const phaseCostRecords = createPhaseCostRecords({
+    workflowId: adwId,
+    issueNumber,
+    phase: 'pr_review_commit_push',
+    status: PhaseCostStatus.Success,
+    retryCount: 0,
+    contextResetCount: 0,
+    durationMs: Date.now() - phaseStartTime,
+    modelUsage,
+  });
+
+  return { costUsd: commitResult.totalCostUsd ?? 0, modelUsage, phaseCostRecords };
 }
 
 // Backward-compatible re-exports from prReviewCompletion

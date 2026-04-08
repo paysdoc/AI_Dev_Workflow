@@ -19,7 +19,7 @@ Feature: Review phase uses BDD scenario execution as proof
     And the review summary does not describe git diff changes
     And the proof attached to the PR reflects scenario execution output
 
-  @adw-168 @regression
+  @adw-168
   Scenario: Review falls back to code-diff proof when scenarios.md is absent
     Given the target repository does NOT have ".adw/scenarios.md"
     When the review phase executes

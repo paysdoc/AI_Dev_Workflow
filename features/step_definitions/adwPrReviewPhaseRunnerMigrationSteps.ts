@@ -723,6 +723,14 @@ Then('subsequent phases still execute', async function () {
 
 // ── Code inspection: PhaseResult compatibility ────────────────────────────────
 
+Given('the PR review phase functions in {string}', function (file1: string) {
+  const content1 = readFileSync(join(ROOT, file1), 'utf-8');
+  this.prReviewPhaseContent = content1;
+  this.prReviewCompletionContent = '';
+  this.fileContent = content1;
+  this.filePath = file1;
+});
+
 Given('the PR review phase functions in {string} and {string}', function (file1: string, file2: string) {
   const content1 = readFileSync(join(ROOT, file1), 'utf-8');
   const content2 = readFileSync(join(ROOT, file2), 'utf-8');

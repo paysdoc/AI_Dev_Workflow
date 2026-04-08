@@ -1,17 +1,15 @@
 /**
  * PR review workflow completion and error handling.
  *
- * Handles the final stages of the PR review workflow: committing changes,
- * pushing branches, posting completion comments, and error handling.
+ * Contains only terminal-state handlers: building cost section, writing final
+ * orchestrator state, posting completion comments, and error handling.
  */
 
-import { log, AgentStateManager, COST_REPORT_CURRENCIES, type ModelUsageMap, buildCostBreakdown, persistTokenCounts, OrchestratorId } from '../core';
+import { log, AgentStateManager, COST_REPORT_CURRENCIES, type ModelUsageMap, buildCostBreakdown, persistTokenCounts } from '../core';
 import { createPhaseCostRecords, PhaseCostStatus } from '../cost';
 import { formatCostCommentSection } from '../cost/reporting/commentFormatter';
 import { BoardStatus } from '../providers/types';
-import { pushBranch, inferIssueTypeFromBranch } from '../vcs';
 import { postPRStageComment } from './phaseCommentHelpers';
-import { runCommitAgent } from '../agents';
 import type { PRReviewWorkflowConfig } from './prReviewPhase';
 
 async function buildPRReviewCostSection(config: PRReviewWorkflowConfig, modelUsage: ModelUsageMap): Promise<void> {
@@ -42,12 +40,13 @@ async function buildPRReviewCostSection(config: PRReviewWorkflowConfig, modelUsa
 }
 
 /**
- * Completes the PR review workflow: commits, pushes, and posts completion comments.
- * Uses `config.repoInfo` for external repository API calls when targeting a different repo.
+ * Completes the PR review workflow: builds cost section, writes final state,
+ * posts completion comment, moves board status, and logs banner.
+ * Terminal handler only — commit+push is handled by executePRReviewCommitPushPhase.
  */
 export async function completePRReviewWorkflow(config: PRReviewWorkflowConfig, modelUsage?: ModelUsageMap): Promise<void> {
   const { prNumber, prDetails, unaddressedComments, ctx } = config;
-  const { worktreePath, logsDir, orchestratorStatePath, repoContext } = config.base;
+  const { orchestratorStatePath, repoContext } = config.base;
 
   // Build cost section for GitHub comment and write new-format CSV
   if (modelUsage && Object.keys(modelUsage).length > 0) {
@@ -55,14 +54,6 @@ export async function completePRReviewWorkflow(config: PRReviewWorkflowConfig, m
   }
 
   if (repoContext) {
-    postPRStageComment(repoContext, prNumber, 'pr_review_committing', ctx);
-  }
-  const issueType = inferIssueTypeFromBranch(prDetails.headBranch);
-  await runCommitAgent(OrchestratorId.PrReview, issueType, JSON.stringify(prDetails), logsDir, undefined, worktreePath, prDetails.body);
-
-  pushBranch(prDetails.headBranch, worktreePath);
-  if (repoContext) {
-    postPRStageComment(repoContext, prNumber, 'pr_review_pushed', ctx);
     postPRStageComment(repoContext, prNumber, 'pr_review_completed', ctx);
     if (config.base.issueNumber) {
       await repoContext.issueTracker.moveToStatus(config.base.issueNumber, BoardStatus.Review);

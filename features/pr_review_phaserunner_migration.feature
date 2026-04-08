@@ -168,11 +168,12 @@ Feature: Migrate adwPrReview to phaseRunner (resolves 4 disparities)
 
   # --- 10: Phase result compatibility ---
 
-  @adw-398 @regression
+  @adw-398 @adw-402 @regression
   Scenario: PR review phase functions return PhaseResult-compatible objects
-    Given the PR review phase functions in "adws/phases/prReviewPhase.ts" and "adws/phases/prReviewCompletion.ts"
+    Given the PR review phase functions in "adws/phases/prReviewPhase.ts"
     Then executePRReviewPlanPhase returns an object extending PhaseResult
     And executePRReviewBuildPhase returns an object extending PhaseResult
+    And executePRReviewCommitPushPhase returns an object extending PhaseResult
     And each return value includes costUsd and modelUsage fields
 
   @adw-398

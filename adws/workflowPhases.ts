@@ -28,6 +28,8 @@ export {
   executeStepDefPhase,
   executeInstallPhase,
   executeReviewPhase,
+  executeReviewPatchCycle,
+  type ReviewIssue,
   executeAutoMergePhase,
   executeDiffEvaluationPhase,
   type DiffEvaluationPhaseResult,
@@ -39,6 +41,7 @@ export {
   initializePRReviewWorkflow,
   executePRReviewPlanPhase,
   executePRReviewBuildPhase,
+  executePRReviewCommitPushPhase,
   completePRReviewWorkflow,
   handlePRReviewWorkflowError,
 } from './phases';
