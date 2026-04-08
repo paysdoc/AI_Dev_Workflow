@@ -42,6 +42,7 @@ export {
   executePRReviewPlanPhase,
   executePRReviewBuildPhase,
   executePRReviewTestPhase,
+  executePRReviewCommitPushPhase,
   completePRReviewWorkflow,
   handlePRReviewWorkflowError,
 } from './phases';

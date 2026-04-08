@@ -523,41 +523,8 @@ Then('it imports {string} from workflowPhases or phases', function (symbol: stri
 
 // ---------------------------------------------------------------------------
 // adwSdlc.tsx phase ordering table
+// Duplicate removed — use stepDefGenReviewGatingSteps.ts 'the phase ordering should be:' definition
 // ---------------------------------------------------------------------------
-
-Then('the phase ordering should be:', function (table: { rows(): string[][] }) {
-  const phaseMap: Record<string, string> = {
-    'install': 'executeInstallPhase',
-    'plan + scenarios': 'executePlanPhase',
-    'alignment': 'executeAlignmentPhase',
-    'build': 'executeBuildPhase',
-    'stepDef': 'executeStepDefPhase',
-    'unitTest': 'executeUnitTestPhase',
-    'scenarioTest [-> fix -> loop]': 'executeScenarioTestPhase',
-    'review': 'executeReviewPhase',
-    'document': 'executeDocumentPhase',
-    'kpi': 'executeKpiPhase',
-    'pr': 'executePRPhase',
-  };
-
-  const rows = table.rows();
-  const content = sharedCtx.fileContent;
-  let lastIdx = -1;
-
-  for (const row of rows) {
-    const phase = row[0];
-    const funcName = phaseMap[phase];
-    if (!funcName) continue;
-    const idx = findFunctionUsageIndex(content, funcName);
-    if (idx !== -1) {
-      assert.ok(
-        idx > lastIdx,
-        `Expected "${funcName}" (${phase}) to appear after previous phase in "${sharedCtx.filePath}"`,
-      );
-      lastIdx = idx;
-    }
-  }
-});
 
 Then('executeUnitTestPhase is called before executeScenarioTestPhase', function () {
   const content = sharedCtx.fileContent;
@@ -646,3 +613,5 @@ Then('the workflow reports scenario failure', function () {
 // It stores the result in this.__commandResult (spawnSync result).
 // The Then steps below use the parameterized wireExtractorSteps.ts definitions
 // to avoid ambiguity with the literal-0 variants that previously lived here.
+// Note: 'the command exits with code {int}' and '{string} also exits with code {int}'
+// are defined in wireExtractorSteps.ts and used here. Duplicates removed.

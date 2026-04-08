@@ -26,9 +26,10 @@ export {
   initializePRReviewWorkflow,
   executePRReviewPlanPhase,
   executePRReviewBuildPhase,
+  executePRReviewTestPhase,
+  executePRReviewCommitPushPhase,
 } from './prReviewPhase';
 export {
-  executePRReviewTestPhase,
   completePRReviewWorkflow,
   handlePRReviewWorkflowError,
 } from './prReviewCompletion';
