@@ -25,8 +25,9 @@ import {
   executePRReviewTestPhase,
   completePRReviewWorkflow,
   handlePRReviewWorkflowError,
+  executeStepDefPhase,
+  executeInstallPhase,
 } from './workflowPhases';
-import { executeInstallPhase } from './workflowPhases';
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
@@ -54,6 +55,8 @@ async function main(): Promise<void> {
     const planResult = await runPhase(config.base, tracker, _ => executePRReviewPlanPhase(config), 'pr_review_plan');
 
     await runPhase(config.base, tracker, _ => executePRReviewBuildPhase(config, planResult.planOutput), 'pr_review_build');
+
+    await runPhase(config.base, tracker, executeStepDefPhase, 'stepDef');
 
     await runPhase(config.base, tracker, _ => executePRReviewTestPhase(config), 'pr_review_test');
 

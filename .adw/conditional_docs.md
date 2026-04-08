@@ -8,6 +8,30 @@
     - When troubleshooting rate-limit pause/resume for PR review workflows
     - When debugging D1 cost posting or `phaseCostRecords` in PR review phases
 
+- app_docs/feature-dd5jfe-dev-server-lifecycle.md
+  - Conditions:
+    - When working with `adws/core/devServerLifecycle.ts` or integrating `withDevServer` into a test/scenario phase
+    - When implementing dev server startup, health probing, retry, or cleanup in any orchestrator
+    - When adding or modifying `healthCheckPath` in `.adw/commands.md` for a target repo
+    - When troubleshooting leaked dev server processes or stale `next dev` / `bun dev` workers
+    - When working with `adws/triggers/devServerJanitor.ts` or extending the janitor pass
+
+- app_docs/feature-f704s2-dev-server-janitor-cron.md
+  - Conditions:
+    - When working with `adws/triggers/devServerJanitor.ts` or the janitor probe
+    - When adding or modifying cron probes in `adws/triggers/trigger_cron.ts`
+    - When troubleshooting orphaned dev server processes in target repo worktrees
+    - When working with `shouldCleanWorktree` kill decision logic or grace period tuning
+    - When writing tests that inject `JanitorDeps` or mock worktree fs operations
+
+- app_docs/feature-zqb2k1-wire-stepdefphase-into-orchestrators.md
+  - Conditions:
+    - When working with any orchestrator (`adwSdlc`, `adwPlanBuildTest`, `adwPlanBuildTestReview`, `adwChore`, `adwPrReview`) and adding or modifying phase order
+    - When implementing a new orchestrator that should run BDD step definition generation
+    - When troubleshooting step definitions not being present before the test phase runs
+    - When working with `adws/phases/stepDefPhase.ts` or `executeStepDefPhase`
+    - When understanding how `adwPrReview.tsx` adapts `PRReviewWorkflowConfig` to call `WorkflowConfig`-typed phases
+
 - app_docs/feature-8zhro4-prreviewworkflowconfig-composition.md
   - Conditions:
     - When working with `PRReviewWorkflowConfig` or `adws/phases/prReviewPhase.ts`
