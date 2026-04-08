@@ -35,6 +35,9 @@ Use these files to implement the feature:
 - `features/step_definitions/adwInitCommandsMdSteps.ts` — Step definitions for the above feature. Contains `PLAYWRIGHT_COMMANDS_MD` fixture with `## Run E2E Tests` that should be removed.
 - `guidelines/coding_guidelines.md` — Coding guidelines to follow.
 - `adws/core/__tests__/projectConfig.test.ts` — Existing unit tests for `projectConfig.ts`. Already tests `healthCheckPath`. No changes needed.
+- `features/adw_init_schema_updates.feature` — Primary BDD scenarios for this issue. Covers detection logic, Health Check Path, Run E2E Tests removal, generated commands.md shapes, and schema consistency.
+- `features/fixture_repo_test_harness.feature` — Contains a `@adw-405`-tagged scenario verifying the CLI-tool fixture has the current commands.md schema (no `## Run E2E Tests`, has `## Health Check Path`, `## Start Dev Server: N/A`).
+- `test/fixtures/cli-tool/.adw/commands.md` — Fixture file for the CLI-tool target repo. Must be updated to reflect the new schema: remove `## Run E2E Tests`, add `## Health Check Path`, ensure `## Start Dev Server: N/A`.
 
 ### New Files
 None — all changes are to existing files.
@@ -75,16 +78,19 @@ Execute every step in order, top to bottom.
   - Otherwise → set to the framework's dev command with `{PORT}` substituted (e.g., `bun run dev --port {PORT}`, `bunx next dev --port {PORT}`)
 - Add an inline comment/note explaining that `{PORT}` is a substitution placeholder used by the dev server lifecycle helper to allocate dynamic ports for parallel workflows
 
-### Step 4: Update `adw_init.md` — Update `## Prepare App` documentation
-- Update the `## Prepare App` bullet to note that the `{PORT}` placeholder is used for dev server port substitution, consistent with `## Start Dev Server`
-
-### Step 5: Update BDD fixture — Remove `## Run E2E Tests` from Playwright fixture
+### Step 4: Update BDD fixture — Remove `## Run E2E Tests` from Playwright fixture
 - In `features/step_definitions/adwInitCommandsMdSteps.ts`, remove the `## Run E2E Tests` / `bunx playwright test` lines from the `PLAYWRIGHT_COMMANDS_MD` in-memory fixture
 - This aligns the fixture with the new schema
 
-### Step 6: Update BDD scenario — Adjust "E2E is N/A" scenario wording
-- In `features/adw_init_commands_md.feature`, update the scenario "Run Scenarios by Tag in commands.md matches Cucumber when E2E is N/A" to remove the reference to `## Run E2E Tests` being `N/A`
-- Reword to reference the project being CLI-only or having no E2E runner, since `## Run E2E Tests` no longer exists in the schema
+### Step 5: Update BDD scenario — Confirm "no E2E tool" scenario wording
+- In `features/adw_init_commands_md.feature`, verify the scenario "Run Scenarios by Tag in commands.md defaults to Cucumber when no E2E tool is detected" does not reference `## Run E2E Tests`
+- The scenario was already reworded to describe a project with no E2E tool detected rather than referencing the removed heading
+
+### Step 6: Update fixture target repo — Align `test/fixtures/cli-tool/.adw/commands.md` with new schema
+- In `test/fixtures/cli-tool/.adw/commands.md`, remove any `## Run E2E Tests` section
+- Ensure `## Start Dev Server` is set to `N/A` (CLI-only fixture)
+- Ensure `## Health Check Path` section exists with default `/`
+- This satisfies the `@adw-405`-tagged scenario in `features/fixture_repo_test_harness.feature`
 
 ### Step 7: Run validation commands
 - Run the full validation suite to confirm zero regressions
@@ -112,6 +118,7 @@ The existing `projectConfig.test.ts` already tests `healthCheckPath` parsing and
 - `adw_init.md` notes that `## Health Check Path` can be overridden per target repo
 - BDD fixture `PLAYWRIGHT_COMMANDS_MD` no longer contains `## Run E2E Tests`
 - BDD scenario wording updated to not reference the removed `## Run E2E Tests` heading
+- Fixture at `test/fixtures/cli-tool/.adw/commands.md` has no `## Run E2E Tests`, has `## Health Check Path`, and has `## Start Dev Server: N/A`
 - All existing BDD scenarios pass (`@regression` tag)
 - Linter passes
 - Type check passes
@@ -124,6 +131,7 @@ Execute every command to validate the feature works correctly with zero regressi
 - `bunx tsc --noEmit` — Type check main project
 - `bunx tsc --noEmit -p adws/tsconfig.json` — Type check adws module
 - `bun run build` — Build the application to verify no build errors
+- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-405"` — Run the adw_init schema updates BDD scenarios specifically
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-221"` — Run the adw_init commands.md BDD scenarios specifically
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@regression"` — Run all regression scenarios to verify zero regressions
 
