@@ -22,7 +22,8 @@ import { filterEligibleIssues } from './cronIssueFilter';
 
 const POLL_INTERVAL_MS = 20_000;
 const PR_POLL_INTERVAL_MS = 60_000;
-const processedIssues = new Set<number>();
+const processedSpawns = new Set<number>();
+const processedMerges = new Set<number>();
 const processedPRs = new Set<number>();
 let cycleCount = 0;
 
@@ -76,7 +77,13 @@ async function checkAndTrigger(): Promise<void> {
 
   const now = Date.now();
   const issues = fetchOpenIssues();
-  const { eligible: candidates, filteredAnnotations } = filterEligibleIssues(issues, now, processedIssues, GRACE_PERIOD_MS, resolveIssueWorkflowStage);
+  const { eligible: candidates, filteredAnnotations } = filterEligibleIssues(
+    issues,
+    now,
+    { spawns: processedSpawns, merges: processedMerges },
+    GRACE_PERIOD_MS,
+    resolveIssueWorkflowStage,
+  );
 
   const candidateList = candidates.map(c => `#${c.issue.number}`).join(', ') || 'none';
   const filteredList = filteredAnnotations.join(', ') || 'none';
@@ -90,7 +97,7 @@ async function checkAndTrigger(): Promise<void> {
 
     // awaiting_merge: spawn merge orchestrator directly, skipping dependency/concurrency checks
     if (action === 'merge' && adwId) {
-      processedIssues.add(issue.number);
+      processedMerges.add(issue.number);
       log(`Spawning merge orchestrator for issue #${issue.number} adwId=${adwId}`, 'success');
       const child = spawn(
         'bunx',
@@ -109,12 +116,15 @@ async function checkAndTrigger(): Promise<void> {
       } else {
         log(`Issue #${issue.number} deferred: ${eligibility.reason}`);
       }
-      // Don't add dependency-deferred issues to processedIssues — re-check next cycle
+      // Don't add dependency-deferred issues to processedSpawns — re-check next cycle
       continue;
     }
 
-    // Only add to processedIssues when actually spawning
-    processedIssues.add(issue.number);
+    // Only add to processedSpawns when actually spawning the SDLC workflow.
+    // The merge dedup is tracked separately in processedMerges so that an issue
+    // spawned by this process can still be picked up by the merge path once it
+    // transitions into awaiting_merge.
+    processedSpawns.add(issue.number);
 
     // Handle clear directive before spawning
     const latestComment = issue.comments.length > 0 ? issue.comments[issue.comments.length - 1] : null;
