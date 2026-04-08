@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 25               | 2026-04-08 19:30:33 |
-| Longest Streak    | 52               | 2026-04-08 19:30:33 |
-| Total Plan Size   | 441 lines        | 2026-04-08 19:30:33 |
-| Largest Plan Size | 201 lines        | 2026-04-08 19:30:33 |
-| Total Diff Size   | 1709156 lines    | 2026-04-08 19:30:33 |
-| Largest Diff Size | 416153 lines     | 2026-04-08 19:30:33 |
-| Average Presence  | 1.31             | 2026-04-08 19:30:33 |
+| Current Streak    | 23               | 2026-04-08 21:15:37 |
+| Longest Streak    | 77               | 2026-04-08 21:15:37 |
+| Total Plan Size   | 1042 lines       | 2026-04-08 21:15:37 |
+| Largest Plan Size | 201 lines        | 2026-04-08 21:15:37 |
+| Total Diff Size   | 2265983 lines    | 2026-04-08 21:15:37 |
+| Largest Diff Size | 418153 lines     | 2026-04-08 21:15:37 |
+| Average Presence  | 1.33             | 2026-04-08 21:15:37 |
 
 ## ADW KPIs
 
@@ -112,4 +112,5 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-04-08 | vv4ie0-executeprreviewtestp | 402          | /feature    | 1        | 0                 | 9696/403/76                     | 2026-04-08          | 2026-04-08          |
 | 2026-04-08 | cudwfe-review-phase-rewrite | 401          | /feature    | 1        | 0                 | 10584/896/85                    | 2026-04-08          | 2026-04-08          |
 | 2026-04-08 | 01s6z7-delete-e2e-machinery | 403          | /feature    | 1        | 0                 | 9533/1004/95                    | 2026-04-08 19:30:33 | 2026-04-08 19:30:33 |
+| 2026-04-08 | 4jvczx-adw-init-updates-for | 405          | /feature    | 1        | 0                 | 13413/2067/127                  | 2026-04-08 21:15:37 | 2026-04-08 21:15:37 |
 
