@@ -14,12 +14,14 @@ Feature: Fixture target repo, test harness, and first behavioral review scenario
     Then the directory "test/fixtures/cli-tool" exists
     And the directory "test/fixtures/cli-tool/.adw" exists
 
-  @adw-6bi1qq-fixture-target-repo @regression
-  Scenario: Fixture target repo contains .adw/commands.md
+  @adw-6bi1qq-fixture-target-repo @adw-405 @regression
+  Scenario: Fixture target repo contains .adw/commands.md with current schema
     Given the ADW codebase is at the current working directory
     Then the file "test/fixtures/cli-tool/.adw/commands.md" exists
-    And the file contains a "## Run E2E Tests" section
     And the file contains a "## Package Manager" section
+    And the file contains a "## Start Dev Server" section set to "N/A"
+    And the file contains a "## Health Check Path" section
+    And the file does not contain a "## Run E2E Tests" section
 
   @adw-6bi1qq-fixture-target-repo @regression
   Scenario: Fixture target repo contains .adw/project.md with type cli

@@ -39,9 +39,10 @@ function extractSection(content: string, heading: string): string | null {
 Then('the value under that section is {string}', function (this: Record<string, string>, expected: string) {
   const content = this.fileContent || sharedCtx.fileContent;
   assert.ok(content, 'No file content loaded');
-  const section = extractSection(content, 'Application Type');
-  assert.ok(section !== null, 'Expected "## Application Type" section to exist');
-  assert.strictEqual(section, expected, `Expected Application Type to be "${expected}" but got "${section}"`);
+  const sectionName = sharedCtx.lastCheckedSection || 'Application Type';
+  const section = extractSection(content, sectionName);
+  assert.ok(section !== null, `Expected "## ${sectionName}" section to exist`);
+  assert.strictEqual(section, expected, `Expected ${sectionName} to be "${expected}" but got "${section}"`);
 });
 
 Given('a {string} file with {string} set to {string}', function (

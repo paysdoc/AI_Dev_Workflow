@@ -23,6 +23,14 @@
     - When understanding the full SDLC phase sequence after scenario test/fix wiring
     - When reviewing `ScenarioProofResult` shape and how it flows between `scenarioTestPhase` and `scenarioFixPhase`
 
+- app_docs/feature-4jvczx-adw-init-schema-updates.md
+  - Conditions:
+    - When running `/adw_init` and need to understand `## Start Dev Server` detection logic
+    - When a newly initialized `.adw/commands.md` is missing `## Health Check Path` or has `## Run E2E Tests`
+    - When adding a new project type and need to determine the correct `## Start Dev Server` value
+    - When troubleshooting `{PORT}` substitution failures in `devServerLifecycle.ts`
+    - When updating `adw_init.md` to support a new test runner or web framework
+
 - app_docs/feature-dd5jfe-dev-server-lifecycle.md
   - Conditions:
     - When working with `adws/core/devServerLifecycle.ts` or integrating `withDevServer` into a test/scenario phase

@@ -32,6 +32,14 @@ N/A
 echo "build ok"
 ```
 
+## Start Dev Server
+
+N/A
+
+## Health Check Path
+
+/
+
 ## Run Scenarios by Tag
 
 ```sh

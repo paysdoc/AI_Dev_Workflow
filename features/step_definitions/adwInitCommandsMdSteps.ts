@@ -21,9 +21,6 @@ Before(function () {
 
 // In-memory Playwright fixture representing what adw_init generates for a Playwright project
 const PLAYWRIGHT_COMMANDS_MD = [
-  '## Run E2E Tests',
-  'bunx playwright test',
-  '',
   '## Run Scenarios by Tag',
   'bunx playwright test --grep "@{tag}"',
   '',
@@ -121,6 +118,7 @@ Then('it contains a {string} section', function (section: string) {
     sharedCtx.fileContent.includes(section),
     `Expected "${sharedCtx.filePath}" to contain "${section}"`,
   );
+  sharedCtx.lastCheckedSection = section.replace(/^##\s*/, '');
 });
 
 Then(
@@ -193,6 +191,11 @@ Given(
     // which uses cucumber-js defaults for the scenario runner sections
   },
 );
+
+Given('adw_init was run on a repository where no E2E tool is detected', function () {
+  // Context annotation — the When step reads the actual .adw/commands.md
+  // which defaults to cucumber-js when no E2E tool is detected
+});
 
 Then('the {string} section uses a cucumber-js command', function (section: string) {
   const value = extractSectionValue(sharedCtx.fileContent, section);
