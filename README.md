@@ -152,7 +152,7 @@ Docker execution is entirely optional — the test suite runs identically on the
 │   ├── prime.md
 │   ├── pull_request.md
 │   ├── resolve_conflict.md
-│   ├── resolve_failed_e2e_test.md
+│   ├── resolve_failed_scenario.md
 │   ├── resolve_failed_test.md
 │   ├── resolve_plan_scenarios.md
 │   ├── review.md
