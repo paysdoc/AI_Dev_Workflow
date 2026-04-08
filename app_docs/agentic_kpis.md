@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated       |
 | ----------------- | ---------------- | ------------------ |
-| Current Streak    | 24               | 2026-04-08 15:08:45|
-| Longest Streak    | 76               | 2026-04-08 15:08:45|
-| Total Plan Size   | 1149 lines       | 2026-04-08 15:08:45|
-| Largest Plan Size | 201 lines        | 2026-04-08 15:08:45|
-| Total Diff Size   | 2195244 lines    | 2026-04-08 15:08:45|
-| Largest Diff Size | 418153 lines     | 2026-04-08 15:08:45|
-| Average Presence  | 1.30             | 2026-04-08 15:08:45|
+| Current Streak    | 15               | 2026-04-08 15:23:22|
+| Longest Streak    | 76               | 2026-04-08 15:23:22|
+| Total Plan Size   | 441 lines        | 2026-04-08 15:23:22|
+| Largest Plan Size | 201 lines        | 2026-04-08 15:23:22|
+| Total Diff Size   | 2202049 lines    | 2026-04-08 15:23:22|
+| Largest Diff Size | 418153 lines     | 2026-04-08 15:23:22|
+| Average Presence  | 1.33             | 2026-04-08 15:23:22|
 
 ## ADW KPIs
 
@@ -106,3 +106,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-04-08 | f704s2-cron-janitor-for-orp | 394          | /feature    | 1        | 0                 | 1691/9/13                       | 2026-04-08 | 2026-04-08 |
 | 2026-04-08 | dd5jfe-dev-server-lifecycle | 395          | /feature    | 1        | 0                 | 1626/10/15                      | 2026-04-08 | 2026-04-08 |
 | 2026-04-08 | s59wpc-adwprreview-migrated | 398          | /feature    | 1        | 0                 | 1735/139/14                     | 2026-04-08 | 2026-04-08 |
+| 2026-04-08 | 1bg58c-scenariotestphase-sc | 399          | /feature    | 1        | 0                 | 6644/161/62                     | 2026-04-08 | 2026-04-08 |
