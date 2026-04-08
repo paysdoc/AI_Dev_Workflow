@@ -8,6 +8,21 @@
     - When troubleshooting leaked dev server processes or stale `next dev` / `bun dev` workers
     - When working with `adws/triggers/devServerJanitor.ts` or extending the janitor pass
 
+- app_docs/feature-zqb2k1-wire-stepdefphase-into-orchestrators.md
+  - Conditions:
+    - When working with any orchestrator (`adwSdlc`, `adwPlanBuildTest`, `adwPlanBuildTestReview`, `adwChore`, `adwPrReview`) and adding or modifying phase order
+    - When implementing a new orchestrator that should run BDD step definition generation
+    - When troubleshooting step definitions not being present before the test phase runs
+    - When working with `adws/phases/stepDefPhase.ts` or `executeStepDefPhase`
+    - When understanding how `adwPrReview.tsx` adapts `PRReviewWorkflowConfig` to call `WorkflowConfig`-typed phases
+
+- app_docs/feature-8zhro4-prreviewworkflowconfig-composition.md
+  - Conditions:
+    - When working with `PRReviewWorkflowConfig` or `adws/phases/prReviewPhase.ts`
+    - When adding a new field to `PRReviewWorkflowConfig` (decide: top-level PR-specific, or `base`)
+    - When migrating `adwPrReview.tsx` to use `phaseRunner` (this refactor is the prerequisite)
+    - When troubleshooting field-access patterns in PR review phase functions
+
 - app_docs/feature-dcy9qz-merge-orchestrator-cron-handoff.md
   - Conditions:
     - When working with `adws/adwMerge.tsx` or the merge orchestrator spawn flow

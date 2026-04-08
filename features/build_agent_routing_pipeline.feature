@@ -107,8 +107,8 @@ Feature: Build agent routing and orchestrator pipeline restructure
   # 6. Orchestrator: adwSdlc.tsx pipeline restructure
   # ===================================================================
 
-  @adw-306 @adw-chpy1a-orchestrator-refacto @regression
-  Scenario: adwSdlc.tsx uses new pipeline with alignment, no step def phase
+  @adw-306 @adw-chpy1a-orchestrator-refacto @adw-397 @regression
+  Scenario: adwSdlc.tsx uses new pipeline with alignment and step def phase
     Given the file "adws/adwSdlc.tsx" is read
     Then the phase ordering should be:
       | phase              |
@@ -116,12 +116,12 @@ Feature: Build agent routing and orchestrator pipeline restructure
       | plan + scenarios   |
       | alignment          |
       | build              |
+      | stepDef            |
       | test               |
       | review             |
       | document           |
       | kpi                |
       | pr                 |
-    And executeStepDefPhase is not called
     And executePlanValidationPhase is not called
 
   @adw-306 @adw-chpy1a-orchestrator-refacto
@@ -153,8 +153,8 @@ Feature: Build agent routing and orchestrator pipeline restructure
   # 8. Orchestrator: adwPlanBuildTestReview.tsx pipeline restructure
   # ===================================================================
 
-  @adw-306 @adw-chpy1a-orchestrator-refacto @regression
-  Scenario: adwPlanBuildTestReview.tsx uses new pipeline with alignment, no step def phase
+  @adw-306 @adw-chpy1a-orchestrator-refacto @adw-397 @regression
+  Scenario: adwPlanBuildTestReview.tsx uses new pipeline with alignment and step def phase
     Given the file "adws/adwPlanBuildTestReview.tsx" is read
     Then the phase ordering should be:
       | phase              |
@@ -162,10 +162,10 @@ Feature: Build agent routing and orchestrator pipeline restructure
       | plan + scenarios   |
       | alignment          |
       | build              |
+      | stepDef            |
       | test               |
       | review             |
       | pr                 |
-    And executeStepDefPhase is not called
     And executePlanValidationPhase is not called
 
   # ===================================================================
@@ -186,17 +186,17 @@ Feature: Build agent routing and orchestrator pipeline restructure
       | test               |
       | pr                 |
 
-  @adw-306 @adw-chpy1a-orchestrator-refacto @regression
+  @adw-306 @adw-chpy1a-orchestrator-refacto @adw-397 @regression
   Scenario: adwPlanBuildTest.tsx continues working without scenario or alignment phases
     Given the file "adws/adwPlanBuildTest.tsx" is read
     Then it should not invoke executeScenarioPhase
     And it should not invoke executeAlignmentPhase
-    And it should not invoke executeStepDefPhase
     And the phase ordering should be:
       | phase              |
       | install            |
       | plan               |
       | build              |
+      | stepDef            |
       | test               |
       | pr                 |
 
@@ -204,11 +204,11 @@ Feature: Build agent routing and orchestrator pipeline restructure
   # 10. executeStepDefPhase removed from all orchestrators
   # ===================================================================
 
-  @adw-306 @regression
-  Scenario: executeStepDefPhase is not called in any orchestrator
-    Given the files "adws/adwSdlc.tsx", "adws/adwPlanBuildReview.tsx", and "adws/adwPlanBuildTestReview.tsx" are read
-    Then none of them import executeStepDefPhase
-    And none of them call executeStepDefPhase
+  @adw-306 @adw-397 @regression
+  Scenario: executeStepDefPhase is not called in adwPlanBuildReview.tsx
+    Given the file "adws/adwPlanBuildReview.tsx" is read
+    Then it should not import executeStepDefPhase
+    And it should not call executeStepDefPhase
 
   # ===================================================================
   # 11. executePlanValidationPhase not called in any orchestrator

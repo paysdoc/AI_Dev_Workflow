@@ -25,8 +25,12 @@ const PHASE_FUNCTION_MAP: Record<string, string> = {
   'build': 'executeBuildPhase',
   'test': 'executeTestPhase',
   'step def gen': 'executeStepDefPhase',
+  'stepDef': 'executeStepDefPhase',
   'review': 'executeReviewPhase',
+  'review (conditional)': 'executeReviewPhase',
   'document': 'executeDocumentPhase',
+  'document (conditional)': 'executeDocumentPhase',
+  'diffEvaluation': 'executeDiffEvaluationPhase',
   'pr': 'executePRPhase',
   'kpi': 'executeKpiPhase',
 };

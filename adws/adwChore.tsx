@@ -29,6 +29,7 @@ import {
   executeInstallPhase,
   executePlanPhase,
   executeBuildPhase,
+  executeStepDefPhase,
   executeTestPhase,
   executePRPhase,
   executeReviewPhase,
@@ -89,6 +90,7 @@ async function main(): Promise<void> {
     await runPhase(config, tracker, executeInstallPhase);
     await runPhase(config, tracker, executePlanPhase);
     await runPhase(config, tracker, executeBuildPhase);
+    await runPhase(config, tracker, executeStepDefPhase, 'stepDef');
     const testResult = await runPhase(config, tracker, executeTestPhase);
 
     // Diff evaluation uses git diff against the default branch (worktree-dependent).
