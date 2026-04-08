@@ -152,6 +152,7 @@ Docker execution is entirely optional — the test suite runs identically on the
 │   ├── prime.md
 │   ├── pull_request.md
 │   ├── resolve_conflict.md
+│   ├── resolve_failed_scenario.md
 │   ├── resolve_failed_test.md
 │   ├── resolve_plan_scenarios.md
 │   ├── review.md
@@ -225,7 +226,6 @@ adws/                   # ADW workflow system
 │   ├── prAgent.ts
 │   ├── resolutionAgent.ts  # Plan-scenario mismatch resolution
 │   ├── reviewAgent.ts
-│   ├── reviewRetry.ts
 │   ├── scenarioAgent.ts  # BDD scenario planner agent
 │   ├── stepDefAgent.ts  # Step definition generation agent
 │   ├── testAgent.ts
@@ -332,6 +332,7 @@ adws/                   # ADW workflow system
 │   ├── prPhase.ts
 │   ├── prReviewCompletion.ts  # PR review completion/error handling
 │   ├── prReviewPhase.ts  # PR review phase implementation
+│   ├── reviewPhase.ts  # Passive judge review phase (reads scenario proof, no dev server)
 │   ├── scenarioFixPhase.ts  # Fixes failed scenarios from a previous scenarioTestPhase run
 │   ├── scenarioPhase.ts  # BDD scenario generation phase
 │   ├── scenarioTestPhase.ts  # Runs BDD scenarios tagged @adw-{issueNumber} and @regression
