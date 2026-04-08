@@ -152,7 +152,6 @@ Docker execution is entirely optional — the test suite runs identically on the
 │   ├── prime.md
 │   ├── pull_request.md
 │   ├── resolve_conflict.md
-│   ├── resolve_failed_e2e_test.md
 │   ├── resolve_failed_test.md
 │   ├── resolve_plan_scenarios.md
 │   ├── review.md
@@ -317,6 +316,8 @@ adws/                   # ADW workflow system
 │   ├── schemaProbe.ts       # Schema probe utility
 │   └── types.ts
 ├── phases/             # Workflow phase implementations
+│   ├── __tests__/      # Vitest unit tests
+│   │   └── scenarioTestPhase.test.ts
 │   ├── alignmentPhase.ts  # Single-pass alignment phase
 │   ├── autoMergePhase.ts  # Auto-approve and merge PR after review passes
 │   ├── diffEvaluationPhase.ts  # LLM diff evaluation phase (safe vs regression_possible)
