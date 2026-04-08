@@ -236,8 +236,10 @@ adws/                   # ADW workflow system
 ├── core/               # Configuration and utilities
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── claudeStreamParser.test.ts
+│   │   ├── devServerLifecycle.test.ts
 │   │   ├── execWithRetry.test.ts
 │   │   ├── phaseRunner.test.ts
+│   │   ├── projectConfig.test.ts
 │   │   └── topLevelState.test.ts
 │   ├── adwId.ts        # ADW ID generation
 │   ├── agentState.ts
@@ -261,7 +263,8 @@ adws/                   # ADW workflow system
 │   ├── targetRepoManager.ts
 │   ├── utils.ts
 │   ├── workflowCommentParsing.ts  # Comment parsing utilities
-│   └── workflowMapping.ts  # Issue type → orchestrator mapping
+│   ├── workflowMapping.ts  # Issue type → orchestrator mapping
+│   └── devServerLifecycle.ts  # Dev server spawn, health probe, and cleanup helpers
 ├── github/             # GitHub API operations
 │   ├── githubApi.ts
 │   ├── githubAppAuth.ts  # GitHub App authentication
@@ -368,12 +371,14 @@ adws/                   # ADW workflow system
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── cronRepoResolver.test.ts
 │   │   ├── cronStageResolver.test.ts
+│   │   ├── devServerJanitor.test.ts
 │   │   ├── triggerCronAwaitingMerge.test.ts
 │   │   └── webhookHandlers.test.ts
 │   ├── autoMergeHandler.ts  # Auto-merge approved PRs
 │   ├── cloudflareTunnel.tsx  # Cloudflare tunnel for webhooks
 │   ├── concurrencyGuard.ts
 │   ├── cronIssueFilter.ts  # Cron issue evaluation and filtering logic (testable, extracted from trigger_cron)
+│   ├── devServerJanitor.ts  # Janitor probe that kills stale dev server processes in target repo worktrees
 │   ├── cronProcessGuard.ts  # Duplicate cron process prevention
 │   ├── cronRepoResolver.ts  # Cron repo identity resolution (testable, extracted from trigger_cron)
 │   ├── cronStageResolver.ts  # Cron stage resolution from top-level state file (testable)
@@ -392,6 +397,7 @@ adws/                   # ADW workflow system
 │   ├── types.ts        # R2 type definitions
 │   ├── uploadService.ts  # File upload logic
 │   └── index.ts
+├── known_issues.md     # Known issues and workarounds
 ├── adwBuild.tsx        # Orchestrators (individual & combined)
 ├── adwChore.tsx        # Chore pipeline with LLM diff gate (auto-merge)
 ├── adwMerge.tsx        # Merge orchestrator (awaiting_merge handoff)
