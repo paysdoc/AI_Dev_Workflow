@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { evaluateIssue, filterEligibleIssues, type CronIssue } from '../cronIssueFilter';
+import { evaluateIssue, filterEligibleIssues, type CronIssue, type ProcessedSets } from '../cronIssueFilter';
 import type { StageResolution } from '../cronStageResolver';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -26,6 +26,13 @@ function makeResolution(overrides: Partial<StageResolution> = {}): StageResoluti
   };
 }
 
+/** Fresh empty dedup sets — one factory call per test, never share instances. */
+function noProcessed(): ProcessedSets {
+  const spawns = new Set<number>();
+  const merges = new Set<number>();
+  return { spawns, merges };
+}
+
 // ── evaluateIssue — awaiting_merge behaviour ─────────────────────────────────
 
 describe('evaluateIssue — awaiting_merge', () => {
@@ -33,7 +40,7 @@ describe('evaluateIssue — awaiting_merge', () => {
     const issue = makeIssue({ number: 10 });
     const resolve = (): StageResolution => makeResolution({ stage: 'awaiting_merge', adwId: 'abc123' });
 
-    const result = evaluateIssue(issue, Date.now(), new Set(), GRACE, resolve);
+    const result = evaluateIssue(issue, Date.now(), noProcessed(), GRACE, resolve);
 
     expect(result.eligible).toBe(true);
     expect(result.action).toBe('merge');
@@ -44,7 +51,7 @@ describe('evaluateIssue — awaiting_merge', () => {
     const issue = makeIssue({ number: 10 });
     const resolve = (): StageResolution => makeResolution({ stage: 'awaiting_merge', adwId: null });
 
-    const result = evaluateIssue(issue, Date.now(), new Set(), GRACE, resolve);
+    const result = evaluateIssue(issue, Date.now(), noProcessed(), GRACE, resolve);
 
     expect(result.eligible).toBe(false);
     expect(result.reason).toBe('awaiting_merge_no_adwid');
@@ -59,22 +66,43 @@ describe('evaluateIssue — awaiting_merge', () => {
     const resolve = (): StageResolution =>
       makeResolution({ stage: 'awaiting_merge', adwId: 'xyz789', lastActivityMs: recentMs });
 
-    const result = evaluateIssue(issue, Date.now(), new Set(), GRACE, resolve);
+    const result = evaluateIssue(issue, Date.now(), noProcessed(), GRACE, resolve);
 
     expect(result.eligible).toBe(true);
     expect(result.action).toBe('merge');
   });
 
-  it('returns ineligible when already in processedIssues', () => {
+  // Regression for #398/#399: when this same cron process originally spawned the
+  // SDLC workflow for an issue, the issue is in `processed.spawns`. Once that
+  // workflow exits with awaiting_merge, the next poll must still detect it as
+  // a merge candidate — the spawn dedup must NOT block the merge path.
+  it('ignores processed.spawns when stage is awaiting_merge (regression #398/#399)', () => {
+    const issue = makeIssue({ number: 398 });
+    const processed = { spawns: new Set<number>([398]), merges: new Set<number>() };
+    const resolve = (): StageResolution =>
+      makeResolution({ stage: 'awaiting_merge', adwId: 's59wpc-adwprreview-migrated' });
+
+    const result = evaluateIssue(issue, Date.now(), processed, GRACE, resolve);
+
+    expect(result.eligible).toBe(true);
+    expect(result.action).toBe('merge');
+    expect(result.adwId).toBe('s59wpc-adwprreview-migrated');
+  });
+
+  // Without this guard, the cron would re-spawn adwMerge.tsx every 20 s for an
+  // awaiting_merge issue, accumulating parallel merge orchestrators per issue.
+  it('returns ineligible when stage is awaiting_merge but issue is in processed.merges', () => {
     const issue = makeIssue({ number: 42 });
-    const processed = new Set([42]);
-    const resolve = (): StageResolution => makeResolution({ stage: 'awaiting_merge', adwId: 'abc123' });
+    const processed = { spawns: new Set<number>(), merges: new Set<number>([42]) };
+    const resolve = (): StageResolution =>
+      makeResolution({ stage: 'awaiting_merge', adwId: 'abc123' });
 
     const result = evaluateIssue(issue, Date.now(), processed, GRACE, resolve);
 
     expect(result.eligible).toBe(false);
     expect(result.reason).toBe('processed');
   });
+
 });
 
 // ── evaluateIssue — grace period still applies to non-awaiting_merge ─────────
@@ -89,7 +117,7 @@ describe('evaluateIssue — grace period for standard stages', () => {
     const resolve = (): StageResolution =>
       makeResolution({ stage: null, adwId: null, lastActivityMs: recentMs });
 
-    const result = evaluateIssue(issue, Date.now(), new Set(), GRACE, resolve);
+    const result = evaluateIssue(issue, Date.now(), noProcessed(), GRACE, resolve);
 
     expect(result.eligible).toBe(false);
     expect(result.reason).toBe('grace_period');
@@ -104,7 +132,7 @@ describe('evaluateIssue — grace period for standard stages', () => {
     const resolve = (): StageResolution =>
       makeResolution({ stage: null, adwId: null, lastActivityMs: null });
 
-    const result = evaluateIssue(issue, Date.now(), new Set(), GRACE, resolve);
+    const result = evaluateIssue(issue, Date.now(), noProcessed(), GRACE, resolve);
 
     expect(result.eligible).toBe(true);
     expect(result.action).toBe('spawn');
@@ -116,10 +144,23 @@ describe('evaluateIssue — grace period for standard stages', () => {
     const resolve = (): StageResolution =>
       makeResolution({ stage: 'abandoned', adwId: 'aaa', lastActivityMs: recentMs });
 
-    const result = evaluateIssue(issue, Date.now(), new Set(), GRACE, resolve);
+    const result = evaluateIssue(issue, Date.now(), noProcessed(), GRACE, resolve);
 
     expect(result.eligible).toBe(false);
     expect(result.reason).toBe('grace_period');
+  });
+
+  // Spawn dedup must still hold for non-awaiting_merge issues: once the SDLC
+  // workflow has been spawned, the cron must not re-spawn it on subsequent polls.
+  it('returns ineligible when issue is in processed.spawns and stage is not awaiting_merge', () => {
+    const issue = makeIssue({ number: 9 });
+    const processed = { spawns: new Set<number>([9]), merges: new Set<number>() };
+    const resolve = (): StageResolution => makeResolution({ stage: null, adwId: null, lastActivityMs: null });
+
+    const result = evaluateIssue(issue, Date.now(), processed, GRACE, resolve);
+
+    expect(result.eligible).toBe(false);
+    expect(result.reason).toBe('processed');
   });
 });
 
@@ -130,7 +171,7 @@ describe('filterEligibleIssues — awaiting_merge propagation', () => {
     const issue = makeIssue({ number: 20 });
     const resolve = (): StageResolution => makeResolution({ stage: 'awaiting_merge', adwId: 'merge-id-1' });
 
-    const { eligible, filteredAnnotations } = filterEligibleIssues([issue], Date.now(), new Set(), GRACE, resolve);
+    const { eligible, filteredAnnotations } = filterEligibleIssues([issue], Date.now(), noProcessed(), GRACE, resolve);
 
     expect(eligible).toHaveLength(1);
     expect(eligible[0].action).toBe('merge');
@@ -158,7 +199,7 @@ describe('filterEligibleIssues — awaiting_merge propagation', () => {
     const { eligible, filteredAnnotations } = filterEligibleIssues(
       [awaitingMergeIssue, recentIssue],
       Date.now(),
-      new Set(),
+      noProcessed(),
       GRACE,
       resolveStage,
     );
@@ -174,7 +215,7 @@ describe('filterEligibleIssues — awaiting_merge propagation', () => {
 
     const resolve = (): StageResolution => makeResolution({ stage: 'awaiting_merge', adwId: 'some-id' });
 
-    const { eligible } = filterEligibleIssues([newerIssue, olderIssue], Date.now(), new Set(), GRACE, resolve);
+    const { eligible } = filterEligibleIssues([newerIssue, olderIssue], Date.now(), noProcessed(), GRACE, resolve);
 
     expect(eligible[0].issue.number).toBe(30);
     expect(eligible[1].issue.number).toBe(31);
@@ -184,19 +225,38 @@ describe('filterEligibleIssues — awaiting_merge propagation', () => {
     const issue = makeIssue({ number: 40 });
     const resolve = (): StageResolution => makeResolution({ stage: 'awaiting_merge', adwId: null });
 
-    const { eligible, filteredAnnotations } = filterEligibleIssues([issue], Date.now(), new Set(), GRACE, resolve);
+    const { eligible, filteredAnnotations } = filterEligibleIssues([issue], Date.now(), noProcessed(), GRACE, resolve);
 
     expect(eligible).toHaveLength(0);
     expect(filteredAnnotations).toContain('#40(awaiting_merge_no_adwid)');
   });
 
-  it('excludes already-processed awaiting_merge issues', () => {
-    const issue = makeIssue({ number: 50 });
-    const processed = new Set([50]);
-    const resolve = (): StageResolution => makeResolution({ stage: 'awaiting_merge', adwId: 'some-id' });
+  // List-level regression for #398/#399.
+  it('includes awaiting_merge issue even when it is in processed.spawns', () => {
+    const issue = makeIssue({ number: 398 });
+    const processed = { spawns: new Set<number>([398]), merges: new Set<number>() };
+    const resolve = (): StageResolution =>
+      makeResolution({ stage: 'awaiting_merge', adwId: 's59wpc-adwprreview-migrated' });
 
-    const { eligible } = filterEligibleIssues([issue], Date.now(), processed, GRACE, resolve);
+    const { eligible, filteredAnnotations } = filterEligibleIssues([issue], Date.now(), processed, GRACE, resolve);
+
+    expect(eligible).toHaveLength(1);
+    expect(eligible[0].action).toBe('merge');
+    expect(eligible[0].adwId).toBe('s59wpc-adwprreview-migrated');
+    expect(filteredAnnotations).toHaveLength(0);
+  });
+
+  // List-level merge dedup.
+  it('excludes awaiting_merge issue when it is in processed.merges', () => {
+    const issue = makeIssue({ number: 50 });
+    const processed = { spawns: new Set<number>(), merges: new Set<number>([50]) };
+    const resolve = (): StageResolution =>
+      makeResolution({ stage: 'awaiting_merge', adwId: 'some-id' });
+
+    const { eligible, filteredAnnotations } = filterEligibleIssues([issue], Date.now(), processed, GRACE, resolve);
 
     expect(eligible).toHaveLength(0);
+    expect(filteredAnnotations).toContain('#50(processed)');
   });
+
 });

@@ -38,28 +38,46 @@ export interface EligibleIssue {
 }
 
 /**
+ * Dedup signals split by event type. The cron tracks two distinct lifecycle
+ * events per issue: spawning the SDLC workflow, and spawning the merge
+ * orchestrator. Conflating them caused issues that this process originally
+ * spawned to be invisible to the merge path once they reached `awaiting_merge`.
+ */
+export interface ProcessedSets {
+  readonly spawns: ReadonlySet<number>;
+  readonly merges: ReadonlySet<number>;
+}
+
+/**
  * Determines if an issue should be processed by the cron backlog sweeper.
  *
  * `awaiting_merge` bypasses the grace period entirely — the original orchestrator
  * has already exited and there is no race condition risk.
  *
- * @param issue           - The issue to evaluate
- * @param now             - Current timestamp in ms
- * @param processedIssues - Set of issue numbers already queued this cycle
- * @param gracePeriodMs   - Minimum ms of inactivity before a fresh issue is eligible
- * @param resolveStage    - Injectable stage resolver (defaults to the real implementation)
+ * Dedup is split: `processed.spawns` tracks issues whose SDLC workflow this
+ * process has already spawned; `processed.merges` tracks issues whose merge
+ * orchestrator this process has already spawned. The two events have different
+ * lifecycles, so an issue in `spawns` may still be eligible for the merge path
+ * once it transitions into `awaiting_merge`.
+ *
+ * @param issue          - The issue to evaluate
+ * @param now            - Current timestamp in ms
+ * @param processed      - Sets of issue numbers already queued this cycle, split
+ *                         by event type (spawns vs merges)
+ * @param gracePeriodMs  - Minimum ms of inactivity before a fresh issue is eligible
+ * @param resolveStage   - Injectable stage resolver (defaults to the real implementation)
  */
 export function evaluateIssue(
   issue: CronIssue,
   now: number,
-  processedIssues: ReadonlySet<number>,
+  processed: ProcessedSets,
   gracePeriodMs: number,
   resolveStage: (comments: { body: string }[]) => StageResolution = resolveIssueWorkflowStage,
 ): FilterResult {
-  if (processedIssues.has(issue.number)) {
-    return { eligible: false, reason: 'processed' };
-  }
-
+  // Resolve stage first so we can dispatch to the right dedup set. The spawn
+  // dedup must NOT short-circuit the awaiting_merge path: an issue this process
+  // originally spawned legitimately re-enters the filter once it transitions
+  // into awaiting_merge, and the merge orchestrator must be allowed to run.
   const resolution = resolveStage(issue.comments);
 
   // awaiting_merge bypasses grace period — spawn merge orchestrator immediately
@@ -67,7 +85,14 @@ export function evaluateIssue(
     if (!resolution.adwId) {
       return { eligible: false, reason: 'awaiting_merge_no_adwid' };
     }
+    if (processed.merges.has(issue.number)) {
+      return { eligible: false, reason: 'processed' };
+    }
     return { eligible: true, action: 'merge', adwId: resolution.adwId };
+  }
+
+  if (processed.spawns.has(issue.number)) {
+    return { eligible: false, reason: 'processed' };
   }
 
   // Prefer state file phase timestamp; fall back to issue.updatedAt for fresh issues
@@ -106,7 +131,7 @@ export function evaluateIssue(
 export function filterEligibleIssues(
   issues: readonly CronIssue[],
   now: number,
-  processedIssues: ReadonlySet<number>,
+  processed: ProcessedSets,
   gracePeriodMs: number,
   resolveStage?: (comments: { body: string }[]) => StageResolution,
 ): { eligible: EligibleIssue[]; filteredAnnotations: string[] } {
@@ -114,7 +139,7 @@ export function filterEligibleIssues(
   const filteredAnnotations: string[] = [];
 
   for (const issue of issues) {
-    const result = evaluateIssue(issue, now, processedIssues, gracePeriodMs, resolveStage);
+    const result = evaluateIssue(issue, now, processed, gracePeriodMs, resolveStage);
     if (result.eligible) {
       eligible.push({
         issue,
