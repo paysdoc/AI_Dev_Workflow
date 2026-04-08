@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated       |
 | ----------------- | ---------------- | ------------------ |
-| Current Streak    | 18               | 2026-04-08 14:37:09|
-| Longest Streak    | 69               | 2026-04-08 14:37:09|
-| Total Plan Size   | 554 lines        | 2026-04-08 14:37:09|
-| Largest Plan Size | 201 lines        | 2026-04-08 14:37:09|
-| Total Diff Size   | 2190034 lines    | 2026-04-08 14:37:09|
-| Largest Diff Size | 418153 lines     | 2026-04-08 14:37:09|
-| Average Presence  | 1.42             | 2026-04-08 14:37:09|
+| Current Streak    | 14               | 2026-04-08 14:41:36|
+| Longest Streak    | 75               | 2026-04-08 14:41:36|
+| Total Plan Size   | 1149 lines       | 2026-04-08 14:41:36|
+| Largest Plan Size | 201 lines        | 2026-04-08 14:41:36|
+| Total Diff Size   | 2190034 lines    | 2026-04-08 14:41:36|
+| Largest Diff Size | 418153 lines     | 2026-04-08 14:41:36|
+| Average Presence  | 1.31             | 2026-04-08 14:41:36|
 
 ## ADW KPIs
 
@@ -103,3 +103,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-04-03 | 7fy9ry-remove-webhook-auto | 382          | /feature    | 2        | 0                 | 8129/492/76                     | 2026-04-03 | 2026-04-03 |
 | 2026-04-03 | b0y6j4-fix-token-limit-reco | 392          | /bug        | 1        | 0                 | 8598/502/85                     | 2026-04-03 | 2026-04-03 |
 | 2026-04-08 | zqb2k1-wire-stepdefphase-in | 397          | /feature    | 1        | 111               | 670/23/15                       | 2026-04-08 | 2026-04-08 |
+| 2026-04-08 | f704s2-cron-janitor-for-orp | 394          | /feature    | 1        | 0                 | 1691/9/13                       | 2026-04-08 | 2026-04-08 |
