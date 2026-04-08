@@ -37,8 +37,14 @@ Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init
      - `## Type Check` — Command for type checking (if applicable, otherwise "N/A")
      - `## Run Tests` — Command to run the test suite
      - `## Run Build` — Command to build the project
-     - `## Start Dev Server` — Command to start the dev server
-     - `## Prepare App` — Multi-step preparation (install + start), use `{PORT}` as placeholder
+     - `## Start Dev Server` — Determine the correct value using these detection rules:
+       - **CLI-only target repos** (no web framework, no dev server needed) → set `N/A`
+       - **Playwright with a `webServer` block** in `playwright.config.{ts,js}` → set `N/A` (Playwright manages its own dev server)
+       - **Any other test runner that self-manages its server** → set `N/A`
+       - **Web framework targets without a self-managing runner** → set the framework's dev command with `{PORT}` substituted (e.g., `bun run dev --port {PORT}`, `bunx next dev --port {PORT}`)
+       - Note: `{PORT}` is a substitution placeholder used at runtime by the dev server lifecycle helper to allocate dynamic ports for parallel workflows, avoiding port collisions between concurrent workflow runs
+     - `## Health Check Path` — HTTP path the dev server health probe hits (default `/`). Can be overridden per target repo if `/` is slow or redirects to a login page.
+     - `## Prepare App` — Multi-step preparation (install + start), use `{PORT}` as placeholder in any dev server start command
      - `## Additional Type Checks` — Extra type checks (if applicable, otherwise "N/A")
      - `## Library Install Command` — Command to install a new library
      - `## Script Execution` — How to run project scripts

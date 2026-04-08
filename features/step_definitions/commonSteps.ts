@@ -23,9 +23,10 @@ const REMOVED_FILES = new Set([
 // Shared mutable context for cross-file step definitions.
 // Populated by the file-reading Given steps so that step defs in other files
 // can access the last-read file's content without needing Cucumber World.
-export const sharedCtx: { fileContent: string; filePath: string } = {
+export const sharedCtx: { fileContent: string; filePath: string; lastCheckedSection: string } = {
   fileContent: '',
   filePath: '',
+  lastCheckedSection: '',
 };
 
 // World state is stored on `this` — all step functions use function() syntax.
