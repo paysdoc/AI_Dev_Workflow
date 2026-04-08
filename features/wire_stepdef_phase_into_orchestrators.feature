@@ -44,17 +44,18 @@ Feature: Wire executeStepDefPhase into orchestrators
   # 2. adwPlanBuildTest.tsx — stepDefPhase wired between build and test
   # ===================================================================
 
-  @adw-397 @regression
-  Scenario: adwPlanBuildTest.tsx includes stepDefPhase between build and test
+  @adw-397 @adw-400
+  Scenario: adwPlanBuildTest.tsx includes stepDefPhase between build and unitTest
     Given the file "adws/adwPlanBuildTest.tsx" is read
     Then the phase ordering should be:
-      | phase              |
-      | install            |
-      | plan               |
-      | build              |
-      | stepDef            |
-      | test               |
-      | pr                 |
+      | phase                         |
+      | install                       |
+      | plan                          |
+      | build                         |
+      | stepDef                       |
+      | unitTest                      |
+      | scenarioTest [-> fix -> loop] |
+      | pr                            |
 
   @adw-397
   Scenario: adwPlanBuildTest.tsx imports executeStepDefPhase
@@ -65,19 +66,20 @@ Feature: Wire executeStepDefPhase into orchestrators
   # 3. adwPlanBuildTestReview.tsx — stepDefPhase wired between build and test
   # ===================================================================
 
-  @adw-397 @regression
-  Scenario: adwPlanBuildTestReview.tsx includes stepDefPhase between build and test
+  @adw-397 @adw-400
+  Scenario: adwPlanBuildTestReview.tsx includes stepDefPhase between build and unitTest
     Given the file "adws/adwPlanBuildTestReview.tsx" is read
     Then the phase ordering should be:
-      | phase              |
-      | install            |
-      | plan + scenarios   |
-      | alignment          |
-      | build              |
-      | stepDef            |
-      | test               |
-      | review             |
-      | pr                 |
+      | phase                         |
+      | install                       |
+      | plan + scenarios              |
+      | alignment                     |
+      | build                         |
+      | stepDef                       |
+      | unitTest                      |
+      | scenarioTest [-> fix -> loop] |
+      | review                        |
+      | pr                            |
 
   @adw-397
   Scenario: adwPlanBuildTestReview.tsx imports executeStepDefPhase
@@ -88,20 +90,21 @@ Feature: Wire executeStepDefPhase into orchestrators
   # 4. adwChore.tsx — stepDefPhase wired between build and test
   # ===================================================================
 
-  @adw-397 @regression
-  Scenario: adwChore.tsx includes stepDefPhase between build and test
+  @adw-397 @adw-400
+  Scenario: adwChore.tsx includes stepDefPhase between build and unitTest
     Given the file "adws/adwChore.tsx" is read
     Then the phase ordering should be:
-      | phase              |
-      | install            |
-      | plan               |
-      | build              |
-      | stepDef            |
-      | test               |
-      | diffEvaluation     |
-      | review (conditional) |
-      | document (conditional) |
-      | pr                 |
+      | phase                         |
+      | install                       |
+      | plan                          |
+      | build                         |
+      | stepDef                       |
+      | unitTest                      |
+      | scenarioTest [-> fix -> loop] |
+      | diffEvaluation                |
+      | review (conditional)          |
+      | document (conditional)        |
+      | pr                            |
 
   @adw-397
   Scenario: adwChore.tsx imports executeStepDefPhase
@@ -112,11 +115,11 @@ Feature: Wire executeStepDefPhase into orchestrators
   # 5. adwPrReview.tsx — stepDefPhase wired between build and test
   # ===================================================================
 
-  @adw-397 @regression
-  Scenario: adwPrReview.tsx includes stepDefPhase between build and test
+  @adw-397 @adw-400 @regression
+  Scenario: adwPrReview.tsx includes stepDefPhase between build and unitTest
     Given the file "adws/adwPrReview.tsx" is read
     Then executeStepDefPhase should be called after executePRReviewBuildPhase
-    And executeStepDefPhase should be called before executePRReviewTestPhase
+    And executeStepDefPhase should be called before executeUnitTestPhase
 
   @adw-397
   Scenario: adwPrReview.tsx imports executeStepDefPhase
