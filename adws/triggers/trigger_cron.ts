@@ -8,7 +8,7 @@
  */
 
 import { execSync, spawn } from 'child_process';
-import { log, GRACE_PERIOD_MS } from '../core';
+import { log, GRACE_PERIOD_MS, JANITOR_INTERVAL_CYCLES } from '../core';
 import { getRepoInfo, fetchPRList, hasUnaddressedComments, isClearComment, activateGitHubAppAuth, refreshTokenIfNeeded } from '../github';
 
 import { resolveIssueWorkflowStage } from './cronStageResolver';
@@ -17,6 +17,7 @@ import { checkIssueEligibility } from './issueEligibility';
 import { classifyAndSpawnWorkflow } from './webhookGatekeeper';
 import { registerAndGuard } from './cronProcessGuard';
 import { scanPauseQueue } from './pauseQueueScanner';
+import { runJanitorPass } from './devServerJanitor';
 import { resolveCronRepo, buildCronTargetRepoArgs } from './cronRepoResolver';
 import { filterEligibleIssues } from './cronIssueFilter';
 
@@ -73,6 +74,11 @@ async function checkAndTrigger(): Promise<void> {
 
   // Scan pause queue every PROBE_INTERVAL_CYCLES cycles
   await scanPauseQueue(cycleCount);
+
+  // Run dev server janitor every JANITOR_INTERVAL_CYCLES cycles
+  if (cycleCount % JANITOR_INTERVAL_CYCLES === 0) {
+    await runJanitorPass();
+  }
 
   const now = Date.now();
   const issues = fetchOpenIssues();

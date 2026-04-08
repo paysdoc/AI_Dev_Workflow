@@ -25,6 +25,7 @@ export interface CommandsConfig {
   runTests: string;
   runBuild: string;
   startDevServer: string;
+  healthCheckPath: string;
   prepareApp: string;
   runE2ETests: string;
   additionalTypeChecks: string;
@@ -116,6 +117,7 @@ const HEADING_TO_KEY: Record<string, keyof CommandsConfig> = {
   'run tests': 'runTests',
   'run build': 'runBuild',
   'start dev server': 'startDevServer',
+  'health check path': 'healthCheckPath',
   'prepare app': 'prepareApp',
   'run e2e tests': 'runE2ETests',
   'additional type checks': 'additionalTypeChecks',
@@ -139,6 +141,7 @@ export function getDefaultCommandsConfig(): CommandsConfig {
     runTests: 'bun run test',
     runBuild: 'bun run build',
     startDevServer: 'bun run dev',
+    healthCheckPath: '/',
     prepareApp: 'bun install && bunx next dev --port {PORT}',
     runE2ETests: 'bunx playwright test',
     additionalTypeChecks: 'bunx tsc --noEmit -p adws/tsconfig.json',

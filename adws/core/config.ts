@@ -111,3 +111,6 @@ export const PROBE_INTERVAL_CYCLES = parseInt(process.env.PROBE_INTERVAL_CYCLES 
 
 /** Max consecutive non-rate-limit probe failures before removing a paused entry (default: 3). */
 export const MAX_UNKNOWN_PROBE_FAILURES = parseInt(process.env.MAX_UNKNOWN_PROBE_FAILURES || '3', 10);
+
+/** Number of cron poll cycles between janitor passes (default: 15 ≈ 5 min at 20s poll). */
+export const JANITOR_INTERVAL_CYCLES = parseInt(process.env.JANITOR_INTERVAL_CYCLES || '15', 10);
