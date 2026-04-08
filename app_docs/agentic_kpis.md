@@ -6,15 +6,15 @@ Performance metrics for the AI Developer Workflow (ADW) system.
 
 Summary metrics across all ADW runs.
 
-| Metric            | Value          | Last Updated       |
-| ----------------- | -------------- | ------------------ |
-| Current Streak    | 37             | 2026-04-03 15:17:44|
-| Longest Streak    | 37             | 2026-04-03 15:17:44|
-| Total Plan Size   | 441 lines      | 2026-04-03 15:17:44|
-| Largest Plan Size | 201 lines      | 2026-04-03 15:17:44|
-| Total Diff Size   | 2189341 lines  | 2026-04-03 15:17:44|
-| Largest Diff Size | 418153 lines   | 2026-04-03 15:17:44|
-| Average Presence  | 1.41           | 2026-04-03 15:17:44|
+| Metric            | Value            | Last Updated       |
+| ----------------- | ---------------- | ------------------ |
+| Current Streak    | 18               | 2026-04-08 14:37:09|
+| Longest Streak    | 69               | 2026-04-08 14:37:09|
+| Total Plan Size   | 554 lines        | 2026-04-08 14:37:09|
+| Largest Plan Size | 201 lines        | 2026-04-08 14:37:09|
+| Total Diff Size   | 2190034 lines    | 2026-04-08 14:37:09|
+| Largest Diff Size | 418153 lines     | 2026-04-08 14:37:09|
+| Average Presence  | 1.42             | 2026-04-08 14:37:09|
 
 ## ADW KPIs
 
@@ -102,3 +102,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-04-03 | fequcj-fix-fail-open-depend | 389          | /feature    | 1        | 107               | 6945/273/64                     | 2026-04-03 | 2026-04-03 |
 | 2026-04-03 | 7fy9ry-remove-webhook-auto | 382          | /feature    | 2        | 0                 | 8129/492/76                     | 2026-04-03 | 2026-04-03 |
 | 2026-04-03 | b0y6j4-fix-token-limit-reco | 392          | /bug        | 1        | 0                 | 8598/502/85                     | 2026-04-03 | 2026-04-03 |
+| 2026-04-08 | zqb2k1-wire-stepdefphase-in | 397          | /feature    | 1        | 111               | 670/23/15                       | 2026-04-08 | 2026-04-08 |
