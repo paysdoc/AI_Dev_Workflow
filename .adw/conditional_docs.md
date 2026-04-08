@@ -1,5 +1,13 @@
 # Conditional Documentation
 
+- app_docs/feature-f704s2-dev-server-janitor-cron.md
+  - Conditions:
+    - When working with `adws/triggers/devServerJanitor.ts` or the janitor probe
+    - When adding or modifying cron probes in `adws/triggers/trigger_cron.ts`
+    - When troubleshooting orphaned dev server processes in target repo worktrees
+    - When working with `shouldCleanWorktree` kill decision logic or grace period tuning
+    - When writing tests that inject `JanitorDeps` or mock worktree fs operations
+
 - app_docs/feature-dcy9qz-merge-orchestrator-cron-handoff.md
   - Conditions:
     - When working with `adws/adwMerge.tsx` or the merge orchestrator spawn flow
