@@ -66,7 +66,7 @@ Use these files to implement the feature:
 Remove the parallel review infrastructure: delete `REVIEW_AGENT_COUNT` from `core/config.ts` and its re-export in `core/index.ts`, simplify `agents/reviewAgent.ts` to a single-agent invocation without `agentIndex` or `applicationUrl`, and delete `agents/reviewRetry.ts` entirely. Update `agents/index.ts` to remove `reviewRetry` exports and update `reviewAgent` exports.
 
 ### Phase 2: Core Implementation — New review phase and slash command rewrite
-Create `phases/reviewPhase.ts` as the passive judge: derives the scenario proof path from `config.adwId`, calls the simplified `runReviewAgent`, and returns `{ costUsd, modelUsage, reviewPassed, reviewIssues, phaseCostRecords }`. Rewrite `.claude/commands/review.md` to Strategy A+B only (no `prepare_app`, no `applicationUrl`, no Strategy C UI navigation). Remove `executeReviewPhase` from `workflowCompletion.ts`. Update `phases/index.ts` and `workflowPhases.ts` exports.
+Create `phases/reviewPhase.ts` as the passive judge: receives the scenario proof path as a parameter (supplied by the orchestrator from the `scenarioTestPhase` result), calls the simplified `runReviewAgent`, and returns `{ costUsd, modelUsage, reviewPassed, reviewIssues, phaseCostRecords }`. Rewrite `.claude/commands/review.md` to Strategy A+B only (no `prepare_app`, no `applicationUrl`, no Strategy C UI navigation). Remove `executeReviewPhase` from `workflowCompletion.ts`. Update `phases/index.ts` and `workflowPhases.ts` exports.
 
 ### Phase 3: Integration — Orchestrator-level review retry loop
 Add the review patch+retest loop to all five orchestrators. The pattern follows the existing scenario test/fix loop: when review returns blockers, run `runPatchAgent` per blocker → `runBuildAgent` → `runCommitAgent` + `pushBranch` → re-run `scenarioTestPhase` → loop back to re-run `reviewPhase`. Bounded by `MAX_REVIEW_RETRY_ATTEMPTS`. Extract the patch+build+commit+push cycle into a helper function in `reviewPhase.ts` to avoid duplicating the logic across five orchestrators. Clean up `README.md` and `.env.sample` to remove `REVIEW_AGENT_COUNT` references.
@@ -118,8 +118,8 @@ Add the review patch+retest loop to all five orchestrators. The pattern follows 
 - Import cost tracking utilities from `../cost`
 - Import `log`, `AgentStateManager` from `../core`
 - Import `WorkflowConfig` from `./workflowInit`
-- Derive the scenario proof path: `path.join('agents', config.adwId, 'scenario-test', 'scenario_proof.md')` — check if it exists; if not, pass empty string (Strategy B or no-proof fallback)
-- Implement `executeReviewPhase(config: WorkflowConfig)` returning:
+- `scenarioProofPath` is received as a parameter from the calling orchestrator (derived from the `scenarioTestPhase` result); if empty, the review agent falls through to Strategy B or code-diff-only review
+- Implement `executeReviewPhase(config: WorkflowConfig, scenarioProofPath: string)` returning:
   ```typescript
   {
     costUsd: number;
@@ -130,7 +130,7 @@ Add the review patch+retest loop to all five orchestrators. The pattern follows 
     phaseCostRecords: PhaseCostRecord[];
   }
   ```
-- Call `runReviewAgent(adwId, specFile, logsDir, statePath, cwd, issueBody, scenarioProofPath)` — single invocation, no parallelism
+- Call `runReviewAgent(adwId, specFile, logsDir, statePath, cwd, issueBody, scenarioProofPath)` — single invocation, no parallelism; `scenarioProofPath` is the parameter received from the orchestrator
 - Post issue stage comments for `review_running`, `review_passed`, `review_failed`
 - On failure: log the error, set `ctx.errorMessage`, but do NOT `process.exit(1)` — the orchestrator handles retry or exit
 - Track cost via `createPhaseCostRecords`
@@ -168,39 +168,43 @@ Add the review patch+retest loop to all five orchestrators. The pattern follows 
 - Replace the current single `executeReviewPhase` call with a bounded loop:
   ```typescript
   let reviewRetries = 0;
+  let proofPath = scenarioTestResult.scenarioProofPath;
   for (let attempt = 0; attempt < MAX_REVIEW_RETRY_ATTEMPTS; attempt++) {
-    const reviewResult = await runPhase(config, tracker, executeReviewPhase);
+    const reviewFn = (cfg: WorkflowConfig) =>
+      executeReviewPhase(cfg, proofPath);
+    const reviewResult = await runPhase(config, tracker, reviewFn);
     if (reviewResult.reviewPassed) break;
     reviewRetries++;
     if (attempt < MAX_REVIEW_RETRY_ATTEMPTS - 1) {
       const patchWrapper = (cfg: WorkflowConfig) =>
         executeReviewPatchCycle(cfg, reviewResult.reviewIssues);
       await runPhase(config, tracker, patchWrapper);
-      await runPhase(config, tracker, executeScenarioTestPhase);
+      const retestResult = await runPhase(config, tracker, executeScenarioTestPhase);
+      proofPath = retestResult.scenarioProofPath;
     }
   }
   ```
-- Remove the `executeReviewWithoutScenarios` wrapper — the new review phase derives the proof path internally and does not run scenarios
+- Remove the `executeReviewWithoutScenarios` wrapper — the new review phase receives the proof path from the orchestrator and does not run scenarios
 - Update metadata: use `reviewRetries` for `totalReviewRetries`
 
 ### Step 11: Add orchestrator-level review retry loop to `adwPlanBuildReview.tsx`
 - Import `MAX_REVIEW_RETRY_ATTEMPTS`, `executeReviewPatchCycle`, `executeScenarioTestPhase`, `WorkflowConfig`
-- Replace the single `executeReviewPhase` call with the same bounded loop pattern as Step 10
+- Replace the single `executeReviewPhase` call with the same bounded loop pattern as Step 10, passing `scenarioProofPath` from the scenarioTestPhase result
 - Note: this orchestrator doesn't have a preceding scenario test → fix loop, but the review retry loop still re-runs scenarioTestPhase to verify patches don't break scenarios
 
 ### Step 12: Add orchestrator-level review retry loop to `adwPlanBuildTestReview.tsx`
-- Replace the single `executeReviewWithoutScenarios` call with the bounded loop pattern
+- Replace the single `executeReviewWithoutScenarios` call with the bounded loop pattern, passing `scenarioProofPath` from the scenarioTestPhase result
 - Remove the `executeReviewWithoutScenarios` wrapper
 - Import `MAX_REVIEW_RETRY_ATTEMPTS`, `executeReviewPatchCycle`
 
 ### Step 13: Add review phase + retry loop to `adwPrReview.tsx`
 - Import `executeReviewPhase`, `executeReviewPatchCycle`, `MAX_REVIEW_RETRY_ATTEMPTS`
-- Add the review retry loop after the scenario test → fix loop and before `completePRReviewWorkflow`
-- The review phase reads the scenario proof produced by the preceding scenarioTestPhase
+- Add the review retry loop after the scenario test → fix loop and before `completePRReviewWorkflow`, passing `scenarioProofPath` from the scenarioTestPhase result
+- The review phase receives the scenario proof path produced by the preceding scenarioTestPhase
 
 ### Step 14: Add orchestrator-level review retry loop to `adwChore.tsx` (regression_possible path)
 - The review retry loop goes inside the `if (diffResult.verdict !== 'safe')` block
-- Replace the single `executeReviewPhase` call with the bounded loop pattern
+- Replace the single `executeReviewPhase` call with the bounded loop pattern, passing `scenarioProofPath` from the scenarioTestPhase result
 - Import `MAX_REVIEW_RETRY_ATTEMPTS`, `executeReviewPatchCycle`, `executeScenarioTestPhase`
 
 ### Step 15: Clean up `README.md` and `.env.sample`
@@ -219,10 +223,10 @@ Add the review patch+retest loop to all five orchestrators. The pattern follows 
 The new `reviewPhase.ts` is a shallow orchestration module that composes existing agents. Per the parent PRD's testing decisions, shallow orchestration modules are covered by integration tests against the orchestrators rather than isolated unit tests. The existing Vitest tests under `adws/__tests__/` and `adws/phases/__tests__/` verify the components it composes (`phaseRunner`, `scenarioTestPhase`, etc.). No new unit test file is needed for this slice.
 
 ### Edge Cases
-- **Scenario proof file does not exist**: `executeReviewPhase` should pass an empty `scenarioProofPath` to the review agent, which falls through to Strategy B or a code-diff-only review
+- **Scenario proof file does not exist**: the orchestrator passes an empty `scenarioProofPath` to `executeReviewPhase`, which forwards it to the review agent; the agent falls through to Strategy B or a code-diff-only review
 - **Review finds no blockers on first attempt**: the retry loop exits immediately with `reviewPassed: true`
 - **Review exhausts all retry attempts**: the last iteration's `reviewPassed: false` propagates to the orchestrator, which writes failure state and exits
-- **Scenario test fails during review retry loop**: the loop continues (scenario test failure doesn't abort the review retry), but the next review iteration will see the failed proof and may flag additional blockers
+- **Scenario test fails during review retry loop**: the loop continues (scenario test failure doesn't abort the review retry), but the next review iteration will see the failed proof and may flag additional blockers <!-- ADW-WARNING: Unresolved conflict — BDD scenario 'Review retry loop handles scenario test failure after patch' says the scenario fix loop should run before re-running review, but the issue does not specify this behaviour. Decide during implementation whether to run the scenario fix loop within the review retry loop when scenario tests fail. -->
 - **adwPlanBuildReview has no prior scenario test phase**: the review retry loop still calls `executeScenarioTestPhase` after patching; if no scenarios are configured, the phase returns immediately with a passing result
 - **Custom review proof (Strategy B)**: when `.adw/review_proof.md` exists, the review agent follows those instructions instead of reading `scenario_proof.md`
 - **adwChore safe verdict**: the review retry loop is never entered; the orchestrator goes straight to PR
