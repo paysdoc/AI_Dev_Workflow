@@ -116,19 +116,20 @@ Feature: Step definition generation, review-first gating, and guidelines check
 
   # ── 6. Orchestrator phase ordering: review orchestrators ──
 
-  @adw-249 @adw-71pdjz-cache-install-contex @adw-306 @adw-397
-  Scenario: adwPlanBuildTestReview.tsx follows post-397 phase ordering
+  @adw-249 @adw-71pdjz-cache-install-contex @adw-306 @adw-397 @adw-400
+  Scenario: adwPlanBuildTestReview.tsx follows post-400 phase ordering
     Given the file "adws/adwPlanBuildTestReview.tsx" exists
     Then the phase ordering should be:
-      | phase              |
-      | install            |
-      | plan + scenarios   |
-      | alignment          |
-      | build              |
-      | stepDef            |
-      | test               |
-      | review             |
-      | pr                 |
+      | phase                         |
+      | install                       |
+      | plan + scenarios              |
+      | alignment                     |
+      | build                         |
+      | stepDef                       |
+      | unitTest                      |
+      | scenarioTest [-> fix -> loop] |
+      | review                        |
+      | pr                            |
 
   @adw-249 @adw-71pdjz-cache-install-contex @adw-306 @adw-397 @adw-399
   Scenario: adwSdlc.tsx follows post-399 phase ordering
@@ -176,19 +177,20 @@ Feature: Step definition generation, review-first gating, and guidelines check
       | test               |
       | pr                 |
 
-  @adw-249 @adw-71pdjz-cache-install-contex @adw-397 @regression
+  @adw-249 @adw-71pdjz-cache-install-contex @adw-397 @adw-400
   Scenario: adwPlanBuildTest.tsx skips scenario writing and plan validation
     Given the file "adws/adwPlanBuildTest.tsx" exists
     Then it should not invoke the scenario phase
     And it should not invoke the plan validation phase
     And the phase ordering should be:
-      | phase              |
-      | install            |
-      | plan               |
-      | build              |
-      | stepDef            |
-      | test               |
-      | pr                 |
+      | phase                         |
+      | install                       |
+      | plan                          |
+      | build                         |
+      | stepDef                       |
+      | unitTest                      |
+      | scenarioTest [-> fix -> loop] |
+      | pr                            |
 
   @adw-249 @adw-71pdjz-cache-install-contex @regression
   Scenario: adwPlanBuildDocument.tsx skips scenario writing, plan validation, and step def generation

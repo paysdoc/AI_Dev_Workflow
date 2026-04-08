@@ -9,20 +9,23 @@
  * 2. Install Phase: install dependencies
  * 3. Plan Phase: classify issue, create branch, run plan agent, commit plan
  * 4. Build Phase: run build agent, commit implementation
- * 5. Test Phase: optionally run unit tests (unit only)
- * 6. Diff Evaluation Phase: LLM evaluates the diff (Haiku, low effort — worktree-dependent)
+ * 5. Step Def Phase: generate BDD step definitions
+ * 6. Unit Test Phase: optionally run unit tests (unit only)
+ * 7. Scenario Test Phase [→ Scenario Fix Phase → retry]: run BDD scenarios, fix failures
+ * 8. Diff Evaluation Phase: LLM evaluates the diff (Haiku, low effort — worktree-dependent)
  *    → if "regression_possible": post escalation comment → review → document
- * 7. PR Phase: create pull request
- * 8. Approve PR + write awaiting_merge to state (API calls only — no worktree required)
- * 9. Finalize: update state, post completion comment
+ * 9. PR Phase: create pull request
+ * 10. Approve PR + write awaiting_merge to state (API calls only — no worktree required)
+ * 11. Finalize: update state, post completion comment
  *
  * Environment Requirements:
  * - ANTHROPIC_API_KEY: Anthropic API key
  * - CLAUDE_CODE_PATH: Path to Claude CLI (default: /usr/local/bin/claude)
  * - GITHUB_PAT: (Optional) GitHub Personal Access Token
+ * - MAX_TEST_RETRY_ATTEMPTS: Maximum retry attempts for tests (default: 5)
  */
 
-import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId, AgentStateManager, log } from './core';
+import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId, AgentStateManager, log, MAX_TEST_RETRY_ATTEMPTS } from './core';
 import { CostTracker, runPhase } from './core/phaseRunner';
 import {
   initializeWorkflow,
@@ -31,6 +34,8 @@ import {
   executeBuildPhase,
   executeStepDefPhase,
   executeUnitTestPhase,
+  executeScenarioTestPhase,
+  executeScenarioFixPhase,
   executePRPhase,
   executeReviewPhase,
   executeDocumentPhase,
@@ -93,6 +98,19 @@ async function main(): Promise<void> {
     await runPhase(config, tracker, executeStepDefPhase, 'stepDef');
     const testResult = await runPhase(config, tracker, executeUnitTestPhase);
 
+    // Scenario test → fix retry loop (orchestrator-level, bounded by MAX_TEST_RETRY_ATTEMPTS)
+    let scenarioRetries = 0;
+    for (let attempt = 0; attempt < MAX_TEST_RETRY_ATTEMPTS; attempt++) {
+      const scenarioResult = await runPhase(config, tracker, executeScenarioTestPhase);
+      if (!scenarioResult.scenarioProof?.hasBlockerFailures) break;
+      scenarioRetries++;
+      if (attempt < MAX_TEST_RETRY_ATTEMPTS - 1) {
+        const fixWrapper = (cfg: WorkflowConfig) =>
+          executeScenarioFixPhase(cfg, scenarioResult.scenarioProof!);
+        await runPhase(config, tracker, fixWrapper);
+      }
+    }
+
     // Diff evaluation uses git diff against the default branch (worktree-dependent).
     // Runs before PR so the worktree is still available.
     const diffResult = await runPhase(config, tracker, executeDiffEvaluationPhase);
@@ -130,6 +148,7 @@ async function main(): Promise<void> {
         totalCostUsd: tracker.totalCostUsd,
         unitTestsPassed: testResult.unitTestsPassed,
         totalTestRetries: testResult.totalRetries,
+        scenarioRetries,
         diffVerdict: reviewResult ? 'regression_possible' : 'safe',
         ...(reviewResult ? {
           reviewPassed: reviewResult.reviewPassed,

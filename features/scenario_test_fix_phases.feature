@@ -281,33 +281,29 @@ Feature: scenarioTestPhase + scenarioFixPhase wired into adwSdlc
   # 15. Other orchestrators untouched
   # ===================================================================
 
-  @adw-399 @regression
-  Scenario: adwPlanBuildTest.tsx does not wire scenario phases
+  @adw-399 @adw-400
+  Scenario: adwPlanBuildTest.tsx wires scenario phases after issue 400
     Given the file "adws/adwPlanBuildTest.tsx" is read
-    Then it does NOT import "executeScenarioTestPhase"
-    And it does NOT import "executeScenarioFixPhase"
-    And it does NOT call executeScenarioTestPhase or executeScenarioFixPhase
+    Then it imports "executeScenarioTestPhase" from workflowPhases or phases
+    And it imports "executeScenarioFixPhase" from workflowPhases or phases
 
-  @adw-399 @regression
-  Scenario: adwPlanBuildTestReview.tsx does not wire scenario phases
+  @adw-399 @adw-400
+  Scenario: adwPlanBuildTestReview.tsx wires scenario phases after issue 400
     Given the file "adws/adwPlanBuildTestReview.tsx" is read
-    Then it does NOT import "executeScenarioTestPhase"
-    And it does NOT import "executeScenarioFixPhase"
-    And it does NOT call executeScenarioTestPhase or executeScenarioFixPhase
+    Then it imports "executeScenarioTestPhase" from workflowPhases or phases
+    And it imports "executeScenarioFixPhase" from workflowPhases or phases
 
-  @adw-399 @regression
-  Scenario: adwChore.tsx does not wire scenario phases
+  @adw-399 @adw-400
+  Scenario: adwChore.tsx wires scenario phases after issue 400
     Given the file "adws/adwChore.tsx" is read
-    Then it does NOT import "executeScenarioTestPhase"
-    And it does NOT import "executeScenarioFixPhase"
-    And it does NOT call executeScenarioTestPhase or executeScenarioFixPhase
+    Then it imports "executeScenarioTestPhase" from workflowPhases or phases
+    And it imports "executeScenarioFixPhase" from workflowPhases or phases
 
-  @adw-399 @regression
-  Scenario: adwPrReview.tsx does not wire scenario phases
+  @adw-399 @adw-400
+  Scenario: adwPrReview.tsx wires scenario phases after issue 400
     Given the file "adws/adwPrReview.tsx" is read
-    Then it does NOT import "executeScenarioTestPhase"
-    And it does NOT import "executeScenarioFixPhase"
-    And it does NOT call executeScenarioTestPhase or executeScenarioFixPhase
+    Then it imports "executeScenarioTestPhase" from workflowPhases or phases
+    And it imports "executeScenarioFixPhase" from workflowPhases or phases
 
   # ===================================================================
   # 16. Unit tests for scenarioTestPhase
