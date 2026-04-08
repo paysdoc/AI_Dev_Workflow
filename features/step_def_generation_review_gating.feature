@@ -117,7 +117,7 @@ Feature: Step definition generation, review-first gating, and guidelines check
   # ── 6. Orchestrator phase ordering: review orchestrators ──
 
   @adw-249 @adw-71pdjz-cache-install-contex @adw-306 @adw-397
-  Scenario: adwPlanBuildTestReview.tsx follows post-306 phase ordering
+  Scenario: adwPlanBuildTestReview.tsx follows post-397 phase ordering
     Given the file "adws/adwPlanBuildTestReview.tsx" exists
     Then the phase ordering should be:
       | phase              |
@@ -125,12 +125,13 @@ Feature: Step definition generation, review-first gating, and guidelines check
       | plan + scenarios   |
       | alignment          |
       | build              |
+      | stepDef            |
       | test               |
       | review             |
       | pr                 |
 
   @adw-249 @adw-71pdjz-cache-install-contex @adw-306 @adw-397
-  Scenario: adwSdlc.tsx follows post-306 phase ordering
+  Scenario: adwSdlc.tsx follows post-397 phase ordering
     Given the file "adws/adwSdlc.tsx" exists
     Then the phase ordering should be:
       | phase              |
@@ -138,13 +139,14 @@ Feature: Step definition generation, review-first gating, and guidelines check
       | plan + scenarios   |
       | alignment          |
       | build              |
+      | stepDef            |
       | test               |
       | review             |
       | document           |
-      | pr                 |
       | kpi                |
+      | pr                 |
 
-  @adw-249 @adw-71pdjz-cache-install-contex @adw-306 @adw-397
+  @adw-249 @adw-71pdjz-cache-install-contex @adw-306
   Scenario: adwPlanBuildReview.tsx follows post-306 phase ordering
     Given the file "adws/adwPlanBuildReview.tsx" exists
     Then the phase ordering should be:
@@ -174,16 +176,16 @@ Feature: Step definition generation, review-first gating, and guidelines check
       | pr                 |
 
   @adw-249 @adw-71pdjz-cache-install-contex @adw-397 @regression
-  Scenario: adwPlanBuildTest.tsx skips scenario writing, plan validation, and step def generation
+  Scenario: adwPlanBuildTest.tsx skips scenario writing and plan validation
     Given the file "adws/adwPlanBuildTest.tsx" exists
     Then it should not invoke the scenario phase
     And it should not invoke the plan validation phase
-    And it should not invoke the step def phase
     And the phase ordering should be:
       | phase              |
       | install            |
       | plan               |
       | build              |
+      | stepDef            |
       | test               |
       | pr                 |
 

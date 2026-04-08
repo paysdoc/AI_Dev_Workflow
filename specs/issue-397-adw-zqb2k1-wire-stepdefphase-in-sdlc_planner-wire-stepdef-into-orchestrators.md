@@ -17,7 +17,7 @@ So that BDD scenarios have matching step definition files before they execute
 `executeStepDefPhase` is dead code. Orchestrators that run BDD scenarios currently lack step definition generation, meaning scenarios either fail at execution time or require manually pre-written step definitions. This blocks slice 6 (scenario test phase) from working end-to-end.
 
 ## Solution Statement
-Insert a single `await runPhase(config, tracker, executeStepDefPhase, 'step-def')` call between the build phase and the test phase in each of the five target orchestrators. Pass the `'step-def'` phase name so `runPhase` records the phase in the top-level state ledger (enabling skip-on-resume and status tracking). For `adwPrReview.tsx`, which uses a different config type (`PRReviewWorkflowConfig`) and manual cost management instead of `CostTracker`, call `executeStepDefPhase` inline with manual cost accumulation — matching the existing pattern used for the install phase in that orchestrator.
+Insert a single `await runPhase(config, tracker, executeStepDefPhase, 'stepDef')` call between the build phase and the test phase in each of the five target orchestrators. Pass the `'stepDef'` phase name so `runPhase` records the phase in the top-level state ledger (enabling skip-on-resume and status tracking). For `adwPrReview.tsx`, which uses a different config type (`PRReviewWorkflowConfig`) and manual cost management instead of `CostTracker`, call `executeStepDefPhase` inline with manual cost accumulation — matching the existing pattern used for the install phase in that orchestrator.
 
 ## Relevant Files
 Use these files to implement the feature:
@@ -40,30 +40,30 @@ No foundation work required. `executeStepDefPhase` is already fully implemented,
 
 ### Phase 2: Core Implementation
 Wire `executeStepDefPhase` into each orchestrator:
-1. **Four `CostTracker`-based orchestrators** (`adwSdlc`, `adwPlanBuildTest`, `adwPlanBuildTestReview`, `adwChore`): Add `executeStepDefPhase` to the import list from `./workflowPhases`, then insert `await runPhase(config, tracker, executeStepDefPhase, 'step-def');` on the line after `executeBuildPhase` and before `executeTestPhase`.
+1. **Four `CostTracker`-based orchestrators** (`adwSdlc`, `adwPlanBuildTest`, `adwPlanBuildTestReview`, `adwChore`): Add `executeStepDefPhase` to the import list from `./workflowPhases`, then insert `await runPhase(config, tracker, executeStepDefPhase, 'stepDef');` on the line after `executeBuildPhase` and before `executeTestPhase`.
 2. **`adwPrReview.tsx`**: This orchestrator uses `PRReviewWorkflowConfig` (not `WorkflowConfig`) and manual cost management. Call `executeStepDefPhase` inline between the build and test phases using manual cost accumulation — matching the install-phase inline pattern already in this file. The `PRReviewWorkflowConfig` shares enough fields (`orchestratorStatePath`, `adwId`, `worktreePath`, `logsDir`, `installContext`) that a lightweight adapter object satisfying `WorkflowConfig` can be constructed. Alternatively, `runStepDefAgent` can be called directly if adapting configs proves fragile.
 
 ### Phase 3: Integration
-- Pass `'step-def'` as the fourth argument to `runPhase` so the phase appears in the top-level state file's `phases` map, satisfying the state-ledger acceptance criterion.
+- Pass `'stepDef'` as the fourth argument to `runPhase` so the phase appears in the top-level state file's `phases` map, satisfying the state-ledger acceptance criterion.
 - The phase is non-fatal by design (`stepDefPhase.ts` catches all errors and returns `{ costUsd: 0, ... }`), so wiring it in carries no regression risk to existing orchestrator flows.
 
 ## Step by Step Tasks
 
 ### Step 1: Wire `executeStepDefPhase` into `adwSdlc.tsx`
 - Add `executeStepDefPhase` to the import from `'./workflowPhases'`
-- Insert `await runPhase(config, tracker, executeStepDefPhase, 'step-def');` on the line after `await runPhase(config, tracker, executeBuildPhase);` (line 83) and before `const testResult = await runPhase(config, tracker, executeTestPhase);` (line 84)
+- Insert `await runPhase(config, tracker, executeStepDefPhase, 'stepDef');` on the line after `await runPhase(config, tracker, executeBuildPhase);` (line 83) and before `const testResult = await runPhase(config, tracker, executeTestPhase);` (line 84)
 
 ### Step 2: Wire `executeStepDefPhase` into `adwPlanBuildTest.tsx`
 - Add `executeStepDefPhase` to the import from `'./workflowPhases'`
-- Insert `await runPhase(config, tracker, executeStepDefPhase, 'step-def');` on the line after `await runPhase(config, tracker, executeBuildPhase);` (line 62) and before `const testResult = await runPhase(config, tracker, executeTestPhase);` (line 63)
+- Insert `await runPhase(config, tracker, executeStepDefPhase, 'stepDef');` on the line after `await runPhase(config, tracker, executeBuildPhase);` (line 62) and before `const testResult = await runPhase(config, tracker, executeTestPhase);` (line 63)
 
 ### Step 3: Wire `executeStepDefPhase` into `adwPlanBuildTestReview.tsx`
 - Add `executeStepDefPhase` to the import from `'./workflowPhases'`
-- Insert `await runPhase(config, tracker, executeStepDefPhase, 'step-def');` on the line after `await runPhase(config, tracker, executeBuildPhase);` (line 73) and before `const testResult = await runPhase(config, tracker, executeTestPhase);` (line 74)
+- Insert `await runPhase(config, tracker, executeStepDefPhase, 'stepDef');` on the line after `await runPhase(config, tracker, executeBuildPhase);` (line 73) and before `const testResult = await runPhase(config, tracker, executeTestPhase);` (line 74)
 
 ### Step 4: Wire `executeStepDefPhase` into `adwChore.tsx`
 - Add `executeStepDefPhase` to the import from `'./workflowPhases'`
-- Insert `await runPhase(config, tracker, executeStepDefPhase, 'step-def');` on the line after `await runPhase(config, tracker, executeBuildPhase);` (line 91) and before `const testResult = await runPhase(config, tracker, executeTestPhase);` (line 92)
+- Insert `await runPhase(config, tracker, executeStepDefPhase, 'stepDef');` on the line after `await runPhase(config, tracker, executeBuildPhase);` (line 91) and before `const testResult = await runPhase(config, tracker, executeTestPhase);` (line 92)
 
 ### Step 5: Wire `executeStepDefPhase` into `adwPrReview.tsx`
 - Import `executeStepDefPhase` from `'./workflowPhases'` and `emptyModelUsageMap` from `'./core'`
@@ -82,7 +82,7 @@ Wire `executeStepDefPhase` into each orchestrator:
 The existing `adws/core/__tests__/phaseRunner.test.ts` already tests the `runPhase` mechanics (skip-on-resume, state recording, cost accumulation). No new unit tests are needed — the change is pure wiring (adding a single function call per orchestrator). The `executeStepDefPhase` function itself already handles errors internally and is tested via its own error paths.
 
 ### Edge Cases
-- **Phase already completed on resume**: `runPhase` with `phaseName: 'step-def'` will skip the phase if the top-level state already records it as `completed` — no special handling needed.
+- **Phase already completed on resume**: `runPhase` with `phaseName: 'stepDef'` will skip the phase if the top-level state already records it as `completed` — no special handling needed.
 - **Step-def agent failure**: `executeStepDefPhase` catches all errors internally and returns `{ costUsd: 0, modelUsage: emptyModelUsageMap(), phaseCostRecords: [] }` — the orchestrator continues unaffected.
 - **No BDD scenarios in target repo**: The step-def agent will find no `.feature` files and return early (non-fatal).
 - **`adwPrReview` null issueNumber**: `PRReviewWorkflowConfig.issueNumber` is `number | null`. The adapter should fall back to `prNumber` as a numeric identifier for cost tracking.
@@ -93,7 +93,7 @@ The existing `adws/core/__tests__/phaseRunner.test.ts` already tests the `runPha
 - `executeStepDefPhase` is called in `adwPlanBuildTestReview.tsx` between `executeBuildPhase` and `executeTestPhase`
 - `executeStepDefPhase` is called in `adwChore.tsx` between `executeBuildPhase` and `executeTestPhase`
 - `executeStepDefPhase` is called in `adwPrReview.tsx` between `executePRReviewBuildPhase` and `executePRReviewTestPhase`
-- Phase is tracked in the top-level state file via `phaseName: 'step-def'` (recorded by `runPhase` as `step-def_running` / `step-def_completed`)
+- Phase is tracked in the top-level state file via `phaseName: 'stepDef'` (recorded by `runPhase` as `stepDef_running` / `stepDef_completed`)
 - `bun run lint` passes with no new errors
 - `bunx tsc --noEmit` and `bunx tsc --noEmit -p adws/tsconfig.json` pass
 - `bun run test` passes with no regressions
@@ -106,6 +106,6 @@ The existing `adws/core/__tests__/phaseRunner.test.ts` already tests the `runPha
 
 ## Notes
 - The `adwPrReview.tsx` wiring is the only non-trivial change due to the `PRReviewWorkflowConfig` vs `WorkflowConfig` type mismatch. The adapter pattern keeps the change minimal. If the adapter feels fragile during implementation, fall back to calling `runStepDefAgent` directly (same pattern as the inline install phase).
-- The four `CostTracker`-based orchestrators currently do not pass `phaseName` strings to their existing `runPhase` calls. This issue only adds `'step-def'` to the new call. Adding phase names to existing calls is out of scope.
+- The four `CostTracker`-based orchestrators currently do not pass `phaseName` strings to their existing `runPhase` calls. This issue only adds `'stepDef'` to the new call. Adding phase names to existing calls is out of scope.
 - This is a pre-requisite for slice 6 (scenario test phase). Once wired, step definitions will exist in the worktree before any scenario execution phase runs.
 - Follow `guidelines/coding_guidelines.md` strictly — in particular, keep changes minimal and focused.
