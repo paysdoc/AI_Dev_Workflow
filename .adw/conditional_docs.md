@@ -1,5 +1,13 @@
 # Conditional Documentation
 
+- app_docs/feature-dd5jfe-dev-server-lifecycle.md
+  - Conditions:
+    - When working with `adws/core/devServerLifecycle.ts` or integrating `withDevServer` into a test/scenario phase
+    - When implementing dev server startup, health probing, retry, or cleanup in any orchestrator
+    - When adding or modifying `healthCheckPath` in `.adw/commands.md` for a target repo
+    - When troubleshooting leaked dev server processes or stale `next dev` / `bun dev` workers
+    - When working with `adws/triggers/devServerJanitor.ts` or extending the janitor pass
+
 - app_docs/feature-f704s2-dev-server-janitor-cron.md
   - Conditions:
     - When working with `adws/triggers/devServerJanitor.ts` or the janitor probe
