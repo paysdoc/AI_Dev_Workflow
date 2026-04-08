@@ -35,7 +35,7 @@ import { BoardStatus } from '../providers/types';
  *
  * Uses `config.repoInfo` for external repository API calls when targeting a different repo.
  */
-export async function executeTestPhase(config: WorkflowConfig): Promise<{
+export async function executeUnitTestPhase(config: WorkflowConfig): Promise<{
   costUsd: number;
   modelUsage: ModelUsageMap;
   unitTestsPassed: boolean;

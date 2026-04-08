@@ -36,7 +36,7 @@ import {
   executeAlignmentPhase,
   executeBuildPhase,
   executeStepDefPhase,
-  executeTestPhase,
+  executeUnitTestPhase,
   executePRPhase,
   executeReviewPhase,
   handleWorkflowError,
@@ -73,7 +73,7 @@ async function main(): Promise<void> {
     await runPhase(config, tracker, executeAlignmentPhase);
     await runPhase(config, tracker, executeBuildPhase);
     await runPhase(config, tracker, executeStepDefPhase, 'stepDef');
-    const testResult = await runPhase(config, tracker, executeTestPhase);
+    const testResult = await runPhase(config, tracker, executeUnitTestPhase);
     const reviewResult = await runPhase(config, tracker, executeReviewPhase);
     await runPhase(config, tracker, executePRPhase);
 

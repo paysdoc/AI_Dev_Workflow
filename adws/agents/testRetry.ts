@@ -9,7 +9,7 @@ import { retryWithResolution, initAgentState, trackCost, type AgentRunResult } f
 import {
   runTestAgent,
   runResolveTestAgent,
-  runResolveE2ETestAgent,
+  runResolveScenarioAgent,
   discoverE2ETestFiles,
   runPlaywrightE2ETests,
   isValidE2ETestResult,
@@ -163,7 +163,7 @@ export async function runE2ETestsWithRetry(opts: TestRetryOptions): Promise<Test
       log(`Resolving E2E test: ${result.testName} (attempt ${retryCount + 1}/${maxRetries})`, 'info');
       AgentStateManager.appendLog(statePath, `Resolving E2E test: ${result.testName}`);
 
-      let resolveResult = await runResolveE2ETestAgent(result, logsDir, initAgentState(statePath, 'test-resolver-agent'), cwd, applicationUrl, issueBody);
+      let resolveResult = await runResolveScenarioAgent(result, logsDir, initAgentState(statePath, 'test-resolver-agent'), cwd, applicationUrl, issueBody);
       trackCost(resolveResult as AgentRunResult, costState, statePath);
 
       // Handle compaction: re-run resolver with fresh context without counting as a retry
@@ -175,7 +175,7 @@ export async function runE2ETestsWithRetry(opts: TestRetryOptions): Promise<Test
           throw new Error(`E2E test resolver exceeded maximum context resets (${MAX_CONTEXT_RESETS})`);
         }
         onCompactionDetected(contextResetCount);
-        resolveResult = await runResolveE2ETestAgent(result, logsDir, initAgentState(statePath, 'test-resolver-agent'), cwd, applicationUrl, issueBody);
+        resolveResult = await runResolveScenarioAgent(result, logsDir, initAgentState(statePath, 'test-resolver-agent'), cwd, applicationUrl, issueBody);
         trackCost(resolveResult as AgentRunResult, costState, statePath);
       }
 
@@ -234,7 +234,7 @@ export interface BddScenarioRetryOptions extends TestRetryOptions {
 
 /**
  * Runs BDD scenarios with automatic retry and resolution attempts on failure.
- * Uses `runResolveE2ETestAgent` to fix failures before each re-run.
+ * Uses `runResolveScenarioAgent` to fix failures before each re-run.
  * @param opts - Retry options including scenario command, issue number, retry limits, and optional cwd.
  * @returns The test result including pass/fail status, cost, retry count, and failed test names.
  */
@@ -266,7 +266,7 @@ export async function runBddScenariosWithRetry(opts: BddScenarioRetryOptions): P
     log(`BDD scenarios failed (attempt ${totalRetries + 1}/${maxRetries}), resolving...`, 'info');
     AgentStateManager.appendLog(statePath, `BDD scenarios failed, resolving (attempt ${totalRetries + 1}/${maxRetries})`);
 
-    let resolveResult = await runResolveE2ETestAgent(
+    let resolveResult = await runResolveScenarioAgent(
       failedResult,
       logsDir,
       initAgentState(statePath, 'test-resolver-agent'),
@@ -285,7 +285,7 @@ export async function runBddScenariosWithRetry(opts: BddScenarioRetryOptions): P
         throw new Error(`BDD resolver exceeded maximum context resets (${MAX_CONTEXT_RESETS})`);
       }
       onCompactionDetected(contextResetCount);
-      resolveResult = await runResolveE2ETestAgent(
+      resolveResult = await runResolveScenarioAgent(
         failedResult,
         logsDir,
         initAgentState(statePath, 'test-resolver-agent'),

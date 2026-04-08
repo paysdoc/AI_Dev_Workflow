@@ -14,7 +14,7 @@ export { type WorkflowConfig, initializeWorkflow } from './workflowInit';
 export { completeWorkflow, executeReviewPhase, handleWorkflowError, handleRateLimitPause } from './workflowCompletion';
 export { executePlanPhase, buildContinuationPrompt, MAX_CONTINUATION_OUTPUT_LENGTH } from './planPhase';
 export { executeBuildPhase } from './buildPhase';
-export { executeTestPhase } from './testPhase';
+export { executeUnitTestPhase } from './unitTestPhase';
 export { executePRPhase } from './prPhase';
 export { executeDocumentPhase } from './documentPhase';
 export { executeKpiPhase } from './kpiPhase';
