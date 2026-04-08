@@ -39,13 +39,12 @@ Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init
      - `## Run Build` — Command to build the project
      - `## Start Dev Server` — Command to start the dev server
      - `## Prepare App` — Multi-step preparation (install + start), use `{PORT}` as placeholder
-     - `## Run E2E Tests` — Command for E2E tests (if applicable, otherwise "N/A")
      - `## Additional Type Checks` — Extra type checks (if applicable, otherwise "N/A")
      - `## Library Install Command` — Command to install a new library
      - `## Script Execution` — How to run project scripts
-     - `## Run Scenarios by Tag` — Command to run scenarios by tag, using `{tag}` placeholder (values determined by E2E tool detection in step 7)
-     - `## Run Regression Scenarios` — Command to run all `@regression`-tagged scenarios (values determined by E2E tool detection in step 7)
-   - Note: the values for `## Run Scenarios by Tag` and `## Run Regression Scenarios` must be consistent with the E2E tool detected in step 7 (Playwright, Cypress, Cucumber, or default Cucumber)
+     - `## Run Scenarios by Tag` — Command to run scenarios by tag, using `{tag}` placeholder (values determined by scenario tool detection in step 7)
+     - `## Run Regression Scenarios` — Command to run all `@regression`-tagged scenarios (values determined by scenario tool detection in step 7)
+   - Note: the values for `## Run Scenarios by Tag` and `## Run Regression Scenarios` must be consistent with the scenario tool detected in step 7 (Playwright, Cypress, Cucumber, or default Cucumber)
 
 3. **Create `.adw/project.md`**
    - Generate `.adw/project.md` with the following sections:
@@ -90,7 +89,7 @@ Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init
      - `## What NOT to Do` — Actions to avoid based on the project type (e.g., CLI projects should not take browser screenshots; UI projects should not skip visual verification)
 
 7. **Create `.adw/scenarios.md`**
-   - Detect the E2E test tool from the `## Run E2E Tests` value determined in step 2
+   - Detect the scenario tool from the project's test configuration
    - If **Playwright** detected (`bunx playwright test`, `npx playwright test`, etc.):
      - `## Scenario Directory` → `tests/e2e/` (or the detected test directory)
      - `## Run Scenarios by Tag` → `bunx playwright test --grep "@{tag}"`

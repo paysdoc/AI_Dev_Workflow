@@ -318,7 +318,6 @@ export async function executePRReviewBuildPhase(config: PRReviewWorkflowConfig, 
 
 // Backward-compatible re-exports from prReviewCompletion
 export {
-  executePRReviewTestPhase,
   completePRReviewWorkflow,
   handlePRReviewWorkflowError,
 } from './prReviewCompletion';

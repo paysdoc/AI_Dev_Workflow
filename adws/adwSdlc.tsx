@@ -48,7 +48,7 @@ import {
 } from './workflowPhases';
 import { persistTokenCounts } from './cost';
 import type { WorkflowConfig } from './phases';
-import type { ScenarioProofResult } from './agents/regressionScenarioProof';
+import type { ScenarioProofResult } from './phases/scenarioProof';
 import { approvePR, isGitHubAppConfigured, issueHasLabel, commentOnIssue, type RepoInfo } from './github';
 import { extractPrNumber } from './adwBuildHelpers';
 

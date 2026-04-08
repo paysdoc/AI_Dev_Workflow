@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Mock dependencies before importing the module under test
-vi.mock('../../agents/regressionScenarioProof', () => ({
+vi.mock('../scenarioProof', () => ({
   runScenarioProof: vi.fn(),
 }));
 
@@ -23,7 +23,7 @@ vi.mock('../../core', () => ({
 }));
 
 import { executeScenarioTestPhase } from '../scenarioTestPhase';
-import { runScenarioProof } from '../../agents/regressionScenarioProof';
+import { runScenarioProof } from '../scenarioProof';
 import { withDevServer } from '../../core/devServerLifecycle';
 import { createPhaseCostRecords } from '../../cost';
 
@@ -80,7 +80,6 @@ function makeConfig(overrides: {
         startDevServer: overrides.startDevServer ?? 'N/A',
         healthCheckPath: overrides.healthCheckPath ?? '/',
         prepareApp: 'N/A',
-        runE2ETests: 'N/A',
         additionalTypeChecks: '',
         libraryInstall: 'bun add',
         scriptExecution: 'bunx tsx',

@@ -187,6 +187,14 @@ Then(/^the PR review test phase is called via a closure wrapping (\w+)$/, functi
   );
 });
 
+Then('the PR review unit test phase is called via executeUnitTestPhase', function () {
+  const content: string = this.fileContent;
+  assert.ok(
+    content.includes('executeUnitTestPhase'),
+    `Expected "${this.filePath}" to call "executeUnitTestPhase"`,
+  );
+});
+
 Then('each runPhase call passes {string} as the first argument', function (argName: string) {
   const content: string = this.fileContent;
   // Find all runPhase( occurrences and verify the first arg is argName

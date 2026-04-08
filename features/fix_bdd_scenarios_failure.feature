@@ -61,31 +61,16 @@ Feature: Fix BDD scenarios failure that blocks PR creation
     Then the file checks for empty or N/A tagCommand before spawning a subprocess
     And it returns allPassed true when the command is skipped
 
-  # ── 4. Retry mechanism preserves diagnostic output ─────────────────────────
-
-  @adw-8fns89-error-in-issue-288 @regression
-  Scenario: runBddScenariosWithRetry includes stderr in failure error field
-    Given "adws/agents/testRetry.ts" is read
-    Then the BDD scenario retry failure result includes scenarioResult.stderr as part of the error field
-    And it falls back to scenarioResult.stdout when stderr is empty
-    And it falls back to the exit code when both are empty
-
-  @adw-8fns89-error-in-issue-288
-  Scenario: runBddScenariosWithRetry logs attempt count on failure
-    Given "adws/agents/testRetry.ts" is read
-    Then the file contains "BDD scenarios failed (attempt"
-    And the file contains "resolving..."
-
   # ── 5. Scenario proof blocker detection ────────────────────────────────────
 
   @adw-8fns89-error-in-issue-288 @regression
   Scenario: Scenario proof detects blocker failures from non-passing tags
-    Given "adws/agents/regressionScenarioProof.ts" is read
+    Given "adws/phases/scenarioProof.ts" is read
     Then hasBlockerFailures is true when any non-skipped tag with severity blocker did not pass
 
   @adw-8fns89-error-in-issue-288
   Scenario: Scenario proof skips optional tags with zero matching scenarios
-    Given "adws/agents/regressionScenarioProof.ts" is read
+    Given "adws/phases/scenarioProof.ts" is read
     Then when a tag is optional and produces zero scenarios output it is marked as skipped
     And skipped tags do not count as blocker failures
 
@@ -93,7 +78,7 @@ Feature: Fix BDD scenarios failure that blocks PR creation
 
   @adw-8fns89-error-in-issue-288 @regression
   Scenario: Scenario proof writes detailed markdown with output per tag
-    Given "adws/agents/regressionScenarioProof.ts" is read
+    Given "adws/phases/scenarioProof.ts" is read
     Then the proof markdown includes the resolved tag name
     And the proof markdown includes the exit code
     And the proof markdown includes the scenario output

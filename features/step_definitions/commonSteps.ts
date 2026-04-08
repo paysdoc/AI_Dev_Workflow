@@ -10,6 +10,8 @@ const ROOT = process.cwd();
 // "not exported" assertions pass vacuously (nothing is exported from a deleted file).
 const REMOVED_FILES = new Set([
   'adws/agents/crucialScenarioProof.ts', // renamed to regressionScenarioProof.ts
+  'adws/agents/regressionScenarioProof.ts', // relocated to adws/phases/scenarioProof.ts in issue #403
+  'adws/agents/testDiscovery.ts', // deleted in issue #403 — legacy E2E machinery cleanup
   // Deleted in issue #245 — cost module migration cleanup
   'adws/core/costPricing.ts',
   'adws/core/costReport.ts',

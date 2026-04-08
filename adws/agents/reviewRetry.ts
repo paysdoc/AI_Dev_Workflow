@@ -11,7 +11,7 @@ import { runPatchAgent } from './patchAgent';
 import { runBuildAgent } from './buildAgent';
 import { runCommitAgent } from './gitAgent';
 import { pushBranch } from '../vcs';
-import { shouldRunScenarioProof, runScenarioProof, type ScenarioProofResult } from './regressionScenarioProof';
+import { shouldRunScenarioProof, runScenarioProof, type ScenarioProofResult } from '../phases/scenarioProof';
 import type { ReviewProofConfig } from '../core/projectConfig';
 
 export interface MergedReviewResult {

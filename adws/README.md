@@ -592,7 +592,6 @@ app_docs/                         # Generated documentation
 - `resolutionAgent.ts` - Resolution agent: reconciles plan/scenario mismatches using the GitHub issue as sole source of truth
 - `buildAgent.ts` - Build/implementation agent
 - `testAgent.ts` - Testing agent with retry coordination
-- `testDiscovery.ts` - Test file discovery and E2E/Playwright detection (extracted from testAgent)
 - `reviewAgent.ts` - Review agent
 - `reviewRetry.ts` - Multi-agent review retry orchestration
 - `testRetry.ts` - Test failure retry logic

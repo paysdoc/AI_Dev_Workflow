@@ -651,10 +651,9 @@ Then('the restart uses the original E2E test failure context and partial output'
 Then('the resolve agent is restarted with fresh context', function () {
   const content = readFileSync(join(ROOT, 'adws/agents/testRetry.ts'), 'utf-8');
   assert.ok(
-    content.includes('runResolveE2ETestAgent') &&
-    content.includes('compactionDetected') &&
-    content.includes('runBddScenariosWithRetry'),
-    'Expected testRetry.ts to restart the resolve agent for BDD scenarios on compaction',
+    content.includes('runUnitTestsWithRetry') &&
+    content.includes('compactionDetected'),
+    'Expected testRetry.ts to restart the resolve agent for scenario resolution on compaction',
   );
 });
 

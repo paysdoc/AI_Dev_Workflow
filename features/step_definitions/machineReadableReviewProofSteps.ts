@@ -408,8 +408,8 @@ Given('the ADW codebase has been modified for issue 273', function () {
   // Context only — the codebase is already modified on this branch
   assert.ok(existsSync(join(ROOT, 'adws')), 'Expected adws/ directory to exist');
   assert.ok(
-    existsSync(join(ROOT, 'adws/agents/regressionScenarioProof.ts')),
-    'Expected regressionScenarioProof.ts to exist',
+    existsSync(join(ROOT, 'adws/phases/scenarioProof.ts')),
+    'Expected scenarioProof.ts to exist',
   );
   assert.ok(
     existsSync(join(ROOT, 'adws/core/projectConfig.ts')),

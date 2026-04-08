@@ -39,7 +39,6 @@ export {
   initializePRReviewWorkflow,
   executePRReviewPlanPhase,
   executePRReviewBuildPhase,
-  executePRReviewTestPhase,
   completePRReviewWorkflow,
   handlePRReviewWorkflowError,
 } from './phases';

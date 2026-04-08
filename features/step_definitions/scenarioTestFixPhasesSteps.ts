@@ -462,10 +462,10 @@ Then('the result scenarioProof has hasBlockerFailures set to true', function () 
 });
 
 Then('the scenarioProof includes the failure details per tag', function () {
-  const content = readFileSync(join(ROOT, 'adws/agents/regressionScenarioProof.ts'), 'utf-8');
+  const content = readFileSync(join(ROOT, 'adws/phases/scenarioProof.ts'), 'utf-8');
   assert.ok(
     content.includes('tagResults'),
-    'Expected regressionScenarioProof.ts to include per-tag failure details',
+    'Expected scenarioProof.ts to include per-tag failure details',
   );
 });
 

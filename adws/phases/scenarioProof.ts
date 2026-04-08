@@ -8,7 +8,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { runScenariosByTag } from './bddScenarioRunner';
+import { runScenariosByTag } from '../agents/bddScenarioRunner';
 import type { ReviewProofConfig } from '../core/projectConfig';
 
 /** Maximum characters of scenario output retained in the proof file. */
