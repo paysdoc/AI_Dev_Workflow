@@ -47,6 +47,14 @@
     - When working with `adws/phases/stepDefPhase.ts` or `executeStepDefPhase`
     - When understanding how `adwPrReview.tsx` adapts `PRReviewWorkflowConfig` to call `WorkflowConfig`-typed phases
 
+- app_docs/feature-o1w8wg-wire-scenarios-remaining-orchestrators.md
+  - Conditions:
+    - When working with `adwPlanBuildTest.tsx`, `adwPlanBuildTestReview.tsx`, `adwChore.tsx`, or `adwPrReview.tsx` and the scenario test/fix retry loop
+    - When adding or extending the scenario test/fix pattern to a new orchestrator
+    - When understanding why `adwPlanBuildTestReview` patches `scenariosMd` to empty before calling review
+    - When troubleshooting `adwPrReview` scenario phases running through `config.base` vs the full `PRReviewWorkflowConfig`
+    - When understanding the diff evaluator ordering in `adwChore` relative to scenario testing
+
 - app_docs/feature-8zhro4-prreviewworkflowconfig-composition.md
   - Conditions:
     - When working with `PRReviewWorkflowConfig` or `adws/phases/prReviewPhase.ts`
