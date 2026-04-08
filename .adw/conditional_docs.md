@@ -47,6 +47,14 @@
     - When working with `adws/phases/stepDefPhase.ts` or `executeStepDefPhase`
     - When understanding how `adwPrReview.tsx` adapts `PRReviewWorkflowConfig` to call `WorkflowConfig`-typed phases
 
+- app_docs/feature-cudwfe-passive-judge-review-phase.md
+  - Conditions:
+    - When working with `adws/phases/reviewPhase.ts` or the passive judge review implementation
+    - When adding a review retry loop to a new orchestrator (follow the `adwPlanBuildReview.tsx` pattern)
+    - When working with `adws/agents/reviewAgent.ts` or the `/review` slash command
+    - When troubleshooting why review no longer starts a dev server or captures screenshots
+    - When understanding `executeReviewPatchCycle` and how it differs from `scenarioFixPhase`
+
 - app_docs/feature-o1w8wg-wire-scenarios-remaining-orchestrators.md
   - Conditions:
     - When working with `adwPlanBuildTest.tsx`, `adwPlanBuildTestReview.tsx`, `adwChore.tsx`, or `adwPrReview.tsx` and the scenario test/fix retry loop
