@@ -27,8 +27,8 @@ Feature: scenarioTestPhase + scenarioFixPhase wired into adwSdlc
   Scenario: executeScenarioTestPhase accepts WorkflowConfig and returns structured result
     Given "adws/phases/scenarioTestPhase.ts" is read
     Then the function signature accepts a "WorkflowConfig" parameter
-    And the return type includes "costUsd", "modelUsage", "scenariosPassed", "totalRetries", and "phaseCostRecords"
-    And the return type includes "proofPath" pointing to the scenario proof file
+    And the return type includes "costUsd", "modelUsage", "scenarioProof", and "phaseCostRecords"
+    And "scenarioProof" includes "hasBlockerFailures" and the path to the proof file
 
   # ===================================================================
   # 2. scenarioTestPhase — tag filter and command reading
@@ -85,28 +85,28 @@ Feature: scenarioTestPhase + scenarioFixPhase wired into adwSdlc
     And the proof file contains pass/fail results per tag
 
   @adw-399
-  Scenario: scenarioTestPhase returns proofPath to the generated proof file
+  Scenario: scenarioTestPhase returns scenarioProof with path to generated proof file
     Given a workflow config for issue 42
     When executeScenarioTestPhase completes successfully
-    Then the result includes a "proofPath" property
-    And the proofPath points to the scenario_proof.md file in the agent state directory
+    Then the result includes a "scenarioProof" property
+    And the scenarioProof contains the path to scenario_proof.md in the agent state directory
 
   # ===================================================================
   # 5. scenarioTestPhase — pass/fail return
   # ===================================================================
 
   @adw-399
-  Scenario: scenarioTestPhase returns scenariosPassed true when all scenarios pass
+  Scenario: scenarioTestPhase returns hasBlockerFailures false when all scenarios pass
     Given all @adw-42 and @regression scenarios pass
     When executeScenarioTestPhase completes
-    Then the result has scenariosPassed set to true
+    Then the result scenarioProof has hasBlockerFailures set to false
 
   @adw-399
-  Scenario: scenarioTestPhase returns scenariosPassed false when scenarios fail
-    Given some @adw-42 scenarios fail
+  Scenario: scenarioTestPhase returns hasBlockerFailures true when blocker scenarios fail
+    Given some @adw-42 scenarios fail with blocker status
     When executeScenarioTestPhase completes
-    Then the result has scenariosPassed set to false
-    And the result includes the failure details
+    Then the result scenarioProof has hasBlockerFailures set to true
+    And the scenarioProof includes the failure details per tag
 
   # ===================================================================
   # 6. scenarioFixPhase.ts — module existence and exports
@@ -255,7 +255,7 @@ Feature: scenarioTestPhase + scenarioFixPhase wired into adwSdlc
   @adw-399
   Scenario: Retry loop exits when scenarios pass
     Given adwSdlc.tsx is executing the scenario retry loop
-    When executeScenarioTestPhase returns scenariosPassed true
+    When executeScenarioTestPhase returns scenarioProof with hasBlockerFailures false
     Then the retry loop exits
     And the workflow proceeds to the review phase
 
@@ -263,7 +263,7 @@ Feature: scenarioTestPhase + scenarioFixPhase wired into adwSdlc
   Scenario: Retry loop exits after maximum attempts exhausted
     Given adwSdlc.tsx is executing the scenario retry loop
     And MAX_TEST_RETRY_ATTEMPTS is 5
-    When every scenarioTestPhase attempt returns scenariosPassed false
+    When every scenarioTestPhase attempt returns scenarioProof with hasBlockerFailures true
     Then the retry loop exits after 5 fix-retest cycles
     And the workflow reports scenario failure
 
