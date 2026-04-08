@@ -111,9 +111,12 @@ export function findFunctionUsageIndex(content: string, funcName: string): numbe
   // Direct call: funcName(
   const directIdx = content.indexOf(`${funcName}(`);
   if (directIdx !== -1) return directIdx;
-  // Passed as callback to runPhase: , funcName)
+  // Passed as callback to runPhase (last arg): , funcName)
   const callbackIdx = content.indexOf(`, ${funcName})`);
   if (callbackIdx !== -1) return callbackIdx;
+  // Passed as callback to runPhase (non-last arg): , funcName,
+  const middleArgIdx = content.indexOf(`, ${funcName},`);
+  if (middleArgIdx !== -1) return middleArgIdx;
   // Passed in array to runPhasesParallel: , funcName]
   const arrayLastIdx = content.indexOf(`, ${funcName}]`);
   if (arrayLastIdx !== -1) return arrayLastIdx;
