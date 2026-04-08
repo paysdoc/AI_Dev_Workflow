@@ -28,3 +28,5 @@ output.jsonl
 # cursor hooks logs
 .cursor/logs/
 .cursor/mcp.json
+# ADW: copied slash commands (do not commit)
+.claude/commands/resolve_failed_e2e_test.md
