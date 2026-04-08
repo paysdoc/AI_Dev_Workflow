@@ -55,7 +55,7 @@ export type SlashCommand =
   // Test commands
   | '/test'
   | '/resolve_failed_test'
-  | '/resolve_failed_e2e_test'
+  | '/resolve_failed_scenario'
   // Review and patch commands
   | '/review'
   | '/patch'

@@ -31,6 +31,8 @@ export {
   executeAutoMergePhase,
   executeDiffEvaluationPhase,
   type DiffEvaluationPhaseResult,
+  executeScenarioTestPhase,
+  executeScenarioFixPhase,
   completeWorkflow,
   handleWorkflowError,
   handleRateLimitPause,

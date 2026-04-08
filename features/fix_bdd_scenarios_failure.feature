@@ -11,18 +11,18 @@ Feature: Fix BDD scenarios failure that blocks PR creation
 
   # ── 1. Test phase must NOT run BDD scenarios ───────────────────────────────
 
-  @adw-8fns89-error-in-issue-288 @regression
-  Scenario: testPhase.ts does not import or call any BDD scenario runner
-    Given "adws/phases/testPhase.ts" is read
+  @adw-8fns89-error-in-issue-288 @adw-399 @regression
+  Scenario: unitTestPhase.ts does not import or call any BDD scenario runner
+    Given "adws/phases/unitTestPhase.ts" is read
     Then the file does not contain "runBddScenariosWithRetry"
     And the file does not contain "runScenariosByTag"
     And the file does not contain "bddScenarioRunner"
     And the file does not contain "Phase: BDD Scenarios"
     And the file does not contain "Phase 2: BDD Scenarios"
 
-  @adw-8fns89-error-in-issue-288 @regression
-  Scenario: testPhase.ts logs success message after skipping disabled unit tests
-    Given "adws/phases/testPhase.ts" is read
+  @adw-8fns89-error-in-issue-288 @adw-399 @regression
+  Scenario: unitTestPhase.ts logs success message after skipping disabled unit tests
+    Given "adws/phases/unitTestPhase.ts" is read
     Then the file contains "Unit tests disabled"
     And the file does not contain "BDD scenarios failed"
 

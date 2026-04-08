@@ -310,7 +310,35 @@ Feature: scenarioTestPhase + scenarioFixPhase wired into adwSdlc
     And it does NOT call executeScenarioTestPhase or executeScenarioFixPhase
 
   # ===================================================================
-  # 16. TypeScript type-check passes
+  # 16. Unit tests for scenarioTestPhase
+  # ===================================================================
+
+  @adw-399
+  Scenario: scenarioTestPhase has unit tests covering dev-server-decision branch
+    Given unit test files exist for scenarioTestPhase
+    Then there is a test case where Start Dev Server is configured and withDevServer is called
+    And there is a test case where Start Dev Server is N/A and withDevServer is not called
+
+  @adw-399
+  Scenario: scenarioTestPhase has unit tests covering tag filter
+    Given unit test files exist for scenarioTestPhase
+    Then there is a test case verifying the tag filter includes "@adw-{issueNumber}"
+    And there is a test case verifying the tag filter includes "@regression"
+
+  @adw-399
+  Scenario: scenarioTestPhase has unit tests covering proof generation
+    Given unit test files exist for scenarioTestPhase
+    Then there is a test case verifying scenario_proof.md is written to the proof directory
+    And there is a test case verifying the proof file contains per-tag results
+
+  @adw-399
+  Scenario: scenarioTestPhase has unit tests covering mocked subprocess output
+    Given unit test files exist for scenarioTestPhase
+    Then there is a test case where the subprocess exits with code 0 and the tag is marked passed
+    And there is a test case where the subprocess exits with non-zero code and the tag is marked failed
+
+  # ===================================================================
+  # 17. TypeScript type-check passes
   # ===================================================================
 
   @adw-399 @regression

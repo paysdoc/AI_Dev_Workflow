@@ -13,21 +13,22 @@ Feature: Wire executeStepDefPhase into orchestrators
   # 1. adwSdlc.tsx — stepDefPhase wired between build and test
   # ===================================================================
 
-  @adw-397 @regression
-  Scenario: adwSdlc.tsx includes stepDefPhase between build and test
+  @adw-397 @adw-399 @regression
+  Scenario: adwSdlc.tsx includes stepDefPhase between build and unitTest
     Given the file "adws/adwSdlc.tsx" is read
     Then the phase ordering should be:
-      | phase              |
-      | install            |
-      | plan + scenarios   |
-      | alignment          |
-      | build              |
-      | stepDef            |
-      | test               |
-      | review             |
-      | document           |
-      | kpi                |
-      | pr                 |
+      | phase                         |
+      | install                       |
+      | plan + scenarios              |
+      | alignment                     |
+      | build                         |
+      | stepDef                       |
+      | unitTest                      |
+      | scenarioTest [-> fix -> loop] |
+      | review                        |
+      | document                      |
+      | kpi                           |
+      | pr                            |
 
   @adw-397
   Scenario: adwSdlc.tsx imports executeStepDefPhase

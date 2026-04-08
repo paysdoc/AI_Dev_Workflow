@@ -82,7 +82,7 @@ Create the two new phase modules.
 - Constructs tag filter: runs both `@adw-{issueNumber}` and `@regression` tags via `runScenariosByTag`
 - Checks `config.projectConfig.commands.startDevServer` — if non-`N/A`, wraps scenario execution in `withDevServer` from `adws/core/devServerLifecycle.ts` using `config.applicationUrl` port and `config.projectConfig.commands.healthCheckPath`
 - Uses `runScenarioProof` from `regressionScenarioProof.ts` to run tag-driven scenarios and generate `scenario_proof.md` in the agent state directory
-- Returns `PhaseResult` with additional fields: `scenariosPassed`, `totalRetries`, `proofPath`
+- Returns `PhaseResult` with additional fields: `scenarioProof: ScenarioProofResult` (includes `hasBlockerFailures`, `proofPath`, and per-tag results), `totalRetries: number`
 - Follows the same pattern as `testPhase.ts` for cost tracking, state logging, and board status
 
 **`scenarioFixPhase.ts`**:
@@ -104,7 +104,7 @@ Wire the new phases into the SDLC orchestrator with the retry loop.
    - Loop until pass or max retries exhausted
    - On exhaustion, report failure and exit
 5. Override `scenariosMd` to empty string when calling `executeReviewPhase` so the review phase skips scenario execution (SDLC only — scenarios already ran in the dedicated phase)
-6. Pass `scenarioTestResult.proofPath` to review or store it in the workflow context for the review to read
+6. Pass `scenarioTestResult.scenarioProof.proofPath` to review or store it in the workflow context for the review to read
 
 ## Step by Step Tasks
 Execute every step in order, top to bottom.
@@ -151,7 +151,7 @@ Execute every step in order, top to bottom.
 ### Step 5: Create `adws/phases/scenarioTestPhase.ts`
 - Create the new phase file following the `PhaseResult` interface pattern from `testPhase.ts` and `regressionScenarioProof.ts`
 - The function signature: `export async function executeScenarioTestPhase(config: WorkflowConfig): Promise<ScenarioTestPhaseResult>`
-- `ScenarioTestPhaseResult` extends `PhaseResult` with: `scenariosPassed: boolean`, `totalRetries: number`, `proofPath: string`
+- `ScenarioTestPhaseResult` extends `PhaseResult` with: `scenarioProof: ScenarioProofResult` (includes `hasBlockerFailures`, `proofPath`, and per-tag results), `totalRetries: number`
 - Implementation:
   1. Read `config.projectConfig.commands.runScenariosByTag` — if `N/A` or empty, skip gracefully (return passed with no proof)
   2. Move board status to InProgress
@@ -190,16 +190,16 @@ Execute every step in order, top to bottom.
      ```
      let scenarioRetries = 0;
      let scenarioResult = await runPhase(config, tracker, executeScenarioTestPhase, 'scenarioTest');
-     while (!scenarioResult.scenariosPassed && scenarioRetries < MAX_TEST_RETRY_ATTEMPTS) {
+     while (scenarioResult.scenarioProof.hasBlockerFailures && scenarioRetries < MAX_TEST_RETRY_ATTEMPTS) {
        const fixWrapper = (cfg) => executeScenarioFixPhase(cfg, scenarioResult.scenarioProof);
        await runPhase(config, tracker, fixWrapper, 'scenarioFix');
        scenarioResult = await runPhase(config, tracker, executeScenarioTestPhase);
        scenarioRetries++;
      }
-     if (!scenarioResult.scenariosPassed) { /* report failure and exit */ }
+     if (scenarioResult.scenarioProof.hasBlockerFailures) { /* report failure and exit */ }
      ```
 - Override `scenariosMd` for the review phase: wrap `executeReviewPhase` in a closure that temporarily overrides `config.projectConfig.scenariosMd` to `''` before calling it, then restores it. Or more cleanly: create a wrapper function that modifies `config.projectConfig.scenariosMd` to `''`, calls `executeReviewPhase`, then restores the original value.
-- Update the metadata written at workflow end to include `scenarioTestsPassed` from the scenario result
+- Update the metadata written at workflow end to include `scenarioProof.hasBlockerFailures` from the scenario result
 
 ### Step 9: Update `README.md` project structure
 - In the project structure section:
