@@ -317,6 +317,8 @@ adws/                   # ADW workflow system
 │   ├── schemaProbe.ts       # Schema probe utility
 │   └── types.ts
 ├── phases/             # Workflow phase implementations
+│   ├── __tests__/      # Vitest unit tests
+│   │   └── scenarioTestPhase.test.ts
 │   ├── alignmentPhase.ts  # Single-pass alignment phase
 │   ├── autoMergePhase.ts  # Auto-approve and merge PR after review passes
 │   ├── diffEvaluationPhase.ts  # LLM diff evaluation phase (safe vs regression_possible)
