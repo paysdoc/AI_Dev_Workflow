@@ -16,7 +16,6 @@
 import { Given, When, Then } from '@cucumber/cucumber';
 import { existsSync, readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
-import { execSync } from 'child_process';
 import assert from 'assert';
 import { sharedCtx, findFunctionUsageIndex } from './commonSteps.ts';
 
@@ -645,20 +644,5 @@ Then('the workflow reports scenario failure', function () {
 
 // Note: When('{string} is run') is already defined in removeUnitTestsSteps.ts.
 // It stores the result in this.__commandResult (spawnSync result).
-
-Then('the command exits with code 0', function (this: Record<string, unknown>) {
-  const result = this.__commandResult as { status: number | null } | undefined;
-  const exitCode = result?.status ?? 0;
-  assert.strictEqual(exitCode, 0, `Expected TypeScript compilation to succeed (exit 0)`);
-});
-
-Then('{string} also exits with code 0', function (_command: string) {
-  // The command was already run by the When step — if we're here, compilation passed.
-  // For the "also" check, we verify via the shared result or run a direct check.
-  try {
-    execSync(_command, { cwd: ROOT, stdio: 'pipe' });
-  } catch (err: unknown) {
-    const exitCode = (err as { status?: number }).status ?? 1;
-    assert.strictEqual(exitCode, 0, `Expected "${_command}" to exit with code 0, got ${exitCode}`);
-  }
-});
+// The Then steps below use the parameterized wireExtractorSteps.ts definitions
+// to avoid ambiguity with the literal-0 variants that previously lived here.

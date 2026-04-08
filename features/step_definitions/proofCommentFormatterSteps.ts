@@ -48,7 +48,6 @@ function makeTagResult(overrides: Partial<TagProofResult> = {}): TagProofResult 
 function makeReviewIssue(overrides: Partial<ReviewIssue> = {}): ReviewIssue {
   return {
     reviewIssueNumber: 1,
-    screenshotPath: '',
     issueDescription: 'Test issue description',
     issueResolution: 'Fix it',
     issueSeverity: 'tech-debt',
