@@ -77,6 +77,14 @@
     - When troubleshooting garbage commit messages containing ENOENT or spawn error strings
     - When extending `NON_RETRYABLE_PATTERNS` with new non-retryable error classes
 
+- app_docs/feature-4omdx0-remove-legacy-e2e-machinery.md
+  - Conditions:
+    - When working with `adws/agents/testRetry.ts` or `testAgent.ts` and wondering why E2E functions are absent
+    - When encountering `runE2ETestsWithRetry`, `runPlaywrightE2ETests`, or `discoverE2ETestFiles` references in git history
+    - When looking for the `runE2ETests` config key in `CommandsConfig` or `.adw/commands.md`
+    - When understanding why `prReviewCompletion.ts` only runs unit tests and not E2E tests
+    - When updating a target repo that still has a `## Run E2E Tests` entry in `.adw/commands.md`
+
 - app_docs/feature-2sqt1r-fix-rate-limit-plan-phase.md
   - Conditions:
     - When working with `adws/adwPlan.tsx` or adding rate limit handling to an orchestrator
