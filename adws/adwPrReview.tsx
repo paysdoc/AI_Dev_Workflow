@@ -59,72 +59,72 @@ async function main(): Promise<void> {
   try {
     // Run install phase inline (PRReviewWorkflowConfig is not compatible with executeInstallPhase)
     try {
-      const installAgentStatePath = AgentStateManager.initializeState(config.adwId, 'install-agent', config.orchestratorStatePath);
-      const installResult = await runInstallAgent(config.prNumber, config.adwId, config.logsDir, installAgentStatePath, config.worktreePath, config.prDetails.body);
+      const installAgentStatePath = AgentStateManager.initializeState(config.base.adwId, 'install-agent', config.base.orchestratorStatePath);
+      const installResult = await runInstallAgent(config.prNumber, config.base.adwId, config.base.logsDir, installAgentStatePath, config.base.worktreePath, config.prDetails.body);
       if (installResult.success) {
-        const jsonlPath = path.join(config.logsDir, 'install-agent.jsonl');
+        const jsonlPath = path.join(config.base.logsDir, 'install-agent.jsonl');
         const contextString = extractInstallContext(jsonlPath);
         if (contextString) {
-          const cacheDir = path.join('agents', config.adwId);
+          const cacheDir = path.join('agents', config.base.adwId);
           fs.mkdirSync(cacheDir, { recursive: true });
           fs.writeFileSync(path.join(cacheDir, 'install_cache.md'), contextString, 'utf-8');
-          config.installContext = contextString;
+          config.base.installContext = contextString;
         }
         totalCostUsd += installResult.totalCostUsd ?? 0;
         if (installResult.modelUsage) totalModelUsage = mergeModelUsageMaps(totalModelUsage, installResult.modelUsage);
-        persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
+        persistTokenCounts(config.base.orchestratorStatePath, totalCostUsd, totalModelUsage);
       }
     } catch (installError) {
       const msg = installError instanceof Error ? installError.message : String(installError);
-      AgentStateManager.appendLog(config.orchestratorStatePath, `Install phase error (non-fatal): ${msg}`);
+      AgentStateManager.appendLog(config.base.orchestratorStatePath, `Install phase error (non-fatal): ${msg}`);
     }
 
     const planResult = await executePRReviewPlanPhase(config);
     totalCostUsd += planResult.costUsd;
     totalModelUsage = mergeModelUsageMaps(totalModelUsage, planResult.modelUsage);
-    persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
+    persistTokenCounts(config.base.orchestratorStatePath, totalCostUsd, totalModelUsage);
     if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeDisplayTokens(totalModelUsage);
 
-    config.totalModelUsage = totalModelUsage;
+    config.base.totalModelUsage = totalModelUsage;
     const buildResult = await executePRReviewBuildPhase(config, planResult.planOutput);
     totalCostUsd += buildResult.costUsd;
     totalModelUsage = mergeModelUsageMaps(totalModelUsage, buildResult.modelUsage);
-    persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
+    persistTokenCounts(config.base.orchestratorStatePath, totalCostUsd, totalModelUsage);
     if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeDisplayTokens(totalModelUsage);
 
     try {
       const stepDefConfig = {
-        orchestratorStatePath: config.orchestratorStatePath,
-        adwId: config.adwId,
-        issueNumber: config.issueNumber ?? config.prNumber,
+        orchestratorStatePath: config.base.orchestratorStatePath,
+        adwId: config.base.adwId,
+        issueNumber: config.base.issueNumber ?? config.prNumber,
         issue: { body: config.prDetails.body },
-        worktreePath: config.worktreePath,
-        logsDir: config.logsDir,
-        installContext: config.installContext,
+        worktreePath: config.base.worktreePath,
+        logsDir: config.base.logsDir,
+        installContext: config.base.installContext,
         ctx: {},
         topLevelStatePath: '',
       } as unknown as WorkflowConfig;
       const stepDefResult = await executeStepDefPhase(stepDefConfig);
       totalCostUsd += stepDefResult.costUsd;
       totalModelUsage = mergeModelUsageMaps(totalModelUsage, stepDefResult.modelUsage);
-      persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
+      persistTokenCounts(config.base.orchestratorStatePath, totalCostUsd, totalModelUsage);
     } catch (stepDefError) {
       const msg = stepDefError instanceof Error ? stepDefError.message : String(stepDefError);
-      AgentStateManager.appendLog(config.orchestratorStatePath, `Step def phase error (non-fatal): ${msg}`);
+      AgentStateManager.appendLog(config.base.orchestratorStatePath, `Step def phase error (non-fatal): ${msg}`);
     }
 
-    config.totalModelUsage = totalModelUsage;
+    config.base.totalModelUsage = totalModelUsage;
     const testResult = await executePRReviewTestPhase(config);
     totalCostUsd += testResult.costUsd;
     totalModelUsage = mergeModelUsageMaps(totalModelUsage, testResult.modelUsage);
-    persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
+    persistTokenCounts(config.base.orchestratorStatePath, totalCostUsd, totalModelUsage);
     if (RUNNING_TOKENS) config.ctx.runningTokenTotal = computeDisplayTokens(totalModelUsage);
 
     await completePRReviewWorkflow(config, totalModelUsage);
   } catch (error) {
     if (error instanceof RateLimitError) {
       log(`PR Review workflow rate-limited at '${error.phaseName}'. Manual restart required once limit clears.`, 'warn');
-      persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
+      persistTokenCounts(config.base.orchestratorStatePath, totalCostUsd, totalModelUsage);
       process.exit(0);
     }
     handlePRReviewWorkflowError(config, error, totalCostUsd, totalModelUsage);

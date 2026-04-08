@@ -8,6 +8,13 @@
     - When working with `adws/phases/stepDefPhase.ts` or `executeStepDefPhase`
     - When understanding how `adwPrReview.tsx` adapts `PRReviewWorkflowConfig` to call `WorkflowConfig`-typed phases
 
+- app_docs/feature-8zhro4-prreviewworkflowconfig-composition.md
+  - Conditions:
+    - When working with `PRReviewWorkflowConfig` or `adws/phases/prReviewPhase.ts`
+    - When adding a new field to `PRReviewWorkflowConfig` (decide: top-level PR-specific, or `base`)
+    - When migrating `adwPrReview.tsx` to use `phaseRunner` (this refactor is the prerequisite)
+    - When troubleshooting field-access patterns in PR review phase functions
+
 - app_docs/feature-dcy9qz-merge-orchestrator-cron-handoff.md
   - Conditions:
     - When working with `adws/adwMerge.tsx` or the merge orchestrator spawn flow
