@@ -12,11 +12,13 @@
  * 2. Plan Phase + Scenario Phase (parallel): run plan agent, write BDD scenarios
  * 3. Alignment Phase: single-pass alignment of plan against scenarios
  * 4. Build Phase: run build agent, commit implementation
- * 5. Test Phase: optionally run unit tests (unit only)
- * 6. Review Phase: review implementation + run BDD scenarios, patch blockers, retry
- * 7. PR Phase: create pull request (only after review passes)
- * 8. Approve PR + write awaiting_merge to state (API calls only — no worktree required)
- * 9. Finalize: update state, post completion comment
+ * 5. Step Def Phase: generate BDD step definitions
+ * 6. Unit Test Phase: optionally run unit tests (unit only)
+ * 7. Scenario Test Phase [→ Scenario Fix Phase → retry]: run BDD scenarios, fix failures
+ * 8. Review Phase: review implementation (reads scenario proof, does not run scenarios)
+ * 9. PR Phase: create pull request (only after review passes)
+ * 10. Approve PR + write awaiting_merge to state (API calls only — no worktree required)
+ * 11. Finalize: update state, post completion comment
  *
  * Environment Requirements:
  * - ANTHROPIC_API_KEY: Anthropic API key
@@ -26,7 +28,7 @@
  * - MAX_REVIEW_RETRY_ATTEMPTS: Maximum retry attempts for review-patch loop (default: 3)
  */
 
-import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId, AgentStateManager, log } from './core';
+import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId, AgentStateManager, log, MAX_TEST_RETRY_ATTEMPTS } from './core';
 import { CostTracker, runPhase, runPhasesParallel } from './core/phaseRunner';
 import {
   initializeWorkflow,
@@ -37,11 +39,14 @@ import {
   executeBuildPhase,
   executeStepDefPhase,
   executeUnitTestPhase,
+  executeScenarioTestPhase,
+  executeScenarioFixPhase,
   executePRPhase,
   executeReviewPhase,
   handleWorkflowError,
 } from './workflowPhases';
 import { persistTokenCounts } from './cost';
+import type { WorkflowConfig } from './phases';
 import { approvePR, isGitHubAppConfigured, issueHasLabel, commentOnIssue, type RepoInfo } from './github';
 import { extractPrNumber } from './adwBuildHelpers';
 
@@ -74,7 +79,27 @@ async function main(): Promise<void> {
     await runPhase(config, tracker, executeBuildPhase);
     await runPhase(config, tracker, executeStepDefPhase, 'stepDef');
     const testResult = await runPhase(config, tracker, executeUnitTestPhase);
-    const reviewResult = await runPhase(config, tracker, executeReviewPhase);
+
+    // Scenario test → fix retry loop (orchestrator-level, bounded by MAX_TEST_RETRY_ATTEMPTS)
+    let scenarioRetries = 0;
+    for (let attempt = 0; attempt < MAX_TEST_RETRY_ATTEMPTS; attempt++) {
+      const scenarioResult = await runPhase(config, tracker, executeScenarioTestPhase);
+      if (!scenarioResult.scenarioProof?.hasBlockerFailures) break;
+      scenarioRetries++;
+      if (attempt < MAX_TEST_RETRY_ATTEMPTS - 1) {
+        const fixWrapper = (cfg: WorkflowConfig) =>
+          executeScenarioFixPhase(cfg, scenarioResult.scenarioProof!);
+        await runPhase(config, tracker, fixWrapper);
+      }
+    }
+
+    // Pass empty scenariosMd to review so Review does not run scenarios itself.
+    // Review reads the scenario_proof.md written by scenarioTestPhase instead.
+    const executeReviewWithoutScenarios = (cfg: WorkflowConfig) => {
+      const patchedConfig = { ...cfg, projectConfig: { ...cfg.projectConfig, scenariosMd: '' } };
+      return executeReviewPhase(patchedConfig);
+    };
+    const reviewResult = await runPhase(config, tracker, executeReviewWithoutScenarios);
     await runPhase(config, tracker, executePRPhase);
 
     // Post-PR: approve and write awaiting_merge (API calls only — no worktree required).
@@ -100,6 +125,7 @@ async function main(): Promise<void> {
         totalCostUsd: tracker.totalCostUsd,
         unitTestsPassed: testResult.unitTestsPassed,
         totalTestRetries: testResult.totalRetries,
+        scenarioRetries,
         reviewPassed: reviewResult.reviewPassed,
         totalReviewRetries: reviewResult.totalRetries,
       },
