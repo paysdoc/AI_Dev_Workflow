@@ -392,7 +392,6 @@ adws/                   # ADW workflow system
 │   ├── types.ts        # R2 type definitions
 │   ├── uploadService.ts  # File upload logic
 │   └── index.ts
-├── known_issues.md     # Known issues registry
 ├── adwBuild.tsx        # Orchestrators (individual & combined)
 ├── adwChore.tsx        # Chore pipeline with LLM diff gate (auto-merge)
 ├── adwMerge.tsx        # Merge orchestrator (awaiting_merge handoff)
@@ -412,7 +411,6 @@ adws/                   # ADW workflow system
 ├── adwTest.tsx
 ├── healthCheck.tsx     # Health check orchestrator
 ├── healthCheckChecks.ts
-├── known_issues.md     # Known issues registry
 ├── workflowPhases.ts   # Workflow phase re-exports
 ├── index.ts
 ├── tsconfig.json

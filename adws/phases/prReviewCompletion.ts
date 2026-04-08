@@ -21,7 +21,8 @@ import type { PRReviewWorkflowConfig } from './prReviewPhase';
  * Uses `config.repoInfo` for external repository API calls when targeting a different repo.
  */
 export async function executePRReviewTestPhase(config: PRReviewWorkflowConfig): Promise<{ costUsd: number; modelUsage: ModelUsageMap }> {
-  const { prNumber, prDetails, unaddressedComments, worktreePath, logsDir, orchestratorStatePath, ctx, applicationUrl, repoContext } = config;
+  const { prNumber, prDetails, unaddressedComments, ctx } = config;
+  const { worktreePath, logsDir, orchestratorStatePath, applicationUrl, repoContext } = config.base;
 
   if (repoContext) {
     postPRStageComment(repoContext, prNumber, 'pr_review_testing', ctx);
@@ -42,8 +43,8 @@ export async function executePRReviewTestPhase(config: PRReviewWorkflowConfig): 
     log(`PR review test phase: context compacted, spawning continuation #${continuationNumber}`, 'info');
     AgentStateManager.appendLog(orchestratorStatePath, `PR review test phase context compacted (continuation ${continuationNumber})`);
     // Post to associated issue when available; PRReviewWorkflowContext extends WorkflowContext
-    if (repoContext && config.issueNumber) {
-      postIssueStageComment(repoContext, config.issueNumber, 'test_compaction_recovery', ctx);
+    if (repoContext && config.base.issueNumber) {
+      postIssueStageComment(repoContext, config.base.issueNumber, 'test_compaction_recovery', ctx);
     }
   };
 
@@ -120,13 +121,13 @@ async function buildPRReviewCostSection(config: PRReviewWorkflowConfig, modelUsa
   const costBreakdown = await buildCostBreakdown(modelUsage, [...COST_REPORT_CURRENCIES]);
   ctx.costBreakdown = costBreakdown;
 
-  if (config.issueNumber && config.repoContext) {
+  if (config.base.issueNumber && config.base.repoContext) {
     try {
-      const repoName = config.repoContext.repoId.repo;
+      const repoName = config.base.repoContext.repoId.repo;
 
       const phaseCostRecords = createPhaseCostRecords({
-        workflowId: config.adwId,
-        issueNumber: config.issueNumber,
+        workflowId: config.base.adwId,
+        issueNumber: config.base.issueNumber,
         phase: 'pr_review',
         status: PhaseCostStatus.Success,
         retryCount: 0,
@@ -150,8 +151,8 @@ async function buildPRReviewCostSection(config: PRReviewWorkflowConfig, modelUsa
   } else {
     // No issue number/repoContext — still pre-compute cost section from modelUsage
     const phaseCostRecords = createPhaseCostRecords({
-      workflowId: config.adwId,
-      issueNumber: config.issueNumber ?? 0,
+      workflowId: config.base.adwId,
+      issueNumber: config.base.issueNumber,
       phase: 'pr_review',
       status: PhaseCostStatus.Success,
       retryCount: 0,
@@ -169,7 +170,8 @@ async function buildPRReviewCostSection(config: PRReviewWorkflowConfig, modelUsa
  * Uses `config.repoInfo` for external repository API calls when targeting a different repo.
  */
 export async function completePRReviewWorkflow(config: PRReviewWorkflowConfig, modelUsage?: ModelUsageMap): Promise<void> {
-  const { prNumber, prDetails, unaddressedComments, worktreePath, logsDir, orchestratorStatePath, ctx, repoContext } = config;
+  const { prNumber, prDetails, unaddressedComments, ctx } = config;
+  const { worktreePath, logsDir, orchestratorStatePath, repoContext } = config.base;
 
   // Build cost section for GitHub comment and write new-format CSV
   if (modelUsage && Object.keys(modelUsage).length > 0) {
@@ -186,8 +188,8 @@ export async function completePRReviewWorkflow(config: PRReviewWorkflowConfig, m
   if (repoContext) {
     postPRStageComment(repoContext, prNumber, 'pr_review_pushed', ctx);
     postPRStageComment(repoContext, prNumber, 'pr_review_completed', ctx);
-    if (config.issueNumber) {
-      await repoContext.issueTracker.moveToStatus(config.issueNumber, BoardStatus.Review);
+    if (config.base.issueNumber) {
+      await repoContext.issueTracker.moveToStatus(config.base.issueNumber, BoardStatus.Review);
     }
   }
 
@@ -209,7 +211,8 @@ export async function completePRReviewWorkflow(config: PRReviewWorkflowConfig, m
  * Uses `config.repoInfo` for external repository API calls when targeting a different repo.
  */
 export function handlePRReviewWorkflowError(config: PRReviewWorkflowConfig, error: unknown, costUsd?: number, modelUsage?: ModelUsageMap): never {
-  const { prNumber, orchestratorStatePath, ctx, repoContext } = config;
+  const { prNumber, ctx } = config;
+  const { orchestratorStatePath, repoContext } = config.base;
 
   if (costUsd !== undefined && modelUsage) {
     persistTokenCounts(orchestratorStatePath, costUsd, modelUsage);
