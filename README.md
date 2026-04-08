@@ -200,7 +200,9 @@ Docker execution is entirely optional — the test suite runs identically on the
 └── settings.json
 adws/                   # ADW workflow system
 ├── __tests__/          # Vitest integration tests
-│   └── adwMerge.test.ts
+│   ├── adwMerge.test.ts
+│   ├── issueDependencies.test.ts
+│   └── triggerWebhook.test.ts
 ├── agents/             # Claude Code agent runners
 │   ├── __tests__/      # Vitest unit tests
 │   │   └── gitAgent.test.ts
@@ -410,7 +412,6 @@ adws/                   # ADW workflow system
 ├── adwTest.tsx
 ├── healthCheck.tsx     # Health check orchestrator
 ├── healthCheckChecks.ts
-├── known_issues.md     # Known issues registry
 ├── workflowPhases.ts   # Workflow phase re-exports
 ├── index.ts
 ├── tsconfig.json
