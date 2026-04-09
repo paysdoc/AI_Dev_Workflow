@@ -1,5 +1,13 @@
 # Conditional Documentation
 
+- app_docs/feature-670i6z-dead-schema-cleanup.md
+  - Conditions:
+    - When working with `adws/core/projectConfig.ts` and the `CommandsConfig` interface or `HEADING_TO_KEY` map
+    - When adding or removing a schema field from `CommandsConfig` and need to know all three touch-points
+    - When troubleshooting unexpected fields (or missing fields) in `.adw/commands.md` parsing
+    - When working with `AgentIdentifier` union type in `adws/types/agentTypes.ts`
+    - When wondering why `REVIEW_AGENT_COUNT` is not a valid env var (review parallelism was removed in #401)
+
 - app_docs/feature-s59wpc-adwprreview-phaserunner-migration.md
   - Conditions:
     - When working with `adws/adwPrReview.tsx` or the PR review orchestrator
@@ -825,3 +833,10 @@
     - When wiring a new commit+push step in the PR review orchestrator (`adwPrReview.tsx`)
     - When troubleshooting why `completePRReviewWorkflow` no longer calls `runCommitAgent` or `pushBranch`
     - When understanding the anti-pattern resolution described in `specs/prd/test-review-refactor.md`
+
+- app_docs/feature-f1f94g-pr-review-distribute-board-move.md
+  - Conditions:
+    - When working with `completePRReviewWorkflow` in `adws/phases/prReviewCompletion.ts` and expecting it to move the board status (it no longer does)
+    - When working with `executePRReviewCommitPushPhase` in `adws/phases/prReviewPhase.ts` and the board move timing
+    - When troubleshooting why the issue does not move to `Review` status until the commit+push phase (not the completion phase)
+    - When adding a new board status transition to the PR review workflow and choosing which phase owns it

@@ -702,7 +702,6 @@ Target repositories can provide project-specific configuration in a `.adw/` dire
   - `## Run Tests` — e.g., `bun run test`, `pytest`
   - `## Run Build` — e.g., `bun run build`, `cargo build`
   - `## Start Dev Server` — e.g., `bun run dev`, `python manage.py runserver`
-  - `## Prepare App` — Multi-step app preparation instructions (supports `{PORT}` placeholder)
   - `## Run E2E Tests` — e.g., `bunx playwright test`, `cypress run`
   - `## Library Install Command` — e.g., `bun install`, `pip install`
   - `## Script Execution` — e.g., `bunx tsx`, `python`

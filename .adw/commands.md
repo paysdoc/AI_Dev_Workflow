@@ -21,8 +21,8 @@ bun run build
 ## Start Dev Server
 N/A
 
-## Prepare App
-bun install
+## Health Check Path
+/
 
 ## Additional Type Checks
 bunx tsc --noEmit -p adws/tsconfig.json
