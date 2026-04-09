@@ -373,7 +373,7 @@ adws/                   # ADW workflow system
 │   │   ├── triggerCronAwaitingMerge.test.ts
 │   │   └── webhookHandlers.test.ts
 │   ├── autoMergeHandler.ts  # Auto-merge approved PRs
-│   ├── cloudflareTunnel.tsx  # Cloudflare tunnel for webhooks
+│   ├── cancelHandler.ts  # Cancel directive handler
 │   ├── concurrencyGuard.ts
 │   ├── cronIssueFilter.ts  # Cron issue evaluation and filtering logic (testable, extracted from trigger_cron)
 │   ├── devServerJanitor.ts  # Janitor probe that kills stale dev server processes in target repo worktrees

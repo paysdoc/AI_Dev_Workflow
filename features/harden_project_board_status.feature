@@ -86,11 +86,14 @@ Feature: Harden project board status propagation
     Given "adws/providers/types.ts" is read
     Then the file contains "BoardStatus"
 
-  @adw-wrzj5j-harden-project-board @adw-tdlgz7-fix-boardstatus-enum @regression
+  @adw-wrzj5j-harden-project-board @adw-tdlgz7-fix-boardstatus-enum @adw-427 @regression
   Scenario: BoardStatus enum contains the expected values
     Given "adws/providers/types.ts" is read
     Then the file contains "In Progress"
     And the file contains "Review"
+    And the file contains "Blocked"
+    And the file contains "Todo"
+    And the file contains "Done"
     And the file does not contain "Building"
     And the file does not contain "Testing"
 

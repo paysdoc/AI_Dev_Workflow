@@ -848,3 +848,11 @@
     - When modifying cancel/clear directive handling in `trigger_cron.ts` or `trigger_webhook.ts`
     - When troubleshooting why `## Cancel` does not kill processes, remove worktrees, or clean state dirs
     - When adding a new cleanup step to the cancel sequence (process kill → worktree removal → state dir deletion → comment clearing)
+
+- app_docs/feature-qm6gwx-board-manager-provider.md
+  - Conditions:
+    - When working with `BoardManager`, `BoardStatus`, `BOARD_COLUMNS`, or `BoardColumnDefinition` in `adws/providers/types.ts`
+    - When adding or modifying board setup logic in `adws/phases/workflowInit.ts`
+    - When changing how terminal workflow errors move issues on the board (`handleWorkflowError`, `handlePRReviewWorkflowError`)
+    - When implementing `BoardManager` for a new platform (GitLab, Jira stubs exist)
+    - When troubleshooting why a project board was not created or columns are missing after a workflow run

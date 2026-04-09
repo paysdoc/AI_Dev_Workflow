@@ -252,8 +252,9 @@ export async function initializeWorkflow(
 
   // Create RepoContext for provider-agnostic operations
   let repoContext: RepoContext | undefined;
+  let repoIdForContext: RepoIdentifier | undefined;
   try {
-    const repoIdForContext = options?.repoId ?? (() => {
+    repoIdForContext = options?.repoId ?? (() => {
       const resolvedRepoInfo = repoInfo ?? getRepoInfo();
       return { owner: resolvedRepoInfo.owner, repo: resolvedRepoInfo.repo, platform: Platform.GitHub };
     })();
@@ -263,6 +264,25 @@ export async function initializeWorkflow(
     });
   } catch (error) {
     log(`Failed to create RepoContext (falling back to direct API calls): ${error}`, 'info');
+  }
+
+  // Fire-and-forget board setup — ensures the project board exists with all ADW columns
+  if (repoContext?.boardManager) {
+    const capturedBoardManager = repoContext.boardManager;
+    const capturedRepoName = repoIdForContext?.repo ?? '';
+    Promise.resolve().then(async () => {
+      try {
+        let boardId = await capturedBoardManager.findBoard();
+        if (!boardId) {
+          boardId = await capturedBoardManager.createBoard(capturedRepoName);
+          log(`Created project board "${capturedRepoName}"`, 'success');
+        }
+        await capturedBoardManager.ensureColumns(boardId);
+        log('Board columns verified', 'success');
+      } catch (error) {
+        log(`Board setup failed (non-blocking): ${error}`, 'warn');
+      }
+    });
   }
 
   // Initialize workflow context

@@ -1,4 +1,5 @@
 export { JiraIssueTracker, createJiraIssueTracker } from './jiraIssueTracker';
+export { createJiraBoardManager } from './jiraBoardManager';
 export { JiraApiClient } from './jiraApiClient';
 export type { JiraCloudAuth, JiraDataCenterAuth, JiraAuth } from './jiraApiClient';
 export { markdownToAdf, adfToPlainText } from './adfConverter';

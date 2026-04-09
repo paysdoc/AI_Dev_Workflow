@@ -10,6 +10,7 @@ import { createPhaseCostRecords, PhaseCostStatus } from '../cost';
 import { formatCostCommentSection } from '../cost/reporting/commentFormatter';
 import { postPRStageComment } from './phaseCommentHelpers';
 import type { PRReviewWorkflowConfig } from './prReviewPhase';
+import { BoardStatus } from '../providers/types';
 
 async function buildPRReviewCostSection(config: PRReviewWorkflowConfig, modelUsage: ModelUsageMap): Promise<void> {
   const { ctx } = config;
@@ -84,6 +85,7 @@ export function handlePRReviewWorkflowError(config: PRReviewWorkflowConfig, erro
   ctx.errorMessage = String(error);
   if (repoContext) {
     postPRStageComment(repoContext, prNumber, 'pr_review_error', ctx);
+    repoContext.issueTracker.moveToStatus(config.base.issueNumber, BoardStatus.Blocked).catch(() => {});
   }
 
   AgentStateManager.writeState(orchestratorStatePath, {

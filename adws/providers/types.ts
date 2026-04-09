@@ -66,8 +66,43 @@ export interface Issue {
  * Use these instead of raw strings when calling moveToStatus.
  */
 export enum BoardStatus {
+  Blocked = 'Blocked',
+  Todo = 'Todo',
   InProgress = 'In Progress',
   Review = 'Review',
+  Done = 'Done',
+}
+
+/**
+ * Defines a single column (status option) on the project board.
+ */
+export interface BoardColumnDefinition {
+  readonly order: number;
+  readonly status: BoardStatus;
+  readonly color: string;
+  readonly description: string;
+}
+
+/**
+ * The canonical set of ADW board columns, in display order.
+ * Colors and descriptions can only be set at column-creation time (GitHub API limitation).
+ */
+export const BOARD_COLUMNS: readonly BoardColumnDefinition[] = [
+  { order: 1, status: BoardStatus.Blocked, color: 'RED', description: 'This item cannot be completed' },
+  { order: 2, status: BoardStatus.Todo, color: 'GRAY', description: "This item hasn't been started" },
+  { order: 3, status: BoardStatus.InProgress, color: 'YELLOW', description: 'This is actively being worked on' },
+  { order: 4, status: BoardStatus.Review, color: 'PURPLE', description: 'This item is being peer reviewed' },
+  { order: 5, status: BoardStatus.Done, color: 'GREEN', description: 'This has been completed' },
+] as const;
+
+/**
+ * Interface for managing project boards across platforms.
+ * Provides board discovery, creation, and column configuration.
+ */
+export interface BoardManager {
+  findBoard(): Promise<string | null>;
+  createBoard(name: string): Promise<string>;
+  ensureColumns(boardId: string): Promise<boolean>;
 }
 
 /**
@@ -149,6 +184,7 @@ export interface CodeHost {
 export type RepoContext = Readonly<{
   issueTracker: IssueTracker;
   codeHost: CodeHost;
+  boardManager?: BoardManager;
   cwd: string;
   repoId: RepoIdentifier;
 }>;
