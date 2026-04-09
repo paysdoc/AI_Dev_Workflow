@@ -10,6 +10,7 @@ import { execSync } from 'child_process';
 import { join } from 'path';
 
 import {
+  type BoardManager,
   type CodeHost,
   type IssueTracker,
   type RepoContext,
@@ -19,6 +20,7 @@ import {
 } from './types';
 import { createGitHubIssueTracker } from './github/githubIssueTracker';
 import { createGitHubCodeHost } from './github/githubCodeHost';
+import { createGitHubBoardManager } from './github/githubBoardManager';
 import { createGitLabCodeHost } from './gitlab/gitlabCodeHost';
 import type { ProvidersConfig } from '../core/projectConfig';
 
@@ -216,6 +218,20 @@ export function resolveCodeHost(
 }
 
 /**
+ * Resolves a BoardManager implementation for the given code host platform.
+ * BoardManager is resolved from the code host platform, not the issue tracker.
+ */
+export function resolveBoardManager(
+  platform: Platform,
+  repoId: RepoIdentifier,
+): BoardManager {
+  if (platform === Platform.GitHub) {
+    return createGitHubBoardManager(repoId);
+  }
+  throw new Error(`Unsupported board manager platform: ${platform}`);
+}
+
+/**
  * Creates an immutable, validated RepoContext.
  *
  * Validates the repo identifier, working directory, and git remote,
@@ -246,5 +262,12 @@ export function createRepoContext(options: RepoContextOptions): RepoContext {
   const issueTracker = resolveIssueTracker(issueTrackerPlatform, repoId);
   const codeHost = resolveCodeHost(codeHostPlatform, repoId);
 
-  return Object.freeze({ issueTracker, codeHost, cwd, repoId });
+  let boardManager: BoardManager | undefined;
+  try {
+    boardManager = resolveBoardManager(codeHostPlatform, repoId);
+  } catch {
+    // BoardManager is optional — platforms without support simply omit it
+  }
+
+  return Object.freeze({ issueTracker, codeHost, boardManager, cwd, repoId });
 }

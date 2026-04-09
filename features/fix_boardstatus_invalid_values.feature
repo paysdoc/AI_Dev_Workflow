@@ -21,11 +21,14 @@ Feature: Fix BoardStatus enum contains only valid project board statuses
     Given "adws/providers/types.ts" is read
     Then the file does not contain "Testing"
 
-  @adw-tdlgz7-fix-boardstatus-enum @regression
-  Scenario: BoardStatus enum contains only InProgress and Review
+  @adw-tdlgz7-fix-boardstatus-enum @adw-427 @regression
+  Scenario: BoardStatus enum contains InProgress and Review
     Given "adws/providers/types.ts" is read
     Then the file contains "InProgress = 'In Progress'"
     And the file contains "Review = 'Review'"
+    And the file contains "Blocked = 'Blocked'"
+    And the file contains "Todo = 'Todo'"
+    And the file contains "Done = 'Done'"
 
   # ── Phase files use InProgress ──────────────────────────────────────────────
 
