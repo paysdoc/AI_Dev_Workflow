@@ -10,8 +10,8 @@
 
 import * as http from 'http';
 import { log, PullRequestWebhookPayload, allocateRandomPort, isPortAvailable, getTargetRepoWorkspacePath } from '../core';
-import { isActionableComment, isClearComment, isAdwRunningForIssue, truncateText, getRepoInfoFromPayload, getRepoInfo, activateGitHubAppAuth, ensureAppAuthForRepo } from '../github';
-import { clearIssueComments } from '../adwClearComments';
+import { isActionableComment, isCancelComment, isAdwRunningForIssue, truncateText, getRepoInfoFromPayload, getRepoInfo, fetchIssueCommentsRest, activateGitHubAppAuth, ensureAppAuthForRepo } from '../github';
+import { handleCancelDirective } from './cancelHandler';
 import { handlePullRequestEvent, handleIssueClosedEvent } from './webhookHandlers';
 import { validateWebhookSignature } from './webhookSignature';
 import { checkIssueEligibility } from './issueEligibility';
@@ -136,9 +136,17 @@ const server = http.createServer((req, res) => {
       const webhookRepoInfo = repoFullName ? getRepoInfoFromPayload(repoFullName) : undefined;
       const commentTargetRepoArgs = extractTargetRepoArgs(body);
       if (webhookRepoInfo) ensureCronProcess(webhookRepoInfo, commentTargetRepoArgs);
-      if (isClearComment(commentBody)) {
-        const r = clearIssueComments(issueNumber, webhookRepoInfo);
-        jsonResponse(res, 200, { status: 'cleared', issue: issueNumber, deleted: r.deleted });
+      if (isCancelComment(commentBody)) {
+        const cancelTargetRepoArgs = extractTargetRepoArgs(body);
+        const cancelParts = (cancelTargetRepoArgs.length >= 2 ? cancelTargetRepoArgs[1] : undefined)?.split('/');
+        const cancelCwd = cancelParts?.length === 2
+          ? getTargetRepoWorkspacePath(cancelParts[0], cancelParts[1])
+          : undefined;
+        const allComments = webhookRepoInfo
+          ? fetchIssueCommentsRest(issueNumber, webhookRepoInfo)
+          : [];
+        handleCancelDirective(issueNumber, allComments, webhookRepoInfo ?? getRepoInfo(), cancelCwd);
+        jsonResponse(res, 200, { status: 'cancelled', issue: issueNumber });
         return;
       }
       if (!isActionableComment(commentBody)) { jsonResponse(res, 200, { status: 'ignored' }); return; }
