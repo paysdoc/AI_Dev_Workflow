@@ -825,3 +825,10 @@
     - When wiring a new commit+push step in the PR review orchestrator (`adwPrReview.tsx`)
     - When troubleshooting why `completePRReviewWorkflow` no longer calls `runCommitAgent` or `pushBranch`
     - When understanding the anti-pattern resolution described in `specs/prd/test-review-refactor.md`
+
+- app_docs/feature-f1f94g-pr-review-distribute-board-move.md
+  - Conditions:
+    - When working with `completePRReviewWorkflow` in `adws/phases/prReviewCompletion.ts` and expecting it to move the board status (it no longer does)
+    - When working with `executePRReviewCommitPushPhase` in `adws/phases/prReviewPhase.ts` and the board move timing
+    - When troubleshooting why the issue does not move to `Review` status until the commit+push phase (not the completion phase)
+    - When adding a new board status transition to the PR review workflow and choosing which phase owns it

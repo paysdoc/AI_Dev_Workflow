@@ -8,7 +8,7 @@ import { log, setLogAdwId, ensureLogsDirectory, generateAdwId, type PRDetails, t
 import { fetchPRDetails, getUnaddressedComments, type PRReviewWorkflowContext, getRepoInfo, type RepoInfo, activateGitHubAppAuth } from '../github';
 import type { WorkflowConfig } from './workflowInit';
 import { ensureWorktree, pushBranch, inferIssueTypeFromBranch } from '../vcs';
-import type { RepoContext, RepoIdentifier } from '../providers/types';
+import { BoardStatus, type RepoContext, type RepoIdentifier } from '../providers/types';
 import { Platform } from '../providers/types';
 import { createRepoContext } from '../providers/repoContext';
 import { getPlanFilePath, runPrReviewPlanAgent, runPrReviewBuildAgent, runCommitAgent, type ProgressCallback, type ProgressInfo } from '../agents';
@@ -334,6 +334,16 @@ export async function executePRReviewCommitPushPhase(config: PRReviewWorkflowCon
   pushBranch(prDetails.headBranch, worktreePath);
   if (repoContext) {
     postPRStageComment(repoContext, prNumber, 'pr_review_pushed', ctx);
+  }
+
+  // Transition issue to Review status now that the PR changes are pushed
+  if (repoContext && config.base.issueNumber) {
+    try {
+      await repoContext.issueTracker.moveToStatus(config.base.issueNumber, BoardStatus.Review);
+      log(`Issue #${config.base.issueNumber} moved to Review`, 'success');
+    } catch (error) {
+      log(`Failed to move issue #${config.base.issueNumber} to Review: ${error}`, 'error');
+    }
   }
 
   const modelUsage = commitResult.modelUsage ?? emptyModelUsageMap();
