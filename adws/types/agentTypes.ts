@@ -152,7 +152,10 @@ export type AgentIdentifier =
   // Single-pass alignment agent
   | 'alignment-agent'
   // Dependency extraction agent
-  | 'dependency-extraction-agent';
+  | 'dependency-extraction-agent'
+  // Review patch / scenario fix agents
+  | 'review-patch'
+  | 'scenario-fix';
 
 /**
  * Execution status for tracking agent progress.
