@@ -104,12 +104,12 @@ export function isActionableComment(commentBody: string): boolean {
   return ACTIONABLE_COMMENT_PATTERN.test(commentBody);
 }
 
-/** Pattern matching the `## Clear` heading that signals a comment-clearing directive. */
-export const CLEAR_COMMENT_PATTERN = /^## Clear$/mi;
+/** Pattern matching the `## Cancel` heading that signals a full issue cleanup directive. */
+export const CANCEL_COMMENT_PATTERN = /^## Cancel$/mi;
 
-/** Returns true if the comment body contains the `## Clear` directive heading (case-insensitive). */
-export function isClearComment(commentBody: string): boolean {
-  return CLEAR_COMMENT_PATTERN.test(commentBody);
+/** Returns true if the comment body contains the `## Cancel` directive heading (case-insensitive). */
+export function isCancelComment(commentBody: string): boolean {
+  return CANCEL_COMMENT_PATTERN.test(commentBody);
 }
 
 /** Extracts the content following the `## Take action` heading. Returns null if no heading or empty content. */

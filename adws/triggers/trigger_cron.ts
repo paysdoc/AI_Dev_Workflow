@@ -8,11 +8,11 @@
  */
 
 import { execSync, spawn } from 'child_process';
-import { log, GRACE_PERIOD_MS, JANITOR_INTERVAL_CYCLES } from '../core';
-import { getRepoInfo, fetchPRList, hasUnaddressedComments, isClearComment, activateGitHubAppAuth, refreshTokenIfNeeded } from '../github';
+import { log, GRACE_PERIOD_MS, JANITOR_INTERVAL_CYCLES, getTargetRepoWorkspacePath } from '../core';
+import { getRepoInfo, fetchPRList, hasUnaddressedComments, isCancelComment, activateGitHubAppAuth, refreshTokenIfNeeded } from '../github';
 
 import { resolveIssueWorkflowStage } from './cronStageResolver';
-import { clearIssueComments } from '../adwClearComments';
+import { handleCancelDirective } from './cancelHandler';
 import { checkIssueEligibility } from './issueEligibility';
 import { classifyAndSpawnWorkflow } from './webhookGatekeeper';
 import { registerAndGuard } from './cronProcessGuard';
@@ -83,6 +83,21 @@ async function checkAndTrigger(): Promise<void> {
 
   const now = Date.now();
   const issues = fetchOpenIssues();
+
+  // Scan all fetched issues for ## Cancel before filtering eligible issues.
+  // Cancelled issues are added to processedSpawns so filterEligibleIssues skips
+  // them this cycle; they become re-eligible on the next cycle.
+  const cancelCwd = targetRepo
+    ? getTargetRepoWorkspacePath(cronRepoInfo.owner, cronRepoInfo.repo)
+    : undefined;
+  for (const issue of issues) {
+    const latestComment = issue.comments.length > 0 ? issue.comments[issue.comments.length - 1] : null;
+    if (latestComment && isCancelComment(latestComment.body)) {
+      handleCancelDirective(issue.number, issue.comments, cronRepoInfo, cancelCwd, { spawns: processedSpawns, merges: processedMerges });
+      processedSpawns.add(issue.number);
+    }
+  }
+
   const { eligible: candidates, filteredAnnotations } = filterEligibleIssues(
     issues,
     now,
@@ -131,14 +146,6 @@ async function checkAndTrigger(): Promise<void> {
     // spawned by this process can still be picked up by the merge path once it
     // transitions into awaiting_merge.
     processedSpawns.add(issue.number);
-
-    // Handle clear directive before spawning
-    const latestComment = issue.comments.length > 0 ? issue.comments[issue.comments.length - 1] : null;
-    if (latestComment && isClearComment(latestComment.body)) {
-      log(`Clear directive on issue #${issue.number}, clearing comments before spawning`);
-      const clearResult = clearIssueComments(issue.number, repoInfo);
-      log(`Cleared ${clearResult.deleted}/${clearResult.total} comments on issue #${issue.number}`);
-    }
 
     log(`Triggering ADW workflow for backlog issue #${issue.number}`, 'success');
     await classifyAndSpawnWorkflow(issue.number, repoInfo, targetRepoArgs);

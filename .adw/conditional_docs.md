@@ -840,3 +840,11 @@
     - When working with `executePRReviewCommitPushPhase` in `adws/phases/prReviewPhase.ts` and the board move timing
     - When troubleshooting why the issue does not move to `Review` status until the commit+push phase (not the completion phase)
     - When adding a new board status transition to the PR review workflow and choosing which phase owns it
+
+- app_docs/feature-9jpn7u-replace-clear-with-cancel.md
+  - Conditions:
+    - When working with `isCancelComment` or `CANCEL_COMMENT_PATTERN` in `adws/core/workflowCommentParsing.ts`
+    - When working with `handleCancelDirective` or `MutableProcessedSets` in `adws/triggers/cancelHandler.ts`
+    - When modifying cancel/clear directive handling in `trigger_cron.ts` or `trigger_webhook.ts`
+    - When troubleshooting why `## Cancel` does not kill processes, remove worktrees, or clean state dirs
+    - When adding a new cleanup step to the cancel sequence (process kill → worktree removal → state dir deletion → comment clearing)
