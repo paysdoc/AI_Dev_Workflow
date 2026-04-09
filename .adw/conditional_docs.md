@@ -1,5 +1,13 @@
 # Conditional Documentation
 
+- app_docs/feature-670i6z-dead-schema-cleanup.md
+  - Conditions:
+    - When working with `adws/core/projectConfig.ts` and the `CommandsConfig` interface or `HEADING_TO_KEY` map
+    - When adding or removing a schema field from `CommandsConfig` and need to know all three touch-points
+    - When troubleshooting unexpected fields (or missing fields) in `.adw/commands.md` parsing
+    - When working with `AgentIdentifier` union type in `adws/types/agentTypes.ts`
+    - When wondering why `REVIEW_AGENT_COUNT` is not a valid env var (review parallelism was removed in #401)
+
 - app_docs/feature-s59wpc-adwprreview-phaserunner-migration.md
   - Conditions:
     - When working with `adws/adwPrReview.tsx` or the PR review orchestrator

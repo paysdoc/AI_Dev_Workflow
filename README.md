@@ -44,7 +44,6 @@ Required and optional environment variables (see `.env.sample` for full referenc
 - `GITHUB_WEBHOOK_SECRET` - (Optional) Required only for webhook trigger
 - `TARGET_REPOS_DIR` - (Optional) Directory for storing cloned target repository workspaces, defaults to `~/.adw/repos`
 - `MAX_CONCURRENT_PER_REPO` - (Optional) Maximum concurrent in-progress issues per repository, defaults to `5`
-- `REVIEW_AGENT_COUNT` - (Optional) Number of parallel review agents per iteration, defaults to `3`
 - `RUNNING_TOKENS` - (Optional) Show running token totals in issue comments, defaults to `false`
 - `SHOW_COST_IN_COMMENTS` - (Optional) Show cost breakdowns in GitHub issue/PR comments, defaults to `false`
 - `JIRA_BASE_URL` - (Optional) Jira instance URL, required only when using Jira as the issue tracker
