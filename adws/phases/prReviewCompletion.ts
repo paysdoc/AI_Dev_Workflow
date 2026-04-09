@@ -8,7 +8,6 @@
 import { log, AgentStateManager, COST_REPORT_CURRENCIES, type ModelUsageMap, buildCostBreakdown, persistTokenCounts } from '../core';
 import { createPhaseCostRecords, PhaseCostStatus } from '../cost';
 import { formatCostCommentSection } from '../cost/reporting/commentFormatter';
-import { BoardStatus } from '../providers/types';
 import { postPRStageComment } from './phaseCommentHelpers';
 import type { PRReviewWorkflowConfig } from './prReviewPhase';
 
@@ -41,7 +40,7 @@ async function buildPRReviewCostSection(config: PRReviewWorkflowConfig, modelUsa
 
 /**
  * Completes the PR review workflow: builds cost section, writes final state,
- * posts completion comment, moves board status, and logs banner.
+ * posts completion comment, and logs banner.
  * Terminal handler only — commit+push is handled by executePRReviewCommitPushPhase.
  */
 export async function completePRReviewWorkflow(config: PRReviewWorkflowConfig, modelUsage?: ModelUsageMap): Promise<void> {
@@ -55,9 +54,6 @@ export async function completePRReviewWorkflow(config: PRReviewWorkflowConfig, m
 
   if (repoContext) {
     postPRStageComment(repoContext, prNumber, 'pr_review_completed', ctx);
-    if (config.base.issueNumber) {
-      await repoContext.issueTracker.moveToStatus(config.base.issueNumber, BoardStatus.Review);
-    }
   }
 
   AgentStateManager.writeState(orchestratorStatePath, {
