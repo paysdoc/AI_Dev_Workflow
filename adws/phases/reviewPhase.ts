@@ -9,7 +9,6 @@
  * The patch+retest retry loop is orchestrator-level (see executeReviewPatchCycle).
  */
 
-import * as path from 'path';
 import {
   log,
   AgentStateManager,
@@ -73,7 +72,7 @@ export async function executeReviewPhase(
     postIssueStageComment(repoContext, issueNumber, 'review_running', ctx);
   }
 
-  const agentStatePath = path.join('agents', adwId, 'review-agent');
+  const agentStatePath = AgentStateManager.initializeState(adwId, 'review-agent', orchestratorStatePath);
   const reviewAgentResult = await runReviewAgent(
     adwId,
     specFile,
@@ -177,7 +176,7 @@ export async function executeReviewPatchCycle(
       `Patching blocker #${blockerIssue.reviewIssueNumber}`,
     );
 
-    const patchStatePath = path.join('agents', adwId, 'patch-agent');
+    const patchStatePath = AgentStateManager.initializeState(adwId, 'patch-agent', orchestratorStatePath);
     const patchResult = await runPatchAgent(
       adwId,
       blockerIssue,
@@ -201,7 +200,7 @@ export async function executeReviewPatchCycle(
     AgentStateManager.appendLog(orchestratorStatePath, patchMsg);
 
     if (patchResult.success) {
-      const buildStatePath = path.join('agents', adwId, 'build-agent');
+      const buildStatePath = AgentStateManager.initializeState(adwId, 'build-agent', orchestratorStatePath);
       const buildResult = await runBuildAgent(
         issue,
         logsDir,
@@ -230,7 +229,7 @@ export async function executeReviewPatchCycle(
     issueType,
     issue.body,
     logsDir,
-    path.join('agents', adwId, 'review-patch'),
+    AgentStateManager.initializeState(adwId, 'review-patch', orchestratorStatePath),
     worktreePath,
     issue.body,
   );

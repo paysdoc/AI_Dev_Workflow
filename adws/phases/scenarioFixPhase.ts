@@ -8,7 +8,6 @@
  *   scenarioTest → [scenarioFix → scenarioTest] × MAX_TEST_RETRY_ATTEMPTS
  */
 
-import * as path from 'path';
 import {
   log,
   AgentStateManager,
@@ -78,7 +77,7 @@ export async function executeScenarioFixPhase(
     const resolveResult = await runResolveScenarioAgent(
       failedE2ETest,
       logsDir,
-      path.join('agents', adwId, 'scenario-fix'),
+      AgentStateManager.initializeState(adwId, 'scenario-fix', orchestratorStatePath),
       worktreePath,
       applicationUrl,
       issue.body,
@@ -102,7 +101,7 @@ export async function executeScenarioFixPhase(
     issueType,
     issue.body,
     logsDir,
-    path.join('agents', adwId, 'scenario-fix'),
+    AgentStateManager.initializeState(adwId, 'scenario-fix', orchestratorStatePath),
     worktreePath,
     issue.body,
   );
