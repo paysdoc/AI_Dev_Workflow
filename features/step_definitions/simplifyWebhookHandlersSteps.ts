@@ -35,16 +35,7 @@ Then('no auto-merge or workflow spawn occurs for approved reviews', function () 
   );
 });
 
-Then('the non-approved review branch spawns adwPrReview.tsx', function () {
-  const content = sharedCtx.fileContent;
-  const reviewSection = content.indexOf("event === 'pull_request_review'");
-  assert.ok(reviewSection !== -1, 'Expected trigger_webhook.ts to handle pull_request_review event');
-  const sectionBlock = content.slice(reviewSection, reviewSection + 800);
-  assert.ok(
-    sectionBlock.includes('adwPrReview.tsx'),
-    'Expected non-approved review branch to spawn adwPrReview.tsx',
-  );
-});
+// Note: 'the non-approved review branch spawns adwPrReview.tsx' is defined in autoMergeApprovedPrSteps.ts
 
 // ── 2. handleApprovedReview removed from autoMergeHandler.ts ─────────────────
 

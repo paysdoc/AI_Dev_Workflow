@@ -69,9 +69,9 @@ Given(
   'a PhaseCostRecord with workflowId {string}, issueNumber {int}, phase {string}, model {string}, provider {string}, computedCostUsd {float}, reportedCostUsd {float}, status {string}, retryCount {int}, contextResetCount {int}, and durationMs {int}',
   function (
     this: Record<string, unknown>,
-    workflowId: string, issueNumber: number, phase: string, model: string,
-    provider: string, computedCostUsd: number, reportedCostUsd: number,
-    status: string, retryCount: number, contextResetCount: number, durationMs: number,
+    _workflowId: string, _issueNumber: number, _phase: string, _model: string,
+    _provider: string, _computedCostUsd: number, _reportedCostUsd: number,
+    _status: string, _retryCount: number, _contextResetCount: number, _durationMs: number,
   ) {
     // Verify transformation mapping exists in source
     const content = readD1ClientSource();
@@ -92,11 +92,6 @@ When('the D1 client transforms the record to the ingest payload', function (this
 });
 
 Then('the payload record contains {string} = {string}', function (this: Record<string, unknown>, field: string, _value: string) {
-  const content = readD1ClientSource();
-  assert.ok(content.includes(field), `Expected D1 client payload to contain field "${field}"`);
-});
-
-Then('the payload record contains {string} = {int}', function (this: Record<string, unknown>, field: string, _value: number) {
   const content = readD1ClientSource();
   assert.ok(content.includes(field), `Expected D1 client payload to contain field "${field}"`);
 });
@@ -177,16 +172,14 @@ Given('COST_API_URL is set to {string}', function (this: Record<string, unknown>
   // Context only — source-level checks
 });
 
-Given('COST_API_TOKEN is set to {string}', function (this: Record<string, unknown>, _token: string) {
-  // Context only
-});
+// Note: 'COST_API_TOKEN is set to {string}' is defined in costApiWorkerD1IngestSteps.ts
 
 When('the D1 client sends a request', function (this: Record<string, unknown>) {
   // Source-level verification
   this.__requestSent = true;
 });
 
-Then('the request includes an Authorization header with value {string}', function (this: Record<string, unknown>, expected: string) {
+Then('the request includes an Authorization header with value {string}', function (this: Record<string, unknown>, _expected: string) {
   const content = readD1ClientSource();
   assert.ok(
     content.includes('Authorization') && content.includes('Bearer'),
@@ -238,13 +231,7 @@ Then('no HTTP request is made', function () {
   );
 });
 
-Then('no error is thrown', function () {
-  const content = readD1ClientSource();
-  assert.ok(
-    content.includes('try') && content.includes('catch'),
-    'Expected D1 client to wrap fetch in try/catch to prevent errors from throwing',
-  );
-});
+// Note: 'no error is thrown' is defined in fixtureRepoTestHarnessSteps.ts
 
 Then('no warning is logged', function () {
   // When COST_API_URL is not set, the function returns early before any logging
@@ -284,7 +271,7 @@ Given('the fetch request returns status {int} with body {string}', function (thi
   // Context only
 });
 
-Then('a warning is logged mentioning the {int} status', function (this: Record<string, unknown>, status: number) {
+Then('a warning is logged mentioning the {int} status', function (this: Record<string, unknown>, _status: number) {
   const content = readD1ClientSource();
   assert.ok(
     content.includes('response.status') || content.includes('status'),
@@ -298,17 +285,7 @@ Then('a warning is logged mentioning the {int} status', function (this: Record<s
 
 // ── 6: D1-only write integration in phaseRunner ─────────────────────────────
 
-Then('the file imports {string} from the cost module', function (funcName: string) {
-  const content = sharedCtx.fileContent;
-  assert.ok(
-    content.includes(funcName),
-    `Expected file to import "${funcName}" from the cost module`,
-  );
-  assert.ok(
-    content.includes('d1Client') || content.includes('cost'),
-    `Expected file to import from the cost/d1Client module`,
-  );
-});
+// Note: 'the file imports {string} from the cost module' is defined in costOrchestratorMigrationCleanupSteps.ts
 
 // ── 7: Environment variable configuration ───────────────────────────────────
 

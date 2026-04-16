@@ -2,7 +2,7 @@ import { Given, When, Then } from '@cucumber/cucumber';
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import assert from 'assert';
-import { sharedCtx } from './commonSteps.ts';
+import { sharedCtx as _sharedCtx } from './commonSteps.ts';
 
 const ROOT = process.cwd();
 
@@ -43,7 +43,7 @@ When('formatWorkflowComment is called with the {string} stage', function (this: 
   this.__stage = stage;
 });
 
-Then('the comment displays {string} as the tokens used', function (this: Record<string, unknown>, expected: string) {
+Then('the comment displays {string} as the tokens used', function (this: Record<string, unknown>, _expected: string) {
   const content = readWorkflowCommentsIssue();
   // The comment should format totalOutputTokens, not totalTokens
   assert.ok(

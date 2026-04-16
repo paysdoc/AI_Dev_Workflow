@@ -192,7 +192,7 @@ When('isRetriableStage evaluates the stage', function () {
   stageResult = isRetriableStage(stageUnderTest);
 });
 
-Then('it returns false', function () {
+Then('the stage evaluation returns false', function () {
   assert.strictEqual(stageResult, false, `Expected stage "${stageUnderTest}" evaluation to return false`);
 });
 
@@ -231,17 +231,13 @@ Then('awaiting_merge does not fall through to the unknown-stage exclusion', func
 
 // ── 9. Cron grace period bypass ──────────────────────────────────────────────
 
-Given('an issue with adw-id {string} extracted from comments', function (_adwId: string) {
-  // Context only — the functional test below uses evaluateIssue directly
-});
+// Note: 'an issue with adw-id {string} extracted from comments' is defined in cronStageFromStateFileSteps.ts
 
 Given('a state file exists with workflowStage {string} and recent phase timestamps', function (_stage: string) {
   // Context only
 });
 
-When('the cron trigger evaluates the issue', function () {
-  // Context only — assertions in Then steps
-});
+// Note: 'the cron trigger evaluates the issue' is defined in cronIssueReevaluationSteps.ts
 
 Then('the grace period check is skipped for awaiting_merge', function () {
   // Functional: call evaluateIssue with awaiting_merge, very recent activity, and verify eligible

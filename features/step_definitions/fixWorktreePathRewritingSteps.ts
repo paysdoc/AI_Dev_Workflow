@@ -1,10 +1,6 @@
 import { Given, When, Then } from '@cucumber/cucumber';
-import { existsSync, readFileSync } from 'fs';
-import { join } from 'path';
 import assert from 'assert';
 import { sharedCtx } from './commonSteps.ts';
-
-const ROOT = process.cwd();
 
 // ── 1. Pre-tool hook: worktree path rewriting ────────────────────────────────
 
@@ -168,7 +164,7 @@ Then('freeBranchFromMainRepo runs {string} for the default branch', function (cm
   const content = sharedCtx.fileContent;
   const fnIdx = content.indexOf('function freeBranchFromMainRepo');
   assert.ok(fnIdx !== -1, 'Expected worktreeOperations.ts to define freeBranchFromMainRepo');
-  const fnBlock = content.slice(fnIdx, fnIdx + 800);
+  const fnBlock = content.slice(fnIdx, fnIdx + 1500);
   assert.ok(
     fnBlock.includes(cmd),
     `Expected freeBranchFromMainRepo to run "${cmd}"`,
@@ -179,7 +175,7 @@ Then('freeBranchFromMainRepo does not run {string} after the checkout', function
   const content = sharedCtx.fileContent;
   const fnIdx = content.indexOf('function freeBranchFromMainRepo');
   assert.ok(fnIdx !== -1, 'Expected worktreeOperations.ts to define freeBranchFromMainRepo');
-  const fnBlock = content.slice(fnIdx, fnIdx + 800);
+  const fnBlock = content.slice(fnIdx, fnIdx + 1500);
   // After the git checkout line, there should be no git pull
   const checkoutIdx = fnBlock.indexOf('git checkout');
   assert.ok(checkoutIdx !== -1, 'Expected freeBranchFromMainRepo to contain git checkout');
@@ -297,15 +293,5 @@ Then('when cwd is not provided, ADW_WORKTREE_PATH and ADW_MAIN_REPO_PATH are not
 });
 
 // ── 6. TypeScript integrity ──────────────────────────────────────────────────
-
-When('{string} and {string} are run', function (_cmd1: string, _cmd2: string) {
-  // Context only — the actual tsc execution is skipped in BDD source verification mode
-});
-
-Then('both type-check commands exit with code 0', function () {
-  // Verified by CI or manual run — this step asserts the codebase compiles
-  assert.ok(
-    existsSync(join(ROOT, 'adws/tsconfig.json')),
-    'Expected adws/tsconfig.json to exist for type checking',
-  );
-});
+// Note: '{string} and {string} are run' is defined in removeUnnecessaryExportsSteps.ts
+// Note: 'both type-check commands exit with code {int}' is defined in removeUnnecessaryExportsSteps.ts

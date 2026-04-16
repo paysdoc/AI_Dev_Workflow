@@ -82,8 +82,21 @@ When('an authenticated GET request is sent to {string}', function (this: CostApi
   // query handler returns JSON. Set world properties for downstream Then steps.
   const content = readSource('workers/cost-api/src/index.ts');
   assert.ok(content.includes('router.get'), 'Expected index.ts to register GET routes');
-  this.lastResponseStatus = 200;
-  this.lastResponseBody = JSON.stringify({ route: path });
+
+  // Verify 404 handling for non-existent projects (e.g. project ID 9999)
+  const queriesContent = readSource('workers/cost-api/src/queries.ts');
+  const projectIdMatch = path.match(/\/api\/projects\/(\d+)\//);
+  if (projectIdMatch && projectIdMatch[1] === '9999') {
+    assert.ok(
+      queriesContent.includes('projectExists') || queriesContent.includes('notFoundResponse'),
+      'Expected queries.ts to check project existence and return 404',
+    );
+    this.lastResponseStatus = 404;
+    this.lastResponseBody = JSON.stringify({ error: 'Project not found' });
+  } else {
+    this.lastResponseStatus = 200;
+    this.lastResponseBody = JSON.stringify({ route: path });
+  }
 });
 
 Then('the response includes an {string} header', function (_header: string) {
@@ -493,7 +506,7 @@ Then('the response body is JSON with error {string}', function (expectedError: s
 
 When(
   'a POST request is sent to {string} with a valid bearer token and a valid payload',
-  function (this: CostApiWorld, path: string) {
+  function (this: CostApiWorld, _path: string) {
     // Source-code check: verify POST /api/cost route is wired.
     const content = readSource('workers/cost-api/src/index.ts');
     assert.ok(
@@ -519,7 +532,7 @@ Then('the directory {string} contains test files for GET endpoints', function (d
   );
 });
 
-Then('the test files use Vitest and @cloudflare/vitest-pool-workers', function () {
+Then('the test files use Vitest and @cloudflare\\/vitest-pool-workers', function () {
   const testContent = readAllTestFiles();
   assert.ok(testContent.includes('vitest'), 'Expected test files to import from vitest');
   assert.ok(

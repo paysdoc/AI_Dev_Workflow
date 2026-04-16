@@ -142,7 +142,7 @@ Then('the diff evaluator gate is unchanged from its previous behaviour', functio
 // Multi-file contents for the consistency scenario
 const orchestratorContents: Record<string, string> = {};
 
-Given('the files are read:', function (dataTable: { hashes(): Array<{ file: string }> }) {
+Given('the orchestrator files are read:', function (dataTable: { hashes(): Array<{ file: string }> }) {
   const rows = dataTable.hashes();
   for (const row of rows) {
     const filePath = row.file.trim();

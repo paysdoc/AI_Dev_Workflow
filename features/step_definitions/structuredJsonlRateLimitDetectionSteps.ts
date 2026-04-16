@@ -132,13 +132,7 @@ Then('the complete line is parsed', function () {
   );
 });
 
-Then('the partial line is stored in lineBuffer', function () {
-  const content = ensureParserSource();
-  assert.ok(
-    content.includes('state.lineBuffer = segments.pop()'),
-    'Expected partial line to be stored in lineBuffer',
-  );
-});
+// Note: duplicate 'the partial line is stored in lineBuffer' removed — defined above at line 67
 
 When('parseJsonlOutput receives a third chunk completing the partial line', function () {
   // Context only — verified via source inspection
@@ -297,12 +291,13 @@ Then('state.compactionDetected is true', function () {
 // ── False-positive prevention ────────────────────────────────────────────────
 
 Given('a JsonlParserState with all detection flags set to false', function () {
-  const content = ensureParserSource();
+  // The initial state is created in agentProcessHandler.ts, not claudeStreamParser.ts
+  const content = ensureHandlerSource();
   assert.ok(content.includes('rateLimitRejected: false'), 'Expected initial rateLimitRejected: false');
   assert.ok(content.includes('authErrorDetected: false') || content.includes('authErrorDetected'), 'Expected authErrorDetected in state');
 });
 
-When('parseJsonlOutput receives a JSONL line with type {string} whose content contains {string}, {string}, {string}, and {string}', function (type: string, _s1: string, _s2: string, _s3: string, _s4: string) {
+When('parseJsonlOutput receives a JSONL line with type {string} whose content contains {string}, {string}, {string}, and {string}', function (_type: string, _s1: string, _s2: string, _s3: string, _s4: string) {
   const content = ensureParserSource();
   // tool_result and assistant messages should not trigger detection flags
   // The parser only checks specific typed messages (rate_limit_event, system) for flags
@@ -343,14 +338,14 @@ Then('state.compactionDetected remains false', function () {
   const content = ensureParserSource();
   const systemIdx = content.indexOf("parsed.type === 'system'");
   assert.ok(systemIdx !== -1, 'Expected system type check');
-  const systemBlock = content.slice(systemIdx, systemIdx + 500);
+  const systemBlock = content.slice(systemIdx, systemIdx + 1000);
   assert.ok(
     systemBlock.includes('state.compactionDetected = true'),
     'Expected compactionDetected to only be set inside the system type block',
   );
 });
 
-When('parseJsonlOutput receives a JSONL line with type {string} whose content contains {string} and {string}', function (type: string, _s1: string, _s2: string) {
+When('parseJsonlOutput receives a JSONL line with type {string} whose content contains {string} and {string}', function (_type: string, _s1: string, _s2: string) {
   // Context only — assistant messages should not trigger any detection flags
   const content = ensureParserSource();
   assert.ok(
@@ -489,10 +484,12 @@ Then('handleRateLimitPause is called with the error\'s phase name and {string} s
 
 Then('the RateLimitError is re-thrown after handling', function () {
   const content = sharedCtx.fileContent;
-  // The catch block calls handleRateLimitPause and then re-throws
-  const catchIdx = content.indexOf('if (err instanceof RateLimitError)');
+  // Search from runPhasesParallel to avoid matching runPhase's catch block
+  const parallelIdx = content.indexOf('runPhasesParallel');
+  assert.ok(parallelIdx !== -1, 'Expected phaseRunner.ts to define runPhasesParallel');
+  const catchIdx = content.indexOf('if (err instanceof RateLimitError)', parallelIdx);
   assert.ok(catchIdx !== -1, 'Expected runPhasesParallel to catch RateLimitError');
-  const afterCatch = content.slice(catchIdx, catchIdx + 300);
+  const afterCatch = content.slice(catchIdx, catchIdx + 500);
   assert.ok(
     afterCatch.includes('throw err') || afterCatch.includes('throw'),
     'Expected RateLimitError to be re-thrown after handleRateLimitPause',

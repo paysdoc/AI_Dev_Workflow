@@ -75,7 +75,7 @@ Then('pullLatestDefaultBranch has a fallback that resets to the remote branch wh
   );
 });
 
-Then('the fallback uses {string} to origin/defaultBranch', function (cmd: string) {
+Then('the fallback uses {string} to origin\\/defaultBranch', function (cmd: string) {
   const content = readTargetRepoManager();
   // If using fetch-only pattern, divergent branches are avoided entirely
   const hasFetchOnly = content.includes('fetchLatestRefs');
