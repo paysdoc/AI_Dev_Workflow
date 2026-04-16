@@ -4,6 +4,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { BoardStatus, BOARD_COLUMNS } from '../types';
+import { mergeStatusOptions } from '../github/githubBoardManager';
 import { createJiraBoardManager } from '../jira/jiraBoardManager';
 import { createGitLabBoardManager } from '../gitlab/gitlabBoardManager';
 
@@ -87,6 +88,77 @@ describe('JiraBoardManager stub', () => {
 
   it('throws "not implemented" on ensureColumns', async () => {
     await expect(manager.ensureColumns('board-id')).rejects.toThrow('BoardManager not implemented for Jira');
+  });
+});
+
+describe('mergeStatusOptions', () => {
+  it('empty board: all ADW columns added, changed is true', () => {
+    const { merged, changed, added } = mergeStatusOptions([], BOARD_COLUMNS);
+    expect(changed).toBe(true);
+    expect(added).toHaveLength(5);
+    expect(merged).toHaveLength(5);
+    expect(merged.map((o) => o.name)).toContain(BoardStatus.Blocked);
+    expect(merged.map((o) => o.name)).toContain(BoardStatus.Done);
+  });
+
+  it('all ADW columns already present with correct properties: changed is false', () => {
+    const existing = BOARD_COLUMNS.map((col) => ({
+      name: col.status,
+      color: col.color,
+      description: col.description,
+    }));
+    const { changed, added } = mergeStatusOptions(existing, BOARD_COLUMNS);
+    expect(changed).toBe(false);
+    expect(added).toHaveLength(0);
+  });
+
+  it('partial overlap: missing columns appended, changed is true', () => {
+    const existing = [
+      { name: BoardStatus.Todo, color: 'GRAY', description: "This item hasn't been started" },
+      { name: BoardStatus.Done, color: 'GREEN', description: 'This has been completed' },
+    ];
+    const { merged, changed, added } = mergeStatusOptions(existing, BOARD_COLUMNS);
+    expect(changed).toBe(true);
+    expect(added).toHaveLength(3);
+    expect(added).toContain(BoardStatus.Blocked);
+    expect(added).toContain(BoardStatus.InProgress);
+    expect(added).toContain(BoardStatus.Review);
+    expect(merged).toHaveLength(5);
+  });
+
+  it('non-ADW columns are preserved in merged list', () => {
+    const existing = [
+      { name: 'Custom', color: 'BLUE', description: 'A custom column' },
+      ...BOARD_COLUMNS.map((col) => ({ name: col.status, color: col.color, description: col.description })),
+    ];
+    const { merged, changed } = mergeStatusOptions(existing, BOARD_COLUMNS);
+    expect(merged.some((o) => o.name === 'Custom')).toBe(true);
+    expect(merged).toHaveLength(6);
+    expect(changed).toBe(false);
+  });
+
+  it('ADW columns with wrong color/description are overwritten', () => {
+    const existing = [
+      { name: BoardStatus.Blocked, color: 'BLUE', description: 'Wrong description' },
+    ];
+    const { merged, changed } = mergeStatusOptions(existing, BOARD_COLUMNS);
+    const blocked = merged.find((o) => o.name === BoardStatus.Blocked);
+    expect(blocked?.color).toBe('RED');
+    expect(blocked?.description).toBe('This item cannot be completed');
+    expect(changed).toBe(true);
+  });
+
+  it('case-insensitive matching: "todo" matches BoardStatus.Todo', () => {
+    const existing = [
+      { name: 'todo', color: 'GRAY', description: "This item hasn't been started" },
+    ];
+    const { merged, changed } = mergeStatusOptions(existing, BOARD_COLUMNS);
+    // The matching option should be overwritten with canonical casing from BOARD_COLUMNS
+    const todo = merged.find((o) => o.name.toLowerCase() === 'todo');
+    expect(todo?.name).toBe(BoardStatus.Todo);
+    // Other ADW columns should be appended (4 missing)
+    expect(merged).toHaveLength(5);
+    expect(changed).toBe(true);
   });
 });
 
