@@ -13,7 +13,7 @@ bun run lint
 bunx tsc --noEmit
 
 ## Run Tests
-N/A
+bun run test:unit
 
 ## Run Build
 bun run build
@@ -23,6 +23,9 @@ N/A
 
 ## Health Check Path
 /
+
+## Prepare App
+bun install
 
 ## Additional Type Checks
 bunx tsc --noEmit -p adws/tsconfig.json
