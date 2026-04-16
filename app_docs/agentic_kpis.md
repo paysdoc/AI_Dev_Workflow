@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 31               | 2026-04-09 12:24:53 |
-| Longest Streak    | 51               | 2026-04-09 12:24:53 |
-| Total Plan Size   | 1149 lines       | 2026-04-09 12:24:53 |
-| Largest Plan Size | 201 lines        | 2026-04-09 12:24:53 |
-| Total Diff Size   | 2272767 lines    | 2026-04-09 12:24:53 |
-| Largest Diff Size | 418153 lines     | 2026-04-09 12:24:53 |
-| Average Presence  | 1.37             | 2026-04-09 12:24:53 |
+| Current Streak    | 98               | 2026-04-16 19:10:31 |
+| Longest Streak    | 98               | 2026-04-16 19:10:31 |
+| Total Plan Size   | 1149 lines       | 2026-04-16 19:10:31 |
+| Largest Plan Size | 201 lines        | 2026-04-16 19:10:31 |
+| Total Diff Size   | 2278006 lines    | 2026-04-16 19:10:31 |
+| Largest Diff Size | 418153 lines     | 2026-04-16 19:10:31 |
+| Average Presence  | 1.18             | 2026-04-16 19:10:31 |
 
 ## ADW KPIs
 
@@ -115,4 +115,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-04-08 | 4jvczx-adw-init-updates-for | 405          | /feature    | 1        | 0                 | 13413/2067/127                  | 2026-04-08 21:15:37 | 2026-04-08 21:15:37 |
 | 2026-04-09 | 9jpn7u-replace-clear-with-c | 425          | /feature    | 1        | 0                 | 1520/140/17                     | 2026-04-09 11:34:23 | 2026-04-09 11:34:23 |
 | 2026-04-09 | qm6gwx-add-boardmanager-pro | 427          | /feature    | 1        | 0                 | 2616/148/36                     | 2026-04-09 12:24:53 | 2026-04-09 12:24:53 |
-
+| 2026-04-16 | w12d7t-fix-board-setup-upda | 432          | /bug        | 1        | 0                 | 4856/383/60                     | 2026-04-16 19:10:31 | 2026-04-16 19:10:31 |
