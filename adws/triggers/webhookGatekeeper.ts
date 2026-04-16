@@ -38,11 +38,12 @@ export async function classifyAndSpawnWorkflow(
   issueNumber: number,
   repoInfo: RepoInfo | undefined,
   targetRepoArgs: string[],
+  existingAdwId?: string,
 ): Promise<void> {
   const resolvedRepoInfo = repoInfo ?? getRepoInfo();
   const classification = await classifyIssueForTrigger(issueNumber, resolvedRepoInfo);
   const workflowScript = getWorkflowScript(classification.issueType, classification.adwCommand);
-  const adwId = classification.adwId || generateAdwId(classification.issueTitle);
+  const adwId = existingAdwId || classification.adwId || generateAdwId(classification.issueTitle);
 
   log(`Issue #${issueNumber} classified as ${classification.issueType}, spawning ${workflowScript}`, 'success');
   spawnDetached('bunx', ['tsx', workflowScript, String(issueNumber), adwId, '--issue-type', classification.issueType, ...targetRepoArgs]);

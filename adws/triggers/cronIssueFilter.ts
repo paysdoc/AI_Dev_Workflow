@@ -117,7 +117,7 @@ export function evaluateIssue(
     return { eligible: false, reason: 'active' };
   }
   if (isRetriableStage(stage)) {
-    return { eligible: true, action: 'spawn' };
+    return { eligible: true, action: 'spawn', adwId: resolution.adwId ?? undefined };
   }
   // Unknown stage — exclude
   return { eligible: false, reason: `adw_stage:${stage}` };

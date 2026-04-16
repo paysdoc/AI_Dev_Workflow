@@ -147,8 +147,8 @@ async function checkAndTrigger(): Promise<void> {
     // transitions into awaiting_merge.
     processedSpawns.add(issue.number);
 
-    log(`Triggering ADW workflow for backlog issue #${issue.number}`, 'success');
-    await classifyAndSpawnWorkflow(issue.number, repoInfo, targetRepoArgs);
+    log(`Triggering ADW workflow for backlog issue #${issue.number}${adwId ? ` (resuming adwId=${adwId})` : ''}`, 'success');
+    await classifyAndSpawnWorkflow(issue.number, repoInfo, targetRepoArgs, adwId);
   }
 }
 

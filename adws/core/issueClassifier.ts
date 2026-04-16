@@ -18,6 +18,7 @@ import {
   getModelForCommand,
   getEffortForCommand,
 } from '.';
+import { extractAdwIdFromComment } from './workflowCommentParsing';
 
 /**
  * Strips fenced code block content from text.
@@ -211,6 +212,17 @@ export async function classifyIssueForTrigger(
       issue.body,
     );
     if (adwResult) {
+      // If no adwId from body, scan comments for an existing one (retry path)
+      if (!adwResult.adwId && issue.comments.length > 0) {
+        for (let i = issue.comments.length - 1; i >= 0; i--) {
+          const commentAdwId = extractAdwIdFromComment(issue.comments[i].body);
+          if (commentAdwId) {
+            log(`classifyIssueForTrigger: recovered adwId="${commentAdwId}" from issue #${issueNumber} comments`);
+            adwResult.adwId = commentAdwId;
+            break;
+          }
+        }
+      }
       log(`Classification complete for issue #${issueNumber}: classifier=regex, issueType=${adwResult.issueType}, adwCommand=${adwResult.adwCommand}, success=${adwResult.success}`, 'success');
       return { ...adwResult, issueTitle: issue.title };
     }
@@ -225,6 +237,19 @@ export async function classifyIssueForTrigger(
       `/tmp/adw-trigger-classifier-${issueNumber}.jsonl`,
       issue.body,
     );
+
+    // If no adwId from classification, scan comments for an existing one (retry path)
+    if (!heuristicResult.adwId && issue.comments.length > 0) {
+      for (let i = issue.comments.length - 1; i >= 0; i--) {
+        const commentAdwId = extractAdwIdFromComment(issue.comments[i].body);
+        if (commentAdwId) {
+          log(`classifyIssueForTrigger: recovered adwId="${commentAdwId}" from issue #${issueNumber} comments`);
+          heuristicResult.adwId = commentAdwId;
+          break;
+        }
+      }
+    }
+
     log(`Classification complete for issue #${issueNumber}: classifier=heuristic, issueType=${heuristicResult.issueType}, adwCommand=${heuristicResult.adwCommand ?? 'none'}, success=${heuristicResult.success}`, heuristicResult.success ? 'success' : 'warn');
     return { ...heuristicResult, issueTitle: issue.title };
   } catch (error) {
