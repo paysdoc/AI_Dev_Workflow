@@ -856,3 +856,11 @@
     - When changing how terminal workflow errors move issues on the board (`handleWorkflowError`, `handlePRReviewWorkflowError`)
     - When implementing `BoardManager` for a new platform (GitLab, Jira stubs exist)
     - When troubleshooting why a project board was not created or columns are missing after a workflow run
+
+- app_docs/feature-w12d7t-fix-board-update-mutation.md
+  - Conditions:
+    - When working with `GitHubBoardManager.ensureColumns` or the board column setup path in `githubBoardManager.ts`
+    - When troubleshooting `UpdateProjectV2FieldInput doesn't accept argument 'projectId'` GraphQL errors
+    - When modifying the `updateProjectV2Field` mutation or the `mergeStatusOptions` helper
+    - When board column setup silently skips because all ADW columns are already present
+    - When using `gh api graphql --input -` (stdin JSON) to pass array arguments to the GitHub GraphQL API
