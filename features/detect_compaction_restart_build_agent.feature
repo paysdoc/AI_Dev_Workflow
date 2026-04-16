@@ -164,7 +164,7 @@ Feature: Detect context compaction and restart build agent with fresh context
     And the review phase uses agentProcessHandler for the review resolution agent
     When any agent runs via agentProcessHandler
     Then compaction detection is present in the handler
-    And buildPhase.ts, testPhase.ts, and prReviewPhase.ts all act on the compactionDetected flag to trigger continuation
+    And buildPhase.ts, unitTestPhase.ts, and prReviewPhase.ts all act on the compactionDetected flag to trigger continuation
 
   # --- Type checks ---
 

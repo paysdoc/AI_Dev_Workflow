@@ -7,7 +7,7 @@
  * - withDevServer conditional wrapping
  * - proof file generation
  * - Rename verification: runResolveE2ETestAgent → runResolveScenarioAgent
- * - Rename verification: testPhase.ts → unitTestPhase.ts
+ * - Rename verification: testPhase.ts -> unitTestPhase.ts (file now at unitTestPhase.ts)
  * - Rename verification: resolve_failed_e2e_test.md → resolve_failed_scenario.md
  * - adwSdlc.tsx phase ordering, retry loop, and empty scenariosMd for review
  * - Other orchestrators untouched (no scenario phase imports)
@@ -352,27 +352,37 @@ Then('the retry loop re-runs executeScenarioTestPhase after fix', function () {
 
 Then('the review phase is called with empty scenariosMd', function () {
   const content = sharedCtx.fileContent;
-  const hasEmptyScenariosOverride =
+  // Originally the review phase was called with scenariosMd: ''. After the scenario proof
+  // refactor, executeReviewPhase accepts a scenarioProofPath argument instead of scenariosMd.
+  // The orchestrators pass proofPath (from scenarioTestPhase results) — scenarios are run
+  // separately, not inside the review phase.
+  const hasProofPathArg =
+    content.includes('executeReviewPhase(cfg, proofPath)') ||
+    content.includes('executeReviewPhase(cfg, scenarioProofPath)') ||
     content.includes("scenariosMd: ''") ||
-    content.includes('scenariosMd: ""') ||
-    content.includes('scenariosMd: \'\'');
+    content.includes('scenariosMd: ""');
   assert.ok(
-    hasEmptyScenariosOverride,
-    `Expected "${sharedCtx.filePath}" to call executeReviewPhase with empty scenariosMd`,
+    hasProofPathArg,
+    `Expected "${sharedCtx.filePath}" to call executeReviewPhase with proofPath (not inline scenariosMd)`,
   );
 });
 
 Then('scenario execution is NOT part of the review retry loop', function () {
   const content = sharedCtx.fileContent;
-  // The review phase should be called with an empty/patched scenariosMd — verify it
-  // doesn't directly call runScenarioProof or runBddScenarios inside the review context
-  const hasEmptyScenariosOverride =
-    content.includes("scenariosMd: ''") ||
-    content.includes('scenariosMd: ""') ||
-    content.includes("scenariosMd: \\'\\'");
+  // Verify the review phase doesn't directly run scenarios — scenario execution happens
+  // in the separate scenarioTest retry loop before review.
+  // The review is called via executeReviewPhase(cfg, proofPath) where proofPath comes
+  // from the prior scenarioTestPhase results.
+  const reviewIdx = content.indexOf('executeReviewPhase');
+  assert.ok(reviewIdx !== -1, `Expected "${sharedCtx.filePath}" to reference executeReviewPhase`);
+  // Verify there's no direct scenario execution inside the review retry loop
+  const reviewLoopSection = content.slice(reviewIdx, reviewIdx + 1000);
+  const hasDirectScenarioExec =
+    reviewLoopSection.includes('runScenarioProof') ||
+    reviewLoopSection.includes('runBddScenarios');
   assert.ok(
-    hasEmptyScenariosOverride,
-    `Expected "${sharedCtx.filePath}" to override scenariosMd so review phase does not run scenarios`,
+    !hasDirectScenarioExec,
+    `Expected "${sharedCtx.filePath}" review loop not to directly execute scenarios`,
   );
 });
 

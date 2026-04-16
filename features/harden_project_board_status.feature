@@ -69,8 +69,8 @@ Feature: Harden project board status propagation
     Then the file contains "InProgress"
 
   @adw-wrzj5j-harden-project-board @adw-tdlgz7-fix-boardstatus-enum @regression
-  Scenario: testPhase.ts calls moveToStatus with InProgress at phase entry
-    Given "adws/phases/testPhase.ts" is read
+  Scenario: unitTestPhase.ts calls moveToStatus with InProgress at phase entry
+    Given "adws/phases/unitTestPhase.ts" is read
     Then the file contains "InProgress"
 
   @adw-wrzj5j-harden-project-board @adw-7sunv4-fix-issue-status-pro @regression
@@ -108,8 +108,8 @@ Feature: Harden project board status propagation
     Then the file contains "BoardStatus.InProgress"
 
   @adw-wrzj5j-harden-project-board @adw-tdlgz7-fix-boardstatus-enum @regression
-  Scenario: testPhase.ts uses BoardStatus enum reference
-    Given "adws/phases/testPhase.ts" is read
+  Scenario: unitTestPhase.ts uses BoardStatus enum reference
+    Given "adws/phases/unitTestPhase.ts" is read
     Then the file contains "BoardStatus.InProgress"
 
   @adw-wrzj5j-harden-project-board @regression
@@ -137,4 +137,4 @@ Feature: Harden project board status propagation
   @adw-wrzj5j-harden-project-board @regression
   Scenario: moveIssueToStatus attempts PAT fallback when app token fails
     Given "adws/github/projectBoardApi.ts" is read
-    Then the file contains "retrying with GITHUB_PAT"
+    Then the file contains "Using GITHUB_PAT for project board operations"

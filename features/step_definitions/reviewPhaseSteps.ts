@@ -6,8 +6,8 @@ import { sharedCtx } from './commonSteps.ts';
 
 const ROOT = process.cwd();
 
-function loadReviewRetry(): void {
-  const filePath = 'adws/agents/reviewRetry.ts';
+function loadReviewPhase(): void {
+  const filePath = 'adws/phases/reviewPhase.ts';
   sharedCtx.fileContent = readFileSync(join(ROOT, filePath), 'utf-8');
   sharedCtx.filePath = filePath;
 }
@@ -26,7 +26,7 @@ Given('the scenarios command is configured as {string}', function (_cmd: string)
 
 Given('the target repository has {string} defining the scenarios directory', function (filePath: string) {
   assert.ok(existsSync(join(ROOT, filePath)), `Expected ${filePath} to exist`);
-  loadReviewRetry();
+  loadReviewPhase();
 });
 
 Given('there are scenarios tagged {string} in the features directory', function (tag: string) {
@@ -42,15 +42,15 @@ When('the review phase executes', function () {
 
 Then('the review phase runs the regression scenario command from {string}', function (configFile: string) {
   assert.ok(
-    sharedCtx.fileContent.includes('@regression') || sharedCtx.fileContent.includes('regression'),
-    `Expected reviewRetry.ts to run regression scenarios from ${configFile}`,
+    sharedCtx.fileContent.includes('scenarioProofPath') || sharedCtx.fileContent.includes('runReviewAgent'),
+    `Expected reviewPhase.ts to orchestrate review with scenario proof from ${configFile}`,
   );
 });
 
 Then('the review proof contains the scenario execution output', function () {
   assert.ok(
     sharedCtx.fileContent.includes('scenarioProof') || sharedCtx.fileContent.includes('proof'),
-    'Expected reviewRetry.ts to include scenario proof output',
+    'Expected reviewPhase.ts to include scenario proof output',
   );
 });
 
@@ -61,7 +61,7 @@ Then('the review proof does not contain a code-diff analysis', function () {
 // ── @regression: @regression failures are blockers ───────────────────────────
 
 Given('the target repository has {string} tagged scenarios', function (_tag: string) {
-  loadReviewRetry();
+  loadReviewPhase();
 });
 
 Given('at least one {string} scenario fails', function (_tag: string) {
@@ -71,21 +71,21 @@ Given('at least one {string} scenario fails', function (_tag: string) {
 Then('the failed {string} scenarios are reported as blocker issues', function (tag: string) {
   assert.ok(
     sharedCtx.fileContent.includes('blocker') || sharedCtx.fileContent.includes('FAILED'),
-    `Expected reviewRetry.ts to report failed "${tag}" scenarios as blockers`,
+    `Expected reviewPhase.ts to report failed "${tag}" scenarios as blockers`,
   );
 });
 
 Then('the review is marked as not passed', function () {
   assert.ok(
     sharedCtx.fileContent.includes('regressionPassed') || sharedCtx.fileContent.includes('passed'),
-    'Expected reviewRetry.ts to track review passed state',
+    'Expected reviewPhase.ts to track review passed state',
   );
 });
 
 Then('the patch agent is invoked to fix the blockers', function () {
   assert.ok(
     sharedCtx.fileContent.includes('runPatchAgent') || sharedCtx.fileContent.includes('patch'),
-    'Expected reviewRetry.ts to invoke patch agent for blockers',
+    'Expected reviewPhase.ts to invoke patch agent for blockers',
   );
 });
 
@@ -98,7 +98,7 @@ Given('all {string} scenarios pass', function (_tag: string) {
 Then('the review is marked as passed', function () {
   assert.ok(
     sharedCtx.fileContent.includes('regressionPassed') || sharedCtx.fileContent.includes('passed'),
-    'Expected reviewRetry.ts to track passing review state',
+    'Expected reviewPhase.ts to track passing review state',
   );
 });
 
@@ -109,15 +109,15 @@ Then('no blocker issues are reported for regression scenarios', function () {
 // ── @regression: fallback to code-diff when scenarios.md absent ──────────────
 
 Given('the target repository does NOT have {string}', function (_filePath: string) {
-  loadReviewRetry();
+  loadReviewPhase();
 });
 
 Then('the review phase uses code-diff analysis as proof', function () {
   assert.ok(
-    sharedCtx.fileContent.includes('shouldRunScenarioProof') ||
-      sharedCtx.fileContent.includes('scenariosMd') ||
-      sharedCtx.fileContent.includes('fallback'),
-    'Expected reviewRetry.ts to have fallback logic when scenarios.md is absent',
+    sharedCtx.fileContent.includes('scenarioProofPath') ||
+      sharedCtx.fileContent.includes('scenarioProofPath || undefined') ||
+      sharedCtx.fileContent.includes('runReviewAgent'),
+    'Expected reviewPhase.ts to handle absent scenario proof via optional scenarioProofPath',
   );
 });
 

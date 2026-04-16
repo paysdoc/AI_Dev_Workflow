@@ -10,13 +10,15 @@ const ROOT = process.cwd();
 
 Then('the scenario proof invocation occurs before the review agent launch', function () {
   const content = sharedCtx.fileContent;
-  const proofIdx = content.indexOf('runScenarioProof(');
+  // After refactor, reviewPhase.ts receives scenarioProofPath as a parameter (proof runs in scenarioTestPhase)
+  // and passes it to runReviewAgent. The proof param appears before the agent call.
+  const proofIdx = content.indexOf('scenarioProofPath');
   const agentIdx = content.indexOf('runReviewAgent(');
-  assert.ok(proofIdx !== -1, `Expected "${sharedCtx.filePath}" to call runScenarioProof`);
+  assert.ok(proofIdx !== -1, `Expected "${sharedCtx.filePath}" to reference scenarioProofPath`);
   assert.ok(agentIdx !== -1, `Expected "${sharedCtx.filePath}" to call runReviewAgent`);
   assert.ok(
     proofIdx < agentIdx,
-    `Expected runScenarioProof to be invoked before runReviewAgent in "${sharedCtx.filePath}"`,
+    `Expected scenarioProofPath to appear before runReviewAgent in "${sharedCtx.filePath}"`,
   );
 });
 

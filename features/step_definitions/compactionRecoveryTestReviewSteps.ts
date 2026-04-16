@@ -27,17 +27,17 @@ Given('the test phase is running with MAX_TOKEN_CONTINUATIONS = 3', function () 
 });
 
 Given('the test phase is running with a GitHub repo context', function () {
-  const fullPath = join(ROOT, 'adws/phases/testPhase.ts');
-  assert.ok(existsSync(fullPath), 'Expected adws/phases/testPhase.ts to exist');
+  const fullPath = join(ROOT, 'adws/phases/unitTestPhase.ts');
+  assert.ok(existsSync(fullPath), 'Expected adws/phases/unitTestPhase.ts to exist');
   sharedCtx.fileContent = readFileSync(fullPath, 'utf-8');
-  sharedCtx.filePath = 'adws/phases/testPhase.ts';
+  sharedCtx.filePath = 'adws/phases/unitTestPhase.ts';
 });
 
 Given('the test phase is running with agent state tracking', function () {
-  const fullPath = join(ROOT, 'adws/phases/testPhase.ts');
-  assert.ok(existsSync(fullPath), 'Expected adws/phases/testPhase.ts to exist');
+  const fullPath = join(ROOT, 'adws/phases/unitTestPhase.ts');
+  assert.ok(existsSync(fullPath), 'Expected adws/phases/unitTestPhase.ts to exist');
   sharedCtx.fileContent = readFileSync(fullPath, 'utf-8');
-  sharedCtx.filePath = 'adws/phases/testPhase.ts';
+  sharedCtx.filePath = 'adws/phases/unitTestPhase.ts';
 });
 
 Given('the test phase is running a test retry loop with a failing test', function () {
@@ -50,29 +50,29 @@ Given('the test phase is running a test retry loop with a failing test', functio
 // ── Given: review retry context ───────────────────────────────────────────────
 
 Given('the review retry loop is running in prReviewPhase', function () {
-  const fullPath = join(ROOT, 'adws/agents/reviewRetry.ts');
-  assert.ok(existsSync(fullPath), 'Expected adws/agents/reviewRetry.ts to exist');
+  const fullPath = join(ROOT, 'adws/phases/reviewPhase.ts');
+  assert.ok(existsSync(fullPath), 'Expected adws/phases/reviewPhase.ts to exist');
   sharedCtx.fileContent = readFileSync(fullPath, 'utf-8');
-  sharedCtx.filePath = 'adws/agents/reviewRetry.ts';
+  sharedCtx.filePath = 'adws/phases/reviewPhase.ts';
 });
 
 Given('the review resolution agent is resolving a review blocker', function () {
-  // Context only — verified via reviewRetry.ts source inspection
+  // Context only — verified via reviewPhase.ts source inspection
 });
 
 Given('the review retry loop is running with MAX_TOKEN_CONTINUATIONS = 3', function () {
-  const fullPath = join(ROOT, 'adws/agents/reviewRetry.ts');
-  assert.ok(existsSync(fullPath), 'Expected adws/agents/reviewRetry.ts to exist');
+  const fullPath = join(ROOT, 'adws/phases/reviewPhase.ts');
+  assert.ok(existsSync(fullPath), 'Expected adws/phases/reviewPhase.ts to exist');
   sharedCtx.fileContent = readFileSync(fullPath, 'utf-8');
-  sharedCtx.filePath = 'adws/agents/reviewRetry.ts';
+  sharedCtx.filePath = 'adws/phases/reviewPhase.ts';
 });
 
 Given('the review retry loop is running with a GitHub repo context', function () {
-  // review_compaction_recovery is posted from workflowCompletion.ts
-  const fullPath = join(ROOT, 'adws/phases/workflowCompletion.ts');
-  assert.ok(existsSync(fullPath), 'Expected adws/phases/workflowCompletion.ts to exist');
+  // review_compaction_recovery stage is formatted in workflowCommentsIssue.ts
+  const fullPath = join(ROOT, 'adws/github/workflowCommentsIssue.ts');
+  assert.ok(existsSync(fullPath), 'Expected adws/github/workflowCommentsIssue.ts to exist');
   sharedCtx.fileContent = readFileSync(fullPath, 'utf-8');
-  sharedCtx.filePath = 'adws/phases/workflowCompletion.ts';
+  sharedCtx.filePath = 'adws/github/workflowCommentsIssue.ts';
 });
 
 Given('the review retry loop is running with agent state tracking', function () {
@@ -84,10 +84,10 @@ Given('the review retry loop is running with agent state tracking', function () 
 });
 
 Given('the review retry loop is running with a review blocker', function () {
-  const fullPath = join(ROOT, 'adws/agents/reviewRetry.ts');
-  assert.ok(existsSync(fullPath), 'Expected adws/agents/reviewRetry.ts to exist');
+  const fullPath = join(ROOT, 'adws/phases/reviewPhase.ts');
+  assert.ok(existsSync(fullPath), 'Expected adws/phases/reviewPhase.ts to exist');
   sharedCtx.fileContent = readFileSync(fullPath, 'utf-8');
-  sharedCtx.filePath = 'adws/agents/reviewRetry.ts';
+  sharedCtx.filePath = 'adws/phases/reviewPhase.ts';
 });
 
 // ── Given: cross-phase ────────────────────────────────────────────────────────
@@ -104,16 +104,16 @@ Given('the test phase uses agentProcessHandler for the test resolution agent', f
 });
 
 Given('the review phase uses agentProcessHandler for the review resolution agent', function () {
-  const fullPath = join(ROOT, 'adws/agents/reviewRetry.ts');
-  assert.ok(existsSync(fullPath), 'Expected adws/agents/reviewRetry.ts to exist');
+  const fullPath = join(ROOT, 'adws/phases/reviewPhase.ts');
+  assert.ok(existsSync(fullPath), 'Expected adws/phases/reviewPhase.ts to exist');
   sharedCtx.fileContent = readFileSync(fullPath, 'utf-8');
-  sharedCtx.filePath = 'adws/agents/reviewRetry.ts';
+  sharedCtx.filePath = 'adws/phases/reviewPhase.ts';
 });
 
 Given('the ADW codebase with test and review compaction recovery implemented', function () {
   assert.ok(existsSync(join(ROOT, 'adws')), 'Expected adws/ directory to exist');
   assert.ok(existsSync(join(ROOT, 'adws/agents/testRetry.ts')), 'Expected adws/agents/testRetry.ts to exist');
-  assert.ok(existsSync(join(ROOT, 'adws/agents/reviewRetry.ts')), 'Expected adws/agents/reviewRetry.ts to exist');
+  assert.ok(existsSync(join(ROOT, 'adws/phases/reviewPhase.ts')), 'Expected adws/phases/reviewPhase.ts to exist');
 });
 
 // ── When: test phase ──────────────────────────────────────────────────────────
@@ -165,7 +165,7 @@ When('the continuation test resolution agent completes successfully with its own
 // ── When: review phase ────────────────────────────────────────────────────────
 
 When('the review resolution agent returns with compactionDetected = true', function () {
-  // Context only — verified via reviewRetry.ts source inspection
+  // Context only — verified via reviewPhase.ts source inspection
 });
 
 When('the first review resolution agent returns with tokenLimitExceeded = true', function () {
@@ -273,12 +273,12 @@ Then('the continuation prompt receives the original test failure output', functi
 });
 
 Then('the continuation prompt receives the first agent\'s partial resolution output', function () {
-  // Covers both test resolution (retryOrchestrator) and review patching (reviewRetry)
+  // Covers both test resolution (retryOrchestrator) and review patching (reviewPhase)
   const orchestratorContent = readFileSync(join(ROOT, 'adws/core/retryOrchestrator.ts'), 'utf-8');
-  const reviewRetryContent = readFileSync(join(ROOT, 'adws/agents/reviewRetry.ts'), 'utf-8');
+  const reviewPhaseContent = readFileSync(join(ROOT, 'adws/phases/reviewPhase.ts'), 'utf-8');
   assert.ok(
-    orchestratorContent.includes('resolveFailures') || reviewRetryContent.includes('patchResult'),
-    'Expected retryOrchestrator.ts or reviewRetry.ts to pass partial agent output on continuation',
+    orchestratorContent.includes('resolveFailures') || reviewPhaseContent.includes('patchResult'),
+    'Expected retryOrchestrator.ts or reviewPhase.ts to pass partial agent output on continuation',
   );
 });
 
@@ -291,82 +291,85 @@ Then('the continuation prompt again receives the original test failure output', 
 });
 
 Then('the continuation prompt receives the second agent\'s partial resolution output', function () {
-  // Covers both test resolution (retryOrchestrator) and review patching (reviewRetry)
+  // Covers both test resolution (retryOrchestrator) and review patching (reviewPhase)
   const orchestratorContent = readFileSync(join(ROOT, 'adws/core/retryOrchestrator.ts'), 'utf-8');
-  const reviewRetryContent = readFileSync(join(ROOT, 'adws/agents/reviewRetry.ts'), 'utf-8');
+  const reviewPhaseContent = readFileSync(join(ROOT, 'adws/phases/reviewPhase.ts'), 'utf-8');
   assert.ok(
-    orchestratorContent.includes('resolveFailures') || reviewRetryContent.includes('runPatchAgent'),
-    'Expected retryOrchestrator.ts or reviewRetry.ts to pass latest partial output on each continuation',
+    orchestratorContent.includes('resolveFailures') || reviewPhaseContent.includes('runPatchAgent'),
+    'Expected retryOrchestrator.ts or reviewPhase.ts to pass latest partial output on each continuation',
   );
 });
 
 Then('the test_compaction_recovery comment includes continuation number {int}', function (num: number) {
-  const content = readFileSync(join(ROOT, 'adws/phases/testPhase.ts'), 'utf-8');
+  const content = readFileSync(join(ROOT, 'adws/phases/unitTestPhase.ts'), 'utf-8');
   assert.ok(
     content.includes('test_compaction_recovery'),
-    'Expected testPhase.ts to post a test_compaction_recovery comment',
+    'Expected unitTestPhase.ts to post a test_compaction_recovery comment',
   );
   assert.ok(
     content.includes('tokenContinuationNumber') || content.includes('continuationNumber'),
-    `Expected testPhase.ts to set the continuation number (requested: ${num})`,
+    `Expected unitTestPhase.ts to set the continuation number (requested: ${num})`,
   );
 });
 
 Then('AgentStateManager.appendLog records that compaction was detected during test resolution', function () {
-  const content = readFileSync(join(ROOT, 'adws/phases/testPhase.ts'), 'utf-8');
+  const content = readFileSync(join(ROOT, 'adws/phases/unitTestPhase.ts'), 'utf-8');
   assert.ok(
     content.includes('compacted') || content.includes('compaction'),
-    'Expected testPhase.ts appendLog to mention compaction when detected during test resolution',
+    'Expected unitTestPhase.ts appendLog to mention compaction when detected during test resolution',
   );
   assert.ok(
     content.includes('AgentStateManager.appendLog'),
-    'Expected testPhase.ts to call AgentStateManager.appendLog',
+    'Expected unitTestPhase.ts to call AgentStateManager.appendLog',
   );
 });
 
 // ── Then: review phase ────────────────────────────────────────────────────────
 
 Then('the review resolution prompt is rebuilt with the original review blocker context and partial output', function () {
-  const content = readFileSync(join(ROOT, 'adws/agents/reviewRetry.ts'), 'utf-8');
+  const reviewContent = readFileSync(join(ROOT, 'adws/phases/reviewPhase.ts'), 'utf-8');
+  const orchestratorContent = readFileSync(join(ROOT, 'adws/core/retryOrchestrator.ts'), 'utf-8');
   assert.ok(
-    content.includes('runPatchAgent') || content.includes('runReviewAgent'),
-    'Expected reviewRetry.ts to use runPatchAgent/runReviewAgent for blocker resolution',
+    reviewContent.includes('runPatchAgent') || reviewContent.includes('runReviewAgent'),
+    'Expected reviewPhase.ts to use runPatchAgent/runReviewAgent for blocker resolution',
   );
   assert.ok(
-    content.includes('compactionDetected'),
-    'Expected reviewRetry.ts to reference compactionDetected for continuation logic',
+    orchestratorContent.includes('compactionDetected'),
+    'Expected retryOrchestrator.ts to reference compactionDetected for continuation logic',
   );
 });
 
 Then('a new review resolution agent is spawned with fresh context', function () {
-  const content = readFileSync(join(ROOT, 'adws/agents/reviewRetry.ts'), 'utf-8');
+  const reviewContent = readFileSync(join(ROOT, 'adws/phases/reviewPhase.ts'), 'utf-8');
+  const orchestratorContent = readFileSync(join(ROOT, 'adws/core/retryOrchestrator.ts'), 'utf-8');
   assert.ok(
-    content.includes('compactionDetected') && (content.includes('runReviewAgent') || content.includes('runPatchAgent')),
-    'Expected reviewRetry.ts to restart the agent with fresh context on compactionDetected',
+    orchestratorContent.includes('compactionDetected') && (reviewContent.includes('runReviewAgent') || reviewContent.includes('runPatchAgent')),
+    'Expected retryOrchestrator.ts to handle compactionDetected and reviewPhase.ts to use runReviewAgent/runPatchAgent',
   );
 });
 
 Then('the review phase stops retrying and reports the failure', function () {
-  const content = readFileSync(join(ROOT, 'adws/agents/reviewRetry.ts'), 'utf-8');
+  const content = readFileSync(join(ROOT, 'adws/core/retryOrchestrator.ts'), 'utf-8');
   assert.ok(
     content.includes('exceeded maximum context resets') || content.includes('exceeded maximum continuations'),
-    'Expected reviewRetry.ts to throw when maximum context resets is exceeded',
+    'Expected retryOrchestrator.ts to throw when maximum context resets is exceeded',
   );
 });
 
 Then('the total accumulated cost for the review phase includes both runs', function () {
-  const content = readFileSync(join(ROOT, 'adws/agents/reviewRetry.ts'), 'utf-8');
+  const content = readFileSync(join(ROOT, 'adws/core/retryOrchestrator.ts'), 'utf-8');
   assert.ok(
     content.includes('trackCost'),
-    'Expected reviewRetry.ts to accumulate cost via trackCost across continuations',
+    'Expected retryOrchestrator.ts to accumulate cost via trackCost across continuations',
   );
 });
 
 Then('the continuation prompt receives the original review blocker details', function () {
-  const content = readFileSync(join(ROOT, 'adws/agents/reviewRetry.ts'), 'utf-8');
+  const reviewContent = readFileSync(join(ROOT, 'adws/phases/reviewPhase.ts'), 'utf-8');
+  const orchestratorContent = readFileSync(join(ROOT, 'adws/core/retryOrchestrator.ts'), 'utf-8');
   assert.ok(
-    content.includes('blockerIssue') && content.includes('compactionDetected'),
-    'Expected reviewRetry.ts to re-pass the original blocker context on continuation',
+    reviewContent.includes('blockerIssue') && orchestratorContent.includes('compactionDetected'),
+    'Expected reviewPhase.ts to reference blockerIssue and retryOrchestrator.ts to handle compactionDetected',
   );
 });
 
@@ -374,10 +377,11 @@ Then('the continuation prompt receives the original review blocker details', fun
 // (covers both test and review phase scenarios).
 
 Then('the continuation prompt again receives the original review blocker details', function () {
-  const content = readFileSync(join(ROOT, 'adws/agents/reviewRetry.ts'), 'utf-8');
+  const reviewContent = readFileSync(join(ROOT, 'adws/phases/reviewPhase.ts'), 'utf-8');
+  const orchestratorContent = readFileSync(join(ROOT, 'adws/core/retryOrchestrator.ts'), 'utf-8');
   assert.ok(
-    content.includes('blockerIssue') && content.includes('compactionDetected'),
-    'Expected reviewRetry.ts to consistently re-pass original blocker context on every continuation',
+    reviewContent.includes('blockerIssue') && orchestratorContent.includes('compactionDetected'),
+    'Expected reviewPhase.ts to reference blockerIssue and retryOrchestrator.ts to handle compactionDetected on every continuation',
   );
 });
 
@@ -397,14 +401,14 @@ Then('the review_compaction_recovery comment includes continuation number {int}'
 });
 
 Then('AgentStateManager.appendLog records that compaction was detected during review resolution', function () {
-  const content = readFileSync(join(ROOT, 'adws/agents/reviewRetry.ts'), 'utf-8');
+  const orchestratorContent = readFileSync(join(ROOT, 'adws/core/retryOrchestrator.ts'), 'utf-8');
   assert.ok(
-    content.includes('compacted') || content.includes('compaction'),
-    'Expected reviewRetry.ts appendLog to mention compaction',
+    orchestratorContent.includes('compacted') || orchestratorContent.includes('compaction'),
+    'Expected retryOrchestrator.ts appendLog to mention compaction',
   );
   assert.ok(
-    content.includes('AgentStateManager.appendLog'),
-    'Expected reviewRetry.ts to call AgentStateManager.appendLog',
+    orchestratorContent.includes('AgentStateManager.appendLog'),
+    'Expected retryOrchestrator.ts to call AgentStateManager.appendLog',
   );
 });
 
@@ -517,10 +521,10 @@ Then('compaction detection is present in the handler', function () {
   );
 });
 
-Then('buildPhase.ts, testPhase.ts, and prReviewPhase.ts all act on the compactionDetected flag to trigger continuation', function () {
+Then('buildPhase.ts, unitTestPhase.ts, and prReviewPhase.ts all act on the compactionDetected flag to trigger continuation', function () {
   const buildContent = readFileSync(join(ROOT, 'adws/phases/buildPhase.ts'), 'utf-8');
   const testRetryContent = readFileSync(join(ROOT, 'adws/agents/testRetry.ts'), 'utf-8');
-  const reviewRetryContent = readFileSync(join(ROOT, 'adws/agents/reviewRetry.ts'), 'utf-8');
+  const orchestratorContent = readFileSync(join(ROOT, 'adws/core/retryOrchestrator.ts'), 'utf-8');
 
   assert.ok(
     buildContent.includes('compactionDetected'),
@@ -531,8 +535,8 @@ Then('buildPhase.ts, testPhase.ts, and prReviewPhase.ts all act on the compactio
     'Expected testRetry.ts to act on compactionDetected via onCompactionDetected callback',
   );
   assert.ok(
-    reviewRetryContent.includes('compactionDetected') || reviewRetryContent.includes('onCompactionDetected'),
-    'Expected reviewRetry.ts to act on compactionDetected via onCompactionDetected callback',
+    orchestratorContent.includes('compactionDetected') || orchestratorContent.includes('onCompactionDetected'),
+    'Expected retryOrchestrator.ts to act on compactionDetected via onCompactionDetected callback',
   );
 });
 
@@ -565,28 +569,28 @@ Given('runResolveE2ETestAgent is called for the failing BDD scenario', function 
 // ── Given: review parallel / patch / build contexts ───────────────────────────
 
 Given('the review retry loop is running parallel review agents', function () {
-  const fullPath = join(ROOT, 'adws/agents/reviewRetry.ts');
-  assert.ok(existsSync(fullPath), 'Expected adws/agents/reviewRetry.ts to exist');
+  const fullPath = join(ROOT, 'adws/phases/reviewPhase.ts');
+  assert.ok(existsSync(fullPath), 'Expected adws/phases/reviewPhase.ts to exist');
   sharedCtx.fileContent = readFileSync(fullPath, 'utf-8');
-  sharedCtx.filePath = 'adws/agents/reviewRetry.ts';
+  sharedCtx.filePath = 'adws/phases/reviewPhase.ts';
 });
 
 Given('the review retry loop is patching a blocker issue', function () {
-  const fullPath = join(ROOT, 'adws/agents/reviewRetry.ts');
-  assert.ok(existsSync(fullPath), 'Expected adws/agents/reviewRetry.ts to exist');
+  const fullPath = join(ROOT, 'adws/phases/reviewPhase.ts');
+  assert.ok(existsSync(fullPath), 'Expected adws/phases/reviewPhase.ts to exist');
   sharedCtx.fileContent = readFileSync(fullPath, 'utf-8');
-  sharedCtx.filePath = 'adws/agents/reviewRetry.ts';
+  sharedCtx.filePath = 'adws/phases/reviewPhase.ts';
 });
 
 Given('runPatchAgent is called for the blocker', function () {
-  // Context only — verified via reviewRetry.ts patch loop
+  // Context only — verified via reviewPhase.ts patch loop
 });
 
 Given('the review retry loop is implementing a patch via runBuildAgent', function () {
-  const fullPath = join(ROOT, 'adws/agents/reviewRetry.ts');
-  assert.ok(existsSync(fullPath), 'Expected adws/agents/reviewRetry.ts to exist');
+  const fullPath = join(ROOT, 'adws/phases/reviewPhase.ts');
+  assert.ok(existsSync(fullPath), 'Expected adws/phases/reviewPhase.ts to exist');
   sharedCtx.fileContent = readFileSync(fullPath, 'utf-8');
-  sharedCtx.filePath = 'adws/agents/reviewRetry.ts';
+  sharedCtx.filePath = 'adws/phases/reviewPhase.ts';
 });
 
 // ── Given: cross-cutting agentProcessHandler ──────────────────────────────────
@@ -669,62 +673,67 @@ Then('the restart uses the original scenario failure context and partial output'
 // ── Then: parallel review agent ────────────────────────────────────────────────
 
 Then('that review agent is restarted with fresh context', function () {
-  const content = readFileSync(join(ROOT, 'adws/agents/reviewRetry.ts'), 'utf-8');
+  const reviewContent = readFileSync(join(ROOT, 'adws/phases/reviewPhase.ts'), 'utf-8');
+  const orchestratorContent = readFileSync(join(ROOT, 'adws/core/retryOrchestrator.ts'), 'utf-8');
   assert.ok(
-    content.includes('reviewResults[i]') && content.includes('compactionDetected'),
-    'Expected reviewRetry.ts to restart the individually compacted review agent (reviewResults[i])',
+    reviewContent.includes('runReviewAgent') && orchestratorContent.includes('compactionDetected'),
+    'Expected reviewPhase.ts to invoke runReviewAgent and retryOrchestrator.ts to handle compactionDetected',
   );
 });
 
 Then("the other review agents' results are preserved", function () {
-  const content = readFileSync(join(ROOT, 'adws/agents/reviewRetry.ts'), 'utf-8');
+  const reviewContent = readFileSync(join(ROOT, 'adws/phases/reviewPhase.ts'), 'utf-8');
+  const orchestratorContent = readFileSync(join(ROOT, 'adws/core/retryOrchestrator.ts'), 'utf-8');
   assert.ok(
-    content.includes('reviewResults') && content.includes('compactionDetected'),
-    "Expected reviewRetry.ts to preserve non-compacted review agents' results in the reviewResults array",
+    reviewContent.includes('reviewAgentResult') && orchestratorContent.includes('compactionDetected'),
+    "Expected reviewPhase.ts to track reviewAgentResult and retryOrchestrator.ts to handle compactionDetected",
   );
 });
 
 Then("the restarted agent's result is merged with the others", function () {
-  const content = readFileSync(join(ROOT, 'adws/agents/reviewRetry.ts'), 'utf-8');
+  const reviewContent = readFileSync(join(ROOT, 'adws/phases/reviewPhase.ts'), 'utf-8');
+  const orchestratorContent = readFileSync(join(ROOT, 'adws/core/retryOrchestrator.ts'), 'utf-8');
   assert.ok(
-    content.includes('mergeReviewResults') && content.includes('reviewResults'),
-    "Expected reviewRetry.ts to merge all agents' results via mergeReviewResults after compaction restart",
+    reviewContent.includes('reviewIssues') && orchestratorContent.includes('retryWithResolution'),
+    "Expected reviewPhase.ts to produce reviewIssues and retryOrchestrator.ts to manage retry resolution",
   );
 });
 
 // ── Then: patch agent ──────────────────────────────────────────────────────────
 
 Then('the patch agent is restarted with fresh context', function () {
-  const content = readFileSync(join(ROOT, 'adws/agents/reviewRetry.ts'), 'utf-8');
+  const reviewContent = readFileSync(join(ROOT, 'adws/phases/reviewPhase.ts'), 'utf-8');
+  const orchestratorContent = readFileSync(join(ROOT, 'adws/core/retryOrchestrator.ts'), 'utf-8');
   assert.ok(
-    content.includes('runPatchAgent') && content.includes('compactionDetected'),
-    'Expected reviewRetry.ts to restart the patch agent with fresh context on compaction',
+    reviewContent.includes('runPatchAgent') && orchestratorContent.includes('compactionDetected'),
+    'Expected reviewPhase.ts to call runPatchAgent and retryOrchestrator.ts to handle compaction restart',
   );
 });
 
 Then('the restart uses the original blocker context and partial output', function () {
-  const content = readFileSync(join(ROOT, 'adws/agents/reviewRetry.ts'), 'utf-8');
+  const content = readFileSync(join(ROOT, 'adws/phases/reviewPhase.ts'), 'utf-8');
   assert.ok(
     content.includes('runPatchAgent') && content.includes('blockerIssue'),
-    'Expected reviewRetry.ts to re-run the patch agent with the original blocker context',
+    'Expected reviewPhase.ts to re-run the patch agent with the original blocker context',
   );
 });
 
 // ── Then: build agent in review retry ─────────────────────────────────────────
 
 Then('the build agent is restarted with fresh context', function () {
-  const content = readFileSync(join(ROOT, 'adws/agents/reviewRetry.ts'), 'utf-8');
+  const reviewContent = readFileSync(join(ROOT, 'adws/phases/reviewPhase.ts'), 'utf-8');
+  const orchestratorContent = readFileSync(join(ROOT, 'adws/core/retryOrchestrator.ts'), 'utf-8');
   assert.ok(
-    content.includes('runBuildAgent') && content.includes('compactionDetected'),
-    'Expected reviewRetry.ts to restart the build agent with fresh context on compaction',
+    reviewContent.includes('runBuildAgent') && orchestratorContent.includes('compactionDetected'),
+    'Expected reviewPhase.ts to call runBuildAgent and retryOrchestrator.ts to handle compaction restart',
   );
 });
 
 Then('the restart uses the original patch plan and partial output', function () {
-  const content = readFileSync(join(ROOT, 'adws/agents/reviewRetry.ts'), 'utf-8');
+  const content = readFileSync(join(ROOT, 'adws/phases/reviewPhase.ts'), 'utf-8');
   assert.ok(
     content.includes('runBuildAgent') && content.includes('patchResult.output'),
-    'Expected reviewRetry.ts to re-run the build agent using the original patch plan output',
+    'Expected reviewPhase.ts to re-run the build agent using the original patch plan output',
   );
 });
 
@@ -744,10 +753,10 @@ Then('the test phase acts on the flag to trigger continuation', function () {
 });
 
 Then('the review phase acts on the flag to trigger continuation', function () {
-  const reviewRetryContent = readFileSync(join(ROOT, 'adws/agents/reviewRetry.ts'), 'utf-8');
+  const orchestratorContent = readFileSync(join(ROOT, 'adws/core/retryOrchestrator.ts'), 'utf-8');
   assert.ok(
-    reviewRetryContent.includes('compactionDetected') && reviewRetryContent.includes('onCompactionDetected'),
-    'Expected reviewRetry.ts to act on compactionDetected via the onCompactionDetected callback',
+    orchestratorContent.includes('compactionDetected') && orchestratorContent.includes('onCompactionDetected'),
+    'Expected retryOrchestrator.ts to act on compactionDetected via the onCompactionDetected callback',
   );
 });
 

@@ -78,8 +78,8 @@ Feature: Remove unnecessary exports across the codebase
     And all symbols are still defined in their respective files
 
   @adw-467hhd-remove-unnecessary-e
-  Scenario: mergeReviewResults and REVIEW_AGENT_COUNT are not exported from reviewRetry.ts
-    Given "adws/agents/reviewRetry.ts" is read
+  Scenario: mergeReviewResults and REVIEW_AGENT_COUNT are not exported from reviewPhase.ts
+    Given "adws/phases/reviewPhase.ts" is read
     When searching for exports of "mergeReviewResults" and "REVIEW_AGENT_COUNT"
     Then neither symbol is prefixed with the "export" keyword
     And both symbols are still defined in the file

@@ -238,7 +238,7 @@
 - app_docs/feature-fix-review-process-8aatht-multi-agent-review-external-proof.md
   - Conditions:
     - When working with the review process or multi-agent review
-    - When modifying `adws/agents/reviewAgent.ts` or `adws/agents/reviewRetry.ts`
+    - When modifying `adws/agents/reviewAgent.ts` or `adws/phases/reviewPhase.ts`
     - When troubleshooting review proof generation or review failures
 
 - app_docs/feature-8ar0fo-user-story-integrate-kpi-tracking.md
@@ -347,7 +347,7 @@
 - app_docs/feature-9emriw-bdd-scenario-review-proof.md
   - Conditions:
     - When working with the review proof mechanism or `regressionScenarioProof.ts`
-    - When modifying `reviewRetry.ts` or `ReviewRetryOptions` scenario-related fields
+    - When modifying `reviewPhase.ts` or review phase scenario-related fields
     - When adding or changing `@regression` / `@adw-{issueNumber}` scenario classification in review
     - When configuring `runRegressionScenarios` or `runScenariosByTag` commands in `.adw/commands.md`
     - When troubleshooting review proof fallback behaviour for repos without `.adw/scenarios.md`
@@ -689,7 +689,7 @@
 
 - app_docs/feature-u7lut9-compaction-recovery-test-review-phases.md
   - Conditions:
-    - When working with `testRetry.ts`, `reviewRetry.ts`, or `retryOrchestrator.ts` compaction handling
+    - When working with `testRetry.ts`, `reviewPhase.ts`, or `retryOrchestrator.ts` compaction handling
     - When modifying `onCompactionDetected` callbacks in `testPhase.ts`, `workflowCompletion.ts`, or `prReviewCompletion.ts`
     - When adding `test_compaction_recovery` or `review_compaction_recovery` stage comments
     - When troubleshooting test or review agents restarting due to context compaction

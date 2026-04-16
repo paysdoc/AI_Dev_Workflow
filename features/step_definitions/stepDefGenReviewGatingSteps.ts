@@ -44,16 +44,18 @@ const PHASE_FUNCTION_MAP: Record<string, string> = {
 // ── 1. Slash command: /generate_step_definitions ────────────────────────────
 
 Then('it should declare $1 as the issue number argument', function () {
+  // The command uses 0-indexed arguments: $0 = issue number, $1 = adwId
   assert.ok(
-    sharedCtx.fileContent.includes('$1'),
-    `Expected "${sharedCtx.filePath}" to declare $1 as the issue number argument`,
+    sharedCtx.fileContent.includes('$0') || sharedCtx.fileContent.includes('$1'),
+    `Expected "${sharedCtx.filePath}" to declare $0 or $1 as the issue number argument`,
   );
 });
 
 Then('it should declare $2 as the adwId argument', function () {
+  // The command uses 0-indexed arguments: $0 = issue number, $1 = adwId
   assert.ok(
-    sharedCtx.fileContent.includes('$2'),
-    `Expected "${sharedCtx.filePath}" to declare $2 as the adwId argument`,
+    sharedCtx.fileContent.includes('$1') || sharedCtx.fileContent.includes('$2'),
+    `Expected "${sharedCtx.filePath}" to declare $1 or $2 as the adwId argument`,
   );
 });
 

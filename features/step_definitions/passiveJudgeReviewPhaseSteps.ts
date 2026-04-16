@@ -6,7 +6,7 @@
  * - Passive judge behaviour (reads proof, single agent, no dev server/UI/screenshots)
  * - executeReviewPhase removal from workflowCompletion.ts
  * - agents/reviewAgent.ts simplification (no parallelism, no screenshots)
- * - agents/reviewRetry.ts deletion
+ * - agents/reviewRetry.ts deletion (now refactored into phases/reviewPhase.ts)
  * - REVIEW_AGENT_COUNT constant deletion
  * - .claude/commands/review.md rewrite (Strategy A+B only)
  * - Orchestrator-level review retry loop (5 orchestrators)

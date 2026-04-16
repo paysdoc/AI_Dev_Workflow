@@ -126,25 +126,25 @@ Feature: Orchestrators exit after PR approval with awaiting_merge handoff
   Scenario: adwSdlc.tsx has no worktree-dependent phase after executePRPhase
     Given "adws/adwSdlc.tsx" is read
     Then no phase that requires the worktree is called after "executePRPhase"
-    And only API calls and state writes occur between "executePRPhase" and "completeWorkflow"
+    And only API calls and state writes occur after "executePRPhase" until the orchestrator exits
 
   @adw-bpn4sv-orchestrators-exit-a @regression
   Scenario: adwChore.tsx has no worktree-dependent phase after executePRPhase
     Given "adws/adwChore.tsx" is read
     Then no phase that requires the worktree is called after "executePRPhase"
-    And only API calls and state writes occur between "executePRPhase" and "completeWorkflow"
+    And only API calls and state writes occur after "executePRPhase" until the orchestrator exits
 
   @adw-bpn4sv-orchestrators-exit-a @regression
   Scenario: adwPlanBuildReview.tsx has no worktree-dependent phase after executePRPhase
     Given "adws/adwPlanBuildReview.tsx" is read
     Then no phase that requires the worktree is called after "executePRPhase"
-    And only API calls and state writes occur between "executePRPhase" and "completeWorkflow"
+    And only API calls and state writes occur after "executePRPhase" until the orchestrator exits
 
   @adw-bpn4sv-orchestrators-exit-a @regression
   Scenario: adwPlanBuildTestReview.tsx has no worktree-dependent phase after executePRPhase
     Given "adws/adwPlanBuildTestReview.tsx" is read
     Then no phase that requires the worktree is called after "executePRPhase"
-    And only API calls and state writes occur between "executePRPhase" and "completeWorkflow"
+    And only API calls and state writes occur after "executePRPhase" until the orchestrator exits
 
   # ── executePRPhase is last worktree phase ──────────────────────────────────
 

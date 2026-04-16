@@ -282,10 +282,14 @@ Then('the returned AgentResult does not have compactionDetected set to true', fu
 
 Then('the continuation counter is incremented', function () {
   const content = sharedCtx.fileContent;
-  // buildPhase.ts uses contextResetNumber++; retryOrchestrator/testRetry/reviewRetry use contextResetCount++
+  // buildPhase.ts uses contextResetCount++; retryOrchestrator also uses contextResetCount++
+  // For test/review phases, the counter increment lives in retryOrchestrator.ts
+  if (content.includes('contextResetNumber++') || content.includes('contextResetCount++')) return;
+  const orchPath = join(ROOT, 'adws/core/retryOrchestrator.ts');
+  const orchContent = readFileSync(orchPath, 'utf-8');
   assert.ok(
-    content.includes('contextResetNumber++') || content.includes('contextResetCount++'),
-    'Expected file to increment a context reset counter (contextResetNumber++ or contextResetCount++) on compaction',
+    orchContent.includes('contextResetCount++'),
+    'Expected retryOrchestrator.ts to increment contextResetCount on compaction',
   );
 });
 
@@ -313,7 +317,7 @@ Then('a new build agent is spawned with the continuation prompt', function () {
 Then('the shared continuation counter is 2', function () {
   const content = sharedCtx.fileContent;
   // buildPhase.ts: both tokenLimitExceeded and compactionDetected use the same contextResetNumber variable
-  // retryOrchestrator.ts / reviewRetry.ts / testRetry.ts: use a single contextResetCount variable
+  // retryOrchestrator.ts / reviewPhase.ts / testRetry.ts: use a single contextResetCount variable
   const hasBuildPhasePattern =
     content.includes('if (buildResult.tokenLimitExceeded)') &&
     content.includes('if (buildResult.compactionDetected)');
@@ -346,7 +350,7 @@ Then('the total number of continuations does not exceed MAX_TOKEN_CONTINUATIONS'
     'Expected file to use MAX_CONTEXT_RESETS as the context reset limit',
   );
   // buildPhase.ts uses `contextResetNumber <= MAX_CONTEXT_RESETS` as a while-loop guard.
-  // retryOrchestrator.ts / reviewRetry.ts use `contextResetCount > maxContextResets` with a throw.
+  // retryOrchestrator.ts / reviewPhase.ts use `contextResetCount > maxContextResets` with a throw.
   const hasWhileGuard = content.includes('contextResetNumber <= MAX_CONTEXT_RESETS');
   const hasThrowGuard =
     content.includes('contextResetCount > MAX_CONTEXT_RESETS') ||
@@ -498,7 +502,7 @@ Then('the formatted comment includes the ADW ID', function () {
 Then('AgentStateManager.writeState is called with partial output', function () {
   const content = sharedCtx.fileContent;
   // buildPhase.ts calls writeState inside the if (buildResult.compactionDetected) block
-  // testPhase.ts calls writeState on failure (after testing fails), not specifically on compaction
+  // unitTestPhase.ts calls writeState on failure (after testing fails), not specifically on compaction
   // Either pattern confirms AgentStateManager.writeState is used in the phase
   assert.ok(
     content.includes('AgentStateManager.writeState'),

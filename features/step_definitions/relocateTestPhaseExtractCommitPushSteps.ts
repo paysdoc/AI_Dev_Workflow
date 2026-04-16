@@ -316,15 +316,7 @@ Then('completePRReviewWorkflow does not post {string}', function (stageKey: stri
 // 5. prReviewCompletion.ts exports only terminal handlers
 // ---------------------------------------------------------------------------
 
-Then('the module exports {string}', function (exportName: string) {
-  const exportPattern = new RegExp(
-    `export\\s+(?:async\\s+)?function\\s+${exportName}\\b`,
-  );
-  assert.ok(
-    exportPattern.test(sharedCtx.fileContent),
-    `Expected "${sharedCtx.filePath}" to export "${exportName}"`,
-  );
-});
+// Note: 'the module exports {string}' is defined in passiveJudgeReviewPhaseSteps.ts
 
 Then('the module does not export any function prefixed with {string}', function (prefix: string) {
   const exportPattern = new RegExp(

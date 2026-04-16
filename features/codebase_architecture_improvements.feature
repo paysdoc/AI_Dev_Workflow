@@ -121,7 +121,7 @@ Feature: Codebase architecture improvements
 
   Scenario: Test phase uses AgentPhaseRunner
     Given the ADW codebase
-    When I read "adws/phases/testPhase.ts"
+    When I read "adws/phases/unitTestPhase.ts"
     Then it should delegate execution to AgentPhaseRunner
     And it should not duplicate cost tracking logic
     And it should not duplicate comment posting logic

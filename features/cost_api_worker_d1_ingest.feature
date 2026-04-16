@@ -20,7 +20,7 @@ Feature: Cost API Worker: D1 schema, auth, and ingest endpoint
 
   @adw-viahyb-cost-api-worker-d1-s @regression
   Scenario: D1 schema SQL file exists
-    Then the file "workers/cost-api/schema.sql" exists
+    Then the file "workers/cost-api/src/schema.sql" exists
     And the schema SQL defines a "projects" table
     And the schema SQL defines a "cost_records" table
     And the schema SQL defines a "token_usage" table
@@ -35,25 +35,25 @@ Feature: Cost API Worker: D1 schema, auth, and ingest endpoint
 
   @adw-viahyb-cost-api-worker-d1-s @regression
   Scenario: Projects table has required columns
-    Given the file "workers/cost-api/schema.sql" is read
+    Given the file "workers/cost-api/src/schema.sql" is read
     Then the "projects" table has columns "id", "slug", "name", "repo_url", and "created_at"
     And the "slug" column has a UNIQUE constraint
 
   @adw-viahyb-cost-api-worker-d1-s @regression
   Scenario: Cost records table has required columns
-    Given the file "workers/cost-api/schema.sql" is read
+    Given the file "workers/cost-api/src/schema.sql" is read
     Then the "cost_records" table has columns "id", "project_id", "workflow_id", "issue_number", "phase", "model", "provider", "computed_cost_usd", "reported_cost_usd", "status", "retry_count", "continuation_count", "duration_ms", "timestamp", and "migrated"
     And the "project_id" column references "projects(id)"
 
   @adw-viahyb-cost-api-worker-d1-s @regression
   Scenario: Token usage table has required columns
-    Given the file "workers/cost-api/schema.sql" is read
+    Given the file "workers/cost-api/src/schema.sql" is read
     Then the "token_usage" table has columns "id", "cost_record_id", "token_type", and "count"
     And the "cost_record_id" column references "cost_records(id)"
 
   @adw-viahyb-cost-api-worker-d1-s
   Scenario: Cost records table includes issue_description column
-    Given the file "workers/cost-api/schema.sql" is read
+    Given the file "workers/cost-api/src/schema.sql" is read
     Then the "cost_records" table has an "issue_description" column
 
   # ── 3: Bearer token auth ──────────────────────────────────────────────────

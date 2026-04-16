@@ -209,10 +209,10 @@ Then('the issue number is not added to the processedIssues set', function () {
   const content = readFileSync(join(ROOT, 'adws/triggers/trigger_cron.ts'), 'utf-8');
   const deferIdx = content.indexOf('open_dependencies');
   const continueIdx = content.indexOf('continue', deferIdx);
-  const addIdx = content.indexOf('processedIssues.add', deferIdx);
+  const addIdx = content.indexOf('processedSpawns.add', deferIdx);
   assert.ok(
     continueIdx !== -1 && continueIdx < addIdx,
-    'Dependency-deferred issues should hit continue before processedIssues.add',
+    'Dependency-deferred issues should hit continue before processedSpawns.add',
   );
 });
 
@@ -226,12 +226,12 @@ When('the cron trigger spawns a workflow for the issue', function () {
 
 Then('the issue number is added to the processedIssues set', function () {
   const content = readFileSync(join(ROOT, 'adws/triggers/trigger_cron.ts'), 'utf-8');
-  const addIdx = content.indexOf('processedIssues.add');
+  const addIdx = content.indexOf('processedSpawns.add');
   const spawnIdx = content.indexOf('classifyAndSpawnWorkflow', addIdx);
-  assert.ok(addIdx !== -1, 'processedIssues.add should exist in trigger_cron.ts');
+  assert.ok(addIdx !== -1, 'processedSpawns.add should exist in trigger_cron.ts');
   assert.ok(
     spawnIdx > addIdx,
-    'processedIssues.add should be called before classifyAndSpawnWorkflow',
+    'processedSpawns.add should be called before classifyAndSpawnWorkflow',
   );
 });
 

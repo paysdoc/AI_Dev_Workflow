@@ -6,19 +6,19 @@ import { sharedCtx } from './commonSteps.ts';
 
 const ROOT = process.cwd();
 
-const REVIEW_RETRY_FILE = 'adws/agents/reviewRetry.ts';
+const REVIEW_PHASE_FILE = 'adws/phases/reviewPhase.ts';
 
-function loadReviewRetry(): void {
-  const fullPath = join(ROOT, REVIEW_RETRY_FILE);
-  assert.ok(existsSync(fullPath), `Expected ${REVIEW_RETRY_FILE} to exist`);
+function loadReviewPhase(): void {
+  const fullPath = join(ROOT, REVIEW_PHASE_FILE);
+  assert.ok(existsSync(fullPath), `Expected ${REVIEW_PHASE_FILE} to exist`);
   sharedCtx.fileContent = readFileSync(fullPath, 'utf-8');
-  sharedCtx.filePath = REVIEW_RETRY_FILE;
+  sharedCtx.filePath = REVIEW_PHASE_FILE;
 }
 
 // ── Background ────────────────────────────────────────────────────────────────
 
 Given('the ADW workflow is running a review-retry loop', function () {
-  loadReviewRetry();
+  loadReviewPhase();
 });
 
 Given('the review retry loop has reached the patching phase', function () {
@@ -28,7 +28,7 @@ Given('the review retry loop has reached the patching phase', function () {
 // ── @regression: build agent called after patch agent ────────────────────────
 
 Given('a blocker issue has been identified by the review agents', function () {
-  loadReviewRetry();
+  loadReviewPhase();
 });
 
 Given('runPatchAgent has produced a patch plan file in {string}', function (_dir: string) {
@@ -42,7 +42,7 @@ When('the patch phase processes the blocker', function () {
 Then('runBuildAgent is called with the patch plan file as the plan argument', function () {
   assert.ok(
     sharedCtx.fileContent.includes('runBuildAgent'),
-    'Expected reviewRetry.ts to call runBuildAgent after runPatchAgent',
+    'Expected reviewPhase.ts to call runBuildAgent after runPatchAgent',
   );
 });
 
@@ -57,7 +57,7 @@ Then('the subsequent commit contains code changes, not only a plan file', functi
 // ── @regression: re-review does not find same blockers ───────────────────────
 
 Given('a previous review iteration identified blocker issues', function () {
-  loadReviewRetry();
+  loadReviewPhase();
 });
 
 Given('the patch phase ran runPatchAgent and runBuildAgent for each blocker', function () {
@@ -72,7 +72,7 @@ Then('the previously identified blockers are no longer present', function () {
   // Behavioral — verified by build agent being called (patches actually applied)
   assert.ok(
     sharedCtx.fileContent.includes('runBuildAgent'),
-    'Expected reviewRetry.ts to apply patches via runBuildAgent',
+    'Expected reviewPhase.ts to apply patches via runBuildAgent',
   );
 });
 
@@ -83,7 +83,7 @@ Then('the retry loop makes forward progress toward a passing review', function (
 // ── @regression: related blockers consolidated ────────────────────────────────
 
 Given('three review agents report overlapping blocker issues', function () {
-  loadReviewRetry();
+  loadReviewPhase();
 });
 
 Given('two of the blockers share the same root cause or affected file', function () {
@@ -100,28 +100,28 @@ Then('the overlapping blockers are grouped into a single patch invocation', func
       sharedCtx.fileContent.includes('dedup') ||
       sharedCtx.fileContent.includes('merge') ||
       sharedCtx.fileContent.includes('group'),
-    'Expected reviewRetry.ts to consolidate overlapping blockers',
+    'Expected reviewPhase.ts to consolidate overlapping blockers',
   );
 });
 
 Then('runPatchAgent is called once for the consolidated group', function () {
   assert.ok(
     sharedCtx.fileContent.includes('runPatchAgent'),
-    'Expected reviewRetry.ts to call runPatchAgent',
+    'Expected reviewPhase.ts to call runPatchAgent',
   );
 });
 
 Then('runBuildAgent is called once for the consolidated patch plan', function () {
   assert.ok(
     sharedCtx.fileContent.includes('runBuildAgent'),
-    'Expected reviewRetry.ts to call runBuildAgent for the consolidated patch plan',
+    'Expected reviewPhase.ts to call runBuildAgent for the consolidated patch plan',
   );
 });
 
 // ── @regression: cost tracking includes build agent ──────────────────────────
 
 Given('the review retry loop has patched one blocker issue', function () {
-  loadReviewRetry();
+  loadReviewPhase();
 });
 
 Given('runPatchAgent was called for the blocker', function () {
@@ -139,7 +139,7 @@ When('the loop accumulates cost state', function () {
 Then('the cost state includes the token usage from the build agent call', function () {
   assert.ok(
     sharedCtx.fileContent.includes('cost') || sharedCtx.fileContent.includes('Cost'),
-    'Expected reviewRetry.ts to accumulate cost from build agent',
+    'Expected reviewPhase.ts to accumulate cost from build agent',
   );
 });
 
@@ -148,7 +148,7 @@ Then(
   function () {
     assert.ok(
       sharedCtx.fileContent.includes('costUsd') || sharedCtx.fileContent.includes('cost'),
-      'Expected reviewRetry.ts ReviewRetryResult to include costUsd',
+      'Expected reviewPhase.ts ReviewRetryResult to include costUsd',
     );
   },
 );
