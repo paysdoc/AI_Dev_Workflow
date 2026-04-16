@@ -6,14 +6,28 @@ ADW automates software development by integrating GitHub issues with Claude Code
 
 ### 1. Install Prerequisites
 
+**Required:**
+
+| Tool | Purpose | Install (macOS) | Install (Linux) |
+|------|---------|-----------------|-----------------|
+| [Node.js](https://nodejs.org/) (>= 18) | Required by Claude Code CLI | `brew install node` | `sudo apt install nodejs` |
+| [Git](https://git-scm.com/) | Version control, worktrees, branching | `brew install git` | `sudo apt install git` |
+| [Bun](https://bun.sh/) | Runtime, package manager, script runner | `brew install oven-sh/bun/bun` | `curl -fsSL https://bun.sh/install \| bash` |
+| [GitHub CLI](https://cli.github.com/) | Issue/PR operations, GraphQL, auth | `brew install gh` | `sudo apt install gh` |
+| [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) | AI agent execution | `npm install -g @anthropic-ai/claude-code` | `npm install -g @anthropic-ai/claude-code` |
+
+**Optional:**
+
+| Tool | Purpose | Install (macOS) | Install (Linux) |
+|------|---------|-----------------|-----------------|
+| [cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) | Cloudflare tunnel for webhook server | `brew install cloudflared` | See Cloudflare docs |
+| [Docker](https://www.docker.com/) | BDD test isolation in containers | `brew install --cask docker` | `sudo apt install docker.io` |
+
+**System utilities** (pre-installed on macOS and most Linux distributions):
+- `lsof` — used by the dev server janitor and worktree cleanup to find processes holding file handles
+- `which` — used for health checks and CLI binary resolution
+
 ```bash
-# GitHub CLI
-brew install gh              # macOS
-# or: sudo apt install gh    # Ubuntu/Debian
-
-# Claude Code CLI
-# Follow instructions at https://docs.anthropic.com/en/docs/claude-code
-
 # Authenticate GitHub
 gh auth login
 ```
