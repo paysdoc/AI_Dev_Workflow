@@ -3,7 +3,7 @@ Feature: Extend compaction recovery to test and review phases
 
   The build agent already handles compaction detection and restart via the
   shared continuation counter and buildContinuationPrompt. The test retry
-  loop (testPhase.ts) and review retry loop (prReviewPhase.ts) are also
+  loop (unitTestPhase.ts) and review retry loop (prReviewPhase.ts) are also
   long-running and can hit context compaction, but currently lack the
   continuation loop to recover. This feature adds compaction recovery to
   both phases, reusing the same pattern established in issue #298.

@@ -111,13 +111,13 @@ Feature: Thin merge orchestrator and cron awaiting_merge handoff
   Scenario: awaiting_merge is not classified as an active stage
     Given the stage "awaiting_merge"
     When isActiveStage evaluates the stage
-    Then it returns false
+    Then the stage evaluation returns false
 
   @adw-dcy9qz-create-thin-merge-or @regression
   Scenario: awaiting_merge is not classified as a retriable stage
     Given the stage "awaiting_merge"
     When isRetriableStage evaluates the stage
-    Then it returns false
+    Then the stage evaluation returns false
 
   @adw-dcy9qz-create-thin-merge-or @regression
   Scenario: Cron evaluateIssue recognizes awaiting_merge as a handoff stage

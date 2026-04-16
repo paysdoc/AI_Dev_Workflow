@@ -39,8 +39,8 @@ Feature: Fix BoardStatus enum contains only valid project board statuses
     And the file does not contain "BoardStatus.Building"
 
   @adw-tdlgz7-fix-boardstatus-enum @regression
-  Scenario: testPhase.ts uses BoardStatus.InProgress instead of BoardStatus.Testing
-    Given "adws/phases/testPhase.ts" is read
+  Scenario: unitTestPhase.ts uses BoardStatus.InProgress instead of BoardStatus.Testing
+    Given "adws/phases/unitTestPhase.ts" is read
     Then the file contains "BoardStatus.InProgress"
     And the file does not contain "BoardStatus.Testing"
 
@@ -50,8 +50,8 @@ Feature: Fix BoardStatus enum contains only valid project board statuses
     Then the file does not contain "Building"
 
   @adw-tdlgz7-fix-boardstatus-enum @regression
-  Scenario: testPhase.ts does not reference Testing status string
-    Given "adws/phases/testPhase.ts" is read
+  Scenario: unitTestPhase.ts does not reference Testing status string
+    Given "adws/phases/unitTestPhase.ts" is read
     Then the file does not contain "Testing"
 
   # ── Jira provider alignment ─────────────────────────────────────────────────

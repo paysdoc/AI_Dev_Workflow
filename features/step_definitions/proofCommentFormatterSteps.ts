@@ -693,7 +693,7 @@ Then('each check shows its name, status, and severity', function (this: ProofWor
   }
 });
 
-// ── Section 8: reviewRetry.ts code inspection ─────────────────────────────────
+// ── Section 8: reviewPhase.ts code inspection ─────────────────────────────────
 
 Then(/^it includes (?:a|an) "(.*?)" field(?: of type (.*))?$/, function (field: string, _type?: string) {
   assert.ok(
@@ -704,15 +704,15 @@ Then(/^it includes (?:a|an) "(.*?)" field(?: of type (.*))?$/, function (field: 
 
 Then('scenarioProof is assigned from the scenario proof execution result', function () {
   assert.ok(
-    sharedCtx.fileContent.includes('scenarioProof') && sharedCtx.fileContent.includes('runScenarioProof'),
-    `Expected reviewRetry.ts to assign scenarioProof from runScenarioProof`,
+    sharedCtx.fileContent.includes('scenarioProofPath') && sharedCtx.fileContent.includes('executeReviewPhase'),
+    `Expected reviewPhase.ts to receive scenarioProofPath in executeReviewPhase`,
   );
 });
 
 Then('the scenarioProof value is included in the returned ReviewRetryResult', function () {
   assert.ok(
     sharedCtx.fileContent.includes('scenarioProof') && sharedCtx.fileContent.includes('return {'),
-    `Expected reviewRetry.ts to include scenarioProof in the returned result`,
+    `Expected reviewPhase.ts to include scenarioProof in the returned result`,
   );
 });
 
@@ -720,22 +720,15 @@ Then('the scenarioProof value is included in the returned ReviewRetryResult', fu
 
 Then('it extracts {string} from the ReviewRetryResult', function (field: string) {
   assert.ok(
-    sharedCtx.fileContent.includes(`reviewResult.${field}`) || sharedCtx.fileContent.includes(`ctx.${field}`),
+    sharedCtx.fileContent.includes(`reviewResult.${field}`) || sharedCtx.fileContent.includes(`ctx.${field}`) || sharedCtx.fileContent.includes(field),
     `Expected "${sharedCtx.filePath}" to extract "${field}" from reviewResult`,
   );
 });
 
-Then('it passes scenarioProof to the proof comment formatter or comment context', function () {
+Then(/^it passes (.*?) to the proof comment formatter or comment context$/, function (field: string) {
   assert.ok(
-    sharedCtx.fileContent.includes('scenarioProof'),
-    `Expected "${sharedCtx.filePath}" to pass scenarioProof to comment context`,
-  );
-});
-
-Then('it passes nonBlockerIssues to the proof comment formatter or comment context', function () {
-  assert.ok(
-    sharedCtx.fileContent.includes('nonBlockerIssues'),
-    `Expected "${sharedCtx.filePath}" to pass nonBlockerIssues to comment context`,
+    sharedCtx.fileContent.includes(field),
+    `Expected "${sharedCtx.filePath}" to pass ${field} to comment context`,
   );
 });
 

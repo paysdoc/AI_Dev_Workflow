@@ -157,6 +157,24 @@ Then(
   },
 );
 
+Then(
+  'only API calls and state writes occur after {string} until the orchestrator exits',
+  function (startFunc: string) {
+    const content = sharedCtx.fileContent;
+    const startIdx = findFunctionUsageIndex(content, startFunc);
+    assert.ok(startIdx !== -1, `Expected "${startFunc}" to be called in "${sharedCtx.filePath}"`);
+
+    const afterStart = content.slice(startIdx + startFunc.length);
+
+    // No runPhase calls should appear after startFunc (orchestrators no longer call
+    // completeWorkflow — they write state inline and exit)
+    assert.ok(
+      !afterStart.includes('runPhase('),
+      `Expected no runPhase() calls after "${startFunc}" in "${sharedCtx.filePath}". Found: ${afterStart.slice(0, 200)}`,
+    );
+  },
+);
+
 // ── Last executeXxxPhase before target ────────────────────────────────────────
 
 Then(

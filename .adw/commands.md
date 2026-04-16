@@ -36,6 +36,9 @@ bun add <package>
 ## Script Execution
 bunx tsx <script name>
 
+## Run E2E Tests
+NODE_OPTIONS="--import tsx" bunx cucumber-js
+
 ## Run Scenarios by Tag
 NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@{tag}"
 

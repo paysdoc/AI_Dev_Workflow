@@ -99,6 +99,18 @@ Then('executeStepDefPhase should be called after executePRReviewBuildPhase', fun
   );
 });
 
+Then('executeStepDefPhase should be called before executeUnitTestPhase', function () {
+  const content = sharedCtx.fileContent;
+  const stepDefIdx = findFunctionUsageIndex(content, 'executeStepDefPhase');
+  const unitTestIdx = findFunctionUsageIndex(content, 'executeUnitTestPhase');
+  assert.ok(stepDefIdx !== -1, `Expected "${sharedCtx.filePath}" to call executeStepDefPhase`);
+  assert.ok(unitTestIdx !== -1, `Expected "${sharedCtx.filePath}" to call executeUnitTestPhase`);
+  assert.ok(
+    stepDefIdx < unitTestIdx,
+    `Expected executeStepDefPhase to appear before executeUnitTestPhase in "${sharedCtx.filePath}"`,
+  );
+});
+
 Then('executeStepDefPhase should be called before executePRReviewTestPhase', function () {
   const content = sharedCtx.fileContent;
   const stepDefIdx = findFunctionUsageIndex(content, 'executeStepDefPhase');

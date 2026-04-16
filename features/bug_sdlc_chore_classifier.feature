@@ -21,9 +21,9 @@ Feature: Bug issues use full SDLC orchestrator and chore classification is tight
     Then the issueTypeToOrchestratorMap does not map "/bug" to "adws/adwPlanBuildTest.tsx"
 
   @adw-u8okxe-bug-issues-should-us @regression
-  Scenario: issueTypeToOrchestratorMap /chore mapping remains adwPlanBuild.tsx
+  Scenario: issueTypeToOrchestratorMap /chore mapping remains adwChore.tsx
     Given "adws/types/issueRouting.ts" is read
-    Then the issueTypeToOrchestratorMap maps "/chore" to "adws/adwPlanBuild.tsx"
+    Then the issueTypeToOrchestratorMap maps "/chore" to "adws/adwChore.tsx"
 
   @adw-u8okxe-bug-issues-should-us @regression
   Scenario: issueTypeToOrchestratorMap /feature mapping remains adwSdlc.tsx

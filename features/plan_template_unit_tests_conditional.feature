@@ -69,8 +69,8 @@ Feature: Plan templates conditionally include unit tests based on project config
     And no test imports or test framework references appear in new files
 
   @adw-jjxkk9-plan-templates-inclu
-  Scenario: Existing unit test gating in testPhase.ts is not modified
-    Given "adws/phases/testPhase.ts" is read
+  Scenario: Existing unit test gating in unitTestPhase.ts is not modified
+    Given "adws/phases/unitTestPhase.ts" is read
     When searching for calls to "runUnitTestsWithRetry"
     Then the call is still gated by "parseUnitTestsEnabled"
     And the gating logic is unchanged from the pre-issue state

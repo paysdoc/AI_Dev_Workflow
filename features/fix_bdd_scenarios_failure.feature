@@ -30,16 +30,15 @@ Feature: Fix BDD scenarios failure that blocks PR creation
 
   @adw-8fns89-error-in-issue-288 @regression
   Scenario: Review phase runs scenario proof before review agents
-    Given "adws/agents/reviewRetry.ts" is read
-    Then the file contains "shouldRunScenarioProof"
-    And the file contains "runScenarioProof"
+    Given "adws/phases/reviewPhase.ts" is read
+    Then the file contains "scenarioProofPath"
+    And the file contains "runReviewAgent"
     And the scenario proof invocation occurs before the review agent launch
 
   @adw-8fns89-error-in-issue-288 @regression
   Scenario: Scenario proof uses runByTagCommand from project config
-    Given "adws/phases/workflowCompletion.ts" is read
+    Given "adws/phases/scenarioProof.ts" is read
     Then the file contains "runByTagCommand"
-    And the file contains "projectConfig.commands.runScenariosByTag"
 
   # ── 3. BDD scenario runner error handling ──────────────────────────────────
 

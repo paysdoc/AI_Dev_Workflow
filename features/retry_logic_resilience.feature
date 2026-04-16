@@ -185,14 +185,14 @@ Feature: Robustness hardening — retry logic, pre-flight checks, and graceful d
 
   @adw-gcisck-robustness-hardening @regression
   Scenario: Review issue arrays filter out undefined elements before access
-    Given the reviewRetry module processes review results
+    Given the reviewPhase module processes review results
     When the review issue array contains undefined or null entries
     Then undefined and null entries are filtered out before processing
     And no TypeError is thrown when accessing issueDescription
 
   @adw-gcisck-robustness-hardening
   Scenario: Review issue arrays with all valid entries are unaffected by filter
-    Given the reviewRetry module processes review results
+    Given the reviewPhase module processes review results
     When the review issue array contains only valid entries
     Then all entries are processed normally
     And the filter has no effect on the result

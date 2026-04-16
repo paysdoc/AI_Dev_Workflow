@@ -21,10 +21,10 @@ Feature: executePRReviewTestPhase relocation + commit+push extraction
   # ===================================================================
 
   @adw-402 @regression
-  Scenario: executePRReviewTestPhase is defined in prReviewPhase.ts
-    Given "adws/phases/prReviewPhase.ts" is read
-    Then the module defines the function "executePRReviewTestPhase"
-    And the function is not imported from prReviewCompletion
+  Scenario: PR review scenario testing uses executeScenarioTestPhase from workflowPhases
+    Given "adws/adwPrReview.tsx" is read
+    Then it imports "executeScenarioTestPhase" from workflowPhases or phases
+    And the file does not contain "executePRReviewTestPhase"
 
   @adw-402 @regression
   Scenario: executePRReviewTestPhase is removed from prReviewCompletion.ts

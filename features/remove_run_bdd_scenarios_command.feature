@@ -59,11 +59,11 @@ Feature: Remove ## Run BDD Scenarios command and consolidate into ## Run Scenari
   # ── 3. Caller refactoring ─────────────────────────────────────────────────────
 
   @adw-lv8mwj-remove-run-bdd-scena
-  Scenario: testPhase.ts uses runScenariosByTag with adw-issueNumber tag instead of runBddScenarios
-    Given "adws/phases/testPhase.ts" is read
+  Scenario: unitTestPhase.ts uses runScenariosByTag with adw-issueNumber tag instead of runBddScenarios
+    Given "adws/phases/unitTestPhase.ts" is read
     When searching for BDD scenario execution calls
-    Then "runBddScenarios" is not called in "adws/phases/testPhase.ts"
-    And "runBddScenariosWithRetry" is not called in "adws/phases/testPhase.ts"
+    Then "runBddScenarios" is not called in "adws/phases/unitTestPhase.ts"
+    And "runBddScenariosWithRetry" is not called in "adws/phases/unitTestPhase.ts"
     And the BDD scenario execution uses "projectConfig.commands.runScenariosByTag" as the command
     And the tag passed to the scenario runner is constructed from the issue number (e.g. "adw-{issueNumber}")
 

@@ -1,5 +1,5 @@
 import { Given, When, Then } from '@cucumber/cucumber';
-import { existsSync, readFileSync } from 'fs';
+import { existsSync, readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
 import assert from 'assert';
 import { sharedCtx } from './commonSteps.ts';
@@ -513,6 +513,55 @@ Then(
     );
   },
 );
+
+// ── Section 7: CSV output unaffected by env var ─────────────────────────────
+
+When('cost data is written to CSV', function (this: CostWorld) {
+  // Verify the cost table formatter exists and produces output regardless of env settings
+  const formatterPath = join(ROOT, 'adws/cost/reporting/commentFormatter.ts');
+  assert.ok(existsSync(formatterPath), 'Expected commentFormatter.ts to exist');
+  const content = readFileSync(formatterPath, 'utf-8');
+  assert.ok(
+    content.includes('formatCostTable'),
+    'Expected commentFormatter.ts to export a formatCostTable function',
+  );
+  // Produce CSV-style output from the test records
+  this.csvOutput = formatCostTable(this.records);
+});
+
+Then('the CSV file contains the cost records', function (this: CostWorld) {
+  assert.ok(this.csvOutput, 'Expected CSV output to have been generated');
+  assert.ok(this.csvOutput.length > 0, 'Expected CSV output to be non-empty');
+  // The table should include the phase name from the records
+  assert.ok(
+    this.csvOutput.includes('build') || this.csvOutput.includes('Phase'),
+    'Expected CSV output to contain cost record data',
+  );
+});
+
+Then('the CSV output is identical to when SHOW_COST_IN_COMMENTS is {string}', function (this: CostWorld, _setting: string) {
+  // CSV/cost table output should always include cost data regardless of SHOW_COST_IN_COMMENTS
+  // The env var only controls whether cost content appears in GitHub comments, not CSV output
+  const formatterPath = join(ROOT, 'adws/cost/reporting/commentFormatter.ts');
+  const content = readFileSync(formatterPath, 'utf-8');
+  // formatCostTable does NOT check SHOW_COST_IN_COMMENTS — it always produces output
+  const tableFnIdx = content.indexOf('function formatCostTable');
+  assert.ok(tableFnIdx !== -1, 'Expected formatCostTable function to exist');
+  const tableBlock = content.slice(tableFnIdx, tableFnIdx + 500);
+  assert.ok(
+    !tableBlock.includes('SHOW_COST_IN_COMMENTS'),
+    'Expected formatCostTable to NOT check SHOW_COST_IN_COMMENTS (CSV is always written)',
+  );
+});
+
+// ── Section 9: Unit test coverage ───────────────────────────────────────────
+
+Given('the cost module test files exist', function () {
+  const testDir = join(ROOT, 'adws/cost/__tests__');
+  assert.ok(existsSync(testDir), 'Expected adws/cost/__tests__/ to exist');
+  const files = readdirSync(testDir).filter(f => f.endsWith('.test.ts') || f.endsWith('.spec.ts'));
+  assert.ok(files.length > 0, 'Expected at least one test file in adws/cost/__tests__/');
+});
 
 // ── Section 10: type checks ──────────────────────────────────────────────────
 

@@ -189,7 +189,7 @@ Feature: Wire scenarioTestPhase + scenarioFixPhase into remaining orchestrators
 
   @adw-400 @regression
   Scenario: All five orchestrators follow the same scenario test/fix pattern
-    Given the files are read:
+    Given the orchestrator files are read:
       | file                             |
       | adws/adwSdlc.tsx                 |
       | adws/adwPlanBuildTest.tsx         |

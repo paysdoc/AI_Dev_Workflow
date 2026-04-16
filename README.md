@@ -358,14 +358,17 @@ adws/                   # ADW workflow system
 │   └── workflowTypes.ts
 ├── providers/          # Provider interfaces and implementations
 │   ├── __tests__/      # Vitest unit tests
+│   │   ├── boardManager.test.ts
 │   │   └── repoContext.test.ts
 │   ├── github/         # GitHub provider
+│   │   ├── githubBoardManager.ts  # GitHub Projects V2 board management
 │   │   ├── githubCodeHost.ts
 │   │   ├── githubIssueTracker.ts
 │   │   ├── index.ts
 │   │   └── mappers.ts
 │   ├── gitlab/         # GitLab provider
 │   │   ├── gitlabApiClient.ts
+│   │   ├── gitlabBoardManager.ts  # Stub (not implemented)
 │   │   ├── gitlabCodeHost.ts
 │   │   ├── gitlabTypes.ts
 │   │   ├── index.ts
@@ -374,6 +377,7 @@ adws/                   # ADW workflow system
 │   │   ├── adfConverter.ts
 │   │   ├── index.ts
 │   │   ├── jiraApiClient.ts
+│   │   ├── jiraBoardManager.ts  # Stub (not implemented)
 │   │   ├── jiraIssueTracker.ts
 │   │   └── jiraTypes.ts
 │   ├── index.ts

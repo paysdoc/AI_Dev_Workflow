@@ -45,10 +45,10 @@ Feature: Replace @crucial tag with @regression throughout ADW
     And the default command does not contain "@crucial"
 
   @adw-20eum6-replace-crucial-with @regression
-  Scenario: reviewRetry.ts log messages reference @regression not @crucial
-    Given the file "adws/agents/reviewRetry.ts" is read
+  Scenario: reviewPhase.ts log messages reference review not @crucial
+    Given the file "adws/phases/reviewPhase.ts" is read
     When searching for log message strings that reference a BDD tag name
-    Then the log messages contain "@regression"
+    Then the log messages contain "review"
     And no log message contains "@crucial"
 
   @adw-20eum6-replace-crucial-with

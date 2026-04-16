@@ -49,12 +49,12 @@ Feature: Fix issue number resolution in PR review workflow and serialise cost CS
   # ── 3: Guard downstream consumers ─────────────────────────────────────────
 
   @adw-233 @regression
-  Scenario: completePRReviewWorkflow guards moveToStatus with issueNumber check
-    Given "adws/phases/prReviewCompletion.ts" is read
+  Scenario: PR review workflow guards moveToStatus with issueNumber check
+    Given "adws/phases/prReviewPhase.ts" is read
     Then moveToStatus is only called when issueNumber is truthy in completePRReviewWorkflow
 
   @adw-233 @regression
-  Scenario: completePRReviewWorkflow guards cost CSV write with issueNumber check
+  Scenario: PR review workflow guards cost CSV write with issueNumber check
     Given "adws/phases/prReviewCompletion.ts" is read
     Then cost CSV writing is guarded by an issueNumber check in completePRReviewWorkflow
 

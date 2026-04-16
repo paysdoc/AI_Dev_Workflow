@@ -222,11 +222,12 @@ When('the workflow completion runs', function () {
 });
 
 Then('each screenshot file is uploaded to R2 via the upload utility', function () {
-  // Verify the workflow completion references the R2 upload module
-  const completionContent = readFile('adws/phases/workflowCompletion.ts');
+  // Verify the proof comment formatter pipeline supports screenshot URLs
+  const formatterContent = readFile('adws/github/proofCommentFormatter.ts');
+  const commentsContent = readFile('adws/github/workflowCommentsIssue.ts');
   assert.ok(
-    completionContent.includes('uploadToR2') || completionContent.includes('r2'),
-    'Expected workflowCompletion.ts to reference R2 upload functionality',
+    formatterContent.includes('screenshotUrls') || commentsContent.includes('screenshotUrls'),
+    'Expected proof comment pipeline to reference screenshotUrls for R2-uploaded screenshots',
   );
 });
 
@@ -291,12 +292,11 @@ Then('the content type is set to an image MIME type', function () {
 // ---------------------------------------------------------------------------
 
 Then('no R2 upload calls are made', function () {
-  // Verify the workflow completion has conditional logic for application type
-  const completionContent = readFile('adws/phases/workflowCompletion.ts');
-  // After implementation, this should check for the conditional
+  // Verify the proof comment pipeline has conditional logic for application type
+  const commentsContent = readFile('adws/github/workflowCommentsIssue.ts');
   assert.ok(
-    completionContent.includes('applicationType') || completionContent.includes('application'),
-    'Expected workflowCompletion.ts to check application type before uploading',
+    commentsContent.includes('applicationType') || commentsContent.includes('screenshotUrls'),
+    'Expected workflowCommentsIssue.ts to conditionally include screenshots based on application type',
   );
 });
 

@@ -252,3 +252,46 @@ When('it resolves', function () {});
 Then('the return type is `Promise<number[]>`', function () {});
 
 Then('the eligibility evaluation contract is preserved', function () {});
+
+// ── @regression: findOpenDependencies regex/LLM fallback steps ──────────────
+
+Then('the regex-based parser with keyword proximity is used as the primary extractor', function (this: Record<string, string>) {
+  const filePath = 'adws/triggers/issueDependencies.ts';
+  const fullPath = join(ROOT, filePath);
+  assert.ok(existsSync(fullPath), `Expected ${filePath} to exist`);
+  const content = readFileSync(fullPath, 'utf-8');
+  assert.ok(
+    content.includes('parseKeywordProximityDependencies') || content.includes('proximityDeps'),
+    'Expected issueDependencies.ts to use keyword proximity parsing as primary extractor',
+  );
+});
+
+Given('an issue body with {int} #N references and only {int} classified by regex', function (_total: number, _classified: number) {
+  // Context only — the source code verification checks the fallback logic
+  const filePath = 'adws/triggers/issueDependencies.ts';
+  const fullPath = join(ROOT, filePath);
+  assert.ok(existsSync(fullPath), `Expected ${filePath} to exist`);
+  this.fileContent = readFileSync(fullPath, 'utf-8');
+  this.filePath = filePath;
+});
+
+Then('`runDependencyExtractionAgent` is invoked for the unclassified references', function (this: Record<string, string>) {
+  const content = this.fileContent || readFileSync(join(ROOT, 'adws/triggers/issueDependencies.ts'), 'utf-8');
+  assert.ok(
+    content.includes('runDependencyExtractionAgent'),
+    'Expected issueDependencies.ts to call runDependencyExtractionAgent for LLM fallback',
+  );
+  // Verify the condition: LLM is triggered when proximity found fewer deps than total refs
+  assert.ok(
+    content.includes('needsLlm') || (content.includes('totalRefs') && content.includes('proximityDeps')),
+    'Expected issueDependencies.ts to compare proximity results against total references',
+  );
+});
+
+Then('a log message indicates the LLM fallback was triggered', function (this: Record<string, string>) {
+  const content = this.fileContent || readFileSync(join(ROOT, 'adws/triggers/issueDependencies.ts'), 'utf-8');
+  assert.ok(
+    content.includes('fallback') || content.includes('LLM'),
+    'Expected issueDependencies.ts to log when LLM fallback is triggered',
+  );
+});

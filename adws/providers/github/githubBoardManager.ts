@@ -8,10 +8,55 @@ import { execSync } from 'child_process';
 import { log } from '../../core';
 import { GITHUB_PAT } from '../../core/config';
 import { isGitHubAppConfigured, refreshTokenIfNeeded } from '../../github/githubAppAuth';
-import type { BoardManager, RepoIdentifier } from '../types';
+import type { BoardManager, BoardColumnDefinition, RepoIdentifier } from '../types';
 import { BOARD_COLUMNS, validateRepoIdentifier } from '../types';
 import { toRepoInfo } from './mappers';
 import type { RepoInfo } from '../../github/githubApi';
+
+type StatusOption = { name: string; color: string; description: string };
+
+/**
+ * Merges existing board options with the required ADW columns.
+ *
+ * - Existing non-ADW options are preserved as-is.
+ * - Existing options whose name matches an ADW column are overwritten with BOARD_COLUMNS defaults.
+ * - Missing ADW columns are appended to the end.
+ *
+ * @returns The merged option list, a boolean indicating whether any changes were made,
+ *          and the names of newly added columns.
+ */
+export function mergeStatusOptions(
+  existing: Array<{ name: string; color: string; description: string }>,
+  adwColumns: readonly BoardColumnDefinition[],
+): { merged: StatusOption[]; changed: boolean; added: string[] } {
+  const adwByName = new Map(
+    adwColumns.map((col) => [col.status.toLowerCase(), col]),
+  );
+
+  const merged: StatusOption[] = existing.map((opt) => {
+    const adwCol = adwByName.get(opt.name.toLowerCase());
+    if (!adwCol) return opt;
+    return { name: adwCol.status, color: adwCol.color, description: adwCol.description };
+  });
+
+  const existingLower = new Set(existing.map((o) => o.name.toLowerCase()));
+
+  const added: string[] = adwColumns
+    .filter((col) => !existingLower.has(col.status.toLowerCase()))
+    .map((col) => {
+      merged.push({ name: col.status, color: col.color, description: col.description });
+      return col.status;
+    });
+
+  const changed =
+    added.length > 0 ||
+    existing.some((opt, i) => {
+      const m = merged[i];
+      return m.name !== opt.name || m.color !== opt.color || m.description !== opt.description;
+    });
+
+  return { merged, changed, added };
+}
 
 /**
  * GitHub implementation of the BoardManager interface.
@@ -128,8 +173,8 @@ class GitHubBoardManager implements BoardManager {
 
   /**
    * Ensures all required ADW columns exist on the board.
-   * Reads existing options and creates any that are missing.
-   * Leaves existing columns untouched.
+   * Fetches existing options, merges with BOARD_COLUMNS, and issues a single
+   * bulk updateProjectV2Field call if any changes are needed.
    * @param boardId - The project board ID.
    * @returns true when all columns are present.
    */
@@ -140,14 +185,12 @@ class GitHubBoardManager implements BoardManager {
       return false;
     }
 
-    const existingNames = new Set(statusField.options.map((o) => o.name.toLowerCase()));
+    const { merged, changed, added } = mergeStatusOptions(statusField.options, BOARD_COLUMNS);
 
-    for (const column of BOARD_COLUMNS) {
-      if (!existingNames.has(column.status.toLowerCase())) {
-        this.addStatusOption(boardId, statusField.fieldId, column.status, column.color, column.description);
-        log(`Added board column "${column.status}"`, 'info');
-      }
-    }
+    if (!changed) return true;
+
+    this.updateStatusFieldOptions(statusField.fieldId, merged);
+    added.forEach((name) => log(`Added board column "${name}"`, 'info'));
 
     return true;
   }
@@ -182,7 +225,7 @@ class GitHubBoardManager implements BoardManager {
 
   private getStatusFieldOptions(
     projectId: string,
-  ): { fieldId: string; options: Array<{ id: string; name: string }> } | null {
+  ): { fieldId: string; options: Array<{ id: string; name: string; color: string; description: string }> } | null {
     try {
       const query = `
         query($projectId: ID!) {
@@ -191,7 +234,7 @@ class GitHubBoardManager implements BoardManager {
               field(name: "Status") {
                 ... on ProjectV2SingleSelectField {
                   id
-                  options { id name }
+                  options { id name color description }
                 }
               }
             }
@@ -205,7 +248,7 @@ class GitHubBoardManager implements BoardManager {
       const parsed = JSON.parse(result) as {
         data: {
           node: {
-            field: { id: string; options: Array<{ id: string; name: string }> } | null;
+            field: { id: string; options: Array<{ id: string; name: string; color: string; description: string }> } | null;
           };
         };
       };
@@ -218,19 +261,12 @@ class GitHubBoardManager implements BoardManager {
     }
   }
 
-  private addStatusOption(
-    projectId: string,
-    fieldId: string,
-    name: string,
-    color: string,
-    description: string,
-  ): void {
+  private updateStatusFieldOptions(fieldId: string, options: StatusOption[]): void {
     const mutation = `
-      mutation($projectId: ID!, $fieldId: ID!, $name: String!, $color: ProjectV2SingleSelectFieldOptionColor!, $description: String!) {
+      mutation($fieldId: ID!, $singleSelectOptions: [ProjectV2SingleSelectFieldOptionInput!]!) {
         updateProjectV2Field(input: {
-          projectId: $projectId
           fieldId: $fieldId
-          singleSelectOptions: [{ name: $name, color: $color, description: $description }]
+          singleSelectOptions: $singleSelectOptions
         }) {
           projectV2Field {
             ... on ProjectV2SingleSelectField { id }
@@ -238,10 +274,8 @@ class GitHubBoardManager implements BoardManager {
         }
       }
     `;
-    execSync(
-      `gh api graphql -f query='${mutation}' -f projectId='${projectId}' -f fieldId='${fieldId}' -f name='${name}' -f color='${color}' -f description='${description}'`,
-      { encoding: 'utf-8' },
-    );
+    const body = { query: mutation, variables: { fieldId, singleSelectOptions: options } };
+    execSync('gh api graphql --input -', { input: JSON.stringify(body), encoding: 'utf-8' });
   }
 }
 
