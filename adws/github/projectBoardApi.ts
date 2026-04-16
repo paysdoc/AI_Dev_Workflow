@@ -233,16 +233,16 @@ export async function moveIssueToStatus(
 
     refreshTokenIfNeeded(owner, repo);
 
-    let projectId = findRepoProjectId(owner, repo);
-
-    // PAT fallback: if app token can't access Projects V2, retry with GITHUB_PAT
-    if (!projectId && isGitHubAppConfigured() && GITHUB_PAT && GITHUB_PAT !== process.env.GH_TOKEN) {
-      log('App token cannot access Projects V2, retrying with GITHUB_PAT', 'info');
+    // PAT fallback: GitHub App tokens cannot access Projects V2 on user-owned repos.
+    // Switch to GITHUB_PAT upfront for all project board operations.
+    if (isGitHubAppConfigured() && GITHUB_PAT && GITHUB_PAT !== process.env.GH_TOKEN) {
+      log('Using GITHUB_PAT for project board operations (app tokens lack Projects V2 access)', 'info');
       savedToken = process.env.GH_TOKEN;
       process.env.GH_TOKEN = GITHUB_PAT;
       usingPatFallback = true;
-      projectId = findRepoProjectId(owner, repo);
     }
+
+    const projectId = findRepoProjectId(owner, repo);
 
     if (!projectId) {
       log(`No project linked to ${owner}/${repo}, skipping status update`, 'warn');
