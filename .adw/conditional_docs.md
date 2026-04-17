@@ -16,6 +16,14 @@
     - When implementing the upcoming major-bump action (`accept+file-upstream-issue`) in a follow-up issue
     - When adding new ecosystems to the manifest detection or install command resolution table
 
+- app_docs/feature-4r5z44-depaudit-triage-minor-patch-upgrade.md
+  - Conditions:
+    - When working with the `upgrade parent` action in `/depaudit-triage` (Action 1 in SKILL.md) for issue #437
+    - When implementing or extending the autonomous minor/patch upgrade flow (semver parsing, manifest edit, install, revert)
+    - When troubleshooting the cancel-before-install prompt or manifest revert on install failure
+    - When the skill refuses a major bump and you need context on what lands in the follow-up issue
+    - When configuring `## Install Dependencies` in `.adw/commands.md` for a target repo
+
 - app_docs/feature-670i6z-dead-schema-cleanup.md
   - Conditions:
     - When working with `adws/core/projectConfig.ts` and the `CommandsConfig` interface or `HEADING_TO_KEY` map
