@@ -129,15 +129,15 @@ export const SLASH_COMMAND_EFFORT_MAP: Record<SlashCommand, ReasoningEffort | un
   '/classify_issue': 'low',
   '/feature': 'max',
   '/bug': 'max',
-  '/chore': 'xhigh',
+  '/chore': 'high',
   '/pr_review': 'high',
   '/implement': 'max',
   '/implement-tdd': 'max',
-  '/patch': 'xhigh',
-  '/review': 'xhigh',
+  '/patch': 'max',
+  '/review': 'max',
   '/test': undefined,
-  '/resolve_failed_test': 'xhigh',
-  '/resolve_failed_scenario': 'xhigh',
+  '/resolve_failed_test': 'max',
+  '/resolve_failed_scenario': 'max',
   '/generate_branch_name': 'low',
   '/commit': 'medium',
   '/pull_request': 'medium',
@@ -153,9 +153,9 @@ export const SLASH_COMMAND_EFFORT_MAP: Record<SlashCommand, ReasoningEffort | un
   '/generate_step_definitions': 'max',
   // Plan validation (complex reasoning, no downgrade)
   '/validate_plan_scenarios': 'high',
-  '/resolve_plan_scenarios': 'xhigh',
+  '/resolve_plan_scenarios': 'max',
   // Single-pass alignment
-  '/align_plan_scenarios': 'xhigh',
+  '/align_plan_scenarios': 'max',
   // Install and prime
   '/install': 'medium',
   // Diff evaluation (binary classification, cheap)
