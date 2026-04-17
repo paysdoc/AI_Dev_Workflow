@@ -1,11 +1,11 @@
 @adw-bpn4sv-orchestrators-exit-a
-Feature: Orchestrators exit after PR approval with awaiting_merge handoff
+Feature: Orchestrators exit after executePRPhase with awaiting_merge handoff
 
   All orchestrators (adwSdlc, adwChore, adwPlanBuildReview, adwPlanBuildTestReview)
   are restructured so that nothing runs after PR creation that requires the worktree.
-  After PR creation the orchestrator approves the PR (API call), writes
-  "awaiting_merge" to the top-level state file, then exits. The executeAutoMergePhase
-  is removed from all four orchestrators.
+  After PR creation the orchestrator writes "awaiting_merge" to the top-level state
+  file, then exits. PR approval is handled by reviewPhase, not the orchestrators.
+  The executeAutoMergePhase is removed from all four orchestrators.
 
   Background:
     Given the ADW codebase is checked out

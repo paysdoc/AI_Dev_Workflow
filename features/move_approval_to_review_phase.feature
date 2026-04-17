@@ -79,7 +79,7 @@ Feature: Move PR approval into reviewPhase; autoMergePhase reads approval state
   Scenario: autoMergePhase applies hitl label when no approved review found
     Given "adws/phases/autoMergePhase.ts" is read
     Then the file contains "hitl"
-    And the file contains "addLabelToIssue" or "label"
+    And the file contains "addIssueLabel" or "label"
 
   @adw-434 @regression
   Scenario: autoMergePhase posts awaiting-human-approval comment when no approved review
@@ -144,6 +144,11 @@ Feature: Move PR approval into reviewPhase; autoMergePhase reads approval state
   Scenario: NON_RETRYABLE_PATTERNS includes Bad credentials
     Given "adws/core/utils.ts" is read
     Then the file contains "Bad credentials"
+
+  @adw-434 @regression
+  Scenario: NON_RETRYABLE_PATTERNS includes GH_TOKEN
+    Given "adws/core/utils.ts" is read
+    Then the file contains "GH_TOKEN"
 
   @adw-434 @regression
   Scenario: NON_RETRYABLE_PATTERNS includes authentication

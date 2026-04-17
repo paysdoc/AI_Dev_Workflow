@@ -169,45 +169,52 @@ Use these files to fix the bug:
 - **`adws/adwPlanBuildReview.tsx`** (~lines 104-119): Same removal pattern.
 - **`adws/adwPlanBuildTestReview.tsx`** (~lines 124-139): Same removal pattern.
 
-### Step 9: Update existing BDD feature — `features/auto_approve_merge_after_review.feature`
-- **Scenario "approvePR temporarily unsets GH_TOKEN for personal identity"** (line 37-39): Replace with scenario asserting `approvePR` sets `GH_TOKEN` to `GITHUB_PAT` (not deletes it).
-- **Scenario "approvePR restores GH_TOKEN in a finally block"** (line 41-44): Keep — the restore contract is the same.
-- **Scenario "autoMergePhase approves PR when GitHub App is configured"** (line 75-78): Rewrite to assert autoMergePhase does NOT call `approvePR` or `isGitHubAppConfigured`.
-- **Scenario "autoMergePhase skips approval when no GitHub App is configured"** (line 80-83): Remove — no longer relevant.
-- Add new scenarios:
-  - autoMergePhase calls `fetchPRApprovalState` to check for an approved review.
-  - autoMergePhase does not import `approvePR` or `isGitHubAppConfigured`.
+### Step 9: Verify existing BDD feature — `features/auto_approve_merge_after_review.feature`
+**Already updated** — scenarios tagged `@adw-434` are in place. Verify the following are present (do not re-modify):
+- Scenario "approvePR sets GH_TOKEN to GITHUB_PAT for personal identity" — asserts no `delete process.env.GH_TOKEN` and contains `GITHUB_PAT`.
+- Scenario "approvePR restores GH_TOKEN in a finally block" — kept unchanged.
+- Scenario "autoMergePhase does not call approvePR or isGitHubAppConfigured" — asserts file does not contain either.
+- Scenario "autoMergePhase reads approval state from GitHub reviews" — asserts `gh pr view` and `reviews`.
 
 ### Step 10: Update existing BDD step definitions — `features/step_definitions/autoApproveMergeAfterReviewSteps.ts`
-- Replace the `deletes process.env.GH_TOKEN before calling gh pr review` step (~lines 54-70) with a step that asserts `GITHUB_PAT` is set as `GH_TOKEN` before `gh pr review`.
+- Replace the `deletes process.env.GH_TOKEN before calling gh pr review` step (~lines 54-70) with a step that asserts `GITHUB_PAT` is set as `GH_TOKEN` before `gh pr review`. The scenario text is already updated (Step 9); the step definition must match.
 - Keep the `restores GH_TOKEN in a finally block` step.
-- Add new steps for the updated autoMergePhase scenarios.
+- Add new steps for the updated autoMergePhase scenarios (the scenario text is already in place from Step 9).
 
-### Step 11: Update `features/hitl_label_gate_automerge.feature`
-- **Scenario "autoMergePhase checks for hitl label before approval and merge"** (line 44-47): Update — `issueHasLabel` is called before `fetchPRApprovalState` (not before `approvePR`).
-- **Scenario "autoMergePhase skips approvePR when hitl label is present"** (line 49-52): Replace — autoMergePhase no longer calls `approvePR` at all. Assert it skips `mergeWithConflictResolution`.
-- **Scenario "autoMergePhase posts awaiting-human-approval comment on the issue when hitl detected"** (line 59-63): Update — the hitl gate is now silent (no comment). The comment is posted by the no-approval branch instead.
-- **Scenario "autoMergePhase imports issueHasLabel"** (line 39-40): Keep.
+### Step 11: Verify `features/hitl_label_gate_automerge.feature`
+**Already updated** — scenarios tagged `@adw-434` are in place. Verify the following are present (do not re-modify):
+- Scenario "autoMergePhase checks for hitl label before merge" — asserts `issueHasLabel` called before `mergeWithConflictResolution`.
+- Scenario "autoMergePhase returns early when hitl label is present" — asserts merge is skipped.
+- Scenario "autoMergePhase hitl gate is silent — no comment on early-return" — asserts hitl early-return path does not call `commentOnIssue`.
+- Scenario "autoMergePhase imports issueHasLabel" — kept unchanged.
 
-### Step 12: Update `features/orchestrator_awaiting_merge_handoff.feature`
-- **Scenarios asserting orchestrators call `approvePR` after `executePRPhase`** (lines 77-94): Remove or rewrite. The four orchestrators no longer call `approvePR`.
-- **Scenario "Orchestrators check hitl label before approving PR"** (lines 171-174): Remove.
-- **Scenario "executePRPhase is the final phase before the approve-and-exit sequence"** (line 153-154): Update — `executePRPhase` is now the final phase before the awaiting_merge state write (no approve).
+### Step 12: Verify `features/orchestrator_awaiting_merge_handoff.feature`
+**Already updated** — scenarios tagged `@adw-434` are in place, and the feature description has been aligned. Verify the following are present (do not re-modify):
+- Scenarios asserting each orchestrator "does not call approvePR" (4 scenarios, @adw-434 @regression tagged).
+- Scenario "executePRPhase is the final phase before the exit sequence" — asserts `executePRPhase` is last phase call before `awaiting_merge`.
+- Scenario "Orchestrators no longer check hitl label for approval" — asserts adwSdlc.tsx does not contain `approvePR`.
+- Feature description updated: orchestrators write `awaiting_merge` after PR creation without approving (approval moved to reviewPhase).
 
-### Step 13: Write new BDD feature — `features/move_approval_to_review_phase.feature`
-- Tag: `@adw-434-move-approval-to-review`
-- Scenarios:
-  1. `reviewPhase.ts` imports `approvePR` from `../github`.
-  2. `reviewPhase.ts` calls `approvePR` after review passes (ordering check).
-  3. `autoMergePhase.ts` does not import `approvePR`.
-  4. `autoMergePhase.ts` does not import `isGitHubAppConfigured`.
-  5. `autoMergePhase.ts` calls `fetchPRApprovalState` before `mergeWithConflictResolution`.
-  6. `autoMergePhase.ts` calls `addIssueLabel` when no approval is found.
-  7. `autoMergePhase.ts` hitl gate does not call `commentOnIssue`.
-  8. `workflowInit.ts` throws when GitHub App is configured without `GITHUB_PAT`.
-  9. `NON_RETRYABLE_PATTERNS` includes auth error markers (`gh auth login`, `HTTP 401`, `Bad credentials`).
-  10. Orchestrators (`adwSdlc`, `adwChore`, `adwPlanBuildReview`, `adwPlanBuildTestReview`) do not import `approvePR`.
-  11. ADW TypeScript type-check passes.
+### Step 13: Verify new BDD feature — `features/move_approval_to_review_phase.feature`
+**Already created** — the feature file exists with tag `@adw-434`. Verify the following scenarios are present (do not re-create the file):
+  1. `approvePR` sets `GH_TOKEN` to `GITHUB_PAT` instead of deleting it.
+  2. `approvePR` imports `GITHUB_PAT` from core config.
+  3. `reviewPhase` imports `approvePR`.
+  4. `reviewPhase` calls `approvePR` after review passes.
+  5. `reviewPhase` does not throw when `approvePR` fails.
+  6. `autoMergePhase` does not import or call `approvePR`.
+  7. `autoMergePhase` does not reference `isGitHubAppConfigured`.
+  8. `autoMergePhase` fetches PR reviews via `gh pr view --json reviews`.
+  9. `autoMergePhase` checks for `APPROVED` state in reviews.
+  10. `autoMergePhase` merges only when an `APPROVED` review is present.
+  11. `autoMergePhase` applies hitl label when no approved review found (checks for `addIssueLabel`).
+  12. `autoMergePhase` posts awaiting-human-approval comment when no approved review.
+  13. `autoMergePhase` silently skips on re-entry when hitl label is already present.
+  14. Orchestrators (`adwChore`, `adwSdlc`, `adwPlanBuildReview`, `adwPlanBuildTestReview`) do not call `approvePR`.
+  15. `workflowInit.ts` validates `GITHUB_PAT` when GitHub App is configured.
+  16. `workflowInit.ts` throws when GitHub App is configured without `GITHUB_PAT`.
+  17. `NON_RETRYABLE_PATTERNS` includes auth error markers (`gh auth login`, `GH_TOKEN`, `HTTP 401`, `Bad credentials`, `authentication`).
+  18. ADW TypeScript type-check passes.
 
 ### Step 14: Write step definitions — `features/step_definitions/moveApprovalToReviewPhaseSteps.ts`
 - Implement step definitions for the scenarios in Step 13.
@@ -242,7 +249,7 @@ bun run lint
 bun run test:unit
 
 # Run the new BDD scenarios for this issue
-NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-434-move-approval-to-review"
+NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-434"
 
 # Run the updated existing BDD scenarios
 NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-fvzdz7-auto-approve-and-mer and @regression"
