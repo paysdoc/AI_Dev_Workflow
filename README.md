@@ -183,6 +183,8 @@ Docker execution is entirely optional — the test suite runs identically on the
 │   └── utils/
 │       └── constants.ts
 ├── skills/             # Claude Code skills
+│   ├── depaudit-triage/
+│   │   └── SKILL.md
 │   ├── grill-me/
 │   │   └── SKILL.md
 │   ├── improve-codebase-architecture/
