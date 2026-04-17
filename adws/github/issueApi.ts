@@ -285,6 +285,25 @@ export function issueHasLabel(issueNumber: number, labelName: string, repoInfo: 
 }
 
 /**
+ * Adds a label to a GitHub issue.
+ * @param issueNumber - The issue number to label
+ * @param labelName - The label name to add
+ * @param repoInfo - Repository owner and repo name
+ */
+export function addIssueLabel(issueNumber: number, labelName: string, repoInfo: RepoInfo): void {
+  const { owner, repo } = repoInfo;
+  try {
+    execWithRetry(
+      `gh issue edit ${issueNumber} --repo ${owner}/${repo} --add-label ${labelName}`,
+      { stdio: ['pipe', 'pipe', 'pipe'] },
+    );
+    log(`Added label "${labelName}" to issue #${issueNumber}`, 'success');
+  } catch (error) {
+    log(`Failed to add label "${labelName}" to issue #${issueNumber}: ${error}`, 'error');
+  }
+}
+
+/**
  * Deletes a single issue comment by its REST API numeric ID.
  * @param commentId - The numeric ID of the comment to delete
  * @param repoInfo - Optional repository info override for targeting external repositories.

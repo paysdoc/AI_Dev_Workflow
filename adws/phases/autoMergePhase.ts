@@ -2,9 +2,11 @@
  * Auto-merge phase for review orchestrators.
  *
  * After the review phase passes and the PR has been created, this phase:
- * 1. Approves the PR using the personal gh auth login identity (only when a GitHub App
- *    is configured — i.e., the PR was authored by the bot, so a different actor must approve).
- * 2. Merges the PR via `gh pr merge`, resolving conflicts with the /resolve_conflict agent
+ * 1. Silently skips if the issue has the `hitl` label (no comment on re-entry).
+ * 2. Reads approval state from GitHub (`gh pr view --json reviews`).
+ *    - If no APPROVED review exists: applies `hitl` label, posts a one-time comment, exits.
+ *    - If an APPROVED review exists: proceeds to merge.
+ * 3. Merges the PR via `gh pr merge`, resolving conflicts with the /resolve_conflict agent
  *    if needed (up to MAX_AUTO_MERGE_ATTEMPTS attempts).
  *
  * Failure is non-fatal: if the merge cannot complete, a comment is posted on the PR and the
@@ -19,7 +21,7 @@ import {
   emptyModelUsageMap,
 } from '../core';
 import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
-import { commentOnPR, approvePR, isGitHubAppConfigured, commentOnIssue, issueHasLabel, type RepoInfo } from '../github';
+import { commentOnPR, commentOnIssue, issueHasLabel, addIssueLabel, fetchPRApprovalState, type RepoInfo } from '../github';
 import { mergeWithConflictResolution } from '../triggers/autoMergeHandler';
 import { getPlanFilePath, planFileExists } from '../agents';
 import type { WorkflowConfig } from './workflowInit';
@@ -37,7 +39,7 @@ function extractPrNumber(prUrl: string | undefined): number {
 }
 
 /**
- * Executes the auto-merge phase: approve (if GitHub App configured) then merge the PR.
+ * Executes the auto-merge phase: read approval state then merge the PR.
  * Always returns successfully — merge failures are logged and commented but do not
  * propagate as thrown errors.
  */
@@ -62,37 +64,34 @@ export async function executeAutoMergePhase(config: WorkflowConfig): Promise<{ c
 
   const repoInfo: RepoInfo = { owner, repo };
 
-  // Gate: if the issue has the `hitl` label, skip auto-approval and auto-merge.
-  // The label is checked in real time so it can be added/removed during the workflow.
+  // Gate: if the issue has the `hitl` label, silently skip — no comment.
+  // Prevents comment floods on every cron re-entry while awaiting human review.
   if (issueHasLabel(issueNumber, 'hitl', repoInfo)) {
-    log(`hitl label detected on issue #${issueNumber}, skipping auto-approval and auto-merge`, 'info');
-    commentOnIssue(
-      issueNumber,
-      `## ✋ Awaiting human approval — PR #${prNumber} ready for review`,
-      repoInfo,
-    );
+    log(`hitl label detected on issue #${issueNumber}, skipping auto-merge`, 'info');
     return { costUsd: 0, modelUsage: emptyModelUsageMap(), phaseCostRecords: [] };
   }
 
   const headBranch = ctx.branchName || branchName;
   const baseBranch = defaultBranch;
 
+  // Gate: require at least one APPROVED review on the PR (GitHub is source of truth).
+  const hasApproval = fetchPRApprovalState(prNumber, repoInfo);
+  if (!hasApproval) {
+    log(`No APPROVED review found on PR #${prNumber}, applying hitl label and posting comment`, 'info');
+    addIssueLabel(issueNumber, 'hitl', repoInfo);
+    commentOnIssue(
+      issueNumber,
+      `## ✋ Awaiting human approval — PR #${prNumber} ready for review\n\nNo approved review found on the PR. A human must approve before auto-merge can proceed.`,
+      repoInfo,
+    );
+    return { costUsd: 0, modelUsage: emptyModelUsageMap(), phaseCostRecords: [] };
+  }
+
   // Resolve spec path for the /resolve_conflict agent (best-effort)
   let specPath = '';
   const candidate = getPlanFilePath(issueNumber, worktreePath);
   if (planFileExists(issueNumber, worktreePath)) {
     specPath = candidate;
-  }
-
-  // Approve the PR when a GitHub App is configured (bot authored → personal account approves)
-  if (isGitHubAppConfigured()) {
-    log(`Approving PR #${prNumber} with personal gh auth login identity...`, 'info');
-    const approveResult = approvePR(prNumber, repoInfo);
-    if (!approveResult.success) {
-      log(`PR approval failed (non-fatal, proceeding to merge): ${approveResult.error}`, 'warn');
-    }
-  } else {
-    log('No GitHub App configured — skipping PR approval, merging directly', 'info');
   }
 
   // Merge with conflict resolution retry loop

@@ -16,6 +16,7 @@ import {
   mergeModelUsageMaps,
   type ModelUsageMap,
 } from '../core';
+import { GITHUB_PAT } from '../core/environment';
 import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
 import { runReviewAgent, type ReviewIssue } from '../agents/reviewAgent';
 import { runPatchAgent } from '../agents/patchAgent';
@@ -23,8 +24,10 @@ import { runBuildAgent } from '../agents/buildAgent';
 import { runCommitAgent } from '../agents/gitAgent';
 import { pushBranch } from '../vcs';
 import { getPlanFilePath } from '../agents/planAgent';
+import { approvePR, isGitHubAppConfigured } from '../github';
 import type { WorkflowConfig } from './workflowInit';
 import { postIssueStageComment } from './phaseCommentHelpers';
+import { extractPrNumber } from '../adwBuildHelpers';
 
 export type { ReviewIssue };
 
@@ -95,6 +98,22 @@ export async function executeReviewPhase(
     ctx.reviewIssues = reviewAgentResult.blockerIssues;
     if (repoContext) {
       postIssueStageComment(repoContext, issueNumber, 'review_passed', ctx);
+    }
+
+    // Approve the PR when a GitHub App is configured and PAT is available.
+    // Approval failure is non-fatal — the review still counts as passed.
+    if (isGitHubAppConfigured() && GITHUB_PAT && ctx.prUrl) {
+      const prNumber = extractPrNumber(ctx.prUrl);
+      if (prNumber && repoContext) {
+        const repoInfo = { owner: repoContext.repoId.owner, repo: repoContext.repoId.repo };
+        log('Approving PR after review pass...', 'info');
+        const approveResult = approvePR(prNumber, repoInfo);
+        if (!approveResult.success) {
+          log(`PR approval failed (non-fatal to review): ${approveResult.error}`, 'warn');
+        } else {
+          log(`PR #${prNumber} approved`, 'success');
+        }
+      }
     }
   } else {
     const blockerCount = reviewAgentResult.blockerIssues.length;

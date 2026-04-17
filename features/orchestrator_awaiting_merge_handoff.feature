@@ -1,11 +1,11 @@
 @adw-bpn4sv-orchestrators-exit-a
-Feature: Orchestrators exit after PR approval with awaiting_merge handoff
+Feature: Orchestrators exit after executePRPhase with awaiting_merge handoff
 
   All orchestrators (adwSdlc, adwChore, adwPlanBuildReview, adwPlanBuildTestReview)
   are restructured so that nothing runs after PR creation that requires the worktree.
-  After PR creation the orchestrator approves the PR (API call), writes
-  "awaiting_merge" to the top-level state file, then exits. The executeAutoMergePhase
-  is removed from all four orchestrators.
+  After PR creation the orchestrator writes "awaiting_merge" to the top-level state
+  file, then exits. PR approval is handled by reviewPhase, not the orchestrators.
+  The executeAutoMergePhase is removed from all four orchestrators.
 
   Background:
     Given the ADW codebase is checked out
@@ -71,27 +71,27 @@ Feature: Orchestrators exit after PR approval with awaiting_merge handoff
     Given "adws/adwSdlc.tsx" is read
     Then "executeKpiPhase" is called before "executePRPhase"
 
-  # ── PR approval after PR creation ──────────────────────────────────────────
+  # ── PR approval removed from orchestrators (moved to reviewPhase) ────────
 
-  @adw-bpn4sv-orchestrators-exit-a @regression
-  Scenario: adwSdlc.tsx approves PR after executePRPhase
+  @adw-bpn4sv-orchestrators-exit-a @adw-434 @regression
+  Scenario: adwSdlc.tsx does not call approvePR
     Given "adws/adwSdlc.tsx" is read
-    Then "approvePR" is called after "executePRPhase"
+    Then the file does not contain "approvePR"
 
-  @adw-bpn4sv-orchestrators-exit-a @regression
-  Scenario: adwChore.tsx approves PR after executePRPhase
+  @adw-bpn4sv-orchestrators-exit-a @adw-434 @regression
+  Scenario: adwChore.tsx does not call approvePR
     Given "adws/adwChore.tsx" is read
-    Then "approvePR" is called after "executePRPhase"
+    Then the file does not contain "approvePR"
 
-  @adw-bpn4sv-orchestrators-exit-a @regression
-  Scenario: adwPlanBuildReview.tsx approves PR after executePRPhase
+  @adw-bpn4sv-orchestrators-exit-a @adw-434 @regression
+  Scenario: adwPlanBuildReview.tsx does not call approvePR
     Given "adws/adwPlanBuildReview.tsx" is read
-    Then "approvePR" is called after "executePRPhase"
+    Then the file does not contain "approvePR"
 
-  @adw-bpn4sv-orchestrators-exit-a @regression
-  Scenario: adwPlanBuildTestReview.tsx approves PR after executePRPhase
+  @adw-bpn4sv-orchestrators-exit-a @adw-434 @regression
+  Scenario: adwPlanBuildTestReview.tsx does not call approvePR
     Given "adws/adwPlanBuildTestReview.tsx" is read
-    Then "approvePR" is called after "executePRPhase"
+    Then the file does not contain "approvePR"
 
   # ── awaiting_merge state file write ────────────────────────────────────────
 
@@ -148,10 +148,10 @@ Feature: Orchestrators exit after PR approval with awaiting_merge handoff
 
   # ── executePRPhase is last worktree phase ──────────────────────────────────
 
-  @adw-bpn4sv-orchestrators-exit-a @regression
-  Scenario: executePRPhase is the final phase before the approve-and-exit sequence
+  @adw-bpn4sv-orchestrators-exit-a @adw-434 @regression
+  Scenario: executePRPhase is the final phase before the exit sequence
     Given "adws/adwPlanBuildReview.tsx" is read
-    Then "executePRPhase" is the last executeXxxPhase call before "approvePR"
+    Then "executePRPhase" is the last executeXxxPhase call before "awaiting_merge"
 
   # ── completeWorkflow called after handoff ──────────────────────────────────
 
@@ -165,13 +165,12 @@ Feature: Orchestrators exit after PR approval with awaiting_merge handoff
     Given "adws/adwChore.tsx" is read
     Then "completeWorkflow" is called after the awaiting_merge state write
 
-  # ── hitl label gate preserved ──────────────────────────────────────────────
+  # ── hitl label gate removed from orchestrators (handled by autoMergePhase) ─
 
-  @adw-bpn4sv-orchestrators-exit-a
-  Scenario: Orchestrators check hitl label before approving PR
+  @adw-bpn4sv-orchestrators-exit-a @adw-434
+  Scenario: Orchestrators no longer check hitl label for approval
     Given "adws/adwSdlc.tsx" is read
-    Then the orchestrator checks for the hitl label before calling approvePR
-    And the orchestrator skips approvePR when hitl label is present
+    Then the file does not contain "approvePR"
 
   # ── TypeScript type-check ──────────────────────────────────────────────────
 

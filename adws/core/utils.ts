@@ -34,6 +34,11 @@ const NON_RETRYABLE_PATTERNS = [
   'No commits between',
   'already exists',
   'is not mergeable',
+  'gh auth login',
+  'GH_TOKEN',
+  'HTTP 401',
+  'Bad credentials',
+  'authentication',
 ];
 
 /**
