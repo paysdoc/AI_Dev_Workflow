@@ -72,6 +72,8 @@ Required and optional environment variables (see `.env.sample` for full referenc
 - `R2_SECRET_ACCESS_KEY` - (Optional) R2 secret access key, required only for screenshot upload functionality
 - `COST_API_URL` - (Optional) Cost API Worker URL for D1 cost database writes (e.g., `https://costs.paysdoc.nl`)
 - `COST_API_TOKEN` - (Optional) Bearer token for Cost API authentication
+- `SLACK_WEBHOOK_URL` - (Optional) Slack Incoming Webhook URL for error/problem reporting
+- `SOCKET_API_TOKEN` - (Optional) Socket.dev API token for supply-chain scanning (required only for depaudit)
 
 ### 4. Run ADW
 
@@ -385,6 +387,7 @@ adws/                   # ADW workflow system
 │   └── types.ts
 ├── triggers/           # Automation triggers
 │   ├── __tests__/      # Vitest unit tests
+│   │   ├── cancelHandler.test.ts
 │   │   ├── cronRepoResolver.test.ts
 │   │   ├── cronStageResolver.test.ts
 │   │   ├── devServerJanitor.test.ts
@@ -392,6 +395,7 @@ adws/                   # ADW workflow system
 │   │   └── webhookHandlers.test.ts
 │   ├── autoMergeHandler.ts  # Auto-merge approved PRs
 │   ├── cancelHandler.ts  # Cancel directive handler
+│   ├── cloudflareTunnel.tsx  # Cloudflare tunnel lifecycle helper
 │   ├── concurrencyGuard.ts
 │   ├── cronIssueFilter.ts  # Cron issue evaluation and filtering logic (testable, extracted from trigger_cron)
 │   ├── devServerJanitor.ts  # Janitor probe that kills stale dev server processes in target repo worktrees

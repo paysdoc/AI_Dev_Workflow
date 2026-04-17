@@ -1,5 +1,13 @@
 # Conditional Documentation
 
+- app_docs/feature-1w5uz8-depaudit-triage-skill.md
+  - Conditions:
+    - When working with or invoking the `/depaudit-triage` Claude Code skill
+    - When modifying `.claude/skills/depaudit-triage/SKILL.md` or the triage workflow prompt
+    - When writing accept entries to `.depaudit.yml` (`supplyChainAccepts`) or `osv-scanner.toml` (`[[IgnoredVulns]]`)
+    - When troubleshooting idempotency behavior (in-flight findings with `upstreamIssue`)
+    - When implementing the stubbed `upgrade parent` or `accept+file-upstream-issue` actions in future issues
+
 - app_docs/feature-670i6z-dead-schema-cleanup.md
   - Conditions:
     - When working with `adws/core/projectConfig.ts` and the `CommandsConfig` interface or `HEADING_TO_KEY` map
