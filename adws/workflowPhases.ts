@@ -45,3 +45,4 @@ export {
   completePRReviewWorkflow,
   handlePRReviewWorkflowError,
 } from './phases';
+export { executeDepauditSetup, type DepauditSetupResult, type DepauditSetupDeps } from './phases/depauditSetup';

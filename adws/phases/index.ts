@@ -45,3 +45,4 @@ export {
   type TagProofResult,
   type ScenarioProofResult,
 } from './scenarioProof';
+export { executeDepauditSetup, type DepauditSetupResult, type DepauditSetupDeps } from './depauditSetup';

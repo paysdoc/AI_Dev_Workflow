@@ -729,7 +729,7 @@ bunx tsx adws/adwInit.tsx 42
 bunx tsx adws/adwInit.tsx 42 --target-repo https://github.com/owner/repo
 ```
 
-The init command analyzes the target codebase to detect language, framework, package manager, and project conventions, then generates all three config files.
+The init command analyzes the target codebase to detect language, framework, package manager, and project conventions, then generates all three config files. It also runs `depaudit setup` in the target repo worktree and propagates `SOCKET_API_TOKEN` / `SLACK_WEBHOOK_URL` to the target repo's GitHub Actions secrets via `gh secret set`. Missing env values are logged as warnings and do not block init.
 
 **Examples by Project Type:**
 
