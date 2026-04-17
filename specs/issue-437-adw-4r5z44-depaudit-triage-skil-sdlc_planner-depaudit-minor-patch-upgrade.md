@@ -102,8 +102,6 @@ Update `.claude/skills/depaudit-triage/SKILL.md` Action 1 (`upgrade parent`) to 
    - Display: `Major bump required: <package> <from> → <to>. The skill refuses to apply major bumps directly — this lands in a future issue (the upcoming major-bump action), which will file a tracked issue and write a short-lived accept entry.` Add a hint: `For now, choose 'accept+document' to record the risk, or 'skip' to postpone.`
    - Treat as skip — no mutation, no accept entry, no install.
 
-5. **Preserve the completion summary**: The existing summary counts `Accepted / Skipped / In flight (auto-skipped)`. Extend it with `Upgraded: N` (only when at least one upgrade happened) so the user sees end-of-triage outcome at a glance.
-
 ### Phase 3: Integration
 The skill remains `target: false` (stays in ADW). The existing idempotency guard, sequential walk, and per-finding menu layout are unchanged — only the body of Action 1 is replaced. No TypeScript/code changes are required.
 
@@ -122,24 +120,14 @@ Execute every step in order, top to bottom.
 - Edit `.claude/skills/depaudit-triage/SKILL.md`:
   - Locate `### Action 1: upgrade parent` and its current body.
   - Replace the body with the content described in Phase 2 above: semver parsing, manifest detection, smallest-target computation that resolves the finding, minor/patch autonomous flow (display summary, read+edit manifest, prompt before the install command runs, revert manifest on cancel, run install on proceed, revert manifest on install failure with no partial bump left in the workspace), and the major refuse flow with the future-issue pointer.
-  - Keep all surrounding sections (Step 1 through Step 3 intro, Action 2 through Action 4, Step 5 Completion Summary, Notes) unchanged — only Action 1 is touched, plus a one-line extension of the completion summary to include the `Upgraded: N` counter.
+  - Keep all surrounding sections (Step 1 through Step 3 intro, Action 2 through Action 4, Step 5 Completion Summary, Notes) unchanged — only Action 1 is touched.
 
-### Step 3: Extend the completion summary to include Upgraded count
-- In the `## Step 5: Completion Summary` section of the same file, extend the summary block from:
-  ```
-  > Triage complete.
-  > - Accepted: N
-  > - Skipped: N
-  > - In flight (auto-skipped): N
-  ```
-  to include an `Upgraded: N` line so the user can see how many autonomous upgrades were applied. Keep it in the existing blockquote block.
-
-### Step 4: Extend the Notes section to document the new behavior
+### Step 3: Extend the Notes section to document the new behavior
 - In the `## Notes` section of the same file, append two short bullets:
   - Upgrade policy: minor/patch bumps are applied autonomously; major bumps are refused (landing in a future issue).
   - Revert safety: the skill prompts before the install command runs so the user can cancel a pending upgrade; on cancel the skill reverts the manifest edit. If `install` fails, the skill reverts the manifest to its original content so the workspace is never left with a partial bump (no partial bump).
 
-### Step 5: Verify the `@adw-437` BDD scenarios pass against the updated SKILL.md
+### Step 4: Verify the `@adw-437` BDD scenarios pass against the updated SKILL.md
 The scenarios are already authored in `features/depaudit_triage_upgrade_parent_minor_patch.feature` (tagged `@adw-437`). They use the content-assertion pattern: each scenario reads `.claude/skills/depaudit-triage/SKILL.md` and asserts that specific phrases are present (or absent).
 
 After Step 2–4 edits to SKILL.md, the file must contain (verbatim) all of the following phrases so the scenarios pass:
@@ -159,12 +147,12 @@ After Step 2–4 edits to SKILL.md, the file must contain (verbatim) all of the 
 
 Re-use the existing step definitions (e.g. `Given the file ".claude/skills/depaudit-triage/SKILL.md" is read`, `Then the file contains "<phrase>"`, `Then the file does not contain "<phrase>"`, `When the content is inspected`, `Then it contains a menu with at least these actions:`). No new step defs are expected unless one of the above assertion forms is missing from `features/step_definitions/depauditTriageSkillSteps.ts`.
 
-### Step 6: Add step-definition helpers if needed
+### Step 5: Add step-definition helpers if needed
 - Open `features/step_definitions/depauditTriageSkillSteps.ts`.
-- For each step used in `features/depaudit_triage_upgrade_parent_minor_patch.feature`, verify a step def exists. The needed forms are: `Given the file "<path>" is read`, `Then the file contains "<phrase>"`, `Then the file does not contain "<phrase>"`, `When the content is inspected`, `Then it contains a menu with at least these actions:` (data-table). If any form is missing, add minimal step defs that read the file into `sharedCtx.fileContent` and assert with `assert.ok(content.includes(...))` (case-insensitive where prose wording varies via `content.toLowerCase().includes(...)`).
-- Keep the style consistent with existing step defs: function() syntax, `assert.ok(...)`.
+- For each step used in `features/depaudit_triage_upgrade_parent_minor_patch.feature`, verify a step def exists. The needed forms are: `Given the file "<path>" is read`, `Then the file contains "<phrase>"`, `Then the file does not contain "<phrase>"`, `When the content is inspected`, `Then it contains a menu with at least these actions:` (data-table). The first three are already defined in `features/step_definitions/commonSteps.ts`; `Then it contains a menu with at least these actions:` is already defined in `depauditTriageSkillSteps.ts` (from issue #436). No new step defs are expected for this issue.
+- If any form turns out to be missing, add minimal step defs that read the file into `sharedCtx.fileContent` and assert with `assert.ok(content.includes(...))` (case-insensitive where prose wording varies via `content.toLowerCase().includes(...)`). Keep the style consistent with existing step defs: function() syntax, `assert.ok(...)`.
 
-### Step 7: Run validation commands
+### Step 6: Run validation commands
 - Run `bun run lint` to catch any lint issues introduced into step-definition TypeScript.
 - Run `bunx tsc --noEmit` for root type check.
 - Run `bunx tsc --noEmit -p adws/tsconfig.json` for the adws-specific type check.
@@ -184,9 +172,9 @@ Unit tests are enabled for this project (per `.adw/project.md` `## Unit Tests: e
 - Non-semver ecosystems (e.g. Go modules using `v1.2.3` prefix, Python PEP 440) — the skill strips any ecosystem-specific prefix before semver comparison and applies the same MAJOR.MINOR.PATCH logic.
 - `.adw/commands.md` has no `## Install Dependencies` section — skill falls back to the ecosystem default.
 - Manifest file not found at the finding's reported path — skill displays a clear error and treats as skip (no mutation).
-- User answers `n` at the confirm prompt — no edit, no install, move to next finding.
-- Install command exits non-zero — manifest is restored from `originalManifest`, error output is shown, move to next finding without writing any accept entry.
-- Install command not on `PATH` — same handling as install failure (manifest restored, error shown).
+- User answers `n` at the confirm prompt (after the edit, before the install command runs) — skill reverts the manifest edit using `originalManifest`, no install runs, move to next finding.
+- Install command exits non-zero — manifest is reverted from `originalManifest` (no partial bump left in the workspace), error output is shown, move to next finding without writing any accept entry.
+- Install command not on `PATH` — same handling as install failure (manifest reverted, error shown).
 - Same finding resolves via multiple upgrade paths — skill picks the smallest resolving version per PRD §Claude Code skill ("inspects the available resolving versions of the direct parent").
 - A subsequent finding in the same triage session was already implicitly resolved by the first upgrade — skill does NOT re-scan (static-snapshot invariant); the user can skip or accept as they see fit.
 
@@ -200,7 +188,6 @@ Unit tests are enabled for this project (per `.adw/project.md` `## Unit Tests: e
 - [ ] The SKILL.md file contains instructions to revert the manifest if install fails, leaving the workspace unchanged (no partial bump), and to surface the install error output to the user.
 - [ ] The SKILL.md file instructs resolving the install command from `.adw/commands.md` `## Install Dependencies` when present, else the ecosystem default.
 - [ ] The SKILL.md file preserves the static snapshot invariant — no `depaudit scan` is triggered after an upgrade.
-- [ ] The Step 5 Completion Summary in SKILL.md now includes an `Upgraded: N` line.
 - [ ] BDD scenarios tagged `@adw-437` in `features/depaudit_triage_upgrade_parent_minor_patch.feature` cover all the above behaviors; all scenarios pass.
 - [ ] All existing `@adw-436` scenarios continue to pass (the existing contract is preserved).
 - [ ] `bun run lint`, `bunx tsc --noEmit`, `bunx tsc --noEmit -p adws/tsconfig.json`, and `bun run build` all pass with zero errors.
@@ -217,7 +204,7 @@ Execute every command to validate the feature works correctly with zero regressi
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@regression"` — Full regression run.
 - `grep -c "upgrade parent" .claude/skills/depaudit-triage/SKILL.md` — Confirm the `upgrade parent` action still exists in the menu.
 - `grep -n "major" .claude/skills/depaudit-triage/SKILL.md` — Confirm the major-bump refusal text is present.
-- `grep -n "Upgraded:" .claude/skills/depaudit-triage/SKILL.md` — Confirm the completion summary now includes the `Upgraded` counter.
+- `grep -n "revert" .claude/skills/depaudit-triage/SKILL.md` — Confirm the revert/rollback behavior is documented.
 
 ## Notes
 - The `guidelines/` directory exists and coding guidelines must be followed. The skill file is markdown (a prompt), not code; the relevant guideline is "clarity over cleverness" — the Action 1 body must be readable as step-by-step prose so Claude can follow it at invocation time.
