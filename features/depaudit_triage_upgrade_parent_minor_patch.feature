@@ -33,17 +33,17 @@ Feature: /depaudit-triage — autonomous minor/patch parent upgrade action
     And the file contains "patch"
     And the file contains "autonomous"
 
-  @adw-437 @regression
-  Scenario: Skill refuses to apply a major bump in this slice
+  @adw-437 @adw-438 @regression
+  Scenario: Skill does not apply a major bump directly — it files an issue instead
     Given the file ".claude/skills/depaudit-triage/SKILL.md" is read
     Then the file contains "major"
-    And the file contains "refuse"
+    And the file contains "gh issue create"
 
-  @adw-437 @regression
-  Scenario: Skill points the user at the upcoming major-bump action
+  @adw-437 @adw-438 @regression
+  Scenario: Skill's major-bump flow embeds /adw_sdlc in the filed issue body
     Given the file ".claude/skills/depaudit-triage/SKILL.md" is read
     Then the file contains "major"
-    And the file contains "future issue"
+    And the file contains "/adw_sdlc"
 
   # --- Smallest resolving target version ---
 
