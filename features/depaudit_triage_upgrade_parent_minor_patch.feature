@@ -6,10 +6,10 @@ Feature: /depaudit-triage — autonomous minor/patch parent upgrade action
   bump of the direct parent, the skill computes the smallest resolving target
   version, edits the manifest, runs the package manager install command, and
   advances to the next finding — without re-scanning. Major bumps are out of
-  scope for this slice: the skill refuses to apply them and points the user at
-  the next slice's major-bump action. The user may cancel a pending upgrade
-  before install runs; install failures surface clearly and leave the
-  workspace unchanged (no partial bump).
+  scope for the autonomous minor/patch flow: the skill does not apply them
+  directly and instead routes to the issue-filing path (covered in a separate
+  feature). The user may cancel a pending upgrade before install runs; install
+  failures surface clearly and leave the workspace unchanged (no partial bump).
 
   Background:
     Given the ADW codebase is at the current working directory
@@ -33,17 +33,17 @@ Feature: /depaudit-triage — autonomous minor/patch parent upgrade action
     And the file contains "patch"
     And the file contains "autonomous"
 
-  @adw-437 @regression
-  Scenario: Skill refuses to apply a major bump in this slice
+  @adw-437 @adw-438 @regression
+  Scenario: Skill does not apply a major bump directly — it files an issue instead
     Given the file ".claude/skills/depaudit-triage/SKILL.md" is read
     Then the file contains "major"
-    And the file contains "refuse"
+    And the file contains "gh issue create"
 
-  @adw-437 @regression
-  Scenario: Skill points the user at the upcoming major-bump action
+  @adw-437 @adw-438 @regression
+  Scenario: Skill's major-bump flow embeds /adw_sdlc in the filed issue body
     Given the file ".claude/skills/depaudit-triage/SKILL.md" is read
     Then the file contains "major"
-    And the file contains "future issue"
+    And the file contains "/adw_sdlc"
 
   # --- Smallest resolving target version ---
 
@@ -83,7 +83,7 @@ Feature: /depaudit-triage — autonomous minor/patch parent upgrade action
     Then the file contains "cancel"
     And the file contains "before the install command runs"
 
-  @adw-437
+  @adw-437 @regression
   Scenario: Cancelling a pending upgrade reverts the manifest edit
     Given the file ".claude/skills/depaudit-triage/SKILL.md" is read
     Then the file contains "revert"

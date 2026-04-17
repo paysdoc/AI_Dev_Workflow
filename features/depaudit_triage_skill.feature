@@ -45,7 +45,7 @@ Feature: /depaudit-triage skill — sequential walk + accept/document + skip
     When the content is inspected
     Then it contains instructions to walk each "new" finding one at a time in sequence
 
-  @adw-436
+  @adw-436 @adw-438 @regression
   Scenario: Skill presents a 4-option menu per finding
     Given the file ".claude/skills/depaudit-triage/SKILL.md" is read
     When the content is inspected

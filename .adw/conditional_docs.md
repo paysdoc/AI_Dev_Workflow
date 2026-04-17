@@ -1,19 +1,33 @@
 # Conditional Documentation
 
+- app_docs/feature-oev65s-depaudit-triage-issue-filing.md
+  - Conditions:
+    - When working with the major-bump issue filing path in `/depaudit-triage` (Action 1, major case)
+    - When working with the upstream-issue filing path in `/depaudit-triage` (Action 3)
+    - When troubleshooting `gh issue create` failures in the triage skill (major-bump or upstream paths)
+    - When the OSV `upstreamIssue` convention (URL embedded in `reason`) is relevant
+    - When implementing or extending the idempotency guard for issue-filing actions
+
+- app_docs/feature-o28sw7-depaudit-triage-issue-filing.md
+  - Conditions:
+    - When working with Action 1 major-bump filing flow or Action 3 upstream-issue filing flow in `/depaudit-triage`
+    - When modifying the `gh issue create` invocations or issue title/body format in `SKILL.md`
+    - When troubleshooting idempotency re-checks inside Action 1 or Action 3 (belt-and-braces guard)
+    - When the OSV-scanner TOML `upstreamIssue` embedding convention (`reason` field URL format) needs to be understood
+    - When adding new filing paths or expiry-cap logic to the triage skill
+
 - app_docs/feature-1w5uz8-depaudit-triage-skill.md
   - Conditions:
     - When working with or invoking the `/depaudit-triage` Claude Code skill
     - When modifying `.claude/skills/depaudit-triage/SKILL.md` or the triage workflow prompt
     - When writing accept entries to `.depaudit.yml` (`supplyChainAccepts`) or `osv-scanner.toml` (`[[IgnoredVulns]]`)
     - When troubleshooting idempotency behavior (in-flight findings with `upstreamIssue`)
-    - When implementing the stubbed `accept+file-upstream-issue` action in future issues
 
 - app_docs/feature-yx99nx-depaudit-minor-patch-upgrade.md
   - Conditions:
     - When working with the `upgrade parent` action in `/depaudit-triage` (Action 1 in SKILL.md)
     - When troubleshooting the minor/patch autonomous upgrade flow (manifest edit, cancel revert, install failure revert)
     - When understanding major-bump refusal behavior and the no-partial-bump guarantee
-    - When implementing the upcoming major-bump action (`accept+file-upstream-issue`) in a follow-up issue
     - When adding new ecosystems to the manifest detection or install command resolution table
 
 - app_docs/feature-4r5z44-depaudit-triage-minor-patch-upgrade.md
