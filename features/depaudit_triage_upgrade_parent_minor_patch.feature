@@ -83,7 +83,7 @@ Feature: /depaudit-triage — autonomous minor/patch parent upgrade action
     Then the file contains "cancel"
     And the file contains "before the install command runs"
 
-  @adw-437
+  @adw-437 @regression
   Scenario: Cancelling a pending upgrade reverts the manifest edit
     Given the file ".claude/skills/depaudit-triage/SKILL.md" is read
     Then the file contains "revert"

@@ -97,7 +97,7 @@ Use these files to implement the feature:
 - `app_docs/feature-1w5uz8-depaudit-triage-skill.md` — Conditional doc. Documents the existing skill's contract (stubbed `upgrade parent` and `accept+file-upstream-issue`, `target: false`, idempotency, static snapshot). Read before touching SKILL.md.
 - `app_docs/feature-yx99nx-depaudit-minor-patch-upgrade.md` / `app_docs/feature-4r5z44-depaudit-triage-minor-patch-upgrade.md` — Conditional docs. Document the minor/patch autonomous flow and the major-bump placeholder. Read before touching Action 1.
 - `features/depaudit_triage_skill.feature` — Existing `@adw-436` scenarios. Must continue to pass.
-- `features/depaudit_triage_upgrade_parent_minor_patch.feature` — Existing `@adw-437` scenarios. Must continue to pass (the major-refuse phrases the feature asserts — `major`, `refuse`, `future issue` — must remain present in SKILL.md *or* be replaced by equivalent assertions that match the updated Action 1 body; see the "Regression considerations" section in Step 2 below).
+- `features/depaudit_triage_upgrade_parent_minor_patch.feature` — Existing `@adw-437` scenarios. Must continue to pass. The phrases this feature actually asserts for the major case are `major`, `gh issue create`, and `/adw_sdlc` (verified by re-reading the feature file). The words `refuse` and `future issue` are NOT asserted. The wired major-bump flow in Action 1 naturally preserves the three asserted phrases (`major` appears throughout, `gh issue create` is the filing invocation, `/adw_sdlc` is embedded in the issue body).
 - `features/step_definitions/depauditTriageSkillSteps.ts` — Existing step definitions for skill content assertions. Reused by the new scenarios.
 - `features/step_definitions/commonSteps.ts` — Shared context (`sharedCtx.fileContent`) used by all file-reading step definitions. No change expected.
 - `.adw/commands.md` — Project commands. `## Install Dependencies: bun install`. No change; read so the validation step knows which commands to run.
@@ -115,36 +115,41 @@ Re-read the three source contracts and confirm the exact shape of the required S
 - Re-read PRD §Remediation policy §2 (major upgrade) and §4 (file upstream issue) for the exact behavioral contract, title format, body contents, and the 30-day/90-day expiry rules.
 - Re-read PRD §Claude Code skill for the idempotency semantics, the static-snapshot invariant, and the "auto-filing is unconditional of whether the upstream is ADW-registered" rule.
 - Re-read `.claude/skills/depaudit-triage/SKILL.md` to locate (a) the Action 1 major-refuse stub that must be replaced (currently ~5 lines starting at "When the classification is a **major** bump...") and (b) the Action 3 stub ("Not yet wired — coming in a future issue. Treat as skip and move to the next finding.").
-- Re-read `features/depaudit_triage_upgrade_parent_minor_patch.feature` to identify which `@adw-437` phrases the file must continue to contain (`refuse`, `future issue`, `major`). The updated Action 1 body must keep these phrases (or equivalent: e.g., the body will naturally still contain `major` when describing "major bump filing," and `refuse` can move into a prose bullet like "the skill refuses to apply the bump directly and instead files a tracked issue"). If any `@adw-437` assertion would break, adjust the Action 1 prose to retain the asserted phrase. Do NOT modify the `@adw-437` feature file — this feature's regression safety relies on the existing contract.
+- Re-read `features/depaudit_triage_upgrade_parent_minor_patch.feature` to identify which `@adw-437` phrases the file must continue to contain. The asserted phrases relevant to the major case are `major`, `gh issue create`, and `/adw_sdlc` — all three of which the new Action 1 body will naturally contain. The words `refuse` and `future issue` do NOT appear as assertions in the `@adw-437` feature file (verified by grep), so there is no regression-retention obligation for that vocabulary. Do NOT modify the `@adw-437` feature file — this feature's regression safety relies on the existing contract.
 - Confirm `.adw/commands.md` `## Install Dependencies` is `bun install` (already the case) so the validation commands resolve correctly.
 
 ### Phase 2: Core Implementation
 Update `.claude/skills/depaudit-triage/SKILL.md`:
 
 1. **Replace the Action 1 major-refuse stub** with the major-bump filing flow described in Solution Statement. The new body must contain (verbatim substrings, for BDD content assertions):
-   - Title format literal: `depaudit: major upgrade — <package> <from> → <to-range> (resolves <finding-id>)`
+   - Title format literal: `depaudit: major upgrade — <package> <from> → <to-range> (resolves <finding-id>)` (this single literal also satisfies the scenario assertions for `<package>`, `<from>`, `<to-range>`, and `resolves <finding-id>`).
    - Body-embedding literal: `/adw_sdlc`
-   - Default expiry: `30 days` or `30-day`
-   - 90-day cap reference: `90 days` or `90-day`
-   - `gh issue create` (without `--repo` to target the current repo)
-   - Idempotency re-check reference: `in flight` (matching the existing guard's vocabulary) and `upstreamIssue`
-   - Accept-entry schema: `upstreamIssue`, `reason`, `expires`
-   - Reason template: `pending major-bump issue #` (the skill must write this exact string as the reason)
-   - `gh` failure handling: surface stderr, do NOT write an accept entry (avoid orphaned entries)
-   - Advance without re-scan: `next finding` and explicit "no `depaudit scan`"
-   - Retain enough `major`/`refuse`/`future issue` vocabulary for `@adw-437` regression assertions (e.g., a short leading sentence: "When the classification is a major bump the skill refuses to apply it directly and instead files a tracked issue." The word `future issue` is no longer strictly needed since the action is wired; however, the `@adw-437` scenario "Skill points the user at the upcoming major-bump action" asserts `future issue` — replace this scenario's compatibility by ensuring the `@adw-437` feature file's phrases remain satisfied. Because the `@adw-437` feature file must not be modified, keep the phrase `future issue` somewhere in the skill — e.g., inside the "Notes" section add a bullet: "`upgrade parent` (major case): in this feature the skill files a tracked issue on the current repo; prior behavior deferred this to a future issue." Alternatively, the Action 3 updated body can retain `future issue` language by citing the feature history. Pick the path of least disruption and document the choice in the BDD rationale.)
+   - "Does not apply" language: the body must contain the exact phrase `does not apply` (asserted twice by `@adw-438` scenarios — e.g., "The skill does not apply the major bump directly; it files a tracked issue instead.").
+   - Current-repo targeting: the phrase `current repo` must appear verbatim in the Action 1 body (asserted by `@adw-438`).
+   - Default expiry: `30 days` or `30-day`, AND the literal word `default` near the expiry description, AND the literal string `expires`.
+   - 90-day cap reference: `90 days` or `90-day`, AND the literal word `cap`, AND the literal word `adjust` (e.g., "user-adjustable up to the 90-day cap").
+   - `gh issue create` (without `--repo` to target the current repo).
+   - Idempotency re-check reference: `in flight` (matching the existing guard's vocabulary) and `upstreamIssue`.
+   - Accept-entry schema: `upstreamIssue`, `reason`, `expires`.
+   - Reason template: `pending major-bump issue #` (the skill must write this exact string as the reason).
+   - No-duplicate guarantee: the phrase `no duplicate` must appear in the body (asserted by `@adw-438`).
+   - `gh` failure handling: surface stderr, do NOT write an accept entry (avoid orphaned entries).
+   - Advance without re-scan: `next finding` and explicit "no `depaudit scan`".
+   - Keep `major` present (naturally occurs throughout; asserted by both `@adw-437` and `@adw-438`). No other `@adw-437` vocabulary obligations apply to Action 1 (`refuse` and `future issue` are NOT asserted by `@adw-437` — see Phase 1).
 
-2. **Replace the Action 3 stub** with the upstream-issue filing flow described in Solution Statement. The new body must contain:
-   - `gh issue create --repo <dep-owner>/<dep-repo>` (literal, with the placeholder syntax)
-   - Idempotency guard re-check: `in flight` and `upstreamIssue`
-   - `reason` minimum length `20` (reuse Action 2's validation language)
-   - `expires` cap `90 days` with default `30 days`
-   - Accept-entry file routing: `.depaudit.yml` and `osv-scanner.toml` with the `supplyChainAccepts` / `[[IgnoredVulns]]` keys
-   - URL capture: record returned URL in `upstreamIssue`
-   - "Auto-files unconditionally" language — explicit note that the skill does not check whether the upstream is ADW-registered
-   - `gh` failure handling: surface error, do NOT write the accept entry
-   - Missing repo coordinates handling: treat as skip, do not call `gh`
-   - Advance without re-scan: `next finding`
+2. **Replace the Action 3 stub** with the upstream-issue filing flow described in Solution Statement. The new body must contain (verbatim substrings, for BDD content assertions):
+   - `gh issue create --repo <dep-owner>/<dep-repo>` (literal, with the placeholder syntax — this single literal also satisfies the `gh issue create --repo` and `<dep-owner>/<dep-repo>` assertions).
+   - Drafting vocabulary: the words `draft`, `title`, and `body` must appear together in the Action 3 body (asserted by `@adw-438` scenario "Upstream-issue action drafts a title and body"). Natural phrasing like "Draft a concise title and a body describing…" satisfies this.
+   - Idempotency guard re-check: `in flight` and `upstreamIssue`.
+   - `reason` minimum length `20` (reuse Action 2's validation language).
+   - `expires` cap `90 days` with default `30 days`.
+   - Accept-entry file routing: `.depaudit.yml` and `osv-scanner.toml` with the `supplyChainAccepts` / `[[IgnoredVulns]]` keys; the literal phrase `accept entry` must appear.
+   - URL capture: the literal phrase `returned URL` must appear alongside `upstreamIssue` (asserted by `@adw-438`).
+   - Upstream-facing vocabulary: the literal word `upstream` must appear in the Action 3 body (covered naturally by the prose "file an issue on the dependency's own repo" phrased with `upstream`).
+   - "Auto-files unconditionally" language — the words `unconditional` (root — "unconditionally" satisfies "unconditional") and `ADW-registered` (explicit note that the skill does not check whether the upstream is ADW-registered).
+   - `gh` failure handling: surface error, do NOT write the accept entry.
+   - Missing repo coordinates handling: treat as skip, do not call `gh`.
+   - Advance without re-scan: `next finding`.
 
 3. **Update the `## Notes` section** with two new bullets:
    - Major-bump auto-filing: "Action 1 (`upgrade parent`) auto-files a tracked issue on the current repo when only a major bump resolves the finding; it embeds `/adw_sdlc` in the body so ADW runs the upgrade SDLC, and writes a short-lived accept entry (default 30 days, user-adjustable up to the 90-day cap) pointing to the filed issue."
@@ -160,7 +165,7 @@ Update `.claude/skills/depaudit-triage/SKILL.md`:
 ### Phase 3: Integration
 The skill remains `target: false`. No TypeScript code changes are strictly required. Add a new BDD feature file (`features/depaudit_triage_issue_filing.feature`) with `@adw-438` content-assertion scenarios covering every new behavior, and — only if any needed assertion form does not already exist — add minimal new step definitions to `features/step_definitions/depauditTriageSkillSteps.ts` in the style of the existing content-assertion steps.
 
-The existing `@adw-436` and `@adw-437` feature files must not be edited. The new SKILL.md content must satisfy their assertions: specifically, the `@adw-437` scenarios that assert the presence of `major`, `refuse`, `future issue`, and the absence of `re-scan after each`. The Action 1 updated body will naturally retain `major` and `refuse` vocabulary (e.g., "When a major bump is required the skill refuses to apply the bump directly and instead files a tracked issue…"). The phrase `future issue` can be preserved by keeping the existing Action 3 "for future extensions…" sentence or by inserting a one-line Notes bullet mentioning the prior issue's "future issue" refusal history.
+The existing `@adw-436` and `@adw-437` feature files must not be edited. The new SKILL.md content must satisfy their assertions: specifically, the `@adw-437` scenarios that assert the presence of `major` (multiple places), `gh issue create`, `/adw_sdlc`, and the absence of `re-scan after each`. The Action 1 updated body will naturally retain all of these because the wired major-bump flow literally calls `gh issue create` and embeds `/adw_sdlc`. The words `refuse` and `future issue` are NOT asserted by `@adw-437` — the plan previously assumed they were; that assumption is retracted.
 
 `.adw/conditional_docs.md` is not edited in this phase. The conditional doc entries currently flag "When implementing the stubbed `accept+file-upstream-issue` action in future issues" and the upcoming major-bump action — after this issue ships, the `/document` phase will update `app_docs/feature-1w5uz8-depaudit-triage-skill.md` (and related entries) to reflect the newly-wired actions; trigger conditions will be revised accordingly. That is explicitly out of scope for the *planning* and *build* phases.
 
@@ -176,17 +181,16 @@ Execute every step in order, top to bottom.
 
 ### Step 2: Draft the new Action 1 major-bump body
 Plan the exact Markdown prose that will replace the Action 1 major-refuse stub. Include:
-- A lead sentence identifying the major-bump case and stating the skill refuses to apply the bump directly and instead files a tracked issue. (Keeps `major` and `refuse` present for `@adw-437` regression.)
-- Idempotency re-check bullet: "Re-check the idempotency guard for this finding's `(package, version, finding-id)` identity — if an existing accept entry already has a non-empty `upstreamIssue`, display `in flight — issue #N` and advance to the next finding without re-filing."
-- Expiry prompt bullet: "Prompt for expiry (default 30 days, user-adjustable up to the 90-day cap)."
+- A lead sentence identifying the major-bump case and stating the skill **does not apply** the major bump directly to the manifest; it files a tracked issue instead. The phrase `does not apply` must appear verbatim (asserted twice by `@adw-438`).
+- Idempotency re-check bullet: "Re-check the idempotency guard for this finding's `(package, version, finding-id)` identity — if an existing accept entry already has a non-empty `upstreamIssue`, display `in flight — issue #N` and advance to the next finding without re-filing (no duplicate issue is created)." Ensure the phrase `no duplicate` appears verbatim (asserted by `@adw-438`).
+- Expiry prompt bullet: "Prompt for expiry (**default** 30 days, user-**adjust**able up to the 90-day **cap**)." Ensures `default`, `adjust`, `cap`, `30`, `90`, and `expires` all appear in context.
 - Title-format bullet: "Draft the issue title in the stable format: `depaudit: major upgrade — <package> <from> → <to-range> (resolves <finding-id>)`."
 - Body bullet: "Draft the issue body including the finding summary, severity, source, the resolving range, and the literal `/adw_sdlc` on its own line so ADW picks up the issue."
-- `gh issue create` bullet: "Run `gh issue create --title <title> --body <body>` against the current repo."
+- `gh issue create` bullet: "Run `gh issue create --title <title> --body <body>` against the **current repo** (no `--repo` flag)." Ensure the phrase `current repo` appears verbatim (asserted by `@adw-438`).
 - Capture bullet: "Capture the returned issue number `#N` and URL."
 - Write-entry bullet: "Write (or update) an accept entry in the correct file based on `source` (`.depaudit.yml` for Socket / supply-chain findings; `osv-scanner.toml` for OSV / CVE findings) with `upstreamIssue` set to the URL, `reason` set to `pending major-bump issue #N`, and `expires` set to the chosen expiry. Respect `(package, version, finding-id)` identity — update existing entry rather than duplicate."
 - `gh` failure bullet: "If `gh issue create` fails or `gh` is not on PATH, surface the error and do NOT write the accept entry — avoid orphaned entries that reference a non-existent issue. Move to the next finding."
 - Advance bullet: "Display `Major-bump issue filed: <url>. Accept entry written with <N>-day expiry.` and advance to the next finding. Do NOT run `depaudit scan`."
-- (Optional) Tail Note hook referencing "prior behavior (the refuse-and-point-to-future-issue fallback) is retained for context in the Notes section" so the word `future issue` is still greppable in SKILL.md.
 
 ### Step 3: Draft the new Action 3 upstream-issue body
 Plan the exact Markdown prose that will replace the Action 3 stub. Include:
@@ -209,7 +213,7 @@ Using the prose drafted in Steps 2 and 3, edit the skill file:
 - Update the Action 1 menu bullet to: "autonomous minor/patch bump; for major bumps, files a tracked issue on the current repo and writes a short-lived accept entry" (or equivalent — retain the literal string `upgrade parent` so the `@adw-437` regression continues to pass).
 - Update the Action 3 menu bullet away from "not yet wired" to: "file an issue on the dependency's own repo and record the URL in the accept entry" (retain the literal string `accept+file-upstream-issue` for the menu assertion).
 - Append the three Notes bullets (major-bump auto-filing, upstream-issue auto-filing, lint safety) described in Phase 2 Step 3.
-- Verify (by grep) that the following `@adw-437` asserted phrases remain present somewhere in the file: `semver`, `from`, `to`, `minor`, `patch`, `major`, `autonomous`, `refuse`, `future issue`, `smallest`, `resolves the finding`, `manifest`, `package.json`, `go.mod`, `.adw/commands.md`, `Install Dependencies`, `ecosystem default`, `cancel`, `before the install command runs`, `revert`, `install fail`, `no partial bump`, `workspace`, `next finding`, `static snapshot`, `upgrade parent`. Verify the file does NOT contain `re-scan after each`.
+- Verify (by grep) that the following `@adw-437` asserted phrases remain present somewhere in the file: `semver`, `from`, `to`, `minor`, `patch`, `major`, `autonomous`, `smallest`, `resolves the finding`, `manifest`, `package.json`, `go.mod`, `.adw/commands.md`, `Install Dependencies`, `ecosystem default`, `cancel`, `before the install command runs`, `revert`, `install fail`, `no partial bump`, `workspace`, `next finding`, `static snapshot`, `upgrade parent`, `gh issue create`, `/adw_sdlc`. Verify the file does NOT contain `re-scan after each`.
 - Verify (by grep) that the existing `@adw-436` asserted phrases remain present: sequential/static-snapshot/idempotency vocabulary unchanged.
 
 ### Step 5: Create `features/depaudit_triage_issue_filing.feature` with `@adw-438` scenarios
@@ -330,7 +334,7 @@ Execute every command to validate the feature works correctly with zero regressi
 - **Markdown-only change**: `SKILL.md` is a Claude Code prompt, not compiled code. No runtime library is required. No `bun add` is needed. The behavioral contract is verified by BDD content-assertion scenarios — this is the pattern established by #436 and #437 and must be followed here for consistency.
 - **No new dependency**: The skill instructs Claude to shell out to `gh` via the Bash tool, which is already available to skills. No new binary, no new npm package.
 - **OSV accept entry schema quirk**: The `osv-scanner.toml` `[[IgnoredVulns]]` schema has `id`, `ignoreUntil`, and `reason` — it does NOT natively carry an `upstreamIssue` field. To keep the idempotency guard functional (which reads `upstreamIssue` from accept entries), the skill must ALSO write a parallel entry (or a cross-referenced pointer) in `.depaudit.yml` when filing an issue for a CVE finding. *OR* embed the issue URL in the OSV `reason` text and instruct the idempotency guard to recognize an "issue URL in reason" as equivalent to `upstreamIssue`. The simplest, least invasive approach is the second — embed the URL in `reason` as `pending major-bump issue #N — <url>` and document the convention in the SKILL.md so subsequent sessions recognize the format. The `.depaudit.yml` supply-chain schema carries `upstreamIssue` natively, so Socket/supply-chain findings use it as-is. Address this ambiguity explicitly in the build phase; pick the simpler of the two approaches and document the decision in SKILL.md.
-- **Regression risk — `@adw-437` phrase preservation**: The `@adw-437` feature file asserts the presence of `refuse`, `future issue`, and `major` in SKILL.md. After wiring the major-bump action, `refuse` and `major` will remain naturally (the skill still "refuses to apply the bump directly and instead files a tracked issue"), but `future issue` may drift. To keep the regression green without editing the `@adw-437` feature file, retain a single sentence in the Notes section that references "future-issue deferral" historically — e.g., "This feature supersedes the prior future-issue deferral for the major-bump case." This is a one-line cost for regression stability.
+- **Regression safety — `@adw-437` phrase preservation**: The `@adw-437` feature file asserts the presence of `major`, `gh issue create`, and `/adw_sdlc` in SKILL.md (plus the semver, manifest, install, cancel, and static-snapshot vocabulary — see the Step 4 grep list). All of these are naturally preserved by the wired major-bump flow in Action 1, which literally invokes `gh issue create` and embeds `/adw_sdlc`. The words `refuse` and `future issue` are NOT asserted by `@adw-437`; earlier drafts of this plan incorrectly claimed otherwise, and that requirement is retracted — no carryover sentence needs to be planted in the Notes section.
 - **No `.adw/conditional_docs.md` edit during planning**: The `/document` phase (run after implementation) will update `app_docs/feature-1w5uz8-depaudit-triage-skill.md` and possibly add a new conditional-doc entry for this feature. The planning phase does not touch conditional docs.
 - **Menu bullet wording**: The two menu bullets for Actions 1 and 3 are descriptive text, not assertion-critical. The key literals that must remain are the action names themselves (`upgrade parent` and `accept+file-upstream-issue`), which are verified by `Then it contains a menu with at least these actions:` in the `@adw-436` and `@adw-437` feature files.
 - **No `$ARGUMENTS` change**: The skill's existing `$ARGUMENTS` handling (optional custom path to `findings.json`) is unchanged by this feature.
