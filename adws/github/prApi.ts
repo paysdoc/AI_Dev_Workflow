@@ -6,6 +6,8 @@ import { execWithRetry } from '../core';
 import { PRDetails, PRReviewComment, PRListItem, log } from '../core';
 import { type RepoInfo } from './githubApi';
 import { extractIssueNumberFromBranch } from '../triggers/webhookHandlers';
+import { GITHUB_PAT } from '../core/environment';
+import { isGitHubAppConfigured } from './githubAppAuth';
 
 
 interface RawPRDetails {
@@ -216,11 +218,18 @@ export function mergePR(prNumber: number, repoInfo: RepoInfo): { success: boolea
  */
 export function approvePR(prNumber: number, repoInfo: RepoInfo): { success: boolean; error?: string } {
   const { owner, repo } = repoInfo;
-  const savedToken = process.env.GH_TOKEN;
+  let savedToken: string | undefined;
+  let usingPatSwap = false;
 
   try {
-    // Temporarily unset GH_TOKEN so gh uses the personal gh auth login identity
-    delete process.env.GH_TOKEN;
+    // Use PAT-swap pattern: set GH_TOKEN to GITHUB_PAT for personal identity approval.
+    // When a GitHub App is active the PR was authored by the bot; GitHub does not allow
+    // a user to approve their own PR, so we use the PAT (personal account) to approve.
+    if (isGitHubAppConfigured() && GITHUB_PAT) {
+      savedToken = process.env.GH_TOKEN;
+      process.env.GH_TOKEN = GITHUB_PAT;
+      usingPatSwap = true;
+    }
     execWithRetry(
       `gh pr review ${prNumber} --approve --repo ${owner}/${repo}`,
       { stdio: ['pipe', 'pipe', 'pipe'] },
@@ -232,10 +241,31 @@ export function approvePR(prNumber: number, repoInfo: RepoInfo): { success: bool
     log(`Failed to approve PR #${prNumber}: ${stderr}`, 'error');
     return { success: false, error: stderr };
   } finally {
-    // Restore GH_TOKEN regardless of outcome
-    if (savedToken !== undefined) {
+    // Restore GH_TOKEN if PAT swap was used
+    if (usingPatSwap) {
       process.env.GH_TOKEN = savedToken;
     }
+  }
+}
+
+/**
+ * Fetches the approval state of a PR by querying GitHub reviews.
+ * Returns true if at least one review has state 'APPROVED'.
+ * Returns false on parse error or if no approved review exists.
+ * @param prNumber - The PR number to check
+ * @param repoInfo - Repository owner and repo name
+ */
+export function fetchPRApprovalState(prNumber: number, repoInfo: RepoInfo): boolean {
+  const { owner, repo } = repoInfo;
+  try {
+    const json = execWithRetry(
+      `gh pr view ${prNumber} --repo ${owner}/${repo} --json reviews`,
+    );
+    const result = JSON.parse(json) as { reviews: { state: string }[] };
+    return (result.reviews || []).some((r) => r.state === 'APPROVED');
+  } catch (error) {
+    log(`fetchPRApprovalState: failed to fetch reviews for PR #${prNumber}: ${error}`, 'warn');
+    return false;
   }
 }
 

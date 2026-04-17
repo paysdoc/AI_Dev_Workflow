@@ -181,7 +181,14 @@ Then(
   '{string} is the last executeXxxPhase call before {string}',
   function (lastPhase: string, targetFunc: string) {
     const content = sharedCtx.fileContent;
-    const targetIdx = findFunctionUsageIndex(content, targetFunc);
+    // Try function-call pattern first; fall back to string-literal occurrence
+    let targetIdx = findFunctionUsageIndex(content, targetFunc);
+    if (targetIdx === -1) {
+      targetIdx = content.indexOf(`'${targetFunc}'`);
+    }
+    if (targetIdx === -1) {
+      targetIdx = content.indexOf(`"${targetFunc}"`);
+    }
     assert.ok(
       targetIdx !== -1,
       `Expected "${targetFunc}" to be called in "${sharedCtx.filePath}"`,

@@ -49,8 +49,6 @@ import {
 } from './workflowPhases';
 import { persistTokenCounts } from './cost';
 import type { WorkflowConfig } from './phases';
-import { approvePR, isGitHubAppConfigured, issueHasLabel, commentOnIssue, type RepoInfo } from './github';
-import { extractPrNumber } from './adwBuildHelpers';
 
 
 /**
@@ -121,23 +119,6 @@ async function main(): Promise<void> {
 
     await runPhase(config, tracker, executePRPhase);
 
-    // Post-PR: approve and write awaiting_merge (API calls only — no worktree required).
-    const prNumber = extractPrNumber(config.ctx.prUrl);
-    const owner = config.repoContext?.repoId.owner ?? '';
-    const repo = config.repoContext?.repoId.repo ?? '';
-    if (prNumber && owner && repo) {
-      const repoInfo: RepoInfo = { owner, repo };
-      if (issueHasLabel(issueNumber, 'hitl', repoInfo)) {
-        log(`hitl label detected on issue #${issueNumber}, skipping auto-approval`, 'info');
-        commentOnIssue(issueNumber, `## ✋ Awaiting human approval — PR #${prNumber} ready for review`, repoInfo);
-      } else if (isGitHubAppConfigured()) {
-        log(`Approving PR #${prNumber} with personal gh auth login identity...`, 'info');
-        const approveResult = approvePR(prNumber, repoInfo);
-        if (!approveResult.success) log(`PR approval failed (non-fatal): ${approveResult.error}`, 'warn');
-      } else {
-        log('No GitHub App configured — skipping PR approval', 'info');
-      }
-    }
     AgentStateManager.writeTopLevelState(config.adwId, { workflowStage: 'awaiting_merge' });
     AgentStateManager.writeState(config.orchestratorStatePath, {
       metadata: {

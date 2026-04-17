@@ -57,6 +57,47 @@ describe('execWithRetry — non-retryable pattern detection', () => {
     expect(() => execWithRetry('gh pr merge 42')).toThrow();
     expect(mockExecSync).toHaveBeenCalledTimes(1);
   });
+
+  // Auth error non-retryable patterns (issue #434)
+  it('throws immediately on "gh auth login" error without retrying', () => {
+    const err = new Error('To authenticate, please run: gh auth login');
+    mockExecSync.mockImplementation(() => { throw err; });
+
+    expect(() => execWithRetry('gh pr review 1 --approve')).toThrow('gh auth login');
+    expect(mockExecSync).toHaveBeenCalledTimes(1);
+  });
+
+  it('throws immediately on "HTTP 401" error without retrying', () => {
+    const err = new Error('HTTP 401: Unauthorized');
+    mockExecSync.mockImplementation(() => { throw err; });
+
+    expect(() => execWithRetry('gh pr review 1 --approve')).toThrow('HTTP 401');
+    expect(mockExecSync).toHaveBeenCalledTimes(1);
+  });
+
+  it('throws immediately on "Bad credentials" error without retrying', () => {
+    const err = new Error('GraphQL: Bad credentials (401)');
+    mockExecSync.mockImplementation(() => { throw err; });
+
+    expect(() => execWithRetry('gh pr review 1 --approve')).toThrow('Bad credentials');
+    expect(mockExecSync).toHaveBeenCalledTimes(1);
+  });
+
+  it('throws immediately on "authentication" error without retrying', () => {
+    const err = new Error('authentication required: token expired');
+    mockExecSync.mockImplementation(() => { throw err; });
+
+    expect(() => execWithRetry('gh pr review 1 --approve')).toThrow('authentication');
+    expect(mockExecSync).toHaveBeenCalledTimes(1);
+  });
+
+  it('throws immediately on "GH_TOKEN" error without retrying', () => {
+    const err = new Error('GH_TOKEN not found or invalid');
+    mockExecSync.mockImplementation(() => { throw err; });
+
+    expect(() => execWithRetry('gh pr review 1 --approve')).toThrow('GH_TOKEN');
+    expect(mockExecSync).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('execWithRetry — transient error retries', () => {

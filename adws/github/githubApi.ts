@@ -93,6 +93,7 @@ export {
   fetchIssueCommentsRest,
   deleteIssueComment,
   issueHasLabel,
+  addIssueLabel,
 } from './issueApi';
 
 // Re-export PR API functions
@@ -104,4 +105,5 @@ export {
   fetchPRList,
   mergePR,
   approvePR,
+  fetchPRApprovalState,
 } from './prApi';

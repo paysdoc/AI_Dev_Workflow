@@ -33,7 +33,9 @@ import {
   getRepoInfo,
   type RepoInfo,
   activateGitHubAppAuth,
+  isGitHubAppConfigured,
 } from '../github';
+import { GITHUB_PAT } from '../core/environment';
 import {
   ensureWorktree,
   getWorktreeForBranch,
@@ -122,6 +124,13 @@ export async function initializeWorkflow(
   // Ensures child processes spawned by triggers don't rely on stale inherited GH_TOKEN.
   const resolvedRepoForAuth = repoInfo ?? getRepoInfo();
   activateGitHubAppAuth(resolvedRepoForAuth.owner, resolvedRepoForAuth.repo);
+
+  // Startup validation: GITHUB_PAT is required for PR approval when a GitHub App is configured.
+  if (isGitHubAppConfigured() && !GITHUB_PAT) {
+    throw new Error(
+      'GitHub App is configured but GITHUB_PAT is not set. GITHUB_PAT is required for PR approval when using a GitHub App. Set GITHUB_PAT in your .env file.',
+    );
+  }
 
   // Fetch issue (targeting external repo if specified)
   log('Fetching GitHub issue...', 'info');

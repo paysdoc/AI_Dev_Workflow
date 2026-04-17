@@ -16,11 +16,13 @@ export {
   mergePR,
   approvePR,
   fetchPRList,
+  fetchPRApprovalState,
   commentOnIssue,
   fetchIssueCommentsRest,
   deleteIssueComment,
   getIssueTitleSync,
   issueHasLabel,
+  addIssueLabel,
   type RepoInfo,
 } from './githubApi';
 
