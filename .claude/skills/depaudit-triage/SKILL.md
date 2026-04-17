@@ -47,7 +47,7 @@ Source:      <OSV | Socket>
 Description: <description>
 
 Choose an action:
-  1. upgrade parent            — not yet wired (coming in a future issue)
+  1. upgrade parent            — autonomous minor/patch bump of the direct parent (major bumps refused in this slice)
   2. accept+document           — write an acceptance entry to the config file
   3. accept+file-upstream-issue — not yet wired (coming in a future issue)
   4. skip                      — move to next finding without changing anything
@@ -59,7 +59,49 @@ Wait for the user's choice (1–4).
 
 ### Action 1: upgrade parent
 
-Display: "Not yet wired — coming in a future issue." Treat as skip and move to the next finding.
+The `upgrade parent` action is wired for the minor and patch case. For the major case the skill refuses to apply the bump directly and points the user at the future issue that will handle it.
+
+**Step 1: Semver classification (minor/patch vs major)**
+
+Parse the current parent version (`from`) and the target parent version (`to`) as semver `MAJOR.MINOR.PATCH`. Strip any ecosystem-specific prefix (e.g. `v` for Go modules, `^` / `~` / `>=` for npm ranges, PEP 440 prefixes for Python) before comparing.
+
+- If `to.major > from.major`: this is a **major** bump — follow the major refuse flow below.
+- Otherwise (`to.major === from.major`): this is a **minor** or **patch** bump — follow the autonomous minor/patch flow below.
+
+**Step 2: Compute the smallest resolving target version**
+
+Inspect the available resolving versions of the direct parent from the finding's metadata and pick the **smallest** upgrade target version that resolves the finding. This keeps the diff minimal and avoids pulling in unrelated changes.
+
+**Step 3 (minor/patch): Autonomous minor/patch flow**
+
+For a minor or patch bump the skill applies the change autonomously — there is no extra confirmation beyond the single cancel prompt described below. Steps:
+
+1. Detect the ecosystem from the finding's manifest path. Supported manifests include `package.json` (npm / bun), `go.mod` (Go), `Cargo.toml` (Rust), `requirements.txt` / `pyproject.toml` (Python), `pom.xml` (Maven), `Gemfile` (Ruby), and `composer.json` (PHP).
+2. Display a one-line summary in the form `<package> <from> → <to> (minor|patch)` along with the manifest path.
+3. Read the manifest with the Read tool. Save the original manifest content in memory as `originalManifest` so it can be restored later.
+4. Edit the manifest in place with the Edit tool to bump the parent's version specifier to `to`. For `package.json` the specifier lives under `dependencies` / `devDependencies`; for `go.mod` it is in the `require` block; for TOML/YAML manifests it is the version string.
+5. Prompt the user once — **before the install command runs** — with: `Manifest edited. Proceed with install? (y/n)`. This gives the user an explicit chance to cancel a pending upgrade before the install command runs.
+6. Handle the response:
+   - **On `n` (cancel)**: revert the manifest edit by writing `originalManifest` back to the manifest file. Display `Upgrade cancelled — manifest reverted.` Move to the next finding without writing any accept entry.
+   - **On `y` (proceed)**: resolve the install command (see below) and run it via the Bash tool.
+
+**Resolving the install command**:
+
+- If the current working directory's `.adw/commands.md` has an `## Install Dependencies` section, use that value as the source of truth.
+- Otherwise fall back to the **ecosystem default** for the detected manifest: `bun install` or `npm install` for `package.json`, `go mod tidy` for `go.mod`, `cargo build` for `Cargo.toml`, `pip install -r requirements.txt` or `poetry install` for Python, `mvn dependency:resolve` for `pom.xml`, `bundle install` for `Gemfile`, `composer install` for `composer.json`.
+
+**Handle install outcomes**:
+
+- **Install success** (exit code 0): display `Upgraded <package> <from> → <to>. Moving to next finding.` Advance to the next finding. Do NOT run `depaudit scan` — the static snapshot is preserved. Do NOT write an accept entry — the finding is resolved in-tree and a later `depaudit scan` will prune any orphaned entry.
+- **Install fails** (non-zero exit, install command not found, etc.): revert the manifest by writing `originalManifest` back to the manifest file so the workspace is left unchanged — **no partial bump** remains in the workspace. Display `Install failed — manifest reverted. No partial bump left in the workspace. Error: <stderr/stdout output>`. Move to the next finding without writing any accept entry.
+
+**Step 3 (major): Major refuse flow**
+
+When the classification is a **major** bump the skill **refuses** to apply it directly. Display:
+
+> Major bump required: `<package> <from> → <to>`. The skill refuses to apply major bumps in this slice — the autonomous major-bump action lands in a future issue (it will file a tracked upstream issue and write a short-lived accept entry). For now, choose `accept+document` to record the risk, or `skip` to postpone.
+
+Treat the finding as skipped: no manifest edit, no install, no accept entry. Move to the next finding.
 
 ### Action 2: accept+document
 
@@ -128,4 +170,6 @@ After all findings are processed, display:
 - **Idempotency**: Findings with a non-empty `upstreamIssue` in an existing accept entry are already in progress. Auto-skip them with the "in flight — issue #N" message.
 - **File creation**: If `.depaudit.yml` does not exist, create it with `version: 1` and empty `supplyChainAccepts: []`. If `osv-scanner.toml` does not exist, create it with an empty `[[IgnoredVulns]]` section.
 - **Static snapshot**: Do not re-scan or re-read `findings.json` after accepting or skipping a finding. The triage session works from the snapshot read in Step 1.
+- **Upgrade policy**: minor and patch parent bumps are applied autonomously by Action 1 (`upgrade parent`); major bumps are refused in this slice and will be handled by a future issue that files a tracked upstream issue and writes a short-lived accept entry.
+- **Revert safety**: Action 1 prompts before the install command runs so the user can cancel a pending upgrade; on cancel the skill reverts the manifest edit. If the install fails the skill also reverts the manifest to its original contents so the workspace is left unchanged (no partial bump).
 - **$ARGUMENTS**: If a custom path to findings.json is provided, use it instead of the default `.depaudit/findings.json`.
