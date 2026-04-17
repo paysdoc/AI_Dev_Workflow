@@ -857,6 +857,15 @@
     - When implementing `BoardManager` for a new platform (GitLab, Jira stubs exist)
     - When troubleshooting why a project board was not created or columns are missing after a workflow run
 
+- app_docs/feature-zyjh0z-move-pr-approval-int.md
+  - Conditions:
+    - When working with `approvePR()` in `adws/github/prApi.ts` or the PAT-swap approval pattern
+    - When working with `executeAutoMergePhase` and understanding why it no longer calls `approvePR`
+    - When troubleshooting PRs blocked at the `hitl` gate due to missing approved review
+    - When modifying `reviewPhase.ts` approval logic or `fetchPRApprovalState` in `prApi.ts`
+    - When adding `NON_RETRYABLE_PATTERNS` for auth errors in `adws/core/utils.ts`
+    - When implementing a new orchestrator and wondering where approval responsibility lives
+
 - app_docs/feature-w12d7t-fix-board-update-mutation.md
   - Conditions:
     - When working with `GitHubBoardManager.ensureColumns` or the board column setup path in `githubBoardManager.ts`
