@@ -27,6 +27,7 @@ import {
   completeWorkflow,
   handleWorkflowError,
   copyTargetSkillsAndCommands,
+  executeDepauditSetup,
 } from './workflowPhases';
 
 /**
@@ -83,6 +84,16 @@ async function main(): Promise<void> {
 
     log('ADW init completed, copying target skills and commands...', 'info');
     copyTargetSkillsAndCommands(config.worktreePath);
+
+    // Propagates SOCKET_API_TOKEN and SLACK_WEBHOOK_URL to target repo GitHub Actions secrets via gh secret set
+    log('Phase: depaudit setup + secret propagation', 'info');
+    const depauditResult = await executeDepauditSetup(config);
+    if (depauditResult.skippedSecrets.length > 0) {
+      log(`Init summary: skipped secrets (env not set): ${depauditResult.skippedSecrets.join(', ')}`, 'warn');
+    }
+    for (const w of depauditResult.warnings) {
+      log(w, 'warn');
+    }
 
     log('Committing files...', 'info');
 

@@ -22,6 +22,7 @@ ADW automates software development by integrating GitHub issues with Claude Code
 |------|---------|-----------------|-----------------|
 | [cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) | Cloudflare tunnel for webhook server | `brew install cloudflared` | See Cloudflare docs |
 | [Docker](https://www.docker.com/) | BDD test isolation in containers | `brew install --cask docker` | `sudo apt install docker.io` |
+| [depaudit](https://github.com/paysdoc/depaudit) | Supply-chain audit tooling; auto-installed into target repos by `adw_init` | `npm install -g depaudit` | `npm install -g depaudit` |
 
 **System utilities** (pre-installed on macOS and most Linux distributions):
 - `lsof` — used by the dev server janitor and worktree cleanup to find processes holding file handles
@@ -72,10 +73,22 @@ Required and optional environment variables (see `.env.sample` for full referenc
 - `R2_SECRET_ACCESS_KEY` - (Optional) R2 secret access key, required only for screenshot upload functionality
 - `COST_API_URL` - (Optional) Cost API Worker URL for D1 cost database writes (e.g., `https://costs.paysdoc.nl`)
 - `COST_API_TOKEN` - (Optional) Bearer token for Cost API authentication
-- `SLACK_WEBHOOK_URL` - (Optional) Slack Incoming Webhook URL for error/problem reporting
-- `SOCKET_API_TOKEN` - (Optional) Socket.dev API token for supply-chain scanning (required only for depaudit)
+- `SLACK_WEBHOOK_URL` - (Optional) Slack Incoming Webhook URL for error/problem reporting. Propagated by `adw_init` to each target repo's GitHub Actions secrets via `gh secret set`. Missing values are logged as warnings and do not fail init.
+- `SOCKET_API_TOKEN` - (Optional) Socket.dev API token for supply-chain scanning (required only for depaudit). Propagated by `adw_init` to each target repo's GitHub Actions secrets via `gh secret set`. Missing values are logged as warnings and do not fail init.
 
-### 4. Run ADW
+### 4. Run `adw_init` to bootstrap a target repo
+
+`adw_init` initializes a target repository with `.adw/` configuration and supply-chain tooling:
+
+```bash
+bunx tsx adws/adwInit.tsx 42 --target-repo https://github.com/owner/repo
+```
+
+**Phase order:** clone → `/adw_init` → copy skills/commands → `depaudit setup` → commit → PR
+
+During `depaudit setup`, `adw_init` runs `depaudit setup` in the target repo worktree (requires `npm install -g depaudit` on the ADW host) and propagates `SOCKET_API_TOKEN` and `SLACK_WEBHOOK_URL` to the target repo's GitHub Actions secrets via `gh secret set`. If either env var is missing, a warning is logged and `adw_init` continues.
+
+### 5. Run ADW
 
 ```bash
 # Process a single issue (plan + build)
