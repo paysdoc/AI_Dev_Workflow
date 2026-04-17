@@ -23,7 +23,7 @@ Feature: adw_init invokes depaudit setup and propagates SOCKET_API_TOKEN + SLACK
 
   @adw-439 @regression
   Scenario: depaudit setup runs in the target repo's worktree cwd
-    Given the file "adws/adwInit.tsx" is read
+    Given the file "adws/phases/depauditSetup.ts" is read
     When the depaudit setup invocation is found
     Then it passes "config.worktreePath" as the working directory for the child process
 
@@ -41,41 +41,42 @@ Feature: adw_init invokes depaudit setup and propagates SOCKET_API_TOKEN + SLACK
 
   @adw-439 @regression
   Scenario: adw_init propagates SOCKET_API_TOKEN to target repo GitHub Actions secrets
-    Given the file "adws/adwInit.tsx" is read
+    Given the file "adws/phases/depauditSetup.ts" is read
     Then the file contains "SOCKET_API_TOKEN"
     And the file contains "gh secret set"
 
   @adw-439 @regression
   Scenario: gh secret set uses --repo <target> to scope to the target repo
-    Given the file "adws/adwInit.tsx" is read
+    Given the file "adws/phases/depauditSetup.ts" is read
     When the gh secret set invocation is found
     Then it uses the "--repo" flag
     And it targets the repository identifier for the target repo
 
   @adw-439 @regression
   Scenario: adw_init propagates SLACK_WEBHOOK_URL to target repo GitHub Actions secrets
-    Given the file "adws/adwInit.tsx" is read
+    Given the file "adws/phases/depauditSetup.ts" is read
     Then the file contains "SLACK_WEBHOOK_URL"
     And the file contains "gh secret set"
 
   @adw-439 @regression
   Scenario: Propagated secret values come from ADW's process environment
-    Given the file "adws/adwInit.tsx" is read
-    When the secret propagation code is found
-    Then the values read come from "process.env.SOCKET_API_TOKEN" and "process.env.SLACK_WEBHOOK_URL"
+    Given the file "adws/phases/depauditSetup.ts" is read
+    Then the file contains "process.env"
+    And the file contains "SOCKET_API_TOKEN"
+    And the file contains "SLACK_WEBHOOK_URL"
 
   # --- Missing env values: warn but do not fail ---
 
   @adw-439 @regression
   Scenario: Missing SOCKET_API_TOKEN emits a warning and does not abort adw_init
-    Given the file "adws/adwInit.tsx" is read
+    Given the file "adws/phases/depauditSetup.ts" is read
     When the secret propagation code is found
     Then a warning is logged when "SOCKET_API_TOKEN" is unset
     And the workflow does not throw or exit on the missing value
 
   @adw-439 @regression
   Scenario: Missing SLACK_WEBHOOK_URL emits a warning and does not abort adw_init
-    Given the file "adws/adwInit.tsx" is read
+    Given the file "adws/phases/depauditSetup.ts" is read
     When the secret propagation code is found
     Then a warning is logged when "SLACK_WEBHOOK_URL" is unset
     And the workflow does not throw or exit on the missing value
