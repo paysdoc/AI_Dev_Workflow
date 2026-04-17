@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 42               | 2026-04-17 17:21:16 |
-| Longest Streak    | 116              | 2026-04-17 17:21:16 |
-| Total Plan Size   | 1490 lines       | 2026-04-17 17:21:16 |
-| Largest Plan Size | 341 lines        | 2026-04-17 17:21:16 |
-| Total Diff Size   | 2281025 lines    | 2026-04-17 17:21:16 |
-| Largest Diff Size | 418153 lines     | 2026-04-17 17:21:16 |
-| Average Presence  | 1.13             | 2026-04-17 17:21:16 |
+| Current Streak    | 38               | 2026-04-17 19:31:09 |
+| Longest Streak    | 51               | 2026-04-17 19:31:09 |
+| Total Plan Size   | 1490 lines       | 2026-04-17 19:31:09 |
+| Largest Plan Size | 341 lines        | 2026-04-17 19:31:09 |
+| Total Diff Size   | 2282695 lines    | 2026-04-17 19:31:09 |
+| Largest Diff Size | 418153 lines     | 2026-04-17 19:31:09 |
+| Average Presence  | 1.35             | 2026-04-17 19:31:09 |
 
 ## ADW KPIs
 
@@ -122,3 +122,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-04-17 | 4r5z44-depaudit-triage-skil | 437          | /feature    | 1        | 0                 | 799/11/9                        | 2026-04-17 16:43:09 | 2026-04-17 16:43:09 |
 | 2026-04-17 | oev65s-depaudit-triage-skil | 438          | /feature    | 1        | 341               | 950/32/9                        | 2026-04-17 17:20:40 | 2026-04-17 17:20:40 |
 | 2026-04-17 | o28sw7-depaudit-triage-skil | 438          | /feature    | 1        | 0                 | 1046/32/10                      | 2026-04-17 17:21:16 | 2026-04-17 17:21:16 |
+| 2026-04-17 | fgef3i-adw-init-call-depaud | 439          | /feature    | 1        | 0                 | 1665/5/15                       | 2026-04-17 19:31:09 | 2026-04-17 19:31:09 |
