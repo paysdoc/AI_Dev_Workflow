@@ -6,10 +6,10 @@ Feature: /depaudit-triage — autonomous minor/patch parent upgrade action
   bump of the direct parent, the skill computes the smallest resolving target
   version, edits the manifest, runs the package manager install command, and
   advances to the next finding — without re-scanning. Major bumps are out of
-  scope for this slice: the skill refuses to apply them and points the user at
-  the next slice's major-bump action. The user may cancel a pending upgrade
-  before install runs; install failures surface clearly and leave the
-  workspace unchanged (no partial bump).
+  scope for the autonomous minor/patch flow: the skill does not apply them
+  directly and instead routes to the issue-filing path (covered in a separate
+  feature). The user may cancel a pending upgrade before install runs; install
+  failures surface clearly and leave the workspace unchanged (no partial bump).
 
   Background:
     Given the ADW codebase is at the current working directory
