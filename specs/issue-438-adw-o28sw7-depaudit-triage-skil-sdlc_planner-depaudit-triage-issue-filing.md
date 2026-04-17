@@ -139,7 +139,7 @@ Update `.claude/skills/depaudit-triage/SKILL.md`:
 
 2. **Replace the Action 3 stub** with the upstream-issue filing flow described in Solution Statement. The new body must contain (verbatim substrings, for BDD content assertions):
    - `gh issue create --repo <dep-owner>/<dep-repo>` (literal, with the placeholder syntax — this single literal also satisfies the `gh issue create --repo` and `<dep-owner>/<dep-repo>` assertions).
-   - Drafting vocabulary: the words `draft`, `title`, and `body` must appear together in the Action 3 body (asserted by `@adw-438` scenario "Upstream-issue action drafts a title and body"). Natural phrasing like "Draft a concise title and a body describing…" satisfies this.
+   - Drafting vocabulary: the lowercase substrings `draft`, `title`, and `body` must each appear in the Action 3 body (asserted by `@adw-438` scenario "Upstream-issue action drafts a title and body"). Because the step definition uses case-sensitive `String.prototype.includes()`, a sentence-initial "Draft" (capital D) does NOT satisfy the `draft` check. Use lowercase phrasing such as "The skill drafts a concise title and body for the upstream issue…" — `drafts` contains the lowercase substring `draft`; lowercase `title` and `body` follow naturally.
    - Idempotency guard re-check: `in flight` and `upstreamIssue`.
    - `reason` minimum length `20` (reuse Action 2's validation language).
    - `expires` cap `90 days` with default `30 days`.
@@ -199,7 +199,7 @@ Plan the exact Markdown prose that will replace the Action 3 stub. Include:
 - Repo coordinates resolution: "Resolve `<dep-owner>/<dep-repo>` from the finding's `repositoryUrl` / `upstreamRepo` field; if absent, prompt the user for `<owner>/<repo>`. If the user provides no value, treat as skip — do NOT call `gh`."
 - Reason prompt: "Prompt for `reason` (≥20 chars), validated the same way as `accept+document`."
 - Expiry prompt: "Prompt for `expires` (default 30 days, ≤ today + 90 days), validated the same way as `accept+document`."
-- Title/body: "Draft a concise title (e.g., `depaudit: <package>@<version> — <finding-id>`) and a body describing the finding, severity, source, and a short request to the dep's maintainers."
+- Title/body: "The skill drafts a concise title (e.g., `depaudit: <package>@<version> — <finding-id>`) and a body describing the finding, severity, source, and a short request to the dep's maintainers." Use lowercase `drafts`, `title`, and `body` so the `@adw-438` case-sensitive content assertions `file contains "draft"`, `file contains "title"`, and `file contains "body"` all pass.
 - `gh issue create --repo` bullet: "Run `gh issue create --repo <dep-owner>/<dep-repo> --title <title> --body <body>`. Auto-files unconditionally — do not check whether the upstream is ADW-registered."
 - Capture URL: "Capture the returned URL."
 - Write accept entry: "Write (or update) an entry in the correct file (`.depaudit.yml` or `osv-scanner.toml`) with `upstreamIssue` set to the URL. Respect `(package, version, finding-id)` identity."
