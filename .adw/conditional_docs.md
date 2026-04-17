@@ -8,6 +8,14 @@
     - When the OSV `upstreamIssue` convention (URL embedded in `reason`) is relevant
     - When implementing or extending the idempotency guard for issue-filing actions
 
+- app_docs/feature-o28sw7-depaudit-triage-issue-filing.md
+  - Conditions:
+    - When working with Action 1 major-bump filing flow or Action 3 upstream-issue filing flow in `/depaudit-triage`
+    - When modifying the `gh issue create` invocations or issue title/body format in `SKILL.md`
+    - When troubleshooting idempotency re-checks inside Action 1 or Action 3 (belt-and-braces guard)
+    - When the OSV-scanner TOML `upstreamIssue` embedding convention (`reason` field URL format) needs to be understood
+    - When adding new filing paths or expiry-cap logic to the triage skill
+
 - app_docs/feature-1w5uz8-depaudit-triage-skill.md
   - Conditions:
     - When working with or invoking the `/depaudit-triage` Claude Code skill
