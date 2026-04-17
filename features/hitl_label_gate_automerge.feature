@@ -40,27 +40,20 @@ Feature: HITL label gate prevents auto-merge
     Given "adws/phases/autoMergePhase.ts" is read
     Then the file imports "issueHasLabel"
 
-  @adw-329-hitl-label-gate @regression
-  Scenario: autoMergePhase checks for hitl label before approval and merge
+  @adw-329-hitl-label-gate @adw-434 @regression
+  Scenario: autoMergePhase checks for hitl label before merge
     Given "adws/phases/autoMergePhase.ts" is read
-    Then "issueHasLabel" is called before "approvePR"
-    And "issueHasLabel" is called before "mergeWithConflictResolution"
+    Then "issueHasLabel" is called before "mergeWithConflictResolution"
 
-  @adw-329-hitl-label-gate @regression
-  Scenario: autoMergePhase skips approvePR when hitl label is present
-    Given "adws/phases/autoMergePhase.ts" is read
-    Then the phase skips "approvePR" when the hitl label is detected
-
-  @adw-329-hitl-label-gate @regression
-  Scenario: autoMergePhase skips mergeWithConflictResolution when hitl label is present
+  @adw-329-hitl-label-gate @adw-434 @regression
+  Scenario: autoMergePhase returns early when hitl label is present
     Given "adws/phases/autoMergePhase.ts" is read
     Then the phase skips "mergeWithConflictResolution" when the hitl label is detected
 
-  @adw-329-hitl-label-gate @regression
-  Scenario: autoMergePhase posts awaiting-human-approval comment on the issue when hitl detected
+  @adw-329-hitl-label-gate @adw-434 @regression
+  Scenario: autoMergePhase hitl gate is silent — no comment on early-return
     Given "adws/phases/autoMergePhase.ts" is read
-    Then the phase calls "commentOnIssue" when the hitl label is detected
-    And the comment contains "Awaiting human approval"
+    Then the hitl label early-return path does not call "commentOnIssue"
 
   @adw-329-hitl-label-gate @regression
   Scenario: autoMergePhase returns empty cost record when hitl label skips merge

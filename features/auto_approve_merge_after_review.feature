@@ -33,10 +33,11 @@ Feature: Auto-approve and merge PRs after review passes in review orchestrators
     Given "adws/github/prApi.ts" is read
     Then the file exports a function named "approvePR"
 
-  @adw-fvzdz7-auto-approve-and-mer @regression
-  Scenario: approvePR temporarily unsets GH_TOKEN for personal identity
+  @adw-fvzdz7-auto-approve-and-mer @adw-434 @regression
+  Scenario: approvePR sets GH_TOKEN to GITHUB_PAT for personal identity
     Given "adws/github/prApi.ts" is read
-    Then the "approvePR" function deletes process.env.GH_TOKEN before calling gh pr review
+    Then the file does not contain "delete process.env.GH_TOKEN"
+    And the file contains "GITHUB_PAT"
 
   @adw-fvzdz7-auto-approve-and-mer @regression
   Scenario: approvePR restores GH_TOKEN in a finally block
@@ -71,16 +72,17 @@ Feature: Auto-approve and merge PRs after review passes in review orchestrators
 
   # ── Approval identity logic ────────────────────────────────────────────────
 
-  @adw-fvzdz7-auto-approve-and-mer @regression
-  Scenario: autoMergePhase approves PR when GitHub App is configured
+  @adw-fvzdz7-auto-approve-and-mer @adw-434 @regression
+  Scenario: autoMergePhase does not call approvePR or isGitHubAppConfigured
     Given "adws/phases/autoMergePhase.ts" is read
-    Then the phase calls "isGitHubAppConfigured" to decide whether to approve
-    And the phase calls "approvePR" when the GitHub App is configured
+    Then the file does not contain "approvePR"
+    And the file does not contain "isGitHubAppConfigured"
 
-  @adw-fvzdz7-auto-approve-and-mer @regression
-  Scenario: autoMergePhase skips approval when no GitHub App is configured
+  @adw-fvzdz7-auto-approve-and-mer @adw-434 @regression
+  Scenario: autoMergePhase reads approval state from GitHub reviews
     Given "adws/phases/autoMergePhase.ts" is read
-    Then the phase skips approval and proceeds directly to merge when no GitHub App is configured
+    Then the file contains "gh pr view"
+    And the file contains "reviews"
 
   # ── Merge delegation ───────────────────────────────────────────────────────
 
