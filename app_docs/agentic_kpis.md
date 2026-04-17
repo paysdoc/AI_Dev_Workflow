@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 19               | 2026-04-17 11:12:36 |
-| Longest Streak    | 71               | 2026-04-17 11:12:36 |
-| Total Plan Size   | 351 lines        | 2026-04-17 11:12:36 |
-| Largest Plan Size | 201 lines        | 2026-04-17 11:12:36 |
-| Total Diff Size   | 2275978 lines    | 2026-04-17 11:12:36 |
-| Largest Diff Size | 418153 lines     | 2026-04-17 11:12:36 |
-| Average Presence  | 1.36             | 2026-04-17 11:12:36 |
+| Current Streak    | 33               | 2026-04-17 15:56:14 |
+| Longest Streak    | 51               | 2026-04-17 15:56:14 |
+| Total Plan Size   | 1149 lines       | 2026-04-17 15:56:14 |
+| Largest Plan Size | 201 lines        | 2026-04-17 15:56:14 |
+| Total Diff Size   | 2277368 lines    | 2026-04-17 15:56:14 |
+| Largest Diff Size | 418153 lines     | 2026-04-17 15:56:14 |
+| Average Presence  | 1.36             | 2026-04-17 15:56:14 |
 
 ## ADW KPIs
 
@@ -117,3 +117,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-04-09 | qm6gwx-add-boardmanager-pro | 427          | /feature    | 1        | 0                 | 2616/148/36                     | 2026-04-09 12:24:53 | 2026-04-09 12:24:53 |
 | 2026-04-16 | w12d7t-fix-board-setup-upda | 432          | /bug        | 1        | 0                 | 4856/383/60                     | 2026-04-16 19:10:31 | 2026-04-16 19:10:31 |
 | 2026-04-17 | zyjh0z-move-pr-approval-int | 434          | /bug        | 1        | 0                 | 823/155/22                      | 2026-04-17 11:12:36 | 2026-04-17 11:12:36 |
+| 2026-04-17 | 1w5uz8-depaudit-triage-skil | 436          | /feature    | 2        | 0                 | 737/7/8                         | 2026-04-17 15:56:14 | 2026-04-17 15:56:14 |
