@@ -6,7 +6,15 @@
     - When modifying `.claude/skills/depaudit-triage/SKILL.md` or the triage workflow prompt
     - When writing accept entries to `.depaudit.yml` (`supplyChainAccepts`) or `osv-scanner.toml` (`[[IgnoredVulns]]`)
     - When troubleshooting idempotency behavior (in-flight findings with `upstreamIssue`)
-    - When implementing the stubbed `upgrade parent` or `accept+file-upstream-issue` actions in future issues
+    - When implementing the stubbed `accept+file-upstream-issue` action in future issues
+
+- app_docs/feature-yx99nx-depaudit-minor-patch-upgrade.md
+  - Conditions:
+    - When working with the `upgrade parent` action in `/depaudit-triage` (Action 1 in SKILL.md)
+    - When troubleshooting the minor/patch autonomous upgrade flow (manifest edit, cancel revert, install failure revert)
+    - When understanding major-bump refusal behavior and the no-partial-bump guarantee
+    - When implementing the upcoming major-bump action (`accept+file-upstream-issue`) in a follow-up issue
+    - When adding new ecosystems to the manifest detection or install command resolution table
 
 - app_docs/feature-670i6z-dead-schema-cleanup.md
   - Conditions:
