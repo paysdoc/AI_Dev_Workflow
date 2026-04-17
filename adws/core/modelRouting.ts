@@ -17,7 +17,7 @@ import type { SlashCommand } from '../types/issueTypes';
 type ModelTier = 'opus' | 'sonnet' | 'haiku';
 
 /** Reasoning effort level for Claude CLI `--effort` flag. */
-export type ReasoningEffort = 'low' | 'medium' | 'high' | 'max';
+export type ReasoningEffort = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 
 // ---------------------------------------------------------------------------
 // Model routing maps
@@ -115,49 +115,58 @@ export const SLASH_COMMAND_MODEL_MAP_FAST: Record<SlashCommand, ModelTier> = {
 // Effort routing maps
 // ---------------------------------------------------------------------------
 
-/** Default reasoning effort per slash command. `undefined` means no flag is passed. */
+/**
+ * Default reasoning effort per slash command. `undefined` means no flag is passed.
+ *
+ * Effort-parameter support by model (Claude API):
+ * - Opus 4.7 (`opus`): low, medium, high, xhigh, max
+ * - Sonnet 4.6 (`sonnet`): low, medium, high, max — no xhigh
+ * - Haiku 4.5 (`haiku`): effort parameter not supported — must be undefined
+ *
+ * This map must stay in sync with `SLASH_COMMAND_MODEL_MAP` above.
+ */
 export const SLASH_COMMAND_EFFORT_MAP: Record<SlashCommand, ReasoningEffort | undefined> = {
   '/classify_issue': 'low',
-  '/feature': 'high',
-  '/bug': 'high',
-  '/chore': 'high',
+  '/feature': 'max',
+  '/bug': 'max',
+  '/chore': 'xhigh',
   '/pr_review': 'high',
-  '/implement': 'high',
-  '/implement-tdd': 'high',
-  '/patch': 'high',
-  '/review': 'high',
+  '/implement': 'max',
+  '/implement-tdd': 'max',
+  '/patch': 'xhigh',
+  '/review': 'xhigh',
   '/test': undefined,
-  '/resolve_failed_test': 'high',
-  '/resolve_failed_scenario': 'high',
+  '/resolve_failed_test': 'xhigh',
+  '/resolve_failed_scenario': 'xhigh',
   '/generate_branch_name': 'low',
   '/commit': 'medium',
   '/pull_request': 'medium',
   '/document': 'medium',
-  '/track_agentic_kpis': 'medium',
+  '/track_agentic_kpis': undefined,
   '/find_plan_file': 'low',
   '/find_issue_dependencies': 'low',
-  '/extract_dependencies': 'low',
+  '/extract_dependencies': undefined,
   '/adw_init': 'medium',
   // Scenario writing
-  '/scenario_writer': 'high',
+  '/scenario_writer': 'max',
   // Step definition generation
-  '/generate_step_definitions': 'high',
+  '/generate_step_definitions': 'max',
   // Plan validation (complex reasoning, no downgrade)
   '/validate_plan_scenarios': 'high',
-  '/resolve_plan_scenarios': 'high',
+  '/resolve_plan_scenarios': 'xhigh',
   // Single-pass alignment
-  '/align_plan_scenarios': 'high',
+  '/align_plan_scenarios': 'xhigh',
   // Install and prime
   '/install': 'medium',
   // Diff evaluation (binary classification, cheap)
-  '/diff_evaluator': 'low',
+  '/diff_evaluator': undefined,
 };
 
 /** Cost-optimized reasoning effort map used when the issue body contains `/fast` or `/cheap`. */
 export const SLASH_COMMAND_EFFORT_MAP_FAST: Record<SlashCommand, ReasoningEffort | undefined> = {
-  '/classify_issue': 'low',
-  '/feature': 'medium',
-  '/bug': 'medium',
+  '/classify_issue': undefined,
+  '/feature': 'max',
+  '/bug': 'max',
   '/chore': 'medium',
   '/pr_review': 'medium',
   '/implement': 'high',
@@ -167,15 +176,15 @@ export const SLASH_COMMAND_EFFORT_MAP_FAST: Record<SlashCommand, ReasoningEffort
   '/test': undefined,
   '/resolve_failed_test': 'medium',
   '/resolve_failed_scenario': 'medium',
-  '/generate_branch_name': 'low',
-  '/commit': 'low',
-  '/pull_request': 'medium',
+  '/generate_branch_name': undefined,
+  '/commit': undefined,
+  '/pull_request': undefined,
   '/document': 'medium',
-  '/track_agentic_kpis': 'low',
-  '/find_plan_file': 'low',
-  '/find_issue_dependencies': 'low',
-  '/extract_dependencies': 'low',
-  '/adw_init': 'medium',
+  '/track_agentic_kpis': undefined,
+  '/find_plan_file': undefined,
+  '/find_issue_dependencies': undefined,
+  '/extract_dependencies': undefined,
+  '/adw_init': undefined,
   // Scenario writing
   '/scenario_writer': 'medium',
   // Step definition generation
@@ -188,7 +197,7 @@ export const SLASH_COMMAND_EFFORT_MAP_FAST: Record<SlashCommand, ReasoningEffort
   // Install and prime
   '/install': 'low',
   // Diff evaluation (binary classification, cheap)
-  '/diff_evaluator': 'low',
+  '/diff_evaluator': undefined,
 };
 
 // ---------------------------------------------------------------------------
