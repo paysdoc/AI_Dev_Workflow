@@ -619,6 +619,13 @@
     - When troubleshooting `depaudit setup` failures or skipped secrets during `adw_init`
     - When adding new secrets to propagate during target repo bootstrap
 
+- app_docs/feature-fgef3i-adw-init-call-depaud-depaudit-setup-secret-propagation.md
+  - Conditions:
+    - When working with `executeDepauditSetup` or `adws/phases/depauditSetup.ts`
+    - When implementing or extending `adw_init` secret propagation (`SOCKET_API_TOKEN`, `SLACK_WEBHOOK_URL`)
+    - When troubleshooting `depaudit setup` failures or skipped secrets during `adw_init`
+    - When adding new secrets to propagate during target repo bootstrap
+
 - app_docs/feature-sgud8b-copy-target-skills-adw-init.md
   - Conditions:
     - When working with `copyTargetSkillsAndCommands()` or `parseFrontmatterTarget()` in `adws/phases/worktreeSetup.ts`
