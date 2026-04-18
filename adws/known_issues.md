@@ -373,3 +373,20 @@ Each entry contains:
   📋 [2026-03-24T11:30:45.100Z] [abc123-feature-impl] Build agent finished: Exit code: 143
   📋 [2026-03-24T11:30:45.200Z] [abc123-feature-impl] Compaction recovery: restarting build agent (continuation 1/3)
   ```
+
+## cross-trigger-double-spawn
+
+- **pattern**: Two `## :rocket: ADW Workflow Started` comments on the same issue with different adw-ids, one spawned by the cron and one by the webhook
+- **description**: When a parent issue closes, both the cron backlog sweeper (`trigger_cron.ts`, 20s poll) and the webhook's dependency-unblock handler (`webhookGatekeeper.ts::handleIssueClosedDependencyUnblock`) call `classifyAndSpawnWorkflow` for the same dependent issue. The cron fits 15 polls into the ~5-minute `/classify_issue` LLM window. During that window there is no ADW comment yet, so all existing eligibility guards pass. Result: two independent orchestrators run install → scenario planning → plan → alignment, double the cost, collide on conflicting branches, and both hit rate limit leaving two pause-queue entries. Observed 2026-04-18, depaudit#6: `u2drew` (cron, 12:21:59) and `0ejypj` (webhook, 12:23:18) both started for issue #6.
+- **status**: solved
+- **solution**: `classifyAndSpawnWorkflow` in `webhookGatekeeper.ts` now acquires a per-(repo,issue) atomic spawn lock (`adws/triggers/spawnGate.ts`) using `fs.writeFileSync` with the `wx` exclusive-create flag before calling `classifyIssueForTrigger`. All four trigger paths (cron backlog, webhook `issue_comment`, webhook `issues.opened`, webhook dependency-unblock) converge on this function. Stale locks from crashed spawning processes are reclaimed via `isProcessAlive` PID check. A post-classification recheck of `isAdwRunningForIssue` closes the brief window after lock release before the orchestrator posts its first comment.
+- **fix_attempts**: 1
+- **linked_issues**: #449
+- **first_seen**: 2026-04-18
+- **sample_log**:
+  ```
+  📋 [2026-04-18T12:21:59.000Z] Triggering ADW workflow for backlog issue #6
+  📋 [2026-04-18T12:23:18.000Z] Issue #6 unblocked by closure of #5, spawning workflow
+  📋 [2026-04-18T12:23:18.500Z] Issue #6: spawn lock held by another process, skipping
+  (before fix: both spawned; after fix: only cron spawn proceeds, webhook defers)
+  ```
