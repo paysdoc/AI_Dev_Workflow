@@ -13,43 +13,56 @@ import { BOARD_COLUMNS, validateRepoIdentifier } from '../types';
 import { toRepoInfo } from './mappers';
 import type { RepoInfo } from '../../github/githubApi';
 
-type StatusOption = { name: string; color: string; description: string };
+type StatusOption = { id?: string; name: string; color: string; description: string };
 
 /**
  * Merges existing board options with the required ADW columns.
- *
- * - Existing non-ADW options are preserved as-is.
- * - Existing options whose name matches an ADW column are overwritten with BOARD_COLUMNS defaults.
- * - Missing ADW columns are appended to the end.
- *
- * @returns The merged option list, a boolean indicating whether any changes were made,
- *          and the names of newly added columns.
+ * Preserves existing option IDs. Inserts missing ADW columns at
+ * positions derived from BOARD_COLUMNS.order using an anchor rule.
  */
 export function mergeStatusOptions(
-  existing: Array<{ name: string; color: string; description: string }>,
+  existing: Array<{ id?: string; name: string; color: string; description: string }>,
   adwColumns: readonly BoardColumnDefinition[],
 ): { merged: StatusOption[]; changed: boolean; added: string[] } {
-  const adwByName = new Map(
-    adwColumns.map((col) => [col.status.toLowerCase(), col]),
-  );
+  const adwByName = new Map(adwColumns.map((col) => [col.status.toLowerCase(), col]));
 
   const merged: StatusOption[] = existing.map((opt) => {
     const adwCol = adwByName.get(opt.name.toLowerCase());
-    if (!adwCol) return opt;
-    return { name: adwCol.status, color: adwCol.color, description: adwCol.description };
+    if (!adwCol) return { ...opt };
+    return { id: opt.id, name: adwCol.status, color: adwCol.color, description: adwCol.description };
   });
 
   const existingLower = new Set(existing.map((o) => o.name.toLowerCase()));
+  const missingCols = adwColumns.filter((col) => !existingLower.has(col.status.toLowerCase()));
 
-  const added: string[] = adwColumns
-    .filter((col) => !existingLower.has(col.status.toLowerCase()))
-    .map((col) => {
-      merged.push({ name: col.status, color: col.color, description: col.description });
-      return col.status;
-    });
+  let nextInsertIdx = 0;
+  for (const col of missingCols) {
+    const adwInMerged: Array<{ order: number; index: number }> = [];
+    for (let i = 0; i < merged.length; i++) {
+      const def = adwByName.get(merged[i].name.toLowerCase());
+      if (def) adwInMerged.push({ order: def.order, index: i });
+    }
 
+    let insertAt: number;
+    if (adwInMerged.length === 0) {
+      insertAt = nextInsertIdx;
+    } else {
+      const anchor = adwInMerged
+        .filter((a) => a.order <= col.order)
+        .reduce<{ order: number; index: number } | null>(
+          (best, a) => (best === null || a.order > best.order ? a : best),
+          null,
+        );
+      insertAt = anchor !== null ? anchor.index + 1 : adwInMerged[0].index;
+    }
+    merged.splice(insertAt, 0, { name: col.status, color: col.color, description: col.description });
+    nextInsertIdx = insertAt + 1;
+  }
+
+  const added = missingCols.map((c) => c.status);
   const changed =
     added.length > 0 ||
+    existing.length !== merged.length ||
     existing.some((opt, i) => {
       const m = merged[i];
       return m.name !== opt.name || m.color !== opt.color || m.description !== opt.description;
@@ -70,23 +83,13 @@ class GitHubBoardManager implements BoardManager {
     this.repoInfo = toRepoInfo(repoId);
   }
 
-  /**
-   * Finds the first GitHub Projects V2 board linked to the repository.
-   * Uses the PAT fallback pattern when the app token cannot access Projects V2.
-   * @returns The project ID, or null if no project is linked.
-   */
+  /** Finds the first GitHub Projects V2 board linked to the repository. */
   async findBoard(): Promise<string | null> {
     const { owner, repo } = this.repoInfo;
     return this.withProjectBoardAuth(async () => this.queryProjectId(owner, repo));
   }
 
-  /**
-   * Creates a new GitHub Projects V2 board for the repository.
-   * Detects whether the owner is a user or organization, creates the project,
-   * and links it to the repository.
-   * @param name - The name of the project board to create.
-   * @returns The new project ID.
-   */
+  /** Creates a new GitHub Projects V2 board and links it to the repository. */
   async createBoard(name: string): Promise<string> {
     return this.withProjectBoardAuth(async () => {
     const { owner, repo } = this.repoInfo;
@@ -157,13 +160,29 @@ class GitHubBoardManager implements BoardManager {
     });
   }
 
-  /**
-   * Ensures all required ADW columns exist on the board.
-   * Fetches existing options, merges with BOARD_COLUMNS, and issues a single
-   * bulk updateProjectV2Field call if any changes are needed.
-   * @param boardId - The project board ID.
-   * @returns true when all columns are present.
-   */
+  private updateStatusFieldOptions(fieldId: string, options: StatusOption[]): void {
+    const mutation = `
+      mutation($fieldId: ID!, $singleSelectOptions: [ProjectV2SingleSelectFieldOptionInput!]!) {
+        updateProjectV2Field(input: {
+          fieldId: $fieldId
+          singleSelectOptions: $singleSelectOptions
+        }) {
+          projectV2Field {
+            ... on ProjectV2SingleSelectField { id }
+          }
+        }
+      }
+    `;
+    const singleSelectOptions = options.map((o) =>
+      o.id !== undefined
+        ? { id: o.id, name: o.name, color: o.color, description: o.description }
+        : { name: o.name, color: o.color, description: o.description },
+    );
+    const body = { query: mutation, variables: { fieldId, singleSelectOptions } };
+    execSync('gh api graphql --input -', { input: JSON.stringify(body), encoding: 'utf-8' });
+  }
+
+  /** Ensures all required ADW columns exist on the board. */
   async ensureColumns(boardId: string): Promise<boolean> {
     return this.withProjectBoardAuth(async () => {
       const statusField = this.getStatusFieldOptions(boardId);
@@ -269,30 +288,9 @@ class GitHubBoardManager implements BoardManager {
       return null;
     }
   }
-
-  private updateStatusFieldOptions(fieldId: string, options: StatusOption[]): void {
-    const mutation = `
-      mutation($fieldId: ID!, $singleSelectOptions: [ProjectV2SingleSelectFieldOptionInput!]!) {
-        updateProjectV2Field(input: {
-          fieldId: $fieldId
-          singleSelectOptions: $singleSelectOptions
-        }) {
-          projectV2Field {
-            ... on ProjectV2SingleSelectField { id }
-          }
-        }
-      }
-    `;
-    const body = { query: mutation, variables: { fieldId, singleSelectOptions: options } };
-    execSync('gh api graphql --input -', { input: JSON.stringify(body), encoding: 'utf-8' });
-  }
 }
 
-/**
- * Factory function to create a GitHub BoardManager provider.
- * @param repoId - The repository identifier to bind the provider to.
- * @returns A BoardManager instance bound to the specified repository.
- */
+/** Factory function to create a GitHub BoardManager provider. */
 export function createGitHubBoardManager(repoId: RepoIdentifier): BoardManager {
   return new GitHubBoardManager(repoId);
 }
