@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 39               | 2026-04-18 11:14:31 |
-| Longest Streak    | 51               | 2026-04-18 11:14:31 |
-| Total Plan Size   | 1490 lines       | 2026-04-18 11:14:31 |
-| Largest Plan Size | 341 lines        | 2026-04-18 11:14:31 |
-| Total Diff Size   | 2283543 lines    | 2026-04-18 11:14:31 |
-| Largest Diff Size | 418153 lines     | 2026-04-18 11:14:31 |
-| Average Presence  | 1.35             | 2026-04-18 11:14:31 |
+| Current Streak    | 10               | 2026-04-18 12:17:12 |
+| Longest Streak    | 53               | 2026-04-18 12:17:12 |
+| Total Plan Size   | 659 lines        | 2026-04-18 12:17:12 |
+| Largest Plan Size | 201 lines        | 2026-04-18 12:17:12 |
+| Total Diff Size   | 1059373 lines    | 2026-04-18 12:17:12 |
+| Largest Diff Size | 416737 lines     | 2026-04-18 12:17:12 |
+| Average Presence  | 1.38             | 2026-04-18 12:17:12 |
 
 ## ADW KPIs
 
@@ -124,3 +124,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-04-17 | o28sw7-depaudit-triage-skil | 438          | /feature    | 1        | 0                 | 1046/32/10                      | 2026-04-17 17:21:16 | 2026-04-17 17:21:16 |
 | 2026-04-17 | fgef3i-adw-init-call-depaud | 439          | /feature    | 1        | 0                 | 1665/5/15                       | 2026-04-17 19:31:09 | 2026-04-17 19:31:09 |
 | 2026-04-18 | yipjb0-cancel-directive-nev | 444          | /bug        | 1        | 0                 | 831/17/10                       | 2026-04-18 11:14:31 | 2026-04-18 11:14:31 |
+| 2026-04-18 | hjcays-ensurecolumns-fails  | 446          | /feature    | 1        | 0                 | 788/33/9                        | 2026-04-18 12:17:12 | 2026-04-18 12:17:12 |
