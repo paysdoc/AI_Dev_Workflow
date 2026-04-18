@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 45                | 2026-04-18 19:39:23 |
-| Longest Streak    | 74               | 2026-04-18 19:39:23 |
-| Total Plan Size   | 418123 lines       | 2026-04-18 19:39:23 |
-| Largest Plan Size | 416737 lines        | 2026-04-18 19:39:23 |
-| Total Diff Size   | 2292584 lines    | 2026-04-18 19:39:23 |
-| Largest Diff Size | 418153 lines     | 2026-04-18 19:39:23 |
-| Average Presence  | 1.34             | 2026-04-18 19:39:23 |
+| Current Streak    | 46                | 2026-04-18 19:41:17 |
+| Longest Streak    | 74               | 2026-04-18 19:41:17 |
+| Total Plan Size   | 418123 lines       | 2026-04-18 19:41:17 |
+| Largest Plan Size | 416737 lines        | 2026-04-18 19:41:17 |
+| Total Diff Size   | 2295815 lines    | 2026-04-18 19:41:17 |
+| Largest Diff Size | 418153 lines     | 2026-04-18 19:41:17 |
+| Average Presence  | 1.34             | 2026-04-18 19:41:17 |
 
 ## ADW KPIs
 
@@ -129,3 +129,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-04-18 | m8fl2v-depaudit-yml-schema | 5            | /feature    | 1        | 0                 | 3617/125/124                    | 2026-04-18 14:17:08 | 2026-04-18 14:17:08 |
 | 2026-04-18 | u2drew-polyglot-ecosystem-s | 6            | /feature    | 1        | 0                 | 1300/36/69                      | 2026-04-18 18:40:28 | 2026-04-18 18:40:28 |
 | 2026-04-18 | 0cv18u-cron-webhook-can-dou | 449          | /bug        | 1        | 0                 | 1258/13/10                      | 2026-04-18 19:39:23 | 2026-04-18 19:39:23 |
+| 2026-04-18 | kteamd-socketapiclient-supp | 7            | /feature    | 1        | 0                 | 3220/11/55                      | 2026-04-18 19:41:17 | 2026-04-18 19:41:17 |
