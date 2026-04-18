@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 100               | 2026-04-18 19:55:00 |
-| Longest Streak    | 100              | 2026-04-18 19:55:00 |
-| Total Plan Size   | 443 lines        | 2026-04-18 19:55:00 |
-| Largest Plan Size | 201 lines        | 2026-04-18 19:55:00 |
-| Total Diff Size   | 2303650 lines    | 2026-04-18 19:55:00 |
-| Largest Diff Size | 418153 lines     | 2026-04-18 19:55:00 |
-| Average Presence  | 1.32             | 2026-04-18 19:55:00 |
+| Current Streak    | 137               | 2026-04-18 20:29:21 |
+| Longest Streak    | 137              | 2026-04-18 20:29:21 |
+| Total Plan Size   | 1898 lines        | 2026-04-18 20:29:21 |
+| Largest Plan Size | 408 lines        | 2026-04-18 20:29:21 |
+| Total Diff Size   | 2305799 lines    | 2026-04-18 20:29:21 |
+| Largest Diff Size | 418153 lines     | 2026-04-18 20:29:21 |
+| Average Presence  | 1.22             | 2026-04-18 20:29:21 |
 
 ## ADW KPIs
 
@@ -133,3 +133,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-04-18 | ekjs2i-socketapiclient-supp | 7            | /feature    | 1        | 0                 | 3316/11/56                      | 2026-04-18 19:43:27 | 2026-04-18 19:43:27 |
 | 2026-04-18 | ope038-pause-queue-resume-s | 448          | /bug        | 2        | 0                 | 999/1293/20                     | 2026-04-18 19:55:24 | 2026-04-18 19:55:24 |
 | 2026-04-18 | elre2t-fix-board-column-ord | 450          | /bug        | 1        | 0                 | 882/1334/18                     | 2026-04-18 19:55:00 | 2026-04-18 19:55:00 |
+| 2026-04-18 | 82j9dc-orphan-auto-prune-in | 13           | /feature    | 1        | 408               | 2139/10/60                      | 2026-04-18 20:29:21 | 2026-04-18 20:29:21 |
