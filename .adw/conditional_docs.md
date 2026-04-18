@@ -941,3 +941,11 @@
     - When modifying `findBoard`, `createBoard`, or `ensureColumns` and need to understand the `withProjectBoardAuth` wrapper
     - When `GITHUB_PAT` is configured but board columns are still not being created
     - When adding a new public method to `GitHubBoardManager` that issues GraphQL calls (must route through `withProjectBoardAuth`)
+
+- app_docs/feature-ope038-pause-queue-resume-spawn-hardening.md
+  - Conditions:
+    - When working with `adws/triggers/pauseQueueScanner.ts` or the `resumeWorkflow()` function
+    - When troubleshooting paused workflows that appear resumed (▶️ comment posted) but never actually started
+    - When modifying the pause-queue resume path, spawn options, or side-effect ordering
+    - When inspecting `agents/paused_queue_logs/{adwId}.resume.log` to diagnose a stranded workflow
+    - When the `probeFailures` escalation path or `MAX_UNKNOWN_PROBE_FAILURES` abandonment logic is relevant to resume failures
