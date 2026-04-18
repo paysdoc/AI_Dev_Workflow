@@ -227,6 +227,7 @@ Docker execution is entirely optional — the test suite runs identically on the
 adws/                   # ADW workflow system
 ├── __tests__/          # Vitest integration tests
 │   ├── adwMerge.test.ts
+│   ├── depauditSetup.test.ts
 │   ├── issueDependencies.test.ts
 │   └── triggerWebhook.test.ts
 ├── agents/             # Claude Code agent runners
