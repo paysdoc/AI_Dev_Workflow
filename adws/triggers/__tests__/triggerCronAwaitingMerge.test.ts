@@ -260,3 +260,81 @@ describe('filterEligibleIssues — awaiting_merge propagation', () => {
   });
 
 });
+
+// ── evaluateIssue — cancelledThisCycle ───────────────────────────────────────
+
+describe('evaluateIssue — cancelledThisCycle', () => {
+  it('returns ineligible with reason=\'cancelled\' when issue is in cancelledThisCycle', () => {
+    const issue = makeIssue({ number: 7 });
+    const cancelledThisCycle = new Set<number>([7]);
+    const resolve = (): StageResolution => makeResolution({ stage: null });
+
+    const result = evaluateIssue(issue, Date.now(), noProcessed(), GRACE, resolve, cancelledThisCycle);
+
+    expect(result.eligible).toBe(false);
+    expect(result.reason).toBe('cancelled');
+  });
+
+  it('cancelled check takes precedence over awaiting_merge', () => {
+    const issue = makeIssue({ number: 8 });
+    const cancelledThisCycle = new Set<number>([8]);
+    const resolve = (): StageResolution => makeResolution({ stage: 'awaiting_merge', adwId: 'abc' });
+
+    const result = evaluateIssue(issue, Date.now(), noProcessed(), GRACE, resolve, cancelledThisCycle);
+
+    expect(result.eligible).toBe(false);
+    expect(result.reason).toBe('cancelled');
+  });
+
+  it('cancelled check takes precedence over processed.spawns', () => {
+    const issue = makeIssue({ number: 9 });
+    const processed = { spawns: new Set<number>([9]), merges: new Set<number>() };
+    const cancelledThisCycle = new Set<number>([9]);
+    const resolve = (): StageResolution => makeResolution({ stage: null });
+
+    const result = evaluateIssue(issue, Date.now(), processed, GRACE, resolve, cancelledThisCycle);
+
+    expect(result.eligible).toBe(false);
+    expect(result.reason).toBe('cancelled');
+  });
+
+  it('two-cycle regression: skipped in cycle 1, eligible in cycle 2', () => {
+    const now = Date.now();
+    const issue = makeIssue({ number: 444 });
+    const processed = noProcessed();
+    const resolve = (): StageResolution => makeResolution({ stage: null });
+
+    // Cycle 1: issue is in cancelledThisCycle → filtered with reason 'cancelled'
+    const cycle1CancelledSet = new Set<number>([444]);
+    const { eligible: cycle1Eligible, filteredAnnotations: cycle1Filtered } =
+      filterEligibleIssues([issue], now, processed, GRACE, resolve, cycle1CancelledSet);
+
+    expect(cycle1Eligible).toHaveLength(0);
+    expect(cycle1Filtered).toContain('#444(cancelled)');
+
+    // Cycle 2: cancelledThisCycle is empty (new cycle, new set) → issue is eligible
+    const cycle2CancelledSet = new Set<number>();
+    const { eligible: cycle2Eligible, filteredAnnotations: cycle2Filtered } =
+      filterEligibleIssues([issue], now, processed, GRACE, resolve, cycle2CancelledSet);
+
+    expect(cycle2Eligible).toHaveLength(1);
+    expect(cycle2Eligible[0].issue.number).toBe(444);
+    expect(cycle2Filtered).toHaveLength(0);
+  });
+});
+
+// ── filterEligibleIssues — cancelledThisCycle annotation ────────────────────
+
+describe('filterEligibleIssues — cancelledThisCycle annotation', () => {
+  it('filtered annotation reads \'#N(cancelled)\' when the issue is in cancelledThisCycle', () => {
+    const issue = makeIssue({ number: 55 });
+    const cancelledThisCycle = new Set<number>([55]);
+    const resolve = (): StageResolution => makeResolution({ stage: null });
+
+    const { eligible, filteredAnnotations } =
+      filterEligibleIssues([issue], Date.now(), noProcessed(), GRACE, resolve, cancelledThisCycle);
+
+    expect(eligible).toHaveLength(0);
+    expect(filteredAnnotations).toContain('#55(cancelled)');
+  });
+});

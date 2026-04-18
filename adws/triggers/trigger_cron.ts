@@ -82,11 +82,12 @@ async function checkAndTrigger(): Promise<void> {
   }
 
   const now = Date.now();
+  const cancelledThisCycle = new Set<number>();
   const issues = fetchOpenIssues();
 
-  // Scan all fetched issues for ## Cancel before filtering eligible issues.
-  // Cancelled issues are added to processedSpawns so filterEligibleIssues skips
-  // them this cycle; they become re-eligible on the next cycle.
+  // Scan all fetched issues for ## Cancel before filterEligibleIssues.
+  // Cancelled issues are recorded in a per-cycle set so they are skipped
+  // in this cycle and naturally re-evaluated on the next cycle.
   const cancelCwd = targetRepo
     ? getTargetRepoWorkspacePath(cronRepoInfo.owner, cronRepoInfo.repo)
     : undefined;
@@ -94,7 +95,7 @@ async function checkAndTrigger(): Promise<void> {
     const latestComment = issue.comments.length > 0 ? issue.comments[issue.comments.length - 1] : null;
     if (latestComment && isCancelComment(latestComment.body)) {
       handleCancelDirective(issue.number, issue.comments, cronRepoInfo, cancelCwd, { spawns: processedSpawns, merges: processedMerges });
-      processedSpawns.add(issue.number);
+      cancelledThisCycle.add(issue.number);
     }
   }
 
@@ -104,6 +105,7 @@ async function checkAndTrigger(): Promise<void> {
     { spawns: processedSpawns, merges: processedMerges },
     GRACE_PERIOD_MS,
     resolveIssueWorkflowStage,
+    cancelledThisCycle,
   );
 
   const candidateList = candidates.map(c => `#${c.issue.number}`).join(', ') || 'none';
