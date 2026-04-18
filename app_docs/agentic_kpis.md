@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 2                | 2026-04-18 13:16:33 |
-| Longest Streak    | 72               | 2026-04-18 13:16:33 |
-| Total Plan Size   | 1490 lines       | 2026-04-18 13:16:33 |
-| Largest Plan Size | 341 lines        | 2026-04-18 13:16:33 |
-| Total Diff Size   | 2286235 lines    | 2026-04-18 13:16:33 |
-| Largest Diff Size | 418153 lines     | 2026-04-18 13:16:33 |
-| Average Presence  | 1.33             | 2026-04-18 13:16:33 |
+| Current Streak    | 41                | 2026-04-18 14:16:02 |
+| Longest Streak    | 80               | 2026-04-18 14:16:02 |
+| Total Plan Size   | 1149 lines       | 2026-04-18 14:16:02 |
+| Largest Plan Size | 201 lines        | 2026-04-18 14:16:02 |
+| Total Diff Size   | 2289854 lines    | 2026-04-18 14:16:02 |
+| Largest Diff Size | 418153 lines     | 2026-04-18 14:16:02 |
+| Average Presence  | 1.30             | 2026-04-18 14:16:02 |
 
 ## ADW KPIs
 
@@ -126,3 +126,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-04-18 | yipjb0-cancel-directive-nev | 444          | /bug        | 1        | 0                 | 831/17/10                       | 2026-04-18 11:14:31 | 2026-04-18 11:14:31 |
 | 2026-04-18 | hjcays-ensurecolumns-fails  | 446          | /feature    | 1        | 0                 | 788/33/9                        | 2026-04-18 12:17:12 | 2026-04-18 12:17:12 |
 | 2026-04-18 | oowire-configloader-linter  | 4            | /feature    | 1        | 0                 | 1855/16/51                      | 2026-04-18 13:16:33 | 2026-04-18 13:16:33 |
+| 2026-04-18 | 5sllud-depaudit-yml-schema | 5            | /feature    | 1        | 0                 | 3494/125/123                    | 2026-04-18 14:16:02 | 2026-04-18 14:16:02 |
