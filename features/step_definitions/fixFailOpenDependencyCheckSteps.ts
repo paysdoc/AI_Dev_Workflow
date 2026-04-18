@@ -246,15 +246,9 @@ Then('the entry describes the fail-open dependency check bug', function (this: R
   );
 });
 
-Then('the entry references issue #389', function (this: Record<string, string>) {
-  const content = this.fileContent || sharedCtx.fileContent;
-  assert.ok(
-    content.includes('#389') || content.includes('389'),
-    'Expected the dependency-check-fail-open entry to reference issue #389',
-  );
-});
+// Note: 'the entry references issue #{int}' is defined in fixCrossTriggerSpawnDedupSteps.ts
 
-Then(/^the "([^"]+)" entry has status "([^"]+)"$/, function (this: Record<string, string>, slug: string, expectedStatus: string) {
+Then(/^the "([^"]+)" entry has status "([^"]+)"$/,function (this: Record<string, string>, slug: string, expectedStatus: string) {
   const content = this.fileContent || sharedCtx.fileContent;
   const slugIdx = content.indexOf(slug);
   assert.ok(slugIdx !== -1, `Expected known_issues.md to contain entry "${slug}"`);

@@ -1,5 +1,13 @@
 # Conditional Documentation
 
+- app_docs/feature-0cv18u-fix-cross-trigger-spawn-dedup.md
+  - Conditions:
+    - When working with `classifyAndSpawnWorkflow` in `webhookGatekeeper.ts` or the cron/webhook trigger paths
+    - When implementing or troubleshooting cross-process spawn deduplication for SDLC orchestrators
+    - When investigating duplicate orchestrator spawns for the same (repo, issue) pair
+    - When working with `adws/triggers/spawnGate.ts` or the `agents/spawn_locks/` directory
+    - When a dependent issue has two `## :rocket: ADW Workflow Started` comments with different adw-ids
+
 - app_docs/feature-oev65s-depaudit-triage-issue-filing.md
   - Conditions:
     - When working with the major-bump issue filing path in `/depaudit-triage` (Action 1, major case)

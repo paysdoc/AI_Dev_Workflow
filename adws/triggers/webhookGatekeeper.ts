@@ -15,9 +15,11 @@ import { getRepoInfo } from '../github';
 import { closeIssue } from '../github/issueApi';
 import { classifyIssueForTrigger, getWorkflowScript } from '../core/issueClassifier';
 
+import { isAdwRunningForIssue } from '../github';
 import { checkIssueEligibility } from './issueEligibility';
 import { parseDependencies } from './issueDependencies';
 import { isCronAliveForRepo } from './cronProcessGuard';
+import { acquireIssueSpawnLock, releaseIssueSpawnLock } from './spawnGate';
 
 /**
  * Spawns a detached child process for running ADW orchestrator workflows.
@@ -41,12 +43,32 @@ export async function classifyAndSpawnWorkflow(
   existingAdwId?: string,
 ): Promise<void> {
   const resolvedRepoInfo = repoInfo ?? getRepoInfo();
-  const classification = await classifyIssueForTrigger(issueNumber, resolvedRepoInfo);
-  const workflowScript = getWorkflowScript(classification.issueType, classification.adwCommand);
-  const adwId = existingAdwId || classification.adwId || generateAdwId(classification.issueTitle);
 
-  log(`Issue #${issueNumber} classified as ${classification.issueType}, spawning ${workflowScript}`, 'success');
-  spawnDetached('bunx', ['tsx', workflowScript, String(issueNumber), adwId, '--issue-type', classification.issueType, ...targetRepoArgs]);
+  const acquired = acquireIssueSpawnLock(resolvedRepoInfo, issueNumber, process.pid);
+  if (!acquired) {
+    log(`Issue #${issueNumber}: spawn lock held by another process, skipping`);
+    return;
+  }
+
+  try {
+    const classification = await classifyIssueForTrigger(issueNumber, resolvedRepoInfo);
+
+    if (await isAdwRunningForIssue(issueNumber, resolvedRepoInfo)) {
+      log(`Issue #${issueNumber}: another ADW workflow started during classification, aborting spawn`);
+      releaseIssueSpawnLock(resolvedRepoInfo, issueNumber);
+      return;
+    }
+
+    const workflowScript = getWorkflowScript(classification.issueType, classification.adwCommand);
+    const adwId = existingAdwId || classification.adwId || generateAdwId(classification.issueTitle);
+
+    log(`Issue #${issueNumber} classified as ${classification.issueType}, spawning ${workflowScript}`, 'success');
+    spawnDetached('bunx', ['tsx', workflowScript, String(issueNumber), adwId, '--issue-type', classification.issueType, ...targetRepoArgs]);
+    releaseIssueSpawnLock(resolvedRepoInfo, issueNumber);
+  } catch (err) {
+    releaseIssueSpawnLock(resolvedRepoInfo, issueNumber);
+    throw err;
+  }
 }
 
 /**
