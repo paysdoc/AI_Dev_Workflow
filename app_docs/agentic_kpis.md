@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 48                | 2026-04-18 19:43:27 |
-| Longest Streak    | 51               | 2026-04-18 19:43:27 |
-| Total Plan Size   | 1002 lines       | 2026-04-18 19:43:27 |
-| Largest Plan Size | 341 lines        | 2026-04-18 19:43:27 |
-| Total Diff Size   | 2299142 lines    | 2026-04-18 19:43:27 |
-| Largest Diff Size | 418153 lines     | 2026-04-18 19:43:27 |
-| Average Presence  | 1.30             | 2026-04-18 19:43:27 |
+| Current Streak    | 38                | 2026-04-18 19:55:24 |
+| Longest Streak    | 86               | 2026-04-18 19:55:24 |
+| Total Plan Size   | 1383 lines       | 2026-04-18 19:55:24 |
+| Largest Plan Size | 341 lines        | 2026-04-18 19:55:24 |
+| Total Diff Size   | 2301434 lines    | 2026-04-18 19:55:24 |
+| Largest Diff Size | 418153 lines     | 2026-04-18 19:55:24 |
+| Average Presence  | 1.28             | 2026-04-18 19:55:24 |
 
 ## ADW KPIs
 
@@ -131,3 +131,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-04-18 | 0cv18u-cron-webhook-can-dou | 449          | /bug        | 1        | 0                 | 1258/13/10                      | 2026-04-18 19:39:23 | 2026-04-18 19:39:23 |
 | 2026-04-18 | kteamd-socketapiclient-supp | 7            | /feature    | 1        | 0                 | 3220/11/55                      | 2026-04-18 19:41:17 | 2026-04-18 19:41:17 |
 | 2026-04-18 | ekjs2i-socketapiclient-supp | 7            | /feature    | 1        | 0                 | 3316/11/56                      | 2026-04-18 19:43:27 | 2026-04-18 19:43:27 |
+| 2026-04-18 | ope038-pause-queue-resume-s | 448          | /bug        | 2        | 0                 | 999/1293/20                     | 2026-04-18 19:55:24 | 2026-04-18 19:55:24 |
