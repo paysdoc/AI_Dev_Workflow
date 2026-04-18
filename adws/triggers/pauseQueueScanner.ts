@@ -8,8 +8,10 @@
  */
 
 import { execSync, spawn } from 'child_process';
+import type { ChildProcess } from 'child_process';
 import * as fs from 'fs';
-import { log, PROBE_INTERVAL_CYCLES, MAX_UNKNOWN_PROBE_FAILURES, resolveClaudeCodePath } from '../core';
+import * as path from 'path';
+import { log, PROBE_INTERVAL_CYCLES, MAX_UNKNOWN_PROBE_FAILURES, resolveClaudeCodePath, AGENTS_STATE_DIR } from '../core';
 import {
   readPauseQueue,
   removeFromPauseQueue,
@@ -20,6 +22,9 @@ import { getRepoInfo, activateGitHubAppAuth } from '../github';
 import { postIssueStageComment } from '../phases/phaseCommentHelpers';
 import { createRepoContext } from '../providers/repoContext';
 import { Platform } from '../providers/types';
+
+/** Readiness window (ms) to confirm a spawned child did not immediately crash. */
+const READINESS_WINDOW_MS = 2000;
 
 /** Rate-limit indicator strings — same as agentProcessHandler detection. */
 const RATE_LIMIT_STRINGS = [
@@ -59,8 +64,37 @@ function worktreeExists(worktreePath: string): boolean {
   return fs.existsSync(worktreePath);
 }
 
+/**
+ * Waits up to `timeoutMs` for the child to stay alive, rejecting on early 'error' or 'exit'.
+ * Resolves if the child has not exited before the timeout elapses.
+ */
+function awaitChildReadiness(child: ChildProcess, timeoutMs: number): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    const ref: { timer?: ReturnType<typeof setTimeout> } = {};
+
+    const onError = (err: Error) => {
+      clearTimeout(ref.timer);
+      reject(err);
+    };
+
+    const onExit = (code: number | null, signal: NodeJS.Signals | null) => {
+      clearTimeout(ref.timer);
+      reject(new Error(`child exited early code=${code} signal=${signal}`));
+    };
+
+    child.once('error', onError);
+    child.once('exit', onExit);
+
+    ref.timer = setTimeout(() => {
+      child.removeListener('error', onError);
+      child.removeListener('exit', onExit);
+      resolve();
+    }, timeoutMs);
+  });
+}
+
 /** Posts a resumed comment to the GitHub issue and spawns the orchestrator. */
-async function resumeWorkflow(entry: PausedWorkflow): Promise<void> {
+export async function resumeWorkflow(entry: PausedWorkflow): Promise<void> {
   const repoInfo = getRepoInfo();
   activateGitHubAppAuth(repoInfo.owner, repoInfo.repo);
 
@@ -85,23 +119,11 @@ async function resumeWorkflow(entry: PausedWorkflow): Promise<void> {
     return;
   }
 
-  // Remove from queue before spawning to avoid duplicate spawns
-  removeFromPauseQueue(entry.adwId);
-
-  // Post resumed comment
-  try {
-    const repoContext = createRepoContext({
-      repoId: { owner: repoInfo.owner, repo: repoInfo.repo, platform: Platform.GitHub },
-      cwd: entry.worktreePath,
-    });
-    postIssueStageComment(repoContext, entry.issueNumber, 'resumed', {
-      issueNumber: entry.issueNumber,
-      adwId: entry.adwId,
-      pausedAtPhase: entry.pausedAtPhase,
-    });
-  } catch (err) {
-    log(`Failed to post resumed comment for issue #${entry.issueNumber}: ${err}`, 'warn');
-  }
+  // Open per-resume log file to capture child stdout/stderr
+  const resumeLogDir = path.join(AGENTS_STATE_DIR, 'paused_queue_logs');
+  fs.mkdirSync(resumeLogDir, { recursive: true });
+  const resumeLogPath = path.join(resumeLogDir, `${entry.adwId}.resume.log`);
+  const logFd = fs.openSync(resumeLogPath, 'a');
 
   // Spawn orchestrator detached
   const spawnArgs = [
@@ -111,9 +133,46 @@ async function resumeWorkflow(entry: PausedWorkflow): Promise<void> {
     entry.adwId,
     ...(entry.extraArgs ?? []),
   ];
-  log(`Resuming workflow ${entry.adwId} for issue #${entry.issueNumber} (${entry.orchestratorScript})`, 'success');
-  const child = spawn('bunx', spawnArgs, { detached: true, stdio: 'ignore' });
-  child.unref();
+
+  log(`Resuming workflow ${entry.adwId} for issue #${entry.issueNumber} (${entry.orchestratorScript})`);
+
+  try {
+    // cwd is pinned to cron host — target-repo worktrees do not contain adws/ scripts
+    const child = spawn('bunx', spawnArgs, { detached: true, stdio: ['ignore', logFd, logFd], cwd: process.cwd() });
+
+    try {
+      await awaitChildReadiness(child, READINESS_WINDOW_MS);
+
+      // Child stayed alive past readiness window — commit side-effects
+      removeFromPauseQueue(entry.adwId);
+      child.unref();
+      log(`Resumed workflow ${entry.adwId} (pid ${child.pid})`, 'success');
+
+      // Post resumed comment
+      try {
+        const repoContext = createRepoContext({
+          repoId: { owner: repoInfo.owner, repo: repoInfo.repo, platform: Platform.GitHub },
+          cwd: entry.worktreePath,
+        });
+        postIssueStageComment(repoContext, entry.issueNumber, 'resumed', {
+          issueNumber: entry.issueNumber,
+          adwId: entry.adwId,
+          pausedAtPhase: entry.pausedAtPhase,
+        });
+      } catch (err) {
+        log(`Failed to post resumed comment for issue #${entry.issueNumber}: ${err}`, 'warn');
+      }
+    } catch (err) {
+      // Child exited early or errored — keep entry in queue for next-cycle retry
+      log(`Resume spawn failed for ${entry.adwId}: ${err}. See ${resumeLogPath}`, 'error');
+      updatePauseQueueEntry(entry.adwId, {
+        probeFailures: (entry.probeFailures ?? 0) + 1,
+        lastProbeAt: new Date().toISOString(),
+      });
+    }
+  } finally {
+    try { fs.closeSync(logFd); } catch { /* fd already closed on child side */ }
+  }
 }
 
 /**
