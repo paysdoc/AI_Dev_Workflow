@@ -44,8 +44,8 @@ Then('the updateProjectV2Field mutation does not declare a $projectId variable',
 
 Then('the getStatusFieldOptions query requests {string} for each option', function (field: string) {
   const content = sharedCtx.fileContent;
-  const methodIdx = content.indexOf('getStatusFieldOptions');
-  assert.ok(methodIdx !== -1, 'Expected getStatusFieldOptions in githubBoardManager.ts');
+  const methodIdx = content.indexOf('private getStatusFieldOptions');
+  assert.ok(methodIdx !== -1, 'Expected private getStatusFieldOptions in githubBoardManager.ts');
   // Look for the options selection within the method body (2000 chars covers it)
   const methodBody = content.slice(methodIdx, methodIdx + 2000);
   assert.ok(

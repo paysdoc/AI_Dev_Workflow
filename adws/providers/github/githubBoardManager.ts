@@ -77,23 +77,7 @@ class GitHubBoardManager implements BoardManager {
    */
   async findBoard(): Promise<string | null> {
     const { owner, repo } = this.repoInfo;
-    refreshTokenIfNeeded(owner, repo);
-
-    let projectId = this.queryProjectId(owner, repo);
-
-    // PAT fallback: if app token can't access Projects V2, retry with GITHUB_PAT
-    if (!projectId && isGitHubAppConfigured() && GITHUB_PAT && GITHUB_PAT !== process.env.GH_TOKEN) {
-      log('App token cannot access Projects V2, retrying with GITHUB_PAT', 'info');
-      const savedToken = process.env.GH_TOKEN;
-      process.env.GH_TOKEN = GITHUB_PAT;
-      try {
-        projectId = this.queryProjectId(owner, repo);
-      } finally {
-        process.env.GH_TOKEN = savedToken;
-      }
-    }
-
-    return projectId;
+    return this.withProjectBoardAuth(async () => this.queryProjectId(owner, repo));
   }
 
   /**
@@ -104,6 +88,7 @@ class GitHubBoardManager implements BoardManager {
    * @returns The new project ID.
    */
   async createBoard(name: string): Promise<string> {
+    return this.withProjectBoardAuth(async () => {
     const { owner, repo } = this.repoInfo;
 
     // Look up the owner node ID
@@ -169,6 +154,7 @@ class GitHubBoardManager implements BoardManager {
 
     log(`Created project board "${name}" (id: ${projectId})`, 'success');
     return projectId;
+    });
   }
 
   /**
@@ -179,23 +165,46 @@ class GitHubBoardManager implements BoardManager {
    * @returns true when all columns are present.
    */
   async ensureColumns(boardId: string): Promise<boolean> {
-    const statusField = this.getStatusFieldOptions(boardId);
-    if (!statusField) {
-      log('No Status field found on project board', 'warn');
-      return false;
-    }
+    return this.withProjectBoardAuth(async () => {
+      const statusField = this.getStatusFieldOptions(boardId);
+      if (!statusField) {
+        log('No Status field found on project board', 'warn');
+        return false;
+      }
 
-    const { merged, changed, added } = mergeStatusOptions(statusField.options, BOARD_COLUMNS);
+      const { merged, changed, added } = mergeStatusOptions(statusField.options, BOARD_COLUMNS);
 
-    if (!changed) return true;
+      if (!changed) return true;
 
-    this.updateStatusFieldOptions(statusField.fieldId, merged);
-    added.forEach((name) => log(`Added board column "${name}"`, 'info'));
+      this.updateStatusFieldOptions(statusField.fieldId, merged);
+      added.forEach((name) => log(`Added board column "${name}"`, 'info'));
 
-    return true;
+      return true;
+    });
   }
 
-  // ── Private helpers ─────────────────────────────────────────────────────────
+  // Upfront PAT swap for all board ops; idempotent; safe because ADW board-init is
+  // sequential (concurrent instances in same process would race on process.env.GH_TOKEN).
+  private async withProjectBoardAuth<T>(fn: () => Promise<T>): Promise<T> {
+    const { owner, repo } = this.repoInfo;
+    refreshTokenIfNeeded(owner, repo);
+
+    let savedToken: string | undefined;
+    let usingPatFallback = false;
+    try {
+      if (isGitHubAppConfigured() && GITHUB_PAT && GITHUB_PAT !== process.env.GH_TOKEN) {
+        log('Using GITHUB_PAT for project board operations (app tokens lack Projects V2 access)', 'info');
+        savedToken = process.env.GH_TOKEN;
+        process.env.GH_TOKEN = GITHUB_PAT;
+        usingPatFallback = true;
+      }
+      return await fn();
+    } finally {
+      if (usingPatFallback) {
+        process.env.GH_TOKEN = savedToken;
+      }
+    }
+  }
 
   private queryProjectId(owner: string, repo: string): string | null {
     try {

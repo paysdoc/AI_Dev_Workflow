@@ -19,11 +19,11 @@ function getMethodBody(signatureFragment: string): string {
 }
 
 /**
- * Extracts the withProjectBoardAuth method body: from the method signature
+ * Extracts the withProjectBoardAuth method body: from the private method definition
  * through a conservative 2000-char window (covers the wrapper + finally block).
  */
 function getWrapperBody(): string {
-  const body = getMethodBody('withProjectBoardAuth');
+  const body = getMethodBody('private async withProjectBoardAuth');
   return body.slice(0, 2000);
 }
 

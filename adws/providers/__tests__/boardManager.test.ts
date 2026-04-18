@@ -2,11 +2,25 @@
  * Unit tests for BoardManager types and stub implementations.
  */
 
-import { describe, it, expect } from 'vitest';
-import { BoardStatus, BOARD_COLUMNS } from '../types';
-import { mergeStatusOptions } from '../github/githubBoardManager';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { BoardStatus, BOARD_COLUMNS, Platform } from '../types';
+import { mergeStatusOptions, createGitHubBoardManager } from '../github/githubBoardManager';
 import { createJiraBoardManager } from '../jira/jiraBoardManager';
 import { createGitLabBoardManager } from '../gitlab/gitlabBoardManager';
+import * as githubAppAuth from '../../github/githubAppAuth';
+
+vi.mock('../../github/githubAppAuth', () => ({
+  refreshTokenIfNeeded: vi.fn(),
+  isGitHubAppConfigured: vi.fn(() => true),
+}));
+
+// GITHUB_PAT is evaluated at module load time in environment.ts;
+// use a dynamic getter so tests can control it via process.env.GITHUB_PAT.
+vi.mock('../../core/config', () => ({
+  get GITHUB_PAT() {
+    return process.env.GITHUB_PAT || undefined;
+  },
+}));
 
 describe('BOARD_COLUMNS', () => {
   it('has exactly 5 entries', () => {
@@ -159,6 +173,131 @@ describe('mergeStatusOptions', () => {
     // Other ADW columns should be appended (4 missing)
     expect(merged).toHaveLength(5);
     expect(changed).toBe(true);
+  });
+});
+
+describe('GitHubBoardManager PAT fallback wrapper', () => {
+  const isGitHubAppConfigured = vi.mocked(githubAppAuth.isGitHubAppConfigured);
+
+  let savedGhToken: string | undefined;
+  let savedGithubPat: string | undefined;
+
+  beforeEach(() => {
+    savedGhToken = process.env.GH_TOKEN;
+    savedGithubPat = process.env.GITHUB_PAT;
+    isGitHubAppConfigured.mockReturnValue(true);
+  });
+
+  afterEach(() => {
+    process.env.GH_TOKEN = savedGhToken;
+    if (savedGithubPat === undefined) {
+      delete process.env.GITHUB_PAT;
+    } else {
+      process.env.GITHUB_PAT = savedGithubPat;
+    }
+    vi.clearAllMocks();
+  });
+
+  function makeManager() {
+    return createGitHubBoardManager({ platform: Platform.GitHub, owner: 'x', repo: 'y' }) as unknown as {
+      withProjectBoardAuth: <T>(fn: () => Promise<T>) => Promise<T>;
+    };
+  }
+
+  it('swaps GH_TOKEN to GITHUB_PAT during fn() and restores after', async () => {
+    process.env.GH_TOKEN = 'app-token';
+    process.env.GITHUB_PAT = 'my-pat';
+
+    const manager = makeManager();
+    let tokenDuringFn = '';
+
+    await manager.withProjectBoardAuth(async () => {
+      tokenDuringFn = process.env.GH_TOKEN ?? '';
+      return 'ok';
+    });
+
+    expect(tokenDuringFn).toBe('my-pat');
+    expect(process.env.GH_TOKEN).toBe('app-token');
+  });
+
+  it('restores GH_TOKEN even when fn() throws', async () => {
+    process.env.GH_TOKEN = 'app-token';
+    process.env.GITHUB_PAT = 'my-pat';
+
+    const manager = makeManager();
+
+    await expect(
+      manager.withProjectBoardAuth(async () => {
+        throw new Error('boom');
+      }),
+    ).rejects.toThrow('boom');
+
+    expect(process.env.GH_TOKEN).toBe('app-token');
+  });
+
+  it('is a no-op when GITHUB_PAT is undefined', async () => {
+    process.env.GH_TOKEN = 'app-token';
+    delete process.env.GITHUB_PAT;
+
+    const manager = makeManager();
+    let tokenDuringFn = '';
+
+    await manager.withProjectBoardAuth(async () => {
+      tokenDuringFn = process.env.GH_TOKEN ?? '';
+      return 'ok';
+    });
+
+    expect(tokenDuringFn).toBe('app-token');
+    expect(process.env.GH_TOKEN).toBe('app-token');
+  });
+
+  it('is a no-op when GITHUB_PAT equals GH_TOKEN', async () => {
+    process.env.GH_TOKEN = 'same-token';
+    process.env.GITHUB_PAT = 'same-token';
+
+    const manager = makeManager();
+    let tokenDuringFn = '';
+
+    await manager.withProjectBoardAuth(async () => {
+      tokenDuringFn = process.env.GH_TOKEN ?? '';
+      return 'ok';
+    });
+
+    expect(tokenDuringFn).toBe('same-token');
+    expect(process.env.GH_TOKEN).toBe('same-token');
+  });
+
+  it('is a no-op when isGitHubAppConfigured() returns false', async () => {
+    process.env.GH_TOKEN = 'app-token';
+    process.env.GITHUB_PAT = 'my-pat';
+    isGitHubAppConfigured.mockReturnValue(false);
+
+    const manager = makeManager();
+    let tokenDuringFn = '';
+
+    await manager.withProjectBoardAuth(async () => {
+      tokenDuringFn = process.env.GH_TOKEN ?? '';
+      return 'ok';
+    });
+
+    expect(tokenDuringFn).toBe('app-token');
+    expect(process.env.GH_TOKEN).toBe('app-token');
+  });
+
+  it('is a no-op when GITHUB_PAT is an empty string', async () => {
+    process.env.GH_TOKEN = 'app-token';
+    process.env.GITHUB_PAT = '';
+
+    const manager = makeManager();
+    let tokenDuringFn = '';
+
+    await manager.withProjectBoardAuth(async () => {
+      tokenDuringFn = process.env.GH_TOKEN ?? '';
+      return 'ok';
+    });
+
+    expect(tokenDuringFn).toBe('app-token');
+    expect(process.env.GH_TOKEN).toBe('app-token');
   });
 });
 
