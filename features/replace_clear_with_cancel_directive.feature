@@ -148,18 +148,19 @@ Feature: Replace ## Clear with ## Cancel: full issue cleanup directive
     Given "adws/triggers/trigger_cron.ts" is read
     Then for each issue whose latest comment matches isCancelComment, handleCancelDirective is called
 
-  @adw-425 @regression
-  Scenario: Cancelled issues are added to processedSpawns to skip this cycle
+  @adw-425 @adw-444 @regression
+  Scenario: Cancelled issues are added to a per-cycle skip set to be skipped this cycle
     Given "adws/triggers/trigger_cron.ts" is read
-    Then issue numbers that were cancelled are added to processedSpawns
-    And filterEligibleIssues skips them in the current cycle
+    Then issue numbers that were cancelled are added to cancelledThisCycle
+    And filterEligibleIssues skips them in the current cycle via the per-cycle skip set
+    And cancelled issues are not added to processedSpawns
 
-  @adw-425
+  @adw-425 @adw-444 @regression
   Scenario: Cancelled issues are re-eligible in the next cron cycle
     Given an issue with a "## Cancel" latest comment
     When the cron trigger processes the cancel directive
     Then the issue is skipped in the current cycle
-    And the issue will be re-evaluated in the next cron cycle because processedSpawns is per-process
+    And the issue is re-evaluated on the next cron cycle because cancelledThisCycle is discarded at cycle end
 
   @adw-425
   Scenario: Cron resolves target repo path via getTargetRepoWorkspacePath
