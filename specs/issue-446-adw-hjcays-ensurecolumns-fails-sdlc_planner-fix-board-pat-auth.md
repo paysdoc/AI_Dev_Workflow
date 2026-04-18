@@ -33,7 +33,7 @@ Apply the `b449834` upfront-PAT-swap pattern uniformly to every public method on
 2. Rewrite `findBoard()`, `createBoard(name)`, and `ensureColumns(boardId)` to wrap their existing bodies in a single `return this.withProjectBoardAuth(async () => { ... });` call.
 3. Delete the now-redundant inner lazy-retry block in `findBoard` (lines 84-94). `queryProjectId` remains unchanged because the wrapper already sets the correct token before it runs.
 4. Add targeted unit tests that stub `process.env.GH_TOKEN` / `GITHUB_PAT` and assert: (a) wrapper swaps and restores the token, (b) restore happens even if the wrapped function throws, (c) no-op behavior when PAT is absent or equal to current token.
-5. Add a BDD `@regression` feature file (`features/board_manager_pat_fallback.feature`) that inspects `adws/providers/github/githubBoardManager.ts` — this is source-level static checking like the existing `project_board_pat_fallback.feature`, to prevent the specific regression where someone re-adds unwrapped GraphQL calls to public methods. This closes the pattern-level test gap; true behavioral integration testing against a sandbox GitHub project is tracked as a separate out-of-scope effort.
+5. Add a BDD feature file (`features/fix_board_manager_pat_auth.feature`, tagged `@adw-446` at the feature level with `@regression` on each regression scenario) that inspects `adws/providers/github/githubBoardManager.ts` — this is source-level static checking like the existing `project_board_pat_fallback.feature`, to prevent the specific regression where someone re-adds unwrapped GraphQL calls to public methods. This closes the pattern-level test gap; true behavioral integration testing against a sandbox GitHub project is tracked as a separate out-of-scope effort.
 
 Scope discipline: no changes to `projectBoardApi.ts`, `githubIssueTracker.ts`, or any caller of `GitHubBoardManager`. The wrapper is private to the class; it is not exported or reused elsewhere (YAGNI — the legacy file has its own local implementation and does not need refactoring).
 
@@ -56,7 +56,7 @@ Use these files to implement the feature:
 - `guidelines/coding_guidelines.md` — target-repo coding guidelines; keep files under 300 lines, prefer pure functions, isolate side effects at boundaries. The wrapper is a side-effectful boundary by design and should be explicitly scoped to minimize its effect window.
 
 ### New Files
-- `features/board_manager_pat_fallback.feature` — new BDD `@regression` feature file that asserts `adws/providers/github/githubBoardManager.ts` contains the upfront-PAT-swap pattern: imports `GITHUB_PAT`, calls `refreshTokenIfNeeded`, references `isGitHubAppConfigured`, has a `withProjectBoardAuth` helper, and that each public method routes through it. Tag: `@adw-446-board-pat-fallback` plus `@regression` on regression scenarios.
+- `features/fix_board_manager_pat_auth.feature` — new BDD feature file that asserts `adws/providers/github/githubBoardManager.ts` contains the upfront-PAT-swap pattern: has a `withProjectBoardAuth<T>` wrapper that calls `refreshTokenIfNeeded` before swapping, guards the swap with `isGitHubAppConfigured` and `GITHUB_PAT`, saves + assigns + restores `process.env.GH_TOKEN`, and that each of `findBoard` / `createBoard` / `ensureColumns` delegates to the wrapper. Also asserts the stale lazy-retry and in-method GH_TOKEN swap have been removed from `findBoard`, and that `projectBoardApi.ts` still retains its upfront PAT fallback. Feature-level tag: `@adw-446`; regression scenarios additionally tagged `@regression`.
 
 ## Implementation Plan
 
@@ -82,14 +82,21 @@ Introduce the wrapper, rewrite the three public methods, remove the now-redundan
 Add tests, a BDD regression feature, and run validation.
 
 - Add a new `describe('GitHubBoardManager.withProjectBoardAuth', …)` block to `adws/providers/__tests__/boardManager.test.ts`. Tests cover: (1) when `GITHUB_PAT` is set and different from `GH_TOKEN` and the app is configured, the wrapper swaps `GH_TOKEN` during `fn` execution and restores on return; (2) restore happens even if `fn` throws; (3) no-op when `GITHUB_PAT` is undefined; (4) no-op when `GITHUB_PAT` equals current `GH_TOKEN`. Use `vi.stubEnv` or manual save/restore in `beforeEach`/`afterEach` so tests don't leak env state. Mock `isGitHubAppConfigured` and `refreshTokenIfNeeded` via `vi.mock('../../github/githubAppAuth', …)`. Do **not** invoke the real `execSync`/`gh` — the wrapper itself is pure w.r.t. the inner function.
-- Create `features/board_manager_pat_fallback.feature` with scenarios mirroring `project_board_pat_fallback.feature` but targeting `adws/providers/github/githubBoardManager.ts`. At minimum:
-  - File imports `GITHUB_PAT` from `'../../core/config'`
-  - File imports `isGitHubAppConfigured` and `refreshTokenIfNeeded` from `'../../github/githubAppAuth'`
-  - File contains `withProjectBoardAuth` method identifier
-  - `findBoard` body routes through `this.withProjectBoardAuth(`
-  - `createBoard` body routes through `this.withProjectBoardAuth(`
-  - `ensureColumns` body routes through `this.withProjectBoardAuth(`
-  - `withProjectBoardAuth` restores `GH_TOKEN` in a `finally` block (grep for `finally` within the method range)
+- Create `features/fix_board_manager_pat_auth.feature` (feature-level tag `@adw-446`, regression scenarios additionally tagged `@regression`) with scenarios targeting `adws/providers/github/githubBoardManager.ts`. At minimum:
+  - `GitHubBoardManager` defines a `withProjectBoardAuth` wrapper
+  - The wrapper is generic (`withProjectBoardAuth<T>`, `() => Promise<T>`, `Promise<T>`)
+  - The wrapper calls `refreshTokenIfNeeded` before swapping `GH_TOKEN`
+  - The wrapper guards the PAT swap with `isGitHubAppConfigured` and `GITHUB_PAT` presence
+  - The wrapper assigns `GITHUB_PAT` to `process.env.GH_TOKEN`
+  - The wrapper saves the original `GH_TOKEN` before swapping
+  - The wrapper restores the original `GH_TOKEN` in a `finally` block
+  - `findBoard` delegates to `withProjectBoardAuth`
+  - `createBoard` delegates to `withProjectBoardAuth`
+  - `ensureColumns` delegates to `withProjectBoardAuth`
+  - `findBoard` no longer contains the stale lazy PAT retry log message
+  - `findBoard` no longer performs an in-method `GH_TOKEN` swap
+  - `projectBoardApi.ts` retains its upfront PAT fallback for `moveIssueToStatus`
+  - ADW TypeScript type-check passes
 - Reuse existing step definitions in `features/step_definitions/commonSteps.ts` (the `Given "<path>" is read` / `Then the file contains "<text>"` pair). Only add new step definitions if a new predicate is actually needed. If a new step is required (e.g., "Then withProjectBoardAuth restores GH_TOKEN in a finally block"), create `features/step_definitions/boardManagerPatFallbackSteps.ts`.
 - Run the full validation suite (`Validation Commands` below) to confirm zero regressions.
 
@@ -146,17 +153,24 @@ Execute every step in order, top to bottom.
 - Instantiate via the factory (`createGitHubBoardManager({ platform: 'github', owner: 'x', repo: 'y' })`) and cast to access the private method, or expose a test-only helper if access becomes awkward (prefer the cast — no production API change).
 
 ### 8. Create the BDD regression feature file
-- Create `features/board_manager_pat_fallback.feature` with tag `@adw-446-board-pat-fallback` (match existing naming convention `@adw-<number>-<descriptor>`).
-- Scenarios (each tagged `@regression`):
-  - `githubBoardManager.ts imports GITHUB_PAT from core/config`
-  - `githubBoardManager.ts imports isGitHubAppConfigured and refreshTokenIfNeeded from githubAppAuth`
-  - `GitHubBoardManager defines a withProjectBoardAuth method`
-  - `findBoard routes through withProjectBoardAuth`
-  - `createBoard routes through withProjectBoardAuth`
-  - `ensureColumns routes through withProjectBoardAuth`
-  - `withProjectBoardAuth restores GH_TOKEN in a finally block`
-- Use the existing `Given "<path>" is read` / `Then the file contains "<text>"` step pair from `features/step_definitions/commonSteps.ts` for all scenarios where possible.
-- Only if a multi-string predicate cannot be expressed with the existing steps, create `features/step_definitions/boardManagerPatFallbackSteps.ts` with the minimum new step(s).
+- Create `features/fix_board_manager_pat_auth.feature` tagged `@adw-446` at the feature level (matches existing convention for numeric issue IDs, e.g. `@adw-427`, `@adw-432`). Regression scenarios are additionally tagged `@regression`.
+- Scenarios:
+  - `GitHubBoardManager defines a withProjectBoardAuth wrapper` (@regression)
+  - `withProjectBoardAuth is generic over the wrapped return type` (@regression)
+  - `withProjectBoardAuth calls refreshTokenIfNeeded before swapping GH_TOKEN` (@regression)
+  - `withProjectBoardAuth guards the PAT swap with isGitHubAppConfigured and GITHUB_PAT presence` (@regression)
+  - `withProjectBoardAuth assigns GITHUB_PAT to process.env.GH_TOKEN` (@regression)
+  - `withProjectBoardAuth saves the original GH_TOKEN before swapping` (@regression)
+  - `withProjectBoardAuth restores the original GH_TOKEN in a finally block` (@regression)
+  - `findBoard routes through withProjectBoardAuth` (@regression)
+  - `createBoard routes through withProjectBoardAuth` (@regression)
+  - `ensureColumns routes through withProjectBoardAuth` (@regression)
+  - `findBoard no longer contains the stale lazy PAT retry log message` (@regression)
+  - `findBoard no longer performs an in-method GH_TOKEN swap` (@regression)
+  - `projectBoardApi.ts retains its upfront PAT fallback for moveIssueToStatus` (scope guard — @adw-446 only)
+  - `TypeScript type-check passes after githubBoardManager PAT auth fix` (@regression)
+- Use the existing `Given "<path>" is read` / `Then the file contains "<text>"` step pair from `features/step_definitions/commonSteps.ts` for all string-containment scenarios where possible.
+- For multi-string predicates that cannot be expressed with the existing steps (e.g., "withProjectBoardAuth calls refreshTokenIfNeeded before swapping GH_TOKEN", "the findBoard method delegates to withProjectBoardAuth", "the findBoard method does not assign to process.env.GH_TOKEN", "the ADW TypeScript type-check passes"), create `features/step_definitions/boardManagerPatAuthSteps.ts` with the minimum new steps required.
 
 ### 9. Run validation
 - Execute all commands listed in **Validation Commands**. Every command must pass.
@@ -193,7 +207,7 @@ Do not mock `execSync` or `gh`. The unit tests should not need to — they only 
 - The file stays under 300 lines (per `guidelines/coding_guidelines.md`).
 - `adws/github/projectBoardApi.ts` and `adws/providers/github/githubIssueTracker.ts` are not modified.
 - New unit tests cover the wrapper's swap / restore / restore-on-throw / no-op paths.
-- New BDD feature file `features/board_manager_pat_fallback.feature` passes with `@regression` tag.
+- New BDD feature file `features/fix_board_manager_pat_auth.feature` passes with `@adw-446` tag (regression scenarios also passing under `@regression`).
 - All commands in **Validation Commands** pass with zero errors and zero new warnings.
 
 ## Validation Commands
@@ -205,14 +219,14 @@ Execute every command to validate the feature works correctly with zero regressi
 - `bunx tsc --noEmit -p adws/tsconfig.json` — adws-scoped TypeScript typecheck.
 - `bun run build` — project build succeeds.
 - `bun run test:unit` — vitest unit tests, including the new wrapper tests, all pass.
-- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-446-board-pat-fallback"` — new BDD scenarios pass.
+- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-446"` — new BDD scenarios pass.
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@regression"` — full regression suite passes (must include the existing `@adw-9tknkw-project-board-fall-b` scenarios that verify `projectBoardApi.ts` was not collaterally broken).
 
 ## Notes
 - The `guidelines/coding_guidelines.md` rule "Keep files under 300 lines" is the tightest constraint; the file currently sits ~290 lines. Net change is ~+9 lines (new wrapper ~+20, deleted inner retry ~-11). If the final count lands at or above 300, extract the wrapper to a local top-level helper in the same file (e.g., `async function withGraphQLAuth<T>(repoInfo: RepoInfo, fn: () => Promise<T>): Promise<T>`) and have the class method delegate to it. Do not split into a new file — the wrapper is only used here and a new module would add navigation overhead without benefit.
 - The canonical reference is `adws/github/projectBoardApi.ts::moveIssueToStatus` lines 224-296. Copy its control flow exactly — down to the `let usingPatFallback = false;` variable name — so that future audits can grep for matching patterns across both files.
 - Do not unify or share code with `moveIssueToStatus`. The two files belong to different layers (the legacy file is the caller for per-issue status moves from `githubIssueTracker`; the provider file is the per-board setup) and conflating them would re-couple the provider refactor that PR #428 intentionally separated. A truly shared helper in a third file is tempting but premature — YAGNI.
-- The `features/board_manager_pat_fallback.feature` scenarios are static-string checks. They guard against the specific regression pattern (someone deleting `withProjectBoardAuth` or bypassing it in a new public method) but cannot prove runtime correctness against a live GitHub API. True behavioral integration testing against a sandbox GitHub project is explicitly out of scope — see `project_future_grill_integration_testing.md` in auto-memory (issue-body reference).
+- The `features/fix_board_manager_pat_auth.feature` scenarios are static-string checks. They guard against the specific regression pattern (someone deleting `withProjectBoardAuth` or bypassing it in a new public method) but cannot prove runtime correctness against a live GitHub API. True behavioral integration testing against a sandbox GitHub project is explicitly out of scope — see `project_future_grill_integration_testing.md` in auto-memory (issue-body reference).
 - Library install: none required — the wrapper uses only existing imports (`GITHUB_PAT`, `isGitHubAppConfigured`, `refreshTokenIfNeeded`, `log`, `process.env`).
 - Auto-memory ties: `project_future_grill_integration_testing.md` tracks the deferred integration-testing effort, and the earlier conditional-doc files (`feature-qm6gwx-board-manager-provider.md`, `feature-w12d7t-fix-board-update-mutation.md`, `feature-9tknkw-project-board-pat-fallback.md`) cover the prior passes that introduced and previously patched this provider.
 - Follow-up issue (out of scope for this PR): design and implement a real-runtime BDD scenario that creates a scratch Projects V2 board on a sandbox user-owned repo, runs `setupProjectBoard`, and asserts all five columns were actually created. Open once a suitable sandbox repo + tokens are budgeted.
