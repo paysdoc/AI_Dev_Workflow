@@ -901,6 +901,14 @@
     - When troubleshooting why `## Cancel` does not kill processes, remove worktrees, or clean state dirs
     - When adding a new cleanup step to the cancel sequence (process kill → worktree removal → state dir deletion → comment clearing)
 
+- app_docs/feature-yipjb0-fix-cancel-per-cycle-skip.md
+  - Conditions:
+    - When working with `evaluateIssue` or `filterEligibleIssues` in `adws/triggers/cronIssueFilter.ts` and the `cancelledThisCycle` parameter
+    - When troubleshooting cancelled issues showing as `#N(processed)` instead of `#N(cancelled)` across cron cycles
+    - When modifying the cancel-scan loop in `trigger_cron.ts` (the `handleCancelDirective` + per-cycle set pattern)
+    - When understanding the semantic difference between `processedSpawns` (permanent in-process dedup) and `cancelledThisCycle` (one-cycle skip)
+    - When adding regression tests for the two-cycle cancel re-eligibility behavior
+
 - app_docs/feature-qm6gwx-board-manager-provider.md
   - Conditions:
     - When working with `BoardManager`, `BoardStatus`, `BOARD_COLUMNS`, or `BoardColumnDefinition` in `adws/providers/types.ts`
