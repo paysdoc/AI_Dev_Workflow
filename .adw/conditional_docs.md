@@ -1,5 +1,13 @@
 # Conditional Documentation
 
+- app_docs/feature-elre2t-fix-board-column-order-ids.md
+  - Conditions:
+    - When working with `ensureColumns`, `mergeStatusOptions`, or `updateStatusFieldOptions` in `githubBoardManager.ts`
+    - When troubleshooting blank Status cells on GitHub Projects V2 boards after ADW programmatically adds a column
+    - When investigating column ordering bugs (new columns appearing to the right of Done instead of in canonical position)
+    - When extending the board column merge logic or adding new ADW columns to `BOARD_COLUMNS`
+    - When writing or updating unit tests for `mergeStatusOptions` (ordering and ID-preservation contracts)
+
 - app_docs/feature-0cv18u-fix-cross-trigger-spawn-dedup.md
   - Conditions:
     - When working with `classifyAndSpawnWorkflow` in `webhookGatekeeper.ts` or the cron/webhook trigger paths

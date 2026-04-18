@@ -111,8 +111,9 @@ describe('mergeStatusOptions', () => {
     expect(changed).toBe(true);
     expect(added).toHaveLength(5);
     expect(merged).toHaveLength(5);
-    expect(merged.map((o) => o.name)).toContain(BoardStatus.Blocked);
-    expect(merged.map((o) => o.name)).toContain(BoardStatus.Done);
+    expect(merged.map((o) => o.name)).toEqual([
+      BoardStatus.Blocked, BoardStatus.Todo, BoardStatus.InProgress, BoardStatus.Review, BoardStatus.Done,
+    ]);
   });
 
   it('all ADW columns already present with correct properties: changed is false', () => {
@@ -126,7 +127,7 @@ describe('mergeStatusOptions', () => {
     expect(added).toHaveLength(0);
   });
 
-  it('partial overlap: missing columns appended, changed is true', () => {
+  it('partial overlap: missing columns inserted in canonical order, changed is true', () => {
     const existing = [
       { name: BoardStatus.Todo, color: 'GRAY', description: "This item hasn't been started" },
       { name: BoardStatus.Done, color: 'GREEN', description: 'This has been completed' },
@@ -138,6 +139,9 @@ describe('mergeStatusOptions', () => {
     expect(added).toContain(BoardStatus.InProgress);
     expect(added).toContain(BoardStatus.Review);
     expect(merged).toHaveLength(5);
+    expect(merged.map((o) => o.name)).toEqual([
+      BoardStatus.Blocked, BoardStatus.Todo, BoardStatus.InProgress, BoardStatus.Review, BoardStatus.Done,
+    ]);
   });
 
   it('non-ADW columns are preserved in merged list', () => {
@@ -170,9 +174,102 @@ describe('mergeStatusOptions', () => {
     // The matching option should be overwritten with canonical casing from BOARD_COLUMNS
     const todo = merged.find((o) => o.name.toLowerCase() === 'todo');
     expect(todo?.name).toBe(BoardStatus.Todo);
-    // Other ADW columns should be appended (4 missing)
+    // Missing columns inserted in canonical order around the matched Todo
     expect(merged).toHaveLength(5);
     expect(changed).toBe(true);
+    expect(merged.map((o) => o.name)).toEqual([
+      BoardStatus.Blocked, BoardStatus.Todo, BoardStatus.InProgress, BoardStatus.Review, BoardStatus.Done,
+    ]);
+  });
+
+  it('missing Blocked is inserted at index 0 when [Todo, InProgress, Review, Done] exist', () => {
+    const existing = [
+      { id: 'opt-todo', name: BoardStatus.Todo, color: 'GRAY', description: "This item hasn't been started" },
+      { id: 'opt-inprogress', name: BoardStatus.InProgress, color: 'YELLOW', description: 'This is actively being worked on' },
+      { id: 'opt-review', name: BoardStatus.Review, color: 'PURPLE', description: 'This item is being peer reviewed' },
+      { id: 'opt-done', name: BoardStatus.Done, color: 'GREEN', description: 'This has been completed' },
+    ];
+    const { merged, changed, added } = mergeStatusOptions(existing, BOARD_COLUMNS);
+    expect(merged[0].name).toBe(BoardStatus.Blocked);
+    expect(merged.map((o) => o.name)).toEqual([
+      BoardStatus.Blocked, BoardStatus.Todo, BoardStatus.InProgress, BoardStatus.Review, BoardStatus.Done,
+    ]);
+    expect(added).toEqual([BoardStatus.Blocked]);
+    expect(changed).toBe(true);
+  });
+
+  it('missing Review is inserted between InProgress and Done', () => {
+    const existing = [
+      { id: 'opt-blocked', name: BoardStatus.Blocked, color: 'RED', description: 'This item cannot be completed' },
+      { id: 'opt-todo', name: BoardStatus.Todo, color: 'GRAY', description: "This item hasn't been started" },
+      { id: 'opt-inprogress', name: BoardStatus.InProgress, color: 'YELLOW', description: 'This is actively being worked on' },
+      { id: 'opt-done', name: BoardStatus.Done, color: 'GREEN', description: 'This has been completed' },
+    ];
+    const { merged, added } = mergeStatusOptions(existing, BOARD_COLUMNS);
+    expect(merged.map((o) => o.name)).toEqual([
+      BoardStatus.Blocked, BoardStatus.Todo, BoardStatus.InProgress, BoardStatus.Review, BoardStatus.Done,
+    ]);
+    expect(added).toEqual([BoardStatus.Review]);
+  });
+
+  it('all five missing: merged is in BOARD_COLUMNS order', () => {
+    const { merged, added } = mergeStatusOptions([], BOARD_COLUMNS);
+    expect(merged.map((o) => o.name)).toEqual(['Blocked', 'Todo', 'In Progress', 'Review', 'Done']);
+    expect(added).toHaveLength(5);
+    expect(merged.every((o) => o.id === undefined)).toBe(true);
+  });
+
+  it('non-ADW options keep their relative position when missing columns are inserted', () => {
+    const existing = [
+      { id: 'opt-custom-1', name: 'Custom1', color: 'BLUE', description: 'x' },
+      { id: 'opt-todo', name: BoardStatus.Todo, color: 'GRAY', description: "This item hasn't been started" },
+      { id: 'opt-done', name: BoardStatus.Done, color: 'GREEN', description: 'This has been completed' },
+      { id: 'opt-custom-2', name: 'Custom2', color: 'PINK', description: 'y' },
+    ];
+    const { merged } = mergeStatusOptions(existing, BOARD_COLUMNS);
+    expect(merged[0].name).toBe('Custom1');
+    expect(merged[merged.length - 1].name).toBe('Custom2');
+    expect(merged.some((o) => o.name === BoardStatus.Blocked)).toBe(true);
+    expect(merged.some((o) => o.name === BoardStatus.InProgress)).toBe(true);
+    expect(merged.some((o) => o.name === BoardStatus.Review)).toBe(true);
+  });
+
+  it('every existing option id survives into merged', () => {
+    const existing = [
+      { id: 'opt-blocked', name: BoardStatus.Blocked, color: 'BLUE', description: 'wrong color' },
+      { id: 'opt-todo', name: BoardStatus.Todo, color: 'GRAY', description: "This item hasn't been started" },
+      { id: 'opt-inprogress', name: BoardStatus.InProgress, color: 'YELLOW', description: 'This is actively being worked on' },
+      { id: 'opt-review', name: BoardStatus.Review, color: 'PURPLE', description: 'This item is being peer reviewed' },
+      { id: 'opt-done', name: BoardStatus.Done, color: 'GREEN', description: 'This has been completed' },
+      { id: 'opt-custom', name: 'Custom', color: 'PINK', description: 'custom col' },
+    ];
+    const { merged } = mergeStatusOptions(existing, BOARD_COLUMNS);
+    const blocked = merged.find((o) => o.name === BoardStatus.Blocked);
+    expect(blocked?.color).toBe('RED'); // overwritten with BOARD_COLUMNS default
+    expect(blocked?.id).toBe('opt-blocked'); // id preserved
+    const custom = merged.find((o) => o.name === 'Custom');
+    expect(custom?.id).toBe('opt-custom');
+    existing.forEach((e) => {
+      const m = merged.find((o) => o.name.toLowerCase() === e.name.toLowerCase());
+      expect(m?.id).toBe(e.id);
+    });
+  });
+
+  it('newly added ADW options have id === undefined', () => {
+    const { merged: allNew } = mergeStatusOptions([], BOARD_COLUMNS);
+    expect(allNew.every((o) => o.id === undefined)).toBe(true);
+
+    const existing = [
+      { id: 'opt-todo', name: BoardStatus.Todo, color: 'GRAY', description: "This item hasn't been started" },
+      { id: 'opt-done', name: BoardStatus.Done, color: 'GREEN', description: 'This has been completed' },
+    ];
+    const { merged: partial } = mergeStatusOptions(existing, BOARD_COLUMNS);
+    const todo = partial.find((o) => o.name === BoardStatus.Todo);
+    const done = partial.find((o) => o.name === BoardStatus.Done);
+    expect(todo?.id).toBe('opt-todo');
+    expect(done?.id).toBe('opt-done');
+    const newOnes = partial.filter((o) => o.name !== BoardStatus.Todo && o.name !== BoardStatus.Done);
+    expect(newOnes.every((o) => o.id === undefined)).toBe(true);
   });
 });
 
