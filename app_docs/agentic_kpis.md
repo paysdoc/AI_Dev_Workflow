@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 83                | 2026-04-18 14:17:08 |
-| Longest Streak    | 83               | 2026-04-18 14:17:08 |
-| Total Plan Size   | 1272 lines       | 2026-04-18 14:17:08 |
-| Largest Plan Size | 341 lines        | 2026-04-18 14:17:08 |
-| Total Diff Size   | 1064970 lines    | 2026-04-18 14:17:08 |
-| Largest Diff Size | 416737 lines     | 2026-04-18 14:17:08 |
-| Average Presence  | 1.24             | 2026-04-18 14:17:08 |
+| Current Streak    | 77                | 2026-04-18 18:40:28 |
+| Longest Streak    | 77               | 2026-04-18 18:40:28 |
+| Total Plan Size   | 1149 lines       | 2026-04-18 18:40:28 |
+| Largest Plan Size | 201 lines        | 2026-04-18 18:40:28 |
+| Total Diff Size   | 2291313 lines    | 2026-04-18 18:40:28 |
+| Largest Diff Size | 418153 lines     | 2026-04-18 18:40:28 |
+| Average Presence  | 1.31             | 2026-04-18 18:40:28 |
 
 ## ADW KPIs
 
@@ -127,3 +127,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-04-18 | hjcays-ensurecolumns-fails  | 446          | /feature    | 1        | 0                 | 788/33/9                        | 2026-04-18 12:17:12 | 2026-04-18 12:17:12 |
 | 2026-04-18 | oowire-configloader-linter  | 4            | /feature    | 1        | 0                 | 1855/16/51                      | 2026-04-18 13:16:33 | 2026-04-18 13:16:33 |
 | 2026-04-18 | m8fl2v-depaudit-yml-schema | 5            | /feature    | 1        | 0                 | 3617/125/124                    | 2026-04-18 14:17:08 | 2026-04-18 14:17:08 |
+| 2026-04-18 | u2drew-polyglot-ecosystem-s | 6            | /feature    | 1        | 0                 | 1300/36/69                      | 2026-04-18 18:40:28 | 2026-04-18 18:40:28 |
