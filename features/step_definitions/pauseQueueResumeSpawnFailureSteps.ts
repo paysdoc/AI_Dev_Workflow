@@ -63,10 +63,6 @@ Then('the per-resume log file path contains the entry adwId so concurrent resume
 
 // ── 2. Child is spawned in the target-repo worktree ─────────────────────────
 
-// NOTE: The feature scenario title says "cwd: entry.worktreePath" but the plan
-// intentionally deviates to "cwd: process.cwd()" because target-repo worktrees
-// do not contain adws/ scripts. This step checks what is actually implemented.
-// The scenario will be RED if implementation uses entry.worktreePath.
 Then('the resumeWorkflow function passes {string} to spawn', function (cwdExpr: string) {
   const body = getResumeWorkflowBody(sharedCtx.fileContent);
   const spawnIdx = body.indexOf("spawn('bunx'");

@@ -137,7 +137,8 @@ export async function resumeWorkflow(entry: PausedWorkflow): Promise<void> {
   log(`Resuming workflow ${entry.adwId} for issue #${entry.issueNumber} (${entry.orchestratorScript})`);
 
   try {
-    const child = spawn('bunx', spawnArgs, { detached: true, stdio: ['ignore', logFd, logFd], cwd: entry.worktreePath });
+    // cwd is pinned to cron host — target-repo worktrees do not contain adws/ scripts
+    const child = spawn('bunx', spawnArgs, { detached: true, stdio: ['ignore', logFd, logFd], cwd: process.cwd() });
 
     try {
       await awaitChildReadiness(child, READINESS_WINDOW_MS);

@@ -12,7 +12,7 @@ Feature: Pause-queue resume captures spawn errors and preserves the queue entry 
      spawn permanently lost the entry with no retry path.
 
   The fix captures child stdout/stderr to a per-resume log file, spawns with
-  `cwd: entry.worktreePath`, and only removes the entry from the queue once
+  `cwd: process.cwd()`, and only removes the entry from the queue once
   the child has reached a known "alive" state.
 
   Background:
@@ -38,9 +38,9 @@ Feature: Pause-queue resume captures spawn errors and preserves the queue entry 
   # ── 2. Child is spawned in the target-repo worktree ────────────────────
 
   @adw-448 @regression
-  Scenario: resumeWorkflow passes cwd entry.worktreePath to spawn
+  Scenario: resumeWorkflow passes cwd process.cwd() to spawn
     Given "adws/triggers/pauseQueueScanner.ts" is read
-    Then the resumeWorkflow function passes "cwd: entry.worktreePath" to spawn
+    Then the resumeWorkflow function passes "cwd: process.cwd()" to spawn
 
   @adw-448 @regression
   Scenario: resumeWorkflow does not allow the child to inherit the cron host cwd
