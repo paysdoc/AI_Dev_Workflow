@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 77                | 2026-04-18 18:40:28 |
-| Longest Streak    | 77               | 2026-04-18 18:40:28 |
-| Total Plan Size   | 1149 lines       | 2026-04-18 18:40:28 |
-| Largest Plan Size | 201 lines        | 2026-04-18 18:40:28 |
-| Total Diff Size   | 2291313 lines    | 2026-04-18 18:40:28 |
-| Largest Diff Size | 418153 lines     | 2026-04-18 18:40:28 |
-| Average Presence  | 1.31             | 2026-04-18 18:40:28 |
+| Current Streak    | 100               | 2026-04-18 19:55:00 |
+| Longest Streak    | 100              | 2026-04-18 19:55:00 |
+| Total Plan Size   | 443 lines        | 2026-04-18 19:55:00 |
+| Largest Plan Size | 201 lines        | 2026-04-18 19:55:00 |
+| Total Diff Size   | 2303650 lines    | 2026-04-18 19:55:00 |
+| Largest Diff Size | 418153 lines     | 2026-04-18 19:55:00 |
+| Average Presence  | 1.32             | 2026-04-18 19:55:00 |
 
 ## ADW KPIs
 
@@ -128,3 +128,8 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-04-18 | oowire-configloader-linter  | 4            | /feature    | 1        | 0                 | 1855/16/51                      | 2026-04-18 13:16:33 | 2026-04-18 13:16:33 |
 | 2026-04-18 | m8fl2v-depaudit-yml-schema | 5            | /feature    | 1        | 0                 | 3617/125/124                    | 2026-04-18 14:17:08 | 2026-04-18 14:17:08 |
 | 2026-04-18 | u2drew-polyglot-ecosystem-s | 6            | /feature    | 1        | 0                 | 1300/36/69                      | 2026-04-18 18:40:28 | 2026-04-18 18:40:28 |
+| 2026-04-18 | 0cv18u-cron-webhook-can-dou | 449          | /bug        | 1        | 0                 | 1258/13/10                      | 2026-04-18 19:39:23 | 2026-04-18 19:39:23 |
+| 2026-04-18 | kteamd-socketapiclient-supp | 7            | /feature    | 1        | 0                 | 3220/11/55                      | 2026-04-18 19:41:17 | 2026-04-18 19:41:17 |
+| 2026-04-18 | ekjs2i-socketapiclient-supp | 7            | /feature    | 1        | 0                 | 3316/11/56                      | 2026-04-18 19:43:27 | 2026-04-18 19:43:27 |
+| 2026-04-18 | ope038-pause-queue-resume-s | 448          | /bug        | 2        | 0                 | 999/1293/20                     | 2026-04-18 19:55:24 | 2026-04-18 19:55:24 |
+| 2026-04-18 | elre2t-fix-board-column-ord | 450          | /bug        | 1        | 0                 | 882/1334/18                     | 2026-04-18 19:55:00 | 2026-04-18 19:55:00 |
