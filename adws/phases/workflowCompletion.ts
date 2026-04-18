@@ -73,7 +73,7 @@ export function handleRateLimitPause(
   costUsd?: number,
   modelUsage?: ModelUsageMap,
 ): never {
-  const { orchestratorStatePath, orchestratorName, issueNumber, adwId, ctx, repoContext, worktreePath, branchName } = config;
+  const { orchestratorStatePath, orchestratorName, issueNumber, adwId, ctx, repoContext, worktreePath, branchName, targetRepo } = config;
 
   if (costUsd !== undefined && modelUsage) {
     persistTokenCounts(orchestratorStatePath, costUsd, modelUsage);
@@ -99,7 +99,12 @@ export function handleRateLimitPause(
 
   AgentStateManager.writeTopLevelState(adwId, { workflowStage: 'paused' });
 
-  // Enqueue for probe + resume
+  // Enqueue for probe + resume. Persist --target-repo so the respawned
+  // orchestrator targets the correct repo — without this, resume defaults
+  // to the cron host's repo and dies silently in detached/stdio:ignore.
+  const extraArgs = targetRepo
+    ? ['--target-repo', `${targetRepo.owner}/${targetRepo.repo}`]
+    : undefined;
   appendToPauseQueue({
     adwId,
     issueNumber,
@@ -109,6 +114,7 @@ export function handleRateLimitPause(
     pausedAt: new Date().toISOString(),
     worktreePath,
     branchName,
+    ...(extraArgs ? { extraArgs } : {}),
   });
 
   // Post paused comment
