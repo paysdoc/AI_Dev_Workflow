@@ -60,12 +60,15 @@ export interface ProcessedSets {
  * lifecycles, so an issue in `spawns` may still be eligible for the merge path
  * once it transitions into `awaiting_merge`.
  *
- * @param issue          - The issue to evaluate
- * @param now            - Current timestamp in ms
- * @param processed      - Sets of issue numbers already queued this cycle, split
- *                         by event type (spawns vs merges)
- * @param gracePeriodMs  - Minimum ms of inactivity before a fresh issue is eligible
- * @param resolveStage   - Injectable stage resolver (defaults to the real implementation)
+ * @param issue                - The issue to evaluate
+ * @param now                  - Current timestamp in ms
+ * @param processed            - Sets of issue numbers already queued this cycle, split
+ *                               by event type (spawns vs merges)
+ * @param gracePeriodMs        - Minimum ms of inactivity before a fresh issue is eligible
+ * @param resolveStage         - Injectable stage resolver (defaults to the real implementation)
+ * @param cancelledThisCycle   - Issue numbers that were cancelled earlier in the current
+ *                               cycle and must be skipped once; this set is not persisted
+ *                               across cycles.
  */
 export function evaluateIssue(
   issue: CronIssue,
@@ -73,7 +76,12 @@ export function evaluateIssue(
   processed: ProcessedSets,
   gracePeriodMs: number,
   resolveStage: (comments: { body: string }[]) => StageResolution = resolveIssueWorkflowStage,
+  cancelledThisCycle: ReadonlySet<number> = new Set(),
 ): FilterResult {
+  if (cancelledThisCycle.has(issue.number)) {
+    return { eligible: false, reason: 'cancelled' };
+  }
+
   // Resolve stage first so we can dispatch to the right dedup set. The spawn
   // dedup must NOT short-circuit the awaiting_merge path: an issue this process
   // originally spawned legitimately re-enters the filter once it transitions
@@ -134,12 +142,13 @@ export function filterEligibleIssues(
   processed: ProcessedSets,
   gracePeriodMs: number,
   resolveStage?: (comments: { body: string }[]) => StageResolution,
+  cancelledThisCycle: ReadonlySet<number> = new Set(),
 ): { eligible: EligibleIssue[]; filteredAnnotations: string[] } {
   const eligible: EligibleIssue[] = [];
   const filteredAnnotations: string[] = [];
 
   for (const issue of issues) {
-    const result = evaluateIssue(issue, now, processed, gracePeriodMs, resolveStage);
+    const result = evaluateIssue(issue, now, processed, gracePeriodMs, resolveStage, cancelledThisCycle);
     if (result.eligible) {
       eligible.push({
         issue,

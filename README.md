@@ -348,6 +348,7 @@ adws/                   # ADW workflow system
 │   ├── buildPhase.ts
 │   ├── documentPhase.ts
 │   ├── index.ts
+│   ├── depauditSetup.ts  # depaudit setup and secret propagation (used by adw_init)
 │   ├── installPhase.ts # Install phase implementation
 │   ├── kpiPhase.ts     # KPI tracking phase
 │   ├── phaseCommentHelpers.ts  # Shared phase comment utilities
