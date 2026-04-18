@@ -933,3 +933,11 @@
     - When modifying the `updateProjectV2Field` mutation or the `mergeStatusOptions` helper
     - When board column setup silently skips because all ADW columns are already present
     - When using `gh api graphql --input -` (stdin JSON) to pass array arguments to the GitHub GraphQL API
+
+- app_docs/feature-hjcays-fix-board-pat-auth.md
+  - Conditions:
+    - When working with `GitHubBoardManager` auth handling in `adws/providers/github/githubBoardManager.ts`
+    - When troubleshooting `gh: Resource not accessible by integration` during board initialization on user-owned repos
+    - When modifying `findBoard`, `createBoard`, or `ensureColumns` and need to understand the `withProjectBoardAuth` wrapper
+    - When `GITHUB_PAT` is configured but board columns are still not being created
+    - When adding a new public method to `GitHubBoardManager` that issues GraphQL calls (must route through `withProjectBoardAuth`)
