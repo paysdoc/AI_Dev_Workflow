@@ -8,7 +8,9 @@
  */
 
 import { execSync, spawn } from 'child_process';
-import { log, GRACE_PERIOD_MS, JANITOR_INTERVAL_CYCLES, getTargetRepoWorkspacePath } from '../core';
+import { log, GRACE_PERIOD_MS, JANITOR_INTERVAL_CYCLES, HEARTBEAT_STALE_THRESHOLD_MS, HUNG_DETECTOR_INTERVAL_CYCLES, getTargetRepoWorkspacePath } from '../core';
+import { findHungOrchestrators, type HungDetectorDeps } from '../core/hungOrchestratorDetector';
+import { AgentStateManager } from '../core/agentState';
 import { getRepoInfo, fetchPRList, hasUnaddressedComments, isCancelComment, activateGitHubAppAuth, refreshTokenIfNeeded } from '../github';
 
 import { resolveIssueWorkflowStage } from './cronStageResolver';
@@ -43,9 +45,11 @@ interface RawIssue {
 // Resolve repo identity from --target-repo CLI args (or fall back to local git remote).
 const { repoInfo: cronRepoInfo, targetRepo } = resolveCronRepo(process.argv.slice(2), getRepoInfo);
 
-// Activate GitHub App auth before any gh CLI calls (pass target repo so the
-// correct installation token is obtained when running for a non-local repo).
-activateGitHubAppAuth(cronRepoInfo.owner, cronRepoInfo.repo);
+// Activate GitHub App auth before any gh CLI calls only when running as the cron script.
+// Skipped when trigger_cron.ts is imported as a module (e.g. by BDD step definitions).
+if (process.argv[1]?.replace(/\\/g, '/').includes('trigger_cron')) {
+  activateGitHubAppAuth(cronRepoInfo.owner, cronRepoInfo.repo);
+}
 
 /** Fetches all open issues with body, comments, and timestamps. */
 function fetchOpenIssues(): RawIssue[] {
@@ -71,12 +75,41 @@ function buildTargetRepoArgs(): string[] {
   );
 }
 
+/**
+ * Hung-orchestrator sweep: detect wedged orchestrators, SIGKILL each, rewrite state to abandoned.
+ * Exported so that integration tests can invoke the sweep logic directly without the cycle gate.
+ * The optional `deps` parameter lets tests inject fake filesystem/liveness deps.
+ */
+export function runHungDetectorSweep(now: number, deps?: HungDetectorDeps): void {
+  const hung = deps !== undefined
+    ? findHungOrchestrators(now, HEARTBEAT_STALE_THRESHOLD_MS, deps)
+    : findHungOrchestrators(now, HEARTBEAT_STALE_THRESHOLD_MS);
+  for (const entry of hung) {
+    log(`Hung orchestrator detected: adwId=${entry.adwId} pid=${entry.pid} stage=${entry.workflowStage} lastSeenAt=${entry.lastSeenAt}`, 'warn');
+    try {
+      process.kill(entry.pid, 'SIGKILL');
+    } catch (err) {
+      log(`SIGKILL failed for pid=${entry.pid}: ${err}`, 'warn');
+    }
+    try {
+      AgentStateManager.writeTopLevelState(entry.adwId, { workflowStage: 'abandoned' });
+    } catch (err) {
+      log(`State rewrite failed for adwId=${entry.adwId}: ${err}`, 'warn');
+    }
+  }
+}
+
 /** Checks for eligible issues and triggers ADW workflows for each. */
 async function checkAndTrigger(): Promise<void> {
   cycleCount += 1;
 
   // Scan pause queue every PROBE_INTERVAL_CYCLES cycles
   await scanPauseQueue(cycleCount);
+
+  // Detect and abandon hung orchestrators every HUNG_DETECTOR_INTERVAL_CYCLES cycles
+  if (cycleCount % HUNG_DETECTOR_INTERVAL_CYCLES === 0) {
+    runHungDetectorSweep(Date.now());
+  }
 
   // Run dev server janitor every JANITOR_INTERVAL_CYCLES cycles
   if (cycleCount % JANITOR_INTERVAL_CYCLES === 0) {
@@ -206,15 +239,20 @@ function checkPRsForReviewComments(): void {
   }
 }
 
-const cronRepoKey = `${cronRepoInfo.owner}/${cronRepoInfo.repo}`;
-const canProceed = registerAndGuard(cronRepoKey, process.pid);
-if (!canProceed) {
-  log(`Another cron process is already running for ${cronRepoKey}, exiting duplicate`, 'warn');
-  process.exit(0);
-}
+// Only start the cron loop when running as the entry script.
+// When imported by tests (e.g. BDD step definitions import runHungDetectorSweep),
+// this guard prevents process.exit() from terminating the test runner.
+if (process.argv[1]?.replace(/\\/g, '/').includes('trigger_cron')) {
+  const cronRepoKey = `${cronRepoInfo.owner}/${cronRepoInfo.repo}`;
+  const canProceed = registerAndGuard(cronRepoKey, process.pid);
+  if (!canProceed) {
+    log(`Another cron process is already running for ${cronRepoKey}, exiting duplicate`, 'warn');
+    process.exit(0);
+  }
 
-log('CRON trigger (backlog sweeper) started');
-void checkAndTrigger();
-setInterval(() => { refreshTokenIfNeeded(); void checkAndTrigger(); }, POLL_INTERVAL_MS);
-checkPRsForReviewComments();
-setInterval(checkPRsForReviewComments, PR_POLL_INTERVAL_MS);
+  log('CRON trigger (backlog sweeper) started');
+  void checkAndTrigger();
+  setInterval(() => { refreshTokenIfNeeded(); void checkAndTrigger(); }, POLL_INTERVAL_MS);
+  checkPRsForReviewComments();
+  setInterval(checkPRsForReviewComments, PR_POLL_INTERVAL_MS);
+}

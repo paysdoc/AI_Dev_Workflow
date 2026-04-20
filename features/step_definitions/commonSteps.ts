@@ -85,23 +85,29 @@ When('the {string} section is found', function (_section: string) {
 });
 
 Then('the file contains {string}', function (this: Record<string, string>, expected: string) {
+  const content = (this.fileContent ?? sharedCtx.fileContent) as string;
+  const filePath = (this.filePath ?? sharedCtx.filePath) as string;
   assert.ok(
-    this.fileContent.includes(expected),
-    `Expected "${this.filePath}" to contain "${expected}"`,
+    content.includes(expected),
+    `Expected "${filePath}" to contain "${expected}"`,
   );
 });
 
 Then('the file does not contain {string}', function (this: Record<string, string>, unexpected: string) {
+  const content = (this.fileContent ?? sharedCtx.fileContent) as string;
+  const filePath = (this.filePath ?? sharedCtx.filePath) as string;
   assert.ok(
-    !this.fileContent.includes(unexpected),
-    `Expected "${this.filePath}" not to contain "${unexpected}"`,
+    !content.includes(unexpected),
+    `Expected "${filePath}" not to contain "${unexpected}"`,
   );
 });
 
 Then('no occurrence of {string} is found', function (this: Record<string, string>, unexpected: string) {
+  const content = (this.fileContent ?? sharedCtx.fileContent) as string;
+  const filePath = (this.filePath ?? sharedCtx.filePath) as string;
   assert.ok(
-    !this.fileContent.includes(unexpected),
-    `Expected no occurrence of "${unexpected}" in "${this.filePath}"`,
+    !content.includes(unexpected),
+    `Expected no occurrence of "${unexpected}" in "${filePath}"`,
   );
 });
 

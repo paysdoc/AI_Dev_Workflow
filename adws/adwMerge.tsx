@@ -17,7 +17,7 @@
  * Does NOT use initializeWorkflow() — reads state directly, no worktree setup at startup.
  */
 
-import { acquireIssueSpawnLock, releaseIssueSpawnLock } from './triggers/spawnGate';
+import { runWithRawOrchestratorLifecycle } from './phases/orchestratorLock';
 import {
   parseTargetRepoArgs,
   parseOrchestratorArguments,
@@ -221,18 +221,17 @@ async function main(): Promise<void> {
   const repoId = buildRepoIdentifier(targetRepo);
   const repoInfo: RepoInfo = { owner: repoId.owner, repo: repoId.repo };
 
-  if (!acquireIssueSpawnLock(repoInfo, issueNumber, process.pid)) {
+  let result: Awaited<ReturnType<typeof executeMerge>> | undefined;
+  const acquired = await runWithRawOrchestratorLifecycle(repoInfo, issueNumber, adwId, async () => {
+    result = await executeMerge(issueNumber, adwId, repoInfo, buildDefaultDeps());
+  });
+  if (!acquired) {
     log(`Issue #${issueNumber}: spawn lock already held by another orchestrator; exiting.`, 'warn');
     process.exit(0);
   }
-
-  let result: Awaited<ReturnType<typeof executeMerge>>;
-  try {
-    result = await executeMerge(issueNumber, adwId, repoInfo, buildDefaultDeps());
-  } finally {
-    releaseIssueSpawnLock(repoInfo, issueNumber);
+  if (!result) {
+    process.exit(1);
   }
-
   process.exit(result.outcome === 'abandoned' && result.reason === 'merge_failed' ? 1 : 0);
 }
 
