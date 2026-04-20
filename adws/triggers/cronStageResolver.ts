@@ -72,7 +72,10 @@ export function isActiveStage(stage: string): boolean {
 
 /**
  * Returns true if the given workflowStage means the issue is re-eligible for processing.
- * Only 'abandoned' is retriable — the state file equivalent of the old error/failed stages.
+ * Only 'abandoned' is retriable — transient crash/exit that should be retried.
+ * 'discarded' is NOT retriable: it signals a deliberate terminal decision (e.g. PR closed,
+ * merge failed after all retries). Adding 'discarded' here would re-introduce the
+ * loop-forever behaviour the discarded stage exists to prevent.
  */
 export function isRetriableStage(stage: string): boolean {
   return stage === 'abandoned';

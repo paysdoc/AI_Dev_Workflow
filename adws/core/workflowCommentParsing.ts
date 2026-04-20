@@ -50,6 +50,7 @@ const STAGE_HEADER_MAP: Record<string, WorkflowStage> = {
   ':link: Pull Request Created': 'pr_created',
   ':tada: ADW Workflow Completed': 'completed',
   ':x: ADW Workflow Error': 'error',
+  ':no_entry: ADW Workflow Discarded': 'discarded',
   ':pause_button: ADW Workflow Paused': 'paused',
   ':arrow_forward: ADW Workflow Resuming': 'resumed',
   ':warning: Token Limit Recovery': 'token_limit_recovery',

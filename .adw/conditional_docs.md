@@ -1,5 +1,13 @@
 # Conditional Documentation
 
+- app_docs/feature-nq7174-discarded-workflow-stage-foundation.md
+  - Conditions:
+    - When adding new `WorkflowStage` values and need to understand terminal vs. retriable stage semantics
+    - When working with `handleWorkflowDiscarded` or the `discarded` stage write path
+    - When troubleshooting issues that are still being re-spawned despite being intentionally terminated
+    - When implementing slice #2 reclassification of deliberate-terminal exit sites in `adwMerge.tsx` or `webhookHandlers.ts`
+    - When working with `cronIssueFilter.evaluateIssue` or `cronStageResolver.isRetriableStage`
+
 - app_docs/feature-djtyv4-remote-reconcile-module.md
   - Conditions:
     - When working with `deriveStageFromRemote`, `mapArtifactsToStage`, or `ReconcileDeps` in `adws/core/remoteReconcile.ts`

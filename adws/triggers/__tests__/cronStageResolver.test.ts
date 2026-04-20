@@ -129,6 +129,10 @@ describe('isActiveStage', () => {
     expect(isActiveStage('abandoned')).toBe(false);
   });
 
+  it('rejects "discarded"', () => {
+    expect(isActiveStage('discarded')).toBe(false);
+  });
+
   it('rejects unknown stages', () => {
     expect(isActiveStage('some_unknown_stage')).toBe(false);
   });
@@ -167,6 +171,10 @@ describe('isRetriableStage', () => {
 
   it('rejects "paused"', () => {
     expect(isRetriableStage('paused')).toBe(false);
+  });
+
+  it('rejects "discarded" (terminal, non-retriable — parity with completed)', () => {
+    expect(isRetriableStage('discarded')).toBe(false);
   });
 
   it('rejects unknown stages', () => {

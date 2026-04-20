@@ -700,7 +700,8 @@ app_docs/                         # Generated documentation
 - `planPhase.ts` - Planning phase implementation
 - `planValidationPhase.ts` - Plan validation phase implementation (compares plan against BDD scenarios)
 - `buildPhase.ts` - Build phase implementation
-- `testPhase.ts` - Testing phase implementation
+- `scenarioTestPhase.ts` - BDD scenario test phase (runs `@adw-{issueNumber}` and `@regression` scenarios)
+- `unitTestPhase.ts` - Unit test phase (opt-in; BDD scenarios moved to scenarioTestPhase)
 - `prPhase.ts` - PR creation phase implementation
 - `documentPhase.ts` - Documentation phase implementation
 - `prReviewPhase.ts` - PR review phase implementation
@@ -738,6 +739,7 @@ All orchestrators use shared CLI utilities from `core/orchestratorCli.ts` and co
 - `trigger_cron.ts` - Cron-based polling monitor
 - `trigger_webhook.ts` - Webhook-based event handler
 - `cronIssueFilter.ts` - Issue eligibility evaluation and cron action resolution (testable, extracted from trigger_cron)
+- `spawnGate.ts` - Per-issue spawn lock to prevent duplicate orchestrator launches
 - `webhookHandlers.ts` - Webhook event processing logic
 - `webhookSignature.ts` - GitHub webhook HMAC signature validation
 
