@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { runCommitAgent } from '../gitAgent';
+import { runCommitAgent, runGenerateBranchNameAgent, extractSlugFromOutput } from '../gitAgent';
 
 // Mock all imports that gitAgent depends on to avoid filesystem/network side effects
 vi.mock('../claudeAgent', () => ({
@@ -14,6 +14,20 @@ vi.mock('../../core', () => ({
     '/feature': 'feat:',
     '/bug': 'fix:',
     '/chore': 'chore:',
+  },
+  branchPrefixMap: {
+    '/feature': 'feature',
+    '/bug': 'bugfix',
+    '/chore': 'chore',
+    '/pr_review': 'review',
+    '/adw_init': 'adwinit',
+  },
+  branchPrefixAliases: {
+    '/feature': ['feat'],
+    '/bug': ['bug'],
+    '/chore': [],
+    '/pr_review': ['test'],
+    '/adw_init': ['adwinit'],
   },
 }));
 
@@ -103,5 +117,102 @@ describe('runCommitAgent — result.success guard', () => {
 
     await expect(runCommitAgent('review-agent', '/feature', '{}', '/tmp/logs'))
       .rejects.toThrow();
+  });
+});
+
+const mockIssue = {
+  number: 42,
+  title: 'Test issue',
+  body: 'Test body',
+  state: 'OPEN',
+  author: { login: 'test' },
+  labels: [],
+  comments: [],
+  createdAt: '2026-01-01T00:00:00Z',
+} as never;
+
+describe('extractSlugFromOutput', () => {
+  it('extracts a clean slug from plain output', () => {
+    expect(extractSlugFromOutput('add-user-auth')).toBe('add-user-auth');
+  });
+
+  it('strips trailing whitespace and newlines', () => {
+    expect(extractSlugFromOutput('  fix-login-error  \n')).toBe('fix-login-error');
+  });
+
+  it('strips backtick wrappers', () => {
+    expect(extractSlugFromOutput('`update-deps`')).toBe('update-deps');
+  });
+
+  it('uses the last non-empty line', () => {
+    expect(extractSlugFromOutput('some preamble\nadd-user-auth')).toBe('add-user-auth');
+  });
+
+  it('throws when the output is empty', () => {
+    expect(() => extractSlugFromOutput('')).toThrow();
+  });
+
+  it('throws when slug contains forbidden characters', () => {
+    expect(() => extractSlugFromOutput('Add User Auth')).toThrow();
+  });
+});
+
+describe('runGenerateBranchNameAgent — slug-only contract', () => {
+  it('assembles full branch name from a plain slug returned by the LLM', async () => {
+    mockRunAgent.mockResolvedValueOnce({
+      success: true,
+      output: 'add-user-auth',
+      ...baseAgentResult,
+    });
+
+    const result = await runGenerateBranchNameAgent('/feature', mockIssue, '/tmp/logs');
+    expect(result.branchName).toBe('feature-issue-42-add-user-auth');
+  });
+
+  it('rejects a drifted prefixed slug from the LLM', async () => {
+    mockRunAgent.mockResolvedValueOnce({
+      success: true,
+      output: 'feature-issue-42-add-user-auth',
+      ...baseAgentResult,
+    });
+
+    await expect(
+      runGenerateBranchNameAgent('/feature', mockIssue, '/tmp/logs')
+    ).rejects.toThrow();
+  });
+
+  it('rejects a slug with forbidden characters', async () => {
+    mockRunAgent.mockResolvedValueOnce({
+      success: true,
+      output: 'Add User Auth',
+      ...baseAgentResult,
+    });
+
+    await expect(
+      runGenerateBranchNameAgent('/feature', mockIssue, '/tmp/logs')
+    ).rejects.toThrow();
+  });
+
+  it('rejects an empty slug', async () => {
+    mockRunAgent.mockResolvedValueOnce({
+      success: true,
+      output: '',
+      ...baseAgentResult,
+    });
+
+    await expect(
+      runGenerateBranchNameAgent('/feature', mockIssue, '/tmp/logs')
+    ).rejects.toThrow();
+  });
+
+  it('assembles bugfix branch from a bug issue', async () => {
+    mockRunAgent.mockResolvedValueOnce({
+      success: true,
+      output: 'fix-login-error',
+      ...baseAgentResult,
+    });
+
+    const result = await runGenerateBranchNameAgent('/bug', mockIssue, '/tmp/logs');
+    expect(result.branchName).toBe('bugfix-issue-42-fix-login-error');
   });
 });

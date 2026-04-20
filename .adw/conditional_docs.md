@@ -8,6 +8,14 @@
     - When implementing slice #2 reclassification of deliberate-terminal exit sites in `adwMerge.tsx` or `webhookHandlers.ts`
     - When working with `cronIssueFilter.evaluateIssue` or `cronStageResolver.isRetriableStage`
 
+- app_docs/feature-djtyv4-remote-reconcile-module.md
+  - Conditions:
+    - When working with `deriveStageFromRemote`, `mapArtifactsToStage`, or `ReconcileDeps` in `adws/core/remoteReconcile.ts`
+    - When implementing or troubleshooting stage reconciliation between local state files and remote GitHub artifacts
+    - When wiring `deriveStageFromRemote` into `takeoverHandler` (slice #11 per orchestrator-coordination-resilience PRD)
+    - When investigating GitHub API read-your-write lag affecting WorkflowStage derivation
+    - When working with the `'discarded'` WorkflowStage literal or the `defaultFindPRByBranch`/`RawPR` shared helpers in `adws/github/prApi.ts`
+
 - app_docs/feature-elre2t-fix-board-column-order-ids.md
   - Conditions:
     - When working with `ensureColumns`, `mergeStatusOptions`, or `updateStatusFieldOptions` in `githubBoardManager.ts`
@@ -15,6 +23,14 @@
     - When investigating column ordering bugs (new columns appearing to the right of Done instead of in canonical position)
     - When extending the board column merge logic or adding new ADW columns to `BOARD_COLUMNS`
     - When writing or updating unit tests for `mergeStatusOptions` (ordering and ID-preservation contracts)
+
+- app_docs/feature-xlv8zk-process-liveness-module.md
+  - Conditions:
+    - When working with `isProcessLive`, `getProcessStartTime`, or `processLiveness.ts`
+    - When implementing or debugging PID-reuse-safe liveness checks in ADW
+    - When working with `spawnGate.ts` spawn lock acquisition or stale-lock reclaim logic
+    - When `isAgentProcessRunning` or `AgentState.pidStartedAt` is relevant
+    - When migrating remaining `isProcessAlive` call sites to the new `processLiveness` module
 
 - app_docs/feature-0cv18u-fix-cross-trigger-spawn-dedup.md
   - Conditions:
@@ -973,3 +989,19 @@
     - When modifying the pause-queue resume path, spawn options, or side-effect ordering
     - When inspecting `agents/paused_queue_logs/{adwId}.resume.log` to diagnose a stranded workflow
     - When the `probeFailures` escalation path or `MAX_UNKNOWN_PROBE_FAILURES` abandonment logic is relevant to resume failures
+
+- app_docs/feature-7dp24s-deterministic-branch-name-assembly.md
+  - Conditions:
+    - When working with `generateBranchName()` or `validateSlug()` in `adws/vcs/branchOperations.ts`
+    - When modifying `runGenerateBranchNameAgent()` or `extractSlugFromOutput()` in `adws/agents/gitAgent.ts`
+    - When updating the `/generate_branch_name` LLM prompt or its expected output shape
+    - When troubleshooting ghost branches or mismatched branch names between state files and on-disk worktrees
+    - When adding a new branch prefix type and need to understand the assembly contract
+
+- app_docs/feature-eantbn-orchestrator-resilie-worktree-reset-module.md
+  - Conditions:
+    - When working with `adws/vcs/worktreeReset.ts` or `resetWorktreeToRemote()`
+    - When implementing the takeover handler (PRD slice #11) that calls `resetWorktreeToRemote` before resuming a dead orchestrator's work
+    - When troubleshooting mid-merge, mid-rebase, or dirty-worktree state left by a crashed orchestrator
+    - When adding worktree reset logic that must handle linked worktrees (git-dir indirection via `rev-parse --git-dir`)
+    - When writing unit tests for VCS functions that mix `execSync` and `fs` calls (follow the `worktreeReset.test.ts` mocking pattern)

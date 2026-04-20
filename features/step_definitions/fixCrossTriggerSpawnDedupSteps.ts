@@ -4,6 +4,7 @@ import { join, dirname } from 'path';
 import assert from 'assert';
 import { sharedCtx } from './commonSteps.ts';
 import { acquireIssueSpawnLock, releaseIssueSpawnLock, getSpawnLockFilePath } from '../../adws/triggers/spawnGate.ts';
+import { getProcessStartTime } from '../../adws/core/processLiveness.ts';
 import type { RepoInfo } from '../../adws/github/githubApi.ts';
 
 const ROOT = process.cwd();
@@ -19,7 +20,7 @@ interface SpawnGateCtx {
   writtenLockFiles: string[];
 }
 
-const ctx: SpawnGateCtx = {
+export const ctx: SpawnGateCtx = {
   repo: null,
   issueNumber: 0,
   acquireResult: null,
@@ -75,7 +76,13 @@ Given('a lock file already exists for repo {string} and issue {int}', function (
   ctx.issueNumber = issueNum;
   const lockPath = getSpawnLockFilePath(repo, issueNum);
   mkdirSync(dirname(lockPath), { recursive: true });
-  const record = { pid: process.pid, repoKey: repoName, issueNumber: issueNum, startedAt: new Date().toISOString() };
+  const record = {
+    pid: process.pid,
+    pidStartedAt: getProcessStartTime(process.pid) ?? '',
+    repoKey: repoName,
+    issueNumber: issueNum,
+    startedAt: new Date().toISOString(),
+  };
   writeFileSync(lockPath, JSON.stringify(record, null, 2), 'utf-8');
   ctx.writtenLockFiles.push(lockPath);
 });

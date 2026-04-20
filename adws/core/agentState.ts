@@ -14,12 +14,12 @@ import * as path from 'path';
 import { AGENTS_STATE_DIR } from './config';
 import { AgentIdentifier, AgentState, PhaseExecutionState } from '../types/agentTypes';
 import {
-  isProcessAlive as _isProcessAlive,
   createExecutionState as _createExecutionState,
   completeExecution as _completeExecution,
   findOrchestratorStatePath as _findOrchestratorStatePath,
   isAgentProcessRunning as _isAgentProcessRunning,
 } from './stateHelpers';
+import { getProcessStartTime, isProcessLive } from './processLiveness';
 
 /**
  * State file names used by the state manager.
@@ -305,12 +305,13 @@ export class AgentStateManager {
     fs.writeFileSync(filePath, JSON.stringify(merged, null, 2), 'utf-8');
   }
 
-  // Delegate to standalone functions from stateHelpers.ts
-  static isProcessAlive = _isProcessAlive;
+  // Delegate to standalone functions from stateHelpers.ts and processLiveness.ts
   static createExecutionState = _createExecutionState;
   static completeExecution = _completeExecution;
   static findOrchestratorStatePath = _findOrchestratorStatePath;
   static isAgentProcessRunning = _isAgentProcessRunning;
+  static getProcessStartTime = getProcessStartTime;
+  static isProcessLive = isProcessLive;
 }
 
 // Export utility functions for convenience
@@ -320,4 +321,5 @@ export const readAgentState = AgentStateManager.readState;
 export const appendAgentLog = AgentStateManager.appendLog;
 export const writeAgentRawOutput = AgentStateManager.writeRawOutput;
 export const readParentAgentState = AgentStateManager.readParentState;
-export { isProcessAlive, findOrchestratorStatePath, isAgentProcessRunning } from './stateHelpers';
+export { findOrchestratorStatePath, isAgentProcessRunning } from './stateHelpers';
+export { getProcessStartTime, isProcessLive } from './processLiveness';
