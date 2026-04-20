@@ -118,3 +118,6 @@ export const MAX_UNKNOWN_PROBE_FAILURES = parseInt(process.env.MAX_UNKNOWN_PROBE
 
 /** Number of cron poll cycles between janitor passes (default: 15 ≈ 5 min at 20s poll). */
 export const JANITOR_INTERVAL_CYCLES = parseInt(process.env.JANITOR_INTERVAL_CYCLES || '15', 10);
+
+/** Number of cron poll cycles between hung-orchestrator detector passes (default: 5 ≈ 100s at 20s poll). */
+export const HUNG_DETECTOR_INTERVAL_CYCLES = parseInt(process.env.HUNG_DETECTOR_INTERVAL_CYCLES || '5', 10);
