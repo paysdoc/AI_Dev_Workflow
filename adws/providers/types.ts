@@ -90,9 +90,9 @@ export interface BoardColumnDefinition {
 export const BOARD_COLUMNS: readonly BoardColumnDefinition[] = [
   { order: 1, status: BoardStatus.Blocked, color: 'RED', description: 'This item cannot be completed' },
   { order: 2, status: BoardStatus.Todo, color: 'GRAY', description: "This item hasn't been started" },
-  { order: 3, status: BoardStatus.InProgress, color: 'GREEN', description: 'This is actively being worked on' },
-  { order: 4, status: BoardStatus.Review, color: 'YELLOW', description: 'This item is being peer reviewed' },
-  { order: 5, status: BoardStatus.Done, color: 'PURPLE', description: 'This has been completed' },
+  { order: 3, status: BoardStatus.InProgress, color: 'YELLOW', description: 'This is actively being worked on' },
+  { order: 4, status: BoardStatus.Review, color: 'PURPLE', description: 'This item is being peer reviewed' },
+  { order: 5, status: BoardStatus.Done, color: 'GREEN', description: 'This has been completed' },
 ] as const;
 
 /**
