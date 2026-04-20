@@ -27,6 +27,8 @@
  */
 
 import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId, AgentStateManager, log, MAX_TEST_RETRY_ATTEMPTS, MAX_REVIEW_RETRY_ATTEMPTS } from './core';
+import { startHeartbeat, stopHeartbeat, type HeartbeatHandle } from './core/heartbeat';
+import { HEARTBEAT_TICK_INTERVAL_MS } from './core/config';
 import { CostTracker, runPhase, runPhasesParallel } from './core/phaseRunner';
 import {
   initializeWorkflow,
@@ -76,8 +78,10 @@ async function main(): Promise<void> {
   }
 
   const tracker = new CostTracker();
+  let heartbeat: HeartbeatHandle | null = null;
 
   try {
+    heartbeat = startHeartbeat(config.adwId, HEARTBEAT_TICK_INTERVAL_MS);
     await runPhase(config, tracker, executeInstallPhase);
     await runPhasesParallel(config, tracker, [executePlanPhase, executeScenarioPhase]);
     await runPhase(config, tracker, executeAlignmentPhase);
@@ -154,6 +158,7 @@ async function main(): Promise<void> {
   } catch (error) {
     handleWorkflowError(config, error, tracker.totalCostUsd, tracker.totalModelUsage);
   } finally {
+    if (heartbeat !== null) stopHeartbeat(heartbeat);
     releaseOrchestratorLock(config);
   }
 }

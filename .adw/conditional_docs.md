@@ -1,5 +1,13 @@
 # Conditional Documentation
 
+- app_docs/feature-29w5wf-reclassify-abandoned-discarded-call-sites.md
+  - Conditions:
+    - When working with `adwMerge.tsx` exit paths and their `workflowStage` writes (`pr_closed`, `merge_failed`)
+    - When working with `handlePullRequestEvent` PR-closed state write in `webhookHandlers.ts`
+    - When troubleshooting issues that were operator-closed or merge-failed but are still being respawned
+    - When extending `handleIssueClosedEvent` dependency-cascade logic for new terminal stages
+    - When understanding the distinction between `MergeRunResult.outcome` (dispatcher label) and `workflowStage` (cron-sweeper classification)
+
 - app_docs/feature-nq7174-discarded-workflow-stage-foundation.md
   - Conditions:
     - When adding new `WorkflowStage` values and need to understand terminal vs. retriable stage semantics
@@ -1029,3 +1037,11 @@
     - When implementing the takeover handler that reads liveness fields to decide spawn strategy
     - When troubleshooting atomic write behavior in `writeTopLevelState` or a torn `state.json`
     - When writing or extending `adws/core/__tests__/topLevelState.test.ts` for partial-patch or forward-compatible read scenarios
+
+- app_docs/feature-zy5s32-heartbeat-module-tracer-integration.md
+  - Conditions:
+    - When working with `adws/core/heartbeat.ts`, `startHeartbeat`, `stopHeartbeat`, or `HeartbeatHandle`
+    - When implementing the hung-orchestrator detector that consumes `lastSeenAt` and `HEARTBEAT_STALE_THRESHOLD_MS`
+    - When wiring heartbeat lifecycle (start/stop) into additional orchestrators beyond `adwSdlc` (PRD slice #8)
+    - When troubleshooting `lastSeenAt` not updating in the state file while a workflow is running
+    - When modifying `HEARTBEAT_TICK_INTERVAL_MS` or `HEARTBEAT_STALE_THRESHOLD_MS` constants in `adws/core/config.ts`

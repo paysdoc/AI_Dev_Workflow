@@ -565,3 +565,27 @@ Then("the PR-closed path's existing behavior is preserved for slice #2", functio
     `Expected webhookHandlers to still use 'abandoned' (not yet reclassified to 'discarded')`,
   );
 });
+
+Then('the PR-closed path writes workflowStage {string}', function (stage: string) {
+  const content: string = this.fileContent ?? sharedCtx.fileContent;
+  const fnIdx = content.indexOf('async function handlePullRequestEvent');
+  assert.ok(fnIdx !== -1, `Expected webhookHandlers to define handlePullRequestEvent`);
+  const nextFnIdx = content.indexOf('export async function handleIssueClosedEvent', fnIdx);
+  const fnBody = nextFnIdx !== -1 ? content.slice(fnIdx, nextFnIdx) : content.slice(fnIdx, fnIdx + 2000);
+  assert.ok(
+    fnBody.includes(`workflowStage: '${stage}'`) || fnBody.includes(`workflowStage: "${stage}"`),
+    `Expected handlePullRequestEvent PR-closed path to write workflowStage "${stage}"`,
+  );
+});
+
+Then('the PR-closed path does not write workflowStage {string}', function (stage: string) {
+  const content: string = this.fileContent ?? sharedCtx.fileContent;
+  const fnIdx = content.indexOf('async function handlePullRequestEvent');
+  assert.ok(fnIdx !== -1, `Expected webhookHandlers to define handlePullRequestEvent`);
+  const nextFnIdx = content.indexOf('export async function handleIssueClosedEvent', fnIdx);
+  const fnBody = nextFnIdx !== -1 ? content.slice(fnIdx, nextFnIdx) : content.slice(fnIdx, fnIdx + 2000);
+  assert.ok(
+    !fnBody.includes(`workflowStage: '${stage}'`) && !fnBody.includes(`workflowStage: "${stage}"`),
+    `Expected handlePullRequestEvent PR-closed path NOT to write workflowStage "${stage}"`,
+  );
+});
