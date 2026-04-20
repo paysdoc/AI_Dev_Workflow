@@ -1054,6 +1054,14 @@
     - When troubleshooting `lastSeenAt` not updating in the state file while a workflow is running
     - When modifying `HEARTBEAT_TICK_INTERVAL_MS` or `HEARTBEAT_STALE_THRESHOLD_MS` constants in `adws/core/config.ts`
 
+- app_docs/feature-bzlaaq-resume-verify-canonical-claim.md
+  - Conditions:
+    - When working with `resumeWorkflow()` in `adws/triggers/pauseQueueScanner.ts` or the pause-queue resume path
+    - When troubleshooting a paused workflow that aborts on resume with "canonical claim diverged" or "spawn lock held" log lines
+    - When implementing or modifying the per-issue spawn lock (spawnGate) interaction in the pause-queue scanner
+    - When a paused workflow's `agents/{adwId}/state.json` has been manually edited or replaced and the scanner stops retrying
+    - When understanding the asymmetric abort behavior: lock-held leaves the queue entry, claim-diverged removes it and posts an error comment
+
 - app_docs/feature-xruqv8-hung-orchestrator-detector.md
   - Conditions:
     - When working with `adws/core/hungOrchestratorDetector.ts`, `findHungOrchestrators`, or `HungDetectorDeps`

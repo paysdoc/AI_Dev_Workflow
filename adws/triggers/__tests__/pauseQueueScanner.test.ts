@@ -52,14 +52,28 @@ vi.mock('../../providers/types', () => ({
   Platform: { GitHub: 'github' },
 }));
 
+vi.mock('../spawnGate', () => ({
+  acquireIssueSpawnLock: vi.fn(() => true),
+  releaseIssueSpawnLock: vi.fn(),
+}));
+
+vi.mock('../../core/agentState', () => ({
+  AgentStateManager: {
+    readTopLevelState: vi.fn(),
+  },
+}));
+
 // ── Imports (after mocks) ────────────────────────────────────────────────────
 
 import * as childProcess from 'child_process';
 import * as fs from 'fs';
 import { removeFromPauseQueue, updatePauseQueueEntry } from '../../core/pauseQueue';
 import { postIssueStageComment } from '../../phases/phaseCommentHelpers';
+import { acquireIssueSpawnLock, releaseIssueSpawnLock } from '../spawnGate';
+import { AgentStateManager } from '../../core/agentState';
 import { resumeWorkflow } from '../pauseQueueScanner';
 import type { PausedWorkflow } from '../../core/pauseQueue';
+import type { AgentState } from '../../types/agentTypes';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -99,6 +113,11 @@ describe('resumeWorkflow', () => {
     // Default: worktree exists
     vi.mocked(fs.existsSync).mockReturnValue(true);
     vi.mocked(fs.openSync).mockReturnValue(42 as unknown as ReturnType<typeof fs.openSync>);
+    // Default: canonical claim passes (lock free, state matches default makeEntry adwId)
+    vi.mocked(acquireIssueSpawnLock).mockReturnValue(true);
+    vi.mocked(AgentStateManager.readTopLevelState).mockReturnValue({
+      adwId: 'test-adw-123',
+    } as unknown as AgentState);
   });
 
   afterEach(() => {
@@ -189,5 +208,91 @@ describe('resumeWorkflow', () => {
       expect.objectContaining({ adwId: entry.adwId }),
     );
     expect(child.unref).toHaveBeenCalledOnce();
+  });
+
+  // ── Canonical-claim verification ───────────────────────────────────────────
+
+  it('resume with matching claim proceeds to spawn and commits side-effects', async () => {
+    vi.mocked(acquireIssueSpawnLock).mockReturnValue(true);
+    vi.mocked(AgentStateManager.readTopLevelState).mockReturnValue({
+      adwId: 'test-adw-123',
+    } as unknown as AgentState);
+    const child = makeFakeChild();
+    vi.mocked(childProcess.spawn).mockReturnValue(child as unknown as ReturnType<typeof childProcess.spawn>);
+
+    const entry = makeEntry({ adwId: 'test-adw-123' });
+    const promise = resumeWorkflow(entry);
+    await vi.runAllTimersAsync();
+    await promise;
+
+    expect(acquireIssueSpawnLock).toHaveBeenCalledWith(
+      expect.objectContaining({ owner: 'test-owner', repo: 'test-repo' }),
+      entry.issueNumber,
+      process.pid,
+    );
+    expect(releaseIssueSpawnLock).toHaveBeenCalledOnce();
+    expect(childProcess.spawn).toHaveBeenCalledOnce();
+    expect(removeFromPauseQueue).toHaveBeenCalledWith(entry.adwId);
+    expect(postIssueStageComment).toHaveBeenCalledWith(
+      expect.anything(),
+      entry.issueNumber,
+      'resumed',
+      expect.objectContaining({ adwId: entry.adwId }),
+    );
+  });
+
+  it('aborts when top-level state adwId diverges from the entry adwId', async () => {
+    vi.mocked(acquireIssueSpawnLock).mockReturnValue(true);
+    vi.mocked(AgentStateManager.readTopLevelState).mockReturnValue({
+      adwId: 'someone-else-adw',
+    } as unknown as AgentState);
+
+    const entry = makeEntry({ adwId: 'test-adw-123' });
+    await resumeWorkflow(entry);
+
+    expect(childProcess.spawn).not.toHaveBeenCalled();
+    expect(releaseIssueSpawnLock).toHaveBeenCalledOnce();
+    expect(removeFromPauseQueue).toHaveBeenCalledWith(entry.adwId);
+    expect(postIssueStageComment).toHaveBeenCalledWith(
+      expect.anything(),
+      entry.issueNumber,
+      'error',
+      expect.objectContaining({
+        errorMessage: expect.stringContaining('canonical claim diverged'),
+      }),
+    );
+  });
+
+  it('aborts when top-level state file is missing', async () => {
+    vi.mocked(acquireIssueSpawnLock).mockReturnValue(true);
+    vi.mocked(AgentStateManager.readTopLevelState).mockReturnValue(null);
+
+    const entry = makeEntry({ adwId: 'test-adw-123' });
+    await resumeWorkflow(entry);
+
+    expect(childProcess.spawn).not.toHaveBeenCalled();
+    expect(releaseIssueSpawnLock).toHaveBeenCalledOnce();
+    expect(removeFromPauseQueue).toHaveBeenCalledWith(entry.adwId);
+    expect(postIssueStageComment).toHaveBeenCalledWith(
+      expect.anything(),
+      entry.issueNumber,
+      'error',
+      expect.objectContaining({
+        errorMessage: expect.stringContaining('missing state file'),
+      }),
+    );
+  });
+
+  it('aborts when spawn lock is already held by another live process', async () => {
+    vi.mocked(acquireIssueSpawnLock).mockReturnValue(false);
+
+    const entry = makeEntry();
+    await resumeWorkflow(entry);
+
+    expect(childProcess.spawn).not.toHaveBeenCalled();
+    expect(AgentStateManager.readTopLevelState).not.toHaveBeenCalled();
+    expect(releaseIssueSpawnLock).not.toHaveBeenCalled();
+    expect(removeFromPauseQueue).not.toHaveBeenCalled();
+    expect(postIssueStageComment).not.toHaveBeenCalled();
   });
 });
