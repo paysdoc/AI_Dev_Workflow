@@ -447,7 +447,6 @@ adws/                   # ADW workflow system
 │   ├── cronIssueFilter.ts  # Cron issue evaluation and filtering logic (testable, extracted from trigger_cron)
 │   ├── devServerJanitor.ts  # Janitor probe that kills stale dev server processes in target repo worktrees
 │   ├── cronProcessGuard.ts  # Duplicate cron process prevention
-│   ├── spawnGate.ts         # Per-issue spawn lock to prevent duplicate orchestrator launches
 │   ├── cronRepoResolver.ts  # Cron repo identity resolution (testable, extracted from trigger_cron)
 │   ├── cronStageResolver.ts  # Cron stage resolution from top-level state file (testable)
 │   ├── issueDependencies.ts
