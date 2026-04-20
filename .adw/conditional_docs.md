@@ -1,5 +1,13 @@
 # Conditional Documentation
 
+- app_docs/feature-djtyv4-remote-reconcile-module.md
+  - Conditions:
+    - When working with `deriveStageFromRemote`, `mapArtifactsToStage`, or `ReconcileDeps` in `adws/core/remoteReconcile.ts`
+    - When implementing or troubleshooting stage reconciliation between local state files and remote GitHub artifacts
+    - When wiring `deriveStageFromRemote` into `takeoverHandler` (slice #11 per orchestrator-coordination-resilience PRD)
+    - When investigating GitHub API read-your-write lag affecting WorkflowStage derivation
+    - When working with the `'discarded'` WorkflowStage literal or the `defaultFindPRByBranch`/`RawPR` shared helpers in `adws/github/prApi.ts`
+
 - app_docs/feature-elre2t-fix-board-column-order-ids.md
   - Conditions:
     - When working with `ensureColumns`, `mergeStatusOptions`, or `updateStatusFieldOptions` in `githubBoardManager.ts`

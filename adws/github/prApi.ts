@@ -5,6 +5,31 @@
 import { execWithRetry } from '../core';
 import { PRDetails, PRReviewComment, PRListItem, log } from '../core';
 import { type RepoInfo } from './githubApi';
+
+/** Shape of a PR entry returned by `gh pr list --json ...` */
+export interface RawPR {
+  readonly number: number;
+  readonly state: string;
+  readonly headRefName: string;
+  readonly baseRefName: string;
+}
+
+/**
+ * Looks up the PR for a branch via the GitHub CLI (open or recently closed/merged).
+ * Returns the first result or null if none found or on error.
+ */
+export function defaultFindPRByBranch(branchName: string, repoInfo: RepoInfo): RawPR | null {
+  const { owner, repo } = repoInfo;
+  try {
+    const json = execWithRetry(
+      `gh pr list --repo ${owner}/${repo} --head "${branchName}" --state all --json number,state,headRefName,baseRefName --limit 5`,
+    );
+    const prs = JSON.parse(json) as RawPR[];
+    return prs.length > 0 ? prs[0] : null;
+  } catch {
+    return null;
+  }
+}
 import { extractIssueNumberFromBranch } from '../triggers/webhookHandlers';
 import { GITHUB_PAT } from '../core/environment';
 import { isGitHubAppConfigured } from './githubAppAuth';
