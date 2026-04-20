@@ -323,6 +323,48 @@ describe('evaluateIssue — cancelledThisCycle', () => {
   });
 });
 
+// ── evaluateIssue — discarded skip-terminal ──────────────────────────────────
+
+describe('evaluateIssue — discarded skip-terminal', () => {
+  it('returns ineligible with reason=discarded when stage is discarded', () => {
+    const issue = makeIssue({ number: 60 });
+    const resolve = (): StageResolution =>
+      makeResolution({ stage: 'discarded', adwId: 'abc' });
+
+    const result = evaluateIssue(issue, Date.now(), noProcessed(), GRACE, resolve);
+
+    expect(result.eligible).toBe(false);
+    expect(result.reason).toBe('discarded');
+    expect(result.action).toBeUndefined();
+  });
+
+  it('discarded check takes precedence over grace period', () => {
+    const recentMs = Date.now() - 1_000;
+    const issue = makeIssue({
+      number: 61,
+      updatedAt: new Date(recentMs).toISOString(),
+    });
+    const resolve = (): StageResolution =>
+      makeResolution({ stage: 'discarded', adwId: 'xyz', lastActivityMs: recentMs });
+
+    const result = evaluateIssue(issue, Date.now(), noProcessed(), GRACE, resolve);
+
+    expect(result.eligible).toBe(false);
+    expect(result.reason).toBe('discarded');
+  });
+
+  it('filterEligibleIssues annotates discarded issues with reason=discarded', () => {
+    const issue = makeIssue({ number: 62 });
+    const resolve = (): StageResolution => makeResolution({ stage: 'discarded', adwId: 'abc' });
+
+    const { eligible, filteredAnnotations } =
+      filterEligibleIssues([issue], Date.now(), noProcessed(), GRACE, resolve);
+
+    expect(eligible).toHaveLength(0);
+    expect(filteredAnnotations).toContain('#62(discarded)');
+  });
+});
+
 // ── filterEligibleIssues — cancelledThisCycle annotation ────────────────────
 
 describe('filterEligibleIssues — cancelledThisCycle annotation', () => {

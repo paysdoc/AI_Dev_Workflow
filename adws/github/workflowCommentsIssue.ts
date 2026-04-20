@@ -162,6 +162,10 @@ function formatErrorComment(ctx: WorkflowContext): string {
   return `## :x: ADW Workflow Error\n\nAn error occurred during the automated development workflow.\n\n**Error:** ${ctx.errorMessage || 'Unknown error'}\n**ADW ID:** \`${ctx.adwId}\`\n\nPlease check the logs for more details.${costSection}${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
 }
 
+function formatDiscardedComment(ctx: WorkflowContext): string {
+  return `## :no_entry: ADW Workflow Discarded\n\nThis workflow ended with a terminal decision and will not be retried.\n\n**Reason:** ${ctx.errorMessage || 'Not specified'}\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+}
+
 function formatTokenLimitRecoveryComment(ctx: WorkflowContext): string {
   const continuationNumber = ctx.tokenContinuationNumber ?? 1;
   const usage = ctx.tokenUsage;
@@ -334,6 +338,7 @@ export function formatWorkflowComment(stage: WorkflowStage, ctx: WorkflowContext
     case 'pr_created': return formatPrCreatedComment(ctx);
     case 'completed': return formatCompletedComment(ctx);
     case 'error': return formatErrorComment(ctx);
+    case 'discarded': return formatDiscardedComment(ctx);
     case 'token_limit_recovery': return formatTokenLimitRecoveryComment(ctx);
     case 'compaction_recovery': return formatCompactionRecoveryComment(ctx);
     case 'test_compaction_recovery': return formatTestCompactionRecoveryComment(ctx);

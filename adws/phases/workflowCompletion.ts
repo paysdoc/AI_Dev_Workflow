@@ -168,3 +168,40 @@ export function handleWorkflowError(
   log(`${orchestratorName} workflow failed: ${error}`, 'error');
   process.exit(1);
 }
+
+/**
+ * Handles deliberate terminal workflow exits (e.g. PR closed by operator, merge failed after
+ * all retries). Writes 'discarded' stage, posts a terminal comment, and exits 0.
+ * Unlike handleWorkflowError (which writes 'abandoned' and exits 1), a discard is a clean,
+ * intentional terminal decision — not a crash — so the exit code is 0.
+ */
+export function handleWorkflowDiscarded(
+  config: WorkflowConfig,
+  reason: string,
+  costUsd?: number,
+  modelUsage?: ModelUsageMap,
+): never {
+  const { orchestratorStatePath, orchestratorName, issueNumber, ctx, repoContext } = config;
+
+  if (costUsd !== undefined && modelUsage) {
+    persistTokenCounts(orchestratorStatePath, costUsd, modelUsage);
+  }
+
+  ctx.errorMessage = reason;
+  if (repoContext) {
+    postIssueStageComment(repoContext, issueNumber, 'discarded', ctx);
+    repoContext.issueTracker.moveToStatus(issueNumber, BoardStatus.Blocked).catch(() => {});
+  }
+
+  AgentStateManager.writeState(orchestratorStatePath, {
+    execution: AgentStateManager.completeExecution(
+      AgentStateManager.createExecutionState('running'),
+      true,
+    ),
+  });
+  AgentStateManager.writeTopLevelState(config.adwId, { workflowStage: 'discarded' });
+  AgentStateManager.appendLog(orchestratorStatePath, `${orchestratorName} workflow discarded: ${reason}`);
+
+  log(`${orchestratorName} workflow discarded: ${reason}`, 'warn');
+  process.exit(0);
+}
