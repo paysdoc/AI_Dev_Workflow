@@ -40,13 +40,13 @@ Feature: processLiveness deep module authoritatively resolves PID-plus-start-tim
   @adw-456
   Scenario: getProcessStartTime accepts a pid and returns a start-time string or null
     Given "adws/core/processLiveness.ts" is read
-    Then "getProcessStartTime" is declared with a single "pid: number" parameter
+    Then "getProcessStartTime" accepts "pid: number" as its required parameter
     And "getProcessStartTime" returns "string | null"
 
   @adw-456
   Scenario: isProcessLive accepts pid plus recordedStartTime and returns a boolean
     Given "adws/core/processLiveness.ts" is read
-    Then "isProcessLive" is declared with parameters "pid: number" and "recordedStartTime: string"
+    Then "isProcessLive" accepts "pid: number" and "recordedStartTime: string" as its required parameters
     And "isProcessLive" returns "boolean"
 
   # ═══════════════════════════════════════════════════════════════════════════
