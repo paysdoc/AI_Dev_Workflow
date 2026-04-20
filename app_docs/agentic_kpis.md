@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 140              | 2026-04-21 00:01:15 |
-| Longest Streak    | 139              | 2026-04-21 00:01:15 |
-| Total Plan Size   | 1749 lines       | 2026-04-21 00:01:15 |
-| Largest Plan Size | 408 lines        | 2026-04-21 00:01:15 |
-| Total Diff Size   | 2398082 lines    | 2026-04-21 00:01:15 |
-| Largest Diff Size | 418153 lines     | 2026-04-21 00:01:15 |
-| Average Presence  | 1.21             | 2026-04-21 00:01:15 |
+| Current Streak    | 141              | 2026-04-21 00:10:02 |
+| Longest Streak    | 141              | 2026-04-21 00:10:02 |
+| Total Plan Size   | 1084547 lines    | 2026-04-21 00:10:02 |
+| Largest Plan Size | 416737 lines     | 2026-04-21 00:10:02 |
+| Total Diff Size   | 2412140 lines    | 2026-04-21 00:10:02 |
+| Largest Diff Size | 418153 lines     | 2026-04-21 00:10:02 |
+| Average Presence  | 1.16             | 2026-04-21 00:10:02 |
 
 ## ADW KPIs
 
@@ -147,3 +147,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-04-20 | yxo18t-orchestrator-resilie | 463          | /feature    | 1        | 0                 | 9882/229/85                     | 2026-04-20 15:58:24 | 2026-04-20 15:58:24 |
 | 2026-04-20 | xruqv8-orchestrator-resilie | 465          | /feature    | 1        | 0                 | 13207/255/93                    | 2026-04-20 23:54:34 | 2026-04-20 23:54:34 |
 | 2026-04-21 | 6wnymj-orchestrator-resilie | 464          | /feature    | 1        | 0                 | 14169/652/106                   | 2026-04-21 00:01:15 | 2026-04-21 00:01:15 |
+| 2026-04-21 | bzlaaq-orchestrator-resilie | 466          | /feature    | 1        | 0                 | 13807/251/106                   | 2026-04-21 00:10:02 | 2026-04-21 00:10:02 |
