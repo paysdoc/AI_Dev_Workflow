@@ -19,7 +19,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId } from './core';
+import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId, log } from './core';
 import { CostTracker, runPhase } from './core/phaseRunner';
 import type { PhaseResult } from './core/phaseRunner';
 import type { ModelUsageMap } from './cost';
@@ -33,6 +33,7 @@ import {
 } from './workflowPhases';
 import type { WorkflowConfig } from './phases';
 import { runPatchAgent, getPlanFilePath, type ReviewIssue } from './agents';
+import { acquireOrchestratorLock, releaseOrchestratorLock } from './phases/orchestratorLock';
 
 /**
  * Executes the Patch planning phase: runs the /patch skill and writes output to the spec file.
@@ -95,6 +96,11 @@ async function main(): Promise<void> {
     cwd: cwd || undefined,
   });
 
+  if (!acquireOrchestratorLock(config)) {
+    log(`Issue #${issueNumber}: spawn lock already held by another orchestrator; exiting.`, 'warn');
+    process.exit(0);
+  }
+
   const tracker = new CostTracker();
 
   try {
@@ -106,6 +112,8 @@ async function main(): Promise<void> {
     await completeWorkflow(config, tracker.totalCostUsd, {}, tracker.totalModelUsage);
   } catch (error) {
     handleWorkflowError(config, error, tracker.totalCostUsd, tracker.totalModelUsage);
+  } finally {
+    releaseOrchestratorLock(config);
   }
 }
 

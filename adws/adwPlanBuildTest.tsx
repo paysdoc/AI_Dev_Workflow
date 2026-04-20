@@ -24,7 +24,7 @@
  * - MAX_TEST_RETRY_ATTEMPTS: Maximum retry attempts for tests (default: 5)
  */
 
-import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId, MAX_TEST_RETRY_ATTEMPTS } from './core';
+import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId, log, MAX_TEST_RETRY_ATTEMPTS } from './core';
 import { CostTracker, runPhase } from './core/phaseRunner';
 import {
   initializeWorkflow,
@@ -40,6 +40,7 @@ import {
   handleWorkflowError,
 } from './workflowPhases';
 import type { WorkflowConfig } from './phases';
+import { acquireOrchestratorLock, releaseOrchestratorLock } from './phases/orchestratorLock';
 
 /**
  * Main orchestrator workflow.
@@ -59,6 +60,11 @@ async function main(): Promise<void> {
     targetRepo: targetRepo || undefined,
     repoId,
   });
+
+  if (!acquireOrchestratorLock(config)) {
+    log(`Issue #${issueNumber}: spawn lock already held by another orchestrator; exiting.`, 'warn');
+    process.exit(0);
+  }
 
   const tracker = new CostTracker();
 
@@ -91,6 +97,8 @@ async function main(): Promise<void> {
     }, tracker.totalModelUsage);
   } catch (error) {
     handleWorkflowError(config, error, tracker.totalCostUsd, tracker.totalModelUsage);
+  } finally {
+    releaseOrchestratorLock(config);
   }
 }
 

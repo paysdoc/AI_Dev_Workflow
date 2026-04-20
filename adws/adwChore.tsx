@@ -47,6 +47,7 @@ import {
 } from './workflowPhases';
 import { persistTokenCounts } from './cost';
 import type { WorkflowConfig } from './phases';
+import { acquireOrchestratorLock, releaseOrchestratorLock } from './phases/orchestratorLock';
 
 /**
  * Posts an escalation comment on the issue when the diff evaluator detects
@@ -89,6 +90,11 @@ async function main(): Promise<void> {
     targetRepo: targetRepo || undefined,
     repoId,
   });
+
+  if (!acquireOrchestratorLock(config)) {
+    log(`Issue #${issueNumber}: spawn lock already held by another orchestrator; exiting.`, 'warn');
+    process.exit(0);
+  }
 
   const tracker = new CostTracker();
 
@@ -170,6 +176,8 @@ async function main(): Promise<void> {
     log('===================================', 'info');
   } catch (error) {
     handleWorkflowError(config, error, tracker.totalCostUsd, tracker.totalModelUsage);
+  } finally {
+    releaseOrchestratorLock(config);
   }
 }
 

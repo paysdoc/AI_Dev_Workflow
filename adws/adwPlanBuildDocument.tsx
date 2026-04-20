@@ -19,7 +19,7 @@
  * - GITHUB_PAT: (Optional) GitHub Personal Access Token
  */
 
-import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId } from './core';
+import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId, log } from './core';
 import { CostTracker, runPhase } from './core/phaseRunner';
 import {
   initializeWorkflow,
@@ -32,7 +32,7 @@ import {
   completeWorkflow,
   handleWorkflowError,
 } from './workflowPhases';
-
+import { acquireOrchestratorLock, releaseOrchestratorLock } from './phases/orchestratorLock';
 
 /**
  * Main orchestrator workflow.
@@ -53,6 +53,11 @@ async function main(): Promise<void> {
     repoId,
   });
 
+  if (!acquireOrchestratorLock(config)) {
+    log(`Issue #${issueNumber}: spawn lock already held by another orchestrator; exiting.`, 'warn');
+    process.exit(0);
+  }
+
   const tracker = new CostTracker();
 
   try {
@@ -69,6 +74,8 @@ async function main(): Promise<void> {
     }, tracker.totalModelUsage);
   } catch (error) {
     handleWorkflowError(config, error, tracker.totalCostUsd, tracker.totalModelUsage);
+  } finally {
+    releaseOrchestratorLock(config);
   }
 }
 

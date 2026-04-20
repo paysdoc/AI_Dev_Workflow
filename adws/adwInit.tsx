@@ -29,6 +29,7 @@ import {
   copyTargetSkillsAndCommands,
   executeDepauditSetup,
 } from './workflowPhases';
+import { acquireOrchestratorLock, releaseOrchestratorLock } from './phases/orchestratorLock';
 
 /**
  * Main ADW init workflow.
@@ -48,6 +49,11 @@ async function main(): Promise<void> {
     targetRepo: targetRepo || undefined,
     repoId,
   });
+
+  if (!acquireOrchestratorLock(config)) {
+    log(`Issue #${issueNumber}: spawn lock already held by another orchestrator; exiting.`, 'warn');
+    process.exit(0);
+  }
 
   let totalModelUsage: ModelUsageMap = emptyModelUsageMap();
   let totalCostUsd = 0;
@@ -112,6 +118,8 @@ async function main(): Promise<void> {
     await completeWorkflow(config, totalCostUsd, undefined, totalModelUsage);
   } catch (error) {
     handleWorkflowError(config, error, totalCostUsd, totalModelUsage);
+  } finally {
+    releaseOrchestratorLock(config);
   }
 }
 
