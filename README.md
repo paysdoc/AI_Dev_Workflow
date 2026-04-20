@@ -282,6 +282,7 @@ adws/                   # ADW workflow system
 │   │   ├── claudeStreamParser.test.ts
 │   │   ├── devServerLifecycle.test.ts
 │   │   ├── execWithRetry.test.ts
+│   │   ├── heartbeat.test.ts
 │   │   ├── phaseRunner.test.ts
 │   │   ├── processLiveness.test.ts
 │   │   ├── projectConfig.test.ts
@@ -293,6 +294,7 @@ adws/                   # ADW workflow system
 │   ├── config.ts
 │   ├── constants.ts    # Orchestrator ID constants
 │   ├── environment.ts  # Environment variable accessors
+│   ├── heartbeat.ts    # Heartbeat ticker — writes lastSeenAt to state file at fixed interval
 │   ├── index.ts
 │   ├── issueClassifier.ts
 │   ├── jsonParser.ts
@@ -310,8 +312,6 @@ adws/                   # ADW workflow system
 │   ├── stateHelpers.ts
 │   ├── targetRepoManager.ts
 │   ├── utils.ts
-│   ├── processLiveness.ts  # PID-reuse-safe process liveness checks
-│   ├── remoteReconcile.ts  # Stage derivation from remote GitHub artifacts
 │   ├── workflowCommentParsing.ts  # Comment parsing utilities
 │   ├── workflowMapping.ts  # Issue type → orchestrator mapping
 │   └── devServerLifecycle.ts  # Dev server spawn, health probe, and cleanup helpers
@@ -382,6 +382,7 @@ adws/                   # ADW workflow system
 │   ├── depauditSetup.ts  # depaudit setup and secret propagation (used by adw_init)
 │   ├── installPhase.ts # Install phase implementation
 │   ├── kpiPhase.ts     # KPI tracking phase
+│   ├── orchestratorLock.ts  # Spawn lock acquire/release helpers wrapping spawnGate primitives
 │   ├── phaseCommentHelpers.ts  # Shared phase comment utilities
 │   ├── planPhase.ts
 │   ├── planValidationPhase.ts  # Plan-scenario validation phase
@@ -440,6 +441,8 @@ adws/                   # ADW workflow system
 │   │   ├── devServerJanitor.test.ts
 │   │   ├── pauseQueueScanner.test.ts
 │   │   ├── spawnGate.test.ts
+│   │   ├── takeoverHandler.test.ts  # Unit tests for all takeoverHandler decision-tree branches
+│   │   ├── takeoverHandler.integration.test.ts  # Integration test for the abandoned takeover path
 │   │   ├── triggerCronAwaitingMerge.test.ts
 │   │   └── webhookHandlers.test.ts
 │   ├── autoMergeHandler.ts  # Auto-merge approved PRs
@@ -454,6 +457,7 @@ adws/                   # ADW workflow system
 │   ├── issueDependencies.ts
 │   ├── issueEligibility.ts
 │   ├── pauseQueueScanner.ts  # Cron probe for paused issue queue
+│   ├── takeoverHandler.ts  # Candidate decision tree: evaluateCandidate composes spawnGate, processLiveness, agentState, remoteReconcile, and worktreeReset
 │   ├── trigger_cron.ts
 │   ├── trigger_shutdown.ts  # Graceful shutdown handler
 │   ├── trigger_webhook.ts
