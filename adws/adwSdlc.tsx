@@ -51,6 +51,7 @@ import {
 } from './workflowPhases';
 import { persistTokenCounts } from './cost';
 import type { WorkflowConfig } from './phases';
+import { acquireOrchestratorLock, releaseOrchestratorLock } from './phases/orchestratorLock';
 
 /**
  * Main orchestrator workflow.
@@ -70,6 +71,11 @@ async function main(): Promise<void> {
     targetRepo: targetRepo || undefined,
     repoId,
   });
+
+  if (!acquireOrchestratorLock(config)) {
+    log(`Issue #${issueNumber}: spawn lock already held by another orchestrator; exiting.`, 'warn');
+    process.exit(0);
+  }
 
   const tracker = new CostTracker();
   let heartbeat: HeartbeatHandle | null = null;
@@ -153,6 +159,7 @@ async function main(): Promise<void> {
     handleWorkflowError(config, error, tracker.totalCostUsd, tracker.totalModelUsage);
   } finally {
     if (heartbeat !== null) stopHeartbeat(heartbeat);
+    releaseOrchestratorLock(config);
   }
 }
 

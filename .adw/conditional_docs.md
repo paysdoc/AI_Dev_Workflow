@@ -902,6 +902,14 @@
     - When troubleshooting cron filters incorrectly including or excluding issues (grace period, active, retriable, paused)
     - When implementing a new trigger that needs to read workflow stage from the state file
 
+- app_docs/feature-yxo18t-spawngate-lifetime-pid-liveness.md
+  - Conditions:
+    - When working with `acquireOrchestratorLock` or `releaseOrchestratorLock` in `adws/phases/orchestratorLock.ts`
+    - When adding a new orchestrator and need to wire the spawn lock for its full lifetime
+    - When troubleshooting contention between two orchestrators for the same issue (one exits 0 on acquire failure)
+    - When understanding why the lock file persists after a crash and how staleness reclaim works
+    - When working with `adwMerge.tsx` acquire/release wiring (uses raw spawnGate primitives, not the helper)
+
 - app_docs/feature-7fy9ry-simplify-webhook-handlers.md
   - Conditions:
     - When working with `handlePullRequestEvent()` or `handleIssueClosedEvent()` in `adws/triggers/webhookHandlers.ts`
