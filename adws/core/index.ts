@@ -154,6 +154,10 @@ export { CostTracker, runPhase, runPhasesSequential, runPhasesParallel } from '.
 export type { PausedWorkflow } from './pauseQueue';
 export { PAUSE_QUEUE_PATH, readPauseQueue, appendToPauseQueue, removeFromPauseQueue, updatePauseQueueEntry } from './pauseQueue';
 
+// Remote reconcile
+export { deriveStageFromRemote, mapArtifactsToStage, MAX_RECONCILE_VERIFICATION_RETRIES, buildDefaultReconcileDeps } from './remoteReconcile';
+export type { ReconcileDeps } from './remoteReconcile';
+
 // Workflow comment parsing (platform-agnostic)
 export {
   STAGE_ORDER,

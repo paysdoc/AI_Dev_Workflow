@@ -24,22 +24,13 @@ import {
   AgentStateManager,
   log,
   ensureLogsDirectory,
-  execWithRetry,
 } from './core';
 import { findOrchestratorStatePath } from './core/stateHelpers';
-import { commentOnIssue, commentOnPR, type RepoInfo } from './github';
+import { commentOnIssue, commentOnPR, defaultFindPRByBranch, type RawPR, type RepoInfo } from './github';
 import { mergeWithConflictResolution } from './triggers/autoMergeHandler';
 import { ensureWorktree } from './vcs';
 import { getPlanFilePath, planFileExists } from './agents';
 import type { AgentState } from './types/agentTypes';
-
-/** Shape of a PR entry returned by `gh pr list --json ...` */
-interface RawPR {
-  readonly number: number;
-  readonly state: string;
-  readonly headRefName: string;
-  readonly baseRefName: string;
-}
 
 /** Outcome of executeMerge. */
 export interface MergeRunResult {
@@ -61,23 +52,6 @@ export interface MergeDeps {
   readonly commentOnPR: typeof commentOnPR;
   readonly getPlanFilePath: typeof getPlanFilePath;
   readonly planFileExists: typeof planFileExists;
-}
-
-/**
- * Looks up the PR for a branch via the GitHub CLI (open or recently closed/merged).
- * Returns the first result or null if none found or on error.
- */
-export function defaultFindPRByBranch(branchName: string, repoInfo: RepoInfo): RawPR | null {
-  const { owner, repo } = repoInfo;
-  try {
-    const json = execWithRetry(
-      `gh pr list --repo ${owner}/${repo} --head "${branchName}" --state all --json number,state,headRefName,baseRefName --limit 5`,
-    );
-    const prs = JSON.parse(json) as RawPR[];
-    return prs.length > 0 ? prs[0] : null;
-  } catch {
-    return null;
-  }
 }
 
 /**

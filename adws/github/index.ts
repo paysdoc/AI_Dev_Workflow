@@ -26,6 +26,9 @@ export {
   type RepoInfo,
 } from './githubApi';
 
+// PR utilities (shared between adwMerge and remoteReconcile)
+export { defaultFindPRByBranch, type RawPR } from './prApi';
+
 // Project Board API
 export { moveIssueToStatus } from './projectBoardApi';
 

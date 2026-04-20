@@ -101,12 +101,23 @@ When(
   },
 );
 
-Then('it returns {string}', function (this: Record<string, string>, expectedModel: string) {
+Then('it returns {string}', function (this: Record<string, unknown>, expectedModel: string) {
+  // Branch-name assembly context (set by deterministicBranchNameAssemblySteps)
+  if (this.assemblyResult !== undefined || this.assemblyError !== undefined) {
+    const assemblyError = this.assemblyError as Error | undefined;
+    const assemblyResult = this.assemblyResult as string | undefined;
+    assert.ok(assemblyError === undefined, `Expected no error but got: ${assemblyError?.message}`);
+    assert.strictEqual(assemblyResult, expectedModel,
+      `Expected generateBranchName to return "${expectedModel}", got "${assemblyResult}"`);
+    return;
+  }
+
+  // Model config context (original logic)
   const mapName = (this.issueMode ?? (activeMap === 'fast' ? 'fast' : 'standard')) === 'fast'
     ? 'SLASH_COMMAND_MODEL_MAP_FAST'
     : 'SLASH_COMMAND_MODEL_MAP';
-  const command = this.command;
-  const content = this.fileContent ?? configContent;
+  const command = this.command as string;
+  const content = (this.fileContent as string) ?? configContent;
 
   const mapStart = content.indexOf(`export const ${mapName}`);
   assert.ok(mapStart !== -1, `Expected ${mapName} to be defined in config.ts`);

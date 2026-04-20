@@ -8,9 +8,8 @@
 // Branch operations
 export {
   getCurrentBranch,
+  validateSlug,
   generateBranchName,
-  generateFeatureBranchName,
-  createFeatureBranch,
   checkoutBranch,
   inferIssueTypeFromBranch,
   checkoutDefaultBranch,
@@ -61,3 +60,8 @@ export {
   removeWorktree,
   removeWorktreesForIssue,
 } from './worktreeCleanup';
+
+// Worktree reset
+export {
+  resetWorktreeToRemote,
+} from './worktreeReset';

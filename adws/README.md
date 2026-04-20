@@ -345,6 +345,66 @@ bunx tsx adws/adwSdlc.tsx <issueNumber> [adw-id]
 - Review report with screenshots
 - Complete documentation in `app_docs/`
 
+## Single-host constraint
+
+For a given repository, only one host may run `trigger_cron.ts` and `trigger_webhook.ts` at a time. This is a deployment convention, not enforced by code. Running two hosts against the same repo is **undefined territory** — not a performance tradeoff — and the design makes no attempt to recover from it.
+
+### Why the primitives do not cross machines
+
+All ADW coordination primitives are scoped to the local host:
+
+- **`spawnGate`** ([`adws/triggers/spawnGate.ts`](triggers/spawnGate.ts)): a per-issue filesystem lock in the local workspace. Two hosts each acquire their own lock file on their own disk — both succeed simultaneously.
+- **PID + start-time liveness**: process identity is local to the OS instance. A PID on a remote host is meaningless here.
+- **Heartbeat writes**: the heartbeat ticker writes to a local state file. A remote orchestrator produces no heartbeat visible to the local host.
+- **`worktreeReset`**: operates on the local git worktree only. It cannot see or affect a worktree on another machine.
+
+None of these coordinate across hosts. Refer to [`specs/prd/orchestrator-coordination-resilience.md`](../specs/prd/orchestrator-coordination-resilience.md) for the full design rationale.
+
+### Split-brain failure mode
+
+When two hosts both pick up the same issue on the same cron tick:
+
+1. **Both pass `spawnGate`** — lock files live on different disks; both acquisitions succeed.
+2. **Both spawn an orchestrator** — each creates or resets its own git worktree, each starts pushing commits to `feature-issue-<N>-<slug>`.
+3. **Push conflict** — the second host hits a non-fast-forward rejection; or, if LLM slug generation produces a different branch name, both hosts open separate PRs against the same issue number.
+4. **Liveness is blind** — `hungOrchestratorDetector` only sees local PIDs. The remote-host orchestrator is invisible, so the local hung detector cannot reclaim it and the local cron cannot defer to it.
+5. **Stage cache diverges** — each host's `workflowStage` cache reflects its own local artifacts. The `remoteReconcile` read-then-reverify loop can resolve a single stage from remote comments, but both hosts reach that conclusion independently and may take conflicting actions on the same remote state.
+
+Outcomes are not predictable. Do not attempt to tune this by throttling cron frequency — there is no safe configuration for two hosts sharing one repo.
+
+### Escape hatch: `## Cancel`
+
+`## Cancel` is the last-resort manual override when a split-brain is already in progress or an issue is otherwise stuck. Post a comment containing exactly:
+
+```
+## Cancel
+```
+
+on the affected issue. The next cron cycle or webhook event that processes the comment will:
+
+- Kill orchestrator agent processes (SIGTERM → SIGKILL)
+- Remove all git worktrees and local branches for the issue
+- Delete `agents/{adwId}/` state directories
+- Clear all ADW GitHub comments on the issue
+- Re-add the issue to the spawn queue so it picks up cleanly on the next cycle
+
+See [`app_docs/feature-9jpn7u-replace-clear-with-cancel.md`](../app_docs/feature-9jpn7u-replace-clear-with-cancel.md) for full implementation details.
+
+**Important:** `## Cancel` only cleans up on the host whose cron or webhook processes the directive first. If split-brain is active, the operator may need to post `## Cancel` a second time after the other host posts its next comment, to ensure both sides settle.
+
+### How to detect split-brain
+
+- Duplicate ADW GitHub comments on the same issue with **different `adwId` values**
+- Two remote branches matching `feature-issue-<N>-*` (check with `git branch -r | grep feature-issue-<N>`)
+- Two `agents/*/adw_state.json` files on different hosts both referencing the same issue number
+
+### Recovery procedure
+
+1. Stop `trigger_cron.ts` and `trigger_webhook.ts` on the non-canonical host.
+2. Post `## Cancel` on every affected issue and wait for the next cron cycle to process it.
+3. If the second host picks up a new comment before settling, post `## Cancel` again.
+4. Confirm only one host has cron/webhook running before resuming normal operation.
+
 ### Automation Triggers
 
 #### trigger_cron.ts - Polling Monitor
