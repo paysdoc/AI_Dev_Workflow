@@ -283,7 +283,9 @@ adws/                   # ADW workflow system
 │   │   ├── devServerLifecycle.test.ts
 │   │   ├── execWithRetry.test.ts
 │   │   ├── phaseRunner.test.ts
+│   │   ├── processLiveness.test.ts
 │   │   ├── projectConfig.test.ts
+│   │   ├── remoteReconcile.test.ts
 │   │   └── topLevelState.test.ts
 │   ├── adwId.ts        # ADW ID generation
 │   ├── agentState.ts
@@ -301,7 +303,9 @@ adws/                   # ADW workflow system
 │   ├── pauseQueue.ts   # Pause queue for rate-limit pause/resume
 │   ├── phaseRunner.ts  # PhaseRunner / CostTracker composition
 │   ├── portAllocator.ts
+│   ├── processLiveness.ts  # PID-reuse-safe process liveness checks
 │   ├── projectConfig.ts
+│   ├── remoteReconcile.ts  # Stage derivation from remote GitHub artifacts
 │   ├── retryOrchestrator.ts
 │   ├── stateHelpers.ts
 │   ├── targetRepoManager.ts
@@ -323,13 +327,17 @@ adws/                   # ADW workflow system
 │   ├── workflowCommentsIssue.ts
 │   └── workflowCommentsPR.ts
 ├── vcs/                # Version control operations (git)
+│   ├── __tests__/      # Vitest unit tests
+│   │   ├── branchOperations.test.ts
+│   │   └── worktreeReset.test.ts
 │   ├── branchOperations.ts  # Branch management
 │   ├── commitOperations.ts  # Commit/push operations
 │   ├── index.ts
 │   ├── worktreeCleanup.ts
 │   ├── worktreeCreation.ts
 │   ├── worktreeOperations.ts
-│   └── worktreeQuery.ts  # Worktree query utilities
+│   ├── worktreeQuery.ts  # Worktree query utilities
+│   └── worktreeReset.ts  # Worktree reset to remote for takeover/recovery
 ├── cost/               # Cost tracking module
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── computation.test.ts
