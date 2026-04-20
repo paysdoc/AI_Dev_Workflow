@@ -54,12 +54,11 @@ Feature: Reclassify adwMerge and webhookHandlers exits as abandoned vs discarded
   # ═══════════════════════════════════════════════════════════════════════════
 
   @adw-460 @regression
-  Scenario: adwMerge writes workflowStage "abandoned" when the top-level state file is missing
+  Scenario: adwMerge returns "no_state_file" without writing top-level state when the state file is missing
     Given executeMerge is invoked with readTopLevelState returning null
     When the no_state_file exit path is taken
     Then the result reason is "no_state_file"
-    And writeTopLevelState is called with workflowStage "abandoned"
-    And writeTopLevelState is not called with workflowStage "discarded"
+    And writeTopLevelState is not called
 
   @adw-460 @regression
   Scenario: adwMerge writes workflowStage "abandoned" when the top-level stage is not awaiting_merge
@@ -102,14 +101,14 @@ Feature: Reclassify adwMerge and webhookHandlers exits as abandoned vs discarded
     And writeTopLevelState is not called with workflowStage "discarded"
 
   @adw-460 @regression
-  Scenario: adwMerge source writes "abandoned" for each of the six transient defensive exits
+  Scenario: adwMerge source writes "abandoned" for each writing transient defensive exit
     Given "adws/adwMerge.tsx" is read
     Then the unexpected_stage exit writes workflowStage "abandoned"
-    And the no_state_file exit writes workflowStage "abandoned"
     And the no_orchestrator_state exit writes workflowStage "abandoned"
     And the no_branch_name exit writes workflowStage "abandoned"
     And the no_pr_found exit writes workflowStage "abandoned"
     And the worktree_error exit writes workflowStage "abandoned"
+    And the no_state_file exit does not call writeTopLevelState
 
   # ═══════════════════════════════════════════════════════════════════════════
   # 3. adwMerge — completed exits unchanged
