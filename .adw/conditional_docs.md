@@ -1,5 +1,13 @@
 # Conditional Documentation
 
+- app_docs/feature-6wnymj-shared-orchestrator-lifecycle-wrapper.md
+  - Conditions:
+    - When adding a new orchestrator entrypoint that needs lock, heartbeat, and cleanup wiring
+    - When troubleshooting an orchestrator that appears hung but is not detected by the staleness checker (`adwChore`, `adwInit`, `adwPatch`, `adwMerge` now covered)
+    - When working with `runWithOrchestratorLifecycle` or `runWithRawOrchestratorLifecycle` in `adws/phases/orchestratorLock.ts`
+    - When investigating why a lock file was not released (process.exit inside fn skips finally)
+    - When writing unit tests for orchestrator lifecycle call-order assertions
+
 - app_docs/feature-29w5wf-reclassify-abandoned-discarded-call-sites.md
   - Conditions:
     - When working with `adwMerge.tsx` exit paths and their `workflowStage` writes (`pr_closed`, `merge_failed`)
