@@ -204,16 +204,24 @@ export interface AgentState {
   adwId: string;
   /** GitHub issue number being addressed */
   issueNumber: number | null;
-  /** Git branch name for the feature/fix */
+  /** Git branch name for the feature/fix; assembled from the LLM-produced slug (per PRD "Branch-name generation"). */
   branchName?: string;
   /** Path to the implementation plan file */
   planFile?: string;
   /** Issue classification (slash command) */
   issueClass?: IssueClassSlashCommand;
-  /** OS process ID of the orchestrator process (for liveness checks) */
+  /** OS process ID of the orchestrator process (for liveness checks); paired with pidStartedAt for PID-reuse-safe liveness via processLiveness.isProcessLive. */
   pid?: number;
-  /** Platform start-time token (Linux /proc stat field 22, or macOS ps -o lstart=) recorded at orchestrator launch. Paired with pid for PID-reuse-safe liveness via processLiveness.isProcessLive. */
+  /**
+   * Platform start-time token recorded at orchestrator launch.
+   * ISO 8601 when the platform supplies a normalised timestamp; otherwise the platform-native token:
+   * Linux — `/proc/<pid>/stat` field 22 as a jiffies string.
+   * macOS/BSD — `ps -o lstart=` output (e.g. "Sat Apr 20 10:00:00 2026").
+   * Produced by processLiveness.getProcessStartTime; never re-normalised by the writer.
+   */
   pidStartedAt?: string;
+  /** ISO 8601 timestamp of the most recent heartbeat or phase-boundary write. Populated by the heartbeat module (future slice) and optionally by phase transitions. */
+  lastSeenAt?: string;
   /** Agent identifier */
   agentName: AgentIdentifier;
   /** Parent agent identifier (for nested agents) */
