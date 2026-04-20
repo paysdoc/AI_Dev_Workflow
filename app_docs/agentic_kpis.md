@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 124               | 2026-04-18 21:00:27 |
-| Longest Streak    | 124              | 2026-04-18 21:00:27 |
-| Total Plan Size   | 1898 lines        | 2026-04-18 21:00:27 |
-| Largest Plan Size | 408 lines        | 2026-04-18 21:00:27 |
-| Total Diff Size   | 2319170 lines    | 2026-04-18 21:00:27 |
-| Largest Diff Size | 418153 lines     | 2026-04-18 21:00:27 |
-| Average Presence  | 1.29             | 2026-04-18 21:00:27 |
+| Current Streak    | 147               | 2026-04-20 13:50:32 |
+| Longest Streak    | 147              | 2026-04-20 13:50:32 |
+| Total Plan Size   | 1898 lines        | 2026-04-20 13:50:32 |
+| Largest Plan Size | 408 lines        | 2026-04-20 13:50:32 |
+| Total Diff Size   | 2320539 lines    | 2026-04-20 13:50:32 |
+| Largest Diff Size | 418153 lines     | 2026-04-20 13:50:32 |
+| Average Presence  | 1.19             | 2026-04-20 13:50:32 |
 
 ## ADW KPIs
 
@@ -90,7 +90,7 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-04-02 | ncd0ia-interest-capture-api | 17           | /feature    | 1        | 0                 | 597/181/21                      | 2026-04-02          | 2026-04-02          |
 | 2026-04-02 | g2tow2-brand-rebrand-stylin | 16           | /feature    | 1        | 0                 | 786/623/36                      | 2026-04-02          | 2026-04-02          |
 | 2026-04-02 | 6q5dst-services-page-rewrit | 20           | /feature    | 1        | 0                 | 650/41/9                        | 2026-04-02          | 2026-04-02          |
-| 2026-04-02 | 8z0la0-how-it-works-page-ne | 21           | /feature    | 1        | 149               | 612/652/16                      | 2026-04-02          | 2026-04-02          |
+| 2026-04-02 | 8z0la0-how-it-works-page-ne | 21           | /feature    | 1        | 0                 | 612/652/16                      | 2026-04-02          | 2026-04-02          |
 | 2026-04-02 | tu81jj-home-page-rewrite    | 18           | /feature    | 1        | 154               | 957/698/21                      | 2026-04-02          | 2026-04-02          |
 | 2026-04-02 | cl62as-about-page-rewrite   | 19           | /feature    | 1        | 187               | 757/691/16                      | 2026-04-02          | 2026-04-02          |
 | 2026-04-03 | 643xf3-fix-is-not-mergeable | 377          | /feature    | 1        | 0                 | 809/8/12                        | 2026-04-03          | 2026-04-03          |
@@ -135,3 +135,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-04-18 | elre2t-fix-board-column-ord | 450          | /bug        | 1        | 0                 | 882/1334/18                     | 2026-04-18 19:55:00 | 2026-04-18 19:55:00 |
 | 2026-04-18 | 82j9dc-orphan-auto-prune-in | 13           | /feature    | 1        | 408               | 2139/10/60                      | 2026-04-18 20:29:21 | 2026-04-18 20:29:21 |
 | 2026-04-18 | a093bk-jsonreporter-depaudi | 8            | /feature    | 1        | 0                 | 0/13371/342                     | 2026-04-18 21:00:27 | 2026-04-18 21:00:27 |
+| 2026-04-20 | eantbn-orchestrator-resilie | 457          | /feature    | 1        | 0                 | 1366/3/10                       | 2026-04-20 13:50:32 | 2026-04-20 13:50:32 |
