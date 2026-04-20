@@ -212,6 +212,8 @@ export interface AgentState {
   issueClass?: IssueClassSlashCommand;
   /** OS process ID of the orchestrator process (for liveness checks) */
   pid?: number;
+  /** Platform start-time token (Linux /proc stat field 22, or macOS ps -o lstart=) recorded at orchestrator launch. Paired with pid for PID-reuse-safe liveness via processLiveness.isProcessLive. */
+  pidStartedAt?: string;
   /** Agent identifier */
   agentName: AgentIdentifier;
   /** Parent agent identifier (for nested agents) */

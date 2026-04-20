@@ -19,7 +19,7 @@ interface SpawnGateCtx {
   writtenLockFiles: string[];
 }
 
-const ctx: SpawnGateCtx = {
+export const ctx: SpawnGateCtx = {
   repo: null,
   issueNumber: 0,
   acquireResult: null,
