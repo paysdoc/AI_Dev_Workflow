@@ -1005,3 +1005,11 @@
     - When implementing the takeover handler that reads liveness fields (`pid`, `pidStartedAt`, `lastSeenAt`) to decide spawn strategy
     - When troubleshooting a torn or zero-byte `state.json` (atomic writer protects against this)
     - When writing tests for `writeTopLevelState` partial-patch or forward-compatible read behavior
+
+- app_docs/feature-jcwqw7-extend-top-level-state-schema.md
+  - Conditions:
+    - When working with `AgentState.lastSeenAt`, `AgentState.pid`, `AgentState.pidStartedAt`, or `AgentState.branchName` in `adws/types/agentTypes.ts`
+    - When implementing the heartbeat module (future slice) that writes `lastSeenAt` every 30 seconds
+    - When implementing the takeover handler that reads liveness fields to decide spawn strategy
+    - When troubleshooting atomic write behavior in `writeTopLevelState` or a torn `state.json`
+    - When writing or extending `adws/core/__tests__/topLevelState.test.ts` for partial-patch or forward-compatible read scenarios
