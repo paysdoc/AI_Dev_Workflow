@@ -902,6 +902,15 @@
     - When troubleshooting cron filters incorrectly including or excluding issues (grace period, active, retriable, paused)
     - When implementing a new trigger that needs to read workflow stage from the state file
 
+- app_docs/feature-i4m1uk-orchestrator-resilie-takeover-handler-integration.md
+  - Conditions:
+    - When working with `evaluateCandidate`, `CandidateDecision`, `TakeoverDeps`, or `buildDefaultTakeoverDeps` in `adws/triggers/takeoverHandler.ts`
+    - When modifying the cron or webhook spawn path and need to understand the mandatory takeover gate
+    - When troubleshooting why an issue was deferred, skipped, or taken over instead of spawning fresh
+    - When implementing a new trigger entry point that spawns orchestrators (must route through `evaluateCandidate`)
+    - When working with the `take_over_adwId` decision and the `worktreeReset → remoteReconcile` sequence
+    - When investigating SIGKILL behavior for live-but-unlocked PIDs in `*_running` stages
+
 - app_docs/feature-yxo18t-spawngate-lifetime-pid-liveness.md
   - Conditions:
     - When working with `acquireOrchestratorLock` or `releaseOrchestratorLock` in `adws/phases/orchestratorLock.ts`
