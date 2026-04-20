@@ -47,25 +47,25 @@ Create `adws/core/heartbeat.ts` with the two-function API mandated by the accept
 
 Export two constants from `adws/core/config.ts` (alongside the other timing constants):
 
-- `HEARTBEAT_INTERVAL_MS = 30_000` — tick cadence.
+- `HEARTBEAT_TICK_INTERVAL_MS = 30_000` — tick cadence.
 - `HEARTBEAT_STALE_THRESHOLD_MS = 180_000` — six missed ticks; consumed later by the hung-orchestrator detector.
 
 Both are plain `const` exports (not env-driven); the PRD says ops should be able to tune them "without code surgery", which the code-local constant satisfies for the current operator (the single-host invariant means tuning is a single-file edit, not an infra change). If a future slice needs env-override knobs, that's a trivial addition layered on top.
 
 Wire into `adwSdlc.tsx`:
 
-- Import `startHeartbeat`, `stopHeartbeat`, `HEARTBEAT_INTERVAL_MS` from `./core`.
+- Import `startHeartbeat`, `stopHeartbeat`, and `type HeartbeatHandle` from `./core/heartbeat`; import `HEARTBEAT_TICK_INTERVAL_MS` from `./core/config`.
 - Declare `let heartbeat: HeartbeatHandle | null = null;` above the `try` block.
-- Call `heartbeat = startHeartbeat(config.adwId, HEARTBEAT_INTERVAL_MS);` as the first line inside the existing `try` block — this is guaranteed-after-state-init because `initializeWorkflow()` writes `workflowStage: 'starting'` to the state file synchronously before returning at `workflowInit.ts:245-250`.
-- Add a `finally { if (heartbeat) stopHeartbeat(heartbeat); }` block after the existing `catch`. The finally runs on normal exit, on handled error (after the catch body), and on unhandled throw.
+- Call `heartbeat = startHeartbeat(config.adwId, HEARTBEAT_TICK_INTERVAL_MS);` as the first line inside the existing `try` block — this is guaranteed-after-state-init because `initializeWorkflow()` writes `workflowStage: 'starting'` to the state file synchronously before returning at `workflowInit.ts:245-250`.
+- Add a `finally { if (heartbeat !== null) stopHeartbeat(heartbeat); }` block after the existing `catch`. The finally runs on normal exit, on handled error (after the catch body), and on unhandled throw. The `heartbeat !== null` type-guard narrows the variable so the non-nullable `stopHeartbeat(handle: HeartbeatHandle)` signature is satisfied.
 
 Write a contract test at `adws/core/__tests__/heartbeat.test.ts`:
 
 - Use `vi.useFakeTimers()` / `vi.advanceTimersByTimeAsync(ms)` (pattern already in use in `devServerLifecycle.test.ts`). Restore via `vi.useRealTimers()` in `afterEach`.
-- Mock `AgentStateManager.writeTopLevelState` with `vi.spyOn` so the contract test does not touch the filesystem.
-- Case A: call `startHeartbeat('test-adw', 100)`, advance `150ms`, assert `writeTopLevelState` was called at least once with the adwId and a `lastSeenAt` field shaped like an ISO 8601 timestamp.
-- Case B: call `startHeartbeat('test-adw', 100)`, call `stopHeartbeat(handle)` immediately, advance `500ms`, assert `writeTopLevelState` was called at most once (the zero-or-one tick that setInterval might fire synchronously depending on timing; zero is the common case). The essential assertion is "no further writes after stop".
-- Case C: idempotent stop — calling `stopHeartbeat(handle)` twice does not throw and does not produce extra writes.
+- Use real `AgentStateManager.writeTopLevelState` calls — the contract test seeds a fresh per-test top-level state file for a unique adwId, lets the heartbeat tick write to it, and reads the file back to assert the `lastSeenAt` value. The `afterEach` hook removes the per-test adwId state directory (scenario `@adw-462` requires this cleanup).
+- Case A: seed a fresh state file for `hb-tick-a`, call `startHeartbeat('hb-tick-a', 100)`, advance `150ms`, read the state file back, assert `lastSeenAt` is a non-empty string matching `/^\d{4}-\d{2}-\d{2}T/`.
+- Case B: seed a fresh state file for `hb-stop-a`, call `startHeartbeat('hb-stop-a', 100)`, advance `150ms`, record the persisted `lastSeenAt`, call `stopHeartbeat(handle)`, advance `500ms`, read the state file back, assert the persisted `lastSeenAt` equals the recorded value (no further writes after stop).
+- Case C: idempotent stop — calling `stopHeartbeat(handle)` twice does not throw.
 
 Every piece above is test-only or schema-stable; no production consumer outside `adwSdlc` sees a behavior change in this slice.
 
@@ -75,16 +75,16 @@ Use these files to implement the feature:
 
 - `specs/prd/orchestrator-coordination-resilience.md` — Parent PRD. "New modules to build → heartbeat" (line 66) defines the module's surface and pure-ticker contract; "Heartbeat parameters" (lines 110-112) defines the 30s/180s constants. Read sections 63-78 and 110-112 before editing.
 - `adws/core/heartbeat.ts` — **New file.** The module. Two functions, one constant-backed `setInterval`, one opaque handle interface. Under 80 lines total.
-- `adws/core/config.ts` — Home of the retry/timing constants (lines 52-113). Adds `HEARTBEAT_INTERVAL_MS = 30_000` and `HEARTBEAT_STALE_THRESHOLD_MS = 180_000` alongside `GRACE_PERIOD_MS`/`PROBE_INTERVAL_CYCLES`. Plain const exports, no env read required for this slice.
-- `adws/core/index.ts` — Barrel file. Must re-export the new heartbeat symbols so `adws/adwSdlc.tsx` (and future orchestrators) can import from `./core` without reaching into the submodule.
+- `adws/core/config.ts` — Home of the retry/timing constants (lines 52-113). Adds `HEARTBEAT_TICK_INTERVAL_MS = 30_000` and `HEARTBEAT_STALE_THRESHOLD_MS = 180_000` alongside `GRACE_PERIOD_MS`/`PROBE_INTERVAL_CYCLES`. Plain const exports, no env read required for this slice.
+- `adws/core/index.ts` — Barrel file. Re-exports the new heartbeat symbols alongside other `./core` exports so consumers that prefer the barrel can use it. Note: scenario `@adw-462` requires `adwSdlc.tsx` to import `startHeartbeat`/`stopHeartbeat` directly from `./core/heartbeat` and `HEARTBEAT_TICK_INTERVAL_MS` from `./core/config`, so the tracer-bullet wiring uses submodule paths, not the barrel.
 - `adws/core/agentState.ts` — Existing atomic writer (`writeTopLevelState`, lines 281-312). The heartbeat calls it with a `{ lastSeenAt }` partial patch; the deep-merge semantics already preserve other fields. No change to this file.
 - `adws/types/agentTypes.ts` — Home of `AgentState.lastSeenAt?: string` (line 224). Defined in #461. Read-only — no change in this slice.
 - `adws/adwSdlc.tsx` — Tracer bullet target. Add the `heartbeat` declaration, `startHeartbeat` call, and `finally` cleanup block. The file is 153 lines today; this slice adds ~6 lines.
 - `adws/phases/workflowInit.ts` — Read-only. Confirms at lines 244-250 that `initializeWorkflow` writes `workflowStage: 'starting'` to the top-level state file synchronously before returning, so `startHeartbeat` can safely write `{ lastSeenAt }` immediately after `initializeWorkflow` resolves (the file and parent directory exist).
 - `adws/core/devServerLifecycle.ts` — Reference for the handle+cleanup+finally pattern (lines 127-166 for `withDevServer`). The heartbeat module and its `adwSdlc` wire-up mirror the same "start resource, run work, stop in finally" shape.
-- `adws/core/__tests__/heartbeat.test.ts` — **New file.** Vitest contract test with fake timers. Single `describe('startHeartbeat / stopHeartbeat', …)` block, three cases as listed in the Solution Statement.
+- `adws/core/__tests__/heartbeat.test.ts` — **New file.** Vitest contract test with fake timers and per-test state-directory cleanup. Single `describe('heartbeat module contract', …)` block with the cases listed in the Solution Statement (tick write, stop prevents further writes, idempotent stop, tick survives a write error).
 - `adws/core/__tests__/devServerLifecycle.test.ts` — Reference for the fake-timer style (lines 122-148 show `vi.useFakeTimers()` + `vi.advanceTimersByTimeAsync(ms)` + `vi.useRealTimers()` in `afterEach`). Mirror this pattern in `heartbeat.test.ts`.
-- `adws/core/__tests__/topLevelState.test.ts` — Reference for the vitest import style, per-describe adwId pattern, and `AgentStateManager.writeTopLevelState` assertion shape (lines 118-166). The heartbeat contract test spies on the same method but does not need real filesystem writes.
+- `adws/core/__tests__/topLevelState.test.ts` — Reference for the vitest import style, per-describe adwId pattern, real-filesystem state-directory setup, and read-back assertions on the persisted JSON (lines 118-166). The heartbeat contract test mirrors this real-filesystem approach: each test seeds a fresh state directory for its adwId, lets the heartbeat write through `AgentStateManager.writeTopLevelState`, reads the file back, and cleans up in `afterEach`.
 - `guidelines/coding_guidelines.md` — TypeScript strict mode, interfaces for data shapes, pure functions with side effects at boundaries, files under 300 lines. The heartbeat module respects all four rules as-written.
 - `app_docs/feature-jcwqw7-extend-top-level-state-schema.md` — Context on the schema field this slice writes into; confirms `lastSeenAt` is ISO 8601 and that partial-patch writes preserve all other fields.
 - `app_docs/feature-guimqa-extend-top-level-state-schema.md` — Parallel planning doc for the same schema slice; cross-reference for the `writeTopLevelState` atomicity guarantee the heartbeat depends on.
@@ -100,7 +100,7 @@ Use these files to implement the feature:
 
 Add the two timing constants to `adws/core/config.ts` so downstream code (heartbeat module, future hung-orchestrator detector) consumes them from one place:
 
-- `HEARTBEAT_INTERVAL_MS = 30_000` — tick cadence.
+- `HEARTBEAT_TICK_INTERVAL_MS = 30_000` — tick cadence.
 - `HEARTBEAT_STALE_THRESHOLD_MS = 180_000` — six missed ticks.
 
 Placed near `GRACE_PERIOD_MS` (line 77), grouped with the other timing constants. JSDoc comment above each explaining the unit and role.
@@ -112,23 +112,23 @@ Create `adws/core/heartbeat.ts`:
 - Imports: `AgentStateManager` from `./agentState`, `log` from `./logger` (for a single info line on start and an info line on stop, mirroring the one-liner style used in `workflowInit.ts`).
 - Exported interface `HeartbeatHandle { readonly adwId: string; readonly timer: NodeJS.Timeout; }`.
 - Exported `startHeartbeat(adwId: string, intervalMs: number): HeartbeatHandle` — creates the `setInterval`, returns the handle. Each tick wraps the `writeTopLevelState` call in a `try/catch` that logs and swallows; a thrown write failure must not kill the timer.
-- Exported `stopHeartbeat(handle: HeartbeatHandle | null): void` — calls `clearInterval(handle.timer)`. Tolerant of `null` or already-stopped handles (idempotent).
+- Exported `stopHeartbeat(handle: HeartbeatHandle): void` — calls `clearInterval(handle.timer)`. Safe to call more than once on the same handle (`clearInterval` on a cleared timer is a no-op), so the function is idempotent without needing a null check. The caller (`adwSdlc.tsx`) null-guards on its side before calling, satisfying the non-nullable signature.
 
 Re-export from `adws/core/index.ts`:
 
 - Add `export { startHeartbeat, stopHeartbeat, type HeartbeatHandle } from './heartbeat';`
-- Add `HEARTBEAT_INTERVAL_MS`, `HEARTBEAT_STALE_THRESHOLD_MS` to the constants re-export from `./config` if that barrel re-exports them (inspect the current barrel and follow its pattern; do not add a second barrel if `./config` is already re-exported wholesale).
+- Add `HEARTBEAT_TICK_INTERVAL_MS`, `HEARTBEAT_STALE_THRESHOLD_MS` to the constants re-export from `./config` if that barrel re-exports them (inspect the current barrel and follow its pattern; do not add a second barrel if `./config` is already re-exported wholesale).
 
 ### Phase 3: Integration (tracer bullet on adwSdlc)
 
 Edit `adws/adwSdlc.tsx`:
 
-- Update the `./core` import to pull in `startHeartbeat`, `stopHeartbeat`, `HEARTBEAT_INTERVAL_MS`, and `type HeartbeatHandle`.
+- Add a new import pulling `startHeartbeat`, `stopHeartbeat`, and `type HeartbeatHandle` from `./core/heartbeat`; extend the `./core/config` import to also pull in `HEARTBEAT_TICK_INTERVAL_MS` (or add a new import line if `./core/config` is not yet imported directly).
 - Inside `main()`, after the `const tracker = new CostTracker();` line (line 72) and before the `try {` (line 74), declare `let heartbeat: HeartbeatHandle | null = null;`.
-- As the first statement inside the `try` block (line 75, pushing the existing `executeInstallPhase` down by one line), assign `heartbeat = startHeartbeat(config.adwId, HEARTBEAT_INTERVAL_MS);`.
-- After the existing `catch (error) { handleWorkflowError(...) }` block, add `finally { if (heartbeat) stopHeartbeat(heartbeat); }`.
+- As the first statement inside the `try` block (line 75, pushing the existing `executeInstallPhase` down by one line), assign `heartbeat = startHeartbeat(config.adwId, HEARTBEAT_TICK_INTERVAL_MS);`.
+- After the existing `catch (error) { handleWorkflowError(...) }` block, add `finally { if (heartbeat !== null) stopHeartbeat(heartbeat); }`.
 
-The heartbeat handle is declared outside the `try` so the `finally` can reach it. The conditional `if (heartbeat)` guards the case where `handleWorkflowError` runs for an exception thrown before `startHeartbeat` returns (unlikely — only if the module itself throws, which our `try/catch`-inside-tick design prevents — but cheap defensiveness).
+The heartbeat handle is declared outside the `try` so the `finally` can reach it. The `if (heartbeat !== null)` check narrows the type from `HeartbeatHandle | null` to `HeartbeatHandle`, satisfying the non-nullable `stopHeartbeat` signature and guarding the case where an exception is thrown before `startHeartbeat` returns.
 
 ### Phase 4: Contract test
 
@@ -137,12 +137,13 @@ Create `adws/core/__tests__/heartbeat.test.ts`:
 - `vitest` imports: `describe, it, expect, vi, beforeEach, afterEach`.
 - Import `AgentStateManager` from `../agentState`.
 - Import `startHeartbeat, stopHeartbeat` from `../heartbeat`.
-- `beforeEach`: `vi.useFakeTimers()` and `vi.spyOn(AgentStateManager, 'writeTopLevelState').mockImplementation(() => {})`.
-- `afterEach`: `vi.useRealTimers()` and `vi.restoreAllMocks()`.
-- Test A: starts the heartbeat, advances `intervalMs * 1.5` using `vi.advanceTimersByTimeAsync`, asserts the mock was called at least once with the matching `adwId` and a `lastSeenAt` value matching `/^\d{4}-\d{2}-\d{2}T/`.
-- Test B: starts the heartbeat, immediately stops it, advances `intervalMs * 5`, asserts the mock was called zero times (strict — `setInterval` does not fire synchronously before the first interval has elapsed).
-- Test C: calls `stopHeartbeat` twice in a row; expects no throw, no extra writes after the first stop.
-- Test D (tick survives a write error): mocks `writeTopLevelState` to throw on the first call then succeed, advances `intervalMs * 2.5`, asserts the spy was called at least twice (the second call is the proof that the timer survived the error on tick 1).
+- Import `fs` for per-test adwId state-directory cleanup.
+- `beforeEach`: `vi.useFakeTimers()` and seed a fresh top-level state file for each test's adwId (use `AgentStateManager.writeTopLevelState` or the module's own seed helper; whichever primes the file/directory the heartbeat writes into).
+- `afterEach`: `vi.useRealTimers()`, `vi.restoreAllMocks()`, and `fs.rmSync` the per-test adwId state directory with `{ recursive: true, force: true }` — required by scenario `@adw-462` "contract tests clean up any top-level state files they create".
+- Test A: starts the heartbeat against a seeded adwId `hb-tick-a`, advances `intervalMs * 1.5` using `vi.advanceTimersByTimeAsync`, reads the persisted state file, asserts `lastSeenAt` is a non-empty string matching `/^\d{4}-\d{2}-\d{2}T/`.
+- Test B: starts the heartbeat against a seeded adwId `hb-stop-a`, advances `intervalMs * 1.5` to produce one tick, records the persisted `lastSeenAt`, calls `stopHeartbeat(handle)`, advances `intervalMs * 5`, asserts the persisted `lastSeenAt` equals the recorded value (no further writes after stop).
+- Test C: calls `stopHeartbeat` twice on the same handle; expects no throw.
+- Test D (tick survives a write error): `vi.spyOn(AgentStateManager, 'writeTopLevelState').mockImplementationOnce(() => { throw new Error('disk full'); })`, starts the heartbeat, advances `intervalMs * 2.5`, asserts the spy was called at least twice (the second call proves the timer survived the error on tick 1). This test deliberately replaces the writer with a spy to inject the error; no state-file read-back is needed.
 
 ### Phase 5: Validation
 
@@ -156,7 +157,7 @@ Execute every step in order, top to bottom.
 - Locate the "Concurrency / timing constants" section (lines 64-77).
 - Immediately after `GRACE_PERIOD_MS` (line 77), add a new section with a commented header `// Heartbeat constants` and two constants:
   - `/** Heartbeat tick interval in milliseconds (default: 30s per PRD). */`
-  - `export const HEARTBEAT_INTERVAL_MS = 30_000;`
+  - `export const HEARTBEAT_TICK_INTERVAL_MS = 30_000;`
   - `/** Stale-threshold for the hung-orchestrator detector — six missed ticks (default: 180s per PRD). */`
   - `export const HEARTBEAT_STALE_THRESHOLD_MS = 180_000;`
 - Run `bunx tsc --noEmit -p adws/tsconfig.json` — expect zero errors.
@@ -176,8 +177,7 @@ Execute every step in order, top to bottom.
   - `  }`
   - `}, intervalMs);`
   - `return { adwId, timer };`
-- Export `stopHeartbeat(handle: HeartbeatHandle | null): void`:
-  - `if (!handle) return;`
+- Export `stopHeartbeat(handle: HeartbeatHandle): void`:
   - `clearInterval(handle.timer);`
   - `log(`Heartbeat stopped for adwId=${handle.adwId}`, 'info');`
 - Run `bunx tsc --noEmit -p adws/tsconfig.json` — expect zero errors.
@@ -185,58 +185,62 @@ Execute every step in order, top to bottom.
 ### 3. Wire the module through the `core` barrel export
 - Open `adws/core/index.ts`.
 - Follow whatever re-export style is already in use. If the file re-exports symbols explicitly, add `export { startHeartbeat, stopHeartbeat, type HeartbeatHandle } from './heartbeat';` alongside the existing `export { … } from './agentState';` line.
-- If the barrel also enumerates config constants, add `HEARTBEAT_INTERVAL_MS` and `HEARTBEAT_STALE_THRESHOLD_MS` to that list; otherwise they ride along if the entire `./config` module is re-exported wholesale.
+- If the barrel also enumerates config constants, add `HEARTBEAT_TICK_INTERVAL_MS` and `HEARTBEAT_STALE_THRESHOLD_MS` to that list; otherwise they ride along if the entire `./config` module is re-exported wholesale.
 - Run `bunx tsc --noEmit -p adws/tsconfig.json` — expect zero errors.
 
 ### 4. Wire the heartbeat into `adws/adwSdlc.tsx`
 - Open `adws/adwSdlc.tsx`.
-- Extend the `./core` import (line 29) to pull in `startHeartbeat`, `stopHeartbeat`, `HEARTBEAT_INTERVAL_MS`, and `type HeartbeatHandle`.
+- Add an import `import { startHeartbeat, stopHeartbeat, type HeartbeatHandle } from './core/heartbeat';` alongside the existing `./core` imports.
+- Add `HEARTBEAT_TICK_INTERVAL_MS` to the existing `./core/config` import (or add a new `import { HEARTBEAT_TICK_INTERVAL_MS } from './core/config';` line if config is not already imported directly).
 - Immediately after `const tracker = new CostTracker();` (line 72) and before `try {` (line 74), add:
   - `let heartbeat: HeartbeatHandle | null = null;`
 - As the first line inside the existing `try` block (line 75), insert:
-  - `heartbeat = startHeartbeat(config.adwId, HEARTBEAT_INTERVAL_MS);`
+  - `heartbeat = startHeartbeat(config.adwId, HEARTBEAT_TICK_INTERVAL_MS);`
 - After the closing `}` of the existing `catch (error) { ... }` block (line 150), add:
   - `finally {`
-  - `  if (heartbeat) stopHeartbeat(heartbeat);`
+  - `  if (heartbeat !== null) stopHeartbeat(heartbeat);`
   - `}`
 - Run `bunx tsc --noEmit -p adws/tsconfig.json` — expect zero errors.
 
 ### 5. Create the contract test at `adws/core/__tests__/heartbeat.test.ts`
 - Create `adws/core/__tests__/heartbeat.test.ts`.
-- Imports: `describe, it, expect, vi, beforeEach, afterEach` from `vitest`. `AgentStateManager` from `../agentState`. `startHeartbeat, stopHeartbeat` from `../heartbeat`.
+- Imports: `describe, it, expect, vi, beforeEach, afterEach` from `vitest`. `AgentStateManager` from `../agentState`. `startHeartbeat, stopHeartbeat` from `../heartbeat`. `fs` (node:fs) for per-test state-directory cleanup.
 - Top-level `describe('heartbeat module contract', () => { ... })`.
 - Inside:
-  - `beforeEach`: `vi.useFakeTimers(); vi.spyOn(AgentStateManager, 'writeTopLevelState').mockImplementation(() => {});`
-  - `afterEach`: `vi.useRealTimers(); vi.restoreAllMocks();`
+  - Track each test's adwId in a local array so the `afterEach` can `fs.rmSync` the matching state directories (scenario `@adw-462` mandates this cleanup).
+  - Helper (module-local): `const seed = (adwId: string) => AgentStateManager.writeTopLevelState(adwId, {});` — writes an empty partial patch to initialise the file/directory. Substitute whichever primitive the existing test helpers in `topLevelState.test.ts` use if one already exists.
+  - Helper: `const readLastSeenAt = (adwId: string) => <read the persisted state file for adwId and return the lastSeenAt property>` — mirror the read pattern already used in `topLevelState.test.ts`.
+  - `beforeEach`: `vi.useFakeTimers();`
+  - `afterEach`: `vi.useRealTimers(); vi.restoreAllMocks();` and `fs.rmSync` each tracked adwId's state directory with `{ recursive: true, force: true }`.
 - Test A — "writes lastSeenAt within intervalMs * 1.5":
-  - `const handle = startHeartbeat('test-adw-a', 100);`
+  - `seed('hb-tick-a');`
+  - `const handle = startHeartbeat('hb-tick-a', 100);`
   - `await vi.advanceTimersByTimeAsync(150);`
-  - `expect(AgentStateManager.writeTopLevelState).toHaveBeenCalled();`
-  - Inspect the first call: `const [adwIdArg, patchArg] = vi.mocked(AgentStateManager.writeTopLevelState).mock.calls[0];`
-  - `expect(adwIdArg).toBe('test-adw-a');`
-  - `expect(patchArg.lastSeenAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);`
+  - `const lastSeenAt = readLastSeenAt('hb-tick-a');`
+  - `expect(lastSeenAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);`
   - `stopHeartbeat(handle);`
 - Test B — "stopHeartbeat prevents subsequent writes":
-  - `const handle = startHeartbeat('test-adw-b', 100);`
+  - `seed('hb-stop-a');`
+  - `const handle = startHeartbeat('hb-stop-a', 100);`
+  - `await vi.advanceTimersByTimeAsync(150);`
+  - `const captured = readLastSeenAt('hb-stop-a');`
   - `stopHeartbeat(handle);`
   - `await vi.advanceTimersByTimeAsync(500);`
-  - `expect(AgentStateManager.writeTopLevelState).not.toHaveBeenCalled();`
+  - `expect(readLastSeenAt('hb-stop-a')).toBe(captured);`
 - Test C — "stopHeartbeat is idempotent (safe to call twice)":
-  - `const handle = startHeartbeat('test-adw-c', 100);`
+  - `seed('hb-stop-b');`
+  - `const handle = startHeartbeat('hb-stop-b', 100);`
   - `stopHeartbeat(handle);`
   - `expect(() => stopHeartbeat(handle)).not.toThrow();`
-  - `await vi.advanceTimersByTimeAsync(500);`
-  - `expect(AgentStateManager.writeTopLevelState).not.toHaveBeenCalled();`
 - Test D — "tick survives a write error":
-  - Re-spy on `writeTopLevelState`: first call throws, subsequent calls succeed.
-  - `vi.mocked(AgentStateManager.writeTopLevelState).mockImplementationOnce(() => { throw new Error('disk full'); });`
-  - `const handle = startHeartbeat('test-adw-d', 100);`
+  - `seed('hb-err-a');`
+  - `const spy = vi.spyOn(AgentStateManager, 'writeTopLevelState');`
+  - `spy.mockImplementationOnce(() => { throw new Error('disk full'); });`
+  - `const handle = startHeartbeat('hb-err-a', 100);`
   - `await vi.advanceTimersByTimeAsync(250);`
-  - `expect(AgentStateManager.writeTopLevelState).toHaveBeenCalledTimes(2);`
+  - `expect(spy.mock.calls.length).toBeGreaterThanOrEqual(2);`
   - `stopHeartbeat(handle);`
-- Test E — "stopHeartbeat(null) is a no-op":
-  - `expect(() => stopHeartbeat(null)).not.toThrow();`
-- Run `bun run test:unit -- heartbeat` — expect all five cases to pass.
+- Run `bun run test:unit -- heartbeat` — expect all four cases to pass.
 
 ### 6. End-to-end sanity: simulate a short adwSdlc tick cadence
 - This is a manual/smoke check; no automated test is added in this slice because the end-to-end demo requires a real issue and a real worktree. The BDD scenarios that land alongside this slice (feature file tagged `@adw-462`) cover the orchestrator-level behavior via stubbed dependencies.
@@ -251,9 +255,9 @@ Execute every step in order, top to bottom.
 ### Unit Tests
 `.adw/project.md` declares `## Unit Tests: enabled`, so this slice includes unit test tasks.
 
-- Contract test at `adws/core/__tests__/heartbeat.test.ts` covers the full public API of the module: `startHeartbeat` causes at least one `writeTopLevelState` call within `intervalMs * 1.5`; `stopHeartbeat` prevents further writes; `stopHeartbeat` is idempotent (safe to call twice, safe to call with `null`); a single write failure does not kill the timer.
+- Contract test at `adws/core/__tests__/heartbeat.test.ts` covers the full public API of the module: `startHeartbeat` writes `lastSeenAt` at least once within `intervalMs * 1.5`; `stopHeartbeat` prevents further writes; `stopHeartbeat` is idempotent (safe to call twice on the same handle); a single write failure does not kill the timer.
 - Tests use `vi.useFakeTimers()` + `vi.advanceTimersByTimeAsync(ms)` so no real-world wall-clock time is consumed.
-- `AgentStateManager.writeTopLevelState` is spied on, not hit; no filesystem is touched in the unit test.
+- `AgentStateManager.writeTopLevelState` is exercised for real against a per-test top-level state directory; each test's adwId state directory is removed in `afterEach` (scenario `@adw-462` mandates this cleanup). The write-error test uses `vi.spyOn` to inject a throwing first call.
 - Existing `adws/core/__tests__/topLevelState.test.ts` continues to validate the atomic-write contract the heartbeat depends on — no change needed there.
 
 ### Edge Cases
@@ -298,7 +302,7 @@ Execute every command to validate the feature works correctly with zero regressi
 - **Tracer-bullet scope**: only `adwSdlc` is wired. The other eleven orchestrators (`adwMerge`, `adwChore`, `adwBuild`, `adwInit`, `adwPatch`, `adwPlan`, `adwPlanBuild`, `adwPlanBuildDocument`, `adwPlanBuildReview`, `adwPlanBuildTest`, `adwPlanBuildTestReview`, `adwTest`) get wired in PRD slice #8 via a shared wrapper. Do not touch them in this slice.
 - **`HEARTBEAT_STALE_THRESHOLD_MS` has no consumer in this slice.** It is added now so the future hung-orchestrator detector (PRD slice #9 or later) can consume it from `config.ts` without a dependency churn. This is explicitly not premature — the PRD mandates it as a co-located constant.
 - **Idempotency of `stopHeartbeat`**: chosen deliberately so the `finally` block in `adwSdlc.tsx` doesn't need to null the handle after calling stop. Idempotent cleanup is the standard shape for lifecycle helpers (matches `withDevServer`'s implicit cleanup guarantees).
-- **No environment-variable override for `HEARTBEAT_INTERVAL_MS` in this slice.** The PRD says operators should be able to tune "without code surgery"; at one-host-per-repo, a single-line const edit is arguably not code surgery. If the shared wrapper in slice #8 wants an env override, that's a one-line addition to `config.ts` then — no blocker here.
+- **No environment-variable override for `HEARTBEAT_TICK_INTERVAL_MS` in this slice.** The PRD says operators should be able to tune "without code surgery"; at one-host-per-repo, a single-line const edit is arguably not code surgery. If the shared wrapper in slice #8 wants an env override, that's a one-line addition to `config.ts` then — no blocker here.
 - **Library install**: no new dependencies. Everything (`setInterval`, `clearInterval`, `new Date().toISOString()`, `vitest` fake timers) is already available. Per `.adw/commands.md`, if a new library were needed the install command would be `bun add <package>`.
 - **Future slice #8 (shared wrapper) will likely refactor the tracer-bullet wiring** out of `adwSdlc.tsx` into a shared `runOrchestrator(entrypoint, fn)` helper. That refactor replaces these three new lines; the `heartbeat` module itself remains untouched.
 - **BDD scenarios** for this slice land in a follow-up `scenario_writer` step and will be tagged `@adw-462`. This plan does not enumerate them — that's the scenario agent's job — but the acceptance matrix above is the spec the scenarios will codify.
