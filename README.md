@@ -103,6 +103,26 @@ bunx tsx adws/adwSdlc.tsx 123
 
 See [adws/README.md](adws/README.md) for full usage documentation.
 
+## Single-host constraint
+
+For a given repository, only one host may run `trigger_cron.ts` and `trigger_webhook.ts` at a time. This is a deployment convention, not enforced by code.
+
+**Why it matters:** the per-issue spawn lock ([`adws/triggers/spawnGate.ts`](adws/triggers/spawnGate.ts)), the PID+start-time liveness check, the heartbeat ticker, and the worktree-reset recovery path are all host-local. They cannot detect or coordinate with an orchestrator running on a different machine.
+
+**This is undefined territory, not degraded performance.** Running two hosts against one repo can produce:
+- Split-brain spawns: two orchestrators claiming the same issue simultaneously
+- Two pull requests targeting the same issue branch
+- Clobbered worktrees when one host resets what the other is writing
+- Misclassified liveness: hung-detector logic reading remote-host PIDs as dead
+
+The design makes no attempt to predict or recover from these outcomes.
+
+**Safe alternative:** for development or testing, point the dev host at a fork or a dedicated test repo. Never share a production repo between a laptop cron and a production server cron.
+
+**Escape hatch:** if you suspect split-brain (duplicate spawns, stranded worktrees, conflicting branches), post `## Cancel` on the affected issue. The next cron cycle or webhook event that picks it up will run the scorched-earth cleanup: kill agent processes, remove worktrees, delete state directories, and clear GitHub comments. The issue re-enters the queue on the following cycle.
+
+See [adws/README.md](adws/README.md#single-host-constraint) for the full operator guidance and split-brain failure mode.
+
 ## Domain Language
 
 ADW uses a DDD-style ubiquitous language to keep code, documentation, and conversation aligned. See [UBIQUITOUS_LANGUAGE.md](UBIQUITOUS_LANGUAGE.md) for canonical term definitions, aliases to avoid, and a worked example dialogue.
@@ -408,6 +428,8 @@ adws/                   # ADW workflow system
 │   │   ├── cronRepoResolver.test.ts
 │   │   ├── cronStageResolver.test.ts
 │   │   ├── devServerJanitor.test.ts
+│   │   ├── pauseQueueScanner.test.ts
+│   │   ├── spawnGate.test.ts
 │   │   ├── triggerCronAwaitingMerge.test.ts
 │   │   └── webhookHandlers.test.ts
 │   ├── autoMergeHandler.ts  # Auto-merge approved PRs
@@ -422,6 +444,7 @@ adws/                   # ADW workflow system
 │   ├── issueDependencies.ts
 │   ├── issueEligibility.ts
 │   ├── pauseQueueScanner.ts  # Cron probe for paused issue queue
+│   ├── spawnGate.ts  # Per-issue filesystem spawn lock preventing duplicate orchestrator processes
 │   ├── trigger_cron.ts
 │   ├── trigger_shutdown.ts  # Graceful shutdown handler
 │   ├── trigger_webhook.ts
