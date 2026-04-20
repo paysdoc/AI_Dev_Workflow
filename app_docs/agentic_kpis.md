@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 53                | 2026-04-20 14:07:23 |
-| Longest Streak    | 53               | 2026-04-20 14:07:23 |
-| Total Plan Size   | 1749 lines       | 2026-04-20 14:07:23 |
-| Largest Plan Size | 408 lines        | 2026-04-20 14:07:23 |
-| Total Diff Size   | 2323446 lines    | 2026-04-20 14:07:23 |
-| Largest Diff Size | 418153 lines     | 2026-04-20 14:07:23 |
-| Average Presence  | 1.31             | 2026-04-20 14:07:23 |
+| Current Streak    | 69                | 2026-04-20 14:11:57 |
+| Longest Streak    | 69               | 2026-04-20 14:11:57 |
+| Total Plan Size   | 1749 lines       | 2026-04-20 14:11:57 |
+| Largest Plan Size | 408 lines        | 2026-04-20 14:11:57 |
+| Total Diff Size   | 2325034 lines    | 2026-04-20 14:11:57 |
+| Largest Diff Size | 418153 lines     | 2026-04-20 14:11:57 |
+| Average Presence  | 1.25             | 2026-04-20 14:11:57 |
 
 ## ADW KPIs
 
@@ -136,5 +136,6 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-04-18 | 82j9dc-orphan-auto-prune-in | 13           | /feature    | 1        | 408               | 2139/10/60                      | 2026-04-18 20:29:21 | 2026-04-18 20:29:21 |
 | 2026-04-18 | a093bk-jsonreporter-depaudi | 8            | /feature    | 1        | 0                 | 0/13371/342                     | 2026-04-18 21:00:27 | 2026-04-18 21:00:27 |
 | 2026-04-20 | eantbn-orchestrator-resilie | 457          | /feature    | 1        | 0                 | 1366/3/10                       | 2026-04-20 13:50:32 | 2026-04-20 13:50:32 |
-| 2026-04-20 | djtyv4-orchestrator-resilie | 458          | /feature    | 1        | 0                 | 1420/31/14                      | 2026-04-20 13:51:46 | 2026-04-20 13:51:46 |
+| 2026-04-20 | djtyv4-orchestrator-resilie | 458          | /feature    | 1        | 0                 | 1420/31/14                      | 2026-04-20 13:50:32 | 2026-04-20 13:50:32 |
 | 2026-04-20 | 7dp24s-orchestrator-resilie | 455          | /feature    | 1        | 0                 | 1325/131/16                     | 2026-04-20 14:07:23 | 2026-04-20 14:07:23 |
+| 2026-04-20 | xlv8zk-orchestrator-resilie | 456          | /feature    | 1        | 0                 | 1545/43/17                      | 2026-04-20 14:11:57 | 2026-04-20 14:11:57 |
