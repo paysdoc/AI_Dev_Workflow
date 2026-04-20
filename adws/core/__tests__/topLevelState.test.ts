@@ -115,6 +115,63 @@ describe('AgentStateManager.writeTopLevelState() and readTopLevelState()', () =>
     expect(state!.phases!.build.status).toBe('running');
   });
 
+  it('writes and reads the full new-schema top-level state (pid, pidStartedAt, lastSeenAt, branchName)', () => {
+    AgentStateManager.writeTopLevelState(adwId, {
+      adwId,
+      pid: 4242,
+      pidStartedAt: 'Sun Apr 20 10:15:23 2026',
+      lastSeenAt: '2026-04-20T10:15:23.000Z',
+      branchName: 'feature-issue-461-extend-top-level-state-schema',
+    });
+    const state = AgentStateManager.readTopLevelState(adwId);
+    expect(state!.pid).toBe(4242);
+    expect(state!.pidStartedAt).toBe('Sun Apr 20 10:15:23 2026');
+    expect(state!.lastSeenAt).toBe('2026-04-20T10:15:23.000Z');
+    expect(state!.branchName).toBe('feature-issue-461-extend-top-level-state-schema');
+  });
+
+  it('reads a pre-461 state file missing pid/pidStartedAt/lastSeenAt/branchName without error', () => {
+    const filePath = AgentStateManager.getTopLevelStatePath(adwId);
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    fs.writeFileSync(
+      filePath,
+      JSON.stringify({ adwId, issueNumber: 1, workflowStage: 'starting' }, null, 2),
+      'utf-8',
+    );
+    const state = AgentStateManager.readTopLevelState(adwId);
+    expect(state).not.toBeNull();
+    expect(state!.adwId).toBe(adwId);
+    expect(state!.workflowStage).toBe('starting');
+    expect(state!.pid).toBeUndefined();
+    expect(state!.pidStartedAt).toBeUndefined();
+    expect(state!.lastSeenAt).toBeUndefined();
+    expect(state!.branchName).toBeUndefined();
+  });
+
+  it('partial-patch write preserves unmodified new-schema fields', () => {
+    AgentStateManager.writeTopLevelState(adwId, {
+      adwId,
+      pid: 7777,
+      pidStartedAt: 'Sun Apr 20 09:00:00 2026',
+      branchName: 'feature-x',
+    });
+    AgentStateManager.writeTopLevelState(adwId, {
+      lastSeenAt: '2026-04-20T09:00:30.000Z',
+    });
+    const state = AgentStateManager.readTopLevelState(adwId);
+    expect(state!.pid).toBe(7777);
+    expect(state!.pidStartedAt).toBe('Sun Apr 20 09:00:00 2026');
+    expect(state!.branchName).toBe('feature-x');
+    expect(state!.lastSeenAt).toBe('2026-04-20T09:00:30.000Z');
+  });
+
+  it('writeTopLevelState leaves no temp file behind on success', () => {
+    AgentStateManager.writeTopLevelState(adwId, { adwId, issueNumber: 99 });
+    const filePath = AgentStateManager.getTopLevelStatePath(adwId);
+    expect(fs.existsSync(filePath)).toBe(true);
+    expect(fs.existsSync(`${filePath}.tmp`)).toBe(false);
+  });
+
   it('handles corrupted state.json gracefully — starts fresh', () => {
     const filePath = AgentStateManager.getTopLevelStatePath(adwId);
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
