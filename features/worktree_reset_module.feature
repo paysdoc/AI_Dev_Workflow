@@ -113,7 +113,8 @@ Feature: worktreeReset deep module — deterministic reset of a worktree to orig
     Given a mocked worktree with no in-progress merge or rebase and no dirty files
     When resetWorktreeToRemote is called
     Then the function completes without throwing
-    And only "git reset --hard origin/<branch>" and "git clean -fdx" are recorded on the mock
+    And "git reset --hard origin/<branch>" and "git clean -fdx" are recorded on the mock
+    And no "git merge --abort" or "git rebase --abort" call is recorded on the mock
     And calling resetWorktreeToRemote a second time records the same calls with the same effect
 
   @adw-457 @regression
