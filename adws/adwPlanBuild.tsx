@@ -30,7 +30,7 @@ import {
   completeWorkflow,
   handleWorkflowError,
 } from './workflowPhases';
-import { acquireOrchestratorLock, releaseOrchestratorLock } from './phases/orchestratorLock';
+import { runWithOrchestratorLifecycle } from './phases/orchestratorLock';
 
 /**
  * Main orchestrator workflow.
@@ -51,28 +51,25 @@ async function main(): Promise<void> {
     repoId,
   });
 
-  if (!acquireOrchestratorLock(config)) {
+  if (!await runWithOrchestratorLifecycle(config, async () => {
+    const tracker = new CostTracker();
+    try {
+      await runPhase(config, tracker, executeInstallPhase);
+      await runPhase(config, tracker, executePlanPhase);
+      await runPhase(config, tracker, executeBuildPhase);
+      const testResult = await runPhase(config, tracker, executeUnitTestPhase);
+      await runPhase(config, tracker, executePRPhase);
+
+      await completeWorkflow(config, tracker.totalCostUsd, {
+        unitTestsPassed: testResult.unitTestsPassed,
+        totalTestRetries: testResult.totalRetries,
+      }, tracker.totalModelUsage);
+    } catch (error) {
+      handleWorkflowError(config, error, tracker.totalCostUsd, tracker.totalModelUsage);
+    }
+  })) {
     log(`Issue #${issueNumber}: spawn lock already held by another orchestrator; exiting.`, 'warn');
     process.exit(0);
-  }
-
-  const tracker = new CostTracker();
-
-  try {
-    await runPhase(config, tracker, executeInstallPhase);
-    await runPhase(config, tracker, executePlanPhase);
-    await runPhase(config, tracker, executeBuildPhase);
-    const testResult = await runPhase(config, tracker, executeUnitTestPhase);
-    await runPhase(config, tracker, executePRPhase);
-
-    await completeWorkflow(config, tracker.totalCostUsd, {
-      unitTestsPassed: testResult.unitTestsPassed,
-      totalTestRetries: testResult.totalRetries,
-    }, tracker.totalModelUsage);
-  } catch (error) {
-    handleWorkflowError(config, error, tracker.totalCostUsd, tracker.totalModelUsage);
-  } finally {
-    releaseOrchestratorLock(config);
   }
 }
 

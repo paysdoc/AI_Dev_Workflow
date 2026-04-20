@@ -49,7 +49,7 @@ import {
 } from './workflowPhases';
 import { persistTokenCounts } from './cost';
 import type { WorkflowConfig } from './phases';
-import { acquireOrchestratorLock, releaseOrchestratorLock } from './phases/orchestratorLock';
+import { runWithOrchestratorLifecycle } from './phases/orchestratorLock';
 
 /**
  * Main orchestrator workflow.
@@ -70,80 +70,77 @@ async function main(): Promise<void> {
     repoId,
   });
 
-  if (!acquireOrchestratorLock(config)) {
+  if (!await runWithOrchestratorLifecycle(config, async () => {
+    const tracker = new CostTracker();
+    try {
+      await runPhase(config, tracker, executeInstallPhase);
+      await runPhasesParallel(config, tracker, [executePlanPhase, executeScenarioPhase]);
+      await runPhase(config, tracker, executeAlignmentPhase);
+      await runPhase(config, tracker, executeBuildPhase);
+      await runPhase(config, tracker, executeStepDefPhase, 'stepDef');
+      const testResult = await runPhase(config, tracker, executeUnitTestPhase);
+
+      // Scenario test → fix retry loop (orchestrator-level, bounded by MAX_TEST_RETRY_ATTEMPTS)
+      let scenarioProofPath = '';
+      let scenarioRetries = 0;
+      for (let attempt = 0; attempt < MAX_TEST_RETRY_ATTEMPTS; attempt++) {
+        const scenarioResult = await runPhase(config, tracker, executeScenarioTestPhase);
+        scenarioProofPath = scenarioResult.scenarioProof?.resultsFilePath ?? '';
+        if (!scenarioResult.scenarioProof?.hasBlockerFailures) break;
+        scenarioRetries++;
+        if (attempt < MAX_TEST_RETRY_ATTEMPTS - 1) {
+          const fixWrapper = (cfg: WorkflowConfig) =>
+            executeScenarioFixPhase(cfg, scenarioResult.scenarioProof!);
+          await runPhase(config, tracker, fixWrapper);
+        }
+      }
+
+      // Review → patch+retest retry loop (orchestrator-level, bounded by MAX_REVIEW_RETRY_ATTEMPTS)
+      let reviewRetries = 0;
+      let proofPath = scenarioProofPath;
+      let reviewPassed = false;
+      let reviewBlockers: ReviewIssue[] = [];
+      for (let attempt = 0; attempt < MAX_REVIEW_RETRY_ATTEMPTS; attempt++) {
+        const reviewFn = (cfg: WorkflowConfig) => executeReviewPhase(cfg, proofPath);
+        const reviewResult = await runPhase(config, tracker, reviewFn);
+        reviewPassed = reviewResult.reviewPassed;
+        reviewBlockers = reviewResult.reviewIssues.filter(i => i.issueSeverity === 'blocker');
+        if (reviewPassed) break;
+        reviewRetries++;
+        if (attempt < MAX_REVIEW_RETRY_ATTEMPTS - 1) {
+          const patchWrapper = (cfg: WorkflowConfig) =>
+            executeReviewPatchCycle(cfg, reviewBlockers);
+          await runPhase(config, tracker, patchWrapper);
+          // Re-run scenario tests to verify patch didn't break scenarios
+          const retestResult = await runPhase(config, tracker, executeScenarioTestPhase);
+          proofPath = retestResult.scenarioProof?.resultsFilePath ?? '';
+        }
+      }
+
+      await runPhase(config, tracker, executePRPhase);
+
+      AgentStateManager.writeTopLevelState(config.adwId, { workflowStage: 'awaiting_merge' });
+      AgentStateManager.writeState(config.orchestratorStatePath, {
+        metadata: {
+          totalCostUsd: tracker.totalCostUsd,
+          unitTestsPassed: testResult.unitTestsPassed,
+          totalTestRetries: testResult.totalRetries,
+          scenarioRetries,
+          reviewPassed,
+          totalReviewRetries: reviewRetries,
+        },
+      });
+      persistTokenCounts(config.orchestratorStatePath, tracker.totalCostUsd, tracker.totalModelUsage);
+      log('===================================', 'info');
+      log('Orchestrator finished — PR approved, awaiting merge via cron', 'success');
+      if (config.ctx.prUrl) log(`PR: ${config.ctx.prUrl}`, 'info');
+      log('===================================', 'info');
+    } catch (error) {
+      handleWorkflowError(config, error, tracker.totalCostUsd, tracker.totalModelUsage);
+    }
+  })) {
     log(`Issue #${issueNumber}: spawn lock already held by another orchestrator; exiting.`, 'warn');
     process.exit(0);
-  }
-
-  const tracker = new CostTracker();
-
-  try {
-    await runPhase(config, tracker, executeInstallPhase);
-    await runPhasesParallel(config, tracker, [executePlanPhase, executeScenarioPhase]);
-    await runPhase(config, tracker, executeAlignmentPhase);
-    await runPhase(config, tracker, executeBuildPhase);
-    await runPhase(config, tracker, executeStepDefPhase, 'stepDef');
-    const testResult = await runPhase(config, tracker, executeUnitTestPhase);
-
-    // Scenario test → fix retry loop (orchestrator-level, bounded by MAX_TEST_RETRY_ATTEMPTS)
-    let scenarioProofPath = '';
-    let scenarioRetries = 0;
-    for (let attempt = 0; attempt < MAX_TEST_RETRY_ATTEMPTS; attempt++) {
-      const scenarioResult = await runPhase(config, tracker, executeScenarioTestPhase);
-      scenarioProofPath = scenarioResult.scenarioProof?.resultsFilePath ?? '';
-      if (!scenarioResult.scenarioProof?.hasBlockerFailures) break;
-      scenarioRetries++;
-      if (attempt < MAX_TEST_RETRY_ATTEMPTS - 1) {
-        const fixWrapper = (cfg: WorkflowConfig) =>
-          executeScenarioFixPhase(cfg, scenarioResult.scenarioProof!);
-        await runPhase(config, tracker, fixWrapper);
-      }
-    }
-
-    // Review → patch+retest retry loop (orchestrator-level, bounded by MAX_REVIEW_RETRY_ATTEMPTS)
-    let reviewRetries = 0;
-    let proofPath = scenarioProofPath;
-    let reviewPassed = false;
-    let reviewBlockers: ReviewIssue[] = [];
-    for (let attempt = 0; attempt < MAX_REVIEW_RETRY_ATTEMPTS; attempt++) {
-      const reviewFn = (cfg: WorkflowConfig) => executeReviewPhase(cfg, proofPath);
-      const reviewResult = await runPhase(config, tracker, reviewFn);
-      reviewPassed = reviewResult.reviewPassed;
-      reviewBlockers = reviewResult.reviewIssues.filter(i => i.issueSeverity === 'blocker');
-      if (reviewPassed) break;
-      reviewRetries++;
-      if (attempt < MAX_REVIEW_RETRY_ATTEMPTS - 1) {
-        const patchWrapper = (cfg: WorkflowConfig) =>
-          executeReviewPatchCycle(cfg, reviewBlockers);
-        await runPhase(config, tracker, patchWrapper);
-        // Re-run scenario tests to verify patch didn't break scenarios
-        const retestResult = await runPhase(config, tracker, executeScenarioTestPhase);
-        proofPath = retestResult.scenarioProof?.resultsFilePath ?? '';
-      }
-    }
-
-    await runPhase(config, tracker, executePRPhase);
-
-    AgentStateManager.writeTopLevelState(config.adwId, { workflowStage: 'awaiting_merge' });
-    AgentStateManager.writeState(config.orchestratorStatePath, {
-      metadata: {
-        totalCostUsd: tracker.totalCostUsd,
-        unitTestsPassed: testResult.unitTestsPassed,
-        totalTestRetries: testResult.totalRetries,
-        scenarioRetries,
-        reviewPassed,
-        totalReviewRetries: reviewRetries,
-      },
-    });
-    persistTokenCounts(config.orchestratorStatePath, tracker.totalCostUsd, tracker.totalModelUsage);
-    log('===================================', 'info');
-    log('Orchestrator finished — PR approved, awaiting merge via cron', 'success');
-    if (config.ctx.prUrl) log(`PR: ${config.ctx.prUrl}`, 'info');
-    log('===================================', 'info');
-  } catch (error) {
-    handleWorkflowError(config, error, tracker.totalCostUsd, tracker.totalModelUsage);
-  } finally {
-    releaseOrchestratorLock(config);
   }
 }
 
