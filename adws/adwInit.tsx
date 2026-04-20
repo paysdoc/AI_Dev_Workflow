@@ -29,7 +29,7 @@ import {
   copyTargetSkillsAndCommands,
   executeDepauditSetup,
 } from './workflowPhases';
-import { acquireOrchestratorLock, releaseOrchestratorLock } from './phases/orchestratorLock';
+import { runWithOrchestratorLifecycle } from './phases/orchestratorLock';
 
 /**
  * Main ADW init workflow.
@@ -50,76 +50,74 @@ async function main(): Promise<void> {
     repoId,
   });
 
-  if (!acquireOrchestratorLock(config)) {
+  if (!await runWithOrchestratorLifecycle(config, async () => {
+    let totalModelUsage: ModelUsageMap = emptyModelUsageMap();
+    let totalCostUsd = 0;
+
+    try {
+      // Run the /adw_init slash command
+      log('Phase: ADW Init', 'info');
+      const issueJson = JSON.stringify({
+        number: config.issue.number,
+        title: config.issue.title,
+        body: config.issue.body,
+      });
+
+      const result = await runClaudeAgentWithCommand(
+        '/adw_init',
+        [String(config.issueNumber), config.adwId, issueJson],
+        'adw-init',
+        `${config.logsDir}/adw-init.jsonl`,
+        'sonnet',
+        undefined, // effort
+        undefined, // onProgress
+        undefined, // statePath
+        config.worktreePath, // cwd - run in target repo worktree
+      );
+
+      if (result.modelUsage) {
+        totalModelUsage = mergeModelUsageMaps(totalModelUsage, result.modelUsage);
+      }
+      totalCostUsd += result.totalCostUsd ?? 0;
+
+      if (!result.success) {
+        throw new Error('ADW init command failed');
+      }
+
+      log('ADW init completed, copying target skills and commands...', 'info');
+      copyTargetSkillsAndCommands(config.worktreePath);
+
+      // Propagates SOCKET_API_TOKEN and SLACK_WEBHOOK_URL to target repo GitHub Actions secrets via gh secret set
+      log('Phase: depaudit setup + secret propagation', 'info');
+      const depauditResult = await executeDepauditSetup(config);
+      if (depauditResult.skippedSecrets.length > 0) {
+        log(`Init summary: skipped secrets (env not set): ${depauditResult.skippedSecrets.join(', ')}`, 'warn');
+      }
+      for (const w of depauditResult.warnings) {
+        log(w, 'warn');
+      }
+
+      log('Committing files...', 'info');
+
+      // Commit the generated .adw/ files along with target skills and commands
+      commitChanges(
+        'chore: initialize .adw/ config with target skills and commands',
+        config.worktreePath,
+      );
+
+      log('Phase: PR Creation', 'info');
+      const prResult = await executePRPhase(config);
+      totalCostUsd += prResult.costUsd;
+      totalModelUsage = mergeModelUsageMaps(totalModelUsage, prResult.modelUsage);
+
+      persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
+      await completeWorkflow(config, totalCostUsd, undefined, totalModelUsage);
+    } catch (error) {
+      handleWorkflowError(config, error, totalCostUsd, totalModelUsage);
+    }
+  })) {
     log(`Issue #${issueNumber}: spawn lock already held by another orchestrator; exiting.`, 'warn');
     process.exit(0);
-  }
-
-  let totalModelUsage: ModelUsageMap = emptyModelUsageMap();
-  let totalCostUsd = 0;
-
-  try {
-    // Run the /adw_init slash command
-    log('Phase: ADW Init', 'info');
-    const issueJson = JSON.stringify({
-      number: config.issue.number,
-      title: config.issue.title,
-      body: config.issue.body,
-    });
-
-    const result = await runClaudeAgentWithCommand(
-      '/adw_init',
-      [String(config.issueNumber), config.adwId, issueJson],
-      'adw-init',
-      `${config.logsDir}/adw-init.jsonl`,
-      'sonnet',
-      undefined, // effort
-      undefined, // onProgress
-      undefined, // statePath
-      config.worktreePath, // cwd - run in target repo worktree
-    );
-
-    if (result.modelUsage) {
-      totalModelUsage = mergeModelUsageMaps(totalModelUsage, result.modelUsage);
-    }
-    totalCostUsd += result.totalCostUsd ?? 0;
-
-    if (!result.success) {
-      throw new Error('ADW init command failed');
-    }
-
-    log('ADW init completed, copying target skills and commands...', 'info');
-    copyTargetSkillsAndCommands(config.worktreePath);
-
-    // Propagates SOCKET_API_TOKEN and SLACK_WEBHOOK_URL to target repo GitHub Actions secrets via gh secret set
-    log('Phase: depaudit setup + secret propagation', 'info');
-    const depauditResult = await executeDepauditSetup(config);
-    if (depauditResult.skippedSecrets.length > 0) {
-      log(`Init summary: skipped secrets (env not set): ${depauditResult.skippedSecrets.join(', ')}`, 'warn');
-    }
-    for (const w of depauditResult.warnings) {
-      log(w, 'warn');
-    }
-
-    log('Committing files...', 'info');
-
-    // Commit the generated .adw/ files along with target skills and commands
-    commitChanges(
-      'chore: initialize .adw/ config with target skills and commands',
-      config.worktreePath,
-    );
-
-    log('Phase: PR Creation', 'info');
-    const prResult = await executePRPhase(config);
-    totalCostUsd += prResult.costUsd;
-    totalModelUsage = mergeModelUsageMaps(totalModelUsage, prResult.modelUsage);
-
-    persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
-    await completeWorkflow(config, totalCostUsd, undefined, totalModelUsage);
-  } catch (error) {
-    handleWorkflowError(config, error, totalCostUsd, totalModelUsage);
-  } finally {
-    releaseOrchestratorLock(config);
   }
 }
 

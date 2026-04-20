@@ -45,24 +45,21 @@ async function main(): Promise<void> {
     cwd: cwd || undefined,
   });
 
-  if (!acquireOrchestratorLock(config)) {
+  if (!await runWithOrchestratorLifecycle(config, async () => {
+    const tracker = new CostTracker();
+    try {
+      const testResult = await runPhase(config, tracker, executeUnitTestPhase, 'test');
+
+      await completeWorkflow(config, tracker.totalCostUsd, {
+        unitTestsPassed: testResult.unitTestsPassed,
+        totalTestRetries: testResult.totalRetries,
+      }, tracker.totalModelUsage);
+    } catch (error) {
+      handleWorkflowError(config, error, tracker.totalCostUsd, tracker.totalModelUsage);
+    }
+  })) {
     log(`Issue #${issueNumber}: spawn lock already held by another orchestrator; exiting.`, 'warn');
     process.exit(0);
-  }
-
-  const tracker = new CostTracker();
-
-  try {
-    const testResult = await runPhase(config, tracker, executeUnitTestPhase, 'test');
-
-    await completeWorkflow(config, tracker.totalCostUsd, {
-      unitTestsPassed: testResult.unitTestsPassed,
-      totalTestRetries: testResult.totalRetries,
-    }, tracker.totalModelUsage);
-  } catch (error) {
-    handleWorkflowError(config, error, tracker.totalCostUsd, tracker.totalModelUsage);
-  } finally {
-    releaseOrchestratorLock(config);
   }
 }
 

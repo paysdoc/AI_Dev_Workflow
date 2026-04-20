@@ -33,7 +33,7 @@ import {
 } from './workflowPhases';
 import type { WorkflowConfig } from './phases';
 import { runPatchAgent, getPlanFilePath, type ReviewIssue } from './agents';
-import { acquireOrchestratorLock, releaseOrchestratorLock } from './phases/orchestratorLock';
+import { runWithOrchestratorLifecycle } from './phases/orchestratorLock';
 
 /**
  * Executes the Patch planning phase: runs the /patch skill and writes output to the spec file.
@@ -96,24 +96,21 @@ async function main(): Promise<void> {
     cwd: cwd || undefined,
   });
 
-  if (!acquireOrchestratorLock(config)) {
+  if (!await runWithOrchestratorLifecycle(config, async () => {
+    const tracker = new CostTracker();
+    try {
+      await runPhase(config, tracker, executeInstallPhase, 'install');
+      await runPhase(config, tracker, executePatchPhase, 'patch');
+      await runPhase(config, tracker, executeBuildPhase, 'build');
+      await runPhase(config, tracker, executePRPhase, 'pr');
+
+      await completeWorkflow(config, tracker.totalCostUsd, {}, tracker.totalModelUsage);
+    } catch (error) {
+      handleWorkflowError(config, error, tracker.totalCostUsd, tracker.totalModelUsage);
+    }
+  })) {
     log(`Issue #${issueNumber}: spawn lock already held by another orchestrator; exiting.`, 'warn');
     process.exit(0);
-  }
-
-  const tracker = new CostTracker();
-
-  try {
-    await runPhase(config, tracker, executeInstallPhase, 'install');
-    await runPhase(config, tracker, executePatchPhase, 'patch');
-    await runPhase(config, tracker, executeBuildPhase, 'build');
-    await runPhase(config, tracker, executePRPhase, 'pr');
-
-    await completeWorkflow(config, tracker.totalCostUsd, {}, tracker.totalModelUsage);
-  } catch (error) {
-    handleWorkflowError(config, error, tracker.totalCostUsd, tracker.totalModelUsage);
-  } finally {
-    releaseOrchestratorLock(config);
   }
 }
 
