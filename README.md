@@ -453,7 +453,6 @@ adws/                   # ADW workflow system
 │   ├── issueDependencies.ts
 │   ├── issueEligibility.ts
 │   ├── pauseQueueScanner.ts  # Cron probe for paused issue queue
-│   ├── spawnGate.ts  # Per-issue filesystem spawn lock preventing duplicate orchestrator processes
 │   ├── trigger_cron.ts
 │   ├── trigger_shutdown.ts  # Graceful shutdown handler
 │   ├── trigger_webhook.ts
