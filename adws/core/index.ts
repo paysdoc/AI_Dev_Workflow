@@ -77,9 +77,10 @@ export {
   appendAgentLog,
   writeAgentRawOutput,
   readParentAgentState,
-  isProcessAlive,
   findOrchestratorStatePath,
   isAgentProcessRunning,
+  getProcessStartTime,
+  isProcessLive,
 } from './agentState';
 
 // Orchestrator shared utilities

@@ -16,6 +16,14 @@
     - When extending the board column merge logic or adding new ADW columns to `BOARD_COLUMNS`
     - When writing or updating unit tests for `mergeStatusOptions` (ordering and ID-preservation contracts)
 
+- app_docs/feature-xlv8zk-process-liveness-module.md
+  - Conditions:
+    - When working with `isProcessLive`, `getProcessStartTime`, or `processLiveness.ts`
+    - When implementing or debugging PID-reuse-safe liveness checks in ADW
+    - When working with `spawnGate.ts` spawn lock acquisition or stale-lock reclaim logic
+    - When `isAgentProcessRunning` or `AgentState.pidStartedAt` is relevant
+    - When migrating remaining `isProcessAlive` call sites to the new `processLiveness` module
+
 - app_docs/feature-0cv18u-fix-cross-trigger-spawn-dedup.md
   - Conditions:
     - When working with `classifyAndSpawnWorkflow` in `webhookGatekeeper.ts` or the cron/webhook trigger paths
