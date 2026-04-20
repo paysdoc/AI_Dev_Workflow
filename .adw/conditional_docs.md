@@ -1037,3 +1037,11 @@
     - When wiring heartbeat lifecycle (start/stop) into additional orchestrators beyond `adwSdlc` (PRD slice #8)
     - When troubleshooting `lastSeenAt` not updating in the state file while a workflow is running
     - When modifying `HEARTBEAT_TICK_INTERVAL_MS` or `HEARTBEAT_STALE_THRESHOLD_MS` constants in `adws/core/config.ts`
+
+- app_docs/feature-xruqv8-hung-orchestrator-detector.md
+  - Conditions:
+    - When working with `adws/core/hungOrchestratorDetector.ts`, `findHungOrchestrators`, or `HungDetectorDeps`
+    - When modifying or extending the hung-orchestrator sweep block in `adws/triggers/trigger_cron.ts`
+    - When troubleshooting orchestrators that are alive but wedged and not being automatically abandoned
+    - When tuning `HUNG_DETECTOR_INTERVAL_CYCLES` or `HEARTBEAT_STALE_THRESHOLD_MS` for detection latency
+    - When implementing the takeover handler (PRD slice #11) that consumes the `abandoned` state written by this sweep
