@@ -101,50 +101,69 @@ Feature: spawnGate lifetime extension and PID+start-time liveness
   # ═══════════════════════════════════════════════════════════════════════════
 
   @adw-463 @regression
-  Scenario: initializeWorkflow imports acquireIssueSpawnLock from spawnGate
-    Given "adws/phases/workflowInit.ts" is read
+  Scenario: orchestratorLock helper module exists and exports the acquire/release pair
+    Given "adws/phases/orchestratorLock.ts" is read
+    Then the file exports "acquireOrchestratorLock"
+    And the file exports "releaseOrchestratorLock"
+
+  @adw-463 @regression
+  Scenario: acquireOrchestratorLock delegates to acquireIssueSpawnLock with the current process pid
+    Given "adws/phases/orchestratorLock.ts" is read
     Then "acquireIssueSpawnLock" is imported from "../triggers/spawnGate"
+    And acquireOrchestratorLock calls acquireIssueSpawnLock with "process.pid" as the owning PID argument
 
   @adw-463 @regression
-  Scenario: initializeWorkflow acquires the issue spawn lock after writing top-level state
-    Given "adws/phases/workflowInit.ts" is read
-    Then "acquireIssueSpawnLock" is called inside initializeWorkflow
-    And the call to "acquireIssueSpawnLock" appears after the call to "writeTopLevelState"
+  Scenario: each initializeWorkflow-based orchestrator imports the helper and acquires after state init
+    Given the orchestrator file "adws/adwSdlc.tsx" is read
+    Then "acquireOrchestratorLock" is imported from "./phases/orchestratorLock"
+    And "acquireOrchestratorLock(config)" is called after "initializeWorkflow(" in main
+    And "acquireOrchestratorLock(config)" is called before the phase-execution try block
 
   @adw-463 @regression
-  Scenario: orchestrator acquisition uses the current process's own pid
-    Given "adws/phases/workflowInit.ts" is read
-    Then the acquireIssueSpawnLock call passes "process.pid" as the owning PID argument
+  Scenario: adwMerge uses the raw acquireIssueSpawnLock because it has no initializeWorkflow call
+    Given the orchestrator file "adws/adwMerge.tsx" is read
+    Then "acquireIssueSpawnLock" is imported from "./triggers/spawnGate"
+    And "acquireIssueSpawnLock(repoInfo" is called after the repoInfo constant is declared in main
 
   @adw-463
-  Scenario: initializeWorkflow surfaces a failed lock acquisition as a hard error
-    Given "adws/phases/workflowInit.ts" is read
-    Then initializeWorkflow throws when acquireIssueSpawnLock returns false
+  Scenario: orchestrator exits 0 on contention rather than throwing
+    Given the orchestrator file "adws/adwSdlc.tsx" is read
+    Then the main function calls "process.exit(0)" when acquireOrchestratorLock returns false
+    And the main function does not throw when acquireOrchestratorLock returns false
 
   # ═══════════════════════════════════════════════════════════════════════════
-  # 5. Lock release happens on every normal exit path (finally semantic)
+  # 5. Lock release happens in finally on normal exit; crash recovery via staleness
   # ═══════════════════════════════════════════════════════════════════════════
 
   @adw-463 @regression
-  Scenario: releaseIssueSpawnLock is wired into the workflow completion path
-    Given "adws/phases/workflowCompletion.ts" is read
-    Then "releaseIssueSpawnLock" is imported from "../triggers/spawnGate"
-    And "releaseIssueSpawnLock" is called in completeWorkflow
+  Scenario: each initializeWorkflow-based orchestrator releases the lock in a finally block
+    Given the orchestrator file "adws/adwSdlc.tsx" is read
+    Then the main function contains a "finally" block
+    And the "finally" block calls "releaseOrchestratorLock(config)"
 
   @adw-463 @regression
-  Scenario: handleWorkflowError releases the spawn lock before exiting
-    Given "adws/phases/workflowCompletion.ts" is read
-    Then "handleWorkflowError" calls "releaseIssueSpawnLock" before "process.exit"
+  Scenario: adwMerge releases the lock in a finally block wrapping executeMerge
+    Given the orchestrator file "adws/adwMerge.tsx" is read
+    Then the main function contains a "finally" block
+    And the "finally" block calls "releaseIssueSpawnLock(repoInfo, issueNumber)"
 
   @adw-463 @regression
-  Scenario: handleWorkflowDiscarded releases the spawn lock before exiting
+  Scenario: handleWorkflowError does not release the lock — crash recovery relies on the staleness check
     Given "adws/phases/workflowCompletion.ts" is read
-    Then "handleWorkflowDiscarded" calls "releaseIssueSpawnLock" before "process.exit"
+    Then "handleWorkflowError" does not call "releaseIssueSpawnLock"
+    And "handleWorkflowError" does not call "releaseOrchestratorLock"
 
   @adw-463 @regression
-  Scenario: handleRateLimitPause releases the spawn lock before exiting
+  Scenario: handleWorkflowDiscarded does not release the lock — crash recovery relies on the staleness check
     Given "adws/phases/workflowCompletion.ts" is read
-    Then "handleRateLimitPause" calls "releaseIssueSpawnLock" before "process.exit"
+    Then "handleWorkflowDiscarded" does not call "releaseIssueSpawnLock"
+    And "handleWorkflowDiscarded" does not call "releaseOrchestratorLock"
+
+  @adw-463 @regression
+  Scenario: handleRateLimitPause does not release the lock — crash recovery relies on the staleness check
+    Given "adws/phases/workflowCompletion.ts" is read
+    Then "handleRateLimitPause" does not call "releaseIssueSpawnLock"
+    And "handleRateLimitPause" does not call "releaseOrchestratorLock"
 
   @adw-463
   Scenario: releaseIssueSpawnLock is a no-op when the lock file does not exist
