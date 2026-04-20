@@ -192,36 +192,21 @@ Feature: heartbeat module writes lastSeenAt on a fixed interval, wired as a trac
     And stopHeartbeat is called with the returned handle
 
   # ═══════════════════════════════════════════════════════════════════════════
-  # 7. adwSdlc tracer wiring — startHeartbeat after state init, stopHeartbeat in finally
+  # 7. adwSdlc tracer wiring — superseded by #464's shared lifecycle wrapper
+  # The slice-#6 tracer landed startHeartbeat/stopHeartbeat directly in adwSdlc;
+  # slice #7 (#463) added orchestratorLock; slice #8 (#464) consolidated all of
+  # the above into runWithOrchestratorLifecycle and removed the direct calls
+  # from adwSdlc. The current contract for adwSdlc's heartbeat lifecycle now
+  # lives in shared_orchestrator_lifecycle_wrapper.feature.
   # ═══════════════════════════════════════════════════════════════════════════
 
-  @adw-462 @regression
-  Scenario: adwSdlc imports startHeartbeat and stopHeartbeat from the heartbeat module
+  @adw-462 @adw-464 @regression
+  Scenario: adwSdlc heartbeat lifecycle is delegated to the shared wrapper, not hand-rolled
     Given "adws/adwSdlc.tsx" is read
-    Then the file imports "startHeartbeat" from "./core/heartbeat"
-    And the file imports "stopHeartbeat" from "./core/heartbeat"
-
-  @adw-462 @regression
-  Scenario: adwSdlc starts the heartbeat after initializeWorkflow has run
-    Given "adws/adwSdlc.tsx" is read
-    Then the call to "startHeartbeat" occurs after the call to "initializeWorkflow"
-
-  @adw-462 @regression
-  Scenario: adwSdlc stops the heartbeat from a finally block
-    Given "adws/adwSdlc.tsx" is read
-    Then the call to "stopHeartbeat" occurs inside a "finally" block
-    And the "finally" block containing "stopHeartbeat" also surrounds the main orchestrator try body
-
-  @adw-462
-  Scenario: adwSdlc passes HEARTBEAT_TICK_INTERVAL_MS from config as the tick interval
-    Given "adws/adwSdlc.tsx" is read
-    Then the file imports "HEARTBEAT_TICK_INTERVAL_MS" from "./core/config"
-    And the call to "startHeartbeat" uses "HEARTBEAT_TICK_INTERVAL_MS" as its intervalMs argument
-
-  @adw-462
-  Scenario: adwSdlc passes the workflow's resolved adwId to startHeartbeat
-    Given "adws/adwSdlc.tsx" is read
-    Then the call to "startHeartbeat" uses "config.adwId" as its adwId argument
+    Then the file does not import "startHeartbeat"
+    And the file does not import "stopHeartbeat"
+    And the file imports "runWithOrchestratorLifecycle" from "./phases/orchestratorLock"
+    And the main function calls "runWithOrchestratorLifecycle"
 
   # ═══════════════════════════════════════════════════════════════════════════
   # 8. Phase-transition durability — lastSeenAt survives a sibling writeTopLevelState

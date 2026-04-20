@@ -112,40 +112,48 @@ Feature: spawnGate lifetime extension and PID+start-time liveness
     Then "acquireIssueSpawnLock" is imported from "../triggers/spawnGate"
     And acquireOrchestratorLock calls acquireIssueSpawnLock with "process.pid" as the owning PID argument
 
-  @adw-463 @regression
-  Scenario: each initializeWorkflow-based orchestrator imports the helper and acquires after state init
-    Given the orchestrator file "adws/adwSdlc.tsx" is read
-    Then "acquireOrchestratorLock" is imported from "./phases/orchestratorLock"
-    And "acquireOrchestratorLock(config)" is called after "initializeWorkflow(" in main
-    And "acquireOrchestratorLock(config)" is called before the phase-execution try block
+  # NOTE: the per-orchestrator wiring scenarios that originally lived here
+  # (each initializeWorkflow-based entrypoint imports acquireOrchestratorLock
+  # and calls it after state init) are superseded by #464's shared lifecycle
+  # wrapper. The wrapper now owns the acquire/release pair, and each entrypoint
+  # delegates to it. See shared_orchestrator_lifecycle_wrapper.feature for the
+  # current per-orchestrator contracts.
 
-  @adw-463 @regression
-  Scenario: adwMerge uses the raw acquireIssueSpawnLock because it has no initializeWorkflow call
+  @adw-463 @adw-464 @regression
+  Scenario: each initializeWorkflow-based orchestrator delegates lock-acquire to the shared wrapper
+    Given the orchestrator file "adws/adwSdlc.tsx" is read
+    Then "runWithOrchestratorLifecycle" is imported from "./phases/orchestratorLock"
+    And "runWithOrchestratorLifecycle(config" is called after "initializeWorkflow(" in main
+
+  @adw-463 @adw-464 @regression
+  Scenario: adwMerge delegates lock-acquire to the raw shared wrapper because it has no initializeWorkflow call
     Given the orchestrator file "adws/adwMerge.tsx" is read
-    Then "acquireIssueSpawnLock" is imported from "./triggers/spawnGate"
-    And "acquireIssueSpawnLock(repoInfo" is called after the repoInfo constant is declared in main
+    Then "runWithRawOrchestratorLifecycle" is imported from "./phases/orchestratorLock"
+    And "runWithRawOrchestratorLifecycle(repoInfo" is called after the repoInfo constant is declared in main
 
-  @adw-463
-  Scenario: orchestrator exits 0 on contention rather than throwing
+  @adw-463 @adw-464
+  Scenario: orchestrator exits 0 on contention rather than throwing — via the wrapper return value
     Given the orchestrator file "adws/adwSdlc.tsx" is read
-    Then the main function calls "process.exit(0)" when acquireOrchestratorLock returns false
-    And the main function does not throw when acquireOrchestratorLock returns false
+    Then the main function calls "process.exit(0)" when "runWithOrchestratorLifecycle" returns false
+    And the main function does not throw when the wrapper returns false
 
   # ═══════════════════════════════════════════════════════════════════════════
   # 5. Lock release happens in finally on normal exit; crash recovery via staleness
   # ═══════════════════════════════════════════════════════════════════════════
 
-  @adw-463 @regression
-  Scenario: each initializeWorkflow-based orchestrator releases the lock in a finally block
-    Given the orchestrator file "adws/adwSdlc.tsx" is read
-    Then the main function contains a "finally" block
-    And the "finally" block calls "releaseOrchestratorLock(config)"
+  # NOTE: the per-orchestrator finally-release scenarios that originally lived
+  # here are superseded by #464's shared lifecycle wrapper. The wrapper's own
+  # finally block performs releaseIssueSpawnLock; each entrypoint no longer
+  # carries a hand-rolled finally. See
+  # shared_orchestrator_lifecycle_wrapper.feature for the current contract.
 
-  @adw-463 @regression
-  Scenario: adwMerge releases the lock in a finally block wrapping executeMerge
-    Given the orchestrator file "adws/adwMerge.tsx" is read
-    Then the main function contains a "finally" block
-    And the "finally" block calls "releaseIssueSpawnLock(repoInfo, issueNumber)"
+  @adw-463 @adw-464 @regression
+  Scenario: lock release on normal exit happens inside the shared wrapper's finally block
+    Given "adws/phases/orchestratorLock.ts" is read
+    Then "runWithOrchestratorLifecycle" contains a "finally" block
+    And the finally block calls "releaseIssueSpawnLock"
+    And "runWithRawOrchestratorLifecycle" contains a "finally" block
+    And its finally block also calls "releaseIssueSpawnLock"
 
   @adw-463 @regression
   Scenario: handleWorkflowError does not release the lock — crash recovery relies on the staleness check

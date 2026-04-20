@@ -1,5 +1,13 @@
 # Conditional Documentation
 
+- app_docs/feature-6wnymj-shared-orchestrator-lifecycle-wrapper.md
+  - Conditions:
+    - When adding a new orchestrator entrypoint that needs lock, heartbeat, and cleanup wiring
+    - When troubleshooting an orchestrator that appears hung but is not detected by the staleness checker (`adwChore`, `adwInit`, `adwPatch`, `adwMerge` now covered)
+    - When working with `runWithOrchestratorLifecycle` or `runWithRawOrchestratorLifecycle` in `adws/phases/orchestratorLock.ts`
+    - When investigating why a lock file was not released (process.exit inside fn skips finally)
+    - When writing unit tests for orchestrator lifecycle call-order assertions
+
 - app_docs/feature-29w5wf-reclassify-abandoned-discarded-call-sites.md
   - Conditions:
     - When working with `adwMerge.tsx` exit paths and their `workflowStage` writes (`pr_closed`, `merge_failed`)
@@ -1053,3 +1061,11 @@
     - When implementing or modifying the per-issue spawn lock (spawnGate) interaction in the pause-queue scanner
     - When a paused workflow's `agents/{adwId}/state.json` has been manually edited or replaced and the scanner stops retrying
     - When understanding the asymmetric abort behavior: lock-held leaves the queue entry, claim-diverged removes it and posts an error comment
+
+- app_docs/feature-xruqv8-hung-orchestrator-detector.md
+  - Conditions:
+    - When working with `adws/core/hungOrchestratorDetector.ts`, `findHungOrchestrators`, or `HungDetectorDeps`
+    - When modifying or extending the hung-orchestrator sweep block in `adws/triggers/trigger_cron.ts`
+    - When troubleshooting orchestrators that are alive but wedged and not being automatically abandoned
+    - When tuning `HUNG_DETECTOR_INTERVAL_CYCLES` or `HEARTBEAT_STALE_THRESHOLD_MS` for detection latency
+    - When implementing the takeover handler (PRD slice #11) that consumes the `abandoned` state written by this sweep

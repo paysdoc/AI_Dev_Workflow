@@ -46,4 +46,4 @@ export {
   type ScenarioProofResult,
 } from './scenarioProof';
 export { executeDepauditSetup, type DepauditSetupResult, type DepauditSetupDeps } from './depauditSetup';
-export { acquireOrchestratorLock, releaseOrchestratorLock } from './orchestratorLock';
+export { acquireOrchestratorLock, releaseOrchestratorLock, runWithOrchestratorLifecycle, runWithRawOrchestratorLifecycle } from './orchestratorLock';

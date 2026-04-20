@@ -283,6 +283,7 @@ adws/                   # ADW workflow system
 │   │   ├── devServerLifecycle.test.ts
 │   │   ├── execWithRetry.test.ts
 │   │   ├── heartbeat.test.ts
+│   │   ├── hungOrchestratorDetector.test.ts
 │   │   ├── phaseRunner.test.ts
 │   │   ├── processLiveness.test.ts
 │   │   ├── projectConfig.test.ts
@@ -293,7 +294,10 @@ adws/                   # ADW workflow system
 │   ├── claudeStreamParser.ts  # Claude JSONL stream parsing
 │   ├── config.ts
 │   ├── constants.ts    # Orchestrator ID constants
+│   ├── devServerLifecycle.ts  # Dev server spawn, health probe, and cleanup helpers
 │   ├── environment.ts  # Environment variable accessors
+│   ├── heartbeat.ts    # Liveness ticker writing lastSeenAt to state on a fixed interval
+│   ├── hungOrchestratorDetector.ts  # Pure-query detector for wedged orchestrators (live PID + stale heartbeat)
 │   ├── index.ts
 │   ├── issueClassifier.ts
 │   ├── jsonParser.ts
@@ -313,8 +317,7 @@ adws/                   # ADW workflow system
 │   ├── targetRepoManager.ts
 │   ├── utils.ts
 │   ├── workflowCommentParsing.ts  # Comment parsing utilities
-│   ├── workflowMapping.ts  # Issue type → orchestrator mapping
-│   └── devServerLifecycle.ts  # Dev server spawn, health probe, and cleanup helpers
+│   └── workflowMapping.ts  # Issue type → orchestrator mapping
 ├── github/             # GitHub API operations
 │   ├── githubApi.ts
 │   ├── githubAppAuth.ts  # GitHub App authentication
@@ -382,7 +385,7 @@ adws/                   # ADW workflow system
 │   ├── depauditSetup.ts  # depaudit setup and secret propagation (used by adw_init)
 │   ├── installPhase.ts # Install phase implementation
 │   ├── kpiPhase.ts     # KPI tracking phase
-│   ├── orchestratorLock.ts  # Acquire/release spawn lock for orchestrator lifetime
+│   ├── orchestratorLock.ts  # Orchestrator-lifetime spawn lock (acquire/release wrapper)
 │   ├── phaseCommentHelpers.ts  # Shared phase comment utilities
 │   ├── planPhase.ts
 │   ├── planValidationPhase.ts  # Plan-scenario validation phase
@@ -441,6 +444,7 @@ adws/                   # ADW workflow system
 │   │   ├── devServerJanitor.test.ts
 │   │   ├── pauseQueueScanner.test.ts
 │   │   ├── spawnGate.test.ts
+│   │   ├── trigger_cron.test.ts
 │   │   ├── triggerCronAwaitingMerge.test.ts
 │   │   └── webhookHandlers.test.ts
 │   ├── autoMergeHandler.ts  # Auto-merge approved PRs

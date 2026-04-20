@@ -31,7 +31,7 @@ import {
   handleWorkflowError,
 } from './workflowPhases';
 import { getPlanFilePath } from './agents';
-import { acquireOrchestratorLock, releaseOrchestratorLock } from './phases/orchestratorLock';
+import { runWithOrchestratorLifecycle } from './phases/orchestratorLock';
 
 /**
  * Main orchestrator workflow.
@@ -59,22 +59,19 @@ async function main(): Promise<void> {
     handleWorkflowError(config, `Plan file not found at ${planPath}. Run adwPlan.tsx first to generate the plan.`);
   }
 
-  if (!acquireOrchestratorLock(config)) {
+  if (!await runWithOrchestratorLifecycle(config, async () => {
+    const tracker = new CostTracker();
+    try {
+      await runPhase(config, tracker, executeInstallPhase, 'install');
+      await runPhase(config, tracker, executeBuildPhase, 'build');
+
+      await completeWorkflow(config, tracker.totalCostUsd, {}, tracker.totalModelUsage);
+    } catch (error) {
+      handleWorkflowError(config, error, tracker.totalCostUsd, tracker.totalModelUsage);
+    }
+  })) {
     log(`Issue #${issueNumber}: spawn lock already held by another orchestrator; exiting.`, 'warn');
     process.exit(0);
-  }
-
-  const tracker = new CostTracker();
-
-  try {
-    await runPhase(config, tracker, executeInstallPhase, 'install');
-    await runPhase(config, tracker, executeBuildPhase, 'build');
-
-    await completeWorkflow(config, tracker.totalCostUsd, {}, tracker.totalModelUsage);
-  } catch (error) {
-    handleWorkflowError(config, error, tracker.totalCostUsd, tracker.totalModelUsage);
-  } finally {
-    releaseOrchestratorLock(config);
   }
 }
 
