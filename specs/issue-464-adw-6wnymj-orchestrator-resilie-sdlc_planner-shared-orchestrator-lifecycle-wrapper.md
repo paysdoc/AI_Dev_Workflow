@@ -90,7 +90,7 @@ Per `.adw/conditional_docs.md`, the following docs apply:
 Pin the contract that the rollout depends on.
 
 - Author the unit test for `runWithOrchestratorLifecycle` and `runWithRawOrchestratorLifecycle` first. Tests drive confidence that subsequent rollout migrations preserve semantics. The test injects doubles for `acquireIssueSpawnLock`, `releaseIssueSpawnLock`, `startHeartbeat`, `stopHeartbeat` (via `vi.mock` of the module paths, following the `spawnGate.test.ts` pattern), then records call order into an array to assert it matches `['acquire', 'startHeartbeat', 'fn', 'stopHeartbeat', 'release']`.
-- Cover four scenarios for each of the two wrappers: (a) lock-not-acquired returns false and does not start heartbeat, (b) fn resolves and call order is as above, (c) fn throws and release+stop still happen before the error propagates (or the function returns true — match the current observable behavior), (d) state-init completes before lock-acquire (asserted implicitly via the fact that the wrapper receives a fully-populated `WorkflowConfig`).
+- Cover four scenarios for each of the two wrappers: (a) lock-not-acquired returns false and does not start heartbeat, (b) fn resolves and call order is as above, (c) fn throws and release+stop still happen before the wrapper rejects with the original error, (d) state-init completes before lock-acquire (asserted implicitly via the fact that the wrapper receives a fully-populated `WorkflowConfig`).
 
 ### Phase 2: Core Implementation
 
@@ -110,7 +110,7 @@ Verify no regression across all thirteen orchestrators and the test battery.
 - Run `bunx tsc --noEmit -p adws/tsconfig.json` to catch the `adwTest` import drift and any other typing slip introduced by the migrations.
 - Run `bun run lint` for style consistency.
 - Grep the codebase for stranded `acquireOrchestratorLock` / `releaseOrchestratorLock` / `acquireIssueSpawnLock` / `releaseIssueSpawnLock` direct calls inside `adws/adw*.tsx` — this should return zero hits (the functions are still used inside the wrapper helpers, but no entrypoint should call them directly). This grep is the "single shared wrapper" acceptance criterion in automated form.
-- Regression check (per the issue acceptance criteria): not a full end-to-end run of each orchestrator — that is impractical for planning purposes — but a type-check + full unit-test run + a spot check that each migrated file still compiles and exports `main()`.
+- Regression check (per the issue acceptance criteria): each orchestrator's `main()` is invoked against a fixture issue (number 9999) with phases stubbed via the BDD scenarios in `features/shared_orchestrator_lifecycle_wrapper.feature` section 9, asserting the wrapper acquires the lock, starts the heartbeat, runs the stubbed body, stops the heartbeat, and releases the lock. These scenarios plus the type-check + full unit-test run + migration diff review constitute the full regression gate.
 
 ## Step by Step Tasks
 
@@ -288,4 +288,4 @@ Execute every command to validate the feature works correctly with zero regressi
 - Decorators are not used (consistent with the project's "keep it simple" convention).
 - Per `.adw/project.md`, the `Application Type` is `cli` — no UI/dev-server verification is possible or required for this feature.
 - If a `guidelines/` directory existed in the repo, this plan would adhere to it; `ls` of the root directory confirms no `guidelines/` exists at `/Users/martin/projects/paysdoc/AI_Dev_Workflow/.worktrees/feature-issue-464-shared-orchestrator-lifecycle-wrapper/` top level as of planning time.
-- The "regression check: each orchestrator still runs end-to-end against a fixture issue" acceptance criterion is interpreted as: type-check + full unit-test suite + migration diff review + grep-verify. Spinning up a live GitHub issue per orchestrator is out of scope for this plan's validation commands; the test battery plus the PRD's own unit-test prior art for `adwMerge.test.ts` and the new orchestratorLock test are the defense.
+- The "regression check: each orchestrator still runs end-to-end against a fixture issue" acceptance criterion is covered by the BDD scenario outline in `features/shared_orchestrator_lifecycle_wrapper.feature` section 9, which invokes each orchestrator's `main()` against fixture issue 9999 with phases stubbed and asserts the full wrapper lifecycle (acquire → start heartbeat → run body → stop heartbeat → release). Spinning up live GitHub issues is not required; the BDD scenarios plus the type-check + full unit-test run + migration diff review are the defense.
