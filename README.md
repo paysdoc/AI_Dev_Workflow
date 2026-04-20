@@ -282,6 +282,7 @@ adws/                   # ADW workflow system
 │   │   ├── claudeStreamParser.test.ts
 │   │   ├── devServerLifecycle.test.ts
 │   │   ├── execWithRetry.test.ts
+│   │   ├── heartbeat.test.ts
 │   │   ├── phaseRunner.test.ts
 │   │   ├── processLiveness.test.ts
 │   │   ├── projectConfig.test.ts
@@ -293,6 +294,7 @@ adws/                   # ADW workflow system
 │   ├── config.ts
 │   ├── constants.ts    # Orchestrator ID constants
 │   ├── environment.ts  # Environment variable accessors
+│   ├── heartbeat.ts    # Heartbeat ticker writing lastSeenAt to top-level state
 │   ├── index.ts
 │   ├── issueClassifier.ts
 │   ├── jsonParser.ts
@@ -310,8 +312,6 @@ adws/                   # ADW workflow system
 │   ├── stateHelpers.ts
 │   ├── targetRepoManager.ts
 │   ├── utils.ts
-│   ├── processLiveness.ts  # PID-reuse-safe process liveness checks
-│   ├── remoteReconcile.ts  # Stage derivation from remote GitHub artifacts
 │   ├── workflowCommentParsing.ts  # Comment parsing utilities
 │   ├── workflowMapping.ts  # Issue type → orchestrator mapping
 │   └── devServerLifecycle.ts  # Dev server spawn, health probe, and cleanup helpers
@@ -382,6 +382,7 @@ adws/                   # ADW workflow system
 │   ├── depauditSetup.ts  # depaudit setup and secret propagation (used by adw_init)
 │   ├── installPhase.ts # Install phase implementation
 │   ├── kpiPhase.ts     # KPI tracking phase
+│   ├── orchestratorLock.ts  # Orchestrator-lifetime spawn lock (acquire/release wrapper)
 │   ├── phaseCommentHelpers.ts  # Shared phase comment utilities
 │   ├── planPhase.ts
 │   ├── planValidationPhase.ts  # Plan-scenario validation phase

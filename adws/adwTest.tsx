@@ -23,7 +23,7 @@ import {
   completeWorkflow,
   handleWorkflowError,
 } from './workflowPhases';
-import { acquireOrchestratorLock, releaseOrchestratorLock } from './phases/orchestratorLock';
+import { runWithOrchestratorLifecycle } from './phases/orchestratorLock';
 
 /**
  * Main orchestrator workflow.
