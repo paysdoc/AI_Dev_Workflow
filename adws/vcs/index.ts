@@ -61,3 +61,8 @@ export {
   removeWorktree,
   removeWorktreesForIssue,
 } from './worktreeCleanup';
+
+// Worktree reset
+export {
+  resetWorktreeToRemote,
+} from './worktreeReset';

@@ -973,3 +973,11 @@
     - When modifying the pause-queue resume path, spawn options, or side-effect ordering
     - When inspecting `agents/paused_queue_logs/{adwId}.resume.log` to diagnose a stranded workflow
     - When the `probeFailures` escalation path or `MAX_UNKNOWN_PROBE_FAILURES` abandonment logic is relevant to resume failures
+
+- app_docs/feature-eantbn-orchestrator-resilie-worktree-reset-module.md
+  - Conditions:
+    - When working with `adws/vcs/worktreeReset.ts` or `resetWorktreeToRemote()`
+    - When implementing the takeover handler (PRD slice #11) that calls `resetWorktreeToRemote` before resuming a dead orchestrator's work
+    - When troubleshooting mid-merge, mid-rebase, or dirty-worktree state left by a crashed orchestrator
+    - When adding worktree reset logic that must handle linked worktrees (git-dir indirection via `rev-parse --git-dir`)
+    - When writing unit tests for VCS functions that mix `execSync` and `fs` calls (follow the `worktreeReset.test.ts` mocking pattern)
