@@ -84,3 +84,9 @@ export function acquireIssueSpawnLock(repoInfo: RepoInfo, issueNumber: number, o
 export function releaseIssueSpawnLock(repoInfo: RepoInfo, issueNumber: number): void {
   removeSpawnLock(getSpawnLockFilePath(repoInfo, issueNumber));
 }
+
+export function readSpawnLockRecord(repoInfo: RepoInfo, issueNumber: number): { pid: number; pidStartedAt: string } | null {
+  const record = readSpawnLock(getSpawnLockFilePath(repoInfo, issueNumber));
+  if (record === null) return null;
+  return { pid: record.pid, pidStartedAt: record.pidStartedAt };
+}
