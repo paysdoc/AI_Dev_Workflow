@@ -17,12 +17,12 @@ Feature: Extend top-level state schema with pid, pidStartedAt, lastSeenAt, branc
   detector) are wired in later slices of the orchestrator-coordination-resilience
   PRD; this slice is purely the schema and the atomic writer.
 
-  `pidStartedAt` is written as an ISO 8601 UTC string when the platform's
-  start-time token can be normalised (Linux /proc jiffies converted against the
-  boot clock); otherwise the raw platform string is stored verbatim, matching the
-  `processLiveness` contract. This keeps the field legible to humans on Linux
-  while preserving exact-string comparability with the value that
-  `processLiveness.getProcessStartTime` returns on every platform.
+  `pidStartedAt` is stored verbatim as `processLiveness.getProcessStartTime`
+  returns it — ISO 8601 where the platform supplies a normalised timestamp,
+  or the platform-native token otherwise (Linux `/proc/<pid>/stat` field 22 as
+  a jiffies string; macOS/BSD `ps -o lstart=` output). The writer never
+  re-normalises the value, preserving exact-string comparability with the
+  value `processLiveness.getProcessStartTime` returns on every platform.
 
   Forward compatibility is required: a state file written before this slice (with
   none of the four new fields) must still load and must still be writable via
