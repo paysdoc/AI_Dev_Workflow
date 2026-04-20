@@ -41,7 +41,7 @@ Use these files to implement the feature:
 - `adws/core/processLiveness.ts` — `isProcessLive(pid, pidStartedAt, deps?)` and `getProcessStartTime(pid, deps?)`. The detector's PID-liveness primitive. Shipped in #456.
 - `adws/core/agentState.ts` — `AgentStateManager.readTopLevelState(adwId)` reads `agents/<adwId>/state.json`; `AgentStateManager.writeTopLevelState(adwId, partial)` shallow-merges fields atomically. The detector calls `readTopLevelState` (via injected dep); the cron caller calls `writeTopLevelState`.
 - `adws/types/agentTypes.ts` — `AgentState` fields `pid`, `pidStartedAt`, `lastSeenAt`, `workflowStage`, `adwId`, `issueNumber`. The detector reads these from each state file.
-- `adws/types/workflowTypes.ts` — `WorkflowStage` union. The detector filters on `stage.endsWith('_running')` against stages like `build_running`, `test_running`, `review_running`, `document_running`, `plan_building`, `install_running`, `plan_validating`.
+- `adws/types/workflowTypes.ts` — `WorkflowStage` union. The detector filters on `stage.endsWith('_running')` against the real `*_running` stages: `build_running`, `test_running`, `review_running`, `document_running`, `install_running`. (Plan-phase stages `plan_building`, `plan_validating`, `plan_aligning` do not end in `_running` and are therefore not targets of this detector.)
 - `adws/triggers/cronStageResolver.ts` — exports `isActiveStage(stage)` (already matches `*_running`) and `isRetriableStage(stage)` (already includes `'abandoned'`). Used by the cron issue filter; after the cron rewrites a hung orchestrator's stage to `abandoned`, the next cycle's `filterEligibleIssues` will pick it up as retriable.
 - `adws/triggers/trigger_cron.ts` — the cron entrypoint. The `checkAndTrigger()` function holds the per-cycle work; the new detector sweep wires in alongside `scanPauseQueue` and `runJanitorPass`.
 - `adws/triggers/devServerJanitor.ts` — reference model for a cycle-gated, dependency-injected, pure-logic-plus-discovery sweep step. The `JanitorDeps` interface and `runJanitorPass` structure directly parallels what we need for the hung-detector sweep wiring.
@@ -64,7 +64,7 @@ Use these files to implement the feature:
 
 - `adws/core/hungOrchestratorDetector.ts` — the detector module.
 - `adws/core/__tests__/hungOrchestratorDetector.test.ts` — Vitest contract test suite.
-- `adws/triggers/__tests__/trigger_cron.hungSweep.test.ts` — integration test for the cron wiring side effects (SIGKILL + state rewrite) against returned detector entries. (Named to match existing per-feature test naming in `adws/triggers/__tests__/`.)
+- `adws/triggers/__tests__/trigger_cron.test.ts` — cron-integration test for the hung-orchestrator wiring side effects (SIGKILL + state rewrite) against returned detector entries. (Co-located with other `adws/triggers/__tests__/` files; scopes its tests to the hung-sweep block and module-level side effects of `trigger_cron.ts` are guarded/mocked before import.)
 
 ## Implementation Plan
 
@@ -203,13 +203,18 @@ Execute every step in order, top to bottom.
 
 ### Step 5 — Create `adws/core/__tests__/hungOrchestratorDetector.test.ts`
 
-- Use Vitest, following the `processLiveness.test.ts` dep-injection pattern (no real filesystem, no real PIDs).
-- Helper to synthesise fake state files:
+Per the issue acceptance criteria — "Contract test uses an injected clock and fixture state files" — the contract test seeds real state files on disk under a per-test agents directory and swaps only `isProcessLive` for a fake. The clock is injected as the `now` parameter.
+
+- Use Vitest.
+- Create a unique per-test agents state directory under `os.tmpdir()` in `beforeEach`; tear it down in `afterEach` so successive tests are isolated.
+- Seed fixture state files by writing real `agents/<adwId>/state.json` files under the per-test directory:
 
   ```ts
-  function mkState(overrides: Partial<AgentState>): AgentState {
-    return {
-      adwId: 'adw-test',
+  function writeFixtureState(rootDir: string, adwId: string, state: Partial<AgentState>): void {
+    const dir = path.join(rootDir, adwId);
+    fs.mkdirSync(dir, { recursive: true });
+    const full: AgentState = {
+      adwId,
       issueNumber: 1,
       agentName: 'sdlc',
       execution: { status: 'running' },
@@ -217,18 +222,28 @@ Execute every step in order, top to bottom.
       pid: 100,
       pidStartedAt: 'token-100',
       lastSeenAt: '2026-04-20T10:00:00.000Z',
-      ...overrides,
+      ...state,
     } as AgentState;
+    fs.writeFileSync(path.join(dir, 'state.json'), JSON.stringify(full, null, 2));
   }
   ```
 
-- Build a small state-table harness:
+- Construct `HungDetectorDeps` that reads real files from the per-test directory but uses a fake `isProcessLive`:
 
   ```ts
-  function mkDeps(states: Record<string, AgentState>, live: Set<string>): HungDetectorDeps {
+  function mkDeps(rootDir: string, live: Set<string>): HungDetectorDeps {
     return {
-      listAdwIds: () => Object.keys(states),
-      readTopLevelState: (id) => states[id] ?? null,
+      listAdwIds: () => fs.readdirSync(rootDir, { withFileTypes: true })
+        .filter(e => e.isDirectory())
+        .map(e => e.name),
+      readTopLevelState: (id) => {
+        try {
+          const content = fs.readFileSync(path.join(rootDir, id, 'state.json'), 'utf-8');
+          return JSON.parse(content) as AgentState;
+        } catch {
+          return null;
+        }
+      },
       isProcessLive: (pid, pidStartedAt) => live.has(`${pid}:${pidStartedAt}`),
     };
   }
@@ -238,7 +253,7 @@ Execute every step in order, top to bottom.
 
   **Positive cases (should be returned):**
   - `build_running` + live PID + `lastSeenAt` older than threshold → returned.
-  - Each variant `test_running`, `review_running`, `document_running`, `install_running`, `plan_validating`, `plan_building` that ends in `_running` + live PID + stale → returned.
+  - Each real `*_running` variant (`test_running`, `review_running`, `document_running`, `install_running`) + live PID + stale → returned.
   - `lastSeenAt` exactly `staleThresholdMs + 1 ms` old → returned (boundary).
   - Multiple hung entries across multiple adwIds → all returned.
 
@@ -247,83 +262,49 @@ Execute every step in order, top to bottom.
   - `lastSeenAt` exactly at threshold → skipped (boundary, not strictly stale).
   - Live PID + stale `lastSeenAt` but `workflowStage` is `completed` → skipped.
   - `workflowStage` ends in `_completed` (intermediate, not `_running`) → skipped.
-  - `workflowStage` is `abandoned` or `discarded` → skipped.
+  - `workflowStage` is `abandoned`, `discarded`, `paused`, or `starting` → skipped.
   - `workflowStage` absent → skipped.
   - Stale `lastSeenAt` + dead PID → skipped (not hung, already terminated — caller picks up via `abandoned` path separately).
   - `pid` undefined → skipped.
   - `pidStartedAt` undefined (common today — write-side migration deferred) → skipped.
   - `lastSeenAt` undefined → skipped.
   - `lastSeenAt` is an unparseable string → skipped.
-  - `readTopLevelState` returns `null` for an adwId → skipped.
-  - `listAdwIds` throws → returns `[]` (empty, no throw).
-  - `readTopLevelState` throws for one adwId → that one skipped, others still returned.
-  - `isProcessLive` throws for one adwId → that one skipped, others still returned.
+  - A sibling state file whose JSON content is not valid JSON → that entry skipped, other entries still returned.
+  - Empty per-test directory → returns `[]`.
 
   **Purity assertions:**
-  - After `findHungOrchestrators` returns, no state file was written to (assert on `AgentStateManager.writeTopLevelState` spy — never called).
-  - `process.kill` was never called (assert on a `vi.spyOn(process, 'kill')`).
+  - After `findHungOrchestrators` returns, no state file written under the per-test directory was modified (re-read and compare content bytes).
+  - `process.kill` was never called (assert on `vi.spyOn(process, 'kill')`).
 
 - Use an injected `now: number` and `staleThresholdMs: number` rather than real wall-clock time. `vi.useFakeTimers()` is unnecessary because the detector takes `now` as an argument.
+- No test asserts against the current process's real pid — the fake `isProcessLive` is always consulted via the injected `HungDetectorDeps`.
 
-### Step 6 — Create `adws/triggers/__tests__/trigger_cron.hungSweep.test.ts`
+### Step 6 — Create `adws/triggers/__tests__/trigger_cron.test.ts`
 
-This is the cron-integration test demanded by the acceptance criteria. Scope it narrowly: extract the sweep block into a small internal helper (see Step 6a) so the integration test doesn't have to start the real cron loop.
+This is the cron-integration test demanded by the acceptance criteria. Scope it narrowly to the hung-orchestrator sweep block inside `checkAndTrigger()`. The sweep logic stays inline in `trigger_cron.ts` (per Step 4) — no separate `hungDetectorSweep.ts` module is introduced, so that the scenarios' explicit assertion "`trigger_cron.ts` imports `findHungOrchestrators` from `../core/hungOrchestratorDetector`" holds true.
 
-#### Step 6a — Refactor the sweep into a testable helper
+#### Step 6a — Make the sweep block testable from `trigger_cron.test.ts`
 
-Inside `trigger_cron.ts`, extract the sweep block into an exported (or internally-named) function:
+`trigger_cron.ts` currently has module-level side effects (`resolveCronRepo`, `activateGitHubAppAuth`, `registerAndGuard`, a `setInterval`) that fire on import, which would destabilise a straight `import` in Vitest. Two complementary techniques keep `trigger_cron.test.ts` stable without relocating the sweep:
 
-```ts
-export function runHungDetectorSweep(deps: {
-  findHung: typeof findHungOrchestrators;
-  kill: (pid: number, signal: NodeJS.Signals) => void;
-  writeState: typeof AgentStateManager.writeTopLevelState;
-  log: typeof log;
-  now: () => number;
-} = defaultSweepDeps): void {
-  const hung = deps.findHung(deps.now(), HEARTBEAT_STALE_THRESHOLD_MS);
-  for (const entry of hung) {
-    deps.log(`Hung orchestrator detected: adwId=${entry.adwId} pid=${entry.pid} stage=${entry.workflowStage} lastSeenAt=${entry.lastSeenAt}`, 'warn');
-    try { deps.kill(entry.pid, 'SIGKILL'); } catch (err) { deps.log(`SIGKILL failed for pid=${entry.pid}: ${err}`, 'warn'); }
-    try { deps.writeState(entry.adwId, { workflowStage: 'abandoned' }); } catch (err) { deps.log(`State rewrite failed for adwId=${entry.adwId}: ${err}`, 'warn'); }
-  }
-}
-```
-
-`checkAndTrigger` then simply calls `if (cycleCount % HUNG_DETECTOR_INTERVAL_CYCLES === 0) runHungDetectorSweep();`.
-
-Defaults:
-
-```ts
-const defaultSweepDeps = {
-  findHung: findHungOrchestrators,
-  kill: (pid: number, signal: NodeJS.Signals) => process.kill(pid, signal),
-  writeState: AgentStateManager.writeTopLevelState,
-  log,
-  now: () => Date.now(),
-};
-```
-
-Rationale: `trigger_cron.ts` has a module-level `setInterval` and `registerAndGuard` side effect at load, which makes it unimportable in a test without stubbing. Extracting the sweep into a pure, dep-injected function lets the test import and call just that function. This is the same refactor-for-testability move already used for `resolveIssueWorkflowStage` (extracted to `cronStageResolver.ts`) and `filterEligibleIssues` (extracted to `cronIssueFilter.ts`).
-
-Place the extracted function in a new file `adws/triggers/hungDetectorSweep.ts` (so `trigger_cron.ts` remains thin and the module-level side effects don't block test imports). Import it into `trigger_cron.ts` and call it inline.
+1. Before importing `../trigger_cron`, the test uses `vi.mock(...)` to stub out `../cronRepoResolver`, `../../github` (for `activateGitHubAppAuth`, `getRepoInfo`, `fetchPRList`, `hasUnaddressedComments`, `isCancelComment`, `refreshTokenIfNeeded`), `../cronProcessGuard` (`registerAndGuard`), `../core/hungOrchestratorDetector` (to inject a fake `findHungOrchestrators`), and `../../core/agentState` (to inject a `writeTopLevelState` spy). `process.kill` is replaced with `vi.spyOn(process, 'kill').mockImplementation(() => true)` so nothing is actually killed.
+2. If a bare `import` still fires too many side effects to stabilise, `trigger_cron.ts` may expose a small named helper that the test can call instead of driving `checkAndTrigger()` end-to-end — but the helper lives in `trigger_cron.ts` itself (not a new file), so the scenarios' import/call assertions on `trigger_cron.ts` still hold.
 
 #### Step 6b — Write the integration test
 
-In `adws/triggers/__tests__/hungDetectorSweep.test.ts`:
+In `adws/triggers/__tests__/trigger_cron.test.ts`:
 
-- Import `runHungDetectorSweep` from `../hungDetectorSweep`.
-- Build a fake `findHung` that returns a known array of `HungOrchestrator` fixtures.
-- Spy on `kill` and `writeState` (supplied via `deps`, so no global mocking needed).
+- Stub `findHungOrchestrators` (via `vi.mock('../../core/hungOrchestratorDetector', ...)`) to return a deterministic `HungOrchestrator[]` fixture per test.
+- Spy on `process.kill` and on `AgentStateManager.writeTopLevelState`.
+- Inject a fake clock so staleness windows are deterministic (the test passes its own `now` through the fake `findHungOrchestrators`; no wall-clock is consulted).
+- If the test seeds any fixture state files under a per-test agents directory (e.g., to exercise the retriable-stage re-eligibility scenario), remove that directory in `afterEach`.
 - Assertions:
-  - Given 2 hung entries → `kill` called twice with correct `pid` and `'SIGKILL'`.
-  - Given 2 hung entries → `writeState` called twice with `(adwId, { workflowStage: 'abandoned' })`.
-  - `kill` throws for entry A → `writeState` for entry A still called; entry B's `kill` + `writeState` still happen.
-  - `writeState` throws for entry A → entry B still processed.
-  - `findHung` returns `[]` → neither `kill` nor `writeState` called.
-  - `log` is called with `warn` level for each detection and for each failure.
-
-- Test name the file `hungDetectorSweep.test.ts` to match the new module name (mirrors `devServerJanitor.test.ts` co-located naming). The test name in the issue description ("Cron-integration test") is honoured by scoping the test to the sweep function that the cron invokes.
+  - Given a single hung entry with `pid=1234` → `process.kill` called with `(1234, 'SIGKILL')`.
+  - Given a single hung entry with `adwId="sweep-02"` → `AgentStateManager.writeTopLevelState` called with `('sweep-02', { workflowStage: 'abandoned' })`.
+  - `writeTopLevelState` is never called with `workflowStage: 'discarded'` for a hung entry.
+  - Given 2 hung entries (`sweep-a` pid 4001, `sweep-b` pid 4002) → `process.kill` called for both pids with `'SIGKILL'`, and `writeTopLevelState` called for both adwIds with `{ workflowStage: 'abandoned' }`.
+  - `findHungOrchestrators` returns `[]` → neither `process.kill` nor `writeTopLevelState` invoked by the sweep block.
+  - `process.kill` throws for `sweep-c` pid 5001 → `writeTopLevelState` for `sweep-c` is still called, and the sibling `sweep-d` entry is still processed (both `process.kill` and `writeTopLevelState` invoked for it).
 
 ### Step 7 — Verify the cron still boots cleanly
 
@@ -341,18 +322,21 @@ Execute the `Validation Commands` section below. All commands must pass with zer
 Unit tests are enabled for this project (per `.adw/project.md` `## Unit Tests: enabled`).
 
 **`adws/core/__tests__/hungOrchestratorDetector.test.ts`** — Contract tests for `findHungOrchestrators`:
-- Inject `HungDetectorDeps` with fake `listAdwIds`, `readTopLevelState`, `isProcessLive`.
+- Seed fixture state files on disk under a per-test agents directory (under `os.tmpdir()`); tear the directory down in `afterEach`.
+- Inject `HungDetectorDeps` whose `listAdwIds` and `readTopLevelState` read from the per-test directory, and whose `isProcessLive` is a fake (no real PID is probed).
 - Use an explicit `now: number` parameter (not `Date.now()`) so time is fully controlled.
 - Cover all positive and negative cases enumerated in Step 5 above.
-- Assert purity: no writes, no process.kill calls.
-- Use Vitest; follow the existing `processLiveness.test.ts` dep-injection style (no real PIDs, no real filesystem).
+- Assert purity: no writes to any fixture state file, no `process.kill` calls.
 
-**`adws/triggers/__tests__/hungDetectorSweep.test.ts`** — Integration tests for the cron sweep step:
-- Inject `findHung`, `kill`, `writeState`, `log`, `now` deps.
+**`adws/triggers/__tests__/trigger_cron.test.ts`** — Cron-integration tests for the hung-orchestrator sweep block:
+- Before importing `../trigger_cron`, stub module-level dependencies with `vi.mock(...)` so the import is safe; stub `findHungOrchestrators` to return deterministic fixtures.
+- Spy on `process.kill` and `AgentStateManager.writeTopLevelState`.
+- Inject a fake clock so staleness is deterministic.
+- Clean up any per-test fixture state directory in `afterEach`.
 - Assert SIGKILL is sent for each returned entry with the correct pid and signal.
-- Assert `writeTopLevelState` is called for each returned entry with `{ workflowStage: 'abandoned' }`.
-- Assert per-entry error isolation (one failure does not skip others).
-- Assert empty-result case is a no-op.
+- Assert `writeTopLevelState` is called for each returned entry with `{ workflowStage: 'abandoned' }` (and never with `'discarded'`).
+- Assert per-entry error isolation (one `process.kill` failure does not skip the state rewrite for that entry or processing of siblings).
+- Assert empty-result case is a no-op for both `process.kill` and `writeTopLevelState`.
 
 ### Edge Cases
 
@@ -370,14 +354,14 @@ Unit tests are enabled for this project (per `.adw/project.md` `## Unit Tests: e
 ## Acceptance Criteria
 
 - [ ] `adws/core/hungOrchestratorDetector.ts` exists and exports `findHungOrchestrators(now, staleThresholdMs, deps?) → HungOrchestrator[]`, `HungOrchestrator` type, `HungDetectorDeps` type, and `defaultHungDetectorDeps`.
-- [ ] The detector performs no state writes and no kills. Purity asserted in the unit test by spying on `AgentStateManager.writeTopLevelState` and `process.kill`.
+- [ ] The detector performs no state writes and no kills. Purity asserted in the unit test by checking that no fixture state file is mutated and by spying on `process.kill` — it must never be invoked by the detector.
 - [ ] The detector filters to stages ending in `_running` whose PID is live per `isProcessLive(pid, pidStartedAt)` and whose `lastSeenAt` is strictly older than `staleThresholdMs`.
 - [ ] The detector defensively skips entries missing `pid`, `pidStartedAt`, `lastSeenAt`, or whose `lastSeenAt` is unparseable — no throws.
 - [ ] `adws/core/config.ts` exports `HUNG_DETECTOR_INTERVAL_CYCLES` (default 5). The constant is re-exported through `adws/core/index.ts`.
-- [ ] `adws/triggers/hungDetectorSweep.ts` exists and exports `runHungDetectorSweep(deps?)` that calls `findHungOrchestrators`, SIGKILLs returned PIDs (wrapped in try/catch), and rewrites state to `{ workflowStage: 'abandoned' }` (wrapped in try/catch).
-- [ ] `adws/triggers/trigger_cron.ts`'s `checkAndTrigger()` invokes `runHungDetectorSweep()` every `HUNG_DETECTOR_INTERVAL_CYCLES` cycles, before `runJanitorPass()`.
-- [ ] `adws/core/__tests__/hungOrchestratorDetector.test.ts` uses an injected clock (via `now` parameter) and a fixture set of fake state files (via injected `HungDetectorDeps`); all positive and negative cases listed in Step 5 pass.
-- [ ] `adws/triggers/__tests__/hungDetectorSweep.test.ts` asserts SIGKILL and state rewrite occur for each returned entry, and that per-entry failures isolate.
+- [ ] `adws/triggers/trigger_cron.ts` directly imports `findHungOrchestrators` from `../core/hungOrchestratorDetector` (or the barrel `../core`) and `HEARTBEAT_STALE_THRESHOLD_MS` from `../core/config` (or `../core`); `checkAndTrigger()` calls `findHungOrchestrators(..., HEARTBEAT_STALE_THRESHOLD_MS)` inline, gated by `HUNG_DETECTOR_INTERVAL_CYCLES`, before `runJanitorPass()`.
+- [ ] For each entry returned by the detector, the cron sweep block inside `checkAndTrigger()` sends `SIGKILL` via `process.kill` (wrapped in try/catch) and rewrites top-level state to `{ workflowStage: 'abandoned' }` via `AgentStateManager.writeTopLevelState` (wrapped in try/catch). Per-entry failures do not abort processing of siblings.
+- [ ] `adws/core/__tests__/hungOrchestratorDetector.test.ts` uses an injected clock (via `now` parameter) and fixture state files on disk under a per-test agents directory; fake `isProcessLive` is injected via `HungDetectorDeps`; all positive and negative cases listed in Step 5 pass.
+- [ ] `adws/triggers/__tests__/trigger_cron.test.ts` stubs `findHungOrchestrators` to return fixture hung entries and asserts `process.kill` is called with the right pid and `'SIGKILL'`, and that `AgentStateManager.writeTopLevelState` is called with `{ workflowStage: 'abandoned' }` for each entry's adwId; per-entry failures isolate; the integration test injects its own `now` rather than relying on the system clock.
 - [ ] `bun run lint`, `bunx tsc --noEmit`, `bunx tsc --noEmit -p adws/tsconfig.json`, and `bun run test:unit` all pass.
 - [ ] No changes to `cronIssueFilter.ts` or `cronStageResolver.ts` (the `abandoned` rewrite already triggers retry under the existing `isRetriableStage('abandoned') === true` path).
 
@@ -389,8 +373,8 @@ Execute every command to validate the feature works correctly with zero regressi
 - `bun run lint` — lint new and modified files.
 - `bunx tsc --noEmit` — root TypeScript check.
 - `bunx tsc --noEmit -p adws/tsconfig.json` — ADW-specific TypeScript check (stricter, catches ADW-only type issues).
-- `bun run test:unit -- hungOrchestratorDetector` — run the new unit suite in isolation, verify all cases pass.
-- `bun run test:unit -- hungDetectorSweep` — run the cron-integration test in isolation.
+- `bun run test:unit -- hungOrchestratorDetector` — run the new contract test suite in isolation, verify all cases pass.
+- `bun run test:unit -- trigger_cron` — run the cron-integration test in isolation.
 - `bun run test:unit` — run the full unit suite for zero regressions across existing modules (especially `heartbeat`, `processLiveness`, `cronStageResolver`, `cronIssueFilter`, `devServerJanitor`).
 - `bun run build` — verify the project still builds with the new module.
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@regression"` — run BDD regression scenarios to confirm no cron-trigger regression (the hung-detector wiring runs inside the cron loop that other regression scenarios exercise).

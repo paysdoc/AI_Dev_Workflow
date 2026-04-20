@@ -137,7 +137,6 @@ Feature: hungOrchestratorDetector pure query plus cron sweeper SIGKILL-and-aband
       | hung-test       | test_running     |
       | hung-review     | review_running   |
       | hung-install    | install_running  |
-      | hung-plan       | plan_running     |
       | hung-document   | document_running |
 
   @adw-465
