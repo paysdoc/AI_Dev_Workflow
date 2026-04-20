@@ -444,6 +444,8 @@ adws/                   # ADW workflow system
 │   │   ├── devServerJanitor.test.ts
 │   │   ├── pauseQueueScanner.test.ts
 │   │   ├── spawnGate.test.ts
+│   │   ├── takeoverHandler.test.ts  # Unit tests for all takeoverHandler decision-tree branches
+│   │   ├── takeoverHandler.integration.test.ts  # Integration test for the abandoned takeover path
 │   │   ├── trigger_cron.test.ts
 │   │   ├── triggerCronAwaitingMerge.test.ts
 │   │   └── webhookHandlers.test.ts
@@ -459,6 +461,7 @@ adws/                   # ADW workflow system
 │   ├── issueDependencies.ts
 │   ├── issueEligibility.ts
 │   ├── pauseQueueScanner.ts  # Cron probe for paused issue queue
+│   ├── takeoverHandler.ts  # Candidate decision tree: evaluateCandidate composes spawnGate, processLiveness, agentState, remoteReconcile, and worktreeReset
 │   ├── trigger_cron.ts
 │   ├── trigger_shutdown.ts  # Graceful shutdown handler
 │   ├── trigger_webhook.ts

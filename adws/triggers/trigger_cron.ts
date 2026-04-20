@@ -16,8 +16,10 @@ import { getRepoInfo, fetchPRList, hasUnaddressedComments, isCancelComment, acti
 import { resolveIssueWorkflowStage } from './cronStageResolver';
 import { handleCancelDirective } from './cancelHandler';
 import { checkIssueEligibility } from './issueEligibility';
-import { classifyAndSpawnWorkflow } from './webhookGatekeeper';
+import { classifyAndSpawnWorkflow, spawnDetached } from './webhookGatekeeper';
 import { registerAndGuard } from './cronProcessGuard';
+import { evaluateCandidate } from './takeoverHandler';
+import { releaseIssueSpawnLock } from './spawnGate';
 import { scanPauseQueue } from './pauseQueueScanner';
 import { runJanitorPass } from './devServerJanitor';
 import { resolveCronRepo, buildCronTargetRepoArgs } from './cronRepoResolver';
@@ -176,14 +178,40 @@ async function checkAndTrigger(): Promise<void> {
       continue;
     }
 
+    // Enforce the takeover decision before any spawn. This is the sole gate
+    // for all standard (non-merge) candidates so a future maintainer cannot
+    // introduce a parallel pre-check that bypasses it.
+    const takeoverDecision = evaluateCandidate({ issueNumber: issue.number, repoInfo });
+
+    if (takeoverDecision.kind === 'defer_live_holder') {
+      log(`Issue #${issue.number}: live holder (pid ${takeoverDecision.holderPid}) owns this issue, deferring`);
+      continue;
+    }
+
+    if (takeoverDecision.kind === 'skip_terminal') {
+      log(`Issue #${issue.number}: terminal stage "${takeoverDecision.terminalStage}", skipping spawn`);
+      continue;
+    }
+
     // Only add to processedSpawns when actually spawning the SDLC workflow.
     // The merge dedup is tracked separately in processedMerges so that an issue
     // spawned by this process can still be picked up by the merge path once it
     // transitions into awaiting_merge.
     processedSpawns.add(issue.number);
 
+    if (takeoverDecision.kind === 'take_over_adwId') {
+      // Takeover: spawn the orchestrator for the existing adwId directly, skipping classification.
+      const { adwId: takeoverAdwId, derivedStage } = takeoverDecision;
+      log(`Issue #${issue.number}: taking over adwId=${takeoverAdwId} derivedStage=${derivedStage}`, 'success');
+      spawnDetached('bunx', ['tsx', 'adws/adwSdlc.tsx', String(issue.number), takeoverAdwId, ...targetRepoArgs]);
+      releaseIssueSpawnLock(repoInfo, issue.number);
+      continue;
+    }
+
+    // spawn_fresh: pass the pre-computed decision so classifyAndSpawnWorkflow
+    // does not re-evaluate (the lock was already acquired by evaluateCandidate).
     log(`Triggering ADW workflow for backlog issue #${issue.number}${adwId ? ` (resuming adwId=${adwId})` : ''}`, 'success');
-    await classifyAndSpawnWorkflow(issue.number, repoInfo, targetRepoArgs, adwId);
+    await classifyAndSpawnWorkflow(issue.number, repoInfo, targetRepoArgs, adwId, takeoverDecision);
   }
 }
 

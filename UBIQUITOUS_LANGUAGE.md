@@ -89,6 +89,22 @@
 | **Retry** | A logical re-attempt of a Phase after failure (e.g., test failure, review Blocker), tracked separately from Context Resets | Re-run, re-execution |
 | **Pause** | A Workflow suspension triggered by rate limits or billing limits, detected and resumed by the Pause Queue Scanner | Suspend, halt, throttle |
 
+## Orchestrator coordination
+
+| Term | Definition | Aliases to avoid |
+|------|-----------|-----------------|
+| **Spawn Lock** | A per-issue file lock (managed by `spawnGate.ts`) that prevents two triggers from launching duplicate orchestrators for the same issue simultaneously | Mutex, semaphore, gate |
+| **Candidate** | An issue presented by the cron sweep or webhook event to the trigger layer for evaluation and potential spawning | Queued issue, pending issue |
+| **Candidate Decision** | The outcome of `evaluateCandidate` — one of `spawn_fresh`, `take_over_adwId`, `defer_live_holder`, or `skip_terminal` — that tells the trigger what to do next | Spawn decision, routing decision |
+| **Takeover** | The recovery action where a new orchestrator claims an abandoned or dead-running workflow, resets the Worktree, reconciles remote state, and resumes from the derived Stage | Recovery, resume, restart |
+| **Process Liveness** | A PID + process-start-time check (`processLiveness.ts`) that determines whether a recorded orchestrator process is still alive without relying on the Spawn Lock alone | Heartbeat check, health check |
+| **Top-Level State** | The state file (`agents/{adwId}/state.json`) that records an orchestrator's active Stage, PID, branch name, and `lastSeenAt` timestamp for recovery and liveness decisions | Orchestrator state, workflow state file |
+| **Heartbeat** | A periodic write to the Top-Level State's `lastSeenAt` field, proving the orchestrator is still making progress; consumed by the Hung Orchestrator Detector | Tick, keepalive, ping |
+| **Worktree Reset** | The deterministic operation that resets a Worktree to `origin/<branch>` before a Takeover, discarding any partial artifacts from the previous orchestrator run | Worktree clean, worktree restore |
+| **Remote Reconcile** | The process of deriving an authoritative Stage from remote GitHub artifacts (open PR, merged PR, branch existence) rather than from the potentially stale local state file | State derivation, remote stage sync |
+| **Live Holder** | An orchestrator whose Spawn Lock is held and whose PID is confirmed alive by Process Liveness; a Candidate arriving at a Live Holder issue is deferred | Active owner, lock holder |
+| **Split-Brain** | The failure mode where two orchestrators run against the same issue simultaneously, each believing it is the canonical owner; caused by running triggers on two hosts | Duplicate spawn, dual-owner |
+
 ## Configuration
 
 | Term | Definition | Aliases to avoid |
@@ -112,6 +128,11 @@
 - A **Phase Cost Record** belongs to exactly one **Phase** and one model within a **Workflow**
 - A **Repo Context** bundles an **Issue Tracker** and **Code Host** for a single **Platform**
 - Each **Workflow** operates in its own **Worktree** on a dedicated **Branch**
+- A **Candidate Decision** is returned by `evaluateCandidate` for every **Candidate** before any spawn
+- A **Live Holder** causes a `defer_live_holder` **Candidate Decision**; a dead-running or abandoned orchestrator triggers a **Takeover**
+- **Worktree Reset** always precedes **Remote Reconcile** on the **Takeover** path
+- A **Heartbeat** proves orchestrator liveness independently of **Process Liveness** (the latter checks the OS; the former shows the orchestrator is making progress)
+- **Split-Brain** cannot be detected by host-local primitives (**Spawn Lock**, **Process Liveness**, **Heartbeat**) — it requires operator intervention via `## Cancel`
 
 ## Example dialogue
 
