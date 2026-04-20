@@ -22,6 +22,8 @@ import { getRepoInfo, activateGitHubAppAuth } from '../github';
 import { postIssueStageComment } from '../phases/phaseCommentHelpers';
 import { createRepoContext } from '../providers/repoContext';
 import { Platform } from '../providers/types';
+import { acquireIssueSpawnLock, releaseIssueSpawnLock } from './spawnGate';
+import { AgentStateManager } from '../core/agentState';
 
 /** Readiness window (ms) to confirm a spawned child did not immediately crash. */
 const READINESS_WINDOW_MS = 2000;
@@ -118,6 +120,46 @@ export async function resumeWorkflow(entry: PausedWorkflow): Promise<void> {
     }
     return;
   }
+
+  // Canonical-claim verification: per-issue spawn lock + matching adwId in top-level state.
+  // Prevents resume-path spawn when another orchestrator holds the claim (split-brain)
+  // or when the state file's adwId has been manually edited / rewritten.
+  if (!acquireIssueSpawnLock(repoInfo, entry.issueNumber, process.pid)) {
+    log(
+      `Paused workflow ${entry.adwId}: spawn lock held for ${repoInfo.owner}/${repoInfo.repo}#${entry.issueNumber} — skipping resume this cycle`,
+      'warn',
+    );
+    return;
+  }
+
+  const topLevelState = AgentStateManager.readTopLevelState(entry.adwId);
+  if (!topLevelState || topLevelState.adwId !== entry.adwId) {
+    const observed = topLevelState?.adwId ?? null;
+    log(
+      `Paused workflow ${entry.adwId}: canonical claim diverged (expected adwId=${entry.adwId}, observed=${observed}) — removing from queue`,
+      'error',
+    );
+    releaseIssueSpawnLock(repoInfo, entry.issueNumber);
+    removeFromPauseQueue(entry.adwId);
+    try {
+      const repoContext = createRepoContext({
+        repoId: { owner: repoInfo.owner, repo: repoInfo.repo, platform: Platform.GitHub },
+        cwd: process.cwd(),
+      });
+      postIssueStageComment(repoContext, entry.issueNumber, 'error', {
+        issueNumber: entry.issueNumber,
+        adwId: entry.adwId,
+        errorMessage: `Workflow paused at '${entry.pausedAtPhase}' could not resume: canonical claim diverged (expected adwId=${entry.adwId}, observed=${observed ?? 'missing state file'}). Manual inspection required.`,
+      });
+    } catch {
+      // Non-fatal — mirror the worktree-gone branch's error-comment best-effort pattern
+    }
+    return;
+  }
+
+  // Release the verification-only lock so the spawned child's acquireOrchestratorLock
+  // can take over the lifetime lock. The brief gap is acceptable per slice #463.
+  releaseIssueSpawnLock(repoInfo, entry.issueNumber);
 
   // Open per-resume log file to capture child stdout/stderr
   const resumeLogDir = path.join(AGENTS_STATE_DIR, 'paused_queue_logs');
