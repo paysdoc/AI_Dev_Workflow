@@ -59,7 +59,8 @@ export type WorkflowStage =
   | 'resumed'
   // Terminal / handoff stages
   | 'abandoned'
-  | 'awaiting_merge';
+  | 'awaiting_merge'
+  | 'discarded';
 
 /**
  * PR review comment from GitHub API.
