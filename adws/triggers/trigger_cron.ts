@@ -17,6 +17,7 @@ import { checkIssueEligibility } from './issueEligibility';
 import { classifyAndSpawnWorkflow, spawnDetached } from './webhookGatekeeper';
 import { registerAndGuard } from './cronProcessGuard';
 import { evaluateCandidate } from './takeoverHandler';
+import { releaseIssueSpawnLock } from './spawnGate';
 import { scanPauseQueue } from './pauseQueueScanner';
 import { runJanitorPass } from './devServerJanitor';
 import { resolveCronRepo, buildCronTargetRepoArgs } from './cronRepoResolver';
@@ -170,6 +171,7 @@ async function checkAndTrigger(): Promise<void> {
       const { adwId: takeoverAdwId, derivedStage } = takeoverDecision;
       log(`Issue #${issue.number}: taking over adwId=${takeoverAdwId} derivedStage=${derivedStage}`, 'success');
       spawnDetached('bunx', ['tsx', 'adws/adwSdlc.tsx', String(issue.number), takeoverAdwId, ...targetRepoArgs]);
+      releaseIssueSpawnLock(repoInfo, issue.number);
       continue;
     }
 
