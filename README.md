@@ -306,6 +306,8 @@ adws/                   # ADW workflow system
 │   ├── stateHelpers.ts
 │   ├── targetRepoManager.ts
 │   ├── utils.ts
+│   ├── processLiveness.ts  # PID-reuse-safe process liveness checks
+│   ├── remoteReconcile.ts  # Stage derivation from remote GitHub artifacts
 │   ├── workflowCommentParsing.ts  # Comment parsing utilities
 │   ├── workflowMapping.ts  # Issue type → orchestrator mapping
 │   └── devServerLifecycle.ts  # Dev server spawn, health probe, and cleanup helpers
@@ -329,7 +331,8 @@ adws/                   # ADW workflow system
 │   ├── worktreeCleanup.ts
 │   ├── worktreeCreation.ts
 │   ├── worktreeOperations.ts
-│   └── worktreeQuery.ts  # Worktree query utilities
+│   ├── worktreeQuery.ts  # Worktree query utilities
+│   └── worktreeReset.ts  # Reset worktree to remote state for takeover
 ├── cost/               # Cost tracking module
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── computation.test.ts
@@ -445,7 +448,6 @@ adws/                   # ADW workflow system
 │   ├── issueDependencies.ts
 │   ├── issueEligibility.ts
 │   ├── pauseQueueScanner.ts  # Cron probe for paused issue queue
-│   ├── spawnGate.ts  # Per-issue filesystem spawn lock preventing duplicate orchestrator processes
 │   ├── trigger_cron.ts
 │   ├── trigger_shutdown.ts  # Graceful shutdown handler
 │   ├── trigger_webhook.ts
