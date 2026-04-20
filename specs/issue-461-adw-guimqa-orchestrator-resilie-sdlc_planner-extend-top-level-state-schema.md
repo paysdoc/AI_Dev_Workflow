@@ -189,6 +189,7 @@ it('partial-patch write preserves unmodified new-schema fields', () => {
     adwId,
     pid: 7777,
     pidStartedAt: 'Sun Apr 20 09:00:00 2026',
+    lastSeenAt: '2026-04-20T09:00:00.000Z',
     branchName: 'feature-x',
   });
   AgentStateManager.writeTopLevelState(adwId, {
@@ -202,7 +203,25 @@ it('partial-patch write preserves unmodified new-schema fields', () => {
 });
 ```
 
-### 7. Run the validation suite
+### 7. Add unit test: writeTopLevelState leaves no stale temp file on success
+
+- In the same file, add:
+
+```ts
+it('writeTopLevelState leaves no stale temp file behind on success', () => {
+  AgentStateManager.writeTopLevelState(adwId, {
+    adwId,
+    issueNumber: 42,
+  });
+  const filePath = AgentStateManager.getTopLevelStatePath(adwId);
+  const stateDir = path.dirname(filePath);
+  const siblings = fs.readdirSync(stateDir);
+  const tempLeftover = siblings.find((name) => name.endsWith('.tmp'));
+  expect(tempLeftover).toBeUndefined();
+});
+```
+
+### 8. Run the validation suite
 
 - Run the commands in the `Validation Commands` section below and resolve any lint, type, or test failures before completing the task.
 
@@ -214,13 +233,14 @@ The following unit tests cover the acceptance criteria and live in `adws/core/__
 
 - **New-schema write + read round-trip**: confirms `writeTopLevelState` persists all four fields (`pid`, `pidStartedAt`, `lastSeenAt`, `branchName`) and `readTopLevelState` deserializes them without loss.
 - **Forward-compatible read**: confirms a pre-461 state file containing only legacy fields (`adwId`, `issueNumber`, `workflowStage`) deserializes successfully with the four new fields surfacing as `undefined` rather than throwing.
-- **Partial-patch preservation**: confirms writing `{lastSeenAt}` on top of a state file containing `{pid, pidStartedAt, branchName}` leaves the three existing fields intact (regression guard for the atomic-write refactor; if the tmp-file pattern accidentally truncates or clobbers, this test fails).
+- **Partial-patch preservation**: seeds all four new fields (`pid`, `pidStartedAt`, `lastSeenAt`, `branchName`), then writes a partial patch touching only `lastSeenAt`, and asserts the other three fields retain their original values while the patched field reflects the new value (regression guard for the atomic-write refactor; if the tmp-file pattern accidentally truncates or clobbers, this test fails).
+- **No stale temp file on success**: confirms `writeTopLevelState` leaves no `*.tmp` sibling in the state directory after a successful write (regression guard for the atomic-rename step — catches the inverse hazard of a successful write that forgets to rename).
 
 Existing tests in the same file (shallow-field merge, phase deep-merge, corrupted-JSON graceful handling, phase running→completed transition, workflowStage-independent-of-phases-map) must continue to pass unchanged. These verify that the atomic-writer refactor does not regress the existing merge semantics that `runPhase`, `handleWorkflowError`, `handleRateLimitPause`, and `completeWorkflow` depend on.
 
 ### Edge Cases
 
-- **Pre-existing `.tmp` file on disk** — if a prior crash left `state.json.tmp` behind, the next `writeTopLevelState` call writes it (overwriting), then renames it atomically into place. No cleanup branch is required; asserting this explicitly in a test is optional but low-value (covered indirectly by back-to-back writes in existing tests).
+- **Pre-existing `.tmp` file on disk** — if a prior crash left `state.json.tmp` behind, the next `writeTopLevelState` call writes it (overwriting), then renames it atomically into place. No cleanup branch is required. The "no stale temp file on success" unit test guards the inverse hazard: a successful write that forgets to rename.
 - **Corrupted pre-existing `state.json`** — already covered by the existing `'handles corrupted state.json gracefully — starts fresh'` test; must continue to pass because the read path in `writeTopLevelState` still does a try/parse/fall-back-to-empty.
 - **Concurrent writes across orchestrators** — out of scope for this slice. Atomic rename covers the single-writer crash hazard; multi-writer races are addressed by spawn-lock coordination in other PRD slices.
 - **Cross-filesystem `renameSync`** — Node raises `EXDEV` when renaming across filesystems. The `.tmp` file and the final file both live under `AGENTS_STATE_DIR` (same filesystem by design), so this is not a supported failure mode and no fallback is implemented.
@@ -232,7 +252,7 @@ Existing tests in the same file (shallow-field merge, phase deep-merge, corrupte
 - [ ] `adws/core/agentState.ts` `writeTopLevelState` uses a tmp-file + `fs.renameSync` pattern for atomic replacement.
 - [ ] Existing state files lacking `pid`/`pidStartedAt`/`lastSeenAt`/`branchName` continue to deserialize via `readTopLevelState` without error; missing fields surface as `undefined`.
 - [ ] Partial-patch calls to `writeTopLevelState` preserve existing fields across all four new fields (not just the previously-tested shallow-merge fields).
-- [ ] Three new unit tests added in `adws/core/__tests__/topLevelState.test.ts` — new-schema round-trip, pre-461 forward-compatible read, and partial-patch preservation of the new fields.
+- [ ] Four new unit tests added in `adws/core/__tests__/topLevelState.test.ts` — new-schema round-trip, pre-461 forward-compatible read, partial-patch preservation of the new fields, and no stale temp file on successful atomic write.
 - [ ] All validation commands in the next section exit with code 0.
 - [ ] Code adheres to `guidelines/coding_guidelines.md` (strict TS, explicit types, side effects at boundaries, files under 300 lines — the agentState.ts file will remain under 330 lines after the edit).
 
