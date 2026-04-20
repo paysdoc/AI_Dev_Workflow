@@ -974,6 +974,14 @@
     - When inspecting `agents/paused_queue_logs/{adwId}.resume.log` to diagnose a stranded workflow
     - When the `probeFailures` escalation path or `MAX_UNKNOWN_PROBE_FAILURES` abandonment logic is relevant to resume failures
 
+- app_docs/feature-7dp24s-deterministic-branch-name-assembly.md
+  - Conditions:
+    - When working with `generateBranchName()` or `validateSlug()` in `adws/vcs/branchOperations.ts`
+    - When modifying `runGenerateBranchNameAgent()` or `extractSlugFromOutput()` in `adws/agents/gitAgent.ts`
+    - When updating the `/generate_branch_name` LLM prompt or its expected output shape
+    - When troubleshooting ghost branches or mismatched branch names between state files and on-disk worktrees
+    - When adding a new branch prefix type and need to understand the assembly contract
+
 - app_docs/feature-eantbn-orchestrator-resilie-worktree-reset-module.md
   - Conditions:
     - When working with `adws/vcs/worktreeReset.ts` or `resetWorktreeToRemote()`

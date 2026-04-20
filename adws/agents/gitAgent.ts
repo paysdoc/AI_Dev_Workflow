@@ -5,52 +5,35 @@
 
 import * as path from 'path';
 import { GitHubIssue, IssueClassSlashCommand, log, getModelForCommand, getEffortForCommand, commitPrefixMap } from '../core';
+import { generateBranchName, validateSlug } from '../vcs/branchOperations';
 import { runClaudeAgentWithCommand, AgentResult } from './claudeAgent';
 
 /**
  * Formats structured args for the /generate_branch_name skill.
+ * The prompt now accepts only the issue JSON — the issueClass is no longer
+ * passed because the LLM no longer assembles the prefix.
  */
 export function formatBranchNameArgs(
   issueClass: IssueClassSlashCommand,
   issue: GitHubIssue
 ): string[] {
-  return [issueClass, JSON.stringify(issue)];
+  void issueClass;
+  return [JSON.stringify(issue)];
 }
 
 /**
- * Validates and sanitizes a git branch name.
- * Strips invalid characters, enforces max length, and ensures the result is non-empty.
+ * Extracts the raw slug from the agent's output.
+ * The skill returns ONLY the slug — strips whitespace and backticks.
  */
-export function validateBranchName(name: string): string {
-  let sanitized = name.trim();
-
-  // Remove characters invalid in git branch names or dangerous in shell contexts
-  sanitized = sanitized.replace(/[~^:*?[\]@{}\\`]/g, '');
-  sanitized = sanitized.replace(/\.\./g, '');
-  sanitized = sanitized.replace(/\s+/g, '-');
-
-  // Enforce max length of 100 characters, ensuring no trailing dash
-  if (sanitized.length > 100) {
-    sanitized = sanitized.substring(0, 100).replace(/-$/, '');
-  }
-
-  if (!sanitized) {
-    throw new Error('Branch name is empty after validation');
-  }
-
-  return sanitized;
-}
-
-/**
- * Extracts the branch name from the agent's output.
- * The skill returns ONLY the branch name.
- */
-export function extractBranchNameFromOutput(output: string): string {
+export function extractSlugFromOutput(output: string): string {
   const trimmed = output.trim();
   const lines = trimmed.split('\n').filter(line => line.trim());
-  const rawName = lines[lines.length - 1].trim().replace(/^`+|`+$/g, '');
-  return validateBranchName(rawName);
+  const rawSlug = lines[lines.length - 1].trim().replace(/^`+|`+$/g, '');
+  return validateSlug(rawSlug);
 }
+
+/** @deprecated Use extractSlugFromOutput. Kept as an alias until all callers are updated. */
+export const extractBranchNameFromOutput = extractSlugFromOutput;
 
 /**
  * Runs the /generate_branch_name skill to generate a branch name.
@@ -86,7 +69,8 @@ export async function runGenerateBranchNameAgent(
     statePath,
   );
 
-  const branchName = extractBranchNameFromOutput(result.output);
+  const slug = extractSlugFromOutput(result.output);
+  const branchName = generateBranchName(issue.number, slug, issueType);
   log(`Branch name generated: ${branchName}`, 'success');
 
   return { ...result, branchName };

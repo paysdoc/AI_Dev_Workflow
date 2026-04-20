@@ -8,9 +8,8 @@
 // Branch operations
 export {
   getCurrentBranch,
+  validateSlug,
   generateBranchName,
-  generateFeatureBranchName,
-  createFeatureBranch,
   checkoutBranch,
   inferIssueTypeFromBranch,
   checkoutDefaultBranch,

@@ -66,8 +66,8 @@ export {
 // VCS module - Git command wrappers
 export {
   getCurrentBranch,
-  generateFeatureBranchName,
-  createFeatureBranch,
+  validateSlug,
+  generateBranchName,
   checkoutBranch,
   commitChanges,
   pushBranch,
