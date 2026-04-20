@@ -73,7 +73,7 @@ function defaultIssueClosedDeps(): IssueClosedDeps {
 /**
  * Handles pull_request.closed webhook events.
  * - Merged PRs: ignored (cleanup flows through issues.closed via GitHub auto-close).
- * - Abandoned PRs (closed without merge): writes 'abandoned' to state and closes the linked issue.
+ * - Closed-without-merge PRs: writes 'discarded' to state (terminal) and closes the linked issue.
  */
 export async function handlePullRequestEvent(
   payload: PullRequestWebhookPayload,
@@ -103,13 +103,13 @@ export async function handlePullRequestEvent(
   log(`PR #${pull_request.number} abandoned — linked to issue #${issueNumber}`);
   const repoInfo: RepoInfo = { owner: repository.owner.login, repo: repository.name };
 
-  // Write abandoned state so issues.closed handler sees it and routes to the abandoned path
+  // Write discarded state — operator-closed PR is a terminal decision; issues.closed handler routes to the abandoned-dependents path.
   try {
     const comments = deps.fetchIssueComments(issueNumber, repoInfo);
     const adwId = extractLatestAdwId(comments);
     if (adwId) {
-      deps.writeTopLevelState(adwId, { workflowStage: 'abandoned' });
-      log(`Wrote abandoned state for adwId=${adwId}`, 'info');
+      deps.writeTopLevelState(adwId, { workflowStage: 'discarded' });
+      log(`Wrote discarded state for adwId=${adwId}`, 'info');
     }
   } catch (error) {
     log(`Failed to fetch comments/write state for issue #${issueNumber}: ${error}`, 'warn');
@@ -200,7 +200,8 @@ export async function handleIssueClosedEvent(
 
   // Dependency handling
   if (repoInfo) {
-    if (workflowStage === 'abandoned') {
+    // 'abandoned' = transient failure, 'discarded' = deliberate terminal. Both propagate "don't pick up blocked work" to dependents; only 'completed' unblocks them.
+    if (workflowStage === 'abandoned' || workflowStage === 'discarded') {
       await deps.closeAbandonedDependents(issueNumber, repoInfo);
     } else {
       await deps.handleIssueClosedDependencyUnblock(issueNumber, repoInfo, targetRepoArgs);

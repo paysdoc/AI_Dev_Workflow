@@ -164,20 +164,20 @@ Feature: Discarded workflow stage foundation — type, cron skip-terminal parity
     And the stage is not silently upgraded to "discarded"
 
   # ═══════════════════════════════════════════════════════════════════════════
-  # 8. Scope guard — call site reclassification is out of scope for this slice
+  # 8. Call-site reclassification (delivered by issue #460, slice #2)
   # ═══════════════════════════════════════════════════════════════════════════
 
-  @adw-454
-  Scenario: adwMerge defensive exits are not reclassified in this slice
+  @adw-454 @adw-460
+  Scenario: adwMerge terminal exits are reclassified to "discarded" after slice #2
     Given "adws/adwMerge.tsx" is read
-    Then adwMerge does not yet call handleWorkflowDiscarded
-    And adwMerge's defensive exits that currently write "abandoned" remain unchanged
+    Then the pr_closed exit writes workflowStage "discarded"
+    And the merge_failed exit writes workflowStage "discarded"
 
-  @adw-454
-  Scenario: webhookHandlers PR-closed path is not reclassified in this slice
+  @adw-454 @adw-460
+  Scenario: webhookHandlers PR-closed path writes "discarded" after slice #2
     Given the webhook handlers module is read
-    Then the PR-closed path does not yet write workflowStage "discarded"
-    And the PR-closed path's existing behavior is preserved for slice #2
+    Then the PR-closed path writes workflowStage "discarded"
+    And the PR-closed path does not write workflowStage "abandoned"
 
   # ═══════════════════════════════════════════════════════════════════════════
   # 9. TypeScript compilation

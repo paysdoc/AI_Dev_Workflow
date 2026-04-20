@@ -1,5 +1,13 @@
 # Conditional Documentation
 
+- app_docs/feature-29w5wf-reclassify-abandoned-discarded-call-sites.md
+  - Conditions:
+    - When working with `adwMerge.tsx` exit paths and their `workflowStage` writes (`pr_closed`, `merge_failed`)
+    - When working with `handlePullRequestEvent` PR-closed state write in `webhookHandlers.ts`
+    - When troubleshooting issues that were operator-closed or merge-failed but are still being respawned
+    - When extending `handleIssueClosedEvent` dependency-cascade logic for new terminal stages
+    - When understanding the distinction between `MergeRunResult.outcome` (dispatcher label) and `workflowStage` (cron-sweeper classification)
+
 - app_docs/feature-nq7174-discarded-workflow-stage-foundation.md
   - Conditions:
     - When adding new `WorkflowStage` values and need to understand terminal vs. retriable stage semantics

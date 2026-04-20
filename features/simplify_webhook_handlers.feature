@@ -81,10 +81,11 @@ Feature: Simplify webhook handlers — remove auto-merge, thin event relay
     Given "adws/triggers/webhookHandlers.ts" is read
     Then handlePullRequestEvent extracts the adw-id from the linked issue's comments using extractAdwIdFromComment
 
-  @adw-lvakyr-remove-webhook-auto @regression
-  Scenario: Abandoned PR writes 'abandoned' to state file
+  @adw-lvakyr-remove-webhook-auto @adw-460 @regression
+  Scenario: Abandoned PR writes 'discarded' to state file (reclassified in issue #460)
     Given "adws/triggers/webhookHandlers.ts" is read
-    Then handlePullRequestEvent writes workflowStage "abandoned" to the state file when the PR was not merged
+    Then handlePullRequestEvent writes workflowStage "discarded" to the state file when the PR was not merged
+    And handlePullRequestEvent does not write workflowStage "abandoned" in the PR-closed path
 
   @adw-lvakyr-remove-webhook-auto @regression
   Scenario: Abandoned PR closes the linked issue to cascade to issues.closed

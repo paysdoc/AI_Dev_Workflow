@@ -31,6 +31,7 @@ import { mergeWithConflictResolution } from './triggers/autoMergeHandler';
 import { ensureWorktree } from './vcs';
 import { getPlanFilePath, planFileExists } from './agents';
 import type { AgentState } from './types/agentTypes';
+export { handleWorkflowDiscarded } from './phases/workflowCompletion';
 
 /** Outcome of executeMerge. */
 export interface MergeRunResult {
@@ -115,10 +116,10 @@ export async function executeMerge(
     return { outcome: 'completed', reason: 'already_merged' };
   }
 
-  // 5. Closed without merge — abandon
+  // 5. Closed without merge — discard (terminal, operator intent)
   if (prState === 'CLOSED') {
     log(`adwMerge: PR #${prNumber} is closed without merge`, 'warn');
-    deps.writeTopLevelState(adwId, { workflowStage: 'abandoned' });
+    deps.writeTopLevelState(adwId, { workflowStage: 'discarded' });
     return { outcome: 'abandoned', reason: 'pr_closed' };
   }
 
@@ -162,7 +163,8 @@ export async function executeMerge(
   // Merge failed after retries
   const lastError = mergeOutcome.error ?? '';
   log(`adwMerge: merge failed after retries: ${lastError}`, 'error');
-  deps.writeTopLevelState(adwId, { workflowStage: 'abandoned' });
+  // Terminal: merge genuinely failed after retries — do not re-spawn.
+  deps.writeTopLevelState(adwId, { workflowStage: 'discarded' });
 
   const failureLines = [
     `## Auto-merge failed for PR #${prNumber}`,

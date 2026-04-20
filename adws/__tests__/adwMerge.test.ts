@@ -136,7 +136,7 @@ describe('executeMerge — already merged PR', () => {
 // ── Closed PR (not merged) ───────────────────────────────────────────────────
 
 describe('executeMerge — closed PR', () => {
-  it('writes abandoned when PR is CLOSED without merge', async () => {
+  it('writes discarded when PR is CLOSED without merge', async () => {
     const deps = makeDeps({
       findPRByBranch: vi.fn().mockReturnValue(makePR({ state: 'CLOSED' })),
     });
@@ -145,7 +145,7 @@ describe('executeMerge — closed PR', () => {
 
     expect(result.outcome).toBe('abandoned');
     expect(result.reason).toBe('pr_closed');
-    expect(deps.writeTopLevelState).toHaveBeenCalledWith('test-adw-id', { workflowStage: 'abandoned' });
+    expect(deps.writeTopLevelState).toHaveBeenCalledWith('test-adw-id', { workflowStage: 'discarded' });
     expect(deps.commentOnIssue).not.toHaveBeenCalled();
     expect(deps.mergeWithConflictResolution).not.toHaveBeenCalled();
   });
@@ -203,7 +203,7 @@ describe('executeMerge — successful merge', () => {
 // ── Failed merge ─────────────────────────────────────────────────────────────
 
 describe('executeMerge — failed merge', () => {
-  it('writes abandoned and comments on PR when merge fails', async () => {
+  it('writes discarded and comments on PR when merge fails', async () => {
     const deps = makeDeps({
       mergeWithConflictResolution: vi.fn<typeof mergeWithConflictResolution>().mockResolvedValue({
         success: false,
@@ -215,7 +215,7 @@ describe('executeMerge — failed merge', () => {
 
     expect(result.outcome).toBe('abandoned');
     expect(result.reason).toBe('merge_failed');
-    expect(deps.writeTopLevelState).toHaveBeenCalledWith('test-adw-id', { workflowStage: 'abandoned' });
+    expect(deps.writeTopLevelState).toHaveBeenCalledWith('test-adw-id', { workflowStage: 'discarded' });
     expect(deps.commentOnPR).toHaveBeenCalledWith(
       7,
       expect.stringContaining('Auto-merge failed'),
