@@ -46,7 +46,7 @@ export type CandidateDecision =
   | { readonly kind: 'spawn_fresh' }
   | { readonly kind: 'take_over_adwId'; readonly adwId: string; readonly derivedStage: WorkflowStage }
   | { readonly kind: 'defer_live_holder'; readonly holderPid: number }
-  | { readonly kind: 'skip_terminal'; readonly adwId: string; readonly terminalStage: 'completed' | 'discarded' };
+  | { readonly kind: 'skip_terminal'; readonly adwId: string; readonly terminalStage: 'completed' | 'discarded' | 'paused' };
 ```
 
 The decision tree in code:
@@ -56,7 +56,7 @@ The decision tree in code:
 3. Read `AgentStateManager.readTopLevelState(adwId)`. If null (no state file yet), release the spawn lock and return `spawn_fresh`.
 4. Inspect `state.workflowStage`:
    - `completed` or `discarded` → release lock, return `skip_terminal`.
-   - `paused` → release lock, return `spawn_fresh` with a no-op note (pause queue scanner is the sole resumer; we do *not* take over paused workflows, per PRD "Further Notes").
+   - `paused` → release lock, return `skip_terminal` with terminalStage `paused` (pause queue scanner is the sole resumer; we do *not* take over paused workflows, per PRD "Further Notes").
    - `abandoned` → worktreeReset → remoteReconcile → return `take_over_adwId` (lock stays held; the caller's spawn keeps it).
    - stage ends with `_running` or is `starting`/`resuming`: check the recorded `state.pid` / `state.pidStartedAt` via `processLiveness.isProcessLive`. Two sub-branches:
      - live PID that was not the lock holder (we now hold the lock, so the process was running without the lock held — stale from pre-#463 era or a split-brain) → `process.kill(pid, 'SIGKILL')`, then worktreeReset → remoteReconcile → `take_over_adwId`.
@@ -86,10 +86,10 @@ A small read-only helper `readSpawnLockRecord(repoInfo, issueNumber)` is added t
 
 Wire the two call sites:
 
-- `adws/triggers/webhookGatekeeper.ts` — `classifyAndSpawnWorkflow` currently calls `acquireIssueSpawnLock` → classify → spawn. Replace with `evaluateCandidate` at the top; branch on the decision to (a) exit early for `defer_live_holder` / `skip_terminal`, (b) classify + spawn for `spawn_fresh`, (c) skip classification and spawn the resume path for `take_over_adwId` using the existing adwId and the derived stage. The lock is already held by `evaluateCandidate` on the `spawn_fresh` / `take_over_adwId` paths and is transferred to the child orchestrator (which re-acquires it for its lifetime per issue #463's `acquireOrchestratorLock`). On the deferral paths, release.
-- `adws/triggers/trigger_cron.ts` — the spawn loop at `trigger_cron.ts:118-154` currently calls `classifyAndSpawnWorkflow` directly for `action === 'spawn'`. That call site continues to work unchanged because `classifyAndSpawnWorkflow` itself now routes through `evaluateCandidate`. The `action === 'merge'` path (line 122) stays as-is — `awaiting_merge` candidates dispatch to `adwMerge.tsx`, which has its own coordination story in other issues.
+- `adws/triggers/webhookGatekeeper.ts` — `classifyAndSpawnWorkflow` currently calls `acquireIssueSpawnLock` → classify → spawn. Import `evaluateCandidate` from `./takeoverHandler` and replace that sequence with an `evaluateCandidate` call at the top; branch on the decision to (a) exit early for `defer_live_holder` / `skip_terminal`, (b) classify + spawn for `spawn_fresh`, (c) skip classification and spawn the resume path for `take_over_adwId` using the existing adwId and the derived stage. The lock is already held by `evaluateCandidate` on the `spawn_fresh` / `take_over_adwId` paths and is transferred to the child orchestrator (which re-acquires it for its lifetime per issue #463's `acquireOrchestratorLock`). On the deferral paths, release.
+- `adws/triggers/trigger_cron.ts` — import `evaluateCandidate` from `./takeoverHandler` and call it at the top of the `action === 'spawn'` branch of the spawn loop (currently at `trigger_cron.ts:118-154`). Branch on the returned decision: `defer_live_holder` / `skip_terminal` → log and skip without spawning; `spawn_fresh` → proceed with the existing classify-and-spawn flow (passing the pre-computed decision into `classifyAndSpawnWorkflow` through a new optional parameter so the underlying spawn lock is not re-acquired); `take_over_adwId` → spawn the orchestrator with the existing adwId from the decision, skipping classification. The `action === 'merge'` path (line 122) stays as-is — `awaiting_merge` candidates dispatch to `adwMerge.tsx`, which has its own coordination story in other issues.
 
-This layering means the integration is single-sourced: `classifyAndSpawnWorkflow` is the one function that calls `evaluateCandidate`, and both cron and webhook reach it. This matches the PRD's "single well-defined recovery path" goal.
+Both trigger entry points import `evaluateCandidate` directly so each enforces the takeover decision at its own call site. To avoid double-evaluation when `trigger_cron.ts` still dispatches through `classifyAndSpawnWorkflow` for the `spawn_fresh` path, the cron path threads its already-computed decision through as an optional parameter on `classifyAndSpawnWorkflow`; when present, `classifyAndSpawnWorkflow` skips its own `evaluateCandidate` call and operates on the pre-computed decision. This matches the PRD's "single well-defined recovery path" goal at each entry point.
 
 ## Relevant Files
 
@@ -105,9 +105,9 @@ Use these files to implement the feature:
 - `adws/types/agentTypes.ts` — existing `AgentState` already has `pid`, `pidStartedAt`, `lastSeenAt`, `branchName` (from issue #461). No changes.
 - `adws/types/workflowTypes.ts` — existing `WorkflowStage` already has `abandoned`, `discarded`, `awaiting_merge`. No changes.
 - `adws/triggers/cronStageResolver.ts` — `extractLatestAdwId(comments)` used inside `evaluateCandidate` to resolve the canonical adwId for an issue. No changes.
-- `adws/triggers/webhookGatekeeper.ts` — `classifyAndSpawnWorkflow` is the single call site that routes through `evaluateCandidate`. Will be refactored to branch on the decision and spawn fresh / resume / defer / skip accordingly.
-- `adws/triggers/trigger_cron.ts` — reaches `classifyAndSpawnWorkflow` at line 153; indirectly routes through `evaluateCandidate` after the refactor. Verify no regression in the `awaiting_merge` path (line 122) which bypasses the gate deliberately.
-- `adws/triggers/trigger_webhook.ts` — reaches `classifyAndSpawnWorkflow` at lines 165 and 219; same indirect routing. No direct changes required.
+- `adws/triggers/webhookGatekeeper.ts` — `classifyAndSpawnWorkflow` imports `evaluateCandidate` from `./takeoverHandler` and calls it at the top, branching on the decision to spawn fresh / resume / defer / skip accordingly. Will gain a new optional parameter to accept a pre-computed decision from `trigger_cron.ts`.
+- `adws/triggers/trigger_cron.ts` — imports `evaluateCandidate` from `./takeoverHandler` and calls it at the top of the `action === 'spawn'` branch. Dispatches on the returned decision (skip, classify+spawn fresh, spawn-with-existing-adwId for takeover) so every cron spawn site is gated behind `evaluateCandidate`. Verify no regression in the `awaiting_merge` path (line 122) which bypasses the gate deliberately.
+- `adws/triggers/trigger_webhook.ts` — reaches `classifyAndSpawnWorkflow` at lines 165 and 219; routing happens inside `classifyAndSpawnWorkflow` which now calls `evaluateCandidate` directly. No direct changes required.
 - `adws/github/issueApi.ts` (via `fetchIssueCommentsRest`) — used by the default `resolveAdwId` dep to fetch comments and call `extractLatestAdwId`. No changes.
 - `adws/github/githubApi.ts` — `RepoInfo` type. No changes.
 - `adws/triggers/__tests__/spawnGate.test.ts` — reference pattern for the new `takeoverHandler.test.ts` (vitest, `vi.mock`, tmpDir fixture, injected mocks for I/O).
@@ -223,11 +223,11 @@ Refactor `adws/triggers/webhookGatekeeper.ts::classifyAndSpawnWorkflow`:
   - `take_over_adwId` → look up the stored `orchestratorScript` from the top-level state (already persisted by `initializeWorkflow` per PRD "Implementation Decisions → agentState extension"). If absent, fall back to re-classification (log warning). Spawn the same orchestrator script with the existing adwId and, when available, the derived `workflowStage` passed via a new `--resume-stage` CLI flag (future slice may consume it; for this slice, simply log the derived stage — the orchestrator itself re-reads the top-level state on resume per existing recovery semantics).
 - Preserve the existing `isAdwRunningForIssue` check only on the `spawn_fresh` path (defense in depth against a very late-arriving competing webhook). On `take_over_adwId`, skip it: we already hold the canonical lock, and `isAdwRunningForIssue` inspects ADW comments which would still show the dead orchestrator's comment.
 
-### 7. Verify cron and webhook call sites implicitly route through evaluateCandidate
+### 7. Wire cron and webhook call sites to evaluateCandidate
 
-- In `trigger_cron.ts`, confirm line 153 still calls `classifyAndSpawnWorkflow` and therefore inherits the routing. No code change.
-- In `trigger_webhook.ts`, confirm lines 165 and 219 still call `classifyAndSpawnWorkflow`. No code change.
-- Add inline comments above each call site noting "takeover decision handled inside classifyAndSpawnWorkflow" so a future maintainer does not re-introduce a pre-check.
+- In `trigger_cron.ts`, import `evaluateCandidate` from `./takeoverHandler` and call it at the top of the `action === 'spawn'` branch of the spawn loop. Branch on the returned decision: skip without spawning for `defer_live_holder` / `skip_terminal`; for `spawn_fresh`, pass the decision through to `classifyAndSpawnWorkflow` via its new optional pre-computed-decision parameter so the underlying spawn lock is not re-acquired; for `take_over_adwId`, spawn the orchestrator script for the carried adwId directly, skipping classification.
+- In `trigger_webhook.ts`, confirm lines 165 and 219 still call `classifyAndSpawnWorkflow`. No direct code change in `trigger_webhook.ts`; the routing happens inside `classifyAndSpawnWorkflow` which now calls `evaluateCandidate` directly (wired in step 6).
+- Add inline comments at each call site noting the takeover decision is enforced before any spawn so a future maintainer does not re-introduce a parallel pre-check.
 
 ### 8. Update webhookHandlers.test.ts and webhookGatekeeper call-site tests
 
