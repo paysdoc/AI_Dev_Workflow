@@ -1,5 +1,13 @@
 # Conditional Documentation
 
+- app_docs/feature-djtyv4-remote-reconcile-module.md
+  - Conditions:
+    - When working with `deriveStageFromRemote`, `mapArtifactsToStage`, or `ReconcileDeps` in `adws/core/remoteReconcile.ts`
+    - When implementing or troubleshooting stage reconciliation between local state files and remote GitHub artifacts
+    - When wiring `deriveStageFromRemote` into `takeoverHandler` (slice #11 per orchestrator-coordination-resilience PRD)
+    - When investigating GitHub API read-your-write lag affecting WorkflowStage derivation
+    - When working with the `'discarded'` WorkflowStage literal or the `defaultFindPRByBranch`/`RawPR` shared helpers in `adws/github/prApi.ts`
+
 - app_docs/feature-elre2t-fix-board-column-order-ids.md
   - Conditions:
     - When working with `ensureColumns`, `mergeStatusOptions`, or `updateStatusFieldOptions` in `githubBoardManager.ts`
@@ -973,3 +981,11 @@
     - When updating the `/generate_branch_name` LLM prompt or its expected output shape
     - When troubleshooting ghost branches or mismatched branch names between state files and on-disk worktrees
     - When adding a new branch prefix type and need to understand the assembly contract
+
+- app_docs/feature-eantbn-orchestrator-resilie-worktree-reset-module.md
+  - Conditions:
+    - When working with `adws/vcs/worktreeReset.ts` or `resetWorktreeToRemote()`
+    - When implementing the takeover handler (PRD slice #11) that calls `resetWorktreeToRemote` before resuming a dead orchestrator's work
+    - When troubleshooting mid-merge, mid-rebase, or dirty-worktree state left by a crashed orchestrator
+    - When adding worktree reset logic that must handle linked worktrees (git-dir indirection via `rev-parse --git-dir`)
+    - When writing unit tests for VCS functions that mix `execSync` and `fs` calls (follow the `worktreeReset.test.ts` mocking pattern)
