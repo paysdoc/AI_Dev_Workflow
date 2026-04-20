@@ -283,6 +283,7 @@ adws/                   # ADW workflow system
 │   │   ├── devServerLifecycle.test.ts
 │   │   ├── execWithRetry.test.ts
 │   │   ├── heartbeat.test.ts
+│   │   ├── hungOrchestratorDetector.test.ts
 │   │   ├── phaseRunner.test.ts
 │   │   ├── processLiveness.test.ts
 │   │   ├── projectConfig.test.ts
@@ -296,6 +297,7 @@ adws/                   # ADW workflow system
 │   ├── devServerLifecycle.ts  # Dev server spawn, health probe, and cleanup helpers
 │   ├── environment.ts  # Environment variable accessors
 │   ├── heartbeat.ts    # Liveness ticker writing lastSeenAt to state on a fixed interval
+│   ├── hungOrchestratorDetector.ts  # Pure-query detector for wedged orchestrators (live PID + stale heartbeat)
 │   ├── index.ts
 │   ├── issueClassifier.ts
 │   ├── jsonParser.ts
@@ -440,6 +442,7 @@ adws/                   # ADW workflow system
 │   │   ├── devServerJanitor.test.ts
 │   │   ├── pauseQueueScanner.test.ts
 │   │   ├── spawnGate.test.ts
+│   │   ├── trigger_cron.test.ts
 │   │   ├── triggerCronAwaitingMerge.test.ts
 │   │   └── webhookHandlers.test.ts
 │   ├── autoMergeHandler.ts  # Auto-merge approved PRs
