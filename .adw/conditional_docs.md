@@ -997,3 +997,11 @@
     - When troubleshooting mid-merge, mid-rebase, or dirty-worktree state left by a crashed orchestrator
     - When adding worktree reset logic that must handle linked worktrees (git-dir indirection via `rev-parse --git-dir`)
     - When writing unit tests for VCS functions that mix `execSync` and `fs` calls (follow the `worktreeReset.test.ts` mocking pattern)
+
+- app_docs/feature-guimqa-extend-top-level-state-schema.md
+  - Conditions:
+    - When working with `AgentState.lastSeenAt`, `AgentState.pid`, `AgentState.pidStartedAt`, or `AgentState.branchName` in `adws/types/agentTypes.ts`
+    - When implementing the heartbeat module (future slice) that writes `lastSeenAt` every 30 seconds
+    - When implementing the takeover handler that reads liveness fields (`pid`, `pidStartedAt`, `lastSeenAt`) to decide spawn strategy
+    - When troubleshooting a torn or zero-byte `state.json` (atomic writer protects against this)
+    - When writing tests for `writeTopLevelState` partial-patch or forward-compatible read behavior
