@@ -76,6 +76,13 @@ export const MAX_CONCURRENT_PER_REPO = parseInt(process.env.MAX_CONCURRENT_PER_R
 /** Grace period (ms) for cron to avoid racing with webhook processing (default: 5 minutes). */
 export const GRACE_PERIOD_MS = 300_000;
 
+// Heartbeat constants
+/** Heartbeat tick interval in milliseconds (default: 30s per PRD). */
+export const HEARTBEAT_TICK_INTERVAL_MS = 30_000;
+
+/** Stale-threshold for the hung-orchestrator detector — six missed ticks (default: 180s per PRD). */
+export const HEARTBEAT_STALE_THRESHOLD_MS = 180_000;
+
 // ---------------------------------------------------------------------------
 // Token budget constants
 // ---------------------------------------------------------------------------
