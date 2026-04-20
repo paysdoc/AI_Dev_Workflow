@@ -282,6 +282,7 @@ adws/                   # ADW workflow system
 │   │   ├── claudeStreamParser.test.ts
 │   │   ├── devServerLifecycle.test.ts
 │   │   ├── execWithRetry.test.ts
+│   │   ├── heartbeat.test.ts
 │   │   ├── phaseRunner.test.ts
 │   │   ├── processLiveness.test.ts
 │   │   ├── projectConfig.test.ts
@@ -292,7 +293,9 @@ adws/                   # ADW workflow system
 │   ├── claudeStreamParser.ts  # Claude JSONL stream parsing
 │   ├── config.ts
 │   ├── constants.ts    # Orchestrator ID constants
+│   ├── devServerLifecycle.ts  # Dev server spawn, health probe, and cleanup helpers
 │   ├── environment.ts  # Environment variable accessors
+│   ├── heartbeat.ts    # Liveness ticker writing lastSeenAt to state on a fixed interval
 │   ├── index.ts
 │   ├── issueClassifier.ts
 │   ├── jsonParser.ts
@@ -310,11 +313,8 @@ adws/                   # ADW workflow system
 │   ├── stateHelpers.ts
 │   ├── targetRepoManager.ts
 │   ├── utils.ts
-│   ├── processLiveness.ts  # PID-reuse-safe process liveness checks
-│   ├── remoteReconcile.ts  # Stage derivation from remote GitHub artifacts
 │   ├── workflowCommentParsing.ts  # Comment parsing utilities
-│   ├── workflowMapping.ts  # Issue type → orchestrator mapping
-│   └── devServerLifecycle.ts  # Dev server spawn, health probe, and cleanup helpers
+│   └── workflowMapping.ts  # Issue type → orchestrator mapping
 ├── github/             # GitHub API operations
 │   ├── githubApi.ts
 │   ├── githubAppAuth.ts  # GitHub App authentication
