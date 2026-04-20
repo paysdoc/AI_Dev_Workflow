@@ -25,6 +25,12 @@ import { getProcessStartTime, isProcessLive } from './processLiveness';
  * State file names used by the state manager.
  */
 const STATE_FILE = 'state.json';
+
+function atomicWriteJson(filePath: string, data: unknown): void {
+  const tmp = `${filePath}.tmp`;
+  fs.writeFileSync(tmp, JSON.stringify(data, null, 2), 'utf-8');
+  fs.renameSync(tmp, filePath);
+}
 const EXECUTION_LOG_FILE = 'execution.log';
 
 /**
@@ -302,7 +308,7 @@ export class AgentStateManager {
       merged.phases = mergedPhases;
     }
 
-    fs.writeFileSync(filePath, JSON.stringify(merged, null, 2), 'utf-8');
+    atomicWriteJson(filePath, merged);
   }
 
   // Delegate to standalone functions from stateHelpers.ts and processLiveness.ts
