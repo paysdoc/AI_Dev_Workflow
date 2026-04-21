@@ -103,14 +103,16 @@ The fix must therefore (a) resolve the correct target (default branch via `gh`),
 
 Use these files to fix the bug:
 
-- `adws/vcs/commitOperations.ts` — **primary fix site.** Rewrite `commitAndPushKpiFile()` (lines 47–82) to use a temp detached worktree. Signature stays `(cwd?: string): boolean` so the caller in `kpiPhase.ts` is untouched. Imports `getCurrentBranch` today; after the fix it imports `getDefaultBranch` from `./branchOperations` instead (and drops the `getCurrentBranch` import from this function's path).
+- `adws/vcs/commitOperations.ts` — **primary fix site.** Rewrite `commitAndPushKpiFile()` (lines 47–82) to use a temp detached worktree. Signature stays `(cwd?: string): boolean` so the caller in `kpiPhase.ts` is untouched. Today imports `getCurrentBranch`; after the fix replace it with `getDefaultBranch` from `./branchOperations` (the `getCurrentBranch` import is dropped entirely — no other function in this file consumes it).
 - `adws/vcs/branchOperations.ts` — **source of `getDefaultBranch(cwd?)`** (lines 146–162). Already exported and already used elsewhere; wraps `gh repo view --json defaultBranchRef --jq '.defaultBranchRef.name'`. No changes needed here.
 - `adws/vcs/__tests__/commitOperations.test.ts` — **new unit-test file.** Model after `adws/vcs/__tests__/worktreeReset.test.ts` (same `vi.mock('child_process', …)` + `vi.mock('fs', …)` + `vi.mock('../../core', …)` pattern). Cover: no-op when no changes, happy path (correct command sequence, default-branch target, detached-worktree lifecycle), push-failure non-fatal path, cleanup-runs-even-on-failure path.
 - `adws/vcs/__tests__/worktreeReset.test.ts` — **reference pattern only.** Demonstrates how to mock `execSync` to return values for ordered calls and assert on the call sequence. No changes needed here.
 - `adws/vcs/index.ts` — **barrel export, no change.** Re-exports `commitAndPushKpiFile` (line 27) — the exported symbol and its signature are preserved, so the barrel needs no edit.
 - `adws/phases/kpiPhase.ts` — **caller, no change.** Still calls `commitAndPushKpiFile()` with no arguments at line 93. The outer try/catch preserves non-fatal behaviour; the inner function continues to return `boolean` and swallow its own errors.
-- `features/push_adw_kpis.feature` — **existing BDD coverage.** Background scenarios still hold (commit present, push present, non-fatal). Add a new `@adw-hk12ct-kpi-commits-land-on @regression` scenario block asserting (a) `adws/vcs/commitOperations.ts` imports `getDefaultBranch`, (b) the file references `worktree add --detach`, (c) the file references `HEAD:` push-refspec syntax, (d) the file has cleanup via `worktree remove --force` in a `finally`-style construct.
-- `features/step_definitions/pushAdwKpisSteps.ts` — **existing step definitions.** Most new assertions reuse source-reading patterns already present (the file already reads `KPI_PHASE` and asserts on its content). Extend with TWO NEW steps: one that reads `adws/vcs/commitOperations.ts` and stashes its content in the World, and one generic `the commitOperations source references {string}` step for substring assertions against that stashed content.
+- `features/push_adw_kpis.feature` — **existing BDD coverage, unchanged structure.** Background scenarios still hold (commit present, push present, non-fatal). Two pre-existing scenarios have been additionally tagged `@adw-486` so they participate in this issue's regression run (push-to-remote and non-fatal failure). No new scenario blocks are added here.
+- `features/kpi_commits_land_on_default_branch.feature` — **new BDD coverage for this issue.** Feature-level `@adw-486` tag; each scenario carries `@adw-486 @regression`. Covers: default-branch resolution via `getDefaultBranch`, detached temp worktree usage (`git worktree add --detach`, `git fetch origin`, `git push origin HEAD:`), active-tree untouched (no `git checkout` / `git read-tree` / `git update-index` / `getCurrentBranch`), cleanup (`git worktree remove`, `finally`), non-fatal contract (`try` + `catch` + `log`), and `tsc --noEmit` passes. Scenarios use only existing common step definitions — no new step defs required.
+- `features/step_definitions/pushAdwKpisSteps.ts` — **existing step definitions, no change.** The scenarios in the new feature file use generic source-inspection steps already defined in `features/step_definitions/commonSteps.ts` (`Given '{string} is read'`, `Then 'the file contains {string}'`, `Then 'the file does not contain {string}'`, `Given 'the ADW codebase is checked out'`) and in `features/step_definitions/cronGuardToctouFixSteps.ts` (`Then 'the ADW TypeScript type-check passes'`).
+- `features/step_definitions/commonSteps.ts` — **reused step definitions, no change.** Provides the generic file-inspection steps used by the new feature file.
 - `specs/issue-196-adw-jm6pnw-push-adw-kpis-sdlc_planner-push-kpi-file.md` — **historical context, no change.** Original plan that introduced the current-branch push defect; useful for understanding why the code took its present shape.
 - `app_docs/feature-eantbn-orchestrator-resilie-worktree-reset-module.md` — **testing-pattern reference, no change.** Documents the `execSync` + `fs` mock approach used in `worktreeReset.test.ts`; the new `commitOperations.test.ts` follows the same convention.
 - `app_docs/feature-8ar0fo-user-story-integrate-kpi-tracking.md` — **context, no change.** Describes the KPI phase design; confirms the non-fatal contract (line 44) the fix must preserve.
@@ -124,7 +126,7 @@ Use these files to fix the bug:
 ## Step by Step Tasks
 IMPORTANT: Execute every step in order, top to bottom.
 
-### 1. Add Node stdlib imports to `adws/vcs/commitOperations.ts`
+### 1. Update imports in `adws/vcs/commitOperations.ts`
 
 - At the top of `adws/vcs/commitOperations.ts`, alongside the existing `import { execSync } from 'child_process';`, add:
   ```ts
@@ -132,11 +134,11 @@ IMPORTANT: Execute every step in order, top to bottom.
   import * as os from 'os';
   import * as path from 'path';
   ```
-- Update the existing import `import { getCurrentBranch, PROTECTED_BRANCHES } from './branchOperations';` to **also** import `getDefaultBranch`:
+- Replace the existing import `import { getCurrentBranch, PROTECTED_BRANCHES } from './branchOperations';` with:
   ```ts
-  import { getCurrentBranch, getDefaultBranch, PROTECTED_BRANCHES } from './branchOperations';
+  import { getDefaultBranch, PROTECTED_BRANCHES } from './branchOperations';
   ```
-- Do NOT remove `getCurrentBranch` — it is used by the re-exported `commitChanges`/`pushBranch` helpers that other callers rely on. The only function being rewritten is `commitAndPushKpiFile`.
+- `getCurrentBranch` is the sole symbol used by `commitAndPushKpiFile` in this file (neither `commitChanges` nor `pushBranch` calls it — `pushBranch` receives the branch name as a parameter). After the fix, `getCurrentBranch` has no remaining consumer in `commitOperations.ts`, so its import must be removed entirely. This is also required by the regression scenario `commitAndPushKpiFile no longer selects the push target via getCurrentBranch` which asserts the file does not contain `getCurrentBranch`.
 - The re-export `export { PROTECTED_BRANCHES };` stays unchanged.
 
 ### 2. Rewrite `commitAndPushKpiFile()` in `adws/vcs/commitOperations.ts`
@@ -274,83 +276,33 @@ Cover the following scenarios (descriptions mirror `worktreeReset.test.ts` style
 
 Keep the test file under ~300 lines per coding guidelines.
 
-### 5. Extend `features/push_adw_kpis.feature` with a regression scenario block
+### 5. Confirm the BDD coverage in `features/kpi_commits_land_on_default_branch.feature`
 
-- Directly below the existing `@adw-jm6pnw-push-adw-kpis` scenarios, append a new scenario block tagged `@adw-hk12ct-kpi-commits-land-on @regression`:
+A dedicated feature file for this issue already exists at `features/kpi_commits_land_on_default_branch.feature`. It is tagged `@adw-486` at feature level, and every scenario carries `@adw-486 @regression`. The scenarios use only generic source-inspection steps from `features/step_definitions/commonSteps.ts` (no new step definitions are required). Verify the file covers these regression gates after the fix lands:
 
-  ```gherkin
-  @adw-hk12ct-kpi-commits-land-on @regression
-  Scenario: KPI commits target the default branch via a detached temporary worktree
-    Given the ADW workflow is running from a non-default branch
-    When the KPI phase commits "app_docs/agentic_kpis.md"
-    Then the commitOperations source imports "getDefaultBranch"
-    And the commitOperations source references "worktree add --detach"
-    And the commitOperations source references "HEAD:"
-    And the commitOperations source references "worktree remove --force"
-    And the commitOperations source does not reference "getCurrentBranch" inside "commitAndPushKpiFile"
-  ```
+- **Default-branch resolution**: `the file contains "getDefaultBranch"` — proves the helper is called (the helper wraps `gh repo view --json defaultBranchRef --jq '.defaultBranchRef.name'`).
+- **Detached temp worktree**: `the file contains "git worktree add --detach"` — proves the `--detach` flag is used so the default branch can remain checked out elsewhere.
+- **Fetch before worktree**: `the file contains "git fetch origin"` — proves `origin/<defaultBranch>` is refreshed.
+- **Push-by-refspec**: `the file contains "git push origin HEAD:"` — proves the push targets the remote default branch explicitly, not the current branch.
+- **Active tree untouched**: `the file does not contain "git checkout"`, `the file does not contain "git read-tree"`, `the file does not contain "git update-index"` — proves none of the three mutation vectors called out in the bug report are used.
+- **`getCurrentBranch` eliminated**: `the file does not contain "getCurrentBranch"` — the regression gate that prevents the defect from returning. Satisfied by Step 1 (which drops the import entirely).
+- **Cleanup always runs**: `the file contains "git worktree remove"` and `the file contains "finally"` — proves the temp worktree is removed in a `finally` block.
+- **Non-fatal contract preserved**: `the file contains "try"` + `"catch"` + `"log"` — proves the outer try/catch + warn-log pattern is retained.
+- **TypeScript type-check passes**: satisfied by `bunx tsc --noEmit` invoked from the step in `cronGuardToctouFixSteps.ts:44`.
 
-- The final `does not reference … inside` assertion narrows the scope to the `commitAndPushKpiFile` function body, since `getCurrentBranch` is a valid import used by the other exports (`commitChanges`, `pushBranch`) in the same file. Implement it by slicing the source between `export function commitAndPushKpiFile` and the next `\nexport ` or EOF.
+The two pre-existing scenarios in `features/push_adw_kpis.feature` that already carry `@adw-486` (push-to-remote and non-fatal-failure) need no changes — they continue to verify the commit-and-push lifecycle at a higher level.
 
-### 6. Extend `features/step_definitions/pushAdwKpisSteps.ts` with new step definitions
+### 6. No step-definition changes required
 
-- Add a constant near the top alongside `const KPI_PHASE = 'adws/phases/kpiPhase.ts';`:
-  ```ts
-  const COMMIT_OPS = 'adws/vcs/commitOperations.ts';
-  ```
+The scenarios introduced for this issue rely entirely on step definitions already present in the repo:
 
-- Add a new `Given` that loads the commitOperations source into the World (mirrors the `KPI_PHASE` loading pattern already present):
-  ```ts
-  Given('the ADW workflow is running from a non-default branch', function (this: Record<string, string>) {
-    assert.ok(existsSync(join(ROOT, COMMIT_OPS)), `Expected ${COMMIT_OPS} to exist`);
-    this.commitOpsSource = readFileSync(join(ROOT, COMMIT_OPS), 'utf-8');
-  });
-  ```
+- `Given('the ADW codebase is checked out', …)` — `features/step_definitions/commonSteps.ts:39`
+- `Given('{string} is read', …)` — `features/step_definitions/commonSteps.ts:51`
+- `Then('the file contains {string}', …)` — `features/step_definitions/commonSteps.ts:87`
+- `Then('the file does not contain {string}', …)` — `features/step_definitions/commonSteps.ts:96`
+- `Then('the ADW TypeScript type-check passes', …)` — `features/step_definitions/cronGuardToctouFixSteps.ts:44`
 
-- Add a passthrough `When`:
-  ```ts
-  When('the KPI phase commits {string}', function (_file: string) {
-    // Context only — source already loaded in the Given
-  });
-  ```
-
-- Add generic import and substring assertions:
-  ```ts
-  Then('the commitOperations source imports {string}', function (this: Record<string, string>, symbol: string) {
-    assert.ok(
-      new RegExp(`import\\s+\\{[^}]*\\b${symbol}\\b[^}]*\\}\\s+from`).test(this.commitOpsSource),
-      `Expected ${COMMIT_OPS} to import ${symbol}`,
-    );
-  });
-
-  Then('the commitOperations source references {string}', function (this: Record<string, string>, needle: string) {
-    assert.ok(
-      this.commitOpsSource.includes(needle),
-      `Expected ${COMMIT_OPS} to reference "${needle}"`,
-    );
-  });
-  ```
-
-- Add the narrow "does not reference inside function" step:
-  ```ts
-  Then('the commitOperations source does not reference {string} inside {string}', function (
-    this: Record<string, string>,
-    needle: string,
-    fnName: string,
-  ) {
-    const src = this.commitOpsSource;
-    const startRe = new RegExp(`export\\s+function\\s+${fnName}\\b`);
-    const startIdx = src.search(startRe);
-    assert.ok(startIdx >= 0, `Expected to find exported function ${fnName}`);
-    const rest = src.slice(startIdx);
-    const nextExportIdx = rest.search(/\n(export |\/\*\*)/);
-    const body = nextExportIdx > 0 ? rest.slice(0, nextExportIdx) : rest;
-    assert.ok(
-      !body.includes(needle),
-      `Expected ${fnName} body NOT to reference "${needle}" but it did`,
-    );
-  });
-  ```
+Do not add new step definitions to `features/step_definitions/pushAdwKpisSteps.ts` for this issue. Keep the file unchanged.
 
 ### 7. Run the validation commands
 
@@ -364,7 +316,7 @@ Execute every command to validate the bug is fixed with zero regressions.
 - `bunx tsc --noEmit -p adws/tsconfig.json` — confirm no type errors inside the `adws/` sub-project (catches regressions that the top-level tsconfig might miss).
 - `bun run test:unit` — runs the full vitest suite, including the new `adws/vcs/__tests__/commitOperations.test.ts` and the unchanged `adws/vcs/__tests__/worktreeReset.test.ts` and `adws/vcs/__tests__/branchOperations.test.ts`. All must pass.
 - `bun run test:unit adws/vcs/__tests__/commitOperations.test.ts` — targeted run of the new test file; useful for iterative debugging.
-- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-hk12ct-kpi-commits-land-on"` — runs only the new regression scenario block; all scenarios must be green.
+- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-486"` — runs the new regression scenarios in `features/kpi_commits_land_on_default_branch.feature` plus the pre-existing `push_adw_kpis.feature` scenarios newly tagged `@adw-486`; all must be green.
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@regression"` — full BDD regression run; the new scenarios must pass and the existing `@adw-jm6pnw-push-adw-kpis @regression` scenarios must remain green.
 
 **Manual reproduction gate (optional but recommended before merge):**
@@ -393,4 +345,4 @@ Execute every command to validate the bug is fixed with zero regressions.
 - **Concurrent-run race:** if two ADW orchestrators push KPI commits simultaneously, one push can fail with "non-fast-forward". The bug report explicitly accepts this as a non-fatal case; the fix's outer catch logs the warning and the next ADW run picks up the newer `origin/<default-branch>` on its next fetch. No retry loop is introduced — the KPI phase is cheap and will self-heal on the next workflow.
 - **Security note:** `defaultBranch` is interpolated into shell commands via `execSync`. `getDefaultBranch()` reads from `gh repo view` which returns repository-controlled data. A malicious default-branch name could in theory inject shell metacharacters, but the value is double-quoted in every interpolation and `gh` constrains the return to a valid git ref name. No additional shell-escape wrapper is added — the existing double-quoting matches the convention across `branchOperations.ts` and `worktreeReset.ts`.
 - **Why no dependency injection:** the bug report floats the idea of "passing a resolved default-branch value if we want DI for testing". The `worktreeReset.test.ts` mocking pattern demonstrates that `execSync` mocks already give full testability without DI. Adding a `defaultBranch?` parameter would widen the public API surface for a test-only benefit; skipped per minimal-fix principle.
-- **Out of scope:** `commitChanges`, `pushBranch`, and the cost-file commit flow in `adws/vcs/commitOperations.ts` all still use `getCurrentBranch`. That is correct for their use case (target-repo feature-branch workflows) and is not part of this bug. Do not touch them.
+- **Out of scope:** `getCurrentBranch` remains exported from `adws/vcs/branchOperations.ts` and re-exported via `adws/vcs/index.ts`. Other callers across the codebase (e.g. the cost-file flow, target-repo feature-branch workflows) legitimately use it. This fix only removes its usage and import from `adws/vcs/commitOperations.ts`, since `commitAndPushKpiFile` was the sole consumer in that file.

@@ -18,9 +18,9 @@ Feature: KPI commits land on the repo's default branch, not the current ADW bran
   # ── Default-branch resolution via gh ───────────────────────────────────
 
   @adw-486 @regression
-  Scenario: commitAndPushKpiFile resolves the default branch via gh repo view
+  Scenario: commitAndPushKpiFile resolves the default branch via gh (delegated to getDefaultBranch)
     Given "adws/vcs/commitOperations.ts" is read
-    Then the file contains "defaultBranchRef"
+    Then the file contains "getDefaultBranch"
 
   # ── Temp detached worktree on origin/<default-branch> ─────────────────
 
