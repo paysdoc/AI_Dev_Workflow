@@ -244,7 +244,7 @@ Given('an adw-id {string} is discoverable for issue {int} on repo {string}', fun
   }
 });
 
-Given('no top-level state file exists at {string}', function (_statePath: string) {
+Given('the top-level state file at {string} is absent', function (_statePath: string) {
   // The resolvedAdwId state is already set to null in the map from the previous Given
   if (ctx.resolvedAdwId) {
     ctx.stateByAdwId.set(ctx.resolvedAdwId, null);

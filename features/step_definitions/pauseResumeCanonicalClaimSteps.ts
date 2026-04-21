@@ -655,14 +655,6 @@ Then('that test asserts a log line is emitted naming both the expected and the o
   );
 });
 
-Then('a test configures acquireIssueSpawnLock to return false', function () {
-  const content = sharedCtx.fileContent;
-  assert.ok(
-    content.includes('acquireIssueSpawnLock') && content.includes('false'),
-    `Expected "${sharedCtx.filePath}" to configure acquireIssueSpawnLock to return false`,
-  );
-});
-
 Then('that test asserts the top-level state read is NOT performed', function () {
   const content = sharedCtx.fileContent;
   assert.ok(
