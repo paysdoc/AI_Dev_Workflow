@@ -1,5 +1,13 @@
 # Conditional Documentation
 
+- app_docs/feature-hk12ct-kpi-commits-land-on-default-branch.md
+  - Conditions:
+    - When working with `commitAndPushKpiFile()` in `adws/vcs/commitOperations.ts`
+    - When KPI commits are appearing on feature branches or open PRs instead of the default branch
+    - When implementing any VCS operation that must commit to the default branch without mutating the active worktree
+    - When troubleshooting temp worktree cleanup (`adw-kpi-*` entries in `git worktree list`)
+    - When adding tests for command-sequence correctness in `adws/vcs/__tests__/`
+
 - app_docs/feature-nrr167-hitl-label-gate-adwmerge.md
   - Conditions:
     - When working with the `hitl` label gate in `adwMerge.tsx` or `autoMergePhase.ts`
