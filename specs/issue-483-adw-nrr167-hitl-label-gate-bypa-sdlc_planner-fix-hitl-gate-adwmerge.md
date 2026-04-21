@@ -34,10 +34,13 @@ Orchestrators are intentionally NOT modified. Three reasons:
 
 Rejected alternative — introducing a `blocked_hitl` terminal stage: would require cron filter changes (`cronStageResolver.ts`, `cronIssueFilter.ts`), a manual "re-enter after label removal" mechanism, and new integration tests. The bug description offers this as an option, but `awaiting_merge` re-entry per cron cycle is cheap (one `gh issue view` + exit) and matches the existing silent-skip semantics from `autoMergePhase`. Minimal fix wins.
 
-Extend `features/hitl_label_gate_automerge.feature` with new `@regression` scenarios asserting:
+Extend `features/hitl_label_gate_automerge.feature` with new `@adw-483 @regression` scenarios asserting:
 - `adws/adwMerge.tsx` imports `issueHasLabel`.
-- `adwMerge.tsx` calls `issueHasLabel` before `mergeWithConflictResolution`.
-- The hitl branch in `adwMerge.tsx` does NOT call `mergeWithConflictResolution`, `ensureWorktree`, `commentOnIssue`, or `commentOnPR`.
+- `adwMerge.tsx` calls `issueHasLabel` before `mergeWithConflictResolution` (i.e. before the actual merge).
+- `adwMerge.tsx` calls `findPRByBranch` before `issueHasLabel` — the issue's "immediately after PR lookup" ordering requirement.
+- The hitl branch in `adwMerge.tsx` does NOT call `mergeWithConflictResolution` or `commentOnIssue`.
+- The hitl branch does NOT write `workflowStage: 'completed'` — state stays `awaiting_merge` so the next cron cycle re-checks the label.
+- The hitl branch returns an outcome whose `reason` contains `"hitl"` (matches the `hitl_blocked` literal without over-constraining it).
 - The hitl branch logs a message containing "hitl".
 
 Add unit tests to `adws/__tests__/adwMerge.test.ts` covering the four new cases (hitl on OPEN PR, hitl on MERGED PR, hitl on CLOSED PR, no hitl on OPEN PR).
@@ -75,7 +78,8 @@ Use these files to fix the bug:
 - `adws/github/issueApi.ts` — defines `issueHasLabel(issueNumber, labelName, repoInfo)`. Already exported from `adws/github/index.ts`.
 - `adws/github/index.ts` — barrel export already exposes `issueHasLabel`; `adwMerge.tsx` imports from here, so no new export surface needed.
 - `features/hitl_label_gate_automerge.feature` — existing BDD feature. Add a new section covering `adws/adwMerge.tsx` under a new sub-tag (e.g. `@adw-483` alongside `@adw-329-hitl-label-gate`).
-- `features/step_definitions/hitlLabelGateAutomergeSteps.ts` — existing step definitions. `the phase skips "X" when the hitl label is detected`, `the phase logs a message containing "hitl" when the label is detected`, `issueHasLabel is called before "X"`, etc. are all reusable for the new scenarios.
+- `features/step_definitions/hitlLabelGateAutomergeSteps.ts` — existing step definitions. Most new scenarios reuse existing steps (`the phase skips "X" when the hitl label is detected`, `the phase logs a message containing "hitl" when the label is detected`). Extend this file with TWO NEW step definitions: `the hitl early-return block does not write workflowStage {string}` and `the hitl early-return block returns an outcome with reason containing {string}`, both built on the existing `extractHitlBlockBody` helper.
+- `features/step_definitions/autoApproveMergeAfterReviewSteps.ts` — reference only. Defines the generic `{string} is called before {string}` step used by the ordering scenarios; no changes needed.
 - `app_docs/feature-bpn4sv-orchestrators-awaiting-merge-handoff.md` — context for the regression-introducing refactor.
 - `app_docs/feature-fygx90-hitl-label-gate-automerge.md` — context for the original gate design (fail-open, silent re-entry, real-time check).
 - `adws/triggers/cronIssueFilter.ts` — reference only, no changes. Confirms that `awaiting_merge` is the gate cron uses to re-spawn `adwMerge` each cycle (line 92); leaving state as `awaiting_merge` on hitl hit is the mechanism that lets the label be re-checked.
@@ -123,22 +127,29 @@ IMPORTANT: Execute every step in order, top to bottom.
 
 ### 3. Extend `features/hitl_label_gate_automerge.feature`
 
-- Add a new section under a clear heading, e.g. `# ── adwMerge hitl gate (regression for #483) ──`.
-- Add scenarios tagged `@adw-329-hitl-label-gate @adw-483 @regression`:
+- Add a new section under a clear heading, e.g. `# ── adwMerge.tsx hitl gate (issue #483) ──`.
+- Add scenarios tagged `@adw-329-hitl-label-gate @adw-483 @regression` (the final `logs hitl label detection` scenario omits `@regression`):
   1. `adwMerge.tsx imports issueHasLabel`
      - `Given "adws/adwMerge.tsx" is read`
      - `Then the file imports "issueHasLabel"`
-  2. `adwMerge.tsx checks for hitl label before mergeWithConflictResolution`
+  2. `adwMerge.tsx checks for hitl label before calling mergeWithConflictResolution`
      - `Then "issueHasLabel" is called before "mergeWithConflictResolution"`
-  3. `adwMerge.tsx skips mergeWithConflictResolution when hitl label is detected`
+  3. `adwMerge.tsx hitl check runs after PR lookup` — pins the issue's "immediately after PR lookup" ordering.
+     - `Then "findPRByBranch" is called before "issueHasLabel"`
+  4. `adwMerge.tsx skips mergeWithConflictResolution when hitl label is detected`
      - `Then the phase skips "mergeWithConflictResolution" when the hitl label is detected`
-  4. `adwMerge.tsx skips ensureWorktree when hitl label is detected`
-     - `Then the phase skips "ensureWorktree" when the hitl label is detected`
-  5. `adwMerge.tsx hitl gate is silent — no comment on skip`
-     - `Then the hitl label early-return path does not call "commentOnIssue"`
-  6. `adwMerge.tsx logs hitl label detection`
+  5. `adwMerge.tsx hitl gate is silent — no issue comment on hitl detection`
+     - `Then the phase skips "commentOnIssue" when the hitl label is detected`
+  6. `adwMerge.tsx hitl early-return does not transition state to completed` — enforces the issue's "leave state as `awaiting_merge`" requirement so cron re-entry keeps working.
+     - `Then the hitl early-return block does not write workflowStage "completed"`
+  7. `adwMerge.tsx hitl early-return returns an abandoned outcome tagged with hitl` — pins the `reason: 'hitl_blocked'` signal used by `main()` exit-code logic.
+     - `Then the hitl early-return block returns an outcome with reason containing "hitl"`
+  8. `adwMerge.tsx logs hitl label detection`
      - `Then the phase logs a message containing "hitl" when the label is detected`
-- All six scenarios reuse existing step definitions in `features/step_definitions/hitlLabelGateAutomergeSteps.ts` (no new step defs required — the three skip-related steps use the shared `extractHitlBlockBody` helper which already finds the if-block by searching for `issueHasLabel(`).
+- Scenarios 1, 2, 4, 5, and 8 reuse existing step definitions (`the file imports`, `{string} is called before {string}`, `the phase skips "X" when the hitl label is detected`, `the phase logs a message containing "X" when the label is detected`). Scenario 3 reuses the generic ordering step `{string} is called before {string}` (defined in `features/step_definitions/autoApproveMergeAfterReviewSteps.ts`).
+- Scenarios 6 and 7 require two NEW step definitions to be added to `features/step_definitions/hitlLabelGateAutomergeSteps.ts`:
+  - `the hitl early-return block does not write workflowStage {string}` — locates the hitl if-block via the existing `extractHitlBlockBody` helper and asserts the block body does NOT contain `workflowStage: '<stage>'` (or `writeTopLevelState(... workflowStage: '<stage>' ...)`).
+  - `the hitl early-return block returns an outcome with reason containing {string}` — locates the hitl if-block via `extractHitlBlockBody` and asserts the block body contains `reason: '...<substring>...'` (substring match on the reason literal inside the returned object).
 - Do NOT modify the existing `autoMergePhase` scenarios — they are still valid assertions on `autoMergePhase.ts` as a preserved module.
 
 ### 4. Type-check and lint
@@ -152,7 +163,7 @@ IMPORTANT: Execute every step in order, top to bottom.
 
 ### 6. Run BDD scenarios
 
-- Run the new HITL scenarios specifically: `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-483"` and confirm all six pass.
+- Run the new HITL scenarios specifically: `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-483"` and confirm all eight pass.
 - Run the full HITL feature: `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-329-hitl-label-gate"` to confirm no regression in existing coverage.
 - Run the regression suite: `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@regression"` to confirm no unrelated regressions.
 
