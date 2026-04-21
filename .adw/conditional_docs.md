@@ -1,5 +1,13 @@
 # Conditional Documentation
 
+- app_docs/feature-nrr167-hitl-label-gate-adwmerge.md
+  - Conditions:
+    - When working with the `hitl` label gate in `adwMerge.tsx` or `autoMergePhase.ts`
+    - When implementing or troubleshooting merge-blocking behavior on the `awaiting_merge` cron path
+    - When a PR labeled `hitl` is being merged unexpectedly by the cron sweep
+    - When extending `MergeDeps` with new injectable dependencies in `adwMerge.tsx`
+    - When adding regression coverage for the `@adw-329-hitl-label-gate` BDD feature
+
 - app_docs/feature-6wnymj-shared-orchestrator-lifecycle-wrapper.md
   - Conditions:
     - When adding a new orchestrator entrypoint that needs lock, heartbeat, and cleanup wiring
