@@ -110,7 +110,7 @@ Feature: takeoverHandler integrates coordination primitives behind evaluateCandi
   @adw-467 @regression
   Scenario: adw-id resolvable but no top-level state file also resolves to spawn_fresh
     Given an adw-id "fresh-467" is discoverable for issue 101 on repo "acme/widgets"
-    And no top-level state file exists at "agents/fresh-467/state.json"
+    And the top-level state file at "agents/fresh-467/state.json" is absent
     When evaluateCandidate is invoked for issue 101 on repo "acme/widgets"
     Then the returned CandidateDecision is "spawn_fresh"
 

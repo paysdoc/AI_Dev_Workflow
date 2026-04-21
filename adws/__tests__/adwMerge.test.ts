@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { executeMerge, type MergeDeps, type MergeRunResult } from '../adwMerge';
 import type { AgentState } from '../types/agentTypes';
 import { mergeWithConflictResolution } from '../triggers/autoMergeHandler';
-import { commentOnIssue, commentOnPR } from '../github';
+import { commentOnIssue, commentOnPR, issueHasLabel } from '../github';
 import { getPlanFilePath, planFileExists } from '../agents';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -49,6 +49,7 @@ function makeDeps(overrides: Partial<MergeDeps> = {}): MergeDeps {
     commentOnPR: vi.fn<typeof commentOnPR>(),
     getPlanFilePath: vi.fn<typeof getPlanFilePath>().mockReturnValue('specs/issue-42-plan.md'),
     planFileExists: vi.fn<typeof planFileExists>().mockReturnValue(false),
+    issueHasLabel: vi.fn<typeof issueHasLabel>().mockReturnValue(false),
     ...overrides,
   };
 }
@@ -253,5 +254,61 @@ describe('executeMerge — worktree error', () => {
     expect(result.reason).toBe('worktree_error');
     expect(deps.writeTopLevelState).toHaveBeenCalledWith('test-adw-id', { workflowStage: 'abandoned' });
     expect(deps.mergeWithConflictResolution).not.toHaveBeenCalled();
+  });
+});
+
+// ── HITL label gate ───────────────────────────────────────────────────────────
+
+describe('executeMerge — hitl label gate', () => {
+  it('returns hitl_blocked and skips merge when hitl label is present on OPEN PR', async () => {
+    const deps = makeDeps({
+      issueHasLabel: vi.fn<typeof issueHasLabel>().mockReturnValue(true),
+    });
+
+    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, deps);
+
+    expect(result.outcome).toBe('abandoned');
+    expect(result.reason).toBe('hitl_blocked');
+    expect(deps.issueHasLabel).toHaveBeenCalledWith(42, 'hitl', REPO_INFO);
+    expect(deps.writeTopLevelState).not.toHaveBeenCalled();
+    expect(deps.mergeWithConflictResolution).not.toHaveBeenCalled();
+    expect(deps.ensureWorktree).not.toHaveBeenCalled();
+    expect(deps.commentOnIssue).not.toHaveBeenCalled();
+    expect(deps.commentOnPR).not.toHaveBeenCalled();
+  });
+
+  it('terminal MERGED state wins over hitl — returns already_merged', async () => {
+    const deps = makeDeps({
+      findPRByBranch: vi.fn().mockReturnValue(makePR({ state: 'MERGED' })),
+      issueHasLabel: vi.fn<typeof issueHasLabel>().mockReturnValue(true),
+    });
+
+    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, deps);
+
+    expect(result.outcome).toBe('completed');
+    expect(result.reason).toBe('already_merged');
+  });
+
+  it('terminal CLOSED state wins over hitl — returns pr_closed', async () => {
+    const deps = makeDeps({
+      findPRByBranch: vi.fn().mockReturnValue(makePR({ state: 'CLOSED' })),
+      issueHasLabel: vi.fn<typeof issueHasLabel>().mockReturnValue(true),
+    });
+
+    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, deps);
+
+    expect(result.outcome).toBe('abandoned');
+    expect(result.reason).toBe('pr_closed');
+  });
+
+  it('proceeds to merge when hitl label is absent on OPEN PR', async () => {
+    const deps = makeDeps({
+      issueHasLabel: vi.fn<typeof issueHasLabel>().mockReturnValue(false),
+    });
+
+    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, deps);
+
+    expect(result.outcome).toBe('completed');
+    expect(deps.mergeWithConflictResolution).toHaveBeenCalled();
   });
 });
