@@ -17,7 +17,7 @@ Feature: KPI phase commits and pushes the updated agentic_kpis.md file
     Then a git commit is created that includes "app_docs/agentic_kpis.md"
     And the commit message references KPI tracking
 
-  @adw-jm6pnw-push-adw-kpis @regression
+  @adw-jm6pnw-push-adw-kpis @adw-486 @regression
   Scenario: KPI phase pushes the commit to the remote branch
     Given the KPI agent has written and committed changes to "app_docs/agentic_kpis.md"
     When the KPI phase push step executes
@@ -31,7 +31,7 @@ Feature: KPI phase commits and pushes the updated agentic_kpis.md file
     Then "app_docs/agentic_kpis.md" exists in the remote branch
     And the file contains the ADW run entry for the current adwId
 
-  @adw-jm6pnw-push-adw-kpis
+  @adw-jm6pnw-push-adw-kpis @adw-486
   Scenario: KPI commit and push failure is non-fatal and does not block workflow completion
     Given the KPI agent has written changes to "app_docs/agentic_kpis.md"
     And the git push command fails (e.g. network error or permission denied)
