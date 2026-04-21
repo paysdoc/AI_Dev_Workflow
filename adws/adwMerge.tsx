@@ -27,7 +27,7 @@ import {
   ensureLogsDirectory,
 } from './core';
 import { findOrchestratorStatePath } from './core/stateHelpers';
-import { commentOnIssue, commentOnPR, defaultFindPRByBranch, type RawPR, type RepoInfo } from './github';
+import { commentOnIssue, commentOnPR, defaultFindPRByBranch, issueHasLabel, type RawPR, type RepoInfo } from './github';
 import { mergeWithConflictResolution } from './triggers/autoMergeHandler';
 import { ensureWorktree } from './vcs';
 import { getPlanFilePath, planFileExists } from './agents';
@@ -54,6 +54,7 @@ export interface MergeDeps {
   readonly commentOnPR: typeof commentOnPR;
   readonly getPlanFilePath: typeof getPlanFilePath;
   readonly planFileExists: typeof planFileExists;
+  readonly issueHasLabel: typeof issueHasLabel;
 }
 
 /**
@@ -122,6 +123,13 @@ export async function executeMerge(
     log(`adwMerge: PR #${prNumber} is closed without merge`, 'warn');
     deps.writeTopLevelState(adwId, { workflowStage: 'discarded' });
     return { outcome: 'abandoned', reason: 'pr_closed' };
+  }
+
+  // 5b. HITL gate — leave state as awaiting_merge so the next cron cycle re-checks.
+  //     Silent skip (no comment) to avoid flooding the issue on every cron cycle.
+  if (deps.issueHasLabel(issueNumber, 'hitl', repoInfo)) {
+    log(`hitl label detected on issue #${issueNumber}, skipping merge`, 'info');
+    return { outcome: 'abandoned', reason: 'hitl_blocked' };
   }
 
   // 6. PR is open — ensure worktree and merge
@@ -199,6 +207,7 @@ function buildDefaultDeps(): MergeDeps {
     commentOnPR,
     getPlanFilePath,
     planFileExists,
+    issueHasLabel,
   };
 }
 
