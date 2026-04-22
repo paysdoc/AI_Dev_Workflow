@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 69               | 2026-04-22 19:04:54 |
-| Longest Streak    | 69               | 2026-04-22 19:04:54 |
-| Total Plan Size   | 1749 lines       | 2026-04-22 19:04:54 |
-| Largest Plan Size | 408 lines        | 2026-04-22 19:04:54 |
-| Total Diff Size   | 2492110 lines    | 2026-04-22 19:04:54 |
-| Largest Diff Size | 418153 lines     | 2026-04-22 19:04:54 |
-| Average Presence  | 1.28             | 2026-04-22 19:04:54 |
+| Current Streak    | 88               | 2026-04-22 20:54:24 |
+| Longest Streak    | 88               | 2026-04-22 20:54:24 |
+| Total Plan Size   | 2427 lines       | 2026-04-22 20:54:24 |
+| Largest Plan Size | 678 lines        | 2026-04-22 20:54:24 |
+| Total Diff Size   | 2495046 lines    | 2026-04-22 20:54:24 |
+| Largest Diff Size | 418153 lines     | 2026-04-22 20:54:24 |
+| Average Presence  | 1.23             | 2026-04-22 20:54:24 |
 
 ## ADW KPIs
 
@@ -154,3 +154,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-04-22 | denw14-rfc-deepen-theme-ext | 42           | /feature    | 1        | 0                 | 2495/348/15                     | 2026-04-22 13:16:22 | 2026-04-22 13:16:22 |
 | 2026-04-22 | w1ue82-rfc-deepen-deck-gene | 43           | /feature    | 1        | 0                 | 2078/261/13                     | 2026-04-22 13:33:15 | 2026-04-22 13:33:15 |
 | 2026-04-22 | 2rdowb-jsonreporter-depaudi | 8            | /feature    | 1        | 0                 | 0/15500/396                     | 2026-04-22 19:04:54 | 2026-04-22 19:04:54 |
+| 2026-04-22 | xgupjx-markdownreporter-std | 9            | /feature    | 1        | 678               | 2907/29/115                     | 2026-04-22 20:54:24 | 2026-04-22 20:54:24 |
