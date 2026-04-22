@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 67               | 2026-04-22 13:16:22 |
-| Longest Streak    | 67               | 2026-04-22 13:16:22 |
-| Total Plan Size   | 1749 lines       | 2026-04-22 13:16:22 |
-| Largest Plan Size | 408 lines        | 2026-04-22 13:16:22 |
-| Total Diff Size   | 2474271 lines    | 2026-04-22 13:16:22 |
-| Largest Diff Size | 418153 lines     | 2026-04-22 13:16:22 |
-| Average Presence  | 1.28             | 2026-04-22 13:16:22 |
+| Current Streak    | 68               | 2026-04-22 13:33:15 |
+| Longest Streak    | 68               | 2026-04-22 13:33:15 |
+| Total Plan Size   | 1749 lines       | 2026-04-22 13:33:15 |
+| Largest Plan Size | 408 lines        | 2026-04-22 13:33:15 |
+| Total Diff Size   | 2476610 lines    | 2026-04-22 13:33:15 |
+| Largest Diff Size | 418153 lines     | 2026-04-22 13:33:15 |
+| Average Presence  | 1.28             | 2026-04-22 13:33:15 |
 
 ## ADW KPIs
 
@@ -152,3 +152,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-04-21 | nrr167-hitl-label-gate-bypa | 483          | /bug        | 1        | 0                 | 20984/701/135                   | 2026-04-21 15:08:03 | 2026-04-21 15:08:03 |
 | 2026-04-21 | hk12ct-kpi-commits-land-on  | 486          | /bug        | 1        | 0                 | 21837/724/141                   | 2026-04-21 16:25:16 | 2026-04-21 16:25:16 |
 | 2026-04-22 | denw14-rfc-deepen-theme-ext | 42           | /feature    | 1        | 0                 | 2495/348/15                     | 2026-04-22 13:16:22 | 2026-04-22 13:16:22 |
+| 2026-04-22 | w1ue82-rfc-deepen-deck-gene | 43           | /feature    | 1        | 0                 | 2078/261/13                     | 2026-04-22 13:33:15 | 2026-04-22 13:33:15 |
