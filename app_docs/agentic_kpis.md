@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 56               | 2026-04-21 16:25:16 |
-| Longest Streak    | 80               | 2026-04-21 16:25:16 |
-| Total Plan Size   | 441 lines        | 2026-04-21 16:25:16 |
-| Largest Plan Size | 201 lines        | 2026-04-21 16:25:16 |
-| Total Diff Size   | 1248607 lines    | 2026-04-21 16:25:16 |
-| Largest Diff Size | 416737 lines     | 2026-04-21 16:25:16 |
-| Average Presence  | 1.26             | 2026-04-21 16:25:16 |
+| Current Streak    | 67               | 2026-04-22 13:16:22 |
+| Longest Streak    | 67               | 2026-04-22 13:16:22 |
+| Total Plan Size   | 1749 lines       | 2026-04-22 13:16:22 |
+| Largest Plan Size | 408 lines        | 2026-04-22 13:16:22 |
+| Total Diff Size   | 2474271 lines    | 2026-04-22 13:16:22 |
+| Largest Diff Size | 418153 lines     | 2026-04-22 13:16:22 |
+| Average Presence  | 1.28             | 2026-04-22 13:16:22 |
 
 ## ADW KPIs
 
@@ -151,3 +151,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-04-21 | i4m1uk-orchestrator-resilie | 467          | /feature    | 2        | 0                 | 14763/279/111                   | 2026-04-21 00:39:23 | 2026-04-21 00:39:23 |
 | 2026-04-21 | nrr167-hitl-label-gate-bypa | 483          | /bug        | 1        | 0                 | 20984/701/135                   | 2026-04-21 15:08:03 | 2026-04-21 15:08:03 |
 | 2026-04-21 | hk12ct-kpi-commits-land-on  | 486          | /bug        | 1        | 0                 | 21837/724/141                   | 2026-04-21 16:25:16 | 2026-04-21 16:25:16 |
+| 2026-04-22 | denw14-rfc-deepen-theme-ext | 42           | /feature    | 1        | 0                 | 2495/348/15                     | 2026-04-22 13:16:22 | 2026-04-22 13:16:22 |
