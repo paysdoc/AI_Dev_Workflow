@@ -19,7 +19,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId } from './core';
+import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId, log } from './core';
 import { CostTracker, runPhase } from './core/phaseRunner';
 import type { PhaseResult } from './core/phaseRunner';
 import type { ModelUsageMap } from './cost';
@@ -33,6 +33,7 @@ import {
 } from './workflowPhases';
 import type { WorkflowConfig } from './phases';
 import { runPatchAgent, getPlanFilePath, type ReviewIssue } from './agents';
+import { runWithOrchestratorLifecycle } from './phases/orchestratorLock';
 
 /**
  * Executes the Patch planning phase: runs the /patch skill and writes output to the spec file.
@@ -95,17 +96,21 @@ async function main(): Promise<void> {
     cwd: cwd || undefined,
   });
 
-  const tracker = new CostTracker();
+  if (!await runWithOrchestratorLifecycle(config, async () => {
+    const tracker = new CostTracker();
+    try {
+      await runPhase(config, tracker, executeInstallPhase, 'install');
+      await runPhase(config, tracker, executePatchPhase, 'patch');
+      await runPhase(config, tracker, executeBuildPhase, 'build');
+      await runPhase(config, tracker, executePRPhase, 'pr');
 
-  try {
-    await runPhase(config, tracker, executeInstallPhase, 'install');
-    await runPhase(config, tracker, executePatchPhase, 'patch');
-    await runPhase(config, tracker, executeBuildPhase, 'build');
-    await runPhase(config, tracker, executePRPhase, 'pr');
-
-    await completeWorkflow(config, tracker.totalCostUsd, {}, tracker.totalModelUsage);
-  } catch (error) {
-    handleWorkflowError(config, error, tracker.totalCostUsd, tracker.totalModelUsage);
+      await completeWorkflow(config, tracker.totalCostUsd, {}, tracker.totalModelUsage);
+    } catch (error) {
+      handleWorkflowError(config, error, tracker.totalCostUsd, tracker.totalModelUsage);
+    }
+  })) {
+    log(`Issue #${issueNumber}: spawn lock already held by another orchestrator; exiting.`, 'warn');
+    process.exit(0);
   }
 }
 

@@ -87,8 +87,8 @@ describe('handlePullRequestEvent — merged PR', () => {
   });
 });
 
-describe('handlePullRequestEvent — abandoned PR with adw-id', () => {
-  it('writes abandoned to state and closes linked issue', async () => {
+describe('handlePullRequestEvent — discarded PR with adw-id', () => {
+  it('writes discarded to state and closes linked issue', async () => {
     const deps = makePrDeps({
       fetchIssueComments: vi.fn().mockReturnValue([
         { body: '**ADW ID:** `abc123`' },
@@ -98,7 +98,7 @@ describe('handlePullRequestEvent — abandoned PR with adw-id', () => {
 
     expect(result.status).toBe('abandoned');
     expect(result.issue).toBe(42);
-    expect(deps.writeTopLevelState).toHaveBeenCalledWith('abc123', { workflowStage: 'abandoned' });
+    expect(deps.writeTopLevelState).toHaveBeenCalledWith('abc123', { workflowStage: 'discarded' });
     expect(deps.closeIssue).toHaveBeenCalledWith(42, REPO_INFO, expect.stringContaining('PR Abandoned'));
   });
 });
@@ -158,6 +158,19 @@ describe('handleIssueClosedEvent — abandoned closure', () => {
   it('cleans up worktree, deletes branch, and closes dependents with error comment', async () => {
     const deps = makeIssueDeps({
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'abandoned' })),
+    });
+    const result = await handleIssueClosedEvent(42, REPO_INFO, undefined, [], deps);
+
+    expect(result.status).toBe('cleaned');
+    expect(deps.closeAbandonedDependents).toHaveBeenCalledWith(42, REPO_INFO);
+    expect(deps.handleIssueClosedDependencyUnblock).not.toHaveBeenCalled();
+  });
+});
+
+describe('handleIssueClosedEvent — discarded closure', () => {
+  it('cleans up worktree, deletes branch, and closes dependents (parity with abandoned)', async () => {
+    const deps = makeIssueDeps({
+      readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'discarded' })),
     });
     const result = await handleIssueClosedEvent(42, REPO_INFO, undefined, [], deps);
 

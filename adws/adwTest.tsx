@@ -15,7 +15,7 @@
  * - MAX_TEST_RETRY_ATTEMPTS: Maximum retry attempts (default: 5)
  */
 
-import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId } from './core';
+import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId, log } from './core';
 import { CostTracker, runPhase } from './core/phaseRunner';
 import {
   initializeWorkflow,
@@ -23,6 +23,7 @@ import {
   completeWorkflow,
   handleWorkflowError,
 } from './workflowPhases';
+import { runWithOrchestratorLifecycle } from './phases/orchestratorLock';
 
 /**
  * Main orchestrator workflow.
@@ -44,17 +45,21 @@ async function main(): Promise<void> {
     cwd: cwd || undefined,
   });
 
-  const tracker = new CostTracker();
+  if (!await runWithOrchestratorLifecycle(config, async () => {
+    const tracker = new CostTracker();
+    try {
+      const testResult = await runPhase(config, tracker, executeUnitTestPhase, 'test');
 
-  try {
-    const testResult = await runPhase(config, tracker, executeUnitTestPhase, 'test');
-
-    await completeWorkflow(config, tracker.totalCostUsd, {
-      unitTestsPassed: testResult.unitTestsPassed,
-      totalTestRetries: testResult.totalRetries,
-    }, tracker.totalModelUsage);
-  } catch (error) {
-    handleWorkflowError(config, error, tracker.totalCostUsd, tracker.totalModelUsage);
+      await completeWorkflow(config, tracker.totalCostUsd, {
+        unitTestsPassed: testResult.unitTestsPassed,
+        totalTestRetries: testResult.totalRetries,
+      }, tracker.totalModelUsage);
+    } catch (error) {
+      handleWorkflowError(config, error, tracker.totalCostUsd, tracker.totalModelUsage);
+    }
+  })) {
+    log(`Issue #${issueNumber}: spawn lock already held by another orchestrator; exiting.`, 'warn');
+    process.exit(0);
   }
 }
 

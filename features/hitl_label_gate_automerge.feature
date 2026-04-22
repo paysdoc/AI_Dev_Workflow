@@ -77,6 +77,51 @@ Feature: HITL label gate prevents auto-merge
     Given "adws/triggers/trigger_webhook.ts" is read
     Then the approved-review branch does not check for a "hitl" label
 
+  # ── adwMerge.tsx hitl gate (issue #483) ──────────────────────────────────
+  # When orchestrators hand off to awaiting_merge, the cron spawns adwMerge.tsx
+  # to perform the merge. That path must also honour the hitl label — otherwise
+  # a hitl-labeled PR gets merged without human review.
+
+  @adw-329-hitl-label-gate @adw-483 @regression
+  Scenario: adwMerge.tsx imports issueHasLabel
+    Given "adws/adwMerge.tsx" is read
+    Then the file imports "issueHasLabel"
+
+  @adw-329-hitl-label-gate @adw-483 @regression
+  Scenario: adwMerge.tsx checks for hitl label before calling mergeWithConflictResolution
+    Given "adws/adwMerge.tsx" is read
+    Then "issueHasLabel" is called before "mergeWithConflictResolution"
+
+  @adw-329-hitl-label-gate @adw-483 @regression
+  Scenario: adwMerge.tsx hitl check runs after PR lookup
+    Given "adws/adwMerge.tsx" is read
+    Then "findPRByBranch" is called before "issueHasLabel"
+
+  @adw-329-hitl-label-gate @adw-483 @regression
+  Scenario: adwMerge.tsx skips mergeWithConflictResolution when hitl label is detected
+    Given "adws/adwMerge.tsx" is read
+    Then the phase skips "mergeWithConflictResolution" when the hitl label is detected
+
+  @adw-329-hitl-label-gate @adw-483 @regression
+  Scenario: adwMerge.tsx hitl gate is silent — no issue comment on hitl detection
+    Given "adws/adwMerge.tsx" is read
+    Then the phase skips "commentOnIssue" when the hitl label is detected
+
+  @adw-329-hitl-label-gate @adw-483 @regression
+  Scenario: adwMerge.tsx hitl early-return does not transition state to completed
+    Given "adws/adwMerge.tsx" is read
+    Then the hitl early-return block does not write workflowStage "completed"
+
+  @adw-329-hitl-label-gate @adw-483 @regression
+  Scenario: adwMerge.tsx hitl early-return returns an abandoned outcome tagged with hitl
+    Given "adws/adwMerge.tsx" is read
+    Then the hitl early-return block returns an outcome with reason containing "hitl"
+
+  @adw-329-hitl-label-gate @adw-483
+  Scenario: adwMerge.tsx logs hitl label detection
+    Given "adws/adwMerge.tsx" is read
+    Then the phase logs a message containing "hitl" when the label is detected
+
   # ── UBIQUITOUS_LANGUAGE.md ───────────────────────────────────────────────
 
   @adw-329-hitl-label-gate @regression

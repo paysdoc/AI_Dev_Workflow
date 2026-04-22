@@ -103,6 +103,26 @@ bunx tsx adws/adwSdlc.tsx 123
 
 See [adws/README.md](adws/README.md) for full usage documentation.
 
+## Single-host constraint
+
+For a given repository, only one host may run `trigger_cron.ts` and `trigger_webhook.ts` at a time. This is a deployment convention, not enforced by code.
+
+**Why it matters:** the per-issue spawn lock ([`adws/triggers/spawnGate.ts`](adws/triggers/spawnGate.ts)), the PID+start-time liveness check, the heartbeat ticker, and the worktree-reset recovery path are all host-local. They cannot detect or coordinate with an orchestrator running on a different machine.
+
+**This is undefined territory, not degraded performance.** Running two hosts against one repo can produce:
+- Split-brain spawns: two orchestrators claiming the same issue simultaneously
+- Two pull requests targeting the same issue branch
+- Clobbered worktrees when one host resets what the other is writing
+- Misclassified liveness: hung-detector logic reading remote-host PIDs as dead
+
+The design makes no attempt to predict or recover from these outcomes.
+
+**Safe alternative:** for development or testing, point the dev host at a fork or a dedicated test repo. Never share a production repo between a laptop cron and a production server cron.
+
+**Escape hatch:** if you suspect split-brain (duplicate spawns, stranded worktrees, conflicting branches), post `## Cancel` on the affected issue. The next cron cycle or webhook event that picks it up will run the scorched-earth cleanup: kill agent processes, remove worktrees, delete state directories, and clear GitHub comments. The issue re-enters the queue on the following cycle.
+
+See [adws/README.md](adws/README.md#single-host-constraint) for the full operator guidance and split-brain failure mode.
+
 ## Domain Language
 
 ADW uses a DDD-style ubiquitous language to keep code, documentation, and conversation aligned. See [UBIQUITOUS_LANGUAGE.md](UBIQUITOUS_LANGUAGE.md) for canonical term definitions, aliases to avoid, and a worked example dialogue.
@@ -262,15 +282,22 @@ adws/                   # ADW workflow system
 │   │   ├── claudeStreamParser.test.ts
 │   │   ├── devServerLifecycle.test.ts
 │   │   ├── execWithRetry.test.ts
+│   │   ├── heartbeat.test.ts
+│   │   ├── hungOrchestratorDetector.test.ts
 │   │   ├── phaseRunner.test.ts
+│   │   ├── processLiveness.test.ts
 │   │   ├── projectConfig.test.ts
+│   │   ├── remoteReconcile.test.ts
 │   │   └── topLevelState.test.ts
 │   ├── adwId.ts        # ADW ID generation
 │   ├── agentState.ts
 │   ├── claudeStreamParser.ts  # Claude JSONL stream parsing
 │   ├── config.ts
 │   ├── constants.ts    # Orchestrator ID constants
+│   ├── devServerLifecycle.ts  # Dev server spawn, health probe, and cleanup helpers
 │   ├── environment.ts  # Environment variable accessors
+│   ├── heartbeat.ts    # Liveness ticker writing lastSeenAt to state on a fixed interval
+│   ├── hungOrchestratorDetector.ts  # Pure-query detector for wedged orchestrators (live PID + stale heartbeat)
 │   ├── index.ts
 │   ├── issueClassifier.ts
 │   ├── jsonParser.ts
@@ -281,14 +308,15 @@ adws/                   # ADW workflow system
 │   ├── pauseQueue.ts   # Pause queue for rate-limit pause/resume
 │   ├── phaseRunner.ts  # PhaseRunner / CostTracker composition
 │   ├── portAllocator.ts
+│   ├── processLiveness.ts  # PID-reuse-safe process liveness checks
 │   ├── projectConfig.ts
+│   ├── remoteReconcile.ts  # Stage derivation from remote GitHub artifacts
 │   ├── retryOrchestrator.ts
 │   ├── stateHelpers.ts
 │   ├── targetRepoManager.ts
 │   ├── utils.ts
 │   ├── workflowCommentParsing.ts  # Comment parsing utilities
-│   ├── workflowMapping.ts  # Issue type → orchestrator mapping
-│   └── devServerLifecycle.ts  # Dev server spawn, health probe, and cleanup helpers
+│   └── workflowMapping.ts  # Issue type → orchestrator mapping
 ├── github/             # GitHub API operations
 │   ├── githubApi.ts
 │   ├── githubAppAuth.ts  # GitHub App authentication
@@ -303,13 +331,17 @@ adws/                   # ADW workflow system
 │   ├── workflowCommentsIssue.ts
 │   └── workflowCommentsPR.ts
 ├── vcs/                # Version control operations (git)
+│   ├── __tests__/      # Vitest unit tests
+│   │   ├── branchOperations.test.ts
+│   │   └── worktreeReset.test.ts
 │   ├── branchOperations.ts  # Branch management
 │   ├── commitOperations.ts  # Commit/push operations
 │   ├── index.ts
 │   ├── worktreeCleanup.ts
 │   ├── worktreeCreation.ts
 │   ├── worktreeOperations.ts
-│   └── worktreeQuery.ts  # Worktree query utilities
+│   ├── worktreeQuery.ts  # Worktree query utilities
+│   └── worktreeReset.ts  # Worktree reset to remote for takeover/recovery
 ├── cost/               # Cost tracking module
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── computation.test.ts
@@ -342,6 +374,7 @@ adws/                   # ADW workflow system
 │   └── types.ts
 ├── phases/             # Workflow phase implementations
 │   ├── __tests__/      # Vitest unit tests
+│   │   ├── orchestratorLock.test.ts
 │   │   └── scenarioTestPhase.test.ts
 │   ├── alignmentPhase.ts  # Single-pass alignment phase
 │   ├── autoMergePhase.ts  # Auto-approve and merge PR after review passes
@@ -352,6 +385,7 @@ adws/                   # ADW workflow system
 │   ├── depauditSetup.ts  # depaudit setup and secret propagation (used by adw_init)
 │   ├── installPhase.ts # Install phase implementation
 │   ├── kpiPhase.ts     # KPI tracking phase
+│   ├── orchestratorLock.ts  # Orchestrator-lifetime spawn lock (acquire/release wrapper)
 │   ├── phaseCommentHelpers.ts  # Shared phase comment utilities
 │   ├── planPhase.ts
 │   ├── planValidationPhase.ts  # Plan-scenario validation phase
@@ -408,6 +442,11 @@ adws/                   # ADW workflow system
 │   │   ├── cronRepoResolver.test.ts
 │   │   ├── cronStageResolver.test.ts
 │   │   ├── devServerJanitor.test.ts
+│   │   ├── pauseQueueScanner.test.ts
+│   │   ├── spawnGate.test.ts
+│   │   ├── takeoverHandler.test.ts  # Unit tests for all takeoverHandler decision-tree branches
+│   │   ├── takeoverHandler.integration.test.ts  # Integration test for the abandoned takeover path
+│   │   ├── trigger_cron.test.ts
 │   │   ├── triggerCronAwaitingMerge.test.ts
 │   │   └── webhookHandlers.test.ts
 │   ├── autoMergeHandler.ts  # Auto-merge approved PRs
@@ -422,6 +461,7 @@ adws/                   # ADW workflow system
 │   ├── issueDependencies.ts
 │   ├── issueEligibility.ts
 │   ├── pauseQueueScanner.ts  # Cron probe for paused issue queue
+│   ├── takeoverHandler.ts  # Candidate decision tree: evaluateCandidate composes spawnGate, processLiveness, agentState, remoteReconcile, and worktreeReset
 │   ├── trigger_cron.ts
 │   ├── trigger_shutdown.ts  # Graceful shutdown handler
 │   ├── trigger_webhook.ts

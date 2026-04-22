@@ -11,7 +11,7 @@
 
 export { ensureGitignoreEntry, ensureGitignoreEntries, copyClaudeCommandsToWorktree, copyTargetSkillsAndCommands } from './worktreeSetup';
 export { type WorkflowConfig, initializeWorkflow } from './workflowInit';
-export { completeWorkflow, handleWorkflowError, handleRateLimitPause } from './workflowCompletion';
+export { completeWorkflow, handleWorkflowError, handleWorkflowDiscarded, handleRateLimitPause } from './workflowCompletion';
 export { executeReviewPhase, executeReviewPatchCycle, type ReviewIssue } from './reviewPhase';
 export { executePlanPhase, buildContinuationPrompt, MAX_CONTINUATION_OUTPUT_LENGTH } from './planPhase';
 export { executeBuildPhase } from './buildPhase';
@@ -46,3 +46,4 @@ export {
   type ScenarioProofResult,
 } from './scenarioProof';
 export { executeDepauditSetup, type DepauditSetupResult, type DepauditSetupDeps } from './depauditSetup';
+export { acquireOrchestratorLock, releaseOrchestratorLock, runWithOrchestratorLifecycle, runWithRawOrchestratorLifecycle } from './orchestratorLock';

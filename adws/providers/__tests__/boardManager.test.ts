@@ -49,13 +49,13 @@ describe('BOARD_COLUMNS', () => {
     expect(todo?.color).toBe('GRAY');
 
     const inProgress = BOARD_COLUMNS.find((c) => c.status === BoardStatus.InProgress);
-    expect(inProgress?.color).toBe('YELLOW');
+    expect(inProgress?.color).toBe('GREEN');
 
     const review = BOARD_COLUMNS.find((c) => c.status === BoardStatus.Review);
-    expect(review?.color).toBe('PURPLE');
+    expect(review?.color).toBe('YELLOW');
 
     const done = BOARD_COLUMNS.find((c) => c.status === BoardStatus.Done);
-    expect(done?.color).toBe('GREEN');
+    expect(done?.color).toBe('PURPLE');
   });
 
   it('has correct descriptions', () => {

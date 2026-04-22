@@ -1,5 +1,53 @@
 # Conditional Documentation
 
+- app_docs/feature-hk12ct-kpi-commits-land-on-default-branch.md
+  - Conditions:
+    - When working with `commitAndPushKpiFile()` in `adws/vcs/commitOperations.ts`
+    - When KPI commits are appearing on feature branches or open PRs instead of the default branch
+    - When implementing any VCS operation that must commit to the default branch without mutating the active worktree
+    - When troubleshooting temp worktree cleanup (`adw-kpi-*` entries in `git worktree list`)
+    - When adding tests for command-sequence correctness in `adws/vcs/__tests__/`
+
+- app_docs/feature-nrr167-hitl-label-gate-adwmerge.md
+  - Conditions:
+    - When working with the `hitl` label gate in `adwMerge.tsx` or `autoMergePhase.ts`
+    - When implementing or troubleshooting merge-blocking behavior on the `awaiting_merge` cron path
+    - When a PR labeled `hitl` is being merged unexpectedly by the cron sweep
+    - When extending `MergeDeps` with new injectable dependencies in `adwMerge.tsx`
+    - When adding regression coverage for the `@adw-329-hitl-label-gate` BDD feature
+
+- app_docs/feature-6wnymj-shared-orchestrator-lifecycle-wrapper.md
+  - Conditions:
+    - When adding a new orchestrator entrypoint that needs lock, heartbeat, and cleanup wiring
+    - When troubleshooting an orchestrator that appears hung but is not detected by the staleness checker (`adwChore`, `adwInit`, `adwPatch`, `adwMerge` now covered)
+    - When working with `runWithOrchestratorLifecycle` or `runWithRawOrchestratorLifecycle` in `adws/phases/orchestratorLock.ts`
+    - When investigating why a lock file was not released (process.exit inside fn skips finally)
+    - When writing unit tests for orchestrator lifecycle call-order assertions
+
+- app_docs/feature-29w5wf-reclassify-abandoned-discarded-call-sites.md
+  - Conditions:
+    - When working with `adwMerge.tsx` exit paths and their `workflowStage` writes (`pr_closed`, `merge_failed`)
+    - When working with `handlePullRequestEvent` PR-closed state write in `webhookHandlers.ts`
+    - When troubleshooting issues that were operator-closed or merge-failed but are still being respawned
+    - When extending `handleIssueClosedEvent` dependency-cascade logic for new terminal stages
+    - When understanding the distinction between `MergeRunResult.outcome` (dispatcher label) and `workflowStage` (cron-sweeper classification)
+
+- app_docs/feature-nq7174-discarded-workflow-stage-foundation.md
+  - Conditions:
+    - When adding new `WorkflowStage` values and need to understand terminal vs. retriable stage semantics
+    - When working with `handleWorkflowDiscarded` or the `discarded` stage write path
+    - When troubleshooting issues that are still being re-spawned despite being intentionally terminated
+    - When implementing slice #2 reclassification of deliberate-terminal exit sites in `adwMerge.tsx` or `webhookHandlers.ts`
+    - When working with `cronIssueFilter.evaluateIssue` or `cronStageResolver.isRetriableStage`
+
+- app_docs/feature-djtyv4-remote-reconcile-module.md
+  - Conditions:
+    - When working with `deriveStageFromRemote`, `mapArtifactsToStage`, or `ReconcileDeps` in `adws/core/remoteReconcile.ts`
+    - When implementing or troubleshooting stage reconciliation between local state files and remote GitHub artifacts
+    - When wiring `deriveStageFromRemote` into `takeoverHandler` (slice #11 per orchestrator-coordination-resilience PRD)
+    - When investigating GitHub API read-your-write lag affecting WorkflowStage derivation
+    - When working with the `'discarded'` WorkflowStage literal or the `defaultFindPRByBranch`/`RawPR` shared helpers in `adws/github/prApi.ts`
+
 - app_docs/feature-elre2t-fix-board-column-order-ids.md
   - Conditions:
     - When working with `ensureColumns`, `mergeStatusOptions`, or `updateStatusFieldOptions` in `githubBoardManager.ts`
@@ -7,6 +55,14 @@
     - When investigating column ordering bugs (new columns appearing to the right of Done instead of in canonical position)
     - When extending the board column merge logic or adding new ADW columns to `BOARD_COLUMNS`
     - When writing or updating unit tests for `mergeStatusOptions` (ordering and ID-preservation contracts)
+
+- app_docs/feature-xlv8zk-process-liveness-module.md
+  - Conditions:
+    - When working with `isProcessLive`, `getProcessStartTime`, or `processLiveness.ts`
+    - When implementing or debugging PID-reuse-safe liveness checks in ADW
+    - When working with `spawnGate.ts` spawn lock acquisition or stale-lock reclaim logic
+    - When `isAgentProcessRunning` or `AgentState.pidStartedAt` is relevant
+    - When migrating remaining `isProcessAlive` call sites to the new `processLiveness` module
 
 - app_docs/feature-0cv18u-fix-cross-trigger-spawn-dedup.md
   - Conditions:
@@ -870,6 +926,23 @@
     - When troubleshooting cron filters incorrectly including or excluding issues (grace period, active, retriable, paused)
     - When implementing a new trigger that needs to read workflow stage from the state file
 
+- app_docs/feature-i4m1uk-orchestrator-resilie-takeover-handler-integration.md
+  - Conditions:
+    - When working with `evaluateCandidate`, `CandidateDecision`, `TakeoverDeps`, or `buildDefaultTakeoverDeps` in `adws/triggers/takeoverHandler.ts`
+    - When modifying the cron or webhook spawn path and need to understand the mandatory takeover gate
+    - When troubleshooting why an issue was deferred, skipped, or taken over instead of spawning fresh
+    - When implementing a new trigger entry point that spawns orchestrators (must route through `evaluateCandidate`)
+    - When working with the `take_over_adwId` decision and the `worktreeReset → remoteReconcile` sequence
+    - When investigating SIGKILL behavior for live-but-unlocked PIDs in `*_running` stages
+
+- app_docs/feature-yxo18t-spawngate-lifetime-pid-liveness.md
+  - Conditions:
+    - When working with `acquireOrchestratorLock` or `releaseOrchestratorLock` in `adws/phases/orchestratorLock.ts`
+    - When adding a new orchestrator and need to wire the spawn lock for its full lifetime
+    - When troubleshooting contention between two orchestrators for the same issue (one exits 0 on acquire failure)
+    - When understanding why the lock file persists after a crash and how staleness reclaim works
+    - When working with `adwMerge.tsx` acquire/release wiring (uses raw spawnGate primitives, not the helper)
+
 - app_docs/feature-7fy9ry-simplify-webhook-handlers.md
   - Conditions:
     - When working with `handlePullRequestEvent()` or `handleIssueClosedEvent()` in `adws/triggers/webhookHandlers.ts`
@@ -965,3 +1038,59 @@
     - When modifying the pause-queue resume path, spawn options, or side-effect ordering
     - When inspecting `agents/paused_queue_logs/{adwId}.resume.log` to diagnose a stranded workflow
     - When the `probeFailures` escalation path or `MAX_UNKNOWN_PROBE_FAILURES` abandonment logic is relevant to resume failures
+
+- app_docs/feature-7dp24s-deterministic-branch-name-assembly.md
+  - Conditions:
+    - When working with `generateBranchName()` or `validateSlug()` in `adws/vcs/branchOperations.ts`
+    - When modifying `runGenerateBranchNameAgent()` or `extractSlugFromOutput()` in `adws/agents/gitAgent.ts`
+    - When updating the `/generate_branch_name` LLM prompt or its expected output shape
+    - When troubleshooting ghost branches or mismatched branch names between state files and on-disk worktrees
+    - When adding a new branch prefix type and need to understand the assembly contract
+
+- app_docs/feature-eantbn-orchestrator-resilie-worktree-reset-module.md
+  - Conditions:
+    - When working with `adws/vcs/worktreeReset.ts` or `resetWorktreeToRemote()`
+    - When implementing the takeover handler (PRD slice #11) that calls `resetWorktreeToRemote` before resuming a dead orchestrator's work
+    - When troubleshooting mid-merge, mid-rebase, or dirty-worktree state left by a crashed orchestrator
+    - When adding worktree reset logic that must handle linked worktrees (git-dir indirection via `rev-parse --git-dir`)
+    - When writing unit tests for VCS functions that mix `execSync` and `fs` calls (follow the `worktreeReset.test.ts` mocking pattern)
+
+- app_docs/feature-guimqa-extend-top-level-state-schema.md
+  - Conditions:
+    - When working with `AgentState.lastSeenAt`, `AgentState.pid`, `AgentState.pidStartedAt`, or `AgentState.branchName` in `adws/types/agentTypes.ts`
+    - When implementing the heartbeat module (future slice) that writes `lastSeenAt` every 30 seconds
+    - When implementing the takeover handler that reads liveness fields (`pid`, `pidStartedAt`, `lastSeenAt`) to decide spawn strategy
+    - When troubleshooting a torn or zero-byte `state.json` (atomic writer protects against this)
+    - When writing tests for `writeTopLevelState` partial-patch or forward-compatible read behavior
+
+- app_docs/feature-jcwqw7-extend-top-level-state-schema.md
+  - Conditions:
+    - When working with `AgentState.lastSeenAt`, `AgentState.pid`, `AgentState.pidStartedAt`, or `AgentState.branchName` in `adws/types/agentTypes.ts`
+    - When implementing the heartbeat module (future slice) that writes `lastSeenAt` every 30 seconds
+    - When implementing the takeover handler that reads liveness fields to decide spawn strategy
+    - When troubleshooting atomic write behavior in `writeTopLevelState` or a torn `state.json`
+    - When writing or extending `adws/core/__tests__/topLevelState.test.ts` for partial-patch or forward-compatible read scenarios
+
+- app_docs/feature-zy5s32-heartbeat-module-tracer-integration.md
+  - Conditions:
+    - When working with `adws/core/heartbeat.ts`, `startHeartbeat`, `stopHeartbeat`, or `HeartbeatHandle`
+    - When implementing the hung-orchestrator detector that consumes `lastSeenAt` and `HEARTBEAT_STALE_THRESHOLD_MS`
+    - When wiring heartbeat lifecycle (start/stop) into additional orchestrators beyond `adwSdlc` (PRD slice #8)
+    - When troubleshooting `lastSeenAt` not updating in the state file while a workflow is running
+    - When modifying `HEARTBEAT_TICK_INTERVAL_MS` or `HEARTBEAT_STALE_THRESHOLD_MS` constants in `adws/core/config.ts`
+
+- app_docs/feature-bzlaaq-resume-verify-canonical-claim.md
+  - Conditions:
+    - When working with `resumeWorkflow()` in `adws/triggers/pauseQueueScanner.ts` or the pause-queue resume path
+    - When troubleshooting a paused workflow that aborts on resume with "canonical claim diverged" or "spawn lock held" log lines
+    - When implementing or modifying the per-issue spawn lock (spawnGate) interaction in the pause-queue scanner
+    - When a paused workflow's `agents/{adwId}/state.json` has been manually edited or replaced and the scanner stops retrying
+    - When understanding the asymmetric abort behavior: lock-held leaves the queue entry, claim-diverged removes it and posts an error comment
+
+- app_docs/feature-xruqv8-hung-orchestrator-detector.md
+  - Conditions:
+    - When working with `adws/core/hungOrchestratorDetector.ts`, `findHungOrchestrators`, or `HungDetectorDeps`
+    - When modifying or extending the hung-orchestrator sweep block in `adws/triggers/trigger_cron.ts`
+    - When troubleshooting orchestrators that are alive but wedged and not being automatically abandoned
+    - When tuning `HUNG_DETECTOR_INTERVAL_CYCLES` or `HEARTBEAT_STALE_THRESHOLD_MS` for detection latency
+    - When implementing the takeover handler (PRD slice #11) that consumes the `abandoned` state written by this sweep

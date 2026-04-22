@@ -71,24 +71,29 @@ When('the cron trigger evaluates the issue', function (this: CronWorld & Record<
     // New flow (adw-379): state file resolution
     const issue = this.issue as { comments: { body: string }[]; updatedAt: string; number: number };
     const resolution = resolveIssueWorkflowStage(issue.comments);
-    const activityMs = resolution.lastActivityMs ?? new Date(issue.updatedAt).getTime();
-    const withinGrace = Date.now() - activityMs < GRACE_PERIOD_MS;
-    if (withinGrace) {
-      this.filterResult = { eligible: false, reason: 'grace_period', stage: resolution.stage, resolution };
+    // discarded bypasses grace period — deliberate terminal decision, never re-spawn
+    if (resolution.stage === 'discarded') {
+      this.filterResult = { eligible: false, reason: 'discarded', stage: 'discarded', resolution };
     } else {
-      const { stage } = resolution;
-      if (stage === null) {
-        this.filterResult = { eligible: true, reason: null, stage: null, resolution };
-      } else if (stage === 'completed') {
-        this.filterResult = { eligible: false, reason: 'completed', stage, resolution };
-      } else if (stage === 'paused') {
-        this.filterResult = { eligible: false, reason: 'paused', stage, resolution };
-      } else if (isActiveStage(stage)) {
-        this.filterResult = { eligible: false, reason: 'active', stage, resolution };
-      } else if (isRetriableStage(stage)) {
-        this.filterResult = { eligible: true, reason: null, stage, resolution };
+      const activityMs = resolution.lastActivityMs ?? new Date(issue.updatedAt).getTime();
+      const withinGrace = Date.now() - activityMs < GRACE_PERIOD_MS;
+      if (withinGrace) {
+        this.filterResult = { eligible: false, reason: 'grace_period', stage: resolution.stage, resolution };
       } else {
-        this.filterResult = { eligible: false, reason: `adw_stage:${stage}`, stage, resolution };
+        const { stage } = resolution;
+        if (stage === null) {
+          this.filterResult = { eligible: true, reason: null, stage: null, resolution };
+        } else if (stage === 'completed') {
+          this.filterResult = { eligible: false, reason: 'completed', stage, resolution };
+        } else if (stage === 'paused') {
+          this.filterResult = { eligible: false, reason: 'paused', stage, resolution };
+        } else if (isActiveStage(stage)) {
+          this.filterResult = { eligible: false, reason: 'active', stage, resolution };
+        } else if (isRetriableStage(stage)) {
+          this.filterResult = { eligible: true, reason: null, stage, resolution };
+        } else {
+          this.filterResult = { eligible: false, reason: `adw_stage:${stage}`, stage, resolution };
+        }
       }
     }
   } else {
@@ -134,6 +139,11 @@ When('the cron trigger evaluates eligibility', function (this: CronWorld & Recor
     const resolution = resolveIssueWorkflowStage(issue.comments);
     const activityMs = resolution.lastActivityMs ?? new Date(issue.updatedAt).getTime();
     const withinGrace = Date.now() - activityMs < GRACE_PERIOD_MS;
+    // discarded bypasses grace period — deliberate terminal decision, never re-spawn
+    if (resolution.stage === 'discarded') {
+      this.filterResult = { eligible: false, reason: 'discarded', stage: 'discarded', resolution };
+      return;
+    }
     if (withinGrace) {
       this.filterResult = { eligible: false, reason: 'grace_period', stage: resolution.stage, resolution };
       return;

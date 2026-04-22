@@ -21,7 +21,7 @@
 
 import * as path from 'path';
 import * as fs from 'fs';
-import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId } from './core';
+import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId, log } from './core';
 import { CostTracker, runPhase } from './core/phaseRunner';
 import {
   initializeWorkflow,
@@ -31,6 +31,7 @@ import {
   handleWorkflowError,
 } from './workflowPhases';
 import { getPlanFilePath } from './agents';
+import { runWithOrchestratorLifecycle } from './phases/orchestratorLock';
 
 /**
  * Main orchestrator workflow.
@@ -52,21 +53,25 @@ async function main(): Promise<void> {
     cwd: cwd || undefined,
   });
 
-  // Verify plan file exists before starting
+  // Verify plan file exists before starting — must remain before acquire
   const planPath = path.join(config.worktreePath, getPlanFilePath(issueNumber, config.worktreePath));
   if (!fs.existsSync(planPath)) {
     handleWorkflowError(config, `Plan file not found at ${planPath}. Run adwPlan.tsx first to generate the plan.`);
   }
 
-  const tracker = new CostTracker();
+  if (!await runWithOrchestratorLifecycle(config, async () => {
+    const tracker = new CostTracker();
+    try {
+      await runPhase(config, tracker, executeInstallPhase, 'install');
+      await runPhase(config, tracker, executeBuildPhase, 'build');
 
-  try {
-    await runPhase(config, tracker, executeInstallPhase, 'install');
-    await runPhase(config, tracker, executeBuildPhase, 'build');
-
-    await completeWorkflow(config, tracker.totalCostUsd, {}, tracker.totalModelUsage);
-  } catch (error) {
-    handleWorkflowError(config, error, tracker.totalCostUsd, tracker.totalModelUsage);
+      await completeWorkflow(config, tracker.totalCostUsd, {}, tracker.totalModelUsage);
+    } catch (error) {
+      handleWorkflowError(config, error, tracker.totalCostUsd, tracker.totalModelUsage);
+    }
+  })) {
+    log(`Issue #${issueNumber}: spawn lock already held by another orchestrator; exiting.`, 'warn');
+    process.exit(0);
   }
 }
 

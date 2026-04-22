@@ -173,6 +173,41 @@ Then(
   },
 );
 
+// ── HITL block — state and outcome shape checks ───────────────────────────────
+
+Then('the hitl early-return block does not write workflowStage {string}', function (stage: string) {
+  const content = sharedCtx.fileContent;
+  const hitlBlock = extractHitlBlockBody(content);
+  assert.ok(
+    hitlBlock !== null,
+    `Expected "${sharedCtx.filePath}" to have an if-block containing issueHasLabel`,
+  );
+  const hasStageWrite =
+    hitlBlock.includes(`workflowStage: '${stage}'`) ||
+    hitlBlock.includes(`workflowStage: "${stage}"`);
+  assert.ok(
+    !hasStageWrite,
+    `Expected the hitl block in "${sharedCtx.filePath}" NOT to write workflowStage "${stage}"`,
+  );
+});
+
+Then(
+  'the hitl early-return block returns an outcome with reason containing {string}',
+  function (substring: string) {
+    const content = sharedCtx.fileContent;
+    const hitlBlock = extractHitlBlockBody(content);
+    assert.ok(
+      hitlBlock !== null,
+      `Expected "${sharedCtx.filePath}" to have an if-block containing issueHasLabel`,
+    );
+    const reasonPattern = new RegExp(`reason:\\s*['"][^'"]*${substring}[^'"]*['"]`);
+    assert.ok(
+      reasonPattern.test(hitlBlock),
+      `Expected the hitl block in "${sharedCtx.filePath}" to return an outcome with reason containing "${substring}"`,
+    );
+  },
+);
+
 // ── Webhook / unchanged-file checks ──────────────────────────────────────────
 
 Then(

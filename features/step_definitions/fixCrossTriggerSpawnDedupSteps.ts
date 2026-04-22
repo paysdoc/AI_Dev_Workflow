@@ -4,6 +4,7 @@ import { join, dirname } from 'path';
 import assert from 'assert';
 import { sharedCtx } from './commonSteps.ts';
 import { acquireIssueSpawnLock, releaseIssueSpawnLock, getSpawnLockFilePath } from '../../adws/triggers/spawnGate.ts';
+import { getProcessStartTime } from '../../adws/core/processLiveness.ts';
 import type { RepoInfo } from '../../adws/github/githubApi.ts';
 
 const ROOT = process.cwd();
@@ -19,7 +20,7 @@ interface SpawnGateCtx {
   writtenLockFiles: string[];
 }
 
-const ctx: SpawnGateCtx = {
+export const ctx: SpawnGateCtx = {
   repo: null,
   issueNumber: 0,
   acquireResult: null,
@@ -75,7 +76,13 @@ Given('a lock file already exists for repo {string} and issue {int}', function (
   ctx.issueNumber = issueNum;
   const lockPath = getSpawnLockFilePath(repo, issueNum);
   mkdirSync(dirname(lockPath), { recursive: true });
-  const record = { pid: process.pid, repoKey: repoName, issueNumber: issueNum, startedAt: new Date().toISOString() };
+  const record = {
+    pid: process.pid,
+    pidStartedAt: getProcessStartTime(process.pid) ?? '',
+    repoKey: repoName,
+    issueNumber: issueNum,
+    startedAt: new Date().toISOString(),
+  };
   writeFileSync(lockPath, JSON.stringify(record, null, 2), 'utf-8');
   ctx.writtenLockFiles.push(lockPath);
 });
@@ -127,27 +134,42 @@ When('acquireIssueSpawnLock is called for repo {string} and issue {int}', functi
 
 Then('"acquireIssueSpawnLock" is called in classifyAndSpawnWorkflow before "classifyIssueForTrigger"', function () {
   const content = sharedCtx.fileContent;
+  // Since takeoverHandler integration (issue #467), the spawn lock is acquired
+  // inside evaluateCandidate rather than by a direct call in classifyAndSpawnWorkflow.
+  // Accept either form as satisfying the invariant: gate before classification.
   const acquireIdx = content.indexOf('acquireIssueSpawnLock(');
+  const evaluateIdx = content.indexOf('evaluateCandidate(');
+  const gateIdx = acquireIdx !== -1 ? acquireIdx : evaluateIdx;
   const classifyIdx = content.indexOf('classifyIssueForTrigger(');
-  assert.ok(acquireIdx !== -1, 'Expected classifyAndSpawnWorkflow to call acquireIssueSpawnLock');
+  assert.ok(
+    gateIdx !== -1,
+    'Expected classifyAndSpawnWorkflow to acquire the spawn lock directly or via evaluateCandidate',
+  );
   assert.ok(classifyIdx !== -1, 'Expected classifyAndSpawnWorkflow to call classifyIssueForTrigger');
   assert.ok(
-    acquireIdx < classifyIdx,
-    `Expected acquireIssueSpawnLock (pos ${acquireIdx}) to appear before classifyIssueForTrigger (pos ${classifyIdx}) in ${sharedCtx.filePath}`,
+    gateIdx < classifyIdx,
+    `Expected spawn-lock gate (pos ${gateIdx}) to appear before classifyIssueForTrigger (pos ${classifyIdx}) in ${sharedCtx.filePath}`,
   );
 });
 
 Then('classifyAndSpawnWorkflow returns early when acquireIssueSpawnLock returns false', function () {
   const content = sharedCtx.fileContent;
+  // Old form: direct check like `!acquired`. New form (issue #467): branch on the
+  // `defer_live_holder` decision returned by evaluateCandidate when the lock is held.
+  const hasDirectCheck =
+    content.includes('!acquired') || content.includes('acquired === false') || content.includes('acquired == false');
+  const hasDeferBranch = content.includes('defer_live_holder');
   assert.ok(
-    content.includes('!acquired') || content.includes('acquired === false') || content.includes('acquired == false'),
-    'Expected classifyAndSpawnWorkflow to check if lock was not acquired',
+    hasDirectCheck || hasDeferBranch,
+    'Expected classifyAndSpawnWorkflow to branch on lock-not-acquired directly or via defer_live_holder',
   );
   const acquireIdx = content.indexOf('acquireIssueSpawnLock(');
-  assert.ok(acquireIdx !== -1, 'Expected acquireIssueSpawnLock call');
-  const afterAcquire = content.slice(acquireIdx);
+  const evaluateIdx = content.indexOf('evaluateCandidate(');
+  const gateIdx = acquireIdx !== -1 ? acquireIdx : evaluateIdx;
+  assert.ok(gateIdx !== -1, 'Expected spawn-lock gate call (direct acquireIssueSpawnLock or evaluateCandidate)');
+  const afterGate = content.slice(gateIdx);
   assert.ok(
-    afterAcquire.includes('return;') || afterAcquire.includes('return\n'),
+    afterGate.includes('return;') || afterGate.includes('return\n'),
     'Expected an early return when the lock is not acquired',
   );
 });
@@ -172,9 +194,15 @@ Then('the SDLC spawn branch in checkAndTrigger calls {string}', function (fnName
 
 Then('the SDLC spawn branch does not bypass classifyAndSpawnWorkflow with a direct spawnDetached', function () {
   const content = sharedCtx.fileContent;
+  // Since takeoverHandler integration (issue #467), trigger_cron.ts may spawn
+  // directly on the `take_over_adwId` branch. In that case the invariant shifts
+  // to: every spawnDetached is gated behind evaluateCandidate (the takeover decision).
+  const spawnIdx = content.indexOf('spawnDetached(');
+  if (spawnIdx === -1) return;
+  const evaluateIdx = content.indexOf('evaluateCandidate(');
   assert.ok(
-    !content.includes('spawnDetached('),
-    'Expected trigger_cron.ts to NOT call spawnDetached directly (must go through classifyAndSpawnWorkflow)',
+    evaluateIdx !== -1 && evaluateIdx < spawnIdx,
+    'Expected every spawnDetached in trigger_cron.ts to be gated behind evaluateCandidate (takeover decision)',
   );
 });
 
@@ -299,10 +327,11 @@ Given("the cron's next poll sees issue {int} as eligible during the webhook's cl
 
 When('both triggers reach classifyAndSpawnWorkflow for issue {int}', function (_issueNum: number) {
   // Structural: both paths verified above; gate in classifyAndSpawnWorkflow enforces dedup
+  // via direct acquireIssueSpawnLock or via evaluateCandidate (which acquires the lock).
   const content = sharedCtx.fileContent;
   assert.ok(
-    content.includes('acquireIssueSpawnLock('),
-    'Expected classifyAndSpawnWorkflow to call acquireIssueSpawnLock before any spawn',
+    content.includes('acquireIssueSpawnLock(') || content.includes('evaluateCandidate('),
+    'Expected classifyAndSpawnWorkflow to gate spawns via spawn-lock acquisition (direct or via evaluateCandidate)',
   );
 });
 
@@ -312,13 +341,16 @@ Then('exactly one orchestrator process is spawned for issue {int}', function (_i
   const fnIdx = content.indexOf('export async function classifyAndSpawnWorkflow');
   assert.ok(fnIdx !== -1, 'Expected classifyAndSpawnWorkflow to be defined in webhookGatekeeper.ts');
   const fnBody = content.slice(fnIdx);
+  // Gate is either a direct acquireIssueSpawnLock or evaluateCandidate (which acquires the lock).
   const acquireIdx = fnBody.indexOf('acquireIssueSpawnLock(');
+  const evaluateIdx = fnBody.indexOf('evaluateCandidate(');
+  const gateIdx = acquireIdx !== -1 ? acquireIdx : evaluateIdx;
   const spawnIdx = fnBody.indexOf('spawnDetached(');
-  assert.ok(acquireIdx !== -1, 'Expected acquireIssueSpawnLock call in classifyAndSpawnWorkflow body');
+  assert.ok(gateIdx !== -1, 'Expected spawn-lock gate in classifyAndSpawnWorkflow body (direct or via evaluateCandidate)');
   assert.ok(spawnIdx !== -1, 'Expected spawnDetached call in classifyAndSpawnWorkflow body');
   assert.ok(
-    acquireIdx < spawnIdx,
-    'Expected acquireIssueSpawnLock to gate spawnDetached (spawn appears after lock acquisition)',
+    gateIdx < spawnIdx,
+    'Expected spawn-lock gate to appear before spawnDetached (spawn gated by lock acquisition)',
   );
 });
 
@@ -436,22 +468,25 @@ Then('spawnDetached is not called', function () {
   assert.ok(fnIdx !== -1, 'Expected classifyAndSpawnWorkflow to exist');
   const fnBody = content.slice(fnIdx);
 
+  // Gate: direct acquireIssueSpawnLock or evaluateCandidate (which acquires the lock).
   const acquireIdx = fnBody.indexOf('acquireIssueSpawnLock(');
-  assert.ok(acquireIdx !== -1, 'Expected acquireIssueSpawnLock call in classifyAndSpawnWorkflow');
+  const evaluateIdx = fnBody.indexOf('evaluateCandidate(');
+  const gateIdx = acquireIdx !== -1 ? acquireIdx : evaluateIdx;
+  assert.ok(gateIdx !== -1, 'Expected spawn-lock gate call in classifyAndSpawnWorkflow (direct or via evaluateCandidate)');
 
   // Verify early return when lock not acquired (before any spawnDetached call)
   const earlyReturnIdx = fnBody.indexOf('return;');
   assert.ok(earlyReturnIdx !== -1, 'Expected early return path in classifyAndSpawnWorkflow');
   assert.ok(
-    earlyReturnIdx > acquireIdx,
-    'Expected early return to appear after acquireIssueSpawnLock check',
+    earlyReturnIdx > gateIdx,
+    'Expected early return to appear after the spawn-lock gate',
   );
 
-  // spawnDetached must appear after acquireIssueSpawnLock in the function body
+  // spawnDetached must appear after the lock gate in the function body
   const spawnIdx = fnBody.indexOf('spawnDetached(');
   assert.ok(spawnIdx !== -1, 'Expected spawnDetached call in classifyAndSpawnWorkflow body');
   assert.ok(
-    spawnIdx > acquireIdx,
-    'Expected spawnDetached to appear after acquireIssueSpawnLock (locked scope)',
+    spawnIdx > gateIdx,
+    'Expected spawnDetached to appear after the spawn-lock gate (locked scope)',
   );
 });

@@ -17,6 +17,7 @@
  * Does NOT use initializeWorkflow() — reads state directly, no worktree setup at startup.
  */
 
+import { runWithRawOrchestratorLifecycle } from './phases/orchestratorLock';
 import {
   parseTargetRepoArgs,
   parseOrchestratorArguments,
@@ -24,22 +25,14 @@ import {
   AgentStateManager,
   log,
   ensureLogsDirectory,
-  execWithRetry,
 } from './core';
 import { findOrchestratorStatePath } from './core/stateHelpers';
-import { commentOnIssue, commentOnPR, type RepoInfo } from './github';
+import { commentOnIssue, commentOnPR, defaultFindPRByBranch, issueHasLabel, type RawPR, type RepoInfo } from './github';
 import { mergeWithConflictResolution } from './triggers/autoMergeHandler';
 import { ensureWorktree } from './vcs';
 import { getPlanFilePath, planFileExists } from './agents';
 import type { AgentState } from './types/agentTypes';
-
-/** Shape of a PR entry returned by `gh pr list --json ...` */
-interface RawPR {
-  readonly number: number;
-  readonly state: string;
-  readonly headRefName: string;
-  readonly baseRefName: string;
-}
+export { handleWorkflowDiscarded } from './phases/workflowCompletion';
 
 /** Outcome of executeMerge. */
 export interface MergeRunResult {
@@ -61,23 +54,7 @@ export interface MergeDeps {
   readonly commentOnPR: typeof commentOnPR;
   readonly getPlanFilePath: typeof getPlanFilePath;
   readonly planFileExists: typeof planFileExists;
-}
-
-/**
- * Looks up the PR for a branch via the GitHub CLI (open or recently closed/merged).
- * Returns the first result or null if none found or on error.
- */
-export function defaultFindPRByBranch(branchName: string, repoInfo: RepoInfo): RawPR | null {
-  const { owner, repo } = repoInfo;
-  try {
-    const json = execWithRetry(
-      `gh pr list --repo ${owner}/${repo} --head "${branchName}" --state all --json number,state,headRefName,baseRefName --limit 5`,
-    );
-    const prs = JSON.parse(json) as RawPR[];
-    return prs.length > 0 ? prs[0] : null;
-  } catch {
-    return null;
-  }
+  readonly issueHasLabel: typeof issueHasLabel;
 }
 
 /**
@@ -141,11 +118,18 @@ export async function executeMerge(
     return { outcome: 'completed', reason: 'already_merged' };
   }
 
-  // 5. Closed without merge — abandon
+  // 5. Closed without merge — discard (terminal, operator intent)
   if (prState === 'CLOSED') {
     log(`adwMerge: PR #${prNumber} is closed without merge`, 'warn');
-    deps.writeTopLevelState(adwId, { workflowStage: 'abandoned' });
+    deps.writeTopLevelState(adwId, { workflowStage: 'discarded' });
     return { outcome: 'abandoned', reason: 'pr_closed' };
+  }
+
+  // 5b. HITL gate — leave state as awaiting_merge so the next cron cycle re-checks.
+  //     Silent skip (no comment) to avoid flooding the issue on every cron cycle.
+  if (deps.issueHasLabel(issueNumber, 'hitl', repoInfo)) {
+    log(`hitl label detected on issue #${issueNumber}, skipping merge`, 'info');
+    return { outcome: 'abandoned', reason: 'hitl_blocked' };
   }
 
   // 6. PR is open — ensure worktree and merge
@@ -188,7 +172,8 @@ export async function executeMerge(
   // Merge failed after retries
   const lastError = mergeOutcome.error ?? '';
   log(`adwMerge: merge failed after retries: ${lastError}`, 'error');
-  deps.writeTopLevelState(adwId, { workflowStage: 'abandoned' });
+  // Terminal: merge genuinely failed after retries — do not re-spawn.
+  deps.writeTopLevelState(adwId, { workflowStage: 'discarded' });
 
   const failureLines = [
     `## Auto-merge failed for PR #${prNumber}`,
@@ -222,6 +207,7 @@ function buildDefaultDeps(): MergeDeps {
     commentOnPR,
     getPlanFilePath,
     planFileExists,
+    issueHasLabel,
   };
 }
 
@@ -244,8 +230,17 @@ async function main(): Promise<void> {
   const repoId = buildRepoIdentifier(targetRepo);
   const repoInfo: RepoInfo = { owner: repoId.owner, repo: repoId.repo };
 
-  const result = await executeMerge(issueNumber, adwId, repoInfo, buildDefaultDeps());
-
+  let result: Awaited<ReturnType<typeof executeMerge>> | undefined;
+  const acquired = await runWithRawOrchestratorLifecycle(repoInfo, issueNumber, adwId, async () => {
+    result = await executeMerge(issueNumber, adwId, repoInfo, buildDefaultDeps());
+  });
+  if (!acquired) {
+    log(`Issue #${issueNumber}: spawn lock already held by another orchestrator; exiting.`, 'warn');
+    process.exit(0);
+  }
+  if (!result) {
+    process.exit(1);
+  }
   process.exit(result.outcome === 'abandoned' && result.reason === 'merge_failed' ? 1 : 0);
 }
 

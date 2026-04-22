@@ -1,41 +1,40 @@
 ---
 target: false
 ---
-# Generate Git Branch Name
+# Generate Git Branch Name Slug
 
-Based on the `Instructions` below, take the `Variables` follow the `Run` section to generate a concise Git branch name following the specified format. Then follow the `Report` section to report the results of your work.
+Based on the `Instructions` below, take the `Variables` and follow the `Run` section to generate a concise slug for a Git branch name. Then follow the `Report` section to report the results of your work.
 
 ## Variables
 
-issueClass: $0
-issue: $1
+issue: $0
 
 ## Instructions
 
-- Generate a branch name in the format: `<prefix>-issue-<issueNumber>-<concise_name>`
-- The `<prefix>` MUST match these canonical prefixes based on issueClass:
-  - `/feature` → `feature`
-  - `/bug` → `bugfix`
-  - `/chore` → `chore`
-  - `/pr_review` → `review`
-- The `<concise_name>` should be:
-  - 3-6 words maximum
-  - All lowercase
-  - Words separated by hyphens
-  - Descriptive of the main task/feature
-  - No special characters except hyphens
-- Examples:
-  - `feature-issue-123-add-user-auth`
-  - `bugfix-issue-456-fix-login-error`
-  - `chore-issue-789-update-dependencies`
-  - `review-issue-323-fix-failing-tests`
-- Extract the issue number, title, and body from the issue JSON
+- Generate a **slug only** — a short, descriptive kebab-case string that captures the essence of the issue.
+- The slug must be:
+  - 3–6 words, all lowercase
+  - Words separated by hyphens only
+  - Only characters `a-z`, `0-9`, and `-`
+  - No leading or trailing hyphens
+  - No consecutive hyphens (`--`)
+  - ≤ 50 characters total
+- **Do NOT include a prefix** like `feature-`, `bugfix-`, `bug-`, `feat-`, `test-`, `chore-`, `review-`, or `adwinit-`. The code assembles those.
+- **Do NOT include `issue-<number>`** or any issue number. The code assembles those.
+- The code assembles the full branch name from the slug — your only job is the descriptive slug.
+- Extract the title and body from the issue JSON to derive a meaningful slug.
+- Examples of valid slugs:
+  - `add-user-auth`
+  - `fix-login-error`
+  - `update-dependencies`
+  - `deterministic-branch-name-assembly`
+  - `json-reporter-findings`
 
 ## Run
 
-Generate the branch name based on the instructions above.
-Do NOT run any git commands. Only generate the branch name string.
+Generate the slug based on the instructions above.
+Do NOT run any git commands. Only generate the slug string.
 
 ## Report
 
-Return ONLY the branch name (no other text)
+Return ONLY the slug string (no other text, no backticks, no prefix, no issue number).

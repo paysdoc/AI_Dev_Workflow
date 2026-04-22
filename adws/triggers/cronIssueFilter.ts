@@ -99,6 +99,12 @@ export function evaluateIssue(
     return { eligible: true, action: 'merge', adwId: resolution.adwId };
   }
 
+  // discarded bypasses grace period — this is a deliberate terminal decision,
+  // never re-spawn regardless of how recent the last activity was.
+  if (resolution.stage === 'discarded') {
+    return { eligible: false, reason: 'discarded' };
+  }
+
   if (processed.spawns.has(issue.number)) {
     return { eligible: false, reason: 'processed' };
   }

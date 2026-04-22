@@ -21,7 +21,9 @@ Then('the file exports {string}', function (exportName: string) {
     content.includes(`export function ${exportName}`) ||
     content.includes(`export async function ${exportName}`) ||
     content.includes(`export const ${exportName}`) ||
-    content.includes(`export class ${exportName}`);
+    content.includes(`export class ${exportName}`) ||
+    content.includes(`export interface ${exportName}`) ||
+    content.includes(`export type ${exportName} `);
   // Handles named re-exports in barrel files (single-line or multi-line)
   const hasNamedExport =
     content.includes(`  ${exportName},`) ||

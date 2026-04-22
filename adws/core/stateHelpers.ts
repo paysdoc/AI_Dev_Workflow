@@ -13,13 +13,11 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { AGENTS_STATE_DIR } from './config';
 import { AgentExecutionState } from '../types/agentTypes';
+import { isProcessLive } from './processLiveness';
 
 /**
- * Checks if a process with the given PID is alive.
- * Uses `process.kill(pid, 0)` which checks existence without sending a signal.
- *
- * @param pid - The process ID to check
- * @returns True if the process is alive
+ * @deprecated Use `isProcessLive` from `adws/core/processLiveness`. Kept for
+ * out-of-scope call sites pending migration in subsequent issues.
  */
 export function isProcessAlive(pid: number): boolean {
   try {
@@ -128,7 +126,7 @@ export function isAgentProcessRunning(adwId: string): boolean {
   if (!statePath) return false;
 
   const state = readStateFile(statePath);
-  if (!state?.pid) return false;
+  if (!state?.pid || !state?.pidStartedAt) return false;
 
-  return isProcessAlive(state.pid as number);
+  return isProcessLive(state.pid as number, state.pidStartedAt as string);
 }

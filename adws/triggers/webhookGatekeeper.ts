@@ -14,12 +14,16 @@ import type { RepoInfo } from '../github/githubApi';
 import { getRepoInfo } from '../github';
 import { closeIssue } from '../github/issueApi';
 import { classifyIssueForTrigger, getWorkflowScript } from '../core/issueClassifier';
+import { AgentStateManager } from '../core/agentState';
 
 import { isAdwRunningForIssue } from '../github';
 import { checkIssueEligibility } from './issueEligibility';
 import { parseDependencies } from './issueDependencies';
 import { isCronAliveForRepo } from './cronProcessGuard';
-import { acquireIssueSpawnLock, releaseIssueSpawnLock } from './spawnGate';
+import { releaseIssueSpawnLock } from './spawnGate';
+// takeoverHandler enforces the decision before any spawn
+import { evaluateCandidate } from './takeoverHandler';
+import type { CandidateDecision } from './takeoverHandler';
 
 /**
  * Spawns a detached child process for running ADW orchestrator workflows.
@@ -35,21 +39,45 @@ export function spawnDetached(command: string, args: string[]): void {
 
 /**
  * Classifies and spawns a workflow for an eligible issue.
+ * Accepts an optional pre-computed decision from the cron trigger to avoid
+ * double-evaluation when the cron path has already called evaluateCandidate.
  */
 export async function classifyAndSpawnWorkflow(
   issueNumber: number,
   repoInfo: RepoInfo | undefined,
   targetRepoArgs: string[],
   existingAdwId?: string,
+  precomputedDecision?: CandidateDecision,
 ): Promise<void> {
   const resolvedRepoInfo = repoInfo ?? getRepoInfo();
 
-  const acquired = acquireIssueSpawnLock(resolvedRepoInfo, issueNumber, process.pid);
-  if (!acquired) {
-    log(`Issue #${issueNumber}: spawn lock held by another process, skipping`);
+  // Enforce the takeover decision before any spawn. When the cron trigger has
+  // already called evaluateCandidate, it passes the pre-computed decision here
+  // to avoid re-acquiring the spawn lock.
+  const decision = precomputedDecision ?? evaluateCandidate({ issueNumber, repoInfo: resolvedRepoInfo });
+
+  if (decision.kind === 'defer_live_holder') {
+    log(`Issue #${issueNumber}: live holder (pid ${decision.holderPid}) owns this issue, deferring`);
     return;
   }
 
+  if (decision.kind === 'skip_terminal') {
+    log(`Issue #${issueNumber}: terminal stage "${decision.terminalStage}", skipping spawn`);
+    return;
+  }
+
+  if (decision.kind === 'take_over_adwId') {
+    // Takeover path: reuse the existing adwId, skip re-classification.
+    const { adwId, derivedStage } = decision;
+    const state = AgentStateManager.readTopLevelState(adwId);
+    const workflowScript = state?.orchestratorScript ?? getWorkflowScript('/feature', undefined);
+    log(`Issue #${issueNumber}: taking over adwId=${adwId} derivedStage=${derivedStage}, spawning ${workflowScript}`, 'success');
+    spawnDetached('bunx', ['tsx', workflowScript, String(issueNumber), adwId, ...targetRepoArgs]);
+    releaseIssueSpawnLock(resolvedRepoInfo, issueNumber);
+    return;
+  }
+
+  // spawn_fresh path: classify the issue and spawn a new workflow.
   try {
     const classification = await classifyIssueForTrigger(issueNumber, resolvedRepoInfo);
 

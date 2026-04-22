@@ -196,6 +196,10 @@ Then('the stage evaluation returns false', function () {
   assert.strictEqual(stageResult, false, `Expected stage "${stageUnderTest}" evaluation to return false`);
 });
 
+Then('the stage evaluation returns true', function () {
+  assert.strictEqual(stageResult, true, `Expected stage "${stageUnderTest}" evaluation to return true`);
+});
+
 // ── 8. Cron evaluateIssue: awaiting_merge handoff ────────────────────────────
 
 Then('evaluateIssue handles {string} as a distinct handoff stage', function (stage: string) {

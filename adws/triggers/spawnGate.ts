@@ -2,11 +2,12 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { log } from '../core';
 import { AGENTS_STATE_DIR } from '../core/config';
-import { isProcessAlive } from '../core/stateHelpers';
+import { getProcessStartTime, isProcessLive } from '../core/processLiveness';
 import type { RepoInfo } from '../github/githubApi';
 
 interface IssueSpawnLockRecord {
   readonly pid: number;
+  readonly pidStartedAt: string;
   readonly repoKey: string;
   readonly issueNumber: number;
   readonly startedAt: string;
@@ -52,8 +53,10 @@ export function acquireIssueSpawnLock(repoInfo: RepoInfo, issueNumber: number, o
   ensureSpawnLockDir();
   const repoKey = `${repoInfo.owner}/${repoInfo.repo}`;
   const filePath = getSpawnLockFilePath(repoInfo, issueNumber);
+  const pidStartedAt = getProcessStartTime(ownPid) ?? '';
   const record: IssueSpawnLockRecord = {
     pid: ownPid,
+    pidStartedAt,
     repoKey,
     issueNumber,
     startedAt: new Date().toISOString(),
@@ -68,7 +71,7 @@ export function acquireIssueSpawnLock(repoInfo: RepoInfo, issueNumber: number, o
     return tryExclusiveCreate(filePath, record);
   }
 
-  if (isProcessAlive(existing.pid)) {
+  if (existing.pidStartedAt && isProcessLive(existing.pid, existing.pidStartedAt)) {
     log(`spawn lock held for ${repoKey}#${issueNumber} by pid=${existing.pid}`);
     return false;
   }
@@ -80,4 +83,10 @@ export function acquireIssueSpawnLock(repoInfo: RepoInfo, issueNumber: number, o
 
 export function releaseIssueSpawnLock(repoInfo: RepoInfo, issueNumber: number): void {
   removeSpawnLock(getSpawnLockFilePath(repoInfo, issueNumber));
+}
+
+export function readSpawnLockRecord(repoInfo: RepoInfo, issueNumber: number): { pid: number; pidStartedAt: string } | null {
+  const record = readSpawnLock(getSpawnLockFilePath(repoInfo, issueNumber));
+  if (record === null) return null;
+  return { pid: record.pid, pidStartedAt: record.pidStartedAt };
 }

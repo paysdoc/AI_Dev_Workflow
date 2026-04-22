@@ -3,8 +3,11 @@
  */
 
 import { execSync } from 'child_process';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import { log } from '../core';
-import { getCurrentBranch, PROTECTED_BRANCHES } from './branchOperations';
+import { getDefaultBranch, PROTECTED_BRANCHES } from './branchOperations';
 
 // Re-export PROTECTED_BRANCHES for consumers that import from this module
 export { PROTECTED_BRANCHES };
@@ -44,37 +47,64 @@ export function pushBranch(branchName: string, cwd?: string): void {
   log(`Pushed branch to origin`, 'success');
 }
 
+function hasKpiFileChanges(cwd?: string): boolean {
+  const output = execSync(
+    'git status --porcelain -- "app_docs/agentic_kpis.md"',
+    { encoding: 'utf-8', cwd },
+  );
+  return output.trim().length > 0;
+}
+
+function cleanupKpiTempWorktree(cwd: string | undefined, tmpdir: string): void {
+  try {
+    execSync(`git worktree remove --force "${tmpdir}"`, { stdio: 'pipe', cwd });
+  } catch (error) {
+    log(`Failed to remove temp worktree ${tmpdir}: ${error}`, 'error');
+  }
+  try {
+    fs.rmSync(tmpdir, { recursive: true, force: true });
+  } catch (error) {
+    log(`Failed to remove temp dir ${tmpdir}: ${error}`, 'error');
+  }
+}
+
 /**
- * Stages, commits, and pushes the agentic KPI file.
- * Returns true if changes were committed, false if no changes or on failure.
+ * Commits `app_docs/agentic_kpis.md` to the repo's default branch via a
+ * temporary detached worktree, leaving the active worktree's index and
+ * HEAD untouched. Non-fatal: returns false and logs on any failure.
+ *
+ * @param cwd - Working directory for the source worktree (the ADW repo root)
  */
 export function commitAndPushKpiFile(cwd?: string): boolean {
   try {
-    const status = execSync(
-      'git status --porcelain -- "app_docs/agentic_kpis.md"',
-      { encoding: 'utf-8', cwd },
-    ).trim();
-
-    if (!status) {
+    if (!hasKpiFileChanges(cwd)) {
       log(`No KPI file changes to commit`, 'info');
       return false;
     }
 
-    execSync('git add "app_docs/agentic_kpis.md"', { stdio: 'pipe', cwd });
-    execSync('git commit -m "kpis: update agentic_kpis"', { stdio: 'pipe', cwd });
+    const defaultBranch = getDefaultBranch(cwd);
+    execSync(`git fetch origin "${defaultBranch}"`, { stdio: 'pipe', cwd });
 
-    const branch = getCurrentBranch(cwd);
+    const tmpdir = fs.mkdtempSync(path.join(os.tmpdir(), 'adw-kpi-'));
 
-    if (!branch) {
-      throw new Error('Cannot push KPI file: no current branch detected (detached HEAD)');
+    try {
+      execSync(`git worktree add --detach "${tmpdir}" "origin/${defaultBranch}"`, { stdio: 'pipe', cwd });
+
+      const srcRoot = cwd ?? process.cwd();
+      const srcFile = path.join(srcRoot, 'app_docs/agentic_kpis.md');
+      const dstFile = path.join(tmpdir, 'app_docs/agentic_kpis.md');
+      fs.mkdirSync(path.dirname(dstFile), { recursive: true });
+      fs.copyFileSync(srcFile, dstFile);
+
+      execSync('git add "app_docs/agentic_kpis.md"', { stdio: 'pipe', cwd: tmpdir });
+      execSync('git commit -m "kpis: update agentic_kpis"', { stdio: 'pipe', cwd: tmpdir });
+      execSync(`git push origin HEAD:"${defaultBranch}"`, { stdio: 'pipe', cwd: tmpdir });
+
+      log(`Committed and pushed agentic_kpis.md to ${defaultBranch}`, 'success');
+      return true;
+    } finally {
+      cleanupKpiTempWorktree(cwd, tmpdir);
     }
-
-    execSync(`git fetch origin "${branch}"`, { stdio: 'pipe', cwd });
-    execSync(`git rebase --autostash "origin/${branch}"`, { stdio: 'pipe', cwd });
-    execSync(`git push origin "${branch}"`, { stdio: 'pipe', cwd });
-
-    log(`Committed and pushed agentic_kpis.md`, 'success');
-    return true;
   } catch (error) {
     log(`Failed to commit KPI file: ${error}`, 'error');
     return false;
