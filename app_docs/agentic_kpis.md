@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 136              | 2026-04-23 00:13:31 |
-| Longest Streak    | 136              | 2026-04-23 00:13:31 |
-| Total Plan Size   | 2427 lines       | 2026-04-23 00:13:31 |
-| Largest Plan Size | 678 lines        | 2026-04-23 00:13:31 |
-| Total Diff Size   | 2528248 lines    | 2026-04-23 00:13:31 |
-| Largest Diff Size | 418153 lines     | 2026-04-23 00:13:31 |
-| Average Presence  | 1.20             | 2026-04-23 00:13:31 |
+| Current Streak    | 187              | 2026-04-23 16:44:34 |
+| Longest Streak    | 187              | 2026-04-23 16:44:34 |
+| Total Plan Size   | 2086 lines       | 2026-04-23 16:44:34 |
+| Largest Plan Size | 678 lines        | 2026-04-23 16:44:34 |
+| Total Diff Size   | 2535490 lines    | 2026-04-23 16:44:34 |
+| Largest Diff Size | 418153 lines     | 2026-04-23 16:44:34 |
+| Average Presence  | 1.18             | 2026-04-23 16:44:34 |
 
 ## ADW KPIs
 
@@ -158,3 +158,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-04-22 | e1layl-github-actions-depau | 10           | /feature    | 1        | 0                 | 3427/7/21                       | 2026-04-22 21:37:54 | 2026-04-22 21:37:54 |
 | 2026-04-22 | 2sm4zt-slackreporter-first | 11           | /feature    | 1        | 0                 | 2715/5/18                       | 2026-04-22 22:20:34 | 2026-04-22 22:20:34 |
 | 2026-04-23 | 1j2fia-depauditsetupcommand | 12           | /feature    | 1        | 0                 | 0/27048/608                     | 2026-04-23 00:13:31 | 2026-04-23 00:13:31 |
+| 2026-04-23 | uzk6ah-use-favicon-from-goo  | 50           | /feature    | 1        | 0                 | 5819/1423/40                    | 2026-04-23 16:44:34 | 2026-04-23 16:44:34 |
