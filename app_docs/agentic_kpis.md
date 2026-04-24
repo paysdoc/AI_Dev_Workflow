@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 75              | 2026-04-23 18:01:33 |
-| Longest Streak    | 75              | 2026-04-23 18:01:33 |
-| Total Plan Size   | 2427 lines       | 2026-04-23 18:01:33 |
-| Largest Plan Size | 678 lines        | 2026-04-23 18:01:33 |
-| Total Diff Size   | 2546680 lines    | 2026-04-23 18:01:33 |
-| Largest Diff Size | 418153 lines     | 2026-04-23 18:01:33 |
-| Average Presence  | 1.28             | 2026-04-23 18:01:33 |
+| Current Streak    | 76              | 2026-04-24 16:23:33 |
+| Longest Streak    | 76              | 2026-04-24 16:23:33 |
+| Total Plan Size   | 2427 lines       | 2026-04-24 16:23:33 |
+| Largest Plan Size | 678 lines        | 2026-04-24 16:23:33 |
+| Total Diff Size   | 2563071 lines    | 2026-04-24 16:23:33 |
+| Largest Diff Size | 418153 lines     | 2026-04-24 16:23:33 |
+| Average Presence  | 1.28             | 2026-04-24 16:23:33 |
 
 ## ADW KPIs
 
@@ -160,3 +160,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-04-23 | 1j2fia-depauditsetupcommand | 12           | /feature    | 1          | 0                 | 0/27048/608                     | 2026-04-23 00:13:31 | 2026-04-23 00:13:31 |
 | 2026-04-23 | uzk6ah-use-favicon-from-goo | 50           | /feature    | 1          | 0                 | 5819/1423/40                    | 2026-04-23 16:44:34 | 2026-04-23 16:44:34 |
 | 2026-04-23 | 9s58sk-scraper-skeleton-wor | 51           | /feature    | 2          | 0                 | 9761/1429/71                    | 2026-04-23 18:01:33 | 2026-04-23 18:01:33 |
+| 2026-04-24 | wjdrru-rate-limiting-observ | 59           | /feature    | 1          | 0                 | 14961/1430/83                   | 2026-04-24 16:23:33 | 2026-04-24 16:23:33 |
