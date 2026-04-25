@@ -147,16 +147,13 @@ describe('handleCancelDirective', () => {
     mockExtractAdwId.mockReturnValue(null);
     const processedSets: MutableProcessedSets = {
       spawns: new Set([42, 99]),
-      merges: new Set([42, 100]),
     };
 
     handleCancelDirective(42, [], repoInfo, undefined, processedSets);
 
     expect(processedSets.spawns.has(42)).toBe(false);
-    expect(processedSets.merges.has(42)).toBe(false);
     // Other entries untouched
     expect(processedSets.spawns.has(99)).toBe(true);
-    expect(processedSets.merges.has(100)).toBe(true);
   });
 
   it('does not touch processedSets when not provided', () => {

@@ -302,6 +302,16 @@ Then(
   },
 );
 
+Then(
+  'handleCancelDirective does not reference processedSets.merges',
+  function () {
+    assert.ok(
+      !sharedCtx.fileContent.includes('processedSets.merges'),
+      `Expected "${sharedCtx.filePath}" NOT to reference processedSets.merges`,
+    );
+  },
+);
+
 // ── Cancel loop does not re-add to processedSpawns ───────────────────────────
 
 Then(

@@ -24,11 +24,11 @@ import { scanPauseQueue } from './pauseQueueScanner';
 import { runJanitorPass } from './devServerJanitor';
 import { resolveCronRepo, buildCronTargetRepoArgs } from './cronRepoResolver';
 import { filterEligibleIssues } from './cronIssueFilter';
+import { shouldDispatchMerge } from './mergeDispatchGate';
 
 const POLL_INTERVAL_MS = 20_000;
 const PR_POLL_INTERVAL_MS = 60_000;
 const processedSpawns = new Set<number>();
-const processedMerges = new Set<number>();
 const processedPRs = new Set<number>();
 let cycleCount = 0;
 
@@ -129,7 +129,7 @@ async function checkAndTrigger(): Promise<void> {
   for (const issue of issues) {
     const latestComment = issue.comments.length > 0 ? issue.comments[issue.comments.length - 1] : null;
     if (latestComment && isCancelComment(latestComment.body)) {
-      handleCancelDirective(issue.number, issue.comments, cronRepoInfo, cancelCwd, { spawns: processedSpawns, merges: processedMerges });
+      handleCancelDirective(issue.number, issue.comments, cronRepoInfo, cancelCwd, { spawns: processedSpawns });
       cancelledThisCycle.add(issue.number);
     }
   }
@@ -137,7 +137,7 @@ async function checkAndTrigger(): Promise<void> {
   const { eligible: candidates, filteredAnnotations } = filterEligibleIssues(
     issues,
     now,
-    { spawns: processedSpawns, merges: processedMerges },
+    { spawns: processedSpawns },
     GRACE_PERIOD_MS,
     resolveIssueWorkflowStage,
     cancelledThisCycle,
@@ -155,7 +155,10 @@ async function checkAndTrigger(): Promise<void> {
 
     // awaiting_merge: spawn merge orchestrator directly, skipping dependency/concurrency checks
     if (action === 'merge' && adwId) {
-      processedMerges.add(issue.number);
+      if (!shouldDispatchMerge(repoInfo, issue.number)) {
+        log(`merge orchestrator already in flight for issue #${issue.number}, deferring to next cycle`, 'info');
+        continue;
+      }
       log(`Spawning merge orchestrator for issue #${issue.number} adwId=${adwId}`, 'success');
       const child = spawn(
         'bunx',
@@ -194,7 +197,7 @@ async function checkAndTrigger(): Promise<void> {
     }
 
     // Only add to processedSpawns when actually spawning the SDLC workflow.
-    // The merge dedup is tracked separately in processedMerges so that an issue
+    // The merge path uses shouldDispatchMerge (spawn lock on disk) so an issue
     // spawned by this process can still be picked up by the merge path once it
     // transitions into awaiting_merge.
     processedSpawns.add(issue.number);

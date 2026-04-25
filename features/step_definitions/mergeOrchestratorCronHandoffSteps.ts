@@ -253,7 +253,7 @@ Then('the grace period check is skipped for awaiting_merge', function () {
     createdAt: new Date(now - 1000).toISOString(),
     updatedAt: new Date(now - 1000).toISOString(),
   };
-  const processed: ProcessedSets = { spawns: new Set(), merges: new Set() };
+  const processed: ProcessedSets = { spawns: new Set() };
   // Inject a resolver that returns awaiting_merge with very recent activity
   const result = evaluateIssue(issue, now, processed, 60_000, () => ({
     stage: 'awaiting_merge',
@@ -281,7 +281,7 @@ Then('the grace period check is applied normally', function () {
     createdAt: new Date(now - 1000).toISOString(),
     updatedAt: new Date(now - 1000).toISOString(),
   };
-  const processed: ProcessedSets = { spawns: new Set(), merges: new Set() };
+  const processed: ProcessedSets = { spawns: new Set() };
   const result = evaluateIssue(issue, now, processed, 60_000, () => ({
     stage: 'abandoned',
     adwId: 'test-active-123',
