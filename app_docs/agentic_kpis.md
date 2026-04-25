@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 133             | 2026-04-24 17:39:16 |
-| Longest Streak    | 133             | 2026-04-24 17:39:16 |
-| Total Plan Size   | 2086 lines       | 2026-04-24 17:39:16 |
-| Largest Plan Size | 678 lines        | 2026-04-24 17:39:16 |
-| Total Diff Size   | 2582119 lines    | 2026-04-24 17:39:16 |
-| Largest Diff Size | 418153 lines     | 2026-04-24 17:39:16 |
-| Average Presence  | 1.22             | 2026-04-24 17:39:16 |
+| Current Streak    | 134             | 2026-04-25 13:05:46 |
+| Longest Streak    | 134             | 2026-04-25 13:05:46 |
+| Total Plan Size   | 2086 lines       | 2026-04-25 13:05:46 |
+| Largest Plan Size | 678 lines        | 2026-04-25 13:05:46 |
+| Total Diff Size   | 2584902 lines    | 2026-04-25 13:05:46 |
+| Largest Diff Size | 418153 lines     | 2026-04-25 13:05:46 |
+| Average Presence  | 1.22             | 2026-04-25 13:05:46 |
 
 ## ADW KPIs
 
@@ -162,3 +162,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-04-23 | 9s58sk-scraper-skeleton-wor | 51           | /feature    | 2          | 0                 | 9761/1429/71                    | 2026-04-23 18:01:33 | 2026-04-23 18:01:33 |
 | 2026-04-24 | wjdrru-rate-limiting-observ | 59           | /feature    | 1          | 0                 | 14961/1430/83                   | 2026-04-24 16:23:33 | 2026-04-24 16:23:33 |
 | 2026-04-24 | dk7gyi-real-playwright-fetc | 52           | /feature    | 2          | 0                 | 17618/1430/107                  | 2026-04-24 17:39:16 | 2026-04-24 17:39:16 |
+| 2026-04-25 | hp5q8m-awaiting-merge-repla | 488          | /bug        | 1          | 0                 | 2439/344/27                     | 2026-04-25 13:05:46 | 2026-04-25 13:05:46 |
