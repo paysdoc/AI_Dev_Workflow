@@ -1094,3 +1094,12 @@
     - When troubleshooting orchestrators that are alive but wedged and not being automatically abandoned
     - When tuning `HUNG_DETECTOR_INTERVAL_CYCLES` or `HEARTBEAT_STALE_THRESHOLD_MS` for detection latency
     - When implementing the takeover handler (PRD slice #11) that consumes the `abandoned` state written by this sweep
+
+- app_docs/feature-hp5q8m-fix-merge-gate-approval-dispatch.md
+  - Conditions:
+    - When working with `adwMerge.tsx` merge gate logic or the `awaiting_merge` cron dispatch path
+    - When troubleshooting `awaiting_merge` issues that never dispatch after a human approves a PR
+    - When working with `fetchPRApprovalState` or `isApprovedFromReviewsList` in `adws/github/prApi.ts`
+    - When working with `shouldDispatchMerge` or `MergeDispatchDeps` in `adws/triggers/mergeDispatchGate.ts`
+    - When the `awaiting_approval` exit reason appears in logs or you need to understand why `workflowStage` was not written
+    - When `processedMerges` is referenced in old code or docs (it was removed — use spawn lock instead)
