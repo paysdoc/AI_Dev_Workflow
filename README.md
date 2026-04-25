@@ -241,7 +241,9 @@ Docker execution is entirely optional — the test suite runs identically on the
 │   │   └── tests.md
 │   ├── ubiquitous-language/
 │   │   └── SKILL.md
-│   └── write-a-prd/
+│   ├── write-a-prd/
+│   │   └── SKILL.md
+│   └── write-a-skill/
 │       └── SKILL.md
 └── settings.json
 adws/                   # ADW workflow system
@@ -442,6 +444,7 @@ adws/                   # ADW workflow system
 │   │   ├── cronRepoResolver.test.ts
 │   │   ├── cronStageResolver.test.ts
 │   │   ├── devServerJanitor.test.ts
+│   │   ├── mergeDispatchGate.test.ts
 │   │   ├── pauseQueueScanner.test.ts
 │   │   ├── spawnGate.test.ts
 │   │   ├── takeoverHandler.test.ts  # Unit tests for all takeoverHandler decision-tree branches
@@ -460,6 +463,7 @@ adws/                   # ADW workflow system
 │   ├── cronStageResolver.ts  # Cron stage resolution from top-level state file (testable)
 │   ├── issueDependencies.ts
 │   ├── issueEligibility.ts
+│   ├── mergeDispatchGate.ts  # Lock-aware gate deciding whether cron should dispatch adwMerge for an issue
 │   ├── pauseQueueScanner.ts  # Cron probe for paused issue queue
 │   ├── takeoverHandler.ts  # Candidate decision tree: evaluateCandidate composes spawnGate, processLiveness, agentState, remoteReconcile, and worktreeReset
 │   ├── trigger_cron.ts
