@@ -77,12 +77,16 @@ Feature: ## Cancel skips current cycle only, re-spawns on next cron cycle
   # ===================================================================
   # 4. handleCancelDirective still cleans the permanent dedup sets
   # ===================================================================
+  # NOTE (issue #488): processedMerges has been removed entirely; the
+  # merges field has been dropped from MutableProcessedSets, and the
+  # awaiting_merge dedup is now governed by the spawn lock via
+  # shouldDispatchMerge. handleCancelDirective only cleans processedSpawns.
 
-  @adw-444
-  Scenario: handleCancelDirective still deletes the issue from processedSpawns and processedMerges
+  @adw-444 @adw-488
+  Scenario: handleCancelDirective still deletes the issue from processedSpawns
     Given "adws/triggers/cancelHandler.ts" is read
     Then handleCancelDirective deletes the issueNumber from processedSets.spawns
-    And handleCancelDirective deletes the issueNumber from processedSets.merges
+    And handleCancelDirective does not reference processedSets.merges
 
   @adw-444
   Scenario: The cancel path in cron does not re-add the issue to processedSpawns after handleCancelDirective

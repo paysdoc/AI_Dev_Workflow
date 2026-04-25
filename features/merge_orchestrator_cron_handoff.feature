@@ -160,10 +160,16 @@ Feature: Thin merge orchestrator and cron awaiting_merge handoff
     Then awaiting_merge issues bypass classifyAndSpawnWorkflow
     And are handled by a dedicated merge spawn path
 
-  @adw-dcy9qz-create-thin-merge-or
-  Scenario: Cron adds awaiting_merge issue to processedIssues after spawning adwMerge
+  # NOTE (issue #488): the cron no longer maintains a process-lifetime
+  # processedMerges Set. Merge dedup is now performed at dispatch time by
+  # shouldDispatchMerge, which consults the spawn lock instead. See
+  # merge_dispatch_gate_lock_aware.feature for the new contract.
+
+  @adw-dcy9qz-create-thin-merge-or @adw-488
+  Scenario: Cron consults shouldDispatchMerge before spawning adwMerge for awaiting_merge candidates
     Given the file "adws/triggers/trigger_cron.ts" is read
-    Then the issue number is added to processedIssues after spawning adwMerge.tsx
+    Then "shouldDispatchMerge" is called before the merge spawn for awaiting_merge candidates
+    And the file does not contain "processedMerges"
 
   # ═══════════════════════════════════════════════════════════════════════════
   # 10. WorkflowStage type
