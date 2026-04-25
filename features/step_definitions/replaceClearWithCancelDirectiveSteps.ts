@@ -119,6 +119,20 @@ Then(
 );
 
 Then(
+  'the file exports a type {string} with {string}',
+  function (typeName: string, fieldA: string) {
+    assert.ok(
+      sharedCtx.fileContent.includes(typeName),
+      `Expected "${sharedCtx.filePath}" to export type "${typeName}"`,
+    );
+    assert.ok(
+      sharedCtx.fileContent.includes(fieldA),
+      `Expected "${sharedCtx.filePath}" to include field "${fieldA}"`,
+    );
+  },
+);
+
+Then(
   'the file exports a function {string} accepting issueNumber, comments, repoInfo, optional cwd, and optional processedSets',
   function (funcName: string) {
     assert.ok(
@@ -270,6 +284,20 @@ Then(
     assert.ok(
       sharedCtx.fileContent.includes('processedSets.merges.delete'),
       `Expected "${sharedCtx.filePath}" to call processedSets.merges.delete`,
+    );
+  },
+);
+
+Then(
+  'when processedSets is provided, handleCancelDirective deletes the issueNumber from spawns',
+  function () {
+    assert.ok(
+      sharedCtx.fileContent.includes('processedSets.spawns.delete'),
+      `Expected "${sharedCtx.filePath}" to call processedSets.spawns.delete`,
+    );
+    assert.ok(
+      !sharedCtx.fileContent.includes('processedSets.merges.delete'),
+      `Expected "${sharedCtx.filePath}" NOT to call processedSets.merges.delete (merges set removed in #488)`,
     );
   },
 );

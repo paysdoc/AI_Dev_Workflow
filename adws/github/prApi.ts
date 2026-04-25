@@ -273,10 +273,60 @@ export function approvePR(prNumber: number, repoInfo: RepoInfo): { success: bool
   }
 }
 
+interface PRReview {
+  readonly author: { readonly login: string } | null;
+  readonly state: string;
+  readonly submittedAt: string;
+}
+
 /**
- * Fetches the approval state of a PR by querying GitHub reviews.
- * Returns true if at least one review has state 'APPROVED'.
- * Returns false on parse error or if no approved review exists.
+ * Per-reviewer-latest approval aggregation fallback.
+ *
+ * Takes only APPROVED and CHANGES_REQUESTED reviews (ignoring COMMENTED and
+ * DISMISSED), picks the latest review per reviewer, and returns true iff every
+ * reviewer's latest substantive review is APPROVED and there is at least one
+ * such reviewer.
+ *
+ * Used when `reviewDecision` is null (no branch protection / no required
+ * reviewers on the target repo).
+ */
+export function isApprovedFromReviewsList(reviews: readonly PRReview[]): boolean {
+  const substantive = reviews.filter(
+    (r) => r.state === 'APPROVED' || r.state === 'CHANGES_REQUESTED',
+  );
+  if (substantive.length === 0) return false;
+
+  // Build a map of reviewer → latest substantive review (sorted by submittedAt)
+  const latestByAuthor = new Map<string, PRReview>();
+  for (const review of substantive) {
+    if (!review.author) continue;
+    const login = review.author.login;
+    const existing = latestByAuthor.get(login);
+    if (!existing || review.submittedAt > existing.submittedAt) {
+      latestByAuthor.set(login, review);
+    }
+  }
+
+  // All reviewers must have their latest substantive review as APPROVED
+  for (const review of latestByAuthor.values()) {
+    if (review.state !== 'APPROVED') return false;
+  }
+  return latestByAuthor.size > 0;
+}
+
+/**
+ * Fetches the approval state of a PR by querying GitHub reviewDecision and reviews.
+ *
+ * Primary path: uses the server-computed `reviewDecision` field.
+ *   - 'APPROVED'  → true
+ *   - any other non-null value → false
+ *   - null        → fall back to isApprovedFromReviewsList
+ *
+ * Fallback: calls isApprovedFromReviewsList with the per-review list when
+ * `reviewDecision` is null (no branch protection / no required reviewers).
+ *
+ * Returns false on parse error.
+ *
  * @param prNumber - The PR number to check
  * @param repoInfo - Repository owner and repo name
  */
@@ -284,10 +334,19 @@ export function fetchPRApprovalState(prNumber: number, repoInfo: RepoInfo): bool
   const { owner, repo } = repoInfo;
   try {
     const json = execWithRetry(
-      `gh pr view ${prNumber} --repo ${owner}/${repo} --json reviews`,
+      `gh pr view ${prNumber} --repo ${owner}/${repo} --json reviewDecision,reviews`,
     );
-    const result = JSON.parse(json) as { reviews: { state: string }[] };
-    return (result.reviews || []).some((r) => r.state === 'APPROVED');
+    const result = JSON.parse(json) as {
+      reviewDecision: string | null;
+      reviews: PRReview[];
+    };
+    const { reviewDecision, reviews } = result;
+
+    if (reviewDecision === 'APPROVED') return true;
+    if (reviewDecision !== null && reviewDecision !== undefined) return false;
+
+    // reviewDecision is null — fall back to per-reviewer aggregation
+    return isApprovedFromReviewsList(reviews || []);
   } catch (error) {
     log(`fetchPRApprovalState: failed to fetch reviews for PR #${prNumber}: ${error}`, 'warn');
     return false;

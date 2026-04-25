@@ -38,14 +38,12 @@ export interface EligibleIssue {
 }
 
 /**
- * Dedup signals split by event type. The cron tracks two distinct lifecycle
- * events per issue: spawning the SDLC workflow, and spawning the merge
- * orchestrator. Conflating them caused issues that this process originally
- * spawned to be invisible to the merge path once they reached `awaiting_merge`.
+ * Dedup signals for the cron. Tracks which issues have had their SDLC workflow
+ * spawned by this process. The merge path uses the spawn lock on disk
+ * (via `shouldDispatchMerge`) rather than an in-memory set.
  */
 export interface ProcessedSets {
   readonly spawns: ReadonlySet<number>;
-  readonly merges: ReadonlySet<number>;
 }
 
 /**
@@ -54,16 +52,14 @@ export interface ProcessedSets {
  * `awaiting_merge` bypasses the grace period entirely — the original orchestrator
  * has already exited and there is no race condition risk.
  *
- * Dedup is split: `processed.spawns` tracks issues whose SDLC workflow this
- * process has already spawned; `processed.merges` tracks issues whose merge
- * orchestrator this process has already spawned. The two events have different
- * lifecycles, so an issue in `spawns` may still be eligible for the merge path
- * once it transitions into `awaiting_merge`.
+ * `processed.spawns` tracks issues whose SDLC workflow this process has already
+ * spawned. The merge path uses the spawn lock on disk (via `shouldDispatchMerge`)
+ * so an issue in `spawns` may still be eligible for the merge path once it
+ * transitions into `awaiting_merge`.
  *
  * @param issue                - The issue to evaluate
  * @param now                  - Current timestamp in ms
- * @param processed            - Sets of issue numbers already queued this cycle, split
- *                               by event type (spawns vs merges)
+ * @param processed            - Set of issue numbers already spawned this cycle
  * @param gracePeriodMs        - Minimum ms of inactivity before a fresh issue is eligible
  * @param resolveStage         - Injectable stage resolver (defaults to the real implementation)
  * @param cancelledThisCycle   - Issue numbers that were cancelled earlier in the current
@@ -88,13 +84,11 @@ export function evaluateIssue(
   // into awaiting_merge, and the merge orchestrator must be allowed to run.
   const resolution = resolveStage(issue.comments);
 
-  // awaiting_merge bypasses grace period — spawn merge orchestrator immediately
+  // awaiting_merge bypasses grace period — spawn merge orchestrator immediately.
+  // Dedup is handled by shouldDispatchMerge (spawn lock on disk), not an in-memory set.
   if (resolution.stage === 'awaiting_merge') {
     if (!resolution.adwId) {
       return { eligible: false, reason: 'awaiting_merge_no_adwid' };
-    }
-    if (processed.merges.has(issue.number)) {
-      return { eligible: false, reason: 'processed' };
     }
     return { eligible: true, action: 'merge', adwId: resolution.adwId };
   }

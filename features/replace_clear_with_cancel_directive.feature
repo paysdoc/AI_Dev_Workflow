@@ -58,7 +58,7 @@ Feature: Replace ## Clear with ## Cancel: full issue cleanup directive
   @adw-425 @regression
   Scenario: cancelHandler.ts exports MutableProcessedSets type
     Given "adws/triggers/cancelHandler.ts" is read
-    Then the file exports a type "MutableProcessedSets" with "spawns: Set<number>" and "merges: Set<number>"
+    Then the file exports a type "MutableProcessedSets" with "spawns: Set<number>"
 
   @adw-425 @regression
   Scenario: cancelHandler.ts exports handleCancelDirective function
@@ -126,7 +126,7 @@ Feature: Replace ## Clear with ## Cancel: full issue cleanup directive
   @adw-425 @regression
   Scenario: handleCancelDirective removes issue from processedSets when provided
     Given "adws/triggers/cancelHandler.ts" is read
-    Then when processedSets is provided, handleCancelDirective deletes the issueNumber from both spawns and merges
+    Then when processedSets is provided, handleCancelDirective deletes the issueNumber from spawns
 
   @adw-425
   Scenario: handleCancelDirective skips processedSets cleanup when not provided
