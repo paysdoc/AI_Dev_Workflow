@@ -102,15 +102,35 @@ function pushBranchChanges(branchName: string, cwd: string): boolean {
  * Returns true when the merge error indicates a conflict (race condition).
  * Checks for known GitHub CLI / git conflict-related error strings.
  */
-function isMergeConflictError(error: string): boolean {
+export function isMergeConflictError(error: string): boolean {
   const lower = error.toLowerCase();
   return (
     lower.includes('conflict') ||
     lower.includes('not mergeable') ||
+    lower.includes('cannot be cleanly created') ||
     lower.includes('merge conflict') ||
     lower.includes('dirty') ||
     lower.includes('behind')
   );
+}
+
+/**
+ * Syncs the local worktree to origin/<headBranch> so subsequent operations
+ * reason about the same commit GitHub will merge. Best-effort — failures are
+ * logged as warnings and the loop proceeds against the existing worktree.
+ */
+function syncWorktreeToOriginHead(headBranch: string, cwd: string): void {
+  try {
+    execSync(`git fetch origin "${headBranch}"`, { stdio: 'pipe', cwd });
+  } catch (error) {
+    log(`Failed to fetch origin/${headBranch}: ${error}`, 'warn');
+    return;
+  }
+  try {
+    execSync(`git reset --hard "origin/${headBranch}"`, { stdio: 'pipe', cwd });
+  } catch (error) {
+    log(`Failed to reset worktree to origin/${headBranch}: ${error}`, 'warn');
+  }
 }
 
 /**
@@ -132,6 +152,9 @@ export async function mergeWithConflictResolution(
   specPath: string,
 ): Promise<{ success: boolean; error?: string }> {
   let lastMergeError = '';
+
+  // Pull origin's view of the head branch into the worktree so checkMergeConflicts and resolveConflictsViaAgent reason about the same commit GitHub will merge.
+  syncWorktreeToOriginHead(headBranch, worktreePath);
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     log(`Auto-merge attempt ${attempt}/${maxAttempts} for PR #${prNumber}`, 'info');
