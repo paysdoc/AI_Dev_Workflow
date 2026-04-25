@@ -241,7 +241,9 @@ Docker execution is entirely optional — the test suite runs identically on the
 │   │   └── tests.md
 │   ├── ubiquitous-language/
 │   │   └── SKILL.md
-│   └── write-a-prd/
+│   ├── write-a-prd/
+│   │   └── SKILL.md
+│   └── write-a-skill/
 │       └── SKILL.md
 └── settings.json
 adws/                   # ADW workflow system
