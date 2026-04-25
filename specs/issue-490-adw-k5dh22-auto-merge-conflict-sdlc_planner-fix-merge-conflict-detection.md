@@ -124,6 +124,10 @@ The file must use Vitest and follow the patterns in `adws/triggers/__tests__/mer
 
 Use `vi.mocked(execSync)` with sequenced `.mockImplementationOnce(...)` to drive each test scenario. Capture all calls so order can be asserted.
 
+The test file MUST contain identifying string anchors so the BDD step matchers in step 5 can confirm the scenarios are exercised:
+- Test 2 (loop continuation on `not mergeable`) MUST contain a self-documenting phrase such as the literal `'does not break'` (e.g., as a `describe` / `it` title or a `// does not break` comment) AND a `toHaveBeenCalledTimes(2)` assertion against the `mergePR` mock so the matcher in step 5 can verify both signals.
+- Test 3 (stale-local-worktree-but-remote-conflicting recovery) MUST contain the literal phrase `'remote-base-diverged-from-local-worktree'` (e.g., as a `describe` / `it` title or a `// remote-base-diverged-from-local-worktree scenario` comment) so the matcher in step 5 can verify Test 3 has been authored.
+
 ### 5. Add the step-definitions file `features/step_definitions/fixRemoteOnlyMergeConflictDetectionSteps.ts`
 
 Reuse `sharedCtx` from `commonSteps.ts` for file content. Implement only the steps that the existing common file does not already cover.
@@ -135,6 +139,8 @@ File-shape steps:
 - `Then('both the success and failure branches of the dry-run abort the merge before returning', function () { ... })` — assert that the `checkMergeConflicts` body contains at least two occurrences of `git merge --abort` (one in the try-block return-false path, one in the catch-block return-true path).
 - `Then('the failed-fetch path returns false from checkMergeConflicts', function () { ... })` — assert that the catch block on the fetch invocation contains a `return false` (search for the `Failed to fetch origin/` log line and verify the next `return` literal in the slice is `return false`).
 - `Then('the non-conflict break is only reached when isMergeConflictError returns false', function () { ... })` — assert that the source contains a literal `if (!isMergeConflictError(lastMergeError))` followed by a `break` within the next ~3 lines.
+- `Then('the test exercises a remote-base-diverged-from-local-worktree scenario', function () { ... })` — operate on `sharedCtx.fileContent` (loaded via `Given "adws/triggers/__tests__/autoMergeHandler.test.ts" is read`); assert the file contains the literal phrase `'remote-base-diverged-from-local-worktree'` (matches the `describe` / `it` title or comment anchor required by step 4 Test 3).
+- `Then('the test asserts the loop does not break after the first attempt for that error', function () { ... })` — operate on `sharedCtx.fileContent`; assert the file contains both the phrase `'does not break'` and the substring `'toHaveBeenCalledTimes(2)'` (the two anchors required by step 4 Test 2 — the descriptive title/comment plus the concrete assertion).
 
 Behavioural steps (no real process execution — these scenarios drive `mergeWithConflictResolution` through stubbed deps in-process):
 
