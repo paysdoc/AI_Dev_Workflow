@@ -20,7 +20,6 @@ import type { RepoInfo } from '../github/githubApi';
 /** Mutable dedup sets passed in from the cron trigger so cancelled issues skip this cycle. */
 export interface MutableProcessedSets {
   spawns: Set<number>;
-  merges: Set<number>;
 }
 
 /**
@@ -91,7 +90,6 @@ export function handleCancelDirective(
   // 6. Remove from cron dedup sets so issue re-spawns next cycle
   if (processedSets !== undefined) {
     processedSets.spawns.delete(issueNumber);
-    processedSets.merges.delete(issueNumber);
     log(`Cancel #${issueNumber}: removed from processedSets`);
   }
 

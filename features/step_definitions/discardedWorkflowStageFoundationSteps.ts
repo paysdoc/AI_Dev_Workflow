@@ -71,7 +71,7 @@ function makeTestIssue(number: number, updatedMsAgo = GRACE_PERIOD_MS * 10): Cro
 }
 
 function noProcessed(): ProcessedSets {
-  return { spawns: new Set<number>(), merges: new Set<number>() };
+  return { spawns: new Set<number>() };
 }
 
 // ── WorkflowStage union ────────────────────────────────────────────────────

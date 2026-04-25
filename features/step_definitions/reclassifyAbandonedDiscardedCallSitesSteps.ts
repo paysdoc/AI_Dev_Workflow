@@ -90,7 +90,7 @@ function makeBaseDeps460(writeCalls: WriteCalls, overrides: Partial<MergeDeps> =
     commentOnPR: (() => undefined) as unknown as MergeDeps['commentOnPR'],
     getPlanFilePath: (() => '') as unknown as MergeDeps['getPlanFilePath'],
     planFileExists: (() => false) as unknown as MergeDeps['planFileExists'],
-    issueHasLabel: (() => false) as unknown as MergeDeps['issueHasLabel'],
+    fetchPRApprovalState: (() => true) as unknown as MergeDeps['fetchPRApprovalState'],
     ...overrides,
   };
 }
