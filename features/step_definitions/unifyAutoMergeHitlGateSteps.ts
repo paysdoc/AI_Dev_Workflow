@@ -336,6 +336,7 @@ When(
       issueNumber,
       _twoTickCtx.adwId,
       { owner: 'acme', repo: 'widgets' },
+      '/base/repo',
       makeTwoTickDeps(_twoTickCtx.firstHitl, _twoTickCtx.firstApproval,
         () => { _firstMergeWithConflictResolutionCalled = true; }),
     );
@@ -344,6 +345,7 @@ When(
       issueNumber,
       _twoTickCtx.adwId,
       { owner: 'acme', repo: 'widgets' },
+      '/base/repo',
       makeTwoTickDeps(_twoTickCtx.secondHitl, _twoTickCtx.secondApproval,
         () => { _secondMergeWithConflictResolutionCalled = true; }),
     );

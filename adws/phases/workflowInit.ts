@@ -228,7 +228,7 @@ export async function initializeWorkflow(
         copyEnvToWorktree(existingWorktree, targetRepoWorkspacePath);
         worktreePath = existingWorktree;
       } else {
-        worktreePath = ensureWorktree(branchName, defaultBranch);
+        worktreePath = ensureWorktree(branchName, defaultBranch, process.cwd());
         copyClaudeCommandsToWorktree(worktreePath);
         fetchAndResetToRemote(defaultBranch, worktreePath);
       }

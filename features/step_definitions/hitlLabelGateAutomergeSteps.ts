@@ -687,6 +687,7 @@ When(
       issueNumber,
       _mergeCtx.adwId,
       { owner: 'acme', repo: 'widgets' },
+      '/base/repo',
       deps,
     );
   },
@@ -783,6 +784,7 @@ When(
       99,
       _mergeCtx.adwId,
       { owner: 'acme', repo: 'widgets' },
+      '/base/repo',
       deps,
     );
   },

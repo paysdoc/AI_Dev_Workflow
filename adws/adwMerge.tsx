@@ -25,6 +25,7 @@ import {
   AgentStateManager,
   log,
   ensureLogsDirectory,
+  ensureTargetRepoWorkspace,
 } from './core';
 import { findOrchestratorStatePath } from './core/stateHelpers';
 import { commentOnIssue, commentOnPR, defaultFindPRByBranch, fetchPRApprovalState, issueHasLabel, type RawPR, type RepoInfo } from './github';
@@ -48,7 +49,7 @@ export interface MergeDeps {
   readonly findPRByBranch: (branchName: string, repoInfo: RepoInfo) => RawPR | null;
   readonly issueHasLabel: (issueNumber: number, labelName: string, repoInfo: RepoInfo) => boolean;
   readonly fetchPRApprovalState: (prNumber: number, repoInfo: RepoInfo) => boolean;
-  readonly ensureWorktree: (branchName: string, baseBranch?: string) => string;
+  readonly ensureWorktree: (branchName: string, baseBranch: string, baseRepo: string) => string;
   readonly ensureLogsDirectory: (adwId: string) => string;
   readonly mergeWithConflictResolution: typeof mergeWithConflictResolution;
   readonly writeTopLevelState: (adwId: string, state: Partial<AgentState>) => void;
@@ -66,6 +67,7 @@ export async function executeMerge(
   issueNumber: number,
   adwId: string,
   repoInfo: RepoInfo,
+  baseRepoPath: string,
   deps: MergeDeps,
 ): Promise<MergeRunResult> {
   // 1. Read and validate top-level state
@@ -139,7 +141,7 @@ export async function executeMerge(
   // 6. PR is open — ensure worktree and merge
   let worktreePath: string;
   try {
-    worktreePath = deps.ensureWorktree(branchName, baseBranch);
+    worktreePath = deps.ensureWorktree(branchName, baseBranch, baseRepoPath);
   } catch (error) {
     log(`adwMerge: failed to ensure worktree for '${branchName}': ${error}`, 'error');
     deps.writeTopLevelState(adwId, { workflowStage: 'abandoned' });
@@ -235,9 +237,11 @@ async function main(): Promise<void> {
   const repoId = buildRepoIdentifier(targetRepo);
   const repoInfo: RepoInfo = { owner: repoId.owner, repo: repoId.repo };
 
+  const baseRepoPath = targetRepo ? ensureTargetRepoWorkspace(targetRepo) : process.cwd();
+
   let result: Awaited<ReturnType<typeof executeMerge>> | undefined;
   const acquired = await runWithRawOrchestratorLifecycle(repoInfo, issueNumber, adwId, async () => {
-    result = await executeMerge(issueNumber, adwId, repoInfo, buildDefaultDeps());
+    result = await executeMerge(issueNumber, adwId, repoInfo, baseRepoPath, buildDefaultDeps());
   });
   if (!acquired) {
     log(`Issue #${issueNumber}: spawn lock already held by another orchestrator; exiting.`, 'warn');

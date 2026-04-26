@@ -101,7 +101,7 @@ async function ensureMergeExecuted(world: Record<string, unknown>): Promise<void
   if (world['mergeResult'] !== undefined) return;
   assert.ok(world['mergeDeps'], 'Expected mergeDeps to be configured via a Given step');
   world['mergeResult'] = await executeMerge(
-    42, 'test-adw-id', REPO_INFO, world['mergeDeps'] as MergeDeps,
+    42, 'test-adw-id', REPO_INFO, '/base/repo', world['mergeDeps'] as MergeDeps,
   );
 }
 
@@ -193,7 +193,7 @@ Given('executeMerge is invoked and ensureWorktree throws an error', function () 
 // ── When: exit paths (run executeMerge if not already run by Given) ────────────
 
 When(/^the \S+ exit path is taken$/, async function () {
-  this.mergeResult = await executeMerge(42, 'test-adw-id', REPO_INFO, this.mergeDeps as MergeDeps);
+  this.mergeResult = await executeMerge(42, 'test-adw-id', REPO_INFO, '/base/repo', this.mergeDeps as MergeDeps);
 });
 
 // ── Given/When: webhook handler ────────────────────────────────────────────────
