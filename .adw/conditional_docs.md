@@ -1,5 +1,13 @@
 # Conditional Documentation
 
+- app_docs/feature-2evbnk-bdd-smoke-surface-scenarios.md
+  - Conditions:
+    - When working with the `features/regression/smoke/` or `features/regression/surfaces/` BDD scenario suites
+    - When extending or troubleshooting the `@regression` Cucumber lifecycle hooks in `features/regression/support/hooks.ts`
+    - When adding new surface matrix rows or smoke scenarios and need to understand the manifest fixture schema
+    - When `scenarioProof.ts` reports a tag as FAILED despite a clean cucumber tally (0 failed, 0 undefined)
+    - When flipping When-step pending markers for the Issue #3 cutover
+
 - app_docs/feature-hk12ct-kpi-commits-land-on-default-branch.md
   - Conditions:
     - When working with `commitAndPushKpiFile()` in `adws/vcs/commitOperations.ts`
