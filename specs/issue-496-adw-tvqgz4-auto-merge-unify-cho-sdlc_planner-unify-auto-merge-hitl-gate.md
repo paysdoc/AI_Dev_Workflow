@@ -98,7 +98,7 @@ Use these files to implement the feature:
 
 ### New files
 
-- `features/auto_merge_unified_hitl_or_approved_gate.feature` — New BDD feature with `@adw-496` tag. Six scenarios per acceptance criteria: four (hitl × approved) matrix scenarios, one chore unified-path scenario (verifies chore-level conditional approval), one empty-string `reviewDecision` fallback scenario.
+- `features/unify_auto_merge_hitl_gate.feature` — New BDD feature with `@adw-496` tag. Covers the issue's stated minima (four rules-matrix scenarios, one chore unified-path scenario, one empty-string `reviewDecision` fallback scenario) plus source-file inspection scenarios that pin the import/dependency contracts (`adwMerge.tsx` imports `issueHasLabel`/`fetchPRApprovalState`; `MergeDeps` declares both; `buildDefaultDeps` wires both; the gate-closed branch returns `hitl_blocked_unapproved` and posts no comment) and documentation scenarios (README documents the four rules, the pre-add workflow, and the `## Cancel` interaction). Organised into seven sections: (1) `fetchPRApprovalState` empty-string fallback, (2) `adwMerge.tsx` unified gate, (3) the four canonical rules matrix, (4) chore unified path, (5) hitl-on-PR-is-never-read invariants, (6) README/docs assertions, (7) TypeScript type-check.
 - `features/step_definitions/autoMergeUnifiedGateSteps.ts` — Step definitions for the new feature file. Reuses existing helpers from `features/step_definitions/hitlLabelGateAutomergeSteps.ts` and `features/step_definitions/autoMergeApprovedPrSteps.ts` where possible.
 
 ### Files to read for context (do not modify)
@@ -238,95 +238,46 @@ Execute every step in order, top to bottom.
 
 - Grep `adws/adwChore.tsx` for `mergePR(`. There must be zero matches. (The chore exits to `awaiting_merge` and lets `adwMerge.tsx` perform the merge.) If a stale `mergePR` call is found, remove it.
 
-### Step 10 — Update existing contradicting BDD scenarios in `features/hitl_label_gate_automerge.feature`
+### Step 10 — Reconcile existing BDD scenarios in `features/hitl_label_gate_automerge.feature` with the unified gate
 
 - Open `features/hitl_label_gate_automerge.feature`.
-- Remove or rewrite these scenarios (they assert behavior that this issue intentionally reverses):
-  - Line 105 `'adwMerge.tsx no longer imports issueHasLabel'` — DELETE (the import is restored).
-  - Line 110 `'adwMerge.tsx no longer references the hitl label'` — DELETE (the reference is restored).
-  - Lines 115-118 `'MergeDeps interface drops issueHasLabel and adds fetchPRApprovalState'` — REWRITE to `'MergeDeps interface declares both fetchPRApprovalState and issueHasLabel'`.
-  - Lines 121-124 `'buildDefaultDeps wires fetchPRApprovalState and drops issueHasLabel'` — REWRITE to `'buildDefaultDeps returns an object containing both fetchPRApprovalState and issueHasLabel'`.
-  - Lines 137-139 `'adwMerge.tsx skips mergeWithConflictResolution when the PR is not approved'` — REWRITE: skip is now conditional on `(hitlOnIssue && !isApproved)`, not approval alone.
-  - Lines 142-144 `'adwMerge.tsx not-approved branch returns abandoned with reason "awaiting_approval"'` — REWRITE: reason is now `'hitl_blocked_unapproved'`.
-  - Lines 152-154 `'adwMerge.tsx logs a not-approved message that names the PR'` — REWRITE: log message names both issue and PR and mentions `hitl`.
-  - Lines 167-173 `'executeMerge returns awaiting_approval and skips merge when fetchPRApprovalState returns false'` — REWRITE to require `hitl` ALSO present; rename reason to `hitl_blocked_unapproved`.
-  - Lines 183-188 `'adwMerge no longer depends on the hitl label being absent for the merge to proceed'` — REWRITE: the merge proceeds when EITHER `hitl` is absent OR approval is present.
-- Add a new top-of-file comment summarising the rule change ("Originally #488 replaced hitl with approval; #496 unified the two into `(no hitl) OR approved`").
+- The file's top-level tag line must include `@adw-496` alongside `@adw-488` so the regression suite picks up the rewritten scenarios under both feature tags.
+- The file's preamble must explain that #488 was a single-condition gate (approval-only) and #496 reverses it into the unified `(no hitl on issue) OR (PR is approved)` rule documented in `unify_auto_merge_hitl_gate.feature`.
+- Each #488 scenario that previously asserted the *removal* of `issueHasLabel` from `adwMerge.tsx` must be inverted (and re-tagged `@adw-488 @adw-496`) so it now asserts the import, reference, and dependency contracts of the unified gate:
+  - `adwMerge.tsx imports issueHasLabel for the unified hitl gate`
+  - `adwMerge.tsx references the hitl label for the unified gate`
+  - `MergeDeps interface declares both issueHasLabel and fetchPRApprovalState`
+  - `buildDefaultDeps wires both fetchPRApprovalState and issueHasLabel`
+- The gate-closed scenarios must be rewritten so the defer condition is `(hitl on issue AND PR not approved)`, the reason is `hitl_blocked_unapproved` (renamed from `awaiting_approval`), and the log message contains `deferring`. Specifically:
+  - `adwMerge.tsx skips mergeWithConflictResolution when the gate is closed (hitl on issue and PR not approved)`
+  - `adwMerge.tsx gate-closed branch returns abandoned with reason "hitl_blocked_unapproved"`
+  - `adwMerge.tsx gate-closed branch does not call writeTopLevelState`
+  - `adwMerge.tsx logs a deferring message when the gate is closed`
+- The `executeMerge` behavioural defer scenario (previously asserted `awaiting_approval` on `fetchPRApprovalState=false` alone) must require `hitl` *also* present and assert `reason "hitl_blocked_unapproved"`.
+- The `executeMerge` rule-3 behavioural scenario must assert that `issueHasLabel` is consulted but a true `fetchPRApprovalState` overrides the hitl block and the merge proceeds via `mergeWithConflictResolution`.
+- Inline NOTE comments above each rewritten block must explain the #488 → #496 transition so future readers can see why the original assertions were inverted.
 
 ### Step 11 — Create the new `@adw-496` BDD feature file
 
-- Create `features/auto_merge_unified_hitl_or_approved_gate.feature` with this structure:
-  ```gherkin
-  @adw-496
-  Feature: Unified auto-merge gate — (no hitl on issue) OR (PR approved)
-
-    Issue #496: restores hitl as a first-class merge gate while keeping approval as
-    the second satisfier. The gate is stateless and re-evaluated on every cron tick.
-
-    Background:
-      Given the ADW codebase is checked out
-
-    @adw-496 @regression
-    Scenario: Rule 1 — no hitl, PR not approved → merge fires
-      Given an awaiting_merge state file for adw-id "rule1" with branch "feature/r1" and an open PR
-      And the issue does not have the "hitl" label
-      And fetchPRApprovalState returns false for the PR
-      When executeMerge is invoked for issue 1001 with the injected deps
-      Then mergeWithConflictResolution is called with the PR number
-      And the outcome is "completed" or the merge attempt is reached
-
-    @adw-496 @regression
-    Scenario: Rule 2 — hitl on issue, PR not approved → defer (no state write, no comment)
-      Given an awaiting_merge state file for adw-id "rule2" with branch "feature/r2" and an open PR
-      And the issue has the "hitl" label
-      And fetchPRApprovalState returns false for the PR
-      When executeMerge is invoked for issue 1002 with the injected deps
-      Then mergeWithConflictResolution is not called
-      And the outcome is "abandoned" with reason "hitl_blocked_unapproved"
-      And writeTopLevelState is not called
-      And commentOnIssue is not called
-      And commentOnPR is not called
-
-    @adw-496 @regression
-    Scenario: Rule 3 — hitl on issue, PR approved → merge fires (approval satisfies gate)
-      Given an awaiting_merge state file for adw-id "rule3" with branch "feature/r3" and an open PR
-      And the issue has the "hitl" label
-      And fetchPRApprovalState returns true for the PR
-      When executeMerge is invoked for issue 1003 with the injected deps
-      Then mergeWithConflictResolution is called with the PR number
-      And the outcome is "completed" or the merge attempt is reached
-
-    @adw-496 @regression
-    Scenario: Rule 4 — hitl removed without approval → eligible for merge again (gate stateless)
-      Given an awaiting_merge state file for adw-id "rule4" with branch "feature/r4" and an open PR
-      And the issue had the "hitl" label on a previous cron tick but does not have it now
-      And fetchPRApprovalState returns false for the PR
-      When executeMerge is invoked for issue 1004 with the injected deps
-      Then mergeWithConflictResolution is called with the PR number
-      And the outcome is "completed" or the merge attempt is reached
-
-    @adw-496 @regression
-    Scenario: Chore unified path — chore exits in awaiting_merge and skips approval when hitl is on issue
-      Given "adws/adwChore.tsx" is read
-      Then the file does not contain "mergePR("
-      And the file calls "approvePR" only when "issueHasLabel" returns false for "hitl"
-      And the file writes workflowStage "awaiting_merge" after PR creation
-
-    @adw-496 @regression
-    Scenario: Empty-string reviewDecision falls back to per-reviewer aggregation
-      Given "adws/github/prApi.ts" is read
-      Then the function "fetchPRApprovalState" treats reviewDecision "" as "no decision"
-      And the function "fetchPRApprovalState" calls "isApprovedFromReviewsList" when reviewDecision is the empty string
-  ```
-- Mirror the Background structure from `features/hitl_label_gate_automerge.feature`.
+- Create `features/unify_auto_merge_hitl_gate.feature`, tagged `@adw-496` at the top, with a preamble explaining the four canonical rules and the empty-string `reviewDecision` prerequisite, and structured into seven sections:
+  1. **`fetchPRApprovalState` empty-string fallback** — six scenarios covering: source-file inspection that asserts the function treats empty-string `reviewDecision` the same as `null` and calls `isApprovedFromReviewsList` in that case; behavioural scenarios for `reviewDecision = ""` with empty reviews list (false), with single APPROVED review (true), `"APPROVED"` (true), `"REVIEW_REQUIRED"` (false); contract scenario asserting the source no longer compares `reviewDecision` against `null/undefined` exclusively.
+  2. **`adwMerge.tsx` unified gate** — seven source-file inspection scenarios pinning: imports of `issueHasLabel` and `fetchPRApprovalState`; `MergeDeps` declares both fields; `buildDefaultDeps` wires both; both gate calls precede `mergeWithConflictResolution`; gate-closed branch returns reason `hitl_blocked_unapproved` and does not call `mergeWithConflictResolution` or `writeTopLevelState`; logs a `deferring` message; gate-closed branch posts no `commentOnIssue`/`commentOnPR`.
+  3. **The four canonical rules — gate_open behaviour matrix** — four behavioural scenarios (one per rule) covering all cells of the (hitl × approved) matrix, including a stateless-re-evaluation scenario for rule 4 that invokes `executeMerge` twice across changing `hitl` state.
+  4. **Chore unified path** — six scenarios covering: `adwChore.tsx` does not contain `mergePR`; writes `awaiting_merge` after PR approval; imports `issueHasLabel`; skips `approvePR` when the issue carries `hitl`; calls `approvePR` once when the issue does not carry `hitl`; does not contain `mergeWithConflictResolution` (only `adwMerge` dispatches the merge).
+  5. **hitl-on-PR is never read** — three source-file inspection scenarios: `adwMerge.tsx` calls `issueHasLabel` with the issue number and the literal label name `"hitl"`; `adwMerge.tsx` does not contain `addIssueLabel`/`removeIssueLabel`; `adwChore.tsx` does not contain `addIssueLabel`/`removeIssueLabel`.
+  6. **README/docs** — three documentation scenarios: README contains the four rules and the gate-condition phrasing `(no hitl on issue) OR`; README contains `pre-add` and `hitl`; README contains `## Cancel` and `stateless`.
+  7. **TypeScript type-check** — one scenario: the ADW TypeScript type-check passes after the unified hitl/approval gate change.
+- Use the wording conventions from `features/hitl_label_gate_automerge.feature` (e.g. `the issue carries the "hitl" label` rather than `has`; `awaiting_merge state file for adw-id "..."` background helpers).
+- Tag every behavioural and source-inspection scenario with `@adw-496 @regression`; tag README scenarios with `@adw-496` only.
+- Mirror the `Background:\n    Given the ADW codebase is checked out` structure from `features/hitl_label_gate_automerge.feature`.
 
 ### Step 12 — Create step definitions for the new feature
 
-- Create `features/step_definitions/autoMergeUnifiedGateSteps.ts`.
-- Implement the new step definitions: `Given the issue has(/does not have) the "hitl" label`, `And fetchPRApprovalState returns true(/false) for the PR`, `When executeMerge is invoked for issue NNN with the injected deps`, `Then the outcome is "abandoned" with reason "hitl_blocked_unapproved"`, etc.
-- Reuse helpers and patterns from `features/step_definitions/hitlLabelGateAutomergeSteps.ts` (existing `@adw-488` step defs that already construct a fake `MergeDeps`); import and extend rather than duplicate.
-- For the "Chore unified path" scenario's file-content assertions, reuse `features/step_definitions/` helpers that read source files and assert imports/calls (look for the existing patterns matching `Given "..." is read` in `hitlLabelGateAutomergeSteps.ts`).
-- For the empty-string `reviewDecision` scenario, mirror the file-read + behavioural-assertion pattern from existing prApi scenarios in `hitlLabelGateAutomergeSteps.ts`.
+- Create `features/step_definitions/unifyAutoMergeHitlGateSteps.ts` (camelCase mirror of the feature filename `unify_auto_merge_hitl_gate.feature`).
+- Implement the new step phrases used by the feature file: `Given the issue carries (/does not carry) the "hitl" label`, `And fetchPRApprovalState returns true(/false) for the PR`, `When executeMerge is invoked (twice) for issue NNN with the injected deps`, `Then the outcome is "abandoned" with reason "hitl_blocked_unapproved"`, `Then mergeWithConflictResolution is (not) called with the PR number`, the rule-4 two-tick variants, the chore-pipeline approval-gate evaluators, and the source-file-content assertions used by the inspection scenarios (`the file imports "X"`, `the MergeDeps interface declares a "X" field`, `"X" is called before "Y"`, `the gate-closed branch does not call "X"`, `the call to "issueHasLabel" passes the issue number ... as its first argument`, etc.).
+- Reuse helpers and patterns from `features/step_definitions/hitlLabelGateAutomergeSteps.ts` (existing `@adw-488` step defs that already construct a fake `MergeDeps` and assert file-content invariants); import and extend rather than duplicate.
+- For the chore source-inspection assertions and the empty-string `reviewDecision` source assertions, mirror the file-read + content-assertion pattern from `hitlLabelGateAutomergeSteps.ts`.
+- For the README scenarios, reuse a `Given "README.md" is read` + `Then the file contains "..."` helper (introduce a shared one in `commonSteps.ts` if absent).
 
 ### Step 13 — Update `README.md` with the four canonical rules
 
@@ -424,7 +375,7 @@ Per `.adw/project.md` (`## Unit Tests: enabled`), add the following Vitest unit 
 - [ ] Unit tests in `adws/github/__tests__/prApi.test.ts` cover empty-string `reviewDecision`, `null`, `undefined`, `'APPROVED'`, `'CHANGES_REQUESTED'`, `'REVIEW_REQUIRED'`, and the per-reviewer-aggregation fallback path.
 - [ ] Unit tests in `adws/__tests__/adwMerge.test.ts` cover all four cells of the `(hitl × approved)` matrix.
 - [ ] Unit tests verify the defer log message names both the issue and the PR and mentions `hitl`.
-- [ ] BDD feature `features/auto_merge_unified_hitl_or_approved_gate.feature` exists, tagged `@adw-496`, with six scenarios: four rule-coverage scenarios, one chore unified-path scenario, one empty-string `reviewDecision` fallback scenario.
+- [ ] BDD feature `features/unify_auto_merge_hitl_gate.feature` exists, tagged `@adw-496`, with at minimum: four rule-coverage scenarios (rules 1–4), one chore unified-path scenario, and one empty-string `reviewDecision` fallback scenario; additional source-file inspection and documentation scenarios as listed in Step 11.
 - [ ] Step definitions in `features/step_definitions/autoMergeUnifiedGateSteps.ts` implement all new step phrases.
 - [ ] Existing `@adw-488` scenarios in `features/hitl_label_gate_automerge.feature` that asserted `issueHasLabel` was removed from `adwMerge.tsx` have been rewritten or deleted to reflect the unified gate.
 - [ ] `README.md` documents the four `hitl` rules, the gate condition, the `## Cancel` interaction with `hitl`, and the disciplined pre-add workflow.
