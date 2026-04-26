@@ -2,10 +2,6 @@
 Feature: adwChore — workflowInit + planPhase — happy path
 
   # Row 13: chore orchestrator: init + plan in one run; state at awaiting_merge.
-  # DEFERRED-RUNTIME-GAP: W1 subprocess fails due to (1) spawnOrchestrator passes adwId before
-  # issueNumber in CLI args (reversed vs orchestrator expected order) and (2) fetchGitHubIssue
-  # uses gh CLI with GraphQL/HTTPS which cannot reach the HTTP mock server. Both require
-  # Issue #1 step-definition fixes. Vocabulary and step matching are correct (dry-run passes).
   Scenario: chore orchestrator initialises workflow and completes plan phase
     Given the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/adw-sdlc-happy.json"
     And an issue 1013 exists in the mock issue tracker

@@ -33,7 +33,7 @@ function spawnOrchestrator(
 ): void {
   const result = spawnSync(
     'bun',
-    [resolve(ROOT, `adws/${orchestratorFile}`), adwId, String(issueNumber)],
+    [resolve(ROOT, `adws/${orchestratorFile}`), String(issueNumber), adwId],
     {
       env: buildSubprocessEnv(world),
       encoding: 'utf-8',

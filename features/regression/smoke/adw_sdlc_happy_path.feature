@@ -4,9 +4,7 @@ Feature: SDLC Orchestrator — Happy Path
   # Smoke 1: adwSdlc end-to-end (issue → plan → build → test → review → document → PR).
   # Manifest pre-seeds .adw/state.json with awaiting_merge so T1 validates wiring;
   # T5/T8/T2 assert real subprocess and mock-API interactions.
-  # NOTE: T1 currently reads from the G11 temp worktree, not from agents/{adwId}/state.json
-  # where the orchestrator writes production state. Full end-to-end state assertion deferred
-  # until Issue #3 wires MOCK_WORKTREE_PATH into orchestrator state writes.
+  # T1 resolves the orchestrator state file at agents/{adwId}/state.json (production location); the G11 worktree is used only as a fallback for G6-seeded scenarios.
   Scenario: adwSdlc completes the full pipeline end-to-end
     Given the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/adw-sdlc-happy.json"
     And an issue 100 exists in the mock issue tracker

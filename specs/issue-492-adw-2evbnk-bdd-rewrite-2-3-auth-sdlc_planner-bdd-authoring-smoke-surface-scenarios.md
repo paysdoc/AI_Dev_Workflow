@@ -438,3 +438,28 @@ Execute every command to validate the chore is complete with zero regressions.
 - **Hard deadline reminder.** Per parent PRD, Issue #3 (cutover) must merge by `PR1 merge date
   + 6 weeks`. This issue's PR description should call out the remaining time so the reviewer
   has the deadline in view.
+
+### Scope amendment (post-build patch)
+
+The original scope guard (line 44: "no new step-def implementations") was extended via post-build
+review to allow three surgical edits in `features/regression/step_definitions/`. The reviewer
+sanctioned option **(ii)** as the only path that satisfies spec §8's MUST-PASS gate without
+reopening a sibling issue or leaving the suite permanently RED.
+
+Three files were modified:
+
+- **`whenSteps.ts`** — swapped subprocess argv tuple from `(adwId, issueNumber)` to
+  `(issueNumber, adwId)` to match the orchestrators' `parseOrchestratorArguments` contract
+  (gap a).
+- **`givenSteps.ts`** — extended `harnessEnv` in G1, G4, G7, G8, and G10 with `GH_HOST` and
+  `GITHUB_API_URL` set to the mock server URL so subprocesses route GitHub API calls through
+  the HTTP mock server instead of the live `https://api.github.com` endpoint (gap b).
+- **`thenSteps.ts`** — replaced the hardcoded G11-worktree lookup in T1 and T9 with a resolver
+  that prefers `agents/{adwId}/state.json` (production location) and falls back to the G11 temp
+  worktree for G6-seeded scenarios (gap c).
+
+Additionally, the `# DEFERRED-RUNTIME-GAP:` comment blocks were swept from all smoke and surface
+`.feature` files (the markers documented the three gaps above; they are no longer accurate).
+The `# DEFERRED-VOCAB-GAP:` markers are unchanged.
+
+Patch file: `specs/patch/patch-adw-2evbnk-bdd-rewrite-2-3-auth-fix-regression-runtime-gaps.md`

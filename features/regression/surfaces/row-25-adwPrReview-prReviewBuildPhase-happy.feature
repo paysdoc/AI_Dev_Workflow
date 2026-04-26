@@ -2,10 +2,6 @@
 Feature: adwPrReview — prReviewBuildPhase — happy path
 
   # Row 25: build phase within PR-review flow; state advances to awaiting_merge.
-  # DEFERRED-RUNTIME-GAP: W1 subprocess fails due to (1) spawnOrchestrator passes adwId before
-  # issueNumber in CLI args (reversed vs orchestrator expected order) and (2) fetchGitHubIssue
-  # uses gh CLI with GraphQL/HTTPS which cannot reach the HTTP mock server. Both require
-  # Issue #1 step-definition fixes. Vocabulary and step matching are correct (dry-run passes).
   Scenario: pr-review orchestrator completes build phase and exits successfully
     Given the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/adw-sdlc-happy.json"
     And an issue 1025 exists in the mock issue tracker

@@ -2,10 +2,6 @@
 Feature: adwPlan — orchestratorLock — acquired and released (happy path)
 
   # Row 31: lock acquired at start, released on success; exit 0.
-  # DEFERRED-RUNTIME-GAP: W1 subprocess fails due to (1) spawnOrchestrator passes adwId before
-  # issueNumber in CLI args (reversed vs orchestrator expected order) and (2) fetchGitHubIssue
-  # uses gh CLI with GraphQL/HTTPS which cannot reach the HTTP mock server. Both require
-  # Issue #1 step-definition fixes. Vocabulary and step matching are correct (dry-run passes).
   Scenario: plan orchestrator acquires spawn-gate lock and releases it on success
     Given an issue 1031 exists in the mock issue tracker
     And no spawn lock exists for issue 1031

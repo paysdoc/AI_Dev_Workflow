@@ -2,10 +2,6 @@
 Feature: adwMerge — autoMergePhase — happy path (PR already merged)
 
   # Row 10: PR already merged in mock; auto-merge phase detects it; zero merge calls recorded.
-  # DEFERRED-RUNTIME-GAP: W1 subprocess fails due to (1) spawnOrchestrator passes adwId before
-  # issueNumber in CLI args (reversed vs orchestrator expected order) and (2) fetchGitHubIssue
-  # uses gh CLI with GraphQL/HTTPS which cannot reach the HTTP mock server. Both require
-  # Issue #1 step-definition fixes. Vocabulary and step matching are correct (dry-run passes).
   Scenario: merge orchestrator detects pre-merged PR and records zero merge calls
     Given an issue 1010 exists in the mock issue tracker
     And the mock GitHub API records all PR-list calls
