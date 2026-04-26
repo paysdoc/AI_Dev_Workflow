@@ -5,7 +5,7 @@ AI Dev Workflow (ADW) is a TypeScript/Bun automation system that integrates GitH
 
 ## Relevant Files
 - `README.md` - Contains the project overview and instructions.
-- `guidelines/**` - Contains coding guidelines that must be followed (target repository — may not exist in all repos). If present, read and follow these guidelines.
+- `.adw/coding_guidelines.md` - Coding guidelines that must be followed if present (fall back to `guidelines/coding_guidelines.md` for older repos; may not exist in all repos).
 - `adws/**` - Contains the AI Developer Workflow (ADW) orchestrators, agents, and supporting modules.
 - `adws/core/**` - Configuration, state management, cost tracking, token management.
 - `adws/agents/**` - Claude Code CLI agent runners (plan, build, test, review, etc.).

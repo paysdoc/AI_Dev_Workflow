@@ -14,7 +14,7 @@ incomingBranch: $2 - the branch being merged in (e.g., `main`, `develop`, `featu
 ## Instructions
 
 - IMPORTANT: You are resolving merge conflicts, not re-implementing features. Stay surgical — only modify conflicted regions and their immediate context.
-- If a `guidelines/` directory exists in the target repository, conflict resolution must strictly adhere to those coding guidelines.
+- If `.adw/coding_guidelines.md` exists in the target repository (or `guidelines/coding_guidelines.md` as a fallback for older repos), conflict resolution must strictly adhere to those coding guidelines.
 
 ### 1. Understand the Current State
 

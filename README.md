@@ -189,6 +189,7 @@ Docker execution is entirely optional — the test suite runs identically on the
 
 ```
 .adw/                   # Project configuration for ADW (see adws/README.md)
+├── coding_guidelines.md # Coding guidelines (fallback: guidelines/coding_guidelines.md for older repos)
 ├── commands.md         # Build/test/lint command mappings
 ├── conditional_docs.md # Conditional documentation paths
 ├── project.md          # Project structure and relevant files
@@ -584,8 +585,6 @@ cucumber.js             # Cucumber.js configuration
 features/               # BDD feature files (Gherkin .feature)
 ├── step_definitions/   # Cucumber step definition files (.ts)
 └── support/            # Cucumber support files (tsx registration)
-guidelines/
-└── coding_guidelines.md
 specs/                  # Generated implementation specs
 ├── patch/              # Generated patch specs
 └── prd/                # Product requirement documents

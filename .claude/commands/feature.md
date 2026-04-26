@@ -25,8 +25,8 @@ Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init
 - If you need a new library, read `.adw/commands.md` for the library install command (under `## Library Install Command`). If `.adw/commands.md` does not exist, use `bun install`. Be sure to report it in the `Notes` section of the `Plan Format`.
 - Don't use decorators. Keep it simple.
 - Respect requested files in the `Relevant Files` section.
-- If a `guidelines/` directory exists in the target repository, planning and implementation must strictly adhere to those coding guidelines.
-- Start your research by reading the `README.md` file. If a `guidelines/` directory exists in the target repository, also read those coding guidelines.
+- If `.adw/coding_guidelines.md` exists in the target repository (or `guidelines/coding_guidelines.md` as a fallback for older repos), planning and implementation must strictly adhere to those coding guidelines.
+- Start your research by reading the `README.md` file. Also read `.adw/coding_guidelines.md` if present (or `guidelines/coding_guidelines.md` as a fallback).
 
 ## Relevant Files
 
@@ -34,7 +34,7 @@ Read `.adw/project.md` from the current working directory to determine the relev
 
 If `.adw/project.md` does not exist, use these defaults:
 - `README.md` - Contains the project overview and instructions.
-- `guidelines/**` - Contains coding guidelines that must be followed (target repository — may not exist in all repos). If present, read and follow these guidelines.
+- `.adw/coding_guidelines.md` - Coding guidelines that must be followed if present (fall back to `guidelines/coding_guidelines.md` for older repos; may not exist in all repos).
 - `adws/**` - Contains the AI Developer Workflow (ADW) scripts.
 
 - Read `.adw/conditional_docs.md` from the current working directory to check if your task requires additional documentation. If `.adw/conditional_docs.md` does not exist, read `.claude/commands/conditional_docs.md` as a fallback.
@@ -112,7 +112,7 @@ Read `.adw/commands.md` from the current working directory for the project-speci
 - `bun run test` - Run tests to validate the feature works with zero regressions
 
 ## Notes
-- If a `guidelines/` directory exists in the target repository, strictly adhere to those coding guidelines. If necessary, refactor existing code to meet the coding guidelines as part of implementing the feature.
+- If `.adw/coding_guidelines.md` exists in the target repository (or `guidelines/coding_guidelines.md` as a fallback), strictly adhere to those coding guidelines. If necessary, refactor existing code to meet the coding guidelines as part of implementing the feature.
 <optionally list any additional notes, future considerations, or context that are relevant to the feature that will be helpful to the developer>
 ```
 

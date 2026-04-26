@@ -14,8 +14,8 @@ Create a new plan at `specs/issue-{issueNumber}-plan.md` (where `{issueNumber}` 
 - Use the plan format below to create the plan. Replace every `<placeholder>` with the requested value.
 - Research the codebase and put together a plan to accomplish the review.
 - Respect requested files in the `Relevant Files` section.
-- If a `guidelines/` directory exists in the target repository, planning and implementation must strictly adhere to those coding guidelines.
-- Start your research by reading the `README.md` file. If a `guidelines/` directory exists in the target repository, also read those coding guidelines.
+- If `.adw/coding_guidelines.md` exists in the target repository (or `guidelines/coding_guidelines.md` as a fallback for older repos), planning and implementation must strictly adhere to those coding guidelines.
+- Start your research by reading the `README.md` file. Also read `.adw/coding_guidelines.md` if present (or `guidelines/coding_guidelines.md` as a fallback).
 - `adws/*.tsx` contain node tsx single file typescript scripts. Read `.adw/commands.md` for the script execution command (under `## Script Execution`). If `.adw/commands.md` does not exist, use `bunx tsx <script_name>`.
 
 ## Relevant Files
@@ -24,7 +24,7 @@ Read `.adw/project.md` from the current working directory to determine the relev
 
 If `.adw/project.md` does not exist, use these defaults:
 - `README.md` - Contains the project overview and instructions.
-- `guidelines/**` - Contains coding guidelines that must be followed (target repository — may not exist in all repos). If present, read and follow these guidelines.
+- `.adw/coding_guidelines.md` - Coding guidelines that must be followed if present (fall back to `guidelines/coding_guidelines.md` for older repos; may not exist in all repos).
 - `adws/**` - Contains the AI Developer Workflow (ADW) scripts.
 
 Ignore all other files in the codebase.

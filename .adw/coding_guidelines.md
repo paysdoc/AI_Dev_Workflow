@@ -26,6 +26,18 @@
 - **Enums** — Use enums for named constant sets. Avoid magic numbers and strings.
 - **Generics** — Use generics for reusable components and functions that work across types.
 
+## Nesting & Extraction
+
+Deeply nested conditionals and loops ("sideways christmas tree") are a code smell. Flatten them.
+
+- **Guard clauses** — handle invalid/edge cases first with early `return`, `continue`, or `throw`. The happy path stays at the leftmost indent.
+- **Max depth ~2** — if a function has three or more levels of nested `if`/`for`/`try`, extract the inner block into a named function. The name documents intent better than the indentation hides it.
+- **Extract loop bodies** — when a `for`/`map` body contains its own branching, lift the per-item logic into a named function and let the loop read as `items.map(processItem)`.
+- **Invert conditions** — `if (!ok) return` beats wrapping the rest of the function in `if (ok) { ... }`.
+- **One reason per function** — if you find yourself writing "and then, if X, also do Y" inside a branch, that branch wants its own function.
+
+Extraction is justified by *reduced nesting and named intent*, not by line count or speculative reuse. A 5-line helper called once is fine if it replaces a 5-line nested block whose purpose was unclear.
+
 ## Functional Programming Practices
 
 - **Declarative over imperative** — Use map, filter, reduce, and flatMap over for/while loops.
