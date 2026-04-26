@@ -1,0 +1,17 @@
+{
+  "jsonlPath": ".adw-stub-payload.json",
+  "edits": [
+    {
+      "path": ".adw-stub-payload.json",
+      "contents": "[{\"type\":\"text\",\"text\":\"Docs-only change stub. Safe diff — README appendage only.\\n\"}]\n"
+    },
+    {
+      "path": ".adw/state.json",
+      "contents": "{\"workflowStage\":\"awaiting_merge\",\"adwId\":\"chore-smoke-200\",\"issueNumber\":200}\n"
+    },
+    {
+      "path": "README.md",
+      "contents": "# Chore Smoke Test Repo\n\nDocs-only change for safe-verdict smoke fixture.\n"
+    }
+  ]
+}

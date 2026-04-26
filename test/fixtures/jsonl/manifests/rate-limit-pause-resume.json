@@ -1,0 +1,17 @@
+{
+  "jsonlPath": ".adw-stub-payload.json",
+  "edits": [
+    {
+      "path": ".adw-stub-payload.json",
+      "contents": "[{\"type\":\"text\",\"text\":\"# Implementation Plan\\n\\nStub plan response after simulated rate-limit recovery.\\n\"}]\n"
+    },
+    {
+      "path": ".adw/state.json",
+      "contents": "{\"workflowStage\":\"paused\",\"adwId\":\"rate-limit-smoke-400\",\"issueNumber\":400}\n"
+    },
+    {
+      "path": "specs/plan.md",
+      "contents": "# Implementation Plan (After Rate-Limit Recovery)\n\nMinimal plan stub seeded by the rate-limit-pause-resume manifest.\n"
+    }
+  ]
+}
