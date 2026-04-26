@@ -1,6 +1,38 @@
 # AI Dev Workflow (ADW)
 
-ADW automates software development by integrating GitHub issues with Claude Code CLI to classify issues, generate plans, implement solutions, and create pull requests.
+ADW turns issues on GitHub, GitLab, or Jira into reviewed, tested, and documented pull requests by orchestrating Claude Code agents through a configurable plan → build → test → review → document pipeline.
+
+## What it does
+
+- **End-to-end SDLC orchestration** — `adwSdlc.tsx` composes plan, plan-validation, build, test, PR, review, auto-merge, and document phases into a single pipeline per issue.
+- **Composable orchestrators** — run individual phases (`adwPlan`, `adwBuild`, `adwTest`, `adwDocument`, `adwPrReview`, `adwPatch`, `adwMerge`) or pre-wired combos (`adwPlanBuild`, `adwPlanBuildTest`, `adwPlanBuildReview`, `adwPlanBuildDocument`, `adwPlanBuildTestReview`).
+- **Issue classification & routing** — auto-classifies an issue as `/chore`, `/bug`, `/feature`, or `/pr_review` and routes it to the right orchestrator; explicit ADW slash commands override the heuristic.
+- **Chore fast-path with LLM diff gate** — `adwChore` builds, runs unit tests, opens a PR, then asks Haiku to classify the diff as `safe` (auto-merge) or `regression_possible` (full review path).
+- **BDD/scenario-driven validation** — discovers `.feature` files tagged `@adw-{issueNumber}`, generates step definitions, and reconciles plan vs. scenario coverage via `validationAgent`, `alignmentPhase`, and `resolutionAgent`.
+- **Multi-agent passive review** — review agents read scenario proof and captured screenshots, classifying findings as Blockers (auto-patched by `patchAgent`) or Tech Debt (logged only).
+- **HITL-gated auto-merge** — every cron tick re-evaluates `(no hitl label) OR (PR approved)`; merge is deferred while the gate is closed, and `## Cancel` is the manual override.
+- **Multi-provider abstraction** — pluggable `IssueTracker` and `CodeHost` interfaces (`RepoContext`) with GitHub, GitLab, and Jira issue trackers and GitHub/GitLab code hosts.
+- **Project board automation** — `BoardManager` provider drives GitHub Projects V2 column transitions as a workflow progresses.
+- **Two automation triggers** — `trigger_cron.ts` polls every 20 s; `trigger_webhook.ts` receives HMAC-signed GitHub webhooks for instant pickup, with optional Cloudflare tunnel lifecycle.
+- **Single-host coordination** — per-issue `spawnGate`, PID + start-time liveness checks, heartbeat ticker, and `worktreeReset`-driven takeover reclaim dead or abandoned runs.
+- **Resilience primitives** — pause queue for rate-limit/billing pause and resume, hung-orchestrator detector, dev server janitor, and `remoteReconcile` to derive workflow stage from remote GitHub artifacts.
+- **Cost tracking** — per-phase, per-model `PhaseCostRecord` with multi-currency reporting, divergence detection vs. CLI-reported cost, and dual-write to a Cloudflare D1-backed Cost API.
+- **LLM-based dependency extraction** — `dependencyExtractionAgent` reads issues to surface cross-issue dependencies before spawning.
+- **Documentation generation** — `documentAgent` writes feature docs to `app_docs/`; the SDLC pipeline includes review screenshots.
+- **Supply-chain audit integration** — `adw_init` runs `depaudit setup` in target repos and propagates `SOCKET_API_TOKEN` / `SLACK_WEBHOOK_URL` to GitHub Actions secrets.
+- **Screenshot upload pipeline** — Cloudflare R2 bucket manager + `screenshot-router` Worker for hosting review screenshots under `screenshots.paysdoc.nl`.
+- **Worktree isolation** — every workflow runs in its own git worktree (`.worktrees/{branch}/`) so multiple issues can be processed concurrently without interference.
+- **Adaptable target repos** — `.adw/` config (`commands.md`, `project.md`, `providers.md`, `scenarios.md`, `review_proof.md`, `conditional_docs.md`, `coding_guidelines.md`) lets a target repo configure package manager, test/lint/dev commands, scenario layout, and review proof rules.
+- **DDD ubiquitous language** — domain terms (Workflow, Phase, Stage, Orchestrator, Worktree, Spawn Lock, Takeover, etc.) are formalized in `UBIQUITOUS_LANGUAGE.md` and used consistently across code, docs, and agent prompts.
+
+## Acknowledgments
+
+ADW would not exist without the work of these contributors:
+
+- **[IndyDevDan](https://github.com/disler)** — his [Agentic Engineer course](https://agenticengineer.com/) provided the foundational codebase that ADW grew out of. The original orchestration patterns and agent composition came from there.
+- **[Matt Pocock](https://github.com/mattpocock)** — his [skills repository](https://github.com/mattpocock/skills) contributed several of the Claude skills used throughout ADW.
+
+Thank you both.
 
 ## Setup
 
