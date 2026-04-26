@@ -218,7 +218,7 @@ export function createWorktreeForNewBranch(branchName: string, baseBranch?: stri
  * @param baseBranch - Optional base branch to create the worktree from (for new branches)
  * @returns The absolute path to the worktree
  */
-export function ensureWorktree(branchName: string, baseBranch?: string, baseRepoPath?: string): string {
+export function ensureWorktree(branchName: string, baseBranch: string | undefined, baseRepoPath: string): string {
   const existingPath = getWorktreeForBranch(branchName, baseRepoPath);
 
   if (existingPath) {

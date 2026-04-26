@@ -84,11 +84,13 @@ export async function initializePRReviewWorkflow(prNumber: number, adwId: string
     reviewComments: unaddressedComments.length,
     branchName: prDetails.headBranch,
   };
-  let targetRepoWorkspacePath: string | undefined;
+  let targetRepoWorkspacePath: string;
   if (targetRepo) {
     log(`Setting up target repo workspace for ${targetRepo.owner}/${targetRepo.repo}...`, 'info');
     targetRepoWorkspacePath = ensureTargetRepoWorkspace(targetRepo);
     log(`Target repo workspace: ${targetRepoWorkspacePath}`, 'success');
+  } else {
+    targetRepoWorkspacePath = process.cwd();
   }
   const worktreePath = ensureWorktree(prDetails.headBranch, undefined, targetRepoWorkspacePath);
   log(`Worktree path: ${worktreePath}`, 'info');

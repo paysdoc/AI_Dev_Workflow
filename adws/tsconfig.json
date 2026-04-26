@@ -18,7 +18,6 @@
     "sourceMap": true,
     "outDir": "./dist",
     "rootDir": ".",
-    "baseUrl": ".",
     "paths": {
       "@adws/*": ["./*"]
     }
