@@ -535,3 +535,37 @@ Final captured outcome (re-run after this patch):
   patched runs, unrelated to cucumber scenario outcomes)
 - Summary tally: 1646 scenarios (41 pending, 1605 passed, 0 failed, 0 undefined)
 - Spec §8 MUST-PASS gate: satisfied (0 failed, 0 undefined scenarios).
+
+### Scope amendment (post-build patch 5)
+
+Patch 4's final captured outcome left the cucumber subprocess exiting non-zero (1) due to
+four pre-existing post-suite `D1 write failed: TypeError: fetch failed` warnings emitted
+after the scenario summary, even though the tally was clean (1646 scenarios — 41 pending,
+1605 passed, 0 failed, 0 undefined). The non-zero exit propagated through
+`adws/agents/bddScenarioRunner.ts:70` (`allPassed: exitCode === 0`) and caused
+`agents/2evbnk-bdd-rewrite-2-3-auth/scenario_proof.md` to record `@regression` as
+`❌ FAILED` — which violates Strategy A's blocker check verbatim despite the clean
+scenario tally.
+
+To resolve this without further deepening the post-shutdown investigation in `adws/cost/`
+or `adws/core/`, the reviewer sanctioned a single targeted edit to
+`adws/phases/scenarioProof.ts` (option (b) of the change request): parse the cucumber
+summary line and override `passed` to `true` when the tally reports `0 failed` and
+`0 undefined`, regardless of process exit code. The exit code itself is preserved in the
+proof artefact and a new `**Warning:** …` line documents the override so reviewers retain
+full visibility into the post-suite noise.
+
+This is the first patch in the Issue #492 sequence to touch `adws/`. Spec line 44's
+"no edits to `adws/`" guard applies to the original chore scope (BDD authoring); this
+patch does not author scenarios — it fixes a proof-generation defect surfaced only by
+running the new authored scenarios. The reviewer's change request explicitly directs the
+edit ("update adws/phases/scenarioProof.ts to parse the cucumber summary line"), making
+this a sanctioned scope deviation for patch-time defect resolution.
+
+Patch file: `specs/patch/patch-adw-2evbnk-bdd-rewrite-2-3-auth-scenario-proof-pass-on-clean-tally.md`
+
+Final captured outcome (re-run after this patch):
+- Cucumber process exit code: 1 (unchanged — pre-existing D1 KPI write noise after teardown)
+- Summary tally: 1646 scenarios (41 pending, 1605 passed, 0 failed, 0 undefined)
+- `scenario_proof.md` `@regression` status: `✅ PASSED` (override applied, warning surfaced)
+- Strategy A blocker check: `hasBlockerFailures: false` — merge gate satisfied.
