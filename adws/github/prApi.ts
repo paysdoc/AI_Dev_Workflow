@@ -318,12 +318,13 @@ export function isApprovedFromReviewsList(reviews: readonly PRReview[]): boolean
  * Fetches the approval state of a PR by querying GitHub reviewDecision and reviews.
  *
  * Primary path: uses the server-computed `reviewDecision` field.
- *   - 'APPROVED'  → true
- *   - any other non-null value → false
- *   - null        → fall back to isApprovedFromReviewsList
+ *   - 'APPROVED'          → true
+ *   - any other non-empty value → false
+ *   - null / undefined / "" → fall back to isApprovedFromReviewsList
  *
  * Fallback: calls isApprovedFromReviewsList with the per-review list when
- * `reviewDecision` is null (no branch protection / no required reviewers).
+ * `reviewDecision` is null, undefined, or "" (gh CLI returns "" on repos
+ * without branch protection — empty string is treated the same as null).
  *
  * Returns false on parse error.
  *
@@ -343,9 +344,9 @@ export function fetchPRApprovalState(prNumber: number, repoInfo: RepoInfo): bool
     const { reviewDecision, reviews } = result;
 
     if (reviewDecision === 'APPROVED') return true;
-    if (reviewDecision !== null && reviewDecision !== undefined) return false;
+    if (reviewDecision) return false;            // any non-empty value other than APPROVED
 
-    // reviewDecision is null — fall back to per-reviewer aggregation
+    // reviewDecision is null/undefined/empty — fall back to per-reviewer aggregation
     return isApprovedFromReviewsList(reviews || []);
   } catch (error) {
     log(`fetchPRApprovalState: failed to fetch reviews for PR #${prNumber}: ${error}`, 'warn');

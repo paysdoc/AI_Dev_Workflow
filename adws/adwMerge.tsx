@@ -27,7 +27,7 @@ import {
   ensureLogsDirectory,
 } from './core';
 import { findOrchestratorStatePath } from './core/stateHelpers';
-import { commentOnIssue, commentOnPR, defaultFindPRByBranch, fetchPRApprovalState, type RawPR, type RepoInfo } from './github';
+import { commentOnIssue, commentOnPR, defaultFindPRByBranch, fetchPRApprovalState, issueHasLabel, type RawPR, type RepoInfo } from './github';
 import { mergeWithConflictResolution } from './triggers/autoMergeHandler';
 import { ensureWorktree } from './vcs';
 import { getPlanFilePath, planFileExists } from './agents';
@@ -46,6 +46,7 @@ export interface MergeDeps {
   readonly findOrchestratorStatePath: (adwId: string) => string | null;
   readonly readOrchestratorState: (statePath: string) => AgentState | null;
   readonly findPRByBranch: (branchName: string, repoInfo: RepoInfo) => RawPR | null;
+  readonly issueHasLabel: (issueNumber: number, labelName: string, repoInfo: RepoInfo) => boolean;
   readonly fetchPRApprovalState: (prNumber: number, repoInfo: RepoInfo) => boolean;
   readonly ensureWorktree: (branchName: string, baseBranch?: string) => string;
   readonly ensureLogsDirectory: (adwId: string) => string;
@@ -125,13 +126,14 @@ export async function executeMerge(
     return { outcome: 'abandoned', reason: 'pr_closed' };
   }
 
-  // 5b. Approval gate — PR must be approved before merging.
-  //     Leave state as awaiting_merge so the next cron cycle re-checks.
-  //     Silent skip (no comment) to avoid flooding the issue on every cron cycle.
+  // 5b. Unified gate — defer when hitl is on the issue AND the PR is not approved.
+  //     Stateless: every cron tick re-evaluates the current label state and PR approval.
+  //     No state write, no comment, log only — avoids flooding the issue while waiting.
+  const hitlOnIssue = deps.issueHasLabel(issueNumber, 'hitl', repoInfo);
   const isApproved = deps.fetchPRApprovalState(prNumber, repoInfo);
-  if (!isApproved) {
-    log(`PR #${prNumber} is not approved, skipping merge for issue #${issueNumber}`, 'info');
-    return { outcome: 'abandoned', reason: 'awaiting_approval' };
+  if (hitlOnIssue && !isApproved) {
+    log(`Issue #${issueNumber} has hitl label and PR #${prNumber} is not approved — deferring`, 'info');
+    return { outcome: 'abandoned', reason: 'hitl_blocked_unapproved' };
   }
 
   // 6. PR is open — ensure worktree and merge
@@ -201,6 +203,7 @@ function buildDefaultDeps(): MergeDeps {
     findOrchestratorStatePath,
     readOrchestratorState: (statePath) => AgentStateManager.readState(statePath),
     findPRByBranch: defaultFindPRByBranch,
+    issueHasLabel,
     fetchPRApprovalState,
     ensureWorktree,
     ensureLogsDirectory,

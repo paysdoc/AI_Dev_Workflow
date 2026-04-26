@@ -123,6 +123,27 @@ The design makes no attempt to predict or recover from these outcomes.
 
 See [adws/README.md](adws/README.md#single-host-constraint) for the full operator guidance and split-brain failure mode.
 
+## Auto-merge gate
+
+Every `awaiting_merge` issue is re-evaluated on each cron tick using a single stateless rule:
+
+```
+gate_open = (no hitl on issue) OR (PR is approved)
+```
+
+The four canonical rules:
+
+1. **No `hitl` label on the issue** → `gate_open = true` → auto-merge fires (any issue type — chore, bug, feature).
+2. **`hitl` on issue, PR not approved** → `gate_open = false` → defer (no state write, no comment; cron re-checks next tick).
+3. **`hitl` on issue, PR approved** → `gate_open = true` → auto-merge fires (order of events irrelevant).
+4. **`hitl` removed (with or without approval)** → falls back to rule 1 → auto-merge becomes eligible again on the next cron tick.
+
+**Disciplined pre-add workflow:** if you want a merge to be human-gated, add the `hitl` label to the issue **before** the orchestrator opens the PR. The gate is checked in real time — not cached from workflow start.
+
+**`## Cancel` interaction:** after cancel + re-run, the new run's gate evaluates the **current** label state — the gate is stateless, so removing `hitl` between cycles is sufficient to re-enable auto-merge. A human who wants to truly stop a merge mid-race must post `## Cancel` to stop the workflow entirely.
+
+**Chore pipeline:** the chore pipeline now uses the same gate as bug/feature pipelines. `adwChore.tsx` writes `awaiting_merge` after PR creation and delegates merging to `adwMerge.tsx` via the cron — there is one merge path and one gate.
+
 ## Domain Language
 
 ADW uses a DDD-style ubiquitous language to keep code, documentation, and conversation aligned. See [UBIQUITOUS_LANGUAGE.md](UBIQUITOUS_LANGUAGE.md) for canonical term definitions, aliases to avoid, and a worked example dialogue.

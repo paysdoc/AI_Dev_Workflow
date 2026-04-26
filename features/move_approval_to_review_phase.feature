@@ -92,12 +92,16 @@ Feature: Move PR approval into reviewPhase; autoMergePhase reads approval state
     Then "issueHasLabel" is called before "mergeWithConflictResolution"
     And the hitl label early-return path does not call "commentOnIssue"
 
-  # -- Orchestrators no longer call approvePR ------------------------------
+  # -- Orchestrators no longer call approvePR unconditionally ---------------
+  # NOTE (issue #496): adwChore.tsx now calls approvePR conditionally — only when
+  # the issue does not carry the hitl label. The unconditional removal from #434 is
+  # superseded for the chore orchestrator; adwSdlc and adwPlanBuildReview are unchanged.
 
-  @adw-434 @regression
-  Scenario: adwChore.tsx does not call approvePR
+  @adw-434 @adw-496 @regression
+  Scenario: adwChore.tsx calls approvePR only when hitl is not on the issue
     Given "adws/adwChore.tsx" is read
-    Then the file does not contain "approvePR"
+    Then the file imports "approvePR"
+    And the file contains "!issueHasLabel("
 
   @adw-434 @regression
   Scenario: adwSdlc.tsx does not call approvePR

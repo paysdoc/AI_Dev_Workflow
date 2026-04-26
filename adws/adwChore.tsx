@@ -27,6 +27,8 @@
  */
 
 import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId, AgentStateManager, log, MAX_TEST_RETRY_ATTEMPTS, MAX_REVIEW_RETRY_ATTEMPTS } from './core';
+import { issueHasLabel, approvePR } from './github';
+import { extractPrNumber } from './adwBuildHelpers';
 import { CostTracker, runPhase } from './core/phaseRunner';
 import {
   initializeWorkflow,
@@ -149,6 +151,23 @@ async function main(): Promise<void> {
       }
 
       await runPhase(config, tracker, executePRPhase);
+
+      // Pre-merge approval (chore unified path): approve the PR unless the human has signalled
+      // hitl on the issue at this moment. Race accepted — a human can add hitl between this
+      // approval and the next cron tick; the merge gate is permissive in that case (rule 3).
+      if (config.repoContext && config.ctx.prUrl) {
+        const repoInfo = { owner: config.repoContext.repoId.owner, repo: config.repoContext.repoId.repo };
+        const prNumber = extractPrNumber(config.ctx.prUrl);
+        if (prNumber && !issueHasLabel(issueNumber, 'hitl', repoInfo)) {
+          log(`Chore: pre-approving PR #${prNumber} (no hitl on issue #${issueNumber})`, 'info');
+          const result = approvePR(prNumber, repoInfo);
+          if (!result.success) {
+            log(`Chore: pre-approval failed (non-fatal — hitl-removed humans can still approve manually): ${result.error}`, 'warn');
+          }
+        } else if (prNumber) {
+          log(`Chore: skipping pre-approval — issue #${issueNumber} has hitl label`, 'info');
+        }
+      }
 
       AgentStateManager.writeTopLevelState(config.adwId, { workflowStage: 'awaiting_merge' });
       AgentStateManager.writeState(config.orchestratorStatePath, {
