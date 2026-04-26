@@ -78,10 +78,13 @@ Feature: Orchestrators exit after executePRPhase with awaiting_merge handoff
     Given "adws/adwSdlc.tsx" is read
     Then the file does not contain "approvePR"
 
-  @adw-bpn4sv-orchestrators-exit-a @adw-434 @regression
-  Scenario: adwChore.tsx does not call approvePR
+  # NOTE (issue #496): adwChore.tsx now calls approvePR conditionally (guarded by
+  # !issueHasLabel). Rewritten from "does not call approvePR" to reflect the unified gate.
+  @adw-bpn4sv-orchestrators-exit-a @adw-434 @adw-496 @regression
+  Scenario: adwChore.tsx calls approvePR conditionally under the unified hitl gate
     Given "adws/adwChore.tsx" is read
-    Then the file does not contain "approvePR"
+    Then the file imports "approvePR"
+    And the file contains "!issueHasLabel("
 
   @adw-bpn4sv-orchestrators-exit-a @adw-434 @regression
   Scenario: adwPlanBuildReview.tsx does not call approvePR

@@ -1103,6 +1103,14 @@
     - When modifying or extending `isMergeConflictError` keyword set or adding new gh error string patterns
     - When writing unit tests for `autoMergeHandler.ts` (follow the `vi.mock('child_process')` + sequenced `mockImplementationOnce` pattern)
 
+- app_docs/feature-tvqgz4-unify-auto-merge-hitl-gate.md
+  - Conditions:
+    - When working with the unified `(no hitl) OR (PR approved)` merge gate in `adwMerge.tsx`
+    - When modifying `issueHasLabel` or `fetchPRApprovalState` wiring in `MergeDeps` or `buildDefaultDeps`
+    - When troubleshooting `hitl_blocked_unapproved` defer exits or chore PRs stuck in `awaiting_merge`
+    - When `fetchPRApprovalState` returns `false` on an unprotected repo despite a human having approved the PR
+    - When adding or adjusting the chore-level conditional `approvePR` call in `adwChore.tsx`
+
 - app_docs/feature-hp5q8m-fix-merge-gate-approval-dispatch.md
   - Conditions:
     - When working with `adwMerge.tsx` merge gate logic or the `awaiting_merge` cron dispatch path

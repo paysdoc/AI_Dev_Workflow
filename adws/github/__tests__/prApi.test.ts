@@ -173,6 +173,40 @@ describe('fetchPRApprovalState', () => {
     expect(fetchPRApprovalState(42, repoInfo)).toBe(false);
   });
 
+  it('returns false when reviewDecision is "" and empty reviews list', () => {
+    mockExec.mockReturnValue(JSON.stringify({ reviewDecision: '', reviews: [] }));
+    expect(fetchPRApprovalState(42, repoInfo)).toBe(false);
+  });
+
+  it('returns true when reviewDecision is "" and a single APPROVED review (unprotected repo)', () => {
+    mockExec.mockReturnValue(JSON.stringify({
+      reviewDecision: '',
+      reviews: [makeReview('alice', 'APPROVED', '2024-01-01T00:00:00Z')],
+    }));
+    expect(fetchPRApprovalState(42, repoInfo)).toBe(true);
+  });
+
+  it('returns false when reviewDecision is "" and a CHANGES_REQUESTED review', () => {
+    mockExec.mockReturnValue(JSON.stringify({
+      reviewDecision: '',
+      reviews: [makeReview('alice', 'CHANGES_REQUESTED', '2024-01-01T00:00:00Z')],
+    }));
+    expect(fetchPRApprovalState(42, repoInfo)).toBe(false);
+  });
+
+  it('returns false when reviewDecision is undefined (treated as no decision)', () => {
+    mockExec.mockReturnValue(JSON.stringify({ reviewDecision: undefined, reviews: [] }));
+    expect(fetchPRApprovalState(42, repoInfo)).toBe(false);
+  });
+
+  it('returns true when reviewDecision is undefined and a single APPROVED review', () => {
+    mockExec.mockReturnValue(JSON.stringify({
+      reviewDecision: undefined,
+      reviews: [makeReview('alice', 'APPROVED', '2024-01-01T00:00:00Z')],
+    }));
+    expect(fetchPRApprovalState(42, repoInfo)).toBe(true);
+  });
+
   it('returns false and logs a warning when the gh CLI throws', () => {
     mockExec.mockImplementation(() => { throw new Error('gh: command failed'); });
     expect(fetchPRApprovalState(42, repoInfo)).toBe(false);

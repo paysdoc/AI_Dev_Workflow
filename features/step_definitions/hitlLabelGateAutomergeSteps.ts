@@ -599,6 +599,8 @@ const _mergeCtx: MergeTestCtx = {
 let _mergeWithConflictResolutionCalled = false;
 let _writeTopLevelStateCalled = false;
 let _issueHasLabelCalled = false;
+// Tracks hitl label state for the unified gate — set by Given steps below.
+export let _hitlOnIssue = false;
 
 function buildMergeDeps(): MergeDeps {
   const ctx = _mergeCtx;
@@ -625,6 +627,10 @@ function buildMergeDeps(): MergeDeps {
       headRefName: ctx.branch,
       baseRefName: 'main',
     }),
+    issueHasLabel: () => {
+      _issueHasLabelCalled = true;
+      return _hitlOnIssue;
+    },
     fetchPRApprovalState: () => ctx.approvalResult,
     ensureWorktree: () => `/worktrees/${ctx.branch}`,
     ensureLogsDirectory: () => `/logs/${ctx.adwId}`,
@@ -650,6 +656,7 @@ Given(
     _mergeCtx.prNumber = 42;
     _mergeCtx.approvalResult = true;
     _mergeCtx.result = null;
+    _hitlOnIssue = false;
   },
 );
 
@@ -661,11 +668,20 @@ Given('fetchPRApprovalState returns false for the PR', function () {
   _mergeCtx.approvalResult = false;
 });
 
+Given('the issue carries the {string} label', function (_label: string) {
+  _hitlOnIssue = true;
+});
+
+Given('the issue does not carry the {string} label', function (_label: string) {
+  _hitlOnIssue = false;
+});
+
 When(
   'executeMerge is invoked for issue {int} with the injected deps',
   async function (issueNumber: number) {
     _mergeWithConflictResolutionCalled = false;
     _writeTopLevelStateCalled = false;
+    _issueHasLabelCalled = false;
     const deps = buildMergeDeps();
     _mergeCtx.result = await executeMerge(
       issueNumber,
@@ -718,6 +734,25 @@ Then(
   },
 );
 
+Then(
+  'writeTopLevelState is not called on the gate-closed branch',
+  function () {
+    assert.strictEqual(
+      _writeTopLevelStateCalled,
+      false,
+      'Expected writeTopLevelState NOT to be called on the gate-closed branch',
+    );
+  },
+);
+
+Then('issueHasLabel is consulted as part of the unified gate evaluation', function () {
+  assert.strictEqual(
+    _issueHasLabelCalled,
+    true,
+    'Expected issueHasLabel to be consulted as part of the unified gate evaluation',
+  );
+});
+
 // ── hitl label still present — adwMerge no longer reads it ───────────────────
 
 Given(
@@ -728,17 +763,19 @@ Given(
     _mergeCtx.prNumber = 42;
     _mergeCtx.approvalResult = true;
     _mergeCtx.result = null;
+    _hitlOnIssue = false;
   },
 );
 
 Given('the issue still carries the {string} label', function (_label: string) {
-  // No-op: adwMerge no longer reads labels — this scenario verifies that
+  _hitlOnIssue = true;
 });
 
 When(
   'executeMerge is invoked with fetchPRApprovalState returning true',
   async function () {
     _mergeWithConflictResolutionCalled = false;
+    _writeTopLevelStateCalled = false;
     _issueHasLabelCalled = false;
     _mergeCtx.approvalResult = true;
     const deps = buildMergeDeps();

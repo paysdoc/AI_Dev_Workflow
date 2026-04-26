@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { executeMerge, type MergeDeps, type MergeRunResult } from '../adwMerge';
 import type { AgentState } from '../types/agentTypes';
 import { mergeWithConflictResolution } from '../triggers/autoMergeHandler';
-import { commentOnIssue, commentOnPR, fetchPRApprovalState } from '../github';
+import { commentOnIssue, commentOnPR, fetchPRApprovalState, issueHasLabel } from '../github';
 import { getPlanFilePath, planFileExists } from '../agents';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -41,6 +41,7 @@ function makeDeps(overrides: Partial<MergeDeps> = {}): MergeDeps {
     findOrchestratorStatePath: vi.fn().mockReturnValue('/agents/test-adw-id/sdlc-orchestrator'),
     readOrchestratorState: vi.fn().mockReturnValue(makeState({ branchName: 'feature-issue-42-abc' })),
     findPRByBranch: vi.fn().mockReturnValue(makePR()),
+    issueHasLabel: vi.fn<typeof issueHasLabel>().mockReturnValue(false),
     fetchPRApprovalState: vi.fn<typeof fetchPRApprovalState>().mockReturnValue(true),
     ensureWorktree: vi.fn().mockReturnValue('/worktrees/feature-issue-42-abc'),
     ensureLogsDirectory: vi.fn().mockReturnValue('/logs/test-adw-id'),
@@ -257,24 +258,19 @@ describe('executeMerge — worktree error', () => {
   });
 });
 
-// ── Approval gate ─────────────────────────────────────────────────────────────
+// ── Approval gate (legacy shape, updated for unified gate) ────────────────────
 
 describe('executeMerge — approval gate', () => {
-  it('returns awaiting_approval and skips merge when PR is not approved on OPEN PR', async () => {
+  it('with no hitl label, an unapproved PR still merges (gate satisfied by rule 1)', async () => {
     const deps = makeDeps({
+      issueHasLabel: vi.fn<typeof issueHasLabel>().mockReturnValue(false),
       fetchPRApprovalState: vi.fn<typeof fetchPRApprovalState>().mockReturnValue(false),
     });
 
     const result = await executeMerge(42, 'test-adw-id', REPO_INFO, deps);
 
-    expect(result.outcome).toBe('abandoned');
-    expect(result.reason).toBe('awaiting_approval');
-    expect(deps.fetchPRApprovalState).toHaveBeenCalledWith(7, REPO_INFO);
-    expect(deps.writeTopLevelState).not.toHaveBeenCalled();
-    expect(deps.mergeWithConflictResolution).not.toHaveBeenCalled();
-    expect(deps.ensureWorktree).not.toHaveBeenCalled();
-    expect(deps.commentOnIssue).not.toHaveBeenCalled();
-    expect(deps.commentOnPR).not.toHaveBeenCalled();
+    expect(result.outcome).toBe('completed');
+    expect(deps.mergeWithConflictResolution).toHaveBeenCalled();
   });
 
   it('terminal MERGED state skips approval check — returns already_merged', async () => {
@@ -303,8 +299,9 @@ describe('executeMerge — approval gate', () => {
     expect(deps.fetchPRApprovalState).not.toHaveBeenCalled();
   });
 
-  it('proceeds to merge when PR is approved on OPEN PR', async () => {
+  it('with no hitl and PR approved, merge proceeds', async () => {
     const deps = makeDeps({
+      issueHasLabel: vi.fn<typeof issueHasLabel>().mockReturnValue(false),
       fetchPRApprovalState: vi.fn<typeof fetchPRApprovalState>().mockReturnValue(true),
     });
 
@@ -312,5 +309,83 @@ describe('executeMerge — approval gate', () => {
 
     expect(result.outcome).toBe('completed');
     expect(deps.mergeWithConflictResolution).toHaveBeenCalled();
+  });
+});
+
+// ── hitl × approved gate matrix ──────────────────────────────────────────────
+
+describe('executeMerge — hitl × approved gate matrix', () => {
+  it('rule 1: no hitl + not approved → merge (gate open)', async () => {
+    const deps = makeDeps({
+      issueHasLabel: vi.fn<typeof issueHasLabel>().mockReturnValue(false),
+      fetchPRApprovalState: vi.fn<typeof fetchPRApprovalState>().mockReturnValue(false),
+    });
+
+    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, deps);
+
+    expect(result.outcome).toBe('completed');
+    expect(deps.mergeWithConflictResolution).toHaveBeenCalled();
+    expect(deps.writeTopLevelState).toHaveBeenCalledWith('test-adw-id', { workflowStage: 'completed' });
+  });
+
+  it('rule 2: hitl + not approved → defer with reason hitl_blocked_unapproved', async () => {
+    const deps = makeDeps({
+      issueHasLabel: vi.fn<typeof issueHasLabel>().mockReturnValue(true),
+      fetchPRApprovalState: vi.fn<typeof fetchPRApprovalState>().mockReturnValue(false),
+    });
+
+    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, deps);
+
+    expect(result.outcome).toBe('abandoned');
+    expect(result.reason).toBe('hitl_blocked_unapproved');
+    expect(deps.writeTopLevelState).not.toHaveBeenCalled();
+    expect(deps.mergeWithConflictResolution).not.toHaveBeenCalled();
+    expect(deps.commentOnIssue).not.toHaveBeenCalled();
+    expect(deps.commentOnPR).not.toHaveBeenCalled();
+  });
+
+  it('rule 3: hitl + approved → merge (gate satisfied by approval)', async () => {
+    const deps = makeDeps({
+      issueHasLabel: vi.fn<typeof issueHasLabel>().mockReturnValue(true),
+      fetchPRApprovalState: vi.fn<typeof fetchPRApprovalState>().mockReturnValue(true),
+    });
+
+    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, deps);
+
+    expect(result.outcome).toBe('completed');
+    expect(deps.mergeWithConflictResolution).toHaveBeenCalled();
+  });
+
+  it('rule 4: no hitl + approved → merge (gate open via rule 1)', async () => {
+    const deps = makeDeps({
+      issueHasLabel: vi.fn<typeof issueHasLabel>().mockReturnValue(false),
+      fetchPRApprovalState: vi.fn<typeof fetchPRApprovalState>().mockReturnValue(true),
+    });
+
+    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, deps);
+
+    expect(result.outcome).toBe('completed');
+    expect(deps.mergeWithConflictResolution).toHaveBeenCalled();
+  });
+
+  it('defer logs a message naming the issue and PR', async () => {
+    const logMessages: string[] = [];
+    const logSpy = vi.spyOn(await import('../core'), 'log').mockImplementation((msg: string) => {
+      logMessages.push(msg);
+    });
+
+    const deps = makeDeps({
+      issueHasLabel: vi.fn<typeof issueHasLabel>().mockReturnValue(true),
+      fetchPRApprovalState: vi.fn<typeof fetchPRApprovalState>().mockReturnValue(false),
+    });
+
+    await executeMerge(42, 'test-adw-id', REPO_INFO, deps);
+
+    const deferLog = logMessages.find(m => m.includes('deferring'));
+    expect(deferLog).toBeDefined();
+    expect(deferLog).toContain('42');
+    expect(deferLog).toContain('7');
+
+    logSpy.mockRestore();
   });
 });
