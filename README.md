@@ -320,6 +320,8 @@ adws/                   # ADW workflow system
 │   ├── workflowCommentParsing.ts  # Comment parsing utilities
 │   └── workflowMapping.ts  # Issue type → orchestrator mapping
 ├── github/             # GitHub API operations
+│   ├── __tests__/      # Vitest unit tests
+│   │   └── prApi.test.ts
 │   ├── githubApi.ts
 │   ├── githubAppAuth.ts  # GitHub App authentication
 │   ├── index.ts
@@ -335,6 +337,7 @@ adws/                   # ADW workflow system
 ├── vcs/                # Version control operations (git)
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── branchOperations.test.ts
+│   │   ├── commitOperations.test.ts
 │   │   └── worktreeReset.test.ts
 │   ├── branchOperations.ts  # Branch management
 │   ├── commitOperations.ts  # Commit/push operations
@@ -440,6 +443,7 @@ adws/                   # ADW workflow system
 │   └── types.ts
 ├── triggers/           # Automation triggers
 │   ├── __tests__/      # Vitest unit tests
+│   │   ├── autoMergeHandler.test.ts
 │   │   ├── cancelHandler.test.ts
 │   │   ├── cronRepoResolver.test.ts
 │   │   ├── cronStageResolver.test.ts
