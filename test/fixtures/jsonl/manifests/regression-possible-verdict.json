@@ -1,0 +1,21 @@
+{
+  "jsonlPath": ".adw-stub-payload.json",
+  "edits": [
+    {
+      "path": ".adw-stub-payload.json",
+      "contents": "[{\"type\":\"text\",\"text\":\"Regression-possible stub. Change touches adws/ to trigger escalation path.\\n\"}]\n"
+    },
+    {
+      "path": ".adw/state.json",
+      "contents": "{\"workflowStage\":\"awaiting_merge\",\"adwId\":\"chore-smoke-200\",\"issueNumber\":200}\n"
+    },
+    {
+      "path": "adws/smoke-stub.ts",
+      "contents": "// Smoke stub — touches adws/ to produce a regression_possible diff verdict.\nexport const smokeStub = true;\n"
+    },
+    {
+      "path": "README.md",
+      "contents": "# Chore Smoke Test Repo\n\nAdws-touching change for regression-possible-verdict smoke fixture.\n"
+    }
+  ]
+}

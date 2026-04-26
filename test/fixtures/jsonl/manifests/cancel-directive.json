@@ -1,0 +1,13 @@
+{
+  "jsonlPath": ".adw-stub-payload.json",
+  "edits": [
+    {
+      "path": ".adw-stub-payload.json",
+      "contents": "[{\"type\":\"text\",\"text\":\"Stub response for cancel-directive smoke test.\\n\"}]\n"
+    },
+    {
+      "path": ".adw/state.json",
+      "contents": "{\"workflowStage\":\"cancelled\",\"adwId\":\"cancel-smoke-500\",\"issueNumber\":500}\n"
+    }
+  ]
+}

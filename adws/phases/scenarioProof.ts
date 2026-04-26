@@ -32,6 +32,14 @@ export interface TagProofResult {
   exitCode: number | null;
   /** True when the tag is optional and no matching scenarios were found. */
   skipped: boolean;
+  /**
+   * Optional explanation when scenario outcome and process exit code disagree —
+   * e.g. cucumber tally was clean (0 failed, 0 undefined) but the subprocess
+   * exited non-zero due to post-suite noise (KPI/D1 write failures, unhandled
+   * rejections in shutdown hooks). Rendered in the proof markdown so reviewers
+   * see why a non-zero exit was overridden to PASS.
+   */
+  warning?: string;
 }
 
 /**
@@ -59,6 +67,36 @@ function truncate(output: string): string {
   return `${output.slice(0, MAX_OUTPUT_LENGTH)}\n\n[...output truncated at ${MAX_OUTPUT_LENGTH} characters...]`;
 }
 
+/** Cucumber-js scenario tally extracted from a `--format summary` output line. */
+interface CucumberTally {
+  failed: number;
+  undefinedSteps: number;
+  pending: number;
+  passed: number;
+}
+
+/**
+ * Parses the cucumber-js scenarios summary line — e.g. `1646 scenarios (41 pending, 1605 passed)`.
+ * Cucumber emits one such line per run. Only non-zero counts appear in the breakdown, so missing
+ * categories default to 0. Returns null when no summary line is present (means cucumber crashed
+ * before emitting one and the exit code is the only signal available).
+ */
+function parseCucumberSummary(stdout: string): CucumberTally | null {
+  const matches = [...stdout.matchAll(/^\s*\d+ scenarios? \(([^)]+)\)\s*$/gm)];
+  if (matches.length === 0) return null;
+  const breakdown = matches[matches.length - 1][1];
+  const numFor = (label: string): number => {
+    const m = breakdown.match(new RegExp(`(\\d+) ${label}\\b`));
+    return m ? Number(m[1]) : 0;
+  };
+  return {
+    failed: numFor('failed'),
+    undefinedSteps: numFor('undefined'),
+    pending: numFor('pending'),
+    passed: numFor('passed'),
+  };
+}
+
 /** Returns true when the scenario output indicates zero matching scenarios were found. */
 function isNoScenariosOutput(stdout: string): boolean {
   return stdout.trim().length === 0 || /\b0 scenarios\b/i.test(stdout);
@@ -84,6 +122,11 @@ function buildProofMarkdown(tagResults: readonly TagProofResult[]): string {
       '',
       `**Status:** ${statusLabel}`,
       `**Exit Code:** ${result.exitCode ?? 'null'}`,
+    );
+    if (result.warning) {
+      lines.push(`**Warning:** ${result.warning}`);
+    }
+    lines.push(
       '',
       '### Output',
       '',
@@ -145,7 +188,24 @@ export async function runScenarioProof(options: {
 
     const result = await runScenariosByTag(runByTagCommand, tagName, cwd);
 
-    const noScenarios = result.allPassed && isNoScenariosOutput(result.stdout);
+    // Cucumber can exit non-zero from post-suite noise (e.g. KPI/D1 write failures
+    // logged after the summary line, unhandled rejections in shutdown hooks) even
+    // when every scenario passed. Trust the cucumber summary tally over the exit
+    // code when it is unambiguous: 0 failed AND 0 undefined ⇒ scenario outcome is
+    // PASS regardless of exitCode. Surface a warning so reviewers see why an
+    // override applied.
+    const tally = parseCucumberSummary(result.stdout);
+    const tallyClean = tally !== null && tally.failed === 0 && tally.undefinedSteps === 0;
+    const scenarioOutcomePassed = result.allPassed || tallyClean;
+    const overrideWarning =
+      !result.allPassed && tallyClean
+        ? `Process exited ${result.exitCode} but cucumber tally was clean ` +
+          `(${tally!.passed} passed, ${tally!.pending} pending, 0 failed, 0 undefined). ` +
+          `Treating as PASS — non-scenario noise (e.g. post-suite KPI/D1 writes, ` +
+          `shutdown-hook rejections) is preserved verbatim in the Output section below.`
+        : undefined;
+
+    const noScenarios = scenarioOutcomePassed && isNoScenariosOutput(result.stdout);
     if (entry.optional && noScenarios) {
       tagResults.push({
         tag: entry.tag,
@@ -163,10 +223,11 @@ export async function runScenarioProof(options: {
         resolvedTag,
         severity: entry.severity,
         optional: entry.optional ?? false,
-        passed: result.allPassed,
+        passed: scenarioOutcomePassed,
         output: truncate(result.stdout),
         exitCode: result.exitCode,
         skipped: false,
+        warning: overrideWarning,
       });
     }
   }

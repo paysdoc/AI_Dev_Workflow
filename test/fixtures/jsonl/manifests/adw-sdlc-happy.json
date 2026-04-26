@@ -1,0 +1,25 @@
+{
+  "jsonlPath": ".adw-stub-payload.json",
+  "edits": [
+    {
+      "path": ".adw-stub-payload.json",
+      "contents": "[{\"type\":\"text\",\"text\":\"# Implementation Plan\\n\\nMinimal SDLC smoke plan stub.\\n\"}]\n"
+    },
+    {
+      "path": ".adw/state.json",
+      "contents": "{\"workflowStage\":\"awaiting_merge\",\"adwId\":\"sdlc-smoke-100\",\"issueNumber\":100}\n"
+    },
+    {
+      "path": "specs/plan.md",
+      "contents": "# Implementation Plan\n\nMinimal plan stub for SDLC smoke test.\n\n## Steps\n1. Analyse requirements\n2. Implement changes\n3. Write tests\n"
+    },
+    {
+      "path": "src/featureStub.ts",
+      "contents": "// Smoke test stub — featureStub provides a minimal real diff for build/review phases.\nexport function featureStub(): string {\n  return 'stub';\n}\n"
+    },
+    {
+      "path": "README.md",
+      "contents": "# Smoke Test Repo\n\nMinimal fixture for SDLC smoke test.\n"
+    }
+  ]
+}
