@@ -1095,6 +1095,14 @@
     - When tuning `HUNG_DETECTOR_INTERVAL_CYCLES` or `HEARTBEAT_STALE_THRESHOLD_MS` for detection latency
     - When implementing the takeover handler (PRD slice #11) that consumes the `abandoned` state written by this sweep
 
+- app_docs/feature-k5dh22-fix-merge-conflict-detection.md
+  - Conditions:
+    - When working with `mergeWithConflictResolution` or `checkMergeConflicts` in `adws/triggers/autoMergeHandler.ts`
+    - When troubleshooting PRs that loop to `MAX_AUTO_MERGE_ATTEMPTS` without invoking `/resolve_conflict`
+    - When the local worktree's HEAD may be behind `origin/<headBranch>` (takeover, long-lived worktree, external push)
+    - When modifying or extending `isMergeConflictError` keyword set or adding new gh error string patterns
+    - When writing unit tests for `autoMergeHandler.ts` (follow the `vi.mock('child_process')` + sequenced `mockImplementationOnce` pattern)
+
 - app_docs/feature-hp5q8m-fix-merge-gate-approval-dispatch.md
   - Conditions:
     - When working with `adwMerge.tsx` merge gate logic or the `awaiting_merge` cron dispatch path
