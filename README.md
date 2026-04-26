@@ -523,6 +523,7 @@ adws/                   # ADW workflow system
 │   ├── issueEligibility.ts
 │   ├── mergeDispatchGate.ts  # Lock-aware gate deciding whether cron should dispatch adwMerge for an issue
 │   ├── pauseQueueScanner.ts  # Cron probe for paused issue queue
+│   ├── spawnGate.ts  # Per-issue filesystem lock preventing duplicate orchestrator launches
 │   ├── takeoverHandler.ts  # Candidate decision tree: evaluateCandidate composes spawnGate, processLiveness, agentState, remoteReconcile, and worktreeReset
 │   ├── trigger_cron.ts
 │   ├── trigger_shutdown.ts  # Graceful shutdown handler
@@ -615,6 +616,9 @@ bun.lock                # Bun lockfile
 eslint.config.js        # ESLint configuration
 cucumber.js             # Cucumber.js configuration
 features/               # BDD feature files (Gherkin .feature)
+├── regression/         # Regression scenario vocabulary and typed World
+│   ├── step_definitions/  # Typed Given/When/Then steps and RegressionWorld for regression scenarios
+│   └── vocabulary.md   # Canonical BDD phrase registry with rot-detection rubric for @regression authoring
 ├── step_definitions/   # Cucumber step definition files (.ts)
 └── support/            # Cucumber support files (tsx registration)
 specs/                  # Generated implementation specs
