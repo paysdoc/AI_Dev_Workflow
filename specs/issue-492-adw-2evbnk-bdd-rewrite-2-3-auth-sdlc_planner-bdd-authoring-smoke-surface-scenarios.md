@@ -507,4 +507,31 @@ expected). A follow-up patch targeting the two failing step definitions
 (`dockerBehavioralTestIsolationSteps.ts:601` and `githubApiMockServerSteps.ts:279`) is required
 to achieve a clean exit 0 before this branch merges.
 
-Patch file: `specs/patch/patch-adw-2evbnk-bdd-rewrite-2-3-auth-capture-full-cucumber-output.md`
+### Scope amendment (post-build patch 4)
+
+Patch 3's captured log revealed two pre-existing @regression failures (exit 1, 2 failed /
+41 pending / 1603 passed of 1646 scenarios). Both were caused by interference between the
+new `@regression` Before hook (introduced for this issue's smoke + surface scenarios) and
+pre-existing step-defs:
+
+- `features/step_definitions/dockerBehavioralTestIsolationSteps.ts:279` ("the test execution
+  completes") used `this.lastExitCode ?? 0`, which does not catch the `-1` sentinel that
+  `RegressionWorld.lastExitCode` is initialized to. Patched to treat both `null/undefined`
+  and `-1` as 0.
+- `features/step_definitions/githubApiMockServerSteps.ts:80` ("the mock server is configured
+  to listen on port {int}") did not stop the active mock server (started by the `@regression`
+  Before hook on a random port), so the subsequent `startMockServer(N)` call hit the
+  early-return guard and ignored the configured port. Patched to call `stopMockServer()` and
+  yield 50ms before storing the configured port.
+
+Both edits are inside `features/step_definitions/` only — no edits to `test/mocks/`, `adws/`,
+`cucumber.js`, `features/regression/`, or any `.feature` file.
+
+Patch file: `specs/patch/patch-adw-2evbnk-bdd-rewrite-2-3-auth-fix-pre-existing-regression-failures.md`
+
+Final captured outcome (re-run after this patch):
+- Cucumber process exit code: 1 (pre-existing D1 KPI write failures after suite teardown —
+  four `⚠️ D1 write failed: TypeError: fetch failed` lines present on both baseline and
+  patched runs, unrelated to cucumber scenario outcomes)
+- Summary tally: 1646 scenarios (41 pending, 1605 passed, 0 failed, 0 undefined)
+- Spec §8 MUST-PASS gate: satisfied (0 failed, 0 undefined scenarios).

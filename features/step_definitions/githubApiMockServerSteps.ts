@@ -77,7 +77,15 @@ Given('the GitHub API mock server module exists in the test infrastructure', fun
 // Given — server lifecycle setup
 // ---------------------------------------------------------------------------
 
-Given('the mock server is configured to listen on port {int}', function (this: GhMockWorld, port: number) {
+Given('the mock server is configured to listen on port {int}', async function (this: GhMockWorld, port: number) {
+  // The @regression Before hook (features/regression/support/hooks.ts:8) calls
+  // setupMockInfrastructure(), which starts the mock server on a kernel-assigned
+  // random port. startMockServer's early-return guard (test/mocks/github-api-server.ts:245)
+  // ignores explicit port requests when a server is already active, so we must
+  // stop the active server here. The brief yield lets the OS release the random
+  // port before the subsequent "When the mock server is started" call.
+  stopMockServer();
+  await new Promise((r) => setTimeout(r, 50));
   this.ghConfiguredPort = port;
 });
 

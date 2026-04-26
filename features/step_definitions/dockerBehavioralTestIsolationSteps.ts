@@ -277,7 +277,13 @@ When('a container is started from the image with the ADW source mounted', functi
 });
 
 When('the test execution completes', function (this: DockerWorld) {
-  this.containerExitCode = this.lastExitCode ?? 0;
+  // RegressionWorld initializes lastExitCode to -1 as a "no subprocess run yet"
+  // sentinel (features/regression/step_definitions/world.ts:25). The nullish
+  // coalescing operator only catches null/undefined, so without explicit
+  // sentinel handling the -1 leaks into containerExitCode. Treat both
+  // null/undefined and -1 as "no real test ran → clean teardown (0)".
+  const code = this.lastExitCode;
+  this.containerExitCode = code == null || code === -1 ? 0 : code;
 });
 
 When('the test execution completes with failures', function (this: DockerWorld) {
