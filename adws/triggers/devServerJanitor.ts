@@ -73,7 +73,7 @@ export interface JanitorDeps {
 /**
  * Extracts the issue number from a worktree directory name.
  *
- * Branch format produced by generateBranchName(): `${prefix}-issue-${issueNumber}-${slug}`.
+ * Branch format is owned by generateBranchName() in adws/vcs/.
  * Example: `feature-issue-55-scraper-visual-asset-capture` → 55.
  *
  * @returns The issue number, or null if the directory name has no `-issue-<N>-` segment.
