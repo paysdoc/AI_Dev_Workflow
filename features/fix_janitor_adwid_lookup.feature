@@ -36,7 +36,7 @@ Feature: Fix dev server janitor adwId lookup for real branch names
   Scenario: extractIssueNumberFromDirName matches the real generateBranchName format
     Given "adws/triggers/devServerJanitor.ts" is read
     Then the file contains "-issue-"
-    And the file contains "\\d+"
+    And the file contains "parseInt"
 
   @adw-499 @regression
   Scenario: extractIssueNumberFromDirName returns a number for a feature branch
