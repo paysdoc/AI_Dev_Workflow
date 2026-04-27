@@ -17,6 +17,7 @@ ADW turns issues on GitHub, GitLab, or Jira into reviewed, tested, and documente
 - **Single-host coordination** — per-issue `spawnGate`, PID + start-time liveness checks, heartbeat ticker, and `worktreeReset`-driven takeover reclaim dead or abandoned runs.
 - **Resilience primitives** — pause queue for rate-limit/billing pause and resume, hung-orchestrator detector, dev server janitor, and `remoteReconcile` to derive workflow stage from remote GitHub artifacts.
 - **Cost tracking** — per-phase, per-model `PhaseCostRecord` with multi-currency reporting, divergence detection vs. CLI-reported cost, and dual-write to a Cloudflare D1-backed Cost API.
+- **Agentic KPI tracking** — `kpiAgent` and `kpiPhase` record per-workflow success, duration, cost, and streak metrics to a persistent `agentic_kpis.md` file for analytics and accountability.
 - **LLM-based dependency extraction** — `dependencyExtractionAgent` reads issues to surface cross-issue dependencies before spawning.
 - **Documentation generation** — `documentAgent` writes feature docs to `app_docs/`; the SDLC pipeline includes review screenshots.
 - **Supply-chain audit integration** — `adw_init` runs `depaudit setup` in target repos and propagates `SOCKET_API_TOKEN` / `SLACK_WEBHOOK_URL` to GitHub Actions secrets.
