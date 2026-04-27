@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 84               | 2026-04-27 13:01:36 |
-| Longest Streak    | 84               | 2026-04-27 13:01:36 |
-| Total Plan Size   | 3184 lines       | 2026-04-27 13:01:36 |
-| Largest Plan Size | 678 lines        | 2026-04-27 13:01:36 |
-| Total Diff Size   | 2676941 lines    | 2026-04-27 13:01:36 |
-| Largest Diff Size | 418153 lines     | 2026-04-27 13:01:36 |
-| Average Presence  | 1.27             | 2026-04-27 13:01:36 |
+| Current Streak    | 154               | 2026-04-27 13:28:06 |
+| Longest Streak    | 154               | 2026-04-27 13:28:06 |
+| Total Plan Size   | 1757 lines       | 2026-04-27 13:28:06 |
+| Largest Plan Size | 579 lines        | 2026-04-27 13:28:06 |
+| Total Diff Size   | 2710102 lines    | 2026-04-27 13:28:06 |
+| Largest Diff Size | 418153 lines     | 2026-04-27 13:28:06 |
+| Average Presence  | 1.17             | 2026-04-27 13:28:06 |
 
 ## ADW KPIs
 
@@ -169,3 +169,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-04-27 | yw233r-dev-server-janitor-r | 499          | /bug        | 1          | 0                 | 2711/116/31                     | 2026-04-27 10:37:55 | 2026-04-27 10:37:55 |
 | 2026-04-27 | ra4jwa-asset-capture-visual | 55           | /feature    | 1          | 0                 | 26365/1430/136                  | 2026-04-27 11:43:09 | 2026-04-27 11:43:09 |
 | 2026-04-27 | dq5bdt-hero-picker-pptx-emb | 57           | /feature    | 1          | 178               | 30532/1436/157                  | 2026-04-27 13:01:36 | 2026-04-27 13:01:36 |
+| 2026-04-27 | 1oh64f-logo-picker-pptx-emb | 56           | /feature    | 1          | 0                 | 31720/1441/166                  | 2026-04-27 13:28:06 | 2026-04-27 13:28:06 |
