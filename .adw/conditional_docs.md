@@ -1119,3 +1119,11 @@
     - When working with `shouldDispatchMerge` or `MergeDispatchDeps` in `adws/triggers/mergeDispatchGate.ts`
     - When the `awaiting_approval` exit reason appears in logs or you need to understand why `workflowStage` was not written
     - When `processedMerges` is referenced in old code or docs (it was removed — use spawn lock instead)
+
+- app_docs/feature-yw233r-fix-janitor-adwid-lookup.md
+  - Conditions:
+    - When working with `devServerJanitor.ts`, `extractIssueNumberFromDirName`, or `findActiveAdwIdForIssue`
+    - When modifying or extending the kill-decision logic in `runJanitorPass` or `shouldCleanWorktree`
+    - When troubleshooting live ADW agents being unexpectedly killed by the janitor (exit code 143)
+    - When extending `JanitorDeps` with new injectable dependencies for the janitor
+    - When writing tests for `devServerJanitor.ts` (follow the state-file-driven lookup pattern, use real branch-name fixtures)
