@@ -13,7 +13,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
-import { log, TARGET_REPOS_DIR, type LogLevel } from '../core';
+import { log, TARGET_REPOS_DIR, AGENTS_STATE_DIR, type LogLevel } from '../core';
 import { AgentStateManager } from '../core/agentState';
 import { isAgentProcessRunning } from '../core/stateHelpers';
 import { isActiveStage } from './cronStageResolver';
@@ -50,6 +50,10 @@ export interface JanitorDeps {
   listWorktrees: (cwd: string) => string[];
   /** Read top-level workflow state for an adwId. */
   readTopLevelState: (adwId: string) => AgentState | null;
+  /** List adwId directories under AGENTS_STATE_DIR (excludes 'cron' and non-directories). */
+  listAdwStateDirs: () => string[];
+  /** Read top-level workflow state for an adwId (alias for AgentStateManager.readTopLevelState). */
+  readTopLevelStateRaw: (adwId: string) => AgentState | null;
   /** Check if the orchestrator process for an adwId is still alive. */
   isAgentProcessRunning: (adwId: string) => boolean;
   /** Get the age of a worktree directory in milliseconds. */
@@ -67,19 +71,44 @@ export interface JanitorDeps {
 // ---------------------------------------------------------------------------
 
 /**
- * Extracts the adwId from a worktree directory name.
+ * Extracts the issue number from a worktree directory name.
  *
- * Branch format: {type}-issue-{N}-adw-{adwId}
- * adwId is everything after the first `-adw-` marker.
+ * Branch format is owned by generateBranchName() in adws/vcs/.
+ * Example: `feature-issue-55-scraper-visual-asset-capture` → 55.
  *
- * @returns The adwId string, or null if the directory name has no `-adw-` marker.
+ * @returns The issue number, or null if the directory name has no `-issue-<N>-` segment.
  */
-export function extractAdwIdFromDirName(dirName: string): string | null {
-  const marker = '-adw-';
-  const idx = dirName.indexOf(marker);
-  if (idx === -1) return null;
-  const adwId = dirName.substring(idx + marker.length);
-  return adwId.length > 0 ? adwId : null;
+export function extractIssueNumberFromDirName(dirName: string): number | null {
+  const m = dirName.match(/-issue-(\d+)-/);
+  if (!m) return null;
+  const n = parseInt(m[1], 10);
+  return Number.isNaN(n) ? null : n;
+}
+
+/**
+ * Finds the most recently active adwId for a given issue number by scanning
+ * top-level state files under AGENTS_STATE_DIR.
+ *
+ * Multiple state files may share an issue number (re-runs, takeovers); the freshest
+ * `lastSeenAt` (refreshed by the heartbeat ticker) wins. Entries without `lastSeenAt`
+ * are tie-broken by treating their seen time as 0.
+ *
+ * @returns The adwId of the freshest matching state file, or null if no state file matches.
+ */
+export function findActiveAdwIdForIssue(
+  issueNumber: number,
+  deps: Pick<JanitorDeps, 'listAdwStateDirs' | 'readTopLevelStateRaw'>,
+): string | null {
+  const candidates = deps.listAdwStateDirs();
+  let best: { adwId: string; lastSeenMs: number } | null = null;
+  for (const adwId of candidates) {
+    const state = deps.readTopLevelStateRaw(adwId);
+    if (!state || state.issueNumber !== issueNumber) continue;
+    const seen = state.lastSeenAt ? Date.parse(state.lastSeenAt) : 0;
+    const seenMs = Number.isNaN(seen) ? 0 : seen;
+    if (!best || seenMs > best.lastSeenMs) best = { adwId, lastSeenMs: seenMs };
+  }
+  return best?.adwId ?? null;
 }
 
 /**
@@ -161,6 +190,16 @@ function defaultReaddirTargetRepos(dir: string): string[] {
     .map(e => e.name);
 }
 
+function defaultListAdwStateDirs(): string[] {
+  try {
+    return fs.readdirSync(AGENTS_STATE_DIR, { withFileTypes: true })
+      .filter(e => e.isDirectory() && e.name !== 'cron')
+      .map(e => e.name);
+  } catch {
+    return [];
+  }
+}
+
 function defaultIsGitRepo(repoPath: string): boolean {
   return fs.existsSync(path.join(repoPath, '.git'));
 }
@@ -194,6 +233,8 @@ const DEFAULT_DEPS: JanitorDeps = {
   isGitRepo: defaultIsGitRepo,
   listWorktrees,
   readTopLevelState: AgentStateManager.readTopLevelState,
+  readTopLevelStateRaw: AgentStateManager.readTopLevelState,
+  listAdwStateDirs: defaultListAdwStateDirs,
   isAgentProcessRunning,
   getWorktreeAgeMs: defaultGetWorktreeAgeMs,
   hasProcessesInDirectory: defaultHasProcessesInDirectory,
@@ -235,7 +276,8 @@ export async function runJanitorPass(deps: JanitorDeps = DEFAULT_DEPS): Promise<
       }
 
       // Step 2: Apply kill decision rule
-      const adwId = extractAdwIdFromDirName(dirName);
+      const issueNumber = extractIssueNumberFromDirName(dirName);
+      const adwId = issueNumber !== null ? findActiveAdwIdForIssue(issueNumber, deps) : null;
 
       let isNonTerminal = false;
       let orchestratorAlive = false;

@@ -63,6 +63,39 @@ const janitorRunCtx: JanitorRunState = {
   isAgentProcessRunningCalls: 0,
 };
 
+// Discriminates whether the last When step was the decision rule or a full janitor pass
+let isJanitorPassContext = false;
+
+// Context for extractIssueNumberFromDirName unit-style tests
+const parseCtx: { dirName: string; result: number | null | undefined } = {
+  dirName: '',
+  result: undefined,
+};
+
+// Context for findActiveAdwIdForIssue unit-style tests
+const lookupCtx: {
+  states: Map<string, { issueNumber: number; lastSeenAt?: string; workflowStage?: string } | null>;
+  resolvedAdwId: string | null | undefined;
+} = {
+  states: new Map(),
+  resolvedAdwId: undefined,
+};
+
+// Context for runJanitorPass integration tests (issue #499 regression scenarios)
+const intCtx: {
+  worktreeDirName: string;
+  adwStates: Map<string, { issueNumber: number; lastSeenAt?: string; workflowStage?: string }>;
+  pidAlive: Map<string, boolean>;
+  worktreeAgeMs: number;
+  hasProcesses: boolean;
+} = {
+  worktreeDirName: '',
+  adwStates: new Map(),
+  pidAlive: new Map(),
+  worktreeAgeMs: 60 * 60 * 1000,
+  hasProcesses: true,
+};
+
 // Note: 'Given/Then the file {string} exists' is already defined in cucumberConfigSteps.ts
 
 // ── Import checks ────────────────────────────────────────────────────────────
@@ -185,6 +218,8 @@ When('runJanitorPass is invoked', async function (this: Record<string, unknown>)
       isGitRepo: () => true,
       listWorktrees: () => [],
       readTopLevelState: (_id: string) => { janitorRunCtx.readTopLevelStateCalls++; return null; },
+      readTopLevelStateRaw: () => null,
+      listAdwStateDirs: () => [],
       isAgentProcessRunning: (_id: string) => { janitorRunCtx.isAgentProcessRunningCalls++; return false; },
       getWorktreeAgeMs: () => 60 * 60 * 1000,
       hasProcessesInDirectory: () => false,
@@ -197,6 +232,8 @@ When('runJanitorPass is invoked', async function (this: Record<string, unknown>)
       isGitRepo: () => true,
       listWorktrees: () => [],
       readTopLevelState: () => null,
+      readTopLevelStateRaw: () => null,
+      listAdwStateDirs: () => [],
       isAgentProcessRunning: () => false,
       getWorktreeAgeMs: () => 60 * 60 * 1000,
       hasProcessesInDirectory: () => false,
@@ -236,7 +273,48 @@ Given('a worktree with no processes holding files', function (this: Record<strin
 When('runJanitorPass evaluates the worktree', async function (this: Record<string, unknown>) {
   const { runJanitorPass } = await import('../../adws/triggers/devServerJanitor.js');
   type JD = import('../../adws/triggers/devServerJanitor.js').JanitorDeps;
-  const wtPath = this.__worktreePath as string ?? '/fake/repo/.worktrees/feature-issue-99-adw-abc-slug';
+
+  // Integration context path: section 5 regression scenarios set intCtx.worktreeDirName
+  if (intCtx.worktreeDirName) {
+    isJanitorPassContext = true;
+    const wtPath = `/fake/repo/.worktrees/${intCtx.worktreeDirName}`;
+    const adwStates = new Map(intCtx.adwStates);
+    const pidAlive = new Map(intCtx.pidAlive);
+    const worktreeAgeMs = intCtx.worktreeAgeMs;
+    const hasProcesses = intCtx.hasProcesses;
+
+    const deps: JD = {
+      readdirTargetRepos: (dir: string) => dir.includes('repos') ? ['owner'] : ['repo'],
+      isGitRepo: () => true,
+      listWorktrees: () => [wtPath],
+      readTopLevelState: (adwId: string) => {
+        const s = adwStates.get(adwId);
+        return s ? { ...s } as import('../../adws/types/agentTypes.js').AgentState : null;
+      },
+      readTopLevelStateRaw: (adwId: string) => {
+        const s = adwStates.get(adwId);
+        return s ? { ...s } as import('../../adws/types/agentTypes.js').AgentState : null;
+      },
+      listAdwStateDirs: () => Array.from(adwStates.keys()),
+      isAgentProcessRunning: (adwId: string) => pidAlive.get(adwId) ?? false,
+      getWorktreeAgeMs: () => worktreeAgeMs,
+      hasProcessesInDirectory: () => hasProcesses,
+      killProcessesInDirectory: (p: string) => { janitorRunCtx.killCalls.push(p); },
+      log: () => {},
+    };
+
+    try {
+      await runJanitorPass(deps);
+      janitorRunCtx.error = null;
+    } catch (err) {
+      janitorRunCtx.error = err as Error;
+    }
+    return;
+  }
+
+  // Legacy path: no-processes behavioral test
+  isJanitorPassContext = true;
+  const wtPath = this.__worktreePath as string ?? '/fake/repo/.worktrees/feature-issue-99-some-slug';
 
   const deps: JD = {
     readdirTargetRepos: (dir: string) => dir.includes('repos') ? ['owner'] : ['repo'],
@@ -246,12 +324,14 @@ When('runJanitorPass evaluates the worktree', async function (this: Record<strin
       janitorRunCtx.readTopLevelStateCalls++;
       return { workflowStage: 'completed' } as import('../../adws/types/agentTypes.js').AgentState;
     },
+    readTopLevelStateRaw: (_id: string) => null,
+    listAdwStateDirs: () => [],
     isAgentProcessRunning: (_id: string) => {
       janitorRunCtx.isAgentProcessRunningCalls++;
       return false;
     },
-    getWorktreeAgeMs: () => 60 * 60 * 1000, // 60 min — old
-    hasProcessesInDirectory: () => false, // no processes
+    getWorktreeAgeMs: () => 60 * 60 * 1000,
+    hasProcessesInDirectory: () => false,
     killProcessesInDirectory: (p: string) => { janitorRunCtx.killCalls.push(p); },
     log: () => {},
   };
@@ -341,6 +421,7 @@ Given('the orchestrator PID is dead', function () {
 });
 
 When('the kill decision rule is evaluated', async function () {
+  isJanitorPassContext = false;
   const { shouldCleanWorktree, JANITOR_GRACE_PERIOD_MS } = await import('../../adws/triggers/devServerJanitor.js');
   const ageMs = killCtx.isOlderThan30Min ? JANITOR_GRACE_PERIOD_MS + 1 : JANITOR_GRACE_PERIOD_MS - 1;
   killCtx.result = shouldCleanWorktree(
@@ -352,19 +433,34 @@ When('the kill decision rule is evaluated', async function () {
 });
 
 Then('the dev server process is left alone', function () {
-  assert.strictEqual(
-    killCtx.result,
-    false,
-    `Expected shouldCleanWorktree to return false (leave alone), but got true`,
-  );
+  if (isJanitorPassContext) {
+    assert.strictEqual(
+      janitorRunCtx.killCalls.length,
+      0,
+      `Expected no kill calls, got: ${janitorRunCtx.killCalls.join(', ')}`,
+    );
+  } else {
+    assert.strictEqual(
+      killCtx.result,
+      false,
+      `Expected shouldCleanWorktree to return false (leave alone), but got true`,
+    );
+  }
 });
 
 Then('the dev server process is killed', function () {
-  assert.strictEqual(
-    killCtx.result,
-    true,
-    `Expected shouldCleanWorktree to return true (kill), but got false`,
-  );
+  if (isJanitorPassContext) {
+    assert.ok(
+      janitorRunCtx.killCalls.length > 0,
+      `Expected kill to be called, but no kill calls were made`,
+    );
+  } else {
+    assert.strictEqual(
+      killCtx.result,
+      true,
+      `Expected shouldCleanWorktree to return true (kill), but got false`,
+    );
+  }
 });
 
 // ── Behavioral: signal escalation ────────────────────────────────────────────
@@ -498,4 +594,129 @@ Then('the test file mocks process.kill or equivalent signal sending', function (
     content.includes('killProcessesInDirectory') || content.includes('process.kill'),
     `"${filePath}": expected process.kill or killProcessesInDirectory to be mocked`,
   );
+});
+
+// ── extractIssueNumberFromDirName unit-style step definitions ─────────────────
+
+Given('the worktree directory name {string}', function (dirName: string) {
+  parseCtx.dirName = dirName;
+  parseCtx.result = undefined;
+});
+
+When('extractIssueNumberFromDirName parses the directory name', async function () {
+  const { extractIssueNumberFromDirName } = await import('../../adws/triggers/devServerJanitor.js');
+  parseCtx.result = extractIssueNumberFromDirName(parseCtx.dirName);
+});
+
+Then('the parsed issue number is {int}', function (expected: number) {
+  assert.strictEqual(
+    parseCtx.result,
+    expected,
+    `Expected parsed issue number to be ${expected}, got ${String(parseCtx.result)}`,
+  );
+});
+
+Then('the parsed issue number is null', function () {
+  assert.strictEqual(
+    parseCtx.result,
+    null,
+    `Expected parsed issue number to be null, got ${String(parseCtx.result)}`,
+  );
+});
+
+// ── findActiveAdwIdForIssue unit-style step definitions ───────────────────────
+
+Given(
+  'the agent state directory contains:',
+  function (dataTable: { hashes: () => Array<Record<string, string>> }) {
+    lookupCtx.states.clear();
+    intCtx.adwStates.clear();
+    const rows = dataTable.hashes();
+    for (const row of rows) {
+      const entry: { issueNumber: number; lastSeenAt?: string; workflowStage?: string } = {
+        issueNumber: parseInt(row['issueNumber'], 10),
+      };
+      const lastSeenAt = row['lastSeenAt']?.trim();
+      if (lastSeenAt) entry.lastSeenAt = lastSeenAt;
+      const workflowStage = row['workflowStage']?.trim();
+      if (workflowStage) entry.workflowStage = workflowStage;
+      lookupCtx.states.set(row['adwId'], entry);
+      intCtx.adwStates.set(row['adwId'], entry);
+    }
+  },
+);
+
+When('findActiveAdwIdForIssue is called for issue {int}', async function (issueNumber: number) {
+  const { findActiveAdwIdForIssue } = await import('../../adws/triggers/devServerJanitor.js');
+  type JD = import('../../adws/triggers/devServerJanitor.js').JanitorDeps;
+  const deps: Pick<JD, 'listAdwStateDirs' | 'readTopLevelStateRaw'> = {
+    listAdwStateDirs: () => Array.from(lookupCtx.states.keys()),
+    readTopLevelStateRaw: (adwId: string) =>
+      (lookupCtx.states.get(adwId) ?? null) as import('../../adws/types/agentTypes.js').AgentState | null,
+  };
+  lookupCtx.resolvedAdwId = findActiveAdwIdForIssue(issueNumber, deps);
+});
+
+Then('the resolved adwId is {string}', function (expected: string) {
+  assert.strictEqual(
+    lookupCtx.resolvedAdwId,
+    expected,
+    `Expected resolved adwId to be "${expected}", got "${String(lookupCtx.resolvedAdwId)}"`,
+  );
+});
+
+Then('the resolved adwId is null', function () {
+  assert.strictEqual(
+    lookupCtx.resolvedAdwId,
+    null,
+    `Expected resolved adwId to be null, got "${String(lookupCtx.resolvedAdwId)}"`,
+  );
+});
+
+// ── runJanitorPass integration Given steps (issue #499 regression) ────────────
+
+Given('a worktree directory named {string}', function (dirName: string) {
+  intCtx.worktreeDirName = dirName;
+  intCtx.adwStates.clear();
+  intCtx.pidAlive.clear();
+  intCtx.worktreeAgeMs = 60 * 60 * 1000;
+  intCtx.hasProcesses = true;
+  janitorRunCtx.killCalls = [];
+  janitorRunCtx.error = null;
+  killCtx.result = null;
+});
+
+Given(
+  'a top-level state file with adwId {string} and issueNumber {int} and workflowStage {string}',
+  function (adwId: string, issueNumber: number, workflowStage: string) {
+    intCtx.adwStates.set(adwId, {
+      issueNumber,
+      workflowStage,
+      lastSeenAt: new Date().toISOString(),
+    });
+  },
+);
+
+Given('the orchestrator process for adwId {string} is alive', function (adwId: string) {
+  intCtx.pidAlive.set(adwId, true);
+});
+
+Given('the orchestrator process for adwId {string} is dead', function (adwId: string) {
+  intCtx.pidAlive.set(adwId, false);
+});
+
+Given('the worktree is older than 30 minutes', function () {
+  intCtx.worktreeAgeMs = 60 * 60 * 1000; // 60 min
+});
+
+Given('the worktree is younger than 30 minutes', function () {
+  intCtx.worktreeAgeMs = 10 * 60 * 1000; // 10 min
+});
+
+Given('the worktree has a process holding files open', function () {
+  intCtx.hasProcesses = true;
+});
+
+Given('no top-level state file matches issueNumber {int}', function (_issueNumber: number) {
+  intCtx.adwStates.clear();
 });
