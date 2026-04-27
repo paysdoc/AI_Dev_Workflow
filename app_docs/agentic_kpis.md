@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 81               | 2026-04-27 10:37:55 |
-| Longest Streak    | 81               | 2026-04-27 10:37:55 |
-| Total Plan Size   | 3006 lines       | 2026-04-27 10:37:55 |
-| Largest Plan Size | 678 lines        | 2026-04-27 10:37:55 |
-| Total Diff Size   | 2614558 lines    | 2026-04-27 10:37:55 |
-| Largest Diff Size | 418153 lines     | 2026-04-27 10:37:55 |
-| Average Presence  | 1.28             | 2026-04-27 10:37:55 |
+| Current Streak    | 83               | 2026-04-27 11:43:09 |
+| Longest Streak    | 83               | 2026-04-27 11:43:09 |
+| Total Plan Size   | 3006 lines       | 2026-04-27 11:43:09 |
+| Largest Plan Size | 678 lines        | 2026-04-27 11:43:09 |
+| Total Diff Size   | 2644973 lines    | 2026-04-27 11:43:09 |
+| Largest Diff Size | 418153 lines     | 2026-04-27 11:43:09 |
+| Average Presence  | 1.27             | 2026-04-27 11:43:09 |
 
 ## ADW KPIs
 
@@ -167,3 +167,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-04-26 | tvqgz4-auto-merge-unify-cho | 496          | /feature    | 1          | 0                 | 2460/1110/29                    | 2026-04-26 11:57:53 | 2026-04-26 11:57:53 |
 | 2026-04-26 | dl3cdo-multi-page-shallow-c | 54           | /feature    | 2          | 579               | 22426/1430/126                  | 2026-04-26 20:27:57 | 2026-04-26 20:27:57 |
 | 2026-04-27 | yw233r-dev-server-janitor-r | 499          | /bug        | 1          | 0                 | 2711/116/31                     | 2026-04-27 10:37:55 | 2026-04-27 10:37:55 |
+| 2026-04-27 | ra4jwa-asset-capture-visual | 55           | /feature    | 1          | 0                 | 26365/1430/136                  | 2026-04-27 11:43:09 | 2026-04-27 11:43:09 |
