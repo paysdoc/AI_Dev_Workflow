@@ -6,14 +6,21 @@
  * to stdout. Pointed to via the CLAUDE_CODE_PATH environment variable.
  *
  * Environment variables:
- *   MOCK_FIXTURE_PATH  — path to a payload JSON file (array of ContentBlock objects).
- *                        When not set, payload is auto-selected from the prompt.
+ *   MOCK_FIXTURE_PATH    — path to a payload JSON file (array of ContentBlock objects).
+ *                          When not set, payload is auto-selected from the prompt.
+ *   MOCK_MANIFEST_PATH   — path to a manifest JSON file. When set, the manifest
+ *                          interpreter applies declared file edits to the worktree
+ *                          and overrides the payload path. Takes precedence over
+ *                          MOCK_FIXTURE_PATH.
+ *   MOCK_WORKTREE_PATH   — absolute path to the target worktree for manifest edits
+ *                          (falls back to process.cwd() when MOCK_MANIFEST_PATH is set).
  *   MOCK_STREAM_DELAY_MS — delay between output lines in ms (default: 10).
  */
 
 import { readFileSync } from 'fs';
 import { join, resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { applyManifest } from './manifestInterpreter.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FIXTURE_DIR = resolve(__dirname, '../fixtures/jsonl');
@@ -86,7 +93,16 @@ function extractText(payload: Array<{ type: string; text?: string }>): string {
 /** Main entry point. */
 async function main(): Promise<void> {
   try {
-    const payloadPath = selectPayloadPath();
+    // When MOCK_MANIFEST_PATH is set, apply the manifest and derive payloadPath from it.
+    const manifestPath = process.env['MOCK_MANIFEST_PATH'];
+    let payloadPath: string;
+    if (manifestPath) {
+      const worktreePath = process.env['MOCK_WORKTREE_PATH'] ?? process.cwd();
+      const result = applyManifest(manifestPath, worktreePath);
+      payloadPath = result.jsonlPath;
+    } else {
+      payloadPath = selectPayloadPath();
+    }
     const payload = JSON.parse(readFileSync(payloadPath, 'utf-8')) as Array<{
       type: string;
       text?: string;
