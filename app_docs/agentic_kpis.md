@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 154               | 2026-04-27 13:28:06 |
+| Current Streak    | 87                | 2026-04-28 10:18:04 |
 | Longest Streak    | 154               | 2026-04-27 13:28:06 |
-| Total Plan Size   | 1757 lines       | 2026-04-27 13:28:06 |
-| Largest Plan Size | 579 lines        | 2026-04-27 13:28:06 |
-| Total Diff Size   | 2710102 lines    | 2026-04-27 13:28:06 |
-| Largest Diff Size | 418153 lines     | 2026-04-27 13:28:06 |
-| Average Presence  | 1.17             | 2026-04-27 13:28:06 |
+| Total Plan Size   | 3184 lines       | 2026-04-28 10:18:04 |
+| Largest Plan Size | 678 lines        | 2026-04-22 20:54:24 |
+| Total Diff Size   | 2749107 lines    | 2026-04-28 10:18:04 |
+| Largest Diff Size | 418153 lines     | 2026-03-30 01:00:00 |
+| Average Presence  | 1.27             | 2026-04-28 10:18:04 |
 
 ## ADW KPIs
 
@@ -170,3 +170,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-04-27 | ra4jwa-asset-capture-visual | 55           | /feature    | 1          | 0                 | 26365/1430/136                  | 2026-04-27 11:43:09 | 2026-04-27 11:43:09 |
 | 2026-04-27 | dq5bdt-hero-picker-pptx-emb | 57           | /feature    | 1          | 178               | 30532/1436/157                  | 2026-04-27 13:01:36 | 2026-04-27 13:01:36 |
 | 2026-04-27 | 1oh64f-logo-picker-pptx-emb | 56           | /feature    | 1          | 0                 | 31720/1441/166                  | 2026-04-27 13:28:06 | 2026-04-27 13:28:06 |
+| 2026-04-28 | ewznvk-frontend-d-level-ux | 58           | /feature    | 1          | 0                 | 37532/1473/187                  | 2026-04-28 10:18:04 | 2026-04-28 10:18:04 |
