@@ -31,6 +31,8 @@ Given(
     // The mock server already handles POST /repos/.../issues/:n/comments by default.
     // This step makes the intent explicit — no additional state seeding is needed.
     await this.mockContext.setState({});
+    const serverUrl = this.mockContext.serverUrl;
+    this.harnessEnv = { ...this.harnessEnv, GH_HOST: serverUrl.replace(/^https?:\/\//, ''), GITHUB_API_URL: serverUrl };
   },
 );
 
@@ -82,6 +84,8 @@ Given(
         },
       },
     });
+    const serverUrl = this.mockContext.serverUrl;
+    this.harnessEnv = { ...this.harnessEnv, GH_HOST: serverUrl.replace(/^https?:\/\//, ''), GITHUB_API_URL: serverUrl };
   },
 );
 
@@ -136,6 +140,8 @@ Given(
     assert.ok(this.mockContext, 'mockContext must be initialised in a Before hook');
     // An empty issues map means the cron probe will find no eligible issues.
     await this.mockContext.setState({ issues: {} });
+    const serverUrl = this.mockContext.serverUrl;
+    this.harnessEnv = { ...this.harnessEnv, GH_HOST: serverUrl.replace(/^https?:\/\//, ''), GITHUB_API_URL: serverUrl };
   },
 );
 
@@ -148,6 +154,10 @@ Given(
   function (this: RegressionWorld) {
     // Recording is enabled by default on the mock server.
     // This step is a documentation step that makes the intent explicit.
+    if (this.mockContext) {
+      const serverUrl = this.mockContext.serverUrl;
+      this.harnessEnv = { ...this.harnessEnv, GH_HOST: serverUrl.replace(/^https?:\/\//, ''), GITHUB_API_URL: serverUrl };
+    }
   },
 );
 
@@ -184,6 +194,8 @@ Given(
         },
       },
     });
+    const serverUrl = this.mockContext.serverUrl;
+    this.harnessEnv = { ...this.harnessEnv, GH_HOST: serverUrl.replace(/^https?:\/\//, ''), GITHUB_API_URL: serverUrl };
   },
 );
 
