@@ -753,6 +753,14 @@
     - When modifying the `issue_comment` or `issues.opened` handler gate ordering in `trigger_webhook.ts`
     - When adding new webhook event gates that could prevent `ensureCronProcess` from being reached
 
+- app_docs/feature-n96c4j-webhook-ensure-cron-on-every-event.md
+  - Conditions:
+    - When working with `ensureCronProcess` in `trigger_webhook.ts` or `webhookGatekeeper.ts`
+    - When troubleshooting `awaiting_merge` PRs that are never merged because the cron poller was never spawned
+    - When adding a new webhook event handler branch that must not bypass cron respawn
+    - When investigating why an approving review (`pull_request_review.submitted` state=approved) did not trigger a cron spawn
+    - When modifying the top-level request body handler in `trigger_webhook.ts` (the call site for `ensureCronProcess` is now before all per-event branching)
+
 - app_docs/feature-ekd5o1-wire-proof-comment-formatter.md
   - Conditions:
     - When working with `proofCommentFormatter.ts` or `formatReviewProofComment()`
