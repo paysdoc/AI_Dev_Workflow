@@ -37,6 +37,12 @@ export interface ScenariosConfig {
   scenarioDirectory: string;
   runByTag: string;
   runRegression: string;
+  /** Directory for per-issue agent-input scenarios. Absent ⇒ undefined (legacy behaviour). */
+  perIssueScenarioDirectory?: string;
+  /** Directory for promoted regression scenarios. Absent ⇒ undefined (legacy behaviour). */
+  regressionScenarioDirectory?: string;
+  /** Path to the vocabulary registry file. Absent ⇒ undefined (legacy behaviour). */
+  vocabularyRegistry?: string;
 }
 
 export interface ProvidersConfig {
@@ -97,6 +103,9 @@ const SCENARIOS_HEADING_TO_KEY: Record<string, keyof ScenariosConfig> = {
   'scenario directory': 'scenarioDirectory',
   'run scenarios by tag': 'runByTag',
   'run regression scenarios': 'runRegression',
+  'per-issue scenario directory': 'perIssueScenarioDirectory',
+  'regression scenario directory': 'regressionScenarioDirectory',
+  'vocabulary registry': 'vocabularyRegistry',
 };
 
 const PROVIDERS_HEADING_TO_KEY: Record<string, keyof ProvidersConfig> = {

@@ -15,7 +15,7 @@ ADW turns issues on GitHub, GitLab, or Jira into reviewed, tested, and documente
 - **Project board automation** — `BoardManager` provider drives GitHub Projects V2 column transitions as a workflow progresses.
 - **Two automation triggers** — `trigger_cron.ts` polls every 20 s; `trigger_webhook.ts` receives HMAC-signed GitHub webhooks for instant pickup, with optional Cloudflare tunnel lifecycle.
 - **Single-host coordination** — per-issue `spawnGate`, PID + start-time liveness checks, heartbeat ticker, and `worktreeReset`-driven takeover reclaim dead or abandoned runs.
-- **Resilience primitives** — pause queue for rate-limit/billing pause and resume, hung-orchestrator detector, dev server janitor, and `remoteReconcile` to derive workflow stage from remote GitHub artifacts.
+- **Resilience primitives** — pause queue for rate-limit/billing pause and resume, hung-orchestrator detector, dev server janitor, per-issue scenario sweep cron (14-day retention), and `remoteReconcile` to derive workflow stage from remote GitHub artifacts.
 - **Cost tracking** — per-phase, per-model `PhaseCostRecord` with multi-currency reporting, divergence detection vs. CLI-reported cost, and dual-write to a Cloudflare D1-backed Cost API.
 - **Agentic KPI tracking** — `kpiAgent` and `kpiPhase` record per-workflow success, duration, cost, and streak metrics to a persistent `agentic_kpis.md` file for analytics and accountability.
 - **LLM-based dependency extraction** — `dependencyExtractionAgent` reads issues to surface cross-issue dependencies before spawning.
@@ -184,6 +184,25 @@ ADW uses a DDD-style ubiquitous language to keep code, documentation, and conver
 ## Testing
 
 ADW uses BDD scenarios for validation (see `.adw/scenarios.md`).
+
+### BDD scenario layout
+
+| Directory | Purpose |
+|---|---|
+| `features/regression/` | Promoted regression suite — executed by the test runner (`cucumber.js` is scoped here). |
+| `features/per-issue/` | Per-issue agent-input scenarios — **never** executed by the runner; retained for 14 days after the issue's PR merges and then swept by the cron probe. File naming: `feature-{issueNumber}.feature`. |
+
+Top-level `features/*.feature` files were removed in the BDD cutover (issue #493). All promoted scenarios now live exclusively under `features/regression/`.
+
+### `.adw/scenarios.md` optional sections
+
+Three optional sections activate the regression-suite contract. When absent, the `scenario_writer` and `generate_step_definitions` prompts use their legacy free-form behaviour.
+
+| Section | Effect when present |
+|---|---|
+| `## Per-Issue Scenario Directory` | `scenario_writer` routes per-issue output to `<value>/feature-{N}.feature` instead of the fallback directory. |
+| `## Regression Scenario Directory` | `scenario_writer` skips the `@regression` auto-promotion sweep (regression promotion becomes a deliberate human decision). |
+| `## Vocabulary Registry` | `generate_step_definitions` validates every step phrase against the registry file; fails loudly on unknown phrases. |
 
 ### Running BDD scenarios on the host
 
@@ -517,6 +536,7 @@ adws/                   # ADW workflow system
 │   ├── concurrencyGuard.ts
 │   ├── cronIssueFilter.ts  # Cron issue evaluation and filtering logic (testable, extracted from trigger_cron)
 │   ├── devServerJanitor.ts  # Janitor probe that kills stale dev server processes in target repo worktrees
+│   ├── perIssueScenarioSweep.ts  # Cron probe: deletes features/per-issue/feature-{N}.feature 14 days after the issue's PR merges
 │   ├── cronProcessGuard.ts  # Duplicate cron process prevention
 │   ├── cronRepoResolver.ts  # Cron repo identity resolution (testable, extracted from trigger_cron)
 │   ├── cronStageResolver.ts  # Cron stage resolution from top-level state file (testable)
@@ -600,25 +620,33 @@ test/                   # Integration test infrastructure
 │   │   ├── package.json
 │   │   └── tsconfig.json
 │   ├── github/         # GitHub API response fixtures (issue, PR, comments)
-│   └── jsonl/          # JSONL envelope and payload fixtures
+│   └── jsonl/          # JSONL fixture files for testing
 │       ├── envelopes/
+│       ├── manifests/  # Named scenario manifests for stub sequencing
 │       └── payloads/
 ├── mocks/              # Mock implementations
+│   ├── __tests__/      # Vitest unit tests for mock infrastructure
+│   │   └── manifestInterpreter.test.ts
 │   ├── claude-cli-stub.ts      # Claude CLI process stub
 │   ├── git-remote-mock.ts      # Git remote mock
 │   ├── github-api-server.ts    # GitHub API mock HTTP server
+│   ├── manifestInterpreter.ts  # JSONL manifest interpreter for stub sequencing
 │   ├── test-harness.ts         # Test harness orchestrating all mocks
 │   └── types.ts                # Mock type definitions
 ├── Dockerfile          # Generic Docker image for isolated @regression runs
 ├── docker-run.sh       # Helper script to run scenarios inside Docker
+├── tsconfig.json       # TypeScript config for test infrastructure
 └── .dockerignore       # Files excluded from Docker build context
 app_docs/               # Generated feature documentation
 bun.lock                # Bun lockfile
 eslint.config.js        # ESLint configuration
 cucumber.js             # Cucumber.js configuration
 features/               # BDD feature files (Gherkin .feature)
-├── regression/         # Regression scenario vocabulary and typed World
+├── regression/         # Regression scenario vocabulary, typed World, and surface/smoke scenarios
+│   ├── smoke/          # High-level smoke scenarios (cron spawn, SDLC, cancel, chore, pause)
 │   ├── step_definitions/  # Typed Given/When/Then steps and RegressionWorld for regression scenarios
+│   ├── support/        # Cucumber hooks for @regression suite
+│   ├── surfaces/       # Per-phase surface scenarios (row-01 through row-35 covering every orchestrator phase)
 │   └── vocabulary.md   # Canonical BDD phrase registry with rot-detection rubric for @regression authoring
 ├── step_definitions/   # Cucumber step definition files (.ts)
 └── support/            # Cucumber support files (tsx registration)
