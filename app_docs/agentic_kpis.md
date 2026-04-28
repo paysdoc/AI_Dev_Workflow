@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 87                | 2026-04-28 10:18:04 |
-| Longest Streak    | 154               | 2026-04-27 13:28:06 |
-| Total Plan Size   | 3184 lines       | 2026-04-28 10:18:04 |
+| Current Streak    | 88                | 2026-04-28 11:22:24 |
+| Longest Streak    | 88                | 2026-04-28 11:22:24 |
+| Total Plan Size   | 3358 lines       | 2026-04-28 11:22:24 |
 | Largest Plan Size | 678 lines        | 2026-04-22 20:54:24 |
-| Total Diff Size   | 2749107 lines    | 2026-04-28 10:18:04 |
+| Total Diff Size   | 2751987 lines    | 2026-04-28 11:22:24 |
 | Largest Diff Size | 418153 lines     | 2026-03-30 01:00:00 |
-| Average Presence  | 1.27             | 2026-04-28 10:18:04 |
+| Average Presence  | 1.27             | 2026-04-28 11:22:24 |
 
 ## ADW KPIs
 
@@ -171,3 +171,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-04-27 | dq5bdt-hero-picker-pptx-emb | 57           | /feature    | 1          | 178               | 30532/1436/157                  | 2026-04-27 13:01:36 | 2026-04-27 13:01:36 |
 | 2026-04-27 | 1oh64f-logo-picker-pptx-emb | 56           | /feature    | 1          | 0                 | 31720/1441/166                  | 2026-04-27 13:28:06 | 2026-04-27 13:28:06 |
 | 2026-04-28 | ewznvk-frontend-d-level-ux | 58           | /feature    | 1          | 0                 | 37532/1473/187                  | 2026-04-28 10:18:04 | 2026-04-28 10:18:04 |
+| 2026-04-28 | 0lhdw4-webhook-call-ensurec | 501          | /bug        | 1          | 174               | 2765/115/78                     | 2026-04-28 11:22:24 | 2026-04-28 11:22:24 |

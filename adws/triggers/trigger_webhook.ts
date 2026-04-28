@@ -102,12 +102,17 @@ const server = http.createServer((req, res) => {
       if (repoOwner && repoName) ensureAppAuthForRepo(repoOwner, repoName);
     }
 
+    const webhookRepoFullName = webhookRepo?.full_name as string | undefined;
+    const webhookRepoInfo = webhookRepoFullName ? getRepoInfoFromPayload(webhookRepoFullName) : undefined;
+    const webhookTargetRepoArgs = extractTargetRepoArgs(body);
+    if (webhookRepoInfo) ensureCronProcess(webhookRepoInfo, webhookTargetRepoArgs);
+
     if (event === 'pull_request_review_comment') {
       const prNumber = (body.pull_request as Record<string, unknown> | undefined)?.number as number | undefined;
       if (prNumber == null) { jsonResponse(res, 200, { status: 'ignored' }); return; }
       if ((body.action as string) !== 'created') { jsonResponse(res, 200, { status: 'ignored' }); return; }
       if (!shouldTriggerPrReview(prNumber)) { jsonResponse(res, 200, { status: 'ignored', reason: 'duplicate' }); return; }
-      spawnDetached('bunx', ['tsx', 'adws/adwPrReview.tsx', String(prNumber), ...extractTargetRepoArgs(body)]);
+      spawnDetached('bunx', ['tsx', 'adws/adwPrReview.tsx', String(prNumber), ...webhookTargetRepoArgs]);
       jsonResponse(res, 200, { status: 'triggered', pr: prNumber });
       return;
     }
@@ -120,7 +125,7 @@ const server = http.createServer((req, res) => {
       // Approved reviews are no-ops: merge is handled by cron + adwMerge.tsx
       if (reviewState === 'approved') { jsonResponse(res, 200, { status: 'ignored' }); return; }
       if (!shouldTriggerPrReview(prNumber)) { jsonResponse(res, 200, { status: 'ignored', reason: 'duplicate' }); return; }
-      spawnDetached('bunx', ['tsx', 'adws/adwPrReview.tsx', String(prNumber), ...extractTargetRepoArgs(body)]);
+      spawnDetached('bunx', ['tsx', 'adws/adwPrReview.tsx', String(prNumber), ...webhookTargetRepoArgs]);
       jsonResponse(res, 200, { status: 'triggered', pr: prNumber });
       return;
     }
@@ -132,13 +137,8 @@ const server = http.createServer((req, res) => {
       const issueNumber = issue?.number as number | undefined;
       if (issueNumber == null) { jsonResponse(res, 200, { status: 'ignored' }); return; }
       log(`Checking comment on issue #${issueNumber}: "${truncateText(commentBody, 100)}"`);
-      const repoFullName = (body.repository as Record<string, unknown> | undefined)?.full_name as string | undefined;
-      const webhookRepoInfo = repoFullName ? getRepoInfoFromPayload(repoFullName) : undefined;
-      const commentTargetRepoArgs = extractTargetRepoArgs(body);
-      if (webhookRepoInfo) ensureCronProcess(webhookRepoInfo, commentTargetRepoArgs);
       if (isCancelComment(commentBody)) {
-        const cancelTargetRepoArgs = extractTargetRepoArgs(body);
-        const cancelParts = (cancelTargetRepoArgs.length >= 2 ? cancelTargetRepoArgs[1] : undefined)?.split('/');
+        const cancelParts = (webhookTargetRepoArgs.length >= 2 ? webhookTargetRepoArgs[1] : undefined)?.split('/');
         const cancelCwd = cancelParts?.length === 2
           ? getTargetRepoWorkspacePath(cancelParts[0], cancelParts[1])
           : undefined;
@@ -162,7 +162,7 @@ const server = http.createServer((req, res) => {
             const eligibility = await checkIssueEligibility(issueNumber, (issue?.body as string) || '', webhookRepoInfo);
             if (!eligibility.eligible) { logDeferral(issueNumber, eligibility); return; }
           }
-          await classifyAndSpawnWorkflow(issueNumber, webhookRepoInfo, commentTargetRepoArgs);
+          await classifyAndSpawnWorkflow(issueNumber, webhookRepoInfo, webhookTargetRepoArgs);
         })
         .catch((error) => {
           log(`Error handling comment on issue #${issueNumber}: ${error}. Cron will retry.`, 'error');
@@ -188,12 +188,9 @@ const server = http.createServer((req, res) => {
     if (issueNumber == null) { jsonResponse(res, 200, { status: 'ignored' }); return; }
 
     if (action === 'closed') {
-      const closedRepoFullName = (body.repository as Record<string, unknown> | undefined)?.full_name as string | undefined;
-      const closedTargetRepoArgs = extractTargetRepoArgs(body);
-      const parts = (closedTargetRepoArgs.length >= 2 ? closedTargetRepoArgs[1] : undefined)?.split('/');
+      const parts = (webhookTargetRepoArgs.length >= 2 ? webhookTargetRepoArgs[1] : undefined)?.split('/');
       const cwd = parts?.length === 2 ? getTargetRepoWorkspacePath(parts[0], parts[1]) : undefined;
-      const closedRepoInfo = closedRepoFullName ? getRepoInfoFromPayload(closedRepoFullName) : undefined;
-      handleIssueClosedEvent(issueNumber, closedRepoInfo, cwd, closedTargetRepoArgs)
+      handleIssueClosedEvent(issueNumber, webhookRepoInfo, cwd, webhookTargetRepoArgs)
         .then((result) => log(`Issue #${issueNumber} closed: worktrees=${result.worktreesRemoved}, branch=${result.branchDeleted}, status=${result.status}`))
         .catch((e) => log(`Issue close handler failed for #${issueNumber}: ${e}`, 'error'));
       jsonResponse(res, 200, { status: 'processing', issue: issueNumber });
@@ -206,17 +203,13 @@ const server = http.createServer((req, res) => {
         return;
       }
       log(`New issue #${issueNumber} detected, evaluating eligibility`);
-      const issueTargetRepoArgs = extractTargetRepoArgs(body);
-      const issueRepoFullName = (body.repository as Record<string, unknown> | undefined)?.full_name as string | undefined;
-      const issueRepoInfo = issueRepoFullName ? getRepoInfoFromPayload(issueRepoFullName) : undefined;
-      if (issueRepoInfo) ensureCronProcess(issueRepoInfo, issueTargetRepoArgs);
       (async () => {
         try {
-          if (issueRepoInfo) {
-            const eligibility = await checkIssueEligibility(issueNumber, (issue?.body as string) || '', issueRepoInfo);
+          if (webhookRepoInfo) {
+            const eligibility = await checkIssueEligibility(issueNumber, (issue?.body as string) || '', webhookRepoInfo);
             if (!eligibility.eligible) { logDeferral(issueNumber, eligibility); return; }
           }
-          await classifyAndSpawnWorkflow(issueNumber, issueRepoInfo, issueTargetRepoArgs);
+          await classifyAndSpawnWorkflow(issueNumber, webhookRepoInfo, webhookTargetRepoArgs);
         } catch (error) {
           log(`Error processing issue #${issueNumber}: ${error}. Cron will retry.`, 'error');
         }
