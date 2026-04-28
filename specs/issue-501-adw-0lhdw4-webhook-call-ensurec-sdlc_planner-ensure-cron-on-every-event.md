@@ -54,7 +54,7 @@ Use these files to fix the bug:
 - `adws/triggers/trigger_webhook.ts` — The webhook HTTP server. Hoist the `ensureCronProcess` call to immediately after `ensureAppAuthForRepo` (line 103), before any `if (event === ...)` branching. Remove the existing calls at line 138 (in the `issue_comment` handler) and line 212 (in the `issues.opened` handler). The existing `commentTargetRepoArgs` declaration at line 137 and `issueTargetRepoArgs` declaration at line 209 should remain as-is (they are still used for the spawn dispatches further down) — they will simply no longer be the only consumers. To avoid duplicate `extractTargetRepoArgs(body)` calls, hoist a single `webhookTargetRepoArgs` declaration up alongside the new top-level `ensureCronProcess` call and reuse it inside the per-event branches.
 - `adws/triggers/webhookGatekeeper.ts` — Contains `ensureCronProcess` (lines 144–169) and the `cronSpawnedForRepo` Set. **No changes needed.** Read for context: the function is idempotent — it short-circuits via the in-memory Set, falls through to `isCronAliveForRepo` (PID-file liveness), and only spawns a new `trigger_cron.ts` child if both checks miss.
 - `adws/github/githubApi.ts` — Contains `getRepoInfoFromPayload` (line 55). **No changes needed.** Used to convert `body.repository.full_name` into a `RepoInfo`. Throws on invalid input — keep the call inside a try/catch or guard on `repoFullName` truthiness so a malformed payload does not crash the webhook server.
-- `features/ensure_cron_on_webhook_gates.feature` — Existing BDD feature for the previous fix (issue #291). **No changes needed.** Its scenarios still pass after the new fix because they assert structural ordering within the `issue_comment` and `issues.opened` handlers — which remains valid. Use as a reference for the BDD source-reading style and tagging conventions.
+- `features/ensure_cron_on_webhook_gates.feature` — Existing BDD feature for the previous fix (issue #291). Update its top-level tags and per-scenario tags to include `@adw-501` and `@adw-0lhdw4-webhook-call-ensurec` so it participates in this issue's regression sweep, and update its description comment to note that issue #501 supersedes the per-handler placement (the call now lives at the request handler top-level). Its negative-constraint scenarios — that `ensureCronProcess` is not inside the deferred eligibility blocks — remain valid and continue to pass. Use as a reference for the BDD source-reading style and tagging conventions.
 - `features/step_definitions/ensureCronBeforeGatesSteps.ts` — Existing step definitions that read `trigger_webhook.ts` source and assert call ordering inside specific handler bodies. **No changes needed.** Use as a reference for parsing handler bodies via brace-depth scanning.
 - `features/step_definitions/commonSteps.ts` — Provides the `'{string} is read'` step that populates `sharedCtx.fileContent`. **No changes needed.** Reused by the new step definitions.
 - `.adw/coding_guidelines.md` — Coding guidelines. ADW does not use unit tests for itself; BDD scenarios are the validation mechanism. Plan accordingly: the issue's "Unit test" acceptance criterion is satisfied via a structural BDD scenario that proves the `pull_request_review.submitted` branch reaches `ensureCronProcess` (because the call now precedes all event branching).
@@ -63,8 +63,8 @@ Use these files to fix the bug:
 
 ### New Files
 
-- `features/ensure_cron_on_every_event.feature` — New BDD feature file with `@regression` and `@adw-501` tags. Scenarios assert that `ensureCronProcess` is called exactly once at the top level of the request body handler, after `ensureAppAuthForRepo` and before every event branch, and is no longer called inside any per-event handler body.
-- `features/step_definitions/ensureCronOnEveryEventSteps.ts` — New step definitions that read `adws/triggers/trigger_webhook.ts` source and assert: (a) `ensureCronProcess` appears exactly once in the file; (b) the call occurs before every `if (event === ...)` branch; (c) the call occurs after the `ensureAppAuthForRepo` call site; (d) the call does not appear inside any of the per-event handler bodies (`pull_request_review_comment`, `pull_request_review`, `issue_comment`, `pull_request`, `issues`/`action === 'opened'`).
+- `features/webhook_ensure_cron_on_every_event.feature` — New BDD feature file with `@regression`, `@adw-501`, and `@adw-0lhdw4-webhook-call-ensurec` tags. Scenarios assert that `ensureCronProcess` is called exactly once at the top level of the request body handler, after `ensureAppAuthForRepo` and before every event branch; that the existing per-handler call sites are gone; that the call is gated on resolving a `RepoInfo` from `body.repository.full_name`; that rejected request paths (signature 401, JSON parse 400, `/health`, non-`/webhook`, non-POST) never reach the call; and that every per-event handler — including the `pull_request_review.approved` short-circuit — is reached after the top-level call.
+- `features/step_definitions/ensureCronOnEveryEventSteps.ts` — New step definitions that read `adws/triggers/trigger_webhook.ts` source and assert: (a) `ensureCronProcess` appears exactly once in the file; (b) the call occurs before every `if (event === ...)` branch; (c) the call occurs after the `ensureAppAuthForRepo` call site; (d) the call does not appear inside any of the per-event handler bodies (`pull_request_review_comment`, `pull_request_review`, `issue_comment`, `pull_request`, `issues`/`action === 'opened'`); (e) the call is gated on a resolved `repoInfo` from `body.repository.full_name`; (f) the call is positioned after the signature validation, JSON parse, `/webhook` URL, and POST method checks; (g) the `/health` handler block does not contain the call; (h) the approved-review branch returns `ignored` without calling `ensureCronProcess` itself.
 
 ## Step by Step Tasks
 IMPORTANT: Execute every step in order, top to bottom.
@@ -98,21 +98,39 @@ IMPORTANT: Execute every step in order, top to bottom.
 - Confirm that the HTTP 401 (invalid signature) and HTTP 400 (invalid JSON) paths return inside `req.on('end', ...)` before the new call site.
 - Confirm that `req.url !== '/webhook'` (404) and `req.method !== 'POST'` (405) return at lines 81–82 before reaching the new call site.
 
-### 6. Create new BDD feature file `features/ensure_cron_on_every_event.feature`
+### 6. Create new BDD feature file `features/webhook_ensure_cron_on_every_event.feature`
 - Tag the feature with `@adw-501` and `@adw-0lhdw4-webhook-call-ensurec`.
-- Include `@regression` on each scenario so it runs in the regression sweep.
-- Scenarios:
-  1. `ensureCronProcess` is called exactly once in `adws/triggers/trigger_webhook.ts` (no duplicate call sites).
-  2. The single `ensureCronProcess` call occurs before the `pull_request_review_comment` event branch.
-  3. The single `ensureCronProcess` call occurs before the `pull_request_review` event branch (covers the approved-review-stranding case).
-  4. The single `ensureCronProcess` call occurs before the `issue_comment` event branch.
-  5. The single `ensureCronProcess` call occurs before the `pull_request` event branch.
-  6. The single `ensureCronProcess` call occurs before the `issues` event branch.
-  7. The single `ensureCronProcess` call occurs after the `ensureAppAuthForRepo` call (auth is set first).
-  8. `ensureCronProcess` is not called inside the `pull_request_review` handler body.
-  9. `ensureCronProcess` is not called inside the `issue_comment` handler body.
-  10. `ensureCronProcess` is not called inside the `issues.opened` handler body.
-  11. TypeScript type-check passes after the relocation.
+- Include `@regression` on every scenario that maps to a stated acceptance criterion so it runs in the regression sweep.
+- Scenario groups (each group maps directly to one or more issue acceptance criteria):
+
+  **Top-level placement** (proves the call lives at the request handler top-level, after `ensureAppAuthForRepo` and before any per-event branching):
+  1. `ensureCronProcess` is called at the request handler top-level in `trigger_webhook.ts`.
+  2. `ensureCronProcess` is called after `ensureAppAuthForRepo` at the request handler top-level.
+  3. `ensureCronProcess` is called before the first per-event branch in the request handler.
+  4. `ensureCronProcess` is invoked exactly once per accepted webhook request (covers the issue's "no duplicate spawns" criterion).
+
+  **Old per-handler call sites are removed** (proves the previous nested calls at lines 138 and 212 are gone):
+  5. `ensureCronProcess` is no longer called inside the `issue_comment` handler.
+  6. `ensureCronProcess` is no longer called inside the `issues.opened` handler.
+
+  **Gated on resolving repoInfo**:
+  7. The top-level `ensureCronProcess` call is gated on a resolved `repoInfo` from `body.repository.full_name`.
+
+  **Rejected requests must not spawn a cron** (covers the issue's HTTP 401, HTTP 400, `/health`, non-`/webhook`, non-POST acceptance criteria):
+  8. Signature-rejected requests do not reach the `ensureCronProcess` call site (the call is positioned after the signature validation check returns valid).
+  9. Unparseable JSON requests do not reach the `ensureCronProcess` call site (the call is positioned after the `JSON.parse` step).
+  10. GET `/health` requests do not call `ensureCronProcess` (the call is not inside the `/health` request handler block).
+  11. Non-`/webhook` paths (404 branch) do not call `ensureCronProcess` (the call is positioned after the `/webhook` URL check).
+  12. Non-POST methods on `/webhook` (405 branch) do not call `ensureCronProcess` (the call is positioned after the POST method check).
+
+  **Approved-review path now reaches `ensureCronProcess`** (incident fix; satisfies the issue's "Unit test" acceptance criterion via structural source reading):
+  13. `pull_request_review.submitted` with `state=approved` reaches the top-level `ensureCronProcess` call before its `ignored` short-circuit, and the approved-review branch itself does not call `ensureCronProcess`.
+  14. `pull_request_review_comment` events reach the top-level `ensureCronProcess` call.
+  15. `pull_request.closed` events reach the top-level `ensureCronProcess` call.
+  16. `issues.closed` events reach the top-level `ensureCronProcess` call.
+
+  **Type-check**:
+  17. TypeScript type-check passes after the `ensureCronProcess` top-level relocation.
 
 ### 7. Create step definitions in `features/step_definitions/ensureCronOnEveryEventSteps.ts`
 - Reuse `sharedCtx.fileContent` populated by the existing `'{string} is read'` step from `commonSteps.ts`.
