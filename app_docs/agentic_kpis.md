@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 81               | 2026-04-27 10:37:55 |
-| Longest Streak    | 81               | 2026-04-27 10:37:55 |
-| Total Plan Size   | 3006 lines       | 2026-04-27 10:37:55 |
-| Largest Plan Size | 678 lines        | 2026-04-27 10:37:55 |
-| Total Diff Size   | 2614558 lines    | 2026-04-27 10:37:55 |
-| Largest Diff Size | 418153 lines     | 2026-04-27 10:37:55 |
-| Average Presence  | 1.28             | 2026-04-27 10:37:55 |
+| Current Streak    | 84                | 2026-04-28 11:18:15 |
+| Longest Streak    | 84                | 2026-04-28 11:18:15 |
+| Total Plan Size   | 3308 lines       | 2026-04-28 11:18:15 |
+| Largest Plan Size | 678 lines        | 2026-04-22 20:54:24 |
+| Total Diff Size   | 2787095 lines    | 2026-04-28 11:18:15 |
+| Largest Diff Size | 418153 lines     | 2026-03-30 01:00:00 |
+| Average Presence  | 1.24             | 2026-04-28 11:18:15 |
 
 ## ADW KPIs
 
@@ -167,3 +167,8 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-04-26 | tvqgz4-auto-merge-unify-cho | 496          | /feature    | 1          | 0                 | 2460/1110/29                    | 2026-04-26 11:57:53 | 2026-04-26 11:57:53 |
 | 2026-04-26 | dl3cdo-multi-page-shallow-c | 54           | /feature    | 2          | 579               | 22426/1430/126                  | 2026-04-26 20:27:57 | 2026-04-26 20:27:57 |
 | 2026-04-27 | yw233r-dev-server-janitor-r | 499          | /bug        | 1          | 0                 | 2711/116/31                     | 2026-04-27 10:37:55 | 2026-04-27 10:37:55 |
+| 2026-04-27 | ra4jwa-asset-capture-visual | 55           | /feature    | 1          | 0                 | 26365/1430/136                  | 2026-04-27 11:43:09 | 2026-04-27 11:43:09 |
+| 2026-04-27 | dq5bdt-hero-picker-pptx-emb | 57           | /feature    | 1          | 178               | 30532/1436/157                  | 2026-04-27 13:01:36 | 2026-04-27 13:01:36 |
+| 2026-04-27 | 1oh64f-logo-picker-pptx-emb | 56           | /feature    | 1          | 0                 | 31720/1441/166                  | 2026-04-27 13:28:06 | 2026-04-27 13:28:06 |
+| 2026-04-28 | ewznvk-frontend-d-level-ux | 58           | /feature    | 1          | 0                 | 37532/1473/187                  | 2026-04-28 10:18:04 | 2026-04-28 10:18:04 |
+| 2026-04-28 | 44nyqs-theme-extractor-rewr | 53           | /feature    | 1          | 465               | 36530/1458/186                  | 2026-04-28 11:18:15 | 2026-04-28 11:18:15 |

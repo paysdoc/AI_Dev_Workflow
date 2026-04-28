@@ -13,10 +13,14 @@
 
 import { Then } from '@cucumber/cucumber';
 import { readFileSync, existsSync } from 'fs';
-import { join } from 'path';
+import { join, resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import assert from 'assert';
 import type { RegressionWorld } from './world.ts';
 import type { RecordedRequest } from '../../../test/mocks/types.ts';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const ROOT = resolve(__dirname, '../../..');
 
 // ---------------------------------------------------------------------------
 // T1: state file records workflowStage
@@ -26,12 +30,14 @@ Then(
   'the state file for adwId {string} records workflowStage {string}',
   function (this: RegressionWorld, adwId: string, expectedStage: string) {
     const worktreePath = this.worktreePaths.get(adwId);
-    assert.ok(worktreePath, `No worktree registered for adwId "${adwId}"`);
-
-    const stateFile = join(worktreePath, '.adw', 'state.json');
+    const productionStateFile = resolve(ROOT, `agents/${adwId}/state.json`);
+    const worktreeStateFile = worktreePath ? join(worktreePath, '.adw', 'state.json') : null;
+    const stateFile = existsSync(productionStateFile)
+      ? productionStateFile
+      : worktreeStateFile;
     assert.ok(
-      existsSync(stateFile),
-      `State file artefact not found at ${stateFile} — the orchestrator under test must have written it`,
+      stateFile && existsSync(stateFile),
+      `State file artefact not found at ${productionStateFile} (production) or ${worktreeStateFile} (G11 temp worktree)`,
     );
 
     const state = JSON.parse(readFileSync(stateFile, 'utf-8')) as Record<string, unknown>;
@@ -202,12 +208,14 @@ Then(
   'the state file for adwId {string} records no error',
   function (this: RegressionWorld, adwId: string) {
     const worktreePath = this.worktreePaths.get(adwId);
-    assert.ok(worktreePath, `No worktree registered for adwId "${adwId}"`);
-
-    const stateFile = join(worktreePath, '.adw', 'state.json');
+    const productionStateFile = resolve(ROOT, `agents/${adwId}/state.json`);
+    const worktreeStateFile = worktreePath ? join(worktreePath, '.adw', 'state.json') : null;
+    const stateFile = existsSync(productionStateFile)
+      ? productionStateFile
+      : worktreeStateFile;
     assert.ok(
-      existsSync(stateFile),
-      `State file artefact not found at ${stateFile}`,
+      stateFile && existsSync(stateFile),
+      `State file artefact not found at ${productionStateFile} (production) or ${worktreeStateFile} (G11 temp worktree)`,
     );
 
     const state = JSON.parse(readFileSync(stateFile, 'utf-8')) as Record<string, unknown>;

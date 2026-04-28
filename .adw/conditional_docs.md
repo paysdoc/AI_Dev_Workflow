@@ -1,5 +1,13 @@
 # Conditional Documentation
 
+- app_docs/feature-2evbnk-bdd-smoke-surface-scenarios.md
+  - Conditions:
+    - When working with the `features/regression/smoke/` or `features/regression/surfaces/` BDD scenario suites
+    - When extending or troubleshooting the `@regression` Cucumber lifecycle hooks in `features/regression/support/hooks.ts`
+    - When adding new surface matrix rows or smoke scenarios and need to understand the manifest fixture schema
+    - When `scenarioProof.ts` reports a tag as FAILED despite a clean cucumber tally (0 failed, 0 undefined)
+    - When flipping When-step pending markers for the Issue #3 cutover
+
 - app_docs/feature-hk12ct-kpi-commits-land-on-default-branch.md
   - Conditions:
     - When working with `commitAndPushKpiFile()` in `adws/vcs/commitOperations.ts`
@@ -1119,6 +1127,15 @@
     - When working with `shouldDispatchMerge` or `MergeDispatchDeps` in `adws/triggers/mergeDispatchGate.ts`
     - When the `awaiting_approval` exit reason appears in logs or you need to understand why `workflowStage` was not written
     - When `processedMerges` is referenced in old code or docs (it was removed — use spawn lock instead)
+
+- app_docs/feature-oobdbg-bdd-cutover-polymorphic-prompts-sweep.md
+  - Conditions:
+    - When working with `adws/triggers/perIssueScenarioSweep.ts` or the 14-day per-issue scenario retention sweep
+    - When modifying `ScenariosConfig` optional fields (`perIssueScenarioDirectory`, `regressionScenarioDirectory`, `vocabularyRegistry`) in `adws/core/projectConfig.ts`
+    - When the `## Per-Issue Scenario Directory`, `## Regression Scenario Directory`, or `## Vocabulary Registry` sections in `.adw/scenarios.md` are relevant
+    - When `scenario_writer` should route output to `features/per-issue/` instead of free-form placement
+    - When `generate_step_definitions` vocabulary validation or `vocabularyViolations` output is involved
+    - When `PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES` or the sweep wiring in `trigger_cron.ts` needs context
 
 - app_docs/feature-yw233r-fix-janitor-adwid-lookup.md
   - Conditions:
