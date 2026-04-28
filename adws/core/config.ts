@@ -121,3 +121,7 @@ export const JANITOR_INTERVAL_CYCLES = parseInt(process.env.JANITOR_INTERVAL_CYC
 
 /** Number of cron poll cycles between hung-orchestrator detector passes (default: 5 ≈ 100s at 20s poll). */
 export const HUNG_DETECTOR_INTERVAL_CYCLES = parseInt(process.env.HUNG_DETECTOR_INTERVAL_CYCLES || '5', 10);
+
+/** Number of cron poll cycles between per-issue scenario sweep passes.
+ *  Default 4320 ≈ once per day at 20s POLL_INTERVAL_MS (4320 × 20s = 86 400s). */
+export const PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES = parseInt(process.env.PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES || '4320', 10);

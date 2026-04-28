@@ -8,7 +8,7 @@
  */
 
 import { execSync, spawn } from 'child_process';
-import { log, GRACE_PERIOD_MS, JANITOR_INTERVAL_CYCLES, HEARTBEAT_STALE_THRESHOLD_MS, HUNG_DETECTOR_INTERVAL_CYCLES, getTargetRepoWorkspacePath } from '../core';
+import { log, GRACE_PERIOD_MS, JANITOR_INTERVAL_CYCLES, HEARTBEAT_STALE_THRESHOLD_MS, HUNG_DETECTOR_INTERVAL_CYCLES, PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES, getTargetRepoWorkspacePath } from '../core';
 import { findHungOrchestrators, type HungDetectorDeps } from '../core/hungOrchestratorDetector';
 import { AgentStateManager } from '../core/agentState';
 import { getRepoInfo, fetchPRList, hasUnaddressedComments, isCancelComment, activateGitHubAppAuth, refreshTokenIfNeeded } from '../github';
@@ -22,6 +22,7 @@ import { evaluateCandidate } from './takeoverHandler';
 import { releaseIssueSpawnLock } from './spawnGate';
 import { scanPauseQueue } from './pauseQueueScanner';
 import { runJanitorPass } from './devServerJanitor';
+import { runPerIssueScenarioSweep } from './perIssueScenarioSweep';
 import { resolveCronRepo, buildCronTargetRepoArgs } from './cronRepoResolver';
 import { filterEligibleIssues } from './cronIssueFilter';
 import { shouldDispatchMerge } from './mergeDispatchGate';
@@ -114,6 +115,11 @@ async function checkAndTrigger(): Promise<void> {
   // Run dev server janitor every JANITOR_INTERVAL_CYCLES cycles
   if (cycleCount % JANITOR_INTERVAL_CYCLES === 0) {
     await runJanitorPass();
+  }
+
+  // Delete stale per-issue scenario files every PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES cycles
+  if (cycleCount % PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES === 0) {
+    await runPerIssueScenarioSweep();
   }
 
   const now = Date.now();
