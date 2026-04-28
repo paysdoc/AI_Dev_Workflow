@@ -600,25 +600,33 @@ test/                   # Integration test infrastructure
 │   │   ├── package.json
 │   │   └── tsconfig.json
 │   ├── github/         # GitHub API response fixtures (issue, PR, comments)
-│   └── jsonl/          # JSONL envelope and payload fixtures
+│   └── jsonl/          # JSONL fixture files for testing
 │       ├── envelopes/
+│       ├── manifests/  # Named scenario manifests for stub sequencing
 │       └── payloads/
 ├── mocks/              # Mock implementations
+│   ├── __tests__/      # Vitest unit tests for mock infrastructure
+│   │   └── manifestInterpreter.test.ts
 │   ├── claude-cli-stub.ts      # Claude CLI process stub
 │   ├── git-remote-mock.ts      # Git remote mock
 │   ├── github-api-server.ts    # GitHub API mock HTTP server
+│   ├── manifestInterpreter.ts  # JSONL manifest interpreter for stub sequencing
 │   ├── test-harness.ts         # Test harness orchestrating all mocks
 │   └── types.ts                # Mock type definitions
 ├── Dockerfile          # Generic Docker image for isolated @regression runs
 ├── docker-run.sh       # Helper script to run scenarios inside Docker
+├── tsconfig.json       # TypeScript config for test infrastructure
 └── .dockerignore       # Files excluded from Docker build context
 app_docs/               # Generated feature documentation
 bun.lock                # Bun lockfile
 eslint.config.js        # ESLint configuration
 cucumber.js             # Cucumber.js configuration
 features/               # BDD feature files (Gherkin .feature)
-├── regression/         # Regression scenario vocabulary and typed World
+├── regression/         # Regression scenario vocabulary, typed World, and surface/smoke scenarios
+│   ├── smoke/          # High-level smoke scenarios (cron spawn, SDLC, cancel, chore, pause)
 │   ├── step_definitions/  # Typed Given/When/Then steps and RegressionWorld for regression scenarios
+│   ├── support/        # Cucumber hooks for @regression suite
+│   ├── surfaces/       # Per-phase surface scenarios (row-01 through row-35 covering every orchestrator phase)
 │   └── vocabulary.md   # Canonical BDD phrase registry with rot-detection rubric for @regression authoring
 ├── step_definitions/   # Cucumber step definition files (.ts)
 └── support/            # Cucumber support files (tsx registration)
