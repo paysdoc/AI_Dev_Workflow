@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 85                | 2026-04-28 12:45:26 |
-| Longest Streak    | 85                | 2026-04-28 12:45:26 |
-| Total Plan Size   | 2967 lines       | 2026-04-28 12:45:26 |
+| Current Streak    | 89                | 2026-04-28 17:16:38 |
+| Longest Streak    | 89                | 2026-04-28 17:16:38 |
+| Total Plan Size   | 3649 lines       | 2026-04-28 17:16:38 |
 | Largest Plan Size | 678 lines        | 2026-04-22 20:54:24 |
-| Total Diff Size   | 2849427 lines    | 2026-04-28 12:45:26 |
+| Total Diff Size   | 2891989 lines    | 2026-04-28 17:16:38 |
 | Largest Diff Size | 418153 lines     | 2026-03-30 01:00:00 |
-| Average Presence  | 1.21             | 2026-04-28 12:45:26 |
+| Average Presence  | 1.26             | 2026-04-28 17:16:38 |
 
 ## ADW KPIs
 
@@ -172,5 +172,5 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-04-27 | 1oh64f-logo-picker-pptx-emb | 56           | /feature    | 1          | 0                 | 31720/1441/166                  | 2026-04-27 13:28:06 | 2026-04-27 13:28:06 |
 | 2026-04-28 | ewznvk-frontend-d-level-ux | 58           | /feature    | 1          | 0                 | 37532/1473/187                  | 2026-04-28 10:18:04 | 2026-04-28 10:18:04 |
 | 2026-04-28 | 44nyqs-theme-extractor-rewr | 53           | /feature    | 1          | 465               | 36530/1458/186                  | 2026-04-28 11:18:15 | 2026-04-28 11:18:15 |
-| 2026-04-28 | 0lhdw4-webhook-call-ensurec | 501          | /bug        | 1          | 174               | 2765/115/78                     | 2026-04-28 11:22:24 | 2026-04-28 11:22:24 |
 | 2026-04-28 | n96c4j-webhook-call-ensurec | 501          | /bug        | 1          | 0                 | 62420/912/267                   | 2026-04-28 12:45:26 | 2026-04-28 12:45:26 |
+| 2026-04-28 | pyfy3z-auto-render-brand-sw | 70           | /feature    | 1          | 0                 | 39944/1618/197                  | 2026-04-28 17:16:38 | 2026-04-28 17:16:38 |
