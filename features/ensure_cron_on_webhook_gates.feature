@@ -1,4 +1,4 @@
-@adw-wqzfqj-ensurecronprocess-no @adw-291 @adw-501 @adw-0lhdw4-webhook-call-ensurec
+@adw-wqzfqj-ensurecronprocess-no @adw-291 @adw-501 @adw-0lhdw4-webhook-call-ensurec @adw-n96c4j-webhook-call-ensurec
 Feature: ensureCronProcess is called before webhook gates reject the event
 
   Originally (issue #291), `ensureCronProcess()` was buried deep inside the

@@ -1,4 +1,4 @@
-@adw-501 @adw-0lhdw4-webhook-call-ensurec
+@adw-501 @adw-0lhdw4-webhook-call-ensurec @adw-n96c4j-webhook-call-ensurec
 Feature: Webhook server ensures a cron process on every accepted event
 
   The auto-merge sweep runs only when a cron polls the repo
