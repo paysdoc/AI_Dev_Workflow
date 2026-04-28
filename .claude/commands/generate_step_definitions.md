@@ -10,11 +10,21 @@ You are the Step Definition Generator Agent. Your job is to generate Cucumber st
 - `$0` — Issue number
 - `$1` — ADW workflow ID
 
+## Polymorphism on `.adw/scenarios.md`
+
+This prompt branches on one optional section in `.adw/scenarios.md`. When the section is absent, the prompt behaves exactly as before this change was introduced.
+
+**Vocabulary registry** (Step 4a):
+- If `## Vocabulary Registry` is set → load the registry file, parse its phrase table, and validate every scenario step against it. Any unregistered phrase causes an immediate error (no step definitions are written).
+- If absent → current free-form step generation is preserved; no validation is performed.
+
 ## Instructions
 
 ### 1. Read configuration
 
-Read `.adw/scenarios.md` to determine the scenario directory path. If the file does not exist, use `features/` as the default scenario directory.
+Read `.adw/scenarios.md` to determine the scenario directory path. Also read the optional `## Vocabulary Registry` section. If the file does not exist, use `features/` as the default scenario directory.
+
+When `## Vocabulary Registry` is set, load the referenced file and parse its phrase table (one phrase per line, or a markdown table — use the format present in the file).
 
 The step definitions directory is `<scenario-directory>/step_definitions/`.
 
@@ -31,6 +41,23 @@ Extract and record every existing step pattern (Given/When/Then strings) so you 
 ### 4. Read implementation code
 
 Read the implementation source files relevant to the feature. These are the files changed in this branch (`git diff origin/<default> --name-only`) that contain the actual logic being tested. Understanding the implementation helps you write correct step definitions.
+
+### 4a. Validate against vocabulary registry (when configured)
+
+Skip this step when `## Vocabulary Registry` is absent from `.adw/scenarios.md`.
+
+When configured: for each step in every `@adw-$0` scenario, verify the step phrase against the registry. A step matches if it maps (after parameter substitution) to a registered phrase.
+
+If any steps do not match a registered phrase, do **not** generate step definitions. Return immediately with:
+```json
+{
+  "generatedFiles": [],
+  "removedScenarios": [],
+  "vocabularyViolations": [{ "scenario": "<scenario name>", "phrase": "<unregistered phrase>" }]
+}
+```
+
+PR review (the `pr_review` skill / human reviewer) is responsible for catching non-empty `vocabularyViolations`.
 
 ### 5. Test harness infrastructure
 
@@ -86,9 +113,11 @@ Return ONLY the following JSON (no markdown fences, no prose):
 ```
 {
   "generatedFiles": ["<path to each step definition file created or modified>"],
-  "removedScenarios": []
+  "removedScenarios": [],
+  "vocabularyViolations": []
 }
 ```
 
 `removedScenarios` must always be an empty array `[]` — no scenarios are removed by this command.
 If no files were generated or modified, `generatedFiles` must be an empty array `[]`.
+`vocabularyViolations` defaults to `[]` when `## Vocabulary Registry` is absent or when all steps are registered.

@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 88                | 2026-04-28 11:22:24 |
-| Longest Streak    | 88                | 2026-04-28 11:22:24 |
-| Total Plan Size   | 3358 lines       | 2026-04-28 11:22:24 |
+| Current Streak    | 85                | 2026-04-28 12:45:26 |
+| Longest Streak    | 85                | 2026-04-28 12:45:26 |
+| Total Plan Size   | 2967 lines       | 2026-04-28 12:45:26 |
 | Largest Plan Size | 678 lines        | 2026-04-22 20:54:24 |
-| Total Diff Size   | 2751987 lines    | 2026-04-28 11:22:24 |
+| Total Diff Size   | 2849427 lines    | 2026-04-28 12:45:26 |
 | Largest Diff Size | 418153 lines     | 2026-03-30 01:00:00 |
-| Average Presence  | 1.27             | 2026-04-28 11:22:24 |
+| Average Presence  | 1.21             | 2026-04-28 12:45:26 |
 
 ## ADW KPIs
 
@@ -159,7 +159,7 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-04-22 | 2sm4zt-slackreporter-first | 11           | /feature    | 1          | 0                 | 2715/5/18                       | 2026-04-22 22:20:34 | 2026-04-22 22:20:34 |
 | 2026-04-23 | 1j2fia-depauditsetupcommand | 12           | /feature    | 1          | 0                 | 0/27048/608                     | 2026-04-23 00:13:31 | 2026-04-23 00:13:31 |
 | 2026-04-23 | uzk6ah-use-favicon-from-goo | 50           | /feature    | 1          | 0                 | 5819/1423/40                    | 2026-04-23 16:44:34 | 2026-04-23 16:44:34 |
-| 2026-04-23 | 9s58sk-scraper-skeleton-wor | 51           | /feature    | 2          | 0                 | 9761/1429/71                    | 2026-04-23 18:01:33 | 2026-04-23 18:01:33 |
+| 2026-04-23 | 9s58sk-scraper-skeleton-wor | 52           | /feature    | 2          | 0                 | 9761/1429/71                    | 2026-04-23 18:01:33 | 2026-04-23 18:01:33 |
 | 2026-04-24 | wjdrru-rate-limiting-observ | 59           | /feature    | 1          | 0                 | 14961/1430/83                   | 2026-04-24 16:23:33 | 2026-04-24 16:23:33 |
 | 2026-04-24 | dk7gyi-real-playwright-fetc | 52           | /feature    | 2          | 0                 | 17618/1430/107                  | 2026-04-24 17:39:16 | 2026-04-24 17:39:16 |
 | 2026-04-25 | hp5q8m-awaiting-merge-repla | 488          | /bug        | 1          | 0                 | 2439/344/27                     | 2026-04-25 13:05:46 | 2026-04-25 13:05:46 |
@@ -171,4 +171,6 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-04-27 | dq5bdt-hero-picker-pptx-emb | 57           | /feature    | 1          | 178               | 30532/1436/157                  | 2026-04-27 13:01:36 | 2026-04-27 13:01:36 |
 | 2026-04-27 | 1oh64f-logo-picker-pptx-emb | 56           | /feature    | 1          | 0                 | 31720/1441/166                  | 2026-04-27 13:28:06 | 2026-04-27 13:28:06 |
 | 2026-04-28 | ewznvk-frontend-d-level-ux | 58           | /feature    | 1          | 0                 | 37532/1473/187                  | 2026-04-28 10:18:04 | 2026-04-28 10:18:04 |
+| 2026-04-28 | 44nyqs-theme-extractor-rewr | 53           | /feature    | 1          | 465               | 36530/1458/186                  | 2026-04-28 11:18:15 | 2026-04-28 11:18:15 |
 | 2026-04-28 | 0lhdw4-webhook-call-ensurec | 501          | /bug        | 1          | 174               | 2765/115/78                     | 2026-04-28 11:22:24 | 2026-04-28 11:22:24 |
+| 2026-04-28 | n96c4j-webhook-call-ensurec | 501          | /bug        | 1          | 0                 | 62420/912/267                   | 2026-04-28 12:45:26 | 2026-04-28 12:45:26 |

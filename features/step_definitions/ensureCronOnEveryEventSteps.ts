@@ -1,6 +1,18 @@
-import { Then } from '@cucumber/cucumber';
+import { Given, Then } from '@cucumber/cucumber';
 import assert from 'assert';
-import { sharedCtx } from './commonSteps.ts';
+import * as fs from 'fs';
+import * as path from 'path';
+
+const sharedCtx: { fileContent: string } = { fileContent: '' };
+
+Given('the ADW codebase is checked out', function () {
+  // No-op: codebase is always checked out in the test environment.
+});
+
+Given('{string} is read', function (filePath: string) {
+  const resolved = path.resolve(process.cwd(), filePath);
+  sharedCtx.fileContent = fs.readFileSync(resolved, 'utf8');
+});
 
 function extractHandlerBody(content: string, startMarker: string): string {
   const handlerStart = content.indexOf(startMarker);

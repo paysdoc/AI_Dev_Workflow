@@ -1136,6 +1136,15 @@
     - When the `awaiting_approval` exit reason appears in logs or you need to understand why `workflowStage` was not written
     - When `processedMerges` is referenced in old code or docs (it was removed — use spawn lock instead)
 
+- app_docs/feature-oobdbg-bdd-cutover-polymorphic-prompts-sweep.md
+  - Conditions:
+    - When working with `adws/triggers/perIssueScenarioSweep.ts` or the 14-day per-issue scenario retention sweep
+    - When modifying `ScenariosConfig` optional fields (`perIssueScenarioDirectory`, `regressionScenarioDirectory`, `vocabularyRegistry`) in `adws/core/projectConfig.ts`
+    - When the `## Per-Issue Scenario Directory`, `## Regression Scenario Directory`, or `## Vocabulary Registry` sections in `.adw/scenarios.md` are relevant
+    - When `scenario_writer` should route output to `features/per-issue/` instead of free-form placement
+    - When `generate_step_definitions` vocabulary validation or `vocabularyViolations` output is involved
+    - When `PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES` or the sweep wiring in `trigger_cron.ts` needs context
+
 - app_docs/feature-yw233r-fix-janitor-adwid-lookup.md
   - Conditions:
     - When working with `devServerJanitor.ts`, `extractIssueNumberFromDirName`, or `findActiveAdwIdForIssue`
