@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 89                | 2026-04-28 17:16:38 |
-| Longest Streak    | 89                | 2026-04-28 17:16:38 |
-| Total Plan Size   | 3649 lines       | 2026-04-28 17:16:38 |
+| Current Streak    | 80                | 2026-05-07 11:50:11 |
+| Longest Streak    | 80                | 2026-05-07 11:50:11 |
+| Total Plan Size   | 3201 lines       | 2026-05-07 11:50:11 |
 | Largest Plan Size | 678 lines        | 2026-04-22 20:54:24 |
-| Total Diff Size   | 2891989 lines    | 2026-04-28 17:16:38 |
+| Total Diff Size   | 2936115 lines    | 2026-05-07 11:50:11 |
 | Largest Diff Size | 418153 lines     | 2026-03-30 01:00:00 |
-| Average Presence  | 1.26             | 2026-04-28 17:16:38 |
+| Average Presence  | 1.29             | 2026-05-07 11:50:11 |
 
 ## ADW KPIs
 
@@ -174,3 +174,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-04-28 | 44nyqs-theme-extractor-rewr | 53           | /feature    | 1          | 465               | 36530/1458/186                  | 2026-04-28 11:18:15 | 2026-04-28 11:18:15 |
 | 2026-04-28 | n96c4j-webhook-call-ensurec | 501          | /bug        | 1          | 0                 | 62420/912/267                   | 2026-04-28 12:45:26 | 2026-04-28 12:45:26 |
 | 2026-04-28 | pyfy3z-auto-render-brand-sw | 70           | /feature    | 1          | 0                 | 39944/1618/197                  | 2026-04-28 17:16:38 | 2026-04-28 17:16:38 |
+| 2026-05-07 | nh8bn7-financial-slide-p-l | 72           | /feature    | 2          | 0                 | 42508/1618/202                  | 2026-05-07 11:50:11 | 2026-05-07 11:50:11 |
