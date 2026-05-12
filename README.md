@@ -1,6 +1,110 @@
 # AI Dev Workflow (ADW)
 
-ADW turns issues on GitHub, GitLab, or Jira into reviewed, tested, and documented pull requests by orchestrating Claude Code agents through a configurable plan → build → test → review → document pipeline.
+ADW is an agentic SDLC framework: it turns issues on GitHub, GitLab, or Jira into reviewed, tested, and documented pull requests by orchestrating Claude Code agents through a configurable plan → build → test → review → document pipeline.
+
+*Built solo over roughly two months as a way to think seriously about how AI-assisted software systems should be designed, governed, and verified. Self-hosting from week one. The decisions and failure modes below are the substance of what I learned.*
+
+---
+
+## About this project
+
+ADW began as an extension of the foundational orchestration patterns from IndyDevDan's [Agentic Engineer course](https://agenticengineer.com/) and grew over roughly 1,800 commits and 310 merged PRs into a production-shaped framework safe to run unattended against real repositories. It has been self-hosting since the first week — the project's own commits are produced by ADW driving its own implementation, with subjects prefixed `plan-orchestrator:`, `build-agent:`, `alignment-agent:`, `review-patch-agent:`, and so on. The dogfood has been the primary forcing function for nearly every architectural decision in the codebase.
+
+The most valuable artifact in this repository isn't the framework. It's the trail of failure modes that reshaped it, and the design decisions that came out of those failures. Most of what I learned about agentic systems came from operating one, not from reading about them.
+
+The sections that follow are the load-bearing parts: the design decisions that turned out to matter, the failure patterns that recurred until I rebuilt the underlying primitive, and the boundaries I deliberately chose not to cross. The operator documentation — setup, configuration, usage — sits below the break.
+
+## Key design decisions
+
+These are the load-bearing choices. Each one was validated by an incident or a repeated failure mode rather than by upfront design.
+
+**Worktree-per-issue, not branch-switching.** Every workflow runs in its own `.worktrees/{branch}/` directory. Concurrent issues mean concurrent worktrees. The cost is disk usage and the complexity of `worktreeReset`. The benefit is zero branch-state contamination, trivially safe parallel runs, and a stuck workflow that can be reclaimed by resetting *its* worktree without touching others.
+
+**Single-host constraint, no clustering.** Cron and webhook triggers are explicitly host-local. The orchestrator-coordination PRD makes this a deployment convention, not a code-level guarantee. The rationale is that cross-host distributed locking adds complexity disproportionate to the benefit — one team, one repo, one host suffices. The escape hatch is `## Cancel`, which performs scorched-earth cleanup on the host that processes it first.
+
+**Stateless auto-merge gate.** The rule is `gate_open = (no hitl on issue) OR (PR is approved)`, re-evaluated on every cron tick rather than cached from workflow start. Human gating becomes a real-time decision: add `hitl` before the PR opens to defer merge, remove it later to re-enable. Any cached state was a source of "why didn't it merge?" support load; the stateless rule is trivially auditable.
+
+**BDD scenarios as the plan/implementation contract.** Scenarios are not just tests — they are the validation surface that catches plan-implementation drift. `validationAgent` and `resolutionAgent` enforce alignment with the issue body. Per-issue scenarios (input only, never executed) were split from regression scenarios (executed) because mixing them caused the runner to fail on draft scenarios and produced ambiguous "is this regression?" decisions.
+
+**LLM diff gate for chores.** Chores skip review and document by default but only auto-merge if Haiku classifies the diff as `safe`. `regression_possible` falls through to the full review path; classifier failure defaults to `regression_possible` (fail-safe). Chore volume is high and full review on every CSS tweak is wasteful, but unguarded auto-merge once produced a regression that triggered this design.
+
+**Cost dual-write (CSV + D1).** Cost tracking originally lived as CSV files committed by ADW into the target repo's git history. This produced a year's worth of merge and rebase bugs in two months (see §6.3 below). The eventual fix was not another patch but a model change: dual-write to a Cloudflare D1-backed Worker, decoupling cost from the target repo's git history while keeping local CSV for offline analysis.
+
+**Polymorphic prompts.** Slash command prompts for `/feature`, `/bug`, `/chore`, `/patch`, and `/pr_review` were unified around conditional sections that adapt to the issue type. Earlier each command had its own prompt and they drifted independently. The cutover folded scenario-writing rules and conditional docs into a single shared structure.
+
+**The coordination kernel as a composed set of primitives.** The single most over-engineered part of the codebase, and it earned its complexity through painful production lessons. The kernel is composed of: a per-issue `spawnGate`, PID + start-time liveness checks (reuse-safe), a heartbeat ticker writing `lastSeenAt` to top-level state, a pure-query `hungOrchestratorDetector`, a destructive-but-targeted `worktreeReset`, `remoteReconcile` to derive stage from remote GitHub artifacts when local state is missing, and a `takeoverHandler` that wires all of the above into a single decision tree. None of these existed at the start. Each one came out of a class of bug that scattered point-fixes failed to resolve.
+
+## Recurring failure modes and what they taught me
+
+Mining the git log for `fix:` commits surfaces seven patterns that recurred across the codebase. Each one drove a substantive design change. The trails are kept because the verification — that these are real bugs with real PRs — matters more than the prose.
+
+### Spawn duplication and split-brain
+
+Cron and webhook triggers raced on the same issue, both passing locks, both spawning orchestrators. The trail runs across April 8th to April 20th: scattered patches to spawn deduplication, pause-queue guard ordering, and cross-trigger locking, none of which fully stuck.
+
+The resolution came on April 20th as a single day of merged PRs that rebuilt the coordination layer from scratch: `processLiveness` (PID-reuse-safe), `heartbeat`, `spawnGate` lifetime extended to the full orchestrator life, `hungOrchestratorDetector`, `takeoverHandler` wiring it all together, `remoteReconcile` for stage derivation, and `worktreeReset` for safe takeover. This is the single largest architectural pivot in the project's history.
+
+**Lesson:** scattered point-fixes are a signal that the underlying primitive is wrong. Rebuild the primitive.
+
+### Worktree discovery and branch lookup
+
+Worktrees were being looked up by issue number rather than branch name, or vice versa, causing stale or missing returns. Bugs landed on Feb 26, Mar 3, Apr 26, and Apr 27 — repeatedly, against the same module.
+
+The fix was extracting `vcs/worktreeQuery.ts` as a typed surface and making branch-name assembly deterministic, so every component (planAgent, prAgent, worktree creator, takeoverHandler) computes the same name from the same inputs (`{type, issueNumber, adwId, slug}`).
+
+**Lesson:** identifier coupling that appears innocuous — issue maps to branch maps to worktree — accumulates lookup ambiguity until it's made deterministic at a single point.
+
+### Cost CSV merge and rebase bugs
+
+ADW committed cost CSVs into the target repo's branch. This caused conflicts every time a workflow ran in parallel or after a rebase. Six bugs landed in three days (Mar 6 through Mar 9): unstaged-changes errors, deletion races, rebase errors, then a rewrite of the commit mechanism, then yet another deletion bug.
+
+The eventual fix was not another patch. It was a data-model change: dual-write to a Cloudflare D1-backed Worker, decoupling cost from target-repo git history.
+
+**Lesson:** when fixes pile up against the same module faster than they stick, the data model is wrong.
+
+### State-file overwrite races
+
+`completeWorkflow` was overwriting an `awaiting_merge` stage that had been set later by a different code path. The fix surface ran across April 3rd to April 20th, ending in a formalized stage taxonomy: `discarded` introduced as a terminal state, separate from `abandoned`, and the top-level state schema extended with `pid`, `pidStartedAt`, and `lastSeenAt` fields.
+
+**Lesson:** implicit state machines drift over time. Making them explicit prevents the next race.
+
+### GitHub Project Board flakiness
+
+Board V2 GraphQL operations failed for auth (the default `gh` token works for most things, but project boards require a PAT), lost column order and option IDs on update, and miscolored status options. The fix landed first as scattered patches across April 16th to April 18th, then as a consolidation: a `withProjectBoardAuth` wrapper covering every board operation site.
+
+**Lesson:** when an external API has a non-obvious auth contract, codify it in a single chokepoint *before* every call site grows its own copy.
+
+### Rate limit and token limit detection
+
+False positives on token limits, missing detection of 529 overloaded errors, output tokens not displayed. The fix was twofold: structured JSONL parsing (`claudeStreamParser.ts`) replaced regex against stdout, and an explicit pause and resume queue (`pauseQueue.ts` with `pauseQueueScanner.ts`) replaced ad-hoc retry.
+
+**Lesson:** parsing CLI human-readable output is fragile. Commit to the structured stream early.
+
+### Classifier misidentification
+
+The issue classifier was triggering on `clear` comments, on comment deletes, and on the literal substring "adw" appearing inside other words. Five fixes between March 1st and April 9th, culminating in the `## Cancel` directive replacing the bare-word `clear`/`adw` heuristic.
+
+**Lesson:** trigger-by-substring is convenient until the trigger word collides with normal English. An explicit, intentional directive parses reliably.
+
+## Status
+
+ADW is a working open-source agentic SDLC framework demonstrating multi-agent orchestration, governance gating, multi-provider abstraction, cost telemetry, and DDD ubiquitous language as a real system rather than slideware. It is not actively seeking contributors and is not pitched as a product. It exists as substrate for evaluating architectural trade-offs around AI in enterprise SDLCs, and as a way for me to do that thinking concretely rather than in the abstract.
+
+If you want to evaluate the codebase directly, the recommended reading order is:
+
+1. `adws/adwSdlc.tsx` — the canonical full pipeline, around 150 lines, reads top-to-bottom.
+2. `adws/triggers/trigger_cron.ts` together with `adws/triggers/takeoverHandler.ts` — the control loop.
+3. `adws/phases/orchestratorLock.ts` together with `adws/triggers/spawnGate.ts` — the locking model.
+4. `adws/core/processLiveness.ts`, `adws/core/heartbeat.ts`, and `adws/core/hungOrchestratorDetector.ts` — the liveness model.
+5. `adws/providers/repoContext.ts` together with `adws/providers/types.ts` — the provider abstraction.
+6. [UBIQUITOUS_LANGUAGE.md](UBIQUITOUS_LANGUAGE.md) — domain terms (Workflow, Phase, Stage, Orchestrator, Worktree, Spawn Lock, Takeover, etc.). Worth reading before any unfamiliar phase.
+7. [specs/prd/orchestrator-coordination-resilience.md](specs/prd/orchestrator-coordination-resilience.md) — the design rationale for the coordination kernel.
+
+---
+
+## Operator documentation
+
+Everything below is for someone who wants to run ADW against a target repository. The framing above is for someone evaluating the codebase or its author.
 
 ## What it does
 
