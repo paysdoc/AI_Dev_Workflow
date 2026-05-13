@@ -30,6 +30,8 @@ import {
   executeDepauditSetup,
 } from './workflowPhases';
 import { runWithOrchestratorLifecycle } from './phases/orchestratorLock';
+import { AuthRequiredError } from './types/agentTypes';
+import { handleAuthRequiredPause } from './phases/authPause';
 
 /**
  * Main ADW init workflow.
@@ -113,6 +115,9 @@ async function main(): Promise<void> {
       persistTokenCounts(config.orchestratorStatePath, totalCostUsd, totalModelUsage);
       await completeWorkflow(config, totalCostUsd, undefined, totalModelUsage);
     } catch (error) {
+      if (error instanceof AuthRequiredError) {
+        handleAuthRequiredPause(config, error, totalCostUsd, totalModelUsage);
+      }
       handleWorkflowError(config, error, totalCostUsd, totalModelUsage);
     }
   })) {

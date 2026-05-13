@@ -56,6 +56,7 @@ export type WorkflowStage =
   | 'install_failed'
   // Pause/resume stages
   | 'paused'
+  | 'paused_auth'
   | 'resumed'
   // Terminal / handoff stages
   | 'abandoned'

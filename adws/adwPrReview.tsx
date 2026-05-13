@@ -41,6 +41,8 @@ import {
   type ReviewIssue,
 } from './workflowPhases';
 import type { WorkflowConfig } from './phases';
+import { AuthRequiredError } from './types/agentTypes';
+import { handleAuthRequiredPause } from './phases/authPause';
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
@@ -109,6 +111,9 @@ async function main(): Promise<void> {
 
     await completePRReviewWorkflow(config, tracker.totalModelUsage);
   } catch (error) {
+    if (error instanceof AuthRequiredError) {
+      handleAuthRequiredPause(config.base, error, tracker.totalCostUsd, tracker.totalModelUsage);
+    }
     handlePRReviewWorkflowError(config, error, tracker.totalCostUsd, tracker.totalModelUsage);
   }
 }

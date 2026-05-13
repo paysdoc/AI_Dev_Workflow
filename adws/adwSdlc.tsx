@@ -50,6 +50,8 @@ import {
 import { persistTokenCounts } from './cost';
 import type { WorkflowConfig } from './phases';
 import { runWithOrchestratorLifecycle } from './phases/orchestratorLock';
+import { AuthRequiredError } from './types/agentTypes';
+import { handleAuthRequiredPause } from './phases/authPause';
 
 /**
  * Main orchestrator workflow.
@@ -147,6 +149,9 @@ async function main(): Promise<void> {
       if (config.ctx.prUrl) log(`PR: ${config.ctx.prUrl}`, 'info');
       log('===================================', 'info');
     } catch (error) {
+      if (error instanceof AuthRequiredError) {
+        handleAuthRequiredPause(config, error, tracker.totalCostUsd, tracker.totalModelUsage);
+      }
       handleWorkflowError(config, error, tracker.totalCostUsd, tracker.totalModelUsage);
     }
   })) {

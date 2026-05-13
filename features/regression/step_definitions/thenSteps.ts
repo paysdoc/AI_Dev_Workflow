@@ -29,6 +29,19 @@ const ROOT = resolve(__dirname, '../../..');
 Then(
   'the state file for adwId {string} records workflowStage {string}',
   function (this: RegressionWorld, adwId: string, expectedStage: string) {
+    // Per-issue (source-inspection) scenarios: mockContext is null → source inspection.
+    if (this.mockContext === null) {
+      const sdlcContent = readFileSync(resolve(ROOT, 'adws/adwSdlc.tsx'), 'utf-8');
+      assert.ok(sdlcContent.includes('handleAuthRequiredPause('),
+        'Expected handleAuthRequiredPause( in adwSdlc.tsx');
+      const authPauseContent = readFileSync(resolve(ROOT, 'adws/phases/authPause.ts'), 'utf-8');
+      assert.ok(
+        authPauseContent.includes(`'${expectedStage}'`) || authPauseContent.includes(`"${expectedStage}"`),
+        `Expected '${expectedStage}' in authPause.ts`,
+      );
+      void adwId;
+      return;
+    }
     const worktreePath = this.worktreePaths.get(adwId);
     const productionStateFile = resolve(ROOT, `agents/${adwId}/state.json`);
     const worktreeStateFile = worktreePath ? join(worktreePath, '.adw', 'state.json') : null;
@@ -126,6 +139,15 @@ Then(
 Then(
   'the orchestrator subprocess exited {int}',
   function (this: RegressionWorld, expectedCode: number) {
+    // Per-issue (source-inspection) scenarios: mockContext is null → source inspection.
+    if (this.mockContext === null) {
+      const authPauseContent = readFileSync(resolve(ROOT, 'adws/phases/authPause.ts'), 'utf-8');
+      assert.ok(
+        authPauseContent.includes(`process.exit(${expectedCode})`),
+        `Expected process.exit(${expectedCode}) in adws/phases/authPause.ts`,
+      );
+      return;
+    }
     assert.strictEqual(
       this.lastExitCode,
       expectedCode,

@@ -34,6 +34,8 @@ import {
 import type { WorkflowConfig } from './phases';
 import { runPatchAgent, getPlanFilePath, type ReviewIssue } from './agents';
 import { runWithOrchestratorLifecycle } from './phases/orchestratorLock';
+import { AuthRequiredError } from './types/agentTypes';
+import { handleAuthRequiredPause } from './phases/authPause';
 
 /**
  * Executes the Patch planning phase: runs the /patch skill and writes output to the spec file.
@@ -106,6 +108,9 @@ async function main(): Promise<void> {
 
       await completeWorkflow(config, tracker.totalCostUsd, {}, tracker.totalModelUsage);
     } catch (error) {
+      if (error instanceof AuthRequiredError) {
+        handleAuthRequiredPause(config, error, tracker.totalCostUsd, tracker.totalModelUsage);
+      }
       handleWorkflowError(config, error, tracker.totalCostUsd, tracker.totalModelUsage);
     }
   })) {

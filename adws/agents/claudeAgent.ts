@@ -8,7 +8,7 @@ import { log, AgentStateManager, getSafeSubprocessEnv, resolveClaudeCodePath, cl
 import { getMainRepoPath } from '../vcs/worktreeOperations';
 import type { ProgressCallback } from '../core/claudeStreamParser';
 import type { AgentResult } from '../types/agentTypes';
-import { RateLimitError } from '../types/agentTypes';
+import { RateLimitError, AuthRequiredError } from '../types/agentTypes';
 import { handleAgentProcess } from './agentProcessHandler';
 
 // Backward-compatible re-exports
@@ -21,10 +21,10 @@ export type {
   JsonlMessage, JsonlAssistantMessage, JsonlResultMessage,
 } from '../core/claudeStreamParser';
 
-// AgentResult and RateLimitError live in types/agentTypes.ts to eliminate bidirectional coupling
-// with agentProcessHandler.ts. Re-exported here for backward compatibility.
+// AgentResult, RateLimitError, and AuthRequiredError live in types/agentTypes.ts.
+// Re-exported here for backward compatibility.
 export type { AgentResult } from '../types/agentTypes';
-export { RateLimitError } from '../types/agentTypes';
+export { RateLimitError, AuthRequiredError } from '../types/agentTypes';
 
 /**
  * Saves the prompt to a file in the agent's state directory for replay and audit.
@@ -163,21 +163,22 @@ export async function runClaudeAgentWithCommand(
       const status = JSON.parse(statusOutput);
       if (!status.loggedIn) {
         log(`${agentName}: Claude CLI reports not logged in. Manual re-auth required (claude auth login).`, 'error');
-        return result;
+        throw new AuthRequiredError(agentName);
       }
       log(`${agentName}: Auth valid (${status.email || status.authMethod}, ${status.subscriptionType || 'unknown plan'}). Restarting agent...`, 'info');
     } catch (refreshErr) {
+      if (refreshErr instanceof AuthRequiredError) throw refreshErr;
       log(`${agentName}: Auth status check failed: ${refreshErr}. Manual re-auth may be required (claude auth login).`, 'error');
-      return result;
+      throw new AuthRequiredError(agentName);
     }
 
     await delay(2000);
     const retryProcess = spawn(resolvedPath, cliArgs, spawnOptions);
     const retryResult = await handleAgentProcess(retryProcess, agentName, outputFile, onProgress, statePath, model);
 
-    // If the retry also fails with auth, don't loop — require manual intervention
     if (retryResult.authExpired) {
       log(`${agentName}: Auth still failing after retry. Manual re-auth required (claude auth login).`, 'error');
+      throw new AuthRequiredError(agentName);
     }
     return retryResult;
   }

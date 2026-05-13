@@ -196,7 +196,8 @@ export function parseJsonlOutput(
         const subtype = (parsed as Record<string, unknown>).subtype as string | undefined;
         if (subtype === 'api_retry') {
           const error = (parsed as Record<string, unknown>).error as string | undefined;
-          if (error === 'authentication_error') {
+          const errorStatus = (parsed as Record<string, unknown>).error_status as number | undefined;
+          if (errorStatus === 401 || (error !== undefined && error.startsWith('authentication'))) {
             state.authErrorDetected = true;
           } else if (error === 'overloaded_error') {
             state.overloadedErrorDetected = true;

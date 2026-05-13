@@ -52,6 +52,23 @@ describe('parseJsonlOutput — structured detection', () => {
     const line = JSON.stringify({ type: 'system', subtype: 'api_retry', error: 'authentication_error', attempt: 1 });
     parseJsonlOutput(line + '\n', state);
     expect(state.authErrorDetected).toBe(true);
+    expect(state.serverErrorDetected).toBe(false);
+  });
+
+  it('sets authErrorDetected (not serverErrorDetected) when error_status is 401 with attempt 1', () => {
+    const state = createState();
+    const line = JSON.stringify({ type: 'system', subtype: 'api_retry', error: 'authentication_failed', error_status: 401, attempt: 1 });
+    parseJsonlOutput(line + '\n', state);
+    expect(state.authErrorDetected).toBe(true);
+    expect(state.serverErrorDetected).toBe(false);
+  });
+
+  it('sets authErrorDetected (not serverErrorDetected) when error_status is 401 with attempt 2', () => {
+    const state = createState();
+    const line = JSON.stringify({ type: 'system', subtype: 'api_retry', error: 'future_auth_variant', error_status: 401, attempt: 2 });
+    parseJsonlOutput(line + '\n', state);
+    expect(state.authErrorDetected).toBe(true);
+    expect(state.serverErrorDetected).toBe(false);
   });
 
   it('does NOT set serverErrorDetected when api_retry has attempt 1 with non-auth error', () => {

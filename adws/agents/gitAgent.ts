@@ -6,7 +6,7 @@
 import * as path from 'path';
 import { GitHubIssue, IssueClassSlashCommand, log, getModelForCommand, getEffortForCommand, commitPrefixMap } from '../core';
 import { generateBranchName, validateSlug } from '../vcs/branchOperations';
-import { runClaudeAgentWithCommand, AgentResult } from './claudeAgent';
+import { runClaudeAgentWithCommand, AgentResult, AuthRequiredError } from './claudeAgent';
 
 /**
  * Formats structured args for the /generate_branch_name skill.
@@ -69,6 +69,9 @@ export async function runGenerateBranchNameAgent(
     statePath,
   );
 
+  if (!result.success || result.authExpired) {
+    throw new AuthRequiredError('Branch Name');
+  }
   const slug = extractSlugFromOutput(result.output);
   const branchName = generateBranchName(issue.number, slug, issueType);
   log(`Branch name generated: ${branchName}`, 'success');
