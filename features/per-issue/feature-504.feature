@@ -254,7 +254,8 @@ Feature: Auth HITL gate — classify 401 as auth failure, kill in-flights, Slack
     And a state file for adwId "paused-3" records workflowStage "paused_auth"
     And no live pid exists for adwId "paused-3"
     When scanAuthQueue runs once
-    Then takeoverHandler returns kind "abandoned" for adwId "paused-3"
+    Then the state file for adwId "paused-3" is rewritten to workflowStage "abandoned"
+    And takeoverHandler returns kind "take_over_adwId" for adwId "paused-3"
     And the orchestrator for adwId "paused-3" is re-triggered with take_over_adwId "paused-3"
 
   # ── §9 WorkflowStage type ─────────────────────────────────────────────

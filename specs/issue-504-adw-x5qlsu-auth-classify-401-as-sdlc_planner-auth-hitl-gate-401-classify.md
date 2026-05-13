@@ -58,9 +58,9 @@ Use these files to implement the feature:
 - `adws/types/workflowTypes.ts` — Add `'paused_auth'` to the `WorkflowStage` union.
 - `adws/triggers/takeoverHandler.ts` — Add branch 4b: `paused_auth` → `skip_terminal` with `terminalStage: 'paused_auth'`. Extend the `CandidateDecision.skip_terminal` union to include `'paused_auth'`.
 - `adws/agents/gitAgent.ts` — `runGenerateBranchNameAgent` must not call `extractSlugFromOutput` when `result.authExpired || !result.success`. (After §2 lands, the inner call throws and we never reach the extract; this is belt-and-braces for any caller that doesn't trip the throw.)
-- `adws/triggers/trigger_cron.ts` — At the start of `checkAndTrigger`: if `agents/.auth_gate` exists, run the auth-recovery branch (probe → SIGTERM live PIDs → mark `paused_auth` → Slack cooldown → skip rest); else if a queued `scanAuthQueue` pass is due, run it; then proceed with normal tick.
-- `adws/triggers/trigger_webhook.ts` — At the start of every event handler that would spawn an agent or orchestrator: if `agents/.auth_gate` exists, return `200 ignored` with `{ reason: 'auth_gate_set' }`.
-- `adws/triggers/webhookGatekeeper.ts` — `classifyAndSpawnWorkflow`: if gate set, return early without spawning (defense in depth; webhook handlers should already have early-returned).
+- `adws/triggers/trigger_cron.ts` — At the start of `checkAndTrigger`: if `agents/.auth_gate` exists, run the auth-recovery branch (probe → SIGTERM live PIDs → mark `paused_auth` → Slack cooldown → skip rest); else if a queued `scanAuthQueue` pass is due, run it; then proceed with normal tick. Additionally, wrap every in-trigger call that may invoke an agent (notably `classifyAndSpawnWorkflow` and any in-tick classifier / dependency-extraction call) in a try/catch that, on `AuthRequiredError`, writes the gate (`writeAuthGate({ adwId: <existing or null>, issueNumber, agentName: err.agentName })`) and skips the rest of the tick. No Slack here — Slack fires on the next tick's probe path.
+- `adws/triggers/trigger_webhook.ts` — At the start of every event handler that would spawn an agent or orchestrator: if `agents/.auth_gate` exists, return `200 ignored` with `{ reason: 'auth_gate_set' }`. Additionally, wrap every `classifyAndSpawnWorkflow` (and any other inline agent call) in a try/catch that, on `AuthRequiredError`, writes the gate and returns `200 { status: 'ignored', reason: 'auth_required_caught' }`. No Slack — Slack is the cron tick's job on its next pass.
+- `adws/triggers/webhookGatekeeper.ts` — `classifyAndSpawnWorkflow`: if gate set, return early without spawning (defense in depth; webhook handlers should already have early-returned). Let `AuthRequiredError` propagate out to the caller (trigger_cron.ts / trigger_webhook.ts) for the gate write.
 - `adws/phases/workflowInit.ts` — No code change required if the throw propagates naturally; verify the two call sites for `runGenerateBranchNameAgent` (lines 199 and 220) are not wrapped in a try-catch that swallows `AuthRequiredError`.
 - `adws/known_issues.md` — Update the `oauth-token-expired` entry: change pattern to include `authentication_failed` and `error_status: 401`; bump `fix_attempts` to 2; add `linked_issues: #504`.
 
@@ -283,6 +283,20 @@ Execute every step in order, top to bottom.
      - Return true.
   6. If the probe itself errors (treat as gated): just SIGTERM + skip-tick + cooldown-respecting Slack.
 - After `scanPauseQueue` (line 108), add `await scanAuthQueue()` (only runs when gate absent; the function is no-op when gated, but the explicit check upstream short-circuits the rest of the tick anyway).
+- **Catch-and-write inside the tick.** Wrap each `classifyAndSpawnWorkflow(...)` call (and any other in-tick agent invocation such as dependency extraction) in a try/catch:
+  ```ts
+  try {
+    await classifyAndSpawnWorkflow(issue.number, repoInfo, targetRepoArgs, adwId, takeoverDecision);
+  } catch (err) {
+    if (err instanceof AuthRequiredError) {
+      writeAuthGate({ adwId: adwId ?? null, issueNumber: issue.number, agentName: err.agentName });
+      log(`Auth gate set inside trigger_cron tick (issue #${issue.number}): ${err.message}`, 'warn');
+      return; // skip the rest of the candidate loop this tick
+    }
+    throw err;
+  }
+  ```
+  This closes the gap where the classifier (or any inline agent) throws `AuthRequiredError` inside the cron tick before the orchestrator main() can write the gate.
 
 ### 18. Integration tests for `trigger_cron.ts` auth gate
 - New file `adws/triggers/__tests__/trigger_cron.authGate.test.ts`.
@@ -292,6 +306,7 @@ Execute every step in order, top to bottom.
 - Test: gate set + `loggedIn: false` + Slack last sent > 2 h ago → exactly one Slack call.
 - Test: gate set + `loggedIn: true` → `clearAuthGate` called, recovery Slack called once, `scanAuthQueue` called.
 - Test: gate set + `loggedIn: true` + 1 min ago Slack → recovery Slack still fires (cooldown bypassed on clear).
+- Test: gate absent at tick start, `classifyAndSpawnWorkflow` throws `AuthRequiredError` for eligible issue 91 → gate is written with `issueNumber: 91`, `agentName: 'classifier'`, and no orchestrator spawn occurs.
 
 ### 19. Wire the auth gate into `trigger_webhook.ts`
 - At the start of every event branch that spawns (the `pull_request_review_comment`, `pull_request_review`, `issue_comment`, `pull_request closed`, `issues opened`, `issues closed` branches), before the existing checks:
@@ -309,10 +324,26 @@ Execute every step in order, top to bottom.
     return;
   }
   ```
+- **Catch-and-write inside the webhook handler.** Wrap each `await classifyAndSpawnWorkflow(...)` call inside `trigger_webhook.ts` event branches in a try/catch:
+  ```ts
+  try {
+    await classifyAndSpawnWorkflow(issueNumber, webhookRepoInfo, webhookTargetRepoArgs);
+  } catch (err) {
+    if (err instanceof AuthRequiredError) {
+      writeAuthGate({ adwId: null, issueNumber, agentName: err.agentName });
+      log(`Auth gate set inside webhook handler (issue #${issueNumber}): ${err.message}`, 'warn');
+      jsonResponse(res, 200, { status: 'ignored', reason: 'auth_required_caught' });
+      return;
+    }
+    throw err;
+  }
+  ```
+  This handles the case where the inline classifier (or any other inline agent invoked by the webhook) throws `AuthRequiredError` before any orchestrator is spawned.
 
 ### 20. Integration test for `trigger_webhook.ts`
 - New file `adws/triggers/__tests__/trigger_webhook.authGate.test.ts`.
 - Stub `readAuthGate` to return a record. Send a synthetic `issue_comment` body; assert `spawnDetached` is never called and the response is `200 { status: 'ignored', reason: 'auth_gate_set' }`.
+- Test: `readAuthGate` returns null, `classifyAndSpawnWorkflow` is stubbed to throw `AuthRequiredError`. Send a synthetic `issue_comment` body for issue 92; assert `writeAuthGate` is called with `{ issueNumber: 92, agentName: 'classifier', adwId: null }`, `spawnDetached` is never called, and the response is `200 { status: 'ignored', reason: 'auth_required_caught' }`.
 
 ### 21. Update `adws/known_issues.md`
 - In the `oauth-token-expired` entry (lines 99-112), update:
