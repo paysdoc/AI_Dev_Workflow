@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 91                | 2026-05-13 15:56:12 |
-| Longest Streak    | 91                | 2026-05-13 15:56:12 |
-| Total Plan Size   | 3649 lines       | 2026-05-13 15:56:12 |
+| Current Streak    | 151               | 2026-05-13 16:55:49 |
+| Longest Streak    | 151               | 2026-05-13 16:55:49 |
+| Total Plan Size   | 3850 lines       | 2026-05-13 16:55:49 |
 | Largest Plan Size | 678 lines        | 2026-04-22 20:54:24 |
-| Total Diff Size   | 2982791 lines    | 2026-05-13 15:56:12 |
-| Largest Diff Size | 418153 lines     | 2026-03-30 01:00:00 |
-| Average Presence  | 1.26             | 2026-05-13 15:56:12 |
+| Total Diff Size   | 2284629 lines    | 2026-05-13 16:55:49 |
+| Largest Diff Size | 417153 lines     | 2026-03-30 01:00:00 |
+| Average Presence  | 1.22             | 2026-05-13 16:55:49 |
 
 ## ADW KPIs
 
@@ -176,3 +176,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-04-28 | pyfy3z-auto-render-brand-sw | 70           | /feature    | 1          | 0                 | 39944/1618/197                  | 2026-04-28 17:16:38 | 2026-04-28 17:16:38 |
 | 2026-05-07 | nh8bn7-financial-slide-p-l | 72           | /feature    | 2          | 0                 | 42508/1618/202                  | 2026-05-07 11:50:11 | 2026-05-07 11:50:11 |
 | 2026-05-13 | y0ex5n-demo-worker-add-stag | 79           | /feature    | 1          | 0                 | 45057/1619/210                  | 2026-05-13 15:56:12 | 2026-05-13 15:56:12 |
+| 2026-05-13 | x5qlsu-auth-classify-401-as | 504          | /feature    | 1          | 0                 | 3217/27/44                      | 2026-05-13 16:55:49 | 2026-05-13 16:55:49 |
