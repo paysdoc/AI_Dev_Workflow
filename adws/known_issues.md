@@ -98,17 +98,19 @@ Each entry contains:
 
 ## oauth-token-expired
 
-- **pattern**: `authentication_error`, `OAuth token has expired`
-- **description**: Claude CLI OAuth token expires mid-session. Agent retries fail.
-- **status**: solved
-- **solution**: `agentProcessHandler.ts` detects auth errors and kills process immediately. `claudeAgent.ts` checks `claude auth status`, retries once if auth is valid.
-- **fix_attempts**: 1
-- **linked_issues**: #213
+- **pattern**: `authentication_error`, `OAuth token has expired`, `authentication_failed`, `error_status: 401`
+- **description**: Claude CLI OAuth token expires mid-session. Agent retries fail. Also triggered by `authentication_failed` / HTTP 401 events in the JSONL stream where the parser backstop detects `error_status: 401`.
+- **status**: solved (re-fixed in #504)
+- **solution**: Parser 401 backstop in `agentProcessHandler.ts` detects `authentication_failed` with `error_status: 401` in JSONL stream and sets `authExpired: true`. `claudeAgent.ts` then throws `AuthRequiredError` (from `adws/types/agentTypes.ts`). Orchestrators catch `AuthRequiredError` and write a host-wide `agents/.auth_gate` file via `handleAuthRequiredPause`. Cron detects the gate, SIGTERMs live orchestrators, marks them `paused_auth` stage, and polls `claude auth status --json` until `loggedIn: true`. On recovery, `scanAuthQueue` re-spawns all `paused_auth` orchestrators with their original adwId preserved. Slack notifications sent on first detection and on recovery.
+- **fix_attempts**: 2
+- **linked_issues**: #213, #504
 - **first_seen**: 2026-03
 - **sample_log**:
   ```
   ❌ [2026-03-22T10:15:32.100Z] [o9el5x-plan-file-not-saved] Plan error: Failed to authenticate.
   API Error: 401 {"type":"error","error":{"type":"authentication_error","message":"OAuth token has expired."}}
+  {"type":"system","subtype":"api_retry","error":"authentication_failed","error_status":401,"attempt":1}
+  ⚠️ [2026-05-13T09:00:00.000Z] [o9el5x-plan-file-not-saved] Auth gate set inside trigger_cron tick (issue #42): Authentication required for agent: plan-agent
   ```
 
 ## rate-limit-false-positive

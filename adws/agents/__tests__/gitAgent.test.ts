@@ -1,10 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { runCommitAgent, runGenerateBranchNameAgent, extractSlugFromOutput } from '../gitAgent';
+import { AuthRequiredError } from '../../types/agentTypes';
 
 // Mock all imports that gitAgent depends on to avoid filesystem/network side effects
-vi.mock('../claudeAgent', () => ({
-  runClaudeAgentWithCommand: vi.fn(),
-}));
+vi.mock('../claudeAgent', async () => {
+  const { AuthRequiredError: ARE, RateLimitError: RLE } = await import('../../types/agentTypes');
+  return {
+    runClaudeAgentWithCommand: vi.fn(),
+    AuthRequiredError: ARE,
+    RateLimitError: RLE,
+  };
+});
 
 vi.mock('../../core', () => ({
   log: vi.fn(),
@@ -214,5 +220,33 @@ describe('runGenerateBranchNameAgent — slug-only contract', () => {
 
     const result = await runGenerateBranchNameAgent('/bug', mockIssue, '/tmp/logs');
     expect(result.branchName).toBe('bugfix-issue-42-fix-login-error');
+  });
+});
+
+describe('runGenerateBranchNameAgent — AuthRequiredError propagation', () => {
+  it('propagates AuthRequiredError thrown by runClaudeAgentWithCommand', async () => {
+    mockRunAgent.mockRejectedValueOnce(new AuthRequiredError('Branch Name'));
+
+    await expect(
+      runGenerateBranchNameAgent('/feature', mockIssue, '/tmp/logs')
+    ).rejects.toThrow(AuthRequiredError);
+  });
+
+  it('throws AuthRequiredError when result has authExpired=true (belt-and-braces guard)', async () => {
+    mockRunAgent.mockResolvedValueOnce({
+      success: false,
+      output: '',
+      authExpired: true,
+      ...baseAgentResult,
+    });
+
+    let thrownError: unknown;
+    try {
+      await runGenerateBranchNameAgent('/feature', mockIssue, '/tmp/logs');
+    } catch (err) {
+      thrownError = err;
+    }
+
+    expect(thrownError).toBeInstanceOf(AuthRequiredError);
   });
 });

@@ -875,6 +875,15 @@
     - When troubleshooting why `removedScenarios` is always empty in step def agent output
     - When modifying `adws/phases/stepDefPhase.ts` or `adws/agents/stepDefAgent.ts`
 
+- app_docs/feature-x5qlsu-auth-hitl-gate-401-classify.md
+  - Conditions:
+    - When working with `agents/.auth_gate`, `authGate.ts`, or `scanAuthQueue.ts`
+    - When implementing or troubleshooting the auth HITL gate (401 detection, host-wide block, Slack notify)
+    - When adding a new orchestrator entrypoint that must catch `AuthRequiredError` before `handleWorkflowError`
+    - When the `paused_auth` workflow stage or `takeoverHandler` branch 4b is relevant
+    - When `SLACK_WEBHOOK_URL` notifications for auth events need to be understood or extended
+    - When troubleshooting issues stuck in `paused_auth` that did not resume after `claude auth login`
+
 - app_docs/feature-chpy1a-generic-pipeline-runner-pause-resume.md
   - Conditions:
     - When working with rate limit handling, pause/resume mechanics, or `agents/paused_queue.json`

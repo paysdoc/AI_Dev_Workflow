@@ -25,6 +25,8 @@ import {
 } from './core';
 import { extractCwdOption, printUsageAndExit } from './core/orchestratorCli';
 import { runDocumentAgent } from './agents';
+import { AuthRequiredError } from './types/agentTypes';
+import { writeAuthGate } from './core/authGate';
 
 /**
  * Parses and validates command line arguments.
@@ -116,6 +118,12 @@ async function main(): Promise<void> {
       process.exit(1);
     }
   } catch (error) {
+    if (error instanceof AuthRequiredError) {
+      writeAuthGate({ adwId, issueNumber: null, agentName: error.agentName });
+      AgentStateManager.writeTopLevelState(adwId, { workflowStage: 'paused_auth' });
+      log(`ADW Document workflow paused awaiting re-auth (agent: ${error.agentName})`, 'warn');
+      process.exit(0);
+    }
     AgentStateManager.writeState(orchestratorStatePath, {
       execution: AgentStateManager.completeExecution(
         AgentStateManager.createExecutionState('running'),

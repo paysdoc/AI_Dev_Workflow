@@ -24,6 +24,7 @@ import { releaseIssueSpawnLock } from './spawnGate';
 // takeoverHandler enforces the decision before any spawn
 import { evaluateCandidate } from './takeoverHandler';
 import type { CandidateDecision } from './takeoverHandler';
+import { readAuthGate } from '../core/authGate';
 
 /**
  * Spawns a detached child process for running ADW orchestrator workflows.
@@ -50,6 +51,12 @@ export async function classifyAndSpawnWorkflow(
   precomputedDecision?: CandidateDecision,
 ): Promise<void> {
   const resolvedRepoInfo = repoInfo ?? getRepoInfo();
+
+  if (readAuthGate() !== null) {
+    log(`Issue #${issueNumber}: auth gate set, skipping spawn`, 'warn');
+    releaseIssueSpawnLock(resolvedRepoInfo, issueNumber);
+    return;
+  }
 
   // Enforce the takeover decision before any spawn. When the cron trigger has
   // already called evaluateCandidate, it passes the pre-computed decision here

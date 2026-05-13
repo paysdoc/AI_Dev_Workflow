@@ -71,6 +71,8 @@ const ORCHESTRATOR_FILES: Record<string, string> = {
 When(
   'the {string} orchestrator is invoked with adwId {string} and issue {int}',
   function (this: RegressionWorld, _orchestratorName: string, _adwId: string, _issueNumber: number) {
+    // Per-issue (source-inspection) scenarios: mockContext is null → no-op.
+    if (this.mockContext === null) return;
     return 'pending';
     // ISSUE-3-CUTOVER: existing body below is intentionally preserved for the cutover
     // patch; remove the `return 'pending';` line above when the harness can drive a real
@@ -263,6 +265,9 @@ When(
 When(
   'the cron probe runs once',
   function (this: RegressionWorld) {
+    // Per-issue (source-inspection) scenarios don't run the @regression Before hook,
+    // so mockContext remains null.  In that context, the step is a no-op.
+    if (this.mockContext === null) return;
     return 'pending';
     // ISSUE-3-CUTOVER: existing body below is intentionally preserved for the cutover
     // patch; remove the `return 'pending';` line above when the harness can drive a real

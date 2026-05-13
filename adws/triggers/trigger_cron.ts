@@ -8,10 +8,17 @@
  */
 
 import { execSync, spawn } from 'child_process';
-import { log, GRACE_PERIOD_MS, JANITOR_INTERVAL_CYCLES, HEARTBEAT_STALE_THRESHOLD_MS, HUNG_DETECTOR_INTERVAL_CYCLES, PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES, getTargetRepoWorkspacePath } from '../core';
+import * as fs from 'fs';
+import { log, GRACE_PERIOD_MS, JANITOR_INTERVAL_CYCLES, HEARTBEAT_STALE_THRESHOLD_MS, HUNG_DETECTOR_INTERVAL_CYCLES, PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES, getTargetRepoWorkspacePath, resolveClaudeCodePath } from '../core';
 import { findHungOrchestrators, type HungDetectorDeps } from '../core/hungOrchestratorDetector';
 import { AgentStateManager } from '../core/agentState';
 import { getRepoInfo, fetchPRList, hasUnaddressedComments, isCancelComment, activateGitHubAppAuth, refreshTokenIfNeeded } from '../github';
+import { readAuthGate, writeAuthGate, clearAuthGate, markGateSlackNotified, shouldSendDetectionSlack } from '../core/authGate';
+import { sendSlackDetectionNotification, sendSlackRecoveryNotification } from '../core/slackNotifier';
+import { markStatePausedAuthForLiveOrchestrator } from '../phases/authPause';
+import { scanAuthQueue } from './scanAuthQueue';
+import { AuthRequiredError } from '../types/agentTypes';
+import { isProcessLive } from '../core/processLiveness';
 
 import { resolveIssueWorkflowStage } from './cronStageResolver';
 import { handleCancelDirective } from './cancelHandler';
@@ -100,12 +107,82 @@ export function runHungDetectorSweep(now: number, deps?: HungDetectorDeps): void
   }
 }
 
+/**
+ * Handles a single cron tick when the auth gate is set.
+ * Returns true if the gate was set (caller should return early from checkAndTrigger).
+ * Returns false if the gate is absent (normal operation continues).
+ */
+async function handleAuthGateTick(): Promise<boolean> {
+  const gate = readAuthGate();
+  if (gate === null) return false;
+
+  const targetRepoArgs = buildTargetRepoArgs();
+  let loggedIn = false;
+  try {
+    const resolvedPath = resolveClaudeCodePath();
+    const statusOutput = execSync(`${resolvedPath} auth status --json`, {
+      timeout: 15_000,
+      env: { ...process.env },
+    }).toString();
+    const status = JSON.parse(statusOutput);
+    loggedIn = status.loggedIn === true;
+  } catch {
+    loggedIn = false;
+  }
+
+  if (loggedIn) {
+    clearAuthGate();
+    const resumedCount = await scanAuthQueue(cronRepoInfo, targetRepoArgs);
+    await sendSlackRecoveryNotification({
+      host: gate.host,
+      clearedAt: new Date().toISOString(),
+      resumedCount,
+    });
+    return true;
+  }
+
+  // loggedIn === false: SIGTERM live orchestrators, mark them paused_auth
+  const agentsDir = 'agents';
+  try {
+    const entries = fs.readdirSync(agentsDir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      const adwId = entry.name;
+      const state = AgentStateManager.readTopLevelState(adwId);
+      if (!state) continue;
+      const pid = state.pid;
+      const pidStartedAt = state.pidStartedAt ?? '';
+      if (pid !== undefined && pidStartedAt && isProcessLive(pid, pidStartedAt)) {
+        try { process.kill(pid, 'SIGTERM'); } catch { /* ESRCH: already gone */ }
+        markStatePausedAuthForLiveOrchestrator(adwId);
+      }
+    }
+  } catch { /* agents dir missing */ }
+
+  const now = new Date();
+  if (shouldSendDetectionSlack(gate, now)) {
+    await sendSlackDetectionNotification({
+      host: gate.host,
+      adwId: gate.lastDetectedBy.adwId,
+      issueNumber: gate.lastDetectedBy.issueNumber,
+      agentName: gate.lastDetectedBy.agentName,
+      firstDetectedAt: gate.firstDetectedAt,
+    });
+    markGateSlackNotified(now);
+  }
+
+  return true;
+}
+
 /** Checks for eligible issues and triggers ADW workflows for each. */
 async function checkAndTrigger(): Promise<void> {
   cycleCount += 1;
 
+  if (await handleAuthGateTick()) return;
+
   // Scan pause queue every PROBE_INTERVAL_CYCLES cycles
   await scanPauseQueue(cycleCount);
+  await scanAuthQueue(cronRepoInfo, buildTargetRepoArgs());
 
   // Detect and abandon hung orchestrators every HUNG_DETECTOR_INTERVAL_CYCLES cycles
   if (cycleCount % HUNG_DETECTOR_INTERVAL_CYCLES === 0) {
@@ -220,7 +297,16 @@ async function checkAndTrigger(): Promise<void> {
     // spawn_fresh: pass the pre-computed decision so classifyAndSpawnWorkflow
     // does not re-evaluate (the lock was already acquired by evaluateCandidate).
     log(`Triggering ADW workflow for backlog issue #${issue.number}${adwId ? ` (resuming adwId=${adwId})` : ''}`, 'success');
-    await classifyAndSpawnWorkflow(issue.number, repoInfo, targetRepoArgs, adwId, takeoverDecision);
+    try {
+      await classifyAndSpawnWorkflow(issue.number, repoInfo, targetRepoArgs, adwId, takeoverDecision);
+    } catch (err) {
+      if (err instanceof AuthRequiredError) {
+        writeAuthGate({ adwId: adwId ?? null, issueNumber: issue.number, agentName: err.agentName });
+        log(`Auth gate set inside trigger_cron tick (issue #${issue.number}): ${err instanceof Error ? err.message : err}`, 'warn');
+        return;
+      }
+      throw err;
+    }
   }
 }
 

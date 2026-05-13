@@ -32,6 +32,8 @@ import {
 } from './workflowPhases';
 import { getPlanFilePath } from './agents';
 import { runWithOrchestratorLifecycle } from './phases/orchestratorLock';
+import { AuthRequiredError } from './types/agentTypes';
+import { handleAuthRequiredPause } from './phases/authPause';
 
 /**
  * Main orchestrator workflow.
@@ -67,6 +69,9 @@ async function main(): Promise<void> {
 
       await completeWorkflow(config, tracker.totalCostUsd, {}, tracker.totalModelUsage);
     } catch (error) {
+      if (error instanceof AuthRequiredError) {
+        handleAuthRequiredPause(config, error, tracker.totalCostUsd, tracker.totalModelUsage);
+      }
       handleWorkflowError(config, error, tracker.totalCostUsd, tracker.totalModelUsage);
     }
   })) {

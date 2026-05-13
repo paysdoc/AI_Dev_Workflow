@@ -148,6 +148,31 @@ describe('paused no-op', () => {
   });
 });
 
+// ─── Branch 4b: paused_auth — no-op (scanAuthQueue sole resumer) ─────────────
+
+describe('paused_auth no-op', () => {
+  it('returns skip_terminal with terminalStage paused_auth and releases lock', () => {
+    const deps = makeDeps({ readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'paused_auth' })) });
+    const decision = evaluateCandidate({ issueNumber: 110, repoInfo: REPO }, deps);
+
+    expect(decision).toEqual({ kind: 'skip_terminal', adwId: ADW_ID, terminalStage: 'paused_auth' });
+    expect(deps.releaseIssueSpawnLock).toHaveBeenCalledOnce();
+    expect(deps.resetWorktree).not.toHaveBeenCalled();
+    expect(deps.deriveStageFromRemote).not.toHaveBeenCalled();
+    expect(deps.killProcess).not.toHaveBeenCalled();
+  });
+
+  it('paused_auth with a live PID still produces no-op (not take_over)', () => {
+    const deps = makeDeps({
+      readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'paused_auth', pid: 66666, pidStartedAt: 'live-era' })),
+      isProcessLive: vi.fn().mockReturnValue(true),
+    });
+    const decision = evaluateCandidate({ issueNumber: 110, repoInfo: REPO }, deps);
+    expect(decision.kind).toBe('skip_terminal');
+    expect(deps.killProcess).not.toHaveBeenCalled();
+  });
+});
+
 // ─── Branch 5: abandoned → take_over_adwId ────────────────────────────────────
 
 describe('take_over_adwId from abandoned', () => {

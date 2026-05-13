@@ -17,6 +17,8 @@ import { validateWebhookSignature } from './webhookSignature';
 import { checkIssueEligibility } from './issueEligibility';
 import { spawnDetached, classifyAndSpawnWorkflow, ensureCronProcess, logDeferral } from './webhookGatekeeper';
 import { checkEnvironmentVariables, checkGitRepository, checkClaudeCodeCLI, checkGitHubCLI, checkDirectoryStructure, type CheckResult } from '../healthCheckChecks';
+import { readAuthGate, writeAuthGate } from '../core/authGate';
+import { AuthRequiredError } from '../types/agentTypes';
 
 // Re-export for any external consumers
 export { handlePullRequestEvent, handleIssueClosedEvent, extractIssueNumberFromBranch } from './webhookHandlers';
@@ -108,6 +110,10 @@ const server = http.createServer((req, res) => {
     if (webhookRepoInfo) ensureCronProcess(webhookRepoInfo, webhookTargetRepoArgs);
 
     if (event === 'pull_request_review_comment') {
+      if (readAuthGate() !== null) {
+        jsonResponse(res, 200, { status: 'ignored', reason: 'auth_gate_set' });
+        return;
+      }
       const prNumber = (body.pull_request as Record<string, unknown> | undefined)?.number as number | undefined;
       if (prNumber == null) { jsonResponse(res, 200, { status: 'ignored' }); return; }
       if ((body.action as string) !== 'created') { jsonResponse(res, 200, { status: 'ignored' }); return; }
@@ -118,6 +124,10 @@ const server = http.createServer((req, res) => {
     }
 
     if (event === 'pull_request_review') {
+      if (readAuthGate() !== null) {
+        jsonResponse(res, 200, { status: 'ignored', reason: 'auth_gate_set' });
+        return;
+      }
       const prNumber = (body.pull_request as Record<string, unknown> | undefined)?.number as number | undefined;
       if (prNumber == null) { jsonResponse(res, 200, { status: 'ignored' }); return; }
       if ((body.action as string) !== 'submitted') { jsonResponse(res, 200, { status: 'ignored' }); return; }
@@ -131,6 +141,10 @@ const server = http.createServer((req, res) => {
     }
 
     if (event === 'issue_comment') {
+      if (readAuthGate() !== null) {
+        jsonResponse(res, 200, { status: 'ignored', reason: 'auth_gate_set' });
+        return;
+      }
       if ((body.action as string) !== 'created') { jsonResponse(res, 200, { status: 'ignored' }); return; }
       const commentBody = ((body.comment as Record<string, unknown> | undefined)?.body as string) || '';
       const issue = body.issue as Record<string, unknown> | undefined;
@@ -162,7 +176,16 @@ const server = http.createServer((req, res) => {
             const eligibility = await checkIssueEligibility(issueNumber, (issue?.body as string) || '', webhookRepoInfo);
             if (!eligibility.eligible) { logDeferral(issueNumber, eligibility); return; }
           }
-          await classifyAndSpawnWorkflow(issueNumber, webhookRepoInfo, webhookTargetRepoArgs);
+          try {
+            await classifyAndSpawnWorkflow(issueNumber, webhookRepoInfo, webhookTargetRepoArgs);
+          } catch (err) {
+            if (err instanceof AuthRequiredError) {
+              writeAuthGate({ adwId: null, issueNumber, agentName: err.agentName });
+              log(`Auth gate set inside webhook handler (issue #${issueNumber}): ${err.message}`, 'warn');
+              return;
+            }
+            throw err;
+          }
         })
         .catch((error) => {
           log(`Error handling comment on issue #${issueNumber}: ${error}. Cron will retry.`, 'error');
@@ -198,6 +221,10 @@ const server = http.createServer((req, res) => {
     }
 
     if (action === 'opened') {
+      if (readAuthGate() !== null) {
+        jsonResponse(res, 200, { status: 'ignored', reason: 'auth_gate_set' });
+        return;
+      }
       if (!shouldTriggerIssueWorkflow(issueNumber)) {
         jsonResponse(res, 200, { status: 'ignored', reason: 'duplicate' });
         return;
@@ -209,7 +236,16 @@ const server = http.createServer((req, res) => {
             const eligibility = await checkIssueEligibility(issueNumber, (issue?.body as string) || '', webhookRepoInfo);
             if (!eligibility.eligible) { logDeferral(issueNumber, eligibility); return; }
           }
-          await classifyAndSpawnWorkflow(issueNumber, webhookRepoInfo, webhookTargetRepoArgs);
+          try {
+            await classifyAndSpawnWorkflow(issueNumber, webhookRepoInfo, webhookTargetRepoArgs);
+          } catch (err) {
+            if (err instanceof AuthRequiredError) {
+              writeAuthGate({ adwId: null, issueNumber, agentName: err.agentName });
+              log(`Auth gate set inside webhook handler (issue #${issueNumber}): ${err.message}`, 'warn');
+              return;
+            }
+            throw err;
+          }
         } catch (error) {
           log(`Error processing issue #${issueNumber}: ${error}. Cron will retry.`, 'error');
         }

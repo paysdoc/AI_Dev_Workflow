@@ -37,7 +37,7 @@ export type CandidateDecision =
   | { readonly kind: 'spawn_fresh' }
   | { readonly kind: 'take_over_adwId'; readonly adwId: string; readonly derivedStage: WorkflowStage }
   | { readonly kind: 'defer_live_holder'; readonly holderPid: number }
-  | { readonly kind: 'skip_terminal'; readonly adwId: string; readonly terminalStage: 'completed' | 'discarded' | 'paused' };
+  | { readonly kind: 'skip_terminal'; readonly adwId: string; readonly terminalStage: 'completed' | 'discarded' | 'paused' | 'paused_auth' };
 
 export interface EvaluateCandidateInput {
   readonly issueNumber: number;
@@ -146,6 +146,12 @@ export function evaluateCandidate(
   if (stage === 'paused') {
     releaseLock();
     return { kind: 'skip_terminal', adwId, terminalStage: 'paused' };
+  }
+
+  // Branch 4b: paused_auth — scanAuthQueue is the sole resumer; no-op here.
+  if (stage === 'paused_auth') {
+    releaseLock();
+    return { kind: 'skip_terminal', adwId, terminalStage: 'paused_auth' };
   }
 
   // Branch 5: abandoned — worktreeReset → remoteReconcile → takeover.

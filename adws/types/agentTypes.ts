@@ -55,6 +55,19 @@ export class RateLimitError extends Error {
 }
 
 /**
+ * Thrown when a Claude agent encounters an authentication failure (HTTP 401 / OAuth expired).
+ * Propagates to orchestrator main() which writes agents/.auth_gate and exits 0.
+ */
+export class AuthRequiredError extends Error {
+  readonly agentName: string;
+  constructor(agentName: string) {
+    super(`Authentication required for agent: ${agentName}`);
+    this.name = 'AuthRequiredError';
+    this.agentName = agentName;
+  }
+}
+
+/**
  * Claude Code agent prompt configuration.
  */
 export interface AgentPromptRequest {
