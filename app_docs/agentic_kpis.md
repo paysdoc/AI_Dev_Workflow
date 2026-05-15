@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 94                | 2026-05-15 10:31:32 |
-| Longest Streak    | 94                | 2026-05-15 10:31:32 |
-| Total Plan Size   | 3649 lines       | 2026-05-15 10:31:32 |
-| Largest Plan Size | 678 lines        | 2026-05-15 10:31:32 |
-| Total Diff Size   | 3087565 lines    | 2026-05-15 10:31:32 |
-| Largest Diff Size | 418153 lines     | 2026-05-15 10:31:32 |
-| Average Presence  | 1.26             | 2026-05-15 10:31:32 |
+| Current Streak    | 95                | 2026-05-15 11:07:57 |
+| Longest Streak    | 95                | 2026-05-15 11:07:57 |
+| Total Plan Size   | 3197 lines       | 2026-05-15 11:07:57 |
+| Largest Plan Size | 678 lines        | 2026-05-15 11:07:57 |
+| Total Diff Size   | 3143370 lines    | 2026-05-15 11:07:57 |
+| Largest Diff Size | 418153 lines     | 2026-05-15 11:07:57 |
+| Average Presence  | 1.27             | 2026-05-15 11:07:57 |
 
 ## ADW KPIs
 
@@ -179,3 +179,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-05-13 | x5qlsu-auth-classify-401-as | 504          | /feature    | 1          | 0                 | 3217/27/44                      | 2026-05-13 16:55:49 | 2026-05-13 16:55:49 |
 | 2026-05-15 | ur1hdr-demo-css-infrastruct | 80           | /feature    | 1          | 0                 | 51798/1619/292                  | 2026-05-15 10:12:59 | 2026-05-15 10:12:59 |
 | 2026-05-15 | sehzrh-feat-implement-vestm | 77           | /feature    | 1          | 0                 | 46492/1621/217                  | 2026-05-15 10:31:32 | 2026-05-15 10:31:32 |
+| 2026-05-15 | ukcoil-demo-static-page-chr | 81           | /feature    | 1          | 0                 | 54070/1735/329                  | 2026-05-15 11:07:57 | 2026-05-15 11:07:57 |
