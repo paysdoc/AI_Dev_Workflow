@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 93                | 2026-05-15 10:12:59 |
-| Longest Streak    | 93                | 2026-05-15 10:12:59 |
-| Total Plan Size   | 3649 lines       | 2026-05-15 10:12:59 |
-| Largest Plan Size | 678 lines        | 2026-05-15 10:12:59 |
-| Total Diff Size   | 3039452 lines    | 2026-05-15 10:12:59 |
-| Largest Diff Size | 418153 lines     | 2026-05-15 10:12:59 |
-| Average Presence  | 1.26             | 2026-05-15 10:12:59 |
+| Current Streak    | 94                | 2026-05-15 10:31:32 |
+| Longest Streak    | 94                | 2026-05-15 10:31:32 |
+| Total Plan Size   | 3649 lines       | 2026-05-15 10:31:32 |
+| Largest Plan Size | 678 lines        | 2026-05-15 10:31:32 |
+| Total Diff Size   | 3087565 lines    | 2026-05-15 10:31:32 |
+| Largest Diff Size | 418153 lines     | 2026-05-15 10:31:32 |
+| Average Presence  | 1.26             | 2026-05-15 10:31:32 |
 
 ## ADW KPIs
 
@@ -178,3 +178,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-05-13 | y0ex5n-demo-worker-add-stag | 79           | /feature    | 1          | 0                 | 45057/1619/210                  | 2026-05-13 15:56:12 | 2026-05-13 15:56:12 |
 | 2026-05-13 | x5qlsu-auth-classify-401-as | 504          | /feature    | 1          | 0                 | 3217/27/44                      | 2026-05-13 16:55:49 | 2026-05-13 16:55:49 |
 | 2026-05-15 | ur1hdr-demo-css-infrastruct | 80           | /feature    | 1          | 0                 | 51798/1619/292                  | 2026-05-15 10:12:59 | 2026-05-15 10:12:59 |
+| 2026-05-15 | sehzrh-feat-implement-vestm | 77           | /feature    | 1          | 0                 | 46492/1621/217                  | 2026-05-15 10:31:32 | 2026-05-15 10:31:32 |
