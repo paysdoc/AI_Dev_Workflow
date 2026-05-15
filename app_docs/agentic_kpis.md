@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 168               | 2026-05-15 12:06:20 |
-| Longest Streak    | 168               | 2026-05-15 12:06:20 |
-| Total Plan Size   | 4007 lines       | 2026-05-15 12:06:20 |
-| Largest Plan Size | 699 lines        | 2026-05-15 12:06:20 |
-| Total Diff Size   | 3201748 lines    | 2026-05-15 12:06:20 |
-| Largest Diff Size | 418153 lines     | 2026-05-15 12:06:20 |
-| Average Presence  | 1.19             | 2026-05-15 12:06:20 |
+| Current Streak    | 181               | 2026-05-15 12:13:56 |
+| Longest Streak    | 181               | 2026-05-15 12:13:56 |
+| Total Plan Size   | 3666 lines       | 2026-05-15 12:13:56 |
+| Largest Plan Size | 699 lines        | 2026-05-15 12:13:56 |
+| Total Diff Size   | 3259818 lines    | 2026-05-15 12:13:56 |
+| Largest Diff Size | 418153 lines     | 2026-05-15 12:13:56 |
+| Average Presence  | 1.18             | 2026-05-15 12:13:56 |
 
 ## ADW KPIs
 
@@ -181,3 +181,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-05-15 | sehzrh-feat-implement-vestm | 77           | /feature    | 1          | 0                 | 46492/1621/217                  | 2026-05-15 10:31:32 | 2026-05-15 10:31:32 |
 | 2026-05-15 | ukcoil-demo-static-page-chr | 81           | /feature    | 1          | 0                 | 54070/1735/329                  | 2026-05-15 11:07:57 | 2026-05-15 11:07:57 |
 | 2026-05-15 | lipy7f-demo-pitch-output-bl | 83           | /feature    | 1          | 699               | 56637/1741/340                  | 2026-05-15 12:06:20 | 2026-05-15 12:06:20 |
+| 2026-05-15 | bw5vk5-demo-company-block-b | 82           | /feature    | 2          | 0                 | 56293/1777/338                  | 2026-05-15 12:13:56 | 2026-05-15 12:13:56 |
