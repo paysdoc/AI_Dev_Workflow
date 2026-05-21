@@ -1163,6 +1163,16 @@
     - When the `awaiting_approval` exit reason appears in logs or you need to understand why `workflowStage` was not written
     - When `processedMerges` is referenced in old code or docs (it was removed — use spawn lock instead)
 
+- app_docs/feature-tdauam-promotion-commenter-deep-modules.md
+  - Conditions:
+    - When working with `adws/promotion/` deep modules (vocabularyParser, scenarioParser, promotionScorer, promotionThreshold, promotionTagWriter)
+    - When implementing or troubleshooting `runPromotionCommenter` in `adws/promotion/promotionCommenter.ts`
+    - When working with `adwPromotionSweep.tsx` or the `promotion-sweep` orchestrator key in `ORCHESTRATOR_FILES`
+    - When adding scenarios to `features/per-issue/` and understanding how they are scored for promotion
+    - When troubleshooting `@promotion-suggested-<date>` tag insertion or byte-exact preservation of surrounding feature file content
+    - When extending scoring weights (`SURFACE_MATCH_WEIGHT`, `SUBPROCESS_WEIGHT`, etc.) or the promotion threshold (slice #7)
+    - When wiring duplicate-suppression, date-refresh, or `hitl` labelling into the promotion flow (slice #5)
+
 - app_docs/feature-oobdbg-bdd-cutover-polymorphic-prompts-sweep.md
   - Conditions:
     - When working with `adws/triggers/perIssueScenarioSweep.ts` or the 14-day per-issue scenario retention sweep
