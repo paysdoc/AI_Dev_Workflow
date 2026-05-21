@@ -1,0 +1,13 @@
+{
+  "jsonlPath": ".adw-stub-payload.json",
+  "edits": [
+    {
+      "path": ".adw-stub-payload.json",
+      "contents": "[{\"type\":\"text\",\"text\":\"Low-score promotion sweep stub. Unregistered phrases, below threshold.\\n\"}]\n"
+    },
+    {
+      "path": "features/per-issue/feature-509.feature",
+      "contents": "@adw-509 @adw-promotion-smoke-509\nFeature: Low-score smoke feature\n\n  Scenario: A low-quality scenario\n    Given some unregistered setup step\n    When some unregistered action happens\n    Then some unregistered assertion is made\n"
+    }
+  ]
+}
