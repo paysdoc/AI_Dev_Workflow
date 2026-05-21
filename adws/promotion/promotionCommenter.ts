@@ -3,6 +3,7 @@ import { parse as parseScenarios } from './scenarioParser.ts';
 import { score } from './promotionScorer.ts';
 import { computeThreshold } from './promotionThreshold.ts';
 import { applyTagState } from './promotionTagWriter.ts';
+import type { PromotionStats } from './types.ts';
 
 const PER_ISSUE_RE = /^features\/per-issue\/feature-\d+\.feature$/;
 
@@ -13,6 +14,7 @@ export interface PromotionCommenterDeps {
   writeFile: (path: string, content: string) => void;
   postComment: (prNumber: number, body: string) => Promise<void>;
   today: () => string;
+  loadStats: () => PromotionStats;
   log?: (msg: string, level?: string) => void;
 }
 
@@ -42,7 +44,7 @@ export async function runPromotionCommenter(
 ): Promise<PromotionResult> {
   const logger = deps.log ?? (() => void 0);
   const registry = parseVocabulary(deps.loadVocabulary());
-  const threshold = computeThreshold({ promotedCount90d: 0, totalPerIssueCount90d: 0 });
+  const threshold = computeThreshold(deps.loadStats());
   const changedFiles = await deps.fetchChangedFiles(prNumber);
   const suggestedScenarios: SuggestedScenario[] = [];
 
