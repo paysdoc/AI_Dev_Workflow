@@ -508,7 +508,6 @@ adws/                   # ADW workflow system
 │   ├── orchestratorCli.ts  # Shared CLI parsing utilities
 │   ├── orchestratorLib.ts
 │   ├── pauseQueue.ts   # Pause queue for rate-limit pause/resume
-│   ├── slackNotifier.ts  # Minimal Slack webhook notifier for auth-gate events (no-throw at boundary)
 │   ├── phaseRunner.ts  # PhaseRunner / CostTracker composition
 │   ├── portAllocator.ts
 │   ├── processLiveness.ts  # PID-reuse-safe process liveness checks
@@ -566,16 +565,6 @@ adws/                   # ADW workflow system
 │   ├── exchangeRates.ts
 │   ├── index.ts
 │   └── types.ts
-├── promotion/          # Scenario promotion pipeline
-│   ├── __tests__/      # Vitest unit tests for promotion module
-│   ├── index.ts
-│   ├── promotionCommenter.ts  # Orchestrates score → tag → PR comment flow
-│   ├── promotionScorer.ts     # Scores a Scenario against the vocabulary registry
-│   ├── promotionTagWriter.ts  # Inserts @promotion-suggested-<date> tags into .feature files
-│   ├── promotionThreshold.ts  # Computes adaptive or bootstrap promotion score threshold
-│   ├── scenarioParser.ts      # Parses Gherkin .feature files into Scenario structs
-│   ├── types.ts               # Domain types: Scenario, VocabularyEntry, ScoreResult, TagState
-│   └── vocabularyParser.ts    # Parses regression vocabulary.md into VocabularyRegistry
 ├── jsonl/              # JSONL schema validation and fixtures
 │   ├── fixtures/       # JSONL fixture files for testing
 │   │   ├── README.md
@@ -594,7 +583,6 @@ adws/                   # ADW workflow system
 │   │   ├── orchestratorLock.test.ts
 │   │   └── scenarioTestPhase.test.ts
 │   ├── alignmentPhase.ts  # Single-pass alignment phase
-│   ├── authPause.ts    # Auth-failure pause phase: writes paused_auth state and alerts Slack
 │   ├── autoMergePhase.ts  # Auto-approve and merge PR after review passes
 │   ├── diffEvaluationPhase.ts  # LLM diff evaluation phase (safe vs regression_possible)
 │   ├── buildPhase.ts
