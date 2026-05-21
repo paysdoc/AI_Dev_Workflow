@@ -21,6 +21,7 @@ import { log, execWithRetry } from './core/index.ts';
 import type { LogLevel } from './core/index.ts';
 import { getRepoInfo } from './github/githubApi.ts';
 import { defaultFindPRByBranch, commentOnPR } from './github/prApi.ts';
+import { addIssueLabel } from './github/issueApi.ts';
 import { loadProjectConfig } from './core/projectConfig.ts';
 import { runPromotionCommenter, runPromotionMover } from './promotion/index.ts';
 import type { PromotionCommenterDeps, PromotionMoverDeps } from './promotion/index.ts';
@@ -59,6 +60,9 @@ function buildCommenterDeps(
     },
     today: () => new Date().toISOString().slice(0, 10),
     log: (msg, level) => log(msg, (level ?? 'info') as LogLevel),
+    applyHitlLabel: async (isNum: number) => {
+      addIssueLabel(isNum, 'hitl', repoInfo);
+    },
   };
 }
 
@@ -132,10 +136,10 @@ async function main(): Promise<void> {
   const vocabularyPath = config.scenarios.vocabularyRegistry ?? DEFAULT_VOCABULARY_PATH;
 
   const commenterDeps = buildCommenterDeps(pr.number, vocabularyPath, repoInfo);
-  const commenterResult = await runPromotionCommenter(pr.number, commenterDeps);
+  const commenterResult = await runPromotionCommenter(pr.number, issueNumber, commenterDeps);
 
   log(
-    `adwPromotionSweep: commenter complete — ${commenterResult.suggestedScenarios.length} scenario(s) suggested for promotion`,
+    `adwPromotionSweep: commenter complete — ${commenterResult.suggestedScenarios.length} scenario(s) suggested for promotion, hitlLabelApplied: ${commenterResult.hitlLabelApplied ?? false}`,
     'info',
   );
 

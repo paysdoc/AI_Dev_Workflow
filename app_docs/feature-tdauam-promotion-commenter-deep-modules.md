@@ -85,8 +85,7 @@ bunx tsx adws/adwPromotionSweep.tsx --help 2>&1 | head -20
 
 ## Notes
 
-- **Deferred to slice #5**: `hitl` label application, duplicate-suppression (no re-comment same day), `promotionTagWriter` date-refresh and tag-removal operations, `@promotion` (no date) approval detection, `promotionMover` orchestrator.
-- **Deferred to slice #6**: webhook wiring (`pull_request.opened` / `pull_request.synchronize` → spawn `adwPromotionSweep.tsx`).
+- **Deferred to slice #6**: webhook wiring (`pull_request.opened` / `pull_request.synchronize` → spawn `adwPromotionSweep.tsx`), `runWithOrchestratorLifecycle` spawn-lock wrapping.
 - **Deferred to slice #7**: auto-ramp formula in `promotionThreshold` driven by the 90-day promotion-activity ratio.
-- **Known limitation**: if a scenario already carries a `@promotion-suggested-<other-date>` tag, this slice appends a second tag literal rather than refreshing the date. Slice #5 resolves this with the date-refresh operation.
-- **Idempotency**: `applyTagState` with `'add-suggestion'` is byte-stable for a fixed `(content, scenarioHeaderLine, today)` triple — running twice in one day produces an identical file write (no-op against the filesystem). Duplicate PR comments are not suppressed until slice #5.
+- **Deferred to a later slice**: `@promotion` (no date) approval detection and `promotionMover` orchestrator.
+- **Idempotency**: running the commenter twice on the same PR on the same day is a no-op for scenarios already tagged today (daily-cadence suppression). Running on a later day refreshes the tag date and re-posts the reminder comment. A second `add-suggestion` in the same day produces an identical file write (byte-stable for a fixed `(content, scenarioHeaderLine, today)` triple).

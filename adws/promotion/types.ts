@@ -42,7 +42,7 @@ export interface ScoreResult {
   breakdown: ScoreBreakdown;
 }
 
-export type TagState = 'add-suggestion' | 'remove-suggestion' | 'strip-approval';
+export type TagState = 'add-suggestion' | 'refresh-date' | 'remove-suggestion' | 'strip-approval';
 
 export interface ApprovedScenario {
   headerLine: number;

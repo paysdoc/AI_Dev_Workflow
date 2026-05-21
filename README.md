@@ -124,7 +124,7 @@ Everything below is for someone who wants to run ADW against a target repository
 - **Agentic KPI tracking** — `kpiAgent` and `kpiPhase` record per-workflow success, duration, cost, and streak metrics to a persistent `agentic_kpis.md` file for analytics and accountability.
 - **LLM-based dependency extraction** — `dependencyExtractionAgent` reads issues to surface cross-issue dependencies before spawning.
 - **Documentation generation** — `documentAgent` writes feature docs to `app_docs/`; the SDLC pipeline includes review screenshots.
-- **Scenario promotion scoring** — `adwPromotionSweep.tsx` scans per-issue `.feature` files changed in a PR, scores each scenario against the vocabulary registry, tags high-scoring candidates with `@promotion-suggested-<date>`, and posts a PR comment listing promotion suggestions.
+- **Scenario promotion sweep** — `adwPromotionSweep.tsx` scores per-issue scenarios against the regression vocabulary registry; high-scoring candidates receive a `@promotion-suggested-<date>` tag with daily-cadence suppression, date refresh, and score-drop withdrawal; a PR comment lists all candidates and applies the `hitl` label; human-approved scenarios (`@promotion`) are automatically moved to the regression suite via a dedicated PR.
 - **Supply-chain audit integration** — `adw_init` runs `depaudit setup` in target repos and propagates `SOCKET_API_TOKEN` / `SLACK_WEBHOOK_URL` to GitHub Actions secrets.
 - **Screenshot upload pipeline** — Cloudflare R2 bucket manager + `screenshot-router` Worker for hosting review screenshots under `screenshots.paysdoc.nl`.
 - **Worktree isolation** — every workflow runs in its own git worktree (`.worktrees/{branch}/`) so multiple issues can be processed concurrently without interference.
@@ -566,6 +566,16 @@ adws/                   # ADW workflow system
 │   ├── exchangeRates.ts
 │   ├── index.ts
 │   └── types.ts
+├── promotion/          # Scenario promotion pipeline
+│   ├── __tests__/      # Vitest unit tests for promotion module
+│   ├── index.ts
+│   ├── promotionCommenter.ts  # Orchestrates score → tag → PR comment flow
+│   ├── promotionScorer.ts     # Scores a Scenario against the vocabulary registry
+│   ├── promotionTagWriter.ts  # Inserts @promotion-suggested-<date> tags into .feature files
+│   ├── promotionThreshold.ts  # Computes adaptive or bootstrap promotion score threshold
+│   ├── scenarioParser.ts      # Parses Gherkin .feature files into Scenario structs
+│   ├── types.ts               # Domain types: Scenario, VocabularyEntry, ScoreResult, TagState
+│   └── vocabularyParser.ts    # Parses regression vocabulary.md into VocabularyRegistry
 ├── jsonl/              # JSONL schema validation and fixtures
 │   ├── fixtures/       # JSONL fixture files for testing
 │   │   ├── README.md
@@ -718,6 +728,7 @@ adws/                   # ADW workflow system
 ├── adwPlanBuildTest.tsx
 ├── adwPlanBuildTestReview.tsx
 ├── adwPrReview.tsx
+├── adwPromotionSweep.tsx  # Scores per-issue scenarios against vocabulary; tags and comments promotion candidates
 ├── adwSdlc.tsx
 ├── adwTest.tsx
 ├── healthCheck.tsx     # Health check orchestrator
