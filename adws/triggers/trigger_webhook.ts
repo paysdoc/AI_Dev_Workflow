@@ -9,7 +9,7 @@
  */
 
 import * as http from 'http';
-import { log, PullRequestWebhookPayload, allocateRandomPort, isPortAvailable, getTargetRepoWorkspacePath } from '../core';
+import { log, PullRequestWebhookPayload, allocateRandomPort, isPortAvailable, getTargetRepoWorkspacePath, assertCwdIsRepoRoot } from '../core';
 import { isActionableComment, isCancelComment, isAdwRunningForIssue, truncateText, getRepoInfoFromPayload, getRepoInfo, fetchIssueCommentsRest, activateGitHubAppAuth, ensureAppAuthForRepo } from '../github';
 import { handleCancelDirective } from './cancelHandler';
 import { handlePullRequestEvent, handleIssueClosedEvent } from './webhookHandlers';
@@ -265,6 +265,7 @@ async function resolveWebhookPort(preferredPort: number): Promise<number> {
 }
 
 async function startServer(): Promise<void> {
+  assertCwdIsRepoRoot();
   activateGitHubAppAuth();
   if (!process.env.GITHUB_WEBHOOK_SECRET) log('GITHUB_WEBHOOK_SECRET not set — webhook signature validation disabled', 'warn');
   const preferredPort = parseInt(process.env.PORT || '8001', 10);

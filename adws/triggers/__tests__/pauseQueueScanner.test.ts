@@ -27,6 +27,7 @@ vi.mock('../../core', () => ({
   MAX_UNKNOWN_PROBE_FAILURES: 3,
   resolveClaudeCodePath: () => 'claude',
   AGENTS_STATE_DIR: '/tmp/agents-test',
+  REPO_ROOT: '/tmp/repo-root-test',
 }));
 
 vi.mock('../../core/pauseQueue', () => ({
@@ -148,7 +149,7 @@ describe('resumeWorkflow', () => {
     expect(typeof stdioArr[2]).toBe('number');
   });
 
-  it('spawn cwd is pinned to process.cwd(), NOT entry.worktreePath', async () => {
+  it('spawn cwd is pinned to REPO_ROOT, NOT entry.worktreePath', async () => {
     const child = makeFakeChild();
     vi.mocked(childProcess.spawn).mockReturnValue(child as unknown as ReturnType<typeof childProcess.spawn>);
 
@@ -159,7 +160,7 @@ describe('resumeWorkflow', () => {
 
     const spawnCall = vi.mocked(childProcess.spawn).mock.calls[0];
     const opts = spawnCall[2] as { cwd: string };
-    expect(opts.cwd).toBe(process.cwd());
+    expect(opts.cwd).toBe('/tmp/repo-root-test');
     expect(opts.cwd).not.toBe(entry.worktreePath);
   });
 

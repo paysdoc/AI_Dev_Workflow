@@ -8,7 +8,7 @@
 import { spawn, execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
-import { log, generateAdwId } from '../core';
+import { log, generateAdwId, REPO_ROOT } from '../core';
 import { AGENTS_STATE_DIR } from '../core/config';
 import type { RepoInfo } from '../github/githubApi';
 import { getRepoInfo } from '../github';
@@ -28,12 +28,26 @@ import { readAuthGate } from '../core/authGate';
 
 /**
  * Spawns a detached child process for running ADW orchestrator workflows.
+ *
+ * Any relative `.ts`/`.tsx` script path in `args` is resolved against REPO_ROOT
+ * and spawn is given an explicit `cwd: REPO_ROOT`, so the child works correctly
+ * even if the caller's process.cwd() drifts (e.g. trigger launched from a
+ * subdirectory). assertCwdIsRepoRoot() at trigger startup is the primary guard;
+ * this is belt-and-braces.
  */
 export function spawnDetached(command: string, args: string[]): void {
-  log(`Spawning: ${command} ${args.join(' ')}`);
-  const child = spawn(command, args, {
+  const resolvedArgs = args.map((arg) => {
+    // Match orchestrator script paths like `adws/adwSdlc.tsx` or `adws/triggers/foo.ts`.
+    if (/^adws\/.*\.tsx?$/.test(arg) && !path.isAbsolute(arg)) {
+      return path.join(REPO_ROOT, arg);
+    }
+    return arg;
+  });
+  log(`Spawning: ${command} ${resolvedArgs.join(' ')}`);
+  const child = spawn(command, resolvedArgs, {
     detached: true,
     stdio: 'inherit',
+    cwd: REPO_ROOT,
   });
   child.unref();
 }

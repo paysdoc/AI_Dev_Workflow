@@ -33,6 +33,8 @@ export {
   AGENTS_STATE_DIR,
   WORKTREES_DIR,
   TARGET_REPOS_DIR,
+  REPO_ROOT,
+  assertCwdIsRepoRoot,
   getSafeSubprocessEnv,
 } from './environment';
 

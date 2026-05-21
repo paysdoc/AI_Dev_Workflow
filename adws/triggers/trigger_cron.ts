@@ -8,8 +8,12 @@
  */
 
 import { execSync, spawn } from 'child_process';
+<<<<<<< Updated upstream
 import * as fs from 'fs';
 import { log, GRACE_PERIOD_MS, JANITOR_INTERVAL_CYCLES, HEARTBEAT_STALE_THRESHOLD_MS, HUNG_DETECTOR_INTERVAL_CYCLES, PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES, getTargetRepoWorkspacePath, resolveClaudeCodePath } from '../core';
+=======
+import { log, GRACE_PERIOD_MS, JANITOR_INTERVAL_CYCLES, HEARTBEAT_STALE_THRESHOLD_MS, HUNG_DETECTOR_INTERVAL_CYCLES, PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES, getTargetRepoWorkspacePath, REPO_ROOT, assertCwdIsRepoRoot } from '../core';
+>>>>>>> Stashed changes
 import { findHungOrchestrators, type HungDetectorDeps } from '../core/hungOrchestratorDetector';
 import { AgentStateManager } from '../core/agentState';
 import { getRepoInfo, fetchPRList, hasUnaddressedComments, isCancelComment, activateGitHubAppAuth, refreshTokenIfNeeded } from '../github';
@@ -245,8 +249,8 @@ async function checkAndTrigger(): Promise<void> {
       log(`Spawning merge orchestrator for issue #${issue.number} adwId=${adwId}`, 'success');
       const child = spawn(
         'bunx',
-        ['tsx', 'adws/adwMerge.tsx', String(issue.number), adwId, ...targetRepoArgs],
-        { detached: true, stdio: 'ignore' },
+        ['tsx', `${REPO_ROOT}/adws/adwMerge.tsx`, String(issue.number), adwId, ...targetRepoArgs],
+        { detached: true, stdio: 'ignore', cwd: REPO_ROOT },
       );
       child.unref();
       continue;
@@ -322,9 +326,10 @@ function checkPRsForReviewComments(): void {
         processedPRs.add(pr.number);
         log(`Triggering ADW PR Review for PR #${pr.number}`, 'success');
         const targetRepoArgs = buildTargetRepoArgs();
-        const child = spawn('bunx', ['tsx', 'adws/adwPrReview.tsx', String(pr.number), ...targetRepoArgs], {
+        const child = spawn('bunx', ['tsx', `${REPO_ROOT}/adws/adwPrReview.tsx`, String(pr.number), ...targetRepoArgs], {
           detached: true,
           stdio: 'ignore',
+          cwd: REPO_ROOT,
         });
         child.unref();
       }
@@ -338,6 +343,7 @@ function checkPRsForReviewComments(): void {
 // When imported by tests (e.g. BDD step definitions import runHungDetectorSweep),
 // this guard prevents process.exit() from terminating the test runner.
 if (process.argv[1]?.replace(/\\/g, '/').includes('trigger_cron')) {
+  assertCwdIsRepoRoot();
   const cronRepoKey = `${cronRepoInfo.owner}/${cronRepoInfo.repo}`;
   const canProceed = registerAndGuard(cronRepoKey, process.pid);
   if (!canProceed) {

@@ -11,7 +11,7 @@ import { execSync, spawn } from 'child_process';
 import type { ChildProcess } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
-import { log, PROBE_INTERVAL_CYCLES, MAX_UNKNOWN_PROBE_FAILURES, resolveClaudeCodePath, AGENTS_STATE_DIR } from '../core';
+import { log, PROBE_INTERVAL_CYCLES, MAX_UNKNOWN_PROBE_FAILURES, resolveClaudeCodePath, AGENTS_STATE_DIR, REPO_ROOT } from '../core';
 import {
   readPauseQueue,
   removeFromPauseQueue,
@@ -167,10 +167,14 @@ export async function resumeWorkflow(entry: PausedWorkflow): Promise<void> {
   const resumeLogPath = path.join(resumeLogDir, `${entry.adwId}.resume.log`);
   const logFd = fs.openSync(resumeLogPath, 'a');
 
-  // Spawn orchestrator detached
+  // Spawn orchestrator detached. Resolve the orchestrator script against
+  // REPO_ROOT so the spawn works even if the cron host's process.cwd() drifts.
+  const resolvedScript = path.isAbsolute(entry.orchestratorScript)
+    ? entry.orchestratorScript
+    : path.join(REPO_ROOT, entry.orchestratorScript);
   const spawnArgs = [
     'tsx',
-    entry.orchestratorScript,
+    resolvedScript,
     String(entry.issueNumber),
     entry.adwId,
     ...(entry.extraArgs ?? []),
@@ -179,8 +183,8 @@ export async function resumeWorkflow(entry: PausedWorkflow): Promise<void> {
   log(`Resuming workflow ${entry.adwId} for issue #${entry.issueNumber} (${entry.orchestratorScript})`);
 
   try {
-    // cwd is pinned to cron host — target-repo worktrees do not contain adws/ scripts
-    const child = spawn('bunx', spawnArgs, { detached: true, stdio: ['ignore', logFd, logFd], cwd: process.cwd() });
+    // cwd pinned to REPO_ROOT — target-repo worktrees do not contain adws/ scripts
+    const child = spawn('bunx', spawnArgs, { detached: true, stdio: ['ignore', logFd, logFd], cwd: REPO_ROOT });
 
     try {
       await awaitChildReadiness(child, READINESS_WINDOW_MS);

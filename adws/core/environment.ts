@@ -12,6 +12,31 @@ import * as dotenv from 'dotenv';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
+
+// Repo root derived from this file's location (adws/core/environment.ts → ../../).
+// Independent of process.cwd() so paths stay correct even if a trigger is launched
+// from a subdirectory.
+export const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+
+/**
+ * Asserts that the current process's cwd matches the repo root. Long-running
+ * triggers (cron, webhook) spawn orchestrators with relative script paths and
+ * derive several constants (LOGS_DIR, SPECS_DIR, …) from process.cwd(), so a
+ * wrong cwd silently produces broken paths and crashing spawns. Call this at
+ * the entry point of every trigger script.
+ */
+export function assertCwdIsRepoRoot(): void {
+  const cwd = path.resolve(process.cwd());
+  if (cwd !== REPO_ROOT) {
+    // Write directly to stderr — `log` writes to logs/<dir>/, which is itself
+    // cwd-derived and would be wrong here.
+    process.stderr.write(
+      `\nFATAL: must be launched from the repo root.\n  expected cwd: ${REPO_ROOT}\n  actual   cwd: ${cwd}\n  fix: cd to the repo root and re-run.\n\n`,
+    );
+    process.exit(1);
+  }
+}
 
 // Load environment variables from .env file at project root
 dotenv.config();
