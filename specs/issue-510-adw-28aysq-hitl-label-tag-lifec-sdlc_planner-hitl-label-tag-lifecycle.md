@@ -91,7 +91,7 @@ Use these files to implement the feature:
 - `features/regression/step_definitions/whenSteps.ts` — `ORCHESTRATOR_FILES` already maps `'promotion-sweep' → 'adwPromotionSweep.tsx'`. No edits needed in this slice; new scenarios re-use the W1 invocation step.
 - `features/regression/vocabulary.md` — Vocabulary registry. New Then-axis phrases are added (T-axis additions for the `hitl` label assertion and the score-drop assertion); see Step 4 below.
 - `features/regression/step_definitions/thenSteps.ts` — Then-axis step definitions. New step definitions land here following the existing pending-return pattern.
-- `features/regression/step_definitions/givenSteps.ts` — Given-axis step definitions. A new Given step is added for "feature file is seeded with an existing `@promotion-suggested-<date>` tag" so the fixture-shape used by lifecycle scenarios is expressible in Gherkin.
+- `features/regression/step_definitions/givenSteps.ts` — Given-axis step definitions. Several new Given steps are added: label-acceptance configuration, per-issue fixture seeding (`a per-issue feature file at ... is seeded ... from fixture ...`), and pre-tagging variants (`is pre-tagged with "@promotion-suggested-" dated today` and `... dated N days ago`, plus the named-scenario variants used in the multi-scenario §5 case) so the lifecycle fixture-shapes are expressible in Gherkin.
 - `test/fixtures/jsonl/manifests/promotion-sweep-high-score.json` — Slice #4 manifest. Reference for the manifest shape. New manifests in this slice follow the same template.
 - `test/fixtures/jsonl/manifests/promotion-sweep-low-score.json` — Slice #4 low-score manifest. Reference.
 - `test/mocks/github-api-server.ts` — Mock GitHub API server. `postIssueLabels` route (lines 150–156) already exists and records label POSTs to `/repos/:owner/:repo/issues/:issueNumber/labels`. New smoke scenarios assert against the recorded label calls.
@@ -114,20 +114,25 @@ Use these files to implement the feature:
 
 #### Per-issue BDD scenarios (build-agent input, not executed)
 
-- `features/per-issue/feature-510.feature` — Tagged `@adw-510 @adw-28aysq-hitl-label-tag-lifec`. Behavioural scenarios describing the lifecycle acceptance contract from a target-repo operator's perspective. Five scenarios:
-  1. Posting a comment applies the `hitl` label to the linked issue.
-  2. A second run on the same day on the same PR produces no duplicate comment for a scenario already tagged today.
-  3. A run on a later day with the scenario still scoring above N updates the tag date and posts a reminder.
-  4. A previously-tagged scenario that no longer scores above N has its tag removed and no comment posted for it.
-  5. A run where every previously-tagged scenario drops below N applies **no** `hitl` label (label-on-comment, not label-on-tag-change).
+- `features/per-issue/feature-510.feature` — Tagged `@adw-510 @adw-28aysq-hitl-label-tag-lifec`. Behavioural scenarios describing the lifecycle acceptance contract from a target-repo operator's perspective. Six scenarios across five sections:
+  1. **§1 hitl label application** — An above-threshold scenario triggers the `hitl` label on the per-issue PR (issue 9190). Reuses the existing `promotion-sweep-high-score.json` manifest. Asserts a comment is posted and the `hitl` label is applied.
+  2. **§1 hitl label application** — A below-threshold scenario does **not** trigger the `hitl` label (issue 9191). Reuses the existing `promotion-sweep-low-score.json` manifest. Asserts zero comment posts and zero `hitl` label applications.
+  3. **§2 daily-cadence suppression** — A scenario already tagged with today's date receives no duplicate comment on the same day (issue 9192). Uses the high-score manifest plus a pre-tagging Given step. Asserts zero comments, zero `hitl` label applications, and that the file's tag is unchanged (still dated today).
+  4. **§3 date refresh** — A scenario tagged on a previous day with a still-high score has its tag refreshed to today and receives a reminder comment (issue 9193). Uses the high-score manifest plus a pre-tagging Given step (dated 5 days ago). Asserts the tag is refreshed to today, exactly one `@promotion-suggested-` tag exists on the scenario (no accumulation), the comment is posted, and the `hitl` label is applied.
+  5. **§4 score-drop withdrawal** — A previously-tagged scenario that now scores below the threshold has its tag removed and produces no new comment (issue 9194). Uses the low-score manifest plus a pre-tagging Given step (dated 3 days ago). Asserts the tag is removed, zero comments, zero `hitl` label applications.
+  6. **§5 mixed lifecycle in a single file** — A multi-scenario file exercises refresh, suppress, and withdraw paths in a single orchestrator run (issue 9195). Uses the new `promotion-sweep-lifecycle-mixed.json` manifest with three pre-tagged scenarios (refresh path 5 days ago, suppress path today, withdraw path 3 days ago). Asserts per-scenario tag state (refreshed/unchanged/removed), one comment containing only the refresh-path scenario name, zero comments referencing the suppress- or withdraw-path scenario names, and one `hitl` label application (because at least one scenario was comment-eligible).
 
 #### Mock manifest fixtures
 
-- `test/fixtures/jsonl/manifests/promotion-sweep-hitl-applied.json` — Pre-seeds a per-issue feature file with a high-score scenario (no existing tag). Records the comment POST + the `hitl` label POST.
-- `test/fixtures/jsonl/manifests/promotion-sweep-same-day-suppress.json` — Pre-seeds a per-issue feature file already carrying `@promotion-suggested-<today>` on a high-score scenario. Records no comment, no `hitl` label call (no comment → no label).
-- `test/fixtures/jsonl/manifests/promotion-sweep-date-refresh.json` — Pre-seeds a per-issue feature file already carrying `@promotion-suggested-<earlier-date>` on a high-score scenario. Records the tag date refresh + the comment POST + the `hitl` label POST.
-- `test/fixtures/jsonl/manifests/promotion-sweep-score-drop.json` — Pre-seeds a per-issue feature file carrying `@promotion-suggested-<earlier-date>` on a scenario that now scores below N (e.g., only mock-query phrases). Records the tag removal but no comment and no `hitl` label call.
-- `test/fixtures/jsonl/manifests/promotion-sweep-withdraw-only-no-hitl.json` — Pre-seeds a per-issue feature file with two scenarios both previously tagged, both now below N. Records two tag removals but no comment and no `hitl` label call (verifies the label-on-comment semantics).
+- `test/fixtures/jsonl/manifests/promotion-sweep-lifecycle-mixed.json` — Pre-seeds a per-issue feature file with three scenarios at different scoring levels (refresh-path above N, suppress-path above N, withdraw-path below N). Recorded mock-server interactions cover the consolidated comment POST and the single `hitl` label POST.
+
+Note: Scenarios §1–§4 reuse the slice-#4 manifests (`promotion-sweep-high-score.json` and `promotion-sweep-low-score.json`); the lifecycle variations (today's tag, earlier-date tag, scenario drops below N) are expressed by the pre-tagging Given step rather than per-variation manifests. Only §5 (the mixed scenario) needs a new manifest.
+
+#### Per-issue scenario-fixture source files (seeded into worktrees by the Given step)
+
+- `test/fixtures/scenarios/promotion/high-score-subprocess.feature` — A minimal `.feature` file with one above-threshold scenario (a Given-When-Then triple using vocabulary phrases scoring well above N). Seeded into the test worktree as the per-issue feature file the orchestrator scans.
+- `test/fixtures/scenarios/promotion/low-score-mock-query.feature` — A minimal `.feature` file with one below-threshold scenario (using only mock-query phrases). Seeded similarly.
+- `test/fixtures/scenarios/promotion/lifecycle-mixed.feature` — A `.feature` file with three named scenarios: "Refresh path scenario" (above N), "Suppress path scenario" (above N), "Withdraw path scenario" (below N). Seeded by the §5 mixed scenario.
 
 ## Implementation Plan
 
@@ -145,9 +150,9 @@ The decision matrix is implemented as a pure helper function (`decideTagAction(e
 
 ### Phase 3: Integration (Wiring + Smoke/Per-Issue Scenarios + Manifests)
 
-Wire `applyHitlLabel` in `adwPromotionSweep.tsx`'s default deps factory using `extractIssueNumberFromBranch(pr.headRefName)` to derive the issue number from the PR head branch and `addIssueLabel(issueNumber, 'hitl', repoInfo)` as the implementation. Extend the existing smoke feature with three new scenarios (duplicate suppression, date refresh, score-drop withdrawal) and adjust the existing high-score scenario to assert the `hitl` label POST was recorded. Add the per-issue BDD file for issue #510 capturing the same behaviours from a target-repo operator's perspective. Add five new mock-harness manifest fixtures.
+Wire `applyHitlLabel` in `adwPromotionSweep.tsx`'s default deps factory using `extractIssueNumberFromBranch(pr.headRefName)` to derive the issue number from the PR head branch and `addIssueLabel(issueNumber, 'hitl', repoInfo)` as the implementation. Extend the existing smoke feature with three new scenarios (duplicate suppression, date refresh, score-drop withdrawal) and adjust the existing high-score scenario to assert the `hitl` label POST was recorded. Add the per-issue BDD file for issue #510 capturing the same behaviours from a target-repo operator's perspective (six scenarios across §1–§5). Reuse the slice-#4 high/low-score manifests for the §1–§4 scenarios; add one new manifest (`promotion-sweep-lifecycle-mixed.json`) for the §5 mixed-lifecycle scenario, plus three new scenario-fixture source files under `test/fixtures/scenarios/promotion/`.
 
-Vocabulary registry gains two new Then-axis phrases (label-recorded assertion, tag-removed assertion) so the new scenarios remain within the rubric and `generate_step_definitions` passes vocabulary validation. The new phrases use the existing patterns (`mock-query` for label assertions, file artefact for tag assertions).
+Vocabulary registry gains several new phrases — Given (label-acceptance, fixture seeding, pre-tagging variants for dated-today and dated-N-days-ago, plus their named-scenario variants) and Then (label-recorded / label-zero assertions, tag-dated-today / no-tag / exactly-one-tag artefact-file assertions, plus their named-scenario variants, plus comment-containing-scenario-name assertions) — so the new scenarios remain within the rubric and `generate_step_definitions` passes vocabulary validation. The new phrases use the existing patterns (`mock-query` for label and comment-content assertions, file artefact for tag assertions).
 
 ## Step by Step Tasks
 Execute every step in order, top to bottom.
@@ -187,22 +192,34 @@ Execute every step in order, top to bottom.
   - `'remove-suggestion'` when the tag is the first token on the line (`@promotion-suggested-2026-01-01 @adw-509`) — leading-space normalisation: the resulting line is `@adw-509` with the original leading indentation preserved.
 - Run `bunx vitest run adws/promotion/__tests__/promotionTagWriter.test.ts` and confirm green.
 
-### Step 4: Extend vocabulary registry with new Then-axis phrases
+### Step 4: Extend vocabulary registry with new Given/Then-axis phrases
 
-- Edit `features/regression/vocabulary.md`. Add to the `## Then — State / Mock / Artefact Assertions` table (new rows below the last `T*` row):
-  - `T16 | the mock GitHub API recorded a hitl label addition on issue {int} | Queries recorded requests; asserts a POST /repos/.../issues/N/labels with body containing the string "hitl" was captured | mock-query | recorded requests`
-  - `T17 | the artefact file at {string} in the worktree for adwId {string} carries no "@promotion-suggested-" tag on the previously-tagged scenario | Reads the artefact file, locates the previously-tagged scenario header via the seed-fixture metadata, asserts the @promotion-suggested- tag has been removed | subprocess | file artefact |`
-  - `T18 | the artefact file at {string} in the worktree for adwId {string} carries a "@promotion-suggested-{string}" tag refreshed to today on the previously-tagged scenario | Reads the artefact file, locates the previously-tagged scenario header, asserts the tag's date string equals today (YYYY-MM-DD) | subprocess | file artefact |`
-- Each new phrase passes the rot-detection rubric (assertion is against recorded mock requests or the post-orchestrator artefact file — never against framework source files).
+- Edit `features/regression/vocabulary.md`. Add to the relevant sections (new rows below the last existing rows; renumber to the next free `G*`/`T*` slot):
 
-### Step 5: Add Then-axis step definitions for the new vocabulary phrases
+  **Given-axis additions** (under `## Given — Mock Setup`):
+  - `the mock GitHub API is configured to accept label applications` — Seeds mock-server state so POST `/repos/:owner/:repo/issues/:issueNumber/labels` returns 200 and records the call. | mock-query | mock server state.
+  - `a per-issue feature file at {string} is seeded into the worktree for adwId {string} from fixture {string}` — Copies the named fixture (`test/fixtures/scenarios/promotion/<file>`) into the test worktree at the supplied path. | subprocess | worktree artefact.
+  - `the seeded scenario in {string} in the worktree for adwId {string} is pre-tagged with "@promotion-suggested-" dated today` — Inserts `@promotion-suggested-<today>` into the tag block above the (single) seeded scenario header. | subprocess | worktree artefact.
+  - `the seeded scenario in {string} in the worktree for adwId {string} is pre-tagged with "@promotion-suggested-" dated {int} days ago` — Inserts `@promotion-suggested-<today − N days>` into the tag block above the (single) seeded scenario header. | subprocess | worktree artefact.
+  - `the seeded scenario named {string} in {string} in the worktree for adwId {string} is pre-tagged with "@promotion-suggested-" dated today` — For multi-scenario files: targets the scenario whose `Scenario:` line matches the given name. | subprocess | worktree artefact.
+  - `the seeded scenario named {string} in {string} in the worktree for adwId {string} is pre-tagged with "@promotion-suggested-" dated {int} days ago` — Multi-scenario variant for N-days-ago pre-tagging. | subprocess | worktree artefact.
 
-- Edit `features/regression/step_definitions/thenSteps.ts` (or the analogous file in the suite). Add:
-  - `Then('the mock GitHub API recorded a hitl label addition on issue {int}', ...)` — follow the existing `pending` pattern from W1/T2.
-  - `Then('the artefact file at {string} in the worktree for adwId {string} carries no "@promotion-suggested-" tag on the previously-tagged scenario', ...)` — pending pattern.
-  - `Then('the artefact file at {string} in the worktree for adwId {string} carries a "@promotion-suggested-{string}" tag refreshed to today on the previously-tagged scenario', ...)` — pending pattern.
-- Add a Given-axis step definition for the new fixture-shape phrase (used by the new per-issue scenarios):
-  - `Given('a per-issue feature file at {string} is seeded into the worktree for adwId {string} from fixture {string} with an existing "@promotion-suggested-{string}" tag on the targeted scenario', ...)` — pending pattern.
+  **Then-axis additions** (under `## Then — State / Mock / Artefact Assertions`):
+  - `the mock GitHub API recorded an application of the {string} label on issue {int}` — Queries recorded mock-server requests; asserts a POST `/repos/.../issues/N/labels` whose body contains the named label string was captured. | mock-query | recorded requests.
+  - `the mock harness recorded zero applications of the {string} label on issue {int}` — Asserts no recorded mock-server POST to `/repos/.../issues/N/labels` carrying the named label. | mock-query | recorded requests.
+  - `the artefact file at {string} in the worktree for adwId {string} carries a "@promotion-suggested-" tag dated today on the seeded scenario` — Reads the artefact file, locates the (single) seeded scenario header, asserts a `@promotion-suggested-<today>` token is present in its tag block. | subprocess | file artefact.
+  - `the artefact file at {string} in the worktree for adwId {string} carries no "@promotion-suggested-" tag on the seeded scenario` — Reads the artefact file, locates the (single) seeded scenario header, asserts no `@promotion-suggested-*` token is present in its tag block. | subprocess | file artefact.
+  - `the artefact file at {string} in the worktree for adwId {string} carries exactly one "@promotion-suggested-" tag on the seeded scenario` — Reads the artefact file, locates the (single) seeded scenario header, asserts exactly one `@promotion-suggested-*` token is present in its tag block (defensive against the slice-#4 append-rather-than-refresh bug). | subprocess | file artefact.
+  - `the artefact file at {string} in the worktree for adwId {string} carries a "@promotion-suggested-" tag dated today on the scenario named {string}` — Multi-scenario variant of the dated-today assertion. | subprocess | file artefact.
+  - `the artefact file at {string} in the worktree for adwId {string} carries no "@promotion-suggested-" tag on the scenario named {string}` — Multi-scenario variant of the no-tag assertion. | subprocess | file artefact.
+  - `the mock GitHub API recorded a comment on issue {int} containing the seeded scenario name {string}` — Asserts a recorded comment POST whose body contains the supplied scenario name substring. | mock-query | recorded requests.
+  - `the mock harness recorded zero comment posts on issue {int} referencing the seeded scenario name {string}` — Asserts no recorded comment POST whose body contains the supplied scenario name substring. | mock-query | recorded requests.
+- Each new phrase passes the rot-detection rubric (assertion is against recorded mock requests or the post-orchestrator artefact file — never against framework source files). The artefact-file phrases target `.feature` files written by `promotionTagWriter` into the test worktree (an orchestrator output, not a framework source file).
+
+### Step 5: Add Given/Then-axis step definitions for the new vocabulary phrases
+
+- Edit `features/regression/step_definitions/thenSteps.ts` (or the analogous file in the suite). Add `Then` step definitions for each Then phrase added in Step 4 (`the mock GitHub API recorded an application of the {string} label on issue {int}`, `the mock harness recorded zero applications of the {string} label on issue {int}`, the four artefact-file `@promotion-suggested-` assertions including the seeded-scenario and named-scenario variants, the comment-with-scenario-name assertions). Follow the existing `pending` pattern.
+- Edit `features/regression/step_definitions/givenSteps.ts`. Add `Given` step definitions for the new Given phrases added in Step 4 (`the mock GitHub API is configured to accept label applications`, `a per-issue feature file at {string} is seeded into the worktree for adwId {string} from fixture {string}`, the four pre-tagging Given steps including the seeded-scenario and named-scenario variants for "dated today" and "dated {int} days ago"). Follow the existing `pending` pattern.
 - The pending pattern is intentional and consistent with slice #4 — the BDD harness does not yet drive a real subprocess to completion under 30s. The smoke + per-issue scenarios document the contract; the unit tests carry the executable proof of the behavioural changes.
 
 ### Step 6: Extend `PromotionCommenterDeps` with `applyHitlLabel`
@@ -286,30 +303,45 @@ Execute every step in order, top to bottom.
 
 ### Step 12: Add per-issue BDD scenarios for issue #510
 
-- Create `features/per-issue/feature-510.feature` tagged `@adw-510 @adw-28aysq-hitl-label-tag-lifec`. Five scenarios:
-  1. **Posting a comment applies the `hitl` label** — Background sets up worktree, issue, and PR; manifest pre-seeds a high-score scenario with no existing tag. Asserts: `the mock GitHub API recorded a comment on issue 9095`, `the mock GitHub API recorded a hitl label addition on issue 9095`.
-  2. **Same-day re-run suppresses duplicate comment** — Manifest pre-seeds a feature file already carrying `@promotion-suggested-<today>` on a high-score scenario. Asserts: `the mock harness recorded zero comment posts on issue 9096`, and the file's tag is unchanged.
-  3. **Later-day re-run refreshes the tag date and posts a reminder** — Manifest pre-seeds a feature file already carrying `@promotion-suggested-<an-earlier-date>` on a high-score scenario. Asserts: `the artefact file ... carries a "@promotion-suggested-<today>" tag refreshed to today`, `the mock GitHub API recorded a comment on issue 9097`, `the mock GitHub API recorded a hitl label addition on issue 9097`.
-  4. **Score-drop withdraws the tag silently** — Manifest pre-seeds a feature file carrying `@promotion-suggested-<an-earlier-date>` on a scenario that now scores below N (only mock-query phrases). Asserts: `the artefact file ... carries no "@promotion-suggested-" tag on the previously-tagged scenario`, `the mock harness recorded zero comment posts on issue 9098`.
-  5. **Withdraw-only run applies no `hitl` label** — Manifest pre-seeds two scenarios both previously tagged, both now below N. Asserts: two tag removals recorded, no comment, no `hitl` label call.
-- Each scenario uses the Given-step shape from Step 5 (`a per-issue feature file at ... is seeded ... with an existing "@promotion-suggested-..." tag on the targeted scenario`) so the pre-existing-tag fixture is expressible in Gherkin.
+- Create `features/per-issue/feature-510.feature` tagged `@adw-510 @adw-28aysq-hitl-label-tag-lifec`. Six scenarios across five sections:
 
-### Step 13: Add mock manifest fixtures
+  **§1 hitl label application**
+  1. **An above-threshold scenario triggers the hitl label on the per-issue PR** (issue 9190, adwId `promo-510-1`) — Uses the `promotion-sweep-high-score.json` manifest and the `promotion/high-score-subprocess.feature` fixture (no pre-tagging). Asserts `the orchestrator subprocess exited 0`, `the mock GitHub API recorded a comment on issue 9190`, and `the mock GitHub API recorded an application of the "hitl" label on issue 9190`.
+  2. **A below-threshold scenario does not trigger the hitl label** (issue 9191, adwId `promo-510-2`) — Uses the `promotion-sweep-low-score.json` manifest and the `promotion/low-score-mock-query.feature` fixture. Asserts `the mock harness recorded zero comment posts on issue 9191` and `the mock harness recorded zero applications of the "hitl" label on issue 9191`.
 
-- Create `test/fixtures/jsonl/manifests/promotion-sweep-hitl-applied.json` — follows the slice #4 manifest shape; pre-seeds a per-issue feature file (no existing tag) with a high-score scenario. The manifest's mock-server interactions record the comment POST + the label POST.
-- Create `test/fixtures/jsonl/manifests/promotion-sweep-same-day-suppress.json` — pre-seeds a per-issue feature file carrying `@promotion-suggested-<today>` (where `<today>` matches the orchestrator's `today()`). No recorded comment, no recorded label call.
-- Create `test/fixtures/jsonl/manifests/promotion-sweep-date-refresh.json` — pre-seeds a per-issue feature file carrying `@promotion-suggested-<an-earlier-date>` (e.g., `2026-05-01`). Records the tag-date refresh artefact + comment POST + label POST.
-- Create `test/fixtures/jsonl/manifests/promotion-sweep-score-drop.json` — pre-seeds a per-issue feature file carrying `@promotion-suggested-<an-earlier-date>` on a scenario that now uses only mock-query unregistered phrases. Records the tag removal but no comment, no label.
-- Create `test/fixtures/jsonl/manifests/promotion-sweep-withdraw-only-no-hitl.json` — pre-seeds a per-issue feature file with two scenarios both previously tagged, both now below N. Records two tag removals, no comment, no label.
-- Each manifest follows the existing slice #4 shape (`{ jsonlPath, edits: [{ path, contents }] }`). The `<today>` literal in the same-day-suppress manifest is a fixed string (e.g., `2026-05-21`) that the per-issue scenario relies on matching the orchestrator's `today()` — this matches the slice #4 convention.
+  **§2 Daily-cadence suppression**
+  3. **A scenario already tagged with today's date receives no duplicate comment on the same day** (issue 9192, adwId `promo-510-3`) — Uses the high-score manifest, seeds the high-score fixture, and pre-tags the seeded scenario with `@promotion-suggested-<today>`. Asserts zero comments, zero `hitl` label applications, and that the artefact file still carries a `@promotion-suggested-` tag dated today.
+
+  **§3 Date refresh on re-reminder**
+  4. **A scenario tagged on a previous day with a still-high score has its tag refreshed to today and receives a reminder comment** (issue 9193, adwId `promo-510-4`) — Uses the high-score manifest, seeds the high-score fixture, and pre-tags the seeded scenario with `@promotion-suggested-` dated 5 days ago. Asserts the tag is dated today, exactly one `@promotion-suggested-` tag exists on the seeded scenario, the comment was posted, and the `hitl` label was applied.
+
+  **§4 Score-drop withdrawal**
+  5. **A previously-tagged scenario that now scores below the threshold has its tag removed and produces no new comment** (issue 9194, adwId `promo-510-5`) — Uses the low-score manifest, seeds the low-score fixture, and pre-tags the seeded scenario with `@promotion-suggested-` dated 3 days ago. Asserts the artefact file carries no `@promotion-suggested-` tag, zero comments, zero `hitl` label applications.
+
+  **§5 Mixed lifecycle in a single file**
+  6. **A multi-scenario file exercises refresh, suppress, and withdraw paths in a single orchestrator run** (issue 9195, adwId `promo-510-6`) — Uses the new `promotion-sweep-lifecycle-mixed.json` manifest, seeds the `promotion/lifecycle-mixed.feature` fixture (three named scenarios: "Refresh path scenario", "Suppress path scenario", "Withdraw path scenario"), and pre-tags each by name (refresh path 5 days ago, suppress path today, withdraw path 3 days ago). Asserts: refresh-path tag dated today, suppress-path tag dated today (unchanged), withdraw-path no tag, one comment containing the refresh-path scenario name, zero comments referencing the suppress- or withdraw-path scenario names, and one `hitl` label application.
+
+- The `Background:` is minimal — `Given the ADW codebase is checked out`. Per-scenario `Given` steps cover claude-cli-stub manifest loading, worktree initialisation, issue creation, mock-API label/comment configuration, per-issue feature-file seeding, and (where applicable) pre-tagging.
+- The split Given-step approach (separate `is seeded ... from fixture` and `is pre-tagged with ...` steps) keeps the seed step reusable across all six scenarios; the pre-tagging variants (dated today / dated N days ago / named-scenario variant) are composed on top.
+
+### Step 13: Add mock manifest and scenario fixtures
+
+- **Reuse existing slice-#4 manifests for §1–§4**: `test/fixtures/jsonl/manifests/promotion-sweep-high-score.json` and `test/fixtures/jsonl/manifests/promotion-sweep-low-score.json` are reused as-is for scenarios 1–5 of the per-issue feature. The per-scenario lifecycle variation (no tag / today's tag / earlier-date tag) is supplied by the pre-tagging Given step in Step 5, not by per-variation manifests. This keeps the manifest set small and avoids drift between five near-identical manifest files.
+- **Create `test/fixtures/jsonl/manifests/promotion-sweep-lifecycle-mixed.json`** — follows the slice #4 manifest shape (`{ jsonlPath, edits: [{ path, contents }] }`). Pre-seeds a per-issue feature file containing three named scenarios (refresh path, suppress path, withdraw path) with content selected so the first two score above N and the third below. The manifest's mock-server interactions record the consolidated comment POST (containing the refresh-path scenario name) and the single `hitl` label POST.
+- **Create scenario-fixture source files** under `test/fixtures/scenarios/promotion/`:
+  - `high-score-subprocess.feature` — A minimal `.feature` with one above-threshold scenario (Given-When-Then vocabulary phrases scoring well above N). Used as the seed fixture in scenarios 1, 3, 4.
+  - `low-score-mock-query.feature` — A minimal `.feature` with one below-threshold scenario (only mock-query phrases). Used as the seed fixture in scenarios 2, 5.
+  - `lifecycle-mixed.feature` — A `.feature` with three named scenarios ("Refresh path scenario", "Suppress path scenario", "Withdraw path scenario"). Used as the seed fixture in scenario 6.
+- The seed-fixture step writes a copy of the named fixture into the test worktree at the path specified by the scenario; the pre-tag Given step then modifies that copy in place. The `<today>` literal used by the orchestrator (via `deps.today()`) must match the date the pre-tag step writes (the step computes the date dynamically from `Date.now()`).
 
 ### Step 14: Extend the smoke feature with lifecycle scenarios
 
-- Edit `features/regression/smoke/promotion_commenter.feature`. Append three new `Scenario:` blocks under the existing two:
-  - **Same-day suppression** — manifest `promotion-sweep-same-day-suppress.json`. Asserts `the mock harness recorded zero comment posts on issue 509`.
-  - **Date refresh + `hitl`** — manifest `promotion-sweep-date-refresh.json`. Asserts `the mock GitHub API recorded a comment on issue 509`, `the mock GitHub API recorded a hitl label addition on issue 509`.
-  - **Score-drop withdrawal** — manifest `promotion-sweep-score-drop.json`. Asserts `the mock harness recorded zero comment posts on issue 509`, `the mock harness recorded zero PR-merge calls`.
-- Also extend the **existing** high-score smoke scenario in the same file (slice #4's first scenario) with an additional assertion line: `And the mock GitHub API recorded a hitl label addition on issue 509`. This locks the new label-on-comment behaviour into the existing smoke contract without adding a separate scenario.
+- Edit `features/regression/smoke/promotion_commenter.feature`. Append three new `Scenario:` blocks under the existing two, using the same Given/When/Then vocabulary as `features/per-issue/feature-510.feature` for consistency:
+  - **Same-day suppression** — uses the existing `promotion-sweep-high-score.json` manifest plus the pre-tag-dated-today Given step. Asserts `the mock harness recorded zero comment posts on issue 509` and `the mock harness recorded zero applications of the "hitl" label on issue 509`.
+  - **Date refresh + `hitl`** — uses the existing `promotion-sweep-high-score.json` manifest plus the pre-tag-dated-N-days-ago Given step. Asserts `the mock GitHub API recorded a comment on issue 509` and `the mock GitHub API recorded an application of the "hitl" label on issue 509`.
+  - **Score-drop withdrawal** — uses the existing `promotion-sweep-low-score.json` manifest plus the pre-tag-dated-N-days-ago Given step. Asserts `the mock harness recorded zero comment posts on issue 509` and `the artefact file ... carries no "@promotion-suggested-" tag on the seeded scenario`.
+- Also extend the **existing** high-score smoke scenario in the same file (slice #4's first scenario) with an additional assertion line: `And the mock GitHub API recorded an application of the "hitl" label on issue 509`. This locks the new label-on-comment behaviour into the existing smoke contract without adding a separate scenario.
+- The smoke scenarios deliberately reuse the slice-#4 manifests rather than the per-issue lifecycle-mixed manifest — the smoke suite already covers the lifecycle branches via the pre-tagging Given step; the lifecycle-mixed manifest is exercised by the per-issue file's §5 scenario only.
 
 ### Step 15: Update `app_docs/feature-tdauam-promotion-commenter-deep-modules.md` "Notes" section
 
@@ -377,12 +409,13 @@ The slice deliberately does not export `decideTagAction` for direct testing — 
 - [ ] `adws/promotion/promotionCommenter.ts` posts the `hitl` label exactly when at least one scenario is comment-eligible; withdrawal-only runs apply no label.
 - [ ] `adws/promotion/__tests__/promotionCommenter.test.ts` covers all six decision-matrix branches plus the three cross-cutting cases (mixed file, withdraw-only, `applyHitlLabel` failure).
 - [ ] `adws/adwPromotionSweep.tsx` wires `applyHitlLabel` via `addIssueLabel(issueNumber, 'hitl', repoInfo)` and derives the issue number via `extractIssueNumberFromBranch(pr.headRefName)`.
-- [ ] `features/per-issue/feature-510.feature` exists, is tagged `@adw-510 @adw-28aysq-hitl-label-tag-lifec`, and contains the five lifecycle scenarios.
+- [ ] `features/per-issue/feature-510.feature` exists, is tagged `@adw-510 @adw-28aysq-hitl-label-tag-lifec`, and contains the six lifecycle scenarios (§1 hitl above-threshold, §1 hitl below-threshold, §2 daily-cadence suppression, §3 date refresh, §4 score-drop withdrawal, §5 mixed lifecycle).
 - [ ] `features/regression/smoke/promotion_commenter.feature` is extended with three new lifecycle scenarios (same-day suppression, date refresh, score-drop withdrawal) plus a `hitl` label assertion on the existing high-score scenario.
-- [ ] `features/regression/vocabulary.md` has three new vocabulary rows (T16, T17, T18 or whatever the next free numbers are) covering label-recorded, tag-removed, and tag-refreshed assertions.
-- [ ] `features/regression/step_definitions/thenSteps.ts` (or analogous) has pending-pattern step definitions for the new vocabulary phrases.
-- [ ] `features/regression/step_definitions/givenSteps.ts` has a pending-pattern step definition for the seed-with-existing-tag Given phrase.
-- [ ] Five new manifest fixtures land under `test/fixtures/jsonl/manifests/`: `promotion-sweep-hitl-applied.json`, `promotion-sweep-same-day-suppress.json`, `promotion-sweep-date-refresh.json`, `promotion-sweep-score-drop.json`, `promotion-sweep-withdraw-only-no-hitl.json`.
+- [ ] `features/regression/vocabulary.md` has the new vocabulary rows covering the `hitl` label-recorded / label-zero assertions, the `@promotion-suggested-` tag-dated-today / no-tag / exactly-one-tag artefact-file assertions (and their `scenario named` variants), the comment-with-scenario-name assertions, plus the new Given phrases for label acceptance, fixture seeding, and pre-tagging variants.
+- [ ] `features/regression/step_definitions/thenSteps.ts` (or analogous) has pending-pattern step definitions for every new Then phrase.
+- [ ] `features/regression/step_definitions/givenSteps.ts` has pending-pattern step definitions for every new Given phrase (label-accept, seed-from-fixture, pre-tag dated-today and dated-N-days-ago, plus their named-scenario variants).
+- [ ] One new manifest fixture lands under `test/fixtures/jsonl/manifests/`: `promotion-sweep-lifecycle-mixed.json` (scenarios §1–§4 reuse the slice-#4 `promotion-sweep-high-score.json` and `promotion-sweep-low-score.json` manifests).
+- [ ] Three new scenario-fixture source files land under `test/fixtures/scenarios/promotion/`: `high-score-subprocess.feature`, `low-score-mock-query.feature`, `lifecycle-mixed.feature`.
 - [ ] `app_docs/feature-tdauam-promotion-commenter-deep-modules.md` "Notes" section is updated to remove the slice #5 deferrals (now resolved) and the known-limitation note.
 - [ ] `bun run lint` passes with zero errors.
 - [ ] `bunx tsc --noEmit` and `bunx tsc --noEmit -p adws/tsconfig.json` pass with zero errors.
