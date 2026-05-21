@@ -1,0 +1,13 @@
+{
+  "jsonlPath": ".adw-stub-payload.json",
+  "edits": [
+    {
+      "path": ".adw-stub-payload.json",
+      "contents": "[{\"type\":\"text\",\"text\":\"Young-repo promotion threshold smoke. No promotion history — bootstrap N = 3. Borderline scenario scores 4 → tagged.\\n\"}]\n"
+    },
+    {
+      "path": "features/per-issue/feature-9300.feature",
+      "contents": "@adw-512 @adw-threshold-smoke\nFeature: Borderline threshold scenario\n\n  @adw-512\n  Scenario: A borderline scenario scoring above bootstrap threshold\n    Given the mock GitHub API is configured to accept issue comments\n    When the \"promotion-sweep\" orchestrator is invoked with adwId \"promotion-threshold-smoke-512\" and issue 512\n    Then the orchestrator subprocess exited 0\n    And the mock GitHub API recorded a comment on issue 512\n"
+    }
+  ]
+}

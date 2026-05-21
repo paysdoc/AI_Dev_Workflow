@@ -1215,3 +1215,12 @@
     - When troubleshooting idempotency (duplicate move PRs) or branch naming for regression-promotion branches
     - When the destination regression file is missing or the `@promotion` tag is not being stripped from the moved scenario
     - When wiring new I/O dependencies into `buildMoverDeps` in `adwPromotionSweep.tsx`
+
+- app_docs/feature-y8r69q-auto-ramping-promotion-threshold.md
+  - Conditions:
+    - When working with `computeThreshold`, `BOOTSTRAP_THRESHOLD`, `MAX_THRESHOLD`, or `RATIO_CAP` in `adws/promotion/promotionThreshold.ts`
+    - When working with `loadPromotionStats` or `PromotionStatsLoaderDeps` in `adws/promotion/promotionStatsLoader.ts`
+    - When the `loadStats` dep on `PromotionCommenterDeps` is relevant or needs to be injected in a test
+    - When troubleshooting why `@promotion-suggested-<date>` tags are not appearing in a mature repo (N may have risen above the scenario score)
+    - When tuning the curve constants (`MAX_THRESHOLD`, `RATIO_CAP`) or understanding their rationale
+    - When the `commits[]` seed mechanism in `test/mocks/manifestInterpreter.ts` is relevant to manifest fixtures

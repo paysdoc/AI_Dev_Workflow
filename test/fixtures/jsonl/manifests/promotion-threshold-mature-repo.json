@@ -1,0 +1,20 @@
+{
+  "jsonlPath": ".adw-stub-payload.json",
+  "edits": [
+    {
+      "path": ".adw-stub-payload.json",
+      "contents": "[{\"type\":\"text\",\"text\":\"Mature-repo promotion threshold smoke. 5 regression-promotion commits + 20 per-issue scenario additions → ratio 0.25 → N = 5. Borderline scenario scores 4 → NOT tagged.\\n\"}]\n"
+    },
+    {
+      "path": "features/per-issue/feature-9300.feature",
+      "contents": "@adw-512 @adw-threshold-smoke\nFeature: Borderline threshold scenario — mature repo\n\n  @adw-512\n  Scenario: A borderline scenario scoring below the raised threshold\n    Given the mock GitHub API is configured to accept issue comments\n    When the \"promotion-sweep\" orchestrator is invoked with adwId \"promotion-threshold-smoke-512\" and issue 512\n    Then the orchestrator subprocess exited 0\n    And the mock harness recorded zero PR-merge calls\n"
+    }
+  ],
+  "commits": [
+    { "subject": "regression-promotion: move scenario foo-1 to regression" },
+    { "subject": "regression-promotion: move scenario foo-2 to regression" },
+    { "subject": "regression-promotion: move scenario foo-3 to regression" },
+    { "subject": "regression-promotion: move scenario foo-4 to regression" },
+    { "subject": "regression-promotion: move scenario foo-5 to regression" }
+  ]
+}

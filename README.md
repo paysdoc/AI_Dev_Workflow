@@ -701,10 +701,12 @@ adws/                   # ADW workflow system
 │   ├── types.ts        # R2 type definitions
 │   ├── uploadService.ts  # File upload logic
 │   └── index.ts
-├── promotion/          # Scenario promotion scoring module
+├── promotion/          # Scenario promotion scoring and mover module
 │   ├── __tests__/      # Vitest unit tests
 │   ├── index.ts        # runPromotionCommenter entry point
+│   ├── promotionApprovalDetector.ts  # Detects bare @promotion approval signals in .feature files
 │   ├── promotionCommenter.ts  # Orchestrates parse → score → tag → comment
+│   ├── promotionMover.ts      # Moves approved scenarios from per-issue to regression directory
 │   ├── promotionScorer.ts     # Scores scenarios against the vocabulary registry
 │   ├── promotionTagWriter.ts  # Inserts @promotion-suggested-<date> tags
 │   ├── promotionThreshold.ts  # Computes promotion threshold from historical stats

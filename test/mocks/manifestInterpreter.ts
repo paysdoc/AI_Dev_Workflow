@@ -17,6 +17,7 @@
 
 import { readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { resolve, dirname, isAbsolute } from 'path';
+import { execSync } from 'child_process';
 
 // ---------------------------------------------------------------------------
 // Schema types
@@ -27,9 +28,15 @@ interface ManifestEdit {
   contents: string;
 }
 
+interface ManifestCommit {
+  subject: string;
+  date?: string;
+}
+
 interface Manifest {
   jsonlPath: string;
   edits: ManifestEdit[];
+  commits?: ManifestCommit[];
 }
 
 // ---------------------------------------------------------------------------
@@ -45,12 +52,25 @@ function isManifestEdit(v: unknown): v is ManifestEdit {
   );
 }
 
+function isManifestCommit(v: unknown): v is ManifestCommit {
+  if (typeof v !== 'object' || v === null) return false;
+  const obj = v as Record<string, unknown>;
+  if (typeof obj['subject'] !== 'string') return false;
+  if ('date' in obj && typeof obj['date'] !== 'string') return false;
+  return true;
+}
+
 function isManifest(v: unknown): v is Manifest {
   if (typeof v !== 'object' || v === null) return false;
   const obj = v as Record<string, unknown>;
   if (typeof obj['jsonlPath'] !== 'string') return false;
   if (!Array.isArray(obj['edits'])) return false;
-  return (obj['edits'] as unknown[]).every(isManifestEdit);
+  if (!(obj['edits'] as unknown[]).every(isManifestEdit)) return false;
+  if ('commits' in obj) {
+    if (!Array.isArray(obj['commits'])) return false;
+    if (!(obj['commits'] as unknown[]).every(isManifestCommit)) return false;
+  }
+  return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -71,6 +91,8 @@ export interface ApplyManifestResult {
   editsApplied: string[];
   /** Resolved absolute path of the JSONL payload to stream. */
   jsonlPath: string;
+  /** Number of synthetic commits created in the worktree (0 if none). */
+  commitsCreated: number;
 }
 
 /**
@@ -128,10 +150,24 @@ export function applyManifest(
     editsApplied.push(absolutePath);
   }
 
+  // Apply synthetic commits (optional — produces git history for loadPromotionStats)
+  let commitsCreated = 0;
+  if (parsed.commits && parsed.commits.length > 0) {
+    for (const commit of parsed.commits) {
+      const dateFlag = commit.date ? `--date="${commit.date}"` : '';
+      const subject = commit.subject.replace(/"/g, '\\"');
+      execSync(
+        `git commit --allow-empty ${dateFlag} -m "${subject}"`,
+        { cwd: worktreePath, encoding: 'utf-8' },
+      );
+      commitsCreated++;
+    }
+  }
+
   // Resolve jsonlPath
   const jsonlPath = isAbsolute(parsed.jsonlPath)
     ? parsed.jsonlPath
     : resolve(worktreePath, parsed.jsonlPath);
 
-  return { editsApplied, jsonlPath };
+  return { editsApplied, jsonlPath, commitsCreated };
 }

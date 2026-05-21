@@ -1,0 +1,9 @@
+{
+  "jsonlPath": ".adw-stub-payload.json",
+  "edits": [
+    {
+      "path": ".adw-stub-payload.json",
+      "contents": "[{\"type\":\"text\",\"text\":\"Promotion threshold per-issue scenario: bound-tagged.\n\"}]\n"
+    }
+  ]
+}
