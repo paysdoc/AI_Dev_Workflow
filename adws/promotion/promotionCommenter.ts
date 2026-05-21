@@ -2,8 +2,8 @@ import { parse as parseVocabulary } from './vocabularyParser.ts';
 import { parse as parseScenarios } from './scenarioParser.ts';
 import { score } from './promotionScorer.ts';
 import { computeThreshold } from './promotionThreshold.ts';
-import { applyTagState } from './promotionTagWriter.ts';
-import type { PromotionStats } from './types.ts';
+import { applyTagState, detectExistingSuggestionDate } from './promotionTagWriter.ts';
+import type { PromotionStats, TagState } from './types.ts';
 
 const PER_ISSUE_RE = /^features\/per-issue\/feature-\d+\.feature$/;
 
@@ -16,6 +16,7 @@ export interface PromotionCommenterDeps {
   today: () => string;
   loadStats: () => PromotionStats;
   log?: (msg: string, level?: string) => void;
+  applyHitlLabel: (issueNumber: number) => Promise<void>;
 }
 
 export interface SuggestedScenario {
@@ -26,6 +27,35 @@ export interface SuggestedScenario {
 
 export interface PromotionResult {
   suggestedScenarios: SuggestedScenario[];
+  hitlLabelApplied?: boolean;
+}
+
+// Decision matrix:
+// | Existing tag | Score ≥ N | Action            | Comment? |
+// | none         | yes       | add-suggestion    | yes      |
+// | none         | no        | no-op             | no       |
+// | dated today  | yes       | no-op (suppress)  | no       |
+// | dated today  | no        | remove-suggestion | no       |
+// | dated earlier| yes       | refresh-date      | yes      |
+// | dated earlier| no        | remove-suggestion | no       |
+function decideTagAction(
+  existingDate: string | null,
+  today: string,
+  scoreMeetsThreshold: boolean,
+): { tagAction: TagState | 'no-op'; commentEligible: boolean } {
+  if (existingDate === null) {
+    return scoreMeetsThreshold
+      ? { tagAction: 'add-suggestion', commentEligible: true }
+      : { tagAction: 'no-op', commentEligible: false };
+  }
+  if (existingDate === today) {
+    return scoreMeetsThreshold
+      ? { tagAction: 'no-op', commentEligible: false }
+      : { tagAction: 'remove-suggestion', commentEligible: false };
+  }
+  return scoreMeetsThreshold
+    ? { tagAction: 'refresh-date', commentEligible: true }
+    : { tagAction: 'remove-suggestion', commentEligible: false };
 }
 
 function formatPromotionComment(suggested: SuggestedScenario[]): string {
@@ -40,9 +70,11 @@ function formatPromotionComment(suggested: SuggestedScenario[]): string {
 
 export async function runPromotionCommenter(
   prNumber: number,
+  issueNumber: number,
   deps: PromotionCommenterDeps,
 ): Promise<PromotionResult> {
   const logger = deps.log ?? (() => void 0);
+  const today = deps.today();
   const registry = parseVocabulary(deps.loadVocabulary());
   const threshold = computeThreshold(deps.loadStats());
   const changedFiles = await deps.fetchChangedFiles(prNumber);
@@ -70,25 +102,42 @@ export async function runPromotionCommenter(
 
     for (const scenario of scenarios) {
       const result = score(scenario, registry, registry.surfaceExamples);
-      if (result.total < threshold) continue;
+      const existingDate = detectExistingSuggestionDate(content, scenario.headerLine);
+      const { tagAction, commentEligible } = decideTagAction(
+        existingDate,
+        today,
+        result.total >= threshold,
+      );
 
-      const today = deps.today();
-      const updated = applyTagState(content, scenario.headerLine, 'add-suggestion', today);
-      deps.writeFile(file.path, updated);
-      // Update content for subsequent scenarios in the same file
-      content = updated;
+      if (tagAction !== 'no-op') {
+        const updated = applyTagState(content, scenario.headerLine, tagAction, today);
+        deps.writeFile(file.path, updated);
+        content = updated;
+      }
 
-      suggestedScenarios.push({
-        file: file.path,
-        scenarioHeaderLine: scenario.headerLine,
-        score: result.total,
-      });
+      if (commentEligible) {
+        suggestedScenarios.push({
+          file: file.path,
+          scenarioHeaderLine: scenario.headerLine,
+          score: result.total,
+        });
+      }
     }
   }
 
+  let hitlLabelApplied = false;
   if (suggestedScenarios.length > 0) {
     await deps.postComment(prNumber, formatPromotionComment(suggestedScenarios));
+    try {
+      await deps.applyHitlLabel(issueNumber);
+      hitlLabelApplied = true;
+    } catch (err) {
+      logger(
+        `promotionCommenter: failed to apply hitl label on issue #${issueNumber}: ${err}`,
+        'warn',
+      );
+    }
   }
 
-  return { suggestedScenarios };
+  return { suggestedScenarios, hitlLabelApplied };
 }

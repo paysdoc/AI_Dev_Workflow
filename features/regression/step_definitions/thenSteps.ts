@@ -265,6 +265,213 @@ Then(
 );
 
 // ---------------------------------------------------------------------------
+// T12: mock API recorded an application of the {string} label on issue {int}
+// ---------------------------------------------------------------------------
+
+Then(
+  'the mock GitHub API recorded an application of the {string} label on issue {int}',
+  function (this: RegressionWorld, labelName: string, issueNumber: number) {
+    const requests = this.getRecordedRequests();
+    const labelPost = requests.find(
+      (r: RecordedRequest) => {
+        if (r.method !== 'POST' || !r.url.includes(`/issues/${issueNumber}/labels`)) return false;
+        try {
+          const body = JSON.parse(r.body) as Record<string, unknown>;
+          const labels = body['labels'] as string[] | undefined;
+          return Array.isArray(labels) && labels.includes(labelName);
+        } catch {
+          return false;
+        }
+      },
+    );
+    assert.ok(
+      labelPost,
+      `Expected a POST to /issues/${issueNumber}/labels with label "${labelName}" but none was recorded. Recorded URLs: ${requests.map((r) => r.url).join(', ')}`,
+    );
+  },
+);
+
+// ---------------------------------------------------------------------------
+// T13: mock harness recorded zero applications of the {string} label on issue {int}
+// ---------------------------------------------------------------------------
+
+Then(
+  'the mock harness recorded zero applications of the {string} label on issue {int}',
+  function (this: RegressionWorld, labelName: string, issueNumber: number) {
+    const requests = this.getRecordedRequests();
+    const labelPosts = requests.filter(
+      (r: RecordedRequest) => {
+        if (r.method !== 'POST' || !r.url.includes(`/issues/${issueNumber}/labels`)) return false;
+        try {
+          const body = JSON.parse(r.body) as Record<string, unknown>;
+          const labels = body['labels'] as string[] | undefined;
+          return Array.isArray(labels) && labels.includes(labelName);
+        } catch {
+          return false;
+        }
+      },
+    );
+    assert.strictEqual(
+      labelPosts.length,
+      0,
+      `Expected zero label applications of "${labelName}" on issue ${issueNumber} but recorded ${labelPosts.length}`,
+    );
+  },
+);
+
+// T14 (mock harness recorded zero comment posts on issue {int}) is defined in
+// features/per-issue/step_definitions/feature-509.steps.ts — no duplicate here.
+
+// T15 (artefact file carries a "@promotion-suggested-" tag dated today on the seeded scenario)
+// and T16 (carries no "@promotion-suggested-" tag on the seeded scenario) are covered by the
+// existing {string}-parameterised patterns in feature-509.steps.ts — no duplicate here.
+
+// ---------------------------------------------------------------------------
+// Helper: extract individual @tag tokens from the tag block before a scenario header
+// ---------------------------------------------------------------------------
+
+function extractTagBlock(lines: string[], headerIdx: number): string[] {
+  const tags: string[] = [];
+  for (let i = headerIdx - 1; i >= 0; i--) {
+    const trimmed = (lines[i] ?? '').trimStart();
+    if (trimmed.startsWith('@')) {
+      tags.push(...trimmed.split(/\s+/).filter((t) => t.startsWith('@')));
+    } else if (trimmed.length > 0) {
+      break;
+    }
+  }
+  return tags;
+}
+
+// ---------------------------------------------------------------------------
+// T17: artefact file carries exactly one @promotion-suggested- tag (seeded scenario)
+// ---------------------------------------------------------------------------
+
+Then(
+  'the artefact file at {string} in the worktree for adwId {string} carries exactly one "@promotion-suggested-" tag on the seeded scenario',
+  function (this: RegressionWorld, filePath: string, adwId: string) {
+    const worktreePath = this.worktreePaths.get(adwId);
+    assert.ok(worktreePath, `No worktree found for adwId "${adwId}"`);
+    const content = readFileSync(join(worktreePath, filePath), 'utf-8');
+    const lines = content.split('\n');
+    const headerIdx = lines.findIndex((l) => /^\s*Scenario:/.test(l));
+    assert.ok(headerIdx >= 0, 'No Scenario: header found in artefact file');
+    const tags = extractTagBlock(lines, headerIdx);
+    const SUGGESTION_RE = /@promotion-suggested-\d{4}-\d{2}-\d{2}/;
+    const count = tags.filter((t) => SUGGESTION_RE.test(t)).length;
+    assert.strictEqual(
+      count,
+      1,
+      `Expected exactly one @promotion-suggested-* tag but found ${count}. Tags: ${tags.join(' ')}`,
+    );
+  },
+);
+
+// ---------------------------------------------------------------------------
+// T18: artefact file carries @promotion-suggested- tag dated today (named scenario)
+// ---------------------------------------------------------------------------
+
+Then(
+  'the artefact file at {string} in the worktree for adwId {string} carries a "@promotion-suggested-" tag dated today on the scenario named {string}',
+  function (this: RegressionWorld, filePath: string, adwId: string, scenarioName: string) {
+    const worktreePath = this.worktreePaths.get(adwId);
+    assert.ok(worktreePath, `No worktree found for adwId "${adwId}"`);
+    const content = readFileSync(join(worktreePath, filePath), 'utf-8');
+    const today = new Date().toISOString().slice(0, 10);
+    const expectedTag = `@promotion-suggested-${today}`;
+    const lines = content.split('\n');
+    const headerIdx = lines.findIndex((l) => {
+      const t = l.trimStart();
+      return t.startsWith('Scenario:') && t.slice('Scenario:'.length).trim() === scenarioName;
+    });
+    assert.ok(headerIdx >= 0, `Scenario named "${scenarioName}" not found in artefact file`);
+    const tags = extractTagBlock(lines, headerIdx);
+    assert.ok(
+      tags.includes(expectedTag),
+      `Expected tag "${expectedTag}" in tag block of scenario "${scenarioName}" but not found. Tags: ${tags.join(' ')}`,
+    );
+  },
+);
+
+// ---------------------------------------------------------------------------
+// T19: artefact file carries no @promotion-suggested- tag (named scenario)
+// ---------------------------------------------------------------------------
+
+Then(
+  'the artefact file at {string} in the worktree for adwId {string} carries no "@promotion-suggested-" tag on the scenario named {string}',
+  function (this: RegressionWorld, filePath: string, adwId: string, scenarioName: string) {
+    const worktreePath = this.worktreePaths.get(adwId);
+    assert.ok(worktreePath, `No worktree found for adwId "${adwId}"`);
+    const content = readFileSync(join(worktreePath, filePath), 'utf-8');
+    const lines = content.split('\n');
+    const headerIdx = lines.findIndex((l) => {
+      const t = l.trimStart();
+      return t.startsWith('Scenario:') && t.slice('Scenario:'.length).trim() === scenarioName;
+    });
+    assert.ok(headerIdx >= 0, `Scenario named "${scenarioName}" not found in artefact file`);
+    const tags = extractTagBlock(lines, headerIdx);
+    const SUGGESTION_RE = /@promotion-suggested-\d{4}-\d{2}-\d{2}/;
+    const found = tags.some((t) => SUGGESTION_RE.test(t));
+    assert.ok(
+      !found,
+      `Expected no @promotion-suggested-* tag in scenario "${scenarioName}" but found one. Tags: ${tags.join(' ')}`,
+    );
+  },
+);
+
+// ---------------------------------------------------------------------------
+// T20: mock API recorded a comment on issue {int} containing the seeded scenario name
+// ---------------------------------------------------------------------------
+
+Then(
+  'the mock GitHub API recorded a comment on issue {int} containing the seeded scenario name {string}',
+  function (this: RegressionWorld, issueNumber: number, scenarioName: string) {
+    const requests = this.getRecordedRequests();
+    const commentPosts = requests.filter(
+      (r: RecordedRequest) =>
+        r.method === 'POST' && r.url.includes(`/issues/${issueNumber}/comments`),
+    );
+    const found = commentPosts.some((r: RecordedRequest) => {
+      try {
+        const body = JSON.parse(r.body) as Record<string, unknown>;
+        return typeof body['body'] === 'string' && body['body'].includes(scenarioName);
+      } catch {
+        return false;
+      }
+    });
+    assert.ok(
+      found,
+      `Expected a comment on issue ${issueNumber} containing "${scenarioName}" but none found in ${commentPosts.length} comment POST(s)`,
+    );
+  },
+);
+
+// ---------------------------------------------------------------------------
+// T21: mock harness recorded zero comment posts on issue {int} referencing scenario name
+// ---------------------------------------------------------------------------
+
+Then(
+  'the mock harness recorded zero comment posts on issue {int} referencing the seeded scenario name {string}',
+  function (this: RegressionWorld, issueNumber: number, scenarioName: string) {
+    const requests = this.getRecordedRequests();
+    const matching = requests.filter((r: RecordedRequest) => {
+      if (r.method !== 'POST' || !r.url.includes(`/issues/${issueNumber}/comments`)) return false;
+      try {
+        const body = JSON.parse(r.body) as Record<string, unknown>;
+        return typeof body['body'] === 'string' && body['body'].includes(scenarioName);
+      } catch {
+        return false;
+      }
+    });
+    assert.strictEqual(
+      matching.length,
+      0,
+      `Expected zero comment posts referencing "${scenarioName}" on issue ${issueNumber} but found ${matching.length}`,
+    );
+  },
+);
+
+// ---------------------------------------------------------------------------
 // T11: git-mock recorded a push to branch {string}
 // ---------------------------------------------------------------------------
 

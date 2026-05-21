@@ -1197,6 +1197,15 @@
     - When extending `JanitorDeps` with new injectable dependencies for the janitor
     - When writing tests for `devServerJanitor.ts` (follow the state-file-driven lookup pattern, use real branch-name fixtures)
 
+- app_docs/feature-28aysq-hitl-label-tag-lifecycle.md
+  - Conditions:
+    - When working with the `@promotion-suggested-<date>` tag lifecycle (refresh-date, remove-suggestion, daily suppression)
+    - When implementing or troubleshooting `hitl` label application from `promotionCommenter` or `adwPromotionSweep.tsx`
+    - When extending `PromotionCommenterDeps` with new deps or widening `TagState` in `adws/promotion/types.ts`
+    - When adding scenarios to `features/per-issue/feature-510.feature` or extending the `promotionTagWriter` operations
+    - When troubleshooting `applyHitlLabel` failures or the `hitlLabelApplied` return field
+    - When working with the `decideTagAction` decision matrix or the `detectExistingSuggestionDate` query helper
+
 - app_docs/feature-2wrg9y-promotion-mover-regression-pr.md
   - Conditions:
     - When implementing or troubleshooting `runPromotionMover` in `adws/promotion/promotionMover.ts`
