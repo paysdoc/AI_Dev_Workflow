@@ -38,6 +38,49 @@ export function detectExistingSuggestionDate(
   return null;
 }
 
+function removeTokenFromTagLine(line: string, pattern: RegExp): string {
+  if (!pattern.test(line)) return line;
+  // Reset lastIndex since we use global regex
+  pattern.lastIndex = 0;
+  const leadingSpaces = line.match(/^(\s*)/)?.[1] ?? '';
+  const cleaned = line.replace(pattern, '').replace(/\s{2,}/g, ' ').trimEnd();
+  // If only whitespace remains after cleaning the tag content, return empty
+  const content = cleaned.trim();
+  if (content === '') return '';
+  return leadingSpaces + content.trimStart();
+}
+
+function applyRemoval(
+  lines: string[],
+  headerIdx: number,
+  pattern: RegExp,
+): string[] {
+  const result = [...lines];
+  let offset = 0;
+
+  for (let i = headerIdx - 1 - offset; i >= 0; ) {
+    const trimmed = result[i].trimStart();
+    if (trimmed.startsWith('@')) {
+      const cleaned = removeTokenFromTagLine(result[i], pattern);
+      if (cleaned === '' && pattern.test(result[i])) {
+        result.splice(i, 1);
+        // Adjust headerIdx for next iterations
+        offset++;
+        i--;
+      } else {
+        pattern.lastIndex = 0;
+        result[i] = cleaned;
+        i--;
+      }
+    } else if (trimmed.length > 0) {
+      break;
+    } else {
+      i--;
+    }
+  }
+  return result;
+}
+
 export function applyTagState(
   content: string,
   scenarioHeaderLine: number,
@@ -90,6 +133,11 @@ export function applyTagState(
       return lines.join('\n');
     }
     return content;
+  }
+
+  if (state === 'strip-approval') {
+    const pattern = /\s*@promotion\b(?!-suggested)/g;
+    return applyRemoval(lines, headerIdx, pattern).join('\n');
   }
 
   throw new Error(`promotionTagWriter: unsupported state "${String(state)}"`);

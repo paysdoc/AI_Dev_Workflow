@@ -1,0 +1,13 @@
+{
+  "jsonlPath": ".adw-stub-payload.json",
+  "edits": [
+    {
+      "path": ".adw-stub-payload.json",
+      "contents": "[{\"type\":\"text\",\"text\":\"Promotion mover stub — @promotion-suggested-<date> only, no bare @promotion.\\n\"}]\n"
+    },
+    {
+      "path": "features/per-issue/feature-9099.feature",
+      "contents": "@adw-9099\nFeature: Suggested only scenario\n\n  @adw-9099 @promotion-suggested-2026-05-15\n  Scenario: A scenario with only the suggestion tag, not yet approved\n    Given the mock GitHub API is configured to accept PR creation\n    When the \"promotion-sweep\" orchestrator is invoked with adwId \"promo-mv-511-5\" and issue 9099\n    Then the orchestrator subprocess exited 0\n"
+    }
+  ]
+}

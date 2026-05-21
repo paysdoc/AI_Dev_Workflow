@@ -18,6 +18,7 @@ export interface Step {
 }
 
 export interface Scenario {
+  name: string;
   tags: string[];
   steps: Step[];
   startLine: number;
@@ -41,4 +42,25 @@ export interface ScoreResult {
   breakdown: ScoreBreakdown;
 }
 
-export type TagState = 'add-suggestion' | 'refresh-date' | 'remove-suggestion';
+export type TagState = 'add-suggestion' | 'refresh-date' | 'remove-suggestion' | 'strip-approval';
+
+export interface ApprovedScenario {
+  headerLine: number;
+  startLine: number;
+  endLine: number;
+  scenarioName: string;
+}
+
+export interface MovedScenarioResult {
+  sourcePath: string;
+  destPath: string;
+  scenarioName: string;
+  branchName: string;
+  prNumber: number | null;
+  prUrl: string | null;
+  skipped: boolean;
+}
+
+export interface PromotionMoverResult {
+  moved: MovedScenarioResult[];
+}

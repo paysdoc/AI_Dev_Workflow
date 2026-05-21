@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 182               | 2026-05-21 13:48:30 |
-| Longest Streak    | 182               | 2026-05-21 13:48:30 |
-| Total Plan Size   | 441 lines        | 2026-05-21 13:48:30 |
-| Largest Plan Size | 201 lines        | 2026-05-21 13:48:30 |
-| Total Diff Size   | 3326916 lines    | 2026-05-21 13:48:30 |
-| Largest Diff Size | 418153 lines     | 2026-05-21 13:48:30 |
-| Average Presence  | 1.15             | 2026-05-21 13:48:30 |
+| Current Streak    | 200              | 2026-05-21 14:53:47 |
+| Longest Streak    | 200              | 2026-05-21 14:53:47 |
+| Total Plan Size   | 636 lines        | 2026-05-21 14:53:47 |
+| Largest Plan Size | 201 lines        | 2026-05-21 14:53:47 |
+| Total Diff Size   | 3342605 lines    | 2026-05-21 14:53:47 |
+| Largest Diff Size | 418153 lines     | 2026-05-21 14:53:47 |
+| Average Presence  | 1.18             | 2026-05-21 14:53:47 |
 
 ## ADW KPIs
 
@@ -186,3 +186,5 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-05-21 | mzgyjj-rot-prevention-block | 506          | /feature    | 1          | 0                 | 947/6/14                        | 2026-05-21 12:02:49 | 2026-05-21 12:02:49 |
 | 2026-05-21 | nnny1e-vocabulary-md-templa | 507          | /feature    | 1          | 0                 | 1901/12/26                      | 2026-05-21 13:00:27 | 2026-05-21 13:00:27 |
 | 2026-05-21 | tdauam-promotion-commenter | 509          | /feature    | 1          | 0                 | 4020/18/57                      | 2026-05-21 13:48:30 | 2026-05-21 13:48:30 |
+| 2026-05-21 | 2wrg9y-promotion-mover-prom | 511          | /feature    | 1          | 0                 | 5860/18/74                      | 2026-05-21 14:27:46 | 2026-05-21 14:27:46 |
+| 2026-05-21 | 28aysq-hitl-label-tag-lifec | 510          | /feature    | 1          | 195               | 5754/19/68                      | 2026-05-21 14:53:47 | 2026-05-21 14:53:47 |

@@ -1,0 +1,13 @@
+{
+  "jsonlPath": ".adw-stub-payload.json",
+  "edits": [
+    {
+      "path": ".adw-stub-payload.json",
+      "contents": "[{\"type\":\"text\",\"text\":\"Promotion mover stub — no promotion tags, no action expected.\\n\"}]\n"
+    },
+    {
+      "path": "features/per-issue/feature-9100.feature",
+      "contents": "@adw-9100\nFeature: No promotion tags scenario\n\n  @adw-9100\n  Scenario: A scenario with no promotion tags at all\n    Given the mock GitHub API is configured to accept PR creation\n    When the \"promotion-sweep\" orchestrator is invoked with adwId \"promo-mv-511-6\" and issue 9100\n    Then the orchestrator subprocess exited 0\n"
+    }
+  ]
+}

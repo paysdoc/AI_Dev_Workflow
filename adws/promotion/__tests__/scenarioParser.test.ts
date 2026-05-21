@@ -59,6 +59,12 @@ describe('scenarioParser.parse', () => {
     expect(result[1].tags).toEqual(['@tag-two', '@tag-three']);
   });
 
+  it('populates scenario name from the Gherkin AST', () => {
+    const result = parse(MULTI_SCENARIO);
+    expect(result[0].name).toBe('First scenario');
+    expect(result[1].name).toBe('Second scenario');
+  });
+
   it('returns correct steps for each scenario', () => {
     const result = parse(MULTI_SCENARIO);
     expect(result[0].steps).toHaveLength(3);

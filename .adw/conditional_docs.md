@@ -1205,3 +1205,13 @@
     - When adding scenarios to `features/per-issue/feature-510.feature` or extending the `promotionTagWriter` operations
     - When troubleshooting `applyHitlLabel` failures or the `hitlLabelApplied` return field
     - When working with the `decideTagAction` decision matrix or the `detectExistingSuggestionDate` query helper
+
+- app_docs/feature-2wrg9y-promotion-mover-regression-pr.md
+  - Conditions:
+    - When implementing or troubleshooting `runPromotionMover` in `adws/promotion/promotionMover.ts`
+    - When working with `promotionApprovalDetector.ts` or the bare `@promotion` approval signal
+    - When extending `TagState` with new tag operations in `promotionTagWriter.ts` (`'remove-suggestion'`, `'strip-approval'`)
+    - When a `regression-promotion` PR is not being opened after a human edits `@promotion-suggested-<date>` to `@promotion`
+    - When troubleshooting idempotency (duplicate move PRs) or branch naming for regression-promotion branches
+    - When the destination regression file is missing or the `@promotion` tag is not being stripped from the moved scenario
+    - When wiring new I/O dependencies into `buildMoverDeps` in `adwPromotionSweep.tsx`
