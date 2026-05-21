@@ -124,6 +124,7 @@ Everything below is for someone who wants to run ADW against a target repository
 - **Agentic KPI tracking** — `kpiAgent` and `kpiPhase` record per-workflow success, duration, cost, and streak metrics to a persistent `agentic_kpis.md` file for analytics and accountability.
 - **LLM-based dependency extraction** — `dependencyExtractionAgent` reads issues to surface cross-issue dependencies before spawning.
 - **Documentation generation** — `documentAgent` writes feature docs to `app_docs/`; the SDLC pipeline includes review screenshots.
+- **Scenario promotion scoring** — `adwPromotionSweep.tsx` scans per-issue `.feature` files changed in a PR, scores each scenario against the vocabulary registry, tags high-scoring candidates with `@promotion-suggested-<date>`, and posts a PR comment listing promotion suggestions.
 - **Supply-chain audit integration** — `adw_init` runs `depaudit setup` in target repos and propagates `SOCKET_API_TOKEN` / `SLACK_WEBHOOK_URL` to GitHub Actions secrets.
 - **Screenshot upload pipeline** — Cloudflare R2 bucket manager + `screenshot-router` Worker for hosting review screenshots under `screenshots.paysdoc.nl`.
 - **Worktree isolation** — every workflow runs in its own git worktree (`.worktrees/{branch}/`) so multiple issues can be processed concurrently without interference.
@@ -307,6 +308,20 @@ Three optional sections activate the regression-suite contract. When absent, the
 | `## Per-Issue Scenario Directory` | `scenario_writer` routes per-issue output to `<value>/feature-{N}.feature` instead of the fallback directory. |
 | `## Regression Scenario Directory` | `scenario_writer` skips the `@regression` auto-promotion sweep (regression promotion becomes a deliberate human decision). |
 | `## Vocabulary Registry` | `generate_step_definitions` validates every step phrase against the registry file; fails loudly on unknown phrases. |
+
+### Scenario Promotion
+
+ADW supports a human-in-the-loop (HITL) promotion flow that moves high-quality per-issue scenarios into the regression suite via a deliberate human approval signal.
+
+**`@promotion-suggested-<date>`** — applied automatically by the `promotionCommenter` orchestrator when a per-issue scenario scores above the promotion threshold against the vocabulary registry. The date suffix records when the suggestion was made. Operators should treat this as a recommendation, not a directive.
+
+**`@promotion`** — applied by a human by editing the `@promotion-suggested-<date>` tag (removing the date suffix). This is the approval signal. The bare `@promotion` token (no date) tells the agent "move this into regression on the next run."
+
+**The move PR** — on the next per-issue PR event, the `promotionMover` orchestrator detects any scenario carrying bare `@promotion`, opens a separate PR (branch `regression-promotion-issue-{N}-{slug}`, labelled `regression-promotion`) that moves the scenario block from `features/per-issue/feature-{N}.feature` into the directory configured in `.adw/scenarios.md` (`## Regression Scenario Directory`), and strips both `@promotion` and any `@promotion-suggested-<date>` tokens from the destination. The source scenario is removed from the per-issue file on the same branch.
+
+**14-day sweep** — `@promotion-suggested-<date>` tags that are never edited to `@promotion` are swept after 14 days by the per-issue scenario cron probe (see `app_docs/feature-oobdbg-bdd-cutover-polymorphic-prompts-sweep.md`). Ignoring a suggestion has no penalty; the scenario stays in `features/per-issue/` until the 14-day TTL expires.
+
+**Orchestrator CLI** — `bunx tsx adws/adwPromotionSweep.tsx <issueNumber> [adwId]` runs both halves (commenter then mover) on the same per-issue PR event. The `regression-promotion` GitHub label must already exist on the repository before the mover can apply it.
 
 ### Running BDD scenarios on the host
 
@@ -676,10 +691,21 @@ adws/                   # ADW workflow system
 │   ├── types.ts        # R2 type definitions
 │   ├── uploadService.ts  # File upload logic
 │   └── index.ts
+├── promotion/          # Scenario promotion scoring module
+│   ├── __tests__/      # Vitest unit tests
+│   ├── index.ts        # runPromotionCommenter entry point
+│   ├── promotionCommenter.ts  # Orchestrates parse → score → tag → comment
+│   ├── promotionScorer.ts     # Scores scenarios against the vocabulary registry
+│   ├── promotionTagWriter.ts  # Inserts @promotion-suggested-<date> tags
+│   ├── promotionThreshold.ts  # Computes promotion threshold from historical stats
+│   ├── scenarioParser.ts      # Parses Gherkin .feature files into Scenario objects
+│   ├── vocabularyParser.ts    # Parses features/regression/vocabulary.md into VocabularyRegistry
+│   └── types.ts        # Shared types (VocabularyEntry, ScoreResult, PromotionStats, etc.)
 ├── known_issues.md     # Known issues and workarounds
 ├── adwBuild.tsx        # Orchestrators (individual & combined)
 ├── adwChore.tsx        # Chore pipeline with LLM diff gate (auto-merge)
 ├── adwMerge.tsx        # Merge orchestrator (awaiting_merge handoff)
+├── adwPromotionSweep.tsx  # Promotion sweep orchestrator (score per-issue scenarios, suggest @regression promotions)
 ├── adwBuildHelpers.ts
 ├── adwClearComments.tsx
 ├── adwDocument.tsx

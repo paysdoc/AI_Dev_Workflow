@@ -1,0 +1,13 @@
+{
+  "jsonlPath": ".adw-stub-payload.json",
+  "edits": [
+    {
+      "path": ".adw-stub-payload.json",
+      "contents": "[{\"type\":\"text\",\"text\":\"Promotion mover stub — strip both @promotion-suggested-<date> and @promotion.\\n\"}]\n"
+    },
+    {
+      "path": "features/per-issue/feature-9097.feature",
+      "contents": "@adw-9097\nFeature: Strip both tags scenario\n\n  @adw-9097 @promotion-suggested-2026-05-15 @promotion\n  Scenario: A scenario with both suggestion and approval tags\n    Given the mock GitHub API is configured to accept PR creation\n    When the \"promotion-sweep\" orchestrator is invoked with adwId \"promo-mv-511-3\" and issue 9097\n    Then the orchestrator subprocess exited 0\n"
+    }
+  ]
+}

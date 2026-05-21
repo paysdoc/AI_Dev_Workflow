@@ -3,7 +3,7 @@ import { applyTagState } from '../promotionTagWriter.ts';
 
 const TODAY = '2026-05-21';
 
-describe('promotionTagWriter.applyTagState', () => {
+describe('promotionTagWriter.applyTagState — add-suggestion', () => {
   it('appends new tag to existing tag line', () => {
     const content = `Feature: Test
 
@@ -61,13 +61,6 @@ describe('promotionTagWriter.applyTagState', () => {
     expect(result).toContain('@promotion-suggested-2026-12-31');
   });
 
-  it('throws for unsupported state', () => {
-    expect(() =>
-      // @ts-expect-error testing unsupported state
-      applyTagState('Feature: x\n  Scenario: y\n', 2, 'refresh', TODAY),
-    ).toThrow('only "add-suggestion" is supported in this slice');
-  });
-
   it('preserves byte-exact content of all non-inserted lines', () => {
     const content = [
       'Feature: Multi',
@@ -91,5 +84,80 @@ describe('promotionTagWriter.applyTagState', () => {
       if (originalLines[i] === '  @tag-a') continue; // this line gets modified
       expect(resultLines[i]).toBe(originalLines[i]);
     }
+  });
+});
+
+describe('promotionTagWriter.applyTagState — unsupported state', () => {
+  it('throws for unsupported state', () => {
+    expect(() =>
+      // @ts-expect-error testing unsupported state
+      applyTagState('Feature: x\n  Scenario: y\n', 2, 'refresh-date', TODAY),
+    ).toThrow('unsupported state "refresh-date"');
+  });
+});
+
+describe('promotionTagWriter.applyTagState — remove-suggestion', () => {
+  it('strips @promotion-suggested-<date> from a tag line, preserving other tags', () => {
+    const content = `Feature: T\n\n  @adw-509 @promotion-suggested-2026-05-21\n  Scenario: S\n    Given step\n`;
+    const result = applyTagState(content, 4, 'remove-suggestion', TODAY);
+    expect(result).toContain('  @adw-509');
+    expect(result).not.toContain('@promotion-suggested-');
+    expect(result).toContain('Scenario: S');
+    expect(result).toContain('Given step');
+  });
+
+  it('is a no-op when no suggestion tag is present', () => {
+    const content = `Feature: T\n\n  @adw-509\n  Scenario: S\n    Given step\n`;
+    const result = applyTagState(content, 4, 'remove-suggestion', TODAY);
+    expect(result).toBe(content);
+  });
+
+  it('strips multiple @promotion-suggested-<date> tokens on the same line', () => {
+    const content = `Feature: T\n\n  @promotion-suggested-2026-01-01 @promotion-suggested-2026-05-21\n  Scenario: S\n    Given step\n`;
+    const result = applyTagState(content, 4, 'remove-suggestion', TODAY);
+    expect(result).not.toContain('@promotion-suggested-');
+  });
+});
+
+describe('promotionTagWriter.applyTagState — strip-approval', () => {
+  it('strips bare @promotion from a tag line', () => {
+    const content = `Feature: T\n\n  @adw-509 @promotion\n  Scenario: S\n    Given step\n`;
+    const result = applyTagState(content, 4, 'strip-approval', TODAY);
+    expect(result).toContain('  @adw-509');
+    expect(result).not.toMatch(/@promotion(?!-)/);
+  });
+
+  it('is a no-op when only @promotion-suggested-<date> is present', () => {
+    const content = `Feature: T\n\n  @promotion-suggested-2026-05-21\n  Scenario: S\n    Given step\n`;
+    const result = applyTagState(content, 4, 'strip-approval', TODAY);
+    expect(result).toBe(content);
+  });
+
+  it('strips bare @promotion but leaves @promotion-suggested-<date> intact in mixed block', () => {
+    const content = `Feature: T\n\n  @promotion-suggested-2026-05-21 @promotion\n  Scenario: S\n    Given step\n`;
+    const result = applyTagState(content, 4, 'strip-approval', TODAY);
+    expect(result).toContain('@promotion-suggested-2026-05-21');
+    expect(result).not.toMatch(/ @promotion(?!-)/);
+  });
+
+  it('byte-exact preservation of all non-tag lines for strip-approval', () => {
+    const content = [
+      'Feature: Multi',
+      '',
+      '  @adw-111 @promotion',
+      '  Scenario: Alpha',
+      '    Given step a',
+      '',
+      '  @tag-b',
+      '  Scenario: Beta',
+      '    Given step b',
+      '',
+    ].join('\n');
+    const result = applyTagState(content, 4, 'strip-approval', TODAY);
+    const rLines = result.split('\n');
+    expect(rLines[5]).toBe('');
+    expect(rLines[6]).toBe('  @tag-b');
+    expect(rLines[7]).toBe('  Scenario: Beta');
+    expect(rLines[8]).toBe('    Given step b');
   });
 });
