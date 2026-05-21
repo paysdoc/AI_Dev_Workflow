@@ -62,6 +62,7 @@ const ORCHESTRATOR_FILES: Record<string, string> = {
   init: 'adwInit.tsx',
   'pr-review': 'adwPrReview.tsx',
   document: 'adwDocument.tsx',
+  'promotion-sweep': 'adwPromotionSweep.tsx',
 };
 
 // ---------------------------------------------------------------------------

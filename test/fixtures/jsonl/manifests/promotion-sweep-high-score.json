@@ -1,0 +1,13 @@
+{
+  "jsonlPath": ".adw-stub-payload.json",
+  "edits": [
+    {
+      "path": ".adw-stub-payload.json",
+      "contents": "[{\"type\":\"text\",\"text\":\"High-score promotion sweep stub. Subprocess pattern, all vocabulary phrases present.\\n\"}]\n"
+    },
+    {
+      "path": "features/per-issue/feature-509.feature",
+      "contents": "@adw-509 @adw-promotion-smoke-509\nFeature: High-score smoke feature\n\n  @adw-509\n  Scenario: A high-quality subprocess scenario\n    Given the mock GitHub API is configured to accept issue comments\n    When the \"promotion-sweep\" orchestrator is invoked with adwId \"promotion-smoke-509\" and issue 509\n    Then the orchestrator subprocess exited 0\n"
+    }
+  ]
+}

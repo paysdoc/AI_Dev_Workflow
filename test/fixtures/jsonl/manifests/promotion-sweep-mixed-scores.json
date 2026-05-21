@@ -1,0 +1,13 @@
+{
+  "jsonlPath": ".adw-stub-payload.json",
+  "edits": [
+    {
+      "path": ".adw-stub-payload.json",
+      "contents": "[{\"type\":\"text\",\"text\":\"Mixed-scores promotion sweep stub. One above-threshold, one below.\\n\"}]\n"
+    },
+    {
+      "path": "features/per-issue/feature-509.feature",
+      "contents": "@adw-509\nFeature: Mixed scores fixture\n\n  @adw-509\n  Scenario: Above-threshold subprocess scenario\n    Given the mock GitHub API is configured to accept issue comments\n    When the \"promotion-sweep\" orchestrator is invoked with adwId \"promotion-smoke-509\" and issue 509\n    Then the orchestrator subprocess exited 0\n\n  Scenario: Below-threshold scenario with no vocabulary phrases\n    Given some completely unregistered Given step\n    When some completely unregistered action\n    Then some completely unregistered assertion\n"
+    }
+  ]
+}

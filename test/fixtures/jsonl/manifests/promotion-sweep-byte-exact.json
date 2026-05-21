@@ -1,0 +1,13 @@
+{
+  "jsonlPath": ".adw-stub-payload.json",
+  "edits": [
+    {
+      "path": ".adw-stub-payload.json",
+      "contents": "[{\"type\":\"text\",\"text\":\"Byte-exact promotion sweep stub. Multi-scenario feature file.\\n\"}]\n"
+    },
+    {
+      "path": "features/per-issue/feature-509.feature",
+      "contents": "@adw-509\nFeature: Multi-scenario byte-exact fixture\n\n  @adw-509\n  Scenario: First scenario above threshold\n    Given the mock GitHub API is configured to accept issue comments\n    When the \"promotion-sweep\" orchestrator is invoked with adwId \"promotion-smoke-509\" and issue 509\n    Then the orchestrator subprocess exited 0\n\n  Scenario: Second scenario below threshold\n    Given some unregistered step\n    When something unregistered\n    Then some unregistered assertion\n"
+    }
+  ]
+}
