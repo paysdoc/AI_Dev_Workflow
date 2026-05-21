@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 104              | 2026-05-21 15:18:45 |
-| Longest Streak    | 104              | 2026-05-21 15:18:45 |
-| Total Plan Size   | 5204 lines       | 2026-05-21 15:18:45 |
-| Largest Plan Size | 699 lines        | 2026-05-21 15:18:45 |
-| Total Diff Size   | 3349847 lines    | 2026-05-21 15:18:45 |
-| Largest Diff Size | 418153 lines     | 2026-05-21 15:18:45 |
-| Average Presence  | 1.25             | 2026-05-21 15:18:45 |
+| Current Streak    | 164              | 2026-05-21 23:44:13 |
+| Longest Streak    | 164              | 2026-05-21 23:44:13 |
+| Total Plan Size   | 3648 lines       | 2026-05-21 23:44:13 |
+| Largest Plan Size | 678 lines        | 2026-05-21 23:44:13 |
+| Total Diff Size   | 3360050 lines    | 2026-05-21 23:44:13 |
+| Largest Diff Size | 418153 lines     | 2026-05-21 23:44:13 |
+| Average Presence  | 1.19             | 2026-05-21 23:44:13 |
 
 ## ADW KPIs
 
@@ -189,3 +189,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-05-21 | 2wrg9y-promotion-mover-prom | 511          | /feature    | 1          | 0                 | 5860/18/74                      | 2026-05-21 14:27:46 | 2026-05-21 14:27:46 |
 | 2026-05-21 | 28aysq-hitl-label-tag-lifec | 510          | /feature    | 1          | 195               | 5754/19/68                      | 2026-05-21 14:53:47 | 2026-05-21 14:53:47 |
 | 2026-05-21 | y8r69q-auto-ramping-thresho | 512          | /feature    | 1          | 0                 | 7222/20/94                      | 2026-05-21 15:18:45 | 2026-05-21 15:18:45 |
+| 2026-05-21 | bed2tg-bug-step-def-agent-c | 521          | /bug        | 1          | 0                 | 10149/54/124                    | 2026-05-21 23:44:13 | 2026-05-21 23:44:13 |
