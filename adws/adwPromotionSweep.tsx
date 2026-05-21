@@ -19,6 +19,7 @@ import { log } from './core/index.ts';
 import type { LogLevel } from './core/index.ts';
 import { getRepoInfo } from './github/githubApi.ts';
 import { defaultFindPRByBranch, commentOnPR } from './github/prApi.ts';
+import { addIssueLabel } from './github/issueApi.ts';
 import { loadProjectConfig } from './core/projectConfig.ts';
 import { runPromotionCommenter } from './promotion/index.ts';
 import type { PromotionCommenterDeps } from './promotion/index.ts';
@@ -47,6 +48,9 @@ function buildDefaultDeps(prNumber: number, vocabularyPath: string): PromotionCo
     },
     today: () => new Date().toISOString().slice(0, 10),
     log: (msg, level) => log(msg, (level ?? 'info') as LogLevel),
+    applyHitlLabel: async (isNum: number) => {
+      addIssueLabel(isNum, 'hitl', repoInfo);
+    },
   };
 }
 
@@ -76,10 +80,10 @@ async function main(): Promise<void> {
   const vocabularyPath = config.scenarios.vocabularyRegistry ?? DEFAULT_VOCABULARY_PATH;
 
   const deps = buildDefaultDeps(pr.number, vocabularyPath);
-  const result = await runPromotionCommenter(pr.number, deps);
+  const result = await runPromotionCommenter(pr.number, issueNumber, deps);
 
   log(
-    `adwPromotionSweep: sweep complete — ${result.suggestedScenarios.length} scenario(s) suggested for promotion`,
+    `adwPromotionSweep: sweep complete — ${result.suggestedScenarios.length} scenario(s) suggested for promotion, hitlLabelApplied: ${result.hitlLabelApplied ?? false}`,
     'info',
   );
 

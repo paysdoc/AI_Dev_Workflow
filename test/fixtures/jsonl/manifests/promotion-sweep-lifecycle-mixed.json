@@ -1,0 +1,13 @@
+{
+  "jsonlPath": ".adw-stub-payload.json",
+  "edits": [
+    {
+      "path": ".adw-stub-payload.json",
+      "contents": "[{\"type\":\"text\",\"text\":\"Lifecycle-mixed promotion sweep stub. Three scenarios: refresh path (above threshold), suppress path (above threshold), withdraw path (below threshold).\\n\"}]\n"
+    },
+    {
+      "path": "features/per-issue/feature-9195.feature",
+      "contents": "@adw-9195 @adw-promo-510-6\nFeature: Lifecycle mixed\n\n  @adw-9195\n  Scenario: Refresh path scenario\n    When the \"promotion-sweep\" orchestrator is invoked with adwId \"promo-510-6\" and issue 9195\n    Then the orchestrator subprocess exited 0\n\n  @adw-9195\n  Scenario: Suppress path scenario\n    When the \"promotion-sweep\" orchestrator is invoked with adwId \"promo-510-6\" and issue 9195\n    Then the orchestrator subprocess exited 0\n\n  Scenario: Withdraw path scenario\n    Given some unregistered setup step\n    When some unregistered action happens\n    Then some unregistered assertion is made\n"
+    }
+  ]
+}

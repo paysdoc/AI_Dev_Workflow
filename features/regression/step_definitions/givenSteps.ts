@@ -200,6 +200,66 @@ Given(
 );
 
 // ---------------------------------------------------------------------------
+// G12: mock GitHub API configured to accept label applications
+// ---------------------------------------------------------------------------
+
+Given(
+  'the mock GitHub API is configured to accept label applications',
+  function (this: RegressionWorld) {
+    // The mock server records all POST /repos/.../issues/:n/labels by default.
+    // This step documents intent; no additional seeding required.
+    return 'pending';
+  },
+);
+
+// G13 (a per-issue feature file at {string} is seeded...) is defined in
+// features/per-issue/step_definitions/feature-509.steps.ts — no duplicate here.
+
+// ---------------------------------------------------------------------------
+// G14: seeded scenario pre-tagged with today's date
+// ---------------------------------------------------------------------------
+
+Given(
+  'the seeded scenario in {string} in the worktree for adwId {string} is pre-tagged with "@promotion-suggested-" dated today',
+  function (this: RegressionWorld, _filePath: string, _adwId: string) {
+    return 'pending';
+  },
+);
+
+// ---------------------------------------------------------------------------
+// G15: seeded scenario pre-tagged N days ago
+// ---------------------------------------------------------------------------
+
+Given(
+  'the seeded scenario in {string} in the worktree for adwId {string} is pre-tagged with "@promotion-suggested-" dated {int} days ago',
+  function (this: RegressionWorld, _filePath: string, _adwId: string, _daysAgo: number) {
+    return 'pending';
+  },
+);
+
+// ---------------------------------------------------------------------------
+// G16: named seeded scenario pre-tagged with today's date
+// ---------------------------------------------------------------------------
+
+Given(
+  'the seeded scenario named {string} in {string} in the worktree for adwId {string} is pre-tagged with "@promotion-suggested-" dated today',
+  function (this: RegressionWorld, _scenarioName: string, _filePath: string, _adwId: string) {
+    return 'pending';
+  },
+);
+
+// ---------------------------------------------------------------------------
+// G17: named seeded scenario pre-tagged N days ago
+// ---------------------------------------------------------------------------
+
+Given(
+  'the seeded scenario named {string} in {string} in the worktree for adwId {string} is pre-tagged with "@promotion-suggested-" dated {int} days ago',
+  function (this: RegressionWorld, _scenarioName: string, _filePath: string, _adwId: string, _daysAgo: number) {
+    return 'pending';
+  },
+);
+
+// ---------------------------------------------------------------------------
 // G11: worktree for adwId {string} initialised at branch {string}
 // ---------------------------------------------------------------------------
 

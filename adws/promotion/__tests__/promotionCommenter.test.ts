@@ -31,6 +31,26 @@ Feature: High score
     Then the orchestrator subprocess exited 0
 `;
 
+// Pre-tagged high-score (dated today)
+const HIGH_SCORE_TAGGED_TODAY = `@adw-999
+Feature: High score
+
+  @adw-999 @promotion-suggested-2026-05-21
+  Scenario: High quality scenario
+    When the "chore" orchestrator is invoked with adwId "test" and issue 1
+    Then the orchestrator subprocess exited 0
+`;
+
+// Pre-tagged high-score (dated earlier)
+const HIGH_SCORE_TAGGED_EARLIER = `@adw-999
+Feature: High score
+
+  @adw-999 @promotion-suggested-2026-01-01
+  Scenario: High quality scenario
+    When the "chore" orchestrator is invoked with adwId "test" and issue 1
+    Then the orchestrator subprocess exited 0
+`;
+
 // Low-score feature file: no registered phrases
 const LOW_SCORE_FEATURE = `@adw-999
 Feature: Low score
@@ -39,6 +59,61 @@ Feature: Low score
     Given some unregistered setup step
     When some unregistered action happens
     Then some unregistered assertion
+`;
+
+// Pre-tagged low-score (dated today) — was previously high-score, now dropped
+const LOW_SCORE_TAGGED_TODAY = `@adw-999
+Feature: Low score
+
+  @promotion-suggested-2026-05-21
+  Scenario: Low quality scenario
+    Given some unregistered setup step
+    When some unregistered action happens
+    Then some unregistered assertion
+`;
+
+// Pre-tagged low-score (dated earlier)
+const LOW_SCORE_TAGGED_EARLIER = `@adw-999
+Feature: Low score
+
+  @adw-999 @promotion-suggested-2026-01-01
+  Scenario: Low quality scenario
+    Given some unregistered setup step
+    When some unregistered action happens
+    Then some unregistered assertion
+`;
+
+// Mixed file: Scenario A has no tag (above threshold), Scenario B has old tag (below threshold)
+const MIXED_FILE = `@adw-999
+Feature: Mixed
+
+  @adw-999
+  Scenario: High quality scenario
+    When the "chore" orchestrator is invoked with adwId "test" and issue 1
+    Then the orchestrator subprocess exited 0
+
+  @adw-999 @promotion-suggested-2026-01-01
+  Scenario: Low quality scenario
+    Given some unregistered step
+    When some unregistered action
+    Then some unregistered assertion
+`;
+
+// Withdraw-only file: both scenarios have old tags and score below threshold
+const WITHDRAW_ONLY_FILE = `@adw-999
+Feature: Withdraw only
+
+  @adw-999 @promotion-suggested-2026-01-01
+  Scenario: Low quality A
+    Given some unregistered step 1
+    When some unregistered action 1
+    Then some unregistered assertion 1
+
+  @adw-999 @promotion-suggested-2026-01-15
+  Scenario: Low quality B
+    Given some unregistered step 2
+    When some unregistered action 2
+    Then some unregistered assertion 2
 `;
 
 function makeDeps(overrides: Partial<PromotionCommenterDeps> = {}): PromotionCommenterDeps {
@@ -50,21 +125,26 @@ function makeDeps(overrides: Partial<PromotionCommenterDeps> = {}): PromotionCom
     postComment: vi.fn().mockResolvedValue(undefined),
     today: () => '2026-05-21',
     log: vi.fn(),
+    applyHitlLabel: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
 
 describe('runPromotionCommenter', () => {
+  // ── pre-existing tests (updated signatures) ───────────────────────────
+
   it('high-score scenario: writes tagged file and posts comment', async () => {
     const writeFile = vi.fn();
     const postComment = vi.fn().mockResolvedValue(undefined);
+    const applyHitlLabel = vi.fn().mockResolvedValue(undefined);
     const deps = makeDeps({
       fetchChangedFiles: async () => [{ path: 'features/per-issue/feature-999.feature', status: 'modified' }],
       readFile: () => HIGH_SCORE_FEATURE,
       writeFile,
       postComment,
+      applyHitlLabel,
     });
-    const result = await runPromotionCommenter(1, deps);
+    const result = await runPromotionCommenter(1, 999, deps);
     expect(result.suggestedScenarios).toHaveLength(1);
     expect(writeFile).toHaveBeenCalledOnce();
     const writtenContent = writeFile.mock.calls[0][1] as string;
@@ -72,26 +152,33 @@ describe('runPromotionCommenter', () => {
     expect(postComment).toHaveBeenCalledOnce();
     const commentBody = postComment.mock.calls[0][1] as string;
     expect(commentBody).toContain('@promotion-suggested-');
+    expect(result.hitlLabelApplied).toBe(true);
+    expect(applyHitlLabel).toHaveBeenCalledWith(999);
   });
 
   it('below-threshold scenario: no writes, no comment', async () => {
     const writeFile = vi.fn();
     const postComment = vi.fn();
+    const applyHitlLabel = vi.fn();
     const deps = makeDeps({
       fetchChangedFiles: async () => [{ path: 'features/per-issue/feature-999.feature', status: 'modified' }],
       readFile: () => LOW_SCORE_FEATURE,
       writeFile,
       postComment,
+      applyHitlLabel,
     });
-    const result = await runPromotionCommenter(1, deps);
+    const result = await runPromotionCommenter(1, 999, deps);
     expect(result.suggestedScenarios).toHaveLength(0);
     expect(writeFile).not.toHaveBeenCalled();
     expect(postComment).not.toHaveBeenCalled();
+    expect(applyHitlLabel).not.toHaveBeenCalled();
+    expect(result.hitlLabelApplied).toBe(false);
   });
 
-  it('multiple high-score files: two writeFile calls, one postComment', async () => {
+  it('multiple high-score files: two writeFile calls, one postComment, one applyHitlLabel', async () => {
     const writeFile = vi.fn();
     const postComment = vi.fn().mockResolvedValue(undefined);
+    const applyHitlLabel = vi.fn().mockResolvedValue(undefined);
     const deps = makeDeps({
       fetchChangedFiles: async () => [
         { path: 'features/per-issue/feature-100.feature', status: 'modified' },
@@ -100,11 +187,13 @@ describe('runPromotionCommenter', () => {
       readFile: () => HIGH_SCORE_FEATURE,
       writeFile,
       postComment,
+      applyHitlLabel,
     });
-    const result = await runPromotionCommenter(1, deps);
+    const result = await runPromotionCommenter(1, 999, deps);
     expect(result.suggestedScenarios).toHaveLength(2);
     expect(writeFile).toHaveBeenCalledTimes(2);
     expect(postComment).toHaveBeenCalledOnce();
+    expect(applyHitlLabel).toHaveBeenCalledOnce();
   });
 
   it('non-per-issue file is skipped', async () => {
@@ -118,7 +207,7 @@ describe('runPromotionCommenter', () => {
       readFile,
       writeFile,
     });
-    await runPromotionCommenter(1, deps);
+    await runPromotionCommenter(1, 999, deps);
     expect(readFile).not.toHaveBeenCalled();
     expect(writeFile).not.toHaveBeenCalled();
   });
@@ -131,7 +220,153 @@ describe('runPromotionCommenter', () => {
       ],
       readFile,
     });
-    await runPromotionCommenter(1, deps);
+    await runPromotionCommenter(1, 999, deps);
     expect(readFile).not.toHaveBeenCalled();
+  });
+
+  // ── decision matrix: row-by-row ───────────────────────────────────────
+
+  it('matrix row 3 — existing tag dated today + above threshold: no writeFile, no comment, no label (daily suppression)', async () => {
+    const writeFile = vi.fn();
+    const postComment = vi.fn();
+    const applyHitlLabel = vi.fn();
+    const deps = makeDeps({
+      fetchChangedFiles: async () => [{ path: 'features/per-issue/feature-999.feature', status: 'modified' }],
+      readFile: () => HIGH_SCORE_TAGGED_TODAY,
+      writeFile,
+      postComment,
+      applyHitlLabel,
+    });
+    const result = await runPromotionCommenter(1, 999, deps);
+    expect(result.suggestedScenarios).toHaveLength(0);
+    expect(writeFile).not.toHaveBeenCalled();
+    expect(postComment).not.toHaveBeenCalled();
+    expect(applyHitlLabel).not.toHaveBeenCalled();
+    expect(result.hitlLabelApplied).toBe(false);
+  });
+
+  it('matrix row 4 — existing tag dated today + below threshold: writeFile removes tag, no comment, no label (silent withdrawal)', async () => {
+    const writeFile = vi.fn();
+    const postComment = vi.fn();
+    const applyHitlLabel = vi.fn();
+    const deps = makeDeps({
+      fetchChangedFiles: async () => [{ path: 'features/per-issue/feature-999.feature', status: 'modified' }],
+      readFile: () => LOW_SCORE_TAGGED_TODAY,
+      writeFile,
+      postComment,
+      applyHitlLabel,
+    });
+    const result = await runPromotionCommenter(1, 999, deps);
+    expect(result.suggestedScenarios).toHaveLength(0);
+    expect(writeFile).toHaveBeenCalledOnce();
+    const writtenContent = writeFile.mock.calls[0][1] as string;
+    expect(writtenContent).not.toContain('@promotion-suggested-');
+    expect(postComment).not.toHaveBeenCalled();
+    expect(applyHitlLabel).not.toHaveBeenCalled();
+    expect(result.hitlLabelApplied).toBe(false);
+  });
+
+  it('matrix row 5 — existing tag dated earlier + above threshold: writeFile refreshes date, comment posted, label applied', async () => {
+    const writeFile = vi.fn();
+    const postComment = vi.fn().mockResolvedValue(undefined);
+    const applyHitlLabel = vi.fn().mockResolvedValue(undefined);
+    const deps = makeDeps({
+      fetchChangedFiles: async () => [{ path: 'features/per-issue/feature-999.feature', status: 'modified' }],
+      readFile: () => HIGH_SCORE_TAGGED_EARLIER,
+      writeFile,
+      postComment,
+      applyHitlLabel,
+    });
+    const result = await runPromotionCommenter(1, 999, deps);
+    expect(result.suggestedScenarios).toHaveLength(1);
+    expect(writeFile).toHaveBeenCalledOnce();
+    const writtenContent = writeFile.mock.calls[0][1] as string;
+    expect(writtenContent).toContain('@promotion-suggested-2026-05-21');
+    expect(writtenContent).not.toContain('@promotion-suggested-2026-01-01');
+    expect(postComment).toHaveBeenCalledOnce();
+    expect(applyHitlLabel).toHaveBeenCalledWith(999);
+    expect(result.hitlLabelApplied).toBe(true);
+  });
+
+  it('matrix row 6 — existing tag dated earlier + below threshold: writeFile removes tag, no comment, no label', async () => {
+    const writeFile = vi.fn();
+    const postComment = vi.fn();
+    const applyHitlLabel = vi.fn();
+    const deps = makeDeps({
+      fetchChangedFiles: async () => [{ path: 'features/per-issue/feature-999.feature', status: 'modified' }],
+      readFile: () => LOW_SCORE_TAGGED_EARLIER,
+      writeFile,
+      postComment,
+      applyHitlLabel,
+    });
+    const result = await runPromotionCommenter(1, 999, deps);
+    expect(result.suggestedScenarios).toHaveLength(0);
+    expect(writeFile).toHaveBeenCalledOnce();
+    const writtenContent = writeFile.mock.calls[0][1] as string;
+    expect(writtenContent).not.toContain('@promotion-suggested-');
+    expect(postComment).not.toHaveBeenCalled();
+    expect(applyHitlLabel).not.toHaveBeenCalled();
+    expect(result.hitlLabelApplied).toBe(false);
+  });
+
+  // ── cross-cutting cases ───────────────────────────────────────────────
+
+  it('mixed file: add-suggestion for high-score + remove-suggestion for low-score → two writes, one comment, one label', async () => {
+    const writeFile = vi.fn();
+    const postComment = vi.fn().mockResolvedValue(undefined);
+    const applyHitlLabel = vi.fn().mockResolvedValue(undefined);
+    const deps = makeDeps({
+      fetchChangedFiles: async () => [{ path: 'features/per-issue/feature-999.feature', status: 'modified' }],
+      readFile: () => MIXED_FILE,
+      writeFile,
+      postComment,
+      applyHitlLabel,
+    });
+    const result = await runPromotionCommenter(1, 999, deps);
+    expect(result.suggestedScenarios).toHaveLength(1);
+    expect(writeFile).toHaveBeenCalledTimes(2);
+    expect(postComment).toHaveBeenCalledOnce();
+    expect(applyHitlLabel).toHaveBeenCalledOnce();
+    expect(result.hitlLabelApplied).toBe(true);
+  });
+
+  it('withdraw-only run: both scenarios removed → two writes, no comment, no label', async () => {
+    const writeFile = vi.fn();
+    const postComment = vi.fn();
+    const applyHitlLabel = vi.fn();
+    const deps = makeDeps({
+      fetchChangedFiles: async () => [{ path: 'features/per-issue/feature-999.feature', status: 'modified' }],
+      readFile: () => WITHDRAW_ONLY_FILE,
+      writeFile,
+      postComment,
+      applyHitlLabel,
+    });
+    const result = await runPromotionCommenter(1, 999, deps);
+    expect(result.suggestedScenarios).toHaveLength(0);
+    expect(writeFile).toHaveBeenCalledTimes(2);
+    expect(postComment).not.toHaveBeenCalled();
+    expect(applyHitlLabel).not.toHaveBeenCalled();
+    expect(result.hitlLabelApplied).toBe(false);
+  });
+
+  it('applyHitlLabel failure is caught and logged as a warning, result still returned', async () => {
+    const postComment = vi.fn().mockResolvedValue(undefined);
+    const applyHitlLabel = vi.fn().mockRejectedValue(new Error('gh CLI failed'));
+    const log = vi.fn();
+    const deps = makeDeps({
+      fetchChangedFiles: async () => [{ path: 'features/per-issue/feature-999.feature', status: 'modified' }],
+      readFile: () => HIGH_SCORE_FEATURE,
+      postComment,
+      applyHitlLabel,
+      log,
+    });
+    const result = await runPromotionCommenter(1, 999, deps);
+    expect(result.suggestedScenarios).toHaveLength(1);
+    expect(result.hitlLabelApplied).toBe(false);
+    expect(postComment).toHaveBeenCalledOnce();
+    expect(applyHitlLabel).toHaveBeenCalledOnce();
+    const logCalls = log.mock.calls as Array<[string, string | undefined]>;
+    const hasWarnCall = logCalls.some(([, level]) => level === 'warn');
+    expect(hasWarnCall).toBe(true);
   });
 });

@@ -265,6 +265,90 @@ Then(
 );
 
 // ---------------------------------------------------------------------------
+// T12: mock API recorded an application of the {string} label on issue {int}
+// ---------------------------------------------------------------------------
+
+Then(
+  'the mock GitHub API recorded an application of the {string} label on issue {int}',
+  function (this: RegressionWorld, _labelName: string, _issueNumber: number) {
+    return 'pending';
+  },
+);
+
+// ---------------------------------------------------------------------------
+// T13: mock harness recorded zero applications of the {string} label on issue {int}
+// ---------------------------------------------------------------------------
+
+Then(
+  'the mock harness recorded zero applications of the {string} label on issue {int}',
+  function (this: RegressionWorld, _labelName: string, _issueNumber: number) {
+    return 'pending';
+  },
+);
+
+// T14 (mock harness recorded zero comment posts on issue {int}) is defined in
+// features/per-issue/step_definitions/feature-509.steps.ts — no duplicate here.
+
+// T15 (artefact file carries a "@promotion-suggested-" tag dated today on the seeded scenario)
+// and T16 (carries no "@promotion-suggested-" tag on the seeded scenario) are covered by the
+// existing {string}-parameterised patterns in feature-509.steps.ts — no duplicate here.
+
+// ---------------------------------------------------------------------------
+// T17: artefact file carries exactly one @promotion-suggested- tag (seeded scenario)
+// ---------------------------------------------------------------------------
+
+Then(
+  'the artefact file at {string} in the worktree for adwId {string} carries exactly one "@promotion-suggested-" tag on the seeded scenario',
+  function (this: RegressionWorld, _filePath: string, _adwId: string) {
+    return 'pending';
+  },
+);
+
+// ---------------------------------------------------------------------------
+// T18: artefact file carries @promotion-suggested- tag dated today (named scenario)
+// ---------------------------------------------------------------------------
+
+Then(
+  'the artefact file at {string} in the worktree for adwId {string} carries a "@promotion-suggested-" tag dated today on the scenario named {string}',
+  function (this: RegressionWorld, _filePath: string, _adwId: string, _scenarioName: string) {
+    return 'pending';
+  },
+);
+
+// ---------------------------------------------------------------------------
+// T19: artefact file carries no @promotion-suggested- tag (named scenario)
+// ---------------------------------------------------------------------------
+
+Then(
+  'the artefact file at {string} in the worktree for adwId {string} carries no "@promotion-suggested-" tag on the scenario named {string}',
+  function (this: RegressionWorld, _filePath: string, _adwId: string, _scenarioName: string) {
+    return 'pending';
+  },
+);
+
+// ---------------------------------------------------------------------------
+// T20: mock API recorded a comment on issue {int} containing the seeded scenario name
+// ---------------------------------------------------------------------------
+
+Then(
+  'the mock GitHub API recorded a comment on issue {int} containing the seeded scenario name {string}',
+  function (this: RegressionWorld, _issueNumber: number, _scenarioName: string) {
+    return 'pending';
+  },
+);
+
+// ---------------------------------------------------------------------------
+// T21: mock harness recorded zero comment posts on issue {int} referencing scenario name
+// ---------------------------------------------------------------------------
+
+Then(
+  'the mock harness recorded zero comment posts on issue {int} referencing the seeded scenario name {string}',
+  function (this: RegressionWorld, _issueNumber: number, _scenarioName: string) {
+    return 'pending';
+  },
+);
+
+// ---------------------------------------------------------------------------
 // T11: git-mock recorded a push to branch {string}
 // ---------------------------------------------------------------------------
 

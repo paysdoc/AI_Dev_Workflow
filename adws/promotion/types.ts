@@ -41,4 +41,4 @@ export interface ScoreResult {
   breakdown: ScoreBreakdown;
 }
 
-export type TagState = 'add-suggestion';
+export type TagState = 'add-suggestion' | 'refresh-date' | 'remove-suggestion';
