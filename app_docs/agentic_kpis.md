@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 99                | 2026-05-21 12:02:49 |
-| Longest Streak    | 99                | 2026-05-21 12:02:49 |
-| Total Plan Size   | 5009 lines       | 2026-05-21 12:02:49 |
-| Largest Plan Size | 699 lines        | 2026-05-21 12:02:49 |
-| Total Diff Size   | 3325003 lines    | 2026-05-21 12:02:49 |
-| Largest Diff Size | 418153 lines     | 2026-05-21 12:02:49 |
-| Average Presence  | 1.26             | 2026-05-21 12:02:49 |
+| Current Streak    | 183               | 2026-05-21 13:00:27 |
+| Longest Streak    | 183               | 2026-05-21 13:00:27 |
+| Total Plan Size   | 5009 lines       | 2026-05-21 13:00:27 |
+| Largest Plan Size | 699 lines        | 2026-05-21 13:00:27 |
+| Total Diff Size   | 3326916 lines    | 2026-05-21 13:00:27 |
+| Largest Diff Size | 418153 lines     | 2026-05-21 13:00:27 |
+| Average Presence  | 1.26             | 2026-05-21 13:00:27 |
 
 ## ADW KPIs
 
@@ -184,3 +184,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-05-15 | bw5vk5-demo-company-block-b | 82           | /feature    | 2          | 0                 | 56293/1777/338                  | 2026-05-15 12:13:56 | 2026-05-15 12:13:56 |
 | 2026-05-15 | mrjx79-demo-stickycta-live | 84           | /feature    | 1          | 661               | 62450/1782/362                  | 2026-05-15 13:09:45 | 2026-05-15 13:09:45 |
 | 2026-05-21 | mzgyjj-rot-prevention-block | 506          | /feature    | 1          | 0                 | 947/6/14                        | 2026-05-21 12:02:49 | 2026-05-21 12:02:49 |
+| 2026-05-21 | nnny1e-vocabulary-md-templa | 507          | /feature    | 1          | 0                 | 1901/12/26                      | 2026-05-21 13:00:27 | 2026-05-21 13:00:27 |
