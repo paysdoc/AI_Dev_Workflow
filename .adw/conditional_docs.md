@@ -1162,6 +1162,13 @@
     - When `generate_step_definitions` vocabulary validation or `vocabularyViolations` output is involved
     - When `PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES` or the sweep wiring in `trigger_cron.ts` needs context
 
+- app_docs/feature-g3jxzh-move-cron-log-to-logs-dir.md
+  - Conditions:
+    - When working with `ensureCronProcess` or `cronLogDir` in `adws/triggers/webhookGatekeeper.ts`
+    - When investigating the separation between `agents/` (state) and `logs/` (output) directories
+    - When troubleshooting missing cron log files or unexpected log output in `agents/cron/`
+    - When adding a new trigger process that writes stdout/stderr logs and need to know which base dir to use
+
 - app_docs/feature-yw233r-fix-janitor-adwid-lookup.md
   - Conditions:
     - When working with `devServerJanitor.ts`, `extractIssueNumberFromDirName`, or `findActiveAdwIdForIssue`
