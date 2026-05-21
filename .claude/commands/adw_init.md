@@ -121,9 +121,60 @@ Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init
      cp "$3/templates/vocabulary.md.template" features/regression/vocabulary.md
      ```
      If `$3` is empty (legacy invocation without framework repo root), skip the copy and log a warning in the step 8 report.
+   - **Draft the observability-surfaces examples block**: after the template copy above, classify the target repo's stack and replace the placeholder in the materialised `features/regression/vocabulary.md`.
+
+     **Classification rules** (use the analysis already performed in step 1 — do not re-read manifests):
+     - **browser-test-equipped** — at least one of `@playwright/test`, `playwright`, `cypress`, `puppeteer`, `webdriverio`, `nightwatch` appears in `devDependencies` of `package.json` (Node), or the equivalent browser-test runner in `requirements.txt`/`pyproject.toml` (Python: `playwright`, `pytest-playwright`, `selenium`), `Gemfile` (Ruby: `capybara`, `selenium-webdriver`), `pom.xml`/`build.gradle` (Java: `selenium-java`, `playwright-java`), or `.csproj`/`packages.config` (.NET: `Microsoft.Playwright`, `Selenium.WebDriver`).
+     - **CLI-only** — no browser test runner detected and at least one manifest was parseable.
+     - **fallback** — no manifest could be parsed (empty repo, unrecognised stack).
+
+     **Locate the placeholder**: find the literal text `<!-- TODO (slice #3, issue ??):` in `features/regression/vocabulary.md`, between the `## Observability Surfaces (Examples)` heading and `## Three Permitted Execution Patterns`. Use the Edit tool with `old_string` set to the full placeholder comment and `new_string` set to the block body below. If the placeholder is not present (file absent or pre-edited), skip and log a warning in step 8.
+
+     **Browser-test-equipped block** (`new_string`):
+     ```
+     Scenarios in this repo can assert against the following observable surfaces:
+
+     | # | Surface | Evidence | Example |
+     |---|---------|----------|---------|
+     | 1 | State files | JSON or other structured output files written by orchestrators, CLI tools, or test fixtures | `agents/<adwId>/state.json` |
+     | 2 | Recorded HTTP requests | Request logs captured by a mock HTTP server fronting the system under test | mock server `getRecordedRequests()` |
+     | 3 | Git artefacts | Branches, commits, pushes, and worktree state produced by the system under test | `git log --oneline` on the worktree branch |
+     | 4 | DOM snapshots | Serialised page DOM extracted by the browser test runner during scenario execution | Playwright `page.content()` capture |
+     | 5 | Screenshot artefacts | Image files captured by the browser test runner at known assertion points | Playwright `page.screenshot()` output |
+     | 6 | Exit codes | Termination status of subprocesses spawned by the test harness | `spawnSync(...).status` |
+     | 7 | Log streams | stdout/stderr captured from spawned processes and asserted against by substring or regex | `spawnSync(...).stdout` |
+     ```
+
+     **CLI-only block** (`new_string`):
+     ```
+     Scenarios in this repo can assert against the following observable surfaces:
+
+     | # | Surface | Evidence | Example |
+     |---|---------|----------|---------|
+     | 1 | State files | JSON or other structured output files written by orchestrators, CLI tools, or test fixtures | `agents/<adwId>/state.json` |
+     | 2 | Recorded HTTP requests | Request logs captured by a mock HTTP server fronting the system under test | mock server `getRecordedRequests()` |
+     | 3 | Git artefacts | Branches, commits, pushes, and worktree state produced by the system under test | `git log --oneline` on the worktree branch |
+     | 4 | Exit codes | Termination status of subprocesses spawned by the test harness | `spawnSync(...).status` |
+     | 5 | Log streams | stdout/stderr captured from spawned processes and asserted against by substring or regex | `spawnSync(...).stdout` |
+     ```
+
+     **Fallback block** (`new_string`):
+     ```
+     Scenarios in this repo can assert against the following observable surfaces:
+
+     | # | Surface | Evidence | Example |
+     |---|---------|----------|---------|
+     | 1 | State files | JSON or other structured output files written by the system under test | (refine as patterns emerge) |
+     | 2 | Recorded HTTP requests | Request logs captured by a mock HTTP server (if one is present in the repo) | (refine as patterns emerge) |
+     | 3 | Exit codes | Termination status of subprocesses | `spawnSync(...).status` |
+     | 4 | Log streams | stdout/stderr captured from spawned processes | `spawnSync(...).stdout` |
+
+     Note: the stack could not be classified automatically; refine this list as your test surfaces solidify.
+     ```
 
 8. **Report**
    - List all files created (`commands.md`, `project.md`, `conditional_docs.md`, `providers.md`, `review_proof.md`, `scenarios.md`, and `features/regression/vocabulary.md` when copied)
    - Summarize the detected project type and key configuration choices
    - Note both `## Per-Issue Scenario Directory` and `## Regression Scenario Directory` sections written to `scenarios.md`
    - If the vocabulary template copy was skipped (empty `$3`), note the warning here
+   - Examples-block class chosen: `<browser-test-equipped | CLI-only | fallback>`; placeholder replacement: `<succeeded | skipped: <reason>>`.
