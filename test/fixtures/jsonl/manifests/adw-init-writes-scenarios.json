@@ -1,0 +1,9 @@
+{
+  "jsonlPath": ".adw-stub-payload.json",
+  "edits": [
+    {
+      "path": ".adw/scenarios.md",
+      "contents": "# ADW BDD Scenario Configuration\n\n## Scenario Directory\nfeatures/\n\n## Run Scenarios by Tag\ncucumber-js --tags \"@{tag}\"\n\n## Run Regression Scenarios\ncucumber-js --tags \"@regression\"\n\n## Per-Issue Scenario Directory\nfeatures/per-issue/\n\n## Regression Scenario Directory\nfeatures/regression/\n"
+    }
+  ]
+}

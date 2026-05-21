@@ -36,11 +36,11 @@ interface AdwRunResult {
   targetRepoDir: string;
 }
 
-const targetRepos = new Map<string, string>();
+export const targetRepos = new Map<string, string>();
 const preInvocationContents = new Map<string, string>();
 const adwRunData = new Map<string, AdwRunResult>();
 
-function ensureTargetRepo(repoName: string): void {
+export function ensureTargetRepo(repoName: string): void {
   if (!targetRepos.has(repoName)) {
     const safe = repoName.replace(/[^a-z0-9]/gi, '-');
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), `adw-sw-506-${safe}-`));

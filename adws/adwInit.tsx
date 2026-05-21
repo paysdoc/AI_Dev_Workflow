@@ -17,6 +17,8 @@
  * - GITHUB_PAT: (Optional) GitHub Personal Access Token
  */
 
+import * as path from 'path';
+import { fileURLToPath } from 'node:url';
 import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, log, OrchestratorId } from './core';
 import { persistTokenCounts, type ModelUsageMap, emptyModelUsageMap, mergeModelUsageMaps } from './cost';
 import { runClaudeAgentWithCommand } from './agents/claudeAgent';
@@ -65,9 +67,12 @@ async function main(): Promise<void> {
         body: config.issue.body,
       });
 
+      const currentDir = path.dirname(fileURLToPath(import.meta.url));
+      const frameworkRepoRoot = path.resolve(currentDir, '..');
+
       const result = await runClaudeAgentWithCommand(
         '/adw_init',
-        [String(config.issueNumber), config.adwId, issueJson],
+        [String(config.issueNumber), config.adwId, issueJson, frameworkRepoRoot],
         'adw-init',
         `${config.logsDir}/adw-init.jsonl`,
         'sonnet',
