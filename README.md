@@ -566,16 +566,6 @@ adws/                   # ADW workflow system
 │   ├── exchangeRates.ts
 │   ├── index.ts
 │   └── types.ts
-├── promotion/          # Scenario promotion pipeline
-│   ├── __tests__/      # Vitest unit tests for promotion module
-│   ├── index.ts
-│   ├── promotionCommenter.ts  # Orchestrates score → tag → PR comment flow
-│   ├── promotionScorer.ts     # Scores a Scenario against the vocabulary registry
-│   ├── promotionTagWriter.ts  # Inserts @promotion-suggested-<date> tags into .feature files
-│   ├── promotionThreshold.ts  # Computes adaptive or bootstrap promotion score threshold
-│   ├── scenarioParser.ts      # Parses Gherkin .feature files into Scenario structs
-│   ├── types.ts               # Domain types: Scenario, VocabularyEntry, ScoreResult, TagState
-│   └── vocabularyParser.ts    # Parses regression vocabulary.md into VocabularyRegistry
 ├── jsonl/              # JSONL schema validation and fixtures
 │   ├── fixtures/       # JSONL fixture files for testing
 │   │   ├── README.md
@@ -600,7 +590,6 @@ adws/                   # ADW workflow system
 │   ├── buildPhase.ts
 │   ├── documentPhase.ts
 │   ├── index.ts
-│   ├── authPause.ts    # Auth-required pause handler (host-wide auth failure, mirrors rate-limit pause path)
 │   ├── depauditSetup.ts  # depaudit setup and secret propagation (used by adw_init)
 │   ├── installPhase.ts # Install phase implementation
 │   ├── kpiPhase.ts     # KPI tracking phase
@@ -709,6 +698,7 @@ adws/                   # ADW workflow system
 │   ├── promotionMover.ts      # Moves approved scenarios from per-issue to regression directory
 │   ├── promotionScorer.ts     # Scores scenarios against the vocabulary registry
 │   ├── promotionTagWriter.ts  # Inserts @promotion-suggested-<date> tags
+│   ├── promotionStatsLoader.ts  # Loads and aggregates historical promotion statistics
 │   ├── promotionThreshold.ts  # Computes promotion threshold from historical stats
 │   ├── scenarioParser.ts      # Parses Gherkin .feature files into Scenario objects
 │   ├── vocabularyParser.ts    # Parses features/regression/vocabulary.md into VocabularyRegistry
@@ -730,7 +720,6 @@ adws/                   # ADW workflow system
 ├── adwPlanBuildTest.tsx
 ├── adwPlanBuildTestReview.tsx
 ├── adwPrReview.tsx
-├── adwPromotionSweep.tsx  # Scores per-issue scenarios against vocabulary; tags and comments promotion candidates
 ├── adwSdlc.tsx
 ├── adwTest.tsx
 ├── healthCheck.tsx     # Health check orchestrator
@@ -799,6 +788,8 @@ bun.lock                # Bun lockfile
 eslint.config.js        # ESLint configuration
 cucumber.js             # Cucumber.js configuration
 features/               # BDD feature files (Gherkin .feature)
+├── per-issue/          # Per-issue agent-input scenarios — never executed by the runner; swept 14 days after PR merges
+│   └── step_definitions/  # Step definitions for per-issue scenarios
 ├── regression/         # Regression scenario vocabulary, typed World, and surface/smoke scenarios
 │   ├── smoke/          # High-level smoke scenarios (cron spawn, SDLC, cancel, chore, pause)
 │   ├── step_definitions/  # Typed Given/When/Then steps and RegressionWorld for regression scenarios

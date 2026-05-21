@@ -55,6 +55,23 @@ export class RateLimitError extends Error {
 }
 
 /**
+ * Thrown when a Claude agent invocation exceeds its watchdog timeout.
+ * Caught by runPhase() which writes the phase as failed and calls handlePhaseTimeout (exit 0).
+ */
+export class AgentTimeoutError extends Error {
+  readonly agentName: string;
+  readonly phaseName: string | undefined;
+  readonly timeoutMs: number;
+  constructor(agentName: string, phaseName: string | undefined, timeoutMs: number) {
+    super(`Agent timeout after ${timeoutMs} ms during phase: ${phaseName ?? 'unknown'} (agent: ${agentName})`);
+    this.name = 'AgentTimeoutError';
+    this.agentName = agentName;
+    this.phaseName = phaseName;
+    this.timeoutMs = timeoutMs;
+  }
+}
+
+/**
  * Thrown when a Claude agent encounters an authentication failure (HTTP 401 / OAuth expired).
  * Propagates to orchestrator main() which writes agents/.auth_gate and exits 0.
  */
@@ -206,6 +223,11 @@ export interface PhaseExecutionState {
   completedAt?: string;
   /** Optional output or summary captured from the phase */
   output?: string;
+  /**
+   * Machine-readable reason for a failed status.
+   * Canonical value: 'agent_timeout' (set by the watchdog path in phaseRunner.ts).
+   */
+  failureReason?: string;
 }
 
 /**

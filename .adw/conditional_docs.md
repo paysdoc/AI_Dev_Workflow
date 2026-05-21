@@ -1224,3 +1224,13 @@
     - When troubleshooting why `@promotion-suggested-<date>` tags are not appearing in a mature repo (N may have risen above the scenario score)
     - When tuning the curve constants (`MAX_THRESHOLD`, `RATIO_CAP`) or understanding their rationale
     - When the `commits[]` seed mechanism in `test/mocks/manifestInterpreter.ts` is relevant to manifest fixtures
+
+- app_docs/feature-bed2tg-orchestrator-watchdog-agent-timeout.md
+  - Conditions:
+    - When working with `runClaudeAgentWithCommand` in `adws/agents/claudeAgent.ts` and the per-agent watchdog timeout
+    - When implementing or troubleshooting agent wedge recovery (`AgentTimeoutError`, `handlePhaseTimeout`, `phase_timeout` stage)
+    - When adding a new phase and need to set a per-phase timeout in `AGENT_PHASE_TIMEOUT_MAP` or `AGENT_PHASE_TIMEOUT_<PHASE>` env var
+    - When working with `killProcessGroup` in `adws/core/processKill.ts` (shared by dev-server lifecycle and agent watchdog)
+    - When the `## :warning: Phase Timeout` GitHub issue comment format needs to be understood or extended
+    - When modifying the `generate_step_definitions.md` Step 7 ("Verify") or adding verification steps that must not execute step files at runtime
+    - When troubleshooting an orchestrator stuck in `*_running` indefinitely after the Claude CLI emits `result: success`

@@ -103,8 +103,10 @@ For each scenario tagged `@adw-$0`, generate the step definitions:
 ### 7. Verify
 
 After writing, run a quick sanity check:
-- Confirm each generated file parses correctly by checking for syntax errors
-- Confirm step patterns are unique across all step definition files
+- Type-check the generated step definition files with `bunx tsc --noEmit <path>` (one path per generated file). Do NOT execute the files at runtime: step definition modules call `Before(...)`/`Given(...)`/`When(...)`/`Then(...)` at top level and Cucumber throws `checkInstall` outside a running session.
+- Confirm step patterns are unique across all step definition files.
+
+Forbidden: any verification method that imports or executes step files (`node`, `bun`, `tsx`, dynamic `import()`, etc.) — these trip Cucumber's top-level registration and can leave heredoc/pipeline children alive after the imported module errors out.
 
 ### 8. Output
 

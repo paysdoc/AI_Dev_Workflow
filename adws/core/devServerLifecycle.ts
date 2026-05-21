@@ -9,6 +9,10 @@
  */
 
 import { spawn, type ChildProcess } from 'child_process';
+import { killProcessGroup } from './processKill';
+
+// Re-export so existing imports from devServerLifecycle keep working.
+export { killProcessGroup } from './processKill';
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -81,27 +85,6 @@ export async function probeHealth(
     }
   }
   return false;
-}
-
-/**
- * Sends SIGTERM to the process *group* identified by `pid` (using `-pid`).
- * Schedules SIGKILL after `graceMs` milliseconds if the process has not yet
- * exited. Silently ignores ESRCH (process already gone).
- */
-export function killProcessGroup(pid: number, graceMs: number): void {
-  try {
-    process.kill(-pid, 'SIGTERM');
-  } catch {
-    // process already gone — nothing to do
-    return;
-  }
-  setTimeout(() => {
-    try {
-      process.kill(-pid, 'SIGKILL');
-    } catch {
-      // process already gone
-    }
-  }, graceMs);
 }
 
 // ---------------------------------------------------------------------------
