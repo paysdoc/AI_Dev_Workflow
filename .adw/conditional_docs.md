@@ -1,5 +1,13 @@
 # Conditional Documentation
 
+- app_docs/feature-mzgyjj-rot-prevention-block.md
+  - Conditions:
+    - When modifying `.claude/commands/scenario_writer.md` or reviewing the rot prevention rule
+    - When the `scenario_writer` agent writes scenarios that assert against file existence, file contents, or source-file structure
+    - When working with `features/regression/vocabulary.md` and the vocabulary-preference instruction in `scenario_writer`
+    - When troubleshooting why `scenario_writer` refuses to generate a structurally-asserting scenario
+    - When adding per-issue BDD scenarios for issue-506-class features (rot prevention, vocabulary registry)
+
 - app_docs/feature-2evbnk-bdd-smoke-surface-scenarios.md
   - Conditions:
     - When working with the `features/regression/smoke/` or `features/regression/surfaces/` BDD scenario suites

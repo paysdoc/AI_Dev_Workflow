@@ -1,0 +1,13 @@
+{
+  "jsonlPath": ".adw-stub-payload.json",
+  "edits": [
+    {
+      "path": ".adw-stub-payload.json",
+      "contents": "[{\"type\":\"text\",\"text\":\"## Scenario Writer Output\\n\"}]\n"
+    },
+    {
+      "path": "features/feature-905.feature",
+      "contents": "@adw-905\nFeature: issue 905 behavioural contract\n\n  @adw-905\n  Scenario: orchestrator records state after completing plan phase\n    Given the mock GitHub API is configured to accept issue comments\n    And no spawn lock exists for issue 905\n    When the \"sdlc\" orchestrator is invoked with adwId \"sw-506-5\" and issue 905\n    Then the state file for adwId \"sw-506-5\" records workflowStage \"awaiting_merge\"\n    And the mock GitHub API recorded a comment on issue 905\n"
+    }
+  ]
+}
