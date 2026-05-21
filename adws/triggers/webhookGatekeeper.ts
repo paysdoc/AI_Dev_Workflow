@@ -8,8 +8,7 @@
 import { spawn, execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
-import { log, generateAdwId, REPO_ROOT } from '../core';
-import { AGENTS_STATE_DIR } from '../core/config';
+import { log, generateAdwId, REPO_ROOT, LOGS_DIR } from '../core';
 import type { RepoInfo } from '../github/githubApi';
 import { getRepoInfo } from '../github';
 import { closeIssue } from '../github/issueApi';
@@ -180,7 +179,7 @@ export function ensureCronProcess(repoInfo: RepoInfo, targetRepoArgs: string[]):
 
   cronSpawnedForRepo.add(repoKey);
   log(`Spawning cron trigger for ${repoKey}`);
-  const cronLogDir = path.join(AGENTS_STATE_DIR, 'cron');
+  const cronLogDir = path.join(LOGS_DIR, 'agents', 'cron');
   fs.mkdirSync(cronLogDir, { recursive: true });
   const logFd = fs.openSync(path.join(cronLogDir, `${repoKey.replace('/', '_')}.log`), 'a');
   const child = spawn('bunx', ['tsx', 'adws/triggers/trigger_cron.ts', ...targetRepoArgs], {
