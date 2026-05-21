@@ -12,6 +12,7 @@ function makeRegistry(
 
 function makeScenario(steps: Array<{ keyword: string; text: string }>): Scenario {
   return {
+    name: '',
     tags: [],
     steps: steps.map((s, i) => ({ ...s, line: i + 1 })),
     startLine: 1,

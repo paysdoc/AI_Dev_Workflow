@@ -1,0 +1,13 @@
+{
+  "jsonlPath": ".adw-stub-payload.json",
+  "edits": [
+    {
+      "path": ".adw-stub-payload.json",
+      "contents": "[{\"type\":\"text\",\"text\":\"Promotion mover stub — label assertion variant.\\n\"}]\n"
+    },
+    {
+      "path": "features/per-issue/feature-9096.feature",
+      "contents": "@adw-9096\nFeature: Labeled move scenario\n\n  @adw-9096 @promotion\n  Scenario: A scenario that should get regression-promotion label\n    Given the mock GitHub API is configured to accept PR creation\n    And the mock GitHub API is configured to accept label application\n    When the \"promotion-sweep\" orchestrator is invoked with adwId \"promo-mv-511-2\" and issue 9096\n    Then the orchestrator subprocess exited 0\n"
+    }
+  ]
+}

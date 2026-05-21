@@ -1,0 +1,13 @@
+{
+  "jsonlPath": ".adw-stub-payload.json",
+  "edits": [
+    {
+      "path": ".adw-stub-payload.json",
+      "contents": "[{\"type\":\"text\",\"text\":\"Promotion mover stub — single @promotion-tagged scenario.\\n\"}]\n"
+    },
+    {
+      "path": "features/per-issue/feature-9095.feature",
+      "contents": "@adw-9095\nFeature: Single approved scenario\n\n  @adw-9095 @promotion\n  Scenario: A scenario approved for regression promotion\n    Given the mock GitHub API is configured to accept PR creation\n    When the \"promotion-sweep\" orchestrator is invoked with adwId \"promo-mv-511-1\" and issue 9095\n    Then the orchestrator subprocess exited 0\n"
+    }
+  ]
+}

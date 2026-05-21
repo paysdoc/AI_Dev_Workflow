@@ -1,0 +1,13 @@
+{
+  "jsonlPath": ".adw-stub-payload.json",
+  "edits": [
+    {
+      "path": ".adw-stub-payload.json",
+      "contents": "[{\"type\":\"text\",\"text\":\"Promotion mover stub — two @promotion-tagged scenarios, two move PRs expected.\\n\"}]\n"
+    },
+    {
+      "path": "features/per-issue/feature-9101.feature",
+      "contents": "@adw-9101\nFeature: Multiple approvals scenario\n\n  @adw-9101 @promotion\n  Scenario: First scenario approved for promotion\n    Given setup\n    When action one\n    Then result one\n\n  @adw-9101 @promotion\n  Scenario: Second scenario approved for promotion\n    Given setup\n    When action two\n    Then result two\n"
+    }
+  ]
+}

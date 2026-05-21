@@ -309,6 +309,20 @@ Three optional sections activate the regression-suite contract. When absent, the
 | `## Regression Scenario Directory` | `scenario_writer` skips the `@regression` auto-promotion sweep (regression promotion becomes a deliberate human decision). |
 | `## Vocabulary Registry` | `generate_step_definitions` validates every step phrase against the registry file; fails loudly on unknown phrases. |
 
+### Scenario Promotion
+
+ADW supports a human-in-the-loop (HITL) promotion flow that moves high-quality per-issue scenarios into the regression suite via a deliberate human approval signal.
+
+**`@promotion-suggested-<date>`** — applied automatically by the `promotionCommenter` orchestrator when a per-issue scenario scores above the promotion threshold against the vocabulary registry. The date suffix records when the suggestion was made. Operators should treat this as a recommendation, not a directive.
+
+**`@promotion`** — applied by a human by editing the `@promotion-suggested-<date>` tag (removing the date suffix). This is the approval signal. The bare `@promotion` token (no date) tells the agent "move this into regression on the next run."
+
+**The move PR** — on the next per-issue PR event, the `promotionMover` orchestrator detects any scenario carrying bare `@promotion`, opens a separate PR (branch `regression-promotion-issue-{N}-{slug}`, labelled `regression-promotion`) that moves the scenario block from `features/per-issue/feature-{N}.feature` into the directory configured in `.adw/scenarios.md` (`## Regression Scenario Directory`), and strips both `@promotion` and any `@promotion-suggested-<date>` tokens from the destination. The source scenario is removed from the per-issue file on the same branch.
+
+**14-day sweep** — `@promotion-suggested-<date>` tags that are never edited to `@promotion` are swept after 14 days by the per-issue scenario cron probe (see `app_docs/feature-oobdbg-bdd-cutover-polymorphic-prompts-sweep.md`). Ignoring a suggestion has no penalty; the scenario stays in `features/per-issue/` until the 14-day TTL expires.
+
+**Orchestrator CLI** — `bunx tsx adws/adwPromotionSweep.tsx <issueNumber> [adwId]` runs both halves (commenter then mover) on the same per-issue PR event. The `regression-promotion` GitHub label must already exist on the repository before the mover can apply it.
+
 ### Running BDD scenarios on the host
 
 ```bash

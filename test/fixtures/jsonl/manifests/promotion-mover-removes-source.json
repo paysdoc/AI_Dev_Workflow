@@ -1,0 +1,13 @@
+{
+  "jsonlPath": ".adw-stub-payload.json",
+  "edits": [
+    {
+      "path": ".adw-stub-payload.json",
+      "contents": "[{\"type\":\"text\",\"text\":\"Promotion mover stub — source scenario removed from per-issue file.\\n\"}]\n"
+    },
+    {
+      "path": "features/per-issue/feature-9098.feature",
+      "contents": "@adw-9098\nFeature: Source removal scenario\n\n  @adw-9098 @promotion\n  Scenario: A scenario that will be moved away from per-issue file\n    Given the mock GitHub API is configured to accept PR creation\n    When the \"promotion-sweep\" orchestrator is invoked with adwId \"promo-mv-511-4\" and issue 9098\n    Then the orchestrator subprocess exited 0\n"
+    }
+  ]
+}

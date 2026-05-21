@@ -34,7 +34,7 @@ function mapScenario(scenario: GherkinScenario): Scenario {
   const startLine = firstTagLine;
   const endLine = steps.length > 0 ? steps[steps.length - 1].line : headerLine;
 
-  return { tags, steps, startLine, endLine, headerLine };
+  return { name: scenario.name ?? '', tags, steps, startLine, endLine, headerLine };
 }
 
 export function parse(content: string, _fileUri?: string): Scenario[] {

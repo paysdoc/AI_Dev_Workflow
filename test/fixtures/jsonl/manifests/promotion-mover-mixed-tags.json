@@ -1,0 +1,13 @@
+{
+  "jsonlPath": ".adw-stub-payload.json",
+  "edits": [
+    {
+      "path": ".adw-stub-payload.json",
+      "contents": "[{\"type\":\"text\",\"text\":\"Promotion mover stub — mixed: one @promotion (move) and one @promotion-suggested-<date> (stay).\\n\"}]\n"
+    },
+    {
+      "path": "features/per-issue/feature-9102.feature",
+      "contents": "@adw-9102\nFeature: Mixed tags scenario\n\n  @adw-9102 @promotion\n  Scenario: Approved scenario that will be moved\n    Given setup\n    When action\n    Then regression value confirmed\n\n  @adw-9102 @promotion-suggested-2026-05-15\n  Scenario: Only suggested scenario that should stay\n    Given setup\n    When another action\n    Then another result\n"
+    }
+  ]
+}
