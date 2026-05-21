@@ -8,7 +8,7 @@
  */
 
 import { Given } from '@cucumber/cucumber';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync } from 'fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, readFileSync } from 'fs';
 import { join, resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
@@ -206,9 +206,10 @@ Given(
 Given(
   'the mock GitHub API is configured to accept label applications',
   function (this: RegressionWorld) {
+    assert.ok(this.mockContext, 'mockContext must be initialised in a Before hook');
     // The mock server records all POST /repos/.../issues/:n/labels by default.
-    // This step documents intent; no additional seeding required.
-    return 'pending';
+    const serverUrl = this.mockContext.serverUrl;
+    this.harnessEnv = { ...this.harnessEnv, GH_HOST: serverUrl.replace(/^https?:\/\//, ''), GITHUB_API_URL: serverUrl };
   },
 );
 
@@ -216,13 +217,58 @@ Given(
 // features/per-issue/step_definitions/feature-509.steps.ts — no duplicate here.
 
 // ---------------------------------------------------------------------------
+// Helpers: tag insertion into feature files
+// ---------------------------------------------------------------------------
+
+function insertTagAtHeader(lines: string[], headerIdx: number, newTag: string): string {
+  let nearestTagIdx = -1;
+  for (let i = headerIdx - 1; i >= 0; i--) {
+    const trimmed = (lines[i] ?? '').trimStart();
+    if (trimmed.startsWith('@')) {
+      if (nearestTagIdx === -1) nearestTagIdx = i;
+    } else if (trimmed.length > 0) {
+      break;
+    }
+  }
+  if (nearestTagIdx !== -1) {
+    lines[nearestTagIdx] = `${lines[nearestTagIdx]} ${newTag}`;
+  } else {
+    const indent = (lines[headerIdx] ?? '').match(/^(\s*)/)?.[1] ?? '';
+    lines.splice(headerIdx, 0, `${indent}${newTag}`);
+  }
+  return lines.join('\n');
+}
+
+function insertTagForScenario(content: string, scenarioName: string | null, newTag: string): string {
+  const lines = content.split('\n');
+  const headerIdx = scenarioName === null
+    ? lines.findIndex((l) => /^\s*Scenario:/.test(l))
+    : lines.findIndex((l) => {
+        const t = l.trimStart();
+        return t.startsWith('Scenario:') && t.slice('Scenario:'.length).trim() === scenarioName;
+      });
+  if (headerIdx === -1) {
+    throw new Error(scenarioName === null
+      ? 'No Scenario: header found in feature file'
+      : `Scenario "${scenarioName}" not found in feature file`);
+  }
+  return insertTagAtHeader(lines, headerIdx, newTag);
+}
+
+// ---------------------------------------------------------------------------
 // G14: seeded scenario pre-tagged with today's date
 // ---------------------------------------------------------------------------
 
 Given(
   'the seeded scenario in {string} in the worktree for adwId {string} is pre-tagged with "@promotion-suggested-" dated today',
-  function (this: RegressionWorld, _filePath: string, _adwId: string) {
-    return 'pending';
+  function (this: RegressionWorld, filePath: string, adwId: string) {
+    const worktreePath = this.worktreePaths.get(adwId);
+    assert.ok(worktreePath, `No worktree found for adwId "${adwId}"`);
+    const fullPath = join(worktreePath, filePath);
+    const today = new Date().toISOString().slice(0, 10);
+    const tag = `@promotion-suggested-${today}`;
+    const updated = insertTagForScenario(readFileSync(fullPath, 'utf-8'), null, tag);
+    writeFileSync(fullPath, updated, 'utf-8');
   },
 );
 
@@ -232,8 +278,15 @@ Given(
 
 Given(
   'the seeded scenario in {string} in the worktree for adwId {string} is pre-tagged with "@promotion-suggested-" dated {int} days ago',
-  function (this: RegressionWorld, _filePath: string, _adwId: string, _daysAgo: number) {
-    return 'pending';
+  function (this: RegressionWorld, filePath: string, adwId: string, daysAgo: number) {
+    const worktreePath = this.worktreePaths.get(adwId);
+    assert.ok(worktreePath, `No worktree found for adwId "${adwId}"`);
+    const fullPath = join(worktreePath, filePath);
+    const d = new Date();
+    d.setDate(d.getDate() - daysAgo);
+    const tag = `@promotion-suggested-${d.toISOString().slice(0, 10)}`;
+    const updated = insertTagForScenario(readFileSync(fullPath, 'utf-8'), null, tag);
+    writeFileSync(fullPath, updated, 'utf-8');
   },
 );
 
@@ -243,8 +296,14 @@ Given(
 
 Given(
   'the seeded scenario named {string} in {string} in the worktree for adwId {string} is pre-tagged with "@promotion-suggested-" dated today',
-  function (this: RegressionWorld, _scenarioName: string, _filePath: string, _adwId: string) {
-    return 'pending';
+  function (this: RegressionWorld, scenarioName: string, filePath: string, adwId: string) {
+    const worktreePath = this.worktreePaths.get(adwId);
+    assert.ok(worktreePath, `No worktree found for adwId "${adwId}"`);
+    const fullPath = join(worktreePath, filePath);
+    const today = new Date().toISOString().slice(0, 10);
+    const tag = `@promotion-suggested-${today}`;
+    const updated = insertTagForScenario(readFileSync(fullPath, 'utf-8'), scenarioName, tag);
+    writeFileSync(fullPath, updated, 'utf-8');
   },
 );
 
@@ -254,8 +313,15 @@ Given(
 
 Given(
   'the seeded scenario named {string} in {string} in the worktree for adwId {string} is pre-tagged with "@promotion-suggested-" dated {int} days ago',
-  function (this: RegressionWorld, _scenarioName: string, _filePath: string, _adwId: string, _daysAgo: number) {
-    return 'pending';
+  function (this: RegressionWorld, scenarioName: string, filePath: string, adwId: string, daysAgo: number) {
+    const worktreePath = this.worktreePaths.get(adwId);
+    assert.ok(worktreePath, `No worktree found for adwId "${adwId}"`);
+    const fullPath = join(worktreePath, filePath);
+    const d = new Date();
+    d.setDate(d.getDate() - daysAgo);
+    const tag = `@promotion-suggested-${d.toISOString().slice(0, 10)}`;
+    const updated = insertTagForScenario(readFileSync(fullPath, 'utf-8'), scenarioName, tag);
+    writeFileSync(fullPath, updated, 'utf-8');
   },
 );
 
