@@ -1196,3 +1196,13 @@
     - When troubleshooting live ADW agents being unexpectedly killed by the janitor (exit code 143)
     - When extending `JanitorDeps` with new injectable dependencies for the janitor
     - When writing tests for `devServerJanitor.ts` (follow the state-file-driven lookup pattern, use real branch-name fixtures)
+
+- app_docs/feature-2wrg9y-promotion-mover-regression-pr.md
+  - Conditions:
+    - When implementing or troubleshooting `runPromotionMover` in `adws/promotion/promotionMover.ts`
+    - When working with `promotionApprovalDetector.ts` or the bare `@promotion` approval signal
+    - When extending `TagState` with new tag operations in `promotionTagWriter.ts` (`'remove-suggestion'`, `'strip-approval'`)
+    - When a `regression-promotion` PR is not being opened after a human edits `@promotion-suggested-<date>` to `@promotion`
+    - When troubleshooting idempotency (duplicate move PRs) or branch naming for regression-promotion branches
+    - When the destination regression file is missing or the `@promotion` tag is not being stripped from the moved scenario
+    - When wiring new I/O dependencies into `buildMoverDeps` in `adwPromotionSweep.tsx`
