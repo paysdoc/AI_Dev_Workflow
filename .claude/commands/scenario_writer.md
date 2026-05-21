@@ -23,6 +23,20 @@ This prompt branches on three optional sections in `.adw/scenarios.md`. When all
 - If `## Regression Scenario Directory` is set → skip Step 6 entirely. Regression promotion is a deliberate human decision; the agent never auto-promotes.
 - If absent → perform the existing sweep as described in Step 6.
 
+## Rot Prevention
+
+Scenarios must assert observable system *behaviour*, not source-code properties. The following shapes are **explicitly prohibited**:
+
+- **File-existence checks**: asserting that a source file exists (e.g. `Then the file "src/foo.ts" exists`). If a refactor renames the file, the scenario fails even though behaviour is unchanged.
+- **Substring matches against file contents**: asserting that a source file contains a string (e.g. reading `readFileSync("config.ts")` then calling `.includes("someKey")`). Source content is not an observable output.
+- **Structural source-file parsing**: parsing a source file as JSON or AST and asserting against its structure (e.g. `JSON.parse(readFileSync("config.ts"))["someKey"] === "value"`).
+
+Scenarios **may** assert against the *outputs* of the system under test — state files written by orchestrators, recorded calls on a mock server, git artifacts produced by phases — because those are artefacts, not source files.
+
+**Vocabulary preference**: At the start of each run, read `features/regression/vocabulary.md` from the target repository *if the file exists*. When present, prefer phrases already registered there before introducing novel Gherkin phrasing. If no registered phrase fits, novel phrasing is allowed — surface the gap in the Output section so it is visible to the maintainer. When the file is absent, the prohibitions above still apply; the vocabulary-preference step is a no-op.
+
+**Universality**: This rule applies to every scenario written, in every target repository, on every invocation. It is framework-owned and is not overridable via `.adw/scenarios.md` or any per-repo configuration.
+
 ## Instructions
 
 ### 1. Read configuration
