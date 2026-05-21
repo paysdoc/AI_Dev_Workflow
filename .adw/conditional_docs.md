@@ -1,5 +1,15 @@
 # Conditional Documentation
 
+- app_docs/feature-nnny1e-vocabulary-template-and-flags.md
+  - Conditions:
+    - When modifying `.claude/commands/adw_init.md` step 7 (vocabulary template copy or polymorphism flags)
+    - When `adwInit` is failing to produce `features/regression/vocabulary.md` in a target repo
+    - When `.adw/scenarios.md` is missing `## Per-Issue Scenario Directory` or `## Regression Scenario Directory` after init
+    - When working with `templates/vocabulary.md.template` or adding new sections to the universal seed
+    - When troubleshooting the `frameworkRepoRoot` (`$3`) arg in `/adw_init` or its resolution in `adwInit.tsx`
+    - When onboarding a new target repo and the tiered per-issue/regression layout is not being created
+    - When adding per-issue BDD scenarios for issue-507-class features (vocabulary distribution, polymorphism flags)
+
 - app_docs/feature-mzgyjj-rot-prevention-block.md
   - Conditions:
     - When modifying `.claude/commands/scenario_writer.md` or reviewing the rot prevention rule

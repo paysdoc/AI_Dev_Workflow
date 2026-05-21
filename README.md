@@ -490,6 +490,7 @@ adws/                   # ADW workflow system
 │   ├── orchestratorCli.ts  # Shared CLI parsing utilities
 │   ├── orchestratorLib.ts
 │   ├── pauseQueue.ts   # Pause queue for rate-limit pause/resume
+│   ├── slackNotifier.ts  # Minimal Slack webhook notifier for auth-gate events (no-throw at boundary)
 │   ├── phaseRunner.ts  # PhaseRunner / CostTracker composition
 │   ├── portAllocator.ts
 │   ├── processLiveness.ts  # PID-reuse-safe process liveness checks
@@ -571,6 +572,7 @@ adws/                   # ADW workflow system
 │   ├── buildPhase.ts
 │   ├── documentPhase.ts
 │   ├── index.ts
+│   ├── authPause.ts    # Auth-required pause handler (host-wide auth failure, mirrors rate-limit pause path)
 │   ├── depauditSetup.ts  # depaudit setup and secret propagation (used by adw_init)
 │   ├── installPhase.ts # Install phase implementation
 │   ├── kpiPhase.ts     # KPI tracking phase

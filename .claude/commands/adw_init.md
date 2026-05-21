@@ -9,8 +9,9 @@ Analyze the current working directory's codebase and generate the `.adw/` config
 issueNumber: $0 — MUST be a numeric GitHub issue number (e.g., 31, 456). Default: 0
 adwId: $1 — MUST be the alphanumeric ADW workflow ID string (e.g., "init-adw-env-4qugib", "abc123"). Default: `adw-unknown`
 issueJson: $2 — JSON string containing full issue details. Default: `{}`
+frameworkRepoRoot: $3 — Absolute path to the ADW framework repository root. Used by step 7 to locate `templates/vocabulary.md.template`. Default: empty string (skip template copy if empty).
 
-CRITICAL: $0 is ALWAYS the numeric issue number. $1 is ALWAYS the ADW ID string. Do NOT swap these values.
+CRITICAL: $0 is ALWAYS the numeric issue number. $1 is ALWAYS the ADW ID string. $2 is ALWAYS the issue JSON string. $3 is ALWAYS the framework repo root path. Do NOT swap these values.
 Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init-adw-env-4qugib-sdlc_planner-{descriptiveName}.md`
 
 ## Instructions
@@ -112,7 +113,17 @@ Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init
      - `## Scenario Directory` → `features/`
      - `## Run Scenarios by Tag` → `cucumber-js --tags "@{tag}"`
      - `## Run Regression Scenarios` → `cucumber-js --tags "@regression"`
+   - **Always include** a `## Per-Issue Scenario Directory` section with value `features/per-issue/` (independent of the detected scenario tool).
+   - **Always include** a `## Regression Scenario Directory` section with value `features/regression/` (independent of the detected scenario tool).
+   - **Copy the framework vocabulary template**: if `$3` (`frameworkRepoRoot`) is non-empty, run the following via the Bash tool:
+     ```bash
+     mkdir -p features/regression
+     cp "$3/templates/vocabulary.md.template" features/regression/vocabulary.md
+     ```
+     If `$3` is empty (legacy invocation without framework repo root), skip the copy and log a warning in the step 8 report.
 
 8. **Report**
-   - List all files created (`commands.md`, `project.md`, `conditional_docs.md`, `providers.md`, `review_proof.md`, `scenarios.md`)
+   - List all files created (`commands.md`, `project.md`, `conditional_docs.md`, `providers.md`, `review_proof.md`, `scenarios.md`, and `features/regression/vocabulary.md` when copied)
    - Summarize the detected project type and key configuration choices
+   - Note both `## Per-Issue Scenario Directory` and `## Regression Scenario Directory` sections written to `scenarios.md`
+   - If the vocabulary template copy was skipped (empty `$3`), note the warning here
