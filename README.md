@@ -424,12 +424,15 @@ Docker execution is entirely optional — the test suite runs identically on the
 │   └── write-a-skill/
 │       └── SKILL.md
 └── settings.json
+templates/              # ADW framework-level templates
+└── vocabulary.md.template  # Seed template for target-repo regression vocabulary registries
 adws/                   # ADW workflow system
 ├── __tests__/          # Vitest integration tests
 │   ├── adwMerge.test.ts
 │   ├── depauditSetup.test.ts
 │   ├── issueDependencies.test.ts
-│   └── triggerWebhook.test.ts
+│   ├── triggerWebhook.test.ts
+│   └── vocabularyTemplate.test.ts
 ├── agents/             # Claude Code agent runners
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── claudeAgent.test.ts
