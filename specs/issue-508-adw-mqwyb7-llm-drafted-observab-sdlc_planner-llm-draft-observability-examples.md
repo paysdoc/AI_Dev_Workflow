@@ -16,7 +16,7 @@ Two canonical tailoring decisions follow the PRD acceptance criteria:
 - **Browser-test-equipped repo** (e.g. `@playwright/test` present in `devDependencies`): the examples block includes DOM snapshots and screenshot artefacts alongside the universal surfaces (state files, recorded HTTP requests, git artefacts, exit codes).
 - **CLI-only repo** (no browser test runner detected): the examples block is scoped to state files, recorded HTTP requests, git artefacts, log streams, and exit codes — no DOM or screenshot entries.
 
-The Markdown structure of the drafted block follows the framework's own `features/regression/vocabulary.md` conventions: a heading (`## Observability Surfaces (Examples)`), a brief one-sentence intro paragraph, and a bulleted list where each bullet names a surface (bold) followed by a short description of what scenarios written in this repo can assert against it.
+The Markdown structure of the drafted block follows the framework's own `features/regression/vocabulary.md` conventions: a heading (`## Observability Surfaces (Examples)`), a brief one-sentence intro paragraph, and a **Markdown table** (header row + separator row + at least two data rows) where each row names a surface and describes the kind of artefact a scenario in this repo can assert against. The table format mirrors the framework vocabulary's Given/When/Then phrase tables.
 
 The rubber-stamp risk on the LLM-drafted content is accepted per PRD user story 19 — there is no maintainer-gating workflow on the init PR for this block. Miscalibration surfaces in the first scenarios produced against the repo.
 
@@ -54,7 +54,7 @@ Use these files to implement the feature:
 
 - `.claude/commands/adw_init.md` — **Primary modification point.** Step 7 is extended with the new sub-step (post-template-copy) that detects the stack class and instructs the agent to draft the examples block. The current step 7 (lines 98–123) already houses the template copy from slice #507; the new instructions follow the existing `## Per-Issue Scenario Directory` / `## Regression Scenario Directory` sub-bullets and the template-copy block. Step 8 (Report) gains a one-line bullet acknowledging the examples-block drafting outcome.
 - `templates/vocabulary.md.template` — **Reference, not modified.** The placeholder comment (`<!-- TODO (slice #3, issue ??): ... -->`) is the byte-range the new step replaces in the target repo's materialised copy. The template itself remains the canonical seed for the static sections (rubric, execution patterns, seed phrases).
-- `features/regression/vocabulary.md` — **Reference for Markdown structure.** The drafted examples block follows the framework vocabulary's structural conventions (heading level, intro paragraph style, bullet formatting, code-tick usage for surface category names). The framework's own `features/regression/vocabulary.md` does not have an `## Observability Surfaces (Examples)` section, so the structural template comes from the framework's broader vocabulary patterns (introductory paragraph + tables/lists with brief descriptions).
+- `features/regression/vocabulary.md` — **Reference for Markdown structure.** The drafted examples block follows the framework vocabulary's structural conventions (heading level, intro paragraph style, **Markdown table** for the surface enumeration with header row + separator row + data rows). The framework's own `features/regression/vocabulary.md` does not have an `## Observability Surfaces (Examples)` section, but its Given/When/Then phrase blocks are Markdown tables — that table layout is the canonical structure the drafted block mirrors.
 - `adws/adwInit.tsx` — **Reference, not modified.** Confirms `frameworkRepoRoot` is already passed as the 4th positional arg (lines 70–82) from slice #507; no orchestrator-side change required for this slice.
 - `specs/prd/scenario-rot-prevention-and-promotion.md` — Parent PRD. User stories 17 (vocabulary.md in target repo, examples portion) and 19 (rubber-stamp acceptance) are the acceptance gates for this slice.
 - `specs/issue-507-adw-nnny1e-vocabulary-md-templa-sdlc_planner-vocabulary-template-and-flags.md` — Spec for the blocking slice (#507). The template structure, the `frameworkRepoRoot: $3` arg, and the existing step-7 modifications all originate there.
@@ -75,9 +75,10 @@ Use these files to implement the feature:
 
 - `features/per-issue/feature-508.feature` — BDD scenarios validating the artefact outputs of `/adw_init` step 7's new examples-block drafting sub-step for issue #508. Tagged `@adw-508 @adw-mqwyb7-llm-drafted-observab`.
 - `features/per-issue/step_definitions/feature-508.steps.ts` — Step-definition implementations specific to issue #508 (target-repo artefact assertions for the materialised `features/regression/vocabulary.md` examples block content). Re-uses `targetRepos` and shared helpers from `feature-506.steps.ts` and `feature-507.steps.ts`.
-- `test/fixtures/jsonl/manifests/adw-init-drafts-examples-playwright.json` — Manifest sequencing the stubbed `/adw_init` agent for a target repo with `@playwright/test` in `devDependencies`. Simulates the agent writing `features/regression/vocabulary.md` with an examples block that contains DOM and screenshot surface bullets.
-- `test/fixtures/jsonl/manifests/adw-init-drafts-examples-cli.json` — Manifest variant for a CLI-only target repo. Simulates the agent writing `features/regression/vocabulary.md` with an examples block scoped to state files, recorded requests, exit codes, and git artefacts — explicitly without DOM or screenshot bullets.
-- `test/fixtures/jsonl/manifests/adw-init-drafts-examples-fallback.json` — Manifest variant for a repo where the stack cannot be classified (empty manifests, unrecognised structure). Simulates the agent writing a minimal universal examples block and noting the fallback in step-8 output.
+- `test/fixtures/jsonl/manifests/adw-init-drafts-playwright-examples.json` — Manifest sequencing the stubbed `/adw_init` agent for a target repo with `@playwright/test` in `devDependencies`. Simulates the agent writing `features/regression/vocabulary.md` with an examples block whose Markdown table includes DOM and screenshot surface rows.
+- `test/fixtures/jsonl/manifests/adw-init-drafts-cli-examples.json` — Manifest variant for a CLI-only target repo. Simulates the agent writing `features/regression/vocabulary.md` with an examples block whose Markdown table is scoped to state files, recorded requests, exit codes, and git artefacts — explicitly without DOM or screenshot rows.
+
+The "fallback" classification path (no manifest parseable) is part of the prompt's classification rules — see Phase 2 below — but is not separately validated by a BDD scenario in this slice, so no dedicated manifest fixture is added for it.
 
 ## Implementation Plan
 
@@ -87,8 +88,8 @@ Confirm the contract surface for the new sub-step:
 
 1. Where in step 7 the drafting instruction is inserted — chosen anchor: directly after the existing `**Copy the framework vocabulary template**` Bash block and before step 8 begins. This places the drafting after the template materialisation so the agent edits a file that already exists.
 2. What input the agent uses to classify the stack — chosen surface: **re-use the analysis from step 1** (manifests, dev dependencies, test directories). The agent does not re-read files; it consults its existing analysis.
-3. What output structure the drafted block follows — chosen format: a Markdown heading-anchored block between `## Observability Surfaces (Examples)` and `## Three Permitted Execution Patterns`, structured as a one-sentence intro paragraph + bulleted list of surfaces with one-line descriptions per bullet. The bullet style matches the framework `features/regression/vocabulary.md` rubric bullets (`- **Surface** — description`).
-4. What classification axis is used — chosen detection: presence/absence of any **browser-based test runner** in `devDependencies` (`@playwright/test`, `playwright`, `cypress`, `puppeteer`, `webdriverio`, `nightwatch`, `@testing-library/jest-dom`-with-jsdom). Presence → include DOM and screenshot surface bullets. Absence → CLI-only fallback.
+3. What output structure the drafted block follows — chosen format: a Markdown heading-anchored block between `## Observability Surfaces (Examples)` and `## Three Permitted Execution Patterns`, structured as a one-sentence intro paragraph + a Markdown table (header row + separator row + at least two data rows). The table style matches the framework `features/regression/vocabulary.md` Given/When/Then phrase tables (a header row, a separator row of dashes, and one data row per surface).
+4. What classification axis is used — chosen detection: presence/absence of any **browser-based test runner** in `devDependencies` (`@playwright/test`, `playwright`, `cypress`, `puppeteer`, `webdriverio`, `nightwatch`, `@testing-library/jest-dom`-with-jsdom). Presence → include DOM and screenshot surface rows in the table. Absence → CLI-only fallback (no DOM/screenshot rows).
 
 No code is written in this phase; the choices above are documented in step 7's new sub-step so the implementing agent reads them as instructions, not as decisions to make on its own.
 
@@ -104,40 +105,46 @@ Modify `.claude/commands/adw_init.md` step 7 to add the new sub-step. The instru
 
 2. Locate the `<!-- TODO (slice #3, issue ??): ... -->` placeholder in the target repo's `features/regression/vocabulary.md` (the file copied verbatim by the preceding template-copy bullet). The placeholder sits between `## Observability Surfaces (Examples)` and `## Three Permitted Execution Patterns`.
 
-3. Replace the placeholder with a drafted block matching the chosen class:
+3. Replace the placeholder with a drafted block matching the chosen class. Each block is a Markdown table — header row, separator row, then one data row per surface — preceded by a one-sentence intro paragraph:
 
    **Browser-test-equipped block**:
    ```markdown
    Scenarios in this repo can assert against the following observable surfaces:
 
-   - **State files** — JSON or other structured output files written by orchestrators, CLI tools, or test fixtures (e.g. `agents/<adwId>/state.json`).
-   - **Recorded HTTP requests** — request logs captured by a mock HTTP server fronting the system under test.
-   - **Git artefacts** — branches, commits, pushes, and worktree state produced by the system under test.
-   - **DOM snapshots** — serialised page DOM extracted by the browser test runner during scenario execution.
-   - **Screenshot artefacts** — image files captured by the browser test runner at known assertion points.
-   - **Exit codes** — termination status of subprocesses spawned by the test harness.
-   - **Log streams** — stdout/stderr captured from spawned processes and asserted against by substring or regex.
+   | # | Surface | Evidence | Example |
+   |---|---------|----------|---------|
+   | 1 | State files | JSON or other structured output files written by orchestrators, CLI tools, or test fixtures | `agents/<adwId>/state.json` |
+   | 2 | Recorded HTTP requests | Request logs captured by a mock HTTP server fronting the system under test | mock server `getRecordedRequests()` |
+   | 3 | Git artefacts | Branches, commits, pushes, and worktree state produced by the system under test | `git log --oneline` on the worktree branch |
+   | 4 | DOM snapshots | Serialised page DOM extracted by the browser test runner during scenario execution | Playwright `page.content()` capture |
+   | 5 | Screenshot artefacts | Image files captured by the browser test runner at known assertion points | Playwright `page.screenshot()` output |
+   | 6 | Exit codes | Termination status of subprocesses spawned by the test harness | `spawnSync(...).status` |
+   | 7 | Log streams | stdout/stderr captured from spawned processes and asserted against by substring or regex | `spawnSync(...).stdout` |
    ```
 
    **CLI-only block**:
    ```markdown
    Scenarios in this repo can assert against the following observable surfaces:
 
-   - **State files** — JSON or other structured output files written by orchestrators, CLI tools, or test fixtures.
-   - **Recorded HTTP requests** — request logs captured by a mock HTTP server fronting the system under test.
-   - **Git artefacts** — branches, commits, pushes, and worktree state produced by the system under test.
-   - **Exit codes** — termination status of subprocesses spawned by the test harness.
-   - **Log streams** — stdout/stderr captured from spawned processes and asserted against by substring or regex.
+   | # | Surface | Evidence | Example |
+   |---|---------|----------|---------|
+   | 1 | State files | JSON or other structured output files written by orchestrators, CLI tools, or test fixtures | `agents/<adwId>/state.json` |
+   | 2 | Recorded HTTP requests | Request logs captured by a mock HTTP server fronting the system under test | mock server `getRecordedRequests()` |
+   | 3 | Git artefacts | Branches, commits, pushes, and worktree state produced by the system under test | `git log --oneline` on the worktree branch |
+   | 4 | Exit codes | Termination status of subprocesses spawned by the test harness | `spawnSync(...).status` |
+   | 5 | Log streams | stdout/stderr captured from spawned processes and asserted against by substring or regex | `spawnSync(...).stdout` |
    ```
 
    **Fallback block**:
    ```markdown
    Scenarios in this repo can assert against the following observable surfaces:
 
-   - **State files** — JSON or other structured output files written by the system under test.
-   - **Recorded HTTP requests** — request logs captured by a mock HTTP server (if one is present in the repo).
-   - **Exit codes** — termination status of subprocesses.
-   - **Log streams** — stdout/stderr captured from spawned processes.
+   | # | Surface | Evidence | Example |
+   |---|---------|----------|---------|
+   | 1 | State files | JSON or other structured output files written by the system under test | (refine as patterns emerge) |
+   | 2 | Recorded HTTP requests | Request logs captured by a mock HTTP server (if one is present in the repo) | (refine as patterns emerge) |
+   | 3 | Exit codes | Termination status of subprocesses | `spawnSync(...).status` |
+   | 4 | Log streams | stdout/stderr captured from spawned processes | `spawnSync(...).stdout` |
 
    Note: the stack could not be classified automatically; refine this list as your test surfaces solidify.
    ```
@@ -152,45 +159,71 @@ The framework-side change is **prompt-only** — no TypeScript, no orchestrator 
 
 Add per-issue BDD scenarios under `features/per-issue/feature-508.feature` plus their step definitions and JSONL manifest fixtures. The scenarios validate **observable artefact content** in the target repo (the materialised `features/regression/vocabulary.md` file) — not source-file properties of the framework prompt.
 
-Three scenarios cover the three classification branches:
+Five scenarios are introduced — one per acceptance criterion plus a combined integration check:
 
-§1 — Browser-test-equipped target repo:
+§1 — Placeholder removal and section population:
 
-1. `adwInit on a target repo with @playwright/test in devDependencies produces an examples block mentioning DOM/screenshot evidence`:
-   - Given a fresh target repo "tgt-508-playwright" with package.json declaring "@playwright/test" in devDependencies
-   - And the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/adw-init-drafts-examples-playwright.json"
-   - When the adwInit agent is invoked in target repo "tgt-508-playwright" with adwId "init-508-1" for issue 1201
-   - Then the artefact file at "features/regression/vocabulary.md" in target repo "tgt-508-playwright" mentions a "DOM" surface in its observability examples block
-   - And the artefact file at "features/regression/vocabulary.md" in target repo "tgt-508-playwright" mentions a "screenshot" surface in its observability examples block
-   - And the artefact file at "features/regression/vocabulary.md" in target repo "tgt-508-playwright" no longer contains the slice-#507 placeholder comment
+1. `adwInit replaces the slice-#507 Observability Surfaces TODO placeholder with a populated examples block`:
+   - Given a fresh target repo "tgt-508-placeholder" with no `features/regression/vocabulary.md`
+   - And the target repo "tgt-508-placeholder" has a package.json declaring "@playwright/test" in devDependencies
+   - And the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/adw-init-drafts-playwright-examples.json"
+   - When the adwInit agent is invoked in target repo "tgt-508-placeholder" with adwId "init-508-1" for issue 1201
+   - Then the artefact file at "features/regression/vocabulary.md" exists in target repo "tgt-508-placeholder"
+   - And the artefact file at "features/regression/vocabulary.md" in target repo "tgt-508-placeholder" no longer contains the slice-#507 observability-surfaces TODO placeholder marker
+   - And the artefact file at "features/regression/vocabulary.md" in target repo "tgt-508-placeholder" contains a "## Observability Surfaces" section heading
+   - And the Observability Surfaces section in target repo "tgt-508-placeholder" has at least one populated table data row
 
-§2 — CLI-only target repo:
+§2 — Browser-test-equipped target repo produces DOM/screenshot entries:
 
-2. `adwInit on a CLI-only target repo produces an examples block scoped to state files, recorded requests, and exit codes (no DOM/screenshot)`:
-   - Given a fresh target repo "tgt-508-cli" with package.json declaring no browser test runners
-   - And the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/adw-init-drafts-examples-cli.json"
-   - When the adwInit agent is invoked in target repo "tgt-508-cli" with adwId "init-508-2" for issue 1202
-   - Then the artefact file at "features/regression/vocabulary.md" in target repo "tgt-508-cli" mentions a "State files" surface in its observability examples block
-   - And the artefact file at "features/regression/vocabulary.md" in target repo "tgt-508-cli" mentions a "Recorded HTTP requests" surface in its observability examples block
-   - And the artefact file at "features/regression/vocabulary.md" in target repo "tgt-508-cli" mentions an "Exit codes" surface in its observability examples block
-   - And the artefact file at "features/regression/vocabulary.md" in target repo "tgt-508-cli" does not mention a "DOM" surface in its observability examples block
-   - And the artefact file at "features/regression/vocabulary.md" in target repo "tgt-508-cli" does not mention a "screenshot" surface in its observability examples block
-   - And the artefact file at "features/regression/vocabulary.md" in target repo "tgt-508-cli" no longer contains the slice-#507 placeholder comment
+2. `adwInit on a repo with @playwright/test in devDependencies drafts DOM and screenshot entries`:
+   - Given a fresh target repo "tgt-508-playwright" with no `features/regression/vocabulary.md`
+   - And the target repo "tgt-508-playwright" has a package.json declaring "@playwright/test" in devDependencies
+   - And the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/adw-init-drafts-playwright-examples.json"
+   - When the adwInit agent is invoked in target repo "tgt-508-playwright" with adwId "init-508-2" for issue 1202
+   - Then the Observability Surfaces section in target repo "tgt-508-playwright" lists at least one DOM-based evidence entry
+   - And the Observability Surfaces section in target repo "tgt-508-playwright" lists at least one screenshot-based evidence entry
 
-§3 — Structural conformance:
+§3 — CLI-only target repo produces a scoped block without DOM/screenshot entries:
 
-3. `The drafted examples block follows the same Markdown structure as the framework's own vocabulary.md examples`:
-   - Given a fresh target repo "tgt-508-struct" with package.json declaring no browser test runners
-   - And the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/adw-init-drafts-examples-cli.json"
-   - When the adwInit agent is invoked in target repo "tgt-508-struct" with adwId "init-508-3" for issue 1203
-   - Then the artefact file at "features/regression/vocabulary.md" in target repo "tgt-508-struct" contains a "## Observability Surfaces (Examples)" section heading
-   - And the observability examples block in target repo "tgt-508-struct" contains at least one Markdown bullet item
-   - And every bullet in the observability examples block in target repo "tgt-508-struct" matches the framework bullet pattern "- **Name** — description"
-   - And the artefact file at "features/regression/vocabulary.md" in target repo "tgt-508-struct" contains the universal "## Rot-Detection Rubric" heading after the examples block
+3. `adwInit on a CLI-only repo drafts an examples block scoped to state files, recorded requests, and exit codes`:
+   - Given a fresh target repo "tgt-508-cli" with no `features/regression/vocabulary.md`
+   - And the target repo "tgt-508-cli" has a package.json declaring no UI test framework in devDependencies
+   - And the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/adw-init-drafts-cli-examples.json"
+   - When the adwInit agent is invoked in target repo "tgt-508-cli" with adwId "init-508-3" for issue 1203
+   - Then the Observability Surfaces section in target repo "tgt-508-cli" lists at least one state-file evidence entry
+   - And the Observability Surfaces section in target repo "tgt-508-cli" lists at least one recorded-request evidence entry
+   - And the Observability Surfaces section in target repo "tgt-508-cli" lists at least one exit-code evidence entry
+   - And the Observability Surfaces section in target repo "tgt-508-cli" lists no DOM-based evidence entries
+   - And the Observability Surfaces section in target repo "tgt-508-cli" lists no screenshot-based evidence entries
+
+§4 — Markdown table layout conformance:
+
+4. `The drafted Observability Surfaces section uses a Markdown table with a header row, a separator row, and data rows`:
+   - Given a fresh target repo "tgt-508-shape" with no `features/regression/vocabulary.md`
+   - And the target repo "tgt-508-shape" has a package.json declaring "@playwright/test" in devDependencies
+   - And the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/adw-init-drafts-playwright-examples.json"
+   - When the adwInit agent is invoked in target repo "tgt-508-shape" with adwId "init-508-4" for issue 1204
+   - Then the Observability Surfaces section in target repo "tgt-508-shape" begins with a Markdown table header row
+   - And the Observability Surfaces section in target repo "tgt-508-shape" has a Markdown table separator row immediately beneath the header row
+   - And the Observability Surfaces section in target repo "tgt-508-shape" has at least two Markdown table data rows under the separator row
+
+§5 — Combined integration check (Playwright target):
+
+5. `A single adwInit run on a fresh Playwright target repo simultaneously removes the placeholder, populates the examples section, and uses the framework table layout`:
+   - Given a fresh target repo "tgt-508-combined" with no `features/regression/vocabulary.md`
+   - And the target repo "tgt-508-combined" has a package.json declaring "@playwright/test" in devDependencies
+   - And the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/adw-init-drafts-playwright-examples.json"
+   - When the adwInit agent is invoked in target repo "tgt-508-combined" with adwId "init-508-5" for issue 1205
+   - Then the artefact file at "features/regression/vocabulary.md" exists in target repo "tgt-508-combined"
+   - And the artefact file at "features/regression/vocabulary.md" in target repo "tgt-508-combined" no longer contains the slice-#507 observability-surfaces TODO placeholder marker
+   - And the artefact file at "features/regression/vocabulary.md" in target repo "tgt-508-combined" contains a "## Observability Surfaces" section heading
+   - And the Observability Surfaces section in target repo "tgt-508-combined" lists at least one DOM-based evidence entry
+   - And the Observability Surfaces section in target repo "tgt-508-combined" lists at least one screenshot-based evidence entry
+   - And the Observability Surfaces section in target repo "tgt-508-combined" has at least two Markdown table data rows under the separator row
 
 The scenarios use the existing `claude-cli-stub` + JSONL manifest harness (same pattern as feature-507). They do **not** boot the full `adwInit.tsx` orchestrator (depaudit setup, target-repo clone, commit, PR creation) — that surface is out of scope for per-issue scenarios in this slice.
 
-The three manifest fixtures simulate the agent's complete `vocabulary.md` output for each class (placeholder already replaced). The CLI-only and fallback manifests share scenarios §2 and §3's coverage — §3 deliberately uses the CLI-only manifest to keep the structural assertion repo-agnostic.
+The two manifest fixtures simulate the agent's complete `vocabulary.md` output for each tested class (playwright + CLI; placeholder already replaced). The fallback class is documented in the prompt instructions but not separately validated by a BDD scenario in this slice.
 
 ## Step by Step Tasks
 
@@ -213,64 +246,80 @@ Execute every step in order, top to bottom.
 - Add the three drafted block bodies (browser-test-equipped, CLI-only, fallback) inline in the prompt so the agent has the exact text to write — no LLM paraphrasing of the surface descriptions, only the choice of which block to apply.
 - Extend step 8 (Report) to include one new bullet: `Examples-block class chosen: <browser-test-equipped | CLI-only | fallback>; placeholder replacement: <succeeded | skipped: <reason>>.`
 
-### 2. Add manifest fixture `test/fixtures/jsonl/manifests/adw-init-drafts-examples-playwright.json`
+### 2. Add manifest fixture `test/fixtures/jsonl/manifests/adw-init-drafts-playwright-examples.json`
 
 - Model on `test/fixtures/jsonl/manifests/adw-init-writes-vocab.json` (the slice-#507 reference).
 - The manifest's single `edits` entry writes `features/regression/vocabulary.md` with content that:
   - Includes the framework's `## Rot-Detection Rubric` paragraph (verbatim from the template).
-  - Replaces the slice-#507 `<!-- TODO ... -->` placeholder with the browser-test-equipped block from Phase 2 step 3 (with DOM and screenshot bullets present).
+  - Replaces the slice-#507 `<!-- TODO ... -->` placeholder with the browser-test-equipped Markdown **table** from Phase 2 step 3 (with DOM and screenshot rows present).
   - Retains the seed-phrase tables and the `## Three Permitted Execution Patterns` heading.
 - `jsonlPath` follows the existing convention (`.adw-stub-payload.json`).
 
-### 3. Add manifest fixture `test/fixtures/jsonl/manifests/adw-init-drafts-examples-cli.json`
+### 3. Add manifest fixture `test/fixtures/jsonl/manifests/adw-init-drafts-cli-examples.json`
 
-- Same structure as the playwright manifest, but with the CLI-only block (no DOM, no screenshot bullets).
+- Same structure as the playwright manifest, but with the CLI-only Markdown table (no DOM, no screenshot rows).
 
-### 4. Add manifest fixture `test/fixtures/jsonl/manifests/adw-init-drafts-examples-fallback.json`
+### 4. (No fallback manifest fixture in this slice)
 
-- Same structure as the playwright manifest, but with the fallback block (universal surfaces + the "stack could not be classified" note).
+- The "fallback" classification is described in the step-7 prompt instructions but is not separately validated by a BDD scenario in this slice. No manifest fixture for the fallback path is created here; refinement is deferred to a later slice if field evidence demonstrates the binary split is too coarse.
 
 ### 5. Add BDD scenario file `features/per-issue/feature-508.feature`
 
 - Header tags: `@adw-508 @adw-mqwyb7-llm-drafted-observab`.
-- Feature line: `Feature: LLM-drafted observability-surfaces examples block in adwInit`.
+- Feature line: `Feature: adwInit LLM-drafts the observability-surfaces examples block in target-repo vocabulary.md`.
 - Background: `Given the ADW framework codebase is checked out` (re-used from feature-507).
-- Background prose: one paragraph explaining the slice context (slice #3 of the rot-prevention PRD), the observability-only assertion contract, and that the agent invocation is simulated through the claude-cli-stub manifest harness.
+- Background prose: one paragraph explaining the slice context (slice #3 of the rot-prevention PRD), the observability-only assertion contract (no source-file assertions against framework prompts), and that the agent invocation is simulated through the claude-cli-stub manifest harness.
 
-Implement the three scenarios from `## Implementation Plan / Phase 3`:
+Implement the five scenarios from `## Implementation Plan / Phase 3`:
 
-§1 (browser-test-equipped):
-- Scenario 1: `adwInit on a target repo with @playwright/test in devDependencies produces an examples block mentioning DOM/screenshot evidence`.
+§1 (placeholder removal + section population):
+- Scenario 1: `adwInit replaces the slice-#507 Observability Surfaces TODO placeholder with a populated examples block`.
 
-§2 (CLI-only):
-- Scenario 2: `adwInit on a CLI-only target repo produces an examples block scoped to state files, recorded requests, and exit codes (no DOM/screenshot)`.
+§2 (browser-test-equipped → DOM/screenshot entries):
+- Scenario 2: `adwInit on a repo with @playwright/test in devDependencies drafts DOM and screenshot entries`.
 
-§3 (structural conformance):
-- Scenario 3: `The drafted examples block follows the same Markdown structure as the framework's own vocabulary.md examples`.
+§3 (CLI-only repo → scoped block):
+- Scenario 3: `adwInit on a CLI-only repo drafts an examples block scoped to state files, recorded requests, and exit codes`.
+
+§4 (Markdown table layout):
+- Scenario 4: `The drafted Observability Surfaces section uses a Markdown table with a header row, a separator row, and data rows`.
+
+§5 (combined integration check on a Playwright target):
+- Scenario 5: `A single adwInit run on a fresh Playwright target repo simultaneously removes the placeholder, populates the examples section, and uses the framework table layout`.
 
 Each scenario carries its own `@adw-508 @adw-mqwyb7-llm-drafted-observab` tag block (matching the per-scenario tagging style used in feature-507).
 
 ### 6. Add step definitions `features/per-issue/step_definitions/feature-508.steps.ts`
 
-Implement the new Given/When/Then step phrases (matching the literal phrasing in `features/per-issue/feature-508.feature`):
+Implement the Given/When/Then step phrases matching the literal phrasing in `features/per-issue/feature-508.feature`:
 
-- `Given a fresh target repo {string} with package.json declaring "@playwright/test" in devDependencies` — initialises a clean temp directory at the named path, writes a minimal `package.json` containing `"devDependencies": { "@playwright/test": "^1.0.0" }`. Uses the regex pattern (escape `@` and `.`) for cucumber-expressions safety.
-- `Given a fresh target repo {string} with package.json declaring no browser test runners` — initialises a clean temp directory, writes a minimal `package.json` with `"devDependencies": {}` (or omitted).
-- `Then the artefact file at {string} in target repo {string} mentions a {string} surface in its observability examples block` — reads the file, slices the section between `## Observability Surfaces (Examples)` and `## Three Permitted Execution Patterns`, asserts the surface name string appears within the block (case-insensitive substring).
-- `Then the artefact file at {string} in target repo {string} does not mention a {string} surface in its observability examples block` — symmetric negative assertion.
-- `Then the artefact file at {string} in target repo {string} no longer contains the slice-#507 placeholder comment` — asserts the literal placeholder string `<!-- TODO (slice #3, issue ??): ` is absent from the materialised file.
-- `Then the observability examples block in target repo {string} contains at least one Markdown bullet item` — slices the same section, asserts at least one line in the block matches the bullet pattern `^- `.
-- `Then every bullet in the observability examples block in target repo {string} matches the framework bullet pattern "- **Name** — description"` — slices the same section, parses every line beginning with `- `, asserts each matches the regex `^- \*\*[^*]+\*\* — .+$` (em-dash, bold-wrapped surface name, description after the em-dash).
+- `Given a fresh target repo {string} with no features/regression/vocabulary.md` — initialises a clean temp directory at the named path with no vocabulary.md present.
+- `Given the target repo {string} has a package.json declaring "@playwright/test" in devDependencies` — writes a minimal `package.json` containing `"devDependencies": { "@playwright/test": "^1.0.0" }` into the named target repo. Uses a regex pattern (escape `@` and `.`) for cucumber-expressions safety.
+- `Given the target repo {string} has a package.json declaring no UI test framework in devDependencies` — writes a minimal `package.json` with `"devDependencies": {}` (or browser-test runners explicitly omitted) into the named target repo.
+- `Then the artefact file at {string} exists in target repo {string}` — asserts the named file exists under the target repo's temp directory.
+- `Then the artefact file at {string} in target repo {string} no longer contains the slice-#507 observability-surfaces TODO placeholder marker` — asserts the literal placeholder string `<!-- TODO (slice #3, issue ??): ` is absent from the materialised file.
+- `Then the artefact file at {string} in target repo {string} contains a "## Observability Surfaces" section heading` — asserts the heading substring is present in the materialised file (matches both `## Observability Surfaces` and `## Observability Surfaces (Examples)`).
+- `Then the Observability Surfaces section in target repo {string} has at least one populated table data row` — slices the section between `## Observability Surfaces (Examples)` (or `## Observability Surfaces`) and the following `##` heading; asserts at least one data row (line starting with `|`, not the header or separator) is present.
+- `Then the Observability Surfaces section in target repo {string} lists at least one DOM-based evidence entry` — slices the same section; asserts at least one row mentions "DOM" (case-insensitive).
+- `Then the Observability Surfaces section in target repo {string} lists at least one screenshot-based evidence entry` — symmetric for "screenshot".
+- `Then the Observability Surfaces section in target repo {string} lists at least one state-file evidence entry` — symmetric for "state file" (case-insensitive; matches "State files").
+- `Then the Observability Surfaces section in target repo {string} lists at least one recorded-request evidence entry` — symmetric for "recorded" (matches "Recorded HTTP requests").
+- `Then the Observability Surfaces section in target repo {string} lists at least one exit-code evidence entry` — symmetric for "exit code".
+- `Then the Observability Surfaces section in target repo {string} lists no DOM-based evidence entries` — symmetric negative assertion.
+- `Then the Observability Surfaces section in target repo {string} lists no screenshot-based evidence entries` — symmetric negative assertion.
+- `Then the Observability Surfaces section in target repo {string} begins with a Markdown table header row` — slices the same section; asserts the first non-prose line starts with `|` and contains at least two `|` separators (a Markdown table header row).
+- `Then the Observability Surfaces section in target repo {string} has a Markdown table separator row immediately beneath the header row` — asserts the line immediately after the header row matches the Markdown table separator pattern (e.g. `|---|---|...|`).
+- `Then the Observability Surfaces section in target repo {string} has at least two Markdown table data rows under the separator row` — counts lines starting with `|` after the separator; asserts the count is ≥ 2.
 
 Re-use the following existing helpers and exports:
 - `targetRepos` from `feature-506.steps.ts`.
-- `ensureTargetRepo507` style helper pattern (renamed `ensureTargetRepo508` and adapted to write a `package.json` instead of an empty dir).
+- `ensureTargetRepo507` style helper pattern (renamed `ensureTargetRepo508` and adapted to write a `package.json` per the package-json-declaring Given steps).
 - `readArtefactFile507` style helper pattern (renamed `readArtefactFile508`).
 - `applyManifest` from `test/mocks/manifestInterpreter.ts`.
 - `MOCK_MANIFEST_PATH` env-var convention from `RegressionWorld.harnessEnv`.
 - The Before/After hooks scoped to `@adw-508` clear `targetRepos` and `adwInitRunData` to keep scenario isolation symmetric with feature-507.
 
-All step phrases follow the rot-prevention rubric: they assert on artefacts (files written to the target worktree by the simulated agent), not on the framework's source files. The structural-conformance scenario reads the **target repo's** materialised `vocabulary.md`, not the framework's `templates/vocabulary.md.template` source.
+All step phrases follow the rot-prevention rubric: they assert on artefacts (files written to the target worktree by the simulated agent), not on the framework's source files. The Markdown-table-layout scenario reads the **target repo's** materialised `vocabulary.md`, not the framework's `templates/vocabulary.md.template` source.
 
 ### 7. Sanity-check that the new step 7 sub-bullet preserves slice #507's behaviour
 
@@ -310,23 +359,23 @@ No new unit-test files are created in this slice.
 - **Multiple browser test runners declared**: A repo with both `@playwright/test` and `cypress` in `devDependencies` still maps to a single "browser-test-equipped" class — the chosen block lists DOM and screenshot surfaces once. The drafting bullet is not required to mention specific runner names in the surface descriptions.
 - **Non-Node ecosystems with browser test runners**: Python (`playwright`, `pytest-playwright`), Ruby (`capybara`), and other ecosystems with browser-based test runners declared in their respective manifest formats are recognised as "browser-test-equipped". The prompt enumerates the cross-ecosystem detection rules.
 - **Target repo already has a custom examples block**: If a maintainer pre-edited the materialised `vocabulary.md` before re-running `/adw_init`, the template-copy bullet from slice #507 overwrites the file verbatim first, restoring the placeholder; the drafting bullet then proceeds normally. Re-init is documented as overwriting custom content (slice-#507 edge-case behaviour, unchanged).
-- **Bullet style drift**: The structural-conformance scenario (§3) asserts every drafted bullet matches the `- **Name** — description` pattern. If the agent paraphrases a bullet (e.g. uses `*Name*` italics or omits the em-dash), the scenario fails — protecting against silent Markdown-structure drift across future framework iterations.
+- **Table-structure drift**: The Markdown-table-layout scenario (§4) asserts the section begins with a header row, has a separator row immediately beneath, and has at least two data rows. If the agent paraphrases the block as a bullet list (or any non-table Markdown), the scenario fails — protecting against silent Markdown-structure drift across future framework iterations.
 - **Empty repo (no manifests at all)**: The agent classifies as "fallback" and writes the minimal universal block with the note. The flow does not crash on missing manifests.
 
 ## Acceptance Criteria
 
 - [ ] `.claude/commands/adw_init.md` step 7 contains a new sub-bullet titled `**Draft the observability-surfaces examples block**` that runs after the template-copy bullet and before step 8.
 - [ ] The new sub-bullet specifies three classification classes (browser-test-equipped, CLI-only, fallback) and the detection rules for each.
-- [ ] The new sub-bullet provides the literal block body for each class so the agent does not paraphrase the surface descriptions.
+- [ ] The new sub-bullet provides the literal Markdown table body for each class so the agent does not paraphrase the surface descriptions.
 - [ ] Step 8 (Report) includes a new bullet acknowledging the class chosen and whether the placeholder replacement succeeded.
-- [ ] `features/per-issue/feature-508.feature` exists, is tagged `@adw-508 @adw-mqwyb7-llm-drafted-observab` (both at the feature level and per scenario), and contains the three scenarios described in step 5.
+- [ ] `features/per-issue/feature-508.feature` exists, is tagged `@adw-508 @adw-mqwyb7-llm-drafted-observab` (both at the feature level and per scenario), and contains the five scenarios described in step 5.
 - [ ] `features/per-issue/step_definitions/feature-508.steps.ts` exists and implements all step phrases used by the feature file, re-using `targetRepos` and shared helpers from feature-506 and feature-507.
-- [ ] `test/fixtures/jsonl/manifests/adw-init-drafts-examples-playwright.json`, `test/fixtures/jsonl/manifests/adw-init-drafts-examples-cli.json`, and `test/fixtures/jsonl/manifests/adw-init-drafts-examples-fallback.json` exist and produce the agent behaviours described in steps 2–4.
-- [ ] Running the playwright manifest produces a `features/regression/vocabulary.md` that mentions DOM and screenshot surfaces inside the observability examples block.
-- [ ] Running the CLI manifest produces a `features/regression/vocabulary.md` whose observability examples block mentions state files, recorded HTTP requests, and exit codes but does not mention DOM or screenshot surfaces.
+- [ ] `test/fixtures/jsonl/manifests/adw-init-drafts-playwright-examples.json` and `test/fixtures/jsonl/manifests/adw-init-drafts-cli-examples.json` exist and produce the agent behaviours described in steps 2–3.
+- [ ] Running the playwright manifest produces a `features/regression/vocabulary.md` whose Observability Surfaces table includes DOM and screenshot rows.
+- [ ] Running the CLI manifest produces a `features/regression/vocabulary.md` whose Observability Surfaces table includes state files, recorded HTTP requests, and exit codes but does not include DOM or screenshot rows.
 - [ ] The drafted block in any class replaces the slice-#507 placeholder comment (the literal `<!-- TODO (slice #3, issue ??): ` substring is absent from the materialised file).
-- [ ] Every bullet in the drafted block matches the framework bullet pattern `- **Name** — description`.
-- [ ] `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-508"` exits 0 with all three scenarios passing.
+- [ ] The drafted Observability Surfaces section in each class begins with a Markdown table header row, has a Markdown table separator row immediately beneath, and has at least two data rows under the separator.
+- [ ] `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-508"` exits 0 with all five scenarios passing.
 - [ ] `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@regression"` exits 0 (no regressions in regression suite).
 - [ ] `bun run lint` exits 0.
 - [ ] `bunx tsc --noEmit` and `bunx tsc --noEmit -p adws/tsconfig.json` exit 0.
