@@ -124,7 +124,7 @@ Everything below is for someone who wants to run ADW against a target repository
 - **Agentic KPI tracking** — `kpiAgent` and `kpiPhase` record per-workflow success, duration, cost, and streak metrics to a persistent `agentic_kpis.md` file for analytics and accountability.
 - **LLM-based dependency extraction** — `dependencyExtractionAgent` reads issues to surface cross-issue dependencies before spawning.
 - **Documentation generation** — `documentAgent` writes feature docs to `app_docs/`; the SDLC pipeline includes review screenshots.
-- **Scenario promotion scoring** — `adwPromotionSweep.tsx` scans per-issue `.feature` files changed in a PR, scores each scenario against the vocabulary registry, tags high-scoring candidates with `@promotion-suggested-<date>`, and posts a PR comment listing promotion suggestions.
+- **Scenario promotion pipeline** — `adwPromotionSweep.tsx` runs both halves: the commenter scores per-issue `.feature` files against the vocabulary registry and tags high-scoring candidates with `@promotion-suggested-<date>`; the mover detects bare `@promotion` approval signals and opens a separate PR that moves the approved scenario block into the regression directory, stripping promotion tags from the destination.
 - **Supply-chain audit integration** — `adw_init` runs `depaudit setup` in target repos and propagates `SOCKET_API_TOKEN` / `SLACK_WEBHOOK_URL` to GitHub Actions secrets.
 - **Screenshot upload pipeline** — Cloudflare R2 bucket manager + `screenshot-router` Worker for hosting review screenshots under `screenshots.paysdoc.nl`.
 - **Worktree isolation** — every workflow runs in its own git worktree (`.worktrees/{branch}/`) so multiple issues can be processed concurrently without interference.
@@ -691,10 +691,12 @@ adws/                   # ADW workflow system
 │   ├── types.ts        # R2 type definitions
 │   ├── uploadService.ts  # File upload logic
 │   └── index.ts
-├── promotion/          # Scenario promotion scoring module
+├── promotion/          # Scenario promotion scoring and mover module
 │   ├── __tests__/      # Vitest unit tests
 │   ├── index.ts        # runPromotionCommenter entry point
+│   ├── promotionApprovalDetector.ts  # Detects bare @promotion approval signals in .feature files
 │   ├── promotionCommenter.ts  # Orchestrates parse → score → tag → comment
+│   ├── promotionMover.ts      # Moves approved scenarios from per-issue to regression directory
 │   ├── promotionScorer.ts     # Scores scenarios against the vocabulary registry
 │   ├── promotionTagWriter.ts  # Inserts @promotion-suggested-<date> tags
 │   ├── promotionThreshold.ts  # Computes promotion threshold from historical stats
