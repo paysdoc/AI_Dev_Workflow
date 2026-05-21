@@ -432,6 +432,7 @@ adws/                   # ADW workflow system
 │   └── triggerWebhook.test.ts
 ├── agents/             # Claude Code agent runners
 │   ├── __tests__/      # Vitest unit tests
+│   │   ├── claudeAgent.test.ts
 │   │   └── gitAgent.test.ts
 │   ├── agentProcessHandler.ts  # Process spawning handler
 │   ├── alignmentAgent.ts  # Single-pass alignment agent
@@ -459,6 +460,7 @@ adws/                   # ADW workflow system
 │   └── validationAgent.ts  # Plan-scenario validation
 ├── core/               # Configuration and utilities
 │   ├── __tests__/      # Vitest unit tests
+│   │   ├── authGate.test.ts
 │   │   ├── claudeStreamParser.test.ts
 │   │   ├── devServerLifecycle.test.ts
 │   │   ├── execWithRetry.test.ts
@@ -468,6 +470,7 @@ adws/                   # ADW workflow system
 │   │   ├── processLiveness.test.ts
 │   │   ├── projectConfig.test.ts
 │   │   ├── remoteReconcile.test.ts
+│   │   ├── slackNotifier.test.ts
 │   │   └── topLevelState.test.ts
 │   ├── adwId.ts        # ADW ID generation
 │   ├── agentState.ts
@@ -487,6 +490,7 @@ adws/                   # ADW workflow system
 │   ├── orchestratorCli.ts  # Shared CLI parsing utilities
 │   ├── orchestratorLib.ts
 │   ├── pauseQueue.ts   # Pause queue for rate-limit pause/resume
+│   ├── slackNotifier.ts  # Minimal Slack webhook notifier for auth-gate events (no-throw at boundary)
 │   ├── phaseRunner.ts  # PhaseRunner / CostTracker composition
 │   ├── portAllocator.ts
 │   ├── processLiveness.ts  # PID-reuse-safe process liveness checks
@@ -566,6 +570,7 @@ adws/                   # ADW workflow system
 │   ├── buildPhase.ts
 │   ├── documentPhase.ts
 │   ├── index.ts
+│   ├── authPause.ts    # Auth-required pause handler (host-wide auth failure, mirrors rate-limit pause path)
 │   ├── depauditSetup.ts  # depaudit setup and secret propagation (used by adw_init)
 │   ├── installPhase.ts # Install phase implementation
 │   ├── kpiPhase.ts     # KPI tracking phase
@@ -629,6 +634,8 @@ adws/                   # ADW workflow system
 │   │   ├── devServerJanitor.test.ts
 │   │   ├── mergeDispatchGate.test.ts
 │   │   ├── pauseQueueScanner.test.ts
+│   │   ├── perIssueScenarioSweep.test.ts
+│   │   ├── scanAuthQueue.test.ts
 │   │   ├── spawnGate.test.ts
 │   │   ├── takeoverHandler.test.ts  # Unit tests for all takeoverHandler decision-tree branches
 │   │   ├── takeoverHandler.integration.test.ts  # Integration test for the abandoned takeover path
