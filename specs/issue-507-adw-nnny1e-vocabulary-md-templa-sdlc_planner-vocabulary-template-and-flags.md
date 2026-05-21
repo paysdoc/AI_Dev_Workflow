@@ -64,8 +64,9 @@ Use these files to implement the feature:
 - `templates/vocabulary.md.template` — Checked-in framework template. Three sections: (1) `## Rot-Detection Rubric` (verbatim from the framework's `features/regression/vocabulary.md` `## Rot-Detection Rubric`), (2) `## Observability Surfaces (Examples)` placeholder block with a `<!-- TODO (slice #3): ... -->` comment, (3) `## Three Permitted Execution Patterns` + minimal `Given/When/Then` tables with repo-agnostic phrases for subprocess setup, subprocess invocation, mock-server queries, and exit codes.
 - `features/per-issue/feature-507.feature` — BDD scenarios validating the artefact outputs of `/adw_init` step 7 for issue #507. Tagged `@adw-507 @adw-nnny1e-vocabulary-md-templa`.
 - `features/per-issue/step_definitions/feature-507.steps.ts` — Step-definition implementations specific to issue #507 (target-repo artefact assertions for `features/regression/vocabulary.md` content and `.adw/scenarios.md` section presence).
-- `test/fixtures/jsonl/manifests/adw-init-vocab-and-flags.json` — Manifest sequencing the stubbed `/adw_init` agent: simulates reading the framework template, writing `features/regression/vocabulary.md`, and writing `.adw/scenarios.md` with the polymorphism flag sections.
-- `test/fixtures/jsonl/manifests/adw-init-flags-only.json` — Manifest variant: simulates `/adw_init` writing scenarios.md with both flag sections (asserted in isolation from the vocabulary copy).
+- `test/fixtures/jsonl/manifests/adw-init-writes-vocab.json` — Manifest sequencing the stubbed `/adw_init` agent: simulates reading the framework template and writing `features/regression/vocabulary.md` with the universal rot-detection rubric heading, the observability-surfaces examples placeholder marker, and the Given/When/Then seed-phrase tables.
+- `test/fixtures/jsonl/manifests/adw-init-writes-scenarios.json` — Manifest variant: simulates `/adw_init` writing `.adw/scenarios.md` with both polymorphism flag sections present and non-empty values (asserted in isolation from the vocabulary copy).
+- `test/fixtures/jsonl/manifests/adw-init-writes-vocab-and-scenarios.json` — Combined manifest: simulates a single `/adw_init` run producing both `features/regression/vocabulary.md` and `.adw/scenarios.md` with both polymorphism flag sections populated.
 
 ## Implementation Plan
 
@@ -89,12 +90,24 @@ The polymorphism flag values are fixed (`features/per-issue/`, `features/regress
 
 Add per-issue BDD scenarios under `features/per-issue/feature-507.feature` plus their step definitions and JSONL manifest fixtures. The scenarios validate **observable orchestrator outputs** (files written to the target worktree, content of those files) — not source-file properties of the framework. This is consistent with the rot-prevention rubric the slice itself distributes.
 
-Two scenarios cover the artefact outputs:
+Seven scenarios cover the artefact outputs, grouped into three sections:
 
-1. After `/adw_init` runs against a fresh target repo, `features/regression/vocabulary.md` exists in the target worktree and contains the literal `## Rot-Detection Rubric` heading.
-2. After `/adw_init` runs against a fresh target repo, `.adw/scenarios.md` in the target worktree contains both `## Per-Issue Scenario Directory` and `## Regression Scenario Directory` section headers, with the canonical directory values.
+§1 — `vocabulary.md` is materialised in the target repo by `/adw_init`:
+1. `/adw_init` writes `features/regression/vocabulary.md` into a fresh target repo (existence).
+2. The materialised `vocabulary.md` contains the universal rot-detection rubric heading (`## Rot-Detection Rubric`).
+3. The materialised `vocabulary.md` contains a clearly-marked observability-surfaces examples placeholder marker.
+4. The materialised `vocabulary.md` contains the minimal universal phrase seed for Given/When/Then (three section headings plus at least one seed phrase registered under each).
+
+§2 — `.adw/scenarios.md` polymorphism flags are populated by `/adw_init`:
+5. `/adw_init` writes the `## Per-Issue Scenario Directory` section into the target repo `.adw/scenarios.md` with a non-empty value.
+6. `/adw_init` writes the `## Regression Scenario Directory` section into the target repo `.adw/scenarios.md` with a non-empty value.
+
+§3 — Combined `/adw_init` output on a fresh target repo:
+7. A single `/adw_init` run on a fresh target repo produces both `features/regression/vocabulary.md` and both polymorphism flag sections in `.adw/scenarios.md` with non-empty values.
 
 The scenarios exercise the slash-command stub via the existing `claude-cli-stub` + JSONL manifest pattern (see `features/per-issue/feature-506.feature` and `test/fixtures/jsonl/manifests/scenario-writer-*.json` for prior art). They do **not** boot the full `adwInit.tsx` orchestrator (depaudit setup, target-repo clone, commit, PR creation) — that surface is out of scope for per-issue scenarios in this slice.
+
+The polymorphism flag values asserted by the scenarios are non-empty rather than literal — this matches the issue acceptance criterion "both polymorphism flags populated" while keeping the assertions resilient to future canonical-path refinements (see Phase 2 for the canonical values the implementation writes).
 
 ## Step by Step Tasks
 
@@ -136,41 +149,90 @@ Execute every step in order, top to bottom.
 ### 4. Add BDD scenario file `features/per-issue/feature-507.feature`
 
 - Header tags: `@adw-507 @adw-nnny1e-vocabulary-md-templa`
-- Feature line: `Feature: adwInit distributes vocabulary.md template and writes polymorphism flags to scenarios.md`
+- Feature line: `Feature: vocabulary.md.template + adwInit copies it + writes per-issue/regression dir flags`
+- Background: `Given the ADW framework codebase is checked out`
 - Background prose explaining the slice context and the observability-only assertion contract.
-- Scenario 1 — `adwInit writes features/regression/vocabulary.md in the target repo from the framework template`:
-  - Given a fresh target repo "tgt-507-vocab" with no `features/regression/vocabulary.md`
-  - And the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/adw-init-vocab-and-flags.json"
-  - When the /adw_init agent is invoked in target repo "tgt-507-vocab" with adwId "ai-507-1" for issue 950 and frameworkRepoRoot "{frameworkRepoRoot}"
+
+§1 — `vocabulary.md` is materialised in the target repo by `adwInit`:
+
+- Scenario 1 — `adwInit writes features/regression/vocabulary.md into a fresh target repo`:
+  - Given a fresh target repo "tgt-507-vocab" with no features/regression/vocabulary.md
+  - And the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/adw-init-writes-vocab.json"
+  - When the adwInit agent is invoked in target repo "tgt-507-vocab" with adwId "init-507-1" for issue 1101
   - Then the artefact file at "features/regression/vocabulary.md" exists in target repo "tgt-507-vocab"
-  - And the artefact file at "features/regression/vocabulary.md" contains the heading "## Rot-Detection Rubric"
-  - And the artefact file at "features/regression/vocabulary.md" contains the heading "## Three Permitted Execution Patterns"
-- Scenario 2 — `adwInit writes both polymorphism flag sections to .adw/scenarios.md by default`:
-  - Given a fresh target repo "tgt-507-flags" with no `.adw/scenarios.md`
-  - And the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/adw-init-flags-only.json"
-  - When the /adw_init agent is invoked in target repo "tgt-507-flags" with adwId "ai-507-2" for issue 951 and frameworkRepoRoot "{frameworkRepoRoot}"
-  - Then the artefact file at ".adw/scenarios.md" exists in target repo "tgt-507-flags"
-  - And the artefact file at ".adw/scenarios.md" contains the heading "## Per-Issue Scenario Directory"
-  - And the artefact file at ".adw/scenarios.md" contains the heading "## Regression Scenario Directory"
-  - And the artefact file at ".adw/scenarios.md" Per-Issue Scenario Directory value is "features/per-issue/"
-  - And the artefact file at ".adw/scenarios.md" Regression Scenario Directory value is "features/regression/"
+- Scenario 2 — `The materialised vocabulary.md contains the universal rot-detection rubric heading`:
+  - Given a fresh target repo "tgt-507-vocab" with no features/regression/vocabulary.md
+  - And the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/adw-init-writes-vocab.json"
+  - When the adwInit agent is invoked in target repo "tgt-507-vocab" with adwId "init-507-2" for issue 1102
+  - Then the artefact file at "features/regression/vocabulary.md" in target repo "tgt-507-vocab" contains a "## Rot-Detection Rubric" section heading
+- Scenario 3 — `The materialised vocabulary.md contains a clearly-marked observability-surfaces examples placeholder`:
+  - Given a fresh target repo "tgt-507-vocab" with no features/regression/vocabulary.md
+  - And the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/adw-init-writes-vocab.json"
+  - When the adwInit agent is invoked in target repo "tgt-507-vocab" with adwId "init-507-3" for issue 1103
+  - Then the artefact file at "features/regression/vocabulary.md" in target repo "tgt-507-vocab" contains an observability-surfaces examples placeholder marker
+- Scenario 4 — `The materialised vocabulary.md contains the minimal universal phrase seed for Given/When/Then`:
+  - Given a fresh target repo "tgt-507-vocab" with no features/regression/vocabulary.md
+  - And the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/adw-init-writes-vocab.json"
+  - When the adwInit agent is invoked in target repo "tgt-507-vocab" with adwId "init-507-4" for issue 1104
+  - Then the artefact file at "features/regression/vocabulary.md" in target repo "tgt-507-vocab" contains a "## Given" section heading
+  - And the artefact file at "features/regression/vocabulary.md" in target repo "tgt-507-vocab" contains a "## When" section heading
+  - And the artefact file at "features/regression/vocabulary.md" in target repo "tgt-507-vocab" contains a "## Then" section heading
+  - And the artefact file at "features/regression/vocabulary.md" in target repo "tgt-507-vocab" registers at least one seed phrase under the Given heading
+  - And the artefact file at "features/regression/vocabulary.md" in target repo "tgt-507-vocab" registers at least one seed phrase under the When heading
+  - And the artefact file at "features/regression/vocabulary.md" in target repo "tgt-507-vocab" registers at least one seed phrase under the Then heading
+
+§2 — `.adw/scenarios.md` polymorphism flags are populated by `adwInit`:
+
+- Scenario 5 — `adwInit writes the Per-Issue Scenario Directory section into the target repo .adw/scenarios.md`:
+  - Given a fresh target repo "tgt-507-scen" with no .adw/scenarios.md
+  - And the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/adw-init-writes-scenarios.json"
+  - When the adwInit agent is invoked in target repo "tgt-507-scen" with adwId "init-507-5" for issue 1105
+  - Then the artefact file at ".adw/scenarios.md" in target repo "tgt-507-scen" contains a "## Per-Issue Scenario Directory" section heading
+  - And the Per-Issue Scenario Directory value in target repo "tgt-507-scen" is non-empty
+- Scenario 6 — `adwInit writes the Regression Scenario Directory section into the target repo .adw/scenarios.md`:
+  - Given a fresh target repo "tgt-507-scen" with no .adw/scenarios.md
+  - And the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/adw-init-writes-scenarios.json"
+  - When the adwInit agent is invoked in target repo "tgt-507-scen" with adwId "init-507-6" for issue 1106
+  - Then the artefact file at ".adw/scenarios.md" in target repo "tgt-507-scen" contains a "## Regression Scenario Directory" section heading
+  - And the Regression Scenario Directory value in target repo "tgt-507-scen" is non-empty
+
+§3 — Combined `adwInit` output on a fresh target repo:
+
+- Scenario 7 — `A single adwInit run on a fresh target repo produces both the vocabulary file and both polymorphism flags`:
+  - Given a fresh target repo "tgt-507-combined" with no features/regression/vocabulary.md
+  - And a fresh target repo "tgt-507-combined" with no .adw/scenarios.md
+  - And the claude-cli-stub is loaded with manifest "test/fixtures/jsonl/manifests/adw-init-writes-vocab-and-scenarios.json"
+  - When the adwInit agent is invoked in target repo "tgt-507-combined" with adwId "init-507-7" for issue 1107
+  - Then the artefact file at "features/regression/vocabulary.md" exists in target repo "tgt-507-combined"
+  - And the artefact file at ".adw/scenarios.md" in target repo "tgt-507-combined" contains a "## Per-Issue Scenario Directory" section heading
+  - And the artefact file at ".adw/scenarios.md" in target repo "tgt-507-combined" contains a "## Regression Scenario Directory" section heading
+  - And the Per-Issue Scenario Directory value in target repo "tgt-507-combined" is non-empty
+  - And the Regression Scenario Directory value in target repo "tgt-507-combined" is non-empty
 
 ### 5. Add JSONL manifest fixtures
 
-- Create `test/fixtures/jsonl/manifests/adw-init-vocab-and-flags.json` modelled on `test/fixtures/jsonl/manifests/scenario-writer-*.json`. The manifest sequences: (a) tool_use `bash` invoking `cp "$3/templates/vocabulary.md.template" features/regression/vocabulary.md`, (b) tool_use `write` writing `.adw/scenarios.md` with both polymorphism flag sections present, (c) result message exiting cleanly.
-- Create `test/fixtures/jsonl/manifests/adw-init-flags-only.json`. The manifest sequences: (a) tool_use `write` writing `.adw/scenarios.md` with both polymorphism flag sections present, (b) result message exiting cleanly.
+- Create `test/fixtures/jsonl/manifests/adw-init-writes-vocab.json` modelled on `test/fixtures/jsonl/manifests/scenario-writer-*.json`. The manifest sequences: (a) tool_use `bash` invoking `cp "$3/templates/vocabulary.md.template" features/regression/vocabulary.md` (or equivalent `write` of the materialised content), producing a vocabulary file that contains the `## Rot-Detection Rubric` heading, the observability-surfaces examples placeholder marker, and the `## Given` / `## When` / `## Then` section headings with at least one seed phrase under each, (b) result message exiting cleanly.
+- Create `test/fixtures/jsonl/manifests/adw-init-writes-scenarios.json`. The manifest sequences: (a) tool_use `write` writing `.adw/scenarios.md` with both `## Per-Issue Scenario Directory` and `## Regression Scenario Directory` sections present and populated with non-empty values, (b) result message exiting cleanly.
+- Create `test/fixtures/jsonl/manifests/adw-init-writes-vocab-and-scenarios.json`. The manifest sequences: (a) tool_use writing `features/regression/vocabulary.md` (as in the vocab-only manifest), (b) tool_use `write` writing `.adw/scenarios.md` with both polymorphism flag sections populated, (c) result message exiting cleanly.
 
 ### 6. Add step definitions `features/per-issue/step_definitions/feature-507.steps.ts`
 
-- Implement the new Given/When/Then step phrases:
-  - `Given a fresh target repo {string} with no {string}` — initialises a clean temp git worktree at the named path, ensures the named file is absent.
-  - `When the /adw_init agent is invoked in target repo {string} with adwId {string} for issue {int} and frameworkRepoRoot {string}` — invokes the `/adw_init` agent through the claude-cli-stub with the manifest already configured in the prior Given, passing the 4 positional args.
+- Implement the new Given/When/Then step phrases (matching the literal phrasing in `features/per-issue/feature-507.feature`):
+  - `Given the ADW framework codebase is checked out` — background guard; asserts the framework worktree resolution succeeds.
+  - `Given a fresh target repo {string} with no features/regression/vocabulary.md` — initialises a clean temp git worktree at the named path, ensures `features/regression/vocabulary.md` is absent.
+  - `Given a fresh target repo {string} with no .adw/scenarios.md` — initialises a clean temp git worktree at the named path, ensures `.adw/scenarios.md` is absent.
+  - `Given the claude-cli-stub is loaded with manifest {string}` — configures the claude-cli-stub to replay the named JSONL manifest.
+  - `When the adwInit agent is invoked in target repo {string} with adwId {string} for issue {int}` — invokes the `/adw_init` agent through the claude-cli-stub with the manifest already configured in the prior Given, passing the issue/adwId/issueJson args. The `frameworkRepoRoot` (4th positional arg) is supplied by the orchestrator under test, not by the step phrase.
   - `Then the artefact file at {string} exists in target repo {string}` — asserts the named file is present in the target worktree.
-  - `Then the artefact file at {string} contains the heading {string}` — reads the file, asserts the literal heading string is present as a substring of a line starting with `#`.
-  - `Then the artefact file at {string} Per-Issue Scenario Directory value is {string}` — parses the named scenarios.md, asserts the line directly under `## Per-Issue Scenario Directory` equals the expected value (stripping trailing slashes for comparison).
-  - `Then the artefact file at {string} Regression Scenario Directory value is {string}` — symmetric assertion.
+  - `Then the artefact file at {string} in target repo {string} contains a {string} section heading` — reads the file, asserts the literal heading string appears as a line beginning with `#`.
+  - `Then the artefact file at {string} in target repo {string} contains an observability-surfaces examples placeholder marker` — reads the file, asserts a clearly-marked placeholder is present (e.g. `<!-- TODO`-style marker, or a `## Observability Surfaces (Examples)` heading).
+  - `Then the artefact file at {string} in target repo {string} registers at least one seed phrase under the Given heading` — parses the file, asserts at least one phrase row appears under the `## Given` section before the next `##` heading.
+  - `Then the artefact file at {string} in target repo {string} registers at least one seed phrase under the When heading` — symmetric assertion under `## When`.
+  - `Then the artefact file at {string} in target repo {string} registers at least one seed phrase under the Then heading` — symmetric assertion under `## Then`.
+  - `Then the Per-Issue Scenario Directory value in target repo {string} is non-empty` — parses the target repo's `.adw/scenarios.md`, asserts the line directly under `## Per-Issue Scenario Directory` is non-empty (the canonical value the implementation writes is `features/per-issue/`).
+  - `Then the Regression Scenario Directory value in target repo {string} is non-empty` — symmetric assertion against `## Regression Scenario Directory` (canonical value `features/regression/`).
 - Re-use existing helpers from `features/per-issue/step_definitions/feature-506.steps.ts` and `features/regression/step_definitions/world.ts` where applicable.
-- All step phrases follow the rot-prevention rubric: they assert on artefacts (files written to the target worktree by the orchestrator), not on source files. The `... contains the heading ...` step reads the target worktree's `features/regression/vocabulary.md` — an artefact written by the orchestrator — not the framework's `templates/vocabulary.md.template` source.
+- All step phrases follow the rot-prevention rubric: they assert on artefacts (files written to the target worktree by the orchestrator), not on source files. The `... contains a {string} section heading ...` step reads the target worktree's `features/regression/vocabulary.md` — an artefact written by the orchestrator — not the framework's `templates/vocabulary.md.template` source.
 
 ### 7. Update `app_docs/` is **deferred** to the documentation phase
 
@@ -213,9 +275,9 @@ Concrete unit-test work:
 - [ ] `.claude/commands/adw_init.md` step 7 has been extended to instruct the agent to: (a) copy `$3/templates/vocabulary.md.template` to `features/regression/vocabulary.md` in the target repo via Bash `cp`, and (b) always write `## Per-Issue Scenario Directory` and `## Regression Scenario Directory` sections in the generated `.adw/scenarios.md`.
 - [ ] `.claude/commands/adw_init.md` declares `frameworkRepoRoot: $3` in the Variables block.
 - [ ] `adws/adwInit.tsx` resolves the framework repo root from `import.meta.url` and passes it as the 4th positional argument to `runClaudeAgentWithCommand('/adw_init', ...)`.
-- [ ] `features/per-issue/feature-507.feature` exists, is tagged `@adw-507 @adw-nnny1e-vocabulary-md-templa`, and contains the two scenarios described in step 4.
+- [ ] `features/per-issue/feature-507.feature` exists, is tagged `@adw-507 @adw-nnny1e-vocabulary-md-templa`, and contains the seven scenarios described in step 4.
 - [ ] `features/per-issue/step_definitions/feature-507.steps.ts` exists and implements all step phrases used by the feature file.
-- [ ] `test/fixtures/jsonl/manifests/adw-init-vocab-and-flags.json` and `test/fixtures/jsonl/manifests/adw-init-flags-only.json` exist and produce the agent behaviours described in step 5.
+- [ ] `test/fixtures/jsonl/manifests/adw-init-writes-vocab.json`, `test/fixtures/jsonl/manifests/adw-init-writes-scenarios.json`, and `test/fixtures/jsonl/manifests/adw-init-writes-vocab-and-scenarios.json` exist and produce the agent behaviours described in step 5.
 - [ ] `adws/__tests__/vocabularyTemplate.test.ts` exists and passes under `bun run test:unit`.
 - [ ] `bunx cucumber-js --tags "@adw-507"` exits 0 with both scenarios passing.
 - [ ] `bun run test:unit` exits 0 (no regressions in existing unit suite).
