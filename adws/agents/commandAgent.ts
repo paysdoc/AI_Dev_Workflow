@@ -85,6 +85,8 @@ export interface CommandAgentOptions {
   cwd?: string;
   /** Optional context preamble prepended to the prompt. */
   contextPreamble?: string;
+  /** Optional phase name used for per-phase watchdog timeout lookup. */
+  phaseName?: string;
 }
 
 /**
@@ -217,7 +219,7 @@ export async function runCommandAgent<T = void>(
   options: CommandAgentOptions,
 ): Promise<CommandAgentResult<T>> {
   const { command, agentName, outputFileName, extractOutput } = config;
-  const { args, logsDir, issueBody, onProgress, statePath, cwd, contextPreamble } = options;
+  const { args, logsDir, issueBody, onProgress, statePath, cwd, contextPreamble, phaseName } = options;
 
   const outputFile = path.join(logsDir, outputFileName);
   const model = getModelForCommand(command, issueBody);
@@ -234,6 +236,7 @@ export async function runCommandAgent<T = void>(
     statePath,
     cwd,
     contextPreamble,
+    phaseName,
   );
 
   if (!extractOutput) {

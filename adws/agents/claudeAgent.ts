@@ -8,7 +8,9 @@ import { log, AgentStateManager, getSafeSubprocessEnv, resolveClaudeCodePath, cl
 import { getMainRepoPath } from '../vcs/worktreeOperations';
 import type { ProgressCallback } from '../core/claudeStreamParser';
 import type { AgentResult } from '../types/agentTypes';
-import { RateLimitError, AuthRequiredError } from '../types/agentTypes';
+import { RateLimitError, AuthRequiredError, AgentTimeoutError } from '../types/agentTypes';
+import { killProcessGroup } from '../core/processKill';
+import { getAgentTimeoutForPhase } from '../core/agentTimeouts';
 import { handleAgentProcess } from './agentProcessHandler';
 
 // Backward-compatible re-exports
@@ -59,6 +61,7 @@ function delay(ms: number): Promise<void> {
  * @param statePath - Optional path to agent's state directory for state tracking
  * @param cwd - Optional working directory for the agent (defaults to process.cwd())
  * @param contextPreamble - Optional context string prepended to the prompt (e.g., cached install context)
+ * @param phaseName - Optional phase name used to look up the per-phase watchdog timeout.
  */
 export async function runClaudeAgentWithCommand(
   command: string,
@@ -70,7 +73,8 @@ export async function runClaudeAgentWithCommand(
   onProgress?: ProgressCallback,
   statePath?: string,
   cwd?: string,
-  contextPreamble?: string
+  contextPreamble?: string,
+  phaseName?: string,
 ): Promise<AgentResult> {
   // Build the prompt as "command 'args'" for the CLI
   // Each arg is single-quoted to preserve formatting
@@ -122,10 +126,31 @@ export async function runClaudeAgentWithCommand(
       // Non-fatal: if we can't resolve the main repo path, skip env var injection
     }
   }
-  const spawnOptions = { cwd: resolvedCwd, env: spawnEnv, stdio: ['ignore' as const, 'pipe' as const, 'pipe' as const] };
+  // detached: true makes the child the leader of a new process group. This lets
+  // killProcessGroup(-pid, ...) reach grandchildren (orphan cat/head from heredoc pipelines)
+  // that a single-process kill would miss — that was the root cause of the wedge incident.
+  const spawnOptions = { cwd: resolvedCwd, env: spawnEnv, detached: true, stdio: ['ignore' as const, 'pipe' as const, 'pipe' as const] };
+
+  const timeoutMs = getAgentTimeoutForPhase(phaseName);
+
   const claude = spawn(resolvedPath, cliArgs, spawnOptions);
 
+  let watchdogFired = false;
+  const watchdog = setTimeout(() => {
+    watchdogFired = true;
+    log(`${agentName}: watchdog fired after ${timeoutMs} ms — killing process tree`, 'error');
+    if (claude.pid !== undefined) killProcessGroup(claude.pid, 5_000);
+  }, timeoutMs);
+
   const result = await handleAgentProcess(claude, agentName, outputFile, onProgress, statePath, model);
+  // When the watchdog kills the process group, the child eventually emits 'close' and
+  // handleAgentProcess resolves normally. The watchdogFired guard below (not a special
+  // exit-code branch in agentProcessHandler) is what surfaces the timeout to the caller.
+  clearTimeout(watchdog);
+
+  if (watchdogFired) {
+    throw new AgentTimeoutError(agentName, phaseName, timeoutMs);
+  }
 
   // Retry up to 3 total attempts on ENOENT (transient path resolution failure)
   if (!result.success && result.output.includes('ENOENT')) {
@@ -137,7 +162,22 @@ export async function runClaudeAgentWithCommand(
       const newPath = resolveClaudeCodePath();
       log(`Claude CLI ENOENT retry (attempt ${attempt + 2}/3), re-resolved path: ${newPath}`, 'warn');
       const retryProcess = spawn(newPath, cliArgs, spawnOptions);
+
+      // Mirror the watchdog setup for the retry path.
+      let retryWatchdogFired = false;
+      const retryWatchdog = setTimeout(() => {
+        retryWatchdogFired = true;
+        log(`${agentName}: retry watchdog fired after ${timeoutMs} ms — killing process tree`, 'error');
+        if (retryProcess.pid !== undefined) killProcessGroup(retryProcess.pid, 5_000);
+      }, timeoutMs);
+
       lastResult = await handleAgentProcess(retryProcess, agentName, outputFile, onProgress, statePath, model);
+      clearTimeout(retryWatchdog);
+
+      if (retryWatchdogFired) {
+        throw new AgentTimeoutError(agentName, phaseName, timeoutMs);
+      }
+
       if (lastResult.success || !lastResult.output.includes('ENOENT')) {
         return lastResult;
       }

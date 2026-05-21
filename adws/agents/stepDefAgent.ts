@@ -89,6 +89,7 @@ export async function runStepDefAgent(
     statePath,
     cwd,
     contextPreamble,
+    phaseName: 'step-def',
   });
   return { ...result, removedScenarios: result.parsed };
 }

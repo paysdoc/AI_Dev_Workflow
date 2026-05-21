@@ -61,7 +61,9 @@ export type WorkflowStage =
   // Terminal / handoff stages
   | 'abandoned'
   | 'discarded'
-  | 'awaiting_merge';
+  | 'awaiting_merge'
+  // Agent watchdog timeout — phase marked failed; resume re-enters on next cron / webhook
+  | 'phase_timeout';
 
 /**
  * PR review comment from GitHub API.

@@ -170,6 +170,33 @@ export function handleWorkflowError(
 }
 
 /**
+ * Handles an agent watchdog timeout: writes phase_timeout stage, posts the Phase Timeout
+ * comment on the issue, and exits 0 so the next cron tick re-enters the failed phase.
+ */
+export function handlePhaseTimeout(
+  config: WorkflowConfig,
+  phaseName: string,
+  timeoutMs: number,
+): never {
+  const { orchestratorStatePath, orchestratorName, issueNumber, ctx, repoContext, adwId } = config;
+
+  ctx.timeoutPhaseName = phaseName;
+  ctx.timeoutMs = timeoutMs;
+
+  if (repoContext) {
+    postIssueStageComment(repoContext, issueNumber, 'phase_timeout', ctx);
+  }
+
+  AgentStateManager.writeTopLevelState(adwId, { workflowStage: 'phase_timeout' });
+  AgentStateManager.appendLog(
+    orchestratorStatePath,
+    `${orchestratorName} workflow timed out at phase '${phaseName}' after ${timeoutMs} ms`,
+  );
+  log(`${orchestratorName} workflow timed out at '${phaseName}' after ${timeoutMs} ms`, 'warn');
+  process.exit(0);
+}
+
+/**
  * Handles deliberate terminal workflow exits (e.g. PR closed by operator, merge failed after
  * all retries). Writes 'discarded' stage, posts a terminal comment, and exits 0.
  * Unlike handleWorkflowError (which writes 'abandoned' and exits 1), a discard is a clean,
