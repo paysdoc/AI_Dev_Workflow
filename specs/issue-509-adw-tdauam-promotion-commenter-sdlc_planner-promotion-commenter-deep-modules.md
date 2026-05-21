@@ -129,8 +129,11 @@ Use these files to implement the feature:
 
 #### Mock manifest fixtures
 
-- `test/fixtures/jsonl/manifests/promotion-high-score.json` — Claude-CLI-stub manifest pre-seeding a high-score scenario in the worktree's `features/per-issue/feature-509.feature` and recording a PR comment.
-- `test/fixtures/jsonl/manifests/promotion-low-score.json` — Manifest variant pre-seeding a below-threshold scenario; asserts no tag insertion and no recorded PR comment.
+- `test/fixtures/jsonl/manifests/promotion-sweep-high-score.json` — Claude-CLI-stub manifest pre-seeding a high-score scenario in the worktree's seeded per-issue feature file and recording a PR comment.
+- `test/fixtures/jsonl/manifests/promotion-sweep-low-score.json` — Manifest variant pre-seeding a below-threshold scenario; asserts no tag insertion and no recorded PR comment.
+- `test/fixtures/jsonl/manifests/promotion-sweep-byte-exact.json` — Manifest pre-seeding a multi-scenario feature file used by the byte-exact preservation per-issue scenario.
+- `test/fixtures/jsonl/manifests/promotion-sweep-mixed-scores.json` — Manifest pre-seeding a feature file containing scenarios of mixed scores; asserts only above-threshold scenarios receive tags.
+- `test/fixtures/jsonl/manifests/promotion-sweep-comment-body.json` — Manifest pre-seeding a single-named scenario; asserts the recorded PR comment identifies the promoted scenario.
 
 ## Implementation Plan
 
@@ -292,17 +295,23 @@ Execute every step in order, top to bottom.
 
 ### Step 12: Create mock manifest fixtures
 
-- Create `test/fixtures/jsonl/manifests/promotion-high-score.json` — claude-cli-stub manifest pre-seeding the worktree's `features/per-issue/feature-509.feature` with a high-score scenario (uses subprocess pattern phrases and only registered vocabulary). Manifest recorded API call: POST `/repos/.../issues/509/comments`.
-- Create `test/fixtures/jsonl/manifests/promotion-low-score.json` — manifest variant pre-seeding the worktree with a below-threshold scenario (uses mock-query phrases only, or contains unregistered phrases). No recorded comment.
+- Create `test/fixtures/jsonl/manifests/promotion-sweep-high-score.json` — claude-cli-stub manifest pre-seeding the worktree's seeded per-issue feature file with a high-score scenario (uses subprocess pattern phrases and only registered vocabulary). Manifest recorded API call: POST `/repos/.../issues/<n>/comments`.
+- Create `test/fixtures/jsonl/manifests/promotion-sweep-low-score.json` — manifest variant pre-seeding the worktree with a below-threshold scenario (uses mock-query phrases only, or contains unregistered phrases). No recorded comment.
+- Create `test/fixtures/jsonl/manifests/promotion-sweep-byte-exact.json` — manifest pre-seeding a multi-scenario feature file used to verify byte-exact preservation of surrounding content after tag insertion.
+- Create `test/fixtures/jsonl/manifests/promotion-sweep-mixed-scores.json` — manifest pre-seeding a feature file containing scenarios of mixed scores; only above-threshold scenarios receive tags.
+- Create `test/fixtures/jsonl/manifests/promotion-sweep-comment-body.json` — manifest pre-seeding a single-named scenario; the recorded comment identifies the promoted scenario name.
 - Follow the manifest shape from `test/fixtures/jsonl/manifests/safe-verdict.json` as a reference.
 
 ### Step 13: Create per-issue BDD scenarios for issue #509 (build-agent input)
 
 - Create `features/per-issue/feature-509.feature` tagged `@adw-509 @adw-tdauam-promotion-commenter` with behavioural scenarios describing the acceptance contract:
-  - Scenario 1: "promotionCommenter tags a high-score per-issue scenario" — describes the artefact-observable behaviour (a per-issue PR with a high-score scenario gets a `@promotion-suggested-<today>` tag inserted into the file and a comment posted on the PR).
-  - Scenario 2: "promotionCommenter leaves below-threshold scenarios untouched" — describes the negative case.
-  - Scenario 3: "Tag insertion preserves byte-exact positions of surrounding scenario content" — describes the byte-stability contract.
-  - Scenarios use vocabulary registry phrases (subprocess pattern) so they themselves would score above threshold — a deliberate self-referential proof that the rubric works.
+  - Scenario 1: "A per-issue scenario using the subprocess pattern with all phrases in vocabulary is tagged and commented" — describes the high-score artefact-observable behaviour (the seeded `.feature` file gets a `@promotion-suggested-<today>` tag inserted on the seeded scenario and the mock GitHub API records a comment).
+  - Scenario 2: "A per-issue scenario below the threshold receives no tag and no comment" — describes the negative case.
+  - Scenario 3: "Tag insertion preserves byte-exact positions of surrounding scenario content" — describes the byte-stability contract (every non-inserted line is byte-identical to pre-invocation contents).
+  - Scenario 4: "Only above-threshold scenarios receive tags in a file containing scenarios of mixed scores" — describes per-scenario gating within a single file.
+  - Scenario 5: "The PR comment posted by the orchestrator identifies the scenario whose tag was inserted" — describes the comment-body contract.
+  - The W1 invocation uses the orchestrator key `"promotion-sweep"` (kebab-case, matching the `ORCHESTRATOR_FILES` convention).
+  - Scenarios use vocabulary registry phrases (subprocess pattern) where applicable so they themselves would score above threshold — a deliberate self-referential proof that the rubric works.
 - These scenarios are NOT executed by the runner (per `features/per-issue/` convention) — they are input to the build agent.
 
 ### Step 14: Update barrel exports and run a full type check

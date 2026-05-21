@@ -22,7 +22,7 @@ Feature: promotionCommenter MVP — score, tag, and comment on per-issue PR even
 
   The five backing deep modules — `vocabularyParser`, `scenarioParser`,
   `promotionScorer`, `promotionThreshold`, `promotionTagWriter` — are pure
-  functions covered by their own unit tests under `adws/__tests__/`. The
+  functions covered by their own unit tests under `adws/promotion/__tests__/`. The
   scenarios in this file exercise the orchestrator end-to-end through the
   existing mock GitHub harness and assert against the artefacts the
   orchestrator produces: the modified `.feature` file under the test
@@ -48,7 +48,7 @@ Feature: promotionCommenter MVP — score, tag, and comment on per-issue PR even
     And an issue 9090 exists in the mock issue tracker
     And the mock GitHub API is configured to accept issue comments
     And a per-issue feature file at "features/per-issue/feature-9090.feature" is seeded into the worktree for adwId "promo-509-1" from fixture "promotion/high-score-subprocess.feature"
-    When the "promotionSweep" orchestrator is invoked with adwId "promo-509-1" and issue 9090
+    When the "promotion-sweep" orchestrator is invoked with adwId "promo-509-1" and issue 9090
     Then the orchestrator subprocess exited 0
     And the artefact file at "features/per-issue/feature-9090.feature" in the worktree for adwId "promo-509-1" carries a "@promotion-suggested-" tag dated today on the seeded scenario
     And the mock GitHub API recorded a comment on issue 9090
@@ -63,7 +63,7 @@ Feature: promotionCommenter MVP — score, tag, and comment on per-issue PR even
     And an issue 9091 exists in the mock issue tracker
     And the mock GitHub API is configured to accept issue comments
     And a per-issue feature file at "features/per-issue/feature-9091.feature" is seeded into the worktree for adwId "promo-509-2" from fixture "promotion/low-score-mock-query.feature"
-    When the "promotionSweep" orchestrator is invoked with adwId "promo-509-2" and issue 9091
+    When the "promotion-sweep" orchestrator is invoked with adwId "promo-509-2" and issue 9091
     Then the orchestrator subprocess exited 0
     And the artefact file at "features/per-issue/feature-9091.feature" in the worktree for adwId "promo-509-2" carries no "@promotion-suggested-" tag on the seeded scenario
     And the mock harness recorded zero comment posts on issue 9091
@@ -77,7 +77,7 @@ Feature: promotionCommenter MVP — score, tag, and comment on per-issue PR even
     And an issue 9092 exists in the mock issue tracker
     And the mock GitHub API is configured to accept issue comments
     And a per-issue feature file at "features/per-issue/feature-9092.feature" is seeded into the worktree for adwId "promo-509-3" from fixture "promotion/multi-scenario-byte-exact.feature"
-    When the "promotionSweep" orchestrator is invoked with adwId "promo-509-3" and issue 9092
+    When the "promotion-sweep" orchestrator is invoked with adwId "promo-509-3" and issue 9092
     Then the orchestrator subprocess exited 0
     And the artefact file at "features/per-issue/feature-9092.feature" in the worktree for adwId "promo-509-3" carries a "@promotion-suggested-" tag dated today on the targeted scenario
     And every line of the artefact file at "features/per-issue/feature-9092.feature" in the worktree for adwId "promo-509-3" that is not the inserted tag line is byte-identical to the pre-invocation contents
@@ -91,7 +91,7 @@ Feature: promotionCommenter MVP — score, tag, and comment on per-issue PR even
     And an issue 9093 exists in the mock issue tracker
     And the mock GitHub API is configured to accept issue comments
     And a per-issue feature file at "features/per-issue/feature-9093.feature" is seeded into the worktree for adwId "promo-509-4" from fixture "promotion/mixed-scores.feature"
-    When the "promotionSweep" orchestrator is invoked with adwId "promo-509-4" and issue 9093
+    When the "promotion-sweep" orchestrator is invoked with adwId "promo-509-4" and issue 9093
     Then the orchestrator subprocess exited 0
     And the artefact file at "features/per-issue/feature-9093.feature" in the worktree for adwId "promo-509-4" carries a "@promotion-suggested-" tag dated today on every scenario whose score is at least 3
     And the artefact file at "features/per-issue/feature-9093.feature" in the worktree for adwId "promo-509-4" carries no "@promotion-suggested-" tag on any scenario whose score is below 3
@@ -105,7 +105,7 @@ Feature: promotionCommenter MVP — score, tag, and comment on per-issue PR even
     And an issue 9094 exists in the mock issue tracker
     And the mock GitHub API is configured to accept issue comments
     And a per-issue feature file at "features/per-issue/feature-9094.feature" is seeded into the worktree for adwId "promo-509-5" from fixture "promotion/single-named-scenario.feature"
-    When the "promotionSweep" orchestrator is invoked with adwId "promo-509-5" and issue 9094
+    When the "promotion-sweep" orchestrator is invoked with adwId "promo-509-5" and issue 9094
     Then the orchestrator subprocess exited 0
     And the mock GitHub API recorded a comment on issue 9094
     And the mock GitHub API recorded a comment containing the text "promotion suggested"
