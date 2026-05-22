@@ -1,5 +1,13 @@
 # Conditional Documentation
 
+- app_docs/feature-mqwyb7-llm-draft-observability-examples.md
+  - Conditions:
+    - When working with the `## Observability Surfaces (Examples)` block in a target repo's `features/regression/vocabulary.md`
+    - When `/adw_init` produces a `features/regression/vocabulary.md` that still contains the `<!-- TODO (slice #3, issue ??): -->` placeholder
+    - When the promotion scorer (slice #4) produces uniformly low scores due to an empty or missing observability surfaces section
+    - When adding BDD scenarios for issue-508-class features (stack-detection-driven vocabulary drafting)
+    - When modifying the classification rules (browser-test-equipped / CLI-only / fallback) in `adw_init.md` step 7
+
 - app_docs/feature-nnny1e-vocabulary-template-and-flags.md
   - Conditions:
     - When modifying `.claude/commands/adw_init.md` step 7 (vocabulary template copy or polymorphism flags)

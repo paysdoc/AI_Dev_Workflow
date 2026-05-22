@@ -692,7 +692,9 @@ adws/                   # ADW workflow system
 ├── promotion/          # Scenario promotion scoring module
 │   ├── __tests__/      # Vitest unit tests
 │   ├── index.ts        # runPromotionCommenter entry point
+│   ├── promotionApprovalDetector.ts  # Detects bare @promotion approval tokens in per-issue feature files
 │   ├── promotionCommenter.ts  # Orchestrates parse → score → tag → comment
+│   ├── promotionMover.ts      # Moves approved scenarios from per-issue to regression suite via PR
 │   ├── promotionScorer.ts     # Scores scenarios against the vocabulary registry
 │   ├── promotionTagWriter.ts  # Inserts @promotion-suggested-<date> tags
 │   ├── promotionThreshold.ts  # Computes promotion threshold from historical stats
@@ -703,7 +705,7 @@ adws/                   # ADW workflow system
 ├── adwBuild.tsx        # Orchestrators (individual & combined)
 ├── adwChore.tsx        # Chore pipeline with LLM diff gate (auto-merge)
 ├── adwMerge.tsx        # Merge orchestrator (awaiting_merge handoff)
-├── adwPromotionSweep.tsx  # Promotion sweep orchestrator (score per-issue scenarios, suggest @regression promotions)
+├── adwPromotionSweep.tsx  # Promotion sweep orchestrator (score per-issue scenarios, suggest @regression promotions; detect and move @promotion-approved scenarios via PR)
 ├── adwBuildHelpers.ts
 ├── adwClearComments.tsx
 ├── adwDocument.tsx
@@ -716,7 +718,6 @@ adws/                   # ADW workflow system
 ├── adwPlanBuildTest.tsx
 ├── adwPlanBuildTestReview.tsx
 ├── adwPrReview.tsx
-├── adwPromotionSweep.tsx  # Scores per-issue scenarios against vocabulary; tags and comments promotion candidates
 ├── adwSdlc.tsx
 ├── adwTest.tsx
 ├── healthCheck.tsx     # Health check orchestrator
