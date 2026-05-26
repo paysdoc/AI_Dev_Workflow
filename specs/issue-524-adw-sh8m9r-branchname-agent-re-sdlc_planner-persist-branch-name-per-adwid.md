@@ -68,6 +68,7 @@ Conditional documentation (matched against `.adw/conditional_docs.md` for this t
 ### New Files
 - `adws/phases/branchNameResolution.ts` — the extracted resolver module (`readPersistedBranchName`, `persistBranchName`, `resolveWorkflowBranchName`).
 - `adws/phases/__tests__/branchNameResolution.test.ts` — Vitest unit tests for the resolver (unit tests are enabled for this repo; see Testing Strategy).
+- `adws/phases/__tests__/workflowInit.test.ts` — Vitest regression test that drives `initializeWorkflow` twice with the same `adwId`/`issueNumber`/`issueType` and divergent agent slugs, asserting only one branch/worktree is created (criterion 3's canonical home; see Testing Strategy).
 
 ## Implementation Plan
 ### Phase 1: Foundation — extract the resolver with persistence priority
@@ -114,15 +115,21 @@ Execute every step in order, top to bottom.
 - In the `AgentStateManager.writeTopLevelState(resolvedAdwId, { … })` call that sets `workflowStage: 'starting'`, add the resolved branch name conditionally: `...(branchName ? { branchName } : {})`.
 - The conditional spread ensures the `options.cwd` path (where `branchName` stays `''`) never clobbers a previously persisted name. Merge semantics make this idempotent with the resolver's own persist.
 
-### Task 5: Add unit tests for the resolver
-- Create `adws/phases/__tests__/branchNameResolution.test.ts` following the conventions in `adws/core/__tests__/topLevelState.test.ts` (real `AgentStateManager`, a unique `adwId` per test, `afterEach` removes `agents/{adwId}`) and `adws/agents/__tests__/gitAgent.test.ts` (`vi.mock` the agent dependency).
+### Task 5: Add unit tests for the resolver and the `workflowInit` determinism contract
+**Resolver unit tests** — create `adws/phases/__tests__/branchNameResolution.test.ts` following the conventions in `adws/core/__tests__/topLevelState.test.ts` (real `AgentStateManager`, a unique `adwId` per test, `afterEach` removes `agents/{adwId}`) and `adws/agents/__tests__/gitAgent.test.ts` (`vi.mock` the agent dependency).
 - Mock `runGenerateBranchNameAgent` (from `../../agents`) so its return slug is controllable per call.
 - Cases:
   1. No persisted, no recovery → resolver calls the agent once, returns the generated name, and persists it (assert `readTopLevelState(adwId).branchName` equals the generated name).
   2. Persisted name present → resolver returns it and the agent mock is **not** called (criterion 1).
   3. `recoveryState.branchName` present, nothing persisted → resolver returns and persists the recovery name without calling the agent.
-  4. **Two sequential `resolveWorkflowBranchName` calls, same `adwId`, agent configured to return slug A then slug B** → first call returns A and persists it; second call returns A (not B); assert the agent mock was invoked **exactly once** (criterion 3 — "only one branch/worktree is created").
+  4. **Two sequential `resolveWorkflowBranchName` calls, same `adwId`, agent configured to return slug A then slug B** → first call returns A and persists it; second call returns A (not B); assert the agent mock was invoked **exactly once** (resolver-level support for criterion 3 — the agent fires once so only one name is ever generated; the authoritative "only one branch/worktree is created" assertion lives in the `workflowInit` regression test below).
   5. Mismatch guard (criterion 2) → configure the agent mock to, as a side effect, persist a different name before returning (simulating a concurrent writer during the LLM call), then assert `resolveWorkflowBranchName` rejects with the "Refusing to fork" error.
+
+**`workflowInit` determinism regression test (criterion 3, canonical home)** — create `adws/phases/__tests__/workflowInit.test.ts`, driving `initializeWorkflow` against a stubbed branch-name agent. Per the issue's exact wording ("two `workflowInit` calls … assert only one branch/worktree is created"), this file owns the slug-mismatch-determinism contract at the `workflowInit` level.
+- Stub the branch-name agent to return slug A on its first call and slug B on its second.
+- Call `initializeWorkflow` twice with the **same** `adwId`/`issueNumber`/`issueType`.
+- Assert: only one branch is created and only one worktree is created across both calls; the branch-name agent is invoked exactly once; the top-level state records the branch assembled from slug A (`feature-issue-{N}-{A}`).
+- Use the existing branch/worktree recording channel the suite already uses so creations are countable; in `afterEach`, clean up the created `agents/{adwId}` state and any worktree fixtures.
 
 ### Task 6: (Optional follow-up — criterion 4) Sibling-worktree plan search and clearer error
 - In `adws/agents/planAgent.ts`, extend `findPlanFile` (and therefore `getPlanFilePath`/`planFileExists`/`readPlanFile`) so that when no plan is found in the current worktree's `specs/`, it scans sibling `.worktrees/{prefix}-issue-{N}-*/specs/` directories for a matching `issue-{N}-adw-*-sdlc_planner-*.md` and returns that path if found. Keep this read-only and defensive; flatten with guard clauses.
@@ -136,7 +143,8 @@ Execute every step in order, top to bottom.
 ### Unit Tests
 `.adw/project.md` contains `## Unit Tests: enabled`, so unit tests are in scope.
 
-- New `adws/phases/__tests__/branchNameResolution.test.ts` covers the resolver as described in Task 5: persisted short-circuit, recovery reuse, generate-and-persist, the two-call single-branch regression (criterion 3), and the mismatch-abort guard (criterion 2).
+- New `adws/phases/__tests__/branchNameResolution.test.ts` covers the resolver as described in Task 5: persisted short-circuit, recovery reuse, generate-and-persist, the two-call single-agent-invocation check (resolver-level support for criterion 3), and the mismatch-abort guard (criterion 2).
+- New `adws/phases/__tests__/workflowInit.test.ts` is the canonical home for criterion 3: it drives two `initializeWorkflow` calls with the same `adwId`/`issueNumber`/`issueType` against a stubbed agent returning divergent slugs and asserts only one branch and one worktree are created (matching the issue's exact wording "two `workflowInit` calls … assert only one branch/worktree is created").
 - Use the existing test conventions: real `AgentStateManager` against a unique per-test `adwId` with `afterEach` cleanup (mirrors `topLevelState.test.ts`), and `vi.mock` for the agent layer (mirrors `gitAgent.test.ts`). Do not mock `AgentStateManager` itself — exercising the real merge/atomic-write path is what proves persistence.
 - The existing `adws/core/__tests__/topLevelState.test.ts` already asserts the `branchName` field round-trips through top-level state (the `pid/pidStartedAt/lastSeenAt/branchName` case); no change required there, but it must continue to pass.
 
@@ -152,7 +160,7 @@ Execute every step in order, top to bottom.
 ## Acceptance Criteria
 - Once `branchName` is resolved for an `adwId`, it is written to `agents/{adwId}/state.json` and read back as the highest-priority source on every subsequent `initializeWorkflow` call for that `adwId`; `runGenerateBranchNameAgent` is not called a second time within the same `adwId`. (Criterion 1)
 - If `runGenerateBranchNameAgent` is somehow invoked a second time within the same `adwId` and returns a name differing from the persisted one, `resolveWorkflowBranchName` throws a clear, operator-legible error (names both branch names, the `adwId`, and references the no-fork intent) rather than creating a second worktree. (Criterion 2)
-- A unit test simulates two `resolveWorkflowBranchName` calls with the same `adwId` where the underlying agent would return different slugs, and asserts the second call returns the first name with the agent invoked exactly once (only one branch created). (Criterion 3)
+- A regression test simulates two `initializeWorkflow`/`workflowInit` calls with the same `adwId`/`issueNumber`/`issueType` where the underlying agent would return different slugs, and asserts only one branch and one worktree are created across both calls (with a supporting resolver-level test asserting the agent is invoked exactly once). (Criterion 3)
 - Both `runGenerateBranchNameAgent` call sites in `workflowInit.ts` route through `resolveWorkflowBranchName`; the local path treats a persisted name as authoritative over `findWorktreeForIssue`.
 - (Optional, follow-up) `findPlanFile` falls back to sibling worktrees and the "Cannot read plan file" errors name the orphan worktree when one holds the plan. (Criterion 4)
 - `bun run lint`, both `tsc --noEmit` checks, `bun run test:unit`, `bun run build`, and the `@regression` BDD suite all pass with zero regressions.
@@ -163,7 +171,7 @@ Execute every command to validate the feature works correctly with zero regressi
 - `bun run lint` — ESLint passes with no errors.
 - `bunx tsc --noEmit` — root type-check passes.
 - `bunx tsc --noEmit -p adws/tsconfig.json` — `adws/` type-check passes (new module + rewired `workflowInit.ts` type-check clean).
-- `bun run test:unit` — all Vitest unit tests pass, including the new `branchNameResolution.test.ts` and the existing `topLevelState.test.ts`.
+- `bun run test:unit` — all Vitest unit tests pass, including the new `branchNameResolution.test.ts`, the new `workflowInit.test.ts`, and the existing `topLevelState.test.ts`.
 - `bun run build` — build completes with no errors.
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@regression"` — full regression BDD suite passes (no regression in worktree/branch behavior).
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-sh8m9r-branchname-agent-re"` — runs any per-issue BDD scenarios generated for this issue (if the scenario phase produces them).
