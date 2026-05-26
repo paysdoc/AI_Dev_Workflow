@@ -8,6 +8,13 @@
     - When adding BDD scenarios for issue-508-class features (stack-detection-driven vocabulary drafting)
     - When modifying the classification rules (browser-test-equipped / CLI-only / fallback) in `adw_init.md` step 7
 
+- app_docs/feature-kswfvk-llm-drafted-observab-observability-examples.md
+  - Conditions:
+    - When working with the `## Observability Surfaces (Examples)` block in a target repo's `features/regression/vocabulary.md`
+    - When `/adw_init` step 7 stack-classification or placeholder-replacement behaviour needs context (adwId kswfvk run)
+    - When `frameworkRepoRoot` (`$3`) wiring in `adwInit.tsx` or `adw_init.md` is relevant
+    - When troubleshooting the browser-test-equipped vs CLI-only vs fallback drafting path
+
 - app_docs/feature-nnny1e-vocabulary-template-and-flags.md
   - Conditions:
     - When modifying `.claude/commands/adw_init.md` step 7 (vocabulary template copy or polymorphism flags)

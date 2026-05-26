@@ -796,7 +796,8 @@ features/               # BDD feature files (Gherkin .feature)
 ├── per-issue/          # Per-issue agent-input scenarios (14-day retention after PR merges); never executed by the runner
 │   └── step_definitions/  # Per-issue step definition files
 ├── step_definitions/   # Cucumber step definition files (.ts)
-└── support/            # Cucumber support files (tsx registration)
+├── support/            # Cucumber support files (tsx registration)
+└── webhook_ensure_cron_on_every_event.feature  # Integration scenario: cron fires on every webhook event (issue #501)
 specs/                  # Generated implementation specs
 ├── patch/              # Generated patch specs
 └── prd/                # Product requirement documents
