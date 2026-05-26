@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 164              | 2026-05-26 14:26:33 |
-| Longest Streak    | 164              | 2026-05-26 14:26:33 |
-| Total Plan Size   | 4863 lines       | 2026-05-26 14:26:33 |
-| Largest Plan Size | 699 lines        | 2026-05-26 14:26:33 |
-| Total Diff Size   | 3377168 lines    | 2026-05-26 14:26:33 |
-| Largest Diff Size | 418153 lines     | 2026-05-26 14:26:33 |
-| Average Presence  | 1.15             | 2026-05-26 14:26:33 |
+| Current Streak    | 165              | 2026-05-26 14:36:58 |
+| Longest Streak    | 165              | 2026-05-26 14:36:58 |
+| Total Plan Size   | 4668 lines       | 2026-05-26 14:36:58 |
+| Largest Plan Size | 699 lines        | 2026-05-26 14:36:58 |
+| Total Diff Size   | 3113406 lines    | 2026-05-26 14:36:58 |
+| Largest Diff Size | 205314 lines     | 2026-05-26 14:36:58 |
+| Average Presence  | 1.15             | 2026-05-26 14:36:58 |
 
 ## ADW KPIs
 
@@ -193,3 +193,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-05-22 | mqwyb7-llm-drafted-observab | 508          | /feature    | 1          | 0                 | 8540/19/91                      | 2026-05-22 15:47:12 | 2026-05-22 15:47:12 |
 | 2026-05-26 | sh8m9r-branchname-agent-re | 524          | /feature    | 1          | 0                 | 11641/74/132                    | 2026-05-26 12:21:06 | 2026-05-26 12:21:06 |
 | 2026-05-26 | kswfvk-llm-drafted-observab | 508          | /feature    | 1          | 0                 | 8540/19/91                      | 2026-05-26 14:26:33 | 2026-05-26 14:26:33 |
+| 2026-05-26 | cv2hai-rfc-split-worker-api | 95           | /feature    | 1          | 0                 | 61270/1902/302                  | 2026-05-26 14:36:58 | 2026-05-26 14:36:58 |
