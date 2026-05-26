@@ -38,8 +38,10 @@ export type {
   AgentExecutionStatus,
   AgentExecutionState,
   AgentState,
+  PhaseExecutionState,
   TokenUsageSnapshot,
 } from '../types/agentTypes';
+export { RateLimitError, AuthRequiredError, AgentTimeoutError } from '../types/agentTypes';
 
 // Data types (from workflowTypes.ts)
 export type {
@@ -158,6 +160,12 @@ export type { HungOrchestrator, HungDetectorDeps } from './hungOrchestratorDetec
 export type { PhaseResult, PhaseFn } from './phaseRunner';
 export { CostTracker, runPhase, runPhasesSequential, runPhasesParallel } from './phaseRunner';
 
+// Agent watchdog timeout utilities
+export { AGENT_DEFAULT_TIMEOUT_MS, AGENT_PHASE_TIMEOUT_MAP, getAgentTimeoutForPhase } from './agentTimeouts';
+
+// Process-group kill helper (also re-exported from devServerLifecycle for backward compat)
+export { killProcessGroup } from './processKill';
+
 // Pause queue
 export type { PausedWorkflow } from './pauseQueue';
 export { PAUSE_QUEUE_PATH, readPauseQueue, appendToPauseQueue, removeFromPauseQueue, updatePauseQueueEntry } from './pauseQueue';
@@ -178,6 +186,8 @@ export {
   isActionableComment,
   CANCEL_COMMENT_PATTERN,
   isCancelComment,
+  RETRY_COMMENT_PATTERN,
+  isRetryComment,
   extractActionableContent,
   truncateText,
   parseWorkflowStageFromComment,

@@ -508,9 +508,11 @@ adws/                   # ADW workflow system
 │   ├── modelRouting.ts # Model/effort routing utilities
 │   ├── orchestratorCli.ts  # Shared CLI parsing utilities
 │   ├── orchestratorLib.ts
+│   ├── agentTimeouts.ts  # Per-phase agent timeout constants
 │   ├── pauseQueue.ts   # Pause queue for rate-limit pause/resume
 │   ├── phaseRunner.ts  # PhaseRunner / CostTracker composition
 │   ├── portAllocator.ts
+│   ├── processKill.ts  # Process kill utilities (SIGTERM → SIGKILL escalation)
 │   ├── processLiveness.ts  # PID-reuse-safe process liveness checks
 │   ├── projectConfig.ts
 │   ├── remoteReconcile.ts  # Stage derivation from remote GitHub artifacts
@@ -581,15 +583,17 @@ adws/                   # ADW workflow system
 │   └── types.ts
 ├── phases/             # Workflow phase implementations
 │   ├── __tests__/      # Vitest unit tests
+│   │   ├── branchNameResolution.test.ts
 │   │   ├── orchestratorLock.test.ts
-│   │   └── scenarioTestPhase.test.ts
+│   │   ├── scenarioTestPhase.test.ts
+│   │   └── workflowInit.test.ts
 │   ├── alignmentPhase.ts  # Single-pass alignment phase
 │   ├── autoMergePhase.ts  # Auto-approve and merge PR after review passes
+│   ├── branchNameResolution.ts  # Branch name resolution for worktree takeover paths
 │   ├── diffEvaluationPhase.ts  # LLM diff evaluation phase (safe vs regression_possible)
 │   ├── buildPhase.ts
 │   ├── documentPhase.ts
 │   ├── index.ts
-│   ├── authPause.ts    # Auth-required pause handler (host-wide auth failure, mirrors rate-limit pause path)
 │   ├── depauditSetup.ts  # depaudit setup and secret propagation (used by adw_init)
 │   ├── installPhase.ts # Install phase implementation
 │   ├── kpiPhase.ts     # KPI tracking phase
@@ -690,14 +694,15 @@ adws/                   # ADW workflow system
 │   ├── types.ts        # R2 type definitions
 │   ├── uploadService.ts  # File upload logic
 │   └── index.ts
-├── promotion/          # Scenario promotion scoring module
+├── promotion/          # Scenario promotion scoring and mover module
 │   ├── __tests__/      # Vitest unit tests
 │   ├── index.ts        # runPromotionCommenter entry point
-│   ├── promotionApprovalDetector.ts  # Detects bare @promotion approval tokens in per-issue feature files
+│   ├── promotionApprovalDetector.ts  # Detects bare @promotion approval signals in .feature files
 │   ├── promotionCommenter.ts  # Orchestrates parse → score → tag → comment
-│   ├── promotionMover.ts      # Moves approved scenarios from per-issue to regression suite via PR
+│   ├── promotionMover.ts      # Moves approved scenarios from per-issue to regression directory
 │   ├── promotionScorer.ts     # Scores scenarios against the vocabulary registry
 │   ├── promotionTagWriter.ts  # Inserts @promotion-suggested-<date> tags
+│   ├── promotionStatsLoader.ts  # Loads and aggregates historical promotion statistics
 │   ├── promotionThreshold.ts  # Computes promotion threshold from historical stats
 │   ├── scenarioParser.ts      # Parses Gherkin .feature files into Scenario objects
 │   ├── vocabularyParser.ts    # Parses features/regression/vocabulary.md into VocabularyRegistry
@@ -765,7 +770,8 @@ test/                   # Integration test infrastructure
 │   │   ├── package.json
 │   │   └── tsconfig.json
 │   ├── github/         # GitHub API response fixtures (issue, PR, comments)
-│   └── jsonl/          # JSONL fixture files for testing
+│   ├── jsonl/          # JSONL fixture files for testing
+│   └── scenarios/      # Gherkin .feature fixtures for promotion scoring tests
 │       ├── envelopes/
 │       ├── manifests/  # Named scenario manifests for stub sequencing
 │       └── payloads/
@@ -787,6 +793,8 @@ bun.lock                # Bun lockfile
 eslint.config.js        # ESLint configuration
 cucumber.js             # Cucumber.js configuration
 features/               # BDD feature files (Gherkin .feature)
+├── per-issue/          # Per-issue agent-input scenarios — never executed by the runner; swept 14 days after PR merges
+│   └── step_definitions/  # Step definitions for per-issue scenarios
 ├── regression/         # Regression scenario vocabulary, typed World, and surface/smoke scenarios
 │   ├── smoke/          # High-level smoke scenarios (cron spawn, SDLC, cancel, chore, pause)
 │   ├── step_definitions/  # Typed Given/When/Then steps and RegressionWorld for regression scenarios

@@ -48,8 +48,8 @@ import { getDefaultBranch } from '../vcs/branchOperations';
 import type { RepoContext, RepoIdentifier } from '../providers/types';
 import { Platform } from '../providers/types';
 import { createRepoContext } from '../providers/repoContext';
-import { runGenerateBranchNameAgent } from '../agents';
 import { classifyGitHubIssue } from '../core/issueClassifier';
+import { resolveWorkflowBranchName, readPersistedBranchName } from './branchNameResolution';
 import { deriveOrchestratorScript } from '../core/orchestratorLib';
 import { copyClaudeCommandsToWorktree } from './worktreeSetup';
 import { postIssueStageComment } from './phaseCommentHelpers';
@@ -192,20 +192,14 @@ export async function initializeWorkflow(
     log('Using provided worktree (merged latest code)', 'info');
   } else if (targetRepoWorkspacePath) {
     // For external repos, create worktrees within the target repo workspace
-    if (recoveryState.branchName) {
-      branchName = recoveryState.branchName;
-      log(`Reusing branch from previous workflow: ${branchName}`, 'info');
-    } else {
-      const branchResult = await runGenerateBranchNameAgent(issueType, issue, logsDir);
-      branchName = branchResult.branchName;
-      log(`Branch name generated: ${branchName}`, 'success');
-    }
+    branchName = await resolveWorkflowBranchName({ adwId: resolvedAdwId, issueType, issue, logsDir, recoveryState });
     worktreePath = ensureWorktree(branchName, defaultBranch, targetRepoWorkspacePath);
     copyClaudeCommandsToWorktree(worktreePath);
     log(`Worktree path (target repo): ${worktreePath}`, 'info');
   } else {
-    // Try to find an existing worktree by issue type and number first
-    const issueWorktree = findWorktreeForIssue(issueType, issueNumber, targetRepoWorkspacePath);
+    const persistedBranchName = readPersistedBranchName(resolvedAdwId);
+    // Skip pattern discovery when a persisted name exists — never adopt a sibling worktree's branch.
+    const issueWorktree = persistedBranchName ? null : findWorktreeForIssue(issueType, issueNumber, targetRepoWorkspacePath);
     if (issueWorktree) {
       branchName = issueWorktree.branchName;
       worktreePath = issueWorktree.worktreePath;
@@ -213,14 +207,7 @@ export async function initializeWorkflow(
       copyEnvToWorktree(worktreePath, targetRepoWorkspacePath);
       log(`Reusing existing worktree found by issue pattern at ${worktreePath}`, 'info');
     } else {
-      if (recoveryState.branchName) {
-        branchName = recoveryState.branchName;
-        log(`Reusing branch from previous workflow: ${branchName}`, 'info');
-      } else {
-        const branchResult = await runGenerateBranchNameAgent(issueType, issue, logsDir);
-        branchName = branchResult.branchName;
-        log(`Branch name generated: ${branchName}`, 'success');
-      }
+      branchName = await resolveWorkflowBranchName({ adwId: resolvedAdwId, issueType, issue, logsDir, recoveryState });
       const existingWorktree = getWorktreeForBranch(branchName);
       if (existingWorktree) {
         log(`Reusing existing worktree at ${existingWorktree}`, 'info');
@@ -247,6 +234,8 @@ export async function initializeWorkflow(
     issueNumber,
     workflowStage: 'starting',
     orchestratorScript: deriveOrchestratorScript(orchestratorName),
+    // Conditionally include branchName so options.cwd path never clobbers a persisted name.
+    ...(branchName ? { branchName } : {}),
   });
 
   const initialState: Partial<AgentState> = {

@@ -15,6 +15,15 @@
     - When `frameworkRepoRoot` (`$3`) wiring in `adwInit.tsx` or `adw_init.md` is relevant
     - When troubleshooting the browser-test-equipped vs CLI-only vs fallback drafting path
 
+- app_docs/feature-sh8m9r-persist-branch-name-per-adwid.md
+  - Conditions:
+    - When working with `adws/phases/workflowInit.ts` branch-name resolution or `runGenerateBranchNameAgent` call sites
+    - When implementing or troubleshooting `adws/phases/branchNameResolution.ts` (`resolveWorkflowBranchName`, `readPersistedBranchName`, `persistBranchName`)
+    - When a workflow creates two branches for the same issue (orphan worktree / stranded phase-1 artifacts)
+    - When `Cannot read plan file` errors point to a worktree that differs from the one holding the plan
+    - When the branch-name agent fires more than once for the same `adwId`
+    - When adding tests for the branch-name persistence contract (`branchNameResolution.test.ts` or `workflowInit.test.ts`)
+
 - app_docs/feature-nnny1e-vocabulary-template-and-flags.md
   - Conditions:
     - When modifying `.claude/commands/adw_init.md` step 7 (vocabulary template copy or polymorphism flags)
@@ -1230,3 +1239,31 @@
     - When troubleshooting idempotency (duplicate move PRs) or branch naming for regression-promotion branches
     - When the destination regression file is missing or the `@promotion` tag is not being stripped from the moved scenario
     - When wiring new I/O dependencies into `buildMoverDeps` in `adwPromotionSweep.tsx`
+
+- app_docs/feature-y8r69q-auto-ramping-promotion-threshold.md
+  - Conditions:
+    - When working with `computeThreshold`, `BOOTSTRAP_THRESHOLD`, `MAX_THRESHOLD`, or `RATIO_CAP` in `adws/promotion/promotionThreshold.ts`
+    - When working with `loadPromotionStats` or `PromotionStatsLoaderDeps` in `adws/promotion/promotionStatsLoader.ts`
+    - When the `loadStats` dep on `PromotionCommenterDeps` is relevant or needs to be injected in a test
+    - When troubleshooting why `@promotion-suggested-<date>` tags are not appearing in a mature repo (N may have risen above the scenario score)
+    - When tuning the curve constants (`MAX_THRESHOLD`, `RATIO_CAP`) or understanding their rationale
+    - When the `commits[]` seed mechanism in `test/mocks/manifestInterpreter.ts` is relevant to manifest fixtures
+
+- app_docs/feature-22y8n3-merge-blocked-recovery-path.md
+  - Conditions:
+    - When working with `executeMerge` exit paths in `adws/adwMerge.tsx`, especially `no_pr_found` or `merge_failed` branches
+    - When implementing or troubleshooting the `merge_blocked` workflow stage or `mergeRetryCount` field
+    - When working with `selectPreferredPR` or `defaultFindPRByBranch` in `adws/github/prApi.ts` (multi-PR branch resolution)
+    - When wiring a new comment directive (mirror of `## Retry` / `## Cancel`) into `trigger_cron.ts` or `trigger_webhook.ts`
+    - When adding a new non-retriable, human-recoverable terminal stage to the workflow (pattern: `handleRetryDirective` + cron ineligibility guard)
+    - When troubleshooting a `merge_blocked` issue that is not being re-dispatched after `## Retry`
+
+- app_docs/feature-bed2tg-orchestrator-watchdog-agent-timeout.md
+  - Conditions:
+    - When working with `runClaudeAgentWithCommand` in `adws/agents/claudeAgent.ts` and the per-agent watchdog timeout
+    - When implementing or troubleshooting agent wedge recovery (`AgentTimeoutError`, `handlePhaseTimeout`, `phase_timeout` stage)
+    - When adding a new phase and need to set a per-phase timeout in `AGENT_PHASE_TIMEOUT_MAP` or `AGENT_PHASE_TIMEOUT_<PHASE>` env var
+    - When working with `killProcessGroup` in `adws/core/processKill.ts` (shared by dev-server lifecycle and agent watchdog)
+    - When the `## :warning: Phase Timeout` GitHub issue comment format needs to be understood or extended
+    - When modifying the `generate_step_definitions.md` Step 7 ("Verify") or adding verification steps that must not execute step files at runtime
+    - When troubleshooting an orchestrator stuck in `*_running` indefinitely after the Claude CLI emits `result: success`

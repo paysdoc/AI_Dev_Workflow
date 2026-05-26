@@ -10,8 +10,9 @@
 
 import * as http from 'http';
 import { log, PullRequestWebhookPayload, allocateRandomPort, isPortAvailable, getTargetRepoWorkspacePath, assertCwdIsRepoRoot } from '../core';
-import { isActionableComment, isCancelComment, isAdwRunningForIssue, truncateText, getRepoInfoFromPayload, getRepoInfo, fetchIssueCommentsRest, activateGitHubAppAuth, ensureAppAuthForRepo } from '../github';
+import { isActionableComment, isCancelComment, isRetryComment, isAdwRunningForIssue, truncateText, getRepoInfoFromPayload, getRepoInfo, fetchIssueCommentsRest, activateGitHubAppAuth, ensureAppAuthForRepo } from '../github';
 import { handleCancelDirective } from './cancelHandler';
+import { handleRetryDirective } from './retryHandler';
 import { handlePullRequestEvent, handleIssueClosedEvent } from './webhookHandlers';
 import { validateWebhookSignature } from './webhookSignature';
 import { checkIssueEligibility } from './issueEligibility';
@@ -161,6 +162,12 @@ const server = http.createServer((req, res) => {
           : [];
         handleCancelDirective(issueNumber, allComments, webhookRepoInfo ?? getRepoInfo(), cancelCwd);
         jsonResponse(res, 200, { status: 'cancelled', issue: issueNumber });
+        return;
+      }
+      if (isRetryComment(commentBody)) {
+        const allComments = webhookRepoInfo ? fetchIssueCommentsRest(issueNumber, webhookRepoInfo) : [];
+        handleRetryDirective(issueNumber, allComments);
+        jsonResponse(res, 200, { status: 'retry_reset', issue: issueNumber });
         return;
       }
       if (!isActionableComment(commentBody)) { jsonResponse(res, 200, { status: 'ignored' }); return; }

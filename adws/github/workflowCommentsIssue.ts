@@ -70,6 +70,10 @@ export interface WorkflowContext {
   pausedAtPhase?: string;
   /** Human-readable reason for the pause. */
   pauseReason?: string;
+  /** Phase name that exceeded its watchdog (set by handlePhaseTimeout). */
+  timeoutPhaseName?: string;
+  /** Watchdog timeout that fired, in milliseconds (set by handlePhaseTimeout). */
+  timeoutMs?: number;
 }
 
 const issueTypeLabels: Record<IssueClassSlashCommand, string> = {
@@ -319,6 +323,12 @@ export function formatResumingComment(ctx: WorkflowContext, resumeFrom: Workflow
   return `## :arrows_counterclockwise: ADW Workflow Resuming\n\nResuming automated development workflow from previous run.\n\n**Resuming from:** ${resumeFrom}\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
 }
 
+function formatPhaseTimeoutComment(ctx: WorkflowContext): string {
+  const phase = ctx.timeoutPhaseName ?? 'unknown';
+  const minutes = ctx.timeoutMs ? Math.round(ctx.timeoutMs / 60_000) : '?';
+  return `## :warning: Phase Timeout\n\nPhase \`${phase}\` exceeded its ${minutes}-minute watchdog and was terminated. The workflow will re-enter this phase on the next cron tick / webhook event.\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+}
+
 /** Formats a workflow comment for the given stage. */
 export function formatWorkflowComment(stage: WorkflowStage, ctx: WorkflowContext): string {
   switch (stage) {
@@ -356,6 +366,7 @@ export function formatWorkflowComment(stage: WorkflowStage, ctx: WorkflowContext
     case 'plan_aligned': return formatPlanAlignedComment(ctx);
     case 'paused': return formatPausedComment(ctx);
     case 'resumed': return formatResumedComment(ctx);
+    case 'phase_timeout': return formatPhaseTimeoutComment(ctx);
     default: return `## ADW Workflow Update\n\n**Stage:** ${stage}\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
   }
 }

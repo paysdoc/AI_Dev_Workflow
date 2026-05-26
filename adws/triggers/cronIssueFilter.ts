@@ -99,6 +99,12 @@ export function evaluateIssue(
     return { eligible: false, reason: 'discarded' };
   }
 
+  // merge_blocked bypasses grace period — escalated merge awaiting an explicit
+  // human `## Retry`. Never auto-spawned; recovery resets it to awaiting_merge.
+  if (resolution.stage === 'merge_blocked') {
+    return { eligible: false, reason: 'merge_blocked' };
+  }
+
   if (processed.spawns.has(issue.number)) {
     return { eligible: false, reason: 'processed' };
   }

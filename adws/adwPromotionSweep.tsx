@@ -23,7 +23,7 @@ import { getRepoInfo } from './github/githubApi.ts';
 import { defaultFindPRByBranch, commentOnPR } from './github/prApi.ts';
 import { addIssueLabel } from './github/issueApi.ts';
 import { loadProjectConfig } from './core/projectConfig.ts';
-import { runPromotionCommenter, runPromotionMover } from './promotion/index.ts';
+import { runPromotionCommenter, runPromotionMover, loadPromotionStats } from './promotion/index.ts';
 import type { PromotionCommenterDeps, PromotionMoverDeps } from './promotion/index.ts';
 import { getDefaultBranch } from './vcs/branchOperations.ts';
 import { createWorktreeForNewBranch } from './vcs/worktreeCreation.ts';
@@ -49,7 +49,10 @@ function buildCommenterDeps(
   prNumber: number,
   vocabularyPath: string,
   repoInfo: ReturnType<typeof getRepoInfo>,
+  config: ReturnType<typeof loadProjectConfig>,
 ): PromotionCommenterDeps {
+  const perIssueDir = config.scenarios.perIssueScenarioDirectory ?? 'features/per-issue';
+  const perIssueGlob = `${perIssueDir}/feature-*.feature`;
   return {
     loadVocabulary: () => fs.readFileSync(vocabularyPath, 'utf-8'),
     fetchChangedFiles: async () => fetchChangedFilesFromPR(prNumber, repoInfo),
@@ -59,6 +62,13 @@ function buildCommenterDeps(
       commentOnPR(prNumber, body, repoInfo);
     },
     today: () => new Date().toISOString().slice(0, 10),
+    loadStats: () => loadPromotionStats({
+      runGit: (args, opts) => execWithRetry(`git ${args}`, opts),
+      now: () => new Date(),
+      perIssueGlob,
+      cwd: process.cwd(),
+      log: (msg, level) => log(msg, (level ?? 'info') as LogLevel),
+    }),
     log: (msg, level) => log(msg, (level ?? 'info') as LogLevel),
     applyHitlLabel: async (isNum: number) => {
       addIssueLabel(isNum, 'hitl', repoInfo);
@@ -135,7 +145,7 @@ async function main(): Promise<void> {
   const config = loadProjectConfig(process.cwd());
   const vocabularyPath = config.scenarios.vocabularyRegistry ?? DEFAULT_VOCABULARY_PATH;
 
-  const commenterDeps = buildCommenterDeps(pr.number, vocabularyPath, repoInfo);
+  const commenterDeps = buildCommenterDeps(pr.number, vocabularyPath, repoInfo, config);
   const commenterResult = await runPromotionCommenter(pr.number, issueNumber, commenterDeps);
 
   log(

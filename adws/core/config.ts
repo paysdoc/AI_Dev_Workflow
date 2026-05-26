@@ -127,3 +127,15 @@ export const HUNG_DETECTOR_INTERVAL_CYCLES = parseInt(process.env.HUNG_DETECTOR_
 /** Number of cron poll cycles between per-issue scenario sweep passes.
  *  Default 4320 ≈ once per day at 20s POLL_INTERVAL_MS (4320 × 20s = 86 400s). */
 export const PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES = parseInt(process.env.PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES || '4320', 10);
+
+// ---------------------------------------------------------------------------
+// Agent watchdog timeout
+// ---------------------------------------------------------------------------
+
+/**
+ * Default per-agent invocation timeout in milliseconds (default: 30 min).
+ * Override via AGENT_DEFAULT_TIMEOUT_MS env var.
+ * Used by getAgentTimeoutForPhase in agentTimeouts.ts.
+ */
+export const AGENT_DEFAULT_TIMEOUT_MS =
+  Math.max(1, parseInt(process.env.AGENT_DEFAULT_TIMEOUT_MS || '1800000', 10)) || 1_800_000;

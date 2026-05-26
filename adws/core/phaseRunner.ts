@@ -16,7 +16,7 @@ import { mergeModelUsageMaps, persistTokenCounts, computeDisplayTokens } from '.
 import type { ModelUsageMap, PhaseCostRecord } from '../cost';
 import { postCostRecordsToD1 } from '../cost/d1Client';
 import type { WorkflowConfig } from '../phases/workflowInit';
-import { RateLimitError } from '../types/agentTypes';
+import { RateLimitError, AgentTimeoutError } from '../types/agentTypes';
 import { AgentStateManager } from './agentState';
 import { log } from './utils';
 
@@ -166,6 +166,23 @@ export async function runPhase<R extends PhaseResult>(
     }
     return result;
   } catch (err) {
+    if (err instanceof AgentTimeoutError) {
+      if (phaseName && config.adwId) {
+        AgentStateManager.writeTopLevelState(config.adwId, {
+          phases: {
+            [phaseName]: {
+              status: 'failed',
+              startedAt,
+              completedAt: new Date().toISOString(),
+              failureReason: 'agent_timeout',
+            },
+          },
+        });
+      }
+      // Lazy import mirrors the handleRateLimitPause pattern to avoid circular deps.
+      const { handlePhaseTimeout } = await import('../phases/workflowCompletion');
+      handlePhaseTimeout(config, err.phaseName ?? phaseName ?? 'unknown', err.timeoutMs);
+    }
     if (phaseName && config.adwId) {
       AgentStateManager.writeTopLevelState(config.adwId, {
         phases: { [phaseName]: { status: 'failed', startedAt, completedAt: new Date().toISOString() } },

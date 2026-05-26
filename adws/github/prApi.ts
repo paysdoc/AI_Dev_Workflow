@@ -14,18 +14,41 @@ export interface RawPR {
   readonly baseRefName: string;
 }
 
+/** Extends RawPR with updatedAt for PR selection logic. */
+interface RawPRListEntry extends RawPR {
+  readonly updatedAt: string;
+}
+
+/**
+ * Picks the PR ADW should act on for a branch.
+ * Prefers the most-recently-updated OPEN PR (fixes #508: multi-PR branches must
+ * resolve to the open one, never a stale closed/merged PR). Falls back to the
+ * most-recently-updated PR overall when none are open, so the idempotent
+ * already_merged / pr_closed paths in adwMerge still function.
+ */
+export function selectPreferredPR(prs: readonly RawPRListEntry[]): RawPRListEntry | null {
+  if (prs.length === 0) return null;
+  const open = prs.filter((p) => p.state === 'OPEN');
+  const pool = open.length > 0 ? open : prs;
+  return [...pool].sort(
+    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+  )[0];
+}
+
 /**
  * Looks up the PR for a branch via the GitHub CLI (open or recently closed/merged).
- * Returns the first result or null if none found or on error.
+ * Prefers the most-recently-updated open PR for the branch (fixes #508).
+ * Falls back to most-recently-updated PR overall when none are open.
+ * Returns null if none found or on error.
  */
 export function defaultFindPRByBranch(branchName: string, repoInfo: RepoInfo): RawPR | null {
   const { owner, repo } = repoInfo;
   try {
     const json = execWithRetry(
-      `gh pr list --repo ${owner}/${repo} --head "${branchName}" --state all --json number,state,headRefName,baseRefName --limit 5`,
+      `gh pr list --repo ${owner}/${repo} --head "${branchName}" --state all --json number,state,headRefName,baseRefName,updatedAt --limit 20`,
     );
-    const prs = JSON.parse(json) as RawPR[];
-    return prs.length > 0 ? prs[0] : null;
+    const prs = JSON.parse(json) as RawPRListEntry[];
+    return selectPreferredPR(prs);
   } catch {
     return null;
   }
