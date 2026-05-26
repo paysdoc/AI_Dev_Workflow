@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 166              | 2026-05-22 15:47:12 |
-| Longest Streak    | 166              | 2026-05-22 15:47:12 |
-| Total Plan Size   | 4668 lines       | 2026-05-22 15:47:12 |
-| Largest Plan Size | 699 lines        | 2026-05-22 15:47:12 |
-| Total Diff Size   | 3368606 lines    | 2026-05-22 15:47:12 |
-| Largest Diff Size | 418153 lines     | 2026-05-22 15:47:12 |
-| Average Presence  | 1.15             | 2026-05-22 15:47:12 |
+| Current Streak    | 106              | 2026-05-26 11:29:28 |
+| Longest Streak    | 106              | 2026-05-26 11:29:28 |
+| Total Plan Size   | 5204 lines       | 2026-05-26 11:29:28 |
+| Largest Plan Size | 699 lines        | 2026-05-26 11:29:28 |
+| Total Diff Size   | 3368609 lines    | 2026-05-26 11:29:28 |
+| Largest Diff Size | 418153 lines     | 2026-05-26 11:29:28 |
+| Average Presence  | 1.25             | 2026-05-26 11:29:28 |
 
 ## ADW KPIs
 
@@ -190,4 +190,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-05-21 | 28aysq-hitl-label-tag-lifec | 510          | /feature    | 1          | 195               | 5754/19/68                      | 2026-05-21 14:53:47 | 2026-05-21 14:53:47 |
 | 2026-05-21 | y8r69q-auto-ramping-thresho | 512          | /feature    | 1          | 0                 | 7222/20/94                      | 2026-05-21 15:18:45 | 2026-05-21 15:18:45 |
 | 2026-05-21 | bed2tg-bug-step-def-agent-c | 521          | /bug        | 1          | 0                 | 10149/54/124                    | 2026-05-21 23:44:13 | 2026-05-21 23:44:13 |
-| 2026-05-22 | mqwyb7-llm-drafted-observab | 508          | /feature    | 1          | 0                 | 8537/19/91                      | 2026-05-22 15:47:12 | 2026-05-22 15:47:12 |
+| 2026-05-22 | mqwyb7-llm-drafted-observab | 508          | /feature    | 1          | 0                 | 8540/19/91                      | 2026-05-22 15:47:12 | 2026-05-26 11:29:28 |
