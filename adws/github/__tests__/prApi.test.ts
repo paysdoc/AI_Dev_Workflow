@@ -6,7 +6,7 @@ vi.mock('../../core', () => ({
   log: vi.fn(),
 }));
 
-import { fetchPRApprovalState, isApprovedFromReviewsList } from '../prApi';
+import { fetchPRApprovalState, isApprovedFromReviewsList, selectPreferredPR } from '../prApi';
 import { execWithRetry, log } from '../../core';
 
 const mockExec = vi.mocked(execWithRetry);
@@ -214,5 +214,53 @@ describe('fetchPRApprovalState', () => {
       expect.stringContaining('fetchPRApprovalState'),
       'warn',
     );
+  });
+});
+
+// ── selectPreferredPR ──────────────────────────────────────────────────────────
+
+function makePREntry(overrides: {
+  number?: number;
+  state?: string;
+  headRefName?: string;
+  baseRefName?: string;
+  updatedAt?: string;
+} = {}) {
+  return {
+    number: 1,
+    state: 'OPEN',
+    headRefName: 'feature-branch',
+    baseRefName: 'main',
+    updatedAt: '2024-01-01T00:00:00Z',
+    ...overrides,
+  };
+}
+
+describe('selectPreferredPR', () => {
+  it('returns null for an empty list', () => {
+    expect(selectPreferredPR([])).toBeNull();
+  });
+
+  it('returns single OPEN PR', () => {
+    const pr = makePREntry({ number: 1, state: 'OPEN' });
+    expect(selectPreferredPR([pr])).toEqual(pr);
+  });
+
+  it('returns OPEN PR over CLOSED even when closed is newer (#508 regression)', () => {
+    const closed = makePREntry({ number: 1, state: 'CLOSED', updatedAt: '2024-02-01T00:00:00Z' });
+    const open = makePREntry({ number: 2, state: 'OPEN', updatedAt: '2024-01-01T00:00:00Z' });
+    expect(selectPreferredPR([closed, open])?.number).toBe(2);
+  });
+
+  it('returns most-recently-updated when multiple OPEN PRs exist', () => {
+    const older = makePREntry({ number: 1, state: 'OPEN', updatedAt: '2024-01-01T00:00:00Z' });
+    const newer = makePREntry({ number: 2, state: 'OPEN', updatedAt: '2024-03-01T00:00:00Z' });
+    expect(selectPreferredPR([older, newer])?.number).toBe(2);
+  });
+
+  it('falls back to most-recently-updated overall when no OPEN PRs exist', () => {
+    const closed = makePREntry({ number: 1, state: 'CLOSED', updatedAt: '2024-01-01T00:00:00Z' });
+    const merged = makePREntry({ number: 2, state: 'MERGED', updatedAt: '2024-03-01T00:00:00Z' });
+    expect(selectPreferredPR([closed, merged])?.number).toBe(2);
   });
 });

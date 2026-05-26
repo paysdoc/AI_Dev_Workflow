@@ -14,6 +14,8 @@ export {
   isActionableComment,
   CANCEL_COMMENT_PATTERN,
   isCancelComment,
+  RETRY_COMMENT_PATTERN,
+  isRetryComment,
   extractActionableContent,
   parseWorkflowStageFromComment,
   extractAdwIdFromComment,

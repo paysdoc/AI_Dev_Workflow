@@ -269,6 +269,12 @@ export interface AgentState {
   metadata?: Record<string, unknown>;
   /** Granular lifecycle stage of the workflow (e.g. "build_running", "completed") */
   workflowStage?: string;
+  /**
+   * PR-resolution retry counter for the merge handoff (adwMerge). Incremented on each
+   * `no_pr_found` miss; escalates to `merge_blocked` at `MAX_PR_RESOLUTION_ATTEMPTS`;
+   * cleared on merge success and on `## Retry`.
+   */
+  mergeRetryCount?: number;
   /** Per-phase execution state map: phaseName → PhaseExecutionState */
   phases?: Record<string, PhaseExecutionState>;
   /** Orchestrator script path (e.g. "adws/adwSdlc.tsx") */

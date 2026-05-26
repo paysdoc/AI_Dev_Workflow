@@ -113,6 +113,14 @@ export function isCancelComment(commentBody: string): boolean {
   return CANCEL_COMMENT_PATTERN.test(commentBody);
 }
 
+/** Pattern matching the `## Retry` heading that re-enters a merge_blocked issue into awaiting_merge. */
+export const RETRY_COMMENT_PATTERN = /^## Retry$/mi;
+
+/** Returns true if the comment body contains the `## Retry` directive heading (case-insensitive). */
+export function isRetryComment(commentBody: string): boolean {
+  return RETRY_COMMENT_PATTERN.test(commentBody);
+}
+
 /** Extracts the content following the `## Take action` heading. Returns null if no heading or empty content. */
 export function extractActionableContent(commentBody: string): string | null {
   const match = commentBody.match(ACTIONABLE_COMMENT_PATTERN);

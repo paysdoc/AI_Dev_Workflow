@@ -582,11 +582,14 @@ adws/                   # ADW workflow system
 │   └── types.ts
 ├── phases/             # Workflow phase implementations
 │   ├── __tests__/      # Vitest unit tests
+│   │   ├── branchNameResolution.test.ts
 │   │   ├── orchestratorLock.test.ts
-│   │   └── scenarioTestPhase.test.ts
+│   │   ├── scenarioTestPhase.test.ts
+│   │   └── workflowInit.test.ts
 │   ├── alignmentPhase.ts  # Single-pass alignment phase
 │   ├── authPause.ts    # Auth-failure pause phase: writes paused_auth state and alerts Slack
 │   ├── autoMergePhase.ts  # Auto-approve and merge PR after review passes
+│   ├── branchNameResolution.ts  # Branch name resolution for worktree takeover paths
 │   ├── diffEvaluationPhase.ts  # LLM diff evaluation phase (safe vs regression_possible)
 │   ├── buildPhase.ts
 │   ├── documentPhase.ts

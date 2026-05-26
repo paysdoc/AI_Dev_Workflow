@@ -1234,6 +1234,15 @@
     - When tuning the curve constants (`MAX_THRESHOLD`, `RATIO_CAP`) or understanding their rationale
     - When the `commits[]` seed mechanism in `test/mocks/manifestInterpreter.ts` is relevant to manifest fixtures
 
+- app_docs/feature-22y8n3-merge-blocked-recovery-path.md
+  - Conditions:
+    - When working with `executeMerge` exit paths in `adws/adwMerge.tsx`, especially `no_pr_found` or `merge_failed` branches
+    - When implementing or troubleshooting the `merge_blocked` workflow stage or `mergeRetryCount` field
+    - When working with `selectPreferredPR` or `defaultFindPRByBranch` in `adws/github/prApi.ts` (multi-PR branch resolution)
+    - When wiring a new comment directive (mirror of `## Retry` / `## Cancel`) into `trigger_cron.ts` or `trigger_webhook.ts`
+    - When adding a new non-retriable, human-recoverable terminal stage to the workflow (pattern: `handleRetryDirective` + cron ineligibility guard)
+    - When troubleshooting a `merge_blocked` issue that is not being re-dispatched after `## Retry`
+
 - app_docs/feature-bed2tg-orchestrator-watchdog-agent-timeout.md
   - Conditions:
     - When working with `runClaudeAgentWithCommand` in `adws/agents/claudeAgent.ts` and the per-agent watchdog timeout

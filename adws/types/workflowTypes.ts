@@ -62,6 +62,9 @@ export type WorkflowStage =
   | 'abandoned'
   | 'discarded'
   | 'awaiting_merge'
+  // Escalation target for exhausted no_pr_found and merge_failed; non-retriable;
+  // recoverable only via ## Retry directive.
+  | 'merge_blocked'
   // Agent watchdog timeout — phase marked failed; resume re-enters on next cron / webhook
   | 'phase_timeout';
 
