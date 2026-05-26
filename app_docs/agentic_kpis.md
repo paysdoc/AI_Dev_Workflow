@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 109              | 2026-05-26 15:12:07 |
-| Longest Streak    | 109              | 2026-05-26 15:12:07 |
-| Total Plan Size   | 5204 lines       | 2026-05-26 15:12:07 |
-| Largest Plan Size | 699 lines        | 2026-05-26 15:12:07 |
-| Total Diff Size   | 3452134 lines    | 2026-05-26 15:12:07 |
-| Largest Diff Size | 418153 lines     | 2026-05-26 15:12:07 |
-| Average Presence  | 1.25             | 2026-05-26 15:12:07 |
+| Current Streak    | 110              | 2026-05-26 20:58:28 |
+| Longest Streak    | 110              | 2026-05-26 20:58:28 |
+| Total Plan Size   | 5204 lines       | 2026-05-26 20:58:28 |
+| Largest Plan Size | 699 lines        | 2026-05-26 20:58:28 |
+| Total Diff Size   | 3465778 lines    | 2026-05-26 20:58:28 |
+| Largest Diff Size | 418153 lines     | 2026-05-26 20:58:28 |
+| Average Presence  | 1.25             | 2026-05-26 20:58:28 |
 
 ## ADW KPIs
 
@@ -194,3 +194,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-05-26 | sh8m9r-branchname-agent-re | 524          | /feature    | 1          | 0                 | 11641/74/132                    | 2026-05-26 12:21:06 | 2026-05-26 12:21:06 |
 | 2026-05-26 | kswfvk-llm-drafted-observab | 508          | /feature    | 1          | 0                 | 8540/19/91                      | 2026-05-26 14:26:33 | 2026-05-26 14:26:33 |
 | 2026-05-26 | cv2hai-rfc-split-worker-api | 95           | /feature    | 2          | 0                 | 61349/1902/303                  | 2026-05-26 14:36:58 | 2026-05-26 15:12:07 |
+| 2026-05-26 | 22y8n3-adwmerge-dead-ends-i | 527          | /bug        | 1          | 0                 | 13524/120/154                   | 2026-05-26 20:58:28 | 2026-05-26 20:58:28 |
