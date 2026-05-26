@@ -117,7 +117,7 @@ Feature: merge_blocked recovery path — adwMerge no longer dead-ends at the mer
     Given an issue 9523 exists in the mock issue tracker
     And the worktree for adwId "merge-blocked-527-4" is initialised at branch "feature-issue-9523-observ"
     And a state file exists for adwId "merge-blocked-527-4" at stage "awaiting_merge"
-    And the state file for adwId "merge-blocked-527-4" records a merge retry count of 1
+    And the state file for adwId "merge-blocked-527-4" is seeded with a merge retry count of 1
     And the branch "feature-issue-9523-observ" has no pull request
     When the "merge" orchestrator is invoked with adwId "merge-blocked-527-4" and issue 9523
     Then the state file for adwId "merge-blocked-527-4" records workflowStage "awaiting_merge"
@@ -129,7 +129,7 @@ Feature: merge_blocked recovery path — adwMerge no longer dead-ends at the mer
     And the mock GitHub API is configured to accept issue comments
     And the worktree for adwId "merge-blocked-527-5" is initialised at branch "feature-issue-9524-observ"
     And a state file exists for adwId "merge-blocked-527-5" at stage "awaiting_merge"
-    And the state file for adwId "merge-blocked-527-5" records a merge retry count of 2
+    And the state file for adwId "merge-blocked-527-5" is seeded with a merge retry count of 2
     And the branch "feature-issue-9524-observ" has no pull request
     When the "merge" orchestrator is invoked with adwId "merge-blocked-527-5" and issue 9524
     Then the state file for adwId "merge-blocked-527-5" records workflowStage "merge_blocked"
@@ -144,7 +144,7 @@ Feature: merge_blocked recovery path — adwMerge no longer dead-ends at the mer
     And the mock GitHub API is configured to accept issue comments
     And the worktree for adwId "merge-blocked-527-6" is initialised at branch "feature-issue-9525-observ"
     And a state file exists for adwId "merge-blocked-527-6" at stage "awaiting_merge"
-    And the state file for adwId "merge-blocked-527-6" records a merge retry count of 2
+    And the state file for adwId "merge-blocked-527-6" is seeded with a merge retry count of 2
     And the branch "feature-issue-9525-observ" carries a single open PR 9540
     When the "merge" orchestrator is invoked with adwId "merge-blocked-527-6" and issue 9525
     Then the mock GitHub API recorded a PR-merge call for PR 9540
@@ -194,7 +194,7 @@ Feature: merge_blocked recovery path — adwMerge no longer dead-ends at the mer
   Scenario: ## Retry on a merge_blocked issue resets it to awaiting_merge and clears the retry counter
     Given an issue 9529 exists in the mock issue tracker
     And a state file exists for adwId "merge-blocked-527-10" at stage "merge_blocked"
-    And the state file for adwId "merge-blocked-527-10" records a merge retry count of 3
+    And the state file for adwId "merge-blocked-527-10" is seeded with a merge retry count of 3
     And issue 9529 has a comment whose body is "## Retry"
     When the "## Retry" directive is processed for issue 9529
     Then the state file for adwId "merge-blocked-527-10" records workflowStage "awaiting_merge"
@@ -214,7 +214,7 @@ Feature: merge_blocked recovery path — adwMerge no longer dead-ends at the mer
     And the mock GitHub API is configured to accept issue comments
     And the worktree for adwId "merge-blocked-527-12" is initialised at branch "feature-issue-9531-observ"
     And a state file exists for adwId "merge-blocked-527-12" at stage "merge_blocked"
-    And the state file for adwId "merge-blocked-527-12" records a merge retry count of 3
+    And the state file for adwId "merge-blocked-527-12" is seeded with a merge retry count of 3
     And issue 9531 has a comment whose body is "## Retry"
     When the "## Retry" directive is processed for issue 9531
     Then the state file for adwId "merge-blocked-527-12" records workflowStage "awaiting_merge"
