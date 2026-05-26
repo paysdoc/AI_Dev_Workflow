@@ -102,14 +102,52 @@ describe('executeMerge — missing state', () => {
     expect(deps.writeTopLevelState).toHaveBeenCalledWith('test-adw-id', { workflowStage: 'abandoned' });
   });
 
-  it('returns abandoned when no PR is found for the branch', async () => {
+  it('stays awaiting_merge on first no_pr_found miss (attempt 1 of 3)', async () => {
     const deps = makeDeps({ findPRByBranch: vi.fn().mockReturnValue(null) });
 
     const result = await executeMerge(42, 'test-adw-id', REPO_INFO, '/base/repo', deps);
 
     expect(result.outcome).toBe('abandoned');
     expect(result.reason).toBe('no_pr_found');
-    expect(deps.writeTopLevelState).toHaveBeenCalledWith('test-adw-id', { workflowStage: 'abandoned' });
+    expect(deps.writeTopLevelState).toHaveBeenCalledWith('test-adw-id', { workflowStage: 'awaiting_merge', mergeRetryCount: 1 });
+    expect(deps.commentOnIssue).not.toHaveBeenCalled();
+  });
+
+  it('stays awaiting_merge on second no_pr_found miss (attempt 2 of 3)', async () => {
+    const deps = makeDeps({
+      readTopLevelState: vi.fn().mockReturnValue(makeState({ mergeRetryCount: 1 })),
+      findPRByBranch: vi.fn().mockReturnValue(null),
+    });
+
+    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, '/base/repo', deps);
+
+    expect(result.outcome).toBe('abandoned');
+    expect(result.reason).toBe('no_pr_found');
+    expect(deps.writeTopLevelState).toHaveBeenCalledWith('test-adw-id', { workflowStage: 'awaiting_merge', mergeRetryCount: 2 });
+    expect(deps.commentOnIssue).not.toHaveBeenCalled();
+  });
+
+  it('escalates to merge_blocked on third no_pr_found miss (attempt 3 of 3)', async () => {
+    const deps = makeDeps({
+      readTopLevelState: vi.fn().mockReturnValue(makeState({ mergeRetryCount: 2 })),
+      findPRByBranch: vi.fn().mockReturnValue(null),
+    });
+
+    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, '/base/repo', deps);
+
+    expect(result.outcome).toBe('abandoned');
+    expect(result.reason).toBe('no_pr_found_blocked');
+    expect(deps.writeTopLevelState).toHaveBeenCalledWith('test-adw-id', { workflowStage: 'merge_blocked', mergeRetryCount: 3 });
+    expect(deps.commentOnIssue).toHaveBeenCalledWith(
+      42,
+      expect.stringContaining('Merge Blocked'),
+      REPO_INFO,
+    );
+    expect(deps.commentOnIssue).toHaveBeenCalledWith(
+      42,
+      expect.stringContaining('## Retry'),
+      REPO_INFO,
+    );
   });
 });
 
@@ -125,7 +163,7 @@ describe('executeMerge — already merged PR', () => {
 
     expect(result.outcome).toBe('completed');
     expect(result.reason).toBe('already_merged');
-    expect(deps.writeTopLevelState).toHaveBeenCalledWith('test-adw-id', { workflowStage: 'completed' });
+    expect(deps.writeTopLevelState).toHaveBeenCalledWith('test-adw-id', { workflowStage: 'completed', mergeRetryCount: 0 });
     expect(deps.commentOnIssue).toHaveBeenCalledWith(
       42,
       expect.stringContaining('Workflow Completed'),
@@ -173,7 +211,7 @@ describe('executeMerge — successful merge', () => {
       '/logs/test-adw-id',
       '',              // specPath (planFileExists returns false)
     );
-    expect(deps.writeTopLevelState).toHaveBeenCalledWith('test-adw-id', { workflowStage: 'completed' });
+    expect(deps.writeTopLevelState).toHaveBeenCalledWith('test-adw-id', { workflowStage: 'completed', mergeRetryCount: 0 });
     expect(deps.commentOnIssue).toHaveBeenCalledWith(
       42,
       expect.stringContaining('Workflow Completed'),
@@ -205,7 +243,7 @@ describe('executeMerge — successful merge', () => {
 // ── Failed merge ─────────────────────────────────────────────────────────────
 
 describe('executeMerge — failed merge', () => {
-  it('writes discarded and comments on PR when merge fails', async () => {
+  it('writes merge_blocked and comments on issue when merge fails', async () => {
     const deps = makeDeps({
       mergeWithConflictResolution: vi.fn<typeof mergeWithConflictResolution>().mockResolvedValue({
         success: false,
@@ -217,16 +255,21 @@ describe('executeMerge — failed merge', () => {
 
     expect(result.outcome).toBe('abandoned');
     expect(result.reason).toBe('merge_failed');
-    expect(deps.writeTopLevelState).toHaveBeenCalledWith('test-adw-id', { workflowStage: 'discarded' });
-    expect(deps.commentOnPR).toHaveBeenCalledWith(
-      7,
-      expect.stringContaining('Auto-merge failed'),
+    expect(deps.writeTopLevelState).toHaveBeenCalledWith('test-adw-id', { workflowStage: 'merge_blocked' });
+    expect(deps.commentOnIssue).toHaveBeenCalledWith(
+      42,
+      expect.stringContaining('Merge Blocked'),
       REPO_INFO,
     );
-    expect(deps.commentOnIssue).not.toHaveBeenCalled();
+    expect(deps.commentOnIssue).toHaveBeenCalledWith(
+      42,
+      expect.stringContaining('## Retry'),
+      REPO_INFO,
+    );
+    expect(deps.commentOnPR).not.toHaveBeenCalled();
   });
 
-  it('includes last error in the PR failure comment', async () => {
+  it('includes last error in the issue failure comment', async () => {
     const deps = makeDeps({
       mergeWithConflictResolution: vi.fn<typeof mergeWithConflictResolution>().mockResolvedValue({
         success: false,
@@ -236,7 +279,7 @@ describe('executeMerge — failed merge', () => {
 
     await executeMerge(42, 'test-adw-id', REPO_INFO, '/base/repo', deps);
 
-    const commentArg = (deps.commentOnPR as ReturnType<typeof vi.fn>).mock.calls[0][1] as string;
+    const commentArg = (deps.commentOnIssue as ReturnType<typeof vi.fn>).mock.calls[0][1] as string;
     expect(commentArg).toContain('merge conflict in file.txt');
   });
 });
@@ -325,7 +368,7 @@ describe('executeMerge — hitl × approved gate matrix', () => {
 
     expect(result.outcome).toBe('completed');
     expect(deps.mergeWithConflictResolution).toHaveBeenCalled();
-    expect(deps.writeTopLevelState).toHaveBeenCalledWith('test-adw-id', { workflowStage: 'completed' });
+    expect(deps.writeTopLevelState).toHaveBeenCalledWith('test-adw-id', { workflowStage: 'completed', mergeRetryCount: 0 });
   });
 
   it('rule 2: hitl + not approved → defer with reason hitl_blocked_unapproved', async () => {

@@ -27,6 +27,9 @@ import {
   ensureLogsDirectory,
   ensureTargetRepoWorkspace,
 } from './core';
+
+// Maximum PR-resolution attempts before escalating to merge_blocked (#527)
+const MAX_PR_RESOLUTION_ATTEMPTS = 3;
 import { findOrchestratorStatePath } from './core/stateHelpers';
 import { commentOnIssue, commentOnPR, defaultFindPRByBranch, fetchPRApprovalState, issueHasLabel, type RawPR, type RepoInfo } from './github';
 import { mergeWithConflictResolution } from './triggers/autoMergeHandler';
@@ -57,6 +60,19 @@ export interface MergeDeps {
   readonly commentOnPR: typeof commentOnPR;
   readonly getPlanFilePath: typeof getPlanFilePath;
   readonly planFileExists: typeof planFileExists;
+}
+
+/** Builds the explanatory issue comment posted when the merge escalates to merge_blocked. */
+function buildMergeBlockedComment(cause: string, adwId: string): string {
+  return [
+    '## ADW Merge Blocked',
+    '',
+    `**Cause:** ${cause}`,
+    '',
+    '**Remedy:** Resolve the issue above, then comment `## Retry` on this issue. ADW will reset to `awaiting_merge` and re-attempt the merge on the next cron tick.',
+    '',
+    `**ADW ID:** \`${adwId}\``,
+  ].join('\n');
 }
 
 /**
@@ -98,11 +114,25 @@ export async function executeMerge(
     return { outcome: 'abandoned', reason: 'no_branch_name' };
   }
 
-  // 3. Find the PR by branch name
+  // 3. Find the PR by branch name (bounded retry — #527)
   const pr = deps.findPRByBranch(branchName, repoInfo);
   if (!pr) {
-    log(`adwMerge: no PR found for branch '${branchName}' in ${repoInfo.owner}/${repoInfo.repo}`, 'error');
-    deps.writeTopLevelState(adwId, { workflowStage: 'abandoned' });
+    const attemptCount = (topLevelState.mergeRetryCount ?? 0) + 1;
+    if (attemptCount >= MAX_PR_RESOLUTION_ATTEMPTS) {
+      log(`adwMerge: no PR for '${branchName}' after ${attemptCount} attempts — escalating to merge_blocked`, 'error');
+      deps.writeTopLevelState(adwId, { workflowStage: 'merge_blocked', mergeRetryCount: attemptCount });
+      deps.commentOnIssue(
+        issueNumber,
+        buildMergeBlockedComment(
+          `No open pull request was found for branch \`${branchName}\` after ${attemptCount} attempts. The PR may have been closed/merged out-of-band, or the stored branch name may be stale.`,
+          adwId,
+        ),
+        repoInfo,
+      );
+      return { outcome: 'abandoned', reason: 'no_pr_found_blocked' };
+    }
+    log(`adwMerge: no PR for '${branchName}' (attempt ${attemptCount}/${MAX_PR_RESOLUTION_ATTEMPTS}) — staying awaiting_merge`, 'warn');
+    deps.writeTopLevelState(adwId, { workflowStage: 'awaiting_merge', mergeRetryCount: attemptCount });
     return { outcome: 'abandoned', reason: 'no_pr_found' };
   }
 
@@ -112,7 +142,7 @@ export async function executeMerge(
   // 4. Already merged — idempotent completion
   if (prState === 'MERGED') {
     log(`adwMerge: PR #${prNumber} already merged, writing completed`, 'success');
-    deps.writeTopLevelState(adwId, { workflowStage: 'completed' });
+    deps.writeTopLevelState(adwId, { workflowStage: 'completed', mergeRetryCount: 0 });
     deps.commentOnIssue(
       issueNumber,
       `## ADW Workflow Completed\n\nPR #${prNumber} has been merged.\n\n**ADW ID:** \`${adwId}\``,
@@ -166,7 +196,7 @@ export async function executeMerge(
 
   if (mergeOutcome.success) {
     log(`adwMerge: PR #${prNumber} merged successfully`, 'success');
-    deps.writeTopLevelState(adwId, { workflowStage: 'completed' });
+    deps.writeTopLevelState(adwId, { workflowStage: 'completed', mergeRetryCount: 0 });
     deps.commentOnIssue(
       issueNumber,
       `## ADW Workflow Completed\n\nPR #${prNumber} has been merged successfully.\n\n**ADW ID:** \`${adwId}\``,
@@ -175,26 +205,22 @@ export async function executeMerge(
     return { outcome: 'completed', reason: 'merged' };
   }
 
-  // Merge failed after retries
+  // Merge failed after retries.
+  // Conscious reversal of #460: merge_failed now escalates to the human-recoverable
+  // merge_blocked instead of terminal discarded (#460). Anti-loop intent preserved:
+  // merge_blocked recovers only via explicit ## Retry, never automatically.
+  // pr_closed remains discarded.
   const lastError = mergeOutcome.error ?? '';
   log(`adwMerge: merge failed after retries: ${lastError}`, 'error');
-  // Terminal: merge genuinely failed after retries — do not re-spawn.
-  deps.writeTopLevelState(adwId, { workflowStage: 'discarded' });
+  deps.writeTopLevelState(adwId, { workflowStage: 'merge_blocked' });
 
-  const failureLines = [
-    `## Auto-merge failed for PR #${prNumber}`,
-    '',
-    'The automated merge process was unable to merge this PR after multiple attempts.',
-    '',
-    lastError ? `**Last error:** ${lastError.substring(0, 500)}` : '',
-    '',
-    'Please resolve any remaining merge conflicts manually and merge the PR.',
-  ];
-  const failureComment = failureLines
-    .filter((line, i, arr) => !(line === '' && arr[i - 1] === ''))
-    .join('\n');
-
-  deps.commentOnPR(prNumber, failureComment, repoInfo);
+  const causeLines = [`Automated merge of PR #${prNumber} failed after multiple conflict-resolution attempts.`];
+  if (lastError) causeLines.push(`Last error: ${lastError.substring(0, 500)}`);
+  deps.commentOnIssue(
+    issueNumber,
+    buildMergeBlockedComment(causeLines.join(' '), adwId),
+    repoInfo,
+  );
   return { outcome: 'abandoned', reason: 'merge_failed' };
 }
 

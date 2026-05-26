@@ -12,7 +12,7 @@ import * as fs from 'fs';
 import { log, GRACE_PERIOD_MS, JANITOR_INTERVAL_CYCLES, HEARTBEAT_STALE_THRESHOLD_MS, HUNG_DETECTOR_INTERVAL_CYCLES, PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES, getTargetRepoWorkspacePath, resolveClaudeCodePath, REPO_ROOT, assertCwdIsRepoRoot } from '../core';
 import { findHungOrchestrators, type HungDetectorDeps } from '../core/hungOrchestratorDetector';
 import { AgentStateManager } from '../core/agentState';
-import { getRepoInfo, fetchPRList, hasUnaddressedComments, isCancelComment, activateGitHubAppAuth, refreshTokenIfNeeded } from '../github';
+import { getRepoInfo, fetchPRList, hasUnaddressedComments, isCancelComment, isRetryComment, activateGitHubAppAuth, refreshTokenIfNeeded } from '../github';
 import { readAuthGate, writeAuthGate, clearAuthGate, markGateSlackNotified, shouldSendDetectionSlack } from '../core/authGate';
 import { sendSlackDetectionNotification, sendSlackRecoveryNotification } from '../core/slackNotifier';
 import { markStatePausedAuthForLiveOrchestrator } from '../phases/authPause';
@@ -22,6 +22,7 @@ import { isProcessLive } from '../core/processLiveness';
 
 import { resolveIssueWorkflowStage } from './cronStageResolver';
 import { handleCancelDirective } from './cancelHandler';
+import { handleRetryDirective } from './retryHandler';
 import { checkIssueEligibility } from './issueEligibility';
 import { classifyAndSpawnWorkflow, spawnDetached } from './webhookGatekeeper';
 import { registerAndGuard } from './cronProcessGuard';
@@ -214,6 +215,10 @@ async function checkAndTrigger(): Promise<void> {
     if (latestComment && isCancelComment(latestComment.body)) {
       handleCancelDirective(issue.number, issue.comments, cronRepoInfo, cancelCwd, { spawns: processedSpawns });
       cancelledThisCycle.add(issue.number);
+    } else if (latestComment && isRetryComment(latestComment.body)) {
+      handleRetryDirective(issue.number, issue.comments);
+      // No cancelledThisCycle add: the reset to awaiting_merge must be picked up
+      // this cycle by filterEligibleIssues (the awaiting_merge hoist re-dispatches adwMerge).
     }
   }
 

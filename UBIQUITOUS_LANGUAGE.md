@@ -104,6 +104,9 @@
 | **Remote Reconcile** | The process of deriving an authoritative Stage from remote GitHub artifacts (open PR, merged PR, branch existence) rather than from the potentially stale local state file | State derivation, remote stage sync |
 | **Live Holder** | An orchestrator whose Spawn Lock is held and whose PID is confirmed alive by Process Liveness; a Candidate arriving at a Live Holder issue is deferred | Active owner, lock holder |
 | **Split-Brain** | The failure mode where two orchestrators run against the same issue simultaneously, each believing it is the canonical owner; caused by running triggers on two hosts | Duplicate spawn, dual-owner |
+| **Merge Blocked** | A terminal-until-human Stage (`merge_blocked`) reached when either (a) `no_pr_found` exhausts its bounded retry budget or (b) `merge_failed` exhausts `MAX_AUTO_MERGE_ATTEMPTS`. Non-retriable by the automatic cron sweep; recoverable only via an explicit **Retry Directive**. Posts an explanatory issue comment naming the cause. `pr_closed` still routes to `discarded` (operator intent). | merge failed, merge error, blocked merge |
+| **Retry Directive** | The comment command `## Retry` posted on an issue, mirroring `## Cancel`. When processed, resets a `merge_blocked` workflow to `awaiting_merge` and clears the PR-resolution retry counter (`mergeRetryCount`), allowing the cron to re-dispatch `adwMerge` on the next tick. No-op for any other stage. | retry, re-merge, ## Retry |
+| **Cancel Directive** | The comment command `## Cancel` posted on an issue that triggers a scorched-earth workflow reset: kills the running orchestrator, removes the Worktree, clears comments, and resets the issue to `abandoned` for re-spawn. Heavier than **Retry Directive**. | ## Cancel, cancel command |
 
 ## Configuration
 
