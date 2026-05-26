@@ -507,10 +507,11 @@ adws/                   # ADW workflow system
 │   ├── modelRouting.ts # Model/effort routing utilities
 │   ├── orchestratorCli.ts  # Shared CLI parsing utilities
 │   ├── orchestratorLib.ts
+│   ├── agentTimeouts.ts  # Per-phase agent timeout constants
 │   ├── pauseQueue.ts   # Pause queue for rate-limit pause/resume
-│   ├── slackNotifier.ts  # Minimal Slack webhook notifier for auth-gate events (no-throw at boundary)
 │   ├── phaseRunner.ts  # PhaseRunner / CostTracker composition
 │   ├── portAllocator.ts
+│   ├── processKill.ts  # Process kill utilities (SIGTERM → SIGKILL escalation)
 │   ├── processLiveness.ts  # PID-reuse-safe process liveness checks
 │   ├── projectConfig.ts
 │   ├── remoteReconcile.ts  # Stage derivation from remote GitHub artifacts
@@ -766,7 +767,8 @@ test/                   # Integration test infrastructure
 │   │   ├── package.json
 │   │   └── tsconfig.json
 │   ├── github/         # GitHub API response fixtures (issue, PR, comments)
-│   └── jsonl/          # JSONL fixture files for testing
+│   ├── jsonl/          # JSONL fixture files for testing
+│   └── scenarios/      # Gherkin .feature fixtures for promotion scoring tests
 │       ├── envelopes/
 │       ├── manifests/  # Named scenario manifests for stub sequencing
 │       └── payloads/

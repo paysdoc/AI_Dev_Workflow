@@ -1,5 +1,14 @@
 # Conditional Documentation
 
+- app_docs/feature-sh8m9r-persist-branch-name-per-adwid.md
+  - Conditions:
+    - When working with `adws/phases/workflowInit.ts` branch-name resolution or `runGenerateBranchNameAgent` call sites
+    - When implementing or troubleshooting `adws/phases/branchNameResolution.ts` (`resolveWorkflowBranchName`, `readPersistedBranchName`, `persistBranchName`)
+    - When a workflow creates two branches for the same issue (orphan worktree / stranded phase-1 artifacts)
+    - When `Cannot read plan file` errors point to a worktree that differs from the one holding the plan
+    - When the branch-name agent fires more than once for the same `adwId`
+    - When adding tests for the branch-name persistence contract (`branchNameResolution.test.ts` or `workflowInit.test.ts`)
+
 - app_docs/feature-nnny1e-vocabulary-template-and-flags.md
   - Conditions:
     - When modifying `.claude/commands/adw_init.md` step 7 (vocabulary template copy or polymorphism flags)
