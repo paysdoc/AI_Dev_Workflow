@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 106              | 2026-05-26 11:29:28 |
-| Longest Streak    | 106              | 2026-05-26 11:29:28 |
-| Total Plan Size   | 5204 lines       | 2026-05-26 11:29:28 |
-| Largest Plan Size | 699 lines        | 2026-05-26 11:29:28 |
-| Total Diff Size   | 3368609 lines    | 2026-05-26 11:29:28 |
-| Largest Diff Size | 418153 lines     | 2026-05-26 11:29:28 |
-| Average Presence  | 1.25             | 2026-05-26 11:29:28 |
+| Current Streak    | 107              | 2026-05-26 12:21:06 |
+| Longest Streak    | 107              | 2026-05-26 12:21:06 |
+| Total Plan Size   | 5204 lines       | 2026-05-26 12:21:06 |
+| Largest Plan Size | 699 lines        | 2026-05-26 12:21:06 |
+| Total Diff Size   | 3380324 lines    | 2026-05-26 12:21:06 |
+| Largest Diff Size | 418153 lines     | 2026-05-26 12:21:06 |
+| Average Presence  | 1.25             | 2026-05-26 12:21:06 |
 
 ## ADW KPIs
 
@@ -191,3 +191,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-05-21 | y8r69q-auto-ramping-thresho | 512          | /feature    | 1          | 0                 | 7222/20/94                      | 2026-05-21 15:18:45 | 2026-05-21 15:18:45 |
 | 2026-05-21 | bed2tg-bug-step-def-agent-c | 521          | /bug        | 1          | 0                 | 10149/54/124                    | 2026-05-21 23:44:13 | 2026-05-21 23:44:13 |
 | 2026-05-22 | mqwyb7-llm-drafted-observab | 508          | /feature    | 1          | 0                 | 8540/19/91                      | 2026-05-22 15:47:12 | 2026-05-26 11:29:28 |
+| 2026-05-26 | sh8m9r-branchname-agent-re | 524          | /feature    | 1          | 0                 | 11641/74/132                    | 2026-05-26 12:21:06 | 2026-05-26 12:21:06 |
