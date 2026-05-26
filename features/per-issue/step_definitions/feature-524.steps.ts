@@ -111,7 +111,7 @@ function makeScenarioAgentFn(adwId: string): AgentFn {
       output: '',
       sessionId: 'test-session',
       totalCostUsd: 0,
-      modelUsage: {} as Record<string, unknown>,
+      modelUsage: {},
     };
   };
 }
