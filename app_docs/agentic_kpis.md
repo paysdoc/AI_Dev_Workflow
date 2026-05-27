@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 111              | 2026-05-27 01:01:11 |
-| Longest Streak    | 111              | 2026-05-27 01:01:11 |
-| Total Plan Size   | 5204 lines       | 2026-05-27 01:01:11 |
-| Largest Plan Size | 699 lines        | 2026-05-27 01:01:11 |
-| Total Diff Size   | 3531155 lines    | 2026-05-27 01:01:11 |
-| Largest Diff Size | 418153 lines     | 2026-05-27 01:01:11 |
-| Average Presence  | 1.25             | 2026-05-27 01:01:11 |
+| Current Streak    | 112              | 2026-05-27 02:45:01 |
+| Longest Streak    | 112              | 2026-05-27 02:45:01 |
+| Total Plan Size   | 5204 lines       | 2026-05-27 02:45:01 |
+| Largest Plan Size | 699 lines        | 2026-05-27 02:45:01 |
+| Total Diff Size   | 3598102 lines    | 2026-05-27 02:45:01 |
+| Largest Diff Size | 418153 lines     | 2026-05-27 02:45:01 |
+| Average Presence  | 1.25             | 2026-05-27 02:45:01 |
 
 ## ADW KPIs
 
@@ -196,3 +196,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-05-26 | cv2hai-rfc-split-worker-api | 95           | /feature    | 2          | 0                 | 61349/1902/303                  | 2026-05-26 14:36:58 | 2026-05-26 15:12:07 |
 | 2026-05-26 | 22y8n3-adwmerge-dead-ends-i | 527          | /bug        | 1          | 0                 | 13524/120/154                   | 2026-05-26 20:58:28 | 2026-05-26 20:58:28 |
 | 2026-05-26 | ytftct-harden-tests-close-f | 97           | /feature    | 2          | 0                 | 63465/1912/316                  | 2026-05-26 21:15:34 | 2026-05-26 21:15:34 |
+| 2026-05-27 | 3rebwy-rfc-deepen-brandinta | 99           | /feature    | 1          | 0                 | 64934/1914/321                  | 2026-05-27 02:45:01 | 2026-05-27 02:45:01 |
