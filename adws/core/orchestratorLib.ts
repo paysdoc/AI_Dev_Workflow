@@ -54,26 +54,41 @@ export function getNextStage(lastCompletedStage: WorkflowStage): WorkflowStage {
   return STAGE_ORDER[index + 1];
 }
 
+const ORCHESTRATOR_SCRIPT_BY_NAME: Record<string, string> = {
+  'sdlc-orchestrator': 'adwSdlc',
+  'plan-orchestrator': 'adwPlan',
+  'chore-orchestrator': 'adwChore',
+  'plan-build-orchestrator': 'adwPlanBuild',
+  'plan-build-test-orchestrator': 'adwPlanBuild',
+  'plan-build-review-orchestrator': 'adwPlanBuildReview',
+  'plan-build-test-review-orchestrator': 'adwPlanBuildTestReview',
+  'plan-build-document-orchestrator': 'adwPlanBuildDocument',
+  'build-orchestrator': 'adwBuild',
+  'patch-orchestrator': 'adwPatch',
+  'test-orchestrator': 'adwTest',
+  'pr-review-orchestrator': 'adwPrReview',
+  'feature-orchestrator': 'adwSdlc',
+  'merge-orchestrator': 'adwMerge',
+};
+
 /**
  * Derives the orchestrator script path from the orchestratorName identifier.
  * Assumes scripts live at adws/{camelCase}.tsx.
  */
 export function deriveOrchestratorScript(orchestratorName: string): string {
-  const nameMap: Record<string, string> = {
-    'sdlc-orchestrator': 'adwSdlc',
-    'plan-orchestrator': 'adwPlan',
-    'chore-orchestrator': 'adwChore',
-    'plan-build-orchestrator': 'adwPlanBuild',
-    'plan-build-test-orchestrator': 'adwPlanBuild',
-    'plan-build-review-orchestrator': 'adwPlanBuildReview',
-    'plan-build-test-review-orchestrator': 'adwPlanBuildTestReview',
-    'plan-build-document-orchestrator': 'adwPlanBuildDocument',
-    'build-orchestrator': 'adwBuild',
-    'patch-orchestrator': 'adwPatch',
-    'test-orchestrator': 'adwTest',
-    'pr-review-orchestrator': 'adwPrReview',
-    'feature-orchestrator': 'adwSdlc',
-    'merge-orchestrator': 'adwMerge',
-  };
-  return `adws/${nameMap[orchestratorName] ?? 'adwSdlc'}.tsx`;
+  return `adws/${ORCHESTRATOR_SCRIPT_BY_NAME[orchestratorName] ?? 'adwSdlc'}.tsx`;
+}
+
+/**
+ * Inverse of deriveOrchestratorScript: returns the orchestrator agentName
+ * identifiers whose script equals the given path. Only explicitly-mapped names
+ * are returned — the 'adwSdlc' default fallback is NOT applied, so unmapped
+ * names (e.g. 'init-orchestrator') never match. Used by findOrchestratorStatePath
+ * to disambiguate a reused adwId where a failed init-orchestrator shadows the
+ * real orchestrator (#529).
+ */
+export function orchestratorNamesForScript(orchestratorScript: string): string[] {
+  return Object.entries(ORCHESTRATOR_SCRIPT_BY_NAME)
+    .filter(([, script]) => `adws/${script}.tsx` === orchestratorScript)
+    .map(([name]) => name);
 }
