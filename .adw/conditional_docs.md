@@ -1268,6 +1268,14 @@
     - When modifying the `generate_step_definitions.md` Step 7 ("Verify") or adding verification steps that must not execute step files at runtime
     - When troubleshooting an orchestrator stuck in `*_running` indefinitely after the Claude CLI emits `result: success`
 
+- app_docs/feature-9s65vu-fix-orchestrator-path-shadowing.md
+  - Conditions:
+    - When working with `findOrchestratorStatePath` in `adws/core/stateHelpers.ts`
+    - When an `adwId` is reused across a failed `init-orchestrator` and a real `sdlc-orchestrator` run (adwId reuse on retry)
+    - When `adwMerge` writes `abandoned` with reason `no_branch_name` despite a valid open PR existing
+    - When implementing `orchestratorNamesForScript` or extending `ORCHESTRATOR_SCRIPT_BY_NAME` in `adws/core/orchestratorLib.ts`
+    - When troubleshooting a workflow stranded `abandoned` that the `## Retry` directive cannot recover
+
 - app_docs/feature-bbwalf-adwmerge-reads-branc-branchname-top-level-resolution.md
   - Conditions:
     - When working with `executeMerge` in `adws/adwMerge.tsx` and branchName resolution logic

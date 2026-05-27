@@ -799,17 +799,15 @@ eslint.config.js        # ESLint configuration
 cucumber.js             # Cucumber.js configuration
 features/               # BDD feature files (Gherkin .feature)
 ├── per-issue/          # Per-issue agent-input scenarios — never executed by the runner; swept 14 days after PR merges
-│   └── step_definitions/  # Step definitions for per-issue scenarios
+│   └── step_definitions/  # Per-issue step definition files
 ├── regression/         # Regression scenario vocabulary, typed World, and surface/smoke scenarios
 │   ├── smoke/          # High-level smoke scenarios (cron spawn, SDLC, cancel, chore, pause)
 │   ├── step_definitions/  # Typed Given/When/Then steps and RegressionWorld for regression scenarios
 │   ├── support/        # Cucumber hooks for @regression suite
 │   ├── surfaces/       # Per-phase surface scenarios (row-01 through row-35 covering every orchestrator phase)
 │   └── vocabulary.md   # Canonical BDD phrase registry with rot-detection rubric for @regression authoring
-├── per-issue/          # Per-issue agent-input scenarios (14-day retention after PR merges); never executed by the runner
-│   └── step_definitions/  # Per-issue step definition files
-├── step_definitions/   # Cucumber step definition files (.ts)
-├── support/            # Cucumber support files (tsx registration)
+├── step_definitions/   # Top-level step definitions (webhook integration scenario)
+├── support/            # Top-level Cucumber support (tsx registration)
 └── webhook_ensure_cron_on_every_event.feature  # Integration scenario: cron fires on every webhook event (issue #501)
 specs/                  # Generated implementation specs
 ├── patch/              # Generated patch specs
