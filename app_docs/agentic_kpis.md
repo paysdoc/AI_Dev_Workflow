@@ -8,20 +8,20 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 114              | 2026-05-27 11:01:40 |
-| Longest Streak    | 114              | 2026-05-27 11:01:40 |
-| Total Plan Size   | 5624 lines       | 2026-05-27 11:01:40 |
-| Largest Plan Size | 699 lines        | 2026-05-27 11:01:40 |
-| Total Diff Size   | 3735768 lines    | 2026-05-27 11:01:40 |
-| Largest Diff Size | 418153 lines     | 2026-05-27 11:01:40 |
-| Average Presence  | 1.25             | 2026-05-27 11:01:40 |
+| Current Streak    | 135              | 2026-05-27 12:04:00 |
+| Longest Streak    | 135              | 2026-05-27 12:04:00 |
+| Total Plan Size   | 4863 lines       | 2026-05-27 12:04:00 |
+| Largest Plan Size | 699 lines        | 2026-05-27 12:04:00 |
+| Total Diff Size   | 3736994 lines    | 2026-05-27 12:04:00 |
+| Largest Diff Size | 418153 lines     | 2026-05-27 12:04:00 |
+| Average Presence  | 1.20             | 2026-05-27 12:04:00 |
 
 ## ADW KPIs
 
 Detailed metrics for individual ADW workflow runs.
 
- Date       | ADW ID                      | Issue Number | Issue Class | Attempts   | Plan Size (lines) | Diff Size (Added/Removed/Files) | Created   | Updated   |
-| ---------- | --------------------------- | ------------ | ----------- | ---------- | ----------------- | ------------------------------- | --------- | --------- |
+| Date       | ADW ID                      | Issue Number | Issue Class | Attempts   | Plan Size (lines) | Diff Size (Added/Removed/Files) | Created             | Updated             |
+| ---------- | --------------------------- | ------------ | ----------- | ---------- | ----------------- | ------------------------------- | ------------------- | ------------------- |
 | 2026-03-13 | 74itmf-add-logging-when-det | 175 | /feature | 1 | 0 | 197/3/5 | 2026-03-13 | 2026-03-13 |
 | 2026-03-13 | ak5lea-trigger-cron-process | 177 | /feature | 1 | 0 | 366/0/6 | 2026-03-13 | 2026-03-13 |
 | 2026-03-13 | sinbtg-implement-plan-scena | 166 | /feature | 1 | 0 | 28381/770/158 | 2026-03-13 | 2026-03-13 |
@@ -199,3 +199,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-05-27 | 3rebwy-rfc-deepen-brandinta | 99 | /feature | 1 | 0 | 64934/1914/321 | 2026-05-27 02:45:01 | 2026-05-27 02:45:01 |
 | 2026-05-27 | zk2k0m-rfc-deepen-deck-buil | 100 | /feature | 1 | 420 | 66577/1974/331 | 2026-05-27 04:24:35 | 2026-05-27 04:24:35 |
 | 2026-05-27 | uhvsws-fix-restore-lost-180 | 103 | /bug | 1 | 0 | 67141/1974/336 | 2026-05-27 11:01:40 | 2026-05-27 11:01:40 |
+| 2026-05-27 | 9s65vu-adwmerge-findorchest | 529 | /bug | 1 | 0 | 1006/220/10 | 2026-05-27 12:04:00 | 2026-05-27 12:04:00 |
