@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 113              | 2026-05-27 02:25:07 |
-| Longest Streak    | 113              | 2026-05-27 02:25:07 |
-| Total Plan Size   | 5624 lines       | 2026-05-27 02:25:07 |
-| Largest Plan Size | 699 lines        | 2026-05-27 02:25:07 |
-| Total Diff Size   | 3666653 lines    | 2026-05-27 02:25:07 |
-| Largest Diff Size | 418153 lines     | 2026-05-27 02:25:07 |
-| Average Presence  | 1.25             | 2026-05-27 02:25:07 |
+| Current Streak    | 114              | 2026-05-27 11:01:40 |
+| Longest Streak    | 114              | 2026-05-27 11:01:40 |
+| Total Plan Size   | 5624 lines       | 2026-05-27 11:01:40 |
+| Largest Plan Size | 699 lines        | 2026-05-27 11:01:40 |
+| Total Diff Size   | 3735768 lines    | 2026-05-27 11:01:40 |
+| Largest Diff Size | 418153 lines     | 2026-05-27 11:01:40 |
+| Average Presence  | 1.25             | 2026-05-27 11:01:40 |
 
 ## ADW KPIs
 
@@ -198,3 +198,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-05-26 | ytftct-harden-tests-close-f | 97 | /feature | 2 | 0 | 63465/1912/316 | 2026-05-26 21:15:34 | 2026-05-26 21:15:34 |
 | 2026-05-27 | 3rebwy-rfc-deepen-brandinta | 99 | /feature | 1 | 0 | 64934/1914/321 | 2026-05-27 02:45:01 | 2026-05-27 02:45:01 |
 | 2026-05-27 | zk2k0m-rfc-deepen-deck-buil | 100 | /feature | 1 | 420 | 66577/1974/331 | 2026-05-27 04:24:35 | 2026-05-27 04:24:35 |
+| 2026-05-27 | uhvsws-fix-restore-lost-180 | 103 | /bug | 1 | 0 | 67141/1974/336 | 2026-05-27 11:01:40 | 2026-05-27 11:01:40 |
