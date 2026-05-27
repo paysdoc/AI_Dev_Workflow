@@ -1267,3 +1267,11 @@
     - When the `## :warning: Phase Timeout` GitHub issue comment format needs to be understood or extended
     - When modifying the `generate_step_definitions.md` Step 7 ("Verify") or adding verification steps that must not execute step files at runtime
     - When troubleshooting an orchestrator stuck in `*_running` indefinitely after the Claude CLI emits `result: success`
+
+- app_docs/feature-bbwalf-adwmerge-reads-branc-branchname-top-level-resolution.md
+  - Conditions:
+    - When working with `executeMerge` in `adws/adwMerge.tsx` and branchName resolution logic
+    - When a workflow strands in `abandoned` with reason `no_branch_name` despite the branch existing
+    - When working with the `branchName` read site in `webhookHandlers.handleIssueClosedEvent` remote-branch deletion
+    - When implementing or troubleshooting branchName persistence in `workflowInit.ts` (write-side agreement between top-level and orchestrator state)
+    - When adding tests for the top-level-first, orchestrator-fallback branchName resolution contract (regression for issue #530)
