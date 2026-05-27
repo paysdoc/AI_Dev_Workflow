@@ -98,18 +98,20 @@ export async function executeMerge(
     return { outcome: 'abandoned', reason: `unexpected_stage:${topLevelState.workflowStage}` };
   }
 
-  // 2. Find branch name from orchestrator-specific state
-  const orchestratorStatePath = deps.findOrchestratorStatePath(adwId);
-  if (!orchestratorStatePath) {
-    log(`adwMerge: no orchestrator state found for adwId=${adwId}`, 'error');
-    deps.writeTopLevelState(adwId, { workflowStage: 'abandoned' });
-    return { outcome: 'abandoned', reason: 'no_orchestrator_state' };
-  }
-
-  const orchestratorState = deps.readOrchestratorState(orchestratorStatePath);
-  const branchName = orchestratorState?.branchName;
+  // 2. Resolve branch name — top-level state is the canonical persistence target (#524/#530);
+  //    orchestrator state is the fallback for older runs / defense-in-depth.
+  let branchName = topLevelState.branchName;
   if (!branchName) {
-    log(`adwMerge: no branchName in orchestrator state for adwId=${adwId}`, 'error');
+    const orchestratorStatePath = deps.findOrchestratorStatePath(adwId);
+    if (!orchestratorStatePath) {
+      log(`adwMerge: no orchestrator state found for adwId=${adwId}`, 'error');
+      deps.writeTopLevelState(adwId, { workflowStage: 'abandoned' });
+      return { outcome: 'abandoned', reason: 'no_orchestrator_state' };
+    }
+    branchName = deps.readOrchestratorState(orchestratorStatePath)?.branchName;
+  }
+  if (!branchName) {
+    log(`adwMerge: no branchName in state for adwId=${adwId}`, 'error');
     deps.writeTopLevelState(adwId, { workflowStage: 'abandoned' });
     return { outcome: 'abandoned', reason: 'no_branch_name' };
   }

@@ -27,6 +27,14 @@ export class RegressionWorld extends World {
   /** adwId → temp worktree directory path. */
   worktreePaths: Map<string, string> = new Map();
 
+  /**
+   * branch name → PR number, recorded by the PR-fixture Given steps (G21).
+   * Lets phase-import When steps resolve a branch to its PR without the gh CLI,
+   * which the GitHub API mock cannot serve (no PR-list route). Consumed by
+   * feature-530's injected findPRByBranch.
+   */
+  prsByBranch: Map<string, number> = new Map();
+
   /** Branch name set via G2 for assertion in T4 / T11. */
   targetBranch: string = '';
 

@@ -355,6 +355,76 @@ describe('executeMerge — approval gate', () => {
   });
 });
 
+// ── branchName resolution (issue #530) ──────────────────────────────────────
+
+describe('executeMerge — branchName resolution (issue #530)', () => {
+  it('regression: resolves branchName from top-level state when orchestrator path is null', async () => {
+    const deps = makeDeps({
+      readTopLevelState: vi.fn().mockReturnValue(makeState({ branchName: 'feature-issue-530-top-level' })),
+      findOrchestratorStatePath: vi.fn().mockReturnValue(null),
+      findPRByBranch: vi.fn().mockReturnValue(makePR({ headRefName: 'feature-issue-530-top-level' })),
+      ensureWorktree: vi.fn().mockReturnValue('/worktrees/feature-issue-530-top-level'),
+    });
+
+    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, '/base/repo', deps);
+
+    expect(result.outcome).toBe('completed');
+    expect(result.reason).not.toBe('no_branch_name');
+    expect(result.reason).not.toBe('no_orchestrator_state');
+    expect(deps.findOrchestratorStatePath).not.toHaveBeenCalled();
+    expect(deps.findPRByBranch).toHaveBeenCalledWith('feature-issue-530-top-level', REPO_INFO);
+    expect(deps.mergeWithConflictResolution).toHaveBeenCalledWith(
+      expect.any(Number), REPO_INFO, 'feature-issue-530-top-level',
+      expect.any(String), expect.any(String), expect.any(String), expect.any(String), expect.any(String),
+    );
+  });
+
+  it('regression: resolves branchName from top-level state when orchestrator state has no branchName', async () => {
+    const deps = makeDeps({
+      readTopLevelState: vi.fn().mockReturnValue(makeState({ branchName: 'feature-issue-530-top-level' })),
+      readOrchestratorState: vi.fn().mockReturnValue(makeState({ branchName: undefined })),
+      findPRByBranch: vi.fn().mockReturnValue(makePR({ headRefName: 'feature-issue-530-top-level' })),
+      ensureWorktree: vi.fn().mockReturnValue('/worktrees/feature-issue-530-top-level'),
+    });
+
+    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, '/base/repo', deps);
+
+    expect(result.outcome).toBe('completed');
+    expect(deps.findOrchestratorStatePath).not.toHaveBeenCalled();
+    expect(deps.findPRByBranch).toHaveBeenCalledWith('feature-issue-530-top-level', REPO_INFO);
+  });
+
+  it('precedence: top-level branchName wins when both stores differ', async () => {
+    const deps = makeDeps({
+      readTopLevelState: vi.fn().mockReturnValue(makeState({ branchName: 'feature-top-level-A' })),
+      readOrchestratorState: vi.fn().mockReturnValue(makeState({ branchName: 'feature-orchestrator-B' })),
+      findPRByBranch: vi.fn().mockReturnValue(makePR({ headRefName: 'feature-top-level-A' })),
+      ensureWorktree: vi.fn().mockReturnValue('/worktrees/feature-top-level-A'),
+    });
+
+    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, '/base/repo', deps);
+
+    expect(result.outcome).toBe('completed');
+    expect(deps.findOrchestratorStatePath).not.toHaveBeenCalled();
+    expect(deps.findPRByBranch).toHaveBeenCalledWith('feature-top-level-A', REPO_INFO);
+    expect(deps.findPRByBranch).not.toHaveBeenCalledWith('feature-orchestrator-B', REPO_INFO);
+  });
+
+  it('fallback: uses orchestrator branchName when top-level state has none', async () => {
+    const deps = makeDeps();
+    // Default makeDeps: top-level has no branchName; orchestrator has 'feature-issue-42-abc'
+
+    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, '/base/repo', deps);
+
+    expect(result.outcome).toBe('completed');
+    expect(deps.findOrchestratorStatePath).toHaveBeenCalled();
+    expect(deps.mergeWithConflictResolution).toHaveBeenCalledWith(
+      expect.any(Number), REPO_INFO, 'feature-issue-42-abc',
+      expect.any(String), expect.any(String), expect.any(String), expect.any(String), expect.any(String),
+    );
+  });
+});
+
 // ── hitl × approved gate matrix ──────────────────────────────────────────────
 
 describe('executeMerge — hitl × approved gate matrix', () => {

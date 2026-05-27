@@ -234,7 +234,10 @@ Given(
 // G21
 Given(
   'the branch {string} carries a single open PR {int}',
-  async function (this: RegressionWorld, _branch: string, prNumber: number) {
+  async function (this: RegressionWorld, branch: string, prNumber: number) {
+    // Record the branch → PR mapping so phase-import When steps (feature-530) can
+    // resolve a branch to its PR; the GitHub API mock has no PR-list route.
+    this.prsByBranch.set(branch, prNumber);
     if (!this.mockContext) return;
     await this.mockContext.setState({
       prs: {

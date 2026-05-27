@@ -1275,3 +1275,11 @@
     - When `adwMerge` writes `abandoned` with reason `no_branch_name` despite a valid open PR existing
     - When implementing `orchestratorNamesForScript` or extending `ORCHESTRATOR_SCRIPT_BY_NAME` in `adws/core/orchestratorLib.ts`
     - When troubleshooting a workflow stranded `abandoned` that the `## Retry` directive cannot recover
+
+- app_docs/feature-bbwalf-adwmerge-reads-branc-branchname-top-level-resolution.md
+  - Conditions:
+    - When working with `executeMerge` in `adws/adwMerge.tsx` and branchName resolution logic
+    - When a workflow strands in `abandoned` with reason `no_branch_name` despite the branch existing
+    - When working with the `branchName` read site in `webhookHandlers.handleIssueClosedEvent` remote-branch deletion
+    - When implementing or troubleshooting branchName persistence in `workflowInit.ts` (write-side agreement between top-level and orchestrator state)
+    - When adding tests for the top-level-first, orchestrator-fallback branchName resolution contract (regression for issue #530)

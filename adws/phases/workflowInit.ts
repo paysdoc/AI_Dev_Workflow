@@ -244,6 +244,8 @@ export async function initializeWorkflow(
     agentName: orchestratorName,
     pid: process.pid,
     execution: AgentStateManager.createExecutionState('running'),
+    // Mirror the top-level write so both stores agree on branchName for new runs (#530).
+    ...(branchName ? { branchName } : {}),
   };
   AgentStateManager.writeState(orchestratorStatePath, initialState);
   AgentStateManager.appendLog(orchestratorStatePath, `Starting ${orchestratorName} workflow for issue #${issueNumber}`);

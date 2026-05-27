@@ -114,7 +114,8 @@ Everything below is for someone who wants to run ADW against a target repository
 - **Chore fast-path with LLM diff gate** — `adwChore` builds, runs unit tests, opens a PR, then asks Haiku to classify the diff as `safe` (auto-merge) or `regression_possible` (full review path).
 - **BDD/scenario-driven validation** — discovers `.feature` files tagged `@adw-{issueNumber}`, generates step definitions, and reconciles plan vs. scenario coverage via `validationAgent`, `alignmentPhase`, and `resolutionAgent`.
 - **Multi-agent passive review** — review agents read scenario proof and captured screenshots, classifying findings as Blockers (auto-patched by `patchAgent`) or Tech Debt (logged only).
-- **HITL-gated auto-merge** — every cron tick re-evaluates `(no hitl label) OR (PR approved)`; merge is deferred while the gate is closed, and `## Cancel` is the manual override.
+- **HITL-gated auto-merge** — every cron tick re-evaluates `(no hitl label) OR (PR approved)`; merge is deferred while the gate is closed, and `## Cancel` is the scorched-earth manual override.
+- **Retry and Cancel directives** — `## Retry` resets a `merge_blocked` workflow to `awaiting_merge` (state-only, no worktree teardown); `## Cancel` kills the orchestrator, removes the worktree, and re-queues the issue.
 - **Multi-provider abstraction** — pluggable `IssueTracker` and `CodeHost` interfaces (`RepoContext`) with GitHub, GitLab, and Jira issue trackers and GitHub/GitLab code hosts.
 - **Project board automation** — `BoardManager` provider drives GitHub Projects V2 column transitions as a workflow progresses.
 - **Two automation triggers** — `trigger_cron.ts` polls every 20 s; `trigger_webhook.ts` receives HMAC-signed GitHub webhooks for instant pickup, with optional Cloudflare tunnel lifecycle.
@@ -490,7 +491,8 @@ adws/                   # ADW workflow system
 │   │   ├── projectConfig.test.ts
 │   │   ├── remoteReconcile.test.ts
 │   │   ├── slackNotifier.test.ts
-│   │   └── topLevelState.test.ts
+│   │   ├── topLevelState.test.ts
+│   │   └── workflowCommentParsing.test.ts
 │   ├── adwId.ts        # ADW ID generation
 │   ├── agentState.ts
 │   ├── authGate.ts     # Host-wide auth gate: detects auth failures, writes paused_auth state, triggers Slack alerts
@@ -588,6 +590,7 @@ adws/                   # ADW workflow system
 │   │   ├── scenarioTestPhase.test.ts
 │   │   └── workflowInit.test.ts
 │   ├── alignmentPhase.ts  # Single-pass alignment phase
+│   ├── authPause.ts    # Auth-required pause handler (mirrors rate-limit pause path for auth failures)
 │   ├── autoMergePhase.ts  # Auto-approve and merge PR after review passes
 │   ├── branchNameResolution.ts  # Branch name resolution for worktree takeover paths
 │   ├── diffEvaluationPhase.ts  # LLM diff evaluation phase (safe vs regression_possible)
@@ -658,6 +661,7 @@ adws/                   # ADW workflow system
 │   │   ├── mergeDispatchGate.test.ts
 │   │   ├── pauseQueueScanner.test.ts
 │   │   ├── perIssueScenarioSweep.test.ts
+│   │   ├── retryHandler.test.ts
 │   │   ├── scanAuthQueue.test.ts
 │   │   ├── spawnGate.test.ts
 │   │   ├── takeoverHandler.test.ts  # Unit tests for all takeoverHandler decision-tree branches
@@ -667,6 +671,7 @@ adws/                   # ADW workflow system
 │   │   └── webhookHandlers.test.ts
 │   ├── autoMergeHandler.ts  # Auto-merge approved PRs
 │   ├── cancelHandler.ts  # Cancel directive handler
+│   ├── retryHandler.ts   # Retry directive handler: resets merge_blocked → awaiting_merge, no worktree teardown
 │   ├── cloudflareTunnel.tsx  # Cloudflare tunnel lifecycle helper
 │   ├── concurrencyGuard.ts
 │   ├── cronIssueFilter.ts  # Cron issue evaluation and filtering logic (testable, extracted from trigger_cron)

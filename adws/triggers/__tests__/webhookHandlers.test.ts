@@ -265,6 +265,21 @@ describe('handleIssueClosedEvent — fetchIssueComments fails', () => {
   });
 });
 
+describe('handleIssueClosedEvent — top-level branchName used for deletion (issue #530)', () => {
+  it('deletes remote branch using top-level branchName when orchestrator state lacks it', async () => {
+    const deps = makeIssueDeps({
+      readTopLevelState: vi.fn().mockReturnValue(makeState({ branchName: 'feature-issue-42-top-level' })),
+      readOrchestratorState: vi.fn().mockReturnValue(makeState()), // no branchName
+    });
+    const result = await handleIssueClosedEvent(42, REPO_INFO, undefined, [], deps);
+
+    expect(result.status).toBe('cleaned');
+    expect(deps.deleteRemoteBranch).toHaveBeenCalledWith('feature-issue-42-top-level', undefined);
+    // Orchestrator state was never consulted since top-level had branchName
+    expect(deps.findOrchestratorStatePath).not.toHaveBeenCalled();
+  });
+});
+
 describe('handleIssueClosedEvent — no repoInfo', () => {
   it('cleans up worktrees only when repoInfo is undefined', async () => {
     const deps = makeIssueDeps();
