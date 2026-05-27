@@ -185,16 +185,18 @@ export async function handleIssueClosedEvent(
   const worktreesRemoved = deps.removeWorktreesForIssue(issueNumber, cwd);
   log(`Removed ${worktreesRemoved} worktree(s) for issue #${issueNumber}`, 'success');
 
-  // Remote branch deletion via orchestrator state
+  // Remote branch deletion — top-level state is canonical (#524/#530); orchestrator is fallback.
   let branchDeleted = false;
   if (adwId && state) {
-    const orchestratorPath = deps.findOrchestratorStatePath(adwId);
-    if (orchestratorPath) {
-      const orchestratorState = deps.readOrchestratorState(orchestratorPath);
-      const branchName = orchestratorState?.branchName;
-      if (branchName) {
-        branchDeleted = deps.deleteRemoteBranch(branchName, cwd);
+    let branchName = state.branchName;
+    if (!branchName) {
+      const orchestratorPath = deps.findOrchestratorStatePath(adwId);
+      if (orchestratorPath) {
+        branchName = deps.readOrchestratorState(orchestratorPath)?.branchName;
       }
+    }
+    if (branchName) {
+      branchDeleted = deps.deleteRemoteBranch(branchName, cwd);
     }
   }
 
