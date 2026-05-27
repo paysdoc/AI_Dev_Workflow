@@ -14,6 +14,7 @@ import * as path from 'path';
 import { AGENTS_STATE_DIR } from './config';
 import { AgentExecutionState } from '../types/agentTypes';
 import { isProcessLive } from './processLiveness';
+import { orchestratorNamesForScript } from './orchestratorLib';
 
 /**
  * @deprecated Use `isProcessLive` from `adws/core/processLiveness`. Kept for
@@ -82,36 +83,61 @@ function readStateFile(statePath: string): Record<string, unknown> | null {
 }
 
 /**
+ * Returns the candidate state path owned by the top-level state's
+ * orchestratorScript, or null when there is no such field or no match.
+ */
+function preferByTopLevelScript(
+  adwDir: string,
+  candidates: ReadonlyArray<{ statePath: string; agentName: string }>,
+): string | null {
+  // readStateFile(adwDir) reads agents/{adwId}/state.json — the top-level state.
+  const orchestratorScript = readStateFile(adwDir)?.orchestratorScript;
+  if (typeof orchestratorScript !== 'string' || orchestratorScript.length === 0) {
+    return null;
+  }
+  const expectedNames = new Set(orchestratorNamesForScript(orchestratorScript));
+  if (expectedNames.size === 0) return null;
+
+  const match = candidates.find((c) => expectedNames.has(c.agentName));
+  return match?.statePath ?? null;
+}
+
+/**
  * Finds the orchestrator state path for a given ADW ID.
  * Scans `agents/{adwId}/` for a subdirectory whose state.json
- * contains an agent name ending in `-orchestrator`.
+ * contains an agent name ending in `-orchestrator`. When multiple
+ * orchestrator directories exist (e.g. a failed init-orchestrator and
+ * the real sdlc-orchestrator), prefers the one matching the top-level
+ * state's orchestratorScript. (#529)
  *
  * @param adwId - The ADW session identifier
  * @returns The orchestrator state directory path, or null if not found
  */
 export function findOrchestratorStatePath(adwId: string): string | null {
   const adwDir = path.join(AGENTS_STATE_DIR, adwId);
-
   if (!fs.existsSync(adwDir)) return null;
 
   try {
-    const entries = fs.readdirSync(adwDir, { withFileTypes: true });
+    const candidates = fs.readdirSync(adwDir, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => {
+        const statePath = path.join(adwDir, entry.name);
+        const agentName = String(readStateFile(statePath)?.agentName ?? '');
+        return { statePath, agentName };
+      })
+      .filter((c) => c.agentName.endsWith('-orchestrator'));
 
-    for (const entry of entries) {
-      if (!entry.isDirectory()) continue;
+    if (candidates.length === 0) return null;
 
-      const statePath = path.join(adwDir, entry.name);
-      const state = readStateFile(statePath);
-
-      if (state?.agentName && String(state.agentName).endsWith('-orchestrator')) {
-        return statePath;
-      }
-    }
+    // Disambiguate a reused adwId (e.g. a failed init-orchestrator shadowing the
+    // real run): prefer the dir owned by the script recorded in top-level state.
+    // Fall back to the first candidate when there is no orchestratorScript or no
+    // candidate matches it. (#529)
+    const preferred = preferByTopLevelScript(adwDir, candidates);
+    return preferred ?? candidates[0].statePath;
   } catch {
     return null;
   }
-
-  return null;
 }
 
 /**
