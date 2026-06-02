@@ -44,7 +44,7 @@ Use these files to implement the feature:
 - `adws/github/projectBoardApi.ts` — **reference only, do not modify.** Lines 224-296 (`moveIssueToStatus`) are the canonical implementation of the upfront-PAT-swap pattern that must be ported. Use the structure of this function as the exact template for the wrapper's control flow.
 - `adws/github/githubAppAuth.ts` — exports `refreshTokenIfNeeded(owner?, repo?)` (line 253) and `isGitHubAppConfigured(): boolean` (line 46). Already imported by `githubBoardManager.ts`.
 - `adws/core/config.ts` — re-exports `GITHUB_PAT` (line 18) from `environment.ts`. Already imported by `githubBoardManager.ts`.
-- `adws/core/environment.ts` — defines `export const GITHUB_PAT = process.env.GITHUB_PAT || process.env.GITHUB_PERSONAL_ACCESS_TOKEN;` (line 70). No changes needed.
+- `adws/core/environment.ts` — defines `export const GITHUB_PAT = process.env.GITHUB_PAT;`. No changes needed.
 - `adws/providers/types.ts` — declares `BoardManager` interface (`findBoard`, `createBoard`, `ensureColumns`) and `BOARD_COLUMNS`. The public contract does not change.
 - `adws/providers/__tests__/boardManager.test.ts` — existing vitest unit test file. Add a new `describe('withProjectBoardAuth wrapper behavior', ...)` block here.
 - `features/project_board_pat_fallback.feature` — existing BDD feature covering `projectBoardApi.ts` only. Reference for scenario style; **do not modify.**

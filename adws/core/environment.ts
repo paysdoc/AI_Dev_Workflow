@@ -92,7 +92,7 @@ export function clearClaudeCodePathCache(): void {
 // ---------------------------------------------------------------------------
 
 /** GitHub Personal Access Token (optional, gh CLI handles auth). */
-export const GITHUB_PAT = process.env.GITHUB_PAT || process.env.GITHUB_PERSONAL_ACCESS_TOKEN;
+export const GITHUB_PAT = process.env.GITHUB_PAT;
 
 /** Jira instance URL (e.g., https://your-domain.atlassian.net). */
 export const JIRA_BASE_URL = process.env.JIRA_BASE_URL || '';
@@ -158,7 +158,6 @@ const SAFE_ENV_VARS: readonly string[] = [
   'ANTHROPIC_API_KEY',
   'GITHUB_PAT',
   'GH_TOKEN',
-  'GITHUB_PERSONAL_ACCESS_TOKEN',
   'GITHUB_APP_ID',
   'GITHUB_APP_SLUG',
   'GITHUB_APP_PRIVATE_KEY_PATH',

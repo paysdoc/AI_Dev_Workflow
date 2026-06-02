@@ -192,7 +192,7 @@ Required and optional environment variables (see `.env.sample` for full referenc
 - `GITHUB_REPO_URL` - Your GitHub repository URL
 - `ANTHROPIC_API_KEY` - Your Anthropic API key
 - `CLAUDE_CODE_PATH` - (Optional) Path to Claude CLI, defaults to `claude`
-- `GITHUB_PAT` - (Optional) GitHub personal access token, only needed if using a different account than `gh auth login`
+- `GITHUB_PAT` - (Optional) GitHub personal access token, only needed if using a different account than `gh auth login`. Use a classic PAT with the `project` scope for Projects V2 board automation — fine-grained `github_pat_...` tokens are unreliable against Projects V2 GraphQL on user-owned boards. **Migration note:** the legacy `GITHUB_PERSONAL_ACCESS_TOKEN` alias is no longer read; operators must set `GITHUB_PAT`.
 - `GITHUB_APP_ID` - (Optional) GitHub App ID for app-based authentication (comments appear as the app)
 - `GITHUB_APP_SLUG` - (Optional) GitHub App slug, used with `GITHUB_APP_ID`
 - `GITHUB_APP_PRIVATE_KEY_PATH` - (Optional) Path to GitHub App private key PEM file
