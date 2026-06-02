@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 116              | 2026-05-27 12:11:36 |
-| Longest Streak    | 116              | 2026-05-27 12:11:36 |
-| Total Plan Size   | 5624 lines       | 2026-05-27 12:11:36 |
-| Largest Plan Size | 699 lines        | 2026-05-27 12:11:36 |
-| Total Diff Size   | 3738189 lines    | 2026-05-27 12:11:36 |
-| Largest Diff Size | 418153 lines     | 2026-05-27 12:11:36 |
-| Average Presence  | 1.25             | 2026-05-27 12:11:36 |
+| Current Streak    | 117              | 2026-06-02 17:18:59 |
+| Longest Streak    | 117              | 2026-06-02 17:18:59 |
+| Total Plan Size   | 5624 lines       | 2026-06-02 17:18:59 |
+| Largest Plan Size | 699 lines        | 2026-06-02 17:18:59 |
+| Total Diff Size   | 3742104 lines    | 2026-06-02 17:18:59 |
+| Largest Diff Size | 418153 lines     | 2026-06-02 17:18:59 |
+| Average Presence  | 1.25             | 2026-06-02 17:18:59 |
 
 ## ADW KPIs
 
@@ -201,3 +201,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-05-27 | uhvsws-fix-restore-lost-180 | 103 | /bug | 1 | 0 | 67141/1974/336 | 2026-05-27 11:01:40 | 2026-05-27 11:01:40 |
 | 2026-05-27 | 9s65vu-adwmerge-findorchest | 529 | /bug | 1 | 0 | 1006/220/10 | 2026-05-27 12:04:00 | 2026-05-27 12:04:00 |
 | 2026-05-27 | bbwalf-adwmerge-reads-branc | 530 | /feature | 1 | 0 | 993/202/14 | 2026-05-27 12:11:36 | 2026-05-27 12:11:36 |
+| 2026-06-02 | d16x49-review-route-guideli | 533 | /feature | 2 | 0 | 3609/306/52 | 2026-06-02 17:18:59 | 2026-06-02 17:18:59 |
