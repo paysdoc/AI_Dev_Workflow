@@ -59,6 +59,8 @@ export type SlashCommand =
   // Review and patch commands
   | '/review'
   | '/patch'
+  // Refactor
+  | '/refactor'
   // Documentation
   | '/document'
   // KPI tracking

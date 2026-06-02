@@ -1,0 +1,9 @@
+{
+  "jsonlPath": ".adw-stub-payload.json",
+  "edits": [
+    {
+      "path": ".adw-stub-payload.json",
+      "contents": "[{\"type\":\"text\",\"text\":\"{\\\"success\\\":false,\\\"reviewSummary\\\":\\\"One patch blocker found with no remediationStrategy field.\\\",\\\"reviewIssues\\\":[{\\\"reviewIssueNumber\\\":1,\\\"issueDescription\\\":\\\"Logic error in handleResponse\\\",\\\"issueResolution\\\":\\\"Fix the conditional check\\\",\\\"issueSeverity\\\":\\\"blocker\\\"}],\\\"screenshots\\\":[]}\"}]\n"
+    }
+  ]
+}

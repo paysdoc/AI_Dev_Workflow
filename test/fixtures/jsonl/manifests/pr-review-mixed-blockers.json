@@ -1,0 +1,9 @@
+{
+  "jsonlPath": ".adw-stub-payload.json",
+  "edits": [
+    {
+      "path": ".adw-stub-payload.json",
+      "contents": "[{\"type\":\"text\",\"text\":\"{\\\"success\\\":false,\\\"reviewSummary\\\":\\\"PR review found one patch and one refactor blocker.\\\",\\\"reviewIssues\\\":[{\\\"reviewIssueNumber\\\":1,\\\"issueDescription\\\":\\\"Missing validation in handler\\\",\\\"issueResolution\\\":\\\"Add input validation\\\",\\\"issueSeverity\\\":\\\"blocker\\\",\\\"remediationStrategy\\\":\\\"patch\\\"},{\\\"reviewIssueNumber\\\":2,\\\"issueDescription\\\":\\\"adws/agents/patchAgent.ts: no-any violation\\\",\\\"issueResolution\\\":\\\"Run /refactor on the listed files\\\",\\\"issueSeverity\\\":\\\"blocker\\\",\\\"remediationStrategy\\\":\\\"refactor\\\"}],\\\"screenshots\\\":[]}\"}]\n"
+    }
+  ]
+}

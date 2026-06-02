@@ -1,0 +1,9 @@
+{
+  "jsonlPath": ".adw-stub-payload.json",
+  "edits": [
+    {
+      "path": ".adw-stub-payload.json",
+      "contents": "[{\"type\":\"text\",\"text\":\"{\\\"success\\\":true,\\\"reviewSummary\\\":\\\"Review passed. No blockers found.\\\",\\\"reviewIssues\\\":[],\\\"screenshots\\\":[]}\"}]\n"
+    }
+  ]
+}

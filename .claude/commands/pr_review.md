@@ -15,6 +15,7 @@ Create a new plan at `specs/issue-{issueNumber}-plan.md` (where `{issueNumber}` 
 - Research the codebase and put together a plan to accomplish the review.
 - Respect requested files in the `Relevant Files` section.
 - If `.adw/coding_guidelines.md` exists in the target repository (or `guidelines/coding_guidelines.md` as a fallback for older repos), planning and implementation must strictly adhere to those coding guidelines.
+- Inspect `git diff origin/<default>` for files that violate `.adw/coding_guidelines.md`. If any violations exist in the changed files, append a final step to the generated plan titled **"Apply coding guidelines via /refactor"** whose body lists the affected files and instructs the implementer to run `/refactor` on them. Do not include violations in untouched files.
 - Start your research by reading the `README.md` file. Also read `.adw/coding_guidelines.md` if present (or `guidelines/coding_guidelines.md` as a fallback).
 - `adws/*.tsx` contain node tsx single file typescript scripts. Read `.adw/commands.md` for the script execution command (under `## Script Execution`). If `.adw/commands.md` does not exist, use `bunx tsx <script_name>`.
 

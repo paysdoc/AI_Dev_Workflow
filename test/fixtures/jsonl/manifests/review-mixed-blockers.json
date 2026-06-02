@@ -1,0 +1,9 @@
+{
+  "jsonlPath": ".adw-stub-payload.json",
+  "edits": [
+    {
+      "path": ".adw-stub-payload.json",
+      "contents": "[{\"type\":\"text\",\"text\":\"{\\\"success\\\":false,\\\"reviewSummary\\\":\\\"Two patch blockers and one refactor blocker.\\\",\\\"reviewIssues\\\":[{\\\"reviewIssueNumber\\\":1,\\\"issueDescription\\\":\\\"Null pointer in handler\\\",\\\"issueResolution\\\":\\\"Add null check\\\",\\\"issueSeverity\\\":\\\"blocker\\\"},{\\\"reviewIssueNumber\\\":2,\\\"issueDescription\\\":\\\"Missing error boundary\\\",\\\"issueResolution\\\":\\\"Add error handler\\\",\\\"issueSeverity\\\":\\\"blocker\\\"},{\\\"reviewIssueNumber\\\":3,\\\"issueDescription\\\":\\\"adws/agents/reviewAgent.ts: nesting-depth violation\\\",\\\"issueResolution\\\":\\\"Run /refactor on the listed files\\\",\\\"issueSeverity\\\":\\\"blocker\\\",\\\"remediationStrategy\\\":\\\"refactor\\\"}],\\\"screenshots\\\":[]}\"}]\n"
+    }
+  ]
+}

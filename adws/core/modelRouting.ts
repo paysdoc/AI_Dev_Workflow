@@ -71,6 +71,8 @@ export const SLASH_COMMAND_MODEL_MAP: Record<SlashCommand, ModelTier> = {
   '/install': 'sonnet',
   // Diff evaluation (binary classification, cheap)
   '/diff_evaluator': 'haiku',
+  // Refactor (targeted guideline application)
+  '/refactor': 'sonnet',
 };
 
 /** Cost-optimized model map used when the issue body contains `/fast` or `/cheap`. */
@@ -109,6 +111,8 @@ export const SLASH_COMMAND_MODEL_MAP_FAST: Record<SlashCommand, ModelTier> = {
   '/install': 'sonnet',
   // Diff evaluation (binary classification, cheap)
   '/diff_evaluator': 'haiku',
+  // Refactor (targeted guideline application)
+  '/refactor': 'sonnet',
 };
 
 // ---------------------------------------------------------------------------
@@ -160,6 +164,8 @@ export const SLASH_COMMAND_EFFORT_MAP: Record<SlashCommand, ReasoningEffort | un
   '/install': 'medium',
   // Diff evaluation (binary classification, cheap)
   '/diff_evaluator': undefined,
+  // Refactor (targeted guideline application)
+  '/refactor': 'high',
 };
 
 /** Cost-optimized reasoning effort map used when the issue body contains `/fast` or `/cheap`. */
@@ -198,6 +204,8 @@ export const SLASH_COMMAND_EFFORT_MAP_FAST: Record<SlashCommand, ReasoningEffort
   '/install': 'low',
   // Diff evaluation (binary classification, cheap)
   '/diff_evaluator': undefined,
+  // Refactor (targeted guideline application)
+  '/refactor': 'high',
 };
 
 // ---------------------------------------------------------------------------
