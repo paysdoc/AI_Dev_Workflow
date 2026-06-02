@@ -49,7 +49,7 @@ export function execCommand(command: string): string | null {
  */
 export function checkEnvironmentVariables(): CheckResult {
   const required = ['ANTHROPIC_API_KEY'];
-  const optional = ['CLAUDE_CODE_PATH', 'GITHUB_PAT', 'GITHUB_PERSONAL_ACCESS_TOKEN'];
+  const optional = ['CLAUDE_CODE_PATH', 'GITHUB_PAT'];
 
   const missing: string[] = [];
   const present: string[] = [];

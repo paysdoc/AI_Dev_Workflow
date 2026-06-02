@@ -43,7 +43,7 @@
 
 This fix is transparent — no configuration changes are needed. When `GITHUB_PAT` is set in the ADW environment and the GitHub App token cannot access Projects V2 (user-owned repos), the wrapper automatically uses `GITHUB_PAT` for all board operations.
 
-1. Ensure `GITHUB_PAT` (or `GITHUB_PERSONAL_ACCESS_TOKEN`) is set in the ADW `.env` / environment.
+1. Ensure `GITHUB_PAT` is set in the ADW `.env` / environment.
 2. Run any ADW workflow that calls `initializeWorkflow` against a user-owned GitHub repo with a linked Projects V2 board.
 3. Board initialization (`findBoard` → `ensureColumns`) will now succeed; all five `BOARD_COLUMNS` (`Blocked`, `Todo`, `In Progress`, `Review`, `Done`) will be present after the phase completes.
 
@@ -51,7 +51,7 @@ This fix is transparent — no configuration changes are needed. When `GITHUB_PA
 
 | Variable | Purpose |
 |---|---|
-| `GITHUB_PAT` / `GITHUB_PERSONAL_ACCESS_TOKEN` | Personal access token with `project` scope; used when the GitHub App token is refused by Projects V2 |
+| `GITHUB_PAT` | Personal access token with `project` scope (classic PAT recommended); used when the GitHub App token is refused by Projects V2 |
 | `GH_TOKEN` | Runtime token; temporarily set to `GITHUB_PAT` during board operations, then restored |
 
 No new env vars are introduced — only the existing `GITHUB_PAT` pattern is extended to cover `GitHubBoardManager`.
