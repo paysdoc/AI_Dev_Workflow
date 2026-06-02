@@ -1,17 +1,17 @@
 ---
 name: refactor
-description: Apply project coding guidelines to changed code. Reads guidelines from .adw/coding_guidelines.md (preferred) or .guidelines/coding_guidelines.md. Applies them to files changed relative to the default branch, then summarizes what changed. Use when user says "refactor", "apply guidelines", "clean up changed files", or "enforce coding standards". Pass "entire codebase" to bypass the branch guard and apply guidelines to all source files.
+description: Apply project coding guidelines to a specified list of files. Reads guidelines from .adw/coding_guidelines.md (preferred) or .guidelines/coding_guidelines.md. Applies them to the files named in the args, then summarizes what changed. Use when user says "refactor", "apply guidelines", "clean up these files", or "enforce coding standards". Pass one or more file paths as args. Pass "entire codebase" to apply guidelines to all source files instead.
 ---
 
 # Refactor
 
-Apply coding guidelines to changed code on the current branch.
+Apply coding guidelines to a specified list of files.
 
 ## Quick start
 
 ```
-/refactor                      # apply guidelines to files changed vs default branch
-/refactor entire codebase      # apply to all source files regardless of branch
+/refactor src/foo.ts src/bar.ts   # apply guidelines to named files
+/refactor entire codebase          # apply to all source files
 ```
 
 ## Workflow
@@ -27,26 +27,18 @@ If neither exists, stop and tell the user.
 ### 2. Determine mode
 
 If args contain "entire codebase" or an equivalent instruction to process all files → **full-codebase mode** (skip step 3).  
-Otherwise → **changed-files mode**.
+Otherwise → **file-list mode**.
 
-### 3. Branch guard (changed-files mode only)
+### 3. Collect scope
 
-```bash
-bash .claude/skills/refactor/scripts/git-state.sh
-```
+**File-list mode** — use the file paths provided in the args.  
+If no file paths are provided and mode is not full-codebase, stop and ask the user to supply a list of files to refactor.
 
-Stop and report to the user if:
-- `is_on_default: true` — on the default branch, nothing unique to refactor
-- `ahead_count: 0` — branch has no commits ahead of default, nothing to refactor
-
-### 4. Collect scope
-
-**Changed-files mode** — use the file list printed after `---` in the script output.  
 **Full-codebase mode** — all source files in the repo.
 
 Exclude in both modes: `*.lock`, JSON config files, generated files, fixture files, `node_modules/`.
 
-### 5. Apply guidelines
+### 4. Apply guidelines
 
 For each file in scope:
 1. Read the file
