@@ -41,8 +41,8 @@ Extraction is justified by *reduced nesting and named intent*, not by line count
 ## Functional Programming Practices
 
 - **Declarative over imperative** — Use map, filter, reduce, and flatMap over for/while loops.
-- **Composition** — Build complex operations by composing small, focused functions. Avoid deep nesting.
-- **Isolate side effects** — Keep side effects (API calls, logging, DOM access) at the edges. Core logic should be pure: same input, same output, no external state.
+- **Composition** — Build complex operations by composing small, focused functions. Nesting is a signal to extract.
+- **Nesting discipline** — Maximum two levels of nesting for conditional and loop logic. To reduce depth, prefer **early returns / guard clauses** (invert the condition and return immediately) or **extract to a named function**. Use judgment: guard clauses work well for preconditions at the top of a function; extraction works better when the nested block has its own coherent purpose. Inline callbacks longer than ~3 lines must be extracted to a named function regardless of nesting depth. For async work, prefer `async`/`await` over nested promise callbacks — flatter call chains are easier to follow — though `.then()` is acceptable when the callback is short or the chain is already flat.- **Isolate side effects** — Keep side effects (API calls, logging, DOM access) at the edges. Core logic should be pure: same input, same output, no external state.
 
 ## React & Next.js Practices
 
