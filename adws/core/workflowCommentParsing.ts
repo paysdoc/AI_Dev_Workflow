@@ -97,10 +97,10 @@ export function isAdwComment(commentBody: string): boolean {
   return ADW_COMMENT_PATTERN.test(commentBody) || ADW_SIGNATURE_PATTERN.test(commentBody);
 }
 
-/** Pattern matching the `## Take action` heading that signals an explicit human directive. */
-export const ACTIONABLE_COMMENT_PATTERN = /^## Take action$/mi;
+/** Pattern matching the `## Continue` heading that signals an explicit human directive. */
+export const ACTIONABLE_COMMENT_PATTERN = /^## [Cc]ontinue$/mi;
 
-/** Returns true if the comment body contains the explicit `## Take action` directive heading. */
+/** Returns true if the comment body contains the explicit `## Continue` directive heading. */
 export function isActionableComment(commentBody: string): boolean {
   return ACTIONABLE_COMMENT_PATTERN.test(commentBody);
 }
@@ -121,7 +121,7 @@ export function isRetryComment(commentBody: string): boolean {
   return RETRY_COMMENT_PATTERN.test(commentBody);
 }
 
-/** Extracts the content following the `## Take action` heading. Returns null if no heading or empty content. */
+/** Extracts the content following the `## Continue` heading. Returns null if no heading or empty content. */
 export function extractActionableContent(commentBody: string): string | null {
   const match = commentBody.match(ACTIONABLE_COMMENT_PATTERN);
   if (!match) return null;
