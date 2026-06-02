@@ -19,9 +19,8 @@ import {
 import { GITHUB_PAT } from '../core/environment';
 import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
 import { runReviewAgent, type ReviewIssue } from '../agents/reviewAgent';
-import { runPatchAgent } from '../agents/patchAgent';
-import { runBuildAgent } from '../agents/buildAgent';
 import { runCommitAgent } from '../agents/gitAgent';
+import { applyPatchBlocker, applyRefactorBlockers } from './reviewPatchHelpers';
 import { pushBranch } from '../vcs';
 import { getPlanFilePath } from '../agents/planAgent';
 import { approvePR, isGitHubAppConfigured } from '../github';
@@ -182,67 +181,32 @@ export async function executeReviewPatchCycle(
 
   const specFile = getPlanFilePath(issueNumber, worktreePath);
 
-  log(`Review patch cycle: resolving ${blockerIssues.length} blocker issue(s)`, 'info');
+  const patchBlockers = blockerIssues.filter(b => (b.remediationStrategy ?? 'patch') === 'patch');
+  const refactorBlockers = blockerIssues.filter(b => b.remediationStrategy === 'refactor');
+
+  log(`Review patch cycle: ${patchBlockers.length} patch blocker(s), ${refactorBlockers.length} refactor blocker(s)`, 'info');
   AgentStateManager.appendLog(
     orchestratorStatePath,
-    `Review patch cycle: ${blockerIssues.length} blocker(s) to resolve`,
+    `Review patch cycle: ${patchBlockers.length} patch, ${refactorBlockers.length} refactor blocker(s)`,
   );
 
-  for (const blockerIssue of blockerIssues) {
-    log(`Patching blocker #${blockerIssue.reviewIssueNumber}: ${blockerIssue.issueDescription}`, 'info');
-    AgentStateManager.appendLog(
-      orchestratorStatePath,
-      `Patching blocker #${blockerIssue.reviewIssueNumber}`,
-    );
-
-    const patchStatePath = AgentStateManager.initializeState(adwId, 'patch-agent', orchestratorStatePath);
-    const patchResult = await runPatchAgent(
-      adwId,
-      blockerIssue,
-      logsDir,
-      specFile,
-      undefined,
-      patchStatePath,
-      worktreePath,
-      issue.body,
-    );
-
-    costUsd += patchResult.totalCostUsd || 0;
-    if (patchResult.modelUsage) {
-      modelUsage = mergeModelUsageMaps(modelUsage, patchResult.modelUsage);
-    }
-
-    const patchMsg = patchResult.success
-      ? `Patched blocker #${blockerIssue.reviewIssueNumber}`
-      : `Patch failed for blocker #${blockerIssue.reviewIssueNumber}`;
-    log(patchMsg, patchResult.success ? 'success' : 'error');
-    AgentStateManager.appendLog(orchestratorStatePath, patchMsg);
-
-    if (patchResult.success) {
-      const buildStatePath = AgentStateManager.initializeState(adwId, 'build-agent', orchestratorStatePath);
-      const buildResult = await runBuildAgent(
-        issue,
-        logsDir,
-        patchResult.output,
-        undefined,
-        buildStatePath,
-        worktreePath,
-      );
-
-      costUsd += buildResult.totalCostUsd || 0;
-      if (buildResult.modelUsage) {
-        modelUsage = mergeModelUsageMaps(modelUsage, buildResult.modelUsage);
-      }
-
-      const buildMsg = buildResult.success
-        ? `Built patch for blocker #${blockerIssue.reviewIssueNumber}`
-        : `Build failed for blocker #${blockerIssue.reviewIssueNumber}`;
-      log(buildMsg, buildResult.success ? 'success' : 'error');
-      AgentStateManager.appendLog(orchestratorStatePath, buildMsg);
-    }
+  for (const blocker of patchBlockers) {
+    const result = await applyPatchBlocker(blocker, {
+      adwId, logsDir, specFile, worktreePath, issue, orchestratorStatePath,
+    });
+    costUsd += result.costUsd;
+    modelUsage = mergeModelUsageMaps(modelUsage, result.modelUsage);
   }
 
-  // Commit and push all patch changes
+  if (refactorBlockers.length > 0) {
+    const result = await applyRefactorBlockers(refactorBlockers, {
+      adwId, logsDir, worktreePath, issue, orchestratorStatePath,
+    });
+    costUsd += result.costUsd;
+    modelUsage = mergeModelUsageMaps(modelUsage, result.modelUsage);
+  }
+
+  // Commit and push all patch+refactor changes in one commit
   await runCommitAgent(
     'review-patch-agent',
     issueType,

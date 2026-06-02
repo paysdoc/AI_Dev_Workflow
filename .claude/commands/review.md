@@ -38,16 +38,19 @@ Follow the instructions in `.adw/review_proof.md` for what proof to produce, wha
 
 ## Step 3: Coding Guidelines Check
 
-- Read `.adw/coding_guidelines.md` (fall back to `guidelines/coding_guidelines.md`)
-- If neither exists, skip this step
-- Compare changes from `git diff origin/<default>` against the guidelines
-- Report violations as `tech-debt` reviewIssues with the specific guideline and file/line location
+- Read `.adw/coding_guidelines.md` (fall back to `guidelines/coding_guidelines.md`); if neither exists, skip this step entirely.
+- Compute changed files: `git diff origin/<default> --name-only`.
+- Inspect ONLY those changed files for violations against the guidelines. Ignore pre-existing violations in untouched files.
+- If any violations are found across the changed files, emit a SINGLE `blocker` reviewIssue with `remediationStrategy: "refactor"`. Its `issueDescription` must enumerate each affected file and the specific rule(s) it violates (one line per file is recommended). Its `issueResolution` must read: "Run `/refactor` on the listed files".
+- If no violations are found in the changed files, emit nothing for this step — no `tech-debt` placeholder.
 
 ## Issue Severity Reference
 
 - `skippable` --- non-blocking but still a problem
 - `tech-debt` --- non-blocking but creates technical debt to address later
 - `blocker` --- blocks release; harms user experience or breaks expected functionality
+
+The optional `remediationStrategy` field on a `blocker` tells the patch cycle how to fix it: `"refactor"` routes to the `/refactor` skill; `"patch"` (or absent) routes to `/patch`.
 
 Focus on critical functionality and user experience. Don't report non-critical issues.
 
@@ -71,7 +74,8 @@ CRITICAL: Return ONLY a JSON object. No additional text or markdown --- `JSON.pa
             "reviewIssueNumber": 1,
             "issueDescription": "Description of the issue",
             "issueResolution": "How to resolve it",
-            "issueSeverity": "skippable | tech-debt | blocker"
+            "issueSeverity": "skippable | tech-debt | blocker",
+            "remediationStrategy": "patch"
         }
     ],
     "screenshots": [
@@ -79,3 +83,5 @@ CRITICAL: Return ONLY a JSON object. No additional text or markdown --- `JSON.pa
     ]
 }
 ```
+
+The `remediationStrategy` field is optional. When `issueSeverity` is `"blocker"` and the issue is a coding-guideline violation (Step 3), set `remediationStrategy: "refactor"`. For all other blockers, omit the field or set `remediationStrategy: "patch"`.

@@ -1,0 +1,9 @@
+{
+  "jsonlPath": ".adw-stub-payload.json",
+  "edits": [
+    {
+      "path": ".adw-stub-payload.json",
+      "contents": "[{\"type\":\"text\",\"text\":\"{\\\"success\\\":false,\\\"reviewSummary\\\":\\\"One consolidated refactor blocker covering three files.\\\",\\\"reviewIssues\\\":[{\\\"reviewIssueNumber\\\":1,\\\"issueDescription\\\":\\\"adws/agents/reviewAgent.ts: nesting-depth\\\\nadws/phases/reviewPhase.ts: nesting-depth\\\\nadws/agents/patchAgent.ts: no-any\\\",\\\"issueResolution\\\":\\\"Run /refactor on the listed files\\\",\\\"issueSeverity\\\":\\\"blocker\\\",\\\"remediationStrategy\\\":\\\"refactor\\\"}],\\\"screenshots\\\":[]}\"}]\n"
+    }
+  ]
+}
