@@ -32,7 +32,7 @@ Otherwise → **file-list mode**.
 ### 3. Collect scope
 
 **File-list mode** — use the file paths provided in the args.  
-If no file paths are provided and mode is not full-codebase, stop and ask the user to supply a list of files to refactor.
+If no file paths are provided and mode is not full-codebase, exit immediately with no output.
 
 **Full-codebase mode** — all source files in the repo.
 
