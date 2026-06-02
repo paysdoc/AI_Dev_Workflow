@@ -1283,3 +1283,11 @@
     - When working with the `branchName` read site in `webhookHandlers.handleIssueClosedEvent` remote-branch deletion
     - When implementing or troubleshooting branchName persistence in `workflowInit.ts` (write-side agreement between top-level and orchestrator state)
     - When adding tests for the top-level-first, orchestrator-fallback branchName resolution contract (regression for issue #530)
+
+- app_docs/feature-pof86n-remove-github-pat-alias.md
+  - Conditions:
+    - When working with `GITHUB_PAT` in `adws/core/environment.ts` or `SAFE_ENV_VARS` subprocess allowlist
+    - When encountering `GITHUB_PERSONAL_ACCESS_TOKEN` references and wondering why the alias no longer works
+    - When configuring GitHub PAT authentication for Projects V2 board automation (classic PAT requirement)
+    - When working with `getSafeSubprocessEnv()` and understanding which env vars are forwarded to Claude CLI subprocesses
+    - When `checkEnvironmentVariables()` health-check does not recognize a `GITHUB_PERSONAL_ACCESS_TOKEN` operator set
