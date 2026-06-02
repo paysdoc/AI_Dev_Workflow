@@ -1283,3 +1283,13 @@
     - When working with the `branchName` read site in `webhookHandlers.handleIssueClosedEvent` remote-branch deletion
     - When implementing or troubleshooting branchName persistence in `workflowInit.ts` (write-side agreement between top-level and orchestrator state)
     - When adding tests for the top-level-first, orchestrator-fallback branchName resolution contract (regression for issue #530)
+
+- app_docs/feature-d16x49-route-guideline-violations-to-refactor.md
+  - Conditions:
+    - When working with `executeReviewPatchCycle` in `adws/phases/reviewPhase.ts` and the blocker remediation loop
+    - When working with `applyPatchBlocker` or `applyRefactorBlockers` in `adws/phases/reviewPatchHelpers.ts`
+    - When adding a new `remediationStrategy` value to `ReviewIssue` or extending the blocker routing logic
+    - When modifying `.claude/commands/review.md` Step 3 (coding guidelines check) or the `remediationStrategy` field
+    - When implementing or troubleshooting `runRefactorAgent` in `adws/agents/refactorAgent.ts`
+    - When `/refactor` model/effort routing entries in `adws/core/modelRouting.ts` are relevant
+    - When guideline violations in changed files are not becoming blockers or not triggering a refactor pass
