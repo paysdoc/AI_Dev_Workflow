@@ -420,6 +420,8 @@ Docker execution is entirely optional — the test suite runs identically on the
 │   │   └── SKILL.md
 │   ├── prd-to-issues/
 │   │   └── SKILL.md
+│   ├── refactor/
+│   │   └── SKILL.md
 │   ├── implement-tdd/
 │   │   ├── SKILL.md
 │   │   ├── deep-modules.md
