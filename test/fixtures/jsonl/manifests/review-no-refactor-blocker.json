@@ -1,0 +1,9 @@
+{
+  "jsonlPath": ".adw-stub-payload.json",
+  "edits": [
+    {
+      "path": ".adw-stub-payload.json",
+      "contents": "[{\"type\":\"text\",\"text\":\"{\\\"success\\\":false,\\\"reviewSummary\\\":\\\"One patch blocker only; no refactor blockers.\\\",\\\"reviewIssues\\\":[{\\\"reviewIssueNumber\\\":1,\\\"issueDescription\\\":\\\"Missing test coverage\\\",\\\"issueResolution\\\":\\\"Add unit tests\\\",\\\"issueSeverity\\\":\\\"blocker\\\",\\\"remediationStrategy\\\":\\\"patch\\\"}],\\\"screenshots\\\":[]}\"}]\n"
+    }
+  ]
+}

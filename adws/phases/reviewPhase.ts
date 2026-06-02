@@ -20,6 +20,7 @@ import { GITHUB_PAT } from '../core/environment';
 import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
 import { runReviewAgent, type ReviewIssue } from '../agents/reviewAgent';
 import { runPatchAgent } from '../agents/patchAgent';
+import { runRefactorAgent } from '../agents/refactorAgent';
 import { runBuildAgent } from '../agents/buildAgent';
 import { runCommitAgent } from '../agents/gitAgent';
 import { pushBranch } from '../vcs';
@@ -148,6 +149,113 @@ export async function executeReviewPhase(
   };
 }
 
+interface PatchCtx {
+  adwId: string;
+  logsDir: string;
+  specFile: string;
+  worktreePath: string;
+  issue: WorkflowConfig['issue'];
+  orchestratorStatePath: string;
+}
+
+interface RefactorCtx {
+  adwId: string;
+  logsDir: string;
+  worktreePath: string;
+  issue: WorkflowConfig['issue'];
+  orchestratorStatePath: string;
+}
+
+async function applyPatchBlocker(
+  blocker: ReviewIssue,
+  ctx: PatchCtx,
+): Promise<{ costUsd: number; modelUsage: ModelUsageMap }> {
+  const { adwId, logsDir, specFile, worktreePath, issue, orchestratorStatePath } = ctx;
+
+  log(`Patching blocker #${blocker.reviewIssueNumber}: ${blocker.issueDescription}`, 'info');
+  AgentStateManager.appendLog(orchestratorStatePath, `Patching blocker #${blocker.reviewIssueNumber}`);
+
+  const patchStatePath = AgentStateManager.initializeState(adwId, 'patch-agent', orchestratorStatePath);
+  const patchResult = await runPatchAgent(adwId, blocker, logsDir, specFile, undefined, patchStatePath, worktreePath, issue.body);
+
+  let costUsd = patchResult.totalCostUsd || 0;
+  let modelUsage = patchResult.modelUsage ?? emptyModelUsageMap();
+
+  const patchMsg = patchResult.success
+    ? `Patched blocker #${blocker.reviewIssueNumber}`
+    : `Patch failed for blocker #${blocker.reviewIssueNumber}`;
+  log(patchMsg, patchResult.success ? 'success' : 'error');
+  AgentStateManager.appendLog(orchestratorStatePath, patchMsg);
+
+  if (patchResult.success) {
+    const buildStatePath = AgentStateManager.initializeState(adwId, 'build-agent', orchestratorStatePath);
+    const buildResult = await runBuildAgent(issue, logsDir, patchResult.output, undefined, buildStatePath, worktreePath);
+
+    costUsd += buildResult.totalCostUsd || 0;
+    if (buildResult.modelUsage) {
+      modelUsage = mergeModelUsageMaps(modelUsage, buildResult.modelUsage);
+    }
+
+    const buildMsg = buildResult.success
+      ? `Built patch for blocker #${blocker.reviewIssueNumber}`
+      : `Build failed for blocker #${blocker.reviewIssueNumber}`;
+    log(buildMsg, buildResult.success ? 'success' : 'error');
+    AgentStateManager.appendLog(orchestratorStatePath, buildMsg);
+  }
+
+  return { costUsd, modelUsage };
+}
+
+async function applyRefactorBlockers(
+  blockers: ReviewIssue[],
+  ctx: RefactorCtx,
+): Promise<{ costUsd: number; modelUsage: ModelUsageMap }> {
+  const { adwId, logsDir, worktreePath, issue, orchestratorStatePath } = ctx;
+  let costUsd = 0;
+  let modelUsage = emptyModelUsageMap();
+
+  // Reviewer is contracted to consolidate violations into one blocker; if more
+  // than one arrives, process each in sequence as a defensive measure.
+  if (blockers.length > 1) {
+    log(`Warning: ${blockers.length} refactor blockers received; expected 1 consolidated blocker`, 'warn');
+  }
+
+  for (const blocker of blockers) {
+    log(`Refactoring blocker #${blocker.reviewIssueNumber}: ${blocker.issueDescription}`, 'info');
+    AgentStateManager.appendLog(orchestratorStatePath, `Refactoring blocker #${blocker.reviewIssueNumber}`);
+
+    const refactorStatePath = AgentStateManager.initializeState(adwId, 'refactor-agent', orchestratorStatePath);
+    const refactorResult = await runRefactorAgent(adwId, blocker, logsDir, refactorStatePath, worktreePath, issue.body);
+
+    costUsd += refactorResult.totalCostUsd || 0;
+    if (refactorResult.modelUsage) {
+      modelUsage = mergeModelUsageMaps(modelUsage, refactorResult.modelUsage);
+    }
+
+    const refactorMsg = refactorResult.success
+      ? `Refactored blocker #${blocker.reviewIssueNumber}`
+      : `Refactor failed for blocker #${blocker.reviewIssueNumber}`;
+    log(refactorMsg, refactorResult.success ? 'success' : 'error');
+    AgentStateManager.appendLog(orchestratorStatePath, refactorMsg);
+
+    const buildStatePath = AgentStateManager.initializeState(adwId, 'build-agent', orchestratorStatePath);
+    const buildResult = await runBuildAgent(issue, logsDir, refactorResult.output, undefined, buildStatePath, worktreePath);
+
+    costUsd += buildResult.totalCostUsd || 0;
+    if (buildResult.modelUsage) {
+      modelUsage = mergeModelUsageMaps(modelUsage, buildResult.modelUsage);
+    }
+
+    const buildMsg = buildResult.success
+      ? `Built refactor for blocker #${blocker.reviewIssueNumber}`
+      : `Build failed after refactor for blocker #${blocker.reviewIssueNumber}`;
+    log(buildMsg, buildResult.success ? 'success' : 'error');
+    AgentStateManager.appendLog(orchestratorStatePath, buildMsg);
+  }
+
+  return { costUsd, modelUsage };
+}
+
 /**
  * Executes one review patch cycle: patch each blocker → build → commit → push.
  *
@@ -182,67 +290,32 @@ export async function executeReviewPatchCycle(
 
   const specFile = getPlanFilePath(issueNumber, worktreePath);
 
-  log(`Review patch cycle: resolving ${blockerIssues.length} blocker issue(s)`, 'info');
+  const patchBlockers = blockerIssues.filter(b => (b.remediationStrategy ?? 'patch') === 'patch');
+  const refactorBlockers = blockerIssues.filter(b => b.remediationStrategy === 'refactor');
+
+  log(`Review patch cycle: ${patchBlockers.length} patch blocker(s), ${refactorBlockers.length} refactor blocker(s)`, 'info');
   AgentStateManager.appendLog(
     orchestratorStatePath,
-    `Review patch cycle: ${blockerIssues.length} blocker(s) to resolve`,
+    `Review patch cycle: ${patchBlockers.length} patch, ${refactorBlockers.length} refactor blocker(s)`,
   );
 
-  for (const blockerIssue of blockerIssues) {
-    log(`Patching blocker #${blockerIssue.reviewIssueNumber}: ${blockerIssue.issueDescription}`, 'info');
-    AgentStateManager.appendLog(
-      orchestratorStatePath,
-      `Patching blocker #${blockerIssue.reviewIssueNumber}`,
-    );
-
-    const patchStatePath = AgentStateManager.initializeState(adwId, 'patch-agent', orchestratorStatePath);
-    const patchResult = await runPatchAgent(
-      adwId,
-      blockerIssue,
-      logsDir,
-      specFile,
-      undefined,
-      patchStatePath,
-      worktreePath,
-      issue.body,
-    );
-
-    costUsd += patchResult.totalCostUsd || 0;
-    if (patchResult.modelUsage) {
-      modelUsage = mergeModelUsageMaps(modelUsage, patchResult.modelUsage);
-    }
-
-    const patchMsg = patchResult.success
-      ? `Patched blocker #${blockerIssue.reviewIssueNumber}`
-      : `Patch failed for blocker #${blockerIssue.reviewIssueNumber}`;
-    log(patchMsg, patchResult.success ? 'success' : 'error');
-    AgentStateManager.appendLog(orchestratorStatePath, patchMsg);
-
-    if (patchResult.success) {
-      const buildStatePath = AgentStateManager.initializeState(adwId, 'build-agent', orchestratorStatePath);
-      const buildResult = await runBuildAgent(
-        issue,
-        logsDir,
-        patchResult.output,
-        undefined,
-        buildStatePath,
-        worktreePath,
-      );
-
-      costUsd += buildResult.totalCostUsd || 0;
-      if (buildResult.modelUsage) {
-        modelUsage = mergeModelUsageMaps(modelUsage, buildResult.modelUsage);
-      }
-
-      const buildMsg = buildResult.success
-        ? `Built patch for blocker #${blockerIssue.reviewIssueNumber}`
-        : `Build failed for blocker #${blockerIssue.reviewIssueNumber}`;
-      log(buildMsg, buildResult.success ? 'success' : 'error');
-      AgentStateManager.appendLog(orchestratorStatePath, buildMsg);
-    }
+  for (const blocker of patchBlockers) {
+    const result = await applyPatchBlocker(blocker, {
+      adwId, logsDir, specFile, worktreePath, issue, orchestratorStatePath,
+    });
+    costUsd += result.costUsd;
+    modelUsage = mergeModelUsageMaps(modelUsage, result.modelUsage);
   }
 
-  // Commit and push all patch changes
+  if (refactorBlockers.length > 0) {
+    const result = await applyRefactorBlockers(refactorBlockers, {
+      adwId, logsDir, worktreePath, issue, orchestratorStatePath,
+    });
+    costUsd += result.costUsd;
+    modelUsage = mergeModelUsageMaps(modelUsage, result.modelUsage);
+  }
+
+  // Commit and push all patch+refactor changes in one commit
   await runCommitAgent(
     'review-patch-agent',
     issueType,

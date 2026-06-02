@@ -21,6 +21,7 @@ export interface ReviewIssue {
   issueDescription: string;
   issueResolution: string;
   issueSeverity: 'skippable' | 'tech-debt' | 'blocker';
+  remediationStrategy?: 'refactor' | 'patch';
 }
 
 /**
@@ -62,6 +63,7 @@ export const reviewResultSchema: Record<string, unknown> = {
           issueDescription: { type: 'string' },
           issueResolution: { type: 'string' },
           issueSeverity: { type: 'string', enum: ['skippable', 'tech-debt', 'blocker'] },
+          remediationStrategy: { type: 'string', enum: ['refactor', 'patch'] },
         },
       },
     },

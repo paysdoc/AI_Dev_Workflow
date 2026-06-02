@@ -17,7 +17,7 @@
  *   MOCK_STREAM_DELAY_MS — delay between output lines in ms (default: 10).
  */
 
-import { readFileSync } from 'fs';
+import { readFileSync, appendFileSync } from 'fs';
 import { join, resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { applyManifest } from './manifestInterpreter.ts';
@@ -90,9 +90,22 @@ function extractText(payload: Array<{ type: string; text?: string }>): string {
     .join('');
 }
 
+/** Appends the prompt to MOCK_INVOCATION_LOG if set. Enables ordering assertions in step defs. */
+function recordInvocation(prompt: string): void {
+  const logPath = process.env['MOCK_INVOCATION_LOG'];
+  if (!logPath) return;
+  try {
+    appendFileSync(logPath, prompt + '\n', 'utf-8');
+  } catch {
+    // Best-effort; never abort the stub for logging failures.
+  }
+}
+
 /** Main entry point. */
 async function main(): Promise<void> {
   try {
+    recordInvocation(extractPrompt(process.argv));
+
     // When MOCK_MANIFEST_PATH is set, apply the manifest and derive payloadPath from it.
     const manifestPath = process.env['MOCK_MANIFEST_PATH'];
     let payloadPath: string;

@@ -185,7 +185,9 @@ export type AgentIdentifier =
   | 'dependency-extraction-agent'
   // Review patch / scenario fix agents
   | 'review-patch'
-  | 'scenario-fix';
+  | 'scenario-fix'
+  // Refactor agent
+  | 'refactor-agent';
 
 /**
  * Execution status for tracking agent progress.

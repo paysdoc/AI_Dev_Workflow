@@ -1,0 +1,9 @@
+{
+  "jsonlPath": ".adw-stub-payload.json",
+  "edits": [
+    {
+      "path": ".adw-stub-payload.json",
+      "contents": "[{\"type\":\"text\",\"text\":\"{\\\"success\\\":false,\\\"reviewSummary\\\":\\\"PR review found one refactor blocker.\\\",\\\"reviewIssues\\\":[{\\\"reviewIssueNumber\\\":1,\\\"issueDescription\\\":\\\"adws/phases/reviewPhase.ts: nesting-depth violation\\\",\\\"issueResolution\\\":\\\"Run /refactor on the listed files\\\",\\\"issueSeverity\\\":\\\"blocker\\\",\\\"remediationStrategy\\\":\\\"refactor\\\"}],\\\"screenshots\\\":[]}\"}]\n"
+    }
+  ]
+}

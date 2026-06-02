@@ -78,6 +78,11 @@ export {
   runPatchAgent,
 } from './patchAgent';
 
+// Refactor Agent
+export {
+  runRefactorAgent,
+} from './refactorAgent';
+
 // PR Agent
 export {
   runPullRequestAgent,
