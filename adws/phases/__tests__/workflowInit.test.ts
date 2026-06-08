@@ -77,6 +77,11 @@ vi.mock('../phaseCommentHelpers', () => ({
   postIssueStageComment: vi.fn(),
 }));
 
+vi.mock('../upgradeGate', () => ({
+  runUpgradeGate: vi.fn().mockResolvedValue({ action: 'proceed' }),
+  buildDefaultUpgradeGateDeps: vi.fn(),
+}));
+
 vi.mock('../../core/portAllocator', () => ({
   allocateRandomPort: vi.fn().mockResolvedValue(3000),
   isPortAvailable: vi.fn().mockResolvedValue(true),

@@ -53,6 +53,9 @@ import { resolveWorkflowBranchName, readPersistedBranchName } from './branchName
 import { deriveOrchestratorScript } from '../core/orchestratorLib';
 import { copyClaudeCommandsToWorktree } from './worktreeSetup';
 import { postIssueStageComment } from './phaseCommentHelpers';
+import { runUpgradeGate, buildDefaultUpgradeGateDeps } from './upgradeGate';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
 
 // Re-export worktree setup helpers so imports from this module still work
 export { ensureGitignoreEntry, ensureGitignoreEntries, copyClaudeCommandsToWorktree, copyTargetSkillsAndCommands } from './worktreeSetup';
@@ -223,6 +226,49 @@ export async function initializeWorkflow(
     log(`Worktree path: ${worktreePath}`, 'info');
   }
 
+  // Create RepoContext early so it is available to the upgrade gate and board setup
+  let repoContext: RepoContext | undefined;
+  let repoIdForContext: RepoIdentifier | undefined;
+  try {
+    repoIdForContext = options?.repoId ?? (() => {
+      const resolvedRepoInfo = repoInfo ?? getRepoInfo();
+      return { owner: resolvedRepoInfo.owner, repo: resolvedRepoInfo.repo, platform: Platform.GitHub };
+    })();
+    repoContext = createRepoContext({
+      repoId: repoIdForContext,
+      cwd: worktreePath,
+    });
+  } catch (error) {
+    log(`Failed to create RepoContext (falling back to direct API calls): ${error}`, 'info');
+  }
+
+  // Upgrade gate: detect framework hash mismatch and park the issue if the target
+  // repo's .adw/ is stale. Runs only for target repos (self-hosting guard).
+  if (targetRepo) {
+    const frameworkRepoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+    const repoInfoForGate = repoInfo ?? getRepoInfo();
+    const targetRepoArgs = [
+      '--target-repo', `${targetRepo.owner}/${targetRepo.repo}`,
+      ...(targetRepo.cloneUrl ? ['--clone-url', targetRepo.cloneUrl] : []),
+    ];
+    const gateRepoId = repoIdForContext ?? {
+      owner: repoInfoForGate.owner,
+      repo: repoInfoForGate.repo,
+      platform: Platform.GitHub,
+    };
+    const outcome = await runUpgradeGate(
+      { issueNumber, issueBody: issue.body, worktreePath, frameworkRepoRoot, repoInfo: repoInfoForGate, targetRepoArgs },
+      buildDefaultUpgradeGateDeps(gateRepoId, worktreePath),
+    );
+    if (outcome.action === 'parked') {
+      log(
+        `Upgrade gate: parked issue #${issueNumber} (${outcome.role}) on #${outcome.upgradeIssueNumber ?? '?'}; exiting before any workflow comment.`,
+        'info',
+      );
+      process.exit(0);
+    }
+  }
+
   const orchestratorStatePath = AgentStateManager.initializeState(resolvedAdwId, orchestratorName);
   const topLevelStatePath = AgentStateManager.getTopLevelStatePath(resolvedAdwId);
   log(`State: ${orchestratorStatePath}`, 'info');
@@ -249,22 +295,6 @@ export async function initializeWorkflow(
   };
   AgentStateManager.writeState(orchestratorStatePath, initialState);
   AgentStateManager.appendLog(orchestratorStatePath, `Starting ${orchestratorName} workflow for issue #${issueNumber}`);
-
-  // Create RepoContext for provider-agnostic operations
-  let repoContext: RepoContext | undefined;
-  let repoIdForContext: RepoIdentifier | undefined;
-  try {
-    repoIdForContext = options?.repoId ?? (() => {
-      const resolvedRepoInfo = repoInfo ?? getRepoInfo();
-      return { owner: resolvedRepoInfo.owner, repo: resolvedRepoInfo.repo, platform: Platform.GitHub };
-    })();
-    repoContext = createRepoContext({
-      repoId: repoIdForContext,
-      cwd: worktreePath,
-    });
-  } catch (error) {
-    log(`Failed to create RepoContext (falling back to direct API calls): ${error}`, 'info');
-  }
 
   // Fire-and-forget board setup — ensures the project board exists with all ADW columns
   if (repoContext?.boardManager) {

@@ -304,6 +304,60 @@ export function addIssueLabel(issueNumber: number, labelName: string, repoInfo: 
 }
 
 /**
+ * Creates a new GitHub issue and returns its number.
+ * Throws if the issue number cannot be parsed from the response.
+ */
+export function createIssue(title: string, body: string, repoInfo: RepoInfo): number {
+  const { owner, repo } = repoInfo;
+  const output = execWithRetry(
+    `gh issue create --repo ${owner}/${repo} --title '${title}' --body-file -`,
+    { input: body, stdio: ['pipe', 'pipe', 'pipe'] },
+  );
+  const match = output.trim().match(/\/issues\/(\d+)$/);
+  if (!match) {
+    throw new Error(`createIssue: could not parse issue number from gh output: "${output.trim()}"`);
+  }
+  const issueNumber = parseInt(match[1], 10);
+  log(`Created issue #${issueNumber}: ${title}`, 'success');
+  return issueNumber;
+}
+
+/**
+ * Replaces the body of an existing GitHub issue.
+ * Rethrows on error — dependency registration is load-bearing for unblocking.
+ */
+export function updateIssueBody(issueNumber: number, body: string, repoInfo: RepoInfo): void {
+  const { owner, repo } = repoInfo;
+  try {
+    execWithRetry(
+      `gh issue edit ${issueNumber} --repo ${owner}/${repo} --body-file -`,
+      { input: body, stdio: ['pipe', 'pipe', 'pipe'] },
+    );
+    log(`Updated body of issue #${issueNumber}`, 'success');
+  } catch (error) {
+    log(`Failed to update body of issue #${issueNumber}: ${error}`, 'error');
+    throw error;
+  }
+}
+
+/**
+ * Returns the number of the first open issue with the `adw:upgrade` label, or null.
+ * Best-effort: returns null on any error.
+ */
+export function findOpenUpgradeIssue(repoInfo: RepoInfo): number | null {
+  const { owner, repo } = repoInfo;
+  try {
+    const json = execWithRetry(
+      `gh issue list --repo ${owner}/${repo} --label 'adw:upgrade' --state open --json number --limit 1`,
+    );
+    const results = JSON.parse(json) as { number: number }[];
+    return results.length > 0 ? results[0].number : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Deletes a single issue comment by its REST API numeric ID.
  * @param commentId - The numeric ID of the comment to delete
  * @param repoInfo - Optional repository info override for targeting external repositories.
