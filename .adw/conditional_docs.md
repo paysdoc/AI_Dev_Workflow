@@ -50,6 +50,14 @@
     - When troubleshooting why `scenario_writer` refuses to generate a structurally-asserting scenario
     - When adding per-issue BDD scenarios for issue-506-class features (rot prevention, vocabulary registry)
 
+- app_docs/feature-6zw7n2-hitl-opt-in-adw-yml.md
+  - Conditions:
+    - When working with the `.github/adw.yml` HITL opt-in for framework-upgrade PRs
+    - When implementing or troubleshooting `adwUpgrade.tsx`'s gated merge step
+    - When `adws/core/adwYmlConfig.ts` (`readAdwYmlConfig` / `parseAdwYml`) needs context
+    - When an upgrade PR is left open and you need to understand whether HITL mode is active
+    - When distinguishing the `.github/adw.yml` config gate from the `hitl` GitHub label gate in `adwMerge.tsx`
+
 - app_docs/feature-2evbnk-bdd-smoke-surface-scenarios.md
   - Conditions:
     - When working with the `features/regression/smoke/` or `features/regression/surfaces/` BDD scenario suites
@@ -1366,3 +1374,12 @@
     - When troubleshooting the self-hosting guard (`if (targetRepo)`) or the `process.exit(0)` clean park-exit path
     - When working with `createIssue`, `updateIssueBody`, or `findOpenUpgradeIssue` GitHub primitives in `adws/github/issueApi.ts`
     - When `ADW_UPGRADE_LABEL` constant is referenced or the `adw:upgrade` label needs to be understood
+
+- app_docs/feature-y35zbi-cron-recovery-label-eligibility-scan.md
+  - Conditions:
+    - When working with `cronLabelEligibility.ts` (`decideLabelRecovery`, `evaluateLabelRecovery`) or the label-recovery gate in `cronIssueFilter.evaluateIssue`
+    - When an issue with a late-applied `adw:<type>` label is not being picked up by the cron sweeper
+    - When a multi-label conflict was cleaned up to a single label but the issue is not auto-recovering
+    - When working with `linkedPrDetector.ts` (`hasLinkedMergedOrClosedPR`, `fetchLinkedPRs`) or refactoring `concurrencyGuard.ts`
+    - When the `precomputedClassification` routing path in `trigger_cron.ts` is relevant (cron recovery bypassing LLM classifier)
+    - When extending `CronIssue` with new fields or adding parameters to `filterEligibleIssues`

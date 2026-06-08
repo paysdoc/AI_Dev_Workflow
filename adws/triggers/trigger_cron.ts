@@ -34,6 +34,9 @@ import { runPerIssueScenarioSweep } from './perIssueScenarioSweep';
 import { resolveCronRepo, buildCronTargetRepoArgs } from './cronRepoResolver';
 import { filterEligibleIssues } from './cronIssueFilter';
 import { shouldDispatchMerge } from './mergeDispatchGate';
+import { fetchLinkedPRs, readAdwLabelNames } from '../github';
+import { evaluateLabelRecovery } from './cronLabelEligibility';
+import type { CronIssue } from './cronIssueFilter';
 
 const POLL_INTERVAL_MS = 20_000;
 const PR_POLL_INTERVAL_MS = 60_000;
@@ -44,10 +47,12 @@ let cycleCount = 0;
 /** Raw issue data returned from the GitHub CLI. */
 interface RawIssue {
   number: number;
+  title: string;
   body: string;
   comments: { body: string }[];
   createdAt: string;
   updatedAt: string;
+  labels: { name: string }[];
 }
 
 
@@ -65,7 +70,7 @@ function fetchOpenIssues(): RawIssue[] {
   const { owner, repo } = cronRepoInfo;
   try {
     const json = execSync(
-      `gh issue list --repo ${owner}/${repo} --state open --json number,body,comments,createdAt,updatedAt --limit 100`,
+      `gh issue list --repo ${owner}/${repo} --state open --json number,title,body,comments,createdAt,updatedAt,labels --limit 100`,
       { encoding: 'utf-8' },
     );
     return JSON.parse(json);
@@ -203,6 +208,8 @@ async function checkAndTrigger(): Promise<void> {
   const now = Date.now();
   const cancelledThisCycle = new Set<number>();
   const issues = fetchOpenIssues();
+  const linkedPrs = fetchLinkedPRs(cronRepoInfo);
+  const labelRecovery = (issue: CronIssue) => evaluateLabelRecovery(issue, linkedPrs);
 
   // Scan all fetched issues for ## Cancel before filterEligibleIssues.
   // Cancelled issues are recorded in a per-cycle set so they are skipped
@@ -229,6 +236,7 @@ async function checkAndTrigger(): Promise<void> {
     GRACE_PERIOD_MS,
     resolveIssueWorkflowStage,
     cancelledThisCycle,
+    labelRecovery,
   );
 
   const candidateList = candidates.map(c => `#${c.issue.number}`).join(', ') || 'none';
@@ -301,9 +309,15 @@ async function checkAndTrigger(): Promise<void> {
 
     // spawn_fresh: pass the pre-computed decision so classifyAndSpawnWorkflow
     // does not re-evaluate (the lock was already acquired by evaluateCandidate).
+    // When the issue has a single adw:<type> label (recovery path), pass it as
+    // precomputedClassification so the LLM classifier is skipped.
+    const labelReading = readAdwLabelNames(issue.labels.map((l) => l.name));
+    const labelRouting = labelReading.classification
+      ? { precomputedClassification: labelReading.classification, issueTitle: issue.title }
+      : undefined;
     log(`Triggering ADW workflow for backlog issue #${issue.number}${adwId ? ` (resuming adwId=${adwId})` : ''}`, 'success');
     try {
-      await classifyAndSpawnWorkflow(issue.number, repoInfo, targetRepoArgs, adwId, takeoverDecision);
+      await classifyAndSpawnWorkflow(issue.number, repoInfo, targetRepoArgs, adwId, takeoverDecision, labelRouting);
     } catch (err) {
       if (err instanceof AuthRequiredError) {
         writeAuthGate({ adwId: adwId ?? null, issueNumber: issue.number, agentName: err.agentName });

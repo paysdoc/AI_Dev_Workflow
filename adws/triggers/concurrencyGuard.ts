@@ -9,17 +9,11 @@ import { execSync } from 'child_process';
 import { MAX_CONCURRENT_PER_REPO, log } from '../core';
 import type { RepoInfo } from '../github/githubApi';
 import { isAdwComment } from '../core/workflowCommentParsing';
+import { fetchLinkedPRs, hasLinkedMergedOrClosedPR } from '../github/linkedPrDetector';
 
 interface RawIssueWithComments {
   number: number;
   comments: { body: string }[];
-}
-
-interface RawPR {
-  number: number;
-  body: string;
-  state: string;
-  mergedAt: string | null;
 }
 
 /**
@@ -39,41 +33,13 @@ function fetchOpenIssuesWithComments(repoInfo: RepoInfo): RawIssueWithComments[]
 }
 
 /**
- * Fetches all PRs (open + closed) to check for merged/closed PRs linked to issues.
- */
-function fetchPRsForRepo(repoInfo: RepoInfo): RawPR[] {
-  try {
-    const json = execSync(
-      `gh pr list --repo ${repoInfo.owner}/${repoInfo.repo} --state all --json number,body,state,mergedAt --limit 200`,
-      { encoding: 'utf-8' },
-    );
-    return JSON.parse(json);
-  } catch (error) {
-    log(`Failed to fetch PRs for concurrency check: ${error}`, 'error');
-    return [];
-  }
-}
-
-/**
- * Checks whether an issue has a linked merged or closed PR.
- * Looks for "Implements #N" pattern in PR bodies.
- */
-function hasLinkedMergedOrClosedPR(issueNumber: number, prs: RawPR[]): boolean {
-  return prs.some(
-    (pr) =>
-      pr.body?.includes(`Implements #${issueNumber}`) &&
-      (pr.mergedAt != null || pr.state === 'CLOSED'),
-  );
-}
-
-/**
  * Counts the number of in-progress issues for a repository.
  * An issue is "in progress" when it has an ADW workflow comment and
  * does not yet have a linked merged/closed PR.
  */
 async function getInProgressIssueCount(repoInfo: RepoInfo): Promise<number> {
   const issues = fetchOpenIssuesWithComments(repoInfo);
-  const prs = fetchPRsForRepo(repoInfo);
+  const prs = fetchLinkedPRs(repoInfo);
 
   let count = 0;
   for (const issue of issues) {

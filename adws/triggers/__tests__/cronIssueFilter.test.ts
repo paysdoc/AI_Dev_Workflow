@@ -1,12 +1,15 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { evaluateIssue, filterEligibleIssues } from '../cronIssueFilter';
+import type { CronIssue } from '../cronIssueFilter';
 import type { StageResolution } from '../cronStageResolver';
+import type { LabelRecoveryResult } from '../cronLabelEligibility';
 
 function makeIssue(overrides: {
   number?: number;
   createdAt?: string;
   updatedAt?: string;
   comments?: { body: string }[];
+  labels?: { name: string }[];
 } = {}) {
   return {
     number: 1,
@@ -14,6 +17,7 @@ function makeIssue(overrides: {
     createdAt: '2024-01-01T00:00:00Z',
     updatedAt: '2024-01-01T00:00:00Z',
     comments: [],
+    labels: [],
     ...overrides,
   };
 }
@@ -100,5 +104,93 @@ describe('filterEligibleIssues — merge_blocked annotation', () => {
     );
 
     expect(eligible.map(e => e.issue.number)).toEqual([11]);
+  });
+});
+
+// ── label-recovery gate ────────────────────────────────────────────────────────
+
+// Resolution helper that always produces a fresh, adwId-null result
+function freshResolution(): StageResolution {
+  return { stage: null, adwId: null, lastActivityMs: null };
+}
+
+// Resolution helper with a non-null adwId (simulates dead-orchestrator takeover path)
+function takeoverResolution(): StageResolution {
+  return { stage: null, adwId: 'existing-adw-id', lastActivityMs: null };
+}
+
+describe('evaluateIssue — label-recovery gate', () => {
+  it('stage=null + adwId=null + ineligible evaluator → filtered with label: reason', () => {
+    const issue = makeIssue({ updatedAt: OLD_DATE });
+    const ineligible = vi.fn((_i: CronIssue): LabelRecoveryResult => ({ eligible: false, reason: 'no_adw_label' }));
+
+    const result = evaluateIssue(
+      issue, NOW, { spawns: new Set() }, GRACE_PERIOD_MS,
+      () => freshResolution(), new Set(), ineligible,
+    );
+
+    expect(result.eligible).toBe(false);
+    expect(result.reason).toBe('label:no_adw_label');
+    expect(ineligible).toHaveBeenCalledOnce();
+  });
+
+  it('stage=null + adwId=null + eligible evaluator → eligible with action spawn', () => {
+    const issue = makeIssue({ updatedAt: OLD_DATE });
+    const eligible = vi.fn((_i: CronIssue): LabelRecoveryResult => ({ eligible: true }));
+
+    const result = evaluateIssue(
+      issue, NOW, { spawns: new Set() }, GRACE_PERIOD_MS,
+      () => freshResolution(), new Set(), eligible,
+    );
+
+    expect(result.eligible).toBe(true);
+    expect(result.action).toBe('spawn');
+    expect(eligible).toHaveBeenCalledOnce();
+  });
+
+  it('stage=null + non-null adwId → gate NOT consulted; issue stays eligible for takeover', () => {
+    const issue = makeIssue({ updatedAt: OLD_DATE });
+    const spy = vi.fn((_i: CronIssue): LabelRecoveryResult => ({ eligible: false, reason: 'no_adw_label' }));
+
+    const result = evaluateIssue(
+      issue, NOW, { spawns: new Set() }, GRACE_PERIOD_MS,
+      () => takeoverResolution(), new Set(), spy,
+    );
+
+    expect(spy).not.toHaveBeenCalled();
+    expect(result.eligible).toBe(true);
+    expect(result.action).toBe('spawn');
+  });
+
+  it('omitting the evaluator preserves legacy behaviour (fresh issue is eligible)', () => {
+    const issue = makeIssue({ updatedAt: OLD_DATE });
+
+    const result = evaluateIssue(
+      issue, NOW, { spawns: new Set() }, GRACE_PERIOD_MS,
+      () => freshResolution(),
+    );
+
+    expect(result.eligible).toBe(true);
+    expect(result.action).toBe('spawn');
+  });
+});
+
+describe('filterEligibleIssues — label-recovery gate annotations', () => {
+  it('ineligible evaluator surfaces label:<reason> in filteredAnnotations', () => {
+    const issue = makeIssue({ number: 42, createdAt: OLD_DATE, updatedAt: OLD_DATE });
+    const ineligible = (_i: CronIssue): LabelRecoveryResult => ({ eligible: false, reason: 'multi_label' });
+
+    const { eligible, filteredAnnotations } = filterEligibleIssues(
+      [issue],
+      NOW,
+      { spawns: new Set() },
+      GRACE_PERIOD_MS,
+      () => freshResolution(),
+      new Set(),
+      ineligible,
+    );
+
+    expect(eligible).toHaveLength(0);
+    expect(filteredAnnotations).toContain('#42(label:multi_label)');
   });
 });

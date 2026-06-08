@@ -680,10 +680,12 @@ adws/                   # ADW workflow system
 │   │   ├── cronRepoResolver.test.ts
 │   │   ├── cronStageResolver.test.ts
 │   │   ├── devServerJanitor.test.ts
+│   │   ├── issueOpenedRouter.test.ts
 │   │   ├── mergeDispatchGate.test.ts
 │   │   ├── pauseQueueScanner.test.ts
 │   │   ├── perIssueScenarioSweep.test.ts
 │   │   ├── retryHandler.test.ts
+│   │   ├── issueOpenedRouter.test.ts
 │   │   ├── scanAuthQueue.test.ts
 │   │   ├── spawnGate.test.ts
 │   │   ├── takeoverHandler.test.ts  # Unit tests for all takeoverHandler decision-tree branches
@@ -704,7 +706,7 @@ adws/                   # ADW workflow system
 │   ├── cronStageResolver.ts  # Cron stage resolution from top-level state file (testable)
 │   ├── issueDependencies.ts
 │   ├── issueEligibility.ts
-│   ├── issueOpenedRouter.ts  # Pure routing logic for the issues.opened label-routing path (extracted from webhookGatekeeper)
+│   ├── issueOpenedRouter.ts  # Pure routing decision for the issues.opened label-routing path (mirrors cronIssueFilter pattern)
 │   ├── mergeDispatchGate.ts  # Lock-aware gate deciding whether cron should dispatch adwMerge for an issue
 │   ├── pauseQueueScanner.ts  # Cron probe for paused issue queue
 │   ├── scanAuthQueue.ts  # Cron probe: resumes paused_auth orchestrators after auth is restored

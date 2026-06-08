@@ -10,6 +10,7 @@
 
 import { isActiveStage, isRetriableStage, resolveIssueWorkflowStage } from './cronStageResolver';
 import type { StageResolution } from './cronStageResolver';
+import type { LabelRecoveryResult } from './cronLabelEligibility';
 
 /** Minimal issue shape required for evaluation. */
 export interface CronIssue {
@@ -18,6 +19,8 @@ export interface CronIssue {
   readonly comments: { body: string }[];
   readonly createdAt: string;
   readonly updatedAt: string;
+  readonly labels: readonly { name: string }[];
+  readonly title?: string;
 }
 
 /** Result of evaluating a single issue. */
@@ -65,6 +68,9 @@ export interface ProcessedSets {
  * @param cancelledThisCycle   - Issue numbers that were cancelled earlier in the current
  *                               cycle and must be skipped once; this set is not persisted
  *                               across cycles.
+ * @param labelRecovery        - Optional label-eligibility evaluator. Applied only on the
+ *                               truly-fresh path (stage === null && adwId === null). When
+ *                               omitted, legacy behaviour is preserved.
  */
 export function evaluateIssue(
   issue: CronIssue,
@@ -73,6 +79,7 @@ export function evaluateIssue(
   gracePeriodMs: number,
   resolveStage: (comments: { body: string }[]) => StageResolution = resolveIssueWorkflowStage,
   cancelledThisCycle: ReadonlySet<number> = new Set(),
+  labelRecovery?: (issue: CronIssue) => LabelRecoveryResult,
 ): FilterResult {
   if (cancelledThisCycle.has(issue.number)) {
     return { eligible: false, reason: 'cancelled' };
@@ -117,7 +124,15 @@ export function evaluateIssue(
 
   const { stage } = resolution;
   if (stage === null) {
-    // No adw-id in comments, or no state file — fresh issue, eligible
+    // Apply the label-recovery gate only when this is truly fresh (no prior adwId)
+    // and an evaluator has been injected. Issues with a non-null adwId bypass the gate
+    // and reach the existing takeover machinery (evaluated by evaluateCandidate).
+    if (resolution.adwId === null && labelRecovery) {
+      const labelResult = labelRecovery(issue);
+      if (!labelResult.eligible) {
+        return { eligible: false, reason: `label:${labelResult.reason}` };
+      }
+    }
     return { eligible: true, action: 'spawn' };
   }
   if (stage === 'completed') {
@@ -149,12 +164,13 @@ export function filterEligibleIssues(
   gracePeriodMs: number,
   resolveStage?: (comments: { body: string }[]) => StageResolution,
   cancelledThisCycle: ReadonlySet<number> = new Set(),
+  labelRecovery?: (issue: CronIssue) => LabelRecoveryResult,
 ): { eligible: EligibleIssue[]; filteredAnnotations: string[] } {
   const eligible: EligibleIssue[] = [];
   const filteredAnnotations: string[] = [];
 
   for (const issue of issues) {
-    const result = evaluateIssue(issue, now, processed, gracePeriodMs, resolveStage, cancelledThisCycle);
+    const result = evaluateIssue(issue, now, processed, gracePeriodMs, resolveStage, cancelledThisCycle, labelRecovery);
     if (result.eligible) {
       eligible.push({
         issue,
