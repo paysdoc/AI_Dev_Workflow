@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 128              | 2026-06-08 22:00:42 |
-| Longest Streak    | 128              | 2026-06-08 22:00:42 |
-| Total Plan Size   | 5758 lines       | 2026-06-08 22:00:42 |
-| Largest Plan Size | 699 lines        | 2026-06-08 22:00:42 |
-| Total Diff Size   | 3784987 lines    | 2026-06-08 22:00:42 |
-| Largest Diff Size | 418153 lines     | 2026-06-08 22:00:42 |
-| Average Presence  | 1.24             | 2026-06-08 22:00:42 |
+| Current Streak    | 228              | 2026-06-08 22:22:55 |
+| Longest Streak    | 228              | 2026-06-08 22:22:55 |
+| Total Plan Size   | 5758 lines       | 2026-06-08 22:22:55 |
+| Largest Plan Size | 699 lines        | 2026-06-08 22:22:55 |
+| Total Diff Size   | 3855706 lines    | 2026-06-08 22:22:55 |
+| Largest Diff Size | 418153 lines     | 2026-06-08 22:22:55 |
+| Average Presence  | 1.16             | 2026-06-08 22:22:55 |
 
 ## ADW KPIs
 
@@ -213,3 +213,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-06-08 | 6zw7n2-hitl-opt-in-via-gith | 543 | /feature | 1 | 0 | 8293/26/57 | 2026-06-08 15:46:00 | 2026-06-08 15:46:00 |
 | 2026-06-08 | tlk8qf-hash-check-upgrade-t | 544 | /feature | 1 | 0 | 8718/43/60 | 2026-06-08 16:53:10 | 2026-06-08 16:53:10 |
 | 2026-06-08 | 5beb7x-bot-challenge-no-lon | 108 | /feature | 1 | 134 | 16/874/6 | 2026-06-08 22:00:42 | 2026-06-08 22:00:42 |
+| 2026-06-08 | ppfhpd-brand-signal-tracer | 109 | /feature | 1 | 0 | 68739/1980/351 | 2026-06-08 22:22:55 | 2026-06-08 22:22:55 |
