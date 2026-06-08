@@ -726,7 +726,6 @@ All orchestrators use shared CLI utilities from `core/orchestratorCli.ts` and co
 - `adwPlanBuildDocument.tsx` - Plan + build + document orchestration
 - `adwPlanBuildTestReview.tsx` - Plan + build + test + review orchestration
 - `adwSdlc.tsx` - Full SDLC orchestration (plan + build + test + review + document)
-- `adwInit.tsx` - Initialize `.adw/` project configuration in target repos
 - `adwClearComments.tsx` - Clear ADW comments from GitHub issues
 
 **R2** (`r2/`):
@@ -781,17 +780,15 @@ Target repositories can provide project-specific configuration in a `.adw/` dire
 
 **Bootstrapping:**
 
-Use the `/adw_init` command (via `adwInit.tsx`) to automatically generate `.adw/` configuration for a target repository:
+**Automatic regeneration:** `adwUpgrade.tsx` automatically regenerates `.adw/` when the ADW framework hash drifts — no manual intervention needed for already-bootstrapped repos.
 
-```bash
-# Initialize .adw/ config for issue #42
-bunx tsx adws/adwInit.tsx 42
+**Manual escape hatch:** to bootstrap or force-reinitialise a target repo, invoke the `/adw_init` slash command inside a Claude Code CLI session opened against that repo:
 
-# Initialize for a target repo
-bunx tsx adws/adwInit.tsx 42 --target-repo https://github.com/owner/repo
+```
+/adw_init
 ```
 
-The init command analyzes the target codebase to detect language, framework, package manager, and project conventions, then generates all three config files. It also runs `depaudit setup` in the target repo worktree and propagates `SOCKET_API_TOKEN` / `SLACK_WEBHOOK_URL` to the target repo's GitHub Actions secrets via `gh secret set`. Missing env values are logged as warnings and do not block init.
+The `/adw_init` command analyzes the target codebase to detect language, framework, package manager, and project conventions, then generates all three config files. It also runs `depaudit setup` in the target repo worktree and propagates `SOCKET_API_TOKEN` / `SLACK_WEBHOOK_URL` to the target repo's GitHub Actions secrets via `gh secret set`. Missing env values are logged as warnings and do not block init.
 
 **Examples by Project Type:**
 

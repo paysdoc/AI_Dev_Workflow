@@ -217,17 +217,19 @@ Required and optional environment variables (see `.env.sample` for full referenc
 - `SLACK_WEBHOOK_URL` - (Optional) Slack Incoming Webhook URL for error/problem reporting. Propagated by `adw_init` to each target repo's GitHub Actions secrets via `gh secret set`. Missing values are logged as warnings and do not fail init.
 - `SOCKET_API_TOKEN` - (Optional) Socket.dev API token for supply-chain scanning (required only for depaudit). Propagated by `adw_init` to each target repo's GitHub Actions secrets via `gh secret set`. Missing values are logged as warnings and do not fail init.
 
-### 4. Run `adw_init` to bootstrap a target repo
+### 4. Bootstrap a target repo with `/adw_init`
 
-`adw_init` initializes a target repository with `.adw/` configuration and supply-chain tooling:
+`adw_init` initializes a target repository with `.adw/` configuration and supply-chain tooling.
 
-```bash
-bunx tsx adws/adwInit.tsx 42 --target-repo https://github.com/owner/repo
+**Automatic regeneration:** once a target repo is bootstrapped, the hash-driven `adwUpgrade.tsx` trigger automatically regenerates `.adw/` whenever the ADW framework hash drifts — no manual intervention needed.
+
+**Manual escape hatch:** to bootstrap or force-reinitialise a target repo, invoke the `/adw_init` slash command inside a Claude Code CLI session opened against that repo:
+
+```
+/adw_init
 ```
 
-**Phase order:** clone → `/adw_init` → copy skills/commands → `depaudit setup` → commit → PR
-
-During `depaudit setup`, `adw_init` runs `depaudit setup` in the target repo worktree (requires `npm install -g depaudit` on the ADW host) and propagates `SOCKET_API_TOKEN` and `SLACK_WEBHOOK_URL` to the target repo's GitHub Actions secrets via `gh secret set`. If either env var is missing, a warning is logged and `adw_init` continues.
+During init, `adw_init` runs `depaudit setup` in the target repo worktree (requires `npm install -g depaudit` on the ADW host) and propagates `SOCKET_API_TOKEN` and `SLACK_WEBHOOK_URL` to the target repo's GitHub Actions secrets via `gh secret set`. If either env var is missing, a warning is logged and `adw_init` continues.
 
 ### 5. Run ADW
 
@@ -508,7 +510,7 @@ adws/                   # ADW workflow system
 │   │   └── workflowCommentParsing.test.ts
 │   ├── adwId.ts        # ADW ID generation
 │   ├── adwVersion.ts   # Read/write .adw-version file (stores framework hash at target repo root)
-│   ├── adwYmlConfig.ts # Reads .github/adw.yml at the target repo root for framework-upgrade auto-merge policy
+│   ├── adwYmlConfig.ts # Read `.github/adw.yml` from a target repo worktree (upgrade auto-merge policy)
 │   ├── agentState.ts
 │   ├── authGate.ts     # Host-wide auth gate: detects auth failures, writes paused_auth state, triggers Slack alerts
 │   ├── claudeStreamParser.ts  # Claude JSONL stream parsing
@@ -703,7 +705,7 @@ adws/                   # ADW workflow system
 │   ├── cloudflareTunnel.tsx  # Cloudflare tunnel lifecycle helper
 │   ├── concurrencyGuard.ts
 │   ├── cronIssueFilter.ts  # Cron issue evaluation and filtering logic (testable, extracted from trigger_cron)
-│   ├── cronLabelEligibility.ts  # Pure label-recovery decision module: determines if a fresh issue should be spawned based on adw:* labels and linked PR status
+│   ├── cronLabelEligibility.ts  # Pure label-recovery decision for cron backlog sweeper — spawns adw:*-labelled issues with no state
 │   ├── devServerJanitor.ts  # Janitor probe that kills stale dev server processes in target repo worktrees
 │   ├── perIssueScenarioSweep.ts  # Cron probe: deletes features/per-issue/feature-{N}.feature 14 days after the issue's PR merges
 │   ├── cronProcessGuard.ts  # Duplicate cron process prevention
@@ -751,7 +753,6 @@ adws/                   # ADW workflow system
 ├── adwBuildHelpers.ts
 ├── adwClearComments.tsx
 ├── adwDocument.tsx
-├── adwInit.tsx
 ├── adwPatch.tsx
 ├── adwPlan.tsx
 ├── adwPlanBuild.tsx

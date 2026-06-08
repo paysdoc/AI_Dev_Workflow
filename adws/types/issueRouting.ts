@@ -12,12 +12,11 @@ import type { IssueClassSlashCommand } from './issueTypes';
  * Used by triggers to determine which ADW workflow to spawn when no
  * explicit ADW command is provided.
  */
-export const issueTypeToOrchestratorMap: Record<IssueClassSlashCommand, string> = {
+export const issueTypeToOrchestratorMap: Partial<Record<IssueClassSlashCommand, string>> = {
   '/bug': 'adws/adwSdlc.tsx',
   '/chore': 'adws/adwChore.tsx',
   '/feature': 'adws/adwSdlc.tsx',
   '/pr_review': 'adws/adwPlanBuild.tsx',
-  '/adw_init': 'adws/adwInit.tsx',
 };
 
 /**
