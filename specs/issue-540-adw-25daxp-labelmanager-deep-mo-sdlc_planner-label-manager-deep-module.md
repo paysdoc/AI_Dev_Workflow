@@ -139,7 +139,7 @@ Execute every step in order, top to bottom.
   - Exactly one `adw:<type>` **with** `adw:none` → correct `classification`, `optOut:true`, `conflict:false`.
   - Multiple `adw:<type>`, no `adw:none` → `{ optOut:false, classification:null, conflict:true }`.
   - Multiple `adw:<type>`, with `adw:none` → `{ optOut:true, classification:null, conflict:true }`.
-  - Non-adw labels (e.g. `hitl`, a bare `bug` without the `adw:` prefix) are ignored.
+  - Non-adw labels (e.g. `hitl`, a bare `bug` without the `adw:` prefix) are ignored. Labels that resemble but do not match the `adw:` namespace (e.g. `adw-bug` with a hyphen, `adwesome`) are also ignored — matching is exact, not prefix-based.
   - `adw:upgrade` alone is **not** counted as a classification → `{ optOut:false, classification:null, conflict:false }` (documents the marker semantics).
 - Add a small test for `issueTypeToAdwLabel`: maps `/feature` → `adw:feature` and returns `null` for `/adw_init`.
 
@@ -149,9 +149,10 @@ Execute every step in order, top to bottom.
 - Assert idempotency: calling `ensureAdwLabelsExist` twice does not throw and issues 6 commands each time (no error parsing needed because of `--force`).
 - Assert resilience: if `exec` throws for one label, the remaining labels are still attempted (total 6 calls) and no exception escapes.
 
-### 9. Write unit tests for `applyLabel` (success + lazy-create-retry + rethrow)
+### 9. Write unit tests for `applyLabel` (success + lazy-create-retry + persistent-not-found + rethrow)
 - Success path: `exec` resolves the first `gh issue edit --add-label` call → assert exactly one `exec` call, command contains `--add-label 'adw:feature'`, and no `gh label create` is issued.
 - Lazy-create path: make `exec` throw a `not found` error on the first `gh issue edit` call, succeed on the `gh label create` call, and succeed on the retried `gh issue edit` call → assert the create was issued for the missing label and the edit was attempted twice; `applyLabel` returns without throwing.
+- Persistent-not-found path: make `exec` throw a `not found` error on the first `gh issue edit`, succeed on the `gh label create`, then throw `not found` again on the retried `gh issue edit` → assert exactly one `gh label create` was issued (no create/retry loop) and `applyLabel` fails loudly (the retry's error propagates).
 - Non-"not found" path: make the first `gh issue edit` throw a generic error (e.g. `HTTP 500`) → assert `applyLabel` rethrows and **no** `gh label create` is issued.
 
 ### 10. Run validation commands
@@ -164,7 +165,7 @@ Execute every step in order, top to bottom.
 
 - **`readAdwLabels` (pure)** — exhaustively covers the result shape: the cartesian of {zero, one (×4 types), multiple} `adw:<type>` labels × {with, without} `adw:none`, plus ignored non-adw labels and the `adw:upgrade`-is-not-a-classification case. This is the surface the acceptance criteria explicitly require "all branches" coverage for, and being a pure function it needs no mocks.
 - **`ensureAdwLabelsExist` (DI exec stub)** — verifies all six labels are provisioned, the `--force` idempotency flag is used, `repoInfo` is threaded into `--repo owner/repo`, a repeat run is a no-error no-op, and a single label failure does not abort the batch.
-- **`applyLabel` (DI exec stub)** — verifies the existing-label success path (single call, no create), the lazy-create-and-retry path (create + retry on "not found"), and the rethrow-without-create path for unexpected errors.
+- **`applyLabel` (DI exec stub)** — verifies the existing-label success path (single call, no create), the lazy-create-and-retry path (create + retry on "not found"), the persistent-not-found path (exactly one create, then the retry's error propagates — no create/retry loop), and the rethrow-without-create path for unexpected errors.
 - **`issueTypeToAdwLabel`** — verifies the inverse mapping and the `/adw_init` → `null` edge.
 
 The DI approach (injecting `exec`/`logger` via `LabelManagerDeps`, defaulting to `execWithRetry`/`log`) means no real `gh` CLI or network is touched; every branch is driven by a `vi.fn()` stub and assertions are made on the exact commands constructed. This matches the established deep-module test pattern in `adws/core/__tests__/remoteReconcile.test.ts` and `processLiveness.test.ts`.
@@ -176,6 +177,7 @@ The DI approach (injecting `exec`/`logger` via `LabelManagerDeps`, defaulting to
 - `adw:upgrade` present (the tracking-issue marker) → never counted as a classification or a conflict; it is one of the six ensured labels but not a new-issue classification input.
 - `applyLabel` for a label name **not** in `ADW_LABEL_DEFINITIONS` → lazy-create still works using a default color/description (`resolveLabelDefinition` fallback).
 - `applyLabel` first attempt fails with a non-"not found" error (auth, 5xx) → rethrown, no spurious label creation.
+- `applyLabel` where the label stays "not found" even after lazy-create → exactly one create is issued and the retry's error propagates (bounded single retry, no create/retry loop).
 - `ensureAdwLabelsExist` where one `gh label create` fails (transient/permission) → the other five are still attempted; no throw escapes.
 - Label names contain a colon (`adw:feature`) and descriptions contain spaces → commands single-quote these arguments so the shell parses them correctly.
 

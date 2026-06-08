@@ -22,7 +22,7 @@ Feature: labelManager deep module — adw:* label lifecycle and label-based clas
          • `optOut`  — true exactly when `adw:none` is present.
          • `conflict` — true exactly when more than one distinct workflow-type
                         label (`adw:chore` | `adw:bug` | `adw:feature` |
-                        `adw:pr_review` | `adw:upgrade`) is present.
+                        `adw:pr_review`) is present.
          • `classification` — the sole workflow-type label when exactly one is
                         present, otherwise null.
        A consumer checks `optOut` first (an `adw:none` issue is ignored) and
@@ -59,11 +59,16 @@ Feature: labelManager deep module — adw:* label lifecycle and label-based clas
     • The transport (`gh label create` vs. a REST `POST /labels`) is an
       implementation detail; these scenarios assert that a creation/application
       was recorded against the target repo, not how the call was shaped.
-    • `readAdwLabels` reports `adw:upgrade` as classification "upgrade" because
-      it is one of the six labels and the read is faithful to what is present.
-      Whether a human-applied `adw:upgrade` on an ordinary issue is *acted on*
-      is a routing/eligibility decision owned by the webhook and cron layers
-      (out of scope here); this module only reports the shape.
+    • `adw:upgrade` is a tracking-issue marker, not a workflow-type
+      classification. The PRD applies it to ADW's own upgrade tracking issues
+      (`#UPG`) and exempts those from classification and multi-label refusal,
+      so `readAdwLabels` treats `adw:upgrade` as neither a classification nor a
+      conflict input. It is one of the six labels `ensureAdwLabelsExist`
+      provisions, but only the four workflow-type labels — `adw:chore`,
+      `adw:bug`, `adw:feature`, `adw:pr_review` — participate in the
+      `{ classification, conflict }` computation. Whether a human-applied
+      `adw:upgrade` on an ordinary issue is acted on is a routing/eligibility
+      decision owned by the webhook and cron layers (out of scope here).
     • §3's persistent-not-found scenario pins a bounded retry (lazy-create at
       most once, fail loudly rather than loop). The precise error surface is
       left to the implementer; the scenario only forbids an unbounded
@@ -171,10 +176,10 @@ Feature: labelManager deep module — adw:* label lifecycle and label-based clas
     And the adw label reading reports no conflict
 
   @adw-540 @adw-25daxp-labelmanager-deep-mo
-  Scenario: A single adw:upgrade label classifies as upgrade
+  Scenario: A single adw:upgrade marker label is not a classification
     Given an issue carrying the labels "adw:upgrade"
     When ADW reads the adw labels on the issue
-    Then the adw label reading reports classification "upgrade"
+    Then the adw label reading reports no classification
     And the adw label reading reports no opt-out
     And the adw label reading reports no conflict
 
