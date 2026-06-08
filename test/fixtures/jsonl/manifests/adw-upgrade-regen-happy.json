@@ -1,0 +1,17 @@
+{
+  "jsonlPath": ".adw-stub-upgrade-payload.json",
+  "edits": [
+    {
+      "path": ".adw-stub-upgrade-payload.json",
+      "contents": "[{\"type\":\"text\",\"text\":\"ADW upgrade regeneration complete. Regenerated .adw/ directory for framework upgrade.\"}]\n"
+    },
+    {
+      "path": ".adw/project.md",
+      "contents": "# Project\n\n## Unit Tests\nenabled\n"
+    },
+    {
+      "path": ".adw/commands.md",
+      "contents": "# Commands\n\n## Run Unit Tests\nbun run test:unit\n"
+    }
+  ]
+}
