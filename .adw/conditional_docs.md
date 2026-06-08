@@ -1318,3 +1318,12 @@
     - When writing unit tests for pure deep modules with injectable I/O (follow the `hashComputer.test.ts` in-memory Map pattern)
     - When troubleshooting "hashComputer: declared hashInput file not found" or "missing hashInputs: field" errors
     - When modifying `.claude/commands/adw_init.md` frontmatter and need to understand the self-reference nuance
+
+- app_docs/feature-m45h0x-upgradeclaim-deep-module.md
+  - Conditions:
+    - When working with `claimUpgradeOrFindExisting`, `buildDefaultUpgradeClaimDeps`, `buildClaimBranchName`, or `UpgradeClaimDeps` in `adws/core/upgradeClaim.ts`
+    - When implementing the upgrade hash check in `initializeWorkflow()` (the future PRD slice that wires this into the SDLC orchestrator)
+    - When troubleshooting the winner/loser branch-namespace election or the `adw-upgrade-<hash>` claim branch
+    - When understanding why the empty commit uses a nonce (distinct-SHA guarantee for the "exactly one winner" correctness property)
+    - When working with `UpgradeClaimResult` discriminated union or the `existingIssueNumber: null` loser race-window case
+    - When writing or extending `adws/core/__tests__/upgradeClaim.test.ts` or the bare-repo integration test

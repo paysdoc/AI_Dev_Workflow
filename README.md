@@ -826,6 +826,7 @@ specs/                  # Generated implementation specs
 package.json
 tsconfig.json           # Root TypeScript configuration
 vitest.config.ts        # Vitest test configuration
+known_issues.md         # Production incidents, recurring failure patterns, and resolution status
 README.md               # This file
 UBIQUITOUS_LANGUAGE.md  # DDD ubiquitous language glossary
 ```
