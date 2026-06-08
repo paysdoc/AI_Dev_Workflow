@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 132              | 2026-06-08 23:38:51 |
-| Longest Streak    | 132              | 2026-06-08 23:38:51 |
-| Total Plan Size   | 5855 lines       | 2026-06-08 23:38:51 |
-| Largest Plan Size | 699 lines        | 2026-06-08 23:38:51 |
-| Total Diff Size   | 4075366 lines    | 2026-06-08 23:38:51 |
-| Largest Diff Size | 418153 lines     | 2026-06-08 23:38:51 |
-| Average Presence  | 1.24             | 2026-06-08 23:38:51 |
+| Current Streak    | 202              | 2026-06-09 00:32:42 |
+| Longest Streak    | 198              | 2026-06-09 00:32:42 |
+| Total Plan Size   | 3936 lines       | 2026-06-09 00:32:42 |
+| Largest Plan Size | 678 lines        | 2026-06-09 00:32:42 |
+| Total Diff Size   | 4075366 lines    | 2026-06-09 00:32:42 |
+| Largest Diff Size | 418153 lines     | 2026-06-09 00:32:42 |
+| Average Presence  | 1.17             | 2026-06-09 00:32:42 |
 
 ## ADW KPIs
 
@@ -217,3 +217,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-06-08 | mgjwz6-brand-evaluation-har | 110 | /feature | 1 | 97 | 71741/1980/382 | 2026-06-08 23:16:03 | 2026-06-08 23:16:03 |
 | 2026-06-08 | nzgshj-logo-dominant-fill-a | 111 | /feature | 2 | 0 | 70771/1980/365 | 2026-06-08 23:37:16 | 2026-06-08 23:37:16 |
 | 2026-06-08 | xs322a-two-font-capture-and | 113 | /feature | 1 | 0 | 71198/1990/373 | 2026-06-08 23:37:08 | 2026-06-08 23:37:08 |
+| 2026-06-09 | y0ce34-full-colour-cascade | 112 | /feature | 2 | 0 | 71502/1980/373 | 2026-06-09 00:32:42 | 2026-06-09 00:32:42 |
