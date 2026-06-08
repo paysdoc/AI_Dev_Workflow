@@ -18,7 +18,7 @@
  *  W1 note: the ORCHESTRATOR_FILES map in whenSteps.ts gains
  *    `upgrade: 'adwUpgrade.tsx'`
  *  so that W1 can spawn the upgrade orchestrator subprocess when the harness is active.
- *  The legacy `init: 'adwInit.tsx'` entry is NOT removed here (separate PRD slice #30).
+ *  The legacy `init` orchestrator entry was removed by issue #547 (PRD slice #30).
  *
  * Novel vocabulary introduced here (gap surfaced per feature-541 note):
  *  - Given 'the upgrade branch {string} already carries the empty upgrade-claim commit'
