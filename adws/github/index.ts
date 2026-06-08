@@ -29,6 +29,21 @@ export {
 // PR utilities (shared between adwMerge and remoteReconcile)
 export { defaultFindPRByBranch, type RawPR } from './prApi';
 
+// Label Manager — adw:* label lifecycle and label-based classification
+export {
+  ensureAdwLabelsExist,
+  applyLabel,
+  readAdwLabels,
+  issueTypeToAdwLabel,
+  buildDefaultLabelManagerDeps,
+  ADW_LABEL_DEFINITIONS,
+  ADW_CLASSIFICATION_LABELS,
+  ADW_NONE_LABEL,
+  type AdwLabelReading,
+  type AdwLabelDefinition,
+  type LabelManagerDeps,
+} from './labelManager';
+
 // Project Board API
 export { moveIssueToStatus } from './projectBoardApi';
 
