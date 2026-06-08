@@ -504,7 +504,7 @@ adws/                   # ADW workflow system
 │   │   ├── upgradeClaim.test.ts
 │   │   └── workflowCommentParsing.test.ts
 │   ├── adwId.ts        # ADW ID generation
-│   ├── adwVersion.ts   # ADW version file (.adw-version) read/write module
+│   ├── adwVersion.ts   # Read/write .adw-version file (stores framework hash at target repo root)
 │   ├── agentState.ts
 │   ├── authGate.ts     # Host-wide auth gate: detects auth failures, writes paused_auth state, triggers Slack alerts
 │   ├── claudeStreamParser.ts  # Claude JSONL stream parsing
@@ -512,7 +512,7 @@ adws/                   # ADW workflow system
 │   ├── constants.ts    # Orchestrator ID constants
 │   ├── devServerLifecycle.ts  # Dev server spawn, health probe, and cleanup helpers
 │   ├── environment.ts  # Environment variable accessors
-│   ├── hashComputer.ts # Framework content hash (SHA256 over adw_init.md + declared hashInputs)
+│   ├── hashComputer.ts # SHA256 hash of declared hashInputs files — "current framework version" primitive
 │   ├── heartbeat.ts    # Liveness ticker writing lastSeenAt to state on a fixed interval
 │   ├── hungOrchestratorDetector.ts  # Pure-query detector for wedged orchestrators (live PID + stale heartbeat)
 │   ├── index.ts
@@ -534,7 +534,7 @@ adws/                   # ADW workflow system
 │   ├── slackNotifier.ts  # Slack Incoming Webhook client for error/problem alerting
 │   ├── stateHelpers.ts
 │   ├── targetRepoManager.ts
-│   ├── upgradeClaim.ts # Atomic upgrade-claim primitive using GitHub branch namespace
+│   ├── upgradeClaim.ts # Atomic upgrade-claim primitive via GitHub branch namespace (winner/loser resolution)
 │   ├── utils.ts
 │   ├── workflowCommentParsing.ts  # Comment parsing utilities
 │   └── workflowMapping.ts  # Issue type → orchestrator mapping

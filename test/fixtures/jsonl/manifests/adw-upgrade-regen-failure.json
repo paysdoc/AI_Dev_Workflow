@@ -1,0 +1,9 @@
+{
+  "jsonlPath": ".adw-stub-upgrade-failure-payload.json",
+  "edits": [
+    {
+      "path": ".adw-stub-upgrade-failure-payload.json",
+      "contents": "NOT_VALID_JSON_SIMULATES_LLM_FAILURE\n"
+    }
+  ]
+}

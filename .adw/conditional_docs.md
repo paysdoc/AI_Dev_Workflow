@@ -1338,6 +1338,14 @@
     - When working with `UpgradeClaimResult` discriminated union or the `existingIssueNumber: null` loser race-window case
     - When writing or extending `adws/core/__tests__/upgradeClaim.test.ts` or the bare-repo integration test
 
+- app_docs/feature-gj381g-adwupgrade-tsx-orche.md
+  - Conditions:
+    - When working with `adwUpgrade.tsx`, `executeUpgrade`, `UpgradeDeps`, or `buildDefaultUpgradeDeps`
+    - When implementing or troubleshooting the regeneration half of the versioned auto-(re)init system
+    - When adding a new exception-list orchestrator (no `initializeWorkflow()`, uses `runWithRawOrchestratorLifecycle`)
+    - When the non-workflow failure comment shape or concurrency-neutral failure semantics are relevant (User Story 22)
+    - When understanding the two-commit PR guarantee (`upgradeClaim` empty commit + regen commit) or runtime hash recomputation
+
 - app_docs/feature-gmfhco-issues-opened-label-routed-handler.md
   - Conditions:
     - When working with `routeIssueOpened`, `decideIssueOpenedRoute`, or `extractPayloadLabelNames` in `adws/triggers/issueOpenedRouter.ts`
