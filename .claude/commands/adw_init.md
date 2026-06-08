@@ -1,5 +1,8 @@
 ---
 target: false
+hashInputs:
+  - .claude/commands/adw_init.md
+  - templates/vocabulary.md.template
 ---
 # Initialize ADW Project Configuration
 

@@ -1,5 +1,13 @@
 # Conditional Documentation
 
+- app_docs/feature-n9880l-adwversion-read-write-module.md
+  - Conditions:
+    - When implementing or calling `readAdwVersion` / `writeAdwVersion` from `adws/core`
+    - When working on the versioned auto-(re)init system (`adw-init-hash-and-label-classification.md`)
+    - When the `.adw-version` file at a target repo root needs to be read, written, or validated
+    - When implementing the `initializeWorkflow()` hash comparison or `adwUpgrade.tsx` write-back
+    - When troubleshooting "never initialized" vs "out of date" collapsing logic in orchestrators
+
 - app_docs/feature-mqwyb7-llm-draft-observability-examples.md
   - Conditions:
     - When working with the `## Observability Surfaces (Examples)` block in a target repo's `features/regression/vocabulary.md`
@@ -1311,3 +1319,21 @@
     - When wiring `readAdwLabels` into `issues.opened` webhook handler, `initializeWorkflow()`, or the CRON recovery scan
     - When working with `LabelManagerDeps`, `buildDefaultLabelManagerDeps`, or the DI test pattern for `gh` CLI operations
     - When extending `ADW_LABEL_DEFINITIONS` or `ADW_CLASSIFICATION_LABELS` with new label types
+
+- app_docs/feature-zapagn-hashcomputer-deep-module.md
+  - Conditions:
+    - When working with `computeFrameworkHash`, `HashComputerDeps`, or `ADW_INIT_RELATIVE_PATH` in `adws/core/hashComputer.ts`
+    - When adding a new file to the framework's init dependency set (edit `hashInputs:` in `.claude/commands/adw_init.md`)
+    - When implementing downstream slices that compare a target repo's stored `.adw-version` against the current framework hash
+    - When writing unit tests for pure deep modules with injectable I/O (follow the `hashComputer.test.ts` in-memory Map pattern)
+    - When troubleshooting "hashComputer: declared hashInput file not found" or "missing hashInputs: field" errors
+    - When modifying `.claude/commands/adw_init.md` frontmatter and need to understand the self-reference nuance
+
+- app_docs/feature-m45h0x-upgradeclaim-deep-module.md
+  - Conditions:
+    - When working with `claimUpgradeOrFindExisting`, `buildDefaultUpgradeClaimDeps`, `buildClaimBranchName`, or `UpgradeClaimDeps` in `adws/core/upgradeClaim.ts`
+    - When implementing the upgrade hash check in `initializeWorkflow()` (the future PRD slice that wires this into the SDLC orchestrator)
+    - When troubleshooting the winner/loser branch-namespace election or the `adw-upgrade-<hash>` claim branch
+    - When understanding why the empty commit uses a nonce (distinct-SHA guarantee for the "exactly one winner" correctness property)
+    - When working with `UpgradeClaimResult` discriminated union or the `existingIssueNumber: null` loser race-window case
+    - When writing or extending `adws/core/__tests__/upgradeClaim.test.ts` or the bare-repo integration test
