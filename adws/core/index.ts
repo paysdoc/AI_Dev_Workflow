@@ -174,6 +174,10 @@ export { PAUSE_QUEUE_PATH, readPauseQueue, appendToPauseQueue, removeFromPauseQu
 export { deriveStageFromRemote, mapArtifactsToStage, MAX_RECONCILE_VERIFICATION_RETRIES, buildDefaultReconcileDeps } from './remoteReconcile';
 export type { ReconcileDeps } from './remoteReconcile';
 
+// Upgrade claim
+export { claimUpgradeOrFindExisting, buildDefaultUpgradeClaimDeps, buildClaimBranchName, buildClaimResult } from './upgradeClaim';
+export type { UpgradeClaimDeps, UpgradeClaimResult } from './upgradeClaim';
+
 // Workflow comment parsing (platform-agnostic)
 export {
   STAGE_ORDER,
