@@ -50,6 +50,14 @@
     - When troubleshooting why `scenario_writer` refuses to generate a structurally-asserting scenario
     - When adding per-issue BDD scenarios for issue-506-class features (rot prevention, vocabulary registry)
 
+- app_docs/feature-6zw7n2-hitl-opt-in-adw-yml.md
+  - Conditions:
+    - When working with the `.github/adw.yml` HITL opt-in for framework-upgrade PRs
+    - When implementing or troubleshooting `adwUpgrade.tsx`'s gated merge step
+    - When `adws/core/adwYmlConfig.ts` (`readAdwYmlConfig` / `parseAdwYml`) needs context
+    - When an upgrade PR is left open and you need to understand whether HITL mode is active
+    - When distinguishing the `.github/adw.yml` config gate from the `hitl` GitHub label gate in `adwMerge.tsx`
+
 - app_docs/feature-2evbnk-bdd-smoke-surface-scenarios.md
   - Conditions:
     - When working with the `features/regression/smoke/` or `features/regression/surfaces/` BDD scenario suites
