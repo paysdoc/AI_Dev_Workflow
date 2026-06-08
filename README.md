@@ -473,6 +473,7 @@ adws/                   # ADW workflow system
 │   ├── patchAgent.ts
 │   ├── planAgent.ts
 │   ├── prAgent.ts
+│   ├── refactorAgent.ts    # Refactor agent: applies coding-guideline fixes via /refactor skill (mirrors patchAgent but targets style violations)
 │   ├── resolutionAgent.ts  # Plan-scenario mismatch resolution
 │   ├── reviewAgent.ts
 │   ├── scenarioAgent.ts  # BDD scenario planner agent
@@ -609,6 +610,7 @@ adws/                   # ADW workflow system
 │   ├── prPhase.ts
 │   ├── prReviewCompletion.ts  # PR review completion/error handling
 │   ├── prReviewPhase.ts  # PR review phase implementation
+│   ├── reviewPatchHelpers.ts  # Shared helpers for patch/refactor resolution within review phases
 │   ├── reviewPhase.ts  # Passive judge review phase (reads scenario proof, no dev server)
 │   ├── scenarioFixPhase.ts  # Fixes failed scenarios from a previous scenarioTestPhase run
 │   ├── scenarioPhase.ts  # BDD scenario generation phase
@@ -819,6 +821,7 @@ specs/                  # Generated implementation specs
 package.json
 tsconfig.json           # Root TypeScript configuration
 vitest.config.ts        # Vitest test configuration
+known_issues.md         # Production incidents, recurring failure patterns, and resolution status
 README.md               # This file
 UBIQUITOUS_LANGUAGE.md  # DDD ubiquitous language glossary
 ```
