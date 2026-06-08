@@ -1301,3 +1301,13 @@
     - When implementing or troubleshooting `runRefactorAgent` in `adws/agents/refactorAgent.ts`
     - When `/refactor` model/effort routing entries in `adws/core/modelRouting.ts` are relevant
     - When guideline violations in changed files are not becoming blockers or not triggering a refactor pass
+
+- app_docs/feature-25daxp-label-manager-deep-module.md
+  - Conditions:
+    - When working with `ensureAdwLabelsExist`, `applyLabel`, or `readAdwLabels` in `adws/github/labelManager.ts`
+    - When provisioning `adw:*` labels on a new target repo or troubleshooting missing labels
+    - When implementing label-based issue classification (routing on `adw:chore`, `adw:bug`, `adw:feature`, `adw:pr_review`)
+    - When troubleshooting `applyLabel` lazy-create-and-retry behavior or "not found" error handling
+    - When wiring `readAdwLabels` into `issues.opened` webhook handler, `initializeWorkflow()`, or the CRON recovery scan
+    - When working with `LabelManagerDeps`, `buildDefaultLabelManagerDeps`, or the DI test pattern for `gh` CLI operations
+    - When extending `ADW_LABEL_DEFINITIONS` or `ADW_CLASSIFICATION_LABELS` with new label types
