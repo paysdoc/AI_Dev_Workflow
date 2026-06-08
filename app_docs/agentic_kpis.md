@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 175              | 2026-06-08 16:53:10 |
-| Longest Streak    | 175              | 2026-06-08 16:53:10 |
-| Total Plan Size   | 4622 lines       | 2026-06-08 16:53:10 |
-| Largest Plan Size | 699 lines        | 2026-06-08 16:53:10 |
-| Total Diff Size   | 3009600 lines    | 2026-06-08 16:53:10 |
-| Largest Diff Size | 417153 lines     | 2026-06-08 16:53:10 |
-| Average Presence  | 1.18             | 2026-06-08 16:53:10 |
+| Current Streak    | 128              | 2026-06-08 22:00:42 |
+| Longest Streak    | 128              | 2026-06-08 22:00:42 |
+| Total Plan Size   | 5758 lines       | 2026-06-08 22:00:42 |
+| Largest Plan Size | 699 lines        | 2026-06-08 22:00:42 |
+| Total Diff Size   | 3784987 lines    | 2026-06-08 22:00:42 |
+| Largest Diff Size | 418153 lines     | 2026-06-08 22:00:42 |
+| Average Presence  | 1.24             | 2026-06-08 22:00:42 |
 
 ## ADW KPIs
 
@@ -212,3 +212,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-06-08 | y35zbi-cron-recovery-layer | 545 | /feature | 1 | 0 | 7142/67/54 | 2026-06-08 15:33:20 | 2026-06-08 15:33:20 |
 | 2026-06-08 | 6zw7n2-hitl-opt-in-via-gith | 543 | /feature | 1 | 0 | 8293/26/57 | 2026-06-08 15:46:00 | 2026-06-08 15:46:00 |
 | 2026-06-08 | tlk8qf-hash-check-upgrade-t | 544 | /feature | 1 | 0 | 8718/43/60 | 2026-06-08 16:53:10 | 2026-06-08 16:53:10 |
+| 2026-06-08 | 5beb7x-bot-challenge-no-lon | 108 | /feature | 1 | 134 | 16/874/6 | 2026-06-08 22:00:42 | 2026-06-08 22:00:42 |
