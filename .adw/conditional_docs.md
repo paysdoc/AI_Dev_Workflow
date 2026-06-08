@@ -1383,3 +1383,11 @@
     - When working with `linkedPrDetector.ts` (`hasLinkedMergedOrClosedPR`, `fetchLinkedPRs`) or refactoring `concurrencyGuard.ts`
     - When the `precomputedClassification` routing path in `trigger_cron.ts` is relevant (cron recovery bypassing LLM classifier)
     - When extending `CronIssue` with new fields or adding parameters to `filterEligibleIssues`
+
+- app_docs/feature-cy2xzc-delete-adwinit-tsx-orchestrator.md
+  - Conditions:
+    - When looking for `adwInit.tsx` or wondering why it no longer exists (deleted in issue #547)
+    - When working with `issueTypeToOrchestratorMap` in `adws/types/issueRouting.ts` and noticing `/adw_init` has no orchestrator entry
+    - When implementing a new target-repo bootstrap flow and need to understand how `/adw_init` is now invoked (via `adwUpgrade.tsx`)
+    - When troubleshooting why a `/adw_init` issue type lookup returns `undefined` from `issueTypeToOrchestratorMap`
+    - When understanding why `OrchestratorId.Init` (`'init-orchestrator'`) exists in constants but has no script mapping
