@@ -180,6 +180,13 @@ const postPr: RouteHandler = (_params, body) => {
 const getPrReviews: RouteHandler = () => jsonResponse([]);
 const getPrComments: RouteHandler = (params) =>
   jsonResponse(serverState.comments[params['prNumber'] ?? '1'] ?? []);
+const putPrMerge: RouteHandler = (params) => {
+  const num = params['prNumber'] ?? '';
+  const pr = serverState.prs[num];
+  if (!pr) return jsonResponse({ message: 'Not Found' }, 404);
+  serverState = { ...serverState, prs: { ...serverState.prs, [num]: { ...pr, state: 'MERGED' } } };
+  return jsonResponse({ sha: 'merged', merged: true, message: 'Pull Request successfully merged' });
+};
 
 // ---------------------------------------------------------------------------
 // Control endpoint handlers
@@ -219,6 +226,7 @@ const ROUTES: RouteDefinition[] = [
   { method: 'GET',    pattern: '/repos/:owner/:repo/pulls/:prNumber', handler: getPr },
   { method: 'GET',    pattern: '/repos/:owner/:repo/pulls/:prNumber/reviews', handler: getPrReviews },
   { method: 'GET',    pattern: '/repos/:owner/:repo/pulls/:prNumber/comments', handler: getPrComments },
+  { method: 'PUT',    pattern: '/repos/:owner/:repo/pulls/:prNumber/merge', handler: putPrMerge },
   { method: 'POST',   pattern: '/_mock/state', handler: postMockState },
   { method: 'GET',    pattern: '/_mock/requests', handler: getMockRequests },
   { method: 'POST',   pattern: '/_mock/reset', handler: postMockReset },

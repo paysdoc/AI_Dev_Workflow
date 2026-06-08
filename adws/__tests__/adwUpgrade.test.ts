@@ -4,10 +4,12 @@ import {
   buildUpgradePrBody,
   buildUpgradePrTitle,
   buildUpgradeFailureComment,
+  buildUpgradeHitlComment,
+  buildUpgradeMergeFailedComment,
   type UpgradeDeps,
   type UpgradeRunResult,
 } from '../adwUpgrade';
-import { buildClaimBranchName, isAdwComment } from '../core';
+import { buildClaimBranchName, isAdwComment, parseAdwYml } from '../core';
 import { commentOnIssue } from '../github';
 import type { CreatePROptions } from '../providers/types';
 
@@ -31,6 +33,8 @@ function makeDeps(overrides: Partial<UpgradeDeps> = {}): UpgradeDeps {
     commentOnIssue: vi.fn<typeof commentOnIssue>(),
     ensureLogsDirectory: vi.fn().mockReturnValue('/logs/adwupgrade'),
     log: vi.fn(),
+    readAdwYmlConfig: vi.fn().mockReturnValue({ hitl: false }),
+    mergePR: vi.fn().mockReturnValue({ success: true }),
     ...overrides,
   };
 }
@@ -80,13 +84,13 @@ describe('buildUpgradeFailureComment', () => {
 
 // ── Success path ──────────────────────────────────────────────────────────────
 
-describe('executeUpgrade — success path', () => {
-  it('returns outcome=completed and prUrl on success', async () => {
+describe('executeUpgrade — success path (default: auto-merge)', () => {
+  it('returns outcome=completed, reason=pr_merged, and prUrl on success', async () => {
     const deps = makeDeps();
     const result = await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
 
     expect(result.outcome).toBe('completed');
-    expect(result.reason).toBe('pr_opened');
+    expect(result.reason).toBe('pr_merged');
     expect(result.prUrl).toBe('https://github.com/acme/target/pull/99');
   });
 
@@ -105,7 +109,15 @@ describe('executeUpgrade — success path', () => {
     expect(deps.createPullRequest).toHaveBeenCalledTimes(1);
   });
 
-  it('never calls commentOnIssue on success', async () => {
+  it('calls mergePR once with (pr.number, repoInfo) on the default (hitl:false) path', async () => {
+    const deps = makeDeps();
+    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    expect(deps.mergePR).toHaveBeenCalledTimes(1);
+    expect(deps.mergePR).toHaveBeenCalledWith(99, REPO_INFO);
+  });
+
+  it('never calls commentOnIssue on default success path', async () => {
     const deps = makeDeps();
     await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
 
@@ -120,6 +132,109 @@ describe('executeUpgrade — success path', () => {
       expect.any(String),
       MOCK_HASH,
     );
+  });
+});
+
+// ── HITL opt-in paths ─────────────────────────────────────────────────────────
+
+describe('executeUpgrade — hitl:true path', () => {
+  it('does not call mergePR when hitl: true', async () => {
+    const deps = makeDeps({ readAdwYmlConfig: vi.fn().mockReturnValue({ hitl: true }) });
+    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    expect(deps.mergePR).not.toHaveBeenCalled();
+  });
+
+  it('returns outcome=completed, reason=pr_opened_hitl when hitl: true', async () => {
+    const deps = makeDeps({ readAdwYmlConfig: vi.fn().mockReturnValue({ hitl: true }) });
+    const result = await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    expect(result.outcome).toBe('completed');
+    expect(result.reason).toBe('pr_opened_hitl');
+    expect(result.prUrl).toBe('https://github.com/acme/target/pull/99');
+  });
+
+  it('posts exactly one non-ADW comment when hitl: true', async () => {
+    const deps = makeDeps({ readAdwYmlConfig: vi.fn().mockReturnValue({ hitl: true }) });
+    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    expect(deps.commentOnIssue).toHaveBeenCalledTimes(1);
+    const body = (deps.commentOnIssue as ReturnType<typeof vi.fn>).mock.calls[0][1] as string;
+    expect(isAdwComment(body)).toBe(false);
+  });
+});
+
+describe('executeUpgrade — merge failure (non-fatal)', () => {
+  it('returns outcome=completed, reason=merge_failed when mergePR fails', async () => {
+    const deps = makeDeps({
+      mergePR: vi.fn().mockReturnValue({ success: false, error: 'required status check pending' }),
+    });
+    const result = await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    expect(result.outcome).toBe('completed');
+    expect(result.reason).toBe('merge_failed');
+  });
+
+  it('posts exactly one non-ADW comment when merge fails', async () => {
+    const deps = makeDeps({
+      mergePR: vi.fn().mockReturnValue({ success: false, error: 'required status check pending' }),
+    });
+    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    expect(deps.commentOnIssue).toHaveBeenCalledTimes(1);
+    const body = (deps.commentOnIssue as ReturnType<typeof vi.fn>).mock.calls[0][1] as string;
+    expect(isAdwComment(body)).toBe(false);
+  });
+
+  it('does not throw when mergePR fails', async () => {
+    const deps = makeDeps({
+      mergePR: vi.fn().mockReturnValue({ success: false, error: 'branch protection' }),
+    });
+    await expect(
+      executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps),
+    ).resolves.toBeDefined();
+  });
+});
+
+describe('parseAdwYml — malformed state flows through default path', () => {
+  it('parseAdwYml returns { hitl: false } for malformed value', () => {
+    expect(parseAdwYml('hitl: maybe\n')).toEqual({ hitl: false });
+  });
+});
+
+// ── Non-workflow comment helpers ──────────────────────────────────────────────
+
+describe('buildUpgradeHitlComment', () => {
+  it('is NOT an ADW workflow comment', () => {
+    const comment = buildUpgradeHitlComment(99, 'test-adw-id');
+    expect(isAdwComment(comment)).toBe(false);
+  });
+
+  it('references the PR number', () => {
+    const comment = buildUpgradeHitlComment(99, 'test-adw-id');
+    expect(comment).toContain('99');
+  });
+
+  it('references the adwId', () => {
+    const comment = buildUpgradeHitlComment(99, 'test-adw-id');
+    expect(comment).toContain('test-adw-id');
+  });
+});
+
+describe('buildUpgradeMergeFailedComment', () => {
+  it('is NOT an ADW workflow comment', () => {
+    const comment = buildUpgradeMergeFailedComment(99, 'branch protection', 'test-adw-id');
+    expect(isAdwComment(comment)).toBe(false);
+  });
+
+  it('references the PR number', () => {
+    const comment = buildUpgradeMergeFailedComment(99, 'branch protection', 'test-adw-id');
+    expect(comment).toContain('99');
+  });
+
+  it('includes the failure reason', () => {
+    const comment = buildUpgradeMergeFailedComment(99, 'branch protection', 'test-adw-id');
+    expect(comment).toContain('branch protection');
   });
 });
 
