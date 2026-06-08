@@ -473,9 +473,8 @@ adws/                   # ADW workflow system
 │   ├── kpiAgent.ts     # KPI tracking agent
 │   ├── patchAgent.ts
 │   ├── planAgent.ts
-│   ├── refactorAgent.ts  # Refactor agent — mirrors patchAgent but routes to /refactor skill
-│   ├── prAgent.ts
 │   ├── refactorAgent.ts  # Applies coding-guideline fixes via the /refactor skill (mirrors patchAgent for guideline violations)
+│   ├── prAgent.ts
 │   ├── resolutionAgent.ts  # Plan-scenario mismatch resolution
 │   ├── reviewAgent.ts
 │   ├── scenarioAgent.ts  # BDD scenario planner agent
@@ -485,11 +484,13 @@ adws/                   # ADW workflow system
 │   └── validationAgent.ts  # Plan-scenario validation
 ├── core/               # Configuration and utilities
 │   ├── __tests__/      # Vitest unit tests
+│   │   ├── adwVersion.test.ts
 │   │   ├── authGate.test.ts
 │   │   ├── claudeStreamParser.test.ts
 │   │   ├── devServerLifecycle.test.ts
 │   │   ├── environment.test.ts
 │   │   ├── execWithRetry.test.ts
+│   │   ├── hashComputer.test.ts
 │   │   ├── heartbeat.test.ts
 │   │   ├── hungOrchestratorDetector.test.ts
 │   │   ├── phaseRunner.test.ts
@@ -499,8 +500,11 @@ adws/                   # ADW workflow system
 │   │   ├── slackNotifier.test.ts
 │   │   ├── stateHelpers.test.ts
 │   │   ├── topLevelState.test.ts
+│   │   ├── upgradeClaim.integration.test.ts
+│   │   ├── upgradeClaim.test.ts
 │   │   └── workflowCommentParsing.test.ts
 │   ├── adwId.ts        # ADW ID generation
+│   ├── adwVersion.ts   # ADW version file (.adw-version) read/write module
 │   ├── agentState.ts
 │   ├── authGate.ts     # Host-wide auth gate: detects auth failures, writes paused_auth state, triggers Slack alerts
 │   ├── claudeStreamParser.ts  # Claude JSONL stream parsing
@@ -508,6 +512,7 @@ adws/                   # ADW workflow system
 │   ├── constants.ts    # Orchestrator ID constants
 │   ├── devServerLifecycle.ts  # Dev server spawn, health probe, and cleanup helpers
 │   ├── environment.ts  # Environment variable accessors
+│   ├── hashComputer.ts # Framework content hash (SHA256 over adw_init.md + declared hashInputs)
 │   ├── heartbeat.ts    # Liveness ticker writing lastSeenAt to state on a fixed interval
 │   ├── hungOrchestratorDetector.ts  # Pure-query detector for wedged orchestrators (live PID + stale heartbeat)
 │   ├── index.ts
@@ -529,6 +534,7 @@ adws/                   # ADW workflow system
 │   ├── slackNotifier.ts  # Slack Incoming Webhook client for error/problem alerting
 │   ├── stateHelpers.ts
 │   ├── targetRepoManager.ts
+│   ├── upgradeClaim.ts # Atomic upgrade-claim primitive using GitHub branch namespace
 │   ├── utils.ts
 │   ├── workflowCommentParsing.ts  # Comment parsing utilities
 │   └── workflowMapping.ts  # Issue type → orchestrator mapping
@@ -670,6 +676,7 @@ adws/                   # ADW workflow system
 │   │   ├── cronRepoResolver.test.ts
 │   │   ├── cronStageResolver.test.ts
 │   │   ├── devServerJanitor.test.ts
+│   │   ├── issueOpenedRouter.test.ts
 │   │   ├── mergeDispatchGate.test.ts
 │   │   ├── pauseQueueScanner.test.ts
 │   │   ├── perIssueScenarioSweep.test.ts
@@ -694,6 +701,7 @@ adws/                   # ADW workflow system
 │   ├── cronStageResolver.ts  # Cron stage resolution from top-level state file (testable)
 │   ├── issueDependencies.ts
 │   ├── issueEligibility.ts
+│   ├── issueOpenedRouter.ts  # Pure routing decision for the issues.opened label-routing path (mirrors cronIssueFilter pattern)
 │   ├── mergeDispatchGate.ts  # Lock-aware gate deciding whether cron should dispatch adwMerge for an issue
 │   ├── pauseQueueScanner.ts  # Cron probe for paused issue queue
 │   ├── scanAuthQueue.ts  # Cron probe: resumes paused_auth orchestrators after auth is restored
