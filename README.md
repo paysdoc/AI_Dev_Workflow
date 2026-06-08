@@ -110,7 +110,7 @@ Everything below is for someone who wants to run ADW against a target repository
 
 - **End-to-end SDLC orchestration** — `adwSdlc.tsx` composes plan, plan-validation, build, test, PR, review, auto-merge, and document phases into a single pipeline per issue.
 - **Composable orchestrators** — run individual phases (`adwPlan`, `adwBuild`, `adwTest`, `adwDocument`, `adwPrReview`, `adwPatch`, `adwMerge`) or pre-wired combos (`adwPlanBuild`, `adwPlanBuildTest`, `adwPlanBuildReview`, `adwPlanBuildDocument`, `adwPlanBuildTestReview`).
-- **Issue classification & routing** — auto-classifies an issue as `/chore`, `/bug`, `/feature`, or `/pr_review` and routes it to the right orchestrator; explicit ADW slash commands override the heuristic; `adw:*` GitHub labels provide a third classification path that bypasses AI heuristics entirely.
+- **Issue classification & routing** — auto-classifies an issue as `/chore`, `/bug`, `/feature`, or `/pr_review` via LLM heuristic and routes it to the right orchestrator; `adw:*` GitHub labels provide a deterministic override that bypasses AI classification entirely; body/comment slash-commands are not processed.
 - **Chore fast-path with LLM diff gate** — `adwChore` builds, runs unit tests, opens a PR, then asks Haiku to classify the diff as `safe` (auto-merge) or `regression_possible` (full review path).
 - **BDD/scenario-driven validation** — discovers `.feature` files tagged `@adw-{issueNumber}`, generates step definitions, and reconciles plan vs. scenario coverage via `validationAgent`, `alignmentPhase`, and `resolutionAgent`.
 - **Multi-agent passive review** — review agents read scenario proof and captured screenshots, classifying findings as Blockers (auto-patched by `patchAgent` for general failures or `refactorAgent` for coding-guideline violations, via `reviewPatchHelpers`) or Tech Debt (logged only).
@@ -489,6 +489,7 @@ adws/                   # ADW workflow system
 ├── core/               # Configuration and utilities
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── adwVersion.test.ts
+│   │   ├── adwYmlConfig.test.ts
 │   │   ├── authGate.test.ts
 │   │   ├── claudeStreamParser.test.ts
 │   │   ├── devServerLifecycle.test.ts
@@ -546,12 +547,14 @@ adws/                   # ADW workflow system
 ├── github/             # GitHub API operations
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── labelManager.test.ts
+│   │   ├── linkedPrDetector.test.ts
 │   │   └── prApi.test.ts
 │   ├── githubApi.ts
 │   ├── githubAppAuth.ts  # GitHub App authentication
 │   ├── index.ts
 │   ├── issueApi.ts
 │   ├── labelManager.ts  # adw:* label lifecycle management and label-based issue classification
+│   ├── linkedPrDetector.ts  # Detects linked merged or closed PRs for an issue via "Implements #N" body scan
 │   ├── prApi.ts
 │   ├── prCommentDetector.ts
 │   ├── projectBoardApi.ts
@@ -680,6 +683,7 @@ adws/                   # ADW workflow system
 │   │   ├── autoMergeHandler.test.ts
 │   │   ├── cancelHandler.test.ts
 │   │   ├── cronIssueFilter.test.ts
+│   │   ├── cronLabelEligibility.test.ts
 │   │   ├── cronRepoResolver.test.ts
 │   │   ├── cronStageResolver.test.ts
 │   │   ├── devServerJanitor.test.ts
@@ -688,7 +692,6 @@ adws/                   # ADW workflow system
 │   │   ├── pauseQueueScanner.test.ts
 │   │   ├── perIssueScenarioSweep.test.ts
 │   │   ├── retryHandler.test.ts
-│   │   ├── issueOpenedRouter.test.ts
 │   │   ├── scanAuthQueue.test.ts
 │   │   ├── spawnGate.test.ts
 │   │   ├── takeoverHandler.test.ts  # Unit tests for all takeoverHandler decision-tree branches

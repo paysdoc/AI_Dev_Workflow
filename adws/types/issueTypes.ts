@@ -6,28 +6,9 @@ export type IssueClassSlashCommand = '/chore' | '/bug' | '/feature' | '/pr_revie
 
 export const VALID_ISSUE_TYPES: readonly IssueClassSlashCommand[] = ['/chore', '/bug', '/feature', '/pr_review', '/adw_init'] as const;
 
-/**
- * Valid ADW workflow slash commands for explicit workflow routing.
- */
-export type AdwSlashCommand =
-  | '/adw_plan'
-  | '/adw_build'
-  | '/adw_test'
-  | '/adw_review'
-  | '/adw_document'
-  | '/adw_patch'
-  | '/adw_plan_build'
-  | '/adw_plan_build_test'
-  | '/adw_plan_build_review'
-  | '/adw_plan_build_document'
-  | '/adw_plan_build_test_review'
-  | '/adw_sdlc'
-  | '/adw_init';
 
 // Routing maps have moved to issueRouting.ts — re-exported here for backward compatibility.
 export {
-  adwCommandToIssueTypeMap,
-  adwCommandToOrchestratorMap,
   issueTypeToOrchestratorMap,
   commitPrefixMap,
   branchPrefixMap,
