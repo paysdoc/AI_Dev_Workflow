@@ -473,6 +473,7 @@ adws/                   # ADW workflow system
 │   ├── kpiAgent.ts     # KPI tracking agent
 │   ├── patchAgent.ts
 │   ├── planAgent.ts
+│   ├── refactorAgent.ts  # Refactor agent — mirrors patchAgent but routes to /refactor skill
 │   ├── prAgent.ts
 │   ├── refactorAgent.ts  # Applies coding-guideline fixes via the /refactor skill (mirrors patchAgent for guideline violations)
 │   ├── resolutionAgent.ts  # Plan-scenario mismatch resolution
