@@ -455,7 +455,8 @@ adws/                   # ADW workflow system
 ├── agents/             # Claude Code agent runners
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── claudeAgent.test.ts
-│   │   └── gitAgent.test.ts
+│   │   ├── gitAgent.test.ts
+│   │   └── refactorAgent.test.ts
 │   ├── agentProcessHandler.ts  # Process spawning handler
 │   ├── alignmentAgent.ts  # Single-pass alignment agent
 │   ├── bddScenarioRunner.ts  # BDD scenario execution
@@ -473,7 +474,7 @@ adws/                   # ADW workflow system
 │   ├── patchAgent.ts
 │   ├── planAgent.ts
 │   ├── prAgent.ts
-│   ├── refactorAgent.ts    # Refactor agent: applies coding-guideline fixes via /refactor skill (mirrors patchAgent but targets style violations)
+│   ├── refactorAgent.ts    # Applies coding-guideline fixes via the /refactor skill (mirrors patchAgent)
 │   ├── resolutionAgent.ts  # Plan-scenario mismatch resolution
 │   ├── reviewAgent.ts
 │   ├── scenarioAgent.ts  # BDD scenario planner agent
@@ -486,6 +487,7 @@ adws/                   # ADW workflow system
 │   │   ├── authGate.test.ts
 │   │   ├── claudeStreamParser.test.ts
 │   │   ├── devServerLifecycle.test.ts
+│   │   ├── environment.test.ts
 │   │   ├── execWithRetry.test.ts
 │   │   ├── heartbeat.test.ts
 │   │   ├── hungOrchestratorDetector.test.ts
@@ -494,6 +496,7 @@ adws/                   # ADW workflow system
 │   │   ├── projectConfig.test.ts
 │   │   ├── remoteReconcile.test.ts
 │   │   ├── slackNotifier.test.ts
+│   │   ├── stateHelpers.test.ts
 │   │   ├── topLevelState.test.ts
 │   │   └── workflowCommentParsing.test.ts
 │   ├── adwId.ts        # ADW ID generation
@@ -590,6 +593,7 @@ adws/                   # ADW workflow system
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── branchNameResolution.test.ts
 │   │   ├── orchestratorLock.test.ts
+│   │   ├── reviewPhase.test.ts
 │   │   ├── scenarioTestPhase.test.ts
 │   │   └── workflowInit.test.ts
 │   ├── alignmentPhase.ts  # Single-pass alignment phase
@@ -610,7 +614,7 @@ adws/                   # ADW workflow system
 │   ├── prPhase.ts
 │   ├── prReviewCompletion.ts  # PR review completion/error handling
 │   ├── prReviewPhase.ts  # PR review phase implementation
-│   ├── reviewPatchHelpers.ts  # Shared helpers for patch/refactor resolution within review phases
+│   ├── reviewPatchHelpers.ts  # Shared helpers for patch and refactor resolution during review
 │   ├── reviewPhase.ts  # Passive judge review phase (reads scenario proof, no dev server)
 │   ├── scenarioFixPhase.ts  # Fixes failed scenarios from a previous scenarioTestPhase run
 │   ├── scenarioPhase.ts  # BDD scenario generation phase
@@ -659,6 +663,7 @@ adws/                   # ADW workflow system
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── autoMergeHandler.test.ts
 │   │   ├── cancelHandler.test.ts
+│   │   ├── cronIssueFilter.test.ts
 │   │   ├── cronRepoResolver.test.ts
 │   │   ├── cronStageResolver.test.ts
 │   │   ├── devServerJanitor.test.ts
