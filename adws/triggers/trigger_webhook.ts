@@ -17,6 +17,7 @@ import { handlePullRequestEvent, handleIssueClosedEvent } from './webhookHandler
 import { validateWebhookSignature } from './webhookSignature';
 import { checkIssueEligibility } from './issueEligibility';
 import { spawnDetached, classifyAndSpawnWorkflow, ensureCronProcess, logDeferral } from './webhookGatekeeper';
+import { extractPayloadLabelNames, routeIssueOpened } from './issueOpenedRouter';
 import { checkEnvironmentVariables, checkGitRepository, checkClaudeCodeCLI, checkGitHubCLI, checkDirectoryStructure, type CheckResult } from '../healthCheckChecks';
 import { readAuthGate, writeAuthGate } from '../core/authGate';
 import { AuthRequiredError } from '../types/agentTypes';
@@ -236,24 +237,24 @@ const server = http.createServer((req, res) => {
         jsonResponse(res, 200, { status: 'ignored', reason: 'duplicate' });
         return;
       }
-      log(`New issue #${issueNumber} detected, evaluating eligibility`);
+      log(`New issue #${issueNumber} detected, routing by adw:* labels`);
       (async () => {
         try {
-          if (webhookRepoInfo) {
-            const eligibility = await checkIssueEligibility(issueNumber, (issue?.body as string) || '', webhookRepoInfo);
-            if (!eligibility.eligible) { logDeferral(issueNumber, eligibility); return; }
-          }
-          try {
-            await classifyAndSpawnWorkflow(issueNumber, webhookRepoInfo, webhookTargetRepoArgs);
-          } catch (err) {
-            if (err instanceof AuthRequiredError) {
-              writeAuthGate({ adwId: null, issueNumber, agentName: err.agentName });
-              log(`Auth gate set inside webhook handler (issue #${issueNumber}): ${err.message}`, 'warn');
-              return;
-            }
-            throw err;
-          }
+          const labelNames = extractPayloadLabelNames(issue);
+          await routeIssueOpened({
+            issueNumber,
+            issueBody: (issue?.body as string) || '',
+            issueTitle: (issue?.title as string) || undefined,
+            labelNames,
+            repoInfo: webhookRepoInfo ?? { owner: '', repo: '' },
+            targetRepoArgs: webhookTargetRepoArgs,
+          });
         } catch (error) {
+          if (error instanceof AuthRequiredError) {
+            writeAuthGate({ adwId: null, issueNumber, agentName: error.agentName });
+            log(`Auth gate set inside webhook handler (issue #${issueNumber}): ${error.message}`, 'warn');
+            return;
+          }
           log(`Error processing issue #${issueNumber}: ${error}. Cron will retry.`, 'error');
         }
       })();

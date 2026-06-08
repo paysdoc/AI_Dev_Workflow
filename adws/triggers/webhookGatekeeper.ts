@@ -13,6 +13,8 @@ import type { RepoInfo } from '../github/githubApi';
 import { getRepoInfo } from '../github';
 import { closeIssue } from '../github/issueApi';
 import { classifyIssueForTrigger, getWorkflowScript } from '../core/issueClassifier';
+import { applyLabel, issueTypeToAdwLabel } from '../github/labelManager';
+import type { IssueClassSlashCommand } from '../types/issueTypes';
 import { AgentStateManager } from '../core/agentState';
 
 import { isAdwRunningForIssue } from '../github';
@@ -51,6 +53,12 @@ export function spawnDetached(command: string, args: string[]): void {
   child.unref();
 }
 
+export interface LabelRouting {
+  precomputedClassification?: IssueClassSlashCommand;
+  issueTitle?: string;
+  persistInferredLabel?: boolean;
+}
+
 /**
  * Classifies and spawns a workflow for an eligible issue.
  * Accepts an optional pre-computed decision from the cron trigger to avoid
@@ -62,6 +70,7 @@ export async function classifyAndSpawnWorkflow(
   targetRepoArgs: string[],
   existingAdwId?: string,
   precomputedDecision?: CandidateDecision,
+  labelRouting?: LabelRouting,
 ): Promise<void> {
   const resolvedRepoInfo = repoInfo ?? getRepoInfo();
 
@@ -99,7 +108,9 @@ export async function classifyAndSpawnWorkflow(
 
   // spawn_fresh path: classify the issue and spawn a new workflow.
   try {
-    const classification = await classifyIssueForTrigger(issueNumber, resolvedRepoInfo);
+    const classification = labelRouting?.precomputedClassification
+      ? { issueType: labelRouting.precomputedClassification, success: true as const, issueTitle: labelRouting.issueTitle, adwId: undefined, adwCommand: undefined }
+      : await classifyIssueForTrigger(issueNumber, resolvedRepoInfo);
 
     if (await isAdwRunningForIssue(issueNumber, resolvedRepoInfo)) {
       log(`Issue #${issueNumber}: another ADW workflow started during classification, aborting spawn`);
@@ -113,6 +124,17 @@ export async function classifyAndSpawnWorkflow(
     log(`Issue #${issueNumber} classified as ${classification.issueType}, spawning ${workflowScript}`, 'success');
     spawnDetached('bunx', ['tsx', workflowScript, String(issueNumber), adwId, '--issue-type', classification.issueType, ...targetRepoArgs]);
     releaseIssueSpawnLock(resolvedRepoInfo, issueNumber);
+
+    if (labelRouting?.persistInferredLabel && classification.success) {
+      const label = issueTypeToAdwLabel(classification.issueType);
+      if (label) {
+        try {
+          applyLabel(issueNumber, label, resolvedRepoInfo);
+        } catch (labelErr) {
+          log(`Issue #${issueNumber}: failed to persist inferred label "${label}": ${labelErr}`, 'warn');
+        }
+      }
+    }
   } catch (err) {
     releaseIssueSpawnLock(resolvedRepoInfo, issueNumber);
     throw err;

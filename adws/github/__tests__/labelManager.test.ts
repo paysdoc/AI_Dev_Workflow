@@ -3,6 +3,7 @@ import type { GitHubLabel } from '../../types/issueTypes';
 import type { LabelManagerDeps } from '../labelManager';
 import {
   readAdwLabels,
+  readAdwLabelNames,
   issueTypeToAdwLabel,
   ensureAdwLabelsExist,
   applyLabel,
@@ -82,6 +83,42 @@ describe('readAdwLabels', () => {
 
   it('adw:bug + unrelated labels → /bug classification only', () => {
     expect(readAdwLabels(makeIssue('adw:bug', 'hitl'))).toEqual({ optOut: false, classification: '/bug', conflict: false });
+  });
+});
+
+// ── readAdwLabelNames — parity with readAdwLabels ─────────────────────────────
+
+describe('readAdwLabelNames', () => {
+  it('zero labels → no classification, no opt-out, no conflict', () => {
+    expect(readAdwLabelNames([])).toEqual({ optOut: false, classification: null, conflict: false });
+  });
+
+  it('adw:none only → opt-out, no classification, no conflict', () => {
+    expect(readAdwLabelNames(['adw:none'])).toEqual({ optOut: true, classification: null, conflict: false });
+  });
+
+  it('exactly adw:bug → /bug classification, no opt-out, no conflict', () => {
+    expect(readAdwLabelNames(['adw:bug'])).toEqual({ optOut: false, classification: '/bug', conflict: false });
+  });
+
+  it('adw:bug + adw:feature → conflict, no classification, no opt-out', () => {
+    expect(readAdwLabelNames(['adw:bug', 'adw:feature'])).toEqual({ optOut: false, classification: null, conflict: true });
+  });
+
+  it('adw:bug + adw:none → opt-out wins, /bug classification, no conflict', () => {
+    expect(readAdwLabelNames(['adw:bug', 'adw:none'])).toEqual({ optOut: true, classification: '/bug', conflict: false });
+  });
+
+  it('non-adw labels are ignored', () => {
+    expect(readAdwLabelNames(['bug', 'enhancement'])).toEqual({ optOut: false, classification: null, conflict: false });
+  });
+
+  it('exact match only — adw-bug and adwesome are not matched', () => {
+    expect(readAdwLabelNames(['adw-bug', 'adwesome'])).toEqual({ optOut: false, classification: null, conflict: false });
+  });
+
+  it('adw:upgrade alone is not a classification label', () => {
+    expect(readAdwLabelNames(['adw:upgrade'])).toEqual({ optOut: false, classification: null, conflict: false });
   });
 });
 

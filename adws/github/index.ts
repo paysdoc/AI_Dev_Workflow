@@ -34,6 +34,7 @@ export {
   ensureAdwLabelsExist,
   applyLabel,
   readAdwLabels,
+  readAdwLabelNames,
   issueTypeToAdwLabel,
   buildDefaultLabelManagerDeps,
   ADW_LABEL_DEFINITIONS,
