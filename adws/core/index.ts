@@ -198,3 +198,6 @@ export {
   detectRecoveryState,
 } from './workflowCommentParsing';
 
+// ADW version file (.adw-version) read/write
+export { ADW_VERSION_FILENAME, readAdwVersion, writeAdwVersion } from './adwVersion';
+

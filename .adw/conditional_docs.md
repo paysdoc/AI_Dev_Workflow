@@ -1,5 +1,13 @@
 # Conditional Documentation
 
+- app_docs/feature-n9880l-adwversion-read-write-module.md
+  - Conditions:
+    - When implementing or calling `readAdwVersion` / `writeAdwVersion` from `adws/core`
+    - When working on the versioned auto-(re)init system (`adw-init-hash-and-label-classification.md`)
+    - When the `.adw-version` file at a target repo root needs to be read, written, or validated
+    - When implementing the `initializeWorkflow()` hash comparison or `adwUpgrade.tsx` write-back
+    - When troubleshooting "never initialized" vs "out of date" collapsing logic in orchestrators
+
 - app_docs/feature-mqwyb7-llm-draft-observability-examples.md
   - Conditions:
     - When working with the `## Observability Surfaces (Examples)` block in a target repo's `features/regression/vocabulary.md`
