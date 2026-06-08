@@ -113,7 +113,7 @@ Everything below is for someone who wants to run ADW against a target repository
 - **Issue classification & routing** — auto-classifies an issue as `/chore`, `/bug`, `/feature`, or `/pr_review` and routes it to the right orchestrator; explicit ADW slash commands override the heuristic.
 - **Chore fast-path with LLM diff gate** — `adwChore` builds, runs unit tests, opens a PR, then asks Haiku to classify the diff as `safe` (auto-merge) or `regression_possible` (full review path).
 - **BDD/scenario-driven validation** — discovers `.feature` files tagged `@adw-{issueNumber}`, generates step definitions, and reconciles plan vs. scenario coverage via `validationAgent`, `alignmentPhase`, and `resolutionAgent`.
-- **Multi-agent passive review** — review agents read scenario proof and captured screenshots, classifying findings as Blockers (auto-patched by `patchAgent`) or Tech Debt (logged only).
+- **Multi-agent passive review** — review agents read scenario proof and captured screenshots, classifying findings as Blockers (auto-patched by `patchAgent` for general failures or `refactorAgent` for coding-guideline violations, via `reviewPatchHelpers`) or Tech Debt (logged only).
 - **HITL-gated auto-merge** — every cron tick re-evaluates `(no hitl label) OR (PR approved)`; merge is deferred while the gate is closed, and `## Cancel` is the scorched-earth manual override.
 - **Retry and Cancel directives** — `## Retry` resets a `merge_blocked` workflow to `awaiting_merge` (state-only, no worktree teardown); `## Cancel` kills the orchestrator, removes the worktree, and re-queues the issue.
 - **Multi-provider abstraction** — pluggable `IssueTracker` and `CodeHost` interfaces (`RepoContext`) with GitHub, GitLab, and Jira issue trackers and GitHub/GitLab code hosts.
@@ -455,7 +455,8 @@ adws/                   # ADW workflow system
 ├── agents/             # Claude Code agent runners
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── claudeAgent.test.ts
-│   │   └── gitAgent.test.ts
+│   │   ├── gitAgent.test.ts
+│   │   └── refactorAgent.test.ts
 │   ├── agentProcessHandler.ts  # Process spawning handler
 │   ├── alignmentAgent.ts  # Single-pass alignment agent
 │   ├── bddScenarioRunner.ts  # BDD scenario execution
@@ -473,6 +474,7 @@ adws/                   # ADW workflow system
 │   ├── patchAgent.ts
 │   ├── planAgent.ts
 │   ├── prAgent.ts
+│   ├── refactorAgent.ts  # Applies coding-guideline fixes via the /refactor skill (mirrors patchAgent for guideline violations)
 │   ├── resolutionAgent.ts  # Plan-scenario mismatch resolution
 │   ├── reviewAgent.ts
 │   ├── scenarioAgent.ts  # BDD scenario planner agent
@@ -485,6 +487,7 @@ adws/                   # ADW workflow system
 │   │   ├── authGate.test.ts
 │   │   ├── claudeStreamParser.test.ts
 │   │   ├── devServerLifecycle.test.ts
+│   │   ├── environment.test.ts
 │   │   ├── execWithRetry.test.ts
 │   │   ├── heartbeat.test.ts
 │   │   ├── hungOrchestratorDetector.test.ts
@@ -493,6 +496,7 @@ adws/                   # ADW workflow system
 │   │   ├── projectConfig.test.ts
 │   │   ├── remoteReconcile.test.ts
 │   │   ├── slackNotifier.test.ts
+│   │   ├── stateHelpers.test.ts
 │   │   ├── topLevelState.test.ts
 │   │   └── workflowCommentParsing.test.ts
 │   ├── adwId.ts        # ADW ID generation
@@ -589,6 +593,7 @@ adws/                   # ADW workflow system
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── branchNameResolution.test.ts
 │   │   ├── orchestratorLock.test.ts
+│   │   ├── reviewPhase.test.ts
 │   │   ├── scenarioTestPhase.test.ts
 │   │   └── workflowInit.test.ts
 │   ├── alignmentPhase.ts  # Single-pass alignment phase
@@ -609,6 +614,7 @@ adws/                   # ADW workflow system
 │   ├── prPhase.ts
 │   ├── prReviewCompletion.ts  # PR review completion/error handling
 │   ├── prReviewPhase.ts  # PR review phase implementation
+│   ├── reviewPatchHelpers.ts  # Dispatches review blockers to patchAgent or refactorAgent based on blocker type
 │   ├── reviewPhase.ts  # Passive judge review phase (reads scenario proof, no dev server)
 │   ├── scenarioFixPhase.ts  # Fixes failed scenarios from a previous scenarioTestPhase run
 │   ├── scenarioPhase.ts  # BDD scenario generation phase
@@ -657,6 +663,7 @@ adws/                   # ADW workflow system
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── autoMergeHandler.test.ts
 │   │   ├── cancelHandler.test.ts
+│   │   ├── cronIssueFilter.test.ts
 │   │   ├── cronRepoResolver.test.ts
 │   │   ├── cronStageResolver.test.ts
 │   │   ├── devServerJanitor.test.ts
