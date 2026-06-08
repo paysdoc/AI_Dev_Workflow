@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 202              | 2026-06-09 00:32:42 |
-| Longest Streak    | 198              | 2026-06-09 00:32:42 |
-| Total Plan Size   | 3936 lines       | 2026-06-09 00:32:42 |
-| Largest Plan Size | 678 lines        | 2026-06-09 00:32:42 |
-| Total Diff Size   | 4075366 lines    | 2026-06-09 00:32:42 |
-| Largest Diff Size | 418153 lines     | 2026-06-09 00:32:42 |
-| Average Presence  | 1.17             | 2026-06-09 00:32:42 |
+| Current Streak    | 111              | 2026-06-09 01:52:26 |
+| Longest Streak    | 111              | 2026-06-09 01:52:26 |
+| Total Plan Size   | 3936 lines       | 2026-06-09 01:52:26 |
+| Largest Plan Size | 408 lines        | 2026-06-09 01:52:26 |
+| Total Diff Size   | 4154517 lines    | 2026-06-09 01:52:26 |
+| Largest Diff Size | 418153 lines     | 2026-06-09 01:52:26 |
+| Average Presence  | 1.17             | 2026-06-09 01:52:26 |
 
 ## ADW KPIs
 
@@ -218,3 +218,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-06-08 | nzgshj-logo-dominant-fill-a | 111 | /feature | 2 | 0 | 70771/1980/365 | 2026-06-08 23:37:16 | 2026-06-08 23:37:16 |
 | 2026-06-08 | xs322a-two-font-capture-and | 113 | /feature | 1 | 0 | 71198/1990/373 | 2026-06-08 23:37:08 | 2026-06-08 23:37:08 |
 | 2026-06-09 | y0ce34-full-colour-cascade | 112 | /feature | 2 | 0 | 71502/1980/373 | 2026-06-09 00:32:42 | 2026-06-09 00:32:42 |
+| 2026-06-09 | img16l-agreement-tier-confi | 114 | /feature | 1 | 0 | 77161/1990/419 | 2026-06-09 01:52:26 | 2026-06-09 01:52:26 |
