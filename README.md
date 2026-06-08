@@ -126,7 +126,7 @@ Everything below is for someone who wants to run ADW against a target repository
 - **LLM-based dependency extraction** — `dependencyExtractionAgent` reads issues to surface cross-issue dependencies before spawning.
 - **Documentation generation** — `documentAgent` writes feature docs to `app_docs/`; the SDLC pipeline includes review screenshots.
 - **Scenario promotion sweep** — `adwPromotionSweep.tsx` scores per-issue scenarios against the regression vocabulary registry; high-scoring candidates receive a `@promotion-suggested-<date>` tag with daily-cadence suppression, date refresh, and score-drop withdrawal; a PR comment lists all candidates and applies the `hitl` label; human-approved scenarios (`@promotion`) are automatically moved to the regression suite via a dedicated PR.
-- **Framework self-upgrade** — `adwUpgrade.tsx` performs framework regeneration when a target repo's `.adw-version` hash drifts from the current ADW hash; `upgradeClaim` resolves winner/loser across concurrent triggers (one creates the `#UPG` tracking issue, others register a dependency and park); the upgrade PR is opened automatically and the parked issue re-queues after merge.
+- **Framework self-upgrade with init-time hash gate** — `upgradeGate.ts` runs inside `initializeWorkflow()` on every workflow start: it compares the framework's current content hash against the target repo's stored `.adw-version`, and on mismatch atomically elects a winner/loser via `upgradeClaim`. The winner creates a `#UPG` tracking issue and spawns `adwUpgrade.tsx` to regenerate `.adw/`; losers register a `## Blocked by` dependency on the upgrade issue and move to Todo. Both park immediately, re-queuing after the upgrade PR merges. On hash match, the gate is transparent and workflow proceeds normally.
 - **Observability-surfaces drafting** — `adw_init` classifies a target repo's stack (browser-test-equipped, CLI-only, or fallback) and LLM-drafts the `## Observability Surfaces (Examples)` block in `features/regression/vocabulary.md`, seeding the promotion scorer with repo-specific surface types rather than leaving a blank placeholder.
 - **Supply-chain audit integration** — `adw_init` runs `depaudit setup` in target repos and propagates `SOCKET_API_TOKEN` / `SLACK_WEBHOOK_URL` to GitHub Actions secrets.
 - **Screenshot upload pipeline** — Cloudflare R2 bucket manager + `screenshot-router` Worker for hosting review screenshots under `screenshots.paysdoc.nl`.
@@ -449,6 +449,7 @@ templates/              # ADW framework-level templates
 adws/                   # ADW workflow system
 ├── __tests__/          # Vitest integration tests
 │   ├── adwMerge.test.ts
+│   ├── adwUpgrade.test.ts
 │   ├── depauditSetup.test.ts
 │   ├── issueDependencies.test.ts
 │   ├── triggerWebhook.test.ts
@@ -474,9 +475,8 @@ adws/                   # ADW workflow system
 │   ├── kpiAgent.ts     # KPI tracking agent
 │   ├── patchAgent.ts
 │   ├── planAgent.ts
-│   ├── refactorAgent.ts  # Refactor agent — mirrors patchAgent but routes to /refactor skill
-│   ├── prAgent.ts
 │   ├── refactorAgent.ts  # Applies coding-guideline fixes via the /refactor skill (mirrors patchAgent for guideline violations)
+│   ├── prAgent.ts
 │   ├── resolutionAgent.ts  # Plan-scenario mismatch resolution
 │   ├── reviewAgent.ts
 │   ├── scenarioAgent.ts  # BDD scenario planner agent
@@ -606,6 +606,7 @@ adws/                   # ADW workflow system
 │   │   ├── orchestratorLock.test.ts
 │   │   ├── reviewPhase.test.ts
 │   │   ├── scenarioTestPhase.test.ts
+│   │   ├── upgradeGate.test.ts
 │   │   └── workflowInit.test.ts
 │   ├── alignmentPhase.ts  # Single-pass alignment phase
 │   ├── authPause.ts    # Auth-required pause handler (mirrors rate-limit pause path for auth failures)
@@ -633,8 +634,9 @@ adws/                   # ADW workflow system
 │   ├── scenarioTestPhase.ts  # Runs BDD scenarios tagged @adw-{issueNumber} and @regression
 │   ├── stepDefPhase.ts  # Step definition generation phase
 │   ├── unitTestPhase.ts  # Unit test phase (opt-in, BDD scenarios moved to scenarioTestPhase)
+│   ├── upgradeGate.ts  # Hash-check upgrade gate: compares framework hash vs .adw-version; parks issue and spawns adwUpgrade on mismatch
 │   ├── workflowCompletion.ts  # Workflow completion/error handling
-│   ├── workflowInit.ts  # Workflow initialization
+│   ├── workflowInit.ts  # Workflow initialization (includes upgradeGate check)
 │   └── worktreeSetup.ts  # Gitignore and worktree setup helpers
 ├── types/              # Type definitions
 │   ├── agentTypes.ts
