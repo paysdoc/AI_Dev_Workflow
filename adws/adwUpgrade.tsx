@@ -12,9 +12,14 @@
  * 5. Write the runtime hash to .adw-version
  * 6. Commit the regenerated .adw/ + .adw-version as a single regen commit
  * 7. Push and open a PR linking the tracking issue
+ * 8. Read .github/adw.yml from the worktree; if hitl: true, leave the PR open for human review;
+ *    otherwise auto-merge the PR (best-effort — merge failure is non-fatal, PR is left open).
  *
  * On LLM failure: posts a non-workflow comment to the tracking issue and exits 0 (handled failure).
- * On success: opens the PR (no workflow comment — the PR is the success signal).
+ * On success: opens and (by default) auto-merges the PR. If .github/adw.yml sets hitl: true,
+ * the PR is left open for a human to review; the tracking issue auto-closes on merge via the
+ * Implements #<N> linkage. The .github/adw.yml file lives outside .adw/ so /adw_init
+ * regeneration cannot clobber the opt-in signal.
  *
  * Does NOT call initializeWorkflow() — joins the adwMerge.tsx exception list.
  * Uses runWithRawOrchestratorLifecycle (lock → heartbeat → run → cleanup).
@@ -35,8 +40,10 @@ import {
   buildClaimBranchName,
   computeFrameworkHash,
   writeAdwVersion,
+  readAdwYmlConfig,
+  type AdwYmlConfig,
 } from './core';
-import { commentOnIssue, type RepoInfo } from './github';
+import { commentOnIssue, mergePR, type RepoInfo } from './github';
 import { ensureWorktree, commitChanges, pushBranch } from './vcs';
 import { getDefaultBranch } from './vcs/branchOperations';
 import { runClaudeAgentWithCommand } from './agents';
@@ -77,6 +84,8 @@ export interface UpgradeDeps {
   readonly commentOnIssue: typeof commentOnIssue;
   readonly ensureLogsDirectory: (adwId: string) => string;
   readonly log: typeof log;
+  readonly readAdwYmlConfig: (worktreePath: string) => AdwYmlConfig;
+  readonly mergePR: (prNumber: number, repoInfo: RepoInfo) => { success: boolean; error?: string };
 }
 
 // ── Pure helpers ──────────────────────────────────────────────────────────────
@@ -116,6 +125,37 @@ export function buildUpgradeFailureComment(reason: string, adwId: string, issueN
     `**ADW ID:** \`${adwId}\``,
     '',
     `To retry: \`bunx tsx adws/adwUpgrade.tsx ${issueNumber}\``,
+  ].join('\n');
+}
+
+/**
+ * Builds the HITL-deferred comment body (non-workflow, non-ADW).
+ *
+ * MUST NOT start any line with `## :emoji_name: ` and MUST NOT contain
+ * `<!-- adw-bot -->` — same contract as buildUpgradeFailureComment.
+ */
+export function buildUpgradeHitlComment(prNumber: number, adwId: string): string {
+  return [
+    `This upgrade PR awaits human review per \`.github/adw.yml\` (\`hitl: true\`). Review and merge PR #${prNumber} to apply.`,
+    '',
+    `**ADW ID:** \`${adwId}\``,
+  ].join('\n');
+}
+
+/**
+ * Builds the merge-failed comment body (non-workflow, non-ADW).
+ *
+ * MUST NOT start any line with `## :emoji_name: ` and MUST NOT contain
+ * `<!-- adw-bot -->` — same contract as buildUpgradeFailureComment.
+ */
+export function buildUpgradeMergeFailedComment(prNumber: number, reason: string, adwId: string): string {
+  const truncatedReason = reason.length > 200 ? `${reason.slice(0, 200)}…` : reason;
+  return [
+    `ADW upgrade PR auto-merge failed (non-fatal). Merge PR #${prNumber} manually to apply the upgrade.`,
+    '',
+    `**Reason:** ${truncatedReason}`,
+    '',
+    `**ADW ID:** \`${adwId}\``,
   ].join('\n');
 }
 
@@ -202,7 +242,27 @@ export async function executeUpgrade(
   });
 
   deps.log(`adwUpgrade: PR opened at ${pr.url}`, 'success');
-  return { outcome: 'completed', reason: 'pr_opened', prUrl: pr.url };
+
+  // 8. Gated merge: read .github/adw.yml from the worktree to decide whether to auto-merge.
+  //    hitl: true  → leave the PR open for human review.
+  //    hitl: false (default, absent, or malformed) → auto-merge (best-effort, non-fatal).
+  const cfg = deps.readAdwYmlConfig(worktreePath);
+
+  if (cfg.hitl === true) {
+    deps.log(`adwUpgrade: hitl opt-in via .github/adw.yml — leaving PR #${pr.number} for human review`, 'info');
+    deps.commentOnIssue(issueNumber, buildUpgradeHitlComment(pr.number, adwId), repoInfo);
+    return { outcome: 'completed', reason: 'pr_opened_hitl', prUrl: pr.url };
+  }
+
+  const merge = deps.mergePR(pr.number, repoInfo);
+  if (merge.success) {
+    deps.log(`adwUpgrade: PR #${pr.number} auto-merged`, 'success');
+    return { outcome: 'completed', reason: 'pr_merged', prUrl: pr.url };
+  }
+
+  deps.log(`adwUpgrade: auto-merge failed for PR #${pr.number} (non-fatal): ${merge.error}`, 'warn');
+  deps.commentOnIssue(issueNumber, buildUpgradeMergeFailedComment(pr.number, merge.error ?? 'unknown', adwId), repoInfo);
+  return { outcome: 'completed', reason: 'merge_failed', prUrl: pr.url };
 }
 
 // ── Default deps factory ──────────────────────────────────────────────────────
@@ -240,6 +300,8 @@ function buildDefaultUpgradeDeps(repoId: RepoIdentifier): UpgradeDeps {
     commentOnIssue,
     ensureLogsDirectory,
     log,
+    readAdwYmlConfig,
+    mergePR: (prNumber, info) => mergePR(prNumber, info),
   };
 }
 
