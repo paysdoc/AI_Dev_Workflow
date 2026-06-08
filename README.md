@@ -487,6 +487,7 @@ adws/                   # ADW workflow system
 ├── core/               # Configuration and utilities
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── adwVersion.test.ts
+│   │   ├── adwYmlConfig.test.ts
 │   │   ├── authGate.test.ts
 │   │   ├── claudeStreamParser.test.ts
 │   │   ├── devServerLifecycle.test.ts
@@ -507,6 +508,7 @@ adws/                   # ADW workflow system
 │   │   └── workflowCommentParsing.test.ts
 │   ├── adwId.ts        # ADW ID generation
 │   ├── adwVersion.ts   # Read/write .adw-version file (stores framework hash at target repo root)
+│   ├── adwYmlConfig.ts # Reads .github/adw.yml at the target repo root for framework-upgrade auto-merge policy
 │   ├── agentState.ts
 │   ├── authGate.ts     # Host-wide auth gate: detects auth failures, writes paused_auth state, triggers Slack alerts
 │   ├── claudeStreamParser.ts  # Claude JSONL stream parsing
@@ -543,12 +545,14 @@ adws/                   # ADW workflow system
 ├── github/             # GitHub API operations
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── labelManager.test.ts
+│   │   ├── linkedPrDetector.test.ts
 │   │   └── prApi.test.ts
 │   ├── githubApi.ts
 │   ├── githubAppAuth.ts  # GitHub App authentication
 │   ├── index.ts
 │   ├── issueApi.ts
 │   ├── labelManager.ts  # adw:* label lifecycle management and label-based issue classification
+│   ├── linkedPrDetector.ts  # Detects linked merged or closed PRs for an issue via "Implements #N" body scan
 │   ├── prApi.ts
 │   ├── prCommentDetector.ts
 │   ├── projectBoardApi.ts
@@ -677,6 +681,7 @@ adws/                   # ADW workflow system
 │   │   ├── autoMergeHandler.test.ts
 │   │   ├── cancelHandler.test.ts
 │   │   ├── cronIssueFilter.test.ts
+│   │   ├── cronLabelEligibility.test.ts
 │   │   ├── cronRepoResolver.test.ts
 │   │   ├── cronStageResolver.test.ts
 │   │   ├── devServerJanitor.test.ts
@@ -685,7 +690,6 @@ adws/                   # ADW workflow system
 │   │   ├── pauseQueueScanner.test.ts
 │   │   ├── perIssueScenarioSweep.test.ts
 │   │   ├── retryHandler.test.ts
-│   │   ├── issueOpenedRouter.test.ts
 │   │   ├── scanAuthQueue.test.ts
 │   │   ├── spawnGate.test.ts
 │   │   ├── takeoverHandler.test.ts  # Unit tests for all takeoverHandler decision-tree branches
@@ -699,6 +703,7 @@ adws/                   # ADW workflow system
 │   ├── cloudflareTunnel.tsx  # Cloudflare tunnel lifecycle helper
 │   ├── concurrencyGuard.ts
 │   ├── cronIssueFilter.ts  # Cron issue evaluation and filtering logic (testable, extracted from trigger_cron)
+│   ├── cronLabelEligibility.ts  # Pure label-recovery decision module: determines if a fresh issue should be spawned based on adw:* labels and linked PR status
 │   ├── devServerJanitor.ts  # Janitor probe that kills stale dev server processes in target repo worktrees
 │   ├── perIssueScenarioSweep.ts  # Cron probe: deletes features/per-issue/feature-{N}.feature 14 days after the issue's PR merges
 │   ├── cronProcessGuard.ts  # Duplicate cron process prevention
