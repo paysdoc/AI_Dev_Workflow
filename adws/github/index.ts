@@ -29,6 +29,9 @@ export {
 // PR utilities (shared between adwMerge and remoteReconcile)
 export { defaultFindPRByBranch, type RawPR } from './prApi';
 
+// Linked-PR detection (shared between concurrencyGuard and cronLabelEligibility)
+export { hasLinkedMergedOrClosedPR, fetchLinkedPRs, type LinkedPRRef } from './linkedPrDetector';
+
 // Label Manager — adw:* label lifecycle and label-based classification
 export {
   ensureAdwLabelsExist,
