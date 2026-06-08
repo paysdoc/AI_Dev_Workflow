@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 124              | 2026-06-08 13:41:22 |
-| Longest Streak    | 124              | 2026-06-08 13:41:22 |
-| Total Plan Size   | 3515 lines       | 2026-06-08 13:41:22 |
-| Largest Plan Size | 678 lines        | 2026-06-08 13:41:22 |
-| Total Diff Size   | 3745320 lines    | 2026-06-08 13:41:22 |
-| Largest Diff Size | 418153 lines     | 2026-06-08 13:41:22 |
-| Average Presence  | 1.18             | 2026-06-08 13:41:22 |
+| Current Streak    | 120              | 2026-06-08 13:49:56 |
+| Longest Streak    | 120              | 2026-06-08 13:49:56 |
+| Total Plan Size   | 5624 lines       | 2026-06-08 13:49:56 |
+| Largest Plan Size | 699 lines        | 2026-06-08 13:49:56 |
+| Total Diff Size   | 3746779 lines    | 2026-06-08 13:49:56 |
+| Largest Diff Size | 418153 lines     | 2026-06-08 13:49:56 |
+| Average Presence  | 1.25             | 2026-06-08 13:49:56 |
 
 ## ADW KPIs
 
@@ -204,3 +204,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-06-02 | d16x49-review-route-guideli | 533 | /feature | 2 | 0 | 3609/306/52 | 2026-06-02 17:18:59 | 2026-06-02 17:18:59 |
 | 2026-06-02 | pof86n-chore-remove-github | 535 | /feature | 1 | 0 | 774/1738/41 | 2026-06-02 18:25:27 | 2026-06-02 18:25:27 |
 | 2026-06-08 | n9880l-adwversion-deep-modu | 538 | /feature | 1 | 0 | 703/1/9 | 2026-06-08 13:41:22 | 2026-06-08 13:41:22 |
+| 2026-06-08 | m45h0x-upgradeclaim-deep-mo | 539 | /feature | 1 | 0 | 1459/0/10 | 2026-06-08 13:49:56 | 2026-06-08 13:49:56 |
