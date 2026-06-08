@@ -99,7 +99,7 @@ export async function classifyAndSpawnWorkflow(
     // Takeover path: reuse the existing adwId, skip re-classification.
     const { adwId, derivedStage } = decision;
     const state = AgentStateManager.readTopLevelState(adwId);
-    const workflowScript = state?.orchestratorScript ?? getWorkflowScript('/feature', undefined);
+    const workflowScript = state?.orchestratorScript ?? getWorkflowScript('/feature');
     log(`Issue #${issueNumber}: taking over adwId=${adwId} derivedStage=${derivedStage}, spawning ${workflowScript}`, 'success');
     spawnDetached('bunx', ['tsx', workflowScript, String(issueNumber), adwId, ...targetRepoArgs]);
     releaseIssueSpawnLock(resolvedRepoInfo, issueNumber);
@@ -109,7 +109,7 @@ export async function classifyAndSpawnWorkflow(
   // spawn_fresh path: classify the issue and spawn a new workflow.
   try {
     const classification = labelRouting?.precomputedClassification
-      ? { issueType: labelRouting.precomputedClassification, success: true as const, issueTitle: labelRouting.issueTitle, adwId: undefined, adwCommand: undefined }
+      ? { issueType: labelRouting.precomputedClassification, success: true as const, issueTitle: labelRouting.issueTitle, adwId: undefined }
       : await classifyIssueForTrigger(issueNumber, resolvedRepoInfo);
 
     if (await isAdwRunningForIssue(issueNumber, resolvedRepoInfo)) {
@@ -118,7 +118,7 @@ export async function classifyAndSpawnWorkflow(
       return;
     }
 
-    const workflowScript = getWorkflowScript(classification.issueType, classification.adwCommand);
+    const workflowScript = getWorkflowScript(classification.issueType);
     const adwId = existingAdwId || classification.adwId || generateAdwId(classification.issueTitle);
 
     log(`Issue #${issueNumber} classified as ${classification.issueType}, spawning ${workflowScript}`, 'success');

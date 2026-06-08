@@ -13,7 +13,6 @@ export type { ReasoningEffort } from './config';
 // Data types (from issueTypes.ts)
 export type {
   IssueClassSlashCommand,
-  AdwSlashCommand,
   SlashCommand,
   GitHubUser,
   GitHubLabel,
@@ -54,7 +53,7 @@ export type {
 } from '../types/workflowTypes';
 
 // Prefix maps and routing maps for consistent branch naming, commit messages, and orchestrator dispatch
-export { commitPrefixMap, branchPrefixMap, branchPrefixAliases, adwCommandToIssueTypeMap, adwCommandToOrchestratorMap, issueTypeToOrchestratorMap } from '../types/issueRouting';
+export { commitPrefixMap, branchPrefixMap, branchPrefixAliases, issueTypeToOrchestratorMap } from '../types/issueRouting';
 
 // Utilities
 export {
@@ -110,7 +109,7 @@ export { loadProjectConfig, getDefaultProjectConfig, getDefaultCommandsConfig, g
 
 // Issue classifier
 export type { IssueClassificationResult } from './issueClassifier';
-export { classifyIssueForTrigger, classifyGitHubIssue, extractAdwIdFromText } from './issueClassifier';
+export { classifyIssueForTrigger, classifyGitHubIssue } from './issueClassifier';
 
 // Workflow mapping
 export { getWorkflowScript } from './workflowMapping';
