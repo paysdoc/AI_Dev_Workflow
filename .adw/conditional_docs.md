@@ -1301,3 +1301,12 @@
     - When implementing or troubleshooting `runRefactorAgent` in `adws/agents/refactorAgent.ts`
     - When `/refactor` model/effort routing entries in `adws/core/modelRouting.ts` are relevant
     - When guideline violations in changed files are not becoming blockers or not triggering a refactor pass
+
+- app_docs/feature-m45h0x-upgradeclaim-deep-module.md
+  - Conditions:
+    - When working with `claimUpgradeOrFindExisting`, `buildDefaultUpgradeClaimDeps`, `buildClaimBranchName`, or `UpgradeClaimDeps` in `adws/core/upgradeClaim.ts`
+    - When implementing the upgrade hash check in `initializeWorkflow()` (the future PRD slice that wires this into the SDLC orchestrator)
+    - When troubleshooting the winner/loser branch-namespace election or the `adw-upgrade-<hash>` claim branch
+    - When understanding why the empty commit uses a nonce (distinct-SHA guarantee for the "exactly one winner" correctness property)
+    - When working with `UpgradeClaimResult` discriminated union or the `existingIssueNumber: null` loser race-window case
+    - When writing or extending `adws/core/__tests__/upgradeClaim.test.ts` or the bare-repo integration test
