@@ -56,6 +56,33 @@ const ROOT = resolve(__dirname, '../../..');
 const ADW_UPGRADE_SRC = resolve(ROOT, 'adws/adwUpgrade.tsx');
 
 // ---------------------------------------------------------------------------
+// Named helpers
+// ---------------------------------------------------------------------------
+
+function findWorktreeByBranch(worktreePaths: Map<string, string>, branchName: string): string | undefined {
+  return [...worktreePaths.values()].find((p) => {
+    try {
+      const currentBranch = execSync('git branch --show-current', {
+        cwd: p, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'],
+      }).trim();
+      return currentBranch === branchName;
+    } catch {
+      return false;
+    }
+  });
+}
+
+function isPrCreationForIssue(r: RecordedRequest, issueNumber: number): boolean {
+  if (r.method !== 'POST' || !r.url.includes('/pulls')) return false;
+  try {
+    const bodyStr = JSON.stringify(JSON.parse(r.body));
+    return bodyStr.includes(String(issueNumber));
+  } catch {
+    return false;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Per-scenario mutable state
 // ---------------------------------------------------------------------------
 
@@ -101,16 +128,7 @@ Given(
   'the upgrade branch {string} already carries the empty upgrade-claim commit',
   function (this: RegressionWorld, branchName: string) {
     // Locate the worktree that was initialised for this branch via G11.
-    const worktreePath = [...this.worktreePaths.values()].find((_p) => {
-      try {
-        const currentBranch = execSync('git branch --show-current', {
-          cwd: _p, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'],
-        }).trim();
-        return currentBranch === branchName;
-      } catch {
-        return false;
-      }
-    });
+    const worktreePath = findWorktreeByBranch(this.worktreePaths, branchName);
 
     if (!worktreePath) {
       // No real worktree found — harness not active; no-op (source-inspection path covers §1–§4)
@@ -134,16 +152,7 @@ Then(
   'the upgrade branch {string} contains exactly two commits ahead of its base: the empty upgrade claim and the framework regeneration commit',
   function (this: RegressionWorld, branchName: string) {
     // Harness active path: count commits on the branch in the worktree.
-    const worktreePath = [...this.worktreePaths.values()].find((_p) => {
-      try {
-        const b = execSync('git branch --show-current', {
-          cwd: _p, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'],
-        }).trim();
-        return b === branchName;
-      } catch {
-        return false;
-      }
-    });
+    const worktreePath = findWorktreeByBranch(this.worktreePaths, branchName);
 
     if (worktreePath) {
       const gitBin = process.env['REAL_GIT_PATH'] ?? 'git';
@@ -312,15 +321,7 @@ Then(
     // Harness active path: check recorded requests for any PR creation referencing this issue.
     if (this.mockContext !== null) {
       const requests = this.getRecordedRequests();
-      const prPosts = requests.filter((r: RecordedRequest) => {
-        if (r.method !== 'POST' || !r.url.includes('/pulls')) return false;
-        try {
-          const bodyStr = JSON.stringify(JSON.parse(r.body));
-          return bodyStr.includes(String(issueNumber));
-        } catch {
-          return false;
-        }
-      });
+      const prPosts = requests.filter((r: RecordedRequest) => isPrCreationForIssue(r, issueNumber));
       assert.strictEqual(
         prPosts.length,
         0,

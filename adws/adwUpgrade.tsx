@@ -207,6 +207,24 @@ export async function executeUpgrade(
 
 // ── Default deps factory ──────────────────────────────────────────────────────
 
+async function runInitCommandDefault(params: RunInitCommandParams): Promise<{ success: boolean; error?: string }> {
+  const result = await runClaudeAgentWithCommand(
+    '/adw_init',
+    [String(params.issueNumber), params.adwId, params.issueJson, params.frameworkRepoRoot],
+    'adw-upgrade',
+    params.logPath,
+    'sonnet',
+    undefined,
+    undefined,
+    undefined,
+    params.worktreePath,
+  );
+  return {
+    success: result.success,
+    error: result.success ? undefined : (result.output || 'LLM command failed'),
+  };
+}
+
 /** Builds the default UpgradeDeps using production implementations. */
 function buildDefaultUpgradeDeps(repoId: RepoIdentifier): UpgradeDeps {
   const codeHost = createGitHubCodeHost(repoId);
@@ -214,23 +232,7 @@ function buildDefaultUpgradeDeps(repoId: RepoIdentifier): UpgradeDeps {
     computeFrameworkHash,
     ensureWorktree,
     getDefaultBranch,
-    runInitCommand: async (params) => {
-      const result = await runClaudeAgentWithCommand(
-        '/adw_init',
-        [String(params.issueNumber), params.adwId, params.issueJson, params.frameworkRepoRoot],
-        'adw-upgrade',
-        params.logPath,
-        'sonnet',
-        undefined,
-        undefined,
-        undefined,
-        params.worktreePath,
-      );
-      return {
-        success: result.success,
-        error: result.success ? undefined : (result.output || 'LLM command failed'),
-      };
-    },
+    runInitCommand: runInitCommandDefault,
     writeAdwVersion,
     commitChanges,
     pushBranch,
