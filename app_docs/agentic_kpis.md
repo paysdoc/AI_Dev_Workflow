@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 151              | 2026-06-08 15:03:31 |
-| Longest Streak    | 151              | 2026-06-08 15:03:31 |
-| Total Plan Size   | 5624 lines       | 2026-06-08 15:03:31 |
-| Largest Plan Size | 699 lines        | 2026-06-08 15:03:31 |
-| Total Diff Size   | 3754948 lines    | 2026-06-08 15:03:31 |
-| Largest Diff Size | 418153 lines     | 2026-06-08 15:03:31 |
-| Average Presence  | 1.21             | 2026-06-08 15:03:31 |
+| Current Streak    | 129              | 2026-06-08 15:33:20 |
+| Longest Streak    | 129              | 2026-06-08 15:33:20 |
+| Total Plan Size   | 3308 lines       | 2026-06-08 15:33:20 |
+| Largest Plan Size | 678 lines        | 2026-06-08 15:33:20 |
+| Total Diff Size   | 3767017 lines    | 2026-06-08 15:33:20 |
+| Largest Diff Size | 418153 lines     | 2026-06-08 15:33:20 |
+| Average Presence  | 1.17             | 2026-06-08 15:33:20 |
 
 ## ADW KPIs
 
@@ -209,3 +209,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-06-08 | 25daxp-labelmanager-deep-mo | 540 | /feature | 1 | 0 | 1377/1/9 | 2026-06-08 13:59:12 | 2026-06-08 13:59:12 |
 | 2026-06-08 | gmfhco-issues-opened-label | 542 | /feature | 1 | 0 | 5842/26/41 | 2026-06-08 14:52:44 | 2026-06-08 14:52:44 |
 | 2026-06-08 | gj381g-adwupgrade-tsx-orche | 541 | /feature | 2 | 0 | 4677/9/33 | 2026-06-08 15:03:31 | 2026-06-08 15:03:31 |
+| 2026-06-08 | y35zbi-cron-recovery-layer | 545 | /feature | 1 | 0 | 7142/67/54 | 2026-06-08 15:33:20 | 2026-06-08 15:33:20 |
