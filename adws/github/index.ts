@@ -23,6 +23,9 @@ export {
   getIssueTitleSync,
   issueHasLabel,
   addIssueLabel,
+  createIssue,
+  updateIssueBody,
+  findOpenUpgradeIssue,
   type RepoInfo,
 } from './githubApi';
 
@@ -43,6 +46,7 @@ export {
   ADW_LABEL_DEFINITIONS,
   ADW_CLASSIFICATION_LABELS,
   ADW_NONE_LABEL,
+  ADW_UPGRADE_LABEL,
   type AdwLabelReading,
   type AdwLabelDefinition,
   type LabelManagerDeps,

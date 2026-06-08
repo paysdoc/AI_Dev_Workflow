@@ -1364,6 +1364,17 @@
     - When the `MULTI_LABEL_REFUSAL_COMMENT` marker-free contract or `isAdwComment` interaction is relevant
     - When the `issues.labeled` non-subscription guard test in `triggerWebhook.test.ts` is relevant
 
+- app_docs/feature-tlk8qf-hash-check-upgrade-gate.md
+  - Conditions:
+    - When working with `runUpgradeGate`, `buildDefaultUpgradeGateDeps`, or `UpgradeGateDeps` in `adws/phases/upgradeGate.ts`
+    - When implementing or troubleshooting the upgrade gate inserted into `initializeWorkflow()` in `adws/phases/workflowInit.ts`
+    - When a target repo's `.adw/` directory is stale or `.adw-version` is missing and issues are being parked unexpectedly
+    - When working with `shouldTriggerUpgrade` or `addDependencyToBody` pure helpers
+    - When investigating winner/loser upgrade election behavior (`claimUpgradeOrFindExisting` → `#UPG` creation or attachment)
+    - When troubleshooting the self-hosting guard (`if (targetRepo)`) or the `process.exit(0)` clean park-exit path
+    - When working with `createIssue`, `updateIssueBody`, or `findOpenUpgradeIssue` GitHub primitives in `adws/github/issueApi.ts`
+    - When `ADW_UPGRADE_LABEL` constant is referenced or the `adw:upgrade` label needs to be understood
+
 - app_docs/feature-y35zbi-cron-recovery-label-eligibility-scan.md
   - Conditions:
     - When working with `cronLabelEligibility.ts` (`decideLabelRecovery`, `evaluateLabelRecovery`) or the label-recovery gate in `cronIssueFilter.evaluateIssue`

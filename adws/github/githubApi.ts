@@ -94,6 +94,9 @@ export {
   deleteIssueComment,
   issueHasLabel,
   addIssueLabel,
+  createIssue,
+  updateIssueBody,
+  findOpenUpgradeIssue,
 } from './issueApi';
 
 // Re-export PR API functions

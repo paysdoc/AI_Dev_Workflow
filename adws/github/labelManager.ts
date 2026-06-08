@@ -16,6 +16,7 @@ import type { ExecSyncOptions } from 'child_process';
 // ── Canonical label data ──────────────────────────────────────────────────────
 
 export const ADW_NONE_LABEL = 'adw:none';
+export const ADW_UPGRADE_LABEL = 'adw:upgrade';
 
 export const ADW_CLASSIFICATION_LABELS = {
   'adw:chore':     '/chore',
