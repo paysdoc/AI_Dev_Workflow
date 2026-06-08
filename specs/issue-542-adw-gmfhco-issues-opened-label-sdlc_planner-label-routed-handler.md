@@ -70,7 +70,7 @@ Use these files to implement the feature:
 - `adws/triggers/webhookGatekeeper.ts` — **(modify)** Home of `classifyAndSpawnWorkflow`. Add the optional `labelRouting` argument and the skip-LLM / persist-label behavior in the `spawn_fresh` path. Imports `applyLabel`/`issueTypeToAdwLabel` from `../github/labelManager`.
 - `adws/github/issueApi.ts` — **(read)** `commentOnIssue(issueNumber, body, repoInfo): void` is the plain, marker-free comment poster used for the refusal comment. Barrel-exported from `../github`.
 - `adws/github/index.ts` — **(modify)** Barrel; add `readAdwLabelNames` to the `labelManager` re-export block. Already re-exports `commentOnIssue`, `readAdwLabels`, `applyLabel`, `issueTypeToAdwLabel`, `isAdwRunningForIssue`.
-- `adws/core/issueClassifier.ts` — **(read, do not modify)** `classifyIssueForTrigger` is the existing LLM classification path reused by the `infer` branch. (The PRD's eventual deletion of `extractAdwCommandFromText`/`classifyWithAdwCommand` is a separate slice — out of scope here.)
+- `adws/core/issueClassifier.ts` — **(read, do not modify)** `classifyIssueForTrigger` is the existing LLM classification path reused by the `infer` branch. (The issue body and the `@adw-542` BDD scenarios refer to this classifier as `classifyGitHubIssue`; on the `issues.opened` trigger path the actual symbol invoked — via `classifyAndSpawnWorkflow` — is its sibling `classifyIssueForTrigger`, which fetches by issue number and runs the identical two-step classification. Wire `classifyIssueForTrigger`, not `classifyGitHubIssue`.) (The PRD's eventual deletion of `extractAdwCommandFromText`/`classifyWithAdwCommand` is a separate slice — out of scope here.)
 - `adws/core/workflowMapping.ts` — **(read)** `getWorkflowScript(issueType, adwCommand?)` maps a classification to an orchestrator script. Confirms `/bug`→`adwSdlc.tsx`, `/chore`→`adwChore.tsx`, `/feature`→`adwSdlc.tsx`, `/pr_review`→`adwPlanBuild.tsx`.
 - `adws/types/issueRouting.ts` — **(read)** `issueTypeToOrchestratorMap` — the source of the type→script mapping above.
 - `adws/types/issueTypes.ts` — **(read)** `GitHubLabel`, `GitHubIssue`, `IssueClassSlashCommand` types.
@@ -130,7 +130,7 @@ Execute every step in order, top to bottom.
   3. `reading.classification` (non-null) → `{ kind: 'classified', classification: reading.classification }`.
   4. otherwise → `{ kind: 'infer' }`.
 - Implement `export function extractPayloadLabelNames(issue: Record<string, unknown> | undefined): string[]` — defensively read `issue?.labels`, accept only array entries that are objects with a string `name`, and return the names (drop anything malformed). Pure, no I/O.
-- Add `export const MULTI_LABEL_REFUSAL_COMMENT: string` — a plain message asking the team to remove all but one `adw:<type>` label. It must NOT begin a line with `## :emoji:` and must NOT contain `<!-- adw-bot -->` (so `isAdwComment` returns false and `concurrencyGuard` does not count it). Use a `**bold**` lead line instead of an emoji heading.
+- Add `export const MULTI_LABEL_REFUSAL_COMMENT: string` — a plain message asking the team to remove all but one `adw:<type>` label. It must reference the `adw:` namespace explicitly (i.e., the literal substring `adw:` must appear in the text — naming the `adw:<type>` labels to clean up — so the conflict scenario's "comment contains the text `adw:`" assertion holds). It must NOT begin a line with `## :emoji:` and must NOT contain `<!-- adw-bot -->` (so `isAdwComment` returns false and `concurrencyGuard` does not count it). Use a `**bold**` lead line instead of an emoji heading.
 
 ### 5. Add the DI orchestration `routeIssueOpened`
 - In `adws/triggers/issueOpenedRouter.ts`, define:
@@ -157,7 +157,7 @@ Execute every step in order, top to bottom.
   - **AC2** classified (`['adw:bug']`, eligible): `classifyAndSpawn` called once with `labelRouting.precomputedClassification === '/bug'` and `issueTitle` set; `postComment` not called; status `spawned_classified`. Assert no LLM/classify dep is involved (the precomputed flag is the contract that skips it).
   - **AC4** infer (`[]`, eligible): `classifyAndSpawn` called once with `labelRouting.persistInferredLabel === true`; status `spawned_inferred`.
   - ineligible (classified or infer, `checkEligibility` → `{ eligible:false }`): `classifyAndSpawn` not called; status `deferred`.
-- Assert `MULTI_LABEL_REFUSAL_COMMENT` does not match `/^## :[a-z_]+: /m` and does not contain `<!-- adw-bot -->` (guards the concurrency-count contract).
+- Assert `MULTI_LABEL_REFUSAL_COMMENT` does not match `/^## :[a-z_]+: /m` and does not contain `<!-- adw-bot -->` (guards the concurrency-count contract), and that it *does* contain the substring `adw:` (guards the conflict scenario's "comment references the `adw:` namespace" assertion).
 
 ### 7. Wire the router into `trigger_webhook.ts`
 - In the `action === 'opened'` block of `adws/triggers/trigger_webhook.ts`:
@@ -208,7 +208,7 @@ Execute every step in order, top to bottom.
 ## Acceptance Criteria
 - Issue opened with `adw:none` → no orchestrator spawned and no comment posted (`routeIssueOpened` returns `opted_out`; neither `classifyAndSpawn` nor `postComment` is called).
 - Issue opened with exactly one `adw:<type>` label → the mapped orchestrator is spawned with `--issue-type` and **no LLM classification call is made** (`precomputedClassification` causes `classifyAndSpawnWorkflow` to skip `classifyIssueForTrigger`).
-- Issue opened with multiple `adw:<type>` labels → a plain, marker-free refusal comment is posted asking for label cleanup and no orchestrator is spawned; the issue remains eligible for later CRON rescan.
+- Issue opened with multiple `adw:<type>` labels → a plain, marker-free refusal comment that references the `adw:` namespace is posted asking for label cleanup and no orchestrator is spawned; the issue remains eligible for later CRON rescan.
 - Issue opened with zero `adw:<type>` labels → the existing LLM classifier runs, the inferred `adw:<type>` label is persisted to the issue (on classification success), and the orchestrator is spawned.
 - `issues.labeled` is not subscribed/handled — the webhook has no `labeled` action branch and late-added labels have no immediate effect (the source-scan guard test passes).
 - Unit tests cover all four routing branches (opt-out, classified, conflict, infer) and pass.
