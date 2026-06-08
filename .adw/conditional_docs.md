@@ -1310,6 +1310,16 @@
     - When `/refactor` model/effort routing entries in `adws/core/modelRouting.ts` are relevant
     - When guideline violations in changed files are not becoming blockers or not triggering a refactor pass
 
+- app_docs/feature-25daxp-label-manager-deep-module.md
+  - Conditions:
+    - When working with `ensureAdwLabelsExist`, `applyLabel`, or `readAdwLabels` in `adws/github/labelManager.ts`
+    - When provisioning `adw:*` labels on a new target repo or troubleshooting missing labels
+    - When implementing label-based issue classification (routing on `adw:chore`, `adw:bug`, `adw:feature`, `adw:pr_review`)
+    - When troubleshooting `applyLabel` lazy-create-and-retry behavior or "not found" error handling
+    - When wiring `readAdwLabels` into `issues.opened` webhook handler, `initializeWorkflow()`, or the CRON recovery scan
+    - When working with `LabelManagerDeps`, `buildDefaultLabelManagerDeps`, or the DI test pattern for `gh` CLI operations
+    - When extending `ADW_LABEL_DEFINITIONS` or `ADW_CLASSIFICATION_LABELS` with new label types
+
 - app_docs/feature-zapagn-hashcomputer-deep-module.md
   - Conditions:
     - When working with `computeFrameworkHash`, `HashComputerDeps`, or `ADW_INIT_RELATIVE_PATH` in `adws/core/hashComputer.ts`
@@ -1335,3 +1345,13 @@
     - When adding a new exception-list orchestrator (no `initializeWorkflow()`, uses `runWithRawOrchestratorLifecycle`)
     - When the non-workflow failure comment shape or concurrency-neutral failure semantics are relevant (User Story 22)
     - When understanding the two-commit PR guarantee (`upgradeClaim` empty commit + regen commit) or runtime hash recomputation
+
+- app_docs/feature-gmfhco-issues-opened-label-routed-handler.md
+  - Conditions:
+    - When working with `routeIssueOpened`, `decideIssueOpenedRoute`, or `extractPayloadLabelNames` in `adws/triggers/issueOpenedRouter.ts`
+    - When modifying the `issues.opened` handler in `trigger_webhook.ts` (label routing, eligibility, auth-gate wiring)
+    - When extending `classifyAndSpawnWorkflow` in `webhookGatekeeper.ts` with new `labelRouting` options
+    - When working with `readAdwLabelNames` in `adws/github/labelManager.ts` or its barrel export
+    - When implementing or troubleshooting the four routing branches: opt-out (`adw:none`), classified (single `adw:<type>`), conflict (multiple `adw:<type>`), or infer (zero labels)
+    - When the `MULTI_LABEL_REFUSAL_COMMENT` marker-free contract or `isAdwComment` interaction is relevant
+    - When the `issues.labeled` non-subscription guard test in `triggerWebhook.test.ts` is relevant

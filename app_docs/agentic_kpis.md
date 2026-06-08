@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 216              | 2026-06-08 13:59:12 |
-| Longest Streak    | 216              | 2026-06-08 13:59:12 |
-| Total Plan Size   | 4877 lines       | 2026-06-08 13:59:12 |
-| Largest Plan Size | 699 lines        | 2026-06-08 13:59:12 |
-| Total Diff Size   | 3749254 lines    | 2026-06-08 13:59:12 |
-| Largest Diff Size | 418153 lines     | 2026-06-08 13:59:12 |
-| Average Presence  | 1.11             | 2026-06-08 13:59:12 |
+| Current Streak    | 151              | 2026-06-08 15:03:31 |
+| Longest Streak    | 151              | 2026-06-08 15:03:31 |
+| Total Plan Size   | 5624 lines       | 2026-06-08 15:03:31 |
+| Largest Plan Size | 699 lines        | 2026-06-08 15:03:31 |
+| Total Diff Size   | 3754948 lines    | 2026-06-08 15:03:31 |
+| Largest Diff Size | 418153 lines     | 2026-06-08 15:03:31 |
+| Average Presence  | 1.21             | 2026-06-08 15:03:31 |
 
 ## ADW KPIs
 
@@ -207,3 +207,5 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-06-08 | m45h0x-upgradeclaim-deep-mo | 539 | /feature | 1 | 0 | 1459/0/10 | 2026-06-08 13:49:56 | 2026-06-08 13:49:56 |
 | 2026-06-08 | zapagn-hashcomputer-deep-mo | 537 | /feature | 1 | 0 | 1095/2/10 | 2026-06-08 13:51:18 | 2026-06-08 13:51:18 |
 | 2026-06-08 | 25daxp-labelmanager-deep-mo | 540 | /feature | 1 | 0 | 1377/1/9 | 2026-06-08 13:59:12 | 2026-06-08 13:59:12 |
+| 2026-06-08 | gmfhco-issues-opened-label | 542 | /feature | 1 | 0 | 5842/26/41 | 2026-06-08 14:52:44 | 2026-06-08 14:52:44 |
+| 2026-06-08 | gj381g-adwupgrade-tsx-orche | 541 | /feature | 2 | 0 | 4677/9/33 | 2026-06-08 15:03:31 | 2026-06-08 15:03:31 |

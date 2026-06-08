@@ -49,6 +49,13 @@ describe('trigger_webhook — issues.opened catch block', () => {
   });
 });
 
+describe('trigger_webhook — issues.labeled not subscribed (AC5)', () => {
+  it('source contains no action === "labeled" handler', () => {
+    const source = getWebhookSource();
+    expect(source).not.toMatch(/action === ["']labeled["']/);
+  });
+});
+
 describe('trigger_webhook — issue_comment catch block', () => {
   it('does not call spawnDetached when comment handler rejects', () => {
     const source = getWebhookSource();
