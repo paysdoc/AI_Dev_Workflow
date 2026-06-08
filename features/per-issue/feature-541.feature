@@ -27,7 +27,7 @@ Feature: adwUpgrade.tsx orchestrator — regenerates `.adw/`, bumps `.adw-versio
        (AC4)
     4. The digest is RECOMPUTED at runtime, not pinned to the value embedded in
        the claim branch name: when the branch's claim token is stale, the
-       written `.adw-version` differs from that stale token. (AC2, US26)
+       written `.adw-version` differs from that stale token. (AC2, PRD Q26)
     5. On success the orchestrator posts NO workflow comment — the opened PR is
        the only success signal. (AC6)
     6. On LLM regeneration failure the orchestrator posts a single NON-workflow
@@ -120,8 +120,11 @@ Feature: adwUpgrade.tsx orchestrator — regenerates `.adw/`, bumps `.adw-versio
       • `the mock harness recorded zero PR creations for issue {int}`
 
     Step-definition note for the maintainer: the W1 orchestrator-name map must
-    gain an `upgrade → adwUpgrade.tsx` entry (and lose the deleted
-    `init → adwInit.tsx` entry, per the PRD). adwUpgrade's CLI takes only
+    gain an `upgrade → adwUpgrade.tsx` entry. (Removing `adwInit.tsx` and its
+    `init → adwInit.tsx` map entry is a SEPARATE PRD slice (#30), out of scope
+    for #541 — that legacy entry must NOT be removed here, or the legacy
+    `/adw_init` orchestrator path breaks before its replacement is wired.)
+    adwUpgrade's CLI takes only
     `<issueNumber>`; the adwId carried by W1 is the harness's handle to the
     pre-initialised target worktree, not a CLI argument.
 

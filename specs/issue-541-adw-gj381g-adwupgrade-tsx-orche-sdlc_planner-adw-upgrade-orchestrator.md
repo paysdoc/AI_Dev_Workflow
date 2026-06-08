@@ -137,7 +137,7 @@ Wire `buildDefaultUpgradeDeps()` to the real modules and confirm the end-to-end 
 - `baseRepoPath = targetRepo ? ensureTargetRepoWorkspace(targetRepo) : process.cwd()` (mirrors `adwMerge`).
 - `frameworkRepoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')` (mirrors `adwInit`).
 - Run inside `runWithRawOrchestratorLifecycle(repoInfo, issueNumber, adwId, async () => { result = await executeUpgrade(issueNumber, adwId, repoInfo, baseRepoPath, frameworkRepoRoot, buildDefaultUpgradeDeps(repoId)); })`; if the lock was not acquired, log and `process.exit(0)`.
-- Exit code: `process.exit(result?.outcome === 'completed' ? 0 : 1)`. Guard `main()` behind `if (import.meta.url === \`file://${process.argv[1]}\`)` so importing the module in tests does not execute it.
+- Exit code: mirror `adwMerge`'s convention — every *handled* outcome is a clean exit, including the LLM-failure path that has already posted its non-workflow comment. Use `process.exit(result ? 0 : 1)`: any returned `UpgradeRunResult` (`completed` or a handled `failed`, e.g. `llm_failed`) exits `0`; reserve `process.exit(1)` for the genuine-crash case where `runWithRawOrchestratorLifecycle` produced no `result`. (adwUpgrade has no merge step, so there is no `merge_failed`-style hard outcome to escalate to non-zero the way `adwMerge` does — this matches BDD scenario §4's `exited 0` assertion.) Guard `main()` behind `if (import.meta.url === \`file://${process.argv[1]}\`)` so importing the module in tests does not execute it.
 
 ### Task 6 — Unit tests (`adws/__tests__/adwUpgrade.test.ts`)
 - Mirror the `adwMerge.test.ts` injected-deps style; build a `makeDeps(overrides)` helper returning a fully-stubbed `UpgradeDeps` with spy counters.
@@ -184,7 +184,7 @@ All tests use injected stub deps — no real filesystem, git, GitHub, or Claude 
 - The framework hash is recomputed at runtime via `computeFrameworkHash(frameworkRepoRoot)` and is the value written to `.adw-version` — not a passed-in/branch-name-pinned value.
 - The upgrade PR shows two commits on `adw-upgrade-<hash>`: the empty claim commit (from `upgradeClaim`) + the single regen commit from this orchestrator.
 - `.adw-version` at the target worktree root contains the runtime-computed hash (+ trailing newline, via `writeAdwVersion`).
-- On `/adw_init` LLM failure, a non-workflow comment (for which `isAdwComment()` returns `false`) is posted to the tracking issue and the orchestrator exits cleanly (non-zero exit code, no PR, no workflow comment).
+- On `/adw_init` LLM failure, a non-workflow comment (for which `isAdwComment()` returns `false`) is posted to the tracking issue and the orchestrator exits cleanly (exit code `0` — the handled failure is a clean exit per the `adwMerge` convention; no PR, no workflow comment).
 - On success, **no** workflow comment is posted to the tracking issue; the opened PR (body containing `Implements #<issueNumber>`) is the sole success signal.
 - The orchestrator does not call `initializeWorkflow()` and uses `runWithRawOrchestratorLifecycle`.
 - `bun run lint`, both `tsc --noEmit` checks, `bun run test:unit`, and `bun run build` all pass with zero regressions.
