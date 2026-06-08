@@ -1337,3 +1337,13 @@
     - When understanding why the empty commit uses a nonce (distinct-SHA guarantee for the "exactly one winner" correctness property)
     - When working with `UpgradeClaimResult` discriminated union or the `existingIssueNumber: null` loser race-window case
     - When writing or extending `adws/core/__tests__/upgradeClaim.test.ts` or the bare-repo integration test
+
+- app_docs/feature-gmfhco-issues-opened-label-routed-handler.md
+  - Conditions:
+    - When working with `routeIssueOpened`, `decideIssueOpenedRoute`, or `extractPayloadLabelNames` in `adws/triggers/issueOpenedRouter.ts`
+    - When modifying the `issues.opened` handler in `trigger_webhook.ts` (label routing, eligibility, auth-gate wiring)
+    - When extending `classifyAndSpawnWorkflow` in `webhookGatekeeper.ts` with new `labelRouting` options
+    - When working with `readAdwLabelNames` in `adws/github/labelManager.ts` or its barrel export
+    - When implementing or troubleshooting the four routing branches: opt-out (`adw:none`), classified (single `adw:<type>`), conflict (multiple `adw:<type>`), or infer (zero labels)
+    - When the `MULTI_LABEL_REFUSAL_COMMENT` marker-free contract or `isAdwComment` interaction is relevant
+    - When the `issues.labeled` non-subscription guard test in `triggerWebhook.test.ts` is relevant
