@@ -48,18 +48,26 @@ export interface AdwLabelReading {
 // ── Pure read-side ────────────────────────────────────────────────────────────
 
 /**
- * Reads an issue's labels and returns the structured ADW classification shape.
+ * Reads ADW classification state from a plain array of label name strings.
  * Pure function — no I/O, no logging.
  */
-export function readAdwLabels(issue: Pick<GitHubIssue, 'labels'>): AdwLabelReading {
-  const labelNames = new Set(issue.labels.map((l: GitHubLabel) => l.name));
-  const optOut = labelNames.has(ADW_NONE_LABEL);
-  const matched = Object.keys(ADW_CLASSIFICATION_LABELS).filter(l => labelNames.has(l));
+export function readAdwLabelNames(labelNames: readonly string[]): AdwLabelReading {
+  const nameSet = new Set(labelNames);
+  const optOut = nameSet.has(ADW_NONE_LABEL);
+  const matched = Object.keys(ADW_CLASSIFICATION_LABELS).filter(l => nameSet.has(l));
   const conflict = matched.length > 1;
   const classification = matched.length === 1
     ? ADW_CLASSIFICATION_LABELS[matched[0] as keyof typeof ADW_CLASSIFICATION_LABELS]
     : null;
   return { optOut, classification, conflict };
+}
+
+/**
+ * Reads an issue's labels and returns the structured ADW classification shape.
+ * Pure function — no I/O, no logging.
+ */
+export function readAdwLabels(issue: Pick<GitHubIssue, 'labels'>): AdwLabelReading {
+  return readAdwLabelNames(issue.labels.map((l: GitHubLabel) => l.name));
 }
 
 /**
