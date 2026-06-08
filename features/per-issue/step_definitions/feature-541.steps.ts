@@ -44,6 +44,10 @@ import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
 import { isAdwComment } from '../../../adws/core/workflowCommentParsing.ts';
+import {
+  setupMockInfrastructure,
+  teardownMockInfrastructure,
+} from '../../../test/mocks/test-harness.ts';
 import type { RegressionWorld } from '../../regression/step_definitions/world.ts';
 import type { RecordedRequest } from '../../../test/mocks/types.ts';
 
@@ -67,12 +71,24 @@ const ctx: {
 // Before / After hooks — scoped to @adw-541
 // ---------------------------------------------------------------------------
 
-Before({ tags: '@adw-541' }, function (this: RegressionWorld) {
+Before({ tags: '@adw-541' }, async function (this: RegressionWorld) {
+  // Wire the regression mock harness (mock GitHub API + claude-cli-stub) so the
+  // reused regression Given steps (G1, G4, G11) and the W1 invocation resolve
+  // against a live mockContext — the same pattern feature-509 uses. Without this,
+  // mockContext stays null and G4 ("an issue {int} exists in the mock issue
+  // tracker") aborts the scenario in its Before-hook assertion.
+  this.mockContext = await setupMockInfrastructure();
   ctx.worktreePath = '';
   ctx.adwId = '';
 });
 
-After({ tags: '@adw-541' }, function (this: RegressionWorld) {
+After({ tags: '@adw-541' }, async function (this: RegressionWorld) {
+  await teardownMockInfrastructure();
+  this.mockContext = null;
+  this.lastExitCode = -1;
+  this.worktreePaths.clear();
+  this.targetBranch = '';
+  this.harnessEnv = {};
   ctx.worktreePath = '';
   ctx.adwId = '';
 });
