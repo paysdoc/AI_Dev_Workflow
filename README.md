@@ -475,8 +475,8 @@ adws/                   # ADW workflow system
 │   ├── kpiAgent.ts     # KPI tracking agent
 │   ├── patchAgent.ts
 │   ├── planAgent.ts
-│   ├── prAgent.ts
 │   ├── refactorAgent.ts  # Applies coding-guideline fixes via the /refactor skill (mirrors patchAgent for guideline violations)
+│   ├── prAgent.ts
 │   ├── resolutionAgent.ts  # Plan-scenario mismatch resolution
 │   ├── reviewAgent.ts
 │   ├── scenarioAgent.ts  # BDD scenario planner agent
@@ -678,6 +678,7 @@ adws/                   # ADW workflow system
 │   │   ├── cronRepoResolver.test.ts
 │   │   ├── cronStageResolver.test.ts
 │   │   ├── devServerJanitor.test.ts
+│   │   ├── issueOpenedRouter.test.ts
 │   │   ├── mergeDispatchGate.test.ts
 │   │   ├── pauseQueueScanner.test.ts
 │   │   ├── perIssueScenarioSweep.test.ts
@@ -703,7 +704,7 @@ adws/                   # ADW workflow system
 │   ├── cronStageResolver.ts  # Cron stage resolution from top-level state file (testable)
 │   ├── issueDependencies.ts
 │   ├── issueEligibility.ts
-│   ├── issueOpenedRouter.ts  # Pure routing decision + DI orchestration for the issues.opened label-routing path
+│   ├── issueOpenedRouter.ts  # Pure routing decision for the issues.opened label-routing path (mirrors cronIssueFilter pattern)
 │   ├── mergeDispatchGate.ts  # Lock-aware gate deciding whether cron should dispatch adwMerge for an issue
 │   ├── pauseQueueScanner.ts  # Cron probe for paused issue queue
 │   ├── scanAuthQueue.ts  # Cron probe: resumes paused_auth orchestrators after auth is restored

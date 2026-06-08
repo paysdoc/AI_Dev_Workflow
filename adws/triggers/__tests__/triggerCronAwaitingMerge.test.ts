@@ -13,6 +13,7 @@ function makeIssue(overrides: Partial<CronIssue> = {}): CronIssue {
     comments: [],
     createdAt: '2024-01-01T00:00:00Z',
     updatedAt: new Date(Date.now() - GRACE * 2).toISOString(), // old enough
+    labels: [],
     ...overrides,
   };
 }

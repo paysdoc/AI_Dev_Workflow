@@ -1363,3 +1363,12 @@
     - When implementing or troubleshooting the four routing branches: opt-out (`adw:none`), classified (single `adw:<type>`), conflict (multiple `adw:<type>`), or infer (zero labels)
     - When the `MULTI_LABEL_REFUSAL_COMMENT` marker-free contract or `isAdwComment` interaction is relevant
     - When the `issues.labeled` non-subscription guard test in `triggerWebhook.test.ts` is relevant
+
+- app_docs/feature-y35zbi-cron-recovery-label-eligibility-scan.md
+  - Conditions:
+    - When working with `cronLabelEligibility.ts` (`decideLabelRecovery`, `evaluateLabelRecovery`) or the label-recovery gate in `cronIssueFilter.evaluateIssue`
+    - When an issue with a late-applied `adw:<type>` label is not being picked up by the cron sweeper
+    - When a multi-label conflict was cleaned up to a single label but the issue is not auto-recovering
+    - When working with `linkedPrDetector.ts` (`hasLinkedMergedOrClosedPR`, `fetchLinkedPRs`) or refactoring `concurrencyGuard.ts`
+    - When the `precomputedClassification` routing path in `trigger_cron.ts` is relevant (cron recovery bypassing LLM classifier)
+    - When extending `CronIssue` with new fields or adding parameters to `filterEligibleIssues`
