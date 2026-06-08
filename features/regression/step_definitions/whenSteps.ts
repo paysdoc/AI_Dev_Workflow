@@ -60,6 +60,7 @@ const ORCHESTRATOR_FILES: Record<string, string> = {
   chore: 'adwChore.tsx',
   patch: 'adwPatch.tsx',
   init: 'adwInit.tsx',
+  upgrade: 'adwUpgrade.tsx',
   'pr-review': 'adwPrReview.tsx',
   document: 'adwDocument.tsx',
   'promotion-sweep': 'adwPromotionSweep.tsx',
