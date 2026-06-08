@@ -1310,6 +1310,15 @@
     - When `/refactor` model/effort routing entries in `adws/core/modelRouting.ts` are relevant
     - When guideline violations in changed files are not becoming blockers or not triggering a refactor pass
 
+- app_docs/feature-zapagn-hashcomputer-deep-module.md
+  - Conditions:
+    - When working with `computeFrameworkHash`, `HashComputerDeps`, or `ADW_INIT_RELATIVE_PATH` in `adws/core/hashComputer.ts`
+    - When adding a new file to the framework's init dependency set (edit `hashInputs:` in `.claude/commands/adw_init.md`)
+    - When implementing downstream slices that compare a target repo's stored `.adw-version` against the current framework hash
+    - When writing unit tests for pure deep modules with injectable I/O (follow the `hashComputer.test.ts` in-memory Map pattern)
+    - When troubleshooting "hashComputer: declared hashInput file not found" or "missing hashInputs: field" errors
+    - When modifying `.claude/commands/adw_init.md` frontmatter and need to understand the self-reference nuance
+
 - app_docs/feature-m45h0x-upgradeclaim-deep-module.md
   - Conditions:
     - When working with `claimUpgradeOrFindExisting`, `buildDefaultUpgradeClaimDeps`, `buildClaimBranchName`, or `UpgradeClaimDeps` in `adws/core/upgradeClaim.ts`

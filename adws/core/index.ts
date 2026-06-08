@@ -174,6 +174,10 @@ export { PAUSE_QUEUE_PATH, readPauseQueue, appendToPauseQueue, removeFromPauseQu
 export { deriveStageFromRemote, mapArtifactsToStage, MAX_RECONCILE_VERIFICATION_RETRIES, buildDefaultReconcileDeps } from './remoteReconcile';
 export type { ReconcileDeps } from './remoteReconcile';
 
+// Framework content hash
+export { computeFrameworkHash, defaultDeps as hashComputerDefaultDeps, ADW_INIT_RELATIVE_PATH } from './hashComputer';
+export type { HashComputerDeps } from './hashComputer';
+
 // Upgrade claim
 export { claimUpgradeOrFindExisting, buildDefaultUpgradeClaimDeps, buildClaimBranchName, buildClaimResult } from './upgradeClaim';
 export type { UpgradeClaimDeps, UpgradeClaimResult } from './upgradeClaim';
