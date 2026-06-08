@@ -47,7 +47,6 @@ export const adwCommandToOrchestratorMap: Partial<Record<AdwSlashCommand, string
   '/adw_plan_build_document': 'adws/adwPlanBuildDocument.tsx',
   '/adw_plan_build_test_review': 'adws/adwPlanBuildTestReview.tsx',
   '/adw_sdlc': 'adws/adwSdlc.tsx',
-  '/adw_init': 'adws/adwInit.tsx',
 } as const;
 
 /**
@@ -55,12 +54,11 @@ export const adwCommandToOrchestratorMap: Partial<Record<AdwSlashCommand, string
  * Used by triggers to determine which ADW workflow to spawn when no
  * explicit ADW command is provided.
  */
-export const issueTypeToOrchestratorMap: Record<IssueClassSlashCommand, string> = {
+export const issueTypeToOrchestratorMap: Partial<Record<IssueClassSlashCommand, string>> = {
   '/bug': 'adws/adwSdlc.tsx',
   '/chore': 'adws/adwChore.tsx',
   '/feature': 'adws/adwSdlc.tsx',
   '/pr_review': 'adws/adwPlanBuild.tsx',
-  '/adw_init': 'adws/adwInit.tsx',
 };
 
 /**
