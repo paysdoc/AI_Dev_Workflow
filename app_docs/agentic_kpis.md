@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 126              | 2026-06-08 15:46:00 |
-| Longest Streak    | 126              | 2026-06-08 15:46:00 |
-| Total Plan Size   | 5624 lines       | 2026-06-08 15:46:00 |
-| Largest Plan Size | 699 lines        | 2026-06-08 15:46:00 |
-| Total Diff Size   | 3775336 lines    | 2026-06-08 15:46:00 |
-| Largest Diff Size | 418153 lines     | 2026-06-08 15:46:00 |
-| Average Presence  | 1.24             | 2026-06-08 15:46:00 |
+| Current Streak    | 175              | 2026-06-08 16:53:10 |
+| Longest Streak    | 175              | 2026-06-08 16:53:10 |
+| Total Plan Size   | 4622 lines       | 2026-06-08 16:53:10 |
+| Largest Plan Size | 699 lines        | 2026-06-08 16:53:10 |
+| Total Diff Size   | 3009600 lines    | 2026-06-08 16:53:10 |
+| Largest Diff Size | 417153 lines     | 2026-06-08 16:53:10 |
+| Average Presence  | 1.18             | 2026-06-08 16:53:10 |
 
 ## ADW KPIs
 
@@ -211,3 +211,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-06-08 | gj381g-adwupgrade-tsx-orche | 541 | /feature | 2 | 0 | 4677/9/33 | 2026-06-08 15:03:31 | 2026-06-08 15:03:31 |
 | 2026-06-08 | y35zbi-cron-recovery-layer | 545 | /feature | 1 | 0 | 7142/67/54 | 2026-06-08 15:33:20 | 2026-06-08 15:33:20 |
 | 2026-06-08 | 6zw7n2-hitl-opt-in-via-gith | 543 | /feature | 1 | 0 | 8293/26/57 | 2026-06-08 15:46:00 | 2026-06-08 15:46:00 |
+| 2026-06-08 | tlk8qf-hash-check-upgrade-t | 544 | /feature | 1 | 0 | 8718/43/60 | 2026-06-08 16:53:10 | 2026-06-08 16:53:10 |
