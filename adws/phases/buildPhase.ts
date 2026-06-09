@@ -9,11 +9,14 @@ import {
   AgentStateManager,
   shouldExecuteStage,
   MAX_CONTEXT_RESETS,
+  MAX_PROGRESS_CHECKPOINTS,
   RUNNING_TOKENS,
   type ModelUsageMap,
   emptyModelUsageMap,
   mergeModelUsageMaps,
 } from '../core';
+import { getHeadTreeHash, hasUncommittedChanges } from '../vcs';
+import { evaluateProgressGate } from './progressGate';
 import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord, computeDisplayTokens } from '../cost';
 import { postIssueStageComment } from './phaseCommentHelpers';
 import {
@@ -65,10 +68,12 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
     log('Running Build Agent (scenario detection delegated to build agent)...', 'info');
 
     let currentPlanContent = planContent;
-    let continuationNumber = 0;
+    const seenTreeHashes = new Set<string>([getHeadTreeHash(worktreePath)]);
+    let perBatchResets = 0;
+    let checkpointCount = 0;
     let buildCompleted = false;
 
-    while (continuationNumber <= MAX_CONTEXT_RESETS && !buildCompleted) {
+    while (!buildCompleted) {
       const buildAgentStatePath = AgentStateManager.initializeState(adwId, 'build-agent', orchestratorStatePath);
       AgentStateManager.writeState(buildAgentStatePath, {
         adwId,
@@ -183,63 +188,56 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
         ctx.runningTokenTotal = computeDisplayTokens(combinedUsage);
       }
 
-      if (buildResult.tokenLimitExceeded) {
-        continuationNumber++;
-        contextResetCount++;
-        log(`Build agent hit token limit (context reset ${continuationNumber}/${MAX_CONTEXT_RESETS})`, 'info');
+      const restartTrigger: 'token_limit' | 'compaction' | null =
+        buildResult.tokenLimitExceeded ? 'token_limit'
+        : buildResult.compactionDetected ? 'compaction'
+        : null;
 
-        // Save partial state
+      if (restartTrigger !== null) {
+        perBatchResets++; contextResetCount++;
+        log(`Build agent ${restartTrigger === 'token_limit' ? 'hit token limit' : 'context compacted'} (batch reset ${perBatchResets}/${MAX_CONTEXT_RESETS}, checkpoint ${checkpointCount})`, 'info');
+
         AgentStateManager.writeState(buildAgentStatePath, {
           output: buildResult.output.substring(0, 1000),
-          metadata: { tokenUsage: buildResult.tokenUsage },
+          metadata: restartTrigger === 'token_limit'
+            ? { tokenUsage: buildResult.tokenUsage }
+            : { compactionDetected: true },
           execution: AgentStateManager.completeExecution(
             AgentStateManager.createExecutionState('running'),
             true
           ),
         });
-        AgentStateManager.appendLog(orchestratorStatePath, `Build agent hit token limit (context reset ${continuationNumber})`);
+        AgentStateManager.appendLog(orchestratorStatePath, `Build agent ${restartTrigger === 'token_limit' ? 'hit token limit' : 'context compacted'} (context reset ${contextResetCount})`);
 
-        if (continuationNumber > MAX_CONTEXT_RESETS) {
-          throw new Error(`Build agent exceeded maximum context resets (${MAX_CONTEXT_RESETS}). Last partial output: ${buildResult.output.substring(0, 500)}`);
-        }
-
-        // Post recovery comment
-        ctx.tokenContinuationNumber = continuationNumber;
-        ctx.tokenUsage = buildResult.tokenUsage;
+        ctx.tokenContinuationNumber = contextResetCount;
+        if (restartTrigger === 'token_limit') ctx.tokenUsage = buildResult.tokenUsage;
         if (repoContext) {
-          postIssueStageComment(repoContext, issueNumber, 'token_limit_recovery', ctx);
+          postIssueStageComment(repoContext, issueNumber, restartTrigger === 'token_limit' ? 'token_limit_recovery' : 'compaction_recovery', ctx);
         }
 
-        // Build continuation prompt with previous output
-        currentPlanContent = buildContinuationPrompt(planContent, buildResult.output, 'token_limit');
-        continue;
-      }
-
-      if (buildResult.compactionDetected) {
-        continuationNumber++;
-        contextResetCount++;
-        log(`Build agent context compacted (context reset ${continuationNumber}/${MAX_CONTEXT_RESETS})`, 'info');
-
-        AgentStateManager.writeState(buildAgentStatePath, {
-          output: buildResult.output.substring(0, 1000),
-          metadata: { compactionDetected: true },
-          execution: AgentStateManager.completeExecution(
-            AgentStateManager.createExecutionState('running'),
-            true
-          ),
-        });
-        AgentStateManager.appendLog(orchestratorStatePath, `Build agent context compacted (context reset ${continuationNumber})`);
-
-        if (continuationNumber > MAX_CONTEXT_RESETS) {
-          throw new Error(`Build agent exceeded maximum context resets (${MAX_CONTEXT_RESETS}) due to context compaction. Last partial output: ${buildResult.output.substring(0, 500)}`);
+        if (perBatchResets < MAX_CONTEXT_RESETS) {
+          currentPlanContent = buildContinuationPrompt(planContent, buildResult.output, restartTrigger);
+          continue;
         }
 
-        ctx.tokenContinuationNumber = continuationNumber;
-        if (repoContext) {
-          postIssueStageComment(repoContext, issueNumber, 'compaction_recovery', ctx);
+        // Batch boundary: commit if dirty, then evaluate the progress gate
+        if (hasUncommittedChanges(worktreePath)) {
+          await runCommitAgent('build-agent', issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body);
+        }
+        const headTreeHash = getHeadTreeHash(worktreePath);
+        const decision = evaluateProgressGate({ headTreeHash, seen: seenTreeHashes, checkpointCount, maxCheckpoints: MAX_PROGRESS_CHECKPOINTS });
+
+        if (decision.kind === 'abort') {
+          const bound = decision.reason === 'no_progress'
+            ? `per-batch reset cap (${MAX_CONTEXT_RESETS})`
+            : `progress checkpoint backstop (${MAX_PROGRESS_CHECKPOINTS})`;
+          throw new Error(`Build agent made no progress at batch boundary (${decision.reason}) — ${bound} reached. Last partial output: ${buildResult.output.substring(0, 500)}`);
         }
 
-        currentPlanContent = buildContinuationPrompt(planContent, buildResult.output, 'compaction');
+        seenTreeHashes.add(headTreeHash);
+        checkpointCount++;
+        perBatchResets = 0;
+        currentPlanContent = buildContinuationPrompt(planContent, buildResult.output, restartTrigger);
         continue;
       }
 

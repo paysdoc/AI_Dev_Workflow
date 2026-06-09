@@ -74,9 +74,12 @@ Feature: Build context-reset cap replaced by a state-novelty progress gate
 
     Registered phrases reused from `features/regression/vocabulary.md`:
     `the ADW codebase is checked out` (background) and `the ADW TypeScript
-    type-check passes` (cross-cutting backstop); T4 (`the git-mock recorded a
-    commit on branch {string}`) for the commit-recorded assertion. The registry
-    has no phrase for: seeding / evaluating the state-novelty gate, a
+    type-check passes` (cross-cutting backstop). T4 (`the git-mock recorded a
+    commit on branch {string}`) is the closest registered phrase for the
+    commit-recorded assertion, but these phase-level scenarios do not pin a
+    branch, so a branch-agnostic `a commit is recorded at the batch boundary`
+    (and its negation) is used instead. The registry has no phrase for: seeding
+    / evaluating the state-novelty gate, a
     discriminated gate decision (continue / no-progress / backstop), the
     per-batch reset cap or the progress-checkpoint backstop as tunable inputs,
     the build agent signalling a token-limit or compaction reset, a batch
@@ -192,7 +195,7 @@ Feature: Build context-reset cap replaced by a state-novelty progress gate
     And the worktree has uncommitted changes at the batch boundary
     And the build agent then completes successfully
     When the build phase runs
-    Then the git-mock recorded a commit on branch "feature-issue-559"
+    Then a commit is recorded at the batch boundary
 
   @adw-559 @adw-qej3f4-replace-build-contex
   Scenario: A clean worktree at the batch boundary skips the commit and the gate sees no progress
@@ -200,7 +203,7 @@ Feature: Build context-reset cap replaced by a state-novelty progress gate
     And the build agent signals a token-limit reset on every run
     And the worktree is clean at the batch boundary
     When the build phase runs
-    Then no batch-boundary commit is recorded on branch "feature-issue-559"
+    Then no commit is recorded at the batch boundary
     And the build phase aborts with reason no-progress
 
   # ── §4 End-to-end build phase via the token-limit trigger (AC6, AC7) ─────

@@ -4,6 +4,28 @@ This file documents production incidents and recurring failure patterns in the A
 
 ---
 
+## build-progress-gate-design-residuals
+
+**Pattern:** No log pattern — design limitations of the state-novelty progress gate introduced in issue #559.
+
+**Description:** Two accepted residuals in the progress-gate design:
+
+1. **Backstop is per-orchestrator-incarnation** — `seenTreeHashes` and `checkpointCount` live in process memory inside `buildPhase.ts`. An orchestrator takeover (e.g., after a process crash, a rate-limit pause/resume, or a manual retry) starts a fresh incarnation with an empty `seenTreeHashes` and `checkpointCount = 0`. The backstop therefore restarts from zero on each takeover; a build that is making genuine progress but requires many takeovers could accumulate `MAX_PROGRESS_CHECKPOINTS` checkpoints per incarnation rather than across the full build lifetime.
+
+2. **Monotonic accumulator runs to the backstop** — A build that always produces a novel committed state at each batch boundary (e.g., monotonically appending or removing trivial content) is not detected by the novelty check (each hash is genuinely new). Such a build is only stopped once `checkpointCount` reaches `MAX_PROGRESS_CHECKPOINTS`, consuming the full restart budget before the backstop abort fires. There is no intra-checkpoint progress signal to catch this pattern earlier.
+
+**Status:** `open` (accepted residuals — no fix planned at this time)
+
+**Solution:** No mitigation implemented. The residuals are bounded: incarnation resets are bounded by the number of takeover events, and the monotonic-accumulator case is bounded by `MAX_PROGRESS_CHECKPOINTS`. A future slice could persist `seenTreeHashes` and `checkpointCount` to the agent state file to survive takeovers, and could add a secondary size-delta heuristic to detect monotonic-accumulator patterns.
+
+**Fix attempts:** 0
+
+**Linked issues:** #559
+
+**First seen:** 2026-06-09
+
+---
+
 ## merge-dead-end-no-recovery
 
 **Pattern:** No log pattern — diagnosed by `awaiting_merge` issues going `abandoned` or `discarded` with no subsequent cron re-dispatch.

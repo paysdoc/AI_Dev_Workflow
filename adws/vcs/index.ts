@@ -25,6 +25,8 @@ export {
   commitChanges,
   pushBranch,
   commitAndPushKpiFile,
+  getHeadTreeHash,
+  hasUncommittedChanges,
 } from './commitOperations';
 
 // Worktree operations

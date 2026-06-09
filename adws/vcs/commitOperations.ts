@@ -38,6 +38,24 @@ export function commitChanges(message: string, cwd?: string): boolean {
 }
 
 /**
+ * Returns the tree object hash of the current HEAD commit (the worktree's
+ * committed state). Used by the build progress gate to detect novel states.
+ * @param cwd - Worktree directory to inspect.
+ */
+export function getHeadTreeHash(cwd?: string): string {
+  return execSync('git rev-parse "HEAD^{tree}"', { encoding: 'utf-8', cwd }).trim();
+}
+
+/**
+ * Returns true when the worktree has staged or unstaged changes.
+ * Drives the batch-boundary commit guard (clean tree → skip the /commit agent).
+ * @param cwd - Worktree directory to inspect.
+ */
+export function hasUncommittedChanges(cwd?: string): boolean {
+  return execSync('git status --porcelain', { encoding: 'utf-8', cwd }).trim().length > 0;
+}
+
+/**
  * Pushes the current branch to origin with upstream tracking.
  * @param branchName - The branch name to push
  * @param cwd - Optional working directory to run the command in

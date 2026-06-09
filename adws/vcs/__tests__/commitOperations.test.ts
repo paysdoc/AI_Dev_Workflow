@@ -13,7 +13,7 @@ vi.mock('../../core', () => ({ log: vi.fn() }));
 import { execSync } from 'child_process';
 import { mkdtempSync, mkdirSync, copyFileSync, rmSync } from 'fs';
 import { log } from '../../core';
-import { commitAndPushKpiFile } from '../commitOperations';
+import { commitAndPushKpiFile, getHeadTreeHash, hasUncommittedChanges } from '../commitOperations';
 
 const mockExecSync = vi.mocked(execSync);
 const mockMkdtempSync = vi.mocked(mkdtempSync);
@@ -276,5 +276,83 @@ describe('target-branch correctness', () => {
 
     const calls = mockExecSync.mock.calls.map((c) => c[0] as string);
     expect(calls.some((c) => /git branch --show-current/.test(c))).toBe(false);
+  });
+});
+
+// ── getHeadTreeHash ────────────────────────────────────────────────────────────
+
+describe('getHeadTreeHash', () => {
+  it('returns the trimmed execSync output', () => {
+    mockExecSync.mockReturnValueOnce('abc123def456\n');
+
+    const result = getHeadTreeHash('/repo');
+
+    expect(result).toBe('abc123def456');
+  });
+
+  it('calls git rev-parse "HEAD^{tree}" with the provided cwd', () => {
+    mockExecSync.mockReturnValueOnce('abc123\n');
+
+    getHeadTreeHash('/my/repo');
+
+    expect(mockExecSync).toHaveBeenCalledWith(
+      'git rev-parse "HEAD^{tree}"',
+      { encoding: 'utf-8', cwd: '/my/repo' },
+    );
+  });
+
+  it('passes cwd as undefined when not provided', () => {
+    mockExecSync.mockReturnValueOnce('def456\n');
+
+    getHeadTreeHash();
+
+    expect(mockExecSync).toHaveBeenCalledWith(
+      'git rev-parse "HEAD^{tree}"',
+      { encoding: 'utf-8', cwd: undefined },
+    );
+  });
+});
+
+// ── hasUncommittedChanges ──────────────────────────────────────────────────────
+
+describe('hasUncommittedChanges', () => {
+  it('returns true for non-empty porcelain output', () => {
+    mockExecSync.mockReturnValueOnce(' M src/foo.ts\n');
+
+    expect(hasUncommittedChanges('/repo')).toBe(true);
+  });
+
+  it('returns false for empty output', () => {
+    mockExecSync.mockReturnValueOnce('');
+
+    expect(hasUncommittedChanges('/repo')).toBe(false);
+  });
+
+  it('returns false for whitespace-only output', () => {
+    mockExecSync.mockReturnValueOnce('   \n  ');
+
+    expect(hasUncommittedChanges('/repo')).toBe(false);
+  });
+
+  it('calls git status --porcelain with the provided cwd', () => {
+    mockExecSync.mockReturnValueOnce('');
+
+    hasUncommittedChanges('/my/repo');
+
+    expect(mockExecSync).toHaveBeenCalledWith(
+      'git status --porcelain',
+      { encoding: 'utf-8', cwd: '/my/repo' },
+    );
+  });
+
+  it('passes cwd as undefined when not provided', () => {
+    mockExecSync.mockReturnValueOnce('');
+
+    hasUncommittedChanges();
+
+    expect(mockExecSync).toHaveBeenCalledWith(
+      'git status --porcelain',
+      { encoding: 'utf-8', cwd: undefined },
+    );
   });
 });
