@@ -127,6 +127,7 @@ Everything below is for someone who wants to run ADW against a target repository
 - **Documentation generation** — `documentAgent` writes feature docs to `app_docs/`; the SDLC pipeline includes review screenshots.
 - **Scenario promotion sweep** — `adwPromotionSweep.tsx` scores per-issue scenarios against the regression vocabulary registry; high-scoring candidates receive a `@promotion-suggested-<date>` tag with daily-cadence suppression, date refresh, and score-drop withdrawal; a PR comment lists all candidates and applies the `hitl` label; human-approved scenarios (`@promotion`) are automatically moved to the regression suite via a dedicated PR.
 - **Framework self-upgrade with init-time hash gate** — `upgradeGate.ts` runs inside `initializeWorkflow()` on every workflow start: it compares the framework's current content hash against the target repo's stored `.adw-version`, and on mismatch atomically elects a winner/loser via `upgradeClaim`. The winner creates a `#UPG` tracking issue and spawns `adwUpgrade.tsx` to regenerate `.adw/`; losers register a `## Blocked by` dependency on the upgrade issue and move to Todo. Both park immediately, re-queuing after the upgrade PR merges. On hash match, the gate is transparent and workflow proceeds normally.
+- **Novelty progress gate in build phase** — `progressGate.ts` evaluates each build continuation checkpoint against the set of previously seen git tree hashes; a checkpoint that returns to a prior state triggers `abort: no_progress` and a hard backstop (`MAX_PROGRESS_CHECKPOINTS`) stops runaway loops that make commits but cycle between states.
 - **Observability-surfaces drafting** — `adw_init` classifies a target repo's stack (browser-test-equipped, CLI-only, or fallback) and LLM-drafts the `## Observability Surfaces (Examples)` block in `features/regression/vocabulary.md`, seeding the promotion scorer with repo-specific surface types rather than leaving a blank placeholder.
 - **Supply-chain audit integration** — `adw_init` runs `depaudit setup` in target repos and propagates `SOCKET_API_TOKEN` / `SLACK_WEBHOOK_URL` to GitHub Actions secrets.
 - **Screenshot upload pipeline** — Cloudflare R2 bucket manager + `screenshot-router` Worker for hosting review screenshots under `screenshots.paysdoc.nl`.
@@ -611,6 +612,7 @@ adws/                   # ADW workflow system
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── branchNameResolution.test.ts
 │   │   ├── orchestratorLock.test.ts
+│   │   ├── progressGate.test.ts
 │   │   ├── reviewPhase.test.ts
 │   │   ├── scenarioTestPhase.test.ts
 │   │   ├── upgradeGate.test.ts
@@ -630,6 +632,7 @@ adws/                   # ADW workflow system
 │   ├── phaseCommentHelpers.ts  # Shared phase comment utilities
 │   ├── planPhase.ts
 │   ├── planValidationPhase.ts  # Plan-scenario validation phase
+│   ├── progressGate.ts  # Pure state-novelty progress gate: prevents looping builds that haven't committed novel tree state
 │   ├── prPhase.ts
 │   ├── prReviewCompletion.ts  # PR review completion/error handling
 │   ├── prReviewPhase.ts  # PR review phase implementation
