@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { evaluateProgressGate, type ProgressGateInput } from '../progressGate';
+import { evaluateProgressGate, describeProgressGateAbort, type ProgressGateInput, type ProgressGateAbortBounds } from '../progressGate';
 
 const SEED = 'seed-tree-hash-abc123';
 const NOVEL_A = 'novel-tree-hash-aaa';
@@ -96,5 +96,62 @@ describe('evaluateProgressGate', () => {
     const countBefore = input.checkpointCount;
     evaluateProgressGate(input);
     expect(input.checkpointCount).toBe(countBefore);
+  });
+});
+
+const FIXED_BOUNDS: ProgressGateAbortBounds = { maxContextResets: 3, maxCheckpoints: 20 };
+
+describe('describeProgressGateAbort', () => {
+  it('no_progress message reports build stopped advancing and is stuck', () => {
+    const msg = describeProgressGateAbort('no_progress', FIXED_BOUNDS);
+    expect(msg).toMatch(/stopped advancing/i);
+    expect(msg).toMatch(/stuck/i);
+  });
+
+  it('no_progress message directs operator to inspect plan and task', () => {
+    const msg = describeProgressGateAbort('no_progress', FIXED_BOUNDS);
+    expect(msg).toMatch(/plan/i);
+    expect(msg).toMatch(/task/i);
+  });
+
+  it('no_progress message does not suggest the issue is too large or to split', () => {
+    const msg = describeProgressGateAbort('no_progress', FIXED_BOUNDS);
+    expect(msg).not.toMatch(/too large/i);
+    expect(msg).not.toMatch(/split/i);
+  });
+
+  it('backstop message reports issue is likely too large and should be split', () => {
+    const msg = describeProgressGateAbort('backstop', FIXED_BOUNDS);
+    expect(msg).toMatch(/too large/i);
+    expect(msg).toMatch(/split/i);
+  });
+
+  it('backstop message does not say build made no progress or is stuck', () => {
+    const msg = describeProgressGateAbort('backstop', FIXED_BOUNDS);
+    expect(msg).not.toMatch(/no progress/i);
+    expect(msg).not.toMatch(/stuck/i);
+  });
+
+  it('the two messages are distinct — not conflated into one generic string', () => {
+    const noProgress = describeProgressGateAbort('no_progress', FIXED_BOUNDS);
+    const backstop = describeProgressGateAbort('backstop', FIXED_BOUNDS);
+    expect(noProgress).not.toBe(backstop);
+  });
+
+  it('no_progress message interpolates maxContextResets from bounds', () => {
+    const msg = describeProgressGateAbort('no_progress', FIXED_BOUNDS);
+    expect(msg).toContain(String(FIXED_BOUNDS.maxContextResets));
+  });
+
+  it('backstop message interpolates maxCheckpoints from bounds', () => {
+    const msg = describeProgressGateAbort('backstop', FIXED_BOUNDS);
+    expect(msg).toContain(String(FIXED_BOUNDS.maxCheckpoints));
+  });
+
+  it('is deterministic — same inputs return the same string', () => {
+    expect(describeProgressGateAbort('no_progress', FIXED_BOUNDS))
+      .toBe(describeProgressGateAbort('no_progress', FIXED_BOUNDS));
+    expect(describeProgressGateAbort('backstop', FIXED_BOUNDS))
+      .toBe(describeProgressGateAbort('backstop', FIXED_BOUNDS));
   });
 });

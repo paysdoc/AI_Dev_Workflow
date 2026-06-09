@@ -39,3 +39,43 @@ export function evaluateProgressGate(input: ProgressGateInput): ProgressGateDeci
   }
   return { kind: 'continue' };
 }
+
+/** The abort reasons the progress gate can return (derived from {@link ProgressGateDecision}). */
+export type ProgressGateAbortReason = Extract<ProgressGateDecision, { kind: 'abort' }>['reason'];
+
+export interface ProgressGateAbortBounds {
+  /** Per-batch restart cap (MAX_CONTEXT_RESETS). */
+  maxContextResets: number;
+  /** Checkpoint backstop ceiling (MAX_PROGRESS_CHECKPOINTS). */
+  maxCheckpoints: number;
+}
+
+/**
+ * Maps a progress-gate abort reason to a distinct, operator-facing failure message
+ * describing the corrective action. Pure: same inputs → same string; no I/O, no mutation.
+ * The two reasons demand opposite responses and must not be conflated.
+ */
+export function describeProgressGateAbort(
+  reason: ProgressGateAbortReason,
+  bounds: ProgressGateAbortBounds,
+): string {
+  switch (reason) {
+    case 'no_progress':
+      return (
+        `Build aborted — no progress. The build stopped advancing: after ${bounds.maxContextResets} ` +
+        `restarts the worktree returned to a state already seen this build, so the agent is stuck. ` +
+        `Inspect the plan and the task before re-running — a plain retry will likely stall the same way.`
+      );
+    case 'backstop':
+      return (
+        `Build aborted — checkpoint backstop reached. The build kept reaching new states but ` +
+        `exhausted the ${bounds.maxCheckpoints}-checkpoint ceiling, so the issue is likely too large ` +
+        `for a single build. Split it into smaller issues rather than re-running it unchanged.`
+      );
+    default: {
+      // Exhaustiveness guard: a new reason added to ProgressGateDecision must be handled above.
+      const exhaustive: never = reason;
+      return exhaustive;
+    }
+  }
+}
