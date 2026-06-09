@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 111              | 2026-06-09 01:52:26 |
-| Longest Streak    | 111              | 2026-06-09 01:52:26 |
-| Total Plan Size   | 3936 lines       | 2026-06-09 01:52:26 |
-| Largest Plan Size | 408 lines        | 2026-06-09 01:52:26 |
-| Total Diff Size   | 4154517 lines    | 2026-06-09 01:52:26 |
-| Largest Diff Size | 418153 lines     | 2026-06-09 01:52:26 |
-| Average Presence  | 1.17             | 2026-06-09 01:52:26 |
+| Current Streak    | 135              | 2026-06-09 03:27:30 |
+| Longest Streak    | 135              | 2026-06-09 03:27:30 |
+| Total Plan Size   | 5855 lines       | 2026-06-09 03:27:30 |
+| Largest Plan Size | 699 lines        | 2026-06-09 03:27:30 |
+| Total Diff Size   | 4308079 lines    | 2026-06-09 03:27:30 |
+| Largest Diff Size | 418153 lines     | 2026-06-09 03:27:30 |
+| Average Presence  | 1.25             | 2026-06-09 03:27:30 |
 
 ## ADW KPIs
 
@@ -219,3 +219,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-06-08 | xs322a-two-font-capture-and | 113 | /feature | 1 | 0 | 71198/1990/373 | 2026-06-08 23:37:08 | 2026-06-08 23:37:08 |
 | 2026-06-09 | y0ce34-full-colour-cascade | 112 | /feature | 2 | 0 | 71502/1980/373 | 2026-06-09 00:32:42 | 2026-06-09 00:32:42 |
 | 2026-06-09 | img16l-agreement-tier-confi | 114 | /feature | 1 | 0 | 77161/1990/419 | 2026-06-09 01:52:26 | 2026-06-09 01:52:26 |
+| 2026-06-09 | xj4og2-monochrome-brand-esc | 115 | /feature | 2 | 0 | 78090/1990/424 | 2026-06-09 03:27:30 | 2026-06-09 03:27:30 |
