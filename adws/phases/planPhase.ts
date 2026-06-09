@@ -162,11 +162,18 @@ export const MAX_CONTINUATION_OUTPUT_LENGTH = 5000;
 
 /**
  * Builds a continuation prompt that includes the original plan and previous agent's output.
+ * @param baseBranch - base/default branch to diff committed work against, e.g. `dev`; when
+ *   omitted with checkpoint commits present, falls back to generic branch-history inspection.
+ * @param checkpointCommitsPresent - true when the build branch carries checkpoint commits
+ *   beyond the base; directs the fresh agent to inspect committed git state as the source of
+ *   truth. False (default) retains the pre-checkpoint prompt shape.
  */
 export function buildContinuationPrompt(
   originalPlanContent: string,
   previousOutput: string,
   reason: 'token_limit' | 'compaction' = 'token_limit',
+  baseBranch?: string,
+  checkpointCommitsPresent: boolean = false,
 ): string {
   const truncatedOutput = previousOutput.length > MAX_CONTINUATION_OUTPUT_LENGTH
     ? previousOutput.slice(-MAX_CONTINUATION_OUTPUT_LENGTH)
@@ -176,7 +183,8 @@ export function buildContinuationPrompt(
     ? 'terminated because Claude Code compacted the conversation context, which is lossy'
     : 'terminated because it approached the token usage limit';
 
-  return `${originalPlanContent}
+  if (!checkpointCommitsPresent) {
+    return `${originalPlanContent}
 
 ## Continuation Context
 
@@ -185,6 +193,33 @@ Below is a summary of what the previous agent accomplished. Continue implementin
 the plan from where the previous agent left off. Do NOT re-do work that was already completed.
 
 <previous-agent-output>
+${truncatedOutput}
+</previous-agent-output>`;
+  }
+
+  const committedStateInstructions = baseBranch
+    ? `- \`git log --oneline --stat origin/${baseBranch}..HEAD\` — commits on this branch ahead of the base
+- \`git diff origin/${baseBranch}...HEAD\` — net changes this branch introduces against the base`
+    : `- \`git log --oneline --stat -30\` — recent commits on this branch
+- \`git diff HEAD~10\` — recent changes (no base branch configured)`;
+
+  return `${originalPlanContent}
+
+## Continuation Context
+
+You are a fresh build agent resuming an in-progress implementation. The previous build agent was ${reasonMessage}.
+
+**The git state of this worktree is the authoritative record of what is already done — not the summary at the bottom of this prompt.** Earlier agents commit their progress at checkpoints, so completed work is durably recorded in git. Before writing any code, inspect that state and resume from the first step that is not yet done. Do NOT redo or revert work that is already present.
+
+Inspect committed work (the authoritative record of completed work):
+${committedStateInstructions}
+
+Also inspect any uncommitted, not-yet-checkpointed work:
+- \`git status\` and \`git diff\` (and \`git diff --staged\`) — edits a previous agent made within the current batch but had not yet committed.
+
+Treat the union of the committed diff and the current working-tree changes as already implemented, then continue the plan from where it leaves off.
+
+<previous-agent-output note="secondary hint only — may be stale or truncated; the git state above is authoritative">
 ${truncatedOutput}
 </previous-agent-output>`;
 }
