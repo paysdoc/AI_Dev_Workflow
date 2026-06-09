@@ -1400,3 +1400,11 @@
     - When tuning `MAX_PROGRESS_CHECKPOINTS` or `MAX_CONTEXT_RESETS` for long-running builds
     - When troubleshooting a build that aborted with `no_progress` or `backstop` at a batch boundary
     - When adding or modifying the per-batch / checkpoint counter logic or the `seenTreeHashes` seed set
+
+- app_docs/feature-23ipne-distinct-abort-messages-progress-gate.md
+  - Conditions:
+    - When modifying `describeProgressGateAbort`, `ProgressGateAbortReason`, or `ProgressGateAbortBounds` in `adws/phases/progressGate.ts`
+    - When the build phase abort branch in `adws/phases/buildPhase.ts` needs to be changed or extended
+    - When adding a new abort reason to `ProgressGateDecision` and the exhaustive switch must be updated
+    - When troubleshooting operator-visible `## :x: ADW Workflow Error` messages for progress gate aborts
+    - When the `no_progress` or `backstop` error messages need rewording or new bound parameters
