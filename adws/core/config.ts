@@ -98,6 +98,9 @@ export const TOKEN_LIMIT_THRESHOLD = parseFloat(process.env.TOKEN_LIMIT_THRESHOL
 /** Maximum number of context reset attempts before failing (default: 3). */
 export const MAX_CONTEXT_RESETS = Math.max(1, parseInt(process.env.MAX_CONTEXT_RESETS || '3', 10)) || 3;
 
+/** Maximum number of progress checkpoints (novel-state batch boundaries) before the backstop abort (default: 20). */
+export const MAX_PROGRESS_CHECKPOINTS = Math.max(1, parseInt(process.env.MAX_PROGRESS_CHECKPOINTS || '20', 10)) || 20;
+
 // ---------------------------------------------------------------------------
 // Comment display flags
 // ---------------------------------------------------------------------------

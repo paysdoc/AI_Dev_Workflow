@@ -507,7 +507,8 @@ adws/                   # ADW workflow system
 │   │   ├── topLevelState.test.ts
 │   │   ├── upgradeClaim.integration.test.ts
 │   │   ├── upgradeClaim.test.ts
-│   │   └── workflowCommentParsing.test.ts
+│   │   ├── workflowCommentParsing.test.ts
+│   │   └── workflowMapping.test.ts
 │   ├── adwId.ts        # ADW ID generation
 │   ├── adwVersion.ts   # Read/write .adw-version file (stores framework hash at target repo root)
 │   ├── adwYmlConfig.ts # Read `.github/adw.yml` from a target repo worktree (upgrade auto-merge policy)

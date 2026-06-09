@@ -1391,3 +1391,12 @@
     - When implementing a new target-repo bootstrap flow and need to understand how `/adw_init` is now invoked (via `adwUpgrade.tsx`)
     - When troubleshooting why a `/adw_init` issue type lookup returns `undefined` from `issueTypeToOrchestratorMap`
     - When understanding why `OrchestratorId.Init` (`'init-orchestrator'`) exists in constants but has no script mapping
+
+- app_docs/feature-qej3f4-novelty-progress-gate.md
+  - Conditions:
+    - When working with the build phase restart loop in `adws/phases/buildPhase.ts` and the `tokenLimitExceeded` / `compactionDetected` handling
+    - When modifying `evaluateProgressGate`, `ProgressGateDecision`, or `ProgressGateInput` in `adws/phases/progressGate.ts`
+    - When working with `getHeadTreeHash` or `hasUncommittedChanges` in `adws/vcs/commitOperations.ts`
+    - When tuning `MAX_PROGRESS_CHECKPOINTS` or `MAX_CONTEXT_RESETS` for long-running builds
+    - When troubleshooting a build that aborted with `no_progress` or `backstop` at a batch boundary
+    - When adding or modifying the per-batch / checkpoint counter logic or the `seenTreeHashes` seed set
