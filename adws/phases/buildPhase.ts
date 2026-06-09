@@ -38,7 +38,7 @@ import { BoardStatus } from '../providers/types';
  * Uses `config.repoInfo` for external repository API calls when targeting a different repo.
  */
 export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costUsd: number; modelUsage: ModelUsageMap; phaseCostRecords: PhaseCostRecord[] }> {
-  const { recoveryState, orchestratorStatePath, orchestratorName, adwId, issueNumber, issue, issueType, ctx, worktreePath, logsDir, repoContext } = config;
+  const { recoveryState, orchestratorStatePath, orchestratorName, adwId, issueNumber, issue, issueType, ctx, worktreePath, logsDir, repoContext, defaultBranch } = config;
   const phaseStartTime = Date.now();
 
   if (repoContext) {
@@ -216,7 +216,7 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
         }
 
         if (perBatchResets < MAX_CONTEXT_RESETS) {
-          currentPlanContent = buildContinuationPrompt(planContent, buildResult.output, restartTrigger);
+          currentPlanContent = buildContinuationPrompt(planContent, buildResult.output, restartTrigger, defaultBranch, checkpointCount > 0);
           continue;
         }
 
@@ -237,7 +237,7 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
         seenTreeHashes.add(headTreeHash);
         checkpointCount++;
         perBatchResets = 0;
-        currentPlanContent = buildContinuationPrompt(planContent, buildResult.output, restartTrigger);
+        currentPlanContent = buildContinuationPrompt(planContent, buildResult.output, restartTrigger, defaultBranch, checkpointCount > 0);
         continue;
       }
 
