@@ -1400,3 +1400,12 @@
     - When tuning `MAX_PROGRESS_CHECKPOINTS` or `MAX_CONTEXT_RESETS` for long-running builds
     - When troubleshooting a build that aborted with `no_progress` or `backstop` at a batch boundary
     - When adding or modifying the per-batch / checkpoint counter logic or the `seenTreeHashes` seed set
+
+- app_docs/feature-6uquvb-build-continuation-committed-state.md
+  - Conditions:
+    - When modifying `buildContinuationPrompt()` in `adws/phases/planPhase.ts` or its call sites in `buildPhase.ts`
+    - When the build continuation prompt should be changed to use git state rather than previous-agent output
+    - When adding a new restart trigger that calls `buildContinuationPrompt()` and must pass a base branch or checkpoint flag
+    - When troubleshooting a restarted build agent that is redoing or reverting already-committed work
+    - When working with `checkpointCommitsPresent` / `baseBranch` parameters or the `MAX_CONTINUATION_OUTPUT_LENGTH` truncation logic
+    - When adding unit tests for `buildContinuationPrompt()` in `adws/phases/__tests__/planPhase.test.ts`
