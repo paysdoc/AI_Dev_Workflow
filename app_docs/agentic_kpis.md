@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 136              | 2026-06-09 04:44:19 |
-| Longest Streak    | 136              | 2026-06-09 04:44:19 |
-| Total Plan Size   | 5855 lines       | 2026-06-09 04:44:19 |
-| Largest Plan Size | 699 lines        | 2026-06-09 04:44:19 |
-| Total Diff Size   | 4390286 lines    | 2026-06-09 04:44:19 |
-| Largest Diff Size | 418153 lines     | 2026-06-09 04:44:19 |
-| Average Presence  | 1.25             | 2026-06-09 04:44:19 |
+| Current Streak    | 172              | 2026-06-09 14:21:21 |
+| Longest Streak    | 172              | 2026-06-09 14:21:21 |
+| Total Plan Size   | 659 lines        | 2026-06-09 14:21:21 |
+| Largest Plan Size | 201 lines        | 2026-06-09 14:21:21 |
+| Total Diff Size   | 4473396 lines    | 2026-06-09 14:21:21 |
+| Largest Diff Size | 418153 lines     | 2026-06-09 14:21:21 |
+| Average Presence  | 1.19             | 2026-06-09 14:21:21 |
 
 ## ADW KPIs
 
@@ -221,3 +221,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-06-09 | img16l-agreement-tier-confi | 114 | /feature | 1 | 0 | 77161/1990/419 | 2026-06-09 01:52:26 | 2026-06-09 01:52:26 |
 | 2026-06-09 | xj4og2-monochrome-brand-esc | 115 | /feature | 2 | 0 | 78090/1990/424 | 2026-06-09 03:27:30 | 2026-06-09 03:27:30 |
 | 2026-06-09 | bgr9zi-real-site-tuning-vis | 116 | /feature | 1 | 0 | 80217/1990/440 | 2026-06-09 04:44:19 | 2026-06-09 04:44:19 |
+| 2026-06-09 | tnt07n-crawl-prioritization | 127 | /feature | 1 | 0 | 81120/1990/445 | 2026-06-09 14:21:21 | 2026-06-09 14:21:21 |
