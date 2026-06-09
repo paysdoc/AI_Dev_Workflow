@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 172              | 2026-06-09 14:21:21 |
-| Longest Streak    | 172              | 2026-06-09 14:21:21 |
-| Total Plan Size   | 659 lines        | 2026-06-09 14:21:21 |
-| Largest Plan Size | 201 lines        | 2026-06-09 14:21:21 |
-| Total Diff Size   | 4473396 lines    | 2026-06-09 14:21:21 |
-| Largest Diff Size | 418153 lines     | 2026-06-09 14:21:21 |
-| Average Presence  | 1.19             | 2026-06-09 14:21:21 |
+| Current Streak    | 138              | 2026-06-09 19:15:32 |
+| Longest Streak    | 138              | 2026-06-09 19:15:32 |
+| Total Plan Size   | 5855 lines       | 2026-06-09 19:15:32 |
+| Largest Plan Size | 699 lines        | 2026-06-09 19:15:32 |
+| Total Diff Size   | 4487380 lines    | 2026-06-09 19:15:32 |
+| Largest Diff Size | 418153 lines     | 2026-06-09 19:15:32 |
+| Average Presence  | 1.24             | 2026-06-09 19:15:32 |
 
 ## ADW KPIs
 
@@ -222,3 +222,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-06-09 | xj4og2-monochrome-brand-esc | 115 | /feature | 2 | 0 | 78090/1990/424 | 2026-06-09 03:27:30 | 2026-06-09 03:27:30 |
 | 2026-06-09 | bgr9zi-real-site-tuning-vis | 116 | /feature | 1 | 0 | 80217/1990/440 | 2026-06-09 04:44:19 | 2026-06-09 04:44:19 |
 | 2026-06-09 | tnt07n-crawl-prioritization | 127 | /feature | 1 | 0 | 81120/1990/445 | 2026-06-09 14:21:21 | 2026-06-09 14:21:21 |
+| 2026-06-09 | qej3f4-replace-build-contex | 559 | /feature | 1 | 0 | 13267/717/105 | 2026-06-09 19:15:32 | 2026-06-09 19:15:32 |
