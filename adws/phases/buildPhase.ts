@@ -16,7 +16,7 @@ import {
   mergeModelUsageMaps,
 } from '../core';
 import { getHeadTreeHash, hasUncommittedChanges } from '../vcs';
-import { evaluateProgressGate } from './progressGate';
+import { evaluateProgressGate, describeProgressGateAbort } from './progressGate';
 import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord, computeDisplayTokens } from '../cost';
 import { postIssueStageComment } from './phaseCommentHelpers';
 import {
@@ -228,10 +228,8 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
         const decision = evaluateProgressGate({ headTreeHash, seen: seenTreeHashes, checkpointCount, maxCheckpoints: MAX_PROGRESS_CHECKPOINTS });
 
         if (decision.kind === 'abort') {
-          const bound = decision.reason === 'no_progress'
-            ? `per-batch reset cap (${MAX_CONTEXT_RESETS})`
-            : `progress checkpoint backstop (${MAX_PROGRESS_CHECKPOINTS})`;
-          throw new Error(`Build agent made no progress at batch boundary (${decision.reason}) — ${bound} reached. Last partial output: ${buildResult.output.substring(0, 500)}`);
+          const bounds = { maxContextResets: MAX_CONTEXT_RESETS, maxCheckpoints: MAX_PROGRESS_CHECKPOINTS };
+          throw new Error(describeProgressGateAbort(decision.reason, bounds));
         }
 
         seenTreeHashes.add(headTreeHash);
