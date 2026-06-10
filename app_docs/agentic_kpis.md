@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 140              | 2026-06-09 19:53:29 |
-| Longest Streak    | 140              | 2026-06-09 19:53:29 |
-| Total Plan Size   | 1384 lines       | 2026-06-09 19:53:29 |
-| Largest Plan Size | 420 lines        | 2026-06-09 19:53:29 |
-| Total Diff Size   | 4516931 lines    | 2026-06-09 19:53:29 |
-| Largest Diff Size | 418153 lines     | 2026-06-09 19:53:29 |
-| Average Presence  | 1.24             | 2026-06-09 19:53:29 |
+| Current Streak    | 158              | 2026-06-10 10:33:57 |
+| Longest Streak    | 158              | 2026-06-10 10:33:57 |
+| Total Plan Size   | 5246 lines       | 2026-06-10 10:33:57 |
+| Largest Plan Size | 699 lines        | 2026-06-10 10:33:57 |
+| Total Diff Size   | 4600942 lines    | 2026-06-10 10:33:57 |
+| Largest Diff Size | 418153 lines     | 2026-06-10 10:33:57 |
+| Average Presence  | 1.27             | 2026-06-10 10:33:57 |
 
 ## ADW KPIs
 
@@ -225,3 +225,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-06-09 | qej3f4-replace-build-contex | 559 | /feature | 1 | 0 | 13267/717/105 | 2026-06-09 19:15:32 | 2026-06-09 19:15:32 |
 | 2026-06-09 | 23ipne-distinct-operator-fa | 560 | /feature | 1 | 0 | 14080/717/109 | 2026-06-09 19:48:44 | 2026-06-09 19:48:44 |
 | 2026-06-09 | 6uquvb-point-build-continua | 561 | /feature | 1 | 0 | 14035/719/111 | 2026-06-09 19:53:29 | 2026-06-09 19:53:29 |
+| 2026-06-10 | 30bbm9-lock-the-scrape-mani | 126 | /feature | 2 | 0 | 82021/1990/451 | 2026-06-10 10:33:57 | 2026-06-10 10:33:57 |
