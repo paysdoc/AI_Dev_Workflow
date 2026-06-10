@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 247              | 2026-06-10 13:34:58 |
-| Longest Streak    | 247              | 2026-06-10 13:34:58 |
-| Total Plan Size   | 3728 lines       | 2026-06-10 13:34:58 |
-| Largest Plan Size | 678 lines        | 2026-06-10 13:34:58 |
-| Total Diff Size   | 4686192 lines    | 2026-06-10 13:34:58 |
-| Largest Diff Size | 418153 lines     | 2026-06-10 13:34:58 |
-| Average Presence  | 1.18             | 2026-06-10 13:34:58 |
+| Current Streak    | 184              | 2026-06-10 14:55:11 |
+| Longest Streak    | 184              | 2026-06-10 14:55:11 |
+| Total Plan Size   | 5855 lines       | 2026-06-10 14:55:11 |
+| Largest Plan Size | 699 lines        | 2026-06-10 14:55:11 |
+| Total Diff Size   | 4772507 lines    | 2026-06-10 14:55:11 |
+| Largest Diff Size | 418153 lines     | 2026-06-10 14:55:11 |
+| Average Presence  | 1.15             | 2026-06-10 14:55:11 |
 
 ## ADW KPIs
 
@@ -227,3 +227,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-06-09 | 6uquvb-point-build-continua | 561 | /feature | 1 | 0 | 14035/719/111 | 2026-06-09 19:53:29 | 2026-06-09 19:53:29 |
 | 2026-06-10 | 30bbm9-lock-the-scrape-mani | 126 | /feature | 2 | 0 | 82021/1990/451 | 2026-06-10 10:33:57 | 2026-06-10 10:33:57 |
 | 2026-06-10 | x6v9rc-per-page-units-bound | 128 | /feature | 2 | 0 | 83260/1990/459 | 2026-06-10 13:34:58 | 2026-06-10 13:34:58 |
+| 2026-06-10 | ux3ih1-idle-watchdog-crawl | 129 | /feature | 2 | 0 | 84325/1990/465 | 2026-06-10 14:55:11 | 2026-06-10 14:55:11 |
