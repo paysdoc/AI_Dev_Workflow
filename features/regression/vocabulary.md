@@ -13,6 +13,18 @@ A phrase **may** reference the *outputs* of a system under test (state files wri
 orchestrator, recorded calls on a mock server, git artifacts produced by a phase) because those are
 **artefacts**, not source files. This distinction is documented per phrase below.
 
+## Observability Surfaces (Examples)
+
+Scenarios in this repo can assert against the following observable surfaces:
+
+| # | Surface | Evidence | Example |
+|---|---------|----------|---------|
+| 1 | State files | JSON or other structured output files written by orchestrators, CLI tools, or test fixtures | `agents/<adwId>/state.json` |
+| 2 | Recorded HTTP requests | Request logs captured by a mock HTTP server fronting the system under test | mock server `getRecordedRequests()` |
+| 3 | Git artefacts | Branches, commits, pushes, and worktree state produced by the system under test | `git log --oneline` on the worktree branch |
+| 4 | Exit codes | Termination status of subprocesses spawned by the test harness | `spawnSync(...).status` |
+| 5 | Log streams | stdout/stderr captured from spawned processes and asserted against by substring or regex | `spawnSync(...).stdout` |
+
 ## Three Permitted Execution Patterns
 
 1. **Subprocess** — `spawnSync('bun', ['adws/<orchestrator>.tsx', adwId, issueNum], { env })`.
