@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 226              | 2026-06-12 01:48:26 |
-| Longest Streak    | 226              | 2026-06-12 01:48:26 |
-| Total Plan Size   | 3073 lines       | 2026-06-12 01:48:26 |
-| Largest Plan Size | 678 lines        | 2026-06-12 01:48:26 |
-| Total Diff Size   | 3186315 lines    | 2026-06-12 01:48:26 |
-| Largest Diff Size | 439010 lines     | 2026-06-12 01:48:26 |
-| Average Presence  | 1.17             | 2026-06-12 01:48:26 |
+| Current Streak    | 223              | 2026-06-12 01:50:03 |
+| Longest Streak    | 223              | 2026-06-12 01:50:03 |
+| Total Plan Size   | 5113 lines       | 2026-06-12 01:50:03 |
+| Largest Plan Size | 699 lines        | 2026-06-12 01:50:03 |
+| Total Diff Size   | 5624229 lines    | 2026-06-12 01:50:03 |
+| Largest Diff Size | 418153 lines     | 2026-06-12 01:50:03 |
+| Average Presence  | 1.22             | 2026-06-12 01:50:03 |
 
 ## ADW KPIs
 
@@ -236,3 +236,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-06-12 | yq8ft9-intake-form-fill-sli | 144 | /feature | 1 | 0 | 95462/1987/507 | 2026-06-12 00:45:02 | 2026-06-12 00:45:02 |
 | 2026-06-12 | ww492h-intake-form-fill-sli | 148 | /feature | 1 | 0 | 96432/1999/514 | 2026-06-12 01:40:35 | 2026-06-12 01:40:35 |
 | 2026-06-12 | yy6tcy-intake-form-fill-sli | 145 | /feature | 1 | 0 | 96945/1987/513 | 2026-06-12 01:48:26 | 2026-06-12 01:48:26 |
+| 2026-06-12 | 7jaj48-intake-form-fill-sli | 146 | /feature | 1 | 0 | 96998/1987/513 | 2026-06-12 01:50:03 | 2026-06-12 01:50:03 |
