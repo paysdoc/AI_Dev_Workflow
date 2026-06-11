@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 146              | 2026-06-11 13:40:13 |
-| Longest Streak    | 146              | 2026-06-11 13:40:13 |
-| Total Plan Size   | 5855 lines       | 2026-06-11 13:40:13 |
-| Largest Plan Size | 699 lines        | 2026-06-11 13:40:13 |
-| Total Diff Size   | 5040769 lines    | 2026-06-11 13:40:13 |
-| Largest Diff Size | 418153 lines     | 2026-06-11 13:40:13 |
-| Average Presence  | 1.25             | 2026-06-11 13:40:13 |
+| Current Streak    | 160              | 2026-06-11 18:04:51 |
+| Longest Streak    | 160              | 2026-06-11 18:04:51 |
+| Total Plan Size   | 6130 lines       | 2026-06-11 18:04:51 |
+| Largest Plan Size | 699 lines        | 2026-06-11 18:04:51 |
+| Total Diff Size   | 5134791 lines    | 2026-06-11 18:04:51 |
+| Largest Diff Size | 418153 lines     | 2026-06-11 18:04:51 |
+| Average Presence  | 1.25             | 2026-06-11 18:04:51 |
 
 ## ADW KPIs
 
@@ -231,3 +231,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-06-10 | ux3ih1-idle-watchdog-crawl | 129 | /feature | 2 | 0 | 84325/1990/465 | 2026-06-10 14:55:11 | 2026-06-10 14:55:11 |
 | 2026-06-10 | gymr1f-progress-plumbing-en | 130 | /feature | 1 | 0 | 85640/1990/469 | 2026-06-10 16:14:22 | 2026-06-10 16:14:22 |
 | 2026-06-11 | ipr2td-brand-colour-overrid | 140 | /feature | 1 | 0 | 89518/1989/482 | 2026-06-11 13:40:13 | 2026-06-11 13:40:13 |
+| 2026-06-11 | p6gbt0-intake-form-fill-sli | 142 | /feature | 1 | 275 | 92035/1987/490 | 2026-06-11 18:04:51 | 2026-06-11 18:04:51 |
