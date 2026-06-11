@@ -34,10 +34,7 @@ bunx tsc --noEmit -p adws/tsconfig.json
 bun add <package>
 
 ## Script Execution
-bunx tsx <script name>
-
-## Run E2E Tests
-NODE_OPTIONS="--import tsx" bunx cucumber-js
+bunx tsx <script_name>
 
 ## Run Scenarios by Tag
 NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@{tag}"
