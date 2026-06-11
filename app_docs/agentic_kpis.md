@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 247              | 2026-06-11 19:06:36 |
-| Longest Streak    | 247              | 2026-06-11 19:06:36 |
-| Total Plan Size   | 4409 lines       | 2026-06-11 19:06:36 |
-| Largest Plan Size | 699 lines        | 2026-06-11 19:06:36 |
-| Total Diff Size   | 5230432 lines    | 2026-06-11 19:06:36 |
-| Largest Diff Size | 418153 lines     | 2026-06-11 19:06:36 |
-| Average Presence  | 1.19             | 2026-06-11 19:06:36 |
+| Current Streak    | 171              | 2026-06-12 00:45:02 |
+| Longest Streak    | 171              | 2026-06-12 00:45:02 |
+| Total Plan Size   | 4409 lines       | 2026-06-12 00:45:02 |
+| Largest Plan Size | 699 lines        | 2026-06-12 00:45:02 |
+| Total Diff Size   | 5327881 lines    | 2026-06-12 00:45:02 |
+| Largest Diff Size | 418153 lines     | 2026-06-12 00:45:02 |
+| Average Presence  | 1.30             | 2026-06-12 00:45:02 |
 
 ## ADW KPIs
 
@@ -233,3 +233,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-06-11 | ipr2td-brand-colour-overrid | 140 | /feature | 1 | 0 | 89518/1989/482 | 2026-06-11 13:40:13 | 2026-06-11 13:40:13 |
 | 2026-06-11 | p6gbt0-intake-form-fill-sli | 142 | /feature | 1 | 275 | 92035/1987/490 | 2026-06-11 18:04:51 | 2026-06-11 18:04:51 |
 | 2026-06-11 | sdfyh0-intake-form-fill-sli | 143 | /feature | 1 | 0 | 93454/1987/498 | 2026-06-11 19:06:36 | 2026-06-11 19:06:36 |
+| 2026-06-12 | yq8ft9-intake-form-fill-sli | 144 | /feature | 1 | 0 | 95462/1987/507 | 2026-06-12 00:45:02 | 2026-06-12 00:45:02 |
