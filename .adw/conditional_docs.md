@@ -1,5 +1,13 @@
 # Conditional Documentation
 
+- app_docs/feature-tcewff-cron-gh-token-bleed-fix.md
+  - Conditions:
+    - When working on `adws/triggers/pauseQueueScanner.ts` `resumeWorkflow()` or `scanPauseQueue()` repo resolution
+    - When modifying or debugging `adws/triggers/trigger_cron.ts` `checkAndTrigger()` auth identity
+    - When troubleshooting `GH_TOKEN` pinned to wrong repo after a pause-queue or auth-queue resume
+    - When implementing or reviewing any path that calls `activateGitHubAppAuth` or `ensureAppAuthForRepo` in the cron process
+    - When the cron logs `POLL: 0 open` after a pause-queue resume or `Remote owner "X" !== declared owner "Y"` errors appear
+
 - app_docs/feature-n9880l-adwversion-read-write-module.md
   - Conditions:
     - When implementing or calling `readAdwVersion` / `writeAdwVersion` from `adws/core`

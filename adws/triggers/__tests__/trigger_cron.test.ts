@@ -27,6 +27,7 @@ vi.mock('../cronRepoResolver', () => ({
 
 vi.mock('../../github', () => ({
   activateGitHubAppAuth: vi.fn(),
+  ensureAppAuthForRepo: vi.fn(),
   getRepoInfo: vi.fn(() => ({ owner: 'test-owner', repo: 'test-repo' })),
   fetchPRList: vi.fn(() => []),
   hasUnaddressedComments: vi.fn(() => false),

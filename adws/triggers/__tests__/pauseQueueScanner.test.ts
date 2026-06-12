@@ -28,6 +28,12 @@ vi.mock('../../core', () => ({
   resolveClaudeCodePath: () => 'claude',
   AGENTS_STATE_DIR: '/tmp/agents-test',
   REPO_ROOT: '/tmp/repo-root-test',
+  parseTargetRepoArgs: (args: string[]) => {
+    const i = args.indexOf('--target-repo');
+    if (i === -1 || !args[i + 1]) return null;
+    const [owner, repo] = args[i + 1].split('/');
+    return { owner, repo, cloneUrl: `https://github.com/${owner}/${repo}.git` };
+  },
 }));
 
 vi.mock('../../core/pauseQueue', () => ({
@@ -72,6 +78,7 @@ import { removeFromPauseQueue, updatePauseQueueEntry } from '../../core/pauseQue
 import { postIssueStageComment } from '../../phases/phaseCommentHelpers';
 import { acquireIssueSpawnLock, releaseIssueSpawnLock } from '../spawnGate';
 import { AgentStateManager } from '../../core/agentState';
+import { activateGitHubAppAuth } from '../../github';
 import { resumeWorkflow } from '../pauseQueueScanner';
 import type { PausedWorkflow } from '../../core/pauseQueue';
 import type { AgentState } from '../../types/agentTypes';
@@ -227,7 +234,7 @@ describe('resumeWorkflow', () => {
     await promise;
 
     expect(acquireIssueSpawnLock).toHaveBeenCalledWith(
-      expect.objectContaining({ owner: 'test-owner', repo: 'test-repo' }),
+      expect.objectContaining({ owner: 'owner', repo: 'repo' }),
       entry.issueNumber,
       process.pid,
     );
@@ -295,5 +302,43 @@ describe('resumeWorkflow', () => {
     expect(releaseIssueSpawnLock).not.toHaveBeenCalled();
     expect(removeFromPauseQueue).not.toHaveBeenCalled();
     expect(postIssueStageComment).not.toHaveBeenCalled();
+  });
+
+  // ── GH_TOKEN bleed regression guards (issue #565) ─────────────────────────
+
+  it('activates GitHub App auth for the target repo from extraArgs, not the cwd-resolved repo', async () => {
+    const child = makeFakeChild();
+    vi.mocked(childProcess.spawn).mockReturnValue(child as unknown as ReturnType<typeof childProcess.spawn>);
+
+    // entry carries --target-repo owner/repo; getRepoInfo() returns test-owner/test-repo (the cwd fallback)
+    const entry = makeEntry({ extraArgs: ['--target-repo', 'owner/repo'] });
+    const promise = resumeWorkflow(entry);
+    await vi.runAllTimersAsync();
+    await promise;
+
+    expect(activateGitHubAppAuth).toHaveBeenCalledWith('owner', 'repo');
+    expect(activateGitHubAppAuth).not.toHaveBeenCalledWith('test-owner', 'test-repo');
+  });
+
+  it('falls back to getRepoInfo() when entry has no extraArgs (framework self-hosting workflow)', async () => {
+    const child = makeFakeChild();
+    vi.mocked(childProcess.spawn).mockReturnValue(child as unknown as ReturnType<typeof childProcess.spawn>);
+
+    vi.mocked(AgentStateManager.readTopLevelState).mockReturnValue({
+      adwId: 'test-adw-123',
+    } as unknown as AgentState);
+
+    const entry = makeEntry({ extraArgs: undefined });
+    const promise = resumeWorkflow(entry);
+    await vi.runAllTimersAsync();
+    await promise;
+
+    // Falls back to getRepoInfo() which returns { owner: 'test-owner', repo: 'test-repo' }
+    expect(activateGitHubAppAuth).toHaveBeenCalledWith('test-owner', 'test-repo');
+    expect(acquireIssueSpawnLock).toHaveBeenCalledWith(
+      expect.objectContaining({ owner: 'test-owner', repo: 'test-repo' }),
+      entry.issueNumber,
+      process.pid,
+    );
   });
 });
