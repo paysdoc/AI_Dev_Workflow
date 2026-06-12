@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 255              | 2026-06-12 11:16:52 |
-| Longest Streak    | 255              | 2026-06-12 11:16:52 |
-| Total Plan Size   | 4801 lines       | 2026-06-12 11:16:52 |
-| Largest Plan Size | 699 lines        | 2026-06-12 11:16:52 |
-| Total Diff Size   | 3806491 lines    | 2026-06-12 11:16:52 |
-| Largest Diff Size | 417153 lines     | 2026-06-12 11:16:52 |
-| Average Presence  | 1.10             | 2026-06-12 11:16:52 |
+| Current Streak    | 155              | 2026-06-12 16:30:11 |
+| Longest Streak    | 155              | 2026-06-12 16:30:11 |
+| Total Plan Size   | 6130 lines       | 2026-06-12 16:30:11 |
+| Largest Plan Size | 699 lines        | 2026-06-12 16:30:11 |
+| Total Diff Size   | 5831590 lines    | 2026-06-12 16:30:11 |
+| Largest Diff Size | 418153 lines     | 2026-06-12 16:30:11 |
+| Average Presence  | 1.24             | 2026-06-12 16:30:11 |
 
 ## ADW KPIs
 
@@ -239,3 +239,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-06-12 | 7jaj48-intake-form-fill-sli | 146 | /feature | 1 | 0 | 96998/1987/513 | 2026-06-12 01:50:03 | 2026-06-12 01:50:03 |
 | 2026-06-12 | 3hxt97-intake-form-fill-sli | 147 | /feature | 1 | 0 | 100042/1985/525 | 2026-06-12 11:16:39 | 2026-06-12 11:16:39 |
 | 2026-06-12 | tcewff-cron-gh-token-bleed | 565 | /bug | 1 | 0 | 972/204/18 | 2026-06-12 11:16:52 | 2026-06-12 11:16:52 |
+| 2026-06-12 | qfsbjl-intake-leg-infinite | 157 | /feature | 1 | 0 | 102160/1998/536 | 2026-06-12 16:30:11 | 2026-06-12 16:30:11 |
