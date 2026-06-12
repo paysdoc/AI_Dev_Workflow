@@ -49,7 +49,7 @@ function containsRateLimitText(text: string): boolean {
  * resume path from pinning the process-global GH_TOKEN to the cron host's own repo
  * (issue #565).
  */
-function resolveEntryRepoInfo(entry: PausedWorkflow): RepoInfo {
+export function resolveEntryRepoInfo(entry: PausedWorkflow): RepoInfo {
   const targetRepo = parseTargetRepoArgs([...(entry.extraArgs ?? [])]);
   if (targetRepo) {
     return { owner: targetRepo.owner, repo: targetRepo.repo };
