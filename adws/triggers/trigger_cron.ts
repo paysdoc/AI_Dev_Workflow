@@ -12,7 +12,7 @@ import * as fs from 'fs';
 import { log, GRACE_PERIOD_MS, JANITOR_INTERVAL_CYCLES, HEARTBEAT_STALE_THRESHOLD_MS, HUNG_DETECTOR_INTERVAL_CYCLES, PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES, getTargetRepoWorkspacePath, resolveClaudeCodePath, REPO_ROOT, assertCwdIsRepoRoot } from '../core';
 import { findHungOrchestrators, type HungDetectorDeps } from '../core/hungOrchestratorDetector';
 import { AgentStateManager } from '../core/agentState';
-import { getRepoInfo, fetchPRList, hasUnaddressedComments, isCancelComment, isRetryComment, activateGitHubAppAuth, refreshTokenIfNeeded } from '../github';
+import { getRepoInfo, fetchPRList, hasUnaddressedComments, isCancelComment, isRetryComment, activateGitHubAppAuth, ensureAppAuthForRepo, refreshTokenIfNeeded } from '../github';
 import { readAuthGate, writeAuthGate, clearAuthGate, markGateSlackNotified, shouldSendDetectionSlack } from '../core/authGate';
 import { sendSlackDetectionNotification, sendSlackRecoveryNotification } from '../core/slackNotifier';
 import { markStatePausedAuthForLiveOrchestrator } from '../phases/authPause';
@@ -204,6 +204,12 @@ async function checkAndTrigger(): Promise<void> {
   if (cycleCount % PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES === 0) {
     await runPerIssueScenarioSweep();
   }
+
+  // Re-assert app auth for THIS cron's target repo before polling. A pause-queue or
+  // auth-queue resume earlier in this tick may have activated auth for another repo
+  // and pinned the process-global GH_TOKEN there; without this re-assertion a stray
+  // activation blinds the poller until the process is restarted (issue #565).
+  ensureAppAuthForRepo(cronRepoInfo.owner, cronRepoInfo.repo);
 
   const now = Date.now();
   const cancelledThisCycle = new Set<number>();

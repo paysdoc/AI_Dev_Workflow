@@ -11,14 +11,14 @@ import { execSync, spawn } from 'child_process';
 import type { ChildProcess } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
-import { log, PROBE_INTERVAL_CYCLES, MAX_UNKNOWN_PROBE_FAILURES, resolveClaudeCodePath, AGENTS_STATE_DIR, REPO_ROOT } from '../core';
+import { log, PROBE_INTERVAL_CYCLES, MAX_UNKNOWN_PROBE_FAILURES, resolveClaudeCodePath, AGENTS_STATE_DIR, REPO_ROOT, parseTargetRepoArgs } from '../core';
 import {
   readPauseQueue,
   removeFromPauseQueue,
   updatePauseQueueEntry,
   type PausedWorkflow,
 } from '../core/pauseQueue';
-import { getRepoInfo, activateGitHubAppAuth } from '../github';
+import { getRepoInfo, activateGitHubAppAuth, type RepoInfo } from '../github';
 import { postIssueStageComment } from '../phases/phaseCommentHelpers';
 import { createRepoContext } from '../providers/repoContext';
 import { Platform } from '../providers/types';
@@ -39,6 +39,22 @@ const RATE_LIMIT_STRINGS = [
 /** Returns true if the text contains a known rate-limit indicator. */
 function containsRateLimitText(text: string): boolean {
   return RATE_LIMIT_STRINGS.some(s => text.includes(s));
+}
+
+/**
+ * Resolves the target repo for a paused entry from its persisted `--target-repo`
+ * extraArgs — the same repo the orchestrator is respawned with. Falls back to the
+ * cron's local git remote ONLY when the entry has no target repo (a framework
+ * self-hosting workflow, where cwd's remote IS the correct repo). This stops the
+ * resume path from pinning the process-global GH_TOKEN to the cron host's own repo
+ * (issue #565).
+ */
+function resolveEntryRepoInfo(entry: PausedWorkflow): RepoInfo {
+  const targetRepo = parseTargetRepoArgs([...(entry.extraArgs ?? [])]);
+  if (targetRepo) {
+    return { owner: targetRepo.owner, repo: targetRepo.repo };
+  }
+  return getRepoInfo();
 }
 
 /**
@@ -97,7 +113,7 @@ function awaitChildReadiness(child: ChildProcess, timeoutMs: number): Promise<vo
 
 /** Posts a resumed comment to the GitHub issue and spawns the orchestrator. */
 export async function resumeWorkflow(entry: PausedWorkflow): Promise<void> {
-  const repoInfo = getRepoInfo();
+  const repoInfo = resolveEntryRepoInfo(entry);
   activateGitHubAppAuth(repoInfo.owner, repoInfo.repo);
 
   // Check worktree still exists
@@ -252,7 +268,7 @@ export async function scanPauseQueue(cycleCount: number): Promise<void> {
         log(`Max probe failures reached for ${entry.adwId} — removing from queue`, 'error');
         removeFromPauseQueue(entry.adwId);
         try {
-          const repoInfo = getRepoInfo();
+          const repoInfo = resolveEntryRepoInfo(entry);
           const repoContext = createRepoContext({
             repoId: { owner: repoInfo.owner, repo: repoInfo.repo, platform: Platform.GitHub },
             cwd: process.cwd(),
