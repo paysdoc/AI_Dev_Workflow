@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 155              | 2026-06-12 16:30:11 |
-| Longest Streak    | 155              | 2026-06-12 16:30:11 |
-| Total Plan Size   | 6130 lines       | 2026-06-12 16:30:11 |
-| Largest Plan Size | 699 lines        | 2026-06-12 16:30:11 |
-| Total Diff Size   | 5831590 lines    | 2026-06-12 16:30:11 |
-| Largest Diff Size | 418153 lines     | 2026-06-12 16:30:11 |
-| Average Presence  | 1.24             | 2026-06-12 16:30:11 |
+| Current Streak    | 237              | 2026-06-13 11:07:01 |
+| Longest Streak    | 237              | 2026-06-13 11:07:01 |
+| Total Plan Size   | 2915 lines       | 2026-06-13 11:07:01 |
+| Largest Plan Size | 678 lines        | 2026-06-13 11:07:01 |
+| Total Diff Size   | 5831590 lines    | 2026-06-13 11:07:01 |
+| Largest Diff Size | 418153 lines     | 2026-06-13 11:07:01 |
+| Average Presence  | 1.14             | 2026-06-13 11:07:01 |
 
 ## ADW KPIs
 
@@ -240,3 +240,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-06-12 | 3hxt97-intake-form-fill-sli | 147 | /feature | 1 | 0 | 100042/1985/525 | 2026-06-12 11:16:39 | 2026-06-12 11:16:39 |
 | 2026-06-12 | tcewff-cron-gh-token-bleed | 565 | /bug | 1 | 0 | 972/204/18 | 2026-06-12 11:16:52 | 2026-06-12 11:16:52 |
 | 2026-06-12 | qfsbjl-intake-leg-infinite | 157 | /feature | 1 | 0 | 102160/1998/536 | 2026-06-12 16:30:11 | 2026-06-12 16:30:11 |
+| 2026-06-13 | x985bj-intake-ux-clear-stal | 159 | /feature | 1 | 0 | 102983/1999/540 | 2026-06-13 11:07:01 | 2026-06-13 11:07:01 |
