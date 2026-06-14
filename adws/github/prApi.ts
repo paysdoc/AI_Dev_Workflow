@@ -12,6 +12,23 @@ export interface RawPR {
   readonly state: string;
   readonly headRefName: string;
   readonly baseRefName: string;
+  /** Present when the lookup requested labels; absent for callers that don't. */
+  readonly labels?: readonly { readonly name: string }[];
+}
+
+/**
+ * True when `pr` carries a "won't fix" label (matched leniently: case- and
+ * punctuation-insensitive, so `wontfix`, `Won't fix`, `wont-fix` all count).
+ *
+ * Used by the upgrade idempotency guard to disqualify a retired claim PR: a
+ * flawed upgrade whose PR was merged can be re-run by labeling that PR wontfix
+ * WITHOUT having to delete it (GitHub never deletes PR records, and the claim
+ * branch is content-addressed, so the merged PR would otherwise pin the guard
+ * to a permanent no-op). See adwUpgrade executeUpgrade.
+ */
+export function hasWontFixLabel(pr: RawPR): boolean {
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+  return (pr.labels ?? []).some((l) => norm(l.name) === 'wontfix');
 }
 
 /** Extends RawPR with updatedAt for PR selection logic. */
@@ -45,7 +62,7 @@ export function defaultFindPRByBranch(branchName: string, repoInfo: RepoInfo): R
   const { owner, repo } = repoInfo;
   try {
     const json = execWithRetry(
-      `gh pr list --repo ${owner}/${repo} --head "${branchName}" --state all --json number,state,headRefName,baseRefName,updatedAt --limit 20`,
+      `gh pr list --repo ${owner}/${repo} --head "${branchName}" --state all --json number,state,headRefName,baseRefName,updatedAt,labels --limit 20`,
     );
     const prs = JSON.parse(json) as RawPRListEntry[];
     return selectPreferredPR(prs);

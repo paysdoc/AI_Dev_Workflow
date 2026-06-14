@@ -44,6 +44,10 @@ import {
   type AdwYmlConfig,
 } from './core';
 import { commentOnIssue, mergePR, type RepoInfo } from './github';
+<<<<<<< Updated upstream
+=======
+import { defaultFindPRByBranch, hasWontFixLabel, type RawPR } from './github/prApi';
+>>>>>>> Stashed changes
 import { ensureWorktree, commitChanges, pushBranch } from './vcs';
 import { getDefaultBranch } from './vcs/branchOperations';
 import { runClaudeAgentWithCommand } from './agents';
@@ -194,6 +198,34 @@ export async function executeUpgrade(
 
   // 2. Derive the claim branch name
   const branch = buildClaimBranchName(hash);
+<<<<<<< Updated upstream
+=======
+
+  // Idempotency guard: a claim branch that already has a PR (any state) has already reached
+  // the PR stage — re-dispatch (cron routes adw:upgrade issues to this orchestrator every
+  // tick) must not re-run regen or stack duplicate PRs. Only a claim with NO PR is genuinely
+  // stalled (the orchestrator died before opening the PR) and safe to (re)build. This is what
+  // makes that re-dispatch self-healing without a separate watchdog probe.
+  const existingClaimPr = deps.findPRByBranch(branch, repoInfo);
+  if (existingClaimPr && hasWontFixLabel(existingClaimPr)) {
+    // Escape hatch for a flawed-but-merged upgrade: labeling the retired PR
+    // `wontfix` disqualifies it from the guard so this hash can be rebuilt.
+    // selectPreferredPR prefers OPEN, so once the rebuild opens a fresh PR the
+    // guard below matches it again and idempotency self-heals. Reset (don't
+    // delete) the claim branch first — ensureWorktree checks it out.
+    deps.log(
+      `adwUpgrade: claim branch ${branch} PR #${existingClaimPr.number} is labeled wontfix; rebuilding`,
+      'info',
+    );
+  } else if (existingClaimPr) {
+    deps.log(
+      `adwUpgrade: claim branch ${branch} already has PR #${existingClaimPr.number} (${existingClaimPr.state}); no-op`,
+      'info',
+    );
+    return { outcome: 'completed', reason: 'pr_already_exists' };
+  }
+
+>>>>>>> Stashed changes
   const defaultBranch = deps.getDefaultBranch(baseRepoPath);
 
   // 3. Check out the existing remote claim branch

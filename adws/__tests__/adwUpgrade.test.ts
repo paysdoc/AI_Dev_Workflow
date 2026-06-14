@@ -88,6 +88,56 @@ describe('buildUpgradeFailureComment', () => {
 
 // ── Success path ──────────────────────────────────────────────────────────────
 
+<<<<<<< Updated upstream
+=======
+describe('executeUpgrade — idempotency guard (existing claim-branch PR)', () => {
+  it('no-ops with reason=pr_already_exists when a PR already exists for the claim branch', async () => {
+    const deps = makeDeps({ findPRByBranch: vi.fn().mockReturnValue({ number: 77, state: 'OPEN' }) });
+    const result = await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    expect(result.outcome).toBe('completed');
+    expect(result.reason).toBe('pr_already_exists');
+  });
+
+  it('does not regenerate, commit, push, or open a PR when a claim-branch PR exists', async () => {
+    const deps = makeDeps({ findPRByBranch: vi.fn().mockReturnValue({ number: 77, state: 'OPEN' }) });
+    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    expect(deps.runInitCommand).not.toHaveBeenCalled();
+    expect(deps.writeAdwVersion).not.toHaveBeenCalled();
+    expect(deps.commitChanges).not.toHaveBeenCalled();
+    expect(deps.pushBranch).not.toHaveBeenCalled();
+    expect(deps.createPullRequest).not.toHaveBeenCalled();
+  });
+
+  it('also no-ops for a CLOSED claim-branch PR (human-rejected upgrade must not loop)', async () => {
+    const deps = makeDeps({ findPRByBranch: vi.fn().mockReturnValue({ number: 77, state: 'CLOSED' }) });
+    const result = await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    expect(result.reason).toBe('pr_already_exists');
+    expect(deps.createPullRequest).not.toHaveBeenCalled();
+  });
+
+  it('proceeds normally when no PR exists for the claim branch (genuinely stalled)', async () => {
+    const deps = makeDeps({ findPRByBranch: vi.fn().mockReturnValue(null) });
+    const result = await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    expect(result.reason).toBe('pr_merged');
+    expect(deps.createPullRequest).toHaveBeenCalledTimes(1);
+  });
+
+  it('rebuilds (does NOT no-op) when the claim-branch PR is labeled wontfix', async () => {
+    const deps = makeDeps({
+      findPRByBranch: vi.fn().mockReturnValue({ number: 3, state: 'MERGED', labels: [{ name: "Won't fix" }] }),
+    });
+    const result = await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    expect(result.reason).toBe('pr_merged');
+    expect(deps.createPullRequest).toHaveBeenCalledTimes(1);
+  });
+});
+
+>>>>>>> Stashed changes
 describe('executeUpgrade — success path (default: auto-merge)', () => {
   it('returns outcome=completed, reason=pr_merged, and prUrl on success', async () => {
     const deps = makeDeps();
