@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 157              | 2026-06-14 11:49:09 |
-| Longest Streak    | 157              | 2026-06-14 11:49:09 |
-| Total Plan Size   | 6130 lines       | 2026-06-14 11:49:09 |
-| Largest Plan Size | 699 lines        | 2026-06-14 11:49:09 |
-| Total Diff Size   | 5938221 lines    | 2026-06-14 11:49:09 |
-| Largest Diff Size | 418153 lines     | 2026-06-14 11:49:09 |
-| Average Presence  | 1.24             | 2026-06-14 11:49:09 |
+| Current Streak    | 187              | 2026-06-14 16:36:46 |
+| Longest Streak    | 187              | 2026-06-14 16:36:46 |
+| Total Plan Size   | 6130 lines       | 2026-06-14 16:36:46 |
+| Largest Plan Size | 699 lines        | 2026-06-14 16:36:46 |
+| Total Diff Size   | 5939550 lines    | 2026-06-14 16:36:46 |
+| Largest Diff Size | 418153 lines     | 2026-06-14 16:36:46 |
+| Average Presence  | 1.21             | 2026-06-14 16:36:46 |
 
 ## ADW KPIs
 
@@ -242,3 +242,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-06-12 | qfsbjl-intake-leg-infinite | 157 | /feature | 1 | 0 | 102160/1998/536 | 2026-06-12 16:30:11 | 2026-06-12 16:30:11 |
 | 2026-06-13 | x985bj-intake-ux-clear-stal | 159 | /feature | 1 | 0 | 102983/1999/540 | 2026-06-13 11:07:01 | 2026-06-13 11:07:01 |
 | 2026-06-14 | nm1413-adwupgrade-pr-body-u | 570 | /bug | 1 | 0 | 1442/207/25 | 2026-06-14 11:49:09 | 2026-06-14 11:49:09 |
+| 2026-06-14 | t6m62c-fix-adwupgrade-regen | 572 | /bug | 2 | 0 | 1226/103/14 | 2026-06-14 16:36:46 | 2026-06-14 16:36:46 |
