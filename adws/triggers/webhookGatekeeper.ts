@@ -11,9 +11,9 @@ import * as path from 'path';
 import { log, generateAdwId, REPO_ROOT, LOGS_DIR } from '../core';
 import type { RepoInfo } from '../github/githubApi';
 import { getRepoInfo } from '../github';
-import { closeIssue } from '../github/issueApi';
+import { closeIssue, issueHasLabel } from '../github/issueApi';
 import { classifyIssueForTrigger, getWorkflowScript } from '../core/issueClassifier';
-import { applyLabel, issueTypeToAdwLabel } from '../github/labelManager';
+import { applyLabel, issueTypeToAdwLabel, ADW_UPGRADE_LABEL } from '../github/labelManager';
 import type { IssueClassSlashCommand } from '../types/issueTypes';
 import { AgentStateManager } from '../core/agentState';
 
@@ -76,6 +76,20 @@ export async function classifyAndSpawnWorkflow(
 
   if (readAuthGate() !== null) {
     log(`Issue #${issueNumber}: auth gate set, skipping spawn`, 'warn');
+    releaseIssueSpawnLock(resolvedRepoInfo, issueNumber);
+    return;
+  }
+
+  // Upgrade-tracking issues (adw:upgrade) are driven solely by adwUpgrade.tsx, never by
+  // normal classification. Must be intercepted BEFORE evaluateCandidate: otherwise the
+  // classifier reads the #UPG issue's title, mislabels it (e.g. as a chore), and re-enters
+  // the upgrade gate on the very issue that represents the upgrade — a loop/crash/runaway.
+  // Routing it to adwUpgrade is also the self-heal: adwUpgrade's own per-issue lifecycle
+  // lock makes re-dispatch idempotent (live → no-op, dead → resume), so no separate watchdog
+  // is needed. We release the spawn lock here so adwUpgrade can acquire its lifecycle lock.
+  if (issueHasLabel(issueNumber, ADW_UPGRADE_LABEL, resolvedRepoInfo)) {
+    log(`Issue #${issueNumber}: adw:upgrade tracking issue, routing to adwUpgrade`, 'success');
+    spawnDetached('bunx', ['tsx', 'adws/adwUpgrade.tsx', String(issueNumber), ...targetRepoArgs]);
     releaseIssueSpawnLock(resolvedRepoInfo, issueNumber);
     return;
   }

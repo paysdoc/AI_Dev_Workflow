@@ -13,7 +13,12 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { execSync } from 'child_process';
-import { claimUpgradeOrFindExisting, buildClaimBranchName, type UpgradeClaimDeps } from '../upgradeClaim';
+import {
+  claimUpgradeOrFindExisting,
+  buildClaimBranchName,
+  defaultPushClaimBranch,
+  type UpgradeClaimDeps,
+} from '../upgradeClaim';
 import type { RepoInfo } from '../../github/githubApi';
 
 const REPO_INFO: RepoInfo = { owner: 'sandbox', repo: 'target' };
@@ -50,78 +55,14 @@ function createClone(name: string): string {
 }
 
 /**
- * Builds a pushClaimBranch that uses real git operations but fetches from the
- * bare repo using 'main' as the default branch (avoiding the gh CLI call in
- * getDefaultBranch which requires a real GitHub remote).
+ * Wraps the REAL defaultPushClaimBranch against the sandbox clone, injecting a fixed
+ * default branch so it does not shell out to `gh repo view`. Exercising the real function
+ * (instead of a hand-copied reimplementation) is the whole point — the copy is what let the
+ * original `git checkout -b` collision and process.cwd() target-repo bugs pass the suite.
  */
 function makeRealPushClaimBranch(clonePath: string, defaultBranch: string) {
-  return function pushClaimBranch(branchName: string, hash: string): boolean {
-    execSync(`git fetch origin "${defaultBranch}"`, { stdio: 'pipe', cwd: clonePath });
-
-    const tmpdir = fs.mkdtempSync(path.join(os.tmpdir(), 'adw-claim-integ-'));
-    try {
-      execSync(
-        `git worktree add --detach "${tmpdir}" "origin/${defaultBranch}"`,
-        { stdio: 'pipe', cwd: clonePath },
-      );
-      execSync(`git checkout -b "${branchName}"`, {
-        stdio: 'pipe',
-        cwd: tmpdir,
-        env: {
-          ...process.env,
-          GIT_AUTHOR_NAME: 'test',
-          GIT_AUTHOR_EMAIL: 'test@test.com',
-          GIT_COMMITTER_NAME: 'test',
-          GIT_COMMITTER_EMAIL: 'test@test.com',
-        },
-      });
-
-      const nonce = Math.random().toString(36).slice(2, 10);
-      execSync(
-        `git commit --allow-empty -m "ADW upgrade in progress: ${hash} [${nonce}]"`,
-        {
-          stdio: 'pipe',
-          cwd: tmpdir,
-          env: {
-            ...process.env,
-            GIT_AUTHOR_NAME: 'test',
-            GIT_AUTHOR_EMAIL: 'test@test.com',
-            GIT_COMMITTER_NAME: 'test',
-            GIT_COMMITTER_EMAIL: 'test@test.com',
-          },
-        },
-      );
-
-      try {
-        execSync(`git push origin "${branchName}"`, { stdio: 'pipe', cwd: tmpdir });
-        return true;
-      } catch (pushErr) {
-        const buf = (pushErr as { stderr?: Buffer | string }).stderr;
-        const msg = buf instanceof Buffer ? buf.toString() : (typeof buf === 'string' ? buf : String(pushErr));
-        const lower = msg.toLowerCase();
-        if (
-          lower.includes('rejected') ||
-          lower.includes('non-fast-forward') ||
-          lower.includes('failed to push some refs') ||
-          lower.includes('already exists')
-        ) {
-          return false;
-        }
-        throw pushErr;
-      }
-    } finally {
-      try {
-        execSync(`git worktree remove --force "${tmpdir}"`, { stdio: 'pipe', cwd: clonePath });
-      } catch {
-        // best-effort
-      }
-      try {
-        fs.rmSync(tmpdir, { recursive: true, force: true });
-      } catch {
-        // best-effort
-      }
-    }
-  };
+  return (branchName: string, hash: string): boolean =>
+    defaultPushClaimBranch(branchName, hash, clonePath, () => defaultBranch);
 }
 
 function makePartialDeps(clonePath: string, defaultBranch = 'main'): UpgradeClaimDeps {
@@ -287,5 +228,25 @@ describe('temp worktree cleanup', () => {
     const worktrees = execSync(`git -C "${clone2}" worktree list`, { encoding: 'utf-8' });
     const lines = worktrees.trim().split('\n').filter(Boolean);
     expect(lines).toHaveLength(1);
+  });
+});
+
+// ── §5 Regression: leftover local branch must not crash the claim (Bug B) ──────
+
+describe('regression: pre-existing local claim branch does not crash the push (Bug B)', () => {
+  it('still wins when a stale local branch of the same name already exists in the clone', async () => {
+    const clone1 = createClone('clone1');
+    // Simulate the leftover the original incident left behind: a prior attempt's local
+    // branch of the same deterministic name. The old `git checkout -b "<branch>"` threw
+    // "a branch named '<branch>' already exists" here, crashed the orchestrator, and bypassed
+    // the loser path. The detached-HEAD + `push HEAD:refs/heads/<branch>` impl never touches
+    // the local branch namespace, so this must just win.
+    git(clone1, 'branch', CLAIM_BRANCH, 'origin/main');
+
+    const result = await claimUpgradeOrFindExisting(HASH, REPO_INFO, makePartialDeps(clone1));
+
+    expect(result).toEqual({ won: true, branch: CLAIM_BRANCH });
+    const refs = execSync(`git -C "${bareRepoPath}" branch`, { encoding: 'utf-8' }).trim();
+    expect(refs).toContain(CLAIM_BRANCH);
   });
 });

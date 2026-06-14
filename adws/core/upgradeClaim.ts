@@ -107,21 +107,33 @@ function cleanupClaimTempWorktree(cwd: string, tmpdir: string): void {
   }
 }
 
-function defaultPushClaimBranch(
+/**
+ * Exported (and `getDefaultBranchFn`-injectable) so integration tests can exercise the
+ * REAL push logic against a sandbox bare repo, rather than hand-copying it — the copy is
+ * exactly what let the original `git checkout -b` + process.cwd() bugs survive the suite.
+ */
+export function defaultPushClaimBranch(
   branchName: string,
   hash: string,
   baseRepoPath: string,
+  getDefaultBranchFn: (cwd: string) => string = getDefaultBranch,
 ): boolean {
-  const defaultBranch = getDefaultBranch(baseRepoPath);
+  const defaultBranch = getDefaultBranchFn(baseRepoPath);
   execSync(`git fetch origin "${defaultBranch}"`, { stdio: 'pipe', cwd: baseRepoPath });
 
   const tmpdir = fs.mkdtempSync(path.join(os.tmpdir(), 'adw-claim-'));
   try {
+    // Detached worktree at origin/<default>. We deliberately do NOT create a local
+    // branch: a named `git checkout -b <branchName>` is not idempotent and a leftover
+    // local branch from a prior attempt (cleanup removes the worktree, not the branch)
+    // makes the next run crash with "branch already exists" — a hard throw that escapes
+    // the push try/catch below and bypasses the loser path entirely. Committing in
+    // detached HEAD and pushing HEAD to the remote namespace keeps the remote push as
+    // the single atomic gate and leaves no local branch to leak.
     execSync(
       `git worktree add --detach "${tmpdir}" "origin/${defaultBranch}"`,
       { stdio: 'pipe', cwd: baseRepoPath },
     );
-    execSync(`git checkout -b "${branchName}"`, { stdio: 'pipe', cwd: tmpdir });
 
     const nonce = Math.random().toString(36).slice(2, 10);
     execSync(
@@ -130,7 +142,7 @@ function defaultPushClaimBranch(
     );
 
     try {
-      execSync(`git push origin "${branchName}"`, { stdio: 'pipe', cwd: tmpdir });
+      execSync(`git push origin "HEAD:refs/heads/${branchName}"`, { stdio: 'pipe', cwd: tmpdir });
       return true;
     } catch (pushErr) {
       const buf = (pushErr as { stderr?: Buffer | string }).stderr;
