@@ -25,7 +25,10 @@ function makeDeps(overrides: Partial<UpgradeDeps> = {}): UpgradeDeps {
     computeFrameworkHash: vi.fn().mockReturnValue(MOCK_HASH),
     ensureWorktree: vi.fn().mockReturnValue('/worktrees/adw-upgrade-a1b2c3d4e5f6'),
     getDefaultBranch: vi.fn().mockReturnValue('main'),
+    findPRByBranch: vi.fn().mockReturnValue(null),
     runInitCommand: vi.fn().mockResolvedValue({ success: true }),
+    copyInitCommandToWorktree: vi.fn(),
+    verifyAdwRegen: vi.fn().mockReturnValue({ ok: true, missing: [] }),
     writeAdwVersion: vi.fn(),
     commitChanges: vi.fn().mockReturnValue(true),
     pushBranch: vi.fn(),
@@ -88,8 +91,6 @@ describe('buildUpgradeFailureComment', () => {
 
 // ── Success path ──────────────────────────────────────────────────────────────
 
-<<<<<<< Updated upstream
-=======
 describe('executeUpgrade — idempotency guard (existing claim-branch PR)', () => {
   it('no-ops with reason=pr_already_exists when a PR already exists for the claim branch', async () => {
     const deps = makeDeps({ findPRByBranch: vi.fn().mockReturnValue({ number: 77, state: 'OPEN' }) });
@@ -137,7 +138,6 @@ describe('executeUpgrade — idempotency guard (existing claim-branch PR)', () =
   });
 });
 
->>>>>>> Stashed changes
 describe('executeUpgrade — success path (default: auto-merge)', () => {
   it('returns outcome=completed, reason=pr_merged, and prUrl on success', async () => {
     const deps = makeDeps();
@@ -391,6 +391,89 @@ describe('executeUpgrade — worktree error path', () => {
     await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
 
     expect(deps.createPullRequest).not.toHaveBeenCalled();
+  });
+});
+
+// ── E1: anti-brick gate — regen_incomplete path ───────────────────────────────
+
+describe('executeUpgrade — anti-brick verification gate (E1)', () => {
+  it('returns outcome=failed, reason=regen_incomplete when verifyAdwRegen returns ok:false', async () => {
+    const deps = makeDeps({
+      verifyAdwRegen: vi.fn().mockReturnValue({ ok: false, missing: ['commands.md'] }),
+    });
+    const result = await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    expect(result.outcome).toBe('failed');
+    expect(result.reason).toBe('regen_incomplete');
+  });
+
+  it('does not call writeAdwVersion, commitChanges, pushBranch, createPullRequest, or mergePR when gate fails', async () => {
+    const deps = makeDeps({
+      verifyAdwRegen: vi.fn().mockReturnValue({ ok: false, missing: ['commands.md'] }),
+    });
+    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    expect(deps.writeAdwVersion).not.toHaveBeenCalled();
+    expect(deps.commitChanges).not.toHaveBeenCalled();
+    expect(deps.pushBranch).not.toHaveBeenCalled();
+    expect(deps.createPullRequest).not.toHaveBeenCalled();
+    expect(deps.mergePR).not.toHaveBeenCalled();
+  });
+
+  it('posts exactly one non-ADW comment when gate fails', async () => {
+    const deps = makeDeps({
+      verifyAdwRegen: vi.fn().mockReturnValue({ ok: false, missing: ['commands.md'] }),
+    });
+    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    expect(deps.commentOnIssue).toHaveBeenCalledTimes(1);
+    const body = (deps.commentOnIssue as ReturnType<typeof vi.fn>).mock.calls[0][1] as string;
+    expect(isAdwComment(body)).toBe(false);
+  });
+});
+
+// ── E2: gate pass — proceeds to stamp + PR ────────────────────────────────────
+
+describe('executeUpgrade — gate passes (E2)', () => {
+  it('calls writeAdwVersion when verifyAdwRegen returns ok:true', async () => {
+    const deps = makeDeps(); // verifyAdwRegen returns ok:true by default
+    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    expect(deps.verifyAdwRegen).toHaveBeenCalledTimes(1);
+    expect(deps.writeAdwVersion).toHaveBeenCalledTimes(1);
+  });
+
+  it('proceeds to pr_merged on the gate-pass path', async () => {
+    const deps = makeDeps();
+    const result = await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    expect(result.reason).toBe('pr_merged');
+  });
+});
+
+// ── E3: ordering — copyInitCommandToWorktree before runInitCommand ─────────────
+
+describe('executeUpgrade — copy-before-init ordering (E3)', () => {
+  it('calls copyInitCommandToWorktree before runInitCommand', async () => {
+    const callOrder: string[] = [];
+    const deps = makeDeps({
+      copyInitCommandToWorktree: vi.fn().mockImplementation(() => { callOrder.push('copy'); }),
+      runInitCommand: vi.fn().mockImplementation(async () => { callOrder.push('init'); return { success: true }; }),
+    });
+
+    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    expect(callOrder.indexOf('copy')).toBeLessThan(callOrder.indexOf('init'));
+  });
+
+  it('calls copyInitCommandToWorktree with (worktreePath, frameworkRepoRoot)', async () => {
+    const deps = makeDeps();
+    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    expect(deps.copyInitCommandToWorktree).toHaveBeenCalledWith(
+      expect.any(String),
+      FRAMEWORK_ROOT,
+    );
   });
 });
 

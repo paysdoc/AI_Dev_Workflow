@@ -1,5 +1,13 @@
 # Conditional Documentation
 
+- app_docs/feature-t6m62c-adwupgrade-regen-gate-propagation.md
+  - Conditions:
+    - When working on `adwUpgrade.tsx` `executeUpgrade()` or `UpgradeDeps`
+    - When implementing or debugging the `.adw/` regeneration path (`copyAdwInitCommandToWorktree`, `verifyAdwRegen`)
+    - When a target repo's `.adw-version` equals the current framework hash but `.adw/` is missing (bricked repo recovery)
+    - When modifying `copyClaudeAssetsToWorktree` or the `target:` flag gitignore policy in `worktreeSetup.ts`
+    - When troubleshooting skill/command propagation to worktrees or target repos
+
 - app_docs/feature-tcewff-cron-gh-token-bleed-fix.md
   - Conditions:
     - When working on `adws/triggers/pauseQueueScanner.ts` `resumeWorkflow()` or `scanPauseQueue()` repo resolution
