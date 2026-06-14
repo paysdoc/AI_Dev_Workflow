@@ -612,6 +612,7 @@ adws/                   # ADW workflow system
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── branchNameResolution.test.ts
 │   │   ├── orchestratorLock.test.ts
+│   │   ├── planPhase.test.ts
 │   │   ├── progressGate.test.ts
 │   │   ├── reviewPhase.test.ts
 │   │   ├── scenarioTestPhase.test.ts

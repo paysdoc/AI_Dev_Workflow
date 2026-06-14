@@ -1425,3 +1425,11 @@
     - When troubleshooting a restarted build agent that is redoing or reverting already-committed work
     - When working with `checkpointCommitsPresent` / `baseBranch` parameters or the `MAX_CONTINUATION_OUTPUT_LENGTH` truncation logic
     - When adding unit tests for `buildContinuationPrompt()` in `adws/phases/__tests__/planPhase.test.ts`
+
+- app_docs/feature-nm1413-adwupgrade-pr-closing-keyword.md
+  - Conditions:
+    - When working with `buildUpgradePrBody()` in `adws/adwUpgrade.tsx` or the upgrade PR body format
+    - When troubleshooting an upgrade tracking issue that stays OPEN after the upgrade PR merges
+    - When a dependent issue is permanently blocked because its `## Blocked by #N` tracking issue never closed
+    - When understanding why `Implements #N` vs `Closes #N` matters for GitHub auto-close and Projects V2 linking
+    - When modifying the issue reference line(s) in the upgrade PR body (additive `Closes` must coexist with `Implements` for `linkedPrDetector`)

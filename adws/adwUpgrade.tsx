@@ -18,7 +18,7 @@
  * On LLM failure: posts a non-workflow comment to the tracking issue and exits 0 (handled failure).
  * On success: opens and (by default) auto-merges the PR. If .github/adw.yml sets hitl: true,
  * the PR is left open for a human to review; the tracking issue auto-closes on merge via the
- * Implements #<N> linkage. The .github/adw.yml file lives outside .adw/ so /adw_init
+ * `Closes #<N>` keyword in the PR body. The .github/adw.yml file lives outside .adw/ so /adw_init
  * regeneration cannot clobber the opt-in signal.
  *
  * Does NOT call initializeWorkflow() — joins the adwMerge.tsx exception list.
@@ -96,12 +96,17 @@ export function buildUpgradePrTitle(hash: string): string {
 }
 
 /**
- * Builds the upgrade PR body. Begins with `Implements #<issueNumber>` so the
- * tracking issue auto-closes on merge and concurrencyGuard recognises the linked PR.
+ * Builds the upgrade PR body.
+ * - `Closes #<issueNumber>` — GitHub closing keyword; auto-closes the tracking issue on merge
+ *   to the default branch and creates the linked-PR relationship Projects V2 renders.
+ * - `Implements #<issueNumber>` — retained as the `linkedPrDetector` (`hasLinkedMergedOrClosedPR`)
+ *   defense-in-depth backstop: if auto-close ever silently fails, the detector still recognises
+ *   the merged PR so `concurrencyGuard` won't over-count and `cronLabelEligibility` won't re-spawn.
  */
 export function buildUpgradePrBody(issueNumber: number, hash: string): string {
   return [
     `Implements #${issueNumber}`,
+    `Closes #${issueNumber}`,
     '',
     'Regenerates the `.adw/` directory against the current ADW framework version and bumps `.adw-version`.',
     '',
