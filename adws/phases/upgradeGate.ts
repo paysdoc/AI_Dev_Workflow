@@ -11,7 +11,7 @@
 
 import { computeFrameworkHash } from '../core/hashComputer';
 import { readAdwVersion } from '../core/adwVersion';
-import { claimUpgradeOrFindExisting } from '../core/upgradeClaim';
+import { claimUpgradeOrFindExisting, buildDefaultUpgradeClaimDeps } from '../core/upgradeClaim';
 import {
   createIssue,
   updateIssueBody,
@@ -168,7 +168,13 @@ export function buildDefaultUpgradeGateDeps(
   return {
     computeFrameworkHash,
     readAdwVersion,
-    claimUpgrade: (hash, repoInfo) => claimUpgradeOrFindExisting(hash, repoInfo),
+    // The atomic claim must run against the TARGET repo's branch namespace, not the
+    // framework checkout. Pin baseRepoPath to the target worktree (whose `origin` is the
+    // target remote) — otherwise it defaults to process.cwd() (the framework repo) and
+    // pushes the claim branch to the framework's own GitHub, scoping the winner/loser
+    // election globally across every target repo instead of per-target.
+    claimUpgrade: (hash, repoInfo) =>
+      claimUpgradeOrFindExisting(hash, repoInfo, buildDefaultUpgradeClaimDeps(worktreePath)),
     createIssue,
     applyLabel,
     updateIssueBody,
