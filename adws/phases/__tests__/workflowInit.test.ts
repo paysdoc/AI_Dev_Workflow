@@ -67,10 +67,9 @@ vi.mock('../../core/orchestratorLib', () => ({
 }));
 
 vi.mock('../worktreeSetup', () => ({
-  copyClaudeCommandsToWorktree: vi.fn(),
+  copyClaudeAssetsToWorktree: vi.fn(),
   ensureGitignoreEntry: vi.fn(),
   ensureGitignoreEntries: vi.fn(),
-  copyTargetSkillsAndCommands: vi.fn(),
 }));
 
 vi.mock('../phaseCommentHelpers', () => ({

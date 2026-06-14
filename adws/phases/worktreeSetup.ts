@@ -1,5 +1,5 @@
 /**
- * Worktree setup helpers: gitignore management and slash-command copying.
+ * Worktree setup helpers: gitignore management and slash-command/skill copying.
  */
 
 import * as fs from 'fs';
@@ -7,6 +7,16 @@ import * as path from 'path';
 import { execSync } from 'child_process';
 import { fileURLToPath } from 'node:url';
 import { log } from '../core';
+
+/** The six canonical .adw/ config files that /adw_init must produce. */
+export const REQUIRED_ADW_FILES = [
+  'commands.md',
+  'project.md',
+  'conditional_docs.md',
+  'providers.md',
+  'review_proof.md',
+  'scenarios.md',
+] as const;
 
 /**
  * Ensures a given entry exists in the `.gitignore` file at the specified directory.
@@ -74,8 +84,6 @@ export function ensureGitignoreEntries(worktreePath: string, entries: readonly s
 /**
  * Parses the YAML frontmatter of a markdown file and returns whether `target: true` is set.
  * Returns `false` if the file doesn't exist, has no frontmatter, or the `target` field is absent/false.
- *
- * @param filePath - The absolute path to the markdown file to parse
  */
 function parseFrontmatterTarget(filePath: string): boolean {
   if (!fs.existsSync(filePath)) return false;
@@ -105,112 +113,149 @@ function copyDirContents(srcDir: string, destDir: string): void {
 }
 
 /**
- * Copies `target: true` skills and commands from the ADW repo to a target repo worktree.
- * Skills (entire directories) and commands (individual `.md` files) marked with `target: true`
- * in their YAML frontmatter are copied and overwrite existing files. Intended to be called
- * during `adw_init` so these files are committed alongside `.adw/` config.
- *
- * @param worktreePath - The absolute path to the target repo worktree
+ * Returns the set of basenames tracked by git under a given path prefix in the worktree.
  */
-export function copyTargetSkillsAndCommands(worktreePath: string): void {
+function getTrackedBasenames(worktreePath: string, prefix: string): Set<string> {
+  try {
+    return new Set(
+      execSync(`git ls-files "${prefix}"`, { encoding: 'utf-8', cwd: worktreePath })
+        .split('\n')
+        .filter(Boolean)
+        .map((f) => path.basename(f)),
+    );
+  } catch {
+    return new Set();
+  }
+}
+
+/**
+ * Returns the set of top-level directory names tracked by git under a given path prefix.
+ * E.g., for `.claude/skills/` returns `{'tdd', 'refactor', ...}`.
+ */
+function getTrackedTopDirs(worktreePath: string, prefix: string): Set<string> {
+  try {
+    return new Set(
+      execSync(`git ls-files "${prefix}"`, { encoding: 'utf-8', cwd: worktreePath })
+        .split('\n')
+        .filter(Boolean)
+        .map((f) => {
+          const relative = f.startsWith(prefix) ? f.slice(prefix.length) : f;
+          return relative.split('/')[0];
+        })
+        .filter(Boolean),
+    );
+  } catch {
+    return new Set();
+  }
+}
+
+/**
+ * Copies the framework's `adw_init.md` command into a worktree so `/adw_init` resolves,
+ * then gitignores it so the upgrade commit does not carry it into the PR.
+ *
+ * Bespoke helper used only by `adwUpgrade.tsx` — intentionally separate from
+ * `copyClaudeAssetsToWorktree` to keep the upgrade PR scope tight.
+ */
+export function copyAdwInitCommandToWorktree(worktreePath: string, frameworkRepoRoot: string): void {
+  const srcFile = path.join(frameworkRepoRoot, '.claude', 'commands', 'adw_init.md');
+  const destDir = path.join(worktreePath, '.claude', 'commands');
+  fs.mkdirSync(destDir, { recursive: true });
+  fs.copyFileSync(srcFile, path.join(destDir, 'adw_init.md'));
+  ensureGitignoreEntry(worktreePath, '.claude/commands/adw_init.md');
+}
+
+/**
+ * Verifies that `/adw_init` actually regenerated `.adw/` before the version stamp is written.
+ *
+ * Returns `ok: true` when all six canonical `.adw/` files exist and are non-empty,
+ * `features/regression/vocabulary.md` exists, and there is at least one uncommitted
+ * change under `.adw/` (detected via `git status --porcelain`).
+ *
+ * Uses `git status --porcelain` (not `git diff`) so it catches the virgin-repo case
+ * where `.adw/` is entirely untracked (added, not modified).
+ */
+export function verifyAdwRegen(worktreePath: string): { ok: boolean; missing: readonly string[] } {
+  const adwDir = path.join(worktreePath, '.adw');
+  const missing: string[] = [];
+
+  for (const file of REQUIRED_ADW_FILES) {
+    const filePath = path.join(adwDir, file);
+    if (!fs.existsSync(filePath) || fs.statSync(filePath).size === 0) {
+      missing.push(file);
+    }
+  }
+
+  const vocabPath = path.join(worktreePath, 'features', 'regression', 'vocabulary.md');
+  if (!fs.existsSync(vocabPath)) {
+    missing.push('features/regression/vocabulary.md');
+  }
+
+  if (missing.length > 0) return { ok: false, missing };
+
+  try {
+    const status = execSync('git status --porcelain -- .adw', {
+      encoding: 'utf-8',
+      cwd: worktreePath,
+    }).trim();
+    if (!status) return { ok: false, missing: [] };
+  } catch {
+    return { ok: false, missing: [] };
+  }
+
+  return { ok: true, missing: [] };
+}
+
+/**
+ * Copies ALL commands and ALL skills from the ADW framework repo into a target worktree,
+ * always overwriting (merged replacement for the two previous helper functions).
+ *
+ * Post-copy gitignore policy — preserving the #267 invariant:
+ *   - `target: true` assets: left committable (refresh + propagation into the product repo).
+ *   - `target: false` assets: gitignored for run-availability only, UNLESS already tracked
+ *     by git (never gitignore an already-committed path — gitignore can't untrack).
+ */
+export function copyClaudeAssetsToWorktree(worktreePath: string): void {
   const currentDir = path.dirname(fileURLToPath(import.meta.url));
   const adwRepoRoot = path.resolve(currentDir, '../../');
 
-  const skillsSourceDir = path.join(adwRepoRoot, '.claude', 'skills');
   const commandsSourceDir = path.join(adwRepoRoot, '.claude', 'commands');
+  const skillsSourceDir = path.join(adwRepoRoot, '.claude', 'skills');
 
-  let skillsCopied = 0;
-  let commandsCopied = 0;
+  const gitignoreEntries: string[] = [];
 
-  if (fs.existsSync(skillsSourceDir)) {
-    const skillNames = fs.readdirSync(skillsSourceDir).filter((name) =>
-      fs.statSync(path.join(skillsSourceDir, name)).isDirectory()
-    );
-
-    skillNames
-      .filter((name) => parseFrontmatterTarget(path.join(skillsSourceDir, name, 'SKILL.md')))
-      .forEach((name) => {
-        copyDirContents(
-          path.join(skillsSourceDir, name),
-          path.join(worktreePath, '.claude', 'skills', name)
-        );
-        skillsCopied++;
-      });
-  } else {
-    log(`No .claude/skills/ found in ADW repo at ${skillsSourceDir}, skipping`, 'info');
-  }
+  const trackedCommandFiles = getTrackedBasenames(worktreePath, '.claude/commands/');
+  const trackedSkillDirs = getTrackedTopDirs(worktreePath, '.claude/skills/');
 
   if (fs.existsSync(commandsSourceDir)) {
     const commandsDestDir = path.join(worktreePath, '.claude', 'commands');
     fs.mkdirSync(commandsDestDir, { recursive: true });
 
-    fs.readdirSync(commandsSourceDir)
-      .filter((f) => f.endsWith('.md'))
-      .filter((f) => parseFrontmatterTarget(path.join(commandsSourceDir, f)))
-      .forEach((f) => {
-        fs.copyFileSync(path.join(commandsSourceDir, f), path.join(commandsDestDir, f));
-        commandsCopied++;
-      });
+    for (const file of fs.readdirSync(commandsSourceDir).filter((f) => f.endsWith('.md'))) {
+      fs.copyFileSync(path.join(commandsSourceDir, file), path.join(commandsDestDir, file));
+      if (!parseFrontmatterTarget(path.join(commandsSourceDir, file)) && !trackedCommandFiles.has(file)) {
+        gitignoreEntries.push(`.claude/commands/${file}`);
+      }
+    }
   } else {
     log(`No .claude/commands/ found in ADW repo at ${commandsSourceDir}, skipping`, 'info');
   }
 
-  log(`Copied ${skillsCopied} skill(s) and ${commandsCopied} command(s) to target repo`, 'info');
-}
-
-/**
- * Copies the ADW repo's `.claude/commands/` directory to a target repo worktree.
- * Only copies `.md` files that don't already exist in the destination,
- * preserving the target repo's own commands. Skips gitignoring any command files
- * that are already tracked by git in the target repo (i.e., committed during adw_init).
- *
- * @param worktreePath - The absolute path to the target repo worktree
- */
-export function copyClaudeCommandsToWorktree(worktreePath: string): void {
-  const currentDir = path.dirname(fileURLToPath(import.meta.url));
-  const adwRepoRoot = path.resolve(currentDir, '../../');
-  const sourceDir = path.join(adwRepoRoot, '.claude', 'commands');
-  const destDir = path.join(worktreePath, '.claude', 'commands');
-
-  if (!fs.existsSync(sourceDir)) {
-    log(`No .claude/commands/ found in ADW repo at ${sourceDir}, skipping copy`, 'info');
-    return;
-  }
-
-  fs.mkdirSync(destDir, { recursive: true });
-
-  const sourceFiles = fs.readdirSync(sourceDir).filter((file) => file.endsWith('.md'));
-  const copiedFiles = sourceFiles.filter((file) => {
-    const destPath = path.join(destDir, file);
-    if (fs.existsSync(destPath)) return false;
-    fs.copyFileSync(path.join(sourceDir, file), destPath);
-    return true;
-  });
-
-  if (copiedFiles.length > 0) {
-    log(`Copied ${copiedFiles.length} slash command(s) to worktree: ${copiedFiles.join(', ')}`, 'info');
-  } else {
-    log('No new slash commands to copy (all already exist in target)', 'info');
-  }
-
-  if (copiedFiles.length > 0) {
-    const trackedFiles = execSync('git ls-files .claude/commands/', {
-      encoding: 'utf-8',
-      cwd: worktreePath,
-    })
-      .split('\n')
-      .filter(Boolean)
-      .map((f) => path.basename(f));
-
-    const filesToGitignore = copiedFiles.filter((f) =>
-      !trackedFiles.includes(f) && !parseFrontmatterTarget(path.join(sourceDir, f))
-    );
-
-    if (filesToGitignore.length > 0) {
-      const gitignoreEntries = filesToGitignore.map((file) => `.claude/commands/${file}`);
-      ensureGitignoreEntries(worktreePath, gitignoreEntries);
-    } else {
-      log('All copied commands are already tracked by git, skipping gitignore', 'info');
+  if (fs.existsSync(skillsSourceDir)) {
+    for (const skillName of fs.readdirSync(skillsSourceDir).filter(
+      (n) => fs.statSync(path.join(skillsSourceDir, n)).isDirectory(),
+    )) {
+      copyDirContents(
+        path.join(skillsSourceDir, skillName),
+        path.join(worktreePath, '.claude', 'skills', skillName),
+      );
+      const isTarget = parseFrontmatterTarget(path.join(skillsSourceDir, skillName, 'SKILL.md'));
+      if (!isTarget && !trackedSkillDirs.has(skillName)) {
+        gitignoreEntries.push(`.claude/skills/${skillName}/`);
+      }
     }
+  } else {
+    log(`No .claude/skills/ found in ADW repo at ${skillsSourceDir}, skipping`, 'info');
   }
+
+  ensureGitignoreEntries(worktreePath, gitignoreEntries);
 }

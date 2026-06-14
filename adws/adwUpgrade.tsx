@@ -44,15 +44,13 @@ import {
   type AdwYmlConfig,
 } from './core';
 import { commentOnIssue, mergePR, type RepoInfo } from './github';
-<<<<<<< Updated upstream
-=======
 import { defaultFindPRByBranch, hasWontFixLabel, type RawPR } from './github/prApi';
->>>>>>> Stashed changes
 import { ensureWorktree, commitChanges, pushBranch } from './vcs';
 import { getDefaultBranch } from './vcs/branchOperations';
 import { runClaudeAgentWithCommand } from './agents';
 import { createGitHubCodeHost } from './providers/github/githubCodeHost';
 import type { CreatePROptions, PullRequestResult, RepoIdentifier } from './providers/types';
+import { copyAdwInitCommandToWorktree, verifyAdwRegen } from './phases/worktreeSetup';
 
 // ── Result type ───────────────────────────────────────────────────────────────
 
@@ -80,7 +78,10 @@ export interface UpgradeDeps {
   readonly computeFrameworkHash: (frameworkRepoRoot: string) => string;
   readonly ensureWorktree: (branch: string, baseBranch: string, baseRepoPath: string) => string;
   readonly getDefaultBranch: (cwd: string) => string;
+  readonly findPRByBranch: (branch: string, repoInfo: RepoInfo) => RawPR | null;
   readonly runInitCommand: (params: RunInitCommandParams) => Promise<{ success: boolean; error?: string }>;
+  readonly copyInitCommandToWorktree: (worktreePath: string, frameworkRepoRoot: string) => void;
+  readonly verifyAdwRegen: (worktreePath: string) => { ok: boolean; missing: readonly string[] };
   readonly writeAdwVersion: (worktreePath: string, hash: string) => void;
   readonly commitChanges: (message: string, cwd: string) => boolean;
   readonly pushBranch: (branch: string, cwd: string) => void;
@@ -198,8 +199,6 @@ export async function executeUpgrade(
 
   // 2. Derive the claim branch name
   const branch = buildClaimBranchName(hash);
-<<<<<<< Updated upstream
-=======
 
   // Idempotency guard: a claim branch that already has a PR (any state) has already reached
   // the PR stage — re-dispatch (cron routes adw:upgrade issues to this orchestrator every
@@ -225,7 +224,6 @@ export async function executeUpgrade(
     return { outcome: 'completed', reason: 'pr_already_exists' };
   }
 
->>>>>>> Stashed changes
   const defaultBranch = deps.getDefaultBranch(baseRepoPath);
 
   // 3. Check out the existing remote claim branch
@@ -241,7 +239,10 @@ export async function executeUpgrade(
     return { outcome: 'failed', reason: 'worktree_error' };
   }
 
-  // 4. Run /adw_init via the Claude CLI
+  // 4. Copy adw_init.md into the worktree so the /adw_init slash command resolves,
+  //    then run it. The copy is gitignored so it stays out of the upgrade PR.
+  deps.copyInitCommandToWorktree(worktreePath, frameworkRepoRoot);
+
   const logsDir = deps.ensureLogsDirectory(adwId);
   const issueJson = JSON.stringify({ number: issueNumber, title: '', body: '' });
 
@@ -262,6 +263,25 @@ export async function executeUpgrade(
       repoInfo,
     );
     return { outcome: 'failed', reason: 'llm_failed' };
+  }
+
+  // 5b. Anti-brick gate: verify .adw/ was actually regenerated before stamping.
+  //     An exit-0 /adw_init that wrote nothing must not advance .adw-version —
+  //     that would permanently brick the repo by satisfying the upgrade gate forever.
+  //     No stamp + no PR = the next cron tick re-dispatches cleanly (idempotency
+  //     guard sees no PR on the claim branch and safely re-runs regeneration).
+  const verify = deps.verifyAdwRegen(worktreePath);
+  if (!verify.ok) {
+    deps.commentOnIssue(
+      issueNumber,
+      buildUpgradeFailureComment(
+        `.adw/ regeneration incomplete: ${verify.missing.join(', ') || 'no changes under .adw/'}`,
+        adwId,
+        issueNumber,
+      ),
+      repoInfo,
+    );
+    return { outcome: 'failed', reason: 'regen_incomplete' };
   }
 
   // 6. Write .adw-version, commit the regen, push
@@ -329,7 +349,10 @@ function buildDefaultUpgradeDeps(repoId: RepoIdentifier): UpgradeDeps {
     computeFrameworkHash,
     ensureWorktree,
     getDefaultBranch,
+    findPRByBranch: (branch, info) => defaultFindPRByBranch(branch, info),
     runInitCommand: runInitCommandDefault,
+    copyInitCommandToWorktree: copyAdwInitCommandToWorktree,
+    verifyAdwRegen,
     writeAdwVersion,
     commitChanges,
     pushBranch,

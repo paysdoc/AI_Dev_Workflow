@@ -51,14 +51,14 @@ import { createRepoContext } from '../providers/repoContext';
 import { classifyGitHubIssue } from '../core/issueClassifier';
 import { resolveWorkflowBranchName, readPersistedBranchName } from './branchNameResolution';
 import { deriveOrchestratorScript } from '../core/orchestratorLib';
-import { copyClaudeCommandsToWorktree } from './worktreeSetup';
+import { copyClaudeAssetsToWorktree } from './worktreeSetup';
 import { postIssueStageComment } from './phaseCommentHelpers';
 import { runUpgradeGate, buildDefaultUpgradeGateDeps } from './upgradeGate';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 // Re-export worktree setup helpers so imports from this module still work
-export { ensureGitignoreEntry, ensureGitignoreEntries, copyClaudeCommandsToWorktree, copyTargetSkillsAndCommands } from './worktreeSetup';
+export { ensureGitignoreEntry, ensureGitignoreEntries, copyClaudeAssetsToWorktree } from './worktreeSetup';
 
 /**
  * Configuration shared across all workflow phase functions.
@@ -197,7 +197,7 @@ export async function initializeWorkflow(
     // For external repos, create worktrees within the target repo workspace
     branchName = await resolveWorkflowBranchName({ adwId: resolvedAdwId, issueType, issue, logsDir, recoveryState });
     worktreePath = ensureWorktree(branchName, defaultBranch, targetRepoWorkspacePath);
-    copyClaudeCommandsToWorktree(worktreePath);
+    copyClaudeAssetsToWorktree(worktreePath);
     log(`Worktree path (target repo): ${worktreePath}`, 'info');
   } else {
     const persistedBranchName = readPersistedBranchName(resolvedAdwId);
@@ -219,7 +219,7 @@ export async function initializeWorkflow(
         worktreePath = existingWorktree;
       } else {
         worktreePath = ensureWorktree(branchName, defaultBranch, process.cwd());
-        copyClaudeCommandsToWorktree(worktreePath);
+        copyClaudeAssetsToWorktree(worktreePath);
         fetchAndResetToRemote(defaultBranch, worktreePath);
       }
     }

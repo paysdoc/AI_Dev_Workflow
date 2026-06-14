@@ -376,6 +376,51 @@ Each entry contains:
   📋 [2026-03-24T11:30:45.200Z] [abc123-feature-impl] Compaction recovery: restarting build agent (continuation 1/3)
   ```
 
+## adw-version-bricked-no-adw-dir
+
+- **pattern**: `.adw-version` file present but no `.adw/` directory in the target repo
+- **description**: Caused by issue #572 — `adwUpgrade.tsx` stamped `.adw-version` after a no-op `/adw_init` run (the slash command was not resolvable in the worktree). The upgrade gate (`shouldTriggerUpgrade`) subsequently sees `.adw-version` matching the current framework hash and never retriggers. The target repo is bricked: no `.adw/` config, no path to self-heal.
+- **status**: solved
+- **solution**: Fixed in #572 — `copyAdwInitCommandToWorktree` ensures the command resolves; `verifyAdwRegen` gates the `.adw-version` write behind a check that all six canonical files exist and a non-trivial `git status --porcelain -- .adw` diff is present. If the gate fails, no stamp is written and no PR is opened, so the next cron dispatch re-runs cleanly.
+- **fix_attempts**: 1
+- **linked_issues**: #572, #547
+- **first_seen**: 2026-06-14
+
+### One-time manual recovery runbook (§C)
+
+Run this procedure on each target repo the broken orchestrator already merged against.
+
+**Identify bricked repos:** `.adw-version` equals the current ADW framework hash BUT the repo has no `.adw/` directory (or `.adw/commands.md` is absent):
+
+```bash
+# From the target repo worktree
+adw_version=$(cat .adw-version 2>/dev/null)
+framework_hash=$(bunx tsx adws/adwUpgrade.tsx --print-hash 2>/dev/null || echo "unknown")
+if [ "$adw_version" = "$framework_hash" ] && [ ! -f ".adw/commands.md" ]; then
+  echo "BRICKED: $PWD"
+fi
+```
+
+**Recovery steps:**
+
+1. Remove (or zero-out) `.adw-version` so `shouldTriggerUpgrade` sees a mismatch:
+   ```bash
+   rm .adw-version
+   git add -A && git commit -m "chore: remove stale .adw-version to re-trigger upgrade"
+   git push
+   ```
+2. The next cron dispatch will call `shouldTriggerUpgrade` → mismatch detected → spawns `adwUpgrade.tsx` → now-gated orchestrator runs `/adw_init` in a worktree that has `adw_init.md` → `verifyAdwRegen` checks the output → stamps `.adw-version` only if the full `.adw/` was written.
+3. Verify: after the upgrade PR merges, confirm `.adw/commands.md`, `.adw/project.md`, and the other four canonical files are present.
+
+**Known residual edge:** a framework hash bump whose regenerated `.adw/` output is byte-identical to the target's existing `.adw/` will produce an empty `git status --porcelain -- .adw` and fail the gate, looping re-dispatch. This is extremely unlikely (the hash inputs are `adw_init.md` + `vocabulary.md.template`; a bump that changes neither's *output* is atypical). If you observe the loop: check whether the `.adw/` files are already up-to-date and, if so, advance `.adw-version` manually to match the current hash.
+
+- **sample_log**:
+  ```
+  ✅ [2026-06-14Txx:xx:xx.xxxZ] [t6m62c-fix-adwupgrade-regen] adwUpgrade: PR opened at https://github.com/owner/repo/pull/42
+  ✅ [2026-06-14Txx:xx:xx.xxxZ] [t6m62c-fix-adwupgrade-regen] adwUpgrade: PR #42 auto-merged
+  (PR diff contained only .adw-version — no .adw/ files — because /adw_init was not resolvable)
+  ```
+
 ## cross-trigger-double-spawn
 
 - **pattern**: Two `## :rocket: ADW Workflow Started` comments on the same issue with different adw-ids, one spawned by the cron and one by the webhook
