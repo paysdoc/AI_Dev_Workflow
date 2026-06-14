@@ -47,6 +47,10 @@ describe('buildUpgradePrBody', () => {
     expect(body).toMatch(/^Implements #541/);
   });
 
+  it('contains Closes #<issueNumber> to auto-close the tracking issue on merge', () => {
+    expect(buildUpgradePrBody(541, MOCK_HASH)).toContain('Closes #541');
+  });
+
   it('contains the full hash', () => {
     const body = buildUpgradePrBody(541, MOCK_HASH);
     expect(body).toContain(MOCK_HASH);
@@ -100,6 +104,14 @@ describe('executeUpgrade — success path (default: auto-merge)', () => {
 
     const call = (deps.createPullRequest as ReturnType<typeof vi.fn>).mock.calls[0][0] as CreatePROptions;
     expect(call.body).toMatch(/Implements #541/);
+  });
+
+  it('creates PR with Closes #<issueNumber> in body to auto-close tracking issue on merge', async () => {
+    const deps = makeDeps();
+    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    const call = (deps.createPullRequest as ReturnType<typeof vi.fn>).mock.calls[0][0] as CreatePROptions;
+    expect(call.body).toMatch(/Closes #541/);
   });
 
   it('calls createPullRequest exactly once', async () => {
