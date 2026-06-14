@@ -229,30 +229,34 @@ export function copyClaudeAssetsToWorktree(worktreePath: string): void {
   if (fs.existsSync(commandsSourceDir)) {
     const commandsDestDir = path.join(worktreePath, '.claude', 'commands');
     fs.mkdirSync(commandsDestDir, { recursive: true });
-
-    for (const file of fs.readdirSync(commandsSourceDir).filter((f) => f.endsWith('.md'))) {
-      fs.copyFileSync(path.join(commandsSourceDir, file), path.join(commandsDestDir, file));
-      if (!parseFrontmatterTarget(path.join(commandsSourceDir, file)) && !trackedCommandFiles.has(file)) {
-        gitignoreEntries.push(`.claude/commands/${file}`);
-      }
-    }
+    const mdFiles = fs.readdirSync(commandsSourceDir).filter((f) => f.endsWith('.md'));
+    mdFiles.forEach((file) =>
+      fs.copyFileSync(path.join(commandsSourceDir, file), path.join(commandsDestDir, file)),
+    );
+    gitignoreEntries.push(
+      ...mdFiles
+        .filter((f) => !parseFrontmatterTarget(path.join(commandsSourceDir, f)) && !trackedCommandFiles.has(f))
+        .map((f) => `.claude/commands/${f}`),
+    );
   } else {
     log(`No .claude/commands/ found in ADW repo at ${commandsSourceDir}, skipping`, 'info');
   }
 
   if (fs.existsSync(skillsSourceDir)) {
-    for (const skillName of fs.readdirSync(skillsSourceDir).filter(
-      (n) => fs.statSync(path.join(skillsSourceDir, n)).isDirectory(),
-    )) {
+    const skillDirs = fs.readdirSync(skillsSourceDir).filter((n) =>
+      fs.statSync(path.join(skillsSourceDir, n)).isDirectory(),
+    );
+    skillDirs.forEach((skillName) =>
       copyDirContents(
         path.join(skillsSourceDir, skillName),
         path.join(worktreePath, '.claude', 'skills', skillName),
-      );
-      const isTarget = parseFrontmatterTarget(path.join(skillsSourceDir, skillName, 'SKILL.md'));
-      if (!isTarget && !trackedSkillDirs.has(skillName)) {
-        gitignoreEntries.push(`.claude/skills/${skillName}/`);
-      }
-    }
+      ),
+    );
+    gitignoreEntries.push(
+      ...skillDirs
+        .filter((n) => !parseFrontmatterTarget(path.join(skillsSourceDir, n, 'SKILL.md')) && !trackedSkillDirs.has(n))
+        .map((n) => `.claude/skills/${n}/`),
+    );
   } else {
     log(`No .claude/skills/ found in ADW repo at ${skillsSourceDir}, skipping`, 'info');
   }
