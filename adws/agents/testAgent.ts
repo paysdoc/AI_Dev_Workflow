@@ -26,6 +26,7 @@ export interface TestResult {
   execution_command: string;
   test_purpose: string;
   error?: string;
+  testcase_count?: number;
 }
 
 /**
@@ -38,6 +39,8 @@ export interface TestAgentResult extends AgentResult {
   allPassed: boolean;
   /** Failed tests for resolution */
   failedTests: TestResult[];
+  /** Testcase count from the application tests entry (app_tests), or 0 when absent */
+  applicationTestcaseCount: number;
 }
 
 export const testResultsSchema: Record<string, unknown> = {
@@ -51,6 +54,7 @@ export const testResultsSchema: Record<string, unknown> = {
       execution_command: { type: 'string' },
       test_purpose: { type: 'string' },
       error: { type: 'string' },
+      testcase_count: { type: 'number' },
     },
   },
 };
@@ -107,12 +111,15 @@ export async function runTestAgent(
   const testResults = result.parsed;
   const failedTests = testResults.filter(t => !t.passed);
   const allPassed = testResults.length > 0 && failedTests.length === 0;
+  const appTestsEntry = testResults.find(t => t.test_name === 'app_tests');
+  const applicationTestcaseCount = appTestsEntry?.testcase_count ?? 0;
 
   return {
     ...result,
     testResults,
     allPassed,
     failedTests,
+    applicationTestcaseCount,
   };
 }
 

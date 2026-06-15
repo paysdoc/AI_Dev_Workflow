@@ -149,10 +149,10 @@ describe('issueTypeToAdwLabel', () => {
 // ── ensureAdwLabelsExist ──────────────────────────────────────────────────────
 
 describe('ensureAdwLabelsExist', () => {
-  it('calls exec exactly 6 times, once per label', () => {
+  it('calls exec exactly 7 times, once per label', () => {
     const deps = makeDeps();
     ensureAdwLabelsExist(REPO_INFO, deps);
-    expect(deps.exec).toHaveBeenCalledTimes(6);
+    expect(deps.exec).toHaveBeenCalledTimes(7);
   });
 
   it('each exec call contains gh label create, --force, the label name, and --repo acme/widgets', () => {
@@ -171,14 +171,14 @@ describe('ensureAdwLabelsExist', () => {
     }
   });
 
-  it('idempotent: calling twice does not throw, issues 6 calls each time (12 total)', () => {
+  it('idempotent: calling twice does not throw, issues 7 calls each time (14 total)', () => {
     const deps = makeDeps();
     ensureAdwLabelsExist(REPO_INFO, deps);
     ensureAdwLabelsExist(REPO_INFO, deps);
-    expect(deps.exec).toHaveBeenCalledTimes(12);
+    expect(deps.exec).toHaveBeenCalledTimes(14);
   });
 
-  it('resilient: one failing label does not abort — all 6 still attempted, no throw escapes', () => {
+  it('resilient: one failing label does not abort — all 7 still attempted, no throw escapes', () => {
     let callCount = 0;
     const deps = makeDeps({
       exec: vi.fn().mockImplementation(() => {
@@ -188,7 +188,7 @@ describe('ensureAdwLabelsExist', () => {
       }),
     });
     expect(() => ensureAdwLabelsExist(REPO_INFO, deps)).not.toThrow();
-    expect(deps.exec).toHaveBeenCalledTimes(6);
+    expect(deps.exec).toHaveBeenCalledTimes(7);
   });
 });
 

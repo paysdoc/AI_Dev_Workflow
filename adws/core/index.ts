@@ -107,6 +107,10 @@ export {
 export type { ProjectConfig, CommandsConfig, ProvidersConfig, ScenariosConfig } from './projectConfig';
 export { loadProjectConfig, getDefaultProjectConfig, getDefaultCommandsConfig, getDefaultProvidersConfig, getDefaultScenariosConfig, parseMarkdownSections, parseCommandsMd, parseProvidersMd, parseScenariosMd, parseUnitTestsEnabled } from './projectConfig';
 
+// Test verdict
+export type { TestVerdictInput, TestVerdictResult, TestVerdictOutcome } from './testVerdict';
+export { computeTestVerdict } from './testVerdict';
+
 // Issue classifier
 export type { IssueClassificationResult } from './issueClassifier';
 export { classifyIssueForTrigger, classifyGitHubIssue } from './issueClassifier';
@@ -208,7 +212,7 @@ export {
 // ADW version file (.adw-version) read/write
 export { ADW_VERSION_FILENAME, readAdwVersion, writeAdwVersion } from './adwVersion';
 
-// ADW YAML config (.github/adw.yml) — upgrade auto-merge policy
-export { ADW_YML_RELATIVE_PATH, readAdwYmlConfig, parseAdwYml } from './adwYmlConfig';
+// ADW YAML config (.github/adw.yml) — upgrade auto-merge policy + unit-test gate
+export { ADW_YML_RELATIVE_PATH, readAdwYmlConfig, parseAdwYml, writeAdwYmlTemplateIfAbsent, ADW_YML_TEMPLATE } from './adwYmlConfig';
 export type { AdwYmlConfig } from './adwYmlConfig';
 

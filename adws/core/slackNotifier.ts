@@ -19,7 +19,7 @@ export interface AuthRecoveryPayload {
   resumedCount: number;
 }
 
-async function postSlack(text: string): Promise<void> {
+export async function postSlack(text: string): Promise<void> {
   const url = process.env.SLACK_WEBHOOK_URL;
   if (!url) {
     log('SLACK_WEBHOOK_URL not set; skipping Slack notification', 'warn');

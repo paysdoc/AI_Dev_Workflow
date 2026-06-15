@@ -293,6 +293,7 @@ When(
       // Comments are not asserted by §530; keep them inert to avoid real gh calls.
       commentOnIssue: () => undefined,
       commentOnPR: () => undefined,
+      notifyBlockedTransition: () => Promise.resolve(),
     };
 
     await executeMerge(issueNumber, adwId, repoInfo, process.cwd(), deps);

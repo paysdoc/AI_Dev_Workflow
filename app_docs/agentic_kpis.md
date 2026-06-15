@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 158              | 2026-06-15 14:58:13 |
-| Longest Streak    | 157              | 2026-06-15 14:58:13 |
-| Total Plan Size   | 6130 lines       | 2026-06-15 14:58:13 |
-| Largest Plan Size | 699 lines        | 2026-06-15 14:58:13 |
-| Total Diff Size   | 5939319 lines    | 2026-06-15 14:58:13 |
-| Largest Diff Size | 418153 lines     | 2026-06-15 14:58:13 |
-| Average Presence  | 1.24             | 2026-06-15 14:58:13 |
+| Current Streak    | 2                | 2026-06-15 22:29:36 |
+| Longest Streak    | 171              | 2026-06-15 22:29:36 |
+| Total Plan Size   | 2086 lines       | 2026-06-15 22:29:36 |
+| Largest Plan Size | 678 lines        | 2026-06-15 22:29:36 |
+| Total Diff Size   | 5945147 lines    | 2026-06-15 22:29:36 |
+| Largest Diff Size | 418153 lines     | 2026-06-15 22:29:36 |
+| Average Presence  | 1.22             | 2026-06-15 22:29:36 |
 
 ## ADW KPIs
 
@@ -243,3 +243,6 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-06-13 | x985bj-intake-ux-clear-stal | 159 | /feature | 1 | 0 | 102983/1999/540 | 2026-06-13 11:07:01 | 2026-06-13 11:07:01 |
 | 2026-06-14 | nm1413-adwupgrade-pr-body-u | 570 | /bug | 1 | 0 | 1442/207/25 | 2026-06-14 11:49:09 | 2026-06-14 11:49:09 |
 | 2026-06-15 | vv6d4h-classifier-can-assig | 584 | /bug | 1 | 0 | 1097/1/11 | 2026-06-15 14:58:13 | 2026-06-15 14:58:13 |
+| 2026-06-15 | y6hjbr-durable-opt-out-unit | 576 | /feature | 3 | 0 | 1314/75/17 | 2026-06-15 21:32:48 | 2026-06-15 21:32:48 |
+| 2026-06-15 | 5jigj8-slack-notifications | 587 | /feature | 1 | 0 | 1596/11/17 | 2026-06-15 21:40:32 | 2026-06-15 21:40:32 |
+| 2026-06-15 | zyaojl-configurable-test-di | 577 | /feature | 2 | 0 | 2728/104/44 | 2026-06-15 22:29:36 | 2026-06-15 22:29:36 |

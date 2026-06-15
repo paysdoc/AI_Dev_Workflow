@@ -36,7 +36,7 @@ function makeDeps(overrides: Partial<UpgradeDeps> = {}): UpgradeDeps {
     commentOnIssue: vi.fn<typeof commentOnIssue>(),
     ensureLogsDirectory: vi.fn().mockReturnValue('/logs/adwupgrade'),
     log: vi.fn(),
-    readAdwYmlConfig: vi.fn().mockReturnValue({ hitl: false }),
+    readAdwYmlConfig: vi.fn().mockReturnValue({ hitl: false, unitTests: true }),
     mergePR: vi.fn().mockReturnValue({ success: true }),
     ...overrides,
   };
@@ -201,14 +201,14 @@ describe('executeUpgrade — success path (default: auto-merge)', () => {
 
 describe('executeUpgrade — hitl:true path', () => {
   it('does not call mergePR when hitl: true', async () => {
-    const deps = makeDeps({ readAdwYmlConfig: vi.fn().mockReturnValue({ hitl: true }) });
+    const deps = makeDeps({ readAdwYmlConfig: vi.fn().mockReturnValue({ hitl: true, unitTests: true }) });
     await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
 
     expect(deps.mergePR).not.toHaveBeenCalled();
   });
 
   it('returns outcome=completed, reason=pr_opened_hitl when hitl: true', async () => {
-    const deps = makeDeps({ readAdwYmlConfig: vi.fn().mockReturnValue({ hitl: true }) });
+    const deps = makeDeps({ readAdwYmlConfig: vi.fn().mockReturnValue({ hitl: true, unitTests: true }) });
     const result = await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
 
     expect(result.outcome).toBe('completed');
@@ -217,7 +217,7 @@ describe('executeUpgrade — hitl:true path', () => {
   });
 
   it('posts exactly one non-ADW comment when hitl: true', async () => {
-    const deps = makeDeps({ readAdwYmlConfig: vi.fn().mockReturnValue({ hitl: true }) });
+    const deps = makeDeps({ readAdwYmlConfig: vi.fn().mockReturnValue({ hitl: true, unitTests: true }) });
     await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
 
     expect(deps.commentOnIssue).toHaveBeenCalledTimes(1);
@@ -260,7 +260,7 @@ describe('executeUpgrade — merge failure (non-fatal)', () => {
 
 describe('parseAdwYml — malformed state flows through default path', () => {
   it('parseAdwYml returns { hitl: false } for malformed value', () => {
-    expect(parseAdwYml('hitl: maybe\n')).toEqual({ hitl: false });
+    expect(parseAdwYml('hitl: maybe\n')).toEqual({ hitl: false, unitTests: true });
   });
 });
 

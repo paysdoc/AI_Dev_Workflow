@@ -112,6 +112,7 @@ Everything below is for someone who wants to run ADW against a target repository
 - **Composable orchestrators** — run individual phases (`adwPlan`, `adwBuild`, `adwTest`, `adwDocument`, `adwPrReview`, `adwPatch`, `adwMerge`) or pre-wired combos (`adwPlanBuild`, `adwPlanBuildTest`, `adwPlanBuildReview`, `adwPlanBuildDocument`, `adwPlanBuildTestReview`).
 - **Issue classification & routing** — auto-classifies an issue as `/chore`, `/bug`, `/feature`, or `/pr_review` via LLM heuristic and routes it to the right orchestrator; `adw:*` GitHub labels provide a deterministic override that bypasses AI classification entirely; body/comment slash-commands are not processed.
 - **Chore fast-path with LLM diff gate** — `adwChore` builds, runs unit tests, opens a PR, then asks Haiku to classify the diff as `safe` (auto-merge) or `regression_possible` (full review path).
+- **Per-repo unit-test gate via `adw.yml`** — target repos can opt out of the unit-test phase by setting `unitTests: false` in `.github/adw.yml`; defaults to enabled. The file also controls upgrade-PR HITL gating (`hitl: true` defers auto-merge of framework-upgrade PRs to human review).
 - **BDD/scenario-driven validation** — discovers `.feature` files tagged `@adw-{issueNumber}`, generates step definitions, and reconciles plan vs. scenario coverage via `validationAgent`, `alignmentPhase`, and `resolutionAgent`.
 - **Multi-agent passive review** — review agents read scenario proof and captured screenshots, classifying findings as Blockers (auto-patched by `patchAgent` for general failures or `refactorAgent` for coding-guideline violations, via `reviewPatchHelpers`) or Tech Debt (logged only).
 - **HITL-gated auto-merge** — every cron tick re-evaluates `(no hitl label) OR (PR approved)`; merge is deferred while the gate is closed, and `## Cancel` is the scorched-earth manual override.
@@ -499,6 +500,7 @@ adws/                   # ADW workflow system
 │   │   ├── hashComputer.test.ts
 │   │   ├── heartbeat.test.ts
 │   │   ├── hungOrchestratorDetector.test.ts
+│   │   ├── issueClassifier.test.ts
 │   │   ├── phaseRunner.test.ts
 │   │   ├── processLiveness.test.ts
 │   │   ├── projectConfig.test.ts
@@ -512,7 +514,7 @@ adws/                   # ADW workflow system
 │   │   └── workflowMapping.test.ts
 │   ├── adwId.ts        # ADW ID generation
 │   ├── adwVersion.ts   # Read/write .adw-version file (stores framework hash at target repo root)
-│   ├── adwYmlConfig.ts # Read `.github/adw.yml` from a target repo worktree (upgrade auto-merge policy)
+│   ├── adwYmlConfig.ts # Read `.github/adw.yml` from a target repo worktree (upgrade auto-merge policy + unit-test gate)
 │   ├── agentState.ts
 │   ├── authGate.ts     # Host-wide auth gate: detects auth failures, writes paused_auth state, triggers Slack alerts
 │   ├── claudeStreamParser.ts  # Claude JSONL stream parsing
@@ -617,7 +619,8 @@ adws/                   # ADW workflow system
 │   │   ├── reviewPhase.test.ts
 │   │   ├── scenarioTestPhase.test.ts
 │   │   ├── upgradeGate.test.ts
-│   │   └── workflowInit.test.ts
+│   │   ├── workflowInit.test.ts
+│   │   └── worktreeSetup.test.ts
 │   ├── alignmentPhase.ts  # Single-pass alignment phase
 │   ├── authPause.ts    # Auth-required pause handler (mirrors rate-limit pause path for auth failures)
 │   ├── autoMergePhase.ts  # Auto-approve and merge PR after review passes
@@ -703,6 +706,7 @@ adws/                   # ADW workflow system
 │   │   ├── takeoverHandler.integration.test.ts  # Integration test for the abandoned takeover path
 │   │   ├── trigger_cron.test.ts
 │   │   ├── triggerCronAwaitingMerge.test.ts
+│   │   ├── webhookGatekeeper.test.ts
 │   │   └── webhookHandlers.test.ts
 │   ├── autoMergeHandler.ts  # Auto-merge approved PRs
 │   ├── cancelHandler.ts  # Cancel directive handler

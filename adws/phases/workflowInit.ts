@@ -25,6 +25,8 @@ import {
   type ProjectConfig,
   type ModelUsageMap,
   loadProjectConfig,
+  readAdwYmlConfig,
+  type AdwYmlConfig,
 } from '../core';
 import {
   fetchGitHubIssue,
@@ -81,6 +83,7 @@ export interface WorkflowConfig {
   targetRepo?: TargetRepoInfo;
   repoContext?: RepoContext;
   projectConfig: ProjectConfig;
+  adwYmlConfig: AdwYmlConfig;
   totalModelUsage?: ModelUsageMap;
   installContext?: string;
   /** Phase names already completed in a previous run (populated on pause/resume). */
@@ -379,6 +382,10 @@ export async function initializeWorkflow(
     log('No .adw/ directory found, using default project config', 'info');
   }
 
+  // Read .github/adw.yml for the unit-test gate and upgrade auto-merge policy
+  const adwYmlConfig = readAdwYmlConfig(worktreePath);
+  log(`adw.yml unit-test gate: ${adwYmlConfig.unitTests ? 'enabled' : 'disabled'}`, 'info');
+
   // Allocate a random port for the dedicated dev server instance
   const port = await allocateRandomPort();
   const applicationUrl = `http://localhost:${port}`;
@@ -402,6 +409,7 @@ export async function initializeWorkflow(
     targetRepo,
     repoContext,
     projectConfig,
+    adwYmlConfig,
     completedPhases,
     topLevelStatePath,
   };

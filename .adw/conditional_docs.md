@@ -1,5 +1,15 @@
 # Conditional Documentation
 
+- app_docs/feature-zyaojl-configurable-test-directory.md
+  - Conditions:
+    - When working on `adws/phases/unitTestPhase.ts` unit-test verdict or zero-testcase handling
+    - When implementing or modifying `adws/core/testVerdict.ts` or `computeTestVerdict`
+    - When adding new fields to `CommandsConfig` in `adws/core/projectConfig.ts` (see three-touch-point pattern)
+    - When modifying `.claude/commands/test.md` step 5 (application tests, testcase count, test directory)
+    - When `.claude/commands/adw_init.md` emits `## Test Directory` or `## Test Framework` sections
+    - When troubleshooting `adw:unverified` label or comment on an issue
+    - When adding a flat-layout (non-`src/`) target repo or a non-Bun test framework
+
 - app_docs/feature-t6m62c-adwupgrade-regen-gate-propagation.md
   - Conditions:
     - When working on `adwUpgrade.tsx` `executeUpgrade()` or `UpgradeDeps`
@@ -1449,3 +1459,21 @@
     - When the `--issue-type` CLI validation domain in `adws/core/orchestratorCli.ts` needs to change
     - When troubleshooting an issue that was classified as `/adw_init` and ended up Blocked with an ENOENT plan-file error
     - When adding a new operator-only slash command that must remain in the type union but must not be auto-assignable
+
+- app_docs/feature-5jigj8-slack-notifications-hitl-board-transitions.md
+  - Conditions:
+    - When working with `adws/github/hitlBoardNotifier.ts` (`notifyReviewTransition`, `notifyBlockedTransition`)
+    - When adding or modifying Slack notifications for ADW board transitions
+    - When extending `MergeDeps` in `adwMerge.tsx` with new injectable side-effects
+    - When modifying `handlePRReviewWorkflowError` in `adws/phases/prReviewCompletion.ts` (now async)
+    - When troubleshooting HITL-labelled issues not receiving Slack pings on Review or Blocked transitions
+    - When the `hitl` label gate, `Platform.GitHub` guard, or PR-body `Implements #N` digit-boundary disambiguation is relevant
+
+- app_docs/feature-y6hjbr-durable-opt-out-unit-test-gate.md
+  - Conditions:
+    - When working with the `unitTests` key in `.github/adw.yml` or the unit-test phase gate
+    - When modifying `adwYmlConfig.ts` (`parseAdwYml`, `readAdwYmlConfig`, `writeAdwYmlTemplateIfAbsent`, `ADW_YML_TEMPLATE`)
+    - When the unit-test phase (`unitTestPhase.ts`) is reading the gate from the wrong source (`project.md` vs `adw.yml`)
+    - When implementing or troubleshooting the create-if-absent step in `/adw_init` for `.github/adw.yml`
+    - When `AdwYmlConfig` shape changes break `adwUpgrade.test.ts` stubs or `WorkflowConfig` consumers
+    - When a target repo's unit tests run unexpectedly after upgrade (migration ripple from opt-in to opt-out default)

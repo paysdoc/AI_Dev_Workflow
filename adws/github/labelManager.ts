@@ -17,6 +17,7 @@ import type { ExecSyncOptions } from 'child_process';
 
 export const ADW_NONE_LABEL = 'adw:none';
 export const ADW_UPGRADE_LABEL = 'adw:upgrade';
+export const ADW_UNVERIFIED_LABEL = 'adw:unverified';
 
 export const ADW_CLASSIFICATION_LABELS = {
   'adw:chore':     '/chore',
@@ -36,8 +37,9 @@ export const ADW_LABEL_DEFINITIONS: readonly AdwLabelDefinition[] = [
   { name: 'adw:bug',       color: 'd73a4a', description: 'ADW bug workflow' },
   { name: 'adw:feature',   color: '0e8a16', description: 'ADW feature workflow' },
   { name: 'adw:pr_review', color: '1d76db', description: 'ADW PR review workflow' },
-  { name: 'adw:upgrade',   color: '5319e7', description: 'ADW upgrade tracking' },
-  { name: 'adw:none',      color: 'e4e4e4', description: 'Opt out of ADW automation' },
+  { name: 'adw:upgrade',     color: '5319e7', description: 'ADW upgrade tracking' },
+  { name: 'adw:none',        color: 'e4e4e4', description: 'Opt out of ADW automation' },
+  { name: 'adw:unverified',  color: 'fbca04', description: 'ADW could not verify tests' },
 ] as const;
 
 export interface AdwLabelReading {
