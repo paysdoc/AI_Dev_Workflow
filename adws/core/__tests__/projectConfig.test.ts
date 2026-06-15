@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { parseCommandsMd, getDefaultCommandsConfig, parseScenariosMd, loadProjectConfig } from '../projectConfig';
 import { mkdtempSync, mkdirSync, writeFileSync } from 'fs';
-import { join } from 'path';
+import { join, resolve } from 'path';
 import { tmpdir } from 'os';
 
 describe('parseCommandsMd — healthCheckPath field', () => {
@@ -96,6 +96,77 @@ describe('parseScenariosMd — per-issue / regression / vocabulary fields', () =
   });
 });
 
+describe('parseCommandsMd — testDirectory field', () => {
+  it('defaults testDirectory to "src" when content is empty', () => {
+    const result = parseCommandsMd('');
+    expect(result.testDirectory).toBe('src');
+  });
+
+  it('defaults testDirectory to "src" when "## Test Directory" section is absent', () => {
+    const content = '## Run Tests\nbun run test\n';
+    const result = parseCommandsMd(content);
+    expect(result.testDirectory).toBe('src');
+  });
+
+  it('reads testDirectory from "## Test Directory" section', () => {
+    const content = '## Test Directory\ntests\n';
+    const result = parseCommandsMd(content);
+    expect(result.testDirectory).toBe('tests');
+  });
+
+  it('trims whitespace from testDirectory value', () => {
+    const content = '## Test Directory\n  tests/  \n';
+    const result = parseCommandsMd(content);
+    expect(result.testDirectory).toBe('tests/');
+  });
+
+  it('reads custom testDirectory while preserving other defaults', () => {
+    const content = '## Test Directory\ntests\n\n## Run Tests\npytest\n';
+    const result = parseCommandsMd(content);
+    expect(result.testDirectory).toBe('tests');
+    expect(result.runTests).toBe('pytest');
+    expect(result.packageManager).toBe('bun');
+  });
+});
+
+describe('parseCommandsMd — testFramework field', () => {
+  it('defaults testFramework to "" when content is empty', () => {
+    const result = parseCommandsMd('');
+    expect(result.testFramework).toBe('');
+  });
+
+  it('defaults testFramework to "" when "## Test Framework" section is absent', () => {
+    const content = '## Run Tests\nbun run test\n';
+    const result = parseCommandsMd(content);
+    expect(result.testFramework).toBe('');
+  });
+
+  it('reads testFramework from "## Test Framework" section', () => {
+    const content = '## Test Framework\npytest\n';
+    const result = parseCommandsMd(content);
+    expect(result.testFramework).toBe('pytest');
+  });
+
+  it('reads custom testFramework while preserving other defaults', () => {
+    const content = '## Test Framework\nvitest\n\n## Run Tests\nbun run test\n';
+    const result = parseCommandsMd(content);
+    expect(result.testFramework).toBe('vitest');
+    expect(result.runTests).toBe('bun run test');
+  });
+});
+
+describe('getDefaultCommandsConfig — testDirectory and testFramework', () => {
+  it('includes testDirectory defaulting to "src"', () => {
+    const defaults = getDefaultCommandsConfig();
+    expect(defaults.testDirectory).toBe('src');
+  });
+
+  it('includes testFramework defaulting to ""', () => {
+    const defaults = getDefaultCommandsConfig();
+    expect(defaults.testFramework).toBe('');
+  });
+});
+
 describe('loadProjectConfig — healthCheckPath integration', () => {
   it('returns healthCheckPath from .adw/commands.md when present', () => {
     // Create a temporary directory simulating a target repository
@@ -151,5 +222,15 @@ describe('loadProjectConfig — healthCheckPath integration', () => {
     expect(config.scenarios.perIssueScenarioDirectory).toBe('features/per-issue/');
     expect(config.scenarios.regressionScenarioDirectory).toBe('features/regression/');
     expect(config.scenarios.vocabularyRegistry).toBe('features/regression/vocabulary.md');
+  });
+});
+
+describe('loadProjectConfig — python-flat fixture', () => {
+  it('resolves testDirectory, testFramework, and runTests from the python-flat fixture', () => {
+    const fixturePath = resolve(__dirname, '../../../test/fixtures/python-flat');
+    const config = loadProjectConfig(fixturePath);
+    expect(config.commands.testDirectory).toBe('tests');
+    expect(config.commands.testFramework).toBe('pytest');
+    expect(config.commands.runTests).toBe('pytest');
   });
 });

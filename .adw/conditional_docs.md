@@ -1,5 +1,15 @@
 # Conditional Documentation
 
+- app_docs/feature-zyaojl-configurable-test-directory.md
+  - Conditions:
+    - When working on `adws/phases/unitTestPhase.ts` unit-test verdict or zero-testcase handling
+    - When implementing or modifying `adws/core/testVerdict.ts` or `computeTestVerdict`
+    - When adding new fields to `CommandsConfig` in `adws/core/projectConfig.ts` (see three-touch-point pattern)
+    - When modifying `.claude/commands/test.md` step 5 (application tests, testcase count, test directory)
+    - When `.claude/commands/adw_init.md` emits `## Test Directory` or `## Test Framework` sections
+    - When troubleshooting `adw:unverified` label or comment on an issue
+    - When adding a flat-layout (non-`src/`) target repo or a non-Bun test framework
+
 - app_docs/feature-t6m62c-adwupgrade-regen-gate-propagation.md
   - Conditions:
     - When working on `adwUpgrade.tsx` `executeUpgrade()` or `UpgradeDeps`

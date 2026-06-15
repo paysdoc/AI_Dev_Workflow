@@ -16,6 +16,7 @@ import {
   type ModelUsageMap,
   emptyModelUsageMap,
   mergeModelUsageMaps,
+  computeTestVerdict,
 } from '../core';
 import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
 import { postIssueStageComment } from './phaseCommentHelpers';
@@ -24,6 +25,8 @@ import {
 } from '../agents';
 import type { WorkflowConfig } from './workflowInit';
 import { BoardStatus } from '../providers/types';
+import { applyLabel, ADW_UNVERIFIED_LABEL } from '../github/labelManager';
+import { getRepoInfo } from '../github/githubApi';
 
 /**
  * Executes the Test phase: optionally run unit tests (unit tests only).
@@ -80,8 +83,17 @@ export async function executeUnitTestPhase(config: WorkflowConfig): Promise<{
     totalRetries += unitTestsResult.totalRetries;
     phaseContextResetCount = unitTestsResult.contextResetCount;
 
-    if (!unitTestsResult.passed) {
-      const errorMsg = 'Unit tests failed after maximum retry attempts. No PR was created.';
+    const commands = config.projectConfig.commands;
+    const frameworkDetected = Boolean(commands.testFramework?.trim());
+    const verdictResult = computeTestVerdict({
+      enabled: true,
+      hasFailures: !unitTestsResult.passed,
+      testcaseCount: unitTestsResult.testcaseCount,
+      frameworkDetected,
+    });
+
+    if (verdictResult.verdict === 'hard-fail') {
+      const errorMsg = `Unit tests hard-failed: ${verdictResult.reason}. No PR was created.`;
       log(errorMsg, 'error');
       AgentStateManager.appendLog(orchestratorStatePath, errorMsg);
       ctx.errorMessage = errorMsg;
@@ -100,8 +112,21 @@ export async function executeUnitTestPhase(config: WorkflowConfig): Promise<{
       process.exit(1);
     }
 
-    log('Unit tests passed!', 'success');
-    AgentStateManager.appendLog(orchestratorStatePath, 'Unit tests passed');
+    if (verdictResult.verdict === 'warn') {
+      const warnMsg = `Unit tests unverified: ${verdictResult.reason}`;
+      log(warnMsg, 'warn');
+      AgentStateManager.appendLog(orchestratorStatePath, warnMsg);
+      const repoInfo = config.targetRepo
+        ? { owner: config.targetRepo.owner, repo: config.targetRepo.repo }
+        : getRepoInfo();
+      applyLabel(issueNumber, ADW_UNVERIFIED_LABEL, repoInfo);
+      if (repoContext) {
+        postIssueStageComment(repoContext, issueNumber, 'unverified', ctx);
+      }
+    } else {
+      log('Unit tests passed!', 'success');
+      AgentStateManager.appendLog(orchestratorStatePath, 'Unit tests passed');
+    }
   } else {
     log('Unit tests disabled — skipping', 'info');
     AgentStateManager.appendLog(orchestratorStatePath, 'Unit tests disabled — skipping');

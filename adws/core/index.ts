@@ -107,6 +107,10 @@ export {
 export type { ProjectConfig, CommandsConfig, ProvidersConfig, ScenariosConfig } from './projectConfig';
 export { loadProjectConfig, getDefaultProjectConfig, getDefaultCommandsConfig, getDefaultProvidersConfig, getDefaultScenariosConfig, parseMarkdownSections, parseCommandsMd, parseProvidersMd, parseScenariosMd, parseUnitTestsEnabled } from './projectConfig';
 
+// Test verdict
+export type { TestVerdictInput, TestVerdictResult, TestVerdictOutcome } from './testVerdict';
+export { computeTestVerdict } from './testVerdict';
+
 // Issue classifier
 export type { IssueClassificationResult } from './issueClassifier';
 export { classifyIssueForTrigger, classifyGitHubIssue } from './issueClassifier';

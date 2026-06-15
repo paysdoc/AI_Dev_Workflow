@@ -31,6 +31,8 @@ export interface CommandsConfig {
   scriptExecution: string;
   runScenariosByTag: string;
   runRegressionScenarios: string;
+  testDirectory: string;
+  testFramework: string;
 }
 
 export interface ScenariosConfig {
@@ -131,6 +133,8 @@ const HEADING_TO_KEY: Record<string, keyof CommandsConfig> = {
   'script execution': 'scriptExecution',
   'run scenarios by tag': 'runScenariosByTag',
   'run regression scenarios': 'runRegressionScenarios',
+  'test directory': 'testDirectory',
+  'test framework': 'testFramework',
 };
 
 // ---------------------------------------------------------------------------
@@ -152,6 +156,8 @@ export function getDefaultCommandsConfig(): CommandsConfig {
     scriptExecution: 'bunx tsx <script name>',
     runScenariosByTag: 'cucumber-js --tags "@{tag}"',
     runRegressionScenarios: 'cucumber-js --tags "@regression"',
+    testDirectory: 'src',
+    testFramework: '',
   };
 }
 

@@ -19,6 +19,7 @@ export interface TestRetryResult {
   failedTests: string[];
   modelUsage: ModelUsageMap;
   contextResetCount: number;
+  testcaseCount: number;
 }
 
 export interface TestRetryOptions {
@@ -44,11 +45,16 @@ export interface TestRetryOptions {
 export async function runUnitTestsWithRetry(opts: TestRetryOptions): Promise<TestRetryResult> {
   const { logsDir, orchestratorStatePath: statePath, maxRetries, onTestFailed, onCompactionDetected, cwd, issueBody } = opts;
 
+  let lastApplicationTestcaseCount = 0;
   const result = await retryWithResolution<TestAgentResult, TestResult>({
     maxRetries,
     statePath,
     label: 'unit tests',
-    run: () => runTestAgent(logsDir, initAgentState(statePath, 'test-agent'), cwd, issueBody),
+    run: async () => {
+      const r = await runTestAgent(logsDir, initAgentState(statePath, 'test-agent'), cwd, issueBody);
+      lastApplicationTestcaseCount = r.applicationTestcaseCount;
+      return r;
+    },
     isPassed: (r) => r.allPassed,
     extractFailures: (r) => r.failedTests,
     onRetryFailed: onTestFailed,
@@ -86,6 +92,7 @@ export async function runUnitTestsWithRetry(opts: TestRetryOptions): Promise<Tes
     failedTests: result.failures.map(t => t.test_name),
     modelUsage: result.modelUsage,
     contextResetCount: result.contextResetCount,
+    testcaseCount: lastApplicationTestcaseCount,
   };
 }
 
