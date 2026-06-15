@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 1                | 2026-06-15 21:40:32 |
-| Longest Streak    | 205              | 2026-06-15 21:40:32 |
-| Total Plan Size   | 4234 lines       | 2026-06-15 21:40:32 |
-| Largest Plan Size | 678 lines        | 2026-06-15 21:40:32 |
-| Total Diff Size   | 5942315 lines    | 2026-06-15 21:40:32 |
-| Largest Diff Size | 418153 lines     | 2026-06-15 21:40:32 |
-| Average Presence  | 1.17             | 2026-06-15 21:40:32 |
+| Current Streak    | 2                | 2026-06-15 22:29:36 |
+| Longest Streak    | 171              | 2026-06-15 22:29:36 |
+| Total Plan Size   | 2086 lines       | 2026-06-15 22:29:36 |
+| Largest Plan Size | 678 lines        | 2026-06-15 22:29:36 |
+| Total Diff Size   | 5945147 lines    | 2026-06-15 22:29:36 |
+| Largest Diff Size | 418153 lines     | 2026-06-15 22:29:36 |
+| Average Presence  | 1.22             | 2026-06-15 22:29:36 |
 
 ## ADW KPIs
 
@@ -245,3 +245,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-06-15 | vv6d4h-classifier-can-assig | 584 | /bug | 1 | 0 | 1097/1/11 | 2026-06-15 14:58:13 | 2026-06-15 14:58:13 |
 | 2026-06-15 | y6hjbr-durable-opt-out-unit | 576 | /feature | 3 | 0 | 1314/75/17 | 2026-06-15 21:32:48 | 2026-06-15 21:32:48 |
 | 2026-06-15 | 5jigj8-slack-notifications | 587 | /feature | 1 | 0 | 1596/11/17 | 2026-06-15 21:40:32 | 2026-06-15 21:40:32 |
+| 2026-06-15 | zyaojl-configurable-test-di | 577 | /feature | 2 | 0 | 2728/104/44 | 2026-06-15 22:29:36 | 2026-06-15 22:29:36 |
