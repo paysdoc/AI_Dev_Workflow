@@ -54,6 +54,16 @@ Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init
      - `## Script Execution` — How to run project scripts
      - `## Run Scenarios by Tag` — Command to run scenarios by tag, using `{tag}` placeholder (values determined by scenario tool detection in step 7)
      - `## Run Regression Scenarios` — Command to run all `@regression`-tagged scenarios (values determined by scenario tool detection in step 7)
+     - `## Test Directory` — Root directory where application tests live, used by the `/test` command to scope the test run. Detection rules:
+       - If `tests/` exists at the repo root → `tests`
+       - If `test/` exists at the repo root → `test`
+       - If `src/` exists at the repo root → `src` (TypeScript / Bun convention)
+       - Otherwise → `.` (run from repo root)
+     - `## Test Framework` — Test framework detected in the dependency manifest (e.g., `pytest`, `vitest`, `jest`). Set to the detected framework name; leave empty when none detected. Examples:
+       - `pytest` or `pytest-asyncio` in `pyproject.toml` / `requirements*.txt` → `pytest`
+       - `vitest` in `package.json` devDependencies → `vitest`
+       - `jest` in `package.json` devDependencies → `jest`
+       - No test framework detected → leave empty
    - Note: the values for `## Run Scenarios by Tag` and `## Run Regression Scenarios` must be consistent with the scenario tool detected in step 7 (Playwright, Cypress, Cucumber, or default Cucumber)
 
 3. **Create `.adw/project.md`**

@@ -323,6 +323,10 @@ export function formatResumingComment(ctx: WorkflowContext, resumeFrom: Workflow
   return `## :arrows_counterclockwise: ADW Workflow Resuming\n\nResuming automated development workflow from previous run.\n\n**Resuming from:** ${resumeFrom}\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
 }
 
+function formatUnverifiedComment(ctx: WorkflowContext): string {
+  return `## :warning: ADW Unverified — Zero Testcases Ran\n\nThe unit-test phase ran but discovered zero testcases, and no test framework was detected in the repository's dependencies. The workflow has continued without a hard gate.\n\n**What this means:** The repository may have no tests yet, or the test discovery configuration needs adjustment. This run is marked \`adw:unverified\` — the PR was not fully verified.\n\n**Next steps:** Add tests or configure \`## Test Framework\` in \`.adw/commands.md\` to enable strict zero-testcase detection.\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+}
+
 function formatPhaseTimeoutComment(ctx: WorkflowContext): string {
   const phase = ctx.timeoutPhaseName ?? 'unknown';
   const minutes = ctx.timeoutMs ? Math.round(ctx.timeoutMs / 60_000) : '?';
@@ -367,6 +371,7 @@ export function formatWorkflowComment(stage: WorkflowStage, ctx: WorkflowContext
     case 'paused': return formatPausedComment(ctx);
     case 'resumed': return formatResumedComment(ctx);
     case 'phase_timeout': return formatPhaseTimeoutComment(ctx);
+    case 'unverified': return formatUnverifiedComment(ctx);
     default: return `## ADW Workflow Update\n\n**Stage:** ${stage}\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
   }
 }

@@ -25,6 +25,7 @@ export type WorkflowStage =
   | 'test_failed'
   | 'test_resolving'
   | 'test_passed'
+  | 'unverified'
   // Review workflow stages
   | 'review_running'
   | 'review_passed'

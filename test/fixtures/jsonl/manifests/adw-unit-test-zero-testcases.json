@@ -1,0 +1,9 @@
+{
+  "jsonlPath": ".adw-stub-payload.json",
+  "edits": [
+    {
+      "path": ".adw-stub-payload.json",
+      "contents": "[{\"type\":\"text\",\"text\":\"[{\\\"test_name\\\": \\\"app_tests\\\", \\\"passed\\\": true, \\\"execution_command\\\": \\\"pytest tests\\\", \\\"test_purpose\\\": \\\"Validates application-level test suites in the configured test directory\\\", \\\"testcase_count\\\": 0}]\"}]\n"
+    }
+  ]
+}
