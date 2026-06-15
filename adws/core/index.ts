@@ -208,7 +208,7 @@ export {
 // ADW version file (.adw-version) read/write
 export { ADW_VERSION_FILENAME, readAdwVersion, writeAdwVersion } from './adwVersion';
 
-// ADW YAML config (.github/adw.yml) — upgrade auto-merge policy
-export { ADW_YML_RELATIVE_PATH, readAdwYmlConfig, parseAdwYml } from './adwYmlConfig';
+// ADW YAML config (.github/adw.yml) — upgrade auto-merge policy + unit-test gate
+export { ADW_YML_RELATIVE_PATH, readAdwYmlConfig, parseAdwYml, writeAdwYmlTemplateIfAbsent, ADW_YML_TEMPLATE } from './adwYmlConfig';
 export type { AdwYmlConfig } from './adwYmlConfig';
 

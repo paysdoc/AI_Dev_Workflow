@@ -1,11 +1,12 @@
 /**
  * Test phase execution for workflows.
  *
- * Runs unit tests only (opt-in). BDD scenario execution has moved to the
+ * Runs unit tests only (opt-out). BDD scenario execution has moved to the
  * Review phase where step definitions are guaranteed to exist.
  *
- * - Unit tests run only when `.adw/project.md` has `## Unit Tests: enabled`.
+ * - Unit tests run unless `.github/adw.yml` sets `unitTests: false` (opt-out).
  * - When unit tests are disabled, the phase passes immediately.
+ * - Default (absent file, absent key, or malformed value): unit tests run.
  */
 
 import {
@@ -15,7 +16,6 @@ import {
   type ModelUsageMap,
   emptyModelUsageMap,
   mergeModelUsageMaps,
-  parseUnitTestsEnabled,
 } from '../core';
 import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
 import { postIssueStageComment } from './phaseCommentHelpers';
@@ -28,8 +28,8 @@ import { BoardStatus } from '../providers/types';
 /**
  * Executes the Test phase: optionally run unit tests (unit tests only).
  *
- * Unit tests are skipped when `.adw/project.md` has `## Unit Tests: disabled`
- * (or the indicator is absent — disabled is the default).
+ * Unit tests are skipped when `.github/adw.yml` has `unitTests: false` (opt-out).
+ * Default when absent or key omitted: unit tests run (enabled).
  *
  * BDD scenarios are now run in the Review phase after step definitions are generated.
  *
@@ -42,7 +42,7 @@ export async function executeUnitTestPhase(config: WorkflowConfig): Promise<{
   totalRetries: number;
   phaseCostRecords: PhaseCostRecord[];
 }> {
-  const { orchestratorStatePath, issueNumber, issue, ctx, logsDir, worktreePath, repoContext, projectConfig, adwId } = config;
+  const { orchestratorStatePath, issueNumber, issue, ctx, logsDir, worktreePath, repoContext, adwYmlConfig, adwId } = config;
   const phaseStartTime = Date.now();
   let costUsd = 0;
   let modelUsage = emptyModelUsageMap();
@@ -53,8 +53,8 @@ export async function executeUnitTestPhase(config: WorkflowConfig): Promise<{
     await repoContext.issueTracker.moveToStatus(issueNumber, BoardStatus.InProgress);
   }
 
-  // --- Unit tests gate (opt-in) ---
-  const unitTestsEnabled = parseUnitTestsEnabled(projectConfig.projectMd);
+  // --- Unit tests gate (opt-out; reads .github/adw.yml unitTests, default: enabled) ---
+  const unitTestsEnabled = adwYmlConfig.unitTests;
 
   if (unitTestsEnabled) {
     log('Phase: Unit Tests', 'info');
