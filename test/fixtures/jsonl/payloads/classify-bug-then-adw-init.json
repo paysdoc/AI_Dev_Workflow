@@ -1,0 +1,6 @@
+[
+  {
+    "type": "text",
+    "text": "The report describes a defect in existing behaviour, so the correct ADW classification is /bug. (This is plainly not an operator bootstrap run such as /adw_init.)"
+  }
+]
