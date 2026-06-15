@@ -182,18 +182,18 @@ Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init
      if [ ! -f .github/adw.yml ]; then
        mkdir -p .github
        cat > .github/adw.yml <<'EOF'
-     # ADW configuration for this repository.
-     # This file lives outside `.adw/`, so `/adw_init` regeneration never overwrites it.
-     # Uncomment a key and set its value to change policy; absent keys use the defaults below.
+# ADW configuration for this repository.
+# This file lives outside `.adw/`, so `/adw_init` regeneration never overwrites it.
+# Uncomment a key and set its value to change policy; absent keys use the defaults below.
 
-     # Unit-test gate (opt-out). When enabled, the unit-test phase runs your test
-     # command and fails the workflow on unit-test failure. Default: enabled.
-     # unitTests: true
+# Unit-test gate (opt-out). When enabled, the unit-test phase runs your test
+# command and fails the workflow on unit-test failure. Default: enabled.
+# unitTests: true
 
-     # Human-in-the-loop gate for framework-upgrade PRs (opt-in). When true, ADW opens
-     # the upgrade PR but leaves it for human review instead of auto-merging. Default: false.
-     # hitl: false
-     EOF
+# Human-in-the-loop gate for framework-upgrade PRs (opt-in). When true, ADW opens
+# the upgrade PR but leaves it for human review instead of auto-merging. Default: false.
+# hitl: false
+EOF
        echo "created .github/adw.yml"
      else
        echo ".github/adw.yml already exists — left untouched"
