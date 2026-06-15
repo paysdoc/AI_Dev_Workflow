@@ -4,7 +4,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { log, setLogAdwId, ensureLogsDirectory, generateAdwId, type PRDetails, type PRReviewComment, AgentStateManager, type AgentState, type ModelUsageMap, allocateRandomPort, emptyModelUsageMap, OrchestratorId, type TargetRepoInfo, ensureTargetRepoWorkspace, loadProjectConfig, type GitHubIssue, type IssueClassSlashCommand, type RecoveryState } from '../core';
+import { log, setLogAdwId, ensureLogsDirectory, generateAdwId, type PRDetails, type PRReviewComment, AgentStateManager, type AgentState, type ModelUsageMap, allocateRandomPort, emptyModelUsageMap, OrchestratorId, type TargetRepoInfo, ensureTargetRepoWorkspace, loadProjectConfig, readAdwYmlConfig, type GitHubIssue, type IssueClassSlashCommand, type RecoveryState } from '../core';
 import { fetchPRDetails, getUnaddressedComments, type PRReviewWorkflowContext, getRepoInfo, type RepoInfo, activateGitHubAppAuth } from '../github';
 import type { WorkflowConfig } from './workflowInit';
 import { ensureWorktree, pushBranch, inferIssueTypeFromBranch } from '../vcs';
@@ -142,6 +142,7 @@ export async function initializePRReviewWorkflow(prNumber: number, adwId: string
     canResume: false,
   };
   const projectConfig = loadProjectConfig(worktreePath);
+  const adwYmlConfig = readAdwYmlConfig(worktreePath);
   const topLevelStatePath = AgentStateManager.getTopLevelStatePath(resolvedAdwId);
   const base: WorkflowConfig = {
     issueNumber: issueNumber ?? 0,
@@ -159,6 +160,7 @@ export async function initializePRReviewWorkflow(prNumber: number, adwId: string
     applicationUrl,
     repoContext,
     projectConfig,
+    adwYmlConfig,
     topLevelStatePath,
   };
   return {

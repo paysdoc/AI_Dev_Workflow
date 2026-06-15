@@ -1458,3 +1458,12 @@
     - When modifying `handlePRReviewWorkflowError` in `adws/phases/prReviewCompletion.ts` (now async)
     - When troubleshooting HITL-labelled issues not receiving Slack pings on Review or Blocked transitions
     - When the `hitl` label gate, `Platform.GitHub` guard, or PR-body `Implements #N` digit-boundary disambiguation is relevant
+
+- app_docs/feature-y6hjbr-durable-opt-out-unit-test-gate.md
+  - Conditions:
+    - When working with the `unitTests` key in `.github/adw.yml` or the unit-test phase gate
+    - When modifying `adwYmlConfig.ts` (`parseAdwYml`, `readAdwYmlConfig`, `writeAdwYmlTemplateIfAbsent`, `ADW_YML_TEMPLATE`)
+    - When the unit-test phase (`unitTestPhase.ts`) is reading the gate from the wrong source (`project.md` vs `adw.yml`)
+    - When implementing or troubleshooting the create-if-absent step in `/adw_init` for `.github/adw.yml`
+    - When `AdwYmlConfig` shape changes break `adwUpgrade.test.ts` stubs or `WorkflowConfig` consumers
+    - When a target repo's unit tests run unexpectedly after upgrade (migration ripple from opt-in to opt-out default)
