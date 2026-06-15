@@ -1449,3 +1449,12 @@
     - When the `--issue-type` CLI validation domain in `adws/core/orchestratorCli.ts` needs to change
     - When troubleshooting an issue that was classified as `/adw_init` and ended up Blocked with an ENOENT plan-file error
     - When adding a new operator-only slash command that must remain in the type union but must not be auto-assignable
+
+- app_docs/feature-5jigj8-slack-notifications-hitl-board-transitions.md
+  - Conditions:
+    - When working with `adws/github/hitlBoardNotifier.ts` (`notifyReviewTransition`, `notifyBlockedTransition`)
+    - When adding or modifying Slack notifications for ADW board transitions
+    - When extending `MergeDeps` in `adwMerge.tsx` with new injectable side-effects
+    - When modifying `handlePRReviewWorkflowError` in `adws/phases/prReviewCompletion.ts` (now async)
+    - When troubleshooting HITL-labelled issues not receiving Slack pings on Review or Blocked transitions
+    - When the `hitl` label gate, `Platform.GitHub` guard, or PR-body `Implements #N` digit-boundary disambiguation is relevant
