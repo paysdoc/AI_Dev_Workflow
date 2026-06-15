@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 2                | 2026-06-15 22:29:36 |
-| Longest Streak    | 171              | 2026-06-15 22:29:36 |
-| Total Plan Size   | 2086 lines       | 2026-06-15 22:29:36 |
-| Largest Plan Size | 678 lines        | 2026-06-15 22:29:36 |
-| Total Diff Size   | 5945147 lines    | 2026-06-15 22:29:36 |
-| Largest Diff Size | 418153 lines     | 2026-06-15 22:29:36 |
-| Average Presence  | 1.22             | 2026-06-15 22:29:36 |
+| Current Streak    | 4                | 2026-06-15 23:36:55 |
+| Longest Streak    | 195              | 2026-06-15 23:36:55 |
+| Total Plan Size   | 5789 lines       | 2026-06-15 23:36:55 |
+| Largest Plan Size | 699 lines        | 2026-06-15 23:36:55 |
+| Total Diff Size   | 4560427 lines    | 2026-06-15 23:36:55 |
+| Largest Diff Size | 418153 lines     | 2026-06-15 23:36:55 |
+| Average Presence  | 1.10             | 2026-06-15 23:36:55 |
 
 ## ADW KPIs
 
@@ -246,3 +246,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-06-15 | y6hjbr-durable-opt-out-unit | 576 | /feature | 3 | 0 | 1314/75/17 | 2026-06-15 21:32:48 | 2026-06-15 21:32:48 |
 | 2026-06-15 | 5jigj8-slack-notifications | 587 | /feature | 1 | 0 | 1596/11/17 | 2026-06-15 21:40:32 | 2026-06-15 21:40:32 |
 | 2026-06-15 | zyaojl-configurable-test-di | 577 | /feature | 2 | 0 | 2728/104/44 | 2026-06-15 22:29:36 | 2026-06-15 22:29:36 |
+| 2026-06-15 | u3l5q0-structured-report-ju | 578 | /feature | 2 | 0 | 1500/146/23 | 2026-06-15 23:36:55 | 2026-06-15 23:36:55 |
