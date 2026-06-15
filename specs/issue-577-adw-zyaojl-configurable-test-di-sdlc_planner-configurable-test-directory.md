@@ -41,7 +41,7 @@ Introduce a **typed-config + pure-verdict** seam, mirroring the existing config-
 1. **Extend `CommandsConfig`** with `testDirectory` and `testFramework`, parsed by the existing `HEADING_TO_KEY`-driven `parseCommandsMd`, with backward-compatible defaults (`testDirectory: 'src'`, `testFramework: ''`). Empty `testFramework` ⇒ "no framework detected" ⇒ zero-testcases warns (bounds the blast radius for un-regenerated repos).
 2. **Teach `adw_init.md` to emit** `## Test Directory` and `## Test Framework` in generated `commands.md` (detected from the repo layout and dependency manifest). Per the PRD **hash-propagation rule**, adding a parsed `.adw/` field and teaching `adw_init` to emit it must be the **same PR** — editing `adw_init.md` raises `.adw-version`, which triggers `adwUpgrade` to regenerate `.adw/` across targets.
 3. **Rewrite `test.md` step 5** to drop `--run src` and the skip-as-passed condition, run the `## Run Tests` command scoped to `## Test Directory`, and surface a **testcase count** (so zero-testcases is detectable) in the JSON output.
-4. **Add a pure `computeTestVerdict` module** (`adws/core/testVerdict.ts`) that maps `(enabled, hasFailures, testcaseCount, frameworkDetected)` → `pass | hardFail | warn`, fully table-tested.
+4. **Add a pure `computeTestVerdict` module** (`adws/core/testVerdict.ts`) that maps `(enabled, hasFailures, testcaseCount, frameworkDetected)` → `pass | hard-fail | warn`, fully table-tested.
 5. **Wire the verdict into `executeUnitTestPhase`**: hard-fail uses the existing `process.exit(1)` gate; warn posts an `adw:unverified` comment + label and continues; pass continues.
 6. **Register the `adw:unverified` label** in `labelManager.ts` so it is provisioned and applied like the other `adw:*` labels.
 7. **Add a flat-layout Python fixture** under `test/fixtures/` whose pytest suite actually runs against `testDirectory`.
@@ -53,7 +53,7 @@ Use these files to implement the feature:
 - `adws/core/projectConfig.ts` — **edit.** Add `testDirectory` + `testFramework` to the `CommandsConfig` interface, the `HEADING_TO_KEY` map, and `getDefaultCommandsConfig()`. `parseCommandsMd` already iterates `HEADING_TO_KEY`, so parsing is automatic once the map entries exist. This is the single locus for the new descriptor fields (see `app_docs/feature-670i6z-dead-schema-cleanup.md` for the three touch-points: interface, `HEADING_TO_KEY`, defaults).
 - `.claude/commands/adw_init.md` — **edit.** In step 2 ("Create `.adw/commands.md`") add emission of `## Test Directory` (detected source/test layout) and `## Test Framework` (detected from the dependency manifest; empty when none). This raises the framework hash and propagates the new fields to targets. **Must be the same PR as the `projectConfig.ts` change.**
 - `.claude/commands/test.md` — **edit.** Rewrite step 5 ("Application Tests"): remove `--run src` and the `src/`-existence skip-as-passed condition; read `## Run Tests` + `## Test Directory` from `commands.md` and run the test command scoped to that directory; report a `testcase_count` (and pass/fail) in the JSON output so zero-testcases is detectable.
-- `adws/phases/unitTestPhase.ts` — **edit.** Read `testDirectory`/`testFramework` from `config.projectConfig.commands`; compute `frameworkDetected = Boolean(commands.testFramework?.trim())`; after the run, call `computeTestVerdict` and branch: `hardFail` → existing fail path; `warn` → post `adw:unverified` comment + apply label, then continue; `pass` → continue.
+- `adws/phases/unitTestPhase.ts` — **edit.** Read `testDirectory`/`testFramework` from `config.projectConfig.commands`; compute `frameworkDetected = Boolean(commands.testFramework?.trim())`; after the run, call `computeTestVerdict` and branch: `hard-fail` → existing fail path; `warn` → post `adw:unverified` comment + apply label, then continue; `pass` → continue.
 - `adws/agents/testAgent.ts` — **edit.** Extend `TestResult` with an optional `testcase_count?: number` (or `ran_zero_tests?: boolean`), update `testResultsSchema`, and surface the application-tests count on `TestAgentResult` so the phase can read it.
 - `adws/agents/testRetry.ts` — **edit.** Thread the testcase count (or zero-testcases boolean) from `TestAgentResult` through `TestRetryResult` so `executeUnitTestPhase` receives it.
 - `adws/github/labelManager.ts` — **edit.** Add `export const ADW_UNVERIFIED_LABEL = 'adw:unverified'` and an entry in `ADW_LABEL_DEFINITIONS` so `ensureAdwLabelsExist` provisions it; the warn path applies it via the existing `applyLabel(...)`.
@@ -66,9 +66,10 @@ Use these files to implement the feature:
 
 ### New Files
 
-- `adws/core/testVerdict.ts` — pure verdict module: `computeTestVerdict(input) → { verdict: 'pass' | 'hardFail' | 'warn'; reason: string }`, where `input = { enabled: boolean; hasFailures: boolean; testcaseCount: number; frameworkDetected: boolean }`. No I/O — directly unit-testable, following the `hungOrchestratorDetector.ts` / `remoteReconcile.ts` pure-helper convention.
+- `adws/core/testVerdict.ts` — pure verdict module: `computeTestVerdict(input) → { verdict: 'pass' | 'hard-fail' | 'warn'; reason: string }`, where `input = { enabled: boolean; hasFailures: boolean; testcaseCount: number; frameworkDetected: boolean }`. No I/O — directly unit-testable, following the `hungOrchestratorDetector.ts` / `remoteReconcile.ts` pure-helper convention.
 - `adws/core/__tests__/testVerdict.test.ts` — table-driven unit tests covering every verdict branch.
 - `test/fixtures/python-flat/` — flat-layout Python fixture: `pyproject.toml` (declares `pytest`), a module at repo root, `tests/test_*.py` with at least one passing test, **no `src/` directory**, and a `.adw/` config with `## Run Tests` (`pytest`), `## Test Directory` (`tests`), and `## Test Framework` (`pytest`). Used to prove the suite actually executes against `testDirectory` and that the skip-as-passed trap is gone.
+- `test/fixtures/jsonl/manifests/adw-unit-test-zero-testcases.json` — scripted claude-cli-stub manifest backing the §8/§9 end-to-end channel scenarios in `features/per-issue/feature-577.feature`. Scripts plan + build success and a unit-test agent run reporting **zero discovered testcases** (`testcase_count: 0`), so the only variable between §8 (warn) and §9 (hard-fail) is the worktree's framework declaration. Model it on the existing manifests under `test/fixtures/jsonl/manifests/`. (§8/§9 are PENDING until the ISSUE-3-CUTOVER subprocess driver lands, but the scenario contract lists this manifest as a deliverable of this feature, so it is created now.)
 
 #### Relevant conditional documentation (read before implementing)
 - `app_docs/feature-670i6z-dead-schema-cleanup.md` — the three `CommandsConfig` touch-points (interface, `HEADING_TO_KEY`, defaults) when adding a schema field.
@@ -86,7 +87,7 @@ Extend `CommandsConfig` with `testDirectory`/`testFramework` and their defaults,
 Teach `adw_init.md` to emit the new sections (same PR, for hash propagation). Rewrite `test.md` step 5 to drop the `src/` trap and surface a testcase count. Thread the count through `testAgent` → `testRetry` → `executeUnitTestPhase`, and replace the phase's pass/fail branch with the three-way verdict (hard-fail / warn / pass).
 
 ### Phase 3: Integration — label, comment, fixture
-Register the `adw:unverified` label and the `unverified` comment stage, wire the warn path to post both, and add the flat-layout Python fixture demonstrating real execution against `testDirectory`. Finish by running the full validation suite.
+Register the `adw:unverified` label and the `unverified` comment stage, wire the warn path to post both, and add the flat-layout Python fixture demonstrating real execution against `testDirectory`. Also add the scripted zero-testcases manifest backing the (pending) §8/§9 end-to-end channel scenarios. Finish by running the full validation suite.
 
 ## Step by Step Tasks
 Execute every step in order, top to bottom.
@@ -112,11 +113,12 @@ Execute every step in order, top to bottom.
 - Create `adws/core/testVerdict.ts` exporting `computeTestVerdict({ enabled, hasFailures, testcaseCount, frameworkDetected })`.
 - Verdict table (guard-clause style, no nesting beyond depth 2):
   - `enabled === false` → `pass` (gate disabled; reason: "unit tests disabled").
-  - `hasFailures === true` → `hardFail` (reason: "unit tests failed").
+  - `hasFailures === true` → `hard-fail` (reason: "unit tests failed").
   - `testcaseCount > 0` → `pass` (reason: "N testcases passed").
-  - `testcaseCount === 0 && frameworkDetected === true` → `hardFail` (reason: "zero testcases ran but a test framework is configured — discovery break").
+  - `testcaseCount === 0 && frameworkDetected === true` → `hard-fail` (reason: "zero testcases ran but a test framework is configured — discovery break").
   - `testcaseCount === 0 && frameworkDetected === false` → `warn` (reason: "zero testcases ran and no test framework detected — marking unverified").
 - Export the result type and verdict union so the phase and tests share it.
+- The verdict tokens are the exact strings `pass` / `hard-fail` / `warn` — the phrasing the issue uses and the strings `feature-577.feature` §4–§7 assert — so the value `computeTestVerdict` returns is compared directly with no display-mapping layer.
 - Re-export from `adws/core/index.ts` following the existing pattern.
 
 ### Step 4: Add `testVerdict` unit tests (all branches)
@@ -144,7 +146,7 @@ Execute every step in order, top to bottom.
 - In `adws/phases/unitTestPhase.ts`, inside the `unitTestsEnabled` branch, after `runUnitTestsWithRetry` returns:
   - Derive `frameworkDetected = Boolean(config.projectConfig.commands.testFramework?.trim())` and `testcaseCount`/`hasFailures` from the retry result.
   - Call `computeTestVerdict({ enabled: true, hasFailures: !unitTestsResult.passed, testcaseCount, frameworkDetected })`.
-  - `hardFail` → keep the existing error path (log, `appendLog`, error comment, write failed state, `process.exit(1)`). Use this for both the existing failures case and the new zero-testcases-with-framework case.
+  - `hard-fail` → keep the existing error path (log, `appendLog`, error comment, write failed state, `process.exit(1)`). Use this for both the existing failures case and the new zero-testcases-with-framework case.
   - `warn` → log; `appendLog`; apply the `adw:unverified` label (`applyLabel(issueNumber, ADW_UNVERIFIED_LABEL, repoInfo)` — derive `repoInfo` from `config.targetRepo` when present, else `getRepoInfo()`, matching sibling phases); post the `unverified` comment via `postIssueStageComment(repoContext, issueNumber, 'unverified', ctx)`; **do not exit** — continue the phase as success.
   - `pass` → existing success log/append.
 - Preserve the existing `unitTestsEnabled === false` skip path unchanged (gate is upstream of the verdict).
@@ -158,11 +160,16 @@ Execute every step in order, top to bottom.
   - `.adw/project.md`, `.adw/scenarios.md`, `.adw/providers.md`, `.adw/review_proof.md` mirrored from the cli-tool fixture (CLI app type).
   - A `README.md` noting it is a flat-layout (no-`src/`) fixture proving the unit phase executes against `testDirectory`.
 
-### Step 11: Add fixture-config coverage and (optional) execution check
+### Step 11: Add the §8/§9 end-to-end channel manifest (scaffolding for the pending scenarios)
+- Create `test/fixtures/jsonl/manifests/adw-unit-test-zero-testcases.json`, modeled on the existing manifests under `test/fixtures/jsonl/manifests/`. It scripts plan + build success and a unit-test agent run that reports **zero discovered testcases** (`testcase_count: 0`).
+- This single manifest backs both `feature-577.feature` §8 (warn) and §9 (hard-fail); the only variable between them is the worktree's framework declaration (`testFramework` present vs empty in the worktree `commands.md`), so the same zero-testcase script yields opposite verdicts.
+- §8/§9 are **PENDING** until the ISSUE-3-CUTOVER W1 subprocess driver lands (`features/regression/step_definitions/whenSteps.ts` currently returns `'pending'`), so the manifest is not yet exercised by a green run — it is created now because the scenario contract lists it as a deliverable of this feature.
+
+### Step 12: Add fixture-config coverage and (optional) execution check
 - Add a unit test (in `projectConfig.test.ts` or a small fixture test) asserting `loadProjectConfig('test/fixtures/python-flat')` yields `commands.testDirectory === 'tests'`, `commands.testFramework === 'pytest'`, and `commands.runTests === 'pytest'` — proving the parser honours a non-`src/` layout.
 - If `pytest` is available on the host, add a validation step that runs `pytest tests` inside the fixture and confirms it exits 0 with a non-zero collected count (proves real execution). Guard/skip cleanly when Python is absent — wiring the fixture into the hermetic Docker CI runner is PRD US28 / PR 2 and is **out of scope here**.
 
-### Step 12: Run the Validation Commands
+### Step 13: Run the Validation Commands
 - Run every command in the **Validation Commands** section below and confirm zero errors and zero regressions.
 
 ## Testing Strategy
@@ -172,9 +179,9 @@ Execute every step in order, top to bottom.
 
 - **`computeTestVerdict` (`adws/core/__tests__/testVerdict.test.ts`)** — table-driven over `(enabled, hasFailures, testcaseCount∈{0, N>0}, frameworkDetected)`, asserting all five branches:
   - disabled → `pass`
-  - enabled + failures → `hardFail`
+  - enabled + failures → `hard-fail`
   - enabled + passing + count>0 → `pass`
-  - enabled + count==0 + frameworkDetected → `hardFail`
+  - enabled + count==0 + frameworkDetected → `hard-fail`
   - enabled + count==0 + no framework → `warn`
 - **Config parsing (`adws/core/__tests__/projectConfig.test.ts`)** — `testDirectory` default `'src'` (empty/absent), custom value read + trimmed; `testFramework` default `''` (absent), custom value read; other defaults preserved; `getDefaultCommandsConfig()` includes both new keys.
 - **Fixture config (`projectConfig.test.ts`)** — `loadProjectConfig('test/fixtures/python-flat')` returns `testDirectory: 'tests'`, `testFramework: 'pytest'`, `runTests: 'pytest'`.
@@ -185,7 +192,7 @@ Follow the existing pure-function test conventions (Vitest, `describe`/`it`, `mk
 - **No `src/` directory and no `testDirectory` configured** — must NOT skip-as-passed; runs against the default `src`, discovers zero tests, and (with empty `testFramework`) **warns** rather than reporting silent green.
 - **Zero testcases with a framework detected** — `testFramework` non-empty + `testcase_count == 0` → **hard-fail** (discovery break).
 - **Zero testcases with no framework** — `testFramework == ''` + `testcase_count == 0` → **warn** + `adw:unverified` comment/label, workflow continues.
-- **Tests fail** — unchanged hard-fail gate; the verdict returns `hardFail` regardless of `testcaseCount`/`frameworkDetected`.
+- **Tests fail** — unchanged hard-fail gate; the verdict returns `hard-fail` regardless of `testcaseCount`/`frameworkDetected`.
 - **Unit-test gate disabled** (`.github/adw.yml` `unitTests: false`) — phase still skips entirely before the verdict runs (no comment, no label).
 - **Un-regenerated target repo** (legacy `commands.md` lacking the new sections) — defaults apply (`src` / empty framework); behaviour degrades safely to warn-not-fail on zero tests.
 - **Whitespace-only `testFramework`** — treated as "not detected" (`.trim()` guard) → warn path.
