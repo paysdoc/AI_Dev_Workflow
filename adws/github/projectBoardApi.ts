@@ -8,6 +8,7 @@ import { log } from '../core';
 import { GITHUB_PAT } from '../core/config';
 import { type RepoInfo } from './githubApi';
 import { isGitHubAppConfigured, refreshTokenIfNeeded } from './githubAppAuth';
+import { notifyReviewTransition } from './hitlBoardNotifier';
 
 
 interface ProjectItem {
@@ -283,6 +284,9 @@ export async function moveIssueToStatus(
 
     updateProjectItemStatus(projectId, projectItem.itemId, statusField.fieldId, matchedOption.id);
     log(`Moved issue #${issueNumber} to "${matchedOption.name}" on project board (auth: ${authLabel})`, 'success');
+    if (targetStatus.toLowerCase() === 'review') {
+      void notifyReviewTransition({ issueNumber, repoInfo });
+    }
     return true;
   } catch (error) {
     log(`Failed to move issue #${issueNumber} to "${targetStatus}": ${error}`, 'error');
