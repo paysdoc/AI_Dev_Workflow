@@ -10,7 +10,8 @@ import { createPhaseCostRecords, PhaseCostStatus } from '../cost';
 import { formatCostCommentSection } from '../cost/reporting/commentFormatter';
 import { postPRStageComment } from './phaseCommentHelpers';
 import type { PRReviewWorkflowConfig } from './prReviewPhase';
-import { BoardStatus } from '../providers/types';
+import { BoardStatus, Platform } from '../providers/types';
+import { notifyBlockedTransition, type NotifierDeps } from '../github/hitlBoardNotifier';
 
 async function buildPRReviewCostSection(config: PRReviewWorkflowConfig, modelUsage: ModelUsageMap): Promise<void> {
   const { ctx } = config;
@@ -74,7 +75,7 @@ export async function completePRReviewWorkflow(config: PRReviewWorkflowConfig, m
  * Handles PR review workflow errors: posts error comment, writes failed state, and exits.
  * Uses `config.repoInfo` for external repository API calls when targeting a different repo.
  */
-export function handlePRReviewWorkflowError(config: PRReviewWorkflowConfig, error: unknown, costUsd?: number, modelUsage?: ModelUsageMap): never {
+export async function handlePRReviewWorkflowError(config: PRReviewWorkflowConfig, error: unknown, costUsd?: number, modelUsage?: ModelUsageMap, notifierDeps?: NotifierDeps): Promise<never> {
   const { prNumber, ctx } = config;
   const { orchestratorStatePath, repoContext } = config.base;
 
@@ -86,6 +87,17 @@ export function handlePRReviewWorkflowError(config: PRReviewWorkflowConfig, erro
   if (repoContext) {
     postPRStageComment(repoContext, prNumber, 'pr_review_error', ctx);
     repoContext.issueTracker.moveToStatus(config.base.issueNumber, BoardStatus.Blocked).catch(() => {});
+    if (repoContext.repoId.platform === Platform.GitHub) {
+      await notifyBlockedTransition(
+        {
+          issueNumber: config.base.issueNumber,
+          repoInfo: { owner: repoContext.repoId.owner, repo: repoContext.repoId.repo },
+          source: 'review_error',
+          errorMessage: ctx.errorMessage,
+        },
+        notifierDeps,
+      );
+    }
   }
 
   AgentStateManager.writeState(orchestratorStatePath, {

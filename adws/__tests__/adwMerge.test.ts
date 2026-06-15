@@ -51,6 +51,7 @@ function makeDeps(overrides: Partial<MergeDeps> = {}): MergeDeps {
     commentOnPR: vi.fn<typeof commentOnPR>(),
     getPlanFilePath: vi.fn<typeof getPlanFilePath>().mockReturnValue('specs/issue-42-plan.md'),
     planFileExists: vi.fn<typeof planFileExists>().mockReturnValue(false),
+    notifyBlockedTransition: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
@@ -176,7 +177,7 @@ describe('executeMerge — already merged PR', () => {
 // ── Closed PR (not merged) ───────────────────────────────────────────────────
 
 describe('executeMerge — closed PR', () => {
-  it('writes discarded when PR is CLOSED without merge', async () => {
+  it('writes discarded and notifies blocked when PR is CLOSED without merge', async () => {
     const deps = makeDeps({
       findPRByBranch: vi.fn().mockReturnValue(makePR({ state: 'CLOSED' })),
     });
@@ -188,6 +189,19 @@ describe('executeMerge — closed PR', () => {
     expect(deps.writeTopLevelState).toHaveBeenCalledWith('test-adw-id', { workflowStage: 'discarded' });
     expect(deps.commentOnIssue).not.toHaveBeenCalled();
     expect(deps.mergeWithConflictResolution).not.toHaveBeenCalled();
+    expect(deps.notifyBlockedTransition).toHaveBeenCalledWith(
+      expect.objectContaining({ issueNumber: 42, repoInfo: REPO_INFO, source: 'discarded' }),
+    );
+  });
+
+  it('does not call notifyBlockedTransition for merged PRs', async () => {
+    const deps = makeDeps({
+      findPRByBranch: vi.fn().mockReturnValue(makePR({ state: 'MERGED' })),
+    });
+
+    await executeMerge(42, 'test-adw-id', REPO_INFO, '/base/repo', deps);
+
+    expect(deps.notifyBlockedTransition).not.toHaveBeenCalled();
   });
 });
 

@@ -32,10 +32,12 @@ import {
 const MAX_PR_RESOLUTION_ATTEMPTS = 3;
 import { findOrchestratorStatePath } from './core/stateHelpers';
 import { commentOnIssue, commentOnPR, defaultFindPRByBranch, fetchPRApprovalState, issueHasLabel, type RawPR, type RepoInfo } from './github';
+import { notifyBlockedTransition } from './github/hitlBoardNotifier';
 import { mergeWithConflictResolution } from './triggers/autoMergeHandler';
 import { ensureWorktree } from './vcs';
 import { getPlanFilePath, planFileExists } from './agents';
 import type { AgentState } from './types/agentTypes';
+import { Platform } from './providers/types';
 export { handleWorkflowDiscarded } from './phases/workflowCompletion';
 
 /** Outcome of executeMerge. */
@@ -60,6 +62,7 @@ export interface MergeDeps {
   readonly commentOnPR: typeof commentOnPR;
   readonly getPlanFilePath: typeof getPlanFilePath;
   readonly planFileExists: typeof planFileExists;
+  readonly notifyBlockedTransition: (args: Parameters<typeof notifyBlockedTransition>[0]) => Promise<void>;
 }
 
 /** Builds the explanatory issue comment posted when the merge escalates to merge_blocked. */
@@ -157,6 +160,7 @@ export async function executeMerge(
   if (prState === 'CLOSED') {
     log(`adwMerge: PR #${prNumber} is closed without merge`, 'warn');
     deps.writeTopLevelState(adwId, { workflowStage: 'discarded' });
+    await deps.notifyBlockedTransition({ issueNumber, repoInfo, source: 'discarded' });
     return { outcome: 'abandoned', reason: 'pr_closed' };
   }
 
@@ -227,7 +231,7 @@ export async function executeMerge(
 }
 
 /** Builds the default MergeDeps using production implementations. */
-function buildDefaultDeps(): MergeDeps {
+function buildDefaultDeps(platform: Platform): MergeDeps {
   return {
     readTopLevelState: (id) => AgentStateManager.readTopLevelState(id),
     findOrchestratorStatePath,
@@ -243,6 +247,7 @@ function buildDefaultDeps(): MergeDeps {
     commentOnPR,
     getPlanFilePath,
     planFileExists,
+    notifyBlockedTransition: platform === Platform.GitHub ? notifyBlockedTransition : async () => undefined,
   };
 }
 
@@ -269,7 +274,7 @@ async function main(): Promise<void> {
 
   let result: Awaited<ReturnType<typeof executeMerge>> | undefined;
   const acquired = await runWithRawOrchestratorLifecycle(repoInfo, issueNumber, adwId, async () => {
-    result = await executeMerge(issueNumber, adwId, repoInfo, baseRepoPath, buildDefaultDeps());
+    result = await executeMerge(issueNumber, adwId, repoInfo, baseRepoPath, buildDefaultDeps(repoId.platform));
   });
   if (!acquired) {
     log(`Issue #${issueNumber}: spawn lock already held by another orchestrator; exiting.`, 'warn');

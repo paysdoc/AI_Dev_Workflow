@@ -705,6 +705,7 @@ adws/                   # ADW workflow system
 │   │   ├── takeoverHandler.integration.test.ts  # Integration test for the abandoned takeover path
 │   │   ├── trigger_cron.test.ts
 │   │   ├── triggerCronAwaitingMerge.test.ts
+│   │   ├── webhookGatekeeper.test.ts
 │   │   └── webhookHandlers.test.ts
 │   ├── autoMergeHandler.ts  # Auto-merge approved PRs
 │   ├── cancelHandler.ts  # Cancel directive handler

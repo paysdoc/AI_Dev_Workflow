@@ -55,6 +55,15 @@ export {
 // Project Board API
 export { moveIssueToStatus } from './projectBoardApi';
 
+// HITL Board Notifier
+export {
+  notifyReviewTransition,
+  notifyBlockedTransition,
+  type NotifierDeps,
+  type NotifyReviewArgs,
+  type NotifyBlockedArgs,
+} from './hitlBoardNotifier';
+
 // GitHub App Authentication
 export {
   isGitHubAppConfigured,

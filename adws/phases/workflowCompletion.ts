@@ -14,9 +14,10 @@ import { type PhaseCostRecord } from '../cost';
 import { formatCostCommentSection } from '../cost/reporting/commentFormatter';
 import type { WorkflowConfig } from './workflowInit';
 import { postIssueStageComment } from './phaseCommentHelpers';
-import { BoardStatus } from '../providers/types';
+import { BoardStatus, Platform } from '../providers/types';
 import { appendToPauseQueue } from '../core/pauseQueue';
 import { deriveOrchestratorScript } from '../core/orchestratorLib';
+import { notifyBlockedTransition, type NotifierDeps } from '../github/hitlBoardNotifier';
 
 /**
  * Completes the workflow: writes final state, posts completion comment, prints banner.
@@ -201,13 +202,18 @@ export function handlePhaseTimeout(
  * all retries). Writes 'discarded' stage, posts a terminal comment, and exits 0.
  * Unlike handleWorkflowError (which writes 'abandoned' and exits 1), a discard is a clean,
  * intentional terminal decision — not a crash — so the exit code is 0.
+ *
+ * NOTE: this handler is currently uninvoked — the live discard notification is wired in
+ * adwMerge.tsx. This hook is forward-compatible for any future caller and must be awaited
+ * by such a caller before exiting.
  */
-export function handleWorkflowDiscarded(
+export async function handleWorkflowDiscarded(
   config: WorkflowConfig,
   reason: string,
   costUsd?: number,
   modelUsage?: ModelUsageMap,
-): never {
+  notifierDeps?: NotifierDeps,
+): Promise<never> {
   const { orchestratorStatePath, orchestratorName, issueNumber, ctx, repoContext } = config;
 
   if (costUsd !== undefined && modelUsage) {
@@ -218,6 +224,16 @@ export function handleWorkflowDiscarded(
   if (repoContext) {
     postIssueStageComment(repoContext, issueNumber, 'discarded', ctx);
     repoContext.issueTracker.moveToStatus(issueNumber, BoardStatus.Blocked).catch(() => {});
+    if (repoContext.repoId.platform === Platform.GitHub) {
+      await notifyBlockedTransition(
+        {
+          issueNumber,
+          repoInfo: { owner: repoContext.repoId.owner, repo: repoContext.repoId.repo },
+          source: 'discarded',
+        },
+        notifierDeps,
+      );
+    }
   }
 
   AgentStateManager.writeState(orchestratorStatePath, {

@@ -114,7 +114,7 @@ async function main(): Promise<void> {
     if (error instanceof AuthRequiredError) {
       handleAuthRequiredPause(config.base, error, tracker.totalCostUsd, tracker.totalModelUsage);
     }
-    handlePRReviewWorkflowError(config, error, tracker.totalCostUsd, tracker.totalModelUsage);
+    await handlePRReviewWorkflowError(config, error, tracker.totalCostUsd, tracker.totalModelUsage);
   }
 }
 
