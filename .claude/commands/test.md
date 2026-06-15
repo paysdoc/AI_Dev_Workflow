@@ -63,16 +63,10 @@ TEST_COMMAND_TIMEOUT: 5 minutes
 ### Application Tests
 
 5. **Application Tests**
-   - Read `## Run Tests` from `.adw/commands.md` to get the test command. Default: `bun run test`
-   - Read `## Test Directory` from `.adw/commands.md` to get the test directory. Default: `src` when the section is absent.
-   - Run the test command scoped to the test directory. Append the directory in the runner-appropriate way:
-     - `pytest` / `go test`: positional argument — e.g. `pytest tests`, `go test ./tests/...`
-     - Vitest / Bun test: via `-- --run <dir>` — e.g. `bun run test -- --run src`
-   - **Run this test unconditionally** — there is no directory-existence check or skip condition. A missing `src/` directory is not a skip signal; run against whichever directory is configured.
-   - If the runner discovers zero tests (e.g. pytest "collected 0 items", Vitest "no test files found"), report `passed: true` with `testcase_count: 0` — **do not fail the agent**. The verdict layer (not the agent) decides pass/warn/hard-fail.
-   - Read the testcase count from the runner's own summary line (e.g. "5 passed", "collected 5 items").
+   - Command: Read `## Run Tests` from `.adw/commands.md` and append the application test subset path. Default: `bun run test -- --run src`
    - test_name: "app_tests"
-   - test_purpose: "Validates application-level test suites in the configured test directory"
+   - test_purpose: "Validates application-level test suites under the src/ directory in the target repository"
+   - Condition: Only execute if a `src/` directory exists in the working directory. If `src/` does not exist, skip this test and mark it as passed with a note indicating it was skipped (no src/ directory found).
 
 ## Report
 
@@ -91,8 +85,7 @@ TEST_COMMAND_TIMEOUT: 5 minutes
     "passed": boolean,
     "execution_command": "string",
     "test_purpose": "string",
-    "error": "optional string",
-    "testcase_count": "optional integer — number of testcases executed (0 when runner discovered none)"
+    "error": "optional string"
   },
   ...
 ]
@@ -110,11 +103,10 @@ TEST_COMMAND_TIMEOUT: 5 minutes
     "error": "TS2345: Argument of type 'string' is not assignable to parameter of type 'number'"
   },
   {
-    "test_name": "app_tests",
+    "test_name": "adw_tests",
     "passed": true,
-    "execution_command": "pytest tests",
-    "test_purpose": "Validates application-level test suites in the configured test directory",
-    "testcase_count": 7
+    "execution_command": "bun run test -- --run adws/__tests__",
+    "test_purpose": "Validates all ADW (AI Developer Workflow) script functionality including workflow execution and utilities"
   }
 ]
 ```

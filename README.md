@@ -507,6 +507,7 @@ adws/                   # ADW workflow system
 │   │   ├── remoteReconcile.test.ts
 │   │   ├── slackNotifier.test.ts
 │   │   ├── stateHelpers.test.ts
+│   │   ├── testVerdict.test.ts
 │   │   ├── topLevelState.test.ts
 │   │   ├── upgradeClaim.integration.test.ts
 │   │   ├── upgradeClaim.test.ts
@@ -544,6 +545,7 @@ adws/                   # ADW workflow system
 │   ├── slackNotifier.ts  # Slack Incoming Webhook client for error/problem alerting
 │   ├── stateHelpers.ts
 │   ├── targetRepoManager.ts
+│   ├── testVerdict.ts  # Pure test verdict computation (enabled, hasFailures, testcaseCount, frameworkDetected → verdict)
 │   ├── upgradeClaim.ts # Atomic upgrade-claim primitive via GitHub branch namespace (winner/loser resolution)
 │   ├── utils.ts
 │   ├── workflowCommentParsing.ts  # Comment parsing utilities
