@@ -21,8 +21,28 @@ const parser = new XMLParser({
   isArray: (name) => name === 'testcase' || name === 'testsuite',
 });
 
+/**
+ * A `<failure>`/`<error>` child with no attributes and no text content — e.g.
+ * cucumber's bare `<failure/>`, emitted for PENDING and UNDEFINED scenarios
+ * (which carry no exception/message). `fast-xml-parser` represents that as an
+ * empty string; a genuine failure parses to an object (attributes/`#text`) or a
+ * non-empty string (e.g. an AMBIGUOUS message or a stack-trace body).
+ */
+function isEmptyFailureMarker(marker: unknown): boolean {
+  if (marker === '' || marker === null || marker === undefined) return true;
+  if (typeof marker === 'object') return Object.keys(marker as Record<string, unknown>).length === 0;
+  return false;
+}
+
 function classifyTestCase(tc: Record<string, unknown>): TestCaseResult['status'] {
-  if ('failure' in tc || 'error' in tc) return 'failed';
+  const hasFailure = 'failure' in tc;
+  if (hasFailure || 'error' in tc) {
+    const marker = hasFailure ? tc['failure'] : tc['error'];
+    // Cucumber's junit formatter emits a bare <failure/> for PENDING/UNDEFINED
+    // scenarios (no exception payload). Restore parseCucumberSummary's
+    // "pending is not a failure" semantics: bare marker → skipped, not failed.
+    return isEmptyFailureMarker(marker) ? 'skipped' : 'failed';
+  }
   if ('skipped' in tc) return 'skipped';
   return 'passed';
 }

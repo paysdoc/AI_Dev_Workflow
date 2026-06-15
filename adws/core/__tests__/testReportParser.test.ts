@@ -83,7 +83,7 @@ describe('parseJUnitXml — <testsuites> wrapper (pytest/behave shape)', () => {
 <testsuites>
   <testsuite name="suite1">
     <testcase name="t1"/>
-    <testcase name="t2"><failure/></testcase>
+    <testcase name="t2"><failure message="boom"/></testcase>
   </testsuite>
   <testsuite name="suite2">
     <testcase name="t3"/>
@@ -94,6 +94,39 @@ describe('parseJUnitXml — <testsuites> wrapper (pytest/behave shape)', () => {
     expect(report!.total).toBe(3);
     expect(report!.passed).toBe(2);
     expect(report!.failed).toBe(1);
+  });
+});
+
+describe('parseJUnitXml — bare <failure/> treated as skipped (cucumber pending/undefined)', () => {
+  it('classifies bare <failure/> and <failure></failure> as skipped, attributed <failure> as failed', () => {
+    const xml = `<?xml version="1.0"?>
+<testsuite tests="4" failures="3">
+  <testcase name="bare1"><failure/></testcase>
+  <testcase name="bare2"><failure></failure></testcase>
+  <testcase name="bare3"><failure/></testcase>
+  <testcase name="real"><failure type="AssertionError" message="boom"><![CDATA[stack trace here]]></failure></testcase>
+</testsuite>`;
+    const report = parseJUnitXml(xml);
+    expect(report).not.toBeNull();
+    expect(report!.failed).toBe(1);
+    expect(report!.skipped).toBe(3);
+    expect(report!.cases.find(c => c.name === 'bare1')!.status).toBe('skipped');
+    expect(report!.cases.find(c => c.name === 'bare2')!.status).toBe('skipped');
+    expect(report!.cases.find(c => c.name === 'bare3')!.status).toBe('skipped');
+    expect(report!.cases.find(c => c.name === 'real')!.status).toBe('failed');
+  });
+
+  it('all-pending suite yields failed === 0, total > 0 (the @regression-stays-green case)', () => {
+    const xml = `<?xml version="1.0"?>
+<testsuite tests="2" failures="2">
+  <testcase name="pending1"><failure/></testcase>
+  <testcase name="pending2"><failure/></testcase>
+</testsuite>`;
+    const report = parseJUnitXml(xml);
+    expect(report).not.toBeNull();
+    expect(report!.failed).toBe(0);
+    expect(report!.total).toBe(2);
+    expect(report!.skipped).toBe(2);
   });
 });
 

@@ -102,9 +102,9 @@ function deriveTagOutcome(
       if (!result.allPassed && passed) {
         warning =
           `Process exited ${result.exitCode} but JUnit report is clean: ` +
-          `${report.passed} passed, ${report.failed} failed of ${report.total}. ` +
-          `Treating as PASS — post-suite noise (e.g. KPI/D1 writes, shutdown-hook rejections) ` +
-          `is preserved verbatim in the Output section below.`;
+          `${report.passed} passed, ${report.failed} failed, ${report.skipped} skipped of ${report.total}. ` +
+          `Treating as PASS — pending/undefined scenarios and post-suite noise (e.g. KPI/D1 writes, ` +
+          `shutdown-hook rejections) are preserved verbatim in the Output section below.`;
       }
       return {
         passed,
