@@ -20,6 +20,7 @@ vi.mock('../../core', () => ({
     appendLog: vi.fn(),
   },
   emptyModelUsageMap: vi.fn(() => ({})),
+  stepDefExtensionsFor: vi.fn((framework: string) => framework ? ['.ts', '.js'] : ['.ts']),
 }));
 
 import { executeScenarioTestPhase } from '../scenarioTestPhase';
@@ -91,7 +92,7 @@ function makeConfig(overrides: {
       reviewProofMd: '',
       hasAdwDir: true,
       providers: { codeHost: 'github', issueTracker: 'github' },
-      scenarios: { scenarioDirectory: 'features', runByTag: 'bunx cucumber-js --tags {tag}', runRegression: '' },
+      scenarios: { scenarioDirectory: 'features', runByTag: 'bunx cucumber-js --tags {tag}', runRegression: '', stepDefDirectory: 'features/step_definitions', bddFramework: '' },
       scenariosMd: overrides.scenariosMd ?? 'some scenario content',
       reviewProofConfig: {
         tags: [
@@ -188,6 +189,8 @@ describe('executeScenarioTestPhase — without dev server', () => {
       issueNumber: 42,
       runByTagCommand: 'bunx cucumber-js --tags {tag}',
       cwd: '/worktrees/test',
+      stepDefDirectory: 'features/step_definitions',
+      stepDefExtensions: ['.ts'],
     }));
   });
 });

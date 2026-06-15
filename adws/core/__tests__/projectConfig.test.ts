@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseCommandsMd, getDefaultCommandsConfig, parseScenariosMd, loadProjectConfig } from '../projectConfig';
+import { parseCommandsMd, getDefaultCommandsConfig, parseScenariosMd, getDefaultScenariosConfig, loadProjectConfig } from '../projectConfig';
 import { mkdtempSync, mkdirSync, writeFileSync } from 'fs';
 import { join, resolve } from 'path';
 import { tmpdir } from 'os';
@@ -222,6 +222,49 @@ describe('loadProjectConfig — healthCheckPath integration', () => {
     expect(config.scenarios.perIssueScenarioDirectory).toBe('features/per-issue/');
     expect(config.scenarios.regressionScenarioDirectory).toBe('features/regression/');
     expect(config.scenarios.vocabularyRegistry).toBe('features/regression/vocabulary.md');
+  });
+});
+
+describe('parseScenariosMd — stepDefDirectory and bddFramework fields', () => {
+  it('defaults to features/step_definitions and empty bddFramework when sections absent', () => {
+    const result = parseScenariosMd('## Scenario Directory\nfeatures/\n');
+    expect(result.stepDefDirectory).toBe('features/step_definitions');
+    expect(result.bddFramework).toBe('');
+  });
+
+  it('reads stepDefDirectory from ## Step Def Directory section', () => {
+    const content = '## Step Def Directory\nfeatures/steps\n';
+    const result = parseScenariosMd(content);
+    expect(result.stepDefDirectory).toBe('features/steps');
+  });
+
+  it('reads bddFramework from ## BDD Framework section', () => {
+    const content = '## BDD Framework\nbehave\n';
+    const result = parseScenariosMd(content);
+    expect(result.bddFramework).toBe('behave');
+  });
+
+  it('round-trips both new fields when present', () => {
+    const content = [
+      '## Step Def Directory',
+      'features/step_definitions',
+      '',
+      '## BDD Framework',
+      'cucumber-js',
+    ].join('\n');
+    const result = parseScenariosMd(content);
+    expect(result.stepDefDirectory).toBe('features/step_definitions');
+    expect(result.bddFramework).toBe('cucumber-js');
+  });
+});
+
+describe('getDefaultScenariosConfig — stepDefDirectory and bddFramework', () => {
+  it('defaults stepDefDirectory to features/step_definitions', () => {
+    expect(getDefaultScenariosConfig().stepDefDirectory).toBe('features/step_definitions');
+  });
+
+  it('defaults bddFramework to empty string', () => {
+    expect(getDefaultScenariosConfig().bddFramework).toBe('');
   });
 });
 

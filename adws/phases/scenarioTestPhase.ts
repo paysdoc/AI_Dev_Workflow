@@ -15,6 +15,7 @@ import {
   log,
   AgentStateManager,
   emptyModelUsageMap,
+  stepDefExtensionsFor,
   type ModelUsageMap,
 } from '../core';
 import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
@@ -65,6 +66,8 @@ export async function executeScenarioTestPhase(config: WorkflowConfig): Promise<
 
   const { runScenariosByTag: runByTagCommand, startDevServer, healthCheckPath } = projectConfig.commands;
   const { scenariosMd, reviewProofConfig } = projectConfig;
+  const { stepDefDirectory, bddFramework } = projectConfig.scenarios;
+  const stepDefExtensions = stepDefExtensionsFor(bddFramework);
 
   // Guard: skip when scenarios are not configured
   if (!scenariosMd.trim() || runByTagCommand.trim() === 'N/A') {
@@ -98,6 +101,8 @@ export async function executeScenarioTestPhase(config: WorkflowConfig): Promise<
       issueNumber,
       proofDir,
       cwd: worktreePath,
+      stepDefDirectory,
+      stepDefExtensions,
     });
 
   let scenarioProof: ScenarioProofResult;

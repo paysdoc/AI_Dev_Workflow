@@ -112,10 +112,14 @@ Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init
      - `## Scenario Directory` → `features/`
      - `## Run Scenarios by Tag` → `cucumber-js --tags "@{tag}"`
      - `## Run Regression Scenarios` → `cucumber-js --tags "@regression"`
+     - `## BDD Framework` → the detected Gherkin step-def runtime (e.g. `cucumber-js` for JS/TS projects, `behave` or `pytest-bdd` for Python, `godog` for Go, `cucumber-rs` for Rust, `cucumber-ruby` for Ruby). **Never emit a non-Gherkin framework name**; fall back to `cucumber-js` on non-recognition.
+     - `## Step Def Directory` → the conventional step-def directory for that framework (`features/step_definitions` for cucumber-js; `features/steps` for behave/pytest-bdd; default `features/step_definitions`).
    - If E2E is `N/A`, absent, or tool is unrecognized — default to Cucumber/Gherkin:
      - `## Scenario Directory` → `features/`
      - `## Run Scenarios by Tag` → `cucumber-js --tags "@{tag}"`
      - `## Run Regression Scenarios` → `cucumber-js --tags "@regression"`
+     - `## BDD Framework` → `cucumber-js` (default Gherkin runtime)
+     - `## Step Def Directory` → `features/step_definitions` (default)
    - **Always include** a `## Per-Issue Scenario Directory` section with value `features/per-issue/` (independent of the detected scenario tool).
    - **Always include** a `## Regression Scenario Directory` section with value `features/regression/` (independent of the detected scenario tool).
    - **Copy the framework vocabulary template**: if `$3` (`frameworkRepoRoot`) is non-empty, run the following via the Bash tool:
@@ -179,5 +183,6 @@ Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init
    - List all files created (`commands.md`, `project.md`, `conditional_docs.md`, `providers.md`, `review_proof.md`, `scenarios.md`, and `features/regression/vocabulary.md` when copied)
    - Summarize the detected project type and key configuration choices
    - Note both `## Per-Issue Scenario Directory` and `## Regression Scenario Directory` sections written to `scenarios.md`
+   - Note `## BDD Framework` and `## Step Def Directory` sections written to `scenarios.md` (Cucumber/Gherkin branches only). These raise `.adw-version` via `adw_init.md` being a `hashInputs:` file, triggering `adwUpgrade` to regenerate `.adw/` across all registered target repos — the intended emit-parse propagation for the JUnit report rail.
    - If the vocabulary template copy was skipped (empty `$3`), note the warning here
    - Examples-block class chosen: `<browser-test-equipped | CLI-only | fallback>`; placeholder replacement: `<succeeded | skipped: <reason>>`.

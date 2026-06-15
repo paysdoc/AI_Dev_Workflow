@@ -45,6 +45,10 @@ export interface ScenariosConfig {
   regressionScenarioDirectory?: string;
   /** Path to the vocabulary registry file. Absent ⇒ undefined (legacy behaviour). */
   vocabularyRegistry?: string;
+  /** Step definition directory for the project (relative to cwd). Defaults to 'features/step_definitions'. */
+  stepDefDirectory: string;
+  /** BDD framework name (e.g. 'cucumber-js', 'behave'). Empty string ⇒ default .ts extensions. */
+  bddFramework: string;
 }
 
 export interface ProvidersConfig {
@@ -108,6 +112,8 @@ const SCENARIOS_HEADING_TO_KEY: Record<string, keyof ScenariosConfig> = {
   'per-issue scenario directory': 'perIssueScenarioDirectory',
   'regression scenario directory': 'regressionScenarioDirectory',
   'vocabulary registry': 'vocabularyRegistry',
+  'step def directory': 'stepDefDirectory',
+  'bdd framework': 'bddFramework',
 };
 
 const PROVIDERS_HEADING_TO_KEY: Record<string, keyof ProvidersConfig> = {
@@ -166,6 +172,8 @@ export function getDefaultScenariosConfig(): ScenariosConfig {
     scenarioDirectory: 'features/',
     runByTag: 'cucumber-js --tags "@{tag}"',
     runRegression: 'cucumber-js --tags "@regression"',
+    stepDefDirectory: 'features/step_definitions',
+    bddFramework: '',
   };
 }
 

@@ -10,6 +10,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { runScenariosByTag } from '../agents/bddScenarioRunner';
 import type { ReviewProofConfig } from '../core/projectConfig';
+import { readJUnitReport, hasStepDefinitions } from '../core';
+import type { TestReport, TestCaseResult } from '../core';
+import type { BddScenarioResult } from '../agents/bddScenarioRunner';
 
 /** Maximum characters of scenario output retained in the proof file. */
 const MAX_OUTPUT_LENGTH = 10_000;
@@ -24,7 +27,7 @@ export interface TagProofResult {
   resolvedTag: string;
   severity: 'blocker' | 'tech-debt';
   optional: boolean;
-  /** Whether the tag's scenarios passed (exit code 0). False when skipped. */
+  /** Whether the tag's scenarios passed. False when skipped. */
   passed: boolean;
   /** Stdout from the scenario run (truncated if over 10,000 chars). */
   output: string;
@@ -34,12 +37,14 @@ export interface TagProofResult {
   skipped: boolean;
   /**
    * Optional explanation when scenario outcome and process exit code disagree —
-   * e.g. cucumber tally was clean (0 failed, 0 undefined) but the subprocess
-   * exited non-zero due to post-suite noise (KPI/D1 write failures, unhandled
-   * rejections in shutdown hooks). Rendered in the proof markdown so reviewers
-   * see why a non-zero exit was overridden to PASS.
+   * e.g. JUnit report is clean but the subprocess exited non-zero due to
+   * post-suite noise (KPI/D1 write failures, unhandled rejections in shutdown hooks).
    */
   warning?: string;
+  /** Structured tally from the JUnit report (when report was present and parsed). */
+  counts?: { total: number; passed: number; failed: number };
+  /** Per-case results from the JUnit report (when report was present and parsed). */
+  cases?: TestCaseResult[];
 }
 
 /**
@@ -67,39 +72,62 @@ function truncate(output: string): string {
   return `${output.slice(0, MAX_OUTPUT_LENGTH)}\n\n[...output truncated at ${MAX_OUTPUT_LENGTH} characters...]`;
 }
 
-/** Cucumber-js scenario tally extracted from a `--format summary` output line. */
-interface CucumberTally {
-  failed: number;
-  undefinedSteps: number;
-  pending: number;
-  passed: number;
-}
-
-/**
- * Parses the cucumber-js scenarios summary line — e.g. `1646 scenarios (41 pending, 1605 passed)`.
- * Cucumber emits one such line per run. Only non-zero counts appear in the breakdown, so missing
- * categories default to 0. Returns null when no summary line is present (means cucumber crashed
- * before emitting one and the exit code is the only signal available).
- */
-function parseCucumberSummary(stdout: string): CucumberTally | null {
-  const matches = [...stdout.matchAll(/^\s*\d+ scenarios? \(([^)]+)\)\s*$/gm)];
-  if (matches.length === 0) return null;
-  const breakdown = matches[matches.length - 1][1];
-  const numFor = (label: string): number => {
-    const m = breakdown.match(new RegExp(`(\\d+) ${label}\\b`));
-    return m ? Number(m[1]) : 0;
-  };
-  return {
-    failed: numFor('failed'),
-    undefinedSteps: numFor('undefined'),
-    pending: numFor('pending'),
-    passed: numFor('passed'),
-  };
-}
-
 /** Returns true when the scenario output indicates zero matching scenarios were found. */
 function isNoScenariosOutput(stdout: string): boolean {
   return stdout.trim().length === 0 || /\b0 scenarios\b/i.test(stdout);
+}
+
+/** Sanitize a tag name for use as a filename component. */
+function sanitizeTagName(tagName: string): string {
+  return tagName.replace(/[^A-Za-z0-9_-]/g, '-');
+}
+
+interface TagOutcome {
+  passed: boolean;
+  skipped: boolean;
+  warning?: string;
+  counts?: { total: number; passed: number; failed: number };
+  cases?: TestCaseResult[];
+}
+
+function deriveTagOutcome(
+  report: TestReport | null,
+  result: BddScenarioResult,
+  optional: boolean,
+): TagOutcome {
+  if (report !== null) {
+    if (report.total > 0) {
+      const passed = report.failed === 0;
+      let warning: string | undefined;
+      if (!result.allPassed && passed) {
+        warning =
+          `Process exited ${result.exitCode} but JUnit report is clean: ` +
+          `${report.passed} passed, ${report.failed} failed of ${report.total}. ` +
+          `Treating as PASS — post-suite noise (e.g. KPI/D1 writes, shutdown-hook rejections) ` +
+          `is preserved verbatim in the Output section below.`;
+      }
+      return {
+        passed,
+        skipped: false,
+        warning,
+        counts: { total: report.total, passed: report.passed, failed: report.failed },
+        cases: report.cases,
+      };
+    }
+
+    // report.total === 0: zero-testcase case
+    if (optional) {
+      return { passed: true, skipped: true };
+    }
+    return { passed: false, skipped: false };
+  }
+
+  // Report absent — fall back to process exit code; no stdout regex
+  const passed = result.allPassed;
+  if (optional && isNoScenariosOutput(result.stdout)) {
+    return { passed: true, skipped: true };
+  }
+  return { passed, skipped: false };
 }
 
 function buildProofMarkdown(tagResults: readonly TagProofResult[]): string {
@@ -126,6 +154,9 @@ function buildProofMarkdown(tagResults: readonly TagProofResult[]): string {
     if (result.warning) {
       lines.push(`**Warning:** ${result.warning}`);
     }
+    if (result.counts) {
+      lines.push(`**Report:** ${result.counts.passed} passed, ${result.counts.failed} failed of ${result.counts.total}`);
+    }
     lines.push(
       '',
       '### Output',
@@ -150,6 +181,8 @@ function buildProofMarkdown(tagResults: readonly TagProofResult[]): string {
  * @param options.issueNumber - Current issue number for `{issueNumber}` substitution in tag patterns.
  * @param options.proofDir - Directory in which to write `scenario_proof.md`.
  * @param options.cwd - Optional working directory for scenario subprocesses.
+ * @param options.stepDefDirectory - Directory to scan for step definition files.
+ * @param options.stepDefExtensions - File extensions to match for step definitions.
  */
 export async function runScenarioProof(options: {
   scenariosMd: string;
@@ -158,16 +191,26 @@ export async function runScenarioProof(options: {
   issueNumber: number;
   proofDir: string;
   cwd?: string;
+  stepDefDirectory?: string;
+  stepDefExtensions?: string[];
 }): Promise<ScenarioProofResult> {
-  const { reviewProofConfig, runByTagCommand, issueNumber, proofDir, cwd } = options;
+  const {
+    reviewProofConfig,
+    runByTagCommand,
+    issueNumber,
+    proofDir,
+    cwd,
+    stepDefDirectory = 'features/step_definitions',
+    stepDefExtensions = ['.ts'],
+  } = options;
+
+  const effectiveCwd = cwd ?? process.cwd();
 
   // Pre-flight check: verify at least one step definition file exists
-  const stepDefsDir = path.resolve(cwd ?? process.cwd(), 'features', 'step_definitions');
-  const hasStepDefs = fs.existsSync(stepDefsDir) &&
-    fs.readdirSync(stepDefsDir).some(f => f.endsWith('.ts'));
+  const hasStepDefs = hasStepDefinitions(stepDefDirectory, stepDefExtensions, effectiveCwd);
 
   if (!hasStepDefs) {
-    const warningMsg = 'No step definition files found in features/step_definitions/ — skipping BDD scenario proof';
+    const warningMsg = `No step definition files found in ${stepDefDirectory}/ — skipping BDD scenario proof`;
     console.log(`⚠️  ${warningMsg}`);
     fs.mkdirSync(proofDir, { recursive: true });
     const resultsFilePath = path.resolve(proofDir, 'scenario_proof.md');
@@ -179,64 +222,44 @@ export async function runScenarioProof(options: {
     return { tagResults: [], hasBlockerFailures: false, resultsFilePath };
   }
 
+  fs.mkdirSync(proofDir, { recursive: true });
   const tagResults: TagProofResult[] = [];
 
   for (const entry of reviewProofConfig.tags) {
     const resolvedTag = entry.tag.replace('{issueNumber}', String(issueNumber));
-    // runScenariosByTag expects the tag without the @ prefix
     const tagName = resolvedTag.startsWith('@') ? resolvedTag.slice(1) : resolvedTag;
+    const safeTagName = sanitizeTagName(tagName);
+    const reportPath = path.resolve(proofDir, `junit-${safeTagName}.xml`);
 
-    const result = await runScenariosByTag(runByTagCommand, tagName, cwd);
+    // Remove any stale report from a prior run
+    fs.rmSync(reportPath, { force: true });
 
-    // Cucumber can exit non-zero from post-suite noise (e.g. KPI/D1 write failures
-    // logged after the summary line, unhandled rejections in shutdown hooks) even
-    // when every scenario passed. Trust the cucumber summary tally over the exit
-    // code when it is unambiguous: 0 failed AND 0 undefined ⇒ scenario outcome is
-    // PASS regardless of exitCode. Surface a warning so reviewers see why an
-    // override applied.
-    const tally = parseCucumberSummary(result.stdout);
-    const tallyClean = tally !== null && tally.failed === 0 && tally.undefinedSteps === 0;
-    const scenarioOutcomePassed = result.allPassed || tallyClean;
-    const overrideWarning =
-      !result.allPassed && tallyClean
-        ? `Process exited ${result.exitCode} but cucumber tally was clean ` +
-          `(${tally!.passed} passed, ${tally!.pending} pending, 0 failed, 0 undefined). ` +
-          `Treating as PASS — non-scenario noise (e.g. post-suite KPI/D1 writes, ` +
-          `shutdown-hook rejections) is preserved verbatim in the Output section below.`
-        : undefined;
+    const result = await runScenariosByTag(runByTagCommand, tagName, cwd, {
+      ADW_JUNIT_REPORT_PATH: reportPath,
+    });
 
-    const noScenarios = scenarioOutcomePassed && isNoScenariosOutput(result.stdout);
-    if (entry.optional && noScenarios) {
-      tagResults.push({
-        tag: entry.tag,
-        resolvedTag,
-        severity: entry.severity,
-        optional: true,
-        passed: true,
-        output: '',
-        exitCode: result.exitCode,
-        skipped: true,
-      });
-    } else {
-      tagResults.push({
-        tag: entry.tag,
-        resolvedTag,
-        severity: entry.severity,
-        optional: entry.optional ?? false,
-        passed: scenarioOutcomePassed,
-        output: truncate(result.stdout),
-        exitCode: result.exitCode,
-        skipped: false,
-        warning: overrideWarning,
-      });
-    }
+    const report = readJUnitReport(reportPath);
+    const outcome = deriveTagOutcome(report, result, entry.optional ?? false);
+
+    tagResults.push({
+      tag: entry.tag,
+      resolvedTag,
+      severity: entry.severity,
+      optional: entry.optional ?? false,
+      passed: outcome.passed,
+      output: outcome.skipped ? '' : truncate(result.stdout),
+      exitCode: result.exitCode,
+      skipped: outcome.skipped,
+      warning: outcome.warning,
+      counts: outcome.counts,
+      cases: outcome.cases,
+    });
   }
 
   const hasBlockerFailures = tagResults.some(
     r => r.severity === 'blocker' && !r.passed && !r.skipped,
   );
 
-  fs.mkdirSync(proofDir, { recursive: true });
   const resultsFilePath = path.resolve(proofDir, 'scenario_proof.md');
   fs.writeFileSync(resultsFilePath, buildProofMarkdown(tagResults), 'utf-8');
 

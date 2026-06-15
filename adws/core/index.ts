@@ -111,6 +111,13 @@ export { loadProjectConfig, getDefaultProjectConfig, getDefaultCommandsConfig, g
 export type { TestVerdictInput, TestVerdictResult, TestVerdictOutcome } from './testVerdict';
 export { computeTestVerdict } from './testVerdict';
 
+// JUnit report parser
+export type { TestReport, TestCaseResult } from './testReportParser';
+export { parseJUnitXml, readJUnitReport } from './testReportParser';
+
+// Step-def detection
+export { stepDefExtensionsFor, hasStepDefinitions } from './stepDefDetection';
+
 // Issue classifier
 export type { IssueClassificationResult } from './issueClassifier';
 export { classifyIssueForTrigger, classifyGitHubIssue } from './issueClassifier';
