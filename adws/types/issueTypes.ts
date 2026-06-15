@@ -4,7 +4,11 @@
  */
 export type IssueClassSlashCommand = '/chore' | '/bug' | '/feature' | '/pr_review' | '/adw_init';
 
-export const VALID_ISSUE_TYPES: readonly IssueClassSlashCommand[] = ['/chore', '/bug', '/feature', '/pr_review', '/adw_init'] as const;
+// /adw_init is intentionally excluded: it is an operator-only bootstrap command with no
+// orchestrator since #547. Keeping it here would let the AI classifier / --issue-type CLI
+// assign it, which dead-ends in an ENOENT plan-file error (issue #584). It remains in the
+// IssueClassSlashCommand/SlashCommand unions for the prefix/alias maps and manual init flow.
+export const VALID_ISSUE_TYPES: readonly IssueClassSlashCommand[] = ['/chore', '/bug', '/feature', '/pr_review'] as const;
 
 
 // Routing maps have moved to issueRouting.ts — re-exported here for backward compatibility.

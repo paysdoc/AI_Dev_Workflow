@@ -1,0 +1,6 @@
+[
+  {
+    "type": "text",
+    "text": "This issue asks to (re)bootstrap the repository's ADW configuration files, which reads like an operator bootstrap task, so the closest ADW classification is:\n\n/adw_init"
+  }
+]
