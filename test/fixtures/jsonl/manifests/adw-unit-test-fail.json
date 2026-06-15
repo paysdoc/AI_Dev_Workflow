@@ -1,0 +1,9 @@
+{
+  "jsonlPath": ".adw-stub-payload.json",
+  "edits": [
+    {
+      "path": ".adw-stub-payload.json",
+      "contents": "[{\"type\":\"text\",\"text\":\"[{\\\"test_name\\\": \\\"unit tests\\\", \\\"passed\\\": false, \\\"execution_command\\\": \\\"bun run test:unit\\\", \\\"test_purpose\\\": \\\"Run unit test suite\\\", \\\"error\\\": \\\"Test run exited with non-zero status\\\"}]\"}]\n"
+    }
+  ]
+}
