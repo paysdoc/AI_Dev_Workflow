@@ -74,6 +74,42 @@ function parseBooleanScalar(rawAfterColon: string): boolean | null {
   return null;
 }
 
+interface KeySpec {
+  readonly key: keyof AdwYmlConfig;
+  readonly regex: RegExp;
+  readonly defaultValue: boolean;
+  readonly malformedWarn: (rawValue: string) => string;
+}
+
+const KEY_SPECS: readonly KeySpec[] = [
+  {
+    key: 'hitl',
+    regex: /^\s*hitl\s*:\s*(.*)$/,
+    defaultValue: DEFAULT_CONFIG.hitl,
+    malformedWarn: (v) => `adw.yml: malformed 'hitl' value "${v}", defaulting to auto-merge (hitl: false)`,
+  },
+  {
+    key: 'unitTests',
+    regex: /^\s*unitTests\s*:\s*(.*)$/,
+    defaultValue: DEFAULT_CONFIG.unitTests,
+    malformedWarn: (v) => `adw.yml: malformed 'unitTests' value "${v}", defaulting to enabled (unitTests: true)`,
+  },
+];
+
+function applyKeySpec(rawLine: string, spec: KeySpec, resolved: Map<keyof AdwYmlConfig, boolean>): void {
+  if (resolved.has(spec.key)) return;
+  const match = spec.regex.exec(rawLine);
+  if (!match) return;
+  const parsed = parseBooleanScalar(match[1] ?? '');
+  if (parsed !== null) {
+    resolved.set(spec.key, parsed);
+    return;
+  }
+  const rawValue = (match[1] ?? '').trim();
+  log(spec.malformedWarn(rawValue), 'warn');
+  resolved.set(spec.key, spec.defaultValue);
+}
+
 /**
  * Pure parser: converts `.github/adw.yml` file content to an `AdwYmlConfig`.
  * Does not perform I/O — suitable for direct unit testing.
@@ -82,47 +118,18 @@ function parseBooleanScalar(rawAfterColon: string): boolean | null {
  * Malformed values default to the per-key default and emit a warn log.
  */
 export function parseAdwYml(content: string): AdwYmlConfig {
-  let hitl: boolean | undefined;
-  let unitTests: boolean | undefined;
+  const resolved = new Map<keyof AdwYmlConfig, boolean>();
 
   for (const rawLine of content.split('\n')) {
     const trimmed = rawLine.trim();
     if (!trimmed || trimmed.startsWith('#')) continue;
-
-    if (hitl === undefined) {
-      const hitlMatch = /^\s*hitl\s*:\s*(.*)$/.exec(rawLine);
-      if (hitlMatch) {
-        const parsed = parseBooleanScalar(hitlMatch[1] ?? '');
-        if (parsed !== null) {
-          hitl = parsed;
-        } else {
-          const rawValue = (hitlMatch[1] ?? '').trim();
-          log(`adw.yml: malformed 'hitl' value "${rawValue}", defaulting to auto-merge (hitl: false)`, 'warn');
-          hitl = DEFAULT_CONFIG.hitl;
-        }
-      }
-    }
-
-    if (unitTests === undefined) {
-      const unitTestsMatch = /^\s*unitTests\s*:\s*(.*)$/.exec(rawLine);
-      if (unitTestsMatch) {
-        const parsed = parseBooleanScalar(unitTestsMatch[1] ?? '');
-        if (parsed !== null) {
-          unitTests = parsed;
-        } else {
-          const rawValue = (unitTestsMatch[1] ?? '').trim();
-          log(`adw.yml: malformed 'unitTests' value "${rawValue}", defaulting to enabled (unitTests: true)`, 'warn');
-          unitTests = DEFAULT_CONFIG.unitTests;
-        }
-      }
-    }
-
-    if (hitl !== undefined && unitTests !== undefined) break;
+    KEY_SPECS.forEach(spec => applyKeySpec(rawLine, spec, resolved));
+    if (resolved.size === KEY_SPECS.length) break;
   }
 
   return {
-    hitl: hitl ?? DEFAULT_CONFIG.hitl,
-    unitTests: unitTests ?? DEFAULT_CONFIG.unitTests,
+    hitl: resolved.get('hitl') ?? DEFAULT_CONFIG.hitl,
+    unitTests: resolved.get('unitTests') ?? DEFAULT_CONFIG.unitTests,
   };
 }
 
