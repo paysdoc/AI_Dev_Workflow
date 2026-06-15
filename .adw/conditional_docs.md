@@ -1441,3 +1441,11 @@
     - When a dependent issue is permanently blocked because its `## Blocked by #N` tracking issue never closed
     - When understanding why `Implements #N` vs `Closes #N` matters for GitHub auto-close and Projects V2 linking
     - When modifying the issue reference line(s) in the upgrade PR body (additive `Closes` must coexist with `Implements` for `linkedPrDetector`)
+
+- app_docs/feature-vv6d4h-remove-adw-init-from-valid-types.md
+  - Conditions:
+    - When modifying `VALID_ISSUE_TYPES` in `adws/types/issueTypes.ts` or adding/removing auto-runnable workflow types
+    - When working on the classifier regex domain in `adws/core/issueClassifier.ts` (`classifyGitHubIssue`, `classifyWithIssueCommand`)
+    - When the `--issue-type` CLI validation domain in `adws/core/orchestratorCli.ts` needs to change
+    - When troubleshooting an issue that was classified as `/adw_init` and ended up Blocked with an ENOENT plan-file error
+    - When adding a new operator-only slash command that must remain in the type union but must not be auto-assignable
