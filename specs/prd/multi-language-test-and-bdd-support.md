@@ -110,6 +110,9 @@ Rollout is staged: the unit-test layer ships first, the generation/proof/screens
     so that value lands fast and risk is staged.
 30. As an existing TypeScript-target operator, I want absent descriptor fields to default to today's
     Bun/cucumber behavior, so that my repo does not regress.
+31. As an ADW maintainer, I want the scenario format mandated as Gherkin `.feature` for every target
+    language, so that the promotion, per-issue-sweep, and vocabulary subsystems keep working without
+    per-language parsers.
 
 ## Implementation Decisions
 
@@ -122,6 +125,21 @@ Rollout is staged: the unit-test layer ships first, the generation/proof/screens
   thin.
 - **UI BDD is in scope for v1**, which puts the proof layer (detection, parsing, artifact harvest)
   in scope.
+
+**Scenario format — Gherkin mandate**
+- All ADW targets MUST use a **Gherkin-based BDD runner** (Ruby → cucumber-ruby, Python →
+  behave / pytest-bdd, Rust → cucumber-rs, Go → godog, JS/TS → cucumber-js, etc.). The scenario
+  format is fixed to **Gherkin `.feature`**; only the *step-def runtime* varies per language.
+- Rationale: the promotion subsystem (`promotionScorer`, `promotionMover`, `vocabularyParser`,
+  `scenarioParser`), `perIssueScenarioSweep` (`feature-{N}.feature`), and `@adw-{N}` / `@regression`
+  tag discovery all parse Gherkin. Allowing a native non-Gherkin runner would require a per-language
+  parser/mover for each of those — explicitly out of scope (see Out of Scope).
+- `adw_init` selects a Gherkin runner for the detected language and **never emits a non-Gherkin
+  `bddFramework`**. If it cannot identify a Gherkin runner for the stack, it falls back to a Gherkin
+  runner (today's cucumber-js behavior for TS) rather than a native test framework, and flags via the
+  unverified channel.
+- The `stackCoherenceCheck` additionally asserts the detected `bddFramework` is Gherkin-based; a
+  non-Gherkin framework warns loudly through the unverified channel (does not block).
 
 **Config & descriptor**
 - New detected fields extend existing files: `scenarios.md` gains `bddFramework` and
@@ -221,6 +239,11 @@ the resolve-loop prompt changes.
   mechanism that makes fix-forward safe.
 - A per-language code provider (`BddProvider` registry) or per-language prompt files — explicitly
   rejected in favor of one polymorphic prompt.
+- Native non-Gherkin BDD/test runners as the scenario contract (raw `pytest`, RSpec example specs,
+  bare `cargo test`). Every language ADW realistically targets has a mature Gherkin runner, so the
+  mandate costs nothing now; supporting a non-Gherkin contract would require per-language promotion /
+  sweep / vocabulary parsers and is deferred to a future PRD — relevant only for emerging languages
+  that lack a Gherkin runner (e.g. Zig, Nim).
 - Promoting `adw.yml` into a broad policy file; only the `unitTests` key is added now (with commented
   documentation of future options).
 - Hard-gating on config incoherence (the check warns, it does not block).
@@ -248,4 +271,13 @@ the resolve-loop prompt changes.
   hash does not move, regeneration does not run, and targets get the new parser reading old config
   (absent field → silent default). Adding a parsed field and teaching `adw_init` to emit it must
   always be the same PR.
+- **Gherkin coupling is load-bearing.** The promotion / per-issue-sweep / vocabulary pipeline is
+  hardwired to Gherkin `.feature` (`scenarioParser`, `FEATURE_FILENAME_RE`, `promotion*`,
+  `vocabularyParser`). This is why the descriptor varies only the step-def runtime, never the scenario
+  format. The coupling is *latent* (not a break) precisely because every realistically-targeted
+  language has a Gherkin runner; it would only surface if a target abandoned Gherkin. The mandate
+  converts that latent landmine into a stated constraint at zero cost to Python / Ruby / Rust / Go /
+  JVM / .NET / PHP / Swift. The original PRD grill missed it because it framed the design around the
+  execution/generation seam, where Gherkin is the universal substrate; the promotion subsystem sits
+  downstream and is language-neutral *only as long as Gherkin holds*.
 - Source grilling transcript and decisions: `ADW_PYTHON_SUPPORT_RECOMMENDATION.md` (Q1–Q24).
