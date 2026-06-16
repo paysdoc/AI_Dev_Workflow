@@ -34,11 +34,14 @@ export interface BddScenarioResult {
  *   or a full command without `{tag}` placeholder (e.g. `cucumber-js --tags "@regression"`).
  * @param tag - The tag value to substitute for `{tag}` (e.g. `regression`, `adw-168`).
  * @param cwd - Optional working directory (defaults to `process.cwd()`).
+ * @param env - Optional additional environment variables merged into the subprocess env.
+ *   Use to pass ADW_JUNIT_REPORT_PATH for the JUnit report rail.
  */
 export function runScenariosByTag(
   tagCommand: string,
   tag: string,
   cwd?: string,
+  env?: Record<string, string>,
 ): Promise<BddScenarioResult> {
   if (!tagCommand || tagCommand.trim() === 'N/A') {
     return Promise.resolve({ allPassed: true, stdout: '', stderr: '', exitCode: 0 });
@@ -52,6 +55,7 @@ export function runScenariosByTag(
       cwd: workDir,
       stdio: ['ignore', 'pipe', 'pipe'],
       shell: true,
+      env: env ? { ...process.env, ...env } : process.env,
     });
 
     let stdout = '';

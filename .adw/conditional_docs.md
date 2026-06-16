@@ -1,5 +1,16 @@
 # Conditional Documentation
 
+- app_docs/feature-u3l5q0-junit-report-rail-migration.md
+  - Conditions:
+    - When working with `adws/phases/scenarioProof.ts` or `runScenarioProof` verdict derivation
+    - When implementing or troubleshooting `adws/core/testReportParser.ts` (`parseJUnitXml`, `readJUnitReport`)
+    - When working with `adws/core/stepDefDetection.ts` (`stepDefExtensionsFor`, `hasStepDefinitions`)
+    - When `ADW_JUNIT_REPORT_PATH` env var or JUnit report emission from `cucumber.js` is relevant
+    - When adding `stepDefDirectory` or `bddFramework` fields to `ScenariosConfig` / `.adw/scenarios.md`
+    - When troubleshooting the zero-testcase blocker-fail or the clean-tally override in structured-report terms
+    - When a non-`.ts` BDD suite (Python/Go/Rust) is not being recognized by the step-def gate
+    - When `parseCucumberSummary` or `CucumberTally` are referenced (both deleted in this feature)
+
 - app_docs/feature-zyaojl-configurable-test-directory.md
   - Conditions:
     - When working on `adws/phases/unitTestPhase.ts` unit-test verdict or zero-testcase handling
