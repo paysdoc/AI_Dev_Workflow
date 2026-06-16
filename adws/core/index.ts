@@ -116,7 +116,11 @@ export type { TestReport, TestCaseResult } from './testReportParser';
 export { parseJUnitXml, readJUnitReport } from './testReportParser';
 
 // Step-def detection
-export { stepDefExtensionsFor, hasStepDefinitions } from './stepDefDetection';
+export { stepDefExtensionsFor, hasStepDefinitions, isGherkinFramework } from './stepDefDetection';
+
+// Stack coherence check
+export type { StackCoherenceInput, StackCoherenceResult, StackCoherenceWarning, StackCoherenceWarningCode } from './stackCoherenceCheck';
+export { stackCoherenceCheck } from './stackCoherenceCheck';
 
 // Issue classifier
 export type { IssueClassificationResult } from './issueClassifier';
