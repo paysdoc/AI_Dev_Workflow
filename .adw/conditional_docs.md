@@ -1506,3 +1506,13 @@
     - When troubleshooting `adw:unverified` being applied (or not applied) after `adw_init` runs on a non-TS target
     - When the cucumber-bootstrap-on-N/A behavior is referenced anywhere (it was removed in this feature)
     - When the Gherkin mandate (scenarios always `.feature`, never native test framework format) needs justification or is being questioned
+
+- app_docs/feature-izgf7n-screenshot-harvest-proof-comment.md
+  - Conditions:
+    - When working with `adws/proof/` (proofArtifactHarvester, prProofPublisher, types)
+    - When implementing or troubleshooting `executeProofPublishPhase` in `adws/phases/proofPublishPhase.ts`
+    - When the `ADW_PROOF_DIR` convention or screenshot directory wiring in `scenarioProof.ts` is relevant
+    - When working with `publishPrProof`, `formatPrProofComment`, or the R2 upload wiring for BDD screenshots
+    - When adding screenshot upload support to a new orchestrator (wire `executeProofPublishPhase` after `executePRPhase`)
+    - When troubleshooting proof comments missing screenshots or the "R2 not configured" fallback note
+    - When writing unit tests for `harvestProofArtifacts` or the pure `formatPrProofComment` formatter

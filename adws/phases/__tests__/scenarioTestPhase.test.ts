@@ -39,6 +39,7 @@ const passingProof = {
   ],
   hasBlockerFailures: false,
   resultsFilePath: '/agents/test-id/scenario-test/scenario_proof.md',
+  artifactsDir: '/agents/test-id/scenario-test/artifacts',
 };
 
 const failingProof = {
@@ -47,6 +48,7 @@ const failingProof = {
   ],
   hasBlockerFailures: true,
   resultsFilePath: '/agents/test-id/scenario-test/scenario_proof.md',
+  artifactsDir: '/agents/test-id/scenario-test/artifacts',
 };
 
 function makeConfig(overrides: {

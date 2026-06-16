@@ -42,6 +42,7 @@ import {
   executeScenarioTestPhase,
   executeScenarioFixPhase,
   executePRPhase,
+  executeProofPublishPhase,
   executeReviewPhase,
   executeReviewPatchCycle,
   handleWorkflowError,
@@ -120,6 +121,7 @@ async function main(): Promise<void> {
       }
 
       await runPhase(config, tracker, executePRPhase);
+      await runPhase(config, tracker, executeProofPublishPhase);
 
       AgentStateManager.writeTopLevelState(config.adwId, { workflowStage: 'awaiting_merge' });
       AgentStateManager.writeState(config.orchestratorStatePath, {

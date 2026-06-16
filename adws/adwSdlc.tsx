@@ -44,6 +44,7 @@ import {
   executeReviewPatchCycle,
   executeDocumentPhase,
   executeKpiPhase,
+  executeProofPublishPhase,
   handleWorkflowError,
   type ReviewIssue,
 } from './workflowPhases';
@@ -129,6 +130,7 @@ async function main(): Promise<void> {
       await runPhase(config, tracker, executeKpiWithRetries);
 
       await runPhase(config, tracker, executePRPhase);
+      await runPhase(config, tracker, executeProofPublishPhase);
 
       // Write awaiting_merge and persist costs. Do NOT call completeWorkflow —
       // that overwrites the stage with 'completed'. adwMerge.tsx handles completion after merge.
