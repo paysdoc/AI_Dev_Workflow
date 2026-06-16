@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 142              | 2026-06-16 22:08:16 |
-| Longest Streak    | 142              | 2026-06-16 22:08:16 |
-| Total Plan Size   | 4828 lines       | 2026-06-16 22:08:16 |
-| Largest Plan Size | 699 lines        | 2026-06-16 22:08:16 |
-| Total Diff Size   | 5940443 lines    | 2026-06-16 22:08:16 |
-| Largest Diff Size | 418153 lines     | 2026-06-16 22:08:16 |
-| Average Presence  | 1.19             | 2026-06-16 22:08:16 |
+| Current Streak    | 160              | 2026-06-16 22:18:24 |
+| Longest Streak    | 160              | 2026-06-16 22:18:24 |
+| Total Plan Size   | 6130 lines       | 2026-06-16 22:18:24 |
+| Largest Plan Size | 699 lines        | 2026-06-16 22:18:24 |
+| Total Diff Size   | 5942091 lines    | 2026-06-16 22:18:24 |
+| Largest Diff Size | 418153 lines     | 2026-06-16 22:18:24 |
+| Average Presence  | 1.24             | 2026-06-16 22:18:24 |
 
 ## ADW KPIs
 
@@ -244,3 +244,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-06-14 | nm1413-adwupgrade-pr-body-u | 570 | /bug | 1 | 0 | 1442/207/25 | 2026-06-14 11:49:09 | 2026-06-14 11:49:09 |
 | 2026-06-14 | t6m62c-fix-adwupgrade-regen | 572 | /bug | 2 | 0 | 1226/103/14 | 2026-06-14 16:36:46 | 2026-06-14 16:36:46 |
 | 2026-06-16 | bfdyaj-polymorphic-step-def | 579 | /feature | 1 | 0 | 832/61/14 | 2026-06-16 22:08:16 | 2026-06-16 22:08:16 |
+| 2026-06-16 | izgf7n-screenshot-harvest-t | 580 | /feature | 2 | 0 | 1642/6/23 | 2026-06-16 22:18:24 | 2026-06-16 22:18:24 |
