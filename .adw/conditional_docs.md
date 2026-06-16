@@ -1507,6 +1507,16 @@
     - When the cucumber-bootstrap-on-N/A behavior is referenced anywhere (it was removed in this feature)
     - When the Gherkin mandate (scenarios always `.feature`, never native test framework format) needs justification or is being questioned
 
+- app_docs/feature-l8a10n-stack-coherence-check.md
+  - Conditions:
+    - When working with `stackCoherenceCheck` or `reportStackCoherence` in `adws/core/` or `adws/phases/`
+    - When implementing or troubleshooting the `adw:unverified` label + `stack_incoherent` comment channel for mis-detected stacks
+    - When adding new language tokens to the `LANGUAGE_TOKENS` inference map in `adws/core/stackCoherenceCheck.ts`
+    - When `isGherkinFramework` in `adws/core/stepDefDetection.ts` needs to be extended or understood
+    - When a target repo with a Python/Go/Rust/Ruby stack gets `adw:unverified` due to a `cucumber-js` BDD runner mis-detection
+    - When the `stack_incoherent` `WorkflowStage` is referenced in `adws/types/workflowTypes.ts` or `workflowCommentsIssue.ts`
+    - When understanding why the coherence check is wired into `executeUnitTestPhase` and NOT `executeScenarioTestPhase`
+
 - app_docs/feature-izgf7n-screenshot-harvest-proof-comment.md
   - Conditions:
     - When working with `adws/proof/` (proofArtifactHarvester, prProofPublisher, types)
