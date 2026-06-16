@@ -1480,6 +1480,15 @@
     - When troubleshooting HITL-labelled issues not receiving Slack pings on Review or Blocked transitions
     - When the `hitl` label gate, `Platform.GitHub` guard, or PR-body `Implements #N` digit-boundary disambiguation is relevant
 
+- app_docs/feature-x3qme8-python-fixture-e2e-regression.md
+  - Conditions:
+    - When working with `test/fixtures/python-app/` or adding a new language fixture target
+    - When implementing or troubleshooting the multi-language pipeline end-to-end (detect → run → JUnit parse → harvest → proof comment)
+    - When the `@python-e2e` or multi-language `@regression` scenario fails and you need to understand its structure
+    - When extending `features/regression/multilang/` with a scenario for a new language (Go, Rust, etc.)
+    - When `features/regression/step_definitions/pythonFixtureE2ESteps.ts` or the Phase import execution pattern is relevant
+    - When the CI Docker runtime scope (`regression.yml` schedule vs workflow_dispatch) is relevant
+
 - app_docs/feature-y6hjbr-durable-opt-out-unit-test-gate.md
   - Conditions:
     - When working with the `unitTests` key in `.github/adw.yml` or the unit-test phase gate
@@ -1506,6 +1515,16 @@
     - When troubleshooting `adw:unverified` being applied (or not applied) after `adw_init` runs on a non-TS target
     - When the cucumber-bootstrap-on-N/A behavior is referenced anywhere (it was removed in this feature)
     - When the Gherkin mandate (scenarios always `.feature`, never native test framework format) needs justification or is being questioned
+
+- app_docs/feature-l8a10n-stack-coherence-check.md
+  - Conditions:
+    - When working with `stackCoherenceCheck` or `reportStackCoherence` in `adws/core/` or `adws/phases/`
+    - When implementing or troubleshooting the `adw:unverified` label + `stack_incoherent` comment channel for mis-detected stacks
+    - When adding new language tokens to the `LANGUAGE_TOKENS` inference map in `adws/core/stackCoherenceCheck.ts`
+    - When `isGherkinFramework` in `adws/core/stepDefDetection.ts` needs to be extended or understood
+    - When a target repo with a Python/Go/Rust/Ruby stack gets `adw:unverified` due to a `cucumber-js` BDD runner mis-detection
+    - When the `stack_incoherent` `WorkflowStage` is referenced in `adws/types/workflowTypes.ts` or `workflowCommentsIssue.ts`
+    - When understanding why the coherence check is wired into `executeUnitTestPhase` and NOT `executeScenarioTestPhase`
 
 - app_docs/feature-izgf7n-screenshot-harvest-proof-comment.md
   - Conditions:

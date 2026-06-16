@@ -58,6 +58,8 @@ const ctx: {
   tmpDirs: [],
 };
 
+export { ctx as ctx579 };
+
 After(function () {
   ctx.parsedDescriptor = null;
   ctx.resolvedExtensions = null;

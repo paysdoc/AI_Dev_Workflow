@@ -69,6 +69,8 @@ const ctx: Ctx577 = {
   resolvedVerdict: undefined,
 };
 
+export { ctx as ctx577 };
+
 function resetCtx(): void {
   ctx.resolvedCommands = undefined;
   ctx.resolvedVerdict = undefined;

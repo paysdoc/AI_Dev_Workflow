@@ -26,6 +26,8 @@ export type WorkflowStage =
   | 'test_resolving'
   | 'test_passed'
   | 'unverified'
+  // Comment-stage discriminator only — never persisted as workflowStage
+  | 'stack_incoherent'
   // Review workflow stages
   | 'review_running'
   | 'review_passed'
