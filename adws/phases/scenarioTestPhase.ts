@@ -144,6 +144,9 @@ export async function executeScenarioTestPhase(config: WorkflowConfig): Promise<
     modelUsage,
   });
 
+  // Surface proof on context so executeProofPublishPhase can read it
+  config.ctx.scenarioProof = scenarioProof;
+
   // Scenario execution is subprocess-only — no Claude Agent cost
   return { costUsd: 0, modelUsage, scenarioProof, phaseCostRecords };
 }
