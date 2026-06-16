@@ -34,3 +34,4 @@ output.jsonl
 .claude/commands/resolve_failed_e2e_test.md
 .claude/commands/start.md
 .claude/commands/test_e2e.md
+.claude/commands/adw_init.md
