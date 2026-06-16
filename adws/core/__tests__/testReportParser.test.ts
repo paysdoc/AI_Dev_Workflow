@@ -162,3 +162,77 @@ describe('readJUnitReport', () => {
     }
   });
 });
+
+describe('parseJUnitXml — failureMessage extraction', () => {
+  it('extracts failureMessage from the @_message attribute', () => {
+    const xml = `<?xml version="1.0"?>
+<testsuite tests="1">
+  <testcase name="fails"><failure message="Expected 0 to be &gt; -1">stack here</failure></testcase>
+</testsuite>`;
+    const report = parseJUnitXml(xml);
+    expect(report).not.toBeNull();
+    const tc = report!.cases.find(c => c.name === 'fails');
+    expect(tc!.status).toBe('failed');
+    expect(tc!.failureMessage).toBe('Expected 0 to be > -1');
+  });
+
+  it('falls back to the text body when no @_message attribute', () => {
+    const xml = `<?xml version="1.0"?>
+<testsuite tests="1">
+  <testcase name="fails"><failure>body only message</failure></testcase>
+</testsuite>`;
+    const report = parseJUnitXml(xml);
+    expect(report).not.toBeNull();
+    const tc = report!.cases.find(c => c.name === 'fails');
+    expect(tc!.status).toBe('failed');
+    expect(tc!.failureMessage).toBe('body only message');
+  });
+
+  it('extracts failureMessage from <error message="…">', () => {
+    const xml = `<?xml version="1.0"?>
+<testsuite tests="1">
+  <testcase name="errored"><error message="boom"/></testcase>
+</testsuite>`;
+    const report = parseJUnitXml(xml);
+    expect(report).not.toBeNull();
+    const tc = report!.cases.find(c => c.name === 'errored');
+    expect(tc!.status).toBe('failed');
+    expect(tc!.failureMessage).toBe('boom');
+  });
+
+  it('bare <failure/> → skipped with no failureMessage', () => {
+    const xml = `<?xml version="1.0"?>
+<testsuite tests="1">
+  <testcase name="pending"><failure/></testcase>
+</testsuite>`;
+    const report = parseJUnitXml(xml);
+    expect(report).not.toBeNull();
+    const tc = report!.cases.find(c => c.name === 'pending');
+    expect(tc!.status).toBe('skipped');
+    expect(tc!.failureMessage).toBeUndefined();
+  });
+
+  it('passed case has no failureMessage', () => {
+    const xml = `<?xml version="1.0"?>
+<testsuite tests="1">
+  <testcase name="passes"/>
+</testsuite>`;
+    const report = parseJUnitXml(xml);
+    expect(report).not.toBeNull();
+    const tc = report!.cases.find(c => c.name === 'passes');
+    expect(tc!.status).toBe('passed');
+    expect(tc!.failureMessage).toBeUndefined();
+  });
+
+  it('multiple failed cases each carry their own message', () => {
+    const xml = `<?xml version="1.0"?>
+<testsuite tests="2">
+  <testcase name="fail1"><failure message="msg1"/></testcase>
+  <testcase name="fail2"><failure message="msg2"/></testcase>
+</testsuite>`;
+    const report = parseJUnitXml(xml);
+    expect(report).not.toBeNull();
+    expect(report!.cases.find(c => c.name === 'fail1')!.failureMessage).toBe('msg1');
+    expect(report!.cases.find(c => c.name === 'fail2')!.failureMessage).toBe('msg2');
+  });
+});

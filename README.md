@@ -843,6 +843,7 @@ test/                   # Integration test infrastructure
 │   │   ├── envelopes/
 │   │   ├── manifests/  # Named scenario manifests for stub sequencing
 │   │   └── payloads/
+│   ├── python-app/     # Fixture target repo for Python app (behave/pytest-bdd BDD scenario testing)
 │   ├── python-flat/    # Fixture target repo for Python/pyproject.toml BDD scenario testing
 │   └── scenarios/      # Gherkin .feature fixtures for promotion scoring tests
 │       └── promotion/  # Per-scorer promotion scenario fixtures

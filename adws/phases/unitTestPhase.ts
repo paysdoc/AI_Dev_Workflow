@@ -9,6 +9,8 @@
  * - Default (absent file, absent key, or malformed value): unit tests run.
  */
 
+import * as fs from 'fs';
+import * as path from 'path';
 import {
   log,
   AgentStateManager,
@@ -66,10 +68,16 @@ export async function executeUnitTestPhase(config: WorkflowConfig): Promise<{
     log('Phase: Unit Tests', 'info');
     AgentStateManager.appendLog(orchestratorStatePath, 'Starting test phase: Unit Tests');
 
+    const unitReportPath = path.join(logsDir, 'junit-unit.xml');
+    process.env.ADW_UNIT_TEST_REPORT_PATH = unitReportPath;
+    fs.rmSync(unitReportPath, { force: true });
+
     const unitTestsResult = await runUnitTestsWithRetry({
       logsDir,
       orchestratorStatePath,
       maxRetries: MAX_TEST_RETRY_ATTEMPTS,
+      unitReportPath,
+      runTestsCommand: config.projectConfig.commands.runTests ?? 'bun run test:unit',
       cwd: worktreePath,
       issueBody: issue.body,
       onCompactionDetected: (continuationNumber) => {
@@ -86,13 +94,12 @@ export async function executeUnitTestPhase(config: WorkflowConfig): Promise<{
     totalRetries += unitTestsResult.totalRetries;
     phaseContextResetCount = unitTestsResult.contextResetCount;
 
-    const commands = config.projectConfig.commands;
-    const frameworkDetected = Boolean(commands.testFramework?.trim());
+    const { reportPresent, hasFailures, testcaseCount } = unitTestsResult;
     const verdictResult = computeTestVerdict({
       enabled: true,
-      hasFailures: !unitTestsResult.passed,
-      testcaseCount: unitTestsResult.testcaseCount,
-      frameworkDetected,
+      reportPresent,
+      hasFailures,
+      testcaseCount,
     });
 
     if (verdictResult.verdict === 'hard-fail') {

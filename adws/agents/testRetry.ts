@@ -3,12 +3,15 @@
  * Used by both adwTest.tsx and adwPrReview.tsx workflows.
  */
 
+import * as fs from 'fs';
+import * as path from 'path';
 import { log, AgentStateManager, type ModelUsageMap, mergeModelUsageMaps, emptyModelUsageMap, persistTokenCounts } from '../core';
 import { retryWithResolution, initAgentState } from '../core/retryOrchestrator';
+import { readJUnitReport, type TestReport } from '../core/testReportParser';
 import {
   runTestAgent,
   runResolveTestAgent,
-  TestResult,
+  testResultFromCase,
   type TestAgentResult,
 } from './testAgent';
 
@@ -20,12 +23,16 @@ export interface TestRetryResult {
   modelUsage: ModelUsageMap;
   contextResetCount: number;
   testcaseCount: number;
+  reportPresent: boolean;
+  hasFailures: boolean;
 }
 
 export interface TestRetryOptions {
   logsDir: string;
   orchestratorStatePath: string;
   maxRetries: number;
+  unitReportPath: string;
+  runTestsCommand: string;
   onTestFailed?: (attempt: number, maxAttempts: number) => void;
   /** Called when a test resolution agent's context is compacted; continuation number is 1-based */
   onCompactionDetected?: (continuationNumber: number) => void;
@@ -39,24 +46,49 @@ export interface TestRetryOptions {
 
 /**
  * Runs unit tests with automatic retry and resolution attempts on failure.
- * @param opts - Test retry options including logsDir, retry limits, and optional cwd for external repos.
- * @returns The test result including pass/fail status, cost, retry count, and failed test names.
+ * Derives pass/fail from the JUnit report emitted to `unitReportPath`.
  */
 export async function runUnitTestsWithRetry(opts: TestRetryOptions): Promise<TestRetryResult> {
-  const { logsDir, orchestratorStatePath: statePath, maxRetries, onTestFailed, onCompactionDetected, cwd, issueBody } = opts;
+  const {
+    logsDir,
+    orchestratorStatePath: statePath,
+    maxRetries,
+    unitReportPath,
+    runTestsCommand,
+    onTestFailed,
+    onCompactionDetected,
+    cwd,
+    issueBody,
+  } = opts;
 
-  let lastApplicationTestcaseCount = 0;
-  const result = await retryWithResolution<TestAgentResult, TestResult>({
+  // Ensure the report directory exists and clear any stale report.
+  fs.mkdirSync(path.dirname(unitReportPath), { recursive: true });
+  fs.rmSync(unitReportPath, { force: true });
+
+  // Object reference avoids TypeScript's let-variable narrowing loss through closures.
+  const reportRef: { value: TestReport | null } = { value: null };
+
+  const result = await retryWithResolution<TestAgentResult, ReturnType<typeof testResultFromCase>>({
     maxRetries,
     statePath,
     label: 'unit tests',
     run: async () => {
+      // Clear stale report before each attempt.
+      fs.rmSync(unitReportPath, { force: true });
       const r = await runTestAgent(logsDir, initAgentState(statePath, 'test-agent'), cwd, issueBody);
-      lastApplicationTestcaseCount = r.applicationTestcaseCount;
+      reportRef.value = readJUnitReport(unitReportPath);
       return r;
     },
-    isPassed: (r) => r.allPassed,
-    extractFailures: (r) => r.failedTests,
+    // Only "report present with failures" is retryable; zero-testcase and absent exit
+    // the loop so the phase can classify them accurately.
+    isPassed: () => !(reportRef.value !== null && reportRef.value.failed > 0),
+    extractFailures: () => {
+      const report = reportRef.value;
+      if (report === null) return [];
+      return report.cases
+        .filter(c => c.status === 'failed')
+        .map(c => testResultFromCase(c, runTestsCommand));
+    },
     onRetryFailed: onTestFailed,
     onCompactionDetected,
     resolveFailures: async (failures) => {
@@ -71,7 +103,6 @@ export async function runUnitTestsWithRetry(opts: TestRetryOptions): Promise<Tes
         if (resolveResult.modelUsage) modelUsage = mergeModelUsageMaps(modelUsage, resolveResult.modelUsage);
         persistTokenCounts(statePath, costUsd, modelUsage);
 
-        // Propagate compaction so retryWithResolution can handle it (only when opted in)
         if (onCompactionDetected && resolveResult.compactionDetected) {
           return { success: false, totalCostUsd: costUsd, modelUsage, compactionDetected: true };
         }
@@ -85,6 +116,11 @@ export async function runUnitTestsWithRetry(opts: TestRetryOptions): Promise<Tes
     },
   });
 
+  const finalReport = reportRef.value;
+  const reportPresent = finalReport !== null;
+  const hasFailures = finalReport !== null && finalReport.failed > 0;
+  const testcaseCount = finalReport?.total ?? 0;
+
   return {
     passed: result.passed,
     costUsd: result.costUsd,
@@ -92,7 +128,8 @@ export async function runUnitTestsWithRetry(opts: TestRetryOptions): Promise<Tes
     failedTests: result.failures.map(t => t.test_name),
     modelUsage: result.modelUsage,
     contextResetCount: result.contextResetCount,
-    testcaseCount: lastApplicationTestcaseCount,
+    testcaseCount,
+    reportPresent,
+    hasFailures,
   };
 }
-

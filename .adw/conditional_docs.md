@@ -1,5 +1,16 @@
 # Conditional Documentation
 
+- app_docs/feature-hrl5jd-unit-test-rail-onto-junit-report.md
+  - Conditions:
+    - When working on `adws/phases/unitTestPhase.ts` unit-test verdict or report-path wiring
+    - When implementing or modifying `adws/core/testVerdict.ts` or `computeTestVerdict` (report-keyed verdict)
+    - When working with `adws/agents/testRetry.ts` `runUnitTestsWithRetry` or `TestRetryOptions`/`TestRetryResult`
+    - When `ADW_UNIT_TEST_REPORT_PATH` env var or JUnit emission from the unit runner is relevant
+    - When `adw_init` seeds `## Run Tests` with JUnit flags or when troubleshooting `adw:unverified` on unit phase
+    - When `testResultFromCase` or `failureMessage` on `TestCaseResult` is referenced
+    - When troubleshooting the discovery-break hard-fail (zero testcases despite a report present)
+    - When modifying `.claude/commands/test.md` step 5 (application tests, unconditional run, no `--run src`)
+
 - app_docs/feature-u3l5q0-junit-report-rail-migration.md
   - Conditions:
     - When working with `adws/phases/scenarioProof.ts` or `runScenarioProof` verdict derivation

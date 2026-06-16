@@ -8,6 +8,7 @@ import { getModelForCommand, getEffortForCommand } from '../core';
 import { runClaudeAgentWithCommand, AgentResult } from './claudeAgent';
 import { runCommandAgent, type CommandAgentConfig, type ExtractionResult } from './commandAgent';
 import { extractJsonArray } from '../core/jsonParser';
+import type { TestCaseResult } from '../core/testReportParser';
 
 export interface E2ETestResult {
   testName: string;
@@ -85,6 +86,20 @@ const testAgentConfig: CommandAgentConfig<TestResult[]> = {
   extractOutput: extractTestResults,
   outputSchema: testResultsSchema,
 };
+
+/**
+ * Builds a `TestResult` resolver payload from a failing `TestCaseResult`.
+ * Used by `testRetry.ts` to feed `runResolveTestAgent` with structured failure info.
+ */
+export function testResultFromCase(c: TestCaseResult, runCommand: string): TestResult {
+  return {
+    test_name: c.name,
+    passed: false,
+    execution_command: runCommand,
+    test_purpose: c.classname ?? 'unit test',
+    error: c.failureMessage,
+  };
+}
 
 /**
  * Runs the /test command and returns parsed test results.
