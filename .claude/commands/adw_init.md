@@ -114,12 +114,21 @@ Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init
      - `## Run Regression Scenarios` → `cucumber-js --tags "@regression"`
      - `## BDD Framework` → the detected Gherkin step-def runtime (e.g. `cucumber-js` for JS/TS projects, `behave` or `pytest-bdd` for Python, `godog` for Go, `cucumber-rs` for Rust, `cucumber-ruby` for Ruby). **Never emit a non-Gherkin framework name**; fall back to `cucumber-js` on non-recognition.
      - `## Step Def Directory` → the conventional step-def directory for that framework (`features/step_definitions` for cucumber-js; `features/steps` for behave/pytest-bdd; default `features/step_definitions`).
-   - If E2E is `N/A`, absent, or tool is unrecognized — default to Cucumber/Gherkin:
+   - If E2E is `N/A`, absent, or tool is unrecognized — default to Cucumber/Gherkin, then decide whether to flag:
      - `## Scenario Directory` → `features/`
      - `## Run Scenarios by Tag` → `cucumber-js --tags "@{tag}"`
      - `## Run Regression Scenarios` → `cucumber-js --tags "@regression"`
-     - `## BDD Framework` → `cucumber-js` (default Gherkin runtime)
+     - `## BDD Framework` → `cucumber-js` (default Gherkin runtime — **never emit a non-Gherkin framework name**)
      - `## Step Def Directory` → `features/step_definitions` (default)
+     - **Flag determination** — after emitting the above, decide whether to raise the `adw:unverified` flag:
+       - **TS/JS target** (the repo's primary language is JavaScript or TypeScript, or the stack is recognised as a Gherkin-via-cucumber-js setup): do **not** flag. `cucumber-js` is the correct, expected default for this stack.
+       - **Recognised non-JS/TS stack for which no Gherkin runner was confidently identified** (e.g. a Python repo where neither `behave` nor `pytest-bdd` appears, or a Go repo where `godog` is absent), **or an unrecognised stack** (no manifest could be parsed): emit `cucumber-js` as above, **then** apply the `adw:unverified` label and post an issue comment using the Bash tool — guard on a valid numeric `$0` and tolerate failure (warn, do not abort):
+         ```bash
+         # apply label (tolerating failure)
+         gh issue edit "$0" --add-label "adw:unverified" 2>/dev/null || echo "Warning: could not apply adw:unverified label"
+         # post issue comment
+         gh issue comment "$0" --body "⚠️ **ADW BDD wiring unverified** — ADW could not identify a Gherkin-based step-def runner for the detected stack and fell back to \`cucumber-js\`. The BDD wiring (\`## BDD Framework: cucumber-js\`, \`## Step Def Directory: features/step_definitions\`) is likely incorrect for this repository and should be confirmed or updated in \`.adw/scenarios.md\`." 2>/dev/null || echo "Warning: could not post unverified comment"
+         ```
    - **Always include** a `## Per-Issue Scenario Directory` section with value `features/per-issue/` (independent of the detected scenario tool).
    - **Always include** a `## Regression Scenario Directory` section with value `features/regression/` (independent of the detected scenario tool).
    - **Copy the framework vocabulary template**: if `$3` (`frameworkRepoRoot`) is non-empty, run the following via the Bash tool:
@@ -184,5 +193,6 @@ Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init
    - Summarize the detected project type and key configuration choices
    - Note both `## Per-Issue Scenario Directory` and `## Regression Scenario Directory` sections written to `scenarios.md`
    - Note `## BDD Framework` and `## Step Def Directory` sections written to `scenarios.md` (Cucumber/Gherkin branches only). These raise `.adw-version` via `adw_init.md` being a `hashInputs:` file, triggering `adwUpgrade` to regenerate `.adw/` across all registered target repos — the intended emit-parse propagation for the JUnit report rail.
+   - **BDD framework decision**: record `bddFramework: <emitted value>` and `unverified-fallback: <raised | not raised>`. When raised, record the reason (e.g. "recognised Python stack but neither behave nor pytest-bdd detected; fell back to cucumber-js").
    - If the vocabulary template copy was skipped (empty `$3`), note the warning here
    - Examples-block class chosen: `<browser-test-equipped | CLI-only | fallback>`; placeholder replacement: `<succeeded | skipped: <reason>>`.

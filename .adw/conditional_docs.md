@@ -1498,6 +1498,15 @@
     - When writing unit tests for prompt composition in `adws/agents/__tests__/claudeAgent.test.ts`
     - When the build, test, review, git, PR, document, patch, KPI, or resolution agents should NOT use the primed variant
 
+- app_docs/feature-bfdyaj-polymorphic-step-def.md
+  - Conditions:
+    - When working with `.claude/commands/generate_step_definitions.md` or `.claude/commands/scenario_writer.md` and understanding how they read `## BDD Framework` / `## Step Def Directory`
+    - When `adw_init` emits `## BDD Framework` or `## Step Def Directory` into `.adw/scenarios.md` and the values need to change or the fallback logic needs to be understood
+    - When adding support for a new BDD framework / language (only `adws/core/stepDefDetection.ts` needs a new extension entry; generation is zero-code)
+    - When troubleshooting `adw:unverified` being applied (or not applied) after `adw_init` runs on a non-TS target
+    - When the cucumber-bootstrap-on-N/A behavior is referenced anywhere (it was removed in this feature)
+    - When the Gherkin mandate (scenarios always `.feature`, never native test framework format) needs justification or is being questioned
+
 - app_docs/feature-izgf7n-screenshot-harvest-proof-comment.md
   - Conditions:
     - When working with `adws/proof/` (proofArtifactHarvester, prProofPublisher, types)

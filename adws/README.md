@@ -763,7 +763,6 @@ Target repositories can provide project-specific configuration in a `.adw/` dire
   - `## Run Tests` — e.g., `bun run test`, `pytest`
   - `## Run Build` — e.g., `bun run build`, `cargo build`
   - `## Start Dev Server` — e.g., `bun run dev`, `python manage.py runserver`
-  - `## Run E2E Tests` — e.g., `bunx playwright test`, `cypress run`
   - `## Library Install Command` — e.g., `bun install`, `pip install`
   - `## Script Execution` — e.g., `bunx tsx`, `python`
 
@@ -856,9 +855,10 @@ The same scenario commands can also be specified in `.adw/commands.md` for use b
 - `@adw-{issueNumber}` — marks scenarios created, modified, or flagged as relevant for a specific GitHub issue (e.g., `@adw-164`)
 - `@regression` — marks scenarios that form the regression safety net; maintained over time by the Scenario Planner Agent
 
-**Scenario file format resolution:**
+**Scenario format — always Gherkin:**
 
-The file format for scenario files is determined by the testing tool:
+Scenario files are always Gherkin `.feature` files, regardless of the target language or BDD framework. The step-def runtime is configured per repo via `## BDD Framework` (Gherkin runners only) and step-def files live in `## Step Def Directory`. `adw_init` selects the runner and falls back to cucumber-js (flagging via `adw:unverified`) when it cannot identify one for the detected stack — it never bootstraps a runner from `scenario_writer`.
 
-- If `## Run E2E Tests` in `commands.md` contains a real CLI command (e.g., `bunx playwright test`, `cucumber-js`) → scenario files use that tool's expected format (`.spec.ts` for Playwright, `.feature` for Cucumber, etc.)
-- If `## Run E2E Tests` is `N/A` or absent → default to Gherkin `.feature` files; a Cucumber setup will be bootstrapped by the Scenario Planner Agent
+**`## BDD Framework`** — the Gherkin step-def runtime for this repo (e.g. `cucumber-js`, `behave`, `pytest-bdd`, `godog`, `cucumber-rs`, `cucumber-ruby`). Only Gherkin-based runners are valid values. Defaults to `cucumber-js` when absent.
+
+**`## Step Def Directory`** — where step-def files are written (default: `features/step_definitions`). Varies by framework (e.g. `features/steps` for behave/pytest-bdd).

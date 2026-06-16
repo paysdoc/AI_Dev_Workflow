@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 4                | 2026-06-15 23:36:55 |
-| Longest Streak    | 195              | 2026-06-15 23:36:55 |
-| Total Plan Size   | 5789 lines       | 2026-06-15 23:36:55 |
-| Largest Plan Size | 699 lines        | 2026-06-15 23:36:55 |
-| Total Diff Size   | 4560427 lines    | 2026-06-15 23:36:55 |
-| Largest Diff Size | 418153 lines     | 2026-06-15 23:36:55 |
-| Average Presence  | 1.10             | 2026-06-15 23:36:55 |
+| Current Streak    | 160              | 2026-06-16 22:18:24 |
+| Longest Streak    | 160              | 2026-06-16 22:18:24 |
+| Total Plan Size   | 6130 lines       | 2026-06-16 22:18:24 |
+| Largest Plan Size | 699 lines        | 2026-06-16 22:18:24 |
+| Total Diff Size   | 5942091 lines    | 2026-06-16 22:18:24 |
+| Largest Diff Size | 418153 lines     | 2026-06-16 22:18:24 |
+| Average Presence  | 1.24             | 2026-06-16 22:18:24 |
 
 ## ADW KPIs
 
@@ -242,8 +242,6 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-06-12 | qfsbjl-intake-leg-infinite | 157 | /feature | 1 | 0 | 102160/1998/536 | 2026-06-12 16:30:11 | 2026-06-12 16:30:11 |
 | 2026-06-13 | x985bj-intake-ux-clear-stal | 159 | /feature | 1 | 0 | 102983/1999/540 | 2026-06-13 11:07:01 | 2026-06-13 11:07:01 |
 | 2026-06-14 | nm1413-adwupgrade-pr-body-u | 570 | /bug | 1 | 0 | 1442/207/25 | 2026-06-14 11:49:09 | 2026-06-14 11:49:09 |
-| 2026-06-15 | vv6d4h-classifier-can-assig | 584 | /bug | 1 | 0 | 1097/1/11 | 2026-06-15 14:58:13 | 2026-06-15 14:58:13 |
-| 2026-06-15 | y6hjbr-durable-opt-out-unit | 576 | /feature | 3 | 0 | 1314/75/17 | 2026-06-15 21:32:48 | 2026-06-15 21:32:48 |
-| 2026-06-15 | 5jigj8-slack-notifications | 587 | /feature | 1 | 0 | 1596/11/17 | 2026-06-15 21:40:32 | 2026-06-15 21:40:32 |
-| 2026-06-15 | zyaojl-configurable-test-di | 577 | /feature | 2 | 0 | 2728/104/44 | 2026-06-15 22:29:36 | 2026-06-15 22:29:36 |
-| 2026-06-15 | u3l5q0-structured-report-ju | 578 | /feature | 2 | 0 | 1500/146/23 | 2026-06-15 23:36:55 | 2026-06-15 23:36:55 |
+| 2026-06-14 | t6m62c-fix-adwupgrade-regen | 572 | /bug | 2 | 0 | 1226/103/14 | 2026-06-14 16:36:46 | 2026-06-14 16:36:46 |
+| 2026-06-16 | bfdyaj-polymorphic-step-def | 579 | /feature | 1 | 0 | 832/61/14 | 2026-06-16 22:08:16 | 2026-06-16 22:08:16 |
+| 2026-06-16 | izgf7n-screenshot-harvest-t | 580 | /feature | 2 | 0 | 1642/6/23 | 2026-06-16 22:18:24 | 2026-06-16 22:18:24 |
