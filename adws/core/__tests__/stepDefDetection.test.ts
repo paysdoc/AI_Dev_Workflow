@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import * as os from 'os';
 import * as fs from 'fs';
 import * as path from 'path';
-import { stepDefExtensionsFor, hasStepDefinitions } from '../stepDefDetection';
+import { stepDefExtensionsFor, hasStepDefinitions, isGherkinFramework } from '../stepDefDetection';
 
 describe('stepDefExtensionsFor', () => {
   it('cucumber-js → [.ts, .js]', () => {
@@ -48,6 +48,21 @@ describe('stepDefExtensionsFor', () => {
   it('whitespace-insensitive: "  Behave  " → [.py]', () => {
     expect(stepDefExtensionsFor('  Behave  ')).toEqual(['.py']);
   });
+});
+
+describe('isGherkinFramework', () => {
+  it('cucumber-js → true', () => expect(isGherkinFramework('cucumber-js')).toBe(true));
+  it('cucumber → true', () => expect(isGherkinFramework('cucumber')).toBe(true));
+  it('behave → true', () => expect(isGherkinFramework('behave')).toBe(true));
+  it('pytest-bdd → true', () => expect(isGherkinFramework('pytest-bdd')).toBe(true));
+  it('godog → true', () => expect(isGherkinFramework('godog')).toBe(true));
+  it('cucumber-rs → true', () => expect(isGherkinFramework('cucumber-rs')).toBe(true));
+  it('cucumber-ruby → true', () => expect(isGherkinFramework('cucumber-ruby')).toBe(true));
+  it('empty string → true (default cucumber-js)', () => expect(isGherkinFramework('')).toBe(true));
+  it('whitespace-only → true', () => expect(isGherkinFramework('   ')).toBe(true));
+  it('case-insensitive: " Cucumber-JS " → true', () => expect(isGherkinFramework(' Cucumber-JS ')).toBe(true));
+  it('jest → false', () => expect(isGherkinFramework('jest')).toBe(false));
+  it('playwright → false', () => expect(isGherkinFramework('playwright')).toBe(false));
 });
 
 describe('hasStepDefinitions', () => {

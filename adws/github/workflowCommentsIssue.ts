@@ -74,6 +74,8 @@ export interface WorkflowContext {
   timeoutPhaseName?: string;
   /** Watchdog timeout that fired, in milliseconds (set by handlePhaseTimeout). */
   timeoutMs?: number;
+  /** Human-readable coherence warning messages from stackCoherenceCheck, set by reportStackCoherence. */
+  coherenceWarnings?: string[];
 }
 
 const issueTypeLabels: Record<IssueClassSlashCommand, string> = {
@@ -323,6 +325,14 @@ export function formatResumingComment(ctx: WorkflowContext, resumeFrom: Workflow
   return `## :arrows_counterclockwise: ADW Workflow Resuming\n\nResuming automated development workflow from previous run.\n\n**Resuming from:** ${resumeFrom}\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
 }
 
+function formatStackIncoherentComment(ctx: WorkflowContext): string {
+  const warnings = ctx.coherenceWarnings ?? [];
+  const bulletList = warnings.length > 0
+    ? '\n\n' + warnings.map(w => `- ${w}`).join('\n')
+    : '';
+  return `## :warning: ADW Unverified — Stack Coherence\n\nThe detected test/BDD configuration appears incoherent. \`adw_init\` may have mis-detected the stack (it falls back to \`cucumber-js\` on non-recognition).${bulletList}\n\n**Non-blocking** — the workflow continued and the PR is marked \`adw:unverified\`.\n\n**Next steps:** confirm \`## Test Framework\` / \`## Run Tests\` in \`.adw/commands.md\` and \`## BDD Framework\` in \`.adw/scenarios.md\`.\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+}
+
 function formatUnverifiedComment(ctx: WorkflowContext): string {
   return `## :warning: ADW Unverified — Zero Testcases Ran\n\nThe unit-test phase ran but discovered zero testcases, and no test framework was detected in the repository's dependencies. The workflow has continued without a hard gate.\n\n**What this means:** The repository may have no tests yet, or the test discovery configuration needs adjustment. This run is marked \`adw:unverified\` — the PR was not fully verified.\n\n**Next steps:** Add tests or configure \`## Test Framework\` in \`.adw/commands.md\` to enable strict zero-testcase detection.\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
 }
@@ -372,6 +382,7 @@ export function formatWorkflowComment(stage: WorkflowStage, ctx: WorkflowContext
     case 'resumed': return formatResumedComment(ctx);
     case 'phase_timeout': return formatPhaseTimeoutComment(ctx);
     case 'unverified': return formatUnverifiedComment(ctx);
+    case 'stack_incoherent': return formatStackIncoherentComment(ctx);
     default: return `## ADW Workflow Update\n\n**Stage:** ${stage}\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
   }
 }

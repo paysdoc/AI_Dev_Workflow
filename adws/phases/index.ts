@@ -47,4 +47,5 @@ export {
 } from './scenarioProof';
 export { executeDepauditSetup, type DepauditSetupResult, type DepauditSetupDeps } from './depauditSetup';
 export { acquireOrchestratorLock, releaseOrchestratorLock, runWithOrchestratorLifecycle, runWithRawOrchestratorLifecycle } from './orchestratorLock';
+export { reportStackCoherence } from './stackCoherenceReporter';
 export { executeProofPublishPhase } from './proofPublishPhase';

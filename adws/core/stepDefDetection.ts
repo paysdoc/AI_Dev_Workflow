@@ -18,6 +18,12 @@ export function stepDefExtensionsFor(bddFramework: string): string[] {
   return FRAMEWORK_EXTENSION_MAP[normalized] ?? ['.ts'];
 }
 
+export function isGherkinFramework(framework: string): boolean {
+  const normalized = framework.trim().toLowerCase();
+  if (normalized === '') return true; // empty ⇒ default cucumber-js ⇒ Gherkin
+  return normalized in FRAMEWORK_EXTENSION_MAP;
+}
+
 export function hasStepDefinitions(stepDefDir: string, extensions: string[], cwd: string): boolean {
   const resolved = path.resolve(cwd, stepDefDir);
   if (!fs.existsSync(resolved)) return false;

@@ -507,6 +507,7 @@ adws/                   # ADW workflow system
 │   │   ├── remoteReconcile.test.ts
 │   │   ├── slackNotifier.test.ts
 │   │   ├── stateHelpers.test.ts
+│   │   ├── stackCoherenceCheck.test.ts
 │   │   ├── stepDefDetection.test.ts
 │   │   ├── testReportParser.test.ts
 │   │   ├── testVerdict.test.ts
@@ -546,9 +547,10 @@ adws/                   # ADW workflow system
 │   ├── retryOrchestrator.ts
 │   ├── slackNotifier.ts  # Slack Incoming Webhook client for error/problem alerting
 │   ├── stateHelpers.ts
-│   ├── stepDefDetection.ts  # Step definition file-extension detection by BDD framework (stepDefExtensionsFor, hasStepDefinitions)
+│   ├── stackCoherenceCheck.ts  # Pure stack-coherence check — language coherence + Gherkin mandate (stackCoherenceCheck, StackCoherenceInput/Result/Warning)
+│   ├── stepDefDetection.ts  # Step definition file-extension detection by BDD framework (stepDefExtensionsFor, hasStepDefinitions, isGherkinFramework)
 │   ├── targetRepoManager.ts
-│   ├── testReportParser.ts  # Parses JUnit/pytest-style XML test reports into structured test verdict data
+│   ├── testReportParser.ts  # JUnit XML test report parser — reads xunit output into TestReport (total, passed, failed, skipped, per-case status)
 │   ├── testVerdict.ts  # Pure test verdict computation (enabled, hasFailures, testcaseCount, frameworkDetected → verdict)
 │   ├── upgradeClaim.ts # Atomic upgrade-claim primitive via GitHub branch namespace (winner/loser resolution)
 │   ├── utils.ts
@@ -655,6 +657,7 @@ adws/                   # ADW workflow system
 │   ├── scenarioProof.ts  # Scenario proof orchestrator (relocated from agents/)
 │   ├── scenarioTestPhase.ts  # Runs BDD scenarios tagged @adw-{issueNumber} and @regression
 │   ├── stepDefPhase.ts  # Step definition generation phase
+│   ├── stackCoherenceReporter.ts  # Warns via the adw:unverified channel on an incoherent detected config (reportStackCoherence)
 │   ├── unitTestPhase.ts  # Unit test phase (opt-in, BDD scenarios moved to scenarioTestPhase)
 │   ├── upgradeGate.ts  # Hash-check upgrade gate: compares framework hash vs .adw-version; parks issue and spawns adwUpgrade on mismatch
 │   ├── workflowCompletion.ts  # Workflow completion/error handling

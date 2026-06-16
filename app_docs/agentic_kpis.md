@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 160              | 2026-06-16 22:18:24 |
-| Longest Streak    | 160              | 2026-06-16 22:18:24 |
-| Total Plan Size   | 6130 lines       | 2026-06-16 22:18:24 |
-| Largest Plan Size | 699 lines        | 2026-06-16 22:18:24 |
-| Total Diff Size   | 5942091 lines    | 2026-06-16 22:18:24 |
-| Largest Diff Size | 418153 lines     | 2026-06-16 22:18:24 |
-| Average Presence  | 1.24             | 2026-06-16 22:18:24 |
+| Current Streak    | 162              | 2026-06-16 23:29:22 |
+| Longest Streak    | 162              | 2026-06-16 23:29:22 |
+| Total Plan Size   | 6130 lines       | 2026-06-16 23:29:22 |
+| Largest Plan Size | 699 lines        | 2026-06-16 23:29:22 |
+| Total Diff Size   | 5947911 lines    | 2026-06-16 23:29:22 |
+| Largest Diff Size | 418153 lines     | 2026-06-16 23:29:22 |
+| Average Presence  | 1.24             | 2026-06-16 23:29:22 |
 
 ## ADW KPIs
 
@@ -245,3 +245,5 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-06-14 | t6m62c-fix-adwupgrade-regen | 572 | /bug | 2 | 0 | 1226/103/14 | 2026-06-14 16:36:46 | 2026-06-14 16:36:46 |
 | 2026-06-16 | bfdyaj-polymorphic-step-def | 579 | /feature | 1 | 0 | 832/61/14 | 2026-06-16 22:08:16 | 2026-06-16 22:08:16 |
 | 2026-06-16 | izgf7n-screenshot-harvest-t | 580 | /feature | 2 | 0 | 1642/6/23 | 2026-06-16 22:18:24 | 2026-06-16 22:18:24 |
+| 2026-06-16 | l8a10n-stack-coherence-chec | 581 | /feature | 2 | 0 | 1959/75/29 | 2026-06-16 23:04:50 | 2026-06-16 23:04:50 |
+| 2026-06-16 | x3qme8-python-fixture-targe | 583 | /feature | 1 | 0 | 3752/34/54 | 2026-06-16 23:29:22 | 2026-06-16 23:29:22 |

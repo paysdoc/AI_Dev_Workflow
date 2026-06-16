@@ -27,6 +27,7 @@ import type { WorkflowConfig } from './workflowInit';
 import { BoardStatus } from '../providers/types';
 import { applyLabel, ADW_UNVERIFIED_LABEL } from '../github/labelManager';
 import { getRepoInfo } from '../github/githubApi';
+import { reportStackCoherence } from './stackCoherenceReporter';
 
 /**
  * Executes the Test phase: optionally run unit tests (unit tests only).
@@ -55,6 +56,8 @@ export async function executeUnitTestPhase(config: WorkflowConfig): Promise<{
   if (repoContext) {
     await repoContext.issueTracker.moveToStatus(issueNumber, BoardStatus.InProgress);
   }
+
+  reportStackCoherence(config);
 
   // --- Unit tests gate (opt-out; reads .github/adw.yml unitTests, default: enabled) ---
   const unitTestsEnabled = adwYmlConfig.unitTests;
