@@ -99,7 +99,7 @@ function findReviewPr(
   const lister = deps?.listOpenPRs ?? defaultListOpenPRs;
   const prs = lister(repoInfo);
   if (!prs) return null;
-  const boundary = new RegExp(`Implements #${issueNumber}(?!\\d)`);
+  const boundary = new RegExp(`(Closes|Implements) #${issueNumber}(?!\\d)`);
   const matched = prs.filter((pr) => pr.body && boundary.test(pr.body));
   const chosen = selectPreferredPR(matched) as HitlPREntry | null;
   return chosen?.url ?? null;
