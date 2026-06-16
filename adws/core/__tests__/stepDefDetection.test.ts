@@ -29,6 +29,10 @@ describe('stepDefExtensionsFor', () => {
     expect(stepDefExtensionsFor('cucumber-rs')).toEqual(['.rs']);
   });
 
+  it('cucumber-ruby → [.rb]', () => {
+    expect(stepDefExtensionsFor('cucumber-ruby')).toEqual(['.rb']);
+  });
+
   it('empty string → default [.ts]', () => {
     expect(stepDefExtensionsFor('')).toEqual(['.ts']);
   });
