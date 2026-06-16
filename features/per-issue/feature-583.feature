@@ -74,7 +74,7 @@ Feature: Python fixture target driven end-to-end — detect → generate → run
        non-TypeScript scenario-proof and proof-publish pipeline against the prepared
        fixture, in one pass:
          • RUN → PARSE: the configured BDD run command emits a JUnit report that the
-           pipeline resolves to a passing tally (1 passed, 0 failed) — the report
+           pipeline resolves to a passing tally (2 passed, 0 failed) — the report
            rail (#578) consuming a real fixture run, not canned XML.
          • HARVEST: the run wrote a screenshot into the proof directory, and the
            harvester resolves a non-empty image set including it — the harvest rail
@@ -234,10 +234,10 @@ Feature: Python fixture target driven end-to-end — detect → generate → run
   Scenario: ADW drives the Python fixture end-to-end from detection through the proof comment
     Given the Python fixture target "python-app" is prepared
     When the non-TypeScript scenario-proof and proof-publish pipeline runs against the prepared fixture
-    Then the scenario-proof run resolves a JUnit tally of 1 passed and 0 failed
+    Then the scenario-proof run resolves a JUnit tally of 2 passed and 0 failed
     And the proof run harvests 1 screenshot
-    And the harvested screenshots include "home.png"
-    And the recorded proof comment includes a pass/fail summary of 1 passed and 0 failed
+    And the harvested screenshots include "calc.png"
+    And the recorded proof comment includes a pass/fail summary of 2 passed and 0 failed
 
   # ── §4 Type-check backstop ──────────────────────────────────────────────────────
 
