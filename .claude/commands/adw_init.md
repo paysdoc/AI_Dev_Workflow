@@ -54,6 +54,16 @@ Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init
      - `## Script Execution` — How to run project scripts
      - `## Run Scenarios by Tag` — Command to run scenarios by tag, using `{tag}` placeholder (values determined by scenario tool detection in step 7)
      - `## Run Regression Scenarios` — Command to run all `@regression`-tagged scenarios (values determined by scenario tool detection in step 7)
+     - `## Test Directory` — Root directory where application tests live, used by the `/test` command to scope the test run. Detection rules:
+       - If `tests/` exists at the repo root → `tests`
+       - If `test/` exists at the repo root → `test`
+       - If `src/` exists at the repo root → `src` (TypeScript / Bun convention)
+       - Otherwise → `.` (run from repo root)
+     - `## Test Framework` — Test framework detected in the dependency manifest (e.g., `pytest`, `vitest`, `jest`). Set to the detected framework name; leave empty when none detected. Examples:
+       - `pytest` or `pytest-asyncio` in `pyproject.toml` / `requirements*.txt` → `pytest`
+       - `vitest` in `package.json` devDependencies → `vitest`
+       - `jest` in `package.json` devDependencies → `jest`
+       - No test framework detected → leave empty
    - Note: the values for `## Run Scenarios by Tag` and `## Run Regression Scenarios` must be consistent with the scenario tool detected in step 7 (Playwright, Cypress, Cucumber, or default Cucumber)
 
 3. **Create `.adw/project.md`**
@@ -112,14 +122,10 @@ Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init
      - `## Scenario Directory` → `features/`
      - `## Run Scenarios by Tag` → `cucumber-js --tags "@{tag}"`
      - `## Run Regression Scenarios` → `cucumber-js --tags "@regression"`
-     - `## BDD Framework` → the detected Gherkin step-def runtime (e.g. `cucumber-js` for JS/TS projects, `behave` or `pytest-bdd` for Python, `godog` for Go, `cucumber-rs` for Rust, `cucumber-ruby` for Ruby). **Never emit a non-Gherkin framework name**; fall back to `cucumber-js` on non-recognition.
-     - `## Step Def Directory` → the conventional step-def directory for that framework (`features/step_definitions` for cucumber-js; `features/steps` for behave/pytest-bdd; default `features/step_definitions`).
    - If E2E is `N/A`, absent, or tool is unrecognized — default to Cucumber/Gherkin:
      - `## Scenario Directory` → `features/`
      - `## Run Scenarios by Tag` → `cucumber-js --tags "@{tag}"`
      - `## Run Regression Scenarios` → `cucumber-js --tags "@regression"`
-     - `## BDD Framework` → `cucumber-js` (default Gherkin runtime)
-     - `## Step Def Directory` → `features/step_definitions` (default)
    - **Always include** a `## Per-Issue Scenario Directory` section with value `features/per-issue/` (independent of the detected scenario tool).
    - **Always include** a `## Regression Scenario Directory` section with value `features/regression/` (independent of the detected scenario tool).
    - **Copy the framework vocabulary template**: if `$3` (`frameworkRepoRoot`) is non-empty, run the following via the Bash tool:
@@ -179,10 +185,36 @@ Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init
      Note: the stack could not be classified automatically; refine this list as your test surfaces solidify.
      ```
 
-8. **Report**
+8. **Create `.github/adw.yml` (only if absent)**
+   - Create `.github/adw.yml` only when it does not already exist. Never overwrite an existing file — it carries durable operator policy that survives regeneration.
+   - Run the following via the Bash tool:
+     ```bash
+     if [ ! -f .github/adw.yml ]; then
+       mkdir -p .github
+       cat > .github/adw.yml <<'EOF'
+# ADW configuration for this repository.
+# This file lives outside `.adw/`, so `/adw_init` regeneration never overwrites it.
+# Uncomment a key and set its value to change policy; absent keys use the defaults below.
+
+# Unit-test gate (opt-out). When enabled, the unit-test phase runs your test
+# command and fails the workflow on unit-test failure. Default: enabled.
+# unitTests: true
+
+# Human-in-the-loop gate for framework-upgrade PRs (opt-in). When true, ADW opens
+# the upgrade PR but leaves it for human review instead of auto-merging. Default: false.
+# hitl: false
+EOF
+       echo "created .github/adw.yml"
+     else
+       echo ".github/adw.yml already exists — left untouched"
+     fi
+     ```
+   - IMPORTANT: the heredoc content above MUST stay byte-identical to `ADW_YML_TEMPLATE` in `adws/core/adwYmlConfig.ts` — a unit test guards the parse result against drift.
+
+9. **Report**
    - List all files created (`commands.md`, `project.md`, `conditional_docs.md`, `providers.md`, `review_proof.md`, `scenarios.md`, and `features/regression/vocabulary.md` when copied)
    - Summarize the detected project type and key configuration choices
    - Note both `## Per-Issue Scenario Directory` and `## Regression Scenario Directory` sections written to `scenarios.md`
-   - Note `## BDD Framework` and `## Step Def Directory` sections written to `scenarios.md` (Cucumber/Gherkin branches only). These raise `.adw-version` via `adw_init.md` being a `hashInputs:` file, triggering `adwUpgrade` to regenerate `.adw/` across all registered target repos — the intended emit-parse propagation for the JUnit report rail.
    - If the vocabulary template copy was skipped (empty `$3`), note the warning here
    - Examples-block class chosen: `<browser-test-equipped | CLI-only | fallback>`; placeholder replacement: `<succeeded | skipped: <reason>>`.
+   - `.github/adw.yml` status: `created` or `already present — left untouched`.
