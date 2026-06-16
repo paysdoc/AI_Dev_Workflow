@@ -507,6 +507,8 @@ adws/                   # ADW workflow system
 │   │   ├── remoteReconcile.test.ts
 │   │   ├── slackNotifier.test.ts
 │   │   ├── stateHelpers.test.ts
+│   │   ├── stepDefDetection.test.ts
+│   │   ├── testReportParser.test.ts
 │   │   ├── testVerdict.test.ts
 │   │   ├── topLevelState.test.ts
 │   │   ├── upgradeClaim.integration.test.ts
@@ -546,6 +548,7 @@ adws/                   # ADW workflow system
 │   ├── stateHelpers.ts
 │   ├── stepDefDetection.ts  # Step definition file-extension detection by BDD framework (stepDefExtensionsFor, hasStepDefinitions)
 │   ├── targetRepoManager.ts
+│   ├── testReportParser.ts  # Parses JUnit/pytest-style XML test reports into structured test verdict data
 │   ├── testVerdict.ts  # Pure test verdict computation (enabled, hasFailures, testcaseCount, frameworkDetected → verdict)
 │   ├── upgradeClaim.ts # Atomic upgrade-claim primitive via GitHub branch namespace (winner/loser resolution)
 │   ├── utils.ts
@@ -822,10 +825,12 @@ test/                   # Integration test infrastructure
 │   │   └── tsconfig.json
 │   ├── github/         # GitHub API response fixtures (issue, PR, comments)
 │   ├── jsonl/          # JSONL fixture files for testing
+│   │   ├── envelopes/
+│   │   ├── manifests/  # Named scenario manifests for stub sequencing
+│   │   └── payloads/
+│   ├── python-flat/    # Fixture target repo for Python/pyproject.toml BDD scenario testing
 │   └── scenarios/      # Gherkin .feature fixtures for promotion scoring tests
-│       ├── envelopes/
-│       ├── manifests/  # Named scenario manifests for stub sequencing
-│       └── payloads/
+│       └── promotion/  # Per-scorer promotion scenario fixtures
 ├── mocks/              # Mock implementations
 │   ├── __tests__/      # Vitest unit tests for mock infrastructure
 │   │   └── manifestInterpreter.test.ts
