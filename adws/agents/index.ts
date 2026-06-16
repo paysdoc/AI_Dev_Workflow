@@ -138,6 +138,13 @@ export {
   type AlignmentResult,
 } from './alignmentAgent';
 
+// Scenario Fidelity Agent (post-resolve scenarios-vs-issue re-check)
+export {
+  runScenarioFidelityAgent,
+  formatFidelityArgs,
+  extractFidelityResult,
+} from './scenarioFidelityAgent';
+
 // Dependency Extraction Agent
 export {
   runDependencyExtractionAgent,

@@ -26,7 +26,7 @@
  * - MAX_REVIEW_RETRY_ATTEMPTS: Maximum retry attempts for review-patch loop (default: 3)
  */
 
-import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId, AgentStateManager, log, MAX_TEST_RETRY_ATTEMPTS, MAX_REVIEW_RETRY_ATTEMPTS } from './core';
+import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId, AgentStateManager, log, MAX_REVIEW_RETRY_ATTEMPTS } from './core';
 import { CostTracker, runPhase, runPhasesParallel } from './core/phaseRunner';
 import {
   initializeWorkflow,
@@ -38,7 +38,7 @@ import {
   executeStepDefPhase,
   executeUnitTestPhase,
   executeScenarioTestPhase,
-  executeScenarioFixPhase,
+  runScenarioTestFixLoop,
   executePRPhase,
   executeReviewPhase,
   executeReviewPatchCycle,
@@ -83,20 +83,7 @@ async function main(): Promise<void> {
       await runPhase(config, tracker, executeStepDefPhase, 'stepDef');
       const unitTestResult = await runPhase(config, tracker, executeUnitTestPhase);
 
-      // Scenario test → fix retry loop (orchestrator-level, bounded by MAX_TEST_RETRY_ATTEMPTS)
-      let scenarioProofPath = '';
-      let scenarioRetries = 0;
-      for (let attempt = 0; attempt < MAX_TEST_RETRY_ATTEMPTS; attempt++) {
-        const scenarioResult = await runPhase(config, tracker, executeScenarioTestPhase);
-        scenarioProofPath = scenarioResult.scenarioProof?.resultsFilePath ?? '';
-        if (!scenarioResult.scenarioProof?.hasBlockerFailures) break;
-        scenarioRetries++;
-        if (attempt < MAX_TEST_RETRY_ATTEMPTS - 1) {
-          const fixWrapper = (cfg: WorkflowConfig) =>
-            executeScenarioFixPhase(cfg, scenarioResult.scenarioProof!);
-          await runPhase(config, tracker, fixWrapper);
-        }
-      }
+      const { scenarioProofPath, scenarioRetries } = await runScenarioTestFixLoop(config, tracker);
 
       // Review → patch+retest retry loop (orchestrator-level, bounded by MAX_REVIEW_RETRY_ATTEMPTS)
       let reviewRetries = 0;

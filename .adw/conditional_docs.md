@@ -1516,3 +1516,13 @@
     - When adding screenshot upload support to a new orchestrator (wire `executeProofPublishPhase` after `executePRPhase`)
     - When troubleshooting proof comments missing screenshots or the "R2 not configured" fallback note
     - When writing unit tests for `harvestProofArtifacts` or the pure `formatPrProofComment` formatter
+
+- app_docs/feature-i64axx-hermeticity-resolve.md
+  - Conditions:
+    - When working on `adws/phases/scenarioTestFixLoop.ts` (shared resolve loop) or `adws/phases/gherkinFreeze.ts` (Gherkin freeze enforcement)
+    - When working on `adws/agents/scenarioFidelityAgent.ts` or `.claude/commands/validate_scenario_fidelity.md` (post-resolve fidelity re-check)
+    - When the `/resolve_failed_scenario` app-code-editing or Gherkin-freeze behaviour is relevant
+    - When the hard-fail-on-exhaustion behaviour change is relevant (replaces silent continue-to-review on cap exhaustion)
+    - When `ScenarioHermeticityError` or `GoalFidelityError` are thrown or caught in an orchestrator
+    - When the `/implement-tdd` hermetic-test-mode definition-of-done (§8) is relevant to a build task
+    - When `adws/core/resolveFreezeGuard.ts` or `adws/core/resolveVerdict.ts` pure-decision cores are relevant

@@ -64,6 +64,8 @@ export type SlashCommand =
   | '/resolve_plan_scenarios'
   // Single-pass alignment command
   | '/align_plan_scenarios'
+  // Scenario fidelity re-check (post-resolve, scenarios vs issue body)
+  | '/validate_scenario_fidelity'
   // Install and prime
   | '/install'
   // Diff evaluation

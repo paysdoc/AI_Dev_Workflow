@@ -39,6 +39,13 @@ export { executeAutoMergePhase } from './autoMergePhase';
 export { executeDiffEvaluationPhase, type DiffEvaluationPhaseResult } from './diffEvaluationPhase';
 export { executeScenarioTestPhase } from './scenarioTestPhase';
 export { executeScenarioFixPhase } from './scenarioFixPhase';
+export { captureGherkinSnapshot, collectChangedFeaturePaths, restoreGherkinSnapshot } from './gherkinFreeze';
+export {
+  runScenarioTestFixLoop,
+  ScenarioHermeticityError,
+  GoalFidelityError,
+  type ScenarioTestFixLoopResult,
+} from './scenarioTestFixLoop';
 export {
   shouldRunScenarioProof,
   runScenarioProof,

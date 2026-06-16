@@ -30,6 +30,12 @@ Fix a specific failing BDD scenario using the provided failure details.
    - Make minimal, targeted changes to resolve only this scenario failure
    - Ensure the fix aligns with the scenario steps and expected behavior
 
+   **Hermeticity** — you MAY edit application/implementation code to make the app hermetic for this scenario: add a test-mode switch (env var, flag, or route), stub external services, seed deterministic data, and freeze time/randomness. Editing app code alongside step definitions to reach hermeticity is explicitly authorized.
+
+   **Frozen contract** — do NOT edit, add, or delete any `.feature` file. The Gherkin scenario is the immutable contract; fix the code and step definitions to satisfy it, never the reverse. Any `.feature` change you make will be automatically detected and reverted before the next test run and before the commit.
+
+   **Budget** — resolve attempts are capped by the workflow's max-retry budget. If hermeticity/green is not reached within the budget the workflow hard-fails. Do not stub the assertion itself or weaken test expectations to force a pass — the hard-fail will surface this as a failed workflow instead.
+
 5. **Validate the Fix**
    - Re-run the same scenario using the `testPath` to confirm it now passes
    - IMPORTANT: The scenario must complete successfully before considering it resolved

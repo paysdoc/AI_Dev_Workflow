@@ -67,6 +67,8 @@ export const SLASH_COMMAND_MODEL_MAP: Record<SlashCommand, ModelTier> = {
   '/resolve_plan_scenarios': 'opus',
   // Single-pass alignment (complex reasoning, no downgrade)
   '/align_plan_scenarios': 'opus',
+  // Scenario fidelity re-check (complex reasoning, mirrors validate_plan_scenarios)
+  '/validate_scenario_fidelity': 'opus',
   // Install and prime
   '/install': 'sonnet',
   // Diff evaluation (binary classification, cheap)
@@ -107,6 +109,8 @@ export const SLASH_COMMAND_MODEL_MAP_FAST: Record<SlashCommand, ModelTier> = {
   '/resolve_plan_scenarios': 'opus',
   // Single-pass alignment (complex reasoning, no downgrade)
   '/align_plan_scenarios': 'sonnet',
+  // Scenario fidelity re-check (mirrors validate_plan_scenarios fast tier)
+  '/validate_scenario_fidelity': 'opus',
   // Install and prime
   '/install': 'sonnet',
   // Diff evaluation (binary classification, cheap)
@@ -160,6 +164,8 @@ export const SLASH_COMMAND_EFFORT_MAP: Record<SlashCommand, ReasoningEffort | un
   '/resolve_plan_scenarios': 'max',
   // Single-pass alignment
   '/align_plan_scenarios': 'max',
+  // Scenario fidelity re-check (mirrors validate_plan_scenarios effort)
+  '/validate_scenario_fidelity': 'high',
   // Install and prime
   '/install': 'medium',
   // Diff evaluation (binary classification, cheap)
@@ -200,6 +206,8 @@ export const SLASH_COMMAND_EFFORT_MAP_FAST: Record<SlashCommand, ReasoningEffort
   '/resolve_plan_scenarios': 'high',
   // Single-pass alignment
   '/align_plan_scenarios': 'medium',
+  // Scenario fidelity re-check
+  '/validate_scenario_fidelity': 'high',
   // Install and prime
   '/install': 'low',
   // Diff evaluation (binary classification, cheap)

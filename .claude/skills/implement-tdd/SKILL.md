@@ -113,6 +113,17 @@ If the target repo does not have these paths, use whatever test infrastructure i
 - See [mocking.md](mocking.md) for when and how to mock at system boundaries
 - See [tests.md](tests.md) for good vs. bad test examples
 
+### 8. Hermetic Test Mode (Definition of Done)
+
+For apps exercised by UI/browser BDD scenarios, creating and maintaining the app's **hermetic test mode** is part of "done" — not an afterthought left to the resolve loop:
+
+- **Test-mode switch** — a deterministic way for scenarios to activate test mode (env var, flag, or a route like `/__test-mode`). Document it in `.adw/commands.md` or a `README` section.
+- **Stubbed externals** — all external service calls (APIs, databases, queues) are replaced with in-process stubs or fixtures in test mode; no real network calls.
+- **Seeded/deterministic data** — the data layer uses a fixed seed or fixture state that scenarios can rely on for consistent assertions.
+- **Deterministic clock** — frozen or injectable time so date/time assertions are stable across runs.
+
+Scenarios drive the browser; the app owns hermeticity. If the plan involves UI/browser BDD and the app does not yet have a test mode, add one as part of the build phase — do not wait for the resolve loop to discover the gap.
+
 ## Plan
 
 $ARGUMENTS

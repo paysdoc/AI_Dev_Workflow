@@ -7,6 +7,7 @@ Follow the `Instructions` to implement the `Plan` then `Report` the completed wo
 ## Instructions
 - Read the plan and implement it.
 - Only read the files listed in the plan's `## Relevant Files` section. Do not explore, glob, or grep the codebase beyond those files. Trust the plan.
+- If the plan involves UI/browser BDD scenarios, the app's hermetic test mode (test-mode switch, stubbed externals, seeded data, deterministic clock) is part of the deliverable — see `/implement-tdd` §8 for details.
 
 ## Plan
 $ARGUMENTS
