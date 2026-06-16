@@ -44,13 +44,17 @@ The scenario test → fix retry loop today (see `app_docs/feature-1bg58c-scenari
 
 ## Solution Statement
 
-Centralize the loop and add the guards in one place, plus two prompt updates:
+Centralize the loop and add the guards in one place, plus two prompt updates. The two load-bearing decisions are extracted as **pure decision cores** so they can be exhaustively unit-tested in isolation and driven directly by the BDD scenarios over constructed input:
 
-- **Extract a shared `runScenarioTestFixLoop` phase helper** (`adws/phases/scenarioTestFixLoop.ts`) that replaces the duplicated inline loop in all 5 orchestrators. It runs `executeScenarioTestPhase → executeScenarioFixPhase → executeScenarioTestPhase` up to `MAX_TEST_RETRY_ATTEMPTS`, and adds the two new behaviours: **hard-fail on exhaustion** (throw when blocker failures — including `@regression` — persist after the cap) and a **post-resolve fidelity re-check** (only when resolve actually ran and scenarios are green).
+- **Two pure decision cores** (`adws/core/`, mirroring the existing `computeTestVerdict` in `adws/core/testVerdict.ts`):
+  - **`resolveFreezeGuard`** (`adws/core/resolveFreezeGuard.ts`) — a pure classifier over the set of file paths a single resolve attempt changed. App-code and step-def paths are **permitted** (the new affordance that lets the loop edit app code to reach hermeticity, alongside the step defs it could always touch); **any** `.feature` path **rejects** the attempt and the guard names the flagged frozen file; a single `.feature` edit taints an attempt even when bundled with otherwise-permitted edits. No fs and no snapshot — purely the changed-path → verdict decision.
+  - **`resolveVerdict`** (`adws/core/resolveVerdict.ts`) — a pure verdict `(targetPass, regressionPass, postResolveAligned, budgetState) → 'pass' | 'retry' | 'hard-fail'`, mirroring `computeTestVerdict`'s shape (swapping `warn` for `retry`, since the resolve loop iterates rather than warns). A `@regression` failure is not-green; not-green with budget remaining → `retry`, not-green with budget exhausted → `hard-fail`; green-but-misaligned → `hard-fail` regardless of remaining budget; green-and-aligned → `pass`.
 
-- **Add a Gherkin-freeze guard** (`adws/phases/gherkinFreeze.ts`, pure helpers) and wire it into `scenarioFixPhase`: snapshot every `.feature` file's content at fix-phase entry, then detect and revert any `.feature` change/add/delete before the phase commits. Resolve's step-def and app-code edits survive; Gherkin edits never reach the commit.
+- **Extract a shared `runScenarioTestFixLoop` phase helper** (`adws/phases/scenarioTestFixLoop.ts`) that replaces the duplicated inline loop in all 5 orchestrators. It runs `executeScenarioTestPhase → executeScenarioFixPhase → executeScenarioTestPhase` up to `MAX_TEST_RETRY_ATTEMPTS` and, after each re-run, **consumes `resolveVerdict`** to decide what to do next — mapping `hard-fail` → throw (`ScenarioHermeticityError` on exhausted blocker failures, `GoalFidelityError` on a green-but-misaligned re-run), `retry` → another attempt within the cap, `pass` → return. The **post-resolve fidelity re-check** (below) supplies the `postResolveAligned` signal and runs only when resolve actually ran and scenarios are green.
 
-- **Add a scenario-fidelity agent + command** (`runScenarioFidelityAgent` + `.claude/commands/validate_scenario_fidelity.md`) modelled on the existing `validationAgent`/`/validate_plan_scenarios` pattern but comparing **frozen scenarios vs the issue body**. Reuses the `ValidationResult` schema, `commandAgent` retry loop, and `OutputValidationError` handling. `aligned: false` post-resolve → hard-fail.
+- **Add a Gherkin-freeze enforcement helper** (`adws/phases/gherkinFreeze.ts`, fs at the edges) and wire it into `scenarioFixPhase`: snapshot every `.feature` file's content at fix-phase entry, then after resolve compute the changed-path list, feed it to **`resolveFreezeGuard`**, and revert the flagged `.feature` files (restore modified/deleted, remove added) before the phase commits. `gherkinFreeze.ts` owns the fs snapshot/restore; `resolveFreezeGuard` owns the verdict. Resolve's step-def and app-code edits survive; Gherkin edits never reach the commit.
+
+- **Add the post-resolve fidelity re-check** — the issue's named **`validationAgent` re-check against the issue**. Reuse the `validationAgent` rail (`ValidationResult`/`validationResultSchema`, the `commandAgent` retry loop, and `OutputValidationError` handling) re-pointed to compare **frozen scenarios vs the issue body** rather than the plan, via `runScenarioFidelityAgent` + `.claude/commands/validate_scenario_fidelity.md` modelled on `/validate_plan_scenarios`. It produces the `ValidationResult.aligned` boolean that `resolveVerdict` consumes; `aligned: false` on a green re-run → `hard-fail` (`GoalFidelityError`). (The scenarios drive only this `aligned` boolean as input — they are agnostic to whether the producing entry point is a thin new command or the existing agent re-pointed.)
 
 - **Update `.claude/commands/resolve_failed_scenario.md`** to: authorize editing app/implementation code to reach hermeticity (test mode, stubbed externals, seeded data, deterministic clock); forbid editing/adding/deleting `.feature` files (frozen — step defs + app code only); state the cap and that exhaustion is a hard failure.
 
@@ -73,11 +77,12 @@ Use these files to implement the feature:
 - `adws/phases/scenarioTestPhase.ts` — scenario test phase; unchanged behaviourally, but its `ScenarioProofResult` (`hasBlockerFailures`) is the loop's pass/fail signal. Read for context.
 - `adws/phases/scenarioProof.ts` — `runScenarioProof`; iterates `reviewProofConfig.tags` (`@regression` blocker + `@adw-{issueNumber}` optional) and computes `hasBlockerFailures`. Confirms `@regression` runs every pass. Read for context.
 - `adws/core/projectConfig.ts` — `getDefaultReviewProofConfig()` (lines ~187–195) shows `@regression` is a non-optional blocker. No change required; read to justify the hard-gate criterion.
-- `adws/agents/validationAgent.ts` — model for the new fidelity agent; reuse exported `findScenarioFiles`, `readScenarioContents`, `ValidationResult`, `validationResultSchema`, and the `commandAgent` wiring pattern.
+- `adws/agents/validationAgent.ts` — the rail the post-resolve fidelity re-check reuses (the issue's named "`validationAgent` re-check"), re-pointed from plan-vs-scenarios to scenarios-vs-issue-body; reuse exported `findScenarioFiles`, `readScenarioContents`, `ValidationResult`, `validationResultSchema`, and the `commandAgent` wiring pattern.
 - `adws/agents/resolutionAgent.ts` — model for passing the issue body as a positional command arg (`formatResolutionArgs` passes `issueJson`); mirror for `formatFidelityArgs`.
 - `adws/phases/planValidationPhase.ts` — reference for the validate→(resolve)→re-validate retry/hard-fail pattern and `OutputValidationError` graceful degradation.
 - `adws/core/config.ts` — `MAX_TEST_RETRY_ATTEMPTS` (line 57) is the existing cap reused by the loop; `MAX_VALIDATION_RETRY_ATTEMPTS` (line 63) for fidelity-agent output-retry context. No new constant required.
 - `adws/core/retryOrchestrator.ts` — `retryWithResolution` pattern reference (not directly reused; the loop is phase-level, not agent-level).
+- `adws/core/testVerdict.ts` — `computeTestVerdict` pure-decision precedent (table-tested in `adws/core/__tests__/testVerdict.test.ts`). The new `resolveFreezeGuard` and `resolveVerdict` cores mirror its shape and test style; read before authoring them.
 - `adws/phases/index.ts` / `adws/workflowPhases.ts` / `adws/agents/index.ts` — barrel exports; add the new helper and agent.
 - `adws/types/issueTypes.ts` — `SlashCommand` union; add `/validate_scenario_fidelity` literal.
 - `adws/core/modelRouting.ts` — `SLASH_COMMAND_MODEL_MAP` / `SLASH_COMMAND_EFFORT_MAP` (and `*_FAST` variants); add a model/effort entry for `/validate_scenario_fidelity` (mirror `/validate_plan_scenarios`).
@@ -93,12 +98,16 @@ Use these files to implement the feature:
 
 ### New Files
 
-- `adws/phases/scenarioTestFixLoop.ts` — shared scenario test→fix loop helper with hard-fail-on-exhaustion and the post-resolve fidelity hook. Exports `runScenarioTestFixLoop(config, tracker, opts?)` returning `{ scenarioProof?, scenarioProofPath, scenarioRetries }` and throwing a typed `ScenarioHermeticityError` / `GoalFidelityError` on failure.
-- `adws/phases/gherkinFreeze.ts` — pure helpers: `captureGherkinSnapshot(worktreePath) → Map<relPath, content>`, `detectGherkinViolations(snapshot, worktreePath) → string[]`, `restoreGherkinSnapshot(snapshot, worktreePath) → string[]` (revert modified, recreate deleted, remove added). fs only at the edges.
-- `adws/agents/scenarioFidelityAgent.ts` — `runScenarioFidelityAgent(adwId, issueNumber, issueBody, scenarioGlob, logsDir, statePath?, cwd?)`; reuses `ValidationResult`/`validationResultSchema` and the `commandAgent` config pattern. Returns `{ ...AgentResult, fidelityResult: ValidationResult }`.
+- `adws/core/resolveFreezeGuard.ts` — pure freeze-guard classifier: `evaluateResolveEdit(changedPaths: string[]): { permitted: boolean; flaggedFeature?: string }` (and a small `ResolveEditVerdict` type). App-code/step-def paths permit; any `.feature` path rejects and names the first flagged frozen file; mixing a `.feature` edit into a permitted set still rejects. No fs — classifies the supplied path strings. Mirrors `computeTestVerdict`.
+- `adws/core/resolveVerdict.ts` — pure resolve verdict: `computeResolveVerdict(signals: { targetPass: boolean; regressionPass: boolean; postResolveAligned?: boolean; budgetRemaining: boolean }): 'pass' | 'retry' | 'hard-fail'`. Encodes cap (not-green + budget remaining → retry; + exhausted → hard-fail), the `@regression` gate (regression-fail is not-green), and the gaming guard (green-but-misaligned → hard-fail regardless of budget). Mirrors `computeTestVerdict` (`warn`→`retry`).
+- `adws/phases/scenarioTestFixLoop.ts` — shared scenario test→fix loop helper. Drives the bounded loop and **consumes `computeResolveVerdict`** after each re-run, mapping `hard-fail`→throw (`ScenarioHermeticityError`/`GoalFidelityError`), `retry`→continue, `pass`→return. Exports `runScenarioTestFixLoop(config, tracker, opts?)` returning `{ scenarioProof?, scenarioProofPath, scenarioRetries }`.
+- `adws/phases/gherkinFreeze.ts` — fs enforcement that feeds `resolveFreezeGuard` and restores violations: `captureGherkinSnapshot(worktreePath) → Map<relPath, content>`, `collectChangedFeaturePaths(snapshot, worktreePath) → string[]` (the changed-path list handed to the guard), `restoreGherkinSnapshot(snapshot, worktreePath) → string[]` (revert modified, recreate deleted, remove added). fs only at the edges; the permit/reject decision lives in `resolveFreezeGuard`.
+- `adws/agents/scenarioFidelityAgent.ts` — `runScenarioFidelityAgent(adwId, issueNumber, issueBody, scenarioGlob, logsDir, statePath?, cwd?)`; the issue's "`validationAgent` re-check" — reuses `validationAgent`'s `ValidationResult`/`validationResultSchema` and the `commandAgent` config pattern, re-pointed at the issue body. Returns `{ ...AgentResult, fidelityResult: ValidationResult }`.
 - `.claude/commands/validate_scenario_fidelity.md` — slash command (`target: false`) comparing frozen `.feature` scenarios against the issue body; emits the same JSON `ValidationResult` contract as `/validate_plan_scenarios`.
-- `adws/phases/__tests__/gherkinFreeze.test.ts` — unit tests for snapshot/detect/restore over temp-dir fixtures.
-- `adws/phases/__tests__/scenarioTestFixLoop.test.ts` — unit tests for the loop's decision logic (pass-first-try, resolve-then-pass, exhaustion-hard-fail, fidelity-fail-hard-fail) with injected phase stubs.
+- `adws/core/__tests__/resolveFreezeGuard.test.ts` — exhaustive guard table: app-code+step-def → permit; any `.feature` → reject + flagged file; `.feature` mixed with permitted edits → reject; empty/permitted-only sets.
+- `adws/core/__tests__/resolveVerdict.test.ts` — exhaustive verdict table over `(targetPass, regressionPass, postResolveAligned, budgetRemaining)` → `pass|retry|hard-fail` (mirrors `testVerdict.test.ts`).
+- `adws/phases/__tests__/gherkinFreeze.test.ts` — unit tests for snapshot/changed-path-collection/restore over temp-dir fixtures.
+- `adws/phases/__tests__/scenarioTestFixLoop.test.ts` — unit tests for the loop's orchestration (pass-first-try, resolve-then-pass, exhaustion-hard-fail, fidelity-fail-hard-fail) with injected phase stubs.
 - `adws/agents/__tests__/scenarioFidelityAgent.test.ts` — unit tests for the fidelity result extractor (valid/invalid JSON → `ExtractionResult`).
 - `features/per-issue/feature-582.feature` — per-issue BDD scenarios tagged `@adw-582` covering the five acceptance criteria.
 - `features/per-issue/step_definitions/feature-582.steps.ts` — step definitions for the above.
@@ -106,14 +115,16 @@ Use these files to implement the feature:
 ## Implementation Plan
 
 ### Phase 1: Foundation
-Build the two pure, independently-testable primitives that the loop depends on, plus the fidelity agent:
-- `gherkinFreeze.ts` — snapshot/detect/restore of `.feature` files (content-keyed, so restore can recreate deleted files).
-- `scenarioFidelityAgent.ts` + `.claude/commands/validate_scenario_fidelity.md` — the scenarios-vs-issue re-check, reusing the `ValidationResult` rail.
+Build the pure, independently-testable decision cores and the supporting primitives the loop depends on, plus the fidelity agent:
+- `adws/core/resolveFreezeGuard.ts` — pure changed-path → permit/reject+flagged-file classifier (mirrors `computeTestVerdict`).
+- `adws/core/resolveVerdict.ts` — pure `(targetPass, regressionPass, postResolveAligned, budgetRemaining) → pass|retry|hard-fail` verdict (mirrors `computeTestVerdict`).
+- `gherkinFreeze.ts` — fs snapshot/changed-path-collection/restore of `.feature` files (content-keyed, so restore can recreate deleted files); feeds `resolveFreezeGuard`.
+- `scenarioFidelityAgent.ts` + `.claude/commands/validate_scenario_fidelity.md` — the scenarios-vs-issue re-check, reusing the `validationAgent`/`ValidationResult` rail.
 - Register the new slash command in the `SlashCommand` union and model/effort maps.
 
 ### Phase 2: Core Implementation
-- Wire the Gherkin freeze into `scenarioFixPhase` (snapshot at entry → run resolvers → restore violations → then commit).
-- Build the shared `scenarioTestFixLoop.ts`: the bounded loop, hard-fail on exhaustion, and the post-resolve fidelity gate (run only when `scenarioRetries > 0`, scenarios are green, and `@adw-{issueNumber}` scenario files exist).
+- Wire the Gherkin freeze into `scenarioFixPhase` (snapshot at entry → run resolvers → classify the changed-path list via `resolveFreezeGuard` → restore flagged `.feature` files → then commit).
+- Build the shared `scenarioTestFixLoop.ts`: the bounded loop that consumes `computeResolveVerdict` for the pass/retry/hard-fail decision, hard-fail on exhaustion, and the post-resolve fidelity gate that supplies `postResolveAligned` (run only when `scenarioRetries > 0`, scenarios are green, and `@adw-{issueNumber}` scenario files exist).
 - Update the two build/resolve prompts (`resolve_failed_scenario.md`, `implement-tdd/SKILL.md` + `implement.md`).
 
 ### Phase 3: Integration
@@ -130,25 +141,29 @@ Execute every step in order, top to bottom.
 - Read `features/regression/vocabulary.md` to learn the registered step-phrase vocabulary before authoring scenarios.
 - Confirm the 5 orchestrators carrying the inline loop: `grep -ln "executeScenarioFixPhase" adws/*.tsx`.
 
-### 2. Add the Gherkin-freeze pure module
-- Create `adws/phases/gherkinFreeze.ts` with:
+### 2. Add the pure freeze-guard core + the Gherkin-freeze fs enforcement
+- Create `adws/core/resolveFreezeGuard.ts` (pure, no fs — mirror `adws/core/testVerdict.ts`):
+  - `evaluateResolveEdit(changedPaths: string[]): { permitted: boolean; flaggedFeature?: string }` — classify the supplied path strings: a `*.feature` path is a frozen-contract violation (reject, set `flaggedFeature` to the first such path); app-code and step-def paths are permitted. Any `.feature` path rejects even when bundled with permitted edits.
+  - Keep it a single guard-clause function over the input array; no disk access (the paths are classified as strings).
+- Create `adws/phases/gherkinFreeze.ts` (fs enforcement that feeds the guard) with:
   - `captureGherkinSnapshot(worktreePath: string): Map<string, string>` — recursively find every `*.feature` file (reuse the scan shape from `validationAgent.findScenarioFiles`), keyed by path relative to `worktreePath`, value = file content. Skip `node_modules`/`.git`/`.worktrees`.
-  - `detectGherkinViolations(snapshot: Map<string,string>, worktreePath: string): string[]` — return relative paths that were modified, added, or deleted versus the snapshot.
+  - `collectChangedFeaturePaths(snapshot: Map<string,string>, worktreePath: string): string[]` — return relative `.feature` paths that were modified, added, or deleted versus the snapshot (the changed-path list handed to `evaluateResolveEdit`).
   - `restoreGherkinSnapshot(snapshot: Map<string,string>, worktreePath: string): string[]` — rewrite modified files to snapshot content, recreate deleted files, delete added files; return the list of restored/removed paths.
   - Keep functions ≤ ~2 nesting levels (guard clauses); fs calls isolated at the edges.
-- Export from `adws/phases/index.ts`.
+- Export `resolveFreezeGuard` from `adws/core` (add to the core barrel if one exists; otherwise import directly) and the fs helpers from `adws/phases/index.ts`.
 
-### 3. Unit-test the Gherkin-freeze module
+### 3. Unit-test the freeze-guard core and the Gherkin-freeze fs helpers
+- Create `adws/core/__tests__/resolveFreezeGuard.test.ts` (Vitest, mirror `adws/core/__tests__/testVerdict.test.ts`): app-code + step-def paths → `permitted: true`; a `.feature` path → `permitted: false` with `flaggedFeature` naming it; a `.feature` path mixed with permitted edits → still `permitted: false`; empty / permitted-only sets → permitted.
 - Create `adws/phases/__tests__/gherkinFreeze.test.ts` (Vitest), using a temp dir (mirror `adws/proof/__tests__/proofArtifactHarvester.test.ts`):
-  - snapshot then no change → `detectGherkinViolations` returns `[]`.
-  - modify a `.feature` → detected; `restore` returns content to snapshot.
-  - add a new `.feature` → detected; `restore` deletes it.
-  - delete a `.feature` → detected; `restore` recreates it with original content.
+  - snapshot then no change → `collectChangedFeaturePaths` returns `[]`.
+  - modify a `.feature` → collected; `restore` returns content to snapshot.
+  - add a new `.feature` → collected; `restore` deletes it.
+  - delete a `.feature` → collected; `restore` recreates it with original content.
   - non-`.feature` edits are ignored.
 
 ### 4. Wire the freeze into `scenarioFixPhase`
 - In `adws/phases/scenarioFixPhase.ts`, call `captureGherkinSnapshot(worktreePath)` before the per-tag resolve loop.
-- After all `runResolveScenarioAgent` calls and before `runCommitAgent`, call `detectGherkinViolations`; if non-empty, call `restoreGherkinSnapshot`, `log` a warning, and `AgentStateManager.appendLog` a "Gherkin freeze: reverted N .feature change(s) during resolve" entry. The commit then contains only step-def + app-code edits.
+- After all `runResolveScenarioAgent` calls and before `runCommitAgent`, call `collectChangedFeaturePaths` and pass the result to `evaluateResolveEdit`; when the verdict is not permitted, call `restoreGherkinSnapshot`, `log` a warning naming the flagged frozen file, and `AgentStateManager.appendLog` a "Gherkin freeze: reverted N .feature change(s) during resolve" entry. The commit then contains only step-def + app-code edits.
 - Surface a `gherkinFreezeViolations: string[]` field on the returned object for telemetry/assertions.
 
 ### 5. Add the scenario-fidelity command
@@ -170,17 +185,21 @@ Execute every step in order, top to bottom.
 ### 7. Unit-test the fidelity-agent extractor
 - Create `adws/agents/__tests__/scenarioFidelityAgent.test.ts`: valid JSON → `success: true` with normalized `mismatches`/`summary`; missing `aligned` boolean → `success: false` with a descriptive error (mirror existing validation-agent extractor expectations).
 
-### 8. Build the shared scenario test→fix loop
+### 8. Build the pure resolve verdict + the shared scenario test→fix loop
+- Create `adws/core/resolveVerdict.ts` (pure, no fs/async — mirror `adws/core/testVerdict.ts`):
+  - `computeResolveVerdict(signals: { targetPass: boolean; regressionPass: boolean; postResolveAligned?: boolean; budgetRemaining: boolean }): 'pass' | 'retry' | 'hard-fail'`.
+  - Not-green (target fails **or** `@regression` fails) → `retry` while `budgetRemaining`, else `hard-fail`. Green (both pass) → consult `postResolveAligned`: `true` (or absent because no resolve ran) → `pass`; `false` (green-but-misaligned) → `hard-fail` regardless of `budgetRemaining` (the gaming guard).
 - Create `adws/phases/scenarioTestFixLoop.ts`:
   - Define typed errors `ScenarioHermeticityError` and `GoalFidelityError` (extend `Error` with a stable `name`).
   - `runScenarioTestFixLoop(config: WorkflowConfig, tracker: CostTracker, opts?: { maxAttempts?: number }): Promise<{ scenarioProof?: ScenarioProofResult; scenarioProofPath: string; scenarioRetries: number }>`.
-  - Loop body identical to today's inline version (`runPhase(config, tracker, executeScenarioTestPhase)` → break when `!hasBlockerFailures` → else `runPhase(config, tracker, fixWrapper)`), bounded by `opts?.maxAttempts ?? MAX_TEST_RETRY_ATTEMPTS`.
-  - **Hard-fail on exhaustion:** after the loop, if the last `scenarioProof?.hasBlockerFailures` is still true, throw `ScenarioHermeticityError` with a message naming the failing blocker tags (e.g. `@regression`, `@adw-582`) and the attempt count. Skip the throw when scenarios were never configured (proof `undefined` / no blocker tags) so repos without scenarios are unaffected.
-  - **Post-resolve fidelity gate:** when `scenarioRetries > 0`, scenarios are green, and `findScenarioFiles(issueNumber, worktreePath).length > 0`, run `runScenarioFidelityAgent` once (accumulate cost via `tracker`/`persistTokenCounts`); on `aligned: false`, throw `GoalFidelityError` with the summary. Catch `OutputValidationError` and degrade to a logged warning (do not hard-fail on a parser exhaustion — mirror `planValidationPhase`'s graceful path).
+  - Loop body identical to today's inline version (`runPhase(config, tracker, executeScenarioTestPhase)` → break when `!hasBlockerFailures` → else `runPhase(config, tracker, fixWrapper)`), bounded by `opts?.maxAttempts ?? MAX_TEST_RETRY_ATTEMPTS`, and after each re-run consults `computeResolveVerdict` for the pass/retry/hard-fail decision.
+  - **Hard-fail on exhaustion:** when the verdict is `hard-fail` because blocker failures (including `@regression`) persist after the cap, throw `ScenarioHermeticityError` naming the failing blocker tags (e.g. `@regression`, `@adw-582`) and the attempt count. Skip the throw when scenarios were never configured (proof `undefined` / no blocker tags) so repos without scenarios are unaffected.
+  - **Post-resolve fidelity gate:** when `scenarioRetries > 0`, scenarios are green, and `findScenarioFiles(issueNumber, worktreePath).length > 0`, run `runScenarioFidelityAgent` once (accumulate cost via `tracker`/`persistTokenCounts`) to obtain `postResolveAligned`; when `computeResolveVerdict` returns `hard-fail` on a green-but-misaligned re-run, throw `GoalFidelityError` with the summary. Catch `OutputValidationError` and degrade to a logged warning (do not hard-fail on a parser exhaustion — mirror `planValidationPhase`'s graceful path).
   - Return `{ scenarioProof, scenarioProofPath, scenarioRetries }`.
-- Export from `adws/phases/index.ts` and `adws/workflowPhases.ts`.
+- Export `computeResolveVerdict` from `adws/core` and `runScenarioTestFixLoop` from `adws/phases/index.ts` and `adws/workflowPhases.ts`.
 
-### 9. Unit-test the loop decision logic
+### 9. Unit-test the resolve verdict and the loop orchestration
+- Create `adws/core/__tests__/resolveVerdict.test.ts` (mirror `testVerdict.test.ts`): exhaustive table over `(targetPass, regressionPass, postResolveAligned, budgetRemaining)` → `pass|retry|hard-fail`, covering: not-green + remaining → `retry`; not-green + exhausted → `hard-fail`; `@regression`-fail-but-target-green treated as not-green; green + aligned → `pass`; green + misaligned → `hard-fail` even with budget remaining.
 - Create `adws/phases/__tests__/scenarioTestFixLoop.test.ts` injecting stubbed phase/agent functions (follow the dependency-injection style used in existing phase tests):
   - pass on first attempt → no fix, no fidelity call, returns `scenarioRetries: 0`.
   - fail then pass within cap → fix called; fidelity called once; returns on green.
@@ -205,9 +224,10 @@ Execute every step in order, top to bottom.
 - Edit `.claude/skills/implement-tdd/SKILL.md`: add a "Hermetic Test Mode (Definition of Done)" section — for apps exercised by UI/browser BDD, creating and maintaining the app's hermetic test mode is part of done: a test-mode switch (env/flag/route), stubbed externals, seeded/deterministic data, deterministic clock, and a documented way for scenarios to drive it. Scenarios drive the browser; the app owns hermeticity.
 - Edit `.claude/commands/implement.md`: add a one-line pointer that, when the plan involves UI/browser scenarios, the app's hermetic test mode is part of the deliverable.
 
-### 13. Author per-issue BDD scenarios
-- Create `features/per-issue/feature-582.feature` tagged `@adw-582`, with scenarios for: (a) resolve edits app code + hard-fail on exhaustion, (b) `.feature` files unchanged after a resolve that touched them (freeze revert), (c) post-resolve fidelity re-check runs and can hard-fail, (d) `@regression` blocker failure participates in the hard-fail, (e) build-agent definition-of-done includes hermetic test mode. Prefer phrases already in `features/regression/vocabulary.md`.
-- Create `features/per-issue/step_definitions/feature-582.steps.ts` exercising `runScenarioTestFixLoop`, `gherkinFreeze`, and `scenarioFidelityAgent` through their public interfaces (inject stubs; assert verdicts/throws, not internals). Use the mock infrastructure in `test/mocks/` where agent calls are involved.
+### 13. Bind the per-issue BDD scenarios
+- `features/per-issue/feature-582.feature` (tagged `@adw-582`) already pins the contract as two pure decision surfaces plus a type-check backstop: **§1 freeze guard** (app-code/step-def edits permitted; any `.feature` edit rejected and the frozen file flagged; a `.feature` edit bundled with permitted edits still taints), **§2 resolve verdict** (a not-green target or a failing `@regression` retries within budget and hard-fails once exhausted), **§3 post-resolve re-validation** (green + aligned → pass; green + misaligned → hard-fail despite remaining budget), and **§4** the ADW type-check passes. Do **not** rewrite the feature file; bind to it.
+- AC5 (build-agent definition-of-done) is a **prompt-owned** property with no code surface, so — as the feature file's scope note records — it is deliberately **not** given its own hermetic scenario; its observable safeguard is the §1 edit boundary (app code permitted, `.feature` frozen) plus the prompt rewrite (step 12), the `pr_review` reviewer, and the live run.
+- Create `features/per-issue/step_definitions/feature-582.steps.ts` exercising the pure `resolveFreezeGuard` (`evaluateResolveEdit`) and `resolveVerdict` (`computeResolveVerdict`) over the path strings / canned signals the steps supply, asserting the produced verdict (and the flagged frozen file) — not internals or any source file's text. Reuse registered phrases G18/T22; the novel resolve-edit-boundary / resolve-verdict phrases the feature introduces are surfaced to the maintainer in the agent Output (no registered phrase fits). Use the mock infrastructure in `test/mocks/` only where agent calls are involved.
 
 ### 14. Add a conditional-docs entry
 - Append an entry to `.adw/conditional_docs.md` for the (later document-phase-generated) feature doc, with conditions covering: working on `scenarioTestFixLoop.ts`/`gherkinFreeze.ts`/`scenarioFidelityAgent.ts`; the `/resolve_failed_scenario` app-code/freeze behaviour; `/validate_scenario_fidelity`; the hard-fail-on-exhaustion behaviour change; and the `/implement-tdd` hermetic-test-mode definition-of-done.
@@ -220,7 +240,9 @@ Execute every step in order, top to bottom.
 ### Unit Tests
 `.adw/project.md` contains `## Unit Tests: enabled`, so unit tests are in scope. Following the PRD's testing principle (assert external behaviour through the public interface; no assertions on private helpers or call sequencing) and the existing pure-helper test style:
 
-- **`gherkinFreeze`** (`adws/phases/__tests__/gherkinFreeze.test.ts`) — temp-dir fixtures → snapshot/detect/restore over modify, add, delete, and no-op cases; non-`.feature` edits ignored.
+- **`resolveFreezeGuard`** (`adws/core/__tests__/resolveFreezeGuard.test.ts`) — exhaustive changed-path table → permit (app-code/step-def), reject + flagged file (any `.feature`), reject when a `.feature` is mixed with permitted edits, permit on empty/permitted-only sets. This is what feature-582 §1 drives.
+- **`resolveVerdict`** (`adws/core/__tests__/resolveVerdict.test.ts`) — exhaustive table over `(targetPass, regressionPass, postResolveAligned, budgetRemaining)` → `pass|retry|hard-fail` (mirror `testVerdict.test.ts`). This is what feature-582 §2–§3 drive.
+- **`gherkinFreeze`** (`adws/phases/__tests__/gherkinFreeze.test.ts`) — temp-dir fixtures → snapshot/collect-changed/restore over modify, add, delete, and no-op cases; non-`.feature` edits ignored.
 - **`scenarioTestFixLoop`** (`adws/phases/__tests__/scenarioTestFixLoop.test.ts`) — injected phase/agent stubs → table over: pass-first-try, resolve-then-pass (fidelity called once), fidelity-fail (`GoalFidelityError`), exhaustion (`ScenarioHermeticityError`), no-scenarios (clean return). Assert returned `{scenarioProofPath, scenarioRetries}` and thrown error types — not internal call order.
 - **`scenarioFidelityAgent`** (`adws/agents/__tests__/scenarioFidelityAgent.test.ts`) — extractor over valid JSON, missing `aligned`, and malformed output → `ExtractionResult` shape.
 
@@ -235,10 +257,10 @@ Execute every step in order, top to bottom.
 - Cap exhausted with scenarios green only after the final fix but before re-test: loop re-tests after each fix and breaks on the first green pass; hard-fail only when the last proof still has blocker failures.
 
 ## Acceptance Criteria
-- Resolve loop can edit app code to reach hermeticity: `resolve_failed_scenario.md` authorizes app/implementation-code edits for hermeticity; attempts are capped by `MAX_TEST_RETRY_ATTEMPTS`; on exhaustion with blocker failures the workflow throws `ScenarioHermeticityError` and fails (no silent continue-to-review).
-- Gherkin `.feature` files are not modified during resolve: any `.feature` change/add/delete made by a resolve attempt is detected and reverted by `gherkinFreeze` before `scenarioFixPhase` commits; the committed diff never contains `.feature` edits.
-- Post-resolve scenario re-validation against the issue body runs: when resolve occurred and scenarios are green, `runScenarioFidelityAgent` compares frozen scenarios vs the issue body; `aligned: false` throws `GoalFidelityError`.
-- `@regression` enforced as a hard gate on every resolve re-run: `@regression` (non-optional blocker) runs on every `executeScenarioTestPhase` inside the loop, and a persistent `@regression` failure participates in the hard-fail on exhaustion.
+- Resolve loop can edit app code to reach hermeticity: `resolveFreezeGuard` permits app/implementation-code and step-def edits; `resolve_failed_scenario.md` authorizes them for hermeticity; attempts are capped by `MAX_TEST_RETRY_ATTEMPTS`; on exhaustion with blocker failures `computeResolveVerdict` returns `hard-fail` and the loop throws `ScenarioHermeticityError` (no silent continue-to-review).
+- Gherkin `.feature` files are not modified during resolve: `resolveFreezeGuard` rejects and flags any attempt whose changed-path list contains a `.feature` path (even bundled with permitted edits); `gherkinFreeze` reverts the flagged files before `scenarioFixPhase` commits, so the committed diff never contains `.feature` edits.
+- Post-resolve scenario re-validation against the issue body runs: when resolve occurred and scenarios are green, `runScenarioFidelityAgent` (the issue's "`validationAgent` re-check", reusing the `validationAgent` rail) compares frozen scenarios vs the issue body; its `aligned` boolean feeds `computeResolveVerdict`, and `aligned: false` → `hard-fail` (`GoalFidelityError`) regardless of remaining budget.
+- `@regression` enforced as a hard gate on every resolve re-run: `@regression` (non-optional blocker) runs on every `executeScenarioTestPhase` inside the loop, `computeResolveVerdict` treats a `@regression` failure as not-green, and a persistent `@regression` failure participates in the hard-fail on exhaustion.
 - Build-agent definition-of-done includes the app's hermetic test mode: `/implement-tdd` (and a note in `/implement`) make creating/maintaining the app's hermetic test mode part of "done".
 - All 5 orchestrators use the shared `runScenarioTestFixLoop`; no orchestrator carries the inline loop.
 - New unit tests and the full existing suite pass; lint, type-check, and build are clean.
@@ -249,13 +271,13 @@ Execute every command to validate the feature works correctly with zero regressi
 - `bun run lint` — ESLint clean (zero errors/warnings).
 - `bunx tsc --noEmit` — root type-check passes.
 - `bunx tsc --noEmit -p adws/tsconfig.json` — ADW type-check passes (new modules, agent, and rewired orchestrators type-check).
-- `bun run test:unit` — full Vitest suite passes, including the three new test files (`gherkinFreeze`, `scenarioTestFixLoop`, `scenarioFidelityAgent`).
+- `bun run test:unit` — full Vitest suite passes, including the five new test files (`resolveFreezeGuard`, `resolveVerdict`, `gherkinFreeze`, `scenarioTestFixLoop`, `scenarioFidelityAgent`).
 - `bun run build` — build succeeds with no errors.
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-582"` — per-issue BDD scenarios for this feature pass.
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@regression"` — full regression suite passes (no regression from the orchestrator rewire or the hard-fail behaviour change).
 
 ## Notes
-- If `.adw/coding_guidelines.md` exists in the target repository (it does), strictly adhere to it. Specifically: keep new files single-responsibility and under 300 lines; prefer guard clauses over nested conditionals (max ~2 levels); isolate fs/side-effects at the edges of `gherkinFreeze` and the loop; avoid `any`; use explicit types for `ValidationResult`, the loop result, and the typed errors.
+- If `.adw/coding_guidelines.md` exists in the target repository (it does), strictly adhere to it. Specifically: keep new files single-responsibility and under 300 lines; prefer guard clauses over nested conditionals (max ~2 levels); isolate fs/side-effects at the edges of `gherkinFreeze` and the loop (the `resolveFreezeGuard`/`resolveVerdict` cores stay pure); avoid `any`; use explicit types for `ResolveEditVerdict`, the resolve verdict union (`'pass' | 'retry' | 'hard-fail'`), `ValidationResult`, the loop result, and the typed errors.
 - **No new library is required.** Per `.adw/commands.md` the library install command is `bun add <package>` if that changes, but this feature uses only existing modules (`fs`, `path`, `crypto` if hashing is preferred over content compare, and existing ADW agent/cost infra).
 - **Hash-propagation rule (PRD "Further Notes").** This feature adds **no parsed `.adw/` descriptor fields**, so the framework-version hash (computed only over `adw_init.md` + the vocabulary template) does **not** move and `adw_init.md` is intentionally **not** edited. The changed prompts (`resolve_failed_scenario.md`, `implement-tdd/SKILL.md`, `implement.md`, new `validate_scenario_fidelity.md`) and framework code are framework-resident and take effect immediately on merge — no `adwUpgrade` regeneration is involved. Do not add descriptor fields here; if a future change does, it must edit `adw_init.md` in the same PR.
 - **Behaviour change — silent green removed.** Today a scenario suite that never goes green within the cap lets the workflow continue to review (`app_docs/feature-1bg58c` line 45). After this feature it hard-fails. This is intentional (PRD's silent-green elimination) and is the load-bearing part of acceptance criterion 1 and 4. Repos with **no** scenarios are unaffected (the loop returns cleanly).
