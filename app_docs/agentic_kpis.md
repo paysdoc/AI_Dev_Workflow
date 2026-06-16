@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 241              | 2026-06-16 23:34:50 |
-| Longest Streak    | 241              | 2026-06-16 23:34:50 |
-| Total Plan Size   | 4115 lines       | 2026-06-16 23:34:50 |
-| Largest Plan Size | 699 lines        | 2026-06-16 23:34:50 |
-| Total Diff Size   | 5952239 lines    | 2026-06-16 23:34:50 |
-| Largest Diff Size | 418153 lines     | 2026-06-16 23:34:50 |
-| Average Presence  | 1.22             | 2026-06-16 23:34:50 |
+| Current Streak    | 210              | 2026-06-17 00:28:47 |
+| Longest Streak    | 210              | 2026-06-17 00:28:47 |
+| Total Plan Size   | 3847 lines       | 2026-06-17 00:28:47 |
+| Largest Plan Size | 699 lines        | 2026-06-17 00:28:47 |
+| Total Diff Size   | 5958270 lines    | 2026-06-17 00:28:47 |
+| Largest Diff Size | 418153 lines     | 2026-06-17 00:28:47 |
+| Average Presence  | 1.14             | 2026-06-17 00:28:47 |
 
 ## ADW KPIs
 
@@ -248,3 +248,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-06-16 | l8a10n-stack-coherence-chec | 581 | /feature | 2 | 0 | 1959/75/29 | 2026-06-16 23:04:50 | 2026-06-16 23:04:50 |
 | 2026-06-16 | x3qme8-python-fixture-targe | 583 | /feature | 1 | 0 | 3752/34/54 | 2026-06-16 23:29:22 | 2026-06-16 23:29:22 |
 | 2026-06-16 | i64axx-hermeticity-resolve | 582 | /feature | 1 | 0 | 4225/103/57 | 2026-06-16 23:34:50 | 2026-06-16 23:34:50 |
+| 2026-06-17 | hrl5jd-unit-test-rail-onto | 601 | /feature | 1 | 0 | 5943/88/79 | 2026-06-17 00:28:47 | 2026-06-17 00:28:47 |
