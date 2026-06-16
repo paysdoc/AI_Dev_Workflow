@@ -179,6 +179,7 @@ export type AgentIdentifier =
   // Plan validation agents
   | 'validation-agent'
   | 'resolution-agent'
+  | 'scenario-fidelity-agent'
   // Single-pass alignment agent
   | 'alignment-agent'
   // Dependency extraction agent

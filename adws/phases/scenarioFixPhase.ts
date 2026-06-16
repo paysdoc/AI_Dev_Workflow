@@ -21,6 +21,8 @@ import { runCommitAgent } from '../agents/gitAgent';
 import { pushBranch } from '../vcs';
 import type { ScenarioProofResult } from './scenarioProof';
 import type { WorkflowConfig } from './workflowInit';
+import { captureGherkinSnapshot, collectChangedFeaturePaths, restoreGherkinSnapshot } from './gherkinFreeze';
+import { evaluateResolveEdit } from '../core/resolveFreezeGuard';
 
 /**
  * Executes the Scenario Fix phase: resolves each failed scenario tag from a
@@ -36,6 +38,7 @@ export async function executeScenarioFixPhase(
   costUsd: number;
   modelUsage: ModelUsageMap;
   phaseCostRecords: PhaseCostRecord[];
+  gherkinFreezeViolations: string[];
 }> {
   const {
     orchestratorStatePath,
@@ -52,6 +55,10 @@ export async function executeScenarioFixPhase(
   const phaseStartTime = Date.now();
   let costUsd = 0;
   let modelUsage = emptyModelUsageMap();
+  const gherkinFreezeViolations: string[] = [];
+
+  // Snapshot .feature files before resolve so any edits can be detected and reverted.
+  const gherkinSnapshot = captureGherkinSnapshot(worktreePath);
 
   const failedTags = scenarioProof.tagResults.filter(r => !r.passed && !r.skipped);
 
@@ -95,6 +102,17 @@ export async function executeScenarioFixPhase(
     AgentStateManager.appendLog(orchestratorStatePath, msg);
   }
 
+  // Enforce Gherkin freeze: revert any .feature edits the resolve agent made.
+  const changedFeaturePaths = collectChangedFeaturePaths(gherkinSnapshot, worktreePath);
+  const freezeVerdict = evaluateResolveEdit(changedFeaturePaths);
+  if (!freezeVerdict.permitted) {
+    const reverted = restoreGherkinSnapshot(gherkinSnapshot, worktreePath);
+    const msg = `Gherkin freeze: reverted ${reverted.length} .feature change(s) during resolve (flagged: ${freezeVerdict.flaggedFeature})`;
+    log(msg, 'warn');
+    AgentStateManager.appendLog(orchestratorStatePath, msg);
+    gherkinFreezeViolations.push(...reverted);
+  }
+
   // Commit and push all fixes
   await runCommitAgent(
     'scenario-fix-agent',
@@ -120,5 +138,5 @@ export async function executeScenarioFixPhase(
     modelUsage,
   });
 
-  return { costUsd, modelUsage, phaseCostRecords };
+  return { costUsd, modelUsage, phaseCostRecords, gherkinFreezeViolations };
 }

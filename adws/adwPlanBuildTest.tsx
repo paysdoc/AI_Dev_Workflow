@@ -24,7 +24,7 @@
  * - MAX_TEST_RETRY_ATTEMPTS: Maximum retry attempts for tests (default: 5)
  */
 
-import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId, log, MAX_TEST_RETRY_ATTEMPTS } from './core';
+import { parseTargetRepoArgs, parseOrchestratorArguments, buildRepoIdentifier, OrchestratorId, log } from './core';
 import { CostTracker, runPhase } from './core/phaseRunner';
 import {
   initializeWorkflow,
@@ -33,14 +33,12 @@ import {
   executeBuildPhase,
   executeStepDefPhase,
   executeUnitTestPhase,
-  executeScenarioTestPhase,
-  executeScenarioFixPhase,
+  runScenarioTestFixLoop,
   executePRPhase,
   executeProofPublishPhase,
   completeWorkflow,
   handleWorkflowError,
 } from './workflowPhases';
-import type { WorkflowConfig } from './phases';
 import { runWithOrchestratorLifecycle } from './phases/orchestratorLock';
 import { AuthRequiredError } from './types/agentTypes';
 import { handleAuthRequiredPause } from './phases/authPause';
@@ -73,18 +71,7 @@ async function main(): Promise<void> {
       await runPhase(config, tracker, executeStepDefPhase, 'stepDef');
       const testResult = await runPhase(config, tracker, executeUnitTestPhase);
 
-      // Scenario test → fix retry loop (orchestrator-level, bounded by MAX_TEST_RETRY_ATTEMPTS)
-      let scenarioRetries = 0;
-      for (let attempt = 0; attempt < MAX_TEST_RETRY_ATTEMPTS; attempt++) {
-        const scenarioResult = await runPhase(config, tracker, executeScenarioTestPhase);
-        if (!scenarioResult.scenarioProof?.hasBlockerFailures) break;
-        scenarioRetries++;
-        if (attempt < MAX_TEST_RETRY_ATTEMPTS - 1) {
-          const fixWrapper = (cfg: WorkflowConfig) =>
-            executeScenarioFixPhase(cfg, scenarioResult.scenarioProof!);
-          await runPhase(config, tracker, fixWrapper);
-        }
-      }
+      const { scenarioRetries } = await runScenarioTestFixLoop(config, tracker);
 
       await runPhase(config, tracker, executePRPhase);
       await runPhase(config, tracker, executeProofPublishPhase);

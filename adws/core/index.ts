@@ -111,6 +111,14 @@ export { loadProjectConfig, getDefaultProjectConfig, getDefaultCommandsConfig, g
 export type { TestVerdictInput, TestVerdictResult, TestVerdictOutcome } from './testVerdict';
 export { computeTestVerdict } from './testVerdict';
 
+// Resolve freeze guard (pure classifier — no fs)
+export type { ResolveEditVerdict } from './resolveFreezeGuard';
+export { evaluateResolveEdit } from './resolveFreezeGuard';
+
+// Resolve verdict (pure verdict — no fs)
+export type { ResolveVerdictOutcome, ResolveVerdictSignals } from './resolveVerdict';
+export { computeResolveVerdict } from './resolveVerdict';
+
 // JUnit report parser
 export type { TestReport, TestCaseResult } from './testReportParser';
 export { parseJUnitXml, readJUnitReport } from './testReportParser';

@@ -456,6 +456,7 @@ adws/                   # ADW workflow system
 │   ├── adwUpgrade.test.ts
 │   ├── depauditSetup.test.ts
 │   ├── issueDependencies.test.ts
+│   ├── prTemplateMarker.test.ts
 │   ├── triggerWebhook.test.ts
 │   └── vocabularyTemplate.test.ts
 ├── agents/             # Claude Code agent runners
@@ -558,6 +559,8 @@ adws/                   # ADW workflow system
 │   └── workflowMapping.ts  # Issue type → orchestrator mapping
 ├── github/             # GitHub API operations
 │   ├── __tests__/      # Vitest unit tests
+│   │   ├── hitlBoardNotifier.test.ts
+│   │   ├── issueLinkMarker.test.ts
 │   │   ├── labelManager.test.ts
 │   │   ├── linkedPrDetector.test.ts
 │   │   └── prApi.test.ts
@@ -650,6 +653,7 @@ adws/                   # ADW workflow system
 │   ├── prPhase.ts
 │   ├── prReviewCompletion.ts  # PR review completion/error handling
 │   ├── prReviewPhase.ts  # PR review phase implementation
+│   ├── proofPublishPhase.ts  # Publishes scenario proof comment to the PR after scenarioTestPhase
 │   ├── reviewPatchHelpers.ts  # Dispatches review blockers to patchAgent or refactorAgent based on blocker type
 │   ├── reviewPhase.ts  # Passive judge review phase (reads scenario proof, no dev server)
 │   ├── scenarioFixPhase.ts  # Fixes failed scenarios from a previous scenarioTestPhase run
@@ -789,7 +793,9 @@ adws/                   # ADW workflow system
 ├── index.ts
 ├── tsconfig.json
 └── README.md
+.adw-version                # Framework content hash — read by upgradeGate on every workflow start
 .github/
+├── adw.yml             # ADW self-configuration for this repo (hitl, unit-test gate)
 └── workflows/
     ├── deploy-workers.yml  # Auto-deploy Cloudflare Workers on push to main
     └── regression.yml      # Periodic @regression BDD scenario runner
@@ -820,12 +826,18 @@ workers/                # Cloudflare Workers
     └── wrangler.toml   # Cloudflare Workers config
 test/                   # Integration test infrastructure
 ├── fixtures/           # Static test fixtures
-│   ├── cli-tool/       # Fixture target repo for BDD scenario testing
+│   ├── cli-tool/       # Fixture target repo for BDD scenario testing (Node.js/TypeScript)
 │   │   ├── .adw/       # ADW config for fixture repo
 │   │   ├── src/        # Minimal CLI tool source
 │   │   ├── README.md
 │   │   ├── package.json
 │   │   └── tsconfig.json
+│   ├── python-flat/    # Fixture target repo for Python stack testing (pytest, flat layout)
+│   │   ├── .adw/       # ADW config for fixture repo
+│   │   ├── tests/      # Minimal pytest suite
+│   │   ├── README.md
+│   │   ├── calculator.py
+│   │   └── pyproject.toml
 │   ├── github/         # GitHub API response fixtures (issue, PR, comments)
 │   ├── jsonl/          # JSONL fixture files for testing
 │   │   ├── envelopes/
