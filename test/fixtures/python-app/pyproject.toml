@@ -1,0 +1,12 @@
+[project]
+name = "python-app"
+version = "0.1.0"
+description = "Minimal Python app — ADW hermetic e2e fixture target"
+requires-python = ">=3.9"
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-bdd"]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.backends.legacy:build"
