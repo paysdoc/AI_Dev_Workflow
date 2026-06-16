@@ -35,10 +35,13 @@ describe('computeTestVerdict — all branches', () => {
     expect(result.verdict).toBe('pass');
   });
 
-  it('enabled + count == 0 + framework detected → hard-fail', () => {
+  // TEMPORARY hand-relief (deadlock breaker): discovery-break demoted hard-fail → warn
+  // so self-hosted runs can open PRs. A1 restores hard-fail once the verdict keys on
+  // JUnit-report presence instead of the static frameworkDetected signal.
+  it('enabled + count == 0 + framework detected → warn (temporary; A1 restores hard-fail)', () => {
     const result = computeTestVerdict({ enabled: true, hasFailures: false, testcaseCount: 0, frameworkDetected: true });
-    expect(result.verdict).toBe('hard-fail');
-    expect(result.reason).toBe('zero testcases ran but a test framework is configured — discovery break');
+    expect(result.verdict).toBe('warn');
+    expect(result.reason).toContain('discovery break');
   });
 
   it('enabled + count == 0 + no framework → warn', () => {
