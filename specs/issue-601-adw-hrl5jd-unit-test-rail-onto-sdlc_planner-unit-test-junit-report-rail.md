@@ -60,6 +60,7 @@ Use these files to implement the feature:
 - `.claude/commands/test.md` — **edit.** Step 5: remove `--run src` and the `src/`-existence skip-as-passed; run the full `## Run Tests` command unconditionally; state that the runner emits JUnit to `$ADW_UNIT_TEST_REPORT_PATH` via its configured flags. Keep `testcase_count` in the output schema as informational.
 - `.claude/commands/adw_init.md` — **edit.** Step 2 `## Run Tests`: when the section is **absent**, author JUnit-emitting flags per detected language convention (referencing `$ADW_UNIT_TEST_REPORT_PATH`); when a `## Run Tests` already exists, preserve it verbatim (never overwrite). This file is a `hashInputs:` file — the edit raises `.adw-version` and triggers `adwUpgrade` regeneration across registered target repos.
 - `adws/core/index.ts` — **reference / edit if needed.** Already re-exports `computeTestVerdict`, `TestVerdictInput`, `readJUnitReport`, `TestReport`, `TestCaseResult`. No new export expected (signature change only).
+- `features/per-issue/step_definitions/feature-577.steps.ts` — **edit.** A BDD step-def call site of `computeTestVerdict` that still passes the retired `frameworkDetected` axis (`feature-577.steps.ts:164`). The root `tsconfig.json` (`include: ["**/*.ts"]`) type-checks it under `bunx tsc --noEmit`, so removing `frameworkDetected` (Task 2) breaks this call site; reconcile it to the report-keyed `TestVerdictInput`. `feature-601.feature` is now the authoritative unit-verdict spec; feature-577 §1–§3 (testDirectory/testFramework config parse) are unaffected. (Tracks `feature-601.feature` Scope notes → Supersession.)
 - `adws/phases/scenarioProof.ts` — **reference (do not break).** Consumer of `TestCaseResult`/`readJUnitReport` on the scenario rail. The `failureMessage` addition must remain additive so this is unaffected.
 - `cucumber.js` — **reference.** The conditional-emitter pattern to mirror in `vitest.config.ts`.
 - `adws/agents/claudeAgent.ts` — **reference.** Confirms the subprocess env is built from `getSafeSubprocessEnv()` (line 118) — why the allowlist entry is required.
@@ -116,6 +117,7 @@ Execute every step in order, top to bottom.
   - `testcaseCount === 0` → `{ verdict: 'hard-fail', reason: 'zero testcases ran but a JUnit report was emitted — discovery break' }`
   - else → `{ verdict: 'pass', reason: \`${testcaseCount} testcases passed\` }`
 - Remove the temporary `8184877` warn-demotion comment block.
+- Reconcile the lone BDD step-def call site that still passes the old axis — `features/per-issue/step_definitions/feature-577.steps.ts:164` (`computeTestVerdict({ …, frameworkDetected })`) — to the report-keyed input, so the root `bunx tsc --noEmit` and the BDD §7 type-check backstop stay green after the signature change.
 
 ### Task 3: Allowlist the new env var
 - In `adws/core/environment.ts`, add `'ADW_UNIT_TEST_REPORT_PATH'` to `SAFE_ENV_VARS` (near `ADW_WORKTREE_PATH` / `ADW_MAIN_REPO_PATH`).

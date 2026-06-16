@@ -104,6 +104,17 @@ Feature: Configurable test directory + the unit-test verdict that kills the src/
 
   Scope notes:
 
+    • SUPERSEDED BY #601 (unit-rail → JUnit report). The verdict model pinned in §4–§9
+      below resolves over `(report, frameworkDetected, enabled)`, where the two
+      zero-testcase rows (§6/§7) split `hard-fail` vs `warn` BY THE FRAMEWORK SIGNAL.
+      Issue #601 converges the unit rail onto the JUnit-report contract and REMOVES the
+      `frameworkDetected` axis: the discovery-break hard-fail is re-keyed on
+      report-present-with-zero, and a report-absent run resolves to unverified — see
+      `features/per-issue/feature-601.feature`, now the authoritative unit-verdict spec.
+      These §4–§9 scenarios (and their step definitions) encode the retired model; the
+      implementer reconciles them when the verdict signature converges in #601 (the root
+      tsconfig type-checks `features/**/*.ts`, so removing `frameworkDetected` forces it).
+      §1–§3 (testDirectory/testFramework config parse) are unaffected by #601 and stand.
     • AC6 ("unit tests for the verdict logic — all branches — and config parsing") is
       the implementer's responsibility under `adws/core/__tests__/` and the verdict
       module's own `__tests__` (the home of the existing project-config parser tests).
