@@ -7,7 +7,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
 import { log } from '../core';
-import { getRepoInfo } from '../github';
+import { getRepoInfo, bodyLinksIssue } from '../github';
 
 export const RETENTION_DAYS = 14;
 
@@ -52,15 +52,17 @@ function defaultGetMergedAt(issueNum: number): Promise<Date | null> {
   try {
     const repoInfo = getRepoInfo();
     const { owner, repo } = repoInfo;
+    // GitHub search can't reliably express the "Closes owner/repo#N" body marker,
+    // so fetch merged PRs and filter client-side with the canonical matcher.
+    // gh returns newest-first, so the first linked PR is the most recent merge.
     const json = execSync(
-      `gh pr list --repo ${owner}/${repo} --search "Implements #${issueNum}" --state merged --json mergedAt --limit 1`,
+      `gh pr list --repo ${owner}/${repo} --state merged --json body,mergedAt --limit 200`,
       { encoding: 'utf-8' },
     );
-    const prs = JSON.parse(json) as Array<{ mergedAt: string | null }>;
-    if (prs.length === 0) return Promise.resolve(null);
-    const raw = prs[0].mergedAt;
-    if (!raw) return Promise.resolve(null);
-    const d = new Date(raw);
+    const prs = JSON.parse(json) as Array<{ body: string; mergedAt: string | null }>;
+    const linked = prs.find((pr) => bodyLinksIssue(pr.body, issueNum) && pr.mergedAt);
+    if (!linked?.mergedAt) return Promise.resolve(null);
+    const d = new Date(linked.mergedAt);
     return Promise.resolve(isNaN(d.getTime()) ? null : d);
   } catch {
     return Promise.resolve(null);

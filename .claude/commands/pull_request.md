@@ -22,7 +22,9 @@ repoName: $6, the name of the repository where the issue lives (may be empty for
 - The PR body should include:
   - A summary section with the issue context
   - Link to the implementation `plan_file` if it exists
-  - Reference to the issue: if `repoOwner` and `repoName` are provided and non-empty, use `Closes repoOwner/repoName#<issueNumber>`; otherwise use `Closes #<issueNumber>`
+  - Reference to the issue using BOTH markers on their own lines (the first lets GitHub auto-close the issue on merge; the second is the bare marker ADW's linked-PR detectors match on — emit both):
+    - A closing keyword: if `repoOwner` and `repoName` are provided and non-empty, use `Closes repoOwner/repoName#<issueNumber>`; otherwise use `Closes #<issueNumber>`
+    - `Implements #<issueNumber>` (always the bare same-repo form, even for cross-repo issues)
   - ADW tracking ID
   - A checklist of what was done
   - A summary of key changes made

@@ -34,6 +34,7 @@ export { defaultFindPRByBranch, type RawPR } from './prApi';
 
 // Linked-PR detection (shared between concurrencyGuard and cronLabelEligibility)
 export { hasLinkedMergedOrClosedPR, fetchLinkedPRs, type LinkedPRRef } from './linkedPrDetector';
+export { issueLinkPattern, bodyLinksIssue } from './issueLinkMarker';
 
 // Label Manager — adw:* label lifecycle and label-based classification
 export {

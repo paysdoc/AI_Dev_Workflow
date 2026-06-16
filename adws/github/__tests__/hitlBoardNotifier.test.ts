@@ -71,6 +71,27 @@ describe('notifyReviewTransition', () => {
     expect(body.text).not.toContain('/issues/123');
   });
 
+  it('posts for a hitl issue whose PR uses the repo-qualified `Closes owner/repo#N` body', async () => {
+    // #592 regression: the SDLC PR template emits `Closes owner/repo#N`, not `Implements #N`.
+    vi.stubEnv('SLACK_WEBHOOK_URL', WEBHOOK_URL);
+    const mockFetch = makeFetchMock();
+    vi.stubGlobal('fetch', mockFetch);
+
+    const deps: NotifierDeps = {
+      readIssue: makeIssueReader('JUnit report rail', ['hitl']),
+      listOpenPRs: makePRLister([
+        { number: 592, url: 'https://github.com/acme/myrepo/pull/592', body: 'Closes acme/myrepo#578' },
+      ]),
+    };
+
+    await notifyReviewTransition({ issueNumber: 578, repoInfo: REPO_INFO }, deps);
+
+    expect(mockFetch).toHaveBeenCalledOnce();
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(body.text).toContain('HITL issue #578');
+    expect(body.text).toContain('https://github.com/acme/myrepo/pull/592');
+  });
+
   it('posts nothing for a non-hitl issue and does not call listOpenPRs', async () => {
     vi.stubEnv('SLACK_WEBHOOK_URL', WEBHOOK_URL);
     const mockFetch = makeFetchMock();

@@ -2,13 +2,15 @@
  * Shared linked-PR detection.
  *
  * Detects whether a GitHub issue has a linked merged or closed pull request
- * by scanning PR bodies for an "Implements #N" reference with a digit-boundary
- * guard (prevents #1 from matching inside #12).
+ * by scanning PR bodies for a `Closes`/`Implements #N` reference (see
+ * issueLinkMarker for the canonical match, including the optional owner/repo
+ * qualifier and the digit-boundary guard).
  */
 
 import { execSync } from 'child_process';
 import { log } from '../core';
 import type { RepoInfo } from './githubApi';
+import { bodyLinksIssue } from './issueLinkMarker';
 
 export interface LinkedPRRef {
   readonly number: number;
@@ -18,19 +20,17 @@ export interface LinkedPRRef {
 }
 
 /**
- * Returns true when at least one PR in `prs` references `Implements #<issueNumber>`
- * (with a trailing non-digit boundary) and is merged (`mergedAt != null`) or CLOSED.
+ * Returns true when at least one PR in `prs` links `issueNumber` via a
+ * recognised closing keyword (see issueLinkMarker) and is merged
+ * (`mergedAt != null`) or CLOSED.
  */
 export function hasLinkedMergedOrClosedPR(
   issueNumber: number,
   prs: readonly LinkedPRRef[],
 ): boolean {
-  // Digit-boundary regex: `Implements #N` must not be followed by another digit.
-  // This prevents issue #1 from matching inside `Implements #12`.
-  const pattern = new RegExp(`Implements #${issueNumber}(?!\\d)`);
   return prs.some(
     (pr) =>
-      pattern.test(pr.body ?? '') &&
+      bodyLinksIssue(pr.body, issueNumber) &&
       (pr.mergedAt != null || pr.state === 'CLOSED'),
   );
 }
