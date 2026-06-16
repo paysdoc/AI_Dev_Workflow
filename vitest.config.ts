@@ -1,13 +1,15 @@
 import { defineConfig } from 'vitest/config';
 
+const junitReportPath = process.env.ADW_UNIT_TEST_REPORT_PATH;
+
 export default defineConfig({
   test: {
     include: [
       'adws/**/__tests__/**/*.test.ts',
       'test/mocks/__tests__/**/*.test.ts',
     ],
-    // app_tests runs `--run src`, but this repo has no src/ dir (tests live in
-    // adws/). Pass instead of erroring when a subset filter matches no files.
-    passWithNoTests: true,
+    reporters: junitReportPath
+      ? ['default', ['junit', { outputFile: junitReportPath }]]
+      : ['default'],
   },
 });

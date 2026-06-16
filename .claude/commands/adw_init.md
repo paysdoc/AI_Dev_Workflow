@@ -39,7 +39,15 @@ Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init
      - `## Install Dependencies` — Command to install dependencies
      - `## Run Linter` — Command to run the linter
      - `## Type Check` — Command for type checking (if applicable, otherwise "N/A")
-     - `## Run Tests` — Command to run the test suite
+     - `## Run Tests` — Command to run the unit-test suite **and emit a JUnit report**:
+       - **If `.adw/commands.md` already has a `## Run Tests` section, preserve it verbatim — never overwrite a custom command.** A repo whose pre-existing custom command does not emit a JUnit report will resolve to `unverified` (by design); it can be upgraded manually at any time.
+       - **If the section is absent**, author a JUnit-emitting command per the detected language, referencing `$ADW_UNIT_TEST_REPORT_PATH`:
+         - **vitest** → `vitest run --reporter=default --reporter=junit --outputFile=$ADW_UNIT_TEST_REPORT_PATH`
+         - **jest** → `jest --reporters=default --reporters=jest-junit` (requires `JEST_JUNIT_OUTPUT_FILE=$ADW_UNIT_TEST_REPORT_PATH` in env; note in comments)
+         - **pytest** → `pytest --junitxml=$ADW_UNIT_TEST_REPORT_PATH`
+         - **go / gotestsum** → `gotestsum --junitfile=$ADW_UNIT_TEST_REPORT_PATH`
+         - **cargo nextest** → `cargo nextest run --profile ci` with a nextest profile that sets `junit.path = "$ADW_UNIT_TEST_REPORT_PATH"` (document the nextest config requirement)
+         - **other / unknown** → use the idiomatic test command (e.g. `bun run test`) with a comment noting that JUnit emission is not configured; runs will resolve to `unverified` until the command is updated to emit a report to `$ADW_UNIT_TEST_REPORT_PATH`
      - `## Run Build` — Command to build the project
      - `## Start Dev Server` — Determine the correct value using these detection rules:
        - **CLI-only target repos** (no web framework, no dev server needed) → set `N/A`
@@ -183,6 +191,7 @@ Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init
    - List all files created (`commands.md`, `project.md`, `conditional_docs.md`, `providers.md`, `review_proof.md`, `scenarios.md`, and `features/regression/vocabulary.md` when copied)
    - Summarize the detected project type and key configuration choices
    - Note both `## Per-Issue Scenario Directory` and `## Regression Scenario Directory` sections written to `scenarios.md`
-   - Note `## BDD Framework` and `## Step Def Directory` sections written to `scenarios.md` (Cucumber/Gherkin branches only). These raise `.adw-version` via `adw_init.md` being a `hashInputs:` file, triggering `adwUpgrade` to regenerate `.adw/` across all registered target repos — the intended emit-parse propagation for the JUnit report rail.
+   - Note `## BDD Framework` and `## Step Def Directory` sections written to `scenarios.md` (Cucumber/Gherkin branches only).
+   - Note the `## Run Tests` value written and whether it was seeded (new) or preserved (pre-existing). Because `adw_init.md` is a `hashInputs:` file, any edit to it raises `.adw-version` and triggers `adwUpgrade` to regenerate `.adw/` across all registered target repos — the intended emit-parse coupling propagation for the JUnit report rail (same mechanism issue #578 used for `scenarios.md` sections).
    - If the vocabulary template copy was skipped (empty `$3`), note the warning here
    - Examples-block class chosen: `<browser-test-equipped | CLI-only | fallback>`; placeholder replacement: `<succeeded | skipped: <reason>>`.

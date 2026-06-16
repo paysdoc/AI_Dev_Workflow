@@ -5,6 +5,8 @@ export interface TestCaseResult {
   name: string;
   classname?: string;
   status: 'passed' | 'failed' | 'skipped';
+  /** Message from `<failure message="…">` or text body; undefined for passed/skipped cases. */
+  failureMessage?: string;
 }
 
 export interface TestReport {
@@ -47,11 +49,26 @@ function classifyTestCase(tc: Record<string, unknown>): TestCaseResult['status']
   return 'passed';
 }
 
+function extractFailureMessage(tc: Record<string, unknown>): string | undefined {
+  const child = ('failure' in tc ? tc['failure'] : tc['error']) as Record<string, unknown> | string | undefined;
+  if (!child) return undefined;
+  // Text-only failure (no attributes): fast-xml-parser returns a string
+  if (typeof child === 'string') return child.trim() || undefined;
+  if (typeof child !== 'object') return undefined;
+  const msg = child['@_message'];
+  if (msg !== undefined) return String(msg);
+  const text = child['#text'];
+  if (text !== undefined && String(text).trim()) return String(text).trim();
+  return undefined;
+}
+
 function buildCase(tc: Record<string, unknown>): TestCaseResult {
+  const status = classifyTestCase(tc);
   return {
     name: String(tc['@_name'] ?? ''),
     classname: tc['@_classname'] !== undefined ? String(tc['@_classname']) : undefined,
-    status: classifyTestCase(tc),
+    status,
+    failureMessage: status === 'failed' ? extractFailureMessage(tc) : undefined,
   };
 }
 

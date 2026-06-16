@@ -63,10 +63,11 @@ TEST_COMMAND_TIMEOUT: 5 minutes
 ### Application Tests
 
 5. **Application Tests**
-   - Command: Read `## Run Tests` from `.adw/commands.md` and append the application test subset path. Default: `bun run test -- --run src`
+   - Command: Read `## Run Tests` from `.adw/commands.md` and run it exactly as written. Default: `bun run test:unit`
    - test_name: "app_tests"
-   - test_purpose: "Validates application-level test suites under the src/ directory in the target repository"
-   - Condition: Only execute if a `src/` directory exists in the working directory. If `src/` does not exist, skip this test and mark it as passed with a note indicating it was skipped (no src/ directory found).
+   - test_purpose: "Validates the full application unit-test suite as configured in .adw/commands.md"
+   - The runner emits a JUnit report to the path in `$ADW_UNIT_TEST_REPORT_PATH` via flags already configured in `## Run Tests`. Do NOT delete or relocate that file after the run.
+   - Run this test unconditionally — do not skip based on directory existence. The `testcase_count` field in the output is informational; the authoritative verdict is derived from the JUnit report by `unitTestPhase`.
 
 ## Report
 

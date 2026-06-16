@@ -157,11 +157,14 @@ Then(
 
 When(
   'the unit-test verdict is resolved for a report with {int} passing and {int} failing tests with the test framework signal {string}',
-  function (passingCount: number, failingCount: number, frameworkSignal: string) {
-    const frameworkDetected = frameworkSignal === 'detected';
+  function (passingCount: number, failingCount: number, _frameworkSignal: string) {
+    // #601 supersedes the frameworkDetected axis: verdict now keys on reportPresent.
+    // This step still exists to keep feature-577 §4–§7 runnable; the framework signal
+    // parameter is retained in the phrase so the feature file needs no edit. A report
+    // with actual test results is treated as present (reportPresent: true).
     const hasFailures = failingCount > 0;
     const testcaseCount = passingCount + failingCount;
-    const result = computeTestVerdict({ enabled: true, hasFailures, testcaseCount, frameworkDetected });
+    const result = computeTestVerdict({ enabled: true, reportPresent: true, hasFailures, testcaseCount });
     ctx.resolvedVerdict = result.verdict;
   },
 );
