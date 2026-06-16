@@ -1497,3 +1497,13 @@
     - When troubleshooting extra token consumption from `/install` prepended to plan or scenario agents
     - When writing unit tests for prompt composition in `adws/agents/__tests__/claudeAgent.test.ts`
     - When the build, test, review, git, PR, document, patch, KPI, or resolution agents should NOT use the primed variant
+
+- app_docs/feature-izgf7n-screenshot-harvest-proof-comment.md
+  - Conditions:
+    - When working with `adws/proof/` (proofArtifactHarvester, prProofPublisher, types)
+    - When implementing or troubleshooting `executeProofPublishPhase` in `adws/phases/proofPublishPhase.ts`
+    - When the `ADW_PROOF_DIR` convention or screenshot directory wiring in `scenarioProof.ts` is relevant
+    - When working with `publishPrProof`, `formatPrProofComment`, or the R2 upload wiring for BDD screenshots
+    - When adding screenshot upload support to a new orchestrator (wire `executeProofPublishPhase` after `executePRPhase`)
+    - When troubleshooting proof comments missing screenshots or the "R2 not configured" fallback note
+    - When writing unit tests for `harvestProofArtifacts` or the pure `formatPrProofComment` formatter
