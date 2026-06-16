@@ -9,7 +9,8 @@
  */
 
 import { setWorldConstructor, World, IWorldOptions } from '@cucumber/cucumber';
-import type { MockContext, RecordedRequest } from '../../../test/mocks/types.ts';
+import type { MockContext, RecordedRequest, FixtureRepoContext } from '../../../test/mocks/types.ts';
+import type { ScenarioProofResult } from '../../../adws/phases/scenarioProof.ts';
 
 export interface GitInvocation {
   subcommand: string;
@@ -43,6 +44,18 @@ export class RegressionWorld extends World {
    * Populated by Given steps (G3, G9, G11) and consumed by When steps.
    */
   harnessEnv: Record<string, string> = {};
+
+  /** Isolated fixture repo for the Python e2e scenario (@python-e2e). */
+  pythonFixture?: FixtureRepoContext;
+
+  /** Result from runScenarioProof over the Python fixture. */
+  scenarioProofResult?: ScenarioProofResult;
+
+  /** Temp directory used as proofDir for the Python e2e proof run. */
+  proofDir?: string;
+
+  /** Body captured by the injectable commenter in publishPrProof. */
+  capturedProofComment?: string;
 
   constructor(options: IWorldOptions) {
     super(options);

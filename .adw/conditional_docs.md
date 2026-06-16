@@ -1480,6 +1480,15 @@
     - When troubleshooting HITL-labelled issues not receiving Slack pings on Review or Blocked transitions
     - When the `hitl` label gate, `Platform.GitHub` guard, or PR-body `Implements #N` digit-boundary disambiguation is relevant
 
+- app_docs/feature-x3qme8-python-fixture-e2e-regression.md
+  - Conditions:
+    - When working with `test/fixtures/python-app/` or adding a new language fixture target
+    - When implementing or troubleshooting the multi-language pipeline end-to-end (detect → run → JUnit parse → harvest → proof comment)
+    - When the `@python-e2e` or multi-language `@regression` scenario fails and you need to understand its structure
+    - When extending `features/regression/multilang/` with a scenario for a new language (Go, Rust, etc.)
+    - When `features/regression/step_definitions/pythonFixtureE2ESteps.ts` or the Phase import execution pattern is relevant
+    - When the CI Docker runtime scope (`regression.yml` schedule vs workflow_dispatch) is relevant
+
 - app_docs/feature-y6hjbr-durable-opt-out-unit-test-gate.md
   - Conditions:
     - When working with the `unitTests` key in `.github/adw.yml` or the unit-test phase gate

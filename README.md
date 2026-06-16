@@ -828,10 +828,12 @@ test/                   # Integration test infrastructure
 │   │   └── tsconfig.json
 │   ├── github/         # GitHub API response fixtures (issue, PR, comments)
 │   ├── jsonl/          # JSONL fixture files for testing
+│   │   ├── envelopes/
+│   │   ├── manifests/  # Named scenario manifests for stub sequencing
+│   │   └── payloads/
+│   ├── python-flat/    # Fixture target repo for Python/pyproject.toml BDD scenario testing
 │   └── scenarios/      # Gherkin .feature fixtures for promotion scoring tests
-│       ├── envelopes/
-│       ├── manifests/  # Named scenario manifests for stub sequencing
-│       └── payloads/
+│       └── promotion/  # Per-scorer promotion scenario fixtures
 ├── mocks/              # Mock implementations
 │   ├── __tests__/      # Vitest unit tests for mock infrastructure
 │   │   └── manifestInterpreter.test.ts
