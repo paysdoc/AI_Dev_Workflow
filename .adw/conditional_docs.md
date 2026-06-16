@@ -1488,3 +1488,12 @@
     - When implementing or troubleshooting the create-if-absent step in `/adw_init` for `.github/adw.yml`
     - When `AdwYmlConfig` shape changes break `adwUpgrade.test.ts` stubs or `WorkflowConfig` consumers
     - When a target repo's unit tests run unexpectedly after upgrade (migration ripple from opt-in to opt-out default)
+
+- app_docs/feature-uzfskg-add-primed-claude-agent.md
+  - Conditions:
+    - When working with `runPrimedClaudeAgentWithCommand` in `adws/agents/claudeAgent.ts`
+    - When modifying `runPlanAgent`, `runPrReviewPlanAgent`, or `runScenarioAgent` and understanding why they use the primed variant
+    - When adding a new agent that needs full project context at the start of its run (consider using the primed variant)
+    - When troubleshooting extra token consumption from `/install` prepended to plan or scenario agents
+    - When writing unit tests for prompt composition in `adws/agents/__tests__/claudeAgent.test.ts`
+    - When the build, test, review, git, PR, document, patch, KPI, or resolution agents should NOT use the primed variant
