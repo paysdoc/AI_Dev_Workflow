@@ -456,6 +456,7 @@ adws/                   # ADW workflow system
 │   ├── adwUpgrade.test.ts
 │   ├── depauditSetup.test.ts
 │   ├── issueDependencies.test.ts
+│   ├── prTemplateMarker.test.ts
 │   ├── triggerWebhook.test.ts
 │   └── vocabularyTemplate.test.ts
 ├── agents/             # Claude Code agent runners
@@ -558,6 +559,8 @@ adws/                   # ADW workflow system
 │   └── workflowMapping.ts  # Issue type → orchestrator mapping
 ├── github/             # GitHub API operations
 │   ├── __tests__/      # Vitest unit tests
+│   │   ├── hitlBoardNotifier.test.ts
+│   │   ├── issueLinkMarker.test.ts
 │   │   ├── labelManager.test.ts
 │   │   ├── linkedPrDetector.test.ts
 │   │   └── prApi.test.ts
@@ -831,6 +834,7 @@ test/                   # Integration test infrastructure
 │   │   ├── envelopes/
 │   │   ├── manifests/  # Named scenario manifests for stub sequencing
 │   │   └── payloads/
+│   ├── python-app/     # Fixture target repo for Python app (behave/pytest-bdd BDD scenario testing)
 │   ├── python-flat/    # Fixture target repo for Python/pyproject.toml BDD scenario testing
 │   └── scenarios/      # Gherkin .feature fixtures for promotion scoring tests
 │       └── promotion/  # Per-scorer promotion scenario fixtures
