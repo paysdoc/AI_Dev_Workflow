@@ -1516,3 +1516,13 @@
     - When a target repo with a Python/Go/Rust/Ruby stack gets `adw:unverified` due to a `cucumber-js` BDD runner mis-detection
     - When the `stack_incoherent` `WorkflowStage` is referenced in `adws/types/workflowTypes.ts` or `workflowCommentsIssue.ts`
     - When understanding why the coherence check is wired into `executeUnitTestPhase` and NOT `executeScenarioTestPhase`
+
+- app_docs/feature-izgf7n-screenshot-harvest-proof-comment.md
+  - Conditions:
+    - When working with `adws/proof/` (proofArtifactHarvester, prProofPublisher, types)
+    - When implementing or troubleshooting `executeProofPublishPhase` in `adws/phases/proofPublishPhase.ts`
+    - When the `ADW_PROOF_DIR` convention or screenshot directory wiring in `scenarioProof.ts` is relevant
+    - When working with `publishPrProof`, `formatPrProofComment`, or the R2 upload wiring for BDD screenshots
+    - When adding screenshot upload support to a new orchestrator (wire `executeProofPublishPhase` after `executePRPhase`)
+    - When troubleshooting proof comments missing screenshots or the "R2 not configured" fallback note
+    - When writing unit tests for `harvestProofArtifacts` or the pure `formatPrProofComment` formatter

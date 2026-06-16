@@ -36,6 +36,7 @@ import {
   executeScenarioTestPhase,
   executeScenarioFixPhase,
   executePRPhase,
+  executeProofPublishPhase,
   completeWorkflow,
   handleWorkflowError,
 } from './workflowPhases';
@@ -86,6 +87,7 @@ async function main(): Promise<void> {
       }
 
       await runPhase(config, tracker, executePRPhase);
+      await runPhase(config, tracker, executeProofPublishPhase);
 
       await completeWorkflow(config, tracker.totalCostUsd, {
         unitTestsPassed: testResult.unitTestsPassed,

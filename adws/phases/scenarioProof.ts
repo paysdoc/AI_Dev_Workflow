@@ -56,6 +56,8 @@ export interface ScenarioProofResult {
   hasBlockerFailures: boolean;
   /** Absolute path to the written scenario proof markdown file. */
   resultsFilePath: string;
+  /** Absolute path to the directory where BDD screenshot artifacts are written (ADW_PROOF_DIR). */
+  artifactsDir: string;
 }
 
 /**
@@ -209,20 +211,26 @@ export async function runScenarioProof(options: {
   // Pre-flight check: verify at least one step definition file exists
   const hasStepDefs = hasStepDefinitions(stepDefDirectory, stepDefExtensions, effectiveCwd);
 
+  const artifactsDir = path.resolve(proofDir, 'artifacts');
+
   if (!hasStepDefs) {
     const warningMsg = `No step definition files found in ${stepDefDirectory}/ — skipping BDD scenario proof`;
     console.log(`⚠️  ${warningMsg}`);
     fs.mkdirSync(proofDir, { recursive: true });
+    fs.rmSync(artifactsDir, { recursive: true, force: true });
+    fs.mkdirSync(artifactsDir, { recursive: true });
     const resultsFilePath = path.resolve(proofDir, 'scenario_proof.md');
     fs.writeFileSync(
       resultsFilePath,
       `# Scenario Proof\n\nGenerated at: ${new Date().toISOString()}\n\n⚠️ ${warningMsg}\n`,
       'utf-8',
     );
-    return { tagResults: [], hasBlockerFailures: false, resultsFilePath };
+    return { tagResults: [], hasBlockerFailures: false, resultsFilePath, artifactsDir };
   }
 
   fs.mkdirSync(proofDir, { recursive: true });
+  fs.rmSync(artifactsDir, { recursive: true, force: true });
+  fs.mkdirSync(artifactsDir, { recursive: true });
   const tagResults: TagProofResult[] = [];
 
   for (const entry of reviewProofConfig.tags) {
@@ -236,6 +244,7 @@ export async function runScenarioProof(options: {
 
     const result = await runScenariosByTag(runByTagCommand, tagName, cwd, {
       ADW_JUNIT_REPORT_PATH: reportPath,
+      ADW_PROOF_DIR: artifactsDir,
     });
 
     const report = readJUnitReport(reportPath);
@@ -263,5 +272,5 @@ export async function runScenarioProof(options: {
   const resultsFilePath = path.resolve(proofDir, 'scenario_proof.md');
   fs.writeFileSync(resultsFilePath, buildProofMarkdown(tagResults), 'utf-8');
 
-  return { tagResults, hasBlockerFailures, resultsFilePath };
+  return { tagResults, hasBlockerFailures, resultsFilePath, artifactsDir };
 }
