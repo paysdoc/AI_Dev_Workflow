@@ -27,3 +27,9 @@ features/regression/
 ## Vocabulary Registry
 <!-- Consumed by generate_step_definitions. When set, step phrases must be registered. -->
 features/regression/vocabulary.md
+
+## BDD Framework
+cucumber-js
+
+## Step Def Directory
+features/step_definitions
