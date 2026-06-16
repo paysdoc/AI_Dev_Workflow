@@ -146,7 +146,8 @@ Execute every step in order, top to bottom.
 ### 5. Implement the pure formatter `formatPrProofComment`
 - In `adws/proof/prProofPublisher.ts`, export `formatPrProofComment(input: ProofCommentInput): string` (pure, no I/O, no footer — caller appends `ADW_SIGNATURE`).
 - Header: `## :camera: BDD Proof` with an overall status line derived from `tagResults` (pass when no non-skipped blocker tag failed; mirror `scenarioProof.hasBlockerFailures` semantics).
-- **Summary table** from `tagResults`: columns `Suite | Scenarios | Status | Severity`. `Scenarios` from `counts` (`{passed}/{total}`) or `-` when absent/skipped; `Status` = ✅ passed / ❌ failed / ⏭️ skipped.
+- **Pass/fail tally (lead line)**: state the aggregate counts in full — `**{passedTotal} passed, {failedTotal} failed**`, summed across non-skipped suites — so the comment surfaces both the passed *and* the failed count explicitly (the proof BDD scenarios pin this `N passed … M failed` surface; do **not** render passed-only or a bare `{passed}/{total}` ratio that hides the failed count).
+- **Summary table** from `tagResults` (beneath the tally): columns `Suite | Scenarios | Status | Severity`. `Scenarios` from `counts` (`{passed}/{total}`) or `-` when absent/skipped; `Status` = ✅ passed / ❌ failed / ⏭️ skipped.
 - **Screenshots**: group `uploaded` by `scenario`; render one collapsible `<details><summary>{scenario} ({n})</summary>` per group, body = inline embeds `[![{fileName}]({url})]({url})` each followed by the raw URL on its own line as the link fallback. Flat/ungrouped images → a single `Screenshots` group.
 - **Fallbacks/edge cases:** no `uploaded` and `r2Configured` → omit the screenshots block (summary-only). No `uploaded` and `!r2Configured` → append a one-line note that R2 is not configured so screenshots were skipped. Empty `tagResults` → render a minimal "no scenario proof available" body.
 - Keep nesting ≤ 2; extract per-group and per-image rendering into small named helpers (e.g. `formatScenarioGroup`, `formatImageEmbed`).
@@ -217,7 +218,7 @@ Execute every step in order, top to bottom.
 - **`prProofPublisher`** (pure `formatPrProofComment`) — given summary (`tagResults` with `counts`) + uploaded R2 URLs, assert the expected markdown:
   - inline embed exactly `[![name](url)](url)` + raw-URL fallback line.
   - collapsible `<details>` grouped per scenario with correct counts; flat images → single `Screenshots` group.
-  - JUnit summary table rows (passed/failed/skipped, `{passed}/{total}`).
+  - JUnit summary surfaces the explicit aggregate `N passed, M failed` tally (the scenario-pinned surface) plus per-suite table rows (passed/failed/skipped, `{passed}/{total}`).
   - summary-only when no screenshots; "R2 not configured" note when `r2Configured` is false and there are no uploads.
 - Follow the project's test philosophy (`.adw/coding_guidelines.md` "Testing", and the PRD "Testing Decisions"): **assert external behavior through the public interface** (returned paths, returned markdown), never private helpers or call sequencing. Keep the harvester and the formatter pure so they are testable without mocks; isolate R2/GitHub side effects in `publishPrProof` (tested, if at all, via injected fakes — not over-mocked).
 
