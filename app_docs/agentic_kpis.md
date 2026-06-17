@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 210              | 2026-06-17 00:28:47 |
-| Longest Streak    | 210              | 2026-06-17 00:28:47 |
-| Total Plan Size   | 3847 lines       | 2026-06-17 00:28:47 |
-| Largest Plan Size | 699 lines        | 2026-06-17 00:28:47 |
-| Total Diff Size   | 5958270 lines    | 2026-06-17 00:28:47 |
-| Largest Diff Size | 418153 lines     | 2026-06-17 00:28:47 |
-| Average Presence  | 1.14             | 2026-06-17 00:28:47 |
+| Current Streak    | 166              | 2026-06-17 14:11:26 |
+| Longest Streak    | 166              | 2026-06-17 14:11:26 |
+| Total Plan Size   | 3959 lines       | 2026-06-17 14:11:26 |
+| Largest Plan Size | 678 lines        | 2026-06-17 14:11:26 |
+| Total Diff Size   | 5967314 lines    | 2026-06-17 14:11:26 |
+| Largest Diff Size | 418153 lines     | 2026-06-17 14:11:26 |
+| Average Presence  | 1.23             | 2026-06-17 14:11:26 |
 
 ## ADW KPIs
 
@@ -249,3 +249,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-06-16 | x3qme8-python-fixture-targe | 583 | /feature | 1 | 0 | 3752/34/54 | 2026-06-16 23:29:22 | 2026-06-16 23:29:22 |
 | 2026-06-16 | i64axx-hermeticity-resolve | 582 | /feature | 1 | 0 | 4225/103/57 | 2026-06-16 23:34:50 | 2026-06-16 23:34:50 |
 | 2026-06-17 | hrl5jd-unit-test-rail-onto | 601 | /feature | 1 | 0 | 5943/88/79 | 2026-06-17 00:28:47 | 2026-06-17 00:28:47 |
+| 2026-06-17 | ih7bza-fix-adwupgrad | 614 | /feature | 1 | 0 | 8836/208/118 | 2026-06-17 14:11:26 | 2026-06-17 14:11:26 |
