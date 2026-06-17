@@ -17,6 +17,7 @@ import {
   getEffortForCommand,
 } from '.';
 import { extractAdwIdFromComment } from './workflowCommentParsing';
+import { readAdwLabels } from '../github/labelManager';
 
 /**
  * Result of classifying an issue for trigger purposes.
@@ -81,24 +82,62 @@ async function classifyWithIssueCommand(
 }
 
 /**
+ * Injectable deps for classifyIssueForTrigger. Production callers omit this;
+ * tests inject vi.fn() / fake implementations via the optional third argument.
+ */
+export interface ClassifyIssueForTriggerDeps {
+  fetchIssue: (issueNumber: number, repoInfo: RepoInfo) => Promise<GitHubIssue>;
+  classifyWith: (
+    issueContext: string,
+    issueNumber: number,
+    agentName: string,
+    outputFile: string,
+    issueBody?: string,
+  ) => Promise<IssueClassificationResult>;
+}
+
+/**
  * Classifies an issue to determine the appropriate workflow.
  * Uses LLM-only classification via /classify_issue.
  *
+ * The adw:* label override is enforced here — at the sole chokepoint all four
+ * trigger paths (cron, issues.opened, issue_comment, dependency-closure) share —
+ * rather than per-caller, so callers that omit labelRouting cannot silently fall
+ * through to the LLM on a labeled issue (#618).
+ *
  * @param issueNumber - The GitHub issue number to classify
+ * @param repoInfo - Repository coordinates
+ * @param deps - Optional injectable deps (omit in production; inject fakes in tests)
  * @returns Classification result with issue type and success status
  */
 export async function classifyIssueForTrigger(
   issueNumber: number,
   repoInfo: RepoInfo,
+  deps?: ClassifyIssueForTriggerDeps,
 ): Promise<IssueClassificationResult> {
+  const fetchIssue = deps?.fetchIssue ?? fetchGitHubIssue;
+  const classifyWith = deps?.classifyWith ?? classifyWithIssueCommand;
+
   try {
     log(`Classifying issue #${issueNumber} for trigger...`);
 
-    const issue = await fetchGitHubIssue(issueNumber, repoInfo);
+    const issue = await fetchIssue(issueNumber, repoInfo);
     log(`classifyIssueForTrigger: issue #${issueNumber} title="${issue.title}", body length=${issue.body?.length ?? 0}`);
+
+    // Deterministic adw:* label override — a single adw:<type> classification label
+    // bypasses AI classification on EVERY spawn path. Enforced here (all four triggers
+    // funnel through this chokepoint) so a caller that omits labelRouting cannot
+    // silently fall through to the LLM. Multiple conflicting adw:<type> labels fall
+    // through to the heuristic, unchanged.
+    const labelReading = readAdwLabels(issue);
+    if (labelReading.classification && !labelReading.conflict) {
+      log(`Issue #${issueNumber}: adw:* label override -> ${labelReading.classification}, skipping AI classification`, 'success');
+      return { issueType: labelReading.classification, success: true, issueTitle: issue.title };
+    }
+
     const issueContext = `**#${issue.number}: ${issue.title}**\n\n${issue.body}`;
 
-    const heuristicResult = await classifyWithIssueCommand(
+    const heuristicResult = await classifyWith(
       issueContext,
       issueNumber,
       `trigger-classifier-${issueNumber}`,
