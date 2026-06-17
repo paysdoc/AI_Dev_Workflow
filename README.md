@@ -406,7 +406,8 @@ Docker execution is entirely optional — the test suite runs identically on the
 │   ├── test.md
 │   ├── tools.md
 │   ├── track_agentic_kpis.md
-│   └── validate_plan_scenarios.md
+│   ├── validate_plan_scenarios.md
+│   └── validate_scenario_fidelity.md
 ├── hooks/              # Claude Code hooks
 │   ├── notification.ts
 │   ├── post-tool-use.ts
