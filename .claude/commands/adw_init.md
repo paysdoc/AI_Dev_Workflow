@@ -187,11 +187,24 @@ Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init
      Note: the stack could not be classified automatically; refine this list as your test surfaces solidify.
      ```
 
-8. **Report**
-   - List all files created (`commands.md`, `project.md`, `conditional_docs.md`, `providers.md`, `review_proof.md`, `scenarios.md`, and `features/regression/vocabulary.md` when copied)
+8. **Write the Regeneration Receipt** — MUST be the final mutation step. Its freshness is the proof that steps 2–7 completed, so nothing may mutate `.adw/` after this step.
+   - If `$3` (frameworkRepoRoot) is **non-empty**: obtain the current framework hash by running the following via the Bash tool and capturing stdout:
+     ```bash
+     bunx tsx "$3/adws/core/hashComputer.ts" "$3"
+     ```
+     Then write `.adw/.regen-receipt` containing exactly one line:
+     ```
+     frameworkHash: <hash>
+     ```
+     The file lives inside `.adw/` and is committed as part of the upgrade PR. Do NOT add it to `.gitignore`.
+   - If `$3` is **empty** (legacy/manual invocation without a framework repo root): skip writing the receipt and log a warning in step 9's report. The repo self-heals on the next orchestrator-driven upgrade, which supplies `$3` and writes the receipt.
+
+9. **Report**
+   - List all files created (`commands.md`, `project.md`, `conditional_docs.md`, `providers.md`, `review_proof.md`, `scenarios.md`, `features/regression/vocabulary.md` when copied, and `.adw/.regen-receipt` when written)
    - Summarize the detected project type and key configuration choices
    - Note both `## Per-Issue Scenario Directory` and `## Regression Scenario Directory` sections written to `scenarios.md`
    - Note `## BDD Framework` and `## Step Def Directory` sections written to `scenarios.md` (Cucumber/Gherkin branches only).
    - Note the `## Run Tests` value written and whether it was seeded (new) or preserved (pre-existing). Because `adw_init.md` is a `hashInputs:` file, any edit to it raises `.adw-version` and triggers `adwUpgrade` to regenerate `.adw/` across all registered target repos — the intended emit-parse coupling propagation for the JUnit report rail (same mechanism issue #578 used for `scenarios.md` sections).
    - If the vocabulary template copy was skipped (empty `$3`), note the warning here
+   - For `.adw/.regen-receipt`: note either "written with frameworkHash: `<hash>`" or "skipped — `$3` is empty (legacy invocation); repo self-heals on next orchestrator-driven upgrade"
    - Examples-block class chosen: `<browser-test-equipped | CLI-only | fallback>`; placeholder replacement: `<succeeded | skipped: <reason>>`.

@@ -81,7 +81,7 @@ export interface UpgradeDeps {
   readonly findPRByBranch: (branch: string, repoInfo: RepoInfo) => RawPR | null;
   readonly runInitCommand: (params: RunInitCommandParams) => Promise<{ success: boolean; error?: string }>;
   readonly copyInitCommandToWorktree: (worktreePath: string, frameworkRepoRoot: string) => void;
-  readonly verifyAdwRegen: (worktreePath: string) => { ok: boolean; missing: readonly string[] };
+  readonly verifyAdwRegen: (worktreePath: string, expectedHash: string) => { ok: boolean; missing: readonly string[] };
   readonly writeAdwVersion: (worktreePath: string, hash: string) => void;
   readonly commitChanges: (message: string, cwd: string) => boolean;
   readonly pushBranch: (branch: string, cwd: string) => void;
@@ -265,17 +265,19 @@ export async function executeUpgrade(
     return { outcome: 'failed', reason: 'llm_failed' };
   }
 
-  // 5b. Anti-brick gate: verify .adw/ was actually regenerated before stamping.
-  //     An exit-0 /adw_init that wrote nothing must not advance .adw-version —
-  //     that would permanently brick the repo by satisfying the upgrade gate forever.
-  //     No stamp + no PR = the next cron tick re-dispatches cleanly (idempotency
-  //     guard sees no PR on the claim branch and safely re-runs regeneration).
-  const verify = deps.verifyAdwRegen(worktreePath);
+  // 5b. Receipt-freshness gate: verify that /adw_init wrote a receipt stamped with
+  //     the current framework hash before stamping .adw-version.
+  //     A legitimate no-op (byte-identical .adw/ regen) now passes because the agent
+  //     writes a fresh receipt whose hash matches `hash`. A silent skip leaves the
+  //     receipt from the previous upgrade cycle carrying the old hash → mismatch →
+  //     fail closed. No stamp + no PR = the next cron tick re-dispatches cleanly
+  //     (idempotency guard sees no PR on the claim branch and re-runs regeneration).
+  const verify = deps.verifyAdwRegen(worktreePath, hash);
   if (!verify.ok) {
     deps.commentOnIssue(
       issueNumber,
       buildUpgradeFailureComment(
-        `.adw/ regeneration incomplete: ${verify.missing.join(', ') || 'no changes under .adw/'}`,
+        `.adw/ regeneration incomplete: ${verify.missing.join(', ') || 'receipt absent or stale'}`,
         adwId,
         issueNumber,
       ),

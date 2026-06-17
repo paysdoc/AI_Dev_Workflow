@@ -381,9 +381,9 @@ Each entry contains:
 - **pattern**: `.adw-version` file present but no `.adw/` directory in the target repo
 - **description**: Caused by issue #572 — `adwUpgrade.tsx` stamped `.adw-version` after a no-op `/adw_init` run (the slash command was not resolvable in the worktree). The upgrade gate (`shouldTriggerUpgrade`) subsequently sees `.adw-version` matching the current framework hash and never retriggers. The target repo is bricked: no `.adw/` config, no path to self-heal.
 - **status**: solved
-- **solution**: Fixed in #572 — `copyAdwInitCommandToWorktree` ensures the command resolves; `verifyAdwRegen` gates the `.adw-version` write behind a check that all six canonical files exist and a non-trivial `git status --porcelain -- .adw` diff is present. If the gate fails, no stamp is written and no PR is opened, so the next cron dispatch re-runs cleanly.
-- **fix_attempts**: 1
-- **linked_issues**: #572, #547
+- **solution**: Fixed in #572 (initial anti-brick gate) and #614 (receipt-freshness gate). `copyAdwInitCommandToWorktree` ensures the command resolves. `verifyAdwRegen(worktreePath, expectedHash)` gates the `.adw-version` write behind: (a) all six canonical `.adw/` config files exist and are non-empty, (b) `features/regression/vocabulary.md` exists, and (c) `.adw/.regen-receipt` is present and carries `frameworkHash === expectedHash`. The receipt is written by `/adw_init` as its final mutation step — a silent skip leaves the old receipt hash in place, producing a mismatch. The `git status --porcelain -- .adw` diff requirement was removed in #614 (it caused an infinite loop when a `hashInputs` bump produced byte-identical `.adw/` output). A legitimate no-op now produces a fresh receipt → gate passes → `.adw-version` is bumped → PR lands → loop breaks.
+- **fix_attempts**: 2
+- **linked_issues**: #572, #547, #614
 - **first_seen**: 2026-06-14
 
 ### One-time manual recovery runbook (§C)
@@ -395,7 +395,7 @@ Run this procedure on each target repo the broken orchestrator already merged ag
 ```bash
 # From the target repo worktree
 adw_version=$(cat .adw-version 2>/dev/null)
-framework_hash=$(bunx tsx adws/adwUpgrade.tsx --print-hash 2>/dev/null || echo "unknown")
+framework_hash=$(bunx tsx adws/core/hashComputer.ts "$(pwd)" 2>/dev/null || echo "unknown")
 if [ "$adw_version" = "$framework_hash" ] && [ ! -f ".adw/commands.md" ]; then
   echo "BRICKED: $PWD"
 fi
@@ -409,10 +409,10 @@ fi
    git add -A && git commit -m "chore: remove stale .adw-version to re-trigger upgrade"
    git push
    ```
-2. The next cron dispatch will call `shouldTriggerUpgrade` → mismatch detected → spawns `adwUpgrade.tsx` → now-gated orchestrator runs `/adw_init` in a worktree that has `adw_init.md` → `verifyAdwRegen` checks the output → stamps `.adw-version` only if the full `.adw/` was written.
-3. Verify: after the upgrade PR merges, confirm `.adw/commands.md`, `.adw/project.md`, and the other four canonical files are present.
+2. The next cron dispatch will call `shouldTriggerUpgrade` → mismatch detected → spawns `adwUpgrade.tsx` → orchestrator runs `/adw_init` in a worktree that has `adw_init.md` → `/adw_init` writes `.adw/.regen-receipt` as its final step → `verifyAdwRegen` checks receipt freshness (receipt hash === expected hash) and file presence → stamps `.adw-version` only if both pass.
+3. Verify: after the upgrade PR merges, confirm `.adw/commands.md`, `.adw/project.md`, the other four canonical files, and `.adw/.regen-receipt` are all present.
 
-**Known residual edge:** a framework hash bump whose regenerated `.adw/` output is byte-identical to the target's existing `.adw/` will produce an empty `git status --porcelain -- .adw` and fail the gate, looping re-dispatch. This is extremely unlikely (the hash inputs are `adw_init.md` + `vocabulary.md.template`; a bump that changes neither's *output* is atypical). If you observe the loop: check whether the `.adw/` files are already up-to-date and, if so, advance `.adw-version` manually to match the current hash.
+**No-op loop (previously a residual edge, now fixed):** a framework hash bump whose regenerated `.adw/` output is byte-identical to the target's existing `.adw/` previously failed the old `git status --porcelain -- .adw` gate and looped. The receipt-freshness gate (#614) eliminates this: `/adw_init` writes a receipt with the new hash, `verifyAdwRegen` sees it matches `expectedHash`, passes, and the version PR lands. If you observe a loop after #614, check whether `.adw/.regen-receipt` is present and whether its `frameworkHash` matches the current framework hash.
 
 - **sample_log**:
   ```

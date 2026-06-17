@@ -432,6 +432,48 @@ describe('executeUpgrade — anti-brick verification gate (E1)', () => {
   });
 });
 
+// ── Receipt-freshness gate — expectedHash threading ───────────────────────────
+
+describe('executeUpgrade — receipt-freshness gate: expectedHash is threaded', () => {
+  it('calls verifyAdwRegen with (worktreePath, MOCK_HASH)', async () => {
+    const deps = makeDeps();
+    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    expect(deps.verifyAdwRegen).toHaveBeenCalledWith(expect.any(String), MOCK_HASH);
+  });
+
+  it('Test 1 (regression, legitimate no-op): verifyAdwRegen ok:true → stamps .adw-version and opens PR (pr_merged)', async () => {
+    // This is the path the old git-diff gate wrongly blocked:
+    // a byte-identical .adw/ regen with a fresh receipt must now produce a PR.
+    const deps = makeDeps({
+      verifyAdwRegen: vi.fn().mockReturnValue({ ok: true, missing: [] }),
+    });
+    const result = await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    expect(result.reason).toBe('pr_merged');
+    expect(deps.writeAdwVersion).toHaveBeenCalledTimes(1);
+    expect(deps.createPullRequest).toHaveBeenCalledTimes(1);
+  });
+
+  it('Test 2 (stale receipt → fail closed): verifyAdwRegen ok:false → regen_incomplete, no stamp/PR/merge, one non-ADW comment', async () => {
+    const deps = makeDeps({
+      verifyAdwRegen: vi.fn().mockReturnValue({ ok: false, missing: ['.adw/.regen-receipt (stale)'] }),
+    });
+    const result = await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    expect(result.outcome).toBe('failed');
+    expect(result.reason).toBe('regen_incomplete');
+    expect(deps.writeAdwVersion).not.toHaveBeenCalled();
+    expect(deps.commitChanges).not.toHaveBeenCalled();
+    expect(deps.pushBranch).not.toHaveBeenCalled();
+    expect(deps.createPullRequest).not.toHaveBeenCalled();
+    expect(deps.mergePR).not.toHaveBeenCalled();
+    expect(deps.commentOnIssue).toHaveBeenCalledTimes(1);
+    const body = (deps.commentOnIssue as ReturnType<typeof vi.fn>).mock.calls[0][1] as string;
+    expect(isAdwComment(body)).toBe(false);
+  });
+});
+
 // ── E2: gate pass — proceeds to stamp + PR ────────────────────────────────────
 
 describe('executeUpgrade — gate passes (E2)', () => {

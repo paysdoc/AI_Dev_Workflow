@@ -12,7 +12,13 @@ import * as path from 'path';
 import { execSync } from 'child_process';
 import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
-import { copyClaudeAssetsToWorktree } from '../worktreeSetup.ts';
+import {
+  copyClaudeAssetsToWorktree,
+  verifyAdwRegen,
+  parseRegenReceiptHash,
+  REQUIRED_ADW_FILES,
+  REGEN_RECEIPT_RELATIVE_PATH,
+} from '../worktreeSetup.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ADW_REPO_ROOT = resolve(__dirname, '../../..');
@@ -157,5 +163,126 @@ describe('copyClaudeAssetsToWorktree — #267 gitignore-skip-if-tracked invarian
 
     // feature.md is target:false but already tracked → must NOT be gitignored
     expect(gitignoreContains(tempDir, '.claude/commands/feature.md')).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// parseRegenReceiptHash unit tests
+// ---------------------------------------------------------------------------
+
+describe('parseRegenReceiptHash', () => {
+  it('returns the hash from a well-formed receipt line', () => {
+    const hash = 'c1acb23f5e6d7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b';
+    expect(parseRegenReceiptHash(`frameworkHash: ${hash}\n`)).toBe(hash);
+  });
+
+  it('tolerates leading/trailing whitespace around the hash value', () => {
+    const hash = 'abc123def456';
+    expect(parseRegenReceiptHash(`frameworkHash:   ${hash}  \n`)).toBe(hash);
+  });
+
+  it('returns null when the frameworkHash: key is absent', () => {
+    expect(parseRegenReceiptHash('# some other content\nkey: value\n')).toBeNull();
+  });
+
+  it('returns null for an empty string', () => {
+    expect(parseRegenReceiptHash('')).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// verifyAdwRegen integration tests (real temp git repo)
+// ---------------------------------------------------------------------------
+
+describe('verifyAdwRegen', () => {
+  const EXPECTED_HASH = 'c1acb23f5e6d7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b';
+  const STALE_HASH   = '34e7e1290a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8091a2b3c4d5e6f70819';
+
+  let verifyDir: string;
+
+  function seedAndCommit(): void {
+    const adwDir = path.join(verifyDir, '.adw');
+    fs.mkdirSync(adwDir, { recursive: true });
+    for (const file of REQUIRED_ADW_FILES) {
+      fs.writeFileSync(path.join(adwDir, file), `# ${file}\nfixture\n`);
+    }
+    const vocabDir = path.join(verifyDir, 'features', 'regression');
+    fs.mkdirSync(vocabDir, { recursive: true });
+    fs.writeFileSync(path.join(vocabDir, 'vocabulary.md'), '# Vocabulary\nfixture\n');
+    execSync('git add -A', { cwd: verifyDir, stdio: 'pipe' });
+    execSync('git commit -m "init"', { cwd: verifyDir, stdio: 'pipe' });
+  }
+
+  function writeReceipt(hash: string): void {
+    const receiptPath = path.join(verifyDir, REGEN_RECEIPT_RELATIVE_PATH);
+    fs.writeFileSync(receiptPath, `frameworkHash: ${hash}\n`);
+    execSync('git add ' + REGEN_RECEIPT_RELATIVE_PATH, { cwd: verifyDir, stdio: 'pipe' });
+    execSync('git commit -m "add receipt"', { cwd: verifyDir, stdio: 'pipe' });
+  }
+
+  beforeEach(() => {
+    verifyDir = fs.mkdtempSync(path.join(os.tmpdir(), 'adw-verify-'));
+    execSync('git init', { cwd: verifyDir, stdio: 'pipe' });
+    execSync('git config user.email "test@adw.local"', { cwd: verifyDir, stdio: 'pipe' });
+    execSync('git config user.name "ADW Test"', { cwd: verifyDir, stdio: 'pipe' });
+  });
+
+  afterEach(() => {
+    fs.rmSync(verifyDir, { recursive: true, force: true });
+  });
+
+  it('Test 1 (regression): fresh receipt + zero .adw/ content diff → ok:true', () => {
+    // Proves the diff requirement is gone: all files committed (zero diff),
+    // receipt committed with the expected hash → must pass.
+    seedAndCommit();
+    writeReceipt(EXPECTED_HASH);
+
+    const result = verifyAdwRegen(verifyDir, EXPECTED_HASH);
+
+    expect(result.ok).toBe(true);
+    expect(result.missing).toHaveLength(0);
+  });
+
+  it('Test 2 (stale receipt / silent skip): receipt hash !== expectedHash → ok:false', () => {
+    seedAndCommit();
+    writeReceipt(STALE_HASH);
+
+    const result = verifyAdwRegen(verifyDir, EXPECTED_HASH);
+
+    expect(result.ok).toBe(false);
+    expect(result.missing.some((m) => m.includes('stale'))).toBe(true);
+  });
+
+  it('Test 4 (receipt absent): no .adw/.regen-receipt → ok:false', () => {
+    seedAndCommit();
+    // No receipt written.
+
+    const result = verifyAdwRegen(verifyDir, EXPECTED_HASH);
+
+    expect(result.ok).toBe(false);
+    expect(result.missing.some((m) => m.includes('missing'))).toBe(true);
+  });
+
+  it('Test 3 (#572 preserved): missing required .adw/ file → ok:false even with fresh receipt', () => {
+    seedAndCommit();
+    writeReceipt(EXPECTED_HASH);
+    // Delete a required file after commit.
+    fs.unlinkSync(path.join(verifyDir, '.adw', 'project.md'));
+
+    const result = verifyAdwRegen(verifyDir, EXPECTED_HASH);
+
+    expect(result.ok).toBe(false);
+    expect(result.missing).toContain('project.md');
+  });
+
+  it('Vocabulary missing: absent features/regression/vocabulary.md → ok:false even with fresh receipt', () => {
+    seedAndCommit();
+    writeReceipt(EXPECTED_HASH);
+    fs.unlinkSync(path.join(verifyDir, 'features', 'regression', 'vocabulary.md'));
+
+    const result = verifyAdwRegen(verifyDir, EXPECTED_HASH);
+
+    expect(result.ok).toBe(false);
+    expect(result.missing).toContain('features/regression/vocabulary.md');
   });
 });
