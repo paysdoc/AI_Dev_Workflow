@@ -101,7 +101,7 @@ export interface PhaseCostRecord {
   readonly workflowId: string;
   /** The GitHub issue number this workflow is processing. */
   readonly issueNumber: number;
-  /** Phase name: 'plan' | 'build' | 'test' | 'pr' | 'review' | 'document' | 'scenario' | 'kpi'. */
+  /** Phase name: 'plan' | 'build' | 'test' | 'pr' | 'review' | 'document' | 'scenario'. */
   readonly phase: string;
   /** Model identifier as reported by the Claude CLI (e.g. 'claude-opus-4-5'). */
   readonly model: string;

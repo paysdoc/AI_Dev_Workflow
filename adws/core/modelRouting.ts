@@ -49,8 +49,6 @@ export const SLASH_COMMAND_MODEL_MAP: Record<SlashCommand, ModelTier> = {
   '/pull_request': 'sonnet',
   // Documentation
   '/document': 'sonnet',
-  // KPI tracking
-  '/track_agentic_kpis': 'haiku',
   // Utility
   '/find_plan_file': 'sonnet',
   // Dependency checking
@@ -95,7 +93,6 @@ export const SLASH_COMMAND_MODEL_MAP_FAST: Record<SlashCommand, ModelTier> = {
   '/commit': 'haiku',
   '/pull_request': 'haiku',
   '/document': 'sonnet',
-  '/track_agentic_kpis': 'haiku',
   '/find_plan_file': 'haiku',
   '/find_issue_dependencies': 'haiku',
   '/extract_dependencies': 'haiku',
@@ -150,7 +147,6 @@ export const SLASH_COMMAND_EFFORT_MAP: Record<SlashCommand, ReasoningEffort | un
   '/commit': 'medium',
   '/pull_request': 'medium',
   '/document': 'medium',
-  '/track_agentic_kpis': undefined,
   '/find_plan_file': 'low',
   '/find_issue_dependencies': 'low',
   '/extract_dependencies': undefined,
@@ -192,7 +188,6 @@ export const SLASH_COMMAND_EFFORT_MAP_FAST: Record<SlashCommand, ReasoningEffort
   '/commit': undefined,
   '/pull_request': undefined,
   '/document': 'medium',
-  '/track_agentic_kpis': undefined,
   '/find_plan_file': undefined,
   '/find_issue_dependencies': undefined,
   '/extract_dependencies': undefined,

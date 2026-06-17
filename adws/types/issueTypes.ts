@@ -48,8 +48,6 @@ export type SlashCommand =
   | '/refactor'
   // Documentation
   | '/document'
-  // KPI tracking
-  | '/track_agentic_kpis'
   // Dependency checking
   | '/find_issue_dependencies'
   | '/extract_dependencies'

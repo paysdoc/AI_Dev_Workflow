@@ -18,7 +18,6 @@ export { executeBuildPhase } from './buildPhase';
 export { executeUnitTestPhase } from './unitTestPhase';
 export { executePRPhase } from './prPhase';
 export { executeDocumentPhase } from './documentPhase';
-export { executeKpiPhase } from './kpiPhase';
 export { executePlanValidationPhase } from './planValidationPhase';
 export { executeAlignmentPhase } from './alignmentPhase';
 export {

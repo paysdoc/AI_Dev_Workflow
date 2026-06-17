@@ -315,27 +315,6 @@ When(
 );
 
 // ---------------------------------------------------------------------------
-// W12: KPI phase executed with config
-// ---------------------------------------------------------------------------
-
-When(
-  'the KPI phase is executed with config {string}',
-  async function (this: RegressionWorld, _configLabel: string) {
-    return 'pending';
-    // ISSUE-3-CUTOVER: existing body below is intentionally preserved for the cutover
-    // patch; remove the `return 'pending';` line above when the harness can drive phases
-    // against a fully-stubbed GitHub App + Claude pipeline.
-    /*
-    assert.ok(this.mockContext, 'mockContext must be initialised in a Before hook');
-
-    const { executeKpiPhase } = await import(resolve(ROOT, 'adws/phases/kpiPhase.ts'));
-    const config = buildMockedWorkflowConfig(this, _configLabel);
-    await executeKpiPhase(config);
-    */
-  },
-);
-
-// ---------------------------------------------------------------------------
 // Shared helper — builds a minimal mocked WorkflowConfig
 // ---------------------------------------------------------------------------
 
