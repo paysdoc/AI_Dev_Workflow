@@ -1566,3 +1566,12 @@
     - When `ScenarioHermeticityError` or `GoalFidelityError` are thrown or caught in an orchestrator
     - When the `/implement-tdd` hermetic-test-mode definition-of-done (§8) is relevant to a build task
     - When `adws/core/resolveFreezeGuard.ts` or `adws/core/resolveVerdict.ts` pure-decision cores are relevant
+
+- app_docs/feature-la04ed-fix-adw-label-override-chokepoint.md
+  - Conditions:
+    - When working with `classifyIssueForTrigger` in `adws/core/issueClassifier.ts` and the `adw:*` label override behavior
+    - When the `issue_comment` webhook or dependency-closure spawn path skips the deterministic label check
+    - When implementing or troubleshooting `ClassifyIssueForTriggerDeps` injectable interface for testing `classifyIssueForTrigger`
+    - When a labeled issue is being sent to the LLM classifier instead of being deterministically routed
+    - When extending `readAdwLabels` usage or adding new classification labels to `ADW_CLASSIFICATION_LABELS`
+    - When understanding why the override is enforced at the chokepoint rather than the two broken call sites (`trigger_webhook.ts:188`, `webhookGatekeeper.ts:190`)
