@@ -8,6 +8,9 @@ import { execSync } from 'child_process';
 import { fileURLToPath } from 'node:url';
 import { log } from '../core';
 
+/** Relative path of the receipt file written by /adw_init as proof-of-execution. */
+export const REGEN_RECEIPT_RELATIVE_PATH = path.join('.adw', '.regen-receipt');
+
 /** The six canonical .adw/ config files that /adw_init must produce. */
 export const REQUIRED_ADW_FILES = [
   'commands.md',
@@ -150,6 +153,26 @@ function getTrackedTopDirs(worktreePath: string, prefix: string): Set<string> {
 }
 
 /**
+ * Parses the `frameworkHash:` line from a `.regen-receipt` file's content.
+ * Returns the trimmed hash value, or `null` when the key is absent or malformed.
+ */
+export function parseRegenReceiptHash(content: string): string | null {
+  const match = content.match(/^frameworkHash:\s*(\S+)\s*$/m);
+  return match ? match[1] : null;
+}
+
+/**
+ * Returns true iff the receipt at `<worktreePath>/.adw/.regen-receipt` exists and
+ * carries `frameworkHash === expectedHash`.
+ */
+function receiptIsFresh(worktreePath: string, expectedHash: string): boolean {
+  const receiptPath = path.join(worktreePath, REGEN_RECEIPT_RELATIVE_PATH);
+  if (!fs.existsSync(receiptPath)) return false;
+  const content = fs.readFileSync(receiptPath, 'utf-8');
+  return parseRegenReceiptHash(content) === expectedHash;
+}
+
+/**
  * Copies the framework's `adw_init.md` command into a worktree so `/adw_init` resolves,
  * then gitignores it so the upgrade commit does not carry it into the PR.
  *
@@ -165,16 +188,24 @@ export function copyAdwInitCommandToWorktree(worktreePath: string, frameworkRepo
 }
 
 /**
- * Verifies that `/adw_init` actually regenerated `.adw/` before the version stamp is written.
+ * Verifies that `/adw_init` actually ran to completion before the version stamp is written.
  *
- * Returns `ok: true` when all six canonical `.adw/` files exist and are non-empty,
- * `features/regression/vocabulary.md` exists, and there is at least one uncommitted
- * change under `.adw/` (detected via `git status --porcelain`).
+ * Gate logic (all conditions must hold):
+ *   1. All six canonical `.adw/` config files exist and are non-empty.
+ *   2. `features/regression/vocabulary.md` exists.
+ *   3. `.adw/.regen-receipt` exists and carries `frameworkHash === expectedHash`.
  *
- * Uses `git status --porcelain` (not `git diff`) so it catches the virgin-repo case
- * where `.adw/` is entirely untracked (added, not modified).
+ * Receipt freshness (claim vs. verdict):
+ *   The receipt is the *agent-written claim*. `/adw_init` writes it with the hash it
+ *   computed from the framework. The orchestrator independently computed `expectedHash`
+ *   and compares it here. A match proves the agent invoked the same hash function over
+ *   the same root — a silent skip (which leaves the receipt from the previous upgrade
+ *   cycle carrying the old hash) produces a mismatch and fails closed.
+ *
+ * Returns `{ ok: true, missing: [] }` on pass; `{ ok: false, missing }` on fail,
+ * where `missing` lists the tokens that caused the failure.
  */
-export function verifyAdwRegen(worktreePath: string): { ok: boolean; missing: readonly string[] } {
+export function verifyAdwRegen(worktreePath: string, expectedHash: string): { ok: boolean; missing: readonly string[] } {
   const adwDir = path.join(worktreePath, '.adw');
   const missing: string[] = [];
 
@@ -190,19 +221,14 @@ export function verifyAdwRegen(worktreePath: string): { ok: boolean; missing: re
     missing.push('features/regression/vocabulary.md');
   }
 
-  if (missing.length > 0) return { ok: false, missing };
-
-  try {
-    const status = execSync('git status --porcelain -- .adw', {
-      encoding: 'utf-8',
-      cwd: worktreePath,
-    }).trim();
-    if (!status) return { ok: false, missing: [] };
-  } catch {
-    return { ok: false, missing: [] };
+  const receiptPath = path.join(worktreePath, REGEN_RECEIPT_RELATIVE_PATH);
+  if (!fs.existsSync(receiptPath)) {
+    missing.push('.adw/.regen-receipt (missing)');
+  } else if (!receiptIsFresh(worktreePath, expectedHash)) {
+    missing.push('.adw/.regen-receipt (stale)');
   }
 
-  return { ok: true, missing: [] };
+  return { ok: missing.length === 0, missing };
 }
 
 /**

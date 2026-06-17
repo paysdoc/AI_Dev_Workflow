@@ -1547,6 +1547,16 @@
     - When troubleshooting proof comments missing screenshots or the "R2 not configured" fallback note
     - When writing unit tests for `harvestProofArtifacts` or the pure `formatPrProofComment` formatter
 
+- app_docs/feature-ih7bza-receipt-based-regen-proof.md
+  - Conditions:
+    - When working with `verifyAdwRegen` in `adws/phases/worktreeSetup.ts` or the `UpgradeDeps.verifyAdwRegen` type in `adws/adwUpgrade.tsx`
+    - When implementing or troubleshooting the `.adw/.regen-receipt` contract (receipt presence, freshness check, `parseRegenReceiptHash`)
+    - When the `hashComputer.ts` CLI guard (`bunx tsx adws/core/hashComputer.ts <root>`) is relevant
+    - When `adwUpgrade` loops infinitely on a `hashInput` change that produces no `.adw/` content diff (the zero-diff no-op case)
+    - When understanding why the `git status --porcelain -- .adw` diff check was removed and what replaced it
+    - When re-stamping a self-hosting repo's `.adw-version` and `.adw/.regen-receipt` after editing `adw_init.md`
+    - When the claim/verdict split (receipt = agent claim, `.adw-version` = orchestrator verdict) is relevant
+
 - app_docs/feature-i64axx-hermeticity-resolve.md
   - Conditions:
     - When working on `adws/phases/scenarioTestFixLoop.ts` (shared resolve loop) or `adws/phases/gherkinFreeze.ts` (Gherkin freeze enforcement)

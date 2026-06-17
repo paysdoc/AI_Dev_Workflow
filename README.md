@@ -114,6 +114,7 @@ Everything below is for someone who wants to run ADW against a target repository
 - **Chore fast-path with LLM diff gate** — `adwChore` builds, runs unit tests, opens a PR, then asks Haiku to classify the diff as `safe` (auto-merge) or `regression_possible` (full review path).
 - **Per-repo unit-test gate via `adw.yml`** — target repos can opt out of the unit-test phase by setting `unitTests: false` in `.github/adw.yml`; defaults to enabled. The file also controls upgrade-PR HITL gating (`hitl: true` defers auto-merge of framework-upgrade PRs to human review).
 - **BDD/scenario-driven validation** — discovers `.feature` files tagged `@adw-{issueNumber}`, generates step definitions, and reconciles plan vs. scenario coverage via `validationAgent`, `alignmentPhase`, and `resolutionAgent`.
+- **Gherkin freeze and scenario fidelity gate** — `gherkinFreeze.ts` snapshots all `.feature` files before the scenario-fix loop; `resolveFreezeGuard.ts` rejects any fix-loop edit that modifies a `.feature` file; on first green, `scenarioFidelityAgent.ts` re-validates the frozen scenarios against the issue body to confirm implementation matches intent. Resolve verdict (`resolveVerdict.ts`) computes `pass`/`retry`/`hard-fail` across target-tag and regression results.
 - **Multi-agent passive review** — review agents read scenario proof and captured screenshots, classifying findings as Blockers (auto-patched by `patchAgent` for general failures or `refactorAgent` for coding-guideline violations, via `reviewPatchHelpers`) or Tech Debt (logged only).
 - **HITL-gated auto-merge** — every cron tick re-evaluates `(no hitl label) OR (PR approved)`; merge is deferred while the gate is closed, and `## Cancel` is the scorched-earth manual override.
 - **Retry and Cancel directives** — `## Retry` resets a `merge_blocked` workflow to `awaiting_merge` (state-only, no worktree teardown); `## Cancel` kills the orchestrator, removes the worktree, and re-queues the issue.
@@ -406,7 +407,8 @@ Docker execution is entirely optional — the test suite runs identically on the
 │   ├── test.md
 │   ├── tools.md
 │   ├── track_agentic_kpis.md
-│   └── validate_plan_scenarios.md
+│   ├── validate_plan_scenarios.md
+│   └── validate_scenario_fidelity.md
 ├── hooks/              # Claude Code hooks
 │   ├── notification.ts
 │   ├── post-tool-use.ts
@@ -463,7 +465,8 @@ adws/                   # ADW workflow system
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── claudeAgent.test.ts
 │   │   ├── gitAgent.test.ts
-│   │   └── refactorAgent.test.ts
+│   │   ├── refactorAgent.test.ts
+│   │   └── scenarioFidelityAgent.test.ts
 │   ├── agentProcessHandler.ts  # Process spawning handler
 │   ├── alignmentAgent.ts  # Single-pass alignment agent
 │   ├── bddScenarioRunner.ts  # BDD scenario execution
@@ -485,6 +488,7 @@ adws/                   # ADW workflow system
 │   ├── resolutionAgent.ts  # Plan-scenario mismatch resolution
 │   ├── reviewAgent.ts
 │   ├── scenarioAgent.ts  # BDD scenario planner agent
+│   ├── scenarioFidelityAgent.ts  # Compares frozen scenarios against issue body after resolve
 │   ├── stepDefAgent.ts  # Step definition generation agent
 │   ├── testAgent.ts
 │   ├── testRetry.ts
@@ -506,6 +510,8 @@ adws/                   # ADW workflow system
 │   │   ├── processLiveness.test.ts
 │   │   ├── projectConfig.test.ts
 │   │   ├── remoteReconcile.test.ts
+│   │   ├── resolveFreezeGuard.test.ts
+│   │   ├── resolveVerdict.test.ts
 │   │   ├── slackNotifier.test.ts
 │   │   ├── stateHelpers.test.ts
 │   │   ├── stackCoherenceCheck.test.ts
@@ -545,6 +551,8 @@ adws/                   # ADW workflow system
 │   ├── processLiveness.ts  # PID-reuse-safe process liveness checks
 │   ├── projectConfig.ts
 │   ├── remoteReconcile.ts  # Stage derivation from remote GitHub artifacts
+│   ├── resolveFreezeGuard.ts  # Pure guard: rejects resolve edits that touch .feature files
+│   ├── resolveVerdict.ts      # Pure verdict: computes pass/retry/hard-fail for scenario fix loops
 │   ├── retryOrchestrator.ts
 │   ├── slackNotifier.ts  # Slack Incoming Webhook client for error/problem alerting
 │   ├── stateHelpers.ts
@@ -626,10 +634,12 @@ adws/                   # ADW workflow system
 ├── phases/             # Workflow phase implementations
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── branchNameResolution.test.ts
+│   │   ├── gherkinFreeze.test.ts
 │   │   ├── orchestratorLock.test.ts
 │   │   ├── planPhase.test.ts
 │   │   ├── progressGate.test.ts
 │   │   ├── reviewPhase.test.ts
+│   │   ├── scenarioTestFixLoop.test.ts
 │   │   ├── scenarioTestPhase.test.ts
 │   │   ├── upgradeGate.test.ts
 │   │   ├── workflowInit.test.ts
@@ -639,6 +649,7 @@ adws/                   # ADW workflow system
 │   ├── autoMergePhase.ts  # Auto-approve and merge PR after review passes
 │   ├── branchNameResolution.ts  # Branch name resolution for worktree takeover paths
 │   ├── diffEvaluationPhase.ts  # LLM diff evaluation phase (safe vs regression_possible)
+│   ├── gherkinFreeze.ts  # Snapshots, detects changes to, and restores .feature files around the fix loop
 │   ├── buildPhase.ts
 │   ├── documentPhase.ts
 │   ├── index.ts
@@ -658,6 +669,7 @@ adws/                   # ADW workflow system
 │   ├── reviewPhase.ts  # Passive judge review phase (reads scenario proof, no dev server)
 │   ├── scenarioFixPhase.ts  # Fixes failed scenarios from a previous scenarioTestPhase run
 │   ├── scenarioPhase.ts  # BDD scenario generation phase
+│   ├── scenarioTestFixLoop.ts  # Shared scenario test→fix loop with Gherkin freeze, fidelity check, and resolve verdict
 │   ├── scenarioProof.ts  # Scenario proof orchestrator (relocated from agents/)
 │   ├── scenarioTestPhase.ts  # Runs BDD scenarios tagged @adw-{issueNumber} and @regression
 │   ├── stepDefPhase.ts  # Step definition generation phase
@@ -768,6 +780,14 @@ adws/                   # ADW workflow system
 │   ├── scenarioParser.ts      # Parses Gherkin .feature files into Scenario objects
 │   ├── vocabularyParser.ts    # Parses features/regression/vocabulary.md into VocabularyRegistry
 │   └── types.ts        # Shared types (VocabularyEntry, ScoreResult, PromotionStats, etc.)
+├── proof/              # PR proof publishing module
+│   ├── __tests__/      # Vitest unit tests
+│   │   ├── prProofPublisher.test.ts
+│   │   └── proofArtifactHarvester.test.ts
+│   ├── index.ts
+│   ├── prProofPublisher.ts     # Formats JUnit summary + screenshots and posts proof comment to PR
+│   ├── proofArtifactHarvester.ts  # Pure recursive harvester of image artifacts from proof directory
+│   └── types.ts
 ├── known_issues.md     # Known issues and workarounds
 ├── adwBuild.tsx        # Orchestrators (individual & combined)
 ├── adwChore.tsx        # Chore pipeline with LLM diff gate (auto-merge)

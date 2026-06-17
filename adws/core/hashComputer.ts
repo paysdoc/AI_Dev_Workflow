@@ -140,3 +140,9 @@ export function computeFrameworkHash(
 
   return hash.digest('hex');
 }
+
+// CLI guard: allows /adw_init's receipt step to obtain the current framework hash deterministically.
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const root = process.argv[2] ?? process.cwd();
+  process.stdout.write(computeFrameworkHash(root));
+}
