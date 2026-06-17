@@ -24,7 +24,6 @@ export {
 export {
   commitChanges,
   pushBranch,
-  commitAndPushKpiFile,
   getHeadTreeHash,
   hasUncommittedChanges,
 } from './commitOperations';
