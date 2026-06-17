@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 265              | 2026-06-17 23:14:35 |
-| Longest Streak    | 265              | 2026-06-17 23:14:35 |
-| Total Plan Size   | 1979 lines       | 2026-06-17 23:14:35 |
-| Largest Plan Size | 699 lines        | 2026-06-17 23:14:35 |
-| Total Diff Size   | 6191069 lines    | 2026-06-17 23:14:35 |
-| Largest Diff Size | 418153 lines     | 2026-06-17 23:14:35 |
-| Average Presence  | 1.15             | 2026-06-17 23:14:35 |
+| Current Streak    | 256              | 2026-06-18 00:05:51 |
+| Longest Streak    | 255              | 2026-06-18 00:05:51 |
+| Total Plan Size   | 5863 lines       | 2026-06-18 00:05:51 |
+| Largest Plan Size | 699 lines        | 2026-06-18 00:05:51 |
+| Total Diff Size   | 6300137 lines    | 2026-06-18 00:05:51 |
+| Largest Diff Size | 418153 lines     | 2026-06-18 00:05:51 |
+| Average Presence  | 1.18             | 2026-06-18 00:05:51 |
 
 ## ADW KPIs
 
@@ -253,3 +253,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-06-17 | ll2au2-renderer-codegen-sli | 161 | /feature | 1 | 0 | 104378/2013/549 | 2026-06-17 14:24:56 | 2026-06-17 14:24:56 |
 | 2026-06-17 | la04ed-fix-adw-label-overri | 618 | /bug | 1 | 0 | 8647/175/113 | 2026-06-17 14:40:59 | 2026-06-17 14:40:59 |
 | 2026-06-17 | 9hpn7o-feat-renderer-render | 169 | /feature | 1 | 0 | 106454/2088/559 | 2026-06-17 23:14:35 | 2026-06-17 23:14:35 |
+| 2026-06-18 | tljlio-feat-renderer-codege | 170 | /feature | 1 | 241 | 106988/2080/559 | 2026-06-18 00:05:51 | 2026-06-18 00:05:51 |
