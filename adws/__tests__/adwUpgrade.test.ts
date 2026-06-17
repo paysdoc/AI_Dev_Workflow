@@ -9,7 +9,7 @@ import {
   type UpgradeDeps,
   type UpgradeRunResult,
 } from '../adwUpgrade';
-import { buildClaimBranchName, isAdwComment, parseAdwYml } from '../core';
+import { buildClaimBranchName, isAdwComment, parseAdwYml, isPushRejectionError } from '../core';
 import { commentOnIssue } from '../github';
 import type { CreatePROptions } from '../providers/types';
 
@@ -32,6 +32,7 @@ function makeDeps(overrides: Partial<UpgradeDeps> = {}): UpgradeDeps {
     writeAdwVersion: vi.fn(),
     commitChanges: vi.fn().mockReturnValue(true),
     pushBranch: vi.fn(),
+    isPushRejection: vi.fn().mockReturnValue(false),
     createPullRequest: vi.fn().mockReturnValue({ url: 'https://github.com/acme/target/pull/99', number: 99 }),
     commentOnIssue: vi.fn<typeof commentOnIssue>(),
     ensureLogsDirectory: vi.fn().mockReturnValue('/logs/adwupgrade'),
@@ -255,6 +256,67 @@ describe('executeUpgrade — merge failure (non-fatal)', () => {
     await expect(
       executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps),
     ).resolves.toBeDefined();
+  });
+});
+
+// ── Claim-lost path (non-fast-forward push) ───────────────────────────────────
+
+describe('executeUpgrade — non-fast-forward push parks instead of crashing', () => {
+  function rejectingDeps(extra: Partial<UpgradeDeps> = {}): UpgradeDeps {
+    const nonFf = Object.assign(new Error('failed to push some refs'), {
+      stderr: Buffer.from(' ! [rejected] adw-upgrade-x -> adw-upgrade-x (non-fast-forward)'),
+    });
+    return makeDeps({
+      pushBranch: vi.fn().mockImplementation(() => { throw nonFf; }),
+      isPushRejection: vi.fn().mockReturnValue(true),
+      ...extra,
+    });
+  }
+
+  it('returns outcome=completed, reason=claim_lost on a rejected push', async () => {
+    const result = await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, rejectingDeps());
+
+    expect(result.outcome).toBe('completed');
+    expect(result.reason).toBe('claim_lost');
+  });
+
+  it('does not open a PR, merge, or comment when the push is rejected', async () => {
+    const deps = rejectingDeps();
+    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    expect(deps.createPullRequest).not.toHaveBeenCalled();
+    expect(deps.mergePR).not.toHaveBeenCalled();
+    expect(deps.commentOnIssue).not.toHaveBeenCalled();
+  });
+
+  it('does not swallow a genuine (non-rejection) push failure — rethrows it', async () => {
+    const fatal = Object.assign(new Error('fatal: unable to access remote'), {
+      stderr: Buffer.from('fatal: Could not read from remote repository'),
+    });
+    const deps = makeDeps({
+      pushBranch: vi.fn().mockImplementation(() => { throw fatal; }),
+      isPushRejection: vi.fn().mockReturnValue(false),
+    });
+
+    await expect(
+      executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps),
+    ).rejects.toThrow('unable to access remote');
+  });
+});
+
+describe('isPushRejectionError', () => {
+  it('classifies a non-fast-forward execSync error (stderr Buffer) as a rejection', () => {
+    const err = Object.assign(new Error('Command failed: git push'), {
+      stderr: Buffer.from(' ! [rejected] branch -> branch (non-fast-forward)'),
+    });
+    expect(isPushRejectionError(err)).toBe(true);
+  });
+
+  it('does not classify an auth/connection failure as a rejection', () => {
+    const err = Object.assign(new Error('Command failed: git push'), {
+      stderr: Buffer.from('fatal: Could not read from remote repository'),
+    });
+    expect(isPushRejectionError(err)).toBe(false);
   });
 });
 
