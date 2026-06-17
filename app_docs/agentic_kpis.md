@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 221              | 2026-06-17 14:24:56 |
-| Longest Streak    | 221              | 2026-06-17 14:24:56 |
-| Total Plan Size   | 441 lines        | 2026-06-17 14:24:56 |
-| Largest Plan Size | 201 lines        | 2026-06-17 14:24:56 |
-| Total Diff Size   | 3863728 lines    | 2026-06-17 14:24:56 |
-| Largest Diff Size | 106391 lines     | 2026-06-17 14:24:56 |
-| Average Presence  | 1.19             | 2026-06-17 14:24:56 |
+| Current Streak    | 225              | 2026-06-17 14:40:59 |
+| Longest Streak    | 225              | 2026-06-17 14:40:59 |
+| Total Plan Size   | 4567 lines       | 2026-06-17 14:40:59 |
+| Largest Plan Size | 699 lines        | 2026-06-17 14:40:59 |
+| Total Diff Size   | 6082527 lines    | 2026-06-17 14:40:59 |
+| Largest Diff Size | 418153 lines     | 2026-06-17 14:40:59 |
+| Average Presence  | 1.22             | 2026-06-17 14:40:59 |
 
 ## ADW KPIs
 
@@ -251,3 +251,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-06-17 | hrl5jd-unit-test-rail-onto | 601 | /feature | 1 | 0 | 5943/88/79 | 2026-06-17 00:28:47 | 2026-06-17 00:28:47 |
 | 2026-06-17 | ih7bza-fix-adwupgrad | 614 | /feature | 1 | 0 | 8836/208/118 | 2026-06-17 14:11:26 | 2026-06-17 14:11:26 |
 | 2026-06-17 | ll2au2-renderer-codegen-sli | 161 | /feature | 1 | 0 | 104378/2013/549 | 2026-06-17 14:24:56 | 2026-06-17 14:24:56 |
+| 2026-06-17 | la04ed-fix-adw-label-overri | 618 | /bug | 1 | 0 | 8647/175/113 | 2026-06-17 14:40:59 | 2026-06-17 14:40:59 |
