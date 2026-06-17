@@ -8,13 +8,13 @@ Summary metrics across all ADW runs.
 
 | Metric            | Value            | Last Updated        |
 | ----------------- | ---------------- | ------------------- |
-| Current Streak    | 163              | 2026-06-18 01:10:27 |
-| Longest Streak    | 163              | 2026-06-18 01:10:27 |
-| Total Plan Size   | 449 lines        | 2026-06-18 01:10:27 |
-| Largest Plan Size | 201 lines        | 2026-06-18 01:10:27 |
-| Total Diff Size   | 6521876 lines    | 2026-06-18 01:10:27 |
-| Largest Diff Size | 418153 lines     | 2026-06-18 01:10:27 |
-| Average Presence  | 1.25             | 2026-06-18 01:10:27 |
+| Current Streak    | 253              | 2026-06-18 01:19:56 |
+| Longest Streak    | 253              | 2026-06-18 01:19:56 |
+| Total Plan Size   | 4364 lines       | 2026-06-18 01:19:56 |
+| Largest Plan Size | 699 lines        | 2026-06-18 01:19:56 |
+| Total Diff Size   | 5501465 lines    | 2026-06-18 01:19:56 |
+| Largest Diff Size | 418153 lines     | 2026-06-18 01:19:56 |
+| Average Presence  | 1.11             | 2026-06-18 01:19:56 |
 
 ## ADW KPIs
 
@@ -256,3 +256,4 @@ Detailed metrics for individual ADW workflow runs.
 | 2026-06-18 | tljlio-feat-renderer-codege | 170 | /feature | 1 | 241 | 106988/2080/559 | 2026-06-18 00:05:51 | 2026-06-18 00:05:51 |
 | 2026-06-18 | umenh5-feat-renderer-codege | 171 | /feature | 2 | 0 | 108257/2080/567 | 2026-06-18 01:08:07 | 2026-06-18 01:08:07 |
 | 2026-06-18 | mvz3fr-renderer-r2-versione | 177 | /feature | 1 | 0 | 109318/2084/571 | 2026-06-18 01:10:27 | 2026-06-18 01:10:27 |
+| 2026-06-18 | gll3t1-renderer-body-genpro | 176 | /feature | 1 | 0 | 67472/1980/343 | 2026-06-18 01:19:56 | 2026-06-18 01:19:56 |
