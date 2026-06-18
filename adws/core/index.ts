@@ -201,7 +201,7 @@ export { computeFrameworkHash, defaultDeps as hashComputerDefaultDeps, ADW_INIT_
 export type { HashComputerDeps } from './hashComputer';
 
 // Upgrade claim
-export { claimUpgradeOrFindExisting, buildDefaultUpgradeClaimDeps, buildClaimBranchName, buildClaimResult } from './upgradeClaim';
+export { claimUpgradeOrFindExisting, buildDefaultUpgradeClaimDeps, buildClaimBranchName, buildClaimResult, isPushRejectionError, extractGitErrorText } from './upgradeClaim';
 export type { UpgradeClaimDeps, UpgradeClaimResult } from './upgradeClaim';
 
 // Workflow comment parsing (platform-agnostic)

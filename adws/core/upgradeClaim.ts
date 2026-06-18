@@ -94,6 +94,30 @@ function isRejectionError(stderr: string): boolean {
   return REJECTION_PATTERNS.some((pat) => lower.includes(pat));
 }
 
+/**
+ * Extracts the human-readable git error text from an unknown thrown value.
+ * execSync rejections carry the useful text on `.stderr` (a Buffer); fall back to
+ * String(err) for anything else. Shared by the claim-push loser detection and any
+ * caller (e.g. adwUpgrade's regen-push) that must distinguish a non-fast-forward
+ * "someone else owns this branch" rejection from a genuine git failure.
+ */
+export function extractGitErrorText(err: unknown): string {
+  const buf = (err as { stderr?: Buffer | string }).stderr;
+  if (buf instanceof Buffer) return buf.toString();
+  if (typeof buf === 'string') return buf;
+  return String(err);
+}
+
+/**
+ * True when a thrown git error is a non-fast-forward / branch-already-exists
+ * rejection — i.e. the remote ref moved out from under us and a non-force push
+ * was refused. Callers treat this as "another orchestrator owns this branch"
+ * rather than a crash, and must NOT respond by force-pushing.
+ */
+export function isPushRejectionError(err: unknown): boolean {
+  return isRejectionError(extractGitErrorText(err));
+}
+
 function cleanupClaimTempWorktree(cwd: string, tmpdir: string): void {
   try {
     execSync(`git worktree remove --force "${tmpdir}"`, { stdio: 'pipe', cwd });
@@ -145,9 +169,7 @@ export function defaultPushClaimBranch(
       execSync(`git push origin "HEAD:refs/heads/${branchName}"`, { stdio: 'pipe', cwd: tmpdir });
       return true;
     } catch (pushErr) {
-      const buf = (pushErr as { stderr?: Buffer | string }).stderr;
-      const msg = buf instanceof Buffer ? buf.toString() : (typeof buf === 'string' ? buf : String(pushErr));
-      if (isRejectionError(msg)) return false;
+      if (isPushRejectionError(pushErr)) return false;
       throw pushErr;
     }
   } finally {

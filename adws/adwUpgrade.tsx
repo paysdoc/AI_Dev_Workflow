@@ -39,6 +39,7 @@ import {
   ensureTargetRepoWorkspace,
   buildClaimBranchName,
   computeFrameworkHash,
+  isPushRejectionError,
   writeAdwVersion,
   readAdwYmlConfig,
   type AdwYmlConfig,
@@ -85,6 +86,8 @@ export interface UpgradeDeps {
   readonly writeAdwVersion: (worktreePath: string, hash: string) => void;
   readonly commitChanges: (message: string, cwd: string) => boolean;
   readonly pushBranch: (branch: string, cwd: string) => void;
+  /** True when a push error is a non-fast-forward rejection (another orchestrator owns the claim branch). */
+  readonly isPushRejection: (err: unknown) => boolean;
   readonly createPullRequest: (options: CreatePROptions) => PullRequestResult;
   readonly commentOnIssue: typeof commentOnIssue;
   readonly ensureLogsDirectory: (adwId: string) => string;
@@ -289,7 +292,25 @@ export async function executeUpgrade(
   // 6. Write .adw-version, commit the regen, push
   deps.writeAdwVersion(worktreePath, hash);
   deps.commitChanges(`chore: regenerate .adw/ for framework upgrade ${hash.slice(0, 12)}`, worktreePath);
-  deps.pushBranch(branch, worktreePath);
+  try {
+    deps.pushBranch(branch, worktreePath);
+  } catch (error) {
+    // Non-fast-forward rejection: the remote claim branch advanced under us. Either a
+    // concurrent claim cycle (different nonce) re-created it, or this worktree was reused
+    // stale and built regen on a superseded claim commit. We must NOT force-push — that
+    // clobbers the rightful claim owner. Park cleanly instead of crashing: the claim owner
+    // carries the upgrade forward, and if it died the next cron re-dispatch finds no PR on
+    // the branch and rebuilds (idempotency guard above). No comment — matches the silent
+    // pr_already_exists "someone else owns this" path.
+    if (deps.isPushRejection(error)) {
+      deps.log(
+        `adwUpgrade: push to claim branch ${branch} rejected (non-fast-forward) — another orchestrator owns this claim; parking as loser`,
+        'warn',
+      );
+      return { outcome: 'completed', reason: 'claim_lost' };
+    }
+    throw error;
+  }
 
   // 7. Open PR — no workflow comment; the PR is the success signal
   const pr = deps.createPullRequest({
@@ -358,6 +379,7 @@ function buildDefaultUpgradeDeps(repoId: RepoIdentifier): UpgradeDeps {
     writeAdwVersion,
     commitChanges,
     pushBranch,
+    isPushRejection: isPushRejectionError,
     createPullRequest: (options) => codeHost.createPullRequest(options),
     commentOnIssue,
     ensureLogsDirectory,
