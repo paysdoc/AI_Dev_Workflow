@@ -24,6 +24,7 @@ function makeDeps(overrides: Partial<UpgradeDeps> = {}): UpgradeDeps {
   return {
     computeFrameworkHash: vi.fn().mockReturnValue(MOCK_HASH),
     ensureWorktree: vi.fn().mockReturnValue('/worktrees/adw-upgrade-a1b2c3d4e5f6'),
+    reconcileWorktreeToRemote: vi.fn(),
     getDefaultBranch: vi.fn().mockReturnValue('main'),
     findPRByBranch: vi.fn().mockReturnValue(null),
     runInitCommand: vi.fn().mockResolvedValue({ success: true }),
@@ -611,5 +612,79 @@ describe('executeUpgrade — hash error path', () => {
     await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
 
     expect(deps.commentOnIssue).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ── Reconcile-before-regen (stale worktree) ───────────────────────────────────
+
+describe('executeUpgrade — reconcile-before-regen (stale worktree)', () => {
+  it('calls reconcileWorktreeToRemote once with the worktreePath and claim branch', async () => {
+    const worktreePath = '/worktrees/adw-upgrade-a1b2c3d4e5f6';
+    const deps = makeDeps({
+      ensureWorktree: vi.fn().mockReturnValue(worktreePath),
+    });
+    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    const expectedBranch = buildClaimBranchName(MOCK_HASH);
+    expect(deps.reconcileWorktreeToRemote).toHaveBeenCalledTimes(1);
+    expect(deps.reconcileWorktreeToRemote).toHaveBeenCalledWith(worktreePath, expectedBranch);
+  });
+
+  it('calls reconcileWorktreeToRemote after ensureWorktree', async () => {
+    const callOrder: string[] = [];
+    const deps = makeDeps({
+      ensureWorktree: vi.fn().mockImplementation(() => {
+        callOrder.push('ensureWorktree');
+        return '/worktrees/adw-upgrade-a1b2c3d4e5f6';
+      }),
+      reconcileWorktreeToRemote: vi.fn().mockImplementation(() => { callOrder.push('reconcileWorktreeToRemote'); }),
+    });
+    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    expect(callOrder.indexOf('ensureWorktree')).toBeLessThan(callOrder.indexOf('reconcileWorktreeToRemote'));
+  });
+
+  it('calls reconcileWorktreeToRemote before copyInitCommandToWorktree and runInitCommand', async () => {
+    const callOrder: string[] = [];
+    const deps = makeDeps({
+      reconcileWorktreeToRemote: vi.fn().mockImplementation(() => { callOrder.push('reconcile'); }),
+      copyInitCommandToWorktree: vi.fn().mockImplementation(() => { callOrder.push('copy'); }),
+      runInitCommand: vi.fn().mockImplementation(async () => { callOrder.push('init'); return { success: true }; }),
+    });
+    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    expect(callOrder.indexOf('reconcile')).toBeLessThan(callOrder.indexOf('copy'));
+    expect(callOrder.indexOf('reconcile')).toBeLessThan(callOrder.indexOf('init'));
+  });
+
+  it('success path still reaches pr_merged with reconcile wired in (diverged-reuse → fast-forwardable push)', async () => {
+    const deps = makeDeps();
+    const result = await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    expect(result.outcome).toBe('completed');
+    expect(result.reason).toBe('pr_merged');
+    expect(deps.createPullRequest).toHaveBeenCalledTimes(1);
+  });
+
+  it('reconcile failure returns worktree_error, posts one non-ADW comment, skips all regen steps', async () => {
+    const deps = makeDeps({
+      reconcileWorktreeToRemote: vi.fn().mockImplementation(() => {
+        throw new Error('git fetch failed: connection timeout');
+      }),
+    });
+    const result = await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    expect(result.outcome).toBe('failed');
+    expect(result.reason).toBe('worktree_error');
+
+    expect(deps.commentOnIssue).toHaveBeenCalledTimes(1);
+    const body = (deps.commentOnIssue as ReturnType<typeof vi.fn>).mock.calls[0][1] as string;
+    expect(isAdwComment(body)).toBe(false);
+
+    expect(deps.runInitCommand).not.toHaveBeenCalled();
+    expect(deps.writeAdwVersion).not.toHaveBeenCalled();
+    expect(deps.commitChanges).not.toHaveBeenCalled();
+    expect(deps.pushBranch).not.toHaveBeenCalled();
+    expect(deps.createPullRequest).not.toHaveBeenCalled();
   });
 });

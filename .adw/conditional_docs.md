@@ -1575,3 +1575,11 @@
     - When a labeled issue is being sent to the LLM classifier instead of being deterministically routed
     - When extending `readAdwLabels` usage or adding new classification labels to `ADW_CLASSIFICATION_LABELS`
     - When understanding why the override is enforced at the chokepoint rather than the two broken call sites (`trigger_webhook.ts:188`, `webhookGatekeeper.ts:190`)
+
+- app_docs/feature-v7dih7-adwupgrade-worktree-reconcile.md
+  - Conditions:
+    - When working on `adwUpgrade.tsx` `executeUpgrade()` or `UpgradeDeps` (especially step 3 worktree setup)
+    - When an `adwUpgrade` run parks as `claim_lost` on every cron tick without a genuine concurrent-claim race
+    - When troubleshooting a stale `.worktrees/adw-upgrade-<hash>/` worktree sitting on a superseded nonce commit
+    - When `fetchAndResetToRemote` is called from the upgrade path (vs. the standard workflow in `workflowInit.ts`)
+    - When implementing or reviewing `reconcileWorktreeToRemote` wiring, ordering, or failure handling in upgrade tests
