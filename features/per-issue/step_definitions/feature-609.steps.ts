@@ -26,6 +26,7 @@ import {
   serializeConditionalDocs,
   findOwningEntry,
   upsertEntry,
+  matchesGlob,
   type ConditionalDocEntry,
   type ConditionalDocsRegistry,
 } from '../../../adws/core/conditionalDocsRegistry.ts';
@@ -152,34 +153,12 @@ function ensureGlobsCover(globs: string[], touchedFiles: string[]): string[] {
   for (const file of touchedFiles) {
     const area = file.split('/').slice(0, -1).join('/');
     const glob = `${area}/**`;
-    const alreadyCovered = globs.some(
-      (g) => fileMatchesGlob(g, file),
-    );
+    const alreadyCovered = globs.some((g) => matchesGlob(g, file));
     if (!alreadyCovered && !result.includes(glob)) {
       result.push(glob);
     }
   }
   return result;
-}
-
-function fileMatchesGlob(glob: string, filePath: string): boolean {
-  const escapedLit = (ch: string): string => /[.+^${}()|[\]\\]/.test(ch) ? `\\${ch}` : ch;
-  let pattern = '';
-  let i = 0;
-  while (i < glob.length) {
-    const ch = glob[i];
-    if (ch === '*' && i + 1 < glob.length && glob[i + 1] === '*') {
-      pattern += '.*'; i += 2;
-      if (i < glob.length && glob[i] === '/') i++;
-    } else if (ch === '*') {
-      pattern += '[^/]*'; i++;
-    } else if (ch === '?') {
-      pattern += '[^/]'; i++;
-    } else {
-      pattern += escapedLit(ch); i++;
-    }
-  }
-  return new RegExp(`^${pattern}$`).test(filePath);
 }
 
 // ---------------------------------------------------------------------------

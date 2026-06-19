@@ -53,13 +53,22 @@ function globToRegExp(glob: string): RegExp {
   return new RegExp(`^${pattern}$`);
 }
 
-function matchesGlob(glob: string, filePath: string): boolean {
+export function matchesGlob(glob: string, filePath: string): boolean {
   return globToRegExp(glob).test(filePath);
 }
 
 // ---------------------------------------------------------------------------
 // Parser
 // ---------------------------------------------------------------------------
+
+function applyListItem(
+  entry: ConditionalDocEntry,
+  list: 'owns' | 'conditions' | null,
+  text: string,
+): void {
+  if (list === 'owns') entry.ownedGlobs.push(text);
+  else if (list === 'conditions') entry.conditions.push(text);
+}
 
 export function parseConditionalDocs(content: string): ConditionalDocsRegistry {
   if (!content.trim()) return { preamble: '', entries: [] };
@@ -97,12 +106,7 @@ export function parseConditionalDocs(content: string): ConditionalDocsRegistry {
       activeList = 'conditions';
     } else if (/^ {4}- /.test(line)) {
       if (!currentEntry) continue;
-      const text = line.slice(6);
-      if (activeList === 'owns') {
-        currentEntry.ownedGlobs.push(text);
-      } else if (activeList === 'conditions') {
-        currentEntry.conditions.push(text);
-      }
+      applyListItem(currentEntry, activeList, line.slice(6));
     }
     // blank lines and unrecognized lines are ignored
   }
@@ -145,15 +149,11 @@ export function findOwningEntry(
   registry: ConditionalDocsRegistry,
   changedFilePaths: string[],
 ): ConditionalDocEntry | undefined {
-  for (const entry of registry.entries) {
-    if (entry.ownedGlobs.length === 0) continue;
-    for (const glob of entry.ownedGlobs) {
-      for (const filePath of changedFilePaths) {
-        if (matchesGlob(glob, filePath)) return entry;
-      }
-    }
-  }
-  return undefined;
+  return registry.entries.find(
+    (entry) =>
+      entry.ownedGlobs.length > 0 &&
+      entry.ownedGlobs.some((glob) => changedFilePaths.some((p) => matchesGlob(glob, p))),
+  );
 }
 
 // ---------------------------------------------------------------------------
