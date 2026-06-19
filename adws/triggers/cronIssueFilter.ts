@@ -8,7 +8,8 @@
  * the action to take ('spawn' a new workflow or 'merge' an awaiting_merge PR).
  */
 
-import { isActiveStage, isRetriableStage, resolveIssueWorkflowStage } from './cronStageResolver';
+import { resolveIssueWorkflowStage } from './cronStageResolver';
+import { classifyStageString } from '../core/stageClassifier';
 import type { StageResolution } from './cronStageResolver';
 import type { LabelRecoveryResult } from './cronLabelEligibility';
 
@@ -142,10 +143,10 @@ export function evaluateIssue(
   if (stage === 'paused') {
     return { eligible: false, reason: 'paused' };
   }
-  if (isActiveStage(stage)) {
+  if (classifyStageString(stage) === 'active') {
     return { eligible: false, reason: 'active' };
   }
-  if (isRetriableStage(stage)) {
+  if (classifyStageString(stage) === 'retriable') {
     return { eligible: true, action: 'spawn', adwId: resolution.adwId ?? undefined };
   }
   // Unknown stage — exclude

@@ -29,6 +29,7 @@ import { deriveStageFromRemote } from '../core/remoteReconcile';
 import { resetWorktreeToRemote } from '../vcs/worktreeReset';
 import { getWorktreePath } from '../vcs/worktreeOperations';
 import { extractLatestAdwId } from './cronStageResolver';
+import { classifyStageString } from '../core/stageClassifier';
 import type { RepoInfo } from '../github/githubApi';
 import type { AgentState } from '../types/agentTypes';
 import type { WorkflowStage } from '../types/workflowTypes';
@@ -93,14 +94,6 @@ export function buildDefaultTakeoverDeps(): TakeoverDeps {
   };
 }
 
-function isRunningStage(stage: string): boolean {
-  return (
-    stage.endsWith('_running') ||
-    stage === 'starting' ||
-    stage === 'resuming'
-  );
-}
-
 let _defaultDeps: TakeoverDeps | null = null;
 
 export function evaluateCandidate(
@@ -135,27 +128,20 @@ export function evaluateCandidate(
   }
 
   const stage = state.workflowStage ?? '';
+  const cls = classifyStageString(stage);
 
-  // Branch 3: terminal stages — completed / discarded.
-  if (stage === 'completed' || stage === 'discarded') {
+  // Branch 3 & 4: terminal — completed / discarded / paused / paused_auth.
+  if (cls === 'terminal') {
     releaseLock();
-    return { kind: 'skip_terminal', adwId, terminalStage: stage as 'completed' | 'discarded' };
+    return {
+      kind: 'skip_terminal',
+      adwId,
+      terminalStage: stage as 'completed' | 'discarded' | 'paused' | 'paused_auth',
+    };
   }
 
-  // Branch 4: paused — scanPauseQueue is the sole resumer; no-op here.
-  if (stage === 'paused') {
-    releaseLock();
-    return { kind: 'skip_terminal', adwId, terminalStage: 'paused' };
-  }
-
-  // Branch 4b: paused_auth — scanAuthQueue is the sole resumer; no-op here.
-  if (stage === 'paused_auth') {
-    releaseLock();
-    return { kind: 'skip_terminal', adwId, terminalStage: 'paused_auth' };
-  }
-
-  // Branch 5: abandoned — worktreeReset → remoteReconcile → takeover.
-  if (stage === 'abandoned') {
+  // Branch 5: retriable (abandoned) — worktreeReset → remoteReconcile → takeover.
+  if (cls === 'retriable') {
     if (state.branchName) {
       const wtPath = d.getWorktreePath(state.branchName);
       d.resetWorktree(wtPath, state.branchName);
@@ -164,8 +150,8 @@ export function evaluateCandidate(
     return { kind: 'take_over_adwId', adwId, derivedStage };
   }
 
-  // Branch 6 & 7: *_running / starting / resuming.
-  if (isRunningStage(stage)) {
+  // Branch 6 & 7: active (*_running / starting / resuming).
+  if (cls === 'active') {
     const pid = state.pid;
     const pidStartedAt = state.pidStartedAt ?? '';
 
@@ -186,6 +172,6 @@ export function evaluateCandidate(
     return { kind: 'take_over_adwId', adwId, derivedStage };
   }
 
-  // Branch 8: defensive fallthrough for unknown stages.
+  // Branch 8: defensive fallthrough — awaiting_merge / human_gated / resumable.
   return { kind: 'spawn_fresh' };
 }
