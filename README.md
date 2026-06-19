@@ -498,7 +498,6 @@ adws/                   # ADW workflow system
 │   │   ├── claudeStreamParser.test.ts
 │   │   ├── conditionalDocsRegistry.test.ts
 │   │   ├── devServerLifecycle.test.ts
-│   │   ├── docsGuards.test.ts
 │   │   ├── environment.test.ts
 │   │   ├── execWithRetry.test.ts
 │   │   ├── hashComputer.test.ts
@@ -512,7 +511,6 @@ adws/                   # ADW workflow system
 │   │   ├── resolveFreezeGuard.test.ts
 │   │   ├── resolveVerdict.test.ts
 │   │   ├── slackNotifier.test.ts
-│   │   ├── stageClassifier.test.ts
 │   │   ├── stateHelpers.test.ts
 │   │   ├── stackCoherenceCheck.test.ts
 │   │   ├── stepDefDetection.test.ts
@@ -533,7 +531,6 @@ adws/                   # ADW workflow system
 │   ├── config.ts
 │   ├── constants.ts    # Orchestrator ID constants
 │   ├── devServerLifecycle.ts  # Dev server spawn, health probe, and cleanup helpers
-│   ├── docsGuards.ts   # Post-write doc guards: bloat check (line-count threshold) and regrowth check (overlapping owned globs)
 │   ├── environment.ts  # Environment variable accessors
 │   ├── hashComputer.ts # SHA256 hash of declared hashInputs files — "current framework version" primitive
 │   ├── heartbeat.ts    # Liveness ticker writing lastSeenAt to state on a fixed interval
@@ -557,7 +554,6 @@ adws/                   # ADW workflow system
 │   ├── resolveVerdict.ts      # Pure verdict: computes pass/retry/hard-fail for scenario fix loops
 │   ├── retryOrchestrator.ts
 │   ├── slackNotifier.ts  # Slack Incoming Webhook client for error/problem alerting
-│   ├── stageClassifier.ts  # Exhaustive StageClass taxonomy (active/retriable/resumable/terminal/human_gated/awaiting_merge) over WorkflowStage union; classifyStage + classifyStageString adapter for dynamic phaseRunner strings
 │   ├── stateHelpers.ts
 │   ├── stackCoherenceCheck.ts  # Pure stack-coherence check — language coherence + Gherkin mandate (stackCoherenceCheck, StackCoherenceInput/Result/Warning)
 │   ├── stepDefDetection.ts  # Step definition file-extension detection by BDD framework (stepDefExtensionsFor, hasStepDefinitions, isGherkinFramework)
@@ -652,7 +648,6 @@ adws/                   # ADW workflow system
 │   ├── autoMergePhase.ts  # Auto-approve and merge PR after review passes
 │   ├── branchNameResolution.ts  # Branch name resolution for worktree takeover paths
 │   ├── diffEvaluationPhase.ts  # LLM diff evaluation phase (safe vs regression_possible)
-│   ├── docsSelfCheck.ts  # Post-write self-check runner: executes docsGuards bloat+regrowth checks after documentPhase writes
 │   ├── gherkinFreeze.ts  # Snapshots, detects changes to, and restores .feature files around the fix loop
 │   ├── buildPhase.ts
 │   ├── documentPhase.ts
