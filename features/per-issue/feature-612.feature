@@ -187,10 +187,15 @@ Feature: app_docs living-docs one-off migration — clusters the snapshot-era pe
     are asserted. The "area under {string}" argument is a path-area prefix; the seeded
     snapshots for that area carry per-run history markers so §1's
     no-per-run-history assertion has something to be absent. The per-run/snapshot
-    discriminator is the `feature-` doc-path prefix: migrated module docs are
-    module-named (not `feature-<adwId>`), so §3 can assert "no entry points to a
-    `feature-*` doc" and "no `feature-*` doc remains" as membership over produced
-    artefacts. §4 re-parses the produced index through `parseConditionalDocs` and
+    discriminator is the SEEDED snapshot set, NOT a bare `feature-` prefix: the
+    migration's own module docs follow the repo's module-doc convention
+    `feature-<migrationAdwId>-<module-slug>.md` (this run's short adwId `9gjajh`; the
+    preserved exemplar `feature-o4qdu5-...registry.md`), so a bare `feature-` prefix
+    does NOT distinguish a leftover per-run snapshot from a produced module doc. §3
+    instead keys off the per-run snapshots SEEDED into the fixture (their
+    pre-migration adwIds / their per-run history markers), asserting "no entry points
+    to a seeded per-run snapshot doc" and "no seeded per-run snapshot doc remains" as
+    membership over produced artefacts. §4 re-parses the produced index through `parseConditionalDocs` and
     asserts the entry set survives a parse → serialize → parse round-trip unchanged;
     §5 computes pairwise glob overlap over the produced entries and asserts zero.
 
