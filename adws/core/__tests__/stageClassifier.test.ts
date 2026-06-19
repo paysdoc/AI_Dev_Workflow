@@ -34,6 +34,7 @@ const EXPECTED: Record<WorkflowStage, StageClass> = {
 
   // human_gated
   merge_blocked:      'human_gated',
+  human_gated:        'human_gated',
 
   // resumable
   classified:              'resumable',

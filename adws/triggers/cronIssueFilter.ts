@@ -113,6 +113,12 @@ export function evaluateIssue(
     return { eligible: false, reason: 'merge_blocked' };
   }
 
+  // human_gated bypasses grace period — escalated resume awaiting an explicit
+  // human `## Retry`. Never auto-spawned; recovery re-arms it to phase_timeout.
+  if (resolution.stage === 'human_gated') {
+    return { eligible: false, reason: 'human_gated' };
+  }
+
   if (processed.spawns.has(issue.number)) {
     return { eligible: false, reason: 'processed' };
   }

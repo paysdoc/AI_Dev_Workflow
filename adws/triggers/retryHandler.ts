@@ -1,9 +1,15 @@
 /**
- * Handles the `## Retry` directive for merge_blocked issues.
+ * Handles the `## Retry` directive for human-gated issues.
  *
  * Mirrors cancelHandler.ts but is state-only: no process kill, no worktree
- * removal, no comment clearing. Simply resets merge_blocked → awaiting_merge
- * and clears the PR-resolution retry counter so the cron re-dispatches adwMerge.
+ * removal, no comment clearing.
+ *
+ * Two recovery paths:
+ *   merge_blocked → awaiting_merge  (clears mergeRetryCount)
+ *   human_gated  → phase_timeout   (re-arms resumeAttempts to 0)
+ *
+ * No-op for any other stage, so `## Retry` cannot disturb an active, completed,
+ * or otherwise non-human-gated workflow.
  */
 
 import { log } from '../core/logger';
@@ -24,11 +30,12 @@ function defaultDeps(): RetryHandlerDeps {
 }
 
 /**
- * Handles a `## Retry` directive: if the issue's latest workflow is in
- * `merge_blocked`, reset it to `awaiting_merge` and clear the PR-resolution
- * retry counter so the cron re-dispatches adwMerge on the next tick. No-op for
- * any other stage (so `## Retry` cannot disturb an active or completed workflow).
- * Returns true only when a reset was performed.
+ * Handles a `## Retry` directive for human-gated issues.
+ *
+ * merge_blocked → reset to awaiting_merge, clear mergeRetryCount.
+ * human_gated  → reset to phase_timeout, clear resumeAttempts (re-arm).
+ *
+ * No-op for any other stage. Returns true only when a reset was performed.
  */
 export function handleRetryDirective(
   issueNumber: number,
@@ -41,11 +48,20 @@ export function handleRetryDirective(
     return false;
   }
   const state = deps.readTopLevelState(adwId);
-  if (!state || state.workflowStage !== 'merge_blocked') {
-    log(`Retry #${issueNumber}: adwId=${adwId} not in merge_blocked (stage=${state?.workflowStage ?? 'none'}), ignoring`);
-    return false;
+  const stage = state?.workflowStage;
+
+  if (stage === 'merge_blocked') {
+    deps.writeTopLevelState(adwId, { workflowStage: 'awaiting_merge', mergeRetryCount: 0 });
+    log(`Retry #${issueNumber}: reset adwId=${adwId} merge_blocked → awaiting_merge, cleared retry counter`, 'success');
+    return true;
   }
-  deps.writeTopLevelState(adwId, { workflowStage: 'awaiting_merge', mergeRetryCount: 0 });
-  log(`Retry #${issueNumber}: reset adwId=${adwId} merge_blocked → awaiting_merge, cleared retry counter`, 'success');
-  return true;
+
+  if (stage === 'human_gated') {
+    deps.writeTopLevelState(adwId, { workflowStage: 'phase_timeout', resumeAttempts: 0 });
+    log(`Retry #${issueNumber}: re-armed adwId=${adwId} human_gated → phase_timeout, cleared resume counter`, 'success');
+    return true;
+  }
+
+  log(`Retry #${issueNumber}: adwId=${adwId} not human-gated (stage=${stage ?? 'none'}), ignoring`);
+  return false;
 }

@@ -298,6 +298,11 @@ async function checkAndTrigger(): Promise<void> {
       continue;
     }
 
+    if (takeoverDecision.kind === 'escalate_human_gated') {
+      log(`Issue #${issue.number}: resume cap reached, escalated adwId=${takeoverDecision.adwId} → human_gated (awaiting ## Retry)`, 'warn');
+      continue;
+    }
+
     // Only add to processedSpawns when actually spawning the SDLC workflow.
     // The merge path uses shouldDispatchMerge (spawn lock on disk) so an issue
     // spawned by this process can still be picked up by the merge path once it
