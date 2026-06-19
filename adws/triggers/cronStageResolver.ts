@@ -12,6 +12,7 @@
 
 import { extractAdwIdFromComment } from '../core/workflowCommentParsing';
 import { AgentStateManager } from '../core/agentState';
+import { classifyStageString } from '../core/stageClassifier';
 import type { AgentState } from '../types/agentTypes';
 
 /** Resolved workflow stage for a single issue. */
@@ -60,27 +61,23 @@ export function getLastActivityFromState(state: AgentState): number | null {
 }
 
 /**
- * Returns true if the given workflowStage means the issue is actively in-progress.
- * Active stages: 'starting', any '*_running', any intermediate '*_completed'
- * (but NOT the terminal 'completed' stage).
+ * Compatibility predicate for devServerJanitor + webhookHandlers.
+ *
+ * Preserves the historical "in progress" set {starting, *_running, *_completed}
+ * (but NOT 'resuming', NOT the terminal 'completed'). Backed by classifyStageString
+ * so the endsWith family matching lives in one place.
+ *
+ * The set differs from the takeover 'active' class intentionally:
+ *   - 'resuming' is active to takeover but excluded here (historical janitor/webhook semantics)
+ *   - '*_completed' is resumable to takeover but included here (phaseRunner writes
+ *     ${phase}_completed between phases; dropping it would let shouldCleanWorktree
+ *     kill a live orchestrator)
  */
 export function isActiveStage(stage: string): boolean {
-  if (stage === 'starting') return true;
-  if (stage === 'completed') return false;
-  return stage.endsWith('_running') || stage.endsWith('_completed');
-}
-
-/**
- * Returns true if the given workflowStage means the issue is re-eligible for processing.
- * Only 'abandoned' is retriable — transient crash/exit that should be retried.
- * 'discarded' is NOT retriable: it signals a deliberate terminal decision (e.g. PR closed).
- * Adding 'discarded' here would re-introduce the loop-forever behaviour the discarded
- * stage exists to prevent.
- * `merge_blocked` is likewise NOT retriable — it is recoverable only via an explicit human
- * `## Retry`, which resets it to `awaiting_merge`.
- */
-export function isRetriableStage(stage: string): boolean {
-  return stage === 'abandoned';
+  const cls = classifyStageString(stage);
+  if (cls === 'active') return stage !== 'resuming';
+  if (cls === 'resumable') return stage.endsWith('_completed');
+  return false;
 }
 
 /**
