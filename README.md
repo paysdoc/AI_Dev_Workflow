@@ -495,8 +495,8 @@ adws/                   # ADW workflow system
 │   │   ├── adwVersion.test.ts
 │   │   ├── adwYmlConfig.test.ts
 │   │   ├── authGate.test.ts
-│   │   ├── conditionalDocsRegistry.test.ts
 │   │   ├── claudeStreamParser.test.ts
+│   │   ├── conditionalDocsRegistry.test.ts
 │   │   ├── devServerLifecycle.test.ts
 │   │   ├── environment.test.ts
 │   │   ├── execWithRetry.test.ts
@@ -527,7 +527,7 @@ adws/                   # ADW workflow system
 │   ├── agentState.ts
 │   ├── authGate.ts     # Host-wide auth gate: detects auth failures, writes paused_auth state, triggers Slack alerts
 │   ├── claudeStreamParser.ts  # Claude JSONL stream parsing
-│   ├── conditionalDocsRegistry.ts  # Parse and serialize the app_docs/ conditional docs index (ConditionalDocEntry, ConditionalDocsRegistry)
+│   ├── conditionalDocsRegistry.ts  # Parse/serialize/query .adw/conditional_docs.md; ConditionalDocEntry and ConditionalDocsRegistry types; glob-based ownership routing (findOwningEntry)
 │   ├── config.ts
 │   ├── constants.ts    # Orchestrator ID constants
 │   ├── devServerLifecycle.ts  # Dev server spawn, health probe, and cleanup helpers
