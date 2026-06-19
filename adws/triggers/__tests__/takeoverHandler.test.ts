@@ -4,9 +4,27 @@ import { evaluateCandidate } from '../takeoverHandler';
 import type { TakeoverDeps, CandidateDecision } from '../takeoverHandler';
 import type { RepoInfo } from '../../github/githubApi';
 import type { AgentState } from '../../types/agentTypes';
+import type { WorktreeProbe } from '../../vcs/worktreeReuseGate';
 
 const REPO: RepoInfo = { owner: 'acme', repo: 'widgets' };
 const ADW_ID = 'test-adwid-123';
+
+function healthyProbe(overrides: Partial<WorktreeProbe> = {}): WorktreeProbe {
+  return {
+    registration: 'healthy',
+    indexLock: 'absent',
+    interruptedOp: 'none',
+    headOnExpectedBranch: true,
+    liveOwner: false,
+    ...overrides,
+  };
+}
+
+function unhealthyProbe(reason: 'interrupted_rebase' | 'live_owner' | 'wrong_head' = 'interrupted_rebase'): WorktreeProbe {
+  if (reason === 'live_owner') return healthyProbe({ liveOwner: true });
+  if (reason === 'wrong_head') return healthyProbe({ headOnExpectedBranch: false });
+  return healthyProbe({ interruptedOp: 'rebase' });
+}
 
 function makeState(overrides: Partial<AgentState> = {}): AgentState {
   return {
@@ -33,6 +51,9 @@ function makeDeps(overrides: Partial<TakeoverDeps> = {}): TakeoverDeps {
     getWorktreePath: vi.fn().mockReturnValue('/worktrees/feature-branch'),
     writeTopLevelState: vi.fn(),
     commentOnIssue: vi.fn(),
+    // Default probe is healthy so active-path and other existing tests are unaffected.
+    probeWorktree: vi.fn().mockReturnValue(healthyProbe()),
+    clearOrphanedIndexLock: vi.fn(),
     ...overrides,
   };
 }
@@ -175,13 +196,16 @@ describe('paused_auth no-op', () => {
   });
 });
 
-// ─── Branch 5: abandoned → take_over_adwId ────────────────────────────────────
+// ─── Branch 5: abandoned → take_over_adwId (via reuse gate) ──────────────────
 
 describe('take_over_adwId from abandoned', () => {
-  it('returns take_over_adwId carrying the adwId and derived stage', () => {
+  // ─ healthy probe → reuse in place ─
+
+  it('healthy probe → returns take_over_adwId carrying the adwId and derived stage', () => {
     const deps = makeDeps({
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'abandoned', branchName: 'feature-issue-104-x' })),
       deriveStageFromRemote: vi.fn().mockReturnValue('awaiting_merge'),
+      probeWorktree: vi.fn().mockReturnValue(healthyProbe()),
     });
     const decision = evaluateCandidate({ issueNumber: 104, repoInfo: REPO }, deps) as Extract<CandidateDecision, { kind: 'take_over_adwId' }>;
 
@@ -190,10 +214,57 @@ describe('take_over_adwId from abandoned', () => {
     expect(decision.derivedStage).toBe('awaiting_merge');
   });
 
-  it('calls resetWorktree before deriveStageFromRemote (order enforced)', () => {
+  it('healthy probe → resetWorktree NOT called (uncommitted work preserved)', () => {
+    const deps = makeDeps({
+      readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'abandoned', branchName: 'feature-issue-104-x' })),
+      probeWorktree: vi.fn().mockReturnValue(healthyProbe()),
+    });
+    evaluateCandidate({ issueNumber: 104, repoInfo: REPO }, deps);
+
+    expect(deps.resetWorktree).not.toHaveBeenCalled();
+    expect(deps.deriveStageFromRemote).toHaveBeenCalledOnce();
+  });
+
+  it('healthy probe → probeWorktree called with worktree path and branchName', () => {
+    const deps = makeDeps({
+      readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'abandoned', branchName: 'feature-issue-104-x' })),
+      getWorktreePath: vi.fn().mockReturnValue('/wt/feature-issue-104-x'),
+      probeWorktree: vi.fn().mockReturnValue(healthyProbe()),
+    });
+    evaluateCandidate({ issueNumber: 104, repoInfo: REPO }, deps);
+
+    expect(deps.probeWorktree).toHaveBeenCalledWith('/wt/feature-issue-104-x', 'feature-issue-104-x', undefined, undefined);
+  });
+
+  it('healthy probe with orphaned lock → clearOrphanedIndexLock called; resetWorktree NOT called', () => {
+    const deps = makeDeps({
+      readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'abandoned', branchName: 'feature-branch' })),
+      getWorktreePath: vi.fn().mockReturnValue('/wt/feature-branch'),
+      probeWorktree: vi.fn().mockReturnValue(healthyProbe({ indexLock: 'orphaned' })),
+    });
+    evaluateCandidate({ issueNumber: 104, repoInfo: REPO }, deps);
+
+    expect(deps.clearOrphanedIndexLock).toHaveBeenCalledWith('/wt/feature-branch');
+    expect(deps.resetWorktree).not.toHaveBeenCalled();
+  });
+
+  it('healthy probe with absent lock → clearOrphanedIndexLock NOT called', () => {
+    const deps = makeDeps({
+      readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'abandoned', branchName: 'feature-branch' })),
+      probeWorktree: vi.fn().mockReturnValue(healthyProbe({ indexLock: 'absent' })),
+    });
+    evaluateCandidate({ issueNumber: 104, repoInfo: REPO }, deps);
+
+    expect(deps.clearOrphanedIndexLock).not.toHaveBeenCalled();
+  });
+
+  // ─ unhealthy probe → reset from remote ─
+
+  it('unhealthy probe → resetWorktree called before deriveStageFromRemote', () => {
     const callOrder: string[] = [];
     const deps = makeDeps({
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'abandoned', branchName: 'feature-issue-104-x' })),
+      probeWorktree: vi.fn().mockReturnValue(unhealthyProbe('interrupted_rebase')),
       resetWorktree: vi.fn().mockImplementation(() => callOrder.push('reset')),
       deriveStageFromRemote: vi.fn().mockImplementation(() => { callOrder.push('reconcile'); return 'awaiting_merge'; }),
     });
@@ -202,37 +273,41 @@ describe('take_over_adwId from abandoned', () => {
     expect(callOrder).toEqual(['reset', 'reconcile']);
   });
 
-  it('passes the branchName from state to resetWorktree', () => {
+  it('unhealthy probe → passes the branchName to resetWorktree', () => {
     const deps = makeDeps({
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'abandoned', branchName: 'feature-issue-104-whatever' })),
       getWorktreePath: vi.fn().mockReturnValue('/wt/feature-issue-104-whatever'),
+      probeWorktree: vi.fn().mockReturnValue(unhealthyProbe()),
     });
     evaluateCandidate({ issueNumber: 104, repoInfo: REPO }, deps);
 
     expect(deps.resetWorktree).toHaveBeenCalledWith('/wt/feature-issue-104-whatever', 'feature-issue-104-whatever');
   });
 
-  it('acquireIssueSpawnLock is called before resetWorktree', () => {
-    const callOrder: string[] = [];
-    const deps = makeDeps({
-      acquireIssueSpawnLock: vi.fn().mockImplementation(() => { callOrder.push('acquire'); return true; }),
-      readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'abandoned', branchName: 'feature-branch' })),
-      resetWorktree: vi.fn().mockImplementation(() => callOrder.push('reset')),
-    });
-    evaluateCandidate({ issueNumber: 104, repoInfo: REPO }, deps);
+  // ─ no branchName → skip probe and reset ─
 
-    expect(callOrder.indexOf('acquire')).toBeLessThan(callOrder.indexOf('reset'));
-  });
-
-  it('skips resetWorktree when state has no branchName but still calls remoteReconcile', () => {
+  it('no branchName → neither probeWorktree nor resetWorktree called; deriveStageFromRemote still called', () => {
     const deps = makeDeps({
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'abandoned', branchName: undefined })),
       deriveStageFromRemote: vi.fn().mockReturnValue('abandoned'),
     });
     evaluateCandidate({ issueNumber: 104, repoInfo: REPO }, deps);
 
+    expect(deps.probeWorktree).not.toHaveBeenCalled();
     expect(deps.resetWorktree).not.toHaveBeenCalled();
     expect(deps.deriveStageFromRemote).toHaveBeenCalledOnce();
+  });
+
+  it('acquireIssueSpawnLock is called before probeWorktree', () => {
+    const callOrder: string[] = [];
+    const deps = makeDeps({
+      acquireIssueSpawnLock: vi.fn().mockImplementation(() => { callOrder.push('acquire'); return true; }),
+      readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'abandoned', branchName: 'feature-branch' })),
+      probeWorktree: vi.fn().mockImplementation(() => { callOrder.push('probe'); return healthyProbe(); }),
+    });
+    evaluateCandidate({ issueNumber: 104, repoInfo: REPO }, deps);
+
+    expect(callOrder.indexOf('acquire')).toBeLessThan(callOrder.indexOf('probe'));
   });
 
   it('lock is NOT released on take_over_adwId (caller keeps it for spawn)', () => {
@@ -242,6 +317,14 @@ describe('take_over_adwId from abandoned', () => {
     evaluateCandidate({ issueNumber: 104, repoInfo: REPO }, deps);
 
     expect(deps.releaseIssueSpawnLock).not.toHaveBeenCalled();
+  });
+
+  it('no killProcess on abandoned branch', () => {
+    const deps = makeDeps({
+      readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'abandoned', branchName: 'feature-branch' })),
+    });
+    evaluateCandidate({ issueNumber: 104, repoInfo: REPO }, deps);
+    expect(deps.killProcess).not.toHaveBeenCalled();
   });
 });
 
@@ -294,6 +377,18 @@ describe('take_over_adwId from *_running with dead PID', () => {
     const decision = evaluateCandidate({ issueNumber: 105, repoInfo: REPO }, deps);
     expect(decision.kind).toBe('take_over_adwId');
     expect(deps.killProcess).not.toHaveBeenCalled();
+  });
+
+  it('active running path always resets (reuse gate is not applied)', () => {
+    // Even with a healthy probe, active running path resets unconditionally.
+    const deps = makeDeps({
+      readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'build_running', branchName: 'b', pid: 1, pidStartedAt: 'old' })),
+      isProcessLive: vi.fn().mockReturnValue(false),
+      probeWorktree: vi.fn().mockReturnValue(healthyProbe()),
+    });
+    evaluateCandidate({ issueNumber: 105, repoInfo: REPO }, deps);
+    expect(deps.resetWorktree).toHaveBeenCalledOnce();
+    expect(deps.probeWorktree).not.toHaveBeenCalled();
   });
 });
 
@@ -385,13 +480,16 @@ describe('lock handoff semantics', () => {
   });
 });
 
-// ─── phase_timeout → take_over_adwId (below cap) ─────────────────────────────
+// ─── phase_timeout → take_over_adwId (below cap, via reuse gate) ─────────────
 
 describe('take_over_adwId from phase_timeout', () => {
-  it('returns take_over_adwId and increments resumeAttempts from undefined (first resume)', () => {
+  // ─ healthy probe → reuse in place (within cap) ─
+
+  it('healthy probe → returns take_over_adwId and increments resumeAttempts (first resume)', () => {
     const deps = makeDeps({
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'phase_timeout', branchName: 'feature-issue-637-x' })),
       deriveStageFromRemote: vi.fn().mockReturnValue('awaiting_merge'),
+      probeWorktree: vi.fn().mockReturnValue(healthyProbe()),
     });
     const decision = evaluateCandidate({ issueNumber: 637, repoInfo: REPO }, deps) as Extract<CandidateDecision, { kind: 'take_over_adwId' }>;
 
@@ -412,10 +510,47 @@ describe('take_over_adwId from phase_timeout', () => {
     expect(deps.writeTopLevelState).toHaveBeenCalledWith(ADW_ID, { resumeAttempts: 3 });
   });
 
-  it('calls resetWorktree before deriveStageFromRemote (order enforced)', () => {
+  it('healthy probe → resetWorktree NOT called (uncommitted work preserved)', () => {
+    const deps = makeDeps({
+      readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'phase_timeout', branchName: 'feature-issue-637-x' })),
+      probeWorktree: vi.fn().mockReturnValue(healthyProbe()),
+    });
+    evaluateCandidate({ issueNumber: 637, repoInfo: REPO }, deps);
+
+    expect(deps.resetWorktree).not.toHaveBeenCalled();
+    expect(deps.deriveStageFromRemote).toHaveBeenCalledOnce();
+  });
+
+  it('healthy probe → probeWorktree called with worktree path and branchName', () => {
+    const deps = makeDeps({
+      readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'phase_timeout', branchName: 'feature-issue-637-x', pid: 77777, pidStartedAt: 'dead-era' })),
+      getWorktreePath: vi.fn().mockReturnValue('/wt/feature-issue-637-x'),
+      probeWorktree: vi.fn().mockReturnValue(healthyProbe()),
+    });
+    evaluateCandidate({ issueNumber: 637, repoInfo: REPO }, deps);
+
+    expect(deps.probeWorktree).toHaveBeenCalledWith('/wt/feature-issue-637-x', 'feature-issue-637-x', 77777, 'dead-era');
+  });
+
+  it('healthy probe with orphaned lock → clearOrphanedIndexLock called; resetWorktree NOT called', () => {
+    const deps = makeDeps({
+      readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'phase_timeout', branchName: 'feature-branch' })),
+      getWorktreePath: vi.fn().mockReturnValue('/wt/feature-branch'),
+      probeWorktree: vi.fn().mockReturnValue(healthyProbe({ indexLock: 'orphaned' })),
+    });
+    evaluateCandidate({ issueNumber: 637, repoInfo: REPO }, deps);
+
+    expect(deps.clearOrphanedIndexLock).toHaveBeenCalledWith('/wt/feature-branch');
+    expect(deps.resetWorktree).not.toHaveBeenCalled();
+  });
+
+  // ─ unhealthy probe → reset from remote ─
+
+  it('unhealthy probe → resetWorktree called before deriveStageFromRemote', () => {
     const callOrder: string[] = [];
     const deps = makeDeps({
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'phase_timeout', branchName: 'feature-issue-637-x' })),
+      probeWorktree: vi.fn().mockReturnValue(unhealthyProbe('interrupted_rebase')),
       resetWorktree: vi.fn().mockImplementation(() => callOrder.push('reset')),
       deriveStageFromRemote: vi.fn().mockImplementation(() => { callOrder.push('reconcile'); return 'abandoned'; }),
     });
@@ -424,23 +559,27 @@ describe('take_over_adwId from phase_timeout', () => {
     expect(callOrder).toEqual(['reset', 'reconcile']);
   });
 
-  it('passes the branchName from state to resetWorktree', () => {
+  it('unhealthy probe → passes the branchName from state to resetWorktree', () => {
     const deps = makeDeps({
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'phase_timeout', branchName: 'feature-issue-637-whatever' })),
       getWorktreePath: vi.fn().mockReturnValue('/wt/feature-issue-637-whatever'),
+      probeWorktree: vi.fn().mockReturnValue(unhealthyProbe()),
     });
     evaluateCandidate({ issueNumber: 637, repoInfo: REPO }, deps);
 
     expect(deps.resetWorktree).toHaveBeenCalledWith('/wt/feature-issue-637-whatever', 'feature-issue-637-whatever');
   });
 
-  it('skips resetWorktree when state has no branchName but still calls deriveStageFromRemote', () => {
+  // ─ no branchName → skip probe and reset ─
+
+  it('no branchName → neither probeWorktree nor resetWorktree called; deriveStageFromRemote still called', () => {
     const deps = makeDeps({
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'phase_timeout', branchName: undefined })),
       deriveStageFromRemote: vi.fn().mockReturnValue('abandoned'),
     });
     evaluateCandidate({ issueNumber: 637, repoInfo: REPO }, deps);
 
+    expect(deps.probeWorktree).not.toHaveBeenCalled();
     expect(deps.resetWorktree).not.toHaveBeenCalled();
     expect(deps.deriveStageFromRemote).toHaveBeenCalledOnce();
   });
@@ -463,6 +602,23 @@ describe('take_over_adwId from phase_timeout', () => {
         pidStartedAt: 'live-era',
       })),
       isProcessLive: vi.fn().mockReturnValue(true),
+      // liveOwner=false in the probe (dead pid verified at probe time), so gate passes
+      probeWorktree: vi.fn().mockReturnValue(healthyProbe()),
+    });
+    evaluateCandidate({ issueNumber: 637, repoInfo: REPO }, deps);
+
+    expect(deps.killProcess).not.toHaveBeenCalled();
+  });
+
+  it('liveOwner=true in probe → reset (confirmed-dead safety net); no killProcess', () => {
+    const deps = makeDeps({
+      readTopLevelState: vi.fn().mockReturnValue(makeState({
+        workflowStage: 'phase_timeout',
+        branchName: 'feature-branch',
+        pid: 77777,
+        pidStartedAt: 'live-era',
+      })),
+      probeWorktree: vi.fn().mockReturnValue(unhealthyProbe('live_owner')),
     });
     evaluateCandidate({ issueNumber: 637, repoInfo: REPO }, deps);
 

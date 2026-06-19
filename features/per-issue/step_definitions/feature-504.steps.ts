@@ -917,6 +917,14 @@ When(
       getWorktreePath: () => '/tmp/fake-worktree',
       writeTopLevelState: () => undefined,
       commentOnIssue: () => undefined,
+      probeWorktree: () => ({
+        registration: 'healthy' as const,
+        indexLock: 'absent' as const,
+        interruptedOp: 'none' as const,
+        headOnExpectedBranch: true,
+        liveOwner: false,
+      }),
+      clearOrphanedIndexLock: () => undefined,
     };
 
     ctx.takeoverDecision = evaluateCandidate(

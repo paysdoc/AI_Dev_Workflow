@@ -65,6 +65,14 @@ function makeIntegDeps(overrides: Partial<TakeoverDeps> = {}): TakeoverDeps {
     getWorktreePath: vi.fn().mockReturnValue(path.join(tmpDir, 'worktree')),
     writeTopLevelState: vi.fn(),
     commentOnIssue: vi.fn(),
+    probeWorktree: vi.fn().mockReturnValue({
+      registration: 'healthy',
+      indexLock: 'absent',
+      interruptedOp: 'none',
+      headOnExpectedBranch: true,
+      liveOwner: false,
+    }),
+    clearOrphanedIndexLock: vi.fn(),
     ...overrides,
   };
 }
@@ -83,10 +91,14 @@ describe('abandoned takeover end-to-end (integration)', () => {
     });
   });
 
-  it('invokes resetWorktree with the fixture worktree path and branchName', () => {
+  it('invokes resetWorktree with the fixture worktree path and branchName when gate fails', () => {
     writeFixtureState({ workflowStage: 'abandoned', branchName: FIXTURE_BRANCH });
     const wtPath = path.join(tmpDir, 'worktree');
-    const deps = makeIntegDeps({ getWorktreePath: vi.fn().mockReturnValue(wtPath) });
+    const unhealthyProbe = { registration: 'healthy' as const, indexLock: 'absent' as const, interruptedOp: 'rebase' as const, headOnExpectedBranch: true, liveOwner: false };
+    const deps = makeIntegDeps({
+      getWorktreePath: vi.fn().mockReturnValue(wtPath),
+      probeWorktree: vi.fn().mockReturnValue(unhealthyProbe),
+    });
 
     evaluateCandidate({ issueNumber: FIXTURE_ISSUE, repoInfo: REPO }, deps);
 
@@ -102,10 +114,12 @@ describe('abandoned takeover end-to-end (integration)', () => {
     expect(deps.deriveStageFromRemote).toHaveBeenCalledWith(FIXTURE_ISSUE, FIXTURE_ADW_ID, REPO);
   });
 
-  it('resetWorktree is called before deriveStageFromRemote', () => {
+  it('resetWorktree is called before deriveStageFromRemote when gate fails', () => {
     writeFixtureState({ workflowStage: 'abandoned', branchName: FIXTURE_BRANCH });
     const callOrder: string[] = [];
+    const unhealthyProbe = { registration: 'healthy' as const, indexLock: 'absent' as const, interruptedOp: 'rebase' as const, headOnExpectedBranch: true, liveOwner: false };
     const deps = makeIntegDeps({
+      probeWorktree: vi.fn().mockReturnValue(unhealthyProbe),
       resetWorktree: vi.fn().mockImplementation(() => callOrder.push('reset')),
       deriveStageFromRemote: vi.fn().mockImplementation(() => { callOrder.push('reconcile'); return 'awaiting_merge'; }),
     });
