@@ -126,12 +126,20 @@ export async function executeUnitTestPhase(config: WorkflowConfig): Promise<{
       const warnMsg = `Unit tests unverified: ${verdictResult.reason}`;
       log(warnMsg, 'warn');
       AgentStateManager.appendLog(orchestratorStatePath, warnMsg);
-      const repoInfo = config.targetRepo
-        ? { owner: config.targetRepo.owner, repo: config.targetRepo.repo }
-        : getRepoInfo();
-      applyLabel(issueNumber, ADW_UNVERIFIED_LABEL, repoInfo);
-      if (repoContext) {
-        postIssueStageComment(repoContext, issueNumber, 'unverified', ctx);
+      // Marking unverified is advisory metadata — it must never crash the
+      // workflow. App-token auth lacks label-write permission ("Resource not
+      // accessible by integration"), so applyLabel can throw; swallow it,
+      // mirroring stackCoherenceReporter.
+      try {
+        const repoInfo = config.targetRepo
+          ? { owner: config.targetRepo.owner, repo: config.targetRepo.repo }
+          : getRepoInfo();
+        applyLabel(issueNumber, ADW_UNVERIFIED_LABEL, repoInfo);
+        if (repoContext) {
+          postIssueStageComment(repoContext, issueNumber, 'unverified', ctx);
+        }
+      } catch (e) {
+        log(`Failed to mark unit tests unverified (non-fatal): ${e}`, 'error');
       }
     } else {
       log('Unit tests passed!', 'success');
