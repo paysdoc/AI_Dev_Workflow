@@ -1612,3 +1612,16 @@
     - When troubleshooting legacy entries (no `Owns:` block) that cannot be routed by glob but may still be matched semantically
     - When extending the glob matcher (`**` vs `*` vs `?` boundary behavior)
     - When working on the `@adw-609` or `@adw-610` BDD content-assertion scenarios for convergence registry behavior
+
+- app_docs/feature-ih6ju7-app-docs-living-docs-post-write-guards.md
+  - Owns:
+    - adws/core/docsGuards.ts
+    - adws/core/__tests__/docsGuards.test.ts
+    - adws/phases/docsSelfCheck.ts
+  - Conditions:
+    - When working with `DOC_BLOAT_THRESHOLD_LINES`, `checkBloat`, `checkRegrowth`, `runDocsGuards`, or `globsOverlap` in `adws/core/docsGuards.ts`
+    - When implementing or troubleshooting `executeDocsPostWriteSelfCheck` or `DocsSelfCheckDeps` in `adws/phases/docsSelfCheck.ts`
+    - When the post-write self-check wiring in `adws/phases/documentPhase.ts` (after `runDocumentAgent`, before commit) is relevant
+    - When a bloat flag should route to a refactor issue or an existing refactor issue prevents a duplicate being filed
+    - When a regrowth flag fires for two entries whose owned globs overlap (convergence misfire detection)
+    - When writing or extending BDD scenarios for `@adw-611` (oversize doc emits bloat flag, overlapping entries emit regrowth flag)
