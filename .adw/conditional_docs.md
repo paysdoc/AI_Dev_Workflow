@@ -500,3 +500,16 @@
     - .adw/scenarios.md
   - Conditions:
     - When working on root-level configuration: `package.json`, `tsconfig.json`, `biome.json`, `vitest.config.ts`, `README.md`, `.github/` workflows, `UBIQUITOUS_LANGUAGE.md`, `known_issues.md`, or `.adw/` project metadata files
+
+- app_docs/feature-ih6ju7-app-docs-living-docs-post-write-guards.md
+  - Owns:
+    - adws/core/docsGuards.ts
+    - adws/core/__tests__/docsGuards.test.ts
+    - adws/phases/docsSelfCheck.ts
+  - Conditions:
+    - When working with `DOC_BLOAT_THRESHOLD_LINES`, `checkBloat`, `checkRegrowth`, `runDocsGuards`, or `globsOverlap` in `adws/core/docsGuards.ts`
+    - When implementing or troubleshooting `executeDocsPostWriteSelfCheck` or `DocsSelfCheckDeps` in `adws/phases/docsSelfCheck.ts`
+    - When the post-write self-check wiring in `adws/phases/documentPhase.ts` (after `runDocumentAgent`, before commit) is relevant
+    - When a bloat flag should route to a refactor issue or an existing refactor issue prevents a duplicate being filed
+    - When a regrowth flag fires for two entries whose owned globs overlap (convergence misfire detection)
+    - When writing or extending BDD scenarios for `@adw-611` (oversize doc emits bloat flag, overlapping entries emit regrowth flag)
