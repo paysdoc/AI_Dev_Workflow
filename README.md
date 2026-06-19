@@ -526,6 +526,7 @@ adws/                   # ADW workflow system
 │   ├── agentState.ts
 │   ├── authGate.ts     # Host-wide auth gate: detects auth failures, writes paused_auth state, triggers Slack alerts
 │   ├── claudeStreamParser.ts  # Claude JSONL stream parsing
+│   ├── conditionalDocsRegistry.ts  # Parse and serialize the app_docs/ conditional docs index (ConditionalDocEntry, ConditionalDocsRegistry)
 │   ├── config.ts
 │   ├── constants.ts    # Orchestrator ID constants
 │   ├── devServerLifecycle.ts  # Dev server spawn, health probe, and cleanup helpers
