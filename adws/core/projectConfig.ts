@@ -10,6 +10,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { parseConditionalDocs, type ConditionalDocsRegistry } from './conditionalDocsRegistry';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -85,6 +86,8 @@ export interface ProjectConfig {
   projectMd: string;
   /** Raw content of `.adw/conditional_docs.md` (empty string when absent). */
   conditionalDocsMd: string;
+  /** Parsed structured registry from `.adw/conditional_docs.md`. */
+  conditionalDocs: ConditionalDocsRegistry;
   /** Raw content of `.adw/review_proof.md` (empty string when absent). */
   reviewProofMd: string;
   /** Whether the `.adw/` directory was found. */
@@ -199,6 +202,7 @@ export function getDefaultProjectConfig(): ProjectConfig {
     commands: getDefaultCommandsConfig(),
     projectMd: '',
     conditionalDocsMd: '',
+    conditionalDocs: parseConditionalDocs(''),
     reviewProofMd: '',
     hasAdwDir: false,
     providers: getDefaultProvidersConfig(),
@@ -479,6 +483,7 @@ export function loadProjectConfig(targetRepoPath: string): ProjectConfig {
     commands,
     projectMd,
     conditionalDocsMd,
+    conditionalDocs: parseConditionalDocs(conditionalDocsMd),
     reviewProofMd,
     hasAdwDir: true,
     providers,

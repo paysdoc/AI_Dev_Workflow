@@ -1591,3 +1591,17 @@
     - When troubleshooting a stale `.worktrees/adw-upgrade-<hash>/` worktree sitting on a superseded nonce commit
     - When `fetchAndResetToRemote` is called from the upgrade path (vs. the standard workflow in `workflowInit.ts`)
     - When implementing or reviewing `reconcileWorktreeToRemote` wiring, ordering, or failure handling in upgrade tests
+
+- app_docs/feature-o4qdu5-app-docs-living-docs-convergence-registry.md
+  - Owns:
+    - adws/core/conditionalDocsRegistry.ts
+    - adws/core/__tests__/conditionalDocsRegistry.test.ts
+    - .adw/conditional_docs.md
+    - .claude/commands/document.md
+  - Conditions:
+    - When working with `parseConditionalDocs`, `serializeConditionalDocs`, `findOwningEntry`, or `upsertEntry` in `adws/core/conditionalDocsRegistry.ts`
+    - When implementing or troubleshooting the `/document` rewrite-in-place convergence path (glob routing, owned-entry update, no-append invariant)
+    - When adding `Owns:` glob blocks to `.adw/conditional_docs.md` entries for routing
+    - When the `conditionalDocs` structured field on `ProjectConfig` (vs. the raw `conditionalDocsMd` string) is relevant
+    - When troubleshooting legacy entries (no `Owns:` block) that never match via glob
+    - When extending the glob matcher (`**` vs `*` vs `?` boundary behavior)
