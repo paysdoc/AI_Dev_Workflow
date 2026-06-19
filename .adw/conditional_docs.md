@@ -6,6 +6,7 @@
     - adws/core/__tests__/conditionalDocsRegistry.test.ts
     - .adw/conditional_docs.md
     - .claude/commands/document.md
+    - adws/checkLivingDocsIndex.ts
     - features/per-issue/feature-609.feature
     - features/per-issue/feature-610.feature
     - features/per-issue/step_definitions/feature-609.steps.ts
@@ -19,7 +20,9 @@
     - When the `conditionalDocs` structured field on `ProjectConfig` (vs. the raw `conditionalDocsMd` string) is relevant
     - When troubleshooting legacy entries (no `Owns:` block) that cannot be routed by glob but may still be matched semantically
     - When extending the glob matcher (`**` vs `*` vs `?` boundary behavior)
-    - When working on the `@adw-609` or `@adw-610` BDD content-assertion scenarios for convergence registry behavior
+    - When working on the `@adw-609`, `@adw-610`, or `@adw-612` BDD content-assertion scenarios for convergence registry or migration behavior
+    - When running or interpreting `adws/checkLivingDocsIndex.ts` (lossless round-trip, doc↔entry bijection, no-overlap regrowth guard, entry-count sanity)
+    - When the one-off migration that clustered snapshot-era per-run docs into per-module current-state docs is relevant
 
 - app_docs/feature-9gjajh-coordination-kernel.md
   - Owns:
