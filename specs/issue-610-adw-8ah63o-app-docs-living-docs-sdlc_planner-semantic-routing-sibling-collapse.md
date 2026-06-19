@@ -68,7 +68,7 @@ Use these files to implement the feature:
 
 ### New Files
 
-- `features/per-issue/feature-610.feature` — The `@adw-610` content-assertion scenarios: 3-sibling collapse → 1 doc + 1 entry (redundant pruned), regenerated conditions on the merged entry, and novel-change → exactly 1 (no over-merge). Mirrors `feature-609.feature`.
+- `features/per-issue/feature-610.feature` — The `@adw-610` content-assertion scenarios (**six**, §1–§6): semantic routing over a glob miss → the owning entry is updated in place (not appended); 3-sibling collapse → 1 doc + 1 entry; surgical prune of the redundant siblings with unrelated entries untouched; regenerated description on the merged/rewritten entry; novel-change → exactly 1 (no over-merge); and a TypeScript type-check backstop. Mirrors `feature-609.feature`.
 - `features/per-issue/step_definitions/feature-610.steps.ts` — Hermetic step definitions extending the #609 harness with sibling-seeding Givens, a collapse-driving When (over `findOwningEntries` + `collapseEntries`), and count/prune assertions on produced artefacts. Mirrors `feature-609.steps.ts`.
 
 ## Implementation Plan
@@ -136,12 +136,15 @@ Execute every step in order, top to bottom.
 ### Task 9 — Author `feature-610.feature` (`@adw-610`)
 - Create `features/per-issue/feature-610.feature` mirroring `feature-609.feature`:
   - Tag the Feature and **every** Scenario with `@adw-610 @adw-8ah63o-app-docs-living-docs`.
-  - Feature narrative: this slice adds semantic routing + sibling collapse on top of #609's glob convergence; enumerate the pinned contracts (3-sibling → 1 doc + 1 entry with redundant pruned; merged entry conditions regenerated; novel → exactly 1, no over-merge).
+  - Feature narrative: this slice adds semantic routing + sibling collapse on top of #609's glob convergence; enumerate the pinned contracts (semantic routing over a glob miss updates the owning entry in place; 3-sibling → 1 doc + 1 entry; the prune of the redundant siblings is surgical — unrelated entries untouched; merged/rewritten entry description/conditions regenerated; novel → exactly 1, no over-merge).
   - Include the observability/rot-prevention note (every assertion targets a **produced** artefact — the converged fixture index and `app_docs/` docs — never a source file read as text) and a scope note that the **semantic judgment is an opaque precondition** (the sibling set is supplied as test input, exactly as #609 supplied the glob), so the **collapse COUNT is deterministic registry code**.
-  - Scenarios (count-based, hermetic):
-    1. **3-sibling collapse (headline):** Given an index where 3 sibling entries all describe one area, When a `/document` run documents a change in that area, Then the index contains exactly one entry owning that area, And exactly one module doc exists for it, And the 2 redundant sibling docs are pruned.
-    2. **Regenerated conditions:** Given the 3-sibling index, When the collapse run completes, Then the surviving merged entry's `Conditions:` are non-empty and reflect the current area (regenerated, not an empty/stale block).
-    3. **Novel creates exactly one (no over-merge):** Given an index with no entry owning a novel area, When a `/document` run documents a change there, Then exactly one new module doc and one new index entry are created for that area, And no unrelated existing entry is modified or absorbs it.
+  - Scenarios (count-based, hermetic) — the **six** `@adw-610` scenarios, mapped to the feature file's §1–§6:
+    1. **§1 Semantic routing over a glob miss (AC1, core):** Given an index whose only entry for an area is described semantically but does **not** glob the touched file, When a `/document` run documents a change touching that file, Then the index holds exactly one entry for the area, And it is the pre-existing entry **updated in place** (not a second appended sibling).
+    2. **§2 3-sibling collapse (AC2/AC5 headline):** Given an index where 3 sibling entries all describe one area, When a `/document` run documents a change in that area, Then the index holds exactly one entry owning that area, And exactly one module doc covers it.
+    3. **§3 Surgical prune (AC2):** Given an index with 3 sibling entries for one area alongside entries for N unrelated modules, When a `/document` run documents a change in that area, Then exactly one entry owns the area, And the redundant sibling entries for that area are pruned, And every unrelated module entry is left unchanged.
+    4. **§4 Regenerated description (AC3):** Given an index whose single entry for an area carries a **stale** seeded description, When a `/document` run rewrites the owning doc, Then exactly one entry owns the area, And its description/conditions are regenerated to reflect current content (no longer the stale seeded text).
+    5. **§5 Novel creates exactly one, no over-merge (AC4/AC5 headline):** Given an index describing N unrelated modules, none owning a novel area, When a `/document` run documents a change there, Then exactly one new module doc and one new index entry are created for that area, And every unrelated module entry is left unchanged.
+    6. **§6 Type-check backstop:** Given the ADW codebase is checked out, Then the ADW TypeScript type-check passes (the collapse/prune helpers + semantic-routing wiring compile).
   - Add a vocabulary note: reuse `the ADW codebase is checked out` (G18); list the novel collapse phrases introduced here and surface the registry gap to the maintainer (mirroring #609's note). Per `.adw/scenarios.md`, the `@regression` sweep is skipped (human decision); do not add `@regression`.
 
 ### Task 10 — Author `feature-610.steps.ts` (hermetic harness extension)
@@ -149,9 +152,18 @@ Execute every step in order, top to bottom.
   - `Before`/`After` hooks scoped to `@adw-610` create/remove a temp fixture dir with `.adw/` and `app_docs/`. Reset per-scenario state.
   - Import the registry's pure functions (`parseConditionalDocs`, `serializeConditionalDocs`, `findOwningEntries`, `collapseEntries`, `upsertEntry`, `matchesGlob`, types) from `../../../adws/core/conditionalDocsRegistry.ts`.
   - Helpers: `flushRegistry`/`readRegistry`/`writeModuleDoc` (copy from #609).
-  - A Given that seeds **N sibling entries** all owning one area (each with its own stub `app_docs/` doc), e.g. `a conditional-docs index where {int} sibling entries describe the area matched by glob {string}`.
-  - A When that drives the collapse deterministically: `findOwningEntries(reg, touched)` → choose a survivor `docPath` → `collapseEntries(reg, siblingDocPaths, { docPath, conditions: [regenerated...] })` → write survivor doc, **delete** each `prunedDocPaths` file, serialize the registry back. Reuse #609's novel-area branch for the novel scenario.
-  - Thens (assert produced artefacts only): exactly one entry owns the area (reuse #609's phrasing where possible); exactly one module doc exists; the pruned sibling doc files no longer exist; the surviving entry's conditions are non-empty; for the novel scenario, exactly one new doc + entry and unrelated entries unchanged.
+  - Givens seed fixture state per scenario using the feature file's `the area under {string}` phrase family (a path-area prefix), each seeded entry with its own stub `app_docs/` doc:
+    - §1 `a conditional-docs index whose only entry for the area under {string} is described semantically but does not list {string} among its owned file globs` — the seeded globs deliberately exclude the touched file so glob-only routing misses it.
+    - §2 `a conditional-docs index with three sibling entries describing the same area under {string}`.
+    - §3 `a conditional-docs index with three sibling entries describing the area under {string} alongside entries for {int} unrelated modules`.
+    - §4 `a conditional-docs index whose single entry for the area under {string} carries a stale description that no longer reflects the module's current content` — seed a recognisable stale marker.
+    - §5 `a conditional-docs index describing {int} unrelated modules, none of which owns the area under {string}`.
+  - Shared When: `the /document agent documents a change touching {string}` (the concrete path under the area). Drive each route deterministically through the registry seam (semantic route + survivor `docPath` supplied as test input, doc body stubbed):
+    - §1: route the pre-existing entry semantically and `upsertEntry` it **in place** — globs miss, so `findOwningEntries` alone would not find it; assert no sibling is appended.
+    - §2/§3: `findOwningEntries`/seeded siblings → choose a survivor `docPath` → `collapseEntries(reg, siblingDocPaths, { docPath, conditions: [regenerated...] })` → write survivor doc, **delete** each `prunedDocPaths` file, serialize back.
+    - §4: rewrite the owning doc and regenerate the entry's description/conditions so the produced text differs from the seeded stale marker.
+    - §5: reuse #609's novel-area branch — exactly one new doc + entry, unrelated entries untouched.
+  - Thens (assert produced artefacts only): `the conditional-docs index holds exactly one entry for the area under {string}`; `exactly one module doc covers the area under {string}`; `that one entry is the pre-existing entry, updated in place rather than appended alongside a new sibling` (§1); `the redundant sibling entries that described the area under {string} are pruned from the index` (§3); `every unrelated module entry is left unchanged` (§3/§5); `the entry for the area under {string} carries a regenerated description reflecting the module's current content rather than the stale seeded text` (§4 — an output-vs-seeded-input delta, not merely non-empty); `the /document agent creates exactly one new module doc and one new index entry for the area under {string}` (§5). §6 reuses G18 `the ADW codebase is checked out` + T22 `the ADW TypeScript type-check passes`.
   - No assertion may read a repo source file as text, substring-match it, or parse it as JSON/AST (rot-prevention rule).
 
 ### Task 11 — Run the full validation suite
