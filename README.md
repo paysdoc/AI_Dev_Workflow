@@ -495,6 +495,7 @@ adws/                   # ADW workflow system
 │   │   ├── adwVersion.test.ts
 │   │   ├── adwYmlConfig.test.ts
 │   │   ├── authGate.test.ts
+│   │   ├── conditionalDocsRegistry.test.ts
 │   │   ├── claudeStreamParser.test.ts
 │   │   ├── devServerLifecycle.test.ts
 │   │   ├── environment.test.ts
