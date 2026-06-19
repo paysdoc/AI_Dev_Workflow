@@ -20,6 +20,9 @@ export {
   PROTECTED_BRANCHES,
 } from './branchOperations';
 
+// Branch identity (deterministic fallback predicates)
+export { deterministicBranchName, branchMatchesIssue } from './branchIdentity';
+
 // Commit operations
 export {
   commitChanges,
