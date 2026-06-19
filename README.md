@@ -498,6 +498,7 @@ adws/                   # ADW workflow system
 │   │   ├── claudeStreamParser.test.ts
 │   │   ├── conditionalDocsRegistry.test.ts
 │   │   ├── devServerLifecycle.test.ts
+│   │   ├── docsGuards.test.ts
 │   │   ├── environment.test.ts
 │   │   ├── execWithRetry.test.ts
 │   │   ├── hashComputer.test.ts
@@ -511,6 +512,7 @@ adws/                   # ADW workflow system
 │   │   ├── resolveFreezeGuard.test.ts
 │   │   ├── resolveVerdict.test.ts
 │   │   ├── slackNotifier.test.ts
+│   │   ├── stageClassifier.test.ts
 │   │   ├── stateHelpers.test.ts
 │   │   ├── stackCoherenceCheck.test.ts
 │   │   ├── stepDefDetection.test.ts
@@ -555,8 +557,10 @@ adws/                   # ADW workflow system
 │   ├── retryOrchestrator.ts
 │   ├── slackNotifier.ts  # Slack Incoming Webhook client for error/problem alerting
 │   ├── stateHelpers.ts
+│   ├── stageClassifier.ts  # Stage classification taxonomy (classifyStage, classifyStageString → StageClass: active/awaiting_merge/retriable/terminal/human_gated/resumable)
 │   ├── stackCoherenceCheck.ts  # Pure stack-coherence check — language coherence + Gherkin mandate (stackCoherenceCheck, StackCoherenceInput/Result/Warning)
 │   ├── stepDefDetection.ts  # Step definition file-extension detection by BDD framework (stepDefExtensionsFor, hasStepDefinitions, isGherkinFramework)
+│   ├── docsGuards.ts  # Doc bloat detection guards — DOC_BLOAT_THRESHOLD_LINES, BloatFlag, DocSize; flags app_docs entries exceeding the line ceiling
 │   ├── targetRepoManager.ts
 │   ├── testReportParser.ts  # JUnit XML test report parser — reads xunit output into TestReport (total, passed, failed, skipped, per-case status)
 │   ├── testVerdict.ts  # Pure test verdict computation (enabled, hasFailures, testcaseCount, frameworkDetected → verdict)
@@ -787,6 +791,7 @@ adws/                   # ADW workflow system
 │   ├── proofArtifactHarvester.ts  # Pure recursive harvester of image artifacts from proof directory
 │   └── types.ts
 ├── known_issues.md     # Known issues and workarounds
+├── checkLivingDocsIndex.ts  # One-off migration gate: validates .adw/conditional_docs.md ↔ app_docs/ bijection, no overlapping globs, entry count bounds
 ├── adwBuild.tsx        # Orchestrators (individual & combined)
 ├── adwChore.tsx        # Chore pipeline with LLM diff gate (auto-merge)
 ├── adwMerge.tsx        # Merge orchestrator (awaiting_merge handoff)
