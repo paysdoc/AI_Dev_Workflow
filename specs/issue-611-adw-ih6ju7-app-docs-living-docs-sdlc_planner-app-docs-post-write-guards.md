@@ -74,7 +74,7 @@ Use these files to implement the feature:
 - `adws/core/docsGuards.ts` — the deep, pure guards module: `DOC_BLOAT_THRESHOLD_LINES`, `DocSize`/`BloatFlag`/`RegrowthFlag`/`GuardFlags` types, `globsOverlap`, `checkBloat`, `checkRegrowth`, `runDocsGuards`. No fs/network — values in, flags out.
 - `adws/core/__tests__/docsGuards.test.ts` — vitest table tests: bloat at threshold boundaries (under / at / over by one), regrowth overlap matrix (identical glob, subset/nested glob, sibling-disjoint, legacy no-glob entry), no-false-positive on disjoint, purity.
 - `adws/phases/docsSelfCheck.ts` — the side-effecting wiring: `executeDocsPostWriteSelfCheck(params, deps?)` reads + parses the index, measures produced doc sizes, runs `runDocsGuards`, logs both flag sets, routes each bloat flag to a refactor follow-up (idempotent), and returns `{ flags, routed }`. Injectable `DocsSelfCheckDeps` (readFile, createIssue, findExistingRefactorIssue, log) with real defaults, mirroring `UpgradeGateDeps`.
-- `features/per-issue/step_definitions/feature-611.steps.ts` — step definitions realizing the 12 novel phrases listed in the frozen feature file, driving `executeDocsPostWriteSelfCheck` in-process over seeded temp-fixture worktrees and asserting emitted / routed / logged flags. (May be produced by the `generate_step_definitions` phase; this plan specifies its contract.)
+- `features/per-issue/step_definitions/feature-611.steps.ts` — step definitions realizing the 13 novel phrases listed in the frozen feature file, driving `executeDocsPostWriteSelfCheck` in-process over seeded temp-fixture worktrees and asserting emitted / routed / logged flags. (May be produced by the `generate_step_definitions` phase; this plan specifies its contract.)
 
 ## Implementation Plan
 
@@ -163,7 +163,7 @@ Mirror `conditionalDocsRegistry.test.ts` style (`describe`/`it`, canonical fixtu
 
 ### Task 6 — Implement step definitions `features/per-issue/step_definitions/feature-611.steps.ts` (AC4)
 
-Follow the frozen feature file's "Step-definition note" (drive the self-check **in-process**, the way feature-609 drives convergence). Reuse the registered Background phrase **G18** (`the ADW codebase is checked out`). Implement the 12 novel phrases:
+Follow the frozen feature file's "Step-definition note" (drive the self-check **in-process**, the way feature-609 drives convergence). Reuse the registered Background phrase **G18** (`the ADW codebase is checked out`). Implement the 13 novel phrases:
 - **Fixture seeding (Given steps):** create a temp fixture worktree; build `.adw/conditional_docs.md` via the registry module's `serializeConditionalDocs` with entries carrying explicit `ownedGlobs`; create the `app_docs/` doc files the entries point at. Resolve `"the area owning files under {string}"` → the entry whose owned glob matches that path-area prefix → that entry's `docPath`.
   - `a written module doc for the area owning files under {string} whose size exceeds the bloat threshold` — seed an entry owning a glob under `{string}`, write its doc **padded to `DOC_BLOAT_THRESHOLD_LINES + N` lines** (import the exported constant; **never hard-code a magic line count**).
   - `... whose size is within the bloat threshold` — write the doc a few lines long.
