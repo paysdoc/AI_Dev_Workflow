@@ -1633,12 +1633,17 @@
     - adws/triggers/cronStageResolver.ts
     - adws/triggers/cronIssueFilter.ts
     - adws/triggers/takeoverHandler.ts
+    - adws/types/workflowTypes.ts
+    - adws/github/workflowCommentsIssue.ts
+    - adws/phases/workflowCompletion.ts
   - Conditions:
     - When working with `classifyStage`, `classifyStageString`, or `StageClass` in `adws/core/stageClassifier.ts`
     - When adding a new `WorkflowStage` literal and need to assign it a recovery class
-    - When modifying `evaluateCandidate` in `takeoverHandler.ts` or the stage-dispatch logic
+    - When modifying `evaluateCandidate` in `takeoverHandler.ts` or the stage-dispatch logic, including `recoverViaResetFromRemote`
     - When modifying `evaluateIssue` in `cronIssueFilter.ts` stage eligibility checks
     - When working with `isActiveStage` in `cronStageResolver.ts` and need to understand its compatibility-bridge role vs. the `active` StageClass
-    - When troubleshooting a new stage that falls through all recovery paths (the `phase_timeout` dead-end class of bug)
+    - When adding a per-consumer raw-stage recovery branch for a specific stage that diverges from its StageClass default
+    - When troubleshooting a stage that falls through all recovery paths (the `phase_timeout` dead-end class of bug)
     - When understanding the `resuming` vs `*_completed` asymmetry between cron and takeover "active" sets
     - When the `never` exhaustiveness guard or compile-time classification check is relevant
+    - When understanding how `phase_timeout` recovery works (reset-from-remote takeover, not resume-in-place)
