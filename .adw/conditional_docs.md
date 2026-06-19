@@ -1598,13 +1598,20 @@
     - adws/core/__tests__/conditionalDocsRegistry.test.ts
     - .adw/conditional_docs.md
     - .claude/commands/document.md
+    - features/per-issue/feature-609.feature
+    - features/per-issue/feature-610.feature
+    - features/per-issue/step_definitions/feature-609.steps.ts
+    - features/per-issue/step_definitions/feature-610.steps.ts
   - Conditions:
-    - When working with `parseConditionalDocs`, `serializeConditionalDocs`, `findOwningEntry`, or `upsertEntry` in `adws/core/conditionalDocsRegistry.ts`
-    - When implementing or troubleshooting the `/document` rewrite-in-place convergence path (glob routing, owned-entry update, no-append invariant)
-    - When adding `Owns:` glob blocks to `.adw/conditional_docs.md` entries for routing
+    - When working with `parseConditionalDocs`, `serializeConditionalDocs`, `findOwningEntry`, `findOwningEntries`, `collapseEntries`, or `upsertEntry` in `adws/core/conditionalDocsRegistry.ts`
+    - When implementing or troubleshooting the `/document` routing path: semantic-first ownership judgment, rewrite-in-place, sibling collapse-and-prune, or novel-only create
+    - When collapsing multiple sibling entries for the same area into one doc + one entry (prune redundant docs and index entries)
+    - When regenerating an entry's `Conditions:` block and doc Overview after a rewrite so the semantic matcher stays accurate
+    - When adding or updating `Owns:` glob blocks in `.adw/conditional_docs.md` for routing
     - When the `conditionalDocs` structured field on `ProjectConfig` (vs. the raw `conditionalDocsMd` string) is relevant
-    - When troubleshooting legacy entries (no `Owns:` block) that never match via glob
+    - When troubleshooting legacy entries (no `Owns:` block) that cannot be routed by glob but may still be matched semantically
     - When extending the glob matcher (`**` vs `*` vs `?` boundary behavior)
+    - When working on the `@adw-609` or `@adw-610` BDD content-assertion scenarios for convergence registry behavior
 
 - app_docs/feature-ih6ju7-app-docs-living-docs-post-write-guards.md
   - Owns:

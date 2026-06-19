@@ -3,6 +3,8 @@ import {
   parseConditionalDocs,
   serializeConditionalDocs,
   findOwningEntry,
+  findOwningEntries,
+  collapseEntries,
   upsertEntry,
   type ConditionalDocEntry,
   type ConditionalDocsRegistry,
@@ -356,5 +358,169 @@ describe('glob matcher boundary cases', () => {
   it('special regex chars in literal segments are escaped', () => {
     expect(matches('adws/core/foo(bar).ts', 'adws/core/foo(bar).ts')).toBe(true);
     expect(matches('adws/core/foo(bar).ts', 'adws/core/fooXbar.ts')).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// §9 findOwningEntries
+// ---------------------------------------------------------------------------
+
+describe('findOwningEntries', () => {
+  const registry: ConditionalDocsRegistry = {
+    preamble: '# Conditional Documentation\n\n',
+    entries: [
+      { docPath: 'app_docs/feature-vcs.md', ownedGlobs: ['adws/vcs/**'], conditions: [] },
+      { docPath: 'app_docs/feature-cost.md', ownedGlobs: ['adws/cost/**'], conditions: [] },
+      { docPath: 'app_docs/feature-all.md', ownedGlobs: ['adws/**'], conditions: [] },
+      { docPath: 'app_docs/feature-legacy.md', ownedGlobs: [], conditions: ['legacy'] },
+    ],
+  };
+
+  it('returns all matching entries in document order', () => {
+    const entries = findOwningEntries(registry, ['adws/vcs/worktreeReset.ts']);
+    expect(entries.map((e) => e.docPath)).toEqual([
+      'app_docs/feature-vcs.md',
+      'app_docs/feature-all.md',
+    ]);
+  });
+
+  it('returns [] when no entry matches', () => {
+    const entries = findOwningEntries(registry, ['other/lib/foo.ts']);
+    expect(entries).toEqual([]);
+  });
+
+  it('legacy entries (empty ownedGlobs) never appear', () => {
+    const legacyRegistry: ConditionalDocsRegistry = {
+      preamble: '',
+      entries: [{ docPath: 'app_docs/legacy.md', ownedGlobs: [], conditions: ['foo'] }],
+    };
+    expect(findOwningEntries(legacyRegistry, ['anything.ts'])).toEqual([]);
+  });
+
+  it('multiple entries matching the same path are all returned', () => {
+    const multi: ConditionalDocsRegistry = {
+      preamble: '',
+      entries: [
+        { docPath: 'app_docs/a.md', ownedGlobs: ['adws/vcs/**'], conditions: [] },
+        { docPath: 'app_docs/b.md', ownedGlobs: ['adws/**'], conditions: [] },
+        { docPath: 'app_docs/c.md', ownedGlobs: ['adws/cost/**'], conditions: [] },
+      ],
+    };
+    const entries = findOwningEntries(multi, ['adws/vcs/foo.ts']);
+    expect(entries).toHaveLength(2);
+    expect(entries[0].docPath).toBe('app_docs/a.md');
+    expect(entries[1].docPath).toBe('app_docs/b.md');
+  });
+
+  it('returns [] for empty changedFilePaths', () => {
+    expect(findOwningEntries(registry, [])).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// §10 collapseEntries
+// ---------------------------------------------------------------------------
+
+describe('collapseEntries', () => {
+  const base: ConditionalDocsRegistry = {
+    preamble: '# Conditional Documentation\n\n',
+    entries: [
+      { docPath: 'app_docs/sib-a.md', ownedGlobs: ['adws/cost/a/**'], conditions: ['cond-a'] },
+      { docPath: 'app_docs/sib-b.md', ownedGlobs: ['adws/cost/b/**'], conditions: ['cond-b'] },
+      { docPath: 'app_docs/sib-c.md', ownedGlobs: ['adws/cost/c/**'], conditions: ['cond-c'] },
+      { docPath: 'app_docs/unrelated.md', ownedGlobs: ['adws/other/**'], conditions: ['other'] },
+    ],
+  };
+
+  it('3 siblings collapse to exactly 1 (length − 2)', () => {
+    const { registry: r } = collapseEntries(
+      base,
+      ['app_docs/sib-a.md', 'app_docs/sib-b.md', 'app_docs/sib-c.md'],
+      { docPath: 'app_docs/sib-a.md', conditions: ['merged'] },
+    );
+    expect(r.entries).toHaveLength(2);
+    expect(r.entries.filter((e) => e.docPath === 'app_docs/sib-a.md')).toHaveLength(1);
+  });
+
+  it('merged ownedGlobs is the de-duplicated union', () => {
+    const withOverlap: ConditionalDocsRegistry = {
+      preamble: '',
+      entries: [
+        { docPath: 'app_docs/x.md', ownedGlobs: ['adws/cost/**', 'adws/shared/**'], conditions: [] },
+        { docPath: 'app_docs/y.md', ownedGlobs: ['adws/cost/**', 'adws/extra/**'], conditions: [] },
+      ],
+    };
+    const { registry: r } = collapseEntries(
+      withOverlap,
+      ['app_docs/x.md', 'app_docs/y.md'],
+      { docPath: 'app_docs/x.md', conditions: ['merged'] },
+    );
+    expect(r.entries).toHaveLength(1);
+    expect(r.entries[0].ownedGlobs).toEqual([
+      'adws/cost/**',
+      'adws/shared/**',
+      'adws/extra/**',
+    ]);
+  });
+
+  it('prunedDocPaths equals the non-survivor collapsed paths', () => {
+    const { prunedDocPaths } = collapseEntries(
+      base,
+      ['app_docs/sib-a.md', 'app_docs/sib-b.md', 'app_docs/sib-c.md'],
+      { docPath: 'app_docs/sib-a.md', conditions: ['merged'] },
+    );
+    expect(prunedDocPaths.sort()).toEqual(['app_docs/sib-b.md', 'app_docs/sib-c.md'].sort());
+  });
+
+  it('a missing docPath in the list is a no-op (no throw)', () => {
+    const { registry: r, prunedDocPaths } = collapseEntries(
+      base,
+      ['app_docs/does-not-exist.md'],
+      { docPath: 'app_docs/does-not-exist.md', conditions: [] },
+    );
+    expect(r.entries).toHaveLength(base.entries.length);
+    expect(prunedDocPaths).toEqual([]);
+  });
+
+  it('single-entry collapse keeps length and prunedDocPaths: []', () => {
+    const { registry: r, prunedDocPaths } = collapseEntries(
+      base,
+      ['app_docs/sib-a.md'],
+      { docPath: 'app_docs/sib-a.md', conditions: ['new cond'] },
+    );
+    expect(r.entries).toHaveLength(base.entries.length);
+    expect(prunedDocPaths).toEqual([]);
+  });
+
+  it('original registry is not mutated (purity)', () => {
+    const snapshot = JSON.parse(JSON.stringify(base)) as ConditionalDocsRegistry;
+    collapseEntries(
+      base,
+      ['app_docs/sib-a.md', 'app_docs/sib-b.md', 'app_docs/sib-c.md'],
+      { docPath: 'app_docs/sib-a.md', conditions: ['merged'] },
+    );
+    expect(base).toEqual(snapshot);
+  });
+
+  it('unrelated entries are preserved unchanged and in order', () => {
+    const { registry: r } = collapseEntries(
+      base,
+      ['app_docs/sib-a.md', 'app_docs/sib-b.md', 'app_docs/sib-c.md'],
+      { docPath: 'app_docs/sib-a.md', conditions: ['merged'] },
+    );
+    const unrelated = r.entries.find((e) => e.docPath === 'app_docs/unrelated.md');
+    expect(unrelated).toEqual(base.entries[3]);
+    expect(r.entries[1]).toEqual(base.entries[3]);
+  });
+
+  it('survivor entry is inserted at the position of the first collapsed entry', () => {
+    const { registry: r } = collapseEntries(
+      base,
+      ['app_docs/sib-b.md', 'app_docs/sib-c.md'],
+      { docPath: 'app_docs/sib-b.md', conditions: ['merged'] },
+    );
+    expect(r.entries[1].docPath).toBe('app_docs/sib-b.md');
+    expect(r.entries[0].docPath).toBe('app_docs/sib-a.md');
+    expect(r.entries[2].docPath).toBe('app_docs/unrelated.md');
   });
 });

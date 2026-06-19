@@ -156,6 +156,73 @@ export function findOwningEntry(
   );
 }
 
+/** All entries (document order) whose ownedGlobs match ≥1 changed path. */
+export function findOwningEntries(
+  registry: ConditionalDocsRegistry,
+  changedFilePaths: string[],
+): ConditionalDocEntry[] {
+  return registry.entries.filter(
+    (entry) =>
+      entry.ownedGlobs.length > 0 &&
+      entry.ownedGlobs.some((glob) => changedFilePaths.some((p) => matchesGlob(glob, p))),
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Collapse (pure / immutable)
+// ---------------------------------------------------------------------------
+
+function unionGlobs(globLists: string[][]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const globs of globLists) {
+    for (const g of globs) {
+      if (!seen.has(g)) {
+        seen.add(g);
+        result.push(g);
+      }
+    }
+  }
+  return result;
+}
+
+export function collapseEntries(
+  registry: ConditionalDocsRegistry,
+  docPathsToCollapse: string[],
+  merged: { docPath: string; conditions: string[] },
+): { registry: ConditionalDocsRegistry; prunedDocPaths: string[] } {
+  const collapseSet = new Set(docPathsToCollapse);
+  const collapsed = registry.entries.filter((e) => collapseSet.has(e.docPath));
+  const firstIdx = registry.entries.findIndex((e) => collapseSet.has(e.docPath));
+
+  if (firstIdx === -1) {
+    return { registry, prunedDocPaths: [] };
+  }
+
+  const mergedEntry: ConditionalDocEntry = {
+    docPath: merged.docPath,
+    conditions: merged.conditions,
+    ownedGlobs: unionGlobs(collapsed.map((e) => e.ownedGlobs)),
+  };
+
+  const kept: ConditionalDocEntry[] = [];
+  let inserted = false;
+  for (let i = 0; i < registry.entries.length; i++) {
+    const entry = registry.entries[i];
+    if (collapseSet.has(entry.docPath)) {
+      if (!inserted) {
+        kept.push(mergedEntry);
+        inserted = true;
+      }
+    } else {
+      kept.push(entry);
+    }
+  }
+
+  const prunedDocPaths = docPathsToCollapse.filter((p) => p !== merged.docPath);
+  return { registry: { ...registry, entries: kept }, prunedDocPaths };
+}
+
 // ---------------------------------------------------------------------------
 // Upsert (pure / immutable)
 // ---------------------------------------------------------------------------
