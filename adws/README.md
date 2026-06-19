@@ -297,7 +297,7 @@ bunx tsx adws/adwChore.tsx <issueNumber> [adw-id]
    - `regression_possible` → review → document → auto-merge
 
 **Notes:**
-- No scenario writer, plan-scenario alignment, or KPI tracking on this path
+- No scenario writer or plan-scenario alignment on this path
 - Diff verdict is posted as an audit comment on the issue
 - On agent failure, defaults to `regression_possible` (fail-safe)
 

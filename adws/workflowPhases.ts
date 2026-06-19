@@ -22,7 +22,6 @@ export {
   executeUnitTestPhase,
   executePRPhase,
   executeDocumentPhase,
-  executeKpiPhase,
   executeScenarioPhase,
   executeStepDefPhase,
   executeInstallPhase,

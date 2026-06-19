@@ -124,7 +124,6 @@ Everything below is for someone who wants to run ADW against a target repository
 - **Single-host coordination** — per-issue `spawnGate`, PID + start-time liveness checks, heartbeat ticker, and `worktreeReset`-driven takeover reclaim dead or abandoned runs.
 - **Resilience primitives** — pause queue for rate-limit/billing pause and resume, auth gate for auth-failure detection with `paused_auth` state and Slack alerting, auth queue scanner for automatic resume after auth restoration, hung-orchestrator detector, dev server janitor, per-issue scenario sweep cron (14-day retention), `remoteReconcile` to derive workflow stage from remote GitHub artifacts, and a state-novelty progress gate (`progressGate.ts`) that aborts a build early when repeated git-tree-hash comparisons show no new commits (no_progress) or the checkpoint backstop is exhausted.
 - **Cost tracking** — per-phase, per-model `PhaseCostRecord` with multi-currency reporting, divergence detection vs. CLI-reported cost, and dual-write to a Cloudflare D1-backed Cost API.
-- **Agentic KPI tracking** — `kpiAgent` and `kpiPhase` record per-workflow success, duration, cost, and streak metrics to a persistent `agentic_kpis.md` file for analytics and accountability.
 - **LLM-based dependency extraction** — `dependencyExtractionAgent` reads issues to surface cross-issue dependencies before spawning.
 - **Documentation generation** — `documentAgent` writes feature docs to `app_docs/`; the SDLC pipeline includes review screenshots.
 - **Scenario promotion sweep** — `adwPromotionSweep.tsx` scores per-issue scenarios against the regression vocabulary registry; high-scoring candidates receive a `@promotion-suggested-<date>` tag with daily-cadence suppression, date refresh, and score-drop withdrawal; a PR comment lists all candidates and applies the `hitl` label; human-approved scenarios (`@promotion`) are automatically moved to the regression suite via a dedicated PR.
@@ -406,7 +405,6 @@ Docker execution is entirely optional — the test suite runs identically on the
 │   ├── scenario_writer.md
 │   ├── test.md
 │   ├── tools.md
-│   ├── track_agentic_kpis.md
 │   ├── validate_plan_scenarios.md
 │   └── validate_scenario_fidelity.md
 ├── hooks/              # Claude Code hooks
@@ -480,7 +478,6 @@ adws/                   # ADW workflow system
 │   ├── index.ts
 │   ├── jsonlParser.ts
 │   ├── installAgent.ts # Install phase agent
-│   ├── kpiAgent.ts     # KPI tracking agent
 │   ├── patchAgent.ts
 │   ├── planAgent.ts
 │   ├── refactorAgent.ts  # Applies coding-guideline fixes via the /refactor skill (mirrors patchAgent for guideline violations)
@@ -655,7 +652,6 @@ adws/                   # ADW workflow system
 │   ├── index.ts
 │   ├── depauditSetup.ts  # depaudit setup and secret propagation (used by adw_init)
 │   ├── installPhase.ts # Install phase implementation
-│   ├── kpiPhase.ts     # KPI tracking phase
 │   ├── orchestratorLock.ts  # Orchestrator-lifetime spawn lock (acquire/release wrapper)
 │   ├── phaseCommentHelpers.ts  # Shared phase comment utilities
 │   ├── planPhase.ts
@@ -864,7 +860,6 @@ test/                   # Integration test infrastructure
 │   │   ├── manifests/  # Named scenario manifests for stub sequencing
 │   │   └── payloads/
 │   ├── python-app/     # Fixture target repo for Python app (behave/pytest-bdd BDD scenario testing)
-│   ├── python-flat/    # Fixture target repo for Python/pyproject.toml BDD scenario testing
 │   └── scenarios/      # Gherkin .feature fixtures for promotion scoring tests
 │       └── promotion/  # Per-scorer promotion scenario fixtures
 ├── mocks/              # Mock implementations

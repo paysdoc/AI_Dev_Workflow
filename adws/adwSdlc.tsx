@@ -14,9 +14,8 @@
  * 7. Scenario Test Phase [→ Scenario Fix Phase → retry]: run BDD scenarios, fix failures
  * 8. Review Phase [→ Patch Cycle → Scenario Retest → retry]: passive judge, patch blockers
  * 9. Document Phase: generate feature documentation
- * 10. KPI Phase: track agentic KPIs (non-fatal, worktree-dependent — runs before PR)
- * 11. PR Phase: create pull request (only after review passes)
- * 12. Approve PR + write awaiting_merge to state, then exit (merge handled by adwMerge.tsx via cron)
+ * 10. PR Phase: create pull request (only after review passes)
+ * 11. Approve PR + write awaiting_merge to state, then exit (merge handled by adwMerge.tsx via cron)
  *
  * Environment Requirements:
  * - ANTHROPIC_API_KEY: Anthropic API key
@@ -43,7 +42,6 @@ import {
   executeReviewPhase,
   executeReviewPatchCycle,
   executeDocumentPhase,
-  executeKpiPhase,
   executeProofPublishPhase,
   handleWorkflowError,
   type ReviewIssue,
@@ -109,12 +107,6 @@ async function main(): Promise<void> {
 
       // Document phase: no screenshots dir needed (review no longer produces images)
       await runPhase(config, tracker, (cfg: WorkflowConfig) => executeDocumentPhase(cfg));
-
-      // KPI phase takes an extra argument: bind reviewRetries via wrapper.
-      // Runs before PR because it does git commit/push (worktree-dependent).
-      const executeKpiWithRetries = (cfg: WorkflowConfig) =>
-        executeKpiPhase(cfg, reviewRetries);
-      await runPhase(config, tracker, executeKpiWithRetries);
 
       await runPhase(config, tracker, executePRPhase);
       await runPhase(config, tracker, executeProofPublishPhase);

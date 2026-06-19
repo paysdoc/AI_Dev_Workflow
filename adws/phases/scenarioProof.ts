@@ -38,7 +38,7 @@ export interface TagProofResult {
   /**
    * Optional explanation when scenario outcome and process exit code disagree —
    * e.g. JUnit report is clean but the subprocess exited non-zero due to
-   * post-suite noise (KPI/D1 write failures, unhandled rejections in shutdown hooks).
+   * post-suite noise (D1 write failures, unhandled rejections in shutdown hooks).
    */
   warning?: string;
   /** Structured tally from the JUnit report (when report was present and parsed). */
@@ -105,7 +105,7 @@ function deriveTagOutcome(
         warning =
           `Process exited ${result.exitCode} but JUnit report is clean: ` +
           `${report.passed} passed, ${report.failed} failed, ${report.skipped} skipped of ${report.total}. ` +
-          `Treating as PASS — pending/undefined scenarios and post-suite noise (e.g. KPI/D1 writes, ` +
+          `Treating as PASS — pending/undefined scenarios and post-suite noise (e.g. D1 writes, ` +
           `shutdown-hook rejections) are preserved verbatim in the Output section below.`;
       }
       return {

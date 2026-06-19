@@ -39,13 +39,14 @@ import {
   ensureTargetRepoWorkspace,
   buildClaimBranchName,
   computeFrameworkHash,
+  isPushRejectionError,
   writeAdwVersion,
   readAdwYmlConfig,
   type AdwYmlConfig,
 } from './core';
 import { commentOnIssue, mergePR, type RepoInfo } from './github';
 import { defaultFindPRByBranch, hasWontFixLabel, type RawPR } from './github/prApi';
-import { ensureWorktree, commitChanges, pushBranch } from './vcs';
+import { ensureWorktree, commitChanges, pushBranch, fetchAndResetToRemote } from './vcs';
 import { getDefaultBranch } from './vcs/branchOperations';
 import { runClaudeAgentWithCommand } from './agents';
 import { createGitHubCodeHost } from './providers/github/githubCodeHost';
@@ -77,6 +78,13 @@ export interface RunInitCommandParams {
 export interface UpgradeDeps {
   readonly computeFrameworkHash: (frameworkRepoRoot: string) => string;
   readonly ensureWorktree: (branch: string, baseBranch: string, baseRepoPath: string) => string;
+  /**
+   * Reconciles the (possibly reused) upgrade worktree to the live remote claim tip
+   * before regen: git fetch origin <branch> + git reset --hard origin/<branch>.
+   * Fixes the stale-worktree non-fast-forward that #627 only parks. Hard reset is
+   * safe — the upgrade worktree is a throwaway regen target with no un-pushed work.
+   */
+  readonly reconcileWorktreeToRemote: (worktreePath: string, branch: string) => void;
   readonly getDefaultBranch: (cwd: string) => string;
   readonly findPRByBranch: (branch: string, repoInfo: RepoInfo) => RawPR | null;
   readonly runInitCommand: (params: RunInitCommandParams) => Promise<{ success: boolean; error?: string }>;
@@ -85,6 +93,8 @@ export interface UpgradeDeps {
   readonly writeAdwVersion: (worktreePath: string, hash: string) => void;
   readonly commitChanges: (message: string, cwd: string) => boolean;
   readonly pushBranch: (branch: string, cwd: string) => void;
+  /** True when a push error is a non-fast-forward rejection (another orchestrator owns the claim branch). */
+  readonly isPushRejection: (err: unknown) => boolean;
   readonly createPullRequest: (options: CreatePROptions) => PullRequestResult;
   readonly commentOnIssue: typeof commentOnIssue;
   readonly ensureLogsDirectory: (adwId: string) => string;
@@ -226,10 +236,16 @@ export async function executeUpgrade(
 
   const defaultBranch = deps.getDefaultBranch(baseRepoPath);
 
-  // 3. Check out the existing remote claim branch
+  // 3. Check out the existing remote claim branch, then reconcile it to the live
+  //    remote claim tip. A reused worktree may sit on a superseded claim commit
+  //    (a prior claim cycle re-created the branch with a new nonce); regenerating
+  //    on that stale base produces a push that can never fast-forward (#627 then
+  //    parks it). Resetting to origin/<claim-branch> makes the regen fast-forwardable.
+  //    Hard reset is safe: the upgrade worktree is a throwaway regen target.
   let worktreePath: string;
   try {
     worktreePath = deps.ensureWorktree(branch, defaultBranch, baseRepoPath);
+    deps.reconcileWorktreeToRemote(worktreePath, branch);
   } catch (error) {
     deps.commentOnIssue(
       issueNumber,
@@ -289,7 +305,25 @@ export async function executeUpgrade(
   // 6. Write .adw-version, commit the regen, push
   deps.writeAdwVersion(worktreePath, hash);
   deps.commitChanges(`chore: regenerate .adw/ for framework upgrade ${hash.slice(0, 12)}`, worktreePath);
-  deps.pushBranch(branch, worktreePath);
+  try {
+    deps.pushBranch(branch, worktreePath);
+  } catch (error) {
+    // Non-fast-forward rejection: the remote claim branch advanced under us. Either a
+    // concurrent claim cycle (different nonce) re-created it, or this worktree was reused
+    // stale and built regen on a superseded claim commit. We must NOT force-push — that
+    // clobbers the rightful claim owner. Park cleanly instead of crashing: the claim owner
+    // carries the upgrade forward, and if it died the next cron re-dispatch finds no PR on
+    // the branch and rebuilds (idempotency guard above). No comment — matches the silent
+    // pr_already_exists "someone else owns this" path.
+    if (deps.isPushRejection(error)) {
+      deps.log(
+        `adwUpgrade: push to claim branch ${branch} rejected (non-fast-forward) — another orchestrator owns this claim; parking as loser`,
+        'warn',
+      );
+      return { outcome: 'completed', reason: 'claim_lost' };
+    }
+    throw error;
+  }
 
   // 7. Open PR — no workflow comment; the PR is the success signal
   const pr = deps.createPullRequest({
@@ -350,6 +384,7 @@ function buildDefaultUpgradeDeps(repoId: RepoIdentifier): UpgradeDeps {
   return {
     computeFrameworkHash,
     ensureWorktree,
+    reconcileWorktreeToRemote: (worktreePath, branch) => fetchAndResetToRemote(branch, worktreePath),
     getDefaultBranch,
     findPRByBranch: (branch, info) => defaultFindPRByBranch(branch, info),
     runInitCommand: runInitCommandDefault,
@@ -358,6 +393,7 @@ function buildDefaultUpgradeDeps(repoId: RepoIdentifier): UpgradeDeps {
     writeAdwVersion,
     commitChanges,
     pushBranch,
+    isPushRejection: isPushRejectionError,
     createPullRequest: (options) => codeHost.createPullRequest(options),
     commentOnIssue,
     ensureLogsDirectory,

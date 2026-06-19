@@ -1,5 +1,13 @@
 # Conditional Documentation
 
+- app_docs/feature-19me6a-fix-junit-entity-expansion-limit.md
+  - Conditions:
+    - When working with `adws/core/testReportParser.ts` (`parseJUnitXml`, `readJUnitReport`) and large JUnit reports
+    - When troubleshooting `adw:unverified` on a unit-test phase where the report was emitted but parse threw silently
+    - When modifying the `XMLParser` options in `testReportParser.ts` or the `processEntities` entity-limit pin
+    - When `fast-xml-parser` entity-expansion limits or the `@nodable/entities` counter behaviour is relevant
+    - When adding tests to `adws/core/__tests__/testReportParser.test.ts` for large-report or entity-decoding correctness
+
 - app_docs/feature-hrl5jd-unit-test-rail-onto-junit-report.md
   - Conditions:
     - When working on `adws/phases/unitTestPhase.ts` unit-test verdict or report-path wiring
@@ -1575,3 +1583,11 @@
     - When a labeled issue is being sent to the LLM classifier instead of being deterministically routed
     - When extending `readAdwLabels` usage or adding new classification labels to `ADW_CLASSIFICATION_LABELS`
     - When understanding why the override is enforced at the chokepoint rather than the two broken call sites (`trigger_webhook.ts:188`, `webhookGatekeeper.ts:190`)
+
+- app_docs/feature-v7dih7-adwupgrade-worktree-reconcile.md
+  - Conditions:
+    - When working on `adwUpgrade.tsx` `executeUpgrade()` or `UpgradeDeps` (especially step 3 worktree setup)
+    - When an `adwUpgrade` run parks as `claim_lost` on every cron tick without a genuine concurrent-claim race
+    - When troubleshooting a stale `.worktrees/adw-upgrade-<hash>/` worktree sitting on a superseded nonce commit
+    - When `fetchAndResetToRemote` is called from the upgrade path (vs. the standard workflow in `workflowInit.ts`)
+    - When implementing or reviewing `reconcileWorktreeToRemote` wiring, ordering, or failure handling in upgrade tests

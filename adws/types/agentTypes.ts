@@ -168,8 +168,6 @@ export type AgentIdentifier =
   // PR and document agents
   | 'pr-agent'
   | 'document-agent'
-  // KPI tracking agent
-  | 'kpi-agent'
   // Scenario agent
   | 'scenario-agent'
   // Step definition agent

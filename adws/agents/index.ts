@@ -93,11 +93,6 @@ export {
   runDocumentAgent,
 } from './documentAgent';
 
-// KPI Agent
-export {
-  runKpiAgent,
-} from './kpiAgent';
-
 // Scenario Agent
 export {
   runScenarioAgent,
