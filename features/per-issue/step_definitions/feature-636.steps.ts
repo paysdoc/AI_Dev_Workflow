@@ -223,6 +223,8 @@ When('the takeover handler evaluates the candidate', function () {
     resetWorktree: () => { resets++; },
     deriveStageFromRemote: () => { reconciles++; return 'abandoned' as WorkflowStage; },
     getWorktreePath: (branch) => `/worktrees/${branch}`,
+    writeTopLevelState: () => undefined,
+    commentOnIssue: () => undefined,
   };
 
   takeoverCtx.decision = evaluateCandidate(

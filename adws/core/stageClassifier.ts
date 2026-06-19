@@ -63,6 +63,7 @@ export function classifyStage(stage: WorkflowStage): StageClass {
       return 'terminal';
 
     case 'merge_blocked':
+    case 'human_gated':
       return 'human_gated';
 
     case 'classified':

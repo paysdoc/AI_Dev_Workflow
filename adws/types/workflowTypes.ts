@@ -68,6 +68,9 @@ export type WorkflowStage =
   // Escalation target for exhausted no_pr_found and merge_failed; non-retriable;
   // recoverable only via ## Retry directive.
   | 'merge_blocked'
+  // Escalation target for the bounded resume cap (issue #639); non-retriable;
+  // recoverable only via ## Retry, which re-arms resumeAttempts.
+  | 'human_gated'
   // Agent watchdog timeout — phase marked failed; orchestrator exits. Recovered on the next
   // cron tick via reset-from-remote takeover (resume-in-place is a later slice).
   | 'phase_timeout';

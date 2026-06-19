@@ -915,6 +915,8 @@ When(
       resetWorktree: () => undefined,
       deriveStageFromRemote: () => 'abandoned' as import('../../../adws/types/workflowTypes.ts').WorkflowStage,
       getWorktreePath: () => '/tmp/fake-worktree',
+      writeTopLevelState: () => undefined,
+      commentOnIssue: () => undefined,
     };
 
     ctx.takeoverDecision = evaluateCandidate(

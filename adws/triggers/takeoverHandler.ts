@@ -30,6 +30,9 @@ import { resetWorktreeToRemote } from '../vcs/worktreeReset';
 import { getWorktreePath } from '../vcs/worktreeOperations';
 import { extractLatestAdwId } from './cronStageResolver';
 import { classifyStageString } from '../core/stageClassifier';
+import { nextResumeAction, MAX_RESUME_ATTEMPTS } from '../core/resumePolicy';
+import { formatHumanGatedComment } from '../github/workflowCommentsIssue';
+import { commentOnIssue } from '../github/githubApi';
 import type { RepoInfo } from '../github/githubApi';
 import type { AgentState } from '../types/agentTypes';
 import type { WorkflowStage } from '../types/workflowTypes';
@@ -38,7 +41,8 @@ export type CandidateDecision =
   | { readonly kind: 'spawn_fresh' }
   | { readonly kind: 'take_over_adwId'; readonly adwId: string; readonly derivedStage: WorkflowStage }
   | { readonly kind: 'defer_live_holder'; readonly holderPid: number }
-  | { readonly kind: 'skip_terminal'; readonly adwId: string; readonly terminalStage: 'completed' | 'discarded' | 'paused' | 'paused_auth' };
+  | { readonly kind: 'skip_terminal'; readonly adwId: string; readonly terminalStage: 'completed' | 'discarded' | 'paused' | 'paused_auth' }
+  | { readonly kind: 'escalate_human_gated'; readonly adwId: string };
 
 export interface EvaluateCandidateInput {
   readonly issueNumber: number;
@@ -56,6 +60,8 @@ export interface TakeoverDeps {
   readonly resetWorktree: (worktreePath: string, branch: string) => void;
   readonly deriveStageFromRemote: (issueNumber: number, adwId: string, repoInfo: RepoInfo) => WorkflowStage;
   readonly getWorktreePath: (branchName: string, baseRepoPath?: string) => string;
+  readonly writeTopLevelState: (adwId: string, state: Partial<AgentState>) => void;
+  readonly commentOnIssue: (issueNumber: number, body: string, repoInfo: RepoInfo) => void;
 }
 
 export function buildDefaultTakeoverDeps(): TakeoverDeps {
@@ -91,6 +97,8 @@ export function buildDefaultTakeoverDeps(): TakeoverDeps {
     deriveStageFromRemote: (issueNumber, adwId, repoInfo) =>
       deriveStageFromRemote(issueNumber, adwId, repoInfo),
     getWorktreePath: (branchName, baseRepoPath) => getWorktreePath(branchName, baseRepoPath),
+    writeTopLevelState: (adwId, state) => AgentStateManager.writeTopLevelState(adwId, state),
+    commentOnIssue: (issueNumber, body, repoInfo) => commentOnIssue(issueNumber, body, repoInfo),
   };
 }
 
@@ -160,10 +168,22 @@ export function evaluateCandidate(
   }
 
   // phase_timeout: the watchdog killed the agent and handlePhaseTimeout exited the
-  // orchestrator (process.exit(0)), so the PID is dead. Recover by reusing the
-  // abandoned/retriable reset-from-remote path. (Resume-in-place is a later slice —
-  // issue #637 / the stage-recovery-resume-in-place PRD.)
+  // orchestrator (dead PID). Recovery is otherwise unbounded — a phase that wedges
+  // deterministically would be auto-resumed every tick forever (money fire). Cap the
+  // automatic resumes; escalate to human_gated when the bound is reached (issue #639).
   if (stage === 'phase_timeout') {
+    const attempts = state.resumeAttempts ?? 0;
+    if (nextResumeAction(attempts, MAX_RESUME_ATTEMPTS) === 'escalate') {
+      d.writeTopLevelState(adwId, { workflowStage: 'human_gated' });
+      d.commentOnIssue(
+        input.issueNumber,
+        formatHumanGatedComment(adwId, attempts, MAX_RESUME_ATTEMPTS),
+        input.repoInfo,
+      );
+      releaseLock();
+      return { kind: 'escalate_human_gated', adwId };
+    }
+    d.writeTopLevelState(adwId, { resumeAttempts: attempts + 1 });
     return recoverViaResetFromRemote(d, input, adwId, state);
   }
 
