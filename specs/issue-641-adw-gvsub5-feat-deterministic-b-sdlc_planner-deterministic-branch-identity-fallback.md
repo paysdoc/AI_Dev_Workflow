@@ -112,7 +112,7 @@ IMPORTANT: Execute every step in order, top to bottom.
 
 ### Step 3 — Pure unit tests for the predicates (criterion 5)
 - Create `adws/vcs/__tests__/branchIdentity.test.ts` (vitest).
-- `deterministicBranchName`: asserts `feature-issue-641`, `bugfix-issue-12`, `chore-issue-7`, `review-issue-3` for `/feature`,`/bug`,`/chore`,`/pr_review`.
+- `deterministicBranchName`: asserts `feature-issue-641`, `bugfix-issue-12`, `chore-issue-7`, `review-issue-3`, `adwinit-issue-641` for `/feature`,`/bug`,`/chore`,`/pr_review`,`/adw_init` (every classifier in `branchPrefixMap`, matching BDD scenario §1).
 - `branchMatchesIssue`: covers exact match, slug-suffixed match, alias match (`feat-issue-641-x` for `/feature`), number-boundary rejection (`feature-issue-64`, `feature-issue-6411`), and classifier-mismatch rejection (`feature-issue-641-x` vs `/bug`).
 - Run `bun run test:unit` for this file and confirm green before proceeding.
 
