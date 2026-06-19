@@ -26,7 +26,10 @@ Feature: phase_timeout becomes a recoverable stage — a timed-out workflow with
       `phase_timeout` candidate whose owning process is dead is TAKEN OVER under its
       existing run id — worktree reset, stage reconciled from the remote, no fresh
       spawn. This is the direct inverse of feature-636 §10, which pinned
-      `phase_timeout` as a fresh spawn.
+      `phase_timeout` as a fresh spawn. (Issue #638 — resume-in-place via the
+      worktree-reuse gate — has since made the worktree reset CONDITIONAL: a healthy
+      phase_timeout worktree is reused in place, and the reset §1 pins is now reached
+      only when the gate fails. §1 is updated and cross-tagged @adw-638 accordingly.)
 
   The flip is SURGICAL — only `phase_timeout` changes disposition. The other members
   of the `resumable` class (e.g. `build_completed`, which phaseRunner writes between
@@ -114,6 +117,10 @@ Feature: phase_timeout becomes a recoverable stage — a timed-out workflow with
       • `the workflow composes the Phase Timeout comment for a timed-out phase`
       • `the Phase Timeout comment tells the reader the timed-out run will be recovered automatically on the next cron tick`
 
+    Reused phrase introduced by feature-638 (now used by the updated §1, which #638
+    re-pins to the gate-fails reset path):
+      `the candidate's worktree fails the reuse gate`
+
     Step-definition note for the maintainer: §1–§4 reuse the feature-636 cron /
     takeover step definitions verbatim (phase-import `evaluateIssue` with an injected
     `resolveStage` returning `{ stage, adwId, lastActivityMs }` placed past the grace
@@ -141,10 +148,17 @@ Feature: phase_timeout becomes a recoverable stage — a timed-out workflow with
   # signalled to die (the owner is already dead). This reuses the existing
   # reset-from-remote recovery that `abandoned` and the running family already use.
   # (AC1: takeover has a branch that recovers phase_timeout; AC4: tests cover it.)
+  #
+  # UPDATED by issue #638 (resume-in-place via the worktree-reuse gate): reset is no
+  # longer unconditional. A healthy phase_timeout worktree is now reused IN PLACE
+  # (feature-638 §4); the reset-from-remote path this scenario pins is reached only
+  # when the worktree FAILS the gate, so the Given now states that condition and the
+  # scenario is cross-tagged @adw-638. The take-over decision itself is unchanged.
 
-  @adw-637 @adw-tg4om4-fix-make-phase-timeo
-  Scenario: The takeover handler takes over a stalled phase_timeout run whose owning process is dead
+  @adw-637 @adw-638 @adw-tg4om4-fix-make-phase-timeo
+  Scenario: The takeover handler resets a stalled phase_timeout run from the remote when its worktree fails the reuse gate
     Given a takeover candidate for issue 7370 whose stalled ADW run is recorded at stage "phase_timeout" on branch "feature-issue-7370-x" with a dead owning process
+    And the candidate's worktree fails the reuse gate
     When the takeover handler evaluates the candidate
     Then the takeover handler takes over the recorded ADW run
     And the takeover handler resets the worktree and reconciles from the remote before taking over
