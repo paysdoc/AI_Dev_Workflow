@@ -90,14 +90,18 @@ function isEnvFileAccess(
     // Check bash commands for .env file access
     if (toolName === 'Bash') {
       const command = toolInput.command || '';
-      // Pattern to detect .env file access (but allow .env.sample)
+      // Detect any reference to a .env file (but allow .env.sample).
+      // The leading (?<![\w.]) anchors the match to a path boundary so it
+      // catches real filenames (".env", "path/.env", "./.env", ".env.local")
+      // including a bare " .env" argument, while NOT matching word-internal
+      // cases like "process.env" or ".environment".
+      //
+      // Prior bug: /\b\.env\b/ required a WORD character before the dot, so a
+      // bare " .env" argument (e.g. `grep FOO .env`) had no boundary there and
+      // slipped through. The command-specific cat/echo/touch/cp/mv patterns
+      // only covered those verbs, so reads via grep/less/head/etc. were missed.
       const envPatterns = [
-        /\b\.env\b(?!\.sample)/, // .env but not .env.sample
-        /cat\s+.*\.env\b(?!\.sample)/, // cat .env
-        /echo\s+.*>\s*\.env\b(?!\.sample)/, // echo > .env
-        /touch\s+.*\.env\b(?!\.sample)/, // touch .env
-        /cp\s+.*\.env\b(?!\.sample)/, // cp .env
-        /mv\s+.*\.env\b(?!\.sample)/, // mv .env
+        /(?<![\w.])\.env\b(?!\.sample)/, // .env, ./.env, path/.env, .env.local — not .env.sample / process.env
       ];
 
       for (const pattern of envPatterns) {
