@@ -21,6 +21,14 @@ const parser = new XMLParser({
   ignoreAttributes: false,
   attributeNamePrefix: '@_',
   isArray: (name) => name === 'testcase' || name === 'testsuite',
+  // JUnit reports come from our own test runner, not untrusted input.
+  // Raise entity-expansion limits so large suites (> 1000 testcases with
+  // entities like &gt; / &amp; in names or <system-out>) never trip the
+  // fast-xml-parser billion-laughs guard and get silently swallowed to null.
+  processEntities: {
+    maxEntityCount: Infinity,
+    maxTotalExpansions: Infinity,
+  },
 });
 
 /**
@@ -115,7 +123,11 @@ export function readJUnitReport(filePath: string): TestReport | null {
   try {
     const xml = fs.readFileSync(filePath, 'utf-8');
     return parseJUnitXml(xml);
-  } catch {
+  } catch (err) {
+    // Surface parse errors so callers can distinguish "report absent" from
+    // "report present but failed to parse".  Both return null; only the
+    // latter logs — the fs.existsSync guard handles the absent case above.
+    console.error(`[testReportParser] Failed to parse JUnit report at ${filePath}: ${err}`);
     return null;
   }
 }

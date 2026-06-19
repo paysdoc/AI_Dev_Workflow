@@ -144,6 +144,47 @@ describe('parseJUnitXml — single testcase coercion', () => {
   });
 });
 
+describe('parseJUnitXml — large report with > 1000 XML entity expansions', () => {
+  it('parses without throwing when entity-expansion count exceeds 1000', () => {
+    // 500 testcases × 3 XML entity refs each = 1500 expansions — enough to
+    // trip fast-xml-parser's default maxEntityCount / maxTotalExpansions (1000)
+    // if those limits are applied to predefined XML entities.
+    const cases = Array.from({ length: 500 }, (_, i) =>
+      `<testcase name="a &gt; b &amp; c ${i}"/>`
+    ).join('\n');
+    const xml = `<?xml version="1.0"?>\n<testsuite tests="500">\n${cases}\n</testsuite>`;
+    const report = parseJUnitXml(xml);
+    expect(report).not.toBeNull();
+    expect(report!.total).toBe(500);
+    expect(report!.failed).toBe(0);
+    // Entity decoding is still applied: &gt; → '>' and &amp; → '&'
+    expect(report!.cases[0].name).toBe('a > b & c 0');
+  });
+
+  it('parses a vitest-shaped large report (testsuites wrapper, system-out, apos/quot entities)', () => {
+    // Simulate the vitest JUnit shape: <testsuites><testsuite>…</testsuite></testsuites>
+    // with system-out blocks containing &apos; / &quot; — the real-world trigger.
+    const cases = Array.from({ length: 350 }, (_, i) =>
+      `<testcase classname="Suite" name="mod &gt; case ${i}" time="0.001">` +
+      `<system-out>warn: value &apos;${i}&apos; is &quot;ok&quot; &amp; &lt;fine&gt;</system-out>` +
+      `</testcase>`
+    ).join('\n');
+    const xml =
+      `<?xml version="1.0" encoding="UTF-8"?>\n` +
+      `<testsuites tests="350">\n` +
+      `<testsuite name="suite" tests="350">\n` +
+      `${cases}\n` +
+      `</testsuite>\n</testsuites>`;
+    const report = parseJUnitXml(xml);
+    expect(report).not.toBeNull();
+    expect(report!.total).toBe(350);
+    expect(report!.passed).toBe(350);
+    expect(report!.failed).toBe(0);
+    // Entity decoding preserved in testcase name
+    expect(report!.cases[0].name).toBe('mod > case 0');
+  });
+});
+
 describe('readJUnitReport', () => {
   it('returns null for a missing file path', () => {
     expect(readJUnitReport('/nonexistent/path/junit.xml')).toBeNull();
