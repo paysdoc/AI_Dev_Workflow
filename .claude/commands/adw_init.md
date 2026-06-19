@@ -79,13 +79,14 @@ Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init
    - Include any documentation directories found in the project
    - If the project has distinct modules or sub-packages, create conditions for each
    - For each entry, include an `Owns:` glob block listing the file globs the entry covers (e.g., `adws/vcs/**`). This makes future `/document` runs route convergently to the right entry instead of appending a duplicate.
+   - The `Conditions:` lines must be **descriptive enough to support semantic routing**: name the module's responsibility in plain language (e.g., `When working on the VCS worktree management module`), not just a file path. `/document` routes by semantic match against this text when no glob matches the touched file.
    - New-format entry shape:
      ```md
      - app_docs/feature-xxx.md
        - Owns:
          - <glob covering the module's files>
        - Conditions:
-         - When working on <module area>
+         - When working on the <module name and responsibility description>
      ```
 
 5. **Create `.adw/providers.md`**
