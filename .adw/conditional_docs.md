@@ -521,6 +521,8 @@
   - Owns:
     - adws/core/stageClassifier.ts
     - adws/core/__tests__/stageClassifier.test.ts
+    - adws/core/resumePolicy.ts
+    - adws/core/__tests__/resumePolicy.test.ts
     - adws/triggers/cronStageResolver.ts
     - adws/triggers/cronIssueFilter.ts
     - adws/triggers/takeoverHandler.ts
@@ -537,4 +539,6 @@
     - When troubleshooting a stage that falls through all recovery paths (the `phase_timeout` dead-end class of bug)
     - When understanding the `resuming` vs `*_completed` asymmetry between cron and takeover "active" sets
     - When the `never` exhaustiveness guard or compile-time classification check is relevant
-    - When understanding how `phase_timeout` recovery works (reset-from-remote takeover, not resume-in-place)
+    - When working with `nextResumeAction`, `MAX_RESUME_ATTEMPTS`, or `ResumeAction` in `adws/core/resumePolicy.ts`
+    - When the bounded resume cap, `human_gated` stage, or `escalate_human_gated` decision is relevant
+    - When understanding how `phase_timeout` recovery is cap-gated before reset-from-remote takeover (money-fire backstop)
