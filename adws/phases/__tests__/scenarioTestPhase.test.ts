@@ -27,6 +27,7 @@ import { executeScenarioTestPhase } from '../scenarioTestPhase';
 import { runScenarioProof } from '../scenarioProof';
 import { withDevServer } from '../../core/devServerLifecycle';
 import { createPhaseCostRecords } from '../../cost';
+import { parseConditionalDocs } from '../../core/conditionalDocsRegistry';
 
 const mockRunScenarioProof = vi.mocked(runScenarioProof);
 const mockWithDevServer = vi.mocked(withDevServer);
@@ -91,6 +92,7 @@ function makeConfig(overrides: {
       },
       projectMd: '',
       conditionalDocsMd: '',
+      conditionalDocs: parseConditionalDocs(''),
       reviewProofMd: '',
       hasAdwDir: true,
       providers: { codeHost: 'github', issueTracker: 'github' },
