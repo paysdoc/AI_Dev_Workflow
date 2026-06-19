@@ -149,6 +149,13 @@ export function evaluateIssue(
   if (classifyStageString(stage) === 'retriable') {
     return { eligible: true, action: 'spawn', adwId: resolution.adwId ?? undefined };
   }
+  // phase_timeout: a watchdog-killed workflow whose orchestrator exited. Make it
+  // eligible so trigger_cron routes it through evaluateCandidate (takeover), which
+  // recovers it via reset-from-remote. Without this it falls through to the
+  // unknown-stage exclusion below and strands forever (issue #637).
+  if (stage === 'phase_timeout') {
+    return { eligible: true, action: 'spawn', adwId: resolution.adwId ?? undefined };
+  }
   // Unknown stage — exclude
   return { eligible: false, reason: `adw_stage:${stage}` };
 }

@@ -340,7 +340,7 @@ function formatUnverifiedComment(ctx: WorkflowContext): string {
 function formatPhaseTimeoutComment(ctx: WorkflowContext): string {
   const phase = ctx.timeoutPhaseName ?? 'unknown';
   const minutes = ctx.timeoutMs ? Math.round(ctx.timeoutMs / 60_000) : '?';
-  return `## :warning: Phase Timeout\n\nPhase \`${phase}\` exceeded its ${minutes}-minute watchdog and was terminated. The workflow will re-enter this phase on the next cron tick / webhook event.\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+  return `## :warning: Phase Timeout\n\nPhase \`${phase}\` exceeded its ${minutes}-minute watchdog and was terminated. The workflow will be recovered automatically on the next cron tick: the worktree is reset to the remote and the run resumes from the reconciled stage.\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
 }
 
 /** Formats a workflow comment for the given stage. */

@@ -175,6 +175,48 @@ describe('evaluateIssue — label-recovery gate', () => {
   });
 });
 
+// ── phase_timeout eligibility ──────────────────────────────────────────────────
+
+describe('evaluateIssue — phase_timeout eligibility', () => {
+  it('returns eligible:true with action:spawn for a phase_timeout stage past the grace period', () => {
+    const issue = makeIssue({ updatedAt: OLD_DATE });
+    const resolveStage = () => makeResolution('phase_timeout', 'tg4om4', NOW - 200_000);
+
+    const result = evaluateIssue(issue, NOW, { spawns: new Set() }, GRACE_PERIOD_MS, resolveStage);
+
+    expect(result.eligible).toBe(true);
+    expect(result.action).toBe('spawn');
+    expect(result.adwId).toBe('tg4om4');
+  });
+
+  it('does NOT return adw_stage:phase_timeout as reason (no longer excluded)', () => {
+    const issue = makeIssue({ updatedAt: OLD_DATE });
+    const resolveStage = () => makeResolution('phase_timeout', 'tg4om4', NOW - 200_000);
+
+    const result = evaluateIssue(issue, NOW, { spawns: new Set() }, GRACE_PERIOD_MS, resolveStage);
+
+    expect(result.reason).not.toBe('adw_stage:phase_timeout');
+  });
+});
+
+describe('filterEligibleIssues — phase_timeout appears in eligible, not filteredAnnotations', () => {
+  it('includes phase_timeout issue in eligible list', () => {
+    const issue = makeIssue({ number: 637, createdAt: OLD_DATE, updatedAt: OLD_DATE });
+    const resolveStage = () => makeResolution('phase_timeout', 'tg4om4', NOW - 200_000);
+
+    const { eligible, filteredAnnotations } = filterEligibleIssues(
+      [issue],
+      NOW,
+      { spawns: new Set() },
+      GRACE_PERIOD_MS,
+      resolveStage,
+    );
+
+    expect(eligible.map(e => e.issue.number)).toContain(637);
+    expect(filteredAnnotations.join(',')).not.toContain('adw_stage:phase_timeout');
+  });
+});
+
 describe('filterEligibleIssues — label-recovery gate annotations', () => {
   it('ineligible evaluator surfaces label:<reason> in filteredAnnotations', () => {
     const issue = makeIssue({ number: 42, createdAt: OLD_DATE, updatedAt: OLD_DATE });

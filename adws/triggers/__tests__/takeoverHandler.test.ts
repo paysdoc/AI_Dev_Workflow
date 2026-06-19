@@ -382,3 +382,78 @@ describe('lock handoff semantics', () => {
     expect(deps.releaseIssueSpawnLock).not.toHaveBeenCalled();
   });
 });
+
+// ─── phase_timeout → take_over_adwId ─────────────────────────────────────────
+
+describe('take_over_adwId from phase_timeout', () => {
+  it('returns take_over_adwId carrying the adwId and derived stage', () => {
+    const deps = makeDeps({
+      readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'phase_timeout', branchName: 'feature-issue-637-x' })),
+      deriveStageFromRemote: vi.fn().mockReturnValue('awaiting_merge'),
+    });
+    const decision = evaluateCandidate({ issueNumber: 637, repoInfo: REPO }, deps) as Extract<CandidateDecision, { kind: 'take_over_adwId' }>;
+
+    expect(decision.kind).toBe('take_over_adwId');
+    expect(decision.adwId).toBe(ADW_ID);
+    expect(decision.derivedStage).toBe('awaiting_merge');
+  });
+
+  it('calls resetWorktree before deriveStageFromRemote (order enforced)', () => {
+    const callOrder: string[] = [];
+    const deps = makeDeps({
+      readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'phase_timeout', branchName: 'feature-issue-637-x' })),
+      resetWorktree: vi.fn().mockImplementation(() => callOrder.push('reset')),
+      deriveStageFromRemote: vi.fn().mockImplementation(() => { callOrder.push('reconcile'); return 'abandoned'; }),
+    });
+    evaluateCandidate({ issueNumber: 637, repoInfo: REPO }, deps);
+
+    expect(callOrder).toEqual(['reset', 'reconcile']);
+  });
+
+  it('passes the branchName from state to resetWorktree', () => {
+    const deps = makeDeps({
+      readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'phase_timeout', branchName: 'feature-issue-637-whatever' })),
+      getWorktreePath: vi.fn().mockReturnValue('/wt/feature-issue-637-whatever'),
+    });
+    evaluateCandidate({ issueNumber: 637, repoInfo: REPO }, deps);
+
+    expect(deps.resetWorktree).toHaveBeenCalledWith('/wt/feature-issue-637-whatever', 'feature-issue-637-whatever');
+  });
+
+  it('skips resetWorktree when state has no branchName but still calls deriveStageFromRemote', () => {
+    const deps = makeDeps({
+      readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'phase_timeout', branchName: undefined })),
+      deriveStageFromRemote: vi.fn().mockReturnValue('abandoned'),
+    });
+    evaluateCandidate({ issueNumber: 637, repoInfo: REPO }, deps);
+
+    expect(deps.resetWorktree).not.toHaveBeenCalled();
+    expect(deps.deriveStageFromRemote).toHaveBeenCalledOnce();
+  });
+
+  it('lock is NOT released on take_over_adwId (caller keeps it for spawn)', () => {
+    const deps = makeDeps({
+      readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'phase_timeout', branchName: 'feature-branch' })),
+    });
+    evaluateCandidate({ issueNumber: 637, repoInfo: REPO }, deps);
+
+    expect(deps.releaseIssueSpawnLock).not.toHaveBeenCalled();
+  });
+
+  it('does NOT call killProcess even when state has a live PID (orchestrator already exited)', () => {
+    const deps = makeDeps({
+      readTopLevelState: vi.fn().mockReturnValue(makeState({
+        workflowStage: 'phase_timeout',
+        branchName: 'feature-branch',
+        pid: 77777,
+        pidStartedAt: 'live-era',
+      })),
+      isProcessLive: vi.fn().mockReturnValue(true),
+    });
+    evaluateCandidate({ issueNumber: 637, repoInfo: REPO }, deps);
+
+    expect(deps.killProcess).not.toHaveBeenCalled();
+    expect(deps.resetWorktree).toHaveBeenCalledOnce();
+    expect(deps.deriveStageFromRemote).toHaveBeenCalledOnce();
+  });
+});
