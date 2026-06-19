@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import * as os from 'os';
 import * as fs from 'fs';
 import * as path from 'path';
+import { XMLParser } from 'fast-xml-parser';
 import { parseJUnitXml, readJUnitReport } from '../testReportParser';
 
 describe('parseJUnitXml — valid mixed report', () => {
@@ -141,6 +142,71 @@ describe('parseJUnitXml — single testcase coercion', () => {
     expect(report!.total).toBe(1);
     expect(report!.cases).toHaveLength(1);
     expect(report!.cases[0].name).toBe('only');
+  });
+});
+
+describe('parseJUnitXml — large report with > 1000 XML entity expansions', () => {
+  it('parses without throwing when entity-expansion count exceeds 1000', () => {
+    // 500 testcases × 3 XML entity refs each (&gt; &amp; &lt;) = 1500 expansions —
+    // clearly exceeds 1000, tripping fast-xml-parser's maxTotalExpansions when finite.
+    const cases = Array.from({ length: 500 }, (_, i) =>
+      `<testcase name="a &gt; b &amp; c &lt; ${i}"/>`,
+    ).join('\n');
+    const xml = `<?xml version="1.0"?>\n<testsuite tests="500">\n${cases}\n</testsuite>`;
+    const report = parseJUnitXml(xml);
+    expect(report).not.toBeNull();
+    expect(report!.total).toBe(500);
+    expect(report!.failed).toBe(0);
+    // Entity decoding still applied: &gt; → '>' and &amp; → '&' and &lt; → '<'
+    expect(report!.cases[0].name).toBe('a > b & c < 0');
+  });
+
+  it('limit override is load-bearing — local finite-ceiling parser throws, module parser does not', () => {
+    // This is the version-independent proof: explicitly setting maxTotalExpansions: 1000
+    // on a local parser causes it to throw on 1500 entity refs, regardless of whether
+    // the installed fast-xml-parser default is Infinity or 1000. The module's
+    // parseJUnitXml does NOT throw because it pins maxTotalExpansions: Infinity.
+    const cases = Array.from({ length: 500 }, (_, i) =>
+      `<testcase name="a &gt; b &amp; c &lt; ${i}"/>`,
+    ).join('\n');
+    const xml = `<?xml version="1.0"?>\n<testsuite tests="500">\n${cases}\n</testsuite>`;
+
+    const finiteCeilingParser = new XMLParser({
+      ignoreAttributes: false,
+      attributeNamePrefix: '@_',
+      isArray: (name) => name === 'testcase' || name === 'testsuite',
+      processEntities: { maxTotalExpansions: 1000 },
+    });
+    expect(() => finiteCeilingParser.parse(xml)).toThrow(/Entity expansion count limit exceeded/);
+
+    // The module's parser (maxTotalExpansions: Infinity) does NOT throw on the same input
+    const report = parseJUnitXml(xml);
+    expect(report).not.toBeNull();
+    expect(report!.total).toBe(500);
+    expect(report!.failed).toBe(0);
+  });
+
+  it('parses a vitest-shaped large report (testsuites wrapper, system-out, apos/quot entities)', () => {
+    // Simulate the vitest JUnit shape: <testsuites><testsuite>…</testsuite></testsuites>
+    // with system-out blocks containing &apos; / &quot; — the real-world trigger.
+    const cases = Array.from({ length: 350 }, (_, i) =>
+      `<testcase classname="Suite" name="mod &gt; case ${i}" time="0.001">` +
+      `<system-out>warn: value &apos;${i}&apos; is &quot;ok&quot; &amp; &lt;fine&gt;</system-out>` +
+      `</testcase>`
+    ).join('\n');
+    const xml =
+      `<?xml version="1.0" encoding="UTF-8"?>\n` +
+      `<testsuites tests="350">\n` +
+      `<testsuite name="suite" tests="350">\n` +
+      `${cases}\n` +
+      `</testsuite>\n</testsuites>`;
+    const report = parseJUnitXml(xml);
+    expect(report).not.toBeNull();
+    expect(report!.total).toBe(350);
+    expect(report!.passed).toBe(350);
+    expect(report!.failed).toBe(0);
+    // Entity decoding preserved in testcase name
+    expect(report!.cases[0].name).toBe('mod > case 0');
   });
 });
 

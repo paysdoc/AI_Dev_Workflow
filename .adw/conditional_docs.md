@@ -1,5 +1,13 @@
 # Conditional Documentation
 
+- app_docs/feature-19me6a-fix-junit-entity-expansion-limit.md
+  - Conditions:
+    - When working with `adws/core/testReportParser.ts` (`parseJUnitXml`, `readJUnitReport`) and large JUnit reports
+    - When troubleshooting `adw:unverified` on a unit-test phase where the report was emitted but parse threw silently
+    - When modifying the `XMLParser` options in `testReportParser.ts` or the `processEntities` entity-limit pin
+    - When `fast-xml-parser` entity-expansion limits or the `@nodable/entities` counter behaviour is relevant
+    - When adding tests to `adws/core/__tests__/testReportParser.test.ts` for large-report or entity-decoding correctness
+
 - app_docs/feature-hrl5jd-unit-test-rail-onto-junit-report.md
   - Conditions:
     - When working on `adws/phases/unitTestPhase.ts` unit-test verdict or report-path wiring
