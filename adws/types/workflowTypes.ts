@@ -68,7 +68,8 @@ export type WorkflowStage =
   // Escalation target for exhausted no_pr_found and merge_failed; non-retriable;
   // recoverable only via ## Retry directive.
   | 'merge_blocked'
-  // Agent watchdog timeout — phase marked failed; resume re-enters on next cron / webhook
+  // Agent watchdog timeout — phase marked failed; orchestrator exits. Recovered on the next
+  // cron tick via reset-from-remote takeover (resume-in-place is a later slice).
   | 'phase_timeout';
 
 /**

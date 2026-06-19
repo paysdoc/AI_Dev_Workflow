@@ -96,6 +96,20 @@ export function buildDefaultTakeoverDeps(): TakeoverDeps {
 
 let _defaultDeps: TakeoverDeps | null = null;
 
+function recoverViaResetFromRemote(
+  d: TakeoverDeps,
+  input: EvaluateCandidateInput,
+  adwId: string,
+  state: AgentState,
+): CandidateDecision {
+  if (state.branchName) {
+    const wtPath = d.getWorktreePath(state.branchName);
+    d.resetWorktree(wtPath, state.branchName);
+  }
+  const derivedStage = d.deriveStageFromRemote(input.issueNumber, adwId, input.repoInfo);
+  return { kind: 'take_over_adwId', adwId, derivedStage };
+}
+
 export function evaluateCandidate(
   input: EvaluateCandidateInput,
   deps?: TakeoverDeps,
@@ -142,12 +156,15 @@ export function evaluateCandidate(
 
   // Branch 5: retriable (abandoned) — worktreeReset → remoteReconcile → takeover.
   if (cls === 'retriable') {
-    if (state.branchName) {
-      const wtPath = d.getWorktreePath(state.branchName);
-      d.resetWorktree(wtPath, state.branchName);
-    }
-    const derivedStage = d.deriveStageFromRemote(issueNumber, adwId, repoInfo);
-    return { kind: 'take_over_adwId', adwId, derivedStage };
+    return recoverViaResetFromRemote(d, input, adwId, state);
+  }
+
+  // phase_timeout: the watchdog killed the agent and handlePhaseTimeout exited the
+  // orchestrator (process.exit(0)), so the PID is dead. Recover by reusing the
+  // abandoned/retriable reset-from-remote path. (Resume-in-place is a later slice —
+  // issue #637 / the stage-recovery-resume-in-place PRD.)
+  if (stage === 'phase_timeout') {
+    return recoverViaResetFromRemote(d, input, adwId, state);
   }
 
   // Branch 6 & 7: active (*_running / starting / resuming).
@@ -164,12 +181,7 @@ export function evaluateCandidate(
       }
     }
     // Dead PID (or post-SIGKILL): proceed with takeover.
-    if (state.branchName) {
-      const wtPath = d.getWorktreePath(state.branchName);
-      d.resetWorktree(wtPath, state.branchName);
-    }
-    const derivedStage = d.deriveStageFromRemote(issueNumber, adwId, repoInfo);
-    return { kind: 'take_over_adwId', adwId, derivedStage };
+    return recoverViaResetFromRemote(d, input, adwId, state);
   }
 
   // Branch 8: defensive fallthrough — awaiting_merge / human_gated / resumable.

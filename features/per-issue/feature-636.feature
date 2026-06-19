@@ -39,8 +39,9 @@ Feature: Exhaustive classifyStage routes cron + takeover — every existing stag
        out of the backlog sweep — the cron does not re-process it. This includes
        the family-matched `build_running` (a `*_running`) and `build_completed`
        (an intermediate `*_completed`), the deliberate-terminal `discarded` (never
-       re-spawned — the loop-forever guard), the human-gated `merge_blocked`, the
-       queue-owned `paused`, and the as-yet-unrecovered `phase_timeout`.
+       re-spawned — the loop-forever guard), the human-gated `merge_blocked`, and
+       the queue-owned `paused`. (`phase_timeout` has moved to feature-637, which
+       flips it from excluded to recovered.)
     2. CRON DISPATCHES A MERGE FOR awaiting_merge (AC3, cron). An issue recorded
        at `awaiting_merge` with a resolvable run id is eligible with a `merge`
        action carrying that run id — it bypasses the grace period.
@@ -71,12 +72,12 @@ Feature: Exhaustive classifyStage routes cron + takeover — every existing stag
        `paused_auth` (queue-owned, resumed only by their own queue scanner) is not
        taken over and not re-spawned — the handler stands down and releases the
        spawn lock, performing no worktree reset or remote reconcile.
-   10. TAKEOVER FALLS THROUGH TO A FRESH SPAWN FOR THE UNRECOVERED STAGES (AC3,
-       defensive). `phase_timeout` and `merge_blocked` are not yet recovered by
-       takeover and fall through to a fresh spawn — the pre-existing defensive
-       disposition this slice preserves. (`phase_timeout` is the dead-end stage a
-       LATER resumable-class slice will flip to a take-over; pinning it here makes
-       that future behaviour change test-visible.)
+   10. TAKEOVER FALLS THROUGH TO A FRESH SPAWN FOR THE UNRECOVERED STAGE (AC3,
+       defensive). `merge_blocked` is not yet recovered by takeover and falls
+       through to a fresh spawn — the pre-existing defensive disposition this slice
+       preserves. (`phase_timeout` was the other such stage; feature-637 — the
+       resumable-class slice this §10 anticipated — has since flipped it to a
+       take-over, so it no longer appears in this example set.)
    11. EXHAUSTIVENESS COMPILES (AC1 backstop). With every `WorkflowStage` literal
        classified and a `never` fallthrough in place, the ADW TypeScript
        type-check passes — the baseline that makes an unclassified future stage a
@@ -198,10 +199,10 @@ Feature: Exhaustive classifyStage routes cron + takeover — every existing stag
   # active stages; `completed` is the terminal boundary the *_completed family
   # must not swallow into eligibility; `discarded` is the deliberate-terminal
   # never-re-spawn guard; `merge_blocked` is human-gated; `paused` is owned by the
-  # pause queue; `phase_timeout` is the as-yet-unrecovered dead-end. Every one is
-  # left out of the sweep. (Contract §1; AC3.)
+  # pause queue. (`phase_timeout` has moved to feature-637, which flips it to
+  # recovered.) Every stage listed below is left out of the sweep. (Contract §1; AC3.)
 
-  @adw-636 @adw-d0hv98-refactor-exhaustive
+  @adw-636 @adw-637 @adw-d0hv98-refactor-exhaustive
   Scenario Outline: The cron backlog filter excludes an issue whose ADW run sits at a settled or owned stage
     Given a backlog issue 7360 idle past the cron grace period whose latest ADW run is recorded at stage "<stage>"
     When the cron backlog filter evaluates the issue
@@ -215,7 +216,6 @@ Feature: Exhaustive classifyStage routes cron + takeover — every existing stag
       | discarded       |
       | merge_blocked   |
       | paused          |
-      | phase_timeout   |
 
   # ── §2 Cron dispatches a merge for awaiting_merge with a run id ───────────────
   #
@@ -346,16 +346,16 @@ Feature: Exhaustive classifyStage routes cron + takeover — every existing stag
       | paused      |
       | paused_auth |
 
-  # ── §10 Takeover falls through to a fresh spawn for the unrecovered stages ────
+  # ── §10 Takeover falls through to a fresh spawn for the unrecovered stage ─────
   #
-  # `phase_timeout` and `merge_blocked` are not yet recovered by takeover and hit
-  # its defensive fallthrough — a fresh spawn. This is the pre-existing
-  # disposition this behaviour-preserving slice keeps. `phase_timeout` is the
-  # dead-end stage a LATER resumable-class slice will flip to a take-over; pinning
-  # its current fresh-spawn here makes that future behaviour change test-visible.
+  # `merge_blocked` is not yet recovered by takeover and hits its defensive
+  # fallthrough — a fresh spawn. This is the pre-existing disposition this
+  # behaviour-preserving slice keeps. (`phase_timeout` was the other fresh-spawn
+  # stage here; feature-637 — the resumable-class slice this §10 anticipated — has
+  # since flipped it to a take-over, so it no longer appears in this example set.)
   # (Contract §10; AC3.)
 
-  @adw-636 @adw-d0hv98-refactor-exhaustive
+  @adw-636 @adw-637 @adw-d0hv98-refactor-exhaustive
   Scenario Outline: The takeover handler falls through to a fresh spawn for an as-yet-unrecovered stage
     Given a takeover candidate for issue 7369 whose recorded ADW run is at stage "<stage>"
     When the takeover handler evaluates the candidate
@@ -364,7 +364,6 @@ Feature: Exhaustive classifyStage routes cron + takeover — every existing stag
 
     Examples:
       | stage         |
-      | phase_timeout |
       | merge_blocked |
 
   # ── §11 Exhaustiveness compiles (type-check backstop) ─────────────────────────
