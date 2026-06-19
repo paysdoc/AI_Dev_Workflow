@@ -80,6 +80,12 @@
     - When troubleshooting the browser-test-equipped vs CLI-only vs fallback drafting path
 
 - app_docs/feature-sh8m9r-persist-branch-name-per-adwid.md
+  - Owns:
+    - adws/phases/branchNameResolution.ts
+    - adws/phases/branchIdentityFallback.ts
+    - adws/vcs/branchIdentity.ts
+    - adws/phases/workflowInit.ts
+    - adws/vcs/index.ts
   - Conditions:
     - When working with `adws/phases/workflowInit.ts` branch-name resolution or `runGenerateBranchNameAgent` call sites
     - When implementing or troubleshooting `adws/phases/branchNameResolution.ts` (`resolveWorkflowBranchName`, `readPersistedBranchName`, `persistBranchName`)
@@ -87,6 +93,11 @@
     - When `Cannot read plan file` errors point to a worktree that differs from the one holding the plan
     - When the branch-name agent fires more than once for the same `adwId`
     - When adding tests for the branch-name persistence contract (`branchNameResolution.test.ts` or `workflowInit.test.ts`)
+    - When working with `adws/vcs/branchIdentity.ts` (`deterministicBranchName`, `branchMatchesIssue`) or slug-agnostic branch matching
+    - When implementing or troubleshooting `adws/phases/branchIdentityFallback.ts` (`findExistingBranchForIssue`, `recoverAdwIdForBranch`)
+    - When a lost comment trail causes a second branch or a fresh `adwId` to be minted for an existing issue
+    - When the deterministic-branch fallback step in `resolveInternal` is relevant (between recovery-comment and LLM steps)
+    - When `recoverAdwIdForBranch` reverse-lookup or `AGENTS_STATE_DIR` enumeration is involved
 
 - app_docs/feature-nnny1e-vocabulary-template-and-flags.md
   - Conditions:
