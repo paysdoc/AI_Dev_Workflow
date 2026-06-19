@@ -41,7 +41,12 @@ Feature: A large all-green JUnit report parses — it is no longer falsely marke
        verdict computed over it is `pass` and the suite is NOT marked unverified; a
        genuinely absent report still resolves to `warn` (unverified). The verdict is
        composed honestly from the real parse (`reportPresent` = the report read back is
-       non-null), so it is RED on the pre-fix code (parse → null → warn) and GREEN after.
+       non-null), so it follows the real parse, not a shortcut. Against the finite-ceiling
+       build the bug was reported on, the large report read to null → `warn` (RED), flipping
+       to `pass` once it parses (GREEN). On the currently-installed fast-xml-parser the
+       entity-expansion default is `Infinity`, so the parse already succeeds — the durable
+       failing-first proof is the version-independent load-bearing contrast carried by the
+       issue's required unit test, not a RED-on-current-baseline assertion here.
     3. PRESERVED PARSE BEHAVIOUR. Raising the entity-expansion ceiling changes nothing
        else: entity decoding still applies (a `&gt;` in a failure message still decodes
        to `>`), a bare `<failure/>` pending marker still classifies as skipped, both the
@@ -64,8 +69,10 @@ Feature: A large all-green JUnit report parses — it is no longer falsely marke
         registry rubric's "report counts as input"), NOT a source file; the produced
         report and verdict are the assertion targets. §2's verdict is composed over the
         ACTUAL parse — `reportPresent` is `readJUnitReport(...) !== null`, exactly as
-        `testRetry` derives it — so the step cannot shortcut the throw: pre-fix, the large
-        report reads to null and the scenario is RED.
+        `testRetry` derives it — so the step cannot shortcut the parse: against a finite
+        entity-expansion ceiling the large report reads to null → `warn` (RED); on the installed
+        permissive default (`maxTotalExpansions: Infinity`) it parses, so the durable failing-first
+        proof is the load-bearing contrast carried by the issue's required unit test.
       • §3 asserts the values `parseJUnitXml` RESOLVES over canned JUnit XML the step
         builds (the decoded message, the case status, the tally, and the null returned for
         malformed input) — produced values, not source text.
@@ -156,7 +163,9 @@ Feature: A large all-green JUnit report parses — it is no longer falsely marke
   #
   # The observable symptom. The verdict is computed over the report ACTUALLY read back
   # (reportPresent = readJUnitReport(...) !== null, as testRetry derives it), so it is
-  # RED on the pre-fix code — the large report reads to null → warn — and GREEN after.
+  # RED against a finite entity-expansion ceiling (large report reads to null → warn) and GREEN
+  # once it parses; on the installed Infinity default the parse already succeeds, so the durable
+  # failing-first proof is the issue's required unit test (a version-independent contrast).
   # The absent report still resolves to warn (unverified), preserved from feature-601.
 
   @adw-623 @adw-19me6a-large-green-junit-re
