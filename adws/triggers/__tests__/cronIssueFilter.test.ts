@@ -237,6 +237,48 @@ describe('filterEligibleIssues — label-recovery gate annotations', () => {
   });
 });
 
+// ── filterEligibleIssues — region-overlap default resolver wiring ─────────────
+
+describe('filterEligibleIssues — region-overlap default resolver wiring', () => {
+  it('serializes two issues whose bodies declare the same touched file when no resolver is injected', () => {
+    const sharedPath = 'adws/triggers/takeoverHandler.ts';
+    const a = {
+      number: 649001,
+      body: `## Touched Files\n- \`${sharedPath}\`\n`,
+      comments: [],
+      createdAt: OLD_DATE,
+      updatedAt: OLD_DATE,
+      labels: [] as { name: string }[],
+    };
+    const b = {
+      number: 649002,
+      body: `## Touched Files\n- \`${sharedPath}\`\n`,
+      comments: [],
+      createdAt: OLD_DATE,
+      updatedAt: OLD_DATE,
+      labels: [] as { name: string }[],
+    };
+
+    // Deliberately omit the resolver — exercises the production default (resolveTouchedFilesFromBody).
+    const { eligible, overlapDeferrals } = filterEligibleIssues(
+      [a, b],
+      NOW,
+      { spawns: new Set() },
+      GRACE_PERIOD_MS,
+    );
+
+    const eligibleNumbers = eligible.map(e => e.issue.number);
+    expect(eligible).toHaveLength(1);
+    expect(overlapDeferrals).toHaveLength(1);
+
+    const deferred = overlapDeferrals[0]!;
+    const winner = eligibleNumbers[0]!;
+    expect(deferred.blockedBy).toBe(winner);
+    // overlapPaths are normalized (lowercased) by pathsOverlap/normalizePath
+    expect(deferred.overlapPaths).toContain(sharedPath.toLowerCase());
+  });
+});
+
 // ── evaluateIssue — human_gated skip-terminal ─────────────────────────────────
 
 describe('evaluateIssue — human_gated skip-terminal', () => {

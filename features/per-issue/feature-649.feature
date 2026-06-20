@@ -319,6 +319,31 @@ Feature: Serialize issues that edit overlapping code regions instead of spawning
     When the post-planning overlap scan runs
     Then an ordering recommendation is surfaced naming issues 64903 and 64904 as region-colliding
 
+  # ── §8 Live-wiring regression — production default resolver (no injected helper) ──
+  #
+  # §2–§5 drive filterEligibleIssues with an injected touched-files resolver so the
+  # overlap pass is exercised in isolation. But the production caller (trigger_cron.ts)
+  # omits the resolver parameter entirely — the pass was dead code until the default
+  # was wired. These two scenarios drive filterEligibleIssues with NO injected resolver,
+  # reading touched files from real issue bodies via the production default
+  # (resolveTouchedFilesFromBody → parseRelevantFilesSection). They guard against the
+  # dead-wiring regression the review identified.
+
+  @adw-649 @adw-ni6fpk-feat-serialize-issue
+  Scenario: The live cron resolver serializes two issues whose bodies declare the same touched file
+    Given a backlog issue 64905 whose body declares touched files "adws/triggers/takeoverHandler.ts"
+    And a backlog issue 64906 whose body declares touched files "adws/triggers/takeoverHandler.ts"
+    When the issue router evaluates the backlog with the live touched-files resolver
+    Then exactly one of issue 64905 and issue 64906 is eligible to spawn
+    And the other of issue 64905 and issue 64906 is deferred behind the eligible one for an overlapping code region
+
+  @adw-649 @adw-ni6fpk-feat-serialize-issue
+  Scenario: The live cron resolver leaves issues whose bodies declare disjoint files both eligible
+    Given a backlog issue 64907 whose body declares touched files "adws/triggers/cronIssueFilter.ts"
+    And a backlog issue 64908 whose body declares touched files "adws/phases/planPhase.ts"
+    When the issue router evaluates the backlog with the live touched-files resolver
+    Then both issue 64907 and issue 64908 are eligible to spawn
+
   # ── §7 Type-check backstop (T22) ─────────────────────────────────────────────────
   #
   # The overlap heuristic, the serialization pass, and any extension to the routing
@@ -329,3 +354,20 @@ Feature: Serialize issues that edit overlapping code regions instead of spawning
   Scenario: The ADW TypeScript type-check passes with the overlap-serialization heuristic wired in
     Given the ADW codebase is checked out
     Then the ADW TypeScript type-check passes
+
+  # ── §9 Durable, auditable serialization (review issue #2) ─────────────────────────
+  #
+  # §2–§8 prove the in-memory per-cycle partition. But that pass cannot serialize
+  # across cron cycles (the anchor leaves the candidate set once active) and writes
+  # nothing to GitHub. These steps drive the production registration boundary
+  # (registerRegionOverlapBlocker) with injected spies and assert the deferral is
+  # made DURABLE (a Blocked-by dependency the gate detects on every cycle) and
+  # AUDITABLE (a one-time explanatory comment) — guarding the regression the review
+  # identified: that updateIssueBody/commentOnIssue were never called.
+
+  @adw-649 @adw-ni6fpk-feat-serialize-issue
+  Scenario: A region-overlap deferral durably registers a Blocked by dependency and posts an explanatory comment
+    Given a deferred issue 64909 whose body has a "## Blocked by" section reading "None - can start immediately"
+    When ADW registers a region-overlap blocker behind issue 64801 for overlapping path "adws/triggers/takeoverHandler.ts"
+    Then issue 64909's updated body declares a dependency on issue 64801 that the dependency parser detects
+    And a one-time region-overlap comment naming issue 64801 is posted on issue 64909

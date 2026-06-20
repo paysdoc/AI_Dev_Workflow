@@ -26,6 +26,9 @@ import {
 } from '../../../adws/triggers/cronIssueFilter.ts';
 import type { CronIssue, EligibleIssue, OverlapDeferral } from '../../../adws/triggers/cronIssueFilter.ts';
 import type { OrderingRecommendation } from '../../../adws/triggers/regionOverlap.ts';
+import { registerRegionOverlapBlocker } from '../../../adws/triggers/regionOverlapSignals.ts';
+import { parseDependencies } from '../../../adws/triggers/issueDependencies.ts';
+import type { RepoInfo } from '../../../adws/github/githubApi.ts';
 import type { RegressionWorld } from '../../regression/step_definitions/world.ts';
 
 // ---------------------------------------------------------------------------
@@ -60,6 +63,12 @@ const ctx: {
   // §6 post-plan scan state
   inFlightIssues: Array<{ issueNumber: number; relevantFiles: string[] }>;
   postPlanRecommendations: OrderingRecommendation[];
+
+  // §9 durable registration state
+  regDeferredNumber: number;
+  regBodyInput: string;
+  regBody: string | null;
+  regComment: string | null;
 } = {
   overlapVerdict: null,
   cronIssues: new Map(),
@@ -72,6 +81,10 @@ const ctx: {
   lastDeferredOfPair: null,
   inFlightIssues: [],
   postPlanRecommendations: [],
+  regDeferredNumber: 0,
+  regBodyInput: '',
+  regBody: null,
+  regComment: null,
 };
 
 // ---------------------------------------------------------------------------
@@ -90,6 +103,10 @@ Before({ tags: '@adw-649' }, function (this: RegressionWorld) {
   ctx.lastDeferredOfPair = null;
   ctx.inFlightIssues = [];
   ctx.postPlanRecommendations = [];
+  ctx.regDeferredNumber = 0;
+  ctx.regBodyInput = '';
+  ctx.regBody = null;
+  ctx.regComment = null;
 });
 
 After({ tags: '@adw-649' }, function (this: RegressionWorld) {
@@ -323,6 +340,42 @@ Then(
 );
 
 // ---------------------------------------------------------------------------
+// §8 — live-path regression scenarios (production default resolver)
+// ---------------------------------------------------------------------------
+
+function makeBodyIssue(number: number, touchedFiles: string): CronIssue {
+  const bullets = parsePaths(touchedFiles).map(p => `- \`${p}\``).join('\n');
+  return {
+    number,
+    body: `## Touched Files\n${bullets}\n`,
+    comments: [],
+    createdAt: OLD_DATE,
+    updatedAt: OLD_DATE,
+    labels: [],
+  };
+}
+
+function runFilterLive(): EvalResult {
+  const issues = [...ctx.cronIssues.values()];
+  const result = filterEligibleIssues(issues, NOW, { spawns: new Set() }, GRACE_PERIOD_MS);
+  return { eligible: result.eligible, overlapDeferrals: result.overlapDeferrals };
+}
+
+Given(
+  'a backlog issue {int} whose body declares touched files {string}',
+  function (issueNumber: number, touchedFiles: string) {
+    ctx.cronIssues.set(issueNumber, makeBodyIssue(issueNumber, touchedFiles));
+  },
+);
+
+When(
+  'the issue router evaluates the backlog with the live touched-files resolver',
+  function () {
+    ctx.firstEval = runFilterLive();
+  },
+);
+
+// ---------------------------------------------------------------------------
 // §6 — post-planning overlap recommendation
 // ---------------------------------------------------------------------------
 
@@ -352,6 +405,60 @@ Then(
     assert.ok(
       found,
       `Expected an ordering recommendation naming issues ${issueA} and ${issueB} as region-colliding but none was found. Recommendations: ${JSON.stringify(ctx.postPlanRecommendations)}`,
+    );
+  },
+);
+
+// ---------------------------------------------------------------------------
+// §9 — durable registration + audit trail
+// ---------------------------------------------------------------------------
+
+Given(
+  'a deferred issue {int} whose body has a "## Blocked by" section reading {string}',
+  function (issueNumber: number, sectionText: string) {
+    ctx.regDeferredNumber = issueNumber;
+    ctx.regBodyInput = `## Blocked by\n${sectionText}\n\n## Notes\nplaceholder\n`;
+  },
+);
+
+When(
+  'ADW registers a region-overlap blocker behind issue {int} for overlapping path {string}',
+  function (blockedBy: number, overlapPath: string) {
+    const deferral: OverlapDeferral = {
+      issueNumber: ctx.regDeferredNumber,
+      blockedBy,
+      overlapPaths: [overlapPath],
+    };
+    const repoInfo = { owner: 'o', repo: 'r' } as RepoInfo;
+    registerRegionOverlapBlocker(deferral, ctx.regBodyInput, repoInfo, {
+      updateIssueBody: (_n, body) => { ctx.regBody = body; },
+      commentOnIssue: (_n, body) => { ctx.regComment = body; },
+    });
+  },
+);
+
+Then(
+  "issue {int}'s updated body declares a dependency on issue {int} that the dependency parser detects",
+  function (_deferred: number, blockedBy: number) {
+    assert.ok(ctx.regBody, 'expected updateIssueBody to be called');
+    assert.ok(
+      ctx.regBody.includes(`#${blockedBy} <!-- adw:region-overlap -->`),
+      `Expected body to contain annotated ref for #${blockedBy}`,
+    );
+    assert.ok(
+      parseDependencies(ctx.regBody).includes(blockedBy),
+      `Expected parseDependencies to resolve #${blockedBy} from the updated body`,
+    );
+  },
+);
+
+Then(
+  'a one-time region-overlap comment naming issue {int} is posted on issue {int}',
+  function (blockedBy: number, _deferred: number) {
+    assert.ok(ctx.regComment, 'expected commentOnIssue to be called once');
+    assert.ok(
+      ctx.regComment.includes(`#${blockedBy}`),
+      `Expected comment to name issue #${blockedBy}`,
     );
   },
 );

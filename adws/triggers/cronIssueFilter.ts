@@ -10,7 +10,7 @@
 
 import { resolveIssueWorkflowStage } from './cronStageResolver';
 import { classifyStageString } from '../core/stageClassifier';
-import { decideSerialization } from './regionOverlap';
+import { decideSerialization, parseRelevantFilesSection } from './regionOverlap';
 import type { StageResolution } from './cronStageResolver';
 import type { LabelRecoveryResult } from './cronLabelEligibility';
 
@@ -175,14 +175,28 @@ export function evaluateIssue(
 }
 
 /**
+ * Production touched-files resolver: derives an issue's touched paths from its
+ * body's `## Touched Files` / `## Relevant Files` section. Deterministic, no I/O.
+ * It is the default `resolveTouchedFiles` for `filterEligibleIssues`, so the
+ * region-overlap pass runs in the live cron and cannot be silently dropped at a
+ * call site. Tests may inject a different resolver to drive the pass directly.
+ */
+export function resolveTouchedFilesFromBody(issue: CronIssue): string[] {
+  return parseRelevantFilesSection(issue.body ?? '');
+}
+
+/**
  * Filters and sorts issues for backlog sweep processing.
  * Returns eligible issues (with action metadata) sorted oldest-first.
  * Builds an annotation list of excluded issues for verbose logging.
  *
- * When `resolveTouchedFiles` is provided, a cross-issue region-overlap pass
- * is applied to the eligible spawn candidates after per-issue filtering.
- * Overlapping pairs are serialized: the lower-numbered issue in each cluster
- * proceeds; others are deferred and recorded in `overlapDeferrals`.
+ * A cross-issue region-overlap pass is applied to the eligible spawn candidates
+ * after per-issue filtering. `resolveTouchedFiles` defaults to
+ * `resolveTouchedFilesFromBody` (issue-body section parse), so the pass runs by
+ * default in the live cron. Overlapping pairs are serialized: the lower-numbered
+ * issue in each cluster proceeds; others are deferred and recorded in
+ * `overlapDeferrals`. Tests may inject a different resolver to drive the pass
+ * directly without requiring a formatted issue body.
  */
 export function filterEligibleIssues(
   issues: readonly CronIssue[],
@@ -192,7 +206,7 @@ export function filterEligibleIssues(
   resolveStage?: (comments: { body: string }[]) => StageResolution,
   cancelledThisCycle: ReadonlySet<number> = new Set(),
   labelRecovery?: (issue: CronIssue) => LabelRecoveryResult,
-  resolveTouchedFiles?: (issue: CronIssue) => string[],
+  resolveTouchedFiles: (issue: CronIssue) => string[] = resolveTouchedFilesFromBody,
 ): { eligible: EligibleIssue[]; filteredAnnotations: string[]; overlapDeferrals: OverlapDeferral[] } {
   const initialEligible: EligibleIssue[] = [];
   const filteredAnnotations: string[] = [];
@@ -212,12 +226,11 @@ export function filterEligibleIssues(
 
   initialEligible.sort((a, b) => new Date(a.issue.createdAt).getTime() - new Date(b.issue.createdAt).getTime());
 
-  if (!resolveTouchedFiles) {
-    return { eligible: initialEligible, filteredAnnotations, overlapDeferrals: [] };
-  }
-
   // Region-overlap serialization pass over spawn-eligible candidates.
   const spawnCandidates = initialEligible.filter(e => e.action === 'spawn');
+  if (spawnCandidates.length < 2) {
+    return { eligible: initialEligible, filteredAnnotations, overlapDeferrals: [] };
+  }
   const signals = spawnCandidates.map(e => ({
     issueNumber: e.issue.number,
     paths: resolveTouchedFiles(e.issue),
