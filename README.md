@@ -528,6 +528,7 @@ adws/                   # ADW workflow system
 │   ├── authGate.ts     # Host-wide auth gate: detects auth failures, writes paused_auth state, triggers Slack alerts
 │   ├── claudeStreamParser.ts  # Claude JSONL stream parsing
 │   ├── conditionalDocsRegistry.ts  # Parse/serialize/query .adw/conditional_docs.md; ConditionalDocEntry and ConditionalDocsRegistry types; glob-based ownership routing (findOwningEntry)
+│   ├── docsGuards.ts  # Post-write guards for app_docs/: bloat detection (line-count ceiling) and regrowth detection (overlapping Owns: globs between entries)
 │   ├── config.ts
 │   ├── constants.ts    # Orchestrator ID constants
 │   ├── devServerLifecycle.ts  # Dev server spawn, health probe, and cleanup helpers
@@ -648,6 +649,7 @@ adws/                   # ADW workflow system
 │   ├── autoMergePhase.ts  # Auto-approve and merge PR after review passes
 │   ├── branchNameResolution.ts  # Branch name resolution for worktree takeover paths
 │   ├── diffEvaluationPhase.ts  # LLM diff evaluation phase (safe vs regression_possible)
+│   ├── docsSelfCheck.ts  # Post-write self-check phase: runs docsGuards against app_docs/ and opens a GitHub issue for each bloat or regrowth flag
 │   ├── gherkinFreeze.ts  # Snapshots, detects changes to, and restores .feature files around the fix loop
 │   ├── buildPhase.ts
 │   ├── documentPhase.ts

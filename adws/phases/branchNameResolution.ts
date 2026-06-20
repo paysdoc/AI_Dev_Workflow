@@ -14,6 +14,8 @@
 import { AgentStateManager, log } from '../core';
 import type { IssueClassSlashCommand, GitHubIssue, RecoveryState } from '../core';
 import { runGenerateBranchNameAgent } from '../agents';
+import { findExistingBranchForIssue } from './branchIdentityFallback';
+import type { BranchIdentityFallbackDeps } from './branchIdentityFallback';
 
 /** Returns the branch name stored in agents/{adwId}/state.json, or undefined. */
 export function readPersistedBranchName(adwId: string): string | undefined {
@@ -26,6 +28,11 @@ export function persistBranchName(adwId: string, branchName: string): void {
 }
 
 type AgentFn = typeof runGenerateBranchNameAgent;
+type FinderFn = (
+  issueType: IssueClassSlashCommand,
+  issueNumber: number,
+  deps?: BranchIdentityFallbackDeps,
+) => string | null;
 
 async function resolveInternal(
   args: {
@@ -36,6 +43,7 @@ async function resolveInternal(
     recoveryState: RecoveryState;
   },
   agentFn: AgentFn,
+  finderFn: FinderFn = findExistingBranchForIssue,
 ): Promise<string> {
   const { adwId, issueType, issue, logsDir, recoveryState } = args;
 
@@ -49,6 +57,16 @@ async function resolveInternal(
     log(`Reusing branch from previous workflow: ${recoveryState.branchName}`, 'info');
     persistBranchName(adwId, recoveryState.branchName);
     return recoveryState.branchName;
+  }
+
+  // Deterministic fallback: find an existing branch that belongs to this issue
+  // without relying on the LLM. Inserted between recovery-comment reuse and LLM
+  // generation so a lost-comment run reuses the existing branch, not a new one.
+  const found = finderFn(issueType, issue.number);
+  if (found) {
+    log(`Reusing existing branch found by deterministic identity fallback: ${found}`, 'info');
+    persistBranchName(adwId, found);
+    return found;
   }
 
   const { branchName: generated } = await agentFn(issueType, issue, logsDir);
@@ -74,7 +92,8 @@ async function resolveInternal(
  * Resolution priority:
  *   1. Persisted top-level state (agents/{adwId}/state.json → branchName)
  *   2. Recovery comment (recoveryState.branchName)
- *   3. LLM generation via runGenerateBranchNameAgent
+ *   3. Deterministic identity fallback (existing branch for this issue, slug-agnostic)
+ *   4. LLM generation via runGenerateBranchNameAgent
  *
  * The resolved name is persisted immediately so subsequent calls return it from
  * step 1 without invoking the LLM again. runGenerateBranchNameAgent is called
@@ -91,7 +110,8 @@ export async function resolveWorkflowBranchName(args: {
 }
 
 /**
- * @internal Exported for test use only — allows injecting a mock agent function.
+ * @internal Exported for test use only — allows injecting a mock agent function
+ * and an optional mock finder function.
  * Production callers must use resolveWorkflowBranchName.
  */
 export const _resolveWorkflowBranchNameForTest = resolveInternal;
