@@ -79,9 +79,10 @@ Feature: Recover a rewritten/rebased feature branch in the PR-creating push with
       remote, does the remote tip match ADW's rewritten tip, is a concurrent
       writer's commit preserved, is the failure distinct from a retryable one —
       NOT the mechanism. Whether the fix flags the existing `pushBranch` or adds
-      a new helper, whether it fetches to refresh the remote-tracking ref then
-      leases bare or pins `--force-with-lease=<branch>:<expected-sha>` to the
-      pre-rewrite tip, and the exact error type / result discriminant it raises,
+      a new helper, whether it pins `--force-with-lease=<branch>:<expected-sha>`
+      to the pre-rewrite tip or fetches to refresh the remote-tracking ref and
+      leases with `--force-if-includes` so a concurrently-moved remote is still
+      refused, and the exact error type / result discriminant it raises,
       are all SOURCE-STRUCTURE choices, deliberately NOT asserted — exactly as
       feature-641 left its fallback-seam wiring unpinned and feature-639 left its
       resume-policy module free. §4's no-clobber assertion is what rules OUT the
