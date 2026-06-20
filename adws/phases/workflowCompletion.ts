@@ -172,7 +172,8 @@ export function handleWorkflowError(
 
 /**
  * Handles an agent watchdog timeout: writes phase_timeout stage, posts the Phase Timeout
- * comment on the issue, and exits 0 so the next cron tick re-enters the failed phase.
+ * comment on the issue, and exits 0. The next cron tick recovers the run via
+ * reset-from-remote takeover (resume-in-place is a later slice).
  */
 export function handlePhaseTimeout(
   config: WorkflowConfig,

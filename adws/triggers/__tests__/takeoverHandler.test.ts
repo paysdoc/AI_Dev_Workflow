@@ -31,6 +31,8 @@ function makeDeps(overrides: Partial<TakeoverDeps> = {}): TakeoverDeps {
     resetWorktree: vi.fn(),
     deriveStageFromRemote: vi.fn().mockReturnValue('abandoned'),
     getWorktreePath: vi.fn().mockReturnValue('/worktrees/feature-branch'),
+    writeTopLevelState: vi.fn(),
+    commentOnIssue: vi.fn(),
     ...overrides,
   };
 }
@@ -380,5 +382,152 @@ describe('lock handoff semantics', () => {
     const deps = makeDeps({ resolveAdwId: vi.fn().mockReturnValue(null) });
     evaluateCandidate({ issueNumber: 200, repoInfo: REPO }, deps);
     expect(deps.releaseIssueSpawnLock).not.toHaveBeenCalled();
+  });
+});
+
+// ─── phase_timeout → take_over_adwId (below cap) ─────────────────────────────
+
+describe('take_over_adwId from phase_timeout', () => {
+  it('returns take_over_adwId and increments resumeAttempts from undefined (first resume)', () => {
+    const deps = makeDeps({
+      readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'phase_timeout', branchName: 'feature-issue-637-x' })),
+      deriveStageFromRemote: vi.fn().mockReturnValue('awaiting_merge'),
+    });
+    const decision = evaluateCandidate({ issueNumber: 637, repoInfo: REPO }, deps) as Extract<CandidateDecision, { kind: 'take_over_adwId' }>;
+
+    expect(decision.kind).toBe('take_over_adwId');
+    expect(decision.adwId).toBe(ADW_ID);
+    expect(decision.derivedStage).toBe('awaiting_merge');
+    expect(deps.writeTopLevelState).toHaveBeenCalledWith(ADW_ID, { resumeAttempts: 1 });
+  });
+
+  it('returns take_over_adwId and increments resumeAttempts from 2 to 3 (one below cap)', () => {
+    const deps = makeDeps({
+      readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'phase_timeout', branchName: 'feature-issue-637-x', resumeAttempts: 2 })),
+      deriveStageFromRemote: vi.fn().mockReturnValue('abandoned'),
+    });
+    const decision = evaluateCandidate({ issueNumber: 637, repoInfo: REPO }, deps);
+
+    expect(decision.kind).toBe('take_over_adwId');
+    expect(deps.writeTopLevelState).toHaveBeenCalledWith(ADW_ID, { resumeAttempts: 3 });
+  });
+
+  it('calls resetWorktree before deriveStageFromRemote (order enforced)', () => {
+    const callOrder: string[] = [];
+    const deps = makeDeps({
+      readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'phase_timeout', branchName: 'feature-issue-637-x' })),
+      resetWorktree: vi.fn().mockImplementation(() => callOrder.push('reset')),
+      deriveStageFromRemote: vi.fn().mockImplementation(() => { callOrder.push('reconcile'); return 'abandoned'; }),
+    });
+    evaluateCandidate({ issueNumber: 637, repoInfo: REPO }, deps);
+
+    expect(callOrder).toEqual(['reset', 'reconcile']);
+  });
+
+  it('passes the branchName from state to resetWorktree', () => {
+    const deps = makeDeps({
+      readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'phase_timeout', branchName: 'feature-issue-637-whatever' })),
+      getWorktreePath: vi.fn().mockReturnValue('/wt/feature-issue-637-whatever'),
+    });
+    evaluateCandidate({ issueNumber: 637, repoInfo: REPO }, deps);
+
+    expect(deps.resetWorktree).toHaveBeenCalledWith('/wt/feature-issue-637-whatever', 'feature-issue-637-whatever');
+  });
+
+  it('skips resetWorktree when state has no branchName but still calls deriveStageFromRemote', () => {
+    const deps = makeDeps({
+      readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'phase_timeout', branchName: undefined })),
+      deriveStageFromRemote: vi.fn().mockReturnValue('abandoned'),
+    });
+    evaluateCandidate({ issueNumber: 637, repoInfo: REPO }, deps);
+
+    expect(deps.resetWorktree).not.toHaveBeenCalled();
+    expect(deps.deriveStageFromRemote).toHaveBeenCalledOnce();
+  });
+
+  it('lock is NOT released on take_over_adwId (caller keeps it for spawn)', () => {
+    const deps = makeDeps({
+      readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'phase_timeout', branchName: 'feature-branch' })),
+    });
+    evaluateCandidate({ issueNumber: 637, repoInfo: REPO }, deps);
+
+    expect(deps.releaseIssueSpawnLock).not.toHaveBeenCalled();
+  });
+
+  it('does NOT call killProcess even when state has a live PID (orchestrator already exited)', () => {
+    const deps = makeDeps({
+      readTopLevelState: vi.fn().mockReturnValue(makeState({
+        workflowStage: 'phase_timeout',
+        branchName: 'feature-branch',
+        pid: 77777,
+        pidStartedAt: 'live-era',
+      })),
+      isProcessLive: vi.fn().mockReturnValue(true),
+    });
+    evaluateCandidate({ issueNumber: 637, repoInfo: REPO }, deps);
+
+    expect(deps.killProcess).not.toHaveBeenCalled();
+    expect(deps.resetWorktree).toHaveBeenCalledOnce();
+    expect(deps.deriveStageFromRemote).toHaveBeenCalledOnce();
+  });
+});
+
+// ─── phase_timeout → escalate_human_gated (at cap) ──────────────────────────
+
+describe('escalate_human_gated from phase_timeout at cap', () => {
+  it('returns escalate_human_gated with adwId when resumeAttempts equals MAX_RESUME_ATTEMPTS', () => {
+    const deps = makeDeps({
+      readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'phase_timeout', branchName: 'feature-branch', resumeAttempts: 3 })),
+    });
+    const decision = evaluateCandidate({ issueNumber: 639, repoInfo: REPO }, deps) as Extract<CandidateDecision, { kind: 'escalate_human_gated' }>;
+
+    expect(decision.kind).toBe('escalate_human_gated');
+    expect(decision.adwId).toBe(ADW_ID);
+  });
+
+  it('writes human_gated to state when escalating', () => {
+    const deps = makeDeps({
+      readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'phase_timeout', resumeAttempts: 3 })),
+    });
+    evaluateCandidate({ issueNumber: 639, repoInfo: REPO }, deps);
+
+    expect(deps.writeTopLevelState).toHaveBeenCalledWith(ADW_ID, { workflowStage: 'human_gated' });
+  });
+
+  it('posts the escalation comment when escalating', () => {
+    const deps = makeDeps({
+      readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'phase_timeout', resumeAttempts: 3 })),
+    });
+    evaluateCandidate({ issueNumber: 639, repoInfo: REPO }, deps);
+
+    expect(deps.commentOnIssue).toHaveBeenCalledOnce();
+  });
+
+  it('releases the spawn lock on escalation', () => {
+    const deps = makeDeps({
+      readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'phase_timeout', resumeAttempts: 3 })),
+    });
+    evaluateCandidate({ issueNumber: 639, repoInfo: REPO }, deps);
+
+    expect(deps.releaseIssueSpawnLock).toHaveBeenCalledOnce();
+  });
+
+  it('does not call resetWorktree or deriveStageFromRemote on escalation', () => {
+    const deps = makeDeps({
+      readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'phase_timeout', resumeAttempts: 3 })),
+    });
+    evaluateCandidate({ issueNumber: 639, repoInfo: REPO }, deps);
+
+    expect(deps.resetWorktree).not.toHaveBeenCalled();
+    expect(deps.deriveStageFromRemote).not.toHaveBeenCalled();
+  });
+
+  it('escalates also when resumeAttempts exceeds cap (defensive — above cap)', () => {
+    const deps = makeDeps({
+      readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'phase_timeout', resumeAttempts: 5 })),
+    });
+    const decision = evaluateCandidate({ issueNumber: 639, repoInfo: REPO }, deps);
+
+    expect(decision.kind).toBe('escalate_human_gated');
   });
 });

@@ -276,6 +276,12 @@ export interface AgentState {
    * cleared on merge success and on `## Retry`.
    */
   mergeRetryCount?: number;
+  /**
+   * Resume-attempt counter for the bounded resume cap. Incremented on each automatic
+   * resume of a `resumable` stage (`phase_timeout`); escalates to `human_gated` at
+   * `MAX_RESUME_ATTEMPTS`; cleared (re-armed) on `## Retry`.
+   */
+  resumeAttempts?: number;
   /** Per-phase execution state map: phaseName → PhaseExecutionState */
   phases?: Record<string, PhaseExecutionState>;
   /** Orchestrator script path (e.g. "adws/adwSdlc.tsx") */

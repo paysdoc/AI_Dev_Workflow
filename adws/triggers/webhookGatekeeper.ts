@@ -109,6 +109,11 @@ export async function classifyAndSpawnWorkflow(
     return;
   }
 
+  if (decision.kind === 'escalate_human_gated') {
+    log(`Issue #${issueNumber}: resume cap reached, escalated adwId=${decision.adwId} → human_gated (awaiting ## Retry)`, 'warn');
+    return;
+  }
+
   if (decision.kind === 'take_over_adwId') {
     // Takeover path: reuse the existing adwId, skip re-classification.
     const { adwId, derivedStage } = decision;

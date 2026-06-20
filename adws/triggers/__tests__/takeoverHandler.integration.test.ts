@@ -63,6 +63,8 @@ function makeIntegDeps(overrides: Partial<TakeoverDeps> = {}): TakeoverDeps {
     resetWorktree: vi.fn(),
     deriveStageFromRemote: vi.fn().mockReturnValue('awaiting_merge'),
     getWorktreePath: vi.fn().mockReturnValue(path.join(tmpDir, 'worktree')),
+    writeTopLevelState: vi.fn(),
+    commentOnIssue: vi.fn(),
     ...overrides,
   };
 }

@@ -29,6 +29,10 @@ import { deriveStageFromRemote } from '../core/remoteReconcile';
 import { resetWorktreeToRemote } from '../vcs/worktreeReset';
 import { getWorktreePath } from '../vcs/worktreeOperations';
 import { extractLatestAdwId } from './cronStageResolver';
+import { classifyStageString } from '../core/stageClassifier';
+import { nextResumeAction, MAX_RESUME_ATTEMPTS } from '../core/resumePolicy';
+import { formatHumanGatedComment } from '../github/workflowCommentsIssue';
+import { commentOnIssue } from '../github/githubApi';
 import type { RepoInfo } from '../github/githubApi';
 import type { AgentState } from '../types/agentTypes';
 import type { WorkflowStage } from '../types/workflowTypes';
@@ -37,7 +41,8 @@ export type CandidateDecision =
   | { readonly kind: 'spawn_fresh' }
   | { readonly kind: 'take_over_adwId'; readonly adwId: string; readonly derivedStage: WorkflowStage }
   | { readonly kind: 'defer_live_holder'; readonly holderPid: number }
-  | { readonly kind: 'skip_terminal'; readonly adwId: string; readonly terminalStage: 'completed' | 'discarded' | 'paused' | 'paused_auth' };
+  | { readonly kind: 'skip_terminal'; readonly adwId: string; readonly terminalStage: 'completed' | 'discarded' | 'paused' | 'paused_auth' }
+  | { readonly kind: 'escalate_human_gated'; readonly adwId: string };
 
 export interface EvaluateCandidateInput {
   readonly issueNumber: number;
@@ -55,6 +60,8 @@ export interface TakeoverDeps {
   readonly resetWorktree: (worktreePath: string, branch: string) => void;
   readonly deriveStageFromRemote: (issueNumber: number, adwId: string, repoInfo: RepoInfo) => WorkflowStage;
   readonly getWorktreePath: (branchName: string, baseRepoPath?: string) => string;
+  readonly writeTopLevelState: (adwId: string, state: Partial<AgentState>) => void;
+  readonly commentOnIssue: (issueNumber: number, body: string, repoInfo: RepoInfo) => void;
 }
 
 export function buildDefaultTakeoverDeps(): TakeoverDeps {
@@ -90,18 +97,26 @@ export function buildDefaultTakeoverDeps(): TakeoverDeps {
     deriveStageFromRemote: (issueNumber, adwId, repoInfo) =>
       deriveStageFromRemote(issueNumber, adwId, repoInfo),
     getWorktreePath: (branchName, baseRepoPath) => getWorktreePath(branchName, baseRepoPath),
+    writeTopLevelState: (adwId, state) => AgentStateManager.writeTopLevelState(adwId, state),
+    commentOnIssue: (issueNumber, body, repoInfo) => commentOnIssue(issueNumber, body, repoInfo),
   };
 }
 
-function isRunningStage(stage: string): boolean {
-  return (
-    stage.endsWith('_running') ||
-    stage === 'starting' ||
-    stage === 'resuming'
-  );
-}
-
 let _defaultDeps: TakeoverDeps | null = null;
+
+function recoverViaResetFromRemote(
+  d: TakeoverDeps,
+  input: EvaluateCandidateInput,
+  adwId: string,
+  state: AgentState,
+): CandidateDecision {
+  if (state.branchName) {
+    const wtPath = d.getWorktreePath(state.branchName);
+    d.resetWorktree(wtPath, state.branchName);
+  }
+  const derivedStage = d.deriveStageFromRemote(input.issueNumber, adwId, input.repoInfo);
+  return { kind: 'take_over_adwId', adwId, derivedStage };
+}
 
 export function evaluateCandidate(
   input: EvaluateCandidateInput,
@@ -135,37 +150,45 @@ export function evaluateCandidate(
   }
 
   const stage = state.workflowStage ?? '';
+  const cls = classifyStageString(stage);
 
-  // Branch 3: terminal stages — completed / discarded.
-  if (stage === 'completed' || stage === 'discarded') {
+  // Branch 3 & 4: terminal — completed / discarded / paused / paused_auth.
+  if (cls === 'terminal') {
     releaseLock();
-    return { kind: 'skip_terminal', adwId, terminalStage: stage as 'completed' | 'discarded' };
+    return {
+      kind: 'skip_terminal',
+      adwId,
+      terminalStage: stage as 'completed' | 'discarded' | 'paused' | 'paused_auth',
+    };
   }
 
-  // Branch 4: paused — scanPauseQueue is the sole resumer; no-op here.
-  if (stage === 'paused') {
-    releaseLock();
-    return { kind: 'skip_terminal', adwId, terminalStage: 'paused' };
+  // Branch 5: retriable (abandoned) — worktreeReset → remoteReconcile → takeover.
+  if (cls === 'retriable') {
+    return recoverViaResetFromRemote(d, input, adwId, state);
   }
 
-  // Branch 4b: paused_auth — scanAuthQueue is the sole resumer; no-op here.
-  if (stage === 'paused_auth') {
-    releaseLock();
-    return { kind: 'skip_terminal', adwId, terminalStage: 'paused_auth' };
-  }
-
-  // Branch 5: abandoned — worktreeReset → remoteReconcile → takeover.
-  if (stage === 'abandoned') {
-    if (state.branchName) {
-      const wtPath = d.getWorktreePath(state.branchName);
-      d.resetWorktree(wtPath, state.branchName);
+  // phase_timeout: the watchdog killed the agent and handlePhaseTimeout exited the
+  // orchestrator (dead PID). Recovery is otherwise unbounded — a phase that wedges
+  // deterministically would be auto-resumed every tick forever (money fire). Cap the
+  // automatic resumes; escalate to human_gated when the bound is reached (issue #639).
+  if (stage === 'phase_timeout') {
+    const attempts = state.resumeAttempts ?? 0;
+    if (nextResumeAction(attempts, MAX_RESUME_ATTEMPTS) === 'escalate') {
+      d.writeTopLevelState(adwId, { workflowStage: 'human_gated' });
+      d.commentOnIssue(
+        input.issueNumber,
+        formatHumanGatedComment(adwId, attempts, MAX_RESUME_ATTEMPTS),
+        input.repoInfo,
+      );
+      releaseLock();
+      return { kind: 'escalate_human_gated', adwId };
     }
-    const derivedStage = d.deriveStageFromRemote(issueNumber, adwId, repoInfo);
-    return { kind: 'take_over_adwId', adwId, derivedStage };
+    d.writeTopLevelState(adwId, { resumeAttempts: attempts + 1 });
+    return recoverViaResetFromRemote(d, input, adwId, state);
   }
 
-  // Branch 6 & 7: *_running / starting / resuming.
-  if (isRunningStage(stage)) {
+  // Branch 6 & 7: active (*_running / starting / resuming).
+  if (cls === 'active') {
     const pid = state.pid;
     const pidStartedAt = state.pidStartedAt ?? '';
 
@@ -178,14 +201,9 @@ export function evaluateCandidate(
       }
     }
     // Dead PID (or post-SIGKILL): proceed with takeover.
-    if (state.branchName) {
-      const wtPath = d.getWorktreePath(state.branchName);
-      d.resetWorktree(wtPath, state.branchName);
-    }
-    const derivedStage = d.deriveStageFromRemote(issueNumber, adwId, repoInfo);
-    return { kind: 'take_over_adwId', adwId, derivedStage };
+    return recoverViaResetFromRemote(d, input, adwId, state);
   }
 
-  // Branch 8: defensive fallthrough for unknown stages.
+  // Branch 8: defensive fallthrough — awaiting_merge / human_gated / resumable.
   return { kind: 'spawn_fresh' };
 }

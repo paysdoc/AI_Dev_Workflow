@@ -8,7 +8,8 @@
  * the action to take ('spawn' a new workflow or 'merge' an awaiting_merge PR).
  */
 
-import { isActiveStage, isRetriableStage, resolveIssueWorkflowStage } from './cronStageResolver';
+import { resolveIssueWorkflowStage } from './cronStageResolver';
+import { classifyStageString } from '../core/stageClassifier';
 import type { StageResolution } from './cronStageResolver';
 import type { LabelRecoveryResult } from './cronLabelEligibility';
 
@@ -112,6 +113,12 @@ export function evaluateIssue(
     return { eligible: false, reason: 'merge_blocked' };
   }
 
+  // human_gated bypasses grace period — escalated resume awaiting an explicit
+  // human `## Retry`. Never auto-spawned; recovery re-arms it to phase_timeout.
+  if (resolution.stage === 'human_gated') {
+    return { eligible: false, reason: 'human_gated' };
+  }
+
   if (processed.spawns.has(issue.number)) {
     return { eligible: false, reason: 'processed' };
   }
@@ -142,10 +149,17 @@ export function evaluateIssue(
   if (stage === 'paused') {
     return { eligible: false, reason: 'paused' };
   }
-  if (isActiveStage(stage)) {
+  if (classifyStageString(stage) === 'active') {
     return { eligible: false, reason: 'active' };
   }
-  if (isRetriableStage(stage)) {
+  if (classifyStageString(stage) === 'retriable') {
+    return { eligible: true, action: 'spawn', adwId: resolution.adwId ?? undefined };
+  }
+  // phase_timeout: a watchdog-killed workflow whose orchestrator exited. Make it
+  // eligible so trigger_cron routes it through evaluateCandidate (takeover), which
+  // recovers it via reset-from-remote. Without this it falls through to the
+  // unknown-stage exclusion below and strands forever (issue #637).
+  if (stage === 'phase_timeout') {
     return { eligible: true, action: 'spawn', adwId: resolution.adwId ?? undefined };
   }
   // Unknown stage — exclude

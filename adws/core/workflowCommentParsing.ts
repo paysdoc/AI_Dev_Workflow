@@ -113,7 +113,11 @@ export function isCancelComment(commentBody: string): boolean {
   return CANCEL_COMMENT_PATTERN.test(commentBody);
 }
 
-/** Pattern matching the `## Retry` heading that re-enters a merge_blocked issue into awaiting_merge. */
+/**
+ * Pattern matching the `## Retry` heading.
+ * Recovers both `merge_blocked` (resets to awaiting_merge) and `human_gated`
+ * (re-arms resumeAttempts to 0 and resets to phase_timeout).
+ */
 export const RETRY_COMMENT_PATTERN = /^## Retry$/mi;
 
 /** Returns true if the comment body contains the `## Retry` directive heading (case-insensitive). */

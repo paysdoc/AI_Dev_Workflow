@@ -65,7 +65,6 @@ vi.mock('../cronIssueFilter', () => ({
 vi.mock('../cronStageResolver', () => ({
   resolveIssueWorkflowStage: vi.fn(),
   isActiveStage: vi.fn(() => false),
-  isRetriableStage: vi.fn(() => false),
 }));
 
 vi.mock('../cancelHandler', () => ({

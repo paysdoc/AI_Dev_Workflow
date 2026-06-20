@@ -340,7 +340,7 @@ function formatUnverifiedComment(ctx: WorkflowContext): string {
 function formatPhaseTimeoutComment(ctx: WorkflowContext): string {
   const phase = ctx.timeoutPhaseName ?? 'unknown';
   const minutes = ctx.timeoutMs ? Math.round(ctx.timeoutMs / 60_000) : '?';
-  return `## :warning: Phase Timeout\n\nPhase \`${phase}\` exceeded its ${minutes}-minute watchdog and was terminated. The workflow will re-enter this phase on the next cron tick / webhook event.\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+  return `## :warning: Phase Timeout\n\nPhase \`${phase}\` exceeded its ${minutes}-minute watchdog and was terminated. The workflow will be recovered automatically on the next cron tick: the worktree is reset to the remote and the run resumes from the reconciled stage.\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
 }
 
 /** Formats a workflow comment for the given stage. */
@@ -385,6 +385,22 @@ export function formatWorkflowComment(stage: WorkflowStage, ctx: WorkflowContext
     case 'stack_incoherent': return formatStackIncoherentComment(ctx);
     default: return `## ADW Workflow Update\n\n**Stage:** ${stage}\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
   }
+}
+
+/**
+ * Builds the explanatory issue comment posted when the resume cap is exhausted
+ * and the workflow escalates to human_gated. Context-free (no WorkflowContext).
+ */
+export function formatHumanGatedComment(adwId: string, attempts: number, max: number): string {
+  return [
+    '## :warning: ADW Resume Blocked',
+    '',
+    `**Cause:** This workflow was automatically resumed ${attempts} time${attempts === 1 ? '' : 's'} after a watchdog timeout (cap: ${max}) without completing the wedging phase. Resuming again without intervention would burn tokens in an infinite loop.`,
+    '',
+    '**Remedy:** Investigate the underlying issue (inspect the plan, the phase logs, or the repo state), then comment `## Retry` on this issue. ADW will re-arm the resume counter and pick up recovery on the next cron tick.',
+    '',
+    `**ADW ID:** \`${adwId}\``,
+  ].join('\n') + ADW_SIGNATURE;
 }
 
 /** Posts a workflow comment to the GitHub issue. */
