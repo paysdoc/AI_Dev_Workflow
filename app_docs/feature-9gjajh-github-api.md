@@ -32,6 +32,8 @@ This module provides all GitHub API interactions used by ADW: a thin wrapper aro
 - `ensureAdwLabelsExist`: idempotently creates all seven `adw:*` labels on a repo using `--force`.
 - `applyLabel`: adds a label to an issue; on "not found" errors, lazy-creates the label and retries once.
 - `workflowComments`: re-exports comment parsing (ADW signature detection, stage extraction, recovery-state detection) and comment-posting functions for both issues and PRs.
+- `moveIssueToStatus`: moves an issue to a named Projects V2 column; for Review transitions, `await`s `notifyReviewTransition` before returning so the Slack POST settles before the orchestrator process can exit.
+- `notifyReviewTransition` (`hitlBoardNotifier`): reads the linked PR URL and posts a `:eyes: HITL issue #N → In Review. Approve to merge: <url>` Slack message; no-throw at its boundary (`postSlack` swallows all HTTP/network errors).
 
 ## Contracts & Invariants
 
@@ -54,3 +56,4 @@ GitHub App authentication requires `GITHUB_APP_ID`, `GITHUB_APP_SLUG`, and `GITH
 - `getAuthenticatedUser` caches `null` on failure rather than retrying; a failed lookup at startup persists for the process lifetime.
 - `workflowComments` is a barrel re-export; some symbols come from `core/workflowCommentParsing` (platform-agnostic) and some from GitHub-specific sub-modules.
 - `hasWontFixLabel` in `prApi` normalizes label names (lowercase, strip punctuation) for matching, so `wontfix`, `Won't fix`, and `wont-fix` all match.
+- `moveIssueToStatus` switches `GH_TOKEN` to `GITHUB_PAT` inside a `try/finally` for Projects V2 mutations (requires `project` scope). The `await notifyReviewTransition(...)` call runs inside the `try` block, so the notifier's two `gh` reads execute under the PAT — harmless because the PAT carries `repo` read scope, but callers should be aware the token differs from the ambient identity during this window.

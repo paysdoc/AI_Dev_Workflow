@@ -33,7 +33,7 @@ The webhook trigger is ADW's real-time event handler: an HTTP server that receiv
 
 ## Configuration
 
-Server port defaults to `process.env.PORT || 8001`. `GITHUB_WEBHOOK_SECRET` enables signature validation. GitHub App auth is activated at startup. The `PR_REVIEW_COOLDOWN_MS` and `ISSUE_COOLDOWN_MS` cooldowns are module-level constants (60 000 ms each). The server listens on `0.0.0.0`.
+Server port defaults to `process.env.PORT || 8001`. `GITHUB_WEBHOOK_SECRET` enables signature validation. GitHub App auth is activated at startup. The `PR_REVIEW_COOLDOWN_MS` and `ISSUE_COOLDOWN_MS` cooldowns are module-level constants (60 000 ms each). The server listens on `0.0.0.0`. `.env` is loaded at the top of `trigger_webhook.ts` via an explicit `import '../core/environment'` (codifying the contract that was already satisfied transitively through the `../core` barrel — present regardless of runtime (node vs bun) or future import-order refactors).
 
 ## Gotchas
 

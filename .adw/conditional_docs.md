@@ -133,8 +133,9 @@
     - adws/core/utils.ts
     - adws/core/__tests__/slackNotifier.test.ts
   - Conditions:
-    - When working on Slack notifications, the ADW structured logger, or shared utility functions in `adws/core/`
+    - When working on Slack notifications, delivery observability (postSlack success/failure logging), the ADW structured logger, or shared utility functions in `adws/core/`
     - When working on `slackNotifier.ts`, `logger.ts`, or `utils.ts`
+    - When troubleshooting dropped or unobservable Slack notifications (HITL Review alerts, auth-gate alerts)
 
 - app_docs/feature-9gjajh-freeze-and-coherence.md
   - Owns:
