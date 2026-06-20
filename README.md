@@ -508,9 +508,12 @@ adws/                   # ADW workflow system
 │   │   ├── processLiveness.test.ts
 │   │   ├── projectConfig.test.ts
 │   │   ├── remoteReconcile.test.ts
+│   │   ├── docsGuards.test.ts
 │   │   ├── resolveFreezeGuard.test.ts
 │   │   ├── resolveVerdict.test.ts
+│   │   ├── resumePolicy.test.ts
 │   │   ├── slackNotifier.test.ts
+│   │   ├── stageClassifier.test.ts
 │   │   ├── stateHelpers.test.ts
 │   │   ├── stackCoherenceCheck.test.ts
 │   │   ├── stepDefDetection.test.ts
@@ -531,6 +534,7 @@ adws/                   # ADW workflow system
 │   ├── config.ts
 │   ├── constants.ts    # Orchestrator ID constants
 │   ├── devServerLifecycle.ts  # Dev server spawn, health probe, and cleanup helpers
+│   ├── docsGuards.ts  # Doc-size guards: bloat (line threshold) and regrowth (overlapping ownedGlobs) detection; runDocsGuards composes both
 │   ├── environment.ts  # Environment variable accessors
 │   ├── hashComputer.ts # SHA256 hash of declared hashInputs files — "current framework version" primitive
 │   ├── heartbeat.ts    # Liveness ticker writing lastSeenAt to state on a fixed interval
@@ -552,9 +556,11 @@ adws/                   # ADW workflow system
 │   ├── remoteReconcile.ts  # Stage derivation from remote GitHub artifacts
 │   ├── resolveFreezeGuard.ts  # Pure guard: rejects resolve edits that touch .feature files
 │   ├── resolveVerdict.ts      # Pure verdict: computes pass/retry/hard-fail for scenario fix loops
+│   ├── resumePolicy.ts  # Bounded resume policy: nextResumeAction / MAX_RESUME_ATTEMPTS / ResumeAction; determines resume vs. escalate_human_gated
 │   ├── retryOrchestrator.ts
 │   ├── slackNotifier.ts  # Slack Incoming Webhook client for error/problem alerting
 │   ├── stateHelpers.ts
+│   ├── stageClassifier.ts  # Exhaustive StageClass taxonomy (classifyStage / classifyStageString) for recovery routing across cron, takeover, and webhook consumers
 │   ├── stackCoherenceCheck.ts  # Pure stack-coherence check — language coherence + Gherkin mandate (stackCoherenceCheck, StackCoherenceInput/Result/Warning)
 │   ├── stepDefDetection.ts  # Step definition file-extension detection by BDD framework (stepDefExtensionsFor, hasStepDefinitions, isGherkinFramework)
 │   ├── targetRepoManager.ts
@@ -650,6 +656,7 @@ adws/                   # ADW workflow system
 │   ├── diffEvaluationPhase.ts  # LLM diff evaluation phase (safe vs regression_possible)
 │   ├── gherkinFreeze.ts  # Snapshots, detects changes to, and restores .feature files around the fix loop
 │   ├── buildPhase.ts
+│   ├── docsSelfCheck.ts  # Post-write docs self-check: runs bloat/regrowth guards after documentAgent writes; routes violations to a refactor issue
 │   ├── documentPhase.ts
 │   ├── index.ts
 │   ├── depauditSetup.ts  # depaudit setup and secret propagation (used by adw_init)
