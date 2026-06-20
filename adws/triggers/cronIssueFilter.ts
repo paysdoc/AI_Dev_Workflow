@@ -10,6 +10,7 @@
 
 import { resolveIssueWorkflowStage } from './cronStageResolver';
 import { classifyStageString } from '../core/stageClassifier';
+import { decideSerialization } from './regionOverlap';
 import type { StageResolution } from './cronStageResolver';
 import type { LabelRecoveryResult } from './cronLabelEligibility';
 
@@ -39,6 +40,13 @@ export interface EligibleIssue {
   readonly issue: CronIssue;
   readonly action: 'spawn' | 'merge';
   readonly adwId?: string;
+}
+
+/** An issue deferred by the region-overlap serialization gate. */
+export interface OverlapDeferral {
+  readonly issueNumber: number;
+  readonly blockedBy: number;
+  readonly overlapPaths: string[];
 }
 
 /**
@@ -170,6 +178,11 @@ export function evaluateIssue(
  * Filters and sorts issues for backlog sweep processing.
  * Returns eligible issues (with action metadata) sorted oldest-first.
  * Builds an annotation list of excluded issues for verbose logging.
+ *
+ * When `resolveTouchedFiles` is provided, a cross-issue region-overlap pass
+ * is applied to the eligible spawn candidates after per-issue filtering.
+ * Overlapping pairs are serialized: the lower-numbered issue in each cluster
+ * proceeds; others are deferred and recorded in `overlapDeferrals`.
  */
 export function filterEligibleIssues(
   issues: readonly CronIssue[],
@@ -179,14 +192,15 @@ export function filterEligibleIssues(
   resolveStage?: (comments: { body: string }[]) => StageResolution,
   cancelledThisCycle: ReadonlySet<number> = new Set(),
   labelRecovery?: (issue: CronIssue) => LabelRecoveryResult,
-): { eligible: EligibleIssue[]; filteredAnnotations: string[] } {
-  const eligible: EligibleIssue[] = [];
+  resolveTouchedFiles?: (issue: CronIssue) => string[],
+): { eligible: EligibleIssue[]; filteredAnnotations: string[]; overlapDeferrals: OverlapDeferral[] } {
+  const initialEligible: EligibleIssue[] = [];
   const filteredAnnotations: string[] = [];
 
   for (const issue of issues) {
     const result = evaluateIssue(issue, now, processed, gracePeriodMs, resolveStage, cancelledThisCycle, labelRecovery);
     if (result.eligible) {
-      eligible.push({
+      initialEligible.push({
         issue,
         action: result.action ?? 'spawn',
         adwId: result.adwId,
@@ -196,6 +210,37 @@ export function filterEligibleIssues(
     }
   }
 
-  eligible.sort((a, b) => new Date(a.issue.createdAt).getTime() - new Date(b.issue.createdAt).getTime());
-  return { eligible, filteredAnnotations };
+  initialEligible.sort((a, b) => new Date(a.issue.createdAt).getTime() - new Date(b.issue.createdAt).getTime());
+
+  if (!resolveTouchedFiles) {
+    return { eligible: initialEligible, filteredAnnotations, overlapDeferrals: [] };
+  }
+
+  // Region-overlap serialization pass over spawn-eligible candidates.
+  const spawnCandidates = initialEligible.filter(e => e.action === 'spawn');
+  const signals = spawnCandidates.map(e => ({
+    issueNumber: e.issue.number,
+    paths: resolveTouchedFiles(e.issue),
+    inFlight: false,
+  }));
+
+  const overlapDeferrals: OverlapDeferral[] = [];
+  const deferredNumbers = new Set<number>();
+
+  for (const signal of signals) {
+    const siblings = signals.filter(s => s.issueNumber !== signal.issueNumber);
+    const decision = decideSerialization(signal, siblings);
+    if (decision.serialize && decision.blockedBy !== undefined) {
+      deferredNumbers.add(signal.issueNumber);
+      overlapDeferrals.push({
+        issueNumber: signal.issueNumber,
+        blockedBy: decision.blockedBy,
+        overlapPaths: decision.overlapPaths ?? [],
+      });
+      filteredAnnotations.push(`#${signal.issueNumber}(region_overlap:#${decision.blockedBy})`);
+    }
+  }
+
+  const eligible = initialEligible.filter(e => !deferredNumbers.has(e.issue.number));
+  return { eligible, filteredAnnotations, overlapDeferrals };
 }
