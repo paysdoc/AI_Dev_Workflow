@@ -18,7 +18,7 @@ ADW is an agentic SDLC framework: it turns issues on GitHub, GitLab, or Jira int
 - **Project board automation** — `BoardManager` provider drives GitHub Projects V2 column transitions as a workflow progresses.
 - **Two automation triggers** — `trigger_cron.ts` polls every 20 s; `trigger_webhook.ts` receives HMAC-signed GitHub webhooks for instant pickup, with optional Cloudflare tunnel lifecycle.
 - **Single-host coordination** — per-issue `spawnGate`, PID + start-time liveness checks, heartbeat ticker, and `worktreeReset`-driven takeover reclaim dead or abandoned runs.
-- **Resilience primitives** — pause queue for rate-limit/billing pause and resume, auth gate for auth-failure detection with `paused_auth` state and Slack alerting, auth queue scanner for automatic resume after auth restoration, hung-orchestrator detector, dev server janitor, per-issue scenario sweep cron (14-day retention), `remoteReconcile` to derive workflow stage from remote GitHub artifacts, and a state-novelty progress gate (`progressGate.ts`) that aborts a build early when repeated git-tree-hash comparisons show no new commits (no_progress) or the checkpoint backstop is exhausted.
+- **Resilience primitives** — pause queue for rate-limit/billing pause and resume, auth gate for auth-failure detection with `paused_auth` state and Slack alerting, auth queue scanner for automatic resume after auth restoration, hung-orchestrator detector, dev server janitor, per-issue scenario sweep cron (14-day retention), `remoteReconcile` to derive workflow stage from remote GitHub artifacts, a state-novelty progress gate (`progressGate.ts`) that aborts a build early when repeated git-tree-hash comparisons show no new commits (no_progress) or the checkpoint backstop is exhausted, a bounded resume cap (`resumePolicy.ts`) that limits automatic context-reset attempts and escalates to `human_gated` when the cap is hit, a stage classifier (`stageClassifier.ts`) that maps any Stage string to a recovery `StageClass` for routing decisions, and a deterministic branch-identity fallback (`branchIdentity.ts`) that recovers an existing branch and its ADW ID from slug-free predicates when the canonical comment-based recovery fails.
 - **Cost tracking** — per-phase, per-model `PhaseCostRecord` with multi-currency reporting, divergence detection vs. CLI-reported cost, and dual-write to a Cloudflare D1-backed Cost API.
 - **LLM-based dependency extraction** — `dependencyExtractionAgent` reads issues to surface cross-issue dependencies before spawning.
 - **Documentation generation** — `documentAgent` writes feature docs to `app_docs/`; the SDLC pipeline includes review screenshots.
@@ -498,6 +498,7 @@ adws/                   # ADW workflow system
 │   │   ├── claudeStreamParser.test.ts
 │   │   ├── conditionalDocsRegistry.test.ts
 │   │   ├── devServerLifecycle.test.ts
+│   │   ├── docsGuards.test.ts
 │   │   ├── environment.test.ts
 │   │   ├── execWithRetry.test.ts
 │   │   ├── hashComputer.test.ts
@@ -510,9 +511,11 @@ adws/                   # ADW workflow system
 │   │   ├── remoteReconcile.test.ts
 │   │   ├── resolveFreezeGuard.test.ts
 │   │   ├── resolveVerdict.test.ts
+│   │   ├── resumePolicy.test.ts
 │   │   ├── slackNotifier.test.ts
-│   │   ├── stateHelpers.test.ts
 │   │   ├── stackCoherenceCheck.test.ts
+│   │   ├── stageClassifier.test.ts
+│   │   ├── stateHelpers.test.ts
 │   │   ├── stepDefDetection.test.ts
 │   │   ├── testReportParser.test.ts
 │   │   ├── testVerdict.test.ts
@@ -553,9 +556,11 @@ adws/                   # ADW workflow system
 │   ├── remoteReconcile.ts  # Stage derivation from remote GitHub artifacts
 │   ├── resolveFreezeGuard.ts  # Pure guard: rejects resolve edits that touch .feature files
 │   ├── resolveVerdict.ts      # Pure verdict: computes pass/retry/hard-fail for scenario fix loops
+│   ├── resumePolicy.ts  # Pure bounded-resume cap policy: nextResumeAction, resumePolicy; discriminated decision with hard N-cap backstop (#639)
 │   ├── retryOrchestrator.ts
 │   ├── slackNotifier.ts  # Slack Incoming Webhook client for error/problem alerting
 │   ├── stateHelpers.ts
+│   ├── stageClassifier.ts  # Stage classification taxonomy for recovery routing — classifyStage maps WorkflowStage strings to StageClass (#636)
 │   ├── stackCoherenceCheck.ts  # Pure stack-coherence check — language coherence + Gherkin mandate (stackCoherenceCheck, StackCoherenceInput/Result/Warning)
 │   ├── stepDefDetection.ts  # Step definition file-extension detection by BDD framework (stepDefExtensionsFor, hasStepDefinitions, isGherkinFramework)
 │   ├── targetRepoManager.ts
@@ -590,9 +595,12 @@ adws/                   # ADW workflow system
 │   └── workflowCommentsPR.ts
 ├── vcs/                # Version control operations (git)
 │   ├── __tests__/      # Vitest unit tests
+│   │   ├── branchIdentity.test.ts
 │   │   ├── branchOperations.test.ts
 │   │   ├── commitOperations.test.ts
+│   │   ├── fetchAndResetToRemote.test.ts
 │   │   └── worktreeReset.test.ts
+│   ├── branchIdentity.ts  # Pure branch-identity vocabulary for deterministic fallback — slug-free predicates to recover branch/adwId by issue number (#641)
 │   ├── branchOperations.ts  # Branch management
 │   ├── commitOperations.ts  # Commit/push operations
 │   ├── index.ts
@@ -633,6 +641,7 @@ adws/                   # ADW workflow system
 │   └── types.ts
 ├── phases/             # Workflow phase implementations
 │   ├── __tests__/      # Vitest unit tests
+│   │   ├── branchIdentityFallback.test.ts
 │   │   ├── branchNameResolution.test.ts
 │   │   ├── gherkinFreeze.test.ts
 │   │   ├── orchestratorLock.test.ts
@@ -647,6 +656,7 @@ adws/                   # ADW workflow system
 │   ├── alignmentPhase.ts  # Single-pass alignment phase
 │   ├── authPause.ts    # Auth-required pause handler (mirrors rate-limit pause path for auth failures)
 │   ├── autoMergePhase.ts  # Auto-approve and merge PR after review passes
+│   ├── branchIdentityFallback.ts  # Identity-recovery helpers: locate existing branch/worktree by issue number when adwId cannot be recovered from comments (#641)
 │   ├── branchNameResolution.ts  # Branch name resolution for worktree takeover paths
 │   ├── diffEvaluationPhase.ts  # LLM diff evaluation phase (safe vs regression_possible)
 │   ├── docsSelfCheck.ts  # Post-write self-check phase: runs docsGuards against app_docs/ and opens a GitHub issue for each bloat or regrowth flag
