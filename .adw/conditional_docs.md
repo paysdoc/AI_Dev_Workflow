@@ -328,10 +328,20 @@
     - When adding a new field to `PRReviewWorkflowConfig` (decide: top-level PR-specific, or `base`)
     - When troubleshooting field-access patterns in PR review phase functions
 
-- app_docs/feature-dcy9qz-merge-orchestrator-cron-handoff.md
+- app_docs/feature-ni6fpk-serialize-overlapping-region-issues.md
+  - Owns:
+    - adws/triggers/regionOverlap.ts
+    - adws/triggers/regionOverlapSignals.ts
+    - adws/triggers/cronIssueFilter.ts
   - Conditions:
+    - When working with `decideSerialization`, `parseRelevantFilesSection`, or `pathsOverlap` in `adws/triggers/regionOverlap.ts`
+    - When working with `filterEligibleIssues`, `resolveTouchedFilesFromBody`, or `OverlapDeferral` in `adws/triggers/cronIssueFilter.ts`
+    - When implementing or troubleshooting `registerRegionOverlapBlocker`, `buildBlockedByBody`, or `REGION_OVERLAP_MARKER` in `adws/triggers/regionOverlapSignals.ts`
+    - When two issues edit the same file/region and one should be serialized behind the other
+    - When an `<!-- adw:region-overlap -->` annotated `## Blocked by` line appears in an issue body
+    - When troubleshooting why a spawn-eligible issue was deferred with reason `region_overlap:#N`
     - When working with `adws/adwMerge.tsx` or the merge orchestrator spawn flow
-    - When working with `adws/triggers/cronIssueFilter.ts` or `cronStageResolver.ts`
+    - When working with `adws/triggers/cronStageResolver.ts`
     - When adding a new handoff stage that bypasses the cron grace period
     - When troubleshooting `awaiting_merge` issues not being picked up by the cron
     - When working with `deriveOrchestratorScript()` and adding a new orchestrator mapping
