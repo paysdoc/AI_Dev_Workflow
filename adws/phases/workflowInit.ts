@@ -52,6 +52,7 @@ import { Platform } from '../providers/types';
 import { createRepoContext } from '../providers/repoContext';
 import { classifyGitHubIssue } from '../core/issueClassifier';
 import { resolveWorkflowBranchName, readPersistedBranchName } from './branchNameResolution';
+import { findExistingBranchForIssue, recoverAdwIdForBranch } from './branchIdentityFallback';
 import { deriveOrchestratorScript } from '../core/orchestratorLib';
 import { copyClaudeAssetsToWorktree } from './worktreeSetup';
 import { postIssueStageComment } from './phaseCommentHelpers';
@@ -146,8 +147,39 @@ export async function initializeWorkflow(
   // Detect recovery state early to reuse existing ADW ID and branch name
   const recoveryState = detectRecoveryState(issue.comments);
 
-  // Resolve ADW ID: use provided, recovered from prior workflow, or generate new
-  const resolvedAdwId = adwId ?? recoveryState.adwId ?? generateAdwId(issue.title);
+  // Classify issue type early so the deterministic-branch fallback can use it.
+  let issueType: IssueClassSlashCommand;
+  if (options?.issueType) {
+    log(`Using pre-classified issue type: ${options.issueType}`, 'info');
+    issueType = options.issueType;
+  } else {
+    log('Classifying issue type...', 'info');
+    const classificationResult = await classifyGitHubIssue(issue);
+    issueType = classificationResult.issueType;
+    log(`Issue classified as: ${issueType}`, classificationResult.success ? 'success' : 'info');
+  }
+
+  // Resolve ADW ID: use provided, recovered from prior workflow comment, deterministic
+  // branch fallback (when comment recovery failed), or generate a fresh ID last.
+  // Guard: the fallback is only reached when BOTH `adwId` and `recoveryState.adwId` are
+  // absent so the normal recovery path is byte-for-byte unchanged.
+  let resolvedAdwId: string;
+  if (adwId) {
+    resolvedAdwId = adwId;
+  } else if (recoveryState.adwId) {
+    resolvedAdwId = recoveryState.adwId;
+  } else {
+    // Deterministic-branch fallback: find an existing branch for this issue/classifier
+    // and recover the adwId from the persisted state store.
+    const existingBranch = findExistingBranchForIssue(issueType, issueNumber);
+    const recoveredId = existingBranch ? recoverAdwIdForBranch(existingBranch) : null;
+    if (recoveredId) {
+      log(`Recovered adwId "${recoveredId}" from existing branch "${existingBranch}" (deterministic fallback)`, 'info');
+      resolvedAdwId = recoveredId;
+    } else {
+      resolvedAdwId = generateAdwId(issue.title);
+    }
+  }
   setLogAdwId(resolvedAdwId);
 
   log('===================================', 'info');
@@ -161,18 +193,6 @@ export async function initializeWorkflow(
     // Not in a git repo or git unavailable — skip version logging
   }
   log('===================================', 'info');
-
-  // Classify issue type
-  let issueType: IssueClassSlashCommand;
-  if (options?.issueType) {
-    log(`Using pre-classified issue type: ${options.issueType}`, 'info');
-    issueType = options.issueType;
-  } else {
-    log('Classifying issue type...', 'info');
-    const classificationResult = await classifyGitHubIssue(issue);
-    issueType = classificationResult.issueType;
-    log(`Issue classified as: ${issueType}`, classificationResult.success ? 'success' : 'info');
-  }
 
   // Initialize logs early so agents can use the directory
   const logsDir = ensureLogsDirectory(resolvedAdwId);
