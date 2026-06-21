@@ -4,6 +4,23 @@
 adwId: `hxbf7l-feat-resume-in-place`
 reviewChangeRequest: `Issue #1: Out-of-scope working-tree reversion of merged command/doc files (the recurring 'worktree born with dependency reversion' pattern). git diff origin/dev shows .claude/commands/document.md (~120 lines) and .claude/commands/adw_init.md (~11 lines) stripped from the merged convergent-docs format back to the legacy changelog format: origin/dev's document.md has 8 Owns: glob blocks, the working tree has 0; adw_init.md loses its Owns: routing instructions and the document.md hashInput. HEAD itself matches origin/dev for these files (the committed state is clean — restored by f7aeef3), so this is an uncommitted working-tree revert that must not be swept into the PR. The #638 spec (Notes, line 298) explicitly states: 'If review uses git diff origin/dev, blocker any out-of-scope command-file revert.' A restoration patch spec already exists on the branch (commit c74a971, specs/patch/...restore-out-of-scope-command-docs.md) but the working tree still carries the reversion. Note: README.md's working-tree change is forward #638 documentation (adds worktreeReuseGate/WorktreeProbe), not a reversion, and is excluded from this issue. Resolution: Restore the two files to their origin/dev state: git checkout origin/dev -- .claude/commands/document.md .claude/commands/adw_init.md. Never git add -A/git commit -am these reverted command files; commit only the #638 stage-recovery source/test/doc files. Verify the final git diff origin/dev shows no command-file revert before opening the PR.`
 
+## Resolution Status — ✅ EXECUTED & VERIFIED (2026-06-21)
+This spec was previously **authored but not applied** (committed `a77eac2`), so the uncommitted working-tree revert persisted and was re-flagged. The prescribed discard has now been **executed**, scoped to exactly the two command files:
+
+```
+git checkout origin/dev -- .claude/commands/document.md .claude/commands/adw_init.md
+```
+
+No `git add -A` / commit was run; `README.md` was left untouched. All acceptance checks are **green**:
+- `git status --short` → only ` M README.md` remains; both command files are gone from the working tree.
+- `git diff HEAD -- .claude/commands/document.md .claude/commands/adw_init.md` → empty.
+- `git diff origin/dev -- .claude/commands/document.md .claude/commands/adw_init.md` → empty.
+- `git diff origin/dev --name-only` → lists **neither** command file (`README.md` still present, as expected for the in-scope forward doc).
+- `grep -ciE 'collapse sibling|collapseEntries|semantic-first' .claude/commands/document.md` → **3** (convergent-docs `/document` restored).
+- `grep -cE 'Owns' .claude/commands/adw_init.md` → **2**; `grep -c '\.claude/commands/document\.md' .claude/commands/adw_init.md` → **1** (Owns blocks + hashInput line restored).
+
+PR scope is now clean for these files. The analysis and procedure below record the original plan.
+
 ## Issue Summary
 **Original Spec:** `specs/issue-638-adw-hxbf7l-feat-resume-in-place-sdlc_planner-worktree-reuse-gate-resume-in-place.md`
 
