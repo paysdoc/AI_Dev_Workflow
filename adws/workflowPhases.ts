@@ -15,6 +15,8 @@ export {
   initializeWorkflow,
   executePlanPhase,
   buildContinuationPrompt,
+  buildResumeInPlacePrompt,
+  shouldResumeBuildInPlace,
   MAX_CONTINUATION_OUTPUT_LENGTH,
   executePlanValidationPhase,
   executeAlignmentPhase,

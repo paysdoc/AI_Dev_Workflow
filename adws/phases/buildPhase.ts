@@ -27,7 +27,7 @@ import {
   type ProgressInfo,
 } from '../agents';
 import type { WorkflowConfig } from './workflowInit';
-import { buildContinuationPrompt } from './planPhase';
+import { buildContinuationPrompt, buildResumeInPlacePrompt, shouldResumeBuildInPlace } from './planPhase';
 import { BoardStatus } from '../providers/types';
 
 /**
@@ -67,7 +67,13 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
     }
     log('Running Build Agent (scenario detection delegated to build agent)...', 'info');
 
-    let currentPlanContent = planContent;
+    // Resume-in-place recognition instruction (#640): on a cross-orchestrator resume,
+    // seed with the git-authoritative inventory/continue prompt so the agent does not
+    // restart from scratch. The token-limit/compaction loop below re-wraps from raw
+    // planContent on each in-build restart, so there is no double-wrapping.
+    let currentPlanContent = shouldResumeBuildInPlace(recoveryState)
+      ? buildResumeInPlacePrompt(planContent, defaultBranch)
+      : planContent;
     const seenTreeHashes = new Set<string>([getHeadTreeHash(worktreePath)]);
     let perBatchResets = 0;
     let checkpointCount = 0;
