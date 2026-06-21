@@ -30,6 +30,7 @@ Slices may be 'HITL' or 'AFK'. HITL slices require human interaction, such as an
 - Each slice delivers a narrow but COMPLETE path through every layer (schema, API, UI, tests)
 - A completed slice is demoable or verifiable on its own
 - Prefer many thin slices over few thick ones
+- **Order region-colliding slices**: if two slices are likely to edit the same file or code region, make the second depend on (blocked by) the first. Do NOT mark them as independent siblings — two issues that touch the same region and build in parallel will produce a stale-base merge conflict. Add a `## Touched Files` hint to each slice so the ADW router can detect the overlap automatically (see issue template).
 </vertical-slice-rules>
 
 ### 4. Quiz the user
@@ -44,7 +45,7 @@ Present the proposed breakdown as a numbered list. For each slice, show:
 Ask the user:
 
 - Does the granularity feel right? (too coarse / too fine)
-- Are the dependency relationships correct?
+- Are the dependency relationships correct? In particular: do any pairs of slices likely edit the same file or code region? If so, confirm the later one is marked "Blocked by" the earlier one.
 - Should any slices be merged or split further?
 - Are the correct slices marked as HITL and AFK?
 
@@ -82,6 +83,15 @@ A concise description of this vertical slice. Describe the end-to-end behavior, 
 - Blocked by #<issue-number> (if any)
 
 Or "None - can start immediately" if no blockers.
+
+## Touched Files
+
+<!-- Optional but recommended: list the files this slice is likely to modify.
+     The ADW router uses this to detect region overlap and serialize colliding slices.
+     One file per line, e.g.:
+- adws/triggers/issueEligibility.ts
+- adws/triggers/cronIssueFilter.ts
+-->
 
 ## User stories addressed
 
