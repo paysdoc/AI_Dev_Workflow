@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { sendSlackDetectionNotification, sendSlackRecoveryNotification } from '../slackNotifier';
+import { sendSlackDetectionNotification, sendSlackRecoveryNotification, postSlack } from '../slackNotifier';
+
+vi.mock('../logger', () => ({ log: vi.fn() }));
+
+import { log } from '../logger';
 
 const WEBHOOK_URL = 'https://hooks.slack.com/test';
 
@@ -9,11 +13,73 @@ function makeFetchMock(ok = true, status = 200) {
 
 beforeEach(() => {
   vi.restoreAllMocks();
+  vi.clearAllMocks();
 });
 
 afterEach(() => {
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
+});
+
+// ---------------------------------------------------------------------------
+// postSlack — delivery log (Fix #2)
+// ---------------------------------------------------------------------------
+
+describe('postSlack', () => {
+  it('logs delivered at info level on a 2xx response', async () => {
+    vi.stubEnv('SLACK_WEBHOOK_URL', WEBHOOK_URL);
+    vi.stubGlobal('fetch', makeFetchMock(true, 200));
+    const logMock = vi.mocked(log);
+
+    await postSlack(':eyes: HITL ping');
+
+    const deliveredCall = logMock.mock.calls.find(
+      ([msg, lvl]) => msg.includes('delivered') && lvl === 'info',
+    );
+    // RED before Fix #2: no success log is emitted
+    expect(deliveredCall).toBeDefined();
+  });
+
+  it('logs warn with HTTP status on a non-2xx response and does not log delivered', async () => {
+    vi.stubEnv('SLACK_WEBHOOK_URL', WEBHOOK_URL);
+    vi.stubGlobal('fetch', makeFetchMock(false, 400));
+    const logMock = vi.mocked(log);
+
+    await postSlack(':eyes: HITL ping');
+
+    const warnCall = logMock.mock.calls.find(
+      ([msg, lvl]) => msg.includes('HTTP 400') && lvl === 'warn',
+    );
+    expect(warnCall).toBeDefined();
+    const deliveredCall = logMock.mock.calls.find(([msg]) => msg.includes('delivered'));
+    expect(deliveredCall).toBeUndefined();
+  });
+
+  it('logs warn on a thrown fetch error and does not throw', async () => {
+    vi.stubEnv('SLACK_WEBHOOK_URL', WEBHOOK_URL);
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('connection refused')));
+    const logMock = vi.mocked(log);
+
+    await expect(postSlack(':eyes: HITL ping')).resolves.toBeUndefined();
+
+    const warnCall = logMock.mock.calls.find(
+      ([msg, lvl]) => msg.includes('failed') && lvl === 'warn',
+    );
+    expect(warnCall).toBeDefined();
+  });
+
+  it('logs a skip warn and does not call fetch when SLACK_WEBHOOK_URL is unset', async () => {
+    delete process.env.SLACK_WEBHOOK_URL;
+    const fetchMock = makeFetchMock();
+    vi.stubGlobal('fetch', fetchMock);
+    const logMock = vi.mocked(log);
+
+    await postSlack(':eyes: HITL ping');
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    const skipCall = logMock.mock.calls.find(([msg]) => msg.includes('skipping'));
+    expect(skipCall).toBeDefined();
+  });
 });
 
 describe('sendSlackDetectionNotification', () => {

@@ -9,7 +9,7 @@ This module provides structured console logging and Slack webhook notifications 
 - Emits timestamped, emoji-prefixed log lines to stdout at four levels: `info`, `error`, `success`, `warn`
 - Colors `error`-level output in ANSI red for terminal visibility
 - Tags every log line with the current session's ADW ID when one has been set via `setLogAdwId()`
-- Posts arbitrary text to a Slack incoming webhook via `postSlack()`
+- Posts arbitrary text to a Slack incoming webhook via `postSlack()`; logs a delivery confirmation at `info` level on success and a `warn` on HTTP error or network failure
 - Sends a structured auth-detection alert (`:lock:`) via `sendSlackDetectionNotification()` when an auth gate fires, including host, ADW ID, issue number, agent name, and first-detection timestamp
 - Sends a structured auth-recovery alert (`:unlock:`) via `sendSlackRecoveryNotification()` when auth is cleared, including the count of paused issues being resumed
 - Ensures the per-session logs directory exists on disk via `ensureLogsDirectory()` (held in `utils.ts` as a widely-shared utility)
@@ -17,7 +17,7 @@ This module provides structured console logging and Slack webhook notifications 
 
 ## Contracts & Invariants
 
-- `postSlack()` is no-throw at the call boundary: HTTP errors and network failures are logged as warnings and swallowed; callers never receive a rejected promise
+- `postSlack()` is no-throw at the call boundary: HTTP errors and network failures are logged as warnings and swallowed; callers never receive a rejected promise. A successful delivery is logged at `info` level (`Slack notification delivered (HTTP 200)`) so delivery is answerable from the log without requiring a negative search.
 - If `SLACK_WEBHOOK_URL` is not set, all Slack calls skip silently with a single `warn` log; no error is raised
 - The Slack POST uses a 10-second `AbortSignal` timeout; hangs do not block indefinitely
 - `setLogAdwId()` mutates module-level state; the ADW ID persists for the lifetime of the process unless `resetLogAdwId()` is called (intended for test isolation only)
@@ -34,5 +34,5 @@ This module provides structured console logging and Slack webhook notifications 
 - The logger's ADW ID is module-global singleton state. In test environments, always call `resetLogAdwId()` in teardown to prevent state leaking between test cases.
 - `execWithRetry()` uses `Atomics.wait()` for synchronous sleep, which blocks the Node.js event loop. Do not call it from async contexts where latency matters.
 - `ensureLogsDirectory()` reads `LOGS_DIR` from the `environment` module at import time; if that value is wrong or unset, directory creation silently uses whatever path is resolved.
-- `sendSlackDetectionNotification()` and `sendSlackRecoveryNotification()` are fire-and-forget; their return promises should be awaited only when the caller needs to ensure delivery before proceeding (e.g., before process exit).
+- `sendSlackDetectionNotification()` and `sendSlackRecoveryNotification()` are fire-and-forget at their call sites in `authGate`; any call site that must guarantee delivery before process exit (e.g. `moveIssueToStatus`) must `await` the promise rather than discarding it with `void`.
 - Auth-related error strings in `NON_RETRYABLE_PATTERNS` are matched with `String.includes()` (substring, case-sensitive). Variations in error message formatting from different `gh` CLI versions may bypass the fast-fail path.
