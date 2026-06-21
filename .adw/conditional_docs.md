@@ -1487,13 +1487,20 @@
     - When the `no_progress` or `backstop` error messages need rewording or new bound parameters
 
 - app_docs/feature-6uquvb-build-continuation-committed-state.md
+  - Owns:
+    - adws/phases/planPhase.ts
+    - adws/phases/buildPhase.ts
+    - adws/phases/__tests__/planPhase.test.ts
+    - adws/phases/index.ts
+    - adws/workflowPhases.ts
   - Conditions:
-    - When modifying `buildContinuationPrompt()` in `adws/phases/planPhase.ts` or its call sites in `buildPhase.ts`
-    - When the build continuation prompt should be changed to use git state rather than previous-agent output
-    - When adding a new restart trigger that calls `buildContinuationPrompt()` and must pass a base branch or checkpoint flag
-    - When troubleshooting a restarted build agent that is redoing or reverting already-committed work
-    - When working with `checkpointCommitsPresent` / `baseBranch` parameters or the `MAX_CONTINUATION_OUTPUT_LENGTH` truncation logic
-    - When adding unit tests for `buildContinuationPrompt()` in `adws/phases/__tests__/planPhase.test.ts`
+    - When modifying `buildContinuationPrompt()`, `buildResumeInPlacePrompt()`, or `shouldResumeBuildInPlace()` in `adws/phases/planPhase.ts`
+    - When adding a new `reason` value to `buildContinuationPrompt()` or changing any of its call sites in `buildPhase.ts`
+    - When the build continuation or resume-in-place prompt should be changed to use git state rather than previous-agent output
+    - When troubleshooting a restarted or resumed build agent that is redoing or reverting already-committed work
+    - When working with `checkpointCommitsPresent` / `baseBranch` parameters, the `'resumed_in_place'` reason, or the `MAX_CONTINUATION_OUTPUT_LENGTH` truncation logic
+    - When adding unit tests for `buildContinuationPrompt()`, `buildResumeInPlacePrompt()`, or `shouldResumeBuildInPlace()` in `adws/phases/__tests__/planPhase.test.ts`
+    - When the cross-orchestrator resume build seed prompt (injected via `recoveryState.canResume`) needs to change
 
 - app_docs/feature-nm1413-adwupgrade-pr-closing-keyword.md
   - Conditions:
