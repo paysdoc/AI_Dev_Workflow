@@ -600,9 +600,11 @@ adws/                   # ADW workflow system
 │   └── workflowCommentsPR.ts
 ├── vcs/                # Version control operations (git)
 │   ├── __tests__/      # Vitest unit tests
+│   │   ├── branchIdentity.test.ts
 │   │   ├── branchOperations.test.ts
 │   │   ├── commitOperations.test.ts
 │   │   ├── fetchAndResetToRemote.test.ts
+│   │   ├── pushBranch.integration.test.ts
 │   │   ├── worktreeProbe.test.ts
 │   │   ├── worktreeReset.test.ts
 │   │   └── worktreeReuseGate.test.ts
@@ -744,6 +746,8 @@ adws/                   # ADW workflow system
 │   │   ├── mergeDispatchGate.test.ts
 │   │   ├── pauseQueueScanner.test.ts
 │   │   ├── perIssueScenarioSweep.test.ts
+│   │   ├── regionOverlap.test.ts
+│   │   ├── regionOverlapSignals.test.ts
 │   │   ├── retryHandler.test.ts
 │   │   ├── scanAuthQueue.test.ts
 │   │   ├── spawnGate.test.ts
@@ -770,6 +774,8 @@ adws/                   # ADW workflow system
 │   ├── issueOpenedRouter.ts  # Pure routing decision for the issues.opened label-routing path (mirrors cronIssueFilter pattern)
 │   ├── mergeDispatchGate.ts  # Lock-aware gate deciding whether cron should dispatch adwMerge for an issue
 │   ├── pauseQueueScanner.ts  # Cron probe for paused issue queue
+│   ├── regionOverlap.ts  # Pure decision module for region-overlap serialization (no I/O)
+│   ├── regionOverlapSignals.ts  # Side-effecting boundary for region-overlap: registers durable Blocked-by deps and posts explanatory comments
 │   ├── scanAuthQueue.ts  # Cron probe: resumes paused_auth orchestrators after auth is restored
 │   ├── spawnGate.ts  # Per-issue filesystem lock preventing duplicate orchestrator launches
 │   ├── takeoverHandler.ts  # Candidate decision tree: evaluateCandidate composes spawnGate, processLiveness, agentState, remoteReconcile, and worktreeReset
