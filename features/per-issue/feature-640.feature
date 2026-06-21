@@ -92,15 +92,22 @@ Feature: a resumed build run is told to inventory its worktree and continue, not
       • `the build agent prompt embeds the same implementation plan content a fresh run's prompt embeds`
       • `the build agent prompt adds resume-and-inventory context on top of the fresh build prompt`
 
-    Step-definition note for the maintainer: the resumed / fresh Given sets a `resuming`
-    flag (and a fixed plan-content fixture) on the composer input; the When phase-imports
-    the build-agent prompt composer the implementer introduces (expected to live beside
-    `runBuildAgent` in adws/agents/buildAgent.ts, or to be `buildContinuationPrompt`
-    reused for the cross-run case) and calls it once with that input. Each recognition-
-    intent Then asserts the returned prompt by tolerant keyword match — deliberately RED
-    against today's fresh-only prompt and NOT keyed to the implementer's exact sentence.
-    The "same plan content" / "carries no resume-or-inventory signal" / "adds resume-and-
-    inventory context" Thens compose the composer twice (resuming and not) over the same
+    Step-definition note for the maintainer: the resumed / fresh Given fixes a plan-content
+    fixture and the run's resume signal (the `canResume` / `resuming` flag a taken-over run
+    carries). For a RESUMED run the When phase-imports the resume-prompt composer and calls
+    it once over the fixture; the plan realises this by reusing `buildContinuationPrompt`
+    (the within-build continuation composer) for the cross-run case via a thin wrapper it
+    names `buildResumeInPlacePrompt`, selected by a `shouldResumeBuildInPlace` (`canResume`)
+    predicate, with both re-exported from `adws/phases` / `adws/workflowPhases` for import.
+    For a FRESH run the composed build prompt IS the raw plan content — the predicate is
+    false, so no resume wrapper is applied — which is exactly what the §3 "no resume-or-
+    inventory signal" Then pins. The composer's name, signature, and home module are an
+    implementer's choice and are NOT pinned; whether it reuses `buildContinuationPrompt` or
+    adds a parallel composer is left open. Each recognition-intent Then asserts the returned
+    prompt by tolerant keyword match — deliberately RED against today's fresh-only prompt and
+    NOT keyed to the implementer's exact sentence. The "same plan content" / "carries no
+    resume-or-inventory signal" / "adds resume-and-inventory context" Thens compose both
+    prompts (the resumed wrapper's output and the raw plan a fresh run carries) over the same
     plan fixture and compare the two returned strings.
 
   Background:
