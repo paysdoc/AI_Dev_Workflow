@@ -320,6 +320,8 @@
   - Conditions:
     - When working on worktree creation, cleanup, operations, VCS branch operations, commit operations, or worktree setup phase
     - When working on any file in `adws/vcs/` or `adws/phases/worktreeSetup.ts`
+    - When working on the worktree-reuse gate (`decideWorktreeReuse`, `worktreeReuseGate.ts`), worktree probing (`probeWorktree`, `worktreeProbe.ts`), or resume-in-place decision logic
+    - When troubleshooting worktree health signals (index.lock orphaned/live-held, interrupted rebase/merge/cherry-pick, registration healthy/locked/prunable/missing, live owner detection)
 
 - app_docs/feature-9gjajh-github-api.md
   - Owns:
@@ -532,7 +534,7 @@
   - Conditions:
     - When working with `classifyStage`, `classifyStageString`, or `StageClass` in `adws/core/stageClassifier.ts`
     - When adding a new `WorkflowStage` literal and need to assign it a recovery class
-    - When modifying `evaluateCandidate` in `takeoverHandler.ts` or the stage-dispatch logic, including `recoverViaResetFromRemote`
+    - When modifying `evaluateCandidate` in `takeoverHandler.ts` or the stage-dispatch logic, including `recoverViaResetFromRemote` or `recoverViaResumeInPlaceOrReset`
     - When modifying `evaluateIssue` in `cronIssueFilter.ts` stage eligibility checks
     - When working with `isActiveStage` in `cronStageResolver.ts` and need to understand its compatibility-bridge role vs. the `active` StageClass
     - When adding a per-consumer raw-stage recovery branch for a specific stage that diverges from its StageClass default
@@ -541,4 +543,5 @@
     - When the `never` exhaustiveness guard or compile-time classification check is relevant
     - When working with `nextResumeAction`, `MAX_RESUME_ATTEMPTS`, or `ResumeAction` in `adws/core/resumePolicy.ts`
     - When the bounded resume cap, `human_gated` stage, or `escalate_human_gated` decision is relevant
-    - When understanding how `phase_timeout` recovery is cap-gated before reset-from-remote takeover (money-fire backstop)
+    - When understanding how `phase_timeout` recovery is cap-gated (#639) and then probe-gated (#638: reuse-in-place if healthy, else reset-from-remote)
+    - When understanding the unified `recoverViaResumeInPlaceOrReset` seam for `abandoned` and `phase_timeout` recoverable confirmed-dead stages
