@@ -91,4 +91,25 @@ describe('handleRetryDirective', () => {
     expect(result).toBe(false);
     expect(deps.writeTopLevelState).not.toHaveBeenCalled();
   });
+
+  it('re-arms human_gated → phase_timeout with resumeAttempts:0 and returns true', () => {
+    const deps = makeDeps(makeState({ workflowStage: 'human_gated', resumeAttempts: 3 }));
+
+    const result = handleRetryDirective(42, [ADW_COMMENT], deps);
+
+    expect(result).toBe(true);
+    expect(deps.writeTopLevelState).toHaveBeenCalledWith('test-adw-id', {
+      workflowStage: 'phase_timeout',
+      resumeAttempts: 0,
+    });
+  });
+
+  it('does not write and returns false when workflowStage is phase_timeout', () => {
+    const deps = makeDeps(makeState({ workflowStage: 'phase_timeout' }));
+
+    const result = handleRetryDirective(42, [ADW_COMMENT], deps);
+
+    expect(result).toBe(false);
+    expect(deps.writeTopLevelState).not.toHaveBeenCalled();
+  });
 });

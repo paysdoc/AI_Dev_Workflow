@@ -7,12 +7,17 @@
  *  3. completed / discarded             → skip_terminal (lock released)
  *  4. paused                            → skip_terminal with terminalStage "paused"
  *                                         (scanPauseQueue is the sole resumer)
- *  5. abandoned                         → worktreeReset → remoteReconcile → take_over_adwId
- *  6. *_running / starting / resuming,
- *     live PID not holding lock         → SIGKILL → worktreeReset → remoteReconcile → take_over_adwId
+ *  5. abandoned                         → probe worktree → reuse-in-place if healthy,
+ *                                         else reset-from-remote → reconcile → take_over_adwId
+ *  6. phase_timeout                     → cap automatic resumes (#639): within budget →
+ *                                         probe worktree → reuse-in-place if healthy,
+ *                                         else reset-from-remote → reconcile → take_over_adwId;
+ *                                         at cap → escalate_human_gated
  *  7. *_running / starting / resuming,
+ *     live PID not holding lock         → SIGKILL → worktreeReset → remoteReconcile → take_over_adwId
+ *  8. *_running / starting / resuming,
  *     dead PID                          → worktreeReset → remoteReconcile → take_over_adwId
- *  8. any other stage (defensive)       → spawn_fresh
+ *  9. any other stage (defensive)       → spawn_fresh
  *
  * All I/O boundaries are injected via TakeoverDeps so every branch is unit-testable.
  */
@@ -29,6 +34,13 @@ import { deriveStageFromRemote } from '../core/remoteReconcile';
 import { resetWorktreeToRemote } from '../vcs/worktreeReset';
 import { getWorktreePath } from '../vcs/worktreeOperations';
 import { extractLatestAdwId } from './cronStageResolver';
+import { classifyStageString } from '../core/stageClassifier';
+import { nextResumeAction, MAX_RESUME_ATTEMPTS } from '../core/resumePolicy';
+import { formatHumanGatedComment } from '../github/workflowCommentsIssue';
+import { commentOnIssue } from '../github/githubApi';
+import { decideWorktreeReuse } from '../vcs/worktreeReuseGate';
+import { probeWorktree, clearOrphanedIndexLock } from '../vcs/worktreeProbe';
+import type { WorktreeProbe } from '../vcs/worktreeReuseGate';
 import type { RepoInfo } from '../github/githubApi';
 import type { AgentState } from '../types/agentTypes';
 import type { WorkflowStage } from '../types/workflowTypes';
@@ -37,7 +49,8 @@ export type CandidateDecision =
   | { readonly kind: 'spawn_fresh' }
   | { readonly kind: 'take_over_adwId'; readonly adwId: string; readonly derivedStage: WorkflowStage }
   | { readonly kind: 'defer_live_holder'; readonly holderPid: number }
-  | { readonly kind: 'skip_terminal'; readonly adwId: string; readonly terminalStage: 'completed' | 'discarded' | 'paused' | 'paused_auth' };
+  | { readonly kind: 'skip_terminal'; readonly adwId: string; readonly terminalStage: 'completed' | 'discarded' | 'paused' | 'paused_auth' }
+  | { readonly kind: 'escalate_human_gated'; readonly adwId: string };
 
 export interface EvaluateCandidateInput {
   readonly issueNumber: number;
@@ -55,6 +68,10 @@ export interface TakeoverDeps {
   readonly resetWorktree: (worktreePath: string, branch: string) => void;
   readonly deriveStageFromRemote: (issueNumber: number, adwId: string, repoInfo: RepoInfo) => WorkflowStage;
   readonly getWorktreePath: (branchName: string, baseRepoPath?: string) => string;
+  readonly writeTopLevelState: (adwId: string, state: Partial<AgentState>) => void;
+  readonly commentOnIssue: (issueNumber: number, body: string, repoInfo: RepoInfo) => void;
+  readonly probeWorktree: (worktreePath: string, expectedBranch: string, recordedPid?: number, recordedPidStartedAt?: string) => WorktreeProbe;
+  readonly clearOrphanedIndexLock: (worktreePath: string) => void;
 }
 
 export function buildDefaultTakeoverDeps(): TakeoverDeps {
@@ -90,18 +107,59 @@ export function buildDefaultTakeoverDeps(): TakeoverDeps {
     deriveStageFromRemote: (issueNumber, adwId, repoInfo) =>
       deriveStageFromRemote(issueNumber, adwId, repoInfo),
     getWorktreePath: (branchName, baseRepoPath) => getWorktreePath(branchName, baseRepoPath),
+    writeTopLevelState: (adwId, state) => AgentStateManager.writeTopLevelState(adwId, state),
+    commentOnIssue: (issueNumber, body, repoInfo) => commentOnIssue(issueNumber, body, repoInfo),
+    probeWorktree: (worktreePath, expectedBranch, recordedPid, recordedPidStartedAt) =>
+      probeWorktree({ worktreePath, expectedBranch, recordedPid, recordedPidStartedAt }),
+    clearOrphanedIndexLock: (worktreePath) => clearOrphanedIndexLock(worktreePath),
   };
 }
 
-function isRunningStage(stage: string): boolean {
-  return (
-    stage.endsWith('_running') ||
-    stage === 'starting' ||
-    stage === 'resuming'
-  );
+let _defaultDeps: TakeoverDeps | null = null;
+
+function takeOverWithDerivedStage(
+  d: TakeoverDeps,
+  input: EvaluateCandidateInput,
+  adwId: string,
+): CandidateDecision {
+  const derivedStage = d.deriveStageFromRemote(input.issueNumber, adwId, input.repoInfo);
+  return { kind: 'take_over_adwId', adwId, derivedStage };
 }
 
-let _defaultDeps: TakeoverDeps | null = null;
+function recoverViaResetFromRemote(
+  d: TakeoverDeps,
+  input: EvaluateCandidateInput,
+  adwId: string,
+  state: AgentState,
+): CandidateDecision {
+  if (state.branchName) {
+    const wtPath = d.getWorktreePath(state.branchName);
+    d.resetWorktree(wtPath, state.branchName);
+  }
+  return takeOverWithDerivedStage(d, input, adwId);
+}
+
+// For abandoned + phase_timeout: probe the worktree and reuse if healthy, else reset.
+// The orchestrator is already dead for both stages; the liveOwner signal is the
+// confirmed-dead safety net so a surprise-live owner forces a reset, never a reuse.
+function recoverViaResumeInPlaceOrReset(
+  d: TakeoverDeps,
+  input: EvaluateCandidateInput,
+  adwId: string,
+  state: AgentState,
+): CandidateDecision {
+  if (!state.branchName) return takeOverWithDerivedStage(d, input, adwId);
+
+  const wtPath = d.getWorktreePath(state.branchName);
+  const probe = d.probeWorktree(wtPath, state.branchName, state.pid, state.pidStartedAt);
+  const decision = decideWorktreeReuse(probe);
+
+  if (!decision.reuse) return recoverViaResetFromRemote(d, input, adwId, state);
+
+  // Healthy: resume in place — clear orphaned lock if present so the first git op succeeds.
+  if (probe.indexLock === 'orphaned') d.clearOrphanedIndexLock(wtPath);
+  return takeOverWithDerivedStage(d, input, adwId);
+}
 
 export function evaluateCandidate(
   input: EvaluateCandidateInput,
@@ -135,37 +193,44 @@ export function evaluateCandidate(
   }
 
   const stage = state.workflowStage ?? '';
+  const cls = classifyStageString(stage);
 
-  // Branch 3: terminal stages — completed / discarded.
-  if (stage === 'completed' || stage === 'discarded') {
+  // Branch 3 & 4: terminal — completed / discarded / paused / paused_auth.
+  if (cls === 'terminal') {
     releaseLock();
-    return { kind: 'skip_terminal', adwId, terminalStage: stage as 'completed' | 'discarded' };
+    return {
+      kind: 'skip_terminal',
+      adwId,
+      terminalStage: stage as 'completed' | 'discarded' | 'paused' | 'paused_auth',
+    };
   }
 
-  // Branch 4: paused — scanPauseQueue is the sole resumer; no-op here.
-  if (stage === 'paused') {
-    releaseLock();
-    return { kind: 'skip_terminal', adwId, terminalStage: 'paused' };
+  // Branch 5: retriable (abandoned) — probe worktree → reuse-in-place or reset-from-remote → takeover.
+  if (cls === 'retriable') {
+    return recoverViaResumeInPlaceOrReset(d, input, adwId, state);
   }
 
-  // Branch 4b: paused_auth — scanAuthQueue is the sole resumer; no-op here.
-  if (stage === 'paused_auth') {
-    releaseLock();
-    return { kind: 'skip_terminal', adwId, terminalStage: 'paused_auth' };
-  }
-
-  // Branch 5: abandoned — worktreeReset → remoteReconcile → takeover.
-  if (stage === 'abandoned') {
-    if (state.branchName) {
-      const wtPath = d.getWorktreePath(state.branchName);
-      d.resetWorktree(wtPath, state.branchName);
+  // Branch 6: phase_timeout — the watchdog exited the orchestrator (process.exit(0)).
+  // Cap the automatic resumes (#639): escalate to human_gated when the bound is reached.
+  // Within budget: increment the counter and run the #638 reuse-or-reset gate.
+  if (stage === 'phase_timeout') {
+    const attempts = state.resumeAttempts ?? 0;
+    if (nextResumeAction(attempts, MAX_RESUME_ATTEMPTS) === 'escalate') {
+      d.writeTopLevelState(adwId, { workflowStage: 'human_gated' });
+      d.commentOnIssue(
+        input.issueNumber,
+        formatHumanGatedComment(adwId, attempts, MAX_RESUME_ATTEMPTS),
+        input.repoInfo,
+      );
+      releaseLock();
+      return { kind: 'escalate_human_gated', adwId };
     }
-    const derivedStage = d.deriveStageFromRemote(issueNumber, adwId, repoInfo);
-    return { kind: 'take_over_adwId', adwId, derivedStage };
+    d.writeTopLevelState(adwId, { resumeAttempts: attempts + 1 });
+    return recoverViaResumeInPlaceOrReset(d, input, adwId, state);
   }
 
-  // Branch 6 & 7: *_running / starting / resuming.
-  if (isRunningStage(stage)) {
+  // Branch 7 & 8: active (*_running / starting / resuming).
+  if (cls === 'active') {
     const pid = state.pid;
     const pidStartedAt = state.pidStartedAt ?? '';
 
@@ -177,15 +242,10 @@ export function evaluateCandidate(
         // ESRCH: process exited between liveness check and kill — proceed to takeover
       }
     }
-    // Dead PID (or post-SIGKILL): proceed with takeover.
-    if (state.branchName) {
-      const wtPath = d.getWorktreePath(state.branchName);
-      d.resetWorktree(wtPath, state.branchName);
-    }
-    const derivedStage = d.deriveStageFromRemote(issueNumber, adwId, repoInfo);
-    return { kind: 'take_over_adwId', adwId, derivedStage };
+    // Dead PID (or post-SIGKILL): proceed with reset-from-remote (active path is out of scope for reuse).
+    return recoverViaResetFromRemote(d, input, adwId, state);
   }
 
-  // Branch 8: defensive fallthrough for unknown stages.
+  // Branch 9: defensive fallthrough — awaiting_merge / human_gated / resumable.
   return { kind: 'spawn_fresh' };
 }

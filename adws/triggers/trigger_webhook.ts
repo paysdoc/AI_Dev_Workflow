@@ -8,6 +8,12 @@
  * Start with: bunx tsx adws/triggers/trigger_webhook.ts
  */
 
+// Load .env explicitly at the entrypoint so secrets (SLACK_WEBHOOK_URL, …) are
+// present regardless of runtime (node vs bun) or import ordering. Note: `.env`
+// is already loaded transitively via the `../core` import below
+// (config.ts → environment.ts → dotenv.config()); this line codifies that
+// implicit contract at the entrypoint (issue #647, fix #3 — defensive only).
+import '../core/environment';
 import * as http from 'http';
 import { log, PullRequestWebhookPayload, allocateRandomPort, isPortAvailable, getTargetRepoWorkspacePath, assertCwdIsRepoRoot } from '../core';
 import { isActionableComment, isCancelComment, isRetryComment, isAdwRunningForIssue, truncateText, getRepoInfoFromPayload, getRepoInfo, fetchIssueCommentsRest, activateGitHubAppAuth, ensureAppAuthForRepo } from '../github';

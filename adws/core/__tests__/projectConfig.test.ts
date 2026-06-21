@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { parseCommandsMd, getDefaultCommandsConfig, parseScenariosMd, getDefaultScenariosConfig, loadProjectConfig } from '../projectConfig';
-import { mkdtempSync, mkdirSync, writeFileSync } from 'fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'fs';
 import { join, resolve } from 'path';
 import { tmpdir } from 'os';
 
@@ -275,5 +275,37 @@ describe('loadProjectConfig — python-flat fixture', () => {
     expect(config.commands.testDirectory).toBe('tests');
     expect(config.commands.testFramework).toBe('pytest');
     expect(config.commands.runTests).toBe('pytest');
+  });
+});
+
+describe('loadProjectConfig — conditionalDocs field', () => {
+  it('returns empty registry when conditional_docs.md is absent', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'adw-test-no-condocs-'));
+    mkdirSync(join(dir, '.adw'), { recursive: true });
+    try {
+      const config = loadProjectConfig(dir);
+      expect(config.conditionalDocs.preamble).toBe('');
+      expect(config.conditionalDocs.entries).toEqual([]);
+      expect(config.conditionalDocsMd).toBe('');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('populates conditionalDocs from conditional_docs.md when present', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'adw-test-condocs-'));
+    mkdirSync(join(dir, '.adw'), { recursive: true });
+    const content = `# Conditional Documentation\n\n- app_docs/feature-test.md\n  - Owns:\n    - adws/test/**\n  - Conditions:\n    - When working on test module\n`;
+    writeFileSync(join(dir, '.adw', 'conditional_docs.md'), content, 'utf-8');
+    try {
+      const config = loadProjectConfig(dir);
+      expect(config.conditionalDocsMd).toBe(content);
+      expect(config.conditionalDocs.entries).toHaveLength(1);
+      expect(config.conditionalDocs.entries[0].docPath).toBe('app_docs/feature-test.md');
+      expect(config.conditionalDocs.entries[0].ownedGlobs).toEqual(['adws/test/**']);
+      expect(config.conditionalDocs.entries[0].conditions).toEqual(['When working on test module']);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

@@ -32,7 +32,8 @@ import { scanPauseQueue } from './pauseQueueScanner';
 import { runJanitorPass } from './devServerJanitor';
 import { runPerIssueScenarioSweep } from './perIssueScenarioSweep';
 import { resolveCronRepo, buildCronTargetRepoArgs } from './cronRepoResolver';
-import { filterEligibleIssues } from './cronIssueFilter';
+import { filterEligibleIssues, resolveTouchedFilesFromBody } from './cronIssueFilter';
+import { registerRegionOverlapBlocker } from './regionOverlapSignals';
 import { shouldDispatchMerge } from './mergeDispatchGate';
 import { fetchLinkedPRs, readAdwLabelNames } from '../github';
 import { evaluateLabelRecovery } from './cronLabelEligibility';
@@ -235,7 +236,7 @@ async function checkAndTrigger(): Promise<void> {
     }
   }
 
-  const { eligible: candidates, filteredAnnotations } = filterEligibleIssues(
+  const { eligible: candidates, filteredAnnotations, overlapDeferrals } = filterEligibleIssues(
     issues,
     now,
     { spawns: processedSpawns },
@@ -243,11 +244,18 @@ async function checkAndTrigger(): Promise<void> {
     resolveIssueWorkflowStage,
     cancelledThisCycle,
     labelRecovery,
+    resolveTouchedFilesFromBody,
   );
 
   const candidateList = candidates.map(c => `#${c.issue.number}`).join(', ') || 'none';
   const filteredList = filteredAnnotations.join(', ') || 'none';
   log(`POLL: ${issues.length} open, ${candidates.length} candidate(s) [${candidateList}], filtered: ${filteredList}`);
+
+  for (const deferral of overlapDeferrals) {
+    log(`Issue #${deferral.issueNumber} deferred: region overlap with #${deferral.blockedBy} [${deferral.overlapPaths.join(', ')}]`);
+    const deferredBody = issues.find(i => i.number === deferral.issueNumber)?.body ?? '';
+    registerRegionOverlapBlocker(deferral, deferredBody, cronRepoInfo);
+  }
 
   const repoInfo = cronRepoInfo;
   const targetRepoArgs = buildTargetRepoArgs();
@@ -295,6 +303,11 @@ async function checkAndTrigger(): Promise<void> {
 
     if (takeoverDecision.kind === 'skip_terminal') {
       log(`Issue #${issue.number}: terminal stage "${takeoverDecision.terminalStage}", skipping spawn`);
+      continue;
+    }
+
+    if (takeoverDecision.kind === 'escalate_human_gated') {
+      log(`Issue #${issue.number}: resume cap reached, escalated adwId=${takeoverDecision.adwId} → human_gated (awaiting ## Retry)`, 'warn');
       continue;
     }
 

@@ -3,7 +3,6 @@ import {
   extractLatestAdwId,
   getLastActivityFromState,
   isActiveStage,
-  isRetriableStage,
   resolveIssueWorkflowStage,
 } from '../cronStageResolver';
 import type { AgentState } from '../../types/agentTypes';
@@ -143,43 +142,6 @@ describe('isActiveStage', () => {
 describe('isActiveStage — awaiting_merge', () => {
   it('does NOT classify "awaiting_merge" as active', () => {
     expect(isActiveStage('awaiting_merge')).toBe(false);
-  });
-});
-
-describe('isRetriableStage — awaiting_merge', () => {
-  it('does NOT classify "awaiting_merge" as retriable', () => {
-    expect(isRetriableStage('awaiting_merge')).toBe(false);
-  });
-});
-
-// ── isRetriableStage ────────────────────────────────────────────────────────
-
-describe('isRetriableStage', () => {
-  it('recognises "abandoned" as retriable', () => {
-    expect(isRetriableStage('abandoned')).toBe(true);
-  });
-
-  it('rejects active stages', () => {
-    expect(isRetriableStage('build_running')).toBe(false);
-    expect(isRetriableStage('starting')).toBe(false);
-    expect(isRetriableStage('install_completed')).toBe(false);
-  });
-
-  it('rejects terminal "completed"', () => {
-    expect(isRetriableStage('completed')).toBe(false);
-  });
-
-  it('rejects "paused"', () => {
-    expect(isRetriableStage('paused')).toBe(false);
-  });
-
-  it('rejects "discarded" (terminal, non-retriable — parity with completed)', () => {
-    expect(isRetriableStage('discarded')).toBe(false);
-  });
-
-  it('rejects unknown stages', () => {
-    expect(isRetriableStage('error')).toBe(false);
-    expect(isRetriableStage('unknown_stage')).toBe(false);
   });
 });
 

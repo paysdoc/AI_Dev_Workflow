@@ -1,71 +1,35 @@
 # Build Continuation Prompt: Committed-State Direction
 
-**ADW ID:** 6uquvb-point-build-continua
-**Date:** 2026-06-09
-**Specification:** specs/issue-561-adw-6uquvb-point-build-continua-sdlc_planner-build-continuation-committed-state.md
-
 ## Overview
 
-When a long build agent is restarted due to a token limit or context compaction, the fresh agent now inspects **committed git state** — checkpoint commits and working-tree changes — as the authoritative record of completed work, rather than relying solely on a truncated tail of the previous agent's stdout. This prevents the restarted agent from redoing or reverting earlier work, which would trigger false `no_progress` aborts from the novelty progress gate (#559).
+When a build agent is restarted — whether within the same orchestrator run (token limit / context compaction) or across orchestrators (resume-in-place after a phase timeout or liveness reclaim) — the fresh agent is given a git-authoritative "inventory and continue" prompt rather than the raw plan. This prevents the restarted agent from redoing or reverting already-completed work. All continuation framing originates from a single pure function, `buildContinuationPrompt()`, in `adws/phases/planPhase.ts`.
 
-## What Was Built
+## Responsibilities
 
-- A new `checkpointCommitsPresent` parameter on `buildContinuationPrompt()` that gates the new committed-state prompt path.
-- A new optional `baseBranch?: string` parameter that names the concrete base ref (`origin/<base>`) for `git log`/`git diff` commands.
-- A rewritten `## Continuation Context` block (emitted only when checkpoints exist) that directs the agent to inspect committed and uncommitted git state before writing code, and demotes the previous-output tail to a secondary hint.
-- A fallback prompt shape (no-checkpoint case) that preserves the previous behaviour exactly, satisfying AC #3 (first build pass unchanged).
-- Unit tests in `adws/phases/__tests__/planPhase.test.ts` covering all eight specified cases.
-- Both `buildContinuationPrompt()` call sites in `buildPhase.ts` wired to pass `defaultBranch` and `checkpointCount > 0`.
+- **`buildContinuationPrompt(originalPlanContent, previousOutput, reason, baseBranch?, checkpointCommitsPresent?)`** — pure string builder that emits the git-authoritative continuation prompt. When `checkpointCommitsPresent` is `true` (or `reason` is `'resumed_in_place'`), it instructs the agent to inspect committed state (`git log`, `git diff`) and uncommitted state (`git status`, `git diff --staged`) before writing code, and demotes the previous-output tail to a secondary hint. When `checkpointCommitsPresent` is `false`, it preserves the legacy prompt shape (no regression to fresh first-pass builds).
+- **`buildResumeInPlacePrompt(originalPlanContent, baseBranch?)`** — thin wrapper that calls `buildContinuationPrompt` with `reason: 'resumed_in_place'`, an empty previous-output string, and `checkpointCommitsPresent: true`. Used by `executeBuildPhase` on cross-orchestrator resumes where no in-process summary is available but the git state is authoritative.
+- **`shouldResumeBuildInPlace(recoveryState)`** — pure predicate returning `recoveryState.canResume === true`. Determines whether `executeBuildPhase` should seed the first build-agent invocation with the resume-in-place framing rather than the raw plan.
+- **Wiring in `executeBuildPhase`** — seeds `currentPlanContent` with the resume-in-place prompt when `shouldResumeBuildInPlace(recoveryState)` is true; otherwise uses the raw plan. In-build token-limit/compaction restarts recompute `currentPlanContent` from raw `planContent` on each iteration, so there is no double-wrapping.
+- **Re-exports** — `buildResumeInPlacePrompt` and `shouldResumeBuildInPlace` are exported from `adws/phases/index.ts` and `adws/workflowPhases.ts` alongside `buildContinuationPrompt` and `MAX_CONTINUATION_OUTPUT_LENGTH`.
 
-## Technical Implementation
+## Contracts & Invariants
 
-### Files Modified
-
-- `adws/phases/planPhase.ts`: Added `baseBranch?: string` and `checkpointCommitsPresent: boolean = false` parameters to `buildContinuationPrompt()`; added conditional branch that emits the committed-state prompt when checkpoints are present, preserving the original prompt for the no-checkpoint path.
-- `adws/phases/buildPhase.ts`: Destructured `defaultBranch` from `config`; passed `defaultBranch` and `checkpointCount > 0` at both call sites (within-batch restart ~line 219, post-checkpoint restart ~line 240).
-- `adws/phases/__tests__/planPhase.test.ts`: New file — 8 unit test cases for the pure `buildContinuationPrompt()` function.
-
-### Key Changes
-
-- **Conditional prompt shape** — `buildContinuationPrompt()` remains pure; it branches on `checkpointCommitsPresent` rather than performing any I/O.
-- **Committed-state instructions** — with a base branch, the prompt names `git log --oneline --stat origin/<base>..HEAD` and `git diff origin/<base>...HEAD`; without one it falls back to `git log --oneline --stat -30` and avoids emitting `origin/undefined`.
-- **Uncommitted-state instructions** — always present in the new path: `git status`, `git diff`, and `git diff --staged` cover within-batch restarts where the previous agent's work is on disk but not yet committed.
-- **Tail demoted** — the `<previous-agent-output>` block is retained but labelled `note="secondary hint only — may be stale or truncated; the git state above is authoritative"`.
-- **`checkpointCount > 0` gate** — `buildPhase.ts` passes the boolean derived from `checkpointCount` so the first within-batch restart (zero checkpoints) still receives the original prompt.
-
-## How to Use
-
-This change is transparent to operators. The build loop calls `buildContinuationPrompt()` automatically on every restart; no configuration is required. The behaviour changes only when `checkpointCount > 0` at the restart site.
-
-If you are implementing a new orchestrator that calls `buildContinuationPrompt()` directly:
-
-1. Destructure `defaultBranch` from `WorkflowConfig`.
-2. Track the number of checkpoint commits (or pass a boolean flag derived from your checkpoint logic).
-3. Call `buildContinuationPrompt(planContent, output, reason, defaultBranch, checkpointsPresent)`.
+- `buildContinuationPrompt()` is a **pure function** (string-in / string-out, no I/O). It never mutates state or reads from the filesystem.
+- The no-checkpoint path (`checkpointCommitsPresent: false`, non-resume reason) is **byte-for-byte identical** to the pre-#561 prompt; first-pass fresh builds receive the unchanged plan.
+- Fresh (non-resume) builds (`recoveryState.canResume === false`) receive `planContent` exactly as before — `shouldResumeBuildInPlace` acts as a compile-time-readable gate.
+- The resume-in-place prompt (`buildResumeInPlacePrompt`) passes an **empty** previous-output string, which is correct: on a cross-orchestrator resume there is no in-process summary, and the git state is declared authoritative.
+- The `'resumed_in_place'` reason emits the `checkpointCommitsPresent: true` body (inventory + continue instructions) regardless of whether the reused worktree actually has checkpoint commits; the instruction degrades gracefully to "start from step 1" when little or no work is present.
+- In-build restarts (token-limit / compaction) inside a resumed run recompute `currentPlanContent` from raw `planContent` in `buildPhase.ts`'s continuation loop — the resume seed is not re-applied, preventing double-wrapping.
+- The `reason` parameter union is `'token_limit' | 'compaction' | 'resumed_in_place'`. Adding a fourth value requires a new `reasonMessage` branch; the function's body is otherwise additive.
 
 ## Configuration
 
-No new configuration options. `defaultBranch` is already resolved by `initializeWorkflow()` via `getDefaultBranch()` and stored on `WorkflowConfig`.
+No operator configuration. `defaultBranch` is resolved by `initializeWorkflow()` and stored on `WorkflowConfig`; `executeBuildPhase` passes it as `baseBranch` to `buildResumeInPlacePrompt`. `recoveryState` is similarly sourced from `WorkflowConfig`.
 
-## Testing
+## Gotchas
 
-Run the unit test suite:
-
-```
-bunx vitest run adws/phases/__tests__/planPhase.test.ts
-```
-
-Or run all unit tests:
-
-```
-bun run test:unit
-```
-
-The eight covered cases: plan preserved; committed-state direction against `origin/<base>`; uncommitted-state direction present; authoritative-state framing present; tail retained-but-demoted; truncation preserved (`MAX_CONTINUATION_OUTPUT_LENGTH`); `token_limit` vs `compaction` reason messages; no-base fallback does not emit `origin/undefined`.
-
-## Notes
-
-- `buildContinuationPrompt()` remains a **pure function** (string-in / string-out, no I/O).
-- The two-dot `..` operator is used for `git log` (commits on HEAD not on base); the three-dot `...` operator is used for `git diff` (net changes since divergence) — matching the canonical ADW idiom from `branchOperations.ts`.
-- The no-checkpoint path is byte-for-byte identical to the pre-#561 prompt, so first-pass build agents are unaffected.
-- Related feature: `app_docs/feature-qej3f4-novelty-progress-gate.md` (the #559 progress gate that creates the checkpoint commits this feature points the agent at); `app_docs/feature-9zcqhw-detect-compaction-restart-build-agent.md` (compaction detection that triggers the continuation path).
+- **`baseBranch` omission** — `buildResumeInPlacePrompt(plan)` (undefined `baseBranch`) produces base-less git instructions; the prompt does not emit `origin/undefined`. Callers should always pass `defaultBranch` when it is available.
+- **Two-dot vs three-dot git operators** — the prompt names `git log --oneline --stat origin/<base>..HEAD` (commits on HEAD not on base) and `git diff origin/<base>...HEAD` (net changes since divergence). This matches the canonical ADW idiom; do not conflate the two operators.
+- **`shouldResumeBuildInPlace` trigger scope** — `canResume === true` fires for any resumed build, whether the worktree was reused (REUSE gate) or reset (RESET gate). The inventory-then-continue instruction is harmless on a RESET-then-resume (agent inspects, finds no partial code, starts at step 1), so the broader trigger is intentional and safe.
+- **`planPhase.ts` line budget** — the module is kept under the 300-line ceiling per coding guidelines. Adding further reasons or wrappers should stay within that bound.
+- **`implement.md` is not modified** — the resume signal is only known at runtime; injecting it through the composed prompt (not the static command file) is the only way to satisfy the "no regression to fresh build" invariant and to avoid the recurring out-of-scope command-file revert hazard.

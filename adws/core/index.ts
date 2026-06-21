@@ -111,6 +111,10 @@ export { loadProjectConfig, getDefaultProjectConfig, getDefaultCommandsConfig, g
 export type { TestVerdictInput, TestVerdictResult, TestVerdictOutcome } from './testVerdict';
 export { computeTestVerdict } from './testVerdict';
 
+// Docs guards (pure — no I/O)
+export type { DocSize, BloatFlag, RegrowthFlag, GuardFlags } from './docsGuards';
+export { DOC_BLOAT_THRESHOLD_LINES, globsOverlap, checkBloat, checkRegrowth, runDocsGuards } from './docsGuards';
+
 // Resolve freeze guard (pure classifier — no fs)
 export type { ResolveEditVerdict } from './resolveFreezeGuard';
 export { evaluateResolveEdit } from './resolveFreezeGuard';

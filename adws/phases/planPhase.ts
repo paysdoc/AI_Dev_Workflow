@@ -9,6 +9,7 @@ import {
   type ModelUsageMap,
   emptyModelUsageMap,
   OrchestratorId,
+  type RecoveryState,
 } from '../core';
 import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
 import { postIssueStageComment } from './phaseCommentHelpers';
@@ -171,7 +172,7 @@ export const MAX_CONTINUATION_OUTPUT_LENGTH = 5000;
 export function buildContinuationPrompt(
   originalPlanContent: string,
   previousOutput: string,
-  reason: 'token_limit' | 'compaction' = 'token_limit',
+  reason: 'token_limit' | 'compaction' | 'resumed_in_place' = 'token_limit',
   baseBranch?: string,
   checkpointCommitsPresent: boolean = false,
 ): string {
@@ -181,6 +182,8 @@ export function buildContinuationPrompt(
 
   const reasonMessage = reason === 'compaction'
     ? 'terminated because Claude Code compacted the conversation context, which is lossy'
+    : reason === 'resumed_in_place'
+    ? 'interrupted before it finished — the previous orchestrator timed out or was abandoned'
     : 'terminated because it approached the token usage limit';
 
   if (!checkpointCommitsPresent) {
@@ -222,4 +225,27 @@ Treat the union of the committed diff and the current working-tree changes as al
 <previous-agent-output note="secondary hint only — may be stale or truncated; the git state above is authoritative">
 ${truncatedOutput}
 </previous-agent-output>`;
+}
+
+/**
+ * Builds the first-invocation prompt for a build resumed in a reused worktree (#640).
+ * Reuses the git-authoritative continuation framing from buildContinuationPrompt so the
+ * agent inventories existing committed + uncommitted work and continues from the first
+ * not-yet-done step, rather than restarting from scratch. Empty previous-output is
+ * intentional: on a cross-orchestrator resume there is no in-process summary available,
+ * and the git state is declared authoritative anyway.
+ */
+export function buildResumeInPlacePrompt(originalPlanContent: string, baseBranch?: string): string {
+  return buildContinuationPrompt(originalPlanContent, '', 'resumed_in_place', baseBranch, true);
+}
+
+/**
+ * Returns true when the build phase should seed the resume-in-place recognition
+ * instruction rather than the plain plan content. canResume is a sound, simple trigger:
+ * the inventory-then-continue instruction degrades gracefully to "start from step 1"
+ * when no partial build work is present (e.g. a RESET-then-resume, or a resume that
+ * had not yet reached the build stage).
+ */
+export function shouldResumeBuildInPlace(recoveryState: RecoveryState): boolean {
+  return recoveryState.canResume === true;
 }

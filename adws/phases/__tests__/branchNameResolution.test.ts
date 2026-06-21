@@ -106,6 +106,87 @@ describe('persistBranchName', () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// Deterministic fallback tests (criterion 1 & 4)
+// ---------------------------------------------------------------------------
+
+describe('_resolveWorkflowBranchNameForTest — deterministic identity fallback (criterion 1)', () => {
+  const adwId = `${BASE_ADW_ID}-fallback`;
+
+  afterEach(() => {
+    cleanupAdwId(adwId);
+    mockAgent.mockReset();
+  });
+
+  it('returns the existing branch found by the finder and does NOT call the agent', async () => {
+    const existingBranch = 'feature-issue-1-existing-branch';
+    const finderFn = vi.fn().mockReturnValue(existingBranch);
+
+    const result = await _resolveWorkflowBranchNameForTest(makeArgs(adwId), mockAgent, finderFn);
+
+    expect(result).toBe(existingBranch);
+    expect(mockAgent).not.toHaveBeenCalled();
+    expect(finderFn).toHaveBeenCalledWith('/feature', 1);
+  });
+
+  it('persists the finder-returned branch so subsequent calls skip the finder', async () => {
+    const existingBranch = 'feature-issue-1-existing-branch';
+    const finderFn = vi.fn().mockReturnValue(existingBranch);
+
+    await _resolveWorkflowBranchNameForTest(makeArgs(adwId), mockAgent, finderFn);
+
+    expect(AgentStateManager.readTopLevelState(adwId)?.branchName).toBe(existingBranch);
+  });
+
+  it('calls the agent exactly once when the finder returns null', async () => {
+    const branchName = 'feature-issue-1-llm-generated';
+    mockAgent.mockResolvedValueOnce({ ...baseAgentResult, branchName });
+    const finderFn = vi.fn().mockReturnValue(null);
+
+    const result = await _resolveWorkflowBranchNameForTest(makeArgs(adwId), mockAgent, finderFn);
+
+    expect(result).toBe(branchName);
+    expect(mockAgent).toHaveBeenCalledTimes(1);
+    expect(finderFn).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('_resolveWorkflowBranchNameForTest — happy-path precedence (criterion 4)', () => {
+  const adwId = `${BASE_ADW_ID}-happy`;
+
+  afterEach(() => {
+    cleanupAdwId(adwId);
+    mockAgent.mockReset();
+  });
+
+  it('persisted state wins over finder — finder is NOT called', async () => {
+    const persistedName = 'feature-issue-1-already-persisted';
+    AgentStateManager.writeTopLevelState(adwId, { branchName: persistedName });
+    const finderFn = vi.fn().mockReturnValue('feature-issue-1-fallback-branch');
+
+    const result = await _resolveWorkflowBranchNameForTest(makeArgs(adwId), mockAgent, finderFn);
+
+    expect(result).toBe(persistedName);
+    expect(finderFn).not.toHaveBeenCalled();
+    expect(mockAgent).not.toHaveBeenCalled();
+  });
+
+  it('recovery-comment branchName wins over finder — finder is NOT called', async () => {
+    const recoveryBranch = 'feature-issue-1-from-recovery-comment';
+    const args = {
+      ...makeArgs(adwId),
+      recoveryState: { ...makeArgs(adwId).recoveryState, branchName: recoveryBranch },
+    };
+    const finderFn = vi.fn().mockReturnValue('feature-issue-1-fallback-branch');
+
+    const result = await _resolveWorkflowBranchNameForTest(args, mockAgent, finderFn);
+
+    expect(result).toBe(recoveryBranch);
+    expect(finderFn).not.toHaveBeenCalled();
+    expect(mockAgent).not.toHaveBeenCalled();
+  });
+});
+
 describe('_resolveWorkflowBranchNameForTest (resolveWorkflowBranchName core logic)', () => {
   beforeEach(() => {
     mockAgent.mockReset();

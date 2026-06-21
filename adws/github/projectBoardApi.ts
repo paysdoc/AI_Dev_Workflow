@@ -285,7 +285,9 @@ export async function moveIssueToStatus(
     updateProjectItemStatus(projectId, projectItem.itemId, statusField.fieldId, matchedOption.id);
     log(`Moved issue #${issueNumber} to "${matchedOption.name}" on project board (auth: ${authLabel})`, 'success');
     if (targetStatus.toLowerCase() === 'review') {
-      void notifyReviewTransition({ issueNumber, repoInfo });
+      // Await delivery so the orchestrator process cannot exit before the Slack
+      // POST settles (issue #647: the void-dispatched fetch was torn down on exit).
+      await notifyReviewTransition({ issueNumber, repoInfo });
     }
     return true;
   } catch (error) {
