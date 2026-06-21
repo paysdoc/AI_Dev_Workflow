@@ -1602,3 +1602,18 @@
     - When troubleshooting a stale `.worktrees/adw-upgrade-<hash>/` worktree sitting on a superseded nonce commit
     - When `fetchAndResetToRemote` is called from the upgrade path (vs. the standard workflow in `workflowInit.ts`)
     - When implementing or reviewing `reconcileWorktreeToRemote` wiring, ordering, or failure handling in upgrade tests
+
+- app_docs/feature-9gjajh-worktree-and-vcs.md
+  - Owns:
+    - adws/vcs/**
+    - adws/phases/worktreeSetup.ts
+  - Conditions:
+    - When working with `pushBranch` in `adws/vcs/commitOperations.ts` or the force-with-lease push behavior
+    - When implementing or troubleshooting `ensureWorktree`, `createWorktree`, or `createWorktreeForNewBranch`
+    - When working with `generateBranchName`, `validateSlug`, or branch naming in `adws/vcs/branchOperations.ts`
+    - When troubleshooting a rewritten branch (rebase/squash/amend) that cannot be pushed to origin
+    - When a genuine lease failure (remote moved underneath ADW) throws during `pr_creating` or any push phase
+    - When working with `getHeadTreeHash`, `hasUncommittedChanges`, or `commitChanges` in `commitOperations.ts`
+    - When working with `removeWorktree`, `removeWorktreesForIssue`, or `killProcessesInDirectory`
+    - When `copyClaudeAssetsToWorktree`, `ensureGitignoreEntry`, or `verifyAdwRegen` in `worktreeSetup.ts` is relevant
+    - When adding tests for command-sequence correctness in `adws/vcs/__tests__/`
