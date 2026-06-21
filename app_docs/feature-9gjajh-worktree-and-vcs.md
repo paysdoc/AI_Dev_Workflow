@@ -22,7 +22,7 @@ This module manages git worktrees and branch operations for ADW workflows. It pr
 - `commitChanges`: stages all changes and commits with a message; returns false when there is nothing to commit.
 - `getHeadTreeHash`: returns `HEAD^{tree}` hash for use by the progress gate.
 - `hasUncommittedChanges`: returns true when `git status --porcelain` is non-empty.
-- `pushBranch`: pushes the branch to `origin` with upstream tracking.
+- `pushBranch`: pushes the branch to `origin` using `--force-with-lease --force-if-includes`. First refreshes the remote-tracking ref via `git fetch origin "<branch>"` (fetch errors are tolerated for first-push case). On a genuine lease refusal (remote moved underneath ADW), throws a distinct actionable error rather than propagating a raw git error. All feature-branch push call sites (`prPhase`, `documentPhase`, `reviewPhase`, `scenarioFixPhase`, `prReviewPhase`) route through this single function.
 - `copyClaudeAssetsToWorktree`: copies all `.claude/commands/*.md` and `.claude/skills/` directories from the ADW framework repo into the worktree, applying gitignore entries for assets not marked `target: true`.
 - `ensureGitignoreEntry` / `ensureGitignoreEntries`: idempotently appends entries to the worktree's `.gitignore`.
 - `verifyAdwRegen`: checks that all six canonical `.adw/` config files exist and are non-empty, that `vocabulary.md` exists, and that `.adw/.regen-receipt` carries the expected framework hash.
@@ -39,6 +39,7 @@ This module manages git worktrees and branch operations for ADW workflows. It pr
 - `copyClaudeAssetsToWorktree` never gitignores a path already tracked by git — `git ls-files` is consulted before adding gitignore entries.
 - `verifyAdwRegen` requires both file presence and receipt freshness (hash match); a receipt from a prior upgrade cycle carrying the old hash fails the check.
 - `fetchAndResetToRemote` throws on failure; `mergeLatestFromDefaultBranch` only logs warnings.
+- `pushBranch` recovers a branch whose history was legitimately rewritten (rebase/squash/amend) without clobbering remote work not yet seen locally. A genuine lease failure (remote advanced to unknown commits) throws a distinct error containing "force-with-lease" and "manual" and does NOT retry — it surfaces a terminal failure that the #639 resume cap then parks as `human_gated` after `MAX_RESUME_ATTEMPTS`.
 
 ## Configuration
 
@@ -53,3 +54,5 @@ The ADW framework repo root is resolved relative to the `worktreeSetup.ts` file'
 - `removeWorktreesForIssue` matches worktrees using the regex `-issue-<N>-`, not an exact branch-name lookup, so multiple worktrees for the same issue are all removed.
 - `decideWorktreeReuse` checks `liveOwner` first (confirmed-dead precondition), then `indexLock === 'live_held'`, then interrupted ops, then HEAD, then registration. An orphaned or absent `index.lock` never blocks reuse. The guard order is deterministic — the first failing signal determines the typed reset reason.
 - `probeWorktree` returns a probe with `registration: 'missing'` and benign defaults when `resolveGitDir` returns `null` (e.g. directory absent from disk) so the gate resets without the shell throwing. All side effects (`fs.rmSync`, `execSync`) are isolated inside `buildDefaultProbeDeps`; the exported functions are testable via injected deps.
+- `pushBranch` uses `--force-if-includes` (git ≥ 2.30) alongside `--force-with-lease`. A bare `--force-with-lease` after a fetch would lease against the just-fetched tip and always succeed — `--force-if-includes` restores the safety check by requiring the fetched remote tip to be in the local reflog. If a rewrite happened in a different clone/worktree (tip absent from local reflog), the push refuses with the distinct lease error and manual intervention is required.
+- `adwUpgrade.tsx` has its own separate branch-push (claim-branch) with `non-fast-forward` "park as loser" semantics; it is intentionally NOT routed through `pushBranch`.

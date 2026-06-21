@@ -509,9 +509,12 @@ adws/                   # ADW workflow system
 │   │   ├── processLiveness.test.ts
 │   │   ├── projectConfig.test.ts
 │   │   ├── remoteReconcile.test.ts
+│   │   ├── docsGuards.test.ts
 │   │   ├── resolveFreezeGuard.test.ts
 │   │   ├── resolveVerdict.test.ts
+│   │   ├── resumePolicy.test.ts
 │   │   ├── slackNotifier.test.ts
+│   │   ├── stageClassifier.test.ts
 │   │   ├── stateHelpers.test.ts
 │   │   ├── stackCoherenceCheck.test.ts
 │   │   ├── stageClassifier.test.ts
@@ -530,10 +533,11 @@ adws/                   # ADW workflow system
 │   ├── authGate.ts     # Host-wide auth gate: detects auth failures, writes paused_auth state, triggers Slack alerts
 │   ├── claudeStreamParser.ts  # Claude JSONL stream parsing
 │   ├── conditionalDocsRegistry.ts  # Parse/serialize/query .adw/conditional_docs.md; ConditionalDocEntry and ConditionalDocsRegistry types; glob-based ownership routing (findOwningEntry)
+│   ├── docsGuards.ts  # Post-write guards for app_docs/: bloat detection (line-count ceiling) and regrowth detection (overlapping Owns: globs between entries)
 │   ├── config.ts
 │   ├── constants.ts    # Orchestrator ID constants
 │   ├── devServerLifecycle.ts  # Dev server spawn, health probe, and cleanup helpers
-│   ├── docsGuards.ts  # Doc bloat threshold check and living-docs bijection guard
+│   ├── docsGuards.ts  # Doc-size guards: bloat (line threshold) and regrowth (overlapping ownedGlobs) detection; runDocsGuards composes both
 │   ├── environment.ts  # Environment variable accessors
 │   ├── hashComputer.ts # SHA256 hash of declared hashInputs files — "current framework version" primitive
 │   ├── heartbeat.ts    # Liveness ticker writing lastSeenAt to state on a fixed interval
@@ -558,7 +562,9 @@ adws/                   # ADW workflow system
 │   ├── resumePolicy.ts  # Bounded N-cap resume policy: nextResumeAction computes RESUME/ESCALATE; human_gated stage + escalate_human_gated decision on cap exhaustion
 │   ├── retryOrchestrator.ts
 │   ├── slackNotifier.ts  # Slack Incoming Webhook client for error/problem alerting
+│   ├── stageClassifier.ts  # Stage classification taxonomy for recovery routing (classifyStage, StageClass)
 │   ├── stateHelpers.ts
+│   ├── stageClassifier.ts  # Exhaustive StageClass taxonomy (classifyStage / classifyStageString) for recovery routing across cron, takeover, and webhook consumers
 │   ├── stackCoherenceCheck.ts  # Pure stack-coherence check — language coherence + Gherkin mandate (stackCoherenceCheck, StackCoherenceInput/Result/Warning)
 │   ├── stageClassifier.ts  # Six-class taxonomy (active/awaiting_merge/retriable/terminal/human_gated/phase_timeout) for recovery routing
 │   ├── stepDefDetection.ts  # Step definition file-extension detection by BDD framework (stepDefExtensionsFor, hasStepDefinitions, isGherkinFramework)
@@ -600,6 +606,7 @@ adws/                   # ADW workflow system
 │   │   ├── worktreeProbe.test.ts
 │   │   ├── worktreeReset.test.ts
 │   │   └── worktreeReuseGate.test.ts
+│   ├── branchIdentity.ts  # Pure branch-identity vocabulary — deterministicBranchName, branchMatchesIssue (slug-agnostic)
 │   ├── branchOperations.ts  # Branch management
 │   ├── commitOperations.ts  # Commit/push operations
 │   ├── index.ts
@@ -656,10 +663,13 @@ adws/                   # ADW workflow system
 │   ├── alignmentPhase.ts  # Single-pass alignment phase
 │   ├── authPause.ts    # Auth-required pause handler (mirrors rate-limit pause path for auth failures)
 │   ├── autoMergePhase.ts  # Auto-approve and merge PR after review passes
+│   ├── branchIdentityFallback.ts  # Slug-agnostic branch recovery — findExistingBranchForIssue, recoverAdwIdForBranch
 │   ├── branchNameResolution.ts  # Branch name resolution for worktree takeover paths
 │   ├── diffEvaluationPhase.ts  # LLM diff evaluation phase (safe vs regression_possible)
+│   ├── docsSelfCheck.ts  # Post-write self-check phase: runs docsGuards against app_docs/ and opens a GitHub issue for each bloat or regrowth flag
 │   ├── gherkinFreeze.ts  # Snapshots, detects changes to, and restores .feature files around the fix loop
 │   ├── buildPhase.ts
+│   ├── docsSelfCheck.ts  # Post-write docs self-check: runs bloat/regrowth guards after documentAgent writes; routes violations to a refactor issue
 │   ├── documentPhase.ts
 │   ├── index.ts
 │   ├── depauditSetup.ts  # depaudit setup and secret propagation (used by adw_init)

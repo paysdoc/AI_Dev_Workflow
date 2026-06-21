@@ -34,7 +34,9 @@ export async function postSlack(text: string): Promise<void> {
     });
     if (!res.ok) {
       log(`Slack notification returned HTTP ${res.status}`, 'warn');
+      return;
     }
+    log(`Slack notification delivered (HTTP ${res.status})`, 'info');
   } catch (err) {
     log(`Slack notification failed: ${err}`, 'warn');
   }
