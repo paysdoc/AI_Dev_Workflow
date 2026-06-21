@@ -560,6 +560,7 @@ adws/                   # ADW workflow system
 │   ├── resumePolicy.ts  # Bounded resume policy: nextResumeAction / MAX_RESUME_ATTEMPTS / ResumeAction; determines resume vs. escalate_human_gated
 │   ├── retryOrchestrator.ts
 │   ├── slackNotifier.ts  # Slack Incoming Webhook client for error/problem alerting
+│   ├── stageClassifier.ts  # Stage classification taxonomy for recovery routing (classifyStage, StageClass)
 │   ├── stateHelpers.ts
 │   ├── stageClassifier.ts  # Exhaustive StageClass taxonomy (classifyStage / classifyStageString) for recovery routing across cron, takeover, and webhook consumers
 │   ├── stackCoherenceCheck.ts  # Pure stack-coherence check — language coherence + Gherkin mandate (stackCoherenceCheck, StackCoherenceInput/Result/Warning)
@@ -599,6 +600,7 @@ adws/                   # ADW workflow system
 │   │   ├── branchOperations.test.ts
 │   │   ├── commitOperations.test.ts
 │   │   └── worktreeReset.test.ts
+│   ├── branchIdentity.ts  # Pure branch-identity vocabulary — deterministicBranchName, branchMatchesIssue (slug-agnostic)
 │   ├── branchOperations.ts  # Branch management
 │   ├── commitOperations.ts  # Commit/push operations
 │   ├── index.ts
@@ -653,6 +655,7 @@ adws/                   # ADW workflow system
 │   ├── alignmentPhase.ts  # Single-pass alignment phase
 │   ├── authPause.ts    # Auth-required pause handler (mirrors rate-limit pause path for auth failures)
 │   ├── autoMergePhase.ts  # Auto-approve and merge PR after review passes
+│   ├── branchIdentityFallback.ts  # Slug-agnostic branch recovery — findExistingBranchForIssue, recoverAdwIdForBranch
 │   ├── branchNameResolution.ts  # Branch name resolution for worktree takeover paths
 │   ├── diffEvaluationPhase.ts  # LLM diff evaluation phase (safe vs regression_possible)
 │   ├── docsSelfCheck.ts  # Post-write self-check phase: runs docsGuards against app_docs/ and opens a GitHub issue for each bloat or regrowth flag
@@ -796,6 +799,7 @@ adws/                   # ADW workflow system
 │   ├── proofArtifactHarvester.ts  # Pure recursive harvester of image artifacts from proof directory
 │   └── types.ts
 ├── known_issues.md     # Known issues and workarounds
+├── checkLivingDocsIndex.ts  # One-off migration acceptance gate for .adw/conditional_docs.md round-trip
 ├── adwBuild.tsx        # Orchestrators (individual & combined)
 ├── adwChore.tsx        # Chore pipeline with LLM diff gate (auto-merge)
 ├── adwMerge.tsx        # Merge orchestrator (awaiting_merge handoff)
