@@ -17,7 +17,7 @@ ADW is an agentic SDLC framework: it turns issues on GitHub, GitLab, or Jira int
 - **Multi-provider abstraction** — pluggable `IssueTracker` and `CodeHost` interfaces (`RepoContext`) with GitHub, GitLab, and Jira issue trackers and GitHub/GitLab code hosts.
 - **Project board automation** — `BoardManager` provider drives GitHub Projects V2 column transitions as a workflow progresses.
 - **Two automation triggers** — `trigger_cron.ts` polls every 20 s; `trigger_webhook.ts` receives HMAC-signed GitHub webhooks for instant pickup, with optional Cloudflare tunnel lifecycle.
-- **Single-host coordination** — per-issue `spawnGate`, PID + start-time liveness checks, heartbeat ticker, and `worktreeReset`-driven takeover reclaim dead or abandoned runs.
+- **Single-host coordination** — per-issue `spawnGate`, PID + start-time liveness checks, heartbeat ticker, `stageClassifier` six-class taxonomy (active/awaiting_merge/retriable/resumable/terminal/human_gated) for recovery routing, and `worktreeReset`-driven takeover; for abandoned and `phase_timeout` workflows the `worktreeReuseGate` probes Class-A git-operability signals (`WorktreeProbe`) and resumes in-place when healthy, resetting only on fault.
 - **Resilience primitives** — pause queue for rate-limit/billing pause and resume, auth gate for auth-failure detection with `paused_auth` state and Slack alerting, auth queue scanner for automatic resume after auth restoration, hung-orchestrator detector, dev server janitor, per-issue scenario sweep cron (14-day retention), `remoteReconcile` to derive workflow stage from remote GitHub artifacts, and a state-novelty progress gate (`progressGate.ts`) that aborts a build early when repeated git-tree-hash comparisons show no new commits (no_progress) or the checkpoint backstop is exhausted.
 - **Cost tracking** — per-phase, per-model `PhaseCostRecord` with multi-currency reporting, divergence detection vs. CLI-reported cost, and dual-write to a Cloudflare D1-backed Cost API.
 - **LLM-based dependency extraction** — `dependencyExtractionAgent` reads issues to surface cross-issue dependencies before spawning.
@@ -498,6 +498,7 @@ adws/                   # ADW workflow system
 │   │   ├── claudeStreamParser.test.ts
 │   │   ├── conditionalDocsRegistry.test.ts
 │   │   ├── devServerLifecycle.test.ts
+│   │   ├── docsGuards.test.ts
 │   │   ├── environment.test.ts
 │   │   ├── execWithRetry.test.ts
 │   │   ├── hashComputer.test.ts
@@ -516,6 +517,7 @@ adws/                   # ADW workflow system
 │   │   ├── stageClassifier.test.ts
 │   │   ├── stateHelpers.test.ts
 │   │   ├── stackCoherenceCheck.test.ts
+│   │   ├── stageClassifier.test.ts
 │   │   ├── stepDefDetection.test.ts
 │   │   ├── testReportParser.test.ts
 │   │   ├── testVerdict.test.ts
@@ -557,13 +559,14 @@ adws/                   # ADW workflow system
 │   ├── remoteReconcile.ts  # Stage derivation from remote GitHub artifacts
 │   ├── resolveFreezeGuard.ts  # Pure guard: rejects resolve edits that touch .feature files
 │   ├── resolveVerdict.ts      # Pure verdict: computes pass/retry/hard-fail for scenario fix loops
-│   ├── resumePolicy.ts  # Bounded resume policy: nextResumeAction / MAX_RESUME_ATTEMPTS / ResumeAction; determines resume vs. escalate_human_gated
+│   ├── resumePolicy.ts  # Bounded N-cap resume policy: nextResumeAction computes RESUME/ESCALATE; human_gated stage + escalate_human_gated decision on cap exhaustion
 │   ├── retryOrchestrator.ts
 │   ├── slackNotifier.ts  # Slack Incoming Webhook client for error/problem alerting
 │   ├── stageClassifier.ts  # Stage classification taxonomy for recovery routing (classifyStage, StageClass)
 │   ├── stateHelpers.ts
 │   ├── stageClassifier.ts  # Exhaustive StageClass taxonomy (classifyStage / classifyStageString) for recovery routing across cron, takeover, and webhook consumers
 │   ├── stackCoherenceCheck.ts  # Pure stack-coherence check — language coherence + Gherkin mandate (stackCoherenceCheck, StackCoherenceInput/Result/Warning)
+│   ├── stageClassifier.ts  # Six-class taxonomy (active/awaiting_merge/retriable/terminal/human_gated/phase_timeout) for recovery routing
 │   ├── stepDefDetection.ts  # Step definition file-extension detection by BDD framework (stepDefExtensionsFor, hasStepDefinitions, isGherkinFramework)
 │   ├── targetRepoManager.ts
 │   ├── testReportParser.ts  # JUnit XML test report parser — reads xunit output into TestReport (total, passed, failed, skipped, per-case status)
@@ -599,7 +602,10 @@ adws/                   # ADW workflow system
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── branchOperations.test.ts
 │   │   ├── commitOperations.test.ts
-│   │   └── worktreeReset.test.ts
+│   │   ├── fetchAndResetToRemote.test.ts
+│   │   ├── worktreeProbe.test.ts
+│   │   ├── worktreeReset.test.ts
+│   │   └── worktreeReuseGate.test.ts
 │   ├── branchIdentity.ts  # Pure branch-identity vocabulary — deterministicBranchName, branchMatchesIssue (slug-agnostic)
 │   ├── branchOperations.ts  # Branch management
 │   ├── commitOperations.ts  # Commit/push operations
@@ -607,8 +613,10 @@ adws/                   # ADW workflow system
 │   ├── worktreeCleanup.ts
 │   ├── worktreeCreation.ts
 │   ├── worktreeOperations.ts
+│   ├── worktreeProbe.ts  # Thin I/O shell gathering Class-A git-operability signals for the reuse gate
 │   ├── worktreeQuery.ts  # Worktree query utilities
-│   └── worktreeReset.ts  # Worktree reset to remote for takeover/recovery
+│   ├── worktreeReset.ts  # Worktree reset to remote for takeover/recovery
+│   └── worktreeReuseGate.ts  # Pure REUSE/RESET decision over WorktreeProbe Class-A signals for resume-in-place
 ├── cost/               # Cost tracking module
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── computation.test.ts
@@ -799,7 +807,7 @@ adws/                   # ADW workflow system
 │   ├── proofArtifactHarvester.ts  # Pure recursive harvester of image artifacts from proof directory
 │   └── types.ts
 ├── known_issues.md     # Known issues and workarounds
-├── checkLivingDocsIndex.ts  # One-off migration acceptance gate for .adw/conditional_docs.md round-trip
+├── checkLivingDocsIndex.ts  # Migration acceptance gate: validates conditional_docs.md ↔ app_docs/ bijection
 ├── adwBuild.tsx        # Orchestrators (individual & combined)
 ├── adwChore.tsx        # Chore pipeline with LLM diff gate (auto-merge)
 ├── adwMerge.tsx        # Merge orchestrator (awaiting_merge handoff)

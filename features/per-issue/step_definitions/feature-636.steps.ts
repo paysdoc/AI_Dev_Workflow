@@ -18,6 +18,7 @@ import type { TakeoverDeps, CandidateDecision } from '../../../adws/triggers/tak
 import type { AgentState } from '../../../adws/types/agentTypes.ts';
 import type { RepoInfo } from '../../../adws/github/githubApi.ts';
 import type { WorkflowStage } from '../../../adws/types/workflowTypes.ts';
+import { probeCtx, healthyProbe } from './takeover-probe-ctx.ts';
 
 // ---------------------------------------------------------------------------
 // Shared context
@@ -112,6 +113,9 @@ Given(
     takeoverCtx.resetCalls = 0;
     takeoverCtx.reconcileCalls = 0;
     takeoverCtx.releaseCalls = 0;
+    probeCtx.probe = null;
+    probeCtx.clearOrphanedLockCalls = 0;
+    probeCtx.resetCalls = 0;
   },
 );
 
@@ -128,6 +132,9 @@ Given(
     takeoverCtx.resetCalls = 0;
     takeoverCtx.reconcileCalls = 0;
     takeoverCtx.releaseCalls = 0;
+    probeCtx.probe = null;
+    probeCtx.clearOrphanedLockCalls = 0;
+    probeCtx.resetCalls = 0;
   },
 );
 
@@ -144,6 +151,9 @@ Given(
     takeoverCtx.resetCalls = 0;
     takeoverCtx.reconcileCalls = 0;
     takeoverCtx.releaseCalls = 0;
+    probeCtx.probe = null;
+    probeCtx.clearOrphanedLockCalls = 0;
+    probeCtx.resetCalls = 0;
   },
 );
 
@@ -160,6 +170,9 @@ Given(
     takeoverCtx.resetCalls = 0;
     takeoverCtx.reconcileCalls = 0;
     takeoverCtx.releaseCalls = 0;
+    probeCtx.probe = null;
+    probeCtx.clearOrphanedLockCalls = 0;
+    probeCtx.resetCalls = 0;
   },
 );
 
@@ -212,6 +225,9 @@ When('the takeover handler evaluates the candidate', function () {
   let reconciles = 0;
   let releases = 0;
 
+  // Use the probe set by a Given step, or default to healthy (gate passes by default).
+  const probeToReturn = probeCtx.probe ?? healthyProbe();
+
   const deps: TakeoverDeps = {
     acquireIssueSpawnLock: () => true,
     releaseIssueSpawnLock: () => { releases++; },
@@ -220,11 +236,13 @@ When('the takeover handler evaluates the candidate', function () {
     readTopLevelState: () => state,
     isProcessLive: () => isLive,
     killProcess: (pid) => { kills.push(pid); },
-    resetWorktree: () => { resets++; },
+    resetWorktree: () => { resets++; probeCtx.resetCalls++; },
     deriveStageFromRemote: () => { reconciles++; return 'abandoned' as WorkflowStage; },
     getWorktreePath: (branch) => `/worktrees/${branch}`,
     writeTopLevelState: () => undefined,
     commentOnIssue: () => undefined,
+    probeWorktree: () => probeToReturn,
+    clearOrphanedIndexLock: () => { probeCtx.clearOrphanedLockCalls++; },
   };
 
   takeoverCtx.decision = evaluateCandidate(

@@ -61,7 +61,10 @@ Feature: Exhaustive classifyStage routes cron + takeover — every existing stag
        not hold the spawn lock is signalled to die, then taken over.
     7. TAKEOVER TAKES OVER abandoned (AC3, takeover). An `abandoned` candidate is
        taken over after a worktree reset and remote reconcile, with no process
-       kill.
+       kill. (Issue #638 — resume-in-place via the worktree-reuse gate — has since
+       made the worktree reset CONDITIONAL: a healthy abandoned worktree is reused in
+       place, and the reset §7 pins is now reached only when the gate fails. §7 is
+       updated and cross-tagged @adw-638 accordingly.)
     8. TAKEOVER SPAWNS FRESH FOR AN INTERMEDIATE `*_completed` (AC3, divergence).
        `build_completed` is NOT a running-family stage to takeover, so it spawns a
        fresh workflow — even though cron treats the same stage as active. This is
@@ -168,6 +171,10 @@ Feature: Exhaustive classifyStage routes cron + takeover — every existing stag
       • `the takeover handler spawns a fresh workflow`
       • `the takeover handler stands down and releases the spawn lock`
       • `the takeover handler performs no worktree reset or remote reconcile`
+
+    Reused phrase introduced by feature-638 (now used by the updated §7, which #638
+    re-pins to the gate-fails reset path):
+      • `the candidate's worktree fails the reuse gate`
 
     Step-definition note for the maintainer: the cron steps phase-import
     `evaluateIssue` and drive it with a constructed `CronIssue` plus an injected
@@ -301,10 +308,17 @@ Feature: Exhaustive classifyStage routes cron + takeover — every existing stag
   #
   # `abandoned` is recovered by reset + reconcile + take-over, with no process
   # kill (the abandoned run has already exited). (Contract §7; AC3.)
+  #
+  # UPDATED by issue #638 (resume-in-place via the worktree-reuse gate): the reset is
+  # no longer unconditional. A healthy abandoned worktree is now reused IN PLACE
+  # (feature-638 §4); the reset + reconcile this scenario pins is reached only when
+  # the worktree FAILS the gate, so the Given now states that condition and the
+  # scenario is cross-tagged @adw-638. The take-over decision and no-kill stay as is.
 
-  @adw-636 @adw-d0hv98-refactor-exhaustive
-  Scenario: The takeover handler takes over an abandoned run after a worktree reset and remote reconcile
+  @adw-636 @adw-638 @adw-d0hv98-refactor-exhaustive
+  Scenario: The takeover handler resets an abandoned run from the remote when its worktree fails the reuse gate
     Given a takeover candidate for issue 7366 whose recorded ADW run is at stage "abandoned" on branch "feature-issue-7366-x"
+    And the candidate's worktree fails the reuse gate
     When the takeover handler evaluates the candidate
     Then the takeover handler takes over the recorded ADW run
     And the takeover handler resets the worktree and reconciles from the remote before taking over

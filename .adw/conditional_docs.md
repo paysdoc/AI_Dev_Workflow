@@ -1627,3 +1627,228 @@
     - When working with `removeWorktree`, `removeWorktreesForIssue`, or `killProcessesInDirectory`
     - When `copyClaudeAssetsToWorktree`, `ensureGitignoreEntry`, or `verifyAdwRegen` in `worktreeSetup.ts` is relevant
     - When adding tests for command-sequence correctness in `adws/vcs/__tests__/`
+    - When working on the worktree-reuse gate (`decideWorktreeReuse`, `worktreeReuseGate.ts`), worktree probing (`probeWorktree`, `worktreeProbe.ts`), or resume-in-place decision logic
+    - When troubleshooting worktree health signals (index.lock orphaned/live-held, interrupted rebase/merge/cherry-pick, registration healthy/locked/prunable/missing, live owner detection)
+
+- app_docs/feature-9gjajh-github-api.md
+  - Owns:
+    - adws/github/**
+  - Conditions:
+    - When working on GitHub REST/GraphQL API calls, GitHub App authentication, issue/PR APIs, project board API, workflow comments, HITL board notifier, label manager, PR comment detection, or linked PR detection
+    - When working on any file in `adws/github/`
+
+- app_docs/feature-9gjajh-cron-triggers.md
+  - Owns:
+    - adws/triggers/trigger_cron.ts
+    - adws/triggers/cronIssueFilter.ts
+    - adws/triggers/cronLabelEligibility.ts
+    - adws/triggers/cronProcessGuard.ts
+    - adws/triggers/cronRepoResolver.ts
+    - adws/triggers/cronStageResolver.ts
+  - Conditions:
+    - When working on the cron trigger loop, cron issue filtering, label eligibility for cron, cron process guard, repo resolver, or stage resolver
+    - When working on `trigger_cron.ts`, `cronIssueFilter.ts`, `cronLabelEligibility.ts`, `cronProcessGuard.ts`, `cronRepoResolver.ts`, or `cronStageResolver.ts`
+
+- app_docs/feature-9gjajh-webhook-triggers.md
+  - Owns:
+    - adws/triggers/trigger_webhook.ts
+    - adws/triggers/webhookGatekeeper.ts
+    - adws/triggers/webhookHandlers.ts
+    - adws/triggers/webhookSignature.ts
+  - Conditions:
+    - When working on the webhook trigger server, webhook gatekeeper, webhook event handlers, or webhook HMAC signature verification
+    - When working on `trigger_webhook.ts`, `webhookGatekeeper.ts`, `webhookHandlers.ts`, or `webhookSignature.ts`
+
+- app_docs/feature-9gjajh-takeover-and-coordination.md
+  - Owns:
+    - adws/triggers/takeoverHandler.ts
+    - adws/triggers/concurrencyGuard.ts
+    - adws/triggers/spawnGate.ts
+    - adws/triggers/pauseQueueScanner.ts
+    - adws/triggers/mergeDispatchGate.ts
+  - Conditions:
+    - When working on orchestrator takeover, cross-trigger concurrency guards, spawn gating, pause queue scanning, or merge dispatch gating
+    - When working on `takeoverHandler.ts`, `concurrencyGuard.ts`, `spawnGate.ts`, `pauseQueueScanner.ts`, or `mergeDispatchGate.ts`
+
+- app_docs/feature-9gjajh-issue-routing-and-eligibility.md
+  - Owns:
+    - adws/triggers/issueDependencies.ts
+    - adws/triggers/issueEligibility.ts
+    - adws/triggers/issueOpenedRouter.ts
+    - adws/triggers/autoMergeHandler.ts
+    - adws/triggers/cancelHandler.ts
+    - adws/triggers/retryHandler.ts
+    - adws/triggers/perIssueScenarioSweep.ts
+    - adws/triggers/scanAuthQueue.ts
+    - adws/triggers/devServerJanitor.ts
+    - adws/triggers/cloudflareTunnel.tsx
+    - adws/triggers/trigger_shutdown.ts
+  - Conditions:
+    - When working on issue dependency checks, issue eligibility for ADW, issue-opened routing, auto-merge/cancel/retry handlers, per-issue scenario sweep, auth queue scanning, dev server janitor, Cloudflare tunnel, or shutdown trigger
+
+- app_docs/feature-9gjajh-providers.md
+  - Owns:
+    - adws/providers/**
+  - Conditions:
+    - When working on multi-provider repo context, GitHub provider, GitLab provider, or Jira provider integration in `adws/providers/`
+
+- app_docs/feature-9gjajh-cost-tracking.md
+  - Owns:
+    - adws/cost/**
+  - Conditions:
+    - When working on LLM cost computation, cost reporting, D1 cost storage, exchange rate fetching, or cost helpers in `adws/cost/`
+
+- app_docs/feature-9gjajh-promotion-system.md
+  - Owns:
+    - adws/promotion/**
+  - Conditions:
+    - When working on scenario promotion scoring, approval detection, promotion commenting, promotion tagging, vocabulary parsing, or promotion threshold in `adws/promotion/`
+
+- app_docs/feature-9gjajh-r2-storage.md
+  - Owns:
+    - adws/r2/**
+  - Conditions:
+    - When working on Cloudflare R2 bucket management, R2 upload service, or R2 client in `adws/r2/`
+
+- app_docs/feature-9gjajh-jsonl-schema.md
+  - Owns:
+    - adws/jsonl/**
+  - Conditions:
+    - When working on the ADW JSONL event schema, conformance checking, fixture management, or schema probe in `adws/jsonl/`
+
+- app_docs/feature-9gjajh-types.md
+  - Owns:
+    - adws/types/**
+  - Conditions:
+    - When working on shared ADW type definitions: `AgentState`, workflow types, issue types, data types, issue routing, or the types module in `adws/types/`
+
+- app_docs/feature-9gjajh-health-check.md
+  - Owns:
+    - adws/healthCheck.tsx
+    - adws/healthCheckChecks.ts
+  - Conditions:
+    - When working on the ADW health check orchestrator or health check predicates in `adws/healthCheck.tsx` and `adws/healthCheckChecks.ts`
+
+- app_docs/feature-9gjajh-cost-api-worker.md
+  - Owns:
+    - workers/cost-api/**
+  - Conditions:
+    - When working on the Cloudflare Worker that exposes cost data via API, its routes, D1 queries, or wrangler configuration in `workers/cost-api/`
+
+- app_docs/feature-9gjajh-screenshot-router-worker.md
+  - Owns:
+    - workers/screenshot-router/**
+  - Conditions:
+    - When working on the Cloudflare Worker that routes screenshot requests in `workers/screenshot-router/`
+
+- app_docs/feature-9gjajh-commands-and-skills.md
+  - Owns:
+    - .claude/commands/adw_init.md
+    - .claude/commands/align_plan_scenarios.md
+    - .claude/commands/bug.md
+    - .claude/commands/chore.md
+    - .claude/commands/classify_issue.md
+    - .claude/commands/clean_local_repo.md
+    - .claude/commands/commit.md
+    - .claude/commands/conditional_docs.md
+    - .claude/commands/diff_evaluator.md
+    - .claude/commands/extract_dependencies.md
+    - .claude/commands/feature.md
+    - .claude/commands/find_issue_dependencies.md
+    - .claude/commands/generate_branch_name.md
+    - .claude/commands/generate_step_definitions.md
+    - .claude/commands/implement.md
+    - .claude/commands/install.md
+    - .claude/commands/patch.md
+    - .claude/commands/pr_review.md
+    - .claude/commands/prime.md
+    - .claude/commands/pull_request.md
+    - .claude/commands/resolve_conflict.md
+    - .claude/commands/resolve_failed_scenario.md
+    - .claude/commands/resolve_failed_test.md
+    - .claude/commands/resolve_plan_scenarios.md
+    - .claude/commands/review.md
+    - .claude/commands/scenario_writer.md
+    - .claude/commands/test.md
+    - .claude/commands/tools.md
+    - .claude/skills/**
+    - .claude/hooks/**
+  - Conditions:
+    - When working on any Claude Code slash command in `.claude/commands/` (except `/document` which is owned by the registry module doc) or any skill in `.claude/skills/` or hook in `.claude/hooks/`
+
+- app_docs/feature-9gjajh-bdd-regression-suite.md
+  - Owns:
+    - features/regression/**
+  - Conditions:
+    - When working on the BDD regression scenario suite, vocabulary registry, step definition registry, or promotion rules in `features/regression/`
+
+- app_docs/feature-9gjajh-bdd-per-issue.md
+  - Owns:
+    - features/per-issue/feature-612.feature
+    - features/per-issue/step_definitions/feature-612.steps.ts
+  - Conditions:
+    - When working on BDD per-issue scenario files or step definitions in `features/per-issue/` (for issues other than #609 and #610 which are owned by the registry module doc)
+
+- app_docs/feature-9gjajh-specs-and-prd.md
+  - Owns:
+    - specs/**
+  - Conditions:
+    - When working on product requirements documents, ADW specs, or feature PRDs in `specs/`
+
+- app_docs/feature-9gjajh-root-config.md
+  - Owns:
+    - README.md
+    - package.json
+    - .github/**
+    - UBIQUITOUS_LANGUAGE.md
+    - known_issues.md
+    - tsconfig.json
+    - biome.json
+    - vitest.config.ts
+    - bun.lockb
+    - .adw/project.md
+    - .adw/commands.md
+    - .adw/coding_guidelines.md
+    - .adw/scenarios.md
+  - Conditions:
+    - When working on root-level configuration: `package.json`, `tsconfig.json`, `biome.json`, `vitest.config.ts`, `README.md`, `.github/` workflows, `UBIQUITOUS_LANGUAGE.md`, `known_issues.md`, or `.adw/` project metadata files
+
+- app_docs/feature-ih6ju7-app-docs-living-docs-post-write-guards.md
+  - Owns:
+    - adws/core/docsGuards.ts
+    - adws/core/__tests__/docsGuards.test.ts
+    - adws/phases/docsSelfCheck.ts
+  - Conditions:
+    - When working with `DOC_BLOAT_THRESHOLD_LINES`, `checkBloat`, `checkRegrowth`, `runDocsGuards`, or `globsOverlap` in `adws/core/docsGuards.ts`
+    - When implementing or troubleshooting `executeDocsPostWriteSelfCheck` or `DocsSelfCheckDeps` in `adws/phases/docsSelfCheck.ts`
+    - When the post-write self-check wiring in `adws/phases/documentPhase.ts` (after `runDocumentAgent`, before commit) is relevant
+    - When a bloat flag should route to a refactor issue or an existing refactor issue prevents a duplicate being filed
+    - When a regrowth flag fires for two entries whose owned globs overlap (convergence misfire detection)
+    - When writing or extending BDD scenarios for `@adw-611` (oversize doc emits bloat flag, overlapping entries emit regrowth flag)
+
+- app_docs/feature-d0hv98-exhaustive-stage-classifier.md
+  - Owns:
+    - adws/core/stageClassifier.ts
+    - adws/core/__tests__/stageClassifier.test.ts
+    - adws/core/resumePolicy.ts
+    - adws/core/__tests__/resumePolicy.test.ts
+    - adws/triggers/cronStageResolver.ts
+    - adws/triggers/cronIssueFilter.ts
+    - adws/triggers/takeoverHandler.ts
+    - adws/types/workflowTypes.ts
+    - adws/github/workflowCommentsIssue.ts
+    - adws/phases/workflowCompletion.ts
+  - Conditions:
+    - When working with `classifyStage`, `classifyStageString`, or `StageClass` in `adws/core/stageClassifier.ts`
+    - When adding a new `WorkflowStage` literal and need to assign it a recovery class
+    - When modifying `evaluateCandidate` in `takeoverHandler.ts` or the stage-dispatch logic, including `recoverViaResetFromRemote` or `recoverViaResumeInPlaceOrReset`
+    - When modifying `evaluateIssue` in `cronIssueFilter.ts` stage eligibility checks
+    - When working with `isActiveStage` in `cronStageResolver.ts` and need to understand its compatibility-bridge role vs. the `active` StageClass
+    - When adding a per-consumer raw-stage recovery branch for a specific stage that diverges from its StageClass default
+    - When troubleshooting a stage that falls through all recovery paths (the `phase_timeout` dead-end class of bug)
+    - When understanding the `resuming` vs `*_completed` asymmetry between cron and takeover "active" sets
+    - When the `never` exhaustiveness guard or compile-time classification check is relevant
+    - When working with `nextResumeAction`, `MAX_RESUME_ATTEMPTS`, or `ResumeAction` in `adws/core/resumePolicy.ts`
+    - When the bounded resume cap, `human_gated` stage, or `escalate_human_gated` decision is relevant
+    - When understanding how `phase_timeout` recovery is cap-gated (#639) and then probe-gated (#638: reuse-in-place if healthy, else reset-from-remote)
+    - When understanding the unified `recoverViaResumeInPlaceOrReset` seam for `abandoned` and `phase_timeout` recoverable confirmed-dead stages
