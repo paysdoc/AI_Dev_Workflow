@@ -13,7 +13,8 @@ import { execSync } from 'child_process';
 import { GitContext } from '../gitContext';
 import type { GitIdentity, GitContextOptions } from '../gitContext/types';
 import { isGitHubAppConfigured, getInstallationToken } from './githubAppAuth';
-import { REPO_ROOT, TARGET_REPOS_DIR } from '../core/environment';
+import { REPO_ROOT, TARGET_REPOS_DIR, GITHUB_PAT } from '../core/environment';
+import type { RepoInfo } from './githubApi';
 
 interface FactoryInput {
   owner: string;
@@ -21,13 +22,42 @@ interface FactoryInput {
   selfHost: boolean;
 }
 
+/**
+ * Derives git author/committer identity from ambient config.
+ * Resolution order: GIT_AUTHOR_NAME env → GITHUB_APP_SLUG bot → git config → defaults.
+ */
+export function deriveGitIdentity(): GitIdentity {
+  if (process.env.GIT_AUTHOR_NAME && process.env.GIT_AUTHOR_EMAIL) {
+    return {
+      authorName: process.env.GIT_AUTHOR_NAME,
+      authorEmail: process.env.GIT_AUTHOR_EMAIL,
+      committerName: process.env.GIT_COMMITTER_NAME ?? process.env.GIT_AUTHOR_NAME,
+      committerEmail: process.env.GIT_COMMITTER_EMAIL ?? process.env.GIT_AUTHOR_EMAIL,
+    };
+  }
+  const appId = process.env.GITHUB_APP_ID;
+  const appSlug = process.env.GITHUB_APP_SLUG;
+  if (appSlug) {
+    const botName = `${appSlug}[bot]`;
+    const botEmail = appId
+      ? `${appId}+${appSlug}[bot]@users.noreply.github.com`
+      : `${appSlug}[bot]@users.noreply.github.com`;
+    return { authorName: botName, authorEmail: botEmail, committerName: botName, committerEmail: botEmail };
+  }
+  try {
+    const name = execSync('git config user.name', { encoding: 'utf-8' }).trim() || 'ADW Bot';
+    const email = execSync('git config user.email', { encoding: 'utf-8' }).trim() || 'adw-bot@noreply.github.com';
+    return { authorName: name, authorEmail: email, committerName: name, committerEmail: email };
+  } catch {
+    return { authorName: 'ADW Bot', authorEmail: 'adw-bot@noreply.github.com', committerName: 'ADW Bot', committerEmail: 'adw-bot@noreply.github.com' };
+  }
+}
+
 function resolveToken(owner: string, repo: string): string {
   if (isGitHubAppConfigured()) {
-    return getInstallationToken(owner, repo);
+    try { return getInstallationToken(owner, repo); } catch { /* fall through */ }
   }
-  if (process.env.GH_TOKEN) {
-    return process.env.GH_TOKEN;
-  }
+  if (process.env.GH_TOKEN) return process.env.GH_TOKEN;
   try {
     const token = execSync('gh auth token', { encoding: 'utf-8' }).trim();
     if (token) return token;
@@ -37,36 +67,27 @@ function resolveToken(owner: string, repo: string): string {
   throw new Error(`gitContextFor: no auth token available for ${owner}/${repo}`);
 }
 
-function resolveGitIdentity(): GitIdentity {
-  if (process.env.GIT_AUTHOR_NAME && process.env.GIT_AUTHOR_EMAIL) {
-    return {
-      authorName: process.env.GIT_AUTHOR_NAME,
-      authorEmail: process.env.GIT_AUTHOR_EMAIL,
-      committerName: process.env.GIT_COMMITTER_NAME ?? process.env.GIT_AUTHOR_NAME,
-      committerEmail: process.env.GIT_COMMITTER_EMAIL ?? process.env.GIT_AUTHOR_EMAIL,
-    };
-  }
-  const slug = process.env.GITHUB_APP_SLUG;
-  if (slug) {
-    const botName = `${slug}[bot]`;
-    const botEmail = `${slug}[bot]@users.noreply.github.com`;
-    return { authorName: botName, authorEmail: botEmail, committerName: botName, committerEmail: botEmail };
-  }
-  try {
-    const name = execSync('git config user.name', { encoding: 'utf-8' }).trim();
-    const email = execSync('git config user.email', { encoding: 'utf-8' }).trim();
-    if (name && email) {
-      return { authorName: name, authorEmail: email, committerName: name, committerEmail: email };
+let selfHostOwnerCache: string | undefined;
+let selfHostRepoCache: string | undefined;
+
+function getSelfHostIdentity(): { owner: string; repo: string } {
+  if (selfHostOwnerCache === undefined) {
+    try {
+      const remote = execSync('git remote get-url origin', { encoding: 'utf-8', cwd: REPO_ROOT }).trim();
+      const m = remote.match(/github\.com[:/]([^/]+)\/([^/.]+)/);
+      selfHostOwnerCache = m?.[1] ?? '';
+      selfHostRepoCache = m?.[2] ?? '';
+    } catch {
+      selfHostOwnerCache = '';
+      selfHostRepoCache = '';
     }
-  } catch {
-    // git config not available
   }
-  return {
-    authorName: 'ADW Bot',
-    authorEmail: 'adw-bot@users.noreply.github.com',
-    committerName: 'ADW Bot',
-    committerEmail: 'adw-bot@users.noreply.github.com',
-  };
+  return { owner: selfHostOwnerCache!, repo: selfHostRepoCache! };
+}
+
+export function clearSelfHostCache(): void {
+  selfHostOwnerCache = undefined;
+  selfHostRepoCache = undefined;
 }
 
 export async function gitContextFor({ owner, repo, selfHost }: FactoryInput): Promise<GitContext> {
@@ -76,7 +97,7 @@ export async function gitContextFor({ owner, repo, selfHost }: FactoryInput): Pr
 /** Synchronous variant — all resolution is execSync under the hood; use when async is not possible. */
 export function gitContextForSync({ owner, repo, selfHost }: FactoryInput): GitContext {
   const token = resolveToken(owner, repo);
-  const gitIdentity = resolveGitIdentity();
+  const gitIdentity = deriveGitIdentity();
   const options: GitContextOptions = {
     owner,
     repo,
@@ -87,4 +108,19 @@ export function gitContextForSync({ owner, repo, selfHost }: FactoryInput): GitC
     targetReposDir: TARGET_REPOS_DIR,
   };
   return new GitContext(options);
+}
+
+/** Returns a fresh GitContext for the given repo (no caching — getInstallationToken handles token freshness). */
+export function gitContextForRepo(repoInfo: RepoInfo, opts?: { selfHost?: boolean }): GitContext {
+  const { owner, repo } = repoInfo;
+  const token = resolveToken(owner, repo);
+  const gitIdentity = deriveGitIdentity();
+  const sh = getSelfHostIdentity();
+  const selfHost = opts?.selfHost ?? (owner === sh.owner && repo === sh.repo && !!sh.owner);
+  return new GitContext({
+    owner, repo, selfHost, token, gitIdentity,
+    frameworkRepoRoot: REPO_ROOT,
+    targetReposDir: TARGET_REPOS_DIR,
+    pat: GITHUB_PAT,
+  });
 }

@@ -21,14 +21,47 @@ import {
   makeSpyExec,
   makeFullOptions,
   parseAuthor,
+  type PendingCtxArgs,
 } from './gitContextSharedWorld.ts';
 
 function runOp(ctx: GitContext, opName: string): void {
-  if (opName === 'default-branch') {
-    ctx.defaultBranch();
-    return;
+  switch (opName) {
+    case 'default-branch':
+      ctx.defaultBranch();
+      return;
+    case 'issue-view':
+      ctx.fetchIssue(1);
+      return;
+    case 'issue-comment':
+      ctx.commentOnIssue(1, 'test body');
+      return;
+    case 'issue-create':
+      ctx.createIssue('Test Issue', 'test body');
+      return;
+    case 'label-apply':
+      ctx.applyLabel(1, 'test-label');
+      return;
+    case 'pr-view':
+      ctx.fetchPRDetails(1);
+      return;
+    case 'pr-comment':
+      ctx.commentOnPR(1, 'test body');
+      return;
+    case 'pr-create':
+      ctx.createPR('Test PR', 'test body');
+      return;
+    case 'pr-merge':
+      ctx.mergePR(1);
+      return;
+    case 'pr-review':
+      ctx.approvePR(1);
+      return;
+    case 'board-move':
+      ctx.moveIssueToStatus(1, 'In Progress');
+      return;
+    default:
+      throw new Error(`Unknown op name: "${opName}"`);
   }
-  throw new Error(`Unknown op name: "${opName}"`);
 }
 
 After(function () {
@@ -76,9 +109,17 @@ Given(
 // ── Runner setup — single context ────────────────────────────────────────────
 
 Given("the context's git and gh commands are captured by a recording runner", function () {
-  assert.ok(W.pendingArgs !== null, 'Expected construction args to be staged');
+  // Support both the 4-arg (with author) and 3-arg (without author) Given steps
+  let args: PendingCtxArgs | null = W.pendingArgs;
+  if (args === null && W.pendingByKey.size === 1) {
+    // 3-arg Given staged into pendingByKey — pull it out for single-context use
+    const [, entry] = [...W.pendingByKey.entries()][0];
+    args = entry;
+    W.pendingByKey = new Map();
+  }
+  assert.ok(args !== null, 'Expected construction args to be staged');
   const { exec, calls } = makeSpyExec(W.responseMap);
-  const { owner, repo, token, authorName, authorEmail } = W.pendingArgs;
+  const { owner, repo, token, authorName, authorEmail } = args;
   W.ctx = new GitContext(makeFullOptions(owner, repo, token, authorName, authorEmail), { exec });
   W.spyCalls = calls;
   W.pendingArgs = null;
@@ -126,10 +167,24 @@ When('the {string} read operation runs through the context', function (opName: s
   runOp(W.ctx, opName);
 });
 
+When('the {string} gh operation runs through the context', function (opName: string) {
+  assert.ok(W.ctx !== null, 'Expected a GitContext to be set up with a recording runner');
+  runOp(W.ctx, opName);
+});
+
 // ── Operation steps — two contexts ───────────────────────────────────────────
 
 When(
   'the {string} read operation runs through the {string} context',
+  function (opName: string, key: string) {
+    const entry = W.contextsByKey.get(key);
+    assert.ok(entry !== undefined, `Expected a context for key "${key}"`);
+    runOp(entry.ctx, opName);
+  },
+);
+
+When(
+  'the {string} gh operation runs through the {string} context',
   function (opName: string, key: string) {
     const entry = W.contextsByKey.get(key);
     assert.ok(entry !== undefined, `Expected a context for key "${key}"`);

@@ -13,7 +13,7 @@ import { log, GRACE_PERIOD_MS, JANITOR_INTERVAL_CYCLES, HEARTBEAT_STALE_THRESHOL
 import type { GitContext } from '../gitContext';
 import { findHungOrchestrators, type HungDetectorDeps } from '../core/hungOrchestratorDetector';
 import { AgentStateManager } from '../core/agentState';
-import { getRepoInfo, fetchPRList, hasUnaddressedComments, isCancelComment, isRetryComment, activateGitHubAppAuth, ensureAppAuthForRepo, refreshTokenIfNeeded } from '../github';
+import { getRepoInfo, fetchPRList, hasUnaddressedComments, isCancelComment, isRetryComment, activateGitHubAppAuth, refreshTokenIfNeeded } from '../github';
 import { readAuthGate, writeAuthGate, clearAuthGate, markGateSlackNotified, shouldSendDetectionSlack } from '../core/authGate';
 import { sendSlackDetectionNotification, sendSlackRecoveryNotification } from '../core/slackNotifier';
 import { markStatePausedAuthForLiveOrchestrator } from '../phases/authPause';
@@ -212,11 +212,8 @@ async function checkAndTrigger(): Promise<void> {
     await runPerIssueScenarioSweep();
   }
 
-  // Re-assert app auth for THIS cron's target repo before polling. A pause-queue or
-  // auth-queue resume earlier in this tick may have activated auth for another repo
-  // and pinned the process-global GH_TOKEN there; without this re-assertion a stray
-  // activation blinds the poller until the process is restarted (issue #565).
-  ensureAppAuthForRepo(cronRepoInfo.owner, cronRepoInfo.repo);
+  // Per-command auth via gitContextForRepo handles per-repo token injection.
+  // The transitional activateGitHubAppAuth at startup covers legacy global-token callers.
 
   const now = Date.now();
   const cancelledThisCycle = new Set<number>();
@@ -393,7 +390,7 @@ if (process.argv[1]?.replace(/\\/g, '/').includes('trigger_cron')) {
 
   log('CRON trigger (backlog sweeper) started');
   void checkAndTrigger();
-  setInterval(() => { refreshTokenIfNeeded(); void checkAndTrigger(); }, POLL_INTERVAL_MS);
+  setInterval(() => { refreshTokenIfNeeded(cronRepoInfo.owner, cronRepoInfo.repo); void checkAndTrigger(); }, POLL_INTERVAL_MS);
   checkPRsForReviewComments();
   setInterval(checkPRsForReviewComments, PR_POLL_INTERVAL_MS);
 }

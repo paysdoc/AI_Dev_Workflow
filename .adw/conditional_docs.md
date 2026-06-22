@@ -1883,11 +1883,12 @@
     - adws/vcs/branchOperations.ts
     - adws/vcs/commitOperations.ts
     - adws/vcs/worktreeReset.ts
+    - adws/gitContext/commands/**
   - Conditions:
     - When working with `GitContext`, `GitContextOptions`, `GitIdentity`, `ExecFn`, or `GitContextDeps` in `adws/gitContext/`
     - When implementing or troubleshooting base-path resolution for self-host vs target repos (the single `resolveBasePath` authority)
     - When `worktreePathFor`, `commandEnv`, `defaultBranch`, or construction-time identity validation of `GitContext` is relevant
-    - When the per-command env injection chokepoint (`#run`) or the injectable exec seam (`GitContextDeps`) is relevant
+    - When the per-command env injection chokepoint (`#run`), `usePat`, or stdin `input` forwarding is relevant
     - When `process.env` non-mutation or two-context `GH_TOKEN` isolation in a multi-repo long-lived process is relevant
     - When working with `branchOps.ts`, `commitOps.ts`, or `worktreeResetOps.ts` (package-private operation modules)
     - When `getCurrentBranch`, `mergeLatestFromDefaultBranch`, `fetchAndResetToRemote`, `deleteLocalBranch`, `deleteRemoteBranch` are GitContext methods
@@ -1895,9 +1896,13 @@
     - When `resetWorktree` (abort-merge/rebase + fetch/reset --hard/clean) is involved in takeover recovery
     - When `gitContextFor` or `gitContextForSync` from `adws/github/gitContextFactory.ts` is used to construct a context at a call site
     - When `adws/vcs/branchOperations.ts`, `commitOperations.ts`, or `worktreeReset.ts` are referenced and I/O functions appear to be missing (they migrated to GitContext)
-    - When the "wrong-repo worktree" or `GH_TOKEN` bleed class of bugs (#23, #33, #52, #56, #62, #119, #217, #223, #187) is being addressed structurally
-<<<<<<< HEAD
-    - When adding unit tests for `adws/gitContext/` (env-injection, non-mutation, lease-rejection, or two-context isolation tests)
+    - When working with `adws/gitContext/commands/` pure command builders or parsers (issue, PR, label, board)
+    - When implementing or troubleshooting `gitContextForRepo`, `deriveGitIdentity`, or `clearSelfHostCache` in `adws/github/gitContextFactory.ts`
+    - When the `activeRepo`/`ensureAppAuthForRepo` removal, `refreshTokenIfNeeded` repo-explicit change, or the auth-bleed fix is relevant
+    - When adding a new `gh` operation method to `GitContext` (follow the thin-method + pure-builder + parser pattern)
+    - When migrating existing call sites away from `getWorktreePath(branch, baseRepoPath?)` optional-default to `GitContext`
+    - When the "wrong-repo worktree" or `GH_TOKEN` bleed class of bugs (#23, #33, #52, #56, #62, #119, #217, #223, #187, #181) is being addressed structurally
+    - When adding unit tests for `adws/gitContext/` (env-injection, non-mutation, `usePat`, lease-rejection, two-context isolation, or command builder/parser tests)
 
 - app_docs/feature-k817bh-persist-repo-identity-cross-check.md
   - Owns:

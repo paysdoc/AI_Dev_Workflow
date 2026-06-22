@@ -2,9 +2,9 @@
  * GitHub Issue API functions using the gh CLI.
  */
 
-import { execWithRetry } from '../core';
 import { GitHubIssue, IssueCommentSummary, log } from '../core';
 import { type RepoInfo } from './githubApi';
+import { gitContextForRepo } from './gitContextFactory';
 
 
 interface RawGitHubUser {
@@ -108,13 +108,8 @@ function transformIssueResponse(rawIssue: RawGitHubIssue): GitHubIssue {
  * @param repoInfo - Optional repository info override for targeting external repositories. Falls back to local git remote when not provided.
  */
 export async function fetchGitHubIssue(issueNumber: number, repoInfo: RepoInfo): Promise<GitHubIssue> {
-  const { owner, repo } = repoInfo;
-
   try {
-    const issueJson = execWithRetry(
-      `gh issue view ${issueNumber} --repo ${owner}/${repo} --json number,title,body,state,author,assignees,labels,milestone,comments,createdAt,updatedAt,closedAt,url`
-    );
-
+    const issueJson = gitContextForRepo(repoInfo).fetchIssue(issueNumber);
     const rawIssue = JSON.parse(issueJson) as RawGitHubIssue;
     return transformIssueResponse(rawIssue);
   } catch (error) {
@@ -129,13 +124,8 @@ export async function fetchGitHubIssue(issueNumber: number, repoInfo: RepoInfo):
  * @param repoInfo - Optional repository info override for targeting external repositories.
  */
 export function commentOnIssue(issueNumber: number, body: string, repoInfo: RepoInfo): void {
-  const { owner, repo } = repoInfo;
-
   try {
-    execWithRetry(
-      `gh issue comment ${issueNumber} --repo ${owner}/${repo} --body-file -`,
-      { input: body, stdio: ['pipe', 'pipe', 'pipe'] }
-    );
+    gitContextForRepo(repoInfo).commentOnIssue(issueNumber, body);
     log(`Commented on issue #${issueNumber}`, 'success');
   } catch (error) {
     log(`Failed to comment on issue: ${error}`, 'error');
@@ -146,7 +136,7 @@ export function commentOnIssue(issueNumber: number, body: string, repoInfo: Repo
  * Formats a closure comment for an issue when its associated PR is closed.
  */
 export function formatIssueClosureComment(prNumber: number, prUrl: string, wasMerged: boolean): string {
-  const statusEmoji = wasMerged ? '\u2705' : '\uD83D\uDD34';
+  const statusEmoji = wasMerged ? '✅' : '🔴';
   const statusText = wasMerged ? 'merged' : 'closed without merging';
   const additionalInfo = wasMerged
     ? 'The implementation has been merged into the main branch.'
@@ -168,12 +158,8 @@ ${additionalInfo}
  * @param repoInfo - Optional repository info override for targeting external repositories.
  */
 export function getIssueState(issueNumber: number, repoInfo: RepoInfo): string {
-  const { owner, repo } = repoInfo;
-
   try {
-    const json = execWithRetry(
-      `gh issue view ${issueNumber} --repo ${owner}/${repo} --json state`
-    );
+    const json = gitContextForRepo(repoInfo).issueState(issueNumber);
     const result = JSON.parse(json);
     return result.state;
   } catch (error) {
@@ -190,8 +176,6 @@ export function getIssueState(issueNumber: number, repoInfo: RepoInfo): string {
  * @returns true if the issue was closed, false if already closed or error occurred
  */
 export async function closeIssue(issueNumber: number, repoInfo: RepoInfo, comment?: string): Promise<boolean> {
-  const { owner, repo } = repoInfo;
-
   try {
     // Check if issue is already closed
     const state = getIssueState(issueNumber, repoInfo);
@@ -206,9 +190,7 @@ export async function closeIssue(issueNumber: number, repoInfo: RepoInfo, commen
     }
 
     // Close the issue
-    execWithRetry(
-      `gh issue close ${issueNumber} --repo ${owner}/${repo}`
-    );
+    gitContextForRepo(repoInfo).closeIssue(issueNumber);
     log(`Closed issue #${issueNumber}`, 'success');
     return true;
   } catch (error) {
@@ -224,12 +206,8 @@ export async function closeIssue(issueNumber: number, repoInfo: RepoInfo, commen
  * @param repoInfo - Optional repository info override for targeting external repositories.
  */
 export function getIssueTitleSync(issueNumber: number, repoInfo: RepoInfo): string {
-  const { owner, repo } = repoInfo;
-
   try {
-    const json = execWithRetry(
-      `gh issue view ${issueNumber} --repo ${owner}/${repo} --json title`
-    );
+    const json = gitContextForRepo(repoInfo).issueTitle(issueNumber);
     const result = JSON.parse(json) as { title: string };
     return result.title;
   } catch {
@@ -244,11 +222,8 @@ export function getIssueTitleSync(issueNumber: number, repoInfo: RepoInfo): stri
  * @param repoInfo - Optional repository info override for targeting external repositories.
  */
 export function fetchIssueCommentsRest(issueNumber: number, repoInfo: RepoInfo): IssueCommentSummary[] {
-  const { owner, repo } = repoInfo;
   try {
-    const json = execWithRetry(
-      `gh api repos/${owner}/${repo}/issues/${issueNumber}/comments --paginate`
-    );
+    const json = gitContextForRepo(repoInfo).fetchIssueComments(issueNumber);
     const raw = JSON.parse(json);
     return (raw as Record<string, unknown>[]).map((c: Record<string, unknown>) => ({
       id: c.id as number,
@@ -270,12 +245,8 @@ export function fetchIssueCommentsRest(issueNumber: number, repoInfo: RepoInfo):
  * @param repoInfo - Repository owner and repo name
  */
 export function issueHasLabel(issueNumber: number, labelName: string, repoInfo: RepoInfo): boolean {
-  const { owner, repo } = repoInfo;
-
   try {
-    const json = execWithRetry(
-      `gh issue view ${issueNumber} --repo ${owner}/${repo} --json labels`
-    );
+    const json = gitContextForRepo(repoInfo).issueHasLabel(issueNumber, labelName);
     const result = JSON.parse(json) as { labels: { name: string }[] };
     return (result.labels || []).some((l) => l.name === labelName);
   } catch (error) {
@@ -291,12 +262,8 @@ export function issueHasLabel(issueNumber: number, labelName: string, repoInfo: 
  * @param repoInfo - Repository owner and repo name
  */
 export function addIssueLabel(issueNumber: number, labelName: string, repoInfo: RepoInfo): void {
-  const { owner, repo } = repoInfo;
   try {
-    execWithRetry(
-      `gh issue edit ${issueNumber} --repo ${owner}/${repo} --add-label ${labelName}`,
-      { stdio: ['pipe', 'pipe', 'pipe'] },
-    );
+    gitContextForRepo(repoInfo).addIssueLabel(issueNumber, labelName);
     log(`Added label "${labelName}" to issue #${issueNumber}`, 'success');
   } catch (error) {
     log(`Failed to add label "${labelName}" to issue #${issueNumber}: ${error}`, 'error');
@@ -308,11 +275,7 @@ export function addIssueLabel(issueNumber: number, labelName: string, repoInfo: 
  * Throws if the issue number cannot be parsed from the response.
  */
 export function createIssue(title: string, body: string, repoInfo: RepoInfo): number {
-  const { owner, repo } = repoInfo;
-  const output = execWithRetry(
-    `gh issue create --repo ${owner}/${repo} --title '${title}' --body-file -`,
-    { input: body, stdio: ['pipe', 'pipe', 'pipe'] },
-  );
+  const output = gitContextForRepo(repoInfo).createIssue(title, body);
   const match = output.trim().match(/\/issues\/(\d+)$/);
   if (!match) {
     throw new Error(`createIssue: could not parse issue number from gh output: "${output.trim()}"`);
@@ -327,12 +290,8 @@ export function createIssue(title: string, body: string, repoInfo: RepoInfo): nu
  * Rethrows on error — dependency registration is load-bearing for unblocking.
  */
 export function updateIssueBody(issueNumber: number, body: string, repoInfo: RepoInfo): void {
-  const { owner, repo } = repoInfo;
   try {
-    execWithRetry(
-      `gh issue edit ${issueNumber} --repo ${owner}/${repo} --body-file -`,
-      { input: body, stdio: ['pipe', 'pipe', 'pipe'] },
-    );
+    gitContextForRepo(repoInfo).updateIssueBody(issueNumber, body);
     log(`Updated body of issue #${issueNumber}`, 'success');
   } catch (error) {
     log(`Failed to update body of issue #${issueNumber}: ${error}`, 'error');
@@ -345,11 +304,8 @@ export function updateIssueBody(issueNumber: number, body: string, repoInfo: Rep
  * Best-effort: returns null on any error.
  */
 export function findOpenUpgradeIssue(repoInfo: RepoInfo): number | null {
-  const { owner, repo } = repoInfo;
   try {
-    const json = execWithRetry(
-      `gh issue list --repo ${owner}/${repo} --label 'adw:upgrade' --state open --json number --limit 1`,
-    );
+    const json = gitContextForRepo(repoInfo).findOpenUpgradeIssue();
     const results = JSON.parse(json) as { number: number }[];
     return results.length > 0 ? results[0].number : null;
   } catch {
@@ -363,12 +319,8 @@ export function findOpenUpgradeIssue(repoInfo: RepoInfo): number | null {
  * @param repoInfo - Optional repository info override for targeting external repositories.
  */
 export function deleteIssueComment(commentId: number, repoInfo: RepoInfo): void {
-  const { owner, repo } = repoInfo;
   try {
-    execWithRetry(
-      `gh api -X DELETE repos/${owner}/${repo}/issues/comments/${commentId}`,
-      { stdio: ['pipe', 'pipe', 'pipe'] }
-    );
+    gitContextForRepo(repoInfo).deleteIssueComment(commentId);
     log(`Deleted comment ${commentId}`, 'success');
   } catch (error) {
     throw new Error(`Failed to delete comment ${commentId}: ${error}`);

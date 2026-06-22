@@ -4,11 +4,12 @@
  * Non-GitHub no-op is enforced by callers via Platform.GitHub guards.
  */
 
-import { execWithRetry, log } from '../core';
+import { log } from '../core';
 import { postSlack } from '../core/slackNotifier';
 import { type RepoInfo } from './githubApi';
 import { bodyLinksIssue } from './issueLinkMarker';
 import { selectPreferredPR } from './prApi';
+import { gitContextForRepo } from './gitContextFactory';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -52,11 +53,8 @@ export interface NotifyBlockedArgs {
 // ---------------------------------------------------------------------------
 
 function defaultReadIssue(issueNumber: number, repoInfo: RepoInfo): HitlIssueInfo | null {
-  const { owner, repo } = repoInfo;
   try {
-    const raw = execWithRetry(
-      `gh issue view ${issueNumber} --repo ${owner}/${repo} --json title,labels`,
-    );
+    const raw = gitContextForRepo(repoInfo).fetchIssue(issueNumber);
     const parsed = JSON.parse(raw) as { title: string; labels: { name: string }[] };
     return { title: parsed.title, labels: parsed.labels };
   } catch {
@@ -65,12 +63,25 @@ function defaultReadIssue(issueNumber: number, repoInfo: RepoInfo): HitlIssueInf
 }
 
 function defaultListOpenPRs(repoInfo: RepoInfo): HitlPREntry[] | null {
-  const { owner, repo } = repoInfo;
   try {
-    const raw = execWithRetry(
-      `gh pr list --repo ${owner}/${repo} --state open --json number,url,body,headRefName,baseRefName,updatedAt,state --limit 50`,
-    );
-    return JSON.parse(raw) as HitlPREntry[];
+    const raw = gitContextForRepo(repoInfo).fetchAllPRs();
+    const allPrs = JSON.parse(raw) as Array<{
+      number: number;
+      body: string;
+      state: string;
+      mergedAt: string | null;
+    }>;
+    return allPrs
+      .filter((p) => p.state === 'OPEN')
+      .map((p) => ({
+        number: p.number,
+        url: `https://github.com/${repoInfo.owner}/${repoInfo.repo}/pull/${p.number}`,
+        body: p.body,
+        state: p.state,
+        headRefName: '',
+        baseRefName: '',
+        updatedAt: '',
+      }));
   } catch {
     return null;
   }

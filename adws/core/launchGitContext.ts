@@ -15,7 +15,6 @@ import { getRepoInfo } from '../github/githubApi';
 import {
   isGitHubAppConfigured,
   getInstallationToken,
-  ensureAppAuthForRepo,
 } from '../github/githubAppAuth';
 import { REPO_ROOT, TARGET_REPOS_DIR, GITHUB_PAT } from './environment';
 
@@ -132,9 +131,9 @@ export function resolveLaunchGitIdentity(): GitIdentity {
  * the discriminator is `--target-repo` PRESENCE, so it is treated as a target
  * context (basePath under targetReposDir), consistent with buildRepoIdentifier.
  *
- * Ensures process-global auth is set for not-yet-migrated gh calls on this path
- * by calling ensureAppAuthForRepo (idempotent; no-op when App not configured).
- * Per-command auth cutover (story 7) is a later slice.
+ * Per-command auth is injected by the GitContext itself; process-global
+ * `activateGitHubAppAuth()` at the process entrypoint covers the transitional
+ * boundary provisioning for not-yet-migrated consumers (vcs ops, agent subprocess).
  *
  * Call this exactly once at each process launch boundary. Thread the returned
  * context downward — do not call downstream code to re-derive the repo root.
@@ -154,10 +153,6 @@ export function buildLaunchGitContext(
 
   const selfHost = targetRepo === null;
   const { owner, repo } = targetRepo ?? getInfo();
-
-  // Ensure process-global auth is set for not-yet-migrated gh calls on this path.
-  // Idempotent; no-op when App not configured. Per-command auth cutover is story 7.
-  ensureAppAuthForRepo(owner, repo);
 
   return new GitContext({
     owner,

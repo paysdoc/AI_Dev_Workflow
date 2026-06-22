@@ -6,12 +6,11 @@
 
 import { execSync } from 'child_process';
 import { log } from '../../core';
-import { GITHUB_PAT } from '../../core/config';
-import { isGitHubAppConfigured, refreshTokenIfNeeded } from '../../github/githubAppAuth';
 import type { BoardManager, BoardColumnDefinition, RepoIdentifier } from '../types';
 import { BOARD_COLUMNS, validateRepoIdentifier } from '../types';
 import { toRepoInfo } from './mappers';
 import type { RepoInfo } from '../../github/githubApi';
+import { gitContextForRepo } from '../../github/gitContextFactory';
 
 type StatusOption = { id?: string; name: string; color: string; description: string };
 
@@ -83,81 +82,60 @@ class GitHubBoardManager implements BoardManager {
     this.repoInfo = toRepoInfo(repoId);
   }
 
+  private get ctx() {
+    return gitContextForRepo(this.repoInfo);
+  }
+
   /** Finds the first GitHub Projects V2 board linked to the repository. */
   async findBoard(): Promise<string | null> {
     const { owner, repo } = this.repoInfo;
-    return this.withProjectBoardAuth(async () => this.queryProjectId(owner, repo));
+    try {
+      const query = `query($owner:String!,$repo:String!){repository(owner:$owner,name:$repo){projectsV2(first:1){nodes{id}}}}`;
+      const result = this.ctx.runGraphQL(query, { owner, repo });
+      const parsed = JSON.parse(result) as {
+        data: { repository: { projectsV2: { nodes: Array<{ id: string }> } } };
+      };
+      const nodes = parsed.data.repository.projectsV2.nodes;
+      return nodes.length > 0 ? nodes[0].id : null;
+    } catch (error) {
+      log(`Failed to find project for ${owner}/${repo}: ${error}`, 'warn');
+      return null;
+    }
   }
 
   /** Creates a new GitHub Projects V2 board and links it to the repository. */
   async createBoard(name: string): Promise<string> {
-    return this.withProjectBoardAuth(async () => {
     const { owner, repo } = this.repoInfo;
 
     // Look up the owner node ID
-    const ownerIdQuery = `
-      query($owner: String!, $repo: String!) {
-        repository(owner: $owner, name: $repo) {
-          owner { id }
-        }
-      }
-    `;
-    const ownerIdResult = execSync(
-      `gh api graphql -f query='${ownerIdQuery}' -f owner='${owner}' -f repo='${repo}'`,
-      { encoding: 'utf-8' },
-    );
+    const ownerIdQuery = `query($owner:String!,$repo:String!){repository(owner:$owner,name:$repo){owner{id}}}`;
+    const ownerIdResult = this.ctx.runGraphQL(ownerIdQuery, { owner, repo });
     const ownerIdParsed = JSON.parse(ownerIdResult) as {
       data: { repository: { owner: { id: string } } };
     };
     const ownerId = ownerIdParsed.data.repository.owner.id;
 
     // Create the project
-    const createMutation = `
-      mutation($ownerId: ID!, $title: String!) {
-        createProjectV2(input: { ownerId: $ownerId, title: $title }) {
-          projectV2 { id }
-        }
-      }
-    `;
-    const createResult = execSync(
-      `gh api graphql -f query='${createMutation}' -f ownerId='${ownerId}' -f title='${name}'`,
-      { encoding: 'utf-8' },
-    );
+    const createMutation = `mutation($ownerId:ID!,$title:String!){createProjectV2(input:{ownerId:$ownerId,title:$title}){projectV2{id}}}`;
+    const createResult = this.ctx.runGraphQL(createMutation, { ownerId, title: name });
     const createParsed = JSON.parse(createResult) as {
       data: { createProjectV2: { projectV2: { id: string } } };
     };
     const projectId = createParsed.data.createProjectV2.projectV2.id;
 
     // Link the project to the repository
-    const repoNodeQuery = `
-      query($owner: String!, $repo: String!) {
-        repository(owner: $owner, name: $repo) { id }
-      }
-    `;
-    const repoNodeResult = execSync(
-      `gh api graphql -f query='${repoNodeQuery}' -f owner='${owner}' -f repo='${repo}'`,
-      { encoding: 'utf-8' },
-    );
+    const repoNodeQuery = `query($owner:String!,$repo:String!){repository(owner:$owner,name:$repo){id}}`;
+    const repoNodeResult = this.ctx.runGraphQL(repoNodeQuery, { owner, repo });
     const repoNodeParsed = JSON.parse(repoNodeResult) as {
       data: { repository: { id: string } };
     };
     const repositoryId = repoNodeParsed.data.repository.id;
 
-    const linkMutation = `
-      mutation($projectId: ID!, $repositoryId: ID!) {
-        linkProjectV2ToRepository(input: { projectId: $projectId, repositoryId: $repositoryId }) {
-          repository { id }
-        }
-      }
-    `;
-    execSync(
-      `gh api graphql -f query='${linkMutation}' -f projectId='${projectId}' -f repositoryId='${repositoryId}'`,
-      { encoding: 'utf-8' },
-    );
+    const linkMutation = `mutation($projectId:ID!,$repositoryId:ID!){linkProjectV2ToRepository(input:{projectId:$projectId,repositoryId:$repositoryId}){repository{id}}}`;
+    this.ctx.runGraphQL(linkMutation, { projectId, repositoryId });
 
     log(`Created project board "${name}" (id: ${projectId})`, 'success');
     return projectId;
-    });
   }
 
   private updateStatusFieldOptions(fieldId: string, options: StatusOption[]): void {
@@ -179,100 +157,35 @@ class GitHubBoardManager implements BoardManager {
         : { name: o.name, color: o.color, description: o.description },
     );
     const body = { query: mutation, variables: { fieldId, singleSelectOptions } };
+    // runGraphQL only accepts Record<string, string | number> variables; use execSync
+    // with stdin pipe for complex array variables.
     execSync('gh api graphql --input -', { input: JSON.stringify(body), encoding: 'utf-8' });
   }
 
   /** Ensures all required ADW columns exist on the board. */
   async ensureColumns(boardId: string): Promise<boolean> {
-    return this.withProjectBoardAuth(async () => {
-      const statusField = this.getStatusFieldOptions(boardId);
-      if (!statusField) {
-        log('No Status field found on project board', 'warn');
-        return false;
-      }
-
-      const { merged, changed, added } = mergeStatusOptions(statusField.options, BOARD_COLUMNS);
-
-      if (!changed) return true;
-
-      this.updateStatusFieldOptions(statusField.fieldId, merged);
-      added.forEach((name) => log(`Added board column "${name}"`, 'info'));
-
-      return true;
-    });
-  }
-
-  // Upfront PAT swap for all board ops; idempotent; safe because ADW board-init is
-  // sequential (concurrent instances in same process would race on process.env.GH_TOKEN).
-  private async withProjectBoardAuth<T>(fn: () => Promise<T>): Promise<T> {
-    const { owner, repo } = this.repoInfo;
-    refreshTokenIfNeeded(owner, repo);
-
-    let savedToken: string | undefined;
-    let usingPatFallback = false;
-    try {
-      if (isGitHubAppConfigured() && GITHUB_PAT && GITHUB_PAT !== process.env.GH_TOKEN) {
-        log('Using GITHUB_PAT for project board operations (app tokens lack Projects V2 access)', 'info');
-        savedToken = process.env.GH_TOKEN;
-        process.env.GH_TOKEN = GITHUB_PAT;
-        usingPatFallback = true;
-      }
-      return await fn();
-    } finally {
-      if (usingPatFallback) {
-        process.env.GH_TOKEN = savedToken;
-      }
+    const statusField = this.getStatusFieldOptions(boardId);
+    if (!statusField) {
+      log('No Status field found on project board', 'warn');
+      return false;
     }
-  }
 
-  private queryProjectId(owner: string, repo: string): string | null {
-    try {
-      const query = `
-        query($owner: String!, $repo: String!) {
-          repository(owner: $owner, name: $repo) {
-            projectsV2(first: 1) {
-              nodes { id }
-            }
-          }
-        }
-      `;
-      const result = execSync(
-        `gh api graphql -f query='${query}' -f owner='${owner}' -f repo='${repo}'`,
-        { encoding: 'utf-8' },
-      );
-      const parsed = JSON.parse(result) as {
-        data: { repository: { projectsV2: { nodes: Array<{ id: string }> } } };
-      };
-      const nodes = parsed.data.repository.projectsV2.nodes;
-      return nodes.length > 0 ? nodes[0].id : null;
-    } catch (error) {
-      log(`Failed to find project for ${owner}/${repo}: ${error}`, 'warn');
-      return null;
-    }
+    const { merged, changed, added } = mergeStatusOptions(statusField.options, BOARD_COLUMNS);
+
+    if (!changed) return true;
+
+    this.updateStatusFieldOptions(statusField.fieldId, merged);
+    added.forEach((name) => log(`Added board column "${name}"`, 'info'));
+
+    return true;
   }
 
   private getStatusFieldOptions(
     projectId: string,
   ): { fieldId: string; options: Array<{ id: string; name: string; color: string; description: string }> } | null {
     try {
-      const query = `
-        query($projectId: ID!) {
-          node(id: $projectId) {
-            ... on ProjectV2 {
-              field(name: "Status") {
-                ... on ProjectV2SingleSelectField {
-                  id
-                  options { id name color description }
-                }
-              }
-            }
-          }
-        }
-      `;
-      const result = execSync(
-        `gh api graphql -f query='${query}' -f projectId='${projectId}'`,
-        { encoding: 'utf-8' },
-      );
+      const query = `query($projectId:ID!){node(id:$projectId){...on ProjectV2{field(name:"Status"){...on ProjectV2SingleSelectField{id options{id name color description}}}}}}`;
+      const result = this.ctx.runGraphQL(query, { projectId });
       const parsed = JSON.parse(result) as {
         data: {
           node: {

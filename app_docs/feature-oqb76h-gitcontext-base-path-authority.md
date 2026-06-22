@@ -1,8 +1,8 @@
-# GitContext Package — Repo-Context Authority, Per-Command Env, and VCS Operation Surface
+# GitContext Package — Repo-Context Authority, Per-Command Env Injection, VCS & gh Operation Surface
 
 ## Overview
 
-`adws/gitContext/` is the single deep module that answers "which repository's filesystem am I operating on?" and "which auth identity does every command run with?" A `GitContext` is constructed from a mandatory identity (`owner`, `repo`, `selfHost`, `token`, `gitIdentity`) plus injected resolution config (`frameworkRepoRoot`, `targetReposDir`). Base-path resolution happens once in the constructor; every operation method spawns its underlying git/`gh` command through a single private chokepoint (`#run`) that supplies an explicit `cwd` and a fresh per-command child-process environment — never mutating `process.env`. This module implements PRD `specs/prd/git-context-repo-authority.md` and eliminates the historical "wrong-repo worktree" and `GH_TOKEN` bleed classes of bug structurally across all branch, commit/push, fetch/reset, and worktree-reset operations.
+`adws/gitContext/` is the single deep module that answers "which repository's filesystem am I operating on?" and "which auth identity does every command run with?" A `GitContext` is constructed from a mandatory identity (`owner`, `repo`, `selfHost`, `token`, `gitIdentity`) plus injected resolution config (`frameworkRepoRoot`, `targetReposDir`) and an optional `pat` for PAT-requiring operations. Every operation — branch create/checkout/delete, commit/push (force-with-lease), fetch/reset, worktree reset, and all `gh`/GitHub-API operations (issue read/comment, PR read/create/merge/approve, label lifecycle, Projects V2 board) — is a method on `GitContext`, running through the single private `#run()` chokepoint that injects per-command auth and git identity into the child process environment without ever mutating `process.env`. This module implements PRD `specs/prd/git-context-repo-authority.md` and eliminates the historical "wrong-repo worktree" and `GH_TOKEN` bleed classes of bug structurally.
 
 ## Responsibilities
 
@@ -10,14 +10,26 @@
 - Resolve `basePath` once in the constructor: `selfHost ? frameworkRepoRoot : join(targetReposDir, owner, repo)`
 - Expose read-only `basePath`, `owner`, `repo`, `selfHost` accessors
 - Compute `worktreePathFor(branch)` as `join(basePath, '.worktrees', sanitize(branch))` — never consulting `process.cwd()`
-- Produce a per-command child-process environment overlay via `commandEnv(base?)`: returns a fresh object with `GH_TOKEN` + `GIT_AUTHOR_*`/`GIT_COMMITTER_*` without mutating `process.env`
-- Route all git/`gh` execution through the single private `#run(command, cwd?)` chokepoint: explicit `cwd` (defaults to `basePath`) and `env = commandEnv(process.env)` — the only spawn site in the package
+- Produce a per-command child-process environment overlay via `commandEnv(base?)`: fresh object with `GH_TOKEN` + `GIT_AUTHOR_*`/`GIT_COMMITTER_*` — never mutates `process.env`
+- Execute every operation through the single private `#run(command, opts?)` chokepoint: spawns with `cwd` (defaults to `basePath`), `env = commandEnv(process.env)`, optional stdin `input`, and optional `usePat` flag (injects PAT as `GH_TOKEN` for that one command when `usePat: true` and `#pat` is set)
 - Provide branch operations: `getCurrentBranch`, `mergeLatestFromDefaultBranch`, `fetchAndResetToRemote`, `deleteLocalBranch`, `deleteRemoteBranch`, `defaultBranch`
 - Provide commit/push operations: `commitChanges`, `pushBranch` (force-with-lease + lease-rejection detection), `getHeadTreeHash`, `hasUncommittedChanges`
 - Provide worktree reset: `resetWorktree` (abort in-progress merge/rebase via fs then fetch/reset --hard/clean -fdx)
-- Delegate operation orchestration to package-private modules (`branchOps.ts`, `commitOps.ts`, `worktreeResetOps.ts`), each taking an injected runner — keeping the `GitContext` class thin and testable without a real context
+- Delegate VCS operation orchestration to package-private modules (`branchOps.ts`, `commitOps.ts`, `worktreeResetOps.ts`), each taking an injected runner — keeping the `GitContext` class thin and testable
+- Expose the full `gh` issue, PR, label, and board operation surface as thin methods that delegate to pure command-builder + parser modules in `adws/gitContext/commands/`
 - Accept an injectable `ExecFn` via `GitContextDeps` for hermetic testing (the ADW `Deps` idiom)
-- Export only `GitContext` class and its public types (`GitIdentity`, `GitContextOptions`, `ExecFn`, `GitContextDeps`) via a barrel `index.ts` — no context-free git/`gh` free functions
+- Export only `GitContext` class and its public types via `adws/gitContext/index.ts` — no context-free git/`gh` free functions
+
+### Pure command modules (`adws/gitContext/commands/`)
+
+Each module is side-effect-free (no `exec`, no `process.env`) and stays under 300 lines:
+
+| Module | Exports |
+|---|---|
+| `issueCommands.ts` | Command builders + parsers for `gh issue …` / `gh api issues` (fetch, comment, state, close, title, comments, labels, create, update, find-upgrade, delete-comment) |
+| `prCommands.ts` | PR builders + parsers (find by branch, fetch details/reviews/comments, comment, merge, approve, approval state, list, create) |
+| `labelCommands.ts` | Label create and apply (create-if-missing + add) command builders |
+| `boardCommands.ts` | Projects V2 GraphQL query/mutation builders + parsers (project id, issue item, status field, status update, `moveIssueToStatus`) |
 
 ## Boundary Factory (`adws/github/gitContextFactory.ts`)
 
@@ -39,7 +51,9 @@
 - `worktreePathFor` result is determined solely by `basePath` and the branch name — `process.cwd()` has no effect
 - `commandEnv` never writes to `process.env`; each call returns a new object; calling it twice is idempotent
 - `#run` always passes an explicit `cwd` and `env` to the exec function — never inherits process working directory or ambient `process.env.GH_TOKEN`
+- When `usePat: true` and `#pat` is set, `GH_TOKEN` in the child env is the PAT; otherwise it is the context's primary token. The parent `process.env` is unchanged in both cases.
 - Two `GitContext` instances for two repos in one process never share `cwd` or token — `GH_TOKEN` bleed is structurally impossible (no module-global `activeRepo` slot)
+- The `activeRepo` module-global and `ensureAppAuthForRepo` were deleted from `githubAppAuth.ts`; all `gh` ops authenticate via the context's per-command child env
 - `pushBranch` uses `--force-with-lease --force-if-includes`; a lease rejection throws a descriptive error with manual-remedy instructions (no silent overwrite)
 - `resetWorktree` aborts any in-progress merge or rebase (via `git merge/rebase --abort` with fs fallback) before fetching and hard-resetting
 - Protected branches (`main`, `master`, `develop`) are refused by `deleteLocalBranch` and `deleteRemoteBranch` (returns `false`)
@@ -59,20 +73,25 @@ All configuration is injected at construction via `GitContextOptions`:
 | `gitIdentity` | `GitIdentity` | Author + committer name/email for git operations |
 | `frameworkRepoRoot` | `string` | Absolute path to the ADW framework repo root (injected from `REPO_ROOT`) |
 | `targetReposDir` | `string` | Absolute path to cloned target repos directory (injected from `TARGET_REPOS_DIR`) |
+| `pat?` | `string` | Optional PAT for `usePat` ops (PR approve, Projects V2 board) |
 
 Optional injectable dependency bag via `GitContextDeps` (second constructor parameter):
 
 | Field | Type | Description |
 |---|---|---|
-| `exec` | `ExecFn?` | Injectable command runner for tests; defaults to a thin `execSync` wrapper |
+| `exec` | `ExecFn?` | Injectable command runner for tests; defaults to thin `execSync` wrapper |
 
 ## Gotchas
 
 - **`selfHost` is a boolean discriminator, not optional** — passing `undefined` or any non-boolean throws at construction. This is intentional: omitting it was the historical detonation point where ADW silently operated on the wrong repo.
-- **`process.env` is never mutated on the operation hot path** — `commandEnv(process.env)` overlays the context's token + identity into a new object. If a stale `GH_TOKEN` is already set in `process.env` by legacy `githubAppAuth.ts`, the context token wins for context-routed commands; the parent slot is untouched.
-- **Legacy `githubAppAuth.ts` is not fully removed yet** — un-migrated `execSync('gh …')` call sites still read `process.env.GH_TOKEN`. `GitContext` operations don't participate in that global mutation; remaining call-site migration is later-slice work per the PRD.
-- **VCS wrappers in `adws/vcs/` are stripped, not deleted** — `branchOperations.ts`, `commitOperations.ts`, and `worktreeReset.ts` now expose only pure vocabulary functions (`generateBranchName`, `validateSlug`, `inferIssueTypeFromBranch`, `PROTECTED_BRANCHES`, `getDefaultBranch`/`deleteLocalBranch` as internal helpers for `#661` scope). All I/O functions have migrated to `GitContext` methods.
-- **Branch sanitization regex** — `worktreePathFor` sanitizes with `/[/\\:*?"<>\|`]/g → '-'`, matching the historical `worktreeOperations.ts` helper for path compatibility post-migration.
-- **Injectable exec seam (`ExecFn` / `GitContextDeps`) is for tests, not config** — the seam exists so spy tests can assert per-call `{ cwd, env }` without spawning real processes and without `vi.mock('child_process')` fragility. The default is a real `execSync` wrapper — the only real spawn site in the package.
-- **`gitContextForSync` vs `gitContextFor`** — use `gitContextForSync` when you're already in a synchronous initialization path (e.g. `workflowInit.ts` at startup); use `gitContextFor` when you can `await`. Both produce identical `GitContext` instances; the async variant is a thin wrapper.
+- **`process.env` is never mutated on the operation hot path** — `commandEnv(process.env)` overlays the context's token + identity into a new object. The context token wins for context-routed commands; the parent slot is untouched.
+- **`#run` accepts optional `{ cwd?, input?, usePat? }`** — `cwd` overrides the base path for VCS ops on worktrees; `input` pipes data to stdin; `usePat: true` injects `GITHUB_PAT` as `GH_TOKEN` for that one command only (approve PR, Projects V2 GraphQL). Never mutates `process.env`.
+- **VCS wrappers in `adws/vcs/` are stripped, not deleted** — `branchOperations.ts`, `commitOperations.ts`, and `worktreeReset.ts` now expose only pure vocabulary functions. All I/O functions have migrated to `GitContext` methods.
+- **`activeRepo`/`ensureAppAuthForRepo` are gone** — any code still calling `ensureAppAuthForRepo` will fail to compile. Use `gitContextForRepo(repoInfo).<method>()` instead.
+- **`refreshTokenIfNeeded` is now repo-explicit** — it requires optional `(owner, repo)` args; the no-arg form that fell back to `activeRepo` is removed.
+- **`gitContextFactory.ts` lives in `adws/github/`** — not in the reusable package, to keep the package free of ADW globals (`REPO_ROOT`, `TARGET_REPOS_DIR`, `GITHUB_PAT`, `getInstallationToken`). The factory is the ADW-layer bridge; the package itself is config-injection pure.
+- **Board and approve ops require `GITHUB_PAT`** — `usePat: true` falls back to the context token when `GITHUB_PAT` is unset (user-owned repos degrade gracefully, matching prior behaviour from `feature-9tknkw`).
+- **Branch sanitization regex** — `worktreePathFor` sanitizes with `/[/\\:*?"<>|`]/g → '-'`, matching the historical `worktreeOperations.ts` helper for path compatibility post-migration.
+- **Injectable exec seam (`ExecFn` / `GitContextDeps`) is for tests, not config** — the seam exists so spy tests can assert per-call `{ cwd, env, input }` without spawning real processes. The default is a real `execSync` wrapper — the only real spawn site in the package.
+- **`gitContextForSync` vs `gitContextFor`** — use `gitContextForSync` when you're already in a synchronous initialization path; use `gitContextFor` when you can `await`. Both produce identical `GitContext` instances; the async variant is a thin wrapper.
 - **No physical npm package** — the "importable package" guarantee is satisfied structurally by the zero-ADW-global dependency discipline; physical workspace extraction to `packages/git-context/` is deferred.
