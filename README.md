@@ -593,6 +593,12 @@ adws/                   # ADW workflow system
 │   ├── workflowCommentsBase.ts
 │   ├── workflowCommentsIssue.ts
 │   └── workflowCommentsPR.ts
+├── gitContext/         # GitContext deep module — single authority for repo filesystem and auth context
+│   ├── __tests__/      # Vitest unit tests
+│   │   └── gitContext.test.ts
+│   ├── gitContext.ts   # GitContext class: base-path/worktree/env resolution authority; no cwd fallback
+│   ├── index.ts
+│   └── types.ts        # GitContextOptions, GitIdentity interfaces
 ├── vcs/                # Version control operations (git)
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── branchIdentity.test.ts
