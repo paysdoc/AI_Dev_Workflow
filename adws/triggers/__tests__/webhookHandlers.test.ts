@@ -147,7 +147,7 @@ describe('handleIssueClosedEvent — normal closure (completed workflow)', () =>
     expect(result.status).toBe('cleaned');
     expect(deps.removeWorktreesForIssue).toHaveBeenCalledWith(42, undefined);
     expect(deps.deleteRemoteBranch).toHaveBeenCalledWith('feature/issue-42-some-feature', undefined);
-    expect(deps.handleIssueClosedDependencyUnblock).toHaveBeenCalledWith(42, REPO_INFO, []);
+    expect(deps.handleIssueClosedDependencyUnblock).toHaveBeenCalledWith(42, REPO_INFO, [], undefined);
     expect(deps.closeAbandonedDependents).not.toHaveBeenCalled();
     expect(result.worktreesRemoved).toBe(1);
     expect(result.branchDeleted).toBe(true);
@@ -229,7 +229,7 @@ describe('handleIssueClosedEvent — no adw-id found', () => {
     expect(deps.removeWorktreesForIssue).toHaveBeenCalledWith(42, undefined);
     expect(deps.readTopLevelState).not.toHaveBeenCalled();
     expect(deps.deleteRemoteBranch).not.toHaveBeenCalled();
-    expect(deps.handleIssueClosedDependencyUnblock).toHaveBeenCalledWith(42, REPO_INFO, []);
+    expect(deps.handleIssueClosedDependencyUnblock).toHaveBeenCalledWith(42, REPO_INFO, [], undefined);
   });
 });
 
@@ -244,7 +244,7 @@ describe('handleIssueClosedEvent — no state file', () => {
     expect(result.status).toBe('cleaned');
     expect(deps.removeWorktreesForIssue).toHaveBeenCalledWith(42, undefined);
     expect(deps.deleteRemoteBranch).not.toHaveBeenCalled();
-    expect(deps.handleIssueClosedDependencyUnblock).toHaveBeenCalledWith(42, REPO_INFO, []);
+    expect(deps.handleIssueClosedDependencyUnblock).toHaveBeenCalledWith(42, REPO_INFO, [], undefined);
   });
 });
 
@@ -261,7 +261,7 @@ describe('handleIssueClosedEvent — fetchIssueComments fails', () => {
     expect(deps.readTopLevelState).not.toHaveBeenCalled();
     expect(deps.deleteRemoteBranch).not.toHaveBeenCalled();
     // Dependency unblock still runs (treats as normal closure)
-    expect(deps.handleIssueClosedDependencyUnblock).toHaveBeenCalledWith(42, REPO_INFO, []);
+    expect(deps.handleIssueClosedDependencyUnblock).toHaveBeenCalledWith(42, REPO_INFO, [], undefined);
   });
 });
 

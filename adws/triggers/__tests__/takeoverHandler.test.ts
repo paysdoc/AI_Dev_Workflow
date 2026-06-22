@@ -1,10 +1,12 @@
 // All I/O is injected via TakeoverDeps — no real execSync/mockExecSync, gh CLI, or git subprocess is used.
+import * as path from 'path';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { evaluateCandidate } from '../takeoverHandler';
 import type { TakeoverDeps, CandidateDecision } from '../takeoverHandler';
 import type { RepoInfo } from '../../github/githubApi';
 import type { AgentState } from '../../types/agentTypes';
 import type { WorktreeProbe } from '../../vcs/worktreeReuseGate';
+import { GitContext } from '../../gitContext';
 
 const REPO: RepoInfo = { owner: 'acme', repo: 'widgets' };
 const ADW_ID = 'test-adwid-123';
@@ -685,5 +687,94 @@ describe('escalate_human_gated from phase_timeout at cap', () => {
     const decision = evaluateCandidate({ issueNumber: 639, repoInfo: REPO }, deps);
 
     expect(decision.kind).toBe('escalate_human_gated');
+  });
+});
+
+// ─── GitContext-based worktree path resolution (story 10) ─────────────────────
+//
+// When EvaluateCandidateInput carries a GitContext, recovery helpers resolve the
+// worktree path via the context's identity-determined base path — never from
+// ambient cwd (the spawnSync ENOENT incident pin).
+
+const TARGET_BASE = '/srv/target-repos/vestmatic/vestmatic';
+const FRAMEWORK_ROOT = '/srv/adw/framework';
+
+function makeTestGitContext(base: string, selfHost: boolean): GitContext {
+  return new GitContext({
+    owner: 'vestmatic',
+    repo: 'vestmatic',
+    selfHost,
+    token: 'test-token',
+    gitIdentity: {
+      authorName: 'Bot',
+      authorEmail: 'bot@test.dev',
+      committerName: 'Bot',
+      committerEmail: 'bot@test.dev',
+    },
+    frameworkRepoRoot: FRAMEWORK_ROOT,
+    targetReposDir: '/srv/target-repos',
+  });
+}
+
+describe('GitContext-based worktree path (abandoned)', () => {
+  it('abandoned: worktree path resolves under context base, not getWorktreePath', () => {
+    const fakeCtx = makeTestGitContext(TARGET_BASE, false);
+    const expectedWtPath = path.join(TARGET_BASE, '.worktrees', 'feature-issue-187-x');
+    const deps = makeDeps({
+      readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'abandoned', branchName: 'feature-issue-187-x' })),
+      getWorktreePath: vi.fn().mockReturnValue('/wrong/framework/path/.worktrees/feature-issue-187-x'),
+      probeWorktree: vi.fn().mockReturnValue(healthyProbe()),
+    });
+
+    evaluateCandidate({ issueNumber: 187, repoInfo: REPO, gitContext: fakeCtx }, deps);
+
+    expect(deps.probeWorktree).toHaveBeenCalledWith(expectedWtPath, 'feature-issue-187-x', undefined, undefined);
+    expect(deps.getWorktreePath).not.toHaveBeenCalled();
+  });
+
+  it('abandoned: unhealthy probe resets worktree via context base path', () => {
+    const fakeCtx = makeTestGitContext(TARGET_BASE, false);
+    const expectedWtPath = path.join(TARGET_BASE, '.worktrees', 'feature-issue-187-x');
+    const deps = makeDeps({
+      readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'abandoned', branchName: 'feature-issue-187-x' })),
+      getWorktreePath: vi.fn().mockReturnValue('/wrong/path'),
+      probeWorktree: vi.fn().mockReturnValue(unhealthyProbe()),
+    });
+
+    evaluateCandidate({ issueNumber: 187, repoInfo: REPO, gitContext: fakeCtx }, deps);
+
+    expect(deps.resetWorktree).toHaveBeenCalledWith(expectedWtPath, 'feature-issue-187-x');
+    expect(deps.getWorktreePath).not.toHaveBeenCalled();
+  });
+
+  it('abandoned: resolved worktree path is not under the framework cwd (incident pin)', () => {
+    const fakeCtx = makeTestGitContext(TARGET_BASE, false);
+    const deps = makeDeps({
+      readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'abandoned', branchName: 'feature-issue-187-x' })),
+      probeWorktree: vi.fn().mockReturnValue(healthyProbe()),
+    });
+
+    evaluateCandidate({ issueNumber: 187, repoInfo: REPO, gitContext: fakeCtx }, deps);
+
+    const probeCall = (deps.probeWorktree as ReturnType<typeof vi.fn>).mock.calls[0] as string[];
+    expect(probeCall[0]).not.toContain(FRAMEWORK_ROOT);
+    expect(probeCall[0]).toContain(TARGET_BASE);
+  });
+});
+
+describe('GitContext-based worktree path (phase_timeout)', () => {
+  it('phase_timeout: worktree path resolves under context base, not getWorktreePath', () => {
+    const fakeCtx = makeTestGitContext(TARGET_BASE, false);
+    const expectedWtPath = path.join(TARGET_BASE, '.worktrees', 'feature-issue-187-x');
+    const deps = makeDeps({
+      readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'phase_timeout', branchName: 'feature-issue-187-x' })),
+      getWorktreePath: vi.fn().mockReturnValue('/wrong/framework/path/.worktrees/feature-issue-187-x'),
+      probeWorktree: vi.fn().mockReturnValue(healthyProbe()),
+    });
+
+    evaluateCandidate({ issueNumber: 187, repoInfo: REPO, gitContext: fakeCtx }, deps);
+
+    expect(deps.probeWorktree).toHaveBeenCalledWith(expectedWtPath, 'feature-issue-187-x', undefined, undefined);
+    expect(deps.getWorktreePath).not.toHaveBeenCalled();
   });
 });

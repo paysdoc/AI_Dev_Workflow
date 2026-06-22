@@ -506,6 +506,7 @@ adws/                   # ADW workflow system
 │   │   ├── heartbeat.test.ts
 │   │   ├── hungOrchestratorDetector.test.ts
 │   │   ├── issueClassifier.test.ts
+│   │   ├── launchGitContext.test.ts
 │   │   ├── phaseRunner.test.ts
 │   │   ├── processLiveness.test.ts
 │   │   ├── projectConfig.test.ts
@@ -543,6 +544,7 @@ adws/                   # ADW workflow system
 │   ├── index.ts
 │   ├── issueClassifier.ts
 │   ├── jsonParser.ts
+│   ├── launchGitContext.ts  # Boundary-constructor adapter — builds one GitContext per process launch boundary from launch identity (cron module-scope, adwMerge.main(), initializeWorkflow); resolves token + gitIdentity; wires context into takeoverHandler and workflowInit
 │   ├── logger.ts       # Structured logging utilities
 │   ├── modelRouting.ts # Model/effort routing utilities
 │   ├── orchestratorCli.ts  # Shared CLI parsing utilities
@@ -577,7 +579,8 @@ adws/                   # ADW workflow system
 │   │   ├── issueLinkMarker.test.ts
 │   │   ├── labelManager.test.ts
 │   │   ├── linkedPrDetector.test.ts
-│   │   └── prApi.test.ts
+│   │   ├── prApi.test.ts
+│   │   └── projectBoardApi.test.ts
 │   ├── githubApi.ts
 │   ├── githubAppAuth.ts  # GitHub App authentication
 │   ├── hitlBoardNotifier.ts  # HITL board-event notifier — PR/issue lookup, message building, and Slack delivery for Review and Blocked transitions
@@ -594,13 +597,13 @@ adws/                   # ADW workflow system
 │   ├── workflowCommentsBase.ts
 │   ├── workflowCommentsIssue.ts
 │   └── workflowCommentsPR.ts
-├── gitContext/         # Repo-context authority for all git and gh I/O
+├── gitContext/         # Repo-context authority deep module (GitContext)
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── gitContext.test.ts
 │   │   └── gitContextOperations.test.ts
-│   ├── gitContext.ts   # GitContext deep module — mandatory identity, base-path resolution in constructor, no cwd fallback
-│   ├── index.ts
-│   └── types.ts        # GitContextOptions and GitIdentity types
+│   ├── gitContext.ts   # GitContext class — mandatory identity, base-path resolution in constructor, worktree-path lookup, per-command env injection, no cwd fallback
+│   ├── index.ts        # Public surface (GitContext class + GitIdentity/GitContextOptions types)
+│   └── types.ts        # GitIdentity and GitContextOptions interfaces
 ├── vcs/                # Version control operations (git)
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── branchIdentity.test.ts

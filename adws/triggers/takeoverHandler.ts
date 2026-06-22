@@ -44,6 +44,7 @@ import type { WorktreeProbe } from '../vcs/worktreeReuseGate';
 import type { RepoInfo } from '../github/githubApi';
 import type { AgentState } from '../types/agentTypes';
 import type { WorkflowStage } from '../types/workflowTypes';
+import type { GitContext } from '../gitContext';
 
 export type CandidateDecision =
   | { readonly kind: 'spawn_fresh' }
@@ -55,6 +56,9 @@ export type CandidateDecision =
 export interface EvaluateCandidateInput {
   readonly issueNumber: number;
   readonly repoInfo: RepoInfo;
+  /** Launch-boundary GitContext. When provided, worktree paths are resolved via the
+   *  context's base path (never from ambient cwd). Absent only in legacy callers. */
+  readonly gitContext?: GitContext;
 }
 
 export interface TakeoverDeps {
@@ -126,6 +130,14 @@ function takeOverWithDerivedStage(
   return { kind: 'take_over_adwId', adwId, derivedStage };
 }
 
+function resolveWorktreePath(d: TakeoverDeps, input: EvaluateCandidateInput, branchName: string): string {
+  // Prefer the launch-boundary context (identity-determined, cwd-independent).
+  // Fall back to the dep's getWorktreePath for legacy callers without a context.
+  return input.gitContext
+    ? input.gitContext.worktreePathFor(branchName)
+    : d.getWorktreePath(branchName);
+}
+
 function recoverViaResetFromRemote(
   d: TakeoverDeps,
   input: EvaluateCandidateInput,
@@ -133,7 +145,7 @@ function recoverViaResetFromRemote(
   state: AgentState,
 ): CandidateDecision {
   if (state.branchName) {
-    const wtPath = d.getWorktreePath(state.branchName);
+    const wtPath = resolveWorktreePath(d, input, state.branchName);
     d.resetWorktree(wtPath, state.branchName);
   }
   return takeOverWithDerivedStage(d, input, adwId);
@@ -150,7 +162,7 @@ function recoverViaResumeInPlaceOrReset(
 ): CandidateDecision {
   if (!state.branchName) return takeOverWithDerivedStage(d, input, adwId);
 
-  const wtPath = d.getWorktreePath(state.branchName);
+  const wtPath = resolveWorktreePath(d, input, state.branchName);
   const probe = d.probeWorktree(wtPath, state.branchName, state.pid, state.pidStartedAt);
   const decision = decideWorktreeReuse(probe);
 

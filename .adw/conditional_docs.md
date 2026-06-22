@@ -1667,9 +1667,19 @@
     - adws/triggers/webhookGatekeeper.ts
     - adws/triggers/webhookHandlers.ts
     - adws/triggers/webhookSignature.ts
+    - adws/triggers/webhookRepoResolver.ts
+    - adws/triggers/__tests__/webhookRepoResolver.test.ts
+    - adws/triggers/issueOpenedRouter.ts
   - Conditions:
     - When working on the webhook trigger server, webhook gatekeeper, webhook event handlers, or webhook HMAC signature verification
     - When working on `trigger_webhook.ts`, `webhookGatekeeper.ts`, `webhookHandlers.ts`, or `webhookSignature.ts`
+    - When working with `resolveWebhookRepo`, `WebhookRepoResolution`, or `webhookRepoResolver.ts` (per-event boundary resolver)
+    - When the per-event `GitContext` construction at webhook receipt or the `eventGitContext` threading is relevant
+    - When multi-repo `GH_TOKEN` bleed across async continuations (vestmatic #181 class) or interleaved-event auth isolation is being investigated or tested
+    - When working with `routeIssueOpened`, `IssueOpenedRouterDeps.classifyAndSpawn`, or `issueOpenedRouter.ts`
+    - When `classifyAndSpawnWorkflow`'s optional `gitContext` parameter or the cron `precomputedDecision` pass-through is relevant
+    - When adding a new webhook event handler that needs to receive the per-event context
+    - When troubleshooting wrong-base-repo on the webhook takeover path (ambient `cwd` replaced by per-event `gitContext.basePath`)
 
 - app_docs/feature-9gjajh-takeover-and-coordination.md
   - Owns:
@@ -1881,5 +1891,32 @@
     - When implementing or troubleshooting `gitContextForRepo`, `deriveGitIdentity`, or `clearSelfHostCache` in `adws/github/gitContextFactory.ts`
     - When the `activeRepo`/`ensureAppAuthForRepo` removal, `refreshTokenIfNeeded` repo-explicit change, or the auth-bleed fix is relevant
     - When adding a new `gh` operation method to `GitContext` (follow the thin-method + pure-builder + parser pattern)
+    - When migrating existing call sites away from `getWorktreePath(branch, baseRepoPath?)` optional-default to `GitContext`
     - When the "wrong-repo worktree" or `GH_TOKEN` bleed class of bugs (#23, #33, #52, #56, #62, #119, #217, #223, #187, #181) is being addressed structurally
     - When adding unit tests for `adws/gitContext/` (env-injection, non-mutation, `usePat`, two-context isolation, or command builder/parser tests)
+
+- app_docs/feature-k817bh-persist-repo-identity-cross-check.md
+  - Owns:
+    - adws/core/repoIdentityCrossCheck.ts
+    - adws/core/__tests__/repoIdentityCrossCheck.test.ts
+  - Conditions:
+    - When working with `crossCheckRepoIdentity`, `sameRepoIdentity`, or `RepoIdentityMismatchError` in `adws/core/repoIdentityCrossCheck.ts`
+    - When the `RepoIdentity` interface or `AgentState.repoIdentity` optional field in `adws/types/agentTypes.ts` is relevant
+    - When implementing or troubleshooting repo identity persistence and cross-check wiring in `adws/phases/workflowInit.ts`
+    - When a resuming orchestrator throws `RepoIdentityMismatchError` at startup (launch vs persisted identity diverged)
+    - When a workflow that ran pre-#665 (no `repoIdentity` in state) resumes and the cross-check must be a no-op
+    - When auditing which repository a workflow run targeted (the `repoIdentity` field in `agents/{adwId}/state.json`)
+    - When understanding the "launch wins, persisted is cross-check only" invariant from the GitContext PRD (stories 13–15)
+
+- app_docs/feature-k2tkdn-gitcontext-boundary-constructor.md
+  - Owns:
+    - adws/core/launchGitContext.ts
+    - adws/core/__tests__/launchGitContext.test.ts
+  - Conditions:
+    - When working with `buildLaunchGitContext`, `LaunchGitContextDeps`, `resolveLaunchToken`, or `resolveLaunchGitIdentity` in `adws/core/launchGitContext.ts`
+    - When constructing a `GitContext` at a process launch boundary (cron entry-script guard, `adwMerge.main()`, `initializeWorkflow`)
+    - When troubleshooting the cron's module-scope `cronGitContext` or the `process.argv[1]` entry-script guard
+    - When `EvaluateCandidateInput.gitContext` or `WorkflowConfig.gitContext` are relevant in `takeoverHandler.ts` or `workflowInit.ts`
+    - When the "wrong-base-repo on takeover path" (`spawnSync ENOENT`, vestmatic #187) class of bug is being fixed or investigated
+    - When wiring `gitContext.basePath` into worktree creation or `ensureWorktree` calls as the self-host base path replacement for `process.cwd()`
+    - When adding unit tests for the boundary constructor (target args → target workspace; absent args → framework repo root; injectable deps)
