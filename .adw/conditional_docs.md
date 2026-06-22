@@ -1870,9 +1870,11 @@
     - adws/gitContext/**
     - adws/gitContext/__tests__/**
   - Conditions:
-    - When working with `GitContext`, `GitContextOptions`, or `GitIdentity` in `adws/gitContext/`
+    - When working with `GitContext`, `GitContextOptions`, `GitIdentity`, `ExecFn`, or `GitContextDeps` in `adws/gitContext/`
     - When implementing or troubleshooting base-path resolution for self-host vs target repos (the single `resolveBasePath` authority)
-    - When `worktreePathFor`, `commandEnv`, or construction-time identity validation of `GitContext` is relevant
+    - When `worktreePathFor`, `commandEnv`, `defaultBranch`, or construction-time identity validation of `GitContext` is relevant
+    - When the per-command env injection chokepoint (`#run`) or the injectable exec seam (`GitContextDeps`) is relevant
+    - When `process.env` non-mutation or two-context `GH_TOKEN` isolation in a multi-repo long-lived process is relevant
     - When migrating existing call sites away from `getWorktreePath(branch, baseRepoPath?)` optional-default to `GitContext`
-    - When the "wrong-repo worktree" class of bugs (#23, #33, #52, #56, #62, #119, #217, #223, #187) is being addressed structurally
-    - When adding unit tests for `adws/gitContext/` (pure path/env computation, no I/O mocking needed)
+    - When the "wrong-repo worktree" or `GH_TOKEN` bleed class of bugs (#23, #33, #52, #56, #62, #119, #217, #223, #187) is being addressed structurally
+    - When adding unit tests for `adws/gitContext/` (env-injection, non-mutation, or two-context isolation tests in `gitContextOperations.test.ts`)
