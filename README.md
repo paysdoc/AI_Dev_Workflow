@@ -599,7 +599,8 @@ adws/                   # ADW workflow system
 │   └── workflowCommentsPR.ts
 ├── gitContext/         # Repo-context authority deep module (GitContext)
 │   ├── __tests__/      # Vitest unit tests
-│   │   └── gitContext.test.ts
+│   │   ├── gitContext.test.ts
+│   │   └── gitContextOperations.test.ts
 │   ├── gitContext.ts   # GitContext class — mandatory identity, base-path resolution in constructor, worktree-path lookup, per-command env injection, no cwd fallback
 │   ├── index.ts        # Public surface (GitContext class + GitIdentity/GitContextOptions types)
 │   └── types.ts        # GitIdentity and GitContextOptions interfaces

@@ -37,8 +37,6 @@ const installationIdCache = new Map<string, string>();
 /** Refresh the token 5 minutes before it expires. */
 const REFRESH_BUFFER_MS = 5 * 60 * 1000;
 
-/** The `owner/repo` that `GH_TOKEN` is currently set for. */
-let activeRepo: string | null = null;
 
 /**
  * Returns true if GitHub App env vars are configured.
@@ -194,8 +192,10 @@ export function activateGitHubAppAuth(owner?: string, repo?: string, cwd?: strin
 
   try {
     const token = getInstallationToken(owner, repo);
+    // transitional boundary provisioning: sets process.env.GH_TOKEN so legacy callers
+    // that haven't migrated to gitContextForRepo yet still see the right token.
+    // Removable once #661/#662 land and all callers use per-command auth.
     process.env.GH_TOKEN = token;
-    activeRepo = `${owner}/${repo}`;
     configureGitIdentity();
     log(`GitHub App authentication activated for ${owner}/${repo}`);
     return true;
@@ -205,23 +205,6 @@ export function activateGitHubAppAuth(owner?: string, repo?: string, cwd?: strin
   }
 }
 
-/**
- * Ensures the active `GH_TOKEN` matches the given repo. If the repo differs
- * from the currently active one, fetches a new token. Use this in the webhook
- * handler where each request may target a different repo.
- */
-export function ensureAppAuthForRepo(owner: string, repo: string): boolean {
-  if (!isGitHubAppConfigured()) return false;
-
-  const key = `${owner}/${repo}`;
-  if (activeRepo === key) {
-    // Same repo — just refresh if needed
-    refreshTokenIfNeeded(owner, repo);
-    return true;
-  }
-
-  return activateGitHubAppAuth(owner, repo);
-}
 
 /**
  * Configures git author/committer identity to match the GitHub App bot.
@@ -248,16 +231,11 @@ function configureGitIdentity(): void {
 /**
  * Refreshes the GitHub App token if it's near expiry.
  * Call this periodically in long-running processes (cron, webhook server).
- * No-op if the app is not configured or the token is still valid.
+ * No-op if the app is not configured, or if owner/repo are not provided.
  */
 export function refreshTokenIfNeeded(owner?: string, repo?: string): void {
   if (!isGitHubAppConfigured()) return;
-  if (!owner || !repo) {
-    // Refresh for the currently active repo
-    if (!activeRepo) return;
-    [owner, repo] = activeRepo.split('/');
-  }
-
+  if (!owner || !repo) return;
   try {
     const token = getInstallationToken(owner, repo);
     process.env.GH_TOKEN = token;

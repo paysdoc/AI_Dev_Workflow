@@ -10,7 +10,6 @@ import { type WorkflowStage, type PRReviewWorkflowStage, log } from '../core';
 import { formatWorkflowComment, type WorkflowContext } from '../github/workflowCommentsIssue';
 import { formatPRReviewWorkflowComment, type PRReviewWorkflowContext } from '../github/workflowCommentsPR';
 import type { RepoContext } from '../providers/types';
-import { refreshTokenIfNeeded } from '../github/githubAppAuth';
 
 /**
  * Formats and posts an issue workflow comment via the RepoContext issue tracker.
@@ -23,7 +22,6 @@ export function postIssueStageComment(
   ctx: WorkflowContext,
 ): void {
   try {
-    refreshTokenIfNeeded();
     const comment = formatWorkflowComment(stage, ctx);
     repoContext.issueTracker.commentOnIssue(issueNumber, comment);
   } catch (error) {
@@ -42,7 +40,6 @@ export function postPRStageComment(
   ctx: PRReviewWorkflowContext,
 ): void {
   try {
-    refreshTokenIfNeeded();
     const comment = formatPRReviewWorkflowComment(stage, ctx);
     repoContext.codeHost.commentOnPullRequest(prNumber, comment);
   } catch (error) {
