@@ -1667,9 +1667,19 @@
     - adws/triggers/webhookGatekeeper.ts
     - adws/triggers/webhookHandlers.ts
     - adws/triggers/webhookSignature.ts
+    - adws/triggers/webhookRepoResolver.ts
+    - adws/triggers/__tests__/webhookRepoResolver.test.ts
+    - adws/triggers/issueOpenedRouter.ts
   - Conditions:
     - When working on the webhook trigger server, webhook gatekeeper, webhook event handlers, or webhook HMAC signature verification
     - When working on `trigger_webhook.ts`, `webhookGatekeeper.ts`, `webhookHandlers.ts`, or `webhookSignature.ts`
+    - When working with `resolveWebhookRepo`, `WebhookRepoResolution`, or `webhookRepoResolver.ts` (per-event boundary resolver)
+    - When the per-event `GitContext` construction at webhook receipt or the `eventGitContext` threading is relevant
+    - When multi-repo `GH_TOKEN` bleed across async continuations (vestmatic #181 class) or interleaved-event auth isolation is being investigated or tested
+    - When working with `routeIssueOpened`, `IssueOpenedRouterDeps.classifyAndSpawn`, or `issueOpenedRouter.ts`
+    - When `classifyAndSpawnWorkflow`'s optional `gitContext` parameter or the cron `precomputedDecision` pass-through is relevant
+    - When adding a new webhook event handler that needs to receive the per-event context
+    - When troubleshooting wrong-base-repo on the webhook takeover path (ambient `cwd` replaced by per-event `gitContext.basePath`)
 
 - app_docs/feature-9gjajh-takeover-and-coordination.md
   - Owns:
