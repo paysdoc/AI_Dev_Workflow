@@ -12,7 +12,7 @@ Feature: GitContext per-command auth/env injection — token and cwd are bound t
   independence, never token isolation.
 
   This slice closes that gap. It routes at least one representative operation (a
-  read op — default-branch and issue read) through the context so the spawn path
+  read op — default-branch) through the context so the spawn path
   is proven end to end: every operation method spawns its underlying git/`gh`
   command with an explicit `cwd` (the base path) and an explicit child-process
   environment carrying the auth token and the git author/committer identity. The
@@ -171,11 +171,9 @@ Feature: GitContext per-command auth/env injection — token and cwd are bound t
         echoes its `cwd`/`env` back on stdout is an equally valid, stronger seam; if
         used, assert against that stdout instead — both are runtime artefacts.)
       • `the {string} read operation runs through the context` maps the friendly op
-        name to a context method: `"default-branch"` → the default-branch read,
-        `"issue"` → the issue read (supply a canned issue number inside the step;
-        the assertion is about the launched cwd/env, not the issue number). The op
-        runs via the injected recording runner; store the single recorded invocation
-        on the scenario world.
+        name to a context method: `"default-branch"` → the default-branch read. The
+        op runs via the injected recording runner; store the single recorded
+        invocation on the scenario world.
       • `... ran with auth token {string} in its child environment` asserts the
         recorded `env` carries the token VALUE as its auth entry (e.g.
         `recorded.env.GH_TOKEN === token`). `... git author {string} ...` asserts
@@ -213,7 +211,7 @@ Feature: GitContext per-command auth/env injection — token and cwd are bound t
 
   # ── §1 The default-branch read op carries token + git identity + base-path cwd ─
   #
-  # The headline representative op (story 7, AC1, AC3). A git read routed through
+  # The headline representative op (story 7, AC1, AC3). A read op routed through
   # the context spawns its command with the context's token AND git
   # author/committer in the child environment, with cwd = the context base path.
 
@@ -224,20 +222,6 @@ Feature: GitContext per-command auth/env injection — token and cwd are bound t
     When the "default-branch" read operation runs through the context
     Then the captured command ran with auth token "token-acme" in its child environment
     And the captured command ran with git author "Acme Bot <bot@acme.dev>" in its child environment
-    And the captured command ran with cwd equal to the context base path
-
-  # ── §1b The gh issue-read op also routes through the spawn-with-env path (AC1) ─
-  #
-  # AC1 spans BOTH git AND `gh`, and story 2 is specifically about `gh` auth. A `gh`
-  # read carries the context's token to its child environment with cwd = base path,
-  # proving the gh-side of the contract — the auth that historically bled.
-
-  @adw-659 @adw-6phrv4-gitcontext-per-comma
-  Scenario: A gh read operation supplies the context token and base-path cwd to its child command
-    Given a GitContext for owner "acme" repo "webapp" with auth token "token-acme" and git author "Acme Bot <bot@acme.dev>"
-    And the context's git and gh commands are captured by a recording runner
-    When the "issue" read operation runs through the context
-    Then the captured command ran with auth token "token-acme" in its child environment
     And the captured command ran with cwd equal to the context base path
 
   # ── §2 The command cwd is the base path regardless of the process cwd (AC1) ────

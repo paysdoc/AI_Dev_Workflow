@@ -156,6 +156,7 @@ The existing `adws/gitContext/__tests__/gitContext.test.ts` (base-path, identity
 - The child command exits non-zero / `execSync` throws (e.g. `gh` unauthenticated, network down) → the operation surfaces a meaningful error at the system boundary and does not mutate `process.env`.
 - Two contexts constructed for the **same** `owner/repo` but **different** tokens → each op carries its own token (no module-global pinning, unlike `activeRepo`).
 - `commandEnv(process.env)` must inherit `PATH` etc. so the child can locate the `gh`/`git` binaries, while still overlaying the auth/identity vars into a fresh object (no parent mutation) — assert an unrelated inherited key (e.g. `PATH`) survives in the child env.
+- The ambient process working directory differs from the context base path when an op runs (e.g. `process.cwd()` was changed elsewhere in the process) → the spawned command's `cwd` is still the context base path; `#run()` passes an explicit `cwd` and never inherits `process.cwd()` (the anti-regression against the wrong-cwd half of the bug class).
 - Child stdout has trailing whitespace/newline → the op returns the trimmed value.
 
 ## Acceptance Criteria
