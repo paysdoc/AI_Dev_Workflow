@@ -1879,6 +1879,19 @@
     - When the "wrong-repo worktree" or `GH_TOKEN` bleed class of bugs (#23, #33, #52, #56, #62, #119, #217, #223, #187) is being addressed structurally
     - When adding unit tests for `adws/gitContext/` (env-injection, non-mutation, or two-context isolation tests in `gitContextOperations.test.ts`)
 
+- app_docs/feature-k817bh-persist-repo-identity-cross-check.md
+  - Owns:
+    - adws/core/repoIdentityCrossCheck.ts
+    - adws/core/__tests__/repoIdentityCrossCheck.test.ts
+  - Conditions:
+    - When working with `crossCheckRepoIdentity`, `sameRepoIdentity`, or `RepoIdentityMismatchError` in `adws/core/repoIdentityCrossCheck.ts`
+    - When the `RepoIdentity` interface or `AgentState.repoIdentity` optional field in `adws/types/agentTypes.ts` is relevant
+    - When implementing or troubleshooting repo identity persistence and cross-check wiring in `adws/phases/workflowInit.ts`
+    - When a resuming orchestrator throws `RepoIdentityMismatchError` at startup (launch vs persisted identity diverged)
+    - When a workflow that ran pre-#665 (no `repoIdentity` in state) resumes and the cross-check must be a no-op
+    - When auditing which repository a workflow run targeted (the `repoIdentity` field in `agents/{adwId}/state.json`)
+    - When understanding the "launch wins, persisted is cross-check only" invariant from the GitContext PRD (stories 13–15)
+
 - app_docs/feature-k2tkdn-gitcontext-boundary-constructor.md
   - Owns:
     - adws/core/launchGitContext.ts
