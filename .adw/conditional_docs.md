@@ -1631,16 +1631,17 @@
     - adws/phases/worktreeSetup.ts
   - Conditions:
     - When working with `pushBranch` in `adws/vcs/commitOperations.ts` or the force-with-lease push behavior
-    - When implementing or troubleshooting `ensureWorktree`, `createWorktree`, or `createWorktreeForNewBranch`
     - When working with `generateBranchName`, `validateSlug`, or branch naming in `adws/vcs/branchOperations.ts`
     - When troubleshooting a rewritten branch (rebase/squash/amend) that cannot be pushed to origin
     - When a genuine lease failure (remote moved underneath ADW) throws during `pr_creating` or any push phase
     - When working with `getHeadTreeHash`, `hasUncommittedChanges`, or `commitChanges` in `commitOperations.ts`
-    - When working with `removeWorktree`, `removeWorktreesForIssue`, or `killProcessesInDirectory`
+    - When working with `killProcessesInDirectory` in `adws/vcs/worktreeProcessKill.ts` (dev-server janitor dependency)
+    - When working with `getMainRepoPath` in `adws/vcs/worktreeOperations.ts` (used by `claudeAgent.ts` for `ADW_MAIN_REPO_PATH`)
     - When `copyClaudeAssetsToWorktree`, `ensureGitignoreEntry`, or `verifyAdwRegen` in `worktreeSetup.ts` is relevant
     - When adding tests for command-sequence correctness in `adws/vcs/__tests__/`
     - When working on the worktree-reuse gate (`decideWorktreeReuse`, `worktreeReuseGate.ts`), worktree probing (`probeWorktree`, `worktreeProbe.ts`), or resume-in-place decision logic
     - When troubleshooting worktree health signals (index.lock orphaned/live-held, interrupted rebase/merge/cherry-pick, registration healthy/locked/prunable/missing, live owner detection)
+    - NOTE: worktree create/remove/reset/list/find ops (`ensureWorktree`, `createWorktree`, etc.) are NOW on `GitContext` in `adws/gitContext/` — see feature-oqb76h-gitcontext-base-path-authority.md
 
 - app_docs/feature-9gjajh-github-api.md
   - Owns:
@@ -1869,10 +1870,14 @@
   - Owns:
     - adws/gitContext/**
     - adws/gitContext/__tests__/**
+    - adws/github/gitContextFactory.ts
   - Conditions:
-    - When working with `GitContext`, `GitContextOptions`, or `GitIdentity` in `adws/gitContext/`
+    - When working with `GitContext`, `GitContextOptions`, `GitIdentity`, or `GitContextLogger` in `adws/gitContext/`
     - When implementing or troubleshooting base-path resolution for self-host vs target repos (the single `resolveBasePath` authority)
     - When `worktreePathFor`, `commandEnv`, or construction-time identity validation of `GitContext` is relevant
-    - When migrating existing call sites away from `getWorktreePath(branch, baseRepoPath?)` optional-default to `GitContext`
+    - When calling or modifying `gitContextFor` or `gitContextForSync` in `adws/github/gitContextFactory.ts`
+    - When working with any worktree method on `GitContext`: `createWorktree`, `createWorktreeForNewBranch`, `ensureWorktree`, `getWorktreeForBranch`, `removeWorktree`, `removeWorktreesForIssue`, `listWorktrees`, `findWorktreeForIssue`, `worktreeExists`, `copyEnvToWorktree`, `resetWorktree`
+    - When adding a new call site that needs worktree operations (route through `gitContextFor`/`gitContextForSync`, not `vcs/worktreeOperations.ts`)
     - When the "wrong-repo worktree" class of bugs (#23, #33, #52, #56, #62, #119, #217, #223, #187) is being addressed structurally
-    - When adding unit tests for `adws/gitContext/` (pure path/env computation, no I/O mocking needed)
+    - When adding unit tests for `adws/gitContext/` (child_process/fs mocked; cwd/env assertions; self-host vs target base-path correctness property)
+    - When the `BRANCH_PREFIX_MAP` private copy in `gitContext.ts` needs to stay in sync with `adws/types/issueRouting.ts`
