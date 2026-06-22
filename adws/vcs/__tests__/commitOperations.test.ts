@@ -1,160 +1,105 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+/**
+ * Tests re-homed from vcs/commitOperations.ts onto the GitContext commitOps module (#662).
+ * Uses the injected-runner (ExecFn spy) pattern so no child_process mock is needed.
+ */
 
-vi.mock('child_process', () => ({ execSync: vi.fn() }));
-vi.mock('../../core', () => ({ log: vi.fn() }));
+import { describe, it, expect } from 'vitest';
+import { commitOps, isLeaseRejection } from '../../gitContext/commitOps';
 
-import { execSync } from 'child_process';
-import { getHeadTreeHash, hasUncommittedChanges, pushBranch } from '../commitOperations';
+type Call = { command: string; cwd: string };
 
-const mockExecSync = vi.mocked(execSync);
+function makeRunner(responses: Map<string, string | Error> = new Map()): { run: (cmd: string, cwd: string) => string; calls: Call[] } {
+  const calls: Call[] = [];
+  const run = (command: string, cwd: string): string => {
+    calls.push({ command, cwd });
+    const key = [...responses.keys()].find((k) => command.includes(k));
+    const val = key !== undefined ? responses.get(key) : '';
+    if (val instanceof Error) throw val;
+    return val ?? '';
+  };
+  return { run, calls };
+}
 
-beforeEach(() => {
-  mockExecSync.mockReset();
-});
-
-// ── getHeadTreeHash ────────────────────────────────────────────────────────────
+// ── getHeadTreeHash ──────────────────────────────────────────────────────────
 
 describe('getHeadTreeHash', () => {
-  it('returns the trimmed execSync output', () => {
-    mockExecSync.mockReturnValueOnce('abc123def456\n');
-
-    const result = getHeadTreeHash('/repo');
-
-    expect(result).toBe('abc123def456');
-  });
-
   it('calls git rev-parse "HEAD^{tree}" with the provided cwd', () => {
-    mockExecSync.mockReturnValueOnce('abc123\n');
-
-    getHeadTreeHash('/my/repo');
-
-    expect(mockExecSync).toHaveBeenCalledWith(
-      'git rev-parse "HEAD^{tree}"',
-      { encoding: 'utf-8', cwd: '/my/repo' },
-    );
+    const { run, calls } = makeRunner(new Map([['rev-parse', 'abc123\n']]));
+    commitOps.getHeadTreeHash(run, '/my/repo');
+    expect(calls[0].command).toBe('git rev-parse "HEAD^{tree}"');
+    expect(calls[0].cwd).toBe('/my/repo');
   });
 
-  it('passes cwd as undefined when not provided', () => {
-    mockExecSync.mockReturnValueOnce('def456\n');
-
-    getHeadTreeHash();
-
-    expect(mockExecSync).toHaveBeenCalledWith(
-      'git rev-parse "HEAD^{tree}"',
-      { encoding: 'utf-8', cwd: undefined },
-    );
+  it('returns trimmed output', () => {
+    const { run } = makeRunner(new Map([['rev-parse', 'abc123def456']]));
+    expect(commitOps.getHeadTreeHash(run, '/repo')).toBe('abc123def456');
   });
 });
 
-// ── hasUncommittedChanges ──────────────────────────────────────────────────────
+// ── hasUncommittedChanges ────────────────────────────────────────────────────
 
 describe('hasUncommittedChanges', () => {
   it('returns true for non-empty porcelain output', () => {
-    mockExecSync.mockReturnValueOnce(' M src/foo.ts\n');
-
-    expect(hasUncommittedChanges('/repo')).toBe(true);
+    const { run } = makeRunner(new Map([['status', ' M src/foo.ts\n']]));
+    expect(commitOps.hasUncommittedChanges(run, '/repo')).toBe(true);
   });
 
   it('returns false for empty output', () => {
-    mockExecSync.mockReturnValueOnce('');
-
-    expect(hasUncommittedChanges('/repo')).toBe(false);
+    const { run } = makeRunner(new Map([['status', '']]));
+    expect(commitOps.hasUncommittedChanges(run, '/repo')).toBe(false);
   });
 
   it('returns false for whitespace-only output', () => {
-    mockExecSync.mockReturnValueOnce('   \n  ');
-
-    expect(hasUncommittedChanges('/repo')).toBe(false);
+    const { run } = makeRunner(new Map([['status', '   \n  ']]));
+    expect(commitOps.hasUncommittedChanges(run, '/repo')).toBe(false);
   });
 
   it('calls git status --porcelain with the provided cwd', () => {
-    mockExecSync.mockReturnValueOnce('');
-
-    hasUncommittedChanges('/my/repo');
-
-    expect(mockExecSync).toHaveBeenCalledWith(
-      'git status --porcelain',
-      { encoding: 'utf-8', cwd: '/my/repo' },
-    );
-  });
-
-  it('passes cwd as undefined when not provided', () => {
-    mockExecSync.mockReturnValueOnce('');
-
-    hasUncommittedChanges();
-
-    expect(mockExecSync).toHaveBeenCalledWith(
-      'git status --porcelain',
-      { encoding: 'utf-8', cwd: undefined },
-    );
+    const { run, calls } = makeRunner(new Map([['status', '']]));
+    commitOps.hasUncommittedChanges(run, '/my/repo');
+    expect(calls[0].command).toBe('git status --porcelain');
+    expect(calls[0].cwd).toBe('/my/repo');
   });
 });
 
-// ── pushBranch ─────────────────────────────────────────────────────────────────
+// ── pushBranch ───────────────────────────────────────────────────────────────
 
 describe('pushBranch', () => {
-  it('issues fetch then force-with-lease push with provided cwd', async () => {
-    mockExecSync.mockReturnValueOnce('').mockReturnValueOnce('');
-
-    pushBranch('feature-x', '/repo');
-
-    expect(mockExecSync).toHaveBeenNthCalledWith(
-      1,
-      'git fetch origin "feature-x"',
-      { stdio: 'pipe', cwd: '/repo' },
-    );
-    expect(mockExecSync).toHaveBeenNthCalledWith(
-      2,
-      'git push --force-with-lease --force-if-includes -u origin "feature-x"',
-      { stdio: 'pipe', cwd: '/repo' },
-    );
+  it('issues fetch then force-with-lease push in order', () => {
+    const { run, calls } = makeRunner();
+    commitOps.pushBranch(run, 'feature-x', '/repo');
+    expect(calls[0].command).toBe('git fetch origin "feature-x"');
+    expect(calls[1].command).toBe('git push --force-with-lease --force-if-includes -u origin "feature-x"');
   });
 
-  it('passes cwd as undefined when not provided', async () => {
-    mockExecSync.mockReturnValueOnce('').mockReturnValueOnce('');
-
-    pushBranch('feature-x');
-
-    expect(mockExecSync).toHaveBeenNthCalledWith(
-      1,
-      'git fetch origin "feature-x"',
-      { stdio: 'pipe', cwd: undefined },
-    );
-    expect(mockExecSync).toHaveBeenNthCalledWith(
-      2,
-      'git push --force-with-lease --force-if-includes -u origin "feature-x"',
-      { stdio: 'pipe', cwd: undefined },
-    );
-  });
-
-  it('push command includes --force-with-lease (recovery mechanism)', async () => {
-    mockExecSync.mockReturnValueOnce('').mockReturnValueOnce('');
-
-    pushBranch('feature-x', '/repo');
-
-    const pushCall = mockExecSync.mock.calls[1][0] as string;
-    expect(pushCall).toContain('--force-with-lease');
+  it('passes the worktree cwd to both git commands', () => {
+    const { run, calls } = makeRunner();
+    commitOps.pushBranch(run, 'feature-x', '/repo');
+    expect(calls[0].cwd).toBe('/repo');
+    expect(calls[1].cwd).toBe('/repo');
   });
 
   it('tolerates a fetch failure (first push — no remote ref)', () => {
-    mockExecSync
-      .mockImplementationOnce(() => { throw new Error('fatal: no such remote ref feature-x'); })
-      .mockReturnValueOnce('');
-
-    expect(() => pushBranch('feature-x', '/repo')).not.toThrow();
-    expect(mockExecSync).toHaveBeenCalledTimes(2);
+    let pushCalled = false;
+    const run = (cmd: string, _cwd: string): string => {
+      if (cmd.includes('fetch')) throw new Error('fatal: no such remote ref feature-x');
+      pushCalled = true;
+      return '';
+    };
+    expect(() => commitOps.pushBranch(run, 'feature-x', '/repo')).not.toThrow();
+    expect(pushCalled).toBe(true);
   });
 
   it('throws a distinct lease error on stale-info rejection', () => {
     const leaseError = Object.assign(new Error('push rejected'), {
       stderr: ' ! [rejected] feature-x -> feature-x (stale info)',
     });
-    mockExecSync
-      .mockReturnValueOnce('')
-      .mockImplementationOnce(() => { throw leaseError; });
-
+    const run = (cmd: string): string => {
+      if (cmd.includes('push')) throw leaseError;
+      return '';
+    };
     let thrown: Error | undefined;
-    try { pushBranch('feature-x', '/repo'); } catch (e) { thrown = e as Error; }
+    try { commitOps.pushBranch(run, 'feature-x', '/repo'); } catch (e) { thrown = e as Error; }
     expect(thrown?.message).toMatch(/force-with-lease/);
     expect(thrown?.message).toMatch(/moved underneath/i);
   });
@@ -163,25 +108,44 @@ describe('pushBranch', () => {
     const leaseError = Object.assign(new Error('push rejected'), {
       stderr: ' ! [rejected] feature-x -> feature-x (remote ref updated since checkout)',
     });
-    mockExecSync
-      .mockReturnValueOnce('')
-      .mockImplementationOnce(() => { throw leaseError; });
-
+    const run = (cmd: string): string => {
+      if (cmd.includes('push')) throw leaseError;
+      return '';
+    };
     let thrown: Error | undefined;
-    try { pushBranch('feature-x', '/repo'); } catch (e) { thrown = e as Error; }
+    try { commitOps.pushBranch(run, 'feature-x', '/repo'); } catch (e) { thrown = e as Error; }
     expect(thrown?.message).toMatch(/force-with-lease/);
     expect(thrown?.message).toMatch(/manual/i);
   });
 
   it('rethrows non-lease errors without lease wording', () => {
     const networkError = new Error('fatal: unable to access: Could not resolve host: github.com');
-    mockExecSync
-      .mockReturnValueOnce('')
-      .mockImplementationOnce(() => { throw networkError; });
-
+    const run = (cmd: string): string => {
+      if (cmd.includes('push')) throw networkError;
+      return '';
+    };
     let thrown: Error | undefined;
-    try { pushBranch('feature-x', '/repo'); } catch (e) { thrown = e as Error; }
+    try { commitOps.pushBranch(run, 'feature-x', '/repo'); } catch (e) { thrown = e as Error; }
     expect(thrown?.message).toContain('Could not resolve host');
     expect(thrown?.message).not.toMatch(/force-with-lease/);
+  });
+});
+
+// ── isLeaseRejection ─────────────────────────────────────────────────────────
+
+describe('isLeaseRejection', () => {
+  it('returns true for stale info stderr', () => {
+    const err = Object.assign(new Error(), { stderr: 'stale info' });
+    expect(isLeaseRejection(err)).toBe(true);
+  });
+
+  it('returns true for remote ref updated since checkout stderr', () => {
+    const err = Object.assign(new Error(), { stderr: 'remote ref updated since checkout' });
+    expect(isLeaseRejection(err)).toBe(true);
+  });
+
+  it('returns false for unrelated errors', () => {
+    const err = new Error('Could not resolve host');
+    expect(isLeaseRejection(err)).toBe(false);
   });
 });

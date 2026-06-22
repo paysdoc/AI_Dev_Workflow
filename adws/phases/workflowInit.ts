@@ -41,12 +41,10 @@ import { GITHUB_PAT } from '../core/environment';
 import {
   ensureWorktree,
   getWorktreeForBranch,
-  mergeLatestFromDefaultBranch,
   copyEnvToWorktree,
   findWorktreeForIssue,
-  fetchAndResetToRemote,
 } from '../vcs';
-import { getDefaultBranch } from '../vcs/branchOperations';
+import { gitContextForSync } from '../github';
 import type { RepoContext, RepoIdentifier } from '../providers/types';
 import { Platform } from '../providers/types';
 import { createRepoContext } from '../providers/repoContext';
@@ -131,6 +129,7 @@ export async function initializeWorkflow(
   // Ensures child processes spawned by triggers don't rely on stale inherited GH_TOKEN.
   const resolvedRepoForAuth = repoInfo ?? getRepoInfo();
   activateGitHubAppAuth(resolvedRepoForAuth.owner, resolvedRepoForAuth.repo);
+  const gitCtx = gitContextForSync({ owner: resolvedRepoForAuth.owner, repo: resolvedRepoForAuth.repo, selfHost: !targetRepo });
 
   // Startup validation: GITHUB_PAT is required for PR approval when a GitHub App is configured.
   if (isGitHubAppConfigured() && !GITHUB_PAT) {
@@ -207,13 +206,11 @@ export async function initializeWorkflow(
   }
 
   // Setup worktree with branch sync
-  // When targeting an external repo, get default branch from that repo's workspace
-  const defaultBranchCwd = targetRepoWorkspacePath || undefined;
-  const defaultBranch = getDefaultBranch(defaultBranchCwd);
+  const defaultBranch = gitCtx.defaultBranch();
   let worktreePath: string;
   let branchName = '';
   if (options?.cwd) {
-    mergeLatestFromDefaultBranch(defaultBranch, options.cwd);
+    gitCtx.mergeLatestFromDefaultBranch(defaultBranch, options.cwd);
     worktreePath = options.cwd;
     log('Using provided worktree (merged latest code)', 'info');
   } else if (targetRepoWorkspacePath) {
@@ -229,7 +226,7 @@ export async function initializeWorkflow(
     if (issueWorktree) {
       branchName = issueWorktree.branchName;
       worktreePath = issueWorktree.worktreePath;
-      mergeLatestFromDefaultBranch(defaultBranch, worktreePath);
+      gitCtx.mergeLatestFromDefaultBranch(defaultBranch, worktreePath);
       copyEnvToWorktree(worktreePath, targetRepoWorkspacePath);
       log(`Reusing existing worktree found by issue pattern at ${worktreePath}`, 'info');
     } else {
@@ -237,13 +234,13 @@ export async function initializeWorkflow(
       const existingWorktree = getWorktreeForBranch(branchName);
       if (existingWorktree) {
         log(`Reusing existing worktree at ${existingWorktree}`, 'info');
-        mergeLatestFromDefaultBranch(defaultBranch, existingWorktree);
+        gitCtx.mergeLatestFromDefaultBranch(defaultBranch, existingWorktree);
         copyEnvToWorktree(existingWorktree, targetRepoWorkspacePath);
         worktreePath = existingWorktree;
       } else {
         worktreePath = ensureWorktree(branchName, defaultBranch, process.cwd());
         copyClaudeAssetsToWorktree(worktreePath);
-        fetchAndResetToRemote(defaultBranch, worktreePath);
+        gitCtx.fetchAndResetToRemote(defaultBranch, worktreePath);
       }
     }
     log(`Worktree path: ${worktreePath}`, 'info');
