@@ -162,6 +162,10 @@ export {
   ensureTargetRepoWorkspace,
 } from './targetRepoManager';
 
+// Launch-boundary GitContext adapter
+export { buildLaunchGitContext, resolveLaunchToken, resolveLaunchGitIdentity } from './launchGitContext';
+export type { LaunchGitContextDeps } from './launchGitContext';
+
 // Cost module (PhaseCostRecord, comment formatters)
 export type { PhaseCostRecord, CreatePhaseCostRecordsOptions } from '../cost';
 export {

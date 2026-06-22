@@ -22,6 +22,7 @@ import {
   parseTargetRepoArgs,
   parseOrchestratorArguments,
   buildRepoIdentifier,
+  buildLaunchGitContext,
   AgentStateManager,
   log,
   ensureLogsDirectory,
@@ -267,10 +268,12 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
+  const gitContext = buildLaunchGitContext(targetRepo);
   const repoId = buildRepoIdentifier(targetRepo);
-  const repoInfo: RepoInfo = { owner: repoId.owner, repo: repoId.repo };
+  const repoInfo: RepoInfo = { owner: gitContext.owner, repo: gitContext.repo };
 
-  const baseRepoPath = targetRepo ? ensureTargetRepoWorkspace(targetRepo) : process.cwd();
+  if (targetRepo) ensureTargetRepoWorkspace(targetRepo);
+  const baseRepoPath = gitContext.basePath;
 
   let result: Awaited<ReturnType<typeof executeMerge>> | undefined;
   const acquired = await runWithRawOrchestratorLifecycle(repoInfo, issueNumber, adwId, async () => {
