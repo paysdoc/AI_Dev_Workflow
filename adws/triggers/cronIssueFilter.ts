@@ -50,9 +50,14 @@ export interface OverlapDeferral {
 }
 
 /**
- * Dedup signals for the cron. Tracks which issues have had their SDLC workflow
- * spawned by this process. The merge path uses the spawn lock on disk
- * (via `shouldDispatchMerge`) rather than an in-memory set.
+ * Dedup signals for the cron. `spawns` is a fresh-spawn boot-window dedup set:
+ * it prevents the cron from re-spawning a workflow it just started before the
+ * child has had time to write its state or post its adw-id comment. It gates
+ * ONLY the `stage === null` (fresh) path in `evaluateIssue` and must NOT
+ * short-circuit the recovery stages (`retriable` / `phase_timeout`); those are
+ * deduped by the on-disk spawn gate (via `acquireIssueSpawnLock`). The merge
+ * path uses the spawn lock on disk (via `shouldDispatchMerge`) rather than an
+ * in-memory set.
  */
 export interface ProcessedSets {
   readonly spawns: ReadonlySet<number>;
@@ -64,10 +69,14 @@ export interface ProcessedSets {
  * `awaiting_merge` bypasses the grace period entirely — the original orchestrator
  * has already exited and there is no race condition risk.
  *
- * `processed.spawns` tracks issues whose SDLC workflow this process has already
- * spawned. The merge path uses the spawn lock on disk (via `shouldDispatchMerge`)
- * so an issue in `spawns` may still be eligible for the merge path once it
- * transitions into `awaiting_merge`.
+ * `processed.spawns` is a fresh-spawn boot-window dedup set: it gates ONLY the
+ * `stage === null` (fresh) path, preventing a re-poll from spawning a second
+ * workflow before the first child writes any state. It must NOT short-circuit
+ * the recovery stages (`retriable` / `phase_timeout`) — an `abandoned` issue
+ * this process previously spawned must still be eligible for takeover on a
+ * subsequent poll (issue #653). The merge path uses the spawn lock on disk (via
+ * `shouldDispatchMerge`) so an issue in `spawns` may still be eligible for the
+ * merge path once it transitions into `awaiting_merge`.
  *
  * @param issue                - The issue to evaluate
  * @param now                  - Current timestamp in ms
@@ -95,9 +104,12 @@ export function evaluateIssue(
   }
 
   // Resolve stage first so we can dispatch to the right dedup set. The spawn
-  // dedup must NOT short-circuit the awaiting_merge path: an issue this process
-  // originally spawned legitimately re-enters the filter once it transitions
-  // into awaiting_merge, and the merge orchestrator must be allowed to run.
+  // dedup (processed.spawns) is applied ONLY on the fresh stage === null path
+  // and must NOT short-circuit awaiting_merge OR the recovery stages
+  // (retriable / phase_timeout). An issue this process originally spawned
+  // legitimately re-enters the filter once it transitions into awaiting_merge
+  // (merge orchestrator must be allowed to run) or into a recoverable stage
+  // (abandoned → retriable → takeover must be reachable without a cron restart).
   const resolution = resolveStage(issue.comments);
 
   // awaiting_merge bypasses grace period — spawn merge orchestrator immediately.
@@ -127,10 +139,6 @@ export function evaluateIssue(
     return { eligible: false, reason: 'human_gated' };
   }
 
-  if (processed.spawns.has(issue.number)) {
-    return { eligible: false, reason: 'processed' };
-  }
-
   // Prefer state file phase timestamp; fall back to issue.updatedAt for fresh issues
   const activityMs = resolution.lastActivityMs ?? new Date(issue.updatedAt).getTime();
   if (now - activityMs < gracePeriodMs) {
@@ -139,6 +147,18 @@ export function evaluateIssue(
 
   const { stage } = resolution;
   if (stage === null) {
+    // processedSpawns dedups the FRESH first spawn only: it guards the boot window
+    // between this cron spawning a workflow and the child writing its state /
+    // posting its adw-id comment (during which the issue still reads as fresh and
+    // would be re-spawned every poll). It must NOT gate the recovery branches
+    // below (retriable / phase_timeout): an abandoned issue this cron already
+    // spawned must remain eligible for takeover, or it strands for the cron's
+    // entire lifetime (issue #653). The on-disk spawnGate (acquired in
+    // evaluateCandidate / runWithOrchestratorLifecycle) is the authoritative
+    // concurrency guard for in-progress work.
+    if (processed.spawns.has(issue.number)) {
+      return { eligible: false, reason: 'processed' };
+    }
     // Apply the label-recovery gate only when this is truly fresh (no prior adwId)
     // and an evaluator has been injected. Issues with a non-null adwId bypass the gate
     // and reach the existing takeover machinery (evaluated by evaluateCandidate).

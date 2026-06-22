@@ -85,7 +85,7 @@ export function addDependencyToBody(body: string, upgNumber: number): string {
       : body.length;
     const section = body.slice(headingIdx, sectionEnd);
     if (section.includes(ref)) return body;
-    const insert = `\n- ${ref}`;
+    const insert = `\n- ${ref}\n`;
     return body.slice(0, sectionEnd) + insert + body.slice(sectionEnd);
   }
 

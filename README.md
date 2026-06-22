@@ -513,9 +513,9 @@ adws/                   # ADW workflow system
 │   │   ├── resolveVerdict.test.ts
 │   │   ├── resumePolicy.test.ts
 │   │   ├── slackNotifier.test.ts
+│   │   ├── stackCoherenceCheck.test.ts
 │   │   ├── stageClassifier.test.ts
 │   │   ├── stateHelpers.test.ts
-│   │   ├── stackCoherenceCheck.test.ts
 │   │   ├── stepDefDetection.test.ts
 │   │   ├── testReportParser.test.ts
 │   │   ├── testVerdict.test.ts
@@ -531,10 +531,10 @@ adws/                   # ADW workflow system
 │   ├── authGate.ts     # Host-wide auth gate: detects auth failures, writes paused_auth state, triggers Slack alerts
 │   ├── claudeStreamParser.ts  # Claude JSONL stream parsing
 │   ├── conditionalDocsRegistry.ts  # Parse/serialize/query .adw/conditional_docs.md; ConditionalDocEntry and ConditionalDocsRegistry types; glob-based ownership routing (findOwningEntry)
-│   ├── docsGuards.ts  # Post-write guards for app_docs/: bloat detection (line-count ceiling) and regrowth detection (overlapping Owns: globs between entries); runDocsGuards composes both
 │   ├── config.ts
 │   ├── constants.ts    # Orchestrator ID constants
 │   ├── devServerLifecycle.ts  # Dev server spawn, health probe, and cleanup helpers
+│   ├── docsGuards.ts  # Post-write guards for app_docs/: bloat detection (line-count ceiling) and regrowth detection (overlapping Owns: globs between entries); runDocsGuards composes both
 │   ├── environment.ts  # Environment variable accessors
 │   ├── hashComputer.ts # SHA256 hash of declared hashInputs files — "current framework version" primitive
 │   ├── heartbeat.ts    # Liveness ticker writing lastSeenAt to state on a fixed interval
@@ -559,8 +559,8 @@ adws/                   # ADW workflow system
 │   ├── resumePolicy.ts  # Bounded N-cap resume policy: nextResumeAction computes RESUME/ESCALATE; human_gated stage + escalate_human_gated decision on cap exhaustion
 │   ├── retryOrchestrator.ts
 │   ├── slackNotifier.ts  # Slack Incoming Webhook client for error/problem alerting
-│   ├── stageClassifier.ts  # Exhaustive StageClass taxonomy (classifyStage / classifyStageString) — six-class recovery routing (active/awaiting_merge/retriable/terminal/human_gated/phase_timeout) across cron, takeover, and webhook consumers
 │   ├── stackCoherenceCheck.ts  # Pure stack-coherence check — language coherence + Gherkin mandate (stackCoherenceCheck, StackCoherenceInput/Result/Warning)
+│   ├── stageClassifier.ts  # Exhaustive StageClass taxonomy (classifyStage / classifyStageString) — six-class recovery routing (active/awaiting_merge/retriable/resumable/terminal/human_gated) across cron, takeover, and webhook consumers
 │   ├── stateHelpers.ts
 │   ├── stepDefDetection.ts  # Step definition file-extension detection by BDD framework (stepDefExtensionsFor, hasStepDefinitions, isGherkinFramework)
 │   ├── targetRepoManager.ts
@@ -646,6 +646,7 @@ adws/                   # ADW workflow system
 │   └── types.ts
 ├── phases/             # Workflow phase implementations
 │   ├── __tests__/      # Vitest unit tests
+│   │   ├── branchIdentityFallback.test.ts
 │   │   ├── branchNameResolution.test.ts
 │   │   ├── gherkinFreeze.test.ts
 │   │   ├── orchestratorLock.test.ts
@@ -663,10 +664,9 @@ adws/                   # ADW workflow system
 │   ├── branchIdentityFallback.ts  # Slug-agnostic branch recovery — findExistingBranchForIssue, recoverAdwIdForBranch
 │   ├── branchNameResolution.ts  # Branch name resolution for worktree takeover paths
 │   ├── diffEvaluationPhase.ts  # LLM diff evaluation phase (safe vs regression_possible)
-│   ├── docsSelfCheck.ts  # Post-write self-check phase: runs docsGuards against app_docs/ and opens a GitHub issue for each bloat or regrowth flag
+│   ├── docsSelfCheck.ts  # Post-write docs self-check: runs bloat/regrowth guards after documentAgent writes; opens a GitHub issue for each violation
 │   ├── gherkinFreeze.ts  # Snapshots, detects changes to, and restores .feature files around the fix loop
 │   ├── buildPhase.ts
-│   ├── docsSelfCheck.ts  # Post-write docs self-check: runs bloat/regrowth guards after documentAgent writes; routes violations to a refactor issue
 │   ├── documentPhase.ts
 │   ├── index.ts
 │   ├── depauditSetup.ts  # depaudit setup and secret propagation (used by adw_init)

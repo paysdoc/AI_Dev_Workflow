@@ -345,6 +345,11 @@
     - When adding a new handoff stage that bypasses the cron grace period
     - When troubleshooting `awaiting_merge` issues not being picked up by the cron
     - When working with `deriveOrchestratorScript()` and adding a new orchestrator mapping
+    - When working with `ProcessedSets`, `processed.spawns`, or the `processedSpawns` dedup set in the cron
+    - When an abandoned issue strands and the same cron process never re-spawns it (issue #653 class)
+    - When `evaluateIssue` returns `eligible:false reason:'processed'` for a retriable or abandoned issue
+    - When scoping the boot-window dedup guard so it does not block `retriable` or `phase_timeout` recovery
+    - When reasoning about which concurrency guard is authoritative for in-progress work (`acquireIssueSpawnLock` vs `processedSpawns`)
 
 - app_docs/feature-01s6z7-delete-legacy-e2e-machinery.md
   - Conditions:
