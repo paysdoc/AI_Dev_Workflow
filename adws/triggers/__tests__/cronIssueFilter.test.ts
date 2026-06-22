@@ -344,3 +344,60 @@ describe('filterEligibleIssues — human_gated annotation', () => {
     expect(eligible.map(e => e.issue.number)).toEqual([11]);
   });
 });
+
+// ── evaluateIssue — processedSpawns must not block recovery (#653) ───────────
+
+describe('evaluateIssue — processedSpawns must not block recovery (#653)', () => {
+  it('abandoned issue already in processedSpawns stays eligible for takeover (#653)', () => {
+    const issue = makeIssue({ number: 638, updatedAt: OLD_DATE });
+    const resolveStage = () => makeResolution('abandoned', 'adw-638', NOW - 200_000);
+    const result = evaluateIssue(issue, NOW, { spawns: new Set([638]) }, GRACE_PERIOD_MS, resolveStage);
+    expect(result.eligible).toBe(true);
+    expect(result.action).toBe('spawn');
+    expect(result.adwId).toBe('adw-638');
+  });
+
+  it('phase_timeout issue already in processedSpawns stays eligible for takeover (#653)', () => {
+    const issue = makeIssue({ number: 637, updatedAt: OLD_DATE });
+    const resolveStage = () => makeResolution('phase_timeout', 'tg4om4', NOW - 200_000);
+    const result = evaluateIssue(issue, NOW, { spawns: new Set([637]) }, GRACE_PERIOD_MS, resolveStage);
+    expect(result.eligible).toBe(true);
+    expect(result.action).toBe('spawn');
+    expect(result.adwId).toBe('tg4om4');
+  });
+
+  it('fresh (stage === null) issue in processedSpawns stays ineligible — boot-window dedup preserved', () => {
+    const issue = makeIssue({ number: 999, updatedAt: OLD_DATE });
+    const resolveStage = () => ({ stage: null, adwId: null, lastActivityMs: null });
+    const result = evaluateIssue(issue, NOW, { spawns: new Set([999]) }, GRACE_PERIOD_MS, resolveStage);
+    expect(result.eligible).toBe(false);
+    expect(result.reason).toBe('processed');
+  });
+
+  it('fresh (stage === null) issue NOT in processedSpawns is eligible — unchanged', () => {
+    const issue = makeIssue({ number: 1000, updatedAt: OLD_DATE });
+    const resolveStage = () => ({ stage: null, adwId: null, lastActivityMs: null });
+    const result = evaluateIssue(issue, NOW, { spawns: new Set() }, GRACE_PERIOD_MS, resolveStage);
+    expect(result.eligible).toBe(true);
+    expect(result.action).toBe('spawn');
+  });
+});
+
+describe('filterEligibleIssues — abandoned in processedSpawns appears in eligible, not filtered (#653)', () => {
+  it('abandoned issue in processedSpawns appears eligible and is not annotated as (processed)', () => {
+    const issue = makeIssue({ number: 638, createdAt: OLD_DATE, updatedAt: OLD_DATE });
+    const resolveStage = () => makeResolution('abandoned', 'adw-638', NOW - 200_000);
+
+    const { eligible, filteredAnnotations } = filterEligibleIssues(
+      [issue],
+      NOW,
+      { spawns: new Set([638]) },
+      GRACE_PERIOD_MS,
+      resolveStage,
+    );
+
+    expect(eligible.map(e => e.issue.number)).toContain(638);
+    expect(eligible.find(e => e.issue.number === 638)?.action).toBe('spawn');
+    expect(filteredAnnotations.join(',')).not.toContain('#638(processed)');
+  });
+});
