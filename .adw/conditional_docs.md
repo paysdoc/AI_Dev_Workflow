@@ -1869,12 +1869,17 @@
   - Owns:
     - adws/gitContext/**
     - adws/gitContext/__tests__/**
+    - adws/gitContext/commands/**
+    - adws/github/gitContextFactory.ts
   - Conditions:
     - When working with `GitContext`, `GitContextOptions`, `GitIdentity`, `ExecFn`, or `GitContextDeps` in `adws/gitContext/`
     - When implementing or troubleshooting base-path resolution for self-host vs target repos (the single `resolveBasePath` authority)
     - When `worktreePathFor`, `commandEnv`, `defaultBranch`, or construction-time identity validation of `GitContext` is relevant
-    - When the per-command env injection chokepoint (`#run`) or the injectable exec seam (`GitContextDeps`) is relevant
+    - When the per-command env injection chokepoint (`#run`), `usePat`, or stdin `input` forwarding is relevant
     - When `process.env` non-mutation or two-context `GH_TOKEN` isolation in a multi-repo long-lived process is relevant
-    - When migrating existing call sites away from `getWorktreePath(branch, baseRepoPath?)` optional-default to `GitContext`
-    - When the "wrong-repo worktree" or `GH_TOKEN` bleed class of bugs (#23, #33, #52, #56, #62, #119, #217, #223, #187) is being addressed structurally
-    - When adding unit tests for `adws/gitContext/` (env-injection, non-mutation, or two-context isolation tests in `gitContextOperations.test.ts`)
+    - When working with `adws/gitContext/commands/` pure command builders or parsers (issue, PR, label, board)
+    - When implementing or troubleshooting `gitContextForRepo`, `deriveGitIdentity`, or `clearSelfHostCache` in `adws/github/gitContextFactory.ts`
+    - When the `activeRepo`/`ensureAppAuthForRepo` removal, `refreshTokenIfNeeded` repo-explicit change, or the auth-bleed fix is relevant
+    - When adding a new `gh` operation method to `GitContext` (follow the thin-method + pure-builder + parser pattern)
+    - When the "wrong-repo worktree" or `GH_TOKEN` bleed class of bugs (#23, #33, #52, #56, #62, #119, #217, #223, #187, #181) is being addressed structurally
+    - When adding unit tests for `adws/gitContext/` (env-injection, non-mutation, `usePat`, two-context isolation, or command builder/parser tests)
