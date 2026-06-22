@@ -1878,3 +1878,16 @@
     - When migrating existing call sites away from `getWorktreePath(branch, baseRepoPath?)` optional-default to `GitContext`
     - When the "wrong-repo worktree" or `GH_TOKEN` bleed class of bugs (#23, #33, #52, #56, #62, #119, #217, #223, #187) is being addressed structurally
     - When adding unit tests for `adws/gitContext/` (env-injection, non-mutation, or two-context isolation tests in `gitContextOperations.test.ts`)
+
+- app_docs/feature-k2tkdn-gitcontext-boundary-constructor.md
+  - Owns:
+    - adws/core/launchGitContext.ts
+    - adws/core/__tests__/launchGitContext.test.ts
+  - Conditions:
+    - When working with `buildLaunchGitContext`, `LaunchGitContextDeps`, `resolveLaunchToken`, or `resolveLaunchGitIdentity` in `adws/core/launchGitContext.ts`
+    - When constructing a `GitContext` at a process launch boundary (cron entry-script guard, `adwMerge.main()`, `initializeWorkflow`)
+    - When troubleshooting the cron's module-scope `cronGitContext` or the `process.argv[1]` entry-script guard
+    - When `EvaluateCandidateInput.gitContext` or `WorkflowConfig.gitContext` are relevant in `takeoverHandler.ts` or `workflowInit.ts`
+    - When the "wrong-base-repo on takeover path" (`spawnSync ENOENT`, vestmatic #187) class of bug is being fixed or investigated
+    - When wiring `gitContext.basePath` into worktree creation or `ensureWorktree` calls as the self-host base path replacement for `process.cwd()`
+    - When adding unit tests for the boundary constructor (target args → target workspace; absent args → framework repo root; injectable deps)
