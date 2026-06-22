@@ -7,6 +7,22 @@
  * package carries no dependency on ADW-specific globals.
  */
 
+/**
+ * Injectable command runner seam — exists for hermetic testing and
+ * standalone-package reuse. The default is a thin execSync wrapper;
+ * tests inject a spy that records invocations without spawning real processes.
+ */
+export type ExecFn = (command: string, options: { cwd: string; env: NodeJS.ProcessEnv }) => string;
+
+/**
+ * Optional dependency bag for GitContext. Follows the ADW Deps idiom
+ * (JanitorDeps, MergeDeps, ReconcileDeps). All fields optional so existing
+ * call sites `new GitContext(options)` continue to work unchanged.
+ */
+export interface GitContextDeps {
+  exec?: ExecFn;
+}
+
 /** Git author and committer identity for child-process env overlays. */
 export interface GitIdentity {
   authorName: string;

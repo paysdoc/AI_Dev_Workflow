@@ -13,7 +13,12 @@
  */
 
 import * as path from 'path';
-import type { GitContextOptions, GitIdentity } from './types';
+import { execSync } from 'child_process';
+import type { GitContextOptions, GitIdentity, ExecFn, GitContextDeps } from './types';
+
+/** Single real spawn site for the package — a thin execSync wrapper. */
+const defaultExec: ExecFn = (command, options) =>
+  execSync(command, { ...options, encoding: 'utf-8' }) as string;
 
 function assertCompleteIdentity(options: GitContextOptions): void {
   if (!options.owner || !options.owner.trim()) {
@@ -68,8 +73,9 @@ export class GitContext {
   readonly #selfHost: boolean;
   readonly #token: string;
   readonly #gitIdentity: GitIdentity;
+  readonly #exec: ExecFn;
 
-  constructor(options: GitContextOptions) {
+  constructor(options: GitContextOptions, deps: GitContextDeps = {}) {
     assertCompleteIdentity(options);
     this.#owner = options.owner;
     this.#repo = options.repo;
@@ -77,6 +83,7 @@ export class GitContext {
     this.#token = options.token;
     this.#gitIdentity = options.gitIdentity;
     this.#basePath = resolveBasePath(options);
+    this.#exec = deps.exec ?? defaultExec;
   }
 
   get basePath(): string {
@@ -111,5 +118,23 @@ export class GitContext {
       GIT_COMMITTER_NAME: this.#gitIdentity.committerName,
       GIT_COMMITTER_EMAIL: this.#gitIdentity.committerEmail,
     };
+  }
+
+  /**
+   * Single spawn chokepoint — explicit cwd (base path) + per-command env
+   * (token + git identity). Never mutates process.env.
+   */
+  #run(command: string): string {
+    return this.#exec(command, { cwd: this.#basePath, env: this.commandEnv(process.env) }).trim();
+  }
+
+  /**
+   * Representative read op: fetches the default branch from GitHub.
+   * Identity-driven (explicit owner/repo) and token-injected via #run().
+   */
+  defaultBranch(): string {
+    return this.#run(
+      `gh repo view ${this.#owner}/${this.#repo} --json defaultBranchRef --jq .defaultBranchRef.name`,
+    );
   }
 }
