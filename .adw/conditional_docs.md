@@ -1859,3 +1859,15 @@
     - When the bounded resume cap, `human_gated` stage, or `escalate_human_gated` decision is relevant
     - When understanding how `phase_timeout` recovery is cap-gated (#639) and then probe-gated (#638: reuse-in-place if healthy, else reset-from-remote)
     - When understanding the unified `recoverViaResumeInPlaceOrReset` seam for `abandoned` and `phase_timeout` recoverable confirmed-dead stages
+
+- app_docs/feature-oqb76h-gitcontext-base-path-authority.md
+  - Owns:
+    - adws/gitContext/**
+    - adws/gitContext/__tests__/**
+  - Conditions:
+    - When working with `GitContext`, `GitContextOptions`, or `GitIdentity` in `adws/gitContext/`
+    - When implementing or troubleshooting base-path resolution for self-host vs target repos (the single `resolveBasePath` authority)
+    - When `worktreePathFor`, `commandEnv`, or construction-time identity validation of `GitContext` is relevant
+    - When migrating existing call sites away from `getWorktreePath(branch, baseRepoPath?)` optional-default to `GitContext`
+    - When the "wrong-repo worktree" class of bugs (#23, #33, #52, #56, #62, #119, #217, #223, #187) is being addressed structurally
+    - When adding unit tests for `adws/gitContext/` (pure path/env computation, no I/O mocking needed)
