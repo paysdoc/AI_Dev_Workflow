@@ -28,7 +28,9 @@ import {
   readAdwYmlConfig,
   type AdwYmlConfig,
   buildLaunchGitContext,
+  crossCheckRepoIdentity,
 } from '../core';
+import type { RepoIdentity } from '../types/agentTypes';
 import type { GitContext } from '../gitContext';
 import {
   fetchGitHubIssue,
@@ -310,12 +312,24 @@ export async function initializeWorkflow(
   log(`State: ${orchestratorStatePath}`, 'info');
   log(`Logs: ${logsDir}`, 'info');
 
+  // Derive launch identity from the boundary GitContext; fall back to the already-resolved
+  // launch repo info when the context is unavailable (e.g. test fixtures with fake remotes).
+  const launchRepoIdentity: RepoIdentity = gitContext
+    ? { owner: gitContext.owner, repo: gitContext.repo }
+    : { owner: resolvedRepoForAuth.owner, repo: resolvedRepoForAuth.repo };
+
+  // Cross-check (not source of truth): if a prior run persisted a divergent identity for
+  // this adwId, fail closed before any worktree/gh work rather than operate on the wrong repo.
+  const priorTopLevel = AgentStateManager.readTopLevelState(resolvedAdwId);
+  crossCheckRepoIdentity(launchRepoIdentity, priorTopLevel?.repoIdentity);
+
   // Initialize top-level workflow state file
   AgentStateManager.writeTopLevelState(resolvedAdwId, {
     adwId: resolvedAdwId,
     issueNumber,
     workflowStage: 'starting',
     orchestratorScript: deriveOrchestratorScript(orchestratorName),
+    repoIdentity: launchRepoIdentity,
     // Conditionally include branchName so options.cwd path never clobbers a persisted name.
     ...(branchName ? { branchName } : {}),
   });

@@ -166,6 +166,9 @@ export {
 export { buildLaunchGitContext, resolveLaunchToken, resolveLaunchGitIdentity } from './launchGitContext';
 export type { LaunchGitContextDeps } from './launchGitContext';
 
+// Repo identity cross-check (launch-boundary persistence and resume tripwire)
+export { crossCheckRepoIdentity, sameRepoIdentity, RepoIdentityMismatchError } from './repoIdentityCrossCheck';
+
 // Cost module (PhaseCostRecord, comment formatters)
 export type { PhaseCostRecord, CreatePhaseCostRecordsOptions } from '../cost';
 export {

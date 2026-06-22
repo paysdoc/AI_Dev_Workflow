@@ -232,6 +232,20 @@ export interface PhaseExecutionState {
 }
 
 /**
+ * Repository identity (owner/repo) for a workflow. Persisted into top-level
+ * state at initialization as a launch-boundary cross-check — NOT a source of
+ * truth. A resuming process always uses its own launch identity; this value
+ * exists only to detect (not silently resolve) a divergence. Distinct from
+ * GitIdentity (git author/committer) and the provider RepoIdentifier.
+ */
+export interface RepoIdentity {
+  /** GitHub owner (organisation or user). */
+  owner: string;
+  /** Repository name (without the owner prefix). */
+  repo: string;
+}
+
+/**
  * Core agent state stored in state.json.
  * Contains all context needed for workflow execution and recovery.
  */
@@ -284,6 +298,13 @@ export interface AgentState {
   resumeAttempts?: number;
   /** Per-phase execution state map: phaseName → PhaseExecutionState */
   phases?: Record<string, PhaseExecutionState>;
+  /**
+   * Repo identity (owner/repo) recorded at workflow init from the launch
+   * boundary (GitContext). Read on resume as a cross-check only; the launch
+   * boundary remains authoritative. Optional so pre-#665 state resumes without
+   * backfill (story 15).
+   */
+  repoIdentity?: RepoIdentity;
   /** Orchestrator script path (e.g. "adws/adwSdlc.tsx") */
   orchestratorScript?: string;
 }
