@@ -14,7 +14,7 @@ ADW is an agentic SDLC framework: it turns issues on GitHub, GitLab, or Jira int
 - **Multi-agent passive review** — review agents read scenario proof and captured screenshots, classifying findings as Blockers (auto-patched by `patchAgent` for general failures or `refactorAgent` for coding-guideline violations, via `reviewPatchHelpers`) or Tech Debt (logged only).
 - **HITL-gated auto-merge** — every cron tick re-evaluates `(no hitl label) OR (PR approved)`; merge is deferred while the gate is closed, and `## Cancel` is the scorched-earth manual override.
 - **Retry and Cancel directives** — `## Retry` resets a `merge_blocked` workflow to `awaiting_merge` (state-only, no worktree teardown); `## Cancel` kills the orchestrator, removes the worktree, and re-queues the issue.
-- **Repo-context authority (`GitContext`)** — a deep module (`adws/gitContext/`) constructed once at each process's launch boundary from its explicit identity (`owner`, `repo`, `selfHost` flag, token, git author/committer); base-path resolution (self-host → framework repo root; target → target-repos workspace) lives only in the constructor, with no optional base path and no `cwd` fallback; per-command auth injection ensures two contexts in the same process cannot cross-contaminate tokens.
+- **GitContext repo-context authority** — `adws/gitContext/` is a deep module that owns every git and `gh` interaction; it is constructed once at each process's launch boundary with mandatory owner/repo/token/gitIdentity fields (no optional cwd fallback), resolves the correct base path in its constructor (self-host → framework root; target → target-repos workspace), and applies auth per spawned-command environment rather than by mutating a process-global, eliminating the ~13-episode wrong-repo and GH_TOKEN-bleed class of bugs.
 - **Multi-provider abstraction** — pluggable `IssueTracker` and `CodeHost` interfaces (`RepoContext`) with GitHub, GitLab, and Jira issue trackers and GitHub/GitLab code hosts.
 - **Project board automation** — `BoardManager` provider drives GitHub Projects V2 column transitions as a workflow progresses.
 - **Two automation triggers** — `trigger_cron.ts` polls every 20 s; `trigger_webhook.ts` receives HMAC-signed GitHub webhooks for instant pickup, with optional Cloudflare tunnel lifecycle.
@@ -598,7 +598,7 @@ adws/                   # ADW workflow system
 ├── gitContext/         # Repo-context authority deep module (GitContext)
 │   ├── __tests__/      # Vitest unit tests
 │   │   └── gitContext.test.ts
-│   ├── gitContext.ts   # GitContext class — base-path resolution, worktree-path lookup, per-command env injection
+│   ├── gitContext.ts   # GitContext class — mandatory identity, base-path resolution in constructor, worktree-path lookup, per-command env injection, no cwd fallback
 │   ├── index.ts        # Public surface (GitContext class + GitIdentity/GitContextOptions types)
 │   └── types.ts        # GitIdentity and GitContextOptions interfaces
 ├── vcs/                # Version control operations (git)
