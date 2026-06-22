@@ -6,4 +6,4 @@
  */
 
 export { GitContext } from './gitContext';
-export type { GitIdentity, GitContextOptions } from './types';
+export type { GitIdentity, GitContextOptions, ExecFn, GitContextDeps } from './types';
