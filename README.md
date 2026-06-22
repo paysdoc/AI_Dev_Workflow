@@ -506,6 +506,7 @@ adws/                   # ADW workflow system
 │   │   ├── heartbeat.test.ts
 │   │   ├── hungOrchestratorDetector.test.ts
 │   │   ├── issueClassifier.test.ts
+│   │   ├── launchGitContext.test.ts
 │   │   ├── phaseRunner.test.ts
 │   │   ├── processLiveness.test.ts
 │   │   ├── projectConfig.test.ts
@@ -543,6 +544,7 @@ adws/                   # ADW workflow system
 │   ├── index.ts
 │   ├── issueClassifier.ts
 │   ├── jsonParser.ts
+│   ├── launchGitContext.ts  # Boundary constructor: builds a GitContext from process launch arguments (cron, orchestrators) or falls back to self-host framework root
 │   ├── logger.ts       # Structured logging utilities
 │   ├── modelRouting.ts # Model/effort routing utilities
 │   ├── orchestratorCli.ts  # Shared CLI parsing utilities
