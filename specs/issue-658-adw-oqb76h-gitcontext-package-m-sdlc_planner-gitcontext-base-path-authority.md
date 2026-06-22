@@ -95,7 +95,7 @@ Execute every step in order, top to bottom.
 
 ### 2. Implement base-path resolution and validation (`adws/gitContext/gitContext.ts`)
 - Import only Node built-ins (`path`) and the local `./types`. Import nothing from `adws/*`.
-- Add module-private `assertCompleteIdentity(options: GitContextOptions): void`: guard-clause throws (clear `GitContext: ...` messages) for empty/whitespace `owner`, `repo`, `token`, each `gitIdentity` field, `frameworkRepoRoot`, and `targetReposDir`. Mirror `validateRepoIdentifier`'s loud style.
+- Add module-private `assertCompleteIdentity(options: GitContextOptions): void`: guard-clause throws (clear `GitContext: ...` messages) for empty/whitespace `owner`, `repo`, `token`, each `gitIdentity` field, `frameworkRepoRoot`, and `targetReposDir`, **and for an omitted/non-boolean `selfHost` discriminator** (`typeof options.selfHost !== 'boolean'`, so a missing flag throws while both `true` and `false` are accepted — story 23 / AC2 list the self-host flag as a mandatory field). Mirror `validateRepoIdentifier`'s loud style.
 - Add module-private `resolveBasePath(options: GitContextOptions): string` — the **single** self-host-vs-target decision: `selfHost ? frameworkRepoRoot : path.join(targetReposDir, owner, repo)`. This is the only base-path derivation in the module.
 - Add module-private `sanitizeBranchName(branch: string): string` reproducing `worktreeOperations.ts`'s regex (`/[/\\:*?"<>|`]/g` → `'-'`).
 
@@ -113,7 +113,7 @@ Execute every step in order, top to bottom.
 ### 5. Write unit tests (`adws/gitContext/__tests__/gitContext.test.ts`)
 - Mirror the `describe`/`it` grouping and deterministic-assertion style of `repoContext.test.ts`, and the `toThrow(/.../)` loud-failure style of `worktreeReset.test.ts`. Use a shared `validOptions()` helper returning a complete `GitContextOptions` (self-host and target variants).
 - **Base-path selection** group: self-host → `basePath === frameworkRepoRoot`; target → `basePath === path.join(targetReposDir, owner, repo)`.
-- **Incomplete identity** group: each of empty `owner`, empty `repo`, empty `token`, each empty `gitIdentity` field, empty `frameworkRepoRoot`, empty `targetReposDir` → `expect(() => new GitContext(...)).toThrow(/GitContext/)`.
+- **Incomplete identity** group: each of empty `owner`, empty `repo`, an omitted/non-boolean `selfHost` discriminator (e.g. `undefined`), empty `token`, each empty `gitIdentity` field, empty `frameworkRepoRoot`, empty `targetReposDir` → `expect(() => new GitContext(...)).toThrow(/GitContext/)`. (The discriminator case backs scenario §3's `the self-host/target discriminator` row.)
 - **worktree-path-under-base** group: self-host `worktreePathFor('feature-x')` === `join(frameworkRepoRoot, '.worktrees', 'feature-x')`; target `worktreePathFor('feature/issue-1-x')` sanitizes the slash and nests under the target workspace `.worktrees`; assert the result is unaffected by `process.cwd()` (compute an expected path from `basePath` only); empty branch throws.
 - **Isolation** group: two contexts (one self-host, one target with a different `owner/repo`) constructed in the same test resolve distinct `basePath`/`worktreePathFor` values and distinct `commandEnv().GH_TOKEN`.
 - **commandEnv** group: result carries the token + all four `GIT_*` vars; `process.env.GH_TOKEN` is unchanged after the call; a passed `base` object is not mutated and its unrelated keys are preserved.
@@ -134,6 +134,7 @@ Execute every step in order, top to bottom.
 
 ### Edge Cases
 - Empty or whitespace-only `owner`, `repo`, `token`, or any `gitIdentity` field → loud construction error.
+- Omitted or non-boolean `selfHost` discriminator → loud construction error (mirrors scenario §3's discriminator case).
 - Empty `frameworkRepoRoot` (self-host) or `targetReposDir` (target) injected config → loud construction error.
 - Branch names containing `/`, `\`, `:`, `*`, `?`, `"`, `<`, `>`, `|`, or backtick → sanitized to `-` in `worktreePathFor`.
 - Empty `branch` passed to `worktreePathFor` → throws.
@@ -144,7 +145,7 @@ Execute every step in order, top to bottom.
 ## Acceptance Criteria
 - The new module `adws/gitContext/` exposes a `GitContext` class via a single options-object constructor and a barrel `index.ts`; the public surface contains **no** context-free git/`gh` free functions.
 - The constructor requires `owner`, `repo`, `selfHost`, `token`, and `gitIdentity` (author + committer name/email); there is **no** optional base-path parameter and **no** `cwd` fallback.
-- Constructing with any missing/empty identity or injected-config field throws a clear, loud `Error` (story 23), verified by tests.
+- Constructing with any missing/empty identity or injected-config field — including an omitted self-host/target discriminator — throws a clear, loud `Error` (story 23), verified by tests.
 - Self-host identity resolves `basePath` to the injected framework repo root; target identity resolves to `join(targetReposDir, owner, repo)` (stories 21, 22), verified by tests.
 - Base-path resolution exists in exactly one place — the constructor's single `resolveBasePath` helper — and no other code in the module re-derives it (story 6).
 - `worktreePathFor(branch)` returns a path under `basePath` (`.../.worktrees/{sanitized-branch}`) and never consults `process.cwd()`, verified by tests.
