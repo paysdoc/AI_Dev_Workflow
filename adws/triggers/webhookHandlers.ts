@@ -8,6 +8,7 @@
 
 import { log, PullRequestWebhookPayload, GRACE_PERIOD_MS } from '../core';
 import type { RepoInfo } from '../github/githubApi';
+import type { GitContext } from '../gitContext';
 import { closeIssue, fetchIssueCommentsRest } from '../github/issueApi';
 import { removeWorktreesForIssue } from '../vcs/worktreeCleanup';
 import { gitContextForSync } from '../github';
@@ -44,7 +45,7 @@ export interface IssueClosedDeps {
   readOrchestratorState: (statePath: string) => AgentState | null;
   deleteRemoteBranch: (branchName: string, cwd?: string) => boolean;
   closeAbandonedDependents: (closedIssueNumber: number, repoInfo: RepoInfo) => Promise<void>;
-  handleIssueClosedDependencyUnblock: (closedIssueNumber: number, repoInfo: RepoInfo, targetRepoArgs: string[]) => Promise<void>;
+  handleIssueClosedDependencyUnblock: (closedIssueNumber: number, repoInfo: RepoInfo, targetRepoArgs: string[], gitContext?: GitContext) => Promise<void>;
 }
 
 function defaultPrClosedDeps(): PrClosedDeps {
@@ -154,6 +155,7 @@ export async function handleIssueClosedEvent(
   cwd: string | undefined,
   targetRepoArgs: string[] = [],
   deps?: IssueClosedDeps,
+  gitContext?: GitContext,
 ): Promise<IssueClosedResult> {
   const d = deps ?? defaultIssueClosedDeps(repoInfo);
   let adwId: string | null = null;
@@ -209,7 +211,7 @@ export async function handleIssueClosedEvent(
     if (workflowStage === 'abandoned' || workflowStage === 'discarded') {
       await d.closeAbandonedDependents(issueNumber, repoInfo);
     } else {
-      await d.handleIssueClosedDependencyUnblock(issueNumber, repoInfo, targetRepoArgs);
+      await d.handleIssueClosedDependencyUnblock(issueNumber, repoInfo, targetRepoArgs, gitContext);
     }
   }
 
