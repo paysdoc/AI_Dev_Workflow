@@ -126,9 +126,15 @@ Feature: GitContext branch + commit/push migration — worktree-scoped git verbs
       the context), the parent global is never mutated, and two co-resident contexts
       never share a token/cwd.
     • Call-site MIGRATION (threading the context through phases / orchestrators /
-      cron-takeover / webhook, and deleting the legacy optional-`cwd` helpers) is
-      OUT of scope for this slice and owned by later issues; no scenario here drives
-      an orchestrator or phase. The legacy `vcs/__tests__` unit suites stay green
+      cron-takeover / webhook, and deleting the legacy optional-`cwd` helpers) IS in
+      scope for this slice per AC4 ("all branch/commit/push call sites route through
+      the context; no direct `execSync` of these verbs outside the package") — the
+      legacy optional-`cwd` helpers are removed and every call site is rewired onto
+      the context methods. No scenario here DRIVES an orchestrator or phase, though:
+      the migration is proven through its OBSERVABLE CONSEQUENCE (the ops run with the
+      context-resolved cwd + per-command env, the parent global is never mutated, two
+      contexts never share a token/cwd) plus the CI/lint guard the PRD enforces but
+      explicitly does not unit-test. The legacy `vcs/__tests__` unit suites stay green
       against the new context methods (the behaviour-preservation AC) — that is the
       cutover safety net, asserted behaviourally here.
     • The @regression maintenance sweep is SKIPPED for this issue: `.adw/scenarios.md`
