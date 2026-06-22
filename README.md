@@ -509,7 +509,6 @@ adws/                   # ADW workflow system
 │   │   ├── processLiveness.test.ts
 │   │   ├── projectConfig.test.ts
 │   │   ├── remoteReconcile.test.ts
-│   │   ├── docsGuards.test.ts
 │   │   ├── resolveFreezeGuard.test.ts
 │   │   ├── resolveVerdict.test.ts
 │   │   ├── resumePolicy.test.ts
@@ -517,7 +516,6 @@ adws/                   # ADW workflow system
 │   │   ├── stageClassifier.test.ts
 │   │   ├── stateHelpers.test.ts
 │   │   ├── stackCoherenceCheck.test.ts
-│   │   ├── stageClassifier.test.ts
 │   │   ├── stepDefDetection.test.ts
 │   │   ├── testReportParser.test.ts
 │   │   ├── testVerdict.test.ts
@@ -533,11 +531,10 @@ adws/                   # ADW workflow system
 │   ├── authGate.ts     # Host-wide auth gate: detects auth failures, writes paused_auth state, triggers Slack alerts
 │   ├── claudeStreamParser.ts  # Claude JSONL stream parsing
 │   ├── conditionalDocsRegistry.ts  # Parse/serialize/query .adw/conditional_docs.md; ConditionalDocEntry and ConditionalDocsRegistry types; glob-based ownership routing (findOwningEntry)
-│   ├── docsGuards.ts  # Post-write guards for app_docs/: bloat detection (line-count ceiling) and regrowth detection (overlapping Owns: globs between entries)
+│   ├── docsGuards.ts  # Post-write guards for app_docs/: bloat detection (line-count ceiling) and regrowth detection (overlapping Owns: globs between entries); runDocsGuards composes both
 │   ├── config.ts
 │   ├── constants.ts    # Orchestrator ID constants
 │   ├── devServerLifecycle.ts  # Dev server spawn, health probe, and cleanup helpers
-│   ├── docsGuards.ts  # Doc-size guards: bloat (line threshold) and regrowth (overlapping ownedGlobs) detection; runDocsGuards composes both
 │   ├── environment.ts  # Environment variable accessors
 │   ├── hashComputer.ts # SHA256 hash of declared hashInputs files — "current framework version" primitive
 │   ├── heartbeat.ts    # Liveness ticker writing lastSeenAt to state on a fixed interval
@@ -562,11 +559,9 @@ adws/                   # ADW workflow system
 │   ├── resumePolicy.ts  # Bounded N-cap resume policy: nextResumeAction computes RESUME/ESCALATE; human_gated stage + escalate_human_gated decision on cap exhaustion
 │   ├── retryOrchestrator.ts
 │   ├── slackNotifier.ts  # Slack Incoming Webhook client for error/problem alerting
-│   ├── stageClassifier.ts  # Stage classification taxonomy for recovery routing (classifyStage, StageClass)
-│   ├── stateHelpers.ts
-│   ├── stageClassifier.ts  # Exhaustive StageClass taxonomy (classifyStage / classifyStageString) for recovery routing across cron, takeover, and webhook consumers
+│   ├── stageClassifier.ts  # Exhaustive StageClass taxonomy (classifyStage / classifyStageString) — six-class recovery routing (active/awaiting_merge/retriable/terminal/human_gated/phase_timeout) across cron, takeover, and webhook consumers
 │   ├── stackCoherenceCheck.ts  # Pure stack-coherence check — language coherence + Gherkin mandate (stackCoherenceCheck, StackCoherenceInput/Result/Warning)
-│   ├── stageClassifier.ts  # Six-class taxonomy (active/awaiting_merge/retriable/terminal/human_gated/phase_timeout) for recovery routing
+│   ├── stateHelpers.ts
 │   ├── stepDefDetection.ts  # Step definition file-extension detection by BDD framework (stepDefExtensionsFor, hasStepDefinitions, isGherkinFramework)
 │   ├── targetRepoManager.ts
 │   ├── testReportParser.ts  # JUnit XML test report parser — reads xunit output into TestReport (total, passed, failed, skipped, per-case status)
