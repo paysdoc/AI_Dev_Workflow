@@ -539,7 +539,7 @@ describe('kill escalation: SIGTERM then SIGKILL', () => {
   it('killProcessesInDirectory in worktreeCleanup.ts sends SIGTERM before SIGKILL', async () => {
     const { readFileSync } = await import('fs');
     const { join } = await import('path');
-    const content = readFileSync(join(process.cwd(), 'adws/vcs/worktreeCleanup.ts'), 'utf-8');
+    const content = readFileSync(join(process.cwd(), 'adws/vcs/worktreeProcessKill.ts'), 'utf-8');
     const sigtermIdx = content.indexOf("'SIGTERM'");
     const sigkillIdx = content.indexOf("'SIGKILL'");
     expect(sigtermIdx).toBeGreaterThan(-1);
@@ -550,7 +550,7 @@ describe('kill escalation: SIGTERM then SIGKILL', () => {
   it('killProcessesInDirectory sends SIGKILL only to survivors after SIGTERM', async () => {
     const { readFileSync } = await import('fs');
     const { join } = await import('path');
-    const content = readFileSync(join(process.cwd(), 'adws/vcs/worktreeCleanup.ts'), 'utf-8');
+    const content = readFileSync(join(process.cwd(), 'adws/vcs/worktreeProcessKill.ts'), 'utf-8');
     // Verify the "survivors" filtering pattern exists
     expect(content).toContain('survivors');
     expect(content).toContain("'SIGKILL'");

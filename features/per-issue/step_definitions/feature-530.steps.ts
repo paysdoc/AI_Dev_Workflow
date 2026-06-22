@@ -296,6 +296,6 @@ When(
       notifyBlockedTransition: () => Promise.resolve(),
     };
 
-    await executeMerge(issueNumber, adwId, repoInfo, process.cwd(), deps);
+    await executeMerge(issueNumber, adwId, repoInfo, deps);
   },
 );

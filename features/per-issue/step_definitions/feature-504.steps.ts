@@ -23,6 +23,7 @@ import { writeAuthGate, readAuthGate, AUTH_GATE_PATH, type AuthGateRecord } from
 import { evaluateCandidate, type TakeoverDeps, type CandidateDecision } from '../../../adws/triggers/takeoverHandler.ts';
 import type { AgentState } from '../../../adws/types/agentTypes.ts';
 import type { RepoInfo } from '../../../adws/github/githubApi.ts';
+import type { GitContext } from '../../../adws/gitContext/index.ts';
 import { execSync } from 'child_process';
 
 // ---------------------------------------------------------------------------
@@ -912,9 +913,11 @@ When(
       readTopLevelState: () => state,
       isProcessLive: () => false,
       killProcess: () => undefined,
-      resetWorktree: () => undefined,
+      getContext: () => ({
+        resetWorktree: () => undefined,
+        worktreePathFor: () => '/tmp/fake-worktree',
+      } as unknown as GitContext),
       deriveStageFromRemote: () => 'abandoned' as import('../../../adws/types/workflowTypes.ts').WorkflowStage,
-      getWorktreePath: () => '/tmp/fake-worktree',
       writeTopLevelState: () => undefined,
       commentOnIssue: () => undefined,
       probeWorktree: () => ({

@@ -26,6 +26,7 @@ import {
 import { handleWorkflowDiscarded, handleWorkflowError } from '../../../adws/phases/workflowCompletion.ts';
 import { handlePRReviewWorkflowError } from '../../../adws/phases/prReviewCompletion.ts';
 import { Platform, type RepoContext } from '../../../adws/providers/types.ts';
+import type { GitContext } from '../../../adws/gitContext/index.ts';
 import type { WorkflowConfig } from '../../../adws/phases/workflowInit.ts';
 import type { PRReviewWorkflowConfig } from '../../../adws/phases/prReviewPhase.ts';
 import type { WorkflowContext } from '../../../adws/github/workflowCommentsIssue.ts';
@@ -306,6 +307,7 @@ function makeWorkflowConfig(issueNumber: number): WorkflowConfig {
     applicationUrl: '',
     projectConfig: {} as WorkflowConfig['projectConfig'],
     adwYmlConfig: { hitl: false, unitTests: true },
+    gitContext: {} as unknown as GitContext,
   };
 }
 

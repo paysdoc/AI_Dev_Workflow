@@ -67,7 +67,7 @@ const repoInfo: RepoInfo = { owner: 'test-owner', repo: 'test-repo' };
 beforeEach(() => {
   vi.clearAllMocks();
   mockCtx = { removeWorktreesForIssue: vi.fn().mockReturnValue(1) };
-  mockGitContextForSync.mockImplementation(() => mockCtx as GitContext);
+  mockGitContextForSync.mockImplementation(() => mockCtx as unknown as GitContext);
   mockClearIssueComments.mockReturnValue({ total: 0, deleted: 0, failed: 0 });
   mockIsProcessAlive.mockReturnValue(false);
   mockFindOrchestratorStatePath.mockReturnValue(null);

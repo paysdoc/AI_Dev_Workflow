@@ -47,7 +47,7 @@ import {
 } from '../../../test/mocks/test-harness.ts';
 import type { RegressionWorld } from '../../regression/step_definitions/world.ts';
 import { fetchAndResetToRemote } from '../../../adws/vcs/branchOperations.ts';
-import { ensureWorktree } from '../../../adws/vcs/worktreeCreation.ts';
+import { ensureWorktree } from '../../../adws/gitContext/worktreeOps.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '../../..');
@@ -457,9 +457,10 @@ When(
   'a non-upgrade orchestrator reuses the existing worktree for branch {string}',
   function (this: RegressionWorld, branchName: string) {
     assert.ok(ctx.baseRepoPath, 'baseRepoPath must be set by the preceding Given step');
-    // Call ensureWorktree with the same signature the shared primitive uses.
+    // Call ensureWorktree from worktreeOps directly (no GitContext needed — this is a
+    // BDD integration step that exercises the underlying function with an explicit basePath).
     // A non-upgrade orchestrator does NOT call reconcileWorktreeToRemote afterward.
-    ctx.reusedWorktreePath = ensureWorktree(branchName, 'main', ctx.baseRepoPath);
+    ctx.reusedWorktreePath = ensureWorktree(ctx.baseRepoPath, branchName, 'main', process.env, () => {});
   },
 );
 

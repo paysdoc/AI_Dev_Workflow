@@ -18,7 +18,6 @@ import type { CreatePROptions } from '../providers/types';
 const REPO_INFO = { owner: 'acme', repo: 'target' };
 const MOCK_HASH = 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2';
 const FRAMEWORK_ROOT = '/framework';
-const BASE_REPO = '/base/repo';
 
 function makeDeps(overrides: Partial<UpgradeDeps> = {}): UpgradeDeps {
   return {

@@ -1,8 +1,11 @@
 /**
  * VCS module - Git command wrappers for branch, commit, and worktree operations.
  *
- * This module contains VCS-agnostic git operations. All functions take an explicit
- * `cwd` parameter — no global state, no provider interfaces.
+ * Worktree create/remove/reset/list operations are now methods on GitContext
+ * (adws/gitContext). This barrel exports only the surviving utilities:
+ *   - Branch and commit operations (unchanged)
+ *   - getMainRepoPath — explicit-cwd reverse lookup used by claudeAgent.ts
+ *   - killProcessesInDirectory — janitor process-kill util (no base-path concern)
  */
 
 // Branch operations
@@ -31,44 +34,8 @@ export {
   hasUncommittedChanges,
 } from './commitOperations';
 
-// Worktree operations
-export {
-  getWorktreePath,
-  worktreeExists,
-  getMainRepoPath,
-  isBranchCheckedOutElsewhere,
-  freeBranchFromMainRepo,
-  getWorktreesDir,
-  copyEnvToWorktree,
-  type BranchCheckoutStatus,
-} from './worktreeOperations';
+// Worktree reverse-lookup (explicit cwd, no defaulting)
+export { getMainRepoPath } from './worktreeOperations';
 
-// Worktree query
-export {
-  listWorktrees,
-  findWorktreeForIssue,
-  type WorktreeForIssueResult,
-} from './worktreeQuery';
-
-// Worktree creation
-export {
-  createWorktree,
-  createWorktreeForNewBranch,
-  ensureWorktree,
-  getWorktreeForBranch,
-} from './worktreeCreation';
-
-// Worktree cleanup
-export {
-  killProcessesInDirectory,
-  removeWorktree,
-  removeWorktreesForIssue,
-} from './worktreeCleanup';
-
-// Worktree reset
-export {
-  resetWorktreeToRemote,
-} from './worktreeReset';
-
-// Worktree process-kill (canonical location; worktreeCleanup re-exports for backward compat)
-export { killProcessesInDirectory as killProcessesInWorktreeDir } from './worktreeProcessKill';
+// Process-kill util (no base-path concern; used by devServerJanitor)
+export { killProcessesInDirectory } from './worktreeProcessKill';

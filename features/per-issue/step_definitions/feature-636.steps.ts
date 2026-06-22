@@ -17,6 +17,7 @@ import type { CronIssue, FilterResult } from '../../../adws/triggers/cronIssueFi
 import type { TakeoverDeps, CandidateDecision } from '../../../adws/triggers/takeoverHandler.ts';
 import type { AgentState } from '../../../adws/types/agentTypes.ts';
 import type { RepoInfo } from '../../../adws/github/githubApi.ts';
+import type { GitContext } from '../../../adws/gitContext/index.ts';
 import type { WorkflowStage } from '../../../adws/types/workflowTypes.ts';
 import { probeCtx, healthyProbe } from './takeover-probe-ctx.ts';
 
@@ -236,9 +237,11 @@ When('the takeover handler evaluates the candidate', function () {
     readTopLevelState: () => state,
     isProcessLive: () => isLive,
     killProcess: (pid) => { kills.push(pid); },
-    resetWorktree: () => { resets++; probeCtx.resetCalls++; },
+    getContext: () => ({
+      resetWorktree: () => { resets++; probeCtx.resetCalls++; },
+      worktreePathFor: (branch: string) => `/worktrees/${branch}`,
+    } as unknown as GitContext),
     deriveStageFromRemote: () => { reconciles++; return 'abandoned' as WorkflowStage; },
-    getWorktreePath: (branch) => `/worktrees/${branch}`,
     writeTopLevelState: () => undefined,
     commentOnIssue: () => undefined,
     probeWorktree: () => probeToReturn,
