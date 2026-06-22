@@ -26,7 +26,7 @@ import { execSync } from 'child_process';
 import { defaultFindPRByBranch, fetchPRDetails, type RawPR } from '../github/prApi';
 import type { RepoInfo } from '../github/githubApi';
 import { log, type LogLevel } from './utils';
-import { getDefaultBranch } from '../vcs/branchOperations';
+import { gitContextForSync } from '../github/gitContextFactory';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 

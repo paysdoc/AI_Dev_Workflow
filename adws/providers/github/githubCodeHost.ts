@@ -9,7 +9,7 @@ import * as path from 'path';
 import type { RepoInfo } from '../../github/githubApi';
 import { execWithRetry, log } from '../../core';
 import { fetchPRDetails, fetchPRReviewComments, commentOnPR, fetchPRList } from '../../github/prApi';
-import { getDefaultBranch as ghGetDefaultBranch } from '../../vcs/branchOperations';
+import { gitContextForSync } from '../../github/gitContextFactory';
 import { refreshTokenIfNeeded } from '../../github/githubAppAuth';
 import {
   type CodeHost,
@@ -44,9 +44,8 @@ export class GitHubCodeHost implements CodeHost {
     return this.repoId;
   }
 
-  /** Delegates to gitBranchOperations.getDefaultBranch(). */
   getDefaultBranch(): string {
-    return ghGetDefaultBranch();
+    return gitContextForSync({ owner: this.repoId.owner, repo: this.repoId.repo, selfHost: false }).defaultBranch();
   }
 
   /** Fetches PR details and maps to PullRequest. */

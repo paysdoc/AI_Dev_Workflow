@@ -14,7 +14,11 @@
 
 import * as path from 'path';
 import { execSync } from 'child_process';
+import { existsSync, rmSync } from 'fs';
 import type { GitContextOptions, GitIdentity, ExecFn, GitContextDeps } from './types';
+import { branchOps } from './branchOps';
+import { commitOps } from './commitOps';
+import { worktreeResetOps } from './worktreeResetOps';
 
 /** Single real spawn site for the package — a thin execSync wrapper. */
 const defaultExec: ExecFn = (command, options) =>
@@ -120,21 +124,68 @@ export class GitContext {
     };
   }
 
-  /**
-   * Single spawn chokepoint — explicit cwd (base path) + per-command env
-   * (token + git identity). Never mutates process.env.
-   */
-  #run(command: string): string {
-    return this.#exec(command, { cwd: this.#basePath, env: this.commandEnv(process.env) }).trim();
+  /** Single spawn chokepoint — explicit cwd + per-command env. Never mutates process.env. */
+  #run(command: string, cwd?: string): string {
+    return this.#exec(command, {
+      cwd: cwd ?? this.#basePath,
+      env: this.commandEnv(process.env),
+    }).trim();
   }
 
-  /**
-   * Representative read op: fetches the default branch from GitHub.
-   * Identity-driven (explicit owner/repo) and token-injected via #run().
-   */
   defaultBranch(): string {
     return this.#run(
       `gh repo view ${this.#owner}/${this.#repo} --json defaultBranchRef --jq .defaultBranchRef.name`,
+    );
+  }
+
+  // ── Branch ops ───────────────────────────────────────────────────────────────
+
+  getCurrentBranch(worktreePath?: string): string {
+    return branchOps.getCurrentBranch((cmd, cwd) => this.#run(cmd, cwd), worktreePath ?? this.#basePath);
+  }
+
+  mergeLatestFromDefaultBranch(defaultBranch: string, worktreePath: string): void {
+    branchOps.mergeLatestFromDefaultBranch((cmd, cwd) => this.#run(cmd, cwd), defaultBranch, worktreePath);
+  }
+
+  fetchAndResetToRemote(defaultBranch: string, worktreePath: string): void {
+    branchOps.fetchAndResetToRemote((cmd, cwd) => this.#run(cmd, cwd), defaultBranch, worktreePath);
+  }
+
+  deleteLocalBranch(branch: string, worktreePath?: string): boolean {
+    return branchOps.deleteLocalBranch((cmd, cwd) => this.#run(cmd, cwd), branch, worktreePath ?? this.#basePath);
+  }
+
+  deleteRemoteBranch(branch: string, worktreePath?: string): boolean {
+    return branchOps.deleteRemoteBranch((cmd, cwd) => this.#run(cmd, cwd), branch, worktreePath ?? this.#basePath);
+  }
+
+  // ── Commit/push ops ──────────────────────────────────────────────────────────
+
+  commitChanges(message: string, worktreePath: string): boolean {
+    return commitOps.commitChanges((cmd, cwd) => this.#run(cmd, cwd), message, worktreePath);
+  }
+
+  pushBranch(branch: string, worktreePath: string): void {
+    commitOps.pushBranch((cmd, cwd) => this.#run(cmd, cwd), branch, worktreePath);
+  }
+
+  getHeadTreeHash(worktreePath: string): string {
+    return commitOps.getHeadTreeHash((cmd, cwd) => this.#run(cmd, cwd), worktreePath);
+  }
+
+  hasUncommittedChanges(worktreePath: string): boolean {
+    return commitOps.hasUncommittedChanges((cmd, cwd) => this.#run(cmd, cwd), worktreePath);
+  }
+
+  // ── Worktree reset op ────────────────────────────────────────────────────────
+
+  resetWorktree(worktreePath: string, branch: string): void {
+    worktreeResetOps.resetWorktree(
+      (cmd, cwd) => this.#run(cmd, cwd),
+      { existsSync, rmSync },
+      worktreePath,
+      branch,
     );
   }
 }

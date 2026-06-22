@@ -5,9 +5,9 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { log, setLogAdwId, ensureLogsDirectory, generateAdwId, type PRDetails, type PRReviewComment, AgentStateManager, type AgentState, type ModelUsageMap, allocateRandomPort, emptyModelUsageMap, OrchestratorId, type TargetRepoInfo, ensureTargetRepoWorkspace, loadProjectConfig, readAdwYmlConfig, type GitHubIssue, type IssueClassSlashCommand, type RecoveryState } from '../core';
-import { fetchPRDetails, getUnaddressedComments, type PRReviewWorkflowContext, getRepoInfo, type RepoInfo, activateGitHubAppAuth } from '../github';
+import { fetchPRDetails, getUnaddressedComments, type PRReviewWorkflowContext, getRepoInfo, type RepoInfo, activateGitHubAppAuth, gitContextFor } from '../github';
 import type { WorkflowConfig } from './workflowInit';
-import { ensureWorktree, pushBranch, inferIssueTypeFromBranch } from '../vcs';
+import { ensureWorktree, inferIssueTypeFromBranch } from '../vcs';
 import { BoardStatus, type RepoContext, type RepoIdentifier } from '../providers/types';
 import { Platform } from '../providers/types';
 import { createRepoContext } from '../providers/repoContext';
@@ -327,6 +327,9 @@ export async function executePRReviewBuildPhase(config: PRReviewWorkflowConfig, 
 export async function executePRReviewCommitPushPhase(config: PRReviewWorkflowConfig): Promise<{ costUsd: number; modelUsage: ModelUsageMap; phaseCostRecords: PhaseCostRecord[] }> {
   const { prNumber, prDetails, ctx } = config;
   const { issueNumber, adwId, worktreePath, logsDir, repoContext } = config.base;
+  const ctxOwner = repoContext?.repoId.owner ?? getRepoInfo().owner;
+  const ctxRepo = repoContext?.repoId.repo ?? getRepoInfo().repo;
+  const gitCtx = await gitContextFor({ owner: ctxOwner, repo: ctxRepo, selfHost: !repoContext });
   const phaseStartTime = Date.now();
 
   if (repoContext) {
@@ -335,7 +338,7 @@ export async function executePRReviewCommitPushPhase(config: PRReviewWorkflowCon
   const issueType = inferIssueTypeFromBranch(prDetails.headBranch);
   const commitResult = await runCommitAgent(OrchestratorId.PrReview, issueType, JSON.stringify(prDetails), logsDir, undefined, worktreePath, prDetails.body);
 
-  pushBranch(prDetails.headBranch, worktreePath);
+  gitCtx.pushBranch(prDetails.headBranch, worktreePath);
   if (repoContext) {
     postPRStageComment(repoContext, prNumber, 'pr_review_pushed', ctx);
   }

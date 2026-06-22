@@ -121,3 +121,6 @@ export {
   type WorkflowContext,
   type PRReviewWorkflowContext,
 } from './workflowComments';
+
+// GitContext boundary factory
+export { gitContextFor, gitContextForSync } from './gitContextFactory';

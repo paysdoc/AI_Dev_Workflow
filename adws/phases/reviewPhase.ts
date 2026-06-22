@@ -21,9 +21,8 @@ import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '.
 import { runReviewAgent, type ReviewIssue } from '../agents/reviewAgent';
 import { runCommitAgent } from '../agents/gitAgent';
 import { applyPatchBlocker, applyRefactorBlockers } from './reviewPatchHelpers';
-import { pushBranch } from '../vcs';
 import { getPlanFilePath } from '../agents/planAgent';
-import { approvePR, isGitHubAppConfigured } from '../github';
+import { approvePR, isGitHubAppConfigured, getRepoInfo, gitContextFor } from '../github';
 import type { WorkflowConfig } from './workflowInit';
 import { postIssueStageComment } from './phaseCommentHelpers';
 import { extractPrNumber } from '../adwBuildHelpers';
@@ -173,7 +172,12 @@ export async function executeReviewPatchCycle(
     logsDir,
     worktreePath,
     branchName,
+    repoContext,
   } = config;
+
+  const ctxOwner = repoContext?.repoId.owner ?? getRepoInfo().owner;
+  const ctxRepo = repoContext?.repoId.repo ?? getRepoInfo().repo;
+  const gitCtx = await gitContextFor({ owner: ctxOwner, repo: ctxRepo, selfHost: !repoContext });
 
   const phaseStartTime = Date.now();
   let costUsd = 0;
@@ -216,7 +220,7 @@ export async function executeReviewPatchCycle(
     worktreePath,
     issue.body,
   );
-  pushBranch(branchName, worktreePath);
+  gitCtx.pushBranch(branchName, worktreePath);
   log('Review patch: changes committed and pushed', 'success');
   AgentStateManager.appendLog(orchestratorStatePath, 'Review patch: changes committed and pushed');
 

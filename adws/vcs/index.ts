@@ -1,35 +1,20 @@
 /**
  * VCS module - Git command wrappers for branch, commit, and worktree operations.
  *
- * This module contains VCS-agnostic git operations. All functions take an explicit
- * `cwd` parameter — no global state, no provider interfaces.
+ * Branch and commit/push I/O operations have migrated to GitContext (#662).
+ * This module now exports pure branch-name vocabulary and worktree operations.
  */
 
-// Branch operations
+// Pure branch-name vocabulary (I/O ops migrated to GitContext #662)
 export {
-  getCurrentBranch,
   validateSlug,
   generateBranchName,
-  checkoutBranch,
   inferIssueTypeFromBranch,
-  checkoutDefaultBranch,
-  mergeLatestFromDefaultBranch,
-  fetchAndResetToRemote,
-  deleteLocalBranch,
-  deleteRemoteBranch,
   PROTECTED_BRANCHES,
 } from './branchOperations';
 
 // Branch identity (deterministic fallback predicates)
 export { deterministicBranchName, branchMatchesIssue } from './branchIdentity';
-
-// Commit operations
-export {
-  commitChanges,
-  pushBranch,
-  getHeadTreeHash,
-  hasUncommittedChanges,
-} from './commitOperations';
 
 // Worktree operations
 export {
@@ -64,8 +49,3 @@ export {
   removeWorktree,
   removeWorktreesForIssue,
 } from './worktreeCleanup';
-
-// Worktree reset
-export {
-  resetWorktreeToRemote,
-} from './worktreeReset';

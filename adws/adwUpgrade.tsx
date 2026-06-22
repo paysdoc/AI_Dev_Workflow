@@ -44,10 +44,10 @@ import {
   readAdwYmlConfig,
   type AdwYmlConfig,
 } from './core';
-import { commentOnIssue, mergePR, type RepoInfo } from './github';
+import { commentOnIssue, mergePR, type RepoInfo, gitContextFor } from './github';
 import { defaultFindPRByBranch, hasWontFixLabel, type RawPR } from './github/prApi';
-import { ensureWorktree, commitChanges, pushBranch, fetchAndResetToRemote } from './vcs';
-import { getDefaultBranch } from './vcs/branchOperations';
+import { ensureWorktree } from './vcs';
+import type { GitContext } from './gitContext';
 import { runClaudeAgentWithCommand } from './agents';
 import { createGitHubCodeHost } from './providers/github/githubCodeHost';
 import type { CreatePROptions, PullRequestResult, RepoIdentifier } from './providers/types';
@@ -85,7 +85,7 @@ export interface UpgradeDeps {
    * safe — the upgrade worktree is a throwaway regen target with no un-pushed work.
    */
   readonly reconcileWorktreeToRemote: (worktreePath: string, branch: string) => void;
-  readonly getDefaultBranch: (cwd: string) => string;
+  readonly getDefaultBranch: () => string;
   readonly findPRByBranch: (branch: string, repoInfo: RepoInfo) => RawPR | null;
   readonly runInitCommand: (params: RunInitCommandParams) => Promise<{ success: boolean; error?: string }>;
   readonly copyInitCommandToWorktree: (worktreePath: string, frameworkRepoRoot: string) => void;
@@ -234,7 +234,7 @@ export async function executeUpgrade(
     return { outcome: 'completed', reason: 'pr_already_exists' };
   }
 
-  const defaultBranch = deps.getDefaultBranch(baseRepoPath);
+  const defaultBranch = deps.getDefaultBranch();
 
   // 3. Check out the existing remote claim branch, then reconcile it to the live
   //    remote claim tip. A reused worktree may sit on a superseded claim commit
@@ -330,7 +330,7 @@ export async function executeUpgrade(
     title: buildUpgradePrTitle(hash),
     body: buildUpgradePrBody(issueNumber, hash),
     sourceBranch: branch,
-    targetBranch: deps.getDefaultBranch(worktreePath),
+    targetBranch: deps.getDefaultBranch(),
     linkedIssueNumber: issueNumber,
   });
 
@@ -379,20 +379,20 @@ async function runInitCommandDefault(params: RunInitCommandParams): Promise<{ su
 }
 
 /** Builds the default UpgradeDeps using production implementations. */
-function buildDefaultUpgradeDeps(repoId: RepoIdentifier): UpgradeDeps {
+function buildDefaultUpgradeDeps(repoId: RepoIdentifier, gitCtx: GitContext): UpgradeDeps {
   const codeHost = createGitHubCodeHost(repoId);
   return {
     computeFrameworkHash,
     ensureWorktree,
-    reconcileWorktreeToRemote: (worktreePath, branch) => fetchAndResetToRemote(branch, worktreePath),
-    getDefaultBranch,
+    reconcileWorktreeToRemote: (worktreePath, branch) => gitCtx.fetchAndResetToRemote(branch, worktreePath),
+    getDefaultBranch: () => gitCtx.defaultBranch(),
     findPRByBranch: (branch, info) => defaultFindPRByBranch(branch, info),
     runInitCommand: runInitCommandDefault,
     copyInitCommandToWorktree: copyAdwInitCommandToWorktree,
     verifyAdwRegen,
     writeAdwVersion,
-    commitChanges,
-    pushBranch,
+    commitChanges: (message, cwd) => gitCtx.commitChanges(message, cwd),
+    pushBranch: (branch, cwd) => gitCtx.pushBranch(branch, cwd),
     isPushRejection: isPushRejectionError,
     createPullRequest: (options) => codeHost.createPullRequest(options),
     commentOnIssue,
@@ -421,6 +421,7 @@ async function main(): Promise<void> {
   const repoInfo: RepoInfo = { owner: repoId.owner, repo: repoId.repo };
   const baseRepoPath = targetRepo ? ensureTargetRepoWorkspace(targetRepo) : process.cwd();
   const frameworkRepoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+  const gitCtx = await gitContextFor({ owner: repoId.owner, repo: repoId.repo, selfHost: !targetRepo });
 
   let result: UpgradeRunResult | undefined;
   const acquired = await runWithRawOrchestratorLifecycle(repoInfo, issueNumber, adwId, async () => {
@@ -430,7 +431,7 @@ async function main(): Promise<void> {
       repoInfo,
       baseRepoPath,
       frameworkRepoRoot,
-      buildDefaultUpgradeDeps(repoId),
+      buildDefaultUpgradeDeps(repoId, gitCtx),
     );
   });
 

@@ -31,7 +31,7 @@ import {
 import { isProcessLive } from '../core/processLiveness';
 import { AgentStateManager } from '../core/agentState';
 import { deriveStageFromRemote } from '../core/remoteReconcile';
-import { resetWorktreeToRemote } from '../vcs/worktreeReset';
+import { gitContextForSync } from '../github';
 import { getWorktreePath } from '../vcs/worktreeOperations';
 import { extractLatestAdwId } from './cronStageResolver';
 import { classifyStageString } from '../core/stageClassifier';
@@ -74,7 +74,7 @@ export interface TakeoverDeps {
   readonly clearOrphanedIndexLock: (worktreePath: string) => void;
 }
 
-export function buildDefaultTakeoverDeps(): TakeoverDeps {
+export function buildDefaultTakeoverDeps(repoInfo?: RepoInfo): TakeoverDeps {
   return {
     acquireIssueSpawnLock: (repoInfo, issueNumber, ownPid) =>
       acquireIssueSpawnLock(repoInfo, issueNumber, ownPid),
@@ -103,7 +103,10 @@ export function buildDefaultTakeoverDeps(): TakeoverDeps {
         // ESRCH: process already gone — proceed to takeover
       }
     },
-    resetWorktree: (worktreePath, branch) => resetWorktreeToRemote(worktreePath, branch),
+    resetWorktree: (worktreePath, branch) => {
+      if (!repoInfo) throw new Error('takeoverHandler: repoInfo required for resetWorktree');
+      gitContextForSync({ owner: repoInfo.owner, repo: repoInfo.repo, selfHost: false }).resetWorktree(worktreePath, branch);
+    },
     deriveStageFromRemote: (issueNumber, adwId, repoInfo) =>
       deriveStageFromRemote(issueNumber, adwId, repoInfo),
     getWorktreePath: (branchName, baseRepoPath) => getWorktreePath(branchName, baseRepoPath),
@@ -115,7 +118,6 @@ export function buildDefaultTakeoverDeps(): TakeoverDeps {
   };
 }
 
-let _defaultDeps: TakeoverDeps | null = null;
 
 function takeOverWithDerivedStage(
   d: TakeoverDeps,
@@ -165,7 +167,7 @@ export function evaluateCandidate(
   input: EvaluateCandidateInput,
   deps?: TakeoverDeps,
 ): CandidateDecision {
-  const d = deps ?? (_defaultDeps ??= buildDefaultTakeoverDeps());
+  const d = deps ?? buildDefaultTakeoverDeps(input.repoInfo);
   const { issueNumber, repoInfo } = input;
 
   // Branch 1: attempt to acquire the per-issue spawn lock.

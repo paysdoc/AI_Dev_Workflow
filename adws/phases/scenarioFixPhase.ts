@@ -18,9 +18,9 @@ import {
 import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
 import { runResolveScenarioAgent } from '../agents/testAgent';
 import { runCommitAgent } from '../agents/gitAgent';
-import { pushBranch } from '../vcs';
 import type { ScenarioProofResult } from './scenarioProof';
 import type { WorkflowConfig } from './workflowInit';
+import { getRepoInfo, gitContextFor } from '../github';
 import { captureGherkinSnapshot, collectChangedFeaturePaths, restoreGherkinSnapshot } from './gherkinFreeze';
 import { evaluateResolveEdit } from '../core/resolveFreezeGuard';
 
@@ -40,6 +40,11 @@ export async function executeScenarioFixPhase(
   phaseCostRecords: PhaseCostRecord[];
   gherkinFreezeViolations: string[];
 }> {
+  const repoContext = config.repoContext;
+  const ctxOwner = repoContext?.repoId.owner ?? getRepoInfo().owner;
+  const ctxRepo = repoContext?.repoId.repo ?? getRepoInfo().repo;
+  const gitCtx = await gitContextFor({ owner: ctxOwner, repo: ctxRepo, selfHost: !repoContext });
+
   const {
     orchestratorStatePath,
     issueNumber,
@@ -123,7 +128,7 @@ export async function executeScenarioFixPhase(
     worktreePath,
     issue.body,
   );
-  pushBranch(branchName, worktreePath);
+  gitCtx.pushBranch(branchName, worktreePath);
   log('Scenario fix: changes committed and pushed', 'success');
   AgentStateManager.appendLog(orchestratorStatePath, 'Scenario fix: changes committed and pushed');
 
