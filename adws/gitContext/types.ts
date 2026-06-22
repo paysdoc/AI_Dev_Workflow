@@ -16,6 +16,21 @@ export interface GitIdentity {
 }
 
 /**
+ * Logger injected into GitContext so the package depends on no ADW globals.
+ * Defaults to a no-op when omitted.
+ */
+export type GitContextLogger = (message: string, level?: 'info' | 'success' | 'warn' | 'error') => void;
+
+/**
+ * Result of finding a worktree by issue type and number.
+ * Relocated from vcs/worktreeQuery.ts.
+ */
+export interface WorktreeForIssueResult {
+  worktreePath: string;
+  branchName: string;
+}
+
+/**
  * Construction options for GitContext.
  *
  * All fields are mandatory — any missing or empty field is a hard construction
@@ -52,4 +67,9 @@ export interface GitContextOptions {
    * base of basePath for target contexts: join(targetReposDir, owner, repo).
    */
   targetReposDir: string;
+  /**
+   * Optional logger injected so the package depends on no ADW globals.
+   * Defaults to a no-op.
+   */
+  logger?: GitContextLogger;
 }

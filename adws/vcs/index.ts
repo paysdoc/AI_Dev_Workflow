@@ -69,3 +69,6 @@ export {
 export {
   resetWorktreeToRemote,
 } from './worktreeReset';
+
+// Worktree process-kill (canonical location; worktreeCleanup re-exports for backward compat)
+export { killProcessesInDirectory as killProcessesInWorktreeDir } from './worktreeProcessKill';

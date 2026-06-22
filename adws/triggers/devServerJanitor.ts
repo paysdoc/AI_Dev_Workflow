@@ -17,7 +17,7 @@ import { log, TARGET_REPOS_DIR, AGENTS_STATE_DIR, type LogLevel } from '../core'
 import { AgentStateManager } from '../core/agentState';
 import { isAgentProcessRunning } from '../core/stateHelpers';
 import { isActiveStage } from './cronStageResolver';
-import { killProcessesInDirectory } from '../vcs/worktreeCleanup';
+import { killProcessesInDirectory } from '../vcs/worktreeProcessKill';
 import { listWorktrees } from '../vcs/worktreeQuery';
 import type { AgentState } from '../types/agentTypes';
 

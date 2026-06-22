@@ -31,8 +31,7 @@ import {
 import { isProcessLive } from '../core/processLiveness';
 import { AgentStateManager } from '../core/agentState';
 import { deriveStageFromRemote } from '../core/remoteReconcile';
-import { resetWorktreeToRemote } from '../vcs/worktreeReset';
-import { getWorktreePath } from '../vcs/worktreeOperations';
+import { resetWorktreeToRemote, getWorktreePath } from '../vcs';
 import { extractLatestAdwId } from './cronStageResolver';
 import { classifyStageString } from '../core/stageClassifier';
 import { nextResumeAction, MAX_RESUME_ATTEMPTS } from '../core/resumePolicy';

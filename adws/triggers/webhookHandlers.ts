@@ -9,7 +9,7 @@
 import { log, PullRequestWebhookPayload, GRACE_PERIOD_MS } from '../core';
 import type { RepoInfo } from '../github/githubApi';
 import { closeIssue, fetchIssueCommentsRest } from '../github/issueApi';
-import { removeWorktreesForIssue } from '../vcs/worktreeCleanup';
+import { removeWorktreesForIssue } from '../vcs';
 import { deleteRemoteBranch } from '../vcs/branchOperations';
 import { AgentStateManager } from '../core/agentState';
 import { findOrchestratorStatePath } from '../core/stateHelpers';
