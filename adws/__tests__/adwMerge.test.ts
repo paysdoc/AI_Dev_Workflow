@@ -62,7 +62,7 @@ describe('executeMerge — missing state', () => {
   it('returns abandoned when top-level state file is not found', async () => {
     const deps = makeDeps({ readTopLevelState: vi.fn().mockReturnValue(null) });
 
-    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, '/base/repo', deps);
+    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, deps);
 
     expect(result.outcome).toBe('abandoned');
     expect(result.reason).toBe('no_state_file');
@@ -74,7 +74,7 @@ describe('executeMerge — missing state', () => {
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'completed' })),
     });
 
-    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, '/base/repo', deps);
+    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, deps);
 
     expect(result.outcome).toBe('abandoned');
     expect(result.reason).toContain('unexpected_stage');
@@ -84,7 +84,7 @@ describe('executeMerge — missing state', () => {
   it('returns abandoned when orchestrator state path is not found', async () => {
     const deps = makeDeps({ findOrchestratorStatePath: vi.fn().mockReturnValue(null) });
 
-    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, '/base/repo', deps);
+    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, deps);
 
     expect(result.outcome).toBe('abandoned');
     expect(result.reason).toBe('no_orchestrator_state');
@@ -96,7 +96,7 @@ describe('executeMerge — missing state', () => {
       readOrchestratorState: vi.fn().mockReturnValue(makeState({ branchName: undefined })),
     });
 
-    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, '/base/repo', deps);
+    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, deps);
 
     expect(result.outcome).toBe('abandoned');
     expect(result.reason).toBe('no_branch_name');
@@ -106,7 +106,7 @@ describe('executeMerge — missing state', () => {
   it('stays awaiting_merge on first no_pr_found miss (attempt 1 of 3)', async () => {
     const deps = makeDeps({ findPRByBranch: vi.fn().mockReturnValue(null) });
 
-    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, '/base/repo', deps);
+    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, deps);
 
     expect(result.outcome).toBe('abandoned');
     expect(result.reason).toBe('no_pr_found');
@@ -120,7 +120,7 @@ describe('executeMerge — missing state', () => {
       findPRByBranch: vi.fn().mockReturnValue(null),
     });
 
-    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, '/base/repo', deps);
+    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, deps);
 
     expect(result.outcome).toBe('abandoned');
     expect(result.reason).toBe('no_pr_found');
@@ -134,7 +134,7 @@ describe('executeMerge — missing state', () => {
       findPRByBranch: vi.fn().mockReturnValue(null),
     });
 
-    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, '/base/repo', deps);
+    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, deps);
 
     expect(result.outcome).toBe('abandoned');
     expect(result.reason).toBe('no_pr_found_blocked');
@@ -160,7 +160,7 @@ describe('executeMerge — already merged PR', () => {
       findPRByBranch: vi.fn().mockReturnValue(makePR({ state: 'MERGED' })),
     });
 
-    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, '/base/repo', deps);
+    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, deps);
 
     expect(result.outcome).toBe('completed');
     expect(result.reason).toBe('already_merged');
@@ -182,7 +182,7 @@ describe('executeMerge — closed PR', () => {
       findPRByBranch: vi.fn().mockReturnValue(makePR({ state: 'CLOSED' })),
     });
 
-    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, '/base/repo', deps);
+    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, deps);
 
     expect(result.outcome).toBe('abandoned');
     expect(result.reason).toBe('pr_closed');
@@ -199,7 +199,7 @@ describe('executeMerge — closed PR', () => {
       findPRByBranch: vi.fn().mockReturnValue(makePR({ state: 'MERGED' })),
     });
 
-    await executeMerge(42, 'test-adw-id', REPO_INFO, '/base/repo', deps);
+    await executeMerge(42, 'test-adw-id', REPO_INFO, deps);
 
     expect(deps.notifyBlockedTransition).not.toHaveBeenCalled();
   });
@@ -211,7 +211,7 @@ describe('executeMerge — successful merge', () => {
   it('calls mergeWithConflictResolution with correct args and writes completed', async () => {
     const deps = makeDeps();
 
-    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, '/base/repo', deps);
+    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, deps);
 
     expect(result.outcome).toBe('completed');
     expect(result.reason).toBe('merged');
@@ -239,7 +239,7 @@ describe('executeMerge — successful merge', () => {
       getPlanFilePath: vi.fn().mockReturnValue('specs/issue-42-plan.md'),
     });
 
-    await executeMerge(42, 'test-adw-id', REPO_INFO, '/base/repo', deps);
+    await executeMerge(42, 'test-adw-id', REPO_INFO, deps);
 
     expect(deps.mergeWithConflictResolution).toHaveBeenCalledWith(
       expect.any(Number),
@@ -265,7 +265,7 @@ describe('executeMerge — failed merge', () => {
       }),
     });
 
-    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, '/base/repo', deps);
+    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, deps);
 
     expect(result.outcome).toBe('abandoned');
     expect(result.reason).toBe('merge_failed');
@@ -291,7 +291,7 @@ describe('executeMerge — failed merge', () => {
       }),
     });
 
-    await executeMerge(42, 'test-adw-id', REPO_INFO, '/base/repo', deps);
+    await executeMerge(42, 'test-adw-id', REPO_INFO, deps);
 
     const commentArg = (deps.commentOnIssue as ReturnType<typeof vi.fn>).mock.calls[0][1] as string;
     expect(commentArg).toContain('merge conflict in file.txt');
@@ -306,7 +306,7 @@ describe('executeMerge — worktree error', () => {
       ensureWorktree: vi.fn().mockImplementation(() => { throw new Error('git error'); }),
     });
 
-    const result: MergeRunResult = await executeMerge(42, 'test-adw-id', REPO_INFO, '/base/repo', deps);
+    const result: MergeRunResult = await executeMerge(42, 'test-adw-id', REPO_INFO, deps);
 
     expect(result.outcome).toBe('abandoned');
     expect(result.reason).toBe('worktree_error');
@@ -324,7 +324,7 @@ describe('executeMerge — approval gate', () => {
       fetchPRApprovalState: vi.fn<typeof fetchPRApprovalState>().mockReturnValue(false),
     });
 
-    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, '/base/repo', deps);
+    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, deps);
 
     expect(result.outcome).toBe('completed');
     expect(deps.mergeWithConflictResolution).toHaveBeenCalled();
@@ -336,7 +336,7 @@ describe('executeMerge — approval gate', () => {
       fetchPRApprovalState: vi.fn<typeof fetchPRApprovalState>().mockReturnValue(false),
     });
 
-    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, '/base/repo', deps);
+    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, deps);
 
     expect(result.outcome).toBe('completed');
     expect(result.reason).toBe('already_merged');
@@ -349,7 +349,7 @@ describe('executeMerge — approval gate', () => {
       fetchPRApprovalState: vi.fn<typeof fetchPRApprovalState>().mockReturnValue(false),
     });
 
-    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, '/base/repo', deps);
+    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, deps);
 
     expect(result.outcome).toBe('abandoned');
     expect(result.reason).toBe('pr_closed');
@@ -362,7 +362,7 @@ describe('executeMerge — approval gate', () => {
       fetchPRApprovalState: vi.fn<typeof fetchPRApprovalState>().mockReturnValue(true),
     });
 
-    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, '/base/repo', deps);
+    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, deps);
 
     expect(result.outcome).toBe('completed');
     expect(deps.mergeWithConflictResolution).toHaveBeenCalled();
@@ -380,7 +380,7 @@ describe('executeMerge — branchName resolution (issue #530)', () => {
       ensureWorktree: vi.fn().mockReturnValue('/worktrees/feature-issue-530-top-level'),
     });
 
-    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, '/base/repo', deps);
+    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, deps);
 
     expect(result.outcome).toBe('completed');
     expect(result.reason).not.toBe('no_branch_name');
@@ -401,7 +401,7 @@ describe('executeMerge — branchName resolution (issue #530)', () => {
       ensureWorktree: vi.fn().mockReturnValue('/worktrees/feature-issue-530-top-level'),
     });
 
-    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, '/base/repo', deps);
+    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, deps);
 
     expect(result.outcome).toBe('completed');
     expect(deps.findOrchestratorStatePath).not.toHaveBeenCalled();
@@ -416,7 +416,7 @@ describe('executeMerge — branchName resolution (issue #530)', () => {
       ensureWorktree: vi.fn().mockReturnValue('/worktrees/feature-top-level-A'),
     });
 
-    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, '/base/repo', deps);
+    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, deps);
 
     expect(result.outcome).toBe('completed');
     expect(deps.findOrchestratorStatePath).not.toHaveBeenCalled();
@@ -428,7 +428,7 @@ describe('executeMerge — branchName resolution (issue #530)', () => {
     const deps = makeDeps();
     // Default makeDeps: top-level has no branchName; orchestrator has 'feature-issue-42-abc'
 
-    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, '/base/repo', deps);
+    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, deps);
 
     expect(result.outcome).toBe('completed');
     expect(deps.findOrchestratorStatePath).toHaveBeenCalled();
@@ -448,7 +448,7 @@ describe('executeMerge — hitl × approved gate matrix', () => {
       fetchPRApprovalState: vi.fn<typeof fetchPRApprovalState>().mockReturnValue(false),
     });
 
-    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, '/base/repo', deps);
+    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, deps);
 
     expect(result.outcome).toBe('completed');
     expect(deps.mergeWithConflictResolution).toHaveBeenCalled();
@@ -461,7 +461,7 @@ describe('executeMerge — hitl × approved gate matrix', () => {
       fetchPRApprovalState: vi.fn<typeof fetchPRApprovalState>().mockReturnValue(false),
     });
 
-    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, '/base/repo', deps);
+    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, deps);
 
     expect(result.outcome).toBe('abandoned');
     expect(result.reason).toBe('hitl_blocked_unapproved');
@@ -477,7 +477,7 @@ describe('executeMerge — hitl × approved gate matrix', () => {
       fetchPRApprovalState: vi.fn<typeof fetchPRApprovalState>().mockReturnValue(true),
     });
 
-    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, '/base/repo', deps);
+    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, deps);
 
     expect(result.outcome).toBe('completed');
     expect(deps.mergeWithConflictResolution).toHaveBeenCalled();
@@ -489,7 +489,7 @@ describe('executeMerge — hitl × approved gate matrix', () => {
       fetchPRApprovalState: vi.fn<typeof fetchPRApprovalState>().mockReturnValue(true),
     });
 
-    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, '/base/repo', deps);
+    const result = await executeMerge(42, 'test-adw-id', REPO_INFO, deps);
 
     expect(result.outcome).toBe('completed');
     expect(deps.mergeWithConflictResolution).toHaveBeenCalled();
@@ -506,7 +506,7 @@ describe('executeMerge — hitl × approved gate matrix', () => {
       fetchPRApprovalState: vi.fn<typeof fetchPRApprovalState>().mockReturnValue(false),
     });
 
-    await executeMerge(42, 'test-adw-id', REPO_INFO, '/base/repo', deps);
+    await executeMerge(42, 'test-adw-id', REPO_INFO, deps);
 
     const deferLog = logMessages.find(m => m.includes('deferring'));
     expect(deferLog).toBeDefined();

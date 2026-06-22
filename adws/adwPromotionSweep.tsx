@@ -26,8 +26,9 @@ import { loadProjectConfig } from './core/projectConfig.ts';
 import { runPromotionCommenter, runPromotionMover, loadPromotionStats } from './promotion/index.ts';
 import type { PromotionCommenterDeps, PromotionMoverDeps } from './promotion/index.ts';
 import { getDefaultBranch } from './vcs/branchOperations.ts';
-import { createWorktreeForNewBranch } from './vcs/worktreeCreation.ts';
 import { commitChanges as commitChangesVcs, pushBranch as pushBranchVcs } from './vcs/commitOperations.ts';
+import { gitContextFor } from './github/gitContextFactory.ts';
+import type { GitContext } from './gitContext/index.ts';
 
 const DEFAULT_VOCABULARY_PATH = 'features/regression/vocabulary.md';
 
@@ -79,7 +80,7 @@ function buildCommenterDeps(
 function buildMoverDeps(
   prNumber: number,
   repoInfo: ReturnType<typeof getRepoInfo>,
-  baseRepoPath: string,
+  ctx: GitContext,
 ): PromotionMoverDeps {
   return {
     fetchChangedFiles: async () => fetchChangedFilesFromPR(prNumber, repoInfo),
@@ -90,7 +91,7 @@ function buildMoverDeps(
     },
     getDefaultBranch: () => getDefaultBranch(),
     createWorktree: (branchName, baseBranch) =>
-      createWorktreeForNewBranch(branchName, baseBranch, baseRepoPath),
+      ctx.createWorktreeForNewBranch(branchName, baseBranch),
     commitChanges: (cwd, message) => commitChangesVcs(message, cwd),
     pushBranch: (cwd, branchName) => pushBranchVcs(branchName, cwd),
     findExistingPR: (branchName) => {
@@ -132,6 +133,7 @@ async function main(): Promise<void> {
   log(`adwPromotionSweep: starting sweep for issue #${issueNumber}`, 'info');
 
   const repoInfo = getRepoInfo();
+  const ctx = await gitContextFor({ owner: repoInfo.owner, repo: repoInfo.repo, selfHost: true });
   const branchName = `feature-${issueNumber}`;
   const pr = defaultFindPRByBranch(branchName, repoInfo);
 
@@ -153,7 +155,7 @@ async function main(): Promise<void> {
     'info',
   );
 
-  const moverDeps = buildMoverDeps(pr.number, repoInfo, process.cwd());
+  const moverDeps = buildMoverDeps(pr.number, repoInfo, ctx);
   const moverResult = await runPromotionMover(pr.number, moverDeps);
 
   const movedCount = moverResult.moved.filter(r => !r.skipped).length;

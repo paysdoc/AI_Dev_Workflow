@@ -31,16 +31,17 @@ import {
 import { isProcessLive } from '../core/processLiveness';
 import { AgentStateManager } from '../core/agentState';
 import { deriveStageFromRemote } from '../core/remoteReconcile';
-import { resetWorktreeToRemote, getWorktreePath } from '../vcs';
 import { extractLatestAdwId } from './cronStageResolver';
 import { classifyStageString } from '../core/stageClassifier';
 import { nextResumeAction, MAX_RESUME_ATTEMPTS } from '../core/resumePolicy';
 import { formatHumanGatedComment } from '../github/workflowCommentsIssue';
-import { commentOnIssue } from '../github/githubApi';
+import { commentOnIssue, getRepoInfo } from '../github/githubApi';
+import { gitContextForSync } from '../github/gitContextFactory';
 import { decideWorktreeReuse } from '../vcs/worktreeReuseGate';
 import { probeWorktree, clearOrphanedIndexLock } from '../vcs/worktreeProbe';
 import type { WorktreeProbe } from '../vcs/worktreeReuseGate';
 import type { RepoInfo } from '../github/githubApi';
+import type { GitContext } from '../gitContext';
 import type { AgentState } from '../types/agentTypes';
 import type { WorkflowStage } from '../types/workflowTypes';
 
@@ -64,9 +65,9 @@ export interface TakeoverDeps {
   readonly readTopLevelState: (adwId: string) => AgentState | null;
   readonly isProcessLive: (pid: number, pidStartedAt: string) => boolean;
   readonly killProcess: (pid: number) => void;
-  readonly resetWorktree: (worktreePath: string, branch: string) => void;
+  /** Builds a GitContext for worktree operations on the given repo. Injected for unit testing. */
+  readonly getContext: (repoInfo: RepoInfo) => GitContext;
   readonly deriveStageFromRemote: (issueNumber: number, adwId: string, repoInfo: RepoInfo) => WorkflowStage;
-  readonly getWorktreePath: (branchName: string, baseRepoPath?: string) => string;
   readonly writeTopLevelState: (adwId: string, state: Partial<AgentState>) => void;
   readonly commentOnIssue: (issueNumber: number, body: string, repoInfo: RepoInfo) => void;
   readonly probeWorktree: (worktreePath: string, expectedBranch: string, recordedPid?: number, recordedPidStartedAt?: string) => WorktreeProbe;
@@ -102,10 +103,13 @@ export function buildDefaultTakeoverDeps(): TakeoverDeps {
         // ESRCH: process already gone — proceed to takeover
       }
     },
-    resetWorktree: (worktreePath, branch) => resetWorktreeToRemote(worktreePath, branch),
+    getContext: (repoInfo) => {
+      const frameworkRepoInfo = getRepoInfo();
+      const selfHost = repoInfo.owner === frameworkRepoInfo.owner && repoInfo.repo === frameworkRepoInfo.repo;
+      return gitContextForSync({ owner: repoInfo.owner, repo: repoInfo.repo, selfHost });
+    },
     deriveStageFromRemote: (issueNumber, adwId, repoInfo) =>
       deriveStageFromRemote(issueNumber, adwId, repoInfo),
-    getWorktreePath: (branchName, baseRepoPath) => getWorktreePath(branchName, baseRepoPath),
     writeTopLevelState: (adwId, state) => AgentStateManager.writeTopLevelState(adwId, state),
     commentOnIssue: (issueNumber, body, repoInfo) => commentOnIssue(issueNumber, body, repoInfo),
     probeWorktree: (worktreePath, expectedBranch, recordedPid, recordedPidStartedAt) =>
@@ -132,8 +136,7 @@ function recoverViaResetFromRemote(
   state: AgentState,
 ): CandidateDecision {
   if (state.branchName) {
-    const wtPath = d.getWorktreePath(state.branchName);
-    d.resetWorktree(wtPath, state.branchName);
+    d.getContext(input.repoInfo).resetWorktree(state.branchName);
   }
   return takeOverWithDerivedStage(d, input, adwId);
 }
@@ -149,7 +152,8 @@ function recoverViaResumeInPlaceOrReset(
 ): CandidateDecision {
   if (!state.branchName) return takeOverWithDerivedStage(d, input, adwId);
 
-  const wtPath = d.getWorktreePath(state.branchName);
+  const ctx = d.getContext(input.repoInfo);
+  const wtPath = ctx.worktreePathFor(state.branchName);
   const probe = d.probeWorktree(wtPath, state.branchName, state.pid, state.pidStartedAt);
   const decision = decideWorktreeReuse(probe);
 

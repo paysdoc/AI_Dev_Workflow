@@ -5,6 +5,7 @@ import type { TakeoverDeps, CandidateDecision } from '../takeoverHandler';
 import type { RepoInfo } from '../../github/githubApi';
 import type { AgentState } from '../../types/agentTypes';
 import type { WorktreeProbe } from '../../vcs/worktreeReuseGate';
+import type { GitContext } from '../../gitContext';
 
 const REPO: RepoInfo = { owner: 'acme', repo: 'widgets' };
 const ADW_ID = 'test-adwid-123';
@@ -37,7 +38,25 @@ function makeState(overrides: Partial<AgentState> = {}): AgentState {
   };
 }
 
-function makeDeps(overrides: Partial<TakeoverDeps> = {}): TakeoverDeps {
+// Module-level mock functions representing the inner GitContext methods.
+// Tests use these directly for assertions instead of deps.resetWorktree/deps.getWorktreePath.
+let ctxResetWorktree: ReturnType<typeof vi.fn>;
+let ctxWorktreePathFor: ReturnType<typeof vi.fn>;
+
+type MakeDepsOverrides = Partial<TakeoverDeps> & {
+  // These redirect to the inner mock GitContext — not real TakeoverDeps fields.
+  resetWorktree?: ReturnType<typeof vi.fn>;
+  getWorktreePath?: ReturnType<typeof vi.fn>;
+};
+
+function makeDeps(overrides: MakeDepsOverrides = {}): TakeoverDeps {
+  const { resetWorktree, getWorktreePath, ...depsOverrides } = overrides as MakeDepsOverrides & Record<string, unknown>;
+  if (resetWorktree) ctxResetWorktree = resetWorktree as ReturnType<typeof vi.fn>;
+  if (getWorktreePath) ctxWorktreePathFor = getWorktreePath as ReturnType<typeof vi.fn>;
+  const mockCtx = {
+    worktreePathFor: ctxWorktreePathFor,
+    resetWorktree: ctxResetWorktree,
+  } as unknown as GitContext;
   return {
     acquireIssueSpawnLock: vi.fn().mockReturnValue(true),
     releaseIssueSpawnLock: vi.fn(),
@@ -46,20 +65,22 @@ function makeDeps(overrides: Partial<TakeoverDeps> = {}): TakeoverDeps {
     readTopLevelState: vi.fn().mockReturnValue(null),
     isProcessLive: vi.fn().mockReturnValue(false),
     killProcess: vi.fn(),
-    resetWorktree: vi.fn(),
+    getContext: vi.fn().mockReturnValue(mockCtx),
     deriveStageFromRemote: vi.fn().mockReturnValue('abandoned'),
-    getWorktreePath: vi.fn().mockReturnValue('/worktrees/feature-branch'),
     writeTopLevelState: vi.fn(),
     commentOnIssue: vi.fn(),
     // Default probe is healthy so active-path and other existing tests are unaffected.
     probeWorktree: vi.fn().mockReturnValue(healthyProbe()),
     clearOrphanedIndexLock: vi.fn(),
-    ...overrides,
+    ...(depsOverrides as Partial<TakeoverDeps>),
   };
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
+  ctxResetWorktree = vi.fn();
+  // Default worktreePathFor returns /wt/<branch> so probe/clearLock path assertions work.
+  ctxWorktreePathFor = vi.fn().mockImplementation((branch: string) => `/wt/${branch}`);
 });
 
 // ─── Branch 1: defer_live_holder ─────────────────────────────────────────────
@@ -74,7 +95,7 @@ describe('defer_live_holder', () => {
 
     expect(decision).toEqual({ kind: 'defer_live_holder', holderPid: 9999 });
     expect(deps.releaseIssueSpawnLock).not.toHaveBeenCalled();
-    expect(deps.resetWorktree).not.toHaveBeenCalled();
+    expect(ctxResetWorktree).not.toHaveBeenCalled();
     expect(deps.deriveStageFromRemote).not.toHaveBeenCalled();
     expect(deps.killProcess).not.toHaveBeenCalled();
   });
@@ -97,7 +118,7 @@ describe('spawn_fresh — no adwId', () => {
     const decision = evaluateCandidate({ issueNumber: 101, repoInfo: REPO }, deps);
 
     expect(decision).toEqual({ kind: 'spawn_fresh' });
-    expect(deps.resetWorktree).not.toHaveBeenCalled();
+    expect(ctxResetWorktree).not.toHaveBeenCalled();
     expect(deps.deriveStageFromRemote).not.toHaveBeenCalled();
     expect(deps.releaseIssueSpawnLock).not.toHaveBeenCalled();
   });
@@ -120,7 +141,7 @@ describe('skip_terminal', () => {
 
     expect(decision).toEqual({ kind: 'skip_terminal', adwId: ADW_ID, terminalStage: 'completed' });
     expect(deps.releaseIssueSpawnLock).toHaveBeenCalledOnce();
-    expect(deps.resetWorktree).not.toHaveBeenCalled();
+    expect(ctxResetWorktree).not.toHaveBeenCalled();
     expect(deps.deriveStageFromRemote).not.toHaveBeenCalled();
     expect(deps.killProcess).not.toHaveBeenCalled();
   });
@@ -131,7 +152,7 @@ describe('skip_terminal', () => {
 
     expect(decision).toEqual({ kind: 'skip_terminal', adwId: ADW_ID, terminalStage: 'discarded' });
     expect(deps.releaseIssueSpawnLock).toHaveBeenCalledOnce();
-    expect(deps.resetWorktree).not.toHaveBeenCalled();
+    expect(ctxResetWorktree).not.toHaveBeenCalled();
     expect(deps.deriveStageFromRemote).not.toHaveBeenCalled();
   });
 
@@ -155,7 +176,7 @@ describe('paused no-op', () => {
 
     expect(decision).toEqual({ kind: 'skip_terminal', adwId: ADW_ID, terminalStage: 'paused' });
     expect(deps.releaseIssueSpawnLock).toHaveBeenCalledOnce();
-    expect(deps.resetWorktree).not.toHaveBeenCalled();
+    expect(ctxResetWorktree).not.toHaveBeenCalled();
     expect(deps.deriveStageFromRemote).not.toHaveBeenCalled();
     expect(deps.killProcess).not.toHaveBeenCalled();
   });
@@ -180,7 +201,7 @@ describe('paused_auth no-op', () => {
 
     expect(decision).toEqual({ kind: 'skip_terminal', adwId: ADW_ID, terminalStage: 'paused_auth' });
     expect(deps.releaseIssueSpawnLock).toHaveBeenCalledOnce();
-    expect(deps.resetWorktree).not.toHaveBeenCalled();
+    expect(ctxResetWorktree).not.toHaveBeenCalled();
     expect(deps.deriveStageFromRemote).not.toHaveBeenCalled();
     expect(deps.killProcess).not.toHaveBeenCalled();
   });
@@ -221,7 +242,7 @@ describe('take_over_adwId from abandoned', () => {
     });
     evaluateCandidate({ issueNumber: 104, repoInfo: REPO }, deps);
 
-    expect(deps.resetWorktree).not.toHaveBeenCalled();
+    expect(ctxResetWorktree).not.toHaveBeenCalled();
     expect(deps.deriveStageFromRemote).toHaveBeenCalledOnce();
   });
 
@@ -245,7 +266,7 @@ describe('take_over_adwId from abandoned', () => {
     evaluateCandidate({ issueNumber: 104, repoInfo: REPO }, deps);
 
     expect(deps.clearOrphanedIndexLock).toHaveBeenCalledWith('/wt/feature-branch');
-    expect(deps.resetWorktree).not.toHaveBeenCalled();
+    expect(ctxResetWorktree).not.toHaveBeenCalled();
   });
 
   it('healthy probe with absent lock → clearOrphanedIndexLock NOT called', () => {
@@ -281,7 +302,7 @@ describe('take_over_adwId from abandoned', () => {
     });
     evaluateCandidate({ issueNumber: 104, repoInfo: REPO }, deps);
 
-    expect(deps.resetWorktree).toHaveBeenCalledWith('/wt/feature-issue-104-whatever', 'feature-issue-104-whatever');
+    expect(ctxResetWorktree).toHaveBeenCalledWith('feature-issue-104-whatever');
   });
 
   // ─ no branchName → skip probe and reset ─
@@ -294,7 +315,7 @@ describe('take_over_adwId from abandoned', () => {
     evaluateCandidate({ issueNumber: 104, repoInfo: REPO }, deps);
 
     expect(deps.probeWorktree).not.toHaveBeenCalled();
-    expect(deps.resetWorktree).not.toHaveBeenCalled();
+    expect(ctxResetWorktree).not.toHaveBeenCalled();
     expect(deps.deriveStageFromRemote).toHaveBeenCalledOnce();
   });
 
@@ -345,7 +366,7 @@ describe('take_over_adwId from *_running with dead PID', () => {
 
     expect(decision.kind).toBe('take_over_adwId');
     expect(deps.killProcess).not.toHaveBeenCalled();
-    expect(deps.resetWorktree).toHaveBeenCalledOnce();
+    expect(ctxResetWorktree).toHaveBeenCalledOnce();
     expect(deps.deriveStageFromRemote).toHaveBeenCalledOnce();
   });
 
@@ -387,7 +408,7 @@ describe('take_over_adwId from *_running with dead PID', () => {
       probeWorktree: vi.fn().mockReturnValue(healthyProbe()),
     });
     evaluateCandidate({ issueNumber: 105, repoInfo: REPO }, deps);
-    expect(deps.resetWorktree).toHaveBeenCalledOnce();
+    expect(ctxResetWorktree).toHaveBeenCalledOnce();
     expect(deps.probeWorktree).not.toHaveBeenCalled();
   });
 });
@@ -464,7 +485,7 @@ describe('paused — no side effects', () => {
     });
     evaluateCandidate({ issueNumber: 109, repoInfo: REPO }, deps);
 
-    expect(deps.resetWorktree).not.toHaveBeenCalled();
+    expect(ctxResetWorktree).not.toHaveBeenCalled();
     expect(deps.deriveStageFromRemote).not.toHaveBeenCalled();
     expect(deps.killProcess).not.toHaveBeenCalled();
   });
@@ -517,7 +538,7 @@ describe('take_over_adwId from phase_timeout', () => {
     });
     evaluateCandidate({ issueNumber: 637, repoInfo: REPO }, deps);
 
-    expect(deps.resetWorktree).not.toHaveBeenCalled();
+    expect(ctxResetWorktree).not.toHaveBeenCalled();
     expect(deps.deriveStageFromRemote).toHaveBeenCalledOnce();
   });
 
@@ -541,7 +562,7 @@ describe('take_over_adwId from phase_timeout', () => {
     evaluateCandidate({ issueNumber: 637, repoInfo: REPO }, deps);
 
     expect(deps.clearOrphanedIndexLock).toHaveBeenCalledWith('/wt/feature-branch');
-    expect(deps.resetWorktree).not.toHaveBeenCalled();
+    expect(ctxResetWorktree).not.toHaveBeenCalled();
   });
 
   // ─ unhealthy probe → reset from remote ─
@@ -567,7 +588,7 @@ describe('take_over_adwId from phase_timeout', () => {
     });
     evaluateCandidate({ issueNumber: 637, repoInfo: REPO }, deps);
 
-    expect(deps.resetWorktree).toHaveBeenCalledWith('/wt/feature-issue-637-whatever', 'feature-issue-637-whatever');
+    expect(ctxResetWorktree).toHaveBeenCalledWith('feature-issue-637-whatever');
   });
 
   // ─ no branchName → skip probe and reset ─
@@ -580,7 +601,7 @@ describe('take_over_adwId from phase_timeout', () => {
     evaluateCandidate({ issueNumber: 637, repoInfo: REPO }, deps);
 
     expect(deps.probeWorktree).not.toHaveBeenCalled();
-    expect(deps.resetWorktree).not.toHaveBeenCalled();
+    expect(ctxResetWorktree).not.toHaveBeenCalled();
     expect(deps.deriveStageFromRemote).toHaveBeenCalledOnce();
   });
 
@@ -623,7 +644,7 @@ describe('take_over_adwId from phase_timeout', () => {
     evaluateCandidate({ issueNumber: 637, repoInfo: REPO }, deps);
 
     expect(deps.killProcess).not.toHaveBeenCalled();
-    expect(deps.resetWorktree).toHaveBeenCalledOnce();
+    expect(ctxResetWorktree).toHaveBeenCalledOnce();
     expect(deps.deriveStageFromRemote).toHaveBeenCalledOnce();
   });
 });
@@ -674,7 +695,7 @@ describe('escalate_human_gated from phase_timeout at cap', () => {
     });
     evaluateCandidate({ issueNumber: 639, repoInfo: REPO }, deps);
 
-    expect(deps.resetWorktree).not.toHaveBeenCalled();
+    expect(ctxResetWorktree).not.toHaveBeenCalled();
     expect(deps.deriveStageFromRemote).not.toHaveBeenCalled();
   });
 

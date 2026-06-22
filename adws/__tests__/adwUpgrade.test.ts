@@ -96,7 +96,7 @@ describe('buildUpgradeFailureComment', () => {
 describe('executeUpgrade — idempotency guard (existing claim-branch PR)', () => {
   it('no-ops with reason=pr_already_exists when a PR already exists for the claim branch', async () => {
     const deps = makeDeps({ findPRByBranch: vi.fn().mockReturnValue({ number: 77, state: 'OPEN' }) });
-    const result = await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+    const result = await executeUpgrade(541, 'test-id', REPO_INFO, FRAMEWORK_ROOT, deps);
 
     expect(result.outcome).toBe('completed');
     expect(result.reason).toBe('pr_already_exists');
@@ -104,7 +104,7 @@ describe('executeUpgrade — idempotency guard (existing claim-branch PR)', () =
 
   it('does not regenerate, commit, push, or open a PR when a claim-branch PR exists', async () => {
     const deps = makeDeps({ findPRByBranch: vi.fn().mockReturnValue({ number: 77, state: 'OPEN' }) });
-    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+    await executeUpgrade(541, 'test-id', REPO_INFO, FRAMEWORK_ROOT, deps);
 
     expect(deps.runInitCommand).not.toHaveBeenCalled();
     expect(deps.writeAdwVersion).not.toHaveBeenCalled();
@@ -115,7 +115,7 @@ describe('executeUpgrade — idempotency guard (existing claim-branch PR)', () =
 
   it('also no-ops for a CLOSED claim-branch PR (human-rejected upgrade must not loop)', async () => {
     const deps = makeDeps({ findPRByBranch: vi.fn().mockReturnValue({ number: 77, state: 'CLOSED' }) });
-    const result = await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+    const result = await executeUpgrade(541, 'test-id', REPO_INFO, FRAMEWORK_ROOT, deps);
 
     expect(result.reason).toBe('pr_already_exists');
     expect(deps.createPullRequest).not.toHaveBeenCalled();
@@ -123,7 +123,7 @@ describe('executeUpgrade — idempotency guard (existing claim-branch PR)', () =
 
   it('proceeds normally when no PR exists for the claim branch (genuinely stalled)', async () => {
     const deps = makeDeps({ findPRByBranch: vi.fn().mockReturnValue(null) });
-    const result = await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+    const result = await executeUpgrade(541, 'test-id', REPO_INFO, FRAMEWORK_ROOT, deps);
 
     expect(result.reason).toBe('pr_merged');
     expect(deps.createPullRequest).toHaveBeenCalledTimes(1);
@@ -133,7 +133,7 @@ describe('executeUpgrade — idempotency guard (existing claim-branch PR)', () =
     const deps = makeDeps({
       findPRByBranch: vi.fn().mockReturnValue({ number: 3, state: 'MERGED', labels: [{ name: "Won't fix" }] }),
     });
-    const result = await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+    const result = await executeUpgrade(541, 'test-id', REPO_INFO, FRAMEWORK_ROOT, deps);
 
     expect(result.reason).toBe('pr_merged');
     expect(deps.createPullRequest).toHaveBeenCalledTimes(1);
@@ -143,7 +143,7 @@ describe('executeUpgrade — idempotency guard (existing claim-branch PR)', () =
 describe('executeUpgrade — success path (default: auto-merge)', () => {
   it('returns outcome=completed, reason=pr_merged, and prUrl on success', async () => {
     const deps = makeDeps();
-    const result = await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+    const result = await executeUpgrade(541, 'test-id', REPO_INFO, FRAMEWORK_ROOT, deps);
 
     expect(result.outcome).toBe('completed');
     expect(result.reason).toBe('pr_merged');
@@ -152,7 +152,7 @@ describe('executeUpgrade — success path (default: auto-merge)', () => {
 
   it('creates PR with Implements #<issueNumber> in body', async () => {
     const deps = makeDeps();
-    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+    await executeUpgrade(541, 'test-id', REPO_INFO, FRAMEWORK_ROOT, deps);
 
     const call = (deps.createPullRequest as ReturnType<typeof vi.fn>).mock.calls[0][0] as CreatePROptions;
     expect(call.body).toMatch(/Implements #541/);
@@ -160,7 +160,7 @@ describe('executeUpgrade — success path (default: auto-merge)', () => {
 
   it('creates PR with Closes #<issueNumber> in body to auto-close tracking issue on merge', async () => {
     const deps = makeDeps();
-    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+    await executeUpgrade(541, 'test-id', REPO_INFO, FRAMEWORK_ROOT, deps);
 
     const call = (deps.createPullRequest as ReturnType<typeof vi.fn>).mock.calls[0][0] as CreatePROptions;
     expect(call.body).toMatch(/Closes #541/);
@@ -168,14 +168,14 @@ describe('executeUpgrade — success path (default: auto-merge)', () => {
 
   it('calls createPullRequest exactly once', async () => {
     const deps = makeDeps();
-    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+    await executeUpgrade(541, 'test-id', REPO_INFO, FRAMEWORK_ROOT, deps);
 
     expect(deps.createPullRequest).toHaveBeenCalledTimes(1);
   });
 
   it('calls mergePR once with (pr.number, repoInfo) on the default (hitl:false) path', async () => {
     const deps = makeDeps();
-    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+    await executeUpgrade(541, 'test-id', REPO_INFO, FRAMEWORK_ROOT, deps);
 
     expect(deps.mergePR).toHaveBeenCalledTimes(1);
     expect(deps.mergePR).toHaveBeenCalledWith(99, REPO_INFO);
@@ -183,14 +183,14 @@ describe('executeUpgrade — success path (default: auto-merge)', () => {
 
   it('never calls commentOnIssue on default success path', async () => {
     const deps = makeDeps();
-    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+    await executeUpgrade(541, 'test-id', REPO_INFO, FRAMEWORK_ROOT, deps);
 
     expect(deps.commentOnIssue).not.toHaveBeenCalled();
   });
 
   it('writes .adw-version with the runtime-computed hash (not a passed-in value)', async () => {
     const deps = makeDeps();
-    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+    await executeUpgrade(541, 'test-id', REPO_INFO, FRAMEWORK_ROOT, deps);
 
     expect(deps.writeAdwVersion).toHaveBeenCalledWith(
       expect.any(String),
@@ -204,14 +204,14 @@ describe('executeUpgrade — success path (default: auto-merge)', () => {
 describe('executeUpgrade — hitl:true path', () => {
   it('does not call mergePR when hitl: true', async () => {
     const deps = makeDeps({ readAdwYmlConfig: vi.fn().mockReturnValue({ hitl: true, unitTests: true }) });
-    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+    await executeUpgrade(541, 'test-id', REPO_INFO, FRAMEWORK_ROOT, deps);
 
     expect(deps.mergePR).not.toHaveBeenCalled();
   });
 
   it('returns outcome=completed, reason=pr_opened_hitl when hitl: true', async () => {
     const deps = makeDeps({ readAdwYmlConfig: vi.fn().mockReturnValue({ hitl: true, unitTests: true }) });
-    const result = await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+    const result = await executeUpgrade(541, 'test-id', REPO_INFO, FRAMEWORK_ROOT, deps);
 
     expect(result.outcome).toBe('completed');
     expect(result.reason).toBe('pr_opened_hitl');
@@ -220,7 +220,7 @@ describe('executeUpgrade — hitl:true path', () => {
 
   it('posts exactly one non-ADW comment when hitl: true', async () => {
     const deps = makeDeps({ readAdwYmlConfig: vi.fn().mockReturnValue({ hitl: true, unitTests: true }) });
-    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+    await executeUpgrade(541, 'test-id', REPO_INFO, FRAMEWORK_ROOT, deps);
 
     expect(deps.commentOnIssue).toHaveBeenCalledTimes(1);
     const body = (deps.commentOnIssue as ReturnType<typeof vi.fn>).mock.calls[0][1] as string;
@@ -233,7 +233,7 @@ describe('executeUpgrade — merge failure (non-fatal)', () => {
     const deps = makeDeps({
       mergePR: vi.fn().mockReturnValue({ success: false, error: 'required status check pending' }),
     });
-    const result = await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+    const result = await executeUpgrade(541, 'test-id', REPO_INFO, FRAMEWORK_ROOT, deps);
 
     expect(result.outcome).toBe('completed');
     expect(result.reason).toBe('merge_failed');
@@ -243,7 +243,7 @@ describe('executeUpgrade — merge failure (non-fatal)', () => {
     const deps = makeDeps({
       mergePR: vi.fn().mockReturnValue({ success: false, error: 'required status check pending' }),
     });
-    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+    await executeUpgrade(541, 'test-id', REPO_INFO, FRAMEWORK_ROOT, deps);
 
     expect(deps.commentOnIssue).toHaveBeenCalledTimes(1);
     const body = (deps.commentOnIssue as ReturnType<typeof vi.fn>).mock.calls[0][1] as string;
@@ -255,7 +255,7 @@ describe('executeUpgrade — merge failure (non-fatal)', () => {
       mergePR: vi.fn().mockReturnValue({ success: false, error: 'branch protection' }),
     });
     await expect(
-      executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps),
+      executeUpgrade(541, 'test-id', REPO_INFO, FRAMEWORK_ROOT, deps),
     ).resolves.toBeDefined();
   });
 });
@@ -275,7 +275,7 @@ describe('executeUpgrade — non-fast-forward push parks instead of crashing', (
   }
 
   it('returns outcome=completed, reason=claim_lost on a rejected push', async () => {
-    const result = await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, rejectingDeps());
+    const result = await executeUpgrade(541, 'test-id', REPO_INFO, FRAMEWORK_ROOT, rejectingDeps());
 
     expect(result.outcome).toBe('completed');
     expect(result.reason).toBe('claim_lost');
@@ -283,7 +283,7 @@ describe('executeUpgrade — non-fast-forward push parks instead of crashing', (
 
   it('does not open a PR, merge, or comment when the push is rejected', async () => {
     const deps = rejectingDeps();
-    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+    await executeUpgrade(541, 'test-id', REPO_INFO, FRAMEWORK_ROOT, deps);
 
     expect(deps.createPullRequest).not.toHaveBeenCalled();
     expect(deps.mergePR).not.toHaveBeenCalled();
@@ -300,7 +300,7 @@ describe('executeUpgrade — non-fast-forward push parks instead of crashing', (
     });
 
     await expect(
-      executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps),
+      executeUpgrade(541, 'test-id', REPO_INFO, FRAMEWORK_ROOT, deps),
     ).rejects.toThrow('unable to access remote');
   });
 });
@@ -368,13 +368,12 @@ describe('buildUpgradeMergeFailedComment', () => {
 describe('executeUpgrade — branch derivation', () => {
   it('calls ensureWorktree with adw-upgrade-<hash> (matches buildClaimBranchName)', async () => {
     const deps = makeDeps();
-    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+    await executeUpgrade(541, 'test-id', REPO_INFO, FRAMEWORK_ROOT, deps);
 
     const expectedBranch = buildClaimBranchName(MOCK_HASH);
     expect(deps.ensureWorktree).toHaveBeenCalledWith(
       expectedBranch,
       expect.any(String),
-      BASE_REPO,
     );
   });
 });
@@ -386,7 +385,7 @@ describe('executeUpgrade — LLM failure path', () => {
     const deps = makeDeps({
       runInitCommand: vi.fn().mockResolvedValue({ success: false, error: 'Claude timeout' }),
     });
-    const result = await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+    const result = await executeUpgrade(541, 'test-id', REPO_INFO, FRAMEWORK_ROOT, deps);
 
     expect(result.outcome).toBe('failed');
     expect(result.reason).toBe('llm_failed');
@@ -396,7 +395,7 @@ describe('executeUpgrade — LLM failure path', () => {
     const deps = makeDeps({
       runInitCommand: vi.fn().mockResolvedValue({ success: false, error: 'Claude timeout' }),
     });
-    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+    await executeUpgrade(541, 'test-id', REPO_INFO, FRAMEWORK_ROOT, deps);
 
     expect(deps.commentOnIssue).toHaveBeenCalledTimes(1);
     expect(deps.commentOnIssue).toHaveBeenCalledWith(541, expect.any(String), REPO_INFO);
@@ -406,7 +405,7 @@ describe('executeUpgrade — LLM failure path', () => {
     const deps = makeDeps({
       runInitCommand: vi.fn().mockResolvedValue({ success: false, error: 'Claude timeout' }),
     });
-    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+    await executeUpgrade(541, 'test-id', REPO_INFO, FRAMEWORK_ROOT, deps);
 
     const body = (deps.commentOnIssue as ReturnType<typeof vi.fn>).mock.calls[0][1] as string;
     expect(isAdwComment(body)).toBe(false);
@@ -416,7 +415,7 @@ describe('executeUpgrade — LLM failure path', () => {
     const deps = makeDeps({
       runInitCommand: vi.fn().mockResolvedValue({ success: false, error: 'error' }),
     });
-    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+    await executeUpgrade(541, 'test-id', REPO_INFO, FRAMEWORK_ROOT, deps);
 
     expect(deps.createPullRequest).not.toHaveBeenCalled();
     expect(deps.writeAdwVersion).not.toHaveBeenCalled();
@@ -432,7 +431,7 @@ describe('executeUpgrade — worktree error path', () => {
     const deps = makeDeps({
       ensureWorktree: vi.fn().mockImplementation(() => { throw new Error('git remote error'); }),
     });
-    const result: UpgradeRunResult = await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+    const result: UpgradeRunResult = await executeUpgrade(541, 'test-id', REPO_INFO, FRAMEWORK_ROOT, deps);
 
     expect(result.outcome).toBe('failed');
     expect(result.reason).toBe('worktree_error');
@@ -442,7 +441,7 @@ describe('executeUpgrade — worktree error path', () => {
     const deps = makeDeps({
       ensureWorktree: vi.fn().mockImplementation(() => { throw new Error('git remote error'); }),
     });
-    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+    await executeUpgrade(541, 'test-id', REPO_INFO, FRAMEWORK_ROOT, deps);
 
     expect(deps.commentOnIssue).toHaveBeenCalledTimes(1);
   });
@@ -451,7 +450,7 @@ describe('executeUpgrade — worktree error path', () => {
     const deps = makeDeps({
       ensureWorktree: vi.fn().mockImplementation(() => { throw new Error('git remote error'); }),
     });
-    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+    await executeUpgrade(541, 'test-id', REPO_INFO, FRAMEWORK_ROOT, deps);
 
     expect(deps.createPullRequest).not.toHaveBeenCalled();
   });
@@ -464,7 +463,7 @@ describe('executeUpgrade — anti-brick verification gate (E1)', () => {
     const deps = makeDeps({
       verifyAdwRegen: vi.fn().mockReturnValue({ ok: false, missing: ['commands.md'] }),
     });
-    const result = await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+    const result = await executeUpgrade(541, 'test-id', REPO_INFO, FRAMEWORK_ROOT, deps);
 
     expect(result.outcome).toBe('failed');
     expect(result.reason).toBe('regen_incomplete');
@@ -474,7 +473,7 @@ describe('executeUpgrade — anti-brick verification gate (E1)', () => {
     const deps = makeDeps({
       verifyAdwRegen: vi.fn().mockReturnValue({ ok: false, missing: ['commands.md'] }),
     });
-    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+    await executeUpgrade(541, 'test-id', REPO_INFO, FRAMEWORK_ROOT, deps);
 
     expect(deps.writeAdwVersion).not.toHaveBeenCalled();
     expect(deps.commitChanges).not.toHaveBeenCalled();
@@ -487,7 +486,7 @@ describe('executeUpgrade — anti-brick verification gate (E1)', () => {
     const deps = makeDeps({
       verifyAdwRegen: vi.fn().mockReturnValue({ ok: false, missing: ['commands.md'] }),
     });
-    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+    await executeUpgrade(541, 'test-id', REPO_INFO, FRAMEWORK_ROOT, deps);
 
     expect(deps.commentOnIssue).toHaveBeenCalledTimes(1);
     const body = (deps.commentOnIssue as ReturnType<typeof vi.fn>).mock.calls[0][1] as string;
@@ -500,7 +499,7 @@ describe('executeUpgrade — anti-brick verification gate (E1)', () => {
 describe('executeUpgrade — receipt-freshness gate: expectedHash is threaded', () => {
   it('calls verifyAdwRegen with (worktreePath, MOCK_HASH)', async () => {
     const deps = makeDeps();
-    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+    await executeUpgrade(541, 'test-id', REPO_INFO, FRAMEWORK_ROOT, deps);
 
     expect(deps.verifyAdwRegen).toHaveBeenCalledWith(expect.any(String), MOCK_HASH);
   });
@@ -511,7 +510,7 @@ describe('executeUpgrade — receipt-freshness gate: expectedHash is threaded', 
     const deps = makeDeps({
       verifyAdwRegen: vi.fn().mockReturnValue({ ok: true, missing: [] }),
     });
-    const result = await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+    const result = await executeUpgrade(541, 'test-id', REPO_INFO, FRAMEWORK_ROOT, deps);
 
     expect(result.reason).toBe('pr_merged');
     expect(deps.writeAdwVersion).toHaveBeenCalledTimes(1);
@@ -522,7 +521,7 @@ describe('executeUpgrade — receipt-freshness gate: expectedHash is threaded', 
     const deps = makeDeps({
       verifyAdwRegen: vi.fn().mockReturnValue({ ok: false, missing: ['.adw/.regen-receipt (stale)'] }),
     });
-    const result = await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+    const result = await executeUpgrade(541, 'test-id', REPO_INFO, FRAMEWORK_ROOT, deps);
 
     expect(result.outcome).toBe('failed');
     expect(result.reason).toBe('regen_incomplete');
@@ -542,7 +541,7 @@ describe('executeUpgrade — receipt-freshness gate: expectedHash is threaded', 
 describe('executeUpgrade — gate passes (E2)', () => {
   it('calls writeAdwVersion when verifyAdwRegen returns ok:true', async () => {
     const deps = makeDeps(); // verifyAdwRegen returns ok:true by default
-    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+    await executeUpgrade(541, 'test-id', REPO_INFO, FRAMEWORK_ROOT, deps);
 
     expect(deps.verifyAdwRegen).toHaveBeenCalledTimes(1);
     expect(deps.writeAdwVersion).toHaveBeenCalledTimes(1);
@@ -550,7 +549,7 @@ describe('executeUpgrade — gate passes (E2)', () => {
 
   it('proceeds to pr_merged on the gate-pass path', async () => {
     const deps = makeDeps();
-    const result = await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+    const result = await executeUpgrade(541, 'test-id', REPO_INFO, FRAMEWORK_ROOT, deps);
 
     expect(result.reason).toBe('pr_merged');
   });
@@ -566,14 +565,14 @@ describe('executeUpgrade — copy-before-init ordering (E3)', () => {
       runInitCommand: vi.fn().mockImplementation(async () => { callOrder.push('init'); return { success: true }; }),
     });
 
-    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+    await executeUpgrade(541, 'test-id', REPO_INFO, FRAMEWORK_ROOT, deps);
 
     expect(callOrder.indexOf('copy')).toBeLessThan(callOrder.indexOf('init'));
   });
 
   it('calls copyInitCommandToWorktree with (worktreePath, frameworkRepoRoot)', async () => {
     const deps = makeDeps();
-    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+    await executeUpgrade(541, 'test-id', REPO_INFO, FRAMEWORK_ROOT, deps);
 
     expect(deps.copyInitCommandToWorktree).toHaveBeenCalledWith(
       expect.any(String),
@@ -589,7 +588,7 @@ describe('executeUpgrade — hash error path', () => {
     const deps = makeDeps({
       computeFrameworkHash: vi.fn().mockImplementation(() => { throw new Error('no hashInputs:'); }),
     });
-    const result = await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+    const result = await executeUpgrade(541, 'test-id', REPO_INFO, FRAMEWORK_ROOT, deps);
 
     expect(result.outcome).toBe('failed');
     expect(result.reason).toBe('hash_error');
@@ -599,7 +598,7 @@ describe('executeUpgrade — hash error path', () => {
     const deps = makeDeps({
       computeFrameworkHash: vi.fn().mockReturnValue(''),
     });
-    const result = await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+    const result = await executeUpgrade(541, 'test-id', REPO_INFO, FRAMEWORK_ROOT, deps);
 
     expect(result.outcome).toBe('failed');
     expect(result.reason).toBe('hash_error');
@@ -609,7 +608,7 @@ describe('executeUpgrade — hash error path', () => {
     const deps = makeDeps({
       computeFrameworkHash: vi.fn().mockImplementation(() => { throw new Error('no hashInputs:'); }),
     });
-    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+    await executeUpgrade(541, 'test-id', REPO_INFO, FRAMEWORK_ROOT, deps);
 
     expect(deps.commentOnIssue).toHaveBeenCalledTimes(1);
   });
@@ -623,7 +622,7 @@ describe('executeUpgrade — reconcile-before-regen (stale worktree)', () => {
     const deps = makeDeps({
       ensureWorktree: vi.fn().mockReturnValue(worktreePath),
     });
-    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+    await executeUpgrade(541, 'test-id', REPO_INFO, FRAMEWORK_ROOT, deps);
 
     const expectedBranch = buildClaimBranchName(MOCK_HASH);
     expect(deps.reconcileWorktreeToRemote).toHaveBeenCalledTimes(1);
@@ -639,7 +638,7 @@ describe('executeUpgrade — reconcile-before-regen (stale worktree)', () => {
       }),
       reconcileWorktreeToRemote: vi.fn().mockImplementation(() => { callOrder.push('reconcileWorktreeToRemote'); }),
     });
-    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+    await executeUpgrade(541, 'test-id', REPO_INFO, FRAMEWORK_ROOT, deps);
 
     expect(callOrder.indexOf('ensureWorktree')).toBeLessThan(callOrder.indexOf('reconcileWorktreeToRemote'));
   });
@@ -651,7 +650,7 @@ describe('executeUpgrade — reconcile-before-regen (stale worktree)', () => {
       copyInitCommandToWorktree: vi.fn().mockImplementation(() => { callOrder.push('copy'); }),
       runInitCommand: vi.fn().mockImplementation(async () => { callOrder.push('init'); return { success: true }; }),
     });
-    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+    await executeUpgrade(541, 'test-id', REPO_INFO, FRAMEWORK_ROOT, deps);
 
     expect(callOrder.indexOf('reconcile')).toBeLessThan(callOrder.indexOf('copy'));
     expect(callOrder.indexOf('reconcile')).toBeLessThan(callOrder.indexOf('init'));
@@ -659,7 +658,7 @@ describe('executeUpgrade — reconcile-before-regen (stale worktree)', () => {
 
   it('success path still reaches pr_merged with reconcile wired in (diverged-reuse → fast-forwardable push)', async () => {
     const deps = makeDeps();
-    const result = await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+    const result = await executeUpgrade(541, 'test-id', REPO_INFO, FRAMEWORK_ROOT, deps);
 
     expect(result.outcome).toBe('completed');
     expect(result.reason).toBe('pr_merged');
@@ -672,7 +671,7 @@ describe('executeUpgrade — reconcile-before-regen (stale worktree)', () => {
         throw new Error('git fetch failed: connection timeout');
       }),
     });
-    const result = await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+    const result = await executeUpgrade(541, 'test-id', REPO_INFO, FRAMEWORK_ROOT, deps);
 
     expect(result.outcome).toBe('failed');
     expect(result.reason).toBe('worktree_error');

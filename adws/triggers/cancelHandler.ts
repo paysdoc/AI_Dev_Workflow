@@ -13,9 +13,10 @@ import { log } from '../core/logger';
 import { AGENTS_STATE_DIR } from '../core/config';
 import { extractAdwIdFromComment } from '../core/workflowCommentParsing';
 import { findOrchestratorStatePath, isProcessAlive } from '../core/stateHelpers';
-import { removeWorktreesForIssue } from '../vcs/worktreeCleanup';
 import { clearIssueComments } from '../adwClearComments';
 import type { RepoInfo } from '../github/githubApi';
+import { getRepoInfo } from '../github/githubApi';
+import { gitContextForSync } from '../github/gitContextFactory';
 
 /** Mutable dedup sets passed in from the cron trigger so cancelled issues skip this cycle. */
 export interface MutableProcessedSets {
@@ -42,7 +43,7 @@ export function handleCancelDirective(
   issueNumber: number,
   comments: readonly { body: string }[],
   repoInfo: RepoInfo,
-  cwd?: string,
+  _cwd?: string,
   processedSets?: MutableProcessedSets,
 ): boolean {
   log(`Cancel directive on issue #${issueNumber}: starting full cleanup sequence`);
@@ -62,7 +63,10 @@ export function handleCancelDirective(
   // 3. Remove worktrees and local branches
   try {
     log(`Cancel #${issueNumber}: removing worktrees`);
-    removeWorktreesForIssue(issueNumber, cwd);
+    const frameworkRepoInfo = getRepoInfo();
+    const selfHost = repoInfo.owner === frameworkRepoInfo.owner && repoInfo.repo === frameworkRepoInfo.repo;
+    const ctx = gitContextForSync({ owner: repoInfo.owner, repo: repoInfo.repo, selfHost });
+    ctx.removeWorktreesForIssue(issueNumber);
   } catch (error) {
     log(`Cancel #${issueNumber}: worktree removal error (continuing): ${error}`, 'warn');
   }

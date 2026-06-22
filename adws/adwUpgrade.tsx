@@ -36,7 +36,6 @@ import {
   generateAdwId,
   log,
   ensureLogsDirectory,
-  ensureTargetRepoWorkspace,
   buildClaimBranchName,
   computeFrameworkHash,
   isPushRejectionError,
@@ -44,9 +43,10 @@ import {
   readAdwYmlConfig,
   type AdwYmlConfig,
 } from './core';
-import { commentOnIssue, mergePR, type RepoInfo } from './github';
+import { commentOnIssue, mergePR, gitContextFor, type RepoInfo } from './github';
 import { defaultFindPRByBranch, hasWontFixLabel, type RawPR } from './github/prApi';
-import { ensureWorktree, commitChanges, pushBranch, fetchAndResetToRemote } from './vcs';
+import { commitChanges, pushBranch, fetchAndResetToRemote } from './vcs';
+import type { GitContext } from './gitContext';
 import { getDefaultBranch } from './vcs/branchOperations';
 import { runClaudeAgentWithCommand } from './agents';
 import { createGitHubCodeHost } from './providers/github/githubCodeHost';
@@ -77,7 +77,7 @@ export interface RunInitCommandParams {
 /** Injectable dependencies for executeUpgrade — enables unit testing without I/O. */
 export interface UpgradeDeps {
   readonly computeFrameworkHash: (frameworkRepoRoot: string) => string;
-  readonly ensureWorktree: (branch: string, baseBranch: string, baseRepoPath: string) => string;
+  readonly ensureWorktree: (branch: string, baseBranch: string) => string;
   /**
    * Reconciles the (possibly reused) upgrade worktree to the live remote claim tip
    * before regen: git fetch origin <branch> + git reset --hard origin/<branch>.
@@ -85,7 +85,8 @@ export interface UpgradeDeps {
    * safe — the upgrade worktree is a throwaway regen target with no un-pushed work.
    */
   readonly reconcileWorktreeToRemote: (worktreePath: string, branch: string) => void;
-  readonly getDefaultBranch: (cwd: string) => string;
+  /** Returns the default branch for the repo being upgraded. */
+  readonly getDefaultBranch: () => string;
   readonly findPRByBranch: (branch: string, repoInfo: RepoInfo) => RawPR | null;
   readonly runInitCommand: (params: RunInitCommandParams) => Promise<{ success: boolean; error?: string }>;
   readonly copyInitCommandToWorktree: (worktreePath: string, frameworkRepoRoot: string) => void;
@@ -189,7 +190,6 @@ export async function executeUpgrade(
   issueNumber: number,
   adwId: string,
   repoInfo: RepoInfo,
-  baseRepoPath: string,
   frameworkRepoRoot: string,
   deps: UpgradeDeps,
 ): Promise<UpgradeRunResult> {
@@ -234,7 +234,7 @@ export async function executeUpgrade(
     return { outcome: 'completed', reason: 'pr_already_exists' };
   }
 
-  const defaultBranch = deps.getDefaultBranch(baseRepoPath);
+  const defaultBranch = deps.getDefaultBranch();
 
   // 3. Check out the existing remote claim branch, then reconcile it to the live
   //    remote claim tip. A reused worktree may sit on a superseded claim commit
@@ -244,7 +244,7 @@ export async function executeUpgrade(
   //    Hard reset is safe: the upgrade worktree is a throwaway regen target.
   let worktreePath: string;
   try {
-    worktreePath = deps.ensureWorktree(branch, defaultBranch, baseRepoPath);
+    worktreePath = deps.ensureWorktree(branch, defaultBranch);
     deps.reconcileWorktreeToRemote(worktreePath, branch);
   } catch (error) {
     deps.commentOnIssue(
@@ -330,7 +330,7 @@ export async function executeUpgrade(
     title: buildUpgradePrTitle(hash),
     body: buildUpgradePrBody(issueNumber, hash),
     sourceBranch: branch,
-    targetBranch: deps.getDefaultBranch(worktreePath),
+    targetBranch: deps.getDefaultBranch(),
     linkedIssueNumber: issueNumber,
   });
 
@@ -379,13 +379,13 @@ async function runInitCommandDefault(params: RunInitCommandParams): Promise<{ su
 }
 
 /** Builds the default UpgradeDeps using production implementations. */
-function buildDefaultUpgradeDeps(repoId: RepoIdentifier): UpgradeDeps {
+function buildDefaultUpgradeDeps(repoId: RepoIdentifier, ctx: GitContext): UpgradeDeps {
   const codeHost = createGitHubCodeHost(repoId);
   return {
     computeFrameworkHash,
-    ensureWorktree,
+    ensureWorktree: (branch, baseBranch) => ctx.ensureWorktree(branch, baseBranch),
     reconcileWorktreeToRemote: (worktreePath, branch) => fetchAndResetToRemote(branch, worktreePath),
-    getDefaultBranch,
+    getDefaultBranch: () => getDefaultBranch(ctx.basePath),
     findPRByBranch: (branch, info) => defaultFindPRByBranch(branch, info),
     runInitCommand: runInitCommandDefault,
     copyInitCommandToWorktree: copyAdwInitCommandToWorktree,
@@ -419,8 +419,8 @@ async function main(): Promise<void> {
   const adwId = parsedAdwId ?? generateAdwId('adwupgrade');
   const repoId = buildRepoIdentifier(targetRepo);
   const repoInfo: RepoInfo = { owner: repoId.owner, repo: repoId.repo };
-  const baseRepoPath = targetRepo ? ensureTargetRepoWorkspace(targetRepo) : process.cwd();
   const frameworkRepoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+  const ctx = await gitContextFor({ owner: repoId.owner, repo: repoId.repo, selfHost: !targetRepo });
 
   let result: UpgradeRunResult | undefined;
   const acquired = await runWithRawOrchestratorLifecycle(repoInfo, issueNumber, adwId, async () => {
@@ -428,9 +428,8 @@ async function main(): Promise<void> {
       issueNumber,
       adwId,
       repoInfo,
-      baseRepoPath,
       frameworkRepoRoot,
-      buildDefaultUpgradeDeps(repoId),
+      buildDefaultUpgradeDeps(repoId, ctx),
     );
   });
 

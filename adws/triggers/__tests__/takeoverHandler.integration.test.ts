@@ -2,7 +2,7 @@
  * Integration test: abandoned takeover end-to-end against a fixture state file.
  *
  * Uses a real tmpDir for the state file read (via a stubbed readTopLevelState
- * that reads from the fixture), but stubs all network/git I/O (resetWorktree,
+ * that reads from the fixture), but stubs all network/git I/O (getContext,
  * deriveStageFromRemote, resolveAdwId) so no real filesystem mutations or
  * GitHub calls are made.
  */
@@ -15,6 +15,7 @@ import { evaluateCandidate } from '../takeoverHandler';
 import type { TakeoverDeps, CandidateDecision } from '../takeoverHandler';
 import type { RepoInfo } from '../../github/githubApi';
 import type { AgentState } from '../../types/agentTypes';
+import type { GitContext } from '../../gitContext';
 
 const REPO: RepoInfo = { owner: 'acme', repo: 'widgets' };
 const FIXTURE_ADW_ID = 'fixture-adwid';
@@ -22,10 +23,14 @@ const FIXTURE_BRANCH = 'feature/issue-999-fixture';
 const FIXTURE_ISSUE = 999;
 
 let tmpDir = '';
+let ctxResetWorktree: ReturnType<typeof vi.fn>;
+let ctxWorktreePathFor: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'takeover-integ-'));
   vi.clearAllMocks();
+  ctxResetWorktree = vi.fn();
+  ctxWorktreePathFor = vi.fn().mockImplementation((branch: string) => path.join(tmpDir, '.worktrees', branch));
 });
 
 afterEach(() => {
@@ -47,7 +52,19 @@ function writeFixtureState(state: Partial<AgentState>): void {
   fs.writeFileSync(path.join(stateDir, 'state.json'), JSON.stringify(full, null, 2), 'utf-8');
 }
 
-function makeIntegDeps(overrides: Partial<TakeoverDeps> = {}): TakeoverDeps {
+type MakeIntegDepsOverrides = Partial<TakeoverDeps> & {
+  resetWorktree?: ReturnType<typeof vi.fn>;
+  getWorktreePath?: ReturnType<typeof vi.fn>;
+};
+
+function makeIntegDeps(overrides: MakeIntegDepsOverrides = {}): TakeoverDeps {
+  const { resetWorktree, getWorktreePath, ...depsOverrides } = overrides as MakeIntegDepsOverrides & Record<string, unknown>;
+  if (resetWorktree) ctxResetWorktree = resetWorktree as ReturnType<typeof vi.fn>;
+  if (getWorktreePath) ctxWorktreePathFor = getWorktreePath as ReturnType<typeof vi.fn>;
+  const mockCtx = {
+    worktreePathFor: ctxWorktreePathFor,
+    resetWorktree: ctxResetWorktree,
+  } as unknown as GitContext;
   return {
     acquireIssueSpawnLock: vi.fn().mockReturnValue(true),
     releaseIssueSpawnLock: vi.fn(),
@@ -60,9 +77,8 @@ function makeIntegDeps(overrides: Partial<TakeoverDeps> = {}): TakeoverDeps {
     }),
     isProcessLive: vi.fn().mockReturnValue(false),
     killProcess: vi.fn(),
-    resetWorktree: vi.fn(),
+    getContext: vi.fn().mockReturnValue(mockCtx),
     deriveStageFromRemote: vi.fn().mockReturnValue('awaiting_merge'),
-    getWorktreePath: vi.fn().mockReturnValue(path.join(tmpDir, 'worktree')),
     writeTopLevelState: vi.fn(),
     commentOnIssue: vi.fn(),
     probeWorktree: vi.fn().mockReturnValue({
@@ -73,7 +89,7 @@ function makeIntegDeps(overrides: Partial<TakeoverDeps> = {}): TakeoverDeps {
       liveOwner: false,
     }),
     clearOrphanedIndexLock: vi.fn(),
-    ...overrides,
+    ...(depsOverrides as Partial<TakeoverDeps>),
   };
 }
 
@@ -91,18 +107,16 @@ describe('abandoned takeover end-to-end (integration)', () => {
     });
   });
 
-  it('invokes resetWorktree with the fixture worktree path and branchName when gate fails', () => {
+  it('invokes resetWorktree with the fixture branchName when gate fails', () => {
     writeFixtureState({ workflowStage: 'abandoned', branchName: FIXTURE_BRANCH });
-    const wtPath = path.join(tmpDir, 'worktree');
     const unhealthyProbe = { registration: 'healthy' as const, indexLock: 'absent' as const, interruptedOp: 'rebase' as const, headOnExpectedBranch: true, liveOwner: false };
     const deps = makeIntegDeps({
-      getWorktreePath: vi.fn().mockReturnValue(wtPath),
       probeWorktree: vi.fn().mockReturnValue(unhealthyProbe),
     });
 
     evaluateCandidate({ issueNumber: FIXTURE_ISSUE, repoInfo: REPO }, deps);
 
-    expect(deps.resetWorktree).toHaveBeenCalledWith(wtPath, FIXTURE_BRANCH);
+    expect(ctxResetWorktree).toHaveBeenCalledWith(FIXTURE_BRANCH);
   });
 
   it('invokes deriveStageFromRemote with the fixture issueNumber, adwId, and repoInfo', () => {

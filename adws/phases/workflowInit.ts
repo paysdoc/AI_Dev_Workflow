@@ -36,14 +36,12 @@ import {
   type RepoInfo,
   activateGitHubAppAuth,
   isGitHubAppConfigured,
+  gitContextFor,
 } from '../github';
+import type { GitContext } from '../gitContext';
 import { GITHUB_PAT } from '../core/environment';
 import {
-  ensureWorktree,
-  getWorktreeForBranch,
   mergeLatestFromDefaultBranch,
-  copyEnvToWorktree,
-  findWorktreeForIssue,
   fetchAndResetToRemote,
 } from '../vcs';
 import { getDefaultBranch } from '../vcs/branchOperations';
@@ -91,6 +89,8 @@ export interface WorkflowConfig {
   completedPhases?: string[];
   /** Absolute path to the top-level workflow state file: agents/{adwId}/state.json */
   topLevelStatePath: string;
+  /** GitContext for this workflow's repo — use for worktree/branch/commit ops. */
+  gitContext: GitContext;
 }
 
 /**
@@ -206,6 +206,13 @@ export async function initializeWorkflow(
     log(`Target repo workspace: ${targetRepoWorkspacePath}`, 'success');
   }
 
+  // Build GitContext — resolves base path from explicit identity, never from cwd.
+  const gitContext = await gitContextFor({
+    owner: resolvedRepoForAuth.owner,
+    repo: resolvedRepoForAuth.repo,
+    selfHost: !targetRepo,
+  });
+
   // Setup worktree with branch sync
   // When targeting an external repo, get default branch from that repo's workspace
   const defaultBranchCwd = targetRepoWorkspacePath || undefined;
@@ -219,29 +226,29 @@ export async function initializeWorkflow(
   } else if (targetRepoWorkspacePath) {
     // For external repos, create worktrees within the target repo workspace
     branchName = await resolveWorkflowBranchName({ adwId: resolvedAdwId, issueType, issue, logsDir, recoveryState });
-    worktreePath = ensureWorktree(branchName, defaultBranch, targetRepoWorkspacePath);
+    worktreePath = gitContext.ensureWorktree(branchName, defaultBranch);
     copyClaudeAssetsToWorktree(worktreePath);
     log(`Worktree path (target repo): ${worktreePath}`, 'info');
   } else {
     const persistedBranchName = readPersistedBranchName(resolvedAdwId);
     // Skip pattern discovery when a persisted name exists — never adopt a sibling worktree's branch.
-    const issueWorktree = persistedBranchName ? null : findWorktreeForIssue(issueType, issueNumber, targetRepoWorkspacePath);
+    const issueWorktree = persistedBranchName ? null : gitContext.findWorktreeForIssue(issueType, issueNumber);
     if (issueWorktree) {
       branchName = issueWorktree.branchName;
       worktreePath = issueWorktree.worktreePath;
       mergeLatestFromDefaultBranch(defaultBranch, worktreePath);
-      copyEnvToWorktree(worktreePath, targetRepoWorkspacePath);
+      gitContext.copyEnvToWorktree(worktreePath);
       log(`Reusing existing worktree found by issue pattern at ${worktreePath}`, 'info');
     } else {
       branchName = await resolveWorkflowBranchName({ adwId: resolvedAdwId, issueType, issue, logsDir, recoveryState });
-      const existingWorktree = getWorktreeForBranch(branchName);
+      const existingWorktree = gitContext.getWorktreeForBranch(branchName);
       if (existingWorktree) {
         log(`Reusing existing worktree at ${existingWorktree}`, 'info');
         mergeLatestFromDefaultBranch(defaultBranch, existingWorktree);
-        copyEnvToWorktree(existingWorktree, targetRepoWorkspacePath);
+        gitContext.copyEnvToWorktree(existingWorktree);
         worktreePath = existingWorktree;
       } else {
-        worktreePath = ensureWorktree(branchName, defaultBranch, process.cwd());
+        worktreePath = gitContext.ensureWorktree(branchName, defaultBranch);
         copyClaudeAssetsToWorktree(worktreePath);
         fetchAndResetToRemote(defaultBranch, worktreePath);
       }
@@ -432,5 +439,6 @@ export async function initializeWorkflow(
     adwYmlConfig,
     completedPhases,
     topLevelStatePath,
+    gitContext,
   };
 }

@@ -123,5 +123,5 @@ export {
 } from './workflowComments';
 
 // GitContext factory (auth-boundary: needs githubAppAuth so lives here, not in gitContext/)
-export { gitContextFor } from './gitContextFactory';
+export { gitContextFor, gitContextForSync } from './gitContextFactory';
 export type { GitContextFactoryOptions } from './gitContextFactory';

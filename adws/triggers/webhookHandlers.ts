@@ -8,8 +8,9 @@
 
 import { log, PullRequestWebhookPayload, GRACE_PERIOD_MS } from '../core';
 import type { RepoInfo } from '../github/githubApi';
+import { getRepoInfo } from '../github/githubApi';
 import { closeIssue, fetchIssueCommentsRest } from '../github/issueApi';
-import { removeWorktreesForIssue } from '../vcs';
+import { gitContextForSync } from '../github/gitContextFactory';
 import { deleteRemoteBranch } from '../vcs/branchOperations';
 import { AgentStateManager } from '../core/agentState';
 import { findOrchestratorStatePath } from '../core/stateHelpers';
@@ -39,7 +40,7 @@ export interface PrClosedDeps {
 export interface IssueClosedDeps {
   fetchIssueComments: (issueNumber: number, repoInfo: RepoInfo) => { body: string }[];
   readTopLevelState: (adwId: string) => AgentState | null;
-  removeWorktreesForIssue: (issueNumber: number, cwd?: string) => number;
+  removeWorktreesForIssue: (issueNumber: number) => number;
   findOrchestratorStatePath: (adwId: string) => string | null;
   readOrchestratorState: (statePath: string) => AgentState | null;
   deleteRemoteBranch: (branchName: string, cwd?: string) => boolean;
@@ -55,11 +56,22 @@ function defaultPrClosedDeps(): PrClosedDeps {
   };
 }
 
-function defaultIssueClosedDeps(): IssueClosedDeps {
+function defaultIssueClosedDeps(repoInfo?: RepoInfo): IssueClosedDeps {
+  const frameworkRepoInfo = getRepoInfo();
+  const removeWorktrees = repoInfo
+    ? (issueNumber: number) => {
+        const selfHost = repoInfo.owner === frameworkRepoInfo.owner && repoInfo.repo === frameworkRepoInfo.repo;
+        const ctx = gitContextForSync({ owner: repoInfo.owner, repo: repoInfo.repo, selfHost });
+        return ctx.removeWorktreesForIssue(issueNumber);
+      }
+    : (_issueNumber: number) => {
+        log('handleIssueClosedEvent: no repoInfo — skipping worktree cleanup', 'warn');
+        return 0;
+      };
   return {
     fetchIssueComments: fetchIssueCommentsRest,
     readTopLevelState: (adwId) => AgentStateManager.readTopLevelState(adwId),
-    removeWorktreesForIssue,
+    removeWorktreesForIssue: removeWorktrees,
     findOrchestratorStatePath,
     readOrchestratorState: (statePath) => AgentStateManager.readState(statePath),
     deleteRemoteBranch,
@@ -151,7 +163,7 @@ export async function handleIssueClosedEvent(
   repoInfo: RepoInfo | undefined,
   cwd: string | undefined,
   targetRepoArgs: string[] = [],
-  deps: IssueClosedDeps = defaultIssueClosedDeps(),
+  deps: IssueClosedDeps = defaultIssueClosedDeps(repoInfo),
 ): Promise<IssueClosedResult> {
   let adwId: string | null = null;
   let workflowStage: string | undefined;
@@ -181,8 +193,8 @@ export async function handleIssueClosedEvent(
     }
   }
 
-  // Worktree cleanup
-  const worktreesRemoved = deps.removeWorktreesForIssue(issueNumber, cwd);
+  // Worktree cleanup (context resolves the base path from repoInfo; cwd kept for deleteRemoteBranch only)
+  const worktreesRemoved = deps.removeWorktreesForIssue(issueNumber);
   log(`Removed ${worktreesRemoved} worktree(s) for issue #${issueNumber}`, 'success');
 
   // Remote branch deletion — top-level state is canonical (#524/#530); orchestrator is fallback.

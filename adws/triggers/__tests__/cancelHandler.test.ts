@@ -1,25 +1,39 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { RepoInfo } from '../../github/githubApi';
+import type { GitContext } from '../../gitContext';
 
 // Mock all external dependencies before importing the module under test
 vi.mock('../../core/workflowCommentParsing', () => ({
   extractAdwIdFromComment: vi.fn(),
 }));
-vi.mock('../../core/stateHelpers', () => ({
-  findOrchestratorStatePath: vi.fn(),
-  isProcessAlive: vi.fn(),
-}));
+vi.mock('../../core/stateHelpers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../core/stateHelpers')>();
+  return {
+    ...actual,
+    findOrchestratorStatePath: vi.fn(),
+    isProcessAlive: vi.fn(),
+  };
+});
 vi.mock('../../core/config', () => ({
   AGENTS_STATE_DIR: '/mock/agents',
-}));
-vi.mock('../../vcs/worktreeCleanup', () => ({
-  removeWorktreesForIssue: vi.fn(),
 }));
 vi.mock('../../adwClearComments', () => ({
   clearIssueComments: vi.fn(),
 }));
 vi.mock('../../core/logger', () => ({
   log: vi.fn(),
+}));
+// Mock getRepoInfo so selfHost detection works without a real git repo.
+vi.mock('../../github/githubApi', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../github/githubApi')>();
+  return {
+    ...actual,
+    getRepoInfo: vi.fn().mockReturnValue({ owner: 'framework-owner', repo: 'framework-repo' }),
+  };
+});
+// gitContextForSync returns a fake context with injectable removeWorktreesForIssue.
+vi.mock('../../github/gitContextFactory', () => ({
+  gitContextForSync: vi.fn().mockImplementation(() => mockCtx),
 }));
 vi.mock('fs', async (importOriginal) => {
   const actual = await importOriginal<typeof import('fs')>();
@@ -30,25 +44,30 @@ vi.mock('fs', async (importOriginal) => {
   };
 });
 
+// Module-level mock context — reassigned in beforeEach so each test gets fresh mocks.
+let mockCtx: Partial<GitContext> & { removeWorktreesForIssue: ReturnType<typeof vi.fn> };
+
 import { handleCancelDirective, type MutableProcessedSets } from '../cancelHandler';
 import { extractAdwIdFromComment } from '../../core/workflowCommentParsing';
 import { findOrchestratorStatePath, isProcessAlive } from '../../core/stateHelpers';
-import { removeWorktreesForIssue } from '../../vcs/worktreeCleanup';
 import { clearIssueComments } from '../../adwClearComments';
 import * as fs from 'fs';
+import { gitContextForSync } from '../../github/gitContextFactory';
 
 const mockExtractAdwId = vi.mocked(extractAdwIdFromComment);
 const mockFindOrchestratorStatePath = vi.mocked(findOrchestratorStatePath);
 const mockIsProcessAlive = vi.mocked(isProcessAlive);
-const mockRemoveWorktreesForIssue = vi.mocked(removeWorktreesForIssue);
 const mockClearIssueComments = vi.mocked(clearIssueComments);
 const mockRmSync = vi.mocked(fs.rmSync);
 const mockReadFileSync = vi.mocked(fs.readFileSync);
+const mockGitContextForSync = vi.mocked(gitContextForSync);
 
 const repoInfo: RepoInfo = { owner: 'test-owner', repo: 'test-repo' };
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockCtx = { removeWorktreesForIssue: vi.fn().mockReturnValue(1) };
+  mockGitContextForSync.mockImplementation(() => mockCtx as GitContext);
   mockClearIssueComments.mockReturnValue({ total: 0, deleted: 0, failed: 0 });
   mockIsProcessAlive.mockReturnValue(false);
   mockFindOrchestratorStatePath.mockReturnValue(null);
@@ -106,20 +125,24 @@ describe('handleCancelDirective', () => {
     killSpy.mockRestore();
   });
 
-  it('calls removeWorktreesForIssue with correct issueNumber and cwd', () => {
-    mockExtractAdwId.mockReturnValue(null);
-
-    handleCancelDirective(42, [], repoInfo, '/some/cwd');
-
-    expect(mockRemoveWorktreesForIssue).toHaveBeenCalledWith(42, '/some/cwd');
-  });
-
-  it('calls removeWorktreesForIssue with undefined cwd when not provided', () => {
+  it('calls removeWorktreesForIssue with the issue number via context', () => {
     mockExtractAdwId.mockReturnValue(null);
 
     handleCancelDirective(42, [], repoInfo);
 
-    expect(mockRemoveWorktreesForIssue).toHaveBeenCalledWith(42, undefined);
+    expect(mockCtx.removeWorktreesForIssue).toHaveBeenCalledWith(42);
+  });
+
+  it('builds a target context when repoInfo does not match the framework repo', () => {
+    mockExtractAdwId.mockReturnValue(null);
+
+    handleCancelDirective(42, [], repoInfo); // repoInfo = test-owner/test-repo ≠ framework
+
+    expect(mockGitContextForSync).toHaveBeenCalledWith({
+      owner: 'test-owner',
+      repo: 'test-repo',
+      selfHost: false,
+    });
   });
 
   it('deletes agents/{adwId}/ directories for all extracted adwIds', () => {
@@ -168,7 +191,7 @@ describe('handleCancelDirective', () => {
 
     handleCancelDirective(42, [{ body: 'some comment' }], repoInfo);
 
-    expect(mockRemoveWorktreesForIssue).toHaveBeenCalled();
+    expect(mockCtx.removeWorktreesForIssue).toHaveBeenCalled();
     expect(mockClearIssueComments).toHaveBeenCalled();
     expect(mockRmSync).not.toHaveBeenCalled();
   });

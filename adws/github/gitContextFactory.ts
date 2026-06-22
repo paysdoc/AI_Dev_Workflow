@@ -131,3 +131,52 @@ export async function gitContextFor(options: GitContextFactoryOptions): Promise<
 
   return new GitContext(ctxOptions);
 }
+
+/**
+ * Synchronous token resolver — same priority chain as resolveToken but blocks.
+ * Suitable for call sites that are fundamentally sync (trigger handlers, cancel,
+ * janitor) where worktree-only git operations do not actually use the token.
+ */
+function resolveTokenSync(owner: string, repo: string): string {
+  if (isGitHubAppConfigured()) {
+    const token = getInstallationToken(owner, repo);
+    if (token) return token;
+  }
+
+  const envToken = process.env.GH_TOKEN ?? '';
+  if (envToken) return envToken;
+
+  try {
+    const cliToken = execSync('gh auth token', { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }).trim();
+    if (cliToken) return cliToken;
+  } catch {
+    // gh CLI not available or not authenticated
+  }
+
+  throw new Error(
+    `gitContextForSync: could not obtain a GitHub token for ${owner}/${repo}. ` +
+    'Set GH_TOKEN, configure the GitHub App, or authenticate via `gh auth login`.',
+  );
+}
+
+/**
+ * Synchronous factory — suitable for call sites that cannot await (trigger handlers,
+ * cancel directives, janitor). Worktree git operations (create/remove/reset/list) use
+ * SSH/stored credentials, not GH_TOKEN, so token validity is not required for them.
+ */
+export function gitContextForSync(options: GitContextFactoryOptions): GitContext {
+  const { owner, repo, selfHost } = options;
+
+  const token = resolveTokenSync(owner, repo);
+  const gitIdentity = resolveGitIdentity();
+
+  return new GitContext({
+    owner,
+    repo,
+    selfHost,
+    token,
+    gitIdentity,
+    frameworkRepoRoot: REPO_ROOT,
+    targetReposDir: TARGET_REPOS_DIR,
+  });
+}
