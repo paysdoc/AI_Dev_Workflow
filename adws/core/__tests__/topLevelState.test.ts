@@ -216,6 +216,54 @@ describe('AgentStateManager.readTopLevelState()', () => {
   });
 });
 
+describe('AgentStateManager repoIdentity round-trip and absence (issue #665)', () => {
+  const adwId = `${TEST_ADW_ID}-repo-identity`;
+
+  afterEach(() => {
+    const dir = path.join(AGENTS_STATE_DIR, adwId);
+    if (fs.existsSync(dir)) {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('round-trips repoIdentity intact (story 13)', () => {
+    AgentStateManager.writeTopLevelState(adwId, {
+      adwId,
+      issueNumber: 665,
+      repoIdentity: { owner: 'paysdoc', repo: 'AI_Dev_Workflow' },
+    });
+    const state = AgentStateManager.readTopLevelState(adwId);
+    expect(state).not.toBeNull();
+    expect(state!.repoIdentity).toEqual({ owner: 'paysdoc', repo: 'AI_Dev_Workflow' });
+  });
+
+  it('partial-patch write preserves repoIdentity', () => {
+    AgentStateManager.writeTopLevelState(adwId, {
+      adwId,
+      issueNumber: 665,
+      repoIdentity: { owner: 'paysdoc', repo: 'AI_Dev_Workflow' },
+    });
+    AgentStateManager.writeTopLevelState(adwId, { workflowStage: 'build_running' });
+    const state = AgentStateManager.readTopLevelState(adwId);
+    expect(state!.repoIdentity).toEqual({ owner: 'paysdoc', repo: 'AI_Dev_Workflow' });
+    expect(state!.workflowStage).toBe('build_running');
+  });
+
+  it('reads pre-#665 state lacking repoIdentity without error (story 15)', () => {
+    const filePath = AgentStateManager.getTopLevelStatePath(adwId);
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    fs.writeFileSync(
+      filePath,
+      JSON.stringify({ adwId, issueNumber: 1, workflowStage: 'starting' }, null, 2),
+      'utf-8',
+    );
+    const state = AgentStateManager.readTopLevelState(adwId);
+    expect(state).not.toBeNull();
+    expect(state!.adwId).toBe(adwId);
+    expect(state!.repoIdentity).toBeUndefined();
+  });
+});
+
 describe('Phase status transitions via writeTopLevelState', () => {
   const adwId = `${TEST_ADW_ID}-phases`;
 
