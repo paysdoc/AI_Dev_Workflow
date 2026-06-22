@@ -7,10 +7,10 @@
  * qualifier and the digit-boundary guard).
  */
 
-import { execSync } from 'child_process';
 import { log } from '../core';
 import type { RepoInfo } from './githubApi';
 import { bodyLinksIssue } from './issueLinkMarker';
+import { gitContextForRepo } from './gitContextFactory';
 
 export interface LinkedPRRef {
   readonly number: number;
@@ -41,10 +41,7 @@ export function hasLinkedMergedOrClosedPR(
  */
 export function fetchLinkedPRs(repoInfo: RepoInfo): LinkedPRRef[] {
   try {
-    const json = execSync(
-      `gh pr list --repo ${repoInfo.owner}/${repoInfo.repo} --state all --json number,body,state,mergedAt --limit 200`,
-      { encoding: 'utf-8' },
-    );
+    const json = gitContextForRepo(repoInfo).fetchAllPRs();
     return JSON.parse(json) as LinkedPRRef[];
   } catch (error) {
     log(`Failed to fetch PRs for linked-PR detection: ${error}`, 'error');

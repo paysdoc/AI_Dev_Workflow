@@ -11,8 +11,10 @@
  * Injectable command runner seam — exists for hermetic testing and
  * standalone-package reuse. The default is a thin execSync wrapper;
  * tests inject a spy that records invocations without spawning real processes.
+ *
+ * The optional `input` field passes data to the child process's stdin.
  */
-export type ExecFn = (command: string, options: { cwd: string; env: NodeJS.ProcessEnv }) => string;
+export type ExecFn = (command: string, options: { cwd: string; env: NodeJS.ProcessEnv; input?: string }) => string;
 
 /**
  * Optional dependency bag for GitContext. Follows the ADW Deps idiom
@@ -68,4 +70,11 @@ export interface GitContextOptions {
    * base of basePath for target contexts: join(targetReposDir, owner, repo).
    */
   targetReposDir: string;
+  /**
+   * Optional Personal Access Token for operations that require a different
+   * identity than the primary app token (e.g., PR approval, Projects V2).
+   * When provided and `usePat: true` is passed to `#run`, this token is used
+   * instead of the context's primary token. Never mutates process.env.
+   */
+  pat?: string;
 }

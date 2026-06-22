@@ -2,9 +2,9 @@
  * GitHub PR API functions using the gh CLI.
  */
 
-import { execWithRetry } from '../core';
 import { PRDetails, PRReviewComment, PRListItem, log } from '../core';
 import { type RepoInfo } from './githubApi';
+import { gitContextForRepo } from './gitContextFactory';
 
 /** Shape of a PR entry returned by `gh pr list --json ...` */
 export interface RawPR {
@@ -59,11 +59,8 @@ export function selectPreferredPR(prs: readonly RawPRListEntry[]): RawPRListEntr
  * Returns null if none found or on error.
  */
 export function defaultFindPRByBranch(branchName: string, repoInfo: RepoInfo): RawPR | null {
-  const { owner, repo } = repoInfo;
   try {
-    const json = execWithRetry(
-      `gh pr list --repo ${owner}/${repo} --head "${branchName}" --state all --json number,state,headRefName,baseRefName,updatedAt,labels --limit 20`,
-    );
+    const json = gitContextForRepo(repoInfo).findPRByBranch(branchName);
     const prs = JSON.parse(json) as RawPRListEntry[];
     return selectPreferredPR(prs);
   } catch {
@@ -71,8 +68,6 @@ export function defaultFindPRByBranch(branchName: string, repoInfo: RepoInfo): R
   }
 }
 import { extractIssueNumberFromBranch } from '../triggers/webhookHandlers';
-import { GITHUB_PAT } from '../core/environment';
-import { isGitHubAppConfigured } from './githubAppAuth';
 
 
 interface RawPRDetails {
@@ -122,12 +117,8 @@ interface RawPRListItem {
  * @param repoInfo - Optional repository info override for targeting external repositories.
  */
 export function fetchPRDetails(prNumber: number, repoInfo: RepoInfo): PRDetails {
-  const { owner, repo } = repoInfo;
-
   try {
-    const json = execWithRetry(
-      `gh pr view ${prNumber} --repo ${owner}/${repo} --json number,title,body,state,headRefName,baseRefName,url`
-    );
+    const json = gitContextForRepo(repoInfo).fetchPRDetails(prNumber);
     const raw = JSON.parse(json) as RawPRDetails;
 
     // Extract issue number from PR body (e.g., "Implements #12"), falling back to branch name
@@ -158,9 +149,7 @@ export function fetchPRDetails(prNumber: number, repoInfo: RepoInfo): PRDetails 
  */
 export function fetchPRReviews(owner: string, repo: string, prNumber: number): PRReviewComment[] {
   try {
-    const json = execWithRetry(
-      `gh api repos/${owner}/${repo}/pulls/${prNumber}/reviews --paginate`
-    );
+    const json = gitContextForRepo({ owner, repo }).fetchPRReviews(prNumber);
     const raw = JSON.parse(json) as RawPRReview[];
 
     return raw
@@ -195,9 +184,7 @@ export function fetchPRReviewComments(prNumber: number, repoInfo: RepoInfo): PRR
 
   let lineComments: PRReviewComment[] = [];
   try {
-    const json = execWithRetry(
-      `gh api repos/${owner}/${repo}/pulls/${prNumber}/comments --paginate`
-    );
+    const json = gitContextForRepo(repoInfo).fetchPRReviewComments(prNumber);
     const raw = JSON.parse(json) as RawPRLineComment[];
 
     lineComments = raw.map((c) => ({
@@ -234,13 +221,8 @@ export function fetchPRReviewComments(prNumber: number, repoInfo: RepoInfo): PRR
  * @param repoInfo - Optional repository info override for targeting external repositories.
  */
 export function commentOnPR(prNumber: number, body: string, repoInfo: RepoInfo): void {
-  const { owner, repo } = repoInfo;
-
   try {
-    execWithRetry(
-      `gh pr comment ${prNumber} --repo ${owner}/${repo} --body-file -`,
-      { input: body, stdio: ['pipe', 'pipe', 'pipe'] }
-    );
+    gitContextForRepo(repoInfo).commentOnPR(prNumber, body);
     log(`Commented on PR #${prNumber}`, 'success');
   } catch (error) {
     log(`Failed to comment on PR: ${error}`, 'error');
@@ -254,13 +236,9 @@ export function commentOnPR(prNumber: number, body: string, repoInfo: RepoInfo):
  * @returns Success flag and optional error message
  */
 export function mergePR(prNumber: number, repoInfo: RepoInfo): { success: boolean; error?: string } {
-  const { owner, repo } = repoInfo;
   try {
-    execWithRetry(
-      `gh pr merge ${prNumber} --merge --repo ${owner}/${repo}`,
-      { stdio: ['pipe', 'pipe', 'pipe'] }
-    );
-    log(`Merged PR #${prNumber} in ${owner}/${repo}`, 'success');
+    gitContextForRepo(repoInfo).mergePR(prNumber);
+    log(`Merged PR #${prNumber} in ${repoInfo.owner}/${repoInfo.repo}`, 'success');
     return { success: true };
   } catch (error) {
     const stderr = (error as { stderr?: string }).stderr || String(error);
@@ -270,46 +248,21 @@ export function mergePR(prNumber: number, repoInfo: RepoInfo): { success: boolea
 }
 
 /**
- * Approves a PR using the personal gh auth login identity.
- *
- * When a GitHub App is active (`GH_TOKEN` is set to the app token), the PR was authored
- * by the bot. GitHub does not allow a user to approve their own PR, so we temporarily
- * unset `GH_TOKEN` to force `gh` to fall back to the personal `gh auth login` identity,
- * which is a different actor from the bot author.
+ * Approves a PR using the PAT identity (GitContext handles the PAT swap internally).
  *
  * @param prNumber - The PR number to approve
  * @param repoInfo - Repository info (owner/repo)
  * @returns Success flag and optional error message
  */
 export function approvePR(prNumber: number, repoInfo: RepoInfo): { success: boolean; error?: string } {
-  const { owner, repo } = repoInfo;
-  let savedToken: string | undefined;
-  let usingPatSwap = false;
-
   try {
-    // Use PAT-swap pattern: set GH_TOKEN to GITHUB_PAT for personal identity approval.
-    // When a GitHub App is active the PR was authored by the bot; GitHub does not allow
-    // a user to approve their own PR, so we use the PAT (personal account) to approve.
-    if (isGitHubAppConfigured() && GITHUB_PAT) {
-      savedToken = process.env.GH_TOKEN;
-      process.env.GH_TOKEN = GITHUB_PAT;
-      usingPatSwap = true;
-    }
-    execWithRetry(
-      `gh pr review ${prNumber} --approve --repo ${owner}/${repo}`,
-      { stdio: ['pipe', 'pipe', 'pipe'] },
-    );
-    log(`Approved PR #${prNumber} in ${owner}/${repo}`, 'success');
+    gitContextForRepo(repoInfo).approvePR(prNumber);
+    log(`Approved PR #${prNumber} in ${repoInfo.owner}/${repoInfo.repo}`, 'success');
     return { success: true };
   } catch (error) {
     const stderr = (error as { stderr?: string }).stderr || String(error);
     log(`Failed to approve PR #${prNumber}: ${stderr}`, 'error');
     return { success: false, error: stderr };
-  } finally {
-    // Restore GH_TOKEN if PAT swap was used
-    if (usingPatSwap) {
-      process.env.GH_TOKEN = savedToken;
-    }
   }
 }
 
@@ -372,11 +325,8 @@ export function isApprovedFromReviewsList(reviews: readonly PRReview[]): boolean
  * @param repoInfo - Repository owner and repo name
  */
 export function fetchPRApprovalState(prNumber: number, repoInfo: RepoInfo): boolean {
-  const { owner, repo } = repoInfo;
   try {
-    const json = execWithRetry(
-      `gh pr view ${prNumber} --repo ${owner}/${repo} --json reviewDecision,reviews`,
-    );
+    const json = gitContextForRepo(repoInfo).prApprovalState(prNumber);
     const result = JSON.parse(json) as {
       reviewDecision: string | null;
       reviews: PRReview[];
@@ -399,12 +349,8 @@ export function fetchPRApprovalState(prNumber: number, repoInfo: RepoInfo): bool
  * @param repoInfo - Optional repository info override for targeting external repositories.
  */
 export function fetchPRList(repoInfo: RepoInfo): PRListItem[] {
-  const { owner, repo } = repoInfo;
-
   try {
-    const json = execWithRetry(
-      `gh pr list --repo ${owner}/${repo} --state open --json number,headRefName,updatedAt`
-    );
+    const json = gitContextForRepo(repoInfo).fetchPRList();
     const raw = JSON.parse(json) as RawPRListItem[];
 
     return raw.map((pr) => ({

@@ -16,7 +16,7 @@
 import '../core/environment';
 import * as http from 'http';
 import { log, PullRequestWebhookPayload, allocateRandomPort, isPortAvailable, getTargetRepoWorkspacePath, assertCwdIsRepoRoot } from '../core';
-import { isActionableComment, isCancelComment, isRetryComment, isAdwRunningForIssue, truncateText, getRepoInfoFromPayload, getRepoInfo, fetchIssueCommentsRest, activateGitHubAppAuth, ensureAppAuthForRepo } from '../github';
+import { isActionableComment, isCancelComment, isRetryComment, isAdwRunningForIssue, truncateText, getRepoInfoFromPayload, getRepoInfo, fetchIssueCommentsRest, activateGitHubAppAuth } from '../github';
 import { handleCancelDirective } from './cancelHandler';
 import { handleRetryDirective } from './retryHandler';
 import { handlePullRequestEvent, handleIssueClosedEvent } from './webhookHandlers';
@@ -107,9 +107,8 @@ const server = http.createServer((req, res) => {
     // Ensure app auth targets the correct repo/org for this request
     const webhookRepo = body.repository as Record<string, unknown> | undefined;
     if (webhookRepo) {
-      const repoOwner = (webhookRepo.owner as Record<string, unknown> | undefined)?.login as string | undefined;
-      const repoName = webhookRepo.name as string | undefined;
-      if (repoOwner && repoName) ensureAppAuthForRepo(repoOwner, repoName);
+      // Per-command auth via gitContextForRepo handles per-repo token injection.
+      // The transitional activateGitHubAppAuth shim at startup covers legacy global-token callers.
     }
 
     const webhookRepoFullName = webhookRepo?.full_name as string | undefined;
