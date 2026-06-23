@@ -60,7 +60,7 @@ function fetchAndResetToRemote(branch: string, worktreePath: string): void {
   };
   new GitContext(opts).fetchAndResetToRemote(branch, worktreePath);
 }
-import { ensureWorktree } from '../../../adws/vcs/worktreeCreation.ts';
+import { GitContext as GitContext628 } from '../../../adws/gitContext/index.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '../../..');
@@ -470,9 +470,15 @@ When(
   'a non-upgrade orchestrator reuses the existing worktree for branch {string}',
   function (this: RegressionWorld, branchName: string) {
     assert.ok(ctx.baseRepoPath, 'baseRepoPath must be set by the preceding Given step');
-    // Call ensureWorktree with the same signature the shared primitive uses.
+    // Call ensureWorktree via GitContext (selfHost: true, so frameworkRepoRoot = baseRepoPath).
     // A non-upgrade orchestrator does NOT call reconcileWorktreeToRemote afterward.
-    ctx.reusedWorktreePath = ensureWorktree(branchName, 'main', ctx.baseRepoPath);
+    const gtx = new GitContext628({
+      owner: 'test', repo: 'test', selfHost: true,
+      token: 'dummy-token-628',
+      gitIdentity: { authorName: 'ADW Test', authorEmail: 'test@adw.test', committerName: 'ADW Test', committerEmail: 'test@adw.test' },
+      frameworkRepoRoot: ctx.baseRepoPath, targetReposDir: _tmpdir628(),
+    });
+    ctx.reusedWorktreePath = gtx.ensureWorktree(branchName, 'main');
   },
 );
 

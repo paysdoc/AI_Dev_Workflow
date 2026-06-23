@@ -6,4 +6,6 @@
  */
 
 export { GitContext } from './gitContext';
-export type { GitIdentity, GitContextOptions, ExecFn, GitContextDeps } from './types';
+export type { GitIdentity, GitContextOptions, ExecFn, GitContextDeps, FsDeps } from './types';
+export { killProcessesInDirectory } from './processCleanup';
+export type { WorktreeForIssueResult } from './worktreeQueryOps';

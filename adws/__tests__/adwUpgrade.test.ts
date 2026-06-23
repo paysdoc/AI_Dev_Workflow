@@ -374,7 +374,6 @@ describe('executeUpgrade — branch derivation', () => {
     expect(deps.ensureWorktree).toHaveBeenCalledWith(
       expectedBranch,
       expect.any(String),
-      BASE_REPO,
     );
   });
 });

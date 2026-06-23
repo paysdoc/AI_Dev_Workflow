@@ -32,7 +32,6 @@ import { isProcessLive } from '../core/processLiveness';
 import { AgentStateManager } from '../core/agentState';
 import { deriveStageFromRemote } from '../core/remoteReconcile';
 import { gitContextForSync } from '../github';
-import { getWorktreePath } from '../vcs/worktreeOperations';
 import { extractLatestAdwId } from './cronStageResolver';
 import { classifyStageString } from '../core/stageClassifier';
 import { nextResumeAction, MAX_RESUME_ATTEMPTS } from '../core/resumePolicy';
@@ -71,7 +70,6 @@ export interface TakeoverDeps {
   readonly killProcess: (pid: number) => void;
   readonly resetWorktree: (worktreePath: string, branch: string) => void;
   readonly deriveStageFromRemote: (issueNumber: number, adwId: string, repoInfo: RepoInfo) => WorkflowStage;
-  readonly getWorktreePath: (branchName: string, baseRepoPath?: string) => string;
   readonly writeTopLevelState: (adwId: string, state: Partial<AgentState>) => void;
   readonly commentOnIssue: (issueNumber: number, body: string, repoInfo: RepoInfo) => void;
   readonly probeWorktree: (worktreePath: string, expectedBranch: string, recordedPid?: number, recordedPidStartedAt?: string) => WorktreeProbe;
@@ -113,7 +111,6 @@ export function buildDefaultTakeoverDeps(repoInfo?: RepoInfo): TakeoverDeps {
     },
     deriveStageFromRemote: (issueNumber, adwId, repoInfo) =>
       deriveStageFromRemote(issueNumber, adwId, repoInfo),
-    getWorktreePath: (branchName, baseRepoPath) => getWorktreePath(branchName, baseRepoPath),
     writeTopLevelState: (adwId, state) => AgentStateManager.writeTopLevelState(adwId, state),
     commentOnIssue: (issueNumber, body, repoInfo) => commentOnIssue(issueNumber, body, repoInfo),
     probeWorktree: (worktreePath, expectedBranch, recordedPid, recordedPidStartedAt) =>
@@ -132,12 +129,9 @@ function takeOverWithDerivedStage(
   return { kind: 'take_over_adwId', adwId, derivedStage };
 }
 
-function resolveWorktreePath(d: TakeoverDeps, input: EvaluateCandidateInput, branchName: string): string {
-  // Prefer the launch-boundary context (identity-determined, cwd-independent).
-  // Fall back to the dep's getWorktreePath for legacy callers without a context.
-  return input.gitContext
-    ? input.gitContext.worktreePathFor(branchName)
-    : d.getWorktreePath(branchName);
+function resolveWorktreePath(input: EvaluateCandidateInput, branchName: string): string {
+  const ctx = input.gitContext ?? gitContextForSync({ owner: input.repoInfo.owner, repo: input.repoInfo.repo, selfHost: false });
+  return ctx.worktreePathFor(branchName);
 }
 
 function recoverViaResetFromRemote(
@@ -147,7 +141,7 @@ function recoverViaResetFromRemote(
   state: AgentState,
 ): CandidateDecision {
   if (state.branchName) {
-    const wtPath = resolveWorktreePath(d, input, state.branchName);
+    const wtPath = resolveWorktreePath(input, state.branchName);
     d.resetWorktree(wtPath, state.branchName);
   }
   return takeOverWithDerivedStage(d, input, adwId);
@@ -164,7 +158,7 @@ function recoverViaResumeInPlaceOrReset(
 ): CandidateDecision {
   if (!state.branchName) return takeOverWithDerivedStage(d, input, adwId);
 
-  const wtPath = resolveWorktreePath(d, input, state.branchName);
+  const wtPath = resolveWorktreePath(input, state.branchName);
   const probe = d.probeWorktree(wtPath, state.branchName, state.pid, state.pidStartedAt);
   const decision = decideWorktreeReuse(probe);
 

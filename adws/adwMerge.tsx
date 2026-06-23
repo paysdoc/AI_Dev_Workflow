@@ -35,7 +35,6 @@ import { findOrchestratorStatePath } from './core/stateHelpers';
 import { commentOnIssue, commentOnPR, defaultFindPRByBranch, fetchPRApprovalState, issueHasLabel, type RawPR, type RepoInfo } from './github';
 import { notifyBlockedTransition } from './github/hitlBoardNotifier';
 import { mergeWithConflictResolution } from './triggers/autoMergeHandler';
-import { ensureWorktree } from './vcs';
 import { getPlanFilePath, planFileExists } from './agents';
 import type { AgentState } from './types/agentTypes';
 import { Platform } from './providers/types';
@@ -55,7 +54,7 @@ export interface MergeDeps {
   readonly findPRByBranch: (branchName: string, repoInfo: RepoInfo) => RawPR | null;
   readonly issueHasLabel: (issueNumber: number, labelName: string, repoInfo: RepoInfo) => boolean;
   readonly fetchPRApprovalState: (prNumber: number, repoInfo: RepoInfo) => boolean;
-  readonly ensureWorktree: (branchName: string, baseBranch: string, baseRepo: string) => string;
+  readonly ensureWorktree: (branchName: string, baseBranch: string) => string;
   readonly ensureLogsDirectory: (adwId: string) => string;
   readonly mergeWithConflictResolution: typeof mergeWithConflictResolution;
   readonly writeTopLevelState: (adwId: string, state: Partial<AgentState>) => void;
@@ -178,7 +177,7 @@ export async function executeMerge(
   // 6. PR is open — ensure worktree and merge
   let worktreePath: string;
   try {
-    worktreePath = deps.ensureWorktree(branchName, baseBranch, baseRepoPath);
+    worktreePath = deps.ensureWorktree(branchName, baseBranch);
   } catch (error) {
     log(`adwMerge: failed to ensure worktree for '${branchName}': ${error}`, 'error');
     deps.writeTopLevelState(adwId, { workflowStage: 'abandoned' });
@@ -232,7 +231,7 @@ export async function executeMerge(
 }
 
 /** Builds the default MergeDeps using production implementations. */
-function buildDefaultDeps(platform: Platform): MergeDeps {
+function buildDefaultDeps(platform: Platform, gitCtx: import('./gitContext').GitContext): MergeDeps {
   return {
     readTopLevelState: (id) => AgentStateManager.readTopLevelState(id),
     findOrchestratorStatePath,
@@ -240,7 +239,7 @@ function buildDefaultDeps(platform: Platform): MergeDeps {
     findPRByBranch: defaultFindPRByBranch,
     issueHasLabel,
     fetchPRApprovalState,
-    ensureWorktree,
+    ensureWorktree: (branch, base) => gitCtx.ensureWorktree(branch, base),
     ensureLogsDirectory,
     mergeWithConflictResolution,
     writeTopLevelState: (id, state) => AgentStateManager.writeTopLevelState(id, state),
@@ -277,7 +276,7 @@ async function main(): Promise<void> {
 
   let result: Awaited<ReturnType<typeof executeMerge>> | undefined;
   const acquired = await runWithRawOrchestratorLifecycle(repoInfo, issueNumber, adwId, async () => {
-    result = await executeMerge(issueNumber, adwId, repoInfo, baseRepoPath, buildDefaultDeps(repoId.platform));
+    result = await executeMerge(issueNumber, adwId, repoInfo, baseRepoPath, buildDefaultDeps(repoId.platform, gitContext));
   });
   if (!acquired) {
     log(`Issue #${issueNumber}: spawn lock already held by another orchestrator; exiting.`, 'warn');

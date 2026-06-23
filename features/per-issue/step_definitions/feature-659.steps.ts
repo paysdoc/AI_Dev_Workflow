@@ -20,6 +20,7 @@ import {
   W,
   makeSpyExec,
   makeFullOptions,
+  makeNoOpFsDeps,
   parseAuthor,
   type PendingCtxArgs,
 } from './gitContextSharedWorld.ts';
@@ -120,7 +121,7 @@ Given("the context's git and gh commands are captured by a recording runner", fu
   assert.ok(args !== null, 'Expected construction args to be staged');
   const { exec, calls } = makeSpyExec(W.responseMap);
   const { owner, repo, token, authorName, authorEmail } = args;
-  W.ctx = new GitContext(makeFullOptions(owner, repo, token, authorName, authorEmail), { exec });
+  W.ctx = new GitContext(makeFullOptions(owner, repo, token, authorName, authorEmail), { exec, fsDeps: makeNoOpFsDeps() });
   W.spyCalls = calls;
   W.pendingArgs = null;
 });
@@ -132,7 +133,7 @@ Given("each context's git and gh commands are captured by a recording runner", f
   for (const [key, args] of W.pendingByKey) {
     const { exec, calls } = makeSpyExec(new Map());
     const { owner, repo, token, authorName, authorEmail } = args;
-    const ctx = new GitContext(makeFullOptions(owner, repo, token, authorName, authorEmail), { exec });
+    const ctx = new GitContext(makeFullOptions(owner, repo, token, authorName, authorEmail), { exec, fsDeps: makeNoOpFsDeps() });
     W.contextsByKey.set(key, { ctx, calls });
   }
   W.pendingByKey = new Map();

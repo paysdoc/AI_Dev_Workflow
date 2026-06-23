@@ -238,7 +238,6 @@ When('the takeover handler evaluates the candidate', function () {
     killProcess: (pid) => { kills.push(pid); },
     resetWorktree: () => { resets++; probeCtx.resetCalls++; },
     deriveStageFromRemote: () => { reconciles++; return 'abandoned' as WorkflowStage; },
-    getWorktreePath: (branch) => `/worktrees/${branch}`,
     writeTopLevelState: () => undefined,
     commentOnIssue: () => undefined,
     probeWorktree: () => probeToReturn,

@@ -29,6 +29,10 @@ const mockGitCtx = vi.hoisted(() => ({
   defaultBranch: vi.fn().mockReturnValue('main'),
   mergeLatestFromDefaultBranch: vi.fn(),
   fetchAndResetToRemote: vi.fn(),
+  ensureWorktree: vi.fn().mockReturnValue('/tmp/fake-worktree'),
+  getWorktreeForBranch: vi.fn().mockReturnValue(null),
+  copyEnvToWorktree: vi.fn(),
+  findWorktreeForIssue: vi.fn().mockReturnValue(null),
 }));
 
 vi.mock('../../github', () => ({
@@ -48,12 +52,7 @@ vi.mock('../../core/environment', async (importOriginal) => {
   };
 });
 
-vi.mock('../../vcs', () => ({
-  ensureWorktree: vi.fn(),
-  getWorktreeForBranch: vi.fn(),
-  copyEnvToWorktree: vi.fn(),
-  findWorktreeForIssue: vi.fn().mockReturnValue(null),
-}));
+vi.mock('../../vcs', () => ({}));
 
 vi.mock('../../providers/repoContext', () => ({
   createRepoContext: vi.fn().mockReturnValue(undefined),
@@ -109,20 +108,12 @@ import {
   detectRecoveryState,
   getRepoInfo,
 } from '../../github';
-import {
-  ensureWorktree,
-  getWorktreeForBranch,
-  findWorktreeForIssue,
-} from '../../vcs';
 import { classifyGitHubIssue } from '../../core/issueClassifier';
 
 const mockAgent = vi.mocked(runGenerateBranchNameAgent);
 const mockFetchIssue = vi.mocked(fetchGitHubIssue);
 const mockDetectRecovery = vi.mocked(detectRecoveryState);
 const mockGetRepoInfo = vi.mocked(getRepoInfo);
-const mockEnsureWorktree = vi.mocked(ensureWorktree);
-const mockGetWorktreeForBranch = vi.mocked(getWorktreeForBranch);
-const mockFindWorktreeForIssue = vi.mocked(findWorktreeForIssue);
 const mockClassify = vi.mocked(classifyGitHubIssue);
 
 const BASE_ADW_ID = `test-wfinit-${Date.now()}`;
@@ -176,9 +167,9 @@ beforeEach(() => {
   mockDetectRecovery.mockReturnValue(nullRecoveryState);
   mockGetRepoInfo.mockReturnValue({ owner: 'test-owner', repo: 'test-repo' });
   mockClassify.mockResolvedValue({ issueType: '/feature', success: true } as never);
-  mockGetWorktreeForBranch.mockReturnValue(null);
-  mockFindWorktreeForIssue.mockReturnValue(null);
-  mockEnsureWorktree.mockReturnValue(FAKE_WORKTREE_PATH);
+  mockGitCtx.getWorktreeForBranch.mockReturnValue(null);
+  mockGitCtx.findWorktreeForIssue.mockReturnValue(null);
+  mockGitCtx.ensureWorktree.mockReturnValue(FAKE_WORKTREE_PATH);
 });
 
 // ---------------------------------------------------------------------------
@@ -263,7 +254,7 @@ describe('initializeWorkflow determinism — criterion 3 (issue #524)', () => {
           .mockResolvedValueOnce({ ...baseAgentResult, branchName: branchA })
           .mockResolvedValueOnce({ ...baseAgentResult, branchName: branchB });
         // Second call finds the worktree already existing via getWorktreeForBranch.
-        mockGetWorktreeForBranch
+        mockGitCtx.getWorktreeForBranch
           .mockReturnValueOnce(null)          // first call: no existing worktree
           .mockReturnValueOnce(FAKE_WORKTREE_PATH); // second call: worktree exists
 
@@ -271,8 +262,8 @@ describe('initializeWorkflow determinism — criterion 3 (issue #524)', () => {
         await initializeWorkflow(ISSUE_NUMBER, adwId4, 'orchestrator', { issueType: '/feature' });
 
         // ensureWorktree should only be called once (the second call finds the existing worktree).
-        expect(mockEnsureWorktree).toHaveBeenCalledTimes(1);
-        expect(mockEnsureWorktree).toHaveBeenCalledWith(branchA, 'main', expect.any(String));
+        expect(mockGitCtx.ensureWorktree).toHaveBeenCalledTimes(1);
+        expect(mockGitCtx.ensureWorktree).toHaveBeenCalledWith(branchA, 'main');
       } finally {
         cleanupAdwId(adwId4);
       }

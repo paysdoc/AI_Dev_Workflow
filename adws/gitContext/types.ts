@@ -17,12 +17,25 @@
 export type ExecFn = (command: string, options: { cwd: string; env: NodeJS.ProcessEnv; input?: string }) => string;
 
 /**
+ * Injectable filesystem seam for worktree management ops.
+ * All fields optional; defaults are the real fs functions.
+ */
+export interface FsDeps {
+  existsSync: (p: string) => boolean;
+  mkdirSync: (p: string, opts?: { recursive?: boolean }) => void;
+  copyFileSync: (src: string, dest: string) => void;
+  rmSync: (p: string, opts?: { force?: boolean; recursive?: boolean }) => void;
+}
+
+/**
  * Optional dependency bag for GitContext. Follows the ADW Deps idiom
  * (JanitorDeps, MergeDeps, ReconcileDeps). All fields optional so existing
  * call sites `new GitContext(options)` continue to work unchanged.
  */
 export interface GitContextDeps {
   exec?: ExecFn;
+  /** Injectable fs for worktree management ops — defaults to real 'fs' functions. */
+  fsDeps?: FsDeps;
 }
 
 /** Git author and committer identity for child-process env overlays. */

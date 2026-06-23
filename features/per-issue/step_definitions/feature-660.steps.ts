@@ -231,9 +231,10 @@ When(
       },
       issueHasLabel: () => false,
       fetchPRApprovalState: () => true,
-      ensureWorktree: (branchName: string, baseBranch: string, baseRepo: string) => {
-        w.recordedEnsureWorktreeBase = baseRepo;
-        return path.join(baseRepo, '.worktrees', branchName);
+      ensureWorktree: (branchName: string, _baseBranch: string) => {
+        const base = ctx.basePath;
+        w.recordedEnsureWorktreeBase = base;
+        return path.join(base, '.worktrees', branchName);
       },
       ensureLogsDirectory: () => '/tmp/test-logs',
       mergeWithConflictResolution: async () => ({ success: true }),

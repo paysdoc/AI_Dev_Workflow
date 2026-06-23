@@ -145,7 +145,7 @@ describe('handleIssueClosedEvent — normal closure (completed workflow)', () =>
     const result = await handleIssueClosedEvent(42, REPO_INFO, undefined, [], deps);
 
     expect(result.status).toBe('cleaned');
-    expect(deps.removeWorktreesForIssue).toHaveBeenCalledWith(42, undefined);
+    expect(deps.removeWorktreesForIssue).toHaveBeenCalledWith(42);
     expect(deps.deleteRemoteBranch).toHaveBeenCalledWith('feature/issue-42-some-feature', undefined);
     expect(deps.handleIssueClosedDependencyUnblock).toHaveBeenCalledWith(42, REPO_INFO, [], undefined);
     expect(deps.closeAbandonedDependents).not.toHaveBeenCalled();
@@ -226,7 +226,7 @@ describe('handleIssueClosedEvent — no adw-id found', () => {
     const result = await handleIssueClosedEvent(42, REPO_INFO, undefined, [], deps);
 
     expect(result.status).toBe('cleaned');
-    expect(deps.removeWorktreesForIssue).toHaveBeenCalledWith(42, undefined);
+    expect(deps.removeWorktreesForIssue).toHaveBeenCalledWith(42);
     expect(deps.readTopLevelState).not.toHaveBeenCalled();
     expect(deps.deleteRemoteBranch).not.toHaveBeenCalled();
     expect(deps.handleIssueClosedDependencyUnblock).toHaveBeenCalledWith(42, REPO_INFO, [], undefined);
@@ -242,7 +242,7 @@ describe('handleIssueClosedEvent — no state file', () => {
     const result = await handleIssueClosedEvent(42, REPO_INFO, undefined, [], deps);
 
     expect(result.status).toBe('cleaned');
-    expect(deps.removeWorktreesForIssue).toHaveBeenCalledWith(42, undefined);
+    expect(deps.removeWorktreesForIssue).toHaveBeenCalledWith(42);
     expect(deps.deleteRemoteBranch).not.toHaveBeenCalled();
     expect(deps.handleIssueClosedDependencyUnblock).toHaveBeenCalledWith(42, REPO_INFO, [], undefined);
   });
@@ -256,7 +256,7 @@ describe('handleIssueClosedEvent — fetchIssueComments fails', () => {
     const result = await handleIssueClosedEvent(42, REPO_INFO, undefined, [], deps);
 
     expect(result.status).toBe('cleaned');
-    expect(deps.removeWorktreesForIssue).toHaveBeenCalledWith(42, undefined);
+    expect(deps.removeWorktreesForIssue).toHaveBeenCalledWith(42);
     // No adwId was found so no state-based operations
     expect(deps.readTopLevelState).not.toHaveBeenCalled();
     expect(deps.deleteRemoteBranch).not.toHaveBeenCalled();
@@ -287,7 +287,7 @@ describe('handleIssueClosedEvent — no repoInfo', () => {
 
     expect(result.status).toBe('cleaned');
     expect(deps.fetchIssueComments).not.toHaveBeenCalled();
-    expect(deps.removeWorktreesForIssue).toHaveBeenCalledWith(42, '/some/cwd');
+    expect(deps.removeWorktreesForIssue).toHaveBeenCalledWith(42);
     expect(deps.closeAbandonedDependents).not.toHaveBeenCalled();
     expect(deps.handleIssueClosedDependencyUnblock).not.toHaveBeenCalled();
   });
