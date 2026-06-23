@@ -42,3 +42,7 @@ export function createPRCmd(owner: string, repo: string, title: string, baseBran
   const baseArg = baseBranch ? ` --base ${baseBranch}` : '';
   return `gh pr create --repo ${owner}/${repo} --title '${title}' --body-file -${baseArg}`;
 }
+
+export function fetchMergedPRsCmd(owner: string, repo: string, limit = 200): string {
+  return `gh pr list --repo ${owner}/${repo} --state merged --json body,mergedAt --limit ${limit}`;
+}

@@ -95,6 +95,200 @@ describe('defaultBranch() env injection', () => {
   });
 });
 
+// ── listOpenIssues() ─────────────────────────────────────────────────────────
+
+describe('listOpenIssues() command and env', () => {
+  it('builds the exact command with required fields and limit', () => {
+    const { exec, calls } = makeSpyExec('[]');
+    const ctx = new GitContext(validOptions({ owner: 'acme', repo: 'webapp' }), { exec });
+    ctx.listOpenIssues({ fields: ['number', 'comments'], limit: 100 });
+    expect(calls[0].command).toBe(
+      'gh issue list --repo acme/webapp --state open --json number,comments --limit 100',
+    );
+  });
+
+  it('appends --search when provided', () => {
+    const { exec, calls } = makeSpyExec('[]');
+    const ctx = new GitContext(validOptions({ owner: 'acme', repo: 'webapp' }), { exec });
+    ctx.listOpenIssues({ fields: ['number', 'title'], search: 'docs-bloat: app_docs/foo.md', limit: 5 });
+    expect(calls[0].command).toBe(
+      'gh issue list --repo acme/webapp --state open --json number,title --search "docs-bloat: app_docs/foo.md" --limit 5',
+    );
+  });
+
+  it('omits --search and --limit when not provided', () => {
+    const { exec, calls } = makeSpyExec('[]');
+    const ctx = new GitContext(validOptions({ owner: 'acme', repo: 'webapp' }), { exec });
+    ctx.listOpenIssues({ fields: ['number'] });
+    expect(calls[0].command).toBe('gh issue list --repo acme/webapp --state open --json number');
+  });
+
+  it('passes cwd equal to the context base path', () => {
+    const { exec, calls } = makeSpyExec('[]');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.listOpenIssues({ fields: ['number'] });
+    expect(calls[0].cwd).toBe(ctx.basePath);
+  });
+
+  it('injects GH_TOKEN from the context token in the child env', () => {
+    const { exec, calls } = makeSpyExec('[]');
+    const ctx = new GitContext(validOptions({ token: 'list-token' }), { exec });
+    ctx.listOpenIssues({ fields: ['number'] });
+    expect(calls[0].env.GH_TOKEN).toBe('list-token');
+  });
+
+  it('injects all four GIT_* identity vars', () => {
+    const { exec, calls } = makeSpyExec('[]');
+    const ctx = new GitContext(
+      validOptions({
+        gitIdentity: {
+          authorName: 'List Bot', authorEmail: 'list@bot.dev',
+          committerName: 'List Bot', committerEmail: 'list@bot.dev',
+        },
+      }),
+      { exec },
+    );
+    ctx.listOpenIssues({ fields: ['number'] });
+    expect(calls[0].env.GIT_AUTHOR_NAME).toBe('List Bot');
+    expect(calls[0].env.GIT_AUTHOR_EMAIL).toBe('list@bot.dev');
+  });
+
+  it('does not mutate process.env', () => {
+    const before = process.env.GH_TOKEN;
+    const { exec } = makeSpyExec('[]');
+    const ctx = new GitContext(validOptions({ token: 'injected' }), { exec });
+    ctx.listOpenIssues({ fields: ['number'] });
+    expect(process.env.GH_TOKEN).toBe(before);
+  });
+
+  it('returns trimmed stdout', () => {
+    const { exec } = makeSpyExec('[{"number":1}]\n');
+    const ctx = new GitContext(validOptions(), { exec });
+    expect(ctx.listOpenIssues({ fields: ['number'] })).toBe('[{"number":1}]');
+  });
+});
+
+// ── issueComments() ──────────────────────────────────────────────────────────
+
+describe('issueComments() command and env', () => {
+  it("builds the exact command with --jq '.comments'", () => {
+    const { exec, calls } = makeSpyExec('[]');
+    const ctx = new GitContext(validOptions({ owner: 'acme', repo: 'webapp' }), { exec });
+    ctx.issueComments(42);
+    expect(calls[0].command).toBe(
+      "gh issue view 42 --repo acme/webapp --json comments --jq '.comments'",
+    );
+  });
+
+  it('passes cwd equal to the context base path', () => {
+    const { exec, calls } = makeSpyExec('[]');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.issueComments(1);
+    expect(calls[0].cwd).toBe(ctx.basePath);
+  });
+
+  it('injects GH_TOKEN from the context token', () => {
+    const { exec, calls } = makeSpyExec('[]');
+    const ctx = new GitContext(validOptions({ token: 'comments-token' }), { exec });
+    ctx.issueComments(1);
+    expect(calls[0].env.GH_TOKEN).toBe('comments-token');
+  });
+
+  it('injects GIT_* vars in the child env', () => {
+    const { exec, calls } = makeSpyExec('[]');
+    const ctx = new GitContext(
+      validOptions({
+        gitIdentity: {
+          authorName: 'Comments Bot', authorEmail: 'c@bot.dev',
+          committerName: 'Comments Bot', committerEmail: 'c@bot.dev',
+        },
+      }),
+      { exec },
+    );
+    ctx.issueComments(1);
+    expect(calls[0].env.GIT_AUTHOR_NAME).toBe('Comments Bot');
+  });
+
+  it('does not mutate process.env', () => {
+    const before = process.env.GH_TOKEN;
+    const { exec } = makeSpyExec('[]');
+    const ctx = new GitContext(validOptions({ token: 'injected' }), { exec });
+    ctx.issueComments(1);
+    expect(process.env.GH_TOKEN).toBe(before);
+  });
+
+  it('returns trimmed stdout', () => {
+    const { exec } = makeSpyExec('[{"body":"hello"}]\n');
+    const ctx = new GitContext(validOptions(), { exec });
+    expect(ctx.issueComments(1)).toBe('[{"body":"hello"}]');
+  });
+});
+
+// ── fetchMergedPRs() ─────────────────────────────────────────────────────────
+
+describe('fetchMergedPRs() command and env', () => {
+  it('defaults to --limit 200', () => {
+    const { exec, calls } = makeSpyExec('[]');
+    const ctx = new GitContext(validOptions({ owner: 'acme', repo: 'webapp' }), { exec });
+    ctx.fetchMergedPRs();
+    expect(calls[0].command).toBe(
+      'gh pr list --repo acme/webapp --state merged --json body,mergedAt --limit 200',
+    );
+  });
+
+  it('honors an explicit limit', () => {
+    const { exec, calls } = makeSpyExec('[]');
+    const ctx = new GitContext(validOptions({ owner: 'acme', repo: 'webapp' }), { exec });
+    ctx.fetchMergedPRs(50);
+    expect(calls[0].command).toBe(
+      'gh pr list --repo acme/webapp --state merged --json body,mergedAt --limit 50',
+    );
+  });
+
+  it('passes cwd equal to the context base path', () => {
+    const { exec, calls } = makeSpyExec('[]');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.fetchMergedPRs();
+    expect(calls[0].cwd).toBe(ctx.basePath);
+  });
+
+  it('injects GH_TOKEN from the context token', () => {
+    const { exec, calls } = makeSpyExec('[]');
+    const ctx = new GitContext(validOptions({ token: 'prs-token' }), { exec });
+    ctx.fetchMergedPRs();
+    expect(calls[0].env.GH_TOKEN).toBe('prs-token');
+  });
+
+  it('injects GIT_* vars in the child env', () => {
+    const { exec, calls } = makeSpyExec('[]');
+    const ctx = new GitContext(
+      validOptions({
+        gitIdentity: {
+          authorName: 'PR Bot', authorEmail: 'pr@bot.dev',
+          committerName: 'PR Bot', committerEmail: 'pr@bot.dev',
+        },
+      }),
+      { exec },
+    );
+    ctx.fetchMergedPRs();
+    expect(calls[0].env.GIT_AUTHOR_NAME).toBe('PR Bot');
+  });
+
+  it('does not mutate process.env', () => {
+    const before = process.env.GH_TOKEN;
+    const { exec } = makeSpyExec('[]');
+    const ctx = new GitContext(validOptions({ token: 'injected' }), { exec });
+    ctx.fetchMergedPRs();
+    expect(process.env.GH_TOKEN).toBe(before);
+  });
+
+  it('returns trimmed stdout', () => {
+    const { exec } = makeSpyExec('[{"body":"Closes #1","mergedAt":"2024-01-01"}]\n');
+    const ctx = new GitContext(validOptions(), { exec });
+    expect(ctx.fetchMergedPRs()).toBe('[{"body":"Closes #1","mergedAt":"2024-01-01"}]');
+  });
+});
+
 // ── Return value ─────────────────────────────────────────────────────────────
 
 describe('defaultBranch() return value', () => {

@@ -25,11 +25,13 @@ import {
   fetchIssueCmd, commentOnIssueCmd, issueStateCmd, closeIssueCmd, issueTitleCmd,
   fetchIssueCommentsCmd, issueHasLabelCmd, addIssueLabelCmd, createIssueCmd,
   updateIssueBodyCmd, findOpenUpgradeIssueCmd, deleteIssueCommentCmd,
+  listOpenIssuesCmd, issueCommentsCmd,
+  type ListOpenIssuesOptions,
 } from './commands/issueCommands';
 import {
   findPRByBranchCmd, fetchPRDetailsCmd, fetchPRReviewsCmd, fetchPRReviewCommentsCmd,
   commentOnPRCmd, mergePRCmd, approvePRCmd, prApprovalStateCmd,
-  fetchPRListCmd, fetchAllPRsCmd, createPRCmd,
+  fetchPRListCmd, fetchAllPRsCmd, createPRCmd, fetchMergedPRsCmd,
 } from './commands/prCommands';
 import { createLabelCmd, applyLabelCmd } from './commands/labelCommands';
 import {
@@ -353,6 +355,18 @@ export class GitContext {
 
   deleteIssueComment(commentId: number): void {
     this.#run(deleteIssueCommentCmd(this.#owner, this.#repo, commentId));
+  }
+
+  listOpenIssues(opts: ListOpenIssuesOptions): string {
+    return this.#run(listOpenIssuesCmd(this.#owner, this.#repo, opts));
+  }
+
+  issueComments(issueNumber: number): string {
+    return this.#run(issueCommentsCmd(this.#owner, this.#repo, issueNumber));
+  }
+
+  fetchMergedPRs(limit?: number): string {
+    return this.#run(fetchMergedPRsCmd(this.#owner, this.#repo, limit));
   }
 
   authenticatedUser(): string {

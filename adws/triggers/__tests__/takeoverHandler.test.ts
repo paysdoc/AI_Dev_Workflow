@@ -777,3 +777,50 @@ describe('GitContext-based worktree path (phase_timeout)', () => {
     expect(deps.probeWorktree).toHaveBeenCalledWith(expectedWtPath, 'feature-issue-187-x', undefined, undefined);
   });
 });
+
+// ── buildDefaultTakeoverDeps — resolveAdwId routes through gitContextForRepo ─
+
+import { buildDefaultTakeoverDeps } from '../takeoverHandler';
+import { gitContextForRepo } from '../../github/gitContextFactory';
+
+vi.mock('../../github/gitContextFactory', () => ({
+  gitContextForRepo: vi.fn(),
+}));
+
+describe('buildDefaultTakeoverDeps — resolveAdwId default path', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('calls gitContextForRepo and issueComments then extracts the adwId', () => {
+    const comments = [
+      { body: '## ADW\n\nadwId: test-adwid-abc' },
+    ];
+    const mockCtx = { issueComments: vi.fn(() => JSON.stringify(comments)) };
+    vi.mocked(gitContextForRepo).mockReturnValue(mockCtx as never);
+
+    const deps = buildDefaultTakeoverDeps(REPO);
+    deps.resolveAdwId(99, REPO);
+
+    expect(gitContextForRepo).toHaveBeenCalledWith(REPO);
+    expect(mockCtx.issueComments).toHaveBeenCalledWith(99);
+  });
+
+  it('returns null on throw (fail-safe)', () => {
+    vi.mocked(gitContextForRepo).mockReturnValue({ issueComments: vi.fn(() => { throw new Error('gh failed'); }) } as never);
+
+    const deps = buildDefaultTakeoverDeps(REPO);
+    const result = deps.resolveAdwId(99, REPO);
+
+    expect(result).toBeNull();
+  });
+
+  it('returns null when issueComments returns unparseable JSON', () => {
+    vi.mocked(gitContextForRepo).mockReturnValue({ issueComments: vi.fn(() => 'not json') } as never);
+
+    const deps = buildDefaultTakeoverDeps(REPO);
+    const result = deps.resolveAdwId(99, REPO);
+
+    expect(result).toBeNull();
+  });
+});

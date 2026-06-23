@@ -14,8 +14,11 @@ vi.mock('fs', () => ({
 }));
 
 vi.mock('child_process', () => ({
-  execSync: vi.fn(),
   spawn: vi.fn(),
+}));
+
+vi.mock('../../github/gitContextFactory', () => ({
+  gitContextForRepo: vi.fn(),
 }));
 
 vi.mock('../../core', () => ({
@@ -24,11 +27,13 @@ vi.mock('../../core', () => ({
 
 vi.mock('../../github', () => ({
   getRepoInfo: vi.fn(() => ({ owner: 'test-owner', repo: 'test-repo' })),
+  bodyLinksIssue: vi.fn((body: string, num: number) => body.includes(`#${num}`)),
 }));
 
 // ── Imports (after mocks) ────────────────────────────────────────────────────
 
 import { isScenarioStale, runPerIssueScenarioSweep, RETENTION_DAYS } from '../perIssueScenarioSweep';
+import { gitContextForRepo } from '../../github/gitContextFactory';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -139,6 +144,37 @@ describe('runPerIssueScenarioSweep — integration', () => {
     expect(deleteFile).not.toHaveBeenCalledWith(failFile);
     expect(deleteFile).toHaveBeenCalledWith(staleFile);
     expect(logger).toHaveBeenCalledWith(expect.stringContaining('getMergedAt failed'), 'warn');
+  });
+
+  it('default getMergedAt routes through gitContextForRepo.fetchMergedPRs', async () => {
+    const mergedPRs = [{ body: 'Closes #55', mergedAt: '2026-01-01T00:00:00Z' }];
+    const mockCtx = { fetchMergedPRs: vi.fn(() => JSON.stringify(mergedPRs)) };
+    vi.mocked(gitContextForRepo).mockReturnValue(mockCtx as never);
+
+    const deleted = await runPerIssueScenarioSweep({
+      now: new Date('2026-02-15T00:00:00Z'),
+      listFeatures: () => ['features/per-issue/feature-55.feature'],
+      deleteFile: vi.fn(),
+      log: vi.fn(),
+    });
+
+    expect(gitContextForRepo).toHaveBeenCalled();
+    expect(mockCtx.fetchMergedPRs).toHaveBeenCalledWith(200);
+    expect(deleted).toEqual(['features/per-issue/feature-55.feature']);
+  });
+
+  it('default getMergedAt returns null on throw (fail-open)', async () => {
+    vi.mocked(gitContextForRepo).mockReturnValue({ fetchMergedPRs: vi.fn(() => { throw new Error('gh error'); }) } as never);
+    const deleteFile = vi.fn();
+
+    await runPerIssueScenarioSweep({
+      now: NOW,
+      listFeatures: () => ['features/per-issue/feature-99.feature'],
+      deleteFile,
+      log: vi.fn(),
+    });
+
+    expect(deleteFile).not.toHaveBeenCalled();
   });
 
   it('skips files whose names do not match the feature-{N}.feature pattern', async () => {
