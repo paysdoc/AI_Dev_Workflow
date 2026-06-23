@@ -4,6 +4,7 @@
  */
 
 import { log } from '../core';
+import { worktreeQueryOps } from './worktreeQueryOps';
 
 type Runner = (command: string, cwd: string) => string;
 
@@ -108,6 +109,25 @@ function copyEnvToWorktree(
   }
 }
 
+function resolveBranchExists(run: Runner, baseCwd: string, branchName: string): boolean {
+  try {
+    run(`git rev-parse --verify "${branchName}"`, baseCwd);
+    return true;
+  } catch {}
+  try {
+    run(`git rev-parse --verify "origin/${branchName}"`, baseCwd);
+    return true;
+  } catch {}
+  try {
+    run(`git fetch origin "${branchName}"`, baseCwd);
+    run(`git rev-parse --verify "origin/${branchName}"`, baseCwd);
+    log(`Fetched branch '${branchName}' from origin`, 'info');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Creates a worktree for an existing branch (or creates a new one from baseBranch).
  * Returns the worktree path.
@@ -128,25 +148,7 @@ function createWorktree(
   }
 
   try {
-    let branchExists = false;
-    try {
-      run(`git rev-parse --verify "${branchName}"`, baseCwd);
-      branchExists = true;
-    } catch {
-      try {
-        run(`git rev-parse --verify "origin/${branchName}"`, baseCwd);
-        branchExists = true;
-      } catch {
-        try {
-          run(`git fetch origin "${branchName}"`, baseCwd);
-          run(`git rev-parse --verify "origin/${branchName}"`, baseCwd);
-          branchExists = true;
-          log(`Fetched branch '${branchName}' from origin`, 'info');
-        } catch {
-          branchExists = false;
-        }
-      }
-    }
+    const branchExists = resolveBranchExists(run, baseCwd, branchName);
 
     if (branchExists) {
       const checkoutStatus = isBranchCheckedOutElsewhere(run, baseCwd, branchName);
@@ -225,7 +227,7 @@ function ensureWorktree(
   branchName: string,
   baseBranch?: string,
 ): string {
-  const existingPath = worktreeQueryOps_getWorktreeForBranch(run, fs, paths.baseCwd, paths.worktreePath, branchName);
+  const existingPath = worktreeQueryOps.getWorktreeForBranch(run, fs, paths.baseCwd, paths.worktreePath, branchName);
   if (existingPath) {
     log(`Worktree for branch '${branchName}' already exists at ${existingPath}, reusing`, 'info');
     copyEnvToWorktree(fs, paths.baseCwd, existingPath);
@@ -236,38 +238,6 @@ function ensureWorktree(
   const worktreePath = createWorktree(run, fs, paths, branchName, baseBranch);
   copyEnvToWorktree(fs, paths.baseCwd, worktreePath);
   return worktreePath;
-}
-
-// Inline query helper to avoid circular import — mirrors worktreeQueryOps.getWorktreeForBranch
-function worktreeQueryOps_getWorktreeForBranch(
-  run: Runner,
-  fs: FsDeps,
-  baseCwd: string,
-  expectedWorktreePath: string,
-  branchName: string,
-): string | null {
-  try {
-    const output = run('git worktree list --porcelain', baseCwd);
-    const lines = output.split('\n');
-    let currentWorktreePath: string | null = null;
-
-    for (const line of lines) {
-      if (line.startsWith('worktree ')) {
-        currentWorktreePath = line.substring('worktree '.length);
-        if (currentWorktreePath === expectedWorktreePath) return expectedWorktreePath;
-      } else if (line.startsWith('branch ') && currentWorktreePath) {
-        const checkedOutBranch = line.substring('branch '.length).replace('refs/heads/', '');
-        if (checkedOutBranch === branchName && currentWorktreePath.includes('.worktrees')) {
-          return currentWorktreePath;
-        }
-      }
-    }
-
-    if (fs.existsSync(expectedWorktreePath)) return expectedWorktreePath;
-    return null;
-  } catch {
-    return null;
-  }
 }
 
 export const worktreeCreateOps = {
