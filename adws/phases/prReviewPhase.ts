@@ -7,7 +7,7 @@ import * as path from 'path';
 import { log, setLogAdwId, ensureLogsDirectory, generateAdwId, type PRDetails, type PRReviewComment, AgentStateManager, type AgentState, type ModelUsageMap, allocateRandomPort, emptyModelUsageMap, OrchestratorId, type TargetRepoInfo, ensureTargetRepoWorkspace, loadProjectConfig, readAdwYmlConfig, type GitHubIssue, type IssueClassSlashCommand, type RecoveryState } from '../core';
 import { fetchPRDetails, getUnaddressedComments, type PRReviewWorkflowContext, getRepoInfo, type RepoInfo, activateGitHubAppAuth, gitContextFor } from '../github';
 import type { WorkflowConfig } from './workflowInit';
-import { ensureWorktree, inferIssueTypeFromBranch } from '../vcs';
+import { inferIssueTypeFromBranch } from '../vcs';
 import { BoardStatus, type RepoContext, type RepoIdentifier } from '../providers/types';
 import { Platform } from '../providers/types';
 import { createRepoContext } from '../providers/repoContext';
@@ -84,15 +84,13 @@ export async function initializePRReviewWorkflow(prNumber: number, adwId: string
     reviewComments: unaddressedComments.length,
     branchName: prDetails.headBranch,
   };
-  let targetRepoWorkspacePath: string;
   if (targetRepo) {
     log(`Setting up target repo workspace for ${targetRepo.owner}/${targetRepo.repo}...`, 'info');
-    targetRepoWorkspacePath = ensureTargetRepoWorkspace(targetRepo);
-    log(`Target repo workspace: ${targetRepoWorkspacePath}`, 'success');
-  } else {
-    targetRepoWorkspacePath = process.cwd();
+    ensureTargetRepoWorkspace(targetRepo);
+    log(`Target repo workspace ready`, 'success');
   }
-  const worktreePath = ensureWorktree(prDetails.headBranch, undefined, targetRepoWorkspacePath);
+  const gitCtx = await gitContextFor({ owner: resolvedRepoInfo.owner, repo: resolvedRepoInfo.repo, selfHost: !targetRepo });
+  const worktreePath = gitCtx.ensureWorktree(prDetails.headBranch);
   log(`Worktree path: ${worktreePath}`, 'info');
 
   // Allocate a random port for the dedicated dev server instance

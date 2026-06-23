@@ -1,6 +1,11 @@
 // All I/O is injected via TakeoverDeps — no real execSync/mockExecSync, gh CLI, or git subprocess is used.
 import * as path from 'path';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+const mockWorktreePathFor = vi.hoisted(() => vi.fn().mockReturnValue('/worktrees/feature-branch'));
+vi.mock('../../github', () => ({
+  gitContextForSync: vi.fn().mockReturnValue({ worktreePathFor: mockWorktreePathFor }),
+}));
 import { evaluateCandidate } from '../takeoverHandler';
 import type { TakeoverDeps, CandidateDecision } from '../takeoverHandler';
 import type { RepoInfo } from '../../github/githubApi';
@@ -50,7 +55,6 @@ function makeDeps(overrides: Partial<TakeoverDeps> = {}): TakeoverDeps {
     killProcess: vi.fn(),
     resetWorktree: vi.fn(),
     deriveStageFromRemote: vi.fn().mockReturnValue('abandoned'),
-    getWorktreePath: vi.fn().mockReturnValue('/worktrees/feature-branch'),
     writeTopLevelState: vi.fn(),
     commentOnIssue: vi.fn(),
     // Default probe is healthy so active-path and other existing tests are unaffected.
@@ -62,6 +66,7 @@ function makeDeps(overrides: Partial<TakeoverDeps> = {}): TakeoverDeps {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockWorktreePathFor.mockReturnValue('/worktrees/feature-branch');
 });
 
 // ─── Branch 1: defer_live_holder ─────────────────────────────────────────────
@@ -228,9 +233,9 @@ describe('take_over_adwId from abandoned', () => {
   });
 
   it('healthy probe → probeWorktree called with worktree path and branchName', () => {
+    mockWorktreePathFor.mockReturnValue('/wt/feature-issue-104-x');
     const deps = makeDeps({
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'abandoned', branchName: 'feature-issue-104-x' })),
-      getWorktreePath: vi.fn().mockReturnValue('/wt/feature-issue-104-x'),
       probeWorktree: vi.fn().mockReturnValue(healthyProbe()),
     });
     evaluateCandidate({ issueNumber: 104, repoInfo: REPO }, deps);
@@ -239,9 +244,9 @@ describe('take_over_adwId from abandoned', () => {
   });
 
   it('healthy probe with orphaned lock → clearOrphanedIndexLock called; resetWorktree NOT called', () => {
+    mockWorktreePathFor.mockReturnValue('/wt/feature-branch');
     const deps = makeDeps({
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'abandoned', branchName: 'feature-branch' })),
-      getWorktreePath: vi.fn().mockReturnValue('/wt/feature-branch'),
       probeWorktree: vi.fn().mockReturnValue(healthyProbe({ indexLock: 'orphaned' })),
     });
     evaluateCandidate({ issueNumber: 104, repoInfo: REPO }, deps);
@@ -276,9 +281,9 @@ describe('take_over_adwId from abandoned', () => {
   });
 
   it('unhealthy probe → passes the branchName to resetWorktree', () => {
+    mockWorktreePathFor.mockReturnValue('/wt/feature-issue-104-whatever');
     const deps = makeDeps({
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'abandoned', branchName: 'feature-issue-104-whatever' })),
-      getWorktreePath: vi.fn().mockReturnValue('/wt/feature-issue-104-whatever'),
       probeWorktree: vi.fn().mockReturnValue(unhealthyProbe()),
     });
     evaluateCandidate({ issueNumber: 104, repoInfo: REPO }, deps);
@@ -524,9 +529,9 @@ describe('take_over_adwId from phase_timeout', () => {
   });
 
   it('healthy probe → probeWorktree called with worktree path and branchName', () => {
+    mockWorktreePathFor.mockReturnValue('/wt/feature-issue-637-x');
     const deps = makeDeps({
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'phase_timeout', branchName: 'feature-issue-637-x', pid: 77777, pidStartedAt: 'dead-era' })),
-      getWorktreePath: vi.fn().mockReturnValue('/wt/feature-issue-637-x'),
       probeWorktree: vi.fn().mockReturnValue(healthyProbe()),
     });
     evaluateCandidate({ issueNumber: 637, repoInfo: REPO }, deps);
@@ -535,9 +540,9 @@ describe('take_over_adwId from phase_timeout', () => {
   });
 
   it('healthy probe with orphaned lock → clearOrphanedIndexLock called; resetWorktree NOT called', () => {
+    mockWorktreePathFor.mockReturnValue('/wt/feature-branch');
     const deps = makeDeps({
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'phase_timeout', branchName: 'feature-branch' })),
-      getWorktreePath: vi.fn().mockReturnValue('/wt/feature-branch'),
       probeWorktree: vi.fn().mockReturnValue(healthyProbe({ indexLock: 'orphaned' })),
     });
     evaluateCandidate({ issueNumber: 637, repoInfo: REPO }, deps);
@@ -562,9 +567,9 @@ describe('take_over_adwId from phase_timeout', () => {
   });
 
   it('unhealthy probe → passes the branchName from state to resetWorktree', () => {
+    mockWorktreePathFor.mockReturnValue('/wt/feature-issue-637-whatever');
     const deps = makeDeps({
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'phase_timeout', branchName: 'feature-issue-637-whatever' })),
-      getWorktreePath: vi.fn().mockReturnValue('/wt/feature-issue-637-whatever'),
       probeWorktree: vi.fn().mockReturnValue(unhealthyProbe()),
     });
     evaluateCandidate({ issueNumber: 637, repoInfo: REPO }, deps);
@@ -717,19 +722,17 @@ function makeTestGitContext(base: string, selfHost: boolean): GitContext {
 }
 
 describe('GitContext-based worktree path (abandoned)', () => {
-  it('abandoned: worktree path resolves under context base, not getWorktreePath', () => {
+  it('abandoned: worktree path resolves under context base, not gitContextForSync fallback', () => {
     const fakeCtx = makeTestGitContext(TARGET_BASE, false);
     const expectedWtPath = path.join(TARGET_BASE, '.worktrees', 'feature-issue-187-x');
     const deps = makeDeps({
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'abandoned', branchName: 'feature-issue-187-x' })),
-      getWorktreePath: vi.fn().mockReturnValue('/wrong/framework/path/.worktrees/feature-issue-187-x'),
       probeWorktree: vi.fn().mockReturnValue(healthyProbe()),
     });
 
     evaluateCandidate({ issueNumber: 187, repoInfo: REPO, gitContext: fakeCtx }, deps);
 
     expect(deps.probeWorktree).toHaveBeenCalledWith(expectedWtPath, 'feature-issue-187-x', undefined, undefined);
-    expect(deps.getWorktreePath).not.toHaveBeenCalled();
   });
 
   it('abandoned: unhealthy probe resets worktree via context base path', () => {
@@ -737,14 +740,12 @@ describe('GitContext-based worktree path (abandoned)', () => {
     const expectedWtPath = path.join(TARGET_BASE, '.worktrees', 'feature-issue-187-x');
     const deps = makeDeps({
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'abandoned', branchName: 'feature-issue-187-x' })),
-      getWorktreePath: vi.fn().mockReturnValue('/wrong/path'),
       probeWorktree: vi.fn().mockReturnValue(unhealthyProbe()),
     });
 
     evaluateCandidate({ issueNumber: 187, repoInfo: REPO, gitContext: fakeCtx }, deps);
 
     expect(deps.resetWorktree).toHaveBeenCalledWith(expectedWtPath, 'feature-issue-187-x');
-    expect(deps.getWorktreePath).not.toHaveBeenCalled();
   });
 
   it('abandoned: resolved worktree path is not under the framework cwd (incident pin)', () => {
@@ -763,18 +764,16 @@ describe('GitContext-based worktree path (abandoned)', () => {
 });
 
 describe('GitContext-based worktree path (phase_timeout)', () => {
-  it('phase_timeout: worktree path resolves under context base, not getWorktreePath', () => {
+  it('phase_timeout: worktree path resolves under context base, not gitContextForSync fallback', () => {
     const fakeCtx = makeTestGitContext(TARGET_BASE, false);
     const expectedWtPath = path.join(TARGET_BASE, '.worktrees', 'feature-issue-187-x');
     const deps = makeDeps({
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'phase_timeout', branchName: 'feature-issue-187-x' })),
-      getWorktreePath: vi.fn().mockReturnValue('/wrong/framework/path/.worktrees/feature-issue-187-x'),
       probeWorktree: vi.fn().mockReturnValue(healthyProbe()),
     });
 
     evaluateCandidate({ issueNumber: 187, repoInfo: REPO, gitContext: fakeCtx }, deps);
 
     expect(deps.probeWorktree).toHaveBeenCalledWith(expectedWtPath, 'feature-issue-187-x', undefined, undefined);
-    expect(deps.getWorktreePath).not.toHaveBeenCalled();
   });
 });

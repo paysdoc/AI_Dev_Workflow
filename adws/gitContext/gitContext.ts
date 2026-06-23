@@ -13,11 +13,14 @@
 
 import * as path from 'path';
 import { execSync } from 'child_process';
-import { existsSync, rmSync } from 'fs';
-import type { GitContextOptions, GitIdentity, ExecFn, GitContextDeps } from './types';
+import { existsSync, mkdirSync, copyFileSync, rmSync } from 'fs';
+import type { GitContextOptions, GitIdentity, ExecFn, GitContextDeps, FsDeps } from './types';
 import { branchOps } from './branchOps';
 import { commitOps } from './commitOps';
 import { worktreeResetOps } from './worktreeResetOps';
+import { worktreeQueryOps, type WorktreeForIssueResult } from './worktreeQueryOps';
+import { worktreeCreateOps } from './worktreeCreateOps';
+import { worktreeRemoveOps } from './worktreeRemoveOps';
 import {
   fetchIssueCmd, commentOnIssueCmd, issueStateCmd, closeIssueCmd, issueTitleCmd,
   fetchIssueCommentsCmd, issueHasLabelCmd, addIssueLabelCmd, createIssueCmd,
@@ -93,6 +96,7 @@ export class GitContext {
   readonly #pat: string | undefined;
   readonly #gitIdentity: GitIdentity;
   readonly #exec: ExecFn;
+  readonly #fsDeps: FsDeps;
 
   constructor(options: GitContextOptions, deps: GitContextDeps = {}) {
     assertCompleteIdentity(options);
@@ -104,6 +108,7 @@ export class GitContext {
     this.#gitIdentity = options.gitIdentity;
     this.#basePath = resolveBasePath(options);
     this.#exec = deps.exec ?? defaultExec;
+    this.#fsDeps = deps.fsDeps ?? { existsSync, mkdirSync, copyFileSync, rmSync };
   }
 
   get basePath(): string { return this.#basePath; }
@@ -195,9 +200,108 @@ export class GitContext {
   resetWorktree(worktreePath: string, branch: string): void {
     worktreeResetOps.resetWorktree(
       (cmd, cwd) => this.#run(cmd, { cwd }),
-      { existsSync, rmSync },
+      this.#fsDeps,
       worktreePath,
       branch,
+    );
+  }
+
+  // ── Worktree management ops ──────────────────────────────────────────────────
+
+  #worktreesDir(): string {
+    return path.join(this.#basePath, '.worktrees');
+  }
+
+  #worktreePaths(branchName: string): { worktreesDir: string; worktreePath: string; baseCwd: string } {
+    return {
+      worktreesDir: this.#worktreesDir(),
+      worktreePath: this.worktreePathFor(branchName),
+      baseCwd: this.#basePath,
+    };
+  }
+
+  createWorktree(branchName: string, baseBranch?: string): string {
+    return worktreeCreateOps.createWorktree(
+      (cmd, cwd) => this.#run(cmd, { cwd }),
+      this.#fsDeps,
+      this.#worktreePaths(branchName),
+      branchName,
+      baseBranch,
+    );
+  }
+
+  createWorktreeForNewBranch(branchName: string, baseBranch?: string): string {
+    return worktreeCreateOps.createWorktreeForNewBranch(
+      (cmd, cwd) => this.#run(cmd, { cwd }),
+      this.#fsDeps,
+      this.#worktreePaths(branchName),
+      branchName,
+      baseBranch,
+    );
+  }
+
+  ensureWorktree(branchName: string, baseBranch?: string): string {
+    return worktreeCreateOps.ensureWorktree(
+      (cmd, cwd) => this.#run(cmd, { cwd }),
+      this.#fsDeps,
+      this.#worktreePaths(branchName),
+      branchName,
+      baseBranch,
+    );
+  }
+
+  getWorktreeForBranch(branchName: string): string | null {
+    return worktreeQueryOps.getWorktreeForBranch(
+      (cmd, cwd) => this.#run(cmd, { cwd }),
+      this.#fsDeps,
+      this.#basePath,
+      this.worktreePathFor(branchName),
+      branchName,
+    );
+  }
+
+  listWorktrees(): string[] {
+    return worktreeQueryOps.listWorktrees(
+      (cmd, cwd) => this.#run(cmd, { cwd }),
+      this.#basePath,
+    );
+  }
+
+  findWorktreeForIssue(prefixes: readonly string[], issueNumber: number): WorktreeForIssueResult | null {
+    return worktreeQueryOps.findWorktreeForIssue(
+      (cmd, cwd) => this.#run(cmd, { cwd }),
+      this.#basePath,
+      prefixes,
+      issueNumber,
+    );
+  }
+
+  removeWorktree(branchName: string): boolean {
+    return worktreeRemoveOps.removeWorktree(
+      (cmd, cwd) => this.#run(cmd, { cwd }),
+      this.#fsDeps,
+      this.worktreePathFor(branchName),
+      branchName,
+      (branch) => this.deleteLocalBranch(branch),
+      this.#basePath,
+    );
+  }
+
+  removeWorktreesForIssue(issueNumber: number): number {
+    return worktreeRemoveOps.removeWorktreesForIssue(
+      (cmd, cwd) => this.#run(cmd, { cwd }),
+      this.#fsDeps,
+      this.#basePath,
+      issueNumber,
+      (branch) => this.deleteLocalBranch(branch),
+    );
+  }
+
+  copyEnvToWorktree(worktreePath: string): void {
+    worktreeCreateOps.copyEnvToWorktree(
+      this.#fsDeps,
+      this.#basePath,
+      worktreePath,
     );
   }
 

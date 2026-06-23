@@ -12,9 +12,12 @@ vi.mock('../../core/stateHelpers', () => ({
 vi.mock('../../core/config', () => ({
   AGENTS_STATE_DIR: '/mock/agents',
 }));
-vi.mock('../../vcs/worktreeCleanup', () => ({
-  removeWorktreesForIssue: vi.fn(),
+
+const mockRemoveWorktreesForIssue = vi.hoisted(() => vi.fn());
+vi.mock('../../github', () => ({
+  gitContextForSync: vi.fn().mockReturnValue({ removeWorktreesForIssue: mockRemoveWorktreesForIssue }),
 }));
+
 vi.mock('../../adwClearComments', () => ({
   clearIssueComments: vi.fn(),
 }));
@@ -33,14 +36,12 @@ vi.mock('fs', async (importOriginal) => {
 import { handleCancelDirective, type MutableProcessedSets } from '../cancelHandler';
 import { extractAdwIdFromComment } from '../../core/workflowCommentParsing';
 import { findOrchestratorStatePath, isProcessAlive } from '../../core/stateHelpers';
-import { removeWorktreesForIssue } from '../../vcs/worktreeCleanup';
 import { clearIssueComments } from '../../adwClearComments';
 import * as fs from 'fs';
 
 const mockExtractAdwId = vi.mocked(extractAdwIdFromComment);
 const mockFindOrchestratorStatePath = vi.mocked(findOrchestratorStatePath);
 const mockIsProcessAlive = vi.mocked(isProcessAlive);
-const mockRemoveWorktreesForIssue = vi.mocked(removeWorktreesForIssue);
 const mockClearIssueComments = vi.mocked(clearIssueComments);
 const mockRmSync = vi.mocked(fs.rmSync);
 const mockReadFileSync = vi.mocked(fs.readFileSync);
@@ -49,6 +50,7 @@ const repoInfo: RepoInfo = { owner: 'test-owner', repo: 'test-repo' };
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockRemoveWorktreesForIssue.mockReturnValue(0);
   mockClearIssueComments.mockReturnValue({ total: 0, deleted: 0, failed: 0 });
   mockIsProcessAlive.mockReturnValue(false);
   mockFindOrchestratorStatePath.mockReturnValue(null);
@@ -106,20 +108,20 @@ describe('handleCancelDirective', () => {
     killSpy.mockRestore();
   });
 
-  it('calls removeWorktreesForIssue with correct issueNumber and cwd', () => {
+  it('calls removeWorktreesForIssue on the gitContext with correct issueNumber', () => {
     mockExtractAdwId.mockReturnValue(null);
 
     handleCancelDirective(42, [], repoInfo, '/some/cwd');
 
-    expect(mockRemoveWorktreesForIssue).toHaveBeenCalledWith(42, '/some/cwd');
+    expect(mockRemoveWorktreesForIssue).toHaveBeenCalledWith(42);
   });
 
-  it('calls removeWorktreesForIssue with undefined cwd when not provided', () => {
+  it('calls removeWorktreesForIssue on the gitContext when no cwd provided', () => {
     mockExtractAdwId.mockReturnValue(null);
 
     handleCancelDirective(42, [], repoInfo);
 
-    expect(mockRemoveWorktreesForIssue).toHaveBeenCalledWith(42, undefined);
+    expect(mockRemoveWorktreesForIssue).toHaveBeenCalledWith(42);
   });
 
   it('deletes agents/{adwId}/ directories for all extracted adwIds', () => {

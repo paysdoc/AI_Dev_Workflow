@@ -25,7 +25,6 @@ import { addIssueLabel } from './github/issueApi.ts';
 import { loadProjectConfig } from './core/projectConfig.ts';
 import { runPromotionCommenter, runPromotionMover, loadPromotionStats } from './promotion/index.ts';
 import type { PromotionCommenterDeps, PromotionMoverDeps } from './promotion/index.ts';
-import { createWorktreeForNewBranch } from './vcs/worktreeCreation.ts';
 import { gitContextFor } from './github/gitContextFactory.ts';
 import type { GitContext } from './gitContext/index.ts';
 
@@ -91,7 +90,7 @@ function buildMoverDeps(
     },
     getDefaultBranch: () => gitCtx.defaultBranch(),
     createWorktree: (branchName, baseBranch) =>
-      createWorktreeForNewBranch(branchName, baseBranch, baseRepoPath),
+      gitCtx.createWorktreeForNewBranch(branchName, baseBranch),
     commitChanges: (cwd, message) => gitCtx.commitChanges(message, cwd),
     pushBranch: (cwd, branchName) => gitCtx.pushBranch(branchName, cwd),
     findExistingPR: (branchName) => {

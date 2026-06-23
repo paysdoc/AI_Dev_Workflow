@@ -46,7 +46,6 @@ import {
 } from './core';
 import { commentOnIssue, mergePR, type RepoInfo, gitContextFor } from './github';
 import { defaultFindPRByBranch, hasWontFixLabel, type RawPR } from './github/prApi';
-import { ensureWorktree } from './vcs';
 import type { GitContext } from './gitContext';
 import { runClaudeAgentWithCommand } from './agents';
 import { createGitHubCodeHost } from './providers/github/githubCodeHost';
@@ -77,7 +76,7 @@ export interface RunInitCommandParams {
 /** Injectable dependencies for executeUpgrade — enables unit testing without I/O. */
 export interface UpgradeDeps {
   readonly computeFrameworkHash: (frameworkRepoRoot: string) => string;
-  readonly ensureWorktree: (branch: string, baseBranch: string, baseRepoPath: string) => string;
+  readonly ensureWorktree: (branch: string, baseBranch: string) => string;
   /**
    * Reconciles the (possibly reused) upgrade worktree to the live remote claim tip
    * before regen: git fetch origin <branch> + git reset --hard origin/<branch>.
@@ -244,7 +243,7 @@ export async function executeUpgrade(
   //    Hard reset is safe: the upgrade worktree is a throwaway regen target.
   let worktreePath: string;
   try {
-    worktreePath = deps.ensureWorktree(branch, defaultBranch, baseRepoPath);
+    worktreePath = deps.ensureWorktree(branch, defaultBranch);
     deps.reconcileWorktreeToRemote(worktreePath, branch);
   } catch (error) {
     deps.commentOnIssue(
@@ -383,7 +382,7 @@ function buildDefaultUpgradeDeps(repoId: RepoIdentifier, gitCtx: GitContext): Up
   const codeHost = createGitHubCodeHost(repoId);
   return {
     computeFrameworkHash,
-    ensureWorktree,
+    ensureWorktree: (branch, baseBranch) => gitCtx.ensureWorktree(branch, baseBranch),
     reconcileWorktreeToRemote: (worktreePath, branch) => gitCtx.fetchAndResetToRemote(branch, worktreePath),
     getDefaultBranch: () => gitCtx.defaultBranch(),
     findPRByBranch: (branch, info) => defaultFindPRByBranch(branch, info),

@@ -5,7 +5,7 @@
  */
 
 import { GitContext } from '../../../adws/gitContext/index.ts';
-import type { GitContextOptions, ExecFn } from '../../../adws/gitContext/index.ts';
+import type { GitContextOptions, ExecFn, FsDeps } from '../../../adws/gitContext/index.ts';
 
 export const TARGET_REPOS_ROOT = '/srv/adw/repos';
 export const FRAMEWORK_ROOT = '/srv/adw/framework';
@@ -101,4 +101,14 @@ export function parseAuthor(authorStr: string): { name: string; email: string } 
   const match = /^(.+?)\s*<([^>]+)>$/.exec(authorStr.trim());
   if (!match) throw new Error(`Cannot parse author string: "${authorStr}"`);
   return { name: match[1].trim(), email: match[2].trim() };
+}
+
+/** No-op fs spy for BDD tests — all paths are imaginary, so fs operations are stubbed out. */
+export function makeNoOpFsDeps(): FsDeps {
+  return {
+    existsSync: () => false,
+    mkdirSync: () => {},
+    copyFileSync: () => {},
+    rmSync: () => {},
+  };
 }

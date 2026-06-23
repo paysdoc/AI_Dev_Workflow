@@ -914,7 +914,6 @@ When(
       killProcess: () => undefined,
       resetWorktree: () => undefined,
       deriveStageFromRemote: () => 'abandoned' as import('../../../adws/types/workflowTypes.ts').WorkflowStage,
-      getWorktreePath: () => '/tmp/fake-worktree',
       writeTopLevelState: () => undefined,
       commentOnIssue: () => undefined,
       probeWorktree: () => ({

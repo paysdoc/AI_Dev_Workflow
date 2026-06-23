@@ -17,8 +17,8 @@ import { log, TARGET_REPOS_DIR, AGENTS_STATE_DIR, type LogLevel } from '../core'
 import { AgentStateManager } from '../core/agentState';
 import { isAgentProcessRunning } from '../core/stateHelpers';
 import { isActiveStage } from './cronStageResolver';
-import { killProcessesInDirectory } from '../vcs/worktreeCleanup';
-import { listWorktrees } from '../vcs/worktreeQuery';
+import { killProcessesInDirectory } from '../gitContext';
+import { gitContextForSync } from '../github';
 import type { AgentState } from '../types/agentTypes';
 
 // ---------------------------------------------------------------------------
@@ -46,8 +46,8 @@ export interface JanitorDeps {
   readdirTargetRepos: (targetReposDir: string) => string[];
   /** Check if a path is a git repo (has .git directory). */
   isGitRepo: (repoPath: string) => boolean;
-  /** List worktrees for a repo directory. */
-  listWorktrees: (cwd: string) => string[];
+  /** List worktrees for a repo by owner/repo name. */
+  listWorktrees: (owner: string, repo: string) => string[];
   /** Read top-level workflow state for an adwId. */
   readTopLevelState: (adwId: string) => AgentState | null;
   /** List adwId directories under AGENTS_STATE_DIR (excludes 'cron' and non-directories). */
@@ -167,7 +167,7 @@ export function discoverTargetRepoWorktrees(deps: JanitorDeps): WorktreeCandidat
       const repoPath = path.join(ownerPath, repo);
       if (!deps.isGitRepo(repoPath)) continue;
 
-      const worktreePaths = deps.listWorktrees(repoPath);
+      const worktreePaths = deps.listWorktrees(owner, repo);
       for (const wtPath of worktreePaths) {
         candidates.push({
           worktreePath: wtPath,
@@ -231,7 +231,7 @@ function defaultHasProcessesInDirectory(directoryPath: string): boolean {
 const DEFAULT_DEPS: JanitorDeps = {
   readdirTargetRepos: defaultReaddirTargetRepos,
   isGitRepo: defaultIsGitRepo,
-  listWorktrees,
+  listWorktrees: (owner, repo) => gitContextForSync({ owner, repo, selfHost: false }).listWorktrees(),
   readTopLevelState: AgentStateManager.readTopLevelState,
   readTopLevelStateRaw: AgentStateManager.readTopLevelState,
   listAdwStateDirs: defaultListAdwStateDirs,
