@@ -511,6 +511,7 @@ adws/                   # ADW workflow system
 │   │   ├── processLiveness.test.ts
 │   │   ├── projectConfig.test.ts
 │   │   ├── remoteReconcile.test.ts
+│   │   ├── repoIdentityCrossCheck.test.ts
 │   │   ├── resolveFreezeGuard.test.ts
 │   │   ├── resolveVerdict.test.ts
 │   │   ├── resumePolicy.test.ts
@@ -557,6 +558,7 @@ adws/                   # ADW workflow system
 │   ├── processLiveness.ts  # PID-reuse-safe process liveness checks
 │   ├── projectConfig.ts
 │   ├── remoteReconcile.ts  # Stage derivation from remote GitHub artifacts
+│   ├── repoIdentityCrossCheck.ts  # Launch-vs-persisted repo identity cross-check; throws RepoIdentityMismatchError on owner/repo divergence
 │   ├── resolveFreezeGuard.ts  # Pure guard: rejects resolve edits that touch .feature files
 │   ├── resolveVerdict.ts      # Pure verdict: computes pass/retry/hard-fail for scenario fix loops
 │   ├── resumePolicy.ts  # Bounded N-cap resume policy: nextResumeAction computes RESUME/ESCALATE; human_gated stage + escalate_human_gated decision on cap exhaustion
@@ -581,6 +583,7 @@ adws/                   # ADW workflow system
 │   │   ├── linkedPrDetector.test.ts
 │   │   ├── prApi.test.ts
 │   │   └── projectBoardApi.test.ts
+│   ├── gitContextFactory.ts  # Boundary factory — constructs GitContext from ambient ADW identity (async and sync per-repo variants)
 │   ├── githubApi.ts
 │   ├── githubAppAuth.ts  # GitHub App authentication
 │   ├── hitlBoardNotifier.ts  # HITL board-event notifier — PR/issue lookup, message building, and Slack delivery for Review and Blocked transitions
@@ -610,7 +613,11 @@ adws/                   # ADW workflow system
 │   ├── commitOps.ts    # Package-private commit/push orchestration (force-with-lease, lease rejection detection)
 │   ├── gitContext.ts   # GitContext class — mandatory identity, base-path resolution in constructor, per-command env injection, no cwd fallback
 │   ├── index.ts        # Public surface (GitContext class + GitIdentity/GitContextOptions types)
+│   ├── processCleanup.ts  # Process cleanup utility — kills processes with open files in a given directory
 │   ├── types.ts        # GitIdentity, GitContextOptions, ExecFn, and GitContextDeps interfaces
+│   ├── worktreeCreateOps.ts  # Package-private worktree create/ensure ops — injects runner and fs for testability
+│   ├── worktreeQueryOps.ts  # Package-private worktree query ops — injects runner and fs for testability
+│   ├── worktreeRemoveOps.ts  # Package-private worktree remove ops — injects runner, fs, and killProcesses for testability
 │   └── worktreeResetOps.ts  # Package-private takeover-reset orchestration (fetch, reset to remote, worktree repair)
 ├── vcs/                # Version control operations (git)
 │   ├── __tests__/      # Vitest unit tests
@@ -770,7 +777,8 @@ adws/                   # ADW workflow system
 │   │   ├── trigger_cron.test.ts
 │   │   ├── triggerCronAwaitingMerge.test.ts
 │   │   ├── webhookGatekeeper.test.ts
-│   │   └── webhookHandlers.test.ts
+│   │   ├── webhookHandlers.test.ts
+│   │   └── webhookRepoResolver.test.ts
 │   ├── autoMergeHandler.ts  # Auto-merge approved PRs
 │   ├── cancelHandler.ts  # Cancel directive handler
 │   ├── retryHandler.ts   # Retry directive handler: resets merge_blocked → awaiting_merge, no worktree teardown
@@ -798,6 +806,7 @@ adws/                   # ADW workflow system
 │   ├── trigger_webhook.ts
 │   ├── webhookGatekeeper.ts
 │   ├── webhookHandlers.ts
+│   ├── webhookRepoResolver.ts  # Per-event repo identity resolution extracted from trigger_webhook.ts for testability
 │   └── webhookSignature.ts
 ├── r2/                 # Cloudflare R2 upload module
 │   ├── bucketManager.ts  # R2 bucket creation and lifecycle rules
