@@ -16,7 +16,7 @@
 import '../core/environment';
 import * as http from 'http';
 import { log, PullRequestWebhookPayload, allocateRandomPort, isPortAvailable, getTargetRepoWorkspacePath, assertCwdIsRepoRoot } from '../core';
-import { isActionableComment, isCancelComment, isRetryComment, isAdwRunningForIssue, truncateText, getRepoInfoFromPayload, getRepoInfo, fetchIssueCommentsRest, activateGitHubAppAuth, ensureAppAuthForRepo } from '../github';
+import { isActionableComment, isCancelComment, isRetryComment, isAdwRunningForIssue, truncateText, getRepoInfo, fetchIssueCommentsRest, activateGitHubAppAuth } from '../github';
 import { handleCancelDirective } from './cancelHandler';
 import { handleRetryDirective } from './retryHandler';
 import { handlePullRequestEvent, handleIssueClosedEvent } from './webhookHandlers';
@@ -24,6 +24,9 @@ import { validateWebhookSignature } from './webhookSignature';
 import { checkIssueEligibility } from './issueEligibility';
 import { spawnDetached, classifyAndSpawnWorkflow, ensureCronProcess, logDeferral } from './webhookGatekeeper';
 import { extractPayloadLabelNames, routeIssueOpened } from './issueOpenedRouter';
+import { resolveWebhookRepo } from './webhookRepoResolver';
+import { buildLaunchGitContext } from '../core';
+import type { GitContext } from '../gitContext';
 import { checkEnvironmentVariables, checkGitRepository, checkClaudeCodeCLI, checkGitHubCLI, checkDirectoryStructure, type CheckResult } from '../healthCheckChecks';
 import { readAuthGate, writeAuthGate } from '../core/authGate';
 import { AuthRequiredError } from '../types/agentTypes';
@@ -63,14 +66,6 @@ function jsonResponse(res: http.ServerResponse, statusCode: number, body: Record
 
 interface HealthCheckResult { success: boolean; timestamp: string; checks: Record<string, CheckResult>; warnings: string[]; errors: string[] }
 
-function extractTargetRepoArgs(body: Record<string, unknown>): string[] {
-  const repository = body.repository as Record<string, unknown> | undefined;
-  if (!repository) return [];
-  const fullName = repository.full_name as string | undefined;
-  const cloneUrl = (repository.clone_url as string | undefined) || (repository.html_url as string | undefined);
-  if (!fullName || !cloneUrl) return [];
-  return ['--target-repo', fullName, '--clone-url', cloneUrl];
-}
 
 const server = http.createServer((req, res) => {
   if (req.url === '/health' && req.method === 'GET') {
@@ -104,18 +99,24 @@ const server = http.createServer((req, res) => {
     try { body = JSON.parse(rawBody.toString()); } catch { jsonResponse(res, 400, { error: 'invalid json' }); return; }
     const event = req.headers['x-github-event'] as string | undefined;
 
-    // Ensure app auth targets the correct repo/org for this request
-    const webhookRepo = body.repository as Record<string, unknown> | undefined;
-    if (webhookRepo) {
-      const repoOwner = (webhookRepo.owner as Record<string, unknown> | undefined)?.login as string | undefined;
-      const repoName = webhookRepo.name as string | undefined;
-      if (repoOwner && repoName) ensureAppAuthForRepo(repoOwner, repoName);
-    }
+    const resolution = resolveWebhookRepo(body);
+    const webhookRepoInfo = resolution?.repoInfo;
+    const webhookTargetRepoArgs = resolution?.targetRepoArgs ?? [];
 
-    const webhookRepoFullName = webhookRepo?.full_name as string | undefined;
-    const webhookRepoInfo = webhookRepoFullName ? getRepoInfoFromPayload(webhookRepoFullName) : undefined;
-    const webhookTargetRepoArgs = extractTargetRepoArgs(body);
-    if (webhookRepoInfo) ensureCronProcess(webhookRepoInfo, webhookTargetRepoArgs);
+    // Per-event boundary constructor. Construct exactly one immutable GitContext per event,
+    // synchronously before any await/then, so auth and base path ride on the per-event
+    // context rather than the mutable process-global. buildLaunchGitContext also asserts
+    // process-global app auth internally (transitional, for not-yet-migrated gh calls —
+    // story 7), so there is no regression for legacy paths.
+    let eventGitContext: GitContext | undefined;
+    if (resolution) {
+      try {
+        eventGitContext = buildLaunchGitContext(resolution.targetRepo);
+      } catch (err) {
+        log(`Per-event GitContext construction failed for ${resolution.repoInfo.owner}/${resolution.repoInfo.repo}: ${err}`, 'warn');
+      }
+      ensureCronProcess(resolution.repoInfo, webhookTargetRepoArgs);
+    }
 
     if (event === 'pull_request_review_comment') {
       if (readAuthGate() !== null) {
@@ -191,7 +192,7 @@ const server = http.createServer((req, res) => {
             if (!eligibility.eligible) { logDeferral(issueNumber, eligibility); return; }
           }
           try {
-            await classifyAndSpawnWorkflow(issueNumber, webhookRepoInfo, webhookTargetRepoArgs);
+            await classifyAndSpawnWorkflow(issueNumber, webhookRepoInfo, webhookTargetRepoArgs, undefined, undefined, undefined, eventGitContext);
           } catch (err) {
             if (err instanceof AuthRequiredError) {
               writeAuthGate({ adwId: null, issueNumber, agentName: err.agentName });
@@ -227,7 +228,7 @@ const server = http.createServer((req, res) => {
     if (action === 'closed') {
       const parts = (webhookTargetRepoArgs.length >= 2 ? webhookTargetRepoArgs[1] : undefined)?.split('/');
       const cwd = parts?.length === 2 ? getTargetRepoWorkspacePath(parts[0], parts[1]) : undefined;
-      handleIssueClosedEvent(issueNumber, webhookRepoInfo, cwd, webhookTargetRepoArgs)
+      handleIssueClosedEvent(issueNumber, webhookRepoInfo, cwd, webhookTargetRepoArgs, undefined, eventGitContext)
         .then((result) => log(`Issue #${issueNumber} closed: worktrees=${result.worktreesRemoved}, branch=${result.branchDeleted}, status=${result.status}`))
         .catch((e) => log(`Issue close handler failed for #${issueNumber}: ${e}`, 'error'));
       jsonResponse(res, 200, { status: 'processing', issue: issueNumber });
@@ -254,6 +255,7 @@ const server = http.createServer((req, res) => {
             labelNames,
             repoInfo: webhookRepoInfo ?? { owner: '', repo: '' },
             targetRepoArgs: webhookTargetRepoArgs,
+            gitContext: eventGitContext,
           });
         } catch (error) {
           if (error instanceof AuthRequiredError) {

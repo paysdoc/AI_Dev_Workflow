@@ -1,6 +1,7 @@
 /**
- * Real-git integration tests for pushBranch() — proves the three behavioral
- * acceptance criteria end-to-end against a local bare remote (no network).
+ * Real-git integration tests for GitContext.pushBranch() — re-homed from
+ * vcs/commitOperations (#662). Proves the three behavioral acceptance criteria
+ * end-to-end against a local bare remote (no network).
  *
  * A: append-only push still works
  * B: a rewritten branch (amend) pushes successfully (the core bug fix)
@@ -12,12 +13,31 @@ import { execSync } from 'child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { pushBranch } from '../commitOperations';
+import { GitContext } from '../../gitContext';
+import type { GitContextOptions } from '../../gitContext/types';
 
 const BRANCH = 'feature-test-648';
 
 function git(cmd: string, cwd: string): string {
   return execSync(cmd, { cwd, encoding: 'utf-8', stdio: 'pipe' }).trim();
+}
+
+function makeTestContext(workdir: string): GitContext {
+  const options: GitContextOptions = {
+    owner: 'test',
+    repo: 'test',
+    selfHost: true,
+    token: 'dummy-token-for-local-test',
+    gitIdentity: {
+      authorName: 'ADW Test',
+      authorEmail: 'test@adw.test',
+      committerName: 'ADW Test',
+      committerEmail: 'test@adw.test',
+    },
+    frameworkRepoRoot: workdir,
+    targetReposDir: tmpdir(),
+  };
+  return new GitContext(options);
 }
 
 let bareRemote: string;
@@ -41,31 +61,31 @@ afterEach(() => {
   rmSync(workdir, { recursive: true, force: true });
 });
 
-describe('pushBranch integration (real git)', () => {
+describe('GitContext.pushBranch integration (real git)', () => {
   it('Scenario A: append-only commit pushes successfully', () => {
+    const ctx = makeTestContext(workdir);
     git('git commit --allow-empty -m "forward commit"', workdir);
     const localTip = git('git rev-parse HEAD', workdir);
 
-    pushBranch(BRANCH, workdir);
+    ctx.pushBranch(BRANCH, workdir);
 
     const remoteTip = git(`git rev-parse ${BRANCH}`, bareRemote);
     expect(remoteTip).toBe(localTip);
   });
 
   it('Scenario B: rewritten branch (amend) pushes successfully instead of deadlocking', () => {
+    const ctx = makeTestContext(workdir);
     git('git commit --allow-empty --amend -m "rewritten commit"', workdir);
     const localTip = git('git rev-parse HEAD', workdir);
 
-    // Old behaviour: `git push -u origin ${BRANCH}` would throw non-fast-forward here.
-    // New behaviour: force-with-lease recovers it.
-    expect(() => pushBranch(BRANCH, workdir)).not.toThrow();
+    expect(() => ctx.pushBranch(BRANCH, workdir)).not.toThrow();
 
     const remoteTip = git(`git rev-parse ${BRANCH}`, bareRemote);
     expect(remoteTip).toBe(localTip);
   });
 
   it('Scenario C: genuine divergence is rejected distinctly and the remote is not clobbered', () => {
-    // Another writer clones and pushes to the same branch from a second workdir.
+    const ctx = makeTestContext(workdir);
     const workdir2 = mkdtempSync(join(tmpdir(), 'adw-648-work2-'));
     try {
       git(`git clone "${bareRemote}" .`, workdir2);
@@ -76,22 +96,18 @@ describe('pushBranch integration (real git)', () => {
       git(`git push origin ${BRANCH}`, workdir2);
       const otherWriterTip = git(`git rev-parse ${BRANCH}`, bareRemote);
 
-      // Now ADW rewrites its own copy (amend) — local and remote now diverge
-      // in BOTH directions: remote has the other writer's commit, local has a rewrite.
       git('git commit --allow-empty --amend -m "adw rewritten commit"', workdir);
 
       let thrown: Error | undefined;
       try {
-        pushBranch(BRANCH, workdir);
+        ctx.pushBranch(BRANCH, workdir);
       } catch (e) {
         thrown = e as Error;
       }
 
-      // Must throw with a distinct, actionable message.
       expect(thrown).toBeDefined();
       expect(thrown?.message).toMatch(/force-with-lease/);
 
-      // Remote must still point at the other writer's commit (not clobbered).
       const remoteTipAfter = git(`git rev-parse ${BRANCH}`, bareRemote);
       expect(remoteTipAfter).toBe(otherWriterTip);
     } finally {

@@ -1,15 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { RepoInfo } from '../githubApi';
 
+vi.mock('../gitContextFactory', () => ({
+  gitContextForRepo: vi.fn(),
+}));
+
 vi.mock('../../core', () => ({
-  execWithRetry: vi.fn(),
   log: vi.fn(),
 }));
 
 import { fetchPRApprovalState, isApprovedFromReviewsList, selectPreferredPR } from '../prApi';
-import { execWithRetry, log } from '../../core';
+import { gitContextForRepo } from '../gitContextFactory';
+import { log } from '../../core';
 
-const mockExec = vi.mocked(execWithRetry);
 const mockLog = vi.mocked(log);
 
 const repoInfo: RepoInfo = { owner: 'acme', repo: 'widgets' };
@@ -66,8 +69,6 @@ describe('isApprovedFromReviewsList', () => {
   });
 
   it('returns true when same reviewer APPROVED then DISMISSED (DISMISSED is ignored, not substantive)', () => {
-    // DISMISSED is filtered out from substantive reviews (only APPROVED/CHANGES_REQUESTED are substantive).
-    // The latest substantive review for alice remains APPROVED → returns true.
     expect(isApprovedFromReviewsList([
       makeReview('alice', 'APPROVED', '2024-01-01T00:00:00Z'),
       makeReview('alice', 'DISMISSED', '2024-01-02T00:00:00Z'),
@@ -91,17 +92,21 @@ describe('isApprovedFromReviewsList', () => {
 // ── fetchPRApprovalState ─────────────────────────────────────────────────────
 
 describe('fetchPRApprovalState', () => {
+  let mockCtx: { prApprovalState: ReturnType<typeof vi.fn> };
+
   beforeEach(() => {
     vi.clearAllMocks();
+    mockCtx = { prApprovalState: vi.fn() };
+    vi.mocked(gitContextForRepo).mockReturnValue(mockCtx as unknown as ReturnType<typeof gitContextForRepo>);
   });
 
   it('returns true when reviewDecision is APPROVED', () => {
-    mockExec.mockReturnValue(JSON.stringify({ reviewDecision: 'APPROVED', reviews: [] }));
+    mockCtx.prApprovalState.mockReturnValue(JSON.stringify({ reviewDecision: 'APPROVED', reviews: [] }));
     expect(fetchPRApprovalState(42, repoInfo)).toBe(true);
   });
 
   it('returns false when reviewDecision is CHANGES_REQUESTED', () => {
-    mockExec.mockReturnValue(JSON.stringify({
+    mockCtx.prApprovalState.mockReturnValue(JSON.stringify({
       reviewDecision: 'CHANGES_REQUESTED',
       reviews: [makeReview('alice', 'APPROVED', '2024-01-01T00:00:00Z')],
     }));
@@ -109,7 +114,7 @@ describe('fetchPRApprovalState', () => {
   });
 
   it('returns false when reviewDecision is REVIEW_REQUIRED', () => {
-    mockExec.mockReturnValue(JSON.stringify({
+    mockCtx.prApprovalState.mockReturnValue(JSON.stringify({
       reviewDecision: 'REVIEW_REQUIRED',
       reviews: [makeReview('alice', 'APPROVED', '2024-01-01T00:00:00Z')],
     }));
@@ -117,7 +122,7 @@ describe('fetchPRApprovalState', () => {
   });
 
   it('returns true when reviewDecision is null and single APPROVED review', () => {
-    mockExec.mockReturnValue(JSON.stringify({
+    mockCtx.prApprovalState.mockReturnValue(JSON.stringify({
       reviewDecision: null,
       reviews: [makeReview('alice', 'APPROVED', '2024-01-01T00:00:00Z')],
     }));
@@ -125,7 +130,7 @@ describe('fetchPRApprovalState', () => {
   });
 
   it('returns true when reviewDecision is null and two reviewers both APPROVED', () => {
-    mockExec.mockReturnValue(JSON.stringify({
+    mockCtx.prApprovalState.mockReturnValue(JSON.stringify({
       reviewDecision: null,
       reviews: [
         makeReview('alice', 'APPROVED', '2024-01-01T00:00:00Z'),
@@ -136,7 +141,7 @@ describe('fetchPRApprovalState', () => {
   });
 
   it('returns false when reviewDecision is null and one APPROVED, one CHANGES_REQUESTED', () => {
-    mockExec.mockReturnValue(JSON.stringify({
+    mockCtx.prApprovalState.mockReturnValue(JSON.stringify({
       reviewDecision: null,
       reviews: [
         makeReview('alice', 'APPROVED', '2024-01-01T00:00:00Z'),
@@ -147,7 +152,7 @@ describe('fetchPRApprovalState', () => {
   });
 
   it('returns false when reviewDecision is null and same reviewer APPROVED then CHANGES_REQUESTED', () => {
-    mockExec.mockReturnValue(JSON.stringify({
+    mockCtx.prApprovalState.mockReturnValue(JSON.stringify({
       reviewDecision: null,
       reviews: [
         makeReview('alice', 'APPROVED', '2024-01-01T00:00:00Z'),
@@ -158,7 +163,7 @@ describe('fetchPRApprovalState', () => {
   });
 
   it('returns true when reviewDecision is null and same reviewer CHANGES_REQUESTED then APPROVED', () => {
-    mockExec.mockReturnValue(JSON.stringify({
+    mockCtx.prApprovalState.mockReturnValue(JSON.stringify({
       reviewDecision: null,
       reviews: [
         makeReview('alice', 'CHANGES_REQUESTED', '2024-01-01T00:00:00Z'),
@@ -169,17 +174,17 @@ describe('fetchPRApprovalState', () => {
   });
 
   it('returns false when reviewDecision is null and empty reviews list', () => {
-    mockExec.mockReturnValue(JSON.stringify({ reviewDecision: null, reviews: [] }));
+    mockCtx.prApprovalState.mockReturnValue(JSON.stringify({ reviewDecision: null, reviews: [] }));
     expect(fetchPRApprovalState(42, repoInfo)).toBe(false);
   });
 
   it('returns false when reviewDecision is "" and empty reviews list', () => {
-    mockExec.mockReturnValue(JSON.stringify({ reviewDecision: '', reviews: [] }));
+    mockCtx.prApprovalState.mockReturnValue(JSON.stringify({ reviewDecision: '', reviews: [] }));
     expect(fetchPRApprovalState(42, repoInfo)).toBe(false);
   });
 
   it('returns true when reviewDecision is "" and a single APPROVED review (unprotected repo)', () => {
-    mockExec.mockReturnValue(JSON.stringify({
+    mockCtx.prApprovalState.mockReturnValue(JSON.stringify({
       reviewDecision: '',
       reviews: [makeReview('alice', 'APPROVED', '2024-01-01T00:00:00Z')],
     }));
@@ -187,7 +192,7 @@ describe('fetchPRApprovalState', () => {
   });
 
   it('returns false when reviewDecision is "" and a CHANGES_REQUESTED review', () => {
-    mockExec.mockReturnValue(JSON.stringify({
+    mockCtx.prApprovalState.mockReturnValue(JSON.stringify({
       reviewDecision: '',
       reviews: [makeReview('alice', 'CHANGES_REQUESTED', '2024-01-01T00:00:00Z')],
     }));
@@ -195,12 +200,12 @@ describe('fetchPRApprovalState', () => {
   });
 
   it('returns false when reviewDecision is undefined (treated as no decision)', () => {
-    mockExec.mockReturnValue(JSON.stringify({ reviewDecision: undefined, reviews: [] }));
+    mockCtx.prApprovalState.mockReturnValue(JSON.stringify({ reviewDecision: undefined, reviews: [] }));
     expect(fetchPRApprovalState(42, repoInfo)).toBe(false);
   });
 
   it('returns true when reviewDecision is undefined and a single APPROVED review', () => {
-    mockExec.mockReturnValue(JSON.stringify({
+    mockCtx.prApprovalState.mockReturnValue(JSON.stringify({
       reviewDecision: undefined,
       reviews: [makeReview('alice', 'APPROVED', '2024-01-01T00:00:00Z')],
     }));
@@ -208,7 +213,7 @@ describe('fetchPRApprovalState', () => {
   });
 
   it('returns false and logs a warning when the gh CLI throws', () => {
-    mockExec.mockImplementation(() => { throw new Error('gh: command failed'); });
+    mockCtx.prApprovalState.mockImplementation(() => { throw new Error('gh: command failed'); });
     expect(fetchPRApprovalState(42, repoInfo)).toBe(false);
     expect(mockLog).toHaveBeenCalledWith(
       expect.stringContaining('fetchPRApprovalState'),

@@ -7,7 +7,7 @@ export { OrchestratorId, MAX_AUTO_MERGE_ATTEMPTS } from './constants';
 export type { OrchestratorIdType } from './constants';
 
 // Configuration
-export { CLAUDE_CODE_PATH, GITHUB_PAT, JIRA_BASE_URL, JIRA_EMAIL, JIRA_API_TOKEN, JIRA_PAT, JIRA_PROJECT_KEY, GITLAB_TOKEN, GITLAB_INSTANCE_URL, LOGS_DIR, SPECS_DIR, AGENTS_STATE_DIR, MAX_TEST_RETRY_ATTEMPTS, MAX_REVIEW_RETRY_ATTEMPTS, MAX_VALIDATION_RETRY_ATTEMPTS, WORKTREES_DIR, TARGET_REPOS_DIR, REPO_ROOT, assertCwdIsRepoRoot, COST_REPORT_CURRENCIES, MAX_CONCURRENT_PER_REPO, GRACE_PERIOD_MS, HEARTBEAT_TICK_INTERVAL_MS, HEARTBEAT_STALE_THRESHOLD_MS, MAX_THINKING_TOKENS, TOKEN_LIMIT_THRESHOLD, MAX_CONTEXT_RESETS, MAX_PROGRESS_CHECKPOINTS, RUNNING_TOKENS, SHOW_COST_IN_COMMENTS, PROBE_INTERVAL_CYCLES, MAX_UNKNOWN_PROBE_FAILURES, JANITOR_INTERVAL_CYCLES, HUNG_DETECTOR_INTERVAL_CYCLES, PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES, getSafeSubprocessEnv, SLASH_COMMAND_MODEL_MAP, SLASH_COMMAND_MODEL_MAP_FAST, getModelForCommand, isFastMode, resolveClaudeCodePath, clearClaudeCodePathCache, SLASH_COMMAND_EFFORT_MAP, SLASH_COMMAND_EFFORT_MAP_FAST, getEffortForCommand, COST_API_URL, COST_API_TOKEN } from './config';
+export { CLAUDE_CODE_PATH, GITHUB_PAT, JIRA_BASE_URL, JIRA_EMAIL, JIRA_API_TOKEN, JIRA_PAT, JIRA_PROJECT_KEY, GITLAB_TOKEN, GITLAB_INSTANCE_URL, LOGS_DIR, SPECS_DIR, AGENTS_STATE_DIR, MAX_TEST_RETRY_ATTEMPTS, MAX_REVIEW_RETRY_ATTEMPTS, MAX_VALIDATION_RETRY_ATTEMPTS, MAX_FAILURES, WORKTREES_DIR, TARGET_REPOS_DIR, REPO_ROOT, assertCwdIsRepoRoot, COST_REPORT_CURRENCIES, MAX_CONCURRENT_PER_REPO, GRACE_PERIOD_MS, HEARTBEAT_TICK_INTERVAL_MS, HEARTBEAT_STALE_THRESHOLD_MS, MAX_THINKING_TOKENS, TOKEN_LIMIT_THRESHOLD, MAX_CONTEXT_RESETS, MAX_PROGRESS_CHECKPOINTS, RUNNING_TOKENS, SHOW_COST_IN_COMMENTS, PROBE_INTERVAL_CYCLES, MAX_UNKNOWN_PROBE_FAILURES, JANITOR_INTERVAL_CYCLES, HUNG_DETECTOR_INTERVAL_CYCLES, PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES, getSafeSubprocessEnv, SLASH_COMMAND_MODEL_MAP, SLASH_COMMAND_MODEL_MAP_FAST, getModelForCommand, isFastMode, resolveClaudeCodePath, clearClaudeCodePathCache, SLASH_COMMAND_EFFORT_MAP, SLASH_COMMAND_EFFORT_MAP_FAST, getEffortForCommand, COST_API_URL, COST_API_TOKEN } from './config';
 export type { ReasoningEffort } from './config';
 
 // Data types (from issueTypes.ts)
@@ -162,6 +162,13 @@ export {
   ensureTargetRepoWorkspace,
 } from './targetRepoManager';
 
+// Launch-boundary GitContext adapter
+export { buildLaunchGitContext, resolveLaunchToken, resolveLaunchGitIdentity } from './launchGitContext';
+export type { LaunchGitContextDeps } from './launchGitContext';
+
+// Repo identity cross-check (launch-boundary persistence and resume tripwire)
+export { crossCheckRepoIdentity, sameRepoIdentity, RepoIdentityMismatchError } from './repoIdentityCrossCheck';
+
 // Cost module (PhaseCostRecord, comment formatters)
 export type { PhaseCostRecord, CreatePhaseCostRecordsOptions } from '../cost';
 export {
@@ -238,4 +245,11 @@ export { ADW_VERSION_FILENAME, readAdwVersion, writeAdwVersion } from './adwVers
 // ADW YAML config (.github/adw.yml) — upgrade auto-merge policy + unit-test gate
 export { ADW_YML_RELATIVE_PATH, readAdwYmlConfig, parseAdwYml, writeAdwYmlTemplateIfAbsent, ADW_YML_TEMPLATE } from './adwYmlConfig';
 export type { AdwYmlConfig } from './adwYmlConfig';
+
+// Slack notifier
+export { postSlack } from './slackNotifier';
+
+// Upgrade failure cap helpers
+export { isUpgradeFailureComment, countUpgradeFailureComments, UPGRADE_FAILURE_SIGNATURE } from './upgradeFailureCap';
+export type { IssueCommentRecord } from './upgradeFailureCap';
 

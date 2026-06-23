@@ -15,7 +15,6 @@ import {
   emptyModelUsageMap,
   mergeModelUsageMaps,
 } from '../core';
-import { getHeadTreeHash, hasUncommittedChanges } from '../vcs';
 import { evaluateProgressGate, describeProgressGateAbort } from './progressGate';
 import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord, computeDisplayTokens } from '../cost';
 import { postIssueStageComment } from './phaseCommentHelpers';
@@ -29,6 +28,7 @@ import {
 import type { WorkflowConfig } from './workflowInit';
 import { buildContinuationPrompt, buildResumeInPlacePrompt, shouldResumeBuildInPlace } from './planPhase';
 import { BoardStatus } from '../providers/types';
+import { getRepoInfo, gitContextFor } from '../github';
 
 /**
  * Executes the Build phase: read plan, run build agent, commit implementation.
@@ -40,6 +40,10 @@ import { BoardStatus } from '../providers/types';
 export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costUsd: number; modelUsage: ModelUsageMap; phaseCostRecords: PhaseCostRecord[] }> {
   const { recoveryState, orchestratorStatePath, orchestratorName, adwId, issueNumber, issue, issueType, ctx, worktreePath, logsDir, repoContext, defaultBranch } = config;
   const phaseStartTime = Date.now();
+
+  const ctxOwner = repoContext?.repoId.owner ?? getRepoInfo().owner;
+  const ctxRepo = repoContext?.repoId.repo ?? getRepoInfo().repo;
+  const gitCtx = await gitContextFor({ owner: ctxOwner, repo: ctxRepo, selfHost: !repoContext });
 
   if (repoContext) {
     await repoContext.issueTracker.moveToStatus(issueNumber, BoardStatus.InProgress);
@@ -74,7 +78,7 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
     let currentPlanContent = shouldResumeBuildInPlace(recoveryState)
       ? buildResumeInPlacePrompt(planContent, defaultBranch)
       : planContent;
-    const seenTreeHashes = new Set<string>([getHeadTreeHash(worktreePath)]);
+    const seenTreeHashes = new Set<string>([gitCtx.getHeadTreeHash(worktreePath)]);
     let perBatchResets = 0;
     let checkpointCount = 0;
     let buildCompleted = false;
@@ -227,10 +231,10 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
         }
 
         // Batch boundary: commit if dirty, then evaluate the progress gate
-        if (hasUncommittedChanges(worktreePath)) {
+        if (gitCtx.hasUncommittedChanges(worktreePath)) {
           await runCommitAgent('build-agent', issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body);
         }
-        const headTreeHash = getHeadTreeHash(worktreePath);
+        const headTreeHash = gitCtx.getHeadTreeHash(worktreePath);
         const decision = evaluateProgressGate({ headTreeHash, seen: seenTreeHashes, checkpointCount, maxCheckpoints: MAX_PROGRESS_CHECKPOINTS });
 
         if (decision.kind === 'abort') {

@@ -30,7 +30,19 @@ import { execSync } from 'child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { pushBranch } from '../../../adws/vcs/commitOperations';
+import { GitContext } from '../../../adws/gitContext/index.ts';
+import type { GitContextOptions } from '../../../adws/gitContext/types.ts';
+import { tmpdir as _tmpdir } from 'node:os';
+
+function makePushCtx(workdir: string): GitContext {
+  const opts: GitContextOptions = {
+    owner: 'test', repo: 'test', selfHost: true,
+    token: 'dummy-token-local-test',
+    gitIdentity: { authorName: 'ADW Test', authorEmail: 'test@adw.test', committerName: 'ADW Test', committerEmail: 'test@adw.test' },
+    frameworkRepoRoot: workdir, targetReposDir: _tmpdir(),
+  };
+  return new GitContext(opts);
+}
 
 interface PushCtx {
   bareRemote: string;
@@ -169,7 +181,7 @@ When('ADW pushes branch {string} in the PR-creating step', function (branch: str
   ctx.localTip = git('git rev-parse HEAD', ctx.workdir);
 
   try {
-    pushBranch(branch, ctx.workdir);
+    makePushCtx(ctx.workdir).pushBranch(branch, ctx.workdir);
     ctx.pushResult = 'success';
   } catch (e) {
     ctx.pushResult = 'rejected';

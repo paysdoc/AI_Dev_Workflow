@@ -41,12 +41,22 @@
     - When adding a flat-layout (non-`src/`) target repo or a non-Bun test framework
 
 - app_docs/feature-t6m62c-adwupgrade-regen-gate-propagation.md
+  - Owns:
+    - adws/adwUpgrade.tsx
+    - adws/core/upgradeFailureCap.ts
+    - adws/phases/worktreeSetup.ts
+    - adws/gitContext/commitOps.ts
+    - adws/github/labelManager.ts
   - Conditions:
-    - When working on `adwUpgrade.tsx` `executeUpgrade()` or `UpgradeDeps`
+    - When working on `adwUpgrade.tsx` `executeUpgrade()`, `UpgradeDeps`, or `UpgradeRunResult`
     - When implementing or debugging the `.adw/` regeneration path (`copyAdwInitCommandToWorktree`, `verifyAdwRegen`)
+    - When working with the failure-cap escalation (`MAX_FAILURES`, `isUpgradeFailureComment`, `countUpgradeFailureComments`, `adw:blocked` label)
+    - When the entry gate (`adw:blocked` terminal-label short-circuit) or escalation gate (failure count ≥ cap) is relevant
+    - When `commitChanges` `excludePaths` option or the upgrade regen scoped-commit behaviour is relevant
     - When a target repo's `.adw-version` equals the current framework hash but `.adw/` is missing (bricked repo recovery)
     - When modifying `copyClaudeAssetsToWorktree` or the `target:` flag gitignore policy in `worktreeSetup.ts`
     - When troubleshooting skill/command propagation to worktrees or target repos
+    - When re-arming an escalated upgrade issue (removing `adw:blocked`, clearing failure comments, or posting `## Cancel`)
 
 - app_docs/feature-tcewff-cron-gh-token-bleed-fix.md
   - Conditions:
@@ -345,6 +355,11 @@
     - When adding a new handoff stage that bypasses the cron grace period
     - When troubleshooting `awaiting_merge` issues not being picked up by the cron
     - When working with `deriveOrchestratorScript()` and adding a new orchestrator mapping
+    - When working with `ProcessedSets`, `processed.spawns`, or the `processedSpawns` dedup set in the cron
+    - When an abandoned issue strands and the same cron process never re-spawns it (issue #653 class)
+    - When `evaluateIssue` returns `eligible:false reason:'processed'` for a retriable or abandoned issue
+    - When scoping the boot-window dedup guard so it does not block `retriable` or `phase_timeout` recovery
+    - When reasoning about which concurrency guard is authoritative for in-progress work (`acquireIssueSpawnLock` vs `processedSpawns`)
 
 - app_docs/feature-01s6z7-delete-legacy-e2e-machinery.md
   - Conditions:
@@ -1662,9 +1677,19 @@
     - adws/triggers/webhookGatekeeper.ts
     - adws/triggers/webhookHandlers.ts
     - adws/triggers/webhookSignature.ts
+    - adws/triggers/webhookRepoResolver.ts
+    - adws/triggers/__tests__/webhookRepoResolver.test.ts
+    - adws/triggers/issueOpenedRouter.ts
   - Conditions:
     - When working on the webhook trigger server, webhook gatekeeper, webhook event handlers, or webhook HMAC signature verification
     - When working on `trigger_webhook.ts`, `webhookGatekeeper.ts`, `webhookHandlers.ts`, or `webhookSignature.ts`
+    - When working with `resolveWebhookRepo`, `WebhookRepoResolution`, or `webhookRepoResolver.ts` (per-event boundary resolver)
+    - When the per-event `GitContext` construction at webhook receipt or the `eventGitContext` threading is relevant
+    - When multi-repo `GH_TOKEN` bleed across async continuations (vestmatic #181 class) or interleaved-event auth isolation is being investigated or tested
+    - When working with `routeIssueOpened`, `IssueOpenedRouterDeps.classifyAndSpawn`, or `issueOpenedRouter.ts`
+    - When `classifyAndSpawnWorkflow`'s optional `gitContext` parameter or the cron `precomputedDecision` pass-through is relevant
+    - When adding a new webhook event handler that needs to receive the per-event context
+    - When troubleshooting wrong-base-repo on the webhook takeover path (ambient `cwd` replaced by per-event `gitContext.basePath`)
 
 - app_docs/feature-9gjajh-takeover-and-coordination.md
   - Owns:
@@ -1859,3 +1884,78 @@
     - When the bounded resume cap, `human_gated` stage, or `escalate_human_gated` decision is relevant
     - When understanding how `phase_timeout` recovery is cap-gated (#639) and then probe-gated (#638: reuse-in-place if healthy, else reset-from-remote)
     - When understanding the unified `recoverViaResumeInPlaceOrReset` seam for `abandoned` and `phase_timeout` recoverable confirmed-dead stages
+
+- app_docs/feature-oqb76h-gitcontext-base-path-authority.md
+  - Owns:
+    - adws/gitContext/**
+    - adws/gitContext/__tests__/**
+    - adws/github/gitContextFactory.ts
+    - adws/vcs/branchOperations.ts
+    - adws/vcs/commitOperations.ts
+    - adws/vcs/worktreeReset.ts
+    - adws/vcs/worktreeCreation.ts
+    - adws/vcs/worktreeQuery.ts
+    - adws/vcs/worktreeCleanup.ts
+    - adws/vcs/worktreeOperations.ts
+    - adws/gitContext/commands/**
+  - Conditions:
+    - When working with `GitContext`, `GitContextOptions`, `GitIdentity`, `ExecFn`, or `GitContextDeps` in `adws/gitContext/`
+    - When implementing or troubleshooting base-path resolution for self-host vs target repos (the single `resolveBasePath` authority)
+    - When `worktreePathFor`, `commandEnv`, `defaultBranch`, or construction-time identity validation of `GitContext` is relevant
+    - When the per-command env injection chokepoint (`#run`), `usePat`, or stdin `input` forwarding is relevant
+    - When `process.env` non-mutation or two-context `GH_TOKEN` isolation in a multi-repo long-lived process is relevant
+    - When working with `branchOps.ts`, `commitOps.ts`, `worktreeResetOps.ts`, `worktreeCreateOps.ts`, `worktreeQueryOps.ts`, `worktreeRemoveOps.ts`, or `processCleanup.ts` (package-private operation modules)
+    - When `getCurrentBranch`, `mergeLatestFromDefaultBranch`, `fetchAndResetToRemote`, `deleteLocalBranch`, `deleteRemoteBranch` are GitContext methods
+    - When `commitChanges`, `pushBranch`, `getHeadTreeHash`, or `hasUncommittedChanges` run through GitContext
+    - When `resetWorktree` (abort-merge/rebase + fetch/reset --hard/clean) is involved in takeover recovery
+    - When `createWorktree`, `createWorktreeForNewBranch`, `ensureWorktree`, `getWorktreeForBranch`, `listWorktrees`, `findWorktreeForIssue`, `removeWorktree`, `removeWorktreesForIssue`, or `copyEnvToWorktree` are called as GitContext methods
+    - When `gitContextFor` or `gitContextForSync` from `adws/github/gitContextFactory.ts` is used to construct a context at a call site
+    - When `adws/vcs/worktreeCreation.ts`, `worktreeQuery.ts`, `worktreeCleanup.ts`, or `worktreeOperations.ts` are referenced and symbols appear to be missing (they migrated to GitContext in #661)
+    - When `adws/vcs/branchOperations.ts`, `commitOperations.ts`, or `worktreeReset.ts` are referenced and I/O functions appear to be missing (they migrated to GitContext)
+    - When working with `adws/gitContext/commands/` pure command builders or parsers (issue, PR, label, board)
+    - When implementing or troubleshooting `gitContextForRepo`, `deriveGitIdentity`, or `clearSelfHostCache` in `adws/github/gitContextFactory.ts`
+    - When the `activeRepo`/`ensureAppAuthForRepo` removal, `refreshTokenIfNeeded` repo-explicit change, or the auth-bleed fix is relevant
+    - When adding a new `gh` operation method or worktree method to `GitContext` (follow the thin-method + package-private-op pattern)
+    - When `getWorktreesDir`, `getWorktreePath`, or `worktreeExists` are referenced and not found (deleted in #661 — use `ctx.worktreePathFor()`, `ctx.getWorktreeForBranch()`, or `ctx.listWorktrees()`)
+    - When `getMainRepoPath()` is called without a `cwd` argument and fails (the cwd-defaulting form was removed in #661)
+    - When the "wrong-repo worktree" or `GH_TOKEN` bleed class of bugs (#23, #33, #52, #56, #62, #119, #217, #223, #187, #181) is being addressed structurally
+    - When adding unit tests for `adws/gitContext/` (env-injection, non-mutation, `usePat`, lease-rejection, two-context isolation, worktree path correctness under `process.chdir`, or command builder/parser tests)
+
+- app_docs/feature-k817bh-persist-repo-identity-cross-check.md
+  - Owns:
+    - adws/core/repoIdentityCrossCheck.ts
+    - adws/core/__tests__/repoIdentityCrossCheck.test.ts
+  - Conditions:
+    - When working with `crossCheckRepoIdentity`, `sameRepoIdentity`, or `RepoIdentityMismatchError` in `adws/core/repoIdentityCrossCheck.ts`
+    - When the `RepoIdentity` interface or `AgentState.repoIdentity` optional field in `adws/types/agentTypes.ts` is relevant
+    - When implementing or troubleshooting repo identity persistence and cross-check wiring in `adws/phases/workflowInit.ts`
+    - When a resuming orchestrator throws `RepoIdentityMismatchError` at startup (launch vs persisted identity diverged)
+    - When a workflow that ran pre-#665 (no `repoIdentity` in state) resumes and the cross-check must be a no-op
+    - When auditing which repository a workflow run targeted (the `repoIdentity` field in `agents/{adwId}/state.json`)
+    - When understanding the "launch wins, persisted is cross-check only" invariant from the GitContext PRD (stories 13–15)
+
+- app_docs/feature-k2tkdn-gitcontext-boundary-constructor.md
+  - Owns:
+    - adws/core/launchGitContext.ts
+    - adws/core/__tests__/launchGitContext.test.ts
+  - Conditions:
+    - When working with `buildLaunchGitContext`, `LaunchGitContextDeps`, `resolveLaunchToken`, or `resolveLaunchGitIdentity` in `adws/core/launchGitContext.ts`
+    - When constructing a `GitContext` at a process launch boundary (cron entry-script guard, `adwMerge.main()`, `initializeWorkflow`)
+    - When troubleshooting the cron's module-scope `cronGitContext` or the `process.argv[1]` entry-script guard
+    - When `EvaluateCandidateInput.gitContext` or `WorkflowConfig.gitContext` are relevant in `takeoverHandler.ts` or `workflowInit.ts`
+    - When the "wrong-base-repo on takeover path" (`spawnSync ENOENT`, vestmatic #187) class of bug is being fixed or investigated
+    - When wiring `gitContext.basePath` into worktree creation or `ensureWorktree` calls as the self-host base path replacement for `process.cwd()`
+    - When adding unit tests for the boundary constructor (target args → target workspace; absent args → framework repo root; injectable deps)
+
+- app_docs/feature-bq1f45-git-gh-cli-guard.md
+  - Owns:
+    - adws/checkGitGhGuard.ts
+    - .github/workflows/git-cli-guard.yml
+  - Conditions:
+    - When working with `adws/checkGitGhGuard.ts`, `scanFiles`, or the `ALLOWLIST` of permitted direct git/gh shell-out files
+    - When adding a new file that must shell out to `git`/`gh` directly and needs an ALLOWLIST entry with category and justification
+    - When the CI `Git/GH CLI Guard` workflow (`.github/workflows/git-cli-guard.yml`) fails on a pull request or push
+    - When migrating a residual allowlisted file to GitContext methods and removing it from the ALLOWLIST
+    - When troubleshooting false-positive or false-negative detection (template literals, execFileSync first-arg form, comment mentions)
+    - When the `bun run lint:git-guard` script exits 1 and you need to understand the remedy (migrate to GitContext or add to allowlist)
+    - When understanding why `features/` and `test/` dirs are excluded from the scan (fixture-repo BDD setup legitimately shells out)

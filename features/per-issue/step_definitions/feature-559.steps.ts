@@ -23,10 +23,13 @@ import {
   evaluateProgressGate,
   type ProgressGateDecision,
 } from '../../../adws/phases/progressGate.ts';
-import {
-  getHeadTreeHash,
-  hasUncommittedChanges,
-} from '../../../adws/vcs/commitOperations.ts';
+// getHeadTreeHash / hasUncommittedChanges migrated to GitContext (#662) — use inline helpers here
+function getHeadTreeHash(cwd: string): string {
+  return execSync('git rev-parse "HEAD^{tree}"', { encoding: 'utf-8', cwd }).trim();
+}
+function hasUncommittedChanges(cwd: string): boolean {
+  return execSync('git status --porcelain', { encoding: 'utf-8', cwd }).trim() !== '';
+}
 import { MAX_CONTEXT_RESETS } from '../../../adws/core/config.ts';
 import { retryWithResolution } from '../../../adws/core/retryOrchestrator.ts';
 import { AgentStateManager } from '../../../adws/core/index.ts';

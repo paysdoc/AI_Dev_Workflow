@@ -8,6 +8,11 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+
+const mockWorktreePathFor = vi.hoisted(() => vi.fn().mockReturnValue('/tmp/integ-worktree'));
+vi.mock('../../github', () => ({
+  gitContextForSync: vi.fn().mockReturnValue({ worktreePathFor: mockWorktreePathFor }),
+}));
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -26,6 +31,7 @@ let tmpDir = '';
 beforeEach(() => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'takeover-integ-'));
   vi.clearAllMocks();
+  mockWorktreePathFor.mockReturnValue(path.join(tmpDir, 'worktree'));
 });
 
 afterEach(() => {
@@ -62,7 +68,6 @@ function makeIntegDeps(overrides: Partial<TakeoverDeps> = {}): TakeoverDeps {
     killProcess: vi.fn(),
     resetWorktree: vi.fn(),
     deriveStageFromRemote: vi.fn().mockReturnValue('awaiting_merge'),
-    getWorktreePath: vi.fn().mockReturnValue(path.join(tmpDir, 'worktree')),
     writeTopLevelState: vi.fn(),
     commentOnIssue: vi.fn(),
     probeWorktree: vi.fn().mockReturnValue({
@@ -94,9 +99,9 @@ describe('abandoned takeover end-to-end (integration)', () => {
   it('invokes resetWorktree with the fixture worktree path and branchName when gate fails', () => {
     writeFixtureState({ workflowStage: 'abandoned', branchName: FIXTURE_BRANCH });
     const wtPath = path.join(tmpDir, 'worktree');
+    mockWorktreePathFor.mockReturnValue(wtPath);
     const unhealthyProbe = { registration: 'healthy' as const, indexLock: 'absent' as const, interruptedOp: 'rebase' as const, headOnExpectedBranch: true, liveOwner: false };
     const deps = makeIntegDeps({
-      getWorktreePath: vi.fn().mockReturnValue(wtPath),
       probeWorktree: vi.fn().mockReturnValue(unhealthyProbe),
     });
 

@@ -46,8 +46,21 @@ import {
   teardownMockInfrastructure,
 } from '../../../test/mocks/test-harness.ts';
 import type { RegressionWorld } from '../../regression/step_definitions/world.ts';
-import { fetchAndResetToRemote } from '../../../adws/vcs/branchOperations.ts';
-import { ensureWorktree } from '../../../adws/vcs/worktreeCreation.ts';
+// fetchAndResetToRemote migrated to GitContext (#662) — use inline helper for test steps
+import { GitContext } from '../../../adws/gitContext/index.ts';
+import type { GitContextOptions } from '../../../adws/gitContext/types.ts';
+import { tmpdir as _tmpdir628 } from 'node:os';
+
+function fetchAndResetToRemote(branch: string, worktreePath: string): void {
+  const opts: GitContextOptions = {
+    owner: 'test', repo: 'test', selfHost: true,
+    token: 'dummy-token-local-test',
+    gitIdentity: { authorName: 'ADW Test', authorEmail: 'test@adw.test', committerName: 'ADW Test', committerEmail: 'test@adw.test' },
+    frameworkRepoRoot: worktreePath, targetReposDir: _tmpdir628(),
+  };
+  new GitContext(opts).fetchAndResetToRemote(branch, worktreePath);
+}
+import { GitContext as GitContext628 } from '../../../adws/gitContext/index.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '../../..');
@@ -457,9 +470,15 @@ When(
   'a non-upgrade orchestrator reuses the existing worktree for branch {string}',
   function (this: RegressionWorld, branchName: string) {
     assert.ok(ctx.baseRepoPath, 'baseRepoPath must be set by the preceding Given step');
-    // Call ensureWorktree with the same signature the shared primitive uses.
+    // Call ensureWorktree via GitContext (selfHost: true, so frameworkRepoRoot = baseRepoPath).
     // A non-upgrade orchestrator does NOT call reconcileWorktreeToRemote afterward.
-    ctx.reusedWorktreePath = ensureWorktree(branchName, 'main', ctx.baseRepoPath);
+    const gtx = new GitContext628({
+      owner: 'test', repo: 'test', selfHost: true,
+      token: 'dummy-token-628',
+      gitIdentity: { authorName: 'ADW Test', authorEmail: 'test@adw.test', committerName: 'ADW Test', committerEmail: 'test@adw.test' },
+      frameworkRepoRoot: ctx.baseRepoPath, targetReposDir: _tmpdir628(),
+    });
+    ctx.reusedWorktreePath = gtx.ensureWorktree(branchName, 'main');
   },
 );
 

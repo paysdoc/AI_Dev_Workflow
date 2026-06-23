@@ -68,6 +68,18 @@
 | **Phase Cost Record** | A per-model, per-Phase record of token consumption, computed cost, duration, retry count, and context reset count | Cost entry, billing record |
 | **Cost Divergence** | A significant discrepancy between locally computed cost and CLI-reported cost, flagged when exceeding a threshold | Cost mismatch |
 
+## Git context and repo authority
+
+| Term | Definition | Aliases to avoid |
+|------|-----------|-----------------|
+| **GitContext** | The single deep module (`adws/gitContext/`) that is the sole authority for all git and `gh` I/O; constructed once at each process's Launch Boundary from a mandatory identity (`owner`, `repo`, `selfHost`, token, `GitIdentity`); resolves Base Path in its constructor and injects auth per spawned-command environment (new) | git context, repo context (when meaning this specific class) |
+| **GitIdentity** | The author and committer name/email fields injected into every git command's environment by a `GitContext`; never resolved lazily at command time (new) | git author, committer identity |
+| **Base Path** | The absolute filesystem root under which a `GitContext` creates and finds worktrees; resolved once in the constructor: self-host → framework repo root; target → `join(targetReposDir, owner, repo)` (new) | cwd, working directory, base repo path |
+| **Launch Boundary** | The entry point of a process (cron module scope, `adwMerge.main()`, `initializeWorkflow`) where exactly one `GitContext` is constructed from authoritative launch identity and threaded downward; no downstream code reconstructs it (new) | startup, process entry, initialization |
+| **Boundary Constructor** | The thin ADW adapter (`adws/core/launchGitContext.ts`) that builds a `GitContext` at each Launch Boundary from `--target-repo` arguments or event payload; resolves token and `GitIdentity` and calls `ensureAppAuthForRepo` for not-yet-migrated call sites (new) | launch adapter, startup context builder |
+| **Self-Host** | The `selfHost: boolean` discriminator on `GitContextOptions`; `true` means ADW is operating on its own framework repo, resolving Base Path to the framework repo root; `false` means a target repo, resolving to the target workspace (new) | framework mode, dogfood mode |
+| **Per-Command Auth Injection** | The mechanism by which a `GitContext` applies its token and `GitIdentity` to each spawned subprocess's environment via `commandEnv()` without ever mutating `process.env`; the structural fix for the GH\_TOKEN bleed class of bugs (new) | env injection, token injection |
+
 ## Providers and platforms
 
 | Term | Definition | Aliases to avoid |
@@ -136,6 +148,10 @@
 - **Worktree Reset** always precedes **Remote Reconcile** on the **Takeover** path
 - A **Heartbeat** proves orchestrator liveness independently of **Process Liveness** (the latter checks the OS; the former shows the orchestrator is making progress)
 - **Split-Brain** cannot be detected by host-local primitives (**Spawn Lock**, **Process Liveness**, **Heartbeat**) — it requires operator intervention via `## Cancel`
+- A **GitContext** is constructed exactly once per process at its **Launch Boundary** by the **Boundary Constructor**; it is threaded downward and never reconstructed from ambient state
+- **Per-Command Auth Injection** via `commandEnv()` means two **GitContext** instances in one process can never observe each other's token — **GH\_Token** bleed is structurally impossible
+- **Base Path** is resolved in the **GitContext** constructor from the **Self-Host** discriminator: `selfHost=true` → framework repo root; `selfHost=false` → `join(targetReposDir, owner, repo)`
+- A **GitIdentity** is injected into every subprocess environment by its **GitContext** — never resolved lazily at command time and never stored in `process.env`
 
 ## Example dialogue
 

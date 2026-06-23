@@ -69,7 +69,6 @@ export {
 export {
   isGitHubAppConfigured,
   activateGitHubAppAuth,
-  ensureAppAuthForRepo,
   refreshTokenIfNeeded,
   getInstallationToken,
 } from './githubAppAuth';
@@ -121,3 +120,6 @@ export {
   type WorkflowContext,
   type PRReviewWorkflowContext,
 } from './workflowComments';
+
+// GitContext boundary factory
+export { gitContextFor, gitContextForSync } from './gitContextFactory';

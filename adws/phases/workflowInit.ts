@@ -27,7 +27,13 @@ import {
   loadProjectConfig,
   readAdwYmlConfig,
   type AdwYmlConfig,
+  buildLaunchGitContext,
+  crossCheckRepoIdentity,
+  branchPrefixMap,
+  branchPrefixAliases,
 } from '../core';
+import type { RepoIdentity } from '../types/agentTypes';
+import type { GitContext } from '../gitContext';
 import {
   fetchGitHubIssue,
   type WorkflowContext,
@@ -38,15 +44,7 @@ import {
   isGitHubAppConfigured,
 } from '../github';
 import { GITHUB_PAT } from '../core/environment';
-import {
-  ensureWorktree,
-  getWorktreeForBranch,
-  mergeLatestFromDefaultBranch,
-  copyEnvToWorktree,
-  findWorktreeForIssue,
-  fetchAndResetToRemote,
-} from '../vcs';
-import { getDefaultBranch } from '../vcs/branchOperations';
+import { gitContextForSync } from '../github';
 import type { RepoContext, RepoIdentifier } from '../providers/types';
 import { Platform } from '../providers/types';
 import { createRepoContext } from '../providers/repoContext';
@@ -91,6 +89,9 @@ export interface WorkflowConfig {
   completedPhases?: string[];
   /** Absolute path to the top-level workflow state file: agents/{adwId}/state.json */
   topLevelStatePath: string;
+  /** Launch-boundary GitContext for this orchestrator process. Optional to avoid
+   *  breaking existing phase-test fixtures; always present for new orchestrators. */
+  gitContext?: GitContext;
 }
 
 /**
@@ -131,6 +132,15 @@ export async function initializeWorkflow(
   // Ensures child processes spawned by triggers don't rely on stale inherited GH_TOKEN.
   const resolvedRepoForAuth = repoInfo ?? getRepoInfo();
   activateGitHubAppAuth(resolvedRepoForAuth.owner, resolvedRepoForAuth.repo);
+  const gitCtx = gitContextForSync({ owner: resolvedRepoForAuth.owner, repo: resolvedRepoForAuth.repo, selfHost: !targetRepo });
+
+  // Construct exactly one launch-boundary GitContext for this orchestrator process.
+  // Graceful fallback: if construction fails (e.g. test fixtures with fake git remotes),
+  // gitContext remains undefined — phases that require it must check.
+  let gitContext: import('../gitContext').GitContext | undefined;
+  try {
+    gitContext = buildLaunchGitContext(targetRepo ?? null);
+  } catch { /* non-fatal: phases inherit the context when available */ }
 
   // Startup validation: GITHUB_PAT is required for PR approval when a GitHub App is configured.
   if (isGitHubAppConfigured() && !GITHUB_PAT) {
@@ -207,43 +217,41 @@ export async function initializeWorkflow(
   }
 
   // Setup worktree with branch sync
-  // When targeting an external repo, get default branch from that repo's workspace
-  const defaultBranchCwd = targetRepoWorkspacePath || undefined;
-  const defaultBranch = getDefaultBranch(defaultBranchCwd);
+  const defaultBranch = gitCtx.defaultBranch();
   let worktreePath: string;
   let branchName = '';
   if (options?.cwd) {
-    mergeLatestFromDefaultBranch(defaultBranch, options.cwd);
+    gitCtx.mergeLatestFromDefaultBranch(defaultBranch, options.cwd);
     worktreePath = options.cwd;
     log('Using provided worktree (merged latest code)', 'info');
   } else if (targetRepoWorkspacePath) {
     // For external repos, create worktrees within the target repo workspace
     branchName = await resolveWorkflowBranchName({ adwId: resolvedAdwId, issueType, issue, logsDir, recoveryState });
-    worktreePath = ensureWorktree(branchName, defaultBranch, targetRepoWorkspacePath);
+    worktreePath = gitCtx.ensureWorktree(branchName, defaultBranch);
     copyClaudeAssetsToWorktree(worktreePath);
     log(`Worktree path (target repo): ${worktreePath}`, 'info');
   } else {
     const persistedBranchName = readPersistedBranchName(resolvedAdwId);
     // Skip pattern discovery when a persisted name exists — never adopt a sibling worktree's branch.
-    const issueWorktree = persistedBranchName ? null : findWorktreeForIssue(issueType, issueNumber, targetRepoWorkspacePath);
+    const issueWorktree = persistedBranchName ? null : gitCtx.findWorktreeForIssue([branchPrefixMap[issueType], ...branchPrefixAliases[issueType]], issueNumber);
     if (issueWorktree) {
       branchName = issueWorktree.branchName;
       worktreePath = issueWorktree.worktreePath;
-      mergeLatestFromDefaultBranch(defaultBranch, worktreePath);
-      copyEnvToWorktree(worktreePath, targetRepoWorkspacePath);
+      gitCtx.mergeLatestFromDefaultBranch(defaultBranch, worktreePath);
+      gitCtx.copyEnvToWorktree(worktreePath);
       log(`Reusing existing worktree found by issue pattern at ${worktreePath}`, 'info');
     } else {
       branchName = await resolveWorkflowBranchName({ adwId: resolvedAdwId, issueType, issue, logsDir, recoveryState });
-      const existingWorktree = getWorktreeForBranch(branchName);
+      const existingWorktree = gitCtx.getWorktreeForBranch(branchName);
       if (existingWorktree) {
         log(`Reusing existing worktree at ${existingWorktree}`, 'info');
-        mergeLatestFromDefaultBranch(defaultBranch, existingWorktree);
-        copyEnvToWorktree(existingWorktree, targetRepoWorkspacePath);
+        gitCtx.mergeLatestFromDefaultBranch(defaultBranch, existingWorktree);
+        gitCtx.copyEnvToWorktree(existingWorktree);
         worktreePath = existingWorktree;
       } else {
-        worktreePath = ensureWorktree(branchName, defaultBranch, process.cwd());
+        worktreePath = gitCtx.ensureWorktree(branchName, defaultBranch);
         copyClaudeAssetsToWorktree(worktreePath);
-        fetchAndResetToRemote(defaultBranch, worktreePath);
+        gitCtx.fetchAndResetToRemote(defaultBranch, worktreePath);
       }
     }
     log(`Worktree path: ${worktreePath}`, 'info');
@@ -297,12 +305,24 @@ export async function initializeWorkflow(
   log(`State: ${orchestratorStatePath}`, 'info');
   log(`Logs: ${logsDir}`, 'info');
 
+  // Derive launch identity from the boundary GitContext; fall back to the already-resolved
+  // launch repo info when the context is unavailable (e.g. test fixtures with fake remotes).
+  const launchRepoIdentity: RepoIdentity = gitContext
+    ? { owner: gitContext.owner, repo: gitContext.repo }
+    : { owner: resolvedRepoForAuth.owner, repo: resolvedRepoForAuth.repo };
+
+  // Cross-check (not source of truth): if a prior run persisted a divergent identity for
+  // this adwId, fail closed before any worktree/gh work rather than operate on the wrong repo.
+  const priorTopLevel = AgentStateManager.readTopLevelState(resolvedAdwId);
+  crossCheckRepoIdentity(launchRepoIdentity, priorTopLevel?.repoIdentity);
+
   // Initialize top-level workflow state file
   AgentStateManager.writeTopLevelState(resolvedAdwId, {
     adwId: resolvedAdwId,
     issueNumber,
     workflowStage: 'starting',
     orchestratorScript: deriveOrchestratorScript(orchestratorName),
+    repoIdentity: launchRepoIdentity,
     // Conditionally include branchName so options.cwd path never clobbers a persisted name.
     ...(branchName ? { branchName } : {}),
   });
@@ -432,5 +452,6 @@ export async function initializeWorkflow(
     adwYmlConfig,
     completedPhases,
     topLevelStatePath,
+    gitContext,
   };
 }

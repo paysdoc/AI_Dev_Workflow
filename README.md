@@ -14,6 +14,7 @@ ADW is an agentic SDLC framework: it turns issues on GitHub, GitLab, or Jira int
 - **Multi-agent passive review** — review agents read scenario proof and captured screenshots, classifying findings as Blockers (auto-patched by `patchAgent` for general failures or `refactorAgent` for coding-guideline violations, via `reviewPatchHelpers`) or Tech Debt (logged only).
 - **HITL-gated auto-merge** — every cron tick re-evaluates `(no hitl label) OR (PR approved)`; merge is deferred while the gate is closed, and `## Cancel` is the scorched-earth manual override.
 - **Retry and Cancel directives** — `## Retry` resets a `merge_blocked` workflow to `awaiting_merge` (state-only, no worktree teardown); `## Cancel` kills the orchestrator, removes the worktree, and re-queues the issue.
+- **GitContext repo-context authority** — `adws/gitContext/` is a deep module that owns every git and `gh` interaction; it is constructed once at each process's launch boundary with mandatory owner/repo/token/gitIdentity fields (no optional cwd fallback), resolves the correct base path in its constructor (self-host → framework root; target → target-repos workspace), and applies auth per spawned-command environment rather than by mutating a process-global, eliminating the ~13-episode wrong-repo and GH_TOKEN-bleed class of bugs.
 - **Multi-provider abstraction** — pluggable `IssueTracker` and `CodeHost` interfaces (`RepoContext`) with GitHub, GitLab, and Jira issue trackers and GitHub/GitLab code hosts.
 - **Project board automation** — `BoardManager` provider drives GitHub Projects V2 column transitions as a workflow progresses.
 - **Two automation triggers** — `trigger_cron.ts` polls every 20 s; `trigger_webhook.ts` receives HMAC-signed GitHub webhooks for instant pickup, with optional Cloudflare tunnel lifecycle.
@@ -505,19 +506,20 @@ adws/                   # ADW workflow system
 │   │   ├── heartbeat.test.ts
 │   │   ├── hungOrchestratorDetector.test.ts
 │   │   ├── issueClassifier.test.ts
+│   │   ├── launchGitContext.test.ts
+│   │   ├── repoIdentityCrossCheck.test.ts
 │   │   ├── phaseRunner.test.ts
 │   │   ├── processLiveness.test.ts
 │   │   ├── projectConfig.test.ts
 │   │   ├── remoteReconcile.test.ts
-│   │   ├── docsGuards.test.ts
+│   │   ├── repoIdentityCrossCheck.test.ts
 │   │   ├── resolveFreezeGuard.test.ts
 │   │   ├── resolveVerdict.test.ts
 │   │   ├── resumePolicy.test.ts
 │   │   ├── slackNotifier.test.ts
-│   │   ├── stageClassifier.test.ts
-│   │   ├── stateHelpers.test.ts
 │   │   ├── stackCoherenceCheck.test.ts
 │   │   ├── stageClassifier.test.ts
+│   │   ├── stateHelpers.test.ts
 │   │   ├── stepDefDetection.test.ts
 │   │   ├── testReportParser.test.ts
 │   │   ├── testVerdict.test.ts
@@ -533,11 +535,10 @@ adws/                   # ADW workflow system
 │   ├── authGate.ts     # Host-wide auth gate: detects auth failures, writes paused_auth state, triggers Slack alerts
 │   ├── claudeStreamParser.ts  # Claude JSONL stream parsing
 │   ├── conditionalDocsRegistry.ts  # Parse/serialize/query .adw/conditional_docs.md; ConditionalDocEntry and ConditionalDocsRegistry types; glob-based ownership routing (findOwningEntry)
-│   ├── docsGuards.ts  # Post-write guards for app_docs/: bloat detection (line-count ceiling) and regrowth detection (overlapping Owns: globs between entries)
 │   ├── config.ts
 │   ├── constants.ts    # Orchestrator ID constants
 │   ├── devServerLifecycle.ts  # Dev server spawn, health probe, and cleanup helpers
-│   ├── docsGuards.ts  # Doc-size guards: bloat (line threshold) and regrowth (overlapping ownedGlobs) detection; runDocsGuards composes both
+│   ├── docsGuards.ts  # Post-write guards for app_docs/: bloat detection (line-count ceiling) and regrowth detection (overlapping Owns: globs between entries); runDocsGuards composes both
 │   ├── environment.ts  # Environment variable accessors
 │   ├── hashComputer.ts # SHA256 hash of declared hashInputs files — "current framework version" primitive
 │   ├── heartbeat.ts    # Liveness ticker writing lastSeenAt to state on a fixed interval
@@ -545,6 +546,7 @@ adws/                   # ADW workflow system
 │   ├── index.ts
 │   ├── issueClassifier.ts
 │   ├── jsonParser.ts
+│   ├── launchGitContext.ts  # Boundary-constructor adapter — builds one GitContext per process launch boundary from launch identity (cron module-scope, adwMerge.main(), initializeWorkflow); resolves token + gitIdentity; wires context into takeoverHandler and workflowInit
 │   ├── logger.ts       # Structured logging utilities
 │   ├── modelRouting.ts # Model/effort routing utilities
 │   ├── orchestratorCli.ts  # Shared CLI parsing utilities
@@ -557,20 +559,20 @@ adws/                   # ADW workflow system
 │   ├── processLiveness.ts  # PID-reuse-safe process liveness checks
 │   ├── projectConfig.ts
 │   ├── remoteReconcile.ts  # Stage derivation from remote GitHub artifacts
+│   ├── repoIdentityCrossCheck.ts  # Launch-vs-persisted repo identity cross-check; throws RepoIdentityMismatchError on owner/repo divergence
 │   ├── resolveFreezeGuard.ts  # Pure guard: rejects resolve edits that touch .feature files
 │   ├── resolveVerdict.ts      # Pure verdict: computes pass/retry/hard-fail for scenario fix loops
 │   ├── resumePolicy.ts  # Bounded N-cap resume policy: nextResumeAction computes RESUME/ESCALATE; human_gated stage + escalate_human_gated decision on cap exhaustion
 │   ├── retryOrchestrator.ts
 │   ├── slackNotifier.ts  # Slack Incoming Webhook client for error/problem alerting
-│   ├── stageClassifier.ts  # Stage classification taxonomy for recovery routing (classifyStage, StageClass)
-│   ├── stateHelpers.ts
-│   ├── stageClassifier.ts  # Exhaustive StageClass taxonomy (classifyStage / classifyStageString) for recovery routing across cron, takeover, and webhook consumers
 │   ├── stackCoherenceCheck.ts  # Pure stack-coherence check — language coherence + Gherkin mandate (stackCoherenceCheck, StackCoherenceInput/Result/Warning)
-│   ├── stageClassifier.ts  # Six-class taxonomy (active/awaiting_merge/retriable/terminal/human_gated/phase_timeout) for recovery routing
+│   ├── stageClassifier.ts  # Exhaustive StageClass taxonomy (classifyStage / classifyStageString) — six-class recovery routing (active/awaiting_merge/retriable/resumable/terminal/human_gated) across cron, takeover, and webhook consumers
+│   ├── stateHelpers.ts
 │   ├── stepDefDetection.ts  # Step definition file-extension detection by BDD framework (stepDefExtensionsFor, hasStepDefinitions, isGherkinFramework)
 │   ├── targetRepoManager.ts
 │   ├── testReportParser.ts  # JUnit XML test report parser — reads xunit output into TestReport (total, passed, failed, skipped, per-case status)
 │   ├── testVerdict.ts  # Pure test verdict computation (enabled, hasFailures, testcaseCount, frameworkDetected → verdict)
+│   ├── repoIdentityCrossCheck.ts  # Persists repo identity at workflow init and cross-checks on resume (guards against wrong-repo restarts)
 │   ├── upgradeClaim.ts # Atomic upgrade-claim primitive via GitHub branch namespace (winner/loser resolution)
 │   ├── utils.ts
 │   ├── workflowCommentParsing.ts  # Comment parsing utilities
@@ -581,7 +583,9 @@ adws/                   # ADW workflow system
 │   │   ├── issueLinkMarker.test.ts
 │   │   ├── labelManager.test.ts
 │   │   ├── linkedPrDetector.test.ts
-│   │   └── prApi.test.ts
+│   │   ├── prApi.test.ts
+│   │   └── projectBoardApi.test.ts
+│   ├── gitContextFactory.ts  # Boundary factory — constructs GitContext from ambient ADW identity (async and sync per-repo variants)
 │   ├── githubApi.ts
 │   ├── githubAppAuth.ts  # GitHub App authentication
 │   ├── hitlBoardNotifier.ts  # HITL board-event notifier — PR/issue lookup, message building, and Slack delivery for Review and Blocked transitions
@@ -591,6 +595,7 @@ adws/                   # ADW workflow system
 │   ├── labelManager.ts  # adw:* label lifecycle management and label-based issue classification
 │   ├── linkedPrDetector.ts  # Detects linked merged or closed PRs for an issue via "Implements #N" body scan
 │   ├── prApi.ts
+│   ├── gitContextFactory.ts  # Per-repo GitContext factory (gitContextFor, gitContextForSync, deriveGitIdentity)
 │   ├── prCommentDetector.ts
 │   ├── projectBoardApi.ts
 │   ├── proofCommentFormatter.ts
@@ -598,6 +603,25 @@ adws/                   # ADW workflow system
 │   ├── workflowCommentsBase.ts
 │   ├── workflowCommentsIssue.ts
 │   └── workflowCommentsPR.ts
+├── gitContext/         # Repo-context authority deep module (GitContext)
+│   ├── __tests__/      # Vitest unit tests
+│   │   ├── gitContext.test.ts
+│   │   └── gitContextOperations.test.ts
+│   ├── commands/       # Pure command-string builders (no I/O) — one file per concern
+│   │   ├── boardCommands.ts    # GraphQL query strings for Projects V2 board operations
+│   │   ├── issueCommands.ts    # gh CLI command strings for issue read/write operations
+│   │   ├── labelCommands.ts    # gh CLI command strings for label create/apply operations
+│   │   └── prCommands.ts       # gh CLI command strings for PR list/create/merge/review operations
+│   ├── branchOps.ts    # Package-private branch operation orchestration (create, checkout, delete, reset)
+│   ├── commitOps.ts    # Package-private commit/push orchestration (force-with-lease, lease rejection detection)
+│   ├── gitContext.ts   # GitContext class — mandatory identity, base-path resolution in constructor, per-command env injection, no cwd fallback
+│   ├── index.ts        # Public surface (GitContext class + GitIdentity/GitContextOptions types)
+│   ├── processCleanup.ts  # Package-private process kill helpers (killProcessesInDirectory)
+│   ├── types.ts        # GitIdentity, GitContextOptions, ExecFn, and GitContextDeps interfaces
+│   ├── worktreeCreateOps.ts  # Package-private worktree creation orchestration (add, copy env, gitignore)
+│   ├── worktreeQueryOps.ts   # Package-private worktree query helpers (list, find by branch/issue)
+│   ├── worktreeRemoveOps.ts  # Package-private worktree removal orchestration (remove single, remove for issue)
+│   └── worktreeResetOps.ts  # Package-private takeover-reset orchestration (fetch, reset to remote, worktree repair)
 ├── vcs/                # Version control operations (git)
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── branchIdentity.test.ts
@@ -651,6 +675,7 @@ adws/                   # ADW workflow system
 │   └── types.ts
 ├── phases/             # Workflow phase implementations
 │   ├── __tests__/      # Vitest unit tests
+│   │   ├── branchIdentityFallback.test.ts
 │   │   ├── branchNameResolution.test.ts
 │   │   ├── gherkinFreeze.test.ts
 │   │   ├── orchestratorLock.test.ts
@@ -668,10 +693,9 @@ adws/                   # ADW workflow system
 │   ├── branchIdentityFallback.ts  # Slug-agnostic branch recovery — findExistingBranchForIssue, recoverAdwIdForBranch
 │   ├── branchNameResolution.ts  # Branch name resolution for worktree takeover paths
 │   ├── diffEvaluationPhase.ts  # LLM diff evaluation phase (safe vs regression_possible)
-│   ├── docsSelfCheck.ts  # Post-write self-check phase: runs docsGuards against app_docs/ and opens a GitHub issue for each bloat or regrowth flag
+│   ├── docsSelfCheck.ts  # Post-write docs self-check: runs bloat/regrowth guards after documentAgent writes; opens a GitHub issue for each violation
 │   ├── gherkinFreeze.ts  # Snapshots, detects changes to, and restores .feature files around the fix loop
 │   ├── buildPhase.ts
-│   ├── docsSelfCheck.ts  # Post-write docs self-check: runs bloat/regrowth guards after documentAgent writes; routes violations to a refactor issue
 │   ├── documentPhase.ts
 │   ├── index.ts
 │   ├── depauditSetup.ts  # depaudit setup and secret propagation (used by adw_init)
@@ -756,7 +780,8 @@ adws/                   # ADW workflow system
 │   │   ├── trigger_cron.test.ts
 │   │   ├── triggerCronAwaitingMerge.test.ts
 │   │   ├── webhookGatekeeper.test.ts
-│   │   └── webhookHandlers.test.ts
+│   │   ├── webhookHandlers.test.ts
+│   │   └── webhookRepoResolver.test.ts
 │   ├── autoMergeHandler.ts  # Auto-merge approved PRs
 │   ├── cancelHandler.ts  # Cancel directive handler
 │   ├── retryHandler.ts   # Retry directive handler: resets merge_blocked → awaiting_merge, no worktree teardown
@@ -784,6 +809,7 @@ adws/                   # ADW workflow system
 │   ├── trigger_webhook.ts
 │   ├── webhookGatekeeper.ts
 │   ├── webhookHandlers.ts
+│   ├── webhookRepoResolver.ts  # Per-event boundary resolver — builds one GitContext per webhook event from payload repo identity
 │   └── webhookSignature.ts
 ├── r2/                 # Cloudflare R2 upload module
 │   ├── bucketManager.ts  # R2 bucket creation and lifecycle rules

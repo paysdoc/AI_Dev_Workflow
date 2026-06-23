@@ -7,6 +7,7 @@
 
 import type { RepoInfo } from '../github/githubApi';
 import type { IssueClassSlashCommand } from '../types/issueTypes';
+import type { GitContext } from '../gitContext';
 import type { AdwLabelReading } from '../github/labelManager';
 import type { EligibilityResult } from './issueEligibility';
 import { readAdwLabelNames } from '../github/labelManager';
@@ -80,6 +81,7 @@ export interface IssueOpenedRouterDeps {
     repoInfo: RepoInfo | undefined,
     targetRepoArgs: string[],
     labelRouting?: { precomputedClassification?: IssueClassSlashCommand; issueTitle?: string; persistInferredLabel?: boolean },
+    gitContext?: GitContext,
   ) => Promise<void>;
   postComment: (issueNumber: number, body: string, repoInfo: RepoInfo) => void;
   logger: (message: string, level?: LogLevel) => void;
@@ -88,7 +90,7 @@ export interface IssueOpenedRouterDeps {
 export function buildDefaultIssueOpenedRouterDeps(): IssueOpenedRouterDeps {
   return {
     checkEligibility: checkIssueEligibility,
-    classifyAndSpawn: (n, r, a, lr) => classifyAndSpawnWorkflow(n, r, a, undefined, undefined, lr),
+    classifyAndSpawn: (n, r, a, lr, gc) => classifyAndSpawnWorkflow(n, r, a, undefined, undefined, lr, gc),
     postComment: commentOnIssue,
     logger: log,
   };
@@ -104,10 +106,11 @@ export async function routeIssueOpened(
     labelNames: string[];
     repoInfo: RepoInfo;
     targetRepoArgs: string[];
+    gitContext?: GitContext;
   },
   deps: IssueOpenedRouterDeps = buildDefaultIssueOpenedRouterDeps(),
 ): Promise<IssueOpenedOutcome> {
-  const { issueNumber, issueBody, issueTitle, labelNames, repoInfo, targetRepoArgs } = params;
+  const { issueNumber, issueBody, issueTitle, labelNames, repoInfo, targetRepoArgs, gitContext } = params;
   const route = decideIssueOpenedRoute(readAdwLabelNames(labelNames));
 
   if (route.kind === 'opt_out') {
@@ -131,11 +134,11 @@ export async function routeIssueOpened(
     await deps.classifyAndSpawn(issueNumber, repoInfo, targetRepoArgs, {
       precomputedClassification: route.classification,
       issueTitle,
-    });
+    }, gitContext);
     return { status: 'spawned_classified' };
   }
 
   // route.kind === 'infer'
-  await deps.classifyAndSpawn(issueNumber, repoInfo, targetRepoArgs, { persistInferredLabel: true });
+  await deps.classifyAndSpawn(issueNumber, repoInfo, targetRepoArgs, { persistInferredLabel: true }, gitContext);
   return { status: 'spawned_inferred' };
 }

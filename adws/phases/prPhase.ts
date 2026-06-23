@@ -18,10 +18,9 @@ import {
   runCommitAgent,
   runPullRequestAgent,
 } from '../agents';
-import { pushBranch } from '../vcs';
-import { getDefaultBranch } from '../vcs/branchOperations';
 import { BoardStatus } from '../providers/types';
 import type { WorkflowConfig } from './workflowInit';
+import { gitContextFor } from '../github';
 
 /**
  * Executes the PR phase: generate PR title/body via agent, push branch, create PR via CodeHost.
@@ -53,6 +52,11 @@ export async function executePRPhase(config: WorkflowConfig): Promise<{ costUsd:
     const repoOwner = repoContext?.repoId.owner ?? '';
     const repoName = repoContext?.repoId.repo ?? '';
 
+    const gitCtx = repoContext
+      ? await gitContextFor({ owner: repoContext.repoId.owner, repo: repoContext.repoId.repo, selfHost: false })
+      : null;
+    const resolvedDefaultBranch = gitCtx?.defaultBranch() ?? config.defaultBranch;
+
     const result = await runPullRequestAgent(
       currentBranch,
       JSON.stringify(issue),
@@ -64,16 +68,17 @@ export async function executePRPhase(config: WorkflowConfig): Promise<{ costUsd:
       issue.body,
       repoOwner,
       repoName,
+      resolvedDefaultBranch,
     );
 
     costUsd = result.totalCostUsd || 0;
     if (result.modelUsage) modelUsage = result.modelUsage;
 
-    if (repoContext) {
+    if (repoContext && gitCtx) {
       // Push branch and create PR programmatically via the provider
       const { prContent } = result;
-      pushBranch(currentBranch, worktreePath);
-      const defaultBranch = getDefaultBranch(worktreePath);
+      gitCtx.pushBranch(currentBranch, worktreePath);
+      const defaultBranch = resolvedDefaultBranch;
       const prResult = repoContext.codeHost.createPullRequest({
         title: prContent.title,
         body: prContent.body,

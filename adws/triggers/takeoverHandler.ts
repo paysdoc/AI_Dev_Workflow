@@ -31,8 +31,7 @@ import {
 import { isProcessLive } from '../core/processLiveness';
 import { AgentStateManager } from '../core/agentState';
 import { deriveStageFromRemote } from '../core/remoteReconcile';
-import { resetWorktreeToRemote } from '../vcs/worktreeReset';
-import { getWorktreePath } from '../vcs/worktreeOperations';
+import { gitContextForSync } from '../github';
 import { extractLatestAdwId } from './cronStageResolver';
 import { classifyStageString } from '../core/stageClassifier';
 import { nextResumeAction, MAX_RESUME_ATTEMPTS } from '../core/resumePolicy';
@@ -44,6 +43,7 @@ import type { WorktreeProbe } from '../vcs/worktreeReuseGate';
 import type { RepoInfo } from '../github/githubApi';
 import type { AgentState } from '../types/agentTypes';
 import type { WorkflowStage } from '../types/workflowTypes';
+import type { GitContext } from '../gitContext';
 
 export type CandidateDecision =
   | { readonly kind: 'spawn_fresh' }
@@ -55,6 +55,9 @@ export type CandidateDecision =
 export interface EvaluateCandidateInput {
   readonly issueNumber: number;
   readonly repoInfo: RepoInfo;
+  /** Launch-boundary GitContext. When provided, worktree paths are resolved via the
+   *  context's base path (never from ambient cwd). Absent only in legacy callers. */
+  readonly gitContext?: GitContext;
 }
 
 export interface TakeoverDeps {
@@ -67,14 +70,13 @@ export interface TakeoverDeps {
   readonly killProcess: (pid: number) => void;
   readonly resetWorktree: (worktreePath: string, branch: string) => void;
   readonly deriveStageFromRemote: (issueNumber: number, adwId: string, repoInfo: RepoInfo) => WorkflowStage;
-  readonly getWorktreePath: (branchName: string, baseRepoPath?: string) => string;
   readonly writeTopLevelState: (adwId: string, state: Partial<AgentState>) => void;
   readonly commentOnIssue: (issueNumber: number, body: string, repoInfo: RepoInfo) => void;
   readonly probeWorktree: (worktreePath: string, expectedBranch: string, recordedPid?: number, recordedPidStartedAt?: string) => WorktreeProbe;
   readonly clearOrphanedIndexLock: (worktreePath: string) => void;
 }
 
-export function buildDefaultTakeoverDeps(): TakeoverDeps {
+export function buildDefaultTakeoverDeps(repoInfo?: RepoInfo): TakeoverDeps {
   return {
     acquireIssueSpawnLock: (repoInfo, issueNumber, ownPid) =>
       acquireIssueSpawnLock(repoInfo, issueNumber, ownPid),
@@ -103,10 +105,12 @@ export function buildDefaultTakeoverDeps(): TakeoverDeps {
         // ESRCH: process already gone — proceed to takeover
       }
     },
-    resetWorktree: (worktreePath, branch) => resetWorktreeToRemote(worktreePath, branch),
+    resetWorktree: (worktreePath, branch) => {
+      if (!repoInfo) throw new Error('takeoverHandler: repoInfo required for resetWorktree');
+      gitContextForSync({ owner: repoInfo.owner, repo: repoInfo.repo, selfHost: false }).resetWorktree(worktreePath, branch);
+    },
     deriveStageFromRemote: (issueNumber, adwId, repoInfo) =>
       deriveStageFromRemote(issueNumber, adwId, repoInfo),
-    getWorktreePath: (branchName, baseRepoPath) => getWorktreePath(branchName, baseRepoPath),
     writeTopLevelState: (adwId, state) => AgentStateManager.writeTopLevelState(adwId, state),
     commentOnIssue: (issueNumber, body, repoInfo) => commentOnIssue(issueNumber, body, repoInfo),
     probeWorktree: (worktreePath, expectedBranch, recordedPid, recordedPidStartedAt) =>
@@ -115,7 +119,6 @@ export function buildDefaultTakeoverDeps(): TakeoverDeps {
   };
 }
 
-let _defaultDeps: TakeoverDeps | null = null;
 
 function takeOverWithDerivedStage(
   d: TakeoverDeps,
@@ -126,6 +129,11 @@ function takeOverWithDerivedStage(
   return { kind: 'take_over_adwId', adwId, derivedStage };
 }
 
+function resolveWorktreePath(input: EvaluateCandidateInput, branchName: string): string {
+  const ctx = input.gitContext ?? gitContextForSync({ owner: input.repoInfo.owner, repo: input.repoInfo.repo, selfHost: false });
+  return ctx.worktreePathFor(branchName);
+}
+
 function recoverViaResetFromRemote(
   d: TakeoverDeps,
   input: EvaluateCandidateInput,
@@ -133,7 +141,7 @@ function recoverViaResetFromRemote(
   state: AgentState,
 ): CandidateDecision {
   if (state.branchName) {
-    const wtPath = d.getWorktreePath(state.branchName);
+    const wtPath = resolveWorktreePath(input, state.branchName);
     d.resetWorktree(wtPath, state.branchName);
   }
   return takeOverWithDerivedStage(d, input, adwId);
@@ -150,7 +158,7 @@ function recoverViaResumeInPlaceOrReset(
 ): CandidateDecision {
   if (!state.branchName) return takeOverWithDerivedStage(d, input, adwId);
 
-  const wtPath = d.getWorktreePath(state.branchName);
+  const wtPath = resolveWorktreePath(input, state.branchName);
   const probe = d.probeWorktree(wtPath, state.branchName, state.pid, state.pidStartedAt);
   const decision = decideWorktreeReuse(probe);
 
@@ -165,7 +173,7 @@ export function evaluateCandidate(
   input: EvaluateCandidateInput,
   deps?: TakeoverDeps,
 ): CandidateDecision {
-  const d = deps ?? (_defaultDeps ??= buildDefaultTakeoverDeps());
+  const d = deps ?? buildDefaultTakeoverDeps(input.repoInfo);
   const { issueNumber, repoInfo } = input;
 
   // Branch 1: attempt to acquire the per-issue spawn lock.

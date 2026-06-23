@@ -26,6 +26,7 @@ import { releaseIssueSpawnLock } from './spawnGate';
 import { evaluateCandidate } from './takeoverHandler';
 import type { CandidateDecision } from './takeoverHandler';
 import { readAuthGate } from '../core/authGate';
+import type { GitContext } from '../gitContext';
 
 /**
  * Spawns a detached child process for running ADW orchestrator workflows.
@@ -71,6 +72,7 @@ export async function classifyAndSpawnWorkflow(
   existingAdwId?: string,
   precomputedDecision?: CandidateDecision,
   labelRouting?: LabelRouting,
+  gitContext?: GitContext,
 ): Promise<void> {
   const resolvedRepoInfo = repoInfo ?? getRepoInfo();
 
@@ -97,7 +99,7 @@ export async function classifyAndSpawnWorkflow(
   // Enforce the takeover decision before any spawn. When the cron trigger has
   // already called evaluateCandidate, it passes the pre-computed decision here
   // to avoid re-acquiring the spawn lock.
-  const decision = precomputedDecision ?? evaluateCandidate({ issueNumber, repoInfo: resolvedRepoInfo });
+  const decision = precomputedDecision ?? evaluateCandidate({ issueNumber, repoInfo: resolvedRepoInfo, gitContext });
 
   if (decision.kind === 'defer_live_holder') {
     log(`Issue #${issueNumber}: live holder (pid ${decision.holderPid}) owns this issue, deferring`);
@@ -168,6 +170,7 @@ export async function handleIssueClosedDependencyUnblock(
   closedIssueNumber: number,
   repoInfo: RepoInfo,
   targetRepoArgs: string[],
+  gitContext?: GitContext,
 ): Promise<void> {
   try {
     const json = execSync(
@@ -192,7 +195,7 @@ export async function handleIssueClosedDependencyUnblock(
       const eligibility = await checkIssueEligibility(dependent.number, dependent.body || '', repoInfo);
       if (eligibility.eligible) {
         log(`Issue #${dependent.number} unblocked by closure of #${closedIssueNumber}, spawning workflow`);
-        await classifyAndSpawnWorkflow(dependent.number, repoInfo, targetRepoArgs);
+        await classifyAndSpawnWorkflow(dependent.number, repoInfo, targetRepoArgs, undefined, undefined, undefined, gitContext);
       } else {
         log(`Issue #${dependent.number} still ineligible after #${closedIssueNumber} closed: ${eligibility.reason}`);
       }

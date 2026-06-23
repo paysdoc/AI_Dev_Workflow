@@ -9,10 +9,11 @@
 
 import { execSync, spawn } from 'child_process';
 import * as fs from 'fs';
-import { log, GRACE_PERIOD_MS, JANITOR_INTERVAL_CYCLES, HEARTBEAT_STALE_THRESHOLD_MS, HUNG_DETECTOR_INTERVAL_CYCLES, PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES, getTargetRepoWorkspacePath, resolveClaudeCodePath, REPO_ROOT, assertCwdIsRepoRoot } from '../core';
+import { log, GRACE_PERIOD_MS, JANITOR_INTERVAL_CYCLES, HEARTBEAT_STALE_THRESHOLD_MS, HUNG_DETECTOR_INTERVAL_CYCLES, PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES, getTargetRepoWorkspacePath, resolveClaudeCodePath, REPO_ROOT, assertCwdIsRepoRoot, buildLaunchGitContext } from '../core';
+import type { GitContext } from '../gitContext';
 import { findHungOrchestrators, type HungDetectorDeps } from '../core/hungOrchestratorDetector';
 import { AgentStateManager } from '../core/agentState';
-import { getRepoInfo, fetchPRList, hasUnaddressedComments, isCancelComment, isRetryComment, activateGitHubAppAuth, ensureAppAuthForRepo, refreshTokenIfNeeded } from '../github';
+import { getRepoInfo, fetchPRList, hasUnaddressedComments, isCancelComment, isRetryComment, activateGitHubAppAuth, refreshTokenIfNeeded } from '../github';
 import { readAuthGate, writeAuthGate, clearAuthGate, markGateSlackNotified, shouldSendDetectionSlack } from '../core/authGate';
 import { sendSlackDetectionNotification, sendSlackRecoveryNotification } from '../core/slackNotifier';
 import { markStatePausedAuthForLiveOrchestrator } from '../phases/authPause';
@@ -60,10 +61,15 @@ interface RawIssue {
 // Resolve repo identity from --target-repo CLI args (or fall back to local git remote).
 const { repoInfo: cronRepoInfo, targetRepo } = resolveCronRepo(process.argv.slice(2), getRepoInfo);
 
+// Module-scope launch context — built exactly once under the entry-script guard.
+// Null when this module is imported by tests (guard does not fire).
+let cronGitContext: GitContext | null = null;
+
 // Activate GitHub App auth before any gh CLI calls only when running as the cron script.
 // Skipped when trigger_cron.ts is imported as a module (e.g. by BDD step definitions).
 if (process.argv[1]?.replace(/\\/g, '/').includes('trigger_cron')) {
   activateGitHubAppAuth(cronRepoInfo.owner, cronRepoInfo.repo);
+  cronGitContext = buildLaunchGitContext(targetRepo);
 }
 
 /** Fetches all open issues with body, comments, and timestamps. */
@@ -206,11 +212,8 @@ async function checkAndTrigger(): Promise<void> {
     await runPerIssueScenarioSweep();
   }
 
-  // Re-assert app auth for THIS cron's target repo before polling. A pause-queue or
-  // auth-queue resume earlier in this tick may have activated auth for another repo
-  // and pinned the process-global GH_TOKEN there; without this re-assertion a stray
-  // activation blinds the poller until the process is restarted (issue #565).
-  ensureAppAuthForRepo(cronRepoInfo.owner, cronRepoInfo.repo);
+  // Per-command auth via gitContextForRepo handles per-repo token injection.
+  // The transitional activateGitHubAppAuth at startup covers legacy global-token callers.
 
   const now = Date.now();
   const cancelledThisCycle = new Set<number>();
@@ -294,7 +297,7 @@ async function checkAndTrigger(): Promise<void> {
     // Enforce the takeover decision before any spawn. This is the sole gate
     // for all standard (non-merge) candidates so a future maintainer cannot
     // introduce a parallel pre-check that bypasses it.
-    const takeoverDecision = evaluateCandidate({ issueNumber: issue.number, repoInfo });
+    const takeoverDecision = evaluateCandidate({ issueNumber: issue.number, repoInfo, gitContext: cronGitContext ?? undefined });
 
     if (takeoverDecision.kind === 'defer_live_holder') {
       log(`Issue #${issue.number}: live holder (pid ${takeoverDecision.holderPid}) owns this issue, deferring`);
@@ -387,7 +390,7 @@ if (process.argv[1]?.replace(/\\/g, '/').includes('trigger_cron')) {
 
   log('CRON trigger (backlog sweeper) started');
   void checkAndTrigger();
-  setInterval(() => { refreshTokenIfNeeded(); void checkAndTrigger(); }, POLL_INTERVAL_MS);
+  setInterval(() => { refreshTokenIfNeeded(cronRepoInfo.owner, cronRepoInfo.repo); void checkAndTrigger(); }, POLL_INTERVAL_MS);
   checkPRsForReviewComments();
   setInterval(checkPRsForReviewComments, PR_POLL_INTERVAL_MS);
 }

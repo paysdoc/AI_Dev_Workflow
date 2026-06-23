@@ -25,9 +25,8 @@ import { addIssueLabel } from './github/issueApi.ts';
 import { loadProjectConfig } from './core/projectConfig.ts';
 import { runPromotionCommenter, runPromotionMover, loadPromotionStats } from './promotion/index.ts';
 import type { PromotionCommenterDeps, PromotionMoverDeps } from './promotion/index.ts';
-import { getDefaultBranch } from './vcs/branchOperations.ts';
-import { createWorktreeForNewBranch } from './vcs/worktreeCreation.ts';
-import { commitChanges as commitChangesVcs, pushBranch as pushBranchVcs } from './vcs/commitOperations.ts';
+import { gitContextFor } from './github/gitContextFactory.ts';
+import type { GitContext } from './gitContext/index.ts';
 
 const DEFAULT_VOCABULARY_PATH = 'features/regression/vocabulary.md';
 
@@ -80,6 +79,7 @@ function buildMoverDeps(
   prNumber: number,
   repoInfo: ReturnType<typeof getRepoInfo>,
   baseRepoPath: string,
+  gitCtx: GitContext,
 ): PromotionMoverDeps {
   return {
     fetchChangedFiles: async () => fetchChangedFilesFromPR(prNumber, repoInfo),
@@ -88,11 +88,11 @@ function buildMoverDeps(
       fs.mkdirSync(path.dirname(p), { recursive: true });
       fs.writeFileSync(p, content, 'utf-8');
     },
-    getDefaultBranch: () => getDefaultBranch(),
+    getDefaultBranch: () => gitCtx.defaultBranch(),
     createWorktree: (branchName, baseBranch) =>
-      createWorktreeForNewBranch(branchName, baseBranch, baseRepoPath),
-    commitChanges: (cwd, message) => commitChangesVcs(message, cwd),
-    pushBranch: (cwd, branchName) => pushBranchVcs(branchName, cwd),
+      gitCtx.createWorktreeForNewBranch(branchName, baseBranch),
+    commitChanges: (cwd, message) => gitCtx.commitChanges(message, cwd),
+    pushBranch: (cwd, branchName) => gitCtx.pushBranch(branchName, cwd),
     findExistingPR: (branchName) => {
       const pr = defaultFindPRByBranch(branchName, repoInfo);
       if (!pr) return null;
@@ -132,6 +132,7 @@ async function main(): Promise<void> {
   log(`adwPromotionSweep: starting sweep for issue #${issueNumber}`, 'info');
 
   const repoInfo = getRepoInfo();
+  const gitCtx = await gitContextFor({ owner: repoInfo.owner, repo: repoInfo.repo, selfHost: true });
   const branchName = `feature-${issueNumber}`;
   const pr = defaultFindPRByBranch(branchName, repoInfo);
 
@@ -153,7 +154,7 @@ async function main(): Promise<void> {
     'info',
   );
 
-  const moverDeps = buildMoverDeps(pr.number, repoInfo, process.cwd());
+  const moverDeps = buildMoverDeps(pr.number, repoInfo, process.cwd(), gitCtx);
   const moverResult = await runPromotionMover(pr.number, moverDeps);
 
   const movedCount = moverResult.moved.filter(r => !r.skipped).length;

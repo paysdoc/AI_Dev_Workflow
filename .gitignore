@@ -20,6 +20,7 @@ output.jsonl
 
 # debug
 *.log*
+.adw/.regen-receipt
 
 # local env files
 .env
