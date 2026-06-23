@@ -18,6 +18,7 @@ import type { ExecSyncOptions } from 'child_process';
 export const ADW_NONE_LABEL = 'adw:none';
 export const ADW_UPGRADE_LABEL = 'adw:upgrade';
 export const ADW_UNVERIFIED_LABEL = 'adw:unverified';
+export const ADW_BLOCKED_LABEL = 'adw:blocked';
 
 export const ADW_CLASSIFICATION_LABELS = {
   'adw:chore':     '/chore',
@@ -40,6 +41,7 @@ export const ADW_LABEL_DEFINITIONS: readonly AdwLabelDefinition[] = [
   { name: 'adw:upgrade',     color: '5319e7', description: 'ADW upgrade tracking' },
   { name: 'adw:none',        color: 'e4e4e4', description: 'Opt out of ADW automation' },
   { name: 'adw:unverified',  color: 'fbca04', description: 'ADW could not verify tests' },
+  { name: 'adw:blocked', color: 'b60205', description: 'ADW lane escalated to human (terminal)' },
 ] as const;
 
 export interface AdwLabelReading {

@@ -26,10 +26,17 @@ function leaseErrorMessage(branch: string, error: unknown): string {
   );
 }
 
-function commitChanges(run: Runner, message: string, cwd: string): boolean {
-  const status = run('git status --porcelain', cwd);
+function pathspecSuffix(excludePaths?: readonly string[]): string {
+  if (!excludePaths || excludePaths.length === 0) return '';
+  const tokens = excludePaths.map(p => `':(exclude)${p}'`).join(' ');
+  return ` -- '.' ${tokens}`;
+}
+
+function commitChanges(run: Runner, message: string, cwd: string, opts?: { excludePaths?: readonly string[] }): boolean {
+  const suffix = pathspecSuffix(opts?.excludePaths);
+  const status = run(`git status --porcelain${suffix}`, cwd);
   if (!status.trim()) return false;
-  run('git add -A', cwd);
+  run(`git add -A${suffix}`, cwd);
   run(`git commit -m "${message.replace(/"/g, '\\"')}"`, cwd);
   return true;
 }

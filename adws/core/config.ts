@@ -62,6 +62,9 @@ export const MAX_REVIEW_RETRY_ATTEMPTS = parseInt(process.env.MAX_REVIEW_RETRY_A
 /** Maximum number of retry attempts for plan validation resolution. */
 export const MAX_VALIDATION_RETRY_ATTEMPTS = parseInt(process.env.MAX_VALIDATION_RETRY_ATTEMPTS || '3', 10);
 
+/** Maximum number of upgrade-lane regeneration failures before escalating to a human (default: 3). */
+export const MAX_FAILURES = Math.max(1, parseInt(process.env.MAX_FAILURES || '3', 10)) || 3;
+
 // ---------------------------------------------------------------------------
 // Concurrency / timing constants
 // ---------------------------------------------------------------------------

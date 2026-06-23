@@ -43,7 +43,13 @@ import {
   writeAdwVersion,
   readAdwYmlConfig,
   type AdwYmlConfig,
+  MAX_FAILURES,
+  postSlack,
+  countUpgradeFailureComments,
+  UPGRADE_FAILURE_SIGNATURE,
+  type IssueCommentRecord,
 } from './core';
+import { ADW_BLOCKED_LABEL } from './github/labelManager';
 import { commentOnIssue, mergePR, type RepoInfo, gitContextFor } from './github';
 import { defaultFindPRByBranch, hasWontFixLabel, type RawPR } from './github/prApi';
 import type { GitContext } from './gitContext';
@@ -56,10 +62,12 @@ import { copyAdwInitCommandToWorktree, verifyAdwRegen } from './phases/worktreeS
 
 /** Outcome of executeUpgrade. */
 export interface UpgradeRunResult {
-  readonly outcome: 'completed' | 'failed';
+  readonly outcome: 'completed' | 'failed' | 'escalated';
   readonly reason: string;
   readonly prUrl?: string;
 }
+
+const TERMINAL_LABEL = ADW_BLOCKED_LABEL;
 
 // ── Deps interface ────────────────────────────────────────────────────────────
 
@@ -88,9 +96,9 @@ export interface UpgradeDeps {
   readonly findPRByBranch: (branch: string, repoInfo: RepoInfo) => RawPR | null;
   readonly runInitCommand: (params: RunInitCommandParams) => Promise<{ success: boolean; error?: string }>;
   readonly copyInitCommandToWorktree: (worktreePath: string, frameworkRepoRoot: string) => void;
-  readonly verifyAdwRegen: (worktreePath: string, expectedHash: string) => { ok: boolean; missing: readonly string[] };
+  readonly verifyAdwRegen: (worktreePath: string) => { ok: boolean; missing: readonly string[] };
   readonly writeAdwVersion: (worktreePath: string, hash: string) => void;
-  readonly commitChanges: (message: string, cwd: string) => boolean;
+  readonly commitChanges: (message: string, cwd: string, opts?: { excludePaths?: readonly string[] }) => boolean;
   readonly pushBranch: (branch: string, cwd: string) => void;
   /** True when a push error is a non-fast-forward rejection (another orchestrator owns the claim branch). */
   readonly isPushRejection: (err: unknown) => boolean;
@@ -100,6 +108,13 @@ export interface UpgradeDeps {
   readonly log: typeof log;
   readonly readAdwYmlConfig: (worktreePath: string) => AdwYmlConfig;
   readonly mergePR: (prNumber: number, repoInfo: RepoInfo) => { success: boolean; error?: string };
+  readonly fetchIssueLabels: (issueNumber: number) => readonly string[];
+  readonly fetchIssueComments: (issueNumber: number) => readonly IssueCommentRecord[];
+  readonly ensureLabel: (name: string, color: string, description: string) => void;
+  readonly applyLabel: (issueNumber: number, label: string) => void;
+  readonly moveToStatus: (issueNumber: number, status: string) => boolean;
+  readonly postSlack: (text: string) => Promise<void>;
+  readonly maxFailures: number;
 }
 
 // ── Pure helpers ──────────────────────────────────────────────────────────────
@@ -137,7 +152,7 @@ export function buildUpgradePrBody(issueNumber: number, hash: string): string {
  */
 export function buildUpgradeFailureComment(reason: string, adwId: string, issueNumber: number): string {
   return [
-    'ADW upgrade regeneration failed.',
+    UPGRADE_FAILURE_SIGNATURE,
     '',
     `**Reason:** ${reason}`,
     '',
@@ -178,6 +193,32 @@ export function buildUpgradeMergeFailedComment(prNumber: number, reason: string,
   ].join('\n');
 }
 
+/**
+ * Builds the escalation comment body (non-workflow, non-ADW, non-failure-signature).
+ * First line deliberately differs from UPGRADE_FAILURE_SIGNATURE so it cannot self-inflate
+ * the failure count.
+ */
+export function buildUpgradeEscalationComment(adwId: string, issueNumber: number, maxFailures: number): string {
+  return [
+    'ADW upgrade escalated to human review.',
+    '',
+    `The upgrade lane has reached its failure cap (${maxFailures} bot-authored failure comments).`,
+    '',
+    'To re-arm: remove the `adw:blocked` label from this issue and clear the failure comments',
+    '(or post `## Cancel` to clear all comments at once), then re-open the issue.',
+    '',
+    `**ADW ID:** \`${adwId}\``,
+    `**Issue:** #${issueNumber}`,
+  ].join('\n');
+}
+
+/**
+ * Builds the escalation Slack alert.
+ */
+export function buildUpgradeEscalationSlack(repoInfo: RepoInfo, issueNumber: number, failureCount: number, maxFailures: number): string {
+  return `:rotating_light: ADW upgrade escalated: *${repoInfo.owner}/${repoInfo.repo}* issue #${issueNumber} reached failure cap (${failureCount}/${maxFailures}). Remove \`adw:blocked\` label to re-arm.`;
+}
+
 // ── Core orchestration ────────────────────────────────────────────────────────
 
 /**
@@ -192,6 +233,14 @@ export async function executeUpgrade(
   frameworkRepoRoot: string,
   deps: UpgradeDeps,
 ): Promise<UpgradeRunResult> {
+  // Entry gate: if the terminal label is already present, this issue is already
+  // escalated — exit immediately without any regen work (idempotent re-dispatch).
+  const labels = deps.fetchIssueLabels(issueNumber);
+  if (labels.includes(TERMINAL_LABEL)) {
+    deps.log(`adwUpgrade: issue #${issueNumber} carries ${TERMINAL_LABEL}; already escalated — no work`, 'info');
+    return { outcome: 'escalated', reason: 'already_escalated' };
+  }
+
   // 1. Compute runtime framework hash (single source of truth for branch name + .adw-version)
   let hash: string;
   try {
@@ -231,6 +280,19 @@ export async function executeUpgrade(
       'info',
     );
     return { outcome: 'completed', reason: 'pr_already_exists' };
+  }
+
+  // Failure-cap escalation: placed after the PR-idempotency guard so a claim that
+  // already has a PR returns pr_already_exists and never escalates.
+  const failureCount = countUpgradeFailureComments(deps.fetchIssueComments(issueNumber));
+  if (failureCount >= deps.maxFailures) {
+    deps.ensureLabel(TERMINAL_LABEL, 'b60205', 'ADW lane escalated to human (terminal)');
+    deps.applyLabel(issueNumber, TERMINAL_LABEL);   // durable idempotency signal first
+    deps.moveToStatus(issueNumber, 'Blocked');        // best-effort; false on no board is non-fatal
+    await deps.postSlack(buildUpgradeEscalationSlack(repoInfo, issueNumber, failureCount, deps.maxFailures));
+    deps.commentOnIssue(issueNumber, buildUpgradeEscalationComment(adwId, issueNumber, deps.maxFailures), repoInfo);
+    deps.log(`adwUpgrade: failure cap reached (${failureCount}/${deps.maxFailures}); escalated issue #${issueNumber}`, 'warn');
+    return { outcome: 'escalated', reason: 'failure_cap_reached' };
   }
 
   const defaultBranch = deps.getDefaultBranch();
@@ -280,19 +342,17 @@ export async function executeUpgrade(
     return { outcome: 'failed', reason: 'llm_failed' };
   }
 
-  // 5b. Receipt-freshness gate: verify that /adw_init wrote a receipt stamped with
-  //     the current framework hash before stamping .adw-version.
-  //     A legitimate no-op (byte-identical .adw/ regen) now passes because the agent
-  //     writes a fresh receipt whose hash matches `hash`. A silent skip leaves the
-  //     receipt from the previous upgrade cycle carrying the old hash → mismatch →
-  //     fail closed. No stamp + no PR = the next cron tick re-dispatches cleanly
-  //     (idempotency guard sees no PR on the claim branch and re-runs regeneration).
-  const verify = deps.verifyAdwRegen(worktreePath, hash);
+  // 5b. Validity gate: verify that the six canonical .adw/ files are present and
+  //     non-empty, and that features/regression/vocabulary.md exists.
+  //     A legitimate no-op (byte-identical .adw/ regen) passes — the validity gate
+  //     does not check authorship. No stamp + no PR = the next cron tick re-dispatches
+  //     cleanly (idempotency guard sees no PR on the claim branch and re-runs regen).
+  const verify = deps.verifyAdwRegen(worktreePath);
   if (!verify.ok) {
     deps.commentOnIssue(
       issueNumber,
       buildUpgradeFailureComment(
-        `.adw/ regeneration incomplete: ${verify.missing.join(', ') || 'receipt absent or stale'}`,
+        `.adw/ regeneration incomplete: ${verify.missing.join(', ') || 'no .adw/ files produced'}`,
         adwId,
         issueNumber,
       ),
@@ -303,7 +363,7 @@ export async function executeUpgrade(
 
   // 6. Write .adw-version, commit the regen, push
   deps.writeAdwVersion(worktreePath, hash);
-  deps.commitChanges(`chore: regenerate .adw/ for framework upgrade ${hash.slice(0, 12)}`, worktreePath);
+  deps.commitChanges(`chore: regenerate .adw/ for framework upgrade ${hash.slice(0, 12)}`, worktreePath, { excludePaths: ['.claude/commands/adw_init.md'] });
   try {
     deps.pushBranch(branch, worktreePath);
   } catch (error) {
@@ -377,6 +437,31 @@ async function runInitCommandDefault(params: RunInitCommandParams): Promise<{ su
   };
 }
 
+function parseLabelNames(json: string): readonly string[] {
+  try {
+    const parsed = JSON.parse(json) as unknown;
+    if (!parsed || typeof parsed !== 'object') return [];
+    const arr = (parsed as Record<string, unknown>)['labels'];
+    if (!Array.isArray(arr)) return [];
+    return arr.map((l: unknown) => (typeof l === 'object' && l !== null && 'name' in l ? String((l as Record<string, unknown>)['name']) : '')).filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+function parseIssueComments(json: string): readonly IssueCommentRecord[] {
+  try {
+    const arr = JSON.parse(json) as unknown[];
+    if (!Array.isArray(arr)) return [];
+    return arr.map((c: unknown) => ({
+      body: typeof c === 'object' && c !== null && 'body' in c ? String((c as Record<string, unknown>)['body'] ?? '') : '',
+      author: typeof c === 'object' && c !== null && 'user' in c && (c as Record<string, unknown>)['user'] !== null && typeof (c as Record<string, unknown>)['user'] === 'object' && 'login' in ((c as Record<string, unknown>)['user'] as object) ? String(((c as Record<string, unknown>)['user'] as Record<string, unknown>)['login'] ?? '') : '',
+    }));
+  } catch {
+    return [];
+  }
+}
+
 /** Builds the default UpgradeDeps using production implementations. */
 function buildDefaultUpgradeDeps(repoId: RepoIdentifier, gitCtx: GitContext): UpgradeDeps {
   const codeHost = createGitHubCodeHost(repoId);
@@ -390,7 +475,7 @@ function buildDefaultUpgradeDeps(repoId: RepoIdentifier, gitCtx: GitContext): Up
     copyInitCommandToWorktree: copyAdwInitCommandToWorktree,
     verifyAdwRegen,
     writeAdwVersion,
-    commitChanges: (message, cwd) => gitCtx.commitChanges(message, cwd),
+    commitChanges: (message, cwd, opts) => gitCtx.commitChanges(message, cwd, opts),
     pushBranch: (branch, cwd) => gitCtx.pushBranch(branch, cwd),
     isPushRejection: isPushRejectionError,
     createPullRequest: (options) => codeHost.createPullRequest(options),
@@ -399,6 +484,13 @@ function buildDefaultUpgradeDeps(repoId: RepoIdentifier, gitCtx: GitContext): Up
     log,
     readAdwYmlConfig,
     mergePR: (prNumber, info) => mergePR(prNumber, info),
+    fetchIssueLabels: (issueNumber) => parseLabelNames(gitCtx.issueHasLabel(issueNumber, TERMINAL_LABEL)),
+    fetchIssueComments: (issueNumber) => parseIssueComments(gitCtx.fetchIssueComments(issueNumber)),
+    ensureLabel: (name, color, description) => gitCtx.createLabel(name, color, description),
+    applyLabel: (issueNumber, label) => gitCtx.applyLabel(issueNumber, label),
+    moveToStatus: (issueNumber, status) => gitCtx.moveIssueToStatus(issueNumber, status),
+    postSlack,
+    maxFailures: MAX_FAILURES,
   };
 }
 

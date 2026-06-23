@@ -113,11 +113,11 @@ function resolveBranchExists(run: Runner, baseCwd: string, branchName: string): 
   try {
     run(`git rev-parse --verify "${branchName}"`, baseCwd);
     return true;
-  } catch {}
+  } catch { /* branch not found locally */ }
   try {
     run(`git rev-parse --verify "origin/${branchName}"`, baseCwd);
     return true;
-  } catch {}
+  } catch { /* branch not found on remote */ }
   try {
     run(`git fetch origin "${branchName}"`, baseCwd);
     run(`git rev-parse --verify "origin/${branchName}"`, baseCwd);
