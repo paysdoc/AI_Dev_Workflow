@@ -152,9 +152,9 @@ Given(
 
 When(
   'the .adw\\/ regeneration is verified against framework hash {string}',
-  function (hash: string) {
+  function (_hash: string) {
     if (!scenarioTempDir) return;
-    verifyResult = verifyAdwRegen(scenarioTempDir, hash);
+    verifyResult = verifyAdwRegen(scenarioTempDir);
   },
 );
 

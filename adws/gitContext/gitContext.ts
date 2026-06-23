@@ -179,8 +179,8 @@ export class GitContext {
 
   // ── Commit/push ops ──────────────────────────────────────────────────────────
 
-  commitChanges(message: string, worktreePath: string): boolean {
-    return commitOps.commitChanges((cmd, cwd) => this.#run(cmd, { cwd }), message, worktreePath);
+  commitChanges(message: string, worktreePath: string, opts?: { excludePaths?: readonly string[] }): boolean {
+    return commitOps.commitChanges((cmd, cwd) => this.#run(cmd, { cwd }), message, worktreePath, opts);
   }
 
   pushBranch(branch: string, worktreePath: string): void {

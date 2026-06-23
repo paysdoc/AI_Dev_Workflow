@@ -512,6 +512,7 @@ adws/                   # ADW workflow system
 │   │   ├── processLiveness.test.ts
 │   │   ├── projectConfig.test.ts
 │   │   ├── remoteReconcile.test.ts
+│   │   ├── repoIdentityCrossCheck.test.ts
 │   │   ├── resolveFreezeGuard.test.ts
 │   │   ├── resolveVerdict.test.ts
 │   │   ├── resumePolicy.test.ts
@@ -558,6 +559,7 @@ adws/                   # ADW workflow system
 │   ├── processLiveness.ts  # PID-reuse-safe process liveness checks
 │   ├── projectConfig.ts
 │   ├── remoteReconcile.ts  # Stage derivation from remote GitHub artifacts
+│   ├── repoIdentityCrossCheck.ts  # Launch-vs-persisted repo identity cross-check; throws RepoIdentityMismatchError on owner/repo divergence
 │   ├── resolveFreezeGuard.ts  # Pure guard: rejects resolve edits that touch .feature files
 │   ├── resolveVerdict.ts      # Pure verdict: computes pass/retry/hard-fail for scenario fix loops
 │   ├── resumePolicy.ts  # Bounded N-cap resume policy: nextResumeAction computes RESUME/ESCALATE; human_gated stage + escalate_human_gated decision on cap exhaustion
@@ -583,6 +585,7 @@ adws/                   # ADW workflow system
 │   │   ├── linkedPrDetector.test.ts
 │   │   ├── prApi.test.ts
 │   │   └── projectBoardApi.test.ts
+│   ├── gitContextFactory.ts  # Boundary factory — constructs GitContext from ambient ADW identity (async and sync per-repo variants)
 │   ├── githubApi.ts
 │   ├── githubAppAuth.ts  # GitHub App authentication
 │   ├── hitlBoardNotifier.ts  # HITL board-event notifier — PR/issue lookup, message building, and Slack delivery for Review and Blocked transitions

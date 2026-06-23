@@ -40,6 +40,13 @@ function makeDeps(overrides: Partial<UpgradeDeps> = {}): UpgradeDeps {
     log: vi.fn(),
     readAdwYmlConfig: vi.fn().mockReturnValue({ hitl: false, unitTests: true }),
     mergePR: vi.fn().mockReturnValue({ success: true }),
+    fetchIssueLabels: vi.fn().mockReturnValue([]),
+    fetchIssueComments: vi.fn().mockReturnValue([]),
+    ensureLabel: vi.fn(),
+    applyLabel: vi.fn(),
+    moveToStatus: vi.fn().mockReturnValue(true),
+    postSlack: vi.fn().mockResolvedValue(undefined),
+    maxFailures: 3,
     ...overrides,
   };
 }
@@ -494,14 +501,14 @@ describe('executeUpgrade — anti-brick verification gate (E1)', () => {
   });
 });
 
-// ── Receipt-freshness gate — expectedHash threading ───────────────────────────
+// ── Validity gate — single-arg signature ─────────────────────────────────────
 
-describe('executeUpgrade — receipt-freshness gate: expectedHash is threaded', () => {
-  it('calls verifyAdwRegen with (worktreePath, MOCK_HASH)', async () => {
+describe('executeUpgrade — validity gate', () => {
+  it('calls verifyAdwRegen with (worktreePath) — one-arg validity-only signature', async () => {
     const deps = makeDeps();
     await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
 
-    expect(deps.verifyAdwRegen).toHaveBeenCalledWith(expect.any(String), MOCK_HASH);
+    expect(deps.verifyAdwRegen).toHaveBeenCalledWith(expect.any(String));
   });
 
   it('Test 1 (regression, legitimate no-op): verifyAdwRegen ok:true → stamps .adw-version and opens PR (pr_merged)', async () => {
@@ -611,6 +618,139 @@ describe('executeUpgrade — hash error path', () => {
     await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
 
     expect(deps.commentOnIssue).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ── Failure-cap escalation (Part B) ──────────────────────────────────────────
+
+describe('executeUpgrade — failure-cap escalation', () => {
+  function makeEscalateDeps(failureCommentCount: number, cap: number, overrides: Partial<UpgradeDeps> = {}): UpgradeDeps {
+    const failureBody = buildUpgradeFailureComment('error', 'id', 541);
+    const comments = Array.from({ length: failureCommentCount }, () => ({
+      body: failureBody,
+      author: 'adw-bot[bot]',
+    }));
+    return makeDeps({
+      fetchIssueComments: vi.fn().mockReturnValue(comments),
+      maxFailures: cap,
+      ...overrides,
+    });
+  }
+
+  it('returns outcome=escalated when failure count reaches the cap', async () => {
+    const deps = makeEscalateDeps(3, 3);
+    const result = await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    expect(result.outcome).toBe('escalated');
+    expect(result.reason).toBe('failure_cap_reached');
+  });
+
+  it('applies the terminal adw:blocked label on escalation', async () => {
+    const deps = makeEscalateDeps(3, 3);
+    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    expect(deps.applyLabel).toHaveBeenCalledWith(541, 'adw:blocked');
+  });
+
+  it('moves the board to Blocked on escalation', async () => {
+    const deps = makeEscalateDeps(3, 3);
+    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    expect(deps.moveToStatus).toHaveBeenCalledWith(541, 'Blocked');
+  });
+
+  it('posts exactly one Slack alert on escalation', async () => {
+    const deps = makeEscalateDeps(3, 3);
+    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    expect(deps.postSlack).toHaveBeenCalledTimes(1);
+  });
+
+  it('posts one escalation comment to the issue on escalation', async () => {
+    const deps = makeEscalateDeps(3, 3);
+    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    expect(deps.commentOnIssue).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not regenerate (.adw/) when escalated', async () => {
+    const deps = makeEscalateDeps(3, 3);
+    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    expect(deps.runInitCommand).not.toHaveBeenCalled();
+    expect(deps.commitChanges).not.toHaveBeenCalled();
+    expect(deps.createPullRequest).not.toHaveBeenCalled();
+  });
+
+  it('proceeds normally (pr_merged) when failure count is below the cap', async () => {
+    const deps = makeEscalateDeps(2, 3);
+    const result = await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    expect(result.outcome).toBe('completed');
+    expect(result.reason).toBe('pr_merged');
+    expect(deps.applyLabel).not.toHaveBeenCalled();
+    expect(deps.postSlack).not.toHaveBeenCalled();
+  });
+});
+
+// ── Entry gate: already-escalated ─────────────────────────────────────────────
+
+describe('executeUpgrade — entry gate (already-escalated issue)', () => {
+  it('returns outcome=escalated immediately when terminal label is present', async () => {
+    const deps = makeDeps({
+      fetchIssueLabels: vi.fn().mockReturnValue(['adw:blocked']),
+    });
+    const result = await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    expect(result.outcome).toBe('escalated');
+    expect(result.reason).toBe('already_escalated');
+  });
+
+  it('does no regen work when terminal label is present', async () => {
+    const deps = makeDeps({
+      fetchIssueLabels: vi.fn().mockReturnValue(['adw:blocked']),
+    });
+    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    expect(deps.runInitCommand).not.toHaveBeenCalled();
+    expect(deps.commitChanges).not.toHaveBeenCalled();
+    expect(deps.createPullRequest).not.toHaveBeenCalled();
+    expect(deps.commentOnIssue).not.toHaveBeenCalled();
+    expect(deps.postSlack).not.toHaveBeenCalled();
+  });
+
+  it('cap gate never fires when claim PR already exists (PR-idempotency guard is first)', async () => {
+    const failureBody = buildUpgradeFailureComment('error', 'id', 541);
+    const comments = Array.from({ length: 3 }, () => ({
+      body: failureBody,
+      author: 'adw-bot[bot]',
+    }));
+    const deps = makeDeps({
+      findPRByBranch: vi.fn().mockReturnValue({ number: 77, state: 'OPEN' }),
+      fetchIssueComments: vi.fn().mockReturnValue(comments),
+      maxFailures: 3,
+    });
+    const result = await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    expect(result.outcome).toBe('completed');
+    expect(result.reason).toBe('pr_already_exists');
+    expect(deps.applyLabel).not.toHaveBeenCalled();
+    expect(deps.postSlack).not.toHaveBeenCalled();
+  });
+});
+
+// ── Scoped regen commit (Part D) ──────────────────────────────────────────────
+
+describe('executeUpgrade — scoped regen commit (Part D)', () => {
+  it('calls commitChanges with excludePaths for adw_init.md', async () => {
+    const deps = makeDeps();
+    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    expect(deps.commitChanges).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+      { excludePaths: ['.claude/commands/adw_init.md'] },
+    );
   });
 });
 

@@ -41,12 +41,22 @@
     - When adding a flat-layout (non-`src/`) target repo or a non-Bun test framework
 
 - app_docs/feature-t6m62c-adwupgrade-regen-gate-propagation.md
+  - Owns:
+    - adws/adwUpgrade.tsx
+    - adws/core/upgradeFailureCap.ts
+    - adws/phases/worktreeSetup.ts
+    - adws/gitContext/commitOps.ts
+    - adws/github/labelManager.ts
   - Conditions:
-    - When working on `adwUpgrade.tsx` `executeUpgrade()` or `UpgradeDeps`
+    - When working on `adwUpgrade.tsx` `executeUpgrade()`, `UpgradeDeps`, or `UpgradeRunResult`
     - When implementing or debugging the `.adw/` regeneration path (`copyAdwInitCommandToWorktree`, `verifyAdwRegen`)
+    - When working with the failure-cap escalation (`MAX_FAILURES`, `isUpgradeFailureComment`, `countUpgradeFailureComments`, `adw:blocked` label)
+    - When the entry gate (`adw:blocked` terminal-label short-circuit) or escalation gate (failure count ≥ cap) is relevant
+    - When `commitChanges` `excludePaths` option or the upgrade regen scoped-commit behaviour is relevant
     - When a target repo's `.adw-version` equals the current framework hash but `.adw/` is missing (bricked repo recovery)
     - When modifying `copyClaudeAssetsToWorktree` or the `target:` flag gitignore policy in `worktreeSetup.ts`
     - When troubleshooting skill/command propagation to worktrees or target repos
+    - When re-arming an escalated upgrade issue (removing `adw:blocked`, clearing failure comments, or posting `## Cancel`)
 
 - app_docs/feature-tcewff-cron-gh-token-bleed-fix.md
   - Conditions:
