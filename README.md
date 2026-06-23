@@ -572,8 +572,8 @@ adws/                   # ADW workflow system
 │   ├── targetRepoManager.ts
 │   ├── testReportParser.ts  # JUnit XML test report parser — reads xunit output into TestReport (total, passed, failed, skipped, per-case status)
 │   ├── testVerdict.ts  # Pure test verdict computation (enabled, hasFailures, testcaseCount, frameworkDetected → verdict)
-│   ├── repoIdentityCrossCheck.ts  # Persists repo identity at workflow init and cross-checks on resume (guards against wrong-repo restarts)
 │   ├── upgradeClaim.ts # Atomic upgrade-claim primitive via GitHub branch namespace (winner/loser resolution)
+│   ├── upgradeFailureCap.ts  # Pure helpers for counting bot-authored upgrade-failure comments — used by adwUpgrade to cap regeneration failures before escalating to human
 │   ├── utils.ts
 │   ├── workflowCommentParsing.ts  # Comment parsing utilities
 │   └── workflowMapping.ts  # Issue type → orchestrator mapping
@@ -839,6 +839,7 @@ adws/                   # ADW workflow system
 │   ├── proofArtifactHarvester.ts  # Pure recursive harvester of image artifacts from proof directory
 │   └── types.ts
 ├── known_issues.md     # Known issues and workarounds
+├── checkGitGhGuard.ts  # CI guard: scans all .ts/.tsx sources for direct git/gh shell-outs outside GitContext; fails build if any bypass the per-command auth chokepoint (`bun run lint:git-guard`)
 ├── checkLivingDocsIndex.ts  # Migration acceptance gate: validates conditional_docs.md ↔ app_docs/ bijection
 ├── adwBuild.tsx        # Orchestrators (individual & combined)
 ├── adwChore.tsx        # Chore pipeline with LLM diff gate (auto-merge)
