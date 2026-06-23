@@ -1,22 +1,17 @@
 /**
- * Git branch operations - creation, checkout, deletion, and branch name generation.
+ * Pure branch-identity vocabulary — branch name generation and validation.
+ * Write/sync I/O operations have migrated to GitContext methods (#662).
+ * The two read-only local helpers below remain for the worktree-domain files
+ * (#661 scope) that cannot yet adopt the context pattern.
  */
 
 import { execSync } from 'child_process';
-import { log, IssueClassSlashCommand, branchPrefixMap, branchPrefixAliases } from '../core';
+import { IssueClassSlashCommand, branchPrefixMap, branchPrefixAliases } from '../core';
 
 /**
  * Protected branches that must never be deleted.
  */
 export const PROTECTED_BRANCHES = ['main', 'master', 'develop'];
-
-/**
- * Gets the current git branch name.
- * @param cwd - Optional working directory to run the command in
- */
-export function getCurrentBranch(cwd?: string): string {
-  return execSync('git branch --show-current', { encoding: 'utf-8', cwd }).trim();
-}
 
 /**
  * Validates a slug for branch-name assembly.
@@ -97,25 +92,6 @@ export function generateBranchName(
 }
 
 /**
- * @deprecated Runs `git pull --rebase` which crashes on divergent branches.
- * Use `git fetch origin` + worktree-based workflows instead.
- * Checks out an existing branch and pulls the latest changes.
- *
- * @param branchName - The branch to checkout
- * @param cwd - Optional working directory to run the command in
- */
-export function checkoutBranch(branchName: string, cwd?: string): void {
-  log('WARNING: checkoutBranch is deprecated. Use `git fetch origin` + worktree-based workflows instead.', 'warn');
-  try {
-    execSync(`git checkout "${branchName}"`, { stdio: 'pipe', cwd });
-    execSync(`git pull --rebase origin "${branchName}"`, { stdio: 'pipe', cwd });
-    log(`Checked out and pulled latest for branch: ${branchName}`, 'success');
-  } catch (error) {
-    throw new Error(`Failed to checkout branch ${branchName}: ${error}`);
-  }
-}
-
-/**
  * Infers the issue type from a branch name by examining its prefix.
  * Maps branch prefixes to issue classification:
  *   - bugfix/ -> /bug
@@ -139,160 +115,31 @@ export function inferIssueTypeFromBranch(branchName: string): IssueClassSlashCom
   return '/feature';
 }
 
+// ── Package-internal worktree-domain helpers (#661 migration pending) ─────────
+
 /**
- * Gets the default branch name of the repository using the GitHub CLI.
- * @returns The name of the default branch (e.g., 'main', 'master', 'develop')
+ * Returns the default branch from the GitHub API.
+ * Used only by worktree-domain files (#661); public callers use GitContext.defaultBranch().
  */
 export function getDefaultBranch(cwd?: string): string {
-  try {
-    const result = execSync(
-      "gh repo view --json defaultBranchRef --jq '.defaultBranchRef.name'",
-      { encoding: 'utf-8', cwd }
-    );
-    const branchName = result.trim();
-
-    if (!branchName) {
-      throw new Error('GitHub CLI returned empty default branch name');
-    }
-
-    return branchName;
-  } catch (error) {
-    throw new Error(`Failed to get default branch: ${error}`);
-  }
+  const result = execSync(
+    "gh repo view --json defaultBranchRef --jq '.defaultBranchRef.name'",
+    { encoding: 'utf-8', cwd },
+  ).trim();
+  if (!result) throw new Error('GitHub CLI returned empty default branch name');
+  return result;
 }
 
 /**
- * @deprecated Runs `git pull --rebase` which crashes on divergent branches.
- * Use `git fetch origin` + worktree-based workflows instead.
- * Checks out the repository's default branch and pulls the latest changes.
- * This ensures the working directory is on the latest version of the default branch
- * before creating feature branches.
- *
- * @param cwd - Optional working directory to run the command in
- * @returns The name of the default branch that was checked out.
- */
-export function checkoutDefaultBranch(cwd?: string): string {
-  log('WARNING: checkoutDefaultBranch is deprecated. Use `git fetch origin` + worktree-based workflows instead.', 'warn');
-  log('Checking out default branch...', 'info');
-
-  const defaultBranch = getDefaultBranch(cwd);
-  log(`Default branch is: ${defaultBranch}`, 'info');
-
-  try {
-    execSync(`git checkout "${defaultBranch}"`, { stdio: 'pipe', cwd });
-    log(`Checked out branch: ${defaultBranch}`, 'success');
-  } catch (error) {
-    throw new Error(`Failed to checkout default branch '${defaultBranch}': ${error}`);
-  }
-
-  try {
-    execSync(`git pull --rebase origin "${defaultBranch}"`, { stdio: 'pipe', cwd });
-    log(`Pulled latest changes from origin/${defaultBranch}`, 'success');
-  } catch (error) {
-    throw new Error(`Failed to pull latest changes for '${defaultBranch}': ${error}`);
-  }
-
-  return defaultBranch;
-}
-
-/**
- * Merges the latest changes from origin/{defaultBranch} into the current branch.
- * Fetches the specific branch from origin first, then merges.
- * Logs warnings on failure instead of throwing, since a merge conflict
- * should not prevent the workflow from attempting to continue.
- *
- * @param defaultBranch - The default branch name to merge from (e.g., 'main')
- * @param cwd - The working directory to run the commands in
- */
-export function mergeLatestFromDefaultBranch(defaultBranch: string, cwd: string): void {
-  log(`Fetching origin/${defaultBranch} in ${cwd}...`, 'info');
-  try {
-    execSync(`git fetch origin "${defaultBranch}"`, { stdio: 'pipe', cwd });
-  } catch (error) {
-    log(`Warning: Failed to fetch origin/${defaultBranch}: ${error}`, 'info');
-    return;
-  }
-
-  log(`Merging origin/${defaultBranch} into current branch...`, 'info');
-  try {
-    execSync(`git merge "origin/${defaultBranch}" --no-edit`, { stdio: 'pipe', cwd });
-    log(`Merged latest changes from origin/${defaultBranch}`, 'success');
-  } catch (error) {
-    log(`Warning: Failed to merge origin/${defaultBranch}: ${error}`, 'info');
-  }
-}
-
-/**
- * Fetches the latest refs for the default branch from origin, then resets
- * the working tree (hard) to match the remote tip exactly.
- * Throws on failure since the reset is critical for correct worktree state.
- *
- * @param defaultBranch - The default branch name to sync from (e.g., 'main')
- * @param cwd - The working directory (worktree path) to run the commands in
- */
-export function fetchAndResetToRemote(defaultBranch: string, cwd: string): void {
-  log(`Fetching origin/${defaultBranch}...`, 'info');
-  try {
-    execSync(`git fetch origin "${defaultBranch}"`, { stdio: 'pipe', cwd });
-  } catch (error) {
-    throw new Error(`Failed to fetch origin/${defaultBranch}: ${error}`);
-  }
-
-  log(`Resetting to origin/${defaultBranch}...`, 'info');
-  try {
-    execSync(`git reset --hard "origin/${defaultBranch}"`, { stdio: 'pipe', cwd });
-  } catch (error) {
-    throw new Error(`Failed to reset to origin/${defaultBranch}: ${error}`);
-  }
-
-  log(`Synced worktree to origin/${defaultBranch}`, 'success');
-}
-
-/**
- * Deletes a local git branch using force deletion.
- * Refuses to delete protected branches (main, master, develop).
- *
- * @param branchName - The branch to delete
- * @param cwd - Optional working directory to run the command in
- * @returns True if successfully deleted, false otherwise
+ * Deletes a local branch with force. Refuses protected branches.
+ * Used only by worktree-domain files (#661); public callers use GitContext.deleteLocalBranch().
  */
 export function deleteLocalBranch(branchName: string, cwd?: string): boolean {
-  if (PROTECTED_BRANCHES.includes(branchName)) {
-    log(`Refusing to delete protected branch '${branchName}'`, 'info');
-    return false;
-  }
-
+  if (PROTECTED_BRANCHES.includes(branchName)) return false;
   try {
     execSync(`git branch -D "${branchName}"`, { stdio: 'pipe', cwd });
-    log(`Deleted local branch '${branchName}'`, 'success');
     return true;
-  } catch (error) {
-    log(`Failed to delete local branch '${branchName}': ${error}`, 'info');
+  } catch {
     return false;
   }
 }
-
-/**
- * Deletes a remote git branch on origin.
- * Refuses to delete protected branches (main, master, develop).
- *
- * @param branchName - The branch to delete from origin
- * @param cwd - Optional working directory to run the command in
- * @returns True if successfully deleted, false otherwise
- */
-export function deleteRemoteBranch(branchName: string, cwd?: string): boolean {
-  if (PROTECTED_BRANCHES.includes(branchName)) {
-    log(`Refusing to delete protected remote branch '${branchName}'`, 'info');
-    return false;
-  }
-
-  try {
-    execSync(`git push origin --delete "${branchName}"`, { stdio: 'pipe', cwd });
-    log(`Deleted remote branch '${branchName}'`, 'success');
-    return true;
-  } catch (error) {
-    log(`Failed to delete remote branch '${branchName}': ${error}`, 'info');
-    return false;
-  }
-}
-

@@ -46,7 +46,20 @@ import {
   teardownMockInfrastructure,
 } from '../../../test/mocks/test-harness.ts';
 import type { RegressionWorld } from '../../regression/step_definitions/world.ts';
-import { fetchAndResetToRemote } from '../../../adws/vcs/branchOperations.ts';
+// fetchAndResetToRemote migrated to GitContext (#662) — use inline helper for test steps
+import { GitContext } from '../../../adws/gitContext/index.ts';
+import type { GitContextOptions } from '../../../adws/gitContext/types.ts';
+import { tmpdir as _tmpdir628 } from 'node:os';
+
+function fetchAndResetToRemote(branch: string, worktreePath: string): void {
+  const opts: GitContextOptions = {
+    owner: 'test', repo: 'test', selfHost: true,
+    token: 'dummy-token-local-test',
+    gitIdentity: { authorName: 'ADW Test', authorEmail: 'test@adw.test', committerName: 'ADW Test', committerEmail: 'test@adw.test' },
+    frameworkRepoRoot: worktreePath, targetReposDir: _tmpdir628(),
+  };
+  new GitContext(opts).fetchAndResetToRemote(branch, worktreePath);
+}
 import { ensureWorktree } from '../../../adws/vcs/worktreeCreation.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));

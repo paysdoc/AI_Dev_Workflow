@@ -10,7 +10,6 @@ import {
   emptyModelUsageMap,
 } from '../core';
 import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
-import { pushBranch } from '../vcs';
 import { postIssueStageComment } from './phaseCommentHelpers';
 import {
   getPlanFilePath,
@@ -18,7 +17,7 @@ import {
   runCommitAgent,
 } from '../agents';
 import type { WorkflowConfig } from './workflowInit';
-import { getRepoInfo } from '../github';
+import { getRepoInfo, gitContextFor } from '../github';
 import { executeDocsPostWriteSelfCheck } from './docsSelfCheck';
 
 /**
@@ -34,6 +33,9 @@ export async function executeDocumentPhase(
 ): Promise<{ costUsd: number; modelUsage: ModelUsageMap; phaseCostRecords: PhaseCostRecord[] }> {
   const { orchestratorStatePath, adwId, issueNumber, issueType, issue, ctx, worktreePath, logsDir, repoContext, branchName } = config;
   const phaseStartTime = Date.now();
+  const ctxOwner = repoContext?.repoId.owner ?? getRepoInfo().owner;
+  const ctxRepo = repoContext?.repoId.repo ?? getRepoInfo().repo;
+  const gitCtx = await gitContextFor({ owner: ctxOwner, repo: ctxRepo, selfHost: !repoContext });
 
   let costUsd = 0;
   let modelUsage = emptyModelUsageMap();
@@ -114,7 +116,7 @@ export async function executeDocumentPhase(
   await runCommitAgent('document-agent', issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body);
 
   // Push documentation commit to remote
-  pushBranch(branchName, worktreePath);
+  gitCtx.pushBranch(branchName, worktreePath);
 
   AgentStateManager.appendLog(orchestratorStatePath, `Documentation created: ${result.docPath}`);
   if (repoContext) {

@@ -11,7 +11,7 @@ import type { RepoInfo } from '../github/githubApi';
 import type { GitContext } from '../gitContext';
 import { closeIssue, fetchIssueCommentsRest } from '../github/issueApi';
 import { removeWorktreesForIssue } from '../vcs/worktreeCleanup';
-import { deleteRemoteBranch } from '../vcs/branchOperations';
+import { gitContextForSync } from '../github';
 import { AgentStateManager } from '../core/agentState';
 import { findOrchestratorStatePath } from '../core/stateHelpers';
 import { extractLatestAdwId, isActiveStage, getLastActivityFromState } from './cronStageResolver';
@@ -56,14 +56,16 @@ function defaultPrClosedDeps(): PrClosedDeps {
   };
 }
 
-function defaultIssueClosedDeps(): IssueClosedDeps {
+function defaultIssueClosedDeps(repoInfo?: RepoInfo): IssueClosedDeps {
   return {
     fetchIssueComments: fetchIssueCommentsRest,
     readTopLevelState: (adwId) => AgentStateManager.readTopLevelState(adwId),
     removeWorktreesForIssue,
     findOrchestratorStatePath,
     readOrchestratorState: (statePath) => AgentStateManager.readState(statePath),
-    deleteRemoteBranch,
+    deleteRemoteBranch: repoInfo
+      ? (branchName, cwd) => gitContextForSync({ owner: repoInfo.owner, repo: repoInfo.repo, selfHost: false }).deleteRemoteBranch(branchName, cwd)
+      : () => false,
     closeAbandonedDependents,
     handleIssueClosedDependencyUnblock,
   };
@@ -152,9 +154,10 @@ export async function handleIssueClosedEvent(
   repoInfo: RepoInfo | undefined,
   cwd: string | undefined,
   targetRepoArgs: string[] = [],
-  deps: IssueClosedDeps = defaultIssueClosedDeps(),
+  deps?: IssueClosedDeps,
   gitContext?: GitContext,
 ): Promise<IssueClosedResult> {
+  const d = deps ?? defaultIssueClosedDeps(repoInfo);
   let adwId: string | null = null;
   let workflowStage: string | undefined;
   let state: AgentState | null = null;
@@ -162,7 +165,7 @@ export async function handleIssueClosedEvent(
   // Fetch comments and resolve adw-id + state (requires repoInfo)
   if (repoInfo) {
     try {
-      const comments = deps.fetchIssueComments(issueNumber, repoInfo);
+      const comments = d.fetchIssueComments(issueNumber, repoInfo);
       adwId = extractLatestAdwId(comments);
     } catch (error) {
       log(`Failed to fetch comments for issue #${issueNumber}: ${error}`, 'warn');
@@ -170,7 +173,7 @@ export async function handleIssueClosedEvent(
   }
 
   if (adwId) {
-    state = deps.readTopLevelState(adwId);
+    state = d.readTopLevelState(adwId);
     workflowStage = state?.workflowStage;
 
     // Grace period guard: skip cleanup when orchestrator is actively in progress
@@ -184,7 +187,7 @@ export async function handleIssueClosedEvent(
   }
 
   // Worktree cleanup
-  const worktreesRemoved = deps.removeWorktreesForIssue(issueNumber, cwd);
+  const worktreesRemoved = d.removeWorktreesForIssue(issueNumber, cwd);
   log(`Removed ${worktreesRemoved} worktree(s) for issue #${issueNumber}`, 'success');
 
   // Remote branch deletion — top-level state is canonical (#524/#530); orchestrator is fallback.
@@ -192,13 +195,13 @@ export async function handleIssueClosedEvent(
   if (adwId && state) {
     let branchName = state.branchName;
     if (!branchName) {
-      const orchestratorPath = deps.findOrchestratorStatePath(adwId);
+      const orchestratorPath = d.findOrchestratorStatePath(adwId);
       if (orchestratorPath) {
-        branchName = deps.readOrchestratorState(orchestratorPath)?.branchName;
+        branchName = d.readOrchestratorState(orchestratorPath)?.branchName;
       }
     }
     if (branchName) {
-      branchDeleted = deps.deleteRemoteBranch(branchName, cwd);
+      branchDeleted = d.deleteRemoteBranch(branchName, cwd);
     }
   }
 
@@ -206,9 +209,9 @@ export async function handleIssueClosedEvent(
   if (repoInfo) {
     // 'abandoned' = transient failure, 'discarded' = deliberate terminal. Both propagate "don't pick up blocked work" to dependents; only 'completed' unblocks them.
     if (workflowStage === 'abandoned' || workflowStage === 'discarded') {
-      await deps.closeAbandonedDependents(issueNumber, repoInfo);
+      await d.closeAbandonedDependents(issueNumber, repoInfo);
     } else {
-      await deps.handleIssueClosedDependencyUnblock(issueNumber, repoInfo, targetRepoArgs, gitContext);
+      await d.handleIssueClosedDependencyUnblock(issueNumber, repoInfo, targetRepoArgs, gitContext);
     }
   }
 

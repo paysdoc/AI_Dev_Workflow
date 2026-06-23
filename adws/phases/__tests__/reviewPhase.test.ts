@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+const mockPush = vi.hoisted(() => vi.fn());
+const mockGitContextFor = vi.hoisted(() => vi.fn(() => Promise.resolve({ pushBranch: mockPush })));
+
 vi.mock('../reviewPhase', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../reviewPhase')>();
   return actual;
@@ -21,8 +24,11 @@ vi.mock('../../agents/gitAgent', () => ({
   runCommitAgent: vi.fn(),
 }));
 
-vi.mock('../../vcs', () => ({
-  pushBranch: vi.fn(),
+vi.mock('../../github', () => ({
+  approvePR: vi.fn(),
+  isGitHubAppConfigured: vi.fn(() => false),
+  getRepoInfo: vi.fn(() => ({ owner: 'test', repo: 'repo' })),
+  gitContextFor: mockGitContextFor,
 }));
 
 vi.mock('../../core', () => ({
@@ -49,13 +55,11 @@ import { runPatchAgent } from '../../agents/patchAgent';
 import { runBuildAgent } from '../../agents/buildAgent';
 import { runRefactorAgent } from '../../agents/refactorAgent';
 import { runCommitAgent } from '../../agents/gitAgent';
-import { pushBranch } from '../../vcs';
 
 const mockPatch = vi.mocked(runPatchAgent);
 const mockBuild = vi.mocked(runBuildAgent);
 const mockRefactor = vi.mocked(runRefactorAgent);
 const mockCommit = vi.mocked(runCommitAgent);
-const mockPush = vi.mocked(pushBranch);
 
 const okAgentResult = {
   success: true,

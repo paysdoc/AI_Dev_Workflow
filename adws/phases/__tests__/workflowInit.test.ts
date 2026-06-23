@@ -25,12 +25,19 @@ vi.mock('fs', async (importOriginal) => {
   };
 });
 
+const mockGitCtx = vi.hoisted(() => ({
+  defaultBranch: vi.fn().mockReturnValue('main'),
+  mergeLatestFromDefaultBranch: vi.fn(),
+  fetchAndResetToRemote: vi.fn(),
+}));
+
 vi.mock('../../github', () => ({
   fetchGitHubIssue: vi.fn(),
   detectRecoveryState: vi.fn(),
   getRepoInfo: vi.fn(),
   activateGitHubAppAuth: vi.fn(),
   isGitHubAppConfigured: vi.fn().mockReturnValue(false),
+  gitContextForSync: vi.fn().mockReturnValue(mockGitCtx),
 }));
 
 vi.mock('../../core/environment', async (importOriginal) => {
@@ -44,14 +51,8 @@ vi.mock('../../core/environment', async (importOriginal) => {
 vi.mock('../../vcs', () => ({
   ensureWorktree: vi.fn(),
   getWorktreeForBranch: vi.fn(),
-  mergeLatestFromDefaultBranch: vi.fn(),
   copyEnvToWorktree: vi.fn(),
   findWorktreeForIssue: vi.fn().mockReturnValue(null),
-  fetchAndResetToRemote: vi.fn(),
-}));
-
-vi.mock('../../vcs/branchOperations', () => ({
-  getDefaultBranch: vi.fn().mockReturnValue('main'),
 }));
 
 vi.mock('../../providers/repoContext', () => ({

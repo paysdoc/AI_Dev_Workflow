@@ -16,52 +16,13 @@ import * as os from 'os';
 import { Given, When, Then, After } from '@cucumber/cucumber';
 import assert from 'assert';
 import { GitContext } from '../../../adws/gitContext/index.ts';
-import type { GitContextOptions, ExecFn } from '../../../adws/gitContext/index.ts';
-
-// ── Shared sentinel values ───────────────────────────────────────────────────
-
-const TARGET_REPOS_ROOT = '/srv/adw/repos';
-const FRAMEWORK_ROOT = '/srv/adw/framework';
-
-function makeFullOptions(owner: string, repo: string, token: string, authorName: string, authorEmail: string): GitContextOptions {
-  return {
-    owner,
-    repo,
-    selfHost: false,
-    token,
-    gitIdentity: {
-      authorName,
-      authorEmail,
-      committerName: authorName,
-      committerEmail: authorEmail,
-    },
-    frameworkRepoRoot: FRAMEWORK_ROOT,
-    targetReposDir: TARGET_REPOS_ROOT,
-  };
-}
-
-// ── Spy exec factory ─────────────────────────────────────────────────────────
-
-interface SpyCall {
-  command: string;
-  cwd: string;
-  env: NodeJS.ProcessEnv;
-}
-
-function makeSpyExec(stdout = 'main\n'): { exec: ExecFn; calls: SpyCall[] } {
-  const calls: SpyCall[] = [];
-  const exec: ExecFn = (command, options) => {
-    calls.push({ command, cwd: options.cwd, env: { ...options.env } });
-    return stdout;
-  };
-  return { exec, calls };
-}
-
-function parseAuthor(authorStr: string): { name: string; email: string } {
-  const match = /^(.+?)\s*<([^>]+)>$/.exec(authorStr.trim());
-  if (!match) throw new Error(`Cannot parse author string: "${authorStr}"`);
-  return { name: match[1].trim(), email: match[2].trim() };
-}
+import {
+  W,
+  makeSpyExec,
+  makeFullOptions,
+  parseAuthor,
+  type PendingCtxArgs,
+} from './gitContextSharedWorld.ts';
 
 function runOp(ctx: GitContext, opName: string): void {
   switch (opName) {
@@ -103,41 +64,6 @@ function runOp(ctx: GitContext, opName: string): void {
   }
 }
 
-// ── Scenario world state ─────────────────────────────────────────────────────
-// Construction args are staged separately so the recording runner step can
-// reconstruct the context with the spy exec injected (Deps idiom).
-
-interface PendingCtxArgs {
-  owner: string;
-  repo: string;
-  token: string;
-  authorName: string;
-  authorEmail: string;
-}
-
-interface World659 {
-  pendingArgs: PendingCtxArgs | null;
-  ctx: GitContext | null;
-  spyCalls: SpyCall[];
-  // Two-context isolation scenarios
-  contextsByKey: Map<string, { ctx: GitContext; calls: SpyCall[] }>;
-  pendingByKey: Map<string, PendingCtxArgs>;
-  parentEnvSnapshot: NodeJS.ProcessEnv | null;
-  originalCwd: string;
-  savedGhToken: string | undefined;
-}
-
-const W: World659 = {
-  pendingArgs: null,
-  ctx: null,
-  spyCalls: [],
-  contextsByKey: new Map(),
-  pendingByKey: new Map(),
-  parentEnvSnapshot: null,
-  originalCwd: process.cwd(),
-  savedGhToken: undefined,
-};
-
 After(function () {
   if (process.cwd() !== W.originalCwd) {
     process.chdir(W.originalCwd);
@@ -151,9 +77,11 @@ After(function () {
   W.pendingArgs = null;
   W.ctx = null;
   W.spyCalls = [];
+  W.responseMap = new Map();
   W.contextsByKey = new Map();
   W.pendingByKey = new Map();
   W.parentEnvSnapshot = null;
+  W.lastError = null;
 });
 
 // ── Construction — single-context steps ─────────────────────────────────────
@@ -190,7 +118,7 @@ Given("the context's git and gh commands are captured by a recording runner", fu
     W.pendingByKey = new Map();
   }
   assert.ok(args !== null, 'Expected construction args to be staged');
-  const { exec, calls } = makeSpyExec();
+  const { exec, calls } = makeSpyExec(W.responseMap);
   const { owner, repo, token, authorName, authorEmail } = args;
   W.ctx = new GitContext(makeFullOptions(owner, repo, token, authorName, authorEmail), { exec });
   W.spyCalls = calls;
@@ -202,7 +130,7 @@ Given("the context's git and gh commands are captured by a recording runner", fu
 Given("each context's git and gh commands are captured by a recording runner", function () {
   assert.ok(W.pendingByKey.size > 0, 'Expected pending contexts to be staged');
   for (const [key, args] of W.pendingByKey) {
-    const { exec, calls } = makeSpyExec();
+    const { exec, calls } = makeSpyExec(new Map());
     const { owner, repo, token, authorName, authorEmail } = args;
     const ctx = new GitContext(makeFullOptions(owner, repo, token, authorName, authorEmail), { exec });
     W.contextsByKey.set(key, { ctx, calls });

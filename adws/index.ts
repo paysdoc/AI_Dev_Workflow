@@ -63,14 +63,10 @@ export {
   type ReviewAgentResult,
 } from './agents';
 
-// VCS module - Git command wrappers
+// VCS module — pure branch-name vocabulary (I/O ops migrated to GitContext #662)
 export {
-  getCurrentBranch,
   validateSlug,
   generateBranchName,
-  checkoutBranch,
-  commitChanges,
-  pushBranch,
 } from './vcs';
 
 // GitHub module - GitHub API and workflow comments

@@ -1,76 +1,79 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+/**
+ * Tests re-homed from vcs/branchOperations.ts fetchAndResetToRemote onto
+ * the GitContext branchOps module (#662).
+ * Uses the injected-runner pattern so no child_process mock is needed.
+ */
 
-vi.mock('child_process', () => ({ execSync: vi.fn() }));
-vi.mock('../../core', () => ({ log: vi.fn() }));
+import { describe, it, expect } from 'vitest';
+import { branchOps } from '../../gitContext/branchOps';
 
-import { execSync } from 'child_process';
-import { fetchAndResetToRemote } from '../branchOperations';
+type Call = { command: string; cwd: string };
 
-const mockExecSync = vi.mocked(execSync);
+function makeRunner(responses: Map<string, string | Error> = new Map()): { run: (cmd: string, cwd: string) => string; calls: Call[] } {
+  const calls: Call[] = [];
+  const run = (command: string, cwd: string): string => {
+    calls.push({ command, cwd });
+    const key = [...responses.keys()].find((k) => command.includes(k));
+    const val = key !== undefined ? responses.get(key) : '';
+    if (val instanceof Error) throw val;
+    return val ?? '';
+  };
+  return { run, calls };
+}
 
-beforeEach(() => {
-  mockExecSync.mockReset();
-});
+// ── Order & exact commands ───────────────────────────────────────────────────
 
-// ── Order & exact commands for a claim branch ─────────────────────────────────
-
-describe('fetchAndResetToRemote — order and exact commands for a claim branch', () => {
-  it('issues git fetch origin then git reset --hard in that order for an arbitrary claim branch', () => {
-    mockExecSync
-      .mockReturnValueOnce('') // fetch
-      .mockReturnValueOnce(''); // reset --hard
-
-    fetchAndResetToRemote('adw-upgrade-deadbeef', '/wt');
-
-    const calls = mockExecSync.mock.calls.map((c) => c[0] as string);
-    expect(calls[0]).toBe('git fetch origin "adw-upgrade-deadbeef"');
-    expect(calls[1]).toBe('git reset --hard "origin/adw-upgrade-deadbeef"');
+describe('fetchAndResetToRemote — order and exact commands', () => {
+  it('issues git fetch origin then git reset --hard in that order', () => {
+    const { run, calls } = makeRunner();
+    branchOps.fetchAndResetToRemote(run, 'adw-upgrade-deadbeef', '/wt');
+    expect(calls[0].command).toBe('git fetch origin "adw-upgrade-deadbeef"');
+    expect(calls[1].command).toBe('git reset --hard "origin/adw-upgrade-deadbeef"');
     expect(calls).toHaveLength(2);
   });
 
   it('passes cwd to both git commands', () => {
-    mockExecSync
-      .mockReturnValueOnce('')
-      .mockReturnValueOnce('');
-
-    fetchAndResetToRemote('adw-upgrade-deadbeef', '/wt');
-
-    for (const call of mockExecSync.mock.calls) {
-      expect((call[1] as { cwd?: string }).cwd).toBe('/wt');
-    }
+    const { run, calls } = makeRunner();
+    branchOps.fetchAndResetToRemote(run, 'adw-upgrade-deadbeef', '/wt');
+    expect(calls[0].cwd).toBe('/wt');
+    expect(calls[1].cwd).toBe('/wt');
   });
 });
 
-// ── Throws on fetch failure, skips reset ─────────────────────────────────────
+// ── Throws on fetch failure ──────────────────────────────────────────────────
 
 describe('fetchAndResetToRemote — throws on fetch failure and skips reset', () => {
-  it('throws /Failed to fetch origin\\//' , () => {
-    mockExecSync.mockImplementationOnce(() => { throw new Error('network unreachable'); });
-
-    expect(() => fetchAndResetToRemote('adw-upgrade-deadbeef', '/wt')).toThrow(
+  it('throws with /Failed to fetch origin\\//', () => {
+    const run = (cmd: string, _cwd: string): string => {
+      if (cmd.includes('fetch')) throw new Error('network unreachable');
+      return '';
+    };
+    expect(() => branchOps.fetchAndResetToRemote(run, 'adw-upgrade-deadbeef', '/wt')).toThrow(
       /Failed to fetch origin\//,
     );
   });
 
   it('does not call git reset --hard when fetch fails', () => {
-    mockExecSync.mockImplementationOnce(() => { throw new Error('offline'); });
-
-    try { fetchAndResetToRemote('adw-upgrade-deadbeef', '/wt'); } catch { /* expected */ }
-
-    const calls = mockExecSync.mock.calls.map((c) => c[0] as string);
-    expect(calls.every((c) => !c.includes('reset --hard'))).toBe(true);
+    const cmds: string[] = [];
+    const run = (cmd: string, _cwd: string): string => {
+      cmds.push(cmd);
+      if (cmd.includes('fetch')) throw new Error('offline');
+      return '';
+    };
+    try { branchOps.fetchAndResetToRemote(run, 'adw-upgrade-deadbeef', '/wt'); } catch { /* expected */ }
+    expect(cmds.every((c) => !c.includes('reset --hard'))).toBe(true);
   });
 });
 
-// ── Throws on reset failure ───────────────────────────────────────────────────
+// ── Throws on reset failure ──────────────────────────────────────────────────
 
 describe('fetchAndResetToRemote — throws on reset failure', () => {
-  it('throws /Failed to reset to origin\\//' , () => {
-    mockExecSync
-      .mockReturnValueOnce('') // fetch ok
-      .mockImplementationOnce(() => { throw new Error('reset conflict'); });
-
-    expect(() => fetchAndResetToRemote('adw-upgrade-deadbeef', '/wt')).toThrow(
+  it('throws with /Failed to reset to origin\\//', () => {
+    const run = (cmd: string, _cwd: string): string => {
+      if (cmd.includes('reset')) throw new Error('reset conflict');
+      return '';
+    };
+    expect(() => branchOps.fetchAndResetToRemote(run, 'adw-upgrade-deadbeef', '/wt')).toThrow(
       /Failed to reset to origin\//,
     );
   });

@@ -6,7 +6,7 @@
 
 import { runCommandAgent, type CommandAgentConfig, type ExtractionResult } from './commandAgent';
 import type { AgentResult } from './claudeAgent';
-import { getDefaultBranch } from '../vcs/branchOperations';
+import { refreshTokenIfNeeded } from '../github/githubAppAuth';
 
 /**
  * Structured PR content returned by the agent.
@@ -94,8 +94,10 @@ export async function runPullRequestAgent(
   issueBody?: string,
   repoOwner?: string,
   repoName?: string,
+  resolvedDefaultBranch?: string,
 ): Promise<AgentResult & { prContent: PrContent }> {
-  const defaultBranch = getDefaultBranch(cwd);
+  refreshTokenIfNeeded();
+  const defaultBranch = resolvedDefaultBranch ?? '';
   const args = [branchName, issueJson, planFile, adwId, defaultBranch, repoOwner ?? '', repoName ?? ''];
 
   const result = await runCommandAgent(prAgentConfig, {

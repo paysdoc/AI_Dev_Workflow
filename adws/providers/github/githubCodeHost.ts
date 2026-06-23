@@ -6,8 +6,7 @@
 import type { RepoInfo } from '../../github/githubApi';
 import { log } from '../../core';
 import { fetchPRDetails, fetchPRReviewComments, commentOnPR, fetchPRList } from '../../github/prApi';
-import { getDefaultBranch as ghGetDefaultBranch } from '../../vcs/branchOperations';
-import { gitContextForRepo } from '../../github/gitContextFactory';
+import { gitContextForSync, gitContextForRepo } from '../../github/gitContextFactory';
 import {
   type CodeHost,
   type CreatePROptions,
@@ -41,9 +40,8 @@ export class GitHubCodeHost implements CodeHost {
     return this.repoId;
   }
 
-  /** Delegates to gitBranchOperations.getDefaultBranch(). */
   getDefaultBranch(): string {
-    return ghGetDefaultBranch();
+    return gitContextForSync({ owner: this.repoId.owner, repo: this.repoId.repo, selfHost: false }).defaultBranch();
   }
 
   /** Fetches PR details and maps to PullRequest. */
