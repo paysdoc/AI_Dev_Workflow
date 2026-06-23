@@ -1946,3 +1946,16 @@
     - When the "wrong-base-repo on takeover path" (`spawnSync ENOENT`, vestmatic #187) class of bug is being fixed or investigated
     - When wiring `gitContext.basePath` into worktree creation or `ensureWorktree` calls as the self-host base path replacement for `process.cwd()`
     - When adding unit tests for the boundary constructor (target args → target workspace; absent args → framework repo root; injectable deps)
+
+- app_docs/feature-bq1f45-git-gh-cli-guard.md
+  - Owns:
+    - adws/checkGitGhGuard.ts
+    - .github/workflows/git-cli-guard.yml
+  - Conditions:
+    - When working with `adws/checkGitGhGuard.ts`, `scanFiles`, or the `ALLOWLIST` of permitted direct git/gh shell-out files
+    - When adding a new file that must shell out to `git`/`gh` directly and needs an ALLOWLIST entry with category and justification
+    - When the CI `Git/GH CLI Guard` workflow (`.github/workflows/git-cli-guard.yml`) fails on a pull request or push
+    - When migrating a residual allowlisted file to GitContext methods and removing it from the ALLOWLIST
+    - When troubleshooting false-positive or false-negative detection (template literals, execFileSync first-arg form, comment mentions)
+    - When the `bun run lint:git-guard` script exits 1 and you need to understand the remedy (migrate to GitContext or add to allowlist)
+    - When understanding why `features/` and `test/` dirs are excluded from the scan (fixture-repo BDD setup legitimately shells out)

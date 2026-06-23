@@ -507,6 +507,7 @@ adws/                   # ADW workflow system
 │   │   ├── hungOrchestratorDetector.test.ts
 │   │   ├── issueClassifier.test.ts
 │   │   ├── launchGitContext.test.ts
+│   │   ├── repoIdentityCrossCheck.test.ts
 │   │   ├── phaseRunner.test.ts
 │   │   ├── processLiveness.test.ts
 │   │   ├── projectConfig.test.ts
@@ -571,6 +572,7 @@ adws/                   # ADW workflow system
 │   ├── targetRepoManager.ts
 │   ├── testReportParser.ts  # JUnit XML test report parser — reads xunit output into TestReport (total, passed, failed, skipped, per-case status)
 │   ├── testVerdict.ts  # Pure test verdict computation (enabled, hasFailures, testcaseCount, frameworkDetected → verdict)
+│   ├── repoIdentityCrossCheck.ts  # Persists repo identity at workflow init and cross-checks on resume (guards against wrong-repo restarts)
 │   ├── upgradeClaim.ts # Atomic upgrade-claim primitive via GitHub branch namespace (winner/loser resolution)
 │   ├── utils.ts
 │   ├── workflowCommentParsing.ts  # Comment parsing utilities
@@ -593,6 +595,7 @@ adws/                   # ADW workflow system
 │   ├── labelManager.ts  # adw:* label lifecycle management and label-based issue classification
 │   ├── linkedPrDetector.ts  # Detects linked merged or closed PRs for an issue via "Implements #N" body scan
 │   ├── prApi.ts
+│   ├── gitContextFactory.ts  # Per-repo GitContext factory (gitContextFor, gitContextForSync, deriveGitIdentity)
 │   ├── prCommentDetector.ts
 │   ├── projectBoardApi.ts
 │   ├── proofCommentFormatter.ts
@@ -613,11 +616,11 @@ adws/                   # ADW workflow system
 │   ├── commitOps.ts    # Package-private commit/push orchestration (force-with-lease, lease rejection detection)
 │   ├── gitContext.ts   # GitContext class — mandatory identity, base-path resolution in constructor, per-command env injection, no cwd fallback
 │   ├── index.ts        # Public surface (GitContext class + GitIdentity/GitContextOptions types)
-│   ├── processCleanup.ts  # Process cleanup utility — kills processes with open files in a given directory
+│   ├── processCleanup.ts  # Package-private process kill helpers (killProcessesInDirectory)
 │   ├── types.ts        # GitIdentity, GitContextOptions, ExecFn, and GitContextDeps interfaces
-│   ├── worktreeCreateOps.ts  # Package-private worktree create/ensure ops — injects runner and fs for testability
-│   ├── worktreeQueryOps.ts  # Package-private worktree query ops — injects runner and fs for testability
-│   ├── worktreeRemoveOps.ts  # Package-private worktree remove ops — injects runner, fs, and killProcesses for testability
+│   ├── worktreeCreateOps.ts  # Package-private worktree creation orchestration (add, copy env, gitignore)
+│   ├── worktreeQueryOps.ts   # Package-private worktree query helpers (list, find by branch/issue)
+│   ├── worktreeRemoveOps.ts  # Package-private worktree removal orchestration (remove single, remove for issue)
 │   └── worktreeResetOps.ts  # Package-private takeover-reset orchestration (fetch, reset to remote, worktree repair)
 ├── vcs/                # Version control operations (git)
 │   ├── __tests__/      # Vitest unit tests
@@ -806,7 +809,7 @@ adws/                   # ADW workflow system
 │   ├── trigger_webhook.ts
 │   ├── webhookGatekeeper.ts
 │   ├── webhookHandlers.ts
-│   ├── webhookRepoResolver.ts  # Per-event repo identity resolution extracted from trigger_webhook.ts for testability
+│   ├── webhookRepoResolver.ts  # Per-event boundary resolver — builds one GitContext per webhook event from payload repo identity
 │   └── webhookSignature.ts
 ├── r2/                 # Cloudflare R2 upload module
 │   ├── bucketManager.ts  # R2 bucket creation and lifecycle rules
