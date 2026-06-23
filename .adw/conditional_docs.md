@@ -1898,6 +1898,10 @@
     - adws/vcs/worktreeCleanup.ts
     - adws/vcs/worktreeOperations.ts
     - adws/gitContext/commands/**
+    - adws/triggers/concurrencyGuard.ts
+    - adws/triggers/perIssueScenarioSweep.ts
+    - adws/triggers/webhookGatekeeper.ts
+    - adws/phases/docsSelfCheck.ts
   - Conditions:
     - When working with `GitContext`, `GitContextOptions`, `GitIdentity`, `ExecFn`, or `GitContextDeps` in `adws/gitContext/`
     - When implementing or troubleshooting base-path resolution for self-host vs target repos (the single `resolveBasePath` authority)
@@ -1909,7 +1913,7 @@
     - When `commitChanges`, `pushBranch`, `getHeadTreeHash`, or `hasUncommittedChanges` run through GitContext
     - When `resetWorktree` (abort-merge/rebase + fetch/reset --hard/clean) is involved in takeover recovery
     - When `createWorktree`, `createWorktreeForNewBranch`, `ensureWorktree`, `getWorktreeForBranch`, `listWorktrees`, `findWorktreeForIssue`, `removeWorktree`, `removeWorktreesForIssue`, or `copyEnvToWorktree` are called as GitContext methods
-    - When `gitContextFor` or `gitContextForSync` from `adws/github/gitContextFactory.ts` is used to construct a context at a call site
+    - When `gitContextFor`, `gitContextForSync`, or `gitContextForRepo` from `adws/github/gitContextFactory.ts` is used to construct a context at a call site
     - When `adws/vcs/worktreeCreation.ts`, `worktreeQuery.ts`, `worktreeCleanup.ts`, or `worktreeOperations.ts` are referenced and symbols appear to be missing (they migrated to GitContext in #661)
     - When `adws/vcs/branchOperations.ts`, `commitOperations.ts`, or `worktreeReset.ts` are referenced and I/O functions appear to be missing (they migrated to GitContext)
     - When working with `adws/gitContext/commands/` pure command builders or parsers (issue, PR, label, board)
@@ -1920,6 +1924,9 @@
     - When `getMainRepoPath()` is called without a `cwd` argument and fails (the cwd-defaulting form was removed in #661)
     - When the "wrong-repo worktree" or `GH_TOKEN` bleed class of bugs (#23, #33, #52, #56, #62, #119, #217, #223, #187, #181) is being addressed structurally
     - When adding unit tests for `adws/gitContext/` (env-injection, non-mutation, `usePat`, lease-rejection, two-context isolation, worktree path correctness under `process.chdir`, or command builder/parser tests)
+    - When working with `listOpenIssues`, `issueComments`, or `fetchMergedPRs` on `GitContext` (added in #691 — covers residual gh-read consumers)
+    - When `concurrencyGuard.ts`, `webhookGatekeeper.ts`, `docsSelfCheck.ts`, or `perIssueScenarioSweep.ts` are making gh issue/PR reads (they now route through `gitContextForRepo`)
+    - When migrating a trigger or phase module off direct `execSync`/`execWithRetry` for gh reads and onto `GitContext` methods (the #691 migration pattern)
 
 - app_docs/feature-k817bh-persist-repo-identity-cross-check.md
   - Owns:
