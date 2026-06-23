@@ -601,9 +601,17 @@ adws/                   # ADW workflow system
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── gitContext.test.ts
 │   │   └── gitContextOperations.test.ts
-│   ├── gitContext.ts   # GitContext class — mandatory identity, base-path resolution in constructor, worktree-path lookup, per-command env injection, no cwd fallback
+│   ├── commands/       # Pure command-string builders (no I/O) — one file per concern
+│   │   ├── boardCommands.ts    # GraphQL query strings for Projects V2 board operations
+│   │   ├── issueCommands.ts    # gh CLI command strings for issue read/write operations
+│   │   ├── labelCommands.ts    # gh CLI command strings for label create/apply operations
+│   │   └── prCommands.ts       # gh CLI command strings for PR list/create/merge/review operations
+│   ├── branchOps.ts    # Package-private branch operation orchestration (create, checkout, delete, reset)
+│   ├── commitOps.ts    # Package-private commit/push orchestration (force-with-lease, lease rejection detection)
+│   ├── gitContext.ts   # GitContext class — mandatory identity, base-path resolution in constructor, per-command env injection, no cwd fallback
 │   ├── index.ts        # Public surface (GitContext class + GitIdentity/GitContextOptions types)
-│   └── types.ts        # GitIdentity and GitContextOptions interfaces
+│   ├── types.ts        # GitIdentity, GitContextOptions, ExecFn, and GitContextDeps interfaces
+│   └── worktreeResetOps.ts  # Package-private takeover-reset orchestration (fetch, reset to remote, worktree repair)
 ├── vcs/                # Version control operations (git)
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── branchIdentity.test.ts
