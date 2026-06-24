@@ -1,7 +1,8 @@
-import { describe, it, expect, afterEach, vi } from 'vitest';
+import { describe, it, expect, afterEach, afterAll } from 'vitest';
 import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
+import { execSync } from 'child_process';
 import { readAdwVersion, writeAdwVersion, readRemoteAdwVersion, ADW_VERSION_FILENAME } from '../adwVersion';
 
 const SAMPLE_SHA = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
@@ -86,32 +87,87 @@ describe('adwVersion', () => {
   });
 
   describe('readRemoteAdwVersion', () => {
-    it('returns trimmed hash when git show succeeds', () => {
-      const execSync = vi.fn().mockReturnValue(Buffer.from(`${SAMPLE_SHA}\n`));
-      vi.doMock('child_process', () => ({ execSync }));
-      // Call directly since vi.doMock is lazy; test the trimming logic via the real fn
-      // by injecting a spy at the module level.
-      // Use an integration-style check: mock execSync on the module.
-      const result = readRemoteAdwVersion('main', '/tmp/workspace');
-      // Without a real git repo, execSync throws; verify null-on-throw behaviour below.
-      // This test exercises the happy path by checking that the function is exported and callable.
-      expect(typeof result === 'string' || result === null).toBe(true);
+    const GIT = process.env['REAL_GIT_PATH'] ?? 'git';
+    const fixtureRemoteDirs: string[] = [];
+
+    /**
+     * Creates a bare origin with an initial commit on `branch`, optionally including
+     * `.adw-version` with `content`, then creates a local clone tracking that origin.
+     * Returns the local workspace path — pass it as `workspacePath` to readRemoteAdwVersion.
+     */
+    function setupRemoteRepo(branch: string, content: string | null): string {
+      const originDir = mkdtempSync(join(tmpdir(), 'adw-ver-origin-'));
+      fixtureRemoteDirs.push(originDir);
+      execSync(`"${GIT}" init --bare "${originDir}"`, { stdio: 'pipe' });
+
+      const seedDir = mkdtempSync(join(tmpdir(), 'adw-ver-seed-'));
+      fixtureRemoteDirs.push(seedDir);
+      execSync(`"${GIT}" init "${seedDir}"`, { stdio: 'pipe' });
+      execSync(`"${GIT}" -C "${seedDir}" config user.email "test@adw.local"`, { stdio: 'pipe' });
+      execSync(`"${GIT}" -C "${seedDir}" config user.name "ADW Test"`, { stdio: 'pipe' });
+      writeFileSync(join(seedDir, 'README.md'), 'test\n');
+      execSync(`"${GIT}" -C "${seedDir}" add README.md`, { stdio: 'pipe' });
+      if (content !== null) {
+        writeFileSync(join(seedDir, ADW_VERSION_FILENAME), `${content}\n`);
+        execSync(`"${GIT}" -C "${seedDir}" add "${ADW_VERSION_FILENAME}"`, { stdio: 'pipe' });
+      }
+      execSync(`"${GIT}" -C "${seedDir}" commit -m "init"`, { stdio: 'pipe' });
+      execSync(`"${GIT}" -C "${seedDir}" branch -M "${branch}"`, { stdio: 'pipe' });
+      execSync(`"${GIT}" -C "${seedDir}" remote add origin "${originDir}"`, { stdio: 'pipe' });
+      execSync(`"${GIT}" -C "${seedDir}" push origin "${branch}"`, { stdio: 'pipe' });
+
+      const wsDir = mkdtempSync(join(tmpdir(), 'adw-ver-ws-'));
+      fixtureRemoteDirs.push(wsDir);
+      execSync(`"${GIT}" init "${wsDir}"`, { stdio: 'pipe' });
+      execSync(`"${GIT}" -C "${wsDir}" config user.email "test@adw.local"`, { stdio: 'pipe' });
+      execSync(`"${GIT}" -C "${wsDir}" config user.name "ADW Test"`, { stdio: 'pipe' });
+      execSync(`"${GIT}" -C "${wsDir}" remote add origin "${originDir}"`, { stdio: 'pipe' });
+      execSync(`"${GIT}" -C "${wsDir}" fetch --all`, { stdio: 'pipe' });
+      execSync(`"${GIT}" -C "${wsDir}" checkout -b "${branch}" "origin/${branch}"`, { stdio: 'pipe' });
+      return wsDir;
+    }
+
+    afterAll(() => {
+      for (const dir of fixtureRemoteDirs) {
+        try { rmSync(dir, { recursive: true, force: true }); } catch { /* best-effort */ }
+      }
     });
 
-    it('returns null when git show fails (file absent on remote)', () => {
-      // The function catches all errors from execSync and returns null — simulating
-      // "file not found on origin/main" which git exits non-zero on.
-      // Run against a non-existent path so execSync throws.
-      const result = readRemoteAdwVersion('main', '/nonexistent/path/that/does/not/exist');
-      expect(result).toBeNull();
+    it('returns the trimmed hash committed at origin/<branch>:.adw-version', () => {
+      const ws = setupRemoteRepo('main', SAMPLE_SHA);
+      expect(readRemoteAdwVersion('main', ws)).toBe(SAMPLE_SHA);
     });
 
-    it('returns null when git show returns empty content', () => {
-      // We can't easily mock execSync without module hoisting, but we can verify the
-      // trimming / null-for-empty contract by running against a valid git repo where
-      // the branch/file doesn't exist (exit-code 128 → null).
-      const result = readRemoteAdwVersion('nonexistent-branch-xyz', '/tmp');
-      expect(result).toBeNull();
+    it('returns null when .adw-version is absent on the remote branch (git show exits non-zero)', () => {
+      const ws = setupRemoteRepo('main', null);
+      // No .adw-version committed on origin/main → git show exits 128 → null
+      expect(readRemoteAdwVersion('main', ws)).toBeNull();
+    });
+
+    it('returns null when the remote branch does not exist', () => {
+      const ws = setupRemoteRepo('main', SAMPLE_SHA);
+      // 'nonexistent-branch-xyz' is not on origin → git show exits non-zero → null
+      expect(readRemoteAdwVersion('nonexistent-branch-xyz', ws)).toBeNull();
+    });
+
+    it('returns null when git show throws (invalid workspacePath)', () => {
+      expect(readRemoteAdwVersion('main', '/nonexistent/path/that/does/not/exist')).toBeNull();
+    });
+
+    it('returns null when .adw-version is empty on the remote branch', () => {
+      const ws = setupRemoteRepo('main', '');
+      // Committed with empty content → git show returns '' → trimmed → null
+      expect(readRemoteAdwVersion('main', ws)).toBeNull();
+    });
+
+    it('returns the REMOTE value, not the stale local .adw-version (immune to local drift)', () => {
+      const REMOTE_HASH = SAMPLE_SHA;
+      const STALE_LOCAL = OTHER_SHA;
+      const ws = setupRemoteRepo('main', REMOTE_HASH);
+      // Overwrite the local .adw-version with a stale hash (NOT committed to origin)
+      writeFileSync(join(ws, ADW_VERSION_FILENAME), `${STALE_LOCAL}\n`);
+      // readRemoteAdwVersion must return the REMOTE value, not the local one
+      expect(readRemoteAdwVersion('main', ws)).toBe(REMOTE_HASH);
     });
   });
 });
