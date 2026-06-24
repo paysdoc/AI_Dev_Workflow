@@ -400,8 +400,8 @@ export class GitContext {
     return this.#run(fetchAllPRsCmd(this.#owner, this.#repo));
   }
 
-  createPR(title: string, body: string, baseBranch?: string): string {
-    return this.#run(createPRCmd(this.#owner, this.#repo, title, baseBranch), { input: body });
+  createPR(title: string, body: string, headBranch: string, baseBranch?: string): string {
+    return this.#run(createPRCmd(this.#owner, this.#repo, title, headBranch, baseBranch), { input: body });
   }
 
   createLabel(name: string, color: string, description: string): void {
