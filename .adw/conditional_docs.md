@@ -1897,18 +1897,22 @@
     - adws/vcs/worktreeQuery.ts
     - adws/vcs/worktreeCleanup.ts
     - adws/vcs/worktreeOperations.ts
+    - adws/vcs/worktreeProbe.ts
     - adws/gitContext/commands/**
     - adws/triggers/concurrencyGuard.ts
     - adws/triggers/perIssueScenarioSweep.ts
     - adws/triggers/webhookGatekeeper.ts
     - adws/phases/docsSelfCheck.ts
+    - adws/phases/branchIdentityFallback.ts
+    - adws/core/orchestratorLib.ts
+    - adws/core/orchestratorNames.ts
   - Conditions:
     - When working with `GitContext`, `GitContextOptions`, `GitIdentity`, `ExecFn`, or `GitContextDeps` in `adws/gitContext/`
     - When implementing or troubleshooting base-path resolution for self-host vs target repos (the single `resolveBasePath` authority)
     - When `worktreePathFor`, `commandEnv`, `defaultBranch`, or construction-time identity validation of `GitContext` is relevant
     - When the per-command env injection chokepoint (`#run`), `usePat`, or stdin `input` forwarding is relevant
     - When `process.env` non-mutation or two-context `GH_TOKEN` isolation in a multi-repo long-lived process is relevant
-    - When working with `branchOps.ts`, `commitOps.ts`, `worktreeResetOps.ts`, `worktreeCreateOps.ts`, `worktreeQueryOps.ts`, `worktreeRemoveOps.ts`, or `processCleanup.ts` (package-private operation modules)
+    - When working with `branchOps.ts`, `commitOps.ts`, `worktreeResetOps.ts`, `worktreeCreateOps.ts`, `worktreeQueryOps.ts`, `worktreeRemoveOps.ts`, `worktreeProbeOps.ts`, or `processCleanup.ts` (package-private operation modules)
     - When `getCurrentBranch`, `mergeLatestFromDefaultBranch`, `fetchAndResetToRemote`, `deleteLocalBranch`, `deleteRemoteBranch` are GitContext methods
     - When `commitChanges`, `pushBranch`, `getHeadTreeHash`, or `hasUncommittedChanges` run through GitContext
     - When `resetWorktree` (abort-merge/rebase + fetch/reset --hard/clean) is involved in takeover recovery
@@ -1930,6 +1934,11 @@
     - When working with `remoteUrl(cwd?)` or `authenticatedUser()` as `GitContext` identity-read methods (added/wired in #692)
     - When `githubApi.ts` `getRepoInfo`, `repoContext.ts` `validateGitRemote`, or `trigger_cron.ts` identity reads are relevant (all migrated off raw `git`/`gh` in #692)
     - When `readLocalRepoInfo` in `gitContextFactory.ts` is the bootstrap boundary for reading `git remote get-url origin` before a `GitContext` can be constructed (chicken-and-egg — the only legitimate permanent exception for a remote-URL read outside the package)
+    - When working with worktree/branch probe reads: `resolveGitDir`, `currentBranchSymbolic`, `worktreeRegistration`, `worktreeBranches`, `localBranches`, or `mainRepoPath` on `GitContext` (added in #693)
+    - When `worktreeProbeOps.ts` (package-private probe op module), `WorktreeRegistration` union type, or `buildDefaultProbeDeps(ctx)` in `worktreeProbe.ts` is relevant
+    - When `adws/vcs/worktreeProbe.ts`, `worktreeOperations.ts`, `branchOperations.ts`, `branchIdentityFallback.ts`, or `orchestratorLib.ts` are referenced as migrated-in-#693 files (no longer on the guard ALLOWLIST)
+    - When `branchOperations.deleteLocalBranch` is referenced and not found (deleted as dead code in #693 — use `GitContext.deleteLocalBranch`)
+    - When `orchestratorLib` exports `deriveOrchestratorScript` or `orchestratorNamesForScript` (extracted to `orchestratorNames.ts`, re-exported from `orchestratorLib` for backwards compat)
 
 - app_docs/feature-k817bh-persist-repo-identity-cross-check.md
   - Owns:

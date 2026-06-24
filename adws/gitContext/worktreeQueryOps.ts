@@ -112,4 +112,39 @@ function getWorktreeForBranch(
   }
 }
 
-export const worktreeQueryOps = { listWorktrees, findWorktreeForIssue, getWorktreeForBranch };
+/**
+ * Returns the path of the main repository (the first worktree entry NOT under .worktrees).
+ * Throws if no such entry is found — preserves the throw-on-failure contract of the legacy caller.
+ */
+function mainRepoPath(run: Runner, cwd: string): string {
+  const output = run('git worktree list --porcelain', cwd);
+  for (const line of output.split('\n')) {
+    if (line.startsWith('worktree ')) {
+      const wtPath = line.substring('worktree '.length);
+      if (!wtPath.includes('.worktrees')) return wtPath;
+    }
+  }
+  throw new Error('Could not find main repository in worktree list');
+}
+
+/**
+ * Returns branch names from `git worktree list --porcelain`.
+ * Strips `refs/heads/` prefix; returns [] on failure.
+ */
+function worktreeBranches(run: Runner, cwd: string): string[] {
+  try {
+    const output = run('git worktree list --porcelain', cwd);
+    const branches: string[] = [];
+    for (const line of output.split('\n')) {
+      if (line.startsWith('branch ')) {
+        const branch = line.substring('branch '.length).replace('refs/heads/', '').trim();
+        if (branch) branches.push(branch);
+      }
+    }
+    return branches;
+  } catch {
+    return [];
+  }
+}
+
+export const worktreeQueryOps = { listWorktrees, findWorktreeForIssue, getWorktreeForBranch, mainRepoPath, worktreeBranches };

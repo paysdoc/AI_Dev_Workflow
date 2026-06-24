@@ -63,10 +63,29 @@ function deleteRemoteBranch(run: Runner, branch: string, cwd: string): boolean {
   }
 }
 
+/**
+ * Returns local branch names from `git branch --list`.
+ * Strips the leading `*`/whitespace marker; returns [] on failure.
+ */
+function localBranches(run: Runner, cwd: string): string[] {
+  try {
+    const output = run('git branch --list', cwd);
+    const branches: string[] = [];
+    for (const line of output.split('\n')) {
+      const branch = line.replace(/^\*?\s+/, '').trim();
+      if (branch) branches.push(branch);
+    }
+    return branches;
+  } catch {
+    return [];
+  }
+}
+
 export const branchOps = {
   getCurrentBranch,
   mergeLatestFromDefaultBranch,
   fetchAndResetToRemote,
   deleteLocalBranch,
   deleteRemoteBranch,
+  localBranches,
 };

@@ -6,11 +6,11 @@
  * `clearOrphanedIndexLock(worktreePath, deps?)` removes a stale lock before resume.
  */
 
-import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import { isProcessLive } from '../core/processLiveness';
 import type { WorktreeProbe } from './worktreeReuseGate';
+import type { GitContext } from '../gitContext';
 
 export interface ProbeInput {
   readonly worktreePath: string;
@@ -59,7 +59,7 @@ function missingProbe(): WorktreeProbe {
   };
 }
 
-export function probeWorktree(input: ProbeInput, deps: ProbeDeps = buildDefaultProbeDeps()): WorktreeProbe {
+export function probeWorktree(input: ProbeInput, deps: ProbeDeps): WorktreeProbe {
   const { worktreePath, expectedBranch, recordedPid, recordedPidStartedAt } = input;
 
   const ownerLive = resolveOwnerLiveness(recordedPid, recordedPidStartedAt, deps);
@@ -79,7 +79,7 @@ export function probeWorktree(input: ProbeInput, deps: ProbeDeps = buildDefaultP
   return { registration, indexLock, interruptedOp, headOnExpectedBranch, liveOwner: ownerLive };
 }
 
-export function clearOrphanedIndexLock(worktreePath: string, deps: ProbeDeps = buildDefaultProbeDeps()): void {
+export function clearOrphanedIndexLock(worktreePath: string, deps: ProbeDeps): void {
   const gitDir = deps.resolveGitDir(worktreePath);
   if (gitDir === null) return;
   const lockPath = path.join(gitDir, 'index.lock');
@@ -87,65 +87,12 @@ export function clearOrphanedIndexLock(worktreePath: string, deps: ProbeDeps = b
   deps.rmSync(lockPath, { force: true });
 }
 
-export function buildDefaultProbeDeps(): ProbeDeps {
+export function buildDefaultProbeDeps(ctx: GitContext): ProbeDeps {
   return {
     existsSync: (p) => fs.existsSync(p),
-    resolveGitDir: (worktreePath) => {
-      try {
-        const raw = execSync('git rev-parse --git-dir', {
-          encoding: 'utf-8',
-          stdio: 'pipe',
-          cwd: worktreePath,
-        }).trim();
-        return path.isAbsolute(raw) ? raw : path.resolve(worktreePath, raw);
-      } catch {
-        return null;
-      }
-    },
-    currentBranch: (worktreePath) => {
-      try {
-        return execSync('git symbolic-ref --short HEAD', {
-          encoding: 'utf-8',
-          stdio: 'pipe',
-          cwd: worktreePath,
-        }).trim();
-      } catch {
-        return null;
-      }
-    },
-    worktreeRegistration: (worktreePath) => {
-      try {
-        const output = execSync('git worktree list --porcelain', {
-          encoding: 'utf-8',
-          stdio: 'pipe',
-          cwd: worktreePath,
-        });
-        const lines = output.split('\n');
-        let currentPath: string | null = null;
-        let isLocked = false;
-        let isPrunable = false;
-
-        for (const line of lines) {
-          if (line.startsWith('worktree ')) {
-            currentPath = line.slice('worktree '.length);
-            isLocked = false;
-            isPrunable = false;
-          } else if (line.startsWith('locked') && currentPath === worktreePath) {
-            isLocked = true;
-          } else if (line.startsWith('prunable') && currentPath === worktreePath) {
-            isPrunable = true;
-          } else if (line === '' && currentPath === worktreePath) {
-            if (isLocked) return 'locked';
-            if (isPrunable) return 'prunable';
-            return 'healthy';
-          }
-        }
-        // Path not in list
-        return 'missing';
-      } catch {
-        return 'missing';
-      }
-    },
+    resolveGitDir: (worktreePath) => ctx.resolveGitDir(worktreePath),
+    currentBranch: (worktreePath) => ctx.currentBranchSymbolic(worktreePath),
+    worktreeRegistration: (worktreePath) => ctx.worktreeRegistration(worktreePath),
     isProcessLive: (pid, pidStartedAt) => isProcessLive(pid, pidStartedAt),
     rmSync: (p, opts) => fs.rmSync(p, opts),
   };

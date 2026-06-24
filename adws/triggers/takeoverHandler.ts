@@ -38,7 +38,7 @@ import { nextResumeAction, MAX_RESUME_ATTEMPTS } from '../core/resumePolicy';
 import { formatHumanGatedComment } from '../github/workflowCommentsIssue';
 import { commentOnIssue } from '../github/githubApi';
 import { decideWorktreeReuse } from '../vcs/worktreeReuseGate';
-import { probeWorktree, clearOrphanedIndexLock } from '../vcs/worktreeProbe';
+import { probeWorktree, clearOrphanedIndexLock, buildDefaultProbeDeps } from '../vcs/worktreeProbe';
 import type { WorktreeProbe } from '../vcs/worktreeReuseGate';
 import type { RepoInfo } from '../github/githubApi';
 import type { AgentState } from '../types/agentTypes';
@@ -110,9 +110,16 @@ export function buildDefaultTakeoverDeps(repoInfo?: RepoInfo): TakeoverDeps {
       deriveStageFromRemote(issueNumber, adwId, repoInfo),
     writeTopLevelState: (adwId, state) => AgentStateManager.writeTopLevelState(adwId, state),
     commentOnIssue: (issueNumber, body, repoInfo) => commentOnIssue(issueNumber, body, repoInfo),
-    probeWorktree: (worktreePath, expectedBranch, recordedPid, recordedPidStartedAt) =>
-      probeWorktree({ worktreePath, expectedBranch, recordedPid, recordedPidStartedAt }),
-    clearOrphanedIndexLock: (worktreePath) => clearOrphanedIndexLock(worktreePath),
+    probeWorktree: (worktreePath, expectedBranch, recordedPid, recordedPidStartedAt) => {
+      if (!repoInfo) throw new Error('takeoverHandler: repoInfo required for probeWorktree');
+      const ctx = gitContextForSync({ owner: repoInfo.owner, repo: repoInfo.repo, selfHost: false });
+      return probeWorktree({ worktreePath, expectedBranch, recordedPid, recordedPidStartedAt }, buildDefaultProbeDeps(ctx));
+    },
+    clearOrphanedIndexLock: (worktreePath) => {
+      if (!repoInfo) throw new Error('takeoverHandler: repoInfo required for clearOrphanedIndexLock');
+      const ctx = gitContextForSync({ owner: repoInfo.owner, repo: repoInfo.repo, selfHost: false });
+      clearOrphanedIndexLock(worktreePath, buildDefaultProbeDeps(ctx));
+    },
   };
 }
 

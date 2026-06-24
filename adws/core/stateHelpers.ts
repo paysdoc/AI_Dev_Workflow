@@ -14,7 +14,7 @@ import * as path from 'path';
 import { AGENTS_STATE_DIR } from './config';
 import { AgentExecutionState } from '../types/agentTypes';
 import { isProcessLive } from './processLiveness';
-import { orchestratorNamesForScript } from './orchestratorLib';
+import { orchestratorNamesForScript } from './orchestratorNames';
 
 /**
  * @deprecated Use `isProcessLive` from `adws/core/processLiveness`. Kept for
