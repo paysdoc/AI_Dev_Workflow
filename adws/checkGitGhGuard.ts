@@ -49,9 +49,7 @@ const ALLOWLIST: readonly string[] = [
   'adws/healthCheck.tsx',                 // gh repo view --json url
 
   // residual — migrate to GitContext methods (follow-up)
-  'adws/core/remoteReconcile.ts',                  // git ls-remote via execWithRetry
   'adws/adwPromotionSweep.tsx',                    // gh pr view/create, git <args> via execWithRetry
-  'adws/triggers/autoMergeHandler.ts',             // git fetch, git merge
 ];
 
 // ---------------------------------------------------------------------------
