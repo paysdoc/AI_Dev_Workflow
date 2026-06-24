@@ -4,9 +4,9 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { execSync } from 'child_process';
 import { fileURLToPath } from 'node:url';
 import { log } from '../core';
+import type { GitContext } from '../gitContext';
 
 /** The six canonical .adw/ config files that /adw_init must produce. */
 export const REQUIRED_ADW_FILES = [
@@ -115,14 +115,9 @@ function copyDirContents(srcDir: string, destDir: string): void {
 /**
  * Returns the set of basenames tracked by git under a given path prefix in the worktree.
  */
-function getTrackedBasenames(worktreePath: string, prefix: string): Set<string> {
+function getTrackedBasenames(ctx: GitContext, worktreePath: string, prefix: string): Set<string> {
   try {
-    return new Set(
-      execSync(`git ls-files "${prefix}"`, { encoding: 'utf-8', cwd: worktreePath })
-        .split('\n')
-        .filter(Boolean)
-        .map((f) => path.basename(f)),
-    );
+    return new Set(ctx.lsFiles(worktreePath, prefix).map((f) => path.basename(f)));
   } catch {
     return new Set();
   }
@@ -132,12 +127,10 @@ function getTrackedBasenames(worktreePath: string, prefix: string): Set<string> 
  * Returns the set of top-level directory names tracked by git under a given path prefix.
  * E.g., for `.claude/skills/` returns `{'tdd', 'refactor', ...}`.
  */
-function getTrackedTopDirs(worktreePath: string, prefix: string): Set<string> {
+function getTrackedTopDirs(ctx: GitContext, worktreePath: string, prefix: string): Set<string> {
   try {
     return new Set(
-      execSync(`git ls-files "${prefix}"`, { encoding: 'utf-8', cwd: worktreePath })
-        .split('\n')
-        .filter(Boolean)
+      ctx.lsFiles(worktreePath, prefix)
         .map((f) => {
           const relative = f.startsWith(prefix) ? f.slice(prefix.length) : f;
           return relative.split('/')[0];
@@ -203,7 +196,7 @@ export function verifyAdwRegen(worktreePath: string): { ok: boolean; missing: re
  *   - `target: false` assets: gitignored for run-availability only, UNLESS already tracked
  *     by git (never gitignore an already-committed path — gitignore can't untrack).
  */
-export function copyClaudeAssetsToWorktree(worktreePath: string): void {
+export function copyClaudeAssetsToWorktree(worktreePath: string, gitContext: GitContext): void {
   const currentDir = path.dirname(fileURLToPath(import.meta.url));
   const adwRepoRoot = path.resolve(currentDir, '../../');
 
@@ -212,8 +205,8 @@ export function copyClaudeAssetsToWorktree(worktreePath: string): void {
 
   const gitignoreEntries: string[] = [];
 
-  const trackedCommandFiles = getTrackedBasenames(worktreePath, '.claude/commands/');
-  const trackedSkillDirs = getTrackedTopDirs(worktreePath, '.claude/skills/');
+  const trackedCommandFiles = getTrackedBasenames(gitContext, worktreePath, '.claude/commands/');
+  const trackedSkillDirs = getTrackedTopDirs(gitContext, worktreePath, '.claude/skills/');
 
   if (fs.existsSync(commandsSourceDir)) {
     const commandsDestDir = path.join(worktreePath, '.claude', 'commands');

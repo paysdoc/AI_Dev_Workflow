@@ -8,13 +8,13 @@
  * Defaults to 'regression_possible' on any agent failure (fail-safe).
  */
 
-import { execSync } from 'child_process';
 import { log, emptyModelUsageMap } from '../core';
 import type { ModelUsageMap } from '../core';
 import { createPhaseCostRecords, PhaseCostStatus } from '../cost';
 import type { PhaseCostRecord } from '../cost';
 import { runDiffEvaluatorAgent } from '../agents/diffEvaluatorAgent';
 import type { WorkflowConfig } from './workflowInit';
+import type { GitContext } from '../gitContext';
 
 export type DiffEvaluationPhaseResult = {
   costUsd: number;
@@ -25,15 +25,12 @@ export type DiffEvaluationPhaseResult = {
 
 /**
  * Gets the git diff for the current branch against the default branch.
- * Returns an empty string on error.
+ * Returns an empty string on error or when no context is available.
  */
-function getGitDiff(worktreePath: string, defaultBranch: string): string {
+function getGitDiff(ctx: GitContext | undefined, worktreePath: string, defaultBranch: string): string {
+  if (!ctx) return '';
   try {
-    return execSync(`git diff ${defaultBranch}...HEAD`, {
-      cwd: worktreePath,
-      encoding: 'utf-8',
-      maxBuffer: 10 * 1024 * 1024,
-    }).trim();
+    return ctx.diff(`${defaultBranch}...HEAD`, worktreePath);
   } catch (error) {
     log(`Failed to get git diff: ${error}`, 'warn');
     return '';
@@ -87,7 +84,7 @@ export async function executeDiffEvaluationPhase(
 
   log('Phase: Diff Evaluation', 'info');
 
-  const diff = getGitDiff(worktreePath, defaultBranch);
+  const diff = getGitDiff(config.gitContext, worktreePath, defaultBranch);
 
   if (!diff) {
     log('Empty diff — classifying as safe (no changes to regress)', 'info');

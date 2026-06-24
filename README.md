@@ -618,6 +618,7 @@ adws/                   # ADW workflow system
 │   ├── processCleanup.ts  # Package-private process kill helpers (killProcessesInDirectory)
 │   ├── types.ts        # GitIdentity, GitContextOptions, ExecFn, and GitContextDeps interfaces
 │   ├── worktreeCreateOps.ts  # Package-private worktree creation orchestration (add, copy env, gitignore)
+│   ├── worktreeProbeOps.ts   # Package-private worktree-probe ops — inspects an arbitrary worktree path (WorktreeRegistration: healthy/locked/prunable/missing)
 │   ├── worktreeQueryOps.ts   # Package-private worktree query helpers (list, find by branch/issue)
 │   ├── worktreeRemoveOps.ts  # Package-private worktree removal orchestration (remove single, remove for issue)
 │   └── worktreeResetOps.ts  # Package-private takeover-reset orchestration (fetch, reset to remote, worktree repair)

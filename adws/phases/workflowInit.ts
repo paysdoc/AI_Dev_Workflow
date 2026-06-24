@@ -3,7 +3,6 @@
  * detects recovery mode, and returns a WorkflowConfig for all subsequent phases.
  */
 
-import { execSync } from 'child_process';
 import { accessSync, constants as fsConstants } from 'fs';
 import {
   log,
@@ -192,12 +191,14 @@ export async function initializeWorkflow(
   }
   setLogAdwId(resolvedAdwId);
 
+  const frameworkRepoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+
   log('===================================', 'info');
   log(`${orchestratorName}`, 'info');
   log(`Issue: #${issueNumber}`, 'info');
   log(`ADW ID: ${resolvedAdwId}`, 'info');
   try {
-    const commitHash = execSync('git rev-parse --short HEAD', { encoding: 'utf-8' }).trim();
+    const commitHash = gitCtx.headShort(frameworkRepoRoot);
     log(`ADW version: ${commitHash}`, 'info');
   } catch {
     // Not in a git repo or git unavailable — skip version logging
@@ -228,7 +229,7 @@ export async function initializeWorkflow(
     // For external repos, create worktrees within the target repo workspace
     branchName = await resolveWorkflowBranchName({ adwId: resolvedAdwId, issueType, issue, logsDir, recoveryState });
     worktreePath = gitCtx.ensureWorktree(branchName, defaultBranch);
-    copyClaudeAssetsToWorktree(worktreePath);
+    copyClaudeAssetsToWorktree(worktreePath, gitCtx);
     log(`Worktree path (target repo): ${worktreePath}`, 'info');
   } else {
     const persistedBranchName = readPersistedBranchName(resolvedAdwId);
@@ -250,7 +251,7 @@ export async function initializeWorkflow(
         worktreePath = existingWorktree;
       } else {
         worktreePath = gitCtx.ensureWorktree(branchName, defaultBranch);
-        copyClaudeAssetsToWorktree(worktreePath);
+        copyClaudeAssetsToWorktree(worktreePath, gitCtx);
         gitCtx.fetchAndResetToRemote(defaultBranch, worktreePath);
       }
     }
@@ -276,7 +277,6 @@ export async function initializeWorkflow(
   // Upgrade gate: detect framework hash mismatch and park the issue if the target
   // repo's .adw/ is stale. Runs only for target repos (self-hosting guard).
   if (targetRepo) {
-    const frameworkRepoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
     const repoInfoForGate = repoInfo ?? getRepoInfo();
     const targetRepoArgs = [
       '--target-repo', `${targetRepo.owner}/${targetRepo.repo}`,
