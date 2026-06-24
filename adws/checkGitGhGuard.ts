@@ -47,9 +47,6 @@ const ALLOWLIST: readonly string[] = [
   // diagnostic — tooling / health-check scripts, non-hot-path
   'adws/healthCheckChecks.ts',            // git rev-parse/remote/status/config, gh auth/issue
   'adws/healthCheck.tsx',                 // gh repo view --json url
-
-  // residual — migrate to GitContext methods (follow-up)
-  'adws/adwPromotionSweep.tsx',                    // gh pr view/create, git <args> via execWithRetry
 ];
 
 // ---------------------------------------------------------------------------

@@ -317,6 +317,62 @@ describe('log() command and env', () => {
   });
 });
 
+// ── logRead() ─────────────────────────────────────────────────────────────────
+
+describe('logRead() command and env', () => {
+  it('issues git <args> with the given cwd', () => {
+    const { exec, calls } = makeSpyExec('commit-output\n');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.gitLogRead('log --since="2024-01-01" --grep="^regression-promotion:"', '/repo/path');
+    expect(calls[0].command).toBe('git log --since="2024-01-01" --grep="^regression-promotion:"');
+    expect(calls[0].cwd).toBe('/repo/path');
+  });
+
+  it('defaults cwd to the context base path when no cwd is given', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.gitLogRead('log --oneline');
+    expect(calls[0].cwd).toBe(ctx.basePath);
+  });
+
+  it('returns the runner output verbatim (trimmed)', () => {
+    const { exec } = makeSpyExec('abc123 some commit\n');
+    const ctx = new GitContext(validOptions(), { exec });
+    expect(ctx.gitLogRead('log --oneline')).toBe('abc123 some commit');
+  });
+
+  it('injects GH_TOKEN from the context token in the child env', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(validOptions({ token: 'log-read-token' }), { exec });
+    ctx.gitLogRead('log --oneline');
+    expect(calls[0].env.GH_TOKEN).toBe('log-read-token');
+  });
+
+  it('injects all four GIT_* identity vars in the child env', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(
+      validOptions({
+        gitIdentity: {
+          authorName: 'Stats Bot', authorEmail: 'stats@bot.dev',
+          committerName: 'Stats Bot', committerEmail: 'stats@bot.dev',
+        },
+      }),
+      { exec },
+    );
+    ctx.gitLogRead('log --oneline');
+    expect(calls[0].env.GIT_AUTHOR_NAME).toBe('Stats Bot');
+    expect(calls[0].env.GIT_AUTHOR_EMAIL).toBe('stats@bot.dev');
+  });
+
+  it('does not mutate process.env', () => {
+    const before = process.env.GH_TOKEN;
+    const { exec } = makeSpyExec('');
+    const ctx = new GitContext(validOptions({ token: 'injected' }), { exec });
+    ctx.gitLogRead('log --oneline');
+    expect(process.env.GH_TOKEN).toBe(before);
+  });
+});
+
 // ── Two-context isolation (git-read methods) ──────────────────────────────────
 
 describe('git-read methods two-context isolation', () => {

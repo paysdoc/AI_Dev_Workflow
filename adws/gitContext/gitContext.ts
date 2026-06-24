@@ -34,7 +34,7 @@ import {
 import {
   findPRByBranchCmd, fetchPRDetailsCmd, fetchPRReviewsCmd, fetchPRReviewCommentsCmd,
   commentOnPRCmd, mergePRCmd, approvePRCmd, prApprovalStateCmd,
-  fetchPRListCmd, fetchAllPRsCmd, createPRCmd, fetchMergedPRsCmd,
+  fetchPRListCmd, fetchAllPRsCmd, createPRCmd, fetchMergedPRsCmd, prChangedFilesCmd,
 } from './commands/prCommands';
 import { createLabelCmd, applyLabelCmd } from './commands/labelCommands';
 import { setSecretCmd } from './commands/secretCommands';
@@ -444,6 +444,10 @@ export class GitContext {
     return gitReadOps.log((cmd, c) => this.#run(cmd, { cwd: c }), branchName, cwd ?? this.#basePath);
   }
 
+  gitLogRead(args: string, cwd?: string): string {
+    return gitReadOps.logRead((cmd, c) => this.#run(cmd, { cwd: c }), args, cwd ?? this.#basePath);
+  }
+
   findPRByBranch(branchName: string): string {
     return this.#run(findPRByBranchCmd(this.#owner, this.#repo, branchName));
   }
@@ -485,8 +489,12 @@ export class GitContext {
     return this.#run(fetchAllPRsCmd(this.#owner, this.#repo));
   }
 
-  createPR(title: string, body: string, headBranch: string, baseBranch?: string): string {
-    return this.#run(createPRCmd(this.#owner, this.#repo, title, headBranch, baseBranch), { input: body });
+  fetchPRChangedFiles(prNumber: number): string {
+    return this.#run(prChangedFilesCmd(this.#owner, this.#repo, prNumber));
+  }
+
+  createPR(title: string, body: string, headBranch: string, baseBranch?: string, labels?: readonly string[]): string {
+    return this.#run(createPRCmd(this.#owner, this.#repo, title, headBranch, baseBranch, labels), { input: body });
   }
 
   createLabel(name: string, color: string, description: string): void {

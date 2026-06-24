@@ -25,4 +25,9 @@ function log(run: Runner, branchName: string, cwd: string): string {
   return run(`git log "${branchName}" --format="%aI %s" --no-merges`, cwd);
 }
 
-export const gitReadOps = { lsFiles, headShort, diff, log };
+// read-only git arg-string passthrough; sole consumer is the promotion-stats loader
+function logRead(run: Runner, args: string, cwd: string): string {
+  return run(`git ${args}`, cwd);
+}
+
+export const gitReadOps = { lsFiles, headShort, diff, log, logRead };
