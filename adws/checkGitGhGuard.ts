@@ -43,9 +43,6 @@ const ALLOWLIST: readonly string[] = [
   'adws/core/targetRepoManager.ts',       // git clone, git fetch, gh repo view
   'adws/core/upgradeClaim.ts',            // distributed lock: git fetch/worktree/commit/push
   'adws/github/githubAppAuth.ts',         // GitHub App token minting via gh
-
-  // residual — migrate to GitContext methods (follow-up)
-  'adws/adwPromotionSweep.tsx',                    // gh pr view/create, git <args> via execWithRetry
 ];
 
 // ---------------------------------------------------------------------------

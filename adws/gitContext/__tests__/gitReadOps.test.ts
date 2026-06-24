@@ -317,6 +317,82 @@ describe('log() command and env', () => {
   });
 });
 
+// ── logSince() ────────────────────────────────────────────────────────────────
+
+describe('logSince() command and env', () => {
+  it('assembles numerator command: since + grep + no-merges + oneline', () => {
+    const { exec, calls } = makeSpyExec('commit-output\n');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.logSince({ since: '2024-01-01', grep: '^regression-promotion:', oneline: true });
+    expect(calls[0].command).toBe('git log --since="2024-01-01" --grep="^regression-promotion:" --no-merges --oneline');
+  });
+
+  it('assembles denominator command: since + no-merges + patch + pathspec', () => {
+    const { exec, calls } = makeSpyExec('diff-output\n');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.logSince({ since: '2024-01-01', patch: true, pathspec: 'features/per-issue/feature-*.feature' });
+    expect(calls[0].command).toBe('git log --since="2024-01-01" --no-merges -p -- features/per-issue/feature-*.feature');
+  });
+
+  it('assembles bare command: since + no-merges only', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.logSince({ since: '2024-01-01' });
+    expect(calls[0].command).toBe('git log --since="2024-01-01" --no-merges');
+  });
+
+  it('defaults cwd to the context base path when no cwd is given', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.logSince({ since: '2024-01-01' });
+    expect(calls[0].cwd).toBe(ctx.basePath);
+  });
+
+  it('honors an explicit cwd', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.logSince({ since: '2024-01-01' }, '/some/wt');
+    expect(calls[0].cwd).toBe('/some/wt');
+  });
+
+  it('returns the runner output verbatim (trimmed)', () => {
+    const { exec } = makeSpyExec('abc123 some commit\n');
+    const ctx = new GitContext(validOptions(), { exec });
+    expect(ctx.logSince({ since: '2024-01-01' })).toBe('abc123 some commit');
+  });
+
+  it('injects GH_TOKEN from the context token in the child env', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(validOptions({ token: 'log-since-token' }), { exec });
+    ctx.logSince({ since: '2024-01-01' });
+    expect(calls[0].env.GH_TOKEN).toBe('log-since-token');
+  });
+
+  it('injects all four GIT_* identity vars in the child env', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(
+      validOptions({
+        gitIdentity: {
+          authorName: 'Stats Bot', authorEmail: 'stats@bot.dev',
+          committerName: 'Stats Bot', committerEmail: 'stats@bot.dev',
+        },
+      }),
+      { exec },
+    );
+    ctx.logSince({ since: '2024-01-01' });
+    expect(calls[0].env.GIT_AUTHOR_NAME).toBe('Stats Bot');
+    expect(calls[0].env.GIT_AUTHOR_EMAIL).toBe('stats@bot.dev');
+  });
+
+  it('does not mutate process.env', () => {
+    const before = process.env.GH_TOKEN;
+    const { exec } = makeSpyExec('');
+    const ctx = new GitContext(validOptions({ token: 'injected' }), { exec });
+    ctx.logSince({ since: '2024-01-01' });
+    expect(process.env.GH_TOKEN).toBe(before);
+  });
+});
+
 // ── Two-context isolation (git-read methods) ──────────────────────────────────
 
 describe('git-read methods two-context isolation', () => {
