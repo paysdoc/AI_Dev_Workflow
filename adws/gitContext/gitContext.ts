@@ -21,6 +21,7 @@ import { worktreeResetOps } from './worktreeResetOps';
 import { worktreeQueryOps, type WorktreeForIssueResult } from './worktreeQueryOps';
 import { worktreeCreateOps } from './worktreeCreateOps';
 import { worktreeRemoveOps } from './worktreeRemoveOps';
+import { worktreeProbeOps, type WorktreeRegistration } from './worktreeProbeOps';
 import {
   fetchIssueCmd, commentOnIssueCmd, issueStateCmd, closeIssueCmd, issueTitleCmd,
   fetchIssueCommentsCmd, issueHasLabelCmd, addIssueLabelCmd, createIssueCmd,
@@ -375,6 +376,32 @@ export class GitContext {
 
   remoteUrl(cwd?: string): string {
     return this.#run('git remote get-url origin', { cwd });
+  }
+
+  // ── Worktree / branch probe reads ────────────────────────────────────────────
+
+  resolveGitDir(worktreePath: string): string | null {
+    return worktreeProbeOps.resolveGitDir((cmd, cwd) => this.#run(cmd, { cwd }), worktreePath);
+  }
+
+  currentBranchSymbolic(worktreePath: string): string | null {
+    return worktreeProbeOps.currentBranchSymbolic((cmd, cwd) => this.#run(cmd, { cwd }), worktreePath);
+  }
+
+  worktreeRegistration(worktreePath: string): WorktreeRegistration {
+    return worktreeProbeOps.worktreeRegistration((cmd, cwd) => this.#run(cmd, { cwd }), worktreePath);
+  }
+
+  worktreeBranches(cwd?: string): string[] {
+    return worktreeQueryOps.worktreeBranches((cmd, c) => this.#run(cmd, { cwd: c }), cwd ?? this.#basePath);
+  }
+
+  localBranches(cwd?: string): string[] {
+    return branchOps.localBranches((cmd, c) => this.#run(cmd, { cwd: c }), cwd ?? this.#basePath);
+  }
+
+  mainRepoPath(cwd?: string): string {
+    return worktreeQueryOps.mainRepoPath((cmd, c) => this.#run(cmd, { cwd: c }), cwd ?? this.#basePath);
   }
 
   findPRByBranch(branchName: string): string {

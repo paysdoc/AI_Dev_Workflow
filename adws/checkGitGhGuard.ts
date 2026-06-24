@@ -50,17 +50,12 @@ const ALLOWLIST: readonly string[] = [
   'adws/checkLivingDocsIndex.ts',         // git ls-files (doc-index gate)
 
   // residual — migrate to GitContext methods (follow-up)
-  'adws/vcs/branchOperations.ts',                  // gh repo view, git branch -D
-  'adws/vcs/worktreeProbe.ts',                     // git rev-parse, git symbolic-ref, git worktree list
-  'adws/vcs/worktreeOperations.ts',                // git worktree list --porcelain
-  'adws/core/orchestratorLib.ts',                  // git status --porcelain
   'adws/core/remoteReconcile.ts',                  // git ls-remote via execWithRetry
   'adws/adwPromotionSweep.tsx',                    // gh pr view/create, git <args> via execWithRetry
   'adws/phases/depauditSetup.ts',                  // gh secret set via injected execWithRetry
   'adws/github/labelManager.ts',                   // gh label create, gh issue edit via injected exec
   'adws/triggers/autoMergeHandler.ts',             // git fetch, git merge
   'adws/github/prCommentDetector.ts',              // git log (commit history lookup)
-  'adws/phases/branchIdentityFallback.ts',         // git worktree list, git branch --list
   'adws/phases/diffEvaluationPhase.ts',            // git diff
   'adws/phases/workflowInit.ts',                   // git rev-parse --short HEAD
   'adws/phases/worktreeSetup.ts',                  // git ls-files

@@ -5,8 +5,8 @@
  * (#661 scope) that cannot yet adopt the context pattern.
  */
 
-import { execSync } from 'child_process';
 import { IssueClassSlashCommand, branchPrefixMap, branchPrefixAliases } from '../core';
+import { gitContextForRepo, readLocalRepoInfo } from '../github/gitContextFactory';
 
 /**
  * Protected branches that must never be deleted.
@@ -115,31 +115,10 @@ export function inferIssueTypeFromBranch(branchName: string): IssueClassSlashCom
   return '/feature';
 }
 
-// ── Package-internal worktree-domain helpers (#661 migration pending) ─────────
-
 /**
  * Returns the default branch from the GitHub API.
- * Used only by worktree-domain files (#661); public callers use GitContext.defaultBranch().
+ * Thin adapter: routes through GitContext.defaultBranch() so auth and cwd are per-command.
  */
 export function getDefaultBranch(cwd?: string): string {
-  const result = execSync(
-    "gh repo view --json defaultBranchRef --jq '.defaultBranchRef.name'",
-    { encoding: 'utf-8', cwd },
-  ).trim();
-  if (!result) throw new Error('GitHub CLI returned empty default branch name');
-  return result;
-}
-
-/**
- * Deletes a local branch with force. Refuses protected branches.
- * Used only by worktree-domain files (#661); public callers use GitContext.deleteLocalBranch().
- */
-export function deleteLocalBranch(branchName: string, cwd?: string): boolean {
-  if (PROTECTED_BRANCHES.includes(branchName)) return false;
-  try {
-    execSync(`git branch -D "${branchName}"`, { stdio: 'pipe', cwd });
-    return true;
-  } catch {
-    return false;
-  }
+  return gitContextForRepo(readLocalRepoInfo(cwd)).defaultBranch();
 }

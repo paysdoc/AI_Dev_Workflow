@@ -13,7 +13,7 @@
 import * as crypto from 'crypto';
 import * as fs from 'fs';
 import { execSync } from 'child_process';
-import { log } from '../core';
+import { log } from '../core/utils';
 
 /** Env var names for GitHub App configuration. */
 const ENV = {

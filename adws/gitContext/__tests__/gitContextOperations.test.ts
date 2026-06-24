@@ -562,3 +562,313 @@ describe('createPR() head-branch contract', () => {
     expect(calls[0].command).toContain('--body-file -');
   });
 });
+
+// ── resolveGitDir() ──────────────────────────────────────────────────────────
+
+describe('resolveGitDir() command and env', () => {
+  const worktreePath = '/srv/adw/repos/acme/webapp/.worktrees/feature-issue-1-foo';
+
+  it('builds exactly git rev-parse --git-dir', () => {
+    const { exec, calls } = makeSpyExec('/srv/adw/repos/acme/webapp/.git/worktrees/feat\n');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.resolveGitDir(worktreePath);
+    expect(calls[0].command).toBe('git rev-parse --git-dir');
+  });
+
+  it('passes the supplied worktree path as cwd', () => {
+    const { exec, calls } = makeSpyExec('/srv/adw/repos/acme/webapp/.git/worktrees/feat\n');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.resolveGitDir(worktreePath);
+    expect(calls[0].cwd).toBe(worktreePath);
+  });
+
+  it('injects GH_TOKEN from the context token in the child env', () => {
+    const { exec, calls } = makeSpyExec('/srv/adw/repos/acme/webapp/.git/worktrees/feat\n');
+    const ctx = new GitContext(validOptions({ token: 'probe-token' }), { exec });
+    ctx.resolveGitDir(worktreePath);
+    expect(calls[0].env.GH_TOKEN).toBe('probe-token');
+  });
+
+  it('injects all four GIT_* identity vars in the child env', () => {
+    const { exec, calls } = makeSpyExec('/abs/.git\n');
+    const ctx = new GitContext(validOptions({ gitIdentity: { authorName: 'P', authorEmail: 'p@e.co', committerName: 'P', committerEmail: 'p@e.co' } }), { exec });
+    ctx.resolveGitDir(worktreePath);
+    expect(calls[0].env.GIT_AUTHOR_NAME).toBe('P');
+    expect(calls[0].env.GIT_AUTHOR_EMAIL).toBe('p@e.co');
+  });
+
+  it('returns null when exec throws (detached or missing)', () => {
+    const exec: ExecFn = () => { throw new Error('not a git dir'); };
+    const ctx = new GitContext(validOptions(), { exec });
+    expect(ctx.resolveGitDir(worktreePath)).toBeNull();
+  });
+
+  it('absolutizes a relative .git path', () => {
+    const { exec } = makeSpyExec('.git\n');
+    const ctx = new GitContext(validOptions(), { exec });
+    const result = ctx.resolveGitDir(worktreePath);
+    expect(result).toBe(`${worktreePath}/.git`);
+  });
+
+  it('does not mutate process.env', () => {
+    const before = process.env.GH_TOKEN;
+    const { exec } = makeSpyExec('/abs/.git\n');
+    const ctx = new GitContext(validOptions({ token: 'inject' }), { exec });
+    ctx.resolveGitDir(worktreePath);
+    expect(process.env.GH_TOKEN).toBe(before);
+  });
+});
+
+// ── currentBranchSymbolic() ──────────────────────────────────────────────────
+
+describe('currentBranchSymbolic() command and env', () => {
+  const worktreePath = '/srv/adw/repos/acme/webapp/.worktrees/feature-issue-1-foo';
+
+  it('builds exactly git symbolic-ref --short HEAD', () => {
+    const { exec, calls } = makeSpyExec('feature-issue-1-foo\n');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.currentBranchSymbolic(worktreePath);
+    expect(calls[0].command).toBe('git symbolic-ref --short HEAD');
+  });
+
+  it('passes the supplied worktree path as cwd', () => {
+    const { exec, calls } = makeSpyExec('feature-issue-1-foo\n');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.currentBranchSymbolic(worktreePath);
+    expect(calls[0].cwd).toBe(worktreePath);
+  });
+
+  it('injects GH_TOKEN from the context token in the child env', () => {
+    const { exec, calls } = makeSpyExec('some-branch\n');
+    const ctx = new GitContext(validOptions({ token: 'sym-token' }), { exec });
+    ctx.currentBranchSymbolic(worktreePath);
+    expect(calls[0].env.GH_TOKEN).toBe('sym-token');
+  });
+
+  it('returns null when exec throws (detached HEAD)', () => {
+    const exec: ExecFn = () => { throw new Error('HEAD is detached'); };
+    const ctx = new GitContext(validOptions(), { exec });
+    expect(ctx.currentBranchSymbolic(worktreePath)).toBeNull();
+  });
+
+  it('does not mutate process.env', () => {
+    const before = process.env.GH_TOKEN;
+    const { exec } = makeSpyExec('some-branch\n');
+    const ctx = new GitContext(validOptions({ token: 'inject' }), { exec });
+    ctx.currentBranchSymbolic(worktreePath);
+    expect(process.env.GH_TOKEN).toBe(before);
+  });
+});
+
+// ── worktreeRegistration() ───────────────────────────────────────────────────
+
+describe('worktreeRegistration() command and env', () => {
+  const worktreePath = '/srv/adw/repos/acme/webapp/.worktrees/feature-issue-1-foo';
+
+  const porcelainFor = (wt: string, extra = '') => `worktree ${wt}\nHEAD abc123\nbranch refs/heads/feat\n${extra}\n`;
+
+  it('builds exactly git worktree list --porcelain', () => {
+    const { exec, calls } = makeSpyExec(porcelainFor(worktreePath));
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.worktreeRegistration(worktreePath);
+    expect(calls[0].command).toBe('git worktree list --porcelain');
+  });
+
+  it('passes the supplied worktree path as cwd', () => {
+    const { exec, calls } = makeSpyExec(porcelainFor(worktreePath));
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.worktreeRegistration(worktreePath);
+    expect(calls[0].cwd).toBe(worktreePath);
+  });
+
+  it('injects GH_TOKEN from the context token in the child env', () => {
+    const { exec, calls } = makeSpyExec(porcelainFor(worktreePath));
+    const ctx = new GitContext(validOptions({ token: 'reg-token' }), { exec });
+    ctx.worktreeRegistration(worktreePath);
+    expect(calls[0].env.GH_TOKEN).toBe('reg-token');
+  });
+
+  it("returns 'healthy' for a present worktree with no locked/prunable", () => {
+    const { exec } = makeSpyExec(porcelainFor(worktreePath));
+    const ctx = new GitContext(validOptions(), { exec });
+    expect(ctx.worktreeRegistration(worktreePath)).toBe('healthy');
+  });
+
+  it("returns 'locked' for a locked worktree", () => {
+    const { exec } = makeSpyExec(porcelainFor(worktreePath, 'locked reason'));
+    const ctx = new GitContext(validOptions(), { exec });
+    expect(ctx.worktreeRegistration(worktreePath)).toBe('locked');
+  });
+
+  it("returns 'prunable' for a prunable worktree", () => {
+    const { exec } = makeSpyExec(porcelainFor(worktreePath, 'prunable gitdir file points to non-existent location'));
+    const ctx = new GitContext(validOptions(), { exec });
+    expect(ctx.worktreeRegistration(worktreePath)).toBe('prunable');
+  });
+
+  it("returns 'missing' when path not in list", () => {
+    const { exec } = makeSpyExec(porcelainFor('/other/path'));
+    const ctx = new GitContext(validOptions(), { exec });
+    expect(ctx.worktreeRegistration(worktreePath)).toBe('missing');
+  });
+
+  it("returns 'missing' when exec throws", () => {
+    const exec: ExecFn = () => { throw new Error('not a git repo'); };
+    const ctx = new GitContext(validOptions(), { exec });
+    expect(ctx.worktreeRegistration(worktreePath)).toBe('missing');
+  });
+});
+
+// ── worktreeBranches() ───────────────────────────────────────────────────────
+
+describe('worktreeBranches() command and env', () => {
+  const basePath = '/srv/adw/repos/acme/webapp';
+  const porcelainWithBranches = `worktree ${basePath}\nHEAD abc\nbranch refs/heads/main\n\nworktree ${basePath}/.worktrees/feat\nHEAD def\nbranch refs/heads/feature-issue-1-foo\n\n`;
+
+  it('builds exactly git worktree list --porcelain', () => {
+    const { exec, calls } = makeSpyExec(porcelainWithBranches);
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.worktreeBranches();
+    expect(calls[0].command).toBe('git worktree list --porcelain');
+  });
+
+  it('defaults cwd to the context base path', () => {
+    const { exec, calls } = makeSpyExec(porcelainWithBranches);
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.worktreeBranches();
+    expect(calls[0].cwd).toBe(ctx.basePath);
+  });
+
+  it('uses the supplied cwd when provided', () => {
+    const { exec, calls } = makeSpyExec(porcelainWithBranches);
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.worktreeBranches('/custom/cwd');
+    expect(calls[0].cwd).toBe('/custom/cwd');
+  });
+
+  it('injects GH_TOKEN from the context token in the child env', () => {
+    const { exec, calls } = makeSpyExec(porcelainWithBranches);
+    const ctx = new GitContext(validOptions({ token: 'wt-token' }), { exec });
+    ctx.worktreeBranches();
+    expect(calls[0].env.GH_TOKEN).toBe('wt-token');
+  });
+
+  it('strips refs/heads/ prefix from branch lines', () => {
+    const { exec } = makeSpyExec(porcelainWithBranches);
+    const ctx = new GitContext(validOptions(), { exec });
+    const branches = ctx.worktreeBranches();
+    expect(branches).toContain('main');
+    expect(branches).toContain('feature-issue-1-foo');
+    expect(branches.every(b => !b.startsWith('refs/'))).toBe(true);
+  });
+
+  it('returns [] when exec throws', () => {
+    const exec: ExecFn = () => { throw new Error('not a git repo'); };
+    const ctx = new GitContext(validOptions(), { exec });
+    expect(ctx.worktreeBranches()).toEqual([]);
+  });
+});
+
+// ── localBranches() ──────────────────────────────────────────────────────────
+
+describe('localBranches() command and env', () => {
+  const branchListOutput = '* feature-issue-1-foo\n  main\n  dev\n';
+
+  it('builds exactly git branch --list', () => {
+    const { exec, calls } = makeSpyExec(branchListOutput);
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.localBranches();
+    expect(calls[0].command).toBe('git branch --list');
+  });
+
+  it('defaults cwd to the context base path', () => {
+    const { exec, calls } = makeSpyExec(branchListOutput);
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.localBranches();
+    expect(calls[0].cwd).toBe(ctx.basePath);
+  });
+
+  it('uses the supplied cwd when provided', () => {
+    const { exec, calls } = makeSpyExec(branchListOutput);
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.localBranches('/custom/cwd');
+    expect(calls[0].cwd).toBe('/custom/cwd');
+  });
+
+  it('injects GH_TOKEN from the context token in the child env', () => {
+    const { exec, calls } = makeSpyExec(branchListOutput);
+    const ctx = new GitContext(validOptions({ token: 'lb-token' }), { exec });
+    ctx.localBranches();
+    expect(calls[0].env.GH_TOKEN).toBe('lb-token');
+  });
+
+  it('strips leading * and whitespace markers', () => {
+    const { exec } = makeSpyExec(branchListOutput);
+    const ctx = new GitContext(validOptions(), { exec });
+    const branches = ctx.localBranches();
+    expect(branches).toContain('feature-issue-1-foo');
+    expect(branches).toContain('main');
+    expect(branches).toContain('dev');
+    expect(branches.every(b => !b.startsWith('*'))).toBe(true);
+  });
+
+  it('returns [] when exec throws', () => {
+    const exec: ExecFn = () => { throw new Error('not a git repo'); };
+    const ctx = new GitContext(validOptions(), { exec });
+    expect(ctx.localBranches()).toEqual([]);
+  });
+});
+
+// ── mainRepoPath() ───────────────────────────────────────────────────────────
+
+describe('mainRepoPath() command and env', () => {
+  const basePath = '/srv/adw/repos/acme/webapp';
+  const porcelainWithMain = `worktree ${basePath}\nHEAD abc\nbranch refs/heads/main\n\nworktree ${basePath}/.worktrees/feat\nHEAD def\nbranch refs/heads/feature-issue-1-foo\n\n`;
+
+  it('builds exactly git worktree list --porcelain', () => {
+    const { exec, calls } = makeSpyExec(porcelainWithMain);
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.mainRepoPath();
+    expect(calls[0].command).toBe('git worktree list --porcelain');
+  });
+
+  it('defaults cwd to the context base path', () => {
+    const { exec, calls } = makeSpyExec(porcelainWithMain);
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.mainRepoPath();
+    expect(calls[0].cwd).toBe(ctx.basePath);
+  });
+
+  it('uses the supplied cwd when provided', () => {
+    const { exec, calls } = makeSpyExec(porcelainWithMain);
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.mainRepoPath('/custom/cwd');
+    expect(calls[0].cwd).toBe('/custom/cwd');
+  });
+
+  it('injects GH_TOKEN from the context token in the child env', () => {
+    const { exec, calls } = makeSpyExec(porcelainWithMain);
+    const ctx = new GitContext(validOptions({ token: 'mr-token' }), { exec });
+    ctx.mainRepoPath();
+    expect(calls[0].env.GH_TOKEN).toBe('mr-token');
+  });
+
+  it('returns the first entry not under .worktrees', () => {
+    const { exec } = makeSpyExec(porcelainWithMain);
+    const ctx = new GitContext(validOptions(), { exec });
+    expect(ctx.mainRepoPath()).toBe(basePath);
+  });
+
+  it('throws when no main entry exists (only .worktrees entries)', () => {
+    const onlyWorktree = `worktree ${basePath}/.worktrees/feat\nHEAD def\nbranch refs/heads/feature-issue-1-foo\n\n`;
+    const { exec } = makeSpyExec(onlyWorktree);
+    const ctx = new GitContext(validOptions(), { exec });
+    expect(() => ctx.mainRepoPath()).toThrow('Could not find main repository in worktree list');
+  });
+
+  it('throws when exec throws', () => {
+    const exec: ExecFn = () => { throw new Error('not a git repo'); };
+    const ctx = new GitContext(validOptions(), { exec });
+    expect(() => ctx.mainRepoPath()).toThrow();
+  });
+});
