@@ -153,9 +153,9 @@ Execute every step in order, top to bottom.
 
 ### Task 10: Add the BDD per-issue feature and step definitions
 - Create `features/per-issue/feature-698.feature` tagged `@adw-698 @adw-t0asur-gitcontext-migrate-u`, mirroring `feature-696.feature`:
-  - §1 each new claim-op method (`add-detached-worktree`, `commit-allow-empty`, `push-head-to-branch`, `remove-detached-worktree`) routes through `#run`, carrying token + git identity + supplied `cwd` (reuse the shared-world recording-runner assertion steps from `feature-659.steps.ts`/`feature-693.steps.ts`).
-  - A scenario asserting the namespace push carries no force flag (lock semantics).
-  - §2 `adws/core/upgradeClaim.ts` is scanned by the guard and violation-free; §3 the whole-repo guard passes; §4 the type-check passes (reuse `feature-691.steps.ts`/`feature-504.steps.ts` steps).
+  - §1 — each new claim-op method (`add-detached-worktree`, `commit-empty-claim`, `push-claim-ref`, `remove-claim-worktree`) routes through `#run`, carrying token + git identity + supplied `cwd`, and leaves the parent process env unchanged (reuse the shared-world recording-runner assertion steps from `feature-659.steps.ts`/`feature-693.steps.ts`).
+  - §2 (lock contract — the HITL surface) — drive the REAL migrated claim push through a recording GitContext and pin: push accepted ⇒ won; push rejected (non-fast-forward) ⇒ lost (not a crash); a genuine non-rejection failure ⇒ propagates as an error; the claim push carries **no** force flag; the claim commit is allow-empty carrying the hash and two attempts emit distinct messages (the nonce); the worktree is added detached and never creates a local claim branch (Bug B); the temp worktree is force-removed even on the loser path.
+  - §3 — `adws/core/upgradeClaim.ts` is scanned by the guard and violation-free, and the whole-repo guard passes; §4 — the type-check passes (reuse `feature-691.steps.ts`/`feature-504.steps.ts` steps).
 - Create `features/per-issue/step_definitions/feature-698.steps.ts` adding ONLY the claim-op dispatchers (`When('the {string} claim-op operation runs through the context …')`), importing the shared world `./gitContextSharedWorld.ts`. Do not redefine shared/guard/type-check steps.
 - Validate phrasing against `features/regression/vocabulary.md` (Vocabulary Registry is set in `.adw/scenarios.md`); prefer existing registered phrases.
 
