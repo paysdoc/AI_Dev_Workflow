@@ -1194,28 +1194,42 @@ describe('createPR() with labels', () => {
   });
 });
 
-// ── gitLogRead() ──────────────────────────────────────────────────────────────
+// ── logSince() ────────────────────────────────────────────────────────────────
 
-describe('gitLogRead() command and env', () => {
-  it('issues git <args> with the given cwd', () => {
+describe('logSince() command and env', () => {
+  it('issues git log --since with grep and oneline flags (numerator shape)', () => {
     const { exec, calls } = makeSpyExec('commit output\n');
     const ctx = new GitContext(validOptions(), { exec });
-    ctx.gitLogRead('log --since="X" --grep="^regression-promotion:"', '/some/wt');
-    expect(calls[0].command).toBe('git log --since="X" --grep="^regression-promotion:"');
+    ctx.logSince({ since: 'X', grep: '^regression-promotion:', oneline: true });
+    expect(calls[0].command).toBe('git log --since="X" --grep="^regression-promotion:" --no-merges --oneline');
+    expect(calls[0].cwd).toBe(ctx.basePath);
+  });
+
+  it('issues git log --since with patch and pathspec flags (denominator shape)', () => {
+    const { exec, calls } = makeSpyExec('diff output\n');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.logSince({ since: 'X', patch: true, pathspec: 'features/per-issue/feature-*.feature' });
+    expect(calls[0].command).toBe('git log --since="X" --no-merges -p -- features/per-issue/feature-*.feature');
+  });
+
+  it('honors an explicit cwd', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.logSince({ since: 'X' }, '/some/wt');
     expect(calls[0].cwd).toBe('/some/wt');
   });
 
   it('defaults cwd to the context base path when no cwd is given', () => {
     const { exec, calls } = makeSpyExec('');
     const ctx = new GitContext(validOptions(), { exec });
-    ctx.gitLogRead('log --oneline');
+    ctx.logSince({ since: 'X' });
     expect(calls[0].cwd).toBe(ctx.basePath);
   });
 
   it('injects GH_TOKEN from the context token in the child env', () => {
     const { exec, calls } = makeSpyExec('');
     const ctx = new GitContext(validOptions({ token: 'token-acme' }), { exec });
-    ctx.gitLogRead('log --oneline');
+    ctx.logSince({ since: 'X', grep: '^regression-promotion:', oneline: true });
     expect(calls[0].env.GH_TOKEN).toBe('token-acme');
   });
 
@@ -1230,7 +1244,7 @@ describe('gitLogRead() command and env', () => {
       }),
       { exec },
     );
-    ctx.gitLogRead('log --oneline');
+    ctx.logSince({ since: 'X', grep: '^regression-promotion:', oneline: true });
     expect(calls[0].env.GIT_AUTHOR_NAME).toBe('Acme Bot');
     expect(calls[0].env.GIT_AUTHOR_EMAIL).toBe('bot@acme.dev');
   });
@@ -1239,7 +1253,7 @@ describe('gitLogRead() command and env', () => {
     const before = process.env.GH_TOKEN;
     const { exec } = makeSpyExec('');
     const ctx = new GitContext(validOptions({ token: 'injected' }), { exec });
-    ctx.gitLogRead('log --oneline');
+    ctx.logSince({ since: 'X' });
     expect(process.env.GH_TOKEN).toBe(before);
   });
 });

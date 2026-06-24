@@ -60,10 +60,9 @@ function buildCommenterDeps(
     },
     today: () => new Date().toISOString().slice(0, 10),
     loadStats: () => loadPromotionStats({
-      runGit: (args, opts) => gitCtx.gitLogRead(args, opts.cwd),
+      gitLogSince: (opts) => gitCtx.logSince(opts),
       now: () => new Date(),
       perIssueGlob,
-      cwd: gitCtx.basePath,
       log: (msg, level) => log(msg, (level ?? 'info') as LogLevel),
     }),
     log: (msg, level) => log(msg, (level ?? 'info') as LogLevel),

@@ -44,7 +44,7 @@ When('the {string} promotion PR operation runs through the context', function (o
       break;
     case 'stats-log':
       W.responseMap.set('git log', '');
-      ctx.gitLogRead('log --since="2024-01-01" --grep="^regression-promotion:"');
+      ctx.logSince({ since: '2024-01-01', grep: '^regression-promotion:', oneline: true });
       break;
     default:
       throw new Error(`Unknown promotion PR op: "${opName}"`);

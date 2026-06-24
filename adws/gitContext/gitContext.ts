@@ -23,6 +23,7 @@ import { worktreeCreateOps } from './worktreeCreateOps';
 import { worktreeRemoveOps } from './worktreeRemoveOps';
 import { worktreeProbeOps, type WorktreeRegistration } from './worktreeProbeOps';
 import { gitReadOps } from './gitReadOps';
+import type { LogSinceOptions } from './gitReadOps';
 import { remoteOps } from './remoteOps';
 import {
   fetchIssueCmd, commentOnIssueCmd, issueStateCmd, closeIssueCmd, issueTitleCmd,
@@ -444,8 +445,8 @@ export class GitContext {
     return gitReadOps.log((cmd, c) => this.#run(cmd, { cwd: c }), branchName, cwd ?? this.#basePath);
   }
 
-  gitLogRead(args: string, cwd?: string): string {
-    return gitReadOps.logRead((cmd, c) => this.#run(cmd, { cwd: c }), args, cwd ?? this.#basePath);
+  logSince(opts: LogSinceOptions, cwd?: string): string {
+    return gitReadOps.logSince((cmd, c) => this.#run(cmd, { cwd: c }), opts, cwd ?? this.#basePath);
   }
 
   findPRByBranch(branchName: string): string {

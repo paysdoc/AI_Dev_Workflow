@@ -25,9 +25,24 @@ function log(run: Runner, branchName: string, cwd: string): string {
   return run(`git log "${branchName}" --format="%aI %s" --no-merges`, cwd);
 }
 
-// read-only git arg-string passthrough; sole consumer is the promotion-stats loader
-function logRead(run: Runner, args: string, cwd: string): string {
-  return run(`git ${args}`, cwd);
+/** Bounded flag vocabulary for git log --since reads; only assembles a log command. */
+export interface LogSinceOptions {
+  since: string;
+  grep?: string;
+  oneline?: boolean;
+  patch?: boolean;
+  pathspec?: string;
 }
 
-export const gitReadOps = { lsFiles, headShort, diff, log, logRead };
+/** Bounded git log --since read; only assembles a log command. */
+function logSince(run: Runner, opts: LogSinceOptions, cwd: string): string {
+  const parts = ['git log', `--since="${opts.since}"`];
+  if (opts.grep) parts.push(`--grep="${opts.grep}"`);
+  parts.push('--no-merges');
+  if (opts.oneline) parts.push('--oneline');
+  if (opts.patch) parts.push('-p');
+  const cmd = opts.pathspec ? `${parts.join(' ')} -- ${opts.pathspec}` : parts.join(' ');
+  return run(cmd, cwd);
+}
+
+export const gitReadOps = { lsFiles, headShort, diff, log, logSince };
