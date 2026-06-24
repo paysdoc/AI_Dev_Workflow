@@ -33,6 +33,7 @@ import { scanPauseQueue } from './pauseQueueScanner';
 import { runJanitorPass } from './devServerJanitor';
 import { runPerIssueScenarioSweep } from './perIssueScenarioSweep';
 import { resolveCronRepo, buildCronTargetRepoArgs } from './cronRepoResolver';
+import { gitContextForRepo } from '../github/gitContextFactory';
 import { filterEligibleIssues, resolveTouchedFilesFromBody } from './cronIssueFilter';
 import { registerRegionOverlapBlocker } from './regionOverlapSignals';
 import { shouldDispatchMerge } from './mergeDispatchGate';
@@ -74,12 +75,11 @@ if (process.argv[1]?.replace(/\\/g, '/').includes('trigger_cron')) {
 
 /** Fetches all open issues with body, comments, and timestamps. */
 function fetchOpenIssues(): RawIssue[] {
-  const { owner, repo } = cronRepoInfo;
   try {
-    const json = execSync(
-      `gh issue list --repo ${owner}/${repo} --state open --json number,title,body,comments,createdAt,updatedAt,labels --limit 100`,
-      { encoding: 'utf-8' },
-    );
+    const json = gitContextForRepo(cronRepoInfo).listOpenIssues({
+      fields: ['number', 'title', 'body', 'comments', 'createdAt', 'updatedAt', 'labels'],
+      limit: 100,
+    });
     return JSON.parse(json);
   } catch (error) {
     log(`Failed to fetch issues: ${error}`, 'error');
@@ -92,7 +92,7 @@ function buildTargetRepoArgs(): string[] {
   return buildCronTargetRepoArgs(
     cronRepoInfo,
     targetRepo,
-    () => { try { return execSync('git remote get-url origin', { encoding: 'utf-8' }).trim(); } catch { return null; } },
+    () => { try { return gitContextForRepo(cronRepoInfo).remoteUrl(); } catch { return null; } },
   );
 }
 

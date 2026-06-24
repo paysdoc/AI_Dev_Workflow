@@ -59,15 +59,12 @@ const ALLOWLIST: readonly string[] = [
   'adws/phases/depauditSetup.ts',                  // gh secret set via injected execWithRetry
   'adws/github/labelManager.ts',                   // gh label create, gh issue edit via injected exec
   'adws/triggers/autoMergeHandler.ts',             // git fetch, git merge
-  'adws/github/githubApi.ts',                      // git remote get-url origin, gh api user
   'adws/github/prCommentDetector.ts',              // git log (commit history lookup)
   'adws/phases/branchIdentityFallback.ts',         // git worktree list, git branch --list
   'adws/phases/diffEvaluationPhase.ts',            // git diff
   'adws/phases/workflowInit.ts',                   // git rev-parse --short HEAD
   'adws/phases/worktreeSetup.ts',                  // git ls-files
   'adws/providers/github/githubBoardManager.ts',   // gh api graphql
-  'adws/providers/repoContext.ts',                 // git remote get-url origin
-  'adws/triggers/trigger_cron.ts',                 // gh issue list, git remote get-url origin
 ];
 
 // ---------------------------------------------------------------------------
