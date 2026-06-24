@@ -8,10 +8,11 @@
  * parameter; tests inject vi.fn() stubs.
  */
 
-import { execWithRetry, log, type LogLevel } from '../core';
+import { log, type LogLevel } from '../core';
 import type { RepoInfo } from './githubApi';
 import type { GitHubIssue, GitHubLabel, IssueClassSlashCommand } from '../types/issueTypes';
-import type { ExecSyncOptions } from 'child_process';
+import type { GitContext } from '../gitContext';
+import { gitContextForRepo } from './gitContextFactory';
 
 // ── Canonical label data ──────────────────────────────────────────────────────
 
@@ -87,39 +88,19 @@ export function issueTypeToAdwLabel(issueType: IssueClassSlashCommand): string |
 // ── DI scaffolding ────────────────────────────────────────────────────────────
 
 export interface LabelManagerDeps {
-  readonly exec: (command: string, options?: ExecSyncOptions & { maxAttempts?: number }) => string;
+  readonly gitContextForRepo: (repoInfo: RepoInfo) => GitContext;
   readonly logger: (message: string, level?: LogLevel) => void;
 }
 
 export function buildDefaultLabelManagerDeps(): LabelManagerDeps {
-  return { exec: execWithRetry, logger: log };
+  return { gitContextForRepo, logger: log };
 }
 
 // ── Private helpers ───────────────────────────────────────────────────────────
 
-function createLabel(def: AdwLabelDefinition, repoInfo: RepoInfo, deps: LabelManagerDeps): void {
-  const { owner, repo } = repoInfo;
-  deps.exec(
-    `gh label create '${def.name}' --repo ${owner}/${repo} --color ${def.color} --description '${def.description}' --force`,
-  );
-}
-
 function resolveLabelDefinition(label: string): AdwLabelDefinition {
   return ADW_LABEL_DEFINITIONS.find(d => d.name === label)
     ?? { name: label, color: 'ededed', description: 'ADW label' };
-}
-
-function addLabelToIssue(
-  issueNumber: number,
-  label: string,
-  repoInfo: RepoInfo,
-  deps: LabelManagerDeps,
-): void {
-  const { owner, repo } = repoInfo;
-  deps.exec(
-    `gh issue edit ${issueNumber} --repo ${owner}/${repo} --add-label '${label}'`,
-    { stdio: ['pipe', 'pipe', 'pipe'], maxAttempts: 1 },
-  );
 }
 
 function isLabelNotFoundError(error: unknown): boolean {
@@ -137,10 +118,11 @@ export function ensureAdwLabelsExist(
   repoInfo: RepoInfo,
   deps: LabelManagerDeps = buildDefaultLabelManagerDeps(),
 ): void {
+  const ctx = deps.gitContextForRepo(repoInfo);
   let succeeded = 0;
   for (const def of ADW_LABEL_DEFINITIONS) {
     try {
-      createLabel(def, repoInfo, deps);
+      ctx.createLabel(def.name, def.color, def.description);
       succeeded++;
     } catch (error) {
       deps.logger(`ensureAdwLabelsExist: failed to create label "${def.name}": ${error}`, 'warn');
@@ -163,8 +145,9 @@ export function applyLabel(
   repoInfo: RepoInfo,
   deps: LabelManagerDeps = buildDefaultLabelManagerDeps(),
 ): void {
+  const ctx = deps.gitContextForRepo(repoInfo);
   try {
-    addLabelToIssue(issueNumber, label, repoInfo, deps);
+    ctx.applyLabel(issueNumber, label);
     return;
   } catch (error) {
     if (!isLabelNotFoundError(error)) {
@@ -176,6 +159,7 @@ export function applyLabel(
     }
   }
   deps.logger(`applyLabel: label "${label}" not found on repo, lazy-creating`, 'warn');
-  createLabel(resolveLabelDefinition(label), repoInfo, deps);
-  addLabelToIssue(issueNumber, label, repoInfo, deps);
+  const def = resolveLabelDefinition(label);
+  ctx.createLabel(def.name, def.color, def.description);
+  ctx.applyLabel(issueNumber, label);
 }

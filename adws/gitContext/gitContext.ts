@@ -36,8 +36,9 @@ import {
   fetchPRListCmd, fetchAllPRsCmd, createPRCmd, fetchMergedPRsCmd,
 } from './commands/prCommands';
 import { createLabelCmd, applyLabelCmd } from './commands/labelCommands';
+import { setSecretCmd } from './commands/secretCommands';
 import {
-  graphQLCmd, projectQueryCmd, itemQueryCmd, fieldQueryCmd, moveStatusCmd,
+  graphQLCmd, graphQLInputCmd, projectQueryCmd, itemQueryCmd, fieldQueryCmd, moveStatusCmd,
   parseProjectId, parseIssueItem, parseStatusField,
 } from './commands/boardCommands';
 
@@ -477,8 +478,17 @@ export class GitContext {
     this.#run(applyLabelCmd(this.#owner, this.#repo, issueNumber, labelName));
   }
 
+  setSecret(name: string, value: string): void {
+    this.#run(setSecretCmd(this.#owner, this.#repo, name), { input: value });
+  }
+
   runGraphQL(query: string, variables?: Record<string, string | number>): string {
     return this.#run(graphQLCmd(query, variables), { usePat: true });
+  }
+
+  /** stdin-JSON form for GraphQL mutations with complex/array variables that runGraphQL's flag form cannot express. Uses PAT (Projects V2 writes) with graceful fallback to context token when no PAT is set. */
+  runGraphQLInput(body: Record<string, unknown>): string {
+    return this.#run(graphQLInputCmd(), { input: JSON.stringify(body), usePat: true });
   }
 
   /**

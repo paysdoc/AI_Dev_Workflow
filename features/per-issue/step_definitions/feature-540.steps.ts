@@ -25,6 +25,8 @@
 
 import { Before, After, Given, When, Then } from '@cucumber/cucumber';
 import assert from 'assert';
+import { GitContext } from '../../../adws/gitContext/index.ts';
+import type { ExecFn } from '../../../adws/gitContext/types.ts';
 import type { RepoInfo } from '../../../adws/github/githubApi.ts';
 import type { GitHubLabel } from '../../../adws/types/issueTypes.ts';
 import type { LabelManagerDeps, AdwLabelReading } from '../../../adws/github/labelManager.ts';
@@ -122,33 +124,57 @@ After({ tags: '@adw-540' }, function (this: RegressionWorld) {
 
 // ── Build mock deps (closes over ctx) ────────────────────────────────────────
 
-function buildMockDeps(): LabelManagerDeps {
-  return {
-    exec: (command: string) => {
-      ctx.execCalls.push(command);
+const FRAMEWORK_ROOT = '/srv/adw/framework';
+const TARGET_REPOS_DIR = '/srv/adw/repos';
 
-      const createMatch = command.match(/gh label create '([^']+)'/);
-      if (createMatch) {
-        const labelName = createMatch[1]!;
-        ctx.notFoundUntilCreated.delete(labelName);
-        ctx.labelsPresent.add(labelName);
-        return '';
-      }
+function buildMockExec(): ExecFn {
+  return (command: string) => {
+    ctx.execCalls.push(command);
 
-      const addLabelMatch = command.match(/gh issue edit \d+ .* --add-label '([^']+)'/);
-      if (addLabelMatch) {
-        const labelName = addLabelMatch[1]!;
-        if (ctx.alwaysNotFound.has(labelName)) {
-          throw new Error(`Label '${labelName}' not found`);
-        }
-        if (ctx.notFoundUntilCreated.has(labelName)) {
-          throw new Error(`Label '${labelName}' not found`);
-        }
-        return '';
-      }
-
+    const createMatch = command.match(/gh label create '([^']+)'/);
+    if (createMatch) {
+      const labelName = createMatch[1]!;
+      ctx.notFoundUntilCreated.delete(labelName);
+      ctx.labelsPresent.add(labelName);
       return '';
-    },
+    }
+
+    const addLabelMatch = command.match(/gh issue edit \d+ .* --add-label '([^']+)'/);
+    if (addLabelMatch) {
+      const labelName = addLabelMatch[1]!;
+      if (ctx.alwaysNotFound.has(labelName)) {
+        throw new Error(`Label '${labelName}' not found`);
+      }
+      if (ctx.notFoundUntilCreated.has(labelName)) {
+        throw new Error(`Label '${labelName}' not found`);
+      }
+      return '';
+    }
+
+    return '';
+  };
+}
+
+function buildMockDeps(): LabelManagerDeps {
+  const exec = buildMockExec();
+  return {
+    gitContextForRepo: (repoInfo: RepoInfo) => new GitContext(
+      {
+        owner: repoInfo.owner,
+        repo: repoInfo.repo,
+        selfHost: false,
+        token: 'test-token',
+        gitIdentity: {
+          authorName: 'Test Bot',
+          authorEmail: 'test@bot.dev',
+          committerName: 'Test Bot',
+          committerEmail: 'test@bot.dev',
+        },
+        frameworkRepoRoot: FRAMEWORK_ROOT,
+        targetReposDir: TARGET_REPOS_DIR,
+      },
+      { exec },
+    ),
     logger: () => {},
   };
 }

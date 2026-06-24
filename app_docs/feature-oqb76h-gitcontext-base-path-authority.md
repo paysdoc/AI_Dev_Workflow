@@ -2,7 +2,7 @@
 
 ## Overview
 
-`adws/gitContext/` is the single deep module that answers "which repository's filesystem am I operating on?" and "which auth identity does every command run with?" A `GitContext` is constructed from a mandatory identity (`owner`, `repo`, `selfHost`, `token`, `gitIdentity`) plus injected resolution config (`frameworkRepoRoot`, `targetReposDir`) and an optional `pat` for PAT-requiring operations. Every operation — branch create/checkout/delete, commit/push (force-with-lease), fetch/reset, worktree create/ensure/remove/list/query, worktree/branch probe reads, git phase-level reads (`lsFiles`, `headShort`, `diff`, `log`), all `gh`/GitHub-API operations (issue read/comment, PR read/create/merge/approve, label lifecycle, Projects V2 board), and git-remote/authenticated-user identity reads — is a method on `GitContext`, running through the single private `#run()` chokepoint that injects per-command auth and git identity into the child process environment without ever mutating `process.env`. This module implements PRD `specs/prd/git-context-repo-authority.md` and eliminates the historical "wrong-repo worktree" and `GH_TOKEN` bleed classes of bug structurally.
+`adws/gitContext/` is the single deep module that answers "which repository's filesystem am I operating on?" and "which auth identity does every command run with?" A `GitContext` is constructed from a mandatory identity (`owner`, `repo`, `selfHost`, `token`, `gitIdentity`) plus injected resolution config (`frameworkRepoRoot`, `targetReposDir`) and an optional `pat` for PAT-requiring operations. Every operation — branch create/checkout/delete, commit/push (force-with-lease), fetch/reset, worktree create/ensure/remove/list/query, worktree/branch probe reads, git phase-level reads (`lsFiles`, `headShort`, `diff`, `log`), all `gh`/GitHub-API operations (issue read/comment, PR read/create/merge/approve, label lifecycle, Projects V2 board, secret set), and git-remote/authenticated-user identity reads — is a method on `GitContext`, running through the single private `#run()` chokepoint that injects per-command auth and git identity into the child process environment without ever mutating `process.env`. This module implements PRD `specs/prd/git-context-repo-authority.md` and eliminates the historical "wrong-repo worktree" and `GH_TOKEN` bleed classes of bug structurally.
 
 ## Responsibilities
 
@@ -20,8 +20,9 @@
 - Provide identity-read methods (slice #692): `remoteUrl(cwd?: string)` — runs `git remote get-url origin` in the given `cwd`; `authenticatedUser()` — runs `gh api user` and returns the full JSON string
 - Provide worktree/branch probe reads (slice #693): `resolveGitDir(worktreePath)`, `currentBranchSymbolic(worktreePath)`, `worktreeRegistration(worktreePath)`, `worktreeBranches(cwd?)`, `localBranches(cwd?)`, `mainRepoPath(cwd?)` — replacing raw-`git` call sites in `worktreeProbe.ts`, `worktreeOperations.ts`, `branchOperations.ts`, `branchIdentityFallback.ts`, and `orchestratorLib.ts`
 - Provide phase-level git read ops (slice #694): `lsFiles(cwd, prefix?)`, `headShort(cwd?)`, `diff(range, cwd)`, `log(branchName, cwd?)` — replacing raw-`execSync` call sites in `worktreeSetup.ts`, `workflowInit.ts`, `diffEvaluationPhase.ts`, `prCommentDetector.ts`, and `checkLivingDocsIndex.ts`
+- Provide label/board/secret write ops (slice #695): `setSecret(name, value)` — pipes value via stdin using context token; `runGraphQLInput(body)` — stdin-JSON GraphQL for complex/array variables, uses PAT with graceful fallback — enabling `labelManager.ts`, `githubBoardManager.ts`, and `depauditSetup.ts` to be removed from the `ALLOWLIST`
 - Delegate VCS operation orchestration to package-private modules (`branchOps.ts`, `commitOps.ts`, `worktreeResetOps.ts`, `worktreeCreateOps.ts`, `worktreeQueryOps.ts`, `worktreeRemoveOps.ts`, `worktreeProbeOps.ts`, `gitReadOps.ts`, `processCleanup.ts`), each taking an injected runner — keeping the `GitContext` class thin and testable
-- Expose the full `gh` issue, PR, label, and board operation surface as thin methods that delegate to pure command-builder + parser modules in `adws/gitContext/commands/`
+- Expose the full `gh` issue, PR, label, board, and secret operation surface as thin methods that delegate to pure command-builder + parser modules in `adws/gitContext/commands/`
 - Accept an injectable `ExecFn` via `GitContextDeps` for hermetic testing (the ADW `Deps` idiom)
 - Export only `GitContext` class and its public types via `adws/gitContext/index.ts` — no context-free git/`gh` free functions
 
@@ -50,7 +51,8 @@ Each module is side-effect-free (no `exec`, no `process.env`) and stays under 30
 | `issueCommands.ts` | Command builders + parsers for `gh issue …` / `gh api issues` (fetch, comment, state, close, title, comments, labels, create, update, find-upgrade, delete-comment, **listOpenIssues** with `ListOpenIssuesOptions`, **issueComments**) |
 | `prCommands.ts` | PR builders + parsers (find by branch, fetch details/reviews/comments, comment, merge, approve, approval state, list, create, **fetchMergedPRs**) |
 | `labelCommands.ts` | Label create and apply (create-if-missing + add) command builders |
-| `boardCommands.ts` | Projects V2 GraphQL query/mutation builders + parsers (project id, issue item, status field, status update, `moveIssueToStatus`) |
+| `boardCommands.ts` | Projects V2 GraphQL query/mutation builders + parsers (project id, issue item, status field, status update, `moveIssueToStatus`, **graphQLInputCmd** for stdin-JSON complex mutations — slice #695) |
+| `secretCommands.ts` | `setSecretCmd(owner, repo, name)` — returns `gh secret set <name> --repo <owner>/<repo> --body -`; zero side effects (slice #695) |
 
 ## Boundary Factory (`adws/github/gitContextFactory.ts`)
 
@@ -62,7 +64,7 @@ Each module is side-effect-free (no `exec`, no `process.env`) and stays under 30
 - `gitContextForRepo(repoInfo)` is a sync convenience for consumers that only have a `RepoInfo` object (e.g. trigger-layer modules); auto-detects self-host so the base path always resolves to a directory that exists
 - `readLocalRepoInfo(cwd?: string): RepoInfo` (added in #692) — a permanently-allowlisted bootstrap export that reads `git remote get-url origin` and parses both HTTPS and SSH GitHub remote URLs into `{ owner, repo }`. Lives here (not in `githubApi.ts`) because it produces the identity a `GitContext` is constructed *from* (chicken-and-egg: the caller cannot yet have a `GitContext` to route through). `githubApi.getRepoInfo` delegates directly to this function; all ~20 callers of `getRepoInfo` are unaffected. Throws `"Could not parse GitHub URL: …"` / `"Failed to get repo info: …"` on failure.
 
-## Migrated Call Sites (as of #694)
+## Migrated Call Sites (as of #695)
 
 `workflowInit.ts`, `prPhase.ts`, `buildPhase.ts`, `documentPhase.ts`, `reviewPhase.ts`, `scenarioFixPhase.ts`, `prReviewPhase.ts`, `takeoverHandler.ts`, `webhookHandlers.ts`, `cancelHandler.ts`, `devServerJanitor.ts`, `adwMerge.tsx`, `adwUpgrade.tsx`, and `adwPromotionSweep.tsx` all construct a `GitContext` via the factory or receive one threaded from the launch boundary.
 
@@ -108,9 +110,18 @@ Phase-level git read consumers migrated in #694:
 | `prCommentDetector.ts` `getLastAdwCommitTimestamp` | `execSync('git log "<branch>" --format="%aI %s" --no-merges', { cwd })` | `gitContext.log(branchName, cwd)` |
 | `checkLivingDocsIndex.ts` `listTrackedFiles` | `execSync('git ls-files')` | `gitContextForRepo(readLocalRepoInfo(), { selfHost: true }).lsFiles(process.cwd())` |
 
-All five files from #694 have been removed from the `ALLOWLIST` in `adws/checkGitGhGuard.ts` (`worktreeSetup.ts`, `workflowInit.ts`, `diffEvaluationPhase.ts`, `prCommentDetector.ts`, `checkLivingDocsIndex.ts`). `bun run lint:git-guard` now passes with all these files scanned.
+Label/board/secret write consumers migrated in #695:
 
-## VCS Module End State (as of #694)
+| Consumer | Previous | Now |
+|---|---|---|
+| `labelManager.ts` `ensureAdwLabelsExist` | `execWithRetry('gh label create … --force')` via injected `exec` | `ctx.createLabel(def.name, def.color, def.description)` via injected `gitContextForRepo` factory |
+| `labelManager.ts` `applyLabel` | `execWithRetry('gh issue edit … --add-label …')` via injected `exec` | `ctx.applyLabel(issueNumber, label)` (lazy-create-and-retry preserved) |
+| `githubBoardManager.ts` `updateStatusFieldOptions` | `execSync('gh api graphql --input -', { input: JSON.stringify(body) })` | `this.ctx.runGraphQLInput(body)` |
+| `depauditSetup.ts` `propagateSecret` | `execWithRetry('gh secret set … --body -', { input, maxAttempts: 3 })` | `ctx.setSecret(envName, envValue)` |
+
+All three files (`labelManager.ts`, `githubBoardManager.ts`, `depauditSetup.ts`) have been removed from the `ALLOWLIST` in `adws/checkGitGhGuard.ts`. `bun run lint:git-guard` now passes with all three files scanned (zero violations). The residual `ALLOWLIST` cohort after #695: `remoteReconcile.ts`, `adwPromotionSweep.tsx`, `autoMergeHandler.ts` (plus permanent bootstrap/diagnostic entries).
+
+## Consumer End State (as of #695)
 
 | File | Status |
 |---|---|
@@ -126,9 +137,12 @@ All five files from #694 have been removed from the `ALLOWLIST` in `adws/checkGi
 | `adws/core/orchestratorLib.ts` | `hasUncommittedChanges` thin adapter via `gitContextForRepo`; `deriveOrchestratorScript`/`orchestratorNamesForScript` extracted to `orchestratorNames.ts`; no raw `child_process` import |
 | `adws/phases/worktreeSetup.ts` | `copyClaudeAssetsToWorktree(worktreePath, gitContext)` now requires `GitContext` as second arg; `getTrackedBasenames`/`getTrackedTopDirs` take `GitContext` as first arg; no raw `child_process` import |
 | `adws/phases/workflowInit.ts` | Version-log `git rev-parse --short HEAD` replaced by `gitCtx.headShort(frameworkRepoRoot)`; both `copyClaudeAssetsToWorktree` calls pass `gitCtx`; no raw `child_process` import |
-| `adws/phases/diffEvaluationPhase.ts` | `getGitDiff` takes `GitContext | undefined` as first arg; empty-diff fail-open preserved; no raw `child_process` import |
+| `adws/phases/diffEvaluationPhase.ts` | `getGitDiff` takes `GitContext \| undefined` as first arg; empty-diff fail-open preserved; no raw `child_process` import |
 | `adws/github/prCommentDetector.ts` | `getLastAdwCommitTimestamp(branchName, gitContext, cwd?)` now takes `GitContext` as second arg; `getUnaddressedComments` constructs context via `gitContextForRepo(repoInfo)`; no raw `child_process` import |
 | `adws/checkLivingDocsIndex.ts` | `listTrackedFiles` constructs self-host context via `gitContextForRepo(readLocalRepoInfo(), { selfHost: true })`; no raw `child_process` import |
+| `adws/github/labelManager.ts` | `LabelManagerDeps` changed from `{ exec }` to `{ gitContextForRepo }`; `ensureAdwLabelsExist` / `applyLabel` delegate to `ctx.createLabel` / `ctx.applyLabel`; private `createLabel` / `addLabelToIssue` helpers deleted; no raw `gh` string literals; lazy-create-and-retry preserved; removed from ALLOWLIST |
+| `adws/providers/github/githubBoardManager.ts` | `updateStatusFieldOptions` uses `this.ctx.runGraphQLInput(body)`; `child_process` import removed; all GraphQL calls now route through `GitContext` with PAT; removed from ALLOWLIST |
+| `adws/phases/depauditSetup.ts` | `DepauditSetupDeps` gains optional `gitContextForRepo`; `propagateSecret` uses `ctx.setSecret(envName, envValue)`; `execWithRetry` retained for `depaudit setup` CLI invocation; prefers `config.gitContext` when present; removed from ALLOWLIST |
 
 ## Contracts & Invariants
 
@@ -161,6 +175,8 @@ All five files from #694 have been removed from the `ALLOWLIST` in `adws/checkGi
 - `diff(range, cwd)` returns the raw diff string; throws on exec failure
 - `log(branchName, cwd?)` returns the raw log string in `"%aI %s"` format; defaults `cwd` to `#basePath`; throws on exec failure
 - `gitReadOps` functions propagate errors — they do **not** swallow exceptions; each call site retains its pre-existing `try/catch` (or loud crash for `checkLivingDocsIndex`)
+- `setSecret(name, value)` pipes the value via stdin (`--body -`) using the context's primary token; the value never appears in the command string or `process.env`; single-attempt (no `execWithRetry`) — callers wrap in their own `try/catch`
+- `runGraphQLInput(body)` serializes `body` as `JSON.stringify(body)` piped via stdin; uses `usePat: true` (Projects V2 writes) with graceful fallback to the context token when no PAT is set — matching the prior `execSync` board-auth behaviour and the `feature-9tknkw` PAT-fallback contract
 - `readLocalRepoInfo` in the factory is a permanent bootstrap exception: it calls `execSync('git remote get-url origin')` directly because it *produces* the `RepoInfo` a `GitContext` is constructed from (the `gitContextForRepo` call would be circular). No other bootstrap need should create new raw shell-outs outside the factory.
 
 ## Configuration
@@ -176,7 +192,7 @@ All configuration is injected at construction via `GitContextOptions`:
 | `gitIdentity` | `GitIdentity` | Author + committer name/email for git operations |
 | `frameworkRepoRoot` | `string` | Absolute path to the ADW framework repo root (injected from `REPO_ROOT`) |
 | `targetReposDir` | `string` | Absolute path to cloned target repos directory (injected from `TARGET_REPOS_DIR`) |
-| `pat?` | `string` | Optional PAT for `usePat` ops (PR approve, Projects V2 board) |
+| `pat?` | `string` | Optional PAT for `usePat` ops (PR approve, Projects V2 board, `runGraphQLInput`) |
 
 Optional injectable dependency bag via `GitContextDeps` (second constructor parameter):
 
@@ -188,7 +204,7 @@ Optional injectable dependency bag via `GitContextDeps` (second constructor para
 
 - **`selfHost` is a boolean discriminator, not optional** — passing `undefined` or any non-boolean throws at construction. This is intentional: omitting it was the historical detonation point where ADW silently operated on the wrong repo.
 - **`process.env` is never mutated on the operation hot path** — `commandEnv(process.env)` overlays the context's token + identity into a new object. The context token wins for context-routed commands; the parent slot is untouched.
-- **`#run` accepts optional `{ cwd?, input?, usePat? }`** — `cwd` overrides the base path for VCS ops on worktrees; `input` pipes data to stdin; `usePat: true` injects `GITHUB_PAT` as `GH_TOKEN` for that one command only (approve PR, Projects V2 GraphQL). Never mutates `process.env`.
+- **`#run` accepts optional `{ cwd?, input?, usePat? }`** — `cwd` overrides the base path for VCS ops on worktrees; `input` pipes data to stdin; `usePat: true` injects `GITHUB_PAT` as `GH_TOKEN` for that one command only (approve PR, Projects V2 GraphQL, `runGraphQLInput`, `setSecret` does NOT use `usePat` — it uses the context's primary token). Never mutates `process.env`.
 - **`maxBuffer` is global to `defaultExec`** — raised to 10 MB in #694 for all `execSync` calls, not just `diff`. This is strictly more permissive: commands producing <1 MB output are unaffected; only the previously-failing >1 MB case now succeeds. Spy-`ExecFn` tests do not exercise `maxBuffer`.
 - **Worktree ops receive explicit paths, not a base-path arg** — `worktreeCreateOps`, `worktreeQueryOps`, and `worktreeRemoveOps` take pre-computed `worktreesDir`, `worktreePath`, and `baseCwd` from the `GitContext`; they perform no base-path defaulting. The `#worktreePaths(branchName)` private helper binds these from `#basePath`.
 - **`findWorktreeForIssue` takes a `prefixes` array** — callers resolve `branchPrefixMap[issueType]` + `branchPrefixAliases[issueType]` before calling; the package does not import ADW core.
@@ -199,6 +215,12 @@ Optional injectable dependency bag via `GitContextDeps` (second constructor para
 - **`refreshTokenIfNeeded` is now repo-explicit** — it requires optional `(owner, repo)` args; the no-arg form that fell back to `activeRepo` is removed.
 - **`gitContextFactory.ts` lives in `adws/github/`** — not in the reusable package, to keep the package free of ADW globals (`REPO_ROOT`, `TARGET_REPOS_DIR`, `GITHUB_PAT`, `getInstallationToken`). The factory is the ADW-layer bridge; the package itself is config-injection pure.
 - **Board and approve ops require `GITHUB_PAT`** — `usePat: true` falls back to the context token when `GITHUB_PAT` is unset (user-owned repos degrade gracefully, matching prior behaviour from `feature-9tknkw`).
+- **`runGraphQLInput` corrects a latent board-auth bug** — `updateStatusFieldOptions` previously called `execSync('gh api graphql --input -')` which inherited the ambient app token. `runGraphQLInput` with `usePat: true` makes the column-update mutation use the PAT like every other board write, with graceful fallback to the context token.
+- **`setSecret` uses the context primary token, not the PAT** — unlike board writes, `gh secret set` does not require a PAT for org/user-owned repos in typical ADW setups. The command uses `{ input: value }` (stdin pipe); the value is never on argv.
+- **`setSecret` is single-attempt** — the previous `execWithRetry` with `maxAttempts: 3` is replaced by a single `ctx.setSecret` call. `propagateSecret` in `depauditSetup.ts` still catches failures and degrades to a warning (`success: true`, `skippedSecrets` populated), so the externally-observable skip-and-warn behavior is preserved.
+- **`LabelManagerDeps` shape changed in #695** — from `{ exec, logger }` to `{ gitContextForRepo, logger }`. Tests must inject `gitContextForRepo: (repoInfo) => new GitContext(validOptions(), { exec: spyExec })`. The `@adw-540` BDD mock seam has been rewired accordingly; all recorded command strings are byte-identical (`createLabelCmd`/`applyLabelCmd` builders are reused).
+- **`ensureAdwLabelsExist` constructs the context once** — not once per label — while still issuing one `createLabel` per definition. This reduces token-resolution overhead from N to 1.
+- **`depauditSetup` context source precedence** — `config.gitContext` (launch-boundary, preferred) → `d.gitContextForRepo(repoInfo)` (factory fallback). Both resolve the same `setSecret` command shape. The `execWithRetry` dep is retained for the `depaudit setup` CLI call (not a `git`/`gh` command).
 - **Branch sanitization regex** — `worktreePathFor` sanitizes with `/[/\\:*?"<>|`]/g → '-'`, matching the historical `worktreeOperations.ts` helper for path compatibility post-migration.
 - **Injectable exec seam (`ExecFn` / `GitContextDeps`) is for tests, not config** — the seam exists so spy tests can assert per-call `{ cwd, env, input }` without spawning real processes. The default is a real `execSync` wrapper — the only real spawn site in the package.
 - **`gitContextForSync` vs `gitContextFor` vs `gitContextForRepo`** — use `gitContextForSync` when you're already in a synchronous initialization path; use `gitContextFor` when you can `await`; use `gitContextForRepo(repoInfo)` in trigger/phase modules that only have a `RepoInfo` object (the most common case in `adws/triggers/` and `adws/phases/`). All produce identical `GitContext` instances.
