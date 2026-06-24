@@ -1917,7 +1917,7 @@
     - When `adws/vcs/worktreeCreation.ts`, `worktreeQuery.ts`, `worktreeCleanup.ts`, or `worktreeOperations.ts` are referenced and symbols appear to be missing (they migrated to GitContext in #661)
     - When `adws/vcs/branchOperations.ts`, `commitOperations.ts`, or `worktreeReset.ts` are referenced and I/O functions appear to be missing (they migrated to GitContext)
     - When working with `adws/gitContext/commands/` pure command builders or parsers (issue, PR, label, board)
-    - When implementing or troubleshooting `gitContextForRepo`, `deriveGitIdentity`, or `clearSelfHostCache` in `adws/github/gitContextFactory.ts`
+    - When implementing or troubleshooting `gitContextForRepo`, `deriveGitIdentity`, `clearSelfHostCache`, or `readLocalRepoInfo` in `adws/github/gitContextFactory.ts`
     - When the `activeRepo`/`ensureAppAuthForRepo` removal, `refreshTokenIfNeeded` repo-explicit change, or the auth-bleed fix is relevant
     - When adding a new `gh` operation method or worktree method to `GitContext` (follow the thin-method + package-private-op pattern)
     - When `getWorktreesDir`, `getWorktreePath`, or `worktreeExists` are referenced and not found (deleted in #661 — use `ctx.worktreePathFor()`, `ctx.getWorktreeForBranch()`, or `ctx.listWorktrees()`)
@@ -1927,6 +1927,9 @@
     - When working with `listOpenIssues`, `issueComments`, or `fetchMergedPRs` on `GitContext` (added in #691 — covers residual gh-read consumers)
     - When `concurrencyGuard.ts`, `webhookGatekeeper.ts`, `docsSelfCheck.ts`, or `perIssueScenarioSweep.ts` are making gh issue/PR reads (they now route through `gitContextForRepo`)
     - When migrating a trigger or phase module off direct `execSync`/`execWithRetry` for gh reads and onto `GitContext` methods (the #691 migration pattern)
+    - When working with `remoteUrl(cwd?)` or `authenticatedUser()` as `GitContext` identity-read methods (added/wired in #692)
+    - When `githubApi.ts` `getRepoInfo`, `repoContext.ts` `validateGitRemote`, or `trigger_cron.ts` identity reads are relevant (all migrated off raw `git`/`gh` in #692)
+    - When `readLocalRepoInfo` in `gitContextFactory.ts` is the bootstrap boundary for reading `git remote get-url origin` before a `GitContext` can be constructed (chicken-and-egg — the only legitimate permanent exception for a remote-URL read outside the package)
 
 - app_docs/feature-k817bh-persist-repo-identity-cross-check.md
   - Owns:

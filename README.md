@@ -594,7 +594,7 @@ adws/                   # ADW workflow system
 │   ├── labelManager.ts  # adw:* label lifecycle management and label-based issue classification
 │   ├── linkedPrDetector.ts  # Detects linked merged or closed PRs for an issue via "Implements #N" body scan
 │   ├── prApi.ts
-│   ├── gitContextFactory.ts  # Per-repo GitContext factory (gitContextFor, gitContextForSync, deriveGitIdentity)
+│   ├── gitContextFactory.ts  # Per-repo GitContext factory (`gitContextForRepo`, `gitContextForSync`, `readLocalRepoInfo`, `deriveGitIdentity`); `readLocalRepoInfo` is the permanently-allowlisted bootstrap git-remote read
 │   ├── prCommentDetector.ts
 │   ├── projectBoardApi.ts
 │   ├── proofCommentFormatter.ts

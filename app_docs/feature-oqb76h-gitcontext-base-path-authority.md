@@ -2,7 +2,7 @@
 
 ## Overview
 
-`adws/gitContext/` is the single deep module that answers "which repository's filesystem am I operating on?" and "which auth identity does every command run with?" A `GitContext` is constructed from a mandatory identity (`owner`, `repo`, `selfHost`, `token`, `gitIdentity`) plus injected resolution config (`frameworkRepoRoot`, `targetReposDir`) and an optional `pat` for PAT-requiring operations. Every operation — branch create/checkout/delete, commit/push (force-with-lease), fetch/reset, worktree create/ensure/remove/list/query, all `gh`/GitHub-API operations (issue read/comment, PR read/create/merge/approve, label lifecycle, Projects V2 board), and gh issue/PR read operations (`listOpenIssues`, `issueComments`, `fetchMergedPRs`) — is a method on `GitContext`, running through the single private `#run()` chokepoint that injects per-command auth and git identity into the child process environment without ever mutating `process.env`. This module implements PRD `specs/prd/git-context-repo-authority.md` and eliminates the historical "wrong-repo worktree" and `GH_TOKEN` bleed classes of bug structurally.
+`adws/gitContext/` is the single deep module that answers "which repository's filesystem am I operating on?" and "which auth identity does every command run with?" A `GitContext` is constructed from a mandatory identity (`owner`, `repo`, `selfHost`, `token`, `gitIdentity`) plus injected resolution config (`frameworkRepoRoot`, `targetReposDir`) and an optional `pat` for PAT-requiring operations. Every operation — branch create/checkout/delete, commit/push (force-with-lease), fetch/reset, worktree create/ensure/remove/list/query, all `gh`/GitHub-API operations (issue read/comment, PR read/create/merge/approve, label lifecycle, Projects V2 board), gh issue/PR read operations (`listOpenIssues`, `issueComments`, `fetchMergedPRs`), and git-remote/authenticated-user identity reads (`remoteUrl`, `authenticatedUser`) — is a method on `GitContext`, running through the single private `#run()` chokepoint that injects per-command auth and git identity into the child process environment without ever mutating `process.env`. This module implements PRD `specs/prd/git-context-repo-authority.md` and eliminates the historical "wrong-repo worktree" and `GH_TOKEN` bleed classes of bug structurally.
 
 ## Responsibilities
 
@@ -17,6 +17,7 @@
 - Provide worktree reset: `resetWorktree` (abort in-progress merge/rebase via fs then fetch/reset --hard/clean -fdx)
 - Provide full worktree management surface (slice #661): `createWorktree`, `createWorktreeForNewBranch`, `ensureWorktree`, `getWorktreeForBranch`, `listWorktrees`, `findWorktreeForIssue`, `removeWorktree`, `removeWorktreesForIssue`, `copyEnvToWorktree`
 - Provide gh read methods (slice #691): `listOpenIssues({ fields, search?, limit? })`, `issueComments(issueNumber)`, `fetchMergedPRs(limit?)` — covering the residual direct-`gh` consumers migrated off the ALLOWLIST
+- Provide identity-read methods (slice #692): `remoteUrl(cwd?: string)` — runs `git remote get-url origin` in the given `cwd` (defaults to `basePath` via `#run`); `authenticatedUser()` — runs `gh api user` and returns the full JSON string (added earlier, reused in #692 migration)
 - Delegate VCS operation orchestration to package-private modules (`branchOps.ts`, `commitOps.ts`, `worktreeResetOps.ts`, `worktreeCreateOps.ts`, `worktreeQueryOps.ts`, `worktreeRemoveOps.ts`, `processCleanup.ts`), each taking an injected runner — keeping the `GitContext` class thin and testable
 - Expose the full `gh` issue, PR, label, and board operation surface as thin methods that delegate to pure command-builder + parser modules in `adws/gitContext/commands/`
 - Accept an injectable `ExecFn` via `GitContextDeps` for hermetic testing (the ADW `Deps` idiom)
@@ -55,10 +56,13 @@ Each module is side-effect-free (no `exec`, no `process.env`) and stays under 30
 - Injects `REPO_ROOT` / `TARGET_REPOS_DIR` from `adws/core/environment`
 - Async export (`gitContextFor`) and sync export (`gitContextForSync`) — all resolution is `execSync` under the hood; async variant exists so callers can `await` at the scope boundary
 - `gitContextForRepo(repoInfo)` is a sync convenience for consumers that only have a `RepoInfo` object (e.g. trigger-layer modules); auto-detects self-host so the base path always resolves to a directory that exists
+- `readLocalRepoInfo(cwd?: string): RepoInfo` (added in #692) — a permanently-allowlisted bootstrap export that reads `git remote get-url origin` and parses both HTTPS and SSH GitHub remote URLs into `{ owner, repo }`. Lives here (not in `githubApi.ts`) because it produces the identity a `GitContext` is constructed *from* (chicken-and-egg: the caller cannot yet have a `GitContext` to route through). `githubApi.getRepoInfo` delegates directly to this function; all ~20 callers of `getRepoInfo` are unaffected. Throws `"Could not parse GitHub URL: …"` / `"Failed to get repo info: …"` on failure.
 
-## Migrated Call Sites (as of #691)
+## Migrated Call Sites (as of #692)
 
-`workflowInit.ts`, `prPhase.ts`, `buildPhase.ts`, `documentPhase.ts`, `reviewPhase.ts`, `scenarioFixPhase.ts`, `prReviewPhase.ts`, `takeoverHandler.ts`, `webhookHandlers.ts`, `cancelHandler.ts`, `devServerJanitor.ts`, `adwMerge.tsx`, `adwUpgrade.tsx`, and `adwPromotionSweep.tsx` all construct a `GitContext` via the factory or receive one threaded from the launch boundary. Trigger-layer and phase modules that perform gh reads were migrated in #691:
+`workflowInit.ts`, `prPhase.ts`, `buildPhase.ts`, `documentPhase.ts`, `reviewPhase.ts`, `scenarioFixPhase.ts`, `prReviewPhase.ts`, `takeoverHandler.ts`, `webhookHandlers.ts`, `cancelHandler.ts`, `devServerJanitor.ts`, `adwMerge.tsx`, `adwUpgrade.tsx`, and `adwPromotionSweep.tsx` all construct a `GitContext` via the factory or receive one threaded from the launch boundary.
+
+Trigger-layer and phase modules migrated in #691 (gh reads):
 
 | Consumer | Previous | Now |
 |---|---|---|
@@ -68,7 +72,17 @@ Each module is side-effect-free (no `exec`, no `process.env`) and stays under 30
 | `takeoverHandler.ts` | `execSync('gh issue view … --jq .comments')` | `gitContextForRepo(repoInfo).issueComments(issueNumber)` |
 | `perIssueScenarioSweep.ts` | `execSync('gh pr list …')` | `gitContextForRepo(repoInfo).fetchMergedPRs(200)` |
 
-All five files have been removed from the `ALLOWLIST` in `adws/checkGitGhGuard.ts`. The `bun run lint:git-guard` CI check now passes with no allowlisted trigger/phase files for gh reads.
+Identity-read consumers migrated in #692:
+
+| Consumer | Previous | Now |
+|---|---|---|
+| `githubApi.ts` `getRepoInfo` | `execSync('git remote get-url origin', { cwd })` | `readLocalRepoInfo(cwd)` (delegates to factory bootstrap — chicken-and-egg) |
+| `githubApi.ts` `getAuthenticatedUser` | `execWithRetry('gh api user --jq .login')` | `gitContextForRepo(getRepoInfo()).authenticatedUser()` then `JSON.parse(...).login` |
+| `repoContext.ts` `validateGitRemote` | `execSync('git remote get-url origin', { cwd, … })` | `gitContextForRepo({ owner, repo }).remoteUrl(cwd)` |
+| `trigger_cron.ts` `fetchOpenIssues` | `execSync('gh issue list --repo … --json …')` | `gitContextForRepo(cronRepoInfo).listOpenIssues({ fields: [...], limit: 100 })` |
+| `trigger_cron.ts` `buildTargetRepoArgs` fallback | `execSync('git remote get-url origin')` | `gitContextForRepo(cronRepoInfo).remoteUrl()` |
+
+All five files from #692 have been removed from the `ALLOWLIST` in `adws/checkGitGhGuard.ts` (the three non-bootstrap ones: `githubApi.ts`, `repoContext.ts`, `trigger_cron.ts`). `bun run lint:git-guard` now passes with these files scanned.
 
 ## VCS Module End State (as of #661)
 
@@ -100,6 +114,8 @@ All five files have been removed from the `ALLOWLIST` in `adws/checkGitGhGuard.t
 - All worktree create/ensure/remove/list/query methods resolve paths under `#basePath` via `#worktreesDir()` and `worktreePathFor()` — no caller-supplied base path
 - The package imports nothing from `adws/core`, `adws/providers`, or any ADW global — all config is injected at construction (`findWorktreeForIssue` takes a pre-resolved `prefixes` array so the package stays free of `branchPrefixMap`)
 - `listOpenIssues`, `issueComments`, and `fetchMergedPRs` are thin delegators through `#run()` — they do not mutate `process.env` and they use the context's token for per-command auth
+- `remoteUrl(cwd?)` and `authenticatedUser()` are thin delegators through `#run()` — same per-command auth and non-mutation guarantee as all other methods
+- `readLocalRepoInfo` in the factory is a permanent bootstrap exception: it calls `execSync('git remote get-url origin')` directly because it *produces* the `RepoInfo` a `GitContext` is constructed from (the `gitContextForRepo` call would be circular). No other bootstrap need should create new raw shell-outs outside the factory.
 
 ## Configuration
 
@@ -143,3 +159,6 @@ Optional injectable dependency bag via `GitContextDeps` (second constructor para
 - **`freeBranchFromMainRepo` preserves non-force push** — the known non-force-push deadlock risk on rewritten branches is tracked separately (#648); the ported semantics are unchanged from the prior vcs implementation.
 - **`listOpenIssues` shares command shape across three former allowlisted consumers** — `concurrencyGuard` projects `[number, comments]`, `webhookGatekeeper` projects `[number, body]`, and `docsSelfCheck` projects `[number, title]` with a `search` filter; the `ListOpenIssuesOptions` type captures all three variations.
 - **`checkGitGhGuard.ts` `main()` guard** — the guard is now exported as a module to support test imports; `main()` is called only when `process.argv[1]` includes `checkGitGhGuard` (i.e. when run as a script). Tests can import `scanFiles`/`ALLOWLIST` without side-effects.
+- **`getAuthenticatedUser` lost `execWithRetry`'s per-call retry** — the new path calls `gitContextForRepo(...).authenticatedUser()` which does not retry internally. The existing `catch` block already fails open to `null` (callers treat `null` as "no self-author filter"), matching the #691 retry-loss precedent for `docsSelfCheck`. This is acceptable.
+- **`readLocalRepoInfo` is the only correct place for a bootstrap git-remote read** — any future need to derive identity before a `GitContext` exists must extend or call this function (not duplicate a raw `execSync('git remote get-url origin')` elsewhere). The `checkGitGhGuard.ts` ALLOWLIST treats `gitContextFactory.ts` as a permanent bootstrap entry for exactly this reason.
+- **`remoteUrl(cwd)` in `validateGitRemote` now requires a resolvable token** — previously the read was token-free (just a local git invocation). `gitContextForRepo` resolves an auth token at construction; if token resolution throws, the existing `try/catch` in `validateGitRemote` surfaces the same "Failed to get git remote URL" error class. ADW's authenticated workflow paths always have a token available.
