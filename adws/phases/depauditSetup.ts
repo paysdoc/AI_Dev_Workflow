@@ -2,11 +2,15 @@ import { execWithRetry as defaultExecWithRetry, log as defaultLog } from '../cor
 import type { LogLevel } from '../core';
 import type { WorkflowConfig } from './workflowInit';
 import { getRepoInfo } from '../github';
+import type { GitContext } from '../gitContext';
+import type { RepoInfo } from '../github/githubApi';
+import { gitContextForRepo as defaultGitContextForRepo } from '../github/gitContextFactory';
 
 export interface DepauditSetupDeps {
   execWithRetry?: typeof defaultExecWithRetry;
   log?: (message: string, level?: LogLevel) => void;
   getEnv?: (name: string) => string | undefined;
+  gitContextForRepo?: (repoInfo: RepoInfo) => GitContext;
 }
 
 export interface DepauditSetupResult {
@@ -22,10 +26,12 @@ const DEFAULT_DEPS: Required<DepauditSetupDeps> = {
   execWithRetry: defaultExecWithRetry,
   log: defaultLog,
   getEnv: (name: string) => process.env[name],
+  gitContextForRepo: defaultGitContextForRepo,
 };
 
 async function propagateSecret(
   envName: SecretName,
+  ctx: GitContext,
   ownerRepo: string,
   deps: Required<DepauditSetupDeps>,
 ): Promise<{ propagated: boolean; warning?: string }> {
@@ -34,10 +40,7 @@ async function propagateSecret(
     return { propagated: false, warning: `${envName} not set — skipping gh secret set` };
   }
   try {
-    deps.execWithRetry(`gh secret set ${envName} --repo ${ownerRepo} --body -`, {
-      input: envValue,
-      maxAttempts: 3,
-    });
+    ctx.setSecret(envName, envValue);
     deps.log(`Propagated ${envName} to ${ownerRepo} GitHub Actions secrets`, 'success');
     return { propagated: true };
   } catch (error) {
@@ -66,8 +69,14 @@ export async function executeDepauditSetup(
     ? `${config.targetRepo.owner}/${config.targetRepo.repo}`
     : (() => { const info = getRepoInfo(); return `${info.owner}/${info.repo}`; })();
 
+  const repoInfo: RepoInfo = config.targetRepo
+    ? { owner: config.targetRepo.owner, repo: config.targetRepo.repo }
+    : getRepoInfo();
+
+  const ctx = config.gitContext ?? d.gitContextForRepo(repoInfo);
+
   for (const secretName of SECRET_NAMES) {
-    const result = await propagateSecret(secretName, ownerRepo, d);
+    const result = await propagateSecret(secretName, ctx, ownerRepo, d);
     if (!result.propagated) {
       if (result.warning) {
         d.log(result.warning, 'warn');

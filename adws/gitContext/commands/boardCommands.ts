@@ -10,6 +10,10 @@ const MUTATION_MOVE =
 
 // ── Command builders ───────────────────────────────────────────────────────
 
+export function graphQLInputCmd(): string {
+  return 'gh api graphql --input -';
+}
+
 export function graphQLCmd(query: string, variables?: Record<string, string | number>): string {
   const varArgs = variables
     ? Object.entries(variables)

@@ -51,10 +51,7 @@ const ALLOWLIST: readonly string[] = [
   // residual — migrate to GitContext methods (follow-up)
   'adws/core/remoteReconcile.ts',                  // git ls-remote via execWithRetry
   'adws/adwPromotionSweep.tsx',                    // gh pr view/create, git <args> via execWithRetry
-  'adws/phases/depauditSetup.ts',                  // gh secret set via injected execWithRetry
-  'adws/github/labelManager.ts',                   // gh label create, gh issue edit via injected exec
   'adws/triggers/autoMergeHandler.ts',             // git fetch, git merge
-  'adws/providers/github/githubBoardManager.ts',   // gh api graphql
 ];
 
 // ---------------------------------------------------------------------------

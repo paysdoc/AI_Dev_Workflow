@@ -27,12 +27,13 @@ interface SpyCall {
   command: string;
   cwd: string;
   env: NodeJS.ProcessEnv;
+  input?: string;
 }
 
 function makeSpyExec(stdout = 'main\n'): { exec: ExecFn; calls: SpyCall[] } {
   const calls: SpyCall[] = [];
   const exec: ExecFn = (command, options) => {
-    calls.push({ command, cwd: options.cwd, env: options.env });
+    calls.push({ command, cwd: options.cwd, env: options.env, input: options.input });
     return stdout;
   };
   return { exec, calls };
@@ -816,6 +817,95 @@ describe('localBranches() command and env', () => {
     const exec: ExecFn = () => { throw new Error('not a git repo'); };
     const ctx = new GitContext(validOptions(), { exec });
     expect(ctx.localBranches()).toEqual([]);
+  });
+});
+
+// ── setSecret() ──────────────────────────────────────────────────────────────
+
+describe('setSecret() command and env', () => {
+  it('builds exactly gh secret set <NAME> --repo <owner>/<repo> --body -', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(validOptions({ owner: 'acme', repo: 'webapp' }), { exec });
+    ctx.setSecret('MY_SECRET', 'the-value');
+    expect(calls[0].command).toBe('gh secret set MY_SECRET --repo acme/webapp --body -');
+  });
+
+  it('uses the context primary token (not the PAT) even when a PAT is configured', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(validOptions({ token: 'primary-token', pat: 'pat-token' }), { exec });
+    ctx.setSecret('MY_SECRET', 'the-value');
+    expect(calls[0].env.GH_TOKEN).toBe('primary-token');
+  });
+
+  it('pipes the secret value via stdin input (not in the command string)', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.setSecret('MY_SECRET', 'super-secret-value');
+    expect(calls[0].input).toBe('super-secret-value');
+    expect(calls[0].command).not.toContain('super-secret-value');
+  });
+
+  it('passes cwd equal to the context base path', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.setSecret('MY_SECRET', 'val');
+    expect(calls[0].cwd).toBe(ctx.basePath);
+  });
+
+  it('does not mutate process.env.GH_TOKEN after the call', () => {
+    const before = process.env.GH_TOKEN;
+    const { exec } = makeSpyExec('');
+    const ctx = new GitContext(validOptions({ token: 'injected' }), { exec });
+    ctx.setSecret('MY_SECRET', 'val');
+    expect(process.env.GH_TOKEN).toBe(before);
+  });
+});
+
+// ── runGraphQLInput() ────────────────────────────────────────────────────────
+
+describe('runGraphQLInput() command and env', () => {
+  it('builds exactly gh api graphql --input -', () => {
+    const { exec, calls } = makeSpyExec('{}');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.runGraphQLInput({ query: 'mutation{}', variables: { ids: ['a', 'b'] } });
+    expect(calls[0].command).toBe('gh api graphql --input -');
+  });
+
+  it('pipes JSON.stringify(body) via stdin input', () => {
+    const { exec, calls } = makeSpyExec('{}');
+    const ctx = new GitContext(validOptions(), { exec });
+    const body = { query: 'mutation{}', variables: { ids: ['a', 'b'] } };
+    ctx.runGraphQLInput(body);
+    expect(calls[0].input).toBe(JSON.stringify(body));
+  });
+
+  it('uses the PAT as GH_TOKEN when a pat is configured (usePat: true)', () => {
+    const { exec, calls } = makeSpyExec('{}');
+    const ctx = new GitContext(validOptions({ token: 'primary-token', pat: 'pat-token' }), { exec });
+    ctx.runGraphQLInput({ q: 'mutation{}' });
+    expect(calls[0].env.GH_TOKEN).toBe('pat-token');
+  });
+
+  it('falls back to the context primary token when no PAT is configured', () => {
+    const { exec, calls } = makeSpyExec('{}');
+    const ctx = new GitContext(validOptions({ token: 'primary-token' }), { exec });
+    ctx.runGraphQLInput({ q: 'mutation{}' });
+    expect(calls[0].env.GH_TOKEN).toBe('primary-token');
+  });
+
+  it('passes cwd equal to the context base path', () => {
+    const { exec, calls } = makeSpyExec('{}');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.runGraphQLInput({ q: 'mutation{}' });
+    expect(calls[0].cwd).toBe(ctx.basePath);
+  });
+
+  it('does not mutate process.env', () => {
+    const before = process.env.GH_TOKEN;
+    const { exec } = makeSpyExec('{}');
+    const ctx = new GitContext(validOptions({ token: 'injected', pat: 'pat' }), { exec });
+    ctx.runGraphQLInput({ q: 'mutation{}' });
+    expect(process.env.GH_TOKEN).toBe(before);
   });
 });
 

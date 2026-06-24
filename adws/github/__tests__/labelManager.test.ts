@@ -1,4 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
+import { GitContext } from '../../gitContext';
+import type { GitContextOptions, ExecFn } from '../../gitContext/types';
 import type { GitHubLabel } from '../../types/issueTypes';
 import type { LabelManagerDeps } from '../labelManager';
 import {
@@ -12,6 +14,43 @@ import {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+const FRAMEWORK_ROOT = '/srv/adw/framework';
+const TARGET_REPOS_DIR = '/srv/adw/repos';
+
+function validOptions(overrides: Partial<GitContextOptions> = {}): GitContextOptions {
+  return {
+    owner: 'acme',
+    repo: 'widgets',
+    selfHost: false,
+    token: 'gh-token-test',
+    gitIdentity: {
+      authorName: 'ADW Bot',
+      authorEmail: 'bot@adw.dev',
+      committerName: 'ADW Bot',
+      committerEmail: 'bot@adw.dev',
+    },
+    frameworkRepoRoot: FRAMEWORK_ROOT,
+    targetReposDir: TARGET_REPOS_DIR,
+    ...overrides,
+  };
+}
+
+interface SpyCall {
+  command: string;
+  input?: string;
+}
+
+function makeSpyExec(
+  impl?: (command: string) => string,
+): { exec: ExecFn; calls: SpyCall[] } {
+  const calls: SpyCall[] = [];
+  const exec: ExecFn = (command, options) => {
+    calls.push({ command, input: options.input });
+    return impl ? impl(command) : '';
+  };
+  return { exec, calls };
+}
+
 function makeLabel(name: string): GitHubLabel {
   return { id: name, name, color: 'cccccc', description: null };
 }
@@ -22,11 +61,10 @@ function makeIssue(...labelNames: string[]) {
 
 const REPO_INFO = { owner: 'acme', repo: 'widgets' };
 
-function makeDeps(overrides: Partial<LabelManagerDeps> = {}): LabelManagerDeps {
+function makeDeps(spyCalls: SpyCall[], exec: ExecFn): LabelManagerDeps {
   return {
-    exec: vi.fn().mockReturnValue(''),
+    gitContextForRepo: () => new GitContext(validOptions(), { exec }),
     logger: vi.fn(),
-    ...overrides,
   };
 }
 
@@ -149,46 +187,46 @@ describe('issueTypeToAdwLabel', () => {
 // ── ensureAdwLabelsExist ──────────────────────────────────────────────────────
 
 describe('ensureAdwLabelsExist', () => {
-  it('calls exec exactly 8 times, once per label', () => {
-    const deps = makeDeps();
+  it('issues exactly 8 exec calls, once per label', () => {
+    const { exec, calls } = makeSpyExec();
+    const deps = makeDeps(calls, exec);
     ensureAdwLabelsExist(REPO_INFO, deps);
-    expect(deps.exec).toHaveBeenCalledTimes(8);
+    expect(calls).toHaveLength(8);
   });
 
   it('each exec call contains gh label create, --force, the label name, and --repo acme/widgets', () => {
-    const deps = makeDeps();
+    const { exec, calls } = makeSpyExec();
+    const deps = makeDeps(calls, exec);
     ensureAdwLabelsExist(REPO_INFO, deps);
-    const calls = vi.mocked(deps.exec).mock.calls;
     for (const def of ADW_LABEL_DEFINITIONS) {
-      const match = calls.find(([cmd]) =>
-        typeof cmd === 'string' &&
-        cmd.includes('gh label create') &&
-        cmd.includes(`'${def.name}'`) &&
-        cmd.includes('--force') &&
-        cmd.includes('--repo acme/widgets'),
+      const match = calls.find(c =>
+        c.command.includes('gh label create') &&
+        c.command.includes(`'${def.name}'`) &&
+        c.command.includes('--force') &&
+        c.command.includes('--repo acme/widgets'),
       );
       expect(match, `expected exec call for label "${def.name}"`).toBeDefined();
     }
   });
 
   it('idempotent: calling twice does not throw, issues 8 calls each time (16 total)', () => {
-    const deps = makeDeps();
+    const { exec, calls } = makeSpyExec();
+    const deps = makeDeps(calls, exec);
     ensureAdwLabelsExist(REPO_INFO, deps);
     ensureAdwLabelsExist(REPO_INFO, deps);
-    expect(deps.exec).toHaveBeenCalledTimes(16);
+    expect(calls).toHaveLength(16);
   });
 
   it('resilient: one failing label does not abort — all 8 still attempted, no throw escapes', () => {
     let callCount = 0;
-    const deps = makeDeps({
-      exec: vi.fn().mockImplementation(() => {
-        callCount++;
-        if (callCount === 3) throw new Error('permission denied');
-        return '';
-      }),
+    const { exec, calls } = makeSpyExec(() => {
+      callCount++;
+      if (callCount === 3) throw new Error('permission denied');
+      return '';
     });
+    const deps = makeDeps(calls, exec);
     expect(() => ensureAdwLabelsExist(REPO_INFO, deps)).not.toThrow();
-    expect(deps.exec).toHaveBeenCalledTimes(8);
+    expect(calls).toHaveLength(8);
   });
 });
 
@@ -196,55 +234,49 @@ describe('ensureAdwLabelsExist', () => {
 
 describe('applyLabel', () => {
   it('success path: exactly one exec call, contains --add-label, no gh label create', () => {
-    const deps = makeDeps();
+    const { exec, calls } = makeSpyExec();
+    const deps = makeDeps(calls, exec);
     applyLabel(7001, 'adw:feature', REPO_INFO, deps);
-    expect(deps.exec).toHaveBeenCalledTimes(1);
-    const [cmd] = vi.mocked(deps.exec).mock.calls[0]!;
-    expect(cmd).toContain("--add-label 'adw:feature'");
-    expect(cmd).not.toContain('gh label create');
+    expect(calls).toHaveLength(1);
+    expect(calls[0].command).toContain("--add-label 'adw:feature'");
+    expect(calls[0].command).not.toContain('gh label create');
   });
 
   it('lazy-create path: creates label and retries edit on "not found"', () => {
     let callCount = 0;
-    const deps = makeDeps({
-      exec: vi.fn().mockImplementation((cmd: string) => {
-        callCount++;
-        if (cmd.includes('issue edit') && callCount === 1) {
-          throw new Error('Label not found');
-        }
-        return '';
-      }),
+    const { exec, calls } = makeSpyExec((cmd) => {
+      callCount++;
+      if (cmd.includes('issue edit') && callCount === 1) {
+        throw new Error('Label not found');
+      }
+      return '';
     });
+    const deps = makeDeps(calls, exec);
     applyLabel(7002, 'adw:bug', REPO_INFO, deps);
-    const calls = vi.mocked(deps.exec).mock.calls.map(([cmd]) => cmd);
-    const issueEditCalls = calls.filter(c => c.includes('issue edit'));
-    const createCalls = calls.filter(c => c.includes('gh label create'));
+    const issueEditCalls = calls.filter(c => c.command.includes('issue edit'));
+    const createCalls = calls.filter(c => c.command.includes('gh label create'));
     expect(issueEditCalls).toHaveLength(2);
     expect(createCalls).toHaveLength(1);
   });
 
   it('persistent not-found: exactly one label create, retry error propagates', () => {
-    const deps = makeDeps({
-      exec: vi.fn().mockImplementation((cmd: string) => {
-        if (cmd.includes('issue edit')) throw new Error('Label not found');
-        return '';
-      }),
+    const { exec, calls } = makeSpyExec((cmd) => {
+      if (cmd.includes('issue edit')) throw new Error('Label not found');
+      return '';
     });
+    const deps = makeDeps(calls, exec);
     expect(() => applyLabel(7003, 'adw:chore', REPO_INFO, deps)).toThrow();
-    const calls = vi.mocked(deps.exec).mock.calls.map(([cmd]) => cmd);
-    const createCalls = calls.filter(c => c.includes('gh label create'));
+    const createCalls = calls.filter(c => c.command.includes('gh label create'));
     expect(createCalls).toHaveLength(1);
   });
 
   it('non-"not found" error rethrows without creating a label', () => {
-    const deps = makeDeps({
-      exec: vi.fn().mockImplementation((cmd: string) => {
-        if (cmd.includes('issue edit')) throw new Error('HTTP 500 Internal Server Error');
-        return '';
-      }),
+    const { exec, calls } = makeSpyExec((cmd) => {
+      if (cmd.includes('issue edit')) throw new Error('HTTP 500 Internal Server Error');
+      return '';
     });
+    const deps = makeDeps(calls, exec);
     expect(() => applyLabel(7001, 'adw:feature', REPO_INFO, deps)).toThrow(/500/);
-    const calls = vi.mocked(deps.exec).mock.calls.map(([cmd]) => cmd);
-    expect(calls.some(c => c.includes('gh label create'))).toBe(false);
+    expect(calls.some(c => c.command.includes('gh label create'))).toBe(false);
   });
 });
