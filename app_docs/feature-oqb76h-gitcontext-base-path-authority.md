@@ -2,7 +2,7 @@
 
 ## Overview
 
-`adws/gitContext/` is the single deep module that answers "which repository's filesystem am I operating on?" and "which auth identity does every command run with?" A `GitContext` is constructed from a mandatory identity (`owner`, `repo`, `selfHost`, `token`, `gitIdentity`) plus injected resolution config (`frameworkRepoRoot`, `targetReposDir`) and an optional `pat` for PAT-requiring operations. Every operation — branch create/checkout/delete, commit/push (force-with-lease), fetch/reset, worktree create/ensure/remove/list/query, and all `gh`/GitHub-API operations (issue read/comment, PR read/create/merge/approve, label lifecycle, Projects V2 board) — is a method on `GitContext`, running through the single private `#run()` chokepoint that injects per-command auth and git identity into the child process environment without ever mutating `process.env`. This module implements PRD `specs/prd/git-context-repo-authority.md` and eliminates the historical "wrong-repo worktree" and `GH_TOKEN` bleed classes of bug structurally.
+`adws/gitContext/` is the single deep module that answers "which repository's filesystem am I operating on?" and "which auth identity does every command run with?" A `GitContext` is constructed from a mandatory identity (`owner`, `repo`, `selfHost`, `token`, `gitIdentity`) plus injected resolution config (`frameworkRepoRoot`, `targetReposDir`) and an optional `pat` for PAT-requiring operations. Every operation — branch create/checkout/delete, commit/push (force-with-lease), fetch/reset, worktree create/ensure/remove/list/query, all `gh`/GitHub-API operations (issue read/comment, PR read/create/merge/approve, label lifecycle, Projects V2 board), and gh issue/PR read operations (`listOpenIssues`, `issueComments`, `fetchMergedPRs`) — is a method on `GitContext`, running through the single private `#run()` chokepoint that injects per-command auth and git identity into the child process environment without ever mutating `process.env`. This module implements PRD `specs/prd/git-context-repo-authority.md` and eliminates the historical "wrong-repo worktree" and `GH_TOKEN` bleed classes of bug structurally.
 
 ## Responsibilities
 
@@ -16,6 +16,7 @@
 - Provide commit/push operations: `commitChanges`, `pushBranch` (force-with-lease + lease-rejection detection), `getHeadTreeHash`, `hasUncommittedChanges`
 - Provide worktree reset: `resetWorktree` (abort in-progress merge/rebase via fs then fetch/reset --hard/clean -fdx)
 - Provide full worktree management surface (slice #661): `createWorktree`, `createWorktreeForNewBranch`, `ensureWorktree`, `getWorktreeForBranch`, `listWorktrees`, `findWorktreeForIssue`, `removeWorktree`, `removeWorktreesForIssue`, `copyEnvToWorktree`
+- Provide gh read methods (slice #691): `listOpenIssues({ fields, search?, limit? })`, `issueComments(issueNumber)`, `fetchMergedPRs(limit?)` — covering the residual direct-`gh` consumers migrated off the ALLOWLIST
 - Delegate VCS operation orchestration to package-private modules (`branchOps.ts`, `commitOps.ts`, `worktreeResetOps.ts`, `worktreeCreateOps.ts`, `worktreeQueryOps.ts`, `worktreeRemoveOps.ts`, `processCleanup.ts`), each taking an injected runner — keeping the `GitContext` class thin and testable
 - Expose the full `gh` issue, PR, label, and board operation surface as thin methods that delegate to pure command-builder + parser modules in `adws/gitContext/commands/`
 - Accept an injectable `ExecFn` via `GitContextDeps` for hermetic testing (the ADW `Deps` idiom)
@@ -41,22 +42,33 @@ Each module is side-effect-free (no `exec`, no `process.env`) and stays under 30
 
 | Module | Exports |
 |---|---|
-| `issueCommands.ts` | Command builders + parsers for `gh issue …` / `gh api issues` (fetch, comment, state, close, title, comments, labels, create, update, find-upgrade, delete-comment) |
-| `prCommands.ts` | PR builders + parsers (find by branch, fetch details/reviews/comments, comment, merge, approve, approval state, list, create) |
+| `issueCommands.ts` | Command builders + parsers for `gh issue …` / `gh api issues` (fetch, comment, state, close, title, comments, labels, create, update, find-upgrade, delete-comment, **listOpenIssues** with `ListOpenIssuesOptions`, **issueComments**) |
+| `prCommands.ts` | PR builders + parsers (find by branch, fetch details/reviews/comments, comment, merge, approve, approval state, list, create, **fetchMergedPRs**) |
 | `labelCommands.ts` | Label create and apply (create-if-missing + add) command builders |
 | `boardCommands.ts` | Projects V2 GraphQL query/mutation builders + parsers (project id, issue item, status field, status update, `moveIssueToStatus`) |
 
 ## Boundary Factory (`adws/github/gitContextFactory.ts`)
 
-`gitContextFor({ owner, repo, selfHost })` and `gitContextForSync(...)` construct a `GitContext` from ambient ADW identity:
+`gitContextFor({ owner, repo, selfHost })`, `gitContextForSync(...)`, and `gitContextForRepo(repoInfo)` construct a `GitContext` from ambient ADW identity:
 - Token resolution order: GitHub App installation token → `GH_TOKEN` env var → `gh auth token` CLI
 - Git identity resolution order: `GIT_AUTHOR_NAME`/`GIT_AUTHOR_EMAIL` env vars → `GITHUB_APP_SLUG` bot identity → `git config user.*` → fallback defaults (`ADW Bot`)
 - Injects `REPO_ROOT` / `TARGET_REPOS_DIR` from `adws/core/environment`
 - Async export (`gitContextFor`) and sync export (`gitContextForSync`) — all resolution is `execSync` under the hood; async variant exists so callers can `await` at the scope boundary
+- `gitContextForRepo(repoInfo)` is a sync convenience for consumers that only have a `RepoInfo` object (e.g. trigger-layer modules); auto-detects self-host so the base path always resolves to a directory that exists
 
-## Migrated Call Sites (as of #661)
+## Migrated Call Sites (as of #691)
 
-`workflowInit.ts`, `prPhase.ts`, `buildPhase.ts`, `documentPhase.ts`, `reviewPhase.ts`, `scenarioFixPhase.ts`, `prReviewPhase.ts`, `takeoverHandler.ts`, `webhookHandlers.ts`, `cancelHandler.ts`, `devServerJanitor.ts`, `adwMerge.tsx`, `adwUpgrade.tsx`, and `adwPromotionSweep.tsx` all construct a `GitContext` via the factory or receive one threaded from the launch boundary, and delegate all git/gh/worktree calls through context methods. No call site passes an optional base-path/`cwd` to a worktree function; `getWorktreesDir`, `getWorktreePath`, and `worktreeExists` no longer exist.
+`workflowInit.ts`, `prPhase.ts`, `buildPhase.ts`, `documentPhase.ts`, `reviewPhase.ts`, `scenarioFixPhase.ts`, `prReviewPhase.ts`, `takeoverHandler.ts`, `webhookHandlers.ts`, `cancelHandler.ts`, `devServerJanitor.ts`, `adwMerge.tsx`, `adwUpgrade.tsx`, and `adwPromotionSweep.tsx` all construct a `GitContext` via the factory or receive one threaded from the launch boundary. Trigger-layer and phase modules that perform gh reads were migrated in #691:
+
+| Consumer | Previous | Now |
+|---|---|---|
+| `concurrencyGuard.ts` | `execSync('gh issue list …')` | `gitContextForRepo(repoInfo).listOpenIssues(...)` |
+| `webhookGatekeeper.ts` (×2) | `execSync('gh issue list …')` | `ctx.listOpenIssues(...)` (prefers injected `gitContext`; falls back to factory) |
+| `docsSelfCheck.ts` | `execWithRetry('gh issue list …')` | `gitContextForRepo(repoInfo).listOpenIssues(...)` |
+| `takeoverHandler.ts` | `execSync('gh issue view … --jq .comments')` | `gitContextForRepo(repoInfo).issueComments(issueNumber)` |
+| `perIssueScenarioSweep.ts` | `execSync('gh pr list …')` | `gitContextForRepo(repoInfo).fetchMergedPRs(200)` |
+
+All five files have been removed from the `ALLOWLIST` in `adws/checkGitGhGuard.ts`. The `bun run lint:git-guard` CI check now passes with no allowlisted trigger/phase files for gh reads.
 
 ## VCS Module End State (as of #661)
 
@@ -87,6 +99,7 @@ Each module is side-effect-free (no `exec`, no `process.env`) and stays under 30
 - `mergeLatestFromDefaultBranch` warns-don't-throw on fetch/merge failures — merge conflicts are non-fatal
 - All worktree create/ensure/remove/list/query methods resolve paths under `#basePath` via `#worktreesDir()` and `worktreePathFor()` — no caller-supplied base path
 - The package imports nothing from `adws/core`, `adws/providers`, or any ADW global — all config is injected at construction (`findWorktreeForIssue` takes a pre-resolved `prefixes` array so the package stays free of `branchPrefixMap`)
+- `listOpenIssues`, `issueComments`, and `fetchMergedPRs` are thin delegators through `#run()` — they do not mutate `process.env` and they use the context's token for per-command auth
 
 ## Configuration
 
@@ -125,6 +138,8 @@ Optional injectable dependency bag via `GitContextDeps` (second constructor para
 - **Board and approve ops require `GITHUB_PAT`** — `usePat: true` falls back to the context token when `GITHUB_PAT` is unset (user-owned repos degrade gracefully, matching prior behaviour from `feature-9tknkw`).
 - **Branch sanitization regex** — `worktreePathFor` sanitizes with `/[/\\:*?"<>|`]/g → '-'`, matching the historical `worktreeOperations.ts` helper for path compatibility post-migration.
 - **Injectable exec seam (`ExecFn` / `GitContextDeps`) is for tests, not config** — the seam exists so spy tests can assert per-call `{ cwd, env, input }` without spawning real processes. The default is a real `execSync` wrapper — the only real spawn site in the package.
-- **`gitContextForSync` vs `gitContextFor`** — use `gitContextForSync` when you're already in a synchronous initialization path; use `gitContextFor` when you can `await`. Both produce identical `GitContext` instances; the async variant is a thin wrapper.
+- **`gitContextForSync` vs `gitContextFor` vs `gitContextForRepo`** — use `gitContextForSync` when you're already in a synchronous initialization path; use `gitContextFor` when you can `await`; use `gitContextForRepo(repoInfo)` in trigger/phase modules that only have a `RepoInfo` object (the most common case in `adws/triggers/` and `adws/phases/`). All produce identical `GitContext` instances.
 - **No physical npm package** — the "importable package" guarantee is satisfied structurally by the zero-ADW-global dependency discipline; physical workspace extraction to `packages/git-context/` is deferred.
 - **`freeBranchFromMainRepo` preserves non-force push** — the known non-force-push deadlock risk on rewritten branches is tracked separately (#648); the ported semantics are unchanged from the prior vcs implementation.
+- **`listOpenIssues` shares command shape across three former allowlisted consumers** — `concurrencyGuard` projects `[number, comments]`, `webhookGatekeeper` projects `[number, body]`, and `docsSelfCheck` projects `[number, title]` with a `search` filter; the `ListOpenIssuesOptions` type captures all three variations.
+- **`checkGitGhGuard.ts` `main()` guard** — the guard is now exported as a module to support test imports; `main()` is called only when `process.argv[1]` includes `checkGitGhGuard` (i.e. when run as a script). Tests can import `scanFiles`/`ALLOWLIST` without side-effects.

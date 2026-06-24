@@ -5,7 +5,7 @@
  * classify-and-spawn workflow, and cron process management.
  */
 
-import { spawn, execSync } from 'child_process';
+import { spawn } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import { log, generateAdwId, REPO_ROOT, LOGS_DIR } from '../core';
@@ -27,6 +27,7 @@ import { evaluateCandidate } from './takeoverHandler';
 import type { CandidateDecision } from './takeoverHandler';
 import { readAuthGate } from '../core/authGate';
 import type { GitContext } from '../gitContext';
+import { gitContextForRepo } from '../github/gitContextFactory';
 
 /**
  * Spawns a detached child process for running ADW orchestrator workflows.
@@ -173,10 +174,8 @@ export async function handleIssueClosedDependencyUnblock(
   gitContext?: GitContext,
 ): Promise<void> {
   try {
-    const json = execSync(
-      `gh issue list --repo ${repoInfo.owner}/${repoInfo.repo} --state open --json number,body --limit 100`,
-      { encoding: 'utf-8' },
-    );
+    const ctx = gitContext ?? gitContextForRepo(repoInfo);
+    const json = ctx.listOpenIssues({ fields: ['number', 'body'], limit: 100 });
     const issues = JSON.parse(json) as { number: number; body: string }[];
 
     const dependents = issues.filter((issue) => {
@@ -243,10 +242,7 @@ export async function closeAbandonedDependents(
   repoInfo: RepoInfo,
 ): Promise<void> {
   try {
-    const json = execSync(
-      `gh issue list --repo ${repoInfo.owner}/${repoInfo.repo} --state open --json number,body --limit 100`,
-      { encoding: 'utf-8' },
-    );
+    const json = gitContextForRepo(repoInfo).listOpenIssues({ fields: ['number', 'body'], limit: 100 });
     const issues = JSON.parse(json) as { number: number; body: string }[];
 
     const dependents = issues.filter((issue) => {

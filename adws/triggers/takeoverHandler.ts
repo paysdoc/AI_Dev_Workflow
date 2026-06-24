@@ -22,7 +22,6 @@
  * All I/O boundaries are injected via TakeoverDeps so every branch is unit-testable.
  */
 
-import { execSync } from 'child_process';
 import {
   acquireIssueSpawnLock,
   releaseIssueSpawnLock,
@@ -32,6 +31,7 @@ import { isProcessLive } from '../core/processLiveness';
 import { AgentStateManager } from '../core/agentState';
 import { deriveStageFromRemote } from '../core/remoteReconcile';
 import { gitContextForSync } from '../github';
+import { gitContextForRepo } from '../github/gitContextFactory';
 import { extractLatestAdwId } from './cronStageResolver';
 import { classifyStageString } from '../core/stageClassifier';
 import { nextResumeAction, MAX_RESUME_ATTEMPTS } from '../core/resumePolicy';
@@ -86,10 +86,7 @@ export function buildDefaultTakeoverDeps(repoInfo?: RepoInfo): TakeoverDeps {
       readSpawnLockRecord(repoInfo, issueNumber),
     resolveAdwId: (issueNumber, repoInfo) => {
       try {
-        const json = execSync(
-          `gh issue view ${issueNumber} --repo ${repoInfo.owner}/${repoInfo.repo} --json comments --jq '.comments'`,
-          { encoding: 'utf-8' },
-        );
+        const json = gitContextForRepo(repoInfo).issueComments(issueNumber);
         const comments = JSON.parse(json) as { body: string }[];
         return extractLatestAdwId(comments);
       } catch {

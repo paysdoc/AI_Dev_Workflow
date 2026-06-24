@@ -25,11 +25,13 @@ import {
   fetchIssueCmd, commentOnIssueCmd, issueStateCmd, closeIssueCmd, issueTitleCmd,
   fetchIssueCommentsCmd, issueHasLabelCmd, addIssueLabelCmd, createIssueCmd,
   updateIssueBodyCmd, findOpenUpgradeIssueCmd, deleteIssueCommentCmd,
+  listOpenIssuesCmd, issueCommentsCmd,
+  type ListOpenIssuesOptions,
 } from './commands/issueCommands';
 import {
   findPRByBranchCmd, fetchPRDetailsCmd, fetchPRReviewsCmd, fetchPRReviewCommentsCmd,
   commentOnPRCmd, mergePRCmd, approvePRCmd, prApprovalStateCmd,
-  fetchPRListCmd, fetchAllPRsCmd, createPRCmd,
+  fetchPRListCmd, fetchAllPRsCmd, createPRCmd, fetchMergedPRsCmd,
 } from './commands/prCommands';
 import { createLabelCmd, applyLabelCmd } from './commands/labelCommands';
 import {
@@ -355,6 +357,18 @@ export class GitContext {
     this.#run(deleteIssueCommentCmd(this.#owner, this.#repo, commentId));
   }
 
+  listOpenIssues(opts: ListOpenIssuesOptions): string {
+    return this.#run(listOpenIssuesCmd(this.#owner, this.#repo, opts));
+  }
+
+  issueComments(issueNumber: number): string {
+    return this.#run(issueCommentsCmd(this.#owner, this.#repo, issueNumber));
+  }
+
+  fetchMergedPRs(limit?: number): string {
+    return this.#run(fetchMergedPRsCmd(this.#owner, this.#repo, limit));
+  }
+
   authenticatedUser(): string {
     return this.#run('gh api user');
   }
@@ -400,8 +414,8 @@ export class GitContext {
     return this.#run(fetchAllPRsCmd(this.#owner, this.#repo));
   }
 
-  createPR(title: string, body: string, baseBranch?: string): string {
-    return this.#run(createPRCmd(this.#owner, this.#repo, title, baseBranch), { input: body });
+  createPR(title: string, body: string, headBranch: string, baseBranch?: string): string {
+    return this.#run(createPRCmd(this.#owner, this.#repo, title, headBranch, baseBranch), { input: body });
   }
 
   createLabel(name: string, color: string, description: string): void {

@@ -18,7 +18,10 @@ const { spawnMock, issueHasLabelMock, evaluateCandidateMock, releaseIssueSpawnLo
   releaseIssueSpawnLockMock: vi.fn(),
 }));
 
-vi.mock('child_process', () => ({ spawn: spawnMock, execSync: vi.fn() }));
+vi.mock('child_process', () => ({ spawn: spawnMock }));
+vi.mock('../../github/gitContextFactory', () => ({ gitContextForRepo: vi.fn() }));
+vi.mock('../issueDependencies', () => ({ parseDependencies: vi.fn() }));
+vi.mock('./issueEligibility', () => ({ checkIssueEligibility: vi.fn() }));
 vi.mock('../../github/issueApi', () => ({ issueHasLabel: issueHasLabelMock, closeIssue: vi.fn() }));
 vi.mock('../../github/labelManager', () => ({
   ADW_UPGRADE_LABEL: 'adw:upgrade',
@@ -46,7 +49,9 @@ vi.mock('../../core/agentState', () => ({
   AgentStateManager: { readTopLevelState: vi.fn(() => null) },
 }));
 
-import { classifyAndSpawnWorkflow } from '../webhookGatekeeper';
+import { classifyAndSpawnWorkflow, handleIssueClosedDependencyUnblock, closeAbandonedDependents } from '../webhookGatekeeper';
+import { gitContextForRepo } from '../../github/gitContextFactory';
+import { parseDependencies } from '../issueDependencies';
 
 const REPO_INFO = { owner: 'acme', repo: 'target' };
 const TARGET_ARGS = ['--target-repo', 'acme/target'];
@@ -92,5 +97,66 @@ describe('classifyAndSpawnWorkflow — adw:upgrade short-circuit (Bug C′)', ()
 
     expect(evaluateCandidateMock).toHaveBeenCalledTimes(1);
     expect(spawnedScripts().some((a) => a.endsWith('adws/adwUpgrade.tsx'))).toBe(false);
+  });
+});
+
+// ── handleIssueClosedDependencyUnblock — routes through gitContextForRepo ────
+
+describe('handleIssueClosedDependencyUnblock — listOpenIssues routing', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(parseDependencies).mockReturnValue([]);
+  });
+
+  it('uses the passed gitContext when provided (prefers it over factory)', async () => {
+    const issues = [{ number: 10, body: 'Blocked by #5' }];
+    const mockCtx = { listOpenIssues: vi.fn(() => JSON.stringify(issues)) };
+    vi.mocked(parseDependencies).mockReturnValue([5]);
+
+    await handleIssueClosedDependencyUnblock(5, REPO_INFO, [], mockCtx as never);
+
+    expect(mockCtx.listOpenIssues).toHaveBeenCalledWith({ fields: ['number', 'body'], limit: 100 });
+    expect(gitContextForRepo).not.toHaveBeenCalled();
+  });
+
+  it('falls back to gitContextForRepo when no gitContext is passed', async () => {
+    const issues: unknown[] = [];
+    const mockCtx = { listOpenIssues: vi.fn(() => JSON.stringify(issues)) };
+    vi.mocked(gitContextForRepo).mockReturnValue(mockCtx as never);
+
+    await handleIssueClosedDependencyUnblock(5, REPO_INFO, []);
+
+    expect(gitContextForRepo).toHaveBeenCalledWith(REPO_INFO);
+    expect(mockCtx.listOpenIssues).toHaveBeenCalledWith({ fields: ['number', 'body'], limit: 100 });
+  });
+
+  it('does not throw on listOpenIssues error', async () => {
+    vi.mocked(gitContextForRepo).mockReturnValue({ listOpenIssues: vi.fn(() => { throw new Error('gh failed'); }) } as never);
+
+    await expect(handleIssueClosedDependencyUnblock(5, REPO_INFO, [])).resolves.not.toThrow();
+  });
+});
+
+describe('closeAbandonedDependents — listOpenIssues routing', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(parseDependencies).mockReturnValue([]);
+  });
+
+  it('calls listOpenIssues with number+body fields via gitContextForRepo', async () => {
+    const issues: unknown[] = [];
+    const mockCtx = { listOpenIssues: vi.fn(() => JSON.stringify(issues)) };
+    vi.mocked(gitContextForRepo).mockReturnValue(mockCtx as never);
+
+    await closeAbandonedDependents(7, REPO_INFO);
+
+    expect(gitContextForRepo).toHaveBeenCalledWith(REPO_INFO);
+    expect(mockCtx.listOpenIssues).toHaveBeenCalledWith({ fields: ['number', 'body'], limit: 100 });
+  });
+
+  it('does not throw on listOpenIssues error', async () => {
+    vi.mocked(gitContextForRepo).mockReturnValue({ listOpenIssues: vi.fn(() => { throw new Error('gh failed'); }) } as never);
+
+    await expect(closeAbandonedDependents(7, REPO_INFO)).resolves.not.toThrow();
   });
 });

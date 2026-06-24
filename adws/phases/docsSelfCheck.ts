@@ -2,8 +2,9 @@ import * as fs from 'fs';
 import { parseConditionalDocs, type ConditionalDocsRegistry } from '../core/conditionalDocsRegistry';
 import { runDocsGuards, DOC_BLOAT_THRESHOLD_LINES, type DocSize, type GuardFlags, type BloatFlag } from '../core/docsGuards';
 import { createIssue } from '../github';
-import { execWithRetry, log as defaultLog, type LogLevel } from '../core';
+import { log as defaultLog, type LogLevel } from '../core';
 import type { RepoInfo } from '../github/githubApi';
+import { gitContextForRepo } from '../github/gitContextFactory';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -39,11 +40,12 @@ export interface DocsSelfCheckParams {
 // ---------------------------------------------------------------------------
 
 function findExistingRefactorIssueDefault(repoInfo: RepoInfo, docPath: string): number | null {
-  const { owner, repo } = repoInfo;
   try {
-    const json = execWithRetry(
-      `gh issue list --repo ${owner}/${repo} --state open --search "docs-bloat: ${docPath}" --json number,title --limit 5`,
-    );
+    const json = gitContextForRepo(repoInfo).listOpenIssues({
+      fields: ['number', 'title'],
+      search: `docs-bloat: ${docPath}`,
+      limit: 5,
+    });
     const results = JSON.parse(json) as { number: number; title: string }[];
     const found = results.find((r) => r.title.includes(docPath));
     return found ? found.number : null;

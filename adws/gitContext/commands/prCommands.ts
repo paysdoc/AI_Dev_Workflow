@@ -38,7 +38,14 @@ export function fetchAllPRsCmd(owner: string, repo: string): string {
   return `gh pr list --repo ${owner}/${repo} --state all --json number,body,state,mergedAt --limit 200`;
 }
 
-export function createPRCmd(owner: string, repo: string, title: string, baseBranch?: string): string {
+export function createPRCmd(owner: string, repo: string, title: string, headBranch: string, baseBranch?: string): string {
   const baseArg = baseBranch ? ` --base ${baseBranch}` : '';
-  return `gh pr create --repo ${owner}/${repo} --title '${title}' --body-file -${baseArg}`;
+  // --head must be explicit: gh otherwise infers it from the cwd's current
+  // branch (the context base path, on the default branch), producing an
+  // empty-diff PR against the wrong head.
+  return `gh pr create --repo ${owner}/${repo} --title '${title}' --head "${headBranch}" --body-file -${baseArg}`;
+}
+
+export function fetchMergedPRsCmd(owner: string, repo: string, limit = 200): string {
+  return `gh pr list --repo ${owner}/${repo} --state merged --json body,mergedAt --limit ${limit}`;
 }

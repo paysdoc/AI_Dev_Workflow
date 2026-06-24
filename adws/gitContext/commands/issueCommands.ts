@@ -1,6 +1,23 @@
 const ISSUE_FIELDS =
   'number,title,body,state,author,assignees,labels,milestone,comments,createdAt,updatedAt,closedAt,url';
 
+export interface ListOpenIssuesOptions {
+  readonly fields: readonly string[];
+  readonly search?: string;
+  readonly limit?: number;
+}
+
+export function listOpenIssuesCmd(owner: string, repo: string, opts: ListOpenIssuesOptions): string {
+  let cmd = `gh issue list --repo ${owner}/${repo} --state open --json ${opts.fields.join(',')}`;
+  if (opts.search !== undefined) cmd += ` --search "${opts.search}"`;
+  if (opts.limit !== undefined) cmd += ` --limit ${opts.limit}`;
+  return cmd;
+}
+
+export function issueCommentsCmd(owner: string, repo: string, issueNumber: number): string {
+  return `gh issue view ${issueNumber} --repo ${owner}/${repo} --json comments --jq '.comments'`;
+}
+
 export function fetchIssueCmd(owner: string, repo: string, issueNumber: number): string {
   return `gh issue view ${issueNumber} --repo ${owner}/${repo} --json ${ISSUE_FIELDS}`;
 }
