@@ -237,3 +237,125 @@ describe('commandEnv', () => {
     expect(env2.GH_TOKEN).toBe('tok');
   });
 });
+
+// ── remotes() ────────────────────────────────────────────────────────────────
+
+describe('remotes()', () => {
+  it('issues git remote with the context base path as cwd when no cwd provided', () => {
+    const calls: Array<{ command: string; cwd: string }> = [];
+    const fakeExec = (command: string, options: { cwd: string }) => {
+      calls.push({ command, cwd: options.cwd });
+      return 'origin\n';
+    };
+    const ctx = new GitContext(validOptions({ selfHost: true }), { exec: fakeExec as never });
+    ctx.remotes();
+    expect(calls[0].command).toBe('git remote');
+    expect(calls[0].cwd).toBe(FRAMEWORK_ROOT);
+  });
+
+  it('passes explicit cwd override to the exec', () => {
+    const calls: Array<{ command: string; cwd: string }> = [];
+    const fakeExec = (command: string, options: { cwd: string }) => {
+      calls.push({ command, cwd: options.cwd });
+      return 'origin\n';
+    };
+    const ctx = new GitContext(validOptions({ selfHost: true }), { exec: fakeExec as never });
+    ctx.remotes('/some/worktree');
+    expect(calls[0].cwd).toBe('/some/worktree');
+  });
+
+  it('parses multi-line output into a trimmed, empty-filtered array', () => {
+    const ctx = new GitContext(validOptions(), {
+      exec: () => 'origin\nupstream\n\n' as never,
+    });
+    expect(ctx.remotes()).toEqual(['origin', 'upstream']);
+  });
+
+  it('returns empty array when there are no remotes', () => {
+    const ctx = new GitContext(validOptions(), { exec: () => '\n' as never });
+    expect(ctx.remotes()).toEqual([]);
+  });
+
+  it('does not mutate process.env', () => {
+    const before = process.env['GH_TOKEN'];
+    const ctx = new GitContext(validOptions({ token: 'remote-tok' }), {
+      exec: () => 'origin\n' as never,
+    });
+    ctx.remotes();
+    expect(process.env['GH_TOKEN']).toBe(before);
+  });
+});
+
+// ── gitConfigUser() ──────────────────────────────────────────────────────────
+
+describe('gitConfigUser()', () => {
+  it('returns name and email when both git config reads succeed', () => {
+    let callCount = 0;
+    const ctx = new GitContext(validOptions(), {
+      exec: (cmd: string) => {
+        callCount++;
+        if (cmd.includes('user.name')) return 'Alice\n' as never;
+        if (cmd.includes('user.email')) return 'alice@example.com\n' as never;
+        return '' as never;
+      },
+    });
+    const result = ctx.gitConfigUser();
+    expect(result).toEqual({ name: 'Alice', email: 'alice@example.com' });
+    expect(callCount).toBe(2);
+  });
+
+  it('returns null for name when git config user.name throws', () => {
+    const ctx = new GitContext(validOptions(), {
+      exec: (cmd: string) => {
+        if (cmd.includes('user.name')) throw new Error('unset');
+        if (cmd.includes('user.email')) return 'alice@example.com\n' as never;
+        return '' as never;
+      },
+    });
+    const result = ctx.gitConfigUser();
+    expect(result.name).toBeNull();
+    expect(result.email).toBe('alice@example.com');
+  });
+
+  it('returns null for email when git config user.email throws', () => {
+    const ctx = new GitContext(validOptions(), {
+      exec: (cmd: string) => {
+        if (cmd.includes('user.name')) return 'Alice\n' as never;
+        if (cmd.includes('user.email')) throw new Error('unset');
+        return '' as never;
+      },
+    });
+    const result = ctx.gitConfigUser();
+    expect(result.name).toBe('Alice');
+    expect(result.email).toBeNull();
+  });
+
+  it('returns { name: null, email: null } when both reads throw', () => {
+    const ctx = new GitContext(validOptions(), {
+      exec: () => { throw new Error('unset'); },
+    });
+    const result = ctx.gitConfigUser();
+    expect(result).toEqual({ name: null, email: null });
+  });
+
+  it('passes explicit cwd to both reads', () => {
+    const cwds: string[] = [];
+    const ctx = new GitContext(validOptions(), {
+      exec: (cmd: string, opts: { cwd: string }) => {
+        cwds.push(opts.cwd);
+        return 'value\n' as never;
+      },
+    });
+    ctx.gitConfigUser('/custom/cwd');
+    expect(cwds).toEqual(['/custom/cwd', '/custom/cwd']);
+  });
+
+  it('does not mutate process.env', () => {
+    const before = process.env['GH_TOKEN'];
+    const ctx = new GitContext(validOptions({ token: 'config-tok' }), {
+      exec: () => 'value\n' as never,
+    });
+    ctx.gitConfigUser();
+    expect(process.env['GH_TOKEN']).toBe(before);
+  });
+});

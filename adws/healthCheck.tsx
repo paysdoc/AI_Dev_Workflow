@@ -14,7 +14,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { log } from './core';
-import { getRepoInfo } from './github';
+import { gitContextForRepo, readLocalRepoInfo } from './github/gitContextFactory';
+import type { GitContext } from './gitContext/gitContext';
 import {
   checkEnvironmentVariables,
   checkGitRepository,
@@ -22,7 +23,6 @@ import {
   checkGitHubCLI,
   checkDirectoryStructure,
   checkIssueNumber,
-  execCommand,
 } from './healthCheckChecks';
 
 // Re-export for any external consumers
@@ -104,24 +104,45 @@ async function main(): Promise<void> {
     errors: []
   };
 
+  // Construct a self-host GitContext for all git/gh probes.
+  // Wrapped in try/catch: construction can fail if no token is resolvable.
+  // On failure, context-dependent checks are skipped and the error is recorded.
+  let ctx: GitContext | undefined;
+  try {
+    ctx = gitContextForRepo(readLocalRepoInfo(), { selfHost: true });
+  } catch (err) {
+    result.checks.gitContext = {
+      success: false,
+      error: `Failed to construct GitContext: ${err instanceof Error ? err.message : String(err)}`,
+      details: {}
+    };
+    result.success = false;
+  }
+
   // Run all checks
   log('Checking environment variables...', 'info');
   result.checks.environmentVariables = checkEnvironmentVariables();
 
   log('Checking git repository...', 'info');
-  result.checks.gitRepository = checkGitRepository();
+  if (ctx) {
+    result.checks.gitRepository = checkGitRepository(ctx);
+  }
 
   log('Checking Claude Code CLI...', 'info');
   result.checks.claudeCodeCLI = checkClaudeCodeCLI();
 
   log('Checking GitHub CLI...', 'info');
-  result.checks.gitHubCLI = checkGitHubCLI();
+  if (ctx) {
+    result.checks.gitHubCLI = checkGitHubCLI(ctx);
+  }
 
   log('Checking directory structure...', 'info');
   result.checks.directoryStructure = checkDirectoryStructure();
 
   log(`Checking issue #${issueNumber}...`, 'info');
-  result.checks.issueAccessibility = checkIssueNumber(issueNumber, getRepoInfo());
+  if (ctx) {
+    result.checks.issueAccessibility = checkIssueNumber(issueNumber, ctx);
+  }
 
   // Collect warnings and errors
   for (const [checkName, checkResult] of Object.entries(result.checks)) {
@@ -155,20 +176,22 @@ async function main(): Promise<void> {
   }
 
   // Git Repository
-  const gitCheck = result.checks.gitRepository;
-  console.log(`${gitCheck.success ? '✅' : '❌'} Git Repository`);
-  if (gitCheck.success) {
-    const details = gitCheck.details as { currentBranch: string; remotes: string[]; userName?: string; userEmail?: string };
-    console.log(`   Branch: ${details.currentBranch}`);
-    console.log(`   Remotes: ${details.remotes.join(', ') || 'none'}`);
-    if (details.userName) {
-      console.log(`   User: ${details.userName} <${details.userEmail}>`);
+  if (result.checks.gitRepository) {
+    const gitCheck = result.checks.gitRepository;
+    console.log(`${gitCheck.success ? '✅' : '❌'} Git Repository`);
+    if (gitCheck.success) {
+      const details = gitCheck.details as { currentBranch: string; remotes: string[]; userName?: string; userEmail?: string };
+      console.log(`   Branch: ${details.currentBranch}`);
+      console.log(`   Remotes: ${details.remotes.join(', ') || 'none'}`);
+      if (details.userName) {
+        console.log(`   User: ${details.userName} <${details.userEmail}>`);
+      }
+      if (gitCheck.warning) {
+        console.log(`   ⚠️  Warning: ${gitCheck.warning}`);
+      }
+    } else {
+      console.log(`   Error: ${gitCheck.error}`);
     }
-    if (gitCheck.warning) {
-      console.log(`   ⚠️  Warning: ${gitCheck.warning}`);
-    }
-  } else {
-    console.log(`   Error: ${gitCheck.error}`);
   }
 
   // Claude Code CLI
@@ -184,18 +207,20 @@ async function main(): Promise<void> {
   }
 
   // GitHub CLI
-  const ghCheck = result.checks.gitHubCLI;
-  console.log(`${ghCheck.success ? '✅' : '❌'} GitHub CLI`);
-  if (ghCheck.success) {
-    const details = ghCheck.details as { installed: boolean; authenticated: boolean; hasGitHubPAT: boolean };
-    console.log(`   Installed: ${details.installed ? 'yes' : 'no'}`);
-    console.log(`   Authenticated: ${details.authenticated ? 'yes' : 'no'}`);
-    console.log(`   GITHUB_PAT set: ${details.hasGitHubPAT ? 'yes' : 'no'}`);
-    if (ghCheck.warning) {
-      console.log(`   ⚠️  Warning: ${ghCheck.warning}`);
+  if (result.checks.gitHubCLI) {
+    const ghCheck = result.checks.gitHubCLI;
+    console.log(`${ghCheck.success ? '✅' : '❌'} GitHub CLI`);
+    if (ghCheck.success) {
+      const details = ghCheck.details as { installed: boolean; authenticated: boolean; hasGitHubPAT: boolean };
+      console.log(`   Installed: ${details.installed ? 'yes' : 'no'}`);
+      console.log(`   Authenticated: ${details.authenticated ? 'yes' : 'no'}`);
+      console.log(`   GITHUB_PAT set: ${details.hasGitHubPAT ? 'yes' : 'no'}`);
+      if (ghCheck.warning) {
+        console.log(`   ⚠️  Warning: ${ghCheck.warning}`);
+      }
+    } else {
+      console.log(`   Error: ${ghCheck.error}`);
     }
-  } else {
-    console.log(`   Error: ${ghCheck.error}`);
   }
 
   // Directory Structure
@@ -215,19 +240,19 @@ async function main(): Promise<void> {
   }
 
   // Issue Accessibility
-  const issueCheck = result.checks.issueAccessibility;
-  console.log(`${issueCheck.success ? '✅' : '❌'} Issue #${issueNumber}`);
-  if (issueCheck.success) {
-    const details = issueCheck.details as { title: string; state: string };
-    console.log(`   Title: ${details.title}`);
-    console.log(`   State: ${details.state}`);
-    // Get repo URL for the issue link
-    const repoUrl = execCommand('gh repo view --json url -q .url');
-    if (repoUrl) {
-      console.log(`   URL: ${repoUrl}/issues/${issueNumber}`);
+  if (result.checks.issueAccessibility) {
+    const issueCheck = result.checks.issueAccessibility;
+    console.log(`${issueCheck.success ? '✅' : '❌'} Issue #${issueNumber}`);
+    if (issueCheck.success) {
+      const details = issueCheck.details as { title: string; state: string };
+      console.log(`   Title: ${details.title}`);
+      console.log(`   State: ${details.state}`);
+      if (ctx) {
+        console.log(`   URL: https://github.com/${ctx.owner}/${ctx.repo}/issues/${issueNumber}`);
+      }
+    } else {
+      console.log(`   Error: ${issueCheck.error}`);
     }
-  } else {
-    console.log(`   Error: ${issueCheck.error}`);
   }
 
   // Summary
