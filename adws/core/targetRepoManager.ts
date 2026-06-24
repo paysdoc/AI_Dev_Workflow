@@ -1,108 +1,100 @@
 /**
- * Target repository workspace management.
+ * Target repository workspace management — shim adapter (issue #700).
  *
- * Handles cloning, pulling, and workspace path resolution for external
- * target repositories. Keeps cloned repos under TARGET_REPOS_DIR
- * (default: ~/.adw/repos/{owner}/{repo}/).
+ * Clone/fetch/default-branch logic has been absorbed into the structurally-exempt
+ * `adws/gitContext/repoWorkspace.ts`. This file re-exports helpers at the stable
+ * import path for trigger_cron, trigger_webhook, workflowInit, and prReviewPhase,
+ * and provides `ensureTargetRepoWorkspace` as a thin wrapper that builds a veracious
+ * GitContext and delegates to `ensureRepoWorkspace` — fixing the ambient-auth
+ * `gh repo view` crash in the old `fetchLatestRefs`.
+ *
+ * Zero raw git/gh strings remain in this file.
  */
 
-import { execSync } from 'child_process';
-import * as fs from 'fs';
 import * as path from 'path';
-import { TARGET_REPOS_DIR } from './config';
 import type { TargetRepoInfo } from '../types/issueTypes';
+import { TARGET_REPOS_DIR } from './config';
 import { log } from './utils';
+import {
+  getTargetRepoWorkspacePath as _getWorkspacePath,
+  isRepoCloned,
+  convertToSshUrl,
+  cloneRepo,
+  ensureRepoWorkspace,
+} from '../gitContext';
+import { gitContextForRepo } from '../github/gitContextFactory';
 
-/**
- * Returns the workspace path for a target repository.
- * Format: TARGET_REPOS_DIR/{owner}/{repo}
- */
+// ---------------------------------------------------------------------------
+// Path helpers — bind TARGET_REPOS_DIR at the shim boundary
+// ---------------------------------------------------------------------------
+
+/** Returns the workspace path: `TARGET_REPOS_DIR/{owner}/{repo}` */
 export function getTargetRepoWorkspacePath(owner: string, repo: string): string {
-  return path.join(TARGET_REPOS_DIR, owner, repo);
+  return _getWorkspacePath(owner, repo, TARGET_REPOS_DIR);
 }
 
-/**
- * Checks if a repository has already been cloned at the given workspace path.
- */
-export function isRepoCloned(workspacePath: string): boolean {
-  return fs.existsSync(path.join(workspacePath, '.git'));
-}
+// Re-export utilities at the stable paths
+export { isRepoCloned, convertToSshUrl };
 
 /**
- * Converts an HTTPS GitHub clone URL to SSH format.
- * Handles URLs like https://github.com/{owner}/{repo} (with or without .git suffix).
- * Non-HTTPS URLs (e.g., already SSH) are returned unchanged.
- *
- * @param cloneUrl - The clone URL to convert
- * @returns The SSH-format URL, or the original URL if no conversion is needed
- */
-export function convertToSshUrl(cloneUrl: string): string {
-  const httpsMatch = cloneUrl.match(/^https:\/\/github\.com\/([^/]+)\/([^/.]+)(\.git)?$/);
-  if (httpsMatch) {
-    const sshUrl = `git@github.com:${httpsMatch[1]}/${httpsMatch[2]}.git`;
-    log(`Converting HTTPS clone URL to SSH: ${cloneUrl} → ${sshUrl}`, 'info');
-    return sshUrl;
-  }
-  return cloneUrl;
-}
-
-/**
- * Clones a target repository into the given workspace path.
+ * Clones a target repository (HTTPS → SSH conversion included).
+ * @deprecated Prefer {@link ensureTargetRepoWorkspace}.
  */
 export function cloneTargetRepo(cloneUrl: string, workspacePath: string): void {
-  const parentDir = path.dirname(workspacePath);
-  fs.mkdirSync(parentDir, { recursive: true });
-
-  const sshUrl = convertToSshUrl(cloneUrl);
-  log(`Cloning ${sshUrl} into ${workspacePath}...`, 'info');
-  execSync(`git clone "${sshUrl}" "${workspacePath}"`, {
-    stdio: 'pipe',
-    encoding: 'utf-8',
+  cloneRepo(cloneUrl, workspacePath, {
+    log: (msg) => log(msg, 'info'),
   });
-  log(`Cloned ${sshUrl} into ${workspacePath}`, 'success');
 }
 
+// ---------------------------------------------------------------------------
+// ensureTargetRepoWorkspace
+// ---------------------------------------------------------------------------
+
 /**
- * Fetches latest refs from origin.
- * Returns the name of the default branch.
+ * Ensures a target repository workspace exists and is up-to-date.
+ * Clones the repo if not present; fetches + reads default branch if already cloned.
+ * Default-branch resolution now runs through a GitContext with per-command veracious
+ * auth — fixing the ambient-auth `gh repo view` crash that triggered the
+ * `fetchLatestRefs` incident class.
+ *
+ * Returns the absolute workspace path.
+ */
+export function ensureTargetRepoWorkspace(targetRepo: TargetRepoInfo): string {
+  const { owner, repo, cloneUrl } = targetRepo;
+  const ctx = gitContextForRepo({ owner, repo });
+
+  return ensureRepoWorkspace(owner, repo, cloneUrl, {
+    targetReposDir: TARGET_REPOS_DIR,
+    getDefaultBranch: () => ctx.defaultBranch(),
+    log: (msg, level) => log(msg, (level as 'info' | 'error' | 'success' | 'warn') ?? 'info'),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// fetchLatestRefs / pullLatestDefaultBranch — deprecated aliases
+// ---------------------------------------------------------------------------
+
+/**
+ * @deprecated Prefer {@link ensureTargetRepoWorkspace}.
+ * Fetches latest refs from origin and returns the default branch name,
+ * using per-command veracious auth via a GitContext.
  */
 export function fetchLatestRefs(workspacePath: string): string {
-  log(`Fetching latest refs in ${workspacePath}...`, 'info');
-  execSync('git fetch origin', { stdio: 'pipe', cwd: workspacePath });
-
-  const defaultBranch = execSync(
-    'gh repo view --json defaultBranchRef --jq .defaultBranchRef.name',
-    { encoding: 'utf-8', cwd: workspacePath }
-  ).trim();
-
+  const rel = path.relative(TARGET_REPOS_DIR, workspacePath);
+  const parts = rel.split(path.sep);
+  if (parts.length < 2) {
+    throw new Error(`fetchLatestRefs: cannot determine owner/repo from path: ${workspacePath}`);
+  }
+  const [owner, repo] = parts;
+  const ctx = gitContextForRepo({ owner, repo });
+  const defaultBranch = ctx.defaultBranch();
   log(`Fetched latest refs for ${defaultBranch} in ${workspacePath}`, 'success');
-
   return defaultBranch;
 }
 
 /**
- * @deprecated Use {@link fetchLatestRefs} instead. This function previously ran `git checkout`
- * and `git pull --rebase` in the main repo root, which crashes on divergent branches.
+ * @deprecated Use {@link fetchLatestRefs} instead.
  */
 export function pullLatestDefaultBranch(workspacePath: string): string {
   return fetchLatestRefs(workspacePath);
-}
-
-/**
- * Ensures a target repository workspace exists and is up-to-date.
- * Clones the repo if not present, or pulls the latest default branch if already cloned.
- * Returns the absolute workspace path.
- */
-export function ensureTargetRepoWorkspace(targetRepo: TargetRepoInfo): string {
-  const workspacePath = targetRepo.workspacePath
-    || getTargetRepoWorkspacePath(targetRepo.owner, targetRepo.repo);
-
-  if (isRepoCloned(workspacePath)) {
-    log(`Target repo ${targetRepo.owner}/${targetRepo.repo} already cloned at ${workspacePath}`, 'info');
-    fetchLatestRefs(workspacePath);
-  } else {
-    cloneTargetRepo(targetRepo.cloneUrl, workspacePath);
-  }
-
-  return workspacePath;
 }
