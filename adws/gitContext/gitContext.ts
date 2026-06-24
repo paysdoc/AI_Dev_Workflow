@@ -25,6 +25,7 @@ import { worktreeProbeOps, type WorktreeRegistration } from './worktreeProbeOps'
 import { gitReadOps } from './gitReadOps';
 import type { LogSinceOptions } from './gitReadOps';
 import { remoteOps } from './remoteOps';
+import { claimOps } from './claimOps';
 import {
   fetchIssueCmd, commentOnIssueCmd, issueStateCmd, closeIssueCmd, issueTitleCmd,
   fetchIssueCommentsCmd, issueHasLabelCmd, addIssueLabelCmd, createIssueCmd,
@@ -443,6 +444,24 @@ export class GitContext {
 
   lsRemote(branch: string, cwd?: string): string {
     return remoteOps.lsRemote((cmd, c) => this.#run(cmd, { cwd: c }), branch, cwd ?? this.#basePath);
+  }
+
+  // ── Upgrade-claim distributed-lock ops ──────────────────────────────────────
+
+  addDetachedWorktree(worktreePath: string, ref: string, cwd: string): void {
+    claimOps.addDetachedWorktree((cmd, c) => this.#run(cmd, { cwd: c }), worktreePath, ref, cwd);
+  }
+
+  commitAllowEmpty(message: string, cwd: string): void {
+    claimOps.commitAllowEmpty((cmd, c) => this.#run(cmd, { cwd: c }), message, cwd);
+  }
+
+  pushHeadToBranch(branch: string, cwd: string): void {
+    claimOps.pushHeadToBranch((cmd, c) => this.#run(cmd, { cwd: c }), branch, cwd);
+  }
+
+  removeDetachedWorktree(worktreePath: string, cwd: string): void {
+    claimOps.removeDetachedWorktree((cmd, c) => this.#run(cmd, { cwd: c }), worktreePath, cwd);
   }
 
   // ── Git read ops ──────────────────────────────────────────────────────────────

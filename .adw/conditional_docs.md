@@ -1922,6 +1922,7 @@
     - adws/core/remoteReconcile.ts
     - adws/adwPromotionSweep.tsx
     - adws/promotion/promotionStatsLoader.ts
+    - adws/core/upgradeClaim.ts
   - Conditions:
     - When working with `GitContext`, `GitContextOptions`, `GitIdentity`, `ExecFn`, or `GitContextDeps` in `adws/gitContext/`
     - When implementing or troubleshooting base-path resolution for self-host vs target repos (the single `resolveBasePath` authority)
@@ -1982,6 +1983,11 @@
     - When `PromotionStatsLoaderDeps.runGit`+`cwd` is referenced and not found (replaced by `gitLogSince: (opts: LogSinceOptions) => string` in #697)
     - When the wrong-`cwd` auto-ramp stats bug in `adwPromotionSweep.tsx` (fixed in #697) is being investigated — `runGit` injected `process.cwd()` as `cwd`, resolving against ADW framework root; `logSince` defaults to `#basePath`
     - When the temp-file PR-body pattern in `adwPromotionSweep.tsx` mover `createPR` is referenced and not found (deleted in #697 — replaced by `gitCtx.createPR(…, labels)` with stdin body)
+    - When working with `addDetachedWorktree`, `commitAllowEmpty`, `pushHeadToBranch`, or `removeDetachedWorktree` as `GitContext` methods (added in #698 — upgrade-claim distributed-lock verbs)
+    - When `claimOps.ts` (package-private claim-op module), the `Runner` seam, or the no-`--force` push invariant is relevant
+    - When `upgradeClaim.ts` is referenced as a migrated-in-#698 file (no longer on the guard ALLOWLIST)
+    - When `defaultPushClaimBranch` signature change (gains `ctx: GitContext` + `getDefaultBranchFn` seam) or `buildDefaultUpgradeClaimDeps` GitContext construction is relevant
+    - When the winner/loser election correctness (detached HEAD, allow-empty commit, non-forced namespace push, best-effort cleanup) must be traced through GitContext
 
 - app_docs/feature-k817bh-persist-repo-identity-cross-check.md
   - Owns:

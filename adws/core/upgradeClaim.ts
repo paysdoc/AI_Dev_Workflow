@@ -5,7 +5,7 @@
  * visible to distributed, single-host-uncoordinated orchestrators:
  *
  * 1. Creates an empty commit with a unique nonce on branch `adw-upgrade-<hash>`
- *    and pushes it WITHOUT --force.
+ *    and pushes it WITHOUT --force (via GitContext).
  * 2. Push success  → this orchestrator is the WINNER  → { won: true, branch }.
  * 3. Push rejected → this orchestrator is the LOSER   → { won: false, existingIssueNumber, existingBranch }.
  *
@@ -15,18 +15,20 @@
  * and both would believe they won. The nonce makes the second push a true
  * non-fast-forward rejection — exactly one winner guaranteed.
  *
- * All I/O is injected via UpgradeClaimDeps so the winner/loser decision logic is
- * unit-testable without network or filesystem access.
+ * All git ops (fetch, worktree add, commit, push, worktree remove) route through
+ * GitContext — inheriting per-command token injection, git-identity injection, and
+ * explicit cwd. All I/O is injected via UpgradeClaimDeps so the winner/loser
+ * decision logic is unit-testable without network or filesystem access.
  */
 
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { execSync } from 'child_process';
 import { defaultFindPRByBranch, fetchPRDetails, type RawPR } from '../github/prApi';
 import type { RepoInfo } from '../github/githubApi';
 import { log, type LogLevel } from './utils';
-import { getDefaultBranch } from '../vcs/branchOperations';
+import { gitContextForRepo, readLocalRepoInfo } from '../github/gitContextFactory';
+import type { GitContext } from '../gitContext';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -118,12 +120,8 @@ export function isPushRejectionError(err: unknown): boolean {
   return isRejectionError(extractGitErrorText(err));
 }
 
-function cleanupClaimTempWorktree(cwd: string, tmpdir: string): void {
-  try {
-    execSync(`git worktree remove --force "${tmpdir}"`, { stdio: 'pipe', cwd });
-  } catch {
-    // best-effort
-  }
+function cleanupClaimTempWorktree(ctx: GitContext, baseRepoPath: string, tmpdir: string): void {
+  ctx.removeDetachedWorktree(tmpdir, baseRepoPath);
   try {
     fs.rmSync(tmpdir, { recursive: true, force: true });
   } catch {
@@ -140,10 +138,11 @@ export function defaultPushClaimBranch(
   branchName: string,
   hash: string,
   baseRepoPath: string,
-  getDefaultBranchFn: (cwd: string) => string = getDefaultBranch,
+  ctx: GitContext,
+  getDefaultBranchFn: () => string = () => ctx.defaultBranch(),
 ): boolean {
-  const defaultBranch = getDefaultBranchFn(baseRepoPath);
-  execSync(`git fetch origin "${defaultBranch}"`, { stdio: 'pipe', cwd: baseRepoPath });
+  const defaultBranch = getDefaultBranchFn();
+  ctx.fetchRemote(defaultBranch, baseRepoPath);
 
   const tmpdir = fs.mkdtempSync(path.join(os.tmpdir(), 'adw-claim-'));
   try {
@@ -154,32 +153,27 @@ export function defaultPushClaimBranch(
     // the push try/catch below and bypasses the loser path entirely. Committing in
     // detached HEAD and pushing HEAD to the remote namespace keeps the remote push as
     // the single atomic gate and leaves no local branch to leak.
-    execSync(
-      `git worktree add --detach "${tmpdir}" "origin/${defaultBranch}"`,
-      { stdio: 'pipe', cwd: baseRepoPath },
-    );
+    ctx.addDetachedWorktree(tmpdir, `origin/${defaultBranch}`, baseRepoPath);
 
     const nonce = Math.random().toString(36).slice(2, 10);
-    execSync(
-      `git commit --allow-empty -m "ADW upgrade in progress: ${hash} [${nonce}]"`,
-      { stdio: 'pipe', cwd: tmpdir },
-    );
+    ctx.commitAllowEmpty(`ADW upgrade in progress: ${hash} [${nonce}]`, tmpdir);
 
     try {
-      execSync(`git push origin "HEAD:refs/heads/${branchName}"`, { stdio: 'pipe', cwd: tmpdir });
+      ctx.pushHeadToBranch(branchName, tmpdir);
       return true;
     } catch (pushErr) {
       if (isPushRejectionError(pushErr)) return false;
       throw pushErr;
     }
   } finally {
-    cleanupClaimTempWorktree(baseRepoPath, tmpdir);
+    cleanupClaimTempWorktree(ctx, baseRepoPath, tmpdir);
   }
 }
 
-export function buildDefaultUpgradeClaimDeps(baseRepoPath: string = process.cwd()): UpgradeClaimDeps {
+export function buildDefaultUpgradeClaimDeps(baseRepoPath: string = process.cwd(), ctx?: GitContext): UpgradeClaimDeps {
+  const effectiveCtx = ctx ?? gitContextForRepo(readLocalRepoInfo(baseRepoPath));
   return {
-    pushClaimBranch: (branchName, hash) => defaultPushClaimBranch(branchName, hash, baseRepoPath),
+    pushClaimBranch: (branchName, hash) => defaultPushClaimBranch(branchName, hash, baseRepoPath, effectiveCtx),
     findPRByBranch: (branchName, repoInfo) => defaultFindPRByBranch(branchName, repoInfo),
     resolveIssueNumberFromPR: (prNumber, repoInfo) => {
       try {

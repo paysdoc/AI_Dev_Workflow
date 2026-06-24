@@ -605,6 +605,7 @@ adws/                   # ADW workflow system
 │   └── workflowCommentsPR.ts
 ├── gitContext/         # Repo-context authority deep module (GitContext)
 │   ├── __tests__/      # Vitest unit tests
+│   │   ├── claimOps.test.ts
 │   │   ├── gitContext.test.ts
 │   │   ├── gitContextOperations.test.ts
 │   │   ├── gitReadOps.test.ts
@@ -617,8 +618,10 @@ adws/                   # ADW workflow system
 │   │   └── secretCommands.ts   # gh CLI command strings for GitHub Actions secret operations
 │   ├── branchOps.ts    # Package-private branch operation orchestration (create, checkout, delete, reset)
 │   ├── commitOps.ts    # Package-private commit/push orchestration (force-with-lease, lease rejection detection)
+│   ├── claimOps.ts     # Package-private distributed-lock git ops — detached worktree add, allow-empty commit, non-force push, worktree remove
 │   ├── gitContext.ts   # GitContext class — mandatory identity, base-path resolution in constructor, per-command env injection, no cwd fallback
 │   ├── gitReadOps.ts   # Package-private git-read ops — tracked-file listing, HEAD hash, branch diff, commit-history log
+│   ├── remoteOps.ts    # Package-private remote ops — fetch, merge, ls-remote branch existence checks
 │   ├── index.ts        # Public surface (GitContext class + GitIdentity/GitContextOptions types)
 │   ├── processCleanup.ts  # Package-private process kill helpers (killProcessesInDirectory)
 │   ├── remoteOps.ts    # Package-private remote-interaction ops — fetch from origin, ls-remote queries, merge a ref, and abort in-progress merge

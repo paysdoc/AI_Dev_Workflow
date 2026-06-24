@@ -1328,3 +1328,204 @@ describe('lsRemote() command and env', () => {
     expect(() => ctx.lsRemote('main', worktreePath)).toThrow('ssh: connect failed');
   });
 });
+
+// ── addDetachedWorktree() ────────────────────────────────────────────────────
+
+describe('addDetachedWorktree() command and env', () => {
+  const baseCwd = '/srv/adw/repos/acme/webapp';
+  const tmpdir = '/tmp/adw-claim-abc123';
+
+  it('builds git worktree add --detach "<path>" "<ref>"', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.addDetachedWorktree(tmpdir, 'origin/main', baseCwd);
+    expect(calls[0].command).toBe(`git worktree add --detach "${tmpdir}" "origin/main"`);
+  });
+
+  it('passes the supplied cwd', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.addDetachedWorktree(tmpdir, 'origin/main', baseCwd);
+    expect(calls[0].cwd).toBe(baseCwd);
+  });
+
+  it('injects GH_TOKEN from the context token in the child env', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(validOptions({ token: 'add-wt-token' }), { exec });
+    ctx.addDetachedWorktree(tmpdir, 'origin/main', baseCwd);
+    expect(calls[0].env.GH_TOKEN).toBe('add-wt-token');
+  });
+
+  it('injects all four GIT_* identity vars in the child env', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(
+      validOptions({ gitIdentity: { authorName: 'Claim Bot', authorEmail: 'claim@bot.dev', committerName: 'Claim Bot', committerEmail: 'claim@bot.dev' } }),
+      { exec },
+    );
+    ctx.addDetachedWorktree(tmpdir, 'origin/main', baseCwd);
+    expect(calls[0].env.GIT_AUTHOR_NAME).toBe('Claim Bot');
+    expect(calls[0].env.GIT_AUTHOR_EMAIL).toBe('claim@bot.dev');
+    expect(calls[0].env.GIT_COMMITTER_NAME).toBe('Claim Bot');
+    expect(calls[0].env.GIT_COMMITTER_EMAIL).toBe('claim@bot.dev');
+  });
+
+  it('does not mutate process.env', () => {
+    const before = process.env.GH_TOKEN;
+    const { exec } = makeSpyExec('');
+    const ctx = new GitContext(validOptions({ token: 'injected' }), { exec });
+    ctx.addDetachedWorktree(tmpdir, 'origin/main', baseCwd);
+    expect(process.env.GH_TOKEN).toBe(before);
+  });
+});
+
+// ── commitAllowEmpty() ────────────────────────────────────────────────────────
+
+describe('commitAllowEmpty() command and env', () => {
+  const tmpdir = '/tmp/adw-claim-abc123';
+
+  it('builds git commit --allow-empty -m "<message>"', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.commitAllowEmpty('ADW upgrade in progress: abc123 [nonce1]', tmpdir);
+    expect(calls[0].command).toBe('git commit --allow-empty -m "ADW upgrade in progress: abc123 [nonce1]"');
+  });
+
+  it('passes the supplied cwd', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.commitAllowEmpty('msg', tmpdir);
+    expect(calls[0].cwd).toBe(tmpdir);
+  });
+
+  it('injects GH_TOKEN from the context token in the child env', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(validOptions({ token: 'commit-token' }), { exec });
+    ctx.commitAllowEmpty('msg', tmpdir);
+    expect(calls[0].env.GH_TOKEN).toBe('commit-token');
+  });
+
+  it('injects all four GIT_* identity vars in the child env', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(
+      validOptions({ gitIdentity: { authorName: 'Claim Bot', authorEmail: 'claim@bot.dev', committerName: 'Claim Bot', committerEmail: 'claim@bot.dev' } }),
+      { exec },
+    );
+    ctx.commitAllowEmpty('msg', tmpdir);
+    expect(calls[0].env.GIT_AUTHOR_NAME).toBe('Claim Bot');
+    expect(calls[0].env.GIT_AUTHOR_EMAIL).toBe('claim@bot.dev');
+  });
+
+  it('does not mutate process.env', () => {
+    const before = process.env.GH_TOKEN;
+    const { exec } = makeSpyExec('');
+    const ctx = new GitContext(validOptions({ token: 'injected' }), { exec });
+    ctx.commitAllowEmpty('msg', tmpdir);
+    expect(process.env.GH_TOKEN).toBe(before);
+  });
+});
+
+// ── pushHeadToBranch() ────────────────────────────────────────────────────────
+
+describe('pushHeadToBranch() command and env', () => {
+  const tmpdir = '/tmp/adw-claim-abc123';
+
+  it('builds git push origin "HEAD:refs/heads/<branch>"', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.pushHeadToBranch('adw-upgrade-deadbeef', tmpdir);
+    expect(calls[0].command).toBe('git push origin "HEAD:refs/heads/adw-upgrade-deadbeef"');
+  });
+
+  it('does NOT contain --force (lock-correctness guard)', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.pushHeadToBranch('adw-upgrade-deadbeef', tmpdir);
+    expect(calls[0].command).not.toContain('--force');
+  });
+
+  it('passes the supplied cwd', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.pushHeadToBranch('adw-upgrade-deadbeef', tmpdir);
+    expect(calls[0].cwd).toBe(tmpdir);
+  });
+
+  it('injects GH_TOKEN from the context token in the child env', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(validOptions({ token: 'push-token' }), { exec });
+    ctx.pushHeadToBranch('adw-upgrade-deadbeef', tmpdir);
+    expect(calls[0].env.GH_TOKEN).toBe('push-token');
+  });
+
+  it('injects all four GIT_* identity vars in the child env', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(
+      validOptions({ gitIdentity: { authorName: 'Push Bot', authorEmail: 'push@bot.dev', committerName: 'Push Bot', committerEmail: 'push@bot.dev' } }),
+      { exec },
+    );
+    ctx.pushHeadToBranch('adw-upgrade-deadbeef', tmpdir);
+    expect(calls[0].env.GIT_AUTHOR_NAME).toBe('Push Bot');
+    expect(calls[0].env.GIT_AUTHOR_EMAIL).toBe('push@bot.dev');
+  });
+
+  it('does not mutate process.env', () => {
+    const before = process.env.GH_TOKEN;
+    const { exec } = makeSpyExec('');
+    const ctx = new GitContext(validOptions({ token: 'injected' }), { exec });
+    ctx.pushHeadToBranch('adw-upgrade-deadbeef', tmpdir);
+    expect(process.env.GH_TOKEN).toBe(before);
+  });
+});
+
+// ── removeDetachedWorktree() ──────────────────────────────────────────────────
+
+describe('removeDetachedWorktree() command and env', () => {
+  const baseCwd = '/srv/adw/repos/acme/webapp';
+  const tmpdir = '/tmp/adw-claim-abc123';
+
+  it('builds git worktree remove --force "<path>"', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.removeDetachedWorktree(tmpdir, baseCwd);
+    expect(calls[0].command).toBe(`git worktree remove --force "${tmpdir}"`);
+  });
+
+  it('passes the supplied cwd', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.removeDetachedWorktree(tmpdir, baseCwd);
+    expect(calls[0].cwd).toBe(baseCwd);
+  });
+
+  it('injects GH_TOKEN from the context token in the child env', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(validOptions({ token: 'remove-wt-token' }), { exec });
+    ctx.removeDetachedWorktree(tmpdir, baseCwd);
+    expect(calls[0].env.GH_TOKEN).toBe('remove-wt-token');
+  });
+
+  it('injects all four GIT_* identity vars in the child env', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(
+      validOptions({ gitIdentity: { authorName: 'Remove Bot', authorEmail: 'rm@bot.dev', committerName: 'Remove Bot', committerEmail: 'rm@bot.dev' } }),
+      { exec },
+    );
+    ctx.removeDetachedWorktree(tmpdir, baseCwd);
+    expect(calls[0].env.GIT_AUTHOR_NAME).toBe('Remove Bot');
+    expect(calls[0].env.GIT_AUTHOR_EMAIL).toBe('rm@bot.dev');
+  });
+
+  it('swallows exec errors (missing worktree is benign)', () => {
+    const exec: ExecFn = () => { throw new Error('worktree not found'); };
+    const ctx = new GitContext(validOptions(), { exec });
+    expect(() => ctx.removeDetachedWorktree(tmpdir, baseCwd)).not.toThrow();
+  });
+
+  it('does not mutate process.env', () => {
+    const before = process.env.GH_TOKEN;
+    const { exec } = makeSpyExec('');
+    const ctx = new GitContext(validOptions({ token: 'injected' }), { exec });
+    ctx.removeDetachedWorktree(tmpdir, baseCwd);
+    expect(process.env.GH_TOKEN).toBe(before);
+  });
+});
