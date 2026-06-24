@@ -5,11 +5,11 @@
  * and checks against MAX_CONCURRENT_PER_REPO.
  */
 
-import { execSync } from 'child_process';
 import { MAX_CONCURRENT_PER_REPO, log } from '../core';
 import type { RepoInfo } from '../github/githubApi';
 import { isAdwComment } from '../core/workflowCommentParsing';
 import { fetchLinkedPRs, hasLinkedMergedOrClosedPR } from '../github/linkedPrDetector';
+import { gitContextForRepo } from '../github/gitContextFactory';
 
 interface RawIssueWithComments {
   number: number;
@@ -21,10 +21,7 @@ interface RawIssueWithComments {
  */
 function fetchOpenIssuesWithComments(repoInfo: RepoInfo): RawIssueWithComments[] {
   try {
-    const json = execSync(
-      `gh issue list --repo ${repoInfo.owner}/${repoInfo.repo} --state open --json number,comments --limit 100`,
-      { encoding: 'utf-8' },
-    );
+    const json = gitContextForRepo(repoInfo).listOpenIssues({ fields: ['number', 'comments'], limit: 100 });
     return JSON.parse(json);
   } catch (error) {
     log(`Failed to fetch open issues for concurrency check: ${error}`, 'error');

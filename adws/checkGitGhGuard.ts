@@ -57,7 +57,6 @@ const ALLOWLIST: readonly string[] = [
   'adws/core/remoteReconcile.ts',                  // git ls-remote via execWithRetry
   'adws/adwPromotionSweep.tsx',                    // gh pr view/create, git <args> via execWithRetry
   'adws/phases/depauditSetup.ts',                  // gh secret set via injected execWithRetry
-  'adws/phases/docsSelfCheck.ts',                  // gh issue list via injected execWithRetry
   'adws/github/labelManager.ts',                   // gh label create, gh issue edit via injected exec
   'adws/triggers/autoMergeHandler.ts',             // git fetch, git merge
   'adws/github/githubApi.ts',                      // git remote get-url origin, gh api user
@@ -68,11 +67,7 @@ const ALLOWLIST: readonly string[] = [
   'adws/phases/worktreeSetup.ts',                  // git ls-files
   'adws/providers/github/githubBoardManager.ts',   // gh api graphql
   'adws/providers/repoContext.ts',                 // git remote get-url origin
-  'adws/triggers/concurrencyGuard.ts',             // gh issue list
-  'adws/triggers/perIssueScenarioSweep.ts',        // gh pr list
-  'adws/triggers/takeoverHandler.ts',              // gh issue view
   'adws/triggers/trigger_cron.ts',                 // gh issue list, git remote get-url origin
-  'adws/triggers/webhookGatekeeper.ts',            // gh issue list
 ];
 
 // ---------------------------------------------------------------------------
@@ -196,4 +191,5 @@ function main(): void {
   process.exit(1);
 }
 
-main();
+// Run main only when executed as a script, not when imported as a module.
+if (process.argv[1]?.includes('checkGitGhGuard')) main();
