@@ -871,6 +871,7 @@ adws/                   # ADW workflow system
 ├── adw.yml             # ADW self-configuration for this repo (hitl, unit-test gate)
 └── workflows/
     ├── deploy-workers.yml  # Auto-deploy Cloudflare Workers on push to main
+    ├── git-cli-guard.yml   # CI guard: rejects direct git/gh shell-outs that bypass GitContext
     └── regression.yml      # Periodic @regression BDD scenario runner
 workers/                # Cloudflare Workers
 ├── cost-api/           # Cost data ingestion API (costs.paysdoc.nl, D1-backed)
