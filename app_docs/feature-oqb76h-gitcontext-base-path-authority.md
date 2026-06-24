@@ -2,7 +2,7 @@
 
 ## Overview
 
-`adws/gitContext/` is the single deep module that answers "which repository's filesystem am I operating on?" and "which auth identity does every command run with?" A `GitContext` is constructed from a mandatory identity (`owner`, `repo`, `selfHost`, `token`, `gitIdentity`) plus injected resolution config (`frameworkRepoRoot`, `targetReposDir`) and an optional `pat` for PAT-requiring operations. Every operation — branch create/checkout/delete, commit/push (force-with-lease), fetch/reset, worktree create/ensure/remove/list/query, worktree/branch probe reads (`resolveGitDir`, `currentBranchSymbolic`, `worktreeRegistration`, `worktreeBranches`, `localBranches`, `mainRepoPath`), all `gh`/GitHub-API operations (issue read/comment, PR read/create/merge/approve, label lifecycle, Projects V2 board), and git-remote/authenticated-user identity reads (`remoteUrl`, `authenticatedUser`) — is a method on `GitContext`, running through the single private `#run()` chokepoint that injects per-command auth and git identity into the child process environment without ever mutating `process.env`. This module implements PRD `specs/prd/git-context-repo-authority.md` and eliminates the historical "wrong-repo worktree" and `GH_TOKEN` bleed classes of bug structurally.
+`adws/gitContext/` is the single deep module that answers "which repository's filesystem am I operating on?" and "which auth identity does every command run with?" A `GitContext` is constructed from a mandatory identity (`owner`, `repo`, `selfHost`, `token`, `gitIdentity`) plus injected resolution config (`frameworkRepoRoot`, `targetReposDir`) and an optional `pat` for PAT-requiring operations. Every operation — branch create/checkout/delete, commit/push (force-with-lease), fetch/reset, worktree create/ensure/remove/list/query, worktree/branch probe reads, git phase-level reads (`lsFiles`, `headShort`, `diff`, `log`), all `gh`/GitHub-API operations (issue read/comment, PR read/create/merge/approve, label lifecycle, Projects V2 board), and git-remote/authenticated-user identity reads — is a method on `GitContext`, running through the single private `#run()` chokepoint that injects per-command auth and git identity into the child process environment without ever mutating `process.env`. This module implements PRD `specs/prd/git-context-repo-authority.md` and eliminates the historical "wrong-repo worktree" and `GH_TOKEN` bleed classes of bug structurally.
 
 ## Responsibilities
 
@@ -11,15 +11,16 @@
 - Expose read-only `basePath`, `owner`, `repo`, `selfHost` accessors
 - Compute `worktreePathFor(branch)` as `join(basePath, '.worktrees', sanitize(branch))` — never consulting `process.cwd()`
 - Produce a per-command child-process environment overlay via `commandEnv(base?)`: fresh object with `GH_TOKEN` + `GIT_AUTHOR_*`/`GIT_COMMITTER_*` — never mutates `process.env`
-- Execute every operation through the single private `#run(command, opts?)` chokepoint: spawns with `cwd` (defaults to `basePath`), `env = commandEnv(process.env)`, optional stdin `input`, and optional `usePat` flag (injects PAT as `GH_TOKEN` for that one command when `usePat: true` and `#pat` is set)
+- Execute every operation through the single private `#run(command, opts?)` chokepoint: spawns with `cwd` (defaults to `basePath`), `env = commandEnv(process.env)`, optional stdin `input`, optional `usePat` flag, and a global `maxBuffer: 10 MB` ceiling (prevents `ENOBUFS` on large diffs/logs)
 - Provide branch operations: `getCurrentBranch`, `mergeLatestFromDefaultBranch`, `fetchAndResetToRemote`, `deleteLocalBranch`, `deleteRemoteBranch`, `defaultBranch`
 - Provide commit/push operations: `commitChanges`, `pushBranch` (force-with-lease + lease-rejection detection), `getHeadTreeHash`, `hasUncommittedChanges`
 - Provide worktree reset: `resetWorktree` (abort in-progress merge/rebase via fs then fetch/reset --hard/clean -fdx)
 - Provide full worktree management surface (slice #661): `createWorktree`, `createWorktreeForNewBranch`, `ensureWorktree`, `getWorktreeForBranch`, `listWorktrees`, `findWorktreeForIssue`, `removeWorktree`, `removeWorktreesForIssue`, `copyEnvToWorktree`
 - Provide gh read methods (slice #691): `listOpenIssues({ fields, search?, limit? })`, `issueComments(issueNumber)`, `fetchMergedPRs(limit?)` — covering the residual direct-`gh` consumers migrated off the ALLOWLIST
 - Provide identity-read methods (slice #692): `remoteUrl(cwd?: string)` — runs `git remote get-url origin` in the given `cwd`; `authenticatedUser()` — runs `gh api user` and returns the full JSON string
-- Provide worktree/branch probe reads (slice #693): `resolveGitDir(worktreePath)`, `currentBranchSymbolic(worktreePath)`, `worktreeRegistration(worktreePath)`, `worktreeBranches(cwd?)`, `localBranches(cwd?)`, `mainRepoPath(cwd?)` — replacing the last five raw-`git` call sites in `worktreeProbe.ts`, `worktreeOperations.ts`, `branchOperations.ts`, `branchIdentityFallback.ts`, and `orchestratorLib.ts`; all five files removed from the guard ALLOWLIST
-- Delegate VCS operation orchestration to package-private modules (`branchOps.ts`, `commitOps.ts`, `worktreeResetOps.ts`, `worktreeCreateOps.ts`, `worktreeQueryOps.ts`, `worktreeRemoveOps.ts`, `worktreeProbeOps.ts`, `processCleanup.ts`), each taking an injected runner — keeping the `GitContext` class thin and testable
+- Provide worktree/branch probe reads (slice #693): `resolveGitDir(worktreePath)`, `currentBranchSymbolic(worktreePath)`, `worktreeRegistration(worktreePath)`, `worktreeBranches(cwd?)`, `localBranches(cwd?)`, `mainRepoPath(cwd?)` — replacing raw-`git` call sites in `worktreeProbe.ts`, `worktreeOperations.ts`, `branchOperations.ts`, `branchIdentityFallback.ts`, and `orchestratorLib.ts`
+- Provide phase-level git read ops (slice #694): `lsFiles(cwd, prefix?)`, `headShort(cwd?)`, `diff(range, cwd)`, `log(branchName, cwd?)` — replacing raw-`execSync` call sites in `worktreeSetup.ts`, `workflowInit.ts`, `diffEvaluationPhase.ts`, `prCommentDetector.ts`, and `checkLivingDocsIndex.ts`
+- Delegate VCS operation orchestration to package-private modules (`branchOps.ts`, `commitOps.ts`, `worktreeResetOps.ts`, `worktreeCreateOps.ts`, `worktreeQueryOps.ts`, `worktreeRemoveOps.ts`, `worktreeProbeOps.ts`, `gitReadOps.ts`, `processCleanup.ts`), each taking an injected runner — keeping the `GitContext` class thin and testable
 - Expose the full `gh` issue, PR, label, and board operation surface as thin methods that delegate to pure command-builder + parser modules in `adws/gitContext/commands/`
 - Accept an injectable `ExecFn` via `GitContextDeps` for hermetic testing (the ADW `Deps` idiom)
 - Export only `GitContext` class and its public types via `adws/gitContext/index.ts` — no context-free git/`gh` free functions
@@ -37,6 +38,7 @@ Each module is side-effect-free except at the injected runner/fs seam and stays 
 | `worktreeQueryOps.ts` | `listWorktrees`, `findWorktreeForIssue`, `getWorktreeForBranch`; `mainRepoPath`, `worktreeBranches` (slice #693); exports `WorktreeForIssueResult` type |
 | `worktreeRemoveOps.ts` | `removeWorktree`, `removeWorktreesForIssue`, `parseWorktreeBranches`; injects `killProcesses` fn |
 | `worktreeProbeOps.ts` | `resolveGitDir`, `currentBranchSymbolic`, `worktreeRegistration` (slice #693); exports `WorktreeRegistration` union type; handles arbitrary worktree paths supplied by the caller |
+| `gitReadOps.ts` | `lsFiles`, `headShort`, `diff`, `log` (slice #694); pure functions over an injected `Runner` seam; errors propagate — no internal swallow |
 | `processCleanup.ts` | `killProcessesInDirectory` (lsof + SIGTERM→SIGKILL, self-PID filter); re-exported from `vcs/worktreeCleanup.ts` for legacy callers |
 
 ### Pure command modules (`adws/gitContext/commands/`)
@@ -60,7 +62,7 @@ Each module is side-effect-free (no `exec`, no `process.env`) and stays under 30
 - `gitContextForRepo(repoInfo)` is a sync convenience for consumers that only have a `RepoInfo` object (e.g. trigger-layer modules); auto-detects self-host so the base path always resolves to a directory that exists
 - `readLocalRepoInfo(cwd?: string): RepoInfo` (added in #692) — a permanently-allowlisted bootstrap export that reads `git remote get-url origin` and parses both HTTPS and SSH GitHub remote URLs into `{ owner, repo }`. Lives here (not in `githubApi.ts`) because it produces the identity a `GitContext` is constructed *from* (chicken-and-egg: the caller cannot yet have a `GitContext` to route through). `githubApi.getRepoInfo` delegates directly to this function; all ~20 callers of `getRepoInfo` are unaffected. Throws `"Could not parse GitHub URL: …"` / `"Failed to get repo info: …"` on failure.
 
-## Migrated Call Sites (as of #693)
+## Migrated Call Sites (as of #694)
 
 `workflowInit.ts`, `prPhase.ts`, `buildPhase.ts`, `documentPhase.ts`, `reviewPhase.ts`, `scenarioFixPhase.ts`, `prReviewPhase.ts`, `takeoverHandler.ts`, `webhookHandlers.ts`, `cancelHandler.ts`, `devServerJanitor.ts`, `adwMerge.tsx`, `adwUpgrade.tsx`, and `adwPromotionSweep.tsx` all construct a `GitContext` via the factory or receive one threaded from the launch boundary.
 
@@ -96,9 +98,19 @@ VCS probe/branch consumers migrated in #693:
 | `branchIdentityFallback.ts` `defaultListCandidateBranches` | `execSync('git worktree list --porcelain')` + `execSync('git branch --list')` | `ctx.worktreeBranches(cwd)` + `ctx.localBranches(cwd)` |
 | `orchestratorLib.ts` `hasUncommittedChanges` | `execSync('git status --porcelain', { cwd })` | `gitContextForRepo(readLocalRepoInfo(cwd)).hasUncommittedChanges(cwd)` |
 
-All five files from #693 have been removed from the `ALLOWLIST` in `adws/checkGitGhGuard.ts` (`worktreeProbe.ts`, `worktreeOperations.ts`, `branchOperations.ts`, `branchIdentityFallback.ts`, `orchestratorLib.ts`). The three non-bootstrap files from #692 (`githubApi.ts`, `repoContext.ts`, `trigger_cron.ts`) were removed in that slice. `bun run lint:git-guard` now passes with all these files scanned.
+Phase-level git read consumers migrated in #694:
 
-## VCS Module End State (as of #693)
+| Consumer | Previous | Now |
+|---|---|---|
+| `worktreeSetup.ts` `getTrackedBasenames` / `getTrackedTopDirs` | `execSync('git ls-files "<prefix>"', { cwd: worktreePath })` | `ctx.lsFiles(worktreePath, prefix)` |
+| `workflowInit.ts` version log | `execSync('git rev-parse --short HEAD').trim()` | `gitCtx.headShort(frameworkRepoRoot)` |
+| `diffEvaluationPhase.ts` `getGitDiff` | `execSync('git diff <range>', { cwd, maxBuffer: 10MB })` | `ctx.diff(range, worktreePath)` |
+| `prCommentDetector.ts` `getLastAdwCommitTimestamp` | `execSync('git log "<branch>" --format="%aI %s" --no-merges', { cwd })` | `gitContext.log(branchName, cwd)` |
+| `checkLivingDocsIndex.ts` `listTrackedFiles` | `execSync('git ls-files')` | `gitContextForRepo(readLocalRepoInfo(), { selfHost: true }).lsFiles(process.cwd())` |
+
+All five files from #694 have been removed from the `ALLOWLIST` in `adws/checkGitGhGuard.ts` (`worktreeSetup.ts`, `workflowInit.ts`, `diffEvaluationPhase.ts`, `prCommentDetector.ts`, `checkLivingDocsIndex.ts`). `bun run lint:git-guard` now passes with all these files scanned.
+
+## VCS Module End State (as of #694)
 
 | File | Status |
 |---|---|
@@ -112,6 +124,11 @@ All five files from #693 have been removed from the `ALLOWLIST` in `adws/checkGi
 | `adws/vcs/commitOperations.ts` | Pure utilities only; commit/push I/O migrated to GitContext |
 | `adws/phases/branchIdentityFallback.ts` | `defaultListCandidateBranches` thin adapter via `gitContextForRepo`; `parseWorktreeBranchNames` deleted; no raw `child_process` import |
 | `adws/core/orchestratorLib.ts` | `hasUncommittedChanges` thin adapter via `gitContextForRepo`; `deriveOrchestratorScript`/`orchestratorNamesForScript` extracted to `orchestratorNames.ts`; no raw `child_process` import |
+| `adws/phases/worktreeSetup.ts` | `copyClaudeAssetsToWorktree(worktreePath, gitContext)` now requires `GitContext` as second arg; `getTrackedBasenames`/`getTrackedTopDirs` take `GitContext` as first arg; no raw `child_process` import |
+| `adws/phases/workflowInit.ts` | Version-log `git rev-parse --short HEAD` replaced by `gitCtx.headShort(frameworkRepoRoot)`; both `copyClaudeAssetsToWorktree` calls pass `gitCtx`; no raw `child_process` import |
+| `adws/phases/diffEvaluationPhase.ts` | `getGitDiff` takes `GitContext | undefined` as first arg; empty-diff fail-open preserved; no raw `child_process` import |
+| `adws/github/prCommentDetector.ts` | `getLastAdwCommitTimestamp(branchName, gitContext, cwd?)` now takes `GitContext` as second arg; `getUnaddressedComments` constructs context via `gitContextForRepo(repoInfo)`; no raw `child_process` import |
+| `adws/checkLivingDocsIndex.ts` | `listTrackedFiles` constructs self-host context via `gitContextForRepo(readLocalRepoInfo(), { selfHost: true })`; no raw `child_process` import |
 
 ## Contracts & Invariants
 
@@ -121,6 +138,7 @@ All five files from #693 have been removed from the `ALLOWLIST` in `adws/checkGi
 - `worktreePathFor` result is determined solely by `basePath` and the branch name — `process.cwd()` has no effect
 - `commandEnv` never writes to `process.env`; each call returns a new object; calling it twice is idempotent
 - `#run` always passes an explicit `cwd` and `env` to the exec function — never inherits process working directory or ambient `process.env.GH_TOKEN`
+- `defaultExec` sets `maxBuffer: 10 * 1024 * 1024` on all `execSync` calls — both the `input`-branch and the default branch; prevents `ENOBUFS` on large diffs/logs without affecting callers that produce small output
 - When `usePat: true` and `#pat` is set, `GH_TOKEN` in the child env is the PAT; otherwise it is the context's primary token. The parent `process.env` is unchanged in both cases.
 - Two `GitContext` instances for two repos in one process never share `cwd` or token — `GH_TOKEN` bleed is structurally impossible (no module-global `activeRepo` slot)
 - The `activeRepo` module-global and `ensureAppAuthForRepo` were deleted from `githubAppAuth.ts`; all `gh` ops authenticate via the context's per-command child env
@@ -138,6 +156,11 @@ All five files from #693 have been removed from the `ALLOWLIST` in `adws/checkGi
 - `worktreeRegistration` returns `'healthy' | 'locked' | 'prunable' | 'missing'`; `'missing'` on failure or path-not-found
 - `worktreeBranches` and `localBranches` return `[]` on failure (never throw)
 - `mainRepoPath` throws `Error('Could not find main repository in worktree list')` when no non-`.worktrees` entry exists — preserving the throw-on-failure contract of the legacy `getMainRepoPath`
+- `lsFiles(cwd, prefix?)` returns `string[]` (blank lines filtered); throws on exec failure — each call site wraps in its own `try/catch`
+- `headShort(cwd?)` returns the trimmed short SHA; defaults `cwd` to `#basePath`; throws on exec failure
+- `diff(range, cwd)` returns the raw diff string; throws on exec failure
+- `log(branchName, cwd?)` returns the raw log string in `"%aI %s"` format; defaults `cwd` to `#basePath`; throws on exec failure
+- `gitReadOps` functions propagate errors — they do **not** swallow exceptions; each call site retains its pre-existing `try/catch` (or loud crash for `checkLivingDocsIndex`)
 - `readLocalRepoInfo` in the factory is a permanent bootstrap exception: it calls `execSync('git remote get-url origin')` directly because it *produces* the `RepoInfo` a `GitContext` is constructed from (the `gitContextForRepo` call would be circular). No other bootstrap need should create new raw shell-outs outside the factory.
 
 ## Configuration
@@ -166,6 +189,7 @@ Optional injectable dependency bag via `GitContextDeps` (second constructor para
 - **`selfHost` is a boolean discriminator, not optional** — passing `undefined` or any non-boolean throws at construction. This is intentional: omitting it was the historical detonation point where ADW silently operated on the wrong repo.
 - **`process.env` is never mutated on the operation hot path** — `commandEnv(process.env)` overlays the context's token + identity into a new object. The context token wins for context-routed commands; the parent slot is untouched.
 - **`#run` accepts optional `{ cwd?, input?, usePat? }`** — `cwd` overrides the base path for VCS ops on worktrees; `input` pipes data to stdin; `usePat: true` injects `GITHUB_PAT` as `GH_TOKEN` for that one command only (approve PR, Projects V2 GraphQL). Never mutates `process.env`.
+- **`maxBuffer` is global to `defaultExec`** — raised to 10 MB in #694 for all `execSync` calls, not just `diff`. This is strictly more permissive: commands producing <1 MB output are unaffected; only the previously-failing >1 MB case now succeeds. Spy-`ExecFn` tests do not exercise `maxBuffer`.
 - **Worktree ops receive explicit paths, not a base-path arg** — `worktreeCreateOps`, `worktreeQueryOps`, and `worktreeRemoveOps` take pre-computed `worktreesDir`, `worktreePath`, and `baseCwd` from the `GitContext`; they perform no base-path defaulting. The `#worktreePaths(branchName)` private helper binds these from `#basePath`.
 - **`findWorktreeForIssue` takes a `prefixes` array** — callers resolve `branchPrefixMap[issueType]` + `branchPrefixAliases[issueType]` before calling; the package does not import ADW core.
 - **VCS wrappers in `adws/vcs/` are stripped, not deleted** — `branchOperations.ts`, `commitOperations.ts`, and all worktree files now expose only pure vocabulary functions, thin adapters, or are stubs. All I/O functions have migrated to `GitContext` methods.
@@ -190,3 +214,9 @@ Optional injectable dependency bag via `GitContextDeps` (second constructor para
 - **`orchestratorLib` no longer re-declares `deriveOrchestratorScript`/`orchestratorNamesForScript`** — those were extracted to `adws/core/orchestratorNames.ts` and re-exported from `orchestratorLib.ts` for backwards compatibility; callers of `orchestratorLib` are unaffected.
 - **`worktreeProbeOps.ts` is distinct from `worktreeQueryOps.ts`** — `worktreeProbeOps` handles reads on an *arbitrary caller-supplied* worktree path (probe registration, git-dir, current-branch); `worktreeQueryOps` handles the context's own worktree tree (list, find, main-repo-path, worktree-branches). The split keeps both files under 300 lines.
 - **Thin-adapter calls construct a `GitContext` per call** — `getMainRepoPath`, `getDefaultBranch`, `hasUncommittedChanges`, `defaultListCandidateBranches` all call `gitContextForRepo(readLocalRepoInfo(cwd))` on every invocation. These are all cold paths (agent spawn, rare upgrade-claim, once-per-workflow safety net, workflow-init fallback), so token resolution cost is negligible.
+- **`copyClaudeAssetsToWorktree` signature changed in #694** — now requires `(worktreePath: string, gitContext: GitContext)`. The only production callers are in `workflowInit.ts` (two sites, both updated). Any other caller will fail to compile.
+- **`getLastAdwCommitTimestamp` signature changed in #694** — now `(branchName: string, gitContext: GitContext, cwd?: string)`. The only production caller is `getUnaddressedComments` in `prCommentDetector.ts` (updated). Public signatures of `getUnaddressedComments`/`hasUnaddressedComments` are unchanged — `trigger_cron.ts` and `prReviewPhase.ts` are unaffected.
+- **`headShort(frameworkRepoRoot)` is intentional for the ADW version log** — it logs the *framework* repo's HEAD commit, not the target repo's. Even when `gitCtx` is a target context, `cwd` is overridden to `frameworkRepoRoot` so the read is always framework-relative. `git rev-parse` requires no auth.
+- **`git log`/diff base-path correction (latent-bug fix)** — `prCommentDetector`'s `git log` previously ran with an implicit `process.cwd()` (= framework `REPO_ROOT` for the cron). For self-host runs `basePath` equals that, so behavior is identical. For target repos, routing through `GitContext` makes `git log` run in the correct target-repo `basePath` instead of the framework root where the branch does not exist. This is a fix, not a regression.
+- **`checkLivingDocsIndex` now requires auth context** — constructs a real `GitContext` via `gitContextForRepo(readLocalRepoInfo(), { selfHost: true })`, which resolves a token. The gate is a manually/CI-run one-off (not in `package.json` scripts), and CI/operators have `gh` auth available. Do not weaken `GitContext`'s mandatory-token contract for token-free local runs.
+- **`gitReadOps` errors propagate by design** — distinct from `worktreeProbeOps`, whose callers expected swallow-to-null/`missing`. Each `gitReadOps` function lets exec errors bubble; each call site retains its own `try/catch` (or no-catch for `checkLivingDocsIndex`, which crashes loudly on failure — preserved behavior).

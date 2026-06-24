@@ -1904,6 +1904,11 @@
     - adws/triggers/webhookGatekeeper.ts
     - adws/phases/docsSelfCheck.ts
     - adws/phases/branchIdentityFallback.ts
+    - adws/phases/worktreeSetup.ts
+    - adws/phases/workflowInit.ts
+    - adws/phases/diffEvaluationPhase.ts
+    - adws/github/prCommentDetector.ts
+    - adws/checkLivingDocsIndex.ts
     - adws/core/orchestratorLib.ts
     - adws/core/orchestratorNames.ts
   - Conditions:
@@ -1912,7 +1917,7 @@
     - When `worktreePathFor`, `commandEnv`, `defaultBranch`, or construction-time identity validation of `GitContext` is relevant
     - When the per-command env injection chokepoint (`#run`), `usePat`, or stdin `input` forwarding is relevant
     - When `process.env` non-mutation or two-context `GH_TOKEN` isolation in a multi-repo long-lived process is relevant
-    - When working with `branchOps.ts`, `commitOps.ts`, `worktreeResetOps.ts`, `worktreeCreateOps.ts`, `worktreeQueryOps.ts`, `worktreeRemoveOps.ts`, `worktreeProbeOps.ts`, or `processCleanup.ts` (package-private operation modules)
+    - When working with `branchOps.ts`, `commitOps.ts`, `worktreeResetOps.ts`, `worktreeCreateOps.ts`, `worktreeQueryOps.ts`, `worktreeRemoveOps.ts`, `worktreeProbeOps.ts`, `gitReadOps.ts`, or `processCleanup.ts` (package-private operation modules)
     - When `getCurrentBranch`, `mergeLatestFromDefaultBranch`, `fetchAndResetToRemote`, `deleteLocalBranch`, `deleteRemoteBranch` are GitContext methods
     - When `commitChanges`, `pushBranch`, `getHeadTreeHash`, or `hasUncommittedChanges` run through GitContext
     - When `resetWorktree` (abort-merge/rebase + fetch/reset --hard/clean) is involved in takeover recovery
@@ -1939,6 +1944,14 @@
     - When `adws/vcs/worktreeProbe.ts`, `worktreeOperations.ts`, `branchOperations.ts`, `branchIdentityFallback.ts`, or `orchestratorLib.ts` are referenced as migrated-in-#693 files (no longer on the guard ALLOWLIST)
     - When `branchOperations.deleteLocalBranch` is referenced and not found (deleted as dead code in #693 — use `GitContext.deleteLocalBranch`)
     - When `orchestratorLib` exports `deriveOrchestratorScript` or `orchestratorNamesForScript` (extracted to `orchestratorNames.ts`, re-exported from `orchestratorLib` for backwards compat)
+    - When working with phase-level git read ops: `lsFiles`, `headShort`, `diff`, or `log` on `GitContext` (added in #694)
+    - When `gitReadOps.ts` (package-private read-ops module), its `Runner` seam, or error-propagation-by-design contract is relevant
+    - When `worktreeSetup.ts`, `workflowInit.ts`, `diffEvaluationPhase.ts`, `prCommentDetector.ts`, or `checkLivingDocsIndex.ts` are referenced as migrated-in-#694 files (no longer on the guard ALLOWLIST)
+    - When `copyClaudeAssetsToWorktree` is called without a `GitContext` second argument and fails to compile (signature changed in #694)
+    - When `getLastAdwCommitTimestamp` is called without a `GitContext` second argument and fails to compile (signature changed in #694)
+    - When `diffEvaluationPhase.ts` `getGitDiff` receives `undefined` as the first arg and silently returns `''` (no context = safe classification, preserved fail-open)
+    - When `checkLivingDocsIndex.ts` requires auth context for its self-host `GitContext` construction (expected — do not weaken the mandatory-token contract)
+    - When the `defaultExec` 10 MB `maxBuffer` bump or `ENOBUFS` on large diffs/logs is relevant
 
 - app_docs/feature-k817bh-persist-repo-identity-cross-check.md
   - Owns:
