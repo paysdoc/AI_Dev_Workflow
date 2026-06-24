@@ -1760,6 +1760,10 @@
     - adws/healthCheckChecks.ts
   - Conditions:
     - When working on the ADW health check orchestrator or health check predicates in `adws/healthCheck.tsx` and `adws/healthCheckChecks.ts`
+    - When modifying `checkGitRepository`, `checkGitHubCLI`, or `checkIssueNumber` signatures or their `GitContext` parameter
+    - When the self-host `GitContext` construction in `main()` or the webhook `/health` endpoint needs changes
+    - When troubleshooting the mandatory-token construction failure path in the health check
+    - When `healthCheck.tsx` or `healthCheckChecks.ts` appear in the git/gh guard ALLOWLIST (they must not — they are now scanned clean)
 
 - app_docs/feature-9gjajh-cost-api-worker.md
   - Owns:
@@ -1999,4 +2003,5 @@
     - When migrating a residual allowlisted file to GitContext methods and removing it from the ALLOWLIST
     - When troubleshooting false-positive or false-negative detection (template literals, execFileSync first-arg form, comment mentions)
     - When the `bun run lint:git-guard` script exits 1 and you need to understand the remedy (migrate to GitContext or add to allowlist)
+    - When understanding ALLOWLIST categories: only `bootstrap (permanent)` and `residual (temporary)` remain — the `diagnostic (permanent)` category was closed in #699
     - When understanding why `features/` and `test/` dirs are excluded from the scan (fixture-repo BDD setup legitimately shells out)
