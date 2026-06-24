@@ -28,6 +28,7 @@ import { resolveWebhookRepo } from './webhookRepoResolver';
 import { buildLaunchGitContext } from '../core';
 import type { GitContext } from '../gitContext';
 import { checkEnvironmentVariables, checkGitRepository, checkClaudeCodeCLI, checkGitHubCLI, checkDirectoryStructure, type CheckResult } from '../healthCheckChecks';
+import { gitContextForRepo, readLocalRepoInfo } from '../github/gitContextFactory';
 import { readAuthGate, writeAuthGate } from '../core/authGate';
 import { AuthRequiredError } from '../types/agentTypes';
 
@@ -70,10 +71,16 @@ interface HealthCheckResult { success: boolean; timestamp: string; checks: Recor
 const server = http.createServer((req, res) => {
   if (req.url === '/health' && req.method === 'GET') {
     const result: HealthCheckResult = { success: true, timestamp: new Date().toISOString(), checks: {}, warnings: [], errors: [] };
+    // Construct a self-host GitContext for git/gh probes; degrade gracefully on failure.
+    let healthCtx: import('../gitContext').GitContext | undefined;
+    try {
+      healthCtx = gitContextForRepo(readLocalRepoInfo(), { selfHost: true });
+    } catch { /* token unavailable — context-dependent checks get a failure result */ }
+    const ctxFailure: CheckResult = { success: false, error: 'GitContext construction failed', details: {} };
     result.checks.environmentVariables = checkEnvironmentVariables();
-    result.checks.gitRepository = checkGitRepository();
+    result.checks.gitRepository = healthCtx ? checkGitRepository(healthCtx) : ctxFailure;
     result.checks.claudeCodeCLI = checkClaudeCodeCLI();
-    result.checks.gitHubCLI = checkGitHubCLI();
+    result.checks.gitHubCLI = healthCtx ? checkGitHubCLI(healthCtx) : ctxFailure;
     result.checks.directoryStructure = checkDirectoryStructure();
     for (const [name, check] of Object.entries(result.checks)) {
       if (check.error) result.errors.push(`${name}: ${check.error}`);
