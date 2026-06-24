@@ -180,7 +180,7 @@ Execute every step in order, top to bottom.
 
 ### Step 15 — Add the BDD per-issue feature and step definitions
 - Create `features/per-issue/feature-693.feature` (tagged `@adw-693` and the adwId tag), with the four sections described in **Testing Strategy → BDD Scenarios**.
-- Create `features/per-issue/step_definitions/feature-693.steps.ts` adding ONLY the worktree-probe-read `When` dispatcher (distinct phrasing, e.g. `the {string} worktree-probe operation runs through the context`), reusing the shared `gitContextSharedWorld.ts` world (`W`, `makeFullOptions`, `makeSpyExec`, `makeNoOpFsDeps`) and the globally-registered assertion/guard/type-check steps from `feature-659.steps.ts`, `feature-691.steps.ts`, and `feature-504.steps.ts`. Do NOT redefine the guard or type-check steps (Cucumber raises a duplicate-definition error).
+- Create `features/per-issue/step_definitions/feature-693.steps.ts` adding ONLY the `vcs-probe`-read `When` dispatchers — the base-path form `the {string} vcs-probe operation runs through the context` and the supplied-path variant `the {string} vcs-probe operation runs through the context for worktree path {string}` — plus the one new `Then the captured command ran with cwd equal to the supplied worktree path {string}` assertion (for §1a), reusing the shared `gitContextSharedWorld.ts` world (`W`, `makeFullOptions`, `makeSpyExec`, `makeNoOpFsDeps`) and the globally-registered assertion/guard/type-check steps from `feature-659.steps.ts`, `feature-691.steps.ts`, and `feature-504.steps.ts`. Do NOT redefine the guard or type-check steps (Cucumber raises a duplicate-definition error).
 - Dry-run the steps: `NODE_OPTIONS="--import tsx" bunx cucumber-js --dry-run --tags "@adw-693"`.
 
 ### Step 16 — Run the full validation suite
@@ -209,15 +209,15 @@ Execute every step in order, top to bottom.
 - [ ] The dead `branchOperations.deleteLocalBranch` is removed.
 - [ ] Those five files are removed from `ALLOWLIST` in `adws/checkGitGhGuard.ts`.
 - [ ] `bun run lint:git-guard` reports zero violations, with the five files now counted as scanned.
-- [ ] `@adw-693` BDD scenarios pass: each new read method routes through `#run` with per-command auth and the supplied cwd; each migrated file is scanned by the guard and is violation-free; the whole-repo guard passes; the ADW type-check passes.
+- [ ] `@adw-693` BDD scenarios pass: each probe/branch read method routes through `#run` with per-command auth and the correct `cwd` (the context base path, or the supplied worktree path for a probe); each migrated file is scanned by the guard and is violation-free; the whole-repo guard passes; the ADW type-check passes.
 - [ ] `bun run lint`, `bunx tsc --noEmit`, `bunx tsc --noEmit -p adws/tsconfig.json`, `bun run test:unit`, and `bun run build` all pass with zero regressions.
 - [ ] No behavioural change to the worktree-reuse probe, main-repo-path injection, default-branch read, branch-identity fallback, or dirty-tree check.
 
 ### BDD Scenarios (feature-693.feature)
 Mirrors the #692 structure with the file list and method set swapped; all assertions target runtime outputs (recorded `(cwd, env)`, live `process.env`, the guard's `{ violations, scannedCount }`, the type-check verdict), never source text.
-- **§1 — Probe/enumeration reads route through `#run`** (story 5): a `Scenario Outline` over the new read ops (`git-dir`, `symbolic-ref`, `worktree-registration`, `worktree-branches`, `local-branches`, `main-repo-path`) run through a recording runner asserts the captured child env carries the context token + git author (per-command auth) and the captured `cwd` equals the supplied worktree path (or base path when no arg) — the migration signal. Plus one anti-regression scenario: running a new read leaves `process.env` byte-for-byte unchanged.
-- **§2 — Migrated consumers de-allowlisted and guard-clean** (stories 16, 17): a `Scenario Outline` over the five files asserts the guard now **scans** each (`scannedCount` counts it — the de-allowlisting discriminator) and **reports no violation** in it.
-- **§3 — Whole-repo guard still passes**: the guard run across the repository reports zero violations (safe-de-allowlisting backstop).
+- **§1 — Probe/branch methods route through `#run`** (stories 16, 17): **§1a** (the headline new contract) asserts a worktree probe run against a *supplied* worktree path spawns with the context token + git author and `cwd` equal to **that exact supplied path** — never the base path, never the ambient process cwd. **§1b** is a `Scenario Outline` over the worktree/branch read shapes (`resolve-git-dir`, `current-branch`, `worktree-list`, `list-local-branches`, `delete-local-branch`, `uncommitted-status`) — each invoked with no explicit path so it defaults to the base-path `cwd` — asserting the captured child env carries the context token and the captured `cwd` equals the context base path (the migration signal; new and reused methods alike route through the chokepoint). **§1c** (story 5) is the anti-regression: running a probe read leaves `process.env` byte-for-byte unchanged.
+- **§2 — Migrated consumers de-allowlisted and guard-clean** (stories 5, 17): a `Scenario Outline` over the five files asserts the guard now **scans** each (`scannedCount` counts it — the de-allowlisting discriminator) and **reports no violation** in it.
+- **§3 — Whole-repo guard still passes** (story 5): the guard run across the repository reports zero violations (safe-de-allowlisting backstop).
 - **§4 — Type-check backstop** (registry T22): the ADW TypeScript type-check passes with the migrated surface in place.
 
 ## Validation Commands
