@@ -607,7 +607,8 @@ adws/                   # ADW workflow system
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── gitContext.test.ts
 │   │   ├── gitContextOperations.test.ts
-│   │   └── gitReadOps.test.ts
+│   │   ├── gitReadOps.test.ts
+│   │   └── remoteOps.test.ts
 │   ├── commands/       # Pure command-string builders (no I/O) — one file per concern
 │   │   ├── boardCommands.ts    # GraphQL query strings for Projects V2 board operations
 │   │   ├── issueCommands.ts    # gh CLI command strings for issue read/write operations
@@ -618,6 +619,7 @@ adws/                   # ADW workflow system
 │   ├── commitOps.ts    # Package-private commit/push orchestration (force-with-lease, lease rejection detection)
 │   ├── gitContext.ts   # GitContext class — mandatory identity, base-path resolution in constructor, per-command env injection, no cwd fallback
 │   ├── gitReadOps.ts   # Package-private git-read ops — tracked-file listing, HEAD hash, branch diff, commit-history log
+│   ├── remoteOps.ts    # Package-private remote ops — fetch, merge, ls-remote branch existence checks
 │   ├── index.ts        # Public surface (GitContext class + GitIdentity/GitContextOptions types)
 │   ├── processCleanup.ts  # Package-private process kill helpers (killProcessesInDirectory)
 │   ├── types.ts        # GitIdentity, GitContextOptions, ExecFn, and GitContextDeps interfaces
