@@ -54,14 +54,18 @@ Feature: GitContext label / board / secret migration — the residual label, pro
 
   What this slice builds:
 
-    • ONE NEW gh-operation method on `GitContext` — `setSecret` — going through the
+    • The headline new gh-operation method on `GitContext` — `setSecret` — going through the
       existing `#run` chokepoint, covering the command shape `depauditSetup` needs
       (`gh secret set <NAME> --repo <owner>/<repo> --body -`, the secret value handed
       to the child on stdin) (story 18). Unlike #663 (which added the whole
-      issue/PR/comment/label/board surface) and #694 (four new read methods), this
-      slice adds exactly ONE new method, because the label and board surfaces ALREADY
+      issue/PR/comment/label/board surface) and #694 (four new read methods), the only
+      new method §1 PROVES is `setSecret`, because the label and board surfaces ALREADY
       exist on the context (`createLabel`/`applyLabel`/`runGraphQL`/`moveIssueToStatus`,
-      added by #663). The exact `setSecret` signature (whether it takes
+      added by #663); the board's one stdin-JSON mutation — whose complex array
+      variables the flag-form `runGraphQL` cannot carry — may route through a thin
+      input-capable GraphQL helper (e.g. `runGraphQLInput`) or an extended `runGraphQL`,
+      an implementer's choice (see Scope notes) verified only at the guard surface (§2),
+      not §1. The exact `setSecret` signature (whether it takes
       `(name, value)` and pipes the value to stdin, whether it returns void or a
       status) is an implementer's choice (see Scope notes); the scenarios pin the
       OBSERVABLE migration — token, identity, and cwd on the recorded command — not
@@ -199,8 +203,11 @@ Feature: GitContext label / board / secret migration — the residual label, pro
       (extend `runGraphQL` to accept a stdin body, or a new input-capable GraphQL
       method) is likewise the implementer's choice — the scenario pins only that the
       file ends up guard-clean.
-    • `setSecret` is the ONLY new method; it does not reuse a pre-existing context
-      method. The friendly op name `"set-secret"` in §1 maps to that method inside the
+    • `setSecret` is the only new method §1 PROVES; it does not reuse a pre-existing
+      context method. (The board's stdin-JSON mutation may add a thin input-capable
+      GraphQL helper such as `runGraphQLInput`, or extend `runGraphQL` — an
+      implementer's choice, verified only at the guard surface §2, never given a §1
+      phrase.) The friendly op name `"set-secret"` in §1 maps to the `setSecret` method inside the
       step definitions — exactly as #694's `ls-files`/`head-short` mapped to its read
       methods. The secret value is handed to the child on stdin (the legacy `--body -`
       shape, a security property so the secret never appears in argv); that stdin
