@@ -507,7 +507,6 @@ adws/                   # ADW workflow system
 │   │   ├── hungOrchestratorDetector.test.ts
 │   │   ├── issueClassifier.test.ts
 │   │   ├── launchGitContext.test.ts
-│   │   ├── repoIdentityCrossCheck.test.ts
 │   │   ├── phaseRunner.test.ts
 │   │   ├── processLiveness.test.ts
 │   │   ├── projectConfig.test.ts
@@ -526,6 +525,7 @@ adws/                   # ADW workflow system
 │   │   ├── topLevelState.test.ts
 │   │   ├── upgradeClaim.integration.test.ts
 │   │   ├── upgradeClaim.test.ts
+│   │   ├── upgradeFailureCap.test.ts
 │   │   ├── workflowCommentParsing.test.ts
 │   │   └── workflowMapping.test.ts
 │   ├── adwId.ts        # ADW ID generation
@@ -585,7 +585,6 @@ adws/                   # ADW workflow system
 │   │   ├── linkedPrDetector.test.ts
 │   │   ├── prApi.test.ts
 │   │   └── projectBoardApi.test.ts
-│   ├── gitContextFactory.ts  # Boundary factory — constructs GitContext from ambient ADW identity (async and sync per-repo variants)
 │   ├── githubApi.ts
 │   ├── githubAppAuth.ts  # GitHub App authentication
 │   ├── hitlBoardNotifier.ts  # HITL board-event notifier — PR/issue lookup, message building, and Slack delivery for Review and Blocked transitions
@@ -677,6 +676,7 @@ adws/                   # ADW workflow system
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── branchIdentityFallback.test.ts
 │   │   ├── branchNameResolution.test.ts
+│   │   ├── docsSelfCheck.test.ts
 │   │   ├── gherkinFreeze.test.ts
 │   │   ├── orchestratorLock.test.ts
 │   │   ├── planPhase.test.ts
@@ -761,6 +761,7 @@ adws/                   # ADW workflow system
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── autoMergeHandler.test.ts
 │   │   ├── cancelHandler.test.ts
+│   │   ├── concurrencyGuard.test.ts
 │   │   ├── cronIssueFilter.test.ts
 │   │   ├── cronLabelEligibility.test.ts
 │   │   ├── cronRepoResolver.test.ts
