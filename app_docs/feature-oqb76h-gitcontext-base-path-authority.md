@@ -22,7 +22,8 @@
 - Provide phase-level git read ops (slice #694): `lsFiles(cwd, prefix?)`, `headShort(cwd?)`, `diff(range, cwd)`, `log(branchName, cwd?)` — replacing raw-`execSync` call sites in `worktreeSetup.ts`, `workflowInit.ts`, `diffEvaluationPhase.ts`, `prCommentDetector.ts`, and `checkLivingDocsIndex.ts`
 - Provide label/board/secret write ops (slice #695): `setSecret(name, value)` — pipes value via stdin using context token; `runGraphQLInput(body)` — stdin-JSON GraphQL for complex/array variables, uses PAT with graceful fallback — enabling `labelManager.ts`, `githubBoardManager.ts`, and `depauditSetup.ts` to be removed from the `ALLOWLIST`
 - Provide remote fetch/merge/ls-remote ops (slice #696): `fetchRemote(branch, cwd)`, `mergeBranch(ref, cwd, opts?)`, `abortMerge(cwd)`, `lsRemote(branch, cwd?)` — delegates to package-private `remoteOps.ts`; fixes the wrong-`cwd` `ls-remote` bug in `remoteReconcile.ts` and migrates `autoMergeHandler.ts`'s 9 raw `execSync` sites, removing both files from the `ALLOWLIST`
-- Delegate VCS operation orchestration to package-private modules (`branchOps.ts`, `commitOps.ts`, `worktreeResetOps.ts`, `worktreeCreateOps.ts`, `worktreeQueryOps.ts`, `worktreeRemoveOps.ts`, `worktreeProbeOps.ts`, `gitReadOps.ts`, `remoteOps.ts`, `processCleanup.ts`), each taking an injected runner — keeping the `GitContext` class thin and testable
+- Provide upgrade-claim distributed-lock ops (slice #698): `addDetachedWorktree(worktreePath, ref, cwd)`, `commitAllowEmpty(message, cwd)`, `pushHeadToBranch(branch, cwd)`, `removeDetachedWorktree(worktreePath, cwd)` — delegates to package-private `claimOps.ts`; migrates `upgradeClaim.ts`'s four raw `execSync` lock verbs, removing it from the `ALLOWLIST`. These ops deliberately diverge from standard GitContext methods to preserve the winner/loser election semantics (detached HEAD, always-empty commit, non-forced namespace push, best-effort cleanup).
+- Delegate VCS operation orchestration to package-private modules (`branchOps.ts`, `commitOps.ts`, `worktreeResetOps.ts`, `worktreeCreateOps.ts`, `worktreeQueryOps.ts`, `worktreeRemoveOps.ts`, `worktreeProbeOps.ts`, `gitReadOps.ts`, `remoteOps.ts`, `claimOps.ts`, `processCleanup.ts`), each taking an injected runner — keeping the `GitContext` class thin and testable
 - Expose the full `gh` issue, PR, label, board, and secret operation surface as thin methods that delegate to pure command-builder + parser modules in `adws/gitContext/commands/`
 - Accept an injectable `ExecFn` via `GitContextDeps` for hermetic testing (the ADW `Deps` idiom)
 - Export only `GitContext` class and its public types via `adws/gitContext/index.ts` — no context-free git/`gh` free functions
@@ -42,6 +43,7 @@ Each module is side-effect-free except at the injected runner/fs seam and stays 
 | `worktreeProbeOps.ts` | `resolveGitDir`, `currentBranchSymbolic`, `worktreeRegistration` (slice #693); exports `WorktreeRegistration` union type; handles arbitrary worktree paths supplied by the caller |
 | `gitReadOps.ts` | `lsFiles`, `headShort`, `diff`, `log` (slice #694); pure functions over an injected `Runner` seam; errors propagate — no internal swallow |
 | `remoteOps.ts` | `fetchRemote`, `mergeBranch`, `abortMerge`, `lsRemote` (slice #696); remote-interaction + merge ops over an injected `Runner` seam; all propagate errors except `abortMerge` (swallows — aborting with no in-progress merge is benign) |
+| `claimOps.ts` | `addDetachedWorktree`, `commitAllowEmpty`, `pushHeadToBranch`, `removeDetachedWorktree` (slice #698); upgrade-claim distributed-lock verbs over an injected `Runner` seam; all propagate errors except `removeDetachedWorktree` (swallows — missing worktree on cleanup is benign). `pushHeadToBranch` emits **no** `--force` flag by design — the non-fast-forward rejection IS the lock. |
 | `processCleanup.ts` | `killProcessesInDirectory` (lsof + SIGTERM→SIGKILL, self-PID filter); re-exported from `vcs/worktreeCleanup.ts` for legacy callers |
 
 ### Pure command modules (`adws/gitContext/commands/`)
@@ -133,9 +135,21 @@ Remote fetch/merge/ls-remote consumers migrated in #696:
 | `autoMergeHandler.ts` `syncWorktreeToOriginHead` (×2) | `execSync('git fetch origin "<head>"')` + `execSync('git reset --hard "origin/<head>"')` | `ctx.fetchAndResetToRemote(headBranch, cwd)` (existing; collapses two sites to one) |
 | `remoteReconcile.ts` `defaultBranchExistsOnRemote` | `execWithRetry('git ls-remote --exit-code origin <branch>')` **with no `cwd`** (wrong-base-repo bug) | `gitContextForRepo(repoInfo).lsRemote(branchName).length > 0` |
 
-`autoMergeHandler.ts` and `remoteReconcile.ts` have been removed from the `ALLOWLIST`. The residual `ALLOWLIST` cohort after #696: `adwPromotionSweep.tsx` (plus permanent bootstrap/diagnostic entries).
+`autoMergeHandler.ts` and `remoteReconcile.ts` have been removed from the `ALLOWLIST`. The residual `ALLOWLIST` cohort after #696: `adwPromotionSweep.tsx`, `upgradeClaim.ts` (plus permanent bootstrap/diagnostic entries).
 
-## Consumer End State (as of #696)
+Upgrade-claim distributed-lock consumers migrated in #698:
+
+| Consumer | Previous | Now |
+|---|---|---|
+| `upgradeClaim.ts` `defaultPushClaimBranch` — fetch | `execSync('git fetch origin "<defaultBranch>"', { cwd: baseRepoPath })` | `ctx.fetchRemote(defaultBranch, baseRepoPath)` (reuses #696 method) |
+| `upgradeClaim.ts` `defaultPushClaimBranch` — detached worktree add | `execSync('git worktree add --detach "<tmpdir>" "origin/<def>"', { cwd: baseRepoPath })` | `ctx.addDetachedWorktree(tmpdir, 'origin/<def>', baseRepoPath)` |
+| `upgradeClaim.ts` `defaultPushClaimBranch` — empty commit | `execSync('git commit --allow-empty -m "<msg>"', { cwd: tmpdir })` | `ctx.commitAllowEmpty('<msg>', tmpdir)` |
+| `upgradeClaim.ts` `defaultPushClaimBranch` — namespace push (no force) | `execSync('git push origin "HEAD:refs/heads/<branch>"', { cwd: tmpdir })` | `ctx.pushHeadToBranch(branchName, tmpdir)` — still no `--force` |
+| `upgradeClaim.ts` `cleanupClaimTempWorktree` | `execSync('git worktree remove --force "<tmpdir>"', { cwd: baseRepoPath })` | `ctx.removeDetachedWorktree(tmpdir, baseRepoPath)` |
+
+`upgradeClaim.ts` has been removed from the `ALLOWLIST`. The residual `ALLOWLIST` cohort after #698: `adwPromotionSweep.tsx` (plus permanent bootstrap/diagnostic entries).
+
+## Consumer End State (as of #698)
 
 | File | Status |
 |---|---|
@@ -159,6 +173,7 @@ Remote fetch/merge/ls-remote consumers migrated in #696:
 | `adws/phases/depauditSetup.ts` | `DepauditSetupDeps` gains optional `gitContextForRepo`; `propagateSecret` uses `ctx.setSecret(envName, envValue)`; `execWithRetry` retained for `depaudit setup` CLI invocation; prefers `config.gitContext` when present; removed from ALLOWLIST |
 | `adws/triggers/autoMergeHandler.ts` | All 9 raw `execSync('git …')` sites replaced with `ctx` methods (`fetchRemote`, `mergeBranch`, `abortMerge`, `pushBranch`, `fetchAndResetToRemote`); new optional `gitContext?: GitContext` last param on `mergeWithConflictResolution` (defaults to `gitContextForRepo(repoInfo)`); `execSync` import removed; removed from ALLOWLIST |
 | `adws/core/remoteReconcile.ts` | `defaultBranchExistsOnRemote` rewrites `execWithRetry('git ls-remote --exit-code …')` (no `cwd`) to `gitContextForRepo(repoInfo).lsRemote(branchName).length > 0`; wrong-`cwd` bug fixed (origin now resolves against the target repo, not `process.cwd()`); `execWithRetry` import removed; removed from ALLOWLIST |
+| `adws/core/upgradeClaim.ts` | `defaultPushClaimBranch` signature gains `ctx: GitContext` and `getDefaultBranchFn` seam; all five raw `execSync` git calls replaced with `ctx.fetchRemote`, `ctx.addDetachedWorktree`, `ctx.commitAllowEmpty`, `ctx.pushHeadToBranch`, `ctx.removeDetachedWorktree`; `child_process`/`vcs/branchOperations` imports removed; `buildDefaultUpgradeClaimDeps` constructs default context via `gitContextForRepo(readLocalRepoInfo(baseRepoPath))`; pure helpers (`buildClaimBranchName`, `buildClaimResult`, `isPushRejectionError`, `extractGitErrorText`, `claimUpgradeOrFindExisting`) unchanged; removed from ALLOWLIST |
 
 ## Contracts & Invariants
 
@@ -195,6 +210,10 @@ Remote fetch/merge/ls-remote consumers migrated in #696:
 - `mergeBranch(ref, cwd, opts?)` builds flag-specific command (`--no-commit`, `--no-ff`, `--no-edit`); propagates errors — a conflicting merge throws; the caller must abort or handle
 - `abortMerge(cwd)` swallows errors — aborting with no in-progress merge is a benign no-op; callers should call it unconditionally in both clean-path and catch-path sites
 - `lsRemote(branch, cwd?)` issues `git ls-remote origin "<branch>"` **without** `--exit-code`; an absent ref yields empty stdout (exit 0) rather than a throw; genuine failures (network/auth) throw and the caller catches them; defaults `cwd` to `#basePath`
+- `addDetachedWorktree(worktreePath, ref, cwd)` issues `git worktree add --detach "<worktreePath>" "<ref>"` with the supplied `cwd`; propagates errors — a leftover worktree at the same path throws, which is how the caller detects a stale lock
+- `commitAllowEmpty(message, cwd)` issues `git commit --allow-empty -m "<escaped-message>"` with the supplied `cwd`; always produces exactly one new commit regardless of tree state; propagates errors
+- `pushHeadToBranch(branch, cwd)` issues `git push origin "HEAD:refs/heads/<branch>"` **without any `--force` flag** with the supplied `cwd`; a second claimant's push is rejected with a non-fast-forward error, which `upgradeClaim.ts` catches via `isPushRejectionError` to return `false` (loser path); propagates all other errors
+- `removeDetachedWorktree(worktreePath, cwd)` issues `git worktree remove --force "<worktreePath>"` with the supplied `cwd`; swallows all errors — a missing or already-removed worktree is a benign no-op
 - `setSecret(name, value)` pipes the value via stdin (`--body -`) using the context's primary token; the value never appears in the command string or `process.env`; single-attempt (no `execWithRetry`) — callers wrap in their own `try/catch`
 - `runGraphQLInput(body)` serializes `body` as `JSON.stringify(body)` piped via stdin; uses `usePat: true` (Projects V2 writes) with graceful fallback to the context token when no PAT is set — matching the prior `execSync` board-auth behaviour and the `feature-9tknkw` PAT-fallback contract
 - `readLocalRepoInfo` in the factory is a permanent bootstrap exception: it calls `execSync('git remote get-url origin')` directly because it *produces* the `RepoInfo` a `GitContext` is constructed from (the `gitContextForRepo` call would be circular). No other bootstrap need should create new raw shell-outs outside the factory.
@@ -256,6 +275,12 @@ Optional injectable dependency bag via `GitContextDeps` (second constructor para
 - **`checkGitGhGuard.ts` `main()` guard** — the guard is now exported as a module to support test imports; `main()` is called only when `process.argv[1]` includes `checkGitGhGuard` (i.e. when run as a script). Tests can import `scanFiles`/`ALLOWLIST` without side-effects.
 - **`getAuthenticatedUser` lost `execWithRetry`'s per-call retry** — the new path calls `gitContextForRepo(...).authenticatedUser()` which does not retry internally. The existing `catch` block already fails open to `null` (callers treat `null` as "no self-author filter"), matching the #691 retry-loss precedent for `docsSelfCheck`. This is acceptable.
 - **`readLocalRepoInfo` is the only correct place for a bootstrap git-remote read** — any future need to derive identity before a `GitContext` exists must extend or call this function (not duplicate a raw `execSync('git remote get-url origin')` elsewhere). The `checkGitGhGuard.ts` ALLOWLIST treats `gitContextFactory.ts` as a permanent bootstrap entry for exactly this reason.
+- **`pushHeadToBranch` must NEVER force** — the non-fast-forward push rejection from the remote is the entire distributed lock. A `--force` or `--force-with-lease` flag would let a second claimant silently overwrite the winner's branch, collapsing the election into a last-writer-wins race. A unit assertion in `claimOps.test.ts` pins this; the `pushHeadToBranch` JSDoc states it explicitly.
+- **`addDetachedWorktree` must not create a named local branch** — standard `createWorktree`/`ensureWorktree` always create a local branch; a leftover branch of the same name causes "branch already exists" on the next attempt, which throws instead of returning `false` (the loser path). The claim uses `--detach` at a system-temp path with no local branch to avoid this (Bug B from the integration test).
+- **`commitAllowEmpty` must not be replaced with `commitChanges`** — `commitChanges` runs `git status --porcelain` and returns `false` on a clean tree without committing. The claim requires an always-empty commit carrying the unique nonce to produce a distinct SHA; `commitAllowEmpty` never short-circuits.
+- **`claimOps.ts` is structurally exempt from the git/gh guard** — it lives under `adws/gitContext/`, which the guard treats as the internal GitContext package boundary. No ALLOWLIST entry is needed.
+- **`buildDefaultUpgradeClaimDeps` context source** — constructs the default `GitContext` via `gitContextForRepo(readLocalRepoInfo(baseRepoPath))`, scoping the claim to the *target* repo's branch namespace (not the ADW framework repo). The `ctx` parameter can be injected for testing without network or credentials.
+- **`getDefaultBranchFn` seam** — `defaultPushClaimBranch` takes an optional `getDefaultBranchFn: () => string` that defaults to `() => ctx.defaultBranch()`. The integration test injects `() => 'main'` to avoid the `gh repo view` call; production always falls back to the real method.
 - **`remoteUrl(cwd)` in `validateGitRemote` now requires a resolvable token** — previously the read was token-free (just a local git invocation). `gitContextForRepo` resolves an auth token at construction; if token resolution throws, the existing `try/catch` in `validateGitRemote` surfaces the same "Failed to get git remote URL" error class. ADW's authenticated workflow paths always have a token available.
 - **`buildDefaultProbeDeps` now requires a `GitContext` arg** — the no-arg form is gone; `probeWorktree` and `clearOrphanedIndexLock` require explicit `deps`. The only production caller (`takeoverHandler.ts` `buildDefaultTakeoverDeps`) now constructs a context from `repoInfo` and passes `buildDefaultProbeDeps(ctx)`. `repoInfo` is required for probe operations; the closures throw the same guard as the existing `resetWorktree` closure when `repoInfo` is absent.
 - **`branchOperations.deleteLocalBranch` is gone** — it was dead code (not exported by `vcs/index.ts`, no external callers). `GitContext.deleteLocalBranch` is the only `git branch -D` entry point.

@@ -1916,6 +1916,7 @@
     - adws/phases/depauditSetup.ts
     - adws/triggers/autoMergeHandler.ts
     - adws/core/remoteReconcile.ts
+    - adws/core/upgradeClaim.ts
   - Conditions:
     - When working with `GitContext`, `GitContextOptions`, `GitIdentity`, `ExecFn`, or `GitContextDeps` in `adws/gitContext/`
     - When implementing or troubleshooting base-path resolution for self-host vs target repos (the single `resolveBasePath` authority)
@@ -1969,6 +1970,11 @@
     - When `mergeWithConflictResolution` optional `gitContext?` 9th parameter or its `gitContextForRepo` fallback is relevant
     - When the wrong-`cwd` `ls-remote` bug in `remoteReconcile.ts` (fixed in #696) or the `lsRemote` no-`--exit-code` design is being investigated
     - When `adwMerge.tsx` `buildDefaultDeps` lambda-binds `gitCtx` into `mergeWithConflictResolution`, or `autoMergePhase.ts` passes `config.gitContext` as the 9th argument
+    - When working with `addDetachedWorktree`, `commitAllowEmpty`, `pushHeadToBranch`, or `removeDetachedWorktree` as `GitContext` methods (added in #698 — upgrade-claim distributed-lock verbs)
+    - When `claimOps.ts` (package-private claim-op module), the `Runner` seam, or the no-`--force` push invariant is relevant
+    - When `upgradeClaim.ts` is referenced as a migrated-in-#698 file (no longer on the guard ALLOWLIST)
+    - When `defaultPushClaimBranch` signature change (gains `ctx: GitContext` + `getDefaultBranchFn` seam) or `buildDefaultUpgradeClaimDeps` GitContext construction is relevant
+    - When the winner/loser election correctness (detached HEAD, allow-empty commit, non-forced namespace push, best-effort cleanup) must be traced through GitContext
 
 - app_docs/feature-k817bh-persist-repo-identity-cross-check.md
   - Owns:
