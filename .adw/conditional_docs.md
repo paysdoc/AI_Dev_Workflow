@@ -1911,6 +1911,9 @@
     - adws/checkLivingDocsIndex.ts
     - adws/core/orchestratorLib.ts
     - adws/core/orchestratorNames.ts
+    - adws/github/labelManager.ts
+    - adws/providers/github/githubBoardManager.ts
+    - adws/phases/depauditSetup.ts
   - Conditions:
     - When working with `GitContext`, `GitContextOptions`, `GitIdentity`, `ExecFn`, or `GitContextDeps` in `adws/gitContext/`
     - When implementing or troubleshooting base-path resolution for self-host vs target repos (the single `resolveBasePath` authority)
@@ -1952,6 +1955,12 @@
     - When `diffEvaluationPhase.ts` `getGitDiff` receives `undefined` as the first arg and silently returns `''` (no context = safe classification, preserved fail-open)
     - When `checkLivingDocsIndex.ts` requires auth context for its self-host `GitContext` construction (expected — do not weaken the mandatory-token contract)
     - When the `defaultExec` 10 MB `maxBuffer` bump or `ENOBUFS` on large diffs/logs is relevant
+    - When working with `setSecret(name, value)` or `runGraphQLInput(body)` as `GitContext` methods (added in #695 — stdin-piped secret set and stdin-JSON GraphQL)
+    - When `secretCommands.ts` (`setSecretCmd`) or `graphQLInputCmd` in `boardCommands.ts` are referenced (pure command builders added in #695)
+    - When `labelManager.ts`, `githubBoardManager.ts`, or `depauditSetup.ts` are referenced as migrated-in-#695 files (no longer on the guard ALLOWLIST)
+    - When `LabelManagerDeps` is changed from `{ exec }` to `{ gitContextForRepo }` shape (migration in #695 — tests must inject a spy `GitContext`)
+    - When `updateStatusFieldOptions` in `githubBoardManager.ts` is routing through `runGraphQLInput` rather than `execSync` (and the PAT-auth correctness fix this implies)
+    - When `depauditSetup.ts` `propagateSecret` no longer uses `execWithRetry` for `gh secret set` (migrated to `ctx.setSecret` in #695; single-attempt; `execWithRetry` retained for `depaudit setup` CLI call)
 
 - app_docs/feature-k817bh-persist-repo-identity-cross-check.md
   - Owns:
