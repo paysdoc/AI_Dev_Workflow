@@ -551,6 +551,7 @@ adws/                   # ADW workflow system
 │   ├── modelRouting.ts # Model/effort routing utilities
 │   ├── orchestratorCli.ts  # Shared CLI parsing utilities
 │   ├── orchestratorLib.ts
+│   ├── orchestratorNames.ts  # Static orchestrator name/script mappings (extracted from orchestratorLib to avoid circular imports)
 │   ├── agentTimeouts.ts  # Per-phase agent timeout constants
 │   ├── pauseQueue.ts   # Pause queue for rate-limit pause/resume
 │   ├── phaseRunner.ts  # PhaseRunner / CostTracker composition
@@ -605,7 +606,8 @@ adws/                   # ADW workflow system
 ├── gitContext/         # Repo-context authority deep module (GitContext)
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── gitContext.test.ts
-│   │   └── gitContextOperations.test.ts
+│   │   ├── gitContextOperations.test.ts
+│   │   └── gitReadOps.test.ts
 │   ├── commands/       # Pure command-string builders (no I/O) — one file per concern
 │   │   ├── boardCommands.ts    # GraphQL query strings for Projects V2 board operations
 │   │   ├── issueCommands.ts    # gh CLI command strings for issue read/write operations
@@ -614,6 +616,7 @@ adws/                   # ADW workflow system
 │   ├── branchOps.ts    # Package-private branch operation orchestration (create, checkout, delete, reset)
 │   ├── commitOps.ts    # Package-private commit/push orchestration (force-with-lease, lease rejection detection)
 │   ├── gitContext.ts   # GitContext class — mandatory identity, base-path resolution in constructor, per-command env injection, no cwd fallback
+│   ├── gitReadOps.ts   # Package-private git-read ops — tracked-file listing, HEAD hash, branch diff, commit-history log
 │   ├── index.ts        # Public surface (GitContext class + GitIdentity/GitContextOptions types)
 │   ├── processCleanup.ts  # Package-private process kill helpers (killProcessesInDirectory)
 │   ├── types.ts        # GitIdentity, GitContextOptions, ExecFn, and GitContextDeps interfaces
