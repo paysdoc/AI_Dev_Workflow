@@ -41,7 +41,6 @@ const ALLOWLIST: readonly string[] = [
   'adws/core/launchGitContext.ts',        // gh auth token, git config user.name/email
   'adws/github/gitContextFactory.ts',     // git config, gh auth token, git remote get-url
   'adws/core/targetRepoManager.ts',       // git clone, git fetch, gh repo view
-  'adws/core/upgradeClaim.ts',            // distributed lock: git fetch/worktree/commit/push
   'adws/github/githubAppAuth.ts',         // GitHub App token minting via gh
 
   // diagnostic — tooling / health-check scripts, non-hot-path
