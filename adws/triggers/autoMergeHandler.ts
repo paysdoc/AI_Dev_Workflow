@@ -5,11 +5,12 @@
  * used by adwMerge.tsx to merge PRs with conflict resolution support.
  */
 
-import { execSync } from 'child_process';
 import * as path from 'path';
 import { log, MAX_AUTO_MERGE_ATTEMPTS } from '../core';
 import { mergePR, type RepoInfo } from '../github';
 import { runClaudeAgentWithCommand } from '../agents';
+import { gitContextForRepo } from '../github/gitContextFactory';
+import type { GitContext } from '../gitContext';
 
 const maxAttempts = MAX_AUTO_MERGE_ATTEMPTS;
 
@@ -17,22 +18,22 @@ const maxAttempts = MAX_AUTO_MERGE_ATTEMPTS;
  * Performs a dry-run merge to detect conflicts without modifying the working tree.
  * Returns true if conflicts are detected, false if the merge would succeed cleanly.
  */
-function checkMergeConflicts(baseBranch: string, cwd: string): boolean {
+function checkMergeConflicts(baseBranch: string, cwd: string, ctx: GitContext): boolean {
   try {
-    execSync(`git fetch origin "${baseBranch}"`, { stdio: 'pipe', cwd });
+    ctx.fetchRemote(baseBranch, cwd);
   } catch (error) {
     log(`Failed to fetch origin/${baseBranch}: ${error}`, 'warn');
     return false;
   }
 
   try {
-    execSync(`git merge --no-commit --no-ff "origin/${baseBranch}"`, { stdio: 'pipe', cwd });
+    ctx.mergeBranch(`origin/${baseBranch}`, cwd, { noCommit: true, noFf: true });
     // Merge succeeded cleanly — abort to restore state and report no conflicts
-    try { execSync('git merge --abort', { stdio: 'pipe', cwd }); } catch { /* already clean */ }
+    ctx.abortMerge(cwd);
     return false;
   } catch {
     // Merge failed — conflicts detected; abort to clean up
-    try { execSync('git merge --abort', { stdio: 'pipe', cwd }); } catch { /* ignore */ }
+    ctx.abortMerge(cwd);
     return true;
   }
 }
@@ -46,12 +47,13 @@ async function resolveConflictsViaAgent(
   specPath: string,
   baseBranch: string,
   logsDir: string,
-  cwd: string
+  cwd: string,
+  ctx: GitContext,
 ): Promise<boolean> {
   // Start the actual merge so conflict markers appear in working tree
   try {
-    execSync(`git fetch origin "${baseBranch}"`, { stdio: 'pipe', cwd });
-    execSync(`git merge "origin/${baseBranch}" --no-edit`, { stdio: 'pipe', cwd });
+    ctx.fetchRemote(baseBranch, cwd);
+    ctx.mergeBranch(`origin/${baseBranch}`, cwd, { noEdit: true });
     // If no conflict, the merge succeeded without needing agent resolution
     log(`Merge from origin/${baseBranch} succeeded cleanly — no agent resolution needed`, 'info');
     return true;
@@ -87,9 +89,9 @@ async function resolveConflictsViaAgent(
  * Pushes the current branch to origin.
  * Returns true on success, false on failure.
  */
-function pushBranchChanges(branchName: string, cwd: string): boolean {
+function pushBranchChanges(branchName: string, cwd: string, ctx: GitContext): boolean {
   try {
-    execSync(`git push origin "${branchName}"`, { stdio: 'pipe', cwd });
+    ctx.pushBranch(branchName, cwd);
     log(`Pushed branch '${branchName}' to origin`, 'success');
     return true;
   } catch (error) {
@@ -119,17 +121,11 @@ export function isMergeConflictError(error: string): boolean {
  * reason about the same commit GitHub will merge. Best-effort — failures are
  * logged as warnings and the loop proceeds against the existing worktree.
  */
-function syncWorktreeToOriginHead(headBranch: string, cwd: string): void {
+function syncWorktreeToOriginHead(headBranch: string, cwd: string, ctx: GitContext): void {
   try {
-    execSync(`git fetch origin "${headBranch}"`, { stdio: 'pipe', cwd });
+    ctx.fetchAndResetToRemote(headBranch, cwd);
   } catch (error) {
-    log(`Failed to fetch origin/${headBranch}: ${error}`, 'warn');
-    return;
-  }
-  try {
-    execSync(`git reset --hard "origin/${headBranch}"`, { stdio: 'pipe', cwd });
-  } catch (error) {
-    log(`Failed to reset worktree to origin/${headBranch}: ${error}`, 'warn');
+    log(`Failed to sync worktree to origin/${headBranch}: ${error}`, 'warn');
   }
 }
 
@@ -150,27 +146,29 @@ export async function mergeWithConflictResolution(
   adwId: string,
   logsDir: string,
   specPath: string,
+  gitContext?: GitContext,
 ): Promise<{ success: boolean; error?: string }> {
+  const ctx = gitContext ?? gitContextForRepo(repoInfo);
   let lastMergeError = '';
 
   // Pull origin's view of the head branch into the worktree so checkMergeConflicts and resolveConflictsViaAgent reason about the same commit GitHub will merge.
-  syncWorktreeToOriginHead(headBranch, worktreePath);
+  syncWorktreeToOriginHead(headBranch, worktreePath, ctx);
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     log(`Auto-merge attempt ${attempt}/${maxAttempts} for PR #${prNumber}`, 'info');
 
-    const hasConflicts = checkMergeConflicts(baseBranch, worktreePath);
+    const hasConflicts = checkMergeConflicts(baseBranch, worktreePath, ctx);
 
     if (hasConflicts) {
       log(`Merge conflicts detected on attempt ${attempt}, invoking /resolve_conflict`, 'info');
-      const resolved = await resolveConflictsViaAgent(adwId, specPath, baseBranch, logsDir, worktreePath);
+      const resolved = await resolveConflictsViaAgent(adwId, specPath, baseBranch, logsDir, worktreePath, ctx);
       if (!resolved) {
         log(`Conflict resolution failed on attempt ${attempt}, retrying`, 'warn');
         continue;
       }
     }
 
-    const pushed = pushBranchChanges(headBranch, worktreePath);
+    const pushed = pushBranchChanges(headBranch, worktreePath, ctx);
     if (!pushed) {
       log(`Push failed on attempt ${attempt}, retrying`, 'warn');
       continue;
@@ -193,4 +191,3 @@ export async function mergeWithConflictResolution(
 
   return { success: false, error: lastMergeError };
 }
-

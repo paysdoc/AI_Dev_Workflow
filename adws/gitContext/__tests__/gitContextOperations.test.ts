@@ -962,3 +962,210 @@ describe('mainRepoPath() command and env', () => {
     expect(() => ctx.mainRepoPath()).toThrow();
   });
 });
+
+// ── fetchRemote() ─────────────────────────────────────────────────────────────
+
+describe('fetchRemote() command and env', () => {
+  const worktreePath = '/srv/adw/repos/acme/webapp/.worktrees/feature-issue-1-foo';
+
+  it('builds git fetch origin "<branch>"', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.fetchRemote('main', worktreePath);
+    expect(calls[0].command).toBe('git fetch origin "main"');
+  });
+
+  it('passes the supplied cwd', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.fetchRemote('main', worktreePath);
+    expect(calls[0].cwd).toBe(worktreePath);
+  });
+
+  it('injects GH_TOKEN from the context token in the child env', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(validOptions({ token: 'fetch-token' }), { exec });
+    ctx.fetchRemote('main', worktreePath);
+    expect(calls[0].env.GH_TOKEN).toBe('fetch-token');
+  });
+
+  it('injects all four GIT_* identity vars in the child env', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(
+      validOptions({ gitIdentity: { authorName: 'Fetch Bot', authorEmail: 'fetch@bot.dev', committerName: 'Fetch Bot', committerEmail: 'fetch@bot.dev' } }),
+      { exec },
+    );
+    ctx.fetchRemote('main', worktreePath);
+    expect(calls[0].env.GIT_AUTHOR_NAME).toBe('Fetch Bot');
+    expect(calls[0].env.GIT_AUTHOR_EMAIL).toBe('fetch@bot.dev');
+  });
+
+  it('does not mutate process.env', () => {
+    const before = process.env.GH_TOKEN;
+    const { exec } = makeSpyExec('');
+    const ctx = new GitContext(validOptions({ token: 'injected' }), { exec });
+    ctx.fetchRemote('main', worktreePath);
+    expect(process.env.GH_TOKEN).toBe(before);
+  });
+});
+
+// ── mergeBranch() ─────────────────────────────────────────────────────────────
+
+describe('mergeBranch() command and env', () => {
+  const worktreePath = '/srv/adw/repos/acme/webapp/.worktrees/feature-issue-1-foo';
+
+  it('issues git merge "<ref>" with no flags when opts is omitted', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.mergeBranch('origin/main', worktreePath);
+    expect(calls[0].command).toBe('git merge "origin/main"');
+  });
+
+  it('includes --no-commit --no-ff flags', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.mergeBranch('origin/main', worktreePath, { noCommit: true, noFf: true });
+    expect(calls[0].command).toBe('git merge --no-commit --no-ff "origin/main"');
+  });
+
+  it('includes --no-edit flag', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.mergeBranch('origin/main', worktreePath, { noEdit: true });
+    expect(calls[0].command).toBe('git merge --no-edit "origin/main"');
+  });
+
+  it('passes the supplied cwd', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.mergeBranch('origin/main', worktreePath);
+    expect(calls[0].cwd).toBe(worktreePath);
+  });
+
+  it('injects GH_TOKEN from the context token in the child env', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(validOptions({ token: 'merge-token' }), { exec });
+    ctx.mergeBranch('origin/main', worktreePath);
+    expect(calls[0].env.GH_TOKEN).toBe('merge-token');
+  });
+
+  it('does not mutate process.env', () => {
+    const before = process.env.GH_TOKEN;
+    const { exec } = makeSpyExec('');
+    const ctx = new GitContext(validOptions({ token: 'injected' }), { exec });
+    ctx.mergeBranch('origin/main', worktreePath);
+    expect(process.env.GH_TOKEN).toBe(before);
+  });
+});
+
+// ── abortMerge() ──────────────────────────────────────────────────────────────
+
+describe('abortMerge() command and env', () => {
+  const worktreePath = '/srv/adw/repos/acme/webapp/.worktrees/feature-issue-1-foo';
+
+  it('issues git merge --abort', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.abortMerge(worktreePath);
+    expect(calls[0].command).toBe('git merge --abort');
+  });
+
+  it('passes the supplied cwd', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.abortMerge(worktreePath);
+    expect(calls[0].cwd).toBe(worktreePath);
+  });
+
+  it('injects GH_TOKEN from the context token in the child env', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(validOptions({ token: 'abort-token' }), { exec });
+    ctx.abortMerge(worktreePath);
+    expect(calls[0].env.GH_TOKEN).toBe('abort-token');
+  });
+
+  it('swallows exec errors (no merge in progress is benign)', () => {
+    const exec: ExecFn = () => { throw new Error('fatal: There is no merge to abort.'); };
+    const ctx = new GitContext(validOptions(), { exec });
+    expect(() => ctx.abortMerge(worktreePath)).not.toThrow();
+  });
+
+  it('does not mutate process.env', () => {
+    const before = process.env.GH_TOKEN;
+    const { exec } = makeSpyExec('');
+    const ctx = new GitContext(validOptions({ token: 'injected' }), { exec });
+    ctx.abortMerge(worktreePath);
+    expect(process.env.GH_TOKEN).toBe(before);
+  });
+});
+
+// ── lsRemote() ───────────────────────────────────────────────────────────────
+
+describe('lsRemote() command and env', () => {
+  const worktreePath = '/srv/adw/repos/acme/webapp/.worktrees/feature-issue-1-foo';
+
+  it('issues git ls-remote origin "<branch>"', () => {
+    const { exec, calls } = makeSpyExec('abc123\trefs/heads/main\n');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.lsRemote('main', worktreePath);
+    expect(calls[0].command).toBe('git ls-remote origin "main"');
+  });
+
+  it('passes the supplied cwd', () => {
+    const { exec, calls } = makeSpyExec('abc123\trefs/heads/main\n');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.lsRemote('main', worktreePath);
+    expect(calls[0].cwd).toBe(worktreePath);
+  });
+
+  it('defaults cwd to the context base path when no cwd is given', () => {
+    const { exec, calls } = makeSpyExec('abc123\trefs/heads/main\n');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.lsRemote('main');
+    expect(calls[0].cwd).toBe(ctx.basePath);
+  });
+
+  it('injects GH_TOKEN from the context token in the child env', () => {
+    const { exec, calls } = makeSpyExec('abc123\trefs/heads/main\n');
+    const ctx = new GitContext(validOptions({ token: 'ls-remote-token' }), { exec });
+    ctx.lsRemote('main', worktreePath);
+    expect(calls[0].env.GH_TOKEN).toBe('ls-remote-token');
+  });
+
+  it('injects all four GIT_* identity vars in the child env', () => {
+    const { exec, calls } = makeSpyExec('abc123\n');
+    const ctx = new GitContext(
+      validOptions({ gitIdentity: { authorName: 'LS Bot', authorEmail: 'ls@bot.dev', committerName: 'LS Bot', committerEmail: 'ls@bot.dev' } }),
+      { exec },
+    );
+    ctx.lsRemote('main', worktreePath);
+    expect(calls[0].env.GIT_AUTHOR_NAME).toBe('LS Bot');
+    expect(calls[0].env.GIT_AUTHOR_EMAIL).toBe('ls@bot.dev');
+  });
+
+  it('returns trimmed stdout', () => {
+    const { exec } = makeSpyExec('abc123\trefs/heads/main\n');
+    const ctx = new GitContext(validOptions(), { exec });
+    expect(ctx.lsRemote('main', worktreePath)).toBe('abc123\trefs/heads/main');
+  });
+
+  it('returns empty string when branch is absent', () => {
+    const { exec } = makeSpyExec('');
+    const ctx = new GitContext(validOptions(), { exec });
+    expect(ctx.lsRemote('no-such-branch', worktreePath)).toBe('');
+  });
+
+  it('does not mutate process.env', () => {
+    const before = process.env.GH_TOKEN;
+    const { exec } = makeSpyExec('abc123\n');
+    const ctx = new GitContext(validOptions({ token: 'injected' }), { exec });
+    ctx.lsRemote('main', worktreePath);
+    expect(process.env.GH_TOKEN).toBe(before);
+  });
+
+  it('propagates exec errors (network/auth failures)', () => {
+    const exec: ExecFn = () => { throw new Error('ssh: connect failed'); };
+    const ctx = new GitContext(validOptions(), { exec });
+    expect(() => ctx.lsRemote('main', worktreePath)).toThrow('ssh: connect failed');
+  });
+});
