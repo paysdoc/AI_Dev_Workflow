@@ -95,6 +95,70 @@ describe('defaultBranch() env injection', () => {
   });
 });
 
+// ── remoteUrl() ─────────────────────────────────────────────────────────────
+
+describe('remoteUrl() command and env', () => {
+  it('builds exactly git remote get-url origin', () => {
+    const { exec, calls } = makeSpyExec('git@github.com:acme/webapp.git\n');
+    const ctx = new GitContext(validOptions({ owner: 'acme', repo: 'webapp' }), { exec });
+    ctx.remoteUrl();
+    expect(calls[0].command).toBe('git remote get-url origin');
+  });
+
+  it('passes cwd equal to the context base path when no arg given', () => {
+    const { exec, calls } = makeSpyExec('git@github.com:acme/webapp.git\n');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.remoteUrl();
+    expect(calls[0].cwd).toBe(ctx.basePath);
+  });
+
+  it('passes an explicit cwd when one is supplied', () => {
+    const { exec, calls } = makeSpyExec('git@github.com:acme/webapp.git\n');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.remoteUrl('/tmp/worktree');
+    expect(calls[0].cwd).toBe('/tmp/worktree');
+  });
+
+  it('injects GH_TOKEN from the context token in the child env', () => {
+    const { exec, calls } = makeSpyExec('git@github.com:acme/webapp.git\n');
+    const ctx = new GitContext(validOptions({ token: 'remote-token' }), { exec });
+    ctx.remoteUrl();
+    expect(calls[0].env.GH_TOKEN).toBe('remote-token');
+  });
+
+  it('injects all four GIT_* identity vars in the child env', () => {
+    const { exec, calls } = makeSpyExec('git@github.com:acme/webapp.git\n');
+    const ctx = new GitContext(
+      validOptions({
+        gitIdentity: {
+          authorName: 'Remote Bot', authorEmail: 'remote@bot.dev',
+          committerName: 'Remote Bot', committerEmail: 'remote@bot.dev',
+        },
+      }),
+      { exec },
+    );
+    ctx.remoteUrl();
+    expect(calls[0].env.GIT_AUTHOR_NAME).toBe('Remote Bot');
+    expect(calls[0].env.GIT_AUTHOR_EMAIL).toBe('remote@bot.dev');
+    expect(calls[0].env.GIT_COMMITTER_NAME).toBe('Remote Bot');
+    expect(calls[0].env.GIT_COMMITTER_EMAIL).toBe('remote@bot.dev');
+  });
+
+  it('does not mutate process.env', () => {
+    const before = process.env.GH_TOKEN;
+    const { exec } = makeSpyExec('git@github.com:acme/webapp.git\n');
+    const ctx = new GitContext(validOptions({ token: 'injected' }), { exec });
+    ctx.remoteUrl();
+    expect(process.env.GH_TOKEN).toBe(before);
+  });
+
+  it('returns trimmed stdout', () => {
+    const { exec } = makeSpyExec('git@github.com:acme/webapp.git\n');
+    const ctx = new GitContext(validOptions(), { exec });
+    expect(ctx.remoteUrl()).toBe('git@github.com:acme/webapp.git');
+  });
+});
+
 // ── listOpenIssues() ─────────────────────────────────────────────────────────
 
 describe('listOpenIssues() command and env', () => {

@@ -90,6 +90,27 @@ export function clearSelfHostCache(): void {
   selfHostRepoCache = undefined;
 }
 
+/**
+ * Reads the local git remote URL and parses owner/repo from it.
+ * Bootstrap read — lives here (permanently allowlisted) because it produces
+ * the identity a GitContext is constructed FROM (chicken-and-egg).
+ * Supports both HTTPS and SSH GitHub URL formats.
+ */
+export function readLocalRepoInfo(cwd?: string): RepoInfo {
+  try {
+    const remoteUrl = execSync('git remote get-url origin', { encoding: 'utf-8', cwd }).trim();
+    const httpsMatch = remoteUrl.match(/github\.com\/([^/]+)\/([^/.]+)/);
+    const sshMatch = remoteUrl.match(/git@github\.com:([^/]+)\/([^/.]+)/);
+    const match = httpsMatch || sshMatch;
+    if (!match) {
+      throw new Error(`Could not parse GitHub URL: ${remoteUrl}`);
+    }
+    return { owner: match[1], repo: match[2] };
+  } catch (error) {
+    throw new Error(`Failed to get repo info: ${error}`);
+  }
+}
+
 export async function gitContextFor({ owner, repo, selfHost }: FactoryInput): Promise<GitContext> {
   return gitContextForSync({ owner, repo, selfHost });
 }

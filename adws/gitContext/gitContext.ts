@@ -373,6 +373,10 @@ export class GitContext {
     return this.#run('gh api user');
   }
 
+  remoteUrl(cwd?: string): string {
+    return this.#run('git remote get-url origin', { cwd });
+  }
+
   findPRByBranch(branchName: string): string {
     return this.#run(findPRByBranchCmd(this.#owner, this.#repo, branchName));
   }
