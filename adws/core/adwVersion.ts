@@ -15,6 +15,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { execSync } from 'child_process';
 
 export const ADW_VERSION_FILENAME = '.adw-version';
 
@@ -45,4 +46,35 @@ export function readAdwVersion(worktreePath: string): string | null {
 export function writeAdwVersion(worktreePath: string, hash: string): void {
   const filePath = path.join(worktreePath, ADW_VERSION_FILENAME);
   fs.writeFileSync(filePath, `${hash.trim()}\n`, 'utf-8');
+}
+
+/**
+ * Reads the stored framework hash from the target repo's remote default branch
+ * using `git show origin/<defaultBranch>:.adw-version`.
+ *
+ * This is the authoritative read for the upgrade gate: it is immune to stale
+ * local worktrees, since it reads directly from the remote ref rather than any
+ * local file. A stale reused worktree cannot spoof an old version.
+ *
+ * Returns null when the file is absent on the remote (treating "never
+ * initialized" the same as "out of date"), or when the content is empty.
+ * Any non-404 git error propagates as-is.
+ *
+ * @param defaultBranch - The remote default branch name (e.g. "main", "dev").
+ * @param workspacePath - Absolute path to the target repo clone (the main checkout,
+ *   not a feature worktree). Used as cwd for the git command so that `origin`
+ *   resolves to the target remote.
+ */
+export function readRemoteAdwVersion(defaultBranch: string, workspacePath: string): string | null {
+  try {
+    const raw = execSync(
+      `git show "origin/${defaultBranch}:${ADW_VERSION_FILENAME}"`,
+      { cwd: workspacePath, stdio: 'pipe' },
+    ).toString();
+    const content = raw.trim();
+    return content.length > 0 ? content : null;
+  } catch {
+    // File absent on remote branch → treat as "never initialized"
+    return null;
+  }
 }

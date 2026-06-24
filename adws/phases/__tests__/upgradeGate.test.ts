@@ -21,7 +21,8 @@ function makeParams(overrides: Partial<UpgradeGateParams> = {}): UpgradeGatePara
   return {
     issueNumber: 42,
     issueBody: 'Some issue body',
-    worktreePath: '/tmp/worktree',
+    worktreePath: '/tmp/workspace',
+    defaultBranch: 'main',
     frameworkRepoRoot: '/tmp/framework',
     repoInfo: REPO_INFO,
     targetRepoArgs: ['--target-repo', 'acme/myrepo'],
@@ -105,6 +106,26 @@ describe('addDependencyToBody', () => {
 describe('runUpgradeGate — proceed (hash match)', () => {
   it('returns proceed and does not call claimUpgrade', async () => {
     const deps = makeDeps({ readAdwVersion: vi.fn().mockReturnValue(CURRENT_HASH) });
+    const outcome = await runUpgradeGate(makeParams(), deps);
+    expect(outcome.action).toBe('proceed');
+    expect(deps.claimUpgrade).not.toHaveBeenCalled();
+  });
+
+  it('passes defaultBranch and workspacePath to readAdwVersion', async () => {
+    const readAdwVersion = vi.fn().mockReturnValue(CURRENT_HASH);
+    const deps = makeDeps({ readAdwVersion });
+    await runUpgradeGate(makeParams({ defaultBranch: 'dev', worktreePath: '/tmp/ws' }), deps);
+    expect(readAdwVersion).toHaveBeenCalledWith('dev', '/tmp/ws');
+  });
+
+  it('stale local worktree but remote default branch matches current hash → proceed', async () => {
+    // Simulates issue #712: a reused worktree has old .adw-version locally, but the
+    // remote default branch is already up to date. The gate reads from the remote so
+    // it sees a match and returns proceed without triggering a false upgrade.
+    const deps = makeDeps({
+      // readAdwVersion returns CURRENT_HASH — simulating "remote branch is current"
+      readAdwVersion: vi.fn().mockReturnValue(CURRENT_HASH),
+    });
     const outcome = await runUpgradeGate(makeParams(), deps);
     expect(outcome.action).toBe('proceed');
     expect(deps.claimUpgrade).not.toHaveBeenCalled();
