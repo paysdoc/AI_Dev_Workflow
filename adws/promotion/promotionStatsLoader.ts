@@ -1,10 +1,10 @@
 import type { PromotionStats } from './types.ts';
+import type { LogSinceOptions } from '../gitContext/index.ts';
 
 export interface PromotionStatsLoaderDeps {
-  runGit: (args: string, options: { cwd: string }) => string;
+  gitLogSince: (opts: LogSinceOptions) => string;
   now: () => Date;
   perIssueGlob: string;
-  cwd: string;
   log?: (msg: string, level?: string) => void;
 }
 
@@ -16,10 +16,7 @@ function isoDateMinus90Days(now: Date): string {
 
 function countPromotionCommits(deps: PromotionStatsLoaderDeps, isoSince: string): number {
   try {
-    const out = deps.runGit(
-      `log --since="${isoSince}" --grep="^regression-promotion:" --no-merges --oneline`,
-      { cwd: deps.cwd },
-    );
+    const out = deps.gitLogSince({ since: isoSince, grep: '^regression-promotion:', oneline: true });
     return out.split('\n').filter(l => l.trim().length > 0).length;
   } catch (err) {
     deps.log?.(`promotionStatsLoader: numerator query failed — ${err}`, 'warn');
@@ -29,10 +26,7 @@ function countPromotionCommits(deps: PromotionStatsLoaderDeps, isoSince: string)
 
 function countPerIssueScenarioAdditions(deps: PromotionStatsLoaderDeps, isoSince: string): number {
   try {
-    const out = deps.runGit(
-      `log --since="${isoSince}" --no-merges -p -- ${deps.perIssueGlob}`,
-      { cwd: deps.cwd },
-    );
+    const out = deps.gitLogSince({ since: isoSince, patch: true, pathspec: deps.perIssueGlob });
     return (out.match(/^\+\s*Scenario:/gm) ?? []).length;
   } catch (err) {
     deps.log?.(`promotionStatsLoader: denominator query failed — ${err}`, 'warn');

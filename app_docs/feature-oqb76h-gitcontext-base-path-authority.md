@@ -2,7 +2,7 @@
 
 ## Overview
 
-`adws/gitContext/` is the single deep module that answers "which repository's filesystem am I operating on?" and "which auth identity does every command run with?" A `GitContext` is constructed from a mandatory identity (`owner`, `repo`, `selfHost`, `token`, `gitIdentity`) plus injected resolution config (`frameworkRepoRoot`, `targetReposDir`) and an optional `pat` for PAT-requiring operations. Every operation — branch create/checkout/delete, commit/push (force-with-lease), fetch/reset, worktree create/ensure/remove/list/query, worktree/branch probe reads, git phase-level reads (`lsFiles`, `headShort`, `diff`, `log`), remote fetch/merge/abort/ls-remote (`fetchRemote`, `mergeBranch`, `abortMerge`, `lsRemote`), all `gh`/GitHub-API operations (issue read/comment, PR read/create/merge/approve, label lifecycle, Projects V2 board, secret set), and git-remote/authenticated-user identity reads — is a method on `GitContext`, running through the single private `#run()` chokepoint that injects per-command auth and git identity into the child process environment without ever mutating `process.env`. This module implements PRD `specs/prd/git-context-repo-authority.md` and eliminates the historical "wrong-repo worktree" and `GH_TOKEN` bleed classes of bug structurally.
+`adws/gitContext/` is the single deep module that answers "which repository's filesystem am I operating on?" and "which auth identity does every command run with?" A `GitContext` is constructed from a mandatory identity (`owner`, `repo`, `selfHost`, `token`, `gitIdentity`) plus injected resolution config (`frameworkRepoRoot`, `targetReposDir`) and an optional `pat` for PAT-requiring operations. Every operation — branch create/checkout/delete, commit/push (force-with-lease), fetch/reset, worktree create/ensure/remove/list/query, worktree/branch probe reads, git phase-level reads (`lsFiles`, `headShort`, `diff`, `log`, `logSince`), remote fetch/merge/abort/ls-remote (`fetchRemote`, `mergeBranch`, `abortMerge`, `lsRemote`), all `gh`/GitHub-API operations (issue read/comment, PR read/create+label/merge/approve/changed-files, label lifecycle, Projects V2 board, secret set), and git-remote/authenticated-user identity reads — is a method on `GitContext`, running through the single private `#run()` chokepoint that injects per-command auth and git identity into the child process environment without ever mutating `process.env`. This module implements PRD `specs/prd/git-context-repo-authority.md` and eliminates the historical "wrong-repo worktree" and `GH_TOKEN` bleed classes of bug structurally.
 
 ## Responsibilities
 
@@ -20,9 +20,13 @@
 - Provide identity-read methods (slice #692): `remoteUrl(cwd?: string)` — runs `git remote get-url origin` in the given `cwd`; `authenticatedUser()` — runs `gh api user` and returns the full JSON string
 - Provide worktree/branch probe reads (slice #693): `resolveGitDir(worktreePath)`, `currentBranchSymbolic(worktreePath)`, `worktreeRegistration(worktreePath)`, `worktreeBranches(cwd?)`, `localBranches(cwd?)`, `mainRepoPath(cwd?)` — replacing raw-`git` call sites in `worktreeProbe.ts`, `worktreeOperations.ts`, `branchOperations.ts`, `branchIdentityFallback.ts`, and `orchestratorLib.ts`
 - Provide phase-level git read ops (slice #694): `lsFiles(cwd, prefix?)`, `headShort(cwd?)`, `diff(range, cwd)`, `log(branchName, cwd?)` — replacing raw-`execSync` call sites in `worktreeSetup.ts`, `workflowInit.ts`, `diffEvaluationPhase.ts`, `prCommentDetector.ts`, and `checkLivingDocsIndex.ts`
+- Provide a bounded `git log --since` read (slice #697): `logSince(opts: LogSinceOptions, cwd?)` — assembles a `git log --since` command from a closed flag vocabulary (`since`, `grep?`, `oneline?`, `patch?`, `pathspec?`); defaults `cwd` to `#basePath`; fixes the wrong-`cwd` auto-ramp stats bug in `adwPromotionSweep.tsx` and replaces its free-string `runGit` seam in `promotionStatsLoader.ts`
+- Provide `fetchPRChangedFiles(prNumber): string` (slice #697): thin `gh pr view <n> --json files` delegation through `#run()`, returns raw JSON parsed by the caller
+- Extend `createPR` with optional `labels?: readonly string[]` (slice #697): backward-compatible; appends one `--label '<l>'` per label to the command; `githubCodeHost.ts` 4-arg call site is unaffected
 - Provide label/board/secret write ops (slice #695): `setSecret(name, value)` — pipes value via stdin using context token; `runGraphQLInput(body)` — stdin-JSON GraphQL for complex/array variables, uses PAT with graceful fallback — enabling `labelManager.ts`, `githubBoardManager.ts`, and `depauditSetup.ts` to be removed from the `ALLOWLIST`
 - Provide remote fetch/merge/ls-remote ops (slice #696): `fetchRemote(branch, cwd)`, `mergeBranch(ref, cwd, opts?)`, `abortMerge(cwd)`, `lsRemote(branch, cwd?)` — delegates to package-private `remoteOps.ts`; fixes the wrong-`cwd` `ls-remote` bug in `remoteReconcile.ts` and migrates `autoMergeHandler.ts`'s 9 raw `execSync` sites, removing both files from the `ALLOWLIST`
 - Provide upgrade-claim distributed-lock ops (slice #698): `addDetachedWorktree(worktreePath, ref, cwd)`, `commitAllowEmpty(message, cwd)`, `pushHeadToBranch(branch, cwd)`, `removeDetachedWorktree(worktreePath, cwd)` — delegates to package-private `claimOps.ts`; migrates `upgradeClaim.ts`'s four raw `execSync` lock verbs, removing it from the `ALLOWLIST`. These ops deliberately diverge from standard GitContext methods to preserve the winner/loser election semantics (detached HEAD, always-empty commit, non-forced namespace push, best-effort cleanup).
+- Provide diagnostic read methods (slice #699): `remotes(cwd?)` — runs `git remote`, splits on newlines, returns trimmed non-empty array; `gitConfigUser(cwd?)` — reads `git config user.name`/`user.email`, returns `{ name: string | null, email: string | null }` with per-field `null` on unset (internally catches per-field, not a throw) — enabling `healthCheckChecks.ts` and `healthCheck.tsx` to be removed from the `ALLOWLIST` and the "diagnostic" category to be closed
 - Delegate VCS operation orchestration to package-private modules (`branchOps.ts`, `commitOps.ts`, `worktreeResetOps.ts`, `worktreeCreateOps.ts`, `worktreeQueryOps.ts`, `worktreeRemoveOps.ts`, `worktreeProbeOps.ts`, `gitReadOps.ts`, `remoteOps.ts`, `claimOps.ts`, `processCleanup.ts`), each taking an injected runner — keeping the `GitContext` class thin and testable
 - Expose the full `gh` issue, PR, label, board, and secret operation surface as thin methods that delegate to pure command-builder + parser modules in `adws/gitContext/commands/`
 - Accept an injectable `ExecFn` via `GitContextDeps` for hermetic testing (the ADW `Deps` idiom)
@@ -41,7 +45,7 @@ Each module is side-effect-free except at the injected runner/fs seam and stays 
 | `worktreeQueryOps.ts` | `listWorktrees`, `findWorktreeForIssue`, `getWorktreeForBranch`; `mainRepoPath`, `worktreeBranches` (slice #693); exports `WorktreeForIssueResult` type |
 | `worktreeRemoveOps.ts` | `removeWorktree`, `removeWorktreesForIssue`, `parseWorktreeBranches`; injects `killProcesses` fn |
 | `worktreeProbeOps.ts` | `resolveGitDir`, `currentBranchSymbolic`, `worktreeRegistration` (slice #693); exports `WorktreeRegistration` union type; handles arbitrary worktree paths supplied by the caller |
-| `gitReadOps.ts` | `lsFiles`, `headShort`, `diff`, `log` (slice #694); pure functions over an injected `Runner` seam; errors propagate — no internal swallow |
+| `gitReadOps.ts` | `lsFiles`, `headShort`, `diff`, `log` (slice #694); `logSince` + exports `LogSinceOptions` (slice #697 — bounded `git log --since` vocabulary); pure functions over an injected `Runner` seam; errors propagate — no internal swallow |
 | `remoteOps.ts` | `fetchRemote`, `mergeBranch`, `abortMerge`, `lsRemote` (slice #696); remote-interaction + merge ops over an injected `Runner` seam; all propagate errors except `abortMerge` (swallows — aborting with no in-progress merge is benign) |
 | `claimOps.ts` | `addDetachedWorktree`, `commitAllowEmpty`, `pushHeadToBranch`, `removeDetachedWorktree` (slice #698); upgrade-claim distributed-lock verbs over an injected `Runner` seam; all propagate errors except `removeDetachedWorktree` (swallows — missing worktree on cleanup is benign). `pushHeadToBranch` emits **no** `--force` flag by design — the non-fast-forward rejection IS the lock. |
 | `processCleanup.ts` | `killProcessesInDirectory` (lsof + SIGTERM→SIGKILL, self-PID filter); re-exported from `vcs/worktreeCleanup.ts` for legacy callers |
@@ -53,7 +57,7 @@ Each module is side-effect-free (no `exec`, no `process.env`) and stays under 30
 | Module | Exports |
 |---|---|
 | `issueCommands.ts` | Command builders + parsers for `gh issue …` / `gh api issues` (fetch, comment, state, close, title, comments, labels, create, update, find-upgrade, delete-comment, **listOpenIssues** with `ListOpenIssuesOptions`, **issueComments**) |
-| `prCommands.ts` | PR builders + parsers (find by branch, fetch details/reviews/comments, comment, merge, approve, approval state, list, create, **fetchMergedPRs**) |
+| `prCommands.ts` | PR builders + parsers (find by branch, fetch details/reviews/comments, comment, merge, approve, approval state, list, create, **fetchMergedPRs**, **prChangedFilesCmd** `gh pr view --json files`, extended **createPRCmd** with optional `labels?` — slice #697) |
 | `labelCommands.ts` | Label create and apply (create-if-missing + add) command builders |
 | `boardCommands.ts` | Projects V2 GraphQL query/mutation builders + parsers (project id, issue item, status field, status update, `moveIssueToStatus`, **graphQLInputCmd** for stdin-JSON complex mutations — slice #695) |
 | `secretCommands.ts` | `setSecretCmd(owner, repo, name)` — returns `gh secret set <name> --repo <owner>/<repo> --body -`; zero side effects (slice #695) |
@@ -68,7 +72,7 @@ Each module is side-effect-free (no `exec`, no `process.env`) and stays under 30
 - `gitContextForRepo(repoInfo)` is a sync convenience for consumers that only have a `RepoInfo` object (e.g. trigger-layer modules); auto-detects self-host so the base path always resolves to a directory that exists
 - `readLocalRepoInfo(cwd?: string): RepoInfo` (added in #692) — a permanently-allowlisted bootstrap export that reads `git remote get-url origin` and parses both HTTPS and SSH GitHub remote URLs into `{ owner, repo }`. Lives here (not in `githubApi.ts`) because it produces the identity a `GitContext` is constructed *from* (chicken-and-egg: the caller cannot yet have a `GitContext` to route through). `githubApi.getRepoInfo` delegates directly to this function; all ~20 callers of `getRepoInfo` are unaffected. Throws `"Could not parse GitHub URL: …"` / `"Failed to get repo info: …"` on failure.
 
-## Migrated Call Sites (as of #695)
+## Migrated Call Sites (as of #699)
 
 `workflowInit.ts`, `prPhase.ts`, `buildPhase.ts`, `documentPhase.ts`, `reviewPhase.ts`, `scenarioFixPhase.ts`, `prReviewPhase.ts`, `takeoverHandler.ts`, `webhookHandlers.ts`, `cancelHandler.ts`, `devServerJanitor.ts`, `adwMerge.tsx`, `adwUpgrade.tsx`, and `adwPromotionSweep.tsx` all construct a `GitContext` via the factory or receive one threaded from the launch boundary.
 
@@ -116,6 +120,7 @@ Phase-level git read consumers migrated in #694:
 
 Label/board/secret write consumers migrated in #695:
 
+
 | Consumer | Previous | Now |
 |---|---|---|
 | `labelManager.ts` `ensureAdwLabelsExist` | `execWithRetry('gh label create … --force')` via injected `exec` | `ctx.createLabel(def.name, def.color, def.description)` via injected `gitContextForRepo` factory |
@@ -123,7 +128,7 @@ Label/board/secret write consumers migrated in #695:
 | `githubBoardManager.ts` `updateStatusFieldOptions` | `execSync('gh api graphql --input -', { input: JSON.stringify(body) })` | `this.ctx.runGraphQLInput(body)` |
 | `depauditSetup.ts` `propagateSecret` | `execWithRetry('gh secret set … --body -', { input, maxAttempts: 3 })` | `ctx.setSecret(envName, envValue)` |
 
-All three files (`labelManager.ts`, `githubBoardManager.ts`, `depauditSetup.ts`) have been removed from the `ALLOWLIST` in `adws/checkGitGhGuard.ts`. `bun run lint:git-guard` now passes with all three files scanned (zero violations). The residual `ALLOWLIST` cohort after #695: `remoteReconcile.ts`, `adwPromotionSweep.tsx`, `autoMergeHandler.ts` (plus permanent bootstrap/diagnostic entries).
+All three files (`labelManager.ts`, `githubBoardManager.ts`, `depauditSetup.ts`) have been removed from the `ALLOWLIST` in `adws/checkGitGhGuard.ts`. `bun run lint:git-guard` now passes with all three files scanned (zero violations).
 
 Remote fetch/merge/ls-remote consumers migrated in #696:
 
@@ -137,6 +142,18 @@ Remote fetch/merge/ls-remote consumers migrated in #696:
 
 `autoMergeHandler.ts` and `remoteReconcile.ts` have been removed from the `ALLOWLIST`. The residual `ALLOWLIST` cohort after #696: `adwPromotionSweep.tsx`, `upgradeClaim.ts` (plus permanent bootstrap/diagnostic entries).
 
+Promotion-sweep PR and stats consumers migrated in #697:
+
+| Consumer | Previous | Now |
+|---|---|---|
+| `adwPromotionSweep.tsx` `fetchChangedFilesFromPR` | `execWithRetry('gh pr view ${n} --repo … --json files')` | `gitCtx.fetchPRChangedFiles(prNumber)` |
+| `adwPromotionSweep.tsx` mover `createPR` dep | `execWithRetry('gh pr create … --body-file "<tmp>" … --label …')` with temp-file write/unlink | `gitCtx.createPR(title, body, head, base, labels)` — temp-file deleted |
+| `adwPromotionSweep.tsx` commenter `loadStats` dep | `runGit: (args, opts) => execWithRetry('git ${args}', opts)` with `cwd: process.cwd()` (wrong-base-repo bug) | `gitLogSince: (opts) => gitCtx.logSince(opts)` — base path defaults to `#basePath` |
+| `promotionStatsLoader.ts` `countPromotionCommits` | `deps.runGit('log --since="…" --grep="…" --no-merges --oneline', { cwd })` | `deps.gitLogSince({ since, grep: '^regression-promotion:', oneline: true })` |
+| `promotionStatsLoader.ts` `countPerIssueScenarioAdditions` | `deps.runGit('log --since="…" --no-merges -p -- <glob>', { cwd })` | `deps.gitLogSince({ since, patch: true, pathspec: deps.perIssueGlob })` |
+
+`adwPromotionSweep.tsx` has been removed from the `ALLOWLIST`. The **residual-migration ALLOWLIST category is now empty** — only permanent bootstrap (`gitContextFactory.ts`, `launchGitContext.ts`, `targetRepoManager.ts`, `upgradeClaim.ts`, `githubAppAuth.ts`) and diagnostic (`healthCheck*.ts`) entries remain. `bun run lint:git-guard` now scans `adwPromotionSweep.tsx` with zero violations.
+
 Upgrade-claim distributed-lock consumers migrated in #698:
 
 | Consumer | Previous | Now |
@@ -147,9 +164,21 @@ Upgrade-claim distributed-lock consumers migrated in #698:
 | `upgradeClaim.ts` `defaultPushClaimBranch` — namespace push (no force) | `execSync('git push origin "HEAD:refs/heads/<branch>"', { cwd: tmpdir })` | `ctx.pushHeadToBranch(branchName, tmpdir)` — still no `--force` |
 | `upgradeClaim.ts` `cleanupClaimTempWorktree` | `execSync('git worktree remove --force "<tmpdir>"', { cwd: baseRepoPath })` | `ctx.removeDetachedWorktree(tmpdir, baseRepoPath)` |
 
-`upgradeClaim.ts` has been removed from the `ALLOWLIST`. The residual `ALLOWLIST` cohort after #698: `adwPromotionSweep.tsx` (plus permanent bootstrap/diagnostic entries).
+`upgradeClaim.ts` has been removed from the `ALLOWLIST`. After #698, the residual-migration category is fully empty (`adwPromotionSweep.tsx` was also removed in #697). Only permanent bootstrap and diagnostic entries remain.
 
-## Consumer End State (as of #698)
+Diagnostic consumers migrated in #699:
+
+| Consumer | Previous | Now |
+|---|---|---|
+| `healthCheckChecks.ts` `checkGitRepository` | `execCommand('git rev-parse …')`, `execCommand('git remote')`, `execCommand('git status --porcelain')`, `execCommand('git config user.*')` | `ctx.getCurrentBranch(cwd)`, `ctx.remotes(cwd)`, `ctx.hasUncommittedChanges(cwd)`, `ctx.gitConfigUser(cwd)` |
+| `healthCheckChecks.ts` `checkGitHubCLI` | `execCommand('gh auth status 2>&1')` | `ctx.authenticatedUser()` in a try/catch |
+| `healthCheckChecks.ts` `checkIssueNumber` | `execCommand('gh issue view … --json …')` | `ctx.fetchIssue(issueNumber)` in a try/catch |
+| `healthCheck.tsx` `main()` | `execCommand('gh repo view --json url -q .url')` | `https://github.com/${ctx.owner}/${ctx.repo}` (identity from context) |
+| `trigger_webhook.ts` `/health` endpoint | called `checkGitRepository()`/`checkGitHubCLI()` with no args | constructs self-host context; calls `checkGitRepository(ctx)`/`checkGitHubCLI(ctx)` |
+
+Both `healthCheckChecks.ts` and `healthCheck.tsx` have been removed from the `ALLOWLIST` and the "diagnostic (permanent)" category is closed. `bun run lint:git-guard` now passes with all diagnostic files scanned. The **ALLOWLIST now contains only permanent bootstrap entries** — the residual and diagnostic categories are both closed.
+
+## Consumer End State (as of #699)
 
 | File | Status |
 |---|---|
@@ -173,7 +202,11 @@ Upgrade-claim distributed-lock consumers migrated in #698:
 | `adws/phases/depauditSetup.ts` | `DepauditSetupDeps` gains optional `gitContextForRepo`; `propagateSecret` uses `ctx.setSecret(envName, envValue)`; `execWithRetry` retained for `depaudit setup` CLI invocation; prefers `config.gitContext` when present; removed from ALLOWLIST |
 | `adws/triggers/autoMergeHandler.ts` | All 9 raw `execSync('git …')` sites replaced with `ctx` methods (`fetchRemote`, `mergeBranch`, `abortMerge`, `pushBranch`, `fetchAndResetToRemote`); new optional `gitContext?: GitContext` last param on `mergeWithConflictResolution` (defaults to `gitContextForRepo(repoInfo)`); `execSync` import removed; removed from ALLOWLIST |
 | `adws/core/remoteReconcile.ts` | `defaultBranchExistsOnRemote` rewrites `execWithRetry('git ls-remote --exit-code …')` (no `cwd`) to `gitContextForRepo(repoInfo).lsRemote(branchName).length > 0`; wrong-`cwd` bug fixed (origin now resolves against the target repo, not `process.cwd()`); `execWithRetry` import removed; removed from ALLOWLIST |
+| `adws/adwPromotionSweep.tsx` | `fetchChangedFilesFromPR` uses `gitCtx.fetchPRChangedFiles(prNumber)`; mover `createPR` dep uses `gitCtx.createPR(…, labels)` (temp-file block deleted); commenter `loadStats` injects `gitLogSince: (opts) => gitCtx.logSince(opts)` instead of `runGit`/`cwd`; `execWithRetry` and `os` imports removed; removed from ALLOWLIST |
+| `adws/promotion/promotionStatsLoader.ts` | `PromotionStatsLoaderDeps.runGit`+`cwd` replaced by `gitLogSince: (opts: LogSinceOptions) => string`; `countPromotionCommits` / `countPerIssueScenarioAdditions` build structured option objects (commands byte-identical); all `try/catch` warn-and-return-0 paths preserved |
 | `adws/core/upgradeClaim.ts` | `defaultPushClaimBranch` signature gains `ctx: GitContext` and `getDefaultBranchFn` seam; all five raw `execSync` git calls replaced with `ctx.fetchRemote`, `ctx.addDetachedWorktree`, `ctx.commitAllowEmpty`, `ctx.pushHeadToBranch`, `ctx.removeDetachedWorktree`; `child_process`/`vcs/branchOperations` imports removed; `buildDefaultUpgradeClaimDeps` constructs default context via `gitContextForRepo(readLocalRepoInfo(baseRepoPath))`; pure helpers (`buildClaimBranchName`, `buildClaimResult`, `isPushRejectionError`, `extractGitErrorText`, `claimUpgradeOrFindExisting`) unchanged; removed from ALLOWLIST |
+| `adws/healthCheckChecks.ts` | `checkGitRepository(ctx)`, `checkGitHubCLI(ctx)`, `checkIssueNumber(issueNumber, ctx)` take a `GitContext`; all git/gh probes removed; `execCommand`/`commandExists` retained for Claude CLI probe and `which`; removed from ALLOWLIST |
+| `adws/healthCheck.tsx` | `main()` constructs self-host context via `gitContextForRepo(readLocalRepoInfo(), { selfHost: true })`; threads `ctx` to the three migrated predicates; repo URL built from `ctx.owner`/`ctx.repo`; graceful-degrade guard on construction failure; removed from ALLOWLIST |
 
 ## Contracts & Invariants
 
@@ -215,8 +248,13 @@ Upgrade-claim distributed-lock consumers migrated in #698:
 - `pushHeadToBranch(branch, cwd)` issues `git push origin "HEAD:refs/heads/<branch>"` **without any `--force` flag** with the supplied `cwd`; a second claimant's push is rejected with a non-fast-forward error, which `upgradeClaim.ts` catches via `isPushRejectionError` to return `false` (loser path); propagates all other errors
 - `removeDetachedWorktree(worktreePath, cwd)` issues `git worktree remove --force "<worktreePath>"` with the supplied `cwd`; swallows all errors — a missing or already-removed worktree is a benign no-op
 - `setSecret(name, value)` pipes the value via stdin (`--body -`) using the context's primary token; the value never appears in the command string or `process.env`; single-attempt (no `execWithRetry`) — callers wrap in their own `try/catch`
+- `fetchPRChangedFiles(prNumber)` returns the raw JSON string from `gh pr view <n> --json files`; the caller parses `{ files: [{path, additions, deletions}] }`; runs at `#basePath` through `#run()` with per-command auth
+- `createPR(title, body, headBranch, baseBranch?, labels?)` appends one `--label '<l>'` per element of `labels` using single-quoting (mirroring `applyLabelCmd`); omitting `labels` (or passing an empty array) emits no `--label` flags — backward-compatible; the label is applied atomically at PR creation, not via a separate round-trip
+- `logSince(opts: LogSinceOptions, cwd?)` assembles a `git log --since` command using the closed `LogSinceOptions` vocabulary; defaults `cwd` to `#basePath`; routes through `#run()` with per-command auth; errors propagate (callers `try/catch`); `LogSinceOptions` is exported from `adws/gitContext/index.ts` for use by `promotionStatsLoader.ts`
 - `runGraphQLInput(body)` serializes `body` as `JSON.stringify(body)` piped via stdin; uses `usePat: true` (Projects V2 writes) with graceful fallback to the context token when no PAT is set — matching the prior `execSync` board-auth behaviour and the `feature-9tknkw` PAT-fallback contract
 - `readLocalRepoInfo` in the factory is a permanent bootstrap exception: it calls `execSync('git remote get-url origin')` directly because it *produces* the `RepoInfo` a `GitContext` is constructed from (the `gitContextForRepo` call would be circular). No other bootstrap need should create new raw shell-outs outside the factory.
+- `remotes(cwd?)` propagates on exec failure (caller wraps in try/catch); returns `[]` only when output is empty — an empty remote list is not an error. Used by `checkGitRepository` with a catch to degrade to `hasRemote: false`.
+- `gitConfigUser(cwd?)` never throws — it catches each per-field read internally and returns `null` for unset keys. The "unset" case is a valid non-error state for diagnostics (git config exits non-zero for an unset key).
 
 ## Configuration
 
@@ -274,6 +312,11 @@ Optional injectable dependency bag via `GitContextDeps` (second constructor para
 - **`listOpenIssues` shares command shape across three former allowlisted consumers** — `concurrencyGuard` projects `[number, comments]`, `webhookGatekeeper` projects `[number, body]`, and `docsSelfCheck` projects `[number, title]` with a `search` filter; the `ListOpenIssuesOptions` type captures all three variations.
 - **`checkGitGhGuard.ts` `main()` guard** — the guard is now exported as a module to support test imports; `main()` is called only when `process.argv[1]` includes `checkGitGhGuard` (i.e. when run as a script). Tests can import `scanFiles`/`ALLOWLIST` without side-effects.
 - **`getAuthenticatedUser` lost `execWithRetry`'s per-call retry** — the new path calls `gitContextForRepo(...).authenticatedUser()` which does not retry internally. The existing `catch` block already fails open to `null` (callers treat `null` as "no self-author filter"), matching the #691 retry-loss precedent for `docsSelfCheck`. This is acceptable.
+- **`logSince` is a bounded method, not a free-string git passthrough** — the `LogSinceOptions` closed vocabulary (`since`, `grep?`, `oneline?`, `patch?`, `pathspec?`) makes `GitContext` structurally incapable of running anything other than a `git log --since` read. A generic `gitLogRead(args: string)` would have been the first arbitrary-git escape hatch in the entire #658–#697 epic (any subcommand would run unflagged). The cost — rebacking the `promotionStatsLoader` `runGit` seam and rewriting its 6-case unit test — is contained and mechanical.
+- **`createPR` `labels` single-quoting** — `createPRCmd` wraps each label in single quotes (` --label '${l}'`), matching `applyLabelCmd`. A label name containing a single quote is an unescaped edge identical to other `gh` command builders and is out of scope.
+- **`adwPromotionSweep.tsx` temp-file dance deleted** — the previous `gh pr create --body-file "<tmp>"` path wrote to `os.tmpdir()` and always cleaned up in `finally`. `#run` pipes the body via stdin (`--body-file -`), eliminating the temp file and the `os` import.
+- **`promotionStatsLoader` `runGit` seam rebacked, not preserved** — unlike slice #696 which preserved a boolean seam (`branchExistsOnRemote`), the free-string `runGit(args, {cwd})` seam carries escape-hatch risk; it was replaced with `gitLogSince(opts: LogSinceOptions)`. The assembled commands are byte-for-byte identical to the old arg strings.
+- **Wrong-`cwd` promotion-stats bug fixed** — the old `loadStats` injected `cwd: process.cwd()`, which in the long-lived cron process resolves to the ADW framework root (not the target repo). `gitCtx.logSince(opts)` defaults `cwd` to `#basePath`, which is the authoritative target-repo path. For a self-host promotion sweep, `basePath === process.cwd()`, so behavior is identical there — but the bug is closed structurally.
 - **`readLocalRepoInfo` is the only correct place for a bootstrap git-remote read** — any future need to derive identity before a `GitContext` exists must extend or call this function (not duplicate a raw `execSync('git remote get-url origin')` elsewhere). The `checkGitGhGuard.ts` ALLOWLIST treats `gitContextFactory.ts` as a permanent bootstrap entry for exactly this reason.
 - **`pushHeadToBranch` must NEVER force** — the non-fast-forward push rejection from the remote is the entire distributed lock. A `--force` or `--force-with-lease` flag would let a second claimant silently overwrite the winner's branch, collapsing the election into a last-writer-wins race. A unit assertion in `claimOps.test.ts` pins this; the `pushHeadToBranch` JSDoc states it explicitly.
 - **`addDetachedWorktree` must not create a named local branch** — standard `createWorktree`/`ensureWorktree` always create a local branch; a leftover branch of the same name causes "branch already exists" on the next attempt, which throws instead of returning `false` (the loser path). The claim uses `--detach` at a system-temp path with no local branch to avoid this (Bug B from the integration test).
@@ -293,3 +336,6 @@ Optional injectable dependency bag via `GitContextDeps` (second constructor para
 - **`git log`/diff base-path correction (latent-bug fix)** — `prCommentDetector`'s `git log` previously ran with an implicit `process.cwd()` (= framework `REPO_ROOT` for the cron). For self-host runs `basePath` equals that, so behavior is identical. For target repos, routing through `GitContext` makes `git log` run in the correct target-repo `basePath` instead of the framework root where the branch does not exist. This is a fix, not a regression.
 - **`checkLivingDocsIndex` now requires auth context** — constructs a real `GitContext` via `gitContextForRepo(readLocalRepoInfo(), { selfHost: true })`, which resolves a token. The gate is a manually/CI-run one-off (not in `package.json` scripts), and CI/operators have `gh` auth available. Do not weaken `GitContext`'s mandatory-token contract for token-free local runs.
 - **`gitReadOps` errors propagate by design** — distinct from `worktreeProbeOps`, whose callers expected swallow-to-null/`missing`. Each `gitReadOps` function lets exec errors bubble; each call site retains its own `try/catch` (or no-catch for `checkLivingDocsIndex`, which crashes loudly on failure — preserved behavior).
+- **The "diagnostic (permanent)" ALLOWLIST category is now closed (#699)** — `healthCheckChecks.ts` and `healthCheck.tsx` were the last two files in that category; both are removed and scanned clean. The only remaining ALLOWLIST categories are `bootstrap (permanent)` and `residual (temporary)`. Any future diagnostic script must construct a `GitContext` rather than adding a new diagnostic exemption.
+- **`healthCheck.tsx` and the webhook `/health` endpoint both construct the self-host context** — two entry points, same construction pattern. Both are guarded with try/catch so a construction failure (unresolvable token) produces a `gitContext` check failure result rather than crashing. The webhook endpoint still returns HTTP 200 with a JSON health report.
+- **`checkGitRepository` passes `process.cwd()` as the cwd** — the diagnostic inspects the caller's working directory, not the `GitContext`'s `basePath`. Using `process.cwd()` preserves the semantics of "check the repo I'm currently in" even from a `selfHost: true` context whose `basePath` is the framework root.

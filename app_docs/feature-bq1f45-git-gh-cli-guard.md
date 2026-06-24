@@ -9,7 +9,7 @@ This module enforces the GitContext PRD invariant that all `git` and `gh` shell-
 - Walk all `.ts`/`.tsx` source files under the repo (excluding `node_modules`, `dist`, `.worktrees`, `.claude`, `features`, `test`, `adws/gitContext/**`, and `*.test.ts` / `__tests__/**`)
 - Parse each non-allowlisted file with the TypeScript compiler API (AST-based scan — comment text is never a false positive)
 - Detect call expressions whose first argument is a string/template literal matching `/^(git|gh)(\s|$)/` — catches `execSync('git …')`, `execWithRetry(\`gh …\`)`, `execFileSync('git', […])`, injected `deps.exec(\`gh …\`)`, and any other call shape
-- Maintain a documented `ALLOWLIST` of repo-relative paths that may shell out directly, split into three categories: **bootstrap** (permanent — can't use GitContext before it exists), **diagnostic** (permanent — non-hot-path tooling), and **residual** (temporary — follow-up migration)
+- Maintain a documented `ALLOWLIST` of repo-relative paths that may shell out directly, split into two categories: **bootstrap** (permanent — can't use GitContext before it exists) and **residual** (temporary — follow-up migration)
 - Exit `0` (pass) when no non-allowlisted violations are found; exit `1` (fail) with a `path:line  command` listing and a one-line remedy when any are found
 - Run as `bun run lint:git-guard` and as the sole step in `.github/workflows/git-cli-guard.yml` (triggers on every `pull_request` and `push`)
 
@@ -31,7 +31,8 @@ This module enforces the GitContext PRD invariant that all `git` and `gh` shell-
 
 ## Gotchas
 
-- **The current tree is not a clean zero-shell-out state.** `#661`–`#664` migrated the main call sites, but several workflow files still shell out directly and are temporarily allowlisted. The allowlist `residual` entries are the authoritative list of remaining migrations; they shrink as follow-up issues land
+- **The "diagnostic" ALLOWLIST category is now closed (as of #699).** `healthCheckChecks.ts` and `healthCheck.tsx` were the last entries in that category; both now route through a self-host `GitContext` and are removed. The two remaining categories are `bootstrap (permanent)` and `residual (temporary)`.
+- **The current tree is not a clean zero-shell-out state.** Several workflow files still shell out directly and are temporarily allowlisted as `residual`. The allowlist `residual` entries are the authoritative list of remaining migrations; they shrink as follow-up issues land
 - **Allowlist mismatch causes exit 1.** If a new file shells out to `git`/`gh` and is not in `ALLOWLIST`, the guard fails the build. Resolution: either migrate the call to a `GitContext` method, or add the file to `ALLOWLIST` with a category and justification comment
 - **`features/` and `test/` are fully excluded from scanning.** BDD step definitions and test harness utilities legitimately use `git`/`gh` for fixture repo setup; excluding them avoids noise and keeps the guard focused on production code
 - **No unit tests for the guard itself.** Per the PRD Enforcement note, the guard is validated by CI (the workflow) and by the manual end-to-end verification (temporarily add a violation, confirm exit 1, revert). Agent-written unit tests for the scanner are not added; BDD/CI gates are the proof mechanism

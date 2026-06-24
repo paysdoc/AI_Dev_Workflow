@@ -1,28 +1,28 @@
 import { describe, it, expect, vi } from 'vitest';
 import { loadPromotionStats } from '../promotionStatsLoader.ts';
 import type { PromotionStatsLoaderDeps } from '../promotionStatsLoader.ts';
+import type { LogSinceOptions } from '../../gitContext/index.ts';
 
 // Fixed now for deterministic isoSince: 2026-05-21 → since = 2026-02-20
 const FIXED_NOW = new Date('2026-05-21T00:00:00Z');
 const EXPECTED_SINCE = '2026-02-20';
 
-function makeDeps(overrides: Partial<PromotionStatsLoaderDeps> = {}): PromotionStatsLoaderDeps & { runGit: ReturnType<typeof vi.fn> } {
-  const runGit = vi.fn().mockReturnValue('');
+function makeDeps(overrides: Partial<PromotionStatsLoaderDeps> = {}): PromotionStatsLoaderDeps & { gitLogSince: ReturnType<typeof vi.fn> } {
+  const gitLogSince = vi.fn().mockReturnValue('');
   return {
-    runGit,
+    gitLogSince,
     now: () => FIXED_NOW,
     perIssueGlob: 'features/per-issue/feature-*.feature',
-    cwd: '/repo',
     log: vi.fn(),
     ...overrides,
-  } as PromotionStatsLoaderDeps & { runGit: ReturnType<typeof vi.fn> };
+  } as PromotionStatsLoaderDeps & { gitLogSince: ReturnType<typeof vi.fn> };
 }
 
 describe('loadPromotionStats', () => {
   it('(a) numerator happy path: two promotion commits → promotedCount90d = 2', () => {
     const deps = makeDeps({
-      runGit: vi.fn().mockImplementation((args: string) => {
-        if (args.includes('--grep')) return 'abc1234 regression-promotion: foo\ndef5678 regression-promotion: bar';
+      gitLogSince: vi.fn().mockImplementation((opts: LogSinceOptions) => {
+        if (opts.grep) return 'abc1234 regression-promotion: foo\ndef5678 regression-promotion: bar';
         return '';
       }),
     });
@@ -39,8 +39,8 @@ describe('loadPromotionStats', () => {
       '+  Scenario: third added',
     ].join('\n');
     const deps = makeDeps({
-      runGit: vi.fn().mockImplementation((args: string) => {
-        if (args.includes('-p')) return diff;
+      gitLogSince: vi.fn().mockImplementation((opts: LogSinceOptions) => {
+        if (opts.patch) return diff;
         return '';
       }),
     });
@@ -48,32 +48,32 @@ describe('loadPromotionStats', () => {
     expect(stats.totalPerIssueCount90d).toBe(3);
   });
 
-  it('(c) empty repo: both runGit calls return empty → { 0, 0 }', () => {
-    const deps = makeDeps({ runGit: vi.fn().mockReturnValue('') });
+  it('(c) empty repo: both gitLogSince calls return empty → { 0, 0 }', () => {
+    const deps = makeDeps({ gitLogSince: vi.fn().mockReturnValue('') });
     const stats = loadPromotionStats(deps);
     expect(stats).toEqual({ promotedCount90d: 0, totalPerIssueCount90d: 0 });
   });
 
-  it('(d) runGit throws → returns { 0, 0 } without rethrowing', () => {
-    const deps = makeDeps({ runGit: vi.fn().mockImplementation(() => { throw new Error('not a git repository'); }) });
+  it('(d) gitLogSince throws → returns { 0, 0 } without rethrowing', () => {
+    const deps = makeDeps({ gitLogSince: vi.fn().mockImplementation(() => { throw new Error('not a git repository'); }) });
     expect(() => loadPromotionStats(deps)).not.toThrow();
     expect(loadPromotionStats(deps)).toEqual({ promotedCount90d: 0, totalPerIssueCount90d: 0 });
   });
 
-  it('(e) numerator command uses ^regression-promotion: anchor (enforced by git --grep)', () => {
+  it('(e) numerator command uses ^regression-promotion: anchor and oneline flag', () => {
     const deps = makeDeps();
     loadPromotionStats(deps);
-    const calls = (deps.runGit as ReturnType<typeof vi.fn>).mock.calls as [string, { cwd: string }][];
-    const numeratorCall = calls.find(([args]) => args.includes('--grep'));
+    const calls = (deps.gitLogSince as ReturnType<typeof vi.fn>).mock.calls as [LogSinceOptions][];
+    const numeratorCall = calls.find(([opts]) => opts.grep !== undefined);
     expect(numeratorCall).toBeDefined();
-    expect(numeratorCall![0]).toContain('--grep="^regression-promotion:"');
+    expect(numeratorCall![0]).toEqual({ since: EXPECTED_SINCE, grep: '^regression-promotion:', oneline: true });
   });
 
   it('(f) denominator counts only + lines, not - or context lines', () => {
     const diff = '-  Scenario: removed\n   Scenario: context\n+  Scenario: added';
     const deps = makeDeps({
-      runGit: vi.fn().mockImplementation((args: string) => {
-        if (args.includes('-p')) return diff;
+      gitLogSince: vi.fn().mockImplementation((opts: LogSinceOptions) => {
+        if (opts.patch) return diff;
         return '';
       }),
     });
@@ -90,8 +90,8 @@ describe('loadPromotionStats', () => {
       '+  Scenario: file2 C',
     ].join('\n');
     const deps = makeDeps({
-      runGit: vi.fn().mockImplementation((args: string) => {
-        if (args.includes('-p')) return diff;
+      gitLogSince: vi.fn().mockImplementation((opts: LogSinceOptions) => {
+        if (opts.patch) return diff;
         return '';
       }),
     });
@@ -99,12 +99,12 @@ describe('loadPromotionStats', () => {
     expect(stats.totalPerIssueCount90d).toBe(5);
   });
 
-  it('(h) now() is called once; resulting --since date is 90 days before the fixed now', () => {
+  it('(h) now() is called once; resulting since date is 90 days before the fixed now', () => {
     const deps = makeDeps();
     loadPromotionStats(deps);
-    const calls = (deps.runGit as ReturnType<typeof vi.fn>).mock.calls as [string, { cwd: string }][];
-    for (const [args] of calls) {
-      expect(args).toContain(`--since="${EXPECTED_SINCE}"`);
+    const calls = (deps.gitLogSince as ReturnType<typeof vi.fn>).mock.calls as [LogSinceOptions][];
+    for (const [opts] of calls) {
+      expect(opts.since).toBe(EXPECTED_SINCE);
     }
   });
 });

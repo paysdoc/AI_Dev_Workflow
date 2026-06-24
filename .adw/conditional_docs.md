@@ -1760,6 +1760,10 @@
     - adws/healthCheckChecks.ts
   - Conditions:
     - When working on the ADW health check orchestrator or health check predicates in `adws/healthCheck.tsx` and `adws/healthCheckChecks.ts`
+    - When modifying `checkGitRepository`, `checkGitHubCLI`, or `checkIssueNumber` signatures or their `GitContext` parameter
+    - When the self-host `GitContext` construction in `main()` or the webhook `/health` endpoint needs changes
+    - When troubleshooting the mandatory-token construction failure path in the health check
+    - When `healthCheck.tsx` or `healthCheckChecks.ts` appear in the git/gh guard ALLOWLIST (they must not — they are now scanned clean)
 
 - app_docs/feature-9gjajh-cost-api-worker.md
   - Owns:
@@ -1916,6 +1920,8 @@
     - adws/phases/depauditSetup.ts
     - adws/triggers/autoMergeHandler.ts
     - adws/core/remoteReconcile.ts
+    - adws/adwPromotionSweep.tsx
+    - adws/promotion/promotionStatsLoader.ts
     - adws/core/upgradeClaim.ts
   - Conditions:
     - When working with `GitContext`, `GitContextOptions`, `GitIdentity`, `ExecFn`, or `GitContextDeps` in `adws/gitContext/`
@@ -1970,6 +1976,13 @@
     - When `mergeWithConflictResolution` optional `gitContext?` 9th parameter or its `gitContextForRepo` fallback is relevant
     - When the wrong-`cwd` `ls-remote` bug in `remoteReconcile.ts` (fixed in #696) or the `lsRemote` no-`--exit-code` design is being investigated
     - When `adwMerge.tsx` `buildDefaultDeps` lambda-binds `gitCtx` into `mergeWithConflictResolution`, or `autoMergePhase.ts` passes `config.gitContext` as the 9th argument
+    - When working with `fetchPRChangedFiles(prNumber)`, `createPR` with optional `labels?`, or `logSince(opts: LogSinceOptions, cwd?)` on `GitContext` (added in #697 — promotion-sweep PR and stats ops)
+    - When `prChangedFilesCmd` (`gh pr view --json files`) or the extended `createPRCmd` with `labels?` in `prCommands.ts` is relevant (slice #697)
+    - When `gitReadOps.logSince` or `LogSinceOptions` is referenced (bounded `git log --since` vocabulary — `since`, `grep?`, `oneline?`, `patch?`, `pathspec?`; exported from `adws/gitContext/index.ts`)
+    - When `adwPromotionSweep.tsx` or `promotionStatsLoader.ts` are referenced as migrated-in-#697 files (no longer on the guard ALLOWLIST — residual-migration category is now empty)
+    - When `PromotionStatsLoaderDeps.runGit`+`cwd` is referenced and not found (replaced by `gitLogSince: (opts: LogSinceOptions) => string` in #697)
+    - When the wrong-`cwd` auto-ramp stats bug in `adwPromotionSweep.tsx` (fixed in #697) is being investigated — `runGit` injected `process.cwd()` as `cwd`, resolving against ADW framework root; `logSince` defaults to `#basePath`
+    - When the temp-file PR-body pattern in `adwPromotionSweep.tsx` mover `createPR` is referenced and not found (deleted in #697 — replaced by `gitCtx.createPR(…, labels)` with stdin body)
     - When working with `addDetachedWorktree`, `commitAllowEmpty`, `pushHeadToBranch`, or `removeDetachedWorktree` as `GitContext` methods (added in #698 — upgrade-claim distributed-lock verbs)
     - When `claimOps.ts` (package-private claim-op module), the `Runner` seam, or the no-`--force` push invariant is relevant
     - When `upgradeClaim.ts` is referenced as a migrated-in-#698 file (no longer on the guard ALLOWLIST)
@@ -2013,4 +2026,5 @@
     - When migrating a residual allowlisted file to GitContext methods and removing it from the ALLOWLIST
     - When troubleshooting false-positive or false-negative detection (template literals, execFileSync first-arg form, comment mentions)
     - When the `bun run lint:git-guard` script exits 1 and you need to understand the remedy (migrate to GitContext or add to allowlist)
+    - When understanding ALLOWLIST categories: only `bootstrap (permanent)` and `residual (temporary)` remain — the `diagnostic (permanent)` category was closed in #699
     - When understanding why `features/` and `test/` dirs are excluded from the scan (fixture-repo BDD setup legitimately shells out)

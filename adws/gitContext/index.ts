@@ -10,3 +10,4 @@ export type { GitIdentity, GitContextOptions, ExecFn, GitContextDeps, FsDeps } f
 export { killProcessesInDirectory } from './processCleanup';
 export type { WorktreeForIssueResult } from './worktreeQueryOps';
 export type { WorktreeRegistration } from './worktreeProbeOps';
+export type { LogSinceOptions } from './gitReadOps';

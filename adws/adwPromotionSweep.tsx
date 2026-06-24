@@ -14,10 +14,9 @@
  */
 
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 import { parseOrchestratorArguments } from './core/orchestratorCli.ts';
-import { log, execWithRetry } from './core/index.ts';
+import { log } from './core/index.ts';
 import type { LogLevel } from './core/index.ts';
 import { getRepoInfo } from './github/githubApi.ts';
 import { defaultFindPRByBranch, commentOnPR } from './github/prApi.ts';
@@ -32,11 +31,9 @@ const DEFAULT_VOCABULARY_PATH = 'features/regression/vocabulary.md';
 
 async function fetchChangedFilesFromPR(
   prNumber: number,
-  repoInfo: ReturnType<typeof getRepoInfo>,
+  gitCtx: GitContext,
 ): Promise<{ path: string; status: string }[]> {
-  const json = execWithRetry(
-    `gh pr view ${prNumber} --repo ${repoInfo.owner}/${repoInfo.repo} --json files`,
-  );
+  const json = gitCtx.fetchPRChangedFiles(prNumber);
   const data = JSON.parse(json) as { files: Array<{ path: string; additions: number; deletions: number }> };
   return data.files.map(f => ({
     path: f.path,
@@ -49,12 +46,13 @@ function buildCommenterDeps(
   vocabularyPath: string,
   repoInfo: ReturnType<typeof getRepoInfo>,
   config: ReturnType<typeof loadProjectConfig>,
+  gitCtx: GitContext,
 ): PromotionCommenterDeps {
   const perIssueDir = config.scenarios.perIssueScenarioDirectory ?? 'features/per-issue';
   const perIssueGlob = `${perIssueDir}/feature-*.feature`;
   return {
     loadVocabulary: () => fs.readFileSync(vocabularyPath, 'utf-8'),
-    fetchChangedFiles: async () => fetchChangedFilesFromPR(prNumber, repoInfo),
+    fetchChangedFiles: async () => fetchChangedFilesFromPR(prNumber, gitCtx),
     readFile: (p) => fs.readFileSync(p, 'utf-8'),
     writeFile: (p, content) => fs.writeFileSync(p, content, 'utf-8'),
     postComment: async (_, body) => {
@@ -62,10 +60,9 @@ function buildCommenterDeps(
     },
     today: () => new Date().toISOString().slice(0, 10),
     loadStats: () => loadPromotionStats({
-      runGit: (args, opts) => execWithRetry(`git ${args}`, opts),
+      gitLogSince: (opts) => gitCtx.logSince(opts),
       now: () => new Date(),
       perIssueGlob,
-      cwd: process.cwd(),
       log: (msg, level) => log(msg, (level ?? 'info') as LogLevel),
     }),
     log: (msg, level) => log(msg, (level ?? 'info') as LogLevel),
@@ -82,7 +79,7 @@ function buildMoverDeps(
   gitCtx: GitContext,
 ): PromotionMoverDeps {
   return {
-    fetchChangedFiles: async () => fetchChangedFilesFromPR(prNumber, repoInfo),
+    fetchChangedFiles: async () => fetchChangedFilesFromPR(prNumber, gitCtx),
     readFile: (p) => fs.readFileSync(p, 'utf-8'),
     writeFile: (p, content) => {
       fs.mkdirSync(path.dirname(p), { recursive: true });
@@ -99,20 +96,9 @@ function buildMoverDeps(
       return { number: pr.number, url: `https://github.com/${repoInfo.owner}/${repoInfo.repo}/pull/${pr.number}` };
     },
     createPR: (opts) => {
-      const tmpFile = path.join(os.tmpdir(), `adw-pr-body-${Date.now()}.txt`);
-      fs.writeFileSync(tmpFile, opts.body, 'utf-8');
-      try {
-        const labels = opts.labels.map(l => `--label "${l}"`).join(' ');
-        const url = execWithRetry(
-          `gh pr create --title "${opts.title.replace(/"/g, '\\"')}" --body-file "${tmpFile}" --base "${opts.base}" --head "${opts.head}" --repo ${repoInfo.owner}/${repoInfo.repo} ${labels}`,
-          { cwd: opts.cwd },
-        ).trim();
-        const match = /\/pull\/(\d+)$/.exec(url);
-        const number = match ? parseInt(match[1], 10) : 0;
-        return { number, url };
-      } finally {
-        try { fs.unlinkSync(tmpFile); } catch { /* ignore */ }
-      }
+      const url = gitCtx.createPR(opts.title, opts.body, opts.head, opts.base, opts.labels);
+      const match = /\/pull\/(\d+)$/.exec(url);
+      return { number: match ? parseInt(match[1], 10) : 0, url };
     },
     loadScenariosConfig: () => loadProjectConfig(process.cwd()).scenarios,
     today: () => new Date().toISOString().slice(0, 10),
@@ -146,7 +132,7 @@ async function main(): Promise<void> {
   const config = loadProjectConfig(process.cwd());
   const vocabularyPath = config.scenarios.vocabularyRegistry ?? DEFAULT_VOCABULARY_PATH;
 
-  const commenterDeps = buildCommenterDeps(pr.number, vocabularyPath, repoInfo, config);
+  const commenterDeps = buildCommenterDeps(pr.number, vocabularyPath, repoInfo, config, gitCtx);
   const commenterResult = await runPromotionCommenter(pr.number, issueNumber, commenterDeps);
 
   log(

@@ -34,7 +34,7 @@ const GIT_GH_RE = /^(git|gh)(\s|$)/;
 
 /**
  * Repo-relative paths allowed to shell out to git/gh directly.
- * Categories: bootstrap (permanent), diagnostic (permanent), residual (temporary).
+ * Categories: bootstrap (permanent), residual (temporary).
  */
 const ALLOWLIST: readonly string[] = [
   // bootstrap — cannot use GitContext before it exists
@@ -42,13 +42,6 @@ const ALLOWLIST: readonly string[] = [
   'adws/github/gitContextFactory.ts',     // git config, gh auth token, git remote get-url
   'adws/core/targetRepoManager.ts',       // git clone, git fetch, gh repo view
   'adws/github/githubAppAuth.ts',         // GitHub App token minting via gh
-
-  // diagnostic — tooling / health-check scripts, non-hot-path
-  'adws/healthCheckChecks.ts',            // git rev-parse/remote/status/config, gh auth/issue
-  'adws/healthCheck.tsx',                 // gh repo view --json url
-
-  // residual — migrate to GitContext methods (follow-up)
-  'adws/adwPromotionSweep.tsx',                    // gh pr view/create, git <args> via execWithRetry
 ];
 
 // ---------------------------------------------------------------------------
