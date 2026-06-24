@@ -273,3 +273,34 @@ describe('explicit cwd (not process.cwd())', () => {
     expect(calls[0].cwd).not.toBe('/tmp');
   });
 });
+
+// ── createPR() head-branch contract ──────────────────────────────────────────
+// Regression guard: gh pr create must carry an explicit --head. Without it, gh
+// infers the head from the cwd's current branch (the context base path, on the
+// default branch), producing an empty-diff PR against the wrong head. The
+// GitContext gh-ops migration dropped --head and shipped exactly that bug
+// (PR opened with head=main → "0 files changed").
+describe('createPR() head-branch contract', () => {
+  it('includes an explicit --head set to the source branch', () => {
+    const { exec, calls } = makeSpyExec('https://github.com/acme/webapp/pull/12\n');
+    const ctx = new GitContext(validOptions({ owner: 'acme', repo: 'webapp' }), { exec });
+    ctx.createPR('My title', 'body text', 'feature-issue-7-do-thing', 'dev');
+    expect(calls[0].command).toContain('--head "feature-issue-7-do-thing"');
+  });
+
+  it('does not rely on the cwd-inferred head (head differs from base path branch)', () => {
+    // Spy returns 'main' for any command; the head must still be the passed branch.
+    const { exec, calls } = makeSpyExec('main\n');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.createPR('T', 'b', 'feature-issue-99-x', 'dev');
+    expect(calls[0].command).toContain('--head "feature-issue-99-x"');
+    expect(calls[0].command).toContain('--base dev');
+  });
+
+  it('passes the PR body via --body-file - on stdin', () => {
+    const { exec, calls } = makeSpyExec('https://github.com/acme/webapp/pull/1\n');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.createPR('T', 'the body', 'feature-issue-1-y');
+    expect(calls[0].command).toContain('--body-file -');
+  });
+});

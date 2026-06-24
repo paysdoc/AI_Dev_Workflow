@@ -89,7 +89,7 @@ export class GitHubCodeHost implements CodeHost {
       // If the check fails, fall through to normal PR creation
     }
 
-    const prUrl = ctx.createPR(options.title, options.body, options.targetBranch);
+    const prUrl = ctx.createPR(options.title, options.body, options.sourceBranch, options.targetBranch);
 
     const numberMatch = prUrl.match(/\/pull\/(\d+)$/);
     if (!numberMatch) {

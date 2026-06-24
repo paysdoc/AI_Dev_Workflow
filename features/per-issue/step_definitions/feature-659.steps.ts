@@ -49,7 +49,7 @@ function runOp(ctx: GitContext, opName: string): void {
       ctx.commentOnPR(1, 'test body');
       return;
     case 'pr-create':
-      ctx.createPR('Test PR', 'test body');
+      ctx.createPR('Test PR', 'test body', 'feature-test-branch');
       return;
     case 'pr-merge':
       ctx.mergePR(1);
