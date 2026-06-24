@@ -613,7 +613,7 @@ adws/                   # ADW workflow system
 │   │   ├── issueCommands.ts    # gh CLI command strings for issue read/write operations
 │   │   ├── labelCommands.ts    # gh CLI command strings for label create/apply operations
 │   │   ├── prCommands.ts       # gh CLI command strings for PR list/create/merge/review operations
-│   │   └── secretCommands.ts   # gh CLI command string for secret set operations
+│   │   └── secretCommands.ts   # gh CLI command strings for GitHub Actions secret operations
 │   ├── branchOps.ts    # Package-private branch operation orchestration (create, checkout, delete, reset)
 │   ├── commitOps.ts    # Package-private commit/push orchestration (force-with-lease, lease rejection detection)
 │   ├── gitContext.ts   # GitContext class — mandatory identity, base-path resolution in constructor, per-command env injection, no cwd fallback

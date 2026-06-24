@@ -23,6 +23,7 @@ import { worktreeCreateOps } from './worktreeCreateOps';
 import { worktreeRemoveOps } from './worktreeRemoveOps';
 import { worktreeProbeOps, type WorktreeRegistration } from './worktreeProbeOps';
 import { gitReadOps } from './gitReadOps';
+import { remoteOps } from './remoteOps';
 import {
   fetchIssueCmd, commentOnIssueCmd, issueStateCmd, closeIssueCmd, issueTitleCmd,
   fetchIssueCommentsCmd, issueHasLabelCmd, addIssueLabelCmd, createIssueCmd,
@@ -423,6 +424,24 @@ export class GitContext {
 
   mainRepoPath(cwd?: string): string {
     return worktreeQueryOps.mainRepoPath((cmd, c) => this.#run(cmd, { cwd: c }), cwd ?? this.#basePath);
+  }
+
+  // ── Remote fetch / merge / ls-remote ops ────────────────────────────────────
+
+  fetchRemote(branch: string, cwd: string): void {
+    remoteOps.fetchRemote((cmd, c) => this.#run(cmd, { cwd: c }), branch, cwd);
+  }
+
+  mergeBranch(ref: string, cwd: string, opts?: { noCommit?: boolean; noFf?: boolean; noEdit?: boolean }): void {
+    remoteOps.mergeBranch((cmd, c) => this.#run(cmd, { cwd: c }), ref, cwd, opts);
+  }
+
+  abortMerge(cwd: string): void {
+    remoteOps.abortMerge((cmd, c) => this.#run(cmd, { cwd: c }), cwd);
+  }
+
+  lsRemote(branch: string, cwd?: string): string {
+    return remoteOps.lsRemote((cmd, c) => this.#run(cmd, { cwd: c }), branch, cwd ?? this.#basePath);
   }
 
   // ── Git read ops ──────────────────────────────────────────────────────────────

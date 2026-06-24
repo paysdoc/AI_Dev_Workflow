@@ -13,9 +13,10 @@
  */
 
 import { AgentStateManager } from './agentState';
-import { execWithRetry, log } from './utils';
+import { log } from './utils';
 import { defaultFindPRByBranch, type RawPR } from '../github/prApi';
 import type { RepoInfo } from '../github/githubApi';
+import { gitContextForRepo } from '../github/gitContextFactory';
 import type { AgentState } from '../types/agentTypes';
 import type { WorkflowStage } from '../types/workflowTypes';
 
@@ -85,15 +86,11 @@ export function deriveStageFromRemote(
   return stateFallback;
 }
 
-function defaultBranchExistsOnRemote(branchName: string, _repoInfo: RepoInfo): boolean {
+function defaultBranchExistsOnRemote(branchName: string, repoInfo: RepoInfo): boolean {
   try {
-    execWithRetry(`git ls-remote --exit-code origin ${branchName}`);
-    return true;
+    return gitContextForRepo(repoInfo).lsRemote(branchName).length > 0;
   } catch (err) {
-    const exitCode = (err as { status?: number }).status;
-    if (exitCode !== 2) {
-      log(`remoteReconcile: git ls-remote failed for branch '${branchName}': ${err}`, 'warn');
-    }
+    log(`remoteReconcile: git ls-remote failed for branch '${branchName}': ${err}`, 'warn');
     return false;
   }
 }

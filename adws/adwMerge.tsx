@@ -241,7 +241,7 @@ function buildDefaultDeps(platform: Platform, gitCtx: import('./gitContext').Git
     fetchPRApprovalState,
     ensureWorktree: (branch, base) => gitCtx.ensureWorktree(branch, base),
     ensureLogsDirectory,
-    mergeWithConflictResolution,
+    mergeWithConflictResolution: (pr, repoInfo, head, base, wt, id, logs, spec) => mergeWithConflictResolution(pr, repoInfo, head, base, wt, id, logs, spec, gitCtx),
     writeTopLevelState: (id, state) => AgentStateManager.writeTopLevelState(id, state),
     commentOnIssue,
     commentOnPR,

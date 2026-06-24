@@ -44,7 +44,7 @@ function extractPrNumber(prUrl: string | undefined): number {
  * propagate as thrown errors.
  */
 export async function executeAutoMergePhase(config: WorkflowConfig): Promise<{ costUsd: number; modelUsage: ModelUsageMap; phaseCostRecords: PhaseCostRecord[] }> {
-  const { adwId, issueNumber, worktreePath, logsDir, defaultBranch, branchName, ctx, repoContext } = config;
+  const { adwId, issueNumber, worktreePath, logsDir, defaultBranch, branchName, ctx, repoContext, gitContext } = config;
   const phaseStartTime = Date.now();
 
   const prNumber = extractPrNumber(ctx.prUrl);
@@ -104,6 +104,7 @@ export async function executeAutoMergePhase(config: WorkflowConfig): Promise<{ c
     adwId,
     logsDir,
     specPath,
+    gitContext,
   );
 
   if (!mergeOutcome.success) {

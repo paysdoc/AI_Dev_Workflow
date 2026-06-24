@@ -1918,6 +1918,8 @@
     - adws/github/labelManager.ts
     - adws/providers/github/githubBoardManager.ts
     - adws/phases/depauditSetup.ts
+    - adws/triggers/autoMergeHandler.ts
+    - adws/core/remoteReconcile.ts
   - Conditions:
     - When working with `GitContext`, `GitContextOptions`, `GitIdentity`, `ExecFn`, or `GitContextDeps` in `adws/gitContext/`
     - When implementing or troubleshooting base-path resolution for self-host vs target repos (the single `resolveBasePath` authority)
@@ -1965,6 +1967,12 @@
     - When `LabelManagerDeps` is changed from `{ exec }` to `{ gitContextForRepo }` shape (migration in #695 — tests must inject a spy `GitContext`)
     - When `updateStatusFieldOptions` in `githubBoardManager.ts` is routing through `runGraphQLInput` rather than `execSync` (and the PAT-auth correctness fix this implies)
     - When `depauditSetup.ts` `propagateSecret` no longer uses `execWithRetry` for `gh secret set` (migrated to `ctx.setSecret` in #695; single-attempt; `execWithRetry` retained for `depaudit setup` CLI call)
+    - When working with `fetchRemote`, `mergeBranch`, `abortMerge`, or `lsRemote` as `GitContext` methods (added in #696 — remote-interaction and merge ops)
+    - When `remoteOps.ts` (package-private remote-op module) or the `Runner` seam / `abortMerge` error-swallowing contract is relevant
+    - When `autoMergeHandler.ts` or `remoteReconcile.ts` are referenced as migrated-in-#696 files (no longer on the guard ALLOWLIST)
+    - When `mergeWithConflictResolution` optional `gitContext?` 9th parameter or its `gitContextForRepo` fallback is relevant
+    - When the wrong-`cwd` `ls-remote` bug in `remoteReconcile.ts` (fixed in #696) or the `lsRemote` no-`--exit-code` design is being investigated
+    - When `adwMerge.tsx` `buildDefaultDeps` lambda-binds `gitCtx` into `mergeWithConflictResolution`, or `autoMergePhase.ts` passes `config.gitContext` as the 9th argument
 
 - app_docs/feature-k817bh-persist-repo-identity-cross-check.md
   - Owns:
