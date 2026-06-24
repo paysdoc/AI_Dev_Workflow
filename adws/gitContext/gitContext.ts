@@ -382,6 +382,24 @@ export class GitContext {
     return this.#run('git remote get-url origin', { cwd });
   }
 
+  remotes(cwd?: string): string[] {
+    return this.#run('git remote', { cwd }).split('\n').map(s => s.trim()).filter(Boolean);
+  }
+
+  gitConfigUser(cwd?: string): { name: string | null; email: string | null } {
+    let name: string | null = null;
+    let email: string | null = null;
+    try {
+      const n = this.#run('git config user.name', { cwd });
+      name = n || null;
+    } catch { /* unset key — expected non-error state */ }
+    try {
+      const e = this.#run('git config user.email', { cwd });
+      email = e || null;
+    } catch { /* unset key — expected non-error state */ }
+    return { name, email };
+  }
+
   // ── Worktree / branch probe reads ────────────────────────────────────────────
 
   resolveGitDir(worktreePath: string): string | null {

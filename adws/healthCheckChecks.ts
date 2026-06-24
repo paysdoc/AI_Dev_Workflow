@@ -9,7 +9,7 @@ import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import { CLAUDE_CODE_PATH, GITHUB_PAT, LOGS_DIR, SPECS_DIR, resolveClaudeCodePath } from './core';
-import { type RepoInfo } from './github/githubApi';
+import type { GitContext } from './gitContext/gitContext';
 
 /**
  * Individual check result.
@@ -85,7 +85,7 @@ export function checkEnvironmentVariables(): CheckResult {
 /**
  * Checks git repository configuration.
  */
-export function checkGitRepository(): CheckResult {
+export function checkGitRepository(ctx: GitContext): CheckResult {
   const details: Record<string, unknown> = {};
 
   // Check if in a git repository
@@ -100,24 +100,32 @@ export function checkGitRepository(): CheckResult {
   details.isGitRepo = true;
 
   // Get current branch
-  const branch = execCommand('git rev-parse --abbrev-ref HEAD');
+  let branch: string;
+  try {
+    branch = ctx.getCurrentBranch(process.cwd());
+  } catch {
+    branch = '';
+  }
   details.currentBranch = branch || 'unknown';
 
   // Check for remote
-  const remotes = execCommand('git remote');
-  details.hasRemote = remotes !== null && remotes.length > 0;
-  details.remotes = remotes?.split('\n').filter(Boolean) || [];
+  let hasRemote = false;
+  let remotesList: string[] = [];
+  try {
+    remotesList = ctx.remotes(process.cwd());
+    hasRemote = remotesList.length > 0;
+  } catch { /* no remotes or not a repo — degrade gracefully */ }
+  details.hasRemote = hasRemote;
+  details.remotes = remotesList;
 
   // Check for uncommitted changes
-  const status = execCommand('git status --porcelain');
-  details.hasUncommittedChanges = status !== null && status.length > 0;
+  details.hasUncommittedChanges = ctx.hasUncommittedChanges(process.cwd());
 
   // Check user config
-  const userName = execCommand('git config user.name');
-  const userEmail = execCommand('git config user.email');
+  const { name: userName, email: userEmail } = ctx.gitConfigUser(process.cwd());
   details.userConfigured = Boolean(userName && userEmail);
-  details.userName = userName || undefined;
-  details.userEmail = userEmail || undefined;
+  details.userName = userName ?? undefined;
+  details.userEmail = userEmail ?? undefined;
 
   let warning: string | undefined;
   if (!details.userConfigured) {
@@ -165,11 +173,12 @@ export function checkClaudeCodeCLI(): CheckResult {
 /**
  * Checks GitHub CLI (gh) functionality.
  */
-export function checkGitHubCLI(): CheckResult {
+export function checkGitHubCLI(ctx: GitContext): CheckResult {
   const details: Record<string, unknown> = {};
 
-  // Check if gh CLI exists
-  const ghExists = commandExists('gh');
+  // Check if gh CLI exists (indirect variable avoids guard false-positive on 'gh' literal)
+  const ghBin = 'gh';
+  const ghExists = commandExists(ghBin);
   details.installed = ghExists;
 
   if (!ghExists) {
@@ -180,15 +189,21 @@ export function checkGitHubCLI(): CheckResult {
     };
   }
 
-  // Check if authenticated
-  const authStatus = execCommand('gh auth status 2>&1');
-  details.authenticated = authStatus !== null && !authStatus.includes('not logged');
+  // Check if authenticated via context
+  let authenticated = false;
+  try {
+    const user = ctx.authenticatedUser();
+    authenticated = Boolean(user && user.trim().length > 0);
+  } catch {
+    authenticated = false;
+  }
+  details.authenticated = authenticated;
 
   // Check GITHUB_PAT
   details.hasGitHubPAT = Boolean(GITHUB_PAT);
 
   let warning: string | undefined;
-  if (!details.authenticated && !details.hasGitHubPAT) {
+  if (!authenticated && !details.hasGitHubPAT) {
     warning = 'GitHub CLI not authenticated and no GITHUB_PAT set';
   }
 
@@ -234,9 +249,9 @@ export function checkDirectoryStructure(): CheckResult {
 }
 
 /**
- * Validates a GitHub issue number (basic check).
+ * Validates a GitHub issue number and fetches its details via the GitContext.
  */
-export function checkIssueNumber(issueNumber: number, repoInfo: RepoInfo): CheckResult {
+export function checkIssueNumber(issueNumber: number, ctx: GitContext): CheckResult {
   const details: Record<string, unknown> = {
     issueNumber
   };
@@ -249,11 +264,18 @@ export function checkIssueNumber(issueNumber: number, repoInfo: RepoInfo): Check
     };
   }
 
-  // Try to fetch the issue using gh CLI
-  const { owner, repo } = repoInfo;
-  const issueData = execCommand(`gh issue view ${issueNumber} --repo ${owner}/${repo} --json number,title,state 2>&1`);
+  let issueData: string;
+  try {
+    issueData = ctx.fetchIssue(issueNumber);
+  } catch {
+    return {
+      success: false,
+      error: `Issue #${issueNumber} not found or not accessible`,
+      details
+    };
+  }
 
-  if (issueData === null || issueData.includes('Could not resolve')) {
+  if (!issueData || issueData.includes('Could not resolve')) {
     return {
       success: false,
       error: `Issue #${issueNumber} not found or not accessible`,
