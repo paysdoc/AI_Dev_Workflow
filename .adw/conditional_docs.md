@@ -1916,6 +1916,8 @@
     - adws/phases/depauditSetup.ts
     - adws/triggers/autoMergeHandler.ts
     - adws/core/remoteReconcile.ts
+    - adws/adwPromotionSweep.tsx
+    - adws/promotion/promotionStatsLoader.ts
   - Conditions:
     - When working with `GitContext`, `GitContextOptions`, `GitIdentity`, `ExecFn`, or `GitContextDeps` in `adws/gitContext/`
     - When implementing or troubleshooting base-path resolution for self-host vs target repos (the single `resolveBasePath` authority)
@@ -1969,6 +1971,13 @@
     - When `mergeWithConflictResolution` optional `gitContext?` 9th parameter or its `gitContextForRepo` fallback is relevant
     - When the wrong-`cwd` `ls-remote` bug in `remoteReconcile.ts` (fixed in #696) or the `lsRemote` no-`--exit-code` design is being investigated
     - When `adwMerge.tsx` `buildDefaultDeps` lambda-binds `gitCtx` into `mergeWithConflictResolution`, or `autoMergePhase.ts` passes `config.gitContext` as the 9th argument
+    - When working with `fetchPRChangedFiles(prNumber)`, `createPR` with optional `labels?`, or `logSince(opts: LogSinceOptions, cwd?)` on `GitContext` (added in #697 — promotion-sweep PR and stats ops)
+    - When `prChangedFilesCmd` (`gh pr view --json files`) or the extended `createPRCmd` with `labels?` in `prCommands.ts` is relevant (slice #697)
+    - When `gitReadOps.logSince` or `LogSinceOptions` is referenced (bounded `git log --since` vocabulary — `since`, `grep?`, `oneline?`, `patch?`, `pathspec?`; exported from `adws/gitContext/index.ts`)
+    - When `adwPromotionSweep.tsx` or `promotionStatsLoader.ts` are referenced as migrated-in-#697 files (no longer on the guard ALLOWLIST — residual-migration category is now empty)
+    - When `PromotionStatsLoaderDeps.runGit`+`cwd` is referenced and not found (replaced by `gitLogSince: (opts: LogSinceOptions) => string` in #697)
+    - When the wrong-`cwd` auto-ramp stats bug in `adwPromotionSweep.tsx` (fixed in #697) is being investigated — `runGit` injected `process.cwd()` as `cwd`, resolving against ADW framework root; `logSince` defaults to `#basePath`
+    - When the temp-file PR-body pattern in `adwPromotionSweep.tsx` mover `createPR` is referenced and not found (deleted in #697 — replaced by `gitCtx.createPR(…, labels)` with stdin body)
 
 - app_docs/feature-k817bh-persist-repo-identity-cross-check.md
   - Owns:
