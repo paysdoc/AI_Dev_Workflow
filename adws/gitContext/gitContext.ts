@@ -22,6 +22,7 @@ import { worktreeQueryOps, type WorktreeForIssueResult } from './worktreeQueryOp
 import { worktreeCreateOps } from './worktreeCreateOps';
 import { worktreeRemoveOps } from './worktreeRemoveOps';
 import { worktreeProbeOps, type WorktreeRegistration } from './worktreeProbeOps';
+import { gitReadOps } from './gitReadOps';
 import {
   fetchIssueCmd, commentOnIssueCmd, issueStateCmd, closeIssueCmd, issueTitleCmd,
   fetchIssueCommentsCmd, issueHasLabelCmd, addIssueLabelCmd, createIssueCmd,
@@ -48,9 +49,10 @@ const defaultExec: ExecFn = (command, options) => {
       encoding: 'utf-8',
       input: options.input,
       stdio: ['pipe', 'pipe', 'pipe'],
+      maxBuffer: 10 * 1024 * 1024,
     }) as string;
   }
-  return execSync(command, { ...options, encoding: 'utf-8' }) as string;
+  return execSync(command, { ...options, encoding: 'utf-8', maxBuffer: 10 * 1024 * 1024 }) as string;
 };
 
 function assertCompleteIdentity(options: GitContextOptions): void {
@@ -402,6 +404,24 @@ export class GitContext {
 
   mainRepoPath(cwd?: string): string {
     return worktreeQueryOps.mainRepoPath((cmd, c) => this.#run(cmd, { cwd: c }), cwd ?? this.#basePath);
+  }
+
+  // ── Git read ops ──────────────────────────────────────────────────────────────
+
+  lsFiles(cwd: string, prefix?: string): string[] {
+    return gitReadOps.lsFiles((cmd, c) => this.#run(cmd, { cwd: c }), cwd, prefix);
+  }
+
+  headShort(cwd?: string): string {
+    return gitReadOps.headShort((cmd, c) => this.#run(cmd, { cwd: c }), cwd ?? this.#basePath);
+  }
+
+  diff(range: string, cwd: string): string {
+    return gitReadOps.diff((cmd, c) => this.#run(cmd, { cwd: c }), range, cwd);
+  }
+
+  log(branchName: string, cwd?: string): string {
+    return gitReadOps.log((cmd, c) => this.#run(cmd, { cwd: c }), branchName, cwd ?? this.#basePath);
   }
 
   findPRByBranch(branchName: string): string {

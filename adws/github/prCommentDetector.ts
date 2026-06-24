@@ -5,11 +5,12 @@
  * on the branch to determine which comments still need to be addressed.
  */
 
-import { execSync } from 'child_process';
 import { PRReviewComment, log } from '../core';
 import { fetchPRDetails, fetchPRReviewComments, getAuthenticatedUser } from './githubApi';
 import type { RepoInfo } from './githubApi';
 import { isAdwComment } from '../core/workflowCommentParsing';
+import { gitContextForRepo } from './gitContextFactory';
+import type { GitContext } from '../gitContext';
 
 /**
  * Structural regex matching the universal ADW commit format: `<agentName>: <issueClass>: <message>`.
@@ -23,12 +24,9 @@ const ADW_COMMIT_PATTERN = /^[\w/-]+: \w+: /;
  * Matches commits using the structural ADW commit format `<agentName>: <issueClass>: <message>`.
  * Returns null if no ADW commits are found.
  */
-export function getLastAdwCommitTimestamp(branchName: string, cwd?: string): Date | null {
+export function getLastAdwCommitTimestamp(branchName: string, gitContext: GitContext, cwd?: string): Date | null {
   try {
-    const output = execSync(
-      `git log "${branchName}" --format="%aI %s" --no-merges`,
-      { encoding: 'utf-8', cwd }
-    );
+    const output = gitContext.log(branchName, cwd);
 
     for (const line of output.split('\n')) {
       if (!line.trim()) continue;
@@ -74,7 +72,8 @@ export function getUnaddressedComments(prNumber: number, repoInfo: RepoInfo): PR
     return [];
   }
 
-  const lastAdwCommit = getLastAdwCommitTimestamp(prDetails.headBranch);
+  const gitContext = gitContextForRepo(repoInfo);
+  const lastAdwCommit = getLastAdwCommitTimestamp(prDetails.headBranch, gitContext);
   log(`Last ADW commit timestamp for branch ${prDetails.headBranch}: ${lastAdwCommit ?? 'none'}`);
 
   if (!lastAdwCommit) {

@@ -33,6 +33,7 @@ const mockGitCtx = vi.hoisted(() => ({
   getWorktreeForBranch: vi.fn().mockReturnValue(null),
   copyEnvToWorktree: vi.fn(),
   findWorktreeForIssue: vi.fn().mockReturnValue(null),
+  headShort: vi.fn().mockReturnValue('abc1234'),
 }));
 
 vi.mock('../../github', () => ({

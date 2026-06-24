@@ -47,7 +47,6 @@ const ALLOWLIST: readonly string[] = [
   // diagnostic — tooling / health-check scripts, non-hot-path
   'adws/healthCheckChecks.ts',            // git rev-parse/remote/status/config, gh auth/issue
   'adws/healthCheck.tsx',                 // gh repo view --json url
-  'adws/checkLivingDocsIndex.ts',         // git ls-files (doc-index gate)
 
   // residual — migrate to GitContext methods (follow-up)
   'adws/core/remoteReconcile.ts',                  // git ls-remote via execWithRetry
@@ -55,10 +54,6 @@ const ALLOWLIST: readonly string[] = [
   'adws/phases/depauditSetup.ts',                  // gh secret set via injected execWithRetry
   'adws/github/labelManager.ts',                   // gh label create, gh issue edit via injected exec
   'adws/triggers/autoMergeHandler.ts',             // git fetch, git merge
-  'adws/github/prCommentDetector.ts',              // git log (commit history lookup)
-  'adws/phases/diffEvaluationPhase.ts',            // git diff
-  'adws/phases/workflowInit.ts',                   // git rev-parse --short HEAD
-  'adws/phases/worktreeSetup.ts',                  // git ls-files
   'adws/providers/github/githubBoardManager.ts',   // gh api graphql
 ];
 

@@ -17,6 +17,7 @@ import {
   verifyAdwRegen,
   REQUIRED_ADW_FILES,
 } from '../worktreeSetup.ts';
+import { GitContext } from '../../gitContext/index.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ADW_REPO_ROOT = resolve(__dirname, '../../..');
@@ -46,10 +47,16 @@ function initGitRepo(dir: string): void {
 // ---------------------------------------------------------------------------
 
 let tempDir: string;
+let ctx: GitContext;
 
 beforeEach(() => {
   tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'adw-ws-test-'));
   initGitRepo(tempDir);
+  ctx = new GitContext({
+    owner: 'o', repo: 'r', selfHost: true, token: 't',
+    gitIdentity: { authorName: 'T', authorEmail: 't@e.co', committerName: 'T', committerEmail: 't@e.co' },
+    frameworkRepoRoot: tempDir, targetReposDir: tempDir,
+  });
 });
 
 afterEach(() => {
@@ -66,7 +73,7 @@ describe('copyClaudeAssetsToWorktree — target:true commands (E4a)', () => {
     const installSrc = path.join(ADW_REPO_ROOT, '.claude', 'commands', 'install.md');
     if (!fs.existsSync(installSrc)) return; // guard: skip if file absent in this checkout
 
-    copyClaudeAssetsToWorktree(tempDir);
+    copyClaudeAssetsToWorktree(tempDir, ctx);
 
     expect(fs.existsSync(path.join(tempDir, '.claude', 'commands', 'install.md'))).toBe(true);
     expect(gitignoreContains(tempDir, '.claude/commands/install.md')).toBe(false);
@@ -76,7 +83,7 @@ describe('copyClaudeAssetsToWorktree — target:true commands (E4a)', () => {
     const primeSrc = path.join(ADW_REPO_ROOT, '.claude', 'commands', 'prime.md');
     if (!fs.existsSync(primeSrc)) return;
 
-    copyClaudeAssetsToWorktree(tempDir);
+    copyClaudeAssetsToWorktree(tempDir, ctx);
 
     expect(fs.existsSync(path.join(tempDir, '.claude', 'commands', 'prime.md'))).toBe(true);
     expect(gitignoreContains(tempDir, '.claude/commands/prime.md')).toBe(false);
@@ -92,7 +99,7 @@ describe('copyClaudeAssetsToWorktree — target:false commands (E4b)', () => {
     const featureSrc = path.join(ADW_REPO_ROOT, '.claude', 'commands', 'feature.md');
     if (!fs.existsSync(featureSrc)) return;
 
-    copyClaudeAssetsToWorktree(tempDir);
+    copyClaudeAssetsToWorktree(tempDir, ctx);
 
     expect(fs.existsSync(path.join(tempDir, '.claude', 'commands', 'feature.md'))).toBe(true);
     expect(gitignoreContains(tempDir, '.claude/commands/feature.md')).toBe(true);
@@ -102,7 +109,7 @@ describe('copyClaudeAssetsToWorktree — target:false commands (E4b)', () => {
     const implementSrc = path.join(ADW_REPO_ROOT, '.claude', 'commands', 'implement.md');
     if (!fs.existsSync(implementSrc)) return;
 
-    copyClaudeAssetsToWorktree(tempDir);
+    copyClaudeAssetsToWorktree(tempDir, ctx);
 
     expect(fs.existsSync(path.join(tempDir, '.claude', 'commands', 'implement.md'))).toBe(true);
     expect(gitignoreContains(tempDir, '.claude/commands/implement.md')).toBe(true);
@@ -118,7 +125,7 @@ describe('copyClaudeAssetsToWorktree — target:true skills (E4c)', () => {
     const tddSrc = path.join(ADW_REPO_ROOT, '.claude', 'skills', 'tdd');
     if (!fs.existsSync(tddSrc)) return;
 
-    copyClaudeAssetsToWorktree(tempDir);
+    copyClaudeAssetsToWorktree(tempDir, ctx);
 
     expect(fs.existsSync(path.join(tempDir, '.claude', 'skills', 'tdd'))).toBe(true);
     expect(gitignoreContains(tempDir, '.claude/skills/tdd/')).toBe(false);
@@ -134,7 +141,7 @@ describe('copyClaudeAssetsToWorktree — target:false skills (E4d)', () => {
     const refactorSrc = path.join(ADW_REPO_ROOT, '.claude', 'skills', 'refactor');
     if (!fs.existsSync(refactorSrc)) return;
 
-    copyClaudeAssetsToWorktree(tempDir);
+    copyClaudeAssetsToWorktree(tempDir, ctx);
 
     expect(fs.existsSync(path.join(tempDir, '.claude', 'skills', 'refactor'))).toBe(true);
     expect(gitignoreContains(tempDir, '.claude/skills/refactor/')).toBe(true);
@@ -157,7 +164,7 @@ describe('copyClaudeAssetsToWorktree — #267 gitignore-skip-if-tracked invarian
     execSync('git add .claude/commands/feature.md', { cwd: tempDir, stdio: 'pipe' });
     execSync('git commit -m "track feature.md"', { cwd: tempDir, stdio: 'pipe' });
 
-    copyClaudeAssetsToWorktree(tempDir);
+    copyClaudeAssetsToWorktree(tempDir, ctx);
 
     // feature.md is target:false but already tracked → must NOT be gitignored
     expect(gitignoreContains(tempDir, '.claude/commands/feature.md')).toBe(false);

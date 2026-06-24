@@ -13,7 +13,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { execSync } from 'child_process';
+import { gitContextForRepo, readLocalRepoInfo } from './github/gitContextFactory';
 import {
   parseConditionalDocs,
   serializeConditionalDocs,
@@ -48,8 +48,8 @@ function listAppDocFiles(): string[] {
 }
 
 function listTrackedFiles(): string[] {
-  const output = execSync('git ls-files', { encoding: 'utf-8' });
-  return output.split('\n').filter(Boolean);
+  const ctx = gitContextForRepo(readLocalRepoInfo(), { selfHost: true });
+  return ctx.lsFiles(process.cwd());
 }
 
 // ---------------------------------------------------------------------------
