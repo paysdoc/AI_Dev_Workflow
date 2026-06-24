@@ -181,7 +181,7 @@ Execute every step in order, top to bottom.
 - Run `bun run lint:git-guard`. Confirm `adws/adwPromotionSweep.tsx` is now in the scanned set (the report's scanned count includes it) and there are **zero** violations.
 
 ### 13. Align the `@adw-697` step definitions
-- Generate/align step definitions for `features/per-issue/feature-697.feature` so the scenario test phase drives them. Map the abstract ops to the new surface: `"pr-changed-files"` → `fetchPRChangedFiles`, `"pr-create"` → `createPR` (with a label), `"stats-log"` → `logSince`. The guard scenarios (§2/§3) drive `scanFiles`/the guard run; the type-check scenario (§4) drives `tsc`. Keep assertions behavioral (recorded child-env token/identity, recorded `cwd`, guard `scannedCount`/violations, `tsc` exit) per the scenario rot-prevention rule — do not assert source structure.
+- Generate/align step definitions for `features/per-issue/feature-697.feature` so the scenario test phase drives them. Map the abstract ops to the new surface: `"pr-changed-files"` → `fetchPRChangedFiles`, `"pr-create"` → `createPR` (with a label), `"stats-log"` → `logSince`. §1d reuses the `"pr-changed-files"` op but additionally snapshots the parent `process.env` before the op and asserts it is byte-for-byte unchanged afterward (the `#run` per-command-auth isolation property — auth/identity go into the child env only, the parent process env is never mutated). The guard scenarios (§2/§3) drive `scanFiles`/the guard run; the type-check scenario (§4) drives `tsc`. Keep assertions behavioral (recorded child-env token/identity, recorded `cwd`, the parent-env-unchanged snapshot, guard `scannedCount`/violations, `tsc` exit) per the scenario rot-prevention rule — do not assert source structure.
 
 ### 14. Run all Validation Commands
 - Execute every command in the `Validation Commands` section below and confirm each exits cleanly with zero regressions.
@@ -223,7 +223,7 @@ Execute every command to validate the feature works correctly with zero regressi
 - `bunx tsc --noEmit -p adws/tsconfig.json` — type-check the `adws/` project (catches the `createPR`/loader signature changes, the new imports, and any accidental import cycle; backs §4 of the feature).
 - `bun run lint` — ESLint across the repo (code hygiene; flags the removed `execWithRetry`/`os` imports if any reference remains).
 - `bun run test:unit` — full vitest suite (extended `gitReadOps`/`gitContextOperations` tests, rewritten `promotionStatsLoader` test, unchanged promotion-module tests).
-- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-697"` — runs the per-issue scenario contract for this slice (the three §1 #run scenarios, the §2 de-allowlist scan, the §3 whole-repo guard pass, and the §4 type-check).
+- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-697"` — runs the per-issue scenario contract for this slice (the four §1 #run scenarios — §1a/§1b/§1c op token/identity/cwd plus the §1d parent-env-isolation check — the §2 de-allowlist scan, the §3 whole-repo guard pass, and the §4 type-check).
 - `bun run build` — `tsc` build to verify no build errors.
 
 ## Notes
