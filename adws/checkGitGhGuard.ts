@@ -34,15 +34,13 @@ const GIT_GH_RE = /^(git|gh)(\s|$)/;
 
 /**
  * Repo-relative paths allowed to shell out to git/gh directly.
- * Categories: bootstrap (permanent), residual (temporary).
+ *
+ * bootstrap category: EMPTY (#700). The four former bootstrap files have been
+ * absorbed into the structurally-exempt `adws/gitContext/` package (skipped by
+ * the directory walk, not by allowlist), or rewired to call package primitives
+ * with zero raw git/gh strings remaining. The ratchet is at zero.
  */
-const ALLOWLIST: readonly string[] = [
-  // bootstrap — cannot use GitContext before it exists
-  'adws/core/launchGitContext.ts',        // gh auth token, git config user.name/email
-  'adws/github/gitContextFactory.ts',     // git config, gh auth token, git remote get-url
-  'adws/core/targetRepoManager.ts',       // git clone, git fetch, gh repo view
-  'adws/github/githubAppAuth.ts',         // GitHub App token minting via gh
-];
+const ALLOWLIST: readonly string[] = [];
 
 // ---------------------------------------------------------------------------
 // Types
