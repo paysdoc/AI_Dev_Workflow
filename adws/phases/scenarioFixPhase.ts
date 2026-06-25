@@ -127,6 +127,7 @@ export async function executeScenarioFixPhase(
     AgentStateManager.initializeState(adwId, 'scenario-fix', orchestratorStatePath),
     worktreePath,
     issue.body,
+    gitCtx.commandEnv(),
   );
   gitCtx.pushBranch(branchName, worktreePath);
   log('Scenario fix: changes committed and pushed', 'success');

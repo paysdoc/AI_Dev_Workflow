@@ -82,6 +82,7 @@ export async function executeReviewPhase(
     worktreePath,
     issue.body,
     scenarioProofPath || undefined,
+    config.gitContext?.commandEnv(),
   );
 
   const costUsd = reviewAgentResult.totalCostUsd || 0;
@@ -194,9 +195,11 @@ export async function executeReviewPatchCycle(
     `Review patch cycle: ${patchBlockers.length} patch, ${refactorBlockers.length} refactor blocker(s)`,
   );
 
+  const subprocessEnv = gitCtx.commandEnv();
+
   for (const blocker of patchBlockers) {
     const result = await applyPatchBlocker(blocker, {
-      adwId, logsDir, specFile, worktreePath, issue, orchestratorStatePath,
+      adwId, logsDir, specFile, worktreePath, issue, orchestratorStatePath, subprocessEnv,
     });
     costUsd += result.costUsd;
     modelUsage = mergeModelUsageMaps(modelUsage, result.modelUsage);
@@ -204,7 +207,7 @@ export async function executeReviewPatchCycle(
 
   if (refactorBlockers.length > 0) {
     const result = await applyRefactorBlockers(refactorBlockers, {
-      adwId, logsDir, worktreePath, issue, orchestratorStatePath,
+      adwId, logsDir, worktreePath, issue, orchestratorStatePath, subprocessEnv,
     });
     costUsd += result.costUsd;
     modelUsage = mergeModelUsageMaps(modelUsage, result.modelUsage);
@@ -219,6 +222,7 @@ export async function executeReviewPatchCycle(
     AgentStateManager.initializeState(adwId, 'review-patch', orchestratorStatePath),
     worktreePath,
     issue.body,
+    subprocessEnv,
   );
   gitCtx.pushBranch(branchName, worktreePath);
   log('Review patch: changes committed and pushed', 'success');

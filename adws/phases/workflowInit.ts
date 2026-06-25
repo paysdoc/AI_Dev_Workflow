@@ -39,7 +39,6 @@ import {
   detectRecoveryState,
   getRepoInfo,
   type RepoInfo,
-  activateGitHubAppAuth,
   isGitHubAppConfigured,
 } from '../github';
 import { GITHUB_PAT } from '../core/environment';
@@ -127,10 +126,7 @@ export async function initializeWorkflow(
     ? { owner: targetRepo.owner, repo: targetRepo.repo }
     : undefined;
 
-  // Activate GitHub App auth to generate a fresh token for this process.
-  // Ensures child processes spawned by triggers don't rely on stale inherited GH_TOKEN.
   const resolvedRepoForAuth = repoInfo ?? getRepoInfo();
-  activateGitHubAppAuth(resolvedRepoForAuth.owner, resolvedRepoForAuth.repo);
   const gitCtx = gitContextForSync({ owner: resolvedRepoForAuth.owner, repo: resolvedRepoForAuth.repo, selfHost: !targetRepo });
 
   // Construct exactly one launch-boundary GitContext for this orchestrator process.
