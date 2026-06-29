@@ -24,7 +24,7 @@ import { probeCtx, healthyProbe } from './takeover-probe-ctx.ts';
 // Shared context
 // ---------------------------------------------------------------------------
 
-const FIXED_ADW_ID = 'test-adwid-636';
+export const FIXED_ADW_ID = 'test-adwid-636';
 const REPO: RepoInfo = { owner: 'test-owner', repo: 'test-repo' };
 
 interface CronCtx {
@@ -48,7 +48,7 @@ interface TakeoverCtx {
   releaseCalls: number;
 }
 
-const cronCtx: CronCtx = {
+export const cronCtx: CronCtx = {
   issueNumber: 0,
   stage: '',
   adwId: FIXED_ADW_ID,
