@@ -514,6 +514,7 @@ adws/                   # ADW workflow system
 │   │   ├── remoteReconcile.test.ts
 │   │   ├── repoIdentityCrossCheck.test.ts
 │   │   ├── resolveFreezeGuard.test.ts
+│   │   ├── resolveResumeSpawn.test.ts
 │   │   ├── resolveVerdict.test.ts
 │   │   ├── resumePolicy.test.ts
 │   │   ├── slackNotifier.test.ts
@@ -563,6 +564,7 @@ adws/                   # ADW workflow system
 │   ├── remoteReconcile.ts  # Stage derivation from remote GitHub artifacts
 │   ├── repoIdentityCrossCheck.ts  # Launch-vs-persisted repo identity cross-check; throws RepoIdentityMismatchError on owner/repo divergence
 │   ├── resolveFreezeGuard.ts  # Pure guard: rejects resolve edits that touch .feature files
+│   ├── resolveResumeSpawn.ts  # Pure function mapping adwId top-level state to correct orchestrator script + normalized (issueNumber, adwId) args; consumed by cron takeover + scanAuthQueue; defaults to SDLC for legacy adwIds
 │   ├── resolveVerdict.ts      # Pure verdict: computes pass/retry/hard-fail for scenario fix loops
 │   ├── resumePolicy.ts  # Bounded N-cap resume policy: nextResumeAction computes RESUME/ESCALATE; human_gated stage + escalate_human_gated decision on cap exhaustion
 │   ├── retryOrchestrator.ts
