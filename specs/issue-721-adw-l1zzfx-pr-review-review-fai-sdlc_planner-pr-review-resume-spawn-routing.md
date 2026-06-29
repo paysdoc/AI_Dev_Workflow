@@ -55,7 +55,7 @@ Encapsulate the routing decision in a pure, injected-dependency-free function an
 
 - **`resolveResumeSpawn(state: AgentState): ResumeSpawnDescriptor`** — a pure function in `adws/core/` returning `{ script, args }` where `script = state.orchestratorScript ?? 'adws/adwSdlc.tsx'` and `args = [String(state.issueNumber), state.adwId]`. This generalizes the `scanAuthQueue` one-liner into a single tested module. Prior art: `deriveOrchestratorScript` / `orchestratorNamesForScript` (`adws/core/orchestratorNames.ts`), `resumePolicy.nextResumeAction`.
 - **PR-review persists `orchestratorScript`** to top-level state at init (`adwPrReview.tsx`, right after `initializePRReviewWorkflow`), mirroring `workflowInit.ts:330`. Because `writeTopLevelState` is a shallow merge (`agentState.ts:298`), this survives every later `runPhase` / completion write. PR-review *overwrites* `orchestratorScript` to its own script whenever it owns the adwId.
-- **`completePRReviewWorkflow` writes `review_failed`** on the fail-path by gating the write on `outcome.workflowStage` presence rather than `outcome.writeAwaitingMerge` — `awaiting_merge` on pass, `review_failed` on fail.
+- **`completePRReviewWorkflow` writes `review_failed` and co-stamps `orchestratorScript`** on the fail-path by gating the write on `outcome.workflowStage` presence rather than `outcome.writeAwaitingMerge` — `awaiting_merge` on pass, `review_failed` on fail — and includes `orchestratorScript = adws/adwPrReview.tsx` in that same top-level write so the routing tag lands together with the terminal stage. (The terminal handoff is the path that records `orchestratorScript` whenever PR-review reaches completion under its own adwId; the init write below additionally covers a mid-run takeover and persists `branchName`.)
 - **`trigger_cron` takeover** reads the top-level state for the taken-over adwId and spawns `resolveResumeSpawn(state).script` with its normalized args (defensive SDLC fallback when the state is unexpectedly absent).
 - **`adwPrReview` accepts the `(issueNumber, adwId)` resume form** so the routed spawn actually re-runs PR-review under the same adwId, re-resolving the PR from the persisted branch (`defaultFindPRByBranch`). Fresh runs still self-generate the adwId — adwId *discovery/reuse* from issue comments, trigger delegation, and issue-less-PR skip remain in slice #4.
 
@@ -144,12 +144,15 @@ Execute every step in order, top to bottom.
 - Add a `makeState(overrides)` helper producing a minimal valid `AgentState` (`adwId`, `issueNumber`, `agentName`, `execution`, optional `orchestratorScript`).
 - Cover the AC6 cases (see Testing Strategy → Unit Tests for the full list): PR-review script, SDLC script, a third orchestrator (e.g. `adws/adwChore.tsx`), absent `orchestratorScript` → SDLC default, and args normalization (numeric `issueNumber` → string, `adwId` passthrough).
 
-### 3. Write `review_failed` on the PR-review fail-path
-- In `adws/phases/prReviewCompletion.ts`, in `completePRReviewWorkflow`, replace the early-return gate at line 80 so the terminal stage is written whenever `outcome.workflowStage` is non-null (both `awaiting_merge` and `review_failed`):
+### 3. Write `review_failed` (and co-stamp `orchestratorScript`) on the PR-review fail-path
+- In `adws/phases/prReviewCompletion.ts`, in `completePRReviewWorkflow`, replace the early-return gate at line 80 so the terminal stage is written whenever `outcome.workflowStage` is non-null (both `awaiting_merge` and `review_failed`), and include `orchestratorScript = adws/adwPrReview.tsx` in the same top-level write so the routing tag is co-written with the terminal stage:
   ```ts
   if (!outcome.workflowStage) return;
 
-  AgentStateManager.writeTopLevelState(config.base.adwId, { workflowStage: outcome.workflowStage });
+  AgentStateManager.writeTopLevelState(config.base.adwId, {
+    workflowStage: outcome.workflowStage,
+    orchestratorScript: 'adws/adwPrReview.tsx',
+  });
   AgentStateManager.appendLog(orchestratorStatePath, `PR Review handed off to ${outcome.workflowStage}`);
   if (outcome.writeAwaitingMerge) {
     log('PR Review handed off — awaiting merge via cron', 'success');
@@ -157,7 +160,8 @@ Execute every step in order, top to bottom.
     log('PR Review blocked — review_failed, awaiting ## Retry', 'warn');
   }
   ```
-- Do not alter `decidePostReviewOutcome` (it already returns `workflowStage: 'review_failed'` on fail). Do not change the `awaiting_merge` pass behavior (regression guard).
+- Co-stamping `orchestratorScript` here (not only at init, step 4) is load-bearing: the BDD fail-path driver (`the PR-review outcome handoff is executed ... after a failing review`) exercises `completePRReviewWorkflow` directly — it does **not** run `adwPrReview`'s init — so the `review_failed` state must carry `orchestratorScript = adws/adwPrReview.tsx` from *this* write for the resume to route back to PR-review. `writeTopLevelState` shallow-merges, so this coexists with the init write (step 4) and the earlier `${phase}_running/_completed` writes.
+- Do not alter `decidePostReviewOutcome` (it already returns `workflowStage: 'review_failed'` on fail). Do not change the `awaiting_merge` pass behavior (regression guard) — the added `orchestratorScript` field does not touch `workflowStage`/error fields, so feature-719 §2/§3 stay green.
 
 ### 4. Persist `orchestratorScript` to top-level state at PR-review init
 - In `adws/adwPrReview.tsx`, ensure `AgentStateManager` is imported from `./core`.
@@ -170,7 +174,7 @@ Execute every step in order, top to bottom.
     ...(config.base.branchName ? { branchName: config.base.branchName } : {}),
   });
   ```
-- This satisfies "persists `orchestratorScript`" **and** "overwrites it to its own script when it owns an adwId" (the merge always sets it, overwriting any prior SDLC value). Persisting `branchName` enables the resume-form PR re-resolution in step 6.
+- This satisfies "persists `orchestratorScript`" **and** "overwrites it to its own script when it owns an adwId" (the merge always sets it, overwriting any prior SDLC value), and — by landing the tag at init — covers a takeover that fires *mid-run* (before completion). The terminal handoff (step 3) writes the same `orchestratorScript` again when the run reaches `review_failed`/`awaiting_merge`; the two writes are idempotent (same value) and together guarantee the tag is present both mid-run and at the completion state the BDD fail-path driver observes. Persisting `branchName` enables the resume-form PR re-resolution in step 6.
 
 ### 5. Route the takeover spawn through `resolveResumeSpawn`
 - In `adws/triggers/trigger_cron.ts`, add `import { resolveResumeSpawn } from '../core/resolveResumeSpawn';`.
@@ -223,7 +227,7 @@ Re-run the existing `adws/triggers/__tests__/retryHandler.test.ts` (the `review_
 ### Edge Cases
 - **SDLC adwId takeover is unchanged** — a state with `orchestratorScript: 'adws/adwSdlc.tsx'` (written by `workflowInit`) still spawns `adws/adwSdlc.tsx` with `(issueNumber, adwId)` (identical to the pre-change line 323 behavior).
 - **Pre-`orchestratorScript` adwId** — an old SDLC state with no `orchestratorScript` field defaults to SDLC (no behavior change for in-flight legacy adwIds).
-- **`review_failed` write is not skipped** — `completePRReviewWorkflow` writes `review_failed` even though `writeAwaitingMerge` is `false` (the bug being fixed); confirm via the resulting top-level `state.json`.
+- **`review_failed` write is not skipped, and carries `orchestratorScript`** — `completePRReviewWorkflow` writes `review_failed` even though `writeAwaitingMerge` is `false` (the bug being fixed) **and** co-stamps `orchestratorScript = adws/adwPrReview.tsx` in the same write; confirm both fields via the resulting top-level `state.json` (this is what the BDD fail-path scenario asserts, since its driver runs only the completion handoff).
 - **`orchestratorScript` survives later writes** — the init persistence (step 4) is preserved through `runPhase`'s `${phase}_running/_completed` top-level writes and the terminal `{ workflowStage }` write, because `writeTopLevelState` shallow-merges.
 - **Resume vs fresh CLI disambiguation** — `adwPrReview.tsx <pr-number>` (one positional) stays fresh; `adwPrReview.tsx <issueNumber> <adwId>` (two positionals, non-numeric adwId) is resume. Target-repo `--flags` do not affect the positional count.
 - **Defensive null state in takeover** — if `readTopLevelState(takeoverAdwId)` returns null (shouldn't, since `evaluateCandidate` just read it), the SDLC fallback preserves the prior behavior rather than crashing.
@@ -231,7 +235,7 @@ Re-run the existing `adws/triggers/__tests__/retryHandler.test.ts` (the `review_
 
 ## Acceptance Criteria
 - `decidePostReviewOutcome`'s fail-path is honored by PR-review: `completePRReviewWorkflow` writes `review_failed` to top-level state on review exhaustion (no early-return).
-- PR-review persists `orchestratorScript = adws/adwPrReview.tsx` to its top-level state (`agents/<adwId>/state.json`), overwriting any prior value, and it survives subsequent phase/terminal writes.
+- PR-review persists `orchestratorScript = adws/adwPrReview.tsx` to its top-level state (`agents/<adwId>/state.json`), overwriting any prior value: written at init **and** co-stamped on the terminal handoff (`completePRReviewWorkflow`), so the `review_failed`/`awaiting_merge` completion state carries it even when only the completion handoff runs; it survives subsequent phase/terminal writes (shallow merge).
 - `resolveResumeSpawn(state)` exists as a pure function returning `{ script, args }`, mapping each `orchestratorScript` to its script and defaulting to `adws/adwSdlc.tsx` when absent, with normalized `[String(issueNumber), adwId]` args.
 - `trigger_cron`'s `take_over_adwId` branch spawns `resolveResumeSpawn(state).script` with its args (no hardcoded `adws/adwSdlc.tsx`), covering both `abandoned` and `phase_timeout` recoveries.
 - A `## Retry` on a `review_failed` PR-review issue resumes **PR-review** under the **same adwId** (routing resolves to `adws/adwPrReview.tsx`; `adwPrReview` consumes the `(issueNumber, adwId)` form and re-resolves its PR), never SDLC.
