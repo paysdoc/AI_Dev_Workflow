@@ -12,6 +12,7 @@ import { postPRStageComment } from './phaseCommentHelpers';
 import type { PRReviewWorkflowConfig } from './prReviewPhase';
 import { BoardStatus, Platform } from '../providers/types';
 import { notifyBlockedTransition, type NotifierDeps } from '../github/hitlBoardNotifier';
+import { decidePostReviewOutcome, type PostReviewOutcome } from './decidePostReviewOutcome';
 
 async function buildPRReviewCostSection(config: PRReviewWorkflowConfig, modelUsage: ModelUsageMap): Promise<void> {
   const { ctx } = config;
@@ -44,8 +45,14 @@ async function buildPRReviewCostSection(config: PRReviewWorkflowConfig, modelUsa
  * Completes the PR review workflow: builds cost section, writes final state,
  * posts completion comment, and logs banner.
  * Terminal handler only — commit+push is handled by executePRReviewCommitPushPhase.
+ * When `outcome.writeAwaitingMerge` is true, also writes the top-level
+ * `awaiting_merge` handoff so cron's existing merge dispatch picks it up.
  */
-export async function completePRReviewWorkflow(config: PRReviewWorkflowConfig, modelUsage?: ModelUsageMap): Promise<void> {
+export async function completePRReviewWorkflow(
+  config: PRReviewWorkflowConfig,
+  modelUsage?: ModelUsageMap,
+  outcome: PostReviewOutcome = decidePostReviewOutcome(false),
+): Promise<void> {
   const { prNumber, prDetails, unaddressedComments, ctx } = config;
   const { orchestratorStatePath, repoContext } = config.base;
 
@@ -69,6 +76,12 @@ export async function completePRReviewWorkflow(config: PRReviewWorkflowConfig, m
   log('ADW PR Review workflow completed!', 'success');
   log(`PR: ${prDetails.url}`, 'info');
   log(`Comments addressed: ${unaddressedComments.length}`, 'info');
+
+  if (!outcome.writeAwaitingMerge || !outcome.workflowStage) return;
+
+  AgentStateManager.writeTopLevelState(config.base.adwId, { workflowStage: outcome.workflowStage });
+  AgentStateManager.appendLog(orchestratorStatePath, `PR Review handed off to ${outcome.workflowStage}`);
+  log('PR Review handed off — awaiting merge via cron', 'success');
 }
 
 /**

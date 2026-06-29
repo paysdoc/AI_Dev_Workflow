@@ -43,6 +43,7 @@ import {
 import type { WorkflowConfig } from './phases';
 import { AuthRequiredError } from './types/agentTypes';
 import { handleAuthRequiredPause } from './phases/authPause';
+import { decidePostReviewOutcome } from './phases/decidePostReviewOutcome';
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
@@ -81,11 +82,13 @@ async function main(): Promise<void> {
     // Review → patch+retest retry loop (orchestrator-level, bounded by MAX_REVIEW_RETRY_ATTEMPTS)
     let proofPath = scenarioProofPath;
     let reviewBlockers: ReviewIssue[] = [];
+    let reviewPassed = false;
     for (let attempt = 0; attempt < MAX_REVIEW_RETRY_ATTEMPTS; attempt++) {
       const reviewFn = (cfg: WorkflowConfig) => executeReviewPhase(cfg, proofPath);
       const reviewResult = await runPhase(config.base, tracker, reviewFn);
+      reviewPassed = reviewResult.reviewPassed;
       reviewBlockers = reviewResult.reviewIssues.filter(i => i.issueSeverity === 'blocker');
-      if (reviewResult.reviewPassed) break;
+      if (reviewPassed) break;
       if (attempt < MAX_REVIEW_RETRY_ATTEMPTS - 1) {
         const patchWrapper = (cfg: WorkflowConfig) =>
           executeReviewPatchCycle(cfg, reviewBlockers);
@@ -98,7 +101,8 @@ async function main(): Promise<void> {
 
     await runPhase(config.base, tracker, _ => executePRReviewCommitPushPhase(config), 'pr_review_commit_push');
 
-    await completePRReviewWorkflow(config, tracker.totalModelUsage);
+    const outcome = decidePostReviewOutcome(reviewPassed);
+    await completePRReviewWorkflow(config, tracker.totalModelUsage, outcome);
   } catch (error) {
     if (error instanceof AuthRequiredError) {
       handleAuthRequiredPause(config.base, error, tracker.totalCostUsd, tracker.totalModelUsage);
