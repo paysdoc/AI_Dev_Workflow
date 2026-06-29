@@ -1890,10 +1890,13 @@
     - adws/core/__tests__/resumePolicy.test.ts
     - adws/triggers/cronStageResolver.ts
     - adws/triggers/cronIssueFilter.ts
+    - adws/triggers/retryHandler.ts
+    - adws/triggers/__tests__/retryHandler.test.ts
     - adws/triggers/takeoverHandler.ts
     - adws/types/workflowTypes.ts
     - adws/github/workflowCommentsIssue.ts
     - adws/phases/workflowCompletion.ts
+    - adws/phases/sdlcReviewHandoff.ts
   - Conditions:
     - When working with `classifyStage`, `classifyStageString`, or `StageClass` in `adws/core/stageClassifier.ts`
     - When adding a new `WorkflowStage` literal and need to assign it a recovery class
@@ -1908,6 +1911,11 @@
     - When the bounded resume cap, `human_gated` stage, or `escalate_human_gated` decision is relevant
     - When understanding how `phase_timeout` recovery is cap-gated (#639) and then probe-gated (#638: reuse-in-place if healthy, else reset-from-remote)
     - When understanding the unified `recoverViaResumeInPlaceOrReset` seam for `abandoned` and `phase_timeout` recoverable confirmed-dead stages
+    - When working with `handleRetryDirective` in `adws/triggers/retryHandler.ts` or adding a new `## Retry` recovery path
+    - When implementing a non-retriable, human-recoverable blocking stage (pattern: classify as `human_gated`, add cron ineligibility guard, add `handleRetryDirective` branch)
+    - When working with `review_failed` stage classification, cron exclusion, or `## Retry` re-arm to `phase_timeout`
+    - When implementing or troubleshooting `executeSdlcReviewFailedHandoff` in `adws/phases/sdlcReviewHandoff.ts`
+    - When the `review_failed` money-fire pin (cron guard placement before grace-period and processedSpawns checks) is relevant
 
 - app_docs/feature-oqb76h-gitcontext-base-path-authority.md
   - Owns:

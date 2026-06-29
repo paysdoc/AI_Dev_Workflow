@@ -35,6 +35,7 @@ const EXPECTED: Record<WorkflowStage, StageClass> = {
   // human_gated
   merge_blocked:      'human_gated',
   human_gated:        'human_gated',
+  review_failed:      'human_gated',
 
   // resumable
   classified:              'resumable',
@@ -55,7 +56,6 @@ const EXPECTED: Record<WorkflowStage, StageClass> = {
   unverified:              'resumable',
   stack_incoherent:        'resumable',
   review_passed:           'resumable',
-  review_failed:           'resumable',
   review_patching:         'resumable',
   document_completed:      'resumable',
   document_failed:         'resumable',
@@ -123,6 +123,10 @@ describe('classifyStageString — literal delegates to classifyStage', () => {
 
   it("routes 'merge_blocked' (human_gated literal) to 'human_gated'", () => {
     expect(classifyStageString('merge_blocked')).toBe('human_gated');
+  });
+
+  it("routes 'review_failed' (human_gated literal) to 'human_gated'", () => {
+    expect(classifyStageString('review_failed')).toBe('human_gated');
   });
 
   it("routes 'awaiting_merge' to 'awaiting_merge'", () => {

@@ -51,6 +51,8 @@ import type { WorkflowConfig } from './phases';
 import { runWithOrchestratorLifecycle } from './phases/orchestratorLock';
 import { AuthRequiredError } from './types/agentTypes';
 import { handleAuthRequiredPause } from './phases/authPause';
+import { decidePostReviewOutcome } from './phases/decidePostReviewOutcome';
+import { executeSdlcReviewFailedHandoff } from './phases/sdlcReviewHandoff';
 
 /**
  * Main orchestrator workflow.
@@ -105,6 +107,30 @@ async function main(): Promise<void> {
         }
       }
 
+      const outcome = decidePostReviewOutcome(reviewPassed);
+
+      if (outcome.skipDocAndPR) {
+        executeSdlcReviewFailedHandoff({
+          adwId: config.adwId,
+          issueNumber: config.issueNumber,
+          repoContext: config.repoContext,
+          ctx: config.ctx,
+        });
+        AgentStateManager.writeState(config.orchestratorStatePath, {
+          metadata: {
+            totalCostUsd: tracker.totalCostUsd,
+            unitTestsPassed: unitTestResult.unitTestsPassed,
+            totalTestRetries: unitTestResult.totalRetries,
+            scenarioRetries,
+            reviewPassed: false,
+            totalReviewRetries: reviewRetries,
+          },
+        });
+        persistTokenCounts(config.orchestratorStatePath, tracker.totalCostUsd, tracker.totalModelUsage);
+        return;
+      }
+
+      // Review passed — proceed with document, PR, and awaiting_merge handoff.
       // Document phase: no screenshots dir needed (review no longer produces images)
       await runPhase(config, tracker, (cfg: WorkflowConfig) => executeDocumentPhase(cfg));
 

@@ -243,6 +243,9 @@ function formatReviewPassedComment(ctx: WorkflowContext): string {
 }
 
 function formatReviewFailedComment(ctx: WorkflowContext): string {
+  const branchLine = ctx.branchName ? `\n**Branch:** \`${ctx.branchName}\`` : '';
+  const retryLine = '\n\nPush a fix to the branch above, then post `## Retry` on this issue to re-run the review.';
+
   if (ctx.scenarioProof) {
     const blockers = (ctx.reviewIssues ?? []).filter(i => i.issueSeverity === 'blocker');
     const input: ProofCommentInput = {
@@ -254,7 +257,7 @@ function formatReviewFailedComment(ctx: WorkflowContext): string {
       allSummaries: ctx.allSummaries,
     };
     const body = formatReviewProofComment(input);
-    return `${body}\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+    return `${body}${branchLine}${retryLine}\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
   }
   // Fallback: simple format for repos without scenario proof
   const blockers = (ctx.reviewIssues ?? []).filter(i => i.issueSeverity === 'blocker');
@@ -264,7 +267,7 @@ function formatReviewFailedComment(ctx: WorkflowContext): string {
   const screenshotSection = ctx.screenshotUrls && ctx.screenshotUrls.length > 0
     ? formatScreenshotSection(ctx.screenshotUrls)
     : '';
-  return `## :x: Review Failed\n\nCode review failed with unresolved blocker issues.${blockerList}${screenshotSection}\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
+  return `## :x: Review Failed\n\nCode review failed with unresolved blocker issues.${blockerList}${screenshotSection}${branchLine}${retryLine}\n\n**ADW ID:** \`${ctx.adwId}\`${formatRunningTokenFooter(ctx.runningTokenTotal)}${ADW_SIGNATURE}`;
 }
 
 function formatReviewPatchingComment(ctx: WorkflowContext): string {

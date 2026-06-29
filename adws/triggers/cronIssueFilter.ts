@@ -139,6 +139,12 @@ export function evaluateIssue(
     return { eligible: false, reason: 'human_gated' };
   }
 
+  // review_failed bypasses grace period — review exhausted with unresolved blockers.
+  // Never auto-spawned; `## Retry` re-arms it to phase_timeout so the review re-runs.
+  if (resolution.stage === 'review_failed') {
+    return { eligible: false, reason: 'review_failed' };
+  }
+
   // Prefer state file phase timestamp; fall back to issue.updatedAt for fresh issues
   const activityMs = resolution.lastActivityMs ?? new Date(issue.updatedAt).getTime();
   if (now - activityMs < gracePeriodMs) {

@@ -112,4 +112,25 @@ describe('handleRetryDirective', () => {
     expect(result).toBe(false);
     expect(deps.writeTopLevelState).not.toHaveBeenCalled();
   });
+
+  it('re-arms review_failed → phase_timeout with resumeAttempts:0 and returns true', () => {
+    const deps = makeDeps(makeState({ workflowStage: 'review_failed', resumeAttempts: 2 }));
+
+    const result = handleRetryDirective(42, [ADW_COMMENT], deps);
+
+    expect(result).toBe(true);
+    expect(deps.writeTopLevelState).toHaveBeenCalledWith('test-adw-id', {
+      workflowStage: 'phase_timeout',
+      resumeAttempts: 0,
+    });
+  });
+
+  it('does not write and returns false when workflowStage is review_passed', () => {
+    const deps = makeDeps(makeState({ workflowStage: 'review_passed' }));
+
+    const result = handleRetryDirective(42, [ADW_COMMENT], deps);
+
+    expect(result).toBe(false);
+    expect(deps.writeTopLevelState).not.toHaveBeenCalled();
+  });
 });

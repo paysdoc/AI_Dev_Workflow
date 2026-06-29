@@ -94,6 +94,11 @@ After({ tags: '@adw-719' }, async function (this: RegressionWorld) {
 // §1 — Pure gate decision steps
 // ---------------------------------------------------------------------------
 
+/** Exposes the last outcome for sibling step files (e.g. feature-720). */
+export function getLastPostReviewOutcome(): PostReviewOutcome | null {
+  return lastOutcome;
+}
+
 When('the post-review outcome is decided for a passing review', function () {
   lastOutcome = decidePostReviewOutcome(true);
 });

@@ -64,6 +64,7 @@ export function classifyStage(stage: WorkflowStage): StageClass {
 
     case 'merge_blocked':
     case 'human_gated':
+    case 'review_failed':
       return 'human_gated';
 
     case 'classified':
@@ -84,7 +85,6 @@ export function classifyStage(stage: WorkflowStage): StageClass {
     case 'unverified':
     case 'stack_incoherent':
     case 'review_passed':
-    case 'review_failed':
     case 'review_patching':
     case 'document_completed':
     case 'document_failed':
