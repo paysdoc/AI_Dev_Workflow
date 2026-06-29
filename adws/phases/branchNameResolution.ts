@@ -14,6 +14,8 @@
 import { AgentStateManager, log } from '../core';
 import type { IssueClassSlashCommand, GitHubIssue, RecoveryState } from '../core';
 import { runGenerateBranchNameAgent } from '../agents';
+import { AuthRequiredError } from '../types/agentTypes';
+import { deterministicBranchName } from '../vcs/branchIdentity';
 import { findExistingBranchForIssue } from './branchIdentityFallback';
 import type { BranchIdentityFallbackDeps } from './branchIdentityFallback';
 
@@ -69,7 +71,24 @@ async function resolveInternal(
     return found;
   }
 
-  const { branchName: generated } = await agentFn(issueType, issue, logsDir);
+  // The LLM (or its slug validator) can fail on a malformed/over-flagged slug.
+  // That must never strand the issue by throwing out of initializeWorkflow, so
+  // fall back to the deterministic slug-free identity (`{prefix}-issue-{N}`),
+  // which the rest of the pipeline parses identically. Auth failures are NOT a
+  // slug problem — re-throw so the auth-pause path still triggers.
+  let generated: string;
+  try {
+    ({ branchName: generated } = await agentFn(issueType, issue, logsDir));
+  } catch (err) {
+    if (err instanceof AuthRequiredError) throw err;
+    generated = deterministicBranchName(issueType, issue.number);
+    const reason = err instanceof Error ? err.message : String(err);
+    log(
+      `Branch-name generation failed (${reason}); falling back to deterministic ` +
+        `slug-free branch name: ${generated}`,
+      'warn',
+    );
+  }
 
   // Defense-in-depth: re-read state after the LLM call to detect concurrent writes.
   const persistedNow = readPersistedBranchName(adwId);

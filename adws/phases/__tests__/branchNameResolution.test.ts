@@ -21,6 +21,7 @@ import {
   _resolveWorkflowBranchNameForTest,
 } from '../branchNameResolution';
 import { runGenerateBranchNameAgent } from '../../agents';
+import { AuthRequiredError } from '../../types/agentTypes';
 
 const mockAgent = vi.mocked(runGenerateBranchNameAgent);
 
@@ -148,6 +149,40 @@ describe('_resolveWorkflowBranchNameForTest — deterministic identity fallback 
     expect(result).toBe(branchName);
     expect(mockAgent).toHaveBeenCalledTimes(1);
     expect(finderFn).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('_resolveWorkflowBranchNameForTest — strand-proof fallback on agent failure', () => {
+  const adwId = `${BASE_ADW_ID}-agentfail`;
+
+  afterEach(() => {
+    cleanupAdwId(adwId);
+    mockAgent.mockReset();
+  });
+
+  it('falls back to the deterministic slug-free name when the agent throws (e.g. slug validation)', async () => {
+    mockAgent.mockRejectedValueOnce(
+      new Error('Slug already contains a forbidden prefix "review": "review-failed-blocking-stage"'),
+    );
+    const finderFn = vi.fn().mockReturnValue(null);
+
+    const result = await _resolveWorkflowBranchNameForTest(makeArgs(adwId), mockAgent, finderFn);
+
+    // deterministicBranchName('/feature', 1) === 'feature-issue-1'
+    expect(result).toBe('feature-issue-1');
+    expect(AgentStateManager.readTopLevelState(adwId)?.branchName).toBe('feature-issue-1');
+  });
+
+  it('re-throws AuthRequiredError instead of masking it as a slug fallback', async () => {
+    mockAgent.mockRejectedValueOnce(new AuthRequiredError('Branch Name'));
+    const finderFn = vi.fn().mockReturnValue(null);
+
+    await expect(
+      _resolveWorkflowBranchNameForTest(makeArgs(adwId), mockAgent, finderFn),
+    ).rejects.toBeInstanceOf(AuthRequiredError);
+
+    // No branch name should be persisted on an auth failure.
+    expect(AgentStateManager.readTopLevelState(adwId)?.branchName).toBeUndefined();
   });
 });
 
