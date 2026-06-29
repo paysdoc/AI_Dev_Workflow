@@ -482,6 +482,10 @@ export class GitContext {
     return gitReadOps.log((cmd, c) => this.#run(cmd, { cwd: c }), branchName, cwd ?? this.#basePath);
   }
 
+  show(ref: string, filePath: string, cwd?: string): string {
+    return gitReadOps.show((cmd, c) => this.#run(cmd, { cwd: c }), ref, filePath, cwd ?? this.#basePath);
+  }
+
   logSince(opts: LogSinceOptions, cwd?: string): string {
     return gitReadOps.logSince((cmd, c) => this.#run(cmd, { cwd: c }), opts, cwd ?? this.#basePath);
   }

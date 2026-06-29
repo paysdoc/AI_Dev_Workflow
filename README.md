@@ -24,7 +24,7 @@ ADW is an agentic SDLC framework: it turns issues on GitHub, GitLab, or Jira int
 - **LLM-based dependency extraction** — `dependencyExtractionAgent` reads issues to surface cross-issue dependencies before spawning.
 - **Documentation generation** — `documentAgent` writes feature docs to `app_docs/`; the SDLC pipeline includes review screenshots.
 - **Scenario promotion sweep** — `adwPromotionSweep.tsx` scores per-issue scenarios against the regression vocabulary registry; high-scoring candidates receive a `@promotion-suggested-<date>` tag with daily-cadence suppression, date refresh, and score-drop withdrawal; a PR comment lists all candidates and applies the `hitl` label; human-approved scenarios (`@promotion`) are automatically moved to the regression suite via a dedicated PR.
-- **Framework self-upgrade with init-time hash gate** — `upgradeGate.ts` runs inside `initializeWorkflow()` on every workflow start: it compares the framework's current content hash against the target repo's stored `.adw-version`, and on mismatch atomically elects a winner/loser via `upgradeClaim`. The winner creates a `#UPG` tracking issue and spawns `adwUpgrade.tsx` to regenerate `.adw/`; losers register a `## Blocked by` dependency on the upgrade issue and move to Todo. Both park immediately, re-queuing after the upgrade PR merges. On hash match, the gate is transparent and workflow proceeds normally.
+- **Framework self-upgrade with pre-worktree hash gate** — `upgradeGate.ts` runs inside `initializeWorkflow()` **before** worktree setup on every workflow start: it reads the target repo's `.adw-version` from `origin/<default>:.adw-version` (the authoritative remote, immune to stale reused worktrees) and compares it against the framework's current content hash. On mismatch, atomically elects a winner/loser via `upgradeClaim`. The winner creates a `#UPG` tracking issue and spawns `adwUpgrade.tsx` to regenerate `.adw/`; losers park without ever creating a feature worktree, registering a `## Blocked by` dependency on the upgrade issue and moving to Todo. Both re-queue after the upgrade PR merges. On hash match, the gate is transparent and workflow proceeds to normal worktree setup.
 - **Novelty progress gate in build phase** — `progressGate.ts` evaluates each build continuation checkpoint against the set of previously seen git tree hashes; a checkpoint that returns to a prior state triggers `abort: no_progress` and a hard backstop (`MAX_PROGRESS_CHECKPOINTS`) stops runaway loops that make commits but cycle between states.
 - **Observability-surfaces drafting** — `adw_init` classifies a target repo's stack (browser-test-equipped, CLI-only, or fallback) and LLM-drafts the `## Observability Surfaces (Examples)` block in `features/regression/vocabulary.md`, seeding the promotion scorer with repo-specific surface types rather than leaving a blank placeholder.
 - **Supply-chain audit integration** — `adw_init` runs `depaudit setup` in target repos and propagates `SOCKET_API_TOKEN` / `SLACK_WEBHOOK_URL` to GitHub Actions secrets.
@@ -530,7 +530,7 @@ adws/                   # ADW workflow system
 │   │   ├── workflowCommentParsing.test.ts
 │   │   └── workflowMapping.test.ts
 │   ├── adwId.ts        # ADW ID generation
-│   ├── adwVersion.ts   # Read/write .adw-version file (stores framework hash at target repo root)
+│   ├── adwVersion.ts   # Read/write .adw-version file; readRemoteAdwVersion reads from origin/<defaultBranch>:.adw-version (immune to stale local worktrees)
 │   ├── adwYmlConfig.ts # Read `.github/adw.yml` from a target repo worktree (upgrade auto-merge policy + unit-test gate)
 │   ├── agentState.ts
 │   ├── authGate.ts     # Host-wide auth gate: detects auth failures, writes paused_auth state, triggers Slack alerts
@@ -967,6 +967,7 @@ features/               # BDD feature files (Gherkin .feature)
 ├── support/            # Top-level Cucumber support (tsx registration)
 └── webhook_ensure_cron_on_every_event.feature  # Integration scenario: cron fires on every webhook event (issue #501)
 specs/                  # Generated implementation specs
+├── issue-*.md          # Per-issue plan specs committed by the plan agent
 ├── patch/              # Generated patch specs
 └── prd/                # Product requirement documents
 .env.sample             # Environment variable template

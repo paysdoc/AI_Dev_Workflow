@@ -67,12 +67,16 @@
     - When the cron logs `POLL: 0 open` after a pause-queue resume or `Remote owner "X" !== declared owner "Y"` errors appear
 
 - app_docs/feature-n9880l-adwversion-read-write-module.md
+  - Owns:
+    - adws/core/adwVersion.ts
   - Conditions:
-    - When implementing or calling `readAdwVersion` / `writeAdwVersion` from `adws/core`
+    - When implementing or calling `readAdwVersion`, `writeAdwVersion`, or `readRemoteAdwVersion` from `adws/core/adwVersion.ts`
     - When working on the versioned auto-(re)init system (`adw-init-hash-and-label-classification.md`)
     - When the `.adw-version` file at a target repo root needs to be read, written, or validated
     - When implementing the `initializeWorkflow()` hash comparison or `adwUpgrade.tsx` write-back
     - When troubleshooting "never initialized" vs "out of date" collapsing logic in orchestrators
+    - When choosing between `readAdwVersion` (local worktree) and `readRemoteAdwVersion` (authoritative remote) for version reads
+    - When `ADW_VERSION_FILENAME` constant is referenced or the `.adw-version` placement outside `.adw/` needs context
 
 - app_docs/feature-mqwyb7-llm-draft-observability-examples.md
   - Conditions:
@@ -1457,15 +1461,21 @@
     - When the `issues.labeled` non-subscription guard test in `triggerWebhook.test.ts` is relevant
 
 - app_docs/feature-tlk8qf-hash-check-upgrade-gate.md
+  - Owns:
+    - adws/phases/upgradeGate.ts
+    - adws/phases/workflowInit.ts
   - Conditions:
     - When working with `runUpgradeGate`, `buildDefaultUpgradeGateDeps`, or `UpgradeGateDeps` in `adws/phases/upgradeGate.ts`
     - When implementing or troubleshooting the upgrade gate inserted into `initializeWorkflow()` in `adws/phases/workflowInit.ts`
     - When a target repo's `.adw/` directory is stale or `.adw-version` is missing and issues are being parked unexpectedly
     - When working with `shouldTriggerUpgrade` or `addDependencyToBody` pure helpers
     - When investigating winner/loser upgrade election behavior (`claimUpgradeOrFindExisting` → `#UPG` creation or attachment)
-    - When troubleshooting the self-hosting guard (`if (targetRepo)`) or the `process.exit(0)` clean park-exit path
+    - When troubleshooting the self-hosting guard (`if (targetRepo && targetRepoWorkspacePath)`) or the `process.exit(0)` clean park-exit path
     - When working with `createIssue`, `updateIssueBody`, or `findOpenUpgradeIssue` GitHub primitives in `adws/github/issueApi.ts`
     - When `ADW_UPGRADE_LABEL` constant is referenced or the `adw:upgrade` label needs to be understood
+    - When the gate ordering (before worktree setup) or `UpgradeGateParams.defaultBranch` / `worktreePath = targetRepoWorkspacePath` semantics are relevant
+    - When a stale reused worktree causes a spurious upgrade (fix: gate reads `origin/<default>:.adw-version`, not the local worktree file)
+    - When `gateRepoId` must be resolved from `options?.repoId` before `createRepoContext` is available
 
 - app_docs/feature-y35zbi-cron-recovery-label-eligibility-scan.md
   - Conditions:

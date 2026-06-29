@@ -10,7 +10,7 @@
  */
 
 import { computeFrameworkHash } from '../core/hashComputer';
-import { readAdwVersion } from '../core/adwVersion';
+import { readRemoteAdwVersion } from '../core/adwVersion';
 import { claimUpgradeOrFindExisting, buildDefaultUpgradeClaimDeps } from '../core/upgradeClaim';
 import {
   createIssue,
@@ -31,7 +31,12 @@ import type { UpgradeClaimResult } from '../core/upgradeClaim';
 export interface UpgradeGateParams {
   issueNumber: number;
   issueBody: string;
+  /** Main target repo clone root (not a feature worktree). Used for the remote version
+   *  read and as the base path for the claim push. */
   worktreePath: string;
+  /** Remote default branch name (e.g. "main", "dev"). Used to read
+   *  `origin/<defaultBranch>:.adw-version` as the authoritative stored version. */
+  defaultBranch: string;
   frameworkRepoRoot: string;
   repoInfo: RepoInfo;
   targetRepoArgs: string[];
@@ -39,7 +44,9 @@ export interface UpgradeGateParams {
 
 export interface UpgradeGateDeps {
   computeFrameworkHash: (frameworkRepoRoot: string) => string;
-  readAdwVersion: (worktreePath: string) => string | null;
+  /** Reads the stored ADW version from the remote default branch, not from a local file.
+   *  This is the authoritative read: stale local worktrees cannot affect the result. */
+  readAdwVersion: (defaultBranch: string, workspacePath: string) => string | null;
   claimUpgrade: (hash: string, repoInfo: RepoInfo) => Promise<UpgradeClaimResult>;
   createIssue: (title: string, body: string, repoInfo: RepoInfo) => number;
   applyLabel: (issueNumber: number, label: string, repoInfo: RepoInfo) => void;
@@ -118,7 +125,7 @@ export async function runUpgradeGate(
   deps: UpgradeGateDeps,
 ): Promise<UpgradeGateOutcome> {
   const currentHash = deps.computeFrameworkHash(params.frameworkRepoRoot);
-  const storedVersion = deps.readAdwVersion(params.worktreePath);
+  const storedVersion = deps.readAdwVersion(params.defaultBranch, params.worktreePath);
 
   if (!shouldTriggerUpgrade(currentHash, storedVersion)) {
     deps.log('Upgrade gate: hash match, proceeding', 'info');
@@ -164,10 +171,11 @@ export async function runUpgradeGate(
 export function buildDefaultUpgradeGateDeps(
   repoId: RepoIdentifier,
   worktreePath: string,
+  gitShow: (ref: string, filePath: string, cwd: string) => string,
 ): UpgradeGateDeps {
   return {
     computeFrameworkHash,
-    readAdwVersion,
+    readAdwVersion: (defaultBranch, workspacePath) => readRemoteAdwVersion(gitShow, defaultBranch, workspacePath),
     // The atomic claim must run against the TARGET repo's branch namespace, not the
     // framework checkout. Pin baseRepoPath to the target worktree (whose `origin` is the
     // target remote) — otherwise it defaults to process.cwd() (the framework repo) and

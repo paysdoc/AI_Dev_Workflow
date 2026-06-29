@@ -1,8 +1,8 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
-import { readAdwVersion, writeAdwVersion, ADW_VERSION_FILENAME } from '../adwVersion';
+import { readAdwVersion, writeAdwVersion, readRemoteAdwVersion, ADW_VERSION_FILENAME } from '../adwVersion';
 
 const SAMPLE_SHA = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
 const OTHER_SHA = 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad';
@@ -82,6 +82,29 @@ describe('adwVersion', () => {
       const raw = readFileSync(join(tmpDir, ADW_VERSION_FILENAME), 'utf-8');
       expect(raw).toBe(`${SAMPLE_SHA}\n`);
       expect(readAdwVersion(tmpDir)).toBe(SAMPLE_SHA);
+    });
+  });
+
+  describe('readRemoteAdwVersion', () => {
+    it('returns the trimmed hash when show returns a hash with trailing newline', () => {
+      const show = vi.fn().mockReturnValue(`${SAMPLE_SHA}\n`);
+      expect(readRemoteAdwVersion(show, 'main', '/ws')).toBe(SAMPLE_SHA);
+      expect(show).toHaveBeenCalledWith('origin/main', ADW_VERSION_FILENAME, '/ws');
+    });
+
+    it('returns null when show returns empty string', () => {
+      const show = vi.fn().mockReturnValue('');
+      expect(readRemoteAdwVersion(show, 'main', '/ws')).toBeNull();
+    });
+
+    it('returns null when show returns whitespace-only string', () => {
+      const show = vi.fn().mockReturnValue('  \n');
+      expect(readRemoteAdwVersion(show, 'main', '/ws')).toBeNull();
+    });
+
+    it('returns null when show throws', () => {
+      const show = vi.fn(() => { throw new Error('git show failed'); });
+      expect(readRemoteAdwVersion(show, 'main', '/ws')).toBeNull();
     });
   });
 });
