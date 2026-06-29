@@ -268,7 +268,10 @@
 - app_docs/feature-s59wpc-adwprreview-phaserunner-migration.md
   - Owns:
     - adws/adwPrReview.tsx
+    - adws/adwSdlc.tsx
     - adws/phases/prReviewCompletion.ts
+    - adws/phases/prReviewPhase.ts
+    - adws/phases/sdlcReviewHandoff.ts
     - adws/phases/decidePostReviewOutcome.ts
     - adws/phases/__tests__/decidePostReviewOutcome.test.ts
   - Conditions:
@@ -278,10 +281,14 @@
     - When adding a new phase to the PR review workflow (follow closure-wrapper pattern)
     - When troubleshooting rate-limit pause/resume for PR review workflows
     - When debugging D1 cost posting or `phaseCostRecords` in PR review phases
-    - When the PR-review orchestrator should write `awaiting_merge` to hand off to cron merge dispatch
+    - When the PR-review orchestrator should write `awaiting_merge` or `review_failed` to top-level state
     - When troubleshooting a PR whose review passed but was never merged by cron (inert terminal state class)
-    - When `completePRReviewWorkflow` outcome parameter or its inert-default back-compat is relevant
+    - When `completePRReviewWorkflow` terminal-write gate (`workflowStage` presence) or `orchestratorScript` co-stamp is relevant
     - When `reviewPassed` capture inside the review→patch retry loop is relevant
+    - When `adwPrReview` is invoked in resume form `(issueNumber, adwId)` and must re-resolve its PR from `branchName`
+    - When `review_failed` handoff from `adwSdlc.tsx` via `executeSdlcReviewFailedHandoff` is relevant
+    - When `orchestratorScript: 'adws/adwPrReview.tsx'` persistence at init or terminal handoff is relevant
+    - When `isResumeMode` bypass of the empty-comments early-exit in `initializePRReviewWorkflow` is relevant
 
 - app_docs/feature-1bg58c-scenario-test-fix-phases.md
   - Conditions:
@@ -357,6 +364,9 @@
     - adws/triggers/regionOverlap.ts
     - adws/triggers/regionOverlapSignals.ts
     - adws/triggers/cronIssueFilter.ts
+    - adws/triggers/retryHandler.ts
+    - adws/triggers/trigger_cron.ts
+    - adws/core/resolveResumeSpawn.ts
   - Conditions:
     - When working with `decideSerialization`, `parseRelevantFilesSection`, or `pathsOverlap` in `adws/triggers/regionOverlap.ts`
     - When working with `filterEligibleIssues`, `resolveTouchedFilesFromBody`, or `OverlapDeferral` in `adws/triggers/cronIssueFilter.ts`
@@ -368,12 +378,16 @@
     - When working with `adws/triggers/cronStageResolver.ts`
     - When adding a new handoff stage that bypasses the cron grace period
     - When troubleshooting `awaiting_merge` issues not being picked up by the cron
-    - When working with `deriveOrchestratorScript()` and adding a new orchestrator mapping
+    - When working with `resolveResumeSpawn` or `ResumeSpawnDescriptor` in `adws/core/resolveResumeSpawn.ts`
+    - When the `take_over_adwId` branch in `trigger_cron.ts` must route to the correct orchestrator (not hardcoded SDLC)
+    - When `handleRetryDirective` `review_failed → phase_timeout` recovery path in `retryHandler.ts` is relevant
+    - When `evaluateIssue` returns `eligible:false reason:'review_failed'` (human-gated; never auto-spawned)
     - When working with `ProcessedSets`, `processed.spawns`, or the `processedSpawns` dedup set in the cron
     - When an abandoned issue strands and the same cron process never re-spawns it (issue #653 class)
     - When `evaluateIssue` returns `eligible:false reason:'processed'` for a retriable or abandoned issue
     - When scoping the boot-window dedup guard so it does not block `retriable` or `phase_timeout` recovery
     - When reasoning about which concurrency guard is authoritative for in-progress work (`acquireIssueSpawnLock` vs `processedSpawns`)
+    - When adding a new orchestrator that must be resumable via `## Retry` and needs `orchestratorScript` persisted
 
 - app_docs/feature-01s6z7-delete-legacy-e2e-machinery.md
   - Conditions:
