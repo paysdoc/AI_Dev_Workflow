@@ -65,6 +65,7 @@ export async function executeDocumentPhase(
     documentAgentStatePath,
     worktreePath,
     issue.body,
+    gitCtx.commandEnv(),
   );
 
   costUsd = result.totalCostUsd || 0;
@@ -113,7 +114,7 @@ export async function executeDocumentPhase(
   }
 
   // Commit documentation
-  await runCommitAgent('document-agent', issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body);
+  await runCommitAgent('document-agent', issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body, gitCtx.commandEnv());
 
   // Push documentation commit to remote
   gitCtx.pushBranch(branchName, worktreePath);

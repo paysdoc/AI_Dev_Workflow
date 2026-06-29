@@ -87,6 +87,8 @@ export interface CommandAgentOptions {
   contextPreamble?: string;
   /** Optional phase name used for per-phase watchdog timeout lookup. */
   phaseName?: string;
+  /** Optional env overlay merged over getSafeSubprocessEnv() — supplies per-command auth from the launch-boundary GitContext. */
+  subprocessEnv?: NodeJS.ProcessEnv;
 }
 
 /**
@@ -193,6 +195,9 @@ async function runRetryLoop<T>(
       options.onProgress,
       options.statePath,
       options.cwd,
+      undefined,
+      undefined,
+      options.subprocessEnv,
     );
 
     currentOutput = retryResult.output;
@@ -219,7 +224,7 @@ export async function runCommandAgent<T = void>(
   options: CommandAgentOptions,
 ): Promise<CommandAgentResult<T>> {
   const { command, agentName, outputFileName, extractOutput } = config;
-  const { args, logsDir, issueBody, onProgress, statePath, cwd, contextPreamble, phaseName } = options;
+  const { args, logsDir, issueBody, onProgress, statePath, cwd, contextPreamble, phaseName, subprocessEnv } = options;
 
   const outputFile = path.join(logsDir, outputFileName);
   const model = getModelForCommand(command, issueBody);
@@ -237,6 +242,7 @@ export async function runCommandAgent<T = void>(
     cwd,
     contextPreamble,
     phaseName,
+    subprocessEnv,
   );
 
   if (!extractOutput) {

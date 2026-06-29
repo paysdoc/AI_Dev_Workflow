@@ -169,6 +169,7 @@ export async function runCommitAgent(
   statePath?: string,
   cwd?: string,
   issueBody?: string,
+  subprocessEnv?: NodeJS.ProcessEnv,
 ): Promise<AgentResult & { commitMessage: string }> {
   const args = formatCommitArgs(agentName, issueClass, issueContext);
   const outputFile = path.join(logsDir, 'commit-agent.jsonl');
@@ -187,7 +188,10 @@ export async function runCommitAgent(
     getEffortForCommand('/commit', issueBody),
     undefined,
     statePath,
-    cwd
+    cwd,
+    undefined,
+    undefined,
+    subprocessEnv,
   );
 
   if (!result.success) {

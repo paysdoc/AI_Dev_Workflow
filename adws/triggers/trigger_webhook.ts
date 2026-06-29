@@ -16,7 +16,7 @@
 import '../core/environment';
 import * as http from 'http';
 import { log, PullRequestWebhookPayload, allocateRandomPort, isPortAvailable, getTargetRepoWorkspacePath, assertCwdIsRepoRoot } from '../core';
-import { isActionableComment, isCancelComment, isRetryComment, isAdwRunningForIssue, truncateText, getRepoInfo, fetchIssueCommentsRest, activateGitHubAppAuth } from '../github';
+import { isActionableComment, isCancelComment, isRetryComment, isAdwRunningForIssue, truncateText, getRepoInfo, fetchIssueCommentsRest } from '../github';
 import { handleCancelDirective } from './cancelHandler';
 import { handleRetryDirective } from './retryHandler';
 import { handlePullRequestEvent, handleIssueClosedEvent } from './webhookHandlers';
@@ -289,7 +289,6 @@ async function resolveWebhookPort(preferredPort: number): Promise<number> {
 
 async function startServer(): Promise<void> {
   assertCwdIsRepoRoot();
-  activateGitHubAppAuth();
   if (!process.env.GITHUB_WEBHOOK_SECRET) log('GITHUB_WEBHOOK_SECRET not set — webhook signature validation disabled', 'warn');
   const preferredPort = parseInt(process.env.PORT || '8001', 10);
   const actualPort = await resolveWebhookPort(preferredPort);

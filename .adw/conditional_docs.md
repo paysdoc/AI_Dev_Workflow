@@ -1926,6 +1926,24 @@
     - adws/adwPromotionSweep.tsx
     - adws/promotion/promotionStatsLoader.ts
     - adws/core/upgradeClaim.ts
+    - adws/agents/claudeAgent.ts
+    - adws/agents/commandAgent.ts
+    - adws/agents/buildAgent.ts
+    - adws/agents/gitAgent.ts
+    - adws/agents/prAgent.ts
+    - adws/agents/patchAgent.ts
+    - adws/agents/refactorAgent.ts
+    - adws/agents/documentAgent.ts
+    - adws/agents/reviewAgent.ts
+    - adws/agents/resolutionAgent.ts
+    - adws/agents/installAgent.ts
+    - adws/phases/buildPhase.ts
+    - adws/phases/prPhase.ts
+    - adws/phases/documentPhase.ts
+    - adws/phases/reviewPhase.ts
+    - adws/phases/scenarioFixPhase.ts
+    - adws/phases/prReviewPhase.ts
+    - adws/phases/reviewPatchHelpers.ts
   - Conditions:
     - When working with `GitContext`, `GitContextOptions`, `GitIdentity`, `ExecFn`, or `GitContextDeps` in `adws/gitContext/`
     - When implementing or troubleshooting base-path resolution for self-host vs target repos (the single `resolveBasePath` authority)
@@ -1936,8 +1954,8 @@
     - When the bootstrap package modules (`appAuth.ts`, `bootstrapIdentity.ts`, `tokenResolver.ts`, `repoWorkspace.ts`) are relevant — pre-context primitives absorbed into the exempt package (#700)
     - When `resolveContextToken` (token veracity), `readLocalRepoInfo`, `resolveBootstrapGitIdentity`, `ghAuthToken`, `getInstallationToken`, `isGitHubAppConfigured`, or `ensureRepoWorkspace` are referenced from `adws/gitContext/index.ts`
     - When the GH_TOKEN-bleed class (vestmatic #143/#181/#187) or the `fetchLatestRefs` crash class is being addressed — `resolveContextToken` is the structural fix; never reads `process.env.GH_TOKEN`
-    - When `launchGitContext.ts`, `gitContextFactory.ts`, `githubAppAuth.ts`, or `targetRepoManager.ts` contain zero raw git/gh strings — they are thin adapters delegating to package primitives (#700)
-    - When `activateGitHubAppAuth`/`refreshTokenIfNeeded` `process.env` *writes* are retained (transitional subprocess provisioning, out of scope for #700) vs. the token-source *reads* which are removed
+    - When `launchGitContext.ts`, `gitContextFactory.ts`, `githubAppAuth.ts`, or `targetRepoManager.ts` contain zero raw git/gh strings — they are thin adapters delegating to package primitives (#700); `githubAppAuth.ts` is a pure re-export shim with zero `process.env` writes (#701)
+    - When `activateGitHubAppAuth`, `refreshTokenIfNeeded`, or `configureGitIdentity` are referenced and not found — they were deleted in #701; the subprocess auth path is `subprocessEnv` overlay via `commandEnv()` in `claudeAgent.ts`/`commandAgent.ts`
     - When `ensureTargetRepoWorkspace` / `ensureRepoWorkspace` uses a veracious `getDefaultBranch: () => ctx.defaultBranch()` thunk — the `gh repo view` under per-command auth fix
     - When `buildLaunchGitContext`, `LaunchGitContextDeps`, `resolveLaunchToken`, or `resolveLaunchGitIdentity` in `adws/core/launchGitContext.ts` is relevant
     - When `getCurrentBranch`, `mergeLatestFromDefaultBranch`, `fetchAndResetToRemote`, `deleteLocalBranch`, `deleteRemoteBranch` are GitContext methods
@@ -1949,7 +1967,7 @@
     - When `adws/vcs/branchOperations.ts`, `commitOperations.ts`, or `worktreeReset.ts` are referenced and I/O functions appear to be missing (they migrated to GitContext)
     - When working with `adws/gitContext/commands/` pure command builders or parsers (issue, PR, label, board)
     - When implementing or troubleshooting `gitContextForRepo`, `clearSelfHostCache`, or `readLocalRepoInfo` in `adws/github/gitContextFactory.ts`
-    - When the `activeRepo`/`ensureAppAuthForRepo` removal, `refreshTokenIfNeeded` repo-explicit change, or the auth-bleed fix is relevant
+    - When the `activeRepo`/`ensureAppAuthForRepo` removal or the auth-bleed structural fix is relevant
     - When adding a new `gh` operation method or worktree method to `GitContext` (follow the thin-method + package-private-op pattern)
     - When `getWorktreesDir`, `getWorktreePath`, or `worktreeExists` are referenced and not found (deleted in #661 — use `ctx.worktreePathFor()`, `ctx.getWorktreeForBranch()`, or `ctx.listWorktrees()`)
     - When the "wrong-repo worktree" or `GH_TOKEN` bleed class of bugs is being addressed structurally
@@ -1964,7 +1982,7 @@
     - When `copyClaudeAssetsToWorktree` is called without a `GitContext` second argument and fails to compile (signature changed in #694)
     - When `getLastAdwCommitTimestamp` is called without a `GitContext` second argument and fails to compile (signature changed in #694)
     - When working with `setSecret(name, value)` or `runGraphQLInput(body)` as `GitContext` methods
-    - When `labelManager.ts`, `githubBoardManager.ts`, or `depauditSetup.ts` are referenced as migrated files (no longer on the guard ALLOWLIST)
+    - When `labelManager.ts`, `githubBoardManager.ts`, or `depauditSetup.ts` are referenced as migrated files (no longer on the guard ALLOWLIST — the ALLOWLIST was deleted in #701)
     - When working with `fetchRemote`, `mergeBranch`, `abortMerge`, or `lsRemote` as `GitContext` methods
     - When `remoteOps.ts` (package-private remote-op module) or the `Runner` seam / `abortMerge` error-swallowing contract is relevant
     - When `mergeWithConflictResolution` optional `gitContext?` 9th parameter or its `gitContextForRepo` fallback is relevant
@@ -1973,6 +1991,10 @@
     - When working with `addDetachedWorktree`, `commitAllowEmpty`, `pushHeadToBranch`, or `removeDetachedWorktree` as `GitContext` methods (upgrade-claim distributed-lock verbs)
     - When `claimOps.ts` (package-private claim-op module) or the no-`--force` push invariant is relevant
     - When the winner/loser election correctness (detached HEAD, allow-empty commit, non-forced namespace push, best-effort cleanup) must be traced through GitContext
+    - When `subprocessEnv?: NodeJS.ProcessEnv` is added to `runClaudeAgentWithCommand`, `CommandAgentOptions`, or agent runner functions — the per-command subprocess auth seam (#701)
+    - When the Claude subprocess env is constructed as `{ ...getSafeSubprocessEnv(), ...(subprocessEnv ?? {}) }` in `claudeAgent.ts` and a phase passes `gitCtx.commandEnv()` as `subprocessEnv`
+    - When `buildPhase.ts`, `prPhase.ts`, `documentPhase.ts`, `reviewPhase.ts`, `scenarioFixPhase.ts`, `prReviewPhase.ts`, or `reviewPatchHelpers.ts` pass `gitCtx.commandEnv()` to their agent calls
+    - When investigating why `/implement`, `/commit`, `/pull_request`, `/resolve_conflict`, or other subprocess commands have or lack the correct `GH_TOKEN`/`GIT_*` identity
 
 - app_docs/feature-k817bh-persist-repo-identity-cross-check.md
   - Owns:
@@ -2005,11 +2027,13 @@
     - adws/checkGitGhGuard.ts
     - .github/workflows/git-cli-guard.yml
   - Conditions:
-    - When working with `adws/checkGitGhGuard.ts`, `scanFiles`, or the `ALLOWLIST` of permitted direct git/gh shell-out files
+    - When working with `adws/checkGitGhGuard.ts`, `scanFiles`, or `scanSource` — the AST-based git/gh call scanner
     - When the CI `Git/GH CLI Guard` workflow (`.github/workflows/git-cli-guard.yml`) fails on a pull request or push
     - When troubleshooting false-positive or false-negative detection (template literals, execFileSync first-arg form, comment mentions)
-    - When the `bun run lint:git-guard` script exits 1 and you need to understand the remedy (add code to `adws/gitContext/` or add to ALLOWLIST with justification)
-    - When understanding the ALLOWLIST is now empty (#700) — all three former categories (`bootstrap`, `residual`, `diagnostic`) are closed; the ratchet is at zero
+    - When `bun run lint:git-guard` exits 1 and you need the remedy (add code to `adws/gitContext/` — there is no allowlist)
+    - When understanding that the `ALLOWLIST` has been deleted (#701) — the const, `allowed` Set, and per-file skip are all gone; only `EXEMPT_PACKAGE_DIR` exempts files
+    - When the `(0 allowlisted)` literal in the runtime print needs to stay as-is (preserves the `(\d+) allowlisted` BDD step regex)
     - When understanding why `features/` and `test/` dirs are excluded from the scan (fixture-repo BDD setup legitimately shells out)
     - When `EXEMPT_PACKAGE_DIR = 'adws/gitContext'` or `EXEMPT_DIR_NAMES` configuration is relevant
-    - When a new bootstrap primitive needs to be added (must go into `adws/gitContext/`, not on the ALLOWLIST)
+    - When a new bootstrap primitive needs to be added (must go into `adws/gitContext/` — no allowlist escape hatch exists)
+    - When writing or extending unit tests for `checkGitGhGuard.ts` (`adws/__tests__/checkGitGhGuard.test.ts` — tests `scanFiles`/`scanSource` with fixture strings)

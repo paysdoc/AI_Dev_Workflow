@@ -5,7 +5,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { log, setLogAdwId, ensureLogsDirectory, generateAdwId, type PRDetails, type PRReviewComment, AgentStateManager, type AgentState, type ModelUsageMap, allocateRandomPort, emptyModelUsageMap, OrchestratorId, type TargetRepoInfo, ensureTargetRepoWorkspace, loadProjectConfig, readAdwYmlConfig, type GitHubIssue, type IssueClassSlashCommand, type RecoveryState } from '../core';
-import { fetchPRDetails, getUnaddressedComments, type PRReviewWorkflowContext, getRepoInfo, type RepoInfo, activateGitHubAppAuth, gitContextFor } from '../github';
+import { fetchPRDetails, getUnaddressedComments, type PRReviewWorkflowContext, getRepoInfo, type RepoInfo, gitContextFor } from '../github';
 import type { WorkflowConfig } from './workflowInit';
 import { inferIssueTypeFromBranch } from '../vcs';
 import { BoardStatus, type RepoContext, type RepoIdentifier } from '../providers/types';
@@ -39,9 +39,6 @@ export interface PRReviewWorkflowConfig {
  */
 export async function initializePRReviewWorkflow(prNumber: number, adwId: string | null, repoInfo?: RepoInfo, repoId?: RepoIdentifier, targetRepo?: TargetRepoInfo): Promise<PRReviewWorkflowConfig> {
   const resolvedRepoInfo = repoInfo ?? getRepoInfo();
-  // Activate GitHub App auth to generate a fresh token for this process.
-  // Ensures child processes spawned by triggers don't rely on stale inherited GH_TOKEN.
-  activateGitHubAppAuth(resolvedRepoInfo.owner, resolvedRepoInfo.repo);
   const prDetails = fetchPRDetails(prNumber, resolvedRepoInfo);
   log(`Fetched PR: ${prDetails.title}`, 'success');
   // Resolve ADW ID: use provided or generate from PR title
@@ -279,7 +276,7 @@ export async function executePRReviewBuildPhase(config: PRReviewWorkflowConfig, 
     }
   };
 
-  const buildResult = await runPrReviewBuildAgent(prDetails, planOutput, logsDir, buildProgressCallback, buildAgentStatePath, worktreePath, prDetails.body);
+  const buildResult = await runPrReviewBuildAgent(prDetails, planOutput, logsDir, buildProgressCallback, buildAgentStatePath, worktreePath, prDetails.body, config.base.gitContext?.commandEnv());
 
   if (!buildResult.success) {
     AgentStateManager.writeState(buildAgentStatePath, {
@@ -334,7 +331,7 @@ export async function executePRReviewCommitPushPhase(config: PRReviewWorkflowCon
     postPRStageComment(repoContext, prNumber, 'pr_review_committing', ctx);
   }
   const issueType = inferIssueTypeFromBranch(prDetails.headBranch);
-  const commitResult = await runCommitAgent(OrchestratorId.PrReview, issueType, JSON.stringify(prDetails), logsDir, undefined, worktreePath, prDetails.body);
+  const commitResult = await runCommitAgent(OrchestratorId.PrReview, issueType, JSON.stringify(prDetails), logsDir, undefined, worktreePath, prDetails.body, gitCtx.commandEnv());
 
   gitCtx.pushBranch(prDetails.headBranch, worktreePath);
   if (repoContext) {
