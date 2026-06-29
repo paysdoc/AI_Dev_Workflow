@@ -15,7 +15,6 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { execSync } from 'child_process';
 
 export const ADW_VERSION_FILENAME = '.adw-version';
 
@@ -49,32 +48,31 @@ export function writeAdwVersion(worktreePath: string, hash: string): void {
 }
 
 /**
- * Reads the stored framework hash from the target repo's remote default branch
- * using `git show origin/<defaultBranch>:.adw-version`.
+ * Reads the stored framework hash from the target repo's remote default branch.
  *
- * This is the authoritative read for the upgrade gate: it is immune to stale
- * local worktrees, since it reads directly from the remote ref rather than any
- * local file. A stale reused worktree cannot spoof an old version.
+ * Routes through an injected `show` function (GitContext-backed at the call site)
+ * so this module contains no direct git shell-outs. The read is authoritative and
+ * immune to stale local worktrees because it resolves `origin/<defaultBranch>`,
+ * not any local file. `workspacePath` must be the target clone root so that
+ * `origin` resolves to the target remote.
  *
- * Returns null when the file is absent on the remote (treating "never
- * initialized" the same as "out of date"), or when the content is empty.
- * Any non-404 git error propagates as-is.
+ * Returns null when the file is absent on the remote, when content is empty or
+ * whitespace-only, or when `show` throws (e.g. the branch does not exist).
  *
+ * @param show - Injected git-show function: `(ref, filePath, cwd) => string`.
  * @param defaultBranch - The remote default branch name (e.g. "main", "dev").
  * @param workspacePath - Absolute path to the target repo clone (the main checkout,
- *   not a feature worktree). Used as cwd for the git command so that `origin`
- *   resolves to the target remote.
+ *   not a feature worktree).
  */
-export function readRemoteAdwVersion(defaultBranch: string, workspacePath: string): string | null {
+export function readRemoteAdwVersion(
+  show: (ref: string, filePath: string, cwd: string) => string,
+  defaultBranch: string,
+  workspacePath: string,
+): string | null {
   try {
-    const raw = execSync(
-      `git show "origin/${defaultBranch}:${ADW_VERSION_FILENAME}"`,
-      { cwd: workspacePath, stdio: 'pipe' },
-    ).toString();
-    const content = raw.trim();
+    const content = show(`origin/${defaultBranch}`, ADW_VERSION_FILENAME, workspacePath).trim();
     return content.length > 0 ? content : null;
   } catch {
-    // File absent on remote branch → treat as "never initialized"
     return null;
   }
 }

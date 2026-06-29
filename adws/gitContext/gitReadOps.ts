@@ -25,4 +25,8 @@ function log(run: Runner, branchName: string, cwd: string): string {
   return run(`git log "${branchName}" --format="%aI %s" --no-merges`, cwd);
 }
 
-export const gitReadOps = { lsFiles, headShort, diff, log };
+function show(run: Runner, ref: string, filePath: string, cwd: string): string {
+  return run(`git show "${ref}:${filePath}"`, cwd);
+}
+
+export const gitReadOps = { lsFiles, headShort, diff, log, show };

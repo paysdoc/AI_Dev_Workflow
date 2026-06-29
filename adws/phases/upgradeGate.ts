@@ -171,10 +171,11 @@ export async function runUpgradeGate(
 export function buildDefaultUpgradeGateDeps(
   repoId: RepoIdentifier,
   worktreePath: string,
+  gitShow: (ref: string, filePath: string, cwd: string) => string,
 ): UpgradeGateDeps {
   return {
     computeFrameworkHash,
-    readAdwVersion: (defaultBranch, workspacePath) => readRemoteAdwVersion(defaultBranch, workspacePath),
+    readAdwVersion: (defaultBranch, workspacePath) => readRemoteAdwVersion(gitShow, defaultBranch, workspacePath),
     // The atomic claim must run against the TARGET repo's branch namespace, not the
     // framework checkout. Pin baseRepoPath to the target worktree (whose `origin` is the
     // target remote) — otherwise it defaults to process.cwd() (the framework repo) and

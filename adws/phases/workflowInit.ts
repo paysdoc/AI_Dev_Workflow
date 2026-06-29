@@ -247,7 +247,7 @@ export async function initializeWorkflow(
         repoInfo: repoInfoForGate,
         targetRepoArgs,
       },
-      buildDefaultUpgradeGateDeps(gateRepoId, targetRepoWorkspacePath),
+      buildDefaultUpgradeGateDeps(gateRepoId, targetRepoWorkspacePath, (ref, filePath, cwd) => gitCtx.show(ref, filePath, cwd)),
     );
     if (outcome.action === 'parked') {
       log(

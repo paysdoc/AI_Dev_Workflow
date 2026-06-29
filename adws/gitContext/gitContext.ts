@@ -462,6 +462,10 @@ export class GitContext {
     return gitReadOps.log((cmd, c) => this.#run(cmd, { cwd: c }), branchName, cwd ?? this.#basePath);
   }
 
+  show(ref: string, filePath: string, cwd?: string): string {
+    return gitReadOps.show((cmd, c) => this.#run(cmd, { cwd: c }), ref, filePath, cwd ?? this.#basePath);
+  }
+
   findPRByBranch(branchName: string): string {
     return this.#run(findPRByBranchCmd(this.#owner, this.#repo, branchName));
   }

@@ -529,7 +529,7 @@ adws/                   # ADW workflow system
 │   │   ├── workflowCommentParsing.test.ts
 │   │   └── workflowMapping.test.ts
 │   ├── adwId.ts        # ADW ID generation
-│   ├── adwVersion.ts   # Read/write .adw-version file (stores framework hash at target repo root)
+│   ├── adwVersion.ts   # Read/write .adw-version file; readRemoteAdwVersion reads from origin/<defaultBranch>:.adw-version (immune to stale local worktrees)
 │   ├── adwYmlConfig.ts # Read `.github/adw.yml` from a target repo worktree (upgrade auto-merge policy + unit-test gate)
 │   ├── agentState.ts
 │   ├── authGate.ts     # Host-wide auth gate: detects auth failures, writes paused_auth state, triggers Slack alerts
@@ -607,7 +607,8 @@ adws/                   # ADW workflow system
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── gitContext.test.ts
 │   │   ├── gitContextOperations.test.ts
-│   │   └── gitReadOps.test.ts
+│   │   ├── gitReadOps.test.ts
+│   │   └── remoteOps.test.ts
 │   ├── commands/       # Pure command-string builders (no I/O) — one file per concern
 │   │   ├── boardCommands.ts    # GraphQL query strings for Projects V2 board operations
 │   │   ├── issueCommands.ts    # gh CLI command strings for issue read/write operations
@@ -955,6 +956,7 @@ features/               # BDD feature files (Gherkin .feature)
 ├── support/            # Top-level Cucumber support (tsx registration)
 └── webhook_ensure_cron_on_every_event.feature  # Integration scenario: cron fires on every webhook event (issue #501)
 specs/                  # Generated implementation specs
+├── issue-*.md          # Per-issue plan specs committed by the plan agent
 ├── patch/              # Generated patch specs
 └── prd/                # Product requirement documents
 .env.sample             # Environment variable template

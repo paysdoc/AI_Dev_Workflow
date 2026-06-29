@@ -317,6 +317,76 @@ describe('log() command and env', () => {
   });
 });
 
+// ── show() ───────────────────────────────────────────────────────────────────
+
+describe('show() command and env', () => {
+  it('builds exactly git show "origin/main:.adw-version"', () => {
+    const { exec, calls } = makeSpyExec('abc123\n');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.show('origin/main', '.adw-version', '/some/cwd');
+    expect(calls[0].command).toBe('git show "origin/main:.adw-version"');
+  });
+
+  it('passes the supplied cwd', () => {
+    const { exec, calls } = makeSpyExec('abc123\n');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.show('origin/main', '.adw-version', '/some/cwd');
+    expect(calls[0].cwd).toBe('/some/cwd');
+  });
+
+  it('defaults cwd to the context base path when cwd is omitted', () => {
+    const { exec, calls } = makeSpyExec('abc123\n');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.show('origin/main', '.adw-version');
+    expect(calls[0].cwd).toBe(ctx.basePath);
+  });
+
+  it('injects GH_TOKEN from the context token in the child env', () => {
+    const { exec, calls } = makeSpyExec('abc123\n');
+    const ctx = new GitContext(validOptions({ token: 'show-token' }), { exec });
+    ctx.show('origin/main', '.adw-version', '/some/cwd');
+    expect(calls[0].env.GH_TOKEN).toBe('show-token');
+  });
+
+  it('injects all four GIT_* identity vars in the child env', () => {
+    const { exec, calls } = makeSpyExec('abc123\n');
+    const ctx = new GitContext(
+      validOptions({
+        gitIdentity: {
+          authorName: 'Show Bot', authorEmail: 'show@bot.dev',
+          committerName: 'Show Bot', committerEmail: 'show@bot.dev',
+        },
+      }),
+      { exec },
+    );
+    ctx.show('origin/main', '.adw-version', '/some/cwd');
+    expect(calls[0].env.GIT_AUTHOR_NAME).toBe('Show Bot');
+    expect(calls[0].env.GIT_AUTHOR_EMAIL).toBe('show@bot.dev');
+    expect(calls[0].env.GIT_COMMITTER_NAME).toBe('Show Bot');
+    expect(calls[0].env.GIT_COMMITTER_EMAIL).toBe('show@bot.dev');
+  });
+
+  it('returns trimmed stdout', () => {
+    const { exec } = makeSpyExec('abc123\n');
+    const ctx = new GitContext(validOptions(), { exec });
+    expect(ctx.show('origin/main', '.adw-version', '/some/cwd')).toBe('abc123');
+  });
+
+  it('does not mutate process.env', () => {
+    const before = process.env.GH_TOKEN;
+    const { exec } = makeSpyExec('abc123\n');
+    const ctx = new GitContext(validOptions({ token: 'injected' }), { exec });
+    ctx.show('origin/main', '.adw-version', '/some/cwd');
+    expect(process.env.GH_TOKEN).toBe(before);
+  });
+
+  it('propagates exec errors', () => {
+    const exec: ExecFn = () => { throw new Error('git show failed'); };
+    const ctx = new GitContext(validOptions(), { exec });
+    expect(() => ctx.show('origin/main', '.adw-version', '/some/cwd')).toThrow('git show failed');
+  });
+});
+
 // ── Two-context isolation (git-read methods) ──────────────────────────────────
 
 describe('git-read methods two-context isolation', () => {
