@@ -32,7 +32,7 @@ describe('generateBranchName — assembly correctness', () => {
   });
 
   it('rejects an invalid slug (throws) and does not assemble', () => {
-    expect(() => generateBranchName(42, 'feature-already-prefixed', '/feature')).toThrow();
+    expect(() => generateBranchName(42, 'feature-issue-42-already-prefixed', '/feature')).toThrow();
   });
 });
 
@@ -118,39 +118,39 @@ describe('validateSlug — rejection: structural constraints', () => {
   });
 });
 
-describe('validateSlug — rejection: forbidden prefixes (canonical)', () => {
-  it('rejects slug starting with "feature-"', () => {
-    expect(() => validateSlug('feature-my-slug')).toThrow(/prefix/i);
+describe('validateSlug — rejection: re-embedded type prefix (unambiguous shapes only)', () => {
+  it('rejects a slug that IS exactly a canonical prefix', () => {
+    expect(() => validateSlug('feature')).toThrow(/prefix/i);
+    expect(() => validateSlug('chore')).toThrow(/prefix/i);
+    expect(() => validateSlug('review')).toThrow(/prefix/i);
   });
 
-  it('rejects slug starting with "bugfix-"', () => {
-    expect(() => validateSlug('bugfix-my-slug')).toThrow(/prefix/i);
+  it('rejects a slug that IS exactly an alias prefix', () => {
+    expect(() => validateSlug('feat')).toThrow(/prefix/i);
+    expect(() => validateSlug('bug')).toThrow(/prefix/i);
+    expect(() => validateSlug('test')).toThrow(/prefix/i);
   });
 
-  it('rejects slug starting with "chore-"', () => {
-    expect(() => validateSlug('chore-my-slug')).toThrow(/prefix/i);
-  });
-
-  it('rejects slug starting with "review-"', () => {
-    expect(() => validateSlug('review-my-slug')).toThrow(/prefix/i);
-  });
-
-  it('rejects slug starting with "adwinit-"', () => {
-    expect(() => validateSlug('adwinit-my-slug')).toThrow(/prefix/i);
+  it('rejects a prefix carrying the "-issue-" anchor (drifted LLM full branch name)', () => {
+    expect(() => validateSlug('feature-issue-455-json-reporter')).toThrow(/prefix/i);
+    expect(() => validateSlug('review-issue-77-add-stage')).toThrow(/prefix/i);
   });
 });
 
-describe('validateSlug — rejection: forbidden prefixes (aliases)', () => {
-  it('rejects slug starting with "feat-"', () => {
-    expect(() => validateSlug('feat-my-slug')).toThrow(/prefix/i);
+describe('validateSlug — acceptance: content words that begin with a prefix token', () => {
+  // Regression for the "review-failed-blocking-stage" strand: a legitimate content
+  // slug, not a re-embedded type prefix. The branch is anchored on "-issue-<N>-",
+  // so a leading prefix word never breaks identity parsing.
+  it('accepts "review-failed-blocking-stage" (the strand regression)', () => {
+    expect(validateSlug('review-failed-blocking-stage')).toBe('review-failed-blocking-stage');
   });
 
-  it('rejects slug starting with "bug-"', () => {
-    expect(() => validateSlug('bug-my-slug')).toThrow(/prefix/i);
-  });
-
-  it('rejects slug starting with "test-"', () => {
-    expect(() => validateSlug('test-my-slug')).toThrow(/prefix/i);
+  it('accepts other content slugs whose first word matches a prefix', () => {
+    expect(validateSlug('feature-flags-page')).toBe('feature-flags-page');
+    expect(validateSlug('test-harness-cleanup')).toBe('test-harness-cleanup');
+    expect(validateSlug('fix-flaky-timeout')).toBe('fix-flaky-timeout');
+    expect(validateSlug('bug-report-template')).toBe('bug-report-template');
+    expect(validateSlug('chore-deps-bump')).toBe('chore-deps-bump');
   });
 });
 

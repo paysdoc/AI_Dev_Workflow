@@ -52,13 +52,20 @@ export function validateSlug(slug: string): string {
     throw new Error(`Slug exceeds 50 characters (length=${slug.length}): "${slug}"`);
   }
 
+  // Reject a slug that re-embeds the canonical type prefix, but ONLY in the
+  // unambiguous shapes: the slug IS a prefix, or it carries the prefix + the
+  // `-issue-` anchor (`review-issue-...`). A bare `${prefix}-<word>` is NOT
+  // rejected — content words legitimately start with a prefix token
+  // (e.g. "review-failed", "test-harness", "fix-flaky") and the assembled
+  // branch is anchored on `-issue-<N>-`, so a leading prefix word never breaks
+  // branchMatchesIssue / deterministicBranchName parsing.
   const canonicalPrefixes = Object.values(branchPrefixMap);
   const aliasPrefixes = Object.values(branchPrefixAliases).flat() as string[];
   const forbiddenPrefixes = [...new Set([...canonicalPrefixes, ...aliasPrefixes])];
 
   for (const prefix of forbiddenPrefixes) {
-    if (slug.startsWith(`${prefix}-`)) {
-      throw new Error(`Slug already contains a forbidden prefix "${prefix}-": "${slug}"`);
+    if (slug === prefix || slug.startsWith(`${prefix}-issue-`)) {
+      throw new Error(`Slug already contains a forbidden prefix "${prefix}": "${slug}"`);
     }
   }
 
