@@ -24,7 +24,7 @@ ADW is an agentic SDLC framework: it turns issues on GitHub, GitLab, or Jira int
 - **LLM-based dependency extraction** — `dependencyExtractionAgent` reads issues to surface cross-issue dependencies before spawning.
 - **Documentation generation** — `documentAgent` writes feature docs to `app_docs/`; the SDLC pipeline includes review screenshots.
 - **Scenario promotion sweep** — `adwPromotionSweep.tsx` scores per-issue scenarios against the regression vocabulary registry; high-scoring candidates receive a `@promotion-suggested-<date>` tag with daily-cadence suppression, date refresh, and score-drop withdrawal; a PR comment lists all candidates and applies the `hitl` label; human-approved scenarios (`@promotion`) are automatically moved to the regression suite via a dedicated PR.
-- **Framework self-upgrade with init-time hash gate** — `upgradeGate.ts` runs inside `initializeWorkflow()` on every workflow start: it compares the framework's current content hash against the target repo's stored `.adw-version`, and on mismatch atomically elects a winner/loser via `upgradeClaim`. The winner creates a `#UPG` tracking issue and spawns `adwUpgrade.tsx` to regenerate `.adw/`; losers register a `## Blocked by` dependency on the upgrade issue and move to Todo. Both park immediately, re-queuing after the upgrade PR merges. On hash match, the gate is transparent and workflow proceeds normally.
+- **Framework self-upgrade with pre-worktree hash gate** — `upgradeGate.ts` runs inside `initializeWorkflow()` **before** worktree setup on every workflow start: it reads the target repo's `.adw-version` from `origin/<default>:.adw-version` (the authoritative remote, immune to stale reused worktrees) and compares it against the framework's current content hash. On mismatch, atomically elects a winner/loser via `upgradeClaim`. The winner creates a `#UPG` tracking issue and spawns `adwUpgrade.tsx` to regenerate `.adw/`; losers park without ever creating a feature worktree, registering a `## Blocked by` dependency on the upgrade issue and moving to Todo. Both re-queue after the upgrade PR merges. On hash match, the gate is transparent and workflow proceeds to normal worktree setup.
 - **Novelty progress gate in build phase** — `progressGate.ts` evaluates each build continuation checkpoint against the set of previously seen git tree hashes; a checkpoint that returns to a prior state triggers `abort: no_progress` and a hard backstop (`MAX_PROGRESS_CHECKPOINTS`) stops runaway loops that make commits but cycle between states.
 - **Observability-surfaces drafting** — `adw_init` classifies a target repo's stack (browser-test-equipped, CLI-only, or fallback) and LLM-drafts the `## Observability Surfaces (Examples)` block in `features/regression/vocabulary.md`, seeding the promotion scorer with repo-specific surface types rather than leaving a blank placeholder.
 - **Supply-chain audit integration** — `adw_init` runs `depaudit setup` in target repos and propagates `SOCKET_API_TOKEN` / `SLACK_WEBHOOK_URL` to GitHub Actions secrets.
@@ -456,6 +456,7 @@ adws/                   # ADW workflow system
 │   ├── adwMerge.test.ts
 │   ├── adwUpgrade.test.ts
 │   ├── depauditSetup.test.ts
+│   ├── healthCheckChecks.test.ts
 │   ├── issueDependencies.test.ts
 │   ├── prTemplateMarker.test.ts
 │   ├── triggerWebhook.test.ts
@@ -507,7 +508,6 @@ adws/                   # ADW workflow system
 │   │   ├── hungOrchestratorDetector.test.ts
 │   │   ├── issueClassifier.test.ts
 │   │   ├── launchGitContext.test.ts
-│   │   ├── repoIdentityCrossCheck.test.ts
 │   │   ├── phaseRunner.test.ts
 │   │   ├── processLiveness.test.ts
 │   │   ├── projectConfig.test.ts
@@ -526,10 +526,11 @@ adws/                   # ADW workflow system
 │   │   ├── topLevelState.test.ts
 │   │   ├── upgradeClaim.integration.test.ts
 │   │   ├── upgradeClaim.test.ts
+│   │   ├── upgradeFailureCap.test.ts
 │   │   ├── workflowCommentParsing.test.ts
 │   │   └── workflowMapping.test.ts
 │   ├── adwId.ts        # ADW ID generation
-│   ├── adwVersion.ts   # Read/write .adw-version file (stores framework hash at target repo root)
+│   ├── adwVersion.ts   # Read/write .adw-version file; readRemoteAdwVersion reads from origin/<defaultBranch>:.adw-version (immune to stale local worktrees)
 │   ├── adwYmlConfig.ts # Read `.github/adw.yml` from a target repo worktree (upgrade auto-merge policy + unit-test gate)
 │   ├── agentState.ts
 │   ├── authGate.ts     # Host-wide auth gate: detects auth failures, writes paused_auth state, triggers Slack alerts
@@ -551,6 +552,7 @@ adws/                   # ADW workflow system
 │   ├── modelRouting.ts # Model/effort routing utilities
 │   ├── orchestratorCli.ts  # Shared CLI parsing utilities
 │   ├── orchestratorLib.ts
+│   ├── orchestratorNames.ts  # Static orchestrator name/script mappings (extracted from orchestratorLib to avoid circular imports)
 │   ├── agentTimeouts.ts  # Per-phase agent timeout constants
 │   ├── pauseQueue.ts   # Pause queue for rate-limit pause/resume
 │   ├── phaseRunner.ts  # PhaseRunner / CostTracker composition
@@ -585,7 +587,6 @@ adws/                   # ADW workflow system
 │   │   ├── linkedPrDetector.test.ts
 │   │   ├── prApi.test.ts
 │   │   └── projectBoardApi.test.ts
-│   ├── gitContextFactory.ts  # Boundary factory — constructs GitContext from ambient ADW identity (async and sync per-repo variants)
 │   ├── githubApi.ts
 │   ├── githubAppAuth.ts  # GitHub App authentication
 │   ├── hitlBoardNotifier.ts  # HITL board-event notifier — PR/issue lookup, message building, and Slack delivery for Review and Blocked transitions
@@ -595,7 +596,7 @@ adws/                   # ADW workflow system
 │   ├── labelManager.ts  # adw:* label lifecycle management and label-based issue classification
 │   ├── linkedPrDetector.ts  # Detects linked merged or closed PRs for an issue via "Implements #N" body scan
 │   ├── prApi.ts
-│   ├── gitContextFactory.ts  # Per-repo GitContext factory (gitContextFor, gitContextForSync, deriveGitIdentity)
+│   ├── gitContextFactory.ts  # Per-repo GitContext factory (`gitContextForRepo`, `gitContextForSync`, `readLocalRepoInfo`, `deriveGitIdentity`); `readLocalRepoInfo` is the permanently-allowlisted bootstrap git-remote read
 │   ├── prCommentDetector.ts
 │   ├── projectBoardApi.ts
 │   ├── proofCommentFormatter.ts
@@ -605,20 +606,35 @@ adws/                   # ADW workflow system
 │   └── workflowCommentsPR.ts
 ├── gitContext/         # Repo-context authority deep module (GitContext)
 │   ├── __tests__/      # Vitest unit tests
+│   │   ├── bootstrapIdentity.test.ts
+│   │   ├── claimOps.test.ts
 │   │   ├── gitContext.test.ts
-│   │   └── gitContextOperations.test.ts
+│   │   ├── gitContextOperations.test.ts
+│   │   ├── gitReadOps.test.ts
+│   │   ├── remoteOps.test.ts
+│   │   ├── repoWorkspace.test.ts
+│   │   └── tokenResolver.test.ts
 │   ├── commands/       # Pure command-string builders (no I/O) — one file per concern
 │   │   ├── boardCommands.ts    # GraphQL query strings for Projects V2 board operations
 │   │   ├── issueCommands.ts    # gh CLI command strings for issue read/write operations
 │   │   ├── labelCommands.ts    # gh CLI command strings for label create/apply operations
-│   │   └── prCommands.ts       # gh CLI command strings for PR list/create/merge/review operations
+│   │   ├── prCommands.ts       # gh CLI command strings for PR list/create/merge/review operations
+│   │   └── secretCommands.ts   # gh CLI command strings for GitHub Actions secret operations
+│   ├── appAuth.ts      # GitHub App JWT dance and installation-token exchange — absorbed into package (#700)
+│   ├── bootstrapIdentity.ts  # Pre-context git reads (git remote get-url origin, gh auth token) — permanent exception absorbed into package (#700)
 │   ├── branchOps.ts    # Package-private branch operation orchestration (create, checkout, delete, reset)
+│   ├── claimOps.ts     # Package-private distributed-lock git ops — detached worktree add, allow-empty commit, non-force push, worktree remove
 │   ├── commitOps.ts    # Package-private commit/push orchestration (force-with-lease, lease rejection detection)
 │   ├── gitContext.ts   # GitContext class — mandatory identity, base-path resolution in constructor, per-command env injection, no cwd fallback
-│   ├── index.ts        # Public surface (GitContext class + GitIdentity/GitContextOptions types)
+│   ├── gitReadOps.ts   # Package-private git-read ops — tracked-file listing, HEAD hash, branch diff, commit-history log
+│   ├── remoteOps.ts    # Package-private remote-interaction ops — fetch from origin, ls-remote queries, merge a ref, and abort in-progress merge
+│   ├── index.ts        # Public surface (GitContext class + GitIdentity/GitContextOptions types + bootstrap primitives)
 │   ├── processCleanup.ts  # Package-private process kill helpers (killProcessesInDirectory)
+│   ├── repoWorkspace.ts  # Target-repo workspace management (path resolution, clone, fetch) — absorbed into package (#700); defaultBranch thunk injected for veracious auth
+│   ├── tokenResolver.ts  # Veracious token resolver (resolveContextToken) — never reads process.env.GH_TOKEN; replaces the two prior resolvers that were the GH_TOKEN-bleed root (#700)
 │   ├── types.ts        # GitIdentity, GitContextOptions, ExecFn, and GitContextDeps interfaces
 │   ├── worktreeCreateOps.ts  # Package-private worktree creation orchestration (add, copy env, gitignore)
+│   ├── worktreeProbeOps.ts   # Package-private worktree-probe ops — inspects an arbitrary worktree path (WorktreeRegistration: healthy/locked/prunable/missing)
 │   ├── worktreeQueryOps.ts   # Package-private worktree query helpers (list, find by branch/issue)
 │   ├── worktreeRemoveOps.ts  # Package-private worktree removal orchestration (remove single, remove for issue)
 │   └── worktreeResetOps.ts  # Package-private takeover-reset orchestration (fetch, reset to remote, worktree repair)
@@ -677,6 +693,7 @@ adws/                   # ADW workflow system
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── branchIdentityFallback.test.ts
 │   │   ├── branchNameResolution.test.ts
+│   │   ├── docsSelfCheck.test.ts
 │   │   ├── gherkinFreeze.test.ts
 │   │   ├── orchestratorLock.test.ts
 │   │   ├── planPhase.test.ts
@@ -761,6 +778,7 @@ adws/                   # ADW workflow system
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── autoMergeHandler.test.ts
 │   │   ├── cancelHandler.test.ts
+│   │   ├── concurrencyGuard.test.ts
 │   │   ├── cronIssueFilter.test.ts
 │   │   ├── cronLabelEligibility.test.ts
 │   │   ├── cronRepoResolver.test.ts
@@ -870,6 +888,7 @@ adws/                   # ADW workflow system
 ├── adw.yml             # ADW self-configuration for this repo (hitl, unit-test gate)
 └── workflows/
     ├── deploy-workers.yml  # Auto-deploy Cloudflare Workers on push to main
+    ├── git-cli-guard.yml   # CI guard: rejects direct git/gh shell-outs that bypass GitContext
     └── regression.yml      # Periodic @regression BDD scenario runner
 workers/                # Cloudflare Workers
 ├── cost-api/           # Cost data ingestion API (costs.paysdoc.nl, D1-backed)
@@ -948,6 +967,7 @@ features/               # BDD feature files (Gherkin .feature)
 ├── support/            # Top-level Cucumber support (tsx registration)
 └── webhook_ensure_cron_on_every_event.feature  # Integration scenario: cron fires on every webhook event (issue #501)
 specs/                  # Generated implementation specs
+├── issue-*.md          # Per-issue plan specs committed by the plan agent
 ├── patch/              # Generated patch specs
 └── prd/                # Product requirement documents
 .env.sample             # Environment variable template

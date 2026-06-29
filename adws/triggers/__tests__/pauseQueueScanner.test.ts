@@ -44,7 +44,6 @@ vi.mock('../../core/pauseQueue', () => ({
 
 vi.mock('../../github', () => ({
   getRepoInfo: vi.fn(() => ({ owner: 'test-owner', repo: 'test-repo' })),
-  activateGitHubAppAuth: vi.fn(),
 }));
 
 vi.mock('../../phases/phaseCommentHelpers', () => ({
@@ -78,7 +77,6 @@ import { removeFromPauseQueue, updatePauseQueueEntry } from '../../core/pauseQue
 import { postIssueStageComment } from '../../phases/phaseCommentHelpers';
 import { acquireIssueSpawnLock, releaseIssueSpawnLock } from '../spawnGate';
 import { AgentStateManager } from '../../core/agentState';
-import { activateGitHubAppAuth } from '../../github';
 import { resumeWorkflow } from '../pauseQueueScanner';
 import type { PausedWorkflow } from '../../core/pauseQueue';
 import type { AgentState } from '../../types/agentTypes';
@@ -304,9 +302,11 @@ describe('resumeWorkflow', () => {
     expect(postIssueStageComment).not.toHaveBeenCalled();
   });
 
-  // ── GH_TOKEN bleed regression guards (issue #565) ─────────────────────────
+  // ── Repo-identity routing (issue #565 / #701) ─────────────────────────────
+  // Per-command auth is now supplied by the launch-boundary GitContext (PRD Auth model).
+  // These guards verify the correct repo identity is routed for spawn-lock acquisition.
 
-  it('activates GitHub App auth for the target repo from extraArgs, not the cwd-resolved repo', async () => {
+  it('uses the target repo from extraArgs for spawn-lock, not the cwd-resolved repo', async () => {
     const child = makeFakeChild();
     vi.mocked(childProcess.spawn).mockReturnValue(child as unknown as ReturnType<typeof childProcess.spawn>);
 
@@ -316,8 +316,11 @@ describe('resumeWorkflow', () => {
     await vi.runAllTimersAsync();
     await promise;
 
-    expect(activateGitHubAppAuth).toHaveBeenCalledWith('owner', 'repo');
-    expect(activateGitHubAppAuth).not.toHaveBeenCalledWith('test-owner', 'test-repo');
+    expect(acquireIssueSpawnLock).toHaveBeenCalledWith(
+      expect.objectContaining({ owner: 'owner', repo: 'repo' }),
+      entry.issueNumber,
+      process.pid,
+    );
   });
 
   it('falls back to getRepoInfo() when entry has no extraArgs (framework self-hosting workflow)', async () => {
@@ -334,7 +337,6 @@ describe('resumeWorkflow', () => {
     await promise;
 
     // Falls back to getRepoInfo() which returns { owner: 'test-owner', repo: 'test-repo' }
-    expect(activateGitHubAppAuth).toHaveBeenCalledWith('test-owner', 'test-repo');
     expect(acquireIssueSpawnLock).toHaveBeenCalledWith(
       expect.objectContaining({ owner: 'test-owner', repo: 'test-repo' }),
       entry.issueNumber,

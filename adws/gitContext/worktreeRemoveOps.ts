@@ -4,7 +4,7 @@
  */
 
 import * as path from 'path';
-import { log } from '../core';
+import { log } from '../core/utils';
 import { killProcessesInDirectory } from './processCleanup';
 
 type Runner = (command: string, cwd: string) => string;

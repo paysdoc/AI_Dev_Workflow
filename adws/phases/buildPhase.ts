@@ -154,7 +154,7 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
         }
       };
 
-      const buildResult = await runBuildAgent(issue, logsDir, currentPlanContent, buildProgressCallback, buildAgentStatePath, worktreePath);
+      const buildResult = await runBuildAgent(issue, logsDir, currentPlanContent, buildProgressCallback, buildAgentStatePath, worktreePath, gitCtx.commandEnv());
 
       // Accumulate cost and model usage across continuations
       costUsd += buildResult.totalCostUsd || 0;
@@ -232,7 +232,7 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
 
         // Batch boundary: commit if dirty, then evaluate the progress gate
         if (gitCtx.hasUncommittedChanges(worktreePath)) {
-          await runCommitAgent('build-agent', issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body);
+          await runCommitAgent('build-agent', issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body, gitCtx.commandEnv());
         }
         const headTreeHash = gitCtx.getHeadTreeHash(worktreePath);
         const decision = evaluateProgressGate({ headTreeHash, seen: seenTreeHashes, checkpointCount, maxCheckpoints: MAX_PROGRESS_CHECKPOINTS });

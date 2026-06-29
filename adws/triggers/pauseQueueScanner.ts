@@ -18,7 +18,7 @@ import {
   updatePauseQueueEntry,
   type PausedWorkflow,
 } from '../core/pauseQueue';
-import { getRepoInfo, activateGitHubAppAuth, type RepoInfo } from '../github';
+import { getRepoInfo, type RepoInfo } from '../github';
 import { postIssueStageComment } from '../phases/phaseCommentHelpers';
 import { createRepoContext } from '../providers/repoContext';
 import { Platform } from '../providers/types';
@@ -114,7 +114,6 @@ function awaitChildReadiness(child: ChildProcess, timeoutMs: number): Promise<vo
 /** Posts a resumed comment to the GitHub issue and spawns the orchestrator. */
 export async function resumeWorkflow(entry: PausedWorkflow): Promise<void> {
   const repoInfo = resolveEntryRepoInfo(entry);
-  activateGitHubAppAuth(repoInfo.owner, repoInfo.repo);
 
   // Check worktree still exists
   if (!worktreeExists(entry.worktreePath)) {

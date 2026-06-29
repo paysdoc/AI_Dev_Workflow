@@ -4,7 +4,6 @@
  * that all required ADW columns are present.
  */
 
-import { execSync } from 'child_process';
 import { log } from '../../core';
 import type { BoardManager, BoardColumnDefinition, RepoIdentifier } from '../types';
 import { BOARD_COLUMNS, validateRepoIdentifier } from '../types';
@@ -157,9 +156,7 @@ class GitHubBoardManager implements BoardManager {
         : { name: o.name, color: o.color, description: o.description },
     );
     const body = { query: mutation, variables: { fieldId, singleSelectOptions } };
-    // runGraphQL only accepts Record<string, string | number> variables; use execSync
-    // with stdin pipe for complex array variables.
-    execSync('gh api graphql --input -', { input: JSON.stringify(body), encoding: 'utf-8' });
+    this.ctx.runGraphQLInput(body);
   }
 
   /** Ensures all required ADW columns exist on the board. */

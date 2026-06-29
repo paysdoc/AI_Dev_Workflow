@@ -10,13 +10,13 @@
  */
 
 import * as fs from 'fs';
-import { execSync } from 'child_process';
 import type { IssueClassSlashCommand } from '../core';
 import { AGENTS_STATE_DIR } from '../core';
 import { AgentStateManager } from '../core/agentState';
 import type { AgentState } from '../types/agentTypes';
 import { branchMatchesIssue } from '../vcs/branchIdentity';
 import { getLastActivityFromState } from '../triggers/cronStageResolver';
+import { gitContextForRepo, readLocalRepoInfo } from '../github/gitContextFactory';
 
 /** Injectable dependencies for the identity-recovery helpers. */
 export interface BranchIdentityFallbackDeps {
@@ -28,35 +28,9 @@ export interface BranchIdentityFallbackDeps {
   readTopLevelState(adwId: string): AgentState | null;
 }
 
-function parseWorktreeBranchNames(cwd?: string): string[] {
-  try {
-    const output = execSync('git worktree list --porcelain', { encoding: 'utf-8', cwd });
-    const branches: string[] = [];
-    for (const line of output.split('\n')) {
-      if (line.startsWith('branch ')) {
-        const branch = line.substring('branch '.length).replace('refs/heads/', '').trim();
-        if (branch) branches.push(branch);
-      }
-    }
-    return branches;
-  } catch {
-    return [];
-  }
-}
-
 function defaultListCandidateBranches(cwd?: string): string[] {
-  const fromWorktrees = parseWorktreeBranchNames(cwd);
-  const fromLocal: string[] = [];
-  try {
-    const output = execSync('git branch --list', { encoding: 'utf-8', cwd });
-    for (const line of output.split('\n')) {
-      const branch = line.replace(/^\*?\s+/, '').trim();
-      if (branch) fromLocal.push(branch);
-    }
-  } catch {
-    // ignore
-  }
-  return [...new Set([...fromWorktrees, ...fromLocal])];
+  const ctx = gitContextForRepo(readLocalRepoInfo(cwd));
+  return [...new Set([...ctx.worktreeBranches(cwd), ...ctx.localBranches(cwd)])];
 }
 
 function defaultListAdwIds(): string[] {

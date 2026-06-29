@@ -53,6 +53,7 @@ export async function runDocumentAgent(
   statePath?: string,
   cwd?: string,
   issueBody?: string,
+  subprocessEnv?: NodeJS.ProcessEnv,
 ): Promise<AgentResult & { docPath: string }> {
   const result = await runCommandAgent(documentAgentConfig, {
     args: [adwId, specPath ?? '', screenshotsDir ?? ''],
@@ -60,6 +61,7 @@ export async function runDocumentAgent(
     issueBody,
     statePath,
     cwd,
+    subprocessEnv,
   });
   return { ...result, docPath: result.parsed };
 }

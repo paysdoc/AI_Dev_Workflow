@@ -1,9 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { execSync } from 'child_process';
-
-vi.mock('child_process', () => ({
-  execSync: vi.fn(),
-}));
 
 vi.mock('../../core', () => ({
   log: vi.fn(),
@@ -18,9 +13,15 @@ vi.mock('../../agents', () => ({
   runClaudeAgentWithCommand: vi.fn().mockResolvedValue({ success: true, output: '' }),
 }));
 
+vi.mock('../../github/gitContextFactory', () => ({
+  gitContextForRepo: vi.fn(),
+}));
+
 import { mergePR } from '../../github';
 import { runClaudeAgentWithCommand } from '../../agents';
 import { isMergeConflictError, mergeWithConflictResolution } from '../autoMergeHandler';
+import { GitContext } from '../../gitContext/gitContext';
+import type { ExecFn } from '../../gitContext/types';
 
 const REPO_INFO = { owner: 'acme', repo: 'widgets' };
 const HEAD_BRANCH = 'feature-issue-42';
@@ -33,24 +34,53 @@ const MAX_ATTEMPTS = 3;
 
 const NOT_MERGEABLE = 'Pull request acme/widgets#7 is not mergeable: the merge commit cannot be cleanly created.';
 
-const mockedExecSync = vi.mocked(execSync);
 const mockedMergePR = vi.mocked(mergePR);
 const mockedAgent = vi.mocked(runClaudeAgentWithCommand);
 
-function makeConflictingExecSync(): void {
-  mockedExecSync.mockImplementation((cmd) => {
-    const c = String(cmd);
-    if (c.includes('merge --no-commit --no-ff')) throw Object.assign(new Error('CONFLICT (content)'), { status: 1 });
-    if (c.includes('--no-edit')) throw Object.assign(new Error('CONFLICT'), { status: 1 });
-    return '';
-  });
+interface SpyCall {
+  command: string;
+  cwd: string;
+  env: NodeJS.ProcessEnv;
+}
+
+function makeSpyExec(
+  stdout = '',
+  conflictOnMerge = false,
+): { exec: ExecFn; calls: SpyCall[] } {
+  const calls: SpyCall[] = [];
+  const exec: ExecFn = (command, options) => {
+    calls.push({ command, cwd: options.cwd, env: options.env });
+    if (conflictOnMerge && command.includes('git merge') && (command.includes('--no-commit') || command.includes('--no-edit'))) {
+      throw Object.assign(new Error('CONFLICT (content)'), { status: 1 });
+    }
+    return stdout;
+  };
+  return { exec, calls };
+}
+
+function makeGitContext(exec: ExecFn): GitContext {
+  return new GitContext(
+    {
+      owner: 'acme',
+      repo: 'widgets',
+      selfHost: false,
+      token: 'test-token',
+      gitIdentity: {
+        authorName: 'ADW Bot',
+        authorEmail: 'bot@adw.dev',
+        committerName: 'ADW Bot',
+        committerEmail: 'bot@adw.dev',
+      },
+      frameworkRepoRoot: '/srv/adw/framework',
+      targetReposDir: '/srv/adw/repos',
+    },
+    { exec },
+  );
 }
 
 beforeEach(() => {
-  mockedExecSync.mockReset();
   mockedMergePR.mockReset();
   mockedAgent.mockReset();
-  mockedExecSync.mockReturnValue('');
   mockedMergePR.mockReturnValue({ success: true });
   mockedAgent.mockResolvedValue({ success: true, output: '' });
 });
@@ -95,9 +125,10 @@ describe('isMergeConflictError', () => {
 
 describe('mergeWithConflictResolution', () => {
   it('invokes resolveConflictsViaAgent when the dry-run reports conflicts', async () => {
-    makeConflictingExecSync();
+    const { exec } = makeSpyExec('', true);
+    const ctx = makeGitContext(exec);
 
-    await mergeWithConflictResolution(7, REPO_INFO, HEAD_BRANCH, BASE_BRANCH, WORKTREE, ADW_ID, LOGS_DIR, SPEC_PATH);
+    await mergeWithConflictResolution(7, REPO_INFO, HEAD_BRANCH, BASE_BRANCH, WORKTREE, ADW_ID, LOGS_DIR, SPEC_PATH, ctx);
 
     expect(mockedAgent).toHaveBeenCalledWith(
       '/resolve_conflict',
@@ -113,24 +144,23 @@ describe('mergeWithConflictResolution', () => {
   });
 
   it('does not break out of the retry loop when gh returns "not mergeable" (loop continues)', async () => {
-    // does not break — loop continues until attempt 2 succeeds
+    const { exec } = makeSpyExec('');
+    const ctx = makeGitContext(exec);
     mockedMergePR
       .mockReturnValueOnce({ success: false, error: NOT_MERGEABLE })
       .mockReturnValueOnce({ success: true });
 
-    const result = await mergeWithConflictResolution(7, REPO_INFO, HEAD_BRANCH, BASE_BRANCH, WORKTREE, ADW_ID, LOGS_DIR, SPEC_PATH);
+    const result = await mergeWithConflictResolution(7, REPO_INFO, HEAD_BRANCH, BASE_BRANCH, WORKTREE, ADW_ID, LOGS_DIR, SPEC_PATH, ctx);
 
     expect(result.success).toBe(true);
-    expect(mockedMergePR).toHaveBeenCalledTimes(2); // does not break after first failure
+    expect(mockedMergePR).toHaveBeenCalledTimes(2);
   });
 
   it('remote-base-diverged-from-local-worktree: resolveConflictsViaAgent is invoked after sync reveals conflict', async () => {
-    // remote-base-diverged-from-local-worktree scenario:
-    // After syncWorktreeToOriginHead pulls new commits from origin/<headBranch>,
-    // the dry-run detects a conflict that was invisible before the sync.
-    makeConflictingExecSync();
+    const { exec } = makeSpyExec('', true);
+    const ctx = makeGitContext(exec);
 
-    const result = await mergeWithConflictResolution(7, REPO_INFO, HEAD_BRANCH, BASE_BRANCH, WORKTREE, ADW_ID, LOGS_DIR, SPEC_PATH);
+    const result = await mergeWithConflictResolution(7, REPO_INFO, HEAD_BRANCH, BASE_BRANCH, WORKTREE, ADW_ID, LOGS_DIR, SPEC_PATH, ctx);
 
     expect(result.success).toBe(true);
     expect(mockedAgent).toHaveBeenCalledWith(
@@ -147,27 +177,26 @@ describe('mergeWithConflictResolution', () => {
   });
 
   it('returns failure with last error when the agent fails on every attempt', async () => {
-    makeConflictingExecSync();
+    const { exec } = makeSpyExec('', true);
+    const ctx = makeGitContext(exec);
     mockedAgent.mockResolvedValue({ success: false, output: 'Agent failed to resolve conflict' });
 
-    const result = await mergeWithConflictResolution(7, REPO_INFO, HEAD_BRANCH, BASE_BRANCH, WORKTREE, ADW_ID, LOGS_DIR, SPEC_PATH);
+    const result = await mergeWithConflictResolution(7, REPO_INFO, HEAD_BRANCH, BASE_BRANCH, WORKTREE, ADW_ID, LOGS_DIR, SPEC_PATH, ctx);
 
     expect(result.success).toBe(false);
     expect(mockedAgent).toHaveBeenCalledTimes(MAX_ATTEMPTS);
   });
 
   it('begins with git fetch and git reset for the head branch before any git merge call', async () => {
-    const calls: string[] = [];
-    mockedExecSync.mockImplementation((cmd) => {
-      calls.push(String(cmd));
-      return '';
-    });
+    const { exec, calls } = makeSpyExec('');
+    const ctx = makeGitContext(exec);
 
-    await mergeWithConflictResolution(7, REPO_INFO, HEAD_BRANCH, BASE_BRANCH, WORKTREE, ADW_ID, LOGS_DIR, SPEC_PATH);
+    await mergeWithConflictResolution(7, REPO_INFO, HEAD_BRANCH, BASE_BRANCH, WORKTREE, ADW_ID, LOGS_DIR, SPEC_PATH, ctx);
 
-    expect(calls[0]).toContain(`git fetch origin "${HEAD_BRANCH}"`);
-    expect(calls[1]).toContain(`git reset --hard "origin/${HEAD_BRANCH}"`);
-    const firstMergeIdx = calls.findIndex((c) => c.includes('git merge'));
+    const commands = calls.map((c) => c.command);
+    expect(commands[0]).toContain(`git fetch origin "${HEAD_BRANCH}"`);
+    expect(commands[1]).toContain(`git reset --hard "origin/${HEAD_BRANCH}"`);
+    const firstMergeIdx = commands.findIndex((c) => c.includes('git merge'));
     expect(firstMergeIdx).toBeGreaterThan(1);
   });
 });

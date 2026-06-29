@@ -95,13 +95,15 @@ export async function runResolutionAgent(
   mismatches: MismatchItem[],
   logsDir: string,
   statePath?: string,
-  cwd?: string
+  cwd?: string,
+  subprocessEnv?: NodeJS.ProcessEnv,
 ): Promise<AgentResult & { resolutionResult: ResolutionResult }> {
   const result = await runCommandAgent(resolutionAgentConfig, {
     args: formatResolutionArgs(adwId, issueNumber, planFilePath, scenarioGlob, issueJson, mismatches),
     logsDir,
     statePath,
     cwd,
+    subprocessEnv,
   });
 
   return { ...result, resolutionResult: result.parsed };

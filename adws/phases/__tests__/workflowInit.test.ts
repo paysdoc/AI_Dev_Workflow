@@ -33,6 +33,8 @@ const mockGitCtx = vi.hoisted(() => ({
   getWorktreeForBranch: vi.fn().mockReturnValue(null),
   copyEnvToWorktree: vi.fn(),
   findWorktreeForIssue: vi.fn().mockReturnValue(null),
+  headShort: vi.fn().mockReturnValue('abc1234'),
+  show: vi.fn(),
 }));
 
 vi.mock('../../github', () => ({
@@ -53,6 +55,12 @@ vi.mock('../../core/environment', async (importOriginal) => {
 });
 
 vi.mock('../../vcs', () => ({}));
+
+vi.mock('../branchIdentityFallback', () => ({
+  findExistingBranchForIssue: vi.fn().mockReturnValue(null),
+  recoverAdwIdForBranch: vi.fn().mockReturnValue(null),
+  defaultDeps: { listCandidateBranches: vi.fn().mockReturnValue([]), listAdwIds: vi.fn().mockReturnValue([]) },
+}));
 
 vi.mock('../../providers/repoContext', () => ({
   createRepoContext: vi.fn().mockReturnValue(undefined),

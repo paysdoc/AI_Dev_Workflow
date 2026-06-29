@@ -5,9 +5,10 @@
  * Used by all orchestrators for stage execution, change detection, and recovery.
  */
 
-import { execSync } from 'child_process';
 import { WorkflowStage, RecoveryState } from '../types/workflowTypes';
 import { STAGE_ORDER } from './workflowCommentParsing';
+import { gitContextForRepo, readLocalRepoInfo } from '../github/gitContextFactory';
+export { deriveOrchestratorScript, orchestratorNamesForScript } from './orchestratorNames';
 
 /**
  * Determines if a stage should be executed based on recovery state.
@@ -31,12 +32,7 @@ export function shouldExecuteStage(stage: WorkflowStage, recoveryState: Recovery
  */
 export function hasUncommittedChanges(cwd?: string): boolean {
   try {
-    const options: { encoding: BufferEncoding; cwd?: string } = { encoding: 'utf-8' };
-    if (cwd) {
-      options.cwd = cwd;
-    }
-    const status = execSync('git status --porcelain', options);
-    return status.trim().length > 0;
+    return gitContextForRepo(readLocalRepoInfo(cwd)).hasUncommittedChanges(cwd ?? process.cwd());
   } catch {
     return false;
   }
@@ -54,41 +50,3 @@ export function getNextStage(lastCompletedStage: WorkflowStage): WorkflowStage {
   return STAGE_ORDER[index + 1];
 }
 
-const ORCHESTRATOR_SCRIPT_BY_NAME: Record<string, string> = {
-  'sdlc-orchestrator': 'adwSdlc',
-  'plan-orchestrator': 'adwPlan',
-  'chore-orchestrator': 'adwChore',
-  'plan-build-orchestrator': 'adwPlanBuild',
-  'plan-build-test-orchestrator': 'adwPlanBuild',
-  'plan-build-review-orchestrator': 'adwPlanBuildReview',
-  'plan-build-test-review-orchestrator': 'adwPlanBuildTestReview',
-  'plan-build-document-orchestrator': 'adwPlanBuildDocument',
-  'build-orchestrator': 'adwBuild',
-  'patch-orchestrator': 'adwPatch',
-  'test-orchestrator': 'adwTest',
-  'pr-review-orchestrator': 'adwPrReview',
-  'feature-orchestrator': 'adwSdlc',
-  'merge-orchestrator': 'adwMerge',
-};
-
-/**
- * Derives the orchestrator script path from the orchestratorName identifier.
- * Assumes scripts live at adws/{camelCase}.tsx.
- */
-export function deriveOrchestratorScript(orchestratorName: string): string {
-  return `adws/${ORCHESTRATOR_SCRIPT_BY_NAME[orchestratorName] ?? 'adwSdlc'}.tsx`;
-}
-
-/**
- * Inverse of deriveOrchestratorScript: returns the orchestrator agentName
- * identifiers whose script equals the given path. Only explicitly-mapped names
- * are returned — the 'adwSdlc' default fallback is NOT applied, so unmapped
- * names (e.g. 'init-orchestrator') never match. Used by findOrchestratorStatePath
- * to disambiguate a reused adwId where a failed init-orchestrator shadows the
- * real orchestrator (#529).
- */
-export function orchestratorNamesForScript(orchestratorScript: string): string[] {
-  return Object.entries(ORCHESTRATOR_SCRIPT_BY_NAME)
-    .filter(([, script]) => `adws/${script}.tsx` === orchestratorScript)
-    .map(([name]) => name);
-}

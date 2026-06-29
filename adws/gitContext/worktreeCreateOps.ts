@@ -3,7 +3,7 @@
  * Injects runner and fs for testability — no base-path computation here.
  */
 
-import { log } from '../core';
+import { log } from '../core/utils';
 import { worktreeQueryOps } from './worktreeQueryOps';
 
 type Runner = (command: string, cwd: string) => string;

@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const mockPush = vi.hoisted(() => vi.fn());
-const mockGitContextFor = vi.hoisted(() => vi.fn(() => Promise.resolve({ pushBranch: mockPush })));
+const mockCommandEnv = vi.hoisted(() => vi.fn(() => ({})));
+const mockGitContextFor = vi.hoisted(() => vi.fn(() => Promise.resolve({ pushBranch: mockPush, commandEnv: mockCommandEnv })));
 
 vi.mock('../reviewPhase', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../reviewPhase')>();

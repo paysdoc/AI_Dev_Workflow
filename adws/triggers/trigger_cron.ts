@@ -13,7 +13,7 @@ import { log, GRACE_PERIOD_MS, JANITOR_INTERVAL_CYCLES, HEARTBEAT_STALE_THRESHOL
 import type { GitContext } from '../gitContext';
 import { findHungOrchestrators, type HungDetectorDeps } from '../core/hungOrchestratorDetector';
 import { AgentStateManager } from '../core/agentState';
-import { getRepoInfo, fetchPRList, hasUnaddressedComments, isCancelComment, isRetryComment, activateGitHubAppAuth, refreshTokenIfNeeded } from '../github';
+import { getRepoInfo, fetchPRList, hasUnaddressedComments, isCancelComment, isRetryComment } from '../github';
 import { readAuthGate, writeAuthGate, clearAuthGate, markGateSlackNotified, shouldSendDetectionSlack } from '../core/authGate';
 import { sendSlackDetectionNotification, sendSlackRecoveryNotification } from '../core/slackNotifier';
 import { markStatePausedAuthForLiveOrchestrator } from '../phases/authPause';
@@ -33,6 +33,7 @@ import { scanPauseQueue } from './pauseQueueScanner';
 import { runJanitorPass } from './devServerJanitor';
 import { runPerIssueScenarioSweep } from './perIssueScenarioSweep';
 import { resolveCronRepo, buildCronTargetRepoArgs } from './cronRepoResolver';
+import { gitContextForRepo } from '../github/gitContextFactory';
 import { filterEligibleIssues, resolveTouchedFilesFromBody } from './cronIssueFilter';
 import { registerRegionOverlapBlocker } from './regionOverlapSignals';
 import { shouldDispatchMerge } from './mergeDispatchGate';
@@ -65,21 +66,19 @@ const { repoInfo: cronRepoInfo, targetRepo } = resolveCronRepo(process.argv.slic
 // Null when this module is imported by tests (guard does not fire).
 let cronGitContext: GitContext | null = null;
 
-// Activate GitHub App auth before any gh CLI calls only when running as the cron script.
+// Build launch-boundary GitContext only when running as the cron script.
 // Skipped when trigger_cron.ts is imported as a module (e.g. by BDD step definitions).
 if (process.argv[1]?.replace(/\\/g, '/').includes('trigger_cron')) {
-  activateGitHubAppAuth(cronRepoInfo.owner, cronRepoInfo.repo);
   cronGitContext = buildLaunchGitContext(targetRepo);
 }
 
 /** Fetches all open issues with body, comments, and timestamps. */
 function fetchOpenIssues(): RawIssue[] {
-  const { owner, repo } = cronRepoInfo;
   try {
-    const json = execSync(
-      `gh issue list --repo ${owner}/${repo} --state open --json number,title,body,comments,createdAt,updatedAt,labels --limit 100`,
-      { encoding: 'utf-8' },
-    );
+    const json = gitContextForRepo(cronRepoInfo).listOpenIssues({
+      fields: ['number', 'title', 'body', 'comments', 'createdAt', 'updatedAt', 'labels'],
+      limit: 100,
+    });
     return JSON.parse(json);
   } catch (error) {
     log(`Failed to fetch issues: ${error}`, 'error');
@@ -92,7 +91,7 @@ function buildTargetRepoArgs(): string[] {
   return buildCronTargetRepoArgs(
     cronRepoInfo,
     targetRepo,
-    () => { try { return execSync('git remote get-url origin', { encoding: 'utf-8' }).trim(); } catch { return null; } },
+    () => { try { return gitContextForRepo(cronRepoInfo).remoteUrl(); } catch { return null; } },
   );
 }
 
@@ -211,9 +210,6 @@ async function checkAndTrigger(): Promise<void> {
   if (cycleCount % PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES === 0) {
     await runPerIssueScenarioSweep();
   }
-
-  // Per-command auth via gitContextForRepo handles per-repo token injection.
-  // The transitional activateGitHubAppAuth at startup covers legacy global-token callers.
 
   const now = Date.now();
   const cancelledThisCycle = new Set<number>();
@@ -390,7 +386,7 @@ if (process.argv[1]?.replace(/\\/g, '/').includes('trigger_cron')) {
 
   log('CRON trigger (backlog sweeper) started');
   void checkAndTrigger();
-  setInterval(() => { refreshTokenIfNeeded(cronRepoInfo.owner, cronRepoInfo.repo); void checkAndTrigger(); }, POLL_INTERVAL_MS);
+  setInterval(() => { void checkAndTrigger(); }, POLL_INTERVAL_MS);
   checkPRsForReviewComments();
   setInterval(checkPRsForReviewComments, PR_POLL_INTERVAL_MS);
 }

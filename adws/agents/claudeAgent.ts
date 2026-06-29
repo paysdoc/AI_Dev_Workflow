@@ -75,6 +75,7 @@ export async function runClaudeAgentWithCommand(
   cwd?: string,
   contextPreamble?: string,
   phaseName?: string,
+  subprocessEnv?: NodeJS.ProcessEnv,
 ): Promise<AgentResult> {
   // Build the prompt as "command 'args'" for the CLI
   // Each arg is single-quoted to preserve formatting
@@ -115,7 +116,8 @@ export async function runClaudeAgentWithCommand(
   log(`  Output file: ${outputFile}`, 'info');
   log(`  Args length: ${Array.isArray(args) ? `${args.length} elements` : `${args.length} characters`}`, 'info');
 
-  const spawnEnv = getSafeSubprocessEnv();
+  // Subprocess receives per-command auth from the launch-boundary context, never from a process-global (PRD Auth model).
+  const spawnEnv = { ...getSafeSubprocessEnv(), ...(subprocessEnv ?? {}) };
   const resolvedCwd = cwd || process.cwd();
   if (cwd && cwd.includes('.worktrees/')) {
     try {

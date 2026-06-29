@@ -5,7 +5,8 @@
  * for call expressions whose first argument is a git or gh command string. Detects
  * execSync('git …'), execWithRetry(`gh …`), execFileSync('git', […]), and any
  * other call shape by inspecting the command string, not the callee name.
- * Files on ALLOWLIST are skipped; any unallowlisted violation exits 1 (build fail).
+ * The only file exemption is the structurally-exempt package directory (EXEMPT_PACKAGE_DIR).
+ * Any violation exits 1 (build fail).
  *
  * Run via: bunx tsx adws/checkGitGhGuard.ts
  * Exits 0 if no violations found, 1 if any violations are detected.
@@ -31,44 +32,6 @@ const EXEMPT_PACKAGE_DIR = 'adws/gitContext';
 
 /** Matches a git or gh command string: starts with 'git '/'gh ' or is exactly 'git'/'gh'. */
 const GIT_GH_RE = /^(git|gh)(\s|$)/;
-
-/**
- * Repo-relative paths allowed to shell out to git/gh directly.
- * Categories: bootstrap (permanent), diagnostic (permanent), residual (temporary).
- */
-const ALLOWLIST: readonly string[] = [
-  // bootstrap — cannot use GitContext before it exists
-  'adws/core/launchGitContext.ts',        // gh auth token, git config user.name/email
-  'adws/github/gitContextFactory.ts',     // git config, gh auth token, git remote get-url
-  'adws/core/targetRepoManager.ts',       // git clone, git fetch, gh repo view
-  'adws/core/upgradeClaim.ts',            // distributed lock: git fetch/worktree/commit/push
-  'adws/github/githubAppAuth.ts',         // GitHub App token minting via gh
-
-  // diagnostic — tooling / health-check scripts, non-hot-path
-  'adws/healthCheckChecks.ts',            // git rev-parse/remote/status/config, gh auth/issue
-  'adws/healthCheck.tsx',                 // gh repo view --json url
-  'adws/checkLivingDocsIndex.ts',         // git ls-files (doc-index gate)
-
-  // residual — migrate to GitContext methods (follow-up)
-  'adws/vcs/branchOperations.ts',                  // gh repo view, git branch -D
-  'adws/vcs/worktreeProbe.ts',                     // git rev-parse, git symbolic-ref, git worktree list
-  'adws/vcs/worktreeOperations.ts',                // git worktree list --porcelain
-  'adws/core/orchestratorLib.ts',                  // git status --porcelain
-  'adws/core/remoteReconcile.ts',                  // git ls-remote via execWithRetry
-  'adws/adwPromotionSweep.tsx',                    // gh pr view/create, git <args> via execWithRetry
-  'adws/phases/depauditSetup.ts',                  // gh secret set via injected execWithRetry
-  'adws/github/labelManager.ts',                   // gh label create, gh issue edit via injected exec
-  'adws/triggers/autoMergeHandler.ts',             // git fetch, git merge
-  'adws/github/githubApi.ts',                      // git remote get-url origin, gh api user
-  'adws/github/prCommentDetector.ts',              // git log (commit history lookup)
-  'adws/phases/branchIdentityFallback.ts',         // git worktree list, git branch --list
-  'adws/phases/diffEvaluationPhase.ts',            // git diff
-  'adws/phases/workflowInit.ts',                   // git rev-parse --short HEAD
-  'adws/phases/worktreeSetup.ts',                  // git ls-files
-  'adws/providers/github/githubBoardManager.ts',   // gh api graphql
-  'adws/providers/repoContext.ts',                 // git remote get-url origin
-  'adws/triggers/trigger_cron.ts',                 // gh issue list, git remote get-url origin
-];
 
 // ---------------------------------------------------------------------------
 // Types
@@ -117,17 +80,15 @@ function isScannable(name: string, relPath: string): boolean {
 // ---------------------------------------------------------------------------
 
 /**
- * Scans collected source files for direct git/gh shell-out calls outside the allowlist.
+ * Scans collected source files for direct git/gh shell-out calls.
  * Reads each file from disk, parses with the TypeScript compiler API (AST-based, so
  * comments are never false-positives), and returns all violations found.
  */
 export function scanFiles(relPaths: readonly string[], repoRoot: string): ScanResult {
-  const allowed = new Set(ALLOWLIST);
   const violations: Violation[] = [];
   let scannedCount = 0;
 
   for (const relPath of relPaths) {
-    if (allowed.has(relPath)) continue;
     scannedCount++;
     const source = fs.readFileSync(path.join(repoRoot, relPath), 'utf-8');
     violations.push(...scanSource(relPath, source));
@@ -173,7 +134,7 @@ function main(): void {
   const { violations, scannedCount } = scanFiles(allFiles, repoRoot);
 
   console.log(
-    `\nGit/GH CLI Guard — scanned ${scannedCount} files (${ALLOWLIST.length} allowlisted)\n`,
+    `\nGit/GH CLI Guard — scanned ${scannedCount} files (0 allowlisted)\n`,
   );
 
   if (violations.length === 0) {
@@ -186,7 +147,7 @@ function main(): void {
     console.log(`  ${file}:${line}  ${command}`);
   }
   console.log(
-    '\n  Remedy: route through GitContext, or add to ALLOWLIST in adws/checkGitGhGuard.ts with justification.\n',
+    '\n  Remedy: route through GitContext, or place inside the adws/gitContext package.\n',
   );
   process.exit(1);
 }

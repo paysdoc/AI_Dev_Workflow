@@ -2,8 +2,7 @@
  * GitHub API functions using the gh CLI.
  */
 
-import { execSync } from 'child_process';
-import { execWithRetry } from '../core';
+import { gitContextForRepo, readLocalRepoInfo } from './gitContextFactory';
 
 export interface RepoInfo {
   owner: string;
@@ -17,21 +16,7 @@ export interface RepoInfo {
  * @param cwd - Optional working directory for the git command (defaults to process.cwd())
  */
 export function getRepoInfo(cwd?: string): RepoInfo {
-  try {
-    const remoteUrl = execSync('git remote get-url origin', { encoding: 'utf-8', cwd }).trim();
-
-    const httpsMatch = remoteUrl.match(/github\.com\/([^/]+)\/([^/.]+)/);
-    const sshMatch = remoteUrl.match(/git@github\.com:([^/]+)\/([^/.]+)/);
-    const match = httpsMatch || sshMatch;
-
-    if (!match) {
-      throw new Error(`Could not parse GitHub URL: ${remoteUrl}`);
-    }
-
-    return { owner: match[1], repo: match[2] };
-  } catch (error) {
-    throw new Error(`Failed to get repo info: ${error}`);
-  }
+  return readLocalRepoInfo(cwd);
 }
 
 /**
@@ -72,7 +57,8 @@ export function getAuthenticatedUser(): string | null {
   if (cachedAuthenticatedUser !== undefined) return cachedAuthenticatedUser;
 
   try {
-    const login = execWithRetry('gh api user --jq .login');
+    const json = gitContextForRepo(getRepoInfo()).authenticatedUser();
+    const login = (JSON.parse(json) as { login?: string }).login;
     cachedAuthenticatedUser = login || null;
   } catch (error) {
     console.warn(`[githubApi] Could not determine authenticated GitHub user: ${error}`);

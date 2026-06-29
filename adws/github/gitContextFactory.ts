@@ -1,18 +1,21 @@
 /**
  * Boundary factory — constructs a GitContext from ambient ADW identity.
  *
- * Resolves auth token (GitHub App → GH_TOKEN → gh CLI) and git identity
- * (env → App slug bot → git config → defaults), injects the ADW framework
- * paths, and returns a fully initialised GitContext.
- *
- * Async so callers can await it at the scope boundary; all resolution is
- * currently synchronous under the hood (execSync / env reads).
+ * This file is a thin ADW adapter that injects framework-global config
+ * (REPO_ROOT, TARGET_REPOS_DIR, GITHUB_PAT) into the package primitives.
+ * All raw git/gh has been absorbed into the `adws/gitContext/` package (issue #700).
  */
 
-import { execSync } from 'child_process';
 import { GitContext } from '../gitContext';
-import type { GitIdentity, GitContextOptions } from '../gitContext/types';
-import { isGitHubAppConfigured, getInstallationToken } from './githubAppAuth';
+import type { GitContextOptions } from '../gitContext/types';
+import {
+  isGitHubAppConfigured,
+  getInstallationToken,
+  readLocalRepoInfo,
+  resolveBootstrapGitIdentity,
+  resolveContextToken,
+  ghAuthToken,
+} from '../gitContext';
 import { REPO_ROOT, TARGET_REPOS_DIR, GITHUB_PAT } from '../core/environment';
 import type { RepoInfo } from './githubApi';
 
@@ -24,48 +27,30 @@ interface FactoryInput {
 
 /**
  * Derives git author/committer identity from ambient config.
- * Resolution order: GIT_AUTHOR_NAME env → GITHUB_APP_SLUG bot → git config → defaults.
+ * Delegates to the absorbed package resolver (issue #700).
  */
-export function deriveGitIdentity(): GitIdentity {
-  if (process.env.GIT_AUTHOR_NAME && process.env.GIT_AUTHOR_EMAIL) {
-    return {
-      authorName: process.env.GIT_AUTHOR_NAME,
-      authorEmail: process.env.GIT_AUTHOR_EMAIL,
-      committerName: process.env.GIT_COMMITTER_NAME ?? process.env.GIT_AUTHOR_NAME,
-      committerEmail: process.env.GIT_COMMITTER_EMAIL ?? process.env.GIT_AUTHOR_EMAIL,
-    };
-  }
-  const appId = process.env.GITHUB_APP_ID;
-  const appSlug = process.env.GITHUB_APP_SLUG;
-  if (appSlug) {
-    const botName = `${appSlug}[bot]`;
-    const botEmail = appId
-      ? `${appId}+${appSlug}[bot]@users.noreply.github.com`
-      : `${appSlug}[bot]@users.noreply.github.com`;
-    return { authorName: botName, authorEmail: botEmail, committerName: botName, committerEmail: botEmail };
-  }
-  try {
-    const name = execSync('git config user.name', { encoding: 'utf-8' }).trim() || 'ADW Bot';
-    const email = execSync('git config user.email', { encoding: 'utf-8' }).trim() || 'adw-bot@noreply.github.com';
-    return { authorName: name, authorEmail: email, committerName: name, committerEmail: email };
-  } catch {
-    return { authorName: 'ADW Bot', authorEmail: 'adw-bot@noreply.github.com', committerName: 'ADW Bot', committerEmail: 'adw-bot@noreply.github.com' };
-  }
+export function deriveGitIdentity() {
+  return resolveBootstrapGitIdentity();
 }
 
+// ---------------------------------------------------------------------------
+// Token resolution
+// ---------------------------------------------------------------------------
+
 function resolveToken(owner: string, repo: string): string {
-  if (isGitHubAppConfigured()) {
-    try { return getInstallationToken(owner, repo); } catch { /* fall through */ }
-  }
-  if (process.env.GH_TOKEN) return process.env.GH_TOKEN;
-  try {
-    const token = execSync('gh auth token', { encoding: 'utf-8' }).trim();
-    if (token) return token;
-  } catch {
-    // gh not available or not authenticated
-  }
-  throw new Error(`gitContextFor: no auth token available for ${owner}/${repo}`);
+  return resolveContextToken({
+    owner,
+    repo,
+    pat: GITHUB_PAT,
+    isAppConfigured: isGitHubAppConfigured,
+    mintInstallationToken: getInstallationToken,
+    ghAuthToken,
+  });
 }
+
+// ---------------------------------------------------------------------------
+// Self-host identity cache
+// ---------------------------------------------------------------------------
 
 let selfHostOwnerCache: string | undefined;
 let selfHostRepoCache: string | undefined;
@@ -73,10 +58,9 @@ let selfHostRepoCache: string | undefined;
 function getSelfHostIdentity(): { owner: string; repo: string } {
   if (selfHostOwnerCache === undefined) {
     try {
-      const remote = execSync('git remote get-url origin', { encoding: 'utf-8', cwd: REPO_ROOT }).trim();
-      const m = remote.match(/github\.com[:/]([^/]+)\/([^/.]+)/);
-      selfHostOwnerCache = m?.[1] ?? '';
-      selfHostRepoCache = m?.[2] ?? '';
+      const info = readLocalRepoInfo(REPO_ROOT);
+      selfHostOwnerCache = info.owner;
+      selfHostRepoCache = info.repo;
     } catch {
       selfHostOwnerCache = '';
       selfHostRepoCache = '';
@@ -90,14 +74,25 @@ export function clearSelfHostCache(): void {
   selfHostRepoCache = undefined;
 }
 
+// ---------------------------------------------------------------------------
+// readLocalRepoInfo — re-exported from package for downstream importers
+// (githubApi.getRepoInfo, orchestratorLib, upgradeClaim, trigger_webhook, etc.)
+// ---------------------------------------------------------------------------
+
+export { readLocalRepoInfo };
+
+// ---------------------------------------------------------------------------
+// GitContext factories
+// ---------------------------------------------------------------------------
+
 export async function gitContextFor({ owner, repo, selfHost }: FactoryInput): Promise<GitContext> {
   return gitContextForSync({ owner, repo, selfHost });
 }
 
-/** Synchronous variant — all resolution is execSync under the hood; use when async is not possible. */
+/** Synchronous variant — all resolution is synchronous under the hood. */
 export function gitContextForSync({ owner, repo, selfHost }: FactoryInput): GitContext {
   const token = resolveToken(owner, repo);
-  const gitIdentity = deriveGitIdentity();
+  const gitIdentity = resolveBootstrapGitIdentity();
   const options: GitContextOptions = {
     owner,
     repo,
@@ -110,11 +105,11 @@ export function gitContextForSync({ owner, repo, selfHost }: FactoryInput): GitC
   return new GitContext(options);
 }
 
-/** Returns a fresh GitContext for the given repo (no caching — getInstallationToken handles token freshness). */
+/** Returns a fresh GitContext for the given repo. */
 export function gitContextForRepo(repoInfo: RepoInfo, opts?: { selfHost?: boolean }): GitContext {
   const { owner, repo } = repoInfo;
   const token = resolveToken(owner, repo);
-  const gitIdentity = deriveGitIdentity();
+  const gitIdentity = resolveBootstrapGitIdentity();
   const sh = getSelfHostIdentity();
   const selfHost = opts?.selfHost ?? (owner === sh.owner && repo === sh.repo && !!sh.owner);
   return new GitContext({

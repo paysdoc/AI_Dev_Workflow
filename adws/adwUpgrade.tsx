@@ -50,7 +50,7 @@ import {
   type IssueCommentRecord,
 } from './core';
 import { ADW_BLOCKED_LABEL } from './github/labelManager';
-import { commentOnIssue, mergePR, type RepoInfo, gitContextFor, activateGitHubAppAuth } from './github';
+import { commentOnIssue, mergePR, type RepoInfo, gitContextFor } from './github';
 import { defaultFindPRByBranch, hasWontFixLabel, type RawPR } from './github/prApi';
 import type { GitContext } from './gitContext';
 import { runClaudeAgentWithCommand } from './agents';
@@ -510,11 +510,6 @@ async function main(): Promise<void> {
   const adwId = parsedAdwId ?? generateAdwId('adwupgrade');
   const repoId = buildRepoIdentifier(targetRepo);
   const repoInfo: RepoInfo = { owner: repoId.owner, repo: repoId.repo };
-  // The raw upgrade lifecycle skips workflowInit, which is where normal
-  // orchestrators activate target-repo App auth. Without this, the workspace
-  // setup below runs `gh` on whatever token is ambient (e.g. the multi-repo
-  // webhook's own-repo token) and fails to resolve the target repo.
-  if (targetRepo) activateGitHubAppAuth(repoId.owner, repoId.repo);
   const baseRepoPath = targetRepo ? ensureTargetRepoWorkspace(targetRepo) : process.cwd();
   const frameworkRepoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
   const gitCtx = await gitContextFor({ owner: repoId.owner, repo: repoId.repo, selfHost: !targetRepo });

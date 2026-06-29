@@ -21,6 +21,11 @@ import { worktreeResetOps } from './worktreeResetOps';
 import { worktreeQueryOps, type WorktreeForIssueResult } from './worktreeQueryOps';
 import { worktreeCreateOps } from './worktreeCreateOps';
 import { worktreeRemoveOps } from './worktreeRemoveOps';
+import { worktreeProbeOps, type WorktreeRegistration } from './worktreeProbeOps';
+import { gitReadOps } from './gitReadOps';
+import type { LogSinceOptions } from './gitReadOps';
+import { remoteOps } from './remoteOps';
+import { claimOps } from './claimOps';
 import {
   fetchIssueCmd, commentOnIssueCmd, issueStateCmd, closeIssueCmd, issueTitleCmd,
   fetchIssueCommentsCmd, issueHasLabelCmd, addIssueLabelCmd, createIssueCmd,
@@ -31,11 +36,12 @@ import {
 import {
   findPRByBranchCmd, fetchPRDetailsCmd, fetchPRReviewsCmd, fetchPRReviewCommentsCmd,
   commentOnPRCmd, mergePRCmd, approvePRCmd, prApprovalStateCmd,
-  fetchPRListCmd, fetchAllPRsCmd, createPRCmd, fetchMergedPRsCmd,
+  fetchPRListCmd, fetchAllPRsCmd, createPRCmd, fetchMergedPRsCmd, prChangedFilesCmd,
 } from './commands/prCommands';
 import { createLabelCmd, applyLabelCmd } from './commands/labelCommands';
+import { setSecretCmd } from './commands/secretCommands';
 import {
-  graphQLCmd, projectQueryCmd, itemQueryCmd, fieldQueryCmd, moveStatusCmd,
+  graphQLCmd, graphQLInputCmd, projectQueryCmd, itemQueryCmd, fieldQueryCmd, moveStatusCmd,
   parseProjectId, parseIssueItem, parseStatusField,
 } from './commands/boardCommands';
 
@@ -47,9 +53,10 @@ const defaultExec: ExecFn = (command, options) => {
       encoding: 'utf-8',
       input: options.input,
       stdio: ['pipe', 'pipe', 'pipe'],
+      maxBuffer: 10 * 1024 * 1024,
     }) as string;
   }
-  return execSync(command, { ...options, encoding: 'utf-8' }) as string;
+  return execSync(command, { ...options, encoding: 'utf-8', maxBuffer: 10 * 1024 * 1024 }) as string;
 };
 
 function assertCompleteIdentity(options: GitContextOptions): void {
@@ -373,6 +380,116 @@ export class GitContext {
     return this.#run('gh api user');
   }
 
+  remoteUrl(cwd?: string): string {
+    return this.#run('git remote get-url origin', { cwd });
+  }
+
+  remotes(cwd?: string): string[] {
+    return this.#run('git remote', { cwd }).split('\n').map(s => s.trim()).filter(Boolean);
+  }
+
+  gitConfigUser(cwd?: string): { name: string | null; email: string | null } {
+    let name: string | null = null;
+    let email: string | null = null;
+    try {
+      const n = this.#run('git config user.name', { cwd });
+      name = n || null;
+    } catch { /* unset key — expected non-error state */ }
+    try {
+      const e = this.#run('git config user.email', { cwd });
+      email = e || null;
+    } catch { /* unset key — expected non-error state */ }
+    return { name, email };
+  }
+
+  // ── Worktree / branch probe reads ────────────────────────────────────────────
+
+  resolveGitDir(worktreePath: string): string | null {
+    return worktreeProbeOps.resolveGitDir((cmd, cwd) => this.#run(cmd, { cwd }), worktreePath);
+  }
+
+  currentBranchSymbolic(worktreePath: string): string | null {
+    return worktreeProbeOps.currentBranchSymbolic((cmd, cwd) => this.#run(cmd, { cwd }), worktreePath);
+  }
+
+  worktreeRegistration(worktreePath: string): WorktreeRegistration {
+    return worktreeProbeOps.worktreeRegistration((cmd, cwd) => this.#run(cmd, { cwd }), worktreePath);
+  }
+
+  worktreeBranches(cwd?: string): string[] {
+    return worktreeQueryOps.worktreeBranches((cmd, c) => this.#run(cmd, { cwd: c }), cwd ?? this.#basePath);
+  }
+
+  localBranches(cwd?: string): string[] {
+    return branchOps.localBranches((cmd, c) => this.#run(cmd, { cwd: c }), cwd ?? this.#basePath);
+  }
+
+  mainRepoPath(cwd?: string): string {
+    return worktreeQueryOps.mainRepoPath((cmd, c) => this.#run(cmd, { cwd: c }), cwd ?? this.#basePath);
+  }
+
+  // ── Remote fetch / merge / ls-remote ops ────────────────────────────────────
+
+  fetchRemote(branch: string, cwd: string): void {
+    remoteOps.fetchRemote((cmd, c) => this.#run(cmd, { cwd: c }), branch, cwd);
+  }
+
+  mergeBranch(ref: string, cwd: string, opts?: { noCommit?: boolean; noFf?: boolean; noEdit?: boolean }): void {
+    remoteOps.mergeBranch((cmd, c) => this.#run(cmd, { cwd: c }), ref, cwd, opts);
+  }
+
+  abortMerge(cwd: string): void {
+    remoteOps.abortMerge((cmd, c) => this.#run(cmd, { cwd: c }), cwd);
+  }
+
+  lsRemote(branch: string, cwd?: string): string {
+    return remoteOps.lsRemote((cmd, c) => this.#run(cmd, { cwd: c }), branch, cwd ?? this.#basePath);
+  }
+
+  // ── Upgrade-claim distributed-lock ops ──────────────────────────────────────
+
+  addDetachedWorktree(worktreePath: string, ref: string, cwd: string): void {
+    claimOps.addDetachedWorktree((cmd, c) => this.#run(cmd, { cwd: c }), worktreePath, ref, cwd);
+  }
+
+  commitAllowEmpty(message: string, cwd: string): void {
+    claimOps.commitAllowEmpty((cmd, c) => this.#run(cmd, { cwd: c }), message, cwd);
+  }
+
+  pushHeadToBranch(branch: string, cwd: string): void {
+    claimOps.pushHeadToBranch((cmd, c) => this.#run(cmd, { cwd: c }), branch, cwd);
+  }
+
+  removeDetachedWorktree(worktreePath: string, cwd: string): void {
+    claimOps.removeDetachedWorktree((cmd, c) => this.#run(cmd, { cwd: c }), worktreePath, cwd);
+  }
+
+  // ── Git read ops ──────────────────────────────────────────────────────────────
+
+  lsFiles(cwd: string, prefix?: string): string[] {
+    return gitReadOps.lsFiles((cmd, c) => this.#run(cmd, { cwd: c }), cwd, prefix);
+  }
+
+  headShort(cwd?: string): string {
+    return gitReadOps.headShort((cmd, c) => this.#run(cmd, { cwd: c }), cwd ?? this.#basePath);
+  }
+
+  diff(range: string, cwd: string): string {
+    return gitReadOps.diff((cmd, c) => this.#run(cmd, { cwd: c }), range, cwd);
+  }
+
+  log(branchName: string, cwd?: string): string {
+    return gitReadOps.log((cmd, c) => this.#run(cmd, { cwd: c }), branchName, cwd ?? this.#basePath);
+  }
+
+  show(ref: string, filePath: string, cwd?: string): string {
+    return gitReadOps.show((cmd, c) => this.#run(cmd, { cwd: c }), ref, filePath, cwd ?? this.#basePath);
+  }
+
+  logSince(opts: LogSinceOptions, cwd?: string): string {
+    return gitReadOps.logSince((cmd, c) => this.#run(cmd, { cwd: c }), opts, cwd ?? this.#basePath);
+  }
+
   findPRByBranch(branchName: string): string {
     return this.#run(findPRByBranchCmd(this.#owner, this.#repo, branchName));
   }
@@ -414,8 +531,12 @@ export class GitContext {
     return this.#run(fetchAllPRsCmd(this.#owner, this.#repo));
   }
 
-  createPR(title: string, body: string, headBranch: string, baseBranch?: string): string {
-    return this.#run(createPRCmd(this.#owner, this.#repo, title, headBranch, baseBranch), { input: body });
+  fetchPRChangedFiles(prNumber: number): string {
+    return this.#run(prChangedFilesCmd(this.#owner, this.#repo, prNumber));
+  }
+
+  createPR(title: string, body: string, headBranch: string, baseBranch?: string, labels?: readonly string[]): string {
+    return this.#run(createPRCmd(this.#owner, this.#repo, title, headBranch, baseBranch, labels), { input: body });
   }
 
   createLabel(name: string, color: string, description: string): void {
@@ -426,8 +547,17 @@ export class GitContext {
     this.#run(applyLabelCmd(this.#owner, this.#repo, issueNumber, labelName));
   }
 
+  setSecret(name: string, value: string): void {
+    this.#run(setSecretCmd(this.#owner, this.#repo, name), { input: value });
+  }
+
   runGraphQL(query: string, variables?: Record<string, string | number>): string {
     return this.#run(graphQLCmd(query, variables), { usePat: true });
+  }
+
+  /** stdin-JSON form for GraphQL mutations with complex/array variables that runGraphQL's flag form cannot express. Uses PAT (Projects V2 writes) with graceful fallback to context token when no PAT is set. */
+  runGraphQLInput(body: Record<string, unknown>): string {
+    return this.#run(graphQLInputCmd(), { input: JSON.stringify(body), usePat: true });
   }
 
   /**

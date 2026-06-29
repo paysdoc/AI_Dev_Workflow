@@ -3,7 +3,6 @@
  * detects recovery mode, and returns a WorkflowConfig for all subsequent phases.
  */
 
-import { execSync } from 'child_process';
 import { accessSync, constants as fsConstants } from 'fs';
 import {
   log,
@@ -40,7 +39,6 @@ import {
   detectRecoveryState,
   getRepoInfo,
   type RepoInfo,
-  activateGitHubAppAuth,
   isGitHubAppConfigured,
 } from '../github';
 import { GITHUB_PAT } from '../core/environment';
@@ -128,10 +126,7 @@ export async function initializeWorkflow(
     ? { owner: targetRepo.owner, repo: targetRepo.repo }
     : undefined;
 
-  // Activate GitHub App auth to generate a fresh token for this process.
-  // Ensures child processes spawned by triggers don't rely on stale inherited GH_TOKEN.
   const resolvedRepoForAuth = repoInfo ?? getRepoInfo();
-  activateGitHubAppAuth(resolvedRepoForAuth.owner, resolvedRepoForAuth.repo);
   const gitCtx = gitContextForSync({ owner: resolvedRepoForAuth.owner, repo: resolvedRepoForAuth.repo, selfHost: !targetRepo });
 
   // Construct exactly one launch-boundary GitContext for this orchestrator process.
@@ -192,12 +187,14 @@ export async function initializeWorkflow(
   }
   setLogAdwId(resolvedAdwId);
 
+  const frameworkRepoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+
   log('===================================', 'info');
   log(`${orchestratorName}`, 'info');
   log(`Issue: #${issueNumber}`, 'info');
   log(`ADW ID: ${resolvedAdwId}`, 'info');
   try {
-    const commitHash = execSync('git rev-parse --short HEAD', { encoding: 'utf-8' }).trim();
+    const commitHash = gitCtx.headShort(frameworkRepoRoot);
     log(`ADW version: ${commitHash}`, 'info');
   } catch {
     // Not in a git repo or git unavailable — skip version logging
@@ -216,8 +213,48 @@ export async function initializeWorkflow(
     log(`Target repo workspace: ${targetRepoWorkspacePath}`, 'success');
   }
 
-  // Setup worktree with branch sync
+  // Resolve default branch early — used by both the upgrade gate (below) and worktree setup.
   const defaultBranch = gitCtx.defaultBranch();
+
+  // Upgrade gate: detect framework hash mismatch and park the issue if the target
+  // repo's .adw/ is stale. Runs BEFORE worktree setup so a stale reused worktree's
+  // local .adw-version cannot produce a false mismatch — the authoritative source is
+  // origin/<default>:.adw-version on the remote. Losers park without ever creating a
+  // feature worktree; the winner's claim push uses a temp worktree created inside
+  // targetRepoWorkspacePath (existing invariant from 94059b5, unchanged).
+  if (targetRepo && targetRepoWorkspacePath) {
+    const repoInfoForGate = repoInfo ?? getRepoInfo();
+    const targetRepoArgs = [
+      '--target-repo', `${targetRepo.owner}/${targetRepo.repo}`,
+      ...(targetRepo.cloneUrl ? ['--clone-url', targetRepo.cloneUrl] : []),
+    ];
+    const gateRepoId = options?.repoId ?? {
+      owner: repoInfoForGate.owner,
+      repo: repoInfoForGate.repo,
+      platform: Platform.GitHub,
+    };
+    const outcome = await runUpgradeGate(
+      {
+        issueNumber,
+        issueBody: issue.body,
+        worktreePath: targetRepoWorkspacePath,
+        defaultBranch,
+        frameworkRepoRoot,
+        repoInfo: repoInfoForGate,
+        targetRepoArgs,
+      },
+      buildDefaultUpgradeGateDeps(gateRepoId, targetRepoWorkspacePath, (ref, filePath, cwd) => gitCtx.show(ref, filePath, cwd)),
+    );
+    if (outcome.action === 'parked') {
+      log(
+        `Upgrade gate: parked issue #${issueNumber} (${outcome.role}) on #${outcome.upgradeIssueNumber ?? '?'}; exiting before any workflow comment.`,
+        'info',
+      );
+      process.exit(0);
+    }
+  }
+
+  // Setup worktree with branch sync
   let worktreePath: string;
   let branchName = '';
   if (options?.cwd) {
@@ -228,7 +265,7 @@ export async function initializeWorkflow(
     // For external repos, create worktrees within the target repo workspace
     branchName = await resolveWorkflowBranchName({ adwId: resolvedAdwId, issueType, issue, logsDir, recoveryState });
     worktreePath = gitCtx.ensureWorktree(branchName, defaultBranch);
-    copyClaudeAssetsToWorktree(worktreePath);
+    copyClaudeAssetsToWorktree(worktreePath, gitCtx);
     log(`Worktree path (target repo): ${worktreePath}`, 'info');
   } else {
     const persistedBranchName = readPersistedBranchName(resolvedAdwId);
@@ -250,14 +287,14 @@ export async function initializeWorkflow(
         worktreePath = existingWorktree;
       } else {
         worktreePath = gitCtx.ensureWorktree(branchName, defaultBranch);
-        copyClaudeAssetsToWorktree(worktreePath);
+        copyClaudeAssetsToWorktree(worktreePath, gitCtx);
         gitCtx.fetchAndResetToRemote(defaultBranch, worktreePath);
       }
     }
     log(`Worktree path: ${worktreePath}`, 'info');
   }
 
-  // Create RepoContext early so it is available to the upgrade gate and board setup
+  // Create RepoContext early so it is available to board setup and subsequent phases
   let repoContext: RepoContext | undefined;
   let repoIdForContext: RepoIdentifier | undefined;
   try {
@@ -271,33 +308,6 @@ export async function initializeWorkflow(
     });
   } catch (error) {
     log(`Failed to create RepoContext (falling back to direct API calls): ${error}`, 'info');
-  }
-
-  // Upgrade gate: detect framework hash mismatch and park the issue if the target
-  // repo's .adw/ is stale. Runs only for target repos (self-hosting guard).
-  if (targetRepo) {
-    const frameworkRepoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-    const repoInfoForGate = repoInfo ?? getRepoInfo();
-    const targetRepoArgs = [
-      '--target-repo', `${targetRepo.owner}/${targetRepo.repo}`,
-      ...(targetRepo.cloneUrl ? ['--clone-url', targetRepo.cloneUrl] : []),
-    ];
-    const gateRepoId = repoIdForContext ?? {
-      owner: repoInfoForGate.owner,
-      repo: repoInfoForGate.repo,
-      platform: Platform.GitHub,
-    };
-    const outcome = await runUpgradeGate(
-      { issueNumber, issueBody: issue.body, worktreePath, frameworkRepoRoot, repoInfo: repoInfoForGate, targetRepoArgs },
-      buildDefaultUpgradeGateDeps(gateRepoId, worktreePath),
-    );
-    if (outcome.action === 'parked') {
-      log(
-        `Upgrade gate: parked issue #${issueNumber} (${outcome.role}) on #${outcome.upgradeIssueNumber ?? '?'}; exiting before any workflow comment.`,
-        'info',
-      );
-      process.exit(0);
-    }
   }
 
   const orchestratorStatePath = AgentStateManager.initializeState(resolvedAdwId, orchestratorName);
