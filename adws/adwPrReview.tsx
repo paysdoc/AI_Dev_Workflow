@@ -22,7 +22,8 @@
  * - MAX_REVIEW_RETRY_ATTEMPTS: Maximum retry attempts for review-patch loop (default: 3)
  */
 
-import { parseTargetRepoArgs, buildRepoIdentifier, MAX_REVIEW_RETRY_ATTEMPTS } from './core';
+import { parseTargetRepoArgs, buildRepoIdentifier, MAX_REVIEW_RETRY_ATTEMPTS, AgentStateManager } from './core';
+import { defaultFindPRByBranch, getRepoInfo } from './github';
 import { CostTracker, runPhase } from './core/phaseRunner';
 import {
   initializePRReviewWorkflow,
@@ -45,6 +46,38 @@ import { AuthRequiredError } from './types/agentTypes';
 import { handleAuthRequiredPause } from './phases/authPause';
 import { decidePostReviewOutcome } from './phases/decidePostReviewOutcome';
 
+interface PrReviewInvocation {
+  prNumber: number;
+  adwId: string | null;
+}
+
+function resolvePrReviewInvocation(positionals: string[], repoInfo: ReturnType<typeof getRepoInfo> | undefined): PrReviewInvocation {
+  // Resume form: two positionals (issueNumber, adwId) — second arg is non-numeric adwId
+  if (positionals.length >= 2 && isNaN(parseInt(positionals[1], 10))) {
+    const adwId = positionals[1];
+    const state = AgentStateManager.readTopLevelState(adwId);
+    const branchName = state?.branchName;
+    if (!branchName) {
+      console.error(`Resume adwId ${adwId} has no persisted branchName in top-level state`);
+      process.exit(1);
+    }
+    const resolvedRepoInfo = repoInfo ?? getRepoInfo();
+    const pr = defaultFindPRByBranch(branchName, resolvedRepoInfo);
+    if (!pr) {
+      console.error(`Could not resolve PR for branch ${branchName} (adwId ${adwId})`);
+      process.exit(1);
+    }
+    return { prNumber: pr.number, adwId };
+  }
+  // Fresh form: single positional <pr-number>
+  const prNumber = parseInt(positionals[0], 10);
+  if (isNaN(prNumber)) {
+    console.error(`Invalid PR number: ${positionals[0]}`);
+    process.exit(1);
+  }
+  return { prNumber, adwId: null };
+}
+
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const targetRepo = parseTargetRepoArgs(args);
@@ -56,13 +89,16 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const prNumber = parseInt(args[0], 10);
-  if (isNaN(prNumber)) {
-    console.error(`Invalid PR number: ${args[0]}`);
-    process.exit(1);
-  }
+  const { prNumber, adwId: resumeAdwId } = resolvePrReviewInvocation(args, repoInfo);
 
-  const config = await initializePRReviewWorkflow(prNumber, null, repoInfo, repoId, targetRepo ?? undefined);
+  const config = await initializePRReviewWorkflow(prNumber, resumeAdwId, repoInfo, repoId, targetRepo ?? undefined);
+
+  AgentStateManager.writeTopLevelState(config.base.adwId, {
+    adwId: config.base.adwId,
+    issueNumber: config.base.issueNumber,
+    orchestratorScript: 'adws/adwPrReview.tsx',
+    ...(config.base.branchName ? { branchName: config.base.branchName } : {}),
+  });
   const tracker = new CostTracker();
 
   try {

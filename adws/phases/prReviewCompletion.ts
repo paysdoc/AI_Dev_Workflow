@@ -77,11 +77,18 @@ export async function completePRReviewWorkflow(
   log(`PR: ${prDetails.url}`, 'info');
   log(`Comments addressed: ${unaddressedComments.length}`, 'info');
 
-  if (!outcome.writeAwaitingMerge || !outcome.workflowStage) return;
+  if (!outcome.workflowStage) return;
 
-  AgentStateManager.writeTopLevelState(config.base.adwId, { workflowStage: outcome.workflowStage });
+  AgentStateManager.writeTopLevelState(config.base.adwId, {
+    workflowStage: outcome.workflowStage,
+    orchestratorScript: 'adws/adwPrReview.tsx',
+  });
   AgentStateManager.appendLog(orchestratorStatePath, `PR Review handed off to ${outcome.workflowStage}`);
-  log('PR Review handed off — awaiting merge via cron', 'success');
+  if (outcome.writeAwaitingMerge) {
+    log('PR Review handed off — awaiting merge via cron', 'success');
+  } else {
+    log('PR Review blocked — review_failed, awaiting ## Retry', 'warn');
+  }
 }
 
 /**
