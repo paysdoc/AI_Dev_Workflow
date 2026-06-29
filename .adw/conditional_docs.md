@@ -266,12 +266,22 @@
     - When wondering why `REVIEW_AGENT_COUNT` is not a valid env var (review parallelism was removed in #401)
 
 - app_docs/feature-s59wpc-adwprreview-phaserunner-migration.md
+  - Owns:
+    - adws/adwPrReview.tsx
+    - adws/phases/prReviewCompletion.ts
+    - adws/phases/decidePostReviewOutcome.ts
+    - adws/phases/__tests__/decidePostReviewOutcome.test.ts
   - Conditions:
     - When working with `adws/adwPrReview.tsx` or the PR review orchestrator
     - When working with `adws/phases/prReviewPhase.ts` or `prReviewCompletion.ts`
+    - When working with `adws/phases/decidePostReviewOutcome.ts` or `PostReviewOutcome` (the pure post-review gate)
     - When adding a new phase to the PR review workflow (follow closure-wrapper pattern)
     - When troubleshooting rate-limit pause/resume for PR review workflows
     - When debugging D1 cost posting or `phaseCostRecords` in PR review phases
+    - When the PR-review orchestrator should write `awaiting_merge` to hand off to cron merge dispatch
+    - When troubleshooting a PR whose review passed but was never merged by cron (inert terminal state class)
+    - When `completePRReviewWorkflow` outcome parameter or its inert-default back-compat is relevant
+    - When `reviewPassed` capture inside the review→patch retry loop is relevant
 
 - app_docs/feature-1bg58c-scenario-test-fix-phases.md
   - Conditions:
