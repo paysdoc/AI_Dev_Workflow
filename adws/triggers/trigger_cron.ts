@@ -29,6 +29,7 @@ import { classifyAndSpawnWorkflow, spawnDetached } from './webhookGatekeeper';
 import { registerAndGuard } from './cronProcessGuard';
 import { evaluateCandidate } from './takeoverHandler';
 import { releaseIssueSpawnLock } from './spawnGate';
+import { resolveResumeSpawn } from '../core/resolveResumeSpawn';
 import { scanPauseQueue } from './pauseQueueScanner';
 import { runJanitorPass } from './devServerJanitor';
 import { runPerIssueScenarioSweep } from './perIssueScenarioSweep';
@@ -320,7 +321,15 @@ async function checkAndTrigger(): Promise<void> {
       // Takeover: spawn the orchestrator for the existing adwId directly, skipping classification.
       const { adwId: takeoverAdwId, derivedStage } = takeoverDecision;
       log(`Issue #${issue.number}: taking over adwId=${takeoverAdwId} derivedStage=${derivedStage}`, 'success');
-      spawnDetached('bunx', ['tsx', 'adws/adwSdlc.tsx', String(issue.number), takeoverAdwId, ...targetRepoArgs]);
+      const takeoverState = AgentStateManager.readTopLevelState(takeoverAdwId);
+      if (takeoverState) {
+        const { script, args } = resolveResumeSpawn(takeoverState);
+        log(`Issue #${issue.number}: resume routing → ${script}`, 'info');
+        spawnDetached('bunx', ['tsx', script, ...args, ...targetRepoArgs]);
+      } else {
+        // Defensive: state vanished between evaluateCandidate and here — preserve the prior SDLC default.
+        spawnDetached('bunx', ['tsx', 'adws/adwSdlc.tsx', String(issue.number), takeoverAdwId, ...targetRepoArgs]);
+      }
       releaseIssueSpawnLock(repoInfo, issue.number);
       continue;
     }

@@ -54,7 +54,10 @@ export async function initializePRReviewWorkflow(prNumber: number, adwId: string
     process.exit(0);
   }
   const unaddressedComments = getUnaddressedComments(prNumber, resolvedRepoInfo);
-  if (unaddressedComments.length === 0) {
+  // Skip empty-comments early-exit when resuming an existing adwId — the human's fix
+  // may have resolved the threads but the review must re-run (resume-mode bypass).
+  const isResumeMode = adwId !== null && AgentStateManager.readTopLevelState(resolvedAdwId) !== null;
+  if (unaddressedComments.length === 0 && !isResumeMode) {
     log(`No unaddressed review comments on PR #${prNumber}, exiting`, 'info');
     process.exit(0);
   }
