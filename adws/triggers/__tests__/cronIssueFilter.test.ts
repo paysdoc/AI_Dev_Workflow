@@ -67,6 +67,43 @@ describe('evaluateIssue — merge_blocked skip-terminal', () => {
   });
 });
 
+// ── evaluateIssue — review_failed skip-terminal (money-fire pin) ──────────────
+
+describe('evaluateIssue — review_failed skip-terminal', () => {
+  it('returns ineligible with reason review_failed for a review_failed issue', () => {
+    const issue = makeIssue({ updatedAt: OLD_DATE });
+    const resolveStage = () => makeResolution('review_failed');
+
+    const result = evaluateIssue(issue, NOW, { spawns: new Set() }, GRACE_PERIOD_MS, resolveStage);
+
+    expect(result.eligible).toBe(false);
+    expect(result.reason).toBe('review_failed');
+    expect(result.action).toBeUndefined();
+  });
+
+  it('review_failed takes precedence over grace period check (recent activity still excluded)', () => {
+    const recentDate = new Date(NOW - 1000).toISOString();
+    const issue = makeIssue({ updatedAt: recentDate });
+    const resolveStage = () => makeResolution('review_failed', 'adw-id', NOW - 1000);
+
+    const result = evaluateIssue(issue, NOW, { spawns: new Set() }, GRACE_PERIOD_MS, resolveStage);
+
+    expect(result.eligible).toBe(false);
+    expect(result.reason).toBe('review_failed');
+  });
+
+  it('review_failed takes precedence over processed-spawn dedup', () => {
+    const issue = makeIssue({ number: 5, updatedAt: OLD_DATE });
+    const resolveStage = () => makeResolution('review_failed');
+    const processed = { spawns: new Set([5]) };
+
+    const result = evaluateIssue(issue, NOW, processed, GRACE_PERIOD_MS, resolveStage);
+
+    expect(result.eligible).toBe(false);
+    expect(result.reason).toBe('review_failed');
+  });
+});
+
 // ── filterEligibleIssues — merge_blocked annotation ───────────────────────────
 
 describe('filterEligibleIssues — merge_blocked annotation', () => {

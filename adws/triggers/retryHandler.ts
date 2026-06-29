@@ -4,9 +4,10 @@
  * Mirrors cancelHandler.ts but is state-only: no process kill, no worktree
  * removal, no comment clearing.
  *
- * Two recovery paths:
- *   merge_blocked → awaiting_merge  (clears mergeRetryCount)
- *   human_gated  → phase_timeout   (re-arms resumeAttempts to 0)
+ * Three recovery paths:
+ *   merge_blocked  → awaiting_merge  (clears mergeRetryCount)
+ *   human_gated   → phase_timeout   (re-arms resumeAttempts to 0)
+ *   review_failed → phase_timeout   (re-arms resumeAttempts to 0; review re-runs)
  *
  * No-op for any other stage, so `## Retry` cannot disturb an active, completed,
  * or otherwise non-human-gated workflow.
@@ -59,6 +60,12 @@ export function handleRetryDirective(
   if (stage === 'human_gated') {
     deps.writeTopLevelState(adwId, { workflowStage: 'phase_timeout', resumeAttempts: 0 });
     log(`Retry #${issueNumber}: re-armed adwId=${adwId} human_gated → phase_timeout, cleared resume counter`, 'success');
+    return true;
+  }
+
+  if (stage === 'review_failed') {
+    deps.writeTopLevelState(adwId, { workflowStage: 'phase_timeout', resumeAttempts: 0 });
+    log(`Retry #${issueNumber}: re-armed adwId=${adwId} review_failed → phase_timeout, cleared resume counter`, 'success');
     return true;
   }
 

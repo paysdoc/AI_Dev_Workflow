@@ -51,6 +51,7 @@ import type { WorkflowConfig } from './phases';
 import { runWithOrchestratorLifecycle } from './phases/orchestratorLock';
 import { AuthRequiredError } from './types/agentTypes';
 import { handleAuthRequiredPause } from './phases/authPause';
+import { decidePostReviewOutcome } from './phases/decidePostReviewOutcome';
 
 /**
  * Main orchestrator workflow.
@@ -105,6 +106,31 @@ async function main(): Promise<void> {
         }
       }
 
+      const outcome = decidePostReviewOutcome(reviewPassed);
+
+      if (outcome.skipDocAndPR) {
+        // Review exhausted with unresolved blockers — enter human-gated blocking stage.
+        // No PR is created; document phase is skipped. Human must push a fix then post ## Retry.
+        AgentStateManager.writeTopLevelState(config.adwId, { workflowStage: 'review_failed' });
+        AgentStateManager.writeState(config.orchestratorStatePath, {
+          metadata: {
+            totalCostUsd: tracker.totalCostUsd,
+            unitTestsPassed: unitTestResult.unitTestsPassed,
+            totalTestRetries: unitTestResult.totalRetries,
+            scenarioRetries,
+            reviewPassed: false,
+            totalReviewRetries: reviewRetries,
+          },
+        });
+        persistTokenCounts(config.orchestratorStatePath, tracker.totalCostUsd, tracker.totalModelUsage);
+        log('===================================', 'warn');
+        log('Review exhausted — stage set to review_failed (no PR created). Post ## Retry after fixing.', 'warn');
+        if (config.ctx.branchName) log(`Branch: ${config.ctx.branchName}`, 'info');
+        log('===================================', 'warn');
+        return;
+      }
+
+      // Review passed — proceed with document, PR, and awaiting_merge handoff.
       // Document phase: no screenshots dir needed (review no longer produces images)
       await runPhase(config, tracker, (cfg: WorkflowConfig) => executeDocumentPhase(cfg));
 
