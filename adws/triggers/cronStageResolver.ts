@@ -10,8 +10,10 @@
  * - Issues with no adw-id or no state file are treated as fresh candidates
  */
 
-import { extractAdwIdFromComment } from '../core/workflowCommentParsing';
 import { AgentStateManager } from '../core/agentState';
+import { extractLatestAdwId } from '../core/workflowCommentParsing';
+
+export { extractLatestAdwId } from '../core/workflowCommentParsing';
 import { classifyStageString } from '../core/stageClassifier';
 import type { AgentState } from '../types/agentTypes';
 
@@ -25,17 +27,6 @@ export interface StageResolution {
   lastActivityMs: number | null;
 }
 
-/**
- * Scans issue comments newest-to-oldest and returns the first adw-id found.
- * Returns null if no ADW comment with an adw-id exists.
- */
-export function extractLatestAdwId(comments: { body: string }[]): string | null {
-  for (let i = comments.length - 1; i >= 0; i--) {
-    const id = extractAdwIdFromComment(comments[i].body);
-    if (id !== null) return id;
-  }
-  return null;
-}
 
 /**
  * Computes the most recent activity timestamp (ms) across all phases in a state file.

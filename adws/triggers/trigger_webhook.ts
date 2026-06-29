@@ -19,7 +19,7 @@ import { log, PullRequestWebhookPayload, allocateRandomPort, isPortAvailable, ge
 import { isActionableComment, isCancelComment, isRetryComment, isAdwRunningForIssue, truncateText, getRepoInfo, fetchIssueCommentsRest } from '../github';
 import { handleCancelDirective } from './cancelHandler';
 import { handleRetryDirective } from './retryHandler';
-import { handlePullRequestEvent, handleIssueClosedEvent } from './webhookHandlers';
+import { handlePullRequestEvent, handleIssueClosedEvent, resolvePrReviewSpawn } from './webhookHandlers';
 import { validateWebhookSignature } from './webhookSignature';
 import { checkIssueEligibility } from './issueEligibility';
 import { spawnDetached, classifyAndSpawnWorkflow, ensureCronProcess, logDeferral } from './webhookGatekeeper';
@@ -134,7 +134,9 @@ const server = http.createServer((req, res) => {
       if (prNumber == null) { jsonResponse(res, 200, { status: 'ignored' }); return; }
       if ((body.action as string) !== 'created') { jsonResponse(res, 200, { status: 'ignored' }); return; }
       if (!shouldTriggerPrReview(prNumber)) { jsonResponse(res, 200, { status: 'ignored', reason: 'duplicate' }); return; }
-      spawnDetached('bunx', ['tsx', 'adws/adwPrReview.tsx', String(prNumber), ...webhookTargetRepoArgs]);
+      const prrcTarget = webhookRepoInfo ? resolvePrReviewSpawn(prNumber, webhookRepoInfo) : null;
+      if (prrcTarget === null) { jsonResponse(res, 200, { status: 'ignored', reason: 'not_issue_linked' }); return; }
+      spawnDetached('bunx', ['tsx', 'adws/adwPrReview.tsx', String(prrcTarget.issueNumber), prrcTarget.adwId, ...webhookTargetRepoArgs]);
       jsonResponse(res, 200, { status: 'triggered', pr: prNumber });
       return;
     }
@@ -151,7 +153,9 @@ const server = http.createServer((req, res) => {
       // Approved reviews are no-ops: merge is handled by cron + adwMerge.tsx
       if (reviewState === 'approved') { jsonResponse(res, 200, { status: 'ignored' }); return; }
       if (!shouldTriggerPrReview(prNumber)) { jsonResponse(res, 200, { status: 'ignored', reason: 'duplicate' }); return; }
-      spawnDetached('bunx', ['tsx', 'adws/adwPrReview.tsx', String(prNumber), ...webhookTargetRepoArgs]);
+      const prrTarget = webhookRepoInfo ? resolvePrReviewSpawn(prNumber, webhookRepoInfo) : null;
+      if (prrTarget === null) { jsonResponse(res, 200, { status: 'ignored', reason: 'not_issue_linked' }); return; }
+      spawnDetached('bunx', ['tsx', 'adws/adwPrReview.tsx', String(prrTarget.issueNumber), prrTarget.adwId, ...webhookTargetRepoArgs]);
       jsonResponse(res, 200, { status: 'triggered', pr: prNumber });
       return;
     }

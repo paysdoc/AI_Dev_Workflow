@@ -2,7 +2,8 @@
 /**
  * ADW PR Review - AI Developer Workflow for PR Review Comments
  *
- * Usage: bunx tsx adws/adwPrReview.tsx <pr-number>
+ * Usage: bunx tsx adws/adwPrReview.tsx <issueNumber> <adwId>   (canonical form)
+ *        bunx tsx adws/adwPrReview.tsx <pr-number>              (manual fallback, routed through resolver)
  *
  * Workflow:
  * 1. Initialize: fetch PR details, detect unaddressed comments, setup worktree, initialize state
@@ -24,6 +25,7 @@
 
 import { parseTargetRepoArgs, buildRepoIdentifier, MAX_REVIEW_RETRY_ATTEMPTS, AgentStateManager } from './core';
 import { defaultFindPRByBranch, getRepoInfo } from './github';
+import { resolvePrReviewSpawn } from './triggers/webhookHandlers';
 import { CostTracker, runPhase } from './core/phaseRunner';
 import {
   initializePRReviewWorkflow,
@@ -48,11 +50,11 @@ import { decidePostReviewOutcome } from './phases/decidePostReviewOutcome';
 
 interface PrReviewInvocation {
   prNumber: number;
-  adwId: string | null;
+  adwId: string;
 }
 
 function resolvePrReviewInvocation(positionals: string[], repoInfo: ReturnType<typeof getRepoInfo> | undefined): PrReviewInvocation {
-  // Resume form: two positionals (issueNumber, adwId) — second arg is non-numeric adwId
+  // Canonical form: two positionals (issueNumber, adwId) — second arg is non-numeric adwId
   if (positionals.length >= 2 && isNaN(parseInt(positionals[1], 10))) {
     const adwId = positionals[1];
     const state = AgentStateManager.readTopLevelState(adwId);
@@ -69,13 +71,19 @@ function resolvePrReviewInvocation(positionals: string[], repoInfo: ReturnType<t
     }
     return { prNumber: pr.number, adwId };
   }
-  // Fresh form: single positional <pr-number>
+  // Manual fallback: single positional <pr-number> — routed through resolver
   const prNumber = parseInt(positionals[0], 10);
   if (isNaN(prNumber)) {
     console.error(`Invalid PR number: ${positionals[0]}`);
     process.exit(1);
   }
-  return { prNumber, adwId: null };
+  const resolvedRepoInfo = repoInfo ?? getRepoInfo();
+  const target = resolvePrReviewSpawn(prNumber, resolvedRepoInfo);
+  if (target === null) {
+    console.log(`PR #${prNumber} is not issue-linked — skipping`);
+    process.exit(0);
+  }
+  return { prNumber, adwId: target.adwId };
 }
 
 async function main(): Promise<void> {
@@ -85,13 +93,13 @@ async function main(): Promise<void> {
   const repoId = buildRepoIdentifier(targetRepo);
 
   if (args.length < 1) {
-    console.error('Usage: bunx tsx adws/adwPrReview.tsx <pr-number>');
+    console.error('Usage: bunx tsx adws/adwPrReview.tsx <issueNumber> <adwId>  (canonical)\n       bunx tsx adws/adwPrReview.tsx <pr-number>                     (manual fallback)');
     process.exit(1);
   }
 
-  const { prNumber, adwId: resumeAdwId } = resolvePrReviewInvocation(args, repoInfo);
+  const { prNumber, adwId: resolvedAdwId } = resolvePrReviewInvocation(args, repoInfo);
 
-  const config = await initializePRReviewWorkflow(prNumber, resumeAdwId, repoInfo, repoId, targetRepo ?? undefined);
+  const config = await initializePRReviewWorkflow(prNumber, resolvedAdwId, repoInfo, repoId, targetRepo ?? undefined);
 
   AgentStateManager.writeTopLevelState(config.base.adwId, {
     adwId: config.base.adwId,

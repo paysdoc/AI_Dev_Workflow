@@ -6,16 +6,17 @@
  * - handleIssueClosedEvent: cleans up worktrees, branch, and dependencies
  */
 
-import { log, PullRequestWebhookPayload, GRACE_PERIOD_MS } from '../core';
+import { log, PullRequestWebhookPayload, GRACE_PERIOD_MS, generateAdwId } from '../core';
 import type { RepoInfo } from '../github/githubApi';
 import type { GitContext } from '../gitContext';
 import { closeIssue, fetchIssueCommentsRest } from '../github/issueApi';
-import { gitContextForSync } from '../github';
+import { fetchPRDetails, gitContextForSync } from '../github';
 import { AgentStateManager } from '../core/agentState';
 import { findOrchestratorStatePath } from '../core/stateHelpers';
 import { extractLatestAdwId, isActiveStage, getLastActivityFromState } from './cronStageResolver';
 import { closeAbandonedDependents, handleIssueClosedDependencyUnblock } from './webhookGatekeeper';
 import type { AgentState } from '../types/agentTypes';
+import { resolvePrReviewTarget } from '../core/resolvePrReviewTarget';
 
 /**
  * Extracts issue number from a branch name using the "issue-N" pattern.
@@ -218,4 +219,38 @@ export async function handleIssueClosedEvent(
   }
 
   return { status: 'cleaned', worktreesRemoved, branchDeleted };
+}
+
+// ── PR-review spawn delegation ───────────────────────────────────────────────
+
+/**
+ * Resolves the PR-review identity for a given PR number.
+ * Fetches PR details, runs the pure resolver, seeds state on the fresh path.
+ * Returns { issueNumber, adwId } or null when the PR is not issue-linked (skip).
+ */
+export function resolvePrReviewSpawn(
+  prNumber: number,
+  repoInfo: RepoInfo,
+): { issueNumber: number; adwId: string } | null {
+  const prDetails = fetchPRDetails(prNumber, repoInfo);
+  const target = resolvePrReviewTarget(
+    { issueNumber: prDetails.issueNumber, title: prDetails.title },
+    {
+      fetchIssueComments: (n) => fetchIssueCommentsRest(n, repoInfo),
+      generateAdwId,
+    },
+  );
+  if (target.kind === 'skip') {
+    log(`PR #${prNumber} is not issue-linked — skipping PR-review (no ADW review/auto-merge)`);
+    return null;
+  }
+  if (target.kind === 'fresh') {
+    AgentStateManager.writeTopLevelState(target.adwId, {
+      adwId: target.adwId,
+      issueNumber: target.issueNumber,
+      branchName: prDetails.headBranch,
+      orchestratorScript: 'adws/adwPrReview.tsx',
+    });
+  }
+  return { issueNumber: target.issueNumber, adwId: target.adwId };
 }

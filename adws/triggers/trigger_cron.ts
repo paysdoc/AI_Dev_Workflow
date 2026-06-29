@@ -30,6 +30,7 @@ import { registerAndGuard } from './cronProcessGuard';
 import { evaluateCandidate } from './takeoverHandler';
 import { releaseIssueSpawnLock } from './spawnGate';
 import { resolveResumeSpawn } from '../core/resolveResumeSpawn';
+import { resolvePrReviewSpawn } from './webhookHandlers';
 import { scanPauseQueue } from './pauseQueueScanner';
 import { runJanitorPass } from './devServerJanitor';
 import { runPerIssueScenarioSweep } from './perIssueScenarioSweep';
@@ -366,9 +367,14 @@ function checkPRsForReviewComments(): void {
     try {
       if (hasUnaddressedComments(pr.number, cronRepoInfo)) {
         processedPRs.add(pr.number);
-        log(`Triggering ADW PR Review for PR #${pr.number}`, 'success');
+        const target = resolvePrReviewSpawn(pr.number, cronRepoInfo);
+        if (target === null) {
+          log(`Skipping issue-less PR #${pr.number} (no ADW review)`);
+          continue;
+        }
+        log(`Triggering ADW PR Review for PR #${pr.number} (issue #${target.issueNumber}, adwId ${target.adwId})`, 'success');
         const targetRepoArgs = buildTargetRepoArgs();
-        const child = spawn('bunx', ['tsx', `${REPO_ROOT}/adws/adwPrReview.tsx`, String(pr.number), ...targetRepoArgs], {
+        const child = spawn('bunx', ['tsx', `${REPO_ROOT}/adws/adwPrReview.tsx`, String(target.issueNumber), target.adwId, ...targetRepoArgs], {
           detached: true,
           stdio: 'ignore',
           cwd: REPO_ROOT,
