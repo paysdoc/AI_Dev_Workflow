@@ -18,6 +18,7 @@ export interface PatchCtx {
   worktreePath: string;
   issue: WorkflowConfig['issue'];
   orchestratorStatePath: string;
+  subprocessEnv?: NodeJS.ProcessEnv;
 }
 
 export interface RefactorCtx {
@@ -26,19 +27,20 @@ export interface RefactorCtx {
   worktreePath: string;
   issue: WorkflowConfig['issue'];
   orchestratorStatePath: string;
+  subprocessEnv?: NodeJS.ProcessEnv;
 }
 
 export async function applyPatchBlocker(
   blocker: ReviewIssue,
   ctx: PatchCtx,
 ): Promise<{ costUsd: number; modelUsage: ModelUsageMap }> {
-  const { adwId, logsDir, specFile, worktreePath, issue, orchestratorStatePath } = ctx;
+  const { adwId, logsDir, specFile, worktreePath, issue, orchestratorStatePath, subprocessEnv } = ctx;
 
   log(`Patching blocker #${blocker.reviewIssueNumber}: ${blocker.issueDescription}`, 'info');
   AgentStateManager.appendLog(orchestratorStatePath, `Patching blocker #${blocker.reviewIssueNumber}`);
 
   const patchStatePath = AgentStateManager.initializeState(adwId, 'patch-agent', orchestratorStatePath);
-  const patchResult = await runPatchAgent(adwId, blocker, logsDir, specFile, undefined, patchStatePath, worktreePath, issue.body);
+  const patchResult = await runPatchAgent(adwId, blocker, logsDir, specFile, undefined, patchStatePath, worktreePath, issue.body, subprocessEnv);
 
   let costUsd = patchResult.totalCostUsd || 0;
   let modelUsage = patchResult.modelUsage ?? emptyModelUsageMap();
@@ -51,7 +53,7 @@ export async function applyPatchBlocker(
 
   if (patchResult.success) {
     const buildStatePath = AgentStateManager.initializeState(adwId, 'build-agent', orchestratorStatePath);
-    const buildResult = await runBuildAgent(issue, logsDir, patchResult.output, undefined, buildStatePath, worktreePath);
+    const buildResult = await runBuildAgent(issue, logsDir, patchResult.output, undefined, buildStatePath, worktreePath, subprocessEnv);
 
     costUsd += buildResult.totalCostUsd || 0;
     if (buildResult.modelUsage) {
@@ -72,7 +74,7 @@ export async function applyRefactorBlockers(
   blockers: ReviewIssue[],
   ctx: RefactorCtx,
 ): Promise<{ costUsd: number; modelUsage: ModelUsageMap }> {
-  const { adwId, logsDir, worktreePath, issue, orchestratorStatePath } = ctx;
+  const { adwId, logsDir, worktreePath, issue, orchestratorStatePath, subprocessEnv } = ctx;
   let costUsd = 0;
   let modelUsage = emptyModelUsageMap();
 
@@ -87,7 +89,7 @@ export async function applyRefactorBlockers(
     AgentStateManager.appendLog(orchestratorStatePath, `Refactoring blocker #${blocker.reviewIssueNumber}`);
 
     const refactorStatePath = AgentStateManager.initializeState(adwId, 'refactor-agent', orchestratorStatePath);
-    const refactorResult = await runRefactorAgent(adwId, blocker, logsDir, refactorStatePath, worktreePath, issue.body);
+    const refactorResult = await runRefactorAgent(adwId, blocker, logsDir, refactorStatePath, worktreePath, issue.body, subprocessEnv);
 
     costUsd += refactorResult.totalCostUsd || 0;
     if (refactorResult.modelUsage) {
@@ -101,7 +103,7 @@ export async function applyRefactorBlockers(
     AgentStateManager.appendLog(orchestratorStatePath, refactorMsg);
 
     const buildStatePath = AgentStateManager.initializeState(adwId, 'build-agent', orchestratorStatePath);
-    const buildResult = await runBuildAgent(issue, logsDir, refactorResult.output, undefined, buildStatePath, worktreePath);
+    const buildResult = await runBuildAgent(issue, logsDir, refactorResult.output, undefined, buildStatePath, worktreePath, subprocessEnv);
 
     costUsd += buildResult.totalCostUsd || 0;
     if (buildResult.modelUsage) {

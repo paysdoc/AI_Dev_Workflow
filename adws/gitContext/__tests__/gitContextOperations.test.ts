@@ -1099,6 +1099,165 @@ describe('abortMerge() command and env', () => {
   });
 });
 
+// ── fetchPRChangedFiles() ─────────────────────────────────────────────────────
+
+describe('fetchPRChangedFiles() command and env', () => {
+  it('issues gh pr view <n> --repo <owner>/<repo> --json files', () => {
+    const { exec, calls } = makeSpyExec('{"files":[]}');
+    const ctx = new GitContext(validOptions({ owner: 'acme', repo: 'webapp' }), { exec });
+    ctx.fetchPRChangedFiles(7);
+    expect(calls[0].command).toBe('gh pr view 7 --repo acme/webapp --json files');
+  });
+
+  it('passes cwd equal to the context base path', () => {
+    const { exec, calls } = makeSpyExec('{"files":[]}');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.fetchPRChangedFiles(7);
+    expect(calls[0].cwd).toBe(ctx.basePath);
+  });
+
+  it('injects GH_TOKEN from the context token in the child env', () => {
+    const { exec, calls } = makeSpyExec('{"files":[]}');
+    const ctx = new GitContext(validOptions({ token: 'token-acme' }), { exec });
+    ctx.fetchPRChangedFiles(7);
+    expect(calls[0].env.GH_TOKEN).toBe('token-acme');
+  });
+
+  it('injects all four GIT_* identity vars in the child env', () => {
+    const { exec, calls } = makeSpyExec('{"files":[]}');
+    const ctx = new GitContext(
+      validOptions({
+        gitIdentity: {
+          authorName: 'Acme Bot', authorEmail: 'bot@acme.dev',
+          committerName: 'Acme Bot', committerEmail: 'bot@acme.dev',
+        },
+      }),
+      { exec },
+    );
+    ctx.fetchPRChangedFiles(7);
+    expect(calls[0].env.GIT_AUTHOR_NAME).toBe('Acme Bot');
+    expect(calls[0].env.GIT_AUTHOR_EMAIL).toBe('bot@acme.dev');
+  });
+
+  it('does not mutate process.env', () => {
+    const before = process.env.GH_TOKEN;
+    const { exec } = makeSpyExec('{"files":[]}');
+    const ctx = new GitContext(validOptions({ token: 'injected' }), { exec });
+    ctx.fetchPRChangedFiles(7);
+    expect(process.env.GH_TOKEN).toBe(before);
+  });
+});
+
+// ── createPR() with optional labels ──────────────────────────────────────────
+
+describe('createPR() with labels', () => {
+  it('appends --label for each label in the command string', () => {
+    const { exec, calls } = makeSpyExec('https://github.com/acme/webapp/pull/12\n');
+    const ctx = new GitContext(validOptions({ owner: 'acme', repo: 'webapp' }), { exec });
+    ctx.createPR('My title', 'body text', 'feature-issue-7-do-thing', 'dev', ['regression-promotion']);
+    expect(calls[0].command).toContain("--label 'regression-promotion'");
+  });
+
+  it('emits no --label when labels array is empty', () => {
+    const { exec, calls } = makeSpyExec('https://github.com/acme/webapp/pull/12\n');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.createPR('T', 'b', 'feature-issue-1-x', 'dev', []);
+    expect(calls[0].command).not.toContain('--label');
+  });
+
+  it('emits no --label when labels parameter is omitted (backward-compat)', () => {
+    const { exec, calls } = makeSpyExec('https://github.com/acme/webapp/pull/12\n');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.createPR('T', 'b', 'feature-issue-1-x');
+    expect(calls[0].command).not.toContain('--label');
+  });
+
+  it('passes the PR body via stdin input', () => {
+    const { exec, calls } = makeSpyExec('https://github.com/acme/webapp/pull/12\n');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.createPR('T', 'the body', 'feature-issue-1-y', undefined, ['regression-promotion']);
+    expect(calls[0].input).toBe('the body');
+  });
+
+  it('passes cwd equal to the context base path', () => {
+    const { exec, calls } = makeSpyExec('https://github.com/acme/webapp/pull/12\n');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.createPR('T', 'b', 'feature-issue-1-y', undefined, ['regression-promotion']);
+    expect(calls[0].cwd).toBe(ctx.basePath);
+  });
+
+  it('injects GH_TOKEN from the context token', () => {
+    const { exec, calls } = makeSpyExec('https://github.com/acme/webapp/pull/12\n');
+    const ctx = new GitContext(validOptions({ token: 'token-acme' }), { exec });
+    ctx.createPR('T', 'b', 'feature-issue-1-y', undefined, ['regression-promotion']);
+    expect(calls[0].env.GH_TOKEN).toBe('token-acme');
+  });
+});
+
+// ── logSince() ────────────────────────────────────────────────────────────────
+
+describe('logSince() command and env', () => {
+  it('issues git log --since with grep and oneline flags (numerator shape)', () => {
+    const { exec, calls } = makeSpyExec('commit output\n');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.logSince({ since: 'X', grep: '^regression-promotion:', oneline: true });
+    expect(calls[0].command).toBe('git log --since="X" --grep="^regression-promotion:" --no-merges --oneline');
+    expect(calls[0].cwd).toBe(ctx.basePath);
+  });
+
+  it('issues git log --since with patch and pathspec flags (denominator shape)', () => {
+    const { exec, calls } = makeSpyExec('diff output\n');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.logSince({ since: 'X', patch: true, pathspec: 'features/per-issue/feature-*.feature' });
+    expect(calls[0].command).toBe('git log --since="X" --no-merges -p -- features/per-issue/feature-*.feature');
+  });
+
+  it('honors an explicit cwd', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.logSince({ since: 'X' }, '/some/wt');
+    expect(calls[0].cwd).toBe('/some/wt');
+  });
+
+  it('defaults cwd to the context base path when no cwd is given', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.logSince({ since: 'X' });
+    expect(calls[0].cwd).toBe(ctx.basePath);
+  });
+
+  it('injects GH_TOKEN from the context token in the child env', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(validOptions({ token: 'token-acme' }), { exec });
+    ctx.logSince({ since: 'X', grep: '^regression-promotion:', oneline: true });
+    expect(calls[0].env.GH_TOKEN).toBe('token-acme');
+  });
+
+  it('injects all four GIT_* identity vars in the child env', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(
+      validOptions({
+        gitIdentity: {
+          authorName: 'Acme Bot', authorEmail: 'bot@acme.dev',
+          committerName: 'Acme Bot', committerEmail: 'bot@acme.dev',
+        },
+      }),
+      { exec },
+    );
+    ctx.logSince({ since: 'X', grep: '^regression-promotion:', oneline: true });
+    expect(calls[0].env.GIT_AUTHOR_NAME).toBe('Acme Bot');
+    expect(calls[0].env.GIT_AUTHOR_EMAIL).toBe('bot@acme.dev');
+  });
+
+  it('does not mutate process.env', () => {
+    const before = process.env.GH_TOKEN;
+    const { exec } = makeSpyExec('');
+    const ctx = new GitContext(validOptions({ token: 'injected' }), { exec });
+    ctx.logSince({ since: 'X' });
+    expect(process.env.GH_TOKEN).toBe(before);
+  });
+});
+
 // ── lsRemote() ───────────────────────────────────────────────────────────────
 
 describe('lsRemote() command and env', () => {
@@ -1167,5 +1326,206 @@ describe('lsRemote() command and env', () => {
     const exec: ExecFn = () => { throw new Error('ssh: connect failed'); };
     const ctx = new GitContext(validOptions(), { exec });
     expect(() => ctx.lsRemote('main', worktreePath)).toThrow('ssh: connect failed');
+  });
+});
+
+// ── addDetachedWorktree() ────────────────────────────────────────────────────
+
+describe('addDetachedWorktree() command and env', () => {
+  const baseCwd = '/srv/adw/repos/acme/webapp';
+  const tmpdir = '/tmp/adw-claim-abc123';
+
+  it('builds git worktree add --detach "<path>" "<ref>"', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.addDetachedWorktree(tmpdir, 'origin/main', baseCwd);
+    expect(calls[0].command).toBe(`git worktree add --detach "${tmpdir}" "origin/main"`);
+  });
+
+  it('passes the supplied cwd', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.addDetachedWorktree(tmpdir, 'origin/main', baseCwd);
+    expect(calls[0].cwd).toBe(baseCwd);
+  });
+
+  it('injects GH_TOKEN from the context token in the child env', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(validOptions({ token: 'add-wt-token' }), { exec });
+    ctx.addDetachedWorktree(tmpdir, 'origin/main', baseCwd);
+    expect(calls[0].env.GH_TOKEN).toBe('add-wt-token');
+  });
+
+  it('injects all four GIT_* identity vars in the child env', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(
+      validOptions({ gitIdentity: { authorName: 'Claim Bot', authorEmail: 'claim@bot.dev', committerName: 'Claim Bot', committerEmail: 'claim@bot.dev' } }),
+      { exec },
+    );
+    ctx.addDetachedWorktree(tmpdir, 'origin/main', baseCwd);
+    expect(calls[0].env.GIT_AUTHOR_NAME).toBe('Claim Bot');
+    expect(calls[0].env.GIT_AUTHOR_EMAIL).toBe('claim@bot.dev');
+    expect(calls[0].env.GIT_COMMITTER_NAME).toBe('Claim Bot');
+    expect(calls[0].env.GIT_COMMITTER_EMAIL).toBe('claim@bot.dev');
+  });
+
+  it('does not mutate process.env', () => {
+    const before = process.env.GH_TOKEN;
+    const { exec } = makeSpyExec('');
+    const ctx = new GitContext(validOptions({ token: 'injected' }), { exec });
+    ctx.addDetachedWorktree(tmpdir, 'origin/main', baseCwd);
+    expect(process.env.GH_TOKEN).toBe(before);
+  });
+});
+
+// ── commitAllowEmpty() ────────────────────────────────────────────────────────
+
+describe('commitAllowEmpty() command and env', () => {
+  const tmpdir = '/tmp/adw-claim-abc123';
+
+  it('builds git commit --allow-empty -m "<message>"', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.commitAllowEmpty('ADW upgrade in progress: abc123 [nonce1]', tmpdir);
+    expect(calls[0].command).toBe('git commit --allow-empty -m "ADW upgrade in progress: abc123 [nonce1]"');
+  });
+
+  it('passes the supplied cwd', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.commitAllowEmpty('msg', tmpdir);
+    expect(calls[0].cwd).toBe(tmpdir);
+  });
+
+  it('injects GH_TOKEN from the context token in the child env', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(validOptions({ token: 'commit-token' }), { exec });
+    ctx.commitAllowEmpty('msg', tmpdir);
+    expect(calls[0].env.GH_TOKEN).toBe('commit-token');
+  });
+
+  it('injects all four GIT_* identity vars in the child env', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(
+      validOptions({ gitIdentity: { authorName: 'Claim Bot', authorEmail: 'claim@bot.dev', committerName: 'Claim Bot', committerEmail: 'claim@bot.dev' } }),
+      { exec },
+    );
+    ctx.commitAllowEmpty('msg', tmpdir);
+    expect(calls[0].env.GIT_AUTHOR_NAME).toBe('Claim Bot');
+    expect(calls[0].env.GIT_AUTHOR_EMAIL).toBe('claim@bot.dev');
+  });
+
+  it('does not mutate process.env', () => {
+    const before = process.env.GH_TOKEN;
+    const { exec } = makeSpyExec('');
+    const ctx = new GitContext(validOptions({ token: 'injected' }), { exec });
+    ctx.commitAllowEmpty('msg', tmpdir);
+    expect(process.env.GH_TOKEN).toBe(before);
+  });
+});
+
+// ── pushHeadToBranch() ────────────────────────────────────────────────────────
+
+describe('pushHeadToBranch() command and env', () => {
+  const tmpdir = '/tmp/adw-claim-abc123';
+
+  it('builds git push origin "HEAD:refs/heads/<branch>"', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.pushHeadToBranch('adw-upgrade-deadbeef', tmpdir);
+    expect(calls[0].command).toBe('git push origin "HEAD:refs/heads/adw-upgrade-deadbeef"');
+  });
+
+  it('does NOT contain --force (lock-correctness guard)', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.pushHeadToBranch('adw-upgrade-deadbeef', tmpdir);
+    expect(calls[0].command).not.toContain('--force');
+  });
+
+  it('passes the supplied cwd', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.pushHeadToBranch('adw-upgrade-deadbeef', tmpdir);
+    expect(calls[0].cwd).toBe(tmpdir);
+  });
+
+  it('injects GH_TOKEN from the context token in the child env', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(validOptions({ token: 'push-token' }), { exec });
+    ctx.pushHeadToBranch('adw-upgrade-deadbeef', tmpdir);
+    expect(calls[0].env.GH_TOKEN).toBe('push-token');
+  });
+
+  it('injects all four GIT_* identity vars in the child env', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(
+      validOptions({ gitIdentity: { authorName: 'Push Bot', authorEmail: 'push@bot.dev', committerName: 'Push Bot', committerEmail: 'push@bot.dev' } }),
+      { exec },
+    );
+    ctx.pushHeadToBranch('adw-upgrade-deadbeef', tmpdir);
+    expect(calls[0].env.GIT_AUTHOR_NAME).toBe('Push Bot');
+    expect(calls[0].env.GIT_AUTHOR_EMAIL).toBe('push@bot.dev');
+  });
+
+  it('does not mutate process.env', () => {
+    const before = process.env.GH_TOKEN;
+    const { exec } = makeSpyExec('');
+    const ctx = new GitContext(validOptions({ token: 'injected' }), { exec });
+    ctx.pushHeadToBranch('adw-upgrade-deadbeef', tmpdir);
+    expect(process.env.GH_TOKEN).toBe(before);
+  });
+});
+
+// ── removeDetachedWorktree() ──────────────────────────────────────────────────
+
+describe('removeDetachedWorktree() command and env', () => {
+  const baseCwd = '/srv/adw/repos/acme/webapp';
+  const tmpdir = '/tmp/adw-claim-abc123';
+
+  it('builds git worktree remove --force "<path>"', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.removeDetachedWorktree(tmpdir, baseCwd);
+    expect(calls[0].command).toBe(`git worktree remove --force "${tmpdir}"`);
+  });
+
+  it('passes the supplied cwd', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.removeDetachedWorktree(tmpdir, baseCwd);
+    expect(calls[0].cwd).toBe(baseCwd);
+  });
+
+  it('injects GH_TOKEN from the context token in the child env', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(validOptions({ token: 'remove-wt-token' }), { exec });
+    ctx.removeDetachedWorktree(tmpdir, baseCwd);
+    expect(calls[0].env.GH_TOKEN).toBe('remove-wt-token');
+  });
+
+  it('injects all four GIT_* identity vars in the child env', () => {
+    const { exec, calls } = makeSpyExec('');
+    const ctx = new GitContext(
+      validOptions({ gitIdentity: { authorName: 'Remove Bot', authorEmail: 'rm@bot.dev', committerName: 'Remove Bot', committerEmail: 'rm@bot.dev' } }),
+      { exec },
+    );
+    ctx.removeDetachedWorktree(tmpdir, baseCwd);
+    expect(calls[0].env.GIT_AUTHOR_NAME).toBe('Remove Bot');
+    expect(calls[0].env.GIT_AUTHOR_EMAIL).toBe('rm@bot.dev');
+  });
+
+  it('swallows exec errors (missing worktree is benign)', () => {
+    const exec: ExecFn = () => { throw new Error('worktree not found'); };
+    const ctx = new GitContext(validOptions(), { exec });
+    expect(() => ctx.removeDetachedWorktree(tmpdir, baseCwd)).not.toThrow();
+  });
+
+  it('does not mutate process.env', () => {
+    const before = process.env.GH_TOKEN;
+    const { exec } = makeSpyExec('');
+    const ctx = new GitContext(validOptions({ token: 'injected' }), { exec });
+    ctx.removeDetachedWorktree(tmpdir, baseCwd);
+    expect(process.env.GH_TOKEN).toBe(before);
   });
 });

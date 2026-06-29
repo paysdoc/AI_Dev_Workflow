@@ -456,6 +456,7 @@ adws/                   # ADW workflow system
 │   ├── adwMerge.test.ts
 │   ├── adwUpgrade.test.ts
 │   ├── depauditSetup.test.ts
+│   ├── healthCheckChecks.test.ts
 │   ├── issueDependencies.test.ts
 │   ├── prTemplateMarker.test.ts
 │   ├── triggerWebhook.test.ts
@@ -605,22 +606,32 @@ adws/                   # ADW workflow system
 │   └── workflowCommentsPR.ts
 ├── gitContext/         # Repo-context authority deep module (GitContext)
 │   ├── __tests__/      # Vitest unit tests
+│   │   ├── bootstrapIdentity.test.ts
+│   │   ├── claimOps.test.ts
 │   │   ├── gitContext.test.ts
 │   │   ├── gitContextOperations.test.ts
 │   │   ├── gitReadOps.test.ts
-│   │   └── remoteOps.test.ts
+│   │   ├── remoteOps.test.ts
+│   │   ├── repoWorkspace.test.ts
+│   │   └── tokenResolver.test.ts
 │   ├── commands/       # Pure command-string builders (no I/O) — one file per concern
 │   │   ├── boardCommands.ts    # GraphQL query strings for Projects V2 board operations
 │   │   ├── issueCommands.ts    # gh CLI command strings for issue read/write operations
 │   │   ├── labelCommands.ts    # gh CLI command strings for label create/apply operations
 │   │   ├── prCommands.ts       # gh CLI command strings for PR list/create/merge/review operations
 │   │   └── secretCommands.ts   # gh CLI command strings for GitHub Actions secret operations
+│   ├── appAuth.ts      # GitHub App JWT dance and installation-token exchange — absorbed into package (#700)
+│   ├── bootstrapIdentity.ts  # Pre-context git reads (git remote get-url origin, gh auth token) — permanent exception absorbed into package (#700)
 │   ├── branchOps.ts    # Package-private branch operation orchestration (create, checkout, delete, reset)
+│   ├── claimOps.ts     # Package-private distributed-lock git ops — detached worktree add, allow-empty commit, non-force push, worktree remove
 │   ├── commitOps.ts    # Package-private commit/push orchestration (force-with-lease, lease rejection detection)
 │   ├── gitContext.ts   # GitContext class — mandatory identity, base-path resolution in constructor, per-command env injection, no cwd fallback
 │   ├── gitReadOps.ts   # Package-private git-read ops — tracked-file listing, HEAD hash, branch diff, commit-history log
-│   ├── index.ts        # Public surface (GitContext class + GitIdentity/GitContextOptions types)
+│   ├── remoteOps.ts    # Package-private remote-interaction ops — fetch from origin, ls-remote queries, merge a ref, and abort in-progress merge
+│   ├── index.ts        # Public surface (GitContext class + GitIdentity/GitContextOptions types + bootstrap primitives)
 │   ├── processCleanup.ts  # Package-private process kill helpers (killProcessesInDirectory)
+│   ├── repoWorkspace.ts  # Target-repo workspace management (path resolution, clone, fetch) — absorbed into package (#700); defaultBranch thunk injected for veracious auth
+│   ├── tokenResolver.ts  # Veracious token resolver (resolveContextToken) — never reads process.env.GH_TOKEN; replaces the two prior resolvers that were the GH_TOKEN-bleed root (#700)
 │   ├── types.ts        # GitIdentity, GitContextOptions, ExecFn, and GitContextDeps interfaces
 │   ├── worktreeCreateOps.ts  # Package-private worktree creation orchestration (add, copy env, gitignore)
 │   ├── worktreeProbeOps.ts   # Package-private worktree-probe ops — inspects an arbitrary worktree path (WorktreeRegistration: healthy/locked/prunable/missing)

@@ -68,8 +68,6 @@ export {
 // GitHub App Authentication
 export {
   isGitHubAppConfigured,
-  activateGitHubAppAuth,
-  refreshTokenIfNeeded,
   getInstallationToken,
 } from './githubAppAuth';
 

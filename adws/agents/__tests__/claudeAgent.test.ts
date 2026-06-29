@@ -39,6 +39,7 @@ vi.mock('../../core/agentTimeouts', () => ({
 
 import { spawn, execSync } from 'child_process';
 import { killProcessGroup } from '../../core/processKill';
+import { getSafeSubprocessEnv } from '../../core';
 import { handleAgentProcess } from '../agentProcessHandler';
 import { runClaudeAgentWithCommand } from '../claudeAgent';
 
@@ -46,6 +47,7 @@ const mockSpawn = vi.mocked(spawn);
 const mockExecSync = vi.mocked(execSync);
 const mockHandleAgentProcess = vi.mocked(handleAgentProcess);
 const mockKillProcessGroup = vi.mocked(killProcessGroup);
+const mockGetSafeSubprocessEnv = vi.mocked(getSafeSubprocessEnv);
 
 const BASE_RESULT = {
   success: true,
@@ -239,5 +241,58 @@ describe('runClaudeAgentWithCommand — auth retry logic', () => {
     expect(result.success).toBe(true);
     expect(result.output).toBe('ok');
     expect(mockExecSync).not.toHaveBeenCalled();
+  });
+});
+
+describe('runClaudeAgentWithCommand — subprocessEnv overlay (#701)', () => {
+  it('merges subprocessEnv over getSafeSubprocessEnv() when provided', async () => {
+    mockGetSafeSubprocessEnv.mockReturnValueOnce({ BASE_VAR: 'base', GH_TOKEN: 'old-token' });
+    mockHandleAgentProcess.mockResolvedValueOnce({ ...BASE_RESULT, success: true });
+
+    await runClaudeAgentWithCommand(
+      '/implement', 'args', 'build-agent', '/tmp/out.jsonl',
+      'sonnet', undefined, undefined, undefined, undefined, undefined, undefined,
+      { GH_TOKEN: 'token-acme', GIT_AUTHOR_NAME: 'bot' },
+    );
+
+    expect(mockSpawn).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(Array),
+      expect.objectContaining({
+        env: expect.objectContaining({
+          BASE_VAR: 'base',
+          GH_TOKEN: 'token-acme',
+          GIT_AUTHOR_NAME: 'bot',
+        }),
+      }),
+    );
+  });
+
+  it('uses getSafeSubprocessEnv() unchanged when subprocessEnv is omitted', async () => {
+    mockGetSafeSubprocessEnv.mockReturnValueOnce({ GH_TOKEN: 'ambient-token' });
+    mockHandleAgentProcess.mockResolvedValueOnce({ ...BASE_RESULT, success: true });
+
+    await runClaudeAgentWithCommand('/commit', 'args', 'commit-agent', '/tmp/out.jsonl');
+
+    expect(mockSpawn).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(Array),
+      expect.objectContaining({ env: { GH_TOKEN: 'ambient-token' } }),
+    );
+  });
+
+  it('never assigns to process.env — the overlay is a new object', async () => {
+    mockGetSafeSubprocessEnv.mockReturnValueOnce({});
+    mockHandleAgentProcess.mockResolvedValueOnce({ ...BASE_RESULT, success: true });
+
+    const before = process.env.GH_TOKEN;
+
+    await runClaudeAgentWithCommand(
+      '/implement', 'args', 'build-agent', '/tmp/out.jsonl',
+      'sonnet', undefined, undefined, undefined, undefined, undefined, undefined,
+      { GH_TOKEN: 'injected-token' },
+    );
+
+    expect(process.env.GH_TOKEN).toBe(before);
   });
 });

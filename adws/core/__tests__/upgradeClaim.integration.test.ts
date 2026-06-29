@@ -6,6 +6,10 @@
  * resolveIssueNumberFromPR deps are stubbed (no gh CLI or GitHub credentials
  * needed). This satisfies the AC requirement "Integration tests against a
  * sandbox target repo" without external credentials.
+ *
+ * The claim git ops now route through a real GitContext (no exec spy) — the
+ * GitContext identity env vars (GIT_AUTHOR_*, etc.) are injected per-command
+ * rather than from a manual process.env block in defaultPushClaimBranch.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -20,6 +24,7 @@ import {
   type UpgradeClaimDeps,
 } from '../upgradeClaim';
 import type { RepoInfo } from '../../github/githubApi';
+import { GitContext } from '../../gitContext';
 
 const REPO_INFO: RepoInfo = { owner: 'sandbox', repo: 'target' };
 const HASH = 'integ1234';
@@ -55,14 +60,28 @@ function createClone(name: string): string {
 }
 
 /**
- * Wraps the REAL defaultPushClaimBranch against the sandbox clone, injecting a fixed
- * default branch so it does not shell out to `gh repo view`. Exercising the real function
- * (instead of a hand-copied reimplementation) is the whole point — the copy is what let the
- * original `git checkout -b` collision and process.cwd() target-repo bugs pass the suite.
+ * Builds a real GitContext pointed at the sandbox clone, injecting the test
+ * git identity via gitIdentity so every claim-op command carries the correct
+ * GIT_AUTHOR_* / GIT_COMMITTER_* env vars through the per-command chokepoint.
+ * The `getDefaultBranchFn` seam keeps `gh repo view` out of the test (no network).
  */
 function makeRealPushClaimBranch(clonePath: string, defaultBranch: string) {
+  const ctx = new GitContext({
+    owner: 'sandbox',
+    repo: 'target',
+    selfHost: false,
+    token: 'x',
+    gitIdentity: {
+      authorName: 'test',
+      authorEmail: 'test@test.com',
+      committerName: 'test',
+      committerEmail: 'test@test.com',
+    },
+    frameworkRepoRoot: sandboxDir,
+    targetReposDir: sandboxDir,
+  });
   return (branchName: string, hash: string): boolean =>
-    defaultPushClaimBranch(branchName, hash, clonePath, () => defaultBranch);
+    defaultPushClaimBranch(branchName, hash, clonePath, ctx, () => defaultBranch);
 }
 
 function makePartialDeps(clonePath: string, defaultBranch = 'main'): UpgradeClaimDeps {

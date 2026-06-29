@@ -29,4 +29,24 @@ function show(run: Runner, ref: string, filePath: string, cwd: string): string {
   return run(`git show "${ref}:${filePath}"`, cwd);
 }
 
-export const gitReadOps = { lsFiles, headShort, diff, log, show };
+/** Bounded flag vocabulary for git log --since reads; only assembles a log command. */
+export interface LogSinceOptions {
+  since: string;
+  grep?: string;
+  oneline?: boolean;
+  patch?: boolean;
+  pathspec?: string;
+}
+
+/** Bounded git log --since read; only assembles a log command. */
+function logSince(run: Runner, opts: LogSinceOptions, cwd: string): string {
+  const parts = ['git log', `--since="${opts.since}"`];
+  if (opts.grep) parts.push(`--grep="${opts.grep}"`);
+  parts.push('--no-merges');
+  if (opts.oneline) parts.push('--oneline');
+  if (opts.patch) parts.push('-p');
+  const cmd = opts.pathspec ? `${parts.join(' ')} -- ${opts.pathspec}` : parts.join(' ');
+  return run(cmd, cwd);
+}
+
+export const gitReadOps = { lsFiles, headShort, diff, log, show, logSince };

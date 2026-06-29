@@ -23,7 +23,9 @@ import { worktreeCreateOps } from './worktreeCreateOps';
 import { worktreeRemoveOps } from './worktreeRemoveOps';
 import { worktreeProbeOps, type WorktreeRegistration } from './worktreeProbeOps';
 import { gitReadOps } from './gitReadOps';
+import type { LogSinceOptions } from './gitReadOps';
 import { remoteOps } from './remoteOps';
+import { claimOps } from './claimOps';
 import {
   fetchIssueCmd, commentOnIssueCmd, issueStateCmd, closeIssueCmd, issueTitleCmd,
   fetchIssueCommentsCmd, issueHasLabelCmd, addIssueLabelCmd, createIssueCmd,
@@ -34,7 +36,7 @@ import {
 import {
   findPRByBranchCmd, fetchPRDetailsCmd, fetchPRReviewsCmd, fetchPRReviewCommentsCmd,
   commentOnPRCmd, mergePRCmd, approvePRCmd, prApprovalStateCmd,
-  fetchPRListCmd, fetchAllPRsCmd, createPRCmd, fetchMergedPRsCmd,
+  fetchPRListCmd, fetchAllPRsCmd, createPRCmd, fetchMergedPRsCmd, prChangedFilesCmd,
 } from './commands/prCommands';
 import { createLabelCmd, applyLabelCmd } from './commands/labelCommands';
 import { setSecretCmd } from './commands/secretCommands';
@@ -444,6 +446,24 @@ export class GitContext {
     return remoteOps.lsRemote((cmd, c) => this.#run(cmd, { cwd: c }), branch, cwd ?? this.#basePath);
   }
 
+  // ── Upgrade-claim distributed-lock ops ──────────────────────────────────────
+
+  addDetachedWorktree(worktreePath: string, ref: string, cwd: string): void {
+    claimOps.addDetachedWorktree((cmd, c) => this.#run(cmd, { cwd: c }), worktreePath, ref, cwd);
+  }
+
+  commitAllowEmpty(message: string, cwd: string): void {
+    claimOps.commitAllowEmpty((cmd, c) => this.#run(cmd, { cwd: c }), message, cwd);
+  }
+
+  pushHeadToBranch(branch: string, cwd: string): void {
+    claimOps.pushHeadToBranch((cmd, c) => this.#run(cmd, { cwd: c }), branch, cwd);
+  }
+
+  removeDetachedWorktree(worktreePath: string, cwd: string): void {
+    claimOps.removeDetachedWorktree((cmd, c) => this.#run(cmd, { cwd: c }), worktreePath, cwd);
+  }
+
   // ── Git read ops ──────────────────────────────────────────────────────────────
 
   lsFiles(cwd: string, prefix?: string): string[] {
@@ -464,6 +484,10 @@ export class GitContext {
 
   show(ref: string, filePath: string, cwd?: string): string {
     return gitReadOps.show((cmd, c) => this.#run(cmd, { cwd: c }), ref, filePath, cwd ?? this.#basePath);
+  }
+
+  logSince(opts: LogSinceOptions, cwd?: string): string {
+    return gitReadOps.logSince((cmd, c) => this.#run(cmd, { cwd: c }), opts, cwd ?? this.#basePath);
   }
 
   findPRByBranch(branchName: string): string {
@@ -507,8 +531,12 @@ export class GitContext {
     return this.#run(fetchAllPRsCmd(this.#owner, this.#repo));
   }
 
-  createPR(title: string, body: string, headBranch: string, baseBranch?: string): string {
-    return this.#run(createPRCmd(this.#owner, this.#repo, title, headBranch, baseBranch), { input: body });
+  fetchPRChangedFiles(prNumber: number): string {
+    return this.#run(prChangedFilesCmd(this.#owner, this.#repo, prNumber));
+  }
+
+  createPR(title: string, body: string, headBranch: string, baseBranch?: string, labels?: readonly string[]): string {
+    return this.#run(createPRCmd(this.#owner, this.#repo, title, headBranch, baseBranch, labels), { input: body });
   }
 
   createLabel(name: string, color: string, description: string): void {
