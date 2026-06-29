@@ -274,7 +274,14 @@ When(
   'the stored framework version is read from the remote default branch {string}',
   function (this: RegressionWorld, defaultBranch: string) {
     assert.ok(ctx.workspacePath, 'workspacePath must be set by the preceding Given step');
-    ctx.readResult = readRemoteAdwVersion(defaultBranch, ctx.workspacePath);
+    ctx.readResult = readRemoteAdwVersion(
+      (ref, filePath, cwd) => execSync(
+        `"${GIT}" show "${ref}:${filePath}"`,
+        { cwd, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] },
+      ),
+      defaultBranch,
+      ctx.workspacePath,
+    );
   },
 );
 
