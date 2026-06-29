@@ -274,21 +274,27 @@
     - adws/phases/sdlcReviewHandoff.ts
     - adws/phases/decidePostReviewOutcome.ts
     - adws/phases/__tests__/decidePostReviewOutcome.test.ts
+    - adws/core/resolvePrReviewTarget.ts
+    - adws/core/__tests__/resolvePrReviewTarget.test.ts
   - Conditions:
     - When working with `adws/adwPrReview.tsx` or the PR review orchestrator
     - When working with `adws/phases/prReviewPhase.ts` or `prReviewCompletion.ts`
     - When working with `adws/phases/decidePostReviewOutcome.ts` or `PostReviewOutcome` (the pure post-review gate)
+    - When working with `resolvePrReviewTarget` or `PrReviewTarget` (reuse/fresh/skip discriminated union)
+    - When working with `resolvePrReviewSpawn` in `adws/triggers/webhookHandlers.ts` (PR-review spawn delegation)
+    - When the adwId consolidation contract (one adwId per issue across SDLC + PR-review) is relevant
+    - When PR-review triggers (cron `checkPRsForReviewComments`, webhook PR-review handlers) spawn `adwPrReview`
     - When adding a new phase to the PR review workflow (follow closure-wrapper pattern)
     - When troubleshooting rate-limit pause/resume for PR review workflows
-    - When debugging D1 cost posting or `phaseCostRecords` in PR review phases
     - When the PR-review orchestrator should write `awaiting_merge` or `review_failed` to top-level state
     - When troubleshooting a PR whose review passed but was never merged by cron (inert terminal state class)
     - When `completePRReviewWorkflow` terminal-write gate (`workflowStage` presence) or `orchestratorScript` co-stamp is relevant
     - When `reviewPassed` capture inside the review→patch retry loop is relevant
-    - When `adwPrReview` is invoked in resume form `(issueNumber, adwId)` and must re-resolve its PR from `branchName`
+    - When `adwPrReview` is invoked in canonical form `(issueNumber, adwId)` and must re-resolve its PR from `branchName`
     - When `review_failed` handoff from `adwSdlc.tsx` via `executeSdlcReviewFailedHandoff` is relevant
     - When `orchestratorScript: 'adws/adwPrReview.tsx'` persistence at init or terminal handoff is relevant
-    - When `isResumeMode` bypass of the empty-comments early-exit in `initializePRReviewWorkflow` is relevant
+    - When `isResumeMode` evidence-based detection (phases map presence) in `initializePRReviewWorkflow` is relevant
+    - When issue-less PRs should be skipped before spawning (no ADW review/auto-merge)
 
 - app_docs/feature-1bg58c-scenario-test-fix-phases.md
   - Conditions:
