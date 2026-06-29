@@ -154,6 +154,18 @@ export function extractAdwIdFromComment(commentBody: string): string | null {
   return match ? match[1] : null;
 }
 
+/**
+ * Scans issue comments newest-to-oldest and returns the first adw-id found.
+ * Returns null if no ADW comment with an adw-id exists.
+ */
+export function extractLatestAdwId(comments: { body: string }[]): string | null {
+  for (let i = comments.length - 1; i >= 0; i--) {
+    const id = extractAdwIdFromComment(comments[i].body);
+    if (id !== null) return id;
+  }
+  return null;
+}
+
 /** Extracts the branch name from a comment body. */
 export function extractBranchNameFromComment(commentBody: string): string | null {
   const match = commentBody.match(/`((feat|bug|chore|review|test)-issue-\d+[a-z0-9-]*)`/);

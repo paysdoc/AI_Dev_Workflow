@@ -4,7 +4,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { log, setLogAdwId, ensureLogsDirectory, generateAdwId, type PRDetails, type PRReviewComment, AgentStateManager, type AgentState, type ModelUsageMap, allocateRandomPort, emptyModelUsageMap, OrchestratorId, type TargetRepoInfo, ensureTargetRepoWorkspace, loadProjectConfig, readAdwYmlConfig, type GitHubIssue, type IssueClassSlashCommand, type RecoveryState } from '../core';
+import { log, setLogAdwId, ensureLogsDirectory, type PRDetails, type PRReviewComment, AgentStateManager, type AgentState, type ModelUsageMap, allocateRandomPort, emptyModelUsageMap, OrchestratorId, type TargetRepoInfo, ensureTargetRepoWorkspace, loadProjectConfig, readAdwYmlConfig, type GitHubIssue, type IssueClassSlashCommand, type RecoveryState } from '../core';
 import { fetchPRDetails, getUnaddressedComments, type PRReviewWorkflowContext, getRepoInfo, type RepoInfo, gitContextFor } from '../github';
 import type { WorkflowConfig } from './workflowInit';
 import { inferIssueTypeFromBranch } from '../vcs';
@@ -37,12 +37,11 @@ export interface PRReviewWorkflowConfig {
  * @param prNumber - The PR number to review
  * @param adwId - Optional ADW workflow ID (generated if not provided)
  */
-export async function initializePRReviewWorkflow(prNumber: number, adwId: string | null, repoInfo?: RepoInfo, repoId?: RepoIdentifier, targetRepo?: TargetRepoInfo): Promise<PRReviewWorkflowConfig> {
+export async function initializePRReviewWorkflow(prNumber: number, adwId: string, repoInfo?: RepoInfo, repoId?: RepoIdentifier, targetRepo?: TargetRepoInfo): Promise<PRReviewWorkflowConfig> {
   const resolvedRepoInfo = repoInfo ?? getRepoInfo();
   const prDetails = fetchPRDetails(prNumber, resolvedRepoInfo);
   log(`Fetched PR: ${prDetails.title}`, 'success');
-  // Resolve ADW ID: use provided or generate from PR title
-  const resolvedAdwId = adwId ?? generateAdwId(prDetails.title);
+  const resolvedAdwId = adwId;
   setLogAdwId(resolvedAdwId);
   log('===================================', 'info');
   log('PR Review Orchestrator', 'info');
@@ -54,9 +53,11 @@ export async function initializePRReviewWorkflow(prNumber: number, adwId: string
     process.exit(0);
   }
   const unaddressedComments = getUnaddressedComments(prNumber, resolvedRepoInfo);
-  // Skip empty-comments early-exit when resuming an existing adwId — the human's fix
-  // may have resolved the threads but the review must re-run (resume-mode bypass).
-  const isResumeMode = adwId !== null && AgentStateManager.readTopLevelState(resolvedAdwId) !== null;
+  // A genuine resume means a prior PR-review run recorded phases for this adwId.
+  // A fresh trigger-seed (from resolvePrReviewSpawn) writes branchName but no phases,
+  // so it must NOT bypass the empty-comments early-exit.
+  const existingState = AgentStateManager.readTopLevelState(resolvedAdwId);
+  const isResumeMode = existingState?.phases !== undefined && Object.keys(existingState.phases).length > 0;
   if (unaddressedComments.length === 0 && !isResumeMode) {
     log(`No unaddressed review comments on PR #${prNumber}, exiting`, 'info');
     process.exit(0);
