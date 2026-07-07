@@ -1,4 +1,4 @@
-@adw-729 @adw-5o6zmy-bug-adwupgrade-regen
+@regression @adw-729 @adw-5o6zmy-bug-adwupgrade-regen
 Feature: adwUpgrade regen commit is ignore-safe when an excluded path is also gitignored
 
   Issue #729 fixes a crash in the framework self-upgrade lane. When `adwUpgrade`

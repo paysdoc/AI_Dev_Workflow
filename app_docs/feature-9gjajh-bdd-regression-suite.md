@@ -12,8 +12,10 @@
 - Maintain `features/regression/smoke/` — high-level end-to-end smoke scenarios (`adw_sdlc_happy_path`, `cron_trigger_spawn`, `pause_resume_rate_limit`, `cancel_directive`, `promotion_commenter`, `promotion_mover`, `promotion_threshold_auto_ramp`, `adw_chore_diff_verdicts`).
 - Maintain `features/regression/surfaces/` — the SDLC surface matrix: 35 row-numbered `.feature` files covering each orchestrator × phase × happy/edge-case combination from `adwPlan` workflow init through `adwDocument` and `adwSdlc` cron scenarios.
 - Maintain `features/regression/multilang/` — Python fixture e2e regression.
+- Maintain `features/regression/upgrade/` — promoted single-scenario-file features for the `adwUpgrade` lane (e.g. `feature-729.feature`), each paired with its own scenario-specific step-def file directly under `features/regression/step_definitions/` (not folded into the shared given/when/then registries).
 - Provide `RegressionWorld` (extends Cucumber `World`): typed container for `MockContext`, `lastExitCode`, `worktreePaths`, `prsByBranch`, `targetBranch`, `harnessEnv`, Python fixture state, and scenario proof results.
-- Provide shared step definitions: `givenSteps.ts` (G1–G23 setup vocabulary), `whenSteps.ts` (W1–W14 invocation vocabulary), `thenSteps.ts` (T1–T30 assertion vocabulary), `pythonFixtureE2ESteps.ts` (G-PY1, W-PY1, T-PY1 through T-PY6).
+- Provide shared step definitions: `givenSteps.ts` (G1–G26 setup vocabulary), `whenSteps.ts` (W1–W15 invocation vocabulary), `thenSteps.ts` (T1–T33 assertion vocabulary), `pythonFixtureE2ESteps.ts` (G-PY1, W-PY1, T-PY1 through T-PY6).
+- Provide scenario-specific step-def files for promoted single-scenario features (e.g. `feature-729.steps.ts`) that keep their own module-scoped state and tag-scoped `Before`/`After` hooks (e.g. `{ tags: '@adw-729' }`) rather than sharing the generic registries.
 - Provide `support/hooks.ts` for test lifecycle setup/teardown.
 
 ## Contracts & Invariants
@@ -34,3 +36,5 @@ The regression suite runs via Cucumber.js. Configuration (paths, require globs, 
 - `RegressionWorld.worktreePaths` maps adwId to temp directories created per-scenario; these are isolated temp git repos, not the production worktrees directory.
 - The Python e2e test (`@python-e2e`) depends on a fixture repo under `test/fixtures/` and requires the scenario proof pipeline to be functional; it is not a pure mock-query test.
 - Step definitions for `W1` spawn real subprocesses; test isolation depends entirely on the `harnessEnv` overlay pointing processes at mock infrastructure rather than live GitHub.
+- The built-in `adws/promotion/` automated flow has never successfully promoted a `features/per-issue/` scenario into this suite (no step-def relocation, no vocabulary registration, no `@regression` tag). Real promotions are done by hand: `git mv` the `.feature` and `.steps.ts` files, prepend `@regression` to the feature-level tag line, and register the scenario's novel phrases in `vocabulary.md` — as done for `feature-729.feature` into `features/regression/upgrade/`.
+- The `@regression` mock infrastructure (`setupMockInfrastructure`) is transparent to promoted scenarios that only use local git subcommands (`init`, `add`, `commit`, `rev-parse`, `show`, `check-ignore`, etc.) — `test/mocks/git-remote-mock.ts` only intercepts network subcommands (`push`, `fetch`, `clone`, `pull`, `ls-remote`) and delegates everything else to real git.
