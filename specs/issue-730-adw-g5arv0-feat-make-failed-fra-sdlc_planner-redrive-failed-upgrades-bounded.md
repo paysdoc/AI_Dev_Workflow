@@ -66,7 +66,7 @@ Use these files to implement the feature:
 
 - `adws/triggers/upgradeRedrive.ts` — the redrive decision + scan module:
   - `parseClaimBranch(issueBody: string): string | null` — pure; extracts `adw-upgrade-<hash>` from the `Claim branch: \`…\`` line of a `#UPG` body.
-  - `UpgradeRedriveSignals` + `decideUpgradeRedrive(signals): { redrive: boolean; reason: string }` — pure guard-clause decision (order: `not_upgrade` → `terminal` → `pr_present` → `live_lock` → `redrive`).
+  - `UpgradeRedriveSignals` + `decideUpgradeRedrive(signals): { redrive: boolean; reason: string }` — pure guard-clause decision (order: `closed` → `not_upgrade` → `terminal` → `pr_present` → `live_lock` → `redrive`).
   - `UpgradeRedriveDeps` + `findRedrivableUpgrades(issues, repoInfo, deps): number[]` — composing evaluator that derives signals (claim-PR lookup, spawn-lock liveness) and returns the `#UPG` numbers to re-spawn.
   - `runUpgradeRedriveScan(issues, repoInfo, targetRepoArgs, deps?)` — spawns `adwUpgrade` for each returned number via `spawnDetached`; plus `buildDefaultUpgradeRedriveDeps(...)`.
 - `adws/triggers/__tests__/upgradeRedrive.test.ts` — unit tests for `parseClaimBranch`, `decideUpgradeRedrive` (truth table), and `findRedrivableUpgrades` (composing).
@@ -109,7 +109,7 @@ Execute every step in order, top to bottom.
 ### Task 4 — Part 2: pure claim-branch parser + redrive decision
 - Create `adws/triggers/upgradeRedrive.ts`.
 - `parseClaimBranch(issueBody: string): string | null` — match the `Claim branch: \`adw-upgrade-<hash>\`` line written by `runUpgradeGate` (`upgradeGate.ts:146`); return the branch or `null` when absent/malformed. Keep it tolerant (case-insensitive heading, backtick-wrapped value).
-- Define `UpgradeRedriveSignals` (`hasUpgradeLabel`, `isTerminalLabeled`, `hasClaimPr`, `spawnLockHeldByLiveProcess`: booleans) and `decideUpgradeRedrive(signals): { redrive: boolean; reason: string }` as a pure guard-clause function in strict order: `!hasUpgradeLabel → { redrive:false, reason:'not_upgrade' }`; `isTerminalLabeled → 'terminal'`; `hasClaimPr → 'pr_present'`; `spawnLockHeldByLiveProcess → 'live_lock'`; else `{ redrive:true, reason:'stranded' }`.
+- Define `UpgradeRedriveSignals` (`isOpen`, `hasUpgradeLabel`, `isTerminalLabeled`, `hasClaimPr`, `spawnLockHeldByLiveProcess`: booleans) and `decideUpgradeRedrive(signals): { redrive: boolean; reason: string }` as a pure guard-clause function in strict order: `!isOpen → { redrive:false, reason:'closed' }`; `!hasUpgradeLabel → { redrive:false, reason:'not_upgrade' }`; `isTerminalLabeled → 'terminal'`; `hasClaimPr → 'pr_present'`; `spawnLockHeldByLiveProcess → 'live_lock'`; else `{ redrive:true, reason:'stranded' }`. The leading `isOpen` guard encodes the issue's "issue is open" clause (and the Solution Statement's "it is open" stranded condition) at the pure-decision level so a **closed** `#UPG` is never redriven — scenario §4 asserts `closed → redrivable:false`. In production `findRedrivableUpgrades` only ever receives open issues (from `fetchOpenIssues`), so the guard is defensive but keeps the decision complete and unit-testable. Scenario §4 drives this decision over the `isOpen` / label / `hasClaimPr` signals with `spawnLockHeldByLiveProcess:false`; the lock signal is proven by the sweep tests (§5) and the `decideUpgradeRedrive` truth table (Task 6).
 
 ### Task 5 — Part 2: composing scanner + default deps + spawn
 - In the same module, define `UpgradeRedriveDeps`:
@@ -118,7 +118,7 @@ Execute every step in order, top to bottom.
   - `isProcessLive(pid, pidStartedAt): boolean` — from `core/processLiveness`.
   - `spawn(upgNumber, targetRepoArgs): void` — `spawnDetached('bunx', ['tsx', 'adws/adwUpgrade.tsx', String(upgNumber), ...targetRepoArgs])`.
   - `log`.
-- `findRedrivableUpgrades(issues, repoInfo, deps): number[]` — for each issue, build labels set, derive signals (label checks; `hasClaimPr = deps.findClaimPr(body) !== null`; `spawnLockHeldByLiveProcess` from the lock record + `isProcessLive`, mirroring `shouldDispatchMerge`'s `null`/empty-`pidStartedAt`/dead-PID = not-held logic), call `decideUpgradeRedrive`, collect numbers where `redrive === true`.
+- `findRedrivableUpgrades(issues, repoInfo, deps): number[]` — for each issue, build labels set, derive signals (`isOpen` from the issue state; label checks; `hasClaimPr = deps.findClaimPr(body) !== null`; `spawnLockHeldByLiveProcess` from the lock record + `isProcessLive`, mirroring `shouldDispatchMerge`'s `null`/empty-`pidStartedAt`/dead-PID = not-held logic), call `decideUpgradeRedrive`, collect numbers where `redrive === true`.
 - `runUpgradeRedriveScan(issues, repoInfo, targetRepoArgs, deps = buildDefault…)` — call `findRedrivableUpgrades`, `log` each redrive with its reason, and `deps.spawn(n, targetRepoArgs)` per match.
 - `buildDefaultUpgradeRedriveDeps(repoInfo)` — wire the production implementations above.
 - Keep the file focused and under the 300-line guideline; use guard clauses (no nesting > 2).
@@ -162,7 +162,7 @@ Execute every step in order, top to bottom.
   - `pushBranch` throws rejection (`isPushRejection`→true) → unchanged `claim_lost`, **no** failure comment (guard against Part 1 leaking a comment onto the silent loser path).
 - **Part 2 (`adws/triggers/__tests__/upgradeRedrive.test.ts`, new):**
   - `parseClaimBranch` — extracts branch from a real `#UPG` body; `null` on malformed/missing.
-  - `decideUpgradeRedrive` — full truth table across the four signals (stranded, terminal, pr_present, live_lock, not_upgrade, dead-lock, absent-lock).
+  - `decideUpgradeRedrive` — full truth table across the signals (stranded, closed, terminal, pr_present, live_lock, not_upgrade, dead-lock, absent-lock).
   - `findRedrivableUpgrades` / `runUpgradeRedriveScan` — composing test with injected deps: only the stranded `#UPG` is returned and only its number is passed to the `spawn` dep; terminal/PR-present/live-lock/non-upgrade issues are skipped.
 
 ### Edge Cases
@@ -170,6 +170,7 @@ Execute every step in order, top to bottom.
 - Claim PR in any state (OPEN / CLOSED / MERGED) → `hasClaimPr:true` → skip, matching `adwUpgrade`'s idempotency guard which also no-ops for CLOSED PRs.
 - Spawn lock present but held by a **live** `adwUpgrade` (an in-flight retry) → skip (no double-spawn); lock with a **dead** PID or absent → redrive (stale reclaim happens inside `adwUpgrade`'s lifecycle).
 - Terminal-labeled `#UPG` (`adw:blocked`, already escalated) → never redriven — the loop terminates at the cap.
+- Closed `#UPG` (upgrade already succeeded and the tracking issue was closed) → `isOpen:false` → `decideUpgradeRedrive` returns `{ redrive:false, reason:'closed' }`; never redriven. In production `findRedrivableUpgrades` receives only open issues, so this is a defensive guard proven at the unit level (scenario §4).
 - Bounding: N consecutive failures each post one comment (Part 1); the Nth `executeUpgrade` hits its cap gate, applies `adw:blocked` + Slack; the next redrive pass short-circuits on the terminal label. No unbounded re-spawn.
 - Redrive-scan internal error must not abort the cron tick (defensive `try/catch` in the wiring).
 - Standard (non-`#UPG`) issues are untouched by the new pass (they never carry `adw:upgrade`).
