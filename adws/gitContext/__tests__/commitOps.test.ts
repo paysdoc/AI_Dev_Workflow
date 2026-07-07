@@ -96,3 +96,62 @@ describe('commitChanges — ignore-safe exclude filter', () => {
     expect(calls.some(c => c.command.startsWith('git commit'))).toBe(true);
   });
 });
+
+describe('removeAndCommitPaths', () => {
+  /** Fake runner for removeAndCommitPaths: scoped `git status --porcelain -- <paths>` is the only branch that matters. */
+  function makeRemovalRunner(config: { statusOutput?: string } = {}): {
+    run: (cmd: string, cwd: string) => string;
+    calls: RunnerCall[];
+  } {
+    const calls: RunnerCall[] = [];
+    const run = (command: string, cwd: string): string => {
+      calls.push({ command, cwd });
+      if (command.startsWith('git status --porcelain')) {
+        return config.statusOutput ?? ' D features/per-issue/feature-1.feature\n';
+      }
+      return '';
+    };
+    return { run, calls };
+  }
+
+  const PATHS = ['features/per-issue/feature-1.feature', 'features/per-issue/step_definitions/feature-1.steps.ts'];
+  const TOKENS = "'features/per-issue/feature-1.feature' 'features/per-issue/step_definitions/feature-1.steps.ts'";
+
+  it('runs a scoped git rm then a pathspec-scoped commit and returns true when something was staged', () => {
+    const { run, calls } = makeRemovalRunner();
+    const result = commitOps.removeAndCommitPaths(run, PATHS, 'chore: sweep stale per-issue scenarios (>14d post-merge)', CWD);
+    expect(result).toBe(true);
+    expect(calls[0]).toEqual({ command: `git rm -f --ignore-unmatch -- ${TOKENS}`, cwd: CWD });
+    const commitCall = calls.find(c => c.command.startsWith('git commit'));
+    expect(commitCall?.command).toBe(`git commit -m "chore: sweep stale per-issue scenarios (>14d post-merge)" -- ${TOKENS}`);
+    expect(commitCall?.cwd).toBe(CWD);
+  });
+
+  it('scopes the status probe to the given paths', () => {
+    const { run, calls } = makeRemovalRunner();
+    commitOps.removeAndCommitPaths(run, PATHS, 'chore: sweep', CWD);
+    const statusCall = calls.find(c => c.command.startsWith('git status --porcelain'));
+    expect(statusCall?.command).toBe(`git status --porcelain -- ${TOKENS}`);
+  });
+
+  it('escapes double quotes in the commit message', () => {
+    const { run, calls } = makeRemovalRunner();
+    commitOps.removeAndCommitPaths(run, PATHS, 'chore: sweep "stale" scenarios', CWD);
+    const commitCall = calls.find(c => c.command.startsWith('git commit'));
+    expect(commitCall?.command).toBe(`git commit -m "chore: sweep \\"stale\\" scenarios" -- ${TOKENS}`);
+  });
+
+  it('returns false and issues no commit when the scoped status is empty (nothing to commit)', () => {
+    const { run, calls } = makeRemovalRunner({ statusOutput: '' });
+    const result = commitOps.removeAndCommitPaths(run, PATHS, 'chore: sweep', CWD);
+    expect(result).toBe(false);
+    expect(calls.some(c => c.command.startsWith('git commit'))).toBe(false);
+  });
+
+  it('returns false and issues no git commands when paths is empty', () => {
+    const { run, calls } = makeRemovalRunner();
+    const result = commitOps.removeAndCommitPaths(run, [], 'chore: sweep', CWD);
+    expect(result).toBe(false);
+    expect(calls.length).toBe(0);
+  });
+});

@@ -71,6 +71,22 @@ function commitChanges(run: Runner, message: string, cwd: string, opts?: { exclu
   return true;
 }
 
+/**
+ * Removes `paths` from the index/working tree and, only if that staged something
+ * for those exact pathspecs, commits scoped to `paths` — unrelated staged/dirty
+ * state elsewhere in the tree is left untouched. `--ignore-unmatch` keeps the
+ * removal idempotent when a path is already absent from the index.
+ */
+function removeAndCommitPaths(run: Runner, paths: readonly string[], message: string, cwd: string): boolean {
+  if (paths.length === 0) return false;
+  const tokens = paths.map(p => `'${p}'`).join(' ');
+  run(`git rm -f --ignore-unmatch -- ${tokens}`, cwd);
+  const status = run(`git status --porcelain -- ${tokens}`, cwd);
+  if (!status.trim()) return false;
+  run(`git commit -m "${message.replace(/"/g, '\\"')}" -- ${tokens}`, cwd);
+  return true;
+}
+
 function pushBranch(run: Runner, branch: string, cwd: string): void {
   try {
     run(`git fetch origin "${branch}"`, cwd);
@@ -97,6 +113,7 @@ function hasUncommittedChanges(run: Runner, cwd: string): boolean {
 
 export const commitOps = {
   commitChanges,
+  removeAndCommitPaths,
   pushBranch,
   getHeadTreeHash,
   hasUncommittedChanges,

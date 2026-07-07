@@ -1,9 +1,11 @@
 /**
- * Per-issue scenario sweep: deletes features/per-issue/feature-{N}.feature files
- * 14 days after the corresponding issue's PR is merged.
+ * Per-issue scenario sweep: removes features/per-issue/feature-{N}.feature files
+ * (and their features/per-issue/step_definitions/feature-{N}.* step-def siblings)
+ * 14 days after the corresponding issue's PR is merged. The removal is committed
+ * and pushed to the default branch via GitContext so it persists to origin — a
+ * clean cron run leaves no uncommitted working-tree deletions.
  */
 
-import * as fs from 'fs';
 import * as path from 'path';
 import { log } from '../core';
 import { getRepoInfo, bodyLinksIssue } from '../github';
@@ -12,6 +14,7 @@ import { gitContextForRepo } from '../github/gitContextFactory';
 export const RETENTION_DAYS = 14;
 
 const PER_ISSUE_DIR = 'features/per-issue';
+const STEP_DEF_DIR = 'features/per-issue/step_definitions';
 const FEATURE_FILENAME_RE = /^feature-(\d+)\.feature$/;
 
 /**
@@ -36,16 +39,24 @@ export interface PerIssueSweepDeps {
   now?: Date;
   listFeatures?: () => string[];
   getMergedAt?: (issueNum: number) => Promise<Date | null>;
-  deleteFile?: (filePath: string) => void;
+  listStepDefSiblings?: (issueNum: number) => string[];
+  persistRemoval?: (paths: readonly string[]) => void;
   log?: (msg: string, level?: string) => void;
 }
 
+/**
+ * Lists tracked feature files (the git index, not the working tree) so staleness
+ * is decided on what the repo actually carries. This also makes the sweep
+ * self-healing: a file already removed from the working tree in a prior,
+ * unpersisted cycle is still tracked, so it is re-listed and persisted here.
+ */
 function defaultListFeatures(): string[] {
-  if (!fs.existsSync(PER_ISSUE_DIR)) return [];
-  return fs
-    .readdirSync(PER_ISSUE_DIR)
-    .filter(name => FEATURE_FILENAME_RE.test(name))
-    .map(name => path.join(PER_ISSUE_DIR, name));
+  try {
+    const ctx = gitContextForRepo(getRepoInfo());
+    return ctx.lsFiles(ctx.basePath, PER_ISSUE_DIR).filter(p => FEATURE_FILENAME_RE.test(path.basename(p)));
+  } catch {
+    return [];
+  }
 }
 
 function defaultGetMergedAt(issueNum: number): Promise<Date | null> {
@@ -65,24 +76,61 @@ function defaultGetMergedAt(issueNum: number): Promise<Date | null> {
   }
 }
 
-function defaultDeleteFile(filePath: string): void {
-  fs.rmSync(filePath);
+/** Lists tracked step-def siblings for issue N (any framework extension, e.g. feature-N.steps.ts). */
+function defaultListStepDefSiblings(issueNum: number): string[] {
+  try {
+    const ctx = gitContextForRepo(getRepoInfo());
+    return ctx.lsFiles(ctx.basePath, STEP_DEF_DIR).filter(p => path.basename(p).startsWith(`feature-${issueNum}.`));
+  } catch {
+    return [];
+  }
 }
 
 /**
- * Lists per-issue feature files, checks their linked PR merge date, and deletes
- * any file whose PR was merged more than RETENTION_DAYS ago.
- * Returns the list of deleted file paths.
+ * Persists a removal batch: `git rm` + a commit scoped to exactly `paths` (never
+ * `git add -A` — unrelated dirty state on the cron host must not be swept in),
+ * pushed to the default branch. Only mutates when the checkout is actually on
+ * the default branch, and never throws — a transient git/gh failure is logged
+ * and swallowed so the unwrapped caller in trigger_cron.ts can't be crashed by it.
+ * A failed push self-heals on the next sweep that finds anything stale, since the
+ * local commit made here is carried forward.
+ */
+function defaultPersistRemoval(paths: readonly string[]): void {
+  if (paths.length === 0) return;
+  try {
+    const ctx = gitContextForRepo(getRepoInfo());
+    const branch = ctx.defaultBranch();
+    if (ctx.getCurrentBranch(ctx.basePath) !== branch) {
+      log(`perIssueScenarioSweep: checkout is not on default branch "${branch}" — skipping persistence`, 'warn');
+      return;
+    }
+    const committed = ctx.removeAndCommitPaths(
+      paths,
+      'chore: sweep stale per-issue scenarios (>14d post-merge)',
+      ctx.basePath,
+    );
+    if (committed) ctx.pushBranch(branch, ctx.basePath);
+  } catch (err) {
+    log(`perIssueScenarioSweep: persistRemoval failed: ${err} — leaving removal uncommitted for next sweep`, 'warn');
+  }
+}
+
+/**
+ * Lists per-issue feature files, checks their linked PR merge date, and removes
+ * every stale file plus its step-def sibling(s) as one persisted batch.
+ * Returns the list of removed file paths (empty when nothing is stale — no-op,
+ * no commit).
  */
 export async function runPerIssueScenarioSweep(deps?: PerIssueSweepDeps): Promise<string[]> {
   const now = deps?.now ?? new Date();
   const listFeatures = deps?.listFeatures ?? defaultListFeatures;
   const getMergedAt = deps?.getMergedAt ?? defaultGetMergedAt;
-  const deleteFile = deps?.deleteFile ?? defaultDeleteFile;
+  const listStepDefSiblings = deps?.listStepDefSiblings ?? defaultListStepDefSiblings;
+  const persistRemoval = deps?.persistRemoval ?? defaultPersistRemoval;
   const logger = deps?.log ?? log;
 
   const files = listFeatures();
-  const deleted: string[] = [];
+  const toRemove: string[] = [];
 
   for (const filePath of files) {
     const basename = path.basename(filePath);
@@ -103,10 +151,16 @@ export async function runPerIssueScenarioSweep(deps?: PerIssueSweepDeps): Promis
 
     if (!isScenarioStale(filePath, mergedAt, RETENTION_DAYS, now)) continue;
 
-    logger(`perIssueScenarioSweep: deleting stale scenario ${filePath} (issue #${issueNum} merged ${mergedAt?.toISOString()})`, 'info');
-    deleteFile(filePath);
-    deleted.push(filePath);
+    const siblings = listStepDefSiblings(issueNum);
+    logger(
+      `perIssueScenarioSweep: sweeping stale scenario ${filePath} (issue #${issueNum} merged ${mergedAt?.toISOString()}) + ${siblings.length} step-def sibling(s)`,
+      'info',
+    );
+    toRemove.push(filePath, ...siblings);
   }
 
-  return deleted;
+  if (toRemove.length === 0) return [];
+
+  persistRemoval(toRemove);
+  return toRemove;
 }
