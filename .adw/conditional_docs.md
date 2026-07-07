@@ -47,6 +47,7 @@
     - adws/phases/worktreeSetup.ts
     - adws/gitContext/commitOps.ts
     - adws/github/labelManager.ts
+    - adws/triggers/upgradeRedrive.ts
   - Conditions:
     - When working on `adwUpgrade.tsx` `executeUpgrade()`, `UpgradeDeps`, or `UpgradeRunResult`
     - When implementing or debugging the `.adw/` regeneration path (`copyAdwInitCommandToWorktree`, `verifyAdwRegen`)
@@ -58,6 +59,10 @@
     - When modifying `copyClaudeAssetsToWorktree` or the `target:` flag gitignore policy in `worktreeSetup.ts`
     - When troubleshooting skill/command propagation to worktrees or target repos
     - When re-arming an escalated upgrade issue (removing `adw:blocked`, clearing failure comments, or posting `## Cancel`)
+    - When step 6 (`commitChanges`/`pushBranch`) failures need to return a handled result instead of throwing (`commit_error` / `push_error`)
+    - When working with `adws/triggers/upgradeRedrive.ts` (`parseClaimBranch`, `decideUpgradeRedrive`, `findRedrivableUpgrades`, `runUpgradeRedriveScan`)
+    - When troubleshooting a stranded `#UPG` tracking issue that never gets re-spawned after a failed upgrade
+    - When the cron redrive scan wired into `trigger_cron.ts` `checkAndTrigger()` is relevant
 
 - app_docs/feature-tcewff-cron-gh-token-bleed-fix.md
   - Conditions:
