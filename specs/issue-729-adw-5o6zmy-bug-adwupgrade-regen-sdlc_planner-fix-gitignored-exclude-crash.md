@@ -145,22 +145,30 @@ Use these files to fix the bug:
 - `adws/phases/worktreeSetup.ts` — context only (`copyAdwInitCommandToWorktree` at line 152 is what
   makes the path gitignored). No change needed; it is used *as-is* (phase-import) by the regression
   scenario.
-- `features/regression/vocabulary.md` — **edit.** Register the new Given/When/Then phrases for the
-  `@regression` scenario, asserting the **produced commit's tree** (Observability Surface #3 — git
-  artefacts), not file-on-disk existence, per the Rot-Detection Rubric.
-- `features/regression/step_definitions/world.ts` — **edit.** Add typed `RegressionWorld` fields to
-  carry the scenario's temp worktree path and the captured commit outcome across steps (mirrors the
-  `pythonFixture` / `scenarioProofResult` pattern).
-- `cucumber.js` — context only. Confirms feature glob `features/regression/**/*.feature` and step
-  import glob `features/regression/step_definitions/**/*.ts` — the new files below are auto-discovered.
-- `features/regression/support/hooks.ts` — context only. The `@regression` `Before` hook runs
-  `setupMockInfrastructure()`, which prepends a `git` wrapper to `PATH` and sets `REAL_GIT_PATH`.
-  The wrapper (`test/mocks/git-remote-mock.ts`) **no-ops only remote ops** (`push`/`fetch`/`clone`/
-  `pull`/`ls-remote`) and **delegates all other subcommands to real git** — so `status`/`add`/
-  `commit`/`check-ignore`/`ls-tree`/`rev-parse` run against the real temp repo and the tree
-  assertions are real. The scenario never pushes, so no remote-mock interaction occurs.
-- `test/mocks/test-harness.ts` — context only. `setupFixtureRepo`/`REAL_GIT_PATH` idiom the new
-  step definitions mirror when building and inspecting the temp git repo with the real git binary.
+- `features/regression/vocabulary.md` — **do NOT auto-edit (human-gated).** `.adw/scenarios.md`
+  declares all three regression-contract sections (`Per-Issue Scenario Directory`,
+  `Regression Scenario Directory`, `Vocabulary Registry`), so per its embedded contract the agent
+  **never auto-promotes `@regression` and never auto-registers vocabulary** — that is a maintainer
+  decision. The scenario is authored under `features/per-issue/` (below); its novel Given/When/Then
+  phrases are **surfaced to the maintainer in the build Output** for registration if/when the
+  scenario is promoted, not written into `vocabulary.md` by the agent.
+  <!-- ADW-WARNING: Issue Tests §2 + Acceptance ask for a "@regression scenario" with "vocabulary phrases registered". `.adw/scenarios.md` (all three regression-contract sections present) mandates the agent NEVER auto-promote to @regression or auto-register vocabulary — promotion is a human decision. These cannot both be satisfied automatically. Resolution: the behavioural scenario is authored under features/per-issue/ (tagged @adw-729, NOT @regression) and keeps the exact commit-tree assertions the issue requires; the @regression promotion + vocabulary registration are surfaced to the maintainer in Output. The build agent must NOT tag the scenario @regression or edit features/regression/vocabulary.md. -->
+- `features/per-issue/step_definitions/feature-729.steps.ts` — **new (edit).** Step definitions
+  carry the scenario's temp worktree path and captured commit outcome in **module-scoped `let`
+  state reset in `Before`/`After` hooks** (the `feature-685.steps.ts` §D pattern), **not** in shared
+  `RegressionWorld` fields. No edit to `features/regression/step_definitions/world.ts` is required;
+  import the `RegressionWorld` **type** only if a typed `this` binding is wanted.
+- `cucumber.js` — context only. Confirms the `paths` glob includes `features/per-issue/**/*.feature`
+  and the `import` glob includes `features/per-issue/step_definitions/**/*.ts` — so the per-issue
+  `feature-729.feature` + `feature-729.steps.ts` below are auto-discovered and run under
+  `--tags "@adw-729"`. (The scenario is **not** `@regression`, so the `@regression` run does not
+  include it.)
+- `features/per-issue/step_definitions/feature-685.steps.ts` — context only (**the pattern to
+  mirror**). Its Part D drives the real `commitOps.commitChanges(realRun, …)` over a **real temp git
+  repo built with bare `execSync('git …')`** (`initGitRepo` helper: `git init` / `git config`),
+  then asserts the produced commit via `git show --name-only --format= HEAD`. Per-issue scenarios do
+  **not** use the `@regression` `Before` hook / `setupMockInfrastructure()` / `REAL_GIT_PATH`; they
+  shell out to real git directly. The scenario never pushes, so no remote mock is needed.
 - `app_docs/feature-t6m62c-adwupgrade-regen-gate-propagation.md` — **conditional doc (matched).**
   Owns `adws/gitContext/commitOps.ts` + `adws/adwUpgrade.tsx` + `adws/phases/worktreeSetup.ts`;
   conditions include "When `commitChanges` `excludePaths` option or the upgrade regen scoped-commit
@@ -174,11 +182,15 @@ Use these files to fix the bug:
 ### New Files
 - `adws/gitContext/__tests__/commitOps.test.ts` — unit test with a fake `run` (there is no existing
   `commitOps.test.ts`; `commitChanges` is currently uncovered at the ops level).
-- `features/regression/smoke/adwupgrade_regen_commit_ignore_safe.feature` — the `@regression`
-  scenario (real temp git repo; phase-import over the real `copyAdwInitCommandToWorktree` +
-  `GitContext.commitChanges`). Any location under `features/regression/**` is picked up by the glob.
-- `features/regression/step_definitions/adwUpgradeCommitSteps.ts` — dedicated step definitions +
-  a `@`-scoped `After` teardown for the temp worktree (mirrors `pythonFixtureE2ESteps.ts`).
+- `features/per-issue/feature-729.feature` — the behavioural scenario file (**already authored by
+  the scenario writer**), tagged `@adw-729 @adw-5o6zmy-bug-adwupgrade-regen` (per-issue placement per
+  `.adw/scenarios.md`; **not** `@regression`). Two scenarios over a real temp git repo, phase-import
+  over the real `copyAdwInitCommandToWorktree` + `GitContext.commitChanges`: §1 the gitignored-exclude
+  RED→GREEN driver, §2 the tracked-exclude guard. The build agent implements the step definitions for
+  the phrases this file already declares (do not move or re-tag the file).
+- `features/per-issue/step_definitions/feature-729.steps.ts` — dedicated step definitions
+  (module-scoped state; mirrors `feature-685.steps.ts` §D) + a `@adw-729`-scoped `After`
+  teardown for the temp worktree.
 
 ## Step by Step Tasks
 
@@ -234,62 +246,90 @@ IMPORTANT: Execute every step in order, top to bottom.
 - Confirm `commitChanges` still returns `false` (and issues no `git add`/`git commit`) when
   `git status --porcelain` is empty.
 
-### 3. Add the `@regression` scenario (real temp repo, real code path)
+### 3. Confirm the `@adw-729` scenario file (already authored — per-issue, real code path)
 
-- Create `features/regression/smoke/adwupgrade_regen_commit_ignore_safe.feature`, tagged
-  `@regression @adw-729`. One scenario expressing the real upgrade commit path:
-  - **Given** a fresh upgrade worktree exists as a real git repo with a committed baseline and a
-    tracked `.adw/` file.
-  - **And** the framework's `adw_init` command is copied into the upgrade worktree and gitignored
-    (drives the real `copyAdwInitCommandToWorktree`).
-  - **And** the `.adw` regeneration modifies the tracked `.adw/` file (the real regen change).
-  - **When** the regen commit runs excluding the gitignored `adw_init` command (drives the real
-    `GitContext.commitChanges(msg, worktree, { excludePaths: ['.claude/commands/adw_init.md'] })`,
-    capturing success/throw on the World).
-  - **Then** the regen commit is recorded on the upgrade worktree (no throw; HEAD advanced).
-  - **And** the regen commit tree includes the modified `.adw/` file.
-  - **And** the regen commit tree excludes the gitignored `adw_init` command.
+The scenario file **already exists** at `features/per-issue/feature-729.feature`, tagged
+`@adw-729 @adw-5o6zmy-bug-adwupgrade-regen` (per-issue placement per `.adw/scenarios.md`; **not**
+`@regression` — promotion is human-gated, see Step 5). Do not move or re-tag it. It declares **two**
+scenarios whose phrases the step definitions in Step 4 must implement verbatim:
+
+- **§1 (RED→GREEN driver) — gitignored excluded path is recorded and carries the `.adw/` change:**
+  - **Given** `an upgrade regen worktree whose command file ".claude/commands/adw_init.md" is gitignored by the real copy-init-command step`
+  - **And** `the worktree has a pending regen change to ".adw/project.md"`
+  - **When** `the framework upgrade commits the regen excluding ".claude/commands/adw_init.md"`
+  - **Then** `the regen commit is recorded on the worktree branch`
+  - **And** `the recorded commit's tree includes ".adw/project.md"`
+  - **And** `the recorded commit's tree excludes ".claude/commands/adw_init.md"`
+- **§2 (guard) — tracked, non-ignored excluded path is still held out:** identical When/Then, with
+  Given `an upgrade regen worktree with a tracked, modified ".claude/commands/adw_init.md" that is not gitignored`.
+  Green **before and after** the fix; it fails only if the ignore-safe filter wrongly drops a
+  non-ignored exclude (over-correction guard, re-pinning #685 §D1).
 - The three `Then` assertions read the **produced commit's tree** via
-  `git ls-tree -r --name-only HEAD` / `git rev-parse HEAD` using `REAL_GIT_PATH` — a git artefact
-  (Surface #3), never file-on-disk existence.
+  `git show --name-only --format= HEAD` — a git artefact (Surface #3), never file-on-disk existence.
 
-### 4. Add the step definitions
+### 4. Add the step definitions (per-issue, `feature-685.steps.ts` §D pattern)
 
-- Create `features/regression/step_definitions/adwUpgradeCommitSteps.ts`:
-  - Import the **real** `copyAdwInitCommandToWorktree` from `adws/phases/worktreeSetup.ts` and the
-    **real** `GitContext` from `adws/gitContext/index.ts` (or `../../../adws/gitContext/gitContext.ts`).
-  - `Given` step: `mkdtempSync` a temp dir; init the repo with `REAL_GIT_PATH` (init, config
-    user.name/email, seed a tracked `.gitignore` and a tracked `.adw/project.md`, add + commit).
-    Store the worktree path on the World.
-  - `And` (copy) step: call `copyAdwInitCommandToWorktree(worktree, process.cwd())` — `process.cwd()`
-    is the ADW repo root, which contains `.claude/commands/adw_init.md`.
-  - `And` (regen) step: overwrite the tracked `.adw/project.md` with new content.
-  - `When` step: construct a `GitContext` with complete, dummy-but-valid options
-    (`owner`/`repo`/`token`/`gitIdentity`/`selfHost: true`/`frameworkRepoRoot: process.cwd()`/
-    `targetReposDir`) and call `commitChanges(message, worktree, { excludePaths: ['.claude/commands/adw_init.md'] })`
-    inside `try/catch`, storing `{ committed, error }` on the World. (Base path is irrelevant here —
-    `commitChanges` runs against the explicit `worktree` cwd; the default exec routes through the
-    passthrough git mock to real git for all local ops.)
-  - `Then` steps: assert no captured error + HEAD present; assert `git ls-tree -r --name-only HEAD`
-    contains `.adw/project.md`; assert it does **not** contain `.claude/commands/adw_init.md`.
-  - Add an `After({ tags: '@adw-729' })` hook to `rmSync` the temp worktree and clear the World
-    fields (mirrors the `@python-e2e` teardown).
+- Create `features/per-issue/step_definitions/feature-729.steps.ts`, mirroring
+  `features/per-issue/step_definitions/feature-685.steps.ts` §D: bare `execSync('git …')`, an
+  `initGitRepo` helper (`git init`; `git config user.email/user.name`), **module-scoped `let`
+  state**, and `git show --name-only --format= HEAD` reads. Do **not** use the `@regression`
+  `Before` hook / `setupMockInfrastructure()` / `REAL_GIT_PATH` — those belong to the regression
+  suite, which this per-issue scenario is not part of.
+  - Import the **real** `copyAdwInitCommandToWorktree` from `../../../adws/phases/worktreeSetup.ts`
+    and the **real** `commitOps` from `../../../adws/gitContext/commitOps.ts` (or `GitContext` from
+    `../../../adws/gitContext/index.ts` / `gitContext.ts`).
+  - §1 `Given` (gitignored): `mkdtempSync` a temp dir; `initGitRepo`; seed a tracked `.gitignore`
+    and a tracked `.adw/project.md`, `git add -A` + commit a baseline; then call
+    `copyAdwInitCommandToWorktree(worktree, process.cwd())` — `process.cwd()` is the ADW repo root,
+    which holds the real `.claude/commands/adw_init.md`. That copies the command file in **untracked
+    and gitignored** (the production double-exclusion). Store the worktree path in module state.
+  - §2 `Given` (tracked): same repo bootstrap, but create, **commit**, then modify
+    `.claude/commands/adw_init.md` as a **tracked** file and write **no** `.gitignore` entry for it.
+  - `And` (regen) step (`the worktree has a pending regen change to {string}`): overwrite the tracked
+    `.adw/project.md` with new content (the real regen change).
+  - `When` step (`the framework upgrade commits the regen excluding {string}`): drive the **real**
+    commit path — `commitOps.commitChanges(realRun, message, worktree, { excludePaths: [<path>] })`
+    with `realRun = (cmd, cwd) => execSync(cmd, { cwd, encoding: 'utf-8', stdio: ['pipe','pipe','pipe'] })`
+    (equivalently construct `new GitContext(opts)` with the default real exec and call
+    `commitChanges`). Wrap in `try/catch`; record the thrown error (if any) and the pre-call HEAD in
+    module state.
+  - `Then` steps: `the regen commit is recorded on the worktree branch` asserts **no** captured error
+    **and** HEAD advanced past the baseline; `the recorded commit's tree includes/excludes {string}`
+    asserts membership in `git show --name-only --format= HEAD`. Guard so a §1 RED throw yields a
+    clear failure rather than an assertion against a stale HEAD.
+  - Add an `After({ tags: '@adw-729' })` hook to `rmSync` the temp worktree and clear module state.
+- Reuse the already-registered `Given the ADW codebase is checked out` Background step (G18) — do not
+  re-declare it.
 
-### 5. Extend the World and register vocabulary phrases
+### 5. Surface the `@regression` promotion + vocabulary phrases to the maintainer (do NOT auto-apply)
 
-- In `features/regression/step_definitions/world.ts`, add typed fields to `RegressionWorld`
-  (e.g. `upgradeWorktree?: string;` and `commitOutcome?: { committed: boolean; error?: unknown };`).
-- In `features/regression/vocabulary.md`, add the new phrases under a dedicated
-  `## Given/When/Then — adwUpgrade Regen Commit (@adw-729)` table, each row giving Phrase /
-  Semantics / Pattern (`phase-import`) / Assertion target (**git artefact — Surface #3**). Ensure
-  every phrase used in the `.feature` file is registered, and that the Then phrases describe a
-  commit-tree assertion (not file existence), satisfying the Rot-Detection Rubric.
+- **No edit to `features/regression/step_definitions/world.ts`.** State is module-scoped in the
+  steps file (Step 4), matching the per-issue `feature-685.steps.ts` pattern — the regression
+  `RegressionWorld` is not used to carry this scenario's state.
+- **Do NOT auto-promote to `@regression` and do NOT edit `features/regression/vocabulary.md`.**
+  `.adw/scenarios.md` declares the full regression-suite contract (all three of
+  `Per-Issue Scenario Directory`, `Regression Scenario Directory`, `Vocabulary Registry`), under
+  which the agent authors per-issue scenarios and leaves `@regression` promotion + vocabulary
+  registration to the maintainer.
+  <!-- ADW-WARNING: Issue Tests §2 + Acceptance require a "@regression scenario ... vocabulary phrases registered". Repo policy (.adw/scenarios.md) forbids the agent from auto-promoting @regression or auto-registering vocabulary — human decision only. Unresolvable automatically. The behavioural requirement (RED→GREEN commit-tree scenario) IS satisfied under @adw-729 in features/per-issue/feature-729.feature; the @regression tag + vocabulary registration must be applied by the maintainer. Do NOT force-tag the scenario or edit vocabulary.md to satisfy the literal Acceptance wording. -->
+- In the build Output, **surface for the maintainer**: (a) a request to promote
+  `features/per-issue/feature-729.feature` to `@regression` if desired, and (b) the novel phrases to
+  register in `features/regression/vocabulary.md` at that time — each asserting the **produced
+  commit's tree** (Surface #3), never file-on-disk existence:
+  - `an upgrade regen worktree whose command file ".claude/commands/adw_init.md" is gitignored by the real copy-init-command step`
+  - `an upgrade regen worktree with a tracked, modified ".claude/commands/adw_init.md" that is not gitignored`
+  - `the worktree has a pending regen change to {string}`
+  - `the framework upgrade commits the regen excluding {string}`
+  - `the regen commit is recorded on the worktree branch`
+  - `the recorded commit's tree includes {string}`
+  - `the recorded commit's tree excludes {string}`
 
 ### 6. Validate the fix with zero regressions
 
 - Run the RED-check first (optional, to confirm the guard bites): temporarily reverting the
-  `commitOps.ts` change makes the `@adw-729` scenario fail at the `When`/first `Then`; with the
-  fix applied it passes. Then run the full `Validation Commands` below and confirm all pass.
+  `commitOps.ts` change makes the `@adw-729` **§1** scenario fail at the `When`/first `Then` (the
+  `git add` throws, no commit recorded), while **§2** stays green (the tracked path never crashed).
+  With the fix applied both pass. Then run the full `Validation Commands` below and confirm all pass.
 
 ## Validation Commands
 
@@ -301,9 +341,10 @@ Execute every command to validate the bug is fixed with zero regressions. Comman
   with "paths are ignored". This is what the fix removes from the `commitChanges` path.
 - `bunx vitest run adws/gitContext/__tests__/commitOps.test.ts` — the new unit test passes (ignored
   → token omitted; none-ignored → token retained; mixed → only ignored dropped; no-opts baseline).
-- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-729"` — the new `@regression` scenario
-  passes GREEN (commit recorded; tree includes the `.adw/` change; tree excludes the gitignored
-  `adw_init` command). RED before the fix.
+- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-729"` — the per-issue scenario passes
+  GREEN: §1 (commit recorded; tree includes the `.adw/` change; tree excludes the gitignored
+  `adw_init` command) — RED before the fix — and §2 (tracked, non-ignored exclude still held out) —
+  green throughout.
 - `bun run lint` — ESLint clean.
 - `bun run lint:git-guard` — git-guard clean (new raw `git check-ignore` lives inside the exempt
   `adws/gitContext` package).
@@ -311,8 +352,10 @@ Execute every command to validate the bug is fixed with zero regressions. Comman
 - `bunx tsc --noEmit -p adws/tsconfig.json` — ADW type-check passes.
 - `bun run build` — `tsc` build succeeds.
 - `bun run test:unit` — full vitest suite passes (zero regressions, including `adwUpgrade.test.ts`).
-- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@regression"` — the entire regression suite
-  passes (the new scenario included, no other scenario disturbed).
+- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@regression"` — the existing regression suite
+  still passes (no regression). Note `feature-729.feature` is **per-issue, not `@regression`**, so it
+  is **not** included in this run — it is validated by the `@adw-729` run above (promotion to
+  `@regression` is a human decision per `.adw/scenarios.md`).
 
 ## Notes
 
@@ -330,6 +373,16 @@ Execute every command to validate the bug is fixed with zero regressions. Comman
 - **Preserved invariants** (per `app_docs/feature-t6m62c-...`): status and add always share the
   same pathspec; callers with no `excludePaths` are byte-identical (no `git check-ignore` call).
   The document phase should update that owning doc to record the ignore-safe filter.
+- **Scenario routing / promotion (per `.adw/scenarios.md`):** this repo has the full
+  regression-suite contract enabled (`Per-Issue Scenario Directory`, `Regression Scenario
+  Directory`, `Vocabulary Registry` all set), so the behavioural scenario is authored under
+  `features/per-issue/feature-729.feature` (tagged `@adw-729`, **not** `@regression`) with
+  module-scoped step state, and the `@regression` promotion + `features/regression/vocabulary.md`
+  registration that the issue's Tests §2 / Acceptance mention are **surfaced to the maintainer**,
+  not auto-applied by the agent. The behavioural guarantee the issue requires (the RED→GREEN
+  commit-tree scenario) is fully delivered under `@adw-729`; only the promotion/registration is
+  human-gated. This is the single point where the issue's literal wording and the repo's configured
+  workflow diverge — see the `ADW-WARNING` in Relevant Files / Step 5.
 - **Known non-goal / edge:** a path that is simultaneously *tracked* **and** gitignored would be
   dropped from the exclude by this filter (and `git add -A` would then re-stage its modifications).
   That combination does not arise for `.claude/commands/adw_init.md` (self-host: tracked + not
