@@ -51,6 +51,7 @@
     - When working on `adwUpgrade.tsx` `executeUpgrade()`, `UpgradeDeps`, or `UpgradeRunResult`
     - When implementing or debugging the `.adw/` regeneration path (`copyAdwInitCommandToWorktree`, `verifyAdwRegen`)
     - When working with the failure-cap escalation (`MAX_FAILURES`, `isUpgradeFailureComment`, `countUpgradeFailureComments`, `adw:blocked` label)
+    - When working with `commitChanges`/`commitOps.ts` `excludePaths`, the `:(exclude)` pathspec, or the gitignored-exclude-path crash (`committableExcludePaths`, `git check-ignore`)
     - When the entry gate (`adw:blocked` terminal-label short-circuit) or escalation gate (failure count ≥ cap) is relevant
     - When `commitChanges` `excludePaths` option or the upgrade regen scoped-commit behaviour is relevant
     - When a target repo's `.adw-version` equals the current framework hash but `.adw/` is missing (bricked repo recovery)
