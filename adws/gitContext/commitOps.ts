@@ -32,8 +32,38 @@ function pathspecSuffix(excludePaths?: readonly string[]): string {
   return ` -- '.' ${tokens}`;
 }
 
+/**
+ * Returns the subset of `paths` that are already gitignored in `cwd`. `git check-ignore`
+ * exits non-zero when none of the given paths are ignored, which the injected runner
+ * surfaces as a throw — treat that (and any other failure) as "nothing ignored" so the
+ * filter can never behave worse than passing every path through unfiltered.
+ */
+function gitignoredSubset(run: Runner, cwd: string, paths: readonly string[]): ReadonlySet<string> {
+  if (paths.length === 0) return new Set();
+  const tokens = paths.map(p => `'${p}'`).join(' ');
+  try {
+    const output = run(`git check-ignore ${tokens}`, cwd);
+    return new Set(output.split('\n').map(line => line.trim()).filter(Boolean));
+  } catch {
+    return new Set();
+  }
+}
+
+/**
+ * Filters `excludePaths` down to the paths that are safe to name in an `:(exclude)`
+ * pathspec — i.e. not already gitignored. Naming an already-ignored path in an explicit
+ * pathspec promotes `git add -A` to an explicit-pathspec add, which git then rejects
+ * with exit 1 ("paths are ignored"). Dropping those entries is a no-op for what gets
+ * staged (`git add -A` already skips ignored files) and removes the crash.
+ */
+function committableExcludePaths(run: Runner, cwd: string, excludePaths?: readonly string[]): readonly string[] {
+  if (!excludePaths || excludePaths.length === 0) return [];
+  const ignored = gitignoredSubset(run, cwd, excludePaths);
+  return excludePaths.filter(p => !ignored.has(p));
+}
+
 function commitChanges(run: Runner, message: string, cwd: string, opts?: { excludePaths?: readonly string[] }): boolean {
-  const suffix = pathspecSuffix(opts?.excludePaths);
+  const suffix = pathspecSuffix(committableExcludePaths(run, cwd, opts?.excludePaths));
   const status = run(`git status --porcelain${suffix}`, cwd);
   if (!status.trim()) return false;
   run(`git add -A${suffix}`, cwd);
