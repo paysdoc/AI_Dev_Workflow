@@ -192,6 +192,10 @@ export class GitContext {
     return commitOps.commitChanges((cmd, cwd) => this.#run(cmd, { cwd }), message, worktreePath, opts);
   }
 
+  removeAndCommitPaths(paths: readonly string[], message: string, worktreePath: string): boolean {
+    return commitOps.removeAndCommitPaths((cmd, cwd) => this.#run(cmd, { cwd }), paths, message, worktreePath);
+  }
+
   pushBranch(branch: string, worktreePath: string): void {
     commitOps.pushBranch((cmd, cwd) => this.#run(cmd, { cwd }), branch, worktreePath);
   }

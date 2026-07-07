@@ -15,7 +15,7 @@ As of #700, the package also owns the **bootstrap pre-context primitives** that 
 - Produce a per-command child-process environment overlay via `commandEnv(base?)`: fresh object with `GH_TOKEN` + `GIT_AUTHOR_*`/`GIT_COMMITTER_*` — never mutates `process.env`
 - Execute every operation through the single private `#run(command, opts?)` chokepoint: spawns with `cwd` (defaults to `basePath`), `env = commandEnv(process.env)`, optional stdin `input`, optional `usePat` flag, and a global `maxBuffer: 10 MB` ceiling (prevents `ENOBUFS` on large diffs/logs)
 - Provide branch operations: `getCurrentBranch`, `mergeLatestFromDefaultBranch`, `fetchAndResetToRemote`, `deleteLocalBranch`, `deleteRemoteBranch`, `defaultBranch`
-- Provide commit/push operations: `commitChanges`, `pushBranch` (force-with-lease + lease-rejection detection), `getHeadTreeHash`, `hasUncommittedChanges`
+- Provide commit/push operations: `commitChanges`, `removeAndCommitPaths(paths, message, worktreePath)` (scoped `git rm --ignore-unmatch` + commit limited to exactly `paths`), `pushBranch` (force-with-lease + lease-rejection detection), `getHeadTreeHash`, `hasUncommittedChanges`
 - Provide worktree reset: `resetWorktree` (abort in-progress merge/rebase via fs then fetch/reset --hard/clean -fdx)
 - Provide full worktree management surface: `createWorktree`, `createWorktreeForNewBranch`, `ensureWorktree`, `getWorktreeForBranch`, `listWorktrees`, `findWorktreeForIssue`, `removeWorktree`, `removeWorktreesForIssue`, `copyEnvToWorktree`
 - Provide gh read methods: `listOpenIssues({ fields, search?, limit? })`, `issueComments(issueNumber)`, `fetchMergedPRs(limit?)`
@@ -63,7 +63,7 @@ Each module is side-effect-free except at the injected runner/fs seam and stays 
 | Module | Exports |
 |---|---|
 | `branchOps.ts` | Branch create/checkout/delete/merge/fetch/reset runners; `localBranches` |
-| `commitOps.ts` | Commit/push/hash/dirty-check runners |
+| `commitOps.ts` | Commit/push/hash/dirty-check runners; `removeAndCommitPaths` (`git rm -f --ignore-unmatch` scoped to given paths, commits only if that staged something, idempotent when paths are already absent) |
 | `worktreeResetOps.ts` | Abort-in-progress-op + fetch/reset --hard/clean |
 | `worktreeCreateOps.ts` | `createWorktree`, `createWorktreeForNewBranch`, `ensureWorktree`, `copyEnvToWorktree`, `isBranchCheckedOutElsewhere`, `freeBranchFromMainRepo` |
 | `worktreeQueryOps.ts` | `listWorktrees`, `findWorktreeForIssue`, `getWorktreeForBranch`; `mainRepoPath`, `worktreeBranches`; exports `WorktreeForIssueResult` type |
@@ -206,6 +206,7 @@ Prior slice migrations (summarized — see git history for per-slice detail):
 - `activateGitHubAppAuth`, `refreshTokenIfNeeded`, and `configureGitIdentity` no longer exist — no `process.env` mutation remains in the hot path
 - The Claude subprocess receives per-command `GH_TOKEN` + `GIT_*` via the `subprocessEnv` overlay in `claudeAgent.ts`; the spawn env is `{ ...getSafeSubprocessEnv(), ...(subprocessEnv ?? {}) }` — never mutates `process.env`
 - `pushBranch` uses `--force-with-lease --force-if-includes`; lease rejection throws with manual-remedy instructions
+- `removeAndCommitPaths` never touches paths outside the given list — no `git add -A`; unrelated dirty state in the worktree is left untouched. Returns `false` (no commit) when the given paths were already absent from the index
 - `resetWorktree` aborts any in-progress merge/rebase before fetching and hard-resetting
 - Protected branches (`main`, `master`, `develop`) refused by `deleteLocalBranch` and `deleteRemoteBranch`
 - Package imports nothing from `adws/core`, `adws/providers`, or any ADW global — all config injected at construction
@@ -273,3 +274,4 @@ Optional injectable dependency bag via `GitContextDeps`:
 - **`gitContextForSync` vs `gitContextFor` vs `gitContextForRepo`** — use `gitContextForSync` in synchronous initialization; `gitContextFor` when you can `await`; `gitContextForRepo(repoInfo)` in trigger/phase modules with only a `RepoInfo`
 - **No physical npm package** — the "importable package" guarantee is satisfied structurally by the zero-ADW-global discipline; physical extraction deferred
 - **`checkGitGhGuard.ts` `main()` guard** — exported as a module to support test imports; `main()` called only when `process.argv[1]` includes `checkGitGhGuard`
+- **`perIssueScenarioSweep.ts` (#735) is `removeAndCommitPaths`'s first caller** — it lists stale `features/per-issue/feature-{N}.feature` files (and their `step_definitions/feature-{N}.*` siblings) via `ctx.lsFiles` against the tracked index (not the working tree), so a removal left uncommitted by a prior failed sweep cycle is self-healing on the next run; the commit is only pushed when the checkout is on `defaultBranch()`

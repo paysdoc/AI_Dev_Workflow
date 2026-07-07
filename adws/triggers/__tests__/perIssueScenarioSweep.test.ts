@@ -2,17 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // ── Module mocks (hoisted) ───────────────────────────────────────────────────
 
-vi.mock('fs', () => ({
-  default: {
-    existsSync: vi.fn(() => true),
-    readdirSync: vi.fn(() => []),
-    rmSync: vi.fn(),
-  },
-  existsSync: vi.fn(() => true),
-  readdirSync: vi.fn(() => []),
-  rmSync: vi.fn(),
-}));
-
 vi.mock('child_process', () => ({
   spawn: vi.fn(),
 }));
@@ -78,8 +67,9 @@ describe('runPerIssueScenarioSweep — integration', () => {
     vi.clearAllMocks();
   });
 
-  it('deletes only the stale file; leaves fresh and unmerged files alone', async () => {
+  it('sweeps both the feature file and its step-def sibling(s) for a stale issue', async () => {
     const staleFile = 'features/per-issue/feature-100.feature';
+    const sibling = 'features/per-issue/step_definitions/feature-100.steps.ts';
     const freshFile = 'features/per-issue/feature-200.feature';
     const unmergedFile = 'features/per-issue/feature-300.feature';
 
@@ -90,37 +80,69 @@ describe('runPerIssueScenarioSweep — integration', () => {
       return null;
     });
 
-    const deleteFile = vi.fn();
+    const listStepDefSiblings = vi.fn((issueNum: number) => (issueNum === 100 ? [sibling] : []));
+    const persistRemoval = vi.fn();
     const logger = vi.fn();
 
-    const deleted = await runPerIssueScenarioSweep({
+    const removed = await runPerIssueScenarioSweep({
       now: NOW,
       listFeatures: () => [staleFile, freshFile, unmergedFile],
       getMergedAt,
-      deleteFile,
+      listStepDefSiblings,
+      persistRemoval,
       log: logger,
     });
 
-    expect(deleted).toEqual([staleFile]);
-    expect(deleteFile).toHaveBeenCalledOnce();
-    expect(deleteFile).toHaveBeenCalledWith(staleFile);
+    expect(removed).toEqual([staleFile, sibling]);
+    expect(listStepDefSiblings).toHaveBeenCalledWith(100);
+    expect(listStepDefSiblings).not.toHaveBeenCalledWith(200);
+    expect(persistRemoval).toHaveBeenCalledOnce();
+    expect(persistRemoval).toHaveBeenCalledWith([staleFile, sibling]);
   });
 
-  it('returns the deleted-paths list', async () => {
-    const staleFile = 'features/per-issue/feature-42.feature';
+  it('invokes persistRemoval exactly once with the full removal batch (the commit path)', async () => {
+    const staleA = 'features/per-issue/feature-101.feature';
+    const staleB = 'features/per-issue/feature-102.feature';
+    const siblingB = 'features/per-issue/step_definitions/feature-102.steps.ts';
 
-    const deleted = await runPerIssueScenarioSweep({
+    const persistRemoval = vi.fn();
+
+    const removed = await runPerIssueScenarioSweep({
       now: NOW,
-      listFeatures: () => [staleFile],
+      listFeatures: () => [staleA, staleB],
       getMergedAt: async () => daysAgo(20),
-      deleteFile: vi.fn(),
+      listStepDefSiblings: (issueNum) => (issueNum === 102 ? [siblingB] : []),
+      persistRemoval,
       log: vi.fn(),
     });
 
-    expect(deleted).toEqual([staleFile]);
+    expect(removed).toEqual([staleA, staleB, siblingB]);
+    expect(persistRemoval).toHaveBeenCalledOnce();
+    expect(persistRemoval).toHaveBeenCalledWith([staleA, staleB, siblingB]);
   });
 
-  it('getMergedAt rejection does not delete that file and does not abort others', async () => {
+  it('no-op: does not invoke persistRemoval and returns [] when nothing is stale', async () => {
+    const freshFile = 'features/per-issue/feature-200.feature';
+    const unmergedFile = 'features/per-issue/feature-300.feature';
+
+    const persistRemoval = vi.fn();
+    const listStepDefSiblings = vi.fn();
+
+    const removed = await runPerIssueScenarioSweep({
+      now: NOW,
+      listFeatures: () => [freshFile, unmergedFile],
+      getMergedAt: async (issueNum) => (issueNum === 200 ? daysAgo(5) : null),
+      listStepDefSiblings,
+      persistRemoval,
+      log: vi.fn(),
+    });
+
+    expect(removed).toEqual([]);
+    expect(persistRemoval).not.toHaveBeenCalled();
+    expect(listStepDefSiblings).not.toHaveBeenCalled();
+  });
+
+  it('getMergedAt rejection does not sweep that file and does not abort others', async () => {
     const failFile = 'features/per-issue/feature-10.feature';
     const staleFile = 'features/per-issue/feature-11.feature';
 
@@ -129,20 +151,20 @@ describe('runPerIssueScenarioSweep — integration', () => {
       return daysAgo(20);
     });
 
-    const deleteFile = vi.fn();
+    const persistRemoval = vi.fn();
     const logger = vi.fn();
 
-    const deleted = await runPerIssueScenarioSweep({
+    const removed = await runPerIssueScenarioSweep({
       now: NOW,
       listFeatures: () => [failFile, staleFile],
       getMergedAt,
-      deleteFile,
+      listStepDefSiblings: () => [],
+      persistRemoval,
       log: logger,
     });
 
-    expect(deleted).toEqual([staleFile]);
-    expect(deleteFile).not.toHaveBeenCalledWith(failFile);
-    expect(deleteFile).toHaveBeenCalledWith(staleFile);
+    expect(removed).toEqual([staleFile]);
+    expect(persistRemoval).toHaveBeenCalledWith([staleFile]);
     expect(logger).toHaveBeenCalledWith(expect.stringContaining('getMergedAt failed'), 'warn');
   });
 
@@ -151,48 +173,123 @@ describe('runPerIssueScenarioSweep — integration', () => {
     const mockCtx = { fetchMergedPRs: vi.fn(() => JSON.stringify(mergedPRs)) };
     vi.mocked(gitContextForRepo).mockReturnValue(mockCtx as never);
 
-    const deleted = await runPerIssueScenarioSweep({
+    const persistRemoval = vi.fn();
+
+    const removed = await runPerIssueScenarioSweep({
       now: new Date('2026-02-15T00:00:00Z'),
       listFeatures: () => ['features/per-issue/feature-55.feature'],
-      deleteFile: vi.fn(),
+      listStepDefSiblings: () => [],
+      persistRemoval,
       log: vi.fn(),
     });
 
     expect(gitContextForRepo).toHaveBeenCalled();
     expect(mockCtx.fetchMergedPRs).toHaveBeenCalledWith(200);
-    expect(deleted).toEqual(['features/per-issue/feature-55.feature']);
+    expect(removed).toEqual(['features/per-issue/feature-55.feature']);
   });
 
   it('default getMergedAt returns null on throw (fail-open)', async () => {
     vi.mocked(gitContextForRepo).mockReturnValue({ fetchMergedPRs: vi.fn(() => { throw new Error('gh error'); }) } as never);
-    const deleteFile = vi.fn();
+    const persistRemoval = vi.fn();
 
     await runPerIssueScenarioSweep({
       now: NOW,
       listFeatures: () => ['features/per-issue/feature-99.feature'],
-      deleteFile,
+      listStepDefSiblings: () => [],
+      persistRemoval,
       log: vi.fn(),
     });
 
-    expect(deleteFile).not.toHaveBeenCalled();
+    expect(persistRemoval).not.toHaveBeenCalled();
   });
 
   it('skips files whose names do not match the feature-{N}.feature pattern', async () => {
     const badFile = 'features/per-issue/README.md';
     const getMergedAt = vi.fn();
-    const deleteFile = vi.fn();
+    const persistRemoval = vi.fn();
     const logger = vi.fn();
 
     await runPerIssueScenarioSweep({
       now: NOW,
       listFeatures: () => [badFile],
       getMergedAt,
-      deleteFile,
+      listStepDefSiblings: vi.fn(),
+      persistRemoval,
       log: logger,
     });
 
     expect(getMergedAt).not.toHaveBeenCalled();
-    expect(deleteFile).not.toHaveBeenCalled();
+    expect(persistRemoval).not.toHaveBeenCalled();
     expect(logger).toHaveBeenCalledWith(expect.stringContaining('skipping unrecognised filename'), 'warn');
+  });
+});
+
+// ── Default wiring — routes through gitContextForRepo ───────────────────────
+
+describe('runPerIssueScenarioSweep — default wiring through gitContextForRepo', () => {
+  const PER_ISSUE_DIR = 'features/per-issue';
+  const STEP_DEF_DIR = 'features/per-issue/step_definitions';
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  function makeMockCtx(overrides: Record<string, unknown> = {}) {
+    const featurePath = 'features/per-issue/feature-77.feature';
+    const siblingPath = 'features/per-issue/step_definitions/feature-77.steps.ts';
+    const mergedPRs = [{ body: 'Closes #77', mergedAt: '2026-01-01T00:00:00Z' }];
+    return {
+      featurePath,
+      siblingPath,
+      basePath: '/repo',
+      lsFiles: vi.fn((_cwd: string, prefix?: string) => {
+        if (prefix === PER_ISSUE_DIR) return [featurePath];
+        if (prefix === STEP_DEF_DIR) return [siblingPath];
+        return [];
+      }),
+      fetchMergedPRs: vi.fn(() => JSON.stringify(mergedPRs)),
+      defaultBranch: vi.fn(() => 'dev'),
+      getCurrentBranch: vi.fn(() => 'dev'),
+      removeAndCommitPaths: vi.fn(() => true),
+      pushBranch: vi.fn(),
+      ...overrides,
+    };
+  }
+
+  it('lists via lsFiles and persists via removeAndCommitPaths + pushBranch when on the default branch', async () => {
+    const mockCtx = makeMockCtx();
+    vi.mocked(gitContextForRepo).mockReturnValue(mockCtx as never);
+
+    const removed = await runPerIssueScenarioSweep({ now: new Date('2026-02-15T00:00:00Z') });
+
+    expect(mockCtx.lsFiles).toHaveBeenCalledWith(mockCtx.basePath, PER_ISSUE_DIR);
+    expect(mockCtx.lsFiles).toHaveBeenCalledWith(mockCtx.basePath, STEP_DEF_DIR);
+    expect(removed).toEqual([mockCtx.featurePath, mockCtx.siblingPath]);
+    expect(mockCtx.removeAndCommitPaths).toHaveBeenCalledWith(
+      [mockCtx.featurePath, mockCtx.siblingPath],
+      expect.any(String),
+      mockCtx.basePath,
+    );
+    expect(mockCtx.pushBranch).toHaveBeenCalledWith('dev', mockCtx.basePath);
+  });
+
+  it('does not commit or push when the checkout is not on the default branch', async () => {
+    const mockCtx = makeMockCtx({ getCurrentBranch: vi.fn(() => 'some-other-branch') });
+    vi.mocked(gitContextForRepo).mockReturnValue(mockCtx as never);
+
+    await runPerIssueScenarioSweep({ now: new Date('2026-02-15T00:00:00Z') });
+
+    expect(mockCtx.removeAndCommitPaths).not.toHaveBeenCalled();
+    expect(mockCtx.pushBranch).not.toHaveBeenCalled();
+  });
+
+  it('does not push when removeAndCommitPaths reports nothing was committed', async () => {
+    const mockCtx = makeMockCtx({ removeAndCommitPaths: vi.fn(() => false) });
+    vi.mocked(gitContextForRepo).mockReturnValue(mockCtx as never);
+
+    await runPerIssueScenarioSweep({ now: new Date('2026-02-15T00:00:00Z') });
+
+    expect(mockCtx.removeAndCommitPaths).toHaveBeenCalled();
+    expect(mockCtx.pushBranch).not.toHaveBeenCalled();
   });
 });
