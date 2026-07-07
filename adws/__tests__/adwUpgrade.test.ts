@@ -9,7 +9,7 @@ import {
   type UpgradeDeps,
   type UpgradeRunResult,
 } from '../adwUpgrade';
-import { buildClaimBranchName, isAdwComment, parseAdwYml, isPushRejectionError } from '../core';
+import { buildClaimBranchName, isAdwComment, parseAdwYml, isPushRejectionError, countUpgradeFailureComments, UPGRADE_FAILURE_SIGNATURE } from '../core';
 import { commentOnIssue } from '../github';
 import type { CreatePROptions } from '../providers/types';
 
@@ -297,7 +297,7 @@ describe('executeUpgrade — non-fast-forward push parks instead of crashing', (
     expect(deps.commentOnIssue).not.toHaveBeenCalled();
   });
 
-  it('does not swallow a genuine (non-rejection) push failure — rethrows it', async () => {
+  it('does not swallow a genuine (non-rejection) push failure — returns failed/push_error instead of throwing', async () => {
     const fatal = Object.assign(new Error('fatal: unable to access remote'), {
       stderr: Buffer.from('fatal: Could not read from remote repository'),
     });
@@ -306,9 +306,84 @@ describe('executeUpgrade — non-fast-forward push parks instead of crashing', (
       isPushRejection: vi.fn().mockReturnValue(false),
     });
 
+    const result = await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    expect(result.outcome).toBe('failed');
+    expect(result.reason).toBe('push_error');
+  });
+});
+
+// ── Step 6 no-throw: commit/push failures return, not throw (issue #730) ─────
+
+describe('executeUpgrade — step 6 commit/push failures', () => {
+  it('commitChanges throw → outcome=failed, reason=commit_error, one counted failure comment, no push/PR', async () => {
+    const deps = makeDeps({
+      commitChanges: vi.fn().mockImplementation(() => { throw new Error('commit boom'); }),
+    });
+    const result = await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    expect(result.outcome).toBe('failed');
+    expect(result.reason).toBe('commit_error');
+    expect(deps.pushBranch).not.toHaveBeenCalled();
+    expect(deps.createPullRequest).not.toHaveBeenCalled();
+    expect(deps.commentOnIssue).toHaveBeenCalledTimes(1);
+
+    const body = (deps.commentOnIssue as ReturnType<typeof vi.fn>).mock.calls[0][1] as string;
+    expect(body.startsWith(UPGRADE_FAILURE_SIGNATURE)).toBe(true);
+    expect(countUpgradeFailureComments([{ body, author: 'adw-bot[bot]' }])).toBe(1);
+  });
+
+  it('does not reject (resolves cleanly) when commitChanges throws', async () => {
+    const deps = makeDeps({
+      commitChanges: vi.fn().mockImplementation(() => { throw new Error('commit boom'); }),
+    });
+
     await expect(
       executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps),
-    ).rejects.toThrow('unable to access remote');
+    ).resolves.toBeDefined();
+  });
+
+  it('pushBranch non-rejection throw → outcome=failed, reason=push_error, one counted failure comment, no PR', async () => {
+    const deps = makeDeps({
+      pushBranch: vi.fn().mockImplementation(() => { throw new Error('push boom'); }),
+      isPushRejection: vi.fn().mockReturnValue(false),
+    });
+    const result = await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    expect(result.outcome).toBe('failed');
+    expect(result.reason).toBe('push_error');
+    expect(deps.createPullRequest).not.toHaveBeenCalled();
+    expect(deps.commentOnIssue).toHaveBeenCalledTimes(1);
+
+    const body = (deps.commentOnIssue as ReturnType<typeof vi.fn>).mock.calls[0][1] as string;
+    expect(body.startsWith(UPGRADE_FAILURE_SIGNATURE)).toBe(true);
+    expect(countUpgradeFailureComments([{ body, author: 'adw-bot[bot]' }])).toBe(1);
+  });
+
+  it('does not reject (resolves cleanly) when pushBranch throws a non-rejection error', async () => {
+    const deps = makeDeps({
+      pushBranch: vi.fn().mockImplementation(() => { throw new Error('push boom'); }),
+      isPushRejection: vi.fn().mockReturnValue(false),
+    });
+
+    await expect(
+      executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps),
+    ).resolves.toBeDefined();
+  });
+
+  it('pushBranch rejection (isPushRejection=true) stays claim_lost and posts no failure comment', async () => {
+    const rejection = Object.assign(new Error('failed to push some refs'), {
+      stderr: Buffer.from(' ! [rejected] adw-upgrade-x -> adw-upgrade-x (non-fast-forward)'),
+    });
+    const deps = makeDeps({
+      pushBranch: vi.fn().mockImplementation(() => { throw rejection; }),
+      isPushRejection: vi.fn().mockReturnValue(true),
+    });
+    const result = await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    expect(result.outcome).toBe('completed');
+    expect(result.reason).toBe('claim_lost');
+    expect(deps.commentOnIssue).not.toHaveBeenCalled();
   });
 });
 

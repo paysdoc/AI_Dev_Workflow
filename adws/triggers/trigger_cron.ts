@@ -34,6 +34,7 @@ import { resolvePrReviewSpawn } from './webhookHandlers';
 import { scanPauseQueue } from './pauseQueueScanner';
 import { runJanitorPass } from './devServerJanitor';
 import { runPerIssueScenarioSweep } from './perIssueScenarioSweep';
+import { runUpgradeRedriveScan } from './upgradeRedrive';
 import { resolveCronRepo, buildCronTargetRepoArgs } from './cronRepoResolver';
 import { gitContextForRepo } from '../github/gitContextFactory';
 import { filterEligibleIssues, resolveTouchedFilesFromBody } from './cronIssueFilter';
@@ -260,6 +261,17 @@ async function checkAndTrigger(): Promise<void> {
 
   const repoInfo = cronRepoInfo;
   const targetRepoArgs = buildTargetRepoArgs();
+
+  // Independent redrive pass: re-spawns adwUpgrade for a stranded #UPG (open,
+  // adw:upgrade, not adw:blocked, no PR on its claim branch, spawn lock free/stale).
+  // #UPG issues never appear in `candidates` (they read as no_adw_label in the
+  // standard filter), so this cannot disturb the loop below. A scan failure must
+  // never abort the tick.
+  try {
+    runUpgradeRedriveScan(issues, repoInfo, targetRepoArgs);
+  } catch (error) {
+    log(`upgradeRedrive: redrive scan failed (non-fatal): ${error}`, 'error');
+  }
 
   for (const candidate of candidates) {
     const { issue, action, adwId } = candidate;

@@ -363,7 +363,20 @@ export async function executeUpgrade(
 
   // 6. Write .adw-version, commit the regen, push
   deps.writeAdwVersion(worktreePath, hash);
-  deps.commitChanges(`chore: regenerate .adw/ for framework upgrade ${hash.slice(0, 12)}`, worktreePath, { excludePaths: ['.claude/commands/adw_init.md'] });
+  try {
+    deps.commitChanges(`chore: regenerate .adw/ for framework upgrade ${hash.slice(0, 12)}`, worktreePath, { excludePaths: ['.claude/commands/adw_init.md'] });
+  } catch (error) {
+    // A commit failure (e.g. the #729 gitignored-exclude class, or any other git error)
+    // must not crash the orchestrator mid-run — that stops the heartbeat and leaves no
+    // trace. Degrade to a handled, counted failure instead: the next cron redrive pass
+    // re-invokes this same idempotency-guarded path.
+    deps.commentOnIssue(
+      issueNumber,
+      buildUpgradeFailureComment(String(error), adwId, issueNumber),
+      repoInfo,
+    );
+    return { outcome: 'failed', reason: 'commit_error' };
+  }
   try {
     deps.pushBranch(branch, worktreePath);
   } catch (error) {
@@ -381,7 +394,14 @@ export async function executeUpgrade(
       );
       return { outcome: 'completed', reason: 'claim_lost' };
     }
-    throw error;
+    // A genuine (non-rejection) push failure — auth, network, remote 500, etc. Same
+    // handled-failure idiom as the commit-error path above: return, don't crash.
+    deps.commentOnIssue(
+      issueNumber,
+      buildUpgradeFailureComment(String(error), adwId, issueNumber),
+      repoInfo,
+    );
+    return { outcome: 'failed', reason: 'push_error' };
   }
 
   // 7. Open PR — no workflow comment; the PR is the success signal
