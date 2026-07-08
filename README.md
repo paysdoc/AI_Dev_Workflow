@@ -24,6 +24,7 @@ ADW is an agentic SDLC framework: it turns issues on GitHub, GitLab, or Jira int
 - **LLM-based dependency extraction** — `dependencyExtractionAgent` reads issues to surface cross-issue dependencies before spawning.
 - **Documentation generation** — `documentAgent` writes feature docs to `app_docs/`; the SDLC pipeline includes review screenshots.
 - **Scenario promotion sweep** — `adwPromotionSweep.tsx` scores per-issue scenarios against the regression vocabulary registry; high-scoring candidates receive a `@promotion-suggested-<date>` tag with daily-cadence suppression, date refresh, and score-drop withdrawal; a PR comment lists all candidates and applies the `hitl` label; human-approved scenarios (`@promotion`) are automatically moved to the regression suite via a dedicated PR.
+- **Promotion sweep originate path (in progress)** — `adws/triggers/promotionSweep.ts` (manual CLI, not yet wired into cron) is the direct-relocation successor to the flow above: it scores tracked `features/per-issue/feature-{N}.feature` files with the deterministic scorer, reconciles against open `regression-promotion` issues via `promotionReconcileLink`, and lets the pure `promotionSweepDecider` choose `originate | leave | done`. On `originate` it stamps `@promotion-suggested-<date>` via a path-scoped commit and files a single #734-shaped relocation issue (`promotionIssueBody`) instructing a `git mv` of the feature + step-def files, a `@regression` tag, and vocabulary registration — replacing the mover/commenter's never-successful HITL move.
 - **Framework self-upgrade with pre-worktree hash gate** — `upgradeGate.ts` runs inside `initializeWorkflow()` **before** worktree setup on every workflow start: it reads the target repo's `.adw-version` from `origin/<default>:.adw-version` (the authoritative remote, immune to stale reused worktrees) and compares it against the framework's current content hash. On mismatch, atomically elects a winner/loser via `upgradeClaim`. The winner creates a `#UPG` tracking issue and spawns `adwUpgrade.tsx` to regenerate `.adw/`; losers park without ever creating a feature worktree, registering a `## Blocked by` dependency on the upgrade issue and moving to Todo. Both re-queue after the upgrade PR merges. On hash match, the gate is transparent and workflow proceeds to normal worktree setup.
 - **Redrivable, bounded upgrade recovery** — `upgradeRedrive.ts` runs as an independent cron pass that re-spawns `adwUpgrade.tsx` for `#UPG` tracking issues stranded by a claim-then-fail (the claim branch is never released, and `#UPG` issues are invisible to the normal candidate loop since `adw:upgrade` isn't an ADW classification label). A pure eligibility predicate (`decideUpgradeRedrive`) mirrors `adwUpgrade`'s own entry gate, idempotency guard, and spawn lock as a cheap pre-filter; bounding reuses the existing `MAX_FAILURES` cap so a redrive loop terminates once `adw:blocked` escalates.
 - **Novelty progress gate in build phase** — `progressGate.ts` evaluates each build continuation checkpoint against the set of previously seen git tree hashes; a checkpoint that returns to a prior state triggers `abort: no_progress` and a hard backstop (`MAX_PROGRESS_CHECKPOINTS`) stops runaway loops that make commits but cycle between states.
@@ -516,6 +517,8 @@ adws/                   # ADW workflow system
 │   │   ├── phaseRunner.test.ts
 │   │   ├── processLiveness.test.ts
 │   │   ├── projectConfig.test.ts
+│   │   ├── promotionReconcileLink.test.ts
+│   │   ├── promotionSweepDecider.test.ts
 │   │   ├── promotionTagState.test.ts
 │   │   ├── remoteReconcile.test.ts
 │   │   ├── repoIdentityCrossCheck.test.ts
@@ -567,6 +570,9 @@ adws/                   # ADW workflow system
 │   ├── processKill.ts  # Process kill utilities (SIGTERM → SIGKILL escalation)
 │   ├── processLiveness.ts  # PID-reuse-safe process liveness checks
 │   ├── projectConfig.ts
+│   ├── promotionIssueBody.ts  # Pure builder for the #734-shaped promotion-issue title/body/labels (git mv + vocab + @regression instruction)
+│   ├── promotionReconcileLink.ts  # Pure matcher: parses `Promotes: feature-N` back-link and maps it to an open regression-promotion issue
+│   ├── promotionSweepDecider.ts  # Pure lifecycle decider mapping tagState/threshold/reconcile facts to a single PromotionAction (originate/leave/done)
 │   ├── promotionTagState.ts  # Pure parse/serialize of `@promotion-suggested-<date>`/`@promotion-declined` markers; terminal none→suggested→declined state machine
 │   ├── remoteReconcile.ts  # Stage derivation from remote GitHub artifacts
 │   ├── repoIdentityCrossCheck.ts  # Launch-vs-persisted repo identity cross-check; throws RepoIdentityMismatchError on owner/repo divergence
@@ -838,6 +844,8 @@ adws/                   # ADW workflow system
 │   ├── trigger_cron.ts
 │   ├── trigger_shutdown.ts  # Graceful shutdown handler
 │   ├── trigger_webhook.ts
+│   ├── promotionSweep.ts  # Promotion sweep originate path (manual CLI, not yet wired into cron): scores per-issue scenarios, reconciles against open regression-promotion issues, tags + files a #734-shaped relocation issue
+│   ├── promotionSweepDefaults.ts  # Production GitContext/fs-backed dependency defaults for runPromotionSweep
 │   ├── upgradeRedrive.ts  # Cron redrive scan: re-spawns adwUpgrade for stranded #UPG tracking issues (bounded by MAX_FAILURES)
 │   ├── webhookGatekeeper.ts
 │   ├── webhookHandlers.ts
