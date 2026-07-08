@@ -1,0 +1,87 @@
+[
+  {
+    "session_id": "7a1d858b-ca93-45fe-8a41-7fbf2a0dfe14",
+    "transcript_path": "/Users/martin/.claude/projects/-Users-martin-projects-paysdoc-AI-Dev-Workflow--worktrees-feature-issue-743-rot-reuse-advisory-pr-comment/7a1d858b-ca93-45fe-8a41-7fbf2a0dfe14.jsonl",
+    "cwd": "/Users/martin/projects/paysdoc/AI_Dev_Workflow/.worktrees/feature-issue-743-rot-reuse-advisory-pr-comment/adws/phases",
+    "prompt_id": "c32193bb-8607-4fdf-bf8b-f7c5b88355f9",
+    "permission_mode": "bypassPermissions",
+    "effort": {
+      "level": "max"
+    },
+    "hook_event_name": "PreToolUse",
+    "tool_name": "Bash",
+    "tool_input": {
+      "command": "NODE_OPTIONS=\"--import tsx\" bunx cucumber-js --tags \"@adw-743\" 2>&1 | tail -15",
+      "description": "Confirm all @adw-743 scenarios green after revert"
+    },
+    "tool_use_id": "toolu_01Hf5o4TwfApeJdY2Urc4KX9"
+  },
+  {
+    "session_id": "7a1d858b-ca93-45fe-8a41-7fbf2a0dfe14",
+    "transcript_path": "/Users/martin/.claude/projects/-Users-martin-projects-paysdoc-AI-Dev-Workflow--worktrees-feature-issue-743-rot-reuse-advisory-pr-comment/7a1d858b-ca93-45fe-8a41-7fbf2a0dfe14.jsonl",
+    "cwd": "/Users/martin/projects/paysdoc/AI_Dev_Workflow/.worktrees/feature-issue-743-rot-reuse-advisory-pr-comment/adws/phases",
+    "prompt_id": "c32193bb-8607-4fdf-bf8b-f7c5b88355f9",
+    "permission_mode": "bypassPermissions",
+    "effort": {
+      "level": "max"
+    },
+    "hook_event_name": "PreToolUse",
+    "tool_name": "Bash",
+    "tool_input": {
+      "command": "tail -30 adws/phases/promotionRotAdvisory.ts && echo \"---git status---\" && git status --short adws/phases/promotionRotAdvisory.ts",
+      "description": "Inspect file state after revert"
+    },
+    "tool_use_id": "toolu_01LFR9YANfxcBhu2CeYvzGJm"
+  },
+  {
+    "session_id": "7a1d858b-ca93-45fe-8a41-7fbf2a0dfe14",
+    "transcript_path": "/Users/martin/.claude/projects/-Users-martin-projects-paysdoc-AI-Dev-Workflow--worktrees-feature-issue-743-rot-reuse-advisory-pr-comment/7a1d858b-ca93-45fe-8a41-7fbf2a0dfe14.jsonl",
+    "cwd": "/Users/martin/projects/paysdoc/AI_Dev_Workflow/.worktrees/feature-issue-743-rot-reuse-advisory-pr-comment/adws/phases",
+    "prompt_id": "c32193bb-8607-4fdf-bf8b-f7c5b88355f9",
+    "permission_mode": "bypassPermissions",
+    "effort": {
+      "level": "max"
+    },
+    "hook_event_name": "PreToolUse",
+    "tool_name": "Bash",
+    "tool_input": {
+      "command": "pwd && echo \"---\" && ls adws/phases/promotionRotAdvisory.ts 2>&1 && echo \"---repo-root-check---\" && ls /Users/martin/projects/paysdoc/AI_Dev_Workflow/.worktrees/feature-issue-743-rot-reuse-advisory-pr-comment/adws/phases/promotionRotAdvisory.ts",
+      "description": "Diagnose current working directory and file location"
+    },
+    "tool_use_id": "toolu_01W3DtBgypg8pMvcLHv3L7cV"
+  },
+  {
+    "session_id": "7a1d858b-ca93-45fe-8a41-7fbf2a0dfe14",
+    "transcript_path": "/Users/martin/.claude/projects/-Users-martin-projects-paysdoc-AI-Dev-Workflow--worktrees-feature-issue-743-rot-reuse-advisory-pr-comment/7a1d858b-ca93-45fe-8a41-7fbf2a0dfe14.jsonl",
+    "cwd": "/Users/martin/projects/paysdoc/AI_Dev_Workflow/.worktrees/feature-issue-743-rot-reuse-advisory-pr-comment/adws/phases",
+    "prompt_id": "c32193bb-8607-4fdf-bf8b-f7c5b88355f9",
+    "permission_mode": "bypassPermissions",
+    "effort": {
+      "level": "max"
+    },
+    "hook_event_name": "PreToolUse",
+    "tool_name": "Bash",
+    "tool_input": {
+      "command": "pwd; echo \"== absolute file check ==\"; ls -la /Users/martin/projects/paysdoc/AI_Dev_Workflow/.worktrees/feature-issue-743-rot-reuse-advisory-pr-comment/adws/phases/promotionRotAdvisory.ts; echo \"== dir listing of cwd ==\"; ls -la .",
+      "description": "Full diagnosis of file location relative to absolute repo path"
+    },
+    "tool_use_id": "toolu_01HqkD3sXio8eKumKEFMUnkS"
+  },
+  {
+    "session_id": "7a1d858b-ca93-45fe-8a41-7fbf2a0dfe14",
+    "transcript_path": "/Users/martin/.claude/projects/-Users-martin-projects-paysdoc-AI-Dev-Workflow--worktrees-feature-issue-743-rot-reuse-advisory-pr-comment/7a1d858b-ca93-45fe-8a41-7fbf2a0dfe14.jsonl",
+    "cwd": "/Users/martin/projects/paysdoc/AI_Dev_Workflow/.worktrees/feature-issue-743-rot-reuse-advisory-pr-comment/adws/phases",
+    "prompt_id": "c32193bb-8607-4fdf-bf8b-f7c5b88355f9",
+    "permission_mode": "bypassPermissions",
+    "effort": {
+      "level": "max"
+    },
+    "hook_event_name": "PreToolUse",
+    "tool_name": "Bash",
+    "tool_input": {
+      "command": "cd /Users/martin/projects/paysdoc/AI_Dev_Workflow/.worktrees/feature-issue-743-rot-reuse-advisory-pr-comment && pwd",
+      "description": "Return to repo root working directory"
+    },
+    "tool_use_id": "toolu_01DW5KzcECqzTtNhrK6aA9z9"
+  }
+]
