@@ -24,6 +24,7 @@ ADW is an agentic SDLC framework: it turns issues on GitHub, GitLab, or Jira int
 - **LLM-based dependency extraction** — `dependencyExtractionAgent` reads issues to surface cross-issue dependencies before spawning.
 - **Documentation generation** — `documentAgent` writes feature docs to `app_docs/`; the SDLC pipeline includes review screenshots.
 - **Scenario promotion sweep** — `adwPromotionSweep.tsx` scores per-issue scenarios against the regression vocabulary registry; high-scoring candidates receive a `@promotion-suggested-<date>` tag with daily-cadence suppression, date refresh, and score-drop withdrawal; a PR comment lists all candidates and applies the `hitl` label; human-approved scenarios (`@promotion`) are automatically moved to the regression suite via a dedicated PR.
+- **Promotion sweep originate path (manual CLI)** — `adws/triggers/promotionSweep.ts` (`bunx tsx adws/triggers/promotionSweep.ts`, not yet wired into cron) lists tracked `features/per-issue/feature-{N}.feature` files, scores each with the deterministic scorer, and calls the pure `decidePromotionAction` decision table (`adws/core/promotionSweepDecider.ts`) over tag state, threshold, and a reconcile fact against open `regression-promotion` issues (matched via `Promotes: feature-N` back-link, `adws/core/promotionReconcileLink.ts`); on `originate` it stamps `@promotion-suggested-<date>` via a scoped commit and files one `#734`-shaped promotion issue (`adws/core/promotionIssueBody.ts`) — the `reuse`/`rot` advisory judgment itself is delegated to the `promote-regression-vocabulary` skill, which never writes.
 - **Framework self-upgrade with pre-worktree hash gate** — `upgradeGate.ts` runs inside `initializeWorkflow()` **before** worktree setup on every workflow start: it reads the target repo's `.adw-version` from `origin/<default>:.adw-version` (the authoritative remote, immune to stale reused worktrees) and compares it against the framework's current content hash. On mismatch, atomically elects a winner/loser via `upgradeClaim`. The winner creates a `#UPG` tracking issue and spawns `adwUpgrade.tsx` to regenerate `.adw/`; losers park without ever creating a feature worktree, registering a `## Blocked by` dependency on the upgrade issue and moving to Todo. Both re-queue after the upgrade PR merges. On hash match, the gate is transparent and workflow proceeds to normal worktree setup.
 - **Redrivable, bounded upgrade recovery** — `upgradeRedrive.ts` runs as an independent cron pass that re-spawns `adwUpgrade.tsx` for `#UPG` tracking issues stranded by a claim-then-fail (the claim branch is never released, and `#UPG` issues are invisible to the normal candidate loop since `adw:upgrade` isn't an ADW classification label). A pure eligibility predicate (`decideUpgradeRedrive`) mirrors `adwUpgrade`'s own entry gate, idempotency guard, and spawn lock as a cheap pre-filter; bounding reuses the existing `MAX_FAILURES` cap so a redrive loop terminates once `adw:blocked` escalates.
 - **Novelty progress gate in build phase** — `progressGate.ts` evaluates each build continuation checkpoint against the set of previously seen git tree hashes; a checkpoint that returns to a prior state triggers `abort: no_progress` and a hard backstop (`MAX_PROGRESS_CHECKPOINTS`) stops runaway loops that make commits but cycle between states.
@@ -516,6 +517,8 @@ adws/                   # ADW workflow system
 │   │   ├── phaseRunner.test.ts
 │   │   ├── processLiveness.test.ts
 │   │   ├── projectConfig.test.ts
+│   │   ├── promotionReconcileLink.test.ts
+│   │   ├── promotionSweepDecider.test.ts
 │   │   ├── promotionTagState.test.ts
 │   │   ├── remoteReconcile.test.ts
 │   │   ├── repoIdentityCrossCheck.test.ts
@@ -567,6 +570,9 @@ adws/                   # ADW workflow system
 │   ├── processKill.ts  # Process kill utilities (SIGTERM → SIGKILL escalation)
 │   ├── processLiveness.ts  # PID-reuse-safe process liveness checks
 │   ├── projectConfig.ts
+│   ├── promotionIssueBody.ts  # Builds the #734-shaped promotion-issue body carrying the `Promotes: feature-N` back-link marker (buildPromotionIssue)
+│   ├── promotionReconcileLink.ts  # Pure match of the `Promotes: feature-N` back-link marker against open regression-promotion issues (reconcileFactFor)
+│   ├── promotionSweepDecider.ts  # Pure decision table (decidePromotionAction) mapping tag state + threshold + reconcile fact to originate/leave/done (redrive/decline/withdraw reserved for the reconcile-path slice)
 │   ├── promotionTagState.ts  # Pure parse/serialize of `@promotion-suggested-<date>`/`@promotion-declined` markers; terminal none→suggested→declined state machine
 │   ├── remoteReconcile.ts  # Stage derivation from remote GitHub artifacts
 │   ├── repoIdentityCrossCheck.ts  # Launch-vs-persisted repo identity cross-check; throws RepoIdentityMismatchError on owner/repo divergence
@@ -618,6 +624,7 @@ adws/                   # ADW workflow system
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── bootstrapIdentity.test.ts
 │   │   ├── claimOps.test.ts
+│   │   ├── commitOps.test.ts
 │   │   ├── gitContext.test.ts
 │   │   ├── gitContextOperations.test.ts
 │   │   ├── gitReadOps.test.ts
@@ -830,6 +837,8 @@ adws/                   # ADW workflow system
 │   ├── issueOpenedRouter.ts  # Pure routing decision for the issues.opened label-routing path (mirrors cronIssueFilter pattern)
 │   ├── mergeDispatchGate.ts  # Lock-aware gate deciding whether cron should dispatch adwMerge for an issue
 │   ├── pauseQueueScanner.ts  # Cron probe for paused issue queue
+│   ├── promotionSweep.ts  # Manual-CLI sweep orchestrator (runPromotionSweep): scores per-issue features, reconciles against open promotion issues, stamps @promotion-suggested-<date> and files a promotion issue on originate
+│   ├── promotionSweepDefaults.ts  # Default I/O bindings (scorer, issue lookup, tag writer) for promotionSweep.ts
 │   ├── regionOverlap.ts  # Pure decision module for region-overlap serialization (no I/O)
 │   ├── regionOverlapSignals.ts  # Side-effecting boundary for region-overlap: registers durable Blocked-by deps and posts explanatory comments
 │   ├── scanAuthQueue.ts  # Cron probe: resumes paused_auth orchestrators after auth is restored
