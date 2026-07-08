@@ -445,18 +445,32 @@ Execute every step in order, top to bottom.
   `features/per-issue/feature-740.feature` (+ steps) tagged `@adw-740`. The scenarios drive
   `runPromotionSweep` with **injected fake `PromotionSweepDeps`** (no real git/gh), asserting the
   externally-observable behaviour (per PRD Testing Decisions — assert outcomes, not internals):
-  - **Originate:** a fresh (`tagState: none`) high-scoring file with no linked open issue →
-    `tagAndCommit` is called once with content whose `Feature:` line now carries
-    `@promotion-suggested-<date>`, and `fileIssue` is called once with labels `['adw:feature',
-    'regression-promotion', 'hitl']` and a body containing `Promotes: feature-N`.
+  - **Originate (marker):** a fresh (`tagState: none`) high-scoring file with no linked open issue is
+    stamped `@promotion-suggested-<runDate>` on the default branch, carrying exactly one such tag
+    token (never doubled). *(feature-740 §1)*
+  - **Scoped commit:** the origination commit records **only** the candidate's feature file — an
+    unrelated uncommitted change in the worktree is not swept in (never `git add -A`).
+    *(feature-740 §2)*
+  - **Originate (issue):** exactly one promotion issue is filed for the qualifying file, labelled
+    `['adw:feature', 'regression-promotion', 'hitl']`, its body carrying a `Promotes: feature-N`
+    marker and a #734-shaped relocation instruction (source feature + step-def paths, destination
+    `features/regression/`, vocabulary registry path, "prove `@regression` green" acceptance). This
+    single-file "exactly one" assertion is AC2's "exactly one issue per qualifying file" cardinality.
+    *(feature-740 §3)*
+  - **Below threshold:** a low-scoring fresh file → left untouched (no marker, no issue, no commit).
+    *(feature-740 §4)*
   - **Leave (idempotent):** a file already `@promotion-suggested-*` whose `feature-N` matches an open
-    promotion issue → neither `tagAndCommit` nor `fileIssue` is called.
-  - **Done:** (decider-level) a `merged` reconciliation fact → `done`; and structurally, a merged
-    file absent from the per-issue listing is never processed.
-  - **Below threshold:** a low-scoring fresh file → left untouched.
-  - **Non-fatal:** an injected `fileIssue` that throws → the error is swallowed, the sweep returns,
-    and a following file is still processed.
-  - **One issue per file:** two qualifying files → exactly two `fileIssue` calls.
+    promotion issue → no duplicate issue, no re-commit, still exactly one marker token.
+    *(feature-740 §5)*
+  - **Done:** a candidate promoted away (its file gone from `features/per-issue/`) is not
+    re-originated — no issue, no commit — even though a merged promotion issue linking back still
+    exists. Structurally: absent from the tracked listing ⇒ never processed. (The decider's
+    `merged → done` branch is the forward-compat hook, exercised by the Vitest decider table, **not**
+    asserted at the BDD layer — the scenarios deliberately do not assert the decider's per-cell action.)
+    *(feature-740 §6)*
+  - **Non-fatal:** a transient failure in **either** originate I/O action — the injected issue-filing
+    (gh) **or** the marker tag-commit (git) — is logged and swallowed, so the in-process sweep
+    completes without raising. *(feature-740 §7, a `Scenario Outline` over both failing actions)*
 
 ### Task 11 — Run the Validation Commands (zero regressions)
 
