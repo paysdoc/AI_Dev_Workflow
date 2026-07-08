@@ -36,8 +36,8 @@ describe('decidePromotionAction — exhaustive cross product {tagState} × {meet
   });
 
   describe('tagState: suggested', () => {
-    it('meetsThreshold: true, reconcile: no-issue → leave', () => {
-      expect(decidePromotionAction({ tagState: 'suggested', meetsThreshold: true, reconcile: 'no-issue' })).toBe('leave');
+    it('meetsThreshold: true, reconcile: no-issue → redrive', () => {
+      expect(decidePromotionAction({ tagState: 'suggested', meetsThreshold: true, reconcile: 'no-issue' })).toBe('redrive');
     });
     it('meetsThreshold: true, reconcile: open → leave', () => {
       expect(decidePromotionAction({ tagState: 'suggested', meetsThreshold: true, reconcile: 'open' })).toBe('leave');
@@ -45,14 +45,14 @@ describe('decidePromotionAction — exhaustive cross product {tagState} × {meet
     it('meetsThreshold: true, reconcile: merged → done', () => {
       expect(decidePromotionAction({ tagState: 'suggested', meetsThreshold: true, reconcile: 'merged' })).toBe('done');
     });
-    it('meetsThreshold: true, reconcile: closed-unmerged → leave', () => {
-      expect(decidePromotionAction({ tagState: 'suggested', meetsThreshold: true, reconcile: 'closed-unmerged' })).toBe('leave');
+    it('meetsThreshold: true, reconcile: closed-unmerged → decline', () => {
+      expect(decidePromotionAction({ tagState: 'suggested', meetsThreshold: true, reconcile: 'closed-unmerged' })).toBe('decline');
     });
-    it('meetsThreshold: true, reconcile: blocked → leave', () => {
-      expect(decidePromotionAction({ tagState: 'suggested', meetsThreshold: true, reconcile: 'blocked' })).toBe('leave');
+    it('meetsThreshold: true, reconcile: blocked → decline', () => {
+      expect(decidePromotionAction({ tagState: 'suggested', meetsThreshold: true, reconcile: 'blocked' })).toBe('decline');
     });
-    it('meetsThreshold: false, reconcile: no-issue → leave', () => {
-      expect(decidePromotionAction({ tagState: 'suggested', meetsThreshold: false, reconcile: 'no-issue' })).toBe('leave');
+    it('meetsThreshold: false, reconcile: no-issue → withdraw', () => {
+      expect(decidePromotionAction({ tagState: 'suggested', meetsThreshold: false, reconcile: 'no-issue' })).toBe('withdraw');
     });
     it('meetsThreshold: false, reconcile: open → leave', () => {
       expect(decidePromotionAction({ tagState: 'suggested', meetsThreshold: false, reconcile: 'open' })).toBe('leave');
@@ -60,11 +60,11 @@ describe('decidePromotionAction — exhaustive cross product {tagState} × {meet
     it('meetsThreshold: false, reconcile: merged → done', () => {
       expect(decidePromotionAction({ tagState: 'suggested', meetsThreshold: false, reconcile: 'merged' })).toBe('done');
     });
-    it('meetsThreshold: false, reconcile: closed-unmerged → leave', () => {
-      expect(decidePromotionAction({ tagState: 'suggested', meetsThreshold: false, reconcile: 'closed-unmerged' })).toBe('leave');
+    it('meetsThreshold: false, reconcile: closed-unmerged → decline', () => {
+      expect(decidePromotionAction({ tagState: 'suggested', meetsThreshold: false, reconcile: 'closed-unmerged' })).toBe('decline');
     });
-    it('meetsThreshold: false, reconcile: blocked → leave', () => {
-      expect(decidePromotionAction({ tagState: 'suggested', meetsThreshold: false, reconcile: 'blocked' })).toBe('leave');
+    it('meetsThreshold: false, reconcile: blocked → decline', () => {
+      expect(decidePromotionAction({ tagState: 'suggested', meetsThreshold: false, reconcile: 'blocked' })).toBe('decline');
     });
   });
 
@@ -126,8 +126,26 @@ describe('decidePromotionAction — named lifecycle edges', () => {
     expect(decidePromotionAction({ tagState: 'declined', meetsThreshold: false, reconcile: 'open' })).toBe('leave');
   });
 
-  it('deferred reconciliation facts (closed-unmerged, blocked) → leave — placeholder for the sibling reconcile slice', () => {
+  it('untagged file ignores closed-unmerged and blocked facts → leave (only an in-flight suggested file reconciles)', () => {
     expect(decidePromotionAction({ tagState: 'none', meetsThreshold: true, reconcile: 'closed-unmerged' })).toBe('leave');
     expect(decidePromotionAction({ tagState: 'none', meetsThreshold: true, reconcile: 'blocked' })).toBe('leave');
+  });
+
+  it('decline-closed: an in-flight candidate whose tracker closed unmerged is declined regardless of current score', () => {
+    expect(decidePromotionAction({ tagState: 'suggested', meetsThreshold: true, reconcile: 'closed-unmerged' })).toBe('decline');
+    expect(decidePromotionAction({ tagState: 'suggested', meetsThreshold: false, reconcile: 'closed-unmerged' })).toBe('decline');
+  });
+
+  it('decline-blocked: an in-flight candidate whose tracker escalated to adw:blocked is declined regardless of current score', () => {
+    expect(decidePromotionAction({ tagState: 'suggested', meetsThreshold: true, reconcile: 'blocked' })).toBe('decline');
+    expect(decidePromotionAction({ tagState: 'suggested', meetsThreshold: false, reconcile: 'blocked' })).toBe('decline');
+  });
+
+  it('redrive: a stranded candidate (in flight, no tracker) that still meets threshold is re-driven', () => {
+    expect(decidePromotionAction({ tagState: 'suggested', meetsThreshold: true, reconcile: 'no-issue' })).toBe('redrive');
+  });
+
+  it('withdraw: a stranded candidate (in flight, no tracker) that has dropped below threshold is withdrawn instead of re-filed', () => {
+    expect(decidePromotionAction({ tagState: 'suggested', meetsThreshold: false, reconcile: 'no-issue' })).toBe('withdraw');
   });
 });

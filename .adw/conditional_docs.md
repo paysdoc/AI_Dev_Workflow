@@ -1780,15 +1780,19 @@
     - adws/core/promotionSweepDecider.ts
     - adws/core/promotionReconcileLink.ts
     - adws/core/promotionIssueBody.ts
+    - adws/gitContext/commands/issueCommands.ts
   - Conditions:
     - When working on the hand-invokable promotion sweep `bunx tsx adws/triggers/promotionSweep.ts` or `runPromotionSweep`
-    - When implementing or troubleshooting `decidePromotionAction` / `PromotionAction` (the `originate | leave | done` lifecycle decider)
-    - When working with `parsePromotesMarker`, `reconcilePromotionLink`, or `reconcileFactFor` (the `Promotes: feature-N` back-link matcher)
+    - When implementing or troubleshooting `decidePromotionAction` / `PromotionAction` (the full `originate | leave | done | decline | redrive | withdraw` lifecycle decider)
+    - When working with `parsePromotesMarker`, `reconcilePromotionLink`, or `reconcileFactFor` (the `Promotes: feature-N` back-link matcher and its `no-issue | open | closed-unmerged | blocked | merged` classification)
     - When working with `buildPromotionIssue` or the #734-shaped promotion issue title/body/label spec
     - When a fresh high-scoring per-issue scenario should be marked `@promotion-suggested-<date>` and filed as an `adw:feature` + `regression-promotion` + `hitl` issue
     - When troubleshooting duplicate promotion issues, a missing `Promotes:` marker, or a re-committed already-suggested file
-    - When wiring the sweep's cron/reconcile-path (`decline | redrive | withdraw`, `closed-unmerged | blocked` facts) in a later slice
+    - When a candidate whose tracking issue/PR closed unmerged or reached `adw:blocked` should be declined (`@promotion-declined`, terminal, TTL resumes)
+    - When a crash-stranded `@promotion-suggested-*` file (tagged, no tracker) should be redriven (re-filed) or withdrawn (tag stripped) depending on current score
+    - When working with `ListOpenIssuesOptions.state` / `listOpenIssuesCmd` (`adws/gitContext/commands/issueCommands.ts`) or the all-state promotion-issue reconciliation query
     - When working with `adws/triggers/promotionSweepDefaults.ts` production deps (`GitContext`-backed listing, scoring, tag-and-commit, issue-filing)
+    - When wiring the sweep into `trigger_cron.ts` (interval-gate) in a later slice
 
 - app_docs/feature-9gjajh-providers.md
   - Owns:
