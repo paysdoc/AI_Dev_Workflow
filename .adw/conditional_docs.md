@@ -1781,6 +1781,7 @@
     - adws/core/promotionReconcileLink.ts
     - adws/core/promotionIssueBody.ts
     - adws/gitContext/commands/issueCommands.ts
+    - adws/triggers/trigger_cron.ts
   - Conditions:
     - When working on the hand-invokable promotion sweep `bunx tsx adws/triggers/promotionSweep.ts` or `runPromotionSweep`
     - When implementing or troubleshooting `decidePromotionAction` / `PromotionAction` (the full `originate | leave | done | decline | redrive | withdraw` lifecycle decider)
@@ -1792,7 +1793,8 @@
     - When a crash-stranded `@promotion-suggested-*` file (tagged, no tracker) should be redriven (re-filed) or withdrawn (tag stripped) depending on current score
     - When working with `ListOpenIssuesOptions.state` / `listOpenIssuesCmd` (`adws/gitContext/commands/issueCommands.ts`) or the all-state promotion-issue reconciliation query
     - When working with `adws/triggers/promotionSweepDefaults.ts` production deps (`GitContext`-backed listing, scoring, tag-and-commit, issue-filing)
-    - When wiring the sweep into `trigger_cron.ts` (interval-gate) in a later slice
+    - When working with `runPromotionSweepTick` or `PROMOTION_SWEEP_INTERVAL_CYCLES` (the cron interval-gate + non-fatal swallow that activates the sweep in `trigger_cron.ts`)
+    - When troubleshooting the promotion sweep not firing on cron cadence, or a sweep failure that should be logged and swallowed rather than crashing the cron loop
 
 - app_docs/feature-9gjajh-providers.md
   - Owns:
