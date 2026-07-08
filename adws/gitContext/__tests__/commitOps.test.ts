@@ -155,3 +155,62 @@ describe('removeAndCommitPaths', () => {
     expect(calls.length).toBe(0);
   });
 });
+
+describe('addAndCommitPaths', () => {
+  /** Fake runner for addAndCommitPaths: scoped `git status --porcelain -- <paths>` is the only branch that matters. */
+  function makeAddRunner(config: { statusOutput?: string } = {}): {
+    run: (cmd: string, cwd: string) => string;
+    calls: RunnerCall[];
+  } {
+    const calls: RunnerCall[] = [];
+    const run = (command: string, cwd: string): string => {
+      calls.push({ command, cwd });
+      if (command.startsWith('git status --porcelain')) {
+        return config.statusOutput ?? ' M features/per-issue/feature-1.feature\n';
+      }
+      return '';
+    };
+    return { run, calls };
+  }
+
+  const PATHS = ['features/per-issue/feature-1.feature'];
+  const TOKENS = "'features/per-issue/feature-1.feature'";
+
+  it('stages only the named paths and commits scoped to them, returning true when something was staged', () => {
+    const { run, calls } = makeAddRunner();
+    const result = commitOps.addAndCommitPaths(run, PATHS, 'chore: mark feature-1 promotion-suggested', CWD);
+    expect(result).toBe(true);
+    expect(calls[0]).toEqual({ command: `git add -- ${TOKENS}`, cwd: CWD });
+    const commitCall = calls.find(c => c.command.startsWith('git commit'));
+    expect(commitCall?.command).toBe(`git commit -m "chore: mark feature-1 promotion-suggested" -- ${TOKENS}`);
+    expect(commitCall?.cwd).toBe(CWD);
+  });
+
+  it('scopes the status probe to the given paths', () => {
+    const { run, calls } = makeAddRunner();
+    commitOps.addAndCommitPaths(run, PATHS, 'chore: mark', CWD);
+    const statusCall = calls.find(c => c.command.startsWith('git status --porcelain'));
+    expect(statusCall?.command).toBe(`git status --porcelain -- ${TOKENS}`);
+  });
+
+  it('escapes double quotes in the commit message', () => {
+    const { run, calls } = makeAddRunner();
+    commitOps.addAndCommitPaths(run, PATHS, 'chore: mark "suggested" feature', CWD);
+    const commitCall = calls.find(c => c.command.startsWith('git commit'));
+    expect(commitCall?.command).toBe(`git commit -m "chore: mark \\"suggested\\" feature" -- ${TOKENS}`);
+  });
+
+  it('returns false and issues no commit when the scoped status is empty (nothing to commit)', () => {
+    const { run, calls } = makeAddRunner({ statusOutput: '' });
+    const result = commitOps.addAndCommitPaths(run, PATHS, 'chore: mark', CWD);
+    expect(result).toBe(false);
+    expect(calls.some(c => c.command.startsWith('git commit'))).toBe(false);
+  });
+
+  it('returns false and runs nothing when paths is empty', () => {
+    const { run, calls } = makeAddRunner();
+    const result = commitOps.addAndCommitPaths(run, [], 'chore: mark', CWD);
+    expect(result).toBe(false);
+    expect(calls.length).toBe(0);
+  });
+});
