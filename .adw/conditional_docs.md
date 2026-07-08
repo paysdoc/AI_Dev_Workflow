@@ -645,12 +645,17 @@
     - When the webhook server restarts and cron processes behave unexpectedly
     - When adding PID-file-based process deduplication to new trigger types
 
-- app_docs/feature-hpq6cn-implement-scenario-p-scenario-planner-agent.md
+- app_docs/feature-mnmihl-scenario-authoring-skip-gate.md
+  - Owns:
+    - adws/phases/scenarioPhase.ts
+    - adws/phases/alignmentPhase.ts
   - Conditions:
-    - When working with BDD scenario generation or the scenario agent
-    - When modifying `adws/agents/scenarioAgent.ts` or `adws/phases/scenarioPhase.ts`
-    - When working with `.adw/scenarios.md` configuration
-    - When adding or modifying `@regression` tag maintenance logic
+    - When working with BDD scenario generation or the scenario agent (`adws/agents/scenarioAgent.ts`)
+    - When modifying `adws/phases/scenarioPhase.ts` or `adws/phases/alignmentPhase.ts`
+    - When working with `shouldSkipScenarioAuthoring` or `ADW_REGRESSION_PROMOTION_LABEL` in `adws/github/labelManager.ts`
+    - When implementing or troubleshooting the plan-scenario alignment gate (`executeAlignmentPhase`, `runAlignmentAgent`) between planning and build
+    - When troubleshooting a promotion (`regression-promotion`-labelled) issue authoring a spurious `features/per-issue/feature-<N>.feature` or reddening on alignment/validation/fidelity
+    - When working with `.adw/scenarios.md` configuration or `@regression` tag maintenance logic
 
 - app_docs/feature-9emriw-bdd-scenario-review-proof.md
   - Conditions:
@@ -1032,14 +1037,6 @@
     - When troubleshooting review issues classified as `blocker` or `tech-debt` due to tautological/internal step definitions
     - When writing BDD scenarios that exercise the independence check in `features/review_step_def_independence.feature`
     - When the review agent skips or incorrectly applies the independence check guard clauses
-
-- app_docs/feature-irs6vj-single-pass-alignment-phase.md
-  - Conditions:
-    - When working with `executeAlignmentPhase` in `adws/phases/alignmentPhase.ts`
-    - When modifying `runAlignmentAgent` or `parseAlignmentResult` in `adws/agents/alignmentAgent.ts`
-    - When implementing or modifying the plan-scenario alignment gate between planning and build
-    - When troubleshooting the `/align_plan_scenarios` slash command or its JSON output parsing
-    - When adding new workflow stages related to plan-scenario alignment
 
 - app_docs/feature-aym0n5-create-implement-tdd.md
   - Conditions:
