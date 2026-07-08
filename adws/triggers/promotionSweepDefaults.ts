@@ -16,6 +16,7 @@ import * as path from 'path';
 import { log, loadProjectConfig } from '../core';
 import { getRepoInfo, applyLabel } from '../github';
 import { gitContextForRepo } from '../github/gitContextFactory';
+import { ADW_REGRESSION_PROMOTION_LABEL } from '../github/labelManager';
 import { loadPromotionStats } from '../promotion';
 import type { PromotionStats } from '../promotion';
 import type { PromotionIssueRef } from '../core/promotionReconcileLink';
@@ -97,10 +98,15 @@ export function defaultLoadStats(): PromotionStats {
   }
 }
 
-export function defaultListOpenPromotionIssues(): PromotionIssueRef[] {
+export function defaultListPromotionIssues(): PromotionIssueRef[] {
   try {
     const ctx = gitContextForRepo(getRepoInfo());
-    const json = ctx.listOpenIssues({ fields: ['number', 'body'], search: 'label:"regression-promotion"', limit: 100 });
+    const json = ctx.listOpenIssues({
+      fields: ['number', 'body', 'state', 'labels'],
+      state: 'all',
+      search: `label:"${ADW_REGRESSION_PROMOTION_LABEL}"`,
+      limit: 200,
+    });
     return JSON.parse(json) as PromotionIssueRef[];
   } catch {
     return [];
