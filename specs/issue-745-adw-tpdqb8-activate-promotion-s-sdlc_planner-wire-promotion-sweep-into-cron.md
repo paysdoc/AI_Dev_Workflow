@@ -31,24 +31,24 @@ Mirror the established sibling-sweep wiring (`runPerIssueScenarioSweep`) and the
 
 1. **Add a new interval constant** `PROMOTION_SWEEP_INTERVAL_CYCLES` in `adws/core/config.ts`, immediately beside `PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES`, defaulting to a generous cadence (`4320` ≈ once per day at the 20s poll), overridable via the env var of the same name. Export it through the `adws/core/index.ts` barrel alongside the other interval constants.
 
-2. **Add a small exported guarded pass** `runPromotionSweepPass()` in `trigger_cron.ts` that invokes `runPromotionSweep()` inside a try/catch, logging a non-fatal warning and swallowing any throw (mirroring the `runUpgradeRedriveScan` try/catch at `trigger_cron.ts:270-274`). It takes a dependency-injected `sweep` function defaulting to the real `runPromotionSweep`, so the swallow guarantee is unit-testable at an exported seam — exactly the pattern by which `runHungDetectorSweep` is exported for test access in this same file.
+2. **Add a small exported dispatch seam** `runPromotionSweepTick(cycleCount, sweep = runPromotionSweep)` in `trigger_cron.ts` that **encloses both the cadence gate and the swallow**: it evaluates `cycleCount % PROMOTION_SWEEP_INTERVAL_CYCLES === 0` and, only on a cadence-eligible cycle, invokes `runPromotionSweep()` inside a try/catch that logs a non-fatal warning and swallows any throw (mirroring the `runUpgradeRedriveScan` try/catch at `trigger_cron.ts:270-274`). The `cycleCount` param makes the cadence decision observable, and the dependency-injected `sweep` (defaulting to the real `runPromotionSweep`) makes both the dispatch-on-cadence / no-dispatch-off-cadence behaviour and the swallow guarantee testable at an exported seam — exactly the pattern by which `runHungDetectorSweep` is exported for test access in this same file. Enclosing the gate inside the exported seam is what lets the BDD scenarios drive it with a `cycleCount` computed relative to the imported constant and observe "not dispatched off-cadence" (§2).
 
-3. **Wire the gated call** into `checkAndTrigger`, immediately after the per-issue scenario sweep block (`trigger_cron.ts:212-215`), using the identical `cycleCount % PROMOTION_SWEEP_INTERVAL_CYCLES === 0` gate: `if (cycleCount % PROMOTION_SWEEP_INTERVAL_CYCLES === 0) await runPromotionSweepPass();`. Update the `../core` import to include the new constant and add a `runPromotionSweep` import from `./promotionSweep`.
+3. **Wire the dispatch** into `checkAndTrigger`, immediately after the per-issue scenario sweep block (`trigger_cron.ts:212-215`), by handing the current cycle to the seam: `await runPromotionSweepTick(cycleCount);` — the `cycleCount % PROMOTION_SWEEP_INTERVAL_CYCLES === 0` gate now lives inside `runPromotionSweepTick`, so the call site simply passes `cycleCount` every tick and the seam decides whether to dispatch. Update the `../core` import to include the new constant and add a `runPromotionSweep` import from `./promotionSweep`.
 
 4. **Rely on already-built machinery for the rest.** The backlog re-score/file/withdraw behaviour (criterion 3), the pipeline routing to `awaiting_merge` behind the `hitl` gate (criterion 4), and the reconciliation lifecycle are all provided by the blocking slices and the normal SDLC pipeline; this slice only turns the sweep on. Those criteria are observed at go-live under human review (this is a `hitl` issue) — no new code implements them.
 
-The change is intentionally minimal and additive: one constant + one barrel export + one exported guarded helper + one gated call + import lines. No modification to the sweep, its deciders, its defaults, or the pipeline.
+The change is intentionally minimal and additive: one constant + one barrel export + one exported gated-and-guarded seam + one call site + import lines. No modification to the sweep, its deciders, its defaults, or the pipeline.
 
 ## Relevant Files
 Use these files to implement the feature:
 
-- `adws/triggers/trigger_cron.ts` — **Primary (modified).** The cron entry/backlog sweeper. `checkAndTrigger()` (line 193) already gates the sibling sweeps (`runHungDetectorSweep` :203, `runJanitorPass` :208, `runPerIssueScenarioSweep` :213, `runUpgradeRedriveScan` :270). Add the new `../core` constant to the line-12 import, add a `runPromotionSweep` import, add the exported `runPromotionSweepPass` helper, and insert the gated call after the per-issue sweep block.
+- `adws/triggers/trigger_cron.ts` — **Primary (modified).** The cron entry/backlog sweeper. `checkAndTrigger()` (line 193) already gates the sibling sweeps (`runHungDetectorSweep` :203, `runJanitorPass` :208, `runPerIssueScenarioSweep` :213, `runUpgradeRedriveScan` :270). Add the new `../core` constant to the line-12 import, add a `runPromotionSweep` import, add the exported `runPromotionSweepTick(cycleCount, sweep = runPromotionSweep)` seam (enclosing both the cadence gate and the swallow), and insert the `await runPromotionSweepTick(cycleCount);` call after the per-issue sweep block.
 - `adws/core/config.ts` — **Modified.** Home of the interval constants. Add `PROMOTION_SWEEP_INTERVAL_CYCLES` beside `PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES` (line 135), same `parseInt(process.env... || '4320', 10)` shape with a doc comment stating the cadence.
 - `adws/core/index.ts` — **Modified.** The `./config` barrel (line 10) that re-exports every interval constant consumed by `trigger_cron.ts`. Add `PROMOTION_SWEEP_INTERVAL_CYCLES` to that export list.
 - `adws/triggers/promotionSweep.ts` — **Read-only (not modified).** Defines `runPromotionSweep(deps?): Promise<PromotionSweepReport>` (line 239). Confirms: async, no required args (production defaults resolve repo via `getRepoInfo()`), per-candidate actions internally guarded, but ctx setup (`listPromotionIssues()`, vocab/stats loads, `parseVocabulary`/`computeThreshold`) outside try/catch — the reason the cron site must guard the call.
 - `adws/triggers/promotionSweepDefaults.ts` — **Read-only (not modified).** Production deps. `defaultListPromotionIssues`/`defaultLoad*`/`defaultScenariosConfig` self-defend (return empty on error); `defaultTagAndCommit`/`defaultFileIssue` deliberately throw (guarded by the shell's per-candidate try/catch). Establishes that a transient failure at setup is still possible and must be caught at the cron site.
 - `adws/triggers/perIssueScenarioSweep.ts` — **Read-only (not modified).** The sibling sweep whose cron wiring and DI-with-production-defaults shell this slice mirrors.
-- `adws/triggers/__tests__/trigger_cron.test.ts` — **Modified (unit tests).** Existing cron-integration test that already `vi.mock`s all module-level side effects and imports `runHungDetectorSweep` from `../trigger_cron`. Extend it with a `runPromotionSweepPass` describe block asserting the swallow-and-log and happy-path behaviours.
+- `adws/triggers/__tests__/trigger_cron.test.ts` — **Modified (unit tests).** Existing cron-integration test that already `vi.mock`s all module-level side effects and imports `runHungDetectorSweep` from `../trigger_cron`. Extend it with a `runPromotionSweepTick` describe block asserting dispatch-on-cadence (invoked exactly once when `cycleCount` is a multiple of the interval), no-dispatch-off-cadence (not invoked otherwise), and the swallow-and-log behaviour on a throwing injected sweep.
 
 ### Conditional Docs (read before implementing)
 - `app_docs/feature-vpb048-promotion-sweep-originate.md` — **Primary.** Owns `promotionSweep.ts`/`promotionSweepDefaults.ts` and the deciders; its conditions explicitly include *"When wiring the sweep into `trigger_cron.ts` (interval-gate) in a later slice"* — i.e. this issue. Read for the sweep's contract, non-fatal seams, and the reconciliation lifecycle the go-live activates.
@@ -63,9 +63,9 @@ Introduce the interval gate as a first-class, env-overridable constant, keeping 
 
 ### Phase 2: Core Implementation
 Wire the sweep into the cron tick behind the gate, non-fatally.
-- Add an exported `runPromotionSweepPass(sweep = runPromotionSweep)` helper in `trigger_cron.ts` that awaits the sweep inside a try/catch and logs-and-swallows any throw. The injectable `sweep` param (defaulting to the real function) exposes a unit-testable seam for the swallow guarantee.
+- Add an exported `runPromotionSweepTick(cycleCount, sweep = runPromotionSweep)` seam in `trigger_cron.ts` that encloses **both** the cadence gate (`cycleCount % PROMOTION_SWEEP_INTERVAL_CYCLES === 0`) and the try/catch that awaits the sweep and logs-and-swallows any throw. The `cycleCount` param and the injectable `sweep` (defaulting to the real function) expose a unit-/BDD-testable seam for both the cadence decision and the swallow guarantee.
 - Import `runPromotionSweep` from `./promotionSweep` and add `PROMOTION_SWEEP_INTERVAL_CYCLES` to the existing `../core` import.
-- Insert the gated call `if (cycleCount % PROMOTION_SWEEP_INTERVAL_CYCLES === 0) await runPromotionSweepPass();` in `checkAndTrigger`, immediately after the per-issue scenario sweep block, with a one-line comment explaining the generous cadence.
+- Insert the call `await runPromotionSweepTick(cycleCount);` in `checkAndTrigger`, immediately after the per-issue scenario sweep block, with a one-line comment explaining the generous cadence — the gate lives inside the seam, so the call site passes `cycleCount` unconditionally.
 
 ### Phase 3: Integration
 Confirm the activation integrates cleanly with the existing cron probes and the downstream pipeline.
@@ -88,16 +88,24 @@ Execute every step in order, top to bottom.
 - In `adws/triggers/trigger_cron.ts`, add `PROMOTION_SWEEP_INTERVAL_CYCLES` to the existing `import { ... } from '../core';` (line 12).
 - Add a new import: `import { runPromotionSweep } from './promotionSweep';` next to the `runPerIssueScenarioSweep` import (line 36).
 
-### Task 4: Add the exported guarded pass
-- In `adws/triggers/trigger_cron.ts`, add near the other exported sweep helper (`runHungDetectorSweep`):
+### Task 4: Add the exported gated-and-guarded dispatch seam
+- In `adws/triggers/trigger_cron.ts`, add near the other exported sweep helper (`runHungDetectorSweep`) an exported `runPromotionSweepTick` that encloses **both** the cadence gate and the swallow, so a single exported seam observes both behaviours:
   ```ts
   /**
-   * Promotion sweep pass: reconciles tagged per-issue scenarios and files/withdraws
-   * promotion issues. Non-fatal — a transient git/gh failure during setup (the
-   * reconciliation query, vocab/stats loads) is logged and swallowed so it can
-   * never abort the cron tick. Exported so tests can drive the guard directly.
+   * Promotion sweep dispatch: on a cadence-eligible cron cycle (cycleCount a
+   * multiple of PROMOTION_SWEEP_INTERVAL_CYCLES) invokes the sweep, which
+   * reconciles tagged per-issue scenarios and files/withdraws promotion issues.
+   * Off-cadence cycles are a no-op (the generous-cadence guarantee). Non-fatal —
+   * a transient git/gh failure during setup (the reconciliation query, vocab/stats
+   * loads) or any escaped throw is logged and swallowed so it can never abort the
+   * cron tick. Exported (with an injectable sweep) so tests can drive both the
+   * cadence gate and the swallow directly.
    */
-  export async function runPromotionSweepPass(sweep: () => Promise<unknown> = runPromotionSweep): Promise<void> {
+  export async function runPromotionSweepTick(
+    cycleCount: number,
+    sweep: () => Promise<unknown> = runPromotionSweep,
+  ): Promise<void> {
+    if (cycleCount % PROMOTION_SWEEP_INTERVAL_CYCLES !== 0) return;
     try {
       await sweep();
     } catch (error) {
@@ -106,22 +114,22 @@ Execute every step in order, top to bottom.
   }
   ```
 
-### Task 5: Wire the gated call into checkAndTrigger
+### Task 5: Wire the dispatch into checkAndTrigger
 - In `adws/triggers/trigger_cron.ts` `checkAndTrigger()`, immediately after the per-issue scenario sweep block (line 215), add:
   ```ts
   // Run the promotion sweep every PROMOTION_SWEEP_INTERVAL_CYCLES cycles (generous
-  // cadence: git/gh actions must not run every 20s tick). Non-fatal by construction.
-  if (cycleCount % PROMOTION_SWEEP_INTERVAL_CYCLES === 0) {
-    await runPromotionSweepPass();
-  }
+  // cadence: git/gh actions must not run every 20s tick). The gate and the
+  // non-fatal swallow both live inside runPromotionSweepTick.
+  await runPromotionSweepTick(cycleCount);
   ```
 
-### Task 6: Add unit tests for the guarded pass
-- Extend `adws/triggers/__tests__/trigger_cron.test.ts` with a `describe('runPromotionSweepPass', ...)` block. Import `runPromotionSweepPass` from `../trigger_cron` (alongside the existing `runHungDetectorSweep` import). Assert:
-  - **Swallows a throwing sweep:** injecting a `sweep` that rejects, `await expect(runPromotionSweepPass(rejectingSweep)).resolves.toBeUndefined()` (does not reject) and the non-fatal `log` is called.
-  - **Swallows a synchronous throw:** injecting a `sweep` that throws synchronously is also caught and does not reject.
-  - **Happy path invokes the sweep once:** injecting a resolving spy `sweep` calls it exactly once and does not log an error.
+### Task 6: Add unit tests for the dispatch seam
+- Extend `adws/triggers/__tests__/trigger_cron.test.ts` with a `describe('runPromotionSweepTick', ...)` block. Import `runPromotionSweepTick` and `PROMOTION_SWEEP_INTERVAL_CYCLES` from the codebase (alongside the existing `runHungDetectorSweep` import). Assert:
+  - **Dispatches on cadence:** driving with `cycleCount = PROMOTION_SWEEP_INTERVAL_CYCLES` (a multiple of the interval) invokes an injected capturing `sweep` exactly once.
+  - **Does not dispatch off-cadence:** driving with `cycleCount = PROMOTION_SWEEP_INTERVAL_CYCLES + 1` (and other non-multiples such as `- 1` and `1`) never invokes the injected `sweep`.
+  - **Swallows a throwing sweep on cadence:** with `cycleCount = PROMOTION_SWEEP_INTERVAL_CYCLES` and an injected `sweep` that rejects, `await expect(runPromotionSweepTick(PROMOTION_SWEEP_INTERVAL_CYCLES, rejectingSweep)).resolves.toBeUndefined()` (does not reject) and the non-fatal `log` is called; a synchronously-throwing `sweep` is swallowed identically.
 - Follow the existing file's conventions: reuse its module-level `vi.mock` setup (all side-effect deps already mocked) and, if it spies on the core `log`, assert against that mock; otherwise inject observable behaviour via the `sweep` param only.
+- Note: these unit cases overlap the BDD scenarios in `features/per-issue/feature-745.feature` (§1 dispatched-on-cadence, §2 not-dispatched-off-cadence, §3 swallow-on-throw), which drive the same exported seam through its step defs; both layers are expected and mutually reinforcing.
 
 ### Task 7: Validate
 - Run every command in `## Validation Commands` and confirm zero errors and zero test regressions.
@@ -130,22 +138,22 @@ Execute every step in order, top to bottom.
 ### Unit Tests
 Unit tests are enabled (`.adw/project.md` → `## Unit Tests: enabled`, framework `vitest`, `bun run test:unit`).
 
-- **`runPromotionSweepPass` (new, in `adws/triggers/__tests__/trigger_cron.test.ts`):** the one new behaviour introduced at the wiring layer is the non-fatal guarantee (acceptance criterion 2). Cover it at the exported seam using the injectable `sweep` param:
-  - A rejecting `sweep` is swallowed — the pass resolves (does not reject) and the non-fatal `log` fires.
-  - A synchronously-throwing `sweep` is swallowed identically.
-  - A resolving `sweep` is invoked exactly once and produces no error log (happy path).
-- **Not newly unit-tested (already covered / integration-covered):** `runPromotionSweep` and all its pure deciders (`promotionSweepDecider`, `promotionTagState`, `promotionReconcileLink`, `promotionIssueBody`) are exhaustively unit-tested by the blocking slices #739/#740/#741. Per the PRD Testing Decisions, the sweep shell and pipeline wiring are validated behaviourally, not against mocks of git/gh internals. The interval-gate arithmetic (`cycleCount % N === 0`) and the constant parse mirror the already-shipped sibling and need no bespoke test.
+- **`runPromotionSweepTick` (new, in `adws/triggers/__tests__/trigger_cron.test.ts`):** the wiring layer introduces two observable behaviours — the cadence gate (acceptance criteria 1 & 5) and the non-fatal swallow (acceptance criterion 2). Cover both at the exported seam using the `cycleCount` arg and the injectable `sweep` param:
+  - Driven with a cadence-eligible `cycleCount` (a multiple of `PROMOTION_SWEEP_INTERVAL_CYCLES`), a resolving `sweep` is invoked exactly once (dispatch-on-cadence).
+  - Driven with an off-cadence `cycleCount` (a non-multiple), the `sweep` is never invoked (generous cadence).
+  - Driven with a cadence-eligible `cycleCount` and a rejecting `sweep`, the tick resolves (does not reject) and the non-fatal `log` fires; a synchronously-throwing `sweep` is swallowed identically.
+- **Not newly unit-tested (already covered / integration-covered):** `runPromotionSweep` and all its pure deciders (`promotionSweepDecider`, `promotionTagState`, `promotionReconcileLink`, `promotionIssueBody`) are exhaustively unit-tested by the blocking slices #739/#740/#741. Per the PRD Testing Decisions, the sweep shell and pipeline wiring are validated behaviourally, not against mocks of git/gh internals. The constant parse mirrors the already-shipped sibling and needs no bespoke test; the interval-gate arithmetic is now pinned at the exported seam by both the unit cases above and the BDD scenarios (§1/§2), because those are the observable form of acceptance criteria 1 & 5.
 
 ### Edge Cases
-- **Transient git/gh failure at sweep setup** (reconciliation `gh issue list`, vocab/stats read): must be caught by `runPromotionSweepPass` and logged non-fatally; the cron tick continues to the eligibility loop. (Directly tested.)
+- **Transient git/gh failure at sweep setup** (reconciliation `gh issue list`, vocab/stats read): must be caught by `runPromotionSweepTick` and logged non-fatally; the cron tick continues to the eligibility loop. (Directly tested.)
 - **Cadence boundary:** on cron start `cycleCount` begins at 0 and increments to 1 on the first tick, so the first promotion sweep fires at `cycleCount === 4320` (≈24h), identical to the per-issue sweep. For immediate go-live backlog observation, the operator uses the manual CLI (`bunx tsx adws/triggers/promotionSweep.ts`) — see Notes.
 - **Env override:** `PROMOTION_SWEEP_INTERVAL_CYCLES=<n>` changes the cadence; a non-numeric value falls back through `parseInt` to `NaN` (matching sibling behaviour — no new handling required, but do not introduce stricter validation than the siblings).
-- **Empty/absent backlog:** with no tagged files, `runPromotionSweep` returns an empty report and performs no git/gh writes (no-op), so the gated call is safe on a clean repo.
+- **Empty/absent backlog:** with no tagged files, `runPromotionSweep` returns an empty report and performs no git/gh writes (no-op), so the dispatch is safe on a clean repo.
 - **Non-default branch checkout:** `defaultTagAndCommit` no-ops (does not throw) when the cron checkout is not on the default branch, so persistence is skipped safely — inherited, unchanged.
 
 ## Acceptance Criteria
-- `runPromotionSweep` is invoked from `trigger_cron` (`checkAndTrigger`) on the `PROMOTION_SWEEP_INTERVAL_CYCLES` cadence via the `cycleCount % PROMOTION_SWEEP_INTERVAL_CYCLES === 0` gate, adjacent to the per-issue sweep.
-- A sweep failure (including a throw at setup) is swallowed by `runPromotionSweepPass` and never propagates into the cron loop — proven by unit test.
+- `runPromotionSweep` is invoked from `trigger_cron` (`checkAndTrigger`) on the `PROMOTION_SWEEP_INTERVAL_CYCLES` cadence via the `cycleCount % PROMOTION_SWEEP_INTERVAL_CYCLES === 0` gate enclosed in the exported `runPromotionSweepTick` seam, adjacent to the per-issue sweep — dispatched on a cadence-eligible cycle, not dispatched on intervening cycles.
+- A sweep failure (including a throw at setup) is swallowed by `runPromotionSweepTick` and never propagates into the cron loop — proven by unit test and BDD scenario.
 - `PROMOTION_SWEEP_INTERVAL_CYCLES` exists in `adws/core/config.ts`, is barrel-exported from `adws/core/index.ts`, defaults to a generous once-per-day cadence, and is env-overridable — so git/gh actions do not run every 20s tick.
 - Filed promotion issues carry `[adw:feature, regression-promotion, hitl]` and route through the normal SDLC pipeline to `awaiting_merge` behind the `hitl` gate (inherited, unchanged by this slice).
 - On the first eligible live run the sweep re-scores the existing `@promotion-suggested-*` backlog (#509/510/511/512/609 and any other tagged files) and files-or-withdraws each per the reconciliation lifecycle (inherited behaviour, observed at go-live under human review).
@@ -157,16 +165,16 @@ Execute every command to validate the feature works correctly with zero regressi
 - `bun run lint` — Lint the codebase; must pass with no new errors.
 - `bunx tsc --noEmit` — Type-check the root project; must pass.
 - `bunx tsc --noEmit -p adws/tsconfig.json` — Type-check the `adws/` project (where all changed files live); must pass.
-- `bun run test:unit -- adws/triggers/__tests__/trigger_cron.test.ts` — Focused run of the extended cron test; the new `runPromotionSweepPass` cases must pass.
+- `bun run test:unit -- adws/triggers/__tests__/trigger_cron.test.ts` — Focused run of the extended cron test; the new `runPromotionSweepTick` cases must pass.
 - `bun run test:unit` — Full unit suite; must pass with zero regressions.
 - `bun run build` — Build the project; must complete with no errors.
 
 > Note: do **not** run `bunx tsx adws/triggers/promotionSweep.ts` as an automated validation step — it performs real git commits to the default branch and files live GitHub issues against the repo. It is the operator's manual go-live tool, exercised deliberately under human review, not a CI check.
 
 ## Notes
-- **Coding guidelines** (`.adw/coding_guidelines.md`): keep the change modular and pure at the edges. `runPromotionSweepPass` isolates the side effects (sweep invocation + logging) behind a named function with a single responsibility and a guard-clause try/catch — no nesting beyond one level. The additions to `trigger_cron.ts` are minimal (imports + one exported helper + one gated call); the file is a pre-existing orchestrator entry already above the 300-line guideline, and a wholesale refactor of it is out of scope for this wiring slice.
+- **Coding guidelines** (`.adw/coding_guidelines.md`): keep the change modular and pure at the edges. `runPromotionSweepTick` isolates the side effects (cadence gate + sweep invocation + logging) behind a named function with a single responsibility, an early-return cadence guard, and a guard-clause try/catch — no nesting beyond one level. The additions to `trigger_cron.ts` are minimal (imports + one exported seam + one call site); the file is a pre-existing orchestrator entry already above the 300-line guideline, and a wholesale refactor of it is out of scope for this wiring slice.
 - **Touched-files note:** the issue lists only `adws/triggers/trigger_cron.ts`, but the interval constant must live with its siblings in `adws/core/config.ts` and be re-exported from `adws/core/index.ts` (that is where `PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES` and every other interval constant is defined and exported). Defining it inline in `trigger_cron.ts` would break the established centralized, env-overridable pattern. The two extra files are the correct, convention-matching locations; the issue's list is indicative of the primary file, not exhaustive.
-- **Why an exported wrapper rather than an inline try/catch:** the swallow guarantee (criterion 2) is the one novel wiring behaviour, and unit tests are enabled. An exported `runPromotionSweepPass` with an injectable `sweep` makes that guarantee testable at a clean seam — directly following the in-file precedent by which `runHungDetectorSweep` is exported "so integration tests can invoke the sweep logic directly." Inline `try/catch` (as with `runUpgradeRedriveScan`) would work but leaves criterion 2 unpinnable by a unit test.
+- **Why an exported seam rather than an inline gate + try/catch:** the cadence decision (criteria 1 & 5) and the swallow guarantee (criterion 2) are the novel wiring behaviours, and both unit tests and BDD scenarios exercise them. An exported `runPromotionSweepTick(cycleCount, sweep)` that encloses **both** the gate and the try/catch makes both testable at a clean seam — directly following the in-file precedent by which `runHungDetectorSweep` is exported "so integration tests can invoke the sweep logic directly." A bare inline gate + `try/catch` (as with `runUpgradeRedriveScan`) would work at runtime but leaves the cadence and swallow behaviours unpinnable through an exported seam — and the BDD scenarios (§1/§2) specifically drive the seam with a `cycleCount` to observe dispatch vs no-dispatch, which is only possible if the gate lives inside the exported function.
 - **Cadence value:** `4320` matches the per-issue sweep (once per day at the 20s poll) and is the natural sibling default the PRD calls for ("interval-gated, like the per-issue sweep"). Tune via the `PROMOTION_SWEEP_INTERVAL_CYCLES` env var without a code change.
 - **Go-live / backlog observation:** because the first cron-driven sweep only fires after a full interval (≈24h), the go-live operator should process the backlog immediately by running the manual CLI once — `bunx tsx adws/triggers/promotionSweep.ts` — and review the filed/withdrawn results and the resulting `hitl` PRs before merging this activation. This is consistent with the issue's HITL note ("merge only after human review of the activation and backlog behavior").
 - **Inherited invariants to preserve (no code change):** filed issues route via `adw:feature` (deterministic, bypasses AI classification); `regression-promotion` is not an `adw:*` label; the empty-target-tag invariant keeps a zero-`@adw-{promotionIssueN}` run classified `{passed, skipped}` so promotions don't redden; the stateless `(no hitl) OR (approved)` merge gate holds the PR until human approval. This slice must not disturb any of these.
