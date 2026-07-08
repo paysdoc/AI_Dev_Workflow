@@ -177,7 +177,11 @@ describe('parseJUnitXml — large report with > 1000 XML entity expansions', () 
       isArray: (name) => name === 'testcase' || name === 'testsuite',
       processEntities: { maxTotalExpansions: 1000 },
     });
-    expect(() => finiteCeilingParser.parse(xml)).toThrow(/Entity expansion count limit exceeded/);
+    // The message wording itself is version-dependent (fast-xml-parser 5.5.x says
+    // "Entity expansion limit exceeded", 5.7.0+ says "Entity expansion count limit
+    // exceeded"), so match the invariant substring and treat "count" as optional —
+    // the load-bearing fact is that a finite ceiling throws, not the exact phrasing.
+    expect(() => finiteCeilingParser.parse(xml)).toThrow(/Entity expansion(?: count)? limit exceeded/);
 
     // The module's parser (maxTotalExpansions: Infinity) does NOT throw on the same input
     const report = parseJUnitXml(xml);
