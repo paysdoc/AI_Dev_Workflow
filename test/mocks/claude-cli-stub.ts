@@ -15,9 +15,18 @@
  *   MOCK_WORKTREE_PATH   — absolute path to the target worktree for manifest edits
  *                          (falls back to process.cwd() when MOCK_MANIFEST_PATH is set).
  *   MOCK_STREAM_DELAY_MS — delay between output lines in ms (default: 10).
+ *
+ * Manifest marker-file fallback:
+ *   Callers that spawn this stub through a production code path (e.g. a phase
+ *   function invoked in-process) route the child's environment through
+ *   getSafeSubprocessEnv()'s fixed allowlist, which does not include MOCK_*
+ *   names — so MOCK_MANIFEST_PATH can't reach this process via env. cwd is NOT
+ *   filtered (it's set explicitly by the spawn call), so as a fallback, when
+ *   MOCK_MANIFEST_PATH is unset, this stub also checks for a manifest at
+ *   <cwd>/.adw-stub-manifest.json.
  */
 
-import { readFileSync, appendFileSync } from 'fs';
+import { readFileSync, appendFileSync, existsSync } from 'fs';
 import { join, resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { applyManifest } from './manifestInterpreter.ts';
@@ -101,13 +110,23 @@ function recordInvocation(prompt: string): void {
   }
 }
 
+/** Resolves the manifest path: MOCK_MANIFEST_PATH takes precedence; falls back
+ *  to a cwd-relative marker file (see the "Manifest marker-file fallback" note
+ *  above) for callers whose env can't carry MOCK_* names to this process. */
+function resolveManifestPath(): string | undefined {
+  const fromEnv = process.env['MOCK_MANIFEST_PATH'];
+  if (fromEnv) return fromEnv;
+  const marker = resolve(process.cwd(), '.adw-stub-manifest.json');
+  return existsSync(marker) ? marker : undefined;
+}
+
 /** Main entry point. */
 async function main(): Promise<void> {
   try {
     recordInvocation(extractPrompt(process.argv));
 
-    // When MOCK_MANIFEST_PATH is set, apply the manifest and derive payloadPath from it.
-    const manifestPath = process.env['MOCK_MANIFEST_PATH'];
+    // When a manifest is resolved (env var or cwd marker file), apply it and derive payloadPath from it.
+    const manifestPath = resolveManifestPath();
     let payloadPath: string;
     if (manifestPath) {
       const worktreePath = process.env['MOCK_WORKTREE_PATH'] ?? process.cwd();
