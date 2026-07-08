@@ -19,7 +19,7 @@ ADW is an agentic SDLC framework: it turns issues on GitHub, GitLab, or Jira int
 - **Project board automation** — `BoardManager` provider drives GitHub Projects V2 column transitions as a workflow progresses.
 - **Two automation triggers** — `trigger_cron.ts` polls every 20 s; `trigger_webhook.ts` receives HMAC-signed GitHub webhooks for instant pickup, with optional Cloudflare tunnel lifecycle.
 - **Single-host coordination** — per-issue `spawnGate`, PID + start-time liveness checks, heartbeat ticker, `stageClassifier` six-class taxonomy (active/awaiting_merge/retriable/resumable/terminal/human_gated) for recovery routing, and `worktreeReset`-driven takeover; for abandoned and `phase_timeout` workflows the `worktreeReuseGate` probes Class-A git-operability signals (`WorktreeProbe`) and resumes in-place when healthy, resetting only on fault.
-- **Resilience primitives** — pause queue for rate-limit/billing pause and resume, auth gate for auth-failure detection with `paused_auth` state and Slack alerting, auth queue scanner for automatic resume after auth restoration, hung-orchestrator detector, dev server janitor, per-issue scenario sweep cron (14-day retention), `remoteReconcile` to derive workflow stage from remote GitHub artifacts, and a state-novelty progress gate (`progressGate.ts`) that aborts a build early when repeated git-tree-hash comparisons show no new commits (no_progress) or the checkpoint backstop is exhausted.
+- **Resilience primitives** — pause queue for rate-limit/billing pause and resume, auth gate for auth-failure detection with `paused_auth` state and Slack alerting, auth queue scanner for automatic resume after auth restoration, hung-orchestrator detector, dev server janitor, per-issue scenario sweep cron (14-day retention, promotion-tag-aware — a file carrying a live `@promotion-suggested-<date>` tag is exempted from deletion until the tag is declined or approved), `remoteReconcile` to derive workflow stage from remote GitHub artifacts, and a state-novelty progress gate (`progressGate.ts`) that aborts a build early when repeated git-tree-hash comparisons show no new commits (no_progress) or the checkpoint backstop is exhausted.
 - **Cost tracking** — per-phase, per-model `PhaseCostRecord` with multi-currency reporting, divergence detection vs. CLI-reported cost, and dual-write to a Cloudflare D1-backed Cost API.
 - **LLM-based dependency extraction** — `dependencyExtractionAgent` reads issues to surface cross-issue dependencies before spawning.
 - **Documentation generation** — `documentAgent` writes feature docs to `app_docs/`; the SDLC pipeline includes review screenshots.
@@ -328,7 +328,7 @@ ADW supports a human-in-the-loop (HITL) promotion flow that moves high-quality p
 
 **The move PR** — on the next per-issue PR event, the `promotionMover` orchestrator detects any scenario carrying bare `@promotion`, opens a separate PR (branch `regression-promotion-issue-{N}-{slug}`, labelled `regression-promotion`) that moves the scenario block from `features/per-issue/feature-{N}.feature` into the directory configured in `.adw/scenarios.md` (`## Regression Scenario Directory`), and strips both `@promotion` and any `@promotion-suggested-<date>` tokens from the destination. The source scenario is removed from the per-issue file on the same branch.
 
-**14-day sweep** — `@promotion-suggested-<date>` tags that are never edited to `@promotion` are swept after 14 days by the per-issue scenario cron probe (see `app_docs/feature-oobdbg-bdd-cutover-polymorphic-prompts-sweep.md`). Ignoring a suggestion has no penalty; the scenario stays in `features/per-issue/` until the 14-day TTL expires.
+**14-day sweep** — `@promotion-suggested-<date>` tags that are never edited to `@promotion` are swept after 14 days by the per-issue scenario cron probe (see `app_docs/feature-oobdbg-bdd-cutover-polymorphic-prompts-sweep.md`). The sweep is promotion-tag-aware (`adws/core/promotionTagState.ts`): a file still carrying a live `@promotion-suggested-<date>` tag is exempted from deletion regardless of age (fail-safe — an unreadable file is also treated as exempt), so a pending suggestion is never silently lost to the TTL. Ignoring a suggestion has no penalty; the scenario stays in `features/per-issue/` until the 14-day TTL expires and its promotion tag is resolved.
 
 **Orchestrator CLI** — `bunx tsx adws/adwPromotionSweep.tsx <issueNumber> [adwId]` runs both halves (commenter then mover) on the same per-issue PR event. The `regression-promotion` GitHub label must already exist on the repository before the mover can apply it.
 
@@ -516,6 +516,7 @@ adws/                   # ADW workflow system
 │   │   ├── phaseRunner.test.ts
 │   │   ├── processLiveness.test.ts
 │   │   ├── projectConfig.test.ts
+│   │   ├── promotionTagState.test.ts
 │   │   ├── remoteReconcile.test.ts
 │   │   ├── repoIdentityCrossCheck.test.ts
 │   │   ├── resolveFreezeGuard.test.ts
@@ -566,6 +567,7 @@ adws/                   # ADW workflow system
 │   ├── processKill.ts  # Process kill utilities (SIGTERM → SIGKILL escalation)
 │   ├── processLiveness.ts  # PID-reuse-safe process liveness checks
 │   ├── projectConfig.ts
+│   ├── promotionTagState.ts  # Pure parse/serialize of `@promotion-suggested-<date>`/`@promotion-declined` markers; terminal none→suggested→declined state machine
 │   ├── remoteReconcile.ts  # Stage derivation from remote GitHub artifacts
 │   ├── repoIdentityCrossCheck.ts  # Launch-vs-persisted repo identity cross-check; throws RepoIdentityMismatchError on owner/repo divergence
 │   ├── resolveFreezeGuard.ts  # Pure guard: rejects resolve edits that touch .feature files

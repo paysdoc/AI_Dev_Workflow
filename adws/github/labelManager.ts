@@ -21,6 +21,16 @@ export const ADW_UPGRADE_LABEL = 'adw:upgrade';
 export const ADW_UNVERIFIED_LABEL = 'adw:unverified';
 export const ADW_BLOCKED_LABEL = 'adw:blocked';
 
+/**
+ * Scenario promotion candidate marker — reconciliation key for the promotion
+ * sweep (`Promotes: feature-N` linkage) and the scenario-authoring skip-flag.
+ * Deliberately kept OUT of `ADW_CLASSIFICATION_LABELS` (must stay invisible to
+ * `readAdwLabelNames` / `LABEL_TO_COMMAND` routing) and out of
+ * `ADW_LABEL_DEFINITIONS` (keeps `ensureAdwLabelsExist` scoped to the six adw:*
+ * labels its log message names).
+ */
+export const ADW_REGRESSION_PROMOTION_LABEL = 'regression-promotion';
+
 export const ADW_CLASSIFICATION_LABELS = {
   'adw:chore':     '/chore',
   'adw:bug':       '/bug',
@@ -44,6 +54,13 @@ export const ADW_LABEL_DEFINITIONS: readonly AdwLabelDefinition[] = [
   { name: 'adw:unverified',  color: 'fbca04', description: 'ADW could not verify tests' },
   { name: 'adw:blocked', color: 'b60205', description: 'ADW lane escalated to human (terminal)' },
 ] as const;
+
+/** Definition for the promotion label — resolved via `resolveLabelDefinition`, not part of `ADW_LABEL_DEFINITIONS`. */
+export const REGRESSION_PROMOTION_LABEL_DEFINITION: AdwLabelDefinition = {
+  name: ADW_REGRESSION_PROMOTION_LABEL,
+  color: 'c5def5',
+  description: 'Scenario promotion candidate (reconciliation key + authoring skip-flag)',
+};
 
 export interface AdwLabelReading {
   optOut: boolean;
@@ -99,7 +116,7 @@ export function buildDefaultLabelManagerDeps(): LabelManagerDeps {
 // ── Private helpers ───────────────────────────────────────────────────────────
 
 function resolveLabelDefinition(label: string): AdwLabelDefinition {
-  return ADW_LABEL_DEFINITIONS.find(d => d.name === label)
+  return [...ADW_LABEL_DEFINITIONS, REGRESSION_PROMOTION_LABEL_DEFINITION].find(d => d.name === label)
     ?? { name: label, color: 'ededed', description: 'ADW label' };
 }
 

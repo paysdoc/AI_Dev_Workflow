@@ -1773,6 +1773,23 @@
     - When implementing or troubleshooting `parsePromotionTagState`, `serializePromotionTagState`, or `isPromotionExempt`
     - When working on the `none -> suggested -> declined` promotion state machine or its terminal-`declined` precedence
 
+- app_docs/feature-vpb048-promotion-sweep-originate.md
+  - Owns:
+    - adws/triggers/promotionSweep.ts
+    - adws/triggers/promotionSweepDefaults.ts
+    - adws/core/promotionSweepDecider.ts
+    - adws/core/promotionReconcileLink.ts
+    - adws/core/promotionIssueBody.ts
+  - Conditions:
+    - When working on the hand-invokable promotion sweep `bunx tsx adws/triggers/promotionSweep.ts` or `runPromotionSweep`
+    - When implementing or troubleshooting `decidePromotionAction` / `PromotionAction` (the `originate | leave | done` lifecycle decider)
+    - When working with `parsePromotesMarker`, `reconcilePromotionLink`, or `reconcileFactFor` (the `Promotes: feature-N` back-link matcher)
+    - When working with `buildPromotionIssue` or the #734-shaped promotion issue title/body/label spec
+    - When a fresh high-scoring per-issue scenario should be marked `@promotion-suggested-<date>` and filed as an `adw:feature` + `regression-promotion` + `hitl` issue
+    - When troubleshooting duplicate promotion issues, a missing `Promotes:` marker, or a re-committed already-suggested file
+    - When wiring the sweep's cron/reconcile-path (`decline | redrive | withdraw`, `closed-unmerged | blocked` facts) in a later slice
+    - When working with `adws/triggers/promotionSweepDefaults.ts` production deps (`GitContext`-backed listing, scoring, tag-and-commit, issue-filing)
+
 - app_docs/feature-9gjajh-providers.md
   - Owns:
     - adws/providers/**
