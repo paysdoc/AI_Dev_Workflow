@@ -67,7 +67,9 @@ export type SlashCommand =
   // Install and prime
   | '/install'
   // Diff evaluation
-  | '/diff_evaluator';
+  | '/diff_evaluator'
+  // Promotion rot/reuse advisory analysis
+  | '/promote_regression_vocabulary';
 
 /**
  * GitHub user model.

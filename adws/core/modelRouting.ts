@@ -73,6 +73,8 @@ export const SLASH_COMMAND_MODEL_MAP: Record<SlashCommand, ModelTier> = {
   '/diff_evaluator': 'haiku',
   // Refactor (targeted guideline application)
   '/refactor': 'sonnet',
+  // Promotion rot/reuse advisory analysis
+  '/promote_regression_vocabulary': 'sonnet',
 };
 
 /** Cost-optimized model map used when the issue body contains `/fast` or `/cheap`. */
@@ -114,6 +116,8 @@ export const SLASH_COMMAND_MODEL_MAP_FAST: Record<SlashCommand, ModelTier> = {
   '/diff_evaluator': 'haiku',
   // Refactor (targeted guideline application)
   '/refactor': 'sonnet',
+  // Promotion rot/reuse advisory analysis
+  '/promote_regression_vocabulary': 'haiku',
 };
 
 // ---------------------------------------------------------------------------
@@ -168,6 +172,8 @@ export const SLASH_COMMAND_EFFORT_MAP: Record<SlashCommand, ReasoningEffort | un
   '/diff_evaluator': undefined,
   // Refactor (targeted guideline application)
   '/refactor': 'high',
+  // Promotion rot/reuse advisory analysis
+  '/promote_regression_vocabulary': 'medium',
 };
 
 /** Cost-optimized reasoning effort map used when the issue body contains `/fast` or `/cheap`. */
@@ -209,6 +215,8 @@ export const SLASH_COMMAND_EFFORT_MAP_FAST: Record<SlashCommand, ReasoningEffort
   '/diff_evaluator': undefined,
   // Refactor (targeted guideline application)
   '/refactor': 'high',
+  // Promotion rot/reuse advisory analysis
+  '/promote_regression_vocabulary': 'medium',
 };
 
 // ---------------------------------------------------------------------------

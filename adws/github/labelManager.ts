@@ -31,6 +31,16 @@ export const ADW_BLOCKED_LABEL = 'adw:blocked';
  */
 export const ADW_REGRESSION_PROMOTION_LABEL = 'regression-promotion';
 
+/**
+ * Gates the promotion-only rot/reuse advisory step (User Story 12/13). Detection keys
+ * off the *issue* label, not a PR-label fetch — promotion issues carry
+ * `regression-promotion` (`buildPromotionIssue`), and that label is already on
+ * `config.issue.labels` with no extra I/O.
+ */
+export function hasRegressionPromotionLabel(labels: readonly { name: string }[]): boolean {
+  return labels.some(l => l.name === ADW_REGRESSION_PROMOTION_LABEL);
+}
+
 export const ADW_CLASSIFICATION_LABELS = {
   'adw:chore':     '/chore',
   'adw:bug':       '/bug',
