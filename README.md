@@ -849,6 +849,8 @@ adws/                   # ADW workflow system
 │   ├── trigger_cron.ts
 │   ├── trigger_shutdown.ts  # Graceful shutdown handler
 │   ├── trigger_webhook.ts
+│   ├── promotionSweep.ts  # Promotion sweep originate path (manual CLI, not yet wired into cron): scores per-issue scenarios, reconciles against open regression-promotion issues, tags + files a #734-shaped relocation issue
+│   ├── promotionSweepDefaults.ts  # Production GitContext/fs-backed dependency defaults for runPromotionSweep
 │   ├── upgradeRedrive.ts  # Cron redrive scan: re-spawns adwUpgrade for stranded #UPG tracking issues (bounded by MAX_FAILURES)
 │   ├── webhookGatekeeper.ts
 │   ├── webhookHandlers.ts

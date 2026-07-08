@@ -13,6 +13,7 @@ import {
 } from '../core';
 import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
 import { runScenarioAgent } from '../agents';
+import { shouldSkipScenarioAuthoring } from '../github';
 import type { WorkflowConfig } from './workflowInit';
 
 /**
@@ -25,6 +26,14 @@ export async function executeScenarioPhase(
   config: WorkflowConfig,
 ): Promise<{ costUsd: number; modelUsage: ModelUsageMap; phaseCostRecords: PhaseCostRecord[] }> {
   const { recoveryState, orchestratorStatePath, adwId, issueNumber, issue, worktreePath, logsDir } = config;
+
+  // Promotion issues must never author scenarios: a junk feature-<promotionIssueN>.feature
+  // would redden the run and become its own future promotion candidate. See PRD user story 11.
+  if (shouldSkipScenarioAuthoring(issue.labels)) {
+    log('Skipping scenario authoring: regression-promotion issue', 'info');
+    AgentStateManager.appendLog(orchestratorStatePath, 'Scenario phase skipped: regression-promotion label present (promotion issue)');
+    return { costUsd: 0, modelUsage: emptyModelUsageMap(), phaseCostRecords: [] };
+  }
 
   if (!shouldExecuteStage('plan_validating', recoveryState)) {
     log('Skipping scenario phase (already completed in previous run)', 'info');

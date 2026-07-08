@@ -24,6 +24,7 @@ import {
   runAlignmentAgent,
   OutputValidationError,
 } from "../agents";
+import { shouldSkipScenarioAuthoring } from "../github";
 import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from "../cost";
 import type { WorkflowConfig } from "./workflowInit";
 
@@ -53,6 +54,15 @@ export async function executeAlignmentPhase(
 
   if (!shouldExecuteStage('plan_aligning', recoveryState)) {
     log('Skipping alignment phase (already completed in previous run)', 'info');
+    return { costUsd: 0, modelUsage: emptyModelUsageMap(), phaseCostRecords: [] };
+  }
+
+  // Promotion issues skip scenario authoring entirely; with no @adw-N scenarios the
+  // alignment pass has nothing to align. Explicit gate (defense-in-depth on top of the
+  // "no scenario files" skip below). See PRD user story 11.
+  if (shouldSkipScenarioAuthoring(issue.labels)) {
+    log('Skipping alignment phase: regression-promotion issue (no scenario authoring)', 'info');
+    AgentStateManager.appendLog(orchestratorStatePath, 'Alignment phase skipped: regression-promotion label present (promotion issue)');
     return { costUsd: 0, modelUsage: emptyModelUsageMap(), phaseCostRecords: [] };
   }
 

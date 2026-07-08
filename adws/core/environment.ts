@@ -45,23 +45,32 @@ dotenv.config();
 // Claude CLI resolution
 // ---------------------------------------------------------------------------
 
-/** Path to the Claude CLI executable. */
+/** Path to the Claude CLI executable, snapshotted at process start (diagnostics only). */
 export const CLAUDE_CODE_PATH = process.env.CLAUDE_CODE_PATH || 'claude';
 
-/** Cached resolved Claude CLI path. */
+/** Cached resolved Claude CLI path, alongside the configured input it was resolved from. */
 let cachedClaudeCodePath: string | null = null;
+let cachedFromConfiguredPath: string | null = null;
 
 /**
  * Resolves and validates the Claude CLI executable path.
  * Checks the configured CLAUDE_CODE_PATH first, then falls back to PATH lookup via `which`.
- * The result is cached for performance; use {@link clearClaudeCodePathCache} to force re-resolution.
+ * The result is cached for performance, keyed on the live CLAUDE_CODE_PATH env var rather
+ * than the module-load-time CLAUDE_CODE_PATH constant — if the env var changes mid-process
+ * (e.g. test mock setup/teardown toggling it), the cache is invalidated and re-resolved
+ * automatically. Use {@link clearClaudeCodePathCache} to force re-resolution even when the
+ * configured value is unchanged (e.g. after an ENOENT).
  */
 export function resolveClaudeCodePath(): string {
-  if (cachedClaudeCodePath) return cachedClaudeCodePath;
+  const configuredPath = process.env.CLAUDE_CODE_PATH || 'claude';
+  if (cachedClaudeCodePath && cachedFromConfiguredPath === configuredPath) {
+    return cachedClaudeCodePath;
+  }
 
   // If configured path is absolute and exists, use it directly
-  if (CLAUDE_CODE_PATH.startsWith('/') && fs.existsSync(CLAUDE_CODE_PATH)) {
-    cachedClaudeCodePath = CLAUDE_CODE_PATH;
+  if (configuredPath.startsWith('/') && fs.existsSync(configuredPath)) {
+    cachedClaudeCodePath = configuredPath;
+    cachedFromConfiguredPath = configuredPath;
     return cachedClaudeCodePath;
   }
 
@@ -70,6 +79,7 @@ export function resolveClaudeCodePath(): string {
     const resolved = execSync('which claude', { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }).trim();
     if (resolved) {
       cachedClaudeCodePath = resolved;
+      cachedFromConfiguredPath = configuredPath;
       return cachedClaudeCodePath;
     }
   } catch {
@@ -85,6 +95,7 @@ export function resolveClaudeCodePath(): string {
  */
 export function clearClaudeCodePathCache(): void {
   cachedClaudeCodePath = null;
+  cachedFromConfiguredPath = null;
 }
 
 // ---------------------------------------------------------------------------

@@ -112,6 +112,17 @@ export function issueTypeToAdwLabel(issueType: IssueClassSlashCommand): string |
   return entry ? entry[0] : null;
 }
 
+/**
+ * True when scenario authoring must be skipped for this issue — i.e. the issue
+ * carries the `regression-promotion` label. Promotion issues relocate an existing
+ * per-issue scenario into the regression suite; authoring a fresh
+ * feature-<promotionIssueN>.feature for them would redden the run and create a
+ * promotion-of-a-promotion candidate. Pure — no I/O, no logging.
+ */
+export function shouldSkipScenarioAuthoring(labels: readonly GitHubLabel[]): boolean {
+  return labels.some((l) => l.name === ADW_REGRESSION_PROMOTION_LABEL);
+}
+
 // ── DI scaffolding ────────────────────────────────────────────────────────────
 
 export interface LabelManagerDeps {
