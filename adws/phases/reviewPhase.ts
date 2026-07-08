@@ -29,6 +29,11 @@ import { extractPrNumber } from '../adwBuildHelpers';
 
 export type { ReviewIssue };
 
+// The promotion rot/reuse advisory (executePromotionRotAdvisory) lives in the
+// sibling promotionRotAdvisory.ts to keep this file under the 300-line
+// guideline; re-exported here since reviewPhase.ts is this feature's home.
+export { executePromotionRotAdvisory } from './promotionRotAdvisory';
+
 /**
  * Executes the Review phase as a passive judge.
  *

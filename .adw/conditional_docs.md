@@ -2124,3 +2124,18 @@
     - When `EXEMPT_PACKAGE_DIR = 'adws/gitContext'` or `EXEMPT_DIR_NAMES` configuration is relevant
     - When a new bootstrap primitive needs to be added (must go into `adws/gitContext/` — no allowlist escape hatch exists)
     - When writing or extending unit tests for `checkGitGhGuard.ts` (`adws/__tests__/checkGitGhGuard.test.ts` — tests `scanFiles`/`scanSource` with fixture strings)
+
+- app_docs/feature-2ubuuc-rot-reuse-advisory-pr-comment.md
+  - Owns:
+    - adws/phases/promotionRotAdvisory.ts
+    - adws/phases/rotAdvisoryFormat.ts
+    - adws/agents/rotAnalysisAgent.ts
+    - .claude/commands/promote_regression_vocabulary.md
+  - Conditions:
+    - When working with the promotion rot/reuse advisory PR comment (`runPromotionRotAdvisory` / `executePromotionRotAdvisory`)
+    - When implementing or troubleshooting `runRotAnalysisAgent` / `extractRotVerdicts` in `adws/agents/rotAnalysisAgent.ts`
+    - When working with `formatRotAdvisoryComment` or the advisory Markdown comment format
+    - When a `regression-promotion` PR should (or should not) receive a per-phrase reuse/rot verdict comment
+    - When troubleshooting why the advisory comment did not post (label gate, missing PR number, missing `Promotes:` marker, agent failure)
+    - When modifying `.claude/commands/promote_regression_vocabulary.md` or the `promote-regression-vocabulary` skill's agent-facing contract
+    - When adding a new slash command and need the `SlashCommand` union / `modelRouting.ts` three-touch-point pattern for a promotion-related agent

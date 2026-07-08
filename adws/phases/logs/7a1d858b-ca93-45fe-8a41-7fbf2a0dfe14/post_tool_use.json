@@ -1,0 +1,77 @@
+[
+  {
+    "session_id": "7a1d858b-ca93-45fe-8a41-7fbf2a0dfe14",
+    "transcript_path": "/Users/martin/.claude/projects/-Users-martin-projects-paysdoc-AI-Dev-Workflow--worktrees-feature-issue-743-rot-reuse-advisory-pr-comment/7a1d858b-ca93-45fe-8a41-7fbf2a0dfe14.jsonl",
+    "cwd": "/Users/martin/projects/paysdoc/AI_Dev_Workflow/.worktrees/feature-issue-743-rot-reuse-advisory-pr-comment/adws/phases",
+    "prompt_id": "c32193bb-8607-4fdf-bf8b-f7c5b88355f9",
+    "permission_mode": "bypassPermissions",
+    "effort": {
+      "level": "max"
+    },
+    "hook_event_name": "PostToolUse",
+    "tool_name": "Bash",
+    "tool_input": {
+      "command": "cd adws/phases && mv promotionRotAdvisory.ts.bak promotionRotAdvisory.ts && grep -n \"hasRegressionPromotionLabel(context.labels)\" promotionRotAdvisory.ts",
+      "description": "Revert the sanity-check mutation"
+    },
+    "tool_response": {
+      "stdout": "63:  if (!hasRegressionPromotionLabel(context.labels)) {",
+      "stderr": "",
+      "interrupted": false,
+      "isImage": false,
+      "noOutputExpected": false
+    },
+    "tool_use_id": "toolu_01EFTE1F9CE2mfTPWdxLmNWK",
+    "duration_ms": 12
+  },
+  {
+    "session_id": "7a1d858b-ca93-45fe-8a41-7fbf2a0dfe14",
+    "transcript_path": "/Users/martin/.claude/projects/-Users-martin-projects-paysdoc-AI-Dev-Workflow--worktrees-feature-issue-743-rot-reuse-advisory-pr-comment/7a1d858b-ca93-45fe-8a41-7fbf2a0dfe14.jsonl",
+    "cwd": "/Users/martin/projects/paysdoc/AI_Dev_Workflow/.worktrees/feature-issue-743-rot-reuse-advisory-pr-comment/adws/phases",
+    "prompt_id": "c32193bb-8607-4fdf-bf8b-f7c5b88355f9",
+    "permission_mode": "bypassPermissions",
+    "effort": {
+      "level": "max"
+    },
+    "hook_event_name": "PostToolUse",
+    "tool_name": "Bash",
+    "tool_input": {
+      "command": "NODE_OPTIONS=\"--import tsx\" bunx cucumber-js --tags \"@adw-743\" 2>&1 | tail -15",
+      "description": "Confirm all @adw-743 scenarios green after revert"
+    },
+    "tool_response": {
+      "stdout": "0 scenarios\n0 steps\n0m00.000s (executing steps: 0m00.000s)",
+      "stderr": "",
+      "interrupted": false,
+      "isImage": false,
+      "noOutputExpected": false
+    },
+    "tool_use_id": "toolu_01Hf5o4TwfApeJdY2Urc4KX9",
+    "duration_ms": 229
+  },
+  {
+    "session_id": "7a1d858b-ca93-45fe-8a41-7fbf2a0dfe14",
+    "transcript_path": "/Users/martin/.claude/projects/-Users-martin-projects-paysdoc-AI-Dev-Workflow--worktrees-feature-issue-743-rot-reuse-advisory-pr-comment/7a1d858b-ca93-45fe-8a41-7fbf2a0dfe14.jsonl",
+    "cwd": "/Users/martin/projects/paysdoc/AI_Dev_Workflow/.worktrees/feature-issue-743-rot-reuse-advisory-pr-comment/adws/phases",
+    "prompt_id": "c32193bb-8607-4fdf-bf8b-f7c5b88355f9",
+    "permission_mode": "bypassPermissions",
+    "effort": {
+      "level": "max"
+    },
+    "hook_event_name": "PostToolUse",
+    "tool_name": "Bash",
+    "tool_input": {
+      "command": "pwd; echo \"== absolute file check ==\"; ls -la /Users/martin/projects/paysdoc/AI_Dev_Workflow/.worktrees/feature-issue-743-rot-reuse-advisory-pr-comment/adws/phases/promotionRotAdvisory.ts; echo \"== dir listing of cwd ==\"; ls -la .",
+      "description": "Full diagnosis of file location relative to absolute repo path"
+    },
+    "tool_response": {
+      "stdout": "/Users/martin/projects/paysdoc/AI_Dev_Workflow/.worktrees/feature-issue-743-rot-reuse-advisory-pr-comment/adws/phases\n== absolute file check ==\n-rw-r--r--  1 martin  staff  5683 Jul  8 16:23 /Users/martin/projects/paysdoc/AI_Dev_Workflow/.worktrees/feature-issue-743-rot-reuse-advisory-pr-comment/adws/phases/promotionRotAdvisory.ts\n== dir listing of cwd ==\ntotal 640\ndrwxr-xr-x  16 martin  staff    512 Jul  8 15:58 __tests__\ndrwxr-xr-x  44 martin  staff   1408 Jul  8 16:28 .\ndrwxr-xr-x  44 martin  staff   1408 Jul  8 16:24 ..\n-rw-r--r--   1 martin  staff   7128 Jul  8 15:58 alignmentPhase.ts\n-rw-r--r--   1 martin  staff   2184 Jul  8 15:58 authPause.ts\n-rw-r--r--   1 martin  staff   5717 Jul  8 15:58 autoMergePhase.ts\n-rw-r--r--   1 martin  staff   4422 Jul  8 15:58 branchIdentityFallback.ts\n-rw-r--r--   1 martin  staff   5406 Jul  8 15:58 branchNameResolution.ts\n-rw-r--r--   1 martin  staff  12761 Jul  8 15:58 buildPhase.ts\n-rw-r--r--   1 martin  staff   1005 Jul  8 15:58 decidePostReviewOutcome.ts\n-rw-r--r--   1 martin  staff   3119 Jul  8 15:58 depauditSetup.ts\n-rw-r--r--   1 martin  staff   4574 Jul  8 15:58 diffEvaluationPhase.ts\n-rw-r--r--   1 martin  staff   5698 Jul  8 15:58 docsSelfCheck.ts\n-rw-r--r--   1 martin  staff   4736 Jul  8 15:58 documentPhase.ts\n-rw-r--r--   1 martin  staff   2635 Jul  8 15:58 gherkinFreeze.ts\n-rw-r--r--   1 martin  staff   2874 Jul  8 16:24 index.ts\n-rw-r--r--   1 martin  staff   6551 Jul  8 15:58 installPhase.ts\ndrwxr-xr-x   3 martin  staff     96 Jul  8 16:28 logs\n-rw-r--r--   1 martin  staff   3044 Jul  8 15:58 orchestratorLock.ts\n-rw-r--r--   1 martin  staff   1772 Jul  8 15:58 phaseCommentHelpers.ts\n-rw-r--r--   1 martin  staff  10472 Jul  8 15:58 planPhase.ts\n-rw-r--r--   1 martin  staff  10011 Jul  8 15:58 planValidationPhase.ts\n-rw-r--r--   1 martin  staff   3321 Jul  8 15:58 progressGate.ts\n-rw-r--r--   1 martin  staff   5683 Jul  8 16:23 promotionRotAdvisory.ts\n-rw-r--r--   1 martin  staff   2029 Jul  8 15:58 proofPublishPhase.ts\n-rw-r--r--   1 martin  staff   4426 Jul  8 15:58 prPhase.ts\n-rw-r--r--   1 martin  staff   5534 Jul  8 15:58 prReviewCompletion.ts\n-rw-r--r--   1 martin  staff  15452 Jul  8 15:58 prReviewPhase.ts\n-rw-r--r--   1 martin  staff   5039 Jul  8 15:58 reviewPatchHelpers.ts\n-rw-r--r--   1 martin  staff   8448 Jul  8 16:23 reviewPhase.ts\n-rw-r--r--   1 martin  staff   1630 Jul  8 16:20 rotAdvisoryFormat.ts\n-rw-r--r--   1 martin  staff   5191 Jul  8 15:58 scenarioFixPhase.ts\n-rw-r--r--   1 martin  staff   3571 Jul  8 15:58 scenarioPhase.ts\n-rw-r--r--   1 martin  staff   9886 Jul  8 15:58 scenarioProof.ts\n-rw-r--r--   1 martin  staff   6048 Jul  8 15:58 scenarioTestFixLoop.ts\n-rw-r--r--   1 martin  staff   5051 Jul  8 15:58 scenarioTestPhase.ts\n-rw-r--r--   1 martin  staff   1610 Jul  8 15:58 sdlcReviewHandoff.ts\n-rw-r--r--   1 martin  staff   1461 Jul  8 15:58 stackCoherenceReporter.ts\n-rw-r--r--   1 martin  staff   3385 Jul  8 15:58 stepDefPhase.ts\n-rw-r--r--   1 martin  staff   6277 Jul  8 15:58 unitTestPhase.ts\n-rw-r--r--   1 martin  staff   9066 Jul  8 15:58 upgradeGate.ts\n-rw-r--r--   1 martin  staff   9289 Jul  8 15:58 workflowCompletion.ts\n-rw-r--r--   1 martin  staff  19886 Jul  8 15:58 workflowInit.ts\n-rw-r--r--   1 martin  staff   9577 Jul  8 15:58 worktreeSetup.ts",
+      "stderr": "",
+      "interrupted": false,
+      "isImage": false,
+      "noOutputExpected": false
+    },
+    "tool_use_id": "toolu_01HqkD3sXio8eKumKEFMUnkS",
+    "duration_ms": 10
+  }
+]
