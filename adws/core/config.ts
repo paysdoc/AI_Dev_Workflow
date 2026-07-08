@@ -134,6 +134,11 @@ export const HUNG_DETECTOR_INTERVAL_CYCLES = parseInt(process.env.HUNG_DETECTOR_
  *  Default 4320 ≈ once per day at 20s POLL_INTERVAL_MS (4320 × 20s = 86 400s). */
 export const PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES = parseInt(process.env.PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES || '4320', 10);
 
+/** Number of cron poll cycles between promotion-sweep passes. Default 4320 ≈ once per day at
+ *  20s POLL_INTERVAL_MS. Generous so the sweep's git/gh actions (all-state issue listing,
+ *  commit-to-default, issue creation) do not run every 20s tick. */
+export const PROMOTION_SWEEP_INTERVAL_CYCLES = parseInt(process.env.PROMOTION_SWEEP_INTERVAL_CYCLES || '4320', 10);
+
 // ---------------------------------------------------------------------------
 // Agent watchdog timeout
 // ---------------------------------------------------------------------------
