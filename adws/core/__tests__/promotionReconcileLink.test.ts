@@ -60,7 +60,30 @@ describe('reconcileFactFor', () => {
     expect(reconcileFactFor('feature-42', openIssues)).toBe('open');
   });
 
+  it('returns "open" when the linked tracker explicitly carries state: "OPEN"', () => {
+    const issues: PromotionIssueRef[] = [{ number: 101, body: 'Promotes: feature-42', state: 'OPEN' }];
+    expect(reconcileFactFor('feature-42', issues)).toBe('open');
+  });
+
   it('returns "no-issue" when the feature has no linked open promotion issue', () => {
     expect(reconcileFactFor('feature-42', [])).toBe('no-issue');
+  });
+
+  it('returns "closed-unmerged" when the linked tracker is closed', () => {
+    const issues: PromotionIssueRef[] = [{ number: 101, body: 'Promotes: feature-42', state: 'CLOSED' }];
+    expect(reconcileFactFor('feature-42', issues)).toBe('closed-unmerged');
+  });
+
+  it('classifies "closed" case-insensitively (lowercase state)', () => {
+    const issues: PromotionIssueRef[] = [{ number: 101, body: 'Promotes: feature-42', state: 'closed' }];
+    expect(reconcileFactFor('feature-42', issues)).toBe('closed-unmerged');
+  });
+
+  it('lowest-number tie-break across mixed states: an older closed tracker wins over a newer open one', () => {
+    const issues: PromotionIssueRef[] = [
+      { number: 205, body: 'Promotes: feature-42', state: 'OPEN' },
+      { number: 101, body: 'Promotes: feature-42', state: 'CLOSED' },
+    ];
+    expect(reconcileFactFor('feature-42', issues)).toBe('closed-unmerged');
   });
 });
