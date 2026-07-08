@@ -1335,16 +1335,6 @@
     - When the `awaiting_approval` exit reason appears in logs or you need to understand why `workflowStage` was not written
     - When `processedMerges` is referenced in old code or docs (it was removed — use spawn lock instead)
 
-- app_docs/feature-tdauam-promotion-commenter-deep-modules.md
-  - Conditions:
-    - When working with `adws/promotion/` deep modules (vocabularyParser, scenarioParser, promotionScorer, promotionThreshold, promotionTagWriter)
-    - When implementing or troubleshooting `runPromotionCommenter` in `adws/promotion/promotionCommenter.ts`
-    - When working with `adwPromotionSweep.tsx` or the `promotion-sweep` orchestrator key in `ORCHESTRATOR_FILES`
-    - When adding scenarios to `features/per-issue/` and understanding how they are scored for promotion
-    - When troubleshooting `@promotion-suggested-<date>` tag insertion or byte-exact preservation of surrounding feature file content
-    - When extending scoring weights (`SURFACE_MATCH_WEIGHT`, `SUBPROCESS_WEIGHT`, etc.) or the promotion threshold (slice #7)
-    - When wiring duplicate-suppression, date-refresh, or `hitl` labelling into the promotion flow (slice #5)
-
 - app_docs/feature-oobdbg-bdd-cutover-polymorphic-prompts-sweep.md
   - Conditions:
     - When working with `adws/triggers/perIssueScenarioSweep.ts` or the 14-day per-issue scenario retention sweep
@@ -1368,34 +1358,6 @@
     - When troubleshooting live ADW agents being unexpectedly killed by the janitor (exit code 143)
     - When extending `JanitorDeps` with new injectable dependencies for the janitor
     - When writing tests for `devServerJanitor.ts` (follow the state-file-driven lookup pattern, use real branch-name fixtures)
-
-- app_docs/feature-28aysq-hitl-label-tag-lifecycle.md
-  - Conditions:
-    - When working with the `@promotion-suggested-<date>` tag lifecycle (refresh-date, remove-suggestion, daily suppression)
-    - When implementing or troubleshooting `hitl` label application from `promotionCommenter` or `adwPromotionSweep.tsx`
-    - When extending `PromotionCommenterDeps` with new deps or widening `TagState` in `adws/promotion/types.ts`
-    - When adding scenarios to `features/per-issue/feature-510.feature` or extending the `promotionTagWriter` operations
-    - When troubleshooting `applyHitlLabel` failures or the `hitlLabelApplied` return field
-    - When working with the `decideTagAction` decision matrix or the `detectExistingSuggestionDate` query helper
-
-- app_docs/feature-2wrg9y-promotion-mover-regression-pr.md
-  - Conditions:
-    - When implementing or troubleshooting `runPromotionMover` in `adws/promotion/promotionMover.ts`
-    - When working with `promotionApprovalDetector.ts` or the bare `@promotion` approval signal
-    - When extending `TagState` with new tag operations in `promotionTagWriter.ts` (`'remove-suggestion'`, `'strip-approval'`)
-    - When a `regression-promotion` PR is not being opened after a human edits `@promotion-suggested-<date>` to `@promotion`
-    - When troubleshooting idempotency (duplicate move PRs) or branch naming for regression-promotion branches
-    - When the destination regression file is missing or the `@promotion` tag is not being stripped from the moved scenario
-    - When wiring new I/O dependencies into `buildMoverDeps` in `adwPromotionSweep.tsx`
-
-- app_docs/feature-y8r69q-auto-ramping-promotion-threshold.md
-  - Conditions:
-    - When working with `computeThreshold`, `BOOTSTRAP_THRESHOLD`, `MAX_THRESHOLD`, or `RATIO_CAP` in `adws/promotion/promotionThreshold.ts`
-    - When working with `loadPromotionStats` or `PromotionStatsLoaderDeps` in `adws/promotion/promotionStatsLoader.ts`
-    - When the `loadStats` dep on `PromotionCommenterDeps` is relevant or needs to be injected in a test
-    - When troubleshooting why `@promotion-suggested-<date>` tags are not appearing in a mature repo (N may have risen above the scenario score)
-    - When tuning the curve constants (`MAX_THRESHOLD`, `RATIO_CAP`) or understanding their rationale
-    - When the `commits[]` seed mechanism in `test/mocks/manifestInterpreter.ts` is relevant to manifest fixtures
 
 - app_docs/feature-22y8n3-merge-blocked-recovery-path.md
   - Conditions:
@@ -1810,7 +1772,9 @@
   - Owns:
     - adws/promotion/**
   - Conditions:
-    - When working on scenario promotion scoring, approval detection, promotion commenting, promotion tagging, vocabulary parsing, or promotion threshold in `adws/promotion/`
+    - When working on scenario promotion scoring (`promotionScorer.ts`), promotion threshold ramping (`promotionThreshold.ts`), vocabulary parsing (`vocabularyParser.ts`), scenario parsing (`scenarioParser.ts`), or promotion stats loading (`promotionStatsLoader.ts`) in `adws/promotion/`
+    - When working with the `adws/promotion/index.ts` barrel (scorer/threshold/parser/statsLoader re-exports) or `adws/promotion/types.ts` (`Scenario`, `VocabularyRegistry`, `ScoreResult`, `PromotionStats`)
+    - When looking for `promotionCommenter`, `promotionMover`, `promotionApprovalDetector`, `promotionTagWriter`, or `adwPromotionSweep.tsx` (all deleted — the dead PR-comment-driven flow never promoted a scenario; superseded by `adws/triggers/promotionSweep.ts`, see `app_docs/feature-vpb048-promotion-sweep-originate.md`)
 
 - app_docs/feature-9gjajh-r2-storage.md
   - Owns:
@@ -2010,7 +1974,6 @@
     - adws/phases/depauditSetup.ts
     - adws/triggers/autoMergeHandler.ts
     - adws/core/remoteReconcile.ts
-    - adws/adwPromotionSweep.tsx
     - adws/promotion/promotionStatsLoader.ts
     - adws/core/upgradeClaim.ts
     - adws/agents/claudeAgent.ts
