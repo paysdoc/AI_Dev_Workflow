@@ -427,6 +427,10 @@ Docker execution is entirely optional — the test suite runs identically on the
 │   │   └── SKILL.md
 │   ├── prd-to-issues/
 │   │   └── SKILL.md
+│   ├── promote-regression-vocabulary/
+│   │   ├── SKILL.md
+│   │   └── scripts/
+│   │       └── list-registered-phrases.ts
 │   ├── refactor/
 │   │   └── SKILL.md
 │   ├── implement-tdd/
