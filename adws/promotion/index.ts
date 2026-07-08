@@ -4,11 +4,6 @@ export { score, SURFACE_MATCH_WEIGHT, SUBPROCESS_WEIGHT, PHASE_IMPORT_WEIGHT, MO
 export { computeThreshold, BOOTSTRAP_THRESHOLD, MAX_THRESHOLD, RATIO_CAP } from './promotionThreshold.ts';
 export { loadPromotionStats } from './promotionStatsLoader.ts';
 export type { PromotionStatsLoaderDeps } from './promotionStatsLoader.ts';
-export { applyTagState, detectExistingSuggestionDate } from './promotionTagWriter.ts';
-export { runPromotionCommenter } from './promotionCommenter.ts';
-export { detectApprovals } from './promotionApprovalDetector.ts';
-export { runPromotionMover } from './promotionMover.ts';
-export type { PromotionMoverDeps } from './promotionMover.ts';
 export type {
   ExecutionPattern,
   VocabularyEntry,
@@ -18,9 +13,4 @@ export type {
   PromotionStats,
   ScoreBreakdown,
   ScoreResult,
-  TagState,
-  ApprovedScenario,
-  MovedScenarioResult,
-  PromotionMoverResult,
 } from './types.ts';
-export type { PromotionCommenterDeps, PromotionResult, SuggestedScenario } from './promotionCommenter.ts';
