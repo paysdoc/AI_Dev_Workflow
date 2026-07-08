@@ -23,7 +23,8 @@ ADW is an agentic SDLC framework: it turns issues on GitHub, GitLab, or Jira int
 - **Cost tracking** — per-phase, per-model `PhaseCostRecord` with multi-currency reporting, divergence detection vs. CLI-reported cost, and dual-write to a Cloudflare D1-backed Cost API.
 - **LLM-based dependency extraction** — `dependencyExtractionAgent` reads issues to surface cross-issue dependencies before spawning.
 - **Documentation generation** — `documentAgent` writes feature docs to `app_docs/`; the SDLC pipeline includes review screenshots.
-- **Scenario promotion sweep** — `adwPromotionSweep.tsx` scores per-issue scenarios against the regression vocabulary registry; high-scoring candidates receive a `@promotion-suggested-<date>` tag with daily-cadence suppression, date refresh, and score-drop withdrawal; a PR comment lists all candidates and applies the `hitl` label; human-approved scenarios (`@promotion`) are automatically moved to the regression suite via a dedicated PR.
+- **Scenario promotion sweep (originate path)** — `adws/triggers/promotionSweep.ts` (manual CLI today, not yet wired into cron) lists tracked `features/per-issue/feature-{N}.feature` files, scores each with a deterministic vocabulary-registry scorer and auto-ramping threshold (`adws/promotion/`, no LLM), reconciles against open `regression-promotion` issues via a `Promotes: feature-N` back-link (`promotionReconcileLink.ts`), and asks the pure `promotionSweepDecider` for one action (`originate | leave | done`). On `originate` it stamps `@promotion-suggested-<date>` on the file (a commit scoped to that single path, never `git add -A`) and files exactly one `hitl`-labelled issue with precise `git mv` + vocabulary-registration instructions (`promotionIssueBody.ts`) for a human to carry out as a direct relocation.
+- **Legacy promotion commenter/mover** — `adwPromotionSweep.tsx` plus `adws/promotion/{promotionCommenter,promotionMover}.ts` implement an older PR-comment-driven flow (auto-tag on score, human edits `@promotion-suggested-<date>` down to bare `@promotion`, a generated PR relocates the scenario); superseded by the originate-path sweep above and slated for removal.
 - **Framework self-upgrade with pre-worktree hash gate** — `upgradeGate.ts` runs inside `initializeWorkflow()` **before** worktree setup on every workflow start: it reads the target repo's `.adw-version` from `origin/<default>:.adw-version` (the authoritative remote, immune to stale reused worktrees) and compares it against the framework's current content hash. On mismatch, atomically elects a winner/loser via `upgradeClaim`. The winner creates a `#UPG` tracking issue and spawns `adwUpgrade.tsx` to regenerate `.adw/`; losers park without ever creating a feature worktree, registering a `## Blocked by` dependency on the upgrade issue and moving to Todo. Both re-queue after the upgrade PR merges. On hash match, the gate is transparent and workflow proceeds to normal worktree setup.
 - **Redrivable, bounded upgrade recovery** — `upgradeRedrive.ts` runs as an independent cron pass that re-spawns `adwUpgrade.tsx` for `#UPG` tracking issues stranded by a claim-then-fail (the claim branch is never released, and `#UPG` issues are invisible to the normal candidate loop since `adw:upgrade` isn't an ADW classification label). A pure eligibility predicate (`decideUpgradeRedrive`) mirrors `adwUpgrade`'s own entry gate, idempotency guard, and spawn lock as a cheap pre-filter; bounding reuses the existing `MAX_FAILURES` cap so a redrive loop terminates once `adw:blocked` escalates.
 - **Novelty progress gate in build phase** — `progressGate.ts` evaluates each build continuation checkpoint against the set of previously seen git tree hashes; a checkpoint that returns to a prior state triggers `abort: no_progress` and a hard backstop (`MAX_PROGRESS_CHECKPOINTS`) stops runaway loops that make commits but cycle between states.
@@ -320,7 +321,15 @@ Three optional sections activate the regression-suite contract. When absent, the
 
 ### Scenario Promotion
 
-ADW supports a human-in-the-loop (HITL) promotion flow that moves high-quality per-issue scenarios into the regression suite via a deliberate human approval signal.
+ADW supports moving high-quality per-issue scenarios into the regression suite via a deliberate human approval signal. Two mechanisms currently coexist in the codebase.
+
+#### Originate-path sweep (current direction)
+
+`bunx tsx adws/triggers/promotionSweep.ts` — a manual CLI today, not yet wired into cron — lists tracked `features/per-issue/feature-{N}.feature` files, scores each against the vocabulary registry with a deterministic, auto-ramping threshold (no LLM), and reconciles against open `regression-promotion` issues via a `Promotes: feature-N` back-link in the issue body (`adws/core/promotionReconcileLink.ts`). The pure `promotionSweepDecider` (`adws/core/promotionSweepDecider.ts`) maps `{tagState, meetsThreshold, reconcile}` to one action: `originate` (no tag yet, qualifying score, no open promotion issue), `done` (a linked issue has merged), or `leave` (everything else — below threshold, already suggested, declined, or an as-yet-unhandled reconciliation fact). On `originate`, the sweep stamps `@promotion-suggested-<date>` via a commit scoped to that single file (never `git add -A`) and files exactly one `hitl`-labelled, `regression-promotion`-labelled issue (`adws/core/promotionIssueBody.ts`) carrying precise `git mv` + vocabulary-registration instructions — a direct relocation for a human to execute, not an automated mover PR.
+
+**`@promotion-suggested-<date>` / `@promotion-declined`** — the on-file lifecycle markers (`adws/core/promotionTagState.ts`), a terminal `none → suggested → declined` state machine (a decline always wins over a lingering suggestion).
+
+#### Legacy commenter/mover flow (superseded, slated for removal)
 
 **`@promotion-suggested-<date>`** — applied automatically by the `promotionCommenter` orchestrator when a per-issue scenario scores above the promotion threshold against the vocabulary registry. The date suffix records when the suggestion was made. Operators should treat this as a recommendation, not a directive.
 
@@ -328,9 +337,11 @@ ADW supports a human-in-the-loop (HITL) promotion flow that moves high-quality p
 
 **The move PR** — on the next per-issue PR event, the `promotionMover` orchestrator detects any scenario carrying bare `@promotion`, opens a separate PR (branch `regression-promotion-issue-{N}-{slug}`, labelled `regression-promotion`) that moves the scenario block from `features/per-issue/feature-{N}.feature` into the directory configured in `.adw/scenarios.md` (`## Regression Scenario Directory`), and strips both `@promotion` and any `@promotion-suggested-<date>` tokens from the destination. The source scenario is removed from the per-issue file on the same branch.
 
-**14-day sweep** — `@promotion-suggested-<date>` tags that are never edited to `@promotion` are swept after 14 days by the per-issue scenario cron probe (see `app_docs/feature-oobdbg-bdd-cutover-polymorphic-prompts-sweep.md`). The sweep is promotion-tag-aware (`adws/core/promotionTagState.ts`): a file still carrying a live `@promotion-suggested-<date>` tag is exempted from deletion regardless of age (fail-safe — an unreadable file is also treated as exempt), so a pending suggestion is never silently lost to the TTL. Ignoring a suggestion has no penalty; the scenario stays in `features/per-issue/` until the 14-day TTL expires and its promotion tag is resolved.
-
 **Orchestrator CLI** — `bunx tsx adws/adwPromotionSweep.tsx <issueNumber> [adwId]` runs both halves (commenter then mover) on the same per-issue PR event. The `regression-promotion` GitHub label must already exist on the repository before the mover can apply it.
+
+#### 14-day TTL sweep (applies to both flows)
+
+`@promotion-suggested-<date>` tags that are never resolved are swept after 14 days by the per-issue scenario cron probe (see `app_docs/feature-oobdbg-bdd-cutover-polymorphic-prompts-sweep.md`). The sweep is promotion-tag-aware (`adws/core/promotionTagState.ts`): a file still carrying a live `@promotion-suggested-<date>` tag is exempted from deletion regardless of age (fail-safe — an unreadable file is also treated as exempt), so a pending suggestion is never silently lost to the TTL. Ignoring a suggestion has no penalty; the scenario stays in `features/per-issue/` until the 14-day TTL expires and its promotion tag is resolved.
 
 ### Running BDD scenarios on the host
 
@@ -460,6 +471,7 @@ adws/                   # ADW workflow system
 ├── __tests__/          # Vitest integration tests
 │   ├── adwMerge.test.ts
 │   ├── adwUpgrade.test.ts
+│   ├── checkGitGhGuard.test.ts
 │   ├── depauditSetup.test.ts
 │   ├── healthCheckChecks.test.ts
 │   ├── issueDependencies.test.ts
@@ -516,10 +528,13 @@ adws/                   # ADW workflow system
 │   │   ├── phaseRunner.test.ts
 │   │   ├── processLiveness.test.ts
 │   │   ├── projectConfig.test.ts
+│   │   ├── promotionReconcileLink.test.ts
+│   │   ├── promotionSweepDecider.test.ts
 │   │   ├── promotionTagState.test.ts
 │   │   ├── remoteReconcile.test.ts
 │   │   ├── repoIdentityCrossCheck.test.ts
 │   │   ├── resolveFreezeGuard.test.ts
+│   │   ├── resolvePrReviewTarget.test.ts
 │   │   ├── resolveResumeSpawn.test.ts
 │   │   ├── resolveVerdict.test.ts
 │   │   ├── resumePolicy.test.ts
@@ -567,6 +582,9 @@ adws/                   # ADW workflow system
 │   ├── processKill.ts  # Process kill utilities (SIGTERM → SIGKILL escalation)
 │   ├── processLiveness.ts  # PID-reuse-safe process liveness checks
 │   ├── projectConfig.ts
+│   ├── promotionIssueBody.ts  # Pure builder for the #734-shaped promotion issue title/body/labels (git mv + vocabulary-registration instructions)
+│   ├── promotionReconcileLink.ts  # Pure matcher: parses `Promotes: feature-N` back-link, resolves open/no-issue/merged reconciliation fact
+│   ├── promotionSweepDecider.ts  # Pure lifecycle decider: {tagState, meetsThreshold, reconcile} → originate/leave/done (decline/redrive/withdraw reserved for the reconcile-path slice)
 │   ├── promotionTagState.ts  # Pure parse/serialize of `@promotion-suggested-<date>`/`@promotion-declined` markers; terminal none→suggested→declined state machine
 │   ├── remoteReconcile.ts  # Stage derivation from remote GitHub artifacts
 │   ├── repoIdentityCrossCheck.ts  # Launch-vs-persisted repo identity cross-check; throws RepoIdentityMismatchError on owner/repo divergence
@@ -591,6 +609,7 @@ adws/                   # ADW workflow system
 │   └── workflowMapping.ts  # Issue type → orchestrator mapping
 ├── github/             # GitHub API operations
 │   ├── __tests__/      # Vitest unit tests
+│   │   ├── githubAppAuth.test.ts
 │   │   ├── hitlBoardNotifier.test.ts
 │   │   ├── issueLinkMarker.test.ts
 │   │   ├── labelManager.test.ts
@@ -618,6 +637,7 @@ adws/                   # ADW workflow system
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── bootstrapIdentity.test.ts
 │   │   ├── claimOps.test.ts
+│   │   ├── commitOps.test.ts
 │   │   ├── gitContext.test.ts
 │   │   ├── gitContextOperations.test.ts
 │   │   ├── gitReadOps.test.ts
@@ -810,6 +830,7 @@ adws/                   # ADW workflow system
 │   │   ├── takeoverHandler.integration.test.ts  # Integration test for the abandoned takeover path
 │   │   ├── trigger_cron.test.ts
 │   │   ├── triggerCronAwaitingMerge.test.ts
+│   │   ├── upgradeRedrive.test.ts
 │   │   ├── webhookGatekeeper.test.ts
 │   │   ├── webhookHandlers.test.ts
 │   │   └── webhookRepoResolver.test.ts
@@ -822,6 +843,8 @@ adws/                   # ADW workflow system
 │   ├── cronLabelEligibility.ts  # Pure label-recovery decision for cron backlog sweeper — spawns adw:*-labelled issues with no state
 │   ├── devServerJanitor.ts  # Janitor probe that kills stale dev server processes in target repo worktrees
 │   ├── perIssueScenarioSweep.ts  # Cron probe: deletes features/per-issue/feature-{N}.feature 14 days after the issue's PR merges
+│   ├── promotionSweep.ts  # Promotion sweep originate path (manual CLI, not yet wired into cron): score → reconcile → decide → tag + file relocation issue
+│   ├── promotionSweepDefaults.ts  # Production GitContext/fs-backed dependency implementations for promotionSweep.ts
 │   ├── cronProcessGuard.ts  # Duplicate cron process prevention
 │   ├── cronRepoResolver.ts  # Cron repo identity resolution (testable, extracted from trigger_cron)
 │   ├── cronStageResolver.ts  # Cron stage resolution from top-level state file (testable)
