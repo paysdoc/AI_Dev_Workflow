@@ -1762,7 +1762,16 @@
     - adws/triggers/cloudflareTunnel.tsx
     - adws/triggers/trigger_shutdown.ts
   - Conditions:
-    - When working on issue dependency checks, issue eligibility for ADW, issue-opened routing, auto-merge/cancel/retry handlers, per-issue scenario sweep, auth queue scanning, dev server janitor, Cloudflare tunnel, or shutdown trigger
+    - When working on issue dependency checks, issue eligibility for ADW, issue-opened routing, auto-merge/cancel/retry handlers, auth queue scanning, dev server janitor, Cloudflare tunnel, or shutdown trigger
+    - When working with the 14-day per-issue scenario retention sweep (`runPerIssueScenarioSweep`, `isScenarioStale`, `RETENTION_DAYS`) in `adws/triggers/perIssueScenarioSweep.ts`, or its promotion-awareness exemption gate
+
+- app_docs/feature-ne2we8-promotion-tag-state.md
+  - Owns:
+    - adws/core/promotionTagState.ts
+  - Conditions:
+    - When parsing or serializing the on-file promotion markers `@promotion-suggested-<date>` / `@promotion-declined` on `features/per-issue/feature-N.feature` files
+    - When implementing or troubleshooting `parsePromotionTagState`, `serializePromotionTagState`, or `isPromotionExempt`
+    - When working on the `none -> suggested -> declined` promotion state machine or its terminal-`declined` precedence
 
 - app_docs/feature-9gjajh-providers.md
   - Owns:
