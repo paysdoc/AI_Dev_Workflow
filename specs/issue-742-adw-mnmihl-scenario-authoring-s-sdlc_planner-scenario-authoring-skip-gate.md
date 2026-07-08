@@ -52,8 +52,7 @@ Use these files to implement the feature:
 - `adws/phases/planValidationPhase.ts` — `executePlanValidationPhase` skips when `findScenarioFiles(issueNumber)` is empty (~line 68). Not in `adwSdlc.tsx`'s main flow (alignment replaced it in SDLC), but is the "validation" step named in the PRD; confirms it no-ops. Read-only reference.
 - `adws/adwSdlc.tsx` — The SDLC orchestrator. Shows the phase order: `runPhasesParallel([executePlanPhase, executeScenarioPhase])` (line 80) → `executeAlignmentPhase` (line 81) → build → stepDef → unitTest → `runScenarioTestFixLoop` (line 86). No orchestrator change is required — the gate lives inside the phases. Read-only reference.
 - `specs/prd/automated-scenario-promotion-sweep.md` — Parent PRD. User Story 11 and Implementation Decisions "Pipeline modifications" (line 95), "Empty-target-tag invariant" (line 106), and "Residual to finalise" (line 175, the skip-gate cascade scope) are the governing spec. Read-only reference.
-- `adws/github/__tests__/labelManager.test.ts` — Existing unit-test home for the pure label readers; the `shouldSkipScenarioAuthoring` unit tests belong here. Establishes the `GitHubLabel`-array test style.
-- `adws/phases/__tests__/scenarioTestPhase.test.ts` — Reference for the phase-test mocking pattern (`vi.mock('../agents' | '../../core' | '../../cost')`) that the new `scenarioPhase.test.ts` / `alignmentPhase.test.ts` will follow.
+- `adws/github/__tests__/labelManager.test.ts` — Existing unit-test home for the pure label readers; read-only reference for the `GitHubLabel`-array test style. Per the parent PRD's Testing Decisions, `shouldSkipScenarioAuthoring` is **"Not unit-tested (integration-covered)"**, so **no new gate unit test is added here** — the gate is proved behaviourally by the `@adw-742` BDD scenarios.
 
 ### Conditional Documentation
 Per `.adw/conditional_docs.md`, these app_docs match the touched files and should be read before implementing:
@@ -64,9 +63,7 @@ Per `.adw/conditional_docs.md`, these app_docs match the touched files and shoul
 
 ### New Files
 
-- `adws/phases/__tests__/scenarioPhase.test.ts` — New unit test for the scenario-phase skip wiring (agent not invoked when the label is present; invoked as today when absent).
-- `adws/phases/__tests__/alignmentPhase.test.ts` — New unit test for the alignment-phase skip wiring.
-- `features/per-issue/feature-742.feature` — BDD acceptance scenarios for the skip gate (authored during this issue's own SDLC run by `scenario_writer`; described here as the behavioural contract). Note: issue #742 is itself a **normal** `/feature` issue with no `regression-promotion` label, so its own scenario authoring runs as today.
+- `features/per-issue/feature-742.feature` — BDD acceptance scenarios for the skip gate (authored during this issue's own SDLC run by `scenario_writer`; described here as the behavioural contract). These scenarios are the coverage for **both** the pure gate and the phase wiring: per the parent PRD's Testing Decisions, `shouldSkipScenarioAuthoring` and the pipeline wiring are "integration-covered … exercised via BDD/pipeline behaviour rather than isolated units", so **no new `scenarioPhase.test.ts` / `alignmentPhase.test.ts` unit tests are added**. Note: issue #742 is itself a **normal** `/feature` issue with no `regression-promotion` label, so its own scenario authoring runs as today.
 
 ## Implementation Plan
 
@@ -147,27 +144,12 @@ Execute every step in order, top to bottom.
   ```
 - The gate fires before `readPlanFile`/`findScenarioFiles`, so the promotion path allocates no agent state and posts no stage comment.
 
-### Step 6: Add unit tests for the pure gate
-- In `adws/github/__tests__/labelManager.test.ts`, import `shouldSkipScenarioAuthoring` and add a `describe('shouldSkipScenarioAuthoring', ...)` block asserting:
-  - `true` when labels include `{ name: 'regression-promotion' }` alone.
-  - `true` for the real promotion label set `['adw:feature', 'regression-promotion', 'hitl']`.
-  - `false` for a normal feature issue (`['adw:feature']`).
-  - `false` for an empty label array.
-- Use a small `GitHubLabel`-shaped helper, e.g. `const labels = (...names: string[]) => names.map((name) => ({ name }) as GitHubLabel);`.
+### Step 6: Coverage for the gate and wiring is behavioural (no new unit tests)
+- Per the parent PRD's **Testing Decisions** (`specs/prd/automated-scenario-promotion-sweep.md`), `shouldSkipScenarioAuthoring` is **"Not unit-tested (integration-covered)"** and the pipeline wiring is **"validated behaviourally (BDD), not unit-tested against mocks of git/gh internals"**. Therefore do **not** add a `shouldSkipScenarioAuthoring` unit test to `labelManager.test.ts`, and do **not** create `scenarioPhase.test.ts` / `alignmentPhase.test.ts`.
+- The gate's label truth-table (`regression-promotion` present ⇒ skip; absent ⇒ run, including the `hitl`-but-not-`regression-promotion` discriminator) and the two phases' no-op wiring are proved by the `@adw-742` BDD scenarios authored in Step 7 (§1/§2 scenario-phase truth-table, §3 no-junk-file with the writer armed, §4 alignment no-op, §5 alignment normal-path, §T type-check backstop). This is the behavioural cover the parent PRD assigns to this slice.
+- The pre-existing Vitest suite must still pass unchanged (`bun run test:unit`) as a zero-regression guard.
 
-### Step 7: Add a unit test for the scenario-phase skip wiring
-- Create `adws/phases/__tests__/scenarioPhase.test.ts` following the `scenarioTestPhase.test.ts` mocking pattern: `vi.mock('../agents', ...)` exposing `runScenarioAgent` as a `vi.fn()`; `vi.mock('../../core', ...)` (`log`, `AgentStateManager.{initializeState,writeState,appendLog,createExecutionState,completeExecution}`, `shouldExecuteStage: () => true`, `emptyModelUsageMap: () => ({})`); `vi.mock('../../cost', ...)`; and mock `../../github` with a thin real-logic `shouldSkipScenarioAuthoring: (labels) => labels.some((l) => l.name === 'regression-promotion')`.
-- Assert:
-  - With `config.issue.labels = [{ name: 'regression-promotion' }]` → `runScenarioAgent` is **not** called and the result is `{ costUsd: 0, phaseCostRecords: [] }` (AC #1).
-  - With `config.issue.labels = [{ name: 'adw:feature' }]` (or `[]`) → `runScenarioAgent` **is** called once (stub returns `{ success: true, output: '', totalCostUsd: 0 }`) (AC #3).
-
-### Step 8: Add a unit test for the alignment-phase skip wiring
-- Create `adws/phases/__tests__/alignmentPhase.test.ts` mocking `../agents` (`runAlignmentAgent`, `findScenarioFiles`, `readPlanFile`, `getPlanFilePath`, `runCommitAgent`, `OutputValidationError`), `../../core`, `../../cost`, `./phaseCommentHelpers`, and `../../github` (thin real-logic gate).
-- Assert:
-  - With `config.issue.labels = [{ name: 'regression-promotion' }]` → `runAlignmentAgent` is **not** called and the result is zero-cost (AC #2); no plan/scenario stubs are needed because the gate returns before `readPlanFile`.
-  - Regression guard (no label): with `findScenarioFiles` returning `[]` → `runAlignmentAgent` is **not** called (existing behaviour preserved).
-
-### Step 9: Author the BDD acceptance scenarios (`features/per-issue/feature-742.feature`)
+### Step 7: Author the BDD acceptance scenarios (`features/per-issue/feature-742.feature`)
 - Tag the feature `@adw-742` (and `@adw-mnmihl-scenario-authoring-s`), following the existing per-issue feature-file conventions.
 - Encode the behavioural contract as scenarios (step-definitions generated by the step-def phase; some steps may remain pending stubs behind the harness's ISSUE-3-CUTOVER, per existing per-issue convention — the file shape is the documented contract):
   - Scenario: a `regression-promotion`-labelled issue runs plan/build/test and no `features/per-issue/feature-<promotionIssueN>.feature` is produced (AC #1).
@@ -175,19 +157,19 @@ Execute every step in order, top to bottom.
   - Scenario: a normal `adw:feature` issue (no `regression-promotion` label) authors its per-issue scenario exactly as today (AC #3).
 - Prefer phrases already registered in `features/regression/vocabulary.md` where they exist; do not assert against framework source-file contents (rot-prevention rule).
 
-### Step 10: Run the full validation suite
+### Step 8: Run the full validation suite
 - Run every command in "Validation Commands" below and confirm zero errors and zero regressions.
 
 ## Testing Strategy
 
-### Unit Tests
-`.adw/project.md` declares `## Unit Tests: enabled`, so unit tests are included.
+### Test Coverage — integration-covered (BDD), not unit-tested
+`.adw/project.md` declares `## Unit Tests: enabled` in general, but the parent PRD's **Testing Decisions** deliberately place this slice in the integration-covered bucket: `shouldSkipScenarioAuthoring` is listed as **"Not unit-tested (integration-covered)"**, and the pipeline wiring is **"validated behaviourally (BDD), not unit-tested against mocks of git/gh internals"**. So **no new Vitest unit tests are added** for the gate or the two phases; the coverage is the `@adw-742` BDD feature file.
 
-- **`shouldSkipScenarioAuthoring`** (`adws/github/__tests__/labelManager.test.ts`) — the pure gate. Cases: `regression-promotion` alone → true; full promotion label set `[adw:feature, regression-promotion, hitl]` → true; `adw:feature` only → false; empty labels → false. This is the direct proof of Acceptance Criterion #4 and mirrors the repo's existing convention of unit-testing every pure label reader.
-- **Scenario-phase skip wiring** (`adws/phases/__tests__/scenarioPhase.test.ts`, new) — hermetically proves Acceptance Criterion #1: with the `regression-promotion` label, `runScenarioAgent` is never invoked and the phase returns a zero-cost no-op; without it, the agent runs as today (AC #3). Uses the established `vi.mock('../agents' | '../../core' | '../../cost')` phase-test pattern.
-- **Alignment-phase skip wiring** (`adws/phases/__tests__/alignmentPhase.test.ts`, new) — proves the explicit alignment gate (AC #2) and that the pre-existing empty-scenario-files skip still holds (regression guard).
+- **Pure gate — AC #4** (`shouldSkipScenarioAuthoring`): pinned behaviourally by the label truth-table observed through the phases — `regression-promotion` present ⇒ authoring skipped (feature §1), absent ⇒ authoring runs (feature §2), including the `hitl`-but-not-`regression-promotion` discriminator that proves the gate keys on the right label. The scenarios deliberately do **not** call `shouldSkipScenarioAuthoring([...])` directly and assert its boolean (that would test a source-code property, contrary to the PRD's "externally-observable behaviour, not implementation detail" rule).
+- **Scenario-phase skip wiring — AC #1** (feature §1/§3): with the `regression-promotion` label, `/scenario_writer` is never invoked (read from the claude-cli-stub's recorded-invocation log) and no `features/per-issue/feature-<promotionIssueN>.feature` is authored even with the writer armed; without the label the agent runs as today.
+- **Alignment-phase skip wiring — AC #2** (feature §4/§5): with the label, `/align_plan_scenarios` is never invoked and the phase returns without raising even when a plan and a `@adw-<N>` scenario are seeded; without the label the normal alignment path still runs.
 
-Per the PRD's Testing Decisions, `shouldSkipScenarioAuthoring` and the pipeline wiring are additionally exercised behaviourally via the `@adw-742` BDD scenarios; the unit tests above provide the hermetic, fast proofs of the same behaviour.
+The pre-existing Vitest suite continues to run unchanged (`bun run test:unit`) as a zero-regression guard; this slice simply adds no new units, per the PRD's Testing Decisions.
 
 ### Edge Cases
 - Issue with the full promotion label set `[adw:feature, regression-promotion, hitl]` → gate returns true (authoring skipped). This is the real-world input from `promotionIssueBody`.
@@ -199,10 +181,10 @@ Per the PRD's Testing Decisions, `shouldSkipScenarioAuthoring` and the pipeline 
 - Downstream cascade — with no authored `@adw-<promotionIssueN>` file, validation/fidelity/gherkin-freeze skip via `findScenarioFiles` returning empty; the `@regression` green-proof still executes the relocated scenario.
 
 ## Acceptance Criteria
-- An issue carrying the `regression-promotion` label runs through plan/build/test WITHOUT producing any `features/per-issue/feature-<promotionIssueN>.feature` file (proved by `scenarioPhase.test.ts` — `runScenarioAgent` not invoked — and the `@adw-742` BDD scenario).
-- The dependent alignment/validation/gherkin-freeze/fidelity steps cleanly no-op for such an issue with no spurious failures (proved by `alignmentPhase.test.ts` and the verified `findScenarioFiles`-keyed cascade in Phase 3).
-- A normal (non-promotion) feature issue is unaffected — scenario authoring runs exactly as today (proved by the "label absent → `runScenarioAgent` called" case and the normal-issue BDD scenario).
-- `shouldSkipScenarioAuthoring` is a pure gate consistent with `regression-promotion` label detection: no I/O, no logging, exported from `adws/github/labelManager.ts`, and unit-tested over its input cross-product.
+- An issue carrying the `regression-promotion` label runs through plan/build/test WITHOUT producing any `features/per-issue/feature-<promotionIssueN>.feature` file (proved by the `@adw-742` BDD scenarios §1/§3 — `/scenario_writer` not invoked, no junk file authored even with the writer armed).
+- The dependent alignment/validation/gherkin-freeze/fidelity steps cleanly no-op for such an issue with no spurious failures (proved by the `@adw-742` BDD scenario §4 and the verified `findScenarioFiles`-keyed cascade in Phase 3).
+- A normal (non-promotion) feature issue is unaffected — scenario authoring runs exactly as today (proved by the "label absent → `/scenario_writer` invoked" BDD scenarios §2/§5).
+- `shouldSkipScenarioAuthoring` is a pure gate consistent with `regression-promotion` label detection: no I/O, no logging, exported from `adws/github/labelManager.ts`, and — per the parent PRD's Testing Decisions ("Not unit-tested (integration-covered)") — proved behaviourally by the `@adw-742` label truth-table (§1/§2) rather than an isolated unit test.
 - `bun run lint`, `bunx tsc --noEmit`, `bunx tsc --noEmit -p adws/tsconfig.json`, `bun run test:unit`, and `bun run build` all pass with zero regressions.
 
 ## Validation Commands
@@ -211,7 +193,7 @@ Execute every command to validate the feature works correctly with zero regressi
 - `bun run lint` — Lint the codebase; zero errors.
 - `bunx tsc --noEmit` — Type-check the root project; zero errors.
 - `bunx tsc --noEmit -p adws/tsconfig.json` — Type-check the `adws/` project (additional check per `.adw/commands.md`); zero errors.
-- `bun run test:unit` — Run the vitest unit suite; all tests pass, including the new `shouldSkipScenarioAuthoring`, `scenarioPhase`, and `alignmentPhase` tests and the full pre-existing suite (zero regressions).
+- `bun run test:unit` — Run the vitest unit suite; the full pre-existing suite passes with zero regressions (this slice adds **no new unit tests** — the gate and wiring are integration-covered by the `@adw-742` BDD scenarios per the PRD's Testing Decisions).
 - `bun run build` — Build the project; no build errors.
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-742"` — Run this issue's BDD scenarios (per `.adw/commands.md` "Run Scenarios by Tag"); no blocker failures.
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@regression"` — Run the regression suite; no regressions.
@@ -223,4 +205,4 @@ Execute every command to validate the feature works correctly with zero regressi
 - **Empty-target-tag invariant (PRD, verified — must preserve).** A promotion issue has zero `@adw-<promotionIssueN>` scenarios. Because `.adw/review_proof.md` has no `## Tags` table, `@adw-{issueNumber}` defaults to `severity: blocker, optional: true`; a zero-scenario run of an optional tag is `{passed:true, skipped:true}` and does not contribute to `hasBlockerFailures`. This is exactly why suppressing authoring cleanly no-ops the downstream steps and does not redden the run. Do not make `@adw-{issueNumber}` non-optional without explicitly exempting promotion issues.
 - **Dependency:** blocked by #740 (the originate path), which is merged (`ADW_REGRESSION_PROMOTION_LABEL`, `promotionSweep`, `promotionIssueBody`, and the deciders are already present). This slice only adds the authoring skip-gate.
 - **No new libraries.** Per `.adw/commands.md`, the library install command is `bun add <package>` if one were needed — none is.
-- **Coding guidelines.** `.adw/coding_guidelines.md` is present and must be followed. The design already adheres to it: the gate is a **pure** function (Principle 5, side effects isolated at the phase boundary), takes a `readonly GitHubLabel[]` (Type safety / utility types), is written declaratively with `.some` (Functional Programming Practices), uses **guard-clause early returns** for the skip (Nesting & Extraction — happy path stays at the leftmost indent), and carries a JSDoc comment on the public API (Documentation). All three touched files stay well under the 300-line limit (`labelManager.ts` ~183 → ~193; `scenarioPhase.ts` ~98 → ~105; `alignmentPhase.ts` ~209 → ~217). Note the guidelines flag that BDD scenarios are ADW's primary validation mechanism and agent-written unit tests are a weaker gate — this plan treats the `@adw-742` BDD scenarios as the behavioural proof and the unit tests as fast hermetic guards, consistent with `## Unit Tests: enabled` in `.adw/project.md` and the parent PRD's own unit-test call-outs.
+- **Coding guidelines.** `.adw/coding_guidelines.md` is present and must be followed. The design already adheres to it: the gate is a **pure** function (Principle 5, side effects isolated at the phase boundary), takes a `readonly GitHubLabel[]` (Type safety / utility types), is written declaratively with `.some` (Functional Programming Practices), uses **guard-clause early returns** for the skip (Nesting & Extraction — happy path stays at the leftmost indent), and carries a JSDoc comment on the public API (Documentation). All three touched files stay well under the 300-line limit (`labelManager.ts` ~183 → ~193; `scenarioPhase.ts` ~98 → ~105; `alignmentPhase.ts` ~209 → ~217). The guidelines flag that BDD scenarios are ADW's primary validation mechanism and agent-written unit tests are a weaker gate — and the parent PRD's Testing Decisions place `shouldSkipScenarioAuthoring` and the pipeline wiring explicitly in the **"Not unit-tested (integration-covered)"** bucket. This plan therefore relies on the `@adw-742` BDD scenarios as the behavioural proof of the gate and its wiring and adds **no new unit tests**; the pre-existing Vitest suite runs unchanged as a zero-regression guard.
