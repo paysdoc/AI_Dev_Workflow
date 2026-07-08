@@ -6,10 +6,12 @@
  * clean cron run leaves no uncommitted working-tree deletions.
  */
 
+import * as fs from 'fs';
 import * as path from 'path';
-import { log } from '../core';
+import { log, type LogLevel } from '../core';
 import { getRepoInfo, bodyLinksIssue } from '../github';
 import { gitContextForRepo } from '../github/gitContextFactory';
+import { parsePromotionTagState, isPromotionExempt } from '../core/promotionTagState';
 
 export const RETENTION_DAYS = 14;
 
@@ -42,6 +44,7 @@ export interface PerIssueSweepDeps {
   listStepDefSiblings?: (issueNum: number) => string[];
   persistRemoval?: (paths: readonly string[]) => void;
   log?: (msg: string, level?: string) => void;
+  readFeatureContent?: (filePath: string) => string | null;
 }
 
 /**
@@ -86,6 +89,16 @@ function defaultListStepDefSiblings(issueNum: number): string[] {
   }
 }
 
+/** Reads a stale candidate's working-tree content to check its promotion tag state. Fail-safe: null on any error. */
+function defaultReadFeatureContent(filePath: string): string | null {
+  try {
+    const ctx = gitContextForRepo(getRepoInfo());
+    return fs.readFileSync(path.join(ctx.basePath, filePath), 'utf-8');
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Persists a removal batch: `git rm` + a commit scoped to exactly `paths` (never
  * `git add -A` — unrelated dirty state on the cron host must not be swept in),
@@ -116,6 +129,35 @@ function defaultPersistRemoval(paths: readonly string[]): void {
 }
 
 /**
+ * Reads and parses a stale candidate's promotion tag state to decide whether
+ * it should be exempted from this sweep. Fails safe toward preservation: an
+ * unreadable file is treated as exempt (skip deletion, self-heals next sweep)
+ * rather than swept while its promotion state is unknown.
+ */
+function shouldSkipForPromotionState(
+  filePath: string,
+  readFeatureContent: (filePath: string) => string | null,
+  logger: (msg: string, level?: LogLevel) => void,
+): boolean {
+  const content = readFeatureContent(filePath);
+  if (content === null) {
+    logger(
+      `perIssueScenarioSweep: could not read ${filePath} to check promotion state — skipping deletion (conservative)`,
+      'warn',
+    );
+    return true;
+  }
+
+  const state = parsePromotionTagState(content);
+  if (isPromotionExempt(state)) {
+    logger(`perIssueScenarioSweep: ${filePath} is promotion-exempt (@promotion-suggested) — not sweeping`, 'info');
+    return true;
+  }
+
+  return false;
+}
+
+/**
  * Lists per-issue feature files, checks their linked PR merge date, and removes
  * every stale file plus its step-def sibling(s) as one persisted batch.
  * Returns the list of removed file paths (empty when nothing is stale — no-op,
@@ -128,6 +170,7 @@ export async function runPerIssueScenarioSweep(deps?: PerIssueSweepDeps): Promis
   const listStepDefSiblings = deps?.listStepDefSiblings ?? defaultListStepDefSiblings;
   const persistRemoval = deps?.persistRemoval ?? defaultPersistRemoval;
   const logger = deps?.log ?? log;
+  const readFeatureContent = deps?.readFeatureContent ?? defaultReadFeatureContent;
 
   const files = listFeatures();
   const toRemove: string[] = [];
@@ -150,6 +193,7 @@ export async function runPerIssueScenarioSweep(deps?: PerIssueSweepDeps): Promis
     }
 
     if (!isScenarioStale(filePath, mergedAt, RETENTION_DAYS, now)) continue;
+    if (shouldSkipForPromotionState(filePath, readFeatureContent, logger)) continue;
 
     const siblings = listStepDefSiblings(issueNum);
     logger(
