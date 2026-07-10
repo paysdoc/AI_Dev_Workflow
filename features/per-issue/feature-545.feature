@@ -173,14 +173,26 @@ Feature: CRON recovery layer — label-eligibility rescan for unprocessed adw:* 
     And the cron recovery scan runs over the target repo
     Then the cron recovery scan spawned an orchestrator for issue 9509 classified as "feature"
 
-  # ── Scoping: issues without an adw:* label are not recovery candidates ──────
+  # ── #754 reversal: an unlabelled issue is now a spawn candidate (LLM-classified) ─
+  #
+  # Superseded by issue #754, which reversed the fresh-issue default this scenario
+  # once pinned. #545's label gate was implemented as a *replacement* — it rejected
+  # every unlabelled fresh issue as `no_adw_label` rather than only *adding* a
+  # recovery scan for already-`adw:*`-labelled ones. #754 restores the pre-#545
+  # unconditional-fresh eligibility (keeping #545's opt_out / multi_label /
+  # in_progress_comment / linked_closed_pr guards), so an issue with no `adw:*`
+  # label now spawns and is LLM-classified downstream — no deterministic label, so
+  # this harness's spawn channel records the classification as "unknown" (its
+  # sentinel for "route to the LLM classifier"). The pure-decision coverage of the
+  # reversal lives in features/per-issue/feature-754.feature; this scenario pins the
+  # same behaviour end-to-end through the cron sweep's fresh path (`evaluateIssue`).
 
-  @adw-545 @adw-y35zbi-cron-recovery-layer
-  Scenario: An open issue carrying no adw:* labels is not a recovery candidate
+  @adw-545 @adw-754 @adw-y35zbi-cron-recovery-layer @adw-uhkozf-cron-requires-adw-la
+  Scenario: An open issue carrying no adw:* labels now spawns for downstream LLM classification
     Given an issue 9510 exists in the mock issue tracker
     And the issue 9510 carries the labels "bug,enhancement"
     When the cron recovery scan runs over the target repo
-    Then the cron recovery scan spawned no orchestrator for issue 9510
+    Then the cron recovery scan spawned an orchestrator for issue 9510 classified as "unknown"
 
   # ── Type-check ───────────────────────────────────────────────────────────────
 

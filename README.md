@@ -829,8 +829,6 @@ adws/                   # ADW workflow system
 │   ├── cronLabelEligibility.ts  # Pure label-recovery decision for cron backlog sweeper — spawns adw:*-labelled issues with no state
 │   ├── devServerJanitor.ts  # Janitor probe that kills stale dev server processes in target repo worktrees
 │   ├── perIssueScenarioSweep.ts  # Cron probe: deletes features/per-issue/feature-{N}.feature 14 days after the issue's PR merges
-│   ├── promotionSweep.ts  # Promotion sweep originate path (manual CLI, not yet wired into cron): score → reconcile → decide → tag + file relocation issue
-│   ├── promotionSweepDefaults.ts  # Production GitContext/fs-backed dependency implementations for promotionSweep.ts
 │   ├── cronProcessGuard.ts  # Duplicate cron process prevention
 │   ├── cronRepoResolver.ts  # Cron repo identity resolution (testable, extracted from trigger_cron)
 │   ├── cronStageResolver.ts  # Cron stage resolution from top-level state file (testable)
@@ -839,8 +837,8 @@ adws/                   # ADW workflow system
 │   ├── issueOpenedRouter.ts  # Pure routing decision for the issues.opened label-routing path (mirrors cronIssueFilter pattern)
 │   ├── mergeDispatchGate.ts  # Lock-aware gate deciding whether cron should dispatch adwMerge for an issue
 │   ├── pauseQueueScanner.ts  # Cron probe for paused issue queue
-│   ├── promotionSweep.ts  # Manual-CLI sweep orchestrator (runPromotionSweep): scores per-issue features, reconciles against open promotion issues, stamps @promotion-suggested-<date> and files a promotion issue on originate
-│   ├── promotionSweepDefaults.ts  # Default I/O bindings (scorer, issue lookup, tag writer) for promotionSweep.ts
+│   ├── promotionSweep.ts  # Promotion sweep originate path (manual CLI, not yet wired into cron): scores per-issue scenarios, reconciles against open regression-promotion issues via `Promotes: feature-N` back-link, tags + files a #734-shaped relocation issue
+│   ├── promotionSweepDefaults.ts  # Production GitContext/fs-backed dependency defaults for runPromotionSweep
 │   ├── regionOverlap.ts  # Pure decision module for region-overlap serialization (no I/O)
 │   ├── regionOverlapSignals.ts  # Side-effecting boundary for region-overlap: registers durable Blocked-by deps and posts explanatory comments
 │   ├── scanAuthQueue.ts  # Cron probe: resumes paused_auth orchestrators after auth is restored
@@ -849,8 +847,6 @@ adws/                   # ADW workflow system
 │   ├── trigger_cron.ts
 │   ├── trigger_shutdown.ts  # Graceful shutdown handler
 │   ├── trigger_webhook.ts
-│   ├── promotionSweep.ts  # Promotion sweep originate path (manual CLI, not yet wired into cron): scores per-issue scenarios, reconciles against open regression-promotion issues, tags + files a #734-shaped relocation issue
-│   ├── promotionSweepDefaults.ts  # Production GitContext/fs-backed dependency defaults for runPromotionSweep
 │   ├── upgradeRedrive.ts  # Cron redrive scan: re-spawns adwUpgrade for stranded #UPG tracking issues (bounded by MAX_FAILURES)
 │   ├── webhookGatekeeper.ts
 │   ├── webhookHandlers.ts
