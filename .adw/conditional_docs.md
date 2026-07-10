@@ -1685,9 +1685,12 @@
     - adws/triggers/webhookRepoResolver.ts
     - adws/triggers/__tests__/webhookRepoResolver.test.ts
     - adws/triggers/issueOpenedRouter.ts
+    - adws/triggers/issueClosedUnblockRouter.ts
   - Conditions:
     - When working on the webhook trigger server, webhook gatekeeper, webhook event handlers, or webhook HMAC signature verification
     - When working on `trigger_webhook.ts`, `webhookGatekeeper.ts`, `webhookHandlers.ts`, or `webhookSignature.ts`
+    - When working with `handleIssueClosedDependencyUnblock`, `selectDependents`, or `issueClosedUnblockRouter.ts` (the `issues.closed` dependency-unblock path)
+    - When a dependent issue declared via a prose `- blocked by #N` line (not a `## Blocked by` heading) fails to re-evaluate after its blocker issue closes
     - When working with `resolveWebhookRepo`, `WebhookRepoResolution`, or `webhookRepoResolver.ts` (per-event boundary resolver)
     - When the per-event `GitContext` construction at webhook receipt or the `eventGitContext` threading is relevant
     - When multi-repo `GH_TOKEN` bleed across async continuations (vestmatic #181 class) or interleaved-event auth isolation is being investigated or tested
