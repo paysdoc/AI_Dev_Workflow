@@ -352,12 +352,16 @@ Follow the existing `vi.hoisted` + module-mock conventions used in `webhookGatek
 - `features/per-issue/feature-753.feature`, tagged `@adw-753`, with a `Background: Given the ADW
   codebase is checked out` and scenarios that drive the unblock decision in-process:
   1. *Prose dependency is unblocked when its blocker closes* — an open issue with body `- blocked by
-     #28` (no heading) is selected and spawned when #28 closes.
+     #28` (no heading) is selected and spawned when #28 closes, while an unrelated open issue is
+     neither re-evaluated nor spawned.
   2. *Heading dependency still unblocks (no regression)* — an open issue with a `## Blocked by`
      section referencing #28 is selected and spawned.
-  3. *Still-blocked dependent is not spawned* — a dependent that remains ineligible (another open
-     blocker) is not spawned.
-  4. *TypeScript type-check passes* (mirror feature-542's final scenario if that step is registered).
+  3. *One closure unblocks both a prose and a heading dependent while skipping an unrelated issue* —
+     a single blocker's closure spans both declaration styles in one pass and stays selective
+     (AC1 + AC2 together).
+  4. *Still-blocked dependent is not spawned* — a dependent that is selected and re-evaluated but
+     remains ineligible (another open blocker) is not spawned.
+  5. *TypeScript type-check passes* (mirror feature-542's final scenario if that step is registered).
 - `features/per-issue/step_definitions/feature-753.steps.ts` — mirror `feature-542.steps.ts`:
   - `Before`/`After({ tags: '@adw-753' })` reset per-scenario state (recorded spawns, seeded open
     issues).

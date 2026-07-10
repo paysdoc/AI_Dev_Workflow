@@ -145,7 +145,11 @@ Feature: Dependency unblock selects dependents with the SAME extractor detection
     Step-definition note for the maintainer:
       • All steps phase-import production code; nothing spawns a subprocess, hits the
         network, or reads a source file. Import `handleIssueClosedDependencyUnblock`
-        (its post-fix DI form) from `adws/triggers/webhookGatekeeper.ts`.
+        (its post-fix DI form) from `adws/triggers/issueClosedUnblockRouter.ts` — the
+        sibling module the plan extracts the unblock flow into (mirroring
+        `issueOpenedRouter.ts`); it is also re-exported from
+        `adws/triggers/trigger_webhook.ts`. Per the scope note above the seam's module
+        placement is the implementer's choice — import it from wherever the DI seam lands.
       • The seeded-issue Givens push `{ number, body }` records onto a World-scoped
         array. The `... prose dependency line {string} ...` Given seeds the body to the
         given line verbatim (e.g. `"- blocked by #2801"`, NO heading). The `... lists
