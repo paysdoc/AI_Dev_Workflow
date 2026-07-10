@@ -9,7 +9,7 @@
 
 import { execSync, spawn } from 'child_process';
 import * as fs from 'fs';
-import { log, GRACE_PERIOD_MS, JANITOR_INTERVAL_CYCLES, HEARTBEAT_STALE_THRESHOLD_MS, HUNG_DETECTOR_INTERVAL_CYCLES, PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES, getTargetRepoWorkspacePath, resolveClaudeCodePath, REPO_ROOT, assertCwdIsRepoRoot, buildLaunchGitContext } from '../core';
+import { log, GRACE_PERIOD_MS, JANITOR_INTERVAL_CYCLES, HEARTBEAT_STALE_THRESHOLD_MS, HUNG_DETECTOR_INTERVAL_CYCLES, PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES, PROMOTION_SWEEP_INTERVAL_CYCLES, getTargetRepoWorkspacePath, resolveClaudeCodePath, REPO_ROOT, assertCwdIsRepoRoot, buildLaunchGitContext } from '../core';
 import type { GitContext } from '../gitContext';
 import { findHungOrchestrators, type HungDetectorDeps } from '../core/hungOrchestratorDetector';
 import { AgentStateManager } from '../core/agentState';
@@ -34,6 +34,7 @@ import { resolvePrReviewSpawn } from './webhookHandlers';
 import { scanPauseQueue } from './pauseQueueScanner';
 import { runJanitorPass } from './devServerJanitor';
 import { runPerIssueScenarioSweep } from './perIssueScenarioSweep';
+import { runPromotionSweep } from './promotionSweep';
 import { runUpgradeRedriveScan } from './upgradeRedrive';
 import { resolveCronRepo, buildCronTargetRepoArgs } from './cronRepoResolver';
 import { gitContextForRepo } from '../github/gitContextFactory';
@@ -119,6 +120,28 @@ export function runHungDetectorSweep(now: number, deps?: HungDetectorDeps): void
     } catch (err) {
       log(`State rewrite failed for adwId=${entry.adwId}: ${err}`, 'warn');
     }
+  }
+}
+
+/**
+ * Promotion sweep dispatch: on a cadence-eligible cron cycle (cycleCount a
+ * multiple of PROMOTION_SWEEP_INTERVAL_CYCLES) invokes the sweep, which
+ * reconciles tagged per-issue scenarios and files/withdraws promotion issues.
+ * Off-cadence cycles are a no-op (the generous-cadence guarantee). Non-fatal —
+ * a transient git/gh failure during setup (the reconciliation query, vocab/stats
+ * loads) or any escaped throw is logged and swallowed so it can never abort the
+ * cron tick. Exported (with an injectable sweep) so tests can drive both the
+ * cadence gate and the swallow directly.
+ */
+export async function runPromotionSweepTick(
+  cycleCount: number,
+  sweep: () => Promise<unknown> = runPromotionSweep,
+): Promise<void> {
+  if (cycleCount % PROMOTION_SWEEP_INTERVAL_CYCLES !== 0) return;
+  try {
+    await sweep();
+  } catch (error) {
+    log(`promotionSweep: pass failed (non-fatal): ${error}`, 'error');
   }
 }
 
@@ -214,6 +237,11 @@ async function checkAndTrigger(): Promise<void> {
     await runPerIssueScenarioSweep();
   }
 
+  // Run the promotion sweep every PROMOTION_SWEEP_INTERVAL_CYCLES cycles (generous
+  // cadence: git/gh actions must not run every 20s tick). The gate and the
+  // non-fatal swallow both live inside runPromotionSweepTick.
+  await runPromotionSweepTick(cycleCount);
+
   const now = Date.now();
   const cancelledThisCycle = new Set<number>();
   const issues = fetchOpenIssues();
@@ -264,7 +292,7 @@ async function checkAndTrigger(): Promise<void> {
 
   // Independent redrive pass: re-spawns adwUpgrade for a stranded #UPG (open,
   // adw:upgrade, not adw:blocked, no PR on its claim branch, spawn lock free/stale).
-  // #UPG issues never appear in `candidates` (they read as no_adw_label in the
+  // #UPG issues never appear in `candidates` (they read as reserved_label in the
   // standard filter), so this cannot disturb the loop below. A scan failure must
   // never abort the tick.
   try {

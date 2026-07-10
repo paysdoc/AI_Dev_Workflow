@@ -645,12 +645,17 @@
     - When the webhook server restarts and cron processes behave unexpectedly
     - When adding PID-file-based process deduplication to new trigger types
 
-- app_docs/feature-hpq6cn-implement-scenario-p-scenario-planner-agent.md
+- app_docs/feature-mnmihl-scenario-authoring-skip-gate.md
+  - Owns:
+    - adws/phases/scenarioPhase.ts
+    - adws/phases/alignmentPhase.ts
   - Conditions:
-    - When working with BDD scenario generation or the scenario agent
-    - When modifying `adws/agents/scenarioAgent.ts` or `adws/phases/scenarioPhase.ts`
-    - When working with `.adw/scenarios.md` configuration
-    - When adding or modifying `@regression` tag maintenance logic
+    - When working with BDD scenario generation or the scenario agent (`adws/agents/scenarioAgent.ts`)
+    - When modifying `adws/phases/scenarioPhase.ts` or `adws/phases/alignmentPhase.ts`
+    - When working with `shouldSkipScenarioAuthoring` or `ADW_REGRESSION_PROMOTION_LABEL` in `adws/github/labelManager.ts`
+    - When implementing or troubleshooting the plan-scenario alignment gate (`executeAlignmentPhase`, `runAlignmentAgent`) between planning and build
+    - When troubleshooting a promotion (`regression-promotion`-labelled) issue authoring a spurious `features/per-issue/feature-<N>.feature` or reddening on alignment/validation/fidelity
+    - When working with `.adw/scenarios.md` configuration or `@regression` tag maintenance logic
 
 - app_docs/feature-9emriw-bdd-scenario-review-proof.md
   - Conditions:
@@ -1033,14 +1038,6 @@
     - When writing BDD scenarios that exercise the independence check in `features/review_step_def_independence.feature`
     - When the review agent skips or incorrectly applies the independence check guard clauses
 
-- app_docs/feature-irs6vj-single-pass-alignment-phase.md
-  - Conditions:
-    - When working with `executeAlignmentPhase` in `adws/phases/alignmentPhase.ts`
-    - When modifying `runAlignmentAgent` or `parseAlignmentResult` in `adws/agents/alignmentAgent.ts`
-    - When implementing or modifying the plan-scenario alignment gate between planning and build
-    - When troubleshooting the `/align_plan_scenarios` slash command or its JSON output parsing
-    - When adding new workflow stages related to plan-scenario alignment
-
 - app_docs/feature-aym0n5-create-implement-tdd.md
   - Conditions:
     - When working with the `/implement_tdd` skill or `.claude/skills/implement-tdd/`
@@ -1335,16 +1332,6 @@
     - When the `awaiting_approval` exit reason appears in logs or you need to understand why `workflowStage` was not written
     - When `processedMerges` is referenced in old code or docs (it was removed — use spawn lock instead)
 
-- app_docs/feature-tdauam-promotion-commenter-deep-modules.md
-  - Conditions:
-    - When working with `adws/promotion/` deep modules (vocabularyParser, scenarioParser, promotionScorer, promotionThreshold, promotionTagWriter)
-    - When implementing or troubleshooting `runPromotionCommenter` in `adws/promotion/promotionCommenter.ts`
-    - When working with `adwPromotionSweep.tsx` or the `promotion-sweep` orchestrator key in `ORCHESTRATOR_FILES`
-    - When adding scenarios to `features/per-issue/` and understanding how they are scored for promotion
-    - When troubleshooting `@promotion-suggested-<date>` tag insertion or byte-exact preservation of surrounding feature file content
-    - When extending scoring weights (`SURFACE_MATCH_WEIGHT`, `SUBPROCESS_WEIGHT`, etc.) or the promotion threshold (slice #7)
-    - When wiring duplicate-suppression, date-refresh, or `hitl` labelling into the promotion flow (slice #5)
-
 - app_docs/feature-oobdbg-bdd-cutover-polymorphic-prompts-sweep.md
   - Conditions:
     - When working with `adws/triggers/perIssueScenarioSweep.ts` or the 14-day per-issue scenario retention sweep
@@ -1368,34 +1355,6 @@
     - When troubleshooting live ADW agents being unexpectedly killed by the janitor (exit code 143)
     - When extending `JanitorDeps` with new injectable dependencies for the janitor
     - When writing tests for `devServerJanitor.ts` (follow the state-file-driven lookup pattern, use real branch-name fixtures)
-
-- app_docs/feature-28aysq-hitl-label-tag-lifecycle.md
-  - Conditions:
-    - When working with the `@promotion-suggested-<date>` tag lifecycle (refresh-date, remove-suggestion, daily suppression)
-    - When implementing or troubleshooting `hitl` label application from `promotionCommenter` or `adwPromotionSweep.tsx`
-    - When extending `PromotionCommenterDeps` with new deps or widening `TagState` in `adws/promotion/types.ts`
-    - When adding scenarios to `features/per-issue/feature-510.feature` or extending the `promotionTagWriter` operations
-    - When troubleshooting `applyHitlLabel` failures or the `hitlLabelApplied` return field
-    - When working with the `decideTagAction` decision matrix or the `detectExistingSuggestionDate` query helper
-
-- app_docs/feature-2wrg9y-promotion-mover-regression-pr.md
-  - Conditions:
-    - When implementing or troubleshooting `runPromotionMover` in `adws/promotion/promotionMover.ts`
-    - When working with `promotionApprovalDetector.ts` or the bare `@promotion` approval signal
-    - When extending `TagState` with new tag operations in `promotionTagWriter.ts` (`'remove-suggestion'`, `'strip-approval'`)
-    - When a `regression-promotion` PR is not being opened after a human edits `@promotion-suggested-<date>` to `@promotion`
-    - When troubleshooting idempotency (duplicate move PRs) or branch naming for regression-promotion branches
-    - When the destination regression file is missing or the `@promotion` tag is not being stripped from the moved scenario
-    - When wiring new I/O dependencies into `buildMoverDeps` in `adwPromotionSweep.tsx`
-
-- app_docs/feature-y8r69q-auto-ramping-promotion-threshold.md
-  - Conditions:
-    - When working with `computeThreshold`, `BOOTSTRAP_THRESHOLD`, `MAX_THRESHOLD`, or `RATIO_CAP` in `adws/promotion/promotionThreshold.ts`
-    - When working with `loadPromotionStats` or `PromotionStatsLoaderDeps` in `adws/promotion/promotionStatsLoader.ts`
-    - When the `loadStats` dep on `PromotionCommenterDeps` is relevant or needs to be injected in a test
-    - When troubleshooting why `@promotion-suggested-<date>` tags are not appearing in a mature repo (N may have risen above the scenario score)
-    - When tuning the curve constants (`MAX_THRESHOLD`, `RATIO_CAP`) or understanding their rationale
-    - When the `commits[]` seed mechanism in `test/mocks/manifestInterpreter.ts` is relevant to manifest fixtures
 
 - app_docs/feature-22y8n3-merge-blocked-recovery-path.md
   - Conditions:
@@ -1512,15 +1471,6 @@
     - When the gate ordering (before worktree setup) or `UpgradeGateParams.defaultBranch` / `worktreePath = targetRepoWorkspacePath` semantics are relevant
     - When a stale reused worktree causes a spurious upgrade (fix: gate reads `origin/<default>:.adw-version`, not the local worktree file)
     - When `gateRepoId` must be resolved from `options?.repoId` before `createRepoContext` is available
-
-- app_docs/feature-y35zbi-cron-recovery-label-eligibility-scan.md
-  - Conditions:
-    - When working with `cronLabelEligibility.ts` (`decideLabelRecovery`, `evaluateLabelRecovery`) or the label-recovery gate in `cronIssueFilter.evaluateIssue`
-    - When an issue with a late-applied `adw:<type>` label is not being picked up by the cron sweeper
-    - When a multi-label conflict was cleaned up to a single label but the issue is not auto-recovering
-    - When working with `linkedPrDetector.ts` (`hasLinkedMergedOrClosedPR`, `fetchLinkedPRs`) or refactoring `concurrencyGuard.ts`
-    - When the `precomputedClassification` routing path in `trigger_cron.ts` is relevant (cron recovery bypassing LLM classifier)
-    - When extending `CronIssue` with new fields or adding parameters to `filterEligibleIssues`
 
 - app_docs/feature-cy2xzc-delete-adwinit-tsx-orchestrator.md
   - Conditions:
@@ -1716,6 +1666,12 @@
   - Conditions:
     - When working on the cron trigger loop, cron issue filtering, label eligibility for cron, cron process guard, repo resolver, or stage resolver
     - When working on `trigger_cron.ts`, `cronIssueFilter.ts`, `cronLabelEligibility.ts`, `cronProcessGuard.ts`, `cronRepoResolver.ts`, or `cronStageResolver.ts`
+    - When working with `decideLabelRecovery`, `evaluateLabelRecovery`, or the `reserved_label` reason in `cronLabelEligibility.ts`
+    - When a truly-unlabeled fresh issue is being filtered out of the cron sweep instead of falling through to downstream LLM classification (#754)
+    - When an issue with a late-applied `adw:<type>` label is not being picked up by the cron sweeper, or a multi-label conflict was cleaned up but the issue is not auto-recovering
+    - When working with `linkedPrDetector.ts` (`hasLinkedMergedOrClosedPR`, `fetchLinkedPRs`) as consumed by the label-recovery gate
+    - When the `precomputedClassification` routing path in `trigger_cron.ts` is relevant (cron recovery bypassing LLM classifier)
+    - When extending `CronIssue` with new fields or adding parameters to `filterEligibleIssues`
 
 - app_docs/feature-9gjajh-webhook-triggers.md
   - Owns:
@@ -1726,9 +1682,12 @@
     - adws/triggers/webhookRepoResolver.ts
     - adws/triggers/__tests__/webhookRepoResolver.test.ts
     - adws/triggers/issueOpenedRouter.ts
+    - adws/triggers/issueClosedUnblockRouter.ts
   - Conditions:
     - When working on the webhook trigger server, webhook gatekeeper, webhook event handlers, or webhook HMAC signature verification
     - When working on `trigger_webhook.ts`, `webhookGatekeeper.ts`, `webhookHandlers.ts`, or `webhookSignature.ts`
+    - When working with `handleIssueClosedDependencyUnblock`, `selectDependents`, or `issueClosedUnblockRouter.ts` (the `issues.closed` dependency-unblock path)
+    - When a dependent issue declared via a prose `- blocked by #N` line (not a `## Blocked by` heading) fails to re-evaluate after its blocker issue closes
     - When working with `resolveWebhookRepo`, `WebhookRepoResolution`, or `webhookRepoResolver.ts` (per-event boundary resolver)
     - When the per-event `GitContext` construction at webhook receipt or the `eventGitContext` threading is relevant
     - When multi-repo `GH_TOKEN` bleed across async continuations (vestmatic #181 class) or interleaved-event auth isolation is being investigated or tested
@@ -1762,7 +1721,39 @@
     - adws/triggers/cloudflareTunnel.tsx
     - adws/triggers/trigger_shutdown.ts
   - Conditions:
-    - When working on issue dependency checks, issue eligibility for ADW, issue-opened routing, auto-merge/cancel/retry handlers, per-issue scenario sweep, auth queue scanning, dev server janitor, Cloudflare tunnel, or shutdown trigger
+    - When working on issue dependency checks, issue eligibility for ADW, issue-opened routing, auto-merge/cancel/retry handlers, auth queue scanning, dev server janitor, Cloudflare tunnel, or shutdown trigger
+    - When working with the 14-day per-issue scenario retention sweep (`runPerIssueScenarioSweep`, `isScenarioStale`, `RETENTION_DAYS`) in `adws/triggers/perIssueScenarioSweep.ts`, or its promotion-awareness exemption gate
+
+- app_docs/feature-ne2we8-promotion-tag-state.md
+  - Owns:
+    - adws/core/promotionTagState.ts
+  - Conditions:
+    - When parsing or serializing the on-file promotion markers `@promotion-suggested-<date>` / `@promotion-declined` on `features/per-issue/feature-N.feature` files
+    - When implementing or troubleshooting `parsePromotionTagState`, `serializePromotionTagState`, or `isPromotionExempt`
+    - When working on the `none -> suggested -> declined` promotion state machine or its terminal-`declined` precedence
+
+- app_docs/feature-vpb048-promotion-sweep-originate.md
+  - Owns:
+    - adws/triggers/promotionSweep.ts
+    - adws/triggers/promotionSweepDefaults.ts
+    - adws/core/promotionSweepDecider.ts
+    - adws/core/promotionReconcileLink.ts
+    - adws/core/promotionIssueBody.ts
+    - adws/gitContext/commands/issueCommands.ts
+    - adws/triggers/trigger_cron.ts
+  - Conditions:
+    - When working on the hand-invokable promotion sweep `bunx tsx adws/triggers/promotionSweep.ts` or `runPromotionSweep`
+    - When implementing or troubleshooting `decidePromotionAction` / `PromotionAction` (the full `originate | leave | done | decline | redrive | withdraw` lifecycle decider)
+    - When working with `parsePromotesMarker`, `reconcilePromotionLink`, or `reconcileFactFor` (the `Promotes: feature-N` back-link matcher and its `no-issue | open | closed-unmerged | blocked | merged` classification)
+    - When working with `buildPromotionIssue` or the #734-shaped promotion issue title/body/label spec
+    - When a fresh high-scoring per-issue scenario should be marked `@promotion-suggested-<date>` and filed as an `adw:feature` + `regression-promotion` + `hitl` issue
+    - When troubleshooting duplicate promotion issues, a missing `Promotes:` marker, or a re-committed already-suggested file
+    - When a candidate whose tracking issue/PR closed unmerged or reached `adw:blocked` should be declined (`@promotion-declined`, terminal, TTL resumes)
+    - When a crash-stranded `@promotion-suggested-*` file (tagged, no tracker) should be redriven (re-filed) or withdrawn (tag stripped) depending on current score
+    - When working with `ListOpenIssuesOptions.state` / `listOpenIssuesCmd` (`adws/gitContext/commands/issueCommands.ts`) or the all-state promotion-issue reconciliation query
+    - When working with `adws/triggers/promotionSweepDefaults.ts` production deps (`GitContext`-backed listing, scoring, tag-and-commit, issue-filing)
+    - When working with `runPromotionSweepTick` or `PROMOTION_SWEEP_INTERVAL_CYCLES` (the cron interval-gate + non-fatal swallow that activates the sweep in `trigger_cron.ts`)
+    - When troubleshooting the promotion sweep not firing on cron cadence, or a sweep failure that should be logged and swallowed rather than crashing the cron loop
 
 - app_docs/feature-9gjajh-providers.md
   - Owns:
@@ -1780,7 +1771,9 @@
   - Owns:
     - adws/promotion/**
   - Conditions:
-    - When working on scenario promotion scoring, approval detection, promotion commenting, promotion tagging, vocabulary parsing, or promotion threshold in `adws/promotion/`
+    - When working on scenario promotion scoring (`promotionScorer.ts`), promotion threshold ramping (`promotionThreshold.ts`), vocabulary parsing (`vocabularyParser.ts`), scenario parsing (`scenarioParser.ts`), or promotion stats loading (`promotionStatsLoader.ts`) in `adws/promotion/`
+    - When working with the `adws/promotion/index.ts` barrel (scorer/threshold/parser/statsLoader re-exports) or `adws/promotion/types.ts` (`Scenario`, `VocabularyRegistry`, `ScoreResult`, `PromotionStats`)
+    - When looking for `promotionCommenter`, `promotionMover`, `promotionApprovalDetector`, `promotionTagWriter`, or `adwPromotionSweep.tsx` (all deleted — the dead PR-comment-driven flow never promoted a scenario; superseded by `adws/triggers/promotionSweep.ts`, see `app_docs/feature-vpb048-promotion-sweep-originate.md`)
 
 - app_docs/feature-9gjajh-r2-storage.md
   - Owns:
@@ -1980,7 +1973,6 @@
     - adws/phases/depauditSetup.ts
     - adws/triggers/autoMergeHandler.ts
     - adws/core/remoteReconcile.ts
-    - adws/adwPromotionSweep.tsx
     - adws/promotion/promotionStatsLoader.ts
     - adws/core/upgradeClaim.ts
     - adws/agents/claudeAgent.ts
@@ -2094,3 +2086,18 @@
     - When `EXEMPT_PACKAGE_DIR = 'adws/gitContext'` or `EXEMPT_DIR_NAMES` configuration is relevant
     - When a new bootstrap primitive needs to be added (must go into `adws/gitContext/` — no allowlist escape hatch exists)
     - When writing or extending unit tests for `checkGitGhGuard.ts` (`adws/__tests__/checkGitGhGuard.test.ts` — tests `scanFiles`/`scanSource` with fixture strings)
+
+- app_docs/feature-2ubuuc-rot-reuse-advisory-pr-comment.md
+  - Owns:
+    - adws/phases/promotionRotAdvisory.ts
+    - adws/phases/rotAdvisoryFormat.ts
+    - adws/agents/rotAnalysisAgent.ts
+    - .claude/commands/promote_regression_vocabulary.md
+  - Conditions:
+    - When working with the promotion rot/reuse advisory PR comment (`runPromotionRotAdvisory` / `executePromotionRotAdvisory`)
+    - When implementing or troubleshooting `runRotAnalysisAgent` / `extractRotVerdicts` in `adws/agents/rotAnalysisAgent.ts`
+    - When working with `formatRotAdvisoryComment` or the advisory Markdown comment format
+    - When a `regression-promotion` PR should (or should not) receive a per-phrase reuse/rot verdict comment
+    - When troubleshooting why the advisory comment did not post (label gate, missing PR number, missing `Promotes:` marker, agent failure)
+    - When modifying `.claude/commands/promote_regression_vocabulary.md` or the `promote-regression-vocabulary` skill's agent-facing contract
+    - When adding a new slash command and need the `SlashCommand` union / `modelRouting.ts` three-touch-point pattern for a promotion-related agent

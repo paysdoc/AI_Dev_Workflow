@@ -6,6 +6,10 @@ vi.mock('child_process', () => ({
   spawn: vi.fn(),
 }));
 
+vi.mock('fs', () => ({
+  readFileSync: vi.fn(),
+}));
+
 vi.mock('../../github/gitContextFactory', () => ({
   gitContextForRepo: vi.fn(),
 }));
@@ -23,6 +27,9 @@ vi.mock('../../github', () => ({
 
 import { isScenarioStale, runPerIssueScenarioSweep, RETENTION_DAYS } from '../perIssueScenarioSweep';
 import { gitContextForRepo } from '../../github/gitContextFactory';
+import { readFileSync } from 'fs';
+
+const UNTAGGED_CONTENT = 'Feature: plain\n';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -91,6 +98,7 @@ describe('runPerIssueScenarioSweep — integration', () => {
       listStepDefSiblings,
       persistRemoval,
       log: logger,
+      readFeatureContent: () => UNTAGGED_CONTENT,
     });
 
     expect(removed).toEqual([staleFile, sibling]);
@@ -114,6 +122,7 @@ describe('runPerIssueScenarioSweep — integration', () => {
       listStepDefSiblings: (issueNum) => (issueNum === 102 ? [siblingB] : []),
       persistRemoval,
       log: vi.fn(),
+      readFeatureContent: () => UNTAGGED_CONTENT,
     });
 
     expect(removed).toEqual([staleA, staleB, siblingB]);
@@ -161,6 +170,7 @@ describe('runPerIssueScenarioSweep — integration', () => {
       listStepDefSiblings: () => [],
       persistRemoval,
       log: logger,
+      readFeatureContent: () => UNTAGGED_CONTENT,
     });
 
     expect(removed).toEqual([staleFile]);
@@ -181,6 +191,7 @@ describe('runPerIssueScenarioSweep — integration', () => {
       listStepDefSiblings: () => [],
       persistRemoval,
       log: vi.fn(),
+      readFeatureContent: () => UNTAGGED_CONTENT,
     });
 
     expect(gitContextForRepo).toHaveBeenCalled();
@@ -224,6 +235,109 @@ describe('runPerIssueScenarioSweep — integration', () => {
   });
 });
 
+// ── Promotion-awareness: the composed exemption gate ─────────────────────────
+
+describe('runPerIssueScenarioSweep — promotion-awareness', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('a stale file tagged @promotion-suggested-<date> is kept and logs an info promotion-exempt message', async () => {
+    const staleFile = 'features/per-issue/feature-665.feature';
+    const persistRemoval = vi.fn();
+    const logger = vi.fn();
+
+    const removed = await runPerIssueScenarioSweep({
+      now: NOW,
+      listFeatures: () => [staleFile],
+      getMergedAt: async () => daysAgo(20),
+      listStepDefSiblings: () => [],
+      readFeatureContent: () => '@promotion-suggested-2026-06-20\nFeature: issue 665\n',
+      persistRemoval,
+      log: logger,
+    });
+
+    expect(removed).toEqual([]);
+    expect(persistRemoval).not.toHaveBeenCalled();
+    expect(logger).toHaveBeenCalledWith(expect.stringContaining('promotion-exempt'), 'info');
+  });
+
+  it('a stale file tagged @promotion-declined is swept on the normal TTL', async () => {
+    const staleFile = 'features/per-issue/feature-665.feature';
+    const persistRemoval = vi.fn();
+
+    const removed = await runPerIssueScenarioSweep({
+      now: NOW,
+      listFeatures: () => [staleFile],
+      getMergedAt: async () => daysAgo(20),
+      listStepDefSiblings: () => [],
+      readFeatureContent: () => '@promotion-declined\nFeature: issue 665\n',
+      persistRemoval,
+      log: vi.fn(),
+    });
+
+    expect(removed).toEqual([staleFile]);
+    expect(persistRemoval).toHaveBeenCalledWith([staleFile]);
+  });
+
+  it('a stale untagged file is swept exactly as today (no behaviour change)', async () => {
+    const staleFile = 'features/per-issue/feature-665.feature';
+    const persistRemoval = vi.fn();
+
+    const removed = await runPerIssueScenarioSweep({
+      now: NOW,
+      listFeatures: () => [staleFile],
+      getMergedAt: async () => daysAgo(20),
+      listStepDefSiblings: () => [],
+      readFeatureContent: () => 'Feature: issue 665\n',
+      persistRemoval,
+      log: vi.fn(),
+    });
+
+    expect(removed).toEqual([staleFile]);
+    expect(persistRemoval).toHaveBeenCalledWith([staleFile]);
+  });
+
+  it('a stale file whose content cannot be read is skipped (conservative) and logs a warn message', async () => {
+    const staleFile = 'features/per-issue/feature-665.feature';
+    const persistRemoval = vi.fn();
+    const logger = vi.fn();
+
+    const removed = await runPerIssueScenarioSweep({
+      now: NOW,
+      listFeatures: () => [staleFile],
+      getMergedAt: async () => daysAgo(20),
+      listStepDefSiblings: () => [],
+      readFeatureContent: () => null,
+      persistRemoval,
+      log: logger,
+    });
+
+    expect(removed).toEqual([]);
+    expect(persistRemoval).not.toHaveBeenCalled();
+    expect(logger).toHaveBeenCalledWith(expect.stringContaining('could not read'), 'warn');
+  });
+
+  it('a fresh (non-stale) file never has its content read (no new I/O on the common path)', async () => {
+    const freshFile = 'features/per-issue/feature-200.feature';
+    const readFeatureContent = vi.fn(() => '@promotion-suggested-2026-06-20\nFeature: issue 200\n');
+    const persistRemoval = vi.fn();
+
+    const removed = await runPerIssueScenarioSweep({
+      now: NOW,
+      listFeatures: () => [freshFile],
+      getMergedAt: async () => daysAgo(5),
+      listStepDefSiblings: () => [],
+      readFeatureContent,
+      persistRemoval,
+      log: vi.fn(),
+    });
+
+    expect(removed).toEqual([]);
+    expect(readFeatureContent).not.toHaveBeenCalled();
+  });
+});
+
 // ── Default wiring — routes through gitContextForRepo ───────────────────────
 
 describe('runPerIssueScenarioSweep — default wiring through gitContextForRepo', () => {
@@ -232,6 +346,7 @@ describe('runPerIssueScenarioSweep — default wiring through gitContextForRepo'
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(readFileSync).mockReturnValue(UNTAGGED_CONTENT);
   });
 
   function makeMockCtx(overrides: Record<string, unknown> = {}) {

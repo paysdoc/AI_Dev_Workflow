@@ -14,7 +14,8 @@ import { fetchPRDetails, gitContextForSync } from '../github';
 import { AgentStateManager } from '../core/agentState';
 import { findOrchestratorStatePath } from '../core/stateHelpers';
 import { extractLatestAdwId, isActiveStage, getLastActivityFromState } from './cronStageResolver';
-import { closeAbandonedDependents, handleIssueClosedDependencyUnblock } from './webhookGatekeeper';
+import { closeAbandonedDependents } from './webhookGatekeeper';
+import { handleIssueClosedDependencyUnblock } from './issueClosedUnblockRouter';
 import type { AgentState } from '../types/agentTypes';
 import { resolvePrReviewTarget } from '../core/resolvePrReviewTarget';
 

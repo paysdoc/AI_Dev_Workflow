@@ -36,6 +36,7 @@ describe('decideLabelRecovery — precedence order', () => {
       reading({ optOut: true, classification: '/feature' }),
       false,
       false,
+      false,
     );
     expect(result.eligible).toBe(false);
     expect(result.reason).toBe('opt_out');
@@ -46,21 +47,30 @@ describe('decideLabelRecovery — precedence order', () => {
       reading({ conflict: true, classification: null }),
       false,
       false,
+      false,
     );
     expect(result.eligible).toBe(false);
     expect(result.reason).toBe('multi_label');
   });
 
-  it('no classification → no_adw_label', () => {
-    const result = decideLabelRecovery(reading({ classification: null }), false, false);
+  it('no classification + reserved adw:* label present → reserved_label', () => {
+    const result = decideLabelRecovery(reading({ classification: null }), false, false, true);
     expect(result.eligible).toBe(false);
-    expect(result.reason).toBe('no_adw_label');
+    expect(result.reason).toBe('reserved_label');
+  });
+
+  it('no classification + no adw:* label present → eligible (truly-unlabeled defers to LLM)', () => {
+    const result = decideLabelRecovery(reading({ classification: null }), false, false, false);
+    expect(result.eligible).toBe(true);
+    expect(result.reason).toBeUndefined();
+    expect(result.classification).toBeUndefined();
   });
 
   it('single classification + in-progress comment → in_progress_comment', () => {
     const result = decideLabelRecovery(
       reading({ classification: '/bug' }),
       true,
+      false,
       false,
     );
     expect(result.eligible).toBe(false);
@@ -72,6 +82,7 @@ describe('decideLabelRecovery — precedence order', () => {
       reading({ classification: '/bug' }),
       false,
       true,
+      false,
     );
     expect(result.eligible).toBe(false);
     expect(result.reason).toBe('linked_closed_pr');
@@ -80,6 +91,7 @@ describe('decideLabelRecovery — precedence order', () => {
   it('single classification, no in-progress comment, no linked PR → eligible', () => {
     const result = decideLabelRecovery(
       reading({ classification: '/feature' }),
+      false,
       false,
       false,
     );
@@ -91,6 +103,7 @@ describe('decideLabelRecovery — precedence order', () => {
   it('opt_out wins even when classification is also set (opt_out first in guard chain)', () => {
     const result = decideLabelRecovery(
       reading({ optOut: true, classification: '/chore' }),
+      false,
       false,
       false,
     );
@@ -149,9 +162,16 @@ describe('evaluateLabelRecovery — composition', () => {
     expect(result.eligible).toBe(true);
   });
 
-  it('no adw:* labels → no_adw_label', () => {
+  it('no adw:* labels → eligible with no deterministic classification (defers to LLM)', () => {
     const result = evaluateLabelRecovery(makeIssue(['bug', 'enhancement']), []);
+    expect(result.eligible).toBe(true);
+    expect(result.reason).toBeUndefined();
+    expect(result.classification).toBeUndefined();
+  });
+
+  it('adw:upgrade (reserved, non-classification label) → reserved_label, stays filtered (#UPG regression guard)', () => {
+    const result = evaluateLabelRecovery(makeIssue(['adw:upgrade']), []);
     expect(result.eligible).toBe(false);
-    expect(result.reason).toBe('no_adw_label');
+    expect(result.reason).toBe('reserved_label');
   });
 });

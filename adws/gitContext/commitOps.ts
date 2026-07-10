@@ -87,6 +87,22 @@ function removeAndCommitPaths(run: Runner, paths: readonly string[], message: st
   return true;
 }
 
+/**
+ * Stages and commits `paths` scoped to exactly those pathspecs — the modify
+ * counterpart to `removeAndCommitPaths`. Only commits if `git status --porcelain`
+ * scoped to `paths` reports something staged for them; unrelated dirty state
+ * elsewhere in the tree is never touched (no `git add -A`).
+ */
+function addAndCommitPaths(run: Runner, paths: readonly string[], message: string, cwd: string): boolean {
+  if (paths.length === 0) return false;
+  const tokens = paths.map(p => `'${p}'`).join(' ');
+  run(`git add -- ${tokens}`, cwd);
+  const status = run(`git status --porcelain -- ${tokens}`, cwd);
+  if (!status.trim()) return false;
+  run(`git commit -m "${message.replace(/"/g, '\\"')}" -- ${tokens}`, cwd);
+  return true;
+}
+
 function pushBranch(run: Runner, branch: string, cwd: string): void {
   try {
     run(`git fetch origin "${branch}"`, cwd);
@@ -114,6 +130,7 @@ function hasUncommittedChanges(run: Runner, cwd: string): boolean {
 export const commitOps = {
   commitChanges,
   removeAndCommitPaths,
+  addAndCommitPaths,
   pushBranch,
   getHeadTreeHash,
   hasUncommittedChanges,

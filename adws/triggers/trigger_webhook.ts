@@ -34,7 +34,8 @@ import { AuthRequiredError } from '../types/agentTypes';
 
 // Re-export for any external consumers
 export { handlePullRequestEvent, handleIssueClosedEvent, extractIssueNumberFromBranch } from './webhookHandlers';
-export { classifyAndSpawnWorkflow, handleIssueClosedDependencyUnblock, closeAbandonedDependents, ensureCronProcess } from './webhookGatekeeper';
+export { classifyAndSpawnWorkflow, closeAbandonedDependents, ensureCronProcess } from './webhookGatekeeper';
+export { handleIssueClosedDependencyUnblock } from './issueClosedUnblockRouter';
 export { shouldTriggerIssueWorkflow };
 
 const PR_REVIEW_COOLDOWN_MS = 60_000;

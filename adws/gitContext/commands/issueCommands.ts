@@ -5,10 +5,11 @@ export interface ListOpenIssuesOptions {
   readonly fields: readonly string[];
   readonly search?: string;
   readonly limit?: number;
+  readonly state?: 'open' | 'closed' | 'all';
 }
 
 export function listOpenIssuesCmd(owner: string, repo: string, opts: ListOpenIssuesOptions): string {
-  let cmd = `gh issue list --repo ${owner}/${repo} --state open --json ${opts.fields.join(',')}`;
+  let cmd = `gh issue list --repo ${owner}/${repo} --state ${opts.state ?? 'open'} --json ${opts.fields.join(',')}`;
   if (opts.search !== undefined) cmd += ` --search "${opts.search}"`;
   if (opts.limit !== undefined) cmd += ` --limit ${opts.limit}`;
   return cmd;

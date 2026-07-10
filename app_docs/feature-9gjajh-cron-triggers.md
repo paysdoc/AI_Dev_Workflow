@@ -17,7 +17,7 @@ The cron trigger is ADW's backlog sweeper: a long-running process that polls ope
 - `isActiveStage` / `isRetriableStage`: classify a stage string; only `abandoned` is retriable; `discarded` and `merge_blocked` are not.
 - `resolveCronRepo`: parses `--target-repo` CLI args or falls back to the local git remote.
 - `buildCronTargetRepoArgs`: constructs `--target-repo owner/repo --clone-url ...` args for spawned child processes.
-- `evaluateLabelRecovery` / `decideLabelRecovery`: for fresh issues (no prior ADW state), determines eligibility based on `adw:*` label presence, absence of in-progress comments, and absence of linked closed PRs.
+- `evaluateLabelRecovery` / `decideLabelRecovery`: for fresh issues (no prior ADW state), determines eligibility. A truly-unlabeled issue (no `adw:*` label at all) is eligible with no deterministic classification attached — the downstream spawn path LLM-classifies it, exactly as the webhook opened-path and comment-path do. Only a reserved, non-classification `adw:*` label (`adw:upgrade` / `adw:blocked` / `adw:unverified`) is filtered as `reserved_label`; the remaining guards (`opt_out`, `multi_label`, `in_progress_comment`, `linked_closed_pr`) still apply to every fresh issue, labeled or not.
 
 ## Contracts & Invariants
 
@@ -26,6 +26,7 @@ The cron trigger is ADW's backlog sweeper: a long-running process that polls ope
 - `discarded` and `merge_blocked` are permanently ineligible in `evaluateIssue`; only an explicit `## Retry` comment resets `merge_blocked` to `awaiting_merge`.
 - `paused` is handled exclusively by the pause queue scanner; `evaluateIssue` returns ineligible for paused issues so the backlog sweeper does not compete with the scanner.
 - `decideLabelRecovery` applies only to truly fresh issues (`adwId === null`); issues with an existing adwId bypass it and enter the takeover machinery.
+- `decideLabelRecovery` guard precedence: `opt_out` → `multi_label` → `reserved_label` → `in_progress_comment` → `linked_closed_pr` → eligible. The `reserved_label` guard only fires when `hasAdwLabel` is true and `reading.classification` is `null` — i.e. the issue carries a reserved, non-classification `adw:*` label. A truly-unlabeled issue (`hasAdwLabel === false`) falls through this guard and returns `eligible: true` with `classification: undefined`.
 - `isRetriableStage` deliberately excludes `discarded` to prevent infinite re-spawn loops.
 - App auth is re-asserted for the cron's own repo after each pause/auth queue scan, which may have activated auth for a different repo.
 
@@ -39,3 +40,4 @@ The cron trigger is ADW's backlog sweeper: a long-running process that polls ope
 - `processedSpawns` is an in-memory `Set<number>` — it tracks issues whose SDLC workflow this cron process has already spawned. It does not persist across restarts, but the spawn lock on disk and the state file provide durable dedup.
 - The grace period timer uses `resolution.lastActivityMs` (from the state file's most recent phase timestamp) in preference to `issue.updatedAt`. This prevents re-dispatch when a workflow is making rapid progress but GitHub's issue `updatedAt` reflects comment activity that is older.
 - `buildCronTargetRepoArgs` is called lazily inside `buildTargetRepoArgs()` to capture the most recent `cronRepoInfo` and `targetRepo` values; it must include the clone URL so spawned children can clone the target repo.
+- `#UPG` (`adw:upgrade`) tracking issues stay out of the standard candidate loop precisely because they read as `reserved_label`, not because they lack a label — `upgradeRedrive.ts` depends on this filtering, so the `reserved_label` guard cannot be removed outright, only narrowed to exclude truly-unlabeled issues (#754). Before #754, `decideLabelRecovery` rejected every fresh issue with `classification === null` — including ones with no `adw:*` label at all — as `no_adw_label`, which silently stranded unlabeled issues whenever the webhook (the only other classifier) was down. That guard sat *before* `in_progress_comment` and `linked_closed_pr` in the precedence chain, so a truly-unlabeled issue that also tripped one of those later guards was misreported as `no_adw_label`/`reserved_label` instead of its real reason — this is now correctly distinguished.
