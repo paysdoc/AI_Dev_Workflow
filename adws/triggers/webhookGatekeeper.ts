@@ -18,7 +18,6 @@ import type { IssueClassSlashCommand } from '../types/issueTypes';
 import { AgentStateManager } from '../core/agentState';
 
 import { isAdwRunningForIssue } from '../github';
-import { checkIssueEligibility } from './issueEligibility';
 import { parseDependencies } from './issueDependencies';
 import { isCronAliveForRepo } from './cronProcessGuard';
 import { releaseIssueSpawnLock } from './spawnGate';
@@ -160,47 +159,6 @@ export async function classifyAndSpawnWorkflow(
   } catch (err) {
     releaseIssueSpawnLock(resolvedRepoInfo, issueNumber);
     throw err;
-  }
-}
-
-/**
- * Handles the `issues.closed` event for dependency unblocking.
- * Finds open issues that depend on the closed issue and re-evaluates eligibility.
- */
-export async function handleIssueClosedDependencyUnblock(
-  closedIssueNumber: number,
-  repoInfo: RepoInfo,
-  targetRepoArgs: string[],
-  gitContext?: GitContext,
-): Promise<void> {
-  try {
-    const ctx = gitContext ?? gitContextForRepo(repoInfo);
-    const json = ctx.listOpenIssues({ fields: ['number', 'body'], limit: 100 });
-    const issues = JSON.parse(json) as { number: number; body: string }[];
-
-    const dependents = issues.filter((issue) => {
-      const deps = parseDependencies(issue.body || '');
-      return deps.includes(closedIssueNumber);
-    });
-
-    if (dependents.length === 0) {
-      log(`No issues depend on closed issue #${closedIssueNumber}`);
-      return;
-    }
-
-    log(`Found ${dependents.length} issue(s) depending on closed issue #${closedIssueNumber}`);
-
-    for (const dependent of dependents) {
-      const eligibility = await checkIssueEligibility(dependent.number, dependent.body || '', repoInfo);
-      if (eligibility.eligible) {
-        log(`Issue #${dependent.number} unblocked by closure of #${closedIssueNumber}, spawning workflow`);
-        await classifyAndSpawnWorkflow(dependent.number, repoInfo, targetRepoArgs, undefined, undefined, undefined, gitContext);
-      } else {
-        log(`Issue #${dependent.number} still ineligible after #${closedIssueNumber} closed: ${eligibility.reason}`);
-      }
-    }
-  } catch (error) {
-    log(`Error checking dependents of closed issue #${closedIssueNumber}: ${error}`, 'error');
   }
 }
 

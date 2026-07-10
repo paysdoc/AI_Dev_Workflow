@@ -395,6 +395,7 @@ Docker execution is entirely optional — the test suite runs identically on the
 │   ├── patch.md
 │   ├── pr_review.md
 │   ├── prime.md
+│   ├── promote_regression_vocabulary.md
 │   ├── pull_request.md
 │   ├── resolve_conflict.md
 │   ├── resolve_failed_scenario.md
@@ -489,6 +490,7 @@ adws/                   # ADW workflow system
 │   ├── prAgent.ts
 │   ├── resolutionAgent.ts  # Plan-scenario mismatch resolution
 │   ├── reviewAgent.ts
+│   ├── rotAnalysisAgent.ts  # Per-phrase reuse/rot analysis for regression-promotion PRs
 │   ├── scenarioAgent.ts  # BDD scenario planner agent
 │   ├── scenarioFidelityAgent.ts  # Compares frozen scenarios against issue body after resolve
 │   ├── stepDefAgent.ts  # Step definition generation agent
@@ -744,7 +746,9 @@ adws/                   # ADW workflow system
 │   ├── prReviewCompletion.ts  # PR review completion/error handling
 │   ├── prReviewPhase.ts  # PR review phase implementation
 │   ├── proofPublishPhase.ts  # Publishes scenario proof comment to the PR after scenarioTestPhase
+│   ├── promotionRotAdvisory.ts  # Non-blocking rot/reuse advisory PR comment orchestration for regression-promotion PRs
 │   ├── reviewPatchHelpers.ts  # Dispatches review blockers to patchAgent or refactorAgent based on blocker type
+│   ├── rotAdvisoryFormat.ts  # Formats rotAnalysisAgent output into the advisory PR comment body
 │   ├── reviewPhase.ts  # Passive judge review phase (reads scenario proof, no dev server)
 │   ├── scenarioFixPhase.ts  # Fixes failed scenarios from a previous scenarioTestPhase run
 │   ├── scenarioPhase.ts  # BDD scenario generation phase
