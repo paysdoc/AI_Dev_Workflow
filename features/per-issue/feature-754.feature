@@ -21,22 +21,31 @@ Feature: A fresh unlabeled cron candidate is spawn-eligible for downstream LLM c
   was down (incident: vestmatic-research #28/#29, 2026-07-10, sitting at
   `filtered: #N(label:no_adw_label)` on every 20s poll).
 
-  The fix, in `decideLabelRecovery`: stop rejecting a null classification. An
-  unlabeled fresh issue becomes eligible with no deterministic classification
-  attached (classification omitted → downstream LLM classification), after still
-  passing every other guard. The genuinely-useful #545 guards are kept exactly as
-  they were — `opt_out` (`adw:none`), `multi_label` (conflict),
-  `in_progress_comment`, `linked_closed_pr` — and, because the `no_adw_label` guard
-  sat *before* them in the precedence chain, those guards now correctly apply to
-  unlabeled issues too (previously they were masked: an unlabeled issue that also
-  tripped a later guard was reported as `no_adw_label`).
+  The fix, in `decideLabelRecovery`: stop rejecting a *truly-unlabeled* fresh issue.
+  An issue carrying no `adw:*` label becomes eligible with no deterministic
+  classification attached (classification omitted → downstream LLM classification),
+  after still passing every other guard. The null-classification rejection is not
+  deleted outright — it is *narrowed* to fire only when the issue still carries a
+  reserved, non-classification `adw:*` label (`adw:upgrade` / `adw:blocked` /
+  `adw:unverified`), and its reason is renamed `no_adw_label` → `reserved_label`.
+  That narrowing preserves the load-bearing invariant that `#UPG` (`adw:upgrade`)
+  tracking issues stay out of the standard spawn loop — `upgradeRedrive.ts` depends
+  on their being filtered — which a bare removal of the guard would regress. The
+  genuinely-useful #545 guards are kept exactly as they were — `opt_out`
+  (`adw:none`), `multi_label` (conflict), `in_progress_comment`, `linked_closed_pr`
+  — and, because the old `no_adw_label` guard sat *before* them in the precedence
+  chain, those guards now correctly apply to truly-unlabeled issues too (previously
+  they were masked: an unlabeled issue that also tripped a later guard was reported
+  as `no_adw_label`).
 
   Precedence chain after the fix:
 
-    opt_out → multi_label → in_progress_comment → linked_closed_pr → eligible
+    opt_out → multi_label → reserved_label (non-classification adw:* label)
+      → in_progress_comment → linked_closed_pr → eligible
 
-  (the removed `no_adw_label` guard used to sit between `multi_label` and
-  `in_progress_comment`).
+  (the old `no_adw_label` guard between `multi_label` and `in_progress_comment` is
+  narrowed to `reserved_label` — it no longer fires for a truly-unlabeled issue,
+  only for a reserved `adw:*` label such as `adw:upgrade`.)
 
   Observability / rot-prevention note:
 
@@ -97,6 +106,20 @@ Feature: A fresh unlabeled cron candidate is spawn-eligible for downstream LLM c
     Then the fresh issue is eligible for spawn
     And the eligibility decision attaches no deterministic classification
 
+  # ── #UPG regression guard: a reserved adw:* label stays filtered (reserved_label) ─
+  # The null-classification rejection is narrowed, not removed: an issue carrying a
+  # reserved, non-classification adw:* label (adw:upgrade / adw:blocked /
+  # adw:unverified) still reads as classification === null but keeps being filtered,
+  # now under the renamed reason `reserved_label`. This is the load-bearing invariant
+  # that keeps #UPG upgrade-tracking issues out of the standard spawn loop —
+  # `upgradeRedrive.ts` depends on it; a bare removal of the guard would regress it.
+
+  @adw-754 @adw-uhkozf-cron-requires-adw-la
+  Scenario: A reserved adw:upgrade label is still filtered as reserved_label, not spawned
+    Given a fresh cron candidate issue carrying the labels "adw:upgrade"
+    When its cron label eligibility is evaluated
+    Then the fresh issue is not eligible, with reason "reserved_label"
+
   # ── adw:none opt-out still wins (AC2) ────────────────────────────────────────
 
   @adw-754 @adw-uhkozf-cron-requires-adw-la
@@ -120,8 +143,9 @@ Feature: A fresh unlabeled cron candidate is spawn-eligible for downstream LLM c
     Then the fresh issue is not eligible, with reason "multi_label"
 
   # ── In-progress ADW comment still defers — now for unlabeled issues too (AC4) ─
-  # Pre-#754 this returned no_adw_label (the removed guard sat first); the fix lets
-  # the in_progress_comment guard fire on an unlabeled issue. RED→green on the reason.
+  # Pre-#754 this returned no_adw_label (the null-classification guard sat first, and
+  # for an unlabeled issue it is now narrowed away); the fix lets the
+  # in_progress_comment guard fire on an unlabeled issue. RED→green on the reason.
 
   @adw-754 @adw-uhkozf-cron-requires-adw-la
   Scenario: A fresh unlabeled issue already carrying an in-progress ADW workflow comment still defers
