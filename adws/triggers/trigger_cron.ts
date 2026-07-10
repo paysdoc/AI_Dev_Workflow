@@ -292,7 +292,7 @@ async function checkAndTrigger(): Promise<void> {
 
   // Independent redrive pass: re-spawns adwUpgrade for a stranded #UPG (open,
   // adw:upgrade, not adw:blocked, no PR on its claim branch, spawn lock free/stale).
-  // #UPG issues never appear in `candidates` (they read as no_adw_label in the
+  // #UPG issues never appear in `candidates` (they read as reserved_label in the
   // standard filter), so this cannot disturb the loop below. A scan failure must
   // never abort the tick.
   try {

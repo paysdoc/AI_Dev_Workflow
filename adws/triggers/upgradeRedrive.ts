@@ -7,7 +7,7 @@
  * or push error) leaves the `#UPG` tracking issue permanently stranded — nothing ever
  * re-invokes `adwUpgrade` for it. The cron's standard candidate loop never routes
  * `#UPG` issues to `adwUpgrade` either: `adw:upgrade` is not an ADW classification
- * label, so it reads as `no_adw_label` and is filtered out.
+ * label, so it reads as `reserved_label` and is filtered out.
  *
  * This module adds an independent cron pass: a pure eligibility predicate
  * (`decideUpgradeRedrive`) plus a composing scanner (`findRedrivableUpgrades` /
