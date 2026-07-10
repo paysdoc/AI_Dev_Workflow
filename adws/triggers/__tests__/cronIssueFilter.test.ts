@@ -159,7 +159,7 @@ function takeoverResolution(): StageResolution {
 describe('evaluateIssue — label-recovery gate', () => {
   it('stage=null + adwId=null + ineligible evaluator → filtered with label: reason', () => {
     const issue = makeIssue({ updatedAt: OLD_DATE });
-    const ineligible = vi.fn((_i: CronIssue): LabelRecoveryResult => ({ eligible: false, reason: 'no_adw_label' }));
+    const ineligible = vi.fn((_i: CronIssue): LabelRecoveryResult => ({ eligible: false, reason: 'reserved_label' }));
 
     const result = evaluateIssue(
       issue, NOW, { spawns: new Set() }, GRACE_PERIOD_MS,
@@ -167,7 +167,7 @@ describe('evaluateIssue — label-recovery gate', () => {
     );
 
     expect(result.eligible).toBe(false);
-    expect(result.reason).toBe('label:no_adw_label');
+    expect(result.reason).toBe('label:reserved_label');
     expect(ineligible).toHaveBeenCalledOnce();
   });
 
@@ -187,7 +187,7 @@ describe('evaluateIssue — label-recovery gate', () => {
 
   it('stage=null + non-null adwId → gate NOT consulted; issue stays eligible for takeover', () => {
     const issue = makeIssue({ updatedAt: OLD_DATE });
-    const spy = vi.fn((_i: CronIssue): LabelRecoveryResult => ({ eligible: false, reason: 'no_adw_label' }));
+    const spy = vi.fn((_i: CronIssue): LabelRecoveryResult => ({ eligible: false, reason: 'reserved_label' }));
 
     const result = evaluateIssue(
       issue, NOW, { spawns: new Set() }, GRACE_PERIOD_MS,
