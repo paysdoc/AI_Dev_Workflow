@@ -1716,6 +1716,7 @@
     - adws/triggers/cancelHandler.ts
     - adws/triggers/retryHandler.ts
     - adws/triggers/perIssueScenarioSweep.ts
+    - adws/triggers/perIssueSweepPersist.ts
     - adws/triggers/scanAuthQueue.ts
     - adws/triggers/devServerJanitor.ts
     - adws/triggers/cloudflareTunnel.tsx
@@ -1723,6 +1724,9 @@
   - Conditions:
     - When working on issue dependency checks, issue eligibility for ADW, issue-opened routing, auto-merge/cancel/retry handlers, auth queue scanning, dev server janitor, Cloudflare tunnel, or shutdown trigger
     - When working with the 14-day per-issue scenario retention sweep (`runPerIssueScenarioSweep`, `isScenarioStale`, `RETENTION_DAYS`) in `adws/triggers/perIssueScenarioSweep.ts`, or its promotion-awareness exemption gate
+    - When working with the sweep's persist orchestration (`prepareSweepBase`, `persistRemovalViaPr`, `cleanupSweepBase`, `SweepBase`) in `adws/triggers/perIssueSweepPersist.ts`
+    - When troubleshooting a sweep removal that never reached `origin` (stranded local commit, lease-rejected push) or a duplicate sweep PR
+    - When the sweep's dedicated `chore/scenario-sweep` branch, its PR-open/immediate-merge flow, or its `origin/<default>`-synced worktree needs context
 
 - app_docs/feature-ne2we8-promotion-tag-state.md
   - Owns:
