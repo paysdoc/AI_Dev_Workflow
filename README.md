@@ -807,6 +807,7 @@ adws/                   # ADW workflow system
 │   │   ├── cronRepoResolver.test.ts
 │   │   ├── cronStageResolver.test.ts
 │   │   ├── devServerJanitor.test.ts
+│   │   ├── issueClosedUnblockRouter.test.ts
 │   │   ├── issueOpenedRouter.test.ts
 │   │   ├── mergeDispatchGate.test.ts
 │   │   ├── pauseQueueScanner.test.ts
@@ -836,6 +837,7 @@ adws/                   # ADW workflow system
 │   ├── cronProcessGuard.ts  # Duplicate cron process prevention
 │   ├── cronRepoResolver.ts  # Cron repo identity resolution (testable, extracted from trigger_cron)
 │   ├── cronStageResolver.ts  # Cron stage resolution from top-level state file (testable)
+│   ├── issueClosedUnblockRouter.ts  # Pure selection + DI orchestration for issues.closed dependency-unblock; uses extractDependencies (prose-aware) instead of heading-only parseDependencies
 │   ├── issueDependencies.ts
 │   ├── issueEligibility.ts
 │   ├── issueOpenedRouter.ts  # Pure routing decision for the issues.opened label-routing path (mirrors cronIssueFilter pattern)
