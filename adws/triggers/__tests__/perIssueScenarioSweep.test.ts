@@ -21,12 +21,15 @@ vi.mock('../../core', () => ({
 vi.mock('../../github', () => ({
   getRepoInfo: vi.fn(() => ({ owner: 'test-owner', repo: 'test-repo' })),
   bodyLinksIssue: vi.fn((body: string, num: number) => body.includes(`#${num}`)),
+  mergePR: vi.fn(() => ({ success: true })),
+  defaultFindPRByBranch: vi.fn(() => null),
 }));
 
 // ── Imports (after mocks) ────────────────────────────────────────────────────
 
 import { isScenarioStale, runPerIssueScenarioSweep, RETENTION_DAYS } from '../perIssueScenarioSweep';
 import { gitContextForRepo } from '../../github/gitContextFactory';
+import { mergePR, defaultFindPRByBranch } from '../../github';
 import { readFileSync } from 'fs';
 
 const UNTAGGED_CONTENT = 'Feature: plain\n';
@@ -338,11 +341,12 @@ describe('runPerIssueScenarioSweep — promotion-awareness', () => {
   });
 });
 
-// ── Default wiring — routes through gitContextForRepo ───────────────────────
+// ── Default wiring — routes through a synced sweep worktree + PR ────────────
 
 describe('runPerIssueScenarioSweep — default wiring through gitContextForRepo', () => {
   const PER_ISSUE_DIR = 'features/per-issue';
   const STEP_DEF_DIR = 'features/per-issue/step_definitions';
+  const WORKTREE_PATH = '/repo/.worktrees/chore-scenario-sweep';
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -356,49 +360,48 @@ describe('runPerIssueScenarioSweep — default wiring through gitContextForRepo'
     return {
       featurePath,
       siblingPath,
-      basePath: '/repo',
-      lsFiles: vi.fn((_cwd: string, prefix?: string) => {
+      worktreePath: WORKTREE_PATH,
+      lsFiles: vi.fn((cwd: string, prefix?: string) => {
+        if (cwd !== WORKTREE_PATH) return [];
         if (prefix === PER_ISSUE_DIR) return [featurePath];
         if (prefix === STEP_DEF_DIR) return [siblingPath];
         return [];
       }),
       fetchMergedPRs: vi.fn(() => JSON.stringify(mergedPRs)),
       defaultBranch: vi.fn(() => 'dev'),
-      getCurrentBranch: vi.fn(() => 'dev'),
+      removeWorktree: vi.fn(() => true),
+      createWorktreeForNewBranch: vi.fn(() => WORKTREE_PATH),
       removeAndCommitPaths: vi.fn(() => true),
       pushBranch: vi.fn(),
+      createPR: vi.fn(() => 'https://github.com/test-owner/test-repo/pull/123'),
+      deleteRemoteBranch: vi.fn(() => true),
       ...overrides,
     };
   }
 
-  it('lists via lsFiles and persists via removeAndCommitPaths + pushBranch when on the default branch', async () => {
+  it('creates a dedicated worktree off the default branch, lists via lsFiles on the worktree path, and persists via removeAndCommitPaths + pushBranch + createPR + mergePR, then cleans up', async () => {
     const mockCtx = makeMockCtx();
     vi.mocked(gitContextForRepo).mockReturnValue(mockCtx as never);
 
     const removed = await runPerIssueScenarioSweep({ now: new Date('2026-02-15T00:00:00Z') });
 
-    expect(mockCtx.lsFiles).toHaveBeenCalledWith(mockCtx.basePath, PER_ISSUE_DIR);
-    expect(mockCtx.lsFiles).toHaveBeenCalledWith(mockCtx.basePath, STEP_DEF_DIR);
+    expect(mockCtx.createWorktreeForNewBranch).toHaveBeenCalledWith('chore/scenario-sweep', 'dev');
+    expect(mockCtx.lsFiles).toHaveBeenCalledWith(WORKTREE_PATH, PER_ISSUE_DIR);
+    expect(mockCtx.lsFiles).toHaveBeenCalledWith(WORKTREE_PATH, STEP_DEF_DIR);
     expect(removed).toEqual([mockCtx.featurePath, mockCtx.siblingPath]);
     expect(mockCtx.removeAndCommitPaths).toHaveBeenCalledWith(
       [mockCtx.featurePath, mockCtx.siblingPath],
       expect.any(String),
-      mockCtx.basePath,
+      WORKTREE_PATH,
     );
-    expect(mockCtx.pushBranch).toHaveBeenCalledWith('dev', mockCtx.basePath);
+    expect(mockCtx.pushBranch).toHaveBeenCalledWith('chore/scenario-sweep', WORKTREE_PATH);
+    expect(mockCtx.createPR).toHaveBeenCalledWith(expect.any(String), expect.any(String), 'chore/scenario-sweep', 'dev');
+    expect(mergePR).toHaveBeenCalledWith(123, { owner: 'test-owner', repo: 'test-repo' });
+    expect(mockCtx.deleteRemoteBranch).toHaveBeenCalledWith('chore/scenario-sweep');
+    expect(mockCtx.removeWorktree).toHaveBeenCalledWith('chore/scenario-sweep');
   });
 
-  it('does not commit or push when the checkout is not on the default branch', async () => {
-    const mockCtx = makeMockCtx({ getCurrentBranch: vi.fn(() => 'some-other-branch') });
-    vi.mocked(gitContextForRepo).mockReturnValue(mockCtx as never);
-
-    await runPerIssueScenarioSweep({ now: new Date('2026-02-15T00:00:00Z') });
-
-    expect(mockCtx.removeAndCommitPaths).not.toHaveBeenCalled();
-    expect(mockCtx.pushBranch).not.toHaveBeenCalled();
-  });
-
-  it('does not push when removeAndCommitPaths reports nothing was committed', async () => {
+  it('does not push, open a PR, or merge when removeAndCommitPaths reports nothing was committed', async () => {
     const mockCtx = makeMockCtx({ removeAndCommitPaths: vi.fn(() => false) });
     vi.mocked(gitContextForRepo).mockReturnValue(mockCtx as never);
 
@@ -406,5 +409,29 @@ describe('runPerIssueScenarioSweep — default wiring through gitContextForRepo'
 
     expect(mockCtx.removeAndCommitPaths).toHaveBeenCalled();
     expect(mockCtx.pushBranch).not.toHaveBeenCalled();
+    expect(mockCtx.createPR).not.toHaveBeenCalled();
+    expect(mergePR).not.toHaveBeenCalled();
+  });
+
+  it('skips the sweep branch and PR when an open sweep PR already exists', async () => {
+    const mockCtx = makeMockCtx();
+    vi.mocked(gitContextForRepo).mockReturnValue(mockCtx as never);
+    vi.mocked(defaultFindPRByBranch).mockReturnValue({ number: 55, state: 'OPEN', headRefName: 'chore/scenario-sweep', baseRefName: 'dev' });
+
+    await runPerIssueScenarioSweep({ now: new Date('2026-02-15T00:00:00Z') });
+
+    expect(mockCtx.removeAndCommitPaths).not.toHaveBeenCalled();
+    expect(mockCtx.pushBranch).not.toHaveBeenCalled();
+  });
+
+  it('never creates a worktree for a fully-injected caller (no base-dependent default runs)', async () => {
+    await runPerIssueScenarioSweep({
+      now: new Date('2026-02-15T00:00:00Z'),
+      listFeatures: () => [],
+      listStepDefSiblings: () => [],
+      persistRemoval: vi.fn(),
+    });
+
+    expect(gitContextForRepo).not.toHaveBeenCalled();
   });
 });

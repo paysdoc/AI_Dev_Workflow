@@ -4,12 +4,16 @@
  * Drives the production `runPerIssueScenarioSweep` in-process over a real temp
  * git repo whose `origin` is a real bare remote (local, no network) — the same
  * real-git temp-repo construction feature-648 / feature-583 use. `listFeatures`
- * / `listStepDefSiblings` are wired to the real `GitContext.lsFiles` (tracked
- * index) over the fixture, and the injected `persistRemoval` calls the real
- * `GitContext.removeAndCommitPaths` + `pushBranch` — only the GitHub-API-backed
- * `getMergedAt` default is replaced (with a fixed, per-scenario merge date), and
- * only `defaultBranch()` (which shells to `gh`) is bypassed by reading the
- * fixture's actual current branch instead.
+ * / `listStepDefSiblings` / `readFeatureContent` are wired to the real
+ * `GitContext.lsFiles` (tracked index) / a plain fs read over the fixture, and
+ * the injected `persistRemoval` calls the real `GitContext.removeAndCommitPaths`
+ * + `pushBranch` — only the GitHub-API-backed `getMergedAt` default is replaced
+ * (with a fixed, per-scenario merge date), and only `defaultBranch()` (which
+ * shells to `gh`) is bypassed by reading the fixture's actual current branch
+ * instead. All four base-dependent deps must stay fully injected here: since
+ * #758, any one of them left to its production default would resolve a real
+ * `SweepBase` (a real worktree + `gh` call) against this actual repo instead of
+ * the fixture.
  *
  * Step phrases introduced here (not in vocabulary registry — novel for 735):
  *  - Given  "a per-issue feature and step-def sibling for issue {int} are committed on the repository's default branch"
@@ -33,7 +37,7 @@
 import { Given, When, Then, After } from '@cucumber/cucumber';
 import assert from 'assert';
 import { execSync } from 'child_process';
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { GitContext } from '../../../adws/gitContext/index.ts';
@@ -140,6 +144,13 @@ When('the per-issue scenario sweep runs over the repository', async function () 
     listFeatures: () => listFixtureFeatures(gitCtx, ctx.workdir),
     getMergedAt: async (issueNum: number) => (issueNum === ctx.issueNum ? ctx.mergedAt : null),
     listStepDefSiblings: (issueNum: number) => listFixtureStepDefSiblings(gitCtx, ctx.workdir, issueNum),
+    readFeatureContent: (filePath: string) => {
+      try {
+        return readFileSync(join(ctx.workdir, filePath), 'utf-8');
+      } catch {
+        return null;
+      }
+    },
     persistRemoval: (paths: readonly string[]) => {
       const committed = gitCtx.removeAndCommitPaths(
         paths,
