@@ -45,10 +45,11 @@ Feature: The per-issue scenario sweep syncs to origin and lands its removals via
        dedicated sweep branch, with an open PR — rather than lease-rejecting and stranding it
        locally. This is the regression coverage the issue asks for (stale-base cron host →
        removal reaches origin).
-    2. THE SWEEP OPERATES ON A SYNCED BASE (AC2). The sweep fetches and resets to
-       `origin/<default>` before it decides and commits, so the removal is built on origin's
-       CURRENT tip — the sweep branch it pushes contains the origin commit the host had not
-       yet fetched. No stale-base decision, no removal committed onto a phantom base.
+    2. THE SWEEP OPERATES ON A SYNCED BASE (AC2). The sweep decides and commits off fresh
+       `origin/<default>` — it fetches origin and builds the removal in a dedicated worktree
+       created at origin's CURRENT tip (the cron host's own base checkout is never reset), so
+       the sweep branch it pushes contains the origin commit the host had not yet fetched. No
+       stale-base decision, no removal committed onto a phantom base.
     3. NO STRANDED LOCAL COMMIT (AC1). After the sweep, the cron host's local default branch
        carries no commit that origin's default branch lacks — the removal is not sitting
        unpushed on a local `dev`, which was the live symptom.
@@ -105,15 +106,19 @@ Feature: The per-issue scenario sweep syncs to origin and lands its removals via
       this writer does NOT silently rewrite them; the supersession is flagged for maintainer
       triage (retire feature-735 §2/§3, or retarget them onto the branch/PR contract owned
       here). Surfaced in the agent Output.
-    • THE MERGE MECHANISM IS UNPINNED — it is the issue's OPEN DESIGN QUESTION. How the chore
-      PR actually merges (GitHub-native `gh pr merge --auto` vs a label-driven cron path) is
-      the implementer's decision; these scenarios pin ONLY the framework's responsibility —
-      the removal is synced, pushed to a sweep branch, and a PR is opened — never how or when
-      that PR merges. The in-process harness's bare remote cannot auto-merge a PR, so "the
-      removal reaches origin" is asserted as "the removal is on origin, on a sweep branch,
-      with a PR open," NOT "origin's default branch no longer carries the scenario" (which
-      would require the external merge). The actual merge-to-default is GitHub-side /
-      cron-side and out of this harness's reach, by design.
+    • THE MERGE MECHANISM IS NOT PINNED BY THESE SCENARIOS — it was the issue's OPEN DESIGN
+      QUESTION. The accompanying plan resolved it to an IMMEDIATE `mergePR` (`gh pr merge
+      --merge`) fired synchronously right after the PR is opened, mirroring `adwUpgrade`'s
+      non-SDLC chore-PR flow (NOT the SDLC auto-merge, NOT `gh pr merge --auto`, NOT a new
+      label-cron path). These scenarios remain deliberately mechanism-independent: they pin
+      ONLY the framework's responsibility — the removal is synced, pushed to a sweep branch,
+      and a PR is opened into the default branch — so they stay GREEN whether the merge is
+      immediate, auto, or label-driven. The in-process harness's bare remote cannot really
+      merge a PR (the gh-backed open/merge seams are faked), so "the removal reaches origin"
+      is asserted as "the removal is on origin, on the pushed sweep branch, with a PR opened,"
+      NOT "origin's default branch no longer carries the scenario" (which would require the
+      real external merge). The actual merge-to-default is GitHub-side and out of this
+      harness's reach, by design.
     • THE RETENTION WINDOW, THE SIBLING-CLEANUP, AND THE NO-EMPTY-COMMIT GUARD ARE
       feature-735 / feature-739's CONTRACT and are not re-pinned here. This fix changes only
       WHERE and HOW the removal is persisted (synced base → sweep branch → PR, with failures
@@ -175,24 +180,35 @@ Feature: The per-issue scenario sweep syncs to origin and lands its removals via
         host clone. The host's default branch is now behind origin by a commit it has never
         seen — the precise stale-base condition. `…is up to date with origin` is the no-op
         clean-base counterpart (used by §4 to prove the direct-push removal is unconditional).
-      • DRIVE THE REAL PERSIST PATH — do NOT re-mirror it. `the per-issue scenario sweep runs
-        on the cron host` must drive the production sync + sweep-branch + push + PR-open
-        persistence over the temp repo (the fix must expose it as a fixture-drivable seam
-        parameterised by a `GitContext` over the temp repo, since the default
-        `defaultPersistRemoval` resolves the real ADW repo via `getRepoInfo()` and cannot be
-        pointed at a fixture). Inject ONLY: a FIXED `now`, `getMergedAt` per seeded issue
-        (`FIXED_NOW − {int} days`; stale ≥ 14, fresh < 14), a capturing logger, and a
-        recording pull-request-open seam (defaulting to `ctx.createPR`). If the step re-wired
-        `removeAndCommitPaths` + `pushBranch` by hand (as feature-735 did) the scenario would
-        be VACUOUS against #758's real bug — the RED must come from the real
-        no-sync/direct-push/swallow code, the GREEN from the real sync/branch/PR code.
-      • The "sweep branch" is the branch on the bare remote OTHER than the default branch (the
-        sweep's dedicated removal branch); enumerate origin's branches, exclude the default,
-        and assert against the remaining branch. `…omits the per-issue scenario for issue {int}`
-        reads `git ls-tree -r --name-only <sweep-branch>` on the bare remote and asserts the
-        feature path is absent. `…includes the origin commit the cron host had not fetched`
-        asserts that unrelated commit's SHA/subject is an ancestor of the sweep branch on the
-        remote (proving the sync happened before the removal was built).
+      • DRIVE THE REAL PERSIST PATH — do NOT re-mirror it. Per the accompanying plan, the fix
+        extracts the persistence into `adws/triggers/perIssueSweepPersist.ts` as an async
+        `persistRemovalViaPr(paths, base: SweepBase)`, where `SweepBase` bundles a real
+        `GitContext` over a dedicated worktree created off fresh `origin/<default>`
+        (`createWorktreeForNewBranch('chore/scenario-sweep', defaultBranch)`) plus injectable
+        gh-backed seams `{ findOpenSweepPr, openPr, mergePr, log }`. `the per-issue scenario
+        sweep runs on the cron host` must drive that REAL `persistRemovalViaPr` over the
+        fixture — invoke `runPerIssueScenarioSweep({ now: FIXED_NOW, getMergedAt: fixed,
+        listFeatures/listStepDefSiblings/readFeatureContent over the sweep worktree,
+        persistRemoval: (paths) => persistRemovalViaPr(paths, fixtureBase) })`. Build
+        `fixtureBase` with the REAL git-backed ops (real `ctx`, real worktree off
+        `origin/<default>`, real `removeAndCommitPaths` + `pushBranch`) and fake ONLY the
+        gh-backed seams: `findOpenSweepPr: () => null`, `openPr: (head, base) => '<fake pull
+        URL>'` (recording head/base), `mergePr: (n) => ({ success: true })` (recording the PR
+        number), and a capturing `log`. Injecting `persistRemoval` this way DELIBERATELY
+        BYPASSES the default `getBase()`/`cleanupSweepBase` path, so the pushed
+        `chore/scenario-sweep` branch is NOT torn down and SURVIVES on the bare remote for the
+        origin assertions below — do NOT call `cleanupSweepBase`, and assert before any
+        teardown. If the step re-wired `removeAndCommitPaths` + `pushBranch` by hand (as
+        feature-735 did) the scenario would be VACUOUS against #758's real bug — the RED must
+        come from the real no-sync/direct-default-push/swallow code, the GREEN from the real
+        sync/branch/PR `persistRemovalViaPr` code.
+      • The "sweep branch" is the dedicated removal branch `chore/scenario-sweep` the fix
+        pushes to the bare remote (identify it by that name, or as origin's only non-default
+        branch). `…omits the per-issue scenario for issue {int}` reads `git ls-tree -r
+        --name-only chore/scenario-sweep` on the bare remote and asserts the feature path is
+        absent. `…includes the origin commit the cron host had not fetched` asserts that
+        unrelated commit's SHA/subject is an ancestor of the sweep branch on the remote
+        (proving the branch was built off fresh `origin/<default>`, not the host's stale base).
       • `…local default branch carries no commit absent from origin's default branch` compares
         the host's default-branch tip against the bare remote's default-branch tip (assert the
         host tip is an ancestor of — or equal to — the remote tip; equivalently
