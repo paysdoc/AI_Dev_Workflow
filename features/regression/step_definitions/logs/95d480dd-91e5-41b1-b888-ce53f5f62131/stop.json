@@ -1,0 +1,17 @@
+[
+  {
+    "session_id": "95d480dd-91e5-41b1-b888-ce53f5f62131",
+    "transcript_path": "/Users/martin/.claude/projects/-Users-martin-projects-paysdoc-AI-Dev-Workflow--worktrees-feature-issue-760-promote-537-into-regression-suite/95d480dd-91e5-41b1-b888-ce53f5f62131.jsonl",
+    "cwd": "/Users/martin/projects/paysdoc/AI_Dev_Workflow/.worktrees/feature-issue-760-promote-537-into-regression-suite/features/regression/step_definitions",
+    "prompt_id": "ec4a38e2-efc9-417a-bb13-7f6021314d4d",
+    "permission_mode": "bypassPermissions",
+    "effort": {
+      "level": "max"
+    },
+    "hook_event_name": "Stop",
+    "stop_hook_active": false,
+    "last_assistant_message": "All verification checks pass: zero `@adw-760` tagged scenarios exist anywhere (expected — this is a `regression-promotion`-labelled direct relocation where scenario-authoring is intentionally skipped), the relocated `feature-537.steps.ts` already implements all 16 phrases used by `feature-537.feature` with an exact 1:1 match to the 16 rows already registered in `features/regression/vocabulary.md`, and none of its step patterns collide with any other step-definition file. Nothing needs to be generated or modified.\n\n```json\n{\n  \"generatedFiles\": [],\n  \"removedScenarios\": [],\n  \"vocabularyViolations\": []\n}\n```",
+    "background_tasks": [],
+    "session_crons": []
+  }
+]
