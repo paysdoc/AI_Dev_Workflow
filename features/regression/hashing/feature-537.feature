@@ -1,4 +1,4 @@
-@adw-537 @adw-zapagn-hashcomputer-deep-mo
+@regression @adw-537 @adw-zapagn-hashcomputer-deep-mo
 Feature: hashComputer — a pure deep module that computes the framework's content hash from declared inputs
 
   Issue #537 builds the first deep module of the "ADW init via content hash"
