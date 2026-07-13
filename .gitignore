@@ -11,6 +11,9 @@ node_modules/
 
 # misc
 /logs
+# Claude Code hook logs (CLAUDE_HOOKS_LOG_DIR default) can land in any dir an
+# agent cd's into, not just the repo root — ignore them at every depth.
+**/logs/
 /agents
 /.worktrees
 .DS_Store
