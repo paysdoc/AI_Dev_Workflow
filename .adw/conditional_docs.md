@@ -1861,7 +1861,7 @@
   - Conditions:
     - When working on the BDD regression scenario suite, vocabulary registry, step definition registry, or promotion rules in `features/regression/`
     - When manually promoting a `features/per-issue/` scenario into `features/regression/` (direct relocation: `git mv` feature + step-def, add `@regression` tag, register vocabulary phrases)
-    - When working with `features/regression/upgrade/` or a promoted single-scenario feature file paired with its own scenario-specific step-def file
+    - When working with `features/regression/upgrade/`, `features/regression/hashing/`, or a promoted single-scenario feature file paired with its own scenario-specific step-def file
     - When the `adws/promotion/` automated flow is discussed — it does not perform real promotions; relocation is manual
 
 - app_docs/feature-9gjajh-bdd-per-issue.md

@@ -980,6 +980,7 @@ features/               # BDD feature files (Gherkin .feature)
 ├── per-issue/          # Per-issue agent-input scenarios — never executed by the runner; swept 14 days after PR merges
 │   └── step_definitions/  # Per-issue step definition files
 ├── regression/         # Regression scenario vocabulary, typed World, and surface/smoke scenarios
+│   ├── hashing/        # Regression scenarios covering framework content hashing (#537)
 │   ├── smoke/          # High-level smoke scenarios (cron spawn, SDLC, cancel, chore, pause)
 │   ├── step_definitions/  # Typed Given/When/Then steps and RegressionWorld for regression scenarios
 │   ├── support/        # Cucumber hooks for @regression suite
