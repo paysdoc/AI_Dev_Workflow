@@ -100,8 +100,10 @@ Use these files to implement the feature:
   committed with no change to this file.
 
 ### New Files
-- `features/per-issue/feature-763.feature` — `@adw-763`-tagged BDD scenarios (fresh-repo copy,
-  existing-file skip, upgrade-regen idempotency). Routed to `features/per-issue/` per `.adw/scenarios.md`.
+- `features/per-issue/feature-763.feature` — `@adw-763`-tagged BDD scenarios: §1 committed &
+  not-gitignored, §2 verbatim copy of the template, §3 existing-file untouched + skip recorded,
+  §4 upgrade-regen idempotency, §5 deny-list-only / no-hooks, plus §T the TypeScript type-check
+  backstop. Routed to `features/per-issue/` per `.adw/scenarios.md`.
 - `features/per-issue/step_definitions/feature-763.steps.ts` — self-contained `@adw-763` step
   definitions driving the real `copyStarterSettingsToWorktree` / `decideStarterSettingsCopy` against a
   temp git worktree (no LLM needed — the copy is deterministic).
@@ -226,13 +228,21 @@ Execute every step in order, top to bottom.
   bullets of `adw_init.md` (mirroring the existing "hashInputs propagation" note).
 
 ### 8. Author the `@adw-763` BDD scenarios (`features/per-issue/feature-763.feature` + step defs)
-- Scenarios (harness-observable via git artifacts / file bytes — no LLM needed):
-  1. **Fresh target repo without settings** → run the starter copy in a temp worktree → `.claude/settings.json`
-     exists, is byte-identical to the template, is git-committable (staged, not gitignored).
-  2. **Target repo with an existing `.claude/settings.json`** → owner file untouched (byte-preserved),
-     copy result/log records the skip.
-  3. **Re-run (upgrade regen) on a repo that already received the starter** → second copy is a no-op;
-     `git status` shows no change and no duplicate entry.
+- Scenarios (harness-observable via git artifacts / file bytes — no LLM needed), matching the
+  authored feature file's sections:
+  1. **§1 — Fresh target repo without settings** → run the starter copy in a temp worktree → the
+     recorded commit tree carries `.claude/settings.json` **and** it is not gitignored (commit-tree
+     membership proves committed-and-not-gitignored together).
+  2. **§2 — Verbatim copy** → the committed `.claude/settings.json` is byte-for-byte identical to
+     `templates/claude-settings-starter.json` (asserted against the copy-source, not hardcoded bytes).
+  3. **§3 — Existing `.claude/settings.json`** → owner file left byte-for-byte untouched, and the
+     copy step records the skip.
+  4. **§4 — Re-run (upgrade regen) on a repo that already received the starter** → second copy is a
+     no-op; the file is unchanged and `git status --porcelain` stages no further change.
+  5. **§5 — Guardrails-only** → the committed starter carries a non-empty deny permission list and
+     **no** `hooks` key (the legible no-JS-runtime guard; kept even though §2 subsumes it).
+  6. **§T — Type-check backstop** → the ADW TypeScript type-check still passes with the copy step
+     and its skip-if-exists decision wired in (reuses registered phrase T22).
 - Add self-contained `@adw-763` step definitions under `features/per-issue/step_definitions/`, driving
   the **real** `copyStarterSettingsToWorktree` / `decideStarterSettingsCopy` against a temp git repo
   (follow the `worktreeSetup.test.ts` fixture pattern). Validate step phrases against
@@ -302,6 +312,20 @@ Execute every command to validate the feature works correctly with zero regressi
   that runs `/adw_init`, covering both first-time onboarding (never-initialized repo) and
   framework-upgrade regeneration. Wiring the copy there satisfies both "during `/adw_init`" and
   "automatically during framework-upgrade regeneration".
+<!-- ADW-WARNING: Unresolvable plan/scenario conflict — issue #763 does not arbitrate it. This plan
+     treats adwUpgrade.tsx as covering BOTH first-time onboarding and upgrade regen with a single
+     deterministic TS copy, and adds ONLY a docs note to adw_init.md (the copy is deliberately not an
+     LLM step). The feature-763.feature "What this harness cannot reach" note instead states a fresh
+     /adw_init is an operator-run LLM command with NO TypeScript orchestrator, and expects the
+     implementation to add an adw_init.md `cp` step for that fresh path (cf. the existing
+     `cp templates/vocabulary.md.template` at adw_init.md:144-149), sharing ONE skip-if-exists
+     decision with the TS step. The issue says only "During /adw_init (and therefore ...
+     regeneration)" and its unit-testable-skip-decision AC is satisfied by either model, so it does
+     not decide whether a fresh onboarding is ever run outside adwUpgrade.tsx. If it is, this plan
+     leaves that path with the docs note but no settings copy. Build agent: verify whether fresh
+     onboarding runs outside adwUpgrade.tsx and, if so, add the adw_init.md `cp` step reusing the
+     shared decision. -->
+
 - **Why the copy is deterministic (orchestrator), not an LLM step.** The acceptance criteria demand a
   unit-testable skip-if-exists decision and a byte-identical copy, and require gitignore/commit control
   the LLM command cannot exercise. Only the *docs note* (prose) is LLM-authored, in `adw_init.md`.
