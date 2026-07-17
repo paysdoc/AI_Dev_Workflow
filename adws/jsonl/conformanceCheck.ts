@@ -91,6 +91,7 @@ function runParserCheck(fixtureLine: string, messageType: string): string[] {
     serverErrorDetected: false,
     overloadedErrorDetected: false,
     compactionDetected: false,
+    deniedToolCallCount: 0,
   };
 
   try {

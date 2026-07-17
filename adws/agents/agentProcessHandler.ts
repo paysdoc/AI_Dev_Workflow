@@ -65,6 +65,7 @@ export function handleAgentProcess(
       serverErrorDetected: false,
       overloadedErrorDetected: false,
       compactionDetected: false,
+      deniedToolCallCount: 0,
     };
 
     const extractor = new AnthropicTokenUsageExtractor(model);
@@ -199,6 +200,7 @@ export function handleAgentProcess(
           actualUsage: extractorFinalized ? extractorUsage : undefined,
           costSource,
           statePath,
+          deniedToolCallCount: state.deniedToolCallCount,
         });
         return;
       }
@@ -225,6 +227,7 @@ export function handleAgentProcess(
           actualUsage: extractorFinalized ? extractorUsage : undefined,
           costSource,
           statePath,
+          deniedToolCallCount: state.deniedToolCallCount,
         });
         return;
       }
@@ -242,6 +245,7 @@ export function handleAgentProcess(
           actualUsage: extractorFinalized ? extractorUsage : undefined,
           costSource,
           statePath,
+          deniedToolCallCount: state.deniedToolCallCount,
         });
         return;
       }
@@ -265,6 +269,7 @@ export function handleAgentProcess(
           actualUsage: extractorFinalized ? extractorUsage : undefined,
           costSource,
           statePath,
+          deniedToolCallCount: state.deniedToolCallCount,
         });
       } else if (code === 0) {
         if (state.turnCount === 0) {
@@ -279,6 +284,7 @@ export function handleAgentProcess(
           actualUsage: extractorFinalized ? extractorUsage : undefined,
           costSource,
           statePath,
+          deniedToolCallCount: state.deniedToolCallCount,
         });
       } else {
         log(`${agentName} exited with code ${code}`, 'error');
@@ -295,6 +301,7 @@ export function handleAgentProcess(
           costSource,
           statePath,
           authExpired: authErrorDetected,
+          deniedToolCallCount: state.deniedToolCallCount,
         });
       }
     });
@@ -310,6 +317,7 @@ export function handleAgentProcess(
         success: false,
         output: error.message,
         statePath,
+        deniedToolCallCount: state.deniedToolCallCount,
       });
     });
   });

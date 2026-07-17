@@ -79,7 +79,7 @@ function makeUpgradeDeps730(overrides: Partial<UpgradeDeps> = {}): UpgradeDeps {
     },
     ensureLogsDirectory: () => '/logs/adwupgrade',
     log: () => undefined,
-    readAdwYmlConfig: () => ({ hitl: false, unitTests: true }),
+    readAdwYmlConfig: () => ({ hitl: false, unitTests: true, guardrails: false }),
     mergePR: () => ({ success: true }),
     fetchIssueLabels: () => [],
     fetchIssueComments: () => [],

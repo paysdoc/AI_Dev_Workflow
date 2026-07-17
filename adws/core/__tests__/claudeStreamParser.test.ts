@@ -21,6 +21,7 @@ function createState(overrides?: Partial<JsonlParserState>): JsonlParserState {
     serverErrorDetected: false,
     overloadedErrorDetected: false,
     compactionDetected: false,
+    deniedToolCallCount: 0,
     ...overrides,
   };
 }
@@ -156,6 +157,74 @@ describe('parseJsonlOutput — structured detection', () => {
     expect(state.serverErrorDetected).toBe(true);
     parseJsonlOutput(line2 + '\n', state);
     expect(state.serverErrorDetected).toBe(true);
+  });
+});
+
+describe('parseJsonlOutput — denied tool call counting (issue #762)', () => {
+  it('counts a single top-level tool_result with is_error: true', () => {
+    const state = createState();
+    const line = JSON.stringify({ type: 'tool_result', tool_use_id: 't1', content: 'denied', is_error: true });
+    parseJsonlOutput(line + '\n', state);
+    expect(state.deniedToolCallCount).toBe(1);
+  });
+
+  it('does NOT count a top-level tool_result without is_error', () => {
+    const state = createState();
+    const line = JSON.stringify({ type: 'tool_result', tool_use_id: 't1', content: 'ok' });
+    parseJsonlOutput(line + '\n', state);
+    expect(state.deniedToolCallCount).toBe(0);
+  });
+
+  it('does NOT count a top-level tool_result with is_error: false', () => {
+    const state = createState();
+    const line = JSON.stringify({ type: 'tool_result', tool_use_id: 't1', content: 'ok', is_error: false });
+    parseJsonlOutput(line + '\n', state);
+    expect(state.deniedToolCallCount).toBe(0);
+  });
+
+  it('counts a tool_result block nested in an assistant message content array', () => {
+    const state = createState();
+    const line = JSON.stringify({
+      type: 'assistant',
+      message: {
+        content: [
+          { type: 'tool_result', tool_use_id: 't1', content: 'permission denied', is_error: true },
+        ],
+      },
+    });
+    parseJsonlOutput(line + '\n', state);
+    expect(state.deniedToolCallCount).toBe(1);
+  });
+
+  it('sums 3 permission-denied tool results across a mixed stream to 3', () => {
+    const state = createState();
+    const lines = [
+      JSON.stringify({ type: 'tool_result', tool_use_id: 't1', content: 'denied', is_error: true }),
+      JSON.stringify({
+        type: 'assistant',
+        message: { content: [{ type: 'text', text: 'trying again' }] },
+      }),
+      JSON.stringify({ type: 'tool_result', tool_use_id: 't2', content: 'denied', is_error: true }),
+      JSON.stringify({
+        type: 'assistant',
+        message: {
+          content: [{ type: 'tool_result', tool_use_id: 't3', content: 'denied', is_error: true }],
+        },
+      }),
+    ].join('\n') + '\n';
+    parseJsonlOutput(lines, state);
+    expect(state.deniedToolCallCount).toBe(3);
+  });
+
+  it('a clean stream with no errored tool results yields 0', () => {
+    const state = createState();
+    const lines = [
+      JSON.stringify({ type: 'assistant', message: { content: [{ type: 'text', text: 'hello' }] } }),
+      JSON.stringify({ type: 'tool_result', tool_use_id: 't1', content: 'ok' }),
+      JSON.stringify({ type: 'result', subtype: 'success', isError: false, durationMs: 1, durationApiMs: 1, numTurns: 1, result: 'done', sessionId: 's' }),
+    ].join('\n') + '\n';
+    parseJsonlOutput(lines, state);
+    expect(state.deniedToolCallCount).toBe(0);
   });
 });
 

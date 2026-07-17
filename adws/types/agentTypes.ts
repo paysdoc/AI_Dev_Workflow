@@ -39,6 +39,8 @@ export interface AgentResult {
   authExpired?: boolean;
   /** True when the agent was terminated due to a rate limit, billing limit, or transient API outage. */
   rateLimited?: boolean;
+  /** Count of permission-denied (and other errored) tool calls observed in the run's stream (issue #762). */
+  deniedToolCallCount?: number;
 }
 
 /**

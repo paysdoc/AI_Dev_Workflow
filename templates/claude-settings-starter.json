@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "deny": [
+      "Bash(rm -rf:*)",
+      "Bash(rm -fr:*)",
+      "Bash(rm -Rf:*)",
+      "Bash(rm -fR:*)",
+      "Bash(rm --recursive --force:*)",
+      "Bash(rm --force --recursive:*)",
+      "Bash(rm* -r* -f*)",
+      "Bash(rm* -f* -r*)",
+      "Bash(git push*--force*)",
+      "Bash(git push -f:*)",
+      "Read(**/.env*)",
+      "Read(!**/.env.sample)",
+      "Read(!**/.env.example)"
+    ]
+  }
+}
