@@ -5,7 +5,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'node:url';
-import { log } from '../core';
+import { log, STARTER_SETTINGS_TEMPLATE_RELATIVE_PATH } from '../core';
 import type { GitContext } from '../gitContext';
 
 /** The six canonical .adw/ config files that /adw_init must produce. */
@@ -156,6 +156,51 @@ export function copyAdwInitCommandToWorktree(worktreePath: string, frameworkRepo
   fs.copyFileSync(srcFile, path.join(destDir, 'adw_init.md'));
   ensureGitignoreEntry(worktreePath, '.claude/commands/adw_init.md');
   ensureGitignoreEntry(worktreePath, '.adw/.regen-receipt');
+}
+
+/** Pure skip-if-exists decision for the starter guardrails settings copy (#763). */
+export type StarterSettingsDecision =
+  | { readonly action: 'copy' }
+  | { readonly action: 'skip'; readonly reason: 'already_exists' };
+
+/**
+ * Decides whether the starter guardrails `settings.json` should be copied into a target
+ * worktree. An owner who already has a `.claude/settings.json` has opinions — the copy is
+ * always skipped, never merged or overwritten.
+ */
+export function decideStarterSettingsCopy({ settingsExists }: { settingsExists: boolean }): StarterSettingsDecision {
+  if (settingsExists) return { action: 'skip', reason: 'already_exists' };
+  return { action: 'copy' };
+}
+
+/** Outcome of {@link copyStarterSettingsToWorktree}. */
+export interface StarterSettingsResult {
+  readonly action: 'copied' | 'skipped';
+  readonly destPath: string;
+}
+
+/**
+ * Copies the canonical deny-only `templates/claude-settings-starter.json` (#762) into a
+ * target worktree's `.claude/settings.json`, byte-identical, ONLY when the worktree has
+ * none — an existing owner-authored settings file is never read, merged, or overwritten.
+ *
+ * Unlike `copyClaudeAssetsToWorktree`, this file is deliberately left OFF the gitignore
+ * list: it is the repo owner's to keep, edit, or delete, and must ride into the init/
+ * upgrade commit (#763).
+ */
+export function copyStarterSettingsToWorktree(worktreePath: string, frameworkRepoRoot: string): StarterSettingsResult {
+  const destPath = path.join(worktreePath, '.claude', 'settings.json');
+  const decision = decideStarterSettingsCopy({ settingsExists: fs.existsSync(destPath) });
+
+  if (decision.action === 'skip') {
+    log('Target repo already has .claude/settings.json; skipping starter guardrails copy', 'info');
+    return { action: 'skipped', destPath };
+  }
+
+  fs.mkdirSync(path.dirname(destPath), { recursive: true });
+  fs.copyFileSync(path.join(frameworkRepoRoot, STARTER_SETTINGS_TEMPLATE_RELATIVE_PATH), destPath);
+  log(`Copied starter guardrails settings to ${destPath}`, 'info');
+  return { action: 'copied', destPath };
 }
 
 /**

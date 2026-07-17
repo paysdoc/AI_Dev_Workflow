@@ -69,6 +69,7 @@ function makeUpgradeDeps730(overrides: Partial<UpgradeDeps> = {}): UpgradeDeps {
     runInitCommand: async () => ({ success: true }),
     copyInitCommandToWorktree: () => undefined,
     verifyAdwRegen: () => ({ ok: true, missing: [] }),
+    copyStarterSettings: () => ({ action: 'skipped', destPath: '/worktrees/adw-upgrade-a1b2c3d4/.claude/settings.json' }),
     writeAdwVersion: () => undefined,
     commitChanges: () => true,
     pushBranch: () => undefined,

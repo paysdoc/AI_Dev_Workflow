@@ -16,11 +16,14 @@ import {
   copyClaudeAssetsToWorktree,
   verifyAdwRegen,
   REQUIRED_ADW_FILES,
+  decideStarterSettingsCopy,
+  copyStarterSettingsToWorktree,
 } from '../worktreeSetup.ts';
 import { GitContext } from '../../gitContext/index.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ADW_REPO_ROOT = resolve(__dirname, '../../..');
+const FRAMEWORK_REPO_ROOT = ADW_REPO_ROOT;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -231,5 +234,78 @@ describe('verifyAdwRegen', () => {
     const result = verifyAdwRegen(verifyDir);
     expect(result.ok).toBe(false);
     expect(result.missing).toContain('features/regression/vocabulary.md');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// decideStarterSettingsCopy — pure skip-if-exists decision (#763)
+// ---------------------------------------------------------------------------
+
+describe('decideStarterSettingsCopy', () => {
+  it('returns action:copy when no settings.json exists', () => {
+    expect(decideStarterSettingsCopy({ settingsExists: false })).toEqual({ action: 'copy' });
+  });
+
+  it('returns action:skip, reason:already_exists when settings.json already exists', () => {
+    expect(decideStarterSettingsCopy({ settingsExists: true })).toEqual({
+      action: 'skip',
+      reason: 'already_exists',
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// copyStarterSettingsToWorktree — fixture tests against a real temp git repo (#763)
+// ---------------------------------------------------------------------------
+
+describe('copyStarterSettingsToWorktree', () => {
+  let starterDir: string;
+
+  beforeEach(() => {
+    starterDir = fs.mkdtempSync(path.join(os.tmpdir(), 'adw-starter-'));
+    initGitRepo(starterDir);
+  });
+
+  afterEach(() => {
+    fs.rmSync(starterDir, { recursive: true, force: true });
+  });
+
+  it('fresh worktree: copies the template byte-for-byte to .claude/settings.json', () => {
+    const result = copyStarterSettingsToWorktree(starterDir, FRAMEWORK_REPO_ROOT);
+
+    const destPath = path.join(starterDir, '.claude', 'settings.json');
+    expect(result).toEqual({ action: 'copied', destPath });
+    expect(fs.existsSync(destPath)).toBe(true);
+
+    const templatePath = path.join(FRAMEWORK_REPO_ROOT, 'templates', 'claude-settings-starter.json');
+    expect(fs.readFileSync(destPath).equals(fs.readFileSync(templatePath))).toBe(true);
+  });
+
+  it('fresh worktree: does NOT add .claude/settings.json to .gitignore', () => {
+    copyStarterSettingsToWorktree(starterDir, FRAMEWORK_REPO_ROOT);
+    expect(gitignoreContains(starterDir, '.claude/settings.json')).toBe(false);
+  });
+
+  it('fresh worktree: the copied file is git-committable (git add -A stages it)', () => {
+    copyStarterSettingsToWorktree(starterDir, FRAMEWORK_REPO_ROOT);
+    execSync('git add -A', { cwd: starterDir, stdio: 'pipe' });
+    const status = execSync('git status --porcelain -- .claude/settings.json', {
+      cwd: starterDir,
+      encoding: 'utf-8',
+    });
+    expect(status.trim()).not.toBe('');
+  });
+
+  it('existing settings.json: is left byte-for-byte unchanged and result is skipped', () => {
+    const destDir = path.join(starterDir, '.claude');
+    fs.mkdirSync(destDir, { recursive: true });
+    const ownerContent = '{"permissions":{"allow":["Bash(ls:*)"]}}\n';
+    const destPath = path.join(destDir, 'settings.json');
+    fs.writeFileSync(destPath, ownerContent);
+
+    const result = copyStarterSettingsToWorktree(starterDir, FRAMEWORK_REPO_ROOT);
+
+    expect(result).toEqual({ action: 'skipped', destPath });
+    expect(fs.readFileSync(destPath, 'utf-8')).toBe(ownerContent);
   });
 });

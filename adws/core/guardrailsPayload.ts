@@ -12,7 +12,12 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { AGENTS_STATE_DIR } from './environment';
 
-const TEMPLATE_RELATIVE_PATH = path.join('templates', 'claude-settings-starter.json');
+/**
+ * SSOT relative path to the canonical deny-only starter guardrails template, consumed by
+ * both `buildGuardrailsSettings` here (spawn-time `--settings` payload, hooks added) and
+ * `/adw_init`'s target-repo starter-settings copy (`worktreeSetup.ts`, verbatim, no hooks).
+ */
+export const STARTER_SETTINGS_TEMPLATE_RELATIVE_PATH = path.join('templates', 'claude-settings-starter.json');
 const HOOKS_RELATIVE_DIR = path.join('.claude', 'hooks');
 
 /** A single hook registration entry in Claude Code's `settings.json` hooks shape. */
@@ -57,7 +62,7 @@ function buildHookEntry(frameworkRepoRoot: string, spec: HookSpec): GuardrailsHo
 }
 
 function readDenyList(frameworkRepoRoot: string): readonly string[] {
-  const templatePath = path.join(frameworkRepoRoot, TEMPLATE_RELATIVE_PATH);
+  const templatePath = path.join(frameworkRepoRoot, STARTER_SETTINGS_TEMPLATE_RELATIVE_PATH);
   const raw = fs.readFileSync(templatePath, 'utf-8');
   const parsed = JSON.parse(raw) as { permissions?: { deny?: unknown } };
   const deny = parsed.permissions?.deny;
