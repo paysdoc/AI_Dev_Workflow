@@ -88,6 +88,7 @@ export async function executeReviewPhase(
     issue.body,
     scenarioProofPath || undefined,
     config.gitContext?.commandEnv(),
+    { selfHost: !repoContext, adwId },
   );
 
   const costUsd = reviewAgentResult.totalCostUsd || 0;
@@ -201,10 +202,11 @@ export async function executeReviewPatchCycle(
   );
 
   const subprocessEnv = gitCtx.commandEnv();
+  const launchContext = { selfHost: gitCtx.selfHost, adwId };
 
   for (const blocker of patchBlockers) {
     const result = await applyPatchBlocker(blocker, {
-      adwId, logsDir, specFile, worktreePath, issue, orchestratorStatePath, subprocessEnv,
+      adwId, logsDir, specFile, worktreePath, issue, orchestratorStatePath, subprocessEnv, launchContext,
     });
     costUsd += result.costUsd;
     modelUsage = mergeModelUsageMaps(modelUsage, result.modelUsage);
@@ -212,7 +214,7 @@ export async function executeReviewPatchCycle(
 
   if (refactorBlockers.length > 0) {
     const result = await applyRefactorBlockers(refactorBlockers, {
-      adwId, logsDir, worktreePath, issue, orchestratorStatePath, subprocessEnv,
+      adwId, logsDir, worktreePath, issue, orchestratorStatePath, subprocessEnv, launchContext,
     });
     costUsd += result.costUsd;
     modelUsage = mergeModelUsageMaps(modelUsage, result.modelUsage);
@@ -228,6 +230,7 @@ export async function executeReviewPatchCycle(
     worktreePath,
     issue.body,
     subprocessEnv,
+    launchContext,
   );
   gitCtx.pushBranch(branchName, worktreePath);
   log('Review patch: changes committed and pushed', 'success');

@@ -145,7 +145,8 @@ export async function runValidationAgent(
   scenarioGlob: string,
   logsDir: string,
   statePath?: string,
-  cwd?: string
+  cwd?: string,
+  launchContext?: { selfHost: boolean; adwId: string },
 ): Promise<AgentResult & { validationResult: ValidationResult }> {
   log(`Running validation agent for issue ${issueNumber}`, "info");
 
@@ -154,6 +155,7 @@ export async function runValidationAgent(
     logsDir,
     statePath,
     cwd,
+    launchContext,
   });
 
   return { ...result, validationResult: result.parsed };

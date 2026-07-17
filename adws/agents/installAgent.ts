@@ -31,6 +31,7 @@ export async function runInstallAgent(
   cwd?: string,
   issueBody?: string,
   subprocessEnv?: NodeJS.ProcessEnv,
+  launchContext?: { selfHost: boolean; adwId: string },
 ): Promise<AgentResult> {
   return runCommandAgent(installAgentConfig, {
     args: [String(issueNumber), adwId],
@@ -39,5 +40,6 @@ export async function runInstallAgent(
     statePath,
     cwd,
     subprocessEnv,
+    launchContext,
   });
 }

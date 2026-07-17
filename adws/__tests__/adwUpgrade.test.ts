@@ -405,7 +405,7 @@ describe('isPushRejectionError', () => {
 
 describe('parseAdwYml — malformed state flows through default path', () => {
   it('parseAdwYml returns { hitl: false } for malformed value', () => {
-    expect(parseAdwYml('hitl: maybe\n')).toEqual({ hitl: false, unitTests: true });
+    expect(parseAdwYml('hitl: maybe\n')).toEqual({ hitl: false, unitTests: true, guardrails: false });
   });
 });
 

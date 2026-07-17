@@ -34,6 +34,7 @@ export async function runPatchAgent(
   cwd?: string,
   issueBody?: string,
   subprocessEnv?: NodeJS.ProcessEnv,
+  launchContext?: { selfHost: boolean; adwId: string },
 ): Promise<AgentResult> {
   const reviewChangeRequest = `Issue #${reviewIssue.reviewIssueNumber}: ${reviewIssue.issueDescription}\nResolution: ${reviewIssue.issueResolution}`;
   const args = [adwId, reviewChangeRequest, specPath ?? '', 'patchAgent'];
@@ -46,5 +47,5 @@ export async function runPatchAgent(
   log(`  Resolution: ${reviewIssue.issueResolution}`, 'info');
   log(`  Model: ${model}`, 'info');
 
-  return runClaudeAgentWithCommand('/patch', args, `Patch: ${reviewIssue.reviewIssueNumber}`, outputFile, model, effort, onProgress, statePath, cwd, undefined, undefined, subprocessEnv);
+  return runClaudeAgentWithCommand('/patch', args, `Patch: ${reviewIssue.reviewIssueNumber}`, outputFile, model, effort, onProgress, statePath, cwd, undefined, undefined, subprocessEnv, launchContext);
 }

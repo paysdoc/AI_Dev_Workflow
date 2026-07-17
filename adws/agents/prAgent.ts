@@ -95,6 +95,7 @@ export async function runPullRequestAgent(
   repoName?: string,
   resolvedDefaultBranch?: string,
   subprocessEnv?: NodeJS.ProcessEnv,
+  launchContext?: { selfHost: boolean; adwId: string },
 ): Promise<AgentResult & { prContent: PrContent }> {
   const defaultBranch = resolvedDefaultBranch ?? '';
   const args = [branchName, issueJson, planFile, adwId, defaultBranch, repoOwner ?? '', repoName ?? ''];
@@ -106,6 +107,7 @@ export async function runPullRequestAgent(
     statePath,
     cwd,
     subprocessEnv,
+    launchContext,
   });
   return { ...result, prContent: result.parsed };
 }

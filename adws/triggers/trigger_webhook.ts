@@ -15,7 +15,7 @@
 // implicit contract at the entrypoint (issue #647, fix #3 — defensive only).
 import '../core/environment';
 import * as http from 'http';
-import { log, PullRequestWebhookPayload, allocateRandomPort, isPortAvailable, getTargetRepoWorkspacePath, assertCwdIsRepoRoot } from '../core';
+import { log, PullRequestWebhookPayload, allocateRandomPort, isPortAvailable, getTargetRepoWorkspacePath, assertCwdIsRepoRoot, getGuardrailsProbeVerdict, type ProbeVerdict } from '../core';
 import { isActionableComment, isCancelComment, isRetryComment, isAdwRunningForIssue, truncateText, getRepoInfo, fetchIssueCommentsRest } from '../github';
 import { handleCancelDirective } from './cancelHandler';
 import { handleRetryDirective } from './retryHandler';
@@ -68,27 +68,44 @@ function jsonResponse(res: http.ServerResponse, statusCode: number, body: Record
 
 interface HealthCheckResult { success: boolean; timestamp: string; checks: Record<string, CheckResult>; warnings: string[]; errors: string[] }
 
+/**
+ * Maps a guardrails startup probe verdict to a `CheckResult`. A failed probe is
+ * reported as a `warning`, not an `error` — the probe is fail-open by design
+ * (see guardrailsGate.ts), so a failure means target-repo runs proceed WITHOUT
+ * injected guardrails, not that the service itself is unhealthy.
+ */
+function guardrailsProbeCheckResult(verdict: ProbeVerdict): CheckResult {
+  if (verdict.ok) return { success: true, details: {} };
+  return {
+    success: true,
+    warning: `Guardrails probe failed (fail-open — target-repo runs proceed without injected guardrails): ${verdict.detail ?? 'unknown reason'}`,
+    details: {},
+  };
+}
 
 const server = http.createServer((req, res) => {
   if (req.url === '/health' && req.method === 'GET') {
-    const result: HealthCheckResult = { success: true, timestamp: new Date().toISOString(), checks: {}, warnings: [], errors: [] };
-    // Construct a self-host GitContext for git/gh probes; degrade gracefully on failure.
-    let healthCtx: import('../gitContext').GitContext | undefined;
-    try {
-      healthCtx = gitContextForRepo(readLocalRepoInfo(), { selfHost: true });
-    } catch { /* token unavailable — context-dependent checks get a failure result */ }
-    const ctxFailure: CheckResult = { success: false, error: 'GitContext construction failed', details: {} };
-    result.checks.environmentVariables = checkEnvironmentVariables();
-    result.checks.gitRepository = healthCtx ? checkGitRepository(healthCtx) : ctxFailure;
-    result.checks.claudeCodeCLI = checkClaudeCodeCLI();
-    result.checks.gitHubCLI = healthCtx ? checkGitHubCLI(healthCtx) : ctxFailure;
-    result.checks.directoryStructure = checkDirectoryStructure();
-    for (const [name, check] of Object.entries(result.checks)) {
-      if (check.error) result.errors.push(`${name}: ${check.error}`);
-      if (check.warning) result.warnings.push(`${name}: ${check.warning}`);
-      if (!check.success) result.success = false;
-    }
-    jsonResponse(res, 200, result as unknown as Record<string, unknown>);
+    void (async () => {
+      const result: HealthCheckResult = { success: true, timestamp: new Date().toISOString(), checks: {}, warnings: [], errors: [] };
+      // Construct a self-host GitContext for git/gh probes; degrade gracefully on failure.
+      let healthCtx: import('../gitContext').GitContext | undefined;
+      try {
+        healthCtx = gitContextForRepo(readLocalRepoInfo(), { selfHost: true });
+      } catch { /* token unavailable — context-dependent checks get a failure result */ }
+      const ctxFailure: CheckResult = { success: false, error: 'GitContext construction failed', details: {} };
+      result.checks.environmentVariables = checkEnvironmentVariables();
+      result.checks.gitRepository = healthCtx ? checkGitRepository(healthCtx) : ctxFailure;
+      result.checks.claudeCodeCLI = checkClaudeCodeCLI();
+      result.checks.gitHubCLI = healthCtx ? checkGitHubCLI(healthCtx) : ctxFailure;
+      result.checks.directoryStructure = checkDirectoryStructure();
+      result.checks.guardrailsProbe = guardrailsProbeCheckResult(await getGuardrailsProbeVerdict());
+      for (const [name, check] of Object.entries(result.checks)) {
+        if (check.error) result.errors.push(`${name}: ${check.error}`);
+        if (check.warning) result.warnings.push(`${name}: ${check.warning}`);
+        if (!check.success) result.success = false;
+      }
+      jsonResponse(res, 200, result as unknown as Record<string, unknown>);
+    })();
     return;
   }
   if (req.url !== '/webhook') { jsonResponse(res, 404, { error: 'not found' }); return; }

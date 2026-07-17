@@ -23,7 +23,7 @@ import type { WorkflowConfig } from './workflowInit';
 export async function executeStepDefPhase(
   config: WorkflowConfig,
 ): Promise<{ costUsd: number; modelUsage: ModelUsageMap; phaseCostRecords: PhaseCostRecord[] }> {
-  const { orchestratorStatePath, adwId, issueNumber, issue, worktreePath, logsDir } = config;
+  const { orchestratorStatePath, adwId, issueNumber, issue, worktreePath, logsDir, repoContext } = config;
   const phaseStartTime = Date.now();
 
   let costUsd = 0;
@@ -41,7 +41,7 @@ export async function executeStepDefPhase(
       execution: AgentStateManager.createExecutionState('running'),
     });
 
-    const result = await runStepDefAgent(issueNumber, adwId, logsDir, stepDefAgentStatePath, worktreePath, issue.body, config.installContext);
+    const result = await runStepDefAgent(issueNumber, adwId, logsDir, stepDefAgentStatePath, worktreePath, issue.body, config.installContext, { selfHost: !repoContext, adwId });
 
     costUsd = result.totalCostUsd || 0;
     if (result.modelUsage) modelUsage = result.modelUsage;

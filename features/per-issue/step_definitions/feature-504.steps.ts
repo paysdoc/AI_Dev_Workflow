@@ -68,6 +68,7 @@ function makeEmptyParserState(): JsonlParserState {
     serverErrorDetected: false,
     overloadedErrorDetected: false,
     compactionDetected: false,
+    deniedToolCallCount: 0,
   };
 }
 

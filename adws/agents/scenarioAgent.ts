@@ -32,6 +32,7 @@ export async function runScenarioAgent(
   cwd?: string,
   adwId?: string,
   contextPreamble?: string,
+  launchContext?: { selfHost: boolean; adwId: string },
 ): Promise<AgentResult> {
   const humanComments = issue.comments.filter(c => !isAdwComment(c.body));
   const latestActionableContent = [...issue.comments]
@@ -61,5 +62,6 @@ export async function runScenarioAgent(
     statePath,
     cwd,
     contextPreamble,
+    launchContext,
   });
 }
