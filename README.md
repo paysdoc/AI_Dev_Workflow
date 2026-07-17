@@ -15,6 +15,7 @@ ADW is an agentic SDLC framework: it turns issues on GitHub, GitLab, or Jira int
 - **HITL-gated auto-merge** — every cron tick re-evaluates `(no hitl label) OR (PR approved)`; merge is deferred while the gate is closed, and `## Cancel` is the scorched-earth manual override.
 - **Retry and Cancel directives** — `## Retry` resets a `merge_blocked` workflow to `awaiting_merge` (state-only, no worktree teardown); `## Cancel` kills the orchestrator, removes the worktree, and re-queues the issue.
 - **GitContext repo-context authority** — `adws/gitContext/` is a deep module that owns every git and `gh` interaction; it is constructed once at each process's launch boundary with mandatory owner/repo/token/gitIdentity fields (no optional cwd fallback), resolves the correct base path in its constructor (self-host → framework root; target → target-repos workspace), and applies auth per spawned-command environment rather than by mutating a process-global, eliminating the ~13-episode wrong-repo and GH_TOKEN-bleed class of bugs.
+- **CI-enforced git/gh guardrail** — `checkGitGhGuard.ts` (`bun run lint:git-guard`, wired into `.github/workflows/git-cli-guard.yml`) scans every `.ts`/`.tsx` source file for direct `git`/`gh` shell-outs and fails the build if any bypass the `GitContext` chokepoint; `adws/gitContext` itself is the sole structurally-exempted package.
 - **Multi-provider abstraction** — pluggable `IssueTracker` and `CodeHost` interfaces (`RepoContext`) with GitHub, GitLab, and Jira issue trackers and GitHub/GitLab code hosts.
 - **Project board automation** — `BoardManager` provider drives GitHub Projects V2 column transitions as a workflow progresses.
 - **Two automation triggers** — `trigger_cron.ts` polls every 20 s; `trigger_webhook.ts` receives HMAC-signed GitHub webhooks for instant pickup, with optional Cloudflare tunnel lifecycle.
@@ -470,6 +471,7 @@ adws/                   # ADW workflow system
 │   │   ├── claudeAgent.test.ts
 │   │   ├── gitAgent.test.ts
 │   │   ├── refactorAgent.test.ts
+│   │   ├── rotAnalysisAgent.test.ts
 │   │   └── scenarioFidelityAgent.test.ts
 │   ├── agentProcessHandler.ts  # Process spawning handler
 │   ├── alignmentAgent.ts  # Single-pass alignment agent
@@ -633,6 +635,8 @@ adws/                   # ADW workflow system
 │   │   ├── repoWorkspace.test.ts
 │   │   └── tokenResolver.test.ts
 │   ├── commands/       # Pure command-string builders (no I/O) — one file per concern
+│   │   ├── __tests__/  # Vitest unit tests
+│   │   │   └── issueCommands.test.ts
 │   │   ├── boardCommands.ts    # GraphQL query strings for Projects V2 board operations
 │   │   ├── issueCommands.ts    # gh CLI command strings for issue read/write operations
 │   │   ├── labelCommands.ts    # gh CLI command strings for label create/apply operations
@@ -717,7 +721,9 @@ adws/                   # ADW workflow system
 │   │   ├── orchestratorLock.test.ts
 │   │   ├── planPhase.test.ts
 │   │   ├── progressGate.test.ts
+│   │   ├── promotionRotAdvisory.test.ts
 │   │   ├── reviewPhase.test.ts
+│   │   ├── rotAdvisoryFormat.test.ts
 │   │   ├── scenarioTestFixLoop.test.ts
 │   │   ├── scenarioTestPhase.test.ts
 │   │   ├── upgradeGate.test.ts
@@ -812,6 +818,7 @@ adws/                   # ADW workflow system
 │   │   ├── mergeDispatchGate.test.ts
 │   │   ├── pauseQueueScanner.test.ts
 │   │   ├── perIssueScenarioSweep.test.ts
+│   │   ├── perIssueSweepPersist.test.ts
 │   │   ├── regionOverlap.test.ts
 │   │   ├── regionOverlapSignals.test.ts
 │   │   ├── retryHandler.test.ts
@@ -834,6 +841,7 @@ adws/                   # ADW workflow system
 │   ├── cronLabelEligibility.ts  # Pure label-recovery decision for cron backlog sweeper — spawns adw:*-labelled issues with no state
 │   ├── devServerJanitor.ts  # Janitor probe that kills stale dev server processes in target repo worktrees
 │   ├── perIssueScenarioSweep.ts  # Cron probe: deletes features/per-issue/feature-{N}.feature 14 days after the issue's PR merges
+│   ├── perIssueSweepPersist.ts  # Persists a sweep removal batch via a dedicated worktree/branch/immediately-merged PR
 │   ├── cronProcessGuard.ts  # Duplicate cron process prevention
 │   ├── cronRepoResolver.ts  # Cron repo identity resolution (testable, extracted from trigger_cron)
 │   ├── cronStageResolver.ts  # Cron stage resolution from top-level state file (testable)
@@ -866,6 +874,11 @@ adws/                   # ADW workflow system
 │   └── index.ts
 ├── promotion/          # Scenario promotion scoring module
 │   ├── __tests__/      # Vitest unit tests
+│   │   ├── promotionScorer.test.ts
+│   │   ├── promotionStatsLoader.test.ts
+│   │   ├── promotionThreshold.test.ts
+│   │   ├── scenarioParser.test.ts
+│   │   └── vocabularyParser.test.ts
 │   ├── index.ts        # Barrel re-exporting the scorer/threshold/parser/statsLoader surface
 │   ├── promotionScorer.ts     # Scores scenarios against the vocabulary registry
 │   ├── promotionStatsLoader.ts  # Loads and aggregates historical promotion statistics
@@ -981,16 +994,20 @@ features/               # BDD feature files (Gherkin .feature)
 │   └── step_definitions/  # Per-issue step definition files
 ├── regression/         # Regression scenario vocabulary, typed World, and surface/smoke scenarios
 │   ├── hashing/        # Regression scenarios covering framework content hashing (#537)
+│   ├── multilang/      # Regression scenario covering the Python fixture repo end-to-end
 │   ├── smoke/          # High-level smoke scenarios (cron spawn, SDLC, cancel, chore, pause)
 │   ├── step_definitions/  # Typed Given/When/Then steps and RegressionWorld for regression scenarios
 │   ├── support/        # Cucumber hooks for @regression suite
 │   ├── surfaces/       # Per-phase surface scenarios (row-01 through row-35 covering every orchestrator phase)
+│   ├── upgrade/        # Regression scenario covering the framework self-upgrade path (#729)
 │   └── vocabulary.md   # Canonical BDD phrase registry with rot-detection rubric for @regression authoring
 ├── step_definitions/   # Top-level step definitions (webhook integration scenario)
 ├── support/            # Top-level Cucumber support (tsx registration)
 └── webhook_ensure_cron_on_every_event.feature  # Integration scenario: cron fires on every webhook event (issue #501)
 specs/                  # Generated implementation specs
 ├── issue-*.md          # Per-issue plan specs committed by the plan agent
+├── ADW_PYTHON_SUPPORT_RECOMMENDATION.md  # Standalone recommendation doc (Python stack support)
+├── prd-cost-module-revamp.md  # Standalone PRD draft (cost module revamp)
 ├── patch/              # Generated patch specs
 └── prd/                # Product requirement documents
 .env.sample             # Environment variable template
