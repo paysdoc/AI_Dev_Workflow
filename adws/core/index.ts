@@ -254,7 +254,7 @@ export { isUpgradeFailureComment, countUpgradeFailureComments, UPGRADE_FAILURE_S
 export type { IssueCommentRecord } from './upgradeFailureCap';
 
 // Guardrails injection (issue #762) — payload builder, gate, and startup probe
-export { buildGuardrailsSettings, serializeGuardrailsSettings, resolveHookLogDir } from './guardrailsPayload';
+export { buildGuardrailsSettings, serializeGuardrailsSettings, resolveHookLogDir, STARTER_SETTINGS_TEMPLATE_RELATIVE_PATH } from './guardrailsPayload';
 export type { GuardrailsSettings, GuardrailsHookEntry } from './guardrailsPayload';
 export { resolveGuardrailsDecision, resolveGuardrailsDecisionForSpawn, productionGuardrailsGateDeps, setGuardrailsGateDepsForTesting, resetGuardrailsAlertMemo } from './guardrailsGate';
 export type { GuardrailsDecision, GuardrailsGateInput, GuardrailsGateDeps } from './guardrailsGate';

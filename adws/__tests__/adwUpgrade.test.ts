@@ -30,6 +30,7 @@ function makeDeps(overrides: Partial<UpgradeDeps> = {}): UpgradeDeps {
     runInitCommand: vi.fn().mockResolvedValue({ success: true }),
     copyInitCommandToWorktree: vi.fn(),
     verifyAdwRegen: vi.fn().mockReturnValue({ ok: true, missing: [] }),
+    copyStarterSettings: vi.fn().mockReturnValue({ action: 'copied', destPath: '/worktrees/adw-upgrade-a1b2c3d4e5f6/.claude/settings.json' }),
     writeAdwVersion: vi.fn(),
     commitChanges: vi.fn().mockReturnValue(true),
     pushBranch: vi.fn(),
@@ -660,6 +661,65 @@ describe('executeUpgrade — copy-before-init ordering (E3)', () => {
       expect.any(String),
       FRAMEWORK_ROOT,
     );
+  });
+});
+
+// ── Starter guardrails settings copy (#763) ───────────────────────────────────
+
+describe('executeUpgrade — starter guardrails settings copy (#763)', () => {
+  it('calls copyStarterSettings exactly once with (worktreePath, frameworkRepoRoot)', async () => {
+    const deps = makeDeps();
+    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    expect(deps.copyStarterSettings).toHaveBeenCalledTimes(1);
+    expect(deps.copyStarterSettings).toHaveBeenCalledWith(expect.any(String), FRAMEWORK_ROOT);
+  });
+
+  it('calls copyStarterSettings before commitChanges', async () => {
+    const callOrder: string[] = [];
+    const deps = makeDeps({
+      copyStarterSettings: vi.fn().mockImplementation(() => {
+        callOrder.push('copyStarterSettings');
+        return { action: 'copied', destPath: '/worktrees/x/.claude/settings.json' };
+      }),
+      commitChanges: vi.fn().mockImplementation(() => { callOrder.push('commitChanges'); return true; }),
+    });
+
+    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    expect(callOrder.indexOf('copyStarterSettings')).toBeLessThan(callOrder.indexOf('commitChanges'));
+  });
+
+  it('commitChanges is still called with excludePaths for only adw_init.md — the starter settings file is not excluded', async () => {
+    const deps = makeDeps();
+    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    expect(deps.commitChanges).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+      { excludePaths: ['.claude/commands/adw_init.md'] },
+    );
+  });
+
+  it('a skipped starter-settings result still proceeds to commit/push/PR (idempotency does not abort the run)', async () => {
+    const deps = makeDeps({
+      copyStarterSettings: vi.fn().mockReturnValue({ action: 'skipped', destPath: '/worktrees/x/.claude/settings.json' }),
+    });
+    const result = await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    expect(result.outcome).toBe('completed');
+    expect(result.reason).toBe('pr_merged');
+    expect(deps.commitChanges).toHaveBeenCalledTimes(1);
+    expect(deps.createPullRequest).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not call copyStarterSettings when the verifyAdwRegen gate fails (regen_incomplete)', async () => {
+    const deps = makeDeps({
+      verifyAdwRegen: vi.fn().mockReturnValue({ ok: false, missing: ['commands.md'] }),
+    });
+    await executeUpgrade(541, 'test-id', REPO_INFO, BASE_REPO, FRAMEWORK_ROOT, deps);
+
+    expect(deps.copyStarterSettings).not.toHaveBeenCalled();
   });
 });
 
