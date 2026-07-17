@@ -98,3 +98,24 @@ export const productionGuardrailsGateDeps: GuardrailsGateDeps = {
   readAdwYml: readAdwYmlConfig,
   getEnv: (name: string) => process.env[name],
 };
+
+let testDepsOverride: GuardrailsGateDeps | null = null;
+
+/**
+ * Test-only seam: overrides the deps `resolveGuardrailsDecisionForSpawn` uses,
+ * so BDD/integration tests can inject a fake probe verdict and a capturing
+ * Slack notifier without ever spawning the real (paid, network-bound) probe.
+ * Pass `null` to restore production deps.
+ */
+export function setGuardrailsGateDepsForTesting(deps: GuardrailsGateDeps | null): void {
+  testDepsOverride = deps;
+}
+
+/**
+ * The seam `claudeAgent.ts` actually calls: resolves using the current deps —
+ * production by default, or the test override when {@link setGuardrailsGateDepsForTesting}
+ * has set one.
+ */
+export async function resolveGuardrailsDecisionForSpawn(input: GuardrailsGateInput): Promise<GuardrailsDecision> {
+  return resolveGuardrailsDecision(input, testDepsOverride ?? productionGuardrailsGateDeps);
+}

@@ -17,8 +17,7 @@ vi.mock('../../core', () => ({
   resolveClaudeCodePath: vi.fn().mockReturnValue('/usr/bin/claude'),
   clearClaudeCodePathCache: vi.fn(),
   // Default: no injection — matches today's behaviour so pre-existing tests are unaffected.
-  resolveGuardrailsDecision: vi.fn().mockResolvedValue({ inject: false }),
-  productionGuardrailsGateDeps: {},
+  resolveGuardrailsDecisionForSpawn: vi.fn().mockResolvedValue({ inject: false }),
 }));
 
 vi.mock('../../vcs/worktreeOperations', () => ({ getMainRepoPath: vi.fn() }));
@@ -42,7 +41,7 @@ vi.mock('../../core/agentTimeouts', () => ({
 
 import { spawn, execSync } from 'child_process';
 import { killProcessGroup } from '../../core/processKill';
-import { getSafeSubprocessEnv, resolveGuardrailsDecision } from '../../core';
+import { getSafeSubprocessEnv, resolveGuardrailsDecisionForSpawn } from '../../core';
 import { handleAgentProcess } from '../agentProcessHandler';
 import { runClaudeAgentWithCommand } from '../claudeAgent';
 
@@ -51,7 +50,7 @@ const mockExecSync = vi.mocked(execSync);
 const mockHandleAgentProcess = vi.mocked(handleAgentProcess);
 const mockKillProcessGroup = vi.mocked(killProcessGroup);
 const mockGetSafeSubprocessEnv = vi.mocked(getSafeSubprocessEnv);
-const mockResolveGuardrailsDecision = vi.mocked(resolveGuardrailsDecision);
+const mockResolveGuardrailsDecision = vi.mocked(resolveGuardrailsDecisionForSpawn);
 
 const BASE_RESULT = {
   success: true,
@@ -316,7 +315,6 @@ describe('runClaudeAgentWithCommand — guardrails --settings injection (#762)',
 
     expect(mockResolveGuardrailsDecision).toHaveBeenCalledWith(
       { selfHost: false, worktreePath: '/worktrees/target-repo', adwId: 'adw-guard-1' },
-      expect.anything(),
     );
   });
 
@@ -328,7 +326,6 @@ describe('runClaudeAgentWithCommand — guardrails --settings injection (#762)',
 
     expect(mockResolveGuardrailsDecision).toHaveBeenCalledWith(
       { selfHost: true, worktreePath: process.cwd(), adwId: '' },
-      expect.anything(),
     );
   });
 

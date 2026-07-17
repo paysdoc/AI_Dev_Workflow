@@ -4,7 +4,7 @@
 import { spawn, execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
-import { log, AgentStateManager, getSafeSubprocessEnv, resolveClaudeCodePath, clearClaudeCodePathCache, resolveGuardrailsDecision, productionGuardrailsGateDeps } from '../core';
+import { log, AgentStateManager, getSafeSubprocessEnv, resolveClaudeCodePath, clearClaudeCodePathCache, resolveGuardrailsDecisionForSpawn } from '../core';
 import { getMainRepoPath } from '../vcs/worktreeOperations';
 import type { ProgressCallback } from '../core/claudeStreamParser';
 import type { AgentResult } from '../types/agentTypes';
@@ -136,9 +136,8 @@ export async function runClaudeAgentWithCommand(
   // Guardrails --settings injection (issue #762) — target-repo runs only. An absent
   // launchContext defaults selfHost to true, so an un-threaded caller never injects
   // (fail-safe = today's behaviour).
-  const guardrailsDecision = await resolveGuardrailsDecision(
+  const guardrailsDecision = await resolveGuardrailsDecisionForSpawn(
     { selfHost: launchContext?.selfHost ?? true, worktreePath: resolvedCwd, adwId: launchContext?.adwId ?? '' },
-    productionGuardrailsGateDeps,
   );
   if (guardrailsDecision.inject) {
     cliArgs.unshift('--settings', guardrailsDecision.settingsJson);
