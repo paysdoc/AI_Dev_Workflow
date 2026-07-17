@@ -102,7 +102,7 @@ export function extractInstallContext(jsonlPath: string): string {
 export async function executeInstallPhase(
   config: WorkflowConfig,
 ): Promise<{ costUsd: number; modelUsage: ModelUsageMap; phaseCostRecords: PhaseCostRecord[] }> {
-  const { orchestratorStatePath, adwId, issueNumber, issue, worktreePath, logsDir } = config;
+  const { orchestratorStatePath, adwId, issueNumber, issue, worktreePath, logsDir, repoContext } = config;
   const phaseStartTime = Date.now();
 
   let costUsd = 0;
@@ -120,7 +120,7 @@ export async function executeInstallPhase(
       execution: AgentStateManager.createExecutionState('running'),
     });
 
-    const result = await runInstallAgent(issueNumber, adwId, logsDir, installAgentStatePath, worktreePath, issue.body);
+    const result = await runInstallAgent(issueNumber, adwId, logsDir, installAgentStatePath, worktreePath, issue.body, undefined, { selfHost: !repoContext, adwId });
 
     costUsd = result.totalCostUsd || 0;
     if (result.modelUsage) modelUsage = result.modelUsage;

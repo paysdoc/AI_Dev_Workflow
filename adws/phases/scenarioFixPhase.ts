@@ -93,6 +93,7 @@ export async function executeScenarioFixPhase(
       worktreePath,
       applicationUrl,
       issue.body,
+      { selfHost: gitCtx.selfHost, adwId },
     );
 
     costUsd += resolveResult.totalCostUsd || 0;
@@ -128,6 +129,7 @@ export async function executeScenarioFixPhase(
     worktreePath,
     issue.body,
     gitCtx.commandEnv(),
+    { selfHost: gitCtx.selfHost, adwId },
   );
   gitCtx.pushBranch(branchName, worktreePath);
   log('Scenario fix: changes committed and pushed', 'success');

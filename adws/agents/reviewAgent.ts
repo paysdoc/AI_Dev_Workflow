@@ -121,6 +121,7 @@ export async function runReviewAgent(
   issueBody?: string,
   scenarioProofPath?: string,
   subprocessEnv?: NodeJS.ProcessEnv,
+  launchContext?: { selfHost: boolean; adwId: string },
 ): Promise<ReviewAgentResult> {
   const args = formatReviewArgs(adwId, specFile, 'Review', scenarioProofPath);
 
@@ -139,6 +140,7 @@ export async function runReviewAgent(
     statePath,
     cwd,
     subprocessEnv,
+    launchContext,
   });
 
   const reviewResult = result.parsed;

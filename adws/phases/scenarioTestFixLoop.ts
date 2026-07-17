@@ -48,7 +48,7 @@ export async function runScenarioTestFixLoop(
   opts?: { maxAttempts?: number },
 ): Promise<ScenarioTestFixLoopResult> {
   const maxAttempts = opts?.maxAttempts ?? MAX_TEST_RETRY_ATTEMPTS;
-  const { issueNumber, worktreePath, adwId, logsDir, orchestratorStatePath } = config;
+  const { issueNumber, worktreePath, adwId, logsDir, orchestratorStatePath, repoContext } = config;
 
   let scenarioProof: ScenarioProofResult | undefined;
   let scenarioProofPath = '';
@@ -90,6 +90,7 @@ export async function runScenarioTestFixLoop(
             logsDir,
             fidelityStatePath,
             worktreePath,
+            { selfHost: !repoContext, adwId },
           );
           tracker.accumulate({ costUsd: fidelityResult.totalCostUsd ?? 0, modelUsage: {} });
           postResolveAligned = fidelityResult.fidelityResult.aligned;

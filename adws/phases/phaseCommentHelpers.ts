@@ -50,16 +50,22 @@ export function postIssueStageComment(
 /**
  * Formats and posts a PR review workflow comment via the RepoContext code host.
  * Errors are caught and logged to prevent workflow crashes from comment failures.
+ *
+ * @param deniedToolCallCount - Optional per-run permission-denied tool-call count
+ *   (issue #762). Appended as a denial notice when greater than 0; omitted otherwise.
  */
 export function postPRStageComment(
   repoContext: RepoContext,
   prNumber: number,
   stage: PRReviewWorkflowStage,
   ctx: PRReviewWorkflowContext,
+  deniedToolCallCount?: number,
 ): void {
   try {
     const comment = formatPRReviewWorkflowComment(stage, ctx);
-    repoContext.codeHost.commentOnPullRequest(prNumber, comment);
+    const denialNotice = deniedToolCallCount !== undefined ? formatDenialNotice(deniedToolCallCount) : null;
+    const fullComment = denialNotice ? `${comment}\n\n${denialNotice}` : comment;
+    repoContext.codeHost.commentOnPullRequest(prNumber, fullComment);
   } catch (error) {
     log(`Failed to post PR workflow comment for stage '${stage}': ${error}`, 'error');
   }

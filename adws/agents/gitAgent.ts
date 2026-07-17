@@ -50,6 +50,7 @@ export async function runGenerateBranchNameAgent(
   issue: GitHubIssue,
   logsDir: string,
   statePath?: string,
+  launchContext?: { selfHost: boolean; adwId: string },
 ): Promise<AgentResult & { branchName: string }> {
   const args = formatBranchNameArgs(issueType, issue);
   const outputFile = path.join(logsDir, 'branchName-agent.jsonl');
@@ -67,6 +68,11 @@ export async function runGenerateBranchNameAgent(
     getEffortForCommand('/generate_branch_name', issue.body),
     undefined,
     statePath,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    launchContext,
   );
 
   if (!result.success || result.authExpired) {
@@ -170,6 +176,7 @@ export async function runCommitAgent(
   cwd?: string,
   issueBody?: string,
   subprocessEnv?: NodeJS.ProcessEnv,
+  launchContext?: { selfHost: boolean; adwId: string },
 ): Promise<AgentResult & { commitMessage: string }> {
   const args = formatCommitArgs(agentName, issueClass, issueContext);
   const outputFile = path.join(logsDir, 'commit-agent.jsonl');
@@ -192,6 +199,7 @@ export async function runCommitAgent(
     undefined,
     undefined,
     subprocessEnv,
+    launchContext,
   );
 
   if (!result.success) {

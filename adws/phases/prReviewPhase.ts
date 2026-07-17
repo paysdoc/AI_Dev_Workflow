@@ -178,6 +178,7 @@ export async function initializePRReviewWorkflow(prNumber: number, adwId: string
 export async function executePRReviewPlanPhase(config: PRReviewWorkflowConfig): Promise<{ planOutput: string; costUsd: number; modelUsage: ModelUsageMap; phaseCostRecords: PhaseCostRecord[] }> {
   const { prNumber, prDetails, unaddressedComments, ctx } = config;
   const { issueNumber, adwId, worktreePath, logsDir, orchestratorStatePath, repoContext } = config.base;
+  const launchContext = { selfHost: !repoContext, adwId };
   const phaseStartTime = Date.now();
   let existingPlanContent = '';
   if (issueNumber) {
@@ -210,7 +211,7 @@ export async function executePRReviewPlanPhase(config: PRReviewWorkflowConfig): 
     metadata: { prNumber, reviewComments: unaddressedComments.length },
   });
 
-  const planResult = await runPrReviewPlanAgent(prDetails, unaddressedComments, existingPlanContent, logsDir, planAgentStatePath, worktreePath, prDetails.body, config.base.installContext);
+  const planResult = await runPrReviewPlanAgent(prDetails, unaddressedComments, existingPlanContent, logsDir, planAgentStatePath, worktreePath, prDetails.body, config.base.installContext, launchContext);
 
   if (!planResult.success) {
     AgentStateManager.writeState(planAgentStatePath, {
@@ -257,6 +258,7 @@ export async function executePRReviewPlanPhase(config: PRReviewWorkflowConfig): 
 export async function executePRReviewBuildPhase(config: PRReviewWorkflowConfig, planOutput: string): Promise<{ costUsd: number; modelUsage: ModelUsageMap; phaseCostRecords: PhaseCostRecord[] }> {
   const { prNumber, prDetails, unaddressedComments, ctx } = config;
   const { issueNumber, adwId, worktreePath, logsDir, orchestratorStatePath, repoContext } = config.base;
+  const launchContext = { selfHost: !repoContext, adwId };
   const phaseStartTime = Date.now();
   if (repoContext) {
     postPRStageComment(repoContext, prNumber, 'pr_review_implementing', ctx);
@@ -280,7 +282,7 @@ export async function executePRReviewBuildPhase(config: PRReviewWorkflowConfig, 
     }
   };
 
-  const buildResult = await runPrReviewBuildAgent(prDetails, planOutput, logsDir, buildProgressCallback, buildAgentStatePath, worktreePath, prDetails.body, config.base.gitContext?.commandEnv());
+  const buildResult = await runPrReviewBuildAgent(prDetails, planOutput, logsDir, buildProgressCallback, buildAgentStatePath, worktreePath, prDetails.body, config.base.gitContext?.commandEnv(), launchContext);
 
   if (!buildResult.success) {
     AgentStateManager.writeState(buildAgentStatePath, {
@@ -335,7 +337,7 @@ export async function executePRReviewCommitPushPhase(config: PRReviewWorkflowCon
     postPRStageComment(repoContext, prNumber, 'pr_review_committing', ctx);
   }
   const issueType = inferIssueTypeFromBranch(prDetails.headBranch);
-  const commitResult = await runCommitAgent(OrchestratorId.PrReview, issueType, JSON.stringify(prDetails), logsDir, undefined, worktreePath, prDetails.body, gitCtx.commandEnv());
+  const commitResult = await runCommitAgent(OrchestratorId.PrReview, issueType, JSON.stringify(prDetails), logsDir, undefined, worktreePath, prDetails.body, gitCtx.commandEnv(), { selfHost: gitCtx.selfHost, adwId });
 
   gitCtx.pushBranch(prDetails.headBranch, worktreePath);
   if (repoContext) {

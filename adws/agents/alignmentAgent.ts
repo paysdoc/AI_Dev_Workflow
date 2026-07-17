@@ -114,13 +114,15 @@ export async function runAlignmentAgent(
   issueJson: string,
   logsDir: string,
   statePath?: string,
-  cwd?: string
+  cwd?: string,
+  launchContext?: { selfHost: boolean; adwId: string },
 ): Promise<AgentResult & { alignmentResult: AlignmentResult }> {
   const result = await runCommandAgent(alignmentAgentConfig, {
     args: formatAlignmentArgs(adwId, issueNumber, planFilePath, worktreePath, issueJson),
     logsDir,
     statePath,
     cwd,
+    launchContext,
   });
 
   return { ...result, alignmentResult: result.parsed };

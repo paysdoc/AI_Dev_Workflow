@@ -64,12 +64,14 @@ export async function runDependencyExtractionAgent(
   logsDir: string,
   statePath?: string,
   cwd?: string,
+  launchContext?: { selfHost: boolean; adwId: string },
 ): Promise<AgentResult & { dependencies: number[] }> {
   const result = await runCommandAgent(dependencyExtractionAgentConfig, {
     args: issueBody,
     logsDir,
     statePath,
     cwd,
+    launchContext,
   });
   return { ...result, dependencies: result.parsed };
 }

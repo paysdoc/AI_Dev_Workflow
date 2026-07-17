@@ -25,7 +25,7 @@ import type { WorkflowConfig } from './workflowInit';
 export async function executeScenarioPhase(
   config: WorkflowConfig,
 ): Promise<{ costUsd: number; modelUsage: ModelUsageMap; phaseCostRecords: PhaseCostRecord[] }> {
-  const { recoveryState, orchestratorStatePath, adwId, issueNumber, issue, worktreePath, logsDir } = config;
+  const { recoveryState, orchestratorStatePath, adwId, issueNumber, issue, worktreePath, logsDir, repoContext } = config;
 
   // Promotion issues must never author scenarios: a junk feature-<promotionIssueN>.feature
   // would redden the run and become its own future promotion candidate. See PRD user story 11.
@@ -57,7 +57,7 @@ export async function executeScenarioPhase(
       execution: AgentStateManager.createExecutionState('running'),
     });
 
-    const result = await runScenarioAgent(issue, logsDir, scenarioAgentStatePath, worktreePath, adwId, config.installContext);
+    const result = await runScenarioAgent(issue, logsDir, scenarioAgentStatePath, worktreePath, adwId, config.installContext, { selfHost: !repoContext, adwId });
 
     costUsd = result.totalCostUsd || 0;
     if (result.modelUsage) modelUsage = result.modelUsage;

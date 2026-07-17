@@ -81,6 +81,7 @@ export async function runStepDefAgent(
   cwd?: string,
   issueBody?: string,
   contextPreamble?: string,
+  launchContext?: { selfHost: boolean; adwId: string },
 ): Promise<StepDefAgentResult> {
   const result = await runCommandAgent(stepDefAgentConfig, {
     args: [String(issueNumber), adwId],
@@ -90,6 +91,7 @@ export async function runStepDefAgent(
     cwd,
     contextPreamble,
     phaseName: 'step-def',
+    launchContext,
   });
   return { ...result, removedScenarios: result.parsed };
 }

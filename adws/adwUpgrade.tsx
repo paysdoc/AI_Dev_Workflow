@@ -450,6 +450,10 @@ async function runInitCommandDefault(params: RunInitCommandParams): Promise<{ su
     undefined,
     undefined,
     params.worktreePath,
+    undefined,
+    undefined,
+    undefined,
+    { selfHost: false, adwId: params.adwId },
   );
   return {
     success: result.success,
