@@ -21,6 +21,9 @@ import { notifyBlockedTransition, type NotifierDeps } from '../github/hitlBoardN
 
 /**
  * Completes the workflow: writes final state, posts completion comment, prints banner.
+ *
+ * @param deniedToolCallCount - Optional aggregate per-run permission-denied tool-call
+ *   count (issue #762), surfaced in the completion comment when greater than 0.
  */
 export async function completeWorkflow(
   config: WorkflowConfig,
@@ -28,6 +31,7 @@ export async function completeWorkflow(
   additionalMetadata?: Record<string, unknown>,
   modelUsage?: ModelUsageMap,
   phaseCostRecords?: PhaseCostRecord[],
+  deniedToolCallCount?: number,
 ): Promise<void> {
   const { orchestratorStatePath, orchestratorName, issueNumber, ctx, repoContext } = config;
 
@@ -52,7 +56,7 @@ export async function completeWorkflow(
   AgentStateManager.appendLog(orchestratorStatePath, 'Workflow completed successfully');
 
   if (repoContext) {
-    postIssueStageComment(repoContext, issueNumber, 'completed', ctx);
+    postIssueStageComment(repoContext, issueNumber, 'completed', ctx, deniedToolCallCount);
   }
 
   log('===================================', 'info');
