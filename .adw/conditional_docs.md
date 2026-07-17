@@ -2105,3 +2105,20 @@
     - When troubleshooting why the advisory comment did not post (label gate, missing PR number, missing `Promotes:` marker, agent failure)
     - When modifying `.claude/commands/promote_regression_vocabulary.md` or the `promote-regression-vocabulary` skill's agent-facing contract
     - When adding a new slash command and need the `SlashCommand` union / `modelRouting.ts` three-touch-point pattern for a promotion-related agent
+
+- app_docs/feature-0rvmyc-target-repo-guardrails-injection.md
+  - Owns:
+    - adws/core/guardrailsPayload.ts
+    - adws/core/guardrailsGate.ts
+    - adws/core/guardrailsProbe.ts
+    - scripts/guardrails-probe.ts
+    - templates/claude-settings-starter.json
+  - Conditions:
+    - When working with the target-repo `--settings` guardrails injection: the deny-list template, `buildGuardrailsSettings`/`serializeGuardrailsSettings`/`resolveHookLogDir` in `adws/core/guardrailsPayload.ts`, or `resolveGuardrailsDecision`/`GuardrailsGateDeps` in `adws/core/guardrailsGate.ts`
+    - When troubleshooting why a target-repo agent run did or did not receive injected deny rules and hooks (kill switch, self-host, `.github/adw.yml` `guardrails` canary, or startup probe verdict)
+    - When working with the guardrails startup probe (`scripts/guardrails-probe.ts`, `runGuardrailsProbe`/`getGuardrailsProbeVerdict` in `adws/core/guardrailsProbe.ts`) or its fail-open Slack alert
+    - When modifying the `guardrails` key in `adws/core/adwYmlConfig.ts` or the `ADW_TARGET_GUARDRAILS` kill switch
+    - When working with `deniedToolCallCount` on `JsonlParserState`/`AgentResult`, `formatDenialNotice` in `adws/phases/phaseCommentHelpers.ts`, or the denial notice surfaced in issue/PR stage comments and workflow completion
+    - When threading `launchContext: { selfHost, adwId }` through `commandAgent.ts`, `runClaudeAgentWithCommand`, or a direct agent caller (`planAgent.ts`, `testAgent.ts`, `gitAgent.ts`, `patchAgent.ts`, `refactorAgent.ts`)
+    - When the guardrails probe warm-up in `trigger_cron.ts`'s `main()` or the `guardrailsProbe` `/health` check entry in `trigger_webhook.ts` is relevant
+    - When `.claude/hooks/pre-tool-use.ts`'s `.env.example` carve-out needs to stay in sync with the `templates/claude-settings-starter.json` deny list's `Read(!**/.env.example)` pattern
