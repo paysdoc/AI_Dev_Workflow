@@ -2,7 +2,7 @@
 
 ## Overview
 
-`adwUpgrade.tsx` orchestrates the framework self-upgrade lane: it detects when a target repo's `.adw-version` hash drifts from the live framework, regenerates `.adw/` via an LLM-run `/adw_init`, and opens a PR with the updated files. The module is hardened with a validity-only regen gate (no receipt dependency), a bounded failure cap that escalates to a human after `MAX_FAILURES` bot-authored failure comments, and a scoped commit that holds out `.claude/commands/adw_init.md` to prevent self-reverting upgrades.
+`adwUpgrade.tsx` orchestrates the framework self-upgrade lane: it detects when a target repo's `.adw-version` hash drifts from the live framework, regenerates `.adw/` via an LLM-run `/adw_init`, and opens a PR with the updated files. The module is hardened with a validity-only regen gate (no receipt dependency), a bounded failure cap that escalates to a human after `MAX_FAILURES` bot-authored failure comments, and a scoped commit that holds out `.claude/commands/adw_init.md` to prevent self-reverting upgrades. The same regen pass also fans out a deterministic, non-LLM copy of the starter guardrails `settings.json` into any target worktree that doesn't already have one (issue #763).
 
 ## Responsibilities
 
@@ -13,6 +13,7 @@
 - On escalation: apply `adw:blocked` label, move board to Blocked, post one Slack alert, post a distinct non-failure-signature escalation comment
 - Invoke `/adw_init` in a fresh worktree to regenerate `.adw/` files
 - Gate the resulting worktree with `verifyAdwRegen` (validity-only: six `.adw/` files non-empty + `vocabulary.md` present)
+- Copy the starter guardrails `settings.json` into the worktree (`copyStarterSettingsToWorktree` in `worktreeSetup.ts`), skipping if the target repo already has a `.claude/settings.json` (`decideStarterSettingsCopy`), so it rides into the same regen commit
 - Stamp `.adw-version`, commit with `excludePaths: ['.claude/commands/adw_init.md']`, push, and create a PR
 - Respect `.github/adw.yml` HITL opt-in (defer auto-merge when `hitl: true`)
 - All side effects are injected via `UpgradeDeps` so every gate is unit-testable without I/O
@@ -20,6 +21,9 @@
 ## Contracts & Invariants
 
 - `verifyAdwRegen(worktreePath)` takes a single argument (no hash). It returns `{ ok: boolean; missing: readonly string[] }` and proves validity only — files present and non-empty. A byte-identical no-op regen (no receipt written) passes.
+- `decideStarterSettingsCopy({ settingsExists })` is a pure skip-if-exists decision: any existing `.claude/settings.json` — however it got there, owner-authored or from a prior run — is never read, merged, or overwritten, only ever left alone. `copyStarterSettingsToWorktree` copies `templates/claude-settings-starter.json` (SSOT path exported as `STARTER_SETTINGS_TEMPLATE_RELATIVE_PATH` from `adws/core/guardrailsPayload.ts`, shared with the spawn-time `--settings` injection payload) byte-identical into `.claude/settings.json` only when the decision says `copy`.
+- Unlike `.claude/commands/adw_init.md` and the copied skills/commands, the starter `settings.json` is deliberately **not** added to `.gitignore` by `copyStarterSettingsToWorktree` — it is the target repo owner's file to keep, edit, or delete, and must ride into the regen commit like any other tracked file.
+- The starter-settings copy runs in step 5c of `executeUpgrade`, after `verifyAdwRegen` passes and before `.adw-version` is stamped — so a failed regen never partially applies the settings copy, and a successful one always commits both together.
 - `.adw/.regen-receipt` is untracked in the framework repo, listed in `.gitignore`, and gitignored in upgrade worktrees via `ensureGitignoreEntry`. It never enters a commit.
 - The failure-cap escalation gate is placed **after** the PR-idempotency guard: a claim that already has an open PR returns `pr_already_exists` and never escalates, even when the failure count is at or above `MAX_FAILURES`.
 - The entry gate (`adw:blocked` label check) runs before any hash computation or worktree work — re-dispatch on an already-escalated issue is a no-op.
@@ -39,6 +43,7 @@
 
 ## Gotchas
 
+- **Propagation only fires on a `hashInputs:` file edit**: `.adw-version` (and therefore every registered target repo's next upgrade run) only bumps when a file listed in `adw_init.md`'s `hashInputs:` frontmatter changes. Adding the starter-settings-copy *behavior* to `worktreeSetup.ts`/`adwUpgrade.tsx` does not by itself roll it out — the actual trigger was editing `adw_init.md` itself (a `hashInputs:` file) to add the `## Agent Guardrails` step, which raises the hash.
 - **Re-arm sequence**: removing `adw:blocked` re-opens the entry gate, but the failure count is still `MAX_FAILURES`. Without clearing failure comments the escalation gate re-fires immediately. A full re-arm requires both: remove the label **and** clear the failure comments (or post `## Cancel` which clears all comments).
 - **Bot-author detection**: `isUpgradeFailureComment` treats `author.endsWith('[bot]')` as bot-authored. A deployment that posts upgrade comments under a non-`[bot]` PAT would not have its failures counted by the cap; the predicate is centralized in `core/upgradeFailureCap.ts`.
 - **`commitChanges` excludePaths pathspec**: the exclude token format is `':(exclude)<path>'` (single-quoted, colon-magic). The pathspec applies to both `git status --porcelain` and `git add -A` so the check and the stage are always consistent.

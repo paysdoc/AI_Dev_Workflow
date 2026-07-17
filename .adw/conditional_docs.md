@@ -63,6 +63,9 @@
     - When working with `adws/triggers/upgradeRedrive.ts` (`parseClaimBranch`, `decideUpgradeRedrive`, `findRedrivableUpgrades`, `runUpgradeRedriveScan`)
     - When troubleshooting a stranded `#UPG` tracking issue that never gets re-spawned after a failed upgrade
     - When the cron redrive scan wired into `trigger_cron.ts` `checkAndTrigger()` is relevant
+    - When working with `decideStarterSettingsCopy` or `copyStarterSettingsToWorktree` in `worktreeSetup.ts`, or the starter-guardrails `settings.json` copy step (5c) in `executeUpgrade`
+    - When troubleshooting why a target repo's `.claude/settings.json` was or wasn't overwritten by an upgrade regen (skip-if-exists policy)
+    - When modifying `.claude/commands/adw_init.md` step 7 (starter guardrails settings copy) or its `## Agent Guardrails` note in `.adw/project.md`
 
 - app_docs/feature-tcewff-cron-gh-token-bleed-fix.md
   - Conditions:
