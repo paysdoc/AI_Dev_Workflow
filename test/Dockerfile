@@ -18,6 +18,12 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
+# The mounted repo is owned by the host user (e.g. the CI runner's UID),
+# which differs from the container user — git >= 2.35.2 refuses to read
+# such a repo ("dubious ownership"). System-level config covers every
+# container user and survives env-sanitized subprocess spawns.
+RUN git config --system --add safe.directory /workspace
+
 # /workspace — ADW repo root, mounted read-only at run time
 # /tmp/bdd   — writable scratch space for fixture repos and mock artifacts
 RUN mkdir -p /workspace /tmp/bdd
