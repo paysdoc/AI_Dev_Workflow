@@ -13,7 +13,7 @@ Analyze the current working directory's codebase and generate the `.adw/` config
 issueNumber: $0 — MUST be a numeric GitHub issue number (e.g., 31, 456). Default: 0
 adwId: $1 — MUST be the alphanumeric ADW workflow ID string (e.g., "init-adw-env-4qugib", "abc123"). Default: `adw-unknown`
 issueJson: $2 — JSON string containing full issue details. Default: `{}`
-frameworkRepoRoot: $3 — Absolute path to the ADW framework repository root. Used by step 7 to locate `templates/claude-settings-starter.json` and by step 8 to locate `templates/vocabulary.md.template`. Default: empty string (skip both template copies if empty).
+frameworkRepoRoot: $3 — Absolute path to the ADW framework repository root. Used by step 7 to locate `templates/vocabulary.md.template`. Default: empty string (skip template copy if empty).
 
 CRITICAL: $0 is ALWAYS the numeric issue number. $1 is ALWAYS the ADW ID string. $2 is ALWAYS the issue JSON string. $3 is ALWAYS the framework repo root path. Do NOT swap these values.
 Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init-adw-env-4qugib-sdlc_planner-{descriptiveName}.md`
@@ -61,9 +61,9 @@ Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init
      - `## Additional Type Checks` — Extra type checks (if applicable, otherwise "N/A")
      - `## Library Install Command` — Command to install a new library
      - `## Script Execution` — How to run project scripts
-     - `## Run Scenarios by Tag` — Command to run scenarios by tag, using `{tag}` placeholder (values determined by scenario tool detection in step 8)
-     - `## Run Regression Scenarios` — Command to run all `@regression`-tagged scenarios (values determined by scenario tool detection in step 8)
-   - Note: the values for `## Run Scenarios by Tag` and `## Run Regression Scenarios` must be consistent with the scenario tool detected in step 8 (Playwright, Cypress, Cucumber, or default Cucumber)
+     - `## Run Scenarios by Tag` — Command to run scenarios by tag, using `{tag}` placeholder (values determined by scenario tool detection in step 7)
+     - `## Run Regression Scenarios` — Command to run all `@regression`-tagged scenarios (values determined by scenario tool detection in step 7)
+   - Note: the values for `## Run Scenarios by Tag` and `## Run Regression Scenarios` must be consistent with the scenario tool detected in step 7 (Playwright, Cypress, Cucumber, or default Cucumber)
 
 3. **Create `.adw/project.md`**
    - Generate `.adw/project.md` with the following sections:
@@ -117,22 +117,7 @@ Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init
      - `## Proof Attachment` — How proof gets attached to the PR via review JSON fields (`reviewSummary`, `screenshots`, `reviewIssues`)
      - `## What NOT to Do` — Actions to avoid based on the project type (e.g., CLI projects should not take browser screenshots; UI projects should not skip visual verification)
 
-7. **Copy Starter Guardrails Settings**
-   - If `$3` (`frameworkRepoRoot`) is non-empty and the target repo does NOT already have a `.claude/settings.json`, copy the canonical deny-only starter guardrails template verbatim so the repo owner's own interactive Claude Code sessions get a sensible deny list (recursive-force `rm`, force-push, `.env` secrets) without the owner having to author one from scratch:
-     ```bash
-     if [ -n "$3" ] && [ ! -f .claude/settings.json ]; then
-       mkdir -p .claude
-       cp "$3/templates/claude-settings-starter.json" .claude/settings.json
-     fi
-     ```
-   - **Skip-if-exists is mandatory.** If `.claude/settings.json` already exists, do NOT read, merge into, or overwrite it — leave it byte-for-byte untouched. This is the same skip-if-exists rule the `adwUpgrade.tsx` upgrade-regen path applies via `decideStarterSettingsCopy` (issue #763); this step applies it here for a fresh `/adw_init` bootstrap that can run outside that TypeScript orchestrator (e.g. the manual `/adw_init` escape hatch documented in `README.md`).
-   - **Never** add `.claude/settings.json` to `.gitignore`. Unlike the copied commands/skills, this file is the repo owner's to keep, edit, or delete, and must remain committable.
-   - Append a `## Agent Guardrails` section to `.adw/project.md` (created in step 3) reflecting the outcome:
-     - If copied: note that ADW copied a starter deny-only guardrail file into the repo during initialization (the owner's to edit or delete), that its `Read(!**/.env.sample)` / `Read(!**/.env.example)` negation carve-outs rely on UNDOCUMENTED Claude Code CLI precedence behavior, that the framework verifies this with `scripts/guardrails-probe.ts` (issue #762), and that the probe should be re-run after each Claude Code CLI upgrade to confirm the carve-outs still hold.
-     - If skipped (a `.claude/settings.json` already existed): note that the repo already had its own `.claude/settings.json`, so ADW left it untouched and did not apply the starter guardrails template.
-   - If `$3` is empty (legacy invocation without framework repo root), skip the copy and log a warning in the step 9 report — same convention as the vocabulary template copy in step 8.
-
-8. **Create `.adw/scenarios.md`**
+7. **Create `.adw/scenarios.md`**
    - Detect the scenario tool from the project's test configuration
    - If **Playwright** detected (`bunx playwright test`, `npx playwright test`, etc.):
      - `## Scenario Directory` → `tests/e2e/` (or the detected test directory)
@@ -161,7 +146,7 @@ Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init
      mkdir -p features/regression
      cp "$3/templates/vocabulary.md.template" features/regression/vocabulary.md
      ```
-     If `$3` is empty (legacy invocation without framework repo root), skip the copy and log a warning in the step 9 report.
+     If `$3` is empty (legacy invocation without framework repo root), skip the copy and log a warning in the step 8 report.
    - **Draft the observability-surfaces examples block**: after the template copy above, classify the target repo's stack and replace the placeholder in the materialised `features/regression/vocabulary.md`.
 
      **Classification rules** (use the analysis already performed in step 1 — do not re-read manifests):
@@ -169,7 +154,7 @@ Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init
      - **CLI-only** — no browser test runner detected and at least one manifest was parseable.
      - **fallback** — no manifest could be parsed (empty repo, unrecognised stack).
 
-     **Locate the placeholder**: find the literal text `<!-- TODO (slice #3, issue ??):` in `features/regression/vocabulary.md`, between the `## Observability Surfaces (Examples)` heading and `## Three Permitted Execution Patterns`. Use the Edit tool with `old_string` set to the full placeholder comment and `new_string` set to the block body below. If the placeholder is not present (file absent or pre-edited), skip and log a warning in step 9.
+     **Locate the placeholder**: find the literal text `<!-- TODO (slice #3, issue ??):` in `features/regression/vocabulary.md`, between the `## Observability Surfaces (Examples)` heading and `## Three Permitted Execution Patterns`. Use the Edit tool with `old_string` set to the full placeholder comment and `new_string` set to the block body below. If the placeholder is not present (file absent or pre-edited), skip and log a warning in step 8.
 
      **Browser-test-equipped block** (`new_string`):
      ```
@@ -213,12 +198,11 @@ Example: if $0=31 and $1=init-adw-env-4qugib, the filename is `issue-31-adw-init
      Note: the stack could not be classified automatically; refine this list as your test surfaces solidify.
      ```
 
-9. **Report**
+8. **Report**
    - List all files created (`commands.md`, `project.md`, `conditional_docs.md`, `providers.md`, `review_proof.md`, `scenarios.md`, and `features/regression/vocabulary.md` when copied)
    - Summarize the detected project type and key configuration choices
    - Note both `## Per-Issue Scenario Directory` and `## Regression Scenario Directory` sections written to `scenarios.md`
    - Note `## BDD Framework` and `## Step Def Directory` sections written to `scenarios.md` (Cucumber/Gherkin branches only).
    - Note the `## Run Tests` value written and whether it was seeded (new) or preserved (pre-existing). Because `adw_init.md` is a `hashInputs:` file, any edit to it raises `.adw-version` and triggers `adwUpgrade` to regenerate `.adw/` across all registered target repos — the intended emit-parse coupling propagation for the JUnit report rail (same mechanism issue #578 used for `scenarios.md` sections).
-   - Note whether the starter guardrails `.claude/settings.json` (step 7) was copied or skipped (already present), and that a `## Agent Guardrails` section was written to `.adw/project.md` reflecting that outcome. This edit's presence in `adw_init.md` is what bumps `.adw-version` and fans the starter-settings copy out to every registered target repo on the next upgrade regen (issue #763).
    - If the vocabulary template copy was skipped (empty `$3`), note the warning here
    - Examples-block class chosen: `<browser-test-equipped | CLI-only | fallback>`; placeholder replacement: `<succeeded | skipped: <reason>>`.
