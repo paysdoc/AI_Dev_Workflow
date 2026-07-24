@@ -977,6 +977,8 @@
     - When implementing new parsers that depend on the JSONL envelope structure
 
 - app_docs/feature-lnef5d-mock-infrastructure-layer.md
+  - Owns:
+    - test/mocks/**
   - Conditions:
     - When working with `test/mocks/` (Claude CLI stub, GitHub API mock server, git remote mock, test harness)
     - When writing or modifying Cucumber BDD scenarios that require mocked external services
@@ -984,6 +986,8 @@
     - When troubleshooting `@mock-infrastructure` or `@regression` scenario failures
     - When configuring `MOCK_FIXTURE_PATH`, `MOCK_STREAM_DELAY_MS`, `GH_HOST`, or `CLAUDE_CODE_PATH` for test runs
     - When extending mock fixtures in `test/fixtures/jsonl/` or `test/fixtures/github/`
+    - When `setupMockInfrastructure`/`teardownMockInfrastructure` scratch-directory placement or crash-safety is relevant (e.g. EROFS on a read-only mount, or a leaked mock server keeping the process alive)
+    - When modifying `test/mocks/__tests__/test-harness.test.ts`
 
 - app_docs/feature-tdlgz7-fix-boardstatus-invalid-values.md
   - Conditions:
@@ -1010,12 +1014,19 @@
     - When adding new fixture repos under `test/fixtures/` for behavioral testing
 
 - app_docs/feature-78celh-docker-behavioral-test-isolation.md
+  - Owns:
+    - test/Dockerfile
+    - test/docker-run.sh
+    - .github/workflows/regression.yml
   - Conditions:
     - When working with `test/Dockerfile`, `test/docker-run.sh`, or `test/.dockerignore`
     - When running or troubleshooting BDD tests inside a Docker container (`bun run test:docker`)
     - When modifying the `test:docker` or `test:docker:build` scripts in `package.json`
     - When adding the Docker runtime path to CI (`regression.yml` `runtime` input)
     - When troubleshooting `@docker-isolation` scenarios or the `adw-bdd-runner` image
+    - When the `regression` job's `timeout-minutes` or other job-level CI bounds need to change
+    - When troubleshooting `EROFS` errors from the read-only `/workspace` mount, or a hung/never-exiting Docker regression run
+    - When the `safe.directory` git config for the mounted repo is relevant
 
 - app_docs/feature-9zcqhw-detect-compaction-restart-build-agent.md
   - Conditions:
