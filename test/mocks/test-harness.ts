@@ -6,7 +6,7 @@
  * hooks. Environment variable changes are fully reversible.
  */
 
-import { mkdirSync, mkdtempSync, cpSync, writeFileSync, existsSync } from 'fs';
+import { mkdtempSync, cpSync, writeFileSync, existsSync } from 'fs';
 import { join, resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
@@ -51,8 +51,7 @@ function findRealGit(): string {
  * delegates to the git-remote-mock TypeScript file via bun.
  */
 function createGitMockDir(realGitPath: string): string {
-  const tempDir = join(process.cwd(), '.tmp-git-mock');
-  mkdirSync(tempDir, { recursive: true });
+  const tempDir = mkdtempSync(join(tmpdir(), 'adw-git-mock-'));
 
   const gitRemoteMockPath = resolve(__dirname, 'git-remote-mock.ts');
   const wrapperContent = [
@@ -123,38 +122,44 @@ export async function setupMockInfrastructure(
     MOCK_SERVER_PORT: process.env['MOCK_SERVER_PORT'],
   };
 
-  // Start GitHub API mock server
-  const { port, url } = await startMockServer(config?.port ?? 0);
+  try {
+    // Start GitHub API mock server
+    const { port, url } = await startMockServer(config?.port ?? 0);
 
-  // Set up Claude CLI stub
-  const stubPath = config?.stubPath ?? resolve(__dirname, 'claude-cli-stub.ts');
-  process.env['CLAUDE_CODE_PATH'] = stubPath;
+    // Set up Claude CLI stub
+    const stubPath = config?.stubPath ?? resolve(__dirname, 'claude-cli-stub.ts');
+    process.env['CLAUDE_CODE_PATH'] = stubPath;
 
-  // Set up git remote mock
-  const realGitPath = findRealGit();
-  gitMockTempDir = config?.gitMockDir ?? createGitMockDir(realGitPath);
-  const originalPath = process.env['PATH'] ?? '';
-  process.env['PATH'] = `${gitMockTempDir}:${originalPath}`;
-  process.env['REAL_GIT_PATH'] = realGitPath;
+    // Set up git remote mock
+    const realGitPath = findRealGit();
+    gitMockTempDir = config?.gitMockDir ?? createGitMockDir(realGitPath);
+    const originalPath = process.env['PATH'] ?? '';
+    process.env['PATH'] = `${gitMockTempDir}:${originalPath}`;
+    process.env['REAL_GIT_PATH'] = realGitPath;
 
-  // Configure GitHub mock routing environment
-  process.env['GH_TOKEN'] = 'mock-token';
-  process.env['GH_HOST'] = `localhost:${port}`;
-  process.env['MOCK_GITHUB_API_URL'] = url;
-  process.env['MOCK_SERVER_PORT'] = String(port);
+    // Configure GitHub mock routing environment
+    process.env['GH_TOKEN'] = 'mock-token';
+    process.env['GH_HOST'] = `localhost:${port}`;
+    process.env['MOCK_GITHUB_API_URL'] = url;
+    process.env['MOCK_SERVER_PORT'] = String(port);
 
-  isSetUp = true;
+    isSetUp = true;
 
-  return buildContext(port);
+    return buildContext(port);
+  } catch (err) {
+    // A failure anywhere after the mock server starts must not leak it — stop
+    // everything acquired so far before propagating, regardless of isSetUp.
+    await teardownMockInfrastructure();
+    throw err;
+  }
 }
 
 /**
  * Stops all mocks and restores original environment variables.
- * Safe to call multiple times.
+ * Safe to call multiple times, including when setup never completed —
+ * each step below is individually guarded on the resource it releases.
  */
 export async function teardownMockInfrastructure(): Promise<void> {
-  if (!isSetUp) return;
-
   stopMockServer();
   cleanupGitMockDir();
 
