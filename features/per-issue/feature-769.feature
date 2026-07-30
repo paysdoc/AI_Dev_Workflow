@@ -79,8 +79,12 @@ Feature: The cron sweep probes act on the repository the cron was launched for �
        and launch-boundary files stay legal — a rule that flagged them would be un-shippable.
    10. THE WHOLE REPOSITORY IS COMPLIANT (AC6 ratchet). With the new rule in place the guard passes
        across the whole ADW repository — which requires `githubApi.ts`'s identically-shaped
-       `gitContextForRepo(getRepoInfo()).authenticatedUser()` to be brought into compliance or
-       explicitly allowlisted, not left to fail the build.
+       `gitContextForRepo(getRepoInfo()).authenticatedUser()` to be brought into compliance, not
+       left to fail the build. The issue's alternative ("or explicitly allowlisted") is closed by
+       #701 (allowlist deleted) and #700 (`(0 allowlisted)` stdout assertion), so the plan makes the
+       self-host identity explicit (`readLocalRepoInfo(REPO_ROOT)`) at that site and at the three
+       other cwd-derived constructions instead. This scenario asserts only the verdict, so it holds
+       whichever way compliance is reached.
    11. TYPE-CHECK BACKSTOP (T22).
 
   Observability / rot-prevention note:
@@ -229,26 +233,39 @@ Feature: The cron sweep probes act on the repository the cron was launched for �
         runs the promotion sweep` calls the REAL `runPromotionSweep({ gitContext, fileIssue:
         <recorder> })` and stores the returned report. INJECT NOTHING ELSE — in particular do NOT
         inject `listFeatures`, `readFeatureContent`, `getMergedAt`, `listPerIssueFeatures`,
-        `listPromotionIssues` or `scenariosConfig`: those defaults ARE the retargeting bug, and
-        injecting them makes every scenario vacuous. `persistRemoval` / `fileIssue` are injected
+        `listStepDefSiblings`, `listPromotionIssues`, `loadVocabulary`, `loadStats`, `tagAndCommit`
+        or `scenariosConfig`: those defaults ARE the retargeting bug, each reaches git/gh only
+        through `ctx` (so the recording subclass already intercepts it), and injecting them makes
+        every scenario vacuous — §5 in particular asserts that the reconciliation query went through
+        the injected context, which requires `listPromotionIssues` to fall through.
+        `persistRemoval` / `fileIssue` are injected
         only because their production paths reach gh through free functions
         (`defaultFindPRByBranch`, `mergePR`, `applyLabel`) that no context override can intercept;
         both recorders assert what the pass DECIDED to persist, which is the observable in question.
       • WHERE THE SKIP IS DRIVEN. `the cron holds no launch context` + a `When` requires the fix to
-        expose the cadence-and-skip gate as an exported, injectable tick for BOTH sweeps — mirror
-        the existing `runPromotionSweepTick(cycleCount, sweep)` with a context parameter and add the
-        per-issue counterpart. Drive that exported tick with a null context and a capturing logger,
-        and assert: the injected sweep was never invoked, no recorded operation on either fixture,
-        the capturing logger holds a skip entry, and nothing threw. (`cronGitContext` is legitimately
+        expose the cadence-and-skip gate as an exported, injectable tick for BOTH sweeps — keep the
+        existing `runPromotionSweepTick(cycleCount, sweep)` SHAPE and add the per-issue counterpart,
+        widening the sweep parameter to a NULLABLE bound thunk whose production default is bound to
+        the cron's launch context. The sweep MUST stay in position 2: `feature-745.steps.ts:79` calls
+        `runPromotionSweepTick(cycleCount, fakeSweep)`, and moving a context parameter in there would
+        force a rewrite of five passing regression scenarios. So `the cron holds no launch context`
+        passes `null` in the SWEEP position, and the step asserts: the injected sweep was never
+        invoked, no recorded operation on either fixture, the skip line appears on CAPTURED STDOUT
+        (the cron's `log` is console-backed — `adws/core/logger.ts:62` — so there is no logger seam
+        to inject and none should be added), and nothing threw. (`cronGitContext` is legitimately
         null whenever `trigger_cron.ts` is imported as a module, which is exactly how BDD reaches
         it — the guard at `trigger_cron.ts:75` does not fire.)
       • GUARD FIXTURES (§9–§11). `the git/gh guard scans a fixture source at {string} containing:`
         writes the DocString to `<tmpRoot>/<path>` and calls the guard's exported scan core over
         that single relative path with `<tmpRoot>` as the repo root — the established per-file scan
         pattern from feature-695/696/699, with a fixture source instead of a real one so the
-        scenario cannot rot when production files move. The path argument is load-bearing for §11:
-        launch-boundary exemption is path-based, so writing the fixture AT `adws/core/
-        launchGitContext.ts` inside the temp root is what exercises it. §12 (`the git/gh guard runs
+        scenario cannot rot when production files move. `scanFiles` applies NO path exemption (only
+        `visitDir`'s directory skips are path-based), and the new rule deliberately introduces no
+        allowlist — #701 deleted it and #700's `(0 allowlisted)` stdout assertion depends on its
+        absence. §11's launch boundary therefore stays legal BY SHAPE: a guarded-fallback identity
+        (`targetRepo ?? getRepoInfo()`) feeding the boundary CONSTRUCTOR (`new GitContext(...)`),
+        which is the real `buildLaunchGitContext` shape (`adws/core/launchGitContext.ts:87-98`). The
+        boundary path in that step is documentary, not load-bearing. §12 (`the git/gh guard runs
         across the whole ADW repository`) spawns `bunx tsx adws/checkGitGhGuard.ts` and asserts the
         exit status only.
       • TTL-COUPLING WARNING (worth a maintainer decision, not a blocker): this fix makes the
@@ -458,18 +475,22 @@ Feature: The cron sweep probes act on the repository the cron was launched for �
   # ── §11 THE GUARD DOES NOT OVER-FIRE — LAUNCH BOUNDARY (AC6) ────────────────────────────
   #
   # Identity has to be derived from the environment SOMEWHERE — that is what a launch boundary is
-  # for. The rule is about re-derivation everywhere else, so boundary files stay legal. The fixture
-  # is written at the boundary path because the exemption is path-based.
+  # for. The rule is about re-derivation everywhere else, so the boundary stays legal — BY SHAPE,
+  # not by a path allowlist (the rule adds none: #701 deleted the allowlist and #700 asserts
+  # `(0 allowlisted)`). The fixture is the real `buildLaunchGitContext` shape — a guarded-fallback
+  # identity feeding the boundary constructor — written at the boundary path for documentary value.
 
   @adw-769 @adw-5k8n5z-cron-sweep-probes-re
   Scenario: The guard permits identity resolution inside a launch boundary
     When the git/gh guard scans a fixture source at "adws/core/launchGitContext.ts" containing:
       """
+      import { GitContext } from '../gitContext';
       import { getRepoInfo } from '../github/githubApi';
       import type { TargetRepoInfo } from '../types/issueTypes';
 
-      export function buildContextIdentity(targetRepo: TargetRepoInfo | null) {
-        return targetRepo ?? getRepoInfo();
+      export function buildContext(targetRepo: TargetRepoInfo | null): GitContext {
+        const { owner, repo } = targetRepo ?? getRepoInfo();
+        return new GitContext({ owner, repo, selfHost: targetRepo === null });
       }
       """
     Then the git/gh guard reports no violation in that fixture source
