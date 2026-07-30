@@ -44,7 +44,7 @@ Feature: A local clone of a repository whose name contains a dot resolves to its
        today: the first three truncate at the first dot; `.github` fails to parse
        at all, because `([^/.]+)` cannot match a name that STARTS with the dot.
     3. NO REGRESSION ON EVERY OTHER REMOTE FORM (guard). Dot-free names still
-       resolve, across all six remote shapes ADW actually meets: SSH and HTTPS
+       resolve, across all seven remote shapes ADW actually meets: SSH and HTTPS
        with and without `.git`, a trailing slash, a credential-prefixed HTTPS URL
        (the App-token push form), and the `ssh://` scheme form. GREEN today and
        must stay GREEN — this is the load-bearing half of the fix, because
@@ -92,8 +92,10 @@ Feature: A local clone of a repository whose name contains a dot resolves to its
         through — `readLocalRepoInfo` for the identity, then
         `resolveContextToken` for the mint — with `isAppConfigured: () => true`
         and a RECORDING `mintInstallationToken` in place of
-        `getInstallationToken`. The recorded `(owner, repo)` pair is the
-        assertion target.
+        `getInstallationToken`. `ResolveContextTokenInput` also requires
+        `ghAuthToken`; the App branch returns before it is ever called, but it is
+        not optional, so the composition must still supply a `() => ''` stub.
+        The recorded `(owner, repo)` pair is the assertion target.
 
         The composition stops there deliberately. `getInstallationToken` builds
         the failing URL, but it reads App env vars, signs a JWT with a real
@@ -154,6 +156,17 @@ Feature: A local clone of a repository whose name contains a dot resolves to its
       this repo's name has no dot — so there is no observable defect to pin and
       no hermetic seam to pin it through. It is listed in the docstring's blast
       radius for the implementer, not scenario-pinned.
+    • The same defective capture group is duplicated twice more, OUTSIDE the
+      identity-read path: `getRepoInfoFromUrl` (`githubApi.ts:27-28`) and
+      `convertToSshUrl` (`repoWorkspace.ts:62`). Neither is a cwd-derived
+      identity read, so neither is scenario-pinned here — this file is the
+      issue-faithful contract and the issue names only the identity read.
+      (`getRepoInfoFromUrl` has no internal callers; `convertToSshUrl` is
+      fully anchored, so a dotted name does not truncate — it fails to match and
+      the function returns its input unchanged, silently cloning a dotted target
+      repo over HTTPS instead of SSH.) Both are in scope for the FIX — same
+      regex, same root cause — and are guarded by unit tests rather than by a
+      scenario. §4 is what forces one shared parse behind all of them.
     • The curl exit 56 in the report is noise, as the issue itself states. No
       scenario asserts anything about transport failure.
     • The `@regression` maintenance sweep is SKIPPED for this issue:
@@ -232,7 +245,7 @@ Feature: A local clone of a repository whose name contains a dot resolves to its
   #
   # GREEN today and must stay GREEN. Widening the repo group is what makes this
   # fix risky: a dot-tolerant group can start swallowing the `.git` suffix, a
-  # trailing slash, or a credential prefix. All six rows are remote shapes ADW
+  # trailing slash, or a credential prefix. All seven rows are remote shapes ADW
   # actually encounters, including the `x-access-token:` form produced by App-token
   # pushes and the `ssh://` scheme form git emits for some clones (which parses
   # through the HTTPS branch, since it contains `github.com/`).
