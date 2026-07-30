@@ -612,7 +612,8 @@ adws/                   # ADW workflow system
 │   │   ├── labelManager.test.ts
 │   │   ├── linkedPrDetector.test.ts
 │   │   ├── prApi.test.ts
-│   │   └── projectBoardApi.test.ts
+│   │   ├── projectBoardApi.test.ts
+│   │   └── workflowCommentsIssue.test.ts
 │   ├── githubApi.ts
 │   ├── githubAppAuth.ts  # GitHub App authentication
 │   ├── hitlBoardNotifier.ts  # HITL board-event notifier — PR/issue lookup, message building, and Slack delivery for Review and Blocked transitions
@@ -833,6 +834,7 @@ adws/                   # ADW workflow system
 │   │   ├── spawnGate.test.ts
 │   │   ├── takeoverHandler.test.ts  # Unit tests for all takeoverHandler decision-tree branches
 │   │   ├── takeoverHandler.integration.test.ts  # Integration test for the abandoned takeover path
+│   │   ├── promotionSweepDefaults.test.ts
 │   │   ├── trigger_cron.test.ts
 │   │   ├── triggerCronAwaitingMerge.test.ts
 │   │   ├── upgradeRedrive.test.ts

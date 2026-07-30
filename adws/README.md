@@ -440,7 +440,7 @@ bunx tsx adws/triggers/trigger_webhook.ts
   - `/webhook` - GitHub event receiver
   - `/health` - Health check
 - GitHub webhook settings:
-  - Payload URL: `https://api.paysdoc.nl/webhook`
+  - Payload URL: `https://<your-host-or-tunnel-domain>/webhook`
   - Content type: `application/json`
   - Events: `issues`, `issue_comment`, `pull_request`, `pull_request_review`, `pull_request_review_comment`
 
