@@ -1741,6 +1741,9 @@
     - When working with the sweep's persist orchestration (`prepareSweepBase`, `persistRemovalViaPr`, `cleanupSweepBase`, `SweepBase`) in `adws/triggers/perIssueSweepPersist.ts`
     - When troubleshooting a sweep removal that never reached `origin` (stranded local commit, lease-rejected push) or a duplicate sweep PR
     - When the sweep's dedicated `chore/scenario-sweep` branch, its PR-open/immediate-merge flow, or its `origin/<default>`-synced worktree needs context
+    - When working with `PerIssueSweepDeps.gitContext` (required, launch-boundary, no cwd fallback) or `prepareSweepBase(gitContext)`'s signature
+    - When troubleshooting a target-repo cron sweeping the wrong repo (e.g. the framework repo instead of `--target-repo`) — identity must come from the cron's threaded launch `GitContext`, never `getRepoInfo()`/`gitContextForRepo` re-derivation (#769)
+    - When working with `runPerIssueScenarioSweepTick` in `trigger_cron.ts` (the cadence gate + null-launch-context skip + non-fatal swallow that dispatches the sweep)
 
 - app_docs/feature-ne2we8-promotion-tag-state.md
   - Owns:
@@ -1770,7 +1773,10 @@
     - When a crash-stranded `@promotion-suggested-*` file (tagged, no tracker) should be redriven (re-filed) or withdrawn (tag stripped) depending on current score
     - When working with `ListOpenIssuesOptions.state` / `listOpenIssuesCmd` (`adws/gitContext/commands/issueCommands.ts`) or the all-state promotion-issue reconciliation query
     - When working with `adws/triggers/promotionSweepDefaults.ts` production deps (`GitContext`-backed listing, scoring, tag-and-commit, issue-filing)
-    - When working with `runPromotionSweepTick` or `PROMOTION_SWEEP_INTERVAL_CYCLES` (the cron interval-gate + non-fatal swallow that activates the sweep in `trigger_cron.ts`)
+    - When working with `runPromotionSweepTick` or `PROMOTION_SWEEP_INTERVAL_CYCLES` (the cron interval-gate + null-launch-context skip + non-fatal swallow that activates the sweep in `trigger_cron.ts`)
+    - When working with `PromotionSweepDeps.gitContext` (required, launch-boundary, no cwd fallback) or `makeDefaultDeps(ctx)` in `promotionSweepDefaults.ts`
+    - When troubleshooting a target-repo cron scoring/mutating the wrong repo's promotion candidates — identity must come from the cron's threaded launch `GitContext`, never `getRepoInfo()`/`gitContextForRepo` re-derivation (#769)
+    - When working with the `promotionSweep.ts` CLI entry guard as a real launch boundary (`buildLaunchGitContext(parseTargetRepoArgs(...))`, supports `--target-repo owner/repo`)
     - When troubleshooting the promotion sweep not firing on cron cadence, or a sweep failure that should be logged and swallowed rather than crashing the cron loop
 
 - app_docs/feature-9gjajh-providers.md
@@ -2104,6 +2110,9 @@
     - When `EXEMPT_PACKAGE_DIR = 'adws/gitContext'` or `EXEMPT_DIR_NAMES` configuration is relevant
     - When a new bootstrap primitive needs to be added (must go into `adws/gitContext/` — no allowlist escape hatch exists)
     - When writing or extending unit tests for `checkGitGhGuard.ts` (`adws/__tests__/checkGitGhGuard.test.ts` — tests `scanFiles`/`scanSource` with fixture strings)
+    - When working with the `cwd-derived-identity` rule (#769) — flags `gitContextForRepo(getRepoInfo())`/`gitContextForRepo(readLocalRepoInfo())` composites, inline or via a local variable, with no path allowlist
+    - When troubleshooting why a `gitContextForRepo(x)` call was or wasn't flagged — check whether `x` traces to a zero-argument `getRepoInfo()`/`readLocalRepoInfo()` read (flagged) vs an argument-bearing call, a guarded fallback (`x ?? getRepoInfo()`), or a plain parameter (all legal)
+    - When a legitimate self-host `gitContextForRepo` construction needs to comply with the guard — pass `readLocalRepoInfo(REPO_ROOT)` explicitly instead of a bare cwd read
 
 - app_docs/feature-2ubuuc-rot-reuse-advisory-pr-comment.md
   - Owns:
