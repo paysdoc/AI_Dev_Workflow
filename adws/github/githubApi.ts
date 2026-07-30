@@ -3,6 +3,7 @@
  */
 
 import { gitContextForRepo, readLocalRepoInfo } from './gitContextFactory';
+import { parseGitHubRemoteUrl } from '../gitContext';
 import { REPO_ROOT } from '../core/environment';
 
 export interface RepoInfo {
@@ -24,15 +25,11 @@ export function getRepoInfo(cwd?: string): RepoInfo {
  * Parses owner and repo from a GitHub URL (HTTPS or SSH).
  */
 export function getRepoInfoFromUrl(repoUrl: string): RepoInfo {
-  const httpsMatch = repoUrl.match(/github\.com\/([^/]+)\/([^/.]+)/);
-  const sshMatch = repoUrl.match(/git@github\.com:([^/]+)\/([^/.]+)/);
-  const match = httpsMatch || sshMatch;
-
-  if (!match) {
+  const info = parseGitHubRemoteUrl(repoUrl);
+  if (!info) {
     throw new Error(`Could not parse GitHub URL: ${repoUrl}`);
   }
-
-  return { owner: match[1], repo: match[2] };
+  return info;
 }
 
 /**
