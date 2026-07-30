@@ -7,11 +7,13 @@
  * `adwUpgrade`'s non-SDLC chore-PR pattern (push a dedicated branch → open a
  * PR → immediate best-effort merge). The cron host's own base checkout
  * (`frameworkRepoRoot`) is never reset or mutated.
+ *
+ * The base is resolved from the passed launch-boundary GitContext's own repo
+ * — never from cwd. This module performs no repo-identity resolution.
  */
 
 import { log as coreLog, type LogLevel } from '../core';
-import { getRepoInfo, mergePR, defaultFindPRByBranch, type RepoInfo } from '../github';
-import { gitContextForRepo } from '../github/gitContextFactory';
+import { mergePR, defaultFindPRByBranch, type RepoInfo } from '../github';
 import { extractPrNumber } from '../adwBuildHelpers';
 import type { GitContext } from '../gitContext';
 
@@ -46,10 +48,10 @@ export interface SweepBase {
  * the sweep degrades to a no-op for this cycle instead of crashing its
  * unwrapped caller in trigger_cron.ts.
  */
-export function prepareSweepBase(): SweepBase | null {
+export function prepareSweepBase(gitContext: GitContext): SweepBase | null {
   try {
-    const repoInfo = getRepoInfo();
-    const ctx = gitContextForRepo(repoInfo);
+    const ctx = gitContext;
+    const repoInfo: RepoInfo = { owner: ctx.owner, repo: ctx.repo };
     const defaultBranch = ctx.defaultBranch();
 
     try {

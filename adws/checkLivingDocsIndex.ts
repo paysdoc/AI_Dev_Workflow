@@ -14,6 +14,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { gitContextForRepo, readLocalRepoInfo } from './github/gitContextFactory';
+import { REPO_ROOT } from './core';
 import {
   parseConditionalDocs,
   serializeConditionalDocs,
@@ -48,7 +49,7 @@ function listAppDocFiles(): string[] {
 }
 
 function listTrackedFiles(): string[] {
-  const ctx = gitContextForRepo(readLocalRepoInfo(), { selfHost: true });
+  const ctx = gitContextForRepo(readLocalRepoInfo(REPO_ROOT), { selfHost: true });
   return ctx.lsFiles(process.cwd());
 }
 

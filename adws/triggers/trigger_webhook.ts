@@ -25,7 +25,7 @@ import { checkIssueEligibility } from './issueEligibility';
 import { spawnDetached, classifyAndSpawnWorkflow, ensureCronProcess, logDeferral } from './webhookGatekeeper';
 import { extractPayloadLabelNames, routeIssueOpened } from './issueOpenedRouter';
 import { resolveWebhookRepo } from './webhookRepoResolver';
-import { buildLaunchGitContext } from '../core';
+import { buildLaunchGitContext, REPO_ROOT } from '../core';
 import type { GitContext } from '../gitContext';
 import { checkEnvironmentVariables, checkGitRepository, checkClaudeCodeCLI, checkGitHubCLI, checkDirectoryStructure, type CheckResult } from '../healthCheckChecks';
 import { gitContextForRepo, readLocalRepoInfo } from '../github/gitContextFactory';
@@ -90,7 +90,7 @@ const server = http.createServer((req, res) => {
       // Construct a self-host GitContext for git/gh probes; degrade gracefully on failure.
       let healthCtx: import('../gitContext').GitContext | undefined;
       try {
-        healthCtx = gitContextForRepo(readLocalRepoInfo(), { selfHost: true });
+        healthCtx = gitContextForRepo(readLocalRepoInfo(REPO_ROOT), { selfHost: true });
       } catch { /* token unavailable — context-dependent checks get a failure result */ }
       const ctxFailure: CheckResult = { success: false, error: 'GitContext construction failed', details: {} };
       result.checks.environmentVariables = checkEnvironmentVariables();

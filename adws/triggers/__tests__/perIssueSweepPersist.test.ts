@@ -28,6 +28,19 @@ import {
 } from '../perIssueSweepPersist';
 import { gitContextForRepo } from '../../github/gitContextFactory';
 import { getRepoInfo, mergePR, defaultFindPRByBranch } from '../../github';
+import type { GitContext } from '../../gitContext';
+
+function makeFakeGitContext(overrides: Record<string, unknown> = {}): GitContext {
+  return {
+    owner: 'test-owner',
+    repo: 'test-repo',
+    defaultBranch: vi.fn(() => 'dev'),
+    removeWorktree: vi.fn(() => true),
+    createWorktreeForNewBranch: vi.fn(() => '/repo/.worktrees/chore-scenario-sweep'),
+    createPR: vi.fn(() => 'https://github.com/test-owner/test-repo/pull/99'),
+    ...overrides,
+  } as unknown as GitContext;
+}
 
 function makeFakeBase(overrides: Partial<SweepBase> = {}): SweepBase {
   return {
@@ -139,24 +152,15 @@ describe('prepareSweepBase', () => {
     vi.clearAllMocks();
   });
 
-  function makeMockCtx(overrides: Record<string, unknown> = {}) {
-    return {
-      defaultBranch: vi.fn(() => 'dev'),
-      removeWorktree: vi.fn(() => true),
-      createWorktreeForNewBranch: vi.fn(() => '/repo/.worktrees/chore-scenario-sweep'),
-      createPR: vi.fn(() => 'https://github.com/test-owner/test-repo/pull/99'),
-      ...overrides,
-    };
-  }
+  it('resolves a SweepBase off a dedicated worktree created from the default branch, deriving repoInfo from the passed context (never getRepoInfo)', () => {
+    const mockCtx = makeFakeGitContext();
 
-  it('resolves a SweepBase off a dedicated worktree created from the default branch', () => {
-    const mockCtx = makeMockCtx();
-    vi.mocked(gitContextForRepo).mockReturnValue(mockCtx as never);
-
-    const base = prepareSweepBase();
+    const base = prepareSweepBase(mockCtx);
 
     expect(base).not.toBeNull();
-    expect(getRepoInfo).toHaveBeenCalled();
+    expect(getRepoInfo).not.toHaveBeenCalled();
+    expect(gitContextForRepo).not.toHaveBeenCalled();
+    expect(base?.repoInfo).toEqual({ owner: 'test-owner', repo: 'test-repo' });
     expect(mockCtx.createWorktreeForNewBranch).toHaveBeenCalledWith(SWEEP_BRANCH, 'dev');
     expect(base?.defaultBranch).toBe('dev');
     expect(base?.sweepBranch).toBe(SWEEP_BRANCH);
@@ -164,83 +168,75 @@ describe('prepareSweepBase', () => {
   });
 
   it('best-effort cleans a stale prior sweep worktree before creating a fresh one', () => {
-    const mockCtx = makeMockCtx();
-    vi.mocked(gitContextForRepo).mockReturnValue(mockCtx as never);
+    const mockCtx = makeFakeGitContext();
 
-    prepareSweepBase();
+    prepareSweepBase(mockCtx);
 
     expect(mockCtx.removeWorktree).toHaveBeenCalledWith(SWEEP_BRANCH);
   });
 
   it('a throwing removeWorktree pre-clean does not abort base preparation', () => {
-    const mockCtx = makeMockCtx({ removeWorktree: vi.fn(() => { throw new Error('nothing to remove'); }) });
-    vi.mocked(gitContextForRepo).mockReturnValue(mockCtx as never);
+    const mockCtx = makeFakeGitContext({ removeWorktree: vi.fn(() => { throw new Error('nothing to remove'); }) });
 
-    const base = prepareSweepBase();
+    const base = prepareSweepBase(mockCtx);
 
     expect(base).not.toBeNull();
     expect(mockCtx.createWorktreeForNewBranch).toHaveBeenCalled();
   });
 
   it('returns null when worktree creation fails (degrades to a no-op sweep, never throws)', () => {
-    const mockCtx = makeMockCtx({
+    const mockCtx = makeFakeGitContext({
       createWorktreeForNewBranch: vi.fn(() => { throw new Error('git worktree add failed'); }),
     });
-    vi.mocked(gitContextForRepo).mockReturnValue(mockCtx as never);
 
-    expect(prepareSweepBase()).toBeNull();
+    expect(prepareSweepBase(mockCtx)).toBeNull();
   });
 
   it('findOpenSweepPr resolves an OPEN PR number via defaultFindPRByBranch', () => {
-    const mockCtx = makeMockCtx();
-    vi.mocked(gitContextForRepo).mockReturnValue(mockCtx as never);
+    const mockCtx = makeFakeGitContext();
     vi.mocked(defaultFindPRByBranch).mockReturnValue({ number: 12, state: 'OPEN', headRefName: SWEEP_BRANCH, baseRefName: 'dev' });
 
-    const base = prepareSweepBase();
+    const base = prepareSweepBase(mockCtx);
 
     expect(base?.findOpenSweepPr(SWEEP_BRANCH)).toBe(12);
   });
 
   it('findOpenSweepPr returns null when the found PR is not open', () => {
-    const mockCtx = makeMockCtx();
-    vi.mocked(gitContextForRepo).mockReturnValue(mockCtx as never);
+    const mockCtx = makeFakeGitContext();
     vi.mocked(defaultFindPRByBranch).mockReturnValue({ number: 12, state: 'MERGED', headRefName: SWEEP_BRANCH, baseRefName: 'dev' });
 
-    const base = prepareSweepBase();
+    const base = prepareSweepBase(mockCtx);
 
     expect(base?.findOpenSweepPr(SWEEP_BRANCH)).toBeNull();
   });
 
   it('findOpenSweepPr returns null when no PR is found for the branch', () => {
-    const mockCtx = makeMockCtx();
-    vi.mocked(gitContextForRepo).mockReturnValue(mockCtx as never);
+    const mockCtx = makeFakeGitContext();
     vi.mocked(defaultFindPRByBranch).mockReturnValue(null);
 
-    const base = prepareSweepBase();
+    const base = prepareSweepBase(mockCtx);
 
     expect(base?.findOpenSweepPr(SWEEP_BRANCH)).toBeNull();
   });
 
   it('openPr delegates to ctx.createPR with the sweep head/base branches', () => {
-    const mockCtx = makeMockCtx();
-    vi.mocked(gitContextForRepo).mockReturnValue(mockCtx as never);
+    const mockCtx = makeFakeGitContext();
 
-    const base = prepareSweepBase();
+    const base = prepareSweepBase(mockCtx);
     const url = base?.openPr(SWEEP_BRANCH, 'dev');
 
     expect(mockCtx.createPR).toHaveBeenCalledWith(expect.any(String), expect.any(String), SWEEP_BRANCH, 'dev');
     expect(url).toBe('https://github.com/test-owner/test-repo/pull/99');
   });
 
-  it('mergePr delegates to the repoInfo-scoped mergePR', () => {
-    const mockCtx = makeMockCtx();
-    vi.mocked(gitContextForRepo).mockReturnValue(mockCtx as never);
+  it('mergePr delegates to the repoInfo-scoped mergePR, using repoInfo derived from the passed context', () => {
+    const mockCtx = makeFakeGitContext({ owner: 'other-owner', repo: 'other-repo' });
     vi.mocked(mergePR).mockReturnValue({ success: true });
 
-    const base = prepareSweepBase();
+    const base = prepareSweepBase(mockCtx);
     const result = base?.mergePr(99);
 
-    expect(mergePR).toHaveBeenCalledWith(99, { owner: 'test-owner', repo: 'test-repo' });
+    expect(mergePR).toHaveBeenCalledWith(99, { owner: 'other-owner', repo: 'other-repo' });
     expect(result).toEqual({ success: true });
   });
 });

@@ -261,6 +261,7 @@ When('the per-issue scenario sweep runs on the cron host', async function () {
   };
 
   await runPerIssueScenarioSweep({
+    gitContext: gitCtx,
     now: FIXED_NOW,
     listFeatures: () => listFixtureFeatures(gitCtx, worktreePath),
     getMergedAt: async (issueNum: number) => ctx.mergedAtByIssue.get(issueNum) ?? null,

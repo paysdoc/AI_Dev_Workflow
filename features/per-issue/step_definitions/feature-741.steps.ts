@@ -245,6 +245,7 @@ When('the promotion reconciliation sweep runs over the repository', async functi
 
   try {
     await runPromotionSweep({
+      gitContext: gitCtx,
       now: () => FIXED_NOW,
       listPerIssueFeatures: () => listFixtureFeatures(gitCtx, ctx.workdir),
       readFeatureContent: (filePath: string) => {
