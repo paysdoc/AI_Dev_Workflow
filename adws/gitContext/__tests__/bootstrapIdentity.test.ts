@@ -1,51 +1,119 @@
-import { describe, it, expect } from 'vitest';
-import { resolveBootstrapGitIdentity } from '../bootstrapIdentity';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
+import { execSync } from 'child_process';
+import { resolveBootstrapGitIdentity, parseGitHubRemoteUrl, readLocalRepoInfo } from '../bootstrapIdentity';
 import type { BootstrapIdentityDeps } from '../bootstrapIdentity';
+import { getRepoInfo } from '../../github/githubApi';
 
 // ---------------------------------------------------------------------------
-// readLocalRepoInfo
+// parseGitHubRemoteUrl
 // ---------------------------------------------------------------------------
 
-describe('readLocalRepoInfo — URL parsing', () => {
-  // readLocalRepoInfo uses execSync directly with no seam, so we test the
-  // underlying URL parsing logic via the same regex patterns it applies.
-
-  it('parses an HTTPS GitHub URL', () => {
-    const url = 'https://github.com/acme/webapp.git';
-    const httpsMatch = url.match(/github\.com\/([^/]+)\/([^/.]+)/);
-    const sshMatch = url.match(/git@github\.com:([^/]+)\/([^/.]+)/);
-    const match = httpsMatch || sshMatch;
-    expect(match?.[1]).toBe('acme');
-    expect(match?.[2]).toBe('webapp');
-  });
-
-  it('parses an SSH GitHub URL', () => {
-    const url = 'git@github.com:acme/webapp.git';
-    const httpsMatch = url.match(/github\.com\/([^/]+)\/([^/.]+)/);
-    const sshMatch = url.match(/git@github\.com:([^/]+)\/([^/.]+)/);
-    const match = httpsMatch || sshMatch;
-    expect(match?.[1]).toBe('acme');
-    expect(match?.[2]).toBe('webapp');
-  });
-
-  it('HTTPS and SSH produce the same owner/repo', () => {
-    const parseUrl = (url: string) => {
-      const httpsMatch = url.match(/github\.com\/([^/]+)\/([^/.]+)/);
-      const sshMatch = url.match(/git@github\.com:([^/]+)\/([^/.]+)/);
-      return httpsMatch || sshMatch;
-    };
-    const https = parseUrl('https://github.com/octo/infra.git');
-    const ssh = parseUrl('git@github.com:octo/infra.git');
-    expect(https?.[1]).toBe(ssh?.[1]);
-    expect(https?.[2]).toBe(ssh?.[2]);
+describe('parseGitHubRemoteUrl', () => {
+  it.each([
+    ['https://github.com/acme/webapp.git', 'acme', 'webapp'],
+    ['git@github.com:acme/webapp.git', 'acme', 'webapp'],
+    ['https://github.com/octo/infra.git', 'octo', 'infra'],
+    ['git@github.com:octo/infra.git', 'octo', 'infra'],
+  ])('parses %s as owner/repo (dot-free regression)', (url, owner, repo) => {
+    expect(parseGitHubRemoteUrl(url)).toEqual({ owner, repo });
   });
 
   it('returns null for a non-GitHub URL', () => {
-    const url = 'https://gitlab.com/acme/webapp.git';
-    const httpsMatch = url.match(/github\.com\/([^/]+)\/([^/.]+)/);
-    const sshMatch = url.match(/git@github\.com:([^/]+)\/([^/.]+)/);
-    const match = httpsMatch || sshMatch;
-    expect(match).toBeNull();
+    expect(parseGitHubRemoteUrl('https://gitlab.com/acme/webapp.git')).toBeNull();
+  });
+
+  // The bug (issue #779): `([^/.]+)` stopped at the FIRST dot, so
+  // `paysdoc.nl` truncated to `paysdoc`. All four canonical forms must
+  // resolve to the full dotted name.
+  it.each([
+    ['git@github.com:paysdoc/paysdoc.nl.git', 'paysdoc', 'paysdoc.nl'],
+    ['git@github.com:paysdoc/paysdoc.nl', 'paysdoc', 'paysdoc.nl'],
+    ['https://github.com/paysdoc/paysdoc.nl.git', 'paysdoc', 'paysdoc.nl'],
+    ['https://github.com/paysdoc/paysdoc.nl', 'paysdoc', 'paysdoc.nl'],
+  ])('parses %s as the full dotted repository name', (url, owner, repo) => {
+    expect(parseGitHubRemoteUrl(url)).toEqual({ owner, repo });
+  });
+
+  // The rest of the dotted family — multi-dot, GitHub Pages, trailing slash,
+  // and a leading-dot name (which the old class couldn't match AT ALL,
+  // because it required a non-dot character immediately after the slash).
+  it.each([
+    ['git@github.com:paysdoc/a.b.c.git', 'paysdoc', 'a.b.c'],
+    ['git@github.com:paysdoc/paysdoc.github.io.git', 'paysdoc', 'paysdoc.github.io'],
+    ['https://github.com/paysdoc/paysdoc.nl/', 'paysdoc', 'paysdoc.nl'],
+    ['git@github.com:paysdoc/.github.git', 'paysdoc', '.github'],
+  ])('parses %s as owner/repo (rest of the dotted family)', (url, owner, repo) => {
+    expect(parseGitHubRemoteUrl(url)).toEqual({ owner, repo });
+  });
+
+  // Only the TRAILING .git is stripped — a repo whose real name ends in
+  // ".git" keeps it.
+  it('strips only the trailing .git suffix', () => {
+    expect(parseGitHubRemoteUrl('https://github.com/paysdoc/repo.git.git')).toEqual({
+      owner: 'paysdoc',
+      repo: 'repo.git',
+    });
+  });
+
+  // Tolerated forms that must keep working: SSH without .git, trailing
+  // slash, credential-bearing (App-push) HTTPS, and the ssh:// scheme form.
+  it.each([
+    ['git@github.com:acme/webapp', 'acme', 'webapp'],
+    ['https://github.com/acme/webapp/', 'acme', 'webapp'],
+    ['ssh://git@github.com/acme/webapp.git', 'acme', 'webapp'],
+    ['https://x-access-token:TOK@github.com/acme/webapp.git', 'acme', 'webapp'],
+  ])('tolerates %s', (url, owner, repo) => {
+    expect(parseGitHubRemoteUrl(url)).toEqual({ owner, repo });
+  });
+
+  // Non-GitHub remotes still return null rather than a fabricated identity —
+  // including the Bitbucket SSH form, which must not be caught by the SSH pattern.
+  it.each([
+    ['https://gitlab.com/acme/webapp.git'],
+    ['git@bitbucket.org:acme/webapp.git'],
+  ])('returns null for the non-GitHub remote %s', (url) => {
+    expect(parseGitHubRemoteUrl(url)).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// readLocalRepoInfo — end-to-end against a real throwaway git repo
+// ---------------------------------------------------------------------------
+
+describe('readLocalRepoInfo — real git remote (issue #779 end-to-end proof)', () => {
+  let tempDir = '';
+
+  beforeEach(() => {
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'adw-779-'));
+    execSync('git init -q', { cwd: tempDir, stdio: 'pipe' });
+  });
+
+  afterEach(() => {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  it('resolves a dotted-name SSH remote to the full repository name', () => {
+    execSync('git remote add origin git@github.com:paysdoc/paysdoc.nl.git', { cwd: tempDir, stdio: 'pipe' });
+    expect(readLocalRepoInfo(tempDir)).toEqual({ owner: 'paysdoc', repo: 'paysdoc.nl' });
+  });
+
+  it('resolves a dotted-name HTTPS remote to the full repository name', () => {
+    execSync('git remote add origin https://github.com/paysdoc/paysdoc.nl.git', { cwd: tempDir, stdio: 'pipe' });
+    expect(readLocalRepoInfo(tempDir)).toEqual({ owner: 'paysdoc', repo: 'paysdoc.nl' });
+  });
+
+  it('getRepoInfo agrees with readLocalRepoInfo on the dotted clone (one shared parse)', () => {
+    execSync('git remote add origin git@github.com:paysdoc/paysdoc.nl.git', { cwd: tempDir, stdio: 'pipe' });
+    expect(getRepoInfo(tempDir)).toEqual(readLocalRepoInfo(tempDir));
+    expect(getRepoInfo(tempDir)).toEqual({ owner: 'paysdoc', repo: 'paysdoc.nl' });
+  });
+
+  it('throws with a "Failed to get repo info" message for a non-GitHub remote', () => {
+    execSync('git remote add origin https://gitlab.com/acme/webapp.git', { cwd: tempDir, stdio: 'pipe' });
+    expect(() => readLocalRepoInfo(tempDir)).toThrow(/Failed to get repo info/);
   });
 });
 

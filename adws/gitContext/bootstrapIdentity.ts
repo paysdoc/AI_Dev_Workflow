@@ -27,6 +27,38 @@ export interface BootstrapIdentityDeps {
 }
 
 // ---------------------------------------------------------------------------
+// parseGitHubRemoteUrl
+// ---------------------------------------------------------------------------
+
+/**
+ * HTTPS-style GitHub remote: `https://github.com/owner/repo[.git][/]`.
+ * Also matches credential-bearing (`https://x-access-token:…@github.com/…`)
+ * and `ssh://git@github.com/…` forms.
+ *
+ * The repo group is lazy and the pattern is end-anchored so the optional
+ * `.git` strips a *trailing* suffix only — a greedy or dot-excluding group
+ * would truncate dotted names such as `paysdoc.nl` (issue #779).
+ */
+const HTTPS_REMOTE_RE = /github\.com\/([^/]+)\/([^/]+?)(?:\.git)?\/?$/;
+
+/** SCP-style SSH GitHub remote: `git@github.com:owner/repo[.git]`. */
+const SSH_REMOTE_RE = /git@github\.com:([^/]+)\/([^/]+?)(?:\.git)?$/;
+
+/**
+ * Parses `{ owner, repo }` out of a GitHub remote URL (HTTPS or SSH).
+ * Returns null when the URL is not a parseable GitHub remote, leaving the
+ * error contract to each caller.
+ *
+ * Pure — the single source of truth for GitHub remote-URL parsing.
+ */
+export function parseGitHubRemoteUrl(remoteUrl: string): RepoInfo | null {
+  const url = remoteUrl.trim();
+  const match = url.match(HTTPS_REMOTE_RE) ?? url.match(SSH_REMOTE_RE);
+  if (!match) return null;
+  return { owner: match[1], repo: match[2] };
+}
+
+// ---------------------------------------------------------------------------
 // readLocalRepoInfo
 // ---------------------------------------------------------------------------
 
@@ -38,13 +70,11 @@ export interface BootstrapIdentityDeps {
 export function readLocalRepoInfo(cwd?: string): RepoInfo {
   try {
     const remoteUrl = execSync('git remote get-url origin', { encoding: 'utf-8', cwd }).trim();
-    const httpsMatch = remoteUrl.match(/github\.com\/([^/]+)\/([^/.]+)/);
-    const sshMatch = remoteUrl.match(/git@github\.com:([^/]+)\/([^/.]+)/);
-    const match = httpsMatch || sshMatch;
-    if (!match) {
+    const info = parseGitHubRemoteUrl(remoteUrl);
+    if (!info) {
       throw new Error(`Could not parse GitHub URL: ${remoteUrl}`);
     }
-    return { owner: match[1], repo: match[2] };
+    return info;
   } catch (error) {
     throw new Error(`Failed to get repo info: ${error}`);
   }

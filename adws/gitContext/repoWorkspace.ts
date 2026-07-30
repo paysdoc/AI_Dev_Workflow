@@ -14,6 +14,7 @@ import { execSync } from 'child_process';
 import type { ExecSyncOptions } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
+import { parseGitHubRemoteUrl } from './bootstrapIdentity';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -59,11 +60,10 @@ export function isRepoCloned(workspacePath: string, fsDeps?: Pick<typeof fs, 'ex
  * Non-HTTPS URLs (e.g., already SSH) are returned unchanged.
  */
 export function convertToSshUrl(cloneUrl: string): string {
-  const httpsMatch = cloneUrl.match(/^https:\/\/github\.com\/([^/]+)\/([^/.]+)(\.git)?$/);
-  if (httpsMatch) {
-    return `git@github.com:${httpsMatch[1]}/${httpsMatch[2]}.git`;
-  }
-  return cloneUrl;
+  if (!cloneUrl.startsWith('https://github.com/')) return cloneUrl;
+  const info = parseGitHubRemoteUrl(cloneUrl);
+  if (!info) return cloneUrl;
+  return `git@github.com:${info.owner}/${info.repo}.git`;
 }
 
 /**
