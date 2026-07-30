@@ -641,6 +641,7 @@ adws/                   # ADW workflow system
 │   │   ├── gitContextOperations.test.ts
 │   │   ├── gitReadOps.test.ts
 │   │   ├── remoteOps.test.ts
+│   │   ├── repoApiCwd.test.ts
 │   │   ├── repoWorkspace.test.ts
 │   │   └── tokenResolver.test.ts
 │   ├── commands/       # Pure command-string builders (no I/O) — one file per concern
