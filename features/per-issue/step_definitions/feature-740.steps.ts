@@ -235,6 +235,7 @@ When('the promotion origination sweep runs over the repository', async function 
 
   try {
     await runPromotionSweep({
+      gitContext: gitCtx,
       now: () => FIXED_NOW,
       listPerIssueFeatures: () => listFixtureFeatures(gitCtx, ctx.workdir),
       readFeatureContent: (filePath: string) => {

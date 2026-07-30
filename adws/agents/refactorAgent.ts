@@ -23,6 +23,7 @@ export async function runRefactorAgent(
   cwd?: string,
   issueBody?: string,
   subprocessEnv?: NodeJS.ProcessEnv,
+  launchContext?: { selfHost: boolean; adwId: string },
 ): Promise<AgentResult> {
   const args = [adwId, refactorBlocker.issueDescription];
   const outputFile = path.join(logsDir, 'refactor-agent.jsonl');
@@ -33,5 +34,5 @@ export async function runRefactorAgent(
   log(`  Description: ${refactorBlocker.issueDescription}`, 'info');
   log(`  Model: ${model}`, 'info');
 
-  return runClaudeAgentWithCommand('/refactor', args, 'Refactor', outputFile, model, effort, undefined, statePath, cwd, undefined, undefined, subprocessEnv);
+  return runClaudeAgentWithCommand('/refactor', args, 'Refactor', outputFile, model, effort, undefined, statePath, cwd, undefined, undefined, subprocessEnv, launchContext);
 }

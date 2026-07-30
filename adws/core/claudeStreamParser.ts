@@ -34,6 +34,8 @@ export interface ToolResultContentBlock {
   type: 'tool_result';
   tool_use_id: string;
   content: string;
+  /** True when the tool call failed — including a permission denial under an injected deny rule (issue #762). */
+  is_error?: boolean;
 }
 
 /**
@@ -116,6 +118,8 @@ export interface JsonlParserState {
   overloadedErrorDetected: boolean;
   /** Set when a `system` `compact_boundary` is parsed. */
   compactionDetected: boolean;
+  /** Count of tool results with `is_error: true` — includes permission denials from an injected deny rule (issue #762). */
+  deniedToolCallCount: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -131,6 +135,17 @@ export function extractTextFromAssistantMessage(message: JsonlAssistantMessage['
     .filter((block): block is TextContentBlock => block.type === 'text')
     .map(block => block.text + '\n')
     .join('');
+}
+
+/**
+ * Counts tool-result content blocks with `is_error: true` nested within an
+ * assistant message's content array (issue #762 denial counting).
+ */
+function countErroredToolResultBlocks(message: JsonlAssistantMessage['message'] | undefined): number {
+  if (!message?.content) return 0;
+  return message.content.filter(
+    (block): block is ToolResultContentBlock => block.type === 'tool_result' && block.is_error === true,
+  ).length;
 }
 
 /**
@@ -183,6 +198,14 @@ export function parseJsonlOutput(
         AgentStateManager.writeRawOutput(statePath, 'output.jsonl', parsed, true);
       }
 
+      // --- Structured detection: tool_result denial count (issue #762) ---
+      // The CLI emits tool_result both as a top-level message (proven shape —
+      // extractInstallContext() in installPhase.ts already reads is_error off it)
+      // and nested inside an assistant message's content blocks.
+      if (parsed.type === 'tool_result' && (parsed as Record<string, unknown>).is_error === true) {
+        state.deniedToolCallCount++;
+      }
+
       // --- Structured detection: rate_limit_event ---
       if (parsed.type === 'rate_limit_event') {
         const info = (parsed as Record<string, unknown>).rate_limit_info as Record<string, unknown> | undefined;
@@ -221,6 +244,7 @@ export function parseJsonlOutput(
         state.turnCount++;
         const assistantMsg = parsed as JsonlAssistantMessage;
         state.fullOutput += extractTextFromAssistantMessage(assistantMsg.message);
+        state.deniedToolCallCount += countErroredToolResultBlocks(assistantMsg.message);
 
         // Extract and report tool usage
         const toolUses = extractToolUseFromMessage(assistantMsg.message);

@@ -56,7 +56,12 @@ import type { GitContext } from './gitContext';
 import { runClaudeAgentWithCommand } from './agents';
 import { createGitHubCodeHost } from './providers/github/githubCodeHost';
 import type { CreatePROptions, PullRequestResult, RepoIdentifier } from './providers/types';
-import { copyAdwInitCommandToWorktree, verifyAdwRegen } from './phases/worktreeSetup';
+import {
+  copyAdwInitCommandToWorktree,
+  verifyAdwRegen,
+  copyStarterSettingsToWorktree,
+  type StarterSettingsResult,
+} from './phases/worktreeSetup';
 
 // ── Result type ───────────────────────────────────────────────────────────────
 
@@ -97,6 +102,8 @@ export interface UpgradeDeps {
   readonly runInitCommand: (params: RunInitCommandParams) => Promise<{ success: boolean; error?: string }>;
   readonly copyInitCommandToWorktree: (worktreePath: string, frameworkRepoRoot: string) => void;
   readonly verifyAdwRegen: (worktreePath: string) => { ok: boolean; missing: readonly string[] };
+  /** Copies the starter guardrails `settings.json` into the worktree, skipping if one already exists (#763). */
+  readonly copyStarterSettings: (worktreePath: string, frameworkRepoRoot: string) => StarterSettingsResult;
   readonly writeAdwVersion: (worktreePath: string, hash: string) => void;
   readonly commitChanges: (message: string, cwd: string, opts?: { excludePaths?: readonly string[] }) => boolean;
   readonly pushBranch: (branch: string, cwd: string) => void;
@@ -361,6 +368,11 @@ export async function executeUpgrade(
     return { outcome: 'failed', reason: 'regen_incomplete' };
   }
 
+  // 5c. Copy the starter guardrails settings.json into the worktree (skip if the target
+  //     repo already has one) so it rides into the same regen commit as everything else.
+  const starter = deps.copyStarterSettings(worktreePath, frameworkRepoRoot);
+  deps.log(`adwUpgrade: starter guardrails settings ${starter.action} (${starter.destPath})`, 'info');
+
   // 6. Write .adw-version, commit the regen, push
   deps.writeAdwVersion(worktreePath, hash);
   try {
@@ -450,6 +462,10 @@ async function runInitCommandDefault(params: RunInitCommandParams): Promise<{ su
     undefined,
     undefined,
     params.worktreePath,
+    undefined,
+    undefined,
+    undefined,
+    { selfHost: false, adwId: params.adwId },
   );
   return {
     success: result.success,
@@ -494,6 +510,7 @@ function buildDefaultUpgradeDeps(repoId: RepoIdentifier, gitCtx: GitContext): Up
     runInitCommand: runInitCommandDefault,
     copyInitCommandToWorktree: copyAdwInitCommandToWorktree,
     verifyAdwRegen,
+    copyStarterSettings: copyStarterSettingsToWorktree,
     writeAdwVersion,
     commitChanges: (message, cwd, opts) => gitCtx.commitChanges(message, cwd, opts),
     pushBranch: (branch, cwd) => gitCtx.pushBranch(branch, cwd),

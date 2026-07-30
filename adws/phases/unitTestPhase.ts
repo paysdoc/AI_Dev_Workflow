@@ -80,6 +80,7 @@ export async function executeUnitTestPhase(config: WorkflowConfig): Promise<{
       runTestsCommand: config.projectConfig.commands.runTests ?? 'bun run test:unit',
       cwd: worktreePath,
       issueBody: issue.body,
+      launchContext: { selfHost: !repoContext, adwId },
       onCompactionDetected: (continuationNumber) => {
         ctx.tokenContinuationNumber = continuationNumber;
         log(`Test phase: context compacted, spawning continuation #${continuationNumber}`, 'info');

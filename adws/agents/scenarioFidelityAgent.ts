@@ -57,6 +57,7 @@ export async function runScenarioFidelityAgent(
   logsDir: string,
   statePath?: string,
   cwd?: string,
+  launchContext?: { selfHost: boolean; adwId: string },
 ): Promise<AgentResult & { fidelityResult: ValidationResult }> {
   log(`Running scenario fidelity agent for issue ${issueNumber}`, 'info');
 
@@ -65,6 +66,7 @@ export async function runScenarioFidelityAgent(
     logsDir,
     statePath,
     cwd,
+    launchContext,
   });
 
   return { ...result, fidelityResult: result.parsed };

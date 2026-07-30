@@ -4,7 +4,7 @@
 import { spawn, execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
-import { log, AgentStateManager, getSafeSubprocessEnv, resolveClaudeCodePath, clearClaudeCodePathCache } from '../core';
+import { log, AgentStateManager, getSafeSubprocessEnv, resolveClaudeCodePath, clearClaudeCodePathCache, resolveGuardrailsDecisionForSpawn } from '../core';
 import { getMainRepoPath } from '../vcs/worktreeOperations';
 import type { ProgressCallback } from '../core/claudeStreamParser';
 import type { AgentResult } from '../types/agentTypes';
@@ -62,6 +62,9 @@ function delay(ms: number): Promise<void> {
  * @param cwd - Optional working directory for the agent (defaults to process.cwd())
  * @param contextPreamble - Optional context string prepended to the prompt (e.g., cached install context)
  * @param phaseName - Optional phase name used to look up the per-phase watchdog timeout.
+ * @param launchContext - Optional launch-boundary facts ({ selfHost, adwId }) used to decide guardrails
+ *   `--settings` injection (issue #762). Absent → treated as self-host, so an un-threaded caller never
+ *   injects (fail-safe = today's behaviour).
  */
 export async function runClaudeAgentWithCommand(
   command: string,
@@ -76,6 +79,7 @@ export async function runClaudeAgentWithCommand(
   contextPreamble?: string,
   phaseName?: string,
   subprocessEnv?: NodeJS.ProcessEnv,
+  launchContext?: { selfHost: boolean; adwId: string },
 ): Promise<AgentResult> {
   // Build the prompt as "command 'args'" for the CLI
   // Each arg is single-quoted to preserve formatting
@@ -128,6 +132,18 @@ export async function runClaudeAgentWithCommand(
       // Non-fatal: if we can't resolve the main repo path, skip env var injection
     }
   }
+
+  // Guardrails --settings injection (issue #762) — target-repo runs only. An absent
+  // launchContext defaults selfHost to true, so an un-threaded caller never injects
+  // (fail-safe = today's behaviour).
+  const guardrailsDecision = await resolveGuardrailsDecisionForSpawn(
+    { selfHost: launchContext?.selfHost ?? true, worktreePath: resolvedCwd, adwId: launchContext?.adwId ?? '' },
+  );
+  if (guardrailsDecision.inject) {
+    cliArgs.unshift('--settings', guardrailsDecision.settingsJson);
+    spawnEnv['CLAUDE_HOOKS_LOG_DIR'] = guardrailsDecision.hookLogDir;
+  }
+
   // detached: true makes the child the leader of a new process group. This lets
   // killProcessGroup(-pid, ...) reach grandchildren (orphan cat/head from heredoc pipelines)
   // that a single-process kill would miss — that was the root cause of the wedge incident.

@@ -16,6 +16,8 @@ vi.mock('../../core', () => ({
   getSafeSubprocessEnv: vi.fn().mockReturnValue({}),
   resolveClaudeCodePath: vi.fn().mockReturnValue('/usr/bin/claude'),
   clearClaudeCodePathCache: vi.fn(),
+  // Default: no injection — matches today's behaviour so pre-existing tests are unaffected.
+  resolveGuardrailsDecisionForSpawn: vi.fn().mockResolvedValue({ inject: false }),
 }));
 
 vi.mock('../../vcs/worktreeOperations', () => ({ getMainRepoPath: vi.fn() }));
@@ -39,7 +41,7 @@ vi.mock('../../core/agentTimeouts', () => ({
 
 import { spawn, execSync } from 'child_process';
 import { killProcessGroup } from '../../core/processKill';
-import { getSafeSubprocessEnv } from '../../core';
+import { getSafeSubprocessEnv, resolveGuardrailsDecisionForSpawn } from '../../core';
 import { handleAgentProcess } from '../agentProcessHandler';
 import { runClaudeAgentWithCommand } from '../claudeAgent';
 
@@ -48,6 +50,7 @@ const mockExecSync = vi.mocked(execSync);
 const mockHandleAgentProcess = vi.mocked(handleAgentProcess);
 const mockKillProcessGroup = vi.mocked(killProcessGroup);
 const mockGetSafeSubprocessEnv = vi.mocked(getSafeSubprocessEnv);
+const mockResolveGuardrailsDecision = vi.mocked(resolveGuardrailsDecisionForSpawn);
 
 const BASE_RESULT = {
   success: true,
@@ -81,8 +84,10 @@ describe('runClaudeAgentWithCommand — watchdog', () => {
 
     const agentPromise = runClaudeAgentWithCommand('/feature', 'args', 'step-def-agent', '/tmp/out.jsonl');
 
-    // Fire the watchdog (100ms mock timeout)
-    vi.advanceTimersByTime(101);
+    // Fire the watchdog (100ms mock timeout). Async variant: the gate check
+    // (resolveGuardrailsDecision) awaits a microtask before spawn()/the
+    // watchdog setTimeout are even registered, so advancing must flush that too.
+    await vi.advanceTimersByTimeAsync(101);
 
     // Simulate the 'close' event arriving after the kill (handleAgentProcess resolves)
     resolveHandler({ ...BASE_RESULT, success: true });
@@ -101,7 +106,7 @@ describe('runClaudeAgentWithCommand — watchdog', () => {
       'sonnet', undefined, undefined, undefined, undefined, undefined, 'step-def'
     );
 
-    vi.advanceTimersByTime(101);
+    await vi.advanceTimersByTimeAsync(101);
     resolveHandler({ ...BASE_RESULT, success: true });
 
     let err: unknown;
@@ -121,7 +126,7 @@ describe('runClaudeAgentWithCommand — watchdog', () => {
 
     const agentPromise = runClaudeAgentWithCommand('/feature', 'args', 'step-def-agent', '/tmp/out.jsonl');
 
-    vi.advanceTimersByTime(101);
+    await vi.advanceTimersByTimeAsync(101);
     expect(mockKillProcessGroup).toHaveBeenCalledWith(1234, 5_000);
 
     resolveHandler({ ...BASE_RESULT, success: true });
@@ -294,5 +299,104 @@ describe('runClaudeAgentWithCommand — subprocessEnv overlay (#701)', () => {
     );
 
     expect(process.env.GH_TOKEN).toBe(before);
+  });
+});
+
+describe('runClaudeAgentWithCommand — guardrails --settings injection (#762)', () => {
+  it('passes selfHost/worktreePath/adwId derived from launchContext + cwd to the gate', async () => {
+    mockResolveGuardrailsDecision.mockResolvedValueOnce({ inject: false });
+    mockHandleAgentProcess.mockResolvedValueOnce({ ...BASE_RESULT, success: true });
+
+    await runClaudeAgentWithCommand(
+      '/implement', 'args', 'build-agent', '/tmp/out.jsonl',
+      'sonnet', undefined, undefined, undefined, '/worktrees/target-repo', undefined, undefined, undefined,
+      { selfHost: false, adwId: 'adw-guard-1' },
+    );
+
+    expect(mockResolveGuardrailsDecision).toHaveBeenCalledWith(
+      { selfHost: false, worktreePath: '/worktrees/target-repo', adwId: 'adw-guard-1' },
+    );
+  });
+
+  it('defaults to selfHost: true and adwId: "" when launchContext is omitted (fail-safe)', async () => {
+    mockResolveGuardrailsDecision.mockResolvedValueOnce({ inject: false });
+    mockHandleAgentProcess.mockResolvedValueOnce({ ...BASE_RESULT, success: true });
+
+    await runClaudeAgentWithCommand('/implement', 'args', 'build-agent', '/tmp/out.jsonl');
+
+    expect(mockResolveGuardrailsDecision).toHaveBeenCalledWith(
+      { selfHost: true, worktreePath: process.cwd(), adwId: '' },
+    );
+  });
+
+  it('unshifts --settings and sets an absolute CLAUDE_HOOKS_LOG_DIR when the gate injects', async () => {
+    const settingsJson = JSON.stringify({ permissions: { deny: ['Bash(rm -rf:*)'] }, hooks: {} });
+    mockResolveGuardrailsDecision.mockResolvedValueOnce({
+      inject: true,
+      settingsJson,
+      hookLogDir: '/Users/adw/agents/adw-guard-1/hook-logs',
+    });
+    mockHandleAgentProcess.mockResolvedValueOnce({ ...BASE_RESULT, success: true });
+
+    await runClaudeAgentWithCommand(
+      '/implement', 'args', 'build-agent', '/tmp/out.jsonl',
+      'sonnet', undefined, undefined, undefined, '/worktrees/target-repo', undefined, undefined, undefined,
+      { selfHost: false, adwId: 'adw-guard-1' },
+    );
+
+    expect(mockSpawn).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.arrayContaining(['--settings', settingsJson]),
+      expect.objectContaining({
+        env: expect.objectContaining({ CLAUDE_HOOKS_LOG_DIR: '/Users/adw/agents/adw-guard-1/hook-logs' }),
+      }),
+    );
+  });
+
+  it('a target run receiving inject: true carries --settings; a self-host run does not', async () => {
+    mockResolveGuardrailsDecision.mockResolvedValueOnce({ inject: false });
+    mockHandleAgentProcess.mockResolvedValueOnce({ ...BASE_RESULT, success: true });
+
+    await runClaudeAgentWithCommand(
+      '/implement', 'args', 'build-agent', '/tmp/out.jsonl',
+      'sonnet', undefined, undefined, undefined, undefined, undefined, undefined, undefined,
+      { selfHost: true, adwId: 'adw-self-1' },
+    );
+
+    const [, cliArgs] = mockSpawn.mock.calls[0]!;
+    expect(cliArgs).not.toContain('--settings');
+  });
+
+  it('does not set CLAUDE_HOOKS_LOG_DIR when the gate withholds injection', async () => {
+    mockResolveGuardrailsDecision.mockResolvedValueOnce({ inject: false });
+    mockHandleAgentProcess.mockResolvedValueOnce({ ...BASE_RESULT, success: true });
+
+    await runClaudeAgentWithCommand('/implement', 'args', 'build-agent', '/tmp/out.jsonl');
+
+    const [, , spawnOptions] = mockSpawn.mock.calls[0]!;
+    expect((spawnOptions as { env: NodeJS.ProcessEnv }).env['CLAUDE_HOOKS_LOG_DIR']).toBeUndefined();
+  });
+
+  it('carries the injected --settings flag through the ENOENT retry spawn as well', async () => {
+    const settingsJson = JSON.stringify({ permissions: { deny: [] }, hooks: {} });
+    mockResolveGuardrailsDecision.mockResolvedValueOnce({
+      inject: true,
+      settingsJson,
+      hookLogDir: '/agents/adw-guard-1/hook-logs',
+    });
+    mockHandleAgentProcess
+      .mockResolvedValueOnce({ ...BASE_RESULT, success: false, output: 'spawn claude ENOENT' })
+      .mockResolvedValueOnce({ ...BASE_RESULT, success: true });
+
+    await runClaudeAgentWithCommand(
+      '/implement', 'args', 'build-agent', '/tmp/out.jsonl',
+      'sonnet', undefined, undefined, undefined, undefined, undefined, undefined, undefined,
+      { selfHost: false, adwId: 'adw-guard-1' },
+    );
+
+    expect(mockSpawn).toHaveBeenCalledTimes(2);
+    for (const call of mockSpawn.mock.calls) {
+      expect(call[1]).toEqual(expect.arrayContaining(['--settings', settingsJson]));
+    }
   });
 });

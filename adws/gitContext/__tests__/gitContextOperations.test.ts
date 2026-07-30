@@ -42,14 +42,14 @@ function makeSpyExec(stdout = 'main\n'): { exec: ExecFn; calls: SpyCall[] } {
 // ── Env injection ────────────────────────────────────────────────────────────
 
 describe('defaultBranch() env injection', () => {
-  it('passes cwd equal to the context base path', () => {
+  it('passes cwd equal to the framework repo root', () => {
     const { exec, calls } = makeSpyExec();
     const ctx = new GitContext(
       validOptions({ owner: 'acme', repo: 'webapp', token: 'my-token' }),
       { exec },
     );
     ctx.defaultBranch();
-    expect(calls[0].cwd).toBe(ctx.basePath);
+    expect(calls[0].cwd).toBe(FRAMEWORK_ROOT);
   });
 
   it('passes GH_TOKEN from the context token in the child env', () => {
@@ -188,11 +188,11 @@ describe('listOpenIssues() command and env', () => {
     expect(calls[0].command).toBe('gh issue list --repo acme/webapp --state open --json number');
   });
 
-  it('passes cwd equal to the context base path', () => {
+  it('passes cwd equal to the framework repo root', () => {
     const { exec, calls } = makeSpyExec('[]');
     const ctx = new GitContext(validOptions(), { exec });
     ctx.listOpenIssues({ fields: ['number'] });
-    expect(calls[0].cwd).toBe(ctx.basePath);
+    expect(calls[0].cwd).toBe(FRAMEWORK_ROOT);
   });
 
   it('injects GH_TOKEN from the context token in the child env', () => {
@@ -245,11 +245,11 @@ describe('issueComments() command and env', () => {
     );
   });
 
-  it('passes cwd equal to the context base path', () => {
+  it('passes cwd equal to the framework repo root', () => {
     const { exec, calls } = makeSpyExec('[]');
     const ctx = new GitContext(validOptions(), { exec });
     ctx.issueComments(1);
-    expect(calls[0].cwd).toBe(ctx.basePath);
+    expect(calls[0].cwd).toBe(FRAMEWORK_ROOT);
   });
 
   it('injects GH_TOKEN from the context token', () => {
@@ -310,11 +310,11 @@ describe('fetchMergedPRs() command and env', () => {
     );
   });
 
-  it('passes cwd equal to the context base path', () => {
+  it('passes cwd equal to the framework repo root', () => {
     const { exec, calls } = makeSpyExec('[]');
     const ctx = new GitContext(validOptions(), { exec });
     ctx.fetchMergedPRs();
-    expect(calls[0].cwd).toBe(ctx.basePath);
+    expect(calls[0].cwd).toBe(FRAMEWORK_ROOT);
   });
 
   it('injects GH_TOKEN from the context token', () => {
@@ -414,7 +414,7 @@ describe('defaultBranch() does not mutate process.env', () => {
 // ── Two-context isolation ────────────────────────────────────────────────────
 
 describe('two-context isolation', () => {
-  it('two contexts in one process each spawn with their own token and cwd', () => {
+  it('two contexts in one process each spawn their repo-API command with their own token, at the shared framework-rooted cwd', () => {
     const { exec: spyA, calls: callsA } = makeSpyExec('main\n');
     const { exec: spyB, calls: callsB } = makeSpyExec('main\n');
 
@@ -430,10 +430,30 @@ describe('two-context isolation', () => {
     ctxA.defaultBranch();
     ctxB.defaultBranch();
 
-    expect(callsA[0].cwd).toBe(ctxA.basePath);
+    expect(callsA[0].cwd).toBe(FRAMEWORK_ROOT);
     expect(callsA[0].env.GH_TOKEN).toBe('token-alpha');
-    expect(callsB[0].cwd).toBe(ctxB.basePath);
+    expect(callsB[0].cwd).toBe(FRAMEWORK_ROOT);
     expect(callsB[0].env.GH_TOKEN).toBe('token-beta');
+  });
+
+  it('two contexts in one process each spawn their git command with their own per-repo cwd', () => {
+    const { exec: spyA, calls: callsA } = makeSpyExec('main\n');
+    const { exec: spyB, calls: callsB } = makeSpyExec('main\n');
+
+    const ctxA = new GitContext(
+      validOptions({ owner: 'acme', repo: 'alpha', token: 'token-alpha' }),
+      { exec: spyA },
+    );
+    const ctxB = new GitContext(
+      validOptions({ owner: 'octo', repo: 'beta', token: 'token-beta' }),
+      { exec: spyB },
+    );
+
+    ctxA.getCurrentBranch();
+    ctxB.getCurrentBranch();
+
+    expect(callsA[0].cwd).toBe(ctxA.basePath);
+    expect(callsB[0].cwd).toBe(ctxB.basePath);
     expect(callsA[0].cwd).not.toBe(callsB[0].cwd);
   });
 
@@ -522,12 +542,21 @@ describe('explicit cwd (not process.cwd())', () => {
   const originalCwd = process.cwd();
   afterEach(() => process.chdir(originalCwd));
 
-  it('spawned command uses base path even after process.chdir()', () => {
+  it('a repo-API command uses the framework repo root even after process.chdir()', () => {
+    const { exec, calls } = makeSpyExec();
+    const ctx = new GitContext(validOptions({ owner: 'acme', repo: 'webapp' }), { exec });
+    process.chdir('/tmp');
+    ctx.defaultBranch();
+    expect(calls[0].cwd).toBe(FRAMEWORK_ROOT);
+    expect(calls[0].cwd).not.toBe('/tmp');
+  });
+
+  it('a git command uses the base path even after process.chdir()', () => {
     const { exec, calls } = makeSpyExec();
     const ctx = new GitContext(validOptions({ owner: 'acme', repo: 'webapp' }), { exec });
     const expectedBasePath = ctx.basePath;
     process.chdir('/tmp');
-    ctx.defaultBranch();
+    ctx.getCurrentBranch();
     expect(calls[0].cwd).toBe(expectedBasePath);
     expect(calls[0].cwd).not.toBe('/tmp');
   });
@@ -845,11 +874,11 @@ describe('setSecret() command and env', () => {
     expect(calls[0].command).not.toContain('super-secret-value');
   });
 
-  it('passes cwd equal to the context base path', () => {
+  it('passes cwd equal to the framework repo root', () => {
     const { exec, calls } = makeSpyExec('');
     const ctx = new GitContext(validOptions(), { exec });
     ctx.setSecret('MY_SECRET', 'val');
-    expect(calls[0].cwd).toBe(ctx.basePath);
+    expect(calls[0].cwd).toBe(FRAMEWORK_ROOT);
   });
 
   it('does not mutate process.env.GH_TOKEN after the call', () => {
@@ -893,11 +922,11 @@ describe('runGraphQLInput() command and env', () => {
     expect(calls[0].env.GH_TOKEN).toBe('primary-token');
   });
 
-  it('passes cwd equal to the context base path', () => {
+  it('passes cwd equal to the framework repo root', () => {
     const { exec, calls } = makeSpyExec('{}');
     const ctx = new GitContext(validOptions(), { exec });
     ctx.runGraphQLInput({ q: 'mutation{}' });
-    expect(calls[0].cwd).toBe(ctx.basePath);
+    expect(calls[0].cwd).toBe(FRAMEWORK_ROOT);
   });
 
   it('does not mutate process.env', () => {
@@ -1109,11 +1138,11 @@ describe('fetchPRChangedFiles() command and env', () => {
     expect(calls[0].command).toBe('gh pr view 7 --repo acme/webapp --json files');
   });
 
-  it('passes cwd equal to the context base path', () => {
+  it('passes cwd equal to the framework repo root', () => {
     const { exec, calls } = makeSpyExec('{"files":[]}');
     const ctx = new GitContext(validOptions(), { exec });
     ctx.fetchPRChangedFiles(7);
-    expect(calls[0].cwd).toBe(ctx.basePath);
+    expect(calls[0].cwd).toBe(FRAMEWORK_ROOT);
   });
 
   it('injects GH_TOKEN from the context token in the child env', () => {
@@ -1179,11 +1208,11 @@ describe('createPR() with labels', () => {
     expect(calls[0].input).toBe('the body');
   });
 
-  it('passes cwd equal to the context base path', () => {
+  it('passes cwd equal to the framework repo root', () => {
     const { exec, calls } = makeSpyExec('https://github.com/acme/webapp/pull/12\n');
     const ctx = new GitContext(validOptions(), { exec });
     ctx.createPR('T', 'b', 'feature-issue-1-y', undefined, ['regression-promotion']);
-    expect(calls[0].cwd).toBe(ctx.basePath);
+    expect(calls[0].cwd).toBe(FRAMEWORK_ROOT);
   });
 
   it('injects GH_TOKEN from the context token', () => {

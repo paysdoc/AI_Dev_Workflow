@@ -97,6 +97,7 @@ export async function runResolutionAgent(
   statePath?: string,
   cwd?: string,
   subprocessEnv?: NodeJS.ProcessEnv,
+  launchContext?: { selfHost: boolean; adwId: string },
 ): Promise<AgentResult & { resolutionResult: ResolutionResult }> {
   const result = await runCommandAgent(resolutionAgentConfig, {
     args: formatResolutionArgs(adwId, issueNumber, planFilePath, scenarioGlob, issueJson, mismatches),
@@ -104,6 +105,7 @@ export async function runResolutionAgent(
     statePath,
     cwd,
     subprocessEnv,
+    launchContext,
   });
 
   return { ...result, resolutionResult: result.parsed };

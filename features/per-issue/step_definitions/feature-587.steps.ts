@@ -305,7 +305,7 @@ function makeWorkflowConfig(issueNumber: number): WorkflowConfig {
     branchName: 'test-branch',
     applicationUrl: '',
     projectConfig: {} as WorkflowConfig['projectConfig'],
-    adwYmlConfig: { hitl: false, unitTests: true },
+    adwYmlConfig: { hitl: false, unitTests: true, guardrails: false },
   };
 }
 

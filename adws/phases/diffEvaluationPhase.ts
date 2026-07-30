@@ -79,7 +79,7 @@ function postVerdictComment(
 export async function executeDiffEvaluationPhase(
   config: WorkflowConfig,
 ): Promise<DiffEvaluationPhaseResult> {
-  const { adwId, issueNumber, worktreePath, defaultBranch, logsDir, issue } = config;
+  const { adwId, issueNumber, worktreePath, defaultBranch, logsDir, issue, repoContext } = config;
   const phaseStartTime = Date.now();
 
   log('Phase: Diff Evaluation', 'info');
@@ -116,6 +116,7 @@ export async function executeDiffEvaluationPhase(
       logsDir,
       issueBody: issue.body,
       cwd: worktreePath,
+      launchContext: { selfHost: !repoContext, adwId },
     });
 
     modelUsage = result.modelUsage ?? emptyModelUsageMap();

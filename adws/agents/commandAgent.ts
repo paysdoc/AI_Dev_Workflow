@@ -89,6 +89,8 @@ export interface CommandAgentOptions {
   phaseName?: string;
   /** Optional env overlay merged over getSafeSubprocessEnv() — supplies per-command auth from the launch-boundary GitContext. */
   subprocessEnv?: NodeJS.ProcessEnv;
+  /** Optional launch-boundary facts ({ selfHost, adwId }) for guardrails --settings injection (issue #762). */
+  launchContext?: { selfHost: boolean; adwId: string };
 }
 
 /**
@@ -198,6 +200,7 @@ async function runRetryLoop<T>(
       undefined,
       undefined,
       options.subprocessEnv,
+      options.launchContext,
     );
 
     currentOutput = retryResult.output;
@@ -224,7 +227,7 @@ export async function runCommandAgent<T = void>(
   options: CommandAgentOptions,
 ): Promise<CommandAgentResult<T>> {
   const { command, agentName, outputFileName, extractOutput } = config;
-  const { args, logsDir, issueBody, onProgress, statePath, cwd, contextPreamble, phaseName, subprocessEnv } = options;
+  const { args, logsDir, issueBody, onProgress, statePath, cwd, contextPreamble, phaseName, subprocessEnv, launchContext } = options;
 
   const outputFile = path.join(logsDir, outputFileName);
   const model = getModelForCommand(command, issueBody);
@@ -243,6 +246,7 @@ export async function runCommandAgent<T = void>(
     contextPreamble,
     phaseName,
     subprocessEnv,
+    launchContext,
   );
 
   if (!extractOutput) {

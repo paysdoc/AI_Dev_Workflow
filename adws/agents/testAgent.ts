@@ -114,6 +114,7 @@ export async function runTestAgent(
   statePath?: string,
   cwd?: string,
   issueBody?: string,
+  launchContext?: { selfHost: boolean; adwId: string },
 ): Promise<TestAgentResult> {
   const result = await runCommandAgent(testAgentConfig, {
     args: '',
@@ -121,6 +122,7 @@ export async function runTestAgent(
     issueBody,
     statePath,
     cwd,
+    launchContext,
   });
 
   const testResults = result.parsed;
@@ -153,6 +155,7 @@ export async function runResolveTestAgent(
   statePath?: string,
   cwd?: string,
   issueBody?: string,
+  launchContext?: { selfHost: boolean; adwId: string },
 ): Promise<AgentResult> {
   const outputFile = path.join(logsDir, `resolve-test-${failedTest.test_name}.jsonl`);
 
@@ -168,7 +171,11 @@ export async function runResolveTestAgent(
     getEffortForCommand('/resolve_failed_test', issueBody),
     undefined,
     statePath,
-    cwd
+    cwd,
+    undefined,
+    undefined,
+    undefined,
+    launchContext,
   );
 }
 
@@ -189,6 +196,7 @@ export async function runResolveScenarioAgent(
   cwd?: string,
   applicationUrl?: string,
   issueBody?: string,
+  launchContext?: { selfHost: boolean; adwId: string },
 ): Promise<AgentResult> {
   // Handle undefined or invalid testName gracefully
   const rawTestName = failedE2ETest.testName;
@@ -215,6 +223,10 @@ export async function runResolveScenarioAgent(
     getEffortForCommand('/resolve_failed_scenario', issueBody),
     undefined,
     statePath,
-    cwd
+    cwd,
+    undefined,
+    undefined,
+    undefined,
+    launchContext,
   );
 }

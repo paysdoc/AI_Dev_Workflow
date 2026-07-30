@@ -48,6 +48,7 @@ export async function runPrReviewBuildAgent(
   cwd?: string,
   issueBody?: string,
   subprocessEnv?: NodeJS.ProcessEnv,
+  launchContext?: { selfHost: boolean; adwId: string },
 ): Promise<AgentResult> {
   const args = `## PR #${prDetails.number}: ${prDetails.title}
 **URL:** ${prDetails.url}
@@ -68,6 +69,7 @@ ${revisionPlan}`;
     statePath,
     cwd,
     subprocessEnv,
+    launchContext,
   });
 }
 
@@ -93,6 +95,7 @@ export async function runBuildAgent(
   statePath?: string,
   cwd?: string,
   subprocessEnv?: NodeJS.ProcessEnv,
+  launchContext?: { selfHost: boolean; adwId: string },
 ): Promise<AgentResult> {
   const worktreePath = cwd ?? process.cwd();
   const scenarioFiles = findScenarioFiles(issue.number, worktreePath);
@@ -128,5 +131,6 @@ ${scenarioFiles.join('\n')}`
     statePath,
     cwd,
     subprocessEnv,
+    launchContext,
   });
 }

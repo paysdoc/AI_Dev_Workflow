@@ -14,7 +14,9 @@ ADW is an agentic SDLC framework: it turns issues on GitHub, GitLab, or Jira int
 - **Multi-agent passive review with blocking gate** — review agents read scenario proof and captured screenshots, classifying findings as Blockers (auto-patched by `patchAgent` for general failures or `refactorAgent` for coding-guideline violations, via `reviewPatchHelpers`) or Tech Debt (logged only); when the review-retry loop exhausts with unresolved Blockers the orchestrator writes `review_failed` (a human-gated stage, like `merge_blocked`) and skips PR creation — recoverable only via `## Retry` after pushing a fix.
 - **HITL-gated auto-merge** — every cron tick re-evaluates `(no hitl label) OR (PR approved)`; merge is deferred while the gate is closed, and `## Cancel` is the scorched-earth manual override.
 - **Retry and Cancel directives** — `## Retry` resets a `merge_blocked` workflow to `awaiting_merge` (state-only, no worktree teardown); `## Cancel` kills the orchestrator, removes the worktree, and re-queues the issue.
-- **GitContext repo-context authority** — `adws/gitContext/` is a deep module that owns every git and `gh` interaction; it is constructed once at each process's launch boundary with mandatory owner/repo/token/gitIdentity fields (no optional cwd fallback), resolves the correct base path in its constructor (self-host → framework root; target → target-repos workspace), and applies auth per spawned-command environment rather than by mutating a process-global, eliminating the ~13-episode wrong-repo and GH_TOKEN-bleed class of bugs.
+- **GitContext repo-context authority** — `adws/gitContext/` is a deep module that owns every git and `gh` interaction; it is constructed once at each process's launch boundary with mandatory owner/repo/token/gitIdentity fields (no optional cwd fallback), resolves the correct base path in its constructor (self-host → framework root; target → target-repos workspace), and applies auth per spawned-command environment rather than by mutating a process-global, eliminating the ~13-episode wrong-repo and GH_TOKEN-bleed class of bugs. Git commands and workspace-scoped operations spawn under that base path; repo-independent `gh` operations (issue/PR/label/board/secret — identity travels in the command string) always spawn under the injected framework repo root instead, so directive handling like `## Cancel`/`## Retry` works on a host that has never cloned the target repo's workspace (issue #775).
+- **CI-enforced git/gh guardrail** — `checkGitGhGuard.ts` (`bun run lint:git-guard`, wired into `.github/workflows/git-cli-guard.yml`) scans every `.ts`/`.tsx` source file for direct `git`/`gh` shell-outs and fails the build if any bypass the `GitContext` chokepoint; `adws/gitContext` itself is the sole structurally-exempted package.
+- **Target-repo agent guardrails injection** — `resolveGuardrailsDecision` (`guardrailsGate.ts`) opt-in-gates a `--settings` injection onto every target-repo `claude` spawn: `.github/adw.yml`'s `guardrails: true` canary, an `ADW_TARGET_GUARDRAILS=off` kill switch, self-host exclusion, and a memoized startup probe (`scripts/guardrails-probe.ts`) that fails OPEN (no injection + one Slack alert) rather than blocking. The injected payload (`guardrailsPayload.ts`) combines the `templates/claude-settings-starter.json` deny list with all five framework hooks re-registered at absolute paths and an absolute per-adwId `CLAUDE_HOOKS_LOG_DIR`, so hook logs never leak into the target worktree.
 - **Multi-provider abstraction** — pluggable `IssueTracker` and `CodeHost` interfaces (`RepoContext`) with GitHub, GitLab, and Jira issue trackers and GitHub/GitLab code hosts.
 - **Project board automation** — `BoardManager` provider drives GitHub Projects V2 column transitions as a workflow progresses.
 - **Two automation triggers** — `trigger_cron.ts` polls every 20 s; `trigger_webhook.ts` receives HMAC-signed GitHub webhooks for instant pickup, with optional Cloudflare tunnel lifecycle.
@@ -23,7 +25,7 @@ ADW is an agentic SDLC framework: it turns issues on GitHub, GitLab, or Jira int
 - **Cost tracking** — per-phase, per-model `PhaseCostRecord` with multi-currency reporting, divergence detection vs. CLI-reported cost, and dual-write to a Cloudflare D1-backed Cost API.
 - **LLM-based dependency extraction** — `dependencyExtractionAgent` reads issues to surface cross-issue dependencies before spawning.
 - **Documentation generation** — `documentAgent` writes feature docs to `app_docs/`; the SDLC pipeline includes review screenshots.
-- **Scenario promotion sweep (originate path)** — `adws/triggers/promotionSweep.ts` (manual CLI today, not yet wired into cron) lists tracked `features/per-issue/feature-{N}.feature` files, scores each with a deterministic vocabulary-registry scorer and auto-ramping threshold (`adws/promotion/`, no LLM), reconciles against open `regression-promotion` issues via a `Promotes: feature-N` back-link (`promotionReconcileLink.ts`), and asks the pure `promotionSweepDecider` for one action (`originate | leave | done`). On `originate` it stamps `@promotion-suggested-<date>` on the file (a commit scoped to that single path, never `git add -A`) and files exactly one `hitl`-labelled issue with precise `git mv` + vocabulary-registration instructions (`promotionIssueBody.ts`) for a human to carry out as a direct relocation.
+- **Scenario promotion sweep** — `adws/triggers/promotionSweep.ts`, cron-dispatched via `runPromotionSweepTick` on the `PROMOTION_SWEEP_INTERVAL_CYCLES` cadence (also invocable by hand), lists tracked `features/per-issue/feature-{N}.feature` files, scores each with a deterministic vocabulary-registry scorer and auto-ramping threshold (`adws/promotion/`, no LLM), reconciles against open `regression-promotion` issues via a `Promotes: feature-N` back-link (`promotionReconcileLink.ts`), and asks the pure `promotionSweepDecider` for one action (`originate | leave | done | decline | redrive | withdraw`). On `originate` it stamps `@promotion-suggested-<date>` on the file (a commit scoped to that single path, never `git add -A`) and files exactly one `hitl`-labelled issue with precise `git mv` + vocabulary-registration instructions (`promotionIssueBody.ts`) for a human to carry out as a direct relocation. Both the promotion sweep and the per-issue scenario sweep act on the repo of the cron's own launch-boundary `GitContext` — never a cwd-derived fallback — and skip (rather than misfire) when no launch context is available.
 - **Rot/reuse advisory PR comment** — on a `regression-promotion` PR, `executePromotionRotAdvisory` (`adws/phases/reviewPhase.ts`) runs the `promote-regression-vocabulary` skill's per-phrase reuse/rot analysis over the promoted scenario (`adws/agents/rotAnalysisAgent.ts`) and posts a single advisory, non-blocking PR comment; any failure degrades to a warning and never gates the merge.
 - **Framework self-upgrade with pre-worktree hash gate** — `upgradeGate.ts` runs inside `initializeWorkflow()` **before** worktree setup on every workflow start: it reads the target repo's `.adw-version` from `origin/<default>:.adw-version` (the authoritative remote, immune to stale reused worktrees) and compares it against the framework's current content hash. On mismatch, atomically elects a winner/loser via `upgradeClaim`. The winner creates a `#UPG` tracking issue and spawns `adwUpgrade.tsx` to regenerate `.adw/`; losers park without ever creating a feature worktree, registering a `## Blocked by` dependency on the upgrade issue and moving to Todo. Both re-queue after the upgrade PR merges. On hash match, the gate is transparent and workflow proceeds to normal worktree setup.
 - **Redrivable, bounded upgrade recovery** — `upgradeRedrive.ts` runs as an independent cron pass that re-spawns `adwUpgrade.tsx` for `#UPG` tracking issues stranded by a claim-then-fail (the claim branch is never released, and `#UPG` issues are invisible to the normal candidate loop since `adw:upgrade` isn't an ADW classification label). A pure eligibility predicate (`decideUpgradeRedrive`) mirrors `adwUpgrade`'s own entry gate, idempotency guard, and spawn lock as a cheap pre-filter; bounding reuses the existing `MAX_FAILURES` cap so a redrive loop terminates once `adw:blocked` escalates.
@@ -323,7 +325,7 @@ Three optional sections activate the regression-suite contract. When absent, the
 
 ADW supports moving high-quality per-issue scenarios into the regression suite via a deliberate human approval signal and a cron-driven originate sweep.
 
-`bunx tsx adws/triggers/promotionSweep.ts` — a manual CLI today, not yet wired into cron — lists tracked `features/per-issue/feature-{N}.feature` files, scores each against the vocabulary registry with a deterministic, auto-ramping threshold (no LLM), and reconciles against open `regression-promotion` issues via a `Promotes: feature-N` back-link in the issue body (`adws/core/promotionReconcileLink.ts`). The pure `promotionSweepDecider` (`adws/core/promotionSweepDecider.ts`) maps `{tagState, meetsThreshold, reconcile}` to one action: `originate` (no tag yet, qualifying score, no open promotion issue), `done` (a linked issue has merged), or `leave` (everything else — below threshold, already suggested, declined, or an as-yet-unhandled reconciliation fact). On `originate`, the sweep stamps `@promotion-suggested-<date>` via a commit scoped to that single file (never `git add -A`) and files exactly one `hitl`-labelled, `regression-promotion`-labelled issue (`adws/core/promotionIssueBody.ts`) carrying precise `git mv` + vocabulary-registration instructions — a direct relocation for a human to execute, not an automated mover PR.
+`adws/triggers/promotionSweep.ts` runs on a cadence inside `trigger_cron.ts` (`runPromotionSweepTick`, gated by `PROMOTION_SWEEP_INTERVAL_CYCLES`) and can also be invoked by hand: `bunx tsx adws/triggers/promotionSweep.ts [--target-repo owner/repo]`. It lists tracked `features/per-issue/feature-{N}.feature` files, scores each against the vocabulary registry with a deterministic, auto-ramping threshold (no LLM), and reconciles against open `regression-promotion` issues via a `Promotes: feature-N` back-link in the issue body (`adws/core/promotionReconcileLink.ts`). The pure `promotionSweepDecider` (`adws/core/promotionSweepDecider.ts`) maps `{tagState, meetsThreshold, reconcile}` to one action: `originate` (no tag yet, qualifying score, no open promotion issue), `done` (a linked issue has merged), `decline` (an in-flight candidate whose tracker closed unmerged or carries `adw:blocked`), `redrive` (an in-flight candidate whose tracker is missing but still qualifying), `withdraw` (stranded and no longer qualifying), or `leave` (everything else). On `originate`, the sweep stamps `@promotion-suggested-<date>` via a commit scoped to that single file (never `git add -A`) and files exactly one `hitl`-labelled, `regression-promotion`-labelled issue (`adws/core/promotionIssueBody.ts`) carrying precise `git mv` + vocabulary-registration instructions — a direct relocation for a human to execute, not an automated mover PR. Both the promotion sweep and the per-issue scenario sweep (`perIssueScenarioSweep.ts`) resolve identity entirely from the cron's own launch-boundary `GitContext` passed in by the caller, and are skipped (logged, non-fatal) rather than falling back to a cwd-derived repo when no launch context is available; removals/tags are persisted via a dedicated worktree + branch + immediately-merged PR (`perIssueSweepPersist.ts`), never a direct commit onto the shared checkout.
 
 **`@promotion-suggested-<date>` / `@promotion-declined`** — the on-file lifecycle markers (`adws/core/promotionTagState.ts`), a terminal `none → suggested → declined` state machine (a decline always wins over a lingering suggestion).
 
@@ -453,6 +455,7 @@ Docker execution is entirely optional — the test suite runs identically on the
 │       └── SKILL.md
 └── settings.json
 templates/              # ADW framework-level templates
+├── claude-settings-starter.json  # Canonical deny-list source for the guardrails `--settings` injection; also copied into target repos by `/adw_init`
 └── vocabulary.md.template  # Seed template for target-repo regression vocabulary registries
 adws/                   # ADW workflow system
 ├── __tests__/          # Vitest integration tests
@@ -470,6 +473,7 @@ adws/                   # ADW workflow system
 │   │   ├── claudeAgent.test.ts
 │   │   ├── gitAgent.test.ts
 │   │   ├── refactorAgent.test.ts
+│   │   ├── rotAnalysisAgent.test.ts
 │   │   └── scenarioFidelityAgent.test.ts
 │   ├── agentProcessHandler.ts  # Process spawning handler
 │   ├── alignmentAgent.ts  # Single-pass alignment agent
@@ -508,6 +512,8 @@ adws/                   # ADW workflow system
 │   │   ├── docsGuards.test.ts
 │   │   ├── environment.test.ts
 │   │   ├── execWithRetry.test.ts
+│   │   ├── guardrailsGate.test.ts
+│   │   ├── guardrailsPayload.test.ts
 │   │   ├── hashComputer.test.ts
 │   │   ├── heartbeat.test.ts
 │   │   ├── hungOrchestratorDetector.test.ts
@@ -551,6 +557,9 @@ adws/                   # ADW workflow system
 │   ├── devServerLifecycle.ts  # Dev server spawn, health probe, and cleanup helpers
 │   ├── docsGuards.ts  # Post-write guards for app_docs/: bloat detection (line-count ceiling) and regrowth detection (overlapping Owns: globs between entries); runDocsGuards composes both
 │   ├── environment.ts  # Environment variable accessors
+│   ├── guardrailsGate.ts  # Pure gate deciding whether a target-repo spawn receives the guardrails `--settings` injection (kill switch, self-host, adw.yml canary, startup probe)
+│   ├── guardrailsPayload.ts  # Builds the injected `--settings` JSON: deny list from templates/claude-settings-starter.json + all five framework hooks at absolute paths
+│   ├── guardrailsProbe.ts  # Memoized startup probe (subprocess) verifying guardrails injection is safe before use; fails open
 │   ├── hashComputer.ts # SHA256 hash of declared hashInputs files — "current framework version" primitive
 │   ├── heartbeat.ts    # Liveness ticker writing lastSeenAt to state on a fixed interval
 │   ├── hungOrchestratorDetector.ts  # Pure-query detector for wedged orchestrators (live PID + stale heartbeat)
@@ -603,7 +612,8 @@ adws/                   # ADW workflow system
 │   │   ├── labelManager.test.ts
 │   │   ├── linkedPrDetector.test.ts
 │   │   ├── prApi.test.ts
-│   │   └── projectBoardApi.test.ts
+│   │   ├── projectBoardApi.test.ts
+│   │   └── workflowCommentsIssue.test.ts
 │   ├── githubApi.ts
 │   ├── githubAppAuth.ts  # GitHub App authentication
 │   ├── hitlBoardNotifier.ts  # HITL board-event notifier — PR/issue lookup, message building, and Slack delivery for Review and Blocked transitions
@@ -623,6 +633,7 @@ adws/                   # ADW workflow system
 │   └── workflowCommentsPR.ts
 ├── gitContext/         # Repo-context authority deep module (GitContext)
 │   ├── __tests__/      # Vitest unit tests
+│   │   ├── appAuth.test.ts
 │   │   ├── bootstrapIdentity.test.ts
 │   │   ├── claimOps.test.ts
 │   │   ├── commitOps.test.ts
@@ -633,6 +644,8 @@ adws/                   # ADW workflow system
 │   │   ├── repoWorkspace.test.ts
 │   │   └── tokenResolver.test.ts
 │   ├── commands/       # Pure command-string builders (no I/O) — one file per concern
+│   │   ├── __tests__/  # Vitest unit tests
+│   │   │   └── issueCommands.test.ts
 │   │   ├── boardCommands.ts    # GraphQL query strings for Projects V2 board operations
 │   │   ├── issueCommands.ts    # gh CLI command strings for issue read/write operations
 │   │   ├── labelCommands.ts    # gh CLI command strings for label create/apply operations
@@ -717,7 +730,9 @@ adws/                   # ADW workflow system
 │   │   ├── orchestratorLock.test.ts
 │   │   ├── planPhase.test.ts
 │   │   ├── progressGate.test.ts
+│   │   ├── promotionRotAdvisory.test.ts
 │   │   ├── reviewPhase.test.ts
+│   │   ├── rotAdvisoryFormat.test.ts
 │   │   ├── scenarioTestFixLoop.test.ts
 │   │   ├── scenarioTestPhase.test.ts
 │   │   ├── upgradeGate.test.ts
@@ -807,10 +822,13 @@ adws/                   # ADW workflow system
 │   │   ├── cronRepoResolver.test.ts
 │   │   ├── cronStageResolver.test.ts
 │   │   ├── devServerJanitor.test.ts
+│   │   ├── issueClosedUnblockRouter.test.ts
 │   │   ├── issueOpenedRouter.test.ts
 │   │   ├── mergeDispatchGate.test.ts
 │   │   ├── pauseQueueScanner.test.ts
 │   │   ├── perIssueScenarioSweep.test.ts
+│   │   ├── perIssueSweepPersist.test.ts
+│   │   ├── promotionSweepDefaults.test.ts
 │   │   ├── regionOverlap.test.ts
 │   │   ├── regionOverlapSignals.test.ts
 │   │   ├── retryHandler.test.ts
@@ -832,17 +850,19 @@ adws/                   # ADW workflow system
 │   ├── cronIssueFilter.ts  # Cron issue evaluation and filtering logic (testable, extracted from trigger_cron)
 │   ├── cronLabelEligibility.ts  # Pure label-recovery decision for cron backlog sweeper — spawns adw:*-labelled issues with no state
 │   ├── devServerJanitor.ts  # Janitor probe that kills stale dev server processes in target repo worktrees
-│   ├── perIssueScenarioSweep.ts  # Cron probe: deletes features/per-issue/feature-{N}.feature 14 days after the issue's PR merges
+│   ├── perIssueScenarioSweep.ts  # Cron probe: deletes features/per-issue/feature-{N}.feature 14 days after the issue's PR merges; acts on the injected launch GitContext's repo, no identity resolution of its own
+│   ├── perIssueSweepPersist.ts  # Persists a sweep removal batch via a dedicated worktree/branch/immediately-merged PR, resolved from the passed launch GitContext
 │   ├── cronProcessGuard.ts  # Duplicate cron process prevention
 │   ├── cronRepoResolver.ts  # Cron repo identity resolution (testable, extracted from trigger_cron)
 │   ├── cronStageResolver.ts  # Cron stage resolution from top-level state file (testable)
+│   ├── issueClosedUnblockRouter.ts  # Pure selection + DI orchestration for issues.closed dependency-unblock; uses extractDependencies (prose-aware) instead of heading-only parseDependencies
 │   ├── issueDependencies.ts
 │   ├── issueEligibility.ts
 │   ├── issueOpenedRouter.ts  # Pure routing decision for the issues.opened label-routing path (mirrors cronIssueFilter pattern)
 │   ├── mergeDispatchGate.ts  # Lock-aware gate deciding whether cron should dispatch adwMerge for an issue
 │   ├── pauseQueueScanner.ts  # Cron probe for paused issue queue
-│   ├── promotionSweep.ts  # Promotion sweep originate path (manual CLI, not yet wired into cron): scores per-issue scenarios, reconciles against open regression-promotion issues via `Promotes: feature-N` back-link, tags + files a #734-shaped relocation issue
-│   ├── promotionSweepDefaults.ts  # Production GitContext/fs-backed dependency defaults for runPromotionSweep
+│   ├── promotionSweep.ts  # Promotion sweep (cron-dispatched + manual CLI): scores per-issue scenarios, reconciles against open regression-promotion issues via `Promotes: feature-N` back-link, tags + files a #734-shaped relocation issue
+│   ├── promotionSweepDefaults.ts  # Production GitContext/fs-backed dependency defaults for runPromotionSweep — makeDefaultDeps(ctx) closes over the passed launch GitContext, no identity resolution of its own
 │   ├── regionOverlap.ts  # Pure decision module for region-overlap serialization (no I/O)
 │   ├── regionOverlapSignals.ts  # Side-effecting boundary for region-overlap: registers durable Blocked-by deps and posts explanatory comments
 │   ├── scanAuthQueue.ts  # Cron probe: resumes paused_auth orchestrators after auth is restored
@@ -864,6 +884,11 @@ adws/                   # ADW workflow system
 │   └── index.ts
 ├── promotion/          # Scenario promotion scoring module
 │   ├── __tests__/      # Vitest unit tests
+│   │   ├── promotionScorer.test.ts
+│   │   ├── promotionStatsLoader.test.ts
+│   │   ├── promotionThreshold.test.ts
+│   │   ├── scenarioParser.test.ts
+│   │   └── vocabularyParser.test.ts
 │   ├── index.ts        # Barrel re-exporting the scorer/threshold/parser/statsLoader surface
 │   ├── promotionScorer.ts     # Scores scenarios against the vocabulary registry
 │   ├── promotionStatsLoader.ts  # Loads and aggregates historical promotion statistics
@@ -959,7 +984,8 @@ test/                   # Integration test infrastructure
 │   └── python-app/     # Fixture target repo for Python app (behave/pytest-bdd BDD scenario testing)
 ├── mocks/              # Mock implementations
 │   ├── __tests__/      # Vitest unit tests for mock infrastructure
-│   │   └── manifestInterpreter.test.ts
+│   │   ├── manifestInterpreter.test.ts
+│   │   └── test-harness.test.ts
 │   ├── claude-cli-stub.ts      # Claude CLI process stub
 │   ├── git-remote-mock.ts      # Git remote mock
 │   ├── github-api-server.ts    # GitHub API mock HTTP server
@@ -978,18 +1004,25 @@ features/               # BDD feature files (Gherkin .feature)
 ├── per-issue/          # Per-issue agent-input scenarios — never executed by the runner; swept 14 days after PR merges
 │   └── step_definitions/  # Per-issue step definition files
 ├── regression/         # Regression scenario vocabulary, typed World, and surface/smoke scenarios
+│   ├── hashing/        # Regression scenarios covering framework content hashing (#537)
+│   ├── multilang/      # Regression scenario covering the Python fixture repo end-to-end
 │   ├── smoke/          # High-level smoke scenarios (cron spawn, SDLC, cancel, chore, pause)
 │   ├── step_definitions/  # Typed Given/When/Then steps and RegressionWorld for regression scenarios
 │   ├── support/        # Cucumber hooks for @regression suite
 │   ├── surfaces/       # Per-phase surface scenarios (row-01 through row-35 covering every orchestrator phase)
+│   ├── upgrade/        # Regression scenario covering the framework self-upgrade path (#729)
 │   └── vocabulary.md   # Canonical BDD phrase registry with rot-detection rubric for @regression authoring
 ├── step_definitions/   # Top-level step definitions (webhook integration scenario)
 ├── support/            # Top-level Cucumber support (tsx registration)
 └── webhook_ensure_cron_on_every_event.feature  # Integration scenario: cron fires on every webhook event (issue #501)
 specs/                  # Generated implementation specs
 ├── issue-*.md          # Per-issue plan specs committed by the plan agent
+├── ADW_PYTHON_SUPPORT_RECOMMENDATION.md  # Standalone recommendation doc (Python stack support)
+├── prd-cost-module-revamp.md  # Standalone PRD draft (cost module revamp)
 ├── patch/              # Generated patch specs
 └── prd/                # Product requirement documents
+scripts/                # Standalone operational scripts
+└── guardrails-probe.ts # Startup probe run as a subprocess by guardrailsGate.ts to verify target-repo guardrails injection is safe before use
 .env.sample             # Environment variable template
 .gitignore
 package.json

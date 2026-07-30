@@ -140,6 +140,10 @@ describe('mergeWithConflictResolution', () => {
       undefined,
       undefined,
       WORKTREE,
+      undefined,
+      undefined,
+      undefined,
+      { selfHost: false, adwId: ADW_ID },
     );
   });
 
@@ -173,6 +177,10 @@ describe('mergeWithConflictResolution', () => {
       undefined,
       undefined,
       WORKTREE,
+      undefined,
+      undefined,
+      undefined,
+      { selfHost: false, adwId: ADW_ID },
     );
   });
 

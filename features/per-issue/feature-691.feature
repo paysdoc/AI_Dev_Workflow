@@ -243,7 +243,7 @@ Feature: GitContext gh-read migration — the residual issue/PR read consumers r
     When the "list-open-issues" gh-read operation runs through the context
     Then the captured command ran with auth token "token-acme" in its child environment
     And the captured command ran with git author "Acme Bot <bot@acme.dev>" in its child environment
-    And the captured command ran with cwd equal to the context base path
+    And the captured command ran with cwd equal to the framework repository root
 
   # ── §1b  Every new gh-read method carries the context token + base-path cwd ────────
   #
@@ -258,7 +258,7 @@ Feature: GitContext gh-read migration — the residual issue/PR read consumers r
     And the context's git and gh commands are captured by a recording runner
     When the "<op>" gh-read operation runs through the context
     Then the captured command ran with auth token "token-acme" in its child environment
-    And the captured command ran with cwd equal to the context base path
+    And the captured command ran with cwd equal to the framework repository root
 
     Examples:
       | op                  |

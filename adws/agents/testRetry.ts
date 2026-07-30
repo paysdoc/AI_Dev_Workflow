@@ -42,6 +42,8 @@ export interface TestRetryOptions {
   applicationUrl?: string;
   /** Optional issue body for fast/cheap model selection */
   issueBody?: string;
+  /** Optional launch-boundary facts ({ selfHost, adwId }) for guardrails --settings injection (issue #762). */
+  launchContext?: { selfHost: boolean; adwId: string };
 }
 
 /**
@@ -59,6 +61,7 @@ export async function runUnitTestsWithRetry(opts: TestRetryOptions): Promise<Tes
     onCompactionDetected,
     cwd,
     issueBody,
+    launchContext,
   } = opts;
 
   // Ensure the report directory exists and clear any stale report.
@@ -75,7 +78,7 @@ export async function runUnitTestsWithRetry(opts: TestRetryOptions): Promise<Tes
     run: async () => {
       // Clear stale report before each attempt.
       fs.rmSync(unitReportPath, { force: true });
-      const r = await runTestAgent(logsDir, initAgentState(statePath, 'test-agent'), cwd, issueBody);
+      const r = await runTestAgent(logsDir, initAgentState(statePath, 'test-agent'), cwd, issueBody, launchContext);
       reportRef.value = readJUnitReport(unitReportPath);
       return r;
     },
@@ -98,7 +101,7 @@ export async function runUnitTestsWithRetry(opts: TestRetryOptions): Promise<Tes
       for (const failedTest of failures) {
         log(`Resolving: ${failedTest.test_name}`, 'info');
         AgentStateManager.appendLog(statePath, `Resolving failed test: ${failedTest.test_name}`);
-        const resolveResult = await runResolveTestAgent(failedTest, logsDir, initAgentState(statePath, 'test-resolver-agent'), cwd, issueBody);
+        const resolveResult = await runResolveTestAgent(failedTest, logsDir, initAgentState(statePath, 'test-resolver-agent'), cwd, issueBody, launchContext);
         costUsd += resolveResult.totalCostUsd || 0;
         if (resolveResult.modelUsage) modelUsage = mergeModelUsageMaps(modelUsage, resolveResult.modelUsage);
         persistTokenCounts(statePath, costUsd, modelUsage);

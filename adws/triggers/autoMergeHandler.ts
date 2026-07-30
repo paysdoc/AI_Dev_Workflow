@@ -73,7 +73,11 @@ async function resolveConflictsViaAgent(
     undefined,
     undefined,
     undefined,
-    cwd
+    cwd,
+    undefined,
+    undefined,
+    undefined,
+    { selfHost: ctx.selfHost, adwId }
   );
 
   if (result.success) {

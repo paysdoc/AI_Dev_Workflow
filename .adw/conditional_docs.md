@@ -9,6 +9,9 @@
     - When adding tests to `adws/core/__tests__/testReportParser.test.ts` for large-report or entity-decoding correctness
 
 - app_docs/feature-hrl5jd-unit-test-rail-onto-junit-report.md
+  - Owns:
+    - adws/core/testVerdict.ts
+    - adws/phases/unitTestPhase.ts
   - Conditions:
     - When working on `adws/phases/unitTestPhase.ts` unit-test verdict or report-path wiring
     - When implementing or modifying `adws/core/testVerdict.ts` or `computeTestVerdict` (report-keyed verdict)
@@ -18,6 +21,12 @@
     - When `testResultFromCase` or `failureMessage` on `TestCaseResult` is referenced
     - When troubleshooting the discovery-break hard-fail (zero testcases despite a report present)
     - When modifying `.claude/commands/test.md` step 5 (application tests, unconditional run, no `--run src`)
+    - When working with `formatUnverifiedComment` or `formatStackIncoherentComment` in `adws/github/workflowCommentsIssue.ts` (the `'unverified'`/`'stack_incoherent'` comment copy)
+    - When troubleshooting the `adw:unverified` label or comment stating the wrong cause (report-absent vs. zero-testcase, dependency/framework-detection claims)
+    - When adding tests to `adws/github/__tests__/workflowCommentsIssue.test.ts` for unverified/stack-incoherent comment copy
+    - When adding new fields to `CommandsConfig` in `adws/core/projectConfig.ts` (see three-touch-point pattern)
+    - When `.claude/commands/adw_init.md` emits `## Test Directory` or `## Test Framework` sections
+    - When adding a flat-layout (non-`src/`) target repo or a non-Bun test framework
 
 - app_docs/feature-u3l5q0-junit-report-rail-migration.md
   - Conditions:
@@ -29,16 +38,6 @@
     - When troubleshooting the zero-testcase blocker-fail or the clean-tally override in structured-report terms
     - When a non-`.ts` BDD suite (Python/Go/Rust) is not being recognized by the step-def gate
     - When `parseCucumberSummary` or `CucumberTally` are referenced (both deleted in this feature)
-
-- app_docs/feature-zyaojl-configurable-test-directory.md
-  - Conditions:
-    - When working on `adws/phases/unitTestPhase.ts` unit-test verdict or zero-testcase handling
-    - When implementing or modifying `adws/core/testVerdict.ts` or `computeTestVerdict`
-    - When adding new fields to `CommandsConfig` in `adws/core/projectConfig.ts` (see three-touch-point pattern)
-    - When modifying `.claude/commands/test.md` step 5 (application tests, testcase count, test directory)
-    - When `.claude/commands/adw_init.md` emits `## Test Directory` or `## Test Framework` sections
-    - When troubleshooting `adw:unverified` label or comment on an issue
-    - When adding a flat-layout (non-`src/`) target repo or a non-Bun test framework
 
 - app_docs/feature-t6m62c-adwupgrade-regen-gate-propagation.md
   - Owns:
@@ -63,6 +62,9 @@
     - When working with `adws/triggers/upgradeRedrive.ts` (`parseClaimBranch`, `decideUpgradeRedrive`, `findRedrivableUpgrades`, `runUpgradeRedriveScan`)
     - When troubleshooting a stranded `#UPG` tracking issue that never gets re-spawned after a failed upgrade
     - When the cron redrive scan wired into `trigger_cron.ts` `checkAndTrigger()` is relevant
+    - When working with `decideStarterSettingsCopy` or `copyStarterSettingsToWorktree` in `worktreeSetup.ts`, or the starter-guardrails `settings.json` copy step (5c) in `executeUpgrade`
+    - When troubleshooting why a target repo's `.claude/settings.json` was or wasn't overwritten by an upgrade regen (skip-if-exists policy)
+    - When modifying `.claude/commands/adw_init.md` step 7 (starter guardrails settings copy) or its `## Agent Guardrails` note in `.adw/project.md`
 
 - app_docs/feature-tcewff-cron-gh-token-bleed-fix.md
   - Conditions:
@@ -974,6 +976,8 @@
     - When implementing new parsers that depend on the JSONL envelope structure
 
 - app_docs/feature-lnef5d-mock-infrastructure-layer.md
+  - Owns:
+    - test/mocks/**
   - Conditions:
     - When working with `test/mocks/` (Claude CLI stub, GitHub API mock server, git remote mock, test harness)
     - When writing or modifying Cucumber BDD scenarios that require mocked external services
@@ -981,6 +985,8 @@
     - When troubleshooting `@mock-infrastructure` or `@regression` scenario failures
     - When configuring `MOCK_FIXTURE_PATH`, `MOCK_STREAM_DELAY_MS`, `GH_HOST`, or `CLAUDE_CODE_PATH` for test runs
     - When extending mock fixtures in `test/fixtures/jsonl/` or `test/fixtures/github/`
+    - When `setupMockInfrastructure`/`teardownMockInfrastructure` scratch-directory placement or crash-safety is relevant (e.g. EROFS on a read-only mount, or a leaked mock server keeping the process alive)
+    - When modifying `test/mocks/__tests__/test-harness.test.ts`
 
 - app_docs/feature-tdlgz7-fix-boardstatus-invalid-values.md
   - Conditions:
@@ -1007,12 +1013,19 @@
     - When adding new fixture repos under `test/fixtures/` for behavioral testing
 
 - app_docs/feature-78celh-docker-behavioral-test-isolation.md
+  - Owns:
+    - test/Dockerfile
+    - test/docker-run.sh
+    - .github/workflows/regression.yml
   - Conditions:
     - When working with `test/Dockerfile`, `test/docker-run.sh`, or `test/.dockerignore`
     - When running or troubleshooting BDD tests inside a Docker container (`bun run test:docker`)
     - When modifying the `test:docker` or `test:docker:build` scripts in `package.json`
     - When adding the Docker runtime path to CI (`regression.yml` `runtime` input)
     - When troubleshooting `@docker-isolation` scenarios or the `adw-bdd-runner` image
+    - When the `regression` job's `timeout-minutes` or other job-level CI bounds need to change
+    - When troubleshooting `EROFS` errors from the read-only `/workspace` mount, or a hung/never-exiting Docker regression run
+    - When the `safe.directory` git config for the mounted repo is relevant
 
 - app_docs/feature-9zcqhw-detect-compaction-restart-build-agent.md
   - Conditions:
@@ -1695,6 +1708,7 @@
     - When `classifyAndSpawnWorkflow`'s optional `gitContext` parameter or the cron `precomputedDecision` pass-through is relevant
     - When adding a new webhook event handler that needs to receive the per-event context
     - When troubleshooting wrong-base-repo on the webhook takeover path (ambient `cwd` replaced by per-event `gitContext.basePath`)
+    - When editing the per-event cwd-isolation assertions in `webhookRepoResolver.test.ts` (§3a, §4) — they are pinned by `getCurrentBranch()` (a git op), not `defaultBranch()`, because repo-API `gh` calls became framework-rooted in issue #775 and no longer carry per-repo cwd signal
 
 - app_docs/feature-9gjajh-takeover-and-coordination.md
   - Owns:
@@ -1716,6 +1730,7 @@
     - adws/triggers/cancelHandler.ts
     - adws/triggers/retryHandler.ts
     - adws/triggers/perIssueScenarioSweep.ts
+    - adws/triggers/perIssueSweepPersist.ts
     - adws/triggers/scanAuthQueue.ts
     - adws/triggers/devServerJanitor.ts
     - adws/triggers/cloudflareTunnel.tsx
@@ -1723,6 +1738,12 @@
   - Conditions:
     - When working on issue dependency checks, issue eligibility for ADW, issue-opened routing, auto-merge/cancel/retry handlers, auth queue scanning, dev server janitor, Cloudflare tunnel, or shutdown trigger
     - When working with the 14-day per-issue scenario retention sweep (`runPerIssueScenarioSweep`, `isScenarioStale`, `RETENTION_DAYS`) in `adws/triggers/perIssueScenarioSweep.ts`, or its promotion-awareness exemption gate
+    - When working with the sweep's persist orchestration (`prepareSweepBase`, `persistRemovalViaPr`, `cleanupSweepBase`, `SweepBase`) in `adws/triggers/perIssueSweepPersist.ts`
+    - When troubleshooting a sweep removal that never reached `origin` (stranded local commit, lease-rejected push) or a duplicate sweep PR
+    - When the sweep's dedicated `chore/scenario-sweep` branch, its PR-open/immediate-merge flow, or its `origin/<default>`-synced worktree needs context
+    - When working with `PerIssueSweepDeps.gitContext` (required, launch-boundary, no cwd fallback) or `prepareSweepBase(gitContext)`'s signature
+    - When troubleshooting a target-repo cron sweeping the wrong repo (e.g. the framework repo instead of `--target-repo`) — identity must come from the cron's threaded launch `GitContext`, never `getRepoInfo()`/`gitContextForRepo` re-derivation (#769)
+    - When working with `runPerIssueScenarioSweepTick` in `trigger_cron.ts` (the cadence gate + null-launch-context skip + non-fatal swallow that dispatches the sweep)
 
 - app_docs/feature-ne2we8-promotion-tag-state.md
   - Owns:
@@ -1752,7 +1773,10 @@
     - When a crash-stranded `@promotion-suggested-*` file (tagged, no tracker) should be redriven (re-filed) or withdrawn (tag stripped) depending on current score
     - When working with `ListOpenIssuesOptions.state` / `listOpenIssuesCmd` (`adws/gitContext/commands/issueCommands.ts`) or the all-state promotion-issue reconciliation query
     - When working with `adws/triggers/promotionSweepDefaults.ts` production deps (`GitContext`-backed listing, scoring, tag-and-commit, issue-filing)
-    - When working with `runPromotionSweepTick` or `PROMOTION_SWEEP_INTERVAL_CYCLES` (the cron interval-gate + non-fatal swallow that activates the sweep in `trigger_cron.ts`)
+    - When working with `runPromotionSweepTick` or `PROMOTION_SWEEP_INTERVAL_CYCLES` (the cron interval-gate + null-launch-context skip + non-fatal swallow that activates the sweep in `trigger_cron.ts`)
+    - When working with `PromotionSweepDeps.gitContext` (required, launch-boundary, no cwd fallback) or `makeDefaultDeps(ctx)` in `promotionSweepDefaults.ts`
+    - When troubleshooting a target-repo cron scoring/mutating the wrong repo's promotion candidates — identity must come from the cron's threaded launch `GitContext`, never `getRepoInfo()`/`gitContextForRepo` re-derivation (#769)
+    - When working with the `promotionSweep.ts` CLI entry guard as a real launch boundary (`buildLaunchGitContext(parseTargetRepoArgs(...))`, supports `--target-repo owner/repo`)
     - When troubleshooting the promotion sweep not firing on cron cadence, or a sweep failure that should be logged and swallowed rather than crashing the cron loop
 
 - app_docs/feature-9gjajh-providers.md
@@ -1857,7 +1881,7 @@
   - Conditions:
     - When working on the BDD regression scenario suite, vocabulary registry, step definition registry, or promotion rules in `features/regression/`
     - When manually promoting a `features/per-issue/` scenario into `features/regression/` (direct relocation: `git mv` feature + step-def, add `@regression` tag, register vocabulary phrases)
-    - When working with `features/regression/upgrade/` or a promoted single-scenario feature file paired with its own scenario-specific step-def file
+    - When working with `features/regression/upgrade/`, `features/regression/hashing/`, or a promoted single-scenario feature file paired with its own scenario-specific step-def file
     - When the `adws/promotion/` automated flow is discussed — it does not perform real promotions; relocation is manual
 
 - app_docs/feature-9gjajh-bdd-per-issue.md
@@ -1944,6 +1968,7 @@
     - adws/gitContext/**
     - adws/gitContext/__tests__/**
     - adws/github/gitContextFactory.ts
+    - adws/github/githubApi.ts
     - adws/github/githubAppAuth.ts
     - adws/core/launchGitContext.ts
     - adws/core/targetRepoManager.ts
@@ -1998,9 +2023,13 @@
     - When implementing or troubleshooting base-path resolution for self-host vs target repos (the single `resolveBasePath` authority)
     - When `worktreePathFor`, `commandEnv`, `defaultBranch`, or construction-time identity validation of `GitContext` is relevant
     - When the per-command env injection chokepoint (`#run`), `usePat`, or stdin `input` forwarding is relevant
+    - When working with `#runRepoApi` or the repo-API spawn-cwd rule (issue #775) — repo-independent `gh` commands (identity in the command string) run from the injected `frameworkRepoRoot`, never `basePath`, regardless of target-workspace clone state
+    - When troubleshooting `spawnSync /bin/sh ENOENT` from a GitHub-API (`gh`) call — this is Node's error for a nonexistent SPAWN CWD, not a missing shell; check whether the failing call is still routed through `#run` (basePath) instead of `#runRepoApi` (frameworkRepoRoot)
+    - When a Cancel or Retry directive fails on a host that has never cloned the target repository's workspace — the fix is that repo-API `gh` calls (`fetchIssueComments`, `defaultBranch`, etc.) never depend on the target workspace existing (issue #775); a git op still correctly requires the clone
     - When `process.env` non-mutation or two-context `GH_TOKEN` isolation in a multi-repo long-lived process is relevant
     - When working with `branchOps.ts`, `commitOps.ts`, `worktreeResetOps.ts`, `worktreeCreateOps.ts`, `worktreeQueryOps.ts`, `worktreeRemoveOps.ts`, `worktreeProbeOps.ts`, `gitReadOps.ts`, or `processCleanup.ts` (package-private operation modules)
     - When the bootstrap package modules (`appAuth.ts`, `bootstrapIdentity.ts`, `tokenResolver.ts`, `repoWorkspace.ts`) are relevant — pre-context primitives absorbed into the exempt package (#700)
+    - When `getInstallationToken`'s optional `AppAuthDeps` (`apiBaseUrl`, `runCurl`), `buildCurlConfig`, `requestGitHubApi`, `describeApiFailure`/`describeStatus`, `redactBearerTokens`, or `clearAppAuthCaches` in `appAuth.ts` are relevant — the credential travels over curl's `--config` stdin channel, never argv or a thrown error (#780)
     - When `resolveContextToken` (token veracity), `readLocalRepoInfo`, `resolveBootstrapGitIdentity`, `ghAuthToken`, `getInstallationToken`, `isGitHubAppConfigured`, or `ensureRepoWorkspace` are referenced from `adws/gitContext/index.ts`
     - When the GH_TOKEN-bleed class (vestmatic #143/#181/#187) or the `fetchLatestRefs` crash class is being addressed — `resolveContextToken` is the structural fix; never reads `process.env.GH_TOKEN`
     - When `launchGitContext.ts`, `gitContextFactory.ts`, `githubAppAuth.ts`, or `targetRepoManager.ts` contain zero raw git/gh strings — they are thin adapters delegating to package primitives (#700); `githubAppAuth.ts` is a pure re-export shim with zero `process.env` writes (#701)
@@ -2024,6 +2053,8 @@
     - When working with `listOpenIssues`, `issueComments`, or `fetchMergedPRs` on `GitContext`
     - When working with `remoteUrl(cwd?)` or `authenticatedUser()` as `GitContext` identity-read methods
     - When `readLocalRepoInfo` in `bootstrapIdentity.ts` (package) is the bootstrap boundary for reading `git remote get-url origin` before a `GitContext` can be constructed — it is the only legitimate permanent exception
+    - When working with `parseGitHubRemoteUrl` (`bootstrapIdentity.ts`) — the single source of truth for HTTPS/SSH GitHub remote-URL parsing, shared by `readLocalRepoInfo`, `convertToSshUrl` (`repoWorkspace.ts`), and `getRepoInfoFromUrl` (`adws/github/githubApi.ts`)
+    - When troubleshooting a dotted repo name (e.g. `paysdoc.nl`) being truncated at the first `.` — `parseGitHubRemoteUrl` end-anchors the optional `.git` suffix with a lazy repo group instead of excluding dots from the repo name (#779)
     - When working with worktree/branch probe reads: `resolveGitDir`, `currentBranchSymbolic`, `worktreeRegistration`, `worktreeBranches`, `localBranches`, or `mainRepoPath` on `GitContext`
     - When `worktreeProbeOps.ts` (package-private probe op module), `WorktreeRegistration` union type, or `buildDefaultProbeDeps(ctx)` in `worktreeProbe.ts` is relevant
     - When working with phase-level git read ops: `lsFiles`, `headShort`, `diff`, or `log` on `GitContext`
@@ -2086,6 +2117,9 @@
     - When `EXEMPT_PACKAGE_DIR = 'adws/gitContext'` or `EXEMPT_DIR_NAMES` configuration is relevant
     - When a new bootstrap primitive needs to be added (must go into `adws/gitContext/` — no allowlist escape hatch exists)
     - When writing or extending unit tests for `checkGitGhGuard.ts` (`adws/__tests__/checkGitGhGuard.test.ts` — tests `scanFiles`/`scanSource` with fixture strings)
+    - When working with the `cwd-derived-identity` rule (#769) — flags `gitContextForRepo(getRepoInfo())`/`gitContextForRepo(readLocalRepoInfo())` composites, inline or via a local variable, with no path allowlist
+    - When troubleshooting why a `gitContextForRepo(x)` call was or wasn't flagged — check whether `x` traces to a zero-argument `getRepoInfo()`/`readLocalRepoInfo()` read (flagged) vs an argument-bearing call, a guarded fallback (`x ?? getRepoInfo()`), or a plain parameter (all legal)
+    - When a legitimate self-host `gitContextForRepo` construction needs to comply with the guard — pass `readLocalRepoInfo(REPO_ROOT)` explicitly instead of a bare cwd read
 
 - app_docs/feature-2ubuuc-rot-reuse-advisory-pr-comment.md
   - Owns:
@@ -2101,3 +2135,20 @@
     - When troubleshooting why the advisory comment did not post (label gate, missing PR number, missing `Promotes:` marker, agent failure)
     - When modifying `.claude/commands/promote_regression_vocabulary.md` or the `promote-regression-vocabulary` skill's agent-facing contract
     - When adding a new slash command and need the `SlashCommand` union / `modelRouting.ts` three-touch-point pattern for a promotion-related agent
+
+- app_docs/feature-0rvmyc-target-repo-guardrails-injection.md
+  - Owns:
+    - adws/core/guardrailsPayload.ts
+    - adws/core/guardrailsGate.ts
+    - adws/core/guardrailsProbe.ts
+    - scripts/guardrails-probe.ts
+    - templates/claude-settings-starter.json
+  - Conditions:
+    - When working with the target-repo `--settings` guardrails injection: the deny-list template, `buildGuardrailsSettings`/`serializeGuardrailsSettings`/`resolveHookLogDir` in `adws/core/guardrailsPayload.ts`, or `resolveGuardrailsDecision`/`GuardrailsGateDeps` in `adws/core/guardrailsGate.ts`
+    - When troubleshooting why a target-repo agent run did or did not receive injected deny rules and hooks (kill switch, self-host, `.github/adw.yml` `guardrails` canary, or startup probe verdict)
+    - When working with the guardrails startup probe (`scripts/guardrails-probe.ts`, `runGuardrailsProbe`/`getGuardrailsProbeVerdict` in `adws/core/guardrailsProbe.ts`) or its fail-open Slack alert
+    - When modifying the `guardrails` key in `adws/core/adwYmlConfig.ts` or the `ADW_TARGET_GUARDRAILS` kill switch
+    - When working with `deniedToolCallCount` on `JsonlParserState`/`AgentResult`, `formatDenialNotice` in `adws/phases/phaseCommentHelpers.ts`, or the denial notice surfaced in issue/PR stage comments and workflow completion
+    - When threading `launchContext: { selfHost, adwId }` through `commandAgent.ts`, `runClaudeAgentWithCommand`, or a direct agent caller (`planAgent.ts`, `testAgent.ts`, `gitAgent.ts`, `patchAgent.ts`, `refactorAgent.ts`)
+    - When the guardrails probe warm-up in `trigger_cron.ts`'s `main()` or the `guardrailsProbe` `/health` check entry in `trigger_webhook.ts` is relevant
+    - When `.claude/hooks/pre-tool-use.ts`'s `.env.example` carve-out needs to stay in sync with the `templates/claude-settings-starter.json` deny list's `Read(!**/.env.example)` pattern

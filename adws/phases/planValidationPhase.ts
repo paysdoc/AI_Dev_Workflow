@@ -44,6 +44,7 @@ export async function executePlanValidationPhase(
     repoContext,
     ctx,
   } = config;
+  const launchContext = { selfHost: !repoContext, adwId };
 
   if (!shouldExecuteStage('plan_validating', recoveryState)) {
     log('Skipping plan validation phase (already completed in previous run)', 'info');
@@ -103,7 +104,8 @@ export async function executePlanValidationPhase(
       worktreePath,
       logsDir,
       validationAgentStatePath,
-      worktreePath
+      worktreePath,
+      launchContext
     );
   } catch (err) {
     if (err instanceof OutputValidationError) {
@@ -172,7 +174,9 @@ export async function executePlanValidationPhase(
         currentMismatches,
         logsDir,
         resolutionAgentStatePath,
-        worktreePath
+        worktreePath,
+        undefined,
+        launchContext
       );
     } catch (err) {
       if (err instanceof OutputValidationError) {
@@ -230,7 +234,8 @@ export async function executePlanValidationPhase(
         worktreePath,
         logsDir,
         reValidationStatePath,
-        worktreePath
+        worktreePath,
+        launchContext
       );
     } catch (err) {
       if (err instanceof OutputValidationError) {
@@ -279,7 +284,7 @@ export async function executePlanValidationPhase(
   // Commit updated artifacts if any changes were made
   if (artifactsChanged) {
     log("Committing updated plan/scenario artifacts...", "info");
-    await runCommitAgent("validation-agent", issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body);
+    await runCommitAgent("validation-agent", issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body, undefined, launchContext);
   }
 
   return { costUsd, modelUsage };
