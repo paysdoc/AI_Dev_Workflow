@@ -9,6 +9,9 @@
     - When adding tests to `adws/core/__tests__/testReportParser.test.ts` for large-report or entity-decoding correctness
 
 - app_docs/feature-hrl5jd-unit-test-rail-onto-junit-report.md
+  - Owns:
+    - adws/core/testVerdict.ts
+    - adws/phases/unitTestPhase.ts
   - Conditions:
     - When working on `adws/phases/unitTestPhase.ts` unit-test verdict or report-path wiring
     - When implementing or modifying `adws/core/testVerdict.ts` or `computeTestVerdict` (report-keyed verdict)
@@ -18,6 +21,12 @@
     - When `testResultFromCase` or `failureMessage` on `TestCaseResult` is referenced
     - When troubleshooting the discovery-break hard-fail (zero testcases despite a report present)
     - When modifying `.claude/commands/test.md` step 5 (application tests, unconditional run, no `--run src`)
+    - When working with `formatUnverifiedComment` or `formatStackIncoherentComment` in `adws/github/workflowCommentsIssue.ts` (the `'unverified'`/`'stack_incoherent'` comment copy)
+    - When troubleshooting the `adw:unverified` label or comment stating the wrong cause (report-absent vs. zero-testcase, dependency/framework-detection claims)
+    - When adding tests to `adws/github/__tests__/workflowCommentsIssue.test.ts` for unverified/stack-incoherent comment copy
+    - When adding new fields to `CommandsConfig` in `adws/core/projectConfig.ts` (see three-touch-point pattern)
+    - When `.claude/commands/adw_init.md` emits `## Test Directory` or `## Test Framework` sections
+    - When adding a flat-layout (non-`src/`) target repo or a non-Bun test framework
 
 - app_docs/feature-u3l5q0-junit-report-rail-migration.md
   - Conditions:
@@ -29,16 +38,6 @@
     - When troubleshooting the zero-testcase blocker-fail or the clean-tally override in structured-report terms
     - When a non-`.ts` BDD suite (Python/Go/Rust) is not being recognized by the step-def gate
     - When `parseCucumberSummary` or `CucumberTally` are referenced (both deleted in this feature)
-
-- app_docs/feature-zyaojl-configurable-test-directory.md
-  - Conditions:
-    - When working on `adws/phases/unitTestPhase.ts` unit-test verdict or zero-testcase handling
-    - When implementing or modifying `adws/core/testVerdict.ts` or `computeTestVerdict`
-    - When adding new fields to `CommandsConfig` in `adws/core/projectConfig.ts` (see three-touch-point pattern)
-    - When modifying `.claude/commands/test.md` step 5 (application tests, testcase count, test directory)
-    - When `.claude/commands/adw_init.md` emits `## Test Directory` or `## Test Framework` sections
-    - When troubleshooting `adw:unverified` label or comment on an issue
-    - When adding a flat-layout (non-`src/`) target repo or a non-Bun test framework
 
 - app_docs/feature-t6m62c-adwupgrade-regen-gate-propagation.md
   - Owns:
