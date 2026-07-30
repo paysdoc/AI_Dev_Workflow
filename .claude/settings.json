@@ -27,7 +27,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bunx tsx $CLAUDE_PROJECT_DIR/.claude/hooks/pre-tool-use.ts || true"
+            "command": "bunx tsx $CLAUDE_PROJECT_DIR/.claude/hooks/pre-tool-use.ts"
           }
         ]
       }
@@ -38,7 +38,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bunx tsx $CLAUDE_PROJECT_DIR/.claude/hooks/post-tool-use.ts || true"
+            "command": "bunx tsx $CLAUDE_PROJECT_DIR/.claude/hooks/post-tool-use.ts"
           }
         ]
       }
@@ -49,7 +49,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bunx tsx $CLAUDE_PROJECT_DIR/.claude/hooks/notification.ts --notify || true"
+            "command": "bunx tsx $CLAUDE_PROJECT_DIR/.claude/hooks/notification.ts --notify"
           }
         ]
       }
@@ -60,7 +60,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bunx tsx $CLAUDE_PROJECT_DIR/.claude/hooks/stop.ts --chat || true"
+            "command": "bunx tsx $CLAUDE_PROJECT_DIR/.claude/hooks/stop.ts --chat"
           }
         ]
       }
@@ -71,7 +71,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bunx tsx $CLAUDE_PROJECT_DIR/.claude/hooks/subagent-stop.ts || true"
+            "command": "bunx tsx $CLAUDE_PROJECT_DIR/.claude/hooks/subagent-stop.ts"
           }
         ]
       }
