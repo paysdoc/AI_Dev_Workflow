@@ -1967,6 +1967,7 @@
     - adws/gitContext/**
     - adws/gitContext/__tests__/**
     - adws/github/gitContextFactory.ts
+    - adws/github/githubApi.ts
     - adws/github/githubAppAuth.ts
     - adws/core/launchGitContext.ts
     - adws/core/targetRepoManager.ts
@@ -2047,6 +2048,8 @@
     - When working with `listOpenIssues`, `issueComments`, or `fetchMergedPRs` on `GitContext`
     - When working with `remoteUrl(cwd?)` or `authenticatedUser()` as `GitContext` identity-read methods
     - When `readLocalRepoInfo` in `bootstrapIdentity.ts` (package) is the bootstrap boundary for reading `git remote get-url origin` before a `GitContext` can be constructed — it is the only legitimate permanent exception
+    - When working with `parseGitHubRemoteUrl` (`bootstrapIdentity.ts`) — the single source of truth for HTTPS/SSH GitHub remote-URL parsing, shared by `readLocalRepoInfo`, `convertToSshUrl` (`repoWorkspace.ts`), and `getRepoInfoFromUrl` (`adws/github/githubApi.ts`)
+    - When troubleshooting a dotted repo name (e.g. `paysdoc.nl`) being truncated at the first `.` — `parseGitHubRemoteUrl` end-anchors the optional `.git` suffix with a lazy repo group instead of excluding dots from the repo name (#779)
     - When working with worktree/branch probe reads: `resolveGitDir`, `currentBranchSymbolic`, `worktreeRegistration`, `worktreeBranches`, `localBranches`, or `mainRepoPath` on `GitContext`
     - When `worktreeProbeOps.ts` (package-private probe op module), `WorktreeRegistration` union type, or `buildDefaultProbeDeps(ctx)` in `worktreeProbe.ts` is relevant
     - When working with phase-level git read ops: `lsFiles`, `headShort`, `diff`, or `log` on `GitContext`
