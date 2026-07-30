@@ -222,7 +222,7 @@ describe('per-event command runs with context own token and cwd (§3a)', () => {
   it('recorded command cwd equals the context basePath', async () => {
     const { exec, calls } = recordingExec();
     const ctx = buildContextFromPayload(makePayload('acme', 'webapp', { token: 'token-acme' }), undefined, exec);
-    await ctx.defaultBranch();
+    await ctx.getCurrentBranch();
     expect(calls[0].cwd).toBe(ctx.basePath);
   });
 });
@@ -290,8 +290,8 @@ describe('interleaved events for two repos are isolated (§4)', () => {
     const ctxA = buildContextFromPayload(makePayload('acme', 'alpha', { token: 'token-alpha' }), undefined, recA.exec);
     const ctxB = buildContextFromPayload(makePayload('octo', 'beta', { token: 'token-beta' }), undefined, recB.exec);
 
-    await ctxA.defaultBranch();
-    await ctxB.defaultBranch();
+    await ctxA.getCurrentBranch();
+    await ctxB.getCurrentBranch();
 
     expect(recA.calls[0].cwd).toBe(path.join(TARGET_REPOS_DIR, 'acme', 'alpha'));
     expect(recB.calls[0].cwd).toBe(path.join(TARGET_REPOS_DIR, 'octo', 'beta'));

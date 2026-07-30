@@ -22,6 +22,7 @@ import {
   makeFullOptions,
   makeNoOpFsDeps,
   parseAuthor,
+  FRAMEWORK_ROOT,
   type PendingCtxArgs,
 } from './gitContextSharedWorld.ts';
 
@@ -29,6 +30,9 @@ function runOp(ctx: GitContext, opName: string): void {
   switch (opName) {
     case 'default-branch':
       ctx.defaultBranch();
+      return;
+    case 'current-branch':
+      ctx.getCurrentBranch();
       return;
     case 'issue-view':
       ctx.fetchIssue(1);
@@ -245,6 +249,20 @@ Then('the captured command ran with cwd equal to the context base path', functio
   );
 });
 
+// Repo-API gh commands run from the framework repository root, not the context
+// base path (issue #775) — the sibling of the base-path phrase above, reused by
+// the migrated feature-663/691/692/695/697/700 sites whose driving op is a gh
+// operation rather than a git operation.
+Then('the captured command ran with cwd equal to the framework repository root', function () {
+  assert.ok(W.spyCalls.length > 0, 'Expected at least one recorded command');
+  const recorded = W.spyCalls[W.spyCalls.length - 1];
+  assert.strictEqual(
+    recorded.cwd,
+    FRAMEWORK_ROOT,
+    `Expected cwd "${recorded.cwd}" to equal the framework repository root "${FRAMEWORK_ROOT}"`,
+  );
+});
+
 // ── Parent-env assertions ─────────────────────────────────────────────────────
 
 Then('the parent process environment still has auth token {string}', function (token: string) {
@@ -305,6 +323,26 @@ Then(
       recorded.cwd,
       entry.ctx.basePath,
       `Expected cwd "${recorded.cwd}" to equal base path "${entry.ctx.basePath}"`,
+    );
+  },
+);
+
+// Sibling of the base-path phrase above, for two-context gh-op sites migrated by issue #775.
+Then(
+  'the {string} command ran with cwd equal to the framework repository root',
+  function (commandKey: string) {
+    // The command key identifies which recorded call to assert on; the two-context
+    // fixtures key calls by "owner/repo", but every gh command in this suite is
+    // asserted via its OWN context key, so we look it up the same way the token
+    // phrase above does.
+    const entry = W.contextsByKey.get(commandKey);
+    assert.ok(entry !== undefined, `Expected context for key "${commandKey}"`);
+    assert.ok(entry.calls.length > 0, `Expected at least one recorded call for "${commandKey}"`);
+    const recorded = entry.calls[entry.calls.length - 1];
+    assert.strictEqual(
+      recorded.cwd,
+      FRAMEWORK_ROOT,
+      `Expected cwd "${recorded.cwd}" to equal the framework repository root "${FRAMEWORK_ROOT}"`,
     );
   },
 );

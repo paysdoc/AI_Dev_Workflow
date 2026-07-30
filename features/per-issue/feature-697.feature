@@ -34,7 +34,7 @@ Feature: GitContext promotion-sweep PR ops migration — adwPromotionSweep's PR 
     When the "pr-changed-files" promotion PR operation runs through the context
     Then the captured command ran with auth token "token-acme" in its child environment
     And the captured command ran with git author "Acme Bot <bot@acme.dev>" in its child environment
-    And the captured command ran with cwd equal to the context base path
+    And the captured command ran with cwd equal to the framework repository root
 
   # ── §1b  the regression-promotion PR create routes through the context ───────────
 

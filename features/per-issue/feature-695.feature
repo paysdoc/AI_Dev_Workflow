@@ -334,7 +334,7 @@ Feature: GitContext label / board / secret migration — the residual label, pro
     When the "set-secret" secret operation runs through the context
     Then the captured command ran with auth token "token-acme" in its child environment
     And the captured command ran with git author "Acme Bot <bot@acme.dev>" in its child environment
-    And the captured command ran with cwd equal to the context base path
+    And the captured command ran with cwd equal to the framework repository root
 
   # ── §1b  The new secret-set method does not reintroduce a process-global mutation ─
   #

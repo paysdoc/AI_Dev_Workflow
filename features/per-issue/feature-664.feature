@@ -322,7 +322,7 @@ Feature: GitContext boundary constructor — the webhook server builds one conte
     And a webhook event payload for repository "acme/webapp" carrying auth token "token-acme"
     And a per-event GitContext is constructed from the webhook event payload
     And the per-event context's git and gh commands are captured by a recording runner
-    When the "default-branch" read operation runs through the per-event context
+    When the "current-branch" read operation runs through the per-event context
     Then the captured per-event command ran with auth token "token-acme" in its child environment
     And the captured per-event command ran with cwd equal to the per-event context base path
 
