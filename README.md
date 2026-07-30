@@ -612,7 +612,8 @@ adws/                   # ADW workflow system
 │   │   ├── labelManager.test.ts
 │   │   ├── linkedPrDetector.test.ts
 │   │   ├── prApi.test.ts
-│   │   └── projectBoardApi.test.ts
+│   │   ├── projectBoardApi.test.ts
+│   │   └── workflowCommentsIssue.test.ts
 │   ├── githubApi.ts
 │   ├── githubAppAuth.ts  # GitHub App authentication
 │   ├── hitlBoardNotifier.ts  # HITL board-event notifier — PR/issue lookup, message building, and Slack delivery for Review and Blocked transitions
@@ -826,6 +827,7 @@ adws/                   # ADW workflow system
 │   │   ├── pauseQueueScanner.test.ts
 │   │   ├── perIssueScenarioSweep.test.ts
 │   │   ├── perIssueSweepPersist.test.ts
+│   │   ├── promotionSweepDefaults.test.ts
 │   │   ├── regionOverlap.test.ts
 │   │   ├── regionOverlapSignals.test.ts
 │   │   ├── retryHandler.test.ts
@@ -981,7 +983,8 @@ test/                   # Integration test infrastructure
 │   └── python-app/     # Fixture target repo for Python app (behave/pytest-bdd BDD scenario testing)
 ├── mocks/              # Mock implementations
 │   ├── __tests__/      # Vitest unit tests for mock infrastructure
-│   │   └── manifestInterpreter.test.ts
+│   │   ├── manifestInterpreter.test.ts
+│   │   └── test-harness.test.ts
 │   ├── claude-cli-stub.ts      # Claude CLI process stub
 │   ├── git-remote-mock.ts      # Git remote mock
 │   ├── github-api-server.ts    # GitHub API mock HTTP server
