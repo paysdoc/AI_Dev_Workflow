@@ -19,7 +19,7 @@ export type { LogSinceOptions } from './gitReadOps';
 
 // Bootstrap — absorbed pre-context primitives (issue #700)
 export { isGitHubAppConfigured, getInstallationToken } from './appAuth';
-export { readLocalRepoInfo, ghAuthToken, resolveBootstrapGitIdentity } from './bootstrapIdentity';
+export { readLocalRepoInfo, ghAuthToken, resolveBootstrapGitIdentity, parseGitHubRemoteUrl } from './bootstrapIdentity';
 export type { RepoInfo as BootstrapRepoInfo, BootstrapIdentityDeps } from './bootstrapIdentity';
 export { resolveContextToken } from './tokenResolver';
 export type { ResolveContextTokenInput } from './tokenResolver';

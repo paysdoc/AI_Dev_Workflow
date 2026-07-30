@@ -51,6 +51,19 @@ describe('convertToSshUrl', () => {
     const url = 'https://gitlab.com/acme/webapp.git';
     expect(convertToSshUrl(url)).toBe(url);
   });
+
+  // Issue #779: convertToSshUrl's old regex was fully anchored, so a dotted
+  // name failed to match and the function silently returned the HTTPS URL
+  // unchanged instead of converting it.
+  it('converts a dotted-name HTTPS URL with .git suffix to SSH', () => {
+    const result = convertToSshUrl('https://github.com/paysdoc/paysdoc.nl.git');
+    expect(result).toBe('git@github.com:paysdoc/paysdoc.nl.git');
+  });
+
+  it('converts a dotted-name HTTPS URL without .git suffix to SSH', () => {
+    const result = convertToSshUrl('https://github.com/paysdoc/paysdoc.nl');
+    expect(result).toBe('git@github.com:paysdoc/paysdoc.nl.git');
+  });
 });
 
 // ---------------------------------------------------------------------------
