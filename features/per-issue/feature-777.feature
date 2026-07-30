@@ -76,18 +76,20 @@ Feature: A GitContext spawn into a workspace that was never cloned names the mis
     7. SELF-HOST IS UNAFFECTED. For a self-host context `basePath === frameworkRepoRoot`, which
        always exists, so the check is structurally a no-op there and the framework's own dogfooded
        workflows keep reading their own checkout. GREEN before and after.
-    8. THE TAKEOVER PROBES STILL TOLERATE AN ABSENT WORKTREE. `resolveGitDir`,
-       `currentBranchSymbolic` and `worktreeRegistration` exist to answer questions ABOUT a worktree
-       that may not be there (issue #638's `decideWorktreeReuse` Class-A signals) and each swallows
-       the throw. The new error must not escape them: an uncaught throw on the takeover path killed
-       the whole cron loop once already (vestmatic #187, `trigger_cron.ts` has no try/catch around
-       the takeover call). GREEN before and after — a guard against validating ABOVE those try/catch
-       blocks, e.g. in a public wrapper or in `worktreePathFor`.
-    9. THE FAILURE IS STILL RECOGNISABLE BY ITS ERROR CODE. The enriched error keeps `code ===
-       'ENOENT'`, so code that classifies by error code rather than by message keeps working. This is
-       a deliberate compatibility pin — see the scope note below; it is the one assertion here that
-       goes beyond the issue text, and it is what keeps the merged `@adw-775` §10 scenario green
-       without rewriting another issue's step definitions.
+    8. THE SWALLOWING PROBES STILL SWALLOW. `resolveGitDir`, `currentBranchSymbolic` and
+       `worktreeRegistration` exist to answer questions ABOUT a worktree that may not be there
+       (issue #638's `decideWorktreeReuse` Class-A signals), and `listWorktrees` answers the same
+       question about a base path that may not be there; each swallows the throw. The new error must
+       not escape them: an uncaught throw on the takeover path killed the whole cron loop once
+       already (vestmatic #187, `trigger_cron.ts` has no try/catch around the takeover call). GREEN
+       before and after — a guard against validating ABOVE those try/catch blocks, e.g. in a public
+       wrapper or in `worktreePathFor`.
+    9. THE FAILURE IS STILL RECOGNISABLE BY ITS ERROR CODE, AND THE ORIGINAL SURVIVES. The enriched
+       error keeps `code === 'ENOENT'` and carries the original spawn failure as its `cause`, so code
+       that classifies by error code keeps working and the original stack is not thrown away. The
+       code half is a deliberate compatibility pin — see the scope note below; it is the one
+       assertion here that goes beyond the issue text, and it is what keeps the merged `@adw-775` §10
+       scenario green without rewriting another issue's step definitions.
    10. TYPE-CHECK BACKSTOP (T22).
 
   Mapping onto the issue's Desired behavior: bullet 1 (fail with an error naming the path and the
@@ -96,6 +98,17 @@ Feature: A GitContext spawn into a workspace that was never cloned names the mis
   should only fire for commands that genuinely need a local repo) → §5, and §7 for the self-host
   half. §6, §8 and §9 are the non-regression guards the fix needs in order to be safe rather than
   merely correct.
+
+  Mapping onto the accompanying plan's acceptance criteria
+  (`specs/issue-777-adw-moe8r2-gitcontext-surfaces-sdlc_planner-actionable-missing-workspace-error.md`,
+  written against this file and cross-referencing it by section) — one-to-one, section for section:
+  AC1 → §1; AC2 (explicit worktree path named) → §2; AC3 (construct-before-clone still works) → §3;
+  AC4 (spawn-time, not a construction-time snapshot) → §4; AC5 (repo-API commands unaffected) → §5;
+  AC6 (a real git failure is not misreported) → §6; AC7 (self-host unaffected) → §7; AC8 (the
+  swallowing probes still swallow) → §8; AC9 (still ENOENT, plus `cause`) → §9; AC10 → §T. Two
+  criteria are covered by the plan's unit suite rather than here — an ENOENT-CODED failure whose
+  working directory DOES exist propagates verbatim, and the happy path performs no filesystem
+  existence probe — see the last scope note.
 
   Observability / rot-prevention note:
 
@@ -159,11 +172,19 @@ Feature: A GitContext spawn into a workspace that was never cloned names the mis
       MAINTAINER OVERRIDE: if you would rather the enriched error carry no `code`, delete §9 and
       migrate `feature-775.steps.ts:334-337` instead — those are the only two options, and doing
       neither breaks a merged scenario.
-    • WHAT IS NOT PINNED. Whether the message wording matches the issue's example verbatim (§1
-      asserts the four diagnostic facts, not the sentence); whether a cwd that exists but is a FILE
-      rather than a directory is reported specially (`spawnSync` gives ENOTDIR there, and no
-      production flow produces it); and whether the check costs an `existsSync` per spawn or only on
-      failure — both implementations satisfy every scenario here, which is the point.
+    • WHAT IS NOT PINNED HERE, AND WHY. (a) Whether the message wording matches the issue's example
+      verbatim — §1 asserts the four diagnostic facts, not the sentence. (b) Whether a cwd that
+      exists but is a FILE rather than a directory is reported specially: `spawnSync` gives ENOTDIR
+      there, and no production flow produces it. (c) An ENOENT-CODED failure whose working directory
+      DOES exist (pinned by the plan's unit suite, step 4) — the complement of §6, which covers the
+      same guard for a non-ENOENT failure. A real spawn cannot produce that combination, so proving
+      it needs an injected exec that throws a fabricated ENOENT; that is a unit-test shape, and the
+      plan pins it at step 4. (d) That the happy path performs no filesystem existence probe (the
+      plan's other unit-only criterion, proven with a counting `fsDeps` spy) — an injected-seam call
+      count, again a unit-test shape.
+      (c) and (d) together are what make the plan's catch-and-rewrap choice binding; nothing in this
+      file forces that choice, so if the implementation ever moves to a pre-spawn probe, every
+      scenario here still holds and only those two unit tests change.
     • THE @regression MAINTENANCE SWEEP IS SKIPPED for this issue: `.adw/scenarios.md` configures a
       `## Regression Scenario Directory`, so promotion is a deliberate human decision and this agent
       never auto-promotes.
@@ -197,6 +218,7 @@ Feature: A GitContext spawn into a workspace that was never cloned names the mis
       • `the workspace-ensure flow runs for the repository`
       • `the workspace is cloned on this host after the context was built, on branch {string}`
       • `the takeover probe inspects the worktree of branch {string}`
+      • `the worktree listing is requested for the repository`
       • `the failure names the missing workspace directory`
       • `the failure names the missing worktree directory for branch {string}`
       • `the failure names the repository {string}`
@@ -207,7 +229,9 @@ Feature: A GitContext spawn into a workspace that was never cloned names the mis
       • `the workspace-ensure flow records a clone into the workspace directory`
       • `the failure is the git command's own failure rather than a missing-working-directory report`
       • `the failure is still recognisable by the missing-working-directory error code`
+      • `the failure carries the original spawn failure as its cause`
       • `the takeover probe reports the worktree as missing without raising`
+      • `the worktree listing answers empty without raising`
 
     Step-definition note for the maintainer (feature-777.steps.ts — keep it SELF-CONTAINED with its
     own module-private world and `After` cleanup; do NOT import `gitContextSharedWorld.ts`, whose
@@ -254,7 +278,13 @@ Feature: A GitContext spawn into a workspace that was never cloned names the mis
       • `the takeover probe inspects the worktree of branch X` calls all three probes
         (`resolveGitDir`, `currentBranchSymbolic`, `worktreeRegistration`) inside one try/catch and
         stores the three results; the paired Then asserts `null`, `null`, `'missing'` and that
-        nothing was thrown. Verified 2026-07-30 as today's behaviour, so this is GREEN-before.
+        nothing was thrown. Verified 2026-07-30 as today's behaviour, so this is GREEN-before. The
+        `listWorktrees()` pair is the same shape against the missing BASE path rather than a missing
+        worktree, and asserts `[]` plus no throw.
+      • `the failure carries the original spawn failure as its cause` → assert `err.cause` is set and
+        that `(err.cause as NodeJS.ErrnoException).code === 'ENOENT'`. Do NOT assert the cause's
+        MESSAGE — that is the runtime-divergent string (node vs bun) this feature deliberately never
+        matches on.
       • OPERATION NAME MAP for §5. `fetch-issue-comments` → `fetchIssueComments(28)`, `default-branch`
         → `defaultBranch()` (the one the clone flow's thunk calls), `issue-comment` →
         `commentOnIssue(28, 'body')` (the stdin-carrying write that acknowledges a directive),
@@ -263,8 +293,8 @@ Feature: A GitContext spawn into a workspace that was never cloned names the mis
       • T22 (`the ADW TypeScript type-check passes`) and G18 (`the ADW codebase is checked out`) are
         REUSED, not redefined — redefining either would be an AmbiguousStepDefinition. They live in
         `feature-504.steps.ts:1126` and `ensureCronOnEveryEventSteps.ts` respectively. Confirmed by
-        `--dry-run --tags @adw-777` on 2026-07-30: 14 scenarios, 70 steps, 22 distinct undefined
-        phrases (exactly the list above), 16 steps already resolved, zero ambiguity errors.
+        `--dry-run --tags @adw-777` on 2026-07-30: 15 scenarios, 75 steps, 25 distinct undefined
+        phrases (exactly the list above), 17 steps already resolved, zero ambiguity errors.
       • TWO PHRASES CONTAIN AN APOSTROPHE — `the repository's spawns are stood in for by …` and `the
         failure is the git command's own failure rather than a missing-working-directory report`.
         Declare those two with double-quoted string literals (feature-775.steps.ts:147 does the
@@ -398,7 +428,7 @@ Feature: A GitContext spawn into a workspace that was never cloned names the mis
     Then no missing-working-directory failure is raised
     And the workspace-scoped git read returns the branch name "trunk"
 
-  # ── §8 THE TAKEOVER PROBES STILL TOLERATE AN ABSENT WORKTREE ────────────────────────────
+  # ── §8 THE SWALLOWING PROBES STILL SWALLOW ──────────────────────────────────────────────
   #
   # `resolveGitDir`, `currentBranchSymbolic` and `worktreeRegistration` exist to answer questions
   # ABOUT a worktree that may not be there — issue #638's Class-A reuse signals — and each swallows
@@ -426,7 +456,7 @@ Feature: A GitContext spawn into a workspace that was never cloned names the mis
     When the worktree listing is requested for the repository
     Then the worktree listing answers empty without raising
 
-  # ── §9 THE FAILURE IS STILL RECOGNISABLE BY ITS ERROR CODE ──────────────────────────────
+  # ── §9 THE ERROR CODE SURVIVES, AND SO DOES THE ORIGINAL FAILURE ────────────────────────
   #
   # The compatibility pin, and the one assertion here that goes beyond the issue text. The enriched
   # error replaces the object thrown at exactly the site `feature-775.steps.ts:334-337` inspects
@@ -435,7 +465,10 @@ Feature: A GitContext spawn into a workspace that was never cloned names the mis
   # `code = 'ENOENT'` makes the new error a strict enrichment of the old one, keeps that merged
   # scenario green without rewriting another issue's step definitions, and keeps classification off
   # the message — which differs by runtime (node: "spawnSync /bin/sh ENOENT"; bun: "ENOENT: no such
-  # file or directory, posix_spawn '/bin/sh'"). GREEN before; must stay green after.
+  # file or directory, posix_spawn '/bin/sh'"). The `cause` assertion is the other half: enriching a
+  # message must not throw away the original error's stack, which is what points at the call site
+  # the issue complains is invisible. GREEN before on the code; RED before on the message and the
+  # cause, since today there is no wrapper at all.
 
   @adw-777 @adw-moe8r2-gitcontext-surfaces
   Scenario: The enriched failure keeps the error code that callers classify on

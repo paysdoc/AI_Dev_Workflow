@@ -211,17 +211,22 @@ Pure-module tests (no `GitContext`):
 
 The acceptance criteria, mapped one-to-one onto the authored sections (verified against `feature-777.feature` while writing this plan):
 - **AC1 (headline) → §1.** A workspace-scoped git read for a repo whose workspace is not on this host fails with an error that names the missing directory, names `acme/webapp`, reports `selfHost=false`, and asks whether the workspace was ever cloned on this host. RED before on all four (today the whole message is `spawnSync /bin/sh ENOENT`).
-- **AC2 → §2.** A read against a **missing worktree** under an existing workspace names the *worktree* path — and carries the same question. This is what forecloses a check written against `#basePath` instead of the resolved cwd. RED before.
+- **AC2 → §2.** A read against a **missing worktree** under an existing workspace names the *worktree* path, names `acme/webapp`, and carries the same question. This is what forecloses a check written against `#basePath` instead of the resolved cwd. RED before.
 - **AC3 → §3.** The real `ensureRepoWorkspace` flow still runs for a never-cloned repo and records its clone — no constructor-time validation. GREEN before and after.
 - **AC4 → §4.** A context built before the workspace existed reads it once it appears — the verdict is re-evaluated per spawn, never cached at construction. GREEN before and after.
 - **AC5 → §5.** Repo-API operations (`fetch-issue-comments`, `default-branch`, `issue-comment`, `apply-label`, `authenticated-user`) are unaffected on a host with no clone — the #775 outage is not resurrected one issue later. GREEN before and after.
 - **AC6 → §6.** A git command that fails *inside a directory that exists* still reports its own failure (verified 2026-07-30: that failure arrives with status 128 and **no** error code, so `isSpawnEnoent` already excludes it; the `exists(cwd)` probe is the second guard). GREEN before and after.
 - **AC7 → §7.** A self-host context still reads its own framework checkout — the check is structurally a no-op where `basePath === frameworkRepoRoot`. GREEN before and after.
-- **AC8 → §8.** The takeover probes still answer `missing` for an absent worktree instead of raising — the rewrap sits below their `try`/`catch`, never in a public wrapper or in `worktreePathFor`. GREEN before and after.
-- **AC9 → §9.** The enriched failure keeps `code === 'ENOENT'`, so `feature-775.steps.ts:334-337` keeps classifying it and merged `@adw-775` §10 stays green without edits. GREEN before; must stay green after.
+- **AC8 → §8.** Two scenarios: the takeover probes still answer `missing` for an absent worktree instead of raising, and `listWorktrees()` still answers empty for a never-cloned base path (the same guard at the `#basePath` spawn site the janitor sweeps hit). The rewrap sits below their `try`/`catch`, never in a public wrapper or in `worktreePathFor`. GREEN before and after.
+- **AC9 → §9.** The enriched failure keeps `code === 'ENOENT'`, **names the missing workspace directory**, and **carries the original spawn failure as its `cause`**. The `code` half is what keeps `feature-775.steps.ts:334-337` classifying it, so merged `@adw-775` §10 stays green without edits. **GREEN before on the code; RED before on the message and the `cause`** — today there is no wrapper at all — so the scenario as a whole is RED before and must be GREEN after.
 - **AC10 → §T (T22).** The ADW TypeScript type-check passes.
 
-One unit-level criterion has no scenario and belongs only in the unit suite: a **successful** command performs no filesystem existence probe (counting `fsDeps` spy, expect 0) — the happy path is untouched.
+Two criteria have no scenario and belong only in the unit suite — `feature-777.feature`'s last scope note, items (c) and (d), records the same split:
+
+- A **successful** command performs no filesystem existence probe (counting `fsDeps` spy, expect 0) — the happy path is untouched.
+- An **ENOENT-coded failure whose working directory does exist** propagates verbatim. A real spawn cannot produce that combination, so it needs the injected exec of step 4; it is the complement of §6, which covers the same guard for a non-ENOENT failure.
+
+Message truncation at `MAX_COMMAND_CHARS` is likewise unit-only: the scenarios assert message *components*, never the sentence.
 
 ### 7. Update the owning documentation
 - `app_docs/feature-oqb76h-gitcontext-base-path-authority.md`: extend the `## Overview` `#run` bullet with the rewrap contract; add a `## Responsibilities` line for it; add `workingDirectoryGuard.ts` to `### Package-private operation modules`; add a `## Gotchas` entry recording that (a) detection keys off `code === 'ENOENT'` because the message differs between node and bun, (b) a pre-spawn `existsSync` guard is **not** viable because every GitContext test drives imaginary paths and `makeNoOpFsDeps` returns `existsSync: () => false`, and (c) `code` must stay `'ENOENT'` on the rewrapped error or `@adw-775` §10 goes RED.
