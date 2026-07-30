@@ -1708,6 +1708,7 @@
     - When `classifyAndSpawnWorkflow`'s optional `gitContext` parameter or the cron `precomputedDecision` pass-through is relevant
     - When adding a new webhook event handler that needs to receive the per-event context
     - When troubleshooting wrong-base-repo on the webhook takeover path (ambient `cwd` replaced by per-event `gitContext.basePath`)
+    - When editing the per-event cwd-isolation assertions in `webhookRepoResolver.test.ts` (§3a, §4) — they are pinned by `getCurrentBranch()` (a git op), not `defaultBranch()`, because repo-API `gh` calls became framework-rooted in issue #775 and no longer carry per-repo cwd signal
 
 - app_docs/feature-9gjajh-takeover-and-coordination.md
   - Owns:
@@ -2022,6 +2023,9 @@
     - When implementing or troubleshooting base-path resolution for self-host vs target repos (the single `resolveBasePath` authority)
     - When `worktreePathFor`, `commandEnv`, `defaultBranch`, or construction-time identity validation of `GitContext` is relevant
     - When the per-command env injection chokepoint (`#run`), `usePat`, or stdin `input` forwarding is relevant
+    - When working with `#runRepoApi` or the repo-API spawn-cwd rule (issue #775) — repo-independent `gh` commands (identity in the command string) run from the injected `frameworkRepoRoot`, never `basePath`, regardless of target-workspace clone state
+    - When troubleshooting `spawnSync /bin/sh ENOENT` from a GitHub-API (`gh`) call — this is Node's error for a nonexistent SPAWN CWD, not a missing shell; check whether the failing call is still routed through `#run` (basePath) instead of `#runRepoApi` (frameworkRepoRoot)
+    - When a Cancel or Retry directive fails on a host that has never cloned the target repository's workspace — the fix is that repo-API `gh` calls (`fetchIssueComments`, `defaultBranch`, etc.) never depend on the target workspace existing (issue #775); a git op still correctly requires the clone
     - When `process.env` non-mutation or two-context `GH_TOKEN` isolation in a multi-repo long-lived process is relevant
     - When working with `branchOps.ts`, `commitOps.ts`, `worktreeResetOps.ts`, `worktreeCreateOps.ts`, `worktreeQueryOps.ts`, `worktreeRemoveOps.ts`, `worktreeProbeOps.ts`, `gitReadOps.ts`, or `processCleanup.ts` (package-private operation modules)
     - When the bootstrap package modules (`appAuth.ts`, `bootstrapIdentity.ts`, `tokenResolver.ts`, `repoWorkspace.ts`) are relevant — pre-context primitives absorbed into the exempt package (#700)

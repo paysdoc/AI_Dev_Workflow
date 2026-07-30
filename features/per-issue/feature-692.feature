@@ -278,7 +278,19 @@ Feature: GitContext identity-read migration — the residual git-remote / gh-api
     Examples:
       | op                  |
       | remote-url          |
-      | authenticated-user  |
+
+  # `authenticated-user` (`gh api user`) is a repo-API read (issue #775): it moved off
+  # the outline above into its own scenario because its cwd is now the framework
+  # repository root, not the context base path — the only row of the former outline
+  # this fix affects. `remote-url` is a git op and is unaffected, so it stays above.
+
+  @adw-692 @adw-kzs5rm-gitcontext-migrate-g
+  Scenario: The authenticated-user identity-read method runs with the context token and the framework repository root cwd
+    Given a GitContext for owner "acme" repo "webapp" with auth token "token-acme" and git author "Acme Bot <bot@acme.dev>"
+    And the context's git and gh commands are captured by a recording runner
+    When the "authenticated-user" identity-read operation runs through the context
+    Then the captured command ran with auth token "token-acme" in its child environment
+    And the captured command ran with cwd equal to the framework repository root
 
   # ── §1c  A new identity read does not reintroduce a process-global mutation ────────
   #

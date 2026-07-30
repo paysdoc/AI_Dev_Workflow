@@ -6,8 +6,16 @@
  * Base-path resolution lives only in the constructor — no optional base path,
  * no cwd fallback. Incomplete identity is a hard construction error.
  *
- * Every gh/git operation is routed through the private #run() chokepoint,
- * which injects per-command auth (token or PAT) + git identity into the child
+ * Every gh/git operation is routed through one of two private spawn
+ * chokepoints, split by command class, not by host state:
+ *   - #run()        — git commands and workspace-scoped operations. cwd
+ *                      defaults to the context base path (or an explicit
+ *                      worktree path when supplied).
+ *   - #runRepoApi() — repo-independent gh commands, whose repository identity
+ *                      travels in the command string. cwd is always the
+ *                      injected framework repo root, which exists regardless
+ *                      of whether the target workspace has ever been cloned.
+ * Both inject per-command auth (token or PAT) + git identity into the child
  * environment without ever mutating process.env.
  */
 
@@ -98,6 +106,7 @@ function sanitizeBranchName(branch: string): string {
 
 export class GitContext {
   readonly #basePath: string;
+  readonly #repoApiCwd: string;
   readonly #owner: string;
   readonly #repo: string;
   readonly #selfHost: boolean;
@@ -116,6 +125,7 @@ export class GitContext {
     this.#pat = options.pat;
     this.#gitIdentity = options.gitIdentity;
     this.#basePath = resolveBasePath(options);
+    this.#repoApiCwd = options.frameworkRepoRoot;
     this.#exec = deps.exec ?? defaultExec;
     this.#fsDeps = deps.fsDeps ?? { existsSync, mkdirSync, copyFileSync, rmSync };
   }
@@ -158,8 +168,22 @@ export class GitContext {
     }).trim();
   }
 
+  /**
+   * Repo-API chokepoint — gh commands whose repository identity travels in the
+   * command string (`--repo owner/repo`, `gh api repos/owner/repo/…`) or that
+   * address no repository at all (`gh api user`, `gh api graphql`) are pure
+   * GitHub API calls: they need no repository working directory. They run from
+   * the framework repo root, which always exists, so directive handling
+   * (Cancel/Retry) never depends on a target workspace having been cloned.
+   *
+   * Deliberately accepts no cwd override — the fixed cwd is the contract.
+   */
+  #runRepoApi(command: string, opts: { input?: string; usePat?: boolean } = {}): string {
+    return this.#run(command, { ...opts, cwd: this.#repoApiCwd });
+  }
+
   defaultBranch(): string {
-    return this.#run(
+    return this.#runRepoApi(
       `gh repo view ${this.#owner}/${this.#repo} --json defaultBranchRef --jq .defaultBranchRef.name`,
     );
   }
@@ -325,67 +349,67 @@ export class GitContext {
   // ── GitHub issue ops ─────────────────────────────────────────────────────────
 
   fetchIssue(issueNumber: number): string {
-    return this.#run(fetchIssueCmd(this.#owner, this.#repo, issueNumber));
+    return this.#runRepoApi(fetchIssueCmd(this.#owner, this.#repo, issueNumber));
   }
 
   commentOnIssue(issueNumber: number, body: string): void {
-    this.#run(commentOnIssueCmd(this.#owner, this.#repo, issueNumber), { input: body });
+    this.#runRepoApi(commentOnIssueCmd(this.#owner, this.#repo, issueNumber), { input: body });
   }
 
   issueState(issueNumber: number): string {
-    return this.#run(issueStateCmd(this.#owner, this.#repo, issueNumber));
+    return this.#runRepoApi(issueStateCmd(this.#owner, this.#repo, issueNumber));
   }
 
   closeIssue(issueNumber: number): void {
-    this.#run(closeIssueCmd(this.#owner, this.#repo, issueNumber));
+    this.#runRepoApi(closeIssueCmd(this.#owner, this.#repo, issueNumber));
   }
 
   issueTitle(issueNumber: number): string {
-    return this.#run(issueTitleCmd(this.#owner, this.#repo, issueNumber));
+    return this.#runRepoApi(issueTitleCmd(this.#owner, this.#repo, issueNumber));
   }
 
   fetchIssueComments(issueNumber: number): string {
-    return this.#run(fetchIssueCommentsCmd(this.#owner, this.#repo, issueNumber));
+    return this.#runRepoApi(fetchIssueCommentsCmd(this.#owner, this.#repo, issueNumber));
   }
 
   issueHasLabel(issueNumber: number, _labelName: string): string {
-    return this.#run(issueHasLabelCmd(this.#owner, this.#repo, issueNumber));
+    return this.#runRepoApi(issueHasLabelCmd(this.#owner, this.#repo, issueNumber));
   }
 
   addIssueLabel(issueNumber: number, labelName: string): void {
-    this.#run(addIssueLabelCmd(this.#owner, this.#repo, issueNumber, labelName));
+    this.#runRepoApi(addIssueLabelCmd(this.#owner, this.#repo, issueNumber, labelName));
   }
 
   createIssue(title: string, body: string): string {
-    return this.#run(createIssueCmd(this.#owner, this.#repo, title), { input: body });
+    return this.#runRepoApi(createIssueCmd(this.#owner, this.#repo, title), { input: body });
   }
 
   updateIssueBody(issueNumber: number, body: string): void {
-    this.#run(updateIssueBodyCmd(this.#owner, this.#repo, issueNumber), { input: body });
+    this.#runRepoApi(updateIssueBodyCmd(this.#owner, this.#repo, issueNumber), { input: body });
   }
 
   findOpenUpgradeIssue(): string {
-    return this.#run(findOpenUpgradeIssueCmd(this.#owner, this.#repo));
+    return this.#runRepoApi(findOpenUpgradeIssueCmd(this.#owner, this.#repo));
   }
 
   deleteIssueComment(commentId: number): void {
-    this.#run(deleteIssueCommentCmd(this.#owner, this.#repo, commentId));
+    this.#runRepoApi(deleteIssueCommentCmd(this.#owner, this.#repo, commentId));
   }
 
   listOpenIssues(opts: ListOpenIssuesOptions): string {
-    return this.#run(listOpenIssuesCmd(this.#owner, this.#repo, opts));
+    return this.#runRepoApi(listOpenIssuesCmd(this.#owner, this.#repo, opts));
   }
 
   issueComments(issueNumber: number): string {
-    return this.#run(issueCommentsCmd(this.#owner, this.#repo, issueNumber));
+    return this.#runRepoApi(issueCommentsCmd(this.#owner, this.#repo, issueNumber));
   }
 
   fetchMergedPRs(limit?: number): string {
-    return this.#run(fetchMergedPRsCmd(this.#owner, this.#repo, limit));
+    return this.#runRepoApi(fetchMergedPRsCmd(this.#owner, this.#repo, limit));
   }
 
   authenticatedUser(): string {
-    return this.#run('gh api user');
+    return this.#runRepoApi('gh api user');
   }
 
   remoteUrl(cwd?: string): string {
@@ -499,73 +523,73 @@ export class GitContext {
   }
 
   findPRByBranch(branchName: string): string {
-    return this.#run(findPRByBranchCmd(this.#owner, this.#repo, branchName));
+    return this.#runRepoApi(findPRByBranchCmd(this.#owner, this.#repo, branchName));
   }
 
   fetchPRDetails(prNumber: number): string {
-    return this.#run(fetchPRDetailsCmd(this.#owner, this.#repo, prNumber));
+    return this.#runRepoApi(fetchPRDetailsCmd(this.#owner, this.#repo, prNumber));
   }
 
   fetchPRReviews(prNumber: number): string {
-    return this.#run(fetchPRReviewsCmd(this.#owner, this.#repo, prNumber));
+    return this.#runRepoApi(fetchPRReviewsCmd(this.#owner, this.#repo, prNumber));
   }
 
   fetchPRReviewComments(prNumber: number): string {
-    return this.#run(fetchPRReviewCommentsCmd(this.#owner, this.#repo, prNumber));
+    return this.#runRepoApi(fetchPRReviewCommentsCmd(this.#owner, this.#repo, prNumber));
   }
 
   commentOnPR(prNumber: number, body: string): void {
-    this.#run(commentOnPRCmd(this.#owner, this.#repo, prNumber), { input: body });
+    this.#runRepoApi(commentOnPRCmd(this.#owner, this.#repo, prNumber), { input: body });
   }
 
   mergePR(prNumber: number): void {
-    this.#run(mergePRCmd(this.#owner, this.#repo, prNumber));
+    this.#runRepoApi(mergePRCmd(this.#owner, this.#repo, prNumber));
   }
 
   /** Approves a PR using the PAT identity (GitHub forbids bot self-approval). */
   approvePR(prNumber: number): void {
-    this.#run(approvePRCmd(this.#owner, this.#repo, prNumber), { usePat: true });
+    this.#runRepoApi(approvePRCmd(this.#owner, this.#repo, prNumber), { usePat: true });
   }
 
   prApprovalState(prNumber: number): string {
-    return this.#run(prApprovalStateCmd(this.#owner, this.#repo, prNumber));
+    return this.#runRepoApi(prApprovalStateCmd(this.#owner, this.#repo, prNumber));
   }
 
   fetchPRList(): string {
-    return this.#run(fetchPRListCmd(this.#owner, this.#repo));
+    return this.#runRepoApi(fetchPRListCmd(this.#owner, this.#repo));
   }
 
   fetchAllPRs(): string {
-    return this.#run(fetchAllPRsCmd(this.#owner, this.#repo));
+    return this.#runRepoApi(fetchAllPRsCmd(this.#owner, this.#repo));
   }
 
   fetchPRChangedFiles(prNumber: number): string {
-    return this.#run(prChangedFilesCmd(this.#owner, this.#repo, prNumber));
+    return this.#runRepoApi(prChangedFilesCmd(this.#owner, this.#repo, prNumber));
   }
 
   createPR(title: string, body: string, headBranch: string, baseBranch?: string, labels?: readonly string[]): string {
-    return this.#run(createPRCmd(this.#owner, this.#repo, title, headBranch, baseBranch, labels), { input: body });
+    return this.#runRepoApi(createPRCmd(this.#owner, this.#repo, title, headBranch, baseBranch, labels), { input: body });
   }
 
   createLabel(name: string, color: string, description: string): void {
-    this.#run(createLabelCmd(this.#owner, this.#repo, name, color, description));
+    this.#runRepoApi(createLabelCmd(this.#owner, this.#repo, name, color, description));
   }
 
   applyLabel(issueNumber: number, labelName: string): void {
-    this.#run(applyLabelCmd(this.#owner, this.#repo, issueNumber, labelName));
+    this.#runRepoApi(applyLabelCmd(this.#owner, this.#repo, issueNumber, labelName));
   }
 
   setSecret(name: string, value: string): void {
-    this.#run(setSecretCmd(this.#owner, this.#repo, name), { input: value });
+    this.#runRepoApi(setSecretCmd(this.#owner, this.#repo, name), { input: value });
   }
 
   runGraphQL(query: string, variables?: Record<string, string | number>): string {
-    return this.#run(graphQLCmd(query, variables), { usePat: true });
+    return this.#runRepoApi(graphQLCmd(query, variables), { usePat: true });
   }
 
   /** stdin-JSON form for GraphQL mutations with complex/array variables that runGraphQL's flag form cannot express. Uses PAT (Projects V2 writes) with graceful fallback to context token when no PAT is set. */
   runGraphQLInput(body: Record<string, unknown>): string {
-    return this.#run(graphQLInputCmd(), { input: JSON.stringify(body), usePat: true });
+    return this.#runRepoApi(graphQLInputCmd(), { input: JSON.stringify(body), usePat: true });
   }
 
   /**
@@ -577,14 +601,14 @@ export class GitContext {
   moveIssueToStatus(issueNumber: number, targetStatus: string): boolean {
     let projectId: string | null = null;
     try {
-      projectId = parseProjectId(this.#run(projectQueryCmd(this.#owner, this.#repo), { usePat: true }));
+      projectId = parseProjectId(this.#runRepoApi(projectQueryCmd(this.#owner, this.#repo), { usePat: true }));
     } catch { return false; }
     if (!projectId) return false;
 
     let item: { itemId: string; currentStatus: string | null } | null = null;
     try {
       item = parseIssueItem(
-        this.#run(itemQueryCmd(this.#owner, this.#repo, issueNumber), { usePat: true }),
+        this.#runRepoApi(itemQueryCmd(this.#owner, this.#repo, issueNumber), { usePat: true }),
         projectId,
       );
     } catch { return false; }
@@ -594,7 +618,7 @@ export class GitContext {
     let field: { fieldId: string; optionId: string } | 'already_at_status' | null = null;
     try {
       field = parseStatusField(
-        this.#run(fieldQueryCmd(projectId), { usePat: true }),
+        this.#runRepoApi(fieldQueryCmd(projectId), { usePat: true }),
         targetStatus,
         item.currentStatus,
       );
@@ -603,7 +627,7 @@ export class GitContext {
     if (field === 'already_at_status') return true;
 
     try {
-      this.#run(moveStatusCmd(projectId, item.itemId, field.fieldId, field.optionId), { usePat: true });
+      this.#runRepoApi(moveStatusCmd(projectId, item.itemId, field.fieldId, field.optionId), { usePat: true });
     } catch { return false; }
     return true;
   }

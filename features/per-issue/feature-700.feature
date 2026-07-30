@@ -339,7 +339,7 @@ Feature: GitContext absorbs bootstrap construction and enforces token veracity �
     And the context's git and gh commands are captured by a recording runner
     And the process working directory is changed away from the context base path
     When the "default-branch" read operation runs through the context
-    Then the captured command ran with cwd equal to the context base path
+    Then the captured command ran with cwd equal to the framework repository root
 
   # ═══════════════ §3  PER-COMMAND AUTH ISOLATION SURVIVES THE ABSORPTION (story 7) ══
   #

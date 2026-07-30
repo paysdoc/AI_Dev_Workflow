@@ -241,11 +241,13 @@ When(
     assert.ok(w.currentCtx !== null, 'Expected a per-event GitContext to be set');
     if (opName === 'default-branch') {
       await w.currentCtx.defaultBranch();
-      const getCall = (w as unknown as { _getCall?: () => RecordedCall | null })._getCall;
-      if (getCall) w.currentRecordedCall = getCall();
+    } else if (opName === 'current-branch') {
+      await w.currentCtx.getCurrentBranch();
     } else {
       assert.fail(`Unknown read operation: "${opName}"`);
     }
+    const getCall = (w as unknown as { _getCall?: () => RecordedCall | null })._getCall;
+    if (getCall) w.currentRecordedCall = getCall();
   },
 );
 
@@ -270,9 +272,11 @@ When(
 
     const recorders = (w as unknown as { _recorders?: Map<string, () => RecordedCall | null> })._recorders;
 
-    // Interleaved: run op on A, then B
-    await ctxA.defaultBranch();
-    await ctxB.defaultBranch();
+    // Interleaved: run op on A, then B. A git op (not a repo-API op) so the
+    // per-context cwd assertions below stay meaningful post-#775 — repo-API
+    // ops now share one framework-rooted cwd across all contexts.
+    await ctxA.getCurrentBranch();
+    await ctxB.getCurrentBranch();
 
     if (recorders) {
       const callA = recorders.get(fullNameA)?.();

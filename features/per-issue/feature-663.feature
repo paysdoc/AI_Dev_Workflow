@@ -218,7 +218,7 @@ Feature: GitContext gh-operation migration — issue/PR/comment/label/board ops 
     When the "issue-comment" gh operation runs through the context
     Then the captured command ran with auth token "token-acme" in its child environment
     And the captured command ran with git author "Acme Bot <bot@acme.dev>" in its child environment
-    And the captured command ran with cwd equal to the context base path
+    And the captured command ran with cwd equal to the framework repository root
 
   # ── §1b Every migrated read/write op carries the context token + base-path cwd ──
   #
@@ -234,7 +234,7 @@ Feature: GitContext gh-operation migration — issue/PR/comment/label/board ops 
     And the context's git and gh commands are captured by a recording runner
     When the "<op>" gh operation runs through the context
     Then the captured command ran with auth token "token-acme" in its child environment
-    And the captured command ran with cwd equal to the context base path
+    And the captured command ran with cwd equal to the framework repository root
 
     Examples:
       | op           |
@@ -334,9 +334,9 @@ Feature: GitContext gh-operation migration — issue/PR/comment/label/board ops 
     When the "pr-comment" gh operation runs through the "acme/alpha" context
     And the "issue-comment" gh operation runs through the "octo/beta" context
     Then the "acme/alpha" command ran with auth token "token-alpha" in its child environment
-    And the "acme/alpha" command ran with cwd equal to the "acme/alpha" context base path
+    And the "acme/alpha" command ran with cwd equal to the framework repository root
     And the "octo/beta" command ran with auth token "token-beta" in its child environment
-    And the "octo/beta" command ran with cwd equal to the "octo/beta" context base path
+    And the "octo/beta" command ran with cwd equal to the framework repository root
     And the "acme/alpha" command's child environment does not carry auth token "token-beta"
     And the "octo/beta" command's child environment does not carry auth token "token-alpha"
 

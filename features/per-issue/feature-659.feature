@@ -219,7 +219,7 @@ Feature: GitContext per-command auth/env injection — token and cwd are bound t
   Scenario: A read operation supplies the context token, git identity, and base-path cwd to its child command
     Given a GitContext for owner "acme" repo "webapp" with auth token "token-acme" and git author "Acme Bot <bot@acme.dev>"
     And the context's git and gh commands are captured by a recording runner
-    When the "default-branch" read operation runs through the context
+    When the "current-branch" read operation runs through the context
     Then the captured command ran with auth token "token-acme" in its child environment
     And the captured command ran with git author "Acme Bot <bot@acme.dev>" in its child environment
     And the captured command ran with cwd equal to the context base path
@@ -236,7 +236,7 @@ Feature: GitContext per-command auth/env injection — token and cwd are bound t
     Given a GitContext for owner "acme" repo "webapp" with auth token "token-acme" and git author "Acme Bot <bot@acme.dev>"
     And the context's git and gh commands are captured by a recording runner
     And the process working directory is changed away from the context base path
-    When the "default-branch" read operation runs through the context
+    When the "current-branch" read operation runs through the context
     Then the captured command ran with cwd equal to the context base path
 
   # ═══════════════════════ PARENT GLOBAL NEVER MUTATED (AC2, AC4; story 7) ═════
@@ -299,8 +299,8 @@ Feature: GitContext per-command auth/env injection — token and cwd are bound t
     Given a GitContext for owner "acme" repo "alpha" with auth token "token-alpha"
     And a GitContext for owner "octo" repo "beta" with auth token "token-beta"
     And each context's git and gh commands are captured by a recording runner
-    When the "default-branch" read operation runs through the "acme/alpha" context
-    And the "default-branch" read operation runs through the "octo/beta" context
+    When the "current-branch" read operation runs through the "acme/alpha" context
+    And the "current-branch" read operation runs through the "octo/beta" context
     Then the "acme/alpha" command ran with auth token "token-alpha" in its child environment
     And the "acme/alpha" command ran with cwd equal to the "acme/alpha" context base path
     And the "octo/beta" command ran with auth token "token-beta" in its child environment

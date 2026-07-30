@@ -14,7 +14,7 @@ ADW is an agentic SDLC framework: it turns issues on GitHub, GitLab, or Jira int
 - **Multi-agent passive review with blocking gate** — review agents read scenario proof and captured screenshots, classifying findings as Blockers (auto-patched by `patchAgent` for general failures or `refactorAgent` for coding-guideline violations, via `reviewPatchHelpers`) or Tech Debt (logged only); when the review-retry loop exhausts with unresolved Blockers the orchestrator writes `review_failed` (a human-gated stage, like `merge_blocked`) and skips PR creation — recoverable only via `## Retry` after pushing a fix.
 - **HITL-gated auto-merge** — every cron tick re-evaluates `(no hitl label) OR (PR approved)`; merge is deferred while the gate is closed, and `## Cancel` is the scorched-earth manual override.
 - **Retry and Cancel directives** — `## Retry` resets a `merge_blocked` workflow to `awaiting_merge` (state-only, no worktree teardown); `## Cancel` kills the orchestrator, removes the worktree, and re-queues the issue.
-- **GitContext repo-context authority** — `adws/gitContext/` is a deep module that owns every git and `gh` interaction; it is constructed once at each process's launch boundary with mandatory owner/repo/token/gitIdentity fields (no optional cwd fallback), resolves the correct base path in its constructor (self-host → framework root; target → target-repos workspace), and applies auth per spawned-command environment rather than by mutating a process-global, eliminating the ~13-episode wrong-repo and GH_TOKEN-bleed class of bugs.
+- **GitContext repo-context authority** — `adws/gitContext/` is a deep module that owns every git and `gh` interaction; it is constructed once at each process's launch boundary with mandatory owner/repo/token/gitIdentity fields (no optional cwd fallback), resolves the correct base path in its constructor (self-host → framework root; target → target-repos workspace), and applies auth per spawned-command environment rather than by mutating a process-global, eliminating the ~13-episode wrong-repo and GH_TOKEN-bleed class of bugs. Git commands and workspace-scoped operations spawn under that base path; repo-independent `gh` operations (issue/PR/label/board/secret — identity travels in the command string) always spawn under the injected framework repo root instead, so directive handling like `## Cancel`/`## Retry` works on a host that has never cloned the target repo's workspace (issue #775).
 - **CI-enforced git/gh guardrail** — `checkGitGhGuard.ts` (`bun run lint:git-guard`, wired into `.github/workflows/git-cli-guard.yml`) scans every `.ts`/`.tsx` source file for direct `git`/`gh` shell-outs and fails the build if any bypass the `GitContext` chokepoint; `adws/gitContext` itself is the sole structurally-exempted package.
 - **Target-repo agent guardrails injection** — `resolveGuardrailsDecision` (`guardrailsGate.ts`) opt-in-gates a `--settings` injection onto every target-repo `claude` spawn: `.github/adw.yml`'s `guardrails: true` canary, an `ADW_TARGET_GUARDRAILS=off` kill switch, self-host exclusion, and a memoized startup probe (`scripts/guardrails-probe.ts`) that fails OPEN (no injection + one Slack alert) rather than blocking. The injected payload (`guardrailsPayload.ts`) combines the `templates/claude-settings-starter.json` deny list with all five framework hooks re-registered at absolute paths and an absolute per-adwId `CLAUDE_HOOKS_LOG_DIR`, so hook logs never leak into the target worktree.
 - **Multi-provider abstraction** — pluggable `IssueTracker` and `CodeHost` interfaces (`RepoContext`) with GitHub, GitLab, and Jira issue trackers and GitHub/GitLab code hosts.
@@ -612,7 +612,8 @@ adws/                   # ADW workflow system
 │   │   ├── labelManager.test.ts
 │   │   ├── linkedPrDetector.test.ts
 │   │   ├── prApi.test.ts
-│   │   └── projectBoardApi.test.ts
+│   │   ├── projectBoardApi.test.ts
+│   │   └── workflowCommentsIssue.test.ts
 │   ├── githubApi.ts
 │   ├── githubAppAuth.ts  # GitHub App authentication
 │   ├── hitlBoardNotifier.ts  # HITL board-event notifier — PR/issue lookup, message building, and Slack delivery for Review and Blocked transitions
@@ -827,6 +828,7 @@ adws/                   # ADW workflow system
 │   │   ├── pauseQueueScanner.test.ts
 │   │   ├── perIssueScenarioSweep.test.ts
 │   │   ├── perIssueSweepPersist.test.ts
+│   │   ├── promotionSweepDefaults.test.ts
 │   │   ├── regionOverlap.test.ts
 │   │   ├── regionOverlapSignals.test.ts
 │   │   ├── retryHandler.test.ts
@@ -982,7 +984,8 @@ test/                   # Integration test infrastructure
 │   └── python-app/     # Fixture target repo for Python app (behave/pytest-bdd BDD scenario testing)
 ├── mocks/              # Mock implementations
 │   ├── __tests__/      # Vitest unit tests for mock infrastructure
-│   │   └── manifestInterpreter.test.ts
+│   │   ├── manifestInterpreter.test.ts
+│   │   └── test-harness.test.ts
 │   ├── claude-cli-stub.ts      # Claude CLI process stub
 │   ├── git-remote-mock.ts      # Git remote mock
 │   ├── github-api-server.ts    # GitHub API mock HTTP server
