@@ -103,9 +103,13 @@ Before({ tags: '@adw-776' }, function () {
 });
 
 After({ tags: '@adw-776' }, async function () {
-  if (world.serverProcess?.pid && !world.serverExited) {
+  if (world.serverProcess?.pid) {
     // Negative PID: kill the whole detached process group (proc.kill() alone only
     // reaches the direct tsx-wrapper child, orphaning the real server grandchild).
+    // Always attempt this regardless of world.serverExited: bunx's own wrapper
+    // process routinely exits well before the real grandchild server it launched
+    // does, so serverExited (set from the wrapper's 'exit' event) is not proof the
+    // grandchild is gone — skipping the kill on that signal is what orphaned it.
     try { process.kill(-world.serverProcess.pid, 'SIGKILL'); } catch { /* already dead */ }
   }
   if (world.cronSleeper?.pid) {
@@ -138,6 +142,17 @@ function findFreePort(): Promise<number> {
       const port = (srv.address() as net.AddressInfo).port;
       srv.close(() => resolve(port));
     });
+  });
+}
+
+/** Real liveness proof: can a TCP connection be established to the server's port. */
+function isPortListening(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socket = net.createConnection({ host: '127.0.0.1', port });
+    socket.setTimeout(1_000);
+    socket.once('connect', () => { socket.destroy(); resolve(true); });
+    socket.once('timeout', () => { socket.destroy(); resolve(false); });
+    socket.once('error', () => resolve(false));
   });
 }
 
@@ -174,10 +189,13 @@ function waitForListening(deadlineMs: number): Promise<number> {
     const check = () => {
       const match = world.serverStdout.match(pattern);
       if (match) { resolve(parseInt(match[1], 10)); return; }
-      if (world.serverExited) {
-        reject(new Error(`Webhook server exited before listening.\nstdout:\n${world.serverStdout}\nstderr:\n${world.serverStderr}`));
-        return;
-      }
+      // Deliberately NOT bailing early on world.serverExited: that flag reflects the
+      // bunx wrapper's own 'exit' event, and bunx routinely exits once it has
+      // launched its real grandchild, well before (or independent of) that
+      // grandchild's own startup completing. Treating the wrapper's exit as proof
+      // the server died caused false "exited before listening" rejections against a
+      // server that went on to start and listen normally moments later. A genuine
+      // startup crash still surfaces via the deadline below.
       if (Date.now() > deadline) {
         reject(new Error(`Timed out waiting for webhook server to listen.\nstdout:\n${world.serverStdout}\nstderr:\n${world.serverStderr}`));
         return;
@@ -421,10 +439,15 @@ async function assertServerAlive(): Promise<void> {
   // Let any in-flight 'exit' event (racing the HTTP response/socket error) settle.
   await new Promise((resolve) => setTimeout(resolve, 300));
   assert.ok(world.serverProcess, 'Expected a webhook server process to have been spawned');
-  assert.strictEqual(
-    world.serverExited,
-    false,
-    `Expected the webhook server process to still be running, but it exited (${JSON.stringify(world.serverExitInfo)}).\nstdout:\n${world.serverStdout}\nstderr:\n${world.serverStderr}`,
+  // Proof of liveness is "still accepting connections on its port", not
+  // world.serverExited: that flag is set from the bunx WRAPPER's 'exit' event, and
+  // bunx routinely exits once it has launched its real grandchild server, well
+  // before or independent of that grandchild's own lifecycle. Trusting it here
+  // produced false failures against a server that was still very much alive.
+  const alive = await isPortListening(world.serverPort);
+  assert.ok(
+    alive,
+    `Expected the webhook server to still be listening on port ${world.serverPort}, but it is not (wrapper exit info: ${JSON.stringify(world.serverExitInfo)}).\nstdout:\n${world.serverStdout}\nstderr:\n${world.serverStderr}`,
   );
 }
 
