@@ -160,9 +160,16 @@ Feature: The webhook server survives a failing event handler — one bad deliver
         scenarios. The hook must assert that file is absent before spawning and fail
         loudly if it is not — do not delete it, it may belong to a live run.
       • `ensureCronProcess` runs before every per-event branch and detach-spawns a real
-        `trigger_cron.ts` for any payload carrying `repository`. Use a repo name no
-        real run uses so the spawned cron fails fast on the same missing token; the
-        child is `detached` + `unref`'d so it will not hold the test open. The
+        `trigger_cron.ts` for any payload carrying `repository`. The repo here is
+        `paysdoc/paysdoc.nl` — the real incident repo, asserted on by name in §2 and §3 —
+        so it CANNOT be swapped for a throwaway. Suppress the spawn instead: before
+        starting the server, pre-seed a live-PID record at
+        `agents/cron/paysdoc_paysdoc.nl.json` so `isCronAliveForRepo` short-circuits
+        `ensureCronProcess`. That path is `process.cwd()/agents/...` and the server is
+        spawned with `cwd` at the worktree root, so the record is worktree-local. The
+        pre-seed is MANDATORY, above all for the four §4 scenarios that run with working
+        GitHub credentials: an unsuppressed cron there inherits real credentials and
+        starts a real ADW loop against a real repo. The
         `a delivery that requires no work is sent` and `the following delivery …` probes
         deliberately omit `repository` entirely, so they spawn nothing.
       • The Slack sink is a local `http.createServer` recording POST bodies, with
