@@ -14,12 +14,13 @@ ADW is an agentic SDLC framework: it turns issues on GitHub, GitLab, or Jira int
 - **Multi-agent passive review with blocking gate** — review agents read scenario proof and captured screenshots, classifying findings as Blockers (auto-patched by `patchAgent` for general failures or `refactorAgent` for coding-guideline violations, via `reviewPatchHelpers`) or Tech Debt (logged only); when the review-retry loop exhausts with unresolved Blockers the orchestrator writes `review_failed` (a human-gated stage, like `merge_blocked`) and skips PR creation — recoverable only via `## Retry` after pushing a fix.
 - **HITL-gated auto-merge** — every cron tick re-evaluates `(no hitl label) OR (PR approved)`; merge is deferred while the gate is closed, and `## Cancel` is the scorched-earth manual override.
 - **Retry and Cancel directives** — `## Retry` resets a `merge_blocked` workflow to `awaiting_merge` (state-only, no worktree teardown); `## Cancel` kills the orchestrator, removes the worktree, and re-queues the issue.
-- **GitContext repo-context authority** — `adws/gitContext/` is a deep module that owns every git and `gh` interaction; it is constructed once at each process's launch boundary with mandatory owner/repo/token/gitIdentity fields (no optional cwd fallback), resolves the correct base path in its constructor (self-host → framework root; target → target-repos workspace), and applies auth per spawned-command environment rather than by mutating a process-global, eliminating the ~13-episode wrong-repo and GH_TOKEN-bleed class of bugs. Git commands and workspace-scoped operations spawn under that base path; repo-independent `gh` operations (issue/PR/label/board/secret — identity travels in the command string) always spawn under the injected framework repo root instead, so directive handling like `## Cancel`/`## Retry` works on a host that has never cloned the target repo's workspace (issue #775).
+- **GitContext repo-context authority** — `adws/gitContext/` is a deep module that owns every git and `gh` interaction; it is constructed once at each process's launch boundary with mandatory owner/repo/token/gitIdentity fields (no optional cwd fallback), resolves the correct base path in its constructor (self-host → framework root; target → target-repos workspace), and applies auth per spawned-command environment rather than by mutating a process-global, eliminating the ~13-episode wrong-repo and GH_TOKEN-bleed class of bugs. Git commands and workspace-scoped operations spawn under that base path; repo-independent `gh` operations (issue/PR/label/board/secret — identity travels in the command string) always spawn under the injected framework repo root instead, so directive handling like `## Cancel`/`## Retry` works on a host that has never cloned the target repo's workspace (issue #775). A git spawn into a workspace that was never cloned (or a worktree that vanished) fails with an actionable error naming the missing path and the repository, instead of the cryptic `spawnSync /bin/sh ENOENT` (issue #777).
 - **CI-enforced git/gh guardrail** — `checkGitGhGuard.ts` (`bun run lint:git-guard`, wired into `.github/workflows/git-cli-guard.yml`) scans every `.ts`/`.tsx` source file for direct `git`/`gh` shell-outs and fails the build if any bypass the `GitContext` chokepoint; `adws/gitContext` itself is the sole structurally-exempted package.
 - **Target-repo agent guardrails injection** — `resolveGuardrailsDecision` (`guardrailsGate.ts`) opt-in-gates a `--settings` injection onto every target-repo `claude` spawn: `.github/adw.yml`'s `guardrails: true` canary, an `ADW_TARGET_GUARDRAILS=off` kill switch, self-host exclusion, and a memoized startup probe (`scripts/guardrails-probe.ts`) that fails OPEN (no injection + one Slack alert) rather than blocking. The injected payload (`guardrailsPayload.ts`) combines the `templates/claude-settings-starter.json` deny list with all five framework hooks re-registered at absolute paths and an absolute per-adwId `CLAUDE_HOOKS_LOG_DIR`, so hook logs never leak into the target worktree.
 - **Multi-provider abstraction** — pluggable `IssueTracker` and `CodeHost` interfaces (`RepoContext`) with GitHub, GitLab, and Jira issue trackers and GitHub/GitLab code hosts.
 - **Project board automation** — `BoardManager` provider drives GitHub Projects V2 column transitions as a workflow progresses.
 - **Two automation triggers** — `trigger_cron.ts` polls every 20 s; `trigger_webhook.ts` receives HMAC-signed GitHub webhooks for instant pickup, with optional Cloudflare tunnel lifecycle.
+- **Per-event webhook crash isolation** — `trigger_webhook.ts` wraps each event's dispatch in a try/catch around `dispatchWebhookEvent()`; a synchronous throw is contained (`webhookEventBoundary.ts`) rather than crashing the process, answers HTTP 500 only if headers are unsent, and reports failures via a no-throw, best-effort Slack alert (`reportWebhookEventFailure`) so one bad event can't take the trigger down.
 - **Single-host coordination** — per-issue `spawnGate`, PID + start-time liveness checks, heartbeat ticker, `stageClassifier` six-class taxonomy (active/awaiting_merge/retriable/resumable/terminal/human_gated) for recovery routing, and `worktreeReset`-driven takeover; for abandoned and `phase_timeout` workflows the `worktreeReuseGate` probes Class-A git-operability signals (`WorktreeProbe`) and resumes in-place when healthy, resetting only on fault.
 - **Resilience primitives** — pause queue for rate-limit/billing pause and resume, auth gate for auth-failure detection with `paused_auth` state and Slack alerting, auth queue scanner for automatic resume after auth restoration, hung-orchestrator detector, dev server janitor, per-issue scenario sweep cron (14-day retention, promotion-tag-aware — a file carrying a live `@promotion-suggested-<date>` tag is exempted from deletion until the tag is declined or approved), `remoteReconcile` to derive workflow stage from remote GitHub artifacts, and a state-novelty progress gate (`progressGate.ts`) that aborts a build early when repeated git-tree-hash comparisons show no new commits (no_progress) or the checkpoint backstop is exhausted.
 - **Cost tracking** — per-phase, per-model `PhaseCostRecord` with multi-currency reporting, divergence detection vs. CLI-reported cost, and dual-write to a Cloudflare D1-backed Cost API.
@@ -641,8 +642,10 @@ adws/                   # ADW workflow system
 │   │   ├── gitContextOperations.test.ts
 │   │   ├── gitReadOps.test.ts
 │   │   ├── remoteOps.test.ts
+│   │   ├── repoApiCwd.test.ts
 │   │   ├── repoWorkspace.test.ts
-│   │   └── tokenResolver.test.ts
+│   │   ├── tokenResolver.test.ts
+│   │   └── workingDirectoryGuard.test.ts
 │   ├── commands/       # Pure command-string builders (no I/O) — one file per concern
 │   │   ├── __tests__/  # Vitest unit tests
 │   │   │   └── issueCommands.test.ts
@@ -664,6 +667,7 @@ adws/                   # ADW workflow system
 │   ├── repoWorkspace.ts  # Target-repo workspace management (path resolution, clone, fetch) — absorbed into package (#700); defaultBranch thunk injected for veracious auth
 │   ├── tokenResolver.ts  # Veracious token resolver (resolveContextToken) — never reads process.env.GH_TOKEN; replaces the two prior resolvers that were the GH_TOKEN-bleed root (#700)
 │   ├── types.ts        # GitIdentity, GitContextOptions, ExecFn, and GitContextDeps interfaces
+│   ├── workingDirectoryGuard.ts  # Rewraps a spawn-into-a-missing-cwd ENOENT into an error naming the path and repo identity (#run's catch block); pure, no fs/spawn
 │   ├── worktreeCreateOps.ts  # Package-private worktree creation orchestration (add, copy env, gitignore)
 │   ├── worktreeProbeOps.ts   # Package-private worktree-probe ops — inspects an arbitrary worktree path (WorktreeRegistration: healthy/locked/prunable/missing)
 │   ├── worktreeQueryOps.ts   # Package-private worktree query helpers (list, find by branch/issue)
@@ -839,6 +843,7 @@ adws/                   # ADW workflow system
 │   │   ├── trigger_cron.test.ts
 │   │   ├── triggerCronAwaitingMerge.test.ts
 │   │   ├── upgradeRedrive.test.ts
+│   │   ├── webhookEventBoundary.test.ts
 │   │   ├── webhookGatekeeper.test.ts
 │   │   ├── webhookHandlers.test.ts
 │   │   └── webhookRepoResolver.test.ts
@@ -872,6 +877,7 @@ adws/                   # ADW workflow system
 │   ├── trigger_shutdown.ts  # Graceful shutdown handler
 │   ├── trigger_webhook.ts
 │   ├── upgradeRedrive.ts  # Cron redrive scan: re-spawns adwUpgrade for stranded #UPG tracking issues (bounded by MAX_FAILURES)
+│   ├── webhookEventBoundary.ts  # Per-event resilience boundary: context/formatting helpers plus a no-throw reportWebhookEventFailure() (log + best-effort Slack alert)
 │   ├── webhookGatekeeper.ts
 │   ├── webhookHandlers.ts
 │   ├── webhookRepoResolver.ts  # Per-event boundary resolver — builds one GitContext per webhook event from payload repo identity

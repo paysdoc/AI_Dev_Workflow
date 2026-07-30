@@ -17,6 +17,11 @@
  *                      of whether the target workspace has ever been cloned.
  * Both inject per-command auth (token or PAT) + git identity into the child
  * environment without ever mutating process.env.
+ *
+ * A spawn failure caused by a missing working directory (basePath or an
+ * explicit worktree path that has never been cloned/created on this host)
+ * is rewrapped into an error naming the path and repository identity,
+ * preserving `code: 'ENOENT'`; every other failure propagates verbatim.
  */
 
 import * as path from 'path';
@@ -34,6 +39,7 @@ import { gitReadOps } from './gitReadOps';
 import type { LogSinceOptions } from './gitReadOps';
 import { remoteOps } from './remoteOps';
 import { claimOps } from './claimOps';
+import { rewrapMissingWorkingDirectory } from './workingDirectoryGuard';
 import {
   fetchIssueCmd, commentOnIssueCmd, issueStateCmd, closeIssueCmd, issueTitleCmd,
   fetchIssueCommentsCmd, issueHasLabelCmd, addIssueLabelCmd, createIssueCmd,
@@ -160,12 +166,17 @@ export class GitContext {
    * opts.input  — when provided, passes the string to the child's stdin
    */
   #run(command: string, opts: { cwd?: string; input?: string; usePat?: boolean } = {}): string {
+    const cwd = opts.cwd ?? this.#basePath;
     const env = this.commandEnv(process.env, opts.usePat ?? false);
-    return this.#exec(command, {
-      cwd: opts.cwd ?? this.#basePath,
-      env,
-      input: opts.input,
-    }).trim();
+    try {
+      return this.#exec(command, { cwd, env, input: opts.input }).trim();
+    } catch (error) {
+      throw rewrapMissingWorkingDirectory(
+        error,
+        { cwd, command, owner: this.#owner, repo: this.#repo, selfHost: this.#selfHost },
+        this.#fsDeps.existsSync,
+      );
+    }
   }
 
   /**

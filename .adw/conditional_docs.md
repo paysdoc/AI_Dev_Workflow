@@ -1696,6 +1696,8 @@
     - adws/triggers/__tests__/webhookRepoResolver.test.ts
     - adws/triggers/issueOpenedRouter.ts
     - adws/triggers/issueClosedUnblockRouter.ts
+    - adws/triggers/webhookEventBoundary.ts
+    - adws/triggers/__tests__/webhookEventBoundary.test.ts
   - Conditions:
     - When working on the webhook trigger server, webhook gatekeeper, webhook event handlers, or webhook HMAC signature verification
     - When working on `trigger_webhook.ts`, `webhookGatekeeper.ts`, `webhookHandlers.ts`, or `webhookSignature.ts`
@@ -1707,6 +1709,10 @@
     - When working with `routeIssueOpened`, `IssueOpenedRouterDeps.classifyAndSpawn`, or `issueOpenedRouter.ts`
     - When `classifyAndSpawnWorkflow`'s optional `gitContext` parameter or the cron `precomputedDecision` pass-through is relevant
     - When adding a new webhook event handler that needs to receive the per-event context
+    - When working with `webhookEventBoundary.ts` (`describeWebhookEvent`, `safeParseWebhookBody`, `reportWebhookEventFailure`, or the failure-log/Slack-alert formatters)
+    - When a webhook event handler throw is crashing (or should be prevented from crashing) the long-running `trigger_webhook.ts` process
+    - When troubleshooting why a webhook delivery got no response, a dropped connection, or a `502` from the tunnel, or why GitHub's delivery log shows the server as down
+    - When wiring a new synchronous or asynchronous webhook request-path call that must be contained by `dispatchWebhookEvent`/`containEventFailure` or reported via `reportWebhookEventFailure`
     - When troubleshooting wrong-base-repo on the webhook takeover path (ambient `cwd` replaced by per-event `gitContext.basePath`)
     - When editing the per-event cwd-isolation assertions in `webhookRepoResolver.test.ts` (§3a, §4) — they are pinned by `getCurrentBranch()` (a git op), not `defaultBranch()`, because repo-API `gh` calls became framework-rooted in issue #775 and no longer carry per-repo cwd signal
 
