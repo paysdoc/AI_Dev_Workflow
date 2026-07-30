@@ -632,6 +632,7 @@ adws/                   # ADW workflow system
 │   └── workflowCommentsPR.ts
 ├── gitContext/         # Repo-context authority deep module (GitContext)
 │   ├── __tests__/      # Vitest unit tests
+│   │   ├── appAuth.test.ts
 │   │   ├── bootstrapIdentity.test.ts
 │   │   ├── claimOps.test.ts
 │   │   ├── commitOps.test.ts
