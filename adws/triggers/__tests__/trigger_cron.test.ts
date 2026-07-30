@@ -92,9 +92,10 @@ vi.mock('../../core', async (importOriginal) => {
 // Now import the module under test (side effects are all stubbed)
 // ---------------------------------------------------------------------------
 
-import { runHungDetectorSweep } from '../trigger_cron';
+import { runHungDetectorSweep, runPerIssueScenarioSweepTick, runPromotionSweepTick } from '../trigger_cron';
 import { findHungOrchestrators } from '../../core/hungOrchestratorDetector';
 import { AgentStateManager } from '../../core/agentState';
+import { log, PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES, PROMOTION_SWEEP_INTERVAL_CYCLES } from '../../core';
 import type { HungOrchestrator } from '../../core/hungOrchestratorDetector';
 
 // ---------------------------------------------------------------------------
@@ -194,5 +195,73 @@ describe('runHungDetectorSweep', () => {
     findHungMock.mockReturnValueOnce([]);
     runHungDetectorSweep(fakeNow);
     expect(findHungMock).toHaveBeenCalledWith(fakeNow, expect.any(Number));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tick seams (#769) — both dispatch an injected, nullable bound thunk rather
+// than falling back to a cwd-derived identity when no launch context exists.
+// ---------------------------------------------------------------------------
+
+describe('runPerIssueScenarioSweepTick', () => {
+  beforeEach(() => {
+    vi.mocked(log).mockClear();
+  });
+
+  it('dispatches the injected sweep exactly once on a cadence-eligible cycle', async () => {
+    const sweep = vi.fn(() => Promise.resolve());
+    await runPerIssueScenarioSweepTick(PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES, sweep);
+    expect(sweep).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not dispatch on an off-cadence cycle', async () => {
+    const sweep = vi.fn(() => Promise.resolve());
+    await runPerIssueScenarioSweepTick(PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES + 1, sweep);
+    expect(sweep).not.toHaveBeenCalled();
+  });
+
+  it('skips without dispatching and logs a warning when the thunk is null (no launch context)', async () => {
+    await runPerIssueScenarioSweepTick(PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES, null);
+    expect(log).toHaveBeenCalledWith(expect.stringContaining('no launch GitContext available'), 'warn');
+  });
+
+  it('does not even evaluate the skip branch off-cadence when the thunk is null', async () => {
+    await runPerIssueScenarioSweepTick(PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES + 1, null);
+    expect(log).not.toHaveBeenCalled();
+  });
+
+  it('swallows a throwing sweep and the tick still resolves', async () => {
+    const sweep = vi.fn(() => Promise.reject(new Error('injected transient failure')));
+    await expect(runPerIssueScenarioSweepTick(PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES, sweep)).resolves.toBeUndefined();
+    expect(sweep).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('runPromotionSweepTick — null-thunk skip (#769)', () => {
+  beforeEach(() => {
+    vi.mocked(log).mockClear();
+  });
+
+  it('dispatches the injected sweep exactly once on a cadence-eligible cycle', async () => {
+    const sweep = vi.fn(() => Promise.resolve());
+    await runPromotionSweepTick(PROMOTION_SWEEP_INTERVAL_CYCLES, sweep);
+    expect(sweep).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not dispatch on an off-cadence cycle', async () => {
+    const sweep = vi.fn(() => Promise.resolve());
+    await runPromotionSweepTick(PROMOTION_SWEEP_INTERVAL_CYCLES + 1, sweep);
+    expect(sweep).not.toHaveBeenCalled();
+  });
+
+  it('skips without dispatching and logs a warning when the thunk is null (no launch context)', async () => {
+    await runPromotionSweepTick(PROMOTION_SWEEP_INTERVAL_CYCLES, null);
+    expect(log).toHaveBeenCalledWith(expect.stringContaining('no launch GitContext available'), 'warn');
+  });
+
+  it('swallows a throwing sweep and the tick still resolves', async () => {
+    const sweep = vi.fn(() => Promise.reject(new Error('injected transient failure')));
+    await expect(runPromotionSweepTick(PROMOTION_SWEEP_INTERVAL_CYCLES, sweep)).resolves.toBeUndefined();
+    expect(sweep).toHaveBeenCalledTimes(1);
   });
 });

@@ -3,6 +3,7 @@
  */
 
 import { gitContextForRepo, readLocalRepoInfo } from './gitContextFactory';
+import { REPO_ROOT } from '../core/environment';
 
 export interface RepoInfo {
   owner: string;
@@ -57,7 +58,9 @@ export function getAuthenticatedUser(): string | null {
   if (cachedAuthenticatedUser !== undefined) return cachedAuthenticatedUser;
 
   try {
-    const json = gitContextForRepo(getRepoInfo()).authenticatedUser();
+    // The authenticated user is a process-level property, resolved against the
+    // framework repo's installation, never cwd.
+    const json = gitContextForRepo(readLocalRepoInfo(REPO_ROOT)).authenticatedUser();
     const login = (JSON.parse(json) as { login?: string }).login;
     cachedAuthenticatedUser = login || null;
   } catch (error) {

@@ -136,6 +136,7 @@ When('the promotion-aware per-issue scenario sweep runs over the repository', as
   ctx.headBeforeSweep = git('git rev-parse HEAD', ctx.workdir);
 
   await runPerIssueScenarioSweep({
+    gitContext: gitCtx,
     now: FIXED_NOW,
     listFeatures: () => listFixtureFeatures(gitCtx, ctx.workdir),
     getMergedAt: async (issueNum: number) => ctx.mergedAtByIssue.get(issueNum) ?? null,

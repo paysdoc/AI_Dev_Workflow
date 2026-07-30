@@ -140,6 +140,7 @@ When('the per-issue scenario sweep runs over the repository', async function () 
   ctx.headBeforeSweep = git('git rev-parse HEAD', ctx.workdir);
 
   await runPerIssueScenarioSweep({
+    gitContext: gitCtx,
     now: FIXED_NOW,
     listFeatures: () => listFixtureFeatures(gitCtx, ctx.workdir),
     getMergedAt: async (issueNum: number) => (issueNum === ctx.issueNum ? ctx.mergedAt : null),

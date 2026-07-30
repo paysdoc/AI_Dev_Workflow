@@ -69,3 +69,90 @@ describe('scanFiles — ALLOWLIST removed (#701)', () => {
     expect(scanFiles.length).toBe(2);
   });
 });
+
+describe('scanFiles — cwd-derived-identity rule (#769)', () => {
+  it('flags an inline gitContextForRepo(getRepoInfo()) composite', () => {
+    mockReadFileSync.mockReturnValue(
+      "const ctx = gitContextForRepo(getRepoInfo());\nctx.lsFiles(ctx.basePath);\n",
+    );
+
+    const { violations } = scanFiles(['adws/triggers/someProbe.ts'], '/repo');
+
+    expect(violations).toHaveLength(1);
+    expect(violations[0].rule).toBe('cwd-derived-identity');
+    expect(violations[0].command).toBe('gitContextForRepo(getRepoInfo())');
+  });
+
+  it('flags a local-variable composite: const info = getRepoInfo(); … gitContextForRepo(info)', () => {
+    mockReadFileSync.mockReturnValue(
+      'const info = getRepoInfo();\nconst ctx = gitContextForRepo(info);\n',
+    );
+
+    const { violations } = scanFiles(['adws/triggers/someProbe.ts'], '/repo');
+
+    expect(violations).toHaveLength(1);
+    expect(violations[0].rule).toBe('cwd-derived-identity');
+    expect(violations[0].command).toBe('gitContextForRepo(info)');
+  });
+
+  it('flags a readLocalRepoInfo() composite', () => {
+    mockReadFileSync.mockReturnValue(
+      'const ctx = gitContextForRepo(readLocalRepoInfo(), { selfHost: true });\n',
+    );
+
+    const { violations } = scanFiles(['adws/healthCheck.tsx'], '/repo');
+
+    expect(violations).toHaveLength(1);
+    expect(violations[0].rule).toBe('cwd-derived-identity');
+    expect(violations[0].command).toBe('gitContextForRepo(readLocalRepoInfo())');
+  });
+
+  it('permits gitContextForRepo(readLocalRepoInfo(REPO_ROOT)) — an explicit argument is not cwd-derived', () => {
+    mockReadFileSync.mockReturnValue(
+      'const ctx = gitContextForRepo(readLocalRepoInfo(REPO_ROOT), { selfHost: true });\n',
+    );
+
+    const { violations } = scanFiles(['adws/healthCheck.tsx'], '/repo');
+
+    expect(violations).toHaveLength(0);
+  });
+
+  it('permits a guarded-fallback identity: const r = repoInfo ?? getRepoInfo(); gitContextForRepo(r)', () => {
+    mockReadFileSync.mockReturnValue(
+      'const r = repoInfo ?? getRepoInfo();\nconst ctx = gitContextForRepo(r);\n',
+    );
+
+    const { violations } = scanFiles(['adws/triggers/someHandler.ts'], '/repo');
+
+    expect(violations).toHaveLength(0);
+  });
+
+  it('permits gitContextForRepo(repoInfoParam) — an unrelated identifier is never collected', () => {
+    mockReadFileSync.mockReturnValue(
+      'function handle(repoInfoParam) {\n  return gitContextForRepo(repoInfoParam);\n}\n',
+    );
+
+    const { violations } = scanFiles(['adws/triggers/someHandler.ts'], '/repo');
+
+    expect(violations).toHaveLength(0);
+  });
+
+  it('permits a bare getRepoInfo() that is never fed to a context construction', () => {
+    mockReadFileSync.mockReturnValue(
+      'const info = getRepoInfo();\nconsole.log(info.owner);\n',
+    );
+
+    const { violations } = scanFiles(['adws/triggers/someHandler.ts'], '/repo');
+
+    expect(violations).toHaveLength(0);
+  });
+
+  it('existing git-gh-shellout detections are tagged with rule "git-gh-shellout"', () => {
+    mockReadFileSync.mockReturnValue('const x = execSync("git status");\n');
+
+    const { violations } = scanFiles(['adws/triggers/trigger_cron.ts'], '/repo');
+
+    expect(violations).toHaveLength(1);
+    expect(violations[0].rule).toBe('git-gh-shellout');
+  });
+});

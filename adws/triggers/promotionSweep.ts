@@ -1,5 +1,7 @@
 /**
- * Promotion sweep — full reconcile lifecycle (manual CLI, not yet wired into cron).
+ * Promotion sweep — full reconcile lifecycle, cron-dispatched via
+ * `runPromotionSweepTick` (see `trigger_cron.ts`) on the
+ * `PROMOTION_SWEEP_INTERVAL_CYCLES` cadence.
  *
  * Lists tracked `features/per-issue/feature-{N}.feature` files on the default
  * branch, scores each with the retained deterministic scorer + auto-ramping
@@ -20,11 +22,14 @@
  *    the tag back to `none` (resumes TTL) and files no issue.
  *
  * Mirrors `perIssueScenarioSweep.ts`: injectable deps with production
- * defaults (see `promotionSweepDefaults.ts`), and non-fatal — a transient
- * git/gh error during any action is logged and swallowed, never thrown, so
- * the next candidate still processes.
+ * defaults closing over the caller's launch-boundary GitContext (see
+ * `promotionSweepDefaults.ts`'s `makeDefaultDeps`), and non-fatal — a
+ * transient git/gh error during any action is logged and swallowed, never
+ * thrown, so the next candidate still processes. This module performs no
+ * repo-identity resolution of its own; it acts on the repo of the passed
+ * `gitContext`.
  *
- * Invoke by hand: `bunx tsx adws/triggers/promotionSweep.ts`.
+ * Invoke by hand: `bunx tsx adws/triggers/promotionSweep.ts [--target-repo owner/repo]`.
  */
 
 import * as path from 'path';
@@ -38,21 +43,13 @@ import { reconcileFactFor } from '../core/promotionReconcileLink';
 import type { PromotionIssueRef } from '../core/promotionReconcileLink';
 import { buildPromotionIssue } from '../core/promotionIssueBody';
 import type { PromotionIssueSpec } from '../core/promotionIssueBody';
-import {
-  FEATURE_FILENAME_RE,
-  defaultListPerIssueFeatures,
-  defaultReadFeatureContent,
-  defaultListStepDefSiblings,
-  defaultScenariosConfig,
-  defaultLoadVocabulary,
-  defaultLoadStats,
-  defaultListPromotionIssues,
-  defaultTagAndCommit,
-  defaultFileIssue,
-} from './promotionSweepDefaults';
+import { FEATURE_FILENAME_RE, makeDefaultDeps } from './promotionSweepDefaults';
 import type { ScenariosPaths } from './promotionSweepDefaults';
+import type { GitContext } from '../gitContext';
+import { buildLaunchGitContext, parseTargetRepoArgs } from '../core';
 
 export interface PromotionSweepDeps {
+  gitContext: GitContext;
   now?: () => Date;
   listPerIssueFeatures?: () => string[];
   readFeatureContent?: (path: string) => string | null;
@@ -236,18 +233,19 @@ function processCandidate(
 
 // ── Shell entry point ────────────────────────────────────────────────────────
 
-export async function runPromotionSweep(deps?: PromotionSweepDeps): Promise<PromotionSweepReport> {
-  const now = deps?.now ?? (() => new Date());
-  const logger = deps?.log ?? log;
-  const scenariosConfig = deps?.scenariosConfig ?? defaultScenariosConfig();
-  const listPerIssueFeatures = deps?.listPerIssueFeatures ?? defaultListPerIssueFeatures;
-  const readFeatureContent = deps?.readFeatureContent ?? defaultReadFeatureContent;
-  const listStepDefSiblings = deps?.listStepDefSiblings ?? defaultListStepDefSiblings;
-  const loadVocabulary = deps?.loadVocabulary ?? (() => defaultLoadVocabulary(scenariosConfig.vocabPath));
-  const loadStats = deps?.loadStats ?? defaultLoadStats;
-  const listPromotionIssues = deps?.listPromotionIssues ?? defaultListPromotionIssues;
-  const tagAndCommit = deps?.tagAndCommit ?? defaultTagAndCommit;
-  const fileIssue = deps?.fileIssue ?? defaultFileIssue;
+export async function runPromotionSweep(deps: PromotionSweepDeps): Promise<PromotionSweepReport> {
+  const now = deps.now ?? (() => new Date());
+  const logger = deps.log ?? log;
+  const defaults = makeDefaultDeps(deps.gitContext);
+  const scenariosConfig = deps.scenariosConfig ?? defaults.scenariosConfig();
+  const listPerIssueFeatures = deps.listPerIssueFeatures ?? defaults.listPerIssueFeatures;
+  const readFeatureContent = deps.readFeatureContent ?? defaults.readFeatureContent;
+  const listStepDefSiblings = deps.listStepDefSiblings ?? defaults.listStepDefSiblings;
+  const loadVocabulary = deps.loadVocabulary ?? (() => defaults.loadVocabulary(scenariosConfig.vocabPath));
+  const loadStats = deps.loadStats ?? defaults.loadStats;
+  const listPromotionIssues = deps.listPromotionIssues ?? defaults.listPromotionIssues;
+  const tagAndCommit = deps.tagAndCommit ?? defaults.tagAndCommit;
+  const fileIssue = deps.fileIssue ?? defaults.fileIssue;
 
   const ctx: SweepContext = {
     now,
@@ -281,7 +279,8 @@ export async function runPromotionSweep(deps?: PromotionSweepDeps): Promise<Prom
 // under Node, where import.meta.main is undefined), so this checks argv instead.
 
 if (process.argv[1]?.replace(/\\/g, '/').includes('promotionSweep')) {
-  runPromotionSweep()
+  const targetRepo = parseTargetRepoArgs(process.argv.slice(2));
+  runPromotionSweep({ gitContext: buildLaunchGitContext(targetRepo) })
     .then(r => log(
       `promotionSweep: originated ${r.originated.length}, redrove ${r.redriven.length}, declined ${r.declined.length}, withdrew ${r.withdrawn.length}, left ${r.left.length} file(s) untouched`,
       'info',

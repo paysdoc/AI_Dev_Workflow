@@ -13,7 +13,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { log } from './core';
+import { log, REPO_ROOT } from './core';
 import { gitContextForRepo, readLocalRepoInfo } from './github/gitContextFactory';
 import type { GitContext } from './gitContext/gitContext';
 import {
@@ -109,7 +109,7 @@ async function main(): Promise<void> {
   // On failure, context-dependent checks are skipped and the error is recorded.
   let ctx: GitContext | undefined;
   try {
-    ctx = gitContextForRepo(readLocalRepoInfo(), { selfHost: true });
+    ctx = gitContextForRepo(readLocalRepoInfo(REPO_ROOT), { selfHost: true });
   } catch (err) {
     result.checks.gitContext = {
       success: false,

@@ -124,20 +124,72 @@ export function runHungDetectorSweep(now: number, deps?: HungDetectorDeps): void
 }
 
 /**
+ * Binds the per-issue scenario sweep to the cron's launch-boundary
+ * GitContext. Returns null when no launch context is available (e.g.
+ * trigger_cron.ts imported as a module rather than launched as the entry
+ * script) — the tick then skips the pass instead of falling back to a
+ * cwd-derived identity.
+ */
+function boundPerIssueSweep(): (() => Promise<unknown>) | null {
+  const ctx = cronGitContext; // local const so TS narrows inside the closure
+  return ctx ? () => runPerIssueScenarioSweep({ gitContext: ctx }) : null;
+}
+
+/** Same shape as boundPerIssueSweep, for the promotion sweep. */
+function boundPromotionSweep(): (() => Promise<unknown>) | null {
+  const ctx = cronGitContext;
+  return ctx ? () => runPromotionSweep({ gitContext: ctx }) : null;
+}
+
+/**
+ * Per-issue scenario sweep dispatch: on a cadence-eligible cron cycle
+ * (cycleCount a multiple of PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES) invokes
+ * the sweep, which TTL-removes stale per-issue scenarios from the repo of the
+ * cron's launch GitContext. Off-cadence cycles are a no-op. When no launch
+ * context is available the pass is skipped (logged), never falling back to a
+ * cwd-derived identity. Non-fatal — a transient git/gh failure, or any
+ * escaped throw, is logged and swallowed so it can never abort the cron
+ * tick. Exported (with an injectable sweep) so tests can drive the cadence
+ * gate, the skip, and the swallow directly.
+ */
+export async function runPerIssueScenarioSweepTick(
+  cycleCount: number,
+  sweep: (() => Promise<unknown>) | null = boundPerIssueSweep(),
+): Promise<void> {
+  if (cycleCount % PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES !== 0) return;
+  if (sweep === null) {
+    log('perIssueScenarioSweep: no launch GitContext available — skipping pass', 'warn');
+    return;
+  }
+  try {
+    await sweep();
+  } catch (error) {
+    log(`perIssueScenarioSweep: pass failed (non-fatal): ${error}`, 'error');
+  }
+}
+
+/**
  * Promotion sweep dispatch: on a cadence-eligible cron cycle (cycleCount a
  * multiple of PROMOTION_SWEEP_INTERVAL_CYCLES) invokes the sweep, which
- * reconciles tagged per-issue scenarios and files/withdraws promotion issues.
- * Off-cadence cycles are a no-op (the generous-cadence guarantee). Non-fatal —
- * a transient git/gh failure during setup (the reconciliation query, vocab/stats
- * loads) or any escaped throw is logged and swallowed so it can never abort the
- * cron tick. Exported (with an injectable sweep) so tests can drive both the
- * cadence gate and the swallow directly.
+ * reconciles tagged per-issue scenarios and files/withdraws promotion issues
+ * against the repo of the cron's launch GitContext. Off-cadence cycles are a
+ * no-op (the generous-cadence guarantee). When no launch context is
+ * available the pass is skipped (logged), never falling back to a
+ * cwd-derived identity. Non-fatal — a transient git/gh failure during setup
+ * (the reconciliation query, vocab/stats loads) or any escaped throw is
+ * logged and swallowed so it can never abort the cron tick. Exported (with
+ * an injectable sweep) so tests can drive the cadence gate, the skip, and
+ * the swallow directly.
  */
 export async function runPromotionSweepTick(
   cycleCount: number,
-  sweep: () => Promise<unknown> = runPromotionSweep,
+  sweep: (() => Promise<unknown>) | null = boundPromotionSweep(),
 ): Promise<void> {
   if (cycleCount % PROMOTION_SWEEP_INTERVAL_CYCLES !== 0) return;
+  if (sweep === null) {
+    log('promotionSweep: no launch GitContext available — skipping pass', 'warn');
+    return;
+  }
   try {
     await sweep();
   } catch (error) {
@@ -232,10 +284,10 @@ async function checkAndTrigger(): Promise<void> {
     await runJanitorPass();
   }
 
-  // Delete stale per-issue scenario files every PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES cycles
-  if (cycleCount % PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES === 0) {
-    await runPerIssueScenarioSweep();
-  }
+  // Delete stale per-issue scenario files every PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES cycles.
+  // The cadence gate, the no-launch-context skip, and the non-fatal swallow all live inside
+  // runPerIssueScenarioSweepTick.
+  await runPerIssueScenarioSweepTick(cycleCount);
 
   // Run the promotion sweep every PROMOTION_SWEEP_INTERVAL_CYCLES cycles (generous
   // cadence: git/gh actions must not run every 20s tick). The gate and the
