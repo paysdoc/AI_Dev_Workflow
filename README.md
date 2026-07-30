@@ -612,7 +612,8 @@ adws/                   # ADW workflow system
 │   │   ├── labelManager.test.ts
 │   │   ├── linkedPrDetector.test.ts
 │   │   ├── prApi.test.ts
-│   │   └── projectBoardApi.test.ts
+│   │   ├── projectBoardApi.test.ts
+│   │   └── workflowCommentsIssue.test.ts
 │   ├── githubApi.ts
 │   ├── githubAppAuth.ts  # GitHub App authentication
 │   ├── hitlBoardNotifier.ts  # HITL board-event notifier — PR/issue lookup, message building, and Slack delivery for Review and Blocked transitions
@@ -826,6 +827,7 @@ adws/                   # ADW workflow system
 │   │   ├── pauseQueueScanner.test.ts
 │   │   ├── perIssueScenarioSweep.test.ts
 │   │   ├── perIssueSweepPersist.test.ts
+│   │   ├── promotionSweepDefaults.test.ts
 │   │   ├── regionOverlap.test.ts
 │   │   ├── regionOverlapSignals.test.ts
 │   │   ├── retryHandler.test.ts
