@@ -35,3 +35,6 @@ bunx tsx <script_name>
 
 ## Application Type
 cli
+
+## Agent Guardrails
+This repo already had its own `.claude/settings.json` (custom permissions allow/deny list and PreToolUse/PostToolUse/Notification/Stop/SubagentStop hooks). ADW left it untouched and did not apply the starter guardrails template — skip-if-exists is mandatory, so the file was neither read, merged into, nor overwritten.
