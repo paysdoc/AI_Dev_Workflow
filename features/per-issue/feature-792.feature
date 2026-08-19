@@ -98,6 +98,16 @@ Feature: GitHub knowledge consolidates into the forge adapter — the gh command
         fixture's. This is "the adapter never spawns processes itself" stated as something a test can
         actually observe. GREEN before and after; the risk is the move introducing a shortcut, not
         the current code having one.
+    11a. THE ADAPTER'S OWN GH CALL SITE ROUTES THROUGH THE EXECUTOR (AC3). §11 pins the discipline
+        for the forge operations the CORE still owns — the semantic methods AC1 defers. AC3 is a
+        claim about the ADAPTER: "the adapter's gh call sites feed command strings into the core
+        executor — the adapter never spawns processes itself" (issue, What to build). So the same
+        properties are pinned one level in, at a gh command issued FROM the adapter: it is answered
+        by the seam, and it runs from the framework root it inherits rather than one it re-derives.
+        The board row carries the second half — the credential purpose travels with the command, so
+        a Projects V2 write still asks for the alternate identity the PAT path requires. RED before:
+        the adapter has no sanctioned route to a command today, which is why it borrows the core's
+        semantic methods.
     12. THE WORKING-DIRECTORY CONTRACT IS INHERITED, NOT REIMPLEMENTED (AC3). Repository-independent
         gh commands still run from the framework root even when the process working directory has
         moved elsewhere — the contract #790 preserved as a forge-neutral cwd class (PRD story 16),
@@ -145,7 +155,8 @@ Feature: GitHub knowledge consolidates into the forge adapter — the gh command
         The physical-location half has no runtime witness — see the observability note.
     AC2 (App auth reads no process.env directly; configuration is injected) → §4, §5, §6, with §7,
         §8 and §9 as the regression net across the move.
-    AC3 (adapter issues gh only through the core executor; no direct spawns) → §11, §12, §13, §14.
+    AC3 (adapter issues gh only through the core executor; no direct spawns) → §11, §11a, §12,
+        §13, §14.
     AC4 (exempt set names exactly the two packages; lint green; a gh call site in any third package
         fails) → §15, §16, §17, §18, §19.
     AC5 (relocated tests green in their new home; full suite green) → NOT a scenario. Following
@@ -227,12 +238,24 @@ Feature: GitHub knowledge consolidates into the forge adapter — the gh command
       `fetchIssue(7)`; `comment-on-issue` → `commentOnIssue(7, 'body text')`; `close-issue` →
       `closeIssue(7)`; `add-issue-label` → `addIssueLabel(7, 'needs-review')`;
       `delete-issue-comment` → `deleteIssueComment(9001)`; `merge-pr` → `mergePR(42)`; `approve-pr` →
-      `approvePR(42)`; `pr-changed-files` → `prChangedFiles(42)`; `create-label` →
-      `createLabel('adw:upgrade', 'ededed', 'Framework upgrade')`; `set-secret` →
+      `approvePR(42)`; `pr-changed-files` → `fetchPRChangedFiles(42)` (`gitContext.ts:697`);
+      `create-label` → `createLabel('adw:upgrade', 'ededed', 'Framework upgrade')`; `set-secret` →
       `setSecret('ADW_TOKEN', 'secret-value')`; `board-project-query` → the first command of
       `moveIssueToStatus(28, 'In Progress')`. Where an operation issues more than one command, assert
       against its FIRST recorded command — `moveIssueToStatus` swallows parse failures against a
-      canned seam answer and stops after `projectQueryCmd`, which is the one under test.
+      canned seam answer and stops after `projectQueryCmd` (`gitContext.ts:733`), which is the one
+      under test.
+    • §11's OPERATIONS ARE BOTH RAW-STRING RETURNS — `fetchIssue` and `fetchPRChangedFiles` hand back
+      the executor's trimmed stdout verbatim (`gitContext.ts:482`, `:697`) — so the canned answer can
+      be a plain sentinel and the assertion is a string equality. Do not use a JSON payload: braces
+      in a Gherkin `{string}` argument are parsed as cucumber-expression parameters.
+    • §11a's CALL SITE IS THE ADAPTER'S OWN COMMAND RUNNER, not a context method: build the context
+      with `new GitContext(options, { exec })` exactly as every other scenario here does, hand it to
+      the adapter's runner factory, and issue the command through that. The board row issues
+      `projectQueryCmd('acme', 'webapp')` — the same relocated builder §2 pins — under the alternate
+      credential purpose. The alternate identity token is the token provider's `alternateIdentityPat`
+      and must differ from the resolved token, or the assertion cannot tell a preserved purpose from
+      a dropped one (an absent alternate falls back to the resolved token by design).
     • §2's ASSERTION IS AN EQUALITY BETWEEN TWO RUNTIME VALUES, not a source read: call the adapter's
       builder with the same arguments the operation was given and compare it to the recorded command
       string. The step definition's import path for the builders is the one thing in this file that
@@ -522,9 +545,41 @@ Feature: GitHub knowledge consolidates into the forge adapter — the gh command
     And every executed command reached the command seam
 
     Examples:
-      | operation        | match          | answer                          |
-      | fetch-issue      | gh issue view  | {"number":7,"title":"Seeded"}   |
-      | pr-changed-files | gh pr view     | {"files":[{"path":"a.ts"}]}     |
+      | operation        | match         | answer                    |
+      | fetch-issue      | gh issue view | seeded-issue-payload      |
+      | pr-changed-files | gh pr view    | seeded-changed-file-list  |
+
+  # ── §11a THE ADAPTER'S OWN GH CALL SITE ROUTES THROUGH THE EXECUTOR (AC3) ───────────────
+  #
+  # §11 covers the forge operations the core still owns. AC3 is about the call sites the ADAPTER
+  # acquires in this slice, so the same discipline is pinned one level in: a gh command issued from
+  # the adapter is answered by the seam — a direct spawn cannot see a canned answer — and runs from
+  # the framework root it INHERITS rather than one it re-derives for itself.
+  #
+  # The board row is the silent-regression risk the rewire carries. Projects V2 writes on user-owned
+  # repositories need the alternate identity rather than an App installation token
+  # (`app_docs/feature-hjcays-fix-board-pat-auth.md`), and the credential purpose travels with the
+  # command. A board command that lost it would pass every other scenario in this file while board
+  # writes failed with a silent `false`.
+
+  @adw-792 @adw-e2er82-consolidate-github-f
+  Scenario: A gh command issued by the forge adapter itself is answered by the core executor
+    Given a git context for the repository "acme/webapp" wired to the GitHub forge adapter
+    And the command seam records every command with its working directory and child environment
+    And the command seam answers commands matching "gh api user" with "adapter-seam-answer"
+    When the forge adapter issues the gh command "gh api user --jq .login"
+    Then the adapter's gh command returned the value the command seam answered
+    And the adapter's gh command ran from the framework root directory
+    And every executed command reached the command seam
+
+  @adw-792 @adw-e2er82-consolidate-github-f
+  Scenario: A board command issued by the forge adapter still carries the alternate identity credential
+    Given a git context for the repository "acme/webapp" wired to the GitHub forge adapter
+    And the adapter is configured with the personal access token "github-pat-xyz" and the alternate identity token "github-pat-board"
+    And the command seam records every command with its working directory and child environment
+    When the forge adapter issues its board project query for the repository "acme/webapp"
+    Then the adapter's gh command carried the credential "github-pat-board"
+    And the adapter's gh command ran from the framework root directory
 
   # ── §12 THE WORKING-DIRECTORY CONTRACT IS INHERITED, NOT REIMPLEMENTED (AC3) ────────────
   #

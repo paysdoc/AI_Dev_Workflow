@@ -202,6 +202,10 @@ Use these files to implement the feature:
 - `adws/__tests__/checkGitGhGuard.test.ts` — extend with the exempt-set assertions (both directions).
 - `.github/workflows/git-cli-guard.yml:23` — read-only reference; runs `bun run lint:git-guard` in CI, which is what makes this rule structural.
 
+### BDD scenarios for this slice
+
+- `features/per-issue/feature-792.feature` — the behavioural proof for this issue, tagged `@adw-792`. Twenty-four scenarios (five of them outlines) over five surfaces: the executed command strings (§1, §2), the core carrying no GitHub credential machinery (§3), injected App configuration (§4–§6) with the mint's regression net (§7–§10), the executor seam (§11, §11a, §12–§14) and the guard's two-package exempt set (§15–§19), plus the type-check backstop (§20). §4, §5, §6, §11a and §15 are the RED-before rows; the rest are GREEN-before regression guards that must stay green across the move. §11a drives `createGhCommandRunner` directly over a `GitContext` built with an injected `exec`, so the runner must remain constructible from a context alone (Solution §3) and the alternate credential purpose must survive the board rewire (Solution §4). The scenario file's own scope notes flag three HITL questions — user story 15, `ghAuthToken`, and how literally story 9's kind-scoping can be enforced in this slice — all of which this plan resolves the same way (see Solution §6 and Notes).
+
 ### BDD step definitions importing the relocated modules (import repoints only)
 
 - `features/per-issue/step_definitions/feature-780.steps.ts` (`:33-36`, `:141-143`, `:269-271`, `:367`) — repoint to `adws/providers/github/appAuth.ts`; the step that sets `process.env.GITHUB_APP_*` becomes an explicit `GitHubAppConfig` passed to `getInstallationToken`, which makes the JWT-redaction scenario hermetic without changing what it asserts.
@@ -240,7 +244,7 @@ Add `ghCommandRunner.ts` — the adapter's named, testable route into `GitContex
 
 ### Phase 3: Integration
 
-Repoint the four merged BDD step-definition files that import the relocated modules by deep path, update `README.md`'s two subtrees, and run the full validation set: type check (root and `adws/tsconfig.json`), lint, unit suite, whole-repo guard, and the regression plus per-issue scenario tags that cover the touched surface.
+Repoint the four merged BDD step-definition files that import the relocated modules by deep path, update `README.md`'s two subtrees, and run the full validation set: type check (root and `adws/tsconfig.json`), lint, unit suite, whole-repo guard, this slice's own `@adw-792` scenarios, and the regression plus merged per-issue scenario tags that cover the touched surface.
 
 ## Step by Step Tasks
 
@@ -362,6 +366,17 @@ Execute every step in order, top to bottom.
 
 **Regression net, untouched:** `adws/gitContext/__tests__/{gitContext,gitContextOperations,repoApiCwd,gitReadOps,workingDirectoryGuard}.test.ts` and `adws/providers/__tests__/boardManager.test.ts` must pass with **zero edits**. If any of them needs changing, the relocation stopped being behaviour-neutral and the cause must be found rather than the expectation updated.
 
+### BDD Scenarios
+
+`features/per-issue/feature-792.feature` (`@adw-792`) is this slice's behavioural proof and the build's RED-first driver. Its coverage maps onto the acceptance criteria as: AC1 → §1, §2, §3, §10, §19; AC2 → §4, §5, §6 with §7–§9 as the regression net; AC3 → §11, §11a, §12, §13, §14; AC4 → §15–§19; AC5 → the unit suites above plus §20's type check, deliberately not a scenario (a scenario shelling out to the whole unit suite would be slow, circular and would assert nothing this file does not already assert — feature-790's precedent for the identical criterion).
+
+Two consequences for the implementation:
+
+- §11a issues a gh command through the adapter's runner over an injected `exec` seam, so `createGhCommandRunner(ctx)` must be constructible from a `GitContext` alone, with no ambient state — the shape Solution §3 specifies.
+- §11a's second row asserts a board command carries the alternate identity credential, which is the same `'alternateIdentity'` purpose Solution §4 preserves on all seven rewired `githubBoardManager` call sites. A dropped purpose fails that scenario rather than only surfacing as a silent `false` from a live Projects V2 write.
+
+The physical-location half of AC1 — which directory holds which file — has no runtime witness and deliberately none is invented; the guard (§15–§19), the builder-equality row (§2) and HITL review carry it.
+
 ### Edge Cases
 
 - **App config partially set** — `appId` present but `privateKeyPath` missing: `isGitHubAppConfigured` returns `false`, and a direct `getInstallationToken` call fails with a named error instead of a `TypeError` from `readFileSync(undefined)`.
@@ -382,6 +397,7 @@ Execute every step in order, top to bottom.
 - [ ] `adws/checkGitGhGuard.ts` names exactly two exempt packages — `adws/gitContext` (git core) and `adws/providers/github` (GitHub adapter) — each with its role; `bun run lint:git-guard` exits 0 across the whole repository and prints both names; a synthetic gh call site in a third package produces a `git-gh-shellout` violation in the guard's unit tests.
 - [ ] The relocated token-resolution, command-builder and App-auth suites pass in their new home with no assertion weakened; `adws/gitContext/__tests__/*` and `adws/providers/__tests__/boardManager.test.ts` pass unedited.
 - [ ] `bun run test:unit` is green with no test skipped or removed; `bunx tsc --noEmit` is clean at the repository root and under `adws/tsconfig.json`; `bun run lint` is clean.
+- [ ] Every `@adw-792` scenario in `features/per-issue/feature-792.feature` is green, including the five RED-before rows (§4, §5, §6 injected App configuration; §11a the adapter's own gh call site; §15 a gh call site in the adapter passing the guard).
 - [ ] The `@regression` suite and the per-issue tags `@adw-700`, `@adw-776`, `@adw-779`, `@adw-780`, `@adw-790`, `@adw-791` are green — the merged proofs covering token veracity, App-auth redaction, the executor and the TokenProvider port.
 - [ ] `README.md` documents the new adapter layout, and no line documenting a still-existing file was removed.
 - [ ] No behaviour change: the same gh commands run against the same repositories with the same credentials and the same working directories as before.
@@ -400,6 +416,7 @@ Execute every command to validate the feature works correctly with zero regressi
 - `grep -rn "gitContext/appAuth\|gitContext/tokenResolver\|gitContext/githubTokenProvider\|gitContext/commands" adws features test --include='*.ts' --include='*.tsx'` — must return no matches (no importer left on an old path).
 - `grep -rn "child_process" adws/providers/github/` — must return no matches (AC3: the adapter never spawns).
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@regression"` — regression scenario suite.
+- `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-792"` — this slice's own scenarios; all must pass, none pending.
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-700 or @adw-776 or @adw-779 or @adw-780 or @adw-790 or @adw-791"` — the merged per-issue proofs covering the relocated modules.
 
 ## Notes
