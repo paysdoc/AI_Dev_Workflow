@@ -14,7 +14,7 @@ import type { SlashCommand } from '../types/issueTypes';
 // ---------------------------------------------------------------------------
 
 /** Model tier identifiers supported by the Claude CLI `--model` flag. */
-type ModelTier = 'opus' | 'sonnet' | 'haiku';
+type ModelTier = 'fable' | 'opus' | 'sonnet' | 'haiku';
 
 /** Reasoning effort level for Claude CLI `--effort` flag. */
 export type ReasoningEffort = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
@@ -28,16 +28,16 @@ export const SLASH_COMMAND_MODEL_MAP: Record<SlashCommand, ModelTier> = {
   // Classification
   '/classify_issue': 'sonnet',
   // Planning (complex reasoning)
-  '/feature': 'opus',
-  '/bug': 'opus',
+  '/feature': 'fable',
+  '/bug': 'fable',
   '/chore': 'opus',
   '/pr_review': 'opus',
   // Implementation (plan execution)
   '/implement': 'sonnet',
   '/implement-tdd': 'sonnet',
-  '/patch': 'opus',
+  '/patch': 'fable',
   // Review (complex reasoning)
-  '/review': 'opus',
+  '/review': 'fable',
   // Test running (structured, cheap)
   '/test': 'haiku',
   // Test resolution (complex reasoning)
@@ -80,14 +80,14 @@ export const SLASH_COMMAND_MODEL_MAP: Record<SlashCommand, ModelTier> = {
 /** Cost-optimized model map used when the issue body contains `/fast` or `/cheap`. */
 export const SLASH_COMMAND_MODEL_MAP_FAST: Record<SlashCommand, ModelTier> = {
   '/classify_issue': 'haiku',
-  '/feature': 'sonnet',
-  '/bug': 'sonnet',
+  '/feature': 'opus',
+  '/bug': 'opus',
   '/chore': 'sonnet',
   '/pr_review': 'sonnet',
   '/implement': 'sonnet',
   '/implement-tdd': 'sonnet',
   '/patch': 'opus',
-  '/review': 'sonnet',
+  '/review': 'opus',
   '/test': 'haiku',
   '/resolve_failed_test': 'opus',
   '/resolve_failed_scenario': 'opus',

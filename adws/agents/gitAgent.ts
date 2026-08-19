@@ -75,8 +75,16 @@ export async function runGenerateBranchNameAgent(
     launchContext,
   );
 
-  if (!result.success || result.authExpired) {
+  if (result.authExpired) {
     throw new AuthRequiredError('Branch Name');
+  }
+  if (!result.success) {
+    // A non-auth failure must NOT be an AuthRequiredError — callers route that
+    // class to the auth-pause path instead of the deterministic branch fallback.
+    throw new Error(
+      `Branch Name agent failed for issue #${issue.number} (${issueType}): ` +
+        `${result.output.trim().slice(0, 200) || '(no agent output)'}`,
+    );
   }
   const slug = extractSlugFromOutput(result.output);
   const branchName = generateBranchName(issue.number, slug, issueType);
@@ -203,7 +211,10 @@ export async function runCommitAgent(
   );
 
   if (!result.success) {
-    throw new Error(`Commit agent '${agentName}' failed: ${result.output.slice(0, 200)}`);
+    throw new Error(
+      `Commit agent '${agentName}' (${issueClass}) failed: ` +
+        `${result.output.trim().slice(0, 200) || '(no agent output)'}`,
+    );
   }
 
   const rawMessage = extractCommitMessageFromOutput(result.output);
