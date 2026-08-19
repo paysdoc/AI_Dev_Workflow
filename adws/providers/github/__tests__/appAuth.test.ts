@@ -5,26 +5,23 @@ import * as os from 'os';
 import * as path from 'path';
 import {
   getInstallationToken,
+  isGitHubAppConfigured,
   clearAppAuthCaches,
   redactBearerTokens,
   GITHUB_API_BASE_URL,
 } from '../appAuth';
-import type { RunCurl } from '../appAuth';
+import type { RunCurl, GitHubAppConfig } from '../appAuth';
 
 // ---------------------------------------------------------------------------
-// Suite setup — throwaway RSA key + GitHub App env vars.
+// Suite setup — throwaway RSA key + an explicit injected GitHubAppConfig.
+// No process.env mutation: the module under test reads no environment
+// variable, so the suite never needs to set one for the mint to work.
 // ---------------------------------------------------------------------------
 
 let scratchDir: string;
-let priorEnv: { appId?: string; appSlug?: string; keyPath?: string };
+let config: GitHubAppConfig;
 
 beforeAll(() => {
-  priorEnv = {
-    appId: process.env.GITHUB_APP_ID,
-    appSlug: process.env.GITHUB_APP_SLUG,
-    keyPath: process.env.GITHUB_APP_PRIVATE_KEY_PATH,
-  };
-
   scratchDir = fs.mkdtempSync(path.join(os.tmpdir(), 'adw-appauth-'));
   const { privateKey } = crypto.generateKeyPairSync('rsa', {
     modulusLength: 2048,
@@ -34,21 +31,45 @@ beforeAll(() => {
   const keyPath = path.join(scratchDir, 'throwaway-key.pem');
   fs.writeFileSync(keyPath, privateKey, 'utf-8');
 
-  process.env.GITHUB_APP_ID = 'appauth-test-app-id';
-  process.env.GITHUB_APP_SLUG = 'appauth-test-bot';
-  process.env.GITHUB_APP_PRIVATE_KEY_PATH = keyPath;
+  config = {
+    appId: 'appauth-test-app-id',
+    appSlug: 'appauth-test-bot',
+    privateKeyPath: keyPath,
+  };
 });
 
 afterAll(() => {
-  if (priorEnv.appId === undefined) delete process.env.GITHUB_APP_ID; else process.env.GITHUB_APP_ID = priorEnv.appId;
-  if (priorEnv.appSlug === undefined) delete process.env.GITHUB_APP_SLUG; else process.env.GITHUB_APP_SLUG = priorEnv.appSlug;
-  if (priorEnv.keyPath === undefined) delete process.env.GITHUB_APP_PRIVATE_KEY_PATH; else process.env.GITHUB_APP_PRIVATE_KEY_PATH = priorEnv.keyPath;
-
   fs.rmSync(scratchDir, { recursive: true, force: true });
 });
 
 beforeEach(() => {
   clearAppAuthCaches();
+});
+
+// ---------------------------------------------------------------------------
+// AC2 — configuration is injected, not read from process.env
+// ---------------------------------------------------------------------------
+
+describe('isGitHubAppConfigured — injected configuration, not the environment', () => {
+  it('is false for an empty config even while GITHUB_APP_ID is exported into the environment', () => {
+    const prior = process.env.GITHUB_APP_ID;
+    process.env.GITHUB_APP_ID = 'ambient-app-id-must-be-ignored';
+    try {
+      expect(isGitHubAppConfigured({})).toBe(false);
+    } finally {
+      if (prior === undefined) delete process.env.GITHUB_APP_ID; else process.env.GITHUB_APP_ID = prior;
+    }
+  });
+
+  it('is true for a complete config even with GITHUB_APP_ID absent from the environment', () => {
+    const prior = process.env.GITHUB_APP_ID;
+    delete process.env.GITHUB_APP_ID;
+    try {
+      expect(isGitHubAppConfigured(config)).toBe(true);
+    } finally {
+      if (prior !== undefined) process.env.GITHUB_APP_ID = prior;
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -105,7 +126,7 @@ describe('a failing installation lookup', () => {
 
     let thrown: Error | undefined;
     try {
-      getInstallationToken('acme', 'lookup-404', { runCurl });
+      getInstallationToken(config, 'acme', 'lookup-404', { runCurl });
     } catch (e) {
       thrown = e as Error;
     }
@@ -122,7 +143,7 @@ describe('a failing installation lookup', () => {
 
     let thrown: Error | undefined;
     try {
-      getInstallationToken('acme', 'lookup-404-diag', { runCurl });
+      getInstallationToken(config, 'acme', 'lookup-404-diag', { runCurl });
     } catch (e) {
       thrown = e as Error;
     }
@@ -137,7 +158,7 @@ describe('a failing installation lookup', () => {
     const { runCurl, calls } = makeRunCurl([{ status: 404, body: '{"message":"Not Found"}' }]);
 
     try {
-      getInstallationToken('acme', 'argv-clean', { runCurl });
+      getInstallationToken(config, 'acme', 'argv-clean', { runCurl });
     } catch {
       // expected — asserted via the calls recorded below
     }
@@ -154,17 +175,17 @@ describe('a failing installation lookup', () => {
     const { runCurl, calls } = makeRunCurl([{ status: 404, body: '{"message":"Not Found"}' }]);
 
     try {
-      getInstallationToken('acme', 'config-shape', { runCurl });
+      getInstallationToken(config, 'acme', 'config-shape', { runCurl });
     } catch {
       // expected
     }
 
-    const config = calls[0].config;
-    const bearerLines = config.split('\n').filter((line) => line.includes('Authorization: Bearer'));
+    const curlConfig = calls[0].config;
+    const bearerLines = curlConfig.split('\n').filter((line) => line.includes('Authorization: Bearer'));
     expect(bearerLines).toHaveLength(1);
-    expect(config).toContain('url = "https://api.github.com/repos/acme/config-shape/installation"');
-    expect(config).toContain('Accept: application/vnd.github+json');
-    expect(config).toContain('X-GitHub-Api-Version: 2022-11-28');
+    expect(curlConfig).toContain('url = "https://api.github.com/repos/acme/config-shape/installation"');
+    expect(curlConfig).toContain('Accept: application/vnd.github+json');
+    expect(curlConfig).toContain('X-GitHub-Api-Version: 2022-11-28');
   });
 
   it('a curl transport failure is sanitized rather than rethrown raw', () => {
@@ -176,7 +197,7 @@ describe('a failing installation lookup', () => {
 
     let thrown: Error | undefined;
     try {
-      getInstallationToken('acme', 'transport-fail', { runCurl });
+      getInstallationToken(config, 'acme', 'transport-fail', { runCurl });
     } catch (e) {
       thrown = e as Error;
     }
@@ -202,7 +223,7 @@ describe('a failing token exchange', () => {
 
     let thrown: Error | undefined;
     try {
-      getInstallationToken('octo', 'infra', { runCurl });
+      getInstallationToken(config, 'octo', 'infra', { runCurl });
     } catch (e) {
       thrown = e as Error;
     }
@@ -221,7 +242,7 @@ describe('a failing token exchange', () => {
 
     let thrown: Error | undefined;
     try {
-      getInstallationToken('hooli', 'nucleus', { runCurl });
+      getInstallationToken(config, 'hooli', 'nucleus', { runCurl });
     } catch (e) {
       thrown = e as Error;
     }
@@ -245,11 +266,11 @@ describe('a successful mint', () => {
       { status: 200, body: `{"token":"ghs_test","expires_at":"${futureIso}"}` },
     ]);
 
-    const token = getInstallationToken('acme', 'happy-path', { runCurl });
+    const token = getInstallationToken(config, 'acme', 'happy-path', { runCurl });
     expect(token).toBe('ghs_test');
     expect(calls).toHaveLength(2);
 
-    const cachedToken = getInstallationToken('acme', 'happy-path', { runCurl });
+    const cachedToken = getInstallationToken(config, 'acme', 'happy-path', { runCurl });
     expect(cachedToken).toBe('ghs_test');
     expect(calls).toHaveLength(2); // no further runCurl invocations — served from cache
 
@@ -260,7 +281,7 @@ describe('a successful mint', () => {
   it('honours an injected apiBaseUrl, and defaults to GITHUB_API_BASE_URL when omitted', () => {
     const { runCurl: runCurl1, calls: calls1 } = makeRunCurl([{ status: 404, body: '{"message":"Not Found"}' }]);
     try {
-      getInstallationToken('acme', 'base-url-custom', { runCurl: runCurl1, apiBaseUrl: 'http://127.0.0.1:9' });
+      getInstallationToken(config, 'acme', 'base-url-custom', { runCurl: runCurl1, apiBaseUrl: 'http://127.0.0.1:9' });
     } catch {
       // expected — the lookup 404s
     }
@@ -269,7 +290,7 @@ describe('a successful mint', () => {
 
     const { runCurl: runCurl2, calls: calls2 } = makeRunCurl([{ status: 404, body: '{"message":"Not Found"}' }]);
     try {
-      getInstallationToken('acme', 'base-url-default', { runCurl: runCurl2 });
+      getInstallationToken(config, 'acme', 'base-url-default', { runCurl: runCurl2 });
     } catch {
       // expected — the lookup 404s
     }
@@ -278,7 +299,7 @@ describe('a successful mint', () => {
 
   it('still throws when a 2xx installation lookup body lacks an id (uninstalled App)', () => {
     const { runCurl } = makeRunCurl([{ status: 200, body: '{}' }]);
-    expect(() => getInstallationToken('acme', 'uninstalled', { runCurl })).toThrow();
+    expect(() => getInstallationToken(config, 'acme', 'uninstalled', { runCurl })).toThrow();
   });
 
   it('clearAppAuthCaches forces the next call to hit runCurl again', () => {
@@ -290,13 +311,13 @@ describe('a successful mint', () => {
       { status: 200, body: `{"token":"ghs_second","expires_at":"${futureIso}"}` },
     ]);
 
-    const first = getInstallationToken('acme', 'cache-clear', { runCurl });
+    const first = getInstallationToken(config, 'acme', 'cache-clear', { runCurl });
     expect(first).toBe('ghs_first');
     expect(calls).toHaveLength(2);
 
     clearAppAuthCaches();
 
-    const second = getInstallationToken('acme', 'cache-clear', { runCurl });
+    const second = getInstallationToken(config, 'acme', 'cache-clear', { runCurl });
     expect(second).toBe('ghs_second');
     expect(calls).toHaveLength(4);
   });

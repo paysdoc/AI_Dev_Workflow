@@ -1,9 +1,9 @@
 /**
  * TokenProvider port — GitHub implementation.
  *
- * The first file of the forge adapter #792 will relocate wholesale. It owns
- * the resolution order (App installation token → PAT → `gh auth token`) and
- * the PAT-versus-installation-token decision, so the core does not: the core
+ * Lives in the GitHub forge adapter (#792). It owns the resolution order
+ * (App installation token → PAT → `gh auth token`) and the
+ * PAT-versus-installation-token decision, so the core does not: the core
  * only ever declares a forge-neutral {@link CredentialPurpose}.
  *
  * All sources are injected — this file reads no environment variable — and
@@ -11,7 +11,7 @@
  */
 
 import { resolveContextToken } from './tokenResolver';
-import type { CredentialRequest, TokenProvider } from './types';
+import type { CredentialRequest, TokenProvider } from '../../gitContext/types';
 
 export interface GitHubTokenProviderInput {
   /** Candidate in the resolution order, after the App mint. */

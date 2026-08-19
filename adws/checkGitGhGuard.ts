@@ -1,10 +1,11 @@
 /**
- * checkGitGhGuard.ts — CI guard: fail on direct git/gh shell-outs outside GitContext,
- * and on cwd-derived repo identity feeding a GitContext construction.
+ * checkGitGhGuard.ts — CI guard: fail on direct git/gh shell-outs outside the
+ * two structurally-exempt packages, and on cwd-derived repo identity feeding
+ * a GitContext construction.
  *
  * Two independent rules:
  *
- *  - 'git-gh-shellout' — scans all .ts/.tsx sources (excluding adws/gitContext/**
+ *  - 'git-gh-shellout' — scans all .ts/.tsx sources (excluding EXEMPT_PACKAGES
  *    and other exempt paths) for call expressions whose first argument is a git
  *    or gh command string. Detects execSync('git …'), execWithRetry(`gh …`),
  *    execFileSync('git', […]), and any other call shape by inspecting the
@@ -20,7 +21,10 @@
  *    identity only into a guarded-fallback local (`x ?? getRepoInfo()`),
  *    which is a BinaryExpression initializer and so is never collected.
  *
- * The only file exemption is the structurally-exempt package directory (EXEMPT_PACKAGE_DIR).
+ * The exempt set is closed and named (EXEMPT_PACKAGES, #792): exactly two
+ * packages may shell out — the git core (`adws/gitContext`), which may run
+ * git commands, and the GitHub forge adapter (`adws/providers/github`), which
+ * may issue gh commands by feeding command strings into the core's executor.
  * Any violation exits 1 (build fail).
  *
  * Run via: bunx tsx adws/checkGitGhGuard.ts
@@ -42,8 +46,27 @@ const EXEMPT_DIR_NAMES = new Set([
   'test',     // test-mock / test-utility files — same rationale
 ]);
 
-/** Exact repo-relative path of the GitContext package; structurally exempt. */
-const EXEMPT_PACKAGE_DIR = 'adws/gitContext';
+/**
+ * The closed, CI-enforced set of packages permitted to shell out. Exactly
+ * two: the git core, which may run git commands, and the GitHub forge
+ * adapter, which may issue gh commands by feeding command strings into the
+ * core's executor (GitContext.exec) — never by spawning a process itself.
+ */
+export const EXEMPT_PACKAGES = [
+  {
+    dir: 'adws/gitContext',
+    role: 'git core — the only package that may run git commands',
+  },
+  {
+    dir: 'adws/providers/github',
+    role: 'GitHub forge adapter — the only package whose gh call sites may feed the core executor',
+  },
+] as const;
+
+/** True when `relPath` is one of EXEMPT_PACKAGES' directories, or a path beneath one. */
+export function isExemptPackage(relPath: string): boolean {
+  return EXEMPT_PACKAGES.some(({ dir }) => relPath === dir || relPath.startsWith(`${dir}/`));
+}
 
 /** Matches a git or gh command string: starts with 'git '/'gh ' or is exactly 'git'/'gh'. */
 const GIT_GH_RE = /^(git|gh)(\s|$)/;
@@ -66,7 +89,8 @@ type ScanResult = { violations: Violation[]; scannedCount: number };
 // I/O boundary — filesystem reads isolated here
 // ---------------------------------------------------------------------------
 
-function collectTsFiles(startDir: string, repoRoot: string): string[] {
+/** Exported for tests: walks `startDir`, honouring EXEMPT_DIR_NAMES and the EXEMPT_PACKAGES exemption exactly as the CLI entry point does. */
+export function collectTsFiles(startDir: string, repoRoot: string): string[] {
   const acc: string[] = [];
   visitDir(startDir, repoRoot, acc);
   return acc;
@@ -78,7 +102,7 @@ function visitDir(dir: string, repoRoot: string, acc: string[]): void {
     const relPath = path.relative(repoRoot, fullPath).split(path.sep).join('/');
 
     if (entry.isDirectory()) {
-      if (!EXEMPT_DIR_NAMES.has(entry.name) && relPath !== EXEMPT_PACKAGE_DIR) {
+      if (!EXEMPT_DIR_NAMES.has(entry.name) && !isExemptPackage(relPath)) {
         visitDir(fullPath, repoRoot, acc);
       }
       continue;
@@ -238,9 +262,14 @@ function main(): void {
   console.log(
     `\nGit/GH CLI Guard — scanned ${scannedCount} files (0 allowlisted)\n`,
   );
+  console.log('  Exempt packages (2):');
+  for (const { dir, role } of EXEMPT_PACKAGES) {
+    console.log(`    ${dir} — ${role}`);
+  }
+  console.log('');
 
   if (violations.length === 0) {
-    console.log('  ✔ PASS  No direct git/gh shell-outs outside GitContext.\n');
+    console.log('  ✔ PASS  No direct git/gh shell-outs outside the exempt packages.\n');
     process.exit(0);
   }
 
@@ -249,7 +278,7 @@ function main(): void {
     console.log(`  ${file}:${line}  [${rule}]  ${command}`);
   }
   console.log(
-    '\n  Remedy (git-gh-shellout): route through GitContext, or place inside the adws/gitContext package.' +
+    '\n  Remedy (git-gh-shellout): route through GitContext, or place inside adws/gitContext (git) or adws/providers/github (gh).' +
     '\n  Remedy (cwd-derived-identity): thread the launch-boundary GitContext instead of re-deriving identity from cwd.\n',
   );
   process.exit(1);

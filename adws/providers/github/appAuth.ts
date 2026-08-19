@@ -1,9 +1,16 @@
 /**
- * GitHub App token mint — absorbed into the gitContext package (issue #700).
+ * GitHub App token mint — GitHub forge adapter (issue #792; originally
+ * absorbed into the gitContext package by issue #700).
  *
- * This module is structurally exempt from the git/gh guard (adws/gitContext/ is
- * skipped by directory). It owns the JWT dance and installation-token exchange;
- * callers should route through resolveContextToken for veracity.
+ * This module is structurally exempt from the git/gh guard
+ * (adws/providers/github/ is skipped by directory). It owns the JWT dance and
+ * installation-token exchange; callers should route through
+ * resolveContextToken for veracity.
+ *
+ * Configuration is INJECTED, never read from process.env — see
+ * {@link GitHubAppConfig}. The ADW wiring shim (adws/github/githubAppAuth.ts)
+ * is the sole site that reads GITHUB_APP_ID/GITHUB_APP_SLUG/
+ * GITHUB_APP_PRIVATE_KEY_PATH and passes them in as a value.
  *
  * No ADW-global imports. The log seam defaults to a no-op to keep the package
  * standalone-reusable.
@@ -17,12 +24,12 @@ import * as crypto from 'crypto';
 import * as fs from 'fs';
 import { execFileSync } from 'child_process';
 
-// Env var names
-const ENV = {
-  APP_ID: 'GITHUB_APP_ID',
-  APP_SLUG: 'GITHUB_APP_SLUG',
-  PRIVATE_KEY_PATH: 'GITHUB_APP_PRIVATE_KEY_PATH',
-} as const;
+/** Injected GitHub App identity and signing-key path. Any missing field means "not configured". */
+export interface GitHubAppConfig {
+  readonly appId?: string;
+  readonly appSlug?: string;
+  readonly privateKeyPath?: string;
+}
 
 // Cache types
 interface CachedToken {
@@ -58,22 +65,27 @@ export const GITHUB_API_BASE_URL = 'https://api.github.com';
 // Public API
 // ---------------------------------------------------------------------------
 
-/** Returns true if GitHub App env vars are configured. */
-export function isGitHubAppConfigured(): boolean {
-  return Boolean(
-    process.env[ENV.APP_ID] &&
-    process.env[ENV.APP_SLUG] &&
-    process.env[ENV.PRIVATE_KEY_PATH],
-  );
+/** Returns true if the injected GitHub App configuration is complete. */
+export function isGitHubAppConfigured(config: GitHubAppConfig): boolean {
+  return Boolean(config.appId && config.appSlug && config.privateKeyPath);
 }
 
 /**
  * Returns a valid GitHub App installation token for the given repo,
  * refreshing if needed. Throws if the App is not installed on owner/repo.
+ *
+ * Assumes `isGitHubAppConfigured(config)` was checked first, exactly as
+ * before configuration was injected — but fails with a named error rather
+ * than a `TypeError` from `fs.readFileSync(undefined)` if it was not.
  */
-export function getInstallationToken(owner: string, repo: string, deps: AppAuthDeps = {}): string {
-  const appId = process.env[ENV.APP_ID]!;
-  const keyPath = process.env[ENV.PRIVATE_KEY_PATH]!;
+export function getInstallationToken(config: GitHubAppConfig, owner: string, repo: string, deps: AppAuthDeps = {}): string {
+  if (!config.appId || !config.privateKeyPath) {
+    throw new Error(
+      `getInstallationToken: GitHub App is not configured (missing ${!config.appId ? 'appId' : 'privateKeyPath'})`,
+    );
+  }
+  const appId = config.appId;
+  const keyPath = config.privateKeyPath;
   const key = `${owner}/${repo}`;
 
   const cached = tokenCache.get(key);

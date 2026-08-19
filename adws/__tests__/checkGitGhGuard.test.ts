@@ -11,7 +11,7 @@ import * as fs from 'fs';
 
 vi.mock('fs');
 
-import { scanFiles } from '../checkGitGhGuard';
+import { scanFiles, EXEMPT_PACKAGES, isExemptPackage } from '../checkGitGhGuard';
 
 const mockReadFileSync = vi.mocked(fs.readFileSync);
 
@@ -154,5 +154,70 @@ describe('scanFiles — cwd-derived-identity rule (#769)', () => {
 
     expect(violations).toHaveLength(1);
     expect(violations[0].rule).toBe('git-gh-shellout');
+  });
+});
+
+describe('EXEMPT_PACKAGES — the closed, named, two-entry exempt set (#792)', () => {
+  it('names exactly two packages: the git core and the GitHub forge adapter', () => {
+    expect(EXEMPT_PACKAGES).toHaveLength(2);
+    const dirs = EXEMPT_PACKAGES.map((p) => p.dir);
+    expect(dirs).toContain('adws/gitContext');
+    expect(dirs).toContain('adws/providers/github');
+  });
+
+  it('each entry names a role', () => {
+    for (const pkg of EXEMPT_PACKAGES) {
+      expect(typeof pkg.role).toBe('string');
+      expect(pkg.role.length).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe('isExemptPackage — matches the directory itself or any path beneath it (#792)', () => {
+  it('is true for the git core package directory itself', () => {
+    expect(isExemptPackage('adws/gitContext')).toBe(true);
+  });
+
+  it('is true for a file beneath the git core package', () => {
+    expect(isExemptPackage('adws/gitContext/appAuth.ts')).toBe(true);
+  });
+
+  it('is true for the GitHub forge adapter directory itself', () => {
+    expect(isExemptPackage('adws/providers/github')).toBe(true);
+  });
+
+  it('is true for a file beneath the GitHub forge adapter', () => {
+    expect(isExemptPackage('adws/providers/github/ghCommandRunner.ts')).toBe(true);
+  });
+
+  it('is false for adws/github/ — the name contains "github" but it is not the adapter package', () => {
+    expect(isExemptPackage('adws/github/issueApi.ts')).toBe(false);
+  });
+
+  it('is false for the adapter\'s GitLab sibling package', () => {
+    expect(isExemptPackage('adws/providers/gitlab/gitlabCodeHost.ts')).toBe(false);
+  });
+
+  it('is false for an ordinary consumer package', () => {
+    expect(isExemptPackage('adws/phases/reviewPhase.ts')).toBe(false);
+  });
+
+  it('is false for the adapter\'s parent directory file — one directory above the adapter is not exempt', () => {
+    expect(isExemptPackage('adws/providers/repoContext.ts')).toBe(false);
+  });
+});
+
+describe('a third-package gh call site fails the guard (AC4)', () => {
+  it('a synthetic gh call site in adws/github/ (an ordinary, non-exempt package) yields exactly one violation', () => {
+    mockReadFileSync.mockReturnValue("execSync('gh issue view 1');\n");
+
+    const { violations } = scanFiles(['adws/github/someNewApi.ts'], '/repo');
+
+    expect(violations).toHaveLength(1);
+    expect(violations[0].rule).toBe('git-gh-shellout');
+  });
+
+  it('the counterpart: the same source at adws/providers/github/ is exempt by isExemptPackage, so a whole-repo walk never hands it to scanFiles', () => {
+    expect(isExemptPackage('adws/providers/github/someAdapterOp.ts')).toBe(true);
   });
 });

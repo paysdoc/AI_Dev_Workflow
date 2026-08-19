@@ -21,7 +21,7 @@ import { execSync } from 'child_process';
 import { readLocalRepoInfo } from '../../../adws/gitContext/bootstrapIdentity.ts';
 import type { RepoInfo } from '../../../adws/gitContext/bootstrapIdentity.ts';
 import { getRepoInfo } from '../../../adws/github/githubApi.ts';
-import { resolveContextToken } from '../../../adws/gitContext/tokenResolver.ts';
+import { resolveContextToken } from '../../../adws/providers/github/tokenResolver.ts';
 
 // ---------------------------------------------------------------------------
 // Module-level scenario state (reset in the @adw-779 Before hook)

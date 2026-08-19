@@ -1,4 +1,4 @@
-// GraphQL query strings for Projects V2 board operations
+// GraphQL query strings for Projects V2 board operations — GitHub forge adapter (#792).
 const QUERY_PROJECT =
   `query($owner:String!,$repo:String!){repository(owner:$owner,name:$repo){projectsV2(first:1){nodes{id}}}}`;
 const QUERY_ITEM =

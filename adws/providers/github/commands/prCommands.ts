@@ -1,3 +1,5 @@
+// gh CLI command strings for PR list/create/merge/review operations — GitHub forge adapter (#792).
+
 export function findPRByBranchCmd(owner: string, repo: string, branchName: string): string {
   return `gh pr list --repo ${owner}/${repo} --head "${branchName}" --state all --json number,state,headRefName,baseRefName,updatedAt,labels --limit 20`;
 }

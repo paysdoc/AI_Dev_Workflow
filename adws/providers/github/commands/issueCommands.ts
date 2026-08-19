@@ -1,3 +1,5 @@
+// gh CLI command strings for issue read/write operations — GitHub forge adapter (#792).
+
 const ISSUE_FIELDS =
   'number,title,body,state,author,assignees,labels,milestone,comments,createdAt,updatedAt,closedAt,url';
 
