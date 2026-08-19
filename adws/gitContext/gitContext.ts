@@ -6,28 +6,37 @@
  * Base-path resolution lives only in the constructor — no optional base path,
  * no cwd fallback. Incomplete identity is a hard construction error.
  *
- * Every gh/git operation is routed through one of two private spawn
- * chokepoints, split by command class, not by host state:
- *   - #run()        — git commands and workspace-scoped operations. cwd
- *                      defaults to the context base path (or an explicit
- *                      worktree path when supplied).
+ * Every gh/git operation is routed through `exec()`, the package's public,
+ * forge-neutral executor — the single spawn site, single env merge, single
+ * cwd resolution and single ENOENT-rewrap `catch` in the package. `exec()`
+ * knows nothing about what a command means: no forge semantics, no token
+ * selection, no `--repo` awareness.
+ *
+ * Two private classifiers choose the working-directory CLASS and assemble
+ * the credential env, then delegate to `exec()`:
+ *   - #run()        — git commands and workspace-scoped operations. Resolves
+ *                      to the context base path (or an explicit worktree path
+ *                      when supplied).
  *   - #runRepoApi() — repo-independent gh commands, whose repository identity
- *                      travels in the command string. cwd is always the
+ *                      travels in the command string. Resolves to the
  *                      injected framework repo root, which exists regardless
  *                      of whether the target workspace has ever been cloned.
- * Both inject per-command auth (token or PAT) + git identity into the child
- * environment without ever mutating process.env.
+ * Both inject per-command auth (token or PAT, via the GitHub-specific
+ * `usePat` flag — private and temporary, not part of `exec()`'s public
+ * signature) + git identity into the child environment without ever
+ * mutating process.env.
  *
  * A spawn failure caused by a missing working directory (basePath or an
  * explicit worktree path that has never been cloned/created on this host)
- * is rewrapped into an error naming the path and repository identity,
- * preserving `code: 'ENOENT'`; every other failure propagates verbatim.
+ * is rewrapped inside `exec()` into an error naming the path and repository
+ * identity, preserving `code: 'ENOENT'`; every other failure propagates
+ * verbatim.
  */
 
 import * as path from 'path';
 import { execSync } from 'child_process';
 import { existsSync, mkdirSync, copyFileSync, rmSync } from 'fs';
-import type { GitContextOptions, GitIdentity, ExecFn, GitContextDeps, FsDeps } from './types';
+import type { GitContextOptions, GitIdentity, ExecFn, GitContextDeps, FsDeps, ExecOptions, ExecWorkingDirectory } from './types';
 import { branchOps } from './branchOps';
 import { commitOps } from './commitOps';
 import { worktreeResetOps } from './worktreeResetOps';
@@ -119,7 +128,7 @@ export class GitContext {
   readonly #token: string;
   readonly #pat: string | undefined;
   readonly #gitIdentity: GitIdentity;
-  readonly #exec: ExecFn;
+  readonly #execFn: ExecFn;
   readonly #fsDeps: FsDeps;
 
   constructor(options: GitContextOptions, deps: GitContextDeps = {}) {
@@ -132,7 +141,7 @@ export class GitContext {
     this.#gitIdentity = options.gitIdentity;
     this.#basePath = resolveBasePath(options);
     this.#repoApiCwd = options.frameworkRepoRoot;
-    this.#exec = deps.exec ?? defaultExec;
+    this.#execFn = deps.exec ?? defaultExec;
     this.#fsDeps = deps.fsDeps ?? { existsSync, mkdirSync, copyFileSync, rmSync };
   }
 
@@ -157,19 +166,45 @@ export class GitContext {
     };
   }
 
+  /** Resolves a working-directory CLASS to the concrete path `exec()` spawns in. */
+  #resolveWorkingDirectory(spec: ExecWorkingDirectory): string {
+    if (spec.kind === 'frameworkRoot') return this.#repoApiCwd;
+    if (spec.path === undefined) return this.#basePath;
+    if (!spec.path.trim()) throw new Error('GitContext: exec working directory path must not be empty');
+    return spec.path;
+  }
+
   /**
-   * Single spawn chokepoint — explicit cwd + per-command env
-   * (token or PAT + git identity). Never mutates process.env.
+   * The package's public, forge-neutral executor — the single spawn site.
+   * Every git/gh operation in this class, and every future forge adapter
+   * built on this package, reaches a child process through here.
    *
-   * opts.cwd    — when provided, overrides the context base path as the working directory
-   * opts.usePat — when true and a PAT is configured, uses the PAT as GH_TOKEN
-   * opts.input  — when provided, passes the string to the child's stdin
+   * `command` is the FIRST POSITIONAL parameter by contract, not a field on
+   * `options`: `adws/checkGitGhGuard.ts`'s `git-gh-shellout` rule only
+   * inspects a call's first argument, so an options-object form would
+   * silently disable that guard for every consumer of this method.
+   *
+   * `options.cwd` is a working-directory CLASS, never a bare path, and there
+   * is no `process.cwd()` fallback — see `ExecWorkingDirectory`.
+   * `options.env` is a per-command credential/identity overlay merged over
+   * the inherited process environment; `process.env` itself is never
+   * mutated. `options.input`, when supplied, is piped to the child's stdin.
+   *
+   * Returns stdout, trimmed — every existing call site depends on this.
+   * A spawn failure caused by a missing working directory is rewrapped into
+   * an actionable error naming the path and repository identity, preserving
+   * `code: 'ENOENT'`; every other failure (including an ENOENT whose cwd
+   * genuinely exists) propagates verbatim.
+   *
+   * Deliberately forge-neutral: no `usePat`, no token selection, no forge
+   * vocabulary anywhere in this signature.
    */
-  #run(command: string, opts: { cwd?: string; input?: string; usePat?: boolean } = {}): string {
-    const cwd = opts.cwd ?? this.#basePath;
-    const env = this.commandEnv(process.env, opts.usePat ?? false);
+  exec(command: string, options: ExecOptions): string {
+    if (!command.trim()) throw new Error('GitContext: exec command must not be empty');
+    const cwd = this.#resolveWorkingDirectory(options.cwd);
+    const env = { ...process.env, ...options.env };
     try {
-      return this.#exec(command, { cwd, env, input: opts.input }).trim();
+      return this.#execFn(command, { cwd, env, input: options.input }).trim();
     } catch (error) {
       throw rewrapMissingWorkingDirectory(
         error,
@@ -180,17 +215,42 @@ export class GitContext {
   }
 
   /**
-   * Repo-API chokepoint — gh commands whose repository identity travels in the
-   * command string (`--repo owner/repo`, `gh api repos/owner/repo/…`) or that
-   * address no repository at all (`gh api user`, `gh api graphql`) are pure
-   * GitHub API calls: they need no repository working directory. They run from
-   * the framework repo root, which always exists, so directive handling
-   * (Cancel/Retry) never depends on a target workspace having been cloned.
+   * Workspace-scoped classifier over `exec()` — git commands and
+   * workspace-scoped operations. Resolves to the context base path, or to an
+   * explicit worktree path when supplied.
    *
-   * Deliberately accepts no cwd override — the fixed cwd is the contract.
+   * opts.cwd    — when provided, narrows the workspace class to this worktree path
+   * opts.usePat — GitHub-specific: when true and a PAT is configured, uses the
+   *               PAT as GH_TOKEN. Private and temporary — leaves in the
+   *               TokenProvider slice (#791); never reaches `exec()`'s public signature.
+   * opts.input  — when provided, passes the string to the child's stdin
+   */
+  #run(command: string, opts: { cwd?: string; input?: string; usePat?: boolean } = {}): string {
+    return this.exec(command, {
+      cwd: { kind: 'workspace', path: opts.cwd },
+      env: this.commandEnv({}, opts.usePat ?? false),
+      input: opts.input,
+    });
+  }
+
+  /**
+   * Framework-root classifier over `exec()` — gh commands whose repository
+   * identity travels in the command string (`--repo owner/repo`, `gh api
+   * repos/owner/repo/…`) or that address no repository at all (`gh api
+   * user`, `gh api graphql`) are pure GitHub API calls: they need no
+   * repository working directory. They run from the framework repo root,
+   * which always exists, so directive handling (Cancel/Retry) never depends
+   * on a target workspace having been cloned.
+   *
+   * Deliberately accepts no cwd override — the framework-root class makes
+   * that override unrepresentable rather than merely unpassed.
    */
   #runRepoApi(command: string, opts: { input?: string; usePat?: boolean } = {}): string {
-    return this.#run(command, { ...opts, cwd: this.#repoApiCwd });
+    return this.exec(command, {
+      cwd: { kind: 'frameworkRoot' },
+      env: this.commandEnv({}, opts.usePat ?? false),
+      input: opts.input,
+    });
   }
 
   defaultBranch(): string {
