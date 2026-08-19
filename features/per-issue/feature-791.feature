@@ -57,17 +57,22 @@ Feature: GitContext credentials arrive through a TokenProvider port resolved on 
         resolution. A core that resolved once per public method call would pass §1 and fail here, and
         would still serve a stale token to any operation that outlived the expiry mid-flight. RED
         before.
-     3. CONSTRUCTION RESOLVES NOTHING (AC1, "never cached at construction"). Building a context and
-        issuing no command asks the provider zero times; the first command is the first resolution.
-        This is the criterion stated positively, and it is the one that fails a "resolve eagerly, then
-        re-resolve per command" implementation — which would pass §1 and §2 while still minting a
-        token at launch for a workflow that may not touch GitHub for another twenty minutes. RED
-        before.
-     4. THE CORE KEEPS NO COPY OF WHAT IT WAS TOLD (AC1, the anti-cache proof). A provider that answers
-        once and then fails leaves the core with nothing: the second command FAILS rather than
-        reusing the first answer, and never reaches the spawn seam. Counting resolutions (§2, §3) can
-        be satisfied by a core that re-asks and then quietly prefers its own copy on failure; this
-        cannot. RED before.
+     3. CONSTRUCTION KEEPS NOTHING IT WAS TOLD (AC1, "never cached at construction"). Construction
+        performs exactly ONE resolution — a validating probe whose answer is thrown away — and the
+        first command resolves again, so the credential that reaches the first child process is the
+        provider's SECOND answer, never the probe's. This is the criterion read on the issue's own
+        word: what is forbidden is a construction-time CACHE, not a construction-time check. It is
+        what fails a "resolve eagerly and keep it, then re-resolve per command" implementation, which
+        would otherwise pass §1 and §2. The probe is also what preserves the loud launch-time failure
+        that `launchGitContext.test.ts:167`, `webhookRepoResolver.test.ts:357`,
+        `feature-700.steps.ts:134` and `feature-776` all depend on; a zero-resolution construction
+        would delete a fail-fast this refactor was never asked to remove. RED before — today
+        construction resolves once and every command replays that one string.
+     4. THE CORE KEEPS NO COPY OF WHAT IT WAS TOLD (AC1, the anti-cache proof). A provider that stops
+        answering once the first command has been served leaves the core with nothing: the second
+        command FAILS rather than reusing the first answer, and never reaches the spawn seam.
+        Counting resolutions (§2, §3) can be satisfied by a core that re-asks and then quietly prefers
+        its own copy on failure; this cannot. RED before.
      5. NO ENVIRONMENT READ FOR CREDENTIALS (AC2). With a stray `GH_TOKEN` and a stray `GITHUB_PAT` in
         the ambient environment — the exact production condition of the bleed incidents — the child
         environment carries the PROVIDER's credential. And the sharp half: when the provider fails,
@@ -103,16 +108,18 @@ Feature: GitContext credentials arrive through a TokenProvider port resolved on 
         number of commands, so it is re-pinned here rather than left to #658.
     11. THE PUBLIC EXECUTOR IS UNCHANGED BY THIS SLICE (#790 §6 regression guard). The port is consumed
         ABOVE the executor, in the classifiers — not inside it. A caller that hands the public entry
-        its own credential still gets exactly that credential, and the provider is not consulted at
-        all. An implementation that put the port inside `exec()` would silently overwrite every
+        its own credential still gets exactly that credential, and the executor consults the provider
+        not at all. An implementation that put the port inside `exec()` would silently overwrite every
         caller-supplied credential and break the seam #790 built for the forge adapter to plug into.
         GREEN before, and the most plausible way to get this slice wrong.
     12. THE LAUNCH BOUNDARY HANDS OVER THE QUESTION, NOT THE ANSWER (AC1 in production). The core
         re-resolving per command achieves nothing if the boundary resolves once and passes a constant.
-        The boundary must consult nothing while building the context, and the context it returns must
-        produce a fresh credential each time it assembles a command environment. RED before —
-        `launchGitContext.ts:94` resolves during construction. See the scope note: this file is not in
-        the issue's Touched Files, and it must be.
+        The boundary must hand over the QUESTION: the only resolution on the clock while it builds is
+        the core's single validating probe (§3), whose answer is discarded, and the context it returns
+        must produce a fresh credential each time it assembles a command environment. RED before —
+        `launchGitContext.ts:94` resolves during construction and the resulting string is replayed for
+        the life of the object. See the scope note: this file is not in the issue's Touched Files, and
+        it must be.
     13. NO PROCESS-ENVIRONMENT MUTATION (carried from #659/#790). Per-command credentials are only safe
         because they never become process-global. Now that a credential can change between two
         commands of the same operation, an implementation that "simplified" by assigning to
@@ -158,22 +165,27 @@ Feature: GitContext credentials arrive through a TokenProvider port resolved on 
 
   Scope notes:
 
-    • NO PLAN EXISTS FOR THIS ISSUE YET. Unlike feature-790, which was written against a committed
-      plan, this file precedes planning, so it deliberately does NOT name the port's TypeScript shape.
-      It never says whether the port is a function or an interface, whether the credential class is a
-      parameter (`resolve({elevated: true})`) or a second method (`elevatedCredential()`), or whether
-      it arrives via `GitContextOptions` or `GitContextDeps`. Every scenario says only "the credential
-      provider" and "an ordinary / an elevated request", so the planner is free to settle the shape
-      and only the step definitions' single binding helper changes.
+    • THE PORT'S SHAPE IS SETTLED BY THE PLAN, AND NO SCENARIO CHANGED FOR IT. This file was written
+      before planning and deliberately named no TypeScript shape, saying only "the credential
+      provider" and "an ordinary / an elevated request". The plan
+      (`specs/issue-791-adw-jl4hot-introduce-tokenprovi-sdlc_planner-token-provider-port.md`) settles
+      it: a `TokenProvider` interface in `adws/gitContext/types.ts` with one method,
+      `credentialEnv({owner, repo, purpose})`, returning an ENVIRONMENT OVERLAY rather than a token
+      string; `purpose` is the forge-neutral union `'default' | 'alternateIdentity'`; the provider
+      arrives as `GitContextOptions.tokenProvider`; and `createGitHubTokenProvider` in the new
+      `adws/gitContext/githubTokenProvider.ts` is its GitHub implementation, wrapping the untouched
+      `resolveContextToken`. Only the step definitions' single binding helper knows any of that. The
+      one place the plan's shape reached the scenarios is the construction-time validating probe,
+      which §3, §4, §11 and §12 now account for.
     • THE ISSUE'S TOUCHED FILES ARE INCOMPLETE, AND §12 IS WHERE THAT BITES. The listed files are
       `gitContext.ts`, `types.ts`, `tokenResolver.ts` and two unit suites. But both boundary
       constructors resolve a token eagerly and pass a string —`adws/core/launchGitContext.ts:94` and
       `adws/github/gitContextFactory.ts:90`/`:112` — so if they are left alone, the core "resolves via
       the port on every command" only in tests, while every production context still carries a
       credential frozen at launch and the expiry defect survives untouched into #792 and beyond. Both
-      files must be in scope. Flagged rather than silently assumed: if the planner deliberately defers
-      the boundary, §12 is the scenario to strike, and the deferral should be recorded on the issue
-      because AC1 is then only half-met.
+      files must be in scope. The plan agrees and takes both into scope (Relevant Files; steps 12 and
+      13), recording the deviation from the issue's Touched Files explicitly in its Notes — so §12
+      stands rather than being struck.
     • BACK-COMPATIBILITY AT 348 CONSTRUCTION SITES. `new GitContext(` appears 348 times across
       `adws/`, `features/` and `test/`, nearly all in unit tests and step definitions passing
       `token: '…'`. Removing `token` from `GitContextOptions` outright rewrites all of them. Every
@@ -182,12 +194,15 @@ Feature: GitContext credentials arrive through a TokenProvider port resolved on 
       sites — EXCEPT §12, which requires the production boundaries to pass a real provider whichever
       shape wins. Note the trap in the second option: a default provider that closes over
       `options.token` IS a construction-time cache wearing a port's clothing, so it must not become
-      the boundary's path.
+      the boundary's path. The plan takes that second option and honours the trap: its
+      `staticCredentialProvider` wraps `options.token` for existing construction sites only, while
+      both production boundaries pass a live provider and no literal `token`.
     • FEATURE-658 PINS `token` AS A MANDATORY CONSTRUCTION FIELD and will need updating if it stops
       being one: `feature-658.feature:234` lists "the auth token" as a row in "Constructing a
       GitContext with an incomplete identity fails loudly". If the port replaces the field, that row
       must become the provider; if the field is retained as a fallback, the row stays green untouched.
-      Either way it is a decision, not an accident, and it belongs in this issue's plan.
+      The plan decides the second: `token` survives as a TRANSITIONAL literal-credential path, so that
+      row stays green and `feature-658.feature` is not edited.
     • `appAuth`'s INTERNAL CACHE IS LEGITIMATE AND IS NOT WHAT THIS SLICE FORBIDS.
       `appAuth.ts:35`/`:80` caches installation tokens per `owner/repo` and refreshes them five
       minutes before expiry. That cache is expiry-AWARE and lives inside the credential source, which
@@ -242,7 +257,7 @@ Feature: GitContext credentials arrive through a TokenProvider port resolved on 
       • `the credential provider answers every request with {string}`
       • `the credential provider answers with a fresh credential on every request`
       • `the credential provider answers ordinary requests with {string} and elevated requests with {string}`
-      • `the credential provider answers once with {string} and fails afterwards`
+      • `the credential provider answers twice with {string} and fails afterwards`
       • `the credential provider fails to resolve a credential`
       • `the GitHub credential source is configured with the App installed, the personal access token {string} and the gh CLI token {string}`
       • `the GitHub credential source is configured with app {string}, personal access token {string} and gh CLI token {string}`
@@ -259,9 +274,9 @@ Feature: GitContext credentials arrive through a TokenProvider port resolved on 
       • `the context is asked to assemble a command environment twice`
       • `the {string} operation spawned with the credential {string}`
       • `the recorded commands carried the credentials {string} and {string} in order`
+      • `the recorded command carried the credential {string}`
       • `the recorded commands each carried a different credential`
       • `the credential provider was asked exactly {int} times`
-      • `the credential provider was not asked`
       • `the two operations spawned with the credentials {string} and {string}`
       • `no recorded command carried the stray ambient credential`
       • `no further command reached the spawn seam`
@@ -285,11 +300,22 @@ Feature: GitContext credentials arrive through a TokenProvider port resolved on 
       • THE PROVIDER FAKE is a recording function/object over a scripted answer list:
         `answers: Array<string | Error>` plus a `calls: Array<{elevated: boolean}>` log.
         `answers every request with {string}` → constant; `a fresh credential on every request` →
-        `credential-1`, `credential-2`, `credential-3`, … by call index; `answers once with {string}
-        and fails afterwards` → first call returns, every later call throws;
+        `credential-1`, `credential-2`, `credential-3`, … by call index; `answers twice with {string}
+        and fails afterwards` → the first two calls return that value, every later call throws;
         `ordinary requests with {string} and elevated requests with {string}` → branches on the
         credential class the core asked for, which is the ONLY place the elevated/ordinary
         distinction is interpreted.
+      • THE CONSTRUCTION PROBE CONSUMES THE FIRST ANSWER. The plan validates the provider once inside
+        `assertCompleteIdentity` and discards the result, so every count in this file is "one probe
+        plus one per command", and the `a fresh credential on every request` scenarios start their
+        commands at `credential-2`. Do NOT delete the probe to make a count come out round: it is what
+        keeps the four construction-throw pins (`launchGitContext.test.ts:167`,
+        `webhookRepoResolver.test.ts:357`, `feature-700.steps.ts:134`, `feature-776`) green.
+      • CONTEXTS ARE BUILT LAZILY. Every scenario configures its credential source in a Given that
+        FOLLOWS the context Given, so the binding helper must defer `new GitContext(…)` until the
+        context is first used. A source that can produce no credential therefore surfaces its failure
+        at the first operation — which is what §5's second row and §9's two failure rows capture —
+        rather than throwing inside a Given.
       • THE GITHUB CREDENTIAL SOURCE steps build the port's real GitHub implementation over injected
         seams, mirroring `tokenResolver.test.ts`'s `makeInput`: `isAppConfigured`, `mintInstallationToken`,
         `ghAuthToken` and the PAT. `app "configured"` → `isAppConfigured: () => true` with a mint
@@ -314,20 +340,26 @@ Feature: GitContext credentials arrive through a TokenProvider port resolved on 
         test. Assert against the FIRST recorded command for that operation, not the last.
       • §7 AND §8 MUST DIFFER ONLY IN THE PAT. §8 would pass vacuously if the source were configured
         with one, and §7 would pass vacuously if the ordinary and elevated credentials were equal.
-        `makeFullOptions` sets no `pat`, so §7's source must be configured with one explicitly.
+        `makeFullOptions` sets no `pat`, so §7's source must be configured with one explicitly. Note
+        that the plan's GitHub implementation gives the PAT TWO roles — `pat`, a candidate in the
+        resolution order after the App mint, and `alternateIdentityPat`, the credential served to an
+        elevated request — while these Givens name only one "personal access token". Set BOTH fields
+        from that one value, mirroring `gitContextFactory.gitContextForRepo`, or §7's elevated rows go
+        green vacuously.
       • `the ambient environment carries a stray GH_TOKEN and GITHUB_PAT of {string}` sets both
         variables in the Given and restores their prior values in `After` — `tokenResolver.test.ts:27`
         precedent. `no recorded command carried the stray ambient credential` checks every recorded
         call's `env.GH_TOKEN` against the sentinel, not just the last, because a single leaking
         command is the whole bug.
       • §11 REACHES THE PUBLIC EXECUTOR DIRECTLY — `ctx.exec(command, {cwd: …, env: {GH_TOKEN: …}})` —
-        and asserts BOTH that the recorded credential is the caller's AND that the provider was not
-        asked. The second half is what fails if the port is consumed inside `exec()` rather than in
-        the classifiers above it.
+        and asserts BOTH that the recorded credential is the caller's AND that the provider's ask
+        count never rose above the single construction probe. The second half is what fails if the
+        port is consumed inside `exec()` rather than in the classifiers above it.
       • §12 CANNOT INJECT A SPAWN SEAM. `buildLaunchGitContext` constructs `new GitContext({…})` with
         no deps argument (`launchGitContext.ts:90`), so nothing can be observed at the seam. Drive it
-        through `LaunchGitContextDeps` (today `resolveToken`, whatever the plan renames it to) with a
-        counting fake, and observe the assembled command environment instead — the same spawn-free
+        through `LaunchGitContextDeps` (the plan retains `resolveToken` as an injection seam and adds
+        `tokenProvider`; either injection satisfies this scenario) with a counting fake, and observe
+        the assembled command environment instead — the same spawn-free
         surface `adws/core/__tests__/launchGitContext.test.ts:141-143` already asserts on. Supply
         `getRepoInfo` and `resolveGitIdentity` through the same deps bag so the step touches no real
         git.
@@ -348,9 +380,10 @@ Feature: GitContext credentials arrive through a TokenProvider port resolved on 
   # The slice in one scenario, and the expiry story stated behaviourally. The credential source
   # answers differently each time it is asked — which is what a source backed by an expiring,
   # self-refreshing App installation token actually does over the lifetime of a multi-hour run. Two
-  # ordinary operations must carry two different credentials. RED before: `#token` is assigned once
-  # at construction, so both commands carry the same frozen string no matter how long the process has
-  # been alive.
+  # ordinary operations must carry two different credentials. The construction-time validating probe
+  # (§3) takes the source's first answer and throws it away, so the two commands carry its second and
+  # third. RED before: `#token` is assigned once at construction, so both commands carry the same
+  # frozen string no matter how long the process has been alive.
 
   @adw-791 @adw-jl4hot-introduce-tokenprovi
   Scenario: Two successive operations carry two successive credentials from the provider
@@ -359,7 +392,7 @@ Feature: GitContext credentials arrive through a TokenProvider port resolved on 
     And the spawn seam records every command with the credential it carried
     When the "fetch-issue-comments" operation runs
     And the "remote-url" operation runs
-    Then the recorded commands carried the credentials "credential-1" and "credential-2" in order
+    Then the recorded commands carried the credentials "credential-2" and "credential-3" in order
 
   # ── §2 PER COMMAND, NOT PER OPERATION (AC1) ─────────────────────────────────────────────
   #
@@ -367,7 +400,8 @@ Feature: GitContext credentials arrive through a TokenProvider port resolved on 
   # once when a public method is entered, reuse it for that method's commands. `commitChanges` issues
   # three commands, and an operation is exactly the unit that can outlive a token — a long `git add`
   # over a large tree between the mint and the commit is not hypothetical. Three commands, three
-  # resolutions, three distinct credentials.
+  # resolutions, three distinct credentials — four asks in total, counting the construction probe of
+  # §3, whose answer never reaches a command.
 
   @adw-791 @adw-jl4hot-introduce-tokenprovi
   Scenario: An operation that issues three commands resolves a credential three times
@@ -375,30 +409,37 @@ Feature: GitContext credentials arrive through a TokenProvider port resolved on 
     And the credential provider answers with a fresh credential on every request
     And the spawn seam records every command with the credential it carried
     When the "commit-changes" operation runs
-    Then the credential provider was asked exactly 3 times
+    Then the credential provider was asked exactly 4 times
     And the recorded commands each carried a different credential
 
-  # ── §3 CONSTRUCTION RESOLVES NOTHING (AC1) ──────────────────────────────────────────────
+  # ── §3 CONSTRUCTION KEEPS NOTHING IT WAS TOLD (AC1) ─────────────────────────────────────
   #
-  # "Never cached at construction", stated positively. A context that resolved eagerly and then also
-  # re-resolved per command would pass §1 and §2 while still minting a token at launch — wasteful for
-  # a workflow that may not touch GitHub for twenty minutes, and an unnecessary failure point at the
-  # least recoverable moment in the run. The first command must be the first resolution.
+  # "Never cached at construction", read on the issue's own word: what is forbidden is a construction-
+  # time CACHE, not a construction-time check. Construction resolves exactly ONCE — a validating probe
+  # that fails loudly when the provider can produce no credential, and then THROWS THE ANSWER AWAY —
+  # so the credential reaching the first child process is the provider's SECOND answer, never the
+  # probe's. That is the anti-cache criterion stated positively, and it is what a "resolve eagerly and
+  # keep it, then re-resolve per command" implementation fails while still passing §1 and §2. The
+  # probe is also what preserves the loud launch-time failure pinned by `launchGitContext.test.ts:167`,
+  # `webhookRepoResolver.test.ts:357`, `feature-700.steps.ts:134` and `feature-776`; a zero-resolution
+  # construction would delete a fail-fast this refactor was never asked to remove. RED before — today
+  # construction resolves once and every command replays that answer, so the first command carries it.
 
   @adw-791 @adw-jl4hot-introduce-tokenprovi
-  Scenario: Building a context consults the credential provider not at all until a command runs
+  Scenario: Construction validates the credential provider once and then keeps nothing it was told
     Given a git context for the repository "acme/webapp" whose credentials come from a credential provider
     And the credential provider answers with a fresh credential on every request
     And the spawn seam records every command with the credential it carried
-    Then the credential provider was not asked
     When the "fetch-issue-comments" operation runs
-    Then the credential provider was asked exactly 1 times
-    And the "fetch-issue-comments" operation spawned with the credential "credential-1"
+    Then the credential provider was asked exactly 2 times
+    And the "fetch-issue-comments" operation spawned with the credential "credential-2"
 
   # ── §4 THE CORE KEEPS NO COPY OF WHAT IT WAS TOLD (AC1) ─────────────────────────────────
   #
-  # The anti-cache proof that counting cannot give. A core that re-asks the provider every command but
-  # quietly falls back to the last good answer when the provider fails satisfies §2 and §3 exactly,
+  # The anti-cache proof that counting cannot give. The source answers twice — once for the
+  # construction probe of §3, once for the first command — and then stops. A core that re-asks the
+  # provider every command but quietly falls back to the last good answer when the provider fails
+  # satisfies §2 and §3 exactly,
   # and is still holding a credential — one that will be served, stale, at precisely the moment the
   # source is unhealthy. The second command must fail, and must not reach the spawn seam: an expired
   # credential sent to GitHub is a 401 attributed to the wrong cause, which is worse than a loud local
@@ -407,7 +448,7 @@ Feature: GitContext credentials arrive through a TokenProvider port resolved on 
   @adw-791 @adw-jl4hot-introduce-tokenprovi
   Scenario: When the provider stops answering, the next command fails instead of reusing the last credential
     Given a git context for the repository "acme/webapp" whose credentials come from a credential provider
-    And the credential provider answers once with "credential-first" and fails afterwards
+    And the credential provider answers twice with "credential-first" and fails afterwards
     And the spawn seam records every command with the credential it carried
     When the "fetch-issue-comments" operation runs
     Then the "fetch-issue-comments" operation spawned with the credential "credential-first"
@@ -615,8 +656,9 @@ Feature: GitContext credentials arrive through a TokenProvider port resolved on 
   # silently overwriting the credential of any caller that uses the public entry directly. #790 built
   # that entry precisely so the GitHub adapter (#792) can hand it a credential; an executor that
   # substituted its own would make the adapter's credential decisions unobservable at the very moment
-  # they were being moved into it. Both halves are asserted: the caller's credential survives, and the
-  # provider is not consulted at all.
+  # they were being moved into it. Both halves are asserted: the caller's credential survives on the
+  # one command that ran, and the provider's ask count stays at the single construction probe of §3 —
+  # a port consumed inside `exec()` would push it to two.
 
   @adw-791 @adw-jl4hot-introduce-tokenprovi
   Scenario: A credential handed to the public executor is not replaced by a provider-resolved one
@@ -624,23 +666,26 @@ Feature: GitContext credentials arrive through a TokenProvider port resolved on 
     And the credential provider answers every request with "credential-from-provider"
     And the spawn seam records every command with the credential it carried
     When the command "gh api user" is executed through the public executor carrying the credential "credential-from-caller"
-    Then the recorded commands carried the credentials "credential-from-caller" and "credential-from-caller" in order
-    And the credential provider was not asked
+    Then the recorded command carried the credential "credential-from-caller"
+    And the credential provider was asked exactly 1 times
 
   # ── §12 THE LAUNCH BOUNDARY HANDS OVER THE QUESTION, NOT THE ANSWER (AC1 in production) ─
   #
   # The core re-resolving per command achieves nothing if the boundary resolves once and passes a
   # constant — the context would consult a port that always returns the same launch-time string, every
-  # scenario above would still pass, and the expired-token defect would survive the slice intact.
-  # Today `launchGitContext.ts:94` calls `resolveToken(owner, repo)` inside the constructor argument,
-  # so both assertions are RED before. See the scope note: this file is not in the issue's Touched
-  # Files and must be, and this is the scenario to strike if the planner defers the boundary.
+  # scenario above would still pass, and the expired-token defect would survive the slice intact. The
+  # boundary must hand over the QUESTION: the only resolution on the clock while it builds is the
+  # core's single validating probe (§3), whose answer is discarded, and every command environment the
+  # returned context assembles resolves afresh. Today `launchGitContext.ts:94` calls
+  # `resolveToken(owner, repo)` inside the constructor argument and that one string is replayed for
+  # the life of the object, so both assertions are RED before. See the scope note: this file is not in
+  # the issue's Touched Files and must be — the plan takes it into scope, so this scenario stands.
 
   @adw-791 @adw-jl4hot-introduce-tokenprovi
-  Scenario: The launch boundary resolves no credential while building the context, and the context it returns resolves per command
+  Scenario: The launch boundary hands over the provider rather than a resolved credential, and the context it returns resolves per command
     Given the credential provider answers with a fresh credential on every request
     When a git context is built through the launch boundary for the repository "acme/webapp"
-    Then the credential provider was not asked
+    Then the credential provider was asked exactly 1 times
     When the context is asked to assemble a command environment twice
     Then the two assembled command environments carried different credentials
 
