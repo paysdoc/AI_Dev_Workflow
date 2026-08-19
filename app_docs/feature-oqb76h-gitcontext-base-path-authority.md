@@ -9,9 +9,11 @@ Two private classifiers sit in front of `exec()`, choosing the working-directory
 - **`#run(command, opts?)`** — the workspace-scoped classifier: git commands and workspace-scoped operations (branch/commit/worktree/remote/claim ops, all git phase-level reads, `remoteUrl`, `remotes`, `gitConfigUser`). Calls `exec()` with `{kind: 'workspace', path: opts.cwd}` — `basePath` when `opts.cwd` is omitted, or an explicit worktree path when supplied. A spawn failure caused by that resolved cwd not existing on this host — never cloned, or a worktree that vanished — is rewrapped (via `workingDirectoryGuard.ts`, inside `exec()`) into an error naming the path and repository identity while preserving `code: 'ENOENT'`; every other failure propagates verbatim (issue #777).
 - **`#runRepoApi(command, opts?)`** (added in #775) — the framework-root classifier for the ~38 repo-API `gh` operations (issue/PR/label/board/secret ops, `defaultBranch`, `authenticatedUser`). Calls `exec()` with `{kind: 'frameworkRoot'}` — always the injected `frameworkRepoRoot` regardless of whether the target workspace has ever been cloned, and structurally unable to accept a `cwd` override (the type has no `path` field on this variant). These commands carry their repository identity in the command string (`--repo owner/repo`, `gh api repos/owner/repo/…`, or GraphQL variables), not in the cwd, so they need no target workspace at all. This is what lets a Cancel/Retry directive be processed on a host that has never cloned the target repo (issue #775 — previously `#basePath` for a target repo is lifecycle state that only exists post-clone, so a pre-clone `gh` call spawned into a nonexistent directory and failed as `spawnSync /bin/sh ENOENT`).
 
-Both classifiers pass their `env` to `exec()` from the same `commandEnv()` overlay, so auth/env behaviour (credential, git identity, no `process.env` mutation) is identical either way — only the `ExecWorkingDirectory` CLASS differs, chosen by the caller, never inferred by probing whether a directory happens to exist or by reading what the command string means. As of #791, `commandEnv()` resolves its credential through the **TokenProvider port** (`credentialEnv({owner, repo, purpose})`) on every call — never cached by the core — and the two classifiers declare only a forge-neutral `CredentialPurpose` (`'default' | 'alternateIdentity'`); the provider alone decides which credential answers it. The core holds no token: construction probes the provider once to fail loudly on a bad credential source, then discards the answer. `createGitHubTokenProvider` (`githubTokenProvider.ts`) is the port's GitHub implementation and the seam #792's forge adapter implements next. `token`/`pat` remain on `GitContextOptions` only as the transitional literal-credential path for the ~350 existing construction sites not yet migrated to a provider.
+Both classifiers pass their `env` to `exec()` from the same `commandEnv()` overlay, so auth/env behaviour (credential, git identity, no `process.env` mutation) is identical either way — only the `ExecWorkingDirectory` CLASS differs, chosen by the caller, never inferred by probing whether a directory happens to exist or by reading what the command string means. As of #791, `commandEnv()` resolves its credential through the **TokenProvider port** (`credentialEnv({owner, repo, purpose})`) on every call — never cached by the core — and the two classifiers declare only a forge-neutral `CredentialPurpose` (`'default' | 'alternateIdentity'`); the provider alone decides which credential answers it. The core holds no token: construction probes the provider once to fail loudly on a bad credential source, then discards the answer. `createGitHubTokenProvider` is the port's GitHub implementation; as of #792 it lives in the GitHub forge adapter (`adws/providers/github/githubTokenProvider.ts`), not in this package. `token`/`pat` remain on `GitContextOptions` only as the transitional literal-credential path for the ~350 existing construction sites not yet migrated to a provider.
 
-As of #700, the package also owns the **bootstrap pre-context primitives** that must run *before* a `GitContext` can be constructed: GitHub App token minting (`appAuth.ts`), local remote-URL + git-identity resolution (`bootstrapIdentity.ts`), a single veracious token resolver (`tokenResolver.ts`), and target-repo workspace clone/fetch (`repoWorkspace.ts`). These are structurally exempt (the guard skips `adws/gitContext/` by directory), eliminating the bootstrap ALLOWLIST category entirely. The four former bootstrap adapter files (`launchGitContext.ts`, `gitContextFactory.ts`, `githubAppAuth.ts`, `targetRepoManager.ts`) are now thin delegators with zero raw `git`/`gh` strings. As of #701 (the capstone), `githubAppAuth.ts` is a pure re-export shim with no `process.env` writes — the Claude subprocess now receives its `GH_TOKEN` + git identity per-invocation from the launch-boundary `GitContext.commandEnv()` via the `subprocessEnv` overlay in the agent chokepoints (`claudeAgent.ts` / `commandAgent.ts`). This module implements PRD `specs/prd/git-context-repo-authority.md` and eliminates the historical "wrong-repo worktree" and `GH_TOKEN` bleed classes of bug structurally.
+**TRANSITIONAL upward dependency (#792):** `gitContext.ts` still imports the five GitHub command-string builder modules (`issueCommands`, `prCommands`, `labelCommands`, `secretCommands`, `boardCommands`) from `../providers/github/commands/...` for the semantic methods it still owns (`fetchIssue`, `commentOnIssue`, `createPR`, `setSecret`, etc.). This is a deliberate, called-out exception to the package's forge-neutrality: the core temporarily depends upward on the adapter that now owns the builders. It is deleted once those semantic methods migrate out to their callers in future issues #796/#797, at which point the core has no GitHub-specific import left at all.
+
+As of #700, the package also owns the **bootstrap pre-context primitives** that must run *before* a `GitContext` can be constructed: local remote-URL + git-identity resolution (`bootstrapIdentity.ts`) and target-repo workspace clone/fetch (`repoWorkspace.ts`). These are structurally exempt (the guard skips `adws/gitContext/` by directory), eliminating the bootstrap ALLOWLIST category entirely. As of #792, GitHub App token minting (`appAuth.ts`) and the veracious token resolver (`tokenResolver.ts`) moved out of this package into the GitHub forge adapter (`adws/providers/github/`) — see `app_docs/feature-e2er82-github-forge-adapter.md`. The four former bootstrap adapter files (`launchGitContext.ts`, `gitContextFactory.ts`, `githubAppAuth.ts`, `targetRepoManager.ts`) remain thin delegators with zero raw `git`/`gh` strings — they now delegate the token-related primitives to the forge adapter instead of to this package. As of #701, `adws/github/githubAppAuth.ts` is no longer a pure re-export shim: as of #792 it is the sole environment-binding site — the only place in the codebase that reads `GITHUB_APP_ID`/`GITHUB_APP_SLUG`/`GITHUB_APP_PRIVATE_KEY_PATH` from `process.env`, read fresh on every call, and passed as a `GitHubAppConfig` value into the adapter's `isGitHubAppConfigured`/`getInstallationToken`. The Claude subprocess still receives its `GH_TOKEN` + git identity per-invocation from the launch-boundary `GitContext.commandEnv()` via the `subprocessEnv` overlay in the agent chokepoints (`claudeAgent.ts` / `commandAgent.ts`). This module implements PRD `specs/prd/git-context-repo-authority.md` and eliminates the historical "wrong-repo worktree" and `GH_TOKEN` bleed classes of bug structurally.
 
 ## Responsibilities
 
@@ -40,34 +42,24 @@ As of #700, the package also owns the **bootstrap pre-context primitives** that 
 - Provide upgrade-claim distributed-lock ops: `addDetachedWorktree(worktreePath, ref, cwd)`, `commitAllowEmpty(message, cwd)`, `pushHeadToBranch(branch, cwd)`, `removeDetachedWorktree(worktreePath, cwd)`
 - Provide diagnostic read methods: `remotes(cwd?)`, `gitConfigUser(cwd?)`
 - Delegate VCS operation orchestration to package-private modules (`branchOps.ts`, `commitOps.ts`, `worktreeResetOps.ts`, `worktreeCreateOps.ts`, `worktreeQueryOps.ts`, `worktreeRemoveOps.ts`, `worktreeProbeOps.ts`, `gitReadOps.ts`, `remoteOps.ts`, `claimOps.ts`, `processCleanup.ts`)
-- Expose the full `gh` issue, PR, label, board, and secret operation surface as thin methods that delegate to pure command-builder + parser modules in `adws/gitContext/commands/`
+- Expose the full `gh` issue, PR, label, board, and secret operation surface as thin methods that delegate to pure command-builder + parser modules; as of #792 these builder modules live in `adws/providers/github/commands/` (the GitHub forge adapter), imported TRANSITIONALLY (see Overview)
 - Accept an injectable `ExecFn` via `GitContextDeps` for hermetic testing
 - Export only `GitContext` class and its public types — including `ExecWorkingDirectory` and `ExecOptions` as of #790 — plus the bootstrap-exception symbols via `adws/gitContext/index.ts`
 
 ### Bootstrap package modules (absorbed in #700, structurally exempt)
 
-The four modules below live inside the structurally-exempt `adws/gitContext/` directory. They are the *only* legitimate permanent site for pre-context git/gh shell-outs. ADW adapters (`gitContextFactory.ts`, `launchGitContext.ts`, `githubAppAuth.ts`, `targetRepoManager.ts`) delegate to these and contain zero raw `git`/`gh` strings.
+The two modules below live inside the structurally-exempt `adws/gitContext/` directory. They are the *only* legitimate permanent site for pre-context git reads (remote-URL parsing, git identity, workspace clone/fetch). GitHub App token minting and token resolution moved out of this package to the GitHub forge adapter in #792 — see `app_docs/feature-e2er82-github-forge-adapter.md`. ADW adapters (`gitContextFactory.ts`, `launchGitContext.ts`, `githubAppAuth.ts`, `targetRepoManager.ts`) delegate to these (and to the forge adapter, for token concerns) and contain zero raw `git`/`gh` strings.
 
 | Module | Exports |
 |---|---|
-| `appAuth.ts` | `isGitHubAppConfigured()`, `getInstallationToken(owner, repo, deps?)`, JWT creation, installation-ID and token caching, `REFRESH_BUFFER_MS`, `clearAppAuthCaches()`. Uses `curl`-based exchange (not git/gh); the bearer credential travels over curl's `--config` stdin channel (built by `buildCurlConfig`) and never appears in argv or a thrown error — `requestGitHubApi` drops `-f` and reads the HTTP status off a `write-out` trailer instead of relying on `execFileSync` to throw, so failures compose a sanitized `GitHub App <operation> failed for <subject>: <detail>` message (`describeApiFailure`/`describeStatus`) that echoes at most GitHub's `message` field, never a raw response body (issue #780). The GitHub API origin is injectable via `AppAuthDeps.apiBaseUrl` (defaults to `GITHUB_API_BASE_URL`), and the curl runner is injectable via `AppAuthDeps.runCurl`, closing the #701-documented hermetic-testing blind spot. Token cache keyed by `owner/repo`. |
 | `bootstrapIdentity.ts` | `parseGitHubRemoteUrl(remoteUrl): RepoInfo \| null` — pure regex parser for HTTPS and SSH GitHub remote URLs; the single source of truth for GitHub remote-URL parsing (used by `readLocalRepoInfo`, `convertToSshUrl` in `repoWorkspace.ts`, and `getRepoInfoFromUrl` in `adws/github/githubApi.ts`). `readLocalRepoInfo(cwd?): RepoInfo` — runs `git remote get-url origin`, delegates to `parseGitHubRemoteUrl`, throws on unparseable. `resolveBootstrapGitIdentity(deps?): GitIdentity` — resolution order: App-slug bot → `GIT_AUTHOR_*`/`GIT_COMMITTER_*` env → `git config user.*` → `ADW Bot` default; never returns empty fields. `ghAuthToken(): string` — runs `gh auth token`, returns `''` on failure. All seams injectable for hermetic tests. |
-| `tokenResolver.ts` | `resolveContextToken(input: ResolveContextTokenInput): string` — the single veracious resolver (see Token Veracity below). Never reads `process.env.GH_TOKEN`. |
-| `githubTokenProvider.ts` | `createGitHubTokenProvider(input: GitHubTokenProviderInput): TokenProvider` — the TokenProvider port's GitHub implementation (#791). Wraps `resolveContextToken` unchanged and owns the PAT-versus-installation-token decision for `'alternateIdentity'` requests: a non-blank `alternateIdentityPat` answers directly (App mint not consulted); otherwise `'alternateIdentity'` resolves identically to `'default'`. Called once per command by the core, never memoised — the seam #792's forge adapter implements. |
 | `repoWorkspace.ts` | `getTargetRepoWorkspacePath(owner, repo, targetReposDir)`, `isRepoCloned(workspacePath, fsDeps?)`, `convertToSshUrl(cloneUrl)`, `cloneRepo(cloneUrl, workspacePath, opts?)`, `ensureRepoWorkspace(owner, repo, cloneUrl, deps)`. `ensureRepoWorkspace` clones via SSH when absent; otherwise runs `git fetch origin` and calls the injected `getDefaultBranch` thunk under per-command veracious auth — fixing the ambient-auth `gh repo view` crash class. |
 
-### Token Veracity (`tokenResolver.ts`)
+Note: this two-module surface (`bootstrapIdentity.ts`, `repoWorkspace.ts`) is itself a candidate for further splitting in a future issue (#793) — not yet done as of this writing; don't assume any additional split has landed.
 
-`resolveContextToken({ owner, repo, pat?, isAppConfigured, mintInstallationToken, ghAuthToken })` resolution order (guard-clause, never falls to `process.env.GH_TOKEN`):
+### Token Veracity
 
-1. **App configured** → `return mintInstallationToken(owner, repo)`. Any throw (app not installed on `owner/repo` = foreign identity) propagates loudly — never catch-and-fallthrough.
-2. **PAT set** → return PAT.
-3. **`gh auth token` non-empty** → return it.
-4. **Else** → throw `resolveContextToken: no veracious token for owner/repo`.
-
-This replaces the two prior resolvers (`resolveToken` in `gitContextFactory.ts`, `resolveLaunchToken` in `launchGitContext.ts`) which both fell through to `process.env.GH_TOKEN` — the root cause of ~13 "wrong-repo" / GH_TOKEN-bleed incidents (vestmatic #143/#181/#187 and others in memory).
-
-As of #791, this resolver is reached *through* the TokenProvider port's GitHub implementation, `createGitHubTokenProvider` — `resolveContextToken` itself is byte-identical and has no knowledge of the port. `buildLaunchGitContext` and `gitContextFactory.ts` build a live provider (`createLaunchTokenProvider()` / `buildTokenProvider()`) and no longer resolve a token at construction; the credential is resolved fresh on every command the returned context runs, so a GitHub App installation token minted at process launch is never replayed stale hours into a long-running orchestrator.
+Token minting and resolution (`appAuth.ts`, `tokenResolver.ts`, `githubTokenProvider.ts`) no longer live in this package as of #792 — they moved to the GitHub forge adapter (`adws/providers/github/`). See `app_docs/feature-e2er82-github-forge-adapter.md` for the resolution order, the `resolveContextToken`/`createGitHubTokenProvider` contracts, and the GH_TOKEN-bleed history. This package's `commandEnv()` reaches that resolution only through the injected `TokenProvider` port (`GitContextOptions.tokenProvider`) — it holds no token-resolution logic of its own.
 
 ### Package-private operation modules
 
@@ -88,17 +80,7 @@ Each module is side-effect-free except at the injected runner/fs seam and stays 
 | `processCleanup.ts` | `killProcessesInDirectory` (lsof + SIGTERM→SIGKILL, self-PID filter); re-exported from `vcs/worktreeCleanup.ts` for legacy callers |
 | `workingDirectoryGuard.ts` | `isSpawnEnoent`, `describeMissingWorkingDirectory`, `rewrapMissingWorkingDirectory` — turns a spawn-into-a-missing-cwd `ENOENT` into an error naming the path and repository identity; pure (no `fs`, no spawn — the existence probe is injected); used only by `#run`'s catch block (issue #777) |
 
-### Pure command modules (`adws/gitContext/commands/`)
-
-Each module is side-effect-free (no `exec`, no `process.env`) and stays under 300 lines:
-
-| Module | Exports |
-|---|---|
-| `issueCommands.ts` | Command builders + parsers for `gh issue …` / `gh api issues` (fetch, comment, state, close, title, comments, labels, create, update, find-upgrade, delete-comment, `listOpenIssues` with `ListOpenIssuesOptions`, `issueComments`) |
-| `prCommands.ts` | PR builders + parsers (find by branch, fetch details/reviews/comments, comment, merge, approve, approval state, list, create, `fetchMergedPRs`, `prChangedFilesCmd`, extended `createPRCmd` with optional `labels?`) |
-| `labelCommands.ts` | Label create and apply command builders |
-| `boardCommands.ts` | Projects V2 GraphQL query/mutation builders + parsers (`moveIssueToStatus`, `graphQLInputCmd` for stdin-JSON complex mutations) |
-| `secretCommands.ts` | `setSecretCmd(owner, repo, name)` — returns `gh secret set <name> --repo <owner>/<repo> --body -`; zero side effects |
+As of #792, the pure GitHub command-string builder modules (`issueCommands.ts`, `prCommands.ts`, `labelCommands.ts`, `boardCommands.ts`, `secretCommands.ts`) no longer live in `adws/gitContext/commands/` — that directory is gone. They moved, byte-for-byte, to `adws/providers/github/commands/`. `gitContext.ts` still imports them (see the TRANSITIONAL upward dependency noted in the Overview) for its surviving semantic methods; see `app_docs/feature-e2er82-github-forge-adapter.md` for their contracts.
 
 ## Boundary Adapters (rewired to zero raw git/gh in #700; process.env writes deleted in #701)
 
@@ -107,7 +89,7 @@ The four former bootstrap files now contain zero raw `git`/`gh` strings — they
 ### `adws/github/gitContextFactory.ts`
 
 `gitContextFor({ owner, repo, selfHost })`, `gitContextForSync(...)`, and `gitContextForRepo(repoInfo)` construct a `GitContext` from ambient ADW identity:
-- Token resolution: delegates to `resolveContextToken` (package `tokenResolver.ts`). App → bound mint (loud throw on foreign identity); else PAT (`GITHUB_PAT`); else `ghAuthToken()`; **never** reads `process.env.GH_TOKEN`.
+- Token resolution: delegates to `resolveContextToken` (as of #792, the GitHub forge adapter's `adws/providers/github/tokenResolver.ts`, not this package). App → bound mint (loud throw on foreign identity); else PAT (`GITHUB_PAT`); else `ghAuthToken()`; **never** reads `process.env.GH_TOKEN`.
 - Git identity resolution: delegates to `resolveBootstrapGitIdentity` (package `bootstrapIdentity.ts`). Resolution order: App-slug bot → `GIT_AUTHOR_*`/`GIT_COMMITTER_*` env → `git config user.*` → `ADW Bot`.
 - `readLocalRepoInfo(cwd?)`: re-exported from package `bootstrapIdentity.ts` — the chicken-and-egg bootstrap read; all ~20 callers of `githubApi.getRepoInfo` are unaffected.
 - `getSelfHostIdentity` uses `readLocalRepoInfo(REPO_ROOT)` (package) instead of a raw `git remote get-url` shell-out.
@@ -116,16 +98,16 @@ The four former bootstrap files now contain zero raw `git`/`gh` strings — they
 ### `adws/core/launchGitContext.ts`
 
 `buildLaunchGitContext(deps)` constructs the launch-boundary `GitContext` for cron, webhook, and workflowInit:
-- `resolveLaunchToken(owner, repo)`: delegates to `resolveContextToken` — no `process.env.GH_TOKEN` fallback.
+- `resolveLaunchToken(owner, repo)`: delegates to `resolveContextToken` (as of #792, imported from the GitHub forge adapter's `adws/providers/github/tokenResolver.ts`, not from this package) — no `process.env.GH_TOKEN` fallback.
 - `resolveLaunchGitIdentity()`: delegates to `resolveBootstrapGitIdentity`.
 - Local remote read: uses package `readLocalRepoInfo`.
 - `buildLaunchGitContext`, `LaunchGitContextDeps`, and exported names preserved for 3 callers.
 
-### `adws/github/githubAppAuth.ts` (pure re-export shim as of #701)
+### `adws/github/githubAppAuth.ts` (sole environment-binding site as of #792)
 
-- Re-exports `getInstallationToken`/`isGitHubAppConfigured` from package `appAuth.ts`; stable path for 7 consumers.
+- As of #701 this was a pure re-export shim from the package's `appAuth.ts`. As of #792, `appAuth.ts` moved to the GitHub forge adapter (`adws/providers/github/appAuth.ts`) and now takes an injected `GitHubAppConfig` instead of reading `process.env` itself — so `adws/github/githubAppAuth.ts` is no longer a bare re-export. It is now the **sole environment-binding site**: the only place in the codebase that reads `GITHUB_APP_ID`/`GITHUB_APP_SLUG`/`GITHUB_APP_PRIVATE_KEY_PATH` from `process.env` — read fresh on every call via `readAppConfig()`, not captured once at module load, so a process that exports these variables after module load is still seen. `isGitHubAppConfigured()`/`getInstallationToken(owner, repo)` build a `GitHubAppConfig` from the freshly-read env and pass it into the adapter's same-named functions, preserving the stable zero-argument-App-config public signature for all existing consumers.
 - **No `process.env` writes remain.** `activateGitHubAppAuth`, `refreshTokenIfNeeded`, and `configureGitIdentity` were deleted in #701. The subprocess auth they previously provided is now sourced per-invocation from the launch-boundary `GitContext.commandEnv()` via the `subprocessEnv` overlay in `claudeAgent.ts`/`commandAgent.ts`.
-- Zero raw `git`/`gh` strings; zero `process.env` mutations.
+- Zero raw `git`/`gh` strings; zero `process.env` mutations (only reads).
 
 ### `adws/core/targetRepoManager.ts`
 
@@ -163,7 +145,7 @@ All files are fully migrated. The guard's `ALLOWLIST` has been deleted.
 |---|---|
 | `adws/github/gitContextFactory.ts` | `resolveToken` → `resolveContextToken`; `deriveGitIdentity` → `resolveBootstrapGitIdentity`; `readLocalRepoInfo` re-exported from package; `getSelfHostIdentity` uses `readLocalRepoInfo(REPO_ROOT)` |
 | `adws/core/launchGitContext.ts` | `resolveLaunchToken` → `resolveContextToken`; `resolveLaunchGitIdentity` → `resolveBootstrapGitIdentity`; `getRepoInfo` default uses package `readLocalRepoInfo` |
-| `adws/github/githubAppAuth.ts` | Re-exports mint from `appAuth.ts`; process.env writes deferred (removed in #701) |
+| `adws/github/githubAppAuth.ts` | Re-exports mint from `appAuth.ts`; process.env writes deferred (removed in #701); as of #792 `appAuth.ts` itself moved to the GitHub forge adapter and this file became the sole environment-binding site, not a bare re-export — see Boundary Adapters below |
 | `adws/core/targetRepoManager.ts` | Re-exports workspace helpers from `repoWorkspace.ts`; `ensureTargetRepoWorkspace` delegates with veracious `getDefaultBranch` |
 
 Prior slice migrations (summarized — see git history for per-slice detail):
@@ -203,7 +185,7 @@ Prior slice migrations (summarized — see git history for per-slice detail):
 | `adws/healthCheck.tsx` | Constructs self-host context via factory |
 | `adws/github/gitContextFactory.ts` | Thin ADW adapter — no raw git/gh; delegates to package primitives |
 | `adws/core/launchGitContext.ts` | Thin ADW adapter — no raw git/gh; delegates to package primitives |
-| `adws/github/githubAppAuth.ts` | Pure re-export shim — no raw git/gh, no `process.env` writes (#701) |
+| `adws/github/githubAppAuth.ts` | Sole environment-binding site as of #792 (no raw git/gh, no `process.env` writes — only reads, per-call); delegates the mint itself to the forge adapter's `appAuth.ts` via an injected `GitHubAppConfig` |
 | `adws/core/targetRepoManager.ts` | Re-export shim; no raw git/gh; `ensureTargetRepoWorkspace` delegates with veracious auth |
 
 ## Contracts & Invariants
@@ -226,7 +208,7 @@ Prior slice migrations (summarized — see git history for per-slice detail):
 - `removeAndCommitPaths` never touches paths outside the given list — no `git add -A`; unrelated dirty state in the worktree is left untouched. Returns `false` (no commit) when the given paths were already absent from the index
 - `resetWorktree` aborts any in-progress merge/rebase before fetching and hard-resetting
 - Protected branches (`main`, `master`, `develop`) refused by `deleteLocalBranch` and `deleteRemoteBranch`
-- Package imports nothing from `adws/core`, `adws/providers`, or any ADW global — all config injected at construction
+- Package imports nothing from `adws/core` or any ADW global — all config injected at construction. As a TRANSITIONAL exception (#792), `gitContext.ts` does import the GitHub command-string builders from `adws/providers/github/commands/` for its surviving semantic methods (see Overview); this is a deliberate, called-out upward dependency, not the general package boundary reopening
 - **Token veracity (resolveContextToken):** when App is configured, returns only a mint bound to `owner/repo` and propagates any throw loudly (foreign/uninstalled identity = hard error, never substitutes ambient token). Never reads `process.env.GH_TOKEN` as a token source.
 - **Bootstrap exception (bootstrapIdentity.ts):** `readLocalRepoInfo` and `resolveBootstrapGitIdentity` are the only legitimate pre-context git/gh reads; they live inside the exempt package and are not on any ALLOWLIST
 - `ensureRepoWorkspace` calls `getDefaultBranch()` (injected thunk) under per-command auth — the `gh repo view` for default-branch never runs under ambient auth
@@ -296,7 +278,7 @@ Optional injectable dependency bag via `GitContextDeps`:
 - **`addDetachedWorktree` must not create a named local branch** — uses `--detach` to avoid "branch already exists" on the loser path
 - **`commitAllowEmpty` must not be replaced with `commitChanges`** — `commitChanges` short-circuits on a clean tree; the claim requires an always-empty commit
 - **`logSince` is a bounded method, not a free-string passthrough** — `LogSinceOptions` vocabulary (`since`, `grep?`, `oneline?`, `patch?`, `pathspec?`) prevents arbitrary git subcommands
-- **The ALLOWLIST has been deleted (#701)** — the `ALLOWLIST` const, the `allowed` Set, and the per-file skip are removed from `checkGitGhGuard.ts`. The only file exemption is the structural `EXEMPT_PACKAGE_DIR = 'adws/gitContext'`. The guard still prints `(0 allowlisted)` as a literal to keep the `(\d+) allowlisted` capstone observable valid. Any new raw `git`/`gh` call outside the package immediately breaks CI.
+- **The ALLOWLIST has been deleted (#701)** — the `ALLOWLIST` const, the `allowed` Set, and the per-file skip are removed from `checkGitGhGuard.ts`. As of #792 the structural exemption is a closed, named, two-entry `EXEMPT_PACKAGES` array (`adws/gitContext` for git commands, `adws/providers/github` for gh commands) rather than a single `EXEMPT_PACKAGE_DIR` string — see `app_docs/feature-bq1f45-git-gh-cli-guard.md` for the full shape and the `isExemptPackage` predicate. The guard still prints `(0 allowlisted)` as a literal to keep the `(\d+) allowlisted` capstone observable valid. Any new raw `git` call outside `adws/gitContext/`, or raw `gh` call outside `adws/providers/github/`, immediately breaks CI.
 - **`gitContextForSync` vs `gitContextFor` vs `gitContextForRepo`** — use `gitContextForSync` in synchronous initialization; `gitContextFor` when you can `await`; `gitContextForRepo(repoInfo)` in trigger/phase modules with only a `RepoInfo`
 - **No physical npm package** — the "importable package" guarantee is satisfied structurally by the zero-ADW-global discipline; physical extraction deferred
 - **`checkGitGhGuard.ts` `main()` guard** — exported as a module to support test imports; `main()` called only when `process.argv[1]` includes `checkGitGhGuard`
