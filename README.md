@@ -640,6 +640,7 @@ adws/                   # ADW workflow system
 │   │   ├── commitOps.test.ts
 │   │   ├── gitContext.test.ts
 │   │   ├── gitContextOperations.test.ts
+│   │   ├── githubTokenProvider.test.ts
 │   │   ├── gitReadOps.test.ts
 │   │   ├── remoteOps.test.ts
 │   │   ├── repoApiCwd.test.ts
@@ -659,14 +660,15 @@ adws/                   # ADW workflow system
 │   ├── branchOps.ts    # Package-private branch operation orchestration (create, checkout, delete, reset)
 │   ├── claimOps.ts     # Package-private distributed-lock git ops — detached worktree add, allow-empty commit, non-force push, worktree remove
 │   ├── commitOps.ts    # Package-private commit/push orchestration (force-with-lease, lease rejection detection)
-│   ├── gitContext.ts   # GitContext class — mandatory identity, base-path resolution in constructor, public forge-neutral exec() executor (#790) with #run/#runRepoApi classifiers, no cwd fallback
+│   ├── gitContext.ts   # GitContext class — mandatory identity, base-path resolution in constructor, public forge-neutral exec() executor (#790) with #run/#runRepoApi classifiers resolving credentials through the TokenProvider port per command (#791), no cwd fallback
+│   ├── githubTokenProvider.ts  # TokenProvider port's GitHub implementation (createGitHubTokenProvider) — wraps tokenResolver's resolveContextToken unchanged, owns the PAT-vs-installation-token decision for 'alternateIdentity' requests (#791)
 │   ├── gitReadOps.ts   # Package-private git-read ops — tracked-file listing, HEAD hash, branch diff, commit-history log
 │   ├── remoteOps.ts    # Package-private remote-interaction ops — fetch from origin, ls-remote queries, merge a ref, and abort in-progress merge
 │   ├── index.ts        # Public surface (GitContext class + exec()/ExecOptions/ExecWorkingDirectory executor types + GitIdentity/GitContextOptions types + bootstrap primitives)
 │   ├── processCleanup.ts  # Package-private process kill helpers (killProcessesInDirectory)
 │   ├── repoWorkspace.ts  # Target-repo workspace management (path resolution, clone, fetch) — absorbed into package (#700); defaultBranch thunk injected for veracious auth
-│   ├── tokenResolver.ts  # Veracious token resolver (resolveContextToken) — never reads process.env.GH_TOKEN; replaces the two prior resolvers that were the GH_TOKEN-bleed root (#700)
-│   ├── types.ts        # GitIdentity, GitContextOptions, ExecFn, GitContextDeps, ExecWorkingDirectory, and ExecOptions interfaces
+│   ├── tokenResolver.ts  # Veracious token resolver (resolveContextToken) — never reads process.env.GH_TOKEN; replaces the two prior resolvers that were the GH_TOKEN-bleed root (#700); wrapped unchanged by githubTokenProvider.ts's TokenProvider port implementation (#791)
+│   ├── types.ts        # GitIdentity, GitContextOptions, ExecFn, GitContextDeps, ExecWorkingDirectory, ExecOptions, TokenProvider, CredentialRequest, and CredentialPurpose interfaces/types (#791)
 │   ├── workingDirectoryGuard.ts  # Rewraps a spawn-into-a-missing-cwd ENOENT into an error naming the path and repo identity (exec()'s catch block); pure, no fs/spawn
 │   ├── worktreeCreateOps.ts  # Package-private worktree creation orchestration (add, copy env, gitignore)
 │   ├── worktreeProbeOps.ts   # Package-private worktree-probe ops — inspects an arbitrary worktree path (WorktreeRegistration: healthy/locked/prunable/missing)

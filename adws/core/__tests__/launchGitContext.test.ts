@@ -11,6 +11,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { buildLaunchGitContext } from '../launchGitContext';
 import type { LaunchGitContextDeps } from '../launchGitContext';
 import type { TargetRepoInfo } from '../../types/issueTypes';
+import type { TokenProvider, CredentialRequest } from '../../gitContext';
 
 const FRAMEWORK_ROOT = '/srv/adw/framework';
 const TARGET_REPOS_DIR = '/srv/adw/repos';
@@ -185,5 +186,73 @@ describe('incomplete identity', () => {
         }),
       ),
     ).toThrow(/GitContext/);
+  });
+});
+
+// ── §7: TokenProvider port at the launch boundary ────────────────────────────
+
+function makeIncrementingProvider(): { provider: TokenProvider; requests: CredentialRequest[] } {
+  const requests: CredentialRequest[] = [];
+  const provider: TokenProvider = {
+    credentialEnv(request: CredentialRequest): NodeJS.ProcessEnv {
+      requests.push(request);
+      return { GH_TOKEN: `credential-${requests.length}` };
+    },
+  };
+  return { provider, requests };
+}
+
+describe('TokenProvider port at the launch boundary', () => {
+  it('deps.tokenProvider takes precedence over deps.resolveToken', () => {
+    let resolveTokenCalled = false;
+    const { provider } = makeIncrementingProvider();
+    const ctx = buildLaunchGitContext(
+      makeTargetRepo('acme', 'webapp'),
+      baseDeps({
+        tokenProvider: provider,
+        resolveToken: () => { resolveTokenCalled = true; return 'should-not-be-used'; },
+      }),
+    );
+    ctx.commandEnv();
+    expect(resolveTokenCalled).toBe(false);
+  });
+
+  it('a launch context built with a provider resolves per command: two operations, two credentials', () => {
+    const { provider } = makeIncrementingProvider();
+    const ctx = buildLaunchGitContext(makeTargetRepo('acme', 'webapp'), baseDeps({ tokenProvider: provider }));
+    const first = ctx.commandEnv().GH_TOKEN;
+    const second = ctx.commandEnv().GH_TOKEN;
+    expect(first).not.toBe(second);
+  });
+
+  it('a provider that throws surfaces at construction', () => {
+    const throwingProvider: TokenProvider = { credentialEnv: () => { throw new Error('provider unavailable'); } };
+    expect(() =>
+      buildLaunchGitContext(makeTargetRepo('acme', 'webapp'), baseDeps({ tokenProvider: throwingProvider })),
+    ).toThrow(/provider unavailable/);
+  });
+
+  it('the launch provider serves the same credential for default and alternateIdentity (no alternate identity at this boundary)', () => {
+    const ctx = buildLaunchGitContext(
+      makeTargetRepo('acme', 'webapp'),
+      baseDeps({ resolveToken: () => 'the-only-launch-token' }),
+    );
+    const ordinary = ctx.commandEnv({}, 'default').GH_TOKEN;
+    const elevated = ctx.commandEnv({}, 'alternateIdentity').GH_TOKEN;
+    expect(ordinary).toBe('the-only-launch-token');
+    expect(elevated).toBe('the-only-launch-token');
+  });
+
+  it('deps.resolveToken is adapted into per-command resolution, not resolved once', () => {
+    let calls = 0;
+    const ctx = buildLaunchGitContext(
+      makeTargetRepo('acme', 'webapp'),
+      baseDeps({ resolveToken: () => { calls += 1; return `resolved-${calls}`; } }),
+    );
+    // Construction consumes one call as the validating probe.
+    expect(calls).toBe(1);
+    const env = ctx.commandEnv();
+    expect(env.GH_TOKEN).toBe('resolved-2');
+    expect(calls).toBe(2);
   });
 });
