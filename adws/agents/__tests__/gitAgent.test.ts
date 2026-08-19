@@ -67,7 +67,7 @@ describe('runCommitAgent — result.success guard', () => {
     });
 
     await expect(runCommitAgent('build-agent', '/feature', '{}', '/tmp/logs'))
-      .rejects.toThrow("Commit agent 'build-agent' failed:");
+      .rejects.toThrow("Commit agent 'build-agent' (/feature) failed:");
   });
 
   it('includes agent name in the thrown error', async () => {
@@ -248,5 +248,38 @@ describe('runGenerateBranchNameAgent — AuthRequiredError propagation', () => {
     }
 
     expect(thrownError).toBeInstanceOf(AuthRequiredError);
+  });
+
+  it('throws a plain Error (not AuthRequiredError) with issue context on a non-auth failure', async () => {
+    mockRunAgent.mockResolvedValueOnce({
+      success: false,
+      output: 'spawn claude ENOENT',
+      ...baseAgentResult,
+    });
+
+    let thrownError: unknown;
+    try {
+      await runGenerateBranchNameAgent('/feature', mockIssue, '/tmp/logs');
+    } catch (err) {
+      thrownError = err;
+    }
+
+    expect(thrownError).toBeInstanceOf(Error);
+    expect(thrownError).not.toBeInstanceOf(AuthRequiredError);
+    expect((thrownError as Error).message).toContain('#42');
+    expect((thrownError as Error).message).toContain('/feature');
+    expect((thrownError as Error).message).toContain('spawn claude ENOENT');
+  });
+
+  it('reports "(no agent output)" when a non-auth failure has empty output', async () => {
+    mockRunAgent.mockResolvedValueOnce({
+      success: false,
+      output: '',
+      ...baseAgentResult,
+    });
+
+    await expect(
+      runGenerateBranchNameAgent('/feature', mockIssue, '/tmp/logs')
+    ).rejects.toThrow('(no agent output)');
   });
 });
