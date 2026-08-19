@@ -145,7 +145,8 @@ Use these files to implement the feature:
 - `adws/gitContext/branchOps.ts` (`:9`), `commitOps.ts` (`:5`), `claimOps.ts` (`:21`), `gitReadOps.ts` (`:9`), `remoteOps.ts` (`:10`), `worktreeProbeOps.ts` (`:11`), `worktreeQueryOps.ts` (`:8`), `worktreeRemoveOps.ts` (`:10`), `worktreeCreateOps.ts` (`:9`), `worktreeResetOps.ts` (`:8`) — each declares `Runner = (command: string, cwd: string) => string`. Read-only reference: this seam is unchanged, which is why the classifier approach touches no ops module.
 - `adws/gitContext/repoWorkspace.ts` — `WorkspaceExecFn` (`:24`) and `ensureRepoWorkspace` (`:107-129`). Read-only reference: the documented reason bootstrap primitives keep their own exec seam.
 - `adws/checkGitGhGuard.ts` — `walkNode`/`extractGitGhCommand` (`:134-153`), `EXEMPT_PACKAGE_DIR` (`:46`). Read-only reference: the first-positional-argument requirement in §4 comes from this rule. **No changes** — the guard extension is #792/#795.
-- `features/per-issue/step_definitions/gitContextSharedWorld.ts` — `W`, `makeSpyExec` (`:60-73`), `makeFullOptions` (`:75-95`), `makeNoOpFsDeps` (`:104-111`), `FRAMEWORK_ROOT`/`TARGET_REPOS_ROOT` (`:10-11`). The BDD world every `@adw-6xx`/`@adw-775` GitContext family drives; `@adw-790`'s step definitions reuse it rather than building a second world.
+- `features/per-issue/step_definitions/gitContextSharedWorld.ts` — `W`, `makeSpyExec` (`:60-73`), `makeFullOptions` (`:75-95`), `makeNoOpFsDeps` (`:104-111`), `FRAMEWORK_ROOT`/`TARGET_REPOS_ROOT` (`:10-11`). The BDD world every `@adw-6xx`/`@adw-775` GitContext family drives; `@adw-790`'s step definitions reuse it rather than building a second world. **One additive edit is required here** (step 12): `SpyCall` records `{command, cwd, env}` but not `input`, so the `@adw-790` stdin scenarios cannot assert through it — widen `SpyCall` with `readonly input?: string` and record `options.input` in `makeSpyExec`. Verified additive: the only `makeSpyExec` consumers are `feature-659.steps.ts` (`:126`, `:138`) and `feature-699.steps.ts` (`:46`), neither of which reads `input`. `makeFullOptions` sets no `pat` and `makeNoOpFsDeps` hardcodes `existsSync: () => false`; both are overridden per-scenario at the call site, not changed in the factory.
+- `features/per-issue/feature-790.feature` — the `@adw-790` scenarios (§1–§14), written against this plan and reconciled with it in the alignment phase. It is the contract step 12 implements; its §-numbered headings are the coverage list.
 - `specs/prd/gitcontext-forge-agnostic-refactor.md` — Implementation Decisions → *Disciplined executor*; Testing Decisions → *Executor*. The authority for this slice's scope.
 - `app_docs/feature-oqb76h-gitcontext-base-path-authority.md` — the owning living doc. Its Overview and Responsibilities describe the two private chokepoints and must be updated to the executor-plus-classifiers shape.
 - `.adw/conditional_docs.md` — `app_docs/feature-oqb76h-…` conditions block (around `:2008-2135`). Gains conditions for the public executor.
@@ -154,7 +155,9 @@ Use these files to implement the feature:
 
 ### New Files
 
-None. The types belong beside `ExecFn` in the existing `types.ts` (the issue's Touched Files list agrees), and the executor belongs on the class because it needs `#basePath`, `#repoApiCwd`, identity and `#fsDeps`.
+- `features/per-issue/step_definitions/feature-790.steps.ts` — the `@adw-790` step definitions (step 12). The only new file in this slice.
+
+No new **implementation** source files. The types belong beside `ExecFn` in the existing `types.ts` (the issue's Touched Files list agrees), and the executor belongs on the class because it needs `#basePath`, `#repoApiCwd`, identity and `#fsDeps`.
 
 ## Implementation Plan
 
@@ -220,11 +223,13 @@ Execute every step in order, top to bottom.
 - Replace the body with the classifier form from Solution Statement §2: `cwd: { kind: 'workspace', path: opts.cwd }`, `env: this.commandEnv({}, opts.usePat ?? false)`, `input: opts.input`.
 - Keep the `{ cwd?: string; input?: string; usePat?: boolean }` options shape so all 45 call sites compile unchanged.
 - Update its doc comment: it is no longer the spawn chokepoint, it is the workspace-scoped **classifier** over `exec`, and `usePat` is the GitHub-specific flag that stays private in this slice and leaves in #791.
+- Delegate with `this.exec(...)` — dynamic dispatch through the instance, **not** through a private alias or `GitContext.prototype.exec.call(this, …)`. `@adw-790` §10 observes routing by shadowing the public method with an instance own-property; a statically-bound delegation would bypass the observer and fail that scenario while looking correct.
 
 ### 7. Re-point `#runRepoApi` onto the executor
 
 - Replace the `#run(command, { ...opts, cwd: this.#repoApiCwd })` delegation with a direct `this.exec(command, { cwd: { kind: 'frameworkRoot' }, env: this.commandEnv({}, opts.usePat ?? false), input: opts.input })`.
 - Keep the "deliberately accepts no cwd override" contract in the doc comment, and note it is now expressed as a cwd *class* rather than an override — the class makes the override unrepresentable rather than merely unpassed.
+- Delegate with `this.exec(...)` for the same dynamic-dispatch reason as step 6.
 - Leave all 38 call sites and all 7 `usePat: true` sites untouched.
 
 ### 8. Rewrite the module header of `gitContext.ts`
@@ -250,7 +255,8 @@ Add a `describe('exec() — public forge-neutral executor')` block using the fil
 
 ### 10. Add the compile-time "no forge parameters" guard
 
-- In the same suite, add a `@ts-expect-error` case asserting that an options object carrying `usePat: true` is a **type** error (TypeScript's excess-property check on object literals rejects it). Because the root `tsconfig.json` includes `**/*.ts`, `bunx tsc --noEmit` type-checks this file — so if a future change re-adds a GitHub-specific parameter to `ExecOptions`, the unused `@ts-expect-error` fails the type-check.
+- In the same suite, add a `@ts-expect-error` case asserting that an options object carrying `usePat: true` is a **type** error (TypeScript's excess-property check on object literals rejects it). Both type-checks reach this file — the root `tsconfig.json` includes `**/*.ts`, and `adws/tsconfig.json` includes `./**/*.ts` excluding only `node_modules`/`dist` (verified 2026-08-19) — so if a future change re-adds a GitHub-specific parameter to `ExecOptions`, the unused `@ts-expect-error` fails both `bunx tsc --noEmit` and `bunx tsc --noEmit -p adws/tsconfig.json`.
+- **This case is what makes `@adw-790` §14 non-vacuous.** That scenario reuses the registered T22 phrase, whose step definition (`feature-504.steps.ts:1126`) runs exactly `bunx tsc --noEmit -p adws/tsconfig.json`. §14 is where the issue's "no GitHub-specific parameters in its signature" criterion is enforced, and it enforces nothing if this case is omitted — so do not skip it.
 - Add a runtime companion assertion that the same call still executes correctly at runtime with the extra property stripped (documenting that the ban is structural/type-level, not a runtime rejection).
 
 ### 11. Extend `adws/gitContext/__tests__/repoApiCwd.test.ts` with executor-class coverage
@@ -261,9 +267,20 @@ Add a `describe('exec() — public forge-neutral executor')` block using the fil
 
 ### 12. Add the `@adw-790` BDD step definitions
 
-- The scenario phase writes `features/per-issue/feature-790.feature` in parallel with this plan; the alignment phase reconciles the two. Implement `features/per-issue/step_definitions/feature-790.steps.ts` against whatever that file declares, importing `W`, `makeSpyExec`, `makeFullOptions`, `makeNoOpFsDeps`, `FRAMEWORK_ROOT` and `TARGET_REPOS_ROOT` from `gitContextSharedWorld.ts` — do not create a second world.
-- The drivable surface is exactly the public API: construct a `GitContext` with an injected spy `ExecFn`, call `ctx.exec(command, { cwd, env, input? })`, and assert the recorded `(command, cwd, env)` triple plus the returned/thrown value. Reuse registered vocabulary phrases where they already exist for cwd/env/token assertions; declare genuinely new phrasing (executor-specific: cwd *class*, credential overlay, stdin) as novel for this issue.
-- Cover, at minimum: the two cwd classes and the explicit-worktree narrowing; per-command credential env (two calls, two tokens, one context); `process.env` untouched; stdin passthrough; the `ENOENT` rewrap message naming path and repo identity; and a `gh` command routed by an outside caller through `exec` with `{ kind: 'frameworkRoot' }` — the shape #792's adapter will use.
+`features/per-issue/feature-790.feature` is already written and reconciled with this plan. Implement `features/per-issue/step_definitions/feature-790.steps.ts` against its §1–§14 sections and its declared phrase list; the feature file's "Step-definition note for the maintainer" block is binding guidance, not commentary.
+
+- **Reuse `gitContextSharedWorld.ts`** — `W`, `makeSpyExec`, `makeFullOptions`, `makeNoOpFsDeps`, `FRAMEWORK_ROOT`, `TARGET_REPOS_ROOT`. Do not create a second world. Nothing spawns a real process or touches a real directory: every scenario drives the real `GitContext` in-process with an injected `deps.exec`.
+- **Three shared-world adjustments, all additive:**
+  - (a) `makeFullOptions` sets no `pat`, so §7, §8, §10 and §13 must construct with `{ ...makeFullOptions(...), pat: 'token-pat' }`. `commandEnv`'s fallback is `(usePat && this.#pat) ? this.#pat : this.#token`, so without a PAT those scenarios pass vacuously.
+  - (b) Widen `SpyCall` with `readonly input?: string` and record `options.input` in `makeSpyExec` — §9 cannot assert stdin otherwise. Verified additive: the only consumers are `feature-659.steps.ts` and `feature-699.steps.ts`, neither of which reads `input`.
+  - (c) `makeNoOpFsDeps` hardcodes `existsSync: () => false` (what §11 needs). §12's "missing-file failure raised while the working directory is present" row needs the opposite — pass a local `{ ...makeNoOpFsDeps(), existsSync: () => true }` at that call site rather than changing the shared factory.
+- **One binding point.** Every step reaches the new API through a single module-private helper (e.g. `runThroughExecutor(ctx, command, cwdClass, env?, stdin?)`) that is the only place naming the literal options shape. This is a HITL slice: if review reshapes the signature, exactly one helper changes.
+- **Phrasing.** Reuse only the two registered phrases the feature file names — G18 `the ADW codebase is checked out` (`features/step_definitions/ensureCronOnEveryEventSteps.ts:8`) and T22 `the ADW TypeScript type-check passes` (`feature-504.steps.ts:1126`); redefining either is an `AmbiguousStepDefinition`. Every other phrase is **deliberately novel and deliberately distinct** from the existing GitContext families (`feature-659`, `feature-775`, `feature-777`), because `cucumber.js` globally imports `features/per-issue/step_definitions/**/*.ts` — so a phrase reused from another family would collide at load time. Do not "consolidate" these phrases into the older families' wording.
+- **Coverage is the feature file's §-sections**, each of which needs step definitions: §1 command passthrough + trimmed return; §2 caller-chosen cwd class over crossed command/directory rows (the executor must not infer from the command string); §3 framework-root class after `process.chdir` away; §4 workspace class and explicit-worktree narrowing; §5 the eight-row table of existing context operations keeping their working directories, plus the worktree-scoped operation; §6 per-command credential env (two calls, two tokens, one context) and `PATH` still inherited; §7 `approvePR` still spawning with the PAT while an ordinary repo-API read spawns with the primary token; §8 a PAT-selection flag on the public entry not displacing the caller's credential; §9 stdin supplied, stdin omitted, and an internal write still delivering its body on stdin; §10 the pass-through observer proving no internal operation reaches the seam around the public executor; §11 the rewrap firing from inside the executor (error code, directory, repository); §12 every other failure reaching the caller by identity, unwrapped; §13 no `process.env` mutation across both credential paths; §14 the T22 type-check.
+- **Two implementation details §10 and §12 depend on.** §10 shadows `ctx.exec` with an instance own-property and compares the observer's call count against the seam recorder's — which works only because steps 6 and 7 delegate via `this.exec(...)`; delete the own property in `After`. §12 asserts error **identity** (`caught === sentinel`), which holds because `rewrapMissingWorkingDirectory` returns the original error object untouched whenever it does not fire (`workingDirectoryGuard.ts:59-60`).
+- **Un-escape the seam answer.** §1 writes `answers "executor-passthrough\n"` and then asserts `the executor returns the trimmed output "executor-passthrough"`. Cucumber's `{string}` parameter does not process escape sequences, so the step definition receives a literal backslash-`n` and `.trim()` would not strip it. Have `the context's spawn seam records every command and answers {string}` translate `\n` to a real newline before handing the payload to the seam — that is what makes the scenario prove the `.trim()` all 83 existing call sites depend on.
+- Assert the missing-directory failure by `code === 'ENOENT'`, never by the spawn message — node and bun word it differently. The other two §11 assertions do read the message, correctly: that message is this repo's own `describeMissingWorkingDirectory` output.
+- Restore `process.cwd()` and the `process.env` snapshot in `After` for the scenarios that perturb them (§3, §4, §13), per the `feature-775` precedent.
 
 ### 13. Run the unit suite and prove the untouched files stayed untouched
 
@@ -292,7 +309,7 @@ Execute every command in the `Validation Commands` section below and confirm eac
 
 **Unmodified regression net** — `gitContextOperations.test.ts` (env injection, `PATH` inheritance, `process.env` non-mutation on both the happy and throwing paths, verbatim non-`ENOENT` error propagation, non-ambient cwd after `process.chdir`, `createPR --head`), `workingDirectoryGuard.test.ts` (the pure rewrap module), and every other `adws/gitContext/__tests__/` suite. These must pass untouched; that is the behaviour-neutrality proof.
 
-**BDD (`@adw-790`)** — step definitions over `gitContextSharedWorld.ts` as described in step 12, driving the real `GitContext` in-process with a spy `ExecFn`. The ~15 existing GitContext families (`@adw-658`, `@adw-659`, `@adw-661`…`@adw-700`, `@adw-775`, `@adw-777`) are re-run unmodified as the cross-family regression net.
+**BDD (`@adw-790`)** — `features/per-issue/feature-790.feature` (§1–§14) driven by `feature-790.steps.ts` over `gitContextSharedWorld.ts` as described in step 12: the real `GitContext` in-process with a spy `ExecFn`, asserting the recorded `(command, cwd, env, input)` tuple, the returned value, the raised error and the type-checker's exit status. Nothing reads framework source as text. §5, §7, §12 and §13 are GREEN before and after (they guard existing behaviour); §1, §2, §3, §4, §6, §8, §9, §10 and §11 are RED before. The ~15 existing GitContext families (`@adw-658`, `@adw-659`, `@adw-661`…`@adw-700`, `@adw-775`, `@adw-777`) are re-run unmodified as the cross-family regression net — `gitContextSharedWorld.ts`'s `SpyCall` widening is additive, so none of them changes.
 
 ### Edge Cases
 
@@ -322,7 +339,7 @@ Execute every command in the `Validation Commands` section below and confirm eac
 8. Per-command credential environment is preserved exactly: `GH_TOKEN` plus the four `GIT_*` identity vars overlaid on the inherited environment, `PATH` still inherited, `process.env` never written — including when the spawn throws.
 9. `bun run test:unit` is green with `gitContextOperations.test.ts` and `workingDirectoryGuard.test.ts` **unmodified**, and with only additive changes to `gitContext.test.ts` and `repoApiCwd.test.ts`.
 10. New tests assert the executed command, the credential env, the resolved cwd and the stdin through the injected exec fake, plus `process.env` non-mutation; a `@ts-expect-error` case fails the type-check if a forge-specific parameter is ever added to `ExecOptions`.
-11. `@adw-790` scenarios pass, and every pre-existing `@adw-*` GitContext family plus `@regression` passes with its feature files unmodified.
+11. All `@adw-790` scenarios pass, and every pre-existing `@adw-*` GitContext family plus `@regression` passes with its feature files and its own step definitions unmodified — the only shared-step-definition change is the additive `SpyCall.input` field and its recording in `makeSpyExec` (`gitContextSharedWorld.ts`), which no existing family reads.
 12. `bun run lint`, `bunx tsc --noEmit`, `bunx tsc --noEmit -p adws/tsconfig.json` and `bun run build` all pass.
 13. `app_docs/feature-oqb76h-gitcontext-base-path-authority.md`, `.adw/conditional_docs.md` and `README.md` describe the public executor and its two private classifiers.
 
@@ -345,7 +362,7 @@ Execute every command to validate the feature works correctly with zero regressi
 - `bun run build` — `tsc` build succeeds.
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@regression"` — regression suite green.
 
-**Cross-family regression net — each must be green with its feature file and step definitions unmodified** (these are the families that assert cwd, per-command env, token isolation and worktree contracts through the chokepoint this slice rewires):
+**Cross-family regression net — each must be green with its feature file and its own step definitions unmodified** (these are the families that assert cwd, per-command env, token isolation and worktree contracts through the chokepoint this slice rewires). The one shared file that does change, `gitContextSharedWorld.ts`, gains only the additive optional `SpyCall.input` field from step 12, which no existing family reads:
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-659"` — per-command auth / explicit-cwd / two-context isolation.
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-775"` — repo-API framework-root cwd contract.
 - `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-777"` — missing-working-directory rewrap.
