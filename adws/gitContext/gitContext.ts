@@ -21,10 +21,15 @@
  *                      travels in the command string. Resolves to the
  *                      injected framework repo root, which exists regardless
  *                      of whether the target workspace has ever been cloned.
- * Both inject per-command auth (token or PAT, via the GitHub-specific
- * `usePat` flag — private and temporary, not part of `exec()`'s public
- * signature) + git identity into the child environment without ever
- * mutating process.env.
+ * Both assemble their credential environment through the **TokenProvider
+ * port** (`#credentials`, see `types.ts`), asked once per command and never
+ * cached by the core, plus git identity — merged into the child environment
+ * without ever mutating process.env. Each classifier declares only a
+ * forge-neutral `CredentialPurpose`; the provider decides which credential
+ * answers it. Identity validation probes the provider once at construction
+ * and discards the result — see `assertCompleteIdentity`. `token`/`pat`
+ * remain on `GitContextOptions` only as the transitional literal-credential
+ * path for callers that have not yet been migrated to a provider.
  *
  * A spawn failure caused by a missing working directory (basePath or an
  * explicit worktree path that has never been cloned/created on this host)
@@ -36,7 +41,10 @@
 import * as path from 'path';
 import { execSync } from 'child_process';
 import { existsSync, mkdirSync, copyFileSync, rmSync } from 'fs';
-import type { GitContextOptions, GitIdentity, ExecFn, GitContextDeps, FsDeps, ExecOptions, ExecWorkingDirectory } from './types';
+import type {
+  GitContextOptions, GitIdentity, ExecFn, GitContextDeps, FsDeps, ExecOptions, ExecWorkingDirectory,
+  TokenProvider, CredentialPurpose, CredentialRequest,
+} from './types';
 import { branchOps } from './branchOps';
 import { commitOps } from './commitOps';
 import { worktreeResetOps } from './worktreeResetOps';
@@ -86,7 +94,6 @@ function assertCompleteIdentity(options: GitContextOptions): void {
   const required: Array<[string, string | undefined]> = [
     ['owner', options.owner],
     ['repo', options.repo],
-    ['token', options.token],
     ['frameworkRepoRoot', options.frameworkRepoRoot],
     ['targetReposDir', options.targetReposDir],
   ];
@@ -107,6 +114,48 @@ function assertCompleteIdentity(options: GitContextOptions): void {
   for (const [field, value] of idFields) {
     if (!value?.trim()) throw new Error(`GitContext: gitIdentity.${field} must not be empty`);
   }
+
+  // Credential fields are conditionally required: exactly one of tokenProvider
+  // (the supported path) or token (transitional) must be supplied.
+  if (!options.tokenProvider && options.token === undefined) {
+    throw new Error('GitContext: exactly one of tokenProvider or token must be provided');
+  }
+  if (!options.tokenProvider && !options.token?.trim()) {
+    throw new Error('GitContext: token must not be empty');
+  }
+  if (options.tokenProvider) {
+    // Validate-and-discard probe: construction performs exactly ONE
+    // resolution to fail loudly when the provider can produce no credential
+    // — preserving the loud launch-time failure that launchGitContext and
+    // gitContextFactory callers depend on — but the answer is thrown away
+    // immediately. The first real command still resolves the provider's
+    // SECOND answer, never this one. This is what keeps "never cached at
+    // construction" literally true while still validating eagerly.
+    const probe = options.tokenProvider.credentialEnv({ owner: options.owner, repo: options.repo, purpose: 'default' });
+    const values = Object.values(probe);
+    const isComplete = values.length > 0 && values.every((v) => !!v?.trim());
+    if (!isComplete) {
+      throw new Error(`GitContext: tokenProvider returned no credential for ${options.owner}/${options.repo}`);
+    }
+  }
+}
+
+/**
+ * TRANSITIONAL — the literal-credential path for callers that still pass
+ * `options.token`/`options.pat` instead of a `tokenProvider`. Production no
+ * longer takes this path; it exists so the many existing construction sites
+ * that assert against a literal token stay untouched and keep acting as this
+ * slice's regression net. This is the only place the credential environment
+ * is derived from a construction-time snapshot in the core, and it is one
+ * deletion away from gone — removed alongside `GitContextOptions.token`/`pat`
+ * in #792/#796.
+ */
+function staticCredentialProvider(token: string, pat: string | undefined): TokenProvider {
+  return {
+    credentialEnv({ purpose }: CredentialRequest): NodeJS.ProcessEnv {
+      return { GH_TOKEN: (purpose === 'alternateIdentity' && pat) ? pat : token };
+    },
+  };
 }
 
 function resolveBasePath(options: GitContextOptions): string {
@@ -125,8 +174,7 @@ export class GitContext {
   readonly #owner: string;
   readonly #repo: string;
   readonly #selfHost: boolean;
-  readonly #token: string;
-  readonly #pat: string | undefined;
+  readonly #credentials: TokenProvider;
   readonly #gitIdentity: GitIdentity;
   readonly #execFn: ExecFn;
   readonly #fsDeps: FsDeps;
@@ -136,8 +184,7 @@ export class GitContext {
     this.#owner = options.owner;
     this.#repo = options.repo;
     this.#selfHost = options.selfHost;
-    this.#token = options.token;
-    this.#pat = options.pat;
+    this.#credentials = options.tokenProvider ?? staticCredentialProvider(options.token ?? '', options.pat);
     this.#gitIdentity = options.gitIdentity;
     this.#basePath = resolveBasePath(options);
     this.#repoApiCwd = options.frameworkRepoRoot;
@@ -155,10 +202,22 @@ export class GitContext {
     return path.join(this.#basePath, '.worktrees', sanitizeBranchName(branch));
   }
 
-  commandEnv(base: NodeJS.ProcessEnv = {}, usePat = false): NodeJS.ProcessEnv {
+  /**
+   * Assembles a command's environment overlay. The credential is resolved
+   * through the TokenProvider port on **every call** — never captured at
+   * construction — so a long-running orchestrator's agent-subprocess call
+   * sites (buildPhase.ts, documentPhase.ts, reviewPhase.ts, prPhase.ts,
+   * prReviewPhase.ts, scenarioFixPhase.ts, promotionRotAdvisory.ts) each get a
+   * freshly-resolved credential per invocation. The credential is spread
+   * before the GIT_* identity assignments so a hostile or misbehaving
+   * provider can never displace the context's git identity; both are spread
+   * after `base`, preserving existing precedence for call sites that pass an
+   * overlay base.
+   */
+  commandEnv(base: NodeJS.ProcessEnv = {}, purpose: CredentialPurpose = 'default'): NodeJS.ProcessEnv {
     return {
       ...base,
-      GH_TOKEN: (usePat && this.#pat) ? this.#pat : this.#token,
+      ...this.#credentials.credentialEnv({ owner: this.#owner, repo: this.#repo, purpose }),
       GIT_AUTHOR_NAME: this.#gitIdentity.authorName,
       GIT_AUTHOR_EMAIL: this.#gitIdentity.authorEmail,
       GIT_COMMITTER_NAME: this.#gitIdentity.committerName,
@@ -196,8 +255,8 @@ export class GitContext {
    * `code: 'ENOENT'`; every other failure (including an ENOENT whose cwd
    * genuinely exists) propagates verbatim.
    *
-   * Deliberately forge-neutral: no `usePat`, no token selection, no forge
-   * vocabulary anywhere in this signature.
+   * Deliberately forge-neutral: no credential-purpose parameter, no token
+   * selection, no forge vocabulary anywhere in this signature.
    */
   exec(command: string, options: ExecOptions): string {
     if (!command.trim()) throw new Error('GitContext: exec command must not be empty');
@@ -219,16 +278,17 @@ export class GitContext {
    * workspace-scoped operations. Resolves to the context base path, or to an
    * explicit worktree path when supplied.
    *
-   * opts.cwd    — when provided, narrows the workspace class to this worktree path
-   * opts.usePat — GitHub-specific: when true and a PAT is configured, uses the
-   *               PAT as GH_TOKEN. Private and temporary — leaves in the
-   *               TokenProvider slice (#791); never reaches `exec()`'s public signature.
-   * opts.input  — when provided, passes the string to the child's stdin
+   * opts.cwd     — when provided, narrows the workspace class to this worktree path
+   * opts.purpose — the forge-neutral credential purpose this command needs;
+   *                the TokenProvider port, not this classifier, decides which
+   *                credential answers it. Private and temporary — never
+   *                reaches `exec()`'s public signature.
+   * opts.input   — when provided, passes the string to the child's stdin
    */
-  #run(command: string, opts: { cwd?: string; input?: string; usePat?: boolean } = {}): string {
+  #run(command: string, opts: { cwd?: string; input?: string; purpose?: CredentialPurpose } = {}): string {
     return this.exec(command, {
       cwd: { kind: 'workspace', path: opts.cwd },
-      env: this.commandEnv({}, opts.usePat ?? false),
+      env: this.commandEnv({}, opts.purpose ?? 'default'),
       input: opts.input,
     });
   }
@@ -245,10 +305,10 @@ export class GitContext {
    * Deliberately accepts no cwd override — the framework-root class makes
    * that override unrepresentable rather than merely unpassed.
    */
-  #runRepoApi(command: string, opts: { input?: string; usePat?: boolean } = {}): string {
+  #runRepoApi(command: string, opts: { input?: string; purpose?: CredentialPurpose } = {}): string {
     return this.exec(command, {
       cwd: { kind: 'frameworkRoot' },
-      env: this.commandEnv({}, opts.usePat ?? false),
+      env: this.commandEnv({}, opts.purpose ?? 'default'),
       input: opts.input,
     });
   }
@@ -619,7 +679,7 @@ export class GitContext {
 
   /** Approves a PR using the PAT identity (GitHub forbids bot self-approval). */
   approvePR(prNumber: number): void {
-    this.#runRepoApi(approvePRCmd(this.#owner, this.#repo, prNumber), { usePat: true });
+    this.#runRepoApi(approvePRCmd(this.#owner, this.#repo, prNumber), { purpose: 'alternateIdentity' });
   }
 
   prApprovalState(prNumber: number): string {
@@ -655,12 +715,12 @@ export class GitContext {
   }
 
   runGraphQL(query: string, variables?: Record<string, string | number>): string {
-    return this.#runRepoApi(graphQLCmd(query, variables), { usePat: true });
+    return this.#runRepoApi(graphQLCmd(query, variables), { purpose: 'alternateIdentity' });
   }
 
   /** stdin-JSON form for GraphQL mutations with complex/array variables that runGraphQL's flag form cannot express. Uses PAT (Projects V2 writes) with graceful fallback to context token when no PAT is set. */
   runGraphQLInput(body: Record<string, unknown>): string {
-    return this.#runRepoApi(graphQLInputCmd(), { input: JSON.stringify(body), usePat: true });
+    return this.#runRepoApi(graphQLInputCmd(), { input: JSON.stringify(body), purpose: 'alternateIdentity' });
   }
 
   /**
@@ -672,14 +732,14 @@ export class GitContext {
   moveIssueToStatus(issueNumber: number, targetStatus: string): boolean {
     let projectId: string | null = null;
     try {
-      projectId = parseProjectId(this.#runRepoApi(projectQueryCmd(this.#owner, this.#repo), { usePat: true }));
+      projectId = parseProjectId(this.#runRepoApi(projectQueryCmd(this.#owner, this.#repo), { purpose: 'alternateIdentity' }));
     } catch { return false; }
     if (!projectId) return false;
 
     let item: { itemId: string; currentStatus: string | null } | null = null;
     try {
       item = parseIssueItem(
-        this.#runRepoApi(itemQueryCmd(this.#owner, this.#repo, issueNumber), { usePat: true }),
+        this.#runRepoApi(itemQueryCmd(this.#owner, this.#repo, issueNumber), { purpose: 'alternateIdentity' }),
         projectId,
       );
     } catch { return false; }
@@ -689,7 +749,7 @@ export class GitContext {
     let field: { fieldId: string; optionId: string } | 'already_at_status' | null = null;
     try {
       field = parseStatusField(
-        this.#runRepoApi(fieldQueryCmd(projectId), { usePat: true }),
+        this.#runRepoApi(fieldQueryCmd(projectId), { purpose: 'alternateIdentity' }),
         targetStatus,
         item.currentStatus,
       );
@@ -698,7 +758,7 @@ export class GitContext {
     if (field === 'already_at_status') return true;
 
     try {
-      this.#runRepoApi(moveStatusCmd(projectId, item.itemId, field.fieldId, field.optionId), { usePat: true });
+      this.#runRepoApi(moveStatusCmd(projectId, item.itemId, field.fieldId, field.optionId), { purpose: 'alternateIdentity' });
     } catch { return false; }
     return true;
   }

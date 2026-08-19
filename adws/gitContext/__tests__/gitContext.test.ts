@@ -3,7 +3,7 @@ import * as os from 'os';
 import * as fs from 'fs';
 import { describe, it, expect, afterEach } from 'vitest';
 import { GitContext } from '../gitContext';
-import type { GitContextOptions } from '../types';
+import type { GitContextOptions, TokenProvider, CredentialRequest } from '../types';
 
 const FRAMEWORK_ROOT = '/srv/adw/framework';
 const TARGET_REPOS_DIR = '/srv/adw/repos';
@@ -593,5 +593,154 @@ describe('exec() options admit no forge-specific parameter', () => {
     ctx.exec('gh api user', { cwd: { kind: 'frameworkRoot' }, env: {}, usePat: true });
     expect(calls[0].command).toBe('gh api user');
     expect(calls[0].cwd).toBe(FRAMEWORK_ROOT);
+  });
+});
+
+// ── TokenProvider port ───────────────────────────────────────────────────────
+
+function providerOptions(provider: TokenProvider, overrides: Partial<GitContextOptions> = {}): GitContextOptions {
+  const opts = validOptions(overrides) as unknown as Record<string, unknown>;
+  delete opts['token'];
+  return { ...(opts as unknown as GitContextOptions), tokenProvider: provider };
+}
+
+/** A provider whose credentialEnv logs every request and answers from a script. */
+function makeRecordingProvider(answer: (request: CredentialRequest, callIndex: number) => NodeJS.ProcessEnv): {
+  provider: TokenProvider;
+  requests: CredentialRequest[];
+} {
+  const requests: CredentialRequest[] = [];
+  const provider: TokenProvider = {
+    credentialEnv(request: CredentialRequest): NodeJS.ProcessEnv {
+      requests.push(request);
+      return answer(request, requests.length);
+    },
+  };
+  return { provider, requests };
+}
+
+/** Answers credential-1, credential-2, credential-3, … by call index. */
+function makeIncrementingProvider(): { provider: TokenProvider; requests: CredentialRequest[] } {
+  return makeRecordingProvider((_req, callIndex) => ({ GH_TOKEN: `credential-${callIndex}` }));
+}
+
+describe('TokenProvider port — per-command resolution', () => {
+  it('a recording provider is called once per command, each with the context owner/repo', () => {
+    const { provider, requests } = makeRecordingProvider(() => ({ GH_TOKEN: 'tok' }));
+    const { exec } = makeSpyExec();
+    const ctx = new GitContext(providerOptions(provider, { owner: 'acme', repo: 'webapp' }), { exec });
+    ctx.remotes();
+    ctx.remoteUrl();
+    ctx.headShort();
+    // Construction consumes the first answer as a validating probe (discarded);
+    // three single-command operations above add three more.
+    expect(requests.length).toBe(4);
+    for (const req of requests) {
+      expect(req.owner).toBe('acme');
+      expect(req.repo).toBe('webapp');
+    }
+  });
+
+  it('no caching: three commands carry three different GH_TOKEN values', () => {
+    const { provider } = makeIncrementingProvider();
+    const { exec, calls } = makeSpyExec();
+    const ctx = new GitContext(providerOptions(provider), { exec });
+    ctx.remotes();
+    ctx.remoteUrl();
+    ctx.headShort();
+    const tokens = calls.map((c) => c.env.GH_TOKEN);
+    expect(new Set(tokens).size).toBe(3);
+  });
+
+  it('commandEnv itself resolves per call: two calls return different credentials', () => {
+    const { provider } = makeIncrementingProvider();
+    const ctx = new GitContext(providerOptions(provider));
+    const first = ctx.commandEnv().GH_TOKEN;
+    const second = ctx.commandEnv().GH_TOKEN;
+    expect(first).not.toBe(second);
+  });
+});
+
+describe('TokenProvider port — purpose routing', () => {
+  it("approvePR and each board-status-move call reach the provider with purpose 'alternateIdentity'", () => {
+    const { provider, requests } = makeRecordingProvider(() => ({ GH_TOKEN: 'tok' }));
+    const { exec } = makeSpyExec();
+    const ctx = new GitContext(providerOptions(provider), { exec });
+    ctx.approvePR(7);
+    expect(requests[requests.length - 1].purpose).toBe('alternateIdentity');
+  });
+
+  it("defaultBranch and an ordinary git op reach the provider with purpose 'default'", () => {
+    const { provider, requests } = makeRecordingProvider(() => ({ GH_TOKEN: 'tok' }));
+    const { exec } = makeSpyExec();
+    const ctx = new GitContext(providerOptions(provider), { exec });
+    ctx.defaultBranch();
+    ctx.remoteUrl();
+    const nonProbeRequests = requests.slice(1);
+    for (const req of nonProbeRequests) {
+      expect(req.purpose).toBe('default');
+    }
+  });
+});
+
+describe('TokenProvider port — identity precedence', () => {
+  it('a provider returning GIT_AUTHOR_NAME does not displace the context gitIdentity', () => {
+    const hostileProvider: TokenProvider = {
+      credentialEnv: () => ({ GH_TOKEN: 'tok', GIT_AUTHOR_NAME: 'Hijack' }),
+    };
+    const ctx = new GitContext(providerOptions(hostileProvider, {
+      gitIdentity: { authorName: 'Real Author', authorEmail: 'a@b.com', committerName: 'Real Committer', committerEmail: 'c@d.com' },
+    }));
+    expect(ctx.commandEnv().GIT_AUTHOR_NAME).toBe('Real Author');
+  });
+});
+
+describe('TokenProvider port — construction validation', () => {
+  it('provider present and token absent constructs successfully', () => {
+    const { provider } = makeIncrementingProvider();
+    expect(() => new GitContext(providerOptions(provider))).not.toThrow();
+  });
+
+  it('neither provider nor token throws /GitContext/', () => {
+    const opts = validOptions() as unknown as Record<string, unknown>;
+    delete opts['token'];
+    expect(() => new GitContext(opts as unknown as GitContextOptions)).toThrow(/GitContext/);
+  });
+
+  it('a provider returning an empty overlay throws /GitContext/', () => {
+    const emptyProvider: TokenProvider = { credentialEnv: () => ({}) };
+    expect(() => new GitContext(providerOptions(emptyProvider))).toThrow(/GitContext/);
+  });
+
+  it('a provider returning a blank GH_TOKEN throws /GitContext/', () => {
+    const blankProvider: TokenProvider = { credentialEnv: () => ({ GH_TOKEN: '' }) };
+    expect(() => new GitContext(providerOptions(blankProvider))).toThrow(/GitContext/);
+  });
+
+  it('a provider that throws at construction propagates the throw unchanged', () => {
+    const sentinel = new Error('provider unavailable');
+    const throwingProvider: TokenProvider = { credentialEnv: () => { throw sentinel; } };
+    expect(() => new GitContext(providerOptions(throwingProvider))).toThrow(sentinel);
+  });
+});
+
+describe('TokenProvider port — the construction probe caches nothing', () => {
+  it('the first command carries the providers SECOND answer, not the probes first', () => {
+    const { provider } = makeIncrementingProvider();
+    const { exec, calls } = makeSpyExec();
+    const ctx = new GitContext(providerOptions(provider), { exec });
+    ctx.remotes();
+    expect(calls[0].env.GH_TOKEN).toBe('credential-2');
+  });
+});
+
+describe('TokenProvider port — transitional literal-token path unchanged', () => {
+  it('a default op yields the token and approvePR yields the pat, restated at the port seam', () => {
+    const { exec, calls } = makeSpyExec();
+    const ctx = new GitContext(validOptions({ token: 'tok', pat: 'pat-tok' }), { exec });
+    ctx.remoteUrl();
+    ctx.approvePR(7);
+    expect(calls[0].env.GH_TOKEN).toBe('tok');
+    expect(calls[1].env.GH_TOKEN).toBe('pat-tok');
   });
 });
