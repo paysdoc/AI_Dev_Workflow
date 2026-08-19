@@ -17,6 +17,45 @@
 export type ExecFn = (command: string, options: { cwd: string; env: NodeJS.ProcessEnv; input?: string }) => string;
 
 /**
+ * The working-directory CLASS a command belongs to — the caller's declaration,
+ * never the executor's inference. There is no `process.cwd()` fallback and no
+ * fourth option.
+ *
+ *  - `workspace`    — the target workspace this context is bound to. Omitting
+ *                      `path` means the context base path; supplying `path`
+ *                      narrows to an explicit worktree beneath it.
+ *  - `frameworkRoot` — the injected framework repository root, for commands
+ *                      that carry their own repository identity and need no
+ *                      checkout (#775's contract). Deliberately carries no `path`
+ *                      — "framework root with an explicit worktree path" is
+ *                      unrepresentable rather than merely undocumented.
+ */
+export type ExecWorkingDirectory =
+  | { readonly kind: 'workspace'; readonly path?: string }
+  | { readonly kind: 'frameworkRoot' };
+
+/**
+ * Options for {@link GitContext.exec}, the package's public forge-neutral
+ * executor. Deliberately carries no forge semantics — no credential
+ * selection, no PAT-versus-installation-token discrimination, no `--repo`
+ * awareness. `command` stays a separate, first positional parameter on
+ * `exec` (not folded into this object) so the `git-gh-shellout` CI guard
+ * keeps inspecting it.
+ */
+export interface ExecOptions {
+  /** The working-directory class this command runs in — never a bare path. */
+  readonly cwd: ExecWorkingDirectory;
+  /**
+   * Per-command credential/identity overlay, merged over the inherited
+   * process environment inside the executor. Never a whole replacement
+   * environment, and never a `process.env` mutation.
+   */
+  readonly env: NodeJS.ProcessEnv;
+  /** Optional data piped to the child process's stdin. */
+  readonly input?: string;
+}
+
+/**
  * Injectable filesystem seam for worktree management ops.
  * All fields optional; defaults are the real fs functions.
  */

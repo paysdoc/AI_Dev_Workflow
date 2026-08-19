@@ -1,5 +1,6 @@
 import * as path from 'path';
 import * as os from 'os';
+import * as fs from 'fs';
 import { describe, it, expect, afterEach } from 'vitest';
 import { GitContext } from '../gitContext';
 import type { GitContextOptions } from '../types';
@@ -357,5 +358,240 @@ describe('gitConfigUser()', () => {
     });
     ctx.gitConfigUser();
     expect(process.env['GH_TOKEN']).toBe(before);
+  });
+});
+
+// ── exec() — public forge-neutral executor ──────────────────────────────────
+
+interface ExecCall {
+  command: string;
+  cwd: string;
+  env: NodeJS.ProcessEnv;
+  input?: string;
+}
+
+function makeSpyExec(stdout = 'main\n'): {
+  exec: (command: string, options: { cwd: string; env: NodeJS.ProcessEnv; input?: string }) => string;
+  calls: ExecCall[];
+} {
+  const calls: ExecCall[] = [];
+  const exec = (command: string, options: { cwd: string; env: NodeJS.ProcessEnv; input?: string }): string => {
+    calls.push({ command, cwd: options.cwd, env: options.env, input: options.input });
+    return stdout;
+  };
+  return { exec, calls };
+}
+
+describe('exec() — public forge-neutral executor', () => {
+  const originalCwd = process.cwd();
+  afterEach(() => process.chdir(originalCwd));
+
+  it('passes the command to the fake verbatim and untransformed', () => {
+    const { exec, calls } = makeSpyExec();
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.exec("printf '%s' 'no-forge-meaning'", { cwd: { kind: 'workspace' }, env: {} });
+    expect(calls[0].command).toBe("printf '%s' 'no-forge-meaning'");
+  });
+
+  it('workspace class with no path records the context base path (target context)', () => {
+    const { exec, calls } = makeSpyExec();
+    const ctx = new GitContext(validOptions({ selfHost: false }), { exec });
+    ctx.exec('git status', { cwd: { kind: 'workspace' }, env: {} });
+    expect(calls[0].cwd).toBe(ctx.basePath);
+  });
+
+  it('workspace class with no path records the context base path (self-host context)', () => {
+    const { exec, calls } = makeSpyExec();
+    const ctx = new GitContext(validOptions({ selfHost: true }), { exec });
+    ctx.exec('git status', { cwd: { kind: 'workspace' }, env: {} });
+    expect(calls[0].cwd).toBe(ctx.basePath);
+    expect(calls[0].cwd).toBe(FRAMEWORK_ROOT);
+  });
+
+  it('workspace class with an explicit path narrows to that worktree', () => {
+    const { exec, calls } = makeSpyExec();
+    const ctx = new GitContext(validOptions(), { exec });
+    const worktreePath = '/srv/adw/repos/acme/webapp/.worktrees/feature-x';
+    ctx.exec('git status', { cwd: { kind: 'workspace', path: worktreePath }, env: {} });
+    expect(calls[0].cwd).toBe(worktreePath);
+  });
+
+  it('frameworkRoot class records the injected framework root for a target context, distinct from basePath', () => {
+    const { exec, calls } = makeSpyExec();
+    const ctx = new GitContext(validOptions({ selfHost: false }), { exec });
+    ctx.exec('gh api user', { cwd: { kind: 'frameworkRoot' }, env: {} });
+    expect(calls[0].cwd).toBe(FRAMEWORK_ROOT);
+    expect(calls[0].cwd).not.toBe(ctx.basePath);
+  });
+
+  it('frameworkRoot class records the injected framework root even after process.chdir()', () => {
+    const { exec, calls } = makeSpyExec();
+    const ctx = new GitContext(validOptions({ selfHost: false }), { exec });
+    process.chdir(os.tmpdir());
+    ctx.exec('gh api user', { cwd: { kind: 'frameworkRoot' }, env: {} });
+    expect(calls[0].cwd).toBe(FRAMEWORK_ROOT);
+    expect(calls[0].cwd).not.toBe(process.cwd());
+  });
+
+  it('records the caller-supplied credential env verbatim', () => {
+    const { exec, calls } = makeSpyExec();
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.exec('gh api user', { cwd: { kind: 'frameworkRoot' }, env: { GH_TOKEN: 'call-scoped-token' } });
+    expect(calls[0].env.GH_TOKEN).toBe('call-scoped-token');
+  });
+
+  it('two calls on the same context with different env values record different tokens', () => {
+    const { exec, calls } = makeSpyExec();
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.exec('gh api user', { cwd: { kind: 'frameworkRoot' }, env: { GH_TOKEN: 'token-first' } });
+    ctx.exec('gh api user', { cwd: { kind: 'frameworkRoot' }, env: { GH_TOKEN: 'token-second' } });
+    expect(calls[0].env.GH_TOKEN).toBe('token-first');
+    expect(calls[1].env.GH_TOKEN).toBe('token-second');
+  });
+
+  it('inherits PATH from process.env when the overlay does not mention it', () => {
+    const { exec, calls } = makeSpyExec();
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.exec('git status', { cwd: { kind: 'workspace' }, env: { GH_TOKEN: 'tok' } });
+    expect(calls[0].env.PATH).toBe(process.env.PATH);
+  });
+
+  it('does not mutate the caller-supplied env object', () => {
+    const { exec } = makeSpyExec();
+    const ctx = new GitContext(validOptions(), { exec });
+    const overlay = { GH_TOKEN: 'tok' };
+    ctx.exec('git status', { cwd: { kind: 'workspace' }, env: overlay });
+    expect(overlay).toEqual({ GH_TOKEN: 'tok' });
+  });
+
+  it('does not mutate process.env on the happy path', () => {
+    const before = process.env['GH_TOKEN'];
+    const { exec } = makeSpyExec();
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.exec('git status', { cwd: { kind: 'workspace' }, env: { GH_TOKEN: 'ephemeral' } });
+    expect(process.env['GH_TOKEN']).toBe(before);
+  });
+
+  it('does not mutate process.env when the fake throws', () => {
+    const before = process.env['GH_TOKEN'];
+    const ctx = new GitContext(validOptions(), {
+      exec: () => { throw new Error('gh: unauthenticated'); },
+    });
+    expect(() => ctx.exec('git status', { cwd: { kind: 'workspace' }, env: { GH_TOKEN: 'ephemeral' } })).toThrow();
+    expect(process.env['GH_TOKEN']).toBe(before);
+  });
+
+  it('passes input to the fake when supplied', () => {
+    const { exec, calls } = makeSpyExec();
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.exec('gh api graphql --input -', { cwd: { kind: 'frameworkRoot' }, env: {}, input: 'stdin-payload' });
+    expect(calls[0].input).toBe('stdin-payload');
+  });
+
+  it('leaves input undefined when omitted', () => {
+    const { exec, calls } = makeSpyExec();
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.exec('git status', { cwd: { kind: 'workspace' }, env: {} });
+    expect(calls[0].input).toBeUndefined();
+  });
+
+  it('trims trailing whitespace from the fake output', () => {
+    const ctx = new GitContext(validOptions(), { exec: () => 'main\n' as never });
+    expect(ctx.exec('git branch --show-current', { cwd: { kind: 'workspace' }, env: {} })).toBe('main');
+  });
+
+  describe('ENOENT rewrap through the public entry', () => {
+    it('rewraps a missing-working-directory ENOENT into an actionable error', () => {
+      const targetReposDir = fs.mkdtempSync(path.join(os.tmpdir(), 'adw-790-target-'));
+      const frameworkRepoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'adw-790-framework-'));
+      try {
+        const ctx = new GitContext(
+          validOptions({ frameworkRepoRoot, targetReposDir, owner: 'acme', repo: 'webapp', selfHost: false }),
+          {
+            exec: () => {
+              throw Object.assign(new Error('spawnSync /bin/sh ENOENT'), {
+                code: 'ENOENT',
+                syscall: 'spawnSync /bin/sh',
+                path: '/bin/sh',
+              });
+            },
+          },
+        );
+        expect(fs.existsSync(ctx.basePath)).toBe(false);
+        let caught: unknown;
+        try {
+          ctx.exec('git status', { cwd: { kind: 'workspace' }, env: {} });
+        } catch (err) {
+          caught = err;
+        }
+        expect(caught).toBeDefined();
+        const error = caught as NodeJS.ErrnoException & { cause?: unknown };
+        expect(error.message).toContain(ctx.basePath);
+        expect(error.message).toContain('acme/webapp');
+        expect(error.message).toContain('selfHost=false');
+        expect(error.code).toBe('ENOENT');
+        expect(error.cause).toBeDefined();
+      } finally {
+        fs.rmSync(targetReposDir, { recursive: true, force: true });
+        fs.rmSync(frameworkRepoRoot, { recursive: true, force: true });
+      }
+    });
+  });
+
+  it('does not rewrap a non-ENOENT failure — propagates verbatim', () => {
+    const sentinel = new Error('gh: unauthenticated');
+    const ctx = new GitContext(validOptions(), { exec: () => { throw sentinel; } });
+    let caught: unknown;
+    try {
+      ctx.exec('git status', { cwd: { kind: 'workspace' }, env: {} });
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBe(sentinel);
+  });
+
+  it('does not rewrap an ENOENT whose cwd genuinely exists — propagates verbatim', () => {
+    const sentinel = Object.assign(new Error('spawnSync /bin/sh ENOENT'), { code: 'ENOENT' });
+    const ctx = new GitContext(validOptions(), {
+      exec: () => { throw sentinel; },
+      fsDeps: { existsSync: () => true, mkdirSync: () => {}, copyFileSync: () => {}, rmSync: () => {} },
+    });
+    let caught: unknown;
+    try {
+      ctx.exec('git status', { cwd: { kind: 'workspace' }, env: {} });
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBe(sentinel);
+  });
+
+  it('throws on an empty command', () => {
+    const ctx = new GitContext(validOptions(), { exec: () => 'out' as never });
+    expect(() => ctx.exec('', { cwd: { kind: 'workspace' }, env: {} })).toThrow(/GitContext/);
+  });
+
+  it('throws on a whitespace-only command', () => {
+    const ctx = new GitContext(validOptions(), { exec: () => 'out' as never });
+    expect(() => ctx.exec('   ', { cwd: { kind: 'workspace' }, env: {} })).toThrow(/GitContext/);
+  });
+
+  it('throws on an empty explicit worktree path', () => {
+    const ctx = new GitContext(validOptions(), { exec: () => 'out' as never });
+    expect(() => ctx.exec('git status', { cwd: { kind: 'workspace', path: '' }, env: {} })).toThrow(/GitContext/);
+  });
+});
+
+// ── exec() options admit no forge-specific parameter (compile-time guard) ───
+
+describe('exec() options admit no forge-specific parameter', () => {
+  it('rejects usePat as an excess property at compile time; at runtime the call still executes correctly with it stripped', () => {
+    const { exec, calls } = makeSpyExec();
+    const ctx = new GitContext(validOptions(), { exec });
+    // @ts-expect-error usePat is not part of ExecOptions — the executor is forge-neutral by contract.
+    // If a future change re-adds a GitHub-specific parameter to ExecOptions, this directive goes
+    // unused and fails the type-check (adw-790 §14).
+    ctx.exec('gh api user', { cwd: { kind: 'frameworkRoot' }, env: {}, usePat: true });
+    expect(calls[0].command).toBe('gh api user');
+    expect(calls[0].cwd).toBe(FRAMEWORK_ROOT);
   });
 });

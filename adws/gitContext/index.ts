@@ -1,7 +1,10 @@
 /**
  * GitContext package — standalone, importable public surface.
  *
- * Primary export: GitContext class and its public types.
+ * Primary export: GitContext class and its public types. The public surface
+ * includes the forge-neutral executor primitive (`GitContext.exec` plus the
+ * `ExecWorkingDirectory`/`ExecOptions` types) — the single disciplined spawn
+ * entry a forge adapter built on this package uses instead of reimplementing.
  *
  * Bootstrap exceptions (issue #700): the functions below are the ONLY legitimate
  * pre-context git/gh reads in the codebase. They live inside this structurally-
@@ -11,7 +14,7 @@
  */
 
 export { GitContext } from './gitContext';
-export type { GitIdentity, GitContextOptions, ExecFn, GitContextDeps, FsDeps } from './types';
+export type { GitIdentity, GitContextOptions, ExecFn, GitContextDeps, FsDeps, ExecWorkingDirectory, ExecOptions } from './types';
 export { killProcessesInDirectory } from './processCleanup';
 export type { WorktreeForIssueResult } from './worktreeQueryOps';
 export type { WorktreeRegistration } from './worktreeProbeOps';

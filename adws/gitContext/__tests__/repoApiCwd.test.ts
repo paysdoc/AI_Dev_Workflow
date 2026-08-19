@@ -275,3 +275,66 @@ describe('repo-API commands preserve the existing auth/env contract', () => {
     expect(process.env.GH_TOKEN).toBe(before);
   });
 });
+
+// ── exec() with the frameworkRoot class preserves the #775 contract ─────────
+
+describe("exec()'s frameworkRoot working-directory class is the #775 contract", () => {
+  it('records the injected framework root for a target context', () => {
+    const { exec, calls } = makeSpyExec();
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.exec('gh api user', { cwd: { kind: 'frameworkRoot' }, env: ctx.commandEnv() });
+    expect(calls[0].cwd).toBe(FRAMEWORK_ROOT);
+    expect(calls[0].cwd).not.toBe(ctx.basePath);
+  });
+
+  it('records the injected framework root for a self-host context', () => {
+    const { exec, calls } = makeSpyExec();
+    const ctx = new GitContext(validOptions({ selfHost: true }), { exec });
+    ctx.exec('gh api user', { cwd: { kind: 'frameworkRoot' }, env: ctx.commandEnv() });
+    expect(calls[0].cwd).toBe(FRAMEWORK_ROOT);
+    expect(calls[0].cwd).toBe(ctx.basePath);
+  });
+
+  it('succeeds on a host that has never cloned the target workspace', () => {
+    const targetReposDir = fs.mkdtempSync(path.join(os.tmpdir(), 'adw-790-target-'));
+    const frameworkRepoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'adw-790-framework-'));
+    try {
+      const payload = '{"login":"adw-bot"}';
+      const conditionalExec: ExecFn = (_command, options) => {
+        if (!fs.existsSync(options.cwd)) {
+          throw new Error('spawnSync /bin/sh ENOENT');
+        }
+        return payload;
+      };
+      const ctx = new GitContext(
+        validOptions({ frameworkRepoRoot, targetReposDir }),
+        { exec: conditionalExec },
+      );
+      expect(fs.existsSync(ctx.basePath)).toBe(false);
+      expect(ctx.exec('gh api user', { cwd: { kind: 'frameworkRoot' }, env: ctx.commandEnv() })).toBe(payload);
+    } finally {
+      fs.rmSync(targetReposDir, { recursive: true, force: true });
+      fs.rmSync(frameworkRepoRoot, { recursive: true, force: true });
+    }
+  });
+});
+
+// ── The promoted executor is the only spawn path ─────────────────────────────
+
+describe('every operation reaches the spawn seam exactly once, through the promoted executor', () => {
+  it('a repo-API method call produces exactly one recorded call, at the framework root', () => {
+    const { exec, calls } = makeSpyExec();
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.defaultBranch();
+    expect(calls.length).toBe(1);
+    expect(calls[0].cwd).toBe(FRAMEWORK_ROOT);
+  });
+
+  it('a workspace method call produces exactly one recorded call, at the base path', () => {
+    const { exec, calls } = makeSpyExec();
+    const ctx = new GitContext(validOptions(), { exec });
+    ctx.getCurrentBranch();
+    expect(calls.length).toBe(1);
+    expect(calls[0].cwd).toBe(ctx.basePath);
+  });
+});
