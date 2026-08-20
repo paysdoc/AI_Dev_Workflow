@@ -105,6 +105,12 @@ export interface BoardManager {
   ensureColumns(boardId: string): Promise<boolean>;
 }
 
+/** Minimal open-issue projection returned by tracker lookups. */
+export interface IssueSummary {
+  number: number;
+  title: string;
+}
+
 /**
  * Interface for issue tracking operations across platforms.
  * Maps 1:1 to existing GitHub issue operations for seamless migration.
@@ -117,6 +123,22 @@ export interface IssueTracker {
   getIssueState(issueNumber: number): string;
   fetchComments(issueNumber: number): IssueComment[];
   moveToStatus(issueNumber: number, status: BoardStatus): Promise<boolean>;
+  /** Returns the issue's label names; empty on any error (fail-open). */
+  fetchLabels(issueNumber: number): readonly string[];
+  /** Adds a label to an issue; logs and swallows any error (fail-open). */
+  addLabel(issueNumber: number, labelName: string): void;
+  /** Adds a label, lazy-creating it first if missing; rethrows any other error. */
+  applyLabel(issueNumber: number, labelName: string): void;
+  /** Idempotently creates/updates a label definition on the repo. */
+  ensureLabel(name: string, color: string, description: string): void;
+  /** Creates a new issue and returns its number. */
+  createIssue(title: string, body: string): number;
+  /** Replaces the body of an existing issue. */
+  updateIssueBody(issueNumber: number, body: string): void;
+  /** Open issues matching a forge search string; empty on any error (best-effort). */
+  searchOpenIssues(search: string, limit: number): readonly IssueSummary[];
+  /** Returns the number of the first open `adw:upgrade` issue, or null. */
+  findOpenUpgradeIssue(): number | null;
 }
 
 /**
@@ -163,6 +185,21 @@ export interface PullRequestResult {
   number: number;
 }
 
+/** Branch-level PR projection: what merge/idempotency decisions need, nothing more. */
+export interface PullRequestSummary {
+  number: number;
+  state: string;
+  sourceBranch: string;
+  targetBranch: string;
+  labels: readonly string[];
+}
+
+/** Outcome of a forge mutation that is reported, not thrown. */
+export interface ForgeActionResult {
+  success: boolean;
+  error?: string;
+}
+
 /**
  * Interface for code hosting operations across platforms.
  * Maps 1:1 to existing GitHub code hosting operations for seamless migration.
@@ -175,6 +212,16 @@ export interface CodeHost {
   fetchReviewComments(prNumber: number): ReviewComment[];
   listOpenPullRequests(): PullRequest[];
   getRepoIdentifier(): RepoIdentifier;
+  /** Finds the PR for a branch (open, or most-recently-updated when none are open); null if none. */
+  findPullRequestByBranch(branchName: string): PullRequestSummary | null;
+  /** True when the PR has at least one qualifying approval. */
+  isPullRequestApproved(prNumber: number): boolean;
+  /** Approves a PR under the bound identity. */
+  approvePullRequest(prNumber: number): ForgeActionResult;
+  /** Merges a PR. */
+  mergePullRequest(prNumber: number): ForgeActionResult;
+  /** Sets a repo secret (e.g. GitHub Actions). */
+  setSecret(name: string, value: string): void;
 }
 
 /**

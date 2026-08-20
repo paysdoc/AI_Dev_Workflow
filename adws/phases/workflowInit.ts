@@ -45,8 +45,7 @@ import {
 } from '../github';
 import { GITHUB_PAT } from '../core/environment';
 import { gitContextForSync } from '../github';
-import type { RepoContext, RepoIdentifier } from '../providers/types';
-import { Platform } from '../providers/types';
+import type { BoundProviders, RepoContext, RepoIdentifier } from '../providers/types';
 import { createRepoContext } from '../providers/repoContext';
 import { classifyGitHubIssue } from '../core/issueClassifier';
 import { resolveWorkflowBranchName, readPersistedBranchName } from './branchNameResolution';
@@ -92,6 +91,28 @@ export interface WorkflowConfig {
   /** Launch-boundary GitContext for this orchestrator process. Optional to avoid
    *  breaking existing phase-test fixtures; always present for new orchestrators. */
   gitContext?: GitContext;
+}
+
+/**
+ * Resolves the provider set a workflow's RepoContext must use. The boundary is the
+ * only source: with no caller-supplied identity, both the identity and the provider
+ * instances come straight from the boundary — no repository is read a second time.
+ * A caller-supplied identity that contradicts the boundary is refused rather than
+ * served a second, ad-hoc-minted provider set naming a repository the boundary
+ * never saw.
+ * @throws when callerRepoId names a different repository than the boundary
+ */
+export function resolveWorkflowProviders(
+  boundary: LaunchBoundary,
+  callerRepoId?: RepoIdentifier,
+): { repoId: RepoIdentifier; providers: BoundProviders } {
+  const repoId = callerRepoId ?? boundary.repoId;
+  if (!sameRepoIdentity(repoId, boundary.repoId)) {
+    throw new Error(
+      `resolveWorkflowProviders: caller-supplied repository ${repoId.owner}/${repoId.repo} does not match the launch boundary's ${boundary.repoId.owner}/${boundary.repoId.repo}`,
+    );
+  }
+  return { repoId, providers: boundary.providers };
 }
 
 /**
@@ -217,8 +238,19 @@ export async function initializeWorkflow(
     log(`Target repo workspace: ${targetRepoWorkspacePath}`, 'success');
   }
 
+  // The launch boundary is the only source of providers from this point on. It is
+  // unreachable in production for this call to fail here: buildLaunchBoundary (above)
+  // constructs its GitContext from the same owner/repo, git identity and token-provider
+  // composition that gitContextForSync just used to build gitCtx, and both run the
+  // identical validate-and-discard credential probe — so if gitCtx's construction
+  // succeeded, the boundary's could not have failed. The only way to reach this line
+  // with no boundary is a test that mocks gitContextForSync but not buildLaunchBoundary.
+  if (!boundary) {
+    throw new Error('initializeWorkflow: launch boundary unavailable — providers cannot be resolved for this run');
+  }
+
   // Resolve default branch early — used by both the upgrade gate (below) and worktree setup.
-  const defaultBranch = gitCtx.defaultBranch();
+  const defaultBranch = boundary.providers.codeHost.getDefaultBranch();
 
   // Upgrade gate: detect framework hash mismatch and park the issue if the target
   // repo's .adw/ is stale. Runs BEFORE worktree setup so a stale reused worktree's
@@ -232,11 +264,6 @@ export async function initializeWorkflow(
       '--target-repo', `${targetRepo.owner}/${targetRepo.repo}`,
       ...(targetRepo.cloneUrl ? ['--clone-url', targetRepo.cloneUrl] : []),
     ];
-    const gateRepoId = options?.repoId ?? {
-      owner: repoInfoForGate.owner,
-      repo: repoInfoForGate.repo,
-      platform: Platform.GitHub,
-    };
     const outcome = await runUpgradeGate(
       {
         issueNumber,
@@ -247,7 +274,7 @@ export async function initializeWorkflow(
         repoInfo: repoInfoForGate,
         targetRepoArgs,
       },
-      buildDefaultUpgradeGateDeps(gateRepoId, targetRepoWorkspacePath, (ref, filePath, cwd) => gitCtx.show(ref, filePath, cwd)),
+      buildDefaultUpgradeGateDeps(boundary.providers, targetRepoWorkspacePath, (ref, filePath, cwd) => gitCtx.show(ref, filePath, cwd)),
     );
     if (outcome.action === 'parked') {
       log(
@@ -304,17 +331,12 @@ export async function initializeWorkflow(
   let repoContext: RepoContext | undefined;
   let repoIdForContext: RepoIdentifier | undefined;
   try {
-    repoIdForContext = options?.repoId ?? (() => {
-      const resolvedRepoInfo = repoInfo ?? getRepoInfo();
-      return { owner: resolvedRepoInfo.owner, repo: resolvedRepoInfo.repo, platform: Platform.GitHub };
-    })();
-    const boundaryProviders = (boundary && sameRepoIdentity(repoIdForContext, boundary.repoId))
-      ? boundary.providers
-      : undefined;
+    const resolved = resolveWorkflowProviders(boundary, options?.repoId);
+    repoIdForContext = resolved.repoId;
     repoContext = createRepoContext({
       repoId: repoIdForContext,
       cwd: worktreePath,
-      providers: boundaryProviders,
+      providers: resolved.providers,
     });
   } catch (error) {
     log(`Failed to create RepoContext (falling back to direct API calls): ${error}`, 'info');

@@ -46,7 +46,8 @@ import {
 import { AGENTS_STATE_DIR, AgentStateManager } from '../../../adws/core/index.ts';
 import { findOrchestratorStatePath } from '../../../adws/core/stateHelpers.ts';
 import { executeMerge, type MergeDeps } from '../../../adws/adwMerge.tsx';
-import type { RepoInfo, RawPR } from '../../../adws/github/index.ts';
+import type { RepoInfo } from '../../../adws/github/index.ts';
+import type { PullRequestSummary } from '../../../adws/providers/types.ts';
 import type { RegressionWorld } from '../../regression/step_definitions/world.ts';
 
 // ---------------------------------------------------------------------------
@@ -254,10 +255,10 @@ When(
 
       // Resolve the branch to its PR via the G21-recorded mapping; the mock has no
       // PR-list route, so the gh CLI cannot serve this.
-      findPRByBranch: (branchName): RawPR | null => {
+      findPRByBranch: (branchName): PullRequestSummary | null => {
         const prNumber = prsByBranch.get(branchName);
         if (prNumber === undefined) return null;
-        return { number: prNumber, state: 'OPEN', headRefName: branchName, baseRefName: 'dev' };
+        return { number: prNumber, state: 'OPEN', sourceBranch: branchName, targetBranch: 'dev', labels: [] };
       },
 
       // Open, approved, no hitl gate — let the merge proceed.

@@ -4,7 +4,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { log, setLogAdwId, ensureLogsDirectory, type PRDetails, type PRReviewComment, AgentStateManager, type AgentState, type ModelUsageMap, allocateRandomPort, emptyModelUsageMap, OrchestratorId, type TargetRepoInfo, ensureTargetRepoWorkspace, loadProjectConfig, readAdwYmlConfig, type GitHubIssue, type IssueClassSlashCommand, type RecoveryState } from '../core';
+import { log, setLogAdwId, ensureLogsDirectory, type PRDetails, type PRReviewComment, AgentStateManager, type AgentState, type ModelUsageMap, allocateRandomPort, emptyModelUsageMap, OrchestratorId, type TargetRepoInfo, ensureTargetRepoWorkspace, loadProjectConfig, readAdwYmlConfig, type GitHubIssue, type IssueClassSlashCommand, type RecoveryState, sameRepoIdentity, type LaunchBoundary } from '../core';
 import { fetchPRDetails, getUnaddressedComments, type PRReviewWorkflowContext, getRepoInfo, type RepoInfo, gitContextFor } from '../github';
 import type { WorkflowConfig } from './workflowInit';
 import { inferIssueTypeFromBranch } from '../vcs';
@@ -37,7 +37,7 @@ export interface PRReviewWorkflowConfig {
  * @param prNumber - The PR number to review
  * @param adwId - Optional ADW workflow ID (generated if not provided)
  */
-export async function initializePRReviewWorkflow(prNumber: number, adwId: string, repoInfo?: RepoInfo, repoId?: RepoIdentifier, targetRepo?: TargetRepoInfo): Promise<PRReviewWorkflowConfig> {
+export async function initializePRReviewWorkflow(prNumber: number, adwId: string, repoInfo?: RepoInfo, repoId?: RepoIdentifier, targetRepo?: TargetRepoInfo, boundary?: LaunchBoundary): Promise<PRReviewWorkflowConfig> {
   const resolvedRepoInfo = repoInfo ?? getRepoInfo();
   const prDetails = fetchPRDetails(prNumber, resolvedRepoInfo);
   log(`Fetched PR: ${prDetails.title}`, 'success');
@@ -107,9 +107,13 @@ export async function initializePRReviewWorkflow(prNumber: number, adwId: string
       const resolvedRepoInfo = repoInfo ?? getRepoInfo();
       return { owner: resolvedRepoInfo.owner, repo: resolvedRepoInfo.repo, platform: Platform.GitHub };
     })();
+    const boundaryProviders = (boundary && sameRepoIdentity(repoIdForContext, boundary.repoId))
+      ? boundary.providers
+      : undefined;
     repoContext = createRepoContext({
       repoId: repoIdForContext,
       cwd: worktreePath,
+      providers: boundaryProviders,
     });
   } catch (error) {
     log(`Failed to create RepoContext (falling back to direct API calls): ${error}`, 'info');

@@ -314,7 +314,7 @@ Feature: Orchestrators and phases reach the forge only through the providers the
     When the upgrade orchestrator runs for issue 51 under adw id "mk1wgc-void"
     Then the upgrade orchestrator reports the outcome "escalated"
     And the boundary's providers were asked for the comments on issue 51
-    And the boundary's providers recorded the label "adw:upgrade-escalated" applied to issue 51
+    And the boundary's providers recorded the label "adw:blocked" applied to issue 51
     And the boundary's providers recorded issue 51 moved to "Blocked"
     And the watched git context was asked for no forge-semantic operation
 
@@ -328,7 +328,7 @@ Feature: Orchestrators and phases reach the forge only through the providers the
   Scenario: An already-escalated issue is recognised by the same providers that escalated it
     Given a launch boundary for the repository "adw-fixture/void-796" whose providers record every call
     And the upgrade orchestrator's production dependencies are built from that boundary
-    And issue 51 carries the label "adw:upgrade-escalated"
+    And issue 51 carries the label "adw:blocked"
     When the upgrade orchestrator runs for issue 51 under adw id "mk1wgc-void"
     Then the upgrade orchestrator reports the outcome "escalated"
     And the boundary's providers recorded no label applied to issue 51

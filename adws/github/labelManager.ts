@@ -173,6 +173,19 @@ export function ensureAdwLabelsExist(
 }
 
 /**
+ * Idempotently creates/updates a label definition (`gh label create --force`).
+ */
+export function ensureLabelExists(
+  name: string,
+  color: string,
+  description: string,
+  repoInfo: RepoInfo,
+  deps: LabelManagerDeps = buildDefaultLabelManagerDeps(),
+): void {
+  deps.gitContextForRepo(repoInfo).createLabel(name, color, description);
+}
+
+/**
  * Adds a label to an issue. If the label is missing from the repo (not found
  * error), lazy-creates it and retries once. Non-"not found" errors are
  * rethrown without creating a label.

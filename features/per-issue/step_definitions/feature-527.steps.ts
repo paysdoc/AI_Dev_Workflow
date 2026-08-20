@@ -47,6 +47,7 @@ import { AGENTS_STATE_DIR } from '../../../adws/core/index.ts';
 import { handleRetryDirective } from '../../../adws/triggers/retryHandler.ts';
 import type { RegressionWorld } from '../../regression/step_definitions/world.ts';
 import type { RecordedRequest } from '../../../test/mocks/types.ts';
+import { noteBranchHasNoPullRequest } from './feature-796.steps.ts';
 
 
 // ---------------------------------------------------------------------------
@@ -220,6 +221,9 @@ Given(
 Given(
   'the branch {string} has no pull request',
   async function (this: RegressionWorld, _branch: string) {
+    // feature-796's scenarios reuse this exact phrase for its own (non-mock-server)
+    // recording-provider fixture; harmless no-op when that fixture isn't active.
+    noteBranchHasNoPullRequest(_branch);
     // No PRs on this branch — nothing to seed.
     if (!this.mockContext) return;
     const serverUrl = this.mockContext.serverUrl;

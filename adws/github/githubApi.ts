@@ -83,6 +83,8 @@ export {
   createIssue,
   updateIssueBody,
   findOpenUpgradeIssue,
+  fetchIssueLabels,
+  searchOpenIssues,
 } from './issueApi';
 
 // Re-export PR API functions

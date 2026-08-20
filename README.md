@@ -17,7 +17,7 @@ ADW is an agentic SDLC framework: it turns issues on GitHub, GitLab, or Jira int
 - **GitContext repo-context authority** — `adws/gitContext/` is a deep module that owns every git and `gh` interaction; it is constructed once at each process's launch boundary with mandatory owner/repo/token/gitIdentity fields (no optional cwd fallback), resolves the correct base path in its constructor (self-host → framework root; target → target-repos workspace), and applies auth per spawned-command environment rather than by mutating a process-global, eliminating the ~13-episode wrong-repo and GH_TOKEN-bleed class of bugs. Git commands and workspace-scoped operations spawn under that base path; repo-independent `gh` operations (issue/PR/label/board/secret — identity travels in the command string) always spawn under the injected framework repo root instead, so directive handling like `## Cancel`/`## Retry` works on a host that has never cloned the target repo's workspace (issue #775). A git spawn into a workspace that was never cloned (or a worktree that vanished) fails with an actionable error naming the missing path and the repository, instead of the cryptic `spawnSync /bin/sh ENOENT` (issue #777).
 - **CI-enforced git/gh guardrail** — `checkGitGhGuard.ts` (`bun run lint:git-guard`, wired into `.github/workflows/git-cli-guard.yml`) scans every `.ts`/`.tsx` source file for direct `git`/`gh` shell-outs and fails the build if any bypass the `GitContext` chokepoint; `adws/gitContext` itself is the sole structurally-exempted package.
 - **Target-repo agent guardrails injection** — `resolveGuardrailsDecision` (`guardrailsGate.ts`) opt-in-gates a `--settings` injection onto every target-repo `claude` spawn: `.github/adw.yml`'s `guardrails: true` canary, an `ADW_TARGET_GUARDRAILS=off` kill switch, self-host exclusion, and a memoized startup probe (`scripts/guardrails-probe.ts`) that fails OPEN (no injection + one Slack alert) rather than blocking. The injected payload (`guardrailsPayload.ts`) combines the `templates/claude-settings-starter.json` deny list with all five framework hooks re-registered at absolute paths and an absolute per-adwId `CLAUDE_HOOKS_LOG_DIR`, so hook logs never leak into the target worktree.
-- **Multi-provider abstraction** — pluggable `IssueTracker` and `CodeHost` interfaces (`RepoContext`) with GitHub, GitLab, and Jira issue trackers and GitHub/GitLab code hosts.
+- **Multi-provider abstraction** — pluggable `IssueTracker` and `CodeHost` interfaces (`RepoContext`) covering labels, issue creation/body edit, open-issue search, PR-by-branch, approval, merge and repo secrets, with GitHub, GitLab, and Jira issue trackers and GitHub/GitLab code hosts (GitLab/Jira satisfy the newer methods with named refusal stubs, not new capabilities). Orchestrators and phases (#796) receive their provider instances from the process's launch boundary rather than constructing them — no call site addresses a repository other than the one the process was launched for.
 - **Project board automation** — `BoardManager` provider drives GitHub Projects V2 column transitions as a workflow progresses.
 - **Two automation triggers** — `trigger_cron.ts` polls every 20 s; `trigger_webhook.ts` receives HMAC-signed GitHub webhooks for instant pickup, with optional Cloudflare tunnel lifecycle.
 - **Per-event webhook crash isolation** — `trigger_webhook.ts` wraps each event's dispatch in a try/catch around `dispatchWebhookEvent()`; a synchronous throw is contained (`webhookEventBoundary.ts`) rather than crashing the process, answers HTTP 500 only if headers are unsent, and reports failures via a no-throw, best-effort Slack alert (`reportWebhookEventFailure`) so one bad event can't take the trigger down.
@@ -619,11 +619,11 @@ adws/                   # ADW workflow system
 │   ├── githubAppAuth.ts  # GitHub App authentication
 │   ├── hitlBoardNotifier.ts  # HITL board-event notifier — PR/issue lookup, message building, and Slack delivery for Review and Blocked transitions
 │   ├── index.ts
-│   ├── issueApi.ts
+│   ├── issueApi.ts  # + fetchIssueLabels, searchOpenIssues (#796) — thin wrappers GitHubIssueTracker delegates to; #797 deletion targets once callers no longer import adws/github directly
 │   ├── issueLinkMarker.ts  # Canonical issue-link marker contract for PR bodies (bodyLinksIssue, closing-keyword conventions)
-│   ├── labelManager.ts  # adw:* label lifecycle management and label-based issue classification
+│   ├── labelManager.ts  # adw:* label lifecycle management and label-based issue classification. + ensureLabelExists (#796) — thin wrapper GitHubIssueTracker.ensureLabel delegates to
 │   ├── linkedPrDetector.ts  # Detects linked merged or closed PRs for an issue via "Implements #N" body scan
-│   ├── prApi.ts
+│   ├── prApi.ts  # + hasWontFixLabelName(labels) (#796) — pure predicate extracted from hasWontFixLabel(pr), which now delegates to it; consumed directly by adwUpgrade's PullRequestSummary idempotency guard
 │   ├── gitContextFactory.ts  # Per-repo GitContext factory (`gitContextForRepo`, `gitContextForSync`, `readLocalRepoInfo`, `deriveGitIdentity`); `readLocalRepoInfo` is the permanently-allowlisted bootstrap git-remote read
 │   ├── prCommentDetector.ts
 │   ├── projectBoardApi.ts
@@ -732,31 +732,31 @@ adws/                   # ADW workflow system
 │   │   └── worktreeSetup.test.ts
 │   ├── alignmentPhase.ts  # Single-pass alignment phase
 │   ├── authPause.ts    # Auth-required pause handler (mirrors rate-limit pause path for auth failures)
-│   ├── autoMergePhase.ts  # Auto-approve and merge PR after review passes
+│   ├── autoMergePhase.ts  # Auto-approve and merge PR after review passes — the hitl gate's label read, approval read, hold-label write and comment all go through config.repoContext's providers (#796), not adws/github/* free functions
 │   ├── branchIdentityFallback.ts  # Slug-agnostic branch recovery — findExistingBranchForIssue, recoverAdwIdForBranch
 │   ├── branchNameResolution.ts  # Branch name resolution for worktree takeover paths
 │   ├── diffEvaluationPhase.ts  # LLM diff evaluation phase (safe vs regression_possible)
-│   ├── docsSelfCheck.ts  # Post-write docs self-check: runs bloat/regrowth guards after documentAgent writes; opens a GitHub issue for each violation
+│   ├── docsSelfCheck.ts  # Post-write docs self-check: runs bloat/regrowth guards after documentAgent writes; opens a GitHub issue for each violation. buildDefaultDocsSelfCheckDeps(issueTracker) takes an injected IssueTracker — createIssue/searchOpenIssues, no ad-hoc GitContext construction (#796)
 │   ├── gherkinFreeze.ts  # Snapshots, detects changes to, and restores .feature files around the fix loop
 │   ├── buildPhase.ts
 │   ├── documentPhase.ts
 │   ├── index.ts
-│   ├── depauditSetup.ts  # depaudit setup and secret propagation (used by adw_init)
+│   ├── depauditSetup.ts  # depaudit setup and secret propagation (used by adw_init) — propagateSecret takes a CodeHost (defaulting to config.repoContext?.codeHost) and calls setSecret; no repoContext means the secret is recorded skipped with a warning, not a construction attempt (#796)
 │   ├── installPhase.ts # Install phase implementation
 │   ├── orchestratorLock.ts  # Orchestrator-lifetime spawn lock (acquire/release wrapper)
 │   ├── phaseCommentHelpers.ts  # Shared phase comment utilities
 │   ├── planPhase.ts
 │   ├── planValidationPhase.ts  # Plan-scenario validation phase
 │   ├── progressGate.ts  # Pure state-novelty gate: aborts build on no_progress (same tree hash) or backstop exhaustion
-│   ├── prPhase.ts
+│   ├── prPhase.ts  # default branch resolved via repoContext.codeHost.getDefaultBranch() when a repo context is available, falling back to config.defaultBranch (#796); gitCtx stays for pushBranch/commandEnv
 │   ├── decidePostReviewOutcome.ts  # Pure post-review gate: computes PostReviewOutcome (writeAwaitingMerge, workflowStage) from reviewPassed flag
 │   ├── prReviewCompletion.ts  # PR review completion/error handling
-│   ├── prReviewPhase.ts  # PR review phase implementation
+│   ├── prReviewPhase.ts  # PR review phase implementation — initializePRReviewWorkflow accepts an optional LaunchBoundary and reuses its providers for createRepoContext when the identities agree, mirroring workflowInit.ts (#796)
 │   ├── proofPublishPhase.ts  # Publishes scenario proof comment to the PR after scenarioTestPhase
 │   ├── promotionRotAdvisory.ts  # Non-blocking rot/reuse advisory PR comment orchestration for regression-promotion PRs
 │   ├── reviewPatchHelpers.ts  # Dispatches review blockers to patchAgent or refactorAgent based on blocker type
 │   ├── rotAdvisoryFormat.ts  # Formats rotAnalysisAgent output into the advisory PR comment body
-│   ├── reviewPhase.ts  # Passive judge review phase (reads scenario proof, no dev server)
+│   ├── reviewPhase.ts  # Passive judge review phase (reads scenario proof, no dev server) — approval goes through repoContext.codeHost.approvePullRequest, not the adws/github approvePR free function (#796)
 │   ├── scenarioFixPhase.ts  # Fixes failed scenarios from a previous scenarioTestPhase run
 │   ├── scenarioPhase.ts  # BDD scenario generation phase
 │   ├── scenarioTestFixLoop.ts  # Shared scenario test→fix loop with Gherkin freeze, fidelity check, and resolve verdict
@@ -766,9 +766,9 @@ adws/                   # ADW workflow system
 │   ├── stepDefPhase.ts  # Step definition generation phase
 │   ├── stackCoherenceReporter.ts  # Warns via the adw:unverified channel on an incoherent detected config (reportStackCoherence)
 │   ├── unitTestPhase.ts  # Unit test phase (opt-in, BDD scenarios moved to scenarioTestPhase)
-│   ├── upgradeGate.ts  # Hash-check upgrade gate: compares framework hash vs .adw-version; parks issue and spawns adwUpgrade on mismatch
+│   ├── upgradeGate.ts  # Hash-check upgrade gate: compares framework hash vs .adw-version; parks issue and spawns adwUpgrade on mismatch. buildDefaultUpgradeGateDeps(providers, ...) reads createIssue/applyLabel/updateIssueBody/findOpenUpgradeIssue/moveToStatus off the boundary's providers — no per-call createRepoContext (#796)
 │   ├── workflowCompletion.ts  # Workflow completion/error handling
-│   ├── workflowInit.ts  # Workflow initialization (includes upgradeGate check)
+│   ├── workflowInit.ts  # Workflow initialization (includes upgradeGate check). The launch boundary is the only source of forge providers: defaultBranch comes from boundary.providers.codeHost, and exported resolveWorkflowProviders(boundary, callerRepoId?) decides identity/provider reuse — a caller-supplied repoId that contradicts the boundary is refused (throws) rather than served a second, ad-hoc-minted provider set (#796)
 │   └── worktreeSetup.ts  # Gitignore and worktree setup helpers
 ├── types/              # Type definitions
 │   ├── agentTypes.ts
@@ -780,11 +780,15 @@ adws/                   # ADW workflow system
 ├── providers/          # Provider interfaces and implementations
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── boardManager.test.ts
+│   │   ├── refusalStubs.test.ts  # Asserts GitLab/Jira named-refusal-stub methods reject rather than silently no-op
 │   │   └── repoContext.test.ts
 │   ├── github/         # GitHub forge adapter — the only package (besides the git core) exempt from the git/gh CLI guard; its gh call sites feed command strings into the core's executor, never spawning a process itself (#792)
 │   │   ├── __tests__/  # Vitest unit tests
 │   │   │   ├── appAuth.test.ts
 │   │   │   ├── ghCommandRunner.test.ts
+│   │   │   ├── githubCodeHost.test.ts  # GithubCodeHost delegation coverage (#796)
+│   │   │   ├── githubIssueTracker.test.ts  # GithubIssueTracker delegation coverage (#796)
+│   │   │   ├── githubIssueTrackerLabelPolicy.test.ts  # addLabel/applyLabel/ensureLabel fail-open vs lazy-create-and-rethrow policy coverage
 │   │   │   ├── githubTokenProvider.test.ts
 │   │   │   └── tokenResolver.test.ts
 │   │   ├── commands/   # Pure command-string builders (no I/O) — one file per concern
@@ -798,8 +802,8 @@ adws/                   # ADW workflow system
 │   │   ├── appAuth.ts  # GitHub App JWT dance and installation-token exchange — configuration is injected (GitHubAppConfig), never read from process.env (#792)
 │   │   ├── ghCommandRunner.ts  # The adapter's sole route to a child process — turns a built command string into an executed one via GitContext.exec, framework-root cwd, per-command TokenProvider credential (#792)
 │   │   ├── githubBoardManager.ts  # GitHub Projects V2 board management — issues gh via ghCommandRunner + the relocated board command builders (#792)
-│   │   ├── githubCodeHost.ts
-│   │   ├── githubIssueTracker.ts
+│   │   ├── githubCodeHost.ts  # findPullRequestByBranch/isPullRequestApproved/approvePullRequest/mergePullRequest/setSecret delegate to adws/github/prApi.ts + gitContextForRepo(...).setSecret (#796)
+│   │   ├── githubIssueTracker.ts  # fetchLabels/addLabel/applyLabel/ensureLabel/createIssue/updateIssueBody/searchOpenIssues/findOpenUpgradeIssue delegate to adws/github/issueApi.ts + labelManager.ts (#796)
 │   │   ├── githubTokenProvider.ts  # TokenProvider port's GitHub implementation (createGitHubTokenProvider) — wraps tokenResolver's resolveContextToken unchanged, owns the PAT-vs-installation-token decision for 'alternateIdentity' requests (#791/#792)
 │   │   ├── index.ts
 │   │   ├── mappers.ts
@@ -807,7 +811,7 @@ adws/                   # ADW workflow system
 │   ├── gitlab/         # GitLab provider
 │   │   ├── gitlabApiClient.ts
 │   │   ├── gitlabBoardManager.ts  # Stub (not implemented)
-│   │   ├── gitlabCodeHost.ts
+│   │   ├── gitlabCodeHost.ts  # findPullRequestByBranch/isPullRequestApproved/approvePullRequest/mergePullRequest/setSecret are named refusal stubs, not new GitLab capability (#796)
 │   │   ├── gitlabTypes.ts
 │   │   ├── index.ts
 │   │   └── mappers.ts
@@ -816,11 +820,11 @@ adws/                   # ADW workflow system
 │   │   ├── index.ts
 │   │   ├── jiraApiClient.ts
 │   │   ├── jiraBoardManager.ts  # Stub (not implemented)
-│   │   ├── jiraIssueTracker.ts
+│   │   ├── jiraIssueTracker.ts  # fetchLabels/addLabel/applyLabel/ensureLabel/createIssue/updateIssueBody/searchOpenIssues/findOpenUpgradeIssue are named refusal stubs, not new Jira capability (#796); unreachable from a boundary today — resolveIssueTracker accepts GitHub only
 │   │   └── jiraTypes.ts
 │   ├── index.ts
 │   ├── repoContext.ts  # RepoContext factory; mintBoundProviders is the provider-minting logic shared with the launch boundary (adws/core/launchGitContext.ts, #794)
-│   └── types.ts
+│   └── types.ts  # IssueTracker/CodeHost ports — widened (#796) with label ops (fetchLabels/addLabel/applyLabel/ensureLabel — two label methods on purpose, fail-open vs lazy-create-and-rethrow), createIssue/updateIssueBody/searchOpenIssues/findOpenUpgradeIssue, findPullRequestByBranch/isPullRequestApproved/approvePullRequest/mergePullRequest/setSecret, and the IssueSummary/PullRequestSummary/ForgeActionResult projections they return
 ├── triggers/           # Automation triggers
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── autoMergeHandler.test.ts
@@ -920,8 +924,8 @@ adws/                   # ADW workflow system
 ├── checkLivingDocsIndex.ts  # Migration acceptance gate: validates conditional_docs.md ↔ app_docs/ bijection
 ├── adwBuild.tsx        # Orchestrators (individual & combined)
 ├── adwChore.tsx        # Chore pipeline with LLM diff gate (auto-merge)
-├── adwMerge.tsx        # Merge orchestrator (awaiting_merge handoff)
-├── adwUpgrade.tsx         # Framework upgrade orchestrator — regenerates .adw/ when hash drifts; opened as winner of upgradeClaim; exempt from initializeWorkflow()
+├── adwMerge.tsx        # Merge orchestrator (awaiting_merge handoff). Exported buildDefaultDeps(boundary) sources findPRByBranch/issueHasLabel/fetchPRApprovalState/commentOnIssue from the launch boundary's providers — no repoInfo parameter, no ad-hoc GitHub construction (#796)
+├── adwUpgrade.tsx         # Framework upgrade orchestrator — regenerates .adw/ when hash drifts; opened as winner of upgradeClaim; exempt from initializeWorkflow(). main() builds one buildLaunchBoundary() and exported buildDefaultUpgradeDeps(providers, gitCtx) sources every forge dep (labels, comments, PR create/merge, board move) from it — the ad-hoc createGitHubCodeHost(repoId) construction and the six direct GitContext forge-semantic calls are gone (#796)
 ├── adwBuildHelpers.ts
 ├── adwClearComments.tsx
 ├── adwDocument.tsx
@@ -932,7 +936,7 @@ adws/                   # ADW workflow system
 ├── adwPlanBuildReview.tsx
 ├── adwPlanBuildTest.tsx
 ├── adwPlanBuildTestReview.tsx
-├── adwPrReview.tsx
+├── adwPrReview.tsx     # PR review orchestrator — builds a launch boundary and hands it to initializePRReviewWorkflow() rather than deriving the repo identity a second time via buildRepoIdentifier() (#796)
 ├── adwSdlc.tsx
 ├── adwTest.tsx
 ├── healthCheck.tsx     # Health check orchestrator

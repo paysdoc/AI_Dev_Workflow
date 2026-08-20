@@ -225,9 +225,12 @@ When(
         workflowStage: 'awaiting_merge',
         branchName: branch,
       } as AgentState),
-      findPRByBranch: (branchName: string, repoInfo: RepoInfo) => {
-        w.recordedMergeRepoInfo = repoInfo;
-        return { number: 99, state: 'OPEN', headRefName: branchName, baseRefName: 'main' };
+      findPRByBranch: (branchName: string) => {
+        // findPRByBranch is bound to the context's identity — recorded here (not from
+        // a call argument, since a bound provider takes none) to prove the merge still
+        // resolves against ctx's repository, not the process cwd's local remote.
+        w.recordedMergeRepoInfo = { owner: ctx.owner, repo: ctx.repo };
+        return { number: 99, state: 'OPEN', sourceBranch: branchName, targetBranch: 'main', labels: [] };
       },
       issueHasLabel: () => false,
       fetchPRApprovalState: () => true,

@@ -4,7 +4,7 @@
  * to a specific RepoIdentifier at construction time.
  */
 
-import type { IssueTracker, RepoIdentifier, Issue, IssueComment } from '../types';
+import type { IssueTracker, RepoIdentifier, Issue, IssueComment, IssueSummary } from '../types';
 import { validateRepoIdentifier, BoardStatus } from '../types';
 import type { RepoInfo } from '../../github/githubApi';
 import {
@@ -14,7 +14,14 @@ import {
   closeIssue as ghCloseIssue,
   getIssueState as ghGetIssueState,
   fetchIssueCommentsRest,
+  fetchIssueLabels as ghFetchIssueLabels,
+  addIssueLabel as ghAddIssueLabel,
+  createIssue as ghCreateIssue,
+  updateIssueBody as ghUpdateIssueBody,
+  searchOpenIssues as ghSearchOpenIssues,
+  findOpenUpgradeIssue as ghFindOpenUpgradeIssue,
 } from '../../github/issueApi';
+import { applyLabel as ghApplyLabel, ensureLabelExists as ghEnsureLabelExists } from '../../github/labelManager';
 import { moveIssueToStatus } from '../../github/projectBoardApi';
 import {
   mapGitHubIssueToIssue,
@@ -28,7 +35,7 @@ import {
  * passes the bound RepoInfo to the underlying function, never relying
  * on the global getTargetRepo() registry.
  */
-class GitHubIssueTracker implements IssueTracker {
+export class GitHubIssueTracker implements IssueTracker {
   private readonly repoInfo: RepoInfo;
 
   constructor(private readonly repoId: RepoIdentifier) {
@@ -64,6 +71,38 @@ class GitHubIssueTracker implements IssueTracker {
 
   async moveToStatus(issueNumber: number, status: BoardStatus): Promise<boolean> {
     return moveIssueToStatus(issueNumber, status, this.repoInfo);
+  }
+
+  fetchLabels(issueNumber: number): readonly string[] {
+    return ghFetchIssueLabels(issueNumber, this.repoInfo);
+  }
+
+  addLabel(issueNumber: number, labelName: string): void {
+    ghAddIssueLabel(issueNumber, labelName, this.repoInfo);
+  }
+
+  applyLabel(issueNumber: number, labelName: string): void {
+    ghApplyLabel(issueNumber, labelName, this.repoInfo);
+  }
+
+  ensureLabel(name: string, color: string, description: string): void {
+    ghEnsureLabelExists(name, color, description, this.repoInfo);
+  }
+
+  createIssue(title: string, body: string): number {
+    return ghCreateIssue(title, body, this.repoInfo);
+  }
+
+  updateIssueBody(issueNumber: number, body: string): void {
+    ghUpdateIssueBody(issueNumber, body, this.repoInfo);
+  }
+
+  searchOpenIssues(search: string, limit: number): readonly IssueSummary[] {
+    return ghSearchOpenIssues(search, limit, this.repoInfo);
+  }
+
+  findOpenUpgradeIssue(): number | null {
+    return ghFindOpenUpgradeIssue(this.repoInfo);
   }
 }
 

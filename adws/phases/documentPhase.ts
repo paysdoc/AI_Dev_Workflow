@@ -18,7 +18,7 @@ import {
 } from '../agents';
 import type { WorkflowConfig } from './workflowInit';
 import { getRepoInfo, gitContextFor } from '../github';
-import { executeDocsPostWriteSelfCheck } from './docsSelfCheck';
+import { executeDocsPostWriteSelfCheck, buildDefaultDocsSelfCheckDeps } from './docsSelfCheck';
 
 /**
  * Executes the Document phase: generate feature documentation.
@@ -96,22 +96,25 @@ export async function executeDocumentPhase(
     ),
   });
 
-  // Post-write self-check — non-fatal; never fails the document phase
-  try {
-    const repoInfo = config.targetRepo
-      ? { owner: config.targetRepo.owner, repo: config.targetRepo.repo }
-      : getRepoInfo(worktreePath);
-    const selfCheck = executeDocsPostWriteSelfCheck({
-      worktreePath,
-      producedDocPaths: [result.docPath],
-      repoInfo,
-    });
-    AgentStateManager.appendLog(
-      orchestratorStatePath,
-      `Docs self-check: ${selfCheck.flags.bloat.length} bloat, ${selfCheck.flags.regrowth.length} regrowth flag(s); routed ${selfCheck.routed.length} refactor follow-up(s)`,
-    );
-  } catch (e) {
-    log(`Docs post-write self-check failed (non-fatal): ${e}`, 'warn');
+  // Post-write self-check — non-fatal; never fails the document phase. Skipped
+  // (not ad-hoc constructed) when no repoContext is available, matching how the
+  // other migrated phases handle a missing boundary-minted provider set.
+  if (repoContext) {
+    try {
+      const repoInfo = config.targetRepo
+        ? { owner: config.targetRepo.owner, repo: config.targetRepo.repo }
+        : getRepoInfo(worktreePath);
+      const selfCheck = executeDocsPostWriteSelfCheck(
+        { worktreePath, producedDocPaths: [result.docPath], repoInfo },
+        buildDefaultDocsSelfCheckDeps(repoContext.issueTracker),
+      );
+      AgentStateManager.appendLog(
+        orchestratorStatePath,
+        `Docs self-check: ${selfCheck.flags.bloat.length} bloat, ${selfCheck.flags.regrowth.length} regrowth flag(s); routed ${selfCheck.routed.length} refactor follow-up(s)`,
+      );
+    } catch (e) {
+      log(`Docs post-write self-check failed (non-fatal): ${e}`, 'warn');
+    }
   }
 
   // Commit documentation

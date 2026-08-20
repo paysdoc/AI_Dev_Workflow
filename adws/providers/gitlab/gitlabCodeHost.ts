@@ -6,8 +6,10 @@
 import {
   type CodeHost,
   type CreatePROptions,
+  type ForgeActionResult,
   type PullRequest,
   type PullRequestResult,
+  type PullRequestSummary,
   type RepoIdentifier,
   type ReviewComment,
   validateRepoIdentifier,
@@ -78,6 +80,26 @@ export class GitLabCodeHost implements CodeHost {
       description: options.body,
     });
     return { url: mr.web_url, number: mr.iid };
+  }
+
+  findPullRequestByBranch(): PullRequestSummary | null {
+    throw new Error('GitLabCodeHost.findPullRequestByBranch is not implemented');
+  }
+
+  isPullRequestApproved(): boolean {
+    throw new Error('GitLabCodeHost.isPullRequestApproved is not implemented');
+  }
+
+  approvePullRequest(): ForgeActionResult {
+    throw new Error('GitLabCodeHost.approvePullRequest is not implemented');
+  }
+
+  mergePullRequest(): ForgeActionResult {
+    throw new Error('GitLabCodeHost.mergePullRequest is not implemented');
+  }
+
+  setSecret(): void {
+    throw new Error('GitLabCodeHost.setSecret is not implemented');
   }
 }
 

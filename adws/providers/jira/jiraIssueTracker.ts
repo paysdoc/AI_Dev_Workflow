@@ -4,7 +4,7 @@
  */
 
 import { log, JIRA_EMAIL, JIRA_API_TOKEN, JIRA_PAT } from '../../core';
-import type { IssueTracker, Issue, IssueComment } from '../types';
+import type { IssueTracker, Issue, IssueComment, IssueSummary } from '../types';
 import { BoardStatus } from '../types';
 import { JiraApiClient } from './jiraApiClient';
 import type { JiraIssueResponse, JiraCommentResponse } from './jiraTypes';
@@ -205,6 +205,38 @@ export class JiraIssueTracker implements IssueTracker {
       log(`Failed to move Jira issue ${issueKey} to "${status}": ${error}`, 'error');
       return false;
     }
+  }
+
+  fetchLabels(): readonly string[] {
+    throw new Error('JiraIssueTracker.fetchLabels is not implemented');
+  }
+
+  addLabel(): void {
+    throw new Error('JiraIssueTracker.addLabel is not implemented');
+  }
+
+  applyLabel(): void {
+    throw new Error('JiraIssueTracker.applyLabel is not implemented');
+  }
+
+  ensureLabel(): void {
+    throw new Error('JiraIssueTracker.ensureLabel is not implemented');
+  }
+
+  createIssue(): number {
+    throw new Error('JiraIssueTracker.createIssue is not implemented');
+  }
+
+  updateIssueBody(): void {
+    throw new Error('JiraIssueTracker.updateIssueBody is not implemented');
+  }
+
+  searchOpenIssues(): readonly IssueSummary[] {
+    throw new Error('JiraIssueTracker.searchOpenIssues is not implemented');
+  }
+
+  findOpenUpgradeIssue(): number | null {
+    throw new Error('JiraIssueTracker.findOpenUpgradeIssue is not implemented');
   }
 }
 

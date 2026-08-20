@@ -21,7 +21,7 @@ import {
   emptyModelUsageMap,
 } from '../core';
 import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
-import { commentOnPR, commentOnIssue, issueHasLabel, addIssueLabel, fetchPRApprovalState, type RepoInfo } from '../github';
+import type { RepoInfo } from '../github/githubApi';
 import { mergeWithConflictResolution } from '../triggers/autoMergeHandler';
 import { getPlanFilePath, planFileExists } from '../agents';
 import type { WorkflowConfig } from './workflowInit';
@@ -54,19 +54,15 @@ export async function executeAutoMergePhase(config: WorkflowConfig): Promise<{ c
     return { costUsd: 0, modelUsage: emptyModelUsageMap(), phaseCostRecords: [] };
   }
 
-  const owner = repoContext?.repoId.owner ?? '';
-  const repo = repoContext?.repoId.repo ?? '';
-  if (!owner || !repo) {
+  if (!repoContext) {
     log('executeAutoMergePhase: no repo context, skipping auto-merge', 'warn');
     writeFileSync(path.join(logsDir, 'skip_reason.txt'), 'No repo context available, skipping auto-merge');
     return { costUsd: 0, modelUsage: emptyModelUsageMap(), phaseCostRecords: [] };
   }
 
-  const repoInfo: RepoInfo = { owner, repo };
-
   // Gate: if the issue has the `hitl` label, silently skip — no comment.
   // Prevents comment floods on every cron re-entry while awaiting human review.
-  if (issueHasLabel(issueNumber, 'hitl', repoInfo)) {
+  if (repoContext.issueTracker.fetchLabels(issueNumber).includes('hitl')) {
     log(`hitl label detected on issue #${issueNumber}, skipping auto-merge`, 'info');
     return { costUsd: 0, modelUsage: emptyModelUsageMap(), phaseCostRecords: [] };
   }
@@ -75,14 +71,13 @@ export async function executeAutoMergePhase(config: WorkflowConfig): Promise<{ c
   const baseBranch = defaultBranch;
 
   // Gate: require at least one APPROVED review on the PR (GitHub is source of truth).
-  const hasApproval = fetchPRApprovalState(prNumber, repoInfo);
+  const hasApproval = repoContext.codeHost.isPullRequestApproved(prNumber);
   if (!hasApproval) {
     log(`No APPROVED review found on PR #${prNumber}, applying hitl label and posting comment`, 'info');
-    addIssueLabel(issueNumber, 'hitl', repoInfo);
-    commentOnIssue(
+    repoContext.issueTracker.addLabel(issueNumber, 'hitl');
+    repoContext.issueTracker.commentOnIssue(
       issueNumber,
       `## ✋ Awaiting human approval — PR #${prNumber} ready for review\n\nNo approved review found on the PR. A human must approve before auto-merge can proceed.`,
-      repoInfo,
     );
     return { costUsd: 0, modelUsage: emptyModelUsageMap(), phaseCostRecords: [] };
   }
@@ -94,7 +89,10 @@ export async function executeAutoMergePhase(config: WorkflowConfig): Promise<{ c
     specPath = candidate;
   }
 
-  // Merge with conflict resolution retry loop
+  // Merge with conflict resolution retry loop. mergeWithConflictResolution and
+  // its RepoInfo parameter are #797's wave (adws/triggers/, adws/github/); build
+  // the RepoInfo from the phase's own repoContext at this one call site only.
+  const repoInfo: RepoInfo = { owner: repoContext.repoId.owner, repo: repoContext.repoId.repo };
   const mergeOutcome = await mergeWithConflictResolution(
     prNumber,
     repoInfo,
@@ -120,7 +118,7 @@ export async function executeAutoMergePhase(config: WorkflowConfig): Promise<{ c
       'Please resolve any remaining merge conflicts manually and merge the PR.',
     ].filter((line, i, arr) => !(line === '' && arr[i - 1] === '')).join('\n');
 
-    commentOnPR(prNumber, failureComment, repoInfo);
+    repoContext.codeHost.commentOnPullRequest(prNumber, failureComment);
     log(`Posted auto-merge failure comment on PR #${prNumber}`, 'info');
   } else {
     log(`PR #${prNumber} merged successfully`, 'success');

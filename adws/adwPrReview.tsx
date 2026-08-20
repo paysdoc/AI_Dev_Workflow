@@ -23,7 +23,7 @@
  * - MAX_REVIEW_RETRY_ATTEMPTS: Maximum retry attempts for review-patch loop (default: 3)
  */
 
-import { parseTargetRepoArgs, buildRepoIdentifier, MAX_REVIEW_RETRY_ATTEMPTS, AgentStateManager } from './core';
+import { parseTargetRepoArgs, buildLaunchBoundary, MAX_REVIEW_RETRY_ATTEMPTS, AgentStateManager } from './core';
 import { defaultFindPRByBranch, getRepoInfo } from './github';
 import { resolvePrReviewSpawn } from './triggers/webhookHandlers';
 import { CostTracker, runPhase } from './core/phaseRunner';
@@ -90,7 +90,6 @@ async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const targetRepo = parseTargetRepoArgs(args);
   const repoInfo = targetRepo ? { owner: targetRepo.owner, repo: targetRepo.repo } : undefined;
-  const repoId = buildRepoIdentifier(targetRepo);
 
   if (args.length < 1) {
     console.error('Usage: bunx tsx adws/adwPrReview.tsx <issueNumber> <adwId>  (canonical)\n       bunx tsx adws/adwPrReview.tsx <pr-number>                     (manual fallback)');
@@ -99,7 +98,8 @@ async function main(): Promise<void> {
 
   const { prNumber, adwId: resolvedAdwId } = resolvePrReviewInvocation(args, repoInfo);
 
-  const config = await initializePRReviewWorkflow(prNumber, resolvedAdwId, repoInfo, repoId, targetRepo ?? undefined);
+  const boundary = buildLaunchBoundary(targetRepo);
+  const config = await initializePRReviewWorkflow(prNumber, resolvedAdwId, repoInfo, boundary.repoId, targetRepo ?? undefined, boundary);
 
   AgentStateManager.writeTopLevelState(config.base.adwId, {
     adwId: config.base.adwId,
