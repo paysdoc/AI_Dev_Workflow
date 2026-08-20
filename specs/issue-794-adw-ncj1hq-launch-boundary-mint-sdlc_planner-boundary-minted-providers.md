@@ -9,7 +9,7 @@ issueJson: `{"number":794,"title":"Launch boundary mints providers bound to cont
 
 `buildLaunchGitContext(targetRepo, deps)` (`adws/core/launchGitContext.ts:119`) is the one sanctioned place where an ADW process decides *which repository it is operating on*. It resolves `{owner, repo}` exactly once — from `--target-repo`, or from the local git remote when self-hosting — and hands that identity to a `GitContext`. Everything downstream that needs a repo-bound *forge* operation, however, resolves identity a **second** time: `createRepoContext({repoId, cwd})` is called at four sites with a hand-built `RepoIdentifier`, `adwMerge.tsx:271` calls `buildRepoIdentifier(targetRepo)` one line after building its context, and `adwUpgrade.tsx:503` constructs a `CodeHost` outright. Two independent derivations of the same fact are exactly the shape the GitContext PRD was written to kill.
 
-This slice makes the boundary yield both. `buildLaunchBoundary(targetRepo, deps)` returns a `LaunchBoundary` — `{ gitContext, repoId, providers }` — where `providers` is the `{issueTracker, codeHost, boardManager?}` triple minted from the *same* `{owner, repo}` value that the `GitContext` received, in the same call, with no second read of any identity source. `buildLaunchGitContext` survives as the context-only view of that same call (`buildLaunchBoundary(...).gitContext`), so the six existing call sites and four merged BDD proofs that use it keep working byte-for-byte.
+This slice makes the boundary yield both. `buildLaunchBoundary(targetRepo, deps)` returns a `LaunchBoundary` — `{ gitContext, repoId, providers }` — where `providers` is the `{issueTracker, codeHost, boardManager?}` triple bound, in that same call, to the *same* `{owner, repo}` value the `GitContext` received, with no second read of any identity source. (Identity is fixed at the call; the instances themselves are minted on first access and memoised — Solution §3.) `buildLaunchGitContext` survives as the context-only view of that same call (`buildLaunchBoundary(...).gitContext`), so the six existing call sites and four merged BDD proofs that use it keep working byte-for-byte.
 
 Provider *selection* — which platform implements each port — is untouched: it still comes from `.adw/providers.md` per target repo and still defaults to GitHub (`loadProviderConfig`, `adws/providers/repoContext.ts:73`). What changes is that the selected implementations are bound to boundary identity rather than to an identity re-derived at the call site.
 
@@ -71,7 +71,10 @@ export interface MintProvidersOptions {
   issueTrackerPlatform: Platform;
 }
 
-/** Mints the provider triple bound to `repoId`. No filesystem, no git, no network. */
+/**
+ * Mints the frozen provider triple bound to `repoId`. No filesystem, no git, no network.
+ * A platform with no implementation is refused BY NAME — never substituted with GitHub.
+ */
 export function mintBoundProviders(options: MintProvidersOptions): BoundProviders;
 ```
 
@@ -153,6 +156,8 @@ Two new injectable seams join `LaunchGitContextDeps` (all optional, production d
 
 The boundary decides *nothing* about platforms. It calls the same `loadProviderConfig` the factory calls, which returns `{codeHost: Platform.GitHub, issueTracker: Platform.GitHub}` when `.adw/providers.md` is absent, and it hands the answer to the same `resolveIssueTracker`/`resolveCodeHost`/`resolveBoardManager` switches. The only difference is the directory the config is read from: **`gitContext.basePath`** — `<targetReposDir>/<owner>/<repo>` for a target, `frameworkRepoRoot` for self-host — instead of a caller-supplied `cwd`. That is identity-derived by construction (PRD invariant: no cwd fallback), and for the migrated `workflowInit` path it is the same repository as the worktree it replaces, one commit-ish away.
 
+**Refused, never substituted.** A configured platform ADW has no implementation for (`bitbucket` as a code host, anything non-GitHub as an issue tracker) throws from `resolveCodeHost`/`resolveIssueTracker` naming the platform, and an unparseable value throws from `parsePlatform` naming the value. That is today's behaviour, kept verbatim: falling back to GitHub because a repo's configuration could not be honoured would address the right repository through the wrong forge, which is the wrong-repo bug class in different clothes. Under deferred minting the refusal surfaces on the first provider request rather than at the boundary call — the same moment it surfaces today, inside `workflowInit`'s existing `try`/`catch` — which is what AC2's "unchanged" and the PRD's "operationally invisible" bar both ask for. `@adw-794` §8 is worded to observe the refusal at the *request*, so it holds for either minting strategy and fails only for a substituting one.
+
 `RepoIdentifier.platform` stays `Platform.GitHub` by default, reproducing `buildRepoIdentifier` exactly. It is a *declared* identity field (`adwMerge` gates deps on it at `:279`), not the provider-selection input; unifying it with the configured code host would change `adwMerge`'s behaviour on a GitLab repo and belongs to #796.
 
 ### 5. The three named consumers receive providers through the boundary result (AC3)
@@ -196,7 +201,7 @@ Use these files to implement the feature:
 ### Tests
 - `adws/core/__tests__/launchGitContext.test.ts` — the boundary suite (§1–§7 today); gains the provider-minting sections.
 - `adws/providers/__tests__/repoContext.test.ts` — currently only `parseOwnerRepoFromUrl`; gains `mintBoundProviders` coverage.
-- `adws/phases/__tests__/workflowInit.test.ts:66` — mocks `createRepoContext`; must keep passing.
+- `adws/phases/__tests__/workflowInit.test.ts:66` — mocks `createRepoContext` with a `vi.fn()`; its existing cases must keep passing, and it gains the assertion that the mock was handed the boundary's `providers` (AC3's workflow-init half).
 - `adws/triggers/__tests__/pauseQueueScanner.test.ts:54`, `adws/triggers/__tests__/webhookRepoResolver.test.ts:82/360` — regression net for the untouched callers.
 
 ### BDD scenarios for this slice
@@ -263,10 +268,10 @@ Execute every step in order, top to bottom.
 
 - Extend `adws/providers/__tests__/repoContext.test.ts` (no filesystem, no git — `mintBoundProviders` touches neither):
   - GitHub/GitHub returns all three providers; `codeHost.getRepoIdentifier()` deep-equals the supplied `repoId`.
-  - GitLab code host + GitHub issue tracker returns a GitLab code host and omits `boardManager` (unsupported platform swallowed).
-  - An unsupported issue-tracker platform throws with the platform named.
+  - An unsupported code-host platform (`Platform.Bitbucket`) throws naming `bitbucket`; an unsupported issue-tracker platform (`Platform.GitLab`) throws naming `gitlab`. These are the "refused by name, never substituted with GitHub" rows AC2 turns on, and they mirror `@adw-794` §8.
   - A `repoId` with an empty owner or repo throws through `validateRepoIdentifier`.
-  - The returned object is frozen and its `codeHost`/`issueTracker` are distinct instances per call.
+  - The returned triple is frozen, and two calls with the same `repoId` return distinct `codeHost`/`issueTracker` instances.
+- **Do not write a positive GitLab row.** `createGitLabCodeHost` requires `GITLAB_TOKEN`, which `adws/core/environment.ts:124` reads into a module-scope constant at load time — a test cannot arrange it without rewriting the module graph. The same constraint makes `resolveBoardManager`'s optional-swallow branch unreachable from a unit test: reaching it needs a code host that resolves on a platform the board manager does not serve, i.e. GitLab. That `try`/`catch` moves verbatim and keeps its existing coverage; the positive non-GitHub path stays proven where it already is, in the provider suites. `features/per-issue/feature-794.feature` records the identical finding for the BDD harness.
 - Run `bunx vitest run adws/providers/__tests__/repoContext.test.ts` — green.
 
 ### 5. Add `LaunchBoundary`, `buildLaunchBoundary` and the deps seams
@@ -308,11 +313,14 @@ Extend `adws/core/__tests__/launchGitContext.test.ts` with new sections, keeping
 - In `adws/phases/workflowInit.ts:133-140`: hold `boundary: LaunchBoundary | undefined` from `buildLaunchBoundary(targetRepo ?? null)` inside the existing `try`/`catch`; derive `gitContext` from it. The graceful-fallback comment stays accurate and should be extended to mention providers.
 - At `:296-311`: resolve `repoIdForContext` as `options?.repoId ?? boundary?.repoId ?? <existing repoInfo/getRepoInfo fallback>`; pass `providers: boundary.providers` to `createRepoContext` only when `boundary` exists **and** `sameRepoIdentity(repoIdForContext, boundary.repoId)`; keep the surrounding `try`/`catch` and its "falling back to direct API calls" log.
 - Leave `:320-321` (`launchRepoIdentity` from `gitContext`) and `crossCheckRepoIdentity` unchanged.
-- Run `bunx vitest run adws/phases/__tests__/workflowInit.test.ts` — green with its existing `createRepoContext` mock.
+- Extend `adws/phases/__tests__/workflowInit.test.ts`: its `createRepoContext` mock is a `vi.fn()` (`:66`), so assert the call it received carries a `providers` field identical to the boundary's triple when the resolved identity matches, and carries none when a caller-supplied `repoId` names a different repository. This is the workflow-init half of AC3 — `@adw-794` §11 proves `createRepoContext` *reuses* what it is handed; this proves workflow init *hands* it.
+- Run `bunx vitest run adws/phases/__tests__/workflowInit.test.ts` — green.
 
 ### 10. Write the RED-first BDD proof
 
-- If `features/per-issue/feature-794.feature` does not yet exist, write it (tags `@adw-794 @adw-ncj1hq-launch-boundary-mint`) plus `features/per-issue/step_definitions/feature-794.steps.ts`, covering the scenarios in **Testing Strategy → BDD Scenarios** below. Drive real modules in-process — `buildLaunchBoundary`, `createRepoContext`, `resolveCronRepo` — over injected seams and a fixture repo, as `feature-791.steps.ts` and `feature-700.steps.ts` do. Never assert on private state.
+- `features/per-issue/feature-794.feature` (tags `@adw-794 @adw-ncj1hq-launch-boundary-mint`) already exists and is the authority on scenario wording — implement against it, do not reword it. Write `features/per-issue/step_definitions/feature-794.steps.ts` to cover its twelve sections (summarised in **Testing Strategy → BDD Scenarios** below) and honour its own "Testing notes for the step definitions" block.
+- Drive real modules in-process — `buildLaunchBoundary`, `createRepoContext`, `resolveCronRepo`, `parseTargetRepoArgs` — over injected seams, as `feature-791.steps.ts` and `feature-700.steps.ts` do. `makeTestDeps` in `feature-660.steps.ts:80` is the deps model; `feature-565.steps.ts:265` is the model for §11's `mkdtempSync` + `execSync('git init')` fixture repo, which is how `validateGitRemote` is already driven successfully in this harness. Never assert on private state.
+- Reuse, do not redefine, `the ADW codebase is checked out` (G18) and `the ADW TypeScript type-check passes` (T22) — redefining either is an `AmbiguousStepDefinition`.
 - Run `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-794"` — every scenario green, none pending.
 
 ### 11. Update the README
@@ -334,22 +342,30 @@ Execute every command in the `Validation Commands` section below and confirm eac
 
 **Extended — `adws/core/__tests__/launchGitContext.test.ts`:** the new sections listed in Step 6, all over injected seams (no filesystem, no git, no network), matching the file's existing identity-in/paths-out style. §1–§7 are the behaviour-neutrality net for the `buildLaunchGitContext` → `buildLaunchBoundary` delegation and must pass **unedited**.
 
-**Extended — `adws/providers/__tests__/repoContext.test.ts`:** the `mintBoundProviders` cases from Step 4, plus the existing `parseOwnerRepoFromUrl` cases untouched. Deliberately no `createRepoContext` unit test: it needs a real `.git` workspace with a matching remote, and `adws/**/__tests__/` is *not* in the git/gh guard's exempt directory set (`EXEMPT_DIR_NAMES` covers `features` and `test`, not `__tests__`), so a fixture-repo setup there would trip `bun run lint:git-guard`. The `providers` passthrough is proven in BDD over a fixture repo instead.
+**Extended — `adws/providers/__tests__/repoContext.test.ts`:** the `mintBoundProviders` cases from Step 4, plus the existing `parseOwnerRepoFromUrl` cases untouched. Deliberately no `createRepoContext` unit test: it needs a real `.git` workspace with a matching remote, and `adws/**/__tests__/` is *not* in the git/gh guard's exempt directory set (`EXEMPT_DIR_NAMES` covers `features` and `test`, not `__tests__`), so a fixture-repo setup there would trip `bun run lint:git-guard`. The `providers` passthrough is proven in BDD over a fixture repo instead — `@adw-794` §11, following `feature-565.steps.ts:265`.
 
-**Regression net, untouched:** `adws/phases/__tests__/workflowInit.test.ts`, `adws/triggers/__tests__/webhookRepoResolver.test.ts`, `adws/triggers/__tests__/pauseQueueScanner.test.ts`, `adws/providers/__tests__/boardManager.test.ts`.
+**Extended — `adws/phases/__tests__/workflowInit.test.ts`:** the boundary-providers passthrough assertion from Step 9, over the existing `createRepoContext` mock. Its existing cases pass unedited.
+
+**Regression net, untouched:** `adws/triggers/__tests__/webhookRepoResolver.test.ts`, `adws/triggers/__tests__/pauseQueueScanner.test.ts`, `adws/providers/__tests__/boardManager.test.ts`.
 
 ### BDD Scenarios
 
-`features/per-issue/feature-794.feature` (`@adw-794`) is the behavioural proof and the build's RED-first driver. Coverage, mapped to the acceptance criteria:
+`features/per-issue/feature-794.feature` (`@adw-794 @adw-ncj1hq-launch-boundary-mint`) is the behavioural proof and the build's RED-first driver. It is already written; its twelve sections are the contract this plan implements, and they are the authority on scenario wording. Coverage, mapped to the acceptance criteria:
 
-- **§1 One call, two artefacts, one identity (AC1).** A boundary built for `acme/webapp` yields a context and a code host reporting the same owner/repo; the same holds for a self-host boundary resolved from an injected repo-info source. RED before: `buildLaunchBoundary` does not exist.
-- **§2 Divergence is unreachable (AC1).** A repo-info source that answers `acme/webapp` then `other/repo` still yields agreeing context and providers from one call — the second answer is never read.
-- **§3 Selection stays config-driven and GitHub-defaulted (AC2).** A workspace whose `.adw/providers.md` declares a GitLab code host mints a GitLab code host with a GitHub issue tracker; a workspace with no such file mints GitHub for both; the config is read from the identity-derived workspace path, not from the process cwd.
-- **§4 Downstream receives, never constructs (AC3).** `createRepoContext` over a fixture repo, handed the boundary's providers, returns a context whose `issueTracker`/`codeHost` are the *same instances* the boundary minted, while still rejecting a workspace whose git remote contradicts the declared identity.
-- **§5 Cron's boundary (AC3).** Composing cron's own argument resolution (`resolveCronRepo`) with `buildLaunchBoundary`, as the cron entry guard does, yields providers bound to the `--target-repo` identity — not to the framework repo the cron process runs from.
-- **§6 The context-only view is unchanged and total.** Building through `buildLaunchGitContext` against a workspace that has not been cloned yet still succeeds and reads no provider configuration — the cron/webhook/promotion-sweep startup guard.
+- **§1 The boundary hands back providers at all (AC1).** One call yields a git context *and* an issue tracker *and* a code host *and* a board manager. The load-bearing RED: `buildLaunchBoundary` does not exist today.
+- **§2 Every minted provider carries the context's identity (AC1, AC4).** A `Scenario Outline` over the three provider kinds, asserted through the injected `mintProviders` seam because only `CodeHost` exposes `getRepoIdentifier()`.
+- **§3 The uninjected path is the one that ships (AC4).** With no provider seam installed, `boundary.providers.codeHost.getRepoIdentifier()` reports what the context names — for both the target and the self-host shape. The anti-vacuity row for §2.
+- **§4 One identity read, not several (AC1).** A `getRepoInfo` seam answering `acme/webapp` then `octo/infra` forever still yields agreeing context and providers, and is consulted at most once.
+- **§5 The target argument wins (AC1).** With `--target-repo`, the local remote is never read — by the context or by any provider.
+- **§6 The three named consumers (AC3).** Six rows driving the real `resolveCronRepo` / `parseTargetRepoArgs` / `targetRepo ?? null` resolutions into the boundary, in both the target and self-host shape.
+- **§7 Providers minted before the workspace exists (AC3).** A target repo that has not been cloned still gets its providers — the hazard Problem constraint 1 names.
+- **§8 Selection stays config-driven and GitHub-defaulted (AC2).** Five rows over `.adw/providers.md` at the identity-derived workspace path: absent config yields the full GitHub set; an unimplemented code host (`bitbucket`) and an unimplemented issue tracker (`gitlab`) are refused **by name**; an unparseable value (`bananas`) is refused naming the value; two repositories in one process get their own answers. The refusal rows observe the failure when the boundary's *providers are requested*, so they hold under deferred minting and fail only for an implementation that substitutes GitHub. No positive GitLab row — `GITLAB_TOKEN` is a load-time constant (`environment.ts:124`), the same constraint that shapes Step 4.
+- **§9 The context half is unchanged (regression net).** Base-path resolution for both launch shapes, plus #791's per-command credential resolution through the boundary-built context.
+- **§10 The result cannot be re-pointed (AC1).** An attempted reassignment on the boundary result leaves the context's and code host's identity unchanged — the `Object.freeze` in `freezeBoundary`.
+- **§11 Downstream receives, never constructs (AC3).** `createRepoContext` over a `git init` fixture repo, handed the boundary's providers, returns a context whose `issueTracker`/`codeHost` are the *same instances* (object identity) the boundary minted — and still refuses a workspace whose `origin` contradicts the declared repository. This is the home of the `providers` passthrough proof; see the unit-test note above for why it cannot live in `adws/**/__tests__/`.
+- **§12 Type-check backstop (T22).** `bunx tsc` over the call sites that adopt the new result and the two that stay on the context-only view.
 
-`@adw-791`, `@adw-700`, `@adw-664` and `@adw-660` are the merged boundary proofs; they must stay green with zero edits.
+`@adw-791`, `@adw-700`, `@adw-664`, `@adw-660` and `@adw-565` are the merged boundary and repo-context proofs; they must stay green with zero edits.
 
 ### Edge Cases
 
@@ -368,6 +384,8 @@ Execute every command in the `Validation Commands` section below and confirm eac
 - [ ] `buildLaunchBoundary(targetRepo, deps)` returns `{ gitContext, repoId, providers }` in which `repoId.owner/repo` equal `gitContext.owner/repo` and `providers.codeHost.getRepoIdentifier()` deep-equals `repoId`, for both the target and self-host paths.
 - [ ] The boundary reads its identity source at most once per call: a `getRepoInfo` seam that answers differently on a second call cannot produce a context and providers that disagree, and is never consulted at all when `--target-repo` is present.
 - [ ] Provider selection is unchanged: platforms come from `.adw/providers.md` through the existing `loadProviderConfig` and the existing `resolveIssueTracker`/`resolveCodeHost`/`resolveBoardManager` switches, defaulting to GitHub when the file is absent; the config is read from the identity-derived workspace path, never from `process.cwd()`.
+- [ ] A configured platform ADW has no implementation for is refused **by name**, and an unparseable platform value is refused naming the value — never substituted with GitHub. Under deferred minting the refusal surfaces on the first provider request, which is where it surfaces today.
+- [ ] The `LaunchBoundary` result is frozen: a caller cannot re-point it at another repository after it is handed over, and `boundary.providers` returns the identical triple on every access.
 - [ ] `buildLaunchGitContext` returns `buildLaunchBoundary(...).gitContext` and its existing unit sections §1–§7 pass **unedited**; building a context performs no provider-config read and gains no new failure mode.
 - [ ] `adws/adwMerge.tsx` derives `gitContext` and `repoId` from one boundary call and no longer calls `buildRepoIdentifier`; `buildRepoIdentifier` remains exported for its four other callers.
 - [ ] `adws/triggers/trigger_cron.ts` holds a `LaunchBoundary` at module scope under the unchanged entry-script guard and exposes the minted providers; every existing `cronGitContext` use is unchanged.
