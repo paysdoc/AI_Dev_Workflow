@@ -8,14 +8,12 @@
 
 import { GitContext } from '../gitContext';
 import type { GitContextOptions, TokenProvider } from '../gitContext/types';
-import {
-  readLocalRepoInfo,
-  resolveBootstrapGitIdentity,
-  ghAuthToken,
-} from '../gitContext';
+import { readLocalRepoInfo, resolveBootstrapGitIdentity } from '../providers/github/githubIdentity';
+import { ghAuthToken } from '../providers/github/ghAuthToken';
 import { isGitHubAppConfigured, getInstallationToken } from './githubAppAuth';
 import { createGitHubTokenProvider } from '../providers/github/githubTokenProvider';
 import { REPO_ROOT, TARGET_REPOS_DIR, GITHUB_PAT } from '../core/environment';
+import { log } from '../core/utils';
 import type { RepoInfo } from './githubApi';
 
 interface FactoryInput {
@@ -108,7 +106,7 @@ export function gitContextForSync({ owner, repo, selfHost }: FactoryInput): GitC
     frameworkRepoRoot: REPO_ROOT,
     targetReposDir: TARGET_REPOS_DIR,
   };
-  return new GitContext(options);
+  return new GitContext(options, { logger: log });
 }
 
 /** Returns a fresh GitContext for the given repo. */
@@ -126,5 +124,5 @@ export function gitContextForRepo(repoInfo: RepoInfo, opts?: { selfHost?: boolea
     // (PR approval, Projects V2 writes) — preserving this factory's existing
     // asymmetry with gitContextForSync exactly.
     tokenProvider: buildTokenProvider(GITHUB_PAT),
-  });
+  }, { logger: log });
 }

@@ -24,7 +24,8 @@ import type { GitIdentity, TokenProvider } from '../gitContext';
 import type { TargetRepoInfo } from '../types/issueTypes';
 import type { RepoInfo } from '../github/githubApi';
 import { getRepoInfo } from '../github/githubApi';
-import { resolveBootstrapGitIdentity, ghAuthToken } from '../gitContext';
+import { resolveBootstrapGitIdentity } from '../providers/github/githubIdentity';
+import { ghAuthToken } from '../providers/github/ghAuthToken';
 import { isGitHubAppConfigured, getInstallationToken } from '../github/githubAppAuth';
 import { resolveContextToken } from '../providers/github/tokenResolver';
 import { createGitHubTokenProvider } from '../providers/github/githubTokenProvider';
@@ -34,6 +35,7 @@ import { mintBoundProviders, loadProviderConfig, type MintProvidersOptions, type
 import type { BoundProviders, RepoIdentifier } from '../providers/types';
 import { Platform } from '../providers/types';
 import { REPO_ROOT, TARGET_REPOS_DIR, GITHUB_PAT } from './environment';
+import { log } from './utils';
 
 /**
  * Injectable seams for buildLaunchGitContext. All fields are optional;
@@ -202,7 +204,7 @@ export function buildLaunchBoundary(
     gitIdentity: resolveIdentity(),
     frameworkRepoRoot,
     targetReposDir,
-  });
+  }, { logger: log });
   const repoId: RepoIdentifier = { owner, repo, platform };
 
   return freezeBoundary(gitContext, repoId, () => {

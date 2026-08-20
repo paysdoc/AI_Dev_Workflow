@@ -104,6 +104,19 @@ export interface FsDeps {
 }
 
 /**
+ * The four levels the worktree operations report at.
+ */
+export type LogLevel = 'info' | 'error' | 'success' | 'warn';
+
+/**
+ * The logger port (PRD story 17) — exists so the package carries no
+ * dependency on the host application's utilities. Structurally compatible
+ * with the host application's `log(message, level?)` (`adws/core/logger.ts`),
+ * so the ADW logger is injectable with no adapter.
+ */
+export type Logger = (message: string, level?: LogLevel) => void;
+
+/**
  * Optional dependency bag for GitContext. Follows the ADW Deps idiom
  * (JanitorDeps, MergeDeps, ReconcileDeps). All fields optional so existing
  * call sites `new GitContext(options)` continue to work unchanged.
@@ -112,6 +125,8 @@ export interface GitContextDeps {
   exec?: ExecFn;
   /** Injectable fs for worktree management ops — defaults to real 'fs' functions. */
   fsDeps?: FsDeps;
+  /** Injectable logger port — defaults to `consoleLogger`. */
+  logger?: Logger;
 }
 
 /** Git author and committer identity for child-process env overlays. */

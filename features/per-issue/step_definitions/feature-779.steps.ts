@@ -18,8 +18,8 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { execSync } from 'child_process';
-import { readLocalRepoInfo } from '../../../adws/gitContext/bootstrapIdentity.ts';
-import type { RepoInfo } from '../../../adws/gitContext/bootstrapIdentity.ts';
+import { readLocalRepoInfo } from '../../../adws/providers/github/githubIdentity.ts';
+import type { RepoInfo } from '../../../adws/providers/github/githubIdentity.ts';
 import { getRepoInfo } from '../../../adws/github/githubApi.ts';
 import { resolveContextToken } from '../../../adws/providers/github/tokenResolver.ts';
 

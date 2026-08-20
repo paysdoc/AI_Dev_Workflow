@@ -643,23 +643,25 @@ adws/                   # ADW workflow system
 │   │   ├── remoteOps.test.ts
 │   │   ├── repoApiCwd.test.ts
 │   │   ├── repoWorkspace.test.ts
-│   │   └── workingDirectoryGuard.test.ts
-│   ├── bootstrapIdentity.ts  # Pre-context git reads (git remote get-url origin, gh auth token) — permanent exception absorbed into package (#700)
+│   │   ├── workingDirectoryGuard.test.ts
+│   │   └── worktreeLogger.test.ts
+│   ├── bootstrapIdentity.ts  # Pre-context GENERIC git reads only (git remote get-url origin, GIT_AUTHOR_*/GIT_COMMITTER_* env, git config user.name/email) — permanent exception absorbed into package (#700); GitHub remote parsing, App bot-identity derivation and gh auth token moved to the GitHub forge adapter (#793)
 │   ├── branchOps.ts    # Package-private branch operation orchestration (create, checkout, delete, reset)
 │   ├── claimOps.ts     # Package-private distributed-lock git ops — detached worktree add, allow-empty commit, non-force push, worktree remove
 │   ├── commitOps.ts    # Package-private commit/push orchestration (force-with-lease, lease rejection detection)
-│   ├── gitContext.ts   # GitContext class — mandatory identity, base-path resolution in constructor, public forge-neutral exec() executor (#790) with #run/#runRepoApi classifiers resolving credentials through the TokenProvider port per command (#791), no cwd fallback; TRANSITIONAL: still imports its surviving semantic methods' gh command builders from ../providers/github/commands/ pending their migration to callers (#796/#797) (#792)
+│   ├── consoleLogger.ts  # Default Logger port implementation — every level to stdout (#793)
+│   ├── gitContext.ts   # GitContext class — mandatory identity, base-path resolution in constructor, public forge-neutral exec() executor (#790) with #run/#runRepoApi classifiers resolving credentials through the TokenProvider port per command (#791), no cwd fallback; worktree-op logging through an injected Logger port defaulting to consoleLogger (#793); TRANSITIONAL: still imports its surviving semantic methods' gh command builders from ../providers/github/commands/ pending their migration to callers (#796/#797) (#792)
 │   ├── gitReadOps.ts   # Package-private git-read ops — tracked-file listing, HEAD hash, branch diff, commit-history log
 │   ├── remoteOps.ts    # Package-private remote-interaction ops — fetch from origin, ls-remote queries, merge a ref, and abort in-progress merge
-│   ├── index.ts        # Public surface (GitContext class + exec()/ExecOptions/ExecWorkingDirectory executor types + GitIdentity/GitContextOptions types + TokenProvider port types + bootstrap primitives); the GitHub TokenProvider implementation, command builders, App auth and token resolution live in the GitHub forge adapter (adws/providers/github/, #792)
+│   ├── index.ts        # Public surface (GitContext class + exec()/ExecOptions/ExecWorkingDirectory executor types + GitIdentity/GitContextOptions types + TokenProvider port types + Logger/LogLevel port types + generic bootstrap primitives); the GitHub TokenProvider implementation, command builders, App auth, token resolution, GitHub remote-URL parsing, bot-identity derivation, clone-URL construction and gh auth token live in the GitHub forge adapter (adws/providers/github/, #792/#793)
 │   ├── processCleanup.ts  # Package-private process kill helpers (killProcessesInDirectory)
-│   ├── repoWorkspace.ts  # Target-repo workspace management (path resolution, clone, fetch) — absorbed into package (#700); defaultBranch thunk injected for veracious auth
-│   ├── types.ts        # GitIdentity, GitContextOptions, ExecFn, GitContextDeps, ExecWorkingDirectory, ExecOptions, TokenProvider, CredentialRequest, and CredentialPurpose interfaces/types (#791)
+│   ├── repoWorkspace.ts  # Target-repo workspace management (path resolution, clone, fetch) — absorbed into package (#700); defaultBranch thunk injected for veracious auth; clones exactly the clone URL it is handed, no rewriting (#793)
+│   ├── types.ts        # GitIdentity, GitContextOptions, ExecFn, GitContextDeps, ExecWorkingDirectory, ExecOptions, TokenProvider, CredentialRequest, CredentialPurpose, Logger, and LogLevel interfaces/types (#791/#793)
 │   ├── workingDirectoryGuard.ts  # Rewraps a spawn-into-a-missing-cwd ENOENT into an error naming the path and repo identity (exec()'s catch block); pure, no fs/spawn
-│   ├── worktreeCreateOps.ts  # Package-private worktree creation orchestration (add, copy env, gitignore)
+│   ├── worktreeCreateOps.ts  # Package-private worktree creation orchestration (add, copy env, gitignore) — reports through an injected Logger port (#793)
 │   ├── worktreeProbeOps.ts   # Package-private worktree-probe ops — inspects an arbitrary worktree path (WorktreeRegistration: healthy/locked/prunable/missing)
 │   ├── worktreeQueryOps.ts   # Package-private worktree query helpers (list, find by branch/issue)
-│   ├── worktreeRemoveOps.ts  # Package-private worktree removal orchestration (remove single, remove for issue)
+│   ├── worktreeRemoveOps.ts  # Package-private worktree removal orchestration (remove single, remove for issue) — reports through an injected Logger port (#793)
 │   └── worktreeResetOps.ts  # Package-private takeover-reset orchestration (fetch, reset to remote, worktree repair)
 ├── vcs/                # Version control operations (git)
 │   ├── __tests__/      # Vitest unit tests
@@ -784,7 +786,9 @@ adws/                   # ADW workflow system
 │   ├── github/         # GitHub forge adapter — the only package (besides the git core) exempt from the git/gh CLI guard; its gh call sites feed command strings into the core's executor, never spawning a process itself (#792)
 │   │   ├── __tests__/  # Vitest unit tests
 │   │   │   ├── appAuth.test.ts
+│   │   │   ├── cloneUrl.test.ts
 │   │   │   ├── ghCommandRunner.test.ts
+│   │   │   ├── githubIdentity.test.ts
 │   │   │   ├── githubTokenProvider.test.ts
 │   │   │   └── tokenResolver.test.ts
 │   │   ├── commands/   # Pure command-string builders (no I/O) — one file per concern
@@ -796,9 +800,12 @@ adws/                   # ADW workflow system
 │   │   │   ├── prCommands.ts       # gh CLI command strings for PR list/create/merge/review operations
 │   │   │   └── secretCommands.ts   # gh CLI command strings for GitHub Actions secret operations
 │   │   ├── appAuth.ts  # GitHub App JWT dance and installation-token exchange — configuration is injected (GitHubAppConfig), never read from process.env (#792)
+│   │   ├── cloneUrl.ts  # GitHub clone-URL construction (convertToSshUrl) — the HTTPS→SSH rewrite moved out of the git core (#793)
+│   │   ├── ghAuthToken.ts  # `gh auth token` — moved out of the git core; the pre-context credential read only this adapter may issue (#793)
 │   │   ├── ghCommandRunner.ts  # The adapter's sole route to a child process — turns a built command string into an executed one via GitContext.exec, framework-root cwd, per-command TokenProvider credential (#792)
 │   │   ├── githubBoardManager.ts  # GitHub Projects V2 board management — issues gh via ghCommandRunner + the relocated board command builders (#792)
 │   │   ├── githubCodeHost.ts
+│   │   ├── githubIdentity.ts  # GitHub remote-URL parsing (parseGitHubRemoteUrl, readLocalRepoInfo) and App bot-identity derivation (resolveBootstrapGitIdentity) — moved out of the git core, composing its generic readers (#793)
 │   │   ├── githubIssueTracker.ts
 │   │   ├── githubTokenProvider.ts  # TokenProvider port's GitHub implementation (createGitHubTokenProvider) — wraps tokenResolver's resolveContextToken unchanged, owns the PAT-vs-installation-token decision for 'alternateIdentity' requests (#791/#792)
 │   │   ├── index.ts
