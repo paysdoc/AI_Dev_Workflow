@@ -178,13 +178,22 @@ export interface CodeHost {
 }
 
 /**
- * Immutable context object containing the provider instances and workspace info.
- * Passed through workflow phases to decouple them from specific platform implementations.
+ * The provider triple — issue tracker, code host, and (optional) board manager —
+ * bound to one `RepoIdentifier` at construction. Minted by `mintBoundProviders`
+ * (`repoContext.ts`), either directly at a launch boundary or as part of
+ * `createRepoContext`'s workspace-validated construction.
  */
-export type RepoContext = Readonly<{
+export type BoundProviders = Readonly<{
   issueTracker: IssueTracker;
   codeHost: CodeHost;
   boardManager?: BoardManager;
+}>;
+
+/**
+ * Immutable context object containing the provider instances and workspace info.
+ * Passed through workflow phases to decouple them from specific platform implementations.
+ */
+export type RepoContext = BoundProviders & Readonly<{
   cwd: string;
   repoId: RepoIdentifier;
 }>;

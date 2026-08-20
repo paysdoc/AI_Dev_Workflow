@@ -2141,32 +2141,42 @@
     - adws/core/launchGitContext.ts
     - adws/core/__tests__/launchGitContext.test.ts
   - Conditions:
-    - When working with `buildLaunchGitContext`, `LaunchGitContextDeps`, `resolveLaunchToken`, or `resolveLaunchGitIdentity` in `adws/core/launchGitContext.ts`
-    - When constructing a `GitContext` at a process launch boundary (cron entry-script guard, `adwMerge.main()`, `initializeWorkflow`)
-    - When troubleshooting the cron's module-scope `cronGitContext` or the `process.argv[1]` entry-script guard
+    - When working with `buildLaunchGitContext`, `buildLaunchBoundary`, `LaunchBoundary`, `LaunchGitContextDeps`, `resolveLaunchToken`, or `resolveLaunchGitIdentity` in `adws/core/launchGitContext.ts`
+    - When constructing a `GitContext` and its bound providers at a process launch boundary (cron entry-script guard, `adwMerge.main()`, `initializeWorkflow`) — `buildLaunchBoundary` resolves `{owner, repo}` exactly once and hands it to both artefacts in the same call (#794)
+    - When `buildLaunchGitContext` is referenced as the context-only view — it is defined as `buildLaunchBoundary(...).gitContext`, unchanged in signature and behaviour for its existing six call sites
+    - When troubleshooting the cron's module-scope `cronBoundary`/`cronGitContext`/`getCronProviders()` or the `process.argv[1]` entry-script guard
     - When `EvaluateCandidateInput.gitContext` or `WorkflowConfig.gitContext` are relevant in `takeoverHandler.ts` or `workflowInit.ts`
-    - When the "wrong-base-repo on takeover path" (`spawnSync ENOENT`, vestmatic #187) class of bug is being fixed or investigated
-    - When wiring `gitContext.basePath` into worktree creation or `ensureWorktree` calls as the self-host base path replacement for `process.cwd()`
-    - When adding unit tests for the boundary constructor (target args → target workspace; absent args → framework repo root; injectable deps)
+    - When the "wrong-base-repo on takeover path" (`spawnSync ENOENT`, vestmatic #187) class of bug, or its "identity derived twice" variant (#794), is being fixed or investigated
+    - When wiring `gitContext.basePath` into worktree creation, `ensureWorktree` calls, or provider-config lookup (`loadProviderConfig(gitContext.basePath)`) as the self-host/target base-path replacement for `process.cwd()`
+    - When `freezeBoundary`'s deferred-and-memoised provider minting, the `platform`/`loadProviderConfig`/`mintProviders` `LaunchGitContextDeps` seams, or the deep-import rule against `../providers/repoContext` and `../providers/types` (never the `../providers` barrel) are relevant
+    - When `adwMerge.tsx` no longer calls `buildRepoIdentifier` (deleted second identity derivation) or `workflowInit.ts` passes `providers: boundary.providers` into `createRepoContext` gated by `sameRepoIdentity`
+    - When adding unit tests for the boundary constructor (target args → target workspace; absent args → framework repo root; injectable deps; identity binding between minted context and providers)
 
 - app_docs/feature-bq1f45-git-gh-cli-guard.md
   - Owns:
     - adws/checkGitGhGuard.ts
+    - adws/guard/violationTypes.ts
+    - adws/guard/identityRule.ts
+    - adws/guard/constructionRule.ts
     - .github/workflows/git-cli-guard.yml
   - Conditions:
-    - When working with `adws/checkGitGhGuard.ts`, `scanFiles`, or `scanSource` — the AST-based git/gh call scanner
+    - When working with `adws/checkGitGhGuard.ts`, `scanFiles`, or `scanSource` — the AST-based git/gh/construction call scanner
     - When the CI `Git/GH CLI Guard` workflow (`.github/workflows/git-cli-guard.yml`) fails on a pull request or push
     - When troubleshooting false-positive or false-negative detection (template literals, execFileSync first-arg form, comment mentions)
-    - When `bun run lint:git-guard` exits 1 and you need the remedy (for `git`, add code to `adws/gitContext/`; for `gh`, route through `adws/providers/github/` — e.g. `ghCommandRunner` — instead; there is no allowlist)
-    - When understanding that the `ALLOWLIST` has been deleted (#701) — the const, `allowed` Set, and per-file skip are all gone; as of #792 the closed, named, two-entry `EXEMPT_PACKAGES` array (`adws/gitContext`, `adws/providers/github`) and its `isExemptPackage` predicate exempt files, replacing the single-string `EXEMPT_PACKAGE_DIR`
-    - When the `(0 allowlisted)` literal in the runtime print needs to stay as-is (preserves the `(\d+) allowlisted` BDD step regex)
-    - When understanding why `features/` and `test/` dirs are excluded from the scan (fixture-repo BDD setup legitimately shells out)
+    - When `bun run lint:git-guard` exits 1 and you need the remedy — for `git`, add code to `adws/gitContext/`; for `gh`, route through `adws/providers/github/` (e.g. `ghCommandRunner`); for cwd-derived identity, thread the launch-boundary `GitContext`; for unsanctioned construction, receive providers from `buildLaunchBoundary(...)` instead of constructing them
+    - When understanding that the `ALLOWLIST` has been deleted (#701) for `git-gh-shellout` — the const, `allowed` Set, and per-file skip are all gone; as of #792 the closed, named, two-entry `EXEMPT_PACKAGES` array (`adws/gitContext`, `adws/providers/github`) and its `isExemptPackage` predicate exempt files, replacing the single-string `EXEMPT_PACKAGE_DIR`
+    - When the `(0 allowlisted)` literal in the runtime print needs to stay as-is (preserves the `(\d+) allowlisted` BDD step regex) — and when adding future stdout blocks, note the #795 sanctioned-construction-sites block deliberately avoids the substring "allowlisted" for this reason
+    - When understanding why `features/` and `test/` dirs, and the `EXEMPT_PACKAGES` directories, are excluded from the scan for ALL THREE rules (fixture-repo BDD setup legitimately shells out; the adapter package that defines the provider factories needs no allowlist entry of its own since it's pruned at the directory walk)
     - When `EXEMPT_PACKAGES` (or `EXEMPT_DIR_NAMES`) configuration is relevant — `EXEMPT_PACKAGES` replaced the single-string `EXEMPT_PACKAGE_DIR` in #792
     - When a new bootstrap primitive needs to be added — a `git` primitive goes into `adws/gitContext/`; a `gh` primitive goes into `adws/providers/github/`; no allowlist escape hatch exists for either
-    - When writing or extending unit tests for `checkGitGhGuard.ts` (`adws/__tests__/checkGitGhGuard.test.ts` — tests `scanFiles`/`scanSource` with fixture strings)
-    - When working with the `cwd-derived-identity` rule (#769) — flags `gitContextForRepo(getRepoInfo())`/`gitContextForRepo(readLocalRepoInfo())` composites, inline or via a local variable, with no path allowlist
-    - When troubleshooting why a `gitContextForRepo(x)` call was or wasn't flagged — check whether `x` traces to a zero-argument `getRepoInfo()`/`readLocalRepoInfo()` read (flagged) vs an argument-bearing call, a guarded fallback (`x ?? getRepoInfo()`), or a plain parameter (all legal)
-    - When a legitimate self-host `gitContextForRepo` construction needs to comply with the guard — pass `readLocalRepoInfo(REPO_ROOT)` explicitly instead of a bare cwd read
+    - When writing or extending unit tests for the guard (`adws/__tests__/checkGitGhGuard.test.ts` — tests `scanFiles`/`scanSource` with fixture strings, plus `isSanctionedConstructionSite`/`findStaleSanctionedEntries` directly)
+    - When working with the `cwd-derived-identity` rule (#769, now in `adws/guard/identityRule.ts`) — flags `gitContextForRepo(getRepoInfo())`/`gitContextForRepo(readLocalRepoInfo())` composites, inline or via a local variable, with no path allowlist
+    - When troubleshooting why a `gitContextForRepo(x)` call was or wasn't flagged under `cwd-derived-identity` — check whether `x` traces to a zero-argument `getRepoInfo()`/`readLocalRepoInfo()` read (flagged) vs an argument-bearing call, a guarded fallback (`x ?? getRepoInfo()`), or a plain parameter (all legal) — but note ANY bare `gitContextForRepo(...)` call outside the allowlist is separately flagged by `unsanctioned-construction` regardless of its argument (#795); the two rules are independent
+    - When a legitimate self-host `gitContextForRepo` construction needs to comply with the `cwd-derived-identity` rule — pass `readLocalRepoInfo(REPO_ROOT)` explicitly instead of a bare cwd read
+    - When working with the `unsanctioned-construction` rule (#795, `adws/guard/constructionRule.ts`) — flags a bare-identifier `new GitContext(…)` or a bare-identifier call to `PROVIDER_CONSTRUCTORS` (the seven forge provider factories) or `CONTEXT_CONSTRUCTORS` (`createRepoContext`, `mintBoundProviders`, `gitContextFor`/`gitContextForSync`/`gitContextForRepo`) outside `SANCTIONED_CONSTRUCTION_SITES`; property-access callees (`deps.gitContextForRepo(…)`) and function declarations are deliberately never flagged
+    - When working with `SANCTIONED_CONSTRUCTION_SITES`, its PERMANENT (2, no `owner`) vs TRANSITIONAL (38, `owner: '#796'`/`'#797'`) split, `isSanctionedConstructionSite` (exact path match only, never a prefix), or the self-cleaning stale-entry ratchet in `main()` (`hasGuardedConstruction` + `findStaleSanctionedEntries` — fails the build when a transitional entry's file no longer constructs anything)
+    - When a migration slice (#796, #797) removes the last construction from a transitional entry's file — delete that entry from `SANCTIONED_CONSTRUCTION_SITES`, or the stale-entry ratchet fails the build
+    - When adding a brand-new provider/context construction site — it must call `buildLaunchBoundary(...)`; nothing may ever be added to the transitional half of the allowlist
 
 - app_docs/feature-2ubuuc-rot-reuse-advisory-pr-comment.md
   - Owns:

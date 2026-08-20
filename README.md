@@ -15,7 +15,7 @@ ADW is an agentic SDLC framework: it turns issues on GitHub, GitLab, or Jira int
 - **HITL-gated auto-merge** — every cron tick re-evaluates `(no hitl label) OR (PR approved)`; merge is deferred while the gate is closed, and `## Cancel` is the scorched-earth manual override.
 - **Retry and Cancel directives** — `## Retry` resets a `merge_blocked` workflow to `awaiting_merge` (state-only, no worktree teardown); `## Cancel` kills the orchestrator, removes the worktree, and re-queues the issue.
 - **GitContext repo-context authority** — `adws/gitContext/` is a deep module that owns every git and `gh` interaction; it is constructed once at each process's launch boundary with mandatory owner/repo/token/gitIdentity fields (no optional cwd fallback), resolves the correct base path in its constructor (self-host → framework root; target → target-repos workspace), and applies auth per spawned-command environment rather than by mutating a process-global, eliminating the ~13-episode wrong-repo and GH_TOKEN-bleed class of bugs. Git commands and workspace-scoped operations spawn under that base path; repo-independent `gh` operations (issue/PR/label/board/secret — identity travels in the command string) always spawn under the injected framework repo root instead, so directive handling like `## Cancel`/`## Retry` works on a host that has never cloned the target repo's workspace (issue #775). A git spawn into a workspace that was never cloned (or a worktree that vanished) fails with an actionable error naming the missing path and the repository, instead of the cryptic `spawnSync /bin/sh ENOENT` (issue #777).
-- **CI-enforced git/gh guardrail** — `checkGitGhGuard.ts` (`bun run lint:git-guard`, wired into `.github/workflows/git-cli-guard.yml`) scans every `.ts`/`.tsx` source file for direct `git`/`gh` shell-outs and fails the build if any bypass the `GitContext` chokepoint; `adws/gitContext` itself is the sole structurally-exempted package.
+- **CI-enforced git/gh guardrail** — `checkGitGhGuard.ts` (`bun run lint:git-guard`, wired into `.github/workflows/git-cli-guard.yml`) scans every `.ts`/`.tsx` source file for three independent violation classes: a direct `git`/`gh` shell-out outside the closed, two-entry `EXEMPT_PACKAGES` set (`adws/gitContext`, the git core; `adws/providers/github`, the GitHub forge adapter — `git-gh-shellout`), a `gitContextForRepo(…)` construction fed cwd-derived identity instead of a threaded launch-boundary context (`cwd-derived-identity`, #769), or ad-hoc construction of a forge provider, the RepoContext factory, or a GitContext factory outside a file-scoped permanent+transitional allowlist (`unsanctioned-construction`, #795) — the launch boundary is the only permanent sanctioned site, transitional entries are pre-existing call sites owned by in-flight migration issues, and a self-cleaning ratchet fails the build if a transitional entry stops constructing anything. The three rules live across `adws/checkGitGhGuard.ts` and the `adws/guard/` package (`violationTypes.ts`, `identityRule.ts`, `constructionRule.ts`).
 - **Target-repo agent guardrails injection** — `resolveGuardrailsDecision` (`guardrailsGate.ts`) opt-in-gates a `--settings` injection onto every target-repo `claude` spawn: `.github/adw.yml`'s `guardrails: true` canary, an `ADW_TARGET_GUARDRAILS=off` kill switch, self-host exclusion, and a memoized startup probe (`scripts/guardrails-probe.ts`) that fails OPEN (no injection + one Slack alert) rather than blocking. The injected payload (`guardrailsPayload.ts`) combines the `templates/claude-settings-starter.json` deny list with all five framework hooks re-registered at absolute paths and an absolute per-adwId `CLAUDE_HOOKS_LOG_DIR`, so hook logs never leak into the target worktree.
 - **Multi-provider abstraction** — pluggable `IssueTracker` and `CodeHost` interfaces (`RepoContext`) with GitHub, GitLab, and Jira issue trackers and GitHub/GitLab code hosts.
 - **Project board automation** — `BoardManager` provider drives GitHub Projects V2 column transitions as a workflow progresses.
@@ -132,7 +132,7 @@ If you want to evaluate the codebase directly, the recommended reading order is:
 2. `adws/triggers/trigger_cron.ts` together with `adws/triggers/takeoverHandler.ts` — the control loop.
 3. `adws/phases/orchestratorLock.ts` together with `adws/triggers/spawnGate.ts` — the locking model.
 4. `adws/core/processLiveness.ts`, `adws/core/heartbeat.ts`, and `adws/core/hungOrchestratorDetector.ts` — the liveness model.
-5. `adws/providers/repoContext.ts` together with `adws/providers/types.ts` — the provider abstraction.
+5. `adws/providers/repoContext.ts` together with `adws/providers/types.ts` — the provider abstraction; `adws/core/launchGitContext.ts` mints the same provider triple at the launch boundary, bound to the same identity as the GitContext.
 6. [UBIQUITOUS_LANGUAGE.md](UBIQUITOUS_LANGUAGE.md) — domain terms (Workflow, Phase, Stage, Orchestrator, Worktree, Spawn Lock, Takeover, etc.). Worth reading before any unfamiliar phase.
 7. [specs/prd/orchestrator-coordination-resilience.md](specs/prd/orchestrator-coordination-resilience.md) — the design rationale for the coordination kernel.
 
@@ -567,7 +567,7 @@ adws/                   # ADW workflow system
 │   ├── index.ts
 │   ├── issueClassifier.ts
 │   ├── jsonParser.ts
-│   ├── launchGitContext.ts  # Boundary-constructor adapter — builds one GitContext per process launch boundary from launch identity (cron module-scope, adwMerge.main(), initializeWorkflow); resolves token + gitIdentity; wires context into takeoverHandler and workflowInit
+│   ├── launchGitContext.ts  # Boundary-constructor adapter — buildLaunchBoundary builds one GitContext AND mints the forge provider triple (IssueTracker/CodeHost/BoardManager) bound to the SAME identity, in the same call, per process launch boundary (cron module-scope, adwMerge.main(), initializeWorkflow); providers are minted lazily on first access and memoised, so building the context alone gains no new I/O or failure mode; buildLaunchGitContext is the context-only view (#794); resolves token + gitIdentity; wires context into takeoverHandler and workflowInit
 │   ├── logger.ts       # Structured logging utilities
 │   ├── modelRouting.ts # Model/effort routing utilities
 │   ├── orchestratorCli.ts  # Shared CLI parsing utilities
@@ -826,7 +826,7 @@ adws/                   # ADW workflow system
 │   │   ├── jiraIssueTracker.ts
 │   │   └── jiraTypes.ts
 │   ├── index.ts
-│   ├── repoContext.ts  # RepoContext factory
+│   ├── repoContext.ts  # RepoContext factory; mintBoundProviders is the provider-minting logic shared with the launch boundary (adws/core/launchGitContext.ts, #794)
 │   └── types.ts
 ├── triggers/           # Automation triggers
 │   ├── __tests__/      # Vitest unit tests
@@ -923,7 +923,11 @@ adws/                   # ADW workflow system
 │   ├── proofArtifactHarvester.ts  # Pure recursive harvester of image artifacts from proof directory
 │   └── types.ts
 ├── known_issues.md     # Known issues and workarounds
-├── checkGitGhGuard.ts  # CI guard: scans all .ts/.tsx sources for direct git/gh shell-outs outside GitContext; fails build if any bypass the per-command auth chokepoint (`bun run lint:git-guard`)
+├── guard/              # Git/GH CLI Guard rule modules (#795)
+│   ├── violationTypes.ts    # Shared ViolationRule ('git-gh-shellout' | 'cwd-derived-identity' | 'unsanctioned-construction') / Violation types
+│   ├── identityRule.ts      # cwd-derived-identity rule (#769) — gitContextForRepo(getRepoInfo()) composites
+│   └── constructionRule.ts  # unsanctioned-construction rule (#795) — ad-hoc provider/context construction outside the permanent+transitional launch-boundary allowlist
+├── checkGitGhGuard.ts  # CI guard entry point: discovery + git-gh-shellout rule + composes the three rules; fails build if any bypass the chokepoint (`bun run lint:git-guard`)
 ├── checkLivingDocsIndex.ts  # Migration acceptance gate: validates conditional_docs.md ↔ app_docs/ bijection
 ├── adwBuild.tsx        # Orchestrators (individual & combined)
 ├── adwChore.tsx        # Chore pipeline with LLM diff gate (auto-merge)

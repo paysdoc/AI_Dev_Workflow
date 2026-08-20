@@ -9,8 +9,10 @@
 
 import { execSync, spawn } from 'child_process';
 import * as fs from 'fs';
-import { log, GRACE_PERIOD_MS, JANITOR_INTERVAL_CYCLES, HEARTBEAT_STALE_THRESHOLD_MS, HUNG_DETECTOR_INTERVAL_CYCLES, PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES, PROMOTION_SWEEP_INTERVAL_CYCLES, getTargetRepoWorkspacePath, resolveClaudeCodePath, REPO_ROOT, assertCwdIsRepoRoot, buildLaunchGitContext, getGuardrailsProbeVerdict } from '../core';
+import { log, GRACE_PERIOD_MS, JANITOR_INTERVAL_CYCLES, HEARTBEAT_STALE_THRESHOLD_MS, HUNG_DETECTOR_INTERVAL_CYCLES, PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES, PROMOTION_SWEEP_INTERVAL_CYCLES, getTargetRepoWorkspacePath, resolveClaudeCodePath, REPO_ROOT, assertCwdIsRepoRoot, buildLaunchBoundary, getGuardrailsProbeVerdict } from '../core';
 import type { GitContext } from '../gitContext';
+import type { LaunchBoundary } from '../core';
+import type { BoundProviders } from '../providers/types';
 import { findHungOrchestrators, type HungDetectorDeps } from '../core/hungOrchestratorDetector';
 import { AgentStateManager } from '../core/agentState';
 import { getRepoInfo, fetchPRList, hasUnaddressedComments, isCancelComment, isRetryComment } from '../github';
@@ -66,14 +68,27 @@ interface RawIssue {
 // Resolve repo identity from --target-repo CLI args (or fall back to local git remote).
 const { repoInfo: cronRepoInfo, targetRepo } = resolveCronRepo(process.argv.slice(2), getRepoInfo);
 
-// Module-scope launch context — built exactly once under the entry-script guard.
+// Module-scope launch boundary — built exactly once under the entry-script guard.
 // Null when this module is imported by tests (guard does not fire).
-let cronGitContext: GitContext | null = null;
+let cronBoundary: LaunchBoundary | null = null;
 
-// Build launch-boundary GitContext only when running as the cron script.
-// Skipped when trigger_cron.ts is imported as a module (e.g. by BDD step definitions).
+// Build the launch boundary only when running as the cron script. Skipped when
+// trigger_cron.ts is imported as a module (e.g. by BDD step definitions).
 if (process.argv[1]?.replace(/\\/g, '/').includes('trigger_cron')) {
-  cronGitContext = buildLaunchGitContext(targetRepo);
+  cronBoundary = buildLaunchBoundary(targetRepo);
+}
+
+// Context-only view — every existing cronGitContext use is unchanged (#794).
+const cronGitContext: GitContext | null = cronBoundary?.gitContext ?? null;
+
+/**
+ * The boundary-minted provider triple, bound to the same identity as
+ * `cronGitContext`. Receiving end for the semantic-caller migration (#797) —
+ * cron has no provider-shaped call site of its own yet. Null under the same
+ * conditions as `cronGitContext` (module-import guard not fired).
+ */
+export function getCronProviders(): BoundProviders | null {
+  return cronBoundary?.providers ?? null;
 }
 
 /** Fetches all open issues with body, comments, and timestamps. */

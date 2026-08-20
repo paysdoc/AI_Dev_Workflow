@@ -460,7 +460,7 @@ Feature: The cron sweep probes act on the repository the cron was launched for â
 
   @adw-769 @adw-5k8n5z-cron-sweep-probes-re
   Scenario: The guard permits a threaded identity with a guarded fallback
-    When the git/gh guard scans a fixture source at "adws/triggers/someHandler.ts" containing:
+    When the git/gh guard scans a fixture source at "adws/providers/repoContext.ts" containing:
       """
       import { getRepoInfo, type RepoInfo } from '../github';
       import { gitContextForRepo } from '../github/gitContextFactory';
