@@ -86,7 +86,7 @@ function makeUpgradeDeps730(overrides: Partial<UpgradeDeps> = {}): UpgradeDeps {
     fetchIssueComments: () => [],
     ensureLabel: () => undefined,
     applyLabel: () => undefined,
-    moveToStatus: () => true,
+    moveToStatus: async () => true,
     postSlack: async () => undefined,
     maxFailures: 3,
     ...overrides,

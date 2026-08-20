@@ -5,13 +5,24 @@
 
 import type { RepoInfo } from '../../github/githubApi';
 import { log } from '../../core';
-import { fetchPRDetails, fetchPRReviewComments, commentOnPR, fetchPRList } from '../../github/prApi';
+import {
+  fetchPRDetails,
+  fetchPRReviewComments,
+  commentOnPR,
+  fetchPRList,
+  defaultFindPRByBranch,
+  fetchPRApprovalState,
+  approvePR,
+  mergePR,
+} from '../../github/prApi';
 import { gitContextForSync, gitContextForRepo } from '../../github/gitContextFactory';
 import {
   type CodeHost,
   type CreatePROptions,
+  type ForgeActionResult,
   type PullRequest,
   type PullRequestResult,
+  type PullRequestSummary,
   type RepoIdentifier,
   type ReviewComment,
   validateRepoIdentifier,
@@ -20,6 +31,7 @@ import {
   mapPRDetailsToPullRequest,
   mapPRReviewCommentToReviewComment,
   mapPRListItemToPullRequest,
+  mapRawPRToSummary,
 } from './mappers';
 
 /**
@@ -97,6 +109,32 @@ export class GitHubCodeHost implements CodeHost {
     }
 
     return { url: prUrl, number: parseInt(numberMatch[1], 10) };
+  }
+
+  /** Finds the PR for a branch (open, or most-recently-updated when none are open); null if none. */
+  findPullRequestByBranch(branchName: string): PullRequestSummary | null {
+    const pr = defaultFindPRByBranch(branchName, this.repoInfo);
+    return pr ? mapRawPRToSummary(pr) : null;
+  }
+
+  /** True when the PR has at least one qualifying approval. */
+  isPullRequestApproved(prNumber: number): boolean {
+    return fetchPRApprovalState(prNumber, this.repoInfo);
+  }
+
+  /** Approves a PR under the bound identity. */
+  approvePullRequest(prNumber: number): ForgeActionResult {
+    return approvePR(prNumber, this.repoInfo);
+  }
+
+  /** Merges a PR. */
+  mergePullRequest(prNumber: number): ForgeActionResult {
+    return mergePR(prNumber, this.repoInfo);
+  }
+
+  /** Sets a repo secret (e.g. GitHub Actions). */
+  setSecret(name: string, value: string): void {
+    gitContextForRepo(this.repoInfo).setSecret(name, value);
   }
 }
 

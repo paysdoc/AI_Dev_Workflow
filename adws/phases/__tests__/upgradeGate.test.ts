@@ -149,7 +149,7 @@ describe('runUpgradeGate — winner path', () => {
 
   it('applies adw:upgrade label to the new issue', async () => {
     await runUpgradeGate(makeParams(), deps);
-    expect(deps.applyLabel).toHaveBeenCalledWith(UPG_NUMBER, 'adw:upgrade', REPO_INFO);
+    expect(deps.applyLabel).toHaveBeenCalledWith(UPG_NUMBER, 'adw:upgrade');
   });
 
   it('spawns the upgrade orchestrator', async () => {

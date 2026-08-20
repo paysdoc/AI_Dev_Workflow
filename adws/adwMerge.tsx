@@ -31,12 +31,13 @@ import {
 // Maximum PR-resolution attempts before escalating to merge_blocked (#527)
 const MAX_PR_RESOLUTION_ATTEMPTS = 3;
 import { findOrchestratorStatePath } from './core/stateHelpers';
-import { commentOnIssue, commentOnPR, defaultFindPRByBranch, fetchPRApprovalState, issueHasLabel, type RawPR, type RepoInfo } from './github';
+import { commentOnPR, type RepoInfo } from './github';
 import { notifyBlockedTransition } from './github/hitlBoardNotifier';
 import { mergeWithConflictResolution } from './triggers/autoMergeHandler';
 import { getPlanFilePath, planFileExists } from './agents';
 import type { AgentState } from './types/agentTypes';
-import { Platform } from './providers/types';
+import { Platform, type PullRequestSummary } from './providers/types';
+import type { LaunchBoundary } from './core/launchGitContext';
 export { handleWorkflowDiscarded } from './phases/workflowCompletion';
 
 /** Outcome of executeMerge. */
@@ -50,14 +51,14 @@ export interface MergeDeps {
   readonly readTopLevelState: (adwId: string) => AgentState | null;
   readonly findOrchestratorStatePath: (adwId: string) => string | null;
   readonly readOrchestratorState: (statePath: string) => AgentState | null;
-  readonly findPRByBranch: (branchName: string, repoInfo: RepoInfo) => RawPR | null;
-  readonly issueHasLabel: (issueNumber: number, labelName: string, repoInfo: RepoInfo) => boolean;
-  readonly fetchPRApprovalState: (prNumber: number, repoInfo: RepoInfo) => boolean;
+  readonly findPRByBranch: (branchName: string) => PullRequestSummary | null;
+  readonly issueHasLabel: (issueNumber: number, labelName: string) => boolean;
+  readonly fetchPRApprovalState: (prNumber: number) => boolean;
   readonly ensureWorktree: (branchName: string, baseBranch: string) => string;
   readonly ensureLogsDirectory: (adwId: string) => string;
   readonly mergeWithConflictResolution: typeof mergeWithConflictResolution;
   readonly writeTopLevelState: (adwId: string, state: Partial<AgentState>) => void;
-  readonly commentOnIssue: typeof commentOnIssue;
+  readonly commentOnIssue: (issueNumber: number, body: string) => void;
   readonly commentOnPR: typeof commentOnPR;
   readonly getPlanFilePath: typeof getPlanFilePath;
   readonly planFileExists: typeof planFileExists;
@@ -119,7 +120,7 @@ export async function executeMerge(
   }
 
   // 3. Find the PR by branch name (bounded retry — #527)
-  const pr = deps.findPRByBranch(branchName, repoInfo);
+  const pr = deps.findPRByBranch(branchName);
   if (!pr) {
     const attemptCount = (topLevelState.mergeRetryCount ?? 0) + 1;
     if (attemptCount >= MAX_PR_RESOLUTION_ATTEMPTS) {
@@ -131,7 +132,6 @@ export async function executeMerge(
           `No open pull request was found for branch \`${branchName}\` after ${attemptCount} attempts. The PR may have been closed/merged out-of-band, or the stored branch name may be stale.`,
           adwId,
         ),
-        repoInfo,
       );
       return { outcome: 'abandoned', reason: 'no_pr_found_blocked' };
     }
@@ -140,7 +140,7 @@ export async function executeMerge(
     return { outcome: 'abandoned', reason: 'no_pr_found' };
   }
 
-  const { number: prNumber, state: prState, baseRefName: baseBranch } = pr;
+  const { number: prNumber, state: prState, targetBranch: baseBranch } = pr;
   log(`adwMerge: PR #${prNumber} state=${prState} branch=${branchName} base=${baseBranch}`, 'info');
 
   // 4. Already merged — idempotent completion
@@ -150,7 +150,6 @@ export async function executeMerge(
     deps.commentOnIssue(
       issueNumber,
       `## ADW Workflow Completed\n\nPR #${prNumber} has been merged.\n\n**ADW ID:** \`${adwId}\``,
-      repoInfo,
     );
     return { outcome: 'completed', reason: 'already_merged' };
   }
@@ -166,8 +165,8 @@ export async function executeMerge(
   // 5b. Unified gate — defer when hitl is on the issue AND the PR is not approved.
   //     Stateless: every cron tick re-evaluates the current label state and PR approval.
   //     No state write, no comment, log only — avoids flooding the issue while waiting.
-  const hitlOnIssue = deps.issueHasLabel(issueNumber, 'hitl', repoInfo);
-  const isApproved = deps.fetchPRApprovalState(prNumber, repoInfo);
+  const hitlOnIssue = deps.issueHasLabel(issueNumber, 'hitl');
+  const isApproved = deps.fetchPRApprovalState(prNumber);
   if (hitlOnIssue && !isApproved) {
     log(`Issue #${issueNumber} has hitl label and PR #${prNumber} is not approved — deferring`, 'info');
     return { outcome: 'abandoned', reason: 'hitl_blocked_unapproved' };
@@ -205,7 +204,6 @@ export async function executeMerge(
     deps.commentOnIssue(
       issueNumber,
       `## ADW Workflow Completed\n\nPR #${prNumber} has been merged successfully.\n\n**ADW ID:** \`${adwId}\``,
-      repoInfo,
     );
     return { outcome: 'completed', reason: 'merged' };
   }
@@ -224,29 +222,29 @@ export async function executeMerge(
   deps.commentOnIssue(
     issueNumber,
     buildMergeBlockedComment(causeLines.join(' '), adwId),
-    repoInfo,
   );
   return { outcome: 'abandoned', reason: 'merge_failed' };
 }
 
-/** Builds the default MergeDeps using production implementations. */
-function buildDefaultDeps(platform: Platform, gitCtx: import('./gitContext').GitContext): MergeDeps {
+/** Builds the default MergeDeps using production implementations, sourcing every forge dep from the launch boundary's providers. */
+export function buildDefaultDeps(boundary: LaunchBoundary): MergeDeps {
+  const { gitContext: gitCtx, repoId, providers } = boundary;
   return {
     readTopLevelState: (id) => AgentStateManager.readTopLevelState(id),
     findOrchestratorStatePath,
     readOrchestratorState: (statePath) => AgentStateManager.readState(statePath),
-    findPRByBranch: defaultFindPRByBranch,
-    issueHasLabel,
-    fetchPRApprovalState,
+    findPRByBranch: (branchName) => providers.codeHost.findPullRequestByBranch(branchName),
+    issueHasLabel: (issueNumber, labelName) => providers.issueTracker.fetchLabels(issueNumber).includes(labelName),
+    fetchPRApprovalState: (prNumber) => providers.codeHost.isPullRequestApproved(prNumber),
     ensureWorktree: (branch, base) => gitCtx.ensureWorktree(branch, base),
     ensureLogsDirectory,
     mergeWithConflictResolution: (pr, repoInfo, head, base, wt, id, logs, spec) => mergeWithConflictResolution(pr, repoInfo, head, base, wt, id, logs, spec, gitCtx),
     writeTopLevelState: (id, state) => AgentStateManager.writeTopLevelState(id, state),
-    commentOnIssue,
+    commentOnIssue: (issueNumber, body) => providers.issueTracker.commentOnIssue(issueNumber, body),
     commentOnPR,
     getPlanFilePath,
     planFileExists,
-    notifyBlockedTransition: platform === Platform.GitHub ? notifyBlockedTransition : async () => undefined,
+    notifyBlockedTransition: repoId.platform === Platform.GitHub ? notifyBlockedTransition : async () => undefined,
   };
 }
 
@@ -267,7 +265,7 @@ async function main(): Promise<void> {
   }
 
   const boundary = buildLaunchBoundary(targetRepo);
-  const { gitContext, repoId } = boundary;
+  const { gitContext } = boundary;
   const repoInfo: RepoInfo = { owner: gitContext.owner, repo: gitContext.repo };
 
   if (targetRepo) ensureTargetRepoWorkspace(targetRepo);
@@ -275,7 +273,7 @@ async function main(): Promise<void> {
 
   let result: Awaited<ReturnType<typeof executeMerge>> | undefined;
   const acquired = await runWithRawOrchestratorLifecycle(repoInfo, issueNumber, adwId, async () => {
-    result = await executeMerge(issueNumber, adwId, repoInfo, baseRepoPath, buildDefaultDeps(repoId.platform, gitContext));
+    result = await executeMerge(issueNumber, adwId, repoInfo, baseRepoPath, buildDefaultDeps(boundary));
   });
   if (!acquired) {
     log(`Issue #${issueNumber}: spawn lock already held by another orchestrator; exiting.`, 'warn');

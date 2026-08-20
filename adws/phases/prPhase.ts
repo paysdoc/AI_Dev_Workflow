@@ -55,7 +55,7 @@ export async function executePRPhase(config: WorkflowConfig): Promise<{ costUsd:
     const gitCtx = repoContext
       ? await gitContextFor({ owner: repoContext.repoId.owner, repo: repoContext.repoId.repo, selfHost: false })
       : null;
-    const resolvedDefaultBranch = gitCtx?.defaultBranch() ?? config.defaultBranch;
+    const resolvedDefaultBranch = repoContext ? repoContext.codeHost.getDefaultBranch() : config.defaultBranch;
 
     const result = await runPullRequestAgent(
       currentBranch,

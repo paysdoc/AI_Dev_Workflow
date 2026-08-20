@@ -1,16 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-
-vi.mock('../../github/gitContextFactory', () => ({
-  gitContextForRepo: vi.fn(),
-}));
+import type { IssueTracker, IssueSummary } from '../../providers/types';
 
 vi.mock('../../core', () => ({
   log: vi.fn(),
   execWithRetry: vi.fn(),
-}));
-
-vi.mock('../../github', () => ({
-  createIssue: vi.fn(),
 }));
 
 vi.mock('fs', () => ({
@@ -19,12 +12,9 @@ vi.mock('fs', () => ({
 }));
 
 import { buildDefaultDocsSelfCheckDeps } from '../docsSelfCheck';
-import { gitContextForRepo } from '../../github/gitContextFactory';
 
-const REPO_INFO = { owner: 'acme', repo: 'webapp' };
-
-function makeCtx(result: string) {
-  return { listOpenIssues: vi.fn(() => result) };
+function makeTracker(searchOpenIssues: (search: string, limit: number) => readonly IssueSummary[]): IssueTracker {
+  return { searchOpenIssues } as unknown as IssueTracker;
 }
 
 describe('findExistingRefactorIssueDefault (via buildDefaultDocsSelfCheckDeps)', () => {
@@ -36,12 +26,12 @@ describe('findExistingRefactorIssueDefault (via buildDefaultDocsSelfCheckDeps)',
     const issues = [
       { number: 42, title: 'docs-bloat: app_docs/feature-foo.md exceeds 200 lines' },
     ];
-    vi.mocked(gitContextForRepo).mockReturnValue(makeCtx(JSON.stringify(issues)) as never);
+    const searchOpenIssues = vi.fn().mockReturnValue(issues);
+    const deps = buildDefaultDocsSelfCheckDeps(makeTracker(searchOpenIssues));
 
-    const deps = buildDefaultDocsSelfCheckDeps();
-    const result = deps.findExistingRefactorIssue(REPO_INFO, 'app_docs/feature-foo.md');
+    const result = deps.findExistingRefactorIssue('app_docs/feature-foo.md');
 
-    expect(gitContextForRepo).toHaveBeenCalledWith(REPO_INFO);
+    expect(searchOpenIssues).toHaveBeenCalledWith('docs-bloat: app_docs/feature-foo.md', 5);
     expect(result).toBe(42);
   });
 
@@ -49,43 +39,35 @@ describe('findExistingRefactorIssueDefault (via buildDefaultDocsSelfCheckDeps)',
     const issues = [
       { number: 10, title: 'docs-bloat: app_docs/other.md exceeds 200 lines' },
     ];
-    vi.mocked(gitContextForRepo).mockReturnValue(makeCtx(JSON.stringify(issues)) as never);
+    const deps = buildDefaultDocsSelfCheckDeps(makeTracker(vi.fn().mockReturnValue(issues)));
 
-    const deps = buildDefaultDocsSelfCheckDeps();
-    const result = deps.findExistingRefactorIssue(REPO_INFO, 'app_docs/feature-foo.md');
+    const result = deps.findExistingRefactorIssue('app_docs/feature-foo.md');
 
     expect(result).toBeNull();
   });
 
   it('returns null on empty result set', () => {
-    vi.mocked(gitContextForRepo).mockReturnValue(makeCtx('[]') as never);
+    const deps = buildDefaultDocsSelfCheckDeps(makeTracker(vi.fn().mockReturnValue([])));
 
-    const deps = buildDefaultDocsSelfCheckDeps();
-    const result = deps.findExistingRefactorIssue(REPO_INFO, 'app_docs/feature-foo.md');
+    const result = deps.findExistingRefactorIssue('app_docs/feature-foo.md');
 
     expect(result).toBeNull();
   });
 
   it('returns null on throw (fail-open)', () => {
-    vi.mocked(gitContextForRepo).mockReturnValue({ listOpenIssues: vi.fn(() => { throw new Error('gh failed'); }) } as never);
+    const deps = buildDefaultDocsSelfCheckDeps(makeTracker(vi.fn(() => { throw new Error('gh failed'); })));
 
-    const deps = buildDefaultDocsSelfCheckDeps();
-    const result = deps.findExistingRefactorIssue(REPO_INFO, 'app_docs/feature-foo.md');
+    const result = deps.findExistingRefactorIssue('app_docs/feature-foo.md');
 
     expect(result).toBeNull();
   });
 
-  it('calls listOpenIssues with correct options', () => {
-    const ctx = makeCtx('[]');
-    vi.mocked(gitContextForRepo).mockReturnValue(ctx as never);
+  it('calls searchOpenIssues with correct options', () => {
+    const searchOpenIssues = vi.fn().mockReturnValue([]);
+    const deps = buildDefaultDocsSelfCheckDeps(makeTracker(searchOpenIssues));
 
-    const deps = buildDefaultDocsSelfCheckDeps();
-    deps.findExistingRefactorIssue(REPO_INFO, 'app_docs/feature-foo.md');
+    deps.findExistingRefactorIssue('app_docs/feature-foo.md');
 
-    expect(ctx.listOpenIssues).toHaveBeenCalledWith({
-      fields: ['number', 'title'],
-      search: 'docs-bloat: app_docs/feature-foo.md',
-      limit: 5,
-    });
+    expect(searchOpenIssues).toHaveBeenCalledWith('docs-bloat: app_docs/feature-foo.md', 5);
   });
 });

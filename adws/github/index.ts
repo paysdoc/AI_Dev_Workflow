@@ -26,11 +26,13 @@ export {
   createIssue,
   updateIssueBody,
   findOpenUpgradeIssue,
+  fetchIssueLabels,
+  searchOpenIssues,
   type RepoInfo,
 } from './githubApi';
 
 // PR utilities (shared between adwMerge and remoteReconcile)
-export { defaultFindPRByBranch, type RawPR } from './prApi';
+export { defaultFindPRByBranch, hasWontFixLabel, hasWontFixLabelName, type RawPR } from './prApi';
 
 // Linked-PR detection (shared between concurrencyGuard and cronLabelEligibility)
 export { hasLinkedMergedOrClosedPR, fetchLinkedPRs, type LinkedPRRef } from './linkedPrDetector';
@@ -39,6 +41,7 @@ export { issueLinkPattern, bodyLinksIssue } from './issueLinkMarker';
 // Label Manager — adw:* label lifecycle and label-based classification
 export {
   ensureAdwLabelsExist,
+  ensureLabelExists,
   applyLabel,
   readAdwLabels,
   readAdwLabelNames,

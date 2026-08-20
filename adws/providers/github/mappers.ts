@@ -6,8 +6,9 @@
 
 import type { GitHubIssue, GitHubComment, IssueCommentSummary } from '../../types/issueTypes';
 import type { PRDetails, PRReviewComment, PRListItem } from '../../types/workflowTypes';
-import type { Issue, IssueComment, PullRequest, ReviewComment, RepoIdentifier } from '../types';
+import type { Issue, IssueComment, PullRequest, PullRequestSummary, ReviewComment, RepoIdentifier } from '../types';
 import type { RepoInfo } from '../../github/githubApi';
+import type { RawPR } from '../../github/prApi';
 
 // ── IssueTracker mappers ──────────────────────────────────────────────
 
@@ -101,5 +102,19 @@ export function mapPRListItemToPullRequest(item: PRListItem): PullRequest {
     sourceBranch: item.headBranch,
     targetBranch: '',
     url: '',
+  };
+}
+
+/**
+ * Maps a RawPR (from `defaultFindPRByBranch`) to a platform-agnostic PullRequestSummary.
+ * Flattens `labels?: {name}[]` to `string[]`, defaulting a missing field to `[]`.
+ */
+export function mapRawPRToSummary(pr: RawPR): PullRequestSummary {
+  return {
+    number: pr.number,
+    state: pr.state,
+    sourceBranch: pr.headRefName,
+    targetBranch: pr.baseRefName,
+    labels: (pr.labels ?? []).map((l) => l.name),
   };
 }

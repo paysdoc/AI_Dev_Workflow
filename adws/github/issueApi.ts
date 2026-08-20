@@ -314,6 +314,37 @@ export function findOpenUpgradeIssue(repoInfo: RepoInfo): number | null {
 }
 
 /**
+ * Returns the issue's label names; [] on any error (fail-open, as issueHasLabel).
+ * @param issueNumber - The issue number to inspect
+ * @param repoInfo - Repository owner and repo name
+ */
+export function fetchIssueLabels(issueNumber: number, repoInfo: RepoInfo): string[] {
+  try {
+    const json = gitContextForRepo(repoInfo).issueHasLabel(issueNumber, '');
+    const result = JSON.parse(json) as { labels: { name: string }[] };
+    return (result.labels || []).map((l) => l.name);
+  } catch (error) {
+    log(`fetchIssueLabels: failed to fetch labels on issue #${issueNumber}: ${error}`, 'warn');
+    return [];
+  }
+}
+
+/**
+ * Open issues matching a forge search string. Best-effort: [] on any error.
+ * @param search - The search string to match issue titles/content
+ * @param limit - Maximum number of results to return
+ * @param repoInfo - Repository owner and repo name
+ */
+export function searchOpenIssues(search: string, limit: number, repoInfo: RepoInfo): { number: number; title: string }[] {
+  try {
+    const json = gitContextForRepo(repoInfo).listOpenIssues({ fields: ['number', 'title'], search, limit });
+    return JSON.parse(json) as { number: number; title: string }[];
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Deletes a single issue comment by its REST API numeric ID.
  * @param commentId - The numeric ID of the comment to delete
  * @param repoInfo - Optional repository info override for targeting external repositories.

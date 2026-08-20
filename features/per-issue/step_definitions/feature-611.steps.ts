@@ -214,7 +214,7 @@ When('the post-write self-check runs', function () {
 
   const deps: DocsSelfCheckDeps = {
     readFile: (filePath) => fs.readFileSync(filePath, 'utf-8'),
-    createIssue: (_title, _body, _repoInfo) => 999,
+    createIssue: (_title, _body) => 999,
     findExistingRefactorIssue: () => null,
     log: (message) => {
       capturedLogs.push(message);

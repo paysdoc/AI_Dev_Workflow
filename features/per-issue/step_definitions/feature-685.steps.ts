@@ -109,7 +109,7 @@ function makeDepsForScenario(overrides: Partial<UpgradeDeps> = {}): UpgradeDeps 
     pushBranch: () => undefined,
     isPushRejection: () => false,
     createPullRequest: () => { capturedCreatePR++; return { url: 'https://github.com/acme/target/pull/99', number: 99 }; },
-    commentOnIssue: (_issueNumber: number, body: string, _repoInfo: typeof REPO_INFO) => {
+    commentOnIssue: (_issueNumber: number, body: string) => {
       capturedComments.push([_issueNumber, body]);
     },
     ensureLogsDirectory: () => '/logs',
@@ -120,7 +120,7 @@ function makeDepsForScenario(overrides: Partial<UpgradeDeps> = {}): UpgradeDeps 
     fetchIssueComments: () => threadComments,
     ensureLabel: () => undefined,
     applyLabel: (issueNumber: number, label: string) => { capturedApplyLabel.push([issueNumber, label]); },
-    moveToStatus: (issueNumber: number, status: string) => { capturedMoveToStatus.push([issueNumber, status]); return true; },
+    moveToStatus: async (issueNumber: number, status: string) => { capturedMoveToStatus.push([issueNumber, status]); return true; },
     postSlack: async (text: string) => { capturedPostSlack.push(text); },
     maxFailures: injectedFailureCap,
     ...overrides,

@@ -1,51 +1,13 @@
 import { describe, it, expect, vi } from 'vitest';
-import { GitContext } from '../gitContext';
-import type { GitContextOptions, ExecFn } from '../gitContext/types';
 import { executeDepauditSetup, type DepauditSetupDeps } from '../phases/depauditSetup';
 import type { WorkflowConfig } from '../phases/workflowInit';
+import type { CodeHost } from '../providers/types';
 
 vi.mock('../github', () => ({
   getRepoInfo: vi.fn().mockReturnValue({ owner: 'fallback-owner', repo: 'fallback-repo' }),
 }));
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-const FRAMEWORK_ROOT = '/srv/adw/framework';
-const TARGET_REPOS_DIR = '/srv/adw/repos';
-
-function validOptions(overrides: Partial<GitContextOptions> = {}): GitContextOptions {
-  return {
-    owner: 'acme',
-    repo: 'fixture-target',
-    selfHost: false,
-    token: 'gh-token-test',
-    gitIdentity: {
-      authorName: 'ADW Bot',
-      authorEmail: 'bot@adw.dev',
-      committerName: 'ADW Bot',
-      committerEmail: 'bot@adw.dev',
-    },
-    frameworkRepoRoot: FRAMEWORK_ROOT,
-    targetReposDir: TARGET_REPOS_DIR,
-    ...overrides,
-  };
-}
-
-interface SpyCall {
-  command: string;
-  input?: string;
-}
-
-function makeCtxSpy(
-  opts: Partial<GitContextOptions> = {},
-): { ctx: GitContext; calls: SpyCall[] } {
-  const calls: SpyCall[] = [];
-  const exec: ExecFn = (command, options) => {
-    calls.push({ command, input: options.input });
-    return '';
-  };
-  return { ctx: new GitContext(validOptions(opts), { exec }), calls };
-}
 
 function makeConfig(overrides: Partial<WorkflowConfig> = {}): WorkflowConfig {
   return {
@@ -70,24 +32,24 @@ function makeConfig(overrides: Partial<WorkflowConfig> = {}): WorkflowConfig {
   } as unknown as WorkflowConfig;
 }
 
-function makeDeps(
-  overrides: Partial<DepauditSetupDeps> & { ctxCalls?: SpyCall[]; ctxExec?: ExecFn } = {},
-): { deps: DepauditSetupDeps; ctxCalls: SpyCall[] } {
-  const { ctxCalls: externalCalls, ctxExec: externalExec, ...rest } = overrides;
-  const calls: SpyCall[] = externalCalls ?? [];
-  const exec: ExecFn = externalExec ?? ((command, options) => {
-    calls.push({ command, input: options.input });
-    return '';
-  });
-  const spyCtx = new GitContext(validOptions(), { exec });
-  const deps: DepauditSetupDeps = {
+function makeCodeHost(overrides: Partial<CodeHost> = {}): CodeHost {
+  return {
+    setSecret: vi.fn(),
+    ...overrides,
+  } as unknown as CodeHost;
+}
+
+function makeRepoContext(codeHost: CodeHost, owner = 'acme', repo = 'fixture-target'): WorkflowConfig['repoContext'] {
+  return { codeHost, issueTracker: {}, repoId: { owner, repo, platform: 'github' }, cwd: '/tmp/fixture' } as unknown as WorkflowConfig['repoContext'];
+}
+
+function makeDeps(overrides: Partial<DepauditSetupDeps> = {}): DepauditSetupDeps {
+  return {
     execWithRetry: vi.fn().mockReturnValue(''),
     log: vi.fn(),
     getEnv: vi.fn().mockReturnValue(undefined),
-    gitContextForRepo: () => spyCtx,
-    ...rest,
+    ...overrides,
   };
-  return { deps, ctxCalls: calls };
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -95,7 +57,7 @@ function makeDeps(
 describe('executeDepauditSetup — depaudit setup invocation', () => {
   it('invokes depaudit setup with config.worktreePath as cwd', async () => {
     const config = makeConfig();
-    const { deps } = makeDeps();
+    const deps = makeDeps();
 
     await executeDepauditSetup(config, deps);
 
@@ -106,7 +68,7 @@ describe('executeDepauditSetup — depaudit setup invocation', () => {
 
   it('does not throw when depaudit setup binary is missing', async () => {
     const config = makeConfig();
-    const { deps } = makeDeps({
+    const deps = makeDeps({
       execWithRetry: vi.fn().mockImplementationOnce(() => { throw new Error('command not found: depaudit'); }),
     });
 
@@ -118,36 +80,34 @@ describe('executeDepauditSetup — depaudit setup invocation', () => {
 });
 
 describe('executeDepauditSetup — SOCKET_API_TOKEN propagation', () => {
-  it('gh secret set is called with SOCKET_API_TOKEN when env is present', async () => {
-    const config = makeConfig();
-    const { deps, ctxCalls } = makeDeps({
+  it('codeHost.setSecret is called with SOCKET_API_TOKEN when env is present', async () => {
+    const codeHost = makeCodeHost();
+    const config = makeConfig({ repoContext: makeRepoContext(codeHost) });
+    const deps = makeDeps({
       getEnv: vi.fn().mockImplementation((n: string) => n === 'SOCKET_API_TOKEN' ? 'sktsec_abc' : undefined),
     });
 
     await executeDepauditSetup(config, deps);
 
-    const secretCall = ctxCalls.find(c => c.command.includes('SOCKET_API_TOKEN'));
-    expect(secretCall).toBeDefined();
-    expect(secretCall!.command).toMatch(/gh secret set SOCKET_API_TOKEN --repo acme\/fixture-target/);
-    expect(secretCall!.input).toBe('sktsec_abc');
+    expect(codeHost.setSecret).toHaveBeenCalledWith('SOCKET_API_TOKEN', 'sktsec_abc');
   });
 
   it('skippedSecrets includes SOCKET_API_TOKEN when env is unset', async () => {
-    const config = makeConfig();
-    const { deps, ctxCalls } = makeDeps({
+    const codeHost = makeCodeHost();
+    const config = makeConfig({ repoContext: makeRepoContext(codeHost) });
+    const deps = makeDeps({
       getEnv: vi.fn().mockImplementation((n: string) => n === 'SLACK_WEBHOOK_URL' ? 'https://hooks.slack.com/test' : undefined),
     });
 
     const result = await executeDepauditSetup(config, deps);
 
     expect(result.skippedSecrets).toContain('SOCKET_API_TOKEN');
-    const socketCall = ctxCalls.find(c => c.command.includes('SOCKET_API_TOKEN'));
-    expect(socketCall).toBeUndefined();
+    expect(codeHost.setSecret).not.toHaveBeenCalledWith('SOCKET_API_TOKEN', expect.anything());
   });
 
   it('warnings array contains SOCKET_API_TOKEN skip message when unset', async () => {
     const config = makeConfig();
-    const { deps } = makeDeps();
+    const deps = makeDeps();
 
     const result = await executeDepauditSetup(config, deps);
 
@@ -156,23 +116,22 @@ describe('executeDepauditSetup — SOCKET_API_TOKEN propagation', () => {
 });
 
 describe('executeDepauditSetup — SLACK_WEBHOOK_URL propagation', () => {
-  it('gh secret set is called with SLACK_WEBHOOK_URL when env is present', async () => {
-    const config = makeConfig();
-    const { deps, ctxCalls } = makeDeps({
+  it('codeHost.setSecret is called with SLACK_WEBHOOK_URL when env is present', async () => {
+    const codeHost = makeCodeHost();
+    const config = makeConfig({ repoContext: makeRepoContext(codeHost) });
+    const deps = makeDeps({
       getEnv: vi.fn().mockImplementation((n: string) => n === 'SLACK_WEBHOOK_URL' ? 'https://hooks.slack.com/test' : undefined),
     });
 
     await executeDepauditSetup(config, deps);
 
-    const secretCall = ctxCalls.find(c => c.command.includes('SLACK_WEBHOOK_URL'));
-    expect(secretCall).toBeDefined();
-    expect(secretCall!.command).toMatch(/gh secret set SLACK_WEBHOOK_URL --repo acme\/fixture-target/);
-    expect(secretCall!.input).toBe('https://hooks.slack.com/test');
+    expect(codeHost.setSecret).toHaveBeenCalledWith('SLACK_WEBHOOK_URL', 'https://hooks.slack.com/test');
   });
 
   it('skippedSecrets includes SLACK_WEBHOOK_URL when env is unset', async () => {
-    const config = makeConfig();
-    const { deps } = makeDeps({
+    const codeHost = makeCodeHost();
+    const config = makeConfig({ repoContext: makeRepoContext(codeHost) });
+    const deps = makeDeps({
       getEnv: vi.fn().mockImplementation((n: string) => n === 'SOCKET_API_TOKEN' ? 'sktsec_abc' : undefined),
     });
 
@@ -185,21 +144,15 @@ describe('executeDepauditSetup — SLACK_WEBHOOK_URL propagation', () => {
 describe('executeDepauditSetup — missing env vars', () => {
   it('does not throw when both env vars are unset', async () => {
     const config = makeConfig();
-    const { deps } = makeDeps();
+    const deps = makeDeps();
 
     await expect(executeDepauditSetup(config, deps)).resolves.toMatchObject({ success: true });
   });
 
-  it('does not throw when gh secret set fails', async () => {
-    const config = makeConfig();
-    const failExec: ExecFn = (command) => {
-      if (command.includes('gh secret set')) throw new Error('HTTP 403');
-      return '';
-    };
-    const failCtx = new GitContext(validOptions(), { exec: failExec });
-    const { deps } = makeDeps();
-    (deps as { gitContextForRepo: (r: unknown) => GitContext }).gitContextForRepo = () => failCtx;
-    (deps as { getEnv: (n: string) => string | undefined }).getEnv = () => 'some-value';
+  it('does not throw when codeHost.setSecret fails', async () => {
+    const codeHost = makeCodeHost({ setSecret: vi.fn(() => { throw new Error('HTTP 403'); }) });
+    const config = makeConfig({ repoContext: makeRepoContext(codeHost) });
+    const deps = makeDeps({ getEnv: () => 'some-value' });
 
     const result = await executeDepauditSetup(config, deps);
 
@@ -208,22 +161,32 @@ describe('executeDepauditSetup — missing env vars', () => {
   });
 });
 
+describe('executeDepauditSetup — no repo context', () => {
+  it('skips both secrets with a warning when config.repoContext is absent', async () => {
+    const config = makeConfig({ repoContext: undefined });
+    const deps = makeDeps({ getEnv: () => 'some-value' });
+
+    const result = await executeDepauditSetup(config, deps);
+
+    expect(result.success).toBe(true);
+    expect(result.skippedSecrets).toEqual(['SOCKET_API_TOKEN', 'SLACK_WEBHOOK_URL']);
+    expect(result.warnings.some(w => w.includes('SOCKET_API_TOKEN') && w.includes('no repo context'))).toBe(true);
+  });
+});
+
 describe('executeDepauditSetup — getRepoInfo fallback', () => {
-  it('uses getRepoInfo fallback when config.targetRepo is undefined', async () => {
+  it('uses getRepoInfo fallback for the success log message when config.targetRepo is undefined', async () => {
     const { getRepoInfo } = await import('../github');
     (getRepoInfo as ReturnType<typeof vi.fn>).mockReturnValue({ owner: 'fallback-owner', repo: 'fallback-repo' });
 
-    const config = makeConfig({ targetRepo: undefined });
-    const { ctx, calls } = makeCtxSpy({ owner: 'fallback-owner', repo: 'fallback-repo' });
-    const { deps } = makeDeps({
-      getEnv: vi.fn().mockReturnValue('some-value'),
-    });
-    (deps as { gitContextForRepo: (r: unknown) => GitContext }).gitContextForRepo = () => ctx;
+    const codeHost = makeCodeHost();
+    const config = makeConfig({ targetRepo: undefined, repoContext: makeRepoContext(codeHost, 'fallback-owner', 'fallback-repo') });
+    const logSpy = vi.fn();
+    const deps = makeDeps({ getEnv: vi.fn().mockReturnValue('some-value'), log: logSpy });
 
     await executeDepauditSetup(config, deps);
 
-    const secretCalls = calls.filter(c => c.command.includes('gh secret set'));
-    expect(secretCalls.length).toBeGreaterThan(0);
-    expect(secretCalls[0].command).toMatch(/--repo fallback-owner\/fallback-repo/);
+    expect(codeHost.setSecret).toHaveBeenCalled();
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('fallback-owner/fallback-repo'), 'success');
   });
 });

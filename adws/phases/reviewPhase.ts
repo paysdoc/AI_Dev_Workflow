@@ -22,7 +22,7 @@ import { runReviewAgent, type ReviewIssue } from '../agents/reviewAgent';
 import { runCommitAgent } from '../agents/gitAgent';
 import { applyPatchBlocker, applyRefactorBlockers } from './reviewPatchHelpers';
 import { getPlanFilePath } from '../agents/planAgent';
-import { approvePR, isGitHubAppConfigured, getRepoInfo, gitContextFor } from '../github';
+import { isGitHubAppConfigured, getRepoInfo, gitContextFor } from '../github';
 import type { WorkflowConfig } from './workflowInit';
 import { postIssueStageComment } from './phaseCommentHelpers';
 import { extractPrNumber } from '../adwBuildHelpers';
@@ -110,9 +110,8 @@ export async function executeReviewPhase(
     if (isGitHubAppConfigured() && GITHUB_PAT && ctx.prUrl) {
       const prNumber = extractPrNumber(ctx.prUrl);
       if (prNumber && repoContext) {
-        const repoInfo = { owner: repoContext.repoId.owner, repo: repoContext.repoId.repo };
         log('Approving PR after review pass...', 'info');
-        const approveResult = approvePR(prNumber, repoInfo);
+        const approveResult = repoContext.codeHost.approvePullRequest(prNumber);
         if (!approveResult.success) {
           log(`PR approval failed (non-fatal to review): ${approveResult.error}`, 'warn');
         } else {
