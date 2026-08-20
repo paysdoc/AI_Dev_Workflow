@@ -9,13 +9,12 @@
 import { GitContext } from '../gitContext';
 import type { GitContextOptions, TokenProvider } from '../gitContext/types';
 import {
-  isGitHubAppConfigured,
-  getInstallationToken,
   readLocalRepoInfo,
   resolveBootstrapGitIdentity,
   ghAuthToken,
-  createGitHubTokenProvider,
 } from '../gitContext';
+import { isGitHubAppConfigured, getInstallationToken } from './githubAppAuth';
+import { createGitHubTokenProvider } from '../providers/github/githubTokenProvider';
 import { REPO_ROOT, TARGET_REPOS_DIR, GITHUB_PAT } from '../core/environment';
 import type { RepoInfo } from './githubApi';
 

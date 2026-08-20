@@ -23,8 +23,9 @@
 
 import { Given, When, Then, After } from '@cucumber/cucumber';
 import assert from 'assert';
-import { GitContext, createGitHubTokenProvider } from '../../../adws/gitContext/index.ts';
+import { GitContext } from '../../../adws/gitContext/index.ts';
 import type { TokenProvider, CredentialRequest, GitContextOptions, ExecFn } from '../../../adws/gitContext/index.ts';
+import { createGitHubTokenProvider } from '../../../adws/providers/github/githubTokenProvider.ts';
 import { buildLaunchGitContext } from '../../../adws/core/launchGitContext.ts';
 import type { TargetRepoInfo } from '../../../adws/types/issueTypes.ts';
 import { makeSpyExec, makeFullOptions, makeNoOpFsDeps, FRAMEWORK_ROOT, TARGET_REPOS_ROOT, type SpyCall } from './gitContextSharedWorld.ts';

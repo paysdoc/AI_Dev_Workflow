@@ -19,14 +19,10 @@ import type { GitIdentity, TokenProvider } from '../gitContext';
 import type { TargetRepoInfo } from '../types/issueTypes';
 import type { RepoInfo } from '../github/githubApi';
 import { getRepoInfo } from '../github/githubApi';
-import {
-  isGitHubAppConfigured,
-  getInstallationToken,
-  resolveContextToken,
-  resolveBootstrapGitIdentity,
-  ghAuthToken,
-  createGitHubTokenProvider,
-} from '../gitContext';
+import { resolveBootstrapGitIdentity, ghAuthToken } from '../gitContext';
+import { isGitHubAppConfigured, getInstallationToken } from '../github/githubAppAuth';
+import { resolveContextToken } from '../providers/github/tokenResolver';
+import { createGitHubTokenProvider } from '../providers/github/githubTokenProvider';
 import { REPO_ROOT, TARGET_REPOS_DIR, GITHUB_PAT } from './environment';
 
 /**

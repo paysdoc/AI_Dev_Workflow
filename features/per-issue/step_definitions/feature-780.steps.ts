@@ -7,7 +7,7 @@
  * registry T22) — both already registered globally.
  *
  * Design (see feature-780.feature's own notes for the full rationale):
- *  - The `When` step drives the REAL getInstallationToken (adws/gitContext/appAuth.ts),
+ *  - The `When` step drives the REAL getInstallationToken (adws/providers/github/appAuth.ts),
  *    including the real JWT mint, pointed at an out-of-process HTTP stub via the
  *    injectable `apiBaseUrl` seam. The stub MUST run out-of-process: getInstallationToken
  *    is synchronous (execFileSync blocks the event loop), so an in-process stub could
@@ -32,8 +32,8 @@ import { spawn, execFileSync, type ChildProcess } from 'child_process';
 import {
   getInstallationToken,
   clearAppAuthCaches,
-} from '../../../adws/gitContext/appAuth.ts';
-import type { AppAuthDeps, RunCurl } from '../../../adws/gitContext/appAuth.ts';
+} from '../../../adws/providers/github/appAuth.ts';
+import type { AppAuthDeps, RunCurl, GitHubAppConfig } from '../../../adws/providers/github/appAuth.ts';
 
 // ---------------------------------------------------------------------------
 // Out-of-process recording stub — plain Node/Bun HTTP server, no dependencies.
@@ -110,7 +110,7 @@ const state: {
   loggedChunks: string[];
   recordCommandLines: boolean;
   commandLines: string[];
-  priorEnv: { appId?: string; appSlug?: string; keyPath?: string };
+  appConfig: GitHubAppConfig | null;
 } = {
   scratchDir: null,
   stubProcess: null,
@@ -121,7 +121,7 @@ const state: {
   loggedChunks: [],
   recordCommandLines: false,
   commandLines: [],
-  priorEnv: {},
+  appConfig: null,
 };
 
 const JWT_SHAPE_PATTERN = /\b[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/;
@@ -137,11 +137,7 @@ Before({ tags: '@adw-780' }, function () {
   state.loggedChunks = [];
   state.recordCommandLines = false;
   state.commandLines = [];
-  state.priorEnv = {
-    appId: process.env.GITHUB_APP_ID,
-    appSlug: process.env.GITHUB_APP_SLUG,
-    keyPath: process.env.GITHUB_APP_PRIVATE_KEY_PATH,
-  };
+  state.appConfig = null;
 });
 
 After({ tags: '@adw-780' }, function () {
@@ -151,12 +147,6 @@ After({ tags: '@adw-780' }, function () {
   if (state.scratchDir) {
     fs.rmSync(state.scratchDir, { recursive: true, force: true });
   }
-  const restore = (name: string, value: string | undefined) => {
-    if (value === undefined) delete process.env[name]; else process.env[name] = value;
-  };
-  restore('GITHUB_APP_ID', state.priorEnv.appId);
-  restore('GITHUB_APP_SLUG', state.priorEnv.appSlug);
-  restore('GITHUB_APP_PRIVATE_KEY_PATH', state.priorEnv.keyPath);
 });
 
 // ---------------------------------------------------------------------------
@@ -266,9 +256,11 @@ Given('the GitHub App is configured with a throwaway signing key', function () {
   const keyPath = path.join(dir, 'throwaway-key.pem');
   fs.writeFileSync(keyPath, privateKey, 'utf-8');
 
-  process.env.GITHUB_APP_ID = 'adw-780-app-id';
-  process.env.GITHUB_APP_SLUG = 'adw-780-bot';
-  process.env.GITHUB_APP_PRIVATE_KEY_PATH = keyPath;
+  state.appConfig = {
+    appId: 'adw-780-app-id',
+    appSlug: 'adw-780-bot',
+    privateKeyPath: keyPath,
+  };
 });
 
 Given('the GitHub App API is served by an out-of-process recording stub', async function () {
@@ -362,9 +354,10 @@ When('an installation token is requested for owner {string} repo {string}', asyn
     deps.runCurl = makeRecordingPassThroughRunCurl(state.commandLines);
   }
 
+  assert.ok(state.appConfig, 'Expected a prior Given step to have configured the GitHub App');
   const restoreOutput = interceptProcessOutput(state.loggedChunks);
   try {
-    const result = getInstallationToken(owner, repo, deps) as string | Promise<string>;
+    const result = getInstallationToken(state.appConfig, owner, repo, deps) as string | Promise<string>;
     state.mintedToken = await result;
     state.thrownError = null;
   } catch (err) {

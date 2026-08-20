@@ -10,6 +10,8 @@ import { BOARD_COLUMNS, validateRepoIdentifier } from '../types';
 import { toRepoInfo } from './mappers';
 import type { RepoInfo } from '../../github/githubApi';
 import { gitContextForRepo } from '../../github/gitContextFactory';
+import { createGhCommandRunner, type GhCommandRunner } from './ghCommandRunner';
+import { graphQLCmd, graphQLInputCmd } from './commands/boardCommands';
 
 type StatusOption = { id?: string; name: string; color: string; description: string };
 
@@ -81,8 +83,9 @@ class GitHubBoardManager implements BoardManager {
     this.repoInfo = toRepoInfo(repoId);
   }
 
-  private get ctx() {
-    return gitContextForRepo(this.repoInfo);
+  /** The adapter's sole route to a gh command — feeds command strings into the core executor (#792). */
+  private get gh(): GhCommandRunner {
+    return createGhCommandRunner(gitContextForRepo(this.repoInfo));
   }
 
   /** Finds the first GitHub Projects V2 board linked to the repository. */
@@ -90,7 +93,7 @@ class GitHubBoardManager implements BoardManager {
     const { owner, repo } = this.repoInfo;
     try {
       const query = `query($owner:String!,$repo:String!){repository(owner:$owner,name:$repo){projectsV2(first:1){nodes{id}}}}`;
-      const result = this.ctx.runGraphQL(query, { owner, repo });
+      const result = this.gh.run(graphQLCmd(query, { owner, repo }), { purpose: 'alternateIdentity' });
       const parsed = JSON.parse(result) as {
         data: { repository: { projectsV2: { nodes: Array<{ id: string }> } } };
       };
@@ -108,7 +111,7 @@ class GitHubBoardManager implements BoardManager {
 
     // Look up the owner node ID
     const ownerIdQuery = `query($owner:String!,$repo:String!){repository(owner:$owner,name:$repo){owner{id}}}`;
-    const ownerIdResult = this.ctx.runGraphQL(ownerIdQuery, { owner, repo });
+    const ownerIdResult = this.gh.run(graphQLCmd(ownerIdQuery, { owner, repo }), { purpose: 'alternateIdentity' });
     const ownerIdParsed = JSON.parse(ownerIdResult) as {
       data: { repository: { owner: { id: string } } };
     };
@@ -116,7 +119,7 @@ class GitHubBoardManager implements BoardManager {
 
     // Create the project
     const createMutation = `mutation($ownerId:ID!,$title:String!){createProjectV2(input:{ownerId:$ownerId,title:$title}){projectV2{id}}}`;
-    const createResult = this.ctx.runGraphQL(createMutation, { ownerId, title: name });
+    const createResult = this.gh.run(graphQLCmd(createMutation, { ownerId, title: name }), { purpose: 'alternateIdentity' });
     const createParsed = JSON.parse(createResult) as {
       data: { createProjectV2: { projectV2: { id: string } } };
     };
@@ -124,14 +127,14 @@ class GitHubBoardManager implements BoardManager {
 
     // Link the project to the repository
     const repoNodeQuery = `query($owner:String!,$repo:String!){repository(owner:$owner,name:$repo){id}}`;
-    const repoNodeResult = this.ctx.runGraphQL(repoNodeQuery, { owner, repo });
+    const repoNodeResult = this.gh.run(graphQLCmd(repoNodeQuery, { owner, repo }), { purpose: 'alternateIdentity' });
     const repoNodeParsed = JSON.parse(repoNodeResult) as {
       data: { repository: { id: string } };
     };
     const repositoryId = repoNodeParsed.data.repository.id;
 
     const linkMutation = `mutation($projectId:ID!,$repositoryId:ID!){linkProjectV2ToRepository(input:{projectId:$projectId,repositoryId:$repositoryId}){repository{id}}}`;
-    this.ctx.runGraphQL(linkMutation, { projectId, repositoryId });
+    this.gh.run(graphQLCmd(linkMutation, { projectId, repositoryId }), { purpose: 'alternateIdentity' });
 
     log(`Created project board "${name}" (id: ${projectId})`, 'success');
     return projectId;
@@ -156,7 +159,7 @@ class GitHubBoardManager implements BoardManager {
         : { name: o.name, color: o.color, description: o.description },
     );
     const body = { query: mutation, variables: { fieldId, singleSelectOptions } };
-    this.ctx.runGraphQLInput(body);
+    this.gh.run(graphQLInputCmd(), { input: JSON.stringify(body), purpose: 'alternateIdentity' });
   }
 
   /** Ensures all required ADW columns exist on the board. */
@@ -182,7 +185,7 @@ class GitHubBoardManager implements BoardManager {
   ): { fieldId: string; options: Array<{ id: string; name: string; color: string; description: string }> } | null {
     try {
       const query = `query($projectId:ID!){node(id:$projectId){...on ProjectV2{field(name:"Status"){...on ProjectV2SingleSelectField{id options{id name color description}}}}}}`;
-      const result = this.ctx.runGraphQL(query, { projectId });
+      const result = this.gh.run(graphQLCmd(query, { projectId }), { purpose: 'alternateIdentity' });
       const parsed = JSON.parse(result) as {
         data: {
           node: {

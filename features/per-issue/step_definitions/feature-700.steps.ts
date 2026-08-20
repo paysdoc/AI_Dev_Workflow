@@ -29,7 +29,7 @@ import { execSync } from 'child_process';
 import { Given, When, Then, After } from '@cucumber/cucumber';
 import assert from 'assert';
 import { buildLaunchGitContext } from '../../../adws/core/launchGitContext.ts';
-import { resolveContextToken } from '../../../adws/gitContext/tokenResolver.ts';
+import { resolveContextToken } from '../../../adws/providers/github/tokenResolver.ts';
 import { TARGET_REPOS_ROOT, FRAMEWORK_ROOT } from './gitContextSharedWorld.ts';
 import type { GitContext } from '../../../adws/gitContext/index.ts';
 import type { TargetRepoInfo } from '../../../adws/types/issueTypes.ts';

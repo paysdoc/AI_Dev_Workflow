@@ -36,6 +36,12 @@
  * is rewrapped inside `exec()` into an error naming the path and repository
  * identity, preserving `code: 'ENOENT'`; every other failure propagates
  * verbatim.
+ *
+ * TRANSITIONAL (#792): the GitHub command-string builders now live in the
+ * forge adapter (`../providers/github/commands/`); this class still imports
+ * them for its surviving semantic methods (fetchIssue, createPR, etc.),
+ * pending their migration to callers in #796/#797, at which point this
+ * upward dependency is deleted along with the methods that need it.
  */
 
 import * as path from 'path';
@@ -57,24 +63,28 @@ import type { LogSinceOptions } from './gitReadOps';
 import { remoteOps } from './remoteOps';
 import { claimOps } from './claimOps';
 import { rewrapMissingWorkingDirectory } from './workingDirectoryGuard';
+// TRANSITIONAL — the semantic methods below are pending migration (#796/#797);
+// these imports leave with them. AC1 of #792 explicitly keeps the semantic
+// methods in the core, so the core temporarily depends upward on the adapter
+// that now owns the command-string builders they call.
 import {
   fetchIssueCmd, commentOnIssueCmd, issueStateCmd, closeIssueCmd, issueTitleCmd,
   fetchIssueCommentsCmd, issueHasLabelCmd, addIssueLabelCmd, createIssueCmd,
   updateIssueBodyCmd, findOpenUpgradeIssueCmd, deleteIssueCommentCmd,
   listOpenIssuesCmd, issueCommentsCmd,
   type ListOpenIssuesOptions,
-} from './commands/issueCommands';
+} from '../providers/github/commands/issueCommands';
 import {
   findPRByBranchCmd, fetchPRDetailsCmd, fetchPRReviewsCmd, fetchPRReviewCommentsCmd,
   commentOnPRCmd, mergePRCmd, approvePRCmd, prApprovalStateCmd,
   fetchPRListCmd, fetchAllPRsCmd, createPRCmd, fetchMergedPRsCmd, prChangedFilesCmd,
-} from './commands/prCommands';
-import { createLabelCmd, applyLabelCmd } from './commands/labelCommands';
-import { setSecretCmd } from './commands/secretCommands';
+} from '../providers/github/commands/prCommands';
+import { createLabelCmd, applyLabelCmd } from '../providers/github/commands/labelCommands';
+import { setSecretCmd } from '../providers/github/commands/secretCommands';
 import {
   graphQLCmd, graphQLInputCmd, projectQueryCmd, itemQueryCmd, fieldQueryCmd, moveStatusCmd,
   parseProjectId, parseIssueItem, parseStatusField,
-} from './commands/boardCommands';
+} from '../providers/github/commands/boardCommands';
 
 /** Single real spawn site for the package — a thin execSync wrapper. */
 const defaultExec: ExecFn = (command, options) => {
