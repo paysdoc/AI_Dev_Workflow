@@ -1,25 +1,37 @@
 /**
  * checkGitGhGuard.ts — CI guard: fail on direct git/gh shell-outs outside the
- * two structurally-exempt packages, and on cwd-derived repo identity feeding
- * a GitContext construction.
+ * two structurally-exempt packages, on cwd-derived repo identity feeding a
+ * GitContext construction, and on ad-hoc provider/context construction
+ * outside the launch-boundary allowlist.
  *
- * Two independent rules:
+ * Three independent rules:
  *
- *  - 'git-gh-shellout' — scans all .ts/.tsx sources (excluding EXEMPT_PACKAGES
- *    and other exempt paths) for call expressions whose first argument is a git
- *    or gh command string. Detects execSync('git …'), execWithRetry(`gh …`),
- *    execFileSync('git', […]), and any other call shape by inspecting the
- *    command string, not the callee name.
- *  - 'cwd-derived-identity' — flags `gitContextForRepo(…)` calls whose first
- *    argument is cwd-derived identity: either an inline zero-argument
- *    `getRepoInfo()` / `readLocalRepoInfo()` call, or a local variable
- *    initialized from one. This is a COMPOSITION of two individually-legal
- *    calls that the shellout rule cannot see (no raw git/gh string), and
- *    which re-derives identity instead of threading a launch-boundary
- *    GitContext. No path allowlist: legitimate self-host sites pass an
- *    explicit REPO_ROOT argument instead, and launch boundaries resolve
- *    identity only into a guarded-fallback local (`x ?? getRepoInfo()`),
- *    which is a BinaryExpression initializer and so is never collected.
+ *  - 'git-gh-shellout' — implemented in this file. Scans all .ts/.tsx sources
+ *    (excluding EXEMPT_PACKAGES and other exempt paths) for call expressions
+ *    whose first argument is a git or gh command string. Detects
+ *    execSync('git …'), execWithRetry(`gh …`), execFileSync('git', […]), and
+ *    any other call shape by inspecting the command string, not the callee
+ *    name.
+ *  - 'cwd-derived-identity' — implemented in `adws/guard/identityRule.ts`.
+ *    Flags `gitContextForRepo(…)` calls whose first argument is cwd-derived
+ *    identity: either an inline zero-argument `getRepoInfo()` /
+ *    `readLocalRepoInfo()` call, or a local variable initialized from one.
+ *    This is a COMPOSITION of two individually-legal calls that the shellout
+ *    rule cannot see (no raw git/gh string), and which re-derives identity
+ *    instead of threading a launch-boundary GitContext. No path allowlist:
+ *    legitimate self-host sites pass an explicit REPO_ROOT argument instead,
+ *    and launch boundaries resolve identity only into a guarded-fallback
+ *    local (`x ?? getRepoInfo()`), which is a BinaryExpression initializer
+ *    and so is never collected.
+ *  - 'unsanctioned-construction' (#795) — implemented in
+ *    `adws/guard/constructionRule.ts`. Flags direct construction of a
+ *    provider (IssueTracker/CodeHost/BoardManager implementation), the
+ *    RepoContext factory, or a GitContext factory, anywhere outside a
+ *    file-scoped permanent+transitional allowlist. The launch boundary
+ *    (`buildLaunchBoundary`) is the one permanent sanctioned site; the
+ *    transitional entries are the not-yet-migrated call sites #796/#797 own,
+ *    and a stale-entry ratchet fails the build once a transitional entry
+ *    stops constructing anything.
  *
  * The exempt set is closed and named (EXEMPT_PACKAGES, #792): exactly two
  * packages may shell out — the git core (`adws/gitContext`), which may run
@@ -34,6 +46,11 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as ts from 'typescript';
+import type { Violation, ViolationRule } from './guard/violationTypes';
+import { flagCwdDerivedIdentityUses } from './guard/identityRule';
+import { flagUnsanctionedConstruction, hasGuardedConstruction, findStaleSanctionedEntries, SANCTIONED_CONSTRUCTION_SITES } from './guard/constructionRule';
+
+export type { Violation, ViolationRule };
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -71,18 +88,10 @@ export function isExemptPackage(relPath: string): boolean {
 /** Matches a git or gh command string: starts with 'git '/'gh ' or is exactly 'git'/'gh'. */
 const GIT_GH_RE = /^(git|gh)(\s|$)/;
 
-/** The two legitimate pre-context cwd reads; a zero-argument call to either is cwd-derived identity. */
-const CWD_DERIVED_IDENTITY_FNS = new Set(['getRepoInfo', 'readLocalRepoInfo']);
-
-/** The boundary-free GitContext constructor whose argument the cwd-derived-identity rule inspects. */
-const CONTEXT_CONSTRUCTOR_NAME = 'gitContextForRepo';
-
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-type ViolationRule = 'git-gh-shellout' | 'cwd-derived-identity';
-type Violation = { file: string; line: number; command: string; rule: ViolationRule };
 type ScanResult = { violations: Violation[]; scannedCount: number };
 
 // ---------------------------------------------------------------------------
@@ -148,8 +157,8 @@ function scanSource(filePath: string, source: string): Violation[] {
   const violations: Violation[] = [];
   walkNode(sourceFile, sourceFile, violations);
 
-  const cwdDerivedNames = collectCwdDerivedIdentityNames(sourceFile);
-  violations.push(...flagCwdDerivedIdentityUses(sourceFile, cwdDerivedNames));
+  violations.push(...flagCwdDerivedIdentityUses(sourceFile));
+  violations.push(...flagUnsanctionedConstruction(sourceFile, filePath));
 
   return violations;
 }
@@ -176,88 +185,41 @@ function extractGitGhCommand(node: ts.Node): string | null {
   return null;
 }
 
-// ── Rule: cwd-derived-identity ───────────────────────────────────────────────
-
-/** A zero-argument getRepoInfo()/readLocalRepoInfo() call — the two legitimate cwd reads. */
-function isZeroArgCwdDerivedCall(node: ts.Node): node is ts.CallExpression {
-  return (
-    ts.isCallExpression(node) &&
-    node.arguments.length === 0 &&
-    ts.isIdentifier(node.expression) &&
-    CWD_DERIVED_IDENTITY_FNS.has(node.expression.text)
-  );
-}
-
-/**
- * Collects the names of local variables initialized directly from a
- * zero-argument cwd-derived identity read. File-scoped (a lint does not need
- * block scoping). A guarded-fallback initializer (`x ?? getRepoInfo()`) is a
- * BinaryExpression, not a CallExpression, so it is never collected here —
- * that is what keeps the guarded-fallback shape legal.
- */
-function collectCwdDerivedIdentityNames(sourceFile: ts.SourceFile): Set<string> {
-  const names = new Set<string>();
-  const visit = (node: ts.Node): void => {
-    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer && isZeroArgCwdDerivedCall(node.initializer)) {
-      names.add(node.name.text);
-    }
-    ts.forEachChild(node, visit);
-  };
-  visit(sourceFile);
-  return names;
-}
-
-/** True when `expression` resolves to the identifier `gitContextForRepo`, bare or as a property access. */
-function isContextConstructorCallee(expression: ts.Expression): boolean {
-  if (ts.isIdentifier(expression)) return expression.text === CONTEXT_CONSTRUCTOR_NAME;
-  if (ts.isPropertyAccessExpression(expression)) return expression.name.text === CONTEXT_CONSTRUCTOR_NAME;
-  return false;
-}
-
-/** Readable shape string for the violation's `command` field. */
-function describeCwdDerivedArg(arg: ts.Node): string {
-  if (isZeroArgCwdDerivedCall(arg) && ts.isIdentifier(arg.expression)) return `${arg.expression.text}()`;
-  if (ts.isIdentifier(arg)) return arg.text;
-  return 'getRepoInfo()';
-}
-
-/**
- * Flags gitContextForRepo(…) calls whose first argument is cwd-derived
- * identity: an inline zero-argument read, or an identifier bound to one
- * earlier in the file. The local-variable form is essential — it is the
- * shape most call sites actually use.
- */
-function flagCwdDerivedIdentityUses(sourceFile: ts.SourceFile, cwdDerivedNames: ReadonlySet<string>): Violation[] {
-  const violations: Violation[] = [];
-  const visit = (node: ts.Node): void => {
-    if (ts.isCallExpression(node) && node.arguments.length > 0 && isContextConstructorCallee(node.expression)) {
-      const [firstArg] = node.arguments;
-      const isInlineRead = isZeroArgCwdDerivedCall(firstArg);
-      const isCollectedIdentifier = ts.isIdentifier(firstArg) && cwdDerivedNames.has(firstArg.text);
-      if (isInlineRead || isCollectedIdentifier) {
-        const { line } = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile));
-        violations.push({
-          file: sourceFile.fileName,
-          line: line + 1,
-          command: `${CONTEXT_CONSTRUCTOR_NAME}(${describeCwdDerivedArg(firstArg)})`,
-          rule: 'cwd-derived-identity',
-        });
-      }
-    }
-    ts.forEachChild(node, visit);
-  };
-  visit(sourceFile);
-  return violations;
-}
-
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
+
+/** I/O: re-reads and re-parses every scanned file to test `hasGuardedConstruction`, kept separate from `scanFiles` so its `(relPaths, repoRoot)` signature never changes. */
+function collectConstructionSeenFiles(relPaths: readonly string[], repoRoot: string): Set<string> {
+  const seen = new Set<string>();
+  for (const relPath of relPaths) {
+    const source = fs.readFileSync(path.join(repoRoot, relPath), 'utf-8');
+    const sourceFile = ts.createSourceFile(relPath, source, ts.ScriptTarget.Latest, false);
+    if (hasGuardedConstruction(sourceFile)) seen.add(relPath);
+  }
+  return seen;
+}
+
+/** Prints the sanctioned-construction-sites block. Must never contain the substring "allowlisted" — see the (0 allowlisted) capstone regex this guard's stdout must preserve. */
+function printSanctionedConstructionSites(): void {
+  const permanent = SANCTIONED_CONSTRUCTION_SITES.filter((site) => !('owner' in site));
+  const transitional = SANCTIONED_CONSTRUCTION_SITES.filter((site) => 'owner' in site);
+
+  console.log(
+    `  Sanctioned construction sites — ${permanent.length} permanent, ${transitional.length} transitional (#796/#797):`,
+  );
+  for (const site of permanent) {
+    console.log(`    ${site.file} — ${site.reason}`);
+  }
+  console.log(`    …${transitional.length} transitional entries pending migration`);
+  console.log('');
+}
 
 function main(): void {
   const repoRoot = process.cwd();
   const allFiles = collectTsFiles(repoRoot, repoRoot);
   const { violations, scannedCount } = scanFiles(allFiles, repoRoot);
+  const staleEntries = findStaleSanctionedEntries(collectConstructionSeenFiles(allFiles, repoRoot));
 
   console.log(
     `\nGit/GH CLI Guard — scanned ${scannedCount} files (0 allowlisted)\n`,
@@ -267,20 +229,33 @@ function main(): void {
     console.log(`    ${dir} — ${role}`);
   }
   console.log('');
+  printSanctionedConstructionSites();
 
-  if (violations.length === 0) {
+  if (violations.length === 0 && staleEntries.length === 0) {
     console.log('  ✔ PASS  No direct git/gh shell-outs outside the exempt packages.\n');
     process.exit(0);
   }
 
-  console.log(`  ✖ FAIL  ${violations.length} violation(s) detected:\n`);
-  for (const { file, line, command, rule } of violations) {
-    console.log(`  ${file}:${line}  [${rule}]  ${command}`);
+  if (violations.length > 0) {
+    console.log(`  ✖ FAIL  ${violations.length} violation(s) detected:\n`);
+    for (const { file, line, command, rule } of violations) {
+      console.log(`  ${file}:${line}  [${rule}]  ${command}`);
+    }
+    console.log(
+      '\n  Remedy (git-gh-shellout): route through GitContext, or place inside adws/gitContext (git) or adws/providers/github (gh).' +
+      '\n  Remedy (cwd-derived-identity): thread the launch-boundary GitContext instead of re-deriving identity from cwd.' +
+      '\n  Remedy (unsanctioned-construction): receive providers from buildLaunchBoundary(...) instead of constructing them; the boundary is the only sanctioned construction site.\n',
+    );
   }
-  console.log(
-    '\n  Remedy (git-gh-shellout): route through GitContext, or place inside adws/gitContext (git) or adws/providers/github (gh).' +
-    '\n  Remedy (cwd-derived-identity): thread the launch-boundary GitContext instead of re-deriving identity from cwd.\n',
-  );
+
+  if (staleEntries.length > 0) {
+    console.log(`  ✖ FAIL  ${staleEntries.length} stale transitional entr${staleEntries.length === 1 ? 'y' : 'ies'} in the sanctioned construction sites list:\n`);
+    for (const file of staleEntries) {
+      console.log(`  Remove the stale transitional entry — ${file} no longer constructs a provider or context (#796/#797).`);
+    }
+    console.log('');
+  }
+
   process.exit(1);
 }
 
