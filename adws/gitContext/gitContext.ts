@@ -37,6 +37,10 @@
  * identity, preserving `code: 'ENOENT'`; every other failure propagates
  * verbatim.
  *
+ * Worktree-operation logging arrives through an injected `Logger` port
+ * (`deps.logger`), defaulting to `consoleLogger` — so the package carries no
+ * dependency on the host application's logger (PRD story 17).
+ *
  * TRANSITIONAL (#792): the GitHub command-string builders now live in the
  * forge adapter (`../providers/github/commands/`); this class still imports
  * them for its surviving semantic methods (fetchIssue, createPR, etc.),
@@ -49,8 +53,9 @@ import { execSync } from 'child_process';
 import { existsSync, mkdirSync, copyFileSync, rmSync } from 'fs';
 import type {
   GitContextOptions, GitIdentity, ExecFn, GitContextDeps, FsDeps, ExecOptions, ExecWorkingDirectory,
-  TokenProvider, CredentialPurpose, CredentialRequest,
+  TokenProvider, CredentialPurpose, CredentialRequest, Logger,
 } from './types';
+import { consoleLogger } from './consoleLogger';
 import { branchOps } from './branchOps';
 import { commitOps } from './commitOps';
 import { worktreeResetOps } from './worktreeResetOps';
@@ -188,6 +193,7 @@ export class GitContext {
   readonly #gitIdentity: GitIdentity;
   readonly #execFn: ExecFn;
   readonly #fsDeps: FsDeps;
+  readonly #log: Logger;
 
   constructor(options: GitContextOptions, deps: GitContextDeps = {}) {
     assertCompleteIdentity(options);
@@ -200,6 +206,7 @@ export class GitContext {
     this.#repoApiCwd = options.frameworkRepoRoot;
     this.#execFn = deps.exec ?? defaultExec;
     this.#fsDeps = deps.fsDeps ?? { existsSync, mkdirSync, copyFileSync, rmSync };
+    this.#log = deps.logger ?? consoleLogger;
   }
 
   get basePath(): string { return this.#basePath; }
@@ -406,6 +413,7 @@ export class GitContext {
     return worktreeCreateOps.createWorktree(
       (cmd, cwd) => this.#run(cmd, { cwd }),
       this.#fsDeps,
+      this.#log,
       this.#worktreePaths(branchName),
       branchName,
       baseBranch,
@@ -416,6 +424,7 @@ export class GitContext {
     return worktreeCreateOps.createWorktreeForNewBranch(
       (cmd, cwd) => this.#run(cmd, { cwd }),
       this.#fsDeps,
+      this.#log,
       this.#worktreePaths(branchName),
       branchName,
       baseBranch,
@@ -426,6 +435,7 @@ export class GitContext {
     return worktreeCreateOps.ensureWorktree(
       (cmd, cwd) => this.#run(cmd, { cwd }),
       this.#fsDeps,
+      this.#log,
       this.#worktreePaths(branchName),
       branchName,
       baseBranch,
@@ -462,6 +472,7 @@ export class GitContext {
     return worktreeRemoveOps.removeWorktree(
       (cmd, cwd) => this.#run(cmd, { cwd }),
       this.#fsDeps,
+      this.#log,
       this.worktreePathFor(branchName),
       branchName,
       (branch) => this.deleteLocalBranch(branch),
@@ -473,6 +484,7 @@ export class GitContext {
     return worktreeRemoveOps.removeWorktreesForIssue(
       (cmd, cwd) => this.#run(cmd, { cwd }),
       this.#fsDeps,
+      this.#log,
       this.#basePath,
       issueNumber,
       (branch) => this.deleteLocalBranch(branch),
@@ -482,6 +494,7 @@ export class GitContext {
   copyEnvToWorktree(worktreePath: string): void {
     worktreeCreateOps.copyEnvToWorktree(
       this.#fsDeps,
+      this.#log,
       this.#basePath,
       worktreePath,
     );

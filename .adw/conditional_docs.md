@@ -2047,7 +2047,9 @@
     - When a Cancel or Retry directive fails on a host that has never cloned the target repository's workspace — the fix is that repo-API `gh` calls (`fetchIssueComments`, `defaultBranch`, etc.) never depend on the target workspace existing (issue #775); a git op still correctly requires the clone
     - When `process.env` non-mutation or two-context `GH_TOKEN` isolation in a multi-repo long-lived process is relevant
     - When working with `branchOps.ts`, `commitOps.ts`, `worktreeResetOps.ts`, `worktreeCreateOps.ts`, `worktreeQueryOps.ts`, `worktreeRemoveOps.ts`, `worktreeProbeOps.ts`, `gitReadOps.ts`, or `processCleanup.ts` (package-private operation modules)
-    - When the bootstrap package modules remaining in `adws/gitContext/` (`bootstrapIdentity.ts`, `repoWorkspace.ts`) are relevant — pre-context primitives absorbed into the exempt package (#700); as of #792, `appAuth.ts` and `tokenResolver.ts` moved to `adws/providers/github/` (see `app_docs/feature-e2er82-github-forge-adapter.md`) and are no longer part of this package
+    - When the bootstrap package modules remaining in `adws/gitContext/` (`bootstrapIdentity.ts`, `repoWorkspace.ts`, `consoleLogger.ts`) are relevant — pre-context primitives absorbed into the exempt package (#700); as of #792, `appAuth.ts` and `tokenResolver.ts` moved to `adws/providers/github/` (see `app_docs/feature-e2er82-github-forge-adapter.md`) and are no longer part of this package; as of #793, `bootstrapIdentity.ts` itself split — the core keeps only `readOriginRemoteUrl`/`readEnvGitIdentity`/`readGitConfigIdentity` (generic git reads, no forge default), while GitHub remote-URL parsing, App bot-identity derivation, and `gh auth token` moved to the adapter's `githubIdentity.ts`/`ghAuthToken.ts`
+    - When `repoWorkspace.ts`'s `cloneRepo`/`ensureRepoWorkspace` are relevant — as of #793 they clone the `cloneUrl` they are handed **verbatim**, with no `github.com` literal and no HTTPS→SSH rewrite; the rewrite (`convertToSshUrl`) moved to the adapter's `cloneUrl.ts` and is applied one call frame earlier by `adws/core/targetRepoManager.ts`
+    - When `GitContextDeps.logger`, `Logger`/`LogLevel` (declared in `adws/gitContext/types.ts`), or `consoleLogger.ts` are relevant — the injected logger port (#793) that replaced `worktreeCreateOps.ts`/`worktreeRemoveOps.ts`'s import of the host application's `log` from `../core/utils`; production construction sites (`gitContextFactory.ts` ×2, `launchGitContext.ts` ×1) inject the real ADW `log` via `{ logger: log }`
     - When `getInstallationToken`'s optional `AppAuthDeps` (`apiBaseUrl`, `runCurl`), `buildCurlConfig`, `requestGitHubApi`, `describeApiFailure`/`describeStatus`, `redactBearerTokens`, or `clearAppAuthCaches` in `appAuth.ts` are relevant — as of #792 this file lives in `adws/providers/github/appAuth.ts`, not this package; the credential travels over curl's `--config` stdin channel, never argv or a thrown error (#780)
     - When `readLocalRepoInfo`, `resolveBootstrapGitIdentity`, `ghAuthToken`, or `ensureRepoWorkspace` are referenced from `adws/gitContext/index.ts` — as of #792 `resolveContextToken`, `getInstallationToken`, and `isGitHubAppConfigured` are NOT exported from this barrel; they live in and are imported from `adws/providers/github/`
     - When the GH_TOKEN-bleed class (vestmatic #143/#181/#187) or the `fetchLatestRefs` crash class is being addressed — `resolveContextToken` is the structural fix; never reads `process.env.GH_TOKEN`
@@ -2101,13 +2103,20 @@
     - adws/providers/github/tokenResolver.ts
     - adws/providers/github/githubTokenProvider.ts
     - adws/providers/github/ghCommandRunner.ts
+    - adws/providers/github/githubIdentity.ts
+    - adws/providers/github/cloneUrl.ts
+    - adws/providers/github/ghAuthToken.ts
     - adws/providers/github/commands/**
     - adws/providers/github/__tests__/appAuth.test.ts
     - adws/providers/github/__tests__/tokenResolver.test.ts
     - adws/providers/github/__tests__/githubTokenProvider.test.ts
     - adws/providers/github/__tests__/ghCommandRunner.test.ts
+    - adws/providers/github/__tests__/githubIdentity.test.ts
+    - adws/providers/github/__tests__/cloneUrl.test.ts
   - Conditions:
-    - When working with the GitHub forge adapter package (`adws/providers/github/`) as the consolidated home for gh command builders, GitHub App auth, and token resolution (issue #792)
+    - When working with the GitHub forge adapter package (`adws/providers/github/`) as the consolidated home for gh command builders, GitHub App auth, token resolution, GitHub identity conventions, and clone-URL construction (issues #792, #793)
+    - When working with `githubIdentity.ts` (`RepoInfo`, `parseGitHubRemoteUrl`, `readLocalRepoInfo`, `resolveBootstrapGitIdentity`, `ADW_BOT_FALLBACK_IDENTITY`, `BootstrapIdentityDeps`) or `cloneUrl.ts` (`convertToSshUrl`) — the GitHub half of bootstrap identity/clone-URL resolution, split out of `adws/gitContext/bootstrapIdentity.ts`/`repoWorkspace.ts` in #793; both compose the core's generic readers (`readOriginRemoteUrl`, `readEnvGitIdentity`, `readGitConfigIdentity`) rather than shelling out
+    - When troubleshooting why `ghAuthToken` lives in `adws/providers/github/ghAuthToken.ts` rather than the git core or the ADW boundary — a deliberate #793 decision (guard role fit; `adws/github/` is unprivileged under `EXEMPT_PACKAGES`; routing through `ghCommandRunner` would be circular since this read produces the credential the runner needs)
     - When `appAuth.ts`'s `isGitHubAppConfigured(config)`/`getInstallationToken(config, owner, repo, deps?)` need a `GitHubAppConfig` argument — this module reads zero `process.env`; the sole env-reading site is `adws/github/githubAppAuth.ts`'s `readAppConfig()`, called fresh per invocation
     - When troubleshooting `resolveContextToken` (`adws/providers/github/tokenResolver.ts`) — App mint → PAT → `gh auth token`, never `process.env.GH_TOKEN`; byte-identical to its pre-#792 gitContext-package form, only the import path changed
     - When working with `createGitHubTokenProvider` (`githubTokenProvider.ts`) — the `TokenProvider` port's GitHub implementation; owns the PAT-vs-installation-token decision for `'alternateIdentity'` requests; called once per command, never memoised (the only cache on this path is `appAuth.ts`'s expiry-aware installation-token cache)
@@ -2151,21 +2160,28 @@
 - app_docs/feature-bq1f45-git-gh-cli-guard.md
   - Owns:
     - adws/checkGitGhGuard.ts
+    - adws/guard/violationTypes.ts
+    - adws/guard/identityRule.ts
+    - adws/guard/constructionRule.ts
     - .github/workflows/git-cli-guard.yml
   - Conditions:
-    - When working with `adws/checkGitGhGuard.ts`, `scanFiles`, or `scanSource` — the AST-based git/gh call scanner
+    - When working with `adws/checkGitGhGuard.ts`, `scanFiles`, or `scanSource` — the AST-based git/gh/construction call scanner
     - When the CI `Git/GH CLI Guard` workflow (`.github/workflows/git-cli-guard.yml`) fails on a pull request or push
     - When troubleshooting false-positive or false-negative detection (template literals, execFileSync first-arg form, comment mentions)
-    - When `bun run lint:git-guard` exits 1 and you need the remedy (for `git`, add code to `adws/gitContext/`; for `gh`, route through `adws/providers/github/` — e.g. `ghCommandRunner` — instead; there is no allowlist)
-    - When understanding that the `ALLOWLIST` has been deleted (#701) — the const, `allowed` Set, and per-file skip are all gone; as of #792 the closed, named, two-entry `EXEMPT_PACKAGES` array (`adws/gitContext`, `adws/providers/github`) and its `isExemptPackage` predicate exempt files, replacing the single-string `EXEMPT_PACKAGE_DIR`
-    - When the `(0 allowlisted)` literal in the runtime print needs to stay as-is (preserves the `(\d+) allowlisted` BDD step regex)
-    - When understanding why `features/` and `test/` dirs are excluded from the scan (fixture-repo BDD setup legitimately shells out)
+    - When `bun run lint:git-guard` exits 1 and you need the remedy — for `git`, add code to `adws/gitContext/`; for `gh`, route through `adws/providers/github/` (e.g. `ghCommandRunner`); for cwd-derived identity, thread the launch-boundary `GitContext`; for unsanctioned construction, receive providers from `buildLaunchBoundary(...)` instead of constructing them
+    - When understanding that the `ALLOWLIST` has been deleted (#701) for `git-gh-shellout` — the const, `allowed` Set, and per-file skip are all gone; as of #792 the closed, named, two-entry `EXEMPT_PACKAGES` array (`adws/gitContext`, `adws/providers/github`) and its `isExemptPackage` predicate exempt files, replacing the single-string `EXEMPT_PACKAGE_DIR`
+    - When the `(0 allowlisted)` literal in the runtime print needs to stay as-is (preserves the `(\d+) allowlisted` BDD step regex) — and when adding future stdout blocks, note the #795 sanctioned-construction-sites block deliberately avoids the substring "allowlisted" for this reason
+    - When understanding why `features/` and `test/` dirs, and the `EXEMPT_PACKAGES` directories, are excluded from the scan for ALL THREE rules (fixture-repo BDD setup legitimately shells out; the adapter package that defines the provider factories needs no allowlist entry of its own since it's pruned at the directory walk)
     - When `EXEMPT_PACKAGES` (or `EXEMPT_DIR_NAMES`) configuration is relevant — `EXEMPT_PACKAGES` replaced the single-string `EXEMPT_PACKAGE_DIR` in #792
     - When a new bootstrap primitive needs to be added — a `git` primitive goes into `adws/gitContext/`; a `gh` primitive goes into `adws/providers/github/`; no allowlist escape hatch exists for either
-    - When writing or extending unit tests for `checkGitGhGuard.ts` (`adws/__tests__/checkGitGhGuard.test.ts` — tests `scanFiles`/`scanSource` with fixture strings)
-    - When working with the `cwd-derived-identity` rule (#769) — flags `gitContextForRepo(getRepoInfo())`/`gitContextForRepo(readLocalRepoInfo())` composites, inline or via a local variable, with no path allowlist
-    - When troubleshooting why a `gitContextForRepo(x)` call was or wasn't flagged — check whether `x` traces to a zero-argument `getRepoInfo()`/`readLocalRepoInfo()` read (flagged) vs an argument-bearing call, a guarded fallback (`x ?? getRepoInfo()`), or a plain parameter (all legal)
-    - When a legitimate self-host `gitContextForRepo` construction needs to comply with the guard — pass `readLocalRepoInfo(REPO_ROOT)` explicitly instead of a bare cwd read
+    - When writing or extending unit tests for the guard (`adws/__tests__/checkGitGhGuard.test.ts` — tests `scanFiles`/`scanSource` with fixture strings, plus `isSanctionedConstructionSite`/`findStaleSanctionedEntries` directly)
+    - When working with the `cwd-derived-identity` rule (#769, now in `adws/guard/identityRule.ts`) — flags `gitContextForRepo(getRepoInfo())`/`gitContextForRepo(readLocalRepoInfo())` composites, inline or via a local variable, with no path allowlist
+    - When troubleshooting why a `gitContextForRepo(x)` call was or wasn't flagged under `cwd-derived-identity` — check whether `x` traces to a zero-argument `getRepoInfo()`/`readLocalRepoInfo()` read (flagged) vs an argument-bearing call, a guarded fallback (`x ?? getRepoInfo()`), or a plain parameter (all legal) — but note ANY bare `gitContextForRepo(...)` call outside the allowlist is separately flagged by `unsanctioned-construction` regardless of its argument (#795); the two rules are independent
+    - When a legitimate self-host `gitContextForRepo` construction needs to comply with the `cwd-derived-identity` rule — pass `readLocalRepoInfo(REPO_ROOT)` explicitly instead of a bare cwd read
+    - When working with the `unsanctioned-construction` rule (#795, `adws/guard/constructionRule.ts`) — flags a bare-identifier `new GitContext(…)` or a bare-identifier call to `PROVIDER_CONSTRUCTORS` (the seven forge provider factories) or `CONTEXT_CONSTRUCTORS` (`createRepoContext`, `mintBoundProviders`, `gitContextFor`/`gitContextForSync`/`gitContextForRepo`) outside `SANCTIONED_CONSTRUCTION_SITES`; property-access callees (`deps.gitContextForRepo(…)`) and function declarations are deliberately never flagged
+    - When working with `SANCTIONED_CONSTRUCTION_SITES`, its PERMANENT (2, no `owner`) vs TRANSITIONAL (38, `owner: '#796'`/`'#797'`) split, `isSanctionedConstructionSite` (exact path match only, never a prefix), or the self-cleaning stale-entry ratchet in `main()` (`hasGuardedConstruction` + `findStaleSanctionedEntries` — fails the build when a transitional entry's file no longer constructs anything)
+    - When a migration slice (#796, #797) removes the last construction from a transitional entry's file — delete that entry from `SANCTIONED_CONSTRUCTION_SITES`, or the stale-entry ratchet fails the build
+    - When adding a brand-new provider/context construction site — it must call `buildLaunchBoundary(...)`; nothing may ever be added to the transitional half of the allowlist
 
 - app_docs/feature-2ubuuc-rot-reuse-advisory-pr-comment.md
   - Owns:

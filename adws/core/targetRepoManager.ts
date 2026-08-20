@@ -8,6 +8,11 @@
  * GitContext and delegates to `ensureRepoWorkspace` — fixing the ambient-auth
  * `gh repo view` crash in the old `fetchLatestRefs`.
  *
+ * Since #793 the core clones exactly the URL it is handed, so this shim is
+ * the site that hands it a ready one: it converts a published GitHub HTTPS
+ * clone URL to SSH (`convertToSshUrl`, now owned by the GitHub forge
+ * adapter) before calling into the core.
+ *
  * Zero raw git/gh strings remain in this file.
  */
 
@@ -18,10 +23,10 @@ import { log } from './utils';
 import {
   getTargetRepoWorkspacePath as _getWorkspacePath,
   isRepoCloned,
-  convertToSshUrl,
   cloneRepo,
   ensureRepoWorkspace,
 } from '../gitContext';
+import { convertToSshUrl } from '../providers/github/cloneUrl';
 import { gitContextForRepo } from '../github/gitContextFactory';
 
 // ---------------------------------------------------------------------------
@@ -41,7 +46,7 @@ export { isRepoCloned, convertToSshUrl };
  * @deprecated Prefer {@link ensureTargetRepoWorkspace}.
  */
 export function cloneTargetRepo(cloneUrl: string, workspacePath: string): void {
-  cloneRepo(cloneUrl, workspacePath, {
+  cloneRepo(convertToSshUrl(cloneUrl), workspacePath, {
     log: (msg) => log(msg, 'info'),
   });
 }
@@ -63,10 +68,10 @@ export function ensureTargetRepoWorkspace(targetRepo: TargetRepoInfo): string {
   const { owner, repo, cloneUrl } = targetRepo;
   const ctx = gitContextForRepo({ owner, repo });
 
-  return ensureRepoWorkspace(owner, repo, cloneUrl, {
+  return ensureRepoWorkspace(owner, repo, convertToSshUrl(cloneUrl), {
     targetReposDir: TARGET_REPOS_DIR,
     getDefaultBranch: () => ctx.defaultBranch(),
-    log: (msg, level) => log(msg, (level as 'info' | 'error' | 'success' | 'warn') ?? 'info'),
+    log,
   });
 }
 

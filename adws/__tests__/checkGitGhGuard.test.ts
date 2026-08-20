@@ -8,10 +8,12 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as fs from 'fs';
+import * as path from 'path';
 
 vi.mock('fs');
 
 import { scanFiles, EXEMPT_PACKAGES, isExemptPackage } from '../checkGitGhGuard';
+import { isSanctionedConstructionSite, findStaleSanctionedEntries, SANCTIONED_CONSTRUCTION_SITES } from '../guard/constructionRule';
 
 const mockReadFileSync = vi.mocked(fs.readFileSync);
 
@@ -76,7 +78,10 @@ describe('scanFiles — cwd-derived-identity rule (#769)', () => {
       "const ctx = gitContextForRepo(getRepoInfo());\nctx.lsFiles(ctx.basePath);\n",
     );
 
-    const { violations } = scanFiles(['adws/triggers/someProbe.ts'], '/repo');
+    // A sanctioned path is used deliberately so the new #795 unsanctioned-construction
+    // rule (which flags every bare gitContextForRepo(...) call outside the allowlist)
+    // does not also fire here — this test isolates cwd-derived-identity in particular.
+    const { violations } = scanFiles(['adws/core/launchGitContext.ts'], '/repo');
 
     expect(violations).toHaveLength(1);
     expect(violations[0].rule).toBe('cwd-derived-identity');
@@ -88,7 +93,8 @@ describe('scanFiles — cwd-derived-identity rule (#769)', () => {
       'const info = getRepoInfo();\nconst ctx = gitContextForRepo(info);\n',
     );
 
-    const { violations } = scanFiles(['adws/triggers/someProbe.ts'], '/repo');
+    // Sanctioned path — see comment in the test above.
+    const { violations } = scanFiles(['adws/core/launchGitContext.ts'], '/repo');
 
     expect(violations).toHaveLength(1);
     expect(violations[0].rule).toBe('cwd-derived-identity');
@@ -122,7 +128,10 @@ describe('scanFiles — cwd-derived-identity rule (#769)', () => {
       'const r = repoInfo ?? getRepoInfo();\nconst ctx = gitContextForRepo(r);\n',
     );
 
-    const { violations } = scanFiles(['adws/triggers/someHandler.ts'], '/repo');
+    // Sanctioned path — see comment on the first cwd-derived-identity test above. The bare
+    // gitContextForRepo(r) call here would otherwise also trip #795's unsanctioned-construction
+    // rule, which (unlike this rule) does not care whether the argument is cwd-derived.
+    const { violations } = scanFiles(['adws/core/launchGitContext.ts'], '/repo');
 
     expect(violations).toHaveLength(0);
   });
@@ -132,7 +141,9 @@ describe('scanFiles — cwd-derived-identity rule (#769)', () => {
       'function handle(repoInfoParam) {\n  return gitContextForRepo(repoInfoParam);\n}\n',
     );
 
-    const { violations } = scanFiles(['adws/triggers/someHandler.ts'], '/repo');
+    // Sanctioned path — see comment above. Note the identical source IS one violation
+    // under unsanctioned-construction at a non-allowlisted path (see that describe block).
+    const { violations } = scanFiles(['adws/core/launchGitContext.ts'], '/repo');
 
     expect(violations).toHaveLength(0);
   });
@@ -219,5 +230,233 @@ describe('a third-package gh call site fails the guard (AC4)', () => {
 
   it('the counterpart: the same source at adws/providers/github/ is exempt by isExemptPackage, so a whole-repo walk never hands it to scanFiles', () => {
     expect(isExemptPackage('adws/providers/github/someAdapterOp.ts')).toBe(true);
+  });
+});
+
+describe('scanFiles — unsanctioned-construction rule (#795)', () => {
+  describe('flags deliberate violations', () => {
+    it('flags a bare createGitHubIssueTracker(...) call in a non-allowlisted file', () => {
+      mockReadFileSync.mockReturnValue(
+        "const t = createGitHubIssueTracker({ owner: 'acme', repo: 'typo', platform: Platform.GitHub });\n",
+      );
+
+      const { violations } = scanFiles(['adws/phases/someNewPhase.ts'], '/repo');
+
+      expect(violations).toHaveLength(1);
+      expect(violations[0].rule).toBe('unsanctioned-construction');
+    });
+
+    it('flags a bare createRepoContext(...) call in a non-allowlisted file', () => {
+      mockReadFileSync.mockReturnValue('const rc = createRepoContext({ repoId, cwd });\n');
+
+      const { violations } = scanFiles(['adws/phases/someNewPhase.ts'], '/repo');
+
+      expect(violations).toHaveLength(1);
+      expect(violations[0].rule).toBe('unsanctioned-construction');
+    });
+
+    it('flags a bare mintBoundProviders(...) call in a non-allowlisted file', () => {
+      mockReadFileSync.mockReturnValue(
+        'const providers = mintBoundProviders({ repoId, codeHostPlatform, issueTrackerPlatform });\n',
+      );
+
+      const { violations } = scanFiles(['adws/phases/someNewPhase.ts'], '/repo');
+
+      expect(violations).toHaveLength(1);
+      expect(violations[0].rule).toBe('unsanctioned-construction');
+    });
+
+    it('flags new GitContext(...) in a non-allowlisted file, naming it in `command`', () => {
+      mockReadFileSync.mockReturnValue('const ctx = new GitContext({ owner, repo, selfHost: false });\n');
+
+      const { violations } = scanFiles(['adws/phases/someNewPhase.ts'], '/repo');
+
+      expect(violations).toHaveLength(1);
+      expect(violations[0].rule).toBe('unsanctioned-construction');
+      expect(violations[0].command).toContain('new GitContext');
+    });
+
+    it('flags gitContextForRepo(repoInfoParam) — the identical source is ZERO violations under cwd-derived-identity (see that describe block above), proving the two rules are independent', () => {
+      mockReadFileSync.mockReturnValue(
+        'function handle(repoInfoParam) {\n  return gitContextForRepo(repoInfoParam);\n}\n',
+      );
+
+      const { violations } = scanFiles(['adws/phases/someNewPhase.ts'], '/repo');
+
+      expect(violations).toHaveLength(1);
+      expect(violations[0].rule).toBe('unsanctioned-construction');
+    });
+
+    it('flags two constructions in one file as two violations, one per line', () => {
+      mockReadFileSync.mockReturnValue(
+        'const t = createGitHubIssueTracker(repoId);\nconst h = createGitHubCodeHost(repoId);\n',
+      );
+
+      const { violations } = scanFiles(['adws/phases/someNewPhase.ts'], '/repo');
+
+      expect(violations).toHaveLength(2);
+      expect(violations[0].line).toBe(1);
+      expect(violations[1].line).toBe(2);
+      expect(violations.every((v) => v.rule === 'unsanctioned-construction')).toBe(true);
+    });
+  });
+
+  describe('does not flag sanctioned sites or legal shapes', () => {
+    it('permits createGitHubIssueTracker(...) at the permanent launch-boundary file', () => {
+      mockReadFileSync.mockReturnValue(
+        "const t = createGitHubIssueTracker({ owner: 'acme', repo: 'typo', platform: Platform.GitHub });\n",
+      );
+
+      const { violations } = scanFiles(['adws/core/launchGitContext.ts'], '/repo');
+
+      expect(violations).toHaveLength(0);
+    });
+
+    it('permits createGitHubIssueTracker(...) at the permanent mint-implementation file', () => {
+      mockReadFileSync.mockReturnValue(
+        "const t = createGitHubIssueTracker({ owner: 'acme', repo: 'typo', platform: Platform.GitHub });\n",
+      );
+
+      const { violations } = scanFiles(['adws/providers/repoContext.ts'], '/repo');
+
+      expect(violations).toHaveLength(0);
+    });
+
+    it('permits createGitHubIssueTracker(...) at a transitional entry', () => {
+      mockReadFileSync.mockReturnValue(
+        "const t = createGitHubIssueTracker({ owner: 'acme', repo: 'typo', platform: Platform.GitHub });\n",
+      );
+
+      const { violations } = scanFiles(['adws/phases/prReviewPhase.ts'], '/repo');
+
+      expect(violations).toHaveLength(0);
+    });
+
+    it('permits createGhCommandRunner/createGitHubTokenProvider/createIssueCmd — the flagged set is explicit names, never a create* pattern', () => {
+      mockReadFileSync.mockReturnValue(
+        'const runner = createGhCommandRunner(ctx);\nconst tp = createGitHubTokenProvider({ pat });\nconst cmd = createIssueCmd(o, r, t);\n',
+      );
+
+      const { violations } = scanFiles(['adws/phases/someNewPhase.ts'], '/repo');
+
+      expect(violations).toHaveLength(0);
+    });
+
+    it('permits deps.gitContextForRepo(...) and d.gitContextForRepo(...) — injected seams, not bypasses', () => {
+      mockReadFileSync.mockReturnValue(
+        'function a(deps) { return deps.gitContextForRepo(repoInfo); }\nfunction b(d) { return d.gitContextForRepo(repoInfo); }\n',
+      );
+
+      const { violations } = scanFiles(['adws/phases/someNewPhase.ts'], '/repo');
+
+      expect(violations).toHaveLength(0);
+    });
+
+    it('permits a createGitHubCodeHost function declaration — declarations are never flagged, only calls', () => {
+      mockReadFileSync.mockReturnValue(
+        'export function createGitHubCodeHost(repoId) {\n  return new GitHubCodeHostImpl(repoId);\n}\n',
+      );
+
+      const { violations } = scanFiles(['adws/phases/someNewPhase.ts'], '/repo');
+
+      expect(violations).toHaveLength(0);
+    });
+
+    it('a git shell-out in a construction-sanctioned file is still exactly one git-gh-shellout violation — the construction allowlist does not leak into the other rules', () => {
+      mockReadFileSync.mockReturnValue('const x = execSync("git status");\n');
+
+      const { violations } = scanFiles(['adws/core/launchGitContext.ts'], '/repo');
+
+      expect(violations).toHaveLength(1);
+      expect(violations[0].rule).toBe('git-gh-shellout');
+    });
+  });
+});
+
+describe('isSanctionedConstructionSite — permanent/transitional allowlist (#795)', () => {
+  it('is true for both permanent paths', () => {
+    expect(isSanctionedConstructionSite('adws/core/launchGitContext.ts')).toBe(true);
+    expect(isSanctionedConstructionSite('adws/providers/repoContext.ts')).toBe(true);
+  });
+
+  it('is true for a sampled transitional path', () => {
+    expect(isSanctionedConstructionSite('adws/phases/prReviewPhase.ts')).toBe(true);
+  });
+
+  it('is false for an unlisted file', () => {
+    expect(isSanctionedConstructionSite('adws/phases/reviewPhaseNew.ts')).toBe(false);
+  });
+
+  it('is false for a directory prefix — a whole directory is never sanctioned, only exact files', () => {
+    expect(isSanctionedConstructionSite('adws/core/somethingElse.ts')).toBe(false);
+  });
+
+  it('every transitional entry carries a non-empty owner naming an issue; both permanent entries carry none', () => {
+    const permanent = SANCTIONED_CONSTRUCTION_SITES.filter((site) => !('owner' in site));
+    const transitional = SANCTIONED_CONSTRUCTION_SITES.filter((site) => 'owner' in site);
+
+    expect(permanent).toHaveLength(2);
+    expect(transitional.length).toBeGreaterThan(0);
+    for (const site of transitional) {
+      const owner = (site as { owner?: string }).owner;
+      expect(typeof owner).toBe('string');
+      expect(owner!.length).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe('findStaleSanctionedEntries (#795)', () => {
+  it('with an empty seen-set, returns all transitional entries and no permanent ones', () => {
+    const transitionalFiles = SANCTIONED_CONSTRUCTION_SITES.filter((site) => 'owner' in site).map((site) => site.file);
+
+    const stale = findStaleSanctionedEntries(new Set());
+
+    expect(new Set(stale)).toEqual(new Set(transitionalFiles));
+    expect(stale).not.toContain('adws/core/launchGitContext.ts');
+    expect(stale).not.toContain('adws/providers/repoContext.ts');
+  });
+
+  it('with every transitional path seen, returns []', () => {
+    const transitionalFiles = SANCTIONED_CONSTRUCTION_SITES.filter((site) => 'owner' in site).map((site) => site.file);
+
+    const stale = findStaleSanctionedEntries(new Set(transitionalFiles));
+
+    expect(stale).toEqual([]);
+  });
+});
+
+describe('guarded factory names still exist (#795 / AC3)', () => {
+  const cases: { name: string; file: string; declPattern: RegExp }[] = [
+    { name: 'gitContextFor', file: 'adws/github/gitContextFactory.ts', declPattern: /export async function gitContextFor\(/ },
+    { name: 'gitContextForSync', file: 'adws/github/gitContextFactory.ts', declPattern: /export function gitContextForSync\(/ },
+    { name: 'gitContextForRepo', file: 'adws/github/gitContextFactory.ts', declPattern: /export function gitContextForRepo\(/ },
+    { name: 'getRepoInfo', file: 'adws/github/githubApi.ts', declPattern: /export function getRepoInfo\(/ },
+    { name: 'readLocalRepoInfo', file: 'adws/providers/github/githubIdentity.ts', declPattern: /export function readLocalRepoInfo\(/ },
+    { name: 'createRepoContext', file: 'adws/providers/repoContext.ts', declPattern: /export function createRepoContext\(/ },
+    { name: 'mintBoundProviders', file: 'adws/providers/repoContext.ts', declPattern: /export function mintBoundProviders\(/ },
+    { name: 'createGitHubIssueTracker', file: 'adws/providers/github/githubIssueTracker.ts', declPattern: /export function createGitHubIssueTracker\(/ },
+    { name: 'createGitHubCodeHost', file: 'adws/providers/github/githubCodeHost.ts', declPattern: /export function createGitHubCodeHost\(/ },
+    { name: 'createGitHubBoardManager', file: 'adws/providers/github/githubBoardManager.ts', declPattern: /export function createGitHubBoardManager\(/ },
+    { name: 'createGitLabCodeHost', file: 'adws/providers/gitlab/gitlabCodeHost.ts', declPattern: /export function createGitLabCodeHost\(/ },
+    { name: 'createGitLabBoardManager', file: 'adws/providers/gitlab/gitlabBoardManager.ts', declPattern: /export function createGitLabBoardManager\(/ },
+    { name: 'createJiraIssueTracker', file: 'adws/providers/jira/jiraIssueTracker.ts', declPattern: /export function createJiraIssueTracker\(/ },
+    { name: 'createJiraBoardManager', file: 'adws/providers/jira/jiraBoardManager.ts', declPattern: /export function createJiraBoardManager\(/ },
+    { name: 'GitContext', file: 'adws/gitContext/gitContext.ts', declPattern: /export class GitContext\b/ },
+  ];
+
+  // fs is mocked at module scope (see `vi.mock('fs')` above) — the factory modules
+  // themselves are never imported directly, since they pull in core/environment and
+  // would run env/dotenv side effects under a mocked fs. Instead, obtain the real fs
+  // module and read each owning source file as plain text, matching its declaration.
+  it.each(cases)('$name is still declared in $file', async ({ name, file, declPattern }) => {
+    const realFs = await vi.importActual<typeof import('fs')>('fs');
+    const source = realFs.readFileSync(path.join(process.cwd(), file), 'utf-8');
+
+    expect(
+      declPattern.test(source),
+      `Expected to find "${name}"'s declaration in ${file} — was it renamed? Update ` +
+      'CWD_DERIVED_IDENTITY_FNS/CONTEXT_CONSTRUCTOR_NAME (adws/guard/identityRule.ts) or ' +
+      'PROVIDER_CONSTRUCTORS/CONTEXT_CONSTRUCTORS/GIT_CONTEXT_CLASS_NAME (adws/guard/constructionRule.ts) accordingly.',
+    ).toBe(true);
   });
 });
