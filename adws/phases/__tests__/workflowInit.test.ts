@@ -66,6 +66,17 @@ vi.mock('../../providers/repoContext', () => ({
   createRepoContext: vi.fn().mockReturnValue(undefined),
 }));
 
+// Real implementation by default (preserves existing tests' behaviour exactly);
+// individual tests override via mockReturnValueOnce/mockImplementationOnce to
+// assert the boundary-providers passthrough deterministically (#794).
+vi.mock('../../core/launchGitContext', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../core/launchGitContext')>();
+  return {
+    ...actual,
+    buildLaunchBoundary: vi.fn(actual.buildLaunchBoundary),
+  };
+});
+
 vi.mock('../../core/issueClassifier', () => ({
   classifyGitHubIssue: vi.fn(),
 }));
@@ -117,12 +128,18 @@ import {
   getRepoInfo,
 } from '../../github';
 import { classifyGitHubIssue } from '../../core/issueClassifier';
+import { createRepoContext } from '../../providers/repoContext';
+import { buildLaunchBoundary } from '../../core/launchGitContext';
+import type { LaunchBoundary } from '../../core/launchGitContext';
+import { Platform } from '../../providers/types';
 
 const mockAgent = vi.mocked(runGenerateBranchNameAgent);
 const mockFetchIssue = vi.mocked(fetchGitHubIssue);
 const mockDetectRecovery = vi.mocked(detectRecoveryState);
 const mockGetRepoInfo = vi.mocked(getRepoInfo);
 const mockClassify = vi.mocked(classifyGitHubIssue);
+const mockCreateRepoContext = vi.mocked(createRepoContext);
+const mockBuildLaunchBoundary = vi.mocked(buildLaunchBoundary);
 
 const BASE_ADW_ID = `test-wfinit-${Date.now()}`;
 const ISSUE_NUMBER = 9000;
@@ -277,4 +294,49 @@ describe('initializeWorkflow determinism — criterion 3 (issue #524)', () => {
       }
     },
   );
+});
+
+// ---------------------------------------------------------------------------
+// Boundary-providers passthrough (issue #794, AC3 — workflow-init half)
+// ---------------------------------------------------------------------------
+
+function makeFakeBoundary(owner: string, repo: string): LaunchBoundary {
+  const repoId = { owner, repo, platform: Platform.GitHub };
+  const providers = { issueTracker: {}, codeHost: {}, boardManager: {} };
+  return {
+    gitContext: { owner, repo } as unknown as LaunchBoundary['gitContext'],
+    repoId,
+    providers,
+  } as unknown as LaunchBoundary;
+}
+
+describe('initializeWorkflow: boundary-providers passthrough to createRepoContext', () => {
+  const adwId = `${BASE_ADW_ID}-boundary`;
+
+  afterEach(() => cleanupAdwId(adwId));
+
+  it('passes the boundary\'s providers when the resolved repoId matches the boundary identity', async () => {
+    const boundary = makeFakeBoundary('test-owner', 'test-repo');
+    mockBuildLaunchBoundary.mockReturnValueOnce(boundary);
+    mockAgent.mockResolvedValueOnce({ ...baseAgentResult, branchName: 'feature-issue-9000-boundary-match' });
+
+    await initializeWorkflow(ISSUE_NUMBER, adwId, 'orchestrator', { issueType: '/feature' });
+
+    expect(mockCreateRepoContext).toHaveBeenCalledTimes(1);
+    expect(mockCreateRepoContext.mock.calls[0][0].providers).toBe(boundary.providers);
+  });
+
+  it('does not pass boundary providers when a caller-supplied repoId names a different repository', async () => {
+    const boundary = makeFakeBoundary('test-owner', 'test-repo');
+    mockBuildLaunchBoundary.mockReturnValueOnce(boundary);
+    mockAgent.mockResolvedValueOnce({ ...baseAgentResult, branchName: 'feature-issue-9000-boundary-mismatch' });
+
+    await initializeWorkflow(ISSUE_NUMBER, adwId, 'orchestrator', {
+      issueType: '/feature',
+      repoId: { owner: 'other-owner', repo: 'other-repo', platform: Platform.GitHub },
+    });
+
+    expect(mockCreateRepoContext).toHaveBeenCalledTimes(1);
+    expect(mockCreateRepoContext.mock.calls[0][0].providers).toBeUndefined();
+  });
 });

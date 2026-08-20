@@ -2132,13 +2132,16 @@
     - adws/core/launchGitContext.ts
     - adws/core/__tests__/launchGitContext.test.ts
   - Conditions:
-    - When working with `buildLaunchGitContext`, `LaunchGitContextDeps`, `resolveLaunchToken`, or `resolveLaunchGitIdentity` in `adws/core/launchGitContext.ts`
-    - When constructing a `GitContext` at a process launch boundary (cron entry-script guard, `adwMerge.main()`, `initializeWorkflow`)
-    - When troubleshooting the cron's module-scope `cronGitContext` or the `process.argv[1]` entry-script guard
+    - When working with `buildLaunchGitContext`, `buildLaunchBoundary`, `LaunchBoundary`, `LaunchGitContextDeps`, `resolveLaunchToken`, or `resolveLaunchGitIdentity` in `adws/core/launchGitContext.ts`
+    - When constructing a `GitContext` and its bound providers at a process launch boundary (cron entry-script guard, `adwMerge.main()`, `initializeWorkflow`) — `buildLaunchBoundary` resolves `{owner, repo}` exactly once and hands it to both artefacts in the same call (#794)
+    - When `buildLaunchGitContext` is referenced as the context-only view — it is defined as `buildLaunchBoundary(...).gitContext`, unchanged in signature and behaviour for its existing six call sites
+    - When troubleshooting the cron's module-scope `cronBoundary`/`cronGitContext`/`getCronProviders()` or the `process.argv[1]` entry-script guard
     - When `EvaluateCandidateInput.gitContext` or `WorkflowConfig.gitContext` are relevant in `takeoverHandler.ts` or `workflowInit.ts`
-    - When the "wrong-base-repo on takeover path" (`spawnSync ENOENT`, vestmatic #187) class of bug is being fixed or investigated
-    - When wiring `gitContext.basePath` into worktree creation or `ensureWorktree` calls as the self-host base path replacement for `process.cwd()`
-    - When adding unit tests for the boundary constructor (target args → target workspace; absent args → framework repo root; injectable deps)
+    - When the "wrong-base-repo on takeover path" (`spawnSync ENOENT`, vestmatic #187) class of bug, or its "identity derived twice" variant (#794), is being fixed or investigated
+    - When wiring `gitContext.basePath` into worktree creation, `ensureWorktree` calls, or provider-config lookup (`loadProviderConfig(gitContext.basePath)`) as the self-host/target base-path replacement for `process.cwd()`
+    - When `freezeBoundary`'s deferred-and-memoised provider minting, the `platform`/`loadProviderConfig`/`mintProviders` `LaunchGitContextDeps` seams, or the deep-import rule against `../providers/repoContext` and `../providers/types` (never the `../providers` barrel) are relevant
+    - When `adwMerge.tsx` no longer calls `buildRepoIdentifier` (deleted second identity derivation) or `workflowInit.ts` passes `providers: boundary.providers` into `createRepoContext` gated by `sameRepoIdentity`
+    - When adding unit tests for the boundary constructor (target args → target workspace; absent args → framework repo root; injectable deps; identity binding between minted context and providers)
 
 - app_docs/feature-bq1f45-git-gh-cli-guard.md
   - Owns:

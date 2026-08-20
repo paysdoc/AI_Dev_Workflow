@@ -132,7 +132,7 @@ If you want to evaluate the codebase directly, the recommended reading order is:
 2. `adws/triggers/trigger_cron.ts` together with `adws/triggers/takeoverHandler.ts` — the control loop.
 3. `adws/phases/orchestratorLock.ts` together with `adws/triggers/spawnGate.ts` — the locking model.
 4. `adws/core/processLiveness.ts`, `adws/core/heartbeat.ts`, and `adws/core/hungOrchestratorDetector.ts` — the liveness model.
-5. `adws/providers/repoContext.ts` together with `adws/providers/types.ts` — the provider abstraction.
+5. `adws/providers/repoContext.ts` together with `adws/providers/types.ts` — the provider abstraction; `adws/core/launchGitContext.ts` mints the same provider triple at the launch boundary, bound to the same identity as the GitContext.
 6. [UBIQUITOUS_LANGUAGE.md](UBIQUITOUS_LANGUAGE.md) — domain terms (Workflow, Phase, Stage, Orchestrator, Worktree, Spawn Lock, Takeover, etc.). Worth reading before any unfamiliar phase.
 7. [specs/prd/orchestrator-coordination-resilience.md](specs/prd/orchestrator-coordination-resilience.md) — the design rationale for the coordination kernel.
 
@@ -567,7 +567,7 @@ adws/                   # ADW workflow system
 │   ├── index.ts
 │   ├── issueClassifier.ts
 │   ├── jsonParser.ts
-│   ├── launchGitContext.ts  # Boundary-constructor adapter — builds one GitContext per process launch boundary from launch identity (cron module-scope, adwMerge.main(), initializeWorkflow); resolves token + gitIdentity; wires context into takeoverHandler and workflowInit
+│   ├── launchGitContext.ts  # Boundary-constructor adapter — buildLaunchBoundary builds one GitContext AND mints the forge provider triple (IssueTracker/CodeHost/BoardManager) bound to the SAME identity, in the same call, per process launch boundary (cron module-scope, adwMerge.main(), initializeWorkflow); providers are minted lazily on first access and memoised, so building the context alone gains no new I/O or failure mode; buildLaunchGitContext is the context-only view (#794); resolves token + gitIdentity; wires context into takeoverHandler and workflowInit
 │   ├── logger.ts       # Structured logging utilities
 │   ├── modelRouting.ts # Model/effort routing utilities
 │   ├── orchestratorCli.ts  # Shared CLI parsing utilities
@@ -819,7 +819,7 @@ adws/                   # ADW workflow system
 │   │   ├── jiraIssueTracker.ts
 │   │   └── jiraTypes.ts
 │   ├── index.ts
-│   ├── repoContext.ts  # RepoContext factory
+│   ├── repoContext.ts  # RepoContext factory; mintBoundProviders is the provider-minting logic shared with the launch boundary (adws/core/launchGitContext.ts, #794)
 │   └── types.ts
 ├── triggers/           # Automation triggers
 │   ├── __tests__/      # Vitest unit tests

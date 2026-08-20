@@ -12,6 +12,11 @@
  * installation token minted at launch is never replayed, stale, hours into a
  * long-running orchestrator; `resolveLaunchToken` documents the resolution order
  * but is no longer itself the construction path.
+ *
+ * Since #794, the boundary also mints the forge provider triple (IssueTracker /
+ * CodeHost / BoardManager) bound to the SAME identity the GitContext receives, in
+ * the same call — see `buildLaunchBoundary`. `buildLaunchGitContext` is now the
+ * context-only view of that one call.
  */
 
 import { GitContext } from '../gitContext';
@@ -23,6 +28,11 @@ import { resolveBootstrapGitIdentity, ghAuthToken } from '../gitContext';
 import { isGitHubAppConfigured, getInstallationToken } from '../github/githubAppAuth';
 import { resolveContextToken } from '../providers/github/tokenResolver';
 import { createGitHubTokenProvider } from '../providers/github/githubTokenProvider';
+// Deep imports only — never the `../providers` barrel, which re-exports the
+// GitHub adapter and closes an import cycle back through `../../core` (#792).
+import { mintBoundProviders, loadProviderConfig, type MintProvidersOptions, type ProviderConfig } from '../providers/repoContext';
+import type { BoundProviders, RepoIdentifier } from '../providers/types';
+import { Platform } from '../providers/types';
 import { REPO_ROOT, TARGET_REPOS_DIR, GITHUB_PAT } from './environment';
 
 /**
@@ -47,6 +57,12 @@ export interface LaunchGitContextDeps {
   frameworkRepoRoot?: string;
   /** Absolute path to the directory that houses cloned target repos. Defaults to TARGET_REPOS_DIR. */
   targetReposDir?: string;
+  /** The RepoIdentifier's declared platform. Defaults to Platform.GitHub (matches buildRepoIdentifier). */
+  platform?: Platform;
+  /** Loads provider platform selection for a workspace directory. Defaults to loadProviderConfig from providers/repoContext. */
+  loadProviderConfig?: (dir: string) => ProviderConfig;
+  /** Mints the bound provider triple. Defaults to mintBoundProviders from providers/repoContext. */
+  mintProviders?: (options: MintProvidersOptions) => BoundProviders;
 }
 
 /**
@@ -100,7 +116,42 @@ function tokenProviderFromResolver(resolveToken: (owner: string, repo: string) =
 }
 
 /**
- * Builds exactly one GitContext from the process launch identity.
+ * The result of one launch-boundary call: a GitContext and the forge provider
+ * triple bound to the SAME `{owner, repo}` identity, resolved exactly once.
+ * Frozen — neither field can be re-pointed at another repository after the
+ * boundary hands the result over.
+ */
+export interface LaunchBoundary {
+  readonly gitContext: GitContext;
+  /** The boundary's repo identity — the same owner/repo the GitContext carries. */
+  readonly repoId: RepoIdentifier;
+  /** Providers bound to `repoId`. Minted on first access, then memoised. */
+  readonly providers: BoundProviders;
+}
+
+/**
+ * Freezes a `LaunchBoundary`, deferring provider minting to first access via a
+ * memoised getter. Deferral keeps the boundary CALL free of the provider
+ * config's I/O and its throw-on-unrecognised-platform failure mode — both
+ * would otherwise land before a not-yet-cloned target workspace exists (see
+ * `buildLaunchBoundary`'s doc comment).
+ */
+function freezeBoundary(gitContext: GitContext, repoId: RepoIdentifier, mint: () => BoundProviders): LaunchBoundary {
+  let minted: BoundProviders | undefined;
+  return Object.freeze({
+    gitContext,
+    repoId,
+    get providers(): BoundProviders {
+      return (minted ??= mint());
+    },
+  });
+}
+
+/**
+ * Builds exactly one GitContext from the process launch identity, and mints
+ * the forge provider triple bound to that SAME identity, in the same call.
+ * `{owner, repo}` is resolved exactly once and fed to both — no second read
+ * of `--target-repo` or the local git remote for the providers.
  *
  * When `targetRepo` is non-null (i.e., `--target-repo` was present), builds a
  * TARGET context whose base path is `join(targetReposDir, owner, repo)`.
@@ -111,26 +162,39 @@ function tokenProviderFromResolver(resolveToken: (owner: string, repo: string) =
  * Hands the context a TokenProvider, never a resolved credential string —
  * `deps.tokenProvider` takes precedence, then `deps.resolveToken` adapted into
  * a provider, then the production `createLaunchTokenProvider()`. The only
- * resolution on the clock
- * while this function runs is the context's own construction-time validating
- * probe — its answer is discarded, and every command the returned context runs
- * resolves a fresh credential.
+ * resolution on the clock while this function runs is the context's own
+ * construction-time validating probe — its answer is discarded, and every
+ * command the returned context runs resolves a fresh credential.
+ *
+ * Providers are minted LAZILY, on first access to `.providers`, and memoised:
+ * building the boundary performs no provider-config read and cannot fail
+ * because of one. Provider platform selection still comes from
+ * `.adw/providers.md`, read from `gitContext.basePath` — the identity-derived
+ * workspace path, never a caller-supplied `cwd` — via `deps.loadProviderConfig`
+ * (defaults to `loadProviderConfig`). Selection is then handed to
+ * `deps.mintProviders` (defaults to `mintBoundProviders`), which refuses an
+ * unimplemented or unparseable platform BY NAME rather than substituting
+ * GitHub — the same refusal `createRepoContext` raises today, surfacing at the
+ * same moment: the first provider request, not the boundary call.
  */
-export function buildLaunchGitContext(
+export function buildLaunchBoundary(
   targetRepo: TargetRepoInfo | null,
   deps: LaunchGitContextDeps = {},
-): GitContext {
+): LaunchBoundary {
   const getInfo = deps.getRepoInfo ?? getRepoInfo;
   const resolveIdentity = deps.resolveGitIdentity ?? resolveLaunchGitIdentity;
   const frameworkRepoRoot = deps.frameworkRepoRoot ?? REPO_ROOT;
   const targetReposDir = deps.targetReposDir ?? TARGET_REPOS_DIR;
   const tokenProvider = deps.tokenProvider
     ?? (deps.resolveToken ? tokenProviderFromResolver(deps.resolveToken) : createLaunchTokenProvider());
+  const loadConfig = deps.loadProviderConfig ?? loadProviderConfig;
+  const mint = deps.mintProviders ?? mintBoundProviders;
+  const platform = deps.platform ?? Platform.GitHub;
 
   const selfHost = targetRepo === null;
   const { owner, repo } = targetRepo ?? getInfo();
 
-  return new GitContext({
+  const gitContext = new GitContext({
     owner,
     repo,
     selfHost,
@@ -139,4 +203,23 @@ export function buildLaunchGitContext(
     frameworkRepoRoot,
     targetReposDir,
   });
+  const repoId: RepoIdentifier = { owner, repo, platform };
+
+  return freezeBoundary(gitContext, repoId, () => {
+    const config = loadConfig(gitContext.basePath);
+    return mint({ repoId, codeHostPlatform: config.codeHost, issueTrackerPlatform: config.issueTracker });
+  });
+}
+
+/**
+ * The context-only view of a `buildLaunchBoundary` call — unchanged behaviour
+ * for every existing caller. Building a context this way performs no
+ * provider-config read and gains no new failure mode: it is exactly what this
+ * function did before providers existed.
+ */
+export function buildLaunchGitContext(
+  targetRepo: TargetRepoInfo | null,
+  deps: LaunchGitContextDeps = {},
+): GitContext {
+  return buildLaunchBoundary(targetRepo, deps).gitContext;
 }
