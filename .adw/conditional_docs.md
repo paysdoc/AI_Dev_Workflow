@@ -1790,6 +1790,11 @@
     - adws/providers/**
   - Conditions:
     - When working on multi-provider repo context, GitHub provider, GitLab provider, or Jira provider integration in `adws/providers/`
+    - When adding or modifying `IssueTracker` or `CodeHost` methods in `adws/providers/types.ts` and their GitHub (`githubIssueTracker.ts`/`githubCodeHost.ts`), GitLab (`gitlabCodeHost.ts`), or Jira (`jiraIssueTracker.ts`) implementations
+    - When deciding between `IssueTracker.addLabel` (fail-open) and `applyLabel` (lazy-create, rethrow) for a new caller
+    - When troubleshooting why `fetchComments` throws instead of returning `[]` on a malformed response
+    - When adding a refusal-stub method to `GitLabCodeHost` or `JiraIssueTracker` for a port method neither platform supports yet
+    - When mapping a raw GitHub PR/issue payload to `PullRequestSummary` or `IssueSummary` (see `adws/providers/github/mappers.ts`)
 
 - app_docs/feature-9gjajh-cost-tracking.md
   - Owns:
@@ -2193,3 +2198,23 @@
     - When threading `launchContext: { selfHost, adwId }` through `commandAgent.ts`, `runClaudeAgentWithCommand`, or a direct agent caller (`planAgent.ts`, `testAgent.ts`, `gitAgent.ts`, `patchAgent.ts`, `refactorAgent.ts`)
     - When the guardrails probe warm-up in `trigger_cron.ts`'s `main()` or the `guardrailsProbe` `/health` check entry in `trigger_webhook.ts` is relevant
     - When `.claude/hooks/pre-tool-use.ts`'s `.env.example` carve-out needs to stay in sync with the `templates/claude-settings-starter.json` deny list's `Read(!**/.env.example)` pattern
+
+- app_docs/feature-mk1wgc-orchestrator-phase-provider-migration.md
+  - Owns:
+    - adws/adwMerge.tsx
+    - adws/phases/autoMergePhase.ts
+    - adws/phases/reviewPhase.ts
+    - adws/phases/prPhase.ts
+    - adws/phases/docsSelfCheck.ts
+    - adws/phases/depauditSetup.ts
+    - adws/phases/upgradeGate.ts
+    - adws/phases/documentPhase.ts
+  - Conditions:
+    - When working with orchestrators or phases that need forge (issue/PR/label/board/secret) operations and must source them from a `LaunchBoundary`/`RepoContext` provider pair, not a `GitContext` semantic method or an ad-hoc-minted provider
+    - When implementing or troubleshooting `resolveWorkflowProviders` (`adws/phases/workflowInit.ts`) — the sole authority for which `RepoIdentifier`/`BoundProviders` pair a workflow's `RepoContext` uses, and why a caller-supplied `repoId` that contradicts the launch boundary throws rather than minting a second provider set
+    - When adding a new forge operation to `adwMerge.tsx`'s `MergeDeps`, `adwUpgrade.tsx`'s `UpgradeDeps`, or `upgradeGate.ts`'s `UpgradeGateDeps` and deciding whether it belongs on the provider triple
+    - When troubleshooting why `adwUpgrade.tsx`'s failure-cap counter did not crash on a malformed issue-comment response (the `fetchIssueComments` `try/catch` around `IssueTracker.fetchComments`)
+    - When deciding whether a labeling call site should use `IssueTracker.addLabel` (fail-open) or `applyLabel` (lazy-create, rethrow)
+    - When a phase or orchestrator still holds a `GitContext` and needs to know whether that use is git-only (allowed) or forge-semantic (should route through the provider pair instead)
+    - When troubleshooting `autoMergePhase.ts`'s `hitl` label gate, `depauditSetup.ts`'s secret propagation, or `docsSelfCheck.ts`'s open-issue search after this migration
+    - When extending this migration to a module not yet covered (`adwChore.tsx`, `adwClearComments.tsx`, `unitTestPhase.ts`, `stackCoherenceReporter.ts`, `prReviewPhase.ts`'s `fetchPRDetails`/`getUnaddressedComments`, or `adws/github/hitlBoardNotifier`'s `notifyBlockedTransition` platform branch) — these were deliberately deferred to the next wave
