@@ -188,6 +188,23 @@ if (!boundary) {
 
 **Why the guard is safe.** `boundary === undefined` is unreachable in production at this line. `gitContextForSync` (`:132`) and `buildLaunchBoundary` (`:140`) construct a `GitContext` from the same owner/repo, the same `resolveBootstrapGitIdentity()`, and the same `createGitHubTokenProvider({pat: GITHUB_PAT, isAppConfigured, mintInstallationToken, ghAuthToken})` composition (`gitContextFactory.ts:46-53, 98-112` vs `launchGitContext.ts:95-103`), and both run the identical validate-and-discard credential probe in `assertCompleteIdentity` (`gitContext.ts:126-149`). The boundary's only extra input is `getRepoInfo()` on the self-host path — already proven to succeed at `:131`. So if line 132 succeeded, line 140 cannot fail; the only way to reach line 221 with no boundary is a test that mocks `gitContextForSync` but not `buildLaunchBoundary`, which is exactly what `workflowInit.test.ts` does today.
 
+**The provider-sourcing decision becomes a named function.** `workflowInit.ts:307-317` currently derives `repoIdForContext` from `options?.repoId ?? (repoInfo ?? getRepoInfo())` — a *second* read of the local git remote in the one function whose job is to establish which repository this run is about — and then decides whether to reuse the boundary's providers. Extract that decision:
+
+```ts
+/** Resolves the provider set a workflow's RepoContext must use. The boundary is the only source. */
+export function resolveWorkflowProviders(
+  boundary: LaunchBoundary,
+  callerRepoId?: RepoIdentifier,
+): { repoId: RepoIdentifier; providers: BoundProviders } {
+  const repoId = callerRepoId ?? boundary.repoId;
+  // …identity agreement decided here; see the ADW-WARNING below…
+}
+```
+
+With no caller-supplied identity the context's `repoId` is now `boundary.repoId` rather than a fresh `getRepoInfo()` read, and the providers are the boundary's instances. This is the same value by construction (`buildLaunchBoundary` derives owner/repo from `targetRepo ?? getRepoInfo()`, `launchGitContext.ts:194-195`, exactly as `buildRepoIdentifier` does at `orchestratorCli.ts:139-145`), so no existing expectation moves — but the *read* is gone, which is what feature-796 §5's first row asserts and what the PRD's wrong-repo invariant is for. Because the `if (!boundary) throw` guard above runs at `:221`, `boundary` is non-optional by the time this function is reached.
+
+<!-- ADW-WARNING: UNRESOLVED — feature-796.feature §5's second row ("A caller-supplied identity that contradicts the boundary is refused rather than served a second provider set" → "resolving workflow init's providers failed naming both repositories") demands the mismatch branch THROW. The merged #794 unit test `workflowInit.test.ts:330-344` ("does not pass boundary providers when a caller-supplied repoId names a different repository") asserts the opposite: createRepoContext is still called, with `providers: undefined`, and mints a second set. The issue arbitrates both ways and cannot settle it — AC2 ("All provider instances arrive from the launch boundary (no ad-hoc construction)") supports the refusal, while AC3 ("Full unit suite green with no test-expectation changes beyond call-shape updates") forbids reversing that merged assertion, which is a behavioural expectation and not a call shape. Neither file was changed for this conflict. DECIDE BEFORE IMPLEMENTING §5's second row: either (a) refuse on mismatch and rewrite the #794 test, declaring the expectation change and its justification in the PR body, or (b) keep the current fallback, drop §5's second scenario from feature-796.feature, and name `workflowInit.test.ts:330-344` as its standing replacement. Do not leave the scenario as a pending stub. -->
+
 `upgradeGate.ts` — `buildDefaultUpgradeGateDeps(providers, worktreePath, gitShow)` replaces the `repoId` parameter with the boundary triple; `createIssue`, `applyLabel`, `updateIssueBody`, `findOpenUpgradeIssue` and `moveToStatus` all read from it, and the per-call `createRepoContext` at `:194` is deleted. `UpgradeGateDeps` signatures drop `repoInfo` (it survives in `UpgradeGateParams` for `claimUpgrade`, which is `adws/core/upgradeClaim.ts` — #797's wave). `moveToStatus` keeps its `Promise<void>` + best-effort `try/catch` contract.
 
 ### 7. What this slice deliberately does not do
@@ -196,6 +213,7 @@ if (!boundary) {
 - **It does not migrate `healthCheck.tsx`.** Its `ctx.authenticatedUser()` and `ctx.fetchIssue()` probes exist to verify the GitContext credential/command path itself (#699). Routing them through a provider would test the provider, not the thing the diagnostic exists to check. `healthCheck.tsx` is a diagnostic CLI, not an orchestrator or phase.
 - **It does not delete anything from `GitContext`.** Every semantic method stays until #797.
 - **It does not add the guard rule** forbidding ad-hoc construction — that is #795, which lands independently.
+- **It does not fold `notifyBlockedTransition`'s platform branch into a provider.** `adwMerge.tsx:249` reads `platform === Platform.GitHub ? notifyBlockedTransition : async () => undefined` — an orchestrator branching on which forge it is talking to, which is the shape user story 4 exists to delete. feature-796.feature's fourth scope note flags it and asks that it be settled here or deferred explicitly; **it is deferred to #797**. The reason is scope, not oversight: it is a Slack board-notification concern reached through `adws/github/hitlBoardNotifier`, none of the issue's named operations (`commentOnIssue`, `listOpenIssues`, `fetchIssue`, `createIssue`, label and PR operations) cover it, and giving it a home means either widening `BoardManager` or adding a notification port — a design decision with its own blast radius, in the same wave that deletes the `adws/github/*` wrappers it calls. No scenario asserts it.
 - **It changes neither `workflowCompletion.ts` nor `adwBuildHelpers.ts`.** Both are named in the issue's Touched Files; both were read in full and neither performs any forge-semantic work. `workflowCompletion.ts` is already 100% provider-routed (`postIssueStageComment`, `issueTracker.moveToStatus`); its only remaining forge reference is `notifyBlockedTransition`, an `adws/github/` Slack notifier in #797's wave. `adwBuildHelpers.ts` contains `extractPrNumber`, `parseArguments` and `printBuildSummary` — no forge calls at all.
 
 ## Relevant Files
@@ -213,12 +231,12 @@ Use these files to implement the feature:
 - `adws/github/index.ts` — re-export the three new wrappers beside their siblings.
 
 ### Orchestrators (changed)
-- `adws/adwMerge.tsx` — `buildDefaultDeps` sources forge deps from `boundary.providers`; `MergeDeps` forge signatures drop `repoInfo`.
-- `adws/adwUpgrade.tsx` — `main()` adopts `buildLaunchBoundary`; `buildDefaultUpgradeDeps` sources every forge dep from the triple; `createGitHubCodeHost` import and the six direct `gitCtx.<forge>` calls are removed.
+- `adws/adwMerge.tsx` — `buildDefaultDeps` is **exported** and sources forge deps from `boundary.providers`; `MergeDeps` forge signatures drop `repoInfo`. The export is load-bearing: feature-796 drives the real composition, not hand-built deps.
+- `adws/adwUpgrade.tsx` — `main()` adopts `buildLaunchBoundary`; `buildDefaultUpgradeDeps` is **exported** and sources every forge dep from the triple; `createGitHubCodeHost` import and the six direct `gitCtx.<forge>` calls (`:508`, `:524-528`) are removed.
 - `adws/adwPrReview.tsx` — builds the boundary and hands it to `initializePRReviewWorkflow`.
 
 ### Phases (changed)
-- `adws/phases/workflowInit.ts` — `defaultBranch` from the boundary code host; hands `boundary.providers` to `buildDefaultUpgradeGateDeps`.
+- `adws/phases/workflowInit.ts` — `defaultBranch` from the boundary code host; hands `boundary.providers` to `buildDefaultUpgradeGateDeps`; new exported `resolveWorkflowProviders` replaces the inline identity derivation + reuse ternary at `:307-317` (Solution §6, and the ADW-WARNING there).
 - `adws/phases/upgradeGate.ts` — deps built from `BoundProviders`; the per-call `createRepoContext` at `:194` deleted.
 - `adws/phases/autoMergePhase.ts` — five `adws/github` calls become provider calls.
 - `adws/phases/reviewPhase.ts` — `approvePR` becomes `codeHost.approvePullRequest`.
@@ -331,7 +349,7 @@ Execute every step in order, top to bottom.
 ### 7. Migrate `adwUpgrade.tsx`
 
 - `main()`: replace `buildRepoIdentifier(targetRepo)` + `await gitContextFor({...})` with `const { gitContext, repoId, providers } = buildLaunchBoundary(targetRepo);`. Keep `repoInfo` derived from `repoId` and leave `baseRepoPath` (`:550`) as it is — it is an unused parameter of `executeUpgrade` and cleaning it up is not this slice's job.
-- Change `buildDefaultUpgradeDeps(repoId, gitCtx)` to `buildDefaultUpgradeDeps(providers, gitCtx)` and rewire every forge dep per Solution §4, including the `fetchIssueComments` `try/catch`, the awaited `moveToStatus`, and `BoardStatus.Blocked` in place of the `'Blocked'` string.
+- **Export** `buildDefaultUpgradeDeps` and change `buildDefaultUpgradeDeps(repoId, gitCtx)` to `buildDefaultUpgradeDeps(providers, gitCtx)`, rewiring every forge dep per Solution §4, including the `fetchIssueComments` `try/catch`, the awaited `moveToStatus`, and `BoardStatus.Blocked` in place of the `'Blocked'` string.
 - Change `UpgradeDeps.findPRByBranch` to `(branch: string) => PullRequestSummary | null`, `mergePR` to `(prNumber: number) => ForgeActionResult`, `commentOnIssue` to `(issueNumber: number, body: string) => void`, and `moveToStatus` to `(issueNumber: number, status: BoardStatus) => Promise<boolean>`; update `executeUpgrade`'s call sites (drop `repoInfo` arguments, `await` the board move).
 - Replace `hasWontFixLabel(existingClaimPr)` with `hasWontFixLabelName(existingClaimPr.labels)`.
 - Delete the `createGitHubCodeHost` import, the `gitContextFor` import if now unused, and `parseLabelNames`/`parseIssueComments` if they no longer have callers.
@@ -340,7 +358,7 @@ Execute every step in order, top to bottom.
 
 ### 8. Migrate `adwMerge.tsx`
 
-- Change `buildDefaultDeps(platform, gitCtx)` to `buildDefaultDeps(boundary: LaunchBoundary)`, reading `platform` from `boundary.repoId.platform` and `gitCtx` from `boundary.gitContext`.
+- **Export** `buildDefaultDeps` and change `buildDefaultDeps(platform, gitCtx)` to `buildDefaultDeps(boundary: LaunchBoundary)`, reading `platform` from `boundary.repoId.platform` and `gitCtx` from `boundary.gitContext`.
 - Drop `repoInfo` from `MergeDeps.findPRByBranch`, `issueHasLabel`, `fetchPRApprovalState` and `commentOnIssue`; implement each from `boundary.providers` per Solution §4, with `issueHasLabel` as `fetchLabels(n).includes(labelName)`.
 - Update `executeMerge`'s call sites to match. Leave `mergeWithConflictResolution` and `notifyBlockedTransition` (and therefore `executeMerge`'s `repoInfo` parameter) exactly as they are.
 - Update `adws/__tests__/adwMerge.test.ts`: `makeDeps` types and the `REPO_INFO` arguments in `toHaveBeenCalledWith`. No expectation about *what* is commented, labelled or merged may change.
@@ -351,6 +369,8 @@ Execute every step in order, top to bottom.
 - Add the `if (!boundary) throw …` guard clause immediately before the default-branch resolution, with a comment recording the argument from Solution §6 (same constructor, same probe, so line 132 already proved it).
 - Replace `const defaultBranch = gitCtx.defaultBranch();` with `boundary.providers.codeHost.getDefaultBranch()`.
 - Change the `runUpgradeGate` call to pass `buildDefaultUpgradeGateDeps(boundary.providers, targetRepoWorkspacePath, gitShow)` and delete the now-unused `gateRepoId` block.
+- Extract `resolveWorkflowProviders(boundary, callerRepoId?)` per Solution §6 and replace the `repoIdForContext` derivation + `sameRepoIdentity(...) ? boundary.providers : undefined` ternary (`:307-317`) with a call to it. With no caller-supplied `repoId` the context identity is `boundary.repoId` — the `repoInfo ?? getRepoInfo()` fallback on this path goes away. Export it: feature-796 §5's first row drives it directly (`initializeWorkflow` itself is not reachable in the cucumber harness — see the feature file's testing notes).
+- **Read the ADW-WARNING in Solution §6 before touching the mismatch branch.** Leave that branch exactly as #794 left it unless the warning's option (a) has been chosen; the matching-identity path and the surrounding `try/catch` + "falling back to direct API calls" log are unchanged either way.
 - Leave every other `gitCtx` use (`headShort`, `mergeLatestFromDefaultBranch`, `ensureWorktree`, `copyEnvToWorktree`, `findWorktreeForIssue`, `getWorktreeForBranch`, `fetchAndResetToRemote`, `show`) untouched — those are git operations.
 - In `adws/phases/__tests__/workflowInit.test.ts`: move `makeFakeBoundary` above the first `describe`, give its `providers.codeHost` a `getDefaultBranch: vi.fn().mockReturnValue('main')`, and set `mockBuildLaunchBoundary.mockReturnValue(makeFakeBoundary('test-owner', 'test-repo'))` in the shared setup so all ten `initializeWorkflow` calls take the boundary path. The two `mockReturnValueOnce` tests from #794 keep precedence and stay unedited.
 - Run `bunx vitest run adws/phases/__tests__/workflowInit.test.ts` — green.
@@ -398,6 +418,9 @@ Execute every step in order, top to bottom.
 
 - `features/per-issue/feature-796.feature` (tags `@adw-796 @adw-mk1wgc-migrate-orchestrator`) is authored by the scenario phase and is the authority on wording — implement against it, do not reword it.
 - Write `features/per-issue/step_definitions/feature-796.steps.ts` covering the sections summarised in **Testing Strategy → BDD Scenarios**, reusing `features/per-issue/step_definitions/gitContextSharedWorld.ts` as `feature-794.steps.ts` does.
+- The seams the feature file's testing notes name all exist on `LaunchGitContextDeps` (`launchGitContext.ts:42-66`) and need no production change: `mintProviders` (recording stand-ins for the triple), `getRepoInfo` (§7's "the local git remote was never read"), `tokenProvider`/`resolveToken` (§8's counting credential source), and `frameworkRepoRoot`/`targetReposDir` (the `mkdtempSync` throwaways). What the steps *do* need from production is the two exported deps builders from steps 7 and 8 — the composition under test is the orchestrator's own wiring, not hand-built `MergeDeps`.
+- Honour the file's two hard constraints: the fixture repository is `adw-fixture/void-796` and must stay a non-repository (a RED run reaches the un-migrated free functions and shells out for real), and the four reused phrases (`the ADW codebase is checked out`, `the ADW TypeScript type-check passes`, `the git/gh guard is run across the repository`, `the git/gh guard reports no violations`) must not be redefined — that is an `AmbiguousStepDefinition`.
+- `boundary.gitContext` has no injection seam, so §1/§3/§4's "the watched git context was asked for no forge-semantic operation" is driven by wrapping it in a `Proxy` whose `get` trap logs the forge-semantic member names (`gitContext.ts:492-742`) and forwards everything else.
 - Run `NODE_OPTIONS="--import tsx" bunx cucumber-js --tags "@adw-796"` — all scenarios pass, zero undefined steps.
 
 ### 17. Update the README
@@ -425,15 +448,21 @@ Execute every step in order, top to bottom.
 
 ### BDD Scenarios
 
-`features/per-issue/feature-796.feature` should prove, in the harness, what the unit suites cannot:
+`features/per-issue/feature-796.feature` is already written and is the authority on wording — it holds 20 scenario blocks (21 rows, one being a two-example `Scenario Outline`) across nine sections. It proves, in the harness, what the unit suites cannot: that the *production* composition routes forge work through boundary-minted providers. Its stand-ins record `{operation, arguments}` rather than command strings, so what it pins is **which object performed the operation and on which identity**, not the `gh` argv — the argv is held constant structurally, by the delegation rule in **Notes**, and by the unchanged existing unit suites.
 
-1. **Bound identity, no parameter.** A migrated orchestrator dep invoked with only its operation arguments still addresses the boundary's `owner/repo` — the emitted `gh` command names the boundary repo with no call-site repo argument anywhere.
-2. **Command equivalence.** For each migrated operation, the recorded command string is the same one the pre-migration path emitted (label add, label create, issue create, issue body edit, open-issue search, PR-by-branch, approval read, approve, merge, secret set, default branch).
-3. **One provider set per process.** Across a full orchestrator run, providers are minted once at the boundary; no phase or orchestrator mints a second set.
-4. **Error policy preserved.** A failing label-add leaves the auto-merge gate proceeding (fail-open); a failing issue-body update still propagates (load-bearing for dependency unblocking); a failing comment fetch counts as zero upgrade failures rather than crashing the upgrade.
-5. **Upgrade escalation intact.** With the failure count at the cap, the run still ensures the terminal label, applies it, moves the board, posts Slack, comments, and returns `escalated` — through providers.
-6. **Merge gate intact.** `hitl` on the issue plus an unapproved PR still defers with no comment and no state write.
-7. **Refusal by name.** A code host that does not implement an operation refuses naming it, rather than silently doing nothing.
+| § | Rows | What it pins | Where the plan satisfies it |
+|---|---|---|---|
+| §1 Merge orchestrator forge traffic | 4 | Completion and escalation comments come from the boundary's issue tracker; the `hitl` gate's label read and approval read go through providers; an approved PR still proceeds. Each row also asserts the watched `GitContext` saw **no** forge-semantic call. | Step 8 (`buildDefaultDeps(boundary)`; `issueHasLabel` → `fetchLabels(n).includes(...)`) |
+| §2 Branch lookup sees non-open PRs | 2 (outline) + 1 | `MERGED` → `completed/already_merged` and `CLOSED` → `abandoned/pr_closed` still resolve, so `listOpenPullRequests` may not be substituted for the branch lookup; and a `wontfix` claim PR still releases the upgrade, so the projection must carry `labels`. | Solution §1's `PullRequestSummary` (`state` + `labels`), `findPullRequestByBranch` delegating to `defaultFindPRByBranch` (steps 3–4) |
+| §3 Upgrade orchestrator stops minting | 3 | The claim PR is opened by the boundary's code host with no code host constructed outside the boundary; escalation reads comments, applies `adw:upgrade-escalated` and moves the board to `Blocked` through providers; a re-entered escalation applies no label and posts no comment. | Step 7 (`createGitHubCodeHost` deleted; every forge dep from the triple; `BoardStatus.Blocked`) |
+| §4 Auto-merge phase gates | 2 | The `hitl` skip reads labels through the phase's own providers and writes nothing; the unapproved path reads the approval, applies `hitl` and comments "Awaiting human approval" — both with no forge-semantic `GitContext` call. | Step 11 (`repoContext.issueTracker` / `codeHost`; `addLabel`'s fail-open policy) |
+| §5 Workflow init provider sourcing | 2 | Row 1: the providers handed back are the boundary's own instances and no repository identity is read. Row 2 is **unresolved** — see the ADW-WARNING in Solution §6. | Step 9 (`resolveWorkflowProviders`) for row 1; row 2 blocked on the warning's decision |
+| §6 Non-GitHub tracker | 2 | A phase and an orchestrator handed a recording tracker that is not the GitHub adapter do all their forge work on *that* tracker, with no GitHub provider constructed. This is user story 4's payoff row and cannot be faked by renaming call sites. | Steps 8 and 11 — the migrated call sites name no `adws/github` function |
+| §7 Wrong-repo invariant | 2 | A local git remote answering another repository cannot redirect traffic (and is never read); every recorded provider call about a PR names the PR the phase was configured with. | Bound providers carry no repo parameter (Solution §1); step 9 removes the identity re-read |
+| §8 No credential at wiring time | 1 | *Building* the orchestrator's dependencies asks the credential source nothing — only running a command may. Protects #791's per-command resolution against a migration that resolves one token while it is wiring. | Steps 7–8: the deps builders close over providers only; no token is touched |
+| §9 Structural backstops | 2 | The git/gh guard stays green (AC4 verbatim) and the ADW type-check passes. | Steps 15 and 18 |
+
+Three things the feature file deliberately does **not** assert, and the plan must not add scenarios for them: that no `GitContext` is constructed during a migrated run (the adapter still constructs one internally — #797's wave); that a GitLab/Jira stub refuses by name (Solution §3's stubs are covered by unit tests in step 6, not BDD); and that `adwBuildHelpers.ts` is deleted or deduplicated (§7's second row pins only that the same PR is acted on, which is why leaving the helper alone is compatible with Solution §7).
 
 ### Edge Cases
 
@@ -449,12 +478,12 @@ Execute every step in order, top to bottom.
 ## Acceptance Criteria
 
 1. No file under `adws/*.tsx` or `adws/phases/*.ts` calls a forge-semantic method on a `GitContext` instance (`defaultBranch`, `fetchIssue`, `commentOnIssue`, `issueState`, `closeIssue`, `issueTitle`, `fetchIssueComments`, `issueHasLabel`, `addIssueLabel`, `createIssue`, `updateIssueBody`, `findOpenUpgradeIssue`, `deleteIssueComment`, `listOpenIssues`, `issueComments`, `fetchMergedPRs`, `authenticatedUser`, `findPRByBranch`, `fetchPRDetails`, `fetchPRReviews`, `fetchPRReviewComments`, `commentOnPR`, `mergePR`, `approvePR`, `prApprovalState`, `fetchPRList`, `fetchAllPRs`, `fetchPRChangedFiles`, `createPR`, `createLabel`, `applyLabel`, `setSecret`, `runGraphQL`, `runGraphQLInput`, `moveIssueToStatus`) — proven by the sweep in **Validation Commands**. `adws/healthCheck.tsx` is excluded by the argued scope decision in Solution §7.
-2. No orchestrator or phase constructs a provider or a `RepoContext`: `createGitHubIssueTracker`, `createGitHubCodeHost`, `createGitHubBoardManager`, `mintBoundProviders` and `createRepoContext` appear in `adws/*.tsx` / `adws/phases/*.ts` only where a boundary-minted triple is passed in (`workflowInit.ts`, `prReviewPhase.ts`).
+2. No orchestrator or phase constructs a provider or a `RepoContext`: `createGitHubIssueTracker`, `createGitHubCodeHost`, `createGitHubBoardManager`, `mintBoundProviders` and `createRepoContext` appear in `adws/*.tsx` / `adws/phases/*.ts` only where a boundary-minted triple is passed in (`workflowInit.ts`, `prReviewPhase.ts`). On the `workflowInit` path with no caller-supplied `repoId`, both the identity and the provider instances come from the boundary and no local git remote is read. The one remaining branch where a second set can still be minted — a caller-supplied `repoId` contradicting the boundary — is governed by the ADW-WARNING in Solution §6 and must be resolved, one way or the other, before this criterion is claimed.
 3. Every migrated operation reaches the forge through a provider that was minted by `buildLaunchBoundary` for this process, and no migrated call site passes a repository argument.
 4. `bun run test:unit` is green, and the diff to existing test files contains only dep-signature/fixture updates — no changed assertion about behaviour.
 5. `bunx tsc --noEmit`, `bunx tsc --noEmit -p adws/tsconfig.json`, `bun run lint` and `bun run build` are green.
 6. `bun run lint:git-guard` is green.
-7. `@adw-796` passes with zero undefined steps, and `@regression` is green.
+7. `@adw-796` passes with zero undefined steps, and `@regression` is green. All 20 scenario blocks run against the real composition: `buildDefaultDeps`, `buildDefaultUpgradeDeps` and `resolveWorkflowProviders` are exported, and no scenario is left pending.
 8. `GitContext`'s semantic methods are unchanged and undeleted (that is #797), and `adws/providers/repoContext.ts` is unmodified.
 9. `adws/providers/types.ts`, `githubIssueTracker.ts`, `githubCodeHost.ts` and every migrated phase file remain under the 300-line guideline.
 

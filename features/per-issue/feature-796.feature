@@ -7,9 +7,15 @@ Feature: Orchestrators and phases reach the forge only through the providers the
   with a TokenProvider port, #792 moved the GitHub material into the forge adapter, #794 made the
   launch boundary hand back a GitContext and the provider triple bound to the SAME identity in one
   call. Those four built the destination. This slice is the first wave of callers actually walking
-  to it: the two thin orchestrators (`adwMerge.tsx`, `adwUpgrade.tsx`) and the five phase modules
-  named in the issue (`workflowInit`, `workflowCompletion`, `reviewPhase`, `prPhase`,
-  `autoMergePhase`), plus `adwBuildHelpers.ts`.
+  to it: the two thin orchestrators (`adwMerge.tsx`, `adwUpgrade.tsx`) and the phase modules the
+  issue names (`workflowInit`, `workflowCompletion`, `reviewPhase`, `prPhase`, `autoMergePhase`),
+  plus `adwBuildHelpers.ts`. The issue's Touched Files list is indicative, not exhaustive: AC1
+  binds "no orchestrator or phase module", so every `adws/phases/*.ts` file that reaches the forge
+  through a GitContext is in scope by the acceptance criterion regardless of whether the issue
+  enumerated it — which adds `upgradeGate`, `docsSelfCheck` and `depauditSetup` to the wave, and
+  subtracts `workflowCompletion` and `adwBuildHelpers.ts`, both verified to perform no
+  forge-semantic work at all (the former is already 100% provider-routed; the latter exports only
+  `extractPrNumber`, `parseArguments` and `printBuildSummary`).
 
   The PRD's bar for this wave is unusually blunt: "no behavior change — same commands against the
   same repos; existing suites are the regression net" (user story 18), and "swapping GitHub for
@@ -18,21 +24,32 @@ Feature: Orchestrators and phases reach the forge only through the providers the
   and the code that produces it no longer knows it is GitHub. Every scenario below is one of those
   two claims, or the wrong-repo invariant that neither may cost.
 
-  WHAT THE CODE ACTUALLY LOOKS LIKE TODAY — because the literal reading of AC1 is a five-line slice
-  and the honest reading is a seven-module one. A scan of every orchestrator (`adws/*.tsx`) and
+  WHAT THE CODE ACTUALLY LOOKS LIKE TODAY — because even the literal reading of AC1 is wider than
+  one file, and the honest reading is wider still. A scan of every orchestrator (`adws/*.tsx`) and
   every phase module (`adws/phases/*.ts`) for a forge-semantic method invoked on a GitContext
-  instance returns exactly five lines, all in one file:
+  instance returns nine lines across five files (`healthCheck.tsx` excluded — a diagnostic prober
+  whose whole job is to exercise the GitContext credential path):
 
-      adwUpgrade.tsx:524   gitCtx.issueHasLabel(issueNumber, TERMINAL_LABEL)
-      adwUpgrade.tsx:525   gitCtx.fetchIssueComments(issueNumber)
-      adwUpgrade.tsx:526   gitCtx.createLabel(name, color, description)
-      adwUpgrade.tsx:527   gitCtx.applyLabel(issueNumber, label)
-      adwUpgrade.tsx:528   gitCtx.moveIssueToStatus(issueNumber, status)
+      adwUpgrade.tsx:508     gitCtx.defaultBranch()
+      adwUpgrade.tsx:524     gitCtx.issueHasLabel(issueNumber, TERMINAL_LABEL)
+      adwUpgrade.tsx:525     gitCtx.fetchIssueComments(issueNumber)
+      adwUpgrade.tsx:526     gitCtx.createLabel(name, color, description)
+      adwUpgrade.tsx:527     gitCtx.applyLabel(issueNumber, label)
+      adwUpgrade.tsx:528     gitCtx.moveIssueToStatus(issueNumber, status)
+      workflowInit.ts:221    gitCtx.defaultBranch()
+      prPhase.ts:58          gitCtx?.defaultBranch()
+      depauditSetup.ts:43    ctx.setSecret(envName, envValue)
+      docsSelfCheck.ts:44    gitContextForRepo(repoInfo).listOpenIssues({ ... })
+
+  The last of those is both a semantic call AND an ad-hoc construction in one expression, and
+  neither `setSecret` nor an open-issue search is expressible on the ports as they stand — so the
+  literal reading of AC1 already forces the interfaces to grow past the label/PR set below.
 
   Read literally — "no orchestrator or phase module calls a forge-semantic method on GitContext" —
-  deleting those five lines closes AC1 and the slice is done. That reading is wrong, and the reason
-  is AC2. Everywhere else the same operations happen one layer down, through the free functions in
-  `adws/github/`, and every one of those functions opens with an ad-hoc construction:
+  rerouting those nine lines closes AC1 and the slice is done. That reading is still too narrow,
+  and the reason is AC2. Everywhere else the same operations happen one layer down, through the
+  free functions in `adws/github/`, and every one of those functions opens with an ad-hoc
+  construction:
 
       issueApi.ts:128      gitContextForRepo(repoInfo).commentOnIssue(issueNumber, body)
       issueApi.ts:249      gitContextForRepo(repoInfo).issueHasLabel(issueNumber, labelName)
@@ -49,13 +66,19 @@ Feature: Orchestrators and phases reach the forge only through the providers the
   honest reading: after this slice, a migrated module's forge work is performed BY an object the
   boundary handed it, and the module holds no GitHub-named function reference of its own.
 
-  Three further ad-hoc constructions in scope, none of them semantic calls, all of them second
-  identity derivations that AC2 closes:
+  Four further ad-hoc constructions sit beside them, none of them semantic calls, all of them
+  second identity derivations. Exactly one is a PROVIDER construction, and AC2 is scoped by its own
+  wording — "all provider INSTANCES arrive from the launch boundary" — to that one:
 
+      adwUpgrade.tsx:503   createGitHubCodeHost(repoId)     — a provider; AC2 closes this
       workflowInit.ts:132  gitContextForSync({ owner, repo, selfHost })   — beside boundary at :140
       reviewPhase.ts:187   gitContextFor({ owner: ctxOwner, repo: ctxRepo, ... })
       prPhase.ts:56        gitContextFor({ owner: repoContext.repoId.owner, ... })
-      adwUpgrade.tsx:503   createGitHubCodeHost(repoId)                   — a provider, minted here
+
+  The three GitContext constructions are second identity derivations worth recording, but they are
+  not provider instances and the issue keeps GitContext's semantic surface alive until wave 2; the
+  contexts at `reviewPhase.ts:187` and `prPhase.ts:56` are reached only for git and `commandEnv`
+  work, which legitimately stays on a context. No scenario below asserts their removal.
 
   `workflowInit.ts:153` is the sharpest of them: `fetchGitHubIssue(issueNumber, repoInfo ?? getRepoInfo())`
   falls back to reading the local git remote when no target repo was passed — a second identity
