@@ -3,7 +3,7 @@
  */
 
 import { gitContextForRepo, readLocalRepoInfo } from './gitContextFactory';
-import { parseGitHubRemoteUrl } from '../gitContext';
+import { parseGitHubRemoteUrl } from '../providers/github/githubIdentity';
 import { REPO_ROOT } from '../core/environment';
 
 export interface RepoInfo {

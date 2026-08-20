@@ -1,10 +1,10 @@
 /**
  * Package-private worktree remove ops for GitContext.
- * Injects runner, fs, and killProcesses for testability.
+ * Injects runner, fs, a logger port, and killProcesses for testability.
  */
 
 import * as path from 'path';
-import { log } from '../core/utils';
+import type { Logger } from './types';
 import { killProcessesInDirectory } from './processCleanup';
 
 type Runner = (command: string, cwd: string) => string;
@@ -37,6 +37,7 @@ function parseWorktreeBranches(run: Runner, baseCwd: string): Map<string, string
 function pruneAndRmWorktreeDir(
   run: Runner,
   fs: FsDeps,
+  log: Logger,
   worktreePath: string,
   branchName: string,
   baseCwd: string,
@@ -66,6 +67,7 @@ function pruneAndRmWorktreeDir(
 function removeWorktree(
   run: Runner,
   fs: FsDeps,
+  log: Logger,
   worktreePath: string,
   branchName: string,
   deleteLocalBranchFn: (branch: string) => boolean,
@@ -79,12 +81,13 @@ function removeWorktree(
     deleteLocalBranchFn(branchName);
     return true;
   } catch {
-    return pruneAndRmWorktreeDir(run, fs, worktreePath, branchName, baseCwd, killProcs, deleteLocalBranchFn);
+    return pruneAndRmWorktreeDir(run, fs, log, worktreePath, branchName, baseCwd, killProcs, deleteLocalBranchFn);
   }
 }
 
 function rmOrphanedWorktreeDir(
   fs: FsDeps,
+  log: Logger,
   wtPath: string,
   branchName: string | undefined,
   removeError: unknown,
@@ -108,6 +111,7 @@ function rmOrphanedWorktreeDir(
 function removeOneWorktree(
   run: Runner,
   fs: FsDeps,
+  log: Logger,
   wtPath: string,
   branchName: string | undefined,
   baseCwd: string,
@@ -121,7 +125,7 @@ function removeOneWorktree(
     if (branchName) deleteLocalBranchFn(branchName);
     return true;
   } catch (error) {
-    return rmOrphanedWorktreeDir(fs, wtPath, branchName, error, deleteLocalBranchFn);
+    return rmOrphanedWorktreeDir(fs, log, wtPath, branchName, error, deleteLocalBranchFn);
   }
 }
 
@@ -131,6 +135,7 @@ function removeOneWorktree(
 function removeWorktreesForIssue(
   run: Runner,
   fs: FsDeps,
+  log: Logger,
   baseCwd: string,
   issueNumber: number,
   deleteLocalBranchFn: (branch: string) => boolean,
@@ -160,7 +165,7 @@ function removeWorktreesForIssue(
 
     for (const wtPath of matching) {
       const branchName = worktreeBranches.get(wtPath);
-      if (removeOneWorktree(run, fs, wtPath, branchName, baseCwd, killProcs, deleteLocalBranchFn)) {
+      if (removeOneWorktree(run, fs, log, wtPath, branchName, baseCwd, killProcs, deleteLocalBranchFn)) {
         removedCount += 1;
       }
     }
