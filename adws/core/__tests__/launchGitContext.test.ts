@@ -8,10 +8,13 @@
 import * as path from 'path';
 import * as os from 'os';
 import { describe, it, expect, afterEach } from 'vitest';
-import { buildLaunchGitContext } from '../launchGitContext';
+import { buildLaunchGitContext, buildLaunchBoundary } from '../launchGitContext';
 import type { LaunchGitContextDeps } from '../launchGitContext';
 import type { TargetRepoInfo } from '../../types/issueTypes';
 import type { TokenProvider, CredentialRequest } from '../../gitContext';
+import type { MintProvidersOptions } from '../../providers/repoContext';
+import type { BoundProviders, RepoIdentifier } from '../../providers/types';
+import { Platform } from '../../providers/types';
 
 const FRAMEWORK_ROOT = '/srv/adw/framework';
 const TARGET_REPOS_DIR = '/srv/adw/repos';
@@ -254,5 +257,191 @@ describe('TokenProvider port at the launch boundary', () => {
     const env = ctx.commandEnv();
     expect(env.GH_TOKEN).toBe('resolved-2');
     expect(calls).toBe(2);
+  });
+});
+
+// ── §8: buildLaunchBoundary — identity binding (AC1/AC4) ─────────────────────
+
+function makeFakeProviders(repoId: RepoIdentifier): BoundProviders {
+  return {
+    issueTracker: {} as BoundProviders['issueTracker'],
+    codeHost: { getRepoIdentifier: () => repoId } as unknown as BoundProviders['codeHost'],
+    boardManager: {} as BoundProviders['boardManager'],
+  };
+}
+
+function makeRecordingMintProviders(): { mintProviders: (o: MintProvidersOptions) => BoundProviders; calls: MintProvidersOptions[] } {
+  const calls: MintProvidersOptions[] = [];
+  return {
+    mintProviders: (o: MintProvidersOptions) => { calls.push(o); return makeFakeProviders(o.repoId); },
+    calls,
+  };
+}
+
+const GITHUB_CONFIG = { codeHost: Platform.GitHub, issueTracker: Platform.GitHub };
+
+describe('buildLaunchBoundary: identity binding', () => {
+  it('target boundary: repoId and gitContext report the same owner/repo, and providers.codeHost carries repoId', () => {
+    const { mintProviders } = makeRecordingMintProviders();
+    const boundary = buildLaunchBoundary(makeTargetRepo('acme', 'webapp'), baseDeps({ mintProviders }));
+    expect(boundary.repoId.owner).toBe(boundary.gitContext.owner);
+    expect(boundary.repoId.repo).toBe(boundary.gitContext.repo);
+    expect(boundary.providers.codeHost.getRepoIdentifier()).toEqual(boundary.repoId);
+  });
+
+  it('self-host boundary: repoId and gitContext report the same owner/repo, and providers.codeHost carries repoId', () => {
+    const { mintProviders } = makeRecordingMintProviders();
+    const boundary = buildLaunchBoundary(null, baseDeps({ mintProviders }));
+    expect(boundary.repoId.owner).toBe(boundary.gitContext.owner);
+    expect(boundary.repoId.repo).toBe(boundary.gitContext.repo);
+    expect(boundary.providers.codeHost.getRepoIdentifier()).toEqual(boundary.repoId);
+  });
+});
+
+// ── §9: buildLaunchBoundary — divergence foreclosed ───────────────────────────
+
+describe('buildLaunchBoundary: one identity read, not several', () => {
+  it('a getRepoInfo seam answering differently on a second call cannot split a self-host boundary\'s identity', () => {
+    let calls = 0;
+    const answers = [{ owner: 'acme', repo: 'webapp' }, { owner: 'octo', repo: 'infra' }];
+    const getRepoInfo = () => { const a = answers[Math.min(calls, answers.length - 1)]; calls += 1; return a; };
+    const { mintProviders } = makeRecordingMintProviders();
+    const boundary = buildLaunchBoundary(null, baseDeps({ getRepoInfo, mintProviders }));
+    expect(boundary.gitContext.owner).toBe('acme');
+    expect(boundary.providers.codeHost.getRepoIdentifier().owner).toBe('acme');
+    expect(calls).toBe(1);
+  });
+
+  it('getRepoInfo is never consulted for a target boundary, not even once for providers', () => {
+    let calls = 0;
+    const getRepoInfo = () => { calls += 1; return { owner: 'should-not-be-used', repo: 'nope' }; };
+    const { mintProviders } = makeRecordingMintProviders();
+    const boundary = buildLaunchBoundary(makeTargetRepo('acme', 'webapp'), baseDeps({ getRepoInfo, mintProviders }));
+    void boundary.providers;
+    expect(calls).toBe(0);
+  });
+});
+
+// ── §10: buildLaunchBoundary — all providers minted from one identity ────────
+
+describe('buildLaunchBoundary: all providers minted in one recorded call', () => {
+  it('mintProviders is invoked exactly once, with the boundary\'s repoId', () => {
+    const { mintProviders, calls } = makeRecordingMintProviders();
+    const boundary = buildLaunchBoundary(makeTargetRepo('acme', 'webapp'), baseDeps({ mintProviders }));
+    // Touch all three — a boundary that minted per-kind would multiply this call count.
+    void boundary.providers.issueTracker;
+    void boundary.providers.codeHost;
+    void boundary.providers.boardManager;
+    expect(calls).toHaveLength(1);
+    expect(calls[0].repoId).toEqual(boundary.repoId);
+  });
+});
+
+// ── §11: buildLaunchBoundary — config-driven selection unchanged (AC2) ───────
+
+describe('buildLaunchBoundary: provider selection stays config-driven', () => {
+  it('an injected loadProviderConfig reaches mintProviders as exactly the selected platforms', () => {
+    const { mintProviders, calls } = makeRecordingMintProviders();
+    const loadProviderConfig = () => ({ codeHost: Platform.GitLab, issueTracker: Platform.GitHub });
+    const boundary = buildLaunchBoundary(makeTargetRepo('acme', 'webapp'), baseDeps({ loadProviderConfig, mintProviders }));
+    void boundary.providers;
+    expect(calls[0].codeHostPlatform).toBe(Platform.GitLab);
+    expect(calls[0].issueTrackerPlatform).toBe(Platform.GitHub);
+  });
+
+  it('a loader returning GitHub defaults yields GitHub for both platforms', () => {
+    const { mintProviders, calls } = makeRecordingMintProviders();
+    const loadProviderConfig = () => GITHUB_CONFIG;
+    const boundary = buildLaunchBoundary(makeTargetRepo('acme', 'webapp'), baseDeps({ loadProviderConfig, mintProviders }));
+    void boundary.providers;
+    expect(calls[0].codeHostPlatform).toBe(Platform.GitHub);
+    expect(calls[0].issueTrackerPlatform).toBe(Platform.GitHub);
+  });
+
+  it('target boundary: the loader is called with the target workspace path (join(targetReposDir, owner, repo))', () => {
+    const seenDirs: string[] = [];
+    const loadProviderConfig = (dir: string) => { seenDirs.push(dir); return GITHUB_CONFIG; };
+    const boundary = buildLaunchBoundary(makeTargetRepo('acme', 'webapp'), baseDeps({ loadProviderConfig }));
+    void boundary.providers;
+    expect(seenDirs).toEqual([path.join(TARGET_REPOS_DIR, 'acme', 'webapp')]);
+  });
+
+  it('self-host boundary: the loader is called with the framework repo root', () => {
+    const seenDirs: string[] = [];
+    const loadProviderConfig = (dir: string) => { seenDirs.push(dir); return GITHUB_CONFIG; };
+    const boundary = buildLaunchBoundary(null, baseDeps({ loadProviderConfig }));
+    void boundary.providers;
+    expect(seenDirs).toEqual([FRAMEWORK_ROOT]);
+  });
+});
+
+// ── §12: buildLaunchBoundary — deferred, memoised minting ─────────────────────
+
+describe('buildLaunchBoundary: deferred, memoised minting', () => {
+  it('building the boundary calls neither the config loader nor the mint seam', () => {
+    let loadCalls = 0;
+    let mintCalls = 0;
+    const loadProviderConfig = () => { loadCalls += 1; return GITHUB_CONFIG; };
+    const mintProviders = (o: MintProvidersOptions) => { mintCalls += 1; return makeFakeProviders(o.repoId); };
+    buildLaunchBoundary(makeTargetRepo('acme', 'webapp'), baseDeps({ loadProviderConfig, mintProviders }));
+    expect(loadCalls).toBe(0);
+    expect(mintCalls).toBe(0);
+  });
+
+  it('the first .providers access calls the loader and the mint seam exactly once each', () => {
+    let loadCalls = 0;
+    let mintCalls = 0;
+    const loadProviderConfig = () => { loadCalls += 1; return GITHUB_CONFIG; };
+    const mintProviders = (o: MintProvidersOptions) => { mintCalls += 1; return makeFakeProviders(o.repoId); };
+    const boundary = buildLaunchBoundary(makeTargetRepo('acme', 'webapp'), baseDeps({ loadProviderConfig, mintProviders }));
+    void boundary.providers;
+    expect(loadCalls).toBe(1);
+    expect(mintCalls).toBe(1);
+  });
+
+  it('a second .providers access calls neither seam again and returns the identical object', () => {
+    let loadCalls = 0;
+    let mintCalls = 0;
+    const loadProviderConfig = () => { loadCalls += 1; return GITHUB_CONFIG; };
+    const mintProviders = (o: MintProvidersOptions) => { mintCalls += 1; return makeFakeProviders(o.repoId); };
+    const boundary = buildLaunchBoundary(makeTargetRepo('acme', 'webapp'), baseDeps({ loadProviderConfig, mintProviders }));
+    const first = boundary.providers;
+    const second = boundary.providers;
+    expect(loadCalls).toBe(1);
+    expect(mintCalls).toBe(1);
+    expect(second).toBe(first);
+  });
+});
+
+// ── §13: buildLaunchGitContext — the context-only view is total ──────────────
+
+describe('buildLaunchGitContext: the context-only view gains no new failure mode', () => {
+  it('succeeds even when the injected config loader throws — providers are never touched', () => {
+    const loadProviderConfig = () => { throw new Error('malformed .adw/providers.md'); };
+    const ctx = buildLaunchGitContext(makeTargetRepo('acme', 'webapp'), baseDeps({ loadProviderConfig }));
+    expect(ctx.owner).toBe('acme');
+    expect(ctx.repo).toBe('webapp');
+  });
+
+  it('returns a context whose identity matches a buildLaunchBoundary call with the same arguments', () => {
+    const viaContext = buildLaunchGitContext(makeTargetRepo('acme', 'webapp'), baseDeps());
+    const viaBoundary = buildLaunchBoundary(makeTargetRepo('acme', 'webapp'), baseDeps());
+    expect(viaContext.owner).toBe(viaBoundary.gitContext.owner);
+    expect(viaContext.repo).toBe(viaBoundary.gitContext.repo);
+    expect(viaContext.basePath).toBe(viaBoundary.gitContext.basePath);
+  });
+});
+
+// ── §14: buildLaunchBoundary — default platform ───────────────────────────────
+
+describe('buildLaunchBoundary: RepoIdentifier platform', () => {
+  it('defaults to Platform.GitHub when deps.platform is not supplied', () => {
+    const boundary = buildLaunchBoundary(makeTargetRepo('acme', 'webapp'), baseDeps());
+    expect(boundary.repoId.platform).toBe(Platform.GitHub);
+  });
+
+  it('honours an injected deps.platform override', () => {
+    const boundary = buildLaunchBoundary(makeTargetRepo('acme', 'webapp'), baseDeps({ platform: Platform.GitLab }));
+    expect(boundary.repoId.platform).toBe(Platform.GitLab);
   });
 });

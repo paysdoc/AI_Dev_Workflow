@@ -26,8 +26,10 @@ import {
   loadProjectConfig,
   readAdwYmlConfig,
   type AdwYmlConfig,
-  buildLaunchGitContext,
+  buildLaunchBoundary,
+  type LaunchBoundary,
   crossCheckRepoIdentity,
+  sameRepoIdentity,
   branchPrefixMap,
   branchPrefixAliases,
 } from '../core';
@@ -129,13 +131,15 @@ export async function initializeWorkflow(
   const resolvedRepoForAuth = repoInfo ?? getRepoInfo();
   const gitCtx = gitContextForSync({ owner: resolvedRepoForAuth.owner, repo: resolvedRepoForAuth.repo, selfHost: !targetRepo });
 
-  // Construct exactly one launch-boundary GitContext for this orchestrator process.
-  // Graceful fallback: if construction fails (e.g. test fixtures with fake git remotes),
-  // gitContext remains undefined — phases that require it must check.
-  let gitContext: import('../gitContext').GitContext | undefined;
+  // Construct exactly one launch boundary for this orchestrator process — a GitContext
+  // and the forge providers bound to that same identity. Graceful fallback: if
+  // construction fails (e.g. test fixtures with fake git remotes), both remain
+  // undefined — phases that require them must check.
+  let boundary: LaunchBoundary | undefined;
   try {
-    gitContext = buildLaunchGitContext(targetRepo ?? null);
+    boundary = buildLaunchBoundary(targetRepo ?? null);
   } catch { /* non-fatal: phases inherit the context when available */ }
+  const gitContext: import('../gitContext').GitContext | undefined = boundary?.gitContext;
 
   // Startup validation: GITHUB_PAT is required for PR approval when a GitHub App is configured.
   if (isGitHubAppConfigured() && !GITHUB_PAT) {
@@ -294,7 +298,9 @@ export async function initializeWorkflow(
     log(`Worktree path: ${worktreePath}`, 'info');
   }
 
-  // Create RepoContext early so it is available to board setup and subsequent phases
+  // Create RepoContext early so it is available to board setup and subsequent phases.
+  // When the resolved repoId matches the launch boundary's identity, reuse the
+  // boundary-minted providers instead of resolving a second set (#794).
   let repoContext: RepoContext | undefined;
   let repoIdForContext: RepoIdentifier | undefined;
   try {
@@ -302,9 +308,13 @@ export async function initializeWorkflow(
       const resolvedRepoInfo = repoInfo ?? getRepoInfo();
       return { owner: resolvedRepoInfo.owner, repo: resolvedRepoInfo.repo, platform: Platform.GitHub };
     })();
+    const boundaryProviders = (boundary && sameRepoIdentity(repoIdForContext, boundary.repoId))
+      ? boundary.providers
+      : undefined;
     repoContext = createRepoContext({
       repoId: repoIdForContext,
       cwd: worktreePath,
+      providers: boundaryProviders,
     });
   } catch (error) {
     log(`Failed to create RepoContext (falling back to direct API calls): ${error}`, 'info');

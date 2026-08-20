@@ -163,8 +163,8 @@ export {
 } from './targetRepoManager';
 
 // Launch-boundary GitContext adapter
-export { buildLaunchGitContext, resolveLaunchToken, resolveLaunchGitIdentity } from './launchGitContext';
-export type { LaunchGitContextDeps } from './launchGitContext';
+export { buildLaunchGitContext, buildLaunchBoundary, resolveLaunchToken, resolveLaunchGitIdentity } from './launchGitContext';
+export type { LaunchGitContextDeps, LaunchBoundary } from './launchGitContext';
 
 // Repo identity cross-check (launch-boundary persistence and resume tripwire)
 export { crossCheckRepoIdentity, sameRepoIdentity, RepoIdentityMismatchError } from './repoIdentityCrossCheck';

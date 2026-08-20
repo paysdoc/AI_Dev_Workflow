@@ -11,6 +11,7 @@ import { gitContextForRepo } from '../github/gitContextFactory';
 
 import {
   type BoardManager,
+  type BoundProviders,
   type CodeHost,
   type IssueTracker,
   type RepoContext,
@@ -24,20 +25,25 @@ import { createGitHubBoardManager } from './github/githubBoardManager';
 import { createGitLabCodeHost } from './gitlab/gitlabCodeHost';
 import type { ProvidersConfig } from '../core/projectConfig';
 
-/**
- * Options for creating a RepoContext.
- */
+/** Options for creating a RepoContext. */
 export interface RepoContextOptions {
   repoId: RepoIdentifier;
   cwd: string;
   codeHostPlatform?: Platform;
   issueTrackerPlatform?: Platform;
   providersConfig?: ProvidersConfig;
+  /** Boundary-minted providers. When supplied, resolution is skipped and these instances are reused. */
+  providers?: BoundProviders;
 }
 
-/**
- * Provider platform configuration read from `.adw/providers.md`.
- */
+/** Options for {@link mintBoundProviders}. */
+export interface MintProvidersOptions {
+  repoId: RepoIdentifier;
+  codeHostPlatform: Platform;
+  issueTrackerPlatform: Platform;
+}
+
+/** Provider platform configuration read from `.adw/providers.md`. */
 export interface ProviderConfig {
   codeHost: Platform;
   codeHostUrl?: string;
@@ -228,32 +234,39 @@ export function resolveBoardManager(
 }
 
 /**
- * Creates an immutable, validated RepoContext.
- *
- * Validates the repo identifier, working directory, and git remote,
- * then resolves provider instances and returns a frozen context object.
+ * Resolves which platform implements the code host and issue tracker, in
+ * precedence order: explicit options, then an injected `providersConfig`,
+ * then `.adw/providers.md` in `cwd`.
  */
-export function createRepoContext(options: RepoContextOptions): RepoContext {
-  const { repoId, cwd } = options;
+function resolvePlatformSelection(
+  options: Pick<RepoContextOptions, 'codeHostPlatform' | 'issueTrackerPlatform' | 'providersConfig'>,
+  cwd: string,
+): { codeHostPlatform: Platform; issueTrackerPlatform: Platform } {
+  if (options.codeHostPlatform !== undefined && options.issueTrackerPlatform !== undefined) {
+    return { codeHostPlatform: options.codeHostPlatform, issueTrackerPlatform: options.issueTrackerPlatform };
+  }
+  if (options.providersConfig) {
+    return {
+      codeHostPlatform: options.codeHostPlatform ?? parsePlatform(options.providersConfig.codeHost, '## Code Host'),
+      issueTrackerPlatform: options.issueTrackerPlatform ?? parsePlatform(options.providersConfig.issueTracker, '## Issue Tracker'),
+    };
+  }
+  const config = loadProviderConfig(cwd);
+  return {
+    codeHostPlatform: options.codeHostPlatform ?? config.codeHost,
+    issueTrackerPlatform: options.issueTrackerPlatform ?? config.issueTracker,
+  };
+}
+
+/**
+ * Mints the frozen provider triple bound to `repoId`. No filesystem, no git, no
+ * network — safe to call before any workspace exists. A platform with no
+ * implementation is refused BY NAME, never substituted with GitHub.
+ */
+export function mintBoundProviders(options: MintProvidersOptions): BoundProviders {
+  const { repoId, codeHostPlatform, issueTrackerPlatform } = options;
 
   validateRepoIdentifier(repoId);
-  validateWorkingDirectory(cwd);
-  validateGitRemote(cwd, repoId);
-
-  let codeHostPlatform: Platform;
-  let issueTrackerPlatform: Platform;
-
-  if (options.codeHostPlatform !== undefined && options.issueTrackerPlatform !== undefined) {
-    codeHostPlatform = options.codeHostPlatform;
-    issueTrackerPlatform = options.issueTrackerPlatform;
-  } else if (options.providersConfig) {
-    codeHostPlatform = options.codeHostPlatform ?? parsePlatform(options.providersConfig.codeHost, '## Code Host');
-    issueTrackerPlatform = options.issueTrackerPlatform ?? parsePlatform(options.providersConfig.issueTracker, '## Issue Tracker');
-  } else {
-    const config = loadProviderConfig(cwd);
-    codeHostPlatform = options.codeHostPlatform ?? config.codeHost;
-    issueTrackerPlatform = options.issueTrackerPlatform ?? config.issueTracker;
-  }
 
   const issueTracker = resolveIssueTracker(issueTrackerPlatform, repoId);
   const codeHost = resolveCodeHost(codeHostPlatform, repoId);
@@ -265,5 +278,23 @@ export function createRepoContext(options: RepoContextOptions): RepoContext {
     // BoardManager is optional — platforms without support simply omit it
   }
 
-  return Object.freeze({ issueTracker, codeHost, boardManager, cwd, repoId });
+  return Object.freeze({ issueTracker, codeHost, boardManager });
+}
+
+/**
+ * Creates an immutable, validated RepoContext. Validates the repo identifier,
+ * working directory, and git remote, then reuses caller-supplied `providers`
+ * (boundary-minted) or mints a fresh set, and returns a frozen context object.
+ */
+export function createRepoContext(options: RepoContextOptions): RepoContext {
+  const { repoId, cwd } = options;
+
+  validateRepoIdentifier(repoId);
+  validateWorkingDirectory(cwd);
+  validateGitRemote(cwd, repoId);
+
+  const providers = options.providers
+    ?? mintBoundProviders({ repoId, ...resolvePlatformSelection(options, cwd) });
+
+  return Object.freeze({ ...providers, cwd, repoId });
 }

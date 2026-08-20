@@ -21,8 +21,7 @@ import { runWithRawOrchestratorLifecycle } from './phases/orchestratorLock';
 import {
   parseTargetRepoArgs,
   parseOrchestratorArguments,
-  buildRepoIdentifier,
-  buildLaunchGitContext,
+  buildLaunchBoundary,
   AgentStateManager,
   log,
   ensureLogsDirectory,
@@ -267,8 +266,8 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const gitContext = buildLaunchGitContext(targetRepo);
-  const repoId = buildRepoIdentifier(targetRepo);
+  const boundary = buildLaunchBoundary(targetRepo);
+  const { gitContext, repoId } = boundary;
   const repoInfo: RepoInfo = { owner: gitContext.owner, repo: gitContext.repo };
 
   if (targetRepo) ensureTargetRepoWorkspace(targetRepo);
