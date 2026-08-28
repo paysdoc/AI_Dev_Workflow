@@ -122,6 +122,13 @@ export async function runClaudeAgentWithCommand(
 
   // Subprocess receives per-command auth from the launch-boundary context, never from a process-global (PRD Auth model).
   const spawnEnv = { ...getSafeSubprocessEnv(), ...(subprocessEnv ?? {}) };
+  // Pipeline agents are stateless: Claude Code's auto-memory (the operator's
+  // ~/.claude/projects/<key>/memory/ directory) must never be loaded into a spawned
+  // agent. A worktree resolves to the same project key as the framework checkout, so
+  // without this the operator's interactive-session memories are read as instructions
+  // (#797 plan agent re-ran /install from a memory note and blew its context budget).
+  // Set after the overlay so no caller can re-enable it.
+  spawnEnv['CLAUDE_CODE_DISABLE_AUTO_MEMORY'] = '1';
   const resolvedCwd = cwd || process.cwd();
   if (cwd && cwd.includes('.worktrees/')) {
     try {
