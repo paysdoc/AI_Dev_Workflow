@@ -99,15 +99,18 @@ Feature: The last semantic callers walk to the providers and GitContext's forge 
       escalation never fires. No scenario is written for it here: it is #796's row, still green, and
       duplicating it would just make this file's RED noisier. Flagged so the plan does not "tidy"
       the comment fetch onto `fetchIssue(n).comments` on the way past.
-    • CLONING A REPOSITORY NEEDS ITS DEFAULT BRANCH BEFORE ITS PROVIDERS EXIST. This is the sharpest
+    • A REPOSITORY'S DEFAULT BRANCH AND ITS PROVIDERS MUST NOT MEET ON A MISSING WORKSPACE. The
       ordering hazard in the slice. `ensureTargetRepoWorkspace` (`core/targetRepoManager.ts:67`)
-      calls `ctx.defaultBranch()` to clone a workspace that by definition is not on disk yet, and
-      the boundary resolves provider selection by reading `.adw/providers.md` from
-      `gitContext.basePath` (`launchGitContext.ts`, the lazy mint) — the very directory the clone is
-      about to create. Routing this `defaultBranch()` through `codeHost.getDefaultBranch()` closes a
-      loop unless provider minting tolerates an absent workspace. `adwMerge.tsx:271`,
-      `adwUpgrade.tsx:524`, `workflowInit.ts:236` and `prReviewPhase.ts:90` all sit on this path, so
-      the failure mode is "first run against a new target repo dies at clone time". §6 is the row.
+      calls `ctx.defaultBranch()` for a workspace that may not be on disk yet, and the boundary
+      resolves provider selection by reading `.adw/providers.md` from `gitContext.basePath`
+      (`launchGitContext.ts`, the lazy mint) — the very directory a clone would create. Two facts
+      keep the loop open, and both must survive the migration: `ensureRepoWorkspace`
+      (`gitContext/repoWorkspace.ts:119-122`) invokes the `getDefaultBranch` thunk on the
+      already-cloned FETCH branch only — never before a clone — and provider minting is deferred
+      until first use. Route `defaultBranch()` through `codeHost.getDefaultBranch()` as a thunk and
+      both hold; hoist the read (or mint eagerly) in front of the clone and the first run against a
+      new target repo dies at clone time. `adwMerge.tsx:271`, `adwUpgrade.tsx:524`,
+      `workflowInit.ts:236` and `prReviewPhase.ts:90` all sit on this path. §6's two rows pin it.
     • THE `repoApiCwd` CONTRACT LOSES ITS ONLY TEST WHEN THE METHODS GO.
       `gitContext/__tests__/repoApiCwd.test.ts` enumerates every `#runRepoApi` method and asserts
       the framework-root cwd and the credential env for each. Deleting the methods deletes the
@@ -145,20 +148,24 @@ Feature: The last semantic callers walk to the providers and GitContext's forge 
       `runUpgradeRedriveScan` or `deriveStageFromRemote` a fake `deps` proves nothing, because the
       deps are fakes before and after. Each scenario builds the module's own default deps from a
       boundary carrying recording providers — `buildDefaultReconcileDeps`
-      (`core/remoteReconcile.ts`), `buildDefaultDependencyUnblockDeps`
-      (`triggers/issueClosedUnblockRouter.ts:50`), `makeDefaultDeps`
-      (`triggers/promotionSweepDefaults.ts`), `prepareSweepBase`
+      (`core/remoteReconcile.ts`), `buildDefaultTakeoverDeps` (`triggers/takeoverHandler.ts:79`),
+      `makeDefaultDeps` (`triggers/promotionSweepDefaults.ts`), `prepareSweepBase`
       (`triggers/perIssueSweepPersist.ts:52`) — which means those builders must take the boundary
       (or its `{ gitContext, providers }` pair) rather than a bare GitContext. That is a call-shape
-      change and the issue permits it; it is not a behaviour change.
+      change and the issue permits it; it is not a behaviour change. No row here drives
+      `buildDefaultDependencyUnblockDeps` (`triggers/issueClosedUnblockRouter.ts:50`),
+      `concurrencyGuard` or `webhookGatekeeper.closeAbandonedDependents`: they sit at the bottom of
+      `repoInfo`-parameterised chains that hold no boundary, so they satisfy AC1 through the shared
+      `adws/github` wrapper layer instead, the way their siblings already do.
     • THE CRON'S FETCH IS MODULE-PRIVATE AND MUST BE EXTRACTED. `fetchOpenIssues`
       (`trigger_cron.ts:96`) is a private function inside a module with import-time side effects
       (`setInterval`, the process guard, the boundary build), so cucumber cannot reach it — the same
       finding feature-796 recorded for `initializeWorkflow`. `getCronProviders()`
       (`trigger_cron.ts:86-92`) already exists and its own comment names this issue as the receiving
       end. §2 therefore drives an exported listing function taking the providers, in the shape
-      `cronIssueFilter` already consumes. If the plan declines to extract it, §2 must be dropped and
-      the unit test that replaces it named here instead of leaving a pending stub.
+      `cronIssueFilter` already consumes. The plan extracts it as `listCronOpenIssues(issueTracker)`
+      in a new `triggers/cronIssueListing.ts` (which also keeps `trigger_cron.ts`, already over the
+      line guideline, from gaining a function); §2's When resolves to that call.
     • THE RECORDING EXECUTOR IS THE `exec` SEAM, NOT A MOCK SERVER. §7's rows build a `GitContext`
       with `new GitContext(opts, { exec })` where `exec` pushes `{ command, cwd, env }` and returns
       canned stdout, then run the adapter over it via `createGhCommandRunner`. `frameworkRepoRoot`
@@ -313,16 +320,21 @@ Feature: The last semantic callers walk to the providers and GitContext's forge 
   # ── §5  COMMENT HANDLING KEEPS ITS EXACT WORDS AND ITS EXACT ORDER (AC1, AC5) ─────────────
   #
   # `postWorkflowComment` (`github/workflowCommentsIssue.ts:410`) formats a stage comment and hands
-  # it to `commentOnIssue`, which builds its own context. AC5's "same comments" is the whole point:
-  # the body operators read must not shift by a character when the posting route changes.
+  # it to `commentOnIssue`, which builds its own context — but it has no caller left (only
+  # re-exports), so it leaves with the semantic surface. The live route is `postIssueStageComment`
+  # (`phases/phaseCommentHelpers.ts:33`), which formats through the same `formatWorkflowComment` and
+  # posts through `issueTracker.commentOnIssue`. AC5's "same comments" is the whole point: the body
+  # operators read must not shift by a character when the posting route changes. The stage below is
+  # `plan_building` — a real `WorkflowStage`, so the row exercises a real formatter rather than
+  # `formatWorkflowComment`'s unknown-stage default.
 
   @adw-797 @adw-qnr31u-migrate-core-trigger
   Scenario: The workflow stage comment is posted by the issue tracker with the body it has today
     Given the repository "adw-fixture/void-797" is launched with recording providers
-    When the workflow stage comment for stage "planning" is posted for issue 42 from that boundary
+    When the workflow stage comment for stage "plan_building" is posted for issue 42 from that boundary
     Then the recording issue tracker recorded a comment on issue 42
     And the recorded comment on issue 42 carries the ADW signature
-    And the recorded comment on issue 42 names the stage "planning"
+    And the recorded comment on issue 42 is the body the stage "plan_building" formats today
     And the git context was asked for no forge-semantic operation
 
   # `takeoverHandler.ts:89` resolves the adw id by reading the raw REST comment list and taking the
@@ -339,19 +351,31 @@ Feature: The last semantic callers walk to the providers and GitContext's forge 
 
   # ── §6  A REPOSITORY THAT HAS NEVER BEEN CLONED (AC1, AC5, PRD story 16) ──────────────────
   #
-  # The ordering hazard from the scope notes, as an executable row. `ensureTargetRepoWorkspace`
-  # asks for the default branch of a repository whose workspace does not exist yet, and provider
-  # selection is read from that same not-yet-existing workspace. Every orchestrator's first run
-  # against a new target repo goes through here.
+  # The ordering hazard from the scope notes, as two executable rows. `ensureTargetRepoWorkspace`
+  # routes its default-branch read through the code host, and provider selection is read lazily from
+  # the workspace directory — so the two must not meet on a directory that does not exist yet.
+  # `ensureRepoWorkspace` (`gitContext/repoWorkspace.ts:119-122`) is what keeps them apart: the
+  # thunk is invoked on the already-cloned fetch branch ONLY, never on the clone branch. The first
+  # row pins the read; the second pins the deferral, and fails if a migration hoists the
+  # default-branch read (or an eager provider mint) in front of the clone. Every orchestrator's
+  # first run against a new target repo goes through here.
 
   @adw-797 @adw-qnr31u-migrate-core-trigger
-  Scenario: A target repository that has never been cloned still resolves its default branch
+  Scenario: A target repository workspace already on disk resolves its default branch through the code host
     Given the repository "adw-fixture/void-797" is launched with recording providers
-    And the workspace directory for "adw-fixture/void-797" does not exist
+    And the workspace directory for "adw-fixture/void-797" is already cloned
     And the recording code host reports the default branch "main"
     When the target repository workspace is ensured from that boundary
     Then the ensure resolved the default branch "main"
     And ensuring the workspace raised no error about a missing provider configuration
+
+  @adw-797 @adw-qnr31u-migrate-core-trigger
+  Scenario: A target repository that has never been cloned is created without asking for its default branch first
+    Given the repository "adw-fixture/void-797" is launched with recording providers
+    And the workspace directory for "adw-fixture/void-797" does not exist
+    When the target repository workspace is ensured from that boundary
+    Then the recording code host was not asked for the default branch
+    And no provider configuration was read from the workspace directory that does not exist
 
   # ── §7  SAME COMMANDS, SAME REPOS, SAME PLACE THEY RUN FROM (AC5, stories 16 and 19) ──────
   #
