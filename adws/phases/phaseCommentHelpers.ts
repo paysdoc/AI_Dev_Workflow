@@ -31,7 +31,7 @@ export function formatDenialNotice(count: number): string | null {
  *   (issue #762). Appended as a denial notice when greater than 0; omitted otherwise.
  */
 export function postIssueStageComment(
-  repoContext: RepoContext,
+  repoContext: Pick<RepoContext, 'issueTracker'>,
   issueNumber: number,
   stage: WorkflowStage,
   ctx: WorkflowContext,

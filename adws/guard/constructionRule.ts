@@ -96,6 +96,7 @@ export const SANCTIONED_CONSTRUCTION_SITES = [
   { file: 'adws/github/githubApi.ts', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },
   { file: 'adws/github/hitlBoardNotifier.ts', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },
   { file: 'adws/github/issueApi.ts', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },
+  { file: 'adws/github/issueListApi.ts', reason: 'non-boundary gitContextForRepo call site (split out of issueApi.ts, which must not grow)', owner: '#796' },
   { file: 'adws/github/linkedPrDetector.ts', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },
   { file: 'adws/github/prApi.ts', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },
   { file: 'adws/github/prCommentDetector.ts', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },

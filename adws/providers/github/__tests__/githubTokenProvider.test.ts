@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createGitHubTokenProvider } from '../githubTokenProvider';
+import { createGitHubTokenProvider, createLiteralTokenProvider } from '../githubTokenProvider';
 import type { GitHubTokenProviderInput } from '../githubTokenProvider';
 import type { CredentialRequest } from '../../../gitContext/types';
 
@@ -183,5 +183,31 @@ describe('overlay shape', () => {
     const first = provider.credentialEnv(request());
     const second = provider.credentialEnv(request());
     expect(first).not.toBe(second);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// createLiteralTokenProvider
+// ---------------------------------------------------------------------------
+
+describe('createLiteralTokenProvider', () => {
+  it("'default' purpose returns the token", () => {
+    const provider = createLiteralTokenProvider('token-x');
+    expect(provider.credentialEnv(request()).GH_TOKEN).toBe('token-x');
+  });
+
+  it("'alternateIdentity' with a PAT returns the PAT", () => {
+    const provider = createLiteralTokenProvider('token-x', 'pat-y');
+    expect(provider.credentialEnv(request({ purpose: 'alternateIdentity' })).GH_TOKEN).toBe('pat-y');
+  });
+
+  it("'alternateIdentity' without a PAT degrades to the primary token", () => {
+    const provider = createLiteralTokenProvider('token-x');
+    expect(provider.credentialEnv(request({ purpose: 'alternateIdentity' })).GH_TOKEN).toBe('token-x');
+  });
+
+  it("'default' never returns the alternateIdentityPat", () => {
+    const provider = createLiteralTokenProvider('token-x', 'pat-y');
+    expect(provider.credentialEnv(request({ purpose: 'default' })).GH_TOKEN).toBe('token-x');
   });
 });
