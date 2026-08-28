@@ -103,7 +103,6 @@ export const SANCTIONED_CONSTRUCTION_SITES = [
   { file: 'adws/healthCheck.tsx', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },
   { file: 'adws/phases/branchIdentityFallback.ts', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },
   { file: 'adws/phases/buildPhase.ts', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },
-  { file: 'adws/phases/docsSelfCheck.ts', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },
   { file: 'adws/phases/documentPhase.ts', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },
   { file: 'adws/phases/prPhase.ts', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },
   { file: 'adws/phases/reviewPhase.ts', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },
@@ -122,9 +121,7 @@ export const SANCTIONED_CONSTRUCTION_SITES = [
   { file: 'adws/vcs/worktreeOperations.ts', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },
 
   // ── Transitional (#797 — createRepoContext/createGitHubCodeHost call sites left behind by #794) ──
-  { file: 'adws/adwUpgrade.tsx', reason: 'createGitHubCodeHost in buildDefaultUpgradeDeps', owner: '#797' },
   { file: 'adws/phases/prReviewPhase.ts', reason: 'createRepoContext for provider-agnostic PR-review comments', owner: '#797' },
-  { file: 'adws/phases/upgradeGate.ts', reason: 'createRepoContext in the upgrade-gate moveToStatus deps', owner: '#797' },
   { file: 'adws/phases/workflowInit.ts', reason: 'createRepoContext at workflow init, reusing boundary providers when identity matches', owner: '#797' },
   { file: 'adws/triggers/pauseQueueScanner.ts', reason: 'createRepoContext at four best-effort error-comment sites', owner: '#797' },
 ] as const;
