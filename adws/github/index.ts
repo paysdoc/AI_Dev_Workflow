@@ -34,6 +34,9 @@ export {
 // PR utilities (shared between adwMerge and remoteReconcile)
 export { defaultFindPRByBranch, hasWontFixLabel, hasWontFixLabelName, type RawPR } from './prApi';
 
+// Issue listing (shared behind IssueTracker.listIssues and repoInfo-only trigger helpers)
+export { listIssues, fetchIssueCommentBodies } from './issueListApi';
+
 // Linked-PR detection (shared between concurrencyGuard and cronLabelEligibility)
 export { hasLinkedMergedOrClosedPR, fetchLinkedPRs, type LinkedPRRef } from './linkedPrDetector';
 export { issueLinkPattern, bodyLinksIssue } from './issueLinkMarker';

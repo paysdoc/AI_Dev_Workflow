@@ -4,7 +4,7 @@
  * to a specific RepoIdentifier at construction time.
  */
 
-import type { IssueTracker, RepoIdentifier, Issue, IssueComment, IssueSummary } from '../types';
+import type { IssueTracker, RepoIdentifier, Issue, IssueComment, IssueSummary, IssueListQuery, IssueListEntry } from '../types';
 import { validateRepoIdentifier, BoardStatus } from '../types';
 import type { RepoInfo } from '../../github/githubApi';
 import {
@@ -21,6 +21,7 @@ import {
   searchOpenIssues as ghSearchOpenIssues,
   findOpenUpgradeIssue as ghFindOpenUpgradeIssue,
 } from '../../github/issueApi';
+import { listIssues as ghListIssues } from '../../github/issueListApi';
 import { applyLabel as ghApplyLabel, ensureLabelExists as ghEnsureLabelExists } from '../../github/labelManager';
 import { moveIssueToStatus } from '../../github/projectBoardApi';
 import {
@@ -103,6 +104,10 @@ export class GitHubIssueTracker implements IssueTracker {
 
   findOpenUpgradeIssue(): number | null {
     return ghFindOpenUpgradeIssue(this.repoInfo);
+  }
+
+  listIssues(query: IssueListQuery): readonly IssueListEntry[] {
+    return ghListIssues(query, this.repoInfo);
   }
 }
 

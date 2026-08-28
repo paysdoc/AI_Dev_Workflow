@@ -20,6 +20,10 @@ vi.mock('../../../github/labelManager', () => ({
   ensureLabelExists: vi.fn(),
 }));
 
+vi.mock('../../../github/issueListApi', () => ({
+  listIssues: vi.fn(),
+}));
+
 vi.mock('../../../github/projectBoardApi', () => ({
   moveIssueToStatus: vi.fn(),
 }));
@@ -35,6 +39,7 @@ import {
   findOpenUpgradeIssue,
 } from '../../../github/issueApi';
 import { applyLabel, ensureLabelExists } from '../../../github/labelManager';
+import { listIssues } from '../../../github/issueListApi';
 
 const REPO_ID: RepoIdentifier = { owner: 'acme', repo: 'widget', platform: Platform.GitHub };
 const REPO_INFO = { owner: 'acme', repo: 'widget' };
@@ -123,5 +128,25 @@ describe('GitHubIssueTracker — new method delegation', () => {
     expect(findOpenUpgradeIssue).toHaveBeenCalledTimes(1);
     expect(findOpenUpgradeIssue).toHaveBeenCalledWith(REPO_INFO);
     expect(result).toBe(55);
+  });
+
+  it('listIssues delegates to issueListApi.listIssues with the bound repoInfo and returns its value unchanged', () => {
+    const entries = [{ number: 42, title: 'Do the thing' }];
+    vi.mocked(listIssues).mockReturnValue(entries);
+    const tracker = createGitHubIssueTracker(REPO_ID);
+
+    const query = { fields: ['number', 'title'] as const, limit: 100 };
+    const result = tracker.listIssues(query);
+
+    expect(listIssues).toHaveBeenCalledTimes(1);
+    expect(listIssues).toHaveBeenCalledWith(query, REPO_INFO);
+    expect(result).toEqual(entries);
+  });
+
+  it('listIssues rethrows when issueListApi.listIssues throws', () => {
+    vi.mocked(listIssues).mockImplementation(() => { throw new Error('gh: unauthenticated'); });
+    const tracker = createGitHubIssueTracker(REPO_ID);
+
+    expect(() => tracker.listIssues({ fields: ['number'] })).toThrow('gh: unauthenticated');
   });
 });

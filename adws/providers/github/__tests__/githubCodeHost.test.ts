@@ -17,6 +17,11 @@ vi.mock('../../../github/gitContextFactory', () => ({
   gitContextForRepo: vi.fn(() => ({ setSecret: mockSetSecret, findPRByBranch: vi.fn(), createPR: vi.fn() })),
 }));
 
+const mockFetchMergedPRs = vi.fn();
+vi.mock('../ghRepoApi', () => ({
+  createGhRepoApi: vi.fn(() => ({ fetchMergedPRs: mockFetchMergedPRs })),
+}));
+
 import { createGitHubCodeHost } from '../githubCodeHost';
 import { mapRawPRToSummary } from '../mappers';
 import { Platform, type RepoIdentifier } from '../../types';
@@ -95,6 +100,24 @@ describe('GitHubCodeHost — new method delegation', () => {
 
     expect(mockSetSecret).toHaveBeenCalledTimes(1);
     expect(mockSetSecret).toHaveBeenCalledWith('SOCKET_API_TOKEN', 'sktsec_abc');
+  });
+
+  it('listMergedPullRequests parses createGhRepoApi(...).fetchMergedPRs(limit) and returns it unchanged', () => {
+    mockFetchMergedPRs.mockReturnValue(JSON.stringify([{ body: 'Closes #1', mergedAt: '2024-01-01' }]));
+    const codeHost = createGitHubCodeHost(REPO_ID);
+
+    const result = codeHost.listMergedPullRequests(200);
+
+    expect(mockFetchMergedPRs).toHaveBeenCalledTimes(1);
+    expect(mockFetchMergedPRs).toHaveBeenCalledWith(200);
+    expect(result).toEqual([{ body: 'Closes #1', mergedAt: '2024-01-01' }]);
+  });
+
+  it('listMergedPullRequests rethrows when fetchMergedPRs throws', () => {
+    mockFetchMergedPRs.mockImplementation(() => { throw new Error('gh: rate limited'); });
+    const codeHost = createGitHubCodeHost(REPO_ID);
+
+    expect(() => codeHost.listMergedPullRequests(200)).toThrow('gh: rate limited');
   });
 });
 

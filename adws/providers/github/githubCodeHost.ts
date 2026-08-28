@@ -16,10 +16,12 @@ import {
   mergePR,
 } from '../../github/prApi';
 import { gitContextForSync, gitContextForRepo } from '../../github/gitContextFactory';
+import { createGhRepoApi } from './ghRepoApi';
 import {
   type CodeHost,
   type CreatePROptions,
   type ForgeActionResult,
+  type MergedPullRequestRecord,
   type PullRequest,
   type PullRequestResult,
   type PullRequestSummary,
@@ -135,6 +137,12 @@ export class GitHubCodeHost implements CodeHost {
   /** Sets a repo secret (e.g. GitHub Actions). */
   setSecret(name: string, value: string): void {
     gitContextForRepo(this.repoInfo).setSecret(name, value);
+  }
+
+  /** Merged PRs, newest first, at most `limit`. Throws on failure. */
+  listMergedPullRequests(limit: number): readonly MergedPullRequestRecord[] {
+    const json = createGhRepoApi(gitContextForRepo(this.repoInfo)).fetchMergedPRs(limit);
+    return JSON.parse(json) as MergedPullRequestRecord[];
   }
 }
 

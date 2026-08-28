@@ -18,11 +18,21 @@ describe('GitLabCodeHost — refusal stubs', () => {
     const codeHost = new GitLabCodeHost(REPO_ID, {} as GitLabApiClient);
     expect(() => codeHost.approvePullRequest()).toThrow('GitLabCodeHost.approvePullRequest is not implemented');
   });
+
+  it('listMergedPullRequests throws naming the method', () => {
+    const codeHost = new GitLabCodeHost(REPO_ID, {} as GitLabApiClient);
+    expect(() => codeHost.listMergedPullRequests()).toThrow('GitLabCodeHost.listMergedPullRequests is not implemented');
+  });
 });
 
 describe('JiraIssueTracker — refusal stubs', () => {
   it('fetchLabels throws naming the method', () => {
     const tracker = new JiraIssueTracker({} as JiraApiClient, 'ADW');
     expect(() => tracker.fetchLabels()).toThrow('JiraIssueTracker.fetchLabels is not implemented');
+  });
+
+  it('listIssues throws naming the method', () => {
+    const tracker = new JiraIssueTracker({} as JiraApiClient, 'ADW');
+    expect(() => tracker.listIssues()).toThrow('JiraIssueTracker.listIssues is not implemented');
   });
 });
