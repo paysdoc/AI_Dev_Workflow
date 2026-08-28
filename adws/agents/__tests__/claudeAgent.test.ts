@@ -282,7 +282,7 @@ describe('runClaudeAgentWithCommand — subprocessEnv overlay (#701)', () => {
     expect(mockSpawn).toHaveBeenCalledWith(
       expect.any(String),
       expect.any(Array),
-      expect.objectContaining({ env: { GH_TOKEN: 'ambient-token' } }),
+      expect.objectContaining({ env: { GH_TOKEN: 'ambient-token', CLAUDE_CODE_DISABLE_AUTO_MEMORY: '1' } }),
     );
   });
 
@@ -299,6 +299,50 @@ describe('runClaudeAgentWithCommand — subprocessEnv overlay (#701)', () => {
     );
 
     expect(process.env.GH_TOKEN).toBe(before);
+  });
+});
+
+describe('runClaudeAgentWithCommand — stateless agents: auto-memory is never loaded', () => {
+  it('sets CLAUDE_CODE_DISABLE_AUTO_MEMORY=1 on every spawn (self-host run, no overlay)', async () => {
+    mockGetSafeSubprocessEnv.mockReturnValueOnce({});
+    mockHandleAgentProcess.mockResolvedValueOnce({ ...BASE_RESULT, success: true });
+
+    await runClaudeAgentWithCommand('/feature', 'args', 'Plan', '/tmp/out.jsonl');
+
+    expect(mockSpawn).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(Array),
+      expect.objectContaining({ env: expect.objectContaining({ CLAUDE_CODE_DISABLE_AUTO_MEMORY: '1' }) }),
+    );
+  });
+
+  it('a subprocessEnv overlay cannot re-enable auto-memory', async () => {
+    mockGetSafeSubprocessEnv.mockReturnValueOnce({});
+    mockHandleAgentProcess.mockResolvedValueOnce({ ...BASE_RESULT, success: true });
+
+    await runClaudeAgentWithCommand(
+      '/implement', 'args', 'build-agent', '/tmp/out.jsonl',
+      'sonnet', undefined, undefined, undefined, undefined, undefined, undefined,
+      { CLAUDE_CODE_DISABLE_AUTO_MEMORY: '0', GH_TOKEN: 'token-acme' },
+    );
+
+    const spawnOptions = mockSpawn.mock.calls[0][2] as { env: NodeJS.ProcessEnv };
+    expect(spawnOptions.env.CLAUDE_CODE_DISABLE_AUTO_MEMORY).toBe('1');
+    expect(spawnOptions.env.GH_TOKEN).toBe('token-acme');
+  });
+
+  it('carries the switch through the ENOENT retry spawn as well', async () => {
+    mockGetSafeSubprocessEnv.mockReturnValueOnce({});
+    mockHandleAgentProcess
+      .mockResolvedValueOnce({ ...BASE_RESULT, success: false, output: 'spawn ENOENT' })
+      .mockResolvedValueOnce({ ...BASE_RESULT, success: true });
+
+    await runClaudeAgentWithCommand('/feature', 'args', 'Plan', '/tmp/out.jsonl');
+
+    expect(mockSpawn.mock.calls.length).toBeGreaterThanOrEqual(2);
+    for (const call of mockSpawn.mock.calls) {
+      expect((call[2] as { env: NodeJS.ProcessEnv }).env.CLAUDE_CODE_DISABLE_AUTO_MEMORY).toBe('1');
+    }
   });
 });
 
