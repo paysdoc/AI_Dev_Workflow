@@ -31,7 +31,8 @@ import { isProcessLive } from '../core/processLiveness';
 import { AgentStateManager } from '../core/agentState';
 import { deriveStageFromRemote } from '../core/remoteReconcile';
 import { gitContextForSync } from '../github';
-import { gitContextForRepo } from '../github/gitContextFactory';
+import { fetchIssueCommentBodies } from '../github/issueListApi';
+import type { LaunchBoundary } from '../core';
 import { extractLatestAdwId } from './cronStageResolver';
 import { classifyStageString } from '../core/stageClassifier';
 import { nextResumeAction, MAX_RESUME_ATTEMPTS } from '../core/resumePolicy';
@@ -58,6 +59,10 @@ export interface EvaluateCandidateInput {
   /** Launch-boundary GitContext. When provided, worktree paths are resolved via the
    *  context's base path (never from ambient cwd). Absent only in legacy callers. */
   readonly gitContext?: GitContext;
+  /** The launch boundary. When provided, resolveAdwId reads comments through its issue
+   *  tracker instead of a fresh gitContextForRepo(...)-backed gh call. Absent only in
+   *  legacy callers. */
+  readonly boundary?: LaunchBoundary;
 }
 
 export interface TakeoverDeps {
@@ -76,7 +81,7 @@ export interface TakeoverDeps {
   readonly clearOrphanedIndexLock: (worktreePath: string) => void;
 }
 
-export function buildDefaultTakeoverDeps(repoInfo?: RepoInfo): TakeoverDeps {
+export function buildDefaultTakeoverDeps(repoInfo?: RepoInfo, boundary?: LaunchBoundary): TakeoverDeps {
   return {
     acquireIssueSpawnLock: (repoInfo, issueNumber, ownPid) =>
       acquireIssueSpawnLock(repoInfo, issueNumber, ownPid),
@@ -86,9 +91,9 @@ export function buildDefaultTakeoverDeps(repoInfo?: RepoInfo): TakeoverDeps {
       readSpawnLockRecord(repoInfo, issueNumber),
     resolveAdwId: (issueNumber, repoInfo) => {
       try {
-        const json = gitContextForRepo(repoInfo).issueComments(issueNumber);
-        const comments = JSON.parse(json) as { body: string }[];
-        return extractLatestAdwId(comments);
+        return boundary
+          ? extractLatestAdwId(boundary.providers.issueTracker.fetchComments(issueNumber).map((c) => ({ body: c.body })))
+          : extractLatestAdwId(fetchIssueCommentBodies(issueNumber, repoInfo));
       } catch {
         return null;
       }
@@ -177,7 +182,7 @@ export function evaluateCandidate(
   input: EvaluateCandidateInput,
   deps?: TakeoverDeps,
 ): CandidateDecision {
-  const d = deps ?? buildDefaultTakeoverDeps(input.repoInfo);
+  const d = deps ?? buildDefaultTakeoverDeps(input.repoInfo, input.boundary);
   const { issueNumber, repoInfo } = input;
 
   // Branch 1: attempt to acquire the per-issue spawn lock.

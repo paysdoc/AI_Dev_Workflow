@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('../../github/gitContextFactory', () => ({
-  gitContextForRepo: vi.fn(),
+vi.mock('../../github/issueListApi', () => ({
+  listIssues: vi.fn(),
 }));
 
 vi.mock('../../core', () => ({
@@ -19,40 +19,34 @@ vi.mock('../../core/workflowCommentParsing', () => ({
 }));
 
 import { isConcurrencyLimitReached } from '../concurrencyGuard';
-import { gitContextForRepo } from '../../github/gitContextFactory';
+import { listIssues } from '../../github/issueListApi';
 import { hasLinkedMergedOrClosedPR } from '../../github/linkedPrDetector';
 
 const REPO_INFO = { owner: 'acme', repo: 'webapp' };
 
-function makeCtx(listOpenIssuesResult: string) {
-  return { listOpenIssues: vi.fn(() => listOpenIssuesResult) };
-}
-
-describe('isConcurrencyLimitReached — routes through gitContextForRepo', () => {
+describe('isConcurrencyLimitReached — routes through issueListApi.listIssues', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   it('returns false when there are no in-progress issues', async () => {
-    const issues = [
+    vi.mocked(listIssues).mockReturnValue([
       { number: 1, comments: [] },
       { number: 2, comments: [{ body: 'normal comment' }] },
-    ];
-    vi.mocked(gitContextForRepo).mockReturnValue(makeCtx(JSON.stringify(issues)) as never);
+    ]);
 
     const result = await isConcurrencyLimitReached(REPO_INFO);
 
-    expect(gitContextForRepo).toHaveBeenCalledWith(REPO_INFO);
+    expect(listIssues).toHaveBeenCalledWith({ fields: ['number', 'comments'], limit: 100 }, REPO_INFO);
     expect(result).toBe(false);
   });
 
   it('counts in-progress issues (has ADW comment, no merged/closed PR)', async () => {
-    const issues = [
+    vi.mocked(listIssues).mockReturnValue([
       { number: 1, comments: [{ body: 'ADW workflow started' }] },
       { number: 2, comments: [{ body: 'ADW workflow started' }] },
       { number: 3, comments: [{ body: 'ADW workflow started' }] },
-    ];
-    vi.mocked(gitContextForRepo).mockReturnValue(makeCtx(JSON.stringify(issues)) as never);
+    ]);
     vi.mocked(hasLinkedMergedOrClosedPR).mockReturnValue(false);
 
     const result = await isConcurrencyLimitReached(REPO_INFO);
@@ -61,10 +55,9 @@ describe('isConcurrencyLimitReached — routes through gitContextForRepo', () =>
   });
 
   it('does not count issues with merged PRs', async () => {
-    const issues = [
+    vi.mocked(listIssues).mockReturnValue([
       { number: 1, comments: [{ body: 'ADW workflow started' }] },
-    ];
-    vi.mocked(gitContextForRepo).mockReturnValue(makeCtx(JSON.stringify(issues)) as never);
+    ]);
     vi.mocked(hasLinkedMergedOrClosedPR).mockReturnValue(true);
 
     const result = await isConcurrencyLimitReached(REPO_INFO);
@@ -72,20 +65,19 @@ describe('isConcurrencyLimitReached — routes through gitContextForRepo', () =>
     expect(result).toBe(false);
   });
 
-  it('returns false and logs on parse/throw error', async () => {
-    vi.mocked(gitContextForRepo).mockReturnValue({ listOpenIssues: vi.fn(() => { throw new Error('gh failed'); }) } as never);
+  it('returns false and logs on a listIssues throw', async () => {
+    vi.mocked(listIssues).mockImplementation(() => { throw new Error('gh failed'); });
 
     const result = await isConcurrencyLimitReached(REPO_INFO);
 
     expect(result).toBe(false);
   });
 
-  it('calls listOpenIssues with number+comments fields and limit 100', async () => {
-    const ctx = makeCtx('[]');
-    vi.mocked(gitContextForRepo).mockReturnValue(ctx as never);
+  it('calls listIssues with number+comments fields and limit 100', async () => {
+    vi.mocked(listIssues).mockReturnValue([]);
 
     await isConcurrencyLimitReached(REPO_INFO);
 
-    expect(ctx.listOpenIssues).toHaveBeenCalledWith({ fields: ['number', 'comments'], limit: 100 });
+    expect(listIssues).toHaveBeenCalledWith({ fields: ['number', 'comments'], limit: 100 }, REPO_INFO);
   });
 });

@@ -7,9 +7,9 @@ import {
   type IssueWithDeps,
 } from '../issueClosedUnblockRouter';
 import { parseDependencies, parseKeywordProximityDependencies } from '../issueDependencies';
-import { gitContextForRepo } from '../../github/gitContextFactory';
+import { listIssues } from '../../github/issueListApi';
 
-vi.mock('../../github/gitContextFactory', () => ({ gitContextForRepo: vi.fn() }));
+vi.mock('../../github/issueListApi', () => ({ listIssues: vi.fn() }));
 vi.mock('../../core', () => ({
   log: vi.fn(),
   LOGS_DIR: '/logs',
@@ -131,32 +131,31 @@ describe('handleIssueClosedDependencyUnblock — no dependents', () => {
   });
 });
 
-// ── buildDefaultDependencyUnblockDeps — gitContext routing ─────────────────────
+// ── buildDefaultDependencyUnblockDeps — issueListApi routing ───────────────────
 
-describe('buildDefaultDependencyUnblockDeps — gitContext routing', () => {
+describe('buildDefaultDependencyUnblockDeps — issueListApi routing', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('uses the passed gitContext when provided (prefers it over factory)', () => {
-    const mockCtx = { listOpenIssues: vi.fn(() => JSON.stringify([{ number: 10, body: 'Blocked by #5' }])) };
-
-    const deps = buildDefaultDependencyUnblockDeps(REPO_INFO, mockCtx as never);
-    deps.listOpenIssues();
-
-    expect(mockCtx.listOpenIssues).toHaveBeenCalledWith({ fields: ['number', 'body'], limit: 100 });
-    expect(gitContextForRepo).not.toHaveBeenCalled();
-  });
-
-  it('falls back to gitContextForRepo when no gitContext is passed', () => {
-    const mockCtx = { listOpenIssues: vi.fn(() => JSON.stringify([])) };
-    vi.mocked(gitContextForRepo).mockReturnValue(mockCtx as never);
+  it('listOpenIssues routes through issueListApi.listIssues with the bound repoInfo', () => {
+    vi.mocked(listIssues).mockReturnValue([{ number: 10, body: 'Blocked by #5' }]);
 
     const deps = buildDefaultDependencyUnblockDeps(REPO_INFO);
+    const result = deps.listOpenIssues();
+
+    expect(listIssues).toHaveBeenCalledWith({ fields: ['number', 'body'], limit: 100 }, REPO_INFO);
+    expect(result).toEqual([{ number: 10, body: 'Blocked by #5' }]);
+  });
+
+  it('listOpenIssues routes through issueListApi.listIssues regardless of whether a gitContext was passed (the gitContext parameter is threaded only to spawn)', () => {
+    vi.mocked(listIssues).mockReturnValue([]);
+    const fakeGitContext = { marker: 'unused-by-listing' };
+
+    const deps = buildDefaultDependencyUnblockDeps(REPO_INFO, fakeGitContext as never);
     deps.listOpenIssues();
 
-    expect(gitContextForRepo).toHaveBeenCalledWith(REPO_INFO);
-    expect(mockCtx.listOpenIssues).toHaveBeenCalledWith({ fields: ['number', 'body'], limit: 100 });
+    expect(listIssues).toHaveBeenCalledWith({ fields: ['number', 'body'], limit: 100 }, REPO_INFO);
   });
 });
 

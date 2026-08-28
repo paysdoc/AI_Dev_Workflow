@@ -9,20 +9,15 @@ import { MAX_CONCURRENT_PER_REPO, log } from '../core';
 import type { RepoInfo } from '../github/githubApi';
 import { isAdwComment } from '../core/workflowCommentParsing';
 import { fetchLinkedPRs, hasLinkedMergedOrClosedPR } from '../github/linkedPrDetector';
-import { gitContextForRepo } from '../github/gitContextFactory';
-
-interface RawIssueWithComments {
-  number: number;
-  comments: { body: string }[];
-}
+import { listIssues } from '../github/issueListApi';
+import type { IssueListEntry } from '../providers/types';
 
 /**
  * Fetches open issues with their comments from the repository.
  */
-function fetchOpenIssuesWithComments(repoInfo: RepoInfo): RawIssueWithComments[] {
+function fetchOpenIssuesWithComments(repoInfo: RepoInfo): IssueListEntry[] {
   try {
-    const json = gitContextForRepo(repoInfo).listOpenIssues({ fields: ['number', 'comments'], limit: 100 });
-    return JSON.parse(json);
+    return listIssues({ fields: ['number', 'comments'], limit: 100 }, repoInfo);
   } catch (error) {
     log(`Failed to fetch open issues for concurrency check: ${error}`, 'error');
     return [];
@@ -40,7 +35,7 @@ async function getInProgressIssueCount(repoInfo: RepoInfo): Promise<number> {
 
   let count = 0;
   for (const issue of issues) {
-    const hasAdwComment = issue.comments.some((c) => isAdwComment(c.body));
+    const hasAdwComment = (issue.comments ?? []).some((c) => isAdwComment(c.body));
     if (!hasAdwComment) continue;
 
     if (!hasLinkedMergedOrClosedPR(issue.number, prs)) {

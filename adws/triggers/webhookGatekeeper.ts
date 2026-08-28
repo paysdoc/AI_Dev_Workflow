@@ -26,7 +26,7 @@ import { evaluateCandidate } from './takeoverHandler';
 import type { CandidateDecision } from './takeoverHandler';
 import { readAuthGate } from '../core/authGate';
 import type { GitContext } from '../gitContext';
-import { gitContextForRepo } from '../github/gitContextFactory';
+import { listIssues } from '../github/issueListApi';
 
 /**
  * Spawns a detached child process for running ADW orchestrator workflows.
@@ -200,8 +200,7 @@ export async function closeAbandonedDependents(
   repoInfo: RepoInfo,
 ): Promise<void> {
   try {
-    const json = gitContextForRepo(repoInfo).listOpenIssues({ fields: ['number', 'body'], limit: 100 });
-    const issues = JSON.parse(json) as { number: number; body: string }[];
+    const issues = listIssues({ fields: ['number', 'body'], limit: 100 }, repoInfo);
 
     const dependents = issues.filter((issue) => {
       const deps = parseDependencies(issue.body || '');
