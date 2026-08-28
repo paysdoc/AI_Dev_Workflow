@@ -1,17 +1,6 @@
 # Conditional Documentation
 
-- app_docs/feature-19me6a-fix-junit-entity-expansion-limit.md
-  - Conditions:
-    - When working with `adws/core/testReportParser.ts` (`parseJUnitXml`, `readJUnitReport`) and large JUnit reports
-    - When troubleshooting `adw:unverified` on a unit-test phase where the report was emitted but parse threw silently
-    - When modifying the `XMLParser` options in `testReportParser.ts` or the `processEntities` entity-limit pin
-    - When `fast-xml-parser` entity-expansion limits or the `@nodable/entities` counter behaviour is relevant
-    - When adding tests to `adws/core/__tests__/testReportParser.test.ts` for large-report or entity-decoding correctness
-
 - app_docs/feature-hrl5jd-unit-test-rail-onto-junit-report.md
-  - Owns:
-    - adws/core/testVerdict.ts
-    - adws/phases/unitTestPhase.ts
   - Conditions:
     - When working on `adws/phases/unitTestPhase.ts` unit-test verdict or report-path wiring
     - When implementing or modifying `adws/core/testVerdict.ts` or `computeTestVerdict` (report-keyed verdict)
@@ -28,24 +17,9 @@
     - When `.claude/commands/adw_init.md` emits `## Test Directory` or `## Test Framework` sections
     - When adding a flat-layout (non-`src/`) target repo or a non-Bun test framework
 
-- app_docs/feature-u3l5q0-junit-report-rail-migration.md
-  - Conditions:
-    - When working with `adws/phases/scenarioProof.ts` or `runScenarioProof` verdict derivation
-    - When implementing or troubleshooting `adws/core/testReportParser.ts` (`parseJUnitXml`, `readJUnitReport`)
-    - When working with `adws/core/stepDefDetection.ts` (`stepDefExtensionsFor`, `hasStepDefinitions`)
-    - When `ADW_JUNIT_REPORT_PATH` env var or JUnit report emission from `cucumber.js` is relevant
-    - When adding `stepDefDirectory` or `bddFramework` fields to `ScenariosConfig` / `.adw/scenarios.md`
-    - When troubleshooting the zero-testcase blocker-fail or the clean-tally override in structured-report terms
-    - When a non-`.ts` BDD suite (Python/Go/Rust) is not being recognized by the step-def gate
-    - When `parseCucumberSummary` or `CucumberTally` are referenced (both deleted in this feature)
-
 - app_docs/feature-t6m62c-adwupgrade-regen-gate-propagation.md
   - Owns:
-    - adws/adwUpgrade.tsx
     - adws/core/upgradeFailureCap.ts
-    - adws/phases/worktreeSetup.ts
-    - adws/gitContext/commitOps.ts
-    - adws/github/labelManager.ts
     - adws/triggers/upgradeRedrive.ts
   - Conditions:
     - When working on `adwUpgrade.tsx` `executeUpgrade()`, `UpgradeDeps`, or `UpgradeRunResult`
@@ -66,17 +40,7 @@
     - When troubleshooting why a target repo's `.claude/settings.json` was or wasn't overwritten by an upgrade regen (skip-if-exists policy)
     - When modifying `.claude/commands/adw_init.md` step 7 (starter guardrails settings copy) or its `## Agent Guardrails` note in `.adw/project.md`
 
-- app_docs/feature-tcewff-cron-gh-token-bleed-fix.md
-  - Conditions:
-    - When working on `adws/triggers/pauseQueueScanner.ts` `resumeWorkflow()` or `scanPauseQueue()` repo resolution
-    - When modifying or debugging `adws/triggers/trigger_cron.ts` `checkAndTrigger()` auth identity
-    - When troubleshooting `GH_TOKEN` pinned to wrong repo after a pause-queue or auth-queue resume
-    - When implementing or reviewing any path that calls `activateGitHubAppAuth` or `ensureAppAuthForRepo` in the cron process
-    - When the cron logs `POLL: 0 open` after a pause-queue resume or `Remote owner "X" !== declared owner "Y"` errors appear
-
 - app_docs/feature-n9880l-adwversion-read-write-module.md
-  - Owns:
-    - adws/core/adwVersion.ts
   - Conditions:
     - When implementing or calling `readAdwVersion`, `writeAdwVersion`, or `readRemoteAdwVersion` from `adws/core/adwVersion.ts`
     - When working on the versioned auto-(re)init system (`adw-init-hash-and-label-classification.md`)
@@ -86,28 +50,7 @@
     - When choosing between `readAdwVersion` (local worktree) and `readRemoteAdwVersion` (authoritative remote) for version reads
     - When `ADW_VERSION_FILENAME` constant is referenced or the `.adw-version` placement outside `.adw/` needs context
 
-- app_docs/feature-mqwyb7-llm-draft-observability-examples.md
-  - Conditions:
-    - When working with the `## Observability Surfaces (Examples)` block in a target repo's `features/regression/vocabulary.md`
-    - When `/adw_init` produces a `features/regression/vocabulary.md` that still contains the `<!-- TODO (slice #3, issue ??): -->` placeholder
-    - When the promotion scorer (slice #4) produces uniformly low scores due to an empty or missing observability surfaces section
-    - When adding BDD scenarios for issue-508-class features (stack-detection-driven vocabulary drafting)
-    - When modifying the classification rules (browser-test-equipped / CLI-only / fallback) in `adw_init.md` step 7
-
-- app_docs/feature-kswfvk-llm-drafted-observab-observability-examples.md
-  - Conditions:
-    - When working with the `## Observability Surfaces (Examples)` block in a target repo's `features/regression/vocabulary.md`
-    - When `/adw_init` step 7 stack-classification or placeholder-replacement behaviour needs context (adwId kswfvk run)
-    - When `frameworkRepoRoot` (`$3`) wiring in `adwInit.tsx` or `adw_init.md` is relevant
-    - When troubleshooting the browser-test-equipped vs CLI-only vs fallback drafting path
-
 - app_docs/feature-sh8m9r-persist-branch-name-per-adwid.md
-  - Owns:
-    - adws/phases/branchNameResolution.ts
-    - adws/phases/branchIdentityFallback.ts
-    - adws/vcs/branchIdentity.ts
-    - adws/phases/workflowInit.ts
-    - adws/vcs/index.ts
   - Conditions:
     - When working with `adws/phases/workflowInit.ts` branch-name resolution or `runGenerateBranchNameAgent` call sites
     - When implementing or troubleshooting `adws/phases/branchNameResolution.ts` (`resolveWorkflowBranchName`, `readPersistedBranchName`, `persistBranchName`)
@@ -121,165 +64,8 @@
     - When the deterministic-branch fallback step in `resolveInternal` is relevant (between recovery-comment and LLM steps)
     - When `recoverAdwIdForBranch` reverse-lookup or `AGENTS_STATE_DIR` enumeration is involved
 
-- app_docs/feature-nnny1e-vocabulary-template-and-flags.md
-  - Conditions:
-    - When modifying `.claude/commands/adw_init.md` step 7 (vocabulary template copy or polymorphism flags)
-    - When `adwInit` is failing to produce `features/regression/vocabulary.md` in a target repo
-    - When `.adw/scenarios.md` is missing `## Per-Issue Scenario Directory` or `## Regression Scenario Directory` after init
-    - When working with `templates/vocabulary.md.template` or adding new sections to the universal seed
-    - When troubleshooting the `frameworkRepoRoot` (`$3`) arg in `/adw_init` or its resolution in `adwInit.tsx`
-    - When onboarding a new target repo and the tiered per-issue/regression layout is not being created
-    - When adding per-issue BDD scenarios for issue-507-class features (vocabulary distribution, polymorphism flags)
-
-- app_docs/feature-mzgyjj-rot-prevention-block.md
-  - Conditions:
-    - When modifying `.claude/commands/scenario_writer.md` or reviewing the rot prevention rule
-    - When the `scenario_writer` agent writes scenarios that assert against file existence, file contents, or source-file structure
-    - When working with `features/regression/vocabulary.md` and the vocabulary-preference instruction in `scenario_writer`
-    - When troubleshooting why `scenario_writer` refuses to generate a structurally-asserting scenario
-    - When adding per-issue BDD scenarios for issue-506-class features (rot prevention, vocabulary registry)
-
-- app_docs/feature-6zw7n2-hitl-opt-in-adw-yml.md
-  - Conditions:
-    - When working with the `.github/adw.yml` HITL opt-in for framework-upgrade PRs
-    - When implementing or troubleshooting `adwUpgrade.tsx`'s gated merge step
-    - When `adws/core/adwYmlConfig.ts` (`readAdwYmlConfig` / `parseAdwYml`) needs context
-    - When an upgrade PR is left open and you need to understand whether HITL mode is active
-    - When distinguishing the `.github/adw.yml` config gate from the `hitl` GitHub label gate in `adwMerge.tsx`
-
-- app_docs/feature-2evbnk-bdd-smoke-surface-scenarios.md
-  - Conditions:
-    - When working with the `features/regression/smoke/` or `features/regression/surfaces/` BDD scenario suites
-    - When extending or troubleshooting the `@regression` Cucumber lifecycle hooks in `features/regression/support/hooks.ts`
-    - When adding new surface matrix rows or smoke scenarios and need to understand the manifest fixture schema
-    - When `scenarioProof.ts` reports a tag as FAILED despite a clean cucumber tally (0 failed, 0 undefined)
-    - When flipping When-step pending markers for the Issue #3 cutover
-
-- app_docs/feature-hk12ct-kpi-commits-land-on-default-branch.md
-  - Conditions:
-    - When working with `commitAndPushKpiFile()` in `adws/vcs/commitOperations.ts`
-    - When KPI commits are appearing on feature branches or open PRs instead of the default branch
-    - When implementing any VCS operation that must commit to the default branch without mutating the active worktree
-    - When troubleshooting temp worktree cleanup (`adw-kpi-*` entries in `git worktree list`)
-    - When adding tests for command-sequence correctness in `adws/vcs/__tests__/`
-
-- app_docs/feature-nrr167-hitl-label-gate-adwmerge.md
-  - Conditions:
-    - When working with the `hitl` label gate in `adwMerge.tsx` or `autoMergePhase.ts`
-    - When implementing or troubleshooting merge-blocking behavior on the `awaiting_merge` cron path
-    - When a PR labeled `hitl` is being merged unexpectedly by the cron sweep
-    - When extending `MergeDeps` with new injectable dependencies in `adwMerge.tsx`
-    - When adding regression coverage for the `@adw-329-hitl-label-gate` BDD feature
-
-- app_docs/feature-6wnymj-shared-orchestrator-lifecycle-wrapper.md
-  - Conditions:
-    - When adding a new orchestrator entrypoint that needs lock, heartbeat, and cleanup wiring
-    - When troubleshooting an orchestrator that appears hung but is not detected by the staleness checker (`adwChore`, `adwInit`, `adwPatch`, `adwMerge` now covered)
-    - When working with `runWithOrchestratorLifecycle` or `runWithRawOrchestratorLifecycle` in `adws/phases/orchestratorLock.ts`
-    - When investigating why a lock file was not released (process.exit inside fn skips finally)
-    - When writing unit tests for orchestrator lifecycle call-order assertions
-
-- app_docs/feature-29w5wf-reclassify-abandoned-discarded-call-sites.md
-  - Conditions:
-    - When working with `adwMerge.tsx` exit paths and their `workflowStage` writes (`pr_closed`, `merge_failed`)
-    - When working with `handlePullRequestEvent` PR-closed state write in `webhookHandlers.ts`
-    - When troubleshooting issues that were operator-closed or merge-failed but are still being respawned
-    - When extending `handleIssueClosedEvent` dependency-cascade logic for new terminal stages
-    - When understanding the distinction between `MergeRunResult.outcome` (dispatcher label) and `workflowStage` (cron-sweeper classification)
-
-- app_docs/feature-nq7174-discarded-workflow-stage-foundation.md
-  - Conditions:
-    - When adding new `WorkflowStage` values and need to understand terminal vs. retriable stage semantics
-    - When working with `handleWorkflowDiscarded` or the `discarded` stage write path
-    - When troubleshooting issues that are still being re-spawned despite being intentionally terminated
-    - When implementing slice #2 reclassification of deliberate-terminal exit sites in `adwMerge.tsx` or `webhookHandlers.ts`
-    - When working with `cronIssueFilter.evaluateIssue` or `cronStageResolver.isRetriableStage`
-
-- app_docs/feature-djtyv4-remote-reconcile-module.md
-  - Conditions:
-    - When working with `deriveStageFromRemote`, `mapArtifactsToStage`, or `ReconcileDeps` in `adws/core/remoteReconcile.ts`
-    - When implementing or troubleshooting stage reconciliation between local state files and remote GitHub artifacts
-    - When wiring `deriveStageFromRemote` into `takeoverHandler` (slice #11 per orchestrator-coordination-resilience PRD)
-    - When investigating GitHub API read-your-write lag affecting WorkflowStage derivation
-    - When working with the `'discarded'` WorkflowStage literal or the `defaultFindPRByBranch`/`RawPR` shared helpers in `adws/github/prApi.ts`
-
-- app_docs/feature-elre2t-fix-board-column-order-ids.md
-  - Conditions:
-    - When working with `ensureColumns`, `mergeStatusOptions`, or `updateStatusFieldOptions` in `githubBoardManager.ts`
-    - When troubleshooting blank Status cells on GitHub Projects V2 boards after ADW programmatically adds a column
-    - When investigating column ordering bugs (new columns appearing to the right of Done instead of in canonical position)
-    - When extending the board column merge logic or adding new ADW columns to `BOARD_COLUMNS`
-    - When writing or updating unit tests for `mergeStatusOptions` (ordering and ID-preservation contracts)
-
-- app_docs/feature-xlv8zk-process-liveness-module.md
-  - Conditions:
-    - When working with `isProcessLive`, `getProcessStartTime`, or `processLiveness.ts`
-    - When implementing or debugging PID-reuse-safe liveness checks in ADW
-    - When working with `spawnGate.ts` spawn lock acquisition or stale-lock reclaim logic
-    - When `isAgentProcessRunning` or `AgentState.pidStartedAt` is relevant
-    - When migrating remaining `isProcessAlive` call sites to the new `processLiveness` module
-
-- app_docs/feature-0cv18u-fix-cross-trigger-spawn-dedup.md
-  - Conditions:
-    - When working with `classifyAndSpawnWorkflow` in `webhookGatekeeper.ts` or the cron/webhook trigger paths
-    - When implementing or troubleshooting cross-process spawn deduplication for SDLC orchestrators
-    - When investigating duplicate orchestrator spawns for the same (repo, issue) pair
-    - When working with `adws/triggers/spawnGate.ts` or the `agents/spawn_locks/` directory
-    - When a dependent issue has two `## :rocket: ADW Workflow Started` comments with different adw-ids
-
-- app_docs/feature-oev65s-depaudit-triage-issue-filing.md
-  - Conditions:
-    - When working with the major-bump issue filing path in `/depaudit-triage` (Action 1, major case)
-    - When working with the upstream-issue filing path in `/depaudit-triage` (Action 3)
-    - When troubleshooting `gh issue create` failures in the triage skill (major-bump or upstream paths)
-    - When the OSV `upstreamIssue` convention (URL embedded in `reason`) is relevant
-    - When implementing or extending the idempotency guard for issue-filing actions
-
-- app_docs/feature-o28sw7-depaudit-triage-issue-filing.md
-  - Conditions:
-    - When working with Action 1 major-bump filing flow or Action 3 upstream-issue filing flow in `/depaudit-triage`
-    - When modifying the `gh issue create` invocations or issue title/body format in `SKILL.md`
-    - When troubleshooting idempotency re-checks inside Action 1 or Action 3 (belt-and-braces guard)
-    - When the OSV-scanner TOML `upstreamIssue` embedding convention (`reason` field URL format) needs to be understood
-    - When adding new filing paths or expiry-cap logic to the triage skill
-
-- app_docs/feature-1w5uz8-depaudit-triage-skill.md
-  - Conditions:
-    - When working with or invoking the `/depaudit-triage` Claude Code skill
-    - When modifying `.claude/skills/depaudit-triage/SKILL.md` or the triage workflow prompt
-    - When writing accept entries to `.depaudit.yml` (`supplyChainAccepts`) or `osv-scanner.toml` (`[[IgnoredVulns]]`)
-    - When troubleshooting idempotency behavior (in-flight findings with `upstreamIssue`)
-
-- app_docs/feature-yx99nx-depaudit-minor-patch-upgrade.md
-  - Conditions:
-    - When working with the `upgrade parent` action in `/depaudit-triage` (Action 1 in SKILL.md)
-    - When troubleshooting the minor/patch autonomous upgrade flow (manifest edit, cancel revert, install failure revert)
-    - When understanding major-bump refusal behavior and the no-partial-bump guarantee
-    - When adding new ecosystems to the manifest detection or install command resolution table
-
-- app_docs/feature-4r5z44-depaudit-triage-minor-patch-upgrade.md
-  - Conditions:
-    - When working with the `upgrade parent` action in `/depaudit-triage` (Action 1 in SKILL.md) for issue #437
-    - When implementing or extending the autonomous minor/patch upgrade flow (semver parsing, manifest edit, install, revert)
-    - When troubleshooting the cancel-before-install prompt or manifest revert on install failure
-    - When the skill refuses a major bump and you need context on what lands in the follow-up issue
-    - When configuring `## Install Dependencies` in `.adw/commands.md` for a target repo
-
-- app_docs/feature-670i6z-dead-schema-cleanup.md
-  - Conditions:
-    - When working with `adws/core/projectConfig.ts` and the `CommandsConfig` interface or `HEADING_TO_KEY` map
-    - When adding or removing a schema field from `CommandsConfig` and need to know all three touch-points
-    - When troubleshooting unexpected fields (or missing fields) in `.adw/commands.md` parsing
-    - When working with `AgentIdentifier` union type in `adws/types/agentTypes.ts`
-    - When wondering why `REVIEW_AGENT_COUNT` is not a valid env var (review parallelism was removed in #401)
-
 - app_docs/feature-s59wpc-adwprreview-phaserunner-migration.md
   - Owns:
-    - adws/adwPrReview.tsx
-    - adws/adwSdlc.tsx
-    - adws/phases/prReviewCompletion.ts
-    - adws/phases/prReviewPhase.ts
-    - adws/phases/sdlcReviewHandoff.ts
     - adws/phases/decidePostReviewOutcome.ts
     - adws/phases/__tests__/decidePostReviewOutcome.test.ts
     - adws/core/resolvePrReviewTarget.ts
@@ -304,82 +90,10 @@
     - When `isResumeMode` evidence-based detection (phases map presence) in `initializePRReviewWorkflow` is relevant
     - When issue-less PRs should be skipped before spawning (no ADW review/auto-merge)
 
-- app_docs/feature-1bg58c-scenario-test-fix-phases.md
-  - Conditions:
-    - When working with `adws/phases/scenarioTestPhase.ts` or `adws/phases/scenarioFixPhase.ts`
-    - When adding or modifying the scenario test/fix retry loop in any orchestrator
-    - When understanding how `adwSdlc.tsx` decouples scenario execution from the review phase
-    - When troubleshooting `runResolveScenarioAgent` or the `/resolve_failed_scenario` command
-    - When configuring `## Run Scenarios by Tag`, `## Start Dev Server`, or `## Health Check Path` in `.adw/commands.md`
-
-- app_docs/feature-8ogjrg-scenario-test-fix-phases.md
-  - Conditions:
-    - When working with `features/scenario_test_fix_phases.feature` or `features/step_definitions/scenarioTestFixPhasesSteps.ts`
-    - When writing or updating BDD acceptance scenarios for scenario test/fix phases
-    - When understanding the full SDLC phase sequence after scenario test/fix wiring
-    - When reviewing `ScenarioProofResult` shape and how it flows between `scenarioTestPhase` and `scenarioFixPhase`
-
-- app_docs/feature-4jvczx-adw-init-schema-updates.md
-  - Conditions:
-    - When running `/adw_init` and need to understand `## Start Dev Server` detection logic
-    - When a newly initialized `.adw/commands.md` is missing `## Health Check Path` or has `## Run E2E Tests`
-    - When adding a new project type and need to determine the correct `## Start Dev Server` value
-    - When troubleshooting `{PORT}` substitution failures in `devServerLifecycle.ts`
-    - When updating `adw_init.md` to support a new test runner or web framework
-
-- app_docs/feature-dd5jfe-dev-server-lifecycle.md
-  - Conditions:
-    - When working with `adws/core/devServerLifecycle.ts` or integrating `withDevServer` into a test/scenario phase
-    - When implementing dev server startup, health probing, retry, or cleanup in any orchestrator
-    - When adding or modifying `healthCheckPath` in `.adw/commands.md` for a target repo
-    - When troubleshooting leaked dev server processes or stale `next dev` / `bun dev` workers
-    - When working with `adws/triggers/devServerJanitor.ts` or extending the janitor pass
-
-- app_docs/feature-f704s2-dev-server-janitor-cron.md
-  - Conditions:
-    - When working with `adws/triggers/devServerJanitor.ts` or the janitor probe
-    - When adding or modifying cron probes in `adws/triggers/trigger_cron.ts`
-    - When troubleshooting orphaned dev server processes in target repo worktrees
-    - When working with `shouldCleanWorktree` kill decision logic or grace period tuning
-    - When writing tests that inject `JanitorDeps` or mock worktree fs operations
-
-- app_docs/feature-zqb2k1-wire-stepdefphase-into-orchestrators.md
-  - Conditions:
-    - When working with any orchestrator (`adwSdlc`, `adwPlanBuildTest`, `adwPlanBuildTestReview`, `adwChore`, `adwPrReview`) and adding or modifying phase order
-    - When implementing a new orchestrator that should run BDD step definition generation
-    - When troubleshooting step definitions not being present before the test phase runs
-    - When working with `adws/phases/stepDefPhase.ts` or `executeStepDefPhase`
-    - When understanding how `adwPrReview.tsx` adapts `PRReviewWorkflowConfig` to call `WorkflowConfig`-typed phases
-
-- app_docs/feature-cudwfe-passive-judge-review-phase.md
-  - Conditions:
-    - When working with `adws/phases/reviewPhase.ts` or the passive judge review implementation
-    - When adding a review retry loop to a new orchestrator (follow the `adwPlanBuildReview.tsx` pattern)
-    - When working with `adws/agents/reviewAgent.ts` or the `/review` slash command
-    - When troubleshooting why review no longer starts a dev server or captures screenshots
-    - When understanding `executeReviewPatchCycle` and how it differs from `scenarioFixPhase`
-
-- app_docs/feature-o1w8wg-wire-scenarios-remaining-orchestrators.md
-  - Conditions:
-    - When working with `adwPlanBuildTest.tsx`, `adwPlanBuildTestReview.tsx`, `adwChore.tsx`, or `adwPrReview.tsx` and the scenario test/fix retry loop
-    - When adding or extending the scenario test/fix pattern to a new orchestrator
-    - When understanding why `adwPlanBuildTestReview` patches `scenariosMd` to empty before calling review
-    - When troubleshooting `adwPrReview` scenario phases running through `config.base` vs the full `PRReviewWorkflowConfig`
-    - When understanding the diff evaluator ordering in `adwChore` relative to scenario testing
-
-- app_docs/feature-8zhro4-prreviewworkflowconfig-composition.md
-  - Conditions:
-    - When working with `PRReviewWorkflowConfig` or `adws/phases/prReviewPhase.ts`
-    - When adding a new field to `PRReviewWorkflowConfig` (decide: top-level PR-specific, or `base`)
-    - When troubleshooting field-access patterns in PR review phase functions
-
 - app_docs/feature-ni6fpk-serialize-overlapping-region-issues.md
   - Owns:
     - adws/triggers/regionOverlap.ts
     - adws/triggers/regionOverlapSignals.ts
-    - adws/triggers/cronIssueFilter.ts
-    - adws/triggers/retryHandler.ts
-    - adws/triggers/trigger_cron.ts
     - adws/core/resolveResumeSpawn.ts
   - Conditions:
     - When working with `decideSerialization`, `parseRelevantFilesSection`, or `pathsOverlap` in `adws/triggers/regionOverlap.ts`
@@ -403,91 +117,6 @@
     - When reasoning about which concurrency guard is authoritative for in-progress work (`acquireIssueSpawnLock` vs `processedSpawns`)
     - When adding a new orchestrator that must be resumable via `## Retry` and needs `orchestratorScript` persisted
 
-- app_docs/feature-01s6z7-delete-legacy-e2e-machinery.md
-  - Conditions:
-    - When looking for `runE2ETestsWithRetry`, `runBddScenariosWithRetry`, `discoverE2ETestFiles`, or `runPlaywrightE2ETests` (all deleted)
-    - When looking for `executePRReviewTestPhase` (deleted — use `executeScenarioTestPhase` + `executeScenarioFixPhase`)
-    - When importing `ScenarioProofResult`, `TagProofResult`, `shouldRunScenarioProof`, or `runScenarioProof` (now in `adws/phases/scenarioProof.ts`)
-    - When troubleshooting a missing `runE2ETests` field in `CommandsConfig` or `.adw/commands.md`
-    - When understanding why `agents/regressionScenarioProof.ts` and `agents/testDiscovery.ts` no longer exist
-
-- app_docs/feature-643xf3-fix-retry-and-commit-leak.md
-  - Conditions:
-    - When working with `adws/core/utils.ts` `execWithRetry` or adding non-retryable error patterns
-    - When troubleshooting `gh pr merge` retrying on "is not mergeable" conflicts
-    - When working with `adws/agents/gitAgent.ts` `runCommitAgent` or commit message extraction
-    - When troubleshooting garbage commit messages containing ENOENT or spawn error strings
-    - When extending `NON_RETRYABLE_PATTERNS` with new non-retryable error classes
-
-- app_docs/feature-2sqt1r-fix-rate-limit-plan-phase.md
-  - Conditions:
-    - When working with `adws/adwPlan.tsx` or adding rate limit handling to an orchestrator
-    - When troubleshooting plan workflows that exit 1 instead of pausing on rate limits
-    - When implementing a new orchestrator and ensuring it uses `CostTracker` + `runPhase()`
-    - When debugging `deriveOrchestratorScript()` mapping (wrong resume script selected from pause queue)
-    - When working with `adws/core/phaseRunner.ts` `runPhase()` or `runPhasesParallel()` error handling
-
-- app_docs/feature-u8xr9v-output-validation-retry-loop.md
-  - Conditions:
-    - When working with `adws/agents/commandAgent.ts` or adding structured output to a new agent
-    - When implementing or troubleshooting `ExtractionResult<T>` or `OutputValidationError`
-    - When adding `outputSchema` to a `CommandAgentConfig` to enable retry on malformed LLM output
-    - When migrating an agent from direct `runClaudeAgentWithCommand` to `commandAgent`
-    - When debugging retry loop behavior (consecutive error early exit, Haiku retry invocations)
-
-- app_docs/feature-avb4f5-deploy-workers-github-actions.md
-  - Conditions:
-    - When working with `.github/workflows/deploy-workers.yml`
-    - When adding a new Cloudflare Worker under `workers/` that needs CI deployment
-    - When troubleshooting GitHub Actions deploy jobs for `screenshot-router` or `cost-api`
-    - When configuring `CLOUDFLARE_API_TOKEN` or `CLOUDFLARE_ACCOUNT_ID` secrets for Worker CI
-
-- app_docs/feature-efcqzc-deploy-workers-github-actions.md
-  - Conditions:
-    - When working with `.github/workflows/deploy-workers.yml` and the per-worker job structure
-    - When adding a new Cloudflare Worker under `workers/` that needs CI auto-deployment
-    - When troubleshooting `dorny/paths-filter@v3` change detection or `cloudflare/wrangler-action@v3` deploy jobs
-    - When configuring `CLOUDFLARE_API_TOKEN` or `CLOUDFLARE_ACCOUNT_ID` secrets for Worker CI
-
-- app_docs/feature-92py6q-d1-client-dual-write.md
-  - Conditions:
-    - When working with `adws/cost/d1Client.ts` or the D1 dual-write pipeline
-    - When configuring `COST_API_URL` or `COST_API_TOKEN` in ADW
-    - When modifying `adws/phases/phaseCostCommit.ts` or the phase cost commit flow
-    - When troubleshooting D1 write failures or missing cost records in the D1 database
-    - When implementing future changes to the `PhaseCostRecord` → `IngestPayload` transformation
-
-- app_docs/feature-a72ezx-deploy-cost-api-worker.md
-  - Conditions:
-    - When deploying or re-deploying the `cost-api` Cloudflare Worker to production
-    - When troubleshooting the `adw-costs` D1 database connection or `database_id` in `wrangler.toml`
-    - When configuring `COST_API_TOKEN` or rotating the bearer secret on the Worker
-    - When adding a new Worker to `workers/` and relying on the CI auto-deploy workflow
-    - When verifying `costs.paysdoc.nl` is live and responding correctly
-
-- app_docs/feature-viahyb-cost-api-worker-d1-s-cost-api-worker.md
-  - Conditions:
-    - When working with the `workers/cost-api/` Cloudflare Worker
-    - When implementing or modifying the `POST /api/cost` ingest endpoint
-    - When working with the `adw-costs` D1 database schema (projects, cost_records, token_usage)
-    - When troubleshooting bearer token auth or cost record ingestion failures
-    - When wiring ADW phases to post cost data to the Cost API Worker
-
-- app_docs/feature-e5wrpe-csv-migration-script-migrate-csv-to-d1.md
-  - Conditions:
-    - When running or modifying the one-time CSV migration script (`workers/cost-api/migrate.ts`)
-    - When parsing old-format or new-format cost CSV files for D1 ingestion
-    - When working with the `migrated` field on `IngestRecord` or `cost_records` in D1
-    - When troubleshooting historical cost data upload failures or duplicate records
-
-- app_docs/feature-g2u55r-d1-client-dual-write.md
-  - Conditions:
-    - When working with `adws/cost/d1Client.ts` or the `postCostRecordsToD1` function
-    - When modifying phase cost commit logic (`phaseCostCommit.ts`) or the dual-write path
-    - When configuring `COST_API_URL` or `COST_API_TOKEN` for D1 cost writes
-    - When troubleshooting D1 write failures or silent-skip behavior
-    - When extending the `PhaseCostRecord` → ingest payload transformation
-
 - README.md
   - Conditions:
     - When first understanding the project structure
@@ -497,160 +126,7 @@
   - Conditions:
     - When you're operating in the `adws/` directory
 
-- app_docs/feature-z16ycm-add-top-level-workfl-top-level-workflow-state.md
-  - Conditions:
-    - When working with `agents/<adwId>/state.json` or querying workflow status/phase timing
-    - When modifying `runPhase()`, skip-on-resume logic, or phase status tracking in `adws/core/phaseRunner.ts`
-    - When modifying `AgentStateManager` in `adws/core/agentState.ts` (top-level state methods)
-    - When implementing or troubleshooting workflow resume/pause and `completedPhases` recovery
-    - When reading or writing `workflowStage` transitions (`starting`, `completed`, `paused`, `abandoned`)
-    - When working with `PhaseExecutionState` or the `phases` map on `AgentState`
-
-- app_docs/feature-the-adw-is-too-speci-tf7slv-generalize-adw-project-config.md
-  - Conditions:
-    - When working with `.adw/` project configuration files
-    - When implementing support for new target repository types
-    - When troubleshooting ADW command generalization or project config loading
-    - When modifying `adws/core/projectConfig.ts` or `.claude/commands/*.md` templates
-
-- app_docs/feature-trigger-should-commi-f8jwcf-commit-push-cost-csv.md
-  - Conditions:
-    - When working with cost CSV tracking or cost file commit/push logic
-    - When modifying `adws/github/gitOperations.ts` commit or push functions
-    - When working on `handlePullRequestEvent()` in `adws/triggers/webhookHandlers.ts`
-    - When using or modifying the `/commit_cost` slash command
-    - When troubleshooting missing or uncommitted cost data after PR close
-
-- app_docs/feature-ak03s5-remove-csv-cost-pipeline.md
-  - Conditions:
-    - When working with cost tracking and wondering why there are no CSV files or `projects/` directory
-    - When modifying `adws/cost/d1Client.ts` or `postCostRecordsToD1` and needing context on the D1-only migration
-    - When troubleshooting `CostTracker.commit()` in `phaseRunner.ts` or cost writes in `prReviewCompletion.ts`
-    - When looking for `commitAndPushCostFiles`, `pullLatestCostBranch`, or `CostCommitQueue` and finding them absent
-    - When modifying `adws/cost/reporting/commentFormatter.ts` and wondering where `FIXED_TOKEN_COLUMNS` came from
-
-- app_docs/feature-add-resoning-effort-4wna6z-reasoning-effort-slash-commands.md
-  - Conditions:
-    - When working with `SLASH_COMMAND_EFFORT_MAP` or reasoning effort configuration
-    - When modifying `runClaudeAgent()` or `runClaudeAgentWithCommand()` signatures
-    - When adding a new slash command that needs an effort level assigned
-    - When troubleshooting `--effort` flag not being passed to Claude CLI
-    - When implementing fast/cheap mode effort overrides
-
-- app_docs/feature-automatically-ccommi-wdlirj-auto-commit-cost-on-pr.md
-  - Conditions:
-    - When working with cost CSV rebuild or commit logic
-    - When modifying `rebuildProjectCostCsv` in `adws/core/costCsvWriter.ts`
-    - When working on PR close or issue close webhook handlers
-    - When troubleshooting cost CSVs that were not rebuilt after a PR was rejected or closed
-    - When implementing cost tracking changes that affect the merged vs closed-without-merge flow
-
-- app_docs/feature-fix-review-process-8aatht-multi-agent-review-external-proof.md
-  - Conditions:
-    - When working with the review process or multi-agent review
-    - When modifying `adws/agents/reviewAgent.ts` or `adws/phases/reviewPhase.ts`
-    - When troubleshooting review proof generation or review failures
-
-- app_docs/feature-8ar0fo-user-story-integrate-kpi-tracking.md
-  - Conditions:
-    - When working with KPI tracking or agentic metrics
-    - When modifying workflow completion or reporting logic
-
-- app_docs/feature-1773072529842-bmkqrg-jira-issue-tracker-provider.md
-  - Conditions:
-    - When working with Jira integration or issue tracker providers
-    - When modifying `adws/providers/` provider types or interfaces
-
-- app_docs/feature-1773073910340-o5ncqk-repo-context-factory.md
-  - Conditions:
-    - When working with the RepoContext factory or repo context abstraction
-    - When modifying how agents interact with code host or issue tracker providers
-
-- app_docs/feature-1773312009789-vruh95-migrate-phases-to-repo-context.md
-  - Conditions:
-    - When working with phase implementations in `adws/phases/`
-    - When migrating phases to use RepoContext instead of direct GitHub calls
-
-- app_docs/feature-1773328453611-p5xexp-running-token-totals.md
-  - Conditions:
-    - When working with token counting or cost tracking
-    - When modifying `adws/core/tokenManager.ts` or cost reporting logic
-
-- app_docs/feature-1773341233172-9jw507-gitlab-codehost-provider.md
-  - Conditions:
-    - When working with GitLab integration or CodeHost providers
-    - When adding or modifying provider implementations in `adws/providers/`
-
-- app_docs/feature-1773073902212-9l2nv9-repo-context-factory.md
-  - Conditions:
-    - When working with `RepoContext`, `createRepoContext`, or `adws/providers/repoContext.ts`
-    - When implementing workflow entry points that need validated repo context
-    - When adding support for new provider platforms (IssueTracker or CodeHost)
-    - When troubleshooting git remote validation or working directory validation errors
-    - When configuring `.adw/providers.md` for a target repository
-
-- app_docs/feature-sinbtg-plan-scenario-validation-resolution.md
-  - Conditions:
-    - When working with `planValidationPhase`, `validationAgent`, or `resolutionAgent`
-    - When implementing or modifying the plan-scenario alignment gate between planning and build
-    - When adding new workflow stages related to BDD scenario validation
-    - When troubleshooting plan-scenario mismatch failures or resolution loop exhaustion
-    - When integrating the validation phase into a new orchestrator
-
-- app_docs/feature-hx6dg4-robustness-hardening-retry-logic-resilience.md
-  - Conditions:
-    - When working with `execWithRetry` or adding retry logic to `gh` CLI calls
-    - When modifying `claudeAgent.ts` ENOENT handling or Claude CLI path resolution
-    - When implementing pre-flight checks in `initializeWorkflow()`
-    - When working on `createWorktree()` or `createWorktreeForNewBranch()` base ref logic
-    - When modifying `createMergeRequest()` or PR creation/duplicate handling
-    - When troubleshooting `resolutionAgent` or `validationAgent` JSON parse failures
-    - When adding or modifying auto-merge early-exit paths in `autoMergeHandler.ts` or `autoMergePhase.ts`
-    - When troubleshooting empty log directories from skipped auto-merge runs
-
-- app_docs/feature-kbzbn6-fix-git-repo-context.md
-  - Conditions:
-    - When working with VCS functions (`copyEnvToWorktree`, `ensureWorktree`, `getRepoInfo`)
-    - When adding new git operations that must target an external target repository
-    - When troubleshooting worktree creation, `.env` copy, or git remote errors in target repo workflows
-    - When modifying `autoMergeHandler.ts`, `workflowInit.ts`, or `targetRepoManager.ts`
-    - When cloning new target repositories (SSH vs HTTPS URL handling)
-
-- app_docs/feature-bpn4sv-orchestrators-awaiting-merge-handoff.md
-  - Conditions:
-    - When working with orchestrator phase ordering in `adwSdlc.tsx`, `adwChore.tsx`, `adwPlanBuildReview.tsx`, or `adwPlanBuildTestReview.tsx`
-    - When adding or modifying post-PR logic (approve, `awaiting_merge` write) in an orchestrator
-    - When troubleshooting why `executeAutoMergePhase` is absent from orchestrators (it was replaced by inline approve + handoff)
-    - When implementing a new orchestrator that should follow the approve-and-handoff exit pattern
-    - When working with `workflowStage: 'awaiting_merge'` transitions or the `extractPrNumber()` helper
-
-- app_docs/feature-74itmf-dependency-logging.md
-  - Conditions:
-    - When working with `findOpenDependencies()` or `checkIssueEligibility()` in `adws/triggers/`
-    - When adding or modifying logging in the dependency resolution pipeline
-    - When troubleshooting why an issue was deferred due to blocking dependencies
-    - When diagnosing silent failures in `getIssueState()` dependency lookups
-
-- app_docs/feature-q9kms5-bdd-scenarios-before-pr.md
-  - Conditions:
-    - When working with `testPhase.ts` or the test phase execution order
-    - When adding or modifying BDD scenario execution in workflows (`bddScenarioRunner.ts`, `runBddScenariosWithRetry`)
-    - When configuring `## Run Scenarios by Tag` in `.adw/commands.md` or `## Unit Tests` in `.adw/project.md`
-    - When troubleshooting BDD scenario failures, retries, or the PR gate being blocked
-    - When updating orchestrators to include or reorder the test phase relative to PR creation
-
-- app_docs/feature-ak5lea-trigger-cron-process-prevent-duplicate-cron.md
-  - Conditions:
-    - When working with `trigger_cron.ts`, `webhookGatekeeper.ts`, or `cronProcessGuard.ts`
-    - When troubleshooting duplicate cron processes running for the same repository
-    - When implementing or modifying cron process lifecycle management in ADW
-    - When the webhook server restarts and cron processes behave unexpectedly
-    - When adding PID-file-based process deduplication to new trigger types
-
 - app_docs/feature-mnmihl-scenario-authoring-skip-gate.md
-  - Owns:
-    - adws/phases/scenarioPhase.ts
-    - adws/phases/alignmentPhase.ts
   - Conditions:
     - When working with BDD scenario generation or the scenario agent (`adws/agents/scenarioAgent.ts`)
     - When modifying `adws/phases/scenarioPhase.ts` or `adws/phases/alignmentPhase.ts`
@@ -658,322 +134,6 @@
     - When implementing or troubleshooting the plan-scenario alignment gate (`executeAlignmentPhase`, `runAlignmentAgent`) between planning and build
     - When troubleshooting a promotion (`regression-promotion`-labelled) issue authoring a spurious `features/per-issue/feature-<N>.feature` or reddening on alignment/validation/fidelity
     - When working with `.adw/scenarios.md` configuration or `@regression` tag maintenance logic
-
-- app_docs/feature-9emriw-bdd-scenario-review-proof.md
-  - Conditions:
-    - When working with the review proof mechanism or `regressionScenarioProof.ts`
-    - When modifying `reviewPhase.ts` or review phase scenario-related fields
-    - When adding or changing `@regression` / `@adw-{issueNumber}` scenario classification in review
-    - When configuring `runRegressionScenarios` or `runScenariosByTag` commands in `.adw/commands.md`
-    - When troubleshooting review proof fallback behaviour for repos without `.adw/scenarios.md`
-
-- app_docs/feature-91v6qi-llm-dependency-extraction.md
-  - Conditions:
-    - When working with `findOpenDependencies()`, `extractDependencies()`, or `parseDependencies()` in `adws/triggers/issueDependencies.ts`
-    - When adding or modifying dependency extraction logic or the `/extract_dependencies` command
-    - When implementing a new agent that calls `runClaudeAgentWithCommand` with a slash command
-    - When troubleshooting why an issue with natural-language dependencies was not deferred
-    - When working with `dependencyExtractionAgent.ts` or `parseDependencyArray`
-
-- app_docs/feature-jjxkk9-conditional-unit-tests-plan-template.md
-  - Conditions:
-    - When working with `.claude/commands/feature.md` plan template
-    - When the `## Unit Tests` setting in `.adw/project.md` should affect plan generation
-    - When troubleshooting plans that include unit test tasks despite unit tests being disabled
-    - When modifying `regressionScenarioProof.ts` or the `@regression` tag convention in review proof
-    - When auditing plan templates (`bug.md`, `chore.md`, `patch.md`) for unit-test awareness
-
-- app_docs/feature-20eum6-replace-crucial-with-regression.md
-  - Conditions:
-    - When working with `@regression` tag or `regressionScenarioProof.ts`
-    - When configuring `## Run Regression Scenarios` in `.adw/commands.md` or `.adw/scenarios.md`
-    - When modifying `ReviewRetryOptions.runRegressionCommand` or scenario proof identifiers
-    - When troubleshooting regression scenario proof failures during the review phase
-    - When adding new BDD scenarios to the regression safety net
-
-- app_docs/feature-u8okxe-bug-sdlc-chore-classifier.md
-  - Conditions:
-    - When working with `issueTypeToOrchestratorMap` in `adws/types/issueTypes.ts`
-    - When modifying issue classification logic or the `/classify_issue` command
-    - When troubleshooting bug issues that are not receiving review or documentation phases
-    - When investigating why an issue was classified as `/chore` and skipped quality gates
-    - When updating orchestrator routing for any issue type
-
-- app_docs/agentic_kpis.md
-  - Conditions:
-    - When working with KPI metrics, streak tracking, or ADW run statistics
-    - When querying or interpreting historical ADW workflow performance data
-    - When troubleshooting KPI reporting or the `/track_agentic_kpis` command
-
-- app_docs/feature-fla3u2-1773754088098-cucumber-step-definitions.md
-  - Conditions:
-    - When adding or modifying Cucumber step definitions in `features/step_definitions/`
-    - When a `bunx cucumber-js --dry-run` reports undefined steps
-    - When implementing steps that scan source files with `findFiles()` or execute commands via `spawnSync`
-    - When working with `removeRunBddScenariosSteps.ts` or `removeUnitTestsSteps.ts`
-
-- app_docs/feature-8w4fep-adw-init-commands-md-scenario-sections.md
-  - Conditions:
-    - When modifying `.claude/commands/adw_init.md` or the sections it generates in `.adw/commands.md`
-    - When troubleshooting missing `## Run Scenarios by Tag` or `## Run Regression Scenarios` in generated `commands.md`
-    - When working with `/adw_init` and E2E tool detection in step 7
-    - When `projectConfig.ts` `runScenariosByTag` or `runRegressionScenarios` are falling back to defaults unexpectedly
-
-- app_docs/feature-ie8l08-fix-pr-review-target-repo.md
-  - Conditions:
-    - When working with `initializePRReviewWorkflow` in `adws/phases/prReviewPhase.ts`
-    - When troubleshooting PR review workflows targeting the wrong repository (ADW repo instead of target repo)
-    - When modifying `adwPrReview.tsx` target-repo argument handling
-    - When `ensureWorktree` is called without `baseRepoPath` in the PR review path
-    - When investigating the "wrong repository" class of bugs (#23, #33, #52, #56, #62, #119, #217, #223)
-
-- app_docs/feature-wrzj5j-harden-project-board-status.md
-  - Conditions:
-    - When working with `moveIssueToStatus` or `moveToStatus` in `adws/github/projectBoardApi.ts`
-    - When modifying `IssueTracker.moveToStatus` in `adws/providers/types.ts` or provider implementations
-    - When adding intermediate project board status transitions to workflow phases
-    - When troubleshooting project board status updates that fail silently or with stale tokens
-    - When implementing GitHub App token refresh before GraphQL calls in `projectBoardApi.ts`
-
-- app_docs/feature-cwiuik-1773818764164-auto-merge-approved-pr.md
-  - Conditions:
-    - When working with the `pull_request_review` webhook event handler in `trigger_webhook.ts`
-    - When modifying auto-merge logic in `adws/triggers/autoMergeHandler.ts`
-    - When adding or changing merge conflict detection or resolution via the `/resolve_conflict` agent
-    - When troubleshooting approved PRs that were not automatically merged
-    - When adjusting `MAX_AUTO_MERGE_ATTEMPTS` or the retry loop behavior
-
-- app_docs/feature-fvzdz7-auto-approve-merge-after-review.md
-  - Conditions:
-    - When working with `executeAutoMergePhase` in `adws/phases/autoMergePhase.ts`
-    - When modifying `mergeWithConflictResolution()` in `adws/triggers/autoMergeHandler.ts`
-    - When working with `approvePR()` in `adws/github/prApi.ts` or the `GH_TOKEN` identity swap
-    - When adding the auto-merge phase to a new orchestrator
-    - When troubleshooting PRs that were not merged after the review phase passed
-
-- app_docs/feature-tepq39-scenario-writer-opus-model.md
-  - Conditions:
-    - When working with `SLASH_COMMAND_MODEL_MAP` or `SLASH_COMMAND_MODEL_MAP_FAST` in `adws/core/config.ts`
-    - When modifying or reviewing the model tier assigned to `/scenario_writer`
-    - When adding a new slash command and deciding which model tier to assign
-    - When troubleshooting scenario writer producing lower-quality output or using unexpected model
-
-- app_docs/feature-2umujr-fix-pr-auth-token-override.md
-  - Conditions:
-    - When working with the `/pull_request` slash command in `.claude/commands/pull_request.md`
-    - When troubleshooting PRs authored by the personal user instead of the GitHub App bot
-    - When modifying auth token handling in the PR creation flow
-    - When investigating `GH_TOKEN` vs `GITHUB_PAT` conflicts in subprocess environments
-
-- app_docs/feature-9tknkw-project-board-pat-fallback.md
-  - Conditions:
-    - When working with `moveIssueToStatus()` or `findRepoProjectId()` in `adws/github/projectBoardApi.ts`
-    - When troubleshooting project board status updates that silently skip on user-owned repositories
-
-- app_docs/feature-fygx90-hitl-label-gate-automerge.md
-  - Conditions:
-    - When working with `executeAutoMergePhase` in `adws/phases/autoMergePhase.ts`
-    - When adding or modifying label-based gates in the auto-merge flow
-    - When troubleshooting PRs that were intentionally skipped by the HITL gate
-    - When implementing `issueHasLabel()` or other real-time label checks in `adws/github/issueApi.ts`
-    - When the `hitl` label is present on an issue and auto-merge is expected to be skipped
-    - When the GitHub App token cannot access Projects V2 (user-owned repos like `paysdoc/AI_Dev_Workflow`)
-    - When configuring `GITHUB_PAT` as a fallback for project board GraphQL calls
-    - When investigating why issues remain in "Todo" despite workflow phases completing
-
-- app_docs/feature-y000tl-fix-issue-number-res-pr-review-issue-number.md
-  - Conditions:
-    - When working with `fetchPRDetails()` or issue number extraction in `adws/github/prApi.ts`
-    - When modifying `extractIssueNumberFromBranch()` in `adws/triggers/webhookHandlers.ts`
-    - When working with `PRReviewWorkflowConfig` or `initializePRReviewWorkflow()` in `adws/phases/prReviewPhase.ts`
-    - When modifying cost CSV writing in `completePRReviewWorkflow()` or `adws/core/costCsvWriter.ts`
-    - When troubleshooting `Could not resolve to an Issue with the number of 0` errors in PR review workflows
-    - When investigating `0-*.csv` cost files or serialised PR review CSV naming
-
-- app_docs/feature-6ukg3s-1773849789984-fix-pr-default-branch-linking.md
-  - Conditions:
-    - When working with cross-repo PR creation or `runPullRequestAgent()` in `adws/agents/prAgent.ts`
-    - When troubleshooting PRs targeting `main` instead of the repo's actual default branch
-    - When modifying issue reference format (`#N` vs `owner/repo#N`) in `pullRequestCreator.ts` or `pull_request.md`
-    - When adding `repoOwner`/`repoName` context to the PR creation chain
-    - When investigating cross-repo GitHub issue linking failures in PR bodies
-
-- app_docs/feature-h01a4p-cost-revamp-phasecos-phase-cost-record-csv.md
-  - Conditions:
-    - When working with `PhaseCostRecord`, `PhaseCostStatus`, or `createPhaseCostRecords()` in `adws/cost/`
-    - When modifying or extending the per-issue or project total CSV format
-    - When adding a new phase that needs to produce cost records
-    - When troubleshooting missing cost data after a workflow crash mid-execution
-    - When working with `appendIssueCostCsv`, `rebuildProjectTotalCsv`, or `commitPhasesCostData`
-    - When adding support for new token types or providers in cost tracking
-
-- app_docs/feature-ku956a-cost-revamp-core-com-cost-module-core-vitest.md
-  - Conditions:
-    - When working with `adws/cost/` module types, computation, or the Anthropic extractor
-    - When implementing or extending `TokenUsageExtractor` for a new provider
-    - When modifying `computeCost()`, `checkDivergence()`, or Anthropic pricing tables
-    - When adding Vitest unit tests for cost-related code
-    - When troubleshooting the snake_case/camelCase mismatch in CLI `result` message parsing
-    - When wiring the cost module into workflow phases or agents
-
-- app_docs/feature-ex60ng-step-def-gen-review-gating.md
-  - Conditions:
-    - When working with `/generate_step_definitions`, `stepDefAgent.ts`, or `stepDefPhase.ts`
-    - When modifying the phase ordering in any orchestrator (`adwSdlc`, `adwPlanBuildTestReview`, `adwPlanBuildReview`, `adwPlanBuild`, `adwPlanBuildTest`, `adwPlanBuildDocument`)
-    - When troubleshooting review phase hard failures or PR-gating behaviour
-    - When adding or changing the coding guidelines check in `review.md`
-    - When investigating ungeneratable scenario removal or the warning comment posted on the issue
-
-- app_docs/feature-tgs1li-cost-revamp-wire-ext-wire-extractor-agent-handler.md
-  - Conditions:
-    - When working with real-time token tracking in `agentProcessHandler.ts`
-    - When modifying `AnthropicTokenUsageExtractor` streaming or deduplication logic
-    - When troubleshooting cost fields missing for failed or token-limit-terminated agent runs
-    - When implementing estimate-vs-actual logging or interpreting its output
-    - When modifying `formatRunningTokenFooter` or the `isEstimated` display format
-    - When adding `tokenEstimate` to `ProgressInfo` or the progress callback chain
-
-- app_docs/feature-7nl59l-fix-cron-respawn-cache.md
-  - Conditions:
-    - When working with `ensureCronProcess` or `cronSpawnedForRepo` in `adws/triggers/webhookGatekeeper.ts`
-    - When modifying the in-memory cron process cache or the PID-file liveness check (`isCronAliveForRepo`)
-    - When troubleshooting cron processes that die mid-session and are never respawned
-    - When adding regression tests for the two-layer cron guard (in-memory Set + PID file)
-
-- app_docs/feature-71pdjz-cache-install-context.md
-  - Conditions:
-    - When working with `installPhase.ts`, `installAgent.ts`, or `extractInstallContext()`
-    - When modifying `runClaudeAgentWithCommand()` signature or the `contextPreamble` injection mechanism
-    - When adding a new orchestrator that needs to run the install phase
-    - When troubleshooting agents that are re-reading files despite the install cache being present
-    - When working with `WorkflowConfig.installContext` or `PRReviewWorkflowConfig.installContext`
-    - When modifying how `/install` is registered in model/effort maps in `adws/core/config.ts`
-
-- app_docs/feature-1vil1v-skip-scenario-writer-on-resume.md
-  - Conditions:
-    - When working with `executeScenarioPhase` or `executePlanValidationPhase` in `adws/phases/`
-    - When modifying `STAGE_ORDER` or `STAGE_HEADER_MAP` in `adws/core/workflowCommentParsing.ts`
-    - When adding recovery guards to new phases using `shouldExecuteStage`
-    - When troubleshooting the scenario writer or plan validation phase running unnecessarily on workflow resume
-    - When investigating why `plan_validating` was not detected as a completed stage during recovery
-
-- app_docs/feature-j2ydkj-cost-comment-formatter.md
-  - Conditions:
-    - When working with `formatCostCommentSection`, `formatCostTable`, `formatDivergenceWarning`, or `formatEstimateVsActual` in `adws/cost/reporting/commentFormatter.ts`
-    - When implementing or modifying cost section rendering in GitHub issue or PR comments
-    - When adding the `SHOW_COST_IN_COMMENTS` env var toggle or changing cost comment visibility
-    - When troubleshooting divergence warnings not appearing or cost sections showing when they should be hidden
-    - When extending `WorkflowContext` with new cost-related fields (`costSection`, `phaseCostRecords`)
-
-- app_docs/feature-sgdfol-cost-revamp-orchestr-cost-orchestrator-migration-cleanup.md
-  - Conditions:
-    - When working with `adws/cost/` as the authoritative cost module
-    - When importing cost types (`ModelUsageMap`, `ModelUsage`, `CostBreakdown`) or helpers (`mergeModelUsageMaps`, `persistTokenCounts`, `buildCostBreakdown`, etc.)
-    - When adding a new orchestrator that needs cost tracking
-    - When troubleshooting imports that previously came from `core/costReport`, `core/tokenManager`, or `types/costTypes`
-    - When modifying `ClaudeCodeResultMessage` or cost extraction in `jsonlParser.ts`
-
-- app_docs/feature-btrko8-codebase-architecture-improvements.md
-  - Conditions:
-    - When adding a new orchestrator and need to understand the PhaseRunner / CostTracker composition pattern
-    - When implementing a new thin-wrapper agent and want to use `runCommandAgent<T>()`
-    - When looking for model routing utilities (`getModelForCommand`, `isFastMode`) or environment constants after the `config.ts` split
-    - When troubleshooting import errors after module relocations (`claudeStreamParser`, `issueRouting`, `cost/commitQueue`)
-    - When working with `adws/core/logger.ts`, `adws/core/adwId.ts`, or `adws/core/environment.ts` to understand what was extracted from `utils.ts` / `config.ts`
-
-- app_docs/feature-2gp7qi-architectural-improv-codebase-architecture.md
-  - Conditions:
-    - When adding a new orchestrator and need to understand the PhaseRunner / CostTracker composition pattern
-    - When implementing a new thin-wrapper agent and want to use `runCommandAgent<T>()`
-    - When looking for model routing utilities (`getModelForCommand`, `isFastMode`) or environment constants after the `config.ts` split
-    - When troubleshooting import errors after module relocations (`claudeStreamParser`, `issueRouting`, `cost/commitQueue`)
-    - When working with `adws/core/logger.ts`, `adws/core/adwId.ts`, or `adws/core/environment.ts` to understand what was extracted from `utils.ts` / `config.ts`
-
-- app_docs/feature-hm6br4-adw-init-depaudit-setup.md
-  - Conditions:
-    - When working with `executeDepauditSetup` or `adws/phases/depauditSetup.ts`
-    - When implementing or extending `adw_init` secret propagation (`SOCKET_API_TOKEN`, `SLACK_WEBHOOK_URL`)
-    - When troubleshooting `depaudit setup` failures or skipped secrets during `adw_init`
-    - When adding new secrets to propagate during target repo bootstrap
-
-- app_docs/feature-fgef3i-adw-init-call-depaud-depaudit-setup-secret-propagation.md
-  - Conditions:
-    - When working with `executeDepauditSetup` or `adws/phases/depauditSetup.ts`
-    - When implementing or extending `adw_init` secret propagation (`SOCKET_API_TOKEN`, `SLACK_WEBHOOK_URL`)
-    - When troubleshooting `depaudit setup` failures or skipped secrets during `adw_init`
-    - When adding new secrets to propagate during target repo bootstrap
-
-- app_docs/feature-sgud8b-copy-target-skills-adw-init.md
-  - Conditions:
-    - When working with `copyTargetSkillsAndCommands()` or `parseFrontmatterTarget()` in `adws/phases/worktreeSetup.ts`
-    - When adding a new skill or command and need to decide whether to set `target: true` or `target: false`
-    - When modifying `adwInit.tsx` to change what is committed during `adw_init`
-    - When troubleshooting skills or commands that are missing in a target repo after `adw_init`
-    - When investigating why `workflowInit` is gitignoring commands that were already committed
-
-- app_docs/feature-nnn7js-r2-upload-screenshot-router.md
-  - Conditions:
-    - When working with `adws/r2/` module (uploadToR2, ensureBucket, createR2Client)
-    - When implementing screenshot upload from any ADW phase
-    - When modifying or deploying `workers/screenshot-router/`
-    - When troubleshooting R2 bucket creation, lifecycle rules, or public URL construction
-    - When configuring `CLOUDFLARE_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, or `R2_SECRET_ACCESS_KEY`
-
-- app_docs/feature-9k4ut2-machine-readable-review-proof.md
-  - Conditions:
-    - When working with `.adw/review_proof.md` configuration format or `ReviewProofConfig` types
-    - When modifying `regressionScenarioProof.ts`, `runScenarioProof()`, or `TagProofResult`
-    - When changing which BDD tags run during the review phase or their severity classification
-    - When troubleshooting optional tag skipping or `{issueNumber}` substitution in tag patterns
-    - When updating the `/review` slash command's severity reading logic
-
-- app_docs/feature-8fns89-fix-bdd-scenarios-failure.md
-  - Conditions:
-    - When troubleshooting BDD scenarios failing immediately in the review phase with "undefined steps"
-    - When `regressionScenarioProof.ts` or `runScenarioProof()` exits early before step definitions exist
-    - When the "Unit tests passed!" message appears despite unit tests being disabled
-    - When diagnosing stale-code issues from orchestrator startup logs (ADW version hash)
-    - When working with `ReviewRetryResult` or `MergedReviewResult` interface shapes
-
-- app_docs/feature-x4wwk7-app-type-screenshot-upload.md
-  - Conditions:
-    - When working with `applicationType` in `ProjectConfig` or `parseApplicationType()` in `projectConfig.ts`
-    - When implementing screenshot upload from the review phase to Cloudflare R2
-    - When modifying `WorkflowContext.screenshotUrls` or the screenshot section in review comments
-    - When adding a new target repo and need to set `## Application Type` in `.adw/project.md`
-    - When troubleshooting screenshots not appearing in issue comments for web-type applications
-
-- app_docs/feature-wqzfqj-ensure-cron-before-webhook-gates.md
-  - Conditions:
-    - When working with `ensureCronProcess` placement in `trigger_webhook.ts`
-    - When troubleshooting the cron poller dying and not being respawned after non-actionable webhook events
-    - When modifying the `issue_comment` or `issues.opened` handler gate ordering in `trigger_webhook.ts`
-    - When adding new webhook event gates that could prevent `ensureCronProcess` from being reached
-
-- app_docs/feature-n96c4j-webhook-ensure-cron-on-every-event.md
-  - Conditions:
-    - When working with `ensureCronProcess` in `trigger_webhook.ts` or `webhookGatekeeper.ts`
-    - When troubleshooting `awaiting_merge` PRs that are never merged because the cron poller was never spawned
-    - When adding a new webhook event handler branch that must not bypass cron respawn
-    - When investigating why an approving review (`pull_request_review.submitted` state=approved) did not trigger a cron spawn
-    - When modifying the top-level request body handler in `trigger_webhook.ts` (the call site for `ensureCronProcess` is now before all per-event branching)
-
-- app_docs/feature-ekd5o1-wire-proof-comment-formatter.md
-  - Conditions:
-    - When working with `proofCommentFormatter.ts` or `formatReviewProofComment()`
-    - When modifying `formatReviewPassedComment()` or `formatReviewFailedComment()` in `workflowCommentsIssue.ts`
-    - When extending `WorkflowContext` with new proof-related fields
-    - When adding new sections to review proof GitHub comments (verification, screenshots, etc.)
-    - When troubleshooting proof data not appearing in `review_passed` or `review_failed` issue comments
-    - When wiring `nonBlockerIssues`, `scenarioProof`, or `allSummaries` through the review phase pipeline
-
-- app_docs/feature-02r4w9-jsonl-schema-probe-ci-check.md
-  - Conditions:
-    - When working with `adws/jsonl/` module (schemaProbe, conformanceCheck, fixtureUpdater)
-    - When adding or modifying JSONL fixture files in `adws/jsonl/fixtures/`
-    - When running or troubleshooting `bun run jsonl:check` in CI
-    - When the Claude CLI JSONL output schema changes and fixtures need updating
-    - When implementing new parsers that depend on the JSONL envelope structure
 
 - app_docs/feature-lnef5d-mock-infrastructure-layer.md
   - Owns:
@@ -988,35 +148,10 @@
     - When `setupMockInfrastructure`/`teardownMockInfrastructure` scratch-directory placement or crash-safety is relevant (e.g. EROFS on a read-only mount, or a leaked mock server keeping the process alive)
     - When modifying `test/mocks/__tests__/test-harness.test.ts`
 
-- app_docs/feature-tdlgz7-fix-boardstatus-invalid-values.md
-  - Conditions:
-    - When working with `BoardStatus` enum in `adws/providers/types.ts`
-    - When adding or removing project board status transitions in `buildPhase.ts` or `testPhase.ts`
-    - When troubleshooting `moveToStatus()` calls that silently fail due to unmatched board column names
-    - When the GitHub project board columns change and enum values need to stay in sync
-
-- app_docs/feature-7sunv4-fix-pr-routing-and-status.md
-  - Conditions:
-    - When working with `prPhase.ts`, `prAgent.ts`, or `CodeHost.createMergeRequest()`
-    - When the `/pull_request` slash command or PR creation flow needs to be modified
-    - When troubleshooting PRs targeting the wrong base branch (e.g., `main` instead of `dev`)
-    - When issues are not transitioning to "Review" status after PR creation
-    - When modifying `extractIssueNumberFromBranch()` or webhook PR-to-issue linking in `webhookHandlers.ts`
-    - When implementing or updating `MergeRequestResult` in provider implementations
-
-- app_docs/feature-6bi1qq-fixture-repo-test-harness.md
-  - Conditions:
-    - When working with `test/fixtures/cli-tool/` or the fixture target repo structure
-    - When using or extending `setupFixtureRepo()` / `teardownFixtureRepo()` in test harness setup
-    - When writing BDD scenarios that need a real git-initialized working directory
-    - When troubleshooting `@review-harness` or `@adw-6bi1qq-fixture-target-repo` scenario failures
-    - When adding new fixture repos under `test/fixtures/` for behavioral testing
-
 - app_docs/feature-78celh-docker-behavioral-test-isolation.md
   - Owns:
     - test/Dockerfile
     - test/docker-run.sh
-    - .github/workflows/regression.yml
   - Conditions:
     - When working with `test/Dockerfile`, `test/docker-run.sh`, or `test/.dockerignore`
     - When running or troubleshooting BDD tests inside a Docker container (`bun run test:docker`)
@@ -1027,451 +162,7 @@
     - When troubleshooting `EROFS` errors from the read-only `/workspace` mount, or a hung/never-exiting Docker regression run
     - When the `safe.directory` git config for the mounted repo is relevant
 
-- app_docs/feature-9zcqhw-detect-compaction-restart-build-agent.md
-  - Conditions:
-    - When working with `agentProcessHandler.ts` stdout detection logic (auth errors, token limit, compaction)
-    - When the build agent is restarting unexpectedly or posting `compaction_recovery` comments
-    - When modifying `buildContinuationPrompt()` or the `buildPhase.ts` continuation while loop
-    - When adding a new `WorkflowStage` type or `STAGE_HEADER_MAP` entry in `workflowCommentParsing.ts`
-    - When troubleshooting `MAX_TOKEN_CONTINUATIONS` being exhausted due to repeated context compaction
-
-- app_docs/feature-u7lut9-compaction-recovery-test-review-phases.md
-  - Conditions:
-    - When working with `testRetry.ts`, `reviewPhase.ts`, or `retryOrchestrator.ts` compaction handling
-    - When modifying `onCompactionDetected` callbacks in `testPhase.ts`, `workflowCompletion.ts`, or `prReviewCompletion.ts`
-    - When adding `test_compaction_recovery` or `review_compaction_recovery` stage comments
-    - When troubleshooting test or review agents restarting due to context compaction
-    - When extending `RetryConfig` or `RetryResult` with new continuation-tracking fields
-
-- app_docs/feature-x2q5aa-review-step-def-independence-check.md
-  - Conditions:
-    - When working with `.claude/commands/review.md` Step 5 or the step definition independence check
-    - When adding or modifying the anti-pattern detection logic in the review slash command
-    - When troubleshooting review issues classified as `blocker` or `tech-debt` due to tautological/internal step definitions
-    - When writing BDD scenarios that exercise the independence check in `features/review_step_def_independence.feature`
-    - When the review agent skips or incorrectly applies the independence check guard clauses
-
-- app_docs/feature-aym0n5-create-implement-tdd.md
-  - Conditions:
-    - When working with the `/implement_tdd` skill or `.claude/skills/implement-tdd/`
-    - When wiring the TDD build agent into an orchestrator (replacing `/implement` with `/implement_tdd`)
-    - When adding or modifying the red-green-refactor loop in autonomous build workflows
-    - When troubleshooting step definition generation during the TDD build phase
-    - When deciding whether to set `target: true` on a new skill for `adw_init` deployment
-
-- app_docs/feature-0s1m68-build-agent-routing-pipeline.md
-  - Conditions:
-    - When working with `buildAgent.ts` routing logic or `findScenarioFiles` integration
-    - When adding a new slash command that needs model/effort routing entries
-    - When modifying any scenario-aware orchestrator (`adwSdlc`, `adwPlanBuildReview`, `adwPlanBuildTestReview`) pipeline order
-    - When troubleshooting why the build agent is using `/implement` instead of `/implement_tdd` (or vice versa)
-    - When `executeStepDefPhase` or `executePlanValidationPhase` are referenced but not found in orchestrators
-
-- app_docs/feature-y55dlm-remove-ungeneratable-step-def-classification.md
-  - Conditions:
-    - When working with the `/generate_step_definitions` command
-    - When modifying or extending step definition generation behavior
-    - When a scenario requires runtime infrastructure (mock servers, LLM stubs, git remotes) and you need to generate step definitions for it
-    - When troubleshooting why `removedScenarios` is always empty in step def agent output
-    - When modifying `adws/phases/stepDefPhase.ts` or `adws/agents/stepDefAgent.ts`
-
-- app_docs/feature-x5qlsu-auth-hitl-gate-401-classify.md
-  - Conditions:
-    - When working with `agents/.auth_gate`, `authGate.ts`, or `scanAuthQueue.ts`
-    - When implementing or troubleshooting the auth HITL gate (401 detection, host-wide block, Slack notify)
-    - When adding a new orchestrator entrypoint that must catch `AuthRequiredError` before `handleWorkflowError`
-    - When the `paused_auth` workflow stage or `takeoverHandler` branch 4b is relevant
-    - When `SLACK_WEBHOOK_URL` notifications for auth events need to be understood or extended
-    - When troubleshooting issues stuck in `paused_auth` that did not resume after `claude auth login`
-
-- app_docs/feature-chpy1a-generic-pipeline-runner-pause-resume.md
-  - Conditions:
-    - When working with rate limit handling, pause/resume mechanics, or `agents/paused_queue.json`
-    - When modifying `adws/core/phaseRunner.ts` (`runPhase`) or adding new phase names for skip-on-resume support
-    - When implementing or debugging the cron probe loop (`pauseQueueScanner.ts`)
-    - When adding new orchestrators that should benefit from pause/resume (must use `initializeWorkflow + CostTracker + runPhase()`)
-    - When troubleshooting why a `⏸️ Paused` or `▶️ Resumed` comment is not appearing on a GitHub issue
-    - When modifying cron trigger issue eligibility logic (`trigger_cron.ts` `evaluateIssue`)
-    - When changing dependency extraction behavior in `issueDependencies.ts`
-
-- app_docs/feature-6w7p98-unit-test-tdd-integration.md
-  - Conditions:
-    - When working with the `/implement_tdd` skill (`SKILL.md`) and unit test integration
-    - When a target repo has `## Unit Tests: enabled` in `.adw/project.md`
-    - When implementing or extending the red-green-refactor loop in the TDD skill
-    - When troubleshooting why unit tests are not being written during the TDD loop
-    - When adding or modifying `@adw-308` BDD scenarios or their step definitions
-
-- app_docs/feature-wc1uva-auto-approve-and-mer-chore-llm-diff-gate.md
-  - Conditions:
-    - When working with `adwChore.tsx` or the chore orchestrator pipeline
-    - When modifying `diffEvaluatorAgent.ts`, `diffEvaluationPhase.ts`, or `.claude/commands/diff_evaluator.md`
-    - When changing the routing of `/chore` issues in `adws/types/issueRouting.ts`
-    - When adding a new issue type that should auto-approve and auto-merge after an LLM diff gate
-    - When troubleshooting why a chore PR was not auto-merged or was unexpectedly escalated to review
-
-- app_docs/feature-es3uts-cost-api-worker-d1-ingest.md
-  - Conditions:
-    - When working with the `workers/cost-api/` Cloudflare Worker
-    - When implementing the D1 cost database schema (`projects`, `cost_records`, `token_usage`)
-    - When wiring ADW phases to POST cost records to `costs.paysdoc.nl/api/cost`
-    - When troubleshooting bearer token auth, project auto-creation, or token usage fan-out in the cost API
-    - When deploying or migrating the `adw-costs` D1 database
-
-- app_docs/feature-zt8gjc-fix-divergent-branch-pull.md
-  - Conditions:
-    - When working with `adws/core/targetRepoManager.ts` or `adws/vcs/branchOperations.ts`
-    - When troubleshooting `fatal: Need to specify how to reconcile divergent branches` errors
-    - When adding or modifying `git pull` calls anywhere in the VCS layer
-    - When ADW crashes during `pullLatestDefaultBranch` or `checkoutBranch` in CI/automation environments
-
-- app_docs/feature-qr9z6g-fix-worktree-path-rewriting.md
-  - Conditions:
-    - When working with `.claude/hooks/pre-tool-use.ts` or the pre-tool-use hook
-    - When Claude agents write files to the wrong directory (main repo root instead of worktree)
-    - When modifying `claudeAgent.ts` spawn env or `getSafeSubprocessEnv()` / `SAFE_ENV_VARS` in `environment.ts`
-    - When adding new env vars that must propagate from ADW orchestrator to spawned Claude CLI subprocesses
-    - When working with `fetchLatestRefs` or `pullLatestDefaultBranch` in `targetRepoManager.ts`
-    - When troubleshooting worktree contamination or dangerous `git pull` crashes in the main repo root
-
-
-- app_docs/feature-48ki7w-cost-api-get-endpoints.md
-  - Conditions:
-    - When working with the `workers/cost-api/` Cloudflare Worker GET endpoints
-    - When implementing or consuming `/api/projects`, `/api/projects/:id/costs/breakdown`, or `/api/projects/:id/costs/issues`
-    - When configuring CORS for the cost-api Worker (`ALLOWED_ORIGINS` env var)
-    - When troubleshooting 404 responses for project ID lookups or phase ordering in cost issues
-    - When adding new read endpoints to the cost-api Worker
-
-- app_docs/feature-gq51dc-migrate-cron-stage-from-state-file.md
-  - Conditions:
-    - When working with `trigger_cron.ts` stage resolution or `evaluateIssue()` eligibility logic
-    - When modifying or extending `adws/triggers/cronStageResolver.ts` (stage classification, adw-id extraction)
-    - When adding new `workflowStage` values and need to understand how `isActiveStage()` / `isRetriableStage()` classify them
-    - When troubleshooting cron filters incorrectly including or excluding issues (grace period, active, retriable, paused)
-    - When implementing a new trigger that needs to read workflow stage from the state file
-
-- app_docs/feature-i4m1uk-orchestrator-resilie-takeover-handler-integration.md
-  - Conditions:
-    - When working with `evaluateCandidate`, `CandidateDecision`, `TakeoverDeps`, or `buildDefaultTakeoverDeps` in `adws/triggers/takeoverHandler.ts`
-    - When modifying the cron or webhook spawn path and need to understand the mandatory takeover gate
-    - When troubleshooting why an issue was deferred, skipped, or taken over instead of spawning fresh
-    - When implementing a new trigger entry point that spawns orchestrators (must route through `evaluateCandidate`)
-    - When working with the `take_over_adwId` decision and the `worktreeReset → remoteReconcile` sequence
-    - When investigating SIGKILL behavior for live-but-unlocked PIDs in `*_running` stages
-
-- app_docs/feature-yxo18t-spawngate-lifetime-pid-liveness.md
-  - Conditions:
-    - When working with `acquireOrchestratorLock` or `releaseOrchestratorLock` in `adws/phases/orchestratorLock.ts`
-    - When adding a new orchestrator and need to wire the spawn lock for its full lifetime
-    - When troubleshooting contention between two orchestrators for the same issue (one exits 0 on acquire failure)
-    - When understanding why the lock file persists after a crash and how staleness reclaim works
-    - When working with `adwMerge.tsx` acquire/release wiring (uses raw spawnGate primitives, not the helper)
-
-- app_docs/feature-7fy9ry-simplify-webhook-handlers.md
-  - Conditions:
-    - When working with `handlePullRequestEvent()` or `handleIssueClosedEvent()` in `adws/triggers/webhookHandlers.ts`
-    - When modifying the `pull_request.closed` or `issues.closed` webhook handler dispatch in `trigger_webhook.ts`
-    - When troubleshooting abandoned PR flows (state write, issue close cascade, dependent closing)
-    - When implementing or changing the grace period guard for active orchestrators in `handleIssueClosedEvent()`
-    - When working with `closeAbandonedDependents()` in `adws/triggers/webhookGatekeeper.ts`
-    - When wondering why `handleApprovedReview()` is absent from `autoMergeHandler.ts` (removed in this feature)
-
-- app_docs/feature-fequcj-fix-fail-open-dependency-check.md
-  - Conditions:
-    - When working with `findOpenDependencies()` in `adws/triggers/issueDependencies.ts`
-    - When modifying error handling in `trigger_webhook.ts` (`issues.opened` or `issue_comment` handlers)
-    - When troubleshooting issues with open dependencies being started prematurely or duplicate orchestrators
-    - When the GitHub API is under contention and dependency checks may fail silently
-    - When adding new catch blocks in webhook handlers that involve eligibility checks
-
-- app_docs/feature-b0y6j4-fix-token-limit-comment.md
-  - Conditions:
-    - When working with `formatTokenLimitRecoveryComment()` in `adws/github/workflowCommentsIssue.ts`
-    - When modifying `TokenUsageSnapshot` fields in `adws/types/agentTypes.ts`
-    - When troubleshooting token limit recovery comments on GitHub issues showing incorrect or inflated token counts
-    - When the token limit comment numerator exceeds the denominator (total vs output-only mismatch)
-
-- app_docs/feature-vv4ie0-relocate-test-phase-extract-commit-push.md
-  - Conditions:
-    - When working with `adws/phases/prReviewPhase.ts` and adding or relocating PR review phases
-    - When working with `adws/phases/prReviewCompletion.ts` and expecting it to contain phase-execution logic (it no longer does — it is terminal-only)
-    - When wiring a new commit+push step in the PR review orchestrator (`adwPrReview.tsx`)
-    - When troubleshooting why `completePRReviewWorkflow` no longer calls `runCommitAgent` or `pushBranch`
-    - When understanding the anti-pattern resolution described in `specs/prd/test-review-refactor.md`
-
-- app_docs/feature-f1f94g-pr-review-distribute-board-move.md
-  - Conditions:
-    - When working with `completePRReviewWorkflow` in `adws/phases/prReviewCompletion.ts` and expecting it to move the board status (it no longer does)
-    - When working with `executePRReviewCommitPushPhase` in `adws/phases/prReviewPhase.ts` and the board move timing
-    - When troubleshooting why the issue does not move to `Review` status until the commit+push phase (not the completion phase)
-    - When adding a new board status transition to the PR review workflow and choosing which phase owns it
-
-- app_docs/feature-9jpn7u-replace-clear-with-cancel.md
-  - Conditions:
-    - When working with `isCancelComment` or `CANCEL_COMMENT_PATTERN` in `adws/core/workflowCommentParsing.ts`
-    - When working with `handleCancelDirective` or `MutableProcessedSets` in `adws/triggers/cancelHandler.ts`
-    - When modifying cancel/clear directive handling in `trigger_cron.ts` or `trigger_webhook.ts`
-    - When troubleshooting why `## Cancel` does not kill processes, remove worktrees, or clean state dirs
-    - When adding a new cleanup step to the cancel sequence (process kill → worktree removal → state dir deletion → comment clearing)
-
-- app_docs/feature-yipjb0-fix-cancel-per-cycle-skip.md
-  - Conditions:
-    - When working with `evaluateIssue` or `filterEligibleIssues` in `adws/triggers/cronIssueFilter.ts` and the `cancelledThisCycle` parameter
-    - When troubleshooting cancelled issues showing as `#N(processed)` instead of `#N(cancelled)` across cron cycles
-    - When modifying the cancel-scan loop in `trigger_cron.ts` (the `handleCancelDirective` + per-cycle set pattern)
-    - When understanding the semantic difference between `processedSpawns` (permanent in-process dedup) and `cancelledThisCycle` (one-cycle skip)
-    - When adding regression tests for the two-cycle cancel re-eligibility behavior
-
-- app_docs/feature-qm6gwx-board-manager-provider.md
-  - Conditions:
-    - When working with `BoardManager`, `BoardStatus`, `BOARD_COLUMNS`, or `BoardColumnDefinition` in `adws/providers/types.ts`
-    - When adding or modifying board setup logic in `adws/phases/workflowInit.ts`
-    - When changing how terminal workflow errors move issues on the board (`handleWorkflowError`, `handlePRReviewWorkflowError`)
-    - When implementing `BoardManager` for a new platform (GitLab, Jira stubs exist)
-    - When troubleshooting why a project board was not created or columns are missing after a workflow run
-
-- app_docs/feature-zyjh0z-move-pr-approval-int.md
-  - Conditions:
-    - When working with `approvePR()` in `adws/github/prApi.ts` or the PAT-swap approval pattern
-    - When working with `executeAutoMergePhase` and understanding why it no longer calls `approvePR`
-    - When troubleshooting PRs blocked at the `hitl` gate due to missing approved review
-    - When modifying `reviewPhase.ts` approval logic or `fetchPRApprovalState` in `prApi.ts`
-    - When adding `NON_RETRYABLE_PATTERNS` for auth errors in `adws/core/utils.ts`
-    - When implementing a new orchestrator and wondering where approval responsibility lives
-
-- app_docs/feature-w12d7t-fix-board-update-mutation.md
-  - Conditions:
-    - When working with `GitHubBoardManager.ensureColumns` or the board column setup path in `githubBoardManager.ts`
-    - When troubleshooting `UpdateProjectV2FieldInput doesn't accept argument 'projectId'` GraphQL errors
-    - When modifying the `updateProjectV2Field` mutation or the `mergeStatusOptions` helper
-    - When board column setup silently skips because all ADW columns are already present
-    - When using `gh api graphql --input -` (stdin JSON) to pass array arguments to the GitHub GraphQL API
-
-- app_docs/feature-hjcays-fix-board-pat-auth.md
-  - Conditions:
-    - When working with `GitHubBoardManager` auth handling in `adws/providers/github/githubBoardManager.ts`
-    - When troubleshooting `gh: Resource not accessible by integration` during board initialization on user-owned repos
-    - When modifying `findBoard`, `createBoard`, or `ensureColumns` and need to understand the `withProjectBoardAuth` wrapper
-    - When `GITHUB_PAT` is configured but board columns are still not being created
-    - When adding a new public method to `GitHubBoardManager` that issues GraphQL calls (must route through `withProjectBoardAuth`)
-
-- app_docs/feature-ope038-pause-queue-resume-spawn-hardening.md
-  - Conditions:
-    - When working with `adws/triggers/pauseQueueScanner.ts` or the `resumeWorkflow()` function
-    - When troubleshooting paused workflows that appear resumed (▶️ comment posted) but never actually started
-    - When modifying the pause-queue resume path, spawn options, or side-effect ordering
-    - When inspecting `agents/paused_queue_logs/{adwId}.resume.log` to diagnose a stranded workflow
-    - When the `probeFailures` escalation path or `MAX_UNKNOWN_PROBE_FAILURES` abandonment logic is relevant to resume failures
-
-- app_docs/feature-7dp24s-deterministic-branch-name-assembly.md
-  - Conditions:
-    - When working with `generateBranchName()` or `validateSlug()` in `adws/vcs/branchOperations.ts`
-    - When modifying `runGenerateBranchNameAgent()` or `extractSlugFromOutput()` in `adws/agents/gitAgent.ts`
-    - When updating the `/generate_branch_name` LLM prompt or its expected output shape
-    - When troubleshooting ghost branches or mismatched branch names between state files and on-disk worktrees
-    - When adding a new branch prefix type and need to understand the assembly contract
-
-- app_docs/feature-eantbn-orchestrator-resilie-worktree-reset-module.md
-  - Conditions:
-    - When working with `adws/vcs/worktreeReset.ts` or `resetWorktreeToRemote()`
-    - When implementing the takeover handler (PRD slice #11) that calls `resetWorktreeToRemote` before resuming a dead orchestrator's work
-    - When troubleshooting mid-merge, mid-rebase, or dirty-worktree state left by a crashed orchestrator
-    - When adding worktree reset logic that must handle linked worktrees (git-dir indirection via `rev-parse --git-dir`)
-    - When writing unit tests for VCS functions that mix `execSync` and `fs` calls (follow the `worktreeReset.test.ts` mocking pattern)
-
-- app_docs/feature-guimqa-extend-top-level-state-schema.md
-  - Conditions:
-    - When working with `AgentState.lastSeenAt`, `AgentState.pid`, `AgentState.pidStartedAt`, or `AgentState.branchName` in `adws/types/agentTypes.ts`
-    - When implementing the heartbeat module (future slice) that writes `lastSeenAt` every 30 seconds
-    - When implementing the takeover handler that reads liveness fields (`pid`, `pidStartedAt`, `lastSeenAt`) to decide spawn strategy
-    - When troubleshooting a torn or zero-byte `state.json` (atomic writer protects against this)
-    - When writing tests for `writeTopLevelState` partial-patch or forward-compatible read behavior
-
-- app_docs/feature-jcwqw7-extend-top-level-state-schema.md
-  - Conditions:
-    - When working with `AgentState.lastSeenAt`, `AgentState.pid`, `AgentState.pidStartedAt`, or `AgentState.branchName` in `adws/types/agentTypes.ts`
-    - When implementing the heartbeat module (future slice) that writes `lastSeenAt` every 30 seconds
-    - When implementing the takeover handler that reads liveness fields to decide spawn strategy
-    - When troubleshooting atomic write behavior in `writeTopLevelState` or a torn `state.json`
-    - When writing or extending `adws/core/__tests__/topLevelState.test.ts` for partial-patch or forward-compatible read scenarios
-
-- app_docs/feature-zy5s32-heartbeat-module-tracer-integration.md
-  - Conditions:
-    - When working with `adws/core/heartbeat.ts`, `startHeartbeat`, `stopHeartbeat`, or `HeartbeatHandle`
-    - When implementing the hung-orchestrator detector that consumes `lastSeenAt` and `HEARTBEAT_STALE_THRESHOLD_MS`
-    - When wiring heartbeat lifecycle (start/stop) into additional orchestrators beyond `adwSdlc` (PRD slice #8)
-    - When troubleshooting `lastSeenAt` not updating in the state file while a workflow is running
-    - When modifying `HEARTBEAT_TICK_INTERVAL_MS` or `HEARTBEAT_STALE_THRESHOLD_MS` constants in `adws/core/config.ts`
-
-- app_docs/feature-bzlaaq-resume-verify-canonical-claim.md
-  - Conditions:
-    - When working with `resumeWorkflow()` in `adws/triggers/pauseQueueScanner.ts` or the pause-queue resume path
-    - When troubleshooting a paused workflow that aborts on resume with "canonical claim diverged" or "spawn lock held" log lines
-    - When implementing or modifying the per-issue spawn lock (spawnGate) interaction in the pause-queue scanner
-    - When a paused workflow's `agents/{adwId}/state.json` has been manually edited or replaced and the scanner stops retrying
-    - When understanding the asymmetric abort behavior: lock-held leaves the queue entry, claim-diverged removes it and posts an error comment
-
-- app_docs/feature-xruqv8-hung-orchestrator-detector.md
-  - Conditions:
-    - When working with `adws/core/hungOrchestratorDetector.ts`, `findHungOrchestrators`, or `HungDetectorDeps`
-    - When modifying or extending the hung-orchestrator sweep block in `adws/triggers/trigger_cron.ts`
-    - When troubleshooting orchestrators that are alive but wedged and not being automatically abandoned
-    - When tuning `HUNG_DETECTOR_INTERVAL_CYCLES` or `HEARTBEAT_STALE_THRESHOLD_MS` for detection latency
-    - When implementing the takeover handler (PRD slice #11) that consumes the `abandoned` state written by this sweep
-
-- app_docs/feature-k5dh22-fix-merge-conflict-detection.md
-  - Conditions:
-    - When working with `mergeWithConflictResolution` or `checkMergeConflicts` in `adws/triggers/autoMergeHandler.ts`
-    - When troubleshooting PRs that loop to `MAX_AUTO_MERGE_ATTEMPTS` without invoking `/resolve_conflict`
-    - When the local worktree's HEAD may be behind `origin/<headBranch>` (takeover, long-lived worktree, external push)
-    - When modifying or extending `isMergeConflictError` keyword set or adding new gh error string patterns
-    - When writing unit tests for `autoMergeHandler.ts` (follow the `vi.mock('child_process')` + sequenced `mockImplementationOnce` pattern)
-
-- app_docs/feature-tvqgz4-unify-auto-merge-hitl-gate.md
-  - Conditions:
-    - When working with the unified `(no hitl) OR (PR approved)` merge gate in `adwMerge.tsx`
-    - When modifying `issueHasLabel` or `fetchPRApprovalState` wiring in `MergeDeps` or `buildDefaultDeps`
-    - When troubleshooting `hitl_blocked_unapproved` defer exits or chore PRs stuck in `awaiting_merge`
-    - When `fetchPRApprovalState` returns `false` on an unprotected repo despite a human having approved the PR
-    - When adding or adjusting the chore-level conditional `approvePR` call in `adwChore.tsx`
-
-- app_docs/feature-hp5q8m-fix-merge-gate-approval-dispatch.md
-  - Conditions:
-    - When working with `adwMerge.tsx` merge gate logic or the `awaiting_merge` cron dispatch path
-    - When troubleshooting `awaiting_merge` issues that never dispatch after a human approves a PR
-    - When working with `fetchPRApprovalState` or `isApprovedFromReviewsList` in `adws/github/prApi.ts`
-    - When working with `shouldDispatchMerge` or `MergeDispatchDeps` in `adws/triggers/mergeDispatchGate.ts`
-    - When the `awaiting_approval` exit reason appears in logs or you need to understand why `workflowStage` was not written
-    - When `processedMerges` is referenced in old code or docs (it was removed — use spawn lock instead)
-
-- app_docs/feature-oobdbg-bdd-cutover-polymorphic-prompts-sweep.md
-  - Conditions:
-    - When working with `adws/triggers/perIssueScenarioSweep.ts` or the 14-day per-issue scenario retention sweep
-    - When modifying `ScenariosConfig` optional fields (`perIssueScenarioDirectory`, `regressionScenarioDirectory`, `vocabularyRegistry`) in `adws/core/projectConfig.ts`
-    - When the `## Per-Issue Scenario Directory`, `## Regression Scenario Directory`, or `## Vocabulary Registry` sections in `.adw/scenarios.md` are relevant
-    - When `scenario_writer` should route output to `features/per-issue/` instead of free-form placement
-    - When `generate_step_definitions` vocabulary validation or `vocabularyViolations` output is involved
-    - When `PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES` or the sweep wiring in `trigger_cron.ts` needs context
-
-- app_docs/feature-g3jxzh-move-cron-log-to-logs-dir.md
-  - Conditions:
-    - When working with `ensureCronProcess` or `cronLogDir` in `adws/triggers/webhookGatekeeper.ts`
-    - When investigating the separation between `agents/` (state) and `logs/` (output) directories
-    - When troubleshooting missing cron log files or unexpected log output in `agents/cron/`
-    - When adding a new trigger process that writes stdout/stderr logs and need to know which base dir to use
-
-- app_docs/feature-yw233r-fix-janitor-adwid-lookup.md
-  - Conditions:
-    - When working with `devServerJanitor.ts`, `extractIssueNumberFromDirName`, or `findActiveAdwIdForIssue`
-    - When modifying or extending the kill-decision logic in `runJanitorPass` or `shouldCleanWorktree`
-    - When troubleshooting live ADW agents being unexpectedly killed by the janitor (exit code 143)
-    - When extending `JanitorDeps` with new injectable dependencies for the janitor
-    - When writing tests for `devServerJanitor.ts` (follow the state-file-driven lookup pattern, use real branch-name fixtures)
-
-- app_docs/feature-22y8n3-merge-blocked-recovery-path.md
-  - Conditions:
-    - When working with `executeMerge` exit paths in `adws/adwMerge.tsx`, especially `no_pr_found` or `merge_failed` branches
-    - When implementing or troubleshooting the `merge_blocked` workflow stage or `mergeRetryCount` field
-    - When working with `selectPreferredPR` or `defaultFindPRByBranch` in `adws/github/prApi.ts` (multi-PR branch resolution)
-    - When wiring a new comment directive (mirror of `## Retry` / `## Cancel`) into `trigger_cron.ts` or `trigger_webhook.ts`
-    - When adding a new non-retriable, human-recoverable terminal stage to the workflow (pattern: `handleRetryDirective` + cron ineligibility guard)
-    - When troubleshooting a `merge_blocked` issue that is not being re-dispatched after `## Retry`
-
-- app_docs/feature-bed2tg-orchestrator-watchdog-agent-timeout.md
-  - Conditions:
-    - When working with `runClaudeAgentWithCommand` in `adws/agents/claudeAgent.ts` and the per-agent watchdog timeout
-    - When implementing or troubleshooting agent wedge recovery (`AgentTimeoutError`, `handlePhaseTimeout`, `phase_timeout` stage)
-    - When adding a new phase and need to set a per-phase timeout in `AGENT_PHASE_TIMEOUT_MAP` or `AGENT_PHASE_TIMEOUT_<PHASE>` env var
-    - When working with `killProcessGroup` in `adws/core/processKill.ts` (shared by dev-server lifecycle and agent watchdog)
-    - When the `## :warning: Phase Timeout` GitHub issue comment format needs to be understood or extended
-    - When modifying the `generate_step_definitions.md` Step 7 ("Verify") or adding verification steps that must not execute step files at runtime
-    - When troubleshooting an orchestrator stuck in `*_running` indefinitely after the Claude CLI emits `result: success`
-
-- app_docs/feature-9s65vu-fix-orchestrator-path-shadowing.md
-  - Conditions:
-    - When working with `findOrchestratorStatePath` in `adws/core/stateHelpers.ts`
-    - When an `adwId` is reused across a failed `init-orchestrator` and a real `sdlc-orchestrator` run (adwId reuse on retry)
-    - When `adwMerge` writes `abandoned` with reason `no_branch_name` despite a valid open PR existing
-    - When implementing `orchestratorNamesForScript` or extending `ORCHESTRATOR_SCRIPT_BY_NAME` in `adws/core/orchestratorLib.ts`
-    - When troubleshooting a workflow stranded `abandoned` that the `## Retry` directive cannot recover
-
-- app_docs/feature-bbwalf-adwmerge-reads-branc-branchname-top-level-resolution.md
-  - Conditions:
-    - When working with `executeMerge` in `adws/adwMerge.tsx` and branchName resolution logic
-    - When a workflow strands in `abandoned` with reason `no_branch_name` despite the branch existing
-    - When working with the `branchName` read site in `webhookHandlers.handleIssueClosedEvent` remote-branch deletion
-    - When implementing or troubleshooting branchName persistence in `workflowInit.ts` (write-side agreement between top-level and orchestrator state)
-    - When adding tests for the top-level-first, orchestrator-fallback branchName resolution contract (regression for issue #530)
-
-- app_docs/feature-pof86n-remove-github-pat-alias.md
-  - Conditions:
-    - When working with `GITHUB_PAT` in `adws/core/environment.ts` or `SAFE_ENV_VARS` subprocess allowlist
-    - When encountering `GITHUB_PERSONAL_ACCESS_TOKEN` references and wondering why the alias no longer works
-    - When configuring GitHub PAT authentication for Projects V2 board automation (classic PAT requirement)
-    - When working with `getSafeSubprocessEnv()` and understanding which env vars are forwarded to Claude CLI subprocesses
-    - When `checkEnvironmentVariables()` health-check does not recognize a `GITHUB_PERSONAL_ACCESS_TOKEN` operator set
-
-- app_docs/feature-d16x49-route-guideline-violations-to-refactor.md
-  - Conditions:
-    - When working with `executeReviewPatchCycle` in `adws/phases/reviewPhase.ts` and the blocker remediation loop
-    - When working with `applyPatchBlocker` or `applyRefactorBlockers` in `adws/phases/reviewPatchHelpers.ts`
-    - When adding a new `remediationStrategy` value to `ReviewIssue` or extending the blocker routing logic
-    - When modifying `.claude/commands/review.md` Step 3 (coding guidelines check) or the `remediationStrategy` field
-    - When implementing or troubleshooting `runRefactorAgent` in `adws/agents/refactorAgent.ts`
-    - When `/refactor` model/effort routing entries in `adws/core/modelRouting.ts` are relevant
-    - When guideline violations in changed files are not becoming blockers or not triggering a refactor pass
-
-- app_docs/feature-25daxp-label-manager-deep-module.md
-  - Conditions:
-    - When working with `ensureAdwLabelsExist`, `applyLabel`, or `readAdwLabels` in `adws/github/labelManager.ts`
-    - When provisioning `adw:*` labels on a new target repo or troubleshooting missing labels
-    - When implementing label-based issue classification (routing on `adw:chore`, `adw:bug`, `adw:feature`, `adw:pr_review`)
-    - When troubleshooting `applyLabel` lazy-create-and-retry behavior or "not found" error handling
-    - When wiring `readAdwLabels` into `issues.opened` webhook handler, `initializeWorkflow()`, or the CRON recovery scan
-    - When working with `LabelManagerDeps`, `buildDefaultLabelManagerDeps`, or the DI test pattern for `gh` CLI operations
-    - When extending `ADW_LABEL_DEFINITIONS` or `ADW_CLASSIFICATION_LABELS` with new label types
-
-- app_docs/feature-zapagn-hashcomputer-deep-module.md
-  - Conditions:
-    - When working with `computeFrameworkHash`, `HashComputerDeps`, or `ADW_INIT_RELATIVE_PATH` in `adws/core/hashComputer.ts`
-    - When adding a new file to the framework's init dependency set (edit `hashInputs:` in `.claude/commands/adw_init.md`)
-    - When implementing downstream slices that compare a target repo's stored `.adw-version` against the current framework hash
-    - When writing unit tests for pure deep modules with injectable I/O (follow the `hashComputer.test.ts` in-memory Map pattern)
-    - When troubleshooting "hashComputer: declared hashInput file not found" or "missing hashInputs: field" errors
-    - When modifying `.claude/commands/adw_init.md` frontmatter and need to understand the self-reference nuance
-
-- app_docs/feature-m45h0x-upgradeclaim-deep-module.md
-  - Conditions:
-    - When working with `claimUpgradeOrFindExisting`, `buildDefaultUpgradeClaimDeps`, `buildClaimBranchName`, or `UpgradeClaimDeps` in `adws/core/upgradeClaim.ts`
-    - When implementing the upgrade hash check in `initializeWorkflow()` (the future PRD slice that wires this into the SDLC orchestrator)
-    - When troubleshooting the winner/loser branch-namespace election or the `adw-upgrade-<hash>` claim branch
-    - When understanding why the empty commit uses a nonce (distinct-SHA guarantee for the "exactly one winner" correctness property)
-    - When working with `UpgradeClaimResult` discriminated union or the `existingIssueNumber: null` loser race-window case
-    - When writing or extending `adws/core/__tests__/upgradeClaim.test.ts` or the bare-repo integration test
-
-- app_docs/feature-gj381g-adwupgrade-tsx-orche.md
-  - Conditions:
-    - When working with `adwUpgrade.tsx`, `executeUpgrade`, `UpgradeDeps`, or `buildDefaultUpgradeDeps`
-    - When implementing or troubleshooting the regeneration half of the versioned auto-(re)init system
-    - When adding a new exception-list orchestrator (no `initializeWorkflow()`, uses `runWithRawOrchestratorLifecycle`)
-    - When the non-workflow failure comment shape or concurrency-neutral failure semantics are relevant (User Story 22)
-    - When understanding the two-commit PR guarantee (`upgradeClaim` empty commit + regen commit) or runtime hash recomputation
-
-- app_docs/feature-gmfhco-issues-opened-label-routed-handler.md
-  - Conditions:
-    - When working with `routeIssueOpened`, `decideIssueOpenedRoute`, or `extractPayloadLabelNames` in `adws/triggers/issueOpenedRouter.ts`
-    - When modifying the `issues.opened` handler in `trigger_webhook.ts` (label routing, eligibility, auth-gate wiring)
-    - When extending `classifyAndSpawnWorkflow` in `webhookGatekeeper.ts` with new `labelRouting` options
-    - When working with `readAdwLabelNames` in `adws/github/labelManager.ts` or its barrel export
-    - When implementing or troubleshooting the four routing branches: opt-out (`adw:none`), classified (single `adw:<type>`), conflict (multiple `adw:<type>`), or infer (zero labels)
-    - When the `MULTI_LABEL_REFUSAL_COMMENT` marker-free contract or `isAdwComment` interaction is relevant
-    - When the `issues.labeled` non-subscription guard test in `triggerWebhook.test.ts` is relevant
-
 - app_docs/feature-tlk8qf-hash-check-upgrade-gate.md
-  - Owns:
-    - adws/phases/upgradeGate.ts
-    - adws/phases/workflowInit.ts
   - Conditions:
     - When working with `runUpgradeGate`, `buildDefaultUpgradeGateDeps`, or `UpgradeGateDeps` in `adws/phases/upgradeGate.ts`
     - When implementing or troubleshooting the upgrade gate inserted into `initializeWorkflow()` in `adws/phases/workflowInit.ts`
@@ -1485,38 +176,9 @@
     - When a stale reused worktree causes a spurious upgrade (fix: gate reads `origin/<default>:.adw-version`, not the local worktree file)
     - When `gateRepoId` must be resolved from `options?.repoId` before `createRepoContext` is available
 
-- app_docs/feature-cy2xzc-delete-adwinit-tsx-orchestrator.md
-  - Conditions:
-    - When looking for `adwInit.tsx` or wondering why it no longer exists (deleted in issue #547)
-    - When working with `issueTypeToOrchestratorMap` in `adws/types/issueRouting.ts` and noticing `/adw_init` has no orchestrator entry
-    - When implementing a new target-repo bootstrap flow and need to understand how `/adw_init` is now invoked (via `adwUpgrade.tsx`)
-    - When troubleshooting why a `/adw_init` issue type lookup returns `undefined` from `issueTypeToOrchestratorMap`
-    - When understanding why `OrchestratorId.Init` (`'init-orchestrator'`) exists in constants but has no script mapping
-
-- app_docs/feature-qej3f4-novelty-progress-gate.md
-  - Conditions:
-    - When working with the build phase restart loop in `adws/phases/buildPhase.ts` and the `tokenLimitExceeded` / `compactionDetected` handling
-    - When modifying `evaluateProgressGate`, `ProgressGateDecision`, or `ProgressGateInput` in `adws/phases/progressGate.ts`
-    - When working with `getHeadTreeHash` or `hasUncommittedChanges` in `adws/vcs/commitOperations.ts`
-    - When tuning `MAX_PROGRESS_CHECKPOINTS` or `MAX_CONTEXT_RESETS` for long-running builds
-    - When troubleshooting a build that aborted with `no_progress` or `backstop` at a batch boundary
-    - When adding or modifying the per-batch / checkpoint counter logic or the `seenTreeHashes` seed set
-
-- app_docs/feature-23ipne-distinct-abort-messages-progress-gate.md
-  - Conditions:
-    - When modifying `describeProgressGateAbort`, `ProgressGateAbortReason`, or `ProgressGateAbortBounds` in `adws/phases/progressGate.ts`
-    - When the build phase abort branch in `adws/phases/buildPhase.ts` needs to be changed or extended
-    - When adding a new abort reason to `ProgressGateDecision` and the exhaustive switch must be updated
-    - When troubleshooting operator-visible `## :x: ADW Workflow Error` messages for progress gate aborts
-    - When the `no_progress` or `backstop` error messages need rewording or new bound parameters
-
 - app_docs/feature-6uquvb-build-continuation-committed-state.md
   - Owns:
-    - adws/phases/planPhase.ts
-    - adws/phases/buildPhase.ts
     - adws/phases/__tests__/planPhase.test.ts
-    - adws/phases/index.ts
-    - adws/workflowPhases.ts
   - Conditions:
     - When modifying `buildContinuationPrompt()`, `buildResumeInPlacePrompt()`, or `shouldResumeBuildInPlace()` in `adws/phases/planPhase.ts`
     - When adding a new `reason` value to `buildContinuationPrompt()` or changing any of its call sites in `buildPhase.ts`
@@ -1525,124 +187,6 @@
     - When working with `checkpointCommitsPresent` / `baseBranch` parameters, the `'resumed_in_place'` reason, or the `MAX_CONTINUATION_OUTPUT_LENGTH` truncation logic
     - When adding unit tests for `buildContinuationPrompt()`, `buildResumeInPlacePrompt()`, or `shouldResumeBuildInPlace()` in `adws/phases/__tests__/planPhase.test.ts`
     - When the cross-orchestrator resume build seed prompt (injected via `recoveryState.canResume`) needs to change
-
-- app_docs/feature-nm1413-adwupgrade-pr-closing-keyword.md
-  - Conditions:
-    - When working with `buildUpgradePrBody()` in `adws/adwUpgrade.tsx` or the upgrade PR body format
-    - When troubleshooting an upgrade tracking issue that stays OPEN after the upgrade PR merges
-    - When a dependent issue is permanently blocked because its `## Blocked by #N` tracking issue never closed
-    - When understanding why `Implements #N` vs `Closes #N` matters for GitHub auto-close and Projects V2 linking
-    - When modifying the issue reference line(s) in the upgrade PR body (additive `Closes` must coexist with `Implements` for `linkedPrDetector`)
-
-- app_docs/feature-vv6d4h-remove-adw-init-from-valid-types.md
-  - Conditions:
-    - When modifying `VALID_ISSUE_TYPES` in `adws/types/issueTypes.ts` or adding/removing auto-runnable workflow types
-    - When working on the classifier regex domain in `adws/core/issueClassifier.ts` (`classifyGitHubIssue`, `classifyWithIssueCommand`)
-    - When the `--issue-type` CLI validation domain in `adws/core/orchestratorCli.ts` needs to change
-    - When troubleshooting an issue that was classified as `/adw_init` and ended up Blocked with an ENOENT plan-file error
-    - When adding a new operator-only slash command that must remain in the type union but must not be auto-assignable
-
-- app_docs/feature-5jigj8-slack-notifications-hitl-board-transitions.md
-  - Conditions:
-    - When working with `adws/github/hitlBoardNotifier.ts` (`notifyReviewTransition`, `notifyBlockedTransition`)
-    - When adding or modifying Slack notifications for ADW board transitions
-    - When extending `MergeDeps` in `adwMerge.tsx` with new injectable side-effects
-    - When modifying `handlePRReviewWorkflowError` in `adws/phases/prReviewCompletion.ts` (now async)
-    - When troubleshooting HITL-labelled issues not receiving Slack pings on Review or Blocked transitions
-    - When the `hitl` label gate, `Platform.GitHub` guard, or PR-body `Implements #N` digit-boundary disambiguation is relevant
-
-- app_docs/feature-x3qme8-python-fixture-e2e-regression.md
-  - Conditions:
-    - When working with `test/fixtures/python-app/` or adding a new language fixture target
-    - When implementing or troubleshooting the multi-language pipeline end-to-end (detect → run → JUnit parse → harvest → proof comment)
-    - When the `@python-e2e` or multi-language `@regression` scenario fails and you need to understand its structure
-    - When extending `features/regression/multilang/` with a scenario for a new language (Go, Rust, etc.)
-    - When `features/regression/step_definitions/pythonFixtureE2ESteps.ts` or the Phase import execution pattern is relevant
-    - When the CI Docker runtime scope (`regression.yml` schedule vs workflow_dispatch) is relevant
-
-- app_docs/feature-y6hjbr-durable-opt-out-unit-test-gate.md
-  - Conditions:
-    - When working with the `unitTests` key in `.github/adw.yml` or the unit-test phase gate
-    - When modifying `adwYmlConfig.ts` (`parseAdwYml`, `readAdwYmlConfig`, `writeAdwYmlTemplateIfAbsent`, `ADW_YML_TEMPLATE`)
-    - When the unit-test phase (`unitTestPhase.ts`) is reading the gate from the wrong source (`project.md` vs `adw.yml`)
-    - When implementing or troubleshooting the create-if-absent step in `/adw_init` for `.github/adw.yml`
-    - When `AdwYmlConfig` shape changes break `adwUpgrade.test.ts` stubs or `WorkflowConfig` consumers
-    - When a target repo's unit tests run unexpectedly after upgrade (migration ripple from opt-in to opt-out default)
-
-- app_docs/feature-uzfskg-add-primed-claude-agent.md
-  - Conditions:
-    - When working with `runPrimedClaudeAgentWithCommand` in `adws/agents/claudeAgent.ts`
-    - When modifying `runPlanAgent`, `runPrReviewPlanAgent`, or `runScenarioAgent` and understanding why they use the primed variant
-    - When adding a new agent that needs full project context at the start of its run (consider using the primed variant)
-    - When troubleshooting extra token consumption from `/install` prepended to plan or scenario agents
-    - When writing unit tests for prompt composition in `adws/agents/__tests__/claudeAgent.test.ts`
-    - When the build, test, review, git, PR, document, patch, KPI, or resolution agents should NOT use the primed variant
-
-- app_docs/feature-bfdyaj-polymorphic-step-def.md
-  - Conditions:
-    - When working with `.claude/commands/generate_step_definitions.md` or `.claude/commands/scenario_writer.md` and understanding how they read `## BDD Framework` / `## Step Def Directory`
-    - When `adw_init` emits `## BDD Framework` or `## Step Def Directory` into `.adw/scenarios.md` and the values need to change or the fallback logic needs to be understood
-    - When adding support for a new BDD framework / language (only `adws/core/stepDefDetection.ts` needs a new extension entry; generation is zero-code)
-    - When troubleshooting `adw:unverified` being applied (or not applied) after `adw_init` runs on a non-TS target
-    - When the cucumber-bootstrap-on-N/A behavior is referenced anywhere (it was removed in this feature)
-    - When the Gherkin mandate (scenarios always `.feature`, never native test framework format) needs justification or is being questioned
-
-- app_docs/feature-l8a10n-stack-coherence-check.md
-  - Conditions:
-    - When working with `stackCoherenceCheck` or `reportStackCoherence` in `adws/core/` or `adws/phases/`
-    - When implementing or troubleshooting the `adw:unverified` label + `stack_incoherent` comment channel for mis-detected stacks
-    - When adding new language tokens to the `LANGUAGE_TOKENS` inference map in `adws/core/stackCoherenceCheck.ts`
-    - When `isGherkinFramework` in `adws/core/stepDefDetection.ts` needs to be extended or understood
-    - When a target repo with a Python/Go/Rust/Ruby stack gets `adw:unverified` due to a `cucumber-js` BDD runner mis-detection
-    - When the `stack_incoherent` `WorkflowStage` is referenced in `adws/types/workflowTypes.ts` or `workflowCommentsIssue.ts`
-    - When understanding why the coherence check is wired into `executeUnitTestPhase` and NOT `executeScenarioTestPhase`
-
-- app_docs/feature-izgf7n-screenshot-harvest-proof-comment.md
-  - Conditions:
-    - When working with `adws/proof/` (proofArtifactHarvester, prProofPublisher, types)
-    - When implementing or troubleshooting `executeProofPublishPhase` in `adws/phases/proofPublishPhase.ts`
-    - When the `ADW_PROOF_DIR` convention or screenshot directory wiring in `scenarioProof.ts` is relevant
-    - When working with `publishPrProof`, `formatPrProofComment`, or the R2 upload wiring for BDD screenshots
-    - When adding screenshot upload support to a new orchestrator (wire `executeProofPublishPhase` after `executePRPhase`)
-    - When troubleshooting proof comments missing screenshots or the "R2 not configured" fallback note
-    - When writing unit tests for `harvestProofArtifacts` or the pure `formatPrProofComment` formatter
-
-- app_docs/feature-ih7bza-receipt-based-regen-proof.md
-  - Conditions:
-    - When working with `verifyAdwRegen` in `adws/phases/worktreeSetup.ts` or the `UpgradeDeps.verifyAdwRegen` type in `adws/adwUpgrade.tsx`
-    - When implementing or troubleshooting the `.adw/.regen-receipt` contract (receipt presence, freshness check, `parseRegenReceiptHash`)
-    - When the `hashComputer.ts` CLI guard (`bunx tsx adws/core/hashComputer.ts <root>`) is relevant
-    - When `adwUpgrade` loops infinitely on a `hashInput` change that produces no `.adw/` content diff (the zero-diff no-op case)
-    - When understanding why the `git status --porcelain -- .adw` diff check was removed and what replaced it
-    - When re-stamping a self-hosting repo's `.adw-version` and `.adw/.regen-receipt` after editing `adw_init.md`
-    - When the claim/verdict split (receipt = agent claim, `.adw-version` = orchestrator verdict) is relevant
-
-- app_docs/feature-i64axx-hermeticity-resolve.md
-  - Conditions:
-    - When working on `adws/phases/scenarioTestFixLoop.ts` (shared resolve loop) or `adws/phases/gherkinFreeze.ts` (Gherkin freeze enforcement)
-    - When working on `adws/agents/scenarioFidelityAgent.ts` or `.claude/commands/validate_scenario_fidelity.md` (post-resolve fidelity re-check)
-    - When the `/resolve_failed_scenario` app-code-editing or Gherkin-freeze behaviour is relevant
-    - When the hard-fail-on-exhaustion behaviour change is relevant (replaces silent continue-to-review on cap exhaustion)
-    - When `ScenarioHermeticityError` or `GoalFidelityError` are thrown or caught in an orchestrator
-    - When the `/implement-tdd` hermetic-test-mode definition-of-done (§8) is relevant to a build task
-    - When `adws/core/resolveFreezeGuard.ts` or `adws/core/resolveVerdict.ts` pure-decision cores are relevant
-
-- app_docs/feature-la04ed-fix-adw-label-override-chokepoint.md
-  - Conditions:
-    - When working with `classifyIssueForTrigger` in `adws/core/issueClassifier.ts` and the `adw:*` label override behavior
-    - When the `issue_comment` webhook or dependency-closure spawn path skips the deterministic label check
-    - When implementing or troubleshooting `ClassifyIssueForTriggerDeps` injectable interface for testing `classifyIssueForTrigger`
-    - When a labeled issue is being sent to the LLM classifier instead of being deterministically routed
-    - When extending `readAdwLabels` usage or adding new classification labels to `ADW_CLASSIFICATION_LABELS`
-    - When understanding why the override is enforced at the chokepoint rather than the two broken call sites (`trigger_webhook.ts:188`, `webhookGatekeeper.ts:190`)
-
-- app_docs/feature-v7dih7-adwupgrade-worktree-reconcile.md
-  - Conditions:
-    - When working on `adwUpgrade.tsx` `executeUpgrade()` or `UpgradeDeps` (especially step 3 worktree setup)
-    - When an `adwUpgrade` run parks as `claim_lost` on every cron tick without a genuine concurrent-claim race
-    - When troubleshooting a stale `.worktrees/adw-upgrade-<hash>/` worktree sitting on a superseded nonce commit
-    - When `fetchAndResetToRemote` is called from the upgrade path (vs. the standard workflow in `workflowInit.ts`)
-    - When implementing or reviewing `reconcileWorktreeToRemote` wiring, ordering, or failure handling in upgrade tests
 
 - app_docs/feature-9gjajh-worktree-and-vcs.md
   - Owns:
@@ -1694,7 +238,6 @@
     - adws/triggers/webhookSignature.ts
     - adws/triggers/webhookRepoResolver.ts
     - adws/triggers/__tests__/webhookRepoResolver.test.ts
-    - adws/triggers/issueOpenedRouter.ts
     - adws/triggers/issueClosedUnblockRouter.ts
     - adws/triggers/webhookEventBoundary.ts
     - adws/triggers/__tests__/webhookEventBoundary.test.ts
@@ -1766,8 +309,6 @@
     - adws/core/promotionSweepDecider.ts
     - adws/core/promotionReconcileLink.ts
     - adws/core/promotionIssueBody.ts
-    - adws/gitContext/commands/issueCommands.ts
-    - adws/triggers/trigger_cron.ts
   - Conditions:
     - When working on the hand-invokable promotion sweep `bunx tsx adws/triggers/promotionSweep.ts` or `runPromotionSweep`
     - When implementing or troubleshooting `decidePromotionAction` / `PromotionAction` (the full `originate | leave | done | decline | redrive | withdraw` lifecycle decider)
@@ -1916,9 +457,7 @@
     - UBIQUITOUS_LANGUAGE.md
     - known_issues.md
     - tsconfig.json
-    - biome.json
     - vitest.config.ts
-    - bun.lockb
     - .adw/project.md
     - .adw/commands.md
     - .adw/coding_guidelines.md
@@ -1945,14 +484,7 @@
     - adws/core/__tests__/stageClassifier.test.ts
     - adws/core/resumePolicy.ts
     - adws/core/__tests__/resumePolicy.test.ts
-    - adws/triggers/cronStageResolver.ts
-    - adws/triggers/cronIssueFilter.ts
-    - adws/triggers/retryHandler.ts
     - adws/triggers/__tests__/retryHandler.test.ts
-    - adws/triggers/takeoverHandler.ts
-    - adws/types/workflowTypes.ts
-    - adws/github/workflowCommentsIssue.ts
-    - adws/phases/workflowCompletion.ts
     - adws/phases/sdlcReviewHandoff.ts
   - Conditions:
     - When working with `classifyStage`, `classifyStageString`, or `StageClass` in `adws/core/stageClassifier.ts`
@@ -1978,56 +510,8 @@
   - Owns:
     - adws/gitContext/**
     - adws/gitContext/__tests__/**
-    - adws/github/gitContextFactory.ts
-    - adws/github/githubApi.ts
-    - adws/github/githubAppAuth.ts
-    - adws/core/launchGitContext.ts
-    - adws/core/targetRepoManager.ts
-    - adws/vcs/branchOperations.ts
-    - adws/vcs/commitOperations.ts
-    - adws/vcs/worktreeReset.ts
-    - adws/vcs/worktreeCreation.ts
-    - adws/vcs/worktreeQuery.ts
-    - adws/vcs/worktreeCleanup.ts
-    - adws/vcs/worktreeOperations.ts
-    - adws/vcs/worktreeProbe.ts
-    - adws/triggers/concurrencyGuard.ts
-    - adws/triggers/perIssueScenarioSweep.ts
-    - adws/triggers/webhookGatekeeper.ts
-    - adws/phases/docsSelfCheck.ts
     - adws/phases/branchIdentityFallback.ts
-    - adws/phases/worktreeSetup.ts
-    - adws/phases/workflowInit.ts
-    - adws/phases/diffEvaluationPhase.ts
-    - adws/github/prCommentDetector.ts
-    - adws/checkLivingDocsIndex.ts
-    - adws/core/orchestratorLib.ts
     - adws/core/orchestratorNames.ts
-    - adws/github/labelManager.ts
-    - adws/providers/github/githubBoardManager.ts
-    - adws/phases/depauditSetup.ts
-    - adws/triggers/autoMergeHandler.ts
-    - adws/core/remoteReconcile.ts
-    - adws/promotion/promotionStatsLoader.ts
-    - adws/core/upgradeClaim.ts
-    - adws/agents/claudeAgent.ts
-    - adws/agents/commandAgent.ts
-    - adws/agents/buildAgent.ts
-    - adws/agents/gitAgent.ts
-    - adws/agents/prAgent.ts
-    - adws/agents/patchAgent.ts
-    - adws/agents/refactorAgent.ts
-    - adws/agents/documentAgent.ts
-    - adws/agents/reviewAgent.ts
-    - adws/agents/resolutionAgent.ts
-    - adws/agents/installAgent.ts
-    - adws/phases/buildPhase.ts
-    - adws/phases/prPhase.ts
-    - adws/phases/documentPhase.ts
-    - adws/phases/reviewPhase.ts
-    - adws/phases/scenarioFixPhase.ts
-    - adws/phases/prReviewPhase.ts
-    - adws/phases/reviewPatchHelpers.ts
   - Conditions:
     - When working with `GitContext`, `GitContextOptions`, `GitIdentity`, `ExecFn`, or `GitContextDeps` in `adws/gitContext/`
     - When implementing or troubleshooting base-path resolution for self-host vs target repos (the single `resolveBasePath` authority)
@@ -2098,21 +582,6 @@
     - When investigating why `/implement`, `/commit`, `/pull_request`, `/resolve_conflict`, or other subprocess commands have or lack the correct `GH_TOKEN`/`GIT_*` identity
 
 - app_docs/feature-e2er82-github-forge-adapter.md
-  - Owns:
-    - adws/providers/github/appAuth.ts
-    - adws/providers/github/tokenResolver.ts
-    - adws/providers/github/githubTokenProvider.ts
-    - adws/providers/github/ghCommandRunner.ts
-    - adws/providers/github/githubIdentity.ts
-    - adws/providers/github/cloneUrl.ts
-    - adws/providers/github/ghAuthToken.ts
-    - adws/providers/github/commands/**
-    - adws/providers/github/__tests__/appAuth.test.ts
-    - adws/providers/github/__tests__/tokenResolver.test.ts
-    - adws/providers/github/__tests__/githubTokenProvider.test.ts
-    - adws/providers/github/__tests__/ghCommandRunner.test.ts
-    - adws/providers/github/__tests__/githubIdentity.test.ts
-    - adws/providers/github/__tests__/cloneUrl.test.ts
   - Conditions:
     - When working with the GitHub forge adapter package (`adws/providers/github/`) as the consolidated home for gh command builders, GitHub App auth, token resolution, GitHub identity conventions, and clone-URL construction (issues #792, #793)
     - When working with `githubIdentity.ts` (`RepoInfo`, `parseGitHubRemoteUrl`, `readLocalRepoInfo`, `resolveBootstrapGitIdentity`, `ADW_BOT_FALLBACK_IDENTITY`, `BootstrapIdentityDeps`) or `cloneUrl.ts` (`convertToSshUrl`) — the GitHub half of bootstrap identity/clone-URL resolution, split out of `adws/gitContext/bootstrapIdentity.ts`/`repoWorkspace.ts` in #793; both compose the core's generic readers (`readOriginRemoteUrl`, `readEnvGitIdentity`, `readGitConfigIdentity`) rather than shelling out
@@ -2163,7 +632,6 @@
     - adws/guard/violationTypes.ts
     - adws/guard/identityRule.ts
     - adws/guard/constructionRule.ts
-    - .github/workflows/git-cli-guard.yml
   - Conditions:
     - When working with `adws/checkGitGhGuard.ts`, `scanFiles`, or `scanSource` — the AST-based git/gh/construction call scanner
     - When the CI `Git/GH CLI Guard` workflow (`.github/workflows/git-cli-guard.yml`) fails on a pull request or push
@@ -2216,15 +684,6 @@
     - When `.claude/hooks/pre-tool-use.ts`'s `.env.example` carve-out needs to stay in sync with the `templates/claude-settings-starter.json` deny list's `Read(!**/.env.example)` pattern
 
 - app_docs/feature-mk1wgc-orchestrator-phase-provider-migration.md
-  - Owns:
-    - adws/adwMerge.tsx
-    - adws/phases/autoMergePhase.ts
-    - adws/phases/reviewPhase.ts
-    - adws/phases/prPhase.ts
-    - adws/phases/docsSelfCheck.ts
-    - adws/phases/depauditSetup.ts
-    - adws/phases/upgradeGate.ts
-    - adws/phases/documentPhase.ts
   - Conditions:
     - When working with orchestrators or phases that need forge (issue/PR/label/board/secret) operations and must source them from a `LaunchBoundary`/`RepoContext` provider pair, not a `GitContext` semantic method or an ad-hoc-minted provider
     - When implementing or troubleshooting `resolveWorkflowProviders` (`adws/phases/workflowInit.ts`) — the sole authority for which `RepoIdentifier`/`BoundProviders` pair a workflow's `RepoContext` uses, and why a caller-supplied `repoId` that contradicts the launch boundary throws rather than minting a second provider set
@@ -2234,3 +693,314 @@
     - When a phase or orchestrator still holds a `GitContext` and needs to know whether that use is git-only (allowed) or forge-semantic (should route through the provider pair instead)
     - When troubleshooting `autoMergePhase.ts`'s `hitl` label gate, `depauditSetup.ts`'s secret propagation, or `docsSelfCheck.ts`'s open-issue search after this migration
     - When extending this migration to a module not yet covered (`adwChore.tsx`, `adwClearComments.tsx`, `unitTestPhase.ts`, `stackCoherenceReporter.ts`, `prReviewPhase.ts`'s `fetchPRDetails`/`getUnaddressedComments`, or `adws/github/hitlBoardNotifier`'s `notifyBlockedTransition` platform branch) — these were deliberately deferred to the next wave
+
+- app_docs/feature-9gjajh-build-and-plan-phases.md
+  - Owns:
+    - adws/phases/buildPhase.ts
+    - adws/phases/planPhase.ts
+    - adws/phases/planValidationPhase.ts
+    - adws/phases/installPhase.ts
+    - adws/phases/alignmentPhase.ts
+  - Conditions:
+    - When working on build, plan, plan-validation, install, or alignment phases in `adws/phases/`
+
+- app_docs/feature-9gjajh-classifier-and-routing.md
+  - Owns:
+    - adws/core/issueClassifier.ts
+    - adws/core/modelRouting.ts
+    - adws/core/workflowMapping.ts
+    - adws/core/workflowCommentParsing.ts
+    - adws/core/__tests__/issueClassifier.test.ts
+    - adws/core/__tests__/workflowCommentParsing.test.ts
+    - adws/core/__tests__/workflowMapping.test.ts
+  - Conditions:
+    - When working on issue classification (feature/bug/chore/etc.), model routing decisions, workflow-type-to-phase mapping, or workflow comment parsing
+    - When working on `issueClassifier.ts`, `modelRouting.ts`, `workflowMapping.ts`, or `workflowCommentParsing.ts`
+
+- app_docs/feature-9gjajh-claude-agents-core.md
+  - Owns:
+    - adws/agents/claudeAgent.ts
+    - adws/agents/commandAgent.ts
+    - adws/agents/gitAgent.ts
+    - adws/agents/agentProcessHandler.ts
+    - adws/agents/jsonlParser.ts
+    - adws/agents/index.ts
+  - Conditions:
+    - When working on the low-level Claude agent runner, command agents, git agents, agent process lifecycle, or the JSONL output parser in `adws/agents/`
+    - When working on `claudeAgent.ts`, `commandAgent.ts`, `gitAgent.ts`, `agentProcessHandler.ts`, or `jsonlParser.ts`
+
+- app_docs/feature-9gjajh-claude-stream-parser.md
+  - Owns:
+    - adws/core/claudeStreamParser.ts
+    - adws/core/jsonParser.ts
+    - adws/core/orchestratorCli.ts
+    - adws/core/orchestratorLib.ts
+    - adws/core/phaseRunner.ts
+    - adws/core/__tests__/claudeStreamParser.test.ts
+    - adws/core/__tests__/phaseRunner.test.ts
+  - Conditions:
+    - When working on the Claude JSONL/streaming output parser, JSON line parser, orchestrator CLI entry points, or the phase runner loop
+    - When working on `claudeStreamParser.ts`, `jsonParser.ts`, `orchestratorCli.ts`, `orchestratorLib.ts`, or `phaseRunner.ts`
+    - When debugging how ADW reads Claude Code's stdout/stderr or how phases are sequenced by the runner
+
+- app_docs/feature-9gjajh-coordination-kernel.md
+  - Owns:
+    - adws/core/processLiveness.ts
+    - adws/core/heartbeat.ts
+    - adws/core/hungOrchestratorDetector.ts
+    - adws/core/agentTimeouts.ts
+    - adws/core/retryOrchestrator.ts
+    - adws/core/processKill.ts
+    - adws/core/__tests__/heartbeat.test.ts
+    - adws/core/__tests__/processLiveness.test.ts
+    - adws/core/__tests__/hungOrchestratorDetector.test.ts
+  - Conditions:
+    - When working on process liveness, heartbeat signals, hung orchestrator detection, or agent timeout enforcement in `adws/core/`
+    - When debugging a stuck or zombie orchestrator process
+    - When working on `processLiveness.ts`, `heartbeat.ts`, `hungOrchestratorDetector.ts`, `agentTimeouts.ts`, `retryOrchestrator.ts`, or `processKill.ts`
+
+- app_docs/feature-9gjajh-dev-server-and-ports.md
+  - Owns:
+    - adws/core/devServerLifecycle.ts
+    - adws/core/portAllocator.ts
+    - adws/core/remoteReconcile.ts
+    - adws/core/targetRepoManager.ts
+    - adws/core/__tests__/devServerLifecycle.test.ts
+    - adws/core/__tests__/remoteReconcile.test.ts
+  - Conditions:
+    - When working on dev server lifecycle management, dynamic port allocation, remote repo reconciliation, or target repo cloning/updating
+    - When working on `devServerLifecycle.ts`, `portAllocator.ts`, `remoteReconcile.ts`, or `targetRepoManager.ts`
+
+- app_docs/feature-9gjajh-document-phase.md
+  - Owns:
+    - adws/phases/documentPhase.ts
+  - Conditions:
+    - When working on the document phase in `adws/phases/` (the thin wrapper that invokes the `/document` agent)
+
+- app_docs/feature-9gjajh-feature-orchestrators.md
+  - Owns:
+    - adws/adwBuild.tsx
+    - adws/adwPlan.tsx
+    - adws/adwTest.tsx
+    - adws/adwMerge.tsx
+    - adws/adwChore.tsx
+    - adws/adwPatch.tsx
+    - adws/adwPrReview.tsx
+    - adws/adwDocument.tsx
+    - adws/adwUpgrade.tsx
+    - adws/adwClearComments.tsx
+    - adws/adwBuildHelpers.ts
+    - adws/index.ts
+  - Conditions:
+    - When working on single-issue orchestrators: `adwBuild`, `adwPlan`, `adwTest`, `adwMerge`, `adwChore`, `adwPatch`, `adwPrReview`, `adwDocument`, `adwPromotionSweep`, `adwUpgrade`, `adwClearComments`
+    - When working on top-level `adws/index.ts` exports or `adwBuildHelpers.ts`
+
+- app_docs/feature-9gjajh-freeze-and-coherence.md
+  - Owns:
+    - adws/core/stackCoherenceCheck.ts
+    - adws/core/resolveFreezeGuard.ts
+    - adws/core/stepDefDetection.ts
+    - adws/core/__tests__/stackCoherenceCheck.test.ts
+    - adws/core/__tests__/resolveFreezeGuard.test.ts
+    - adws/core/__tests__/stepDefDetection.test.ts
+  - Conditions:
+    - When working on scenario freeze guards, stack coherence checking (conflicting merge candidates), or step definition auto-detection
+    - When working on `stackCoherenceCheck.ts`, `resolveFreezeGuard.ts`, or `stepDefDetection.ts`
+
+- app_docs/feature-9gjajh-hash-and-versioning.md
+  - Owns:
+    - adws/core/hashComputer.ts
+    - adws/core/adwVersion.ts
+    - adws/core/adwId.ts
+    - adws/core/upgradeClaim.ts
+    - adws/core/__tests__/adwVersion.test.ts
+    - adws/core/__tests__/hashComputer.test.ts
+    - adws/core/__tests__/upgradeClaim.test.ts
+    - adws/core/__tests__/upgradeClaim.integration.test.ts
+  - Conditions:
+    - When working on ADW hash computation (input hash, regen verification), ADW version strings, ADW IDs, or upgrade claims
+    - When working on `hashComputer.ts`, `adwVersion.ts`, `adwId.ts`, or `upgradeClaim.ts`
+    - When the `adwUpgrade` self-upgrade loop or hash-based regen guard is involved
+
+- app_docs/feature-9gjajh-pause-and-auth-queues.md
+  - Owns:
+    - adws/core/pauseQueue.ts
+    - adws/core/authGate.ts
+    - adws/core/__tests__/authGate.test.ts
+  - Conditions:
+    - When working on the ADW pause queue (orchestrators waiting for a resume signal) or the auth gate (401/auth-failure classification and Slack notification)
+    - When working on `pauseQueue.ts` or `authGate.ts`
+    - When debugging a stuck pause or an auth failure that killed in-flight agents
+
+- app_docs/feature-9gjajh-plan-and-build-agents.md
+  - Owns:
+    - adws/agents/planAgent.ts
+    - adws/agents/alignmentAgent.ts
+    - adws/agents/buildAgent.ts
+    - adws/agents/installAgent.ts
+  - Conditions:
+    - When working on the plan agent, alignment agent, build agent, or install agent in `adws/agents/`
+    - When working on `planAgent.ts`, `alignmentAgent.ts`, `buildAgent.ts`, or `installAgent.ts`
+
+- app_docs/feature-9gjajh-pr-and-document-agents.md
+  - Owns:
+    - adws/agents/prAgent.ts
+    - adws/agents/documentAgent.ts
+    - adws/agents/dependencyExtractionAgent.ts
+  - Conditions:
+    - When working on the PR creation agent, document agent (runs `/document`), or dependency extraction agent in `adws/agents/`
+
+- app_docs/feature-9gjajh-pr-and-merge-phases.md
+  - Owns:
+    - adws/phases/prPhase.ts
+    - adws/phases/prReviewPhase.ts
+    - adws/phases/prReviewCompletion.ts
+    - adws/phases/autoMergePhase.ts
+  - Conditions:
+    - When working on PR creation, PR review, PR review completion, or auto-merge phases in `adws/phases/`
+
+- app_docs/feature-9gjajh-proof-and-scenario-proof.md
+  - Owns:
+    - adws/phases/proofPublishPhase.ts
+    - adws/phases/scenarioProof.ts
+    - adws/phases/stackCoherenceReporter.ts
+    - adws/proof/**
+  - Conditions:
+    - When working on proof artifact harvesting, PR proof publishing, scenario proof attachment, stack coherence reporting, or the `adws/proof/` module
+
+- app_docs/feature-9gjajh-review-and-diff-phases.md
+  - Owns:
+    - adws/phases/reviewPhase.ts
+    - adws/phases/diffEvaluationPhase.ts
+    - adws/phases/reviewPatchHelpers.ts
+  - Conditions:
+    - When working on the review phase, diff evaluation phase, or review patch helpers in `adws/phases/`
+
+- app_docs/feature-9gjajh-review-and-patch-agents.md
+  - Owns:
+    - adws/agents/reviewAgent.ts
+    - adws/agents/diffEvaluatorAgent.ts
+    - adws/agents/patchAgent.ts
+    - adws/agents/refactorAgent.ts
+    - adws/agents/resolutionAgent.ts
+    - adws/agents/validationAgent.ts
+  - Conditions:
+    - When working on review, diff evaluation, patch, refactor, resolution, or validation agents in `adws/agents/`
+
+- app_docs/feature-9gjajh-scenario-and-stepdef-agents.md
+  - Owns:
+    - adws/agents/bddScenarioRunner.ts
+    - adws/agents/scenarioAgent.ts
+    - adws/agents/scenarioFidelityAgent.ts
+    - adws/agents/stepDefAgent.ts
+    - adws/agents/testAgent.ts
+    - adws/agents/testRetry.ts
+  - Conditions:
+    - When working on BDD scenario runner, scenario writer agent, scenario fidelity agent, step def generation agent, test agent, or test retry in `adws/agents/`
+
+- app_docs/feature-9gjajh-sdlc-orchestrators.md
+  - Owns:
+    - adws/adwSdlc.tsx
+    - adws/adwPlanBuild.tsx
+    - adws/adwPlanBuildDocument.tsx
+    - adws/adwPlanBuildReview.tsx
+    - adws/adwPlanBuildTest.tsx
+    - adws/adwPlanBuildTestReview.tsx
+    - adws/workflowPhases.ts
+  - Conditions:
+    - When working on the top-level SDLC workflow orchestrators: `adwSdlc`, `adwPlanBuild`, `adwPlanBuildDocument`, `adwPlanBuildReview`, `adwPlanBuildTest`, `adwPlanBuildTestReview`
+    - When working on workflow-level phase sequencing in `workflowPhases.ts`
+
+- app_docs/feature-9gjajh-slack-and-logging.md
+  - Owns:
+    - adws/core/slackNotifier.ts
+    - adws/core/logger.ts
+    - adws/core/utils.ts
+    - adws/core/__tests__/slackNotifier.test.ts
+  - Conditions:
+    - When working on Slack notifications, the ADW structured logger, or shared utility functions in `adws/core/`
+    - When working on `slackNotifier.ts`, `logger.ts`, or `utils.ts`
+
+- app_docs/feature-9gjajh-state-and-config.md
+  - Owns:
+    - adws/core/agentState.ts
+    - adws/core/stateHelpers.ts
+    - adws/core/projectConfig.ts
+    - adws/core/adwYmlConfig.ts
+    - adws/core/config.ts
+    - adws/core/constants.ts
+    - adws/core/environment.ts
+    - adws/core/index.ts
+    - adws/core/__tests__/stateHelpers.test.ts
+    - adws/core/__tests__/projectConfig.test.ts
+    - adws/core/__tests__/adwYmlConfig.test.ts
+    - adws/core/__tests__/environment.test.ts
+    - adws/core/__tests__/topLevelState.test.ts
+  - Conditions:
+    - When working on ADW agent state persistence, top-level state helpers, project config loading, `.adw/adw.yml` configuration, or environment resolution
+    - When working on `agentState.ts`, `stateHelpers.ts`, `projectConfig.ts`, `adwYmlConfig.ts`, `config.ts`, `constants.ts`, or `environment.ts`
+    - When the `ProjectConfig` structured fields (`conditionalDocs`, `conditionalDocsMd`, etc.) or the `.adw/` directory parsing is involved
+
+- app_docs/feature-9gjajh-test-and-scenario-phases.md
+  - Owns:
+    - adws/phases/scenarioPhase.ts
+    - adws/phases/scenarioTestPhase.ts
+    - adws/phases/scenarioTestFixLoop.ts
+    - adws/phases/scenarioFixPhase.ts
+    - adws/phases/unitTestPhase.ts
+    - adws/phases/stepDefPhase.ts
+  - Conditions:
+    - When working on scenario writing, scenario test execution, scenario fix loop, unit test, or step def phases in `adws/phases/`
+
+- app_docs/feature-9gjajh-test-report-and-verdict.md
+  - Owns:
+    - adws/core/testReportParser.ts
+    - adws/core/testVerdict.ts
+    - adws/core/resolveVerdict.ts
+    - adws/core/__tests__/testReportParser.test.ts
+    - adws/core/__tests__/testVerdict.test.ts
+    - adws/core/__tests__/resolveVerdict.test.ts
+  - Conditions:
+    - When working on JUnit XML parsing, test verdict derivation, or scenario proof pass/fail resolution
+    - When working on `testReportParser.ts`, `testVerdict.ts`, or `resolveVerdict.ts`
+    - When debugging why a test phase verdict is wrong or how JUnit reports are aggregated
+
+- app_docs/feature-9gjajh-workflow-lifecycle-phases.md
+  - Owns:
+    - adws/phases/workflowInit.ts
+    - adws/phases/workflowCompletion.ts
+    - adws/phases/upgradeGate.ts
+    - adws/phases/orchestratorLock.ts
+    - adws/phases/progressGate.ts
+    - adws/phases/branchNameResolution.ts
+    - adws/phases/authPause.ts
+    - adws/phases/depauditSetup.ts
+    - adws/phases/gherkinFreeze.ts
+    - adws/phases/phaseCommentHelpers.ts
+    - adws/phases/index.ts
+  - Conditions:
+    - When working on workflow initialization, completion, upgrade gating, orchestrator locking, progress gating, branch name resolution, auth pause, depaudit setup, Gherkin freeze, or phase comment helpers in `adws/phases/`
+
+- app_docs/feature-o4qdu5-app-docs-living-docs-convergence-registry.md
+  - Owns:
+    - adws/core/conditionalDocsRegistry.ts
+    - adws/core/__tests__/conditionalDocsRegistry.test.ts
+    - .adw/conditional_docs.md
+    - .claude/commands/document.md
+    - adws/checkLivingDocsIndex.ts
+    - features/per-issue/feature-609.feature
+    - features/per-issue/feature-610.feature
+    - features/per-issue/step_definitions/feature-609.steps.ts
+    - features/per-issue/step_definitions/feature-610.steps.ts
+  - Conditions:
+    - When working with `parseConditionalDocs`, `serializeConditionalDocs`, `findOwningEntry`, `findOwningEntries`, `collapseEntries`, or `upsertEntry` in `adws/core/conditionalDocsRegistry.ts`
+    - When implementing or troubleshooting the `/document` routing path: semantic-first ownership judgment, rewrite-in-place, sibling collapse-and-prune, or novel-only create
+    - When collapsing multiple sibling entries for the same area into one doc + one entry (prune redundant docs and index entries)
+    - When regenerating an entry's `Conditions:` block and doc Overview after a rewrite so the semantic matcher stays accurate
+    - When adding or updating `Owns:` glob blocks in `.adw/conditional_docs.md` for routing
+    - When the `conditionalDocs` structured field on `ProjectConfig` (vs. the raw `conditionalDocsMd` string) is relevant
+    - When troubleshooting legacy entries (no `Owns:` block) that cannot be routed by glob but may still be matched semantically
+    - When extending the glob matcher (`**` vs `*` vs `?` boundary behavior)
+    - When working on the `@adw-609`, `@adw-610`, or `@adw-612` BDD content-assertion scenarios for convergence registry or migration behavior
+    - When running or interpreting `adws/checkLivingDocsIndex.ts` (lossless round-trip, doc↔entry bijection, no-overlap regrowth guard, entry-count sanity)
+    - When the one-off migration that clustered snapshot-era per-run docs into per-module current-state docs is relevant
