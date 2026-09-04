@@ -19,7 +19,14 @@ vi.mock('../../../github/gitContextFactory', () => ({
 
 const mockFetchMergedPRs = vi.fn();
 vi.mock('../ghRepoApi', () => ({
-  createGhRepoApi: vi.fn(() => ({ fetchMergedPRs: mockFetchMergedPRs })),
+  // setSecret is included so the existing setSecret test below (which asserts on
+  // mockSetSecret) keeps passing now that GitHubCodeHost.setSecret routes through
+  // createGhRepoApi(gitContextForRepo(...)).setSecret(...) instead of calling
+  // gitContextForRepo(...).setSecret(...) directly (#797). createPullRequest and
+  // getDefaultBranch also now route through createGhRepoApi, but neither has test
+  // coverage in this file, so no fake methods are added for findPRByBranch/createPR/
+  // defaultBranch.
+  createGhRepoApi: vi.fn(() => ({ fetchMergedPRs: mockFetchMergedPRs, setSecret: mockSetSecret })),
 }));
 
 import { createGitHubCodeHost } from '../githubCodeHost';
@@ -93,7 +100,7 @@ describe('GitHubCodeHost — new method delegation', () => {
     expect(result).toEqual({ success: false, error: 'conflict' });
   });
 
-  it('setSecret delegates to gitContextForRepo(repoInfo).setSecret', () => {
+  it('setSecret delegates to createGhRepoApi(gitContextForRepo(repoInfo)).setSecret', () => {
     const codeHost = createGitHubCodeHost(REPO_ID);
 
     codeHost.setSecret('SOCKET_API_TOKEN', 'sktsec_abc');

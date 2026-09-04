@@ -4,6 +4,13 @@
  * Deliberately does NOT mock issueApi/labelManager (unlike githubIssueTracker.test.ts):
  * only the underlying gitContextForRepo is faked, so the real fail-open (addLabel)
  * vs. rethrow (applyLabel) policies run end to end through the adapter.
+ *
+ * issueApi/labelManager route the fake context through createGhRepoApi(ctx) (#797),
+ * which — for a real GitContext — reads ctx.owner/ctx.repo and builds its own gh
+ * command runner rather than calling methods on ctx directly. createGhRepoApi is
+ * therefore mocked as an identity pass-through so the fake context's own
+ * addIssueLabel/applyLabel methods stay reachable, preserving the "real error
+ * flows through the adapter unchanged" intent above.
  */
 import { describe, it, expect, vi } from 'vitest';
 
@@ -12,6 +19,10 @@ vi.mock('../../../github/gitContextFactory', () => ({
     addIssueLabel: () => { throw new Error('gh api error: 500'); },
     applyLabel: () => { throw new Error('gh api error: 500'); },
   })),
+}));
+
+vi.mock('../ghRepoApi', () => ({
+  createGhRepoApi: vi.fn((ctx) => ctx),
 }));
 
 import { createGitHubIssueTracker } from '../githubIssueTracker';

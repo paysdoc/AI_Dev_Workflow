@@ -55,7 +55,7 @@ export class GitHubCodeHost implements CodeHost {
   }
 
   getDefaultBranch(): string {
-    return gitContextForSync({ owner: this.repoId.owner, repo: this.repoId.repo, selfHost: false }).defaultBranch();
+    return createGhRepoApi(gitContextForSync({ owner: this.repoId.owner, repo: this.repoId.repo, selfHost: false })).defaultBranch();
   }
 
   /** Fetches PR details and maps to PullRequest. */
@@ -86,11 +86,11 @@ export class GitHubCodeHost implements CodeHost {
    * Returns the PR URL and number.
    */
   createPullRequest(options: CreatePROptions): PullRequestResult {
-    const ctx = gitContextForRepo(this.repoInfo);
+    const gh = createGhRepoApi(gitContextForRepo(this.repoInfo));
 
     // Check for an existing open PR on this branch before creating a new one
     try {
-      const existingJson = ctx.findPRByBranch(options.sourceBranch);
+      const existingJson = gh.findPRByBranch(options.sourceBranch);
       const parsed = JSON.parse(existingJson) as Array<{ number: number; state: string; headRefName: string; baseRefName: string; updatedAt: string }>;
       const open = parsed.filter((p) => p.state === 'OPEN');
       if (open.length > 0) {
@@ -103,7 +103,7 @@ export class GitHubCodeHost implements CodeHost {
       // If the check fails, fall through to normal PR creation
     }
 
-    const prUrl = ctx.createPR(options.title, options.body, options.sourceBranch, options.targetBranch);
+    const prUrl = gh.createPR(options.title, options.body, options.sourceBranch, options.targetBranch);
 
     const numberMatch = prUrl.match(/\/pull\/(\d+)$/);
     if (!numberMatch) {
@@ -136,7 +136,7 @@ export class GitHubCodeHost implements CodeHost {
 
   /** Sets a repo secret (e.g. GitHub Actions). */
   setSecret(name: string, value: string): void {
-    gitContextForRepo(this.repoInfo).setSecret(name, value);
+    createGhRepoApi(gitContextForRepo(this.repoInfo)).setSecret(name, value);
   }
 
   /** Merged PRs, newest first, at most `limit`. Throws on failure. */

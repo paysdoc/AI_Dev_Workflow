@@ -13,6 +13,7 @@ import type { RepoInfo } from './githubApi';
 import type { GitHubIssue, GitHubLabel, IssueClassSlashCommand } from '../types/issueTypes';
 import type { GitContext } from '../gitContext';
 import { gitContextForRepo } from './gitContextFactory';
+import { createGhRepoApi } from '../providers/github/ghRepoApi';
 
 // ── Canonical label data ──────────────────────────────────────────────────────
 
@@ -156,7 +157,7 @@ export function ensureAdwLabelsExist(
   repoInfo: RepoInfo,
   deps: LabelManagerDeps = buildDefaultLabelManagerDeps(),
 ): void {
-  const ctx = deps.gitContextForRepo(repoInfo);
+  const ctx = createGhRepoApi(deps.gitContextForRepo(repoInfo));
   let succeeded = 0;
   for (const def of ADW_LABEL_DEFINITIONS) {
     try {
@@ -182,7 +183,7 @@ export function ensureLabelExists(
   repoInfo: RepoInfo,
   deps: LabelManagerDeps = buildDefaultLabelManagerDeps(),
 ): void {
-  deps.gitContextForRepo(repoInfo).createLabel(name, color, description);
+  createGhRepoApi(deps.gitContextForRepo(repoInfo)).createLabel(name, color, description);
 }
 
 /**
@@ -196,7 +197,7 @@ export function applyLabel(
   repoInfo: RepoInfo,
   deps: LabelManagerDeps = buildDefaultLabelManagerDeps(),
 ): void {
-  const ctx = deps.gitContextForRepo(repoInfo);
+  const ctx = createGhRepoApi(deps.gitContextForRepo(repoInfo));
   try {
     ctx.applyLabel(issueNumber, label);
     return;

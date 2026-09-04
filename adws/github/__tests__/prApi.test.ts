@@ -5,6 +5,14 @@ vi.mock('../gitContextFactory', () => ({
   gitContextForRepo: vi.fn(),
 }));
 
+// Production code now calls createGhRepoApi(gitContextForRepo(repoInfo)).op(...) instead of
+// gitContextForRepo(repoInfo).op(...) directly. Mock createGhRepoApi as an identity pass-through
+// so the fake context object constructed below (mockCtx) is returned unchanged, regardless of
+// what gitContextForRepo returns.
+vi.mock('../../providers/github/ghRepoApi', () => ({
+  createGhRepoApi: vi.fn((ctx) => ctx),
+}));
+
 vi.mock('../../core', () => ({
   log: vi.fn(),
 }));

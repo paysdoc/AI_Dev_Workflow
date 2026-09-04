@@ -7,6 +7,9 @@ import { log } from '../core';
 import { type RepoInfo } from './githubApi';
 import { gitContextForRepo } from './gitContextFactory';
 import { notifyReviewTransition } from './hitlBoardNotifier';
+import { createGhRepoApi } from '../providers/github/ghRepoApi';
+
+const gh = (repoInfo: RepoInfo) => createGhRepoApi(gitContextForRepo(repoInfo));
 
 /**
  * Moves a GitHub issue to a target status on its project board.
@@ -23,7 +26,7 @@ export async function moveIssueToStatus(
   repoInfo: RepoInfo,
 ): Promise<boolean> {
   try {
-    const ctx = gitContextForRepo(repoInfo);
+    const ctx = gh(repoInfo);
     const moved = ctx.moveIssueToStatus(issueNumber, targetStatus);
     if (moved && targetStatus.toLowerCase() === 'review') {
       // Await delivery so the orchestrator process cannot exit before the Slack
