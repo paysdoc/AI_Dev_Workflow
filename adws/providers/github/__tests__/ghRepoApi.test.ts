@@ -279,6 +279,15 @@ describe('createPR() head-branch contract', () => {
     expect(calls[0].command).toContain('--head "feature-issue-7-do-thing"');
   });
 
+  it('does not rely on the cwd-inferred head (head differs from base path branch)', () => {
+    // Spy returns 'main' for any command; the head must still be the passed branch.
+    const { exec, calls } = makeSpyExec('main\n');
+    const ctx = new GitContext(validOptions(), { exec });
+    createGhRepoApi(ctx).createPR('T', 'b', 'feature-issue-99-x', 'dev');
+    expect(calls[0].command).toContain('--head "feature-issue-99-x"');
+    expect(calls[0].command).toContain('--base dev');
+  });
+
   it('passes the PR body via --body-file - on stdin', () => {
     const { exec, calls } = makeSpyExec('https://github.com/acme/webapp/pull/1\n');
     const ctx = new GitContext(validOptions(), { exec });
@@ -300,6 +309,13 @@ describe('createPR() with optional labels', () => {
     const { exec, calls } = makeSpyExec('https://github.com/acme/webapp/pull/12\n');
     const ctx = new GitContext(validOptions(), { exec });
     createGhRepoApi(ctx).createPR('T', 'b', 'feature-issue-1-x', 'dev', []);
+    expect(calls[0].command).not.toContain('--label');
+  });
+
+  it('emits no --label when labels parameter is omitted (backward-compat)', () => {
+    const { exec, calls } = makeSpyExec('https://github.com/acme/webapp/pull/12\n');
+    const ctx = new GitContext(validOptions(), { exec });
+    createGhRepoApi(ctx).createPR('T', 'b', 'feature-issue-1-x');
     expect(calls[0].command).not.toContain('--label');
   });
 

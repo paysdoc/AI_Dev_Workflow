@@ -662,19 +662,18 @@ describe('TokenProvider port — per-command resolution', () => {
 });
 
 describe('TokenProvider port — purpose routing', () => {
-  it("approvePR and each board-status-move call reach the provider with purpose 'alternateIdentity'", () => {
+  it("commandEnv reaches the provider with purpose 'alternateIdentity' when explicitly asked — the adapter's seam for approvePR/board-status-move calls", () => {
     const { provider, requests } = makeRecordingProvider(() => ({ GH_TOKEN: 'tok' }));
-    const { exec } = makeSpyExec();
-    const ctx = new GitContext(providerOptions(provider), { exec });
-    ctx.approvePR(7);
+    const ctx = new GitContext(providerOptions(provider));
+    ctx.commandEnv({}, 'alternateIdentity');
     expect(requests[requests.length - 1].purpose).toBe('alternateIdentity');
   });
 
-  it("defaultBranch and an ordinary git op reach the provider with purpose 'default'", () => {
+  it("an ordinary git op reaches the provider with purpose 'default'", () => {
     const { provider, requests } = makeRecordingProvider(() => ({ GH_TOKEN: 'tok' }));
     const { exec } = makeSpyExec();
     const ctx = new GitContext(providerOptions(provider), { exec });
-    ctx.defaultBranch();
+    ctx.remotes();
     ctx.remoteUrl();
     const nonProbeRequests = requests.slice(1);
     for (const req of nonProbeRequests) {
@@ -734,13 +733,3 @@ describe('TokenProvider port — the construction probe caches nothing', () => {
   });
 });
 
-describe('TokenProvider port — transitional literal-token path unchanged', () => {
-  it('a default op yields the token and approvePR yields the pat, restated at the port seam', () => {
-    const { exec, calls } = makeSpyExec();
-    const ctx = new GitContext(validOptions({ token: 'tok', pat: 'pat-tok' }), { exec });
-    ctx.remoteUrl();
-    ctx.approvePR(7);
-    expect(calls[0].env.GH_TOKEN).toBe('tok');
-    expect(calls[1].env.GH_TOKEN).toBe('pat-tok');
-  });
-});

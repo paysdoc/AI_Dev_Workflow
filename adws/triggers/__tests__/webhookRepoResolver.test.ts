@@ -214,7 +214,7 @@ describe('per-event command runs with context own token and cwd (§3a)', () => {
   it('recorded command env.GH_TOKEN equals the context token', async () => {
     const { exec, calls } = recordingExec();
     const ctx = buildContextFromPayload(makePayload('acme', 'webapp', { token: 'token-acme' }), undefined, exec);
-    await ctx.defaultBranch();
+    await ctx.getCurrentBranch();
     expect(calls).toHaveLength(1);
     expect(calls[0].env.GH_TOKEN).toBe('token-acme');
   });
@@ -247,7 +247,7 @@ describe('mid-flight process.env.GH_TOKEN overwrite does not bleed into per-even
     // Simulate a later in-flight event clobbering the global
     process.env.GH_TOKEN = 'token-octo';
 
-    await ctx.defaultBranch();
+    await ctx.getCurrentBranch();
     expect(calls[0].env.GH_TOKEN).toBe('token-acme');
   });
 
@@ -257,7 +257,7 @@ describe('mid-flight process.env.GH_TOKEN overwrite does not bleed into per-even
 
     process.env.GH_TOKEN = 'token-octo';
 
-    await ctx.defaultBranch();
+    await ctx.getCurrentBranch();
     expect(calls[0].env.GH_TOKEN).not.toBe('token-octo');
     // Verify the overwrite token is nowhere in the env values
     const envValues = Object.values(calls[0].env);
@@ -276,8 +276,8 @@ describe('interleaved events for two repos are isolated (§4)', () => {
     const ctxB = buildContextFromPayload(makePayload('octo', 'beta', { token: 'token-beta' }), undefined, recB.exec);
 
     // Interleaved: run op on A, then B
-    await ctxA.defaultBranch();
-    await ctxB.defaultBranch();
+    await ctxA.getCurrentBranch();
+    await ctxB.getCurrentBranch();
 
     expect(recA.calls[0].env.GH_TOKEN).toBe('token-alpha');
     expect(recB.calls[0].env.GH_TOKEN).toBe('token-beta');
@@ -304,8 +304,8 @@ describe('interleaved events for two repos are isolated (§4)', () => {
     const ctxA = buildContextFromPayload(makePayload('acme', 'alpha', { token: 'token-alpha' }), undefined, recA.exec);
     const ctxB = buildContextFromPayload(makePayload('octo', 'beta', { token: 'token-beta' }), undefined, recB.exec);
 
-    await ctxA.defaultBranch();
-    await ctxB.defaultBranch();
+    await ctxA.getCurrentBranch();
+    await ctxB.getCurrentBranch();
 
     const aEnvValues = Object.values(recA.calls[0].env);
     expect(aEnvValues).not.toContain('token-beta');
@@ -318,8 +318,8 @@ describe('interleaved events for two repos are isolated (§4)', () => {
     const ctxA = buildContextFromPayload(makePayload('acme', 'alpha', { token: 'token-alpha' }), undefined, recA.exec);
     const ctxB = buildContextFromPayload(makePayload('octo', 'beta', { token: 'token-beta' }), undefined, recB.exec);
 
-    await ctxA.defaultBranch();
-    await ctxB.defaultBranch();
+    await ctxA.getCurrentBranch();
+    await ctxB.getCurrentBranch();
 
     const bEnvValues = Object.values(recB.calls[0].env);
     expect(bEnvValues).not.toContain('token-alpha');

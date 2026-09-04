@@ -267,7 +267,7 @@ describe('GitContext #run wiring: missing working directory', () => {
       validOptions({ frameworkRepoRoot, targetReposDir }),
       { exec, fsDeps: countingFsDeps },
     );
-    ctx.defaultBranch();
+    ctx.exec('some-repo-api-command', { cwd: { kind: 'frameworkRoot' }, env: ctx.commandEnv() });
     expect(probeCount).toBe(0);
   });
 
@@ -279,8 +279,9 @@ describe('GitContext #run wiring: missing working directory', () => {
       { exec },
     );
     expect(fs.existsSync(ctx.basePath)).toBe(false);
-    expect(() => ctx.defaultBranch()).not.toThrow();
-    expect(ctx.defaultBranch()).toBe('trunk');
+    const repoApiOp = () => ctx.exec('some-repo-api-command', { cwd: { kind: 'frameworkRoot' }, env: ctx.commandEnv() });
+    expect(repoApiOp).not.toThrow();
+    expect(repoApiOp()).toBe('trunk');
   });
 
   it('worktreeRegistration still swallows the enriched error and answers "missing"', () => {

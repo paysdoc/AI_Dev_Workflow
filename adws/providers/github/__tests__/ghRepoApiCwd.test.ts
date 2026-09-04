@@ -1,3 +1,6 @@
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import { describe, it, expect, afterEach } from 'vitest';
 import { GitContext } from '../../../gitContext';
 import type { GitContextOptions, ExecFn } from '../../../gitContext';
@@ -87,6 +90,40 @@ function repoApiMethods(): MethodCase[] {
     { name: 'moveIssueToStatus', invoke: (gh) => gh.moveIssueToStatus(28, 'In Progress') },
   ];
 }
+
+// ── Reproduction: the RED→GREEN proof (#775) ────────────────────────────────
+
+describe('reproduction: a repo-API call succeeds on a host that has never cloned the target workspace', () => {
+  let targetReposDir: string;
+  let frameworkRepoRoot: string;
+
+  afterEach(() => {
+    fs.rmSync(targetReposDir, { recursive: true, force: true });
+    fs.rmSync(frameworkRepoRoot, { recursive: true, force: true });
+  });
+
+  function makeConditionalExec(payload: string): ExecFn {
+    return (_command, options) => {
+      if (!fs.existsSync(options.cwd)) {
+        throw new Error('spawnSync /bin/sh ENOENT');
+      }
+      return payload;
+    };
+  }
+
+  it('fetchIssueComments returns the payload even though targetReposDir/owner/repo was never created', () => {
+    targetReposDir = fs.mkdtempSync(path.join(os.tmpdir(), 'adw-775-target-'));
+    frameworkRepoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'adw-775-framework-'));
+    const payload = '[{"body":"hello"}]';
+    const ctx = new GitContext(
+      validOptions({ frameworkRepoRoot, targetReposDir }),
+      { exec: makeConditionalExec(payload) },
+    );
+    // basePath (targetReposDir/acme/webapp) deliberately does not exist on disk.
+    expect(fs.existsSync(ctx.basePath)).toBe(false);
+    expect(createGhRepoApi(ctx).fetchIssueComments(28)).toBe(payload);
+  });
+});
 
 // ── Table-driven cwd assertion ───────────────────────────────────────────────
 

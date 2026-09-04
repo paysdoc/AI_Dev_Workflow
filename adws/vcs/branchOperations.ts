@@ -1,12 +1,10 @@
 /**
  * Pure branch-identity vocabulary — branch name generation and validation.
- * Write/sync I/O operations have migrated to GitContext methods (#662).
- * The two read-only local helpers below remain for the worktree-domain files
- * (#661 scope) that cannot yet adopt the context pattern.
+ * All I/O has migrated to GitContext methods and boundary-minted providers
+ * (#662, #797); this module is dependency-free.
  */
 
 import { IssueClassSlashCommand, branchPrefixMap, branchPrefixAliases } from '../core';
-import { gitContextForRepo, readLocalRepoInfo } from '../github/gitContextFactory';
 
 /**
  * Protected branches that must never be deleted.
@@ -120,12 +118,4 @@ export function inferIssueTypeFromBranch(branchName: string): IssueClassSlashCom
     return '/pr_review';
   }
   return '/feature';
-}
-
-/**
- * Returns the default branch from the GitHub API.
- * Thin adapter: routes through GitContext.defaultBranch() so auth and cwd are per-command.
- */
-export function getDefaultBranch(cwd?: string): string {
-  return gitContextForRepo(readLocalRepoInfo(cwd)).defaultBranch();
 }
