@@ -1,4 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import {
   extractIssueNumberFromDirName,
   findActiveAdwIdForIssue,
@@ -6,6 +9,7 @@ import {
   discoverTargetRepoWorktrees,
   runJanitorPass,
   JANITOR_GRACE_PERIOD_MS,
+  DEFAULT_DEPS,
   type JanitorDeps,
 } from '../devServerJanitor';
 import type { AgentState } from '../../types/agentTypes';
@@ -167,6 +171,7 @@ function makeDeps(overrides: Partial<JanitorDeps> = {}): JanitorDeps {
   return {
     readdirTargetRepos: vi.fn().mockReturnValue([]),
     isGitRepo: vi.fn().mockReturnValue(true),
+    hasAdwMarker: vi.fn().mockReturnValue(true),
     listWorktrees: vi.fn().mockReturnValue([]),
     readTopLevelState: vi.fn().mockReturnValue(null),
     readTopLevelStateRaw: vi.fn().mockReturnValue(null),
@@ -240,6 +245,84 @@ describe('discoverTargetRepoWorktrees', () => {
         .mockImplementationOnce(() => { throw new Error('permission denied'); }),
     });
     expect(discoverTargetRepoWorktrees(deps)).toEqual([]);
+  });
+
+  // ── .adw marker gate + per-repo fault isolation (#812) ─────────────────────
+
+  it('skips a git repo without an .adw marker — listWorktrees is never called', () => {
+    const deps = makeDeps({
+      readdirTargetRepos: vi.fn()
+        .mockReturnValueOnce(['paicc'])
+        .mockReturnValueOnce(['paicc-1']),
+      isGitRepo: vi.fn().mockReturnValue(true),
+      hasAdwMarker: vi.fn().mockReturnValue(false),
+      listWorktrees: vi.fn(),
+    });
+    expect(discoverTargetRepoWorktrees(deps)).toEqual([]);
+    expect(deps.listWorktrees).not.toHaveBeenCalled();
+    expect(deps.hasAdwMarker).toHaveBeenCalledWith(expect.stringContaining(path.join('paicc', 'paicc-1')));
+  });
+
+  it('discovers a repo carrying both .git and .adw as before', () => {
+    const deps = makeDeps({
+      readdirTargetRepos: vi.fn()
+        .mockReturnValueOnce(['paysdoc'])
+        .mockReturnValueOnce(['AI_Dev_Workflow']),
+      isGitRepo: vi.fn().mockReturnValue(true),
+      hasAdwMarker: vi.fn().mockReturnValue(true),
+      listWorktrees: vi.fn().mockReturnValue(['/repos/paysdoc/AI_Dev_Workflow/.worktrees/feature-issue-1-some-slug']),
+    });
+    const result = discoverTargetRepoWorktrees(deps);
+    expect(result).toHaveLength(1);
+    expect(result[0].dirName).toBe('feature-issue-1-some-slug');
+  });
+
+  it('does not consult the .adw marker for a directory that is not a git repo', () => {
+    const deps = makeDeps({
+      readdirTargetRepos: vi.fn()
+        .mockReturnValueOnce(['paicc'])
+        .mockReturnValueOnce(['paicc-1']),
+      isGitRepo: vi.fn().mockReturnValue(false),
+      hasAdwMarker: vi.fn(),
+      listWorktrees: vi.fn(),
+    });
+    expect(discoverTargetRepoWorktrees(deps)).toEqual([]);
+    expect(deps.hasAdwMarker).not.toHaveBeenCalled();
+    expect(deps.listWorktrees).not.toHaveBeenCalled();
+  });
+
+  it('logs a warning naming the repo and continues with the remaining repos when listWorktrees throws', () => {
+    const deps = makeDeps({
+      readdirTargetRepos: vi.fn()
+        .mockReturnValueOnce(['paicc', 'paysdoc'])
+        .mockReturnValueOnce(['paicc-1'])
+        .mockReturnValueOnce(['AI_Dev_Workflow']),
+      isGitRepo: vi.fn().mockReturnValue(true),
+      hasAdwMarker: vi.fn().mockReturnValue(true),
+      listWorktrees: vi.fn()
+        .mockImplementationOnce(() => { throw new Error('GitHub App installation lookup failed for paicc/paicc-1: HTTP 404 (Not Found)'); })
+        .mockReturnValueOnce(['/repos/paysdoc/AI_Dev_Workflow/.worktrees/feature-issue-1-some-slug']),
+    });
+    const result = discoverTargetRepoWorktrees(deps);
+    expect(result).toHaveLength(1);
+    expect(result[0].dirName).toBe('feature-issue-1-some-slug');
+    expect(deps.listWorktrees).toHaveBeenCalledTimes(2);
+    expect(deps.log).toHaveBeenCalledWith(expect.stringContaining('paicc/paicc-1'), 'warn');
+  });
+
+  it('returns an empty array (and does not throw) when the only repo\'s listWorktrees throws', () => {
+    const deps = makeDeps({
+      readdirTargetRepos: vi.fn()
+        .mockReturnValueOnce(['paicc'])
+        .mockReturnValueOnce(['paicc-1']),
+      isGitRepo: vi.fn().mockReturnValue(true),
+      hasAdwMarker: vi.fn().mockReturnValue(true),
+      listWorktrees: vi.fn().mockImplementation(() => { throw new Error('network unreachable'); }),
+    });
+    let result: ReturnType<typeof discoverTargetRepoWorktrees> = [];
+    expect(() => { result = discoverTargetRepoWorktrees(deps); }).not.toThrow();
+    expect(result).toEqual([]);
+    expect(deps.log).toHaveBeenCalledWith(expect.stringContaining('paicc/paicc-1'), 'warn');
   });
 });
 
@@ -506,6 +589,65 @@ describe('runJanitorPass', () => {
     await runJanitorPass(deps);
     // errorWt threw during processing, cleanWt should still be killed
     expect(deps.killProcessesInDirectory).toHaveBeenCalledWith(cleanWt);
+  });
+
+  // ── .adw marker gate + per-repo fault isolation (#812) ─────────────────────
+
+  it('still probes and cleans the remaining repos\' worktrees when one repo\'s worktree listing throws', async () => {
+    const healthyWt = '/repos/paysdoc/AI_Dev_Workflow/.worktrees/feature-issue-1-some-slug';
+    const deps = makeDeps({
+      readdirTargetRepos: vi.fn()
+        .mockReturnValueOnce(['paicc', 'paysdoc'])
+        .mockReturnValueOnce(['paicc-1'])
+        .mockReturnValueOnce(['AI_Dev_Workflow']),
+      isGitRepo: vi.fn().mockReturnValue(true),
+      hasAdwMarker: vi.fn().mockReturnValue(true),
+      listWorktrees: vi.fn()
+        .mockImplementationOnce(() => { throw new Error('GitHub App installation lookup failed for paicc/paicc-1: HTTP 404 (Not Found)'); })
+        .mockReturnValueOnce([healthyWt]),
+      hasProcessesInDirectory: vi.fn().mockReturnValue(true),
+      listAdwStateDirs: vi.fn().mockReturnValue([]),
+      readTopLevelStateRaw: vi.fn().mockReturnValue(null),
+      readTopLevelState: vi.fn().mockReturnValue(null),
+      isAgentProcessRunning: vi.fn().mockReturnValue(false),
+      getWorktreeAgeMs: vi.fn().mockReturnValue(OLD),
+    });
+    await expect(runJanitorPass(deps)).resolves.toBeUndefined();
+    expect(deps.hasProcessesInDirectory).toHaveBeenCalledWith(healthyWt);
+    expect(deps.killProcessesInDirectory).toHaveBeenCalledWith(healthyWt);
+    expect(deps.log).toHaveBeenCalledWith(expect.stringContaining('paicc/paicc-1'), 'warn');
+  });
+
+  it('real filesystem: only a directory carrying both .git and .adw under the injected root is listed', async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'janitor-812-'));
+    try {
+      fs.mkdirSync(path.join(root, 'paicc', 'paicc-1', '.git'), { recursive: true });
+      fs.mkdirSync(path.join(root, 'paysdoc', 'AI_Dev_Workflow', '.git'), { recursive: true });
+      fs.mkdirSync(path.join(root, 'paysdoc', 'AI_Dev_Workflow', '.adw'), { recursive: true });
+      fs.mkdirSync(path.join(root, 'acme', 'notes', '.adw'), { recursive: true });
+
+      const listWorktrees = vi.fn((owner: string) => {
+        if (owner === 'paicc') throw new Error('GitHub App installation lookup failed for paicc/paicc-1: HTTP 404 (Not Found)');
+        return [];
+      });
+      const log = vi.fn();
+      const deps: JanitorDeps = {
+        ...DEFAULT_DEPS,
+        listWorktrees,
+        hasProcessesInDirectory: vi.fn().mockReturnValue(false),
+        killProcessesInDirectory: vi.fn(),
+        log,
+      };
+
+      await runJanitorPass(deps, root);
+
+      expect(listWorktrees).toHaveBeenCalledTimes(1);
+      expect(listWorktrees).toHaveBeenCalledWith('paysdoc', 'AI_Dev_Workflow');
+      expect(deps.killProcessesInDirectory).not.toHaveBeenCalled();
+      expect(log.mock.calls.some(([, level]) => level === 'warn')).toBe(false);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
   });
 });
 
