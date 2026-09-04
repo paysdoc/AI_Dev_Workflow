@@ -332,9 +332,9 @@ describe('scanFiles — unsanctioned-construction rule (#795)', () => {
       expect(violations).toHaveLength(0);
     });
 
-    it('permits createGhCommandRunner/createGitHubTokenProvider/createIssueCmd — the flagged set is explicit names, never a create* pattern', () => {
+    it('permits createGhCommandRunner/createGitHubTokenProvider/createIssueCmd/createGhRepoApi — the flagged set is explicit names, never a create* pattern', () => {
       mockReadFileSync.mockReturnValue(
-        'const runner = createGhCommandRunner(ctx);\nconst tp = createGitHubTokenProvider({ pat });\nconst cmd = createIssueCmd(o, r, t);\n',
+        'const runner = createGhCommandRunner(ctx);\nconst tp = createGitHubTokenProvider({ pat });\nconst cmd = createIssueCmd(o, r, t);\nconst gh = createGhRepoApi(ctx);\n',
       );
 
       const { violations } = scanFiles(['adws/phases/someNewPhase.ts'], '/repo');

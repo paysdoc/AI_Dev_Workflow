@@ -67,19 +67,21 @@ export const GIT_CONTEXT_CLASS_NAME = 'GitContext';
  *
  *  - PERMANENT (2, no `owner`) — the launch boundary and the mint
  *    implementation it delegates to. Nothing will ever remove these.
- *  - TRANSITIONAL (owned by #796 or #797) — the not-yet-migrated call sites
- *    #794 deliberately left behind. Each entry is deleted the moment its
- *    file's migration slice lands; the stale-entry ratchet in
+ *  - TRANSITIONAL (owned by #796) — the not-yet-migrated call sites #794
+ *    deliberately left behind. Each entry is deleted the moment its file's
+ *    migration slice lands; the stale-entry ratchet in
  *    `checkGitGhGuard.ts`'s `main()` enforces that deletion. NOTHING MAY
  *    EVER BE ADDED TO THE TRANSITIONAL HALF — a new construction site must
  *    call `buildLaunchBoundary`, not join this list.
  *
- * #796 owns the non-boundary `gitContextFor`/`gitContextForSync`/
- * `gitContextForRepo` call-site migration (the context factories, including
- * the module that defines them); #797 owns the non-boundary
- * `createRepoContext`/`createGitHubCodeHost` call-site migration (the
- * provider/RepoContext factories) — the five sites #794 explicitly left
- * behind (PRD Implementation Decisions, "Launch boundary").
+ * Transitional entries are the residual per-call `gitContextFor`/
+ * `gitContextForSync`/`gitContextForRepo` constructions inside the GitHub
+ * API layer and the worktree-owning phases (#796's remit). #797 closed
+ * every provider/RepoContext construction site — `createRepoContext` and
+ * the forge provider factories (`createGitHubCodeHost` and siblings) are
+ * now called only from `adws/providers/repoContext.ts` and
+ * `adws/core/launchGitContext.ts`, so no entry in this list is owned by
+ * #797 any longer.
  */
 export const SANCTIONED_CONSTRUCTION_SITES = [
   // ── Permanent (2) ──────────────────────────────────────────────────────
@@ -91,8 +93,6 @@ export const SANCTIONED_CONSTRUCTION_SITES = [
   { file: 'adws/checkLivingDocsIndex.ts', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },
   { file: 'adws/core/orchestratorLib.ts', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },
   { file: 'adws/core/remoteReconcile.ts', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },
-  { file: 'adws/core/targetRepoManager.ts', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },
-  { file: 'adws/core/upgradeClaim.ts', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },
   { file: 'adws/github/githubApi.ts', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },
   { file: 'adws/github/hitlBoardNotifier.ts', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },
   { file: 'adws/github/issueApi.ts', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },
@@ -106,25 +106,17 @@ export const SANCTIONED_CONSTRUCTION_SITES = [
   { file: 'adws/phases/buildPhase.ts', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },
   { file: 'adws/phases/documentPhase.ts', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },
   { file: 'adws/phases/prPhase.ts', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },
+  { file: 'adws/phases/prReviewPhase.ts', reason: 'non-boundary gitContextForSync/gitContextFor call site for worktree work (createRepoContext removed in #797)', owner: '#796' },
   { file: 'adws/phases/reviewPhase.ts', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },
   { file: 'adws/phases/scenarioFixPhase.ts', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },
+  { file: 'adws/phases/workflowInit.ts', reason: 'non-boundary gitContextForSync/gitContextFor call site for worktree work (createRepoContext removed in #797)', owner: '#796' },
   { file: 'adws/triggers/autoMergeHandler.ts', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },
   { file: 'adws/triggers/cancelHandler.ts', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },
-  { file: 'adws/triggers/concurrencyGuard.ts', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },
   { file: 'adws/triggers/devServerJanitor.ts', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },
-  { file: 'adws/triggers/issueClosedUnblockRouter.ts', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },
   { file: 'adws/triggers/takeoverHandler.ts', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },
-  { file: 'adws/triggers/trigger_cron.ts', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },
   { file: 'adws/triggers/trigger_webhook.ts', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },
-  { file: 'adws/triggers/webhookGatekeeper.ts', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },
   { file: 'adws/triggers/webhookHandlers.ts', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },
-  { file: 'adws/vcs/branchOperations.ts', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },
   { file: 'adws/vcs/worktreeOperations.ts', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },
-
-  // ── Transitional (#797 — createRepoContext/createGitHubCodeHost call sites left behind by #794) ──
-  { file: 'adws/phases/prReviewPhase.ts', reason: 'createRepoContext for provider-agnostic PR-review comments', owner: '#797' },
-  { file: 'adws/phases/workflowInit.ts', reason: 'createRepoContext at workflow init, reusing boundary providers when identity matches', owner: '#797' },
-  { file: 'adws/triggers/pauseQueueScanner.ts', reason: 'createRepoContext at four best-effort error-comment sites', owner: '#797' },
 ] as const;
 
 /** True when `relPath` exactly matches a sanctioned site. Exact path match only — a directory prefix is never sanctioned. */
