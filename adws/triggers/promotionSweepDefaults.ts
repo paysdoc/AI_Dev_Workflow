@@ -1,12 +1,13 @@
 /**
  * Production dependency implementations for `runPromotionSweep` — the real
- * GitContext/fs-backed I/O that `promotionSweep.ts`'s deps default to when no
- * override is injected. Split out to keep `promotionSweep.ts`'s orchestration
- * logic under the file-length guideline.
+ * GitContext/provider-backed I/O that `promotionSweep.ts`'s deps default to
+ * when no override is injected. Split out to keep `promotionSweep.ts`'s
+ * orchestration logic under the file-length guideline.
  *
- * `makeDefaultDeps(ctx)` closes every helper over the single launch-boundary
- * GitContext passed in — this module performs no repo-identity resolution of
- * its own, and constructs zero additional GitContexts per call.
+ * `makeDefaultDeps(boundary)` closes every helper over the single
+ * launch-boundary passed in — git ops read from `boundary.gitContext`, forge
+ * ops from `boundary.providers` — so this module performs no repo-identity
+ * resolution of its own, and constructs zero additional GitContexts per call.
  *
  * `tagAndCommit` and `fileIssue` are deliberately allowed to throw (no
  * internal try/catch beyond the branch-guard no-op) — the shell's
@@ -18,13 +19,12 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { log, loadProjectConfig } from '../core';
-import { applyLabel } from '../github';
 import { ADW_REGRESSION_PROMOTION_LABEL } from '../github/labelManager';
 import { loadPromotionStats } from '../promotion';
 import type { PromotionStats } from '../promotion';
 import type { PromotionIssueRef } from '../core/promotionReconcileLink';
 import type { PromotionIssueSpec } from '../core/promotionIssueBody';
-import type { GitContext } from '../gitContext';
+import type { LaunchBoundary } from '../core';
 
 export const FEATURE_FILENAME_RE = /^feature-(\d+)\.feature$/;
 
@@ -51,18 +51,14 @@ export interface PromotionSweepDefaultDeps {
   fileIssue: (spec: PromotionIssueSpec) => void;
 }
 
-function extractIssueNumber(url: string): number {
-  const match = url.trim().match(/\/issues\/(\d+)$/);
-  if (!match) throw new Error(`promotionSweep: could not parse issue number from gh output: "${url.trim()}"`);
-  return parseInt(match[1], 10);
-}
-
 /**
  * Builds the nine production defaults for `runPromotionSweep`, each closing
- * over the single passed `ctx` — the cron's (or CLI's) launch-boundary
- * GitContext. Constructs no additional GitContext.
+ * over the single passed launch boundary — the cron's (or CLI's). Constructs
+ * no additional GitContext and mints no additional providers.
  */
-export function makeDefaultDeps(ctx: GitContext): PromotionSweepDefaultDeps {
+export function makeDefaultDeps(boundary: LaunchBoundary): PromotionSweepDefaultDeps {
+  const ctx = boundary.gitContext;
+  const { issueTracker, codeHost } = boundary.providers;
   return {
     listPerIssueFeatures: () => {
       try {
@@ -123,13 +119,12 @@ export function makeDefaultDeps(ctx: GitContext): PromotionSweepDefaultDeps {
 
     listPromotionIssues: (): PromotionIssueRef[] => {
       try {
-        const json = ctx.listOpenIssues({
+        return issueTracker.listIssues({
           fields: ['number', 'body', 'state', 'labels'],
           state: 'all',
           search: `label:"${ADW_REGRESSION_PROMOTION_LABEL}"`,
           limit: 200,
-        });
-        return JSON.parse(json) as PromotionIssueRef[];
+        }) as PromotionIssueRef[];
       } catch {
         return [];
       }
@@ -142,7 +137,7 @@ export function makeDefaultDeps(ctx: GitContext): PromotionSweepDefaultDeps {
      * no-op skip, not an error).
      */
     tagAndCommit: (filePath: string, newContent: string, message: string) => {
-      const branch = ctx.defaultBranch();
+      const branch = codeHost.getDefaultBranch();
       if (ctx.getCurrentBranch(ctx.basePath) !== branch) {
         log(`promotionSweep: checkout is not on default branch "${branch}" — skipping persistence`, 'warn');
         return;
@@ -154,10 +149,9 @@ export function makeDefaultDeps(ctx: GitContext): PromotionSweepDefaultDeps {
 
     /** Files the issue and applies every label. */
     fileIssue: (spec: PromotionIssueSpec) => {
-      const repoInfo = { owner: ctx.owner, repo: ctx.repo };
-      const issueNumber = extractIssueNumber(ctx.createIssue(spec.title, spec.body));
+      const issueNumber = issueTracker.createIssue(spec.title, spec.body);
       for (const label of spec.labels) {
-        applyLabel(issueNumber, label, repoInfo);
+        issueTracker.applyLabel(issueNumber, label);
       }
     },
   };

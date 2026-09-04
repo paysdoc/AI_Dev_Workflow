@@ -8,14 +8,14 @@
  * PR → immediate best-effort merge). The cron host's own base checkout
  * (`frameworkRepoRoot`) is never reset or mutated.
  *
- * The base is resolved from the passed launch-boundary GitContext's own repo
- * — never from cwd. This module performs no repo-identity resolution.
+ * The base is resolved from the passed launch boundary's own repo — never
+ * from cwd. This module performs no repo-identity resolution.
  */
 
 import { log as coreLog, type LogLevel } from '../core';
-import { mergePR, defaultFindPRByBranch, type RepoInfo } from '../github';
-import { extractPrNumber } from '../adwBuildHelpers';
+import type { LaunchBoundary } from '../core';
 import type { GitContext } from '../gitContext';
+import type { CodeHost } from '../providers/types';
 
 /** Stable dedicated branch the sweep removal is pushed to and PR'd from. */
 export const SWEEP_BRANCH = 'chore/scenario-sweep';
@@ -29,14 +29,14 @@ const PR_BODY = 'Automated removal of per-issue scenario files whose linked PR m
 /** Resolved collaborators for one sweep persist cycle. */
 export interface SweepBase {
   readonly ctx: GitContext;
-  readonly repoInfo: RepoInfo;
+  readonly codeHost: CodeHost;
   readonly defaultBranch: string;
   readonly sweepBranch: string;
   readonly worktreePath: string;
   /** Returns the open sweep PR number for `sweepBranch`, or null if none is open. */
   readonly findOpenSweepPr: (sweepBranch: string) => number | null;
-  /** Opens a PR from `sweepBranch` into `baseBranch`; returns the PR URL. */
-  readonly openPr: (sweepBranch: string, baseBranch: string) => string;
+  /** Opens a PR from `sweepBranch` into `baseBranch`; returns the PR number. */
+  readonly openPr: (sweepBranch: string, baseBranch: string) => number;
   readonly mergePr: (prNumber: number) => { success: boolean; error?: string };
   readonly log: (msg: string, level?: LogLevel) => void;
 }
@@ -48,11 +48,11 @@ export interface SweepBase {
  * the sweep degrades to a no-op for this cycle instead of crashing its
  * unwrapped caller in trigger_cron.ts.
  */
-export function prepareSweepBase(gitContext: GitContext): SweepBase | null {
+export function prepareSweepBase(boundary: LaunchBoundary): SweepBase | null {
   try {
-    const ctx = gitContext;
-    const repoInfo: RepoInfo = { owner: ctx.owner, repo: ctx.repo };
-    const defaultBranch = ctx.defaultBranch();
+    const ctx = boundary.gitContext;
+    const codeHost = boundary.providers.codeHost;
+    const defaultBranch = codeHost.getDefaultBranch();
 
     try {
       ctx.removeWorktree(SWEEP_BRANCH);
@@ -63,16 +63,16 @@ export function prepareSweepBase(gitContext: GitContext): SweepBase | null {
 
     return {
       ctx,
-      repoInfo,
+      codeHost,
       defaultBranch,
       sweepBranch: SWEEP_BRANCH,
       worktreePath,
       findOpenSweepPr: (branch) => {
-        const pr = defaultFindPRByBranch(branch, repoInfo);
+        const pr = codeHost.findPullRequestByBranch(branch);
         return pr && pr.state.toUpperCase() === 'OPEN' ? pr.number : null;
       },
-      openPr: (head, base) => ctx.createPR(PR_TITLE, PR_BODY, head, base),
-      mergePr: (prNumber) => mergePR(prNumber, repoInfo),
+      openPr: (head, base) => codeHost.createPullRequest({ title: PR_TITLE, body: PR_BODY, sourceBranch: head, targetBranch: base }).number,
+      mergePr: (prNumber) => codeHost.mergePullRequest(prNumber),
       log: coreLog,
     };
   } catch (err) {
@@ -103,7 +103,7 @@ export async function persistRemovalViaPr(paths: readonly string[], base: SweepB
   try {
     base.ctx.pushBranch(base.sweepBranch, base.worktreePath);
 
-    const prNumber = extractPrNumber(base.openPr(base.sweepBranch, base.defaultBranch));
+    const prNumber = base.openPr(base.sweepBranch, base.defaultBranch);
     if (!prNumber) {
       base.log('perIssueSweepPersist: could not resolve PR number for sweep branch — retried next sweep', 'error');
       return;
