@@ -73,7 +73,7 @@ function defaultListFeatures(base: SweepBase): string[] {
   }
 }
 
-function defaultGetMergedAt(codeHost: CodeHost, issueNum: number): Promise<Date | null> {
+export function defaultGetMergedAt(codeHost: CodeHost, issueNum: number): Promise<Date | null> {
   try {
     // GitHub search can't reliably express the "Closes owner/repo#N" body marker,
     // so fetch merged PRs and filter client-side with the canonical matcher.
