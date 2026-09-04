@@ -860,3 +860,46 @@ describe('buildDefaultTakeoverDeps — resolveAdwId with a boundary', () => {
     expect(result).toBeNull();
   });
 });
+
+// ── buildDefaultTakeoverDeps — deriveStageFromRemote routes through
+// buildDefaultReconcileDeps(boundary) when a boundary is given, or the
+// legacy repoInfo-scoped wiring (deps: undefined) otherwise ─────────────────
+
+vi.mock('../../core/remoteReconcile', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../core/remoteReconcile')>();
+  return {
+    ...actual,
+    deriveStageFromRemote: vi.fn(),
+    buildDefaultReconcileDeps: vi.fn(),
+  };
+});
+
+import { deriveStageFromRemote as mockDeriveStageFromRemote, buildDefaultReconcileDeps as mockBuildDefaultReconcileDeps } from '../../core/remoteReconcile';
+
+describe('buildDefaultTakeoverDeps — deriveStageFromRemote boundary routing', () => {
+  beforeEach(() => {
+    vi.mocked(mockDeriveStageFromRemote).mockClear().mockReturnValue('abandoned');
+    vi.mocked(mockBuildDefaultReconcileDeps).mockClear();
+  });
+
+  it('passes buildDefaultReconcileDeps(boundary) as the 4th arg when a boundary is given', () => {
+    const fakeReconcileDeps = { readTopLevelState: vi.fn() } as unknown as ReturnType<typeof mockBuildDefaultReconcileDeps>;
+    vi.mocked(mockBuildDefaultReconcileDeps).mockReturnValue(fakeReconcileDeps);
+    const boundary = makeFakeBoundary(() => []);
+    const deps = buildDefaultTakeoverDeps(REPO, boundary);
+
+    deps.deriveStageFromRemote(99, 'adw-1', REPO);
+
+    expect(mockBuildDefaultReconcileDeps).toHaveBeenCalledWith(boundary);
+    expect(mockDeriveStageFromRemote).toHaveBeenCalledWith(99, 'adw-1', REPO, fakeReconcileDeps);
+  });
+
+  it('passes undefined as the 4th arg (the legacy repoInfo-scoped path) when no boundary is given', () => {
+    const deps = buildDefaultTakeoverDeps(REPO);
+
+    deps.deriveStageFromRemote(99, 'adw-1', REPO);
+
+    expect(mockBuildDefaultReconcileDeps).not.toHaveBeenCalled();
+    expect(mockDeriveStageFromRemote).toHaveBeenCalledWith(99, 'adw-1', REPO, undefined);
+  });
+});

@@ -29,7 +29,7 @@ import {
 } from './spawnGate';
 import { isProcessLive } from '../core/processLiveness';
 import { AgentStateManager } from '../core/agentState';
-import { deriveStageFromRemote } from '../core/remoteReconcile';
+import { deriveStageFromRemote, buildDefaultReconcileDeps } from '../core/remoteReconcile';
 import { gitContextForSync } from '../github';
 import { fetchIssueCommentBodies } from '../github/issueListApi';
 import type { LaunchBoundary } from '../core';
@@ -112,7 +112,7 @@ export function buildDefaultTakeoverDeps(repoInfo?: RepoInfo, boundary?: LaunchB
       gitContextForSync({ owner: repoInfo.owner, repo: repoInfo.repo, selfHost: false }).resetWorktree(worktreePath, branch);
     },
     deriveStageFromRemote: (issueNumber, adwId, repoInfo) =>
-      deriveStageFromRemote(issueNumber, adwId, repoInfo),
+      deriveStageFromRemote(issueNumber, adwId, repoInfo, boundary ? buildDefaultReconcileDeps(boundary) : undefined),
     writeTopLevelState: (adwId, state) => AgentStateManager.writeTopLevelState(adwId, state),
     commentOnIssue: (issueNumber, body, repoInfo) => commentOnIssue(issueNumber, body, repoInfo),
     probeWorktree: (worktreePath, expectedBranch, recordedPid, recordedPidStartedAt) => {

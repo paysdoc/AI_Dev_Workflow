@@ -1,13 +1,25 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+vi.mock('../agentState', () => ({
+  AgentStateManager: {
+    readTopLevelState: vi.fn(),
+  },
+}));
+
 import {
   deriveStageFromRemote,
   mapArtifactsToStage,
+  buildDefaultReconcileDeps,
   MAX_RECONCILE_VERIFICATION_RETRIES,
   type ReconcileDeps,
 } from '../remoteReconcile';
+import { AgentStateManager } from '../agentState';
 import type { AgentState } from '../../types/agentTypes';
 import type { RawPR } from '../../github/prApi';
 import type { RepoInfo } from '../../github/githubApi';
+import type { LaunchBoundary } from '../launchGitContext';
+import type { GitContext } from '../../gitContext';
+import type { CodeHost, PullRequestSummary } from '../../providers/types';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -229,5 +241,69 @@ describe('deriveStageFromRemote — state-file edges', () => {
     const result = deriveStageFromRemote(42, 'test-adw-id', REPO_INFO, deps);
 
     expect(result).toBe('starting');
+  });
+});
+
+// ── buildDefaultReconcileDeps — boundary-bound wiring ─────────────────────────
+
+function makeFakeBoundary(overrides: {
+  lsRemote?: (branchName: string) => string[];
+  findPullRequestByBranch?: (branchName: string) => Pick<PullRequestSummary, 'state'> | null;
+} = {}): LaunchBoundary {
+  const gitContext = {
+    lsRemote: vi.fn(overrides.lsRemote ?? (() => ['abc123\trefs/heads/feature-issue-42-abc'])),
+  } as unknown as GitContext;
+  const codeHost = {
+    findPullRequestByBranch: vi.fn(overrides.findPullRequestByBranch ?? (() => ({ state: 'OPEN' }))),
+  } as unknown as CodeHost;
+  return {
+    gitContext,
+    providers: { issueTracker: {} as never, codeHost },
+  } as unknown as LaunchBoundary;
+}
+
+describe('buildDefaultReconcileDeps — boundary-bound wiring', () => {
+  beforeEach(() => {
+    vi.mocked(AgentStateManager.readTopLevelState).mockReturnValue(makeState());
+  });
+
+  it.each([
+    ['OPEN', 'awaiting_merge'],
+    ['MERGED', 'completed'],
+    ['CLOSED', 'discarded'],
+  ] as const)('maps PR state %s to workflow stage %s through the boundary\'s codeHost', (prState, expectedStage) => {
+    const boundary = makeFakeBoundary({ findPullRequestByBranch: () => ({ state: prState }) });
+    const deps = buildDefaultReconcileDeps(boundary);
+
+    const result = deriveStageFromRemote(42, 'test-adw-id', REPO_INFO, deps);
+
+    expect(result).toBe(expectedStage);
+  });
+
+  it('findPullRequestByBranch is called at least twice for one deriveStageFromRemote call — the read-your-write cross-check is never memoised', () => {
+    const findPullRequestByBranch = vi.fn(() => ({ state: 'OPEN' as const }));
+    const boundary = makeFakeBoundary({ findPullRequestByBranch });
+    const deps = buildDefaultReconcileDeps(boundary);
+
+    deriveStageFromRemote(42, 'test-adw-id', REPO_INFO, deps);
+
+    expect(findPullRequestByBranch.mock.calls.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('falls back to the state-file stage when boundary.gitContext.lsRemote reports the branch absent', () => {
+    const boundary = makeFakeBoundary({ lsRemote: () => [] });
+    const deps = buildDefaultReconcileDeps(boundary);
+
+    const result = deriveStageFromRemote(42, 'test-adw-id', REPO_INFO, deps);
+
+    expect(result).toBe('build_running');
+  });
+
+  it('branchExistsOnRemote returns false (and does not throw) when gitContext.lsRemote throws', () => {
+    const boundary = makeFakeBoundary();
+    vi.mocked(boundary.gitContext.lsRemote).mockImplementation(() => { throw new Error('git ls-remote failed'); });
+    const deps = buildDefaultReconcileDeps(boundary);
+
+    expect(deps.branchExistsOnRemote('feature-issue-42-abc')).toBe(false);
   });
 });
