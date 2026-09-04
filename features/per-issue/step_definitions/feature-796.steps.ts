@@ -323,6 +323,10 @@ function makeRecordingIssueTracker(fixture: Fixture, callLog: CallRecord[]): Iss
       record(callLog, 'findOpenUpgradeIssue');
       return null;
     },
+    listIssues(query) {
+      record(callLog, 'listIssues', query);
+      return [];
+    },
   };
 }
 
@@ -374,6 +378,10 @@ function makeRecordingCodeHost(fixture: Fixture, callLog: CallRecord[], repoId: 
     },
     setSecret(name, value) {
       record(callLog, 'setSecret', name, value);
+    },
+    listMergedPullRequests(limit) {
+      record(callLog, 'listMergedPullRequests', limit);
+      return [];
     },
   };
 }

@@ -40,12 +40,15 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { GitContext } from '../../../adws/gitContext/index.ts';
 import type { GitContextOptions } from '../../../adws/gitContext/types.ts';
+import { createLiteralTokenProvider } from '../../../adws/providers/github/githubTokenProvider.ts';
 import { runPerIssueScenarioSweep } from '../../../adws/triggers/perIssueScenarioSweep.ts';
 import { SWEEP_BRANCH } from '../../../adws/triggers/perIssueSweepPersist.ts';
 import { runPromotionSweep } from '../../../adws/triggers/promotionSweep.ts';
 import type { PromotionSweepReport } from '../../../adws/triggers/promotionSweep.ts';
 import { runPerIssueScenarioSweepTick, runPromotionSweepTick } from '../../../adws/triggers/trigger_cron.ts';
 import { scanFiles } from '../../../adws/checkGitGhGuard.ts';
+import type { LaunchBoundary } from '../../../adws/core/launchGitContext.ts';
+import { Platform, type BoundProviders, type IssueTracker, type CodeHost } from '../../../adws/providers/types.ts';
 
 const DAY_MS = 86_400_000;
 
@@ -115,7 +118,10 @@ function originDefaultShaNow(fixture: FixtureRepo): string {
   return git(`git rev-parse ${fixture.defaultBranchName}`, fixture.bareRemote);
 }
 
-// ── Recording GitContext — the only faked seams are the three gh-backed reads ─
+// ── Recording GitContext + providers — the only faked seams are the three ────
+// gh-backed reads (now provider methods, not GitContext methods: #797 moved
+// defaultBranch/fetchMergedPRs/listOpenIssues off GitContext onto
+// codeHost.getDefaultBranch/codeHost.listMergedPullRequests/issueTracker.listIssues).
 
 interface RecordedOp {
   op: string;
@@ -124,45 +130,42 @@ interface RecordedOp {
 
 class RecordingGitContext extends GitContext {
   readonly recordedOps: RecordedOp[] = [];
-  readonly #branchName: string;
-  readonly #mergedAtByIssue: ReadonlyMap<number, Date>;
-
-  constructor(opts: GitContextOptions, branchName: string, mergedAtByIssue: ReadonlyMap<number, Date>) {
-    super(opts);
-    this.#branchName = branchName;
-    this.#mergedAtByIssue = mergedAtByIssue;
-  }
-
-  override defaultBranch(): string {
-    this.recordedOps.push({ op: 'defaultBranch', args: [] });
-    return this.#branchName;
-  }
-
-  override fetchMergedPRs(limit?: number): string {
-    this.recordedOps.push({ op: 'fetchMergedPRs', args: [limit] });
-    const prs = [...this.#mergedAtByIssue.entries()].map(([issueNum, mergedAt]) => ({
-      body: `Closes #${issueNum}`,
-      mergedAt: mergedAt.toISOString(),
-    }));
-    return JSON.stringify(prs);
-  }
-
-  override listOpenIssues(opts: Parameters<GitContext['listOpenIssues']>[0]): string {
-    this.recordedOps.push({ op: 'listOpenIssues', args: [opts] });
-    return '[]';
-  }
 
   override lsFiles(cwd: string, prefix?: string): string[] {
     this.recordedOps.push({ op: 'lsFiles', args: [cwd, prefix] });
     return super.lsFiles(cwd, prefix);
   }
+}
 
-  override createIssue(title: string, body: string): string {
-    // Never expected to fire: `fileIssue` is always injected wholesale in
-    // these scenarios, bypassing makeDefaultDeps' ctx.createIssue entirely.
-    this.recordedOps.push({ op: 'createIssue', args: [title, body] });
-    return 'https://github.com/adw-fixture/target-fixture/issues/1';
-  }
+function makeRecordingCodeHost(recordedOps: RecordedOp[], fixture: FixtureRepo): CodeHost {
+  return {
+    getDefaultBranch: () => {
+      recordedOps.push({ op: 'defaultBranch', args: [] });
+      return fixture.defaultBranchName;
+    },
+    listMergedPullRequests: (limit?: number) => {
+      recordedOps.push({ op: 'fetchMergedPRs', args: [limit] });
+      return [...fixture.mergedAtByIssue.entries()].map(([issueNum, mergedAt]) => ({
+        body: `Closes #${issueNum}`,
+        mergedAt: mergedAt.toISOString(),
+      }));
+    },
+  } as unknown as CodeHost;
+}
+
+function makeRecordingIssueTracker(recordedOps: RecordedOp[]): IssueTracker {
+  return {
+    listIssues: (opts: unknown) => {
+      recordedOps.push({ op: 'listOpenIssues', args: [opts] });
+      return [];
+    },
+    createIssue: (title: string, body: string) => {
+      // Never expected to fire: `fileIssue` is always injected wholesale in
+      // these scenarios, bypassing makeDefaultDeps' issueTracker.createIssue entirely.
+      recordedOps.push({ op: 'createIssue', args: [title, body] });
+      return 1;
+    },
+  } as unknown as IssueTracker;
 }
 
 const GIT_IDENTITY = {
@@ -170,12 +173,21 @@ const GIT_IDENTITY = {
   committerName: 'ADW Test', committerEmail: 'test@adw.test',
 };
 
-function makeRecordingGitContext(
+function makeRecordingBoundary(
   identity: Pick<GitContextOptions, 'owner' | 'repo' | 'selfHost' | 'frameworkRepoRoot' | 'targetReposDir'>,
   fixture: FixtureRepo,
-): RecordingGitContext {
-  const opts: GitContextOptions = { ...identity, token: 'dummy-token-local-test', gitIdentity: GIT_IDENTITY };
-  return new RecordingGitContext(opts, fixture.defaultBranchName, fixture.mergedAtByIssue);
+): { gitContext: RecordingGitContext; boundary: LaunchBoundary } {
+  const opts: GitContextOptions = { ...identity, tokenProvider: createLiteralTokenProvider('dummy-token-local-test'), gitIdentity: GIT_IDENTITY };
+  const gitContext = new RecordingGitContext(opts);
+  const boundary: LaunchBoundary = {
+    gitContext,
+    repoId: { owner: identity.owner, repo: identity.repo, platform: Platform.GitHub },
+    providers: {
+      issueTracker: makeRecordingIssueTracker(gitContext.recordedOps),
+      codeHost: makeRecordingCodeHost(gitContext.recordedOps, fixture),
+    } as unknown as BoundProviders,
+  };
+  return { gitContext, boundary };
 }
 
 // ── World ─────────────────────────────────────────────────────────────────────
@@ -186,6 +198,7 @@ interface Ctx {
   target: FixtureRepo | null;
   framework: FixtureRepo | null;
   gitContext: RecordingGitContext | null;
+  boundary: LaunchBoundary | null;
   activeFixture: FixtureRepo | null;
   hasLaunchContext: boolean;
   removedPaths: string[] | null;
@@ -204,6 +217,7 @@ const ctx: Ctx = {
   target: null,
   framework: null,
   gitContext: null,
+  boundary: null,
   activeFixture: null,
   hasLaunchContext: false,
   removedPaths: null,
@@ -234,6 +248,7 @@ After({ tags: '@adw-769' }, function () {
   ctx.target = null;
   ctx.framework = null;
   ctx.gitContext = null;
+  ctx.boundary = null;
   ctx.activeFixture = null;
   ctx.hasLaunchContext = false;
   ctx.removedPaths = null;
@@ -275,25 +290,30 @@ Given('the cron holds a launch context for the target repository', function () {
   assert.ok(ctx.target, 'Expected a target repository checkout to be set up first');
   assert.ok(ctx.targetReposDir, 'Expected a target repos root to be set up first');
   ctx.activeFixture = ctx.target;
-  ctx.gitContext = makeRecordingGitContext(
+  const recording = makeRecordingBoundary(
     { owner: 'adw-fixture', repo: 'target-fixture', selfHost: false, frameworkRepoRoot: tmpdir(), targetReposDir: ctx.targetReposDir },
     ctx.target,
   );
+  ctx.gitContext = recording.gitContext;
+  ctx.boundary = recording.boundary;
   ctx.hasLaunchContext = true;
 });
 
 Given('the cron holds a self-host launch context for the framework repository', function () {
   assert.ok(ctx.framework, 'Expected a framework repository checkout to be set up first');
   ctx.activeFixture = ctx.framework;
-  ctx.gitContext = makeRecordingGitContext(
+  const recording = makeRecordingBoundary(
     { owner: 'adw-fixture', repo: 'framework-fixture', selfHost: true, frameworkRepoRoot: ctx.framework.workdir, targetReposDir: tmpdir() },
     ctx.framework,
   );
+  ctx.gitContext = recording.gitContext;
+  ctx.boundary = recording.boundary;
   ctx.hasLaunchContext = true;
 });
 
 Given('the cron holds no launch context', function () {
   ctx.gitContext = null;
+  ctx.boundary = null;
   ctx.activeFixture = null;
   ctx.hasLaunchContext = false;
 });
@@ -340,9 +360,9 @@ When('the cron cycle runs the per-issue scenario sweep', async function () {
     return;
   }
 
-  assert.ok(ctx.gitContext, 'Expected a launch context to be set up');
+  assert.ok(ctx.boundary, 'Expected a launch context to be set up');
   ctx.removedPaths = await runPerIssueScenarioSweep({
-    gitContext: ctx.gitContext,
+    boundary: ctx.boundary,
     persistRemoval: recordingPersistRemoval,
   });
 });
@@ -360,9 +380,9 @@ When('the cron cycle runs the promotion sweep', async function () {
     return;
   }
 
-  assert.ok(ctx.gitContext, 'Expected a launch context to be set up');
+  assert.ok(ctx.boundary, 'Expected a launch context to be set up');
   ctx.promotionReport = await runPromotionSweep({
-    gitContext: ctx.gitContext,
+    boundary: ctx.boundary,
     fileIssue: (spec) => {
       ctx.fileIssueCalls.push({ title: spec.title, body: spec.body, labels: spec.labels });
     },

@@ -49,7 +49,7 @@ import { execSync } from 'child_process';
 import { existsSync, mkdirSync, copyFileSync, rmSync } from 'fs';
 import type {
   GitContextOptions, GitIdentity, ExecFn, GitContextDeps, FsDeps, ExecOptions, ExecWorkingDirectory,
-  TokenProvider, CredentialPurpose, CredentialRequest, Logger,
+  TokenProvider, CredentialPurpose, Logger,
 } from './types';
 import { consoleLogger } from './consoleLogger';
 import { branchOps } from './branchOps';
@@ -104,47 +104,22 @@ function assertCompleteIdentity(options: GitContextOptions): void {
     if (!value?.trim()) throw new Error(`GitContext: gitIdentity.${field} must not be empty`);
   }
 
-  // Credential fields are conditionally required: exactly one of tokenProvider
-  // (the supported path) or token (transitional) must be supplied.
-  if (!options.tokenProvider && options.token === undefined) {
-    throw new Error('GitContext: exactly one of tokenProvider or token must be provided');
+  if (!options.tokenProvider) {
+    throw new Error('GitContext: tokenProvider must be provided');
   }
-  if (!options.tokenProvider && !options.token?.trim()) {
-    throw new Error('GitContext: token must not be empty');
+  // Validate-and-discard probe: construction performs exactly ONE
+  // resolution to fail loudly when the provider can produce no credential —
+  // preserving the loud launch-time failure that launchGitContext and
+  // gitContextFactory callers depend on — but the answer is thrown away
+  // immediately. The first real command still resolves the provider's
+  // SECOND answer, never this one. This is what keeps "never cached at
+  // construction" literally true while still validating eagerly.
+  const probe = options.tokenProvider.credentialEnv({ owner: options.owner, repo: options.repo, purpose: 'default' });
+  const values = Object.values(probe);
+  const isComplete = values.length > 0 && values.every((v) => !!v?.trim());
+  if (!isComplete) {
+    throw new Error(`GitContext: tokenProvider returned no credential for ${options.owner}/${options.repo}`);
   }
-  if (options.tokenProvider) {
-    // Validate-and-discard probe: construction performs exactly ONE
-    // resolution to fail loudly when the provider can produce no credential
-    // — preserving the loud launch-time failure that launchGitContext and
-    // gitContextFactory callers depend on — but the answer is thrown away
-    // immediately. The first real command still resolves the provider's
-    // SECOND answer, never this one. This is what keeps "never cached at
-    // construction" literally true while still validating eagerly.
-    const probe = options.tokenProvider.credentialEnv({ owner: options.owner, repo: options.repo, purpose: 'default' });
-    const values = Object.values(probe);
-    const isComplete = values.length > 0 && values.every((v) => !!v?.trim());
-    if (!isComplete) {
-      throw new Error(`GitContext: tokenProvider returned no credential for ${options.owner}/${options.repo}`);
-    }
-  }
-}
-
-/**
- * TRANSITIONAL — the literal-credential path for callers that still pass
- * `options.token`/`options.pat` instead of a `tokenProvider`. Production no
- * longer takes this path; it exists so the many existing construction sites
- * that assert against a literal token stay untouched and keep acting as this
- * slice's regression net. This is the only place the credential environment
- * is derived from a construction-time snapshot in the core, and it is one
- * deletion away from gone — removed alongside `GitContextOptions.token`/`pat`
- * in #792/#796.
- */
-function staticCredentialProvider(token: string, pat: string | undefined): TokenProvider {
-  return {
-    credentialEnv({ purpose }: CredentialRequest): NodeJS.ProcessEnv {
-      return { GH_TOKEN: (purpose === 'alternateIdentity' && pat) ? pat : token };
-    },
-  };
 }
 
 function resolveBasePath(options: GitContextOptions): string {
@@ -174,7 +149,7 @@ export class GitContext {
     this.#owner = options.owner;
     this.#repo = options.repo;
     this.#selfHost = options.selfHost;
-    this.#credentials = options.tokenProvider ?? staticCredentialProvider(options.token ?? '', options.pat);
+    this.#credentials = options.tokenProvider;
     this.#gitIdentity = options.gitIdentity;
     this.#basePath = resolveBasePath(options);
     this.#repoApiCwd = options.frameworkRepoRoot;

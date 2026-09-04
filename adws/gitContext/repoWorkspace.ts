@@ -7,7 +7,7 @@
  * All ADW-global config (TARGET_REPOS_DIR) is injected at the shim boundary in
  * targetRepoManager.ts; this module stays ADW-global-free for standalone reuse.
  * The `defaultBranch` thunk is injected so the caller can bind a veracious
- * GitContext token — fixing the ambient-auth `gh repo view` crash in fetchLatestRefs.
+ * forge credential rather than relying on ambient auth.
  *
  * The caller supplies a ready-made clone URL (issue #793, PRD story 14): this
  * module clones exactly the URL it is handed, with no rewriting and no forge
@@ -98,9 +98,9 @@ export function cloneRepo(
  *   caller supplies a ready-made clone URL (issue #793); this function never
  *   consults forge conventions to decide what to clone.
  * - Already cloned: runs `git fetch origin` and reads the default branch through
- *   the injected `getDefaultBranch` thunk — which must run `gh repo view` under
- *   per-command veracious auth (fixes the `fetchLatestRefs` crash class). The
- *   clone URL is never consulted on this path.
+ *   the injected `getDefaultBranch` thunk — the forge's default-branch read,
+ *   under per-command veracious auth. The clone URL is never consulted on
+ *   this path.
  *
  * Returns the absolute workspace path.
  */

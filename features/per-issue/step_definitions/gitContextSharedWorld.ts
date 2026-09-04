@@ -6,6 +6,7 @@
 
 import { GitContext } from '../../../adws/gitContext/index.ts';
 import type { GitContextOptions, ExecFn, FsDeps } from '../../../adws/gitContext/index.ts';
+import { createLiteralTokenProvider } from '../../../adws/providers/github/githubTokenProvider.ts';
 
 export const TARGET_REPOS_ROOT = '/srv/adw/repos';
 export const FRAMEWORK_ROOT = '/srv/adw/framework';
@@ -86,7 +87,7 @@ export function makeFullOptions(
     owner,
     repo,
     selfHost: false,
-    token,
+    tokenProvider: createLiteralTokenProvider(token),
     gitIdentity: {
       authorName,
       authorEmail,

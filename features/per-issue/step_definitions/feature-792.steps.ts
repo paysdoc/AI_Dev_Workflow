@@ -33,6 +33,7 @@ import { GitContext } from '../../../adws/gitContext/index.ts';
 import type { GitContextOptions, ExecFn, TokenProvider } from '../../../adws/gitContext/index.ts';
 import { makeSpyExec, makeNoOpFsDeps, FRAMEWORK_ROOT, TARGET_REPOS_ROOT, type SpyCall } from './gitContextSharedWorld.ts';
 import { createGhCommandRunner } from '../../../adws/providers/github/ghCommandRunner.ts';
+import { createGhRepoApi } from '../../../adws/providers/github/ghRepoApi.ts';
 import {
   isGitHubAppConfigured,
   getInstallationToken,
@@ -337,18 +338,19 @@ function getContext(): GitContext {
 // ---------------------------------------------------------------------------
 
 function runOperation(ctx: GitContext, operation: string): unknown {
+  const gh = createGhRepoApi(ctx);
   switch (operation) {
-    case 'fetch-issue': return ctx.fetchIssue(7);
-    case 'comment-on-issue': ctx.commentOnIssue(7, 'body text'); return undefined;
-    case 'close-issue': ctx.closeIssue(7); return undefined;
-    case 'add-issue-label': ctx.addIssueLabel(7, 'needs-review'); return undefined;
-    case 'delete-issue-comment': ctx.deleteIssueComment(9001); return undefined;
-    case 'merge-pr': ctx.mergePR(42); return undefined;
-    case 'approve-pr': ctx.approvePR(42); return undefined;
-    case 'pr-changed-files': return ctx.fetchPRChangedFiles(42);
-    case 'create-label': ctx.createLabel('adw:upgrade', 'ededed', 'Framework upgrade'); return undefined;
-    case 'set-secret': ctx.setSecret('ADW_TOKEN', 'secret-value'); return undefined;
-    case 'board-project-query': return ctx.moveIssueToStatus(28, 'In Progress');
+    case 'fetch-issue': return gh.fetchIssue(7);
+    case 'comment-on-issue': gh.commentOnIssue(7, 'body text'); return undefined;
+    case 'close-issue': gh.closeIssue(7); return undefined;
+    case 'add-issue-label': gh.addIssueLabel(7, 'needs-review'); return undefined;
+    case 'delete-issue-comment': gh.deleteIssueComment(9001); return undefined;
+    case 'merge-pr': gh.mergePR(42); return undefined;
+    case 'approve-pr': gh.approvePR(42); return undefined;
+    case 'pr-changed-files': return gh.fetchPRChangedFiles(42);
+    case 'create-label': gh.createLabel('adw:upgrade', 'ededed', 'Framework upgrade'); return undefined;
+    case 'set-secret': gh.setSecret('ADW_TOKEN', 'secret-value'); return undefined;
+    case 'board-project-query': return gh.moveIssueToStatus(28, 'In Progress');
     default: throw new Error(`Unknown forge operation: "${operation}"`);
   }
 }

@@ -12,6 +12,7 @@ import type { RepoInfo } from '../../github/githubApi';
 import type { AgentState } from '../../types/agentTypes';
 import type { WorktreeProbe } from '../../vcs/worktreeReuseGate';
 import { GitContext } from '../../gitContext';
+import { createLiteralTokenProvider } from '../../providers/github/githubTokenProvider';
 
 const REPO: RepoInfo = { owner: 'acme', repo: 'widgets' };
 const ADW_ID = 'test-adwid-123';
@@ -709,7 +710,7 @@ function makeTestGitContext(base: string, selfHost: boolean): GitContext {
     owner: 'vestmatic',
     repo: 'vestmatic',
     selfHost,
-    token: 'test-token',
+    tokenProvider: createLiteralTokenProvider('test-token'),
     gitIdentity: {
       authorName: 'Bot',
       authorEmail: 'bot@test.dev',

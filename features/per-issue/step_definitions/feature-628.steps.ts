@@ -49,12 +49,13 @@ import type { RegressionWorld } from '../../regression/step_definitions/world.ts
 // fetchAndResetToRemote migrated to GitContext (#662) — use inline helper for test steps
 import { GitContext } from '../../../adws/gitContext/index.ts';
 import type { GitContextOptions } from '../../../adws/gitContext/types.ts';
+import { createLiteralTokenProvider } from '../../../adws/providers/github/githubTokenProvider.ts';
 import { tmpdir as _tmpdir628 } from 'node:os';
 
 function fetchAndResetToRemote(branch: string, worktreePath: string): void {
   const opts: GitContextOptions = {
     owner: 'test', repo: 'test', selfHost: true,
-    token: 'dummy-token-local-test',
+    tokenProvider: createLiteralTokenProvider('dummy-token-local-test'),
     gitIdentity: { authorName: 'ADW Test', authorEmail: 'test@adw.test', committerName: 'ADW Test', committerEmail: 'test@adw.test' },
     frameworkRepoRoot: worktreePath, targetReposDir: _tmpdir628(),
   };
@@ -474,7 +475,7 @@ When(
     // A non-upgrade orchestrator does NOT call reconcileWorktreeToRemote afterward.
     const gtx = new GitContext628({
       owner: 'test', repo: 'test', selfHost: true,
-      token: 'dummy-token-628',
+      tokenProvider: createLiteralTokenProvider('dummy-token-628'),
       gitIdentity: { authorName: 'ADW Test', authorEmail: 'test@adw.test', committerName: 'ADW Test', committerEmail: 'test@adw.test' },
       frameworkRepoRoot: ctx.baseRepoPath, targetReposDir: _tmpdir628(),
     });

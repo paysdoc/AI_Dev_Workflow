@@ -10,6 +10,7 @@ import {
 } from '../workingDirectoryGuard';
 import { GitContext } from '../gitContext';
 import type { GitContextOptions, ExecFn, FsDeps } from '../types';
+import { createLiteralTokenProvider } from '../../providers/github/githubTokenProvider';
 
 const FRAMEWORK_ROOT = '/srv/adw/framework';
 const TARGET_REPOS_DIR = '/srv/adw/repos';
@@ -19,7 +20,7 @@ function validOptions(overrides: Partial<GitContextOptions> = {}): GitContextOpt
     owner: 'acme',
     repo: 'webapp',
     selfHost: false,
-    token: 'gh-token-abc',
+    tokenProvider: createLiteralTokenProvider('gh-token-abc'),
     gitIdentity: {
       authorName: 'ADW Bot',
       authorEmail: 'bot@adw.dev',

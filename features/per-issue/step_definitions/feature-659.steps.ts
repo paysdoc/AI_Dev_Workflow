@@ -16,6 +16,7 @@ import * as os from 'os';
 import { Given, When, Then, After } from '@cucumber/cucumber';
 import assert from 'assert';
 import { GitContext } from '../../../adws/gitContext/index.ts';
+import { createGhRepoApi } from '../../../adws/providers/github/ghRepoApi.ts';
 import {
   W,
   makeSpyExec,
@@ -27,42 +28,43 @@ import {
 } from './gitContextSharedWorld.ts';
 
 function runOp(ctx: GitContext, opName: string): void {
+  const gh = createGhRepoApi(ctx);
   switch (opName) {
     case 'default-branch':
-      ctx.defaultBranch();
+      gh.defaultBranch();
       return;
     case 'current-branch':
       ctx.getCurrentBranch();
       return;
     case 'issue-view':
-      ctx.fetchIssue(1);
+      gh.fetchIssue(1);
       return;
     case 'issue-comment':
-      ctx.commentOnIssue(1, 'test body');
+      gh.commentOnIssue(1, 'test body');
       return;
     case 'issue-create':
-      ctx.createIssue('Test Issue', 'test body');
+      gh.createIssue('Test Issue', 'test body');
       return;
     case 'label-apply':
-      ctx.applyLabel(1, 'test-label');
+      gh.applyLabel(1, 'test-label');
       return;
     case 'pr-view':
-      ctx.fetchPRDetails(1);
+      gh.fetchPRDetails(1);
       return;
     case 'pr-comment':
-      ctx.commentOnPR(1, 'test body');
+      gh.commentOnPR(1, 'test body');
       return;
     case 'pr-create':
-      ctx.createPR('Test PR', 'test body', 'feature-test-branch');
+      gh.createPR('Test PR', 'test body', 'feature-test-branch');
       return;
     case 'pr-merge':
-      ctx.mergePR(1);
+      gh.mergePR(1);
       return;
     case 'pr-review':
-      ctx.approvePR(1);
+      gh.approvePR(1);
       return;
     case 'board-move':
-      ctx.moveIssueToStatus(1, 'In Progress');
+      gh.moveIssueToStatus(1, 'In Progress');
       return;
     default:
       throw new Error(`Unknown op name: "${opName}"`);
@@ -205,8 +207,8 @@ When(
     assert.ok(entryA !== undefined, `Expected a context for key "${keyA}"`);
     assert.ok(entryB !== undefined, `Expected a context for key "${keyB}"`);
     // Interleave: A runs, then B runs — per-command env means no shared global
-    entryA.ctx.defaultBranch();
-    entryB.ctx.defaultBranch();
+    createGhRepoApi(entryA.ctx).defaultBranch();
+    createGhRepoApi(entryB.ctx).defaultBranch();
   },
 );
 

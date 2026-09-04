@@ -32,12 +32,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { GitContext } from '../../../adws/gitContext/index.ts';
 import type { GitContextOptions } from '../../../adws/gitContext/types.ts';
+import { createLiteralTokenProvider } from '../../../adws/providers/github/githubTokenProvider.ts';
 import { tmpdir as _tmpdir } from 'node:os';
 
 function makePushCtx(workdir: string): GitContext {
   const opts: GitContextOptions = {
     owner: 'test', repo: 'test', selfHost: true,
-    token: 'dummy-token-local-test',
+    tokenProvider: createLiteralTokenProvider('dummy-token-local-test'),
     gitIdentity: { authorName: 'ADW Test', authorEmail: 'test@adw.test', committerName: 'ADW Test', committerEmail: 'test@adw.test' },
     frameworkRepoRoot: workdir, targetReposDir: _tmpdir(),
   };

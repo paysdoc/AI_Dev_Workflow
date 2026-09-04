@@ -29,6 +29,7 @@ import { createGitHubTokenProvider } from '../../../adws/providers/github/github
 import { buildLaunchGitContext } from '../../../adws/core/launchGitContext.ts';
 import type { TargetRepoInfo } from '../../../adws/types/issueTypes.ts';
 import { makeSpyExec, makeFullOptions, makeNoOpFsDeps, FRAMEWORK_ROOT, TARGET_REPOS_ROOT, type SpyCall } from './gitContextSharedWorld.ts';
+import { createGhRepoApi } from '../../../adws/providers/github/ghRepoApi.ts';
 
 // ---------------------------------------------------------------------------
 // #791 local world state
@@ -192,7 +193,7 @@ function getSharedProvider(): TokenProvider {
 
 function buildContext(owner: string, repo: string, provider: TokenProvider, exec: ExecFn): GitContext {
   const base = makeFullOptions(owner, repo, 'unused-transitional-token', 'ADW Fixture Bot', 'fixture-bot@adw.dev');
-  const options: GitContextOptions = { ...base, token: undefined, tokenProvider: provider };
+  const options: GitContextOptions = { ...base, tokenProvider: provider };
   return new GitContext(options, { exec, fsDeps: makeNoOpFsDeps() });
 }
 
@@ -213,15 +214,16 @@ function getOrBuildContext(which: 'primary' | 'secondary'): GitContext {
 // ---------------------------------------------------------------------------
 
 function runOperation(ctx: GitContext, operation: string): unknown {
+  const gh = createGhRepoApi(ctx);
   switch (operation) {
-    case 'fetch-issue-comments': return ctx.fetchIssueComments(28);
+    case 'fetch-issue-comments': return gh.fetchIssueComments(28);
     case 'remote-url': return ctx.remoteUrl();
-    case 'create-pr': return ctx.createPR('t', 'body', 'feature-x');
+    case 'create-pr': return gh.createPR('t', 'body', 'feature-x');
     case 'commit-changes': return ctx.commitChanges('msg', ctx.worktreePathFor('feature-issue-791-x'));
-    case 'approve-pr': ctx.approvePR(7); return undefined;
-    case 'graphql': return ctx.runGraphQL('query { viewer { login } }');
-    case 'graphql-input': return ctx.runGraphQLInput({ query: 'mutation { doThing }' });
-    case 'board-status-move': return ctx.moveIssueToStatus(28, 'In Progress');
+    case 'approve-pr': gh.approvePR(7); return undefined;
+    case 'graphql': return gh.runGraphQL('query { viewer { login } }');
+    case 'graphql-input': return gh.runGraphQLInput({ query: 'mutation { doThing }' });
+    case 'board-status-move': return gh.moveIssueToStatus(28, 'In Progress');
     default: throw new Error(`Unknown operation: "${operation}"`);
   }
 }

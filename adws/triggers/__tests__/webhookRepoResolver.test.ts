@@ -14,6 +14,7 @@ import { buildLaunchGitContext } from '../../core/launchGitContext';
 import type { LaunchGitContextDeps } from '../../core/launchGitContext';
 import { GitContext } from '../../gitContext';
 import type { ExecFn } from '../../gitContext/types';
+import { createLiteralTokenProvider } from '../../providers/github/githubTokenProvider';
 
 const FRAMEWORK_ROOT = '/srv/adw/framework';
 const TARGET_REPOS_DIR = '/srv/adw/repos';
@@ -90,7 +91,7 @@ function buildContextFromPayload(
         owner: ctx.owner,
         repo: ctx.repo,
         selfHost: ctx.selfHost,
-        token,
+        tokenProvider: createLiteralTokenProvider(token),
         gitIdentity: TEST_IDENTITY,
         frameworkRepoRoot: FRAMEWORK_ROOT,
         targetReposDir: TARGET_REPOS_DIR,

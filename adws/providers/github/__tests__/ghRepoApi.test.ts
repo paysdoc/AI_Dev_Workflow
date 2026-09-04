@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { GitContext } from '../../../gitContext';
 import type { GitContextOptions, ExecFn } from '../../../gitContext';
 import { createGhRepoApi } from '../ghRepoApi';
+import { createLiteralTokenProvider } from '../githubTokenProvider';
 
 const FRAMEWORK_ROOT = '/srv/adw/framework';
 const TARGET_REPOS_DIR = '/srv/adw/repos';
@@ -11,7 +12,7 @@ function validOptions(overrides: Partial<GitContextOptions> = {}): GitContextOpt
     owner: 'acme',
     repo: 'webapp',
     selfHost: false,
-    token: 'gh-token-abc',
+    tokenProvider: createLiteralTokenProvider('gh-token-abc'),
     gitIdentity: {
       authorName: 'ADW Bot',
       authorEmail: 'bot@adw.dev',
@@ -61,7 +62,7 @@ describe('defaultBranch() command, cwd and env', () => {
 
   it('passes GH_TOKEN from the context token in the child env', () => {
     const { exec, calls } = makeSpyExec();
-    const ctx = new GitContext(validOptions({ token: 'secret-token' }), { exec });
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('secret-token') }), { exec });
     createGhRepoApi(ctx).defaultBranch();
     expect(calls[0].env.GH_TOKEN).toBe('secret-token');
   });
@@ -87,7 +88,7 @@ describe('defaultBranch() command, cwd and env', () => {
   it('does not mutate process.env', () => {
     const before = process.env.GH_TOKEN;
     const { exec } = makeSpyExec();
-    const ctx = new GitContext(validOptions({ token: 'injected' }), { exec });
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('injected') }), { exec });
     createGhRepoApi(ctx).defaultBranch();
     expect(process.env.GH_TOKEN).toBe(before);
   });
@@ -145,7 +146,7 @@ describe('listOpenIssues() command and env', () => {
 
   it('injects GH_TOKEN from the context token in the child env', () => {
     const { exec, calls } = makeSpyExec('[]');
-    const ctx = new GitContext(validOptions({ token: 'list-token' }), { exec });
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('list-token') }), { exec });
     createGhRepoApi(ctx).listOpenIssues({ fields: ['number'] });
     expect(calls[0].env.GH_TOKEN).toBe('list-token');
   });
@@ -153,7 +154,7 @@ describe('listOpenIssues() command and env', () => {
   it('does not mutate process.env', () => {
     const before = process.env.GH_TOKEN;
     const { exec } = makeSpyExec('[]');
-    const ctx = new GitContext(validOptions({ token: 'injected' }), { exec });
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('injected') }), { exec });
     createGhRepoApi(ctx).listOpenIssues({ fields: ['number'] });
     expect(process.env.GH_TOKEN).toBe(before);
   });
@@ -186,7 +187,7 @@ describe('issueComments() command and env', () => {
 
   it('injects GH_TOKEN from the context token', () => {
     const { exec, calls } = makeSpyExec('[]');
-    const ctx = new GitContext(validOptions({ token: 'comments-token' }), { exec });
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('comments-token') }), { exec });
     createGhRepoApi(ctx).issueComments(1);
     expect(calls[0].env.GH_TOKEN).toBe('comments-token');
   });
@@ -194,7 +195,7 @@ describe('issueComments() command and env', () => {
   it('does not mutate process.env', () => {
     const before = process.env.GH_TOKEN;
     const { exec } = makeSpyExec('[]');
-    const ctx = new GitContext(validOptions({ token: 'injected' }), { exec });
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('injected') }), { exec });
     createGhRepoApi(ctx).issueComments(1);
     expect(process.env.GH_TOKEN).toBe(before);
   });
@@ -247,7 +248,7 @@ describe('fetchMergedPRs() command and env', () => {
 
   it('injects GH_TOKEN from the context token', () => {
     const { exec, calls } = makeSpyExec('[]');
-    const ctx = new GitContext(validOptions({ token: 'prs-token' }), { exec });
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('prs-token') }), { exec });
     createGhRepoApi(ctx).fetchMergedPRs();
     expect(calls[0].env.GH_TOKEN).toBe('prs-token');
   });
@@ -255,7 +256,7 @@ describe('fetchMergedPRs() command and env', () => {
   it('does not mutate process.env', () => {
     const before = process.env.GH_TOKEN;
     const { exec } = makeSpyExec('[]');
-    const ctx = new GitContext(validOptions({ token: 'injected' }), { exec });
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('injected') }), { exec });
     createGhRepoApi(ctx).fetchMergedPRs();
     expect(process.env.GH_TOKEN).toBe(before);
   });
@@ -339,7 +340,7 @@ describe('setSecret() command and env', () => {
 
   it('uses the context primary token (not the PAT) even when a PAT is configured', () => {
     const { exec, calls } = makeSpyExec('');
-    const ctx = new GitContext(validOptions({ token: 'primary-token', pat: 'pat-token' }), { exec });
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('primary-token', 'pat-token') }), { exec });
     createGhRepoApi(ctx).setSecret('MY_SECRET', 'the-value');
     expect(calls[0].env.GH_TOKEN).toBe('primary-token');
   });
@@ -362,7 +363,7 @@ describe('setSecret() command and env', () => {
   it('does not mutate process.env.GH_TOKEN after the call', () => {
     const before = process.env.GH_TOKEN;
     const { exec } = makeSpyExec('');
-    const ctx = new GitContext(validOptions({ token: 'injected' }), { exec });
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('injected') }), { exec });
     createGhRepoApi(ctx).setSecret('MY_SECRET', 'val');
     expect(process.env.GH_TOKEN).toBe(before);
   });
@@ -388,14 +389,14 @@ describe('runGraphQLInput() command and env', () => {
 
   it('uses the PAT as GH_TOKEN when a pat is configured (alternateIdentity purpose)', () => {
     const { exec, calls } = makeSpyExec('{}');
-    const ctx = new GitContext(validOptions({ token: 'primary-token', pat: 'pat-token' }), { exec });
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('primary-token', 'pat-token') }), { exec });
     createGhRepoApi(ctx).runGraphQLInput({ q: 'mutation{}' });
     expect(calls[0].env.GH_TOKEN).toBe('pat-token');
   });
 
   it('falls back to the context primary token when no PAT is configured', () => {
     const { exec, calls } = makeSpyExec('{}');
-    const ctx = new GitContext(validOptions({ token: 'primary-token' }), { exec });
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('primary-token') }), { exec });
     createGhRepoApi(ctx).runGraphQLInput({ q: 'mutation{}' });
     expect(calls[0].env.GH_TOKEN).toBe('primary-token');
   });
@@ -410,7 +411,7 @@ describe('runGraphQLInput() command and env', () => {
   it('does not mutate process.env', () => {
     const before = process.env.GH_TOKEN;
     const { exec } = makeSpyExec('{}');
-    const ctx = new GitContext(validOptions({ token: 'injected', pat: 'pat' }), { exec });
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('injected', 'pat') }), { exec });
     createGhRepoApi(ctx).runGraphQLInput({ q: 'mutation{}' });
     expect(process.env.GH_TOKEN).toBe(before);
   });
@@ -428,7 +429,7 @@ describe('runGraphQL() command and purpose', () => {
 
   it('uses the PAT (alternateIdentity purpose) when configured', () => {
     const { exec, calls } = makeSpyExec('{}');
-    const ctx = new GitContext(validOptions({ token: 'primary-token', pat: 'pat-token' }), { exec });
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('primary-token', 'pat-token') }), { exec });
     createGhRepoApi(ctx).runGraphQL('query{}');
     expect(calls[0].env.GH_TOKEN).toBe('pat-token');
   });
@@ -454,7 +455,7 @@ describe('fetchPRChangedFiles() command and env', () => {
   it('does not mutate process.env', () => {
     const before = process.env.GH_TOKEN;
     const { exec } = makeSpyExec('{"files":[]}');
-    const ctx = new GitContext(validOptions({ token: 'injected' }), { exec });
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('injected') }), { exec });
     createGhRepoApi(ctx).fetchPRChangedFiles(7);
     expect(process.env.GH_TOKEN).toBe(before);
   });
@@ -465,7 +466,7 @@ describe('fetchPRChangedFiles() command and env', () => {
 describe('approvePR() purpose routing', () => {
   it('uses the PAT as GH_TOKEN when configured', () => {
     const { exec, calls } = makeSpyExec('');
-    const ctx = new GitContext(validOptions({ token: 'primary-token', pat: 'pat-token' }), { exec });
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('primary-token', 'pat-token') }), { exec });
     createGhRepoApi(ctx).approvePR(7);
     expect(calls[0].env.GH_TOKEN).toBe('pat-token');
     expect(calls[0].command).toBe('gh pr review 7 --approve --repo acme/webapp');
@@ -568,7 +569,7 @@ describe('moveIssueToStatus()', () => {
 
   it('every graphql call uses the alternate-identity (PAT) credential', () => {
     const { exec, calls } = makeSequencedExec([projectResponse, itemResponse('Todo'), fieldResponse, moveResponse]);
-    const ctx = new GitContext(validOptions({ token: 'primary-token', pat: 'pat-token' }), { exec });
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('primary-token', 'pat-token') }), { exec });
     createGhRepoApi(ctx).moveIssueToStatus(28, 'In Progress');
     expect(calls.every((c) => c.env.GH_TOKEN === 'pat-token')).toBe(true);
   });
@@ -581,8 +582,8 @@ describe('two-context isolation', () => {
     const { exec: spyA, calls: callsA } = makeSpyExec('main\n');
     const { exec: spyB, calls: callsB } = makeSpyExec('main\n');
 
-    const ctxA = new GitContext(validOptions({ owner: 'acme', repo: 'alpha', token: 'token-alpha' }), { exec: spyA });
-    const ctxB = new GitContext(validOptions({ owner: 'octo', repo: 'beta', token: 'token-beta' }), { exec: spyB });
+    const ctxA = new GitContext(validOptions({ owner: 'acme', repo: 'alpha', tokenProvider: createLiteralTokenProvider('token-alpha') }), { exec: spyA });
+    const ctxB = new GitContext(validOptions({ owner: 'octo', repo: 'beta', tokenProvider: createLiteralTokenProvider('token-beta') }), { exec: spyB });
 
     createGhRepoApi(ctxA).defaultBranch();
     createGhRepoApi(ctxB).defaultBranch();
@@ -596,8 +597,8 @@ describe('two-context isolation', () => {
   it('neither context carries the other context token (shared spy)', () => {
     const { exec: shared, calls } = makeSpyExec();
 
-    const ctxA = new GitContext(validOptions({ owner: 'acme', repo: 'alpha', token: 'token-alpha' }), { exec: shared });
-    const ctxB = new GitContext(validOptions({ owner: 'octo', repo: 'beta', token: 'token-beta' }), { exec: shared });
+    const ctxA = new GitContext(validOptions({ owner: 'acme', repo: 'alpha', tokenProvider: createLiteralTokenProvider('token-alpha') }), { exec: shared });
+    const ctxB = new GitContext(validOptions({ owner: 'octo', repo: 'beta', tokenProvider: createLiteralTokenProvider('token-beta') }), { exec: shared });
 
     createGhRepoApi(ctxA).defaultBranch();
     createGhRepoApi(ctxB).defaultBranch();
@@ -631,7 +632,7 @@ describe('error propagation', () => {
   it('does not mutate process.env when exec throws', () => {
     process.env['GH_TOKEN'] = 'before-throw';
     const exec: ExecFn = () => { throw new Error('spawn failed'); };
-    const ctx = new GitContext(validOptions({ token: 'ctx-token' }), { exec });
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('ctx-token') }), { exec });
     try { createGhRepoApi(ctx).defaultBranch(); } catch { /* expected */ }
     expect(process.env['GH_TOKEN']).toBe('before-throw');
   });

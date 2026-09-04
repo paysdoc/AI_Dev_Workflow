@@ -22,6 +22,7 @@ import { runClaudeAgentWithCommand } from '../../agents';
 import { isMergeConflictError, mergeWithConflictResolution } from '../autoMergeHandler';
 import { GitContext } from '../../gitContext/gitContext';
 import type { ExecFn } from '../../gitContext/types';
+import { createLiteralTokenProvider } from '../../providers/github/githubTokenProvider';
 
 const REPO_INFO = { owner: 'acme', repo: 'widgets' };
 const HEAD_BRANCH = 'feature-issue-42';
@@ -64,7 +65,7 @@ function makeGitContext(exec: ExecFn): GitContext {
       owner: 'acme',
       repo: 'widgets',
       selfHost: false,
-      token: 'test-token',
+      tokenProvider: createLiteralTokenProvider('test-token'),
       gitIdentity: {
         authorName: 'ADW Bot',
         authorEmail: 'bot@adw.dev',

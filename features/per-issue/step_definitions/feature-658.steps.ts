@@ -19,6 +19,7 @@ import { Given, When, Then, After } from '@cucumber/cucumber';
 import assert from 'assert';
 import { GitContext } from '../../../adws/gitContext/index.ts';
 import type { GitContextOptions } from '../../../adws/gitContext/index.ts';
+import { createLiteralTokenProvider } from '../../../adws/providers/github/githubTokenProvider.ts';
 
 // ── Shared sentinel values ───────────────────────────────────────────────────
 
@@ -30,7 +31,7 @@ function baseOptions(): GitContextOptions {
     owner: 'test-owner',
     repo: 'test-repo',
     selfHost: false,
-    token: 'test-token',
+    tokenProvider: createLiteralTokenProvider('test-token'),
     gitIdentity: {
       authorName: 'Test Bot',
       authorEmail: 'bot@test.dev',

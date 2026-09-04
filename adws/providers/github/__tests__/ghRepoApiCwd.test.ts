@@ -5,6 +5,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { GitContext } from '../../../gitContext';
 import type { GitContextOptions, ExecFn } from '../../../gitContext';
 import { createGhRepoApi, type GhRepoApi } from '../ghRepoApi';
+import { createLiteralTokenProvider } from '../githubTokenProvider';
 
 const FRAMEWORK_ROOT = '/srv/adw/framework';
 const TARGET_REPOS_DIR = '/srv/adw/repos';
@@ -14,7 +15,7 @@ function validOptions(overrides: Partial<GitContextOptions> = {}): GitContextOpt
     owner: 'acme',
     repo: 'webapp',
     selfHost: false,
-    token: 'gh-token-abc',
+    tokenProvider: createLiteralTokenProvider('gh-token-abc'),
     gitIdentity: {
       authorName: 'ADW Bot',
       authorEmail: 'bot@adw.dev',
@@ -193,7 +194,7 @@ describe('anti-drift guard: every repo-API command still names the target reposi
 describe('repo-API commands preserve the existing auth/env contract', () => {
   it('carries GH_TOKEN from the context token in the child env', () => {
     const { exec, calls } = makeSpyExec();
-    const ctx = new GitContext(validOptions({ token: 'repo-api-token' }), { exec });
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('repo-api-token') }), { exec });
     createGhRepoApi(ctx).defaultBranch();
     expect(calls[0].env.GH_TOKEN).toBe('repo-api-token');
   });
@@ -218,7 +219,7 @@ describe('repo-API commands preserve the existing auth/env contract', () => {
 
   it('still honours the PAT for approvePR', () => {
     const { exec, calls } = makeSpyExec();
-    const ctx = new GitContext(validOptions({ token: 'primary-token', pat: 'pat-token' }), { exec });
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('primary-token', 'pat-token') }), { exec });
     createGhRepoApi(ctx).approvePR(7);
     expect(calls[0].env.GH_TOKEN).toBe('pat-token');
   });
@@ -226,7 +227,7 @@ describe('repo-API commands preserve the existing auth/env contract', () => {
   it('does not mutate process.env when a repo-API op runs', () => {
     const before = process.env.GH_TOKEN;
     const { exec } = makeSpyExec();
-    const ctx = new GitContext(validOptions({ token: 'injected' }), { exec });
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('injected') }), { exec });
     createGhRepoApi(ctx).defaultBranch();
     expect(process.env.GH_TOKEN).toBe(before);
   });

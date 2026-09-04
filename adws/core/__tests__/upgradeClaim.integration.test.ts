@@ -25,6 +25,7 @@ import {
 } from '../upgradeClaim';
 import type { RepoInfo } from '../../github/githubApi';
 import { GitContext } from '../../gitContext';
+import { createLiteralTokenProvider } from '../../providers/github/githubTokenProvider';
 
 const REPO_INFO: RepoInfo = { owner: 'sandbox', repo: 'target' };
 const HASH = 'integ1234';
@@ -70,7 +71,7 @@ function makeRealPushClaimBranch(clonePath: string, defaultBranch: string) {
     owner: 'sandbox',
     repo: 'target',
     selfHost: false,
-    token: 'x',
+    tokenProvider: createLiteralTokenProvider('x'),
     gitIdentity: {
       authorName: 'test',
       authorEmail: 'test@test.com',
