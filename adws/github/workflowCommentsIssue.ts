@@ -2,8 +2,7 @@
  * Issue workflow comment formatting and posting functions.
  */
 
-import { WorkflowStage, IssueClassSlashCommand, log, type CostBreakdown, formatCostBreakdownMarkdown, type TokenUsageSnapshot } from '../core';
-import { commentOnIssue, type RepoInfo } from './githubApi';
+import { WorkflowStage, IssueClassSlashCommand, type CostBreakdown, formatCostBreakdownMarkdown, type TokenUsageSnapshot } from '../core';
 import { ADW_SIGNATURE, truncateText, formatRunningTokenFooter } from '../core/workflowCommentParsing';
 import type { ReviewIssue } from '../agents/reviewAgent';
 import type { ScenarioProofResult } from '../phases/scenarioProof';
@@ -404,14 +403,4 @@ export function formatHumanGatedComment(adwId: string, attempts: number, max: nu
     '',
     `**ADW ID:** \`${adwId}\``,
   ].join('\n') + ADW_SIGNATURE;
-}
-
-/** Posts a workflow comment to the GitHub issue. */
-export function postWorkflowComment(issueNumber: number, stage: WorkflowStage, ctx: WorkflowContext, repoInfo: RepoInfo): void {
-  try {
-    const comment = formatWorkflowComment(stage, ctx);
-    commentOnIssue(issueNumber, comment, repoInfo);
-  } catch (error) {
-    log(`Failed to post workflow comment for stage '${stage}': ${error}`, 'error');
-  }
 }

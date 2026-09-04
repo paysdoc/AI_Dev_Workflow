@@ -94,9 +94,7 @@ export {
   detectRecoveryState,
   formatResumingComment,
   formatWorkflowComment,
-  postWorkflowComment,
   formatPRReviewWorkflowComment,
-  postPRWorkflowComment,
   type WorkflowContext,
   type PRReviewWorkflowContext,
 } from './github';
