@@ -218,17 +218,15 @@ describe('claimUpgradeOrFindExisting — error propagation', () => {
 
 describe('buildDefaultUpgradeClaimDeps', () => {
   it('returns an object with the expected dep keys', () => {
-    // Inject a spy ctx so the smoke test does not call readLocalRepoInfo (which
-    // runs git remote get-url origin against /tmp and fails in a sandboxed test).
     const spyCtx = {
-      defaultBranch: vi.fn().mockReturnValue('main'),
       fetchRemote: vi.fn(),
       addDetachedWorktree: vi.fn(),
       commitAllowEmpty: vi.fn(),
       pushHeadToBranch: vi.fn().mockReturnValue(undefined),
       removeDetachedWorktree: vi.fn(),
     } as unknown as GitContext;
-    const deps = buildDefaultUpgradeClaimDeps('/tmp', spyCtx);
+    const getDefaultBranch = vi.fn().mockReturnValue('main');
+    const deps = buildDefaultUpgradeClaimDeps('/tmp', spyCtx, getDefaultBranch);
     expect(typeof deps.pushClaimBranch).toBe('function');
     expect(typeof deps.findPRByBranch).toBe('function');
     expect(typeof deps.resolveIssueNumberFromPR).toBe('function');

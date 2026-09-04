@@ -157,8 +157,6 @@ export {
   getTargetRepoWorkspacePath,
   isRepoCloned,
   cloneTargetRepo,
-  fetchLatestRefs,
-  pullLatestDefaultBranch,
   ensureTargetRepoWorkspace,
 } from './targetRepoManager';
 

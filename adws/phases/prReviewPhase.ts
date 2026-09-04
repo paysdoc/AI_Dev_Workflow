@@ -4,13 +4,11 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { log, setLogAdwId, ensureLogsDirectory, type PRDetails, type PRReviewComment, AgentStateManager, type AgentState, type ModelUsageMap, allocateRandomPort, emptyModelUsageMap, OrchestratorId, type TargetRepoInfo, ensureTargetRepoWorkspace, loadProjectConfig, readAdwYmlConfig, type GitHubIssue, type IssueClassSlashCommand, type RecoveryState, sameRepoIdentity, type LaunchBoundary } from '../core';
+import { log, setLogAdwId, ensureLogsDirectory, type PRDetails, type PRReviewComment, AgentStateManager, type AgentState, type ModelUsageMap, allocateRandomPort, emptyModelUsageMap, OrchestratorId, type TargetRepoInfo, ensureTargetRepoWorkspace, loadProjectConfig, readAdwYmlConfig, type GitHubIssue, type IssueClassSlashCommand, type RecoveryState, bindWorkspaceContext, type LaunchBoundary } from '../core';
 import { fetchPRDetails, getUnaddressedComments, type PRReviewWorkflowContext, getRepoInfo, type RepoInfo, gitContextFor } from '../github';
 import type { WorkflowConfig } from './workflowInit';
 import { inferIssueTypeFromBranch } from '../vcs';
 import { BoardStatus, type RepoContext, type RepoIdentifier } from '../providers/types';
-import { Platform } from '../providers/types';
-import { createRepoContext } from '../providers/repoContext';
 import { getPlanFilePath, runPrReviewPlanAgent, runPrReviewBuildAgent, runCommitAgent, type ProgressCallback, type ProgressInfo } from '../agents';
 import { postPRStageComment } from './phaseCommentHelpers';
 import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
@@ -86,8 +84,9 @@ export async function initializePRReviewWorkflow(prNumber: number, adwId: string
     branchName: prDetails.headBranch,
   };
   if (targetRepo) {
+    if (!boundary) throw new Error('initializePRReviewWorkflow: launch boundary required for a target repo workspace');
     log(`Setting up target repo workspace for ${targetRepo.owner}/${targetRepo.repo}...`, 'info');
-    ensureTargetRepoWorkspace(targetRepo);
+    ensureTargetRepoWorkspace(targetRepo, () => boundary.providers.codeHost.getDefaultBranch());
     log(`Target repo workspace ready`, 'success');
   }
   const gitCtx = await gitContextFor({ owner: resolvedRepoInfo.owner, repo: resolvedRepoInfo.repo, selfHost: !targetRepo });
@@ -103,18 +102,11 @@ export async function initializePRReviewWorkflow(prNumber: number, adwId: string
   // Create RepoContext for provider-agnostic operations
   let repoContext: RepoContext | undefined;
   try {
-    const repoIdForContext = repoId ?? (() => {
-      const resolvedRepoInfo = repoInfo ?? getRepoInfo();
-      return { owner: resolvedRepoInfo.owner, repo: resolvedRepoInfo.repo, platform: Platform.GitHub };
-    })();
-    const boundaryProviders = (boundary && sameRepoIdentity(repoIdForContext, boundary.repoId))
-      ? boundary.providers
-      : undefined;
-    repoContext = createRepoContext({
-      repoId: repoIdForContext,
-      cwd: worktreePath,
-      providers: boundaryProviders,
-    });
+    if (!boundary) {
+      log('No launch boundary — skipping RepoContext (falling back to direct API calls)', 'info');
+    } else {
+      repoContext = bindWorkspaceContext(boundary, worktreePath, repoId);
+    }
   } catch (error) {
     log(`Failed to create RepoContext (falling back to direct API calls): ${error}`, 'info');
   }

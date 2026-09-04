@@ -27,6 +27,7 @@ import {
   readAdwYmlConfig,
   type AdwYmlConfig,
   buildLaunchBoundary,
+  bindWorkspaceContext,
   type LaunchBoundary,
   crossCheckRepoIdentity,
   sameRepoIdentity,
@@ -46,7 +47,6 @@ import {
 import { GITHUB_PAT } from '../core/environment';
 import { gitContextForSync } from '../github';
 import type { BoundProviders, RepoContext, RepoIdentifier } from '../providers/types';
-import { createRepoContext } from '../providers/repoContext';
 import { classifyGitHubIssue } from '../core/issueClassifier';
 import { resolveWorkflowBranchName, readPersistedBranchName } from './branchNameResolution';
 import { findExistingBranchForIssue, recoverAdwIdForBranch } from './branchIdentityFallback';
@@ -229,15 +229,6 @@ export async function initializeWorkflow(
   // Initialize logs early so agents can use the directory
   const logsDir = ensureLogsDirectory(resolvedAdwId);
 
-  // Setup target repo workspace if targeting an external repository
-  let targetRepoWorkspacePath: string | undefined;
-  if (targetRepo) {
-    log(`Setting up target repo workspace for ${targetRepo.owner}/${targetRepo.repo}...`, 'info');
-    targetRepoWorkspacePath = ensureTargetRepoWorkspace(targetRepo);
-    targetRepo.workspacePath = targetRepoWorkspacePath;
-    log(`Target repo workspace: ${targetRepoWorkspacePath}`, 'success');
-  }
-
   // The launch boundary is the only source of providers from this point on. It is
   // unreachable in production for this call to fail here: buildLaunchBoundary (above)
   // constructs its GitContext from the same owner/repo, git identity and token-provider
@@ -247,6 +238,15 @@ export async function initializeWorkflow(
   // with no boundary is a test that mocks gitContextForSync but not buildLaunchBoundary.
   if (!boundary) {
     throw new Error('initializeWorkflow: launch boundary unavailable — providers cannot be resolved for this run');
+  }
+
+  // Setup target repo workspace if targeting an external repository
+  let targetRepoWorkspacePath: string | undefined;
+  if (targetRepo) {
+    log(`Setting up target repo workspace for ${targetRepo.owner}/${targetRepo.repo}...`, 'info');
+    targetRepoWorkspacePath = ensureTargetRepoWorkspace(targetRepo, () => boundary.providers.codeHost.getDefaultBranch());
+    targetRepo.workspacePath = targetRepoWorkspacePath;
+    log(`Target repo workspace: ${targetRepoWorkspacePath}`, 'success');
   }
 
   // Resolve default branch early — used by both the upgrade gate (below) and worktree setup.
@@ -274,7 +274,7 @@ export async function initializeWorkflow(
         repoInfo: repoInfoForGate,
         targetRepoArgs,
       },
-      buildDefaultUpgradeGateDeps(boundary.providers, targetRepoWorkspacePath, (ref, filePath, cwd) => gitCtx.show(ref, filePath, cwd)),
+      buildDefaultUpgradeGateDeps(boundary.providers, targetRepoWorkspacePath, gitCtx),
     );
     if (outcome.action === 'parked') {
       log(
@@ -333,11 +333,7 @@ export async function initializeWorkflow(
   try {
     const resolved = resolveWorkflowProviders(boundary, options?.repoId);
     repoIdForContext = resolved.repoId;
-    repoContext = createRepoContext({
-      repoId: repoIdForContext,
-      cwd: worktreePath,
-      providers: resolved.providers,
-    });
+    repoContext = bindWorkspaceContext(boundary, worktreePath, repoIdForContext);
   } catch (error) {
     log(`Failed to create RepoContext (falling back to direct API calls): ${error}`, 'info');
   }
