@@ -30,24 +30,27 @@ Feature: The janitor walks only the repositories ADW manages, one unreachable re
        `webhookGatekeeper.ensureCronProcess`, and five minutes later it happens again.
 
   Three independent defects sit on that chain, and this feature pins all three, because fixing any
-  one alone leaves the trigger killable:
+  one alone leaves the trigger killable. The labels below are the section numbers used by the
+  scenario blocks further down (§1–§5):
 
-    §1  ADMISSION IS THE `.adw` MARKER (Desired behavior 1; AC1, AC2). A `{owner}/{repo}` directory
-        is an ADW target repository only when it carries a `.adw` entry IN ADDITION TO `.git`.
-        `.adw/` is written by `adw_init` into every ADW-managed repository, so it is the marker that
-        already exists. An unmarked repository is skipped ENTIRELY — no `GitContext` construction,
-        no App-token resolution, no `lsof` probing, no kill decision. On the operator host this cuts
-        the scanned set from 29 repositories to the 6 ADW manages. The self-host framework
-        repository carries `.adw` and stays discoverable: that is intended, not incidental.
+    §1–§2  ADMISSION IS THE `.adw` MARKER (Desired behavior 1; AC1, AC2). A `{owner}/{repo}`
+        directory is an ADW target repository only when it carries a `.adw` entry IN ADDITION TO
+        `.git`. `.adw/` is written by `adw_init` into every ADW-managed repository, so it is the
+        marker that already exists. An unmarked repository is skipped ENTIRELY — no `GitContext`
+        construction, no App-token resolution, no `lsof` probing, no kill decision. On the operator
+        host this cuts the scanned set from 29 repositories to the 6 ADW manages. The self-host
+        framework repository carries `.adw` and stays discoverable: that is intended, not
+        incidental. §1 pins the exclusion (AC1); §2 pins that a marked repository is still scanned
+        exactly as before (AC2).
 
-    §2  ONE UNREACHABLE REPOSITORY IS A WARNING, NOT THE END OF THE PASS (Desired behavior 2; AC3).
+    §3  ONE UNREACHABLE REPOSITORY IS A WARNING, NOT THE END OF THE PASS (Desired behavior 2; AC3).
         `.adw` narrows the blast radius but does not close the hole: an ADW-managed repository can
-        still fail its worktree listing — App uninstalled, remote deleted, network down — and today
+        still fail its worktree listing - App uninstalled, remote deleted, network down — and today
         that single failure aborts discovery for every repository behind it. The failure must log a
         warning NAMING the repository and skip it, with the rest of the pass unaffected.
 
-    §3  A TICK THAT THROWS MUST NOT TAKE THE PROCESS WITH IT (Desired behavior 3; AC4). §1 and §2
-        remove the throw that was actually observed; §3 removes the class. `void checkAndTrigger()`
+    §4  A TICK THAT THROWS MUST NOT TAKE THE PROCESS WITH IT (Desired behavior 3; AC4). §1–§3
+        remove the throw that was actually observed; §4 removes the class. `void checkAndTrigger()`
         converts ANY rejection anywhere in a tick — pause-queue resume, auth gate, sweep, a future
         caller nobody has written yet — into process death. The guard catches and logs, and the
         interval keeps firing.
@@ -55,8 +58,8 @@ Feature: The janitor walks only the repositories ADW manages, one unreachable re
   How these scenarios observe the system. Every assertion below targets a runtime artefact: the
   injected `JanitorDeps` invocations the pass actually records (which repositories were listed,
   which worktrees were probed, which processes were killed), the warning stream the pass emits, and
-  — for §3 — the liveness and captured log stream of a spawned cron process. `discoverTargetRepoWorktrees`
-  and `runJanitorPass` both take injectable deps, so §1 and §2 drive the real pass over a real
+  — for §4 — the liveness and captured log stream of a spawned cron process. `discoverTargetRepoWorktrees`
+  and `runJanitorPass` both take injectable deps, so §1–§3 drive the real pass over a real
   throwaway target-repos root (`TARGET_REPOS_DIR` is env-derived, `adws/core/environment.ts:161`)
   with only the network- and OS-touching deps stubbed. No scenario reads a source file.
 
@@ -66,12 +69,12 @@ Feature: The janitor walks only the repositories ADW manages, one unreachable re
   filter lands, the stub is never called at all. The assertion "no listing was attempted" and the
   assertion "the pass survived" are the same fact seen from two sides.
 
-  A note for the §3 step definitions: the lever that makes a tick throw must be one the §1/§2
+  A note for the §4 step definitions: the lever that makes a tick throw must be one the §1–§3
   discovery isolation does NOT swallow — otherwise the guard is never exercised and the scenario
   goes green for the wrong reason. A pause-queue entry whose resume fails (`scanPauseQueue` →
   `resumeWorkflow`, `adws/triggers/pauseQueueScanner.ts:245-258`, unguarded at the tick level) is
   such a lever; the janitor-shaped one is not, and is used only in the end-to-end incident scenario
-  that closes §3.
+  that closes §4.
 
   Background:
     Given the ADW codebase is checked out
@@ -240,8 +243,8 @@ Feature: The janitor walks only the repositories ADW manages, one unreachable re
   # repositories root that holds a non-ADW repository the App was never installed on, driven through
   # the janitor cycle that killed it 17 times. This is the scenario that reproduces the operator's
   # `Removing stale cron PID file … (PID N is dead)` loop, and the one that proves the three fixes
-  # compose — the repository is filtered out (§1), a listing failure could only warn (§2), and even
-  # an unexpected throw could not end the process (§3). RED before: the trigger dies on the first
+  # compose — the repository is filtered out (§1), a listing failure could only warn (§3), and even
+  # an unexpected throw could not end the process (§4). RED before: the trigger dies on the first
   # janitor cycle and never reaches the next tick.
 
   @adw-812 @adw-53s866-cron-trigger-crash-l
