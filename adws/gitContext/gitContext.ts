@@ -2,7 +2,7 @@
  * GitContext deep module — the single authority for "which repo's filesystem."
  *
  * A GitContext is constructed from a mandatory identity (owner, repo, selfHost,
- * token, gitIdentity) plus injected config (frameworkRepoRoot, targetReposDir).
+ * tokenProvider, gitIdentity) plus injected config (frameworkRepoRoot, targetReposDir).
  * Base-path resolution lives only in the constructor — no optional base path,
  * no cwd fallback. Incomplete identity is a hard construction error.
  *
@@ -19,11 +19,10 @@
  *              context base path (or an explicit worktree path when
  *              supplied).
  * Forge adapters build their own classifier on top of the same primitives —
- * see `adws/providers/github/ghCommandRunner.ts`, which resolves to the
- * injected framework repo root (`ExecWorkingDirectory`'s `frameworkRoot`
- * class) for commands whose repository identity travels in the command
- * string, so a repo-independent command can run without the target workspace
- * ever having been cloned.
+ * one resolves to the injected framework repo root (`ExecWorkingDirectory`'s
+ * `frameworkRoot` class) for commands whose repository identity travels in
+ * the command string, so a repo-independent command can run without the
+ * target workspace ever having been cloned.
  *
  * `#run` assembles its credential environment through the **TokenProvider
  * port** (`#credentials`, see `types.ts`), asked once per command and never
