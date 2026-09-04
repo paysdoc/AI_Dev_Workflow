@@ -21,6 +21,15 @@ vi.mock('fs', () => ({
   mkdirSync: vi.fn(),
 }));
 
+const { fakeBoundary, mockBuildLaunchBoundary } = vi.hoisted(() => {
+  const fakeBoundary = {
+    gitContext: {},
+    repoId: { owner: 'owner', repo: 'repo', platform: 'github' },
+    providers: { issueTracker: {}, codeHost: {} },
+  };
+  return { fakeBoundary, mockBuildLaunchBoundary: vi.fn(() => fakeBoundary) };
+});
+
 vi.mock('../../core', () => ({
   log: vi.fn(),
   PROBE_INTERVAL_CYCLES: 1,
@@ -34,6 +43,7 @@ vi.mock('../../core', () => ({
     const [owner, repo] = args[i + 1].split('/');
     return { owner, repo, cloneUrl: `https://github.com/${owner}/${repo}.git` };
   },
+  buildLaunchBoundary: mockBuildLaunchBoundary,
 }));
 
 vi.mock('../../core/pauseQueue', () => ({
@@ -48,14 +58,6 @@ vi.mock('../../github', () => ({
 
 vi.mock('../../phases/phaseCommentHelpers', () => ({
   postIssueStageComment: vi.fn(),
-}));
-
-vi.mock('../../providers/repoContext', () => ({
-  createRepoContext: vi.fn(() => ({})),
-}));
-
-vi.mock('../../providers/types', () => ({
-  Platform: { GitHub: 'github' },
 }));
 
 vi.mock('../spawnGate', () => ({
@@ -128,6 +130,50 @@ describe('resumeWorkflow', () => {
 
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  // ── Worktree-gone comment posting, routed through a per-entry boundary ────
+  // (issue #797 — fixes a wrong-repo bug where a --target-repo entry's error
+  // comments were silently dropped by a cwd-based git-remote check)
+
+  it("worktree gone: removes from queue and posts an error comment through the entry's own boundary", async () => {
+    vi.mocked(fs.existsSync).mockReturnValue(false);
+
+    const entry = makeEntry({ worktreePath: '/tmp/missing-worktree' });
+    await resumeWorkflow(entry);
+
+    expect(removeFromPauseQueue).toHaveBeenCalledWith(entry.adwId);
+    expect(postIssueStageComment).toHaveBeenCalledWith(
+      fakeBoundary.providers,
+      entry.issueNumber,
+      'error',
+      expect.objectContaining({ errorMessage: expect.stringContaining('worktree no longer exists') }),
+    );
+  });
+
+  it("builds the boundary from the entry's own --target-repo args, not the cron host's cwd (the bug-fix proof)", async () => {
+    vi.mocked(fs.existsSync).mockReturnValue(false);
+
+    const entry = makeEntry({ extraArgs: ['--target-repo', 'acme/webapp'] });
+    await resumeWorkflow(entry);
+
+    expect(mockBuildLaunchBoundary).toHaveBeenCalledWith({
+      owner: 'acme',
+      repo: 'webapp',
+      cloneUrl: 'https://github.com/acme/webapp.git',
+    });
+  });
+
+  it('a throwing buildLaunchBoundary is swallowed — logs a warning instead of crashing the scan', async () => {
+    vi.mocked(fs.existsSync).mockReturnValue(false);
+    mockBuildLaunchBoundary.mockImplementationOnce(() => {
+      throw new Error('no resolvable token for acme/webapp');
+    });
+
+    const entry = makeEntry();
+
+    await expect(resumeWorkflow(entry)).resolves.toBeUndefined();
+    expect(postIssueStageComment).not.toHaveBeenCalled();
   });
 
   it('spawn stdio includes a log file fd (not the string "ignore")', async () => {
@@ -208,7 +254,7 @@ describe('resumeWorkflow', () => {
     expect(removeFromPauseQueue).toHaveBeenCalledOnce();
     expect(removeFromPauseQueue).toHaveBeenCalledWith(entry.adwId);
     expect(postIssueStageComment).toHaveBeenCalledWith(
-      expect.anything(),
+      fakeBoundary.providers,
       entry.issueNumber,
       'resumed',
       expect.objectContaining({ adwId: entry.adwId }),
@@ -240,7 +286,7 @@ describe('resumeWorkflow', () => {
     expect(childProcess.spawn).toHaveBeenCalledOnce();
     expect(removeFromPauseQueue).toHaveBeenCalledWith(entry.adwId);
     expect(postIssueStageComment).toHaveBeenCalledWith(
-      expect.anything(),
+      fakeBoundary.providers,
       entry.issueNumber,
       'resumed',
       expect.objectContaining({ adwId: entry.adwId }),
@@ -260,7 +306,7 @@ describe('resumeWorkflow', () => {
     expect(releaseIssueSpawnLock).toHaveBeenCalledOnce();
     expect(removeFromPauseQueue).toHaveBeenCalledWith(entry.adwId);
     expect(postIssueStageComment).toHaveBeenCalledWith(
-      expect.anything(),
+      fakeBoundary.providers,
       entry.issueNumber,
       'error',
       expect.objectContaining({
@@ -280,7 +326,7 @@ describe('resumeWorkflow', () => {
     expect(releaseIssueSpawnLock).toHaveBeenCalledOnce();
     expect(removeFromPauseQueue).toHaveBeenCalledWith(entry.adwId);
     expect(postIssueStageComment).toHaveBeenCalledWith(
-      expect.anything(),
+      fakeBoundary.providers,
       entry.issueNumber,
       'error',
       expect.objectContaining({
