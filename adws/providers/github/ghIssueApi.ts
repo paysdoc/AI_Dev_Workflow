@@ -14,6 +14,7 @@ import {
   type ListOpenIssuesOptions,
 } from './commands/issueCommands';
 
+/** The 14 issue operations relocated from GitContext's former semantic surface, bound to one owner/repo. */
 export interface GhIssueApi {
   fetchIssue(issueNumber: number): string;
   commentOnIssue(issueNumber: number, body: string): void;
@@ -32,6 +33,7 @@ export interface GhIssueApi {
   issueComments(issueNumber: number): string;
 }
 
+/** Builds a `GhIssueApi` bound to `owner`/`repo`, dispatching each operation through `run`. */
 export function ghIssueApi(run: GhCommandRunner['run'], owner: string, repo: string): GhIssueApi {
   return {
     fetchIssue: (issueNumber) => run(fetchIssueCmd(owner, repo, issueNumber)),

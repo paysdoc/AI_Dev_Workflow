@@ -73,6 +73,12 @@ function defaultListFeatures(base: SweepBase): string[] {
   }
 }
 
+/**
+ * Finds the merge date of the most recent merged PR that closes `issueNum`,
+ * by scanning the code host's recent merged PRs and matching the canonical
+ * "Closes owner/repo#N" body marker. Returns null if no merged PR links the
+ * issue, or on any lookup failure.
+ */
 export function defaultGetMergedAt(codeHost: CodeHost, issueNum: number): Promise<Date | null> {
   try {
     // GitHub search can't reliably express the "Closes owner/repo#N" body marker,

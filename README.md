@@ -846,6 +846,7 @@ adws/                   # ADW workflow system
 │   │   ├── cancelHandler.test.ts
 │   │   ├── concurrencyGuard.test.ts
 │   │   ├── cronIssueFilter.test.ts
+│   │   ├── cronIssueListing.test.ts
 │   │   ├── cronLabelEligibility.test.ts
 │   │   ├── cronRepoResolver.test.ts
 │   │   ├── cronStageResolver.test.ts
@@ -877,6 +878,7 @@ adws/                   # ADW workflow system
 │   ├── cloudflareTunnel.tsx  # Cloudflare tunnel lifecycle helper
 │   ├── concurrencyGuard.ts
 │   ├── cronIssueFilter.ts  # Cron issue evaluation and filtering logic (testable, extracted from trigger_cron)
+│   ├── cronIssueListing.ts  # Cron's open-issue listing, extracted from trigger_cron (module-private functions there aren't step-def-drivable)
 │   ├── cronLabelEligibility.ts  # Pure label-recovery decision for cron backlog sweeper — spawns adw:*-labelled issues with no state
 │   ├── devServerJanitor.ts  # Janitor probe that kills stale dev server processes in target repo worktrees
 │   ├── perIssueScenarioSweep.ts  # Cron probe: deletes features/per-issue/feature-{N}.feature 14 days after the issue's PR merges; acts on the injected launch boundary's repo (git ops on its GitContext, merged-PR lookups via its CodeHost), no identity resolution of its own (#797)

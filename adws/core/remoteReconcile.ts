@@ -21,6 +21,7 @@ import type { AgentState } from '../types/agentTypes';
 import type { WorkflowStage } from '../types/workflowTypes';
 import type { LaunchBoundary } from './launchGitContext';
 import type { PullRequestSummary } from '../providers/types';
+import type { GitContext } from '../gitContext';
 
 export const MAX_RECONCILE_VERIFICATION_RETRIES = 3;
 
@@ -56,6 +57,16 @@ function readOnce(branchName: string, deps: ReconcileDeps): WorkflowStage | null
     deps.branchExistsOnRemote(branchName),
     deps.findPRByBranch(branchName),
   );
+}
+
+/** Shared `branchExistsOnRemote` body for both dep builders: a failed `ls-remote` is treated as "branch absent" rather than propagated. */
+function defaultBranchExistsOnRemote(gitContext: Pick<GitContext, 'lsRemote'>, branchName: string): boolean {
+  try {
+    return gitContext.lsRemote(branchName).length > 0;
+  } catch (err) {
+    log(`remoteReconcile: git ls-remote failed for branch '${branchName}': ${err}`, 'warn');
+    return false;
+  }
 }
 
 /**
@@ -103,14 +114,7 @@ export function deriveStageFromRemote(
 function buildLegacyReconcileDeps(repoInfo: RepoInfo): ReconcileDeps {
   return {
     readTopLevelState: (id) => AgentStateManager.readTopLevelState(id),
-    branchExistsOnRemote: (branchName) => {
-      try {
-        return gitContextForRepo(repoInfo).lsRemote(branchName).length > 0;
-      } catch (err) {
-        log(`remoteReconcile: git ls-remote failed for branch '${branchName}': ${err}`, 'warn');
-        return false;
-      }
-    },
+    branchExistsOnRemote: (branchName) => defaultBranchExistsOnRemote(gitContextForRepo(repoInfo), branchName),
     findPRByBranch: (branchName) => defaultFindPRByBranch(branchName, repoInfo),
   };
 }
@@ -125,14 +129,7 @@ function buildLegacyReconcileDeps(repoInfo: RepoInfo): ReconcileDeps {
 export function buildDefaultReconcileDeps(boundary: LaunchBoundary): ReconcileDeps {
   return {
     readTopLevelState: (id) => AgentStateManager.readTopLevelState(id),
-    branchExistsOnRemote: (branchName) => {
-      try {
-        return boundary.gitContext.lsRemote(branchName).length > 0;
-      } catch (err) {
-        log(`remoteReconcile: git ls-remote failed for branch '${branchName}': ${err}`, 'warn');
-        return false;
-      }
-    },
+    branchExistsOnRemote: (branchName) => defaultBranchExistsOnRemote(boundary.gitContext, branchName),
     findPRByBranch: (branchName) => boundary.providers.codeHost.findPullRequestByBranch(branchName),
   };
 }

@@ -53,6 +53,7 @@ import assert from 'assert';
 import { execSync } from 'node:child_process';
 import {
   mkdtempSync, rmSync, mkdirSync, existsSync, writeFileSync, readFileSync, readdirSync, copyFileSync,
+  type Dirent,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
@@ -156,15 +157,21 @@ interface Wcopy {
 }
 const wc: Wcopy = { tempDir: null, importError: null, imported: false };
 
+function copyDirEntry(entry: Dirent, src: string, dest: string, excludeDirNames: ReadonlySet<string>): void {
+  const srcPath = path.join(src, entry.name);
+  const destPath = path.join(dest, entry.name);
+  if (entry.isFile()) {
+    copyFileSync(srcPath, destPath);
+    return;
+  }
+  if (!entry.isDirectory() || excludeDirNames.has(entry.name)) return;
+  copyDirExcluding(srcPath, destPath, excludeDirNames);
+}
+
 function copyDirExcluding(src: string, dest: string, excludeDirNames: ReadonlySet<string>): void {
   mkdirSync(dest, { recursive: true });
   for (const entry of readdirSync(src, { withFileTypes: true })) {
-    if (entry.isDirectory()) {
-      if (excludeDirNames.has(entry.name)) continue;
-      copyDirExcluding(path.join(src, entry.name), path.join(dest, entry.name), excludeDirNames);
-    } else if (entry.isFile()) {
-      copyFileSync(path.join(src, entry.name), path.join(dest, entry.name));
-    }
+    copyDirEntry(entry, src, dest, excludeDirNames);
   }
 }
 
@@ -419,6 +426,16 @@ function seedRealBoundaryRepo(targetReposDir: string, owner: string, repo: strin
   return { bareRemote, workdir };
 }
 
+/** `mintProviders` for the recording boundary — counts the call and hands back this file's recording tracker/host over `bw.fixture`. */
+function mintRecordingProviders(options: MintProvidersOptions): BoundProviders {
+  bw.mintCallCount += 1;
+  assert.ok(bw.fixture, 'Expected a fixture to have been created before minting providers');
+  return {
+    issueTracker: makeRecordingIssueTracker(bw.fixture, bw.callLog),
+    codeHost: makeRecordingCodeHost(bw.fixture, bw.callLog, options.repoId),
+  };
+}
+
 function buildRecordingBoundary(owner: string, repo: string): void {
   bw.targetReposDir = mkdtempSync(path.join(tmpdir(), 'adw-797-target-root-'));
   bw.frameworkRoot = mkdtempSync(path.join(tmpdir(), 'adw-797-framework-'));
@@ -441,13 +458,7 @@ function buildRecordingBoundary(owner: string, repo: string): void {
     resolveGitIdentity: () => FIXED_IDENTITY,
     frameworkRepoRoot: bw.frameworkRoot,
     targetReposDir: bw.targetReposDir,
-    mintProviders: (options: MintProvidersOptions): BoundProviders => {
-      bw.mintCallCount += 1;
-      return {
-        issueTracker: makeRecordingIssueTracker(bw.fixture!, bw.callLog),
-        codeHost: makeRecordingCodeHost(bw.fixture!, bw.callLog, options.repoId),
-      };
-    },
+    mintProviders: mintRecordingProviders,
   };
 
   const raw = buildLaunchBoundary({ owner, repo, cloneUrl: `https://example.invalid/${owner}/${repo}.git` }, deps);
@@ -460,7 +471,7 @@ function buildRecordingBoundary(owner: string, repo: string): void {
 
 function requireBoundary(): LaunchBoundary {
   assert.ok(bw.boundary, 'Expected a launch boundary to have been built first');
-  return bw.boundary!;
+  return bw.boundary;
 }
 
 // ── §7 — the recording-exec world (gitContextSharedWorld.ts's W) ────────────
@@ -526,7 +537,7 @@ Then('the import of the copied package succeeds', function () {
 Then('the copied package resolved no module outside its own directory', function () {
   assert.strictEqual(wc.importError, null, 'Expected no import error (a reach outside the copy would fail to resolve)');
   assert.ok(wc.tempDir, 'Expected a temp directory to have been set up');
-  const topLevel = readdirSync(wc.tempDir!);
+  const topLevel = readdirSync(wc.tempDir);
   assert.deepStrictEqual(
     topLevel, ['gitContext'],
     `Expected only the copied gitContext package on disk, found: ${topLevel.join(', ')}`,
@@ -574,7 +585,7 @@ Then('the git context was asked for no forge-semantic operation', function () {
 
 Given('the recording issue tracker holds an open issue {int}', function (issueNumber: number) {
   assert.ok(bw.fixture, 'Expected a boundary to have been built first');
-  bw.fixture!.issues.set(issueNumber, {
+  bw.fixture.issues.set(issueNumber, {
     number: issueNumber, title: '', body: '', state: 'OPEN', labels: [], comments: [],
     createdAt: new Date(Date.now() - 60_000).toISOString(), updatedAt: new Date(Date.now() - 60_000).toISOString(),
   });
@@ -585,7 +596,7 @@ Given(
   function (issueNumber: number, label: string) {
     assert.ok(bw.fixture, 'Expected a boundary to have been built first');
     const oldIso = new Date(Date.now() - 60_000).toISOString();
-    bw.fixture!.issues.set(issueNumber, {
+    bw.fixture.issues.set(issueNumber, {
       number: issueNumber,
       title: 'fixture issue',
       body: 'some fixture body text',
@@ -613,7 +624,7 @@ Then('the recording issue tracker recorded an open-issue listing for {string}', 
 
 Then('the cron evaluates issue {int} as eligible', function (issueNumber: number) {
   assert.ok(bw.cronListingResult, 'Expected the cron listing to have run first');
-  const issue = bw.cronListingResult!.find((i) => i.number === issueNumber);
+  const issue = bw.cronListingResult.find((i) => i.number === issueNumber);
   assert.ok(issue, `Expected issue ${issueNumber} in the cron listing`);
   const result = evaluateIssue(issue as unknown as CronIssue, Date.now(), { spawns: new Set() }, 0);
   assert.strictEqual(result.eligible, true, `Expected issue ${issueNumber} to be eligible, got: ${JSON.stringify(result)}`);
@@ -621,13 +632,13 @@ Then('the cron evaluates issue {int} as eligible', function (issueNumber: number
 
 Then('the listed issue {int} carries its body, its comments, its labels and its timestamps', function (issueNumber: number) {
   assert.ok(bw.cronListingResult, 'Expected the cron listing to have run first');
-  const issue = bw.cronListingResult!.find((i) => i.number === issueNumber);
+  const issue = bw.cronListingResult.find((i) => i.number === issueNumber);
   assert.ok(issue, `Expected issue ${issueNumber} in the cron listing`);
-  assert.ok(issue!.body && issue!.body.length > 0, 'Expected a non-empty body');
-  assert.ok(issue!.comments.length > 0, 'Expected at least one comment');
-  assert.ok(issue!.labels.length > 0, 'Expected at least one label');
-  assert.ok(issue!.createdAt, 'Expected a createdAt timestamp');
-  assert.ok(issue!.updatedAt, 'Expected an updatedAt timestamp');
+  assert.ok(issue.body && issue.body.length > 0, 'Expected a non-empty body');
+  assert.ok(issue.comments.length > 0, 'Expected at least one comment');
+  assert.ok(issue.labels.length > 0, 'Expected at least one label');
+  assert.ok(issue.createdAt, 'Expected a createdAt timestamp');
+  assert.ok(issue.updatedAt, 'Expected an updatedAt timestamp');
 });
 
 // ── §3 — the sweeps ────────────────────────────────────────────────────────────
@@ -647,7 +658,7 @@ Given('a per-issue scenario file for issue {int} tagged as promotion-suggested',
 Given('the recording issue tracker holds a closed promotion-tracking issue for issue {int}', function (issueNumber: number) {
   assert.ok(bw.fixture, 'Expected a boundary to have been built first');
   const trackerNumber = 9000 + issueNumber;
-  bw.fixture!.issues.set(trackerNumber, {
+  bw.fixture.issues.set(trackerNumber, {
     number: trackerNumber,
     title: `Promote feature-${issueNumber}`,
     body: `Promotes: feature-${issueNumber}\n\nClosed without merging.`,
@@ -694,11 +705,10 @@ Then('the recording issue tracker recorded no issue creation', function () {
   );
 });
 
-Given('the recording code host holds a merged pull request {int} whose body closes issue {int}', function (prNumber: number, issueNumber: number) {
+Given('the recording code host holds a merged pull request {int} whose body closes issue {int}', function (_prNumber: number, issueNumber: number) {
   assert.ok(bw.fixture, 'Expected a boundary to have been built first');
-  void prNumber;
   bw.expectedMergedAt = '2026-01-10T12:00:00.000Z';
-  bw.fixture!.mergedPRs.push({ body: `Closes #${issueNumber}`, mergedAt: bw.expectedMergedAt });
+  bw.fixture.mergedPRs.push({ body: `Closes #${issueNumber}`, mergedAt: bw.expectedMergedAt });
 });
 
 When('the per-issue scenario sweep resolves the merge date for issue {int}', async function (issueNumber: number) {
@@ -706,16 +716,15 @@ When('the per-issue scenario sweep resolves the merge date for issue {int}', asy
   bw.resolvedMergedAt = await defaultGetMergedAt(boundary.providers.codeHost, issueNumber);
 });
 
-Then('the resolved merge date is the merge date of pull request {int}', function (prNumber: number) {
-  void prNumber;
+Then('the resolved merge date is the merge date of pull request {int}', function (_prNumber: number) {
   assert.ok(bw.expectedMergedAt, 'Expected a fixture merged-at date to have been configured');
   assert.ok(bw.resolvedMergedAt, 'Expected a resolved merge date');
-  assert.strictEqual(bw.resolvedMergedAt!.toISOString(), new Date(bw.expectedMergedAt!).toISOString());
+  assert.strictEqual(bw.resolvedMergedAt.toISOString(), new Date(bw.expectedMergedAt).toISOString());
 });
 
 Given('the recording code host reports the default branch {string}', function (branch: string) {
   assert.ok(bw.fixture, 'Expected a boundary to have been built first');
-  bw.fixture!.defaultBranch = branch;
+  bw.fixture.defaultBranch = branch;
 });
 
 When('the per-issue sweep persists a removal batch from that boundary', async function () {
@@ -723,7 +732,7 @@ When('the per-issue sweep persists a removal batch from that boundary', async fu
   const base = prepareSweepBase(boundary);
   assert.ok(base, 'Expected prepareSweepBase to succeed against the seeded fixture repo');
   assert.ok(bw.removableFeaturePath, 'Expected a removable fixture file to have been seeded');
-  await persistRemovalViaPr([bw.removableFeaturePath!], base!);
+  await persistRemovalViaPr([bw.removableFeaturePath], base);
 });
 
 Then('the recording code host recorded exactly one pull request creation', function () {
@@ -747,11 +756,11 @@ Given('the recording code host holds a pull request {int} on branch {string} in 
 ) {
   assert.ok(bw.fixture, 'Expected a boundary to have been built first');
   assert.ok(bw.boundaryWorkdir, 'Expected a seeded fixture repo');
-  bw.fixture!.prByBranch.set(branchName, {
-    number: prNumber, state, sourceBranch: branchName, targetBranch: bw.fixture!.defaultBranch, labels: [],
+  bw.fixture.prByBranch.set(branchName, {
+    number: prNumber, state, sourceBranch: branchName, targetBranch: bw.fixture.defaultBranch, labels: [],
   });
   // Real ls-remote target: push a same-tip branch to the real bare origin.
-  git(`git push origin main:refs/heads/${branchName}`, bw.boundaryWorkdir!);
+  git(`git push origin main:refs/heads/${branchName}`, bw.boundaryWorkdir);
 });
 
 When('the remote reconcile derives the stage for adw id {string} from that boundary', function (adwId: string) {
@@ -806,7 +815,7 @@ Then('the recorded comment on issue {int} is the body the stage {string} formats
   const body = call.args[1] as string;
   assert.ok(bw.lastWorkflowContext, 'Expected a workflow context to have been captured');
   assert.strictEqual(bw.lastStage, stage);
-  const expected = formatWorkflowComment(stage as WorkflowStage, bw.lastWorkflowContext!);
+  const expected = formatWorkflowComment(stage as WorkflowStage, bw.lastWorkflowContext);
   assert.strictEqual(body, expected);
 });
 
@@ -815,7 +824,7 @@ Given('issue {int} carries an adw-id comment for {string} followed by one for {s
 ) {
   assert.ok(bw.fixture, 'Expected a boundary to have been built first');
   const now = new Date().toISOString();
-  bw.fixture!.issues.set(issueNumber, {
+  bw.fixture.issues.set(issueNumber, {
     number: issueNumber, title: '', body: '', state: 'OPEN', labels: [],
     comments: [
       { id: 'c1', body: `**ADW ID:** \`${oldId}\``, author: 'adw-bot', createdAt: now },
@@ -841,7 +850,7 @@ Then('the resolved adw id is {string}', function (adwId: string) {
 Given('the workspace directory for {string} is already cloned', function (repoStr: string) {
   assert.ok(bw.ensureTargetReposDir, 'Expected a boundary to have been built first');
   const { owner, repo } = splitRepo(repoStr);
-  mkdirSync(path.join(bw.ensureTargetReposDir!, owner, repo, '.git'), { recursive: true });
+  mkdirSync(path.join(bw.ensureTargetReposDir, owner, repo, '.git'), { recursive: true });
 });
 
 Given('the workspace directory for {string} does not exist', function (repoStr: string) {
@@ -851,18 +860,22 @@ Given('the workspace directory for {string} does not exist', function (repoStr: 
   assert.ok(!existsSync(p), `Expected ${p} not to exist`);
 });
 
+/** `ensureRepoWorkspace`'s `getDefaultBranch` dep: resolves through the boundary's code host and records the result on `bw` for the Then step to inspect. */
+function resolveAndRecordDefaultBranch(boundary: LaunchBoundary): string {
+  const branch = boundary.providers.codeHost.getDefaultBranch();
+  bw.resolvedDefaultBranchFromEnsure = branch;
+  return branch;
+}
+
 When('the target repository workspace is ensured from that boundary', function () {
   const boundary = requireBoundary();
+  assert.ok(bw.ensureTargetReposDir, 'Expected a boundary to have been built first');
   bw.ensureError = null;
   bw.resolvedDefaultBranchFromEnsure = null;
   try {
     ensureRepoWorkspace('adw-fixture', 'void-797', 'https://example.invalid/adw-fixture/void-797.git', {
-      targetReposDir: bw.ensureTargetReposDir!,
-      getDefaultBranch: () => {
-        const branch = boundary.providers.codeHost.getDefaultBranch();
-        bw.resolvedDefaultBranchFromEnsure = branch;
-        return branch;
-      },
+      targetReposDir: bw.ensureTargetReposDir,
+      getDefaultBranch: () => resolveAndRecordDefaultBranch(boundary),
       exec: () => { /* no real git needed — clone/fetch mechanics are out of scope for this scenario */ },
       fsDeps: { existsSync, mkdirSync },
       log: () => {},

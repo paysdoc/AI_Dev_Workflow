@@ -19,6 +19,7 @@ import {
   parseProjectId, parseIssueItem, parseStatusField,
 } from './commands/boardCommands';
 
+/** Repo-scoped operations (labels, secrets, board moves) not owned by the issue or PR leaf APIs. */
 export interface GhRepoOps {
   defaultBranch(): string;
   authenticatedUser(): string;
@@ -35,7 +36,54 @@ export interface GhRepoOps {
   moveIssueToStatus(issueNumber: number, targetStatus: string): boolean;
 }
 
+/** The full composed GitHub-repo API: issue ops, PR ops, and repo-scoped ops over one bound `GitContext`. */
 export type GhRepoApi = GhIssueApi & GhPrApi & GhRepoOps;
+
+/**
+ * Moves an issue to `targetStatus` on the repo's Projects V2 board.
+ * Walks project lookup -> item lookup -> status-field lookup -> the move
+ * itself, short-circuiting to `false` on any lookup failure or missing data,
+ * and to `true` early if the item is already at `targetStatus`.
+ */
+function moveIssueToStatus(
+  run: GhCommandRunner['run'],
+  owner: string,
+  repo: string,
+  issueNumber: number,
+  targetStatus: string,
+): boolean {
+  let projectId: string | null;
+  try {
+    projectId = parseProjectId(run(projectQueryCmd(owner, repo), { purpose: 'alternateIdentity' }));
+  } catch { return false; }
+  if (!projectId) return false;
+
+  let item: { itemId: string; currentStatus: string | null } | null;
+  try {
+    item = parseIssueItem(
+      run(itemQueryCmd(owner, repo, issueNumber), { purpose: 'alternateIdentity' }),
+      projectId,
+    );
+  } catch { return false; }
+  if (!item) return false;
+  if (item.currentStatus?.toLowerCase() === targetStatus.toLowerCase()) return true;
+
+  let field: { fieldId: string; optionId: string } | 'already_at_status' | null;
+  try {
+    field = parseStatusField(
+      run(fieldQueryCmd(projectId), { purpose: 'alternateIdentity' }),
+      targetStatus,
+      item.currentStatus,
+    );
+  } catch { return false; }
+  if (!field) return false;
+  if (field === 'already_at_status') return true;
+
+  try {
+    run(moveStatusCmd(projectId, item.itemId, field.fieldId, field.optionId), { purpose: 'alternateIdentity' });
+  } catch { return false; }
+  return true;
+}
 
 function ghRepoOps(run: GhCommandRunner['run'], owner: string, repo: string): GhRepoOps {
   return {
@@ -61,39 +109,7 @@ function ghRepoOps(run: GhCommandRunner['run'], owner: string, repo: string): Gh
     runGraphQLInput: (body) =>
       run(graphQLInputCmd(), { input: JSON.stringify(body), purpose: 'alternateIdentity' }),
 
-    moveIssueToStatus: (issueNumber, targetStatus) => {
-      let projectId: string | null = null;
-      try {
-        projectId = parseProjectId(run(projectQueryCmd(owner, repo), { purpose: 'alternateIdentity' }));
-      } catch { return false; }
-      if (!projectId) return false;
-
-      let item: { itemId: string; currentStatus: string | null } | null = null;
-      try {
-        item = parseIssueItem(
-          run(itemQueryCmd(owner, repo, issueNumber), { purpose: 'alternateIdentity' }),
-          projectId,
-        );
-      } catch { return false; }
-      if (!item) return false;
-      if (item.currentStatus?.toLowerCase() === targetStatus.toLowerCase()) return true;
-
-      let field: { fieldId: string; optionId: string } | 'already_at_status' | null = null;
-      try {
-        field = parseStatusField(
-          run(fieldQueryCmd(projectId), { purpose: 'alternateIdentity' }),
-          targetStatus,
-          item.currentStatus,
-        );
-      } catch { return false; }
-      if (!field) return false;
-      if (field === 'already_at_status') return true;
-
-      try {
-        run(moveStatusCmd(projectId, item.itemId, field.fieldId, field.optionId), { purpose: 'alternateIdentity' });
-      } catch { return false; }
-      return true;
-    },
+    moveIssueToStatus: (issueNumber, targetStatus) => moveIssueToStatus(run, owner, repo, issueNumber, targetStatus),
   };
 }
 

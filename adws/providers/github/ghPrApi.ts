@@ -12,6 +12,7 @@ import {
   fetchPRListCmd, fetchAllPRsCmd, createPRCmd, fetchMergedPRsCmd, prChangedFilesCmd,
 } from './commands/prCommands';
 
+/** The 13 pull-request operations relocated from GitContext's former semantic surface, bound to one owner/repo. */
 export interface GhPrApi {
   findPRByBranch(branchName: string): string;
   fetchPRDetails(prNumber: number): string;
@@ -29,6 +30,7 @@ export interface GhPrApi {
   fetchMergedPRs(limit?: number): string;
 }
 
+/** Builds a `GhPrApi` bound to `owner`/`repo`, dispatching each operation through `run`. */
 export function ghPrApi(run: GhCommandRunner['run'], owner: string, repo: string): GhPrApi {
   return {
     findPRByBranch: (branchName) => run(findPRByBranchCmd(owner, repo, branchName)),
