@@ -213,6 +213,25 @@ export async function runPromotionSweepTick(
 }
 
 /**
+ * Runs one cron tick and contains any escaped rejection. `checkAndTrigger` is
+ * fired-and-forgotten from the entry-script guard (initial call and the setInterval
+ * callback); without this guard a single throw anywhere in the tick — e.g. the
+ * janitor's discovery constructing a GitContext for a repo the GitHub App is not
+ * installed on — became an unhandled rejection and Node killed the whole cron
+ * process, which the webhook then respawned every ~5 minutes (#812). The error is
+ * logged (with its stack, since this is the catch-all of last resort) and the next
+ * tick still runs. Exported with an injectable tick so tests can drive the swallow.
+ */
+export async function runGuardedTick(tick: () => Promise<void> = checkAndTrigger): Promise<void> {
+  try {
+    await tick();
+  } catch (error) {
+    const detail = error instanceof Error && error.stack ? error.stack : String(error);
+    log(`checkAndTrigger: tick failed (non-fatal): ${detail}`, 'error');
+  }
+}
+
+/**
  * Handles a single cron tick when the auth gate is set.
  * Returns true if the gate was set (caller should return early from checkAndTrigger).
  * Returns false if the gate is absent (normal operation continues).
@@ -517,8 +536,8 @@ if (process.argv[1]?.replace(/\\/g, '/').includes('trigger_cron')) {
   } catch (error) {
     log(`Guardrails probe warm-up failed (non-fatal): ${error}`, 'warn');
   }
-  void checkAndTrigger();
-  setInterval(() => { void checkAndTrigger(); }, POLL_INTERVAL_MS);
+  void runGuardedTick();
+  setInterval(() => { void runGuardedTick(); }, POLL_INTERVAL_MS);
   checkPRsForReviewComments();
   setInterval(checkPRsForReviewComments, PR_POLL_INTERVAL_MS);
 }

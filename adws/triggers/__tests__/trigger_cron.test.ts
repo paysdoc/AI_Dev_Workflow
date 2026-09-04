@@ -92,7 +92,7 @@ vi.mock('../../core', async (importOriginal) => {
 // Now import the module under test (side effects are all stubbed)
 // ---------------------------------------------------------------------------
 
-import { runHungDetectorSweep, runPerIssueScenarioSweepTick, runPromotionSweepTick } from '../trigger_cron';
+import { runHungDetectorSweep, runPerIssueScenarioSweepTick, runPromotionSweepTick, runGuardedTick } from '../trigger_cron';
 import { findHungOrchestrators } from '../../core/hungOrchestratorDetector';
 import { AgentStateManager } from '../../core/agentState';
 import { log, PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES, PROMOTION_SWEEP_INTERVAL_CYCLES } from '../../core';
@@ -263,5 +263,39 @@ describe('runPromotionSweepTick — null-thunk skip (#769)', () => {
     const sweep = vi.fn(() => Promise.reject(new Error('injected transient failure')));
     await expect(runPromotionSweepTick(PROMOTION_SWEEP_INTERVAL_CYCLES, sweep)).resolves.toBeUndefined();
     expect(sweep).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('runGuardedTick (#812)', () => {
+  beforeEach(() => {
+    vi.mocked(log).mockClear();
+  });
+
+  it('awaits the injected tick exactly once', async () => {
+    const tick = vi.fn(() => Promise.resolve());
+    await runGuardedTick(tick);
+    expect(tick).toHaveBeenCalledTimes(1);
+    expect(log).not.toHaveBeenCalled();
+  });
+
+  it('swallows a rejecting tick, logs an error naming the cause, and resolves', async () => {
+    const tick = vi.fn(() => Promise.reject(new Error('GitHub App installation lookup failed for paicc/paicc-1: HTTP 404 (Not Found)')));
+    await expect(runGuardedTick(tick)).resolves.toBeUndefined();
+    expect(log).toHaveBeenCalledWith(expect.stringContaining('paicc/paicc-1'), 'error');
+  });
+
+  it('a rejection on one invocation does not stop the next invocation from running', async () => {
+    const tick = vi.fn()
+      .mockRejectedValueOnce(new Error('transient failure'))
+      .mockResolvedValueOnce(undefined);
+    await runGuardedTick(tick);
+    await runGuardedTick(tick);
+    expect(tick).toHaveBeenCalledTimes(2);
+  });
+
+  it('swallows a non-Error rejection value', async () => {
+    const tick = vi.fn(() => Promise.reject('boom'));
+    await expect(runGuardedTick(tick)).resolves.toBeUndefined();
+    expect(log).toHaveBeenCalledWith(expect.stringContaining('boom'), 'error');
   });
 });

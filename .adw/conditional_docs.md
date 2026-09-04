@@ -229,6 +229,7 @@
     - When working with `linkedPrDetector.ts` (`hasLinkedMergedOrClosedPR`, `fetchLinkedPRs`) as consumed by the label-recovery gate
     - When the `precomputedClassification` routing path in `trigger_cron.ts` is relevant (cron recovery bypassing LLM classifier)
     - When extending `CronIssue` with new fields or adding parameters to `filterEligibleIssues`
+    - When working with `runGuardedTick`, or when the cron trigger crash-loops / is respawned by the webhook after an unhandled rejection (#812)
 
 - app_docs/feature-9gjajh-webhook-triggers.md
   - Owns:
@@ -293,6 +294,7 @@
     - When working with `PerIssueSweepDeps.gitContext` (required, launch-boundary, no cwd fallback) or `prepareSweepBase(gitContext)`'s signature
     - When troubleshooting a target-repo cron sweeping the wrong repo (e.g. the framework repo instead of `--target-repo`) — identity must come from the cron's threaded launch `GitContext`, never `getRepoInfo()`/`gitContextForRepo` re-derivation (#769)
     - When working with `runPerIssueScenarioSweepTick` in `trigger_cron.ts` (the cadence gate + null-launch-context skip + non-fatal swallow that dispatches the sweep)
+    - When the janitor skips a repo (`Janitor: skipping owner/repo`), when the `.adw` marker gate / `hasAdwMarker` in `discoverTargetRepoWorktrees` is relevant, or when `TARGET_REPOS_DIR` holds non-ADW repos
 
 - app_docs/feature-ne2we8-promotion-tag-state.md
   - Owns:
