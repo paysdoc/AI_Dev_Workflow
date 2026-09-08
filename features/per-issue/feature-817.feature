@@ -117,7 +117,7 @@ Feature: The provider package owns its own domain model — the raw GitHub shape
       From `feature-794.steps.ts`: `a launch boundary rooted in throwaway framework and target-repos
       directories`, `the local git remote at the launch boundary answers {string}`, `the launch
       boundary is asked for the repository {string}`, `the launch boundary is asked with no target
-      repository`. From `feature-769.steps.ts`: `the git/gh guard runs across the whole ADW
+      repository`, `the boundary's git context names the repository {string}`. From `feature-769.steps.ts`: `the git/gh guard runs across the whole ADW
       repository`, `the guard run reports no violations`. From `ensureCronOnEveryEventSteps.ts` and
       `feature-504.steps.ts`: `the ADW codebase is checked out` (G18), `the ADW TypeScript type-check
       passes` (T22). Redefining any of these is an AmbiguousStepDefinition.
@@ -125,6 +125,21 @@ Feature: The provider package owns its own domain model — the raw GitHub shape
       return type is one of the things this issue changes. Its fixture must return whatever the
       collapsed seam now requires — that update is part of this issue, and it is the point of
       reusing the step rather than writing a parallel one.
+    • THE TWO NEW PLATFORM PHRASES NEED A SEAM, NOT A SECOND WORLD. `the launch boundary declares the
+      platform {string}` and `the boundary's repo identity declares the platform {string}` are new to
+      this file, but the boundary they assert on is built by the REUSED `When` steps, inside
+      `feature-794.steps.ts`, against a module-private world whose `makeDeps()` never sets
+      `deps.platform`. Redefining those Given/When phrases here is an AmbiguousStepDefinition, so
+      `feature-794.steps.ts` exports a small seam instead — a declared-platform setter that
+      `makeDeps()` folds into `deps.platform`, plus an accessor for the built boundary — and
+      `feature-817.steps.ts` imports it. That cross-file pattern is already in use here
+      (`feature-506` → `feature-507`/`feature-508`, `feature-636` → `feature-719`,
+      `feature-577`/`feature-579` → `feature-583`). The setter resets per scenario, so the
+      undeclared row below still exercises `deps.platform ?? Platform.GitHub`, and no `feature-794`
+      phrase text changes.
+    • `the guard failure over the guard fixture tree cites the {string} rule` (§5) is new and does not
+      collide with #816's literal `… cites the extraction-readiness rule` — that phrase takes no
+      quoted argument, so neither matches the other's step text.
 
   WHAT THIS FILE DELIBERATELY DOES NOT COVER. AC5's `bun run test:unit` half is the existing vitest
   suite, kept as the regression net the issue names; it is run by CI, not re-run from a scenario,
