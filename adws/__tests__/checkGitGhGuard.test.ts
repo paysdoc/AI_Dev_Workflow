@@ -533,6 +533,42 @@ describe('scanExtractionScope — extraction-readiness rule (#816)', () => {
     expect(violations.every((v) => v.rule === 'extraction-readiness')).toBe(true);
   });
 
+  it('fails: adws/providers/gitlab/gitlabApiClient.ts importing ../../core (in scope since #818)', () => {
+    mockReadFileSync.mockReturnValue("import { log } from '../../core';\n");
+
+    const { violations } = scanExtractionScope(['adws/providers/gitlab/gitlabApiClient.ts'], '/repo');
+
+    expect(violations).toHaveLength(1);
+    expect(violations[0].rule).toBe('extraction-readiness');
+  });
+
+  it('fails: adws/providers/jira/jiraIssueTracker.ts importing ../../core (in scope since #818)', () => {
+    mockReadFileSync.mockReturnValue("import { log, JIRA_EMAIL } from '../../core';\n");
+
+    const { violations } = scanExtractionScope(['adws/providers/jira/jiraIssueTracker.ts'], '/repo');
+
+    expect(violations).toHaveLength(1);
+    expect(violations[0].rule).toBe('extraction-readiness');
+  });
+
+  it('passes: adws/providers/gitlab/gitlabCodeHost.ts importing the Logger port, its own client, and provider types', () => {
+    mockReadFileSync.mockReturnValue(
+      "import { consoleLogger } from '../../gitContext/consoleLogger';\nimport { GitLabApiClient } from './gitlabApiClient';\nimport type { RepoIdentifier } from '../types';\n",
+    );
+
+    const { violations } = scanExtractionScope(['adws/providers/gitlab/gitlabCodeHost.ts'], '/repo');
+
+    expect(violations).toHaveLength(0);
+  });
+
+  it('passes: adws/providers/jira/jiraApiClient.ts importing the Logger port type', () => {
+    mockReadFileSync.mockReturnValue("import type { Logger } from '../../gitContext/types';\n");
+
+    const { violations } = scanExtractionScope(['adws/providers/jira/jiraApiClient.ts'], '/repo');
+
+    expect(violations).toHaveLength(0);
+  });
+
   it('the scope scan never runs the other three rules', () => {
     mockReadFileSync.mockReturnValue('const x = execSync("git status");\n');
 

@@ -285,22 +285,24 @@ Feature: A fourth guard rule makes "extraction is a file move" machine-checked �
   # ── §3 THE SCOPE LIST IS EXPLICIT AND ONLY WIDENS (AC2, AC4) ───────────────────────────
   #
   # The complement of §1, and the reason `bun run lint:git-guard` can be green tomorrow morning: a
-  # package inside the extractable SET but outside the current SCOPE is not checked yet. The fixture
-  # is `adws/providers/gitlab/gitlabCodeHost.ts` reaching `../../core` — not invented, but the exact
-  # import that sits at line 18 of that file right now, and one of eight such entanglements across
-  # the provider adapters. If the rule enforced the whole extractable set on day one this scenario
-  # goes red, and so does AC4 and the build with it. When the GitLab de-tangling slice lands and
-  # widens the scope by that package, this scenario is the one that is deliberately rewritten — the
-  # scope list widening is a visible, reviewed event, which is the point.
+  # package inside the extractable SET but outside the current SCOPE is not checked yet. #818 cleaned
+  # `providers/gitlab` and `providers/jira` and widened the scope by both — the visible, reviewed
+  # widening event this scenario's original GitLab fixture predicted, and the reason that fixture is
+  # rewritten here rather than left to rot pinned green for the wrong reason. The fixture is now
+  # `adws/providers/repoContext.ts` reaching `../core/projectConfig` — not invented, but the exact
+  # import that sits at that file today, and the last out-of-scope providers file. If the rule
+  # enforced the whole extractable set on day one this scenario goes red, and so does AC4 and the
+  # build with it. When #823 replaces `repoContext.ts` with `forgeProviders()`, this scenario is the
+  # one that is rewritten or retired in turn.
 
   @adw-816 @adw-i4q2gf-extraction-readiness
   Scenario: A package in the extractable set but outside the current scope is not yet checked
-    Given a guard fixture tree holding the file "adws/providers/gitlab/gitlabCodeHost.ts":
+    Given a guard fixture tree holding the file "adws/providers/repoContext.ts":
       """
-      import { GITLAB_TOKEN, GITLAB_INSTANCE_URL } from '../../core';
+      import type { ProvidersConfig } from '../core/projectConfig';
 
-      export function endpoint(): string {
-        return `${GITLAB_INSTANCE_URL}?token=${GITLAB_TOKEN}`;
+      export function endpoint(config: ProvidersConfig): string {
+        return config.codeHost;
       }
       """
     When the guard runner executes over the guard fixture tree

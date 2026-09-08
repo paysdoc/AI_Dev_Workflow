@@ -254,6 +254,8 @@
     - When working on the GitHub forge adapter — command builders, token resolution (`appAuth.ts`/`tokenResolver.ts`/`githubTokenProvider.ts`), `ghCommandRunner.ts`, or the `ghIssueApi`/`ghPrApi`/`ghRepoApi` composition
     - When working with the adapter-owned raw GitHub payload shapes in `adws/providers/github/domain/` (moved from `adws/types/` and `adws/github/prApi.ts`, #817)
     - When `RepoInfo` or `toRepoInfo` is referenced and not found — collapsed into `RepoIdentifier` (#817); parsers stamp `platform: Platform.GitHub`
+    - When `createGitLabCodeHost`/`createJiraIssueTracker` need credentials, an endpoint or a logger — injected `GitLabConfig`/`JiraConfig` plus the `Logger` port; the env→config wiring (`gitLabConfigFromEnv`/`jiraAuthFromEnv`) lives in `repoContext.ts` (#818)
+    - When `bun run lint:git-guard` flags `[extraction-readiness]` under `adws/providers/gitlab/` or `adws/providers/jira/` — both adapter packages are in scope since #818
 
 - app_docs/feature-9gjajh-cost-tracking.md
   - Owns:

@@ -1,14 +1,25 @@
 /**
  * Jira IssueTracker implementation.
  * Maps ADW's IssueTracker interface to Jira REST API v3 via JiraApiClient.
+ *
+ * Configuration is INJECTED (#818) — never read from the environment. Logs via
+ * the `Logger` port, defaulting to `consoleLogger`.
  */
 
-import { log, JIRA_EMAIL, JIRA_API_TOKEN, JIRA_PAT } from '../../core';
+import type { Logger } from '../../gitContext/types';
+import { consoleLogger } from '../../gitContext/consoleLogger';
 import type { IssueTracker, Issue, IssueComment, IssueSummary, IssueListEntry } from '../types';
 import { BoardStatus } from '../types';
-import { JiraApiClient } from './jiraApiClient';
+import { JiraApiClient, isCloudAuth, type JiraAuth, type JiraApiClientDeps } from './jiraApiClient';
 import type { JiraIssueResponse, JiraCommentResponse } from './jiraTypes';
 import { markdownToAdf, adfToPlainText } from './adfConverter';
+
+/** The injected configuration `createJiraIssueTracker` takes (#818); ADW's wiring supplies `auth` from `jiraAuthFromEnv()`; `instanceUrl`/`projectKey` come from the caller's own configuration (`.adw/providers.md` sections, wired by #823). */
+export interface JiraConfig {
+  readonly instanceUrl: string;
+  readonly projectKey: string;
+  readonly auth: JiraAuth;
+}
 
 /** Maps Jira status category keys to ADW state strings. */
 const STATUS_CATEGORY_MAP: Record<string, string> = {
@@ -37,11 +48,13 @@ function matchTransition(
 export class JiraIssueTracker implements IssueTracker {
   private readonly client: JiraApiClient;
   private readonly projectKey: string;
+  private readonly logger: Logger;
   private readonly commentIssueMap = new Map<string, string>();
 
-  constructor(client: JiraApiClient, projectKey: string) {
+  constructor(client: JiraApiClient, projectKey: string, logger: Logger = consoleLogger) {
     this.client = client;
     this.projectKey = projectKey;
+    this.logger = logger;
   }
 
   private toJiraKey(issueNumber: number): string {
@@ -91,24 +104,24 @@ export class JiraIssueTracker implements IssueTracker {
 
     this.client.addComment(issueKey, adfBody).then(comment => {
       this.commentIssueMap.set(comment.id, issueKey);
-      log(`Commented on Jira issue ${issueKey}`, 'success');
+      this.logger(`Commented on Jira issue ${issueKey}`, 'success');
     }).catch(error => {
-      log(`Failed to comment on Jira issue ${issueKey}: ${error}`, 'error');
+      this.logger(`Failed to comment on Jira issue ${issueKey}: ${error}`, 'error');
     });
   }
 
   deleteComment(commentId: string): void {
     const issueKey = this.commentIssueMap.get(commentId);
     if (!issueKey) {
-      log(`Cannot delete Jira comment ${commentId}: issue key not found in cache. Fetch comments first.`, 'warn');
+      this.logger(`Cannot delete Jira comment ${commentId}: issue key not found in cache. Fetch comments first.`, 'warn');
       return;
     }
 
     this.client.deleteComment(issueKey, commentId).then(() => {
       this.commentIssueMap.delete(commentId);
-      log(`Deleted Jira comment ${commentId} on ${issueKey}`, 'success');
+      this.logger(`Deleted Jira comment ${commentId} on ${issueKey}`, 'success');
     }).catch(error => {
-      log(`Failed to delete Jira comment ${commentId}: ${error}`, 'error');
+      this.logger(`Failed to delete Jira comment ${commentId}: ${error}`, 'error');
     });
   }
 
@@ -118,7 +131,7 @@ export class JiraIssueTracker implements IssueTracker {
     try {
       const jiraIssue = await this.client.getIssue(issueKey);
       if (jiraIssue.fields.status.statusCategory.key === 'done') {
-        log(`Jira issue ${issueKey} is already done, skipping`, 'info');
+        this.logger(`Jira issue ${issueKey} is already done, skipping`, 'info');
         return false;
       }
 
@@ -133,15 +146,15 @@ export class JiraIssueTracker implements IssueTracker {
       );
 
       if (!doneTransition) {
-        log(`No "Done" transition available for Jira issue ${issueKey}`, 'warn');
+        this.logger(`No "Done" transition available for Jira issue ${issueKey}`, 'warn');
         return false;
       }
 
       await this.client.doTransition(issueKey, doneTransition.id);
-      log(`Closed Jira issue ${issueKey}`, 'success');
+      this.logger(`Closed Jira issue ${issueKey}`, 'success');
       return true;
     } catch (error) {
-      log(`Failed to close Jira issue ${issueKey}: ${error}`, 'error');
+      this.logger(`Failed to close Jira issue ${issueKey}: ${error}`, 'error');
       return false;
     }
   }
@@ -156,7 +169,7 @@ export class JiraIssueTracker implements IssueTracker {
     this.client.getIssue(issueKey).then(issue => {
       state = this.mapStatusCategory(issue.fields.status.statusCategory.key);
     }).catch(error => {
-      log(`Failed to get state for Jira issue ${issueKey}: ${error}`, 'error');
+      this.logger(`Failed to get state for Jira issue ${issueKey}: ${error}`, 'error');
     });
 
     return state;
@@ -171,7 +184,7 @@ export class JiraIssueTracker implements IssueTracker {
         comments.push(this.toIssueComment(jc, issueKey));
       }
     }).catch(error => {
-      log(`Failed to fetch comments for Jira issue ${issueKey}: ${error}`, 'error');
+      this.logger(`Failed to fetch comments for Jira issue ${issueKey}: ${error}`, 'error');
     });
 
     return comments;
@@ -185,7 +198,7 @@ export class JiraIssueTracker implements IssueTracker {
       const currentStatus = jiraIssue.fields.status.name;
 
       if (currentStatus.toLowerCase() === status.toLowerCase()) {
-        log(`Jira issue ${issueKey} already in "${currentStatus}", skipping`, 'info');
+        this.logger(`Jira issue ${issueKey} already in "${currentStatus}", skipping`, 'info');
         return true;
       }
 
@@ -194,15 +207,15 @@ export class JiraIssueTracker implements IssueTracker {
 
       if (!matched) {
         const available = transitions.map(t => t.name).join(', ');
-        log(`Status "${status}" not found in available transitions for ${issueKey}. Available: ${available}`, 'warn');
+        this.logger(`Status "${status}" not found in available transitions for ${issueKey}. Available: ${available}`, 'warn');
         return false;
       }
 
       await this.client.doTransition(issueKey, matched.id);
-      log(`Moved Jira issue ${issueKey} to "${matched.name}"`, 'success');
+      this.logger(`Moved Jira issue ${issueKey} to "${matched.name}"`, 'success');
       return true;
     } catch (error) {
-      log(`Failed to move Jira issue ${issueKey} to "${status}": ${error}`, 'error');
+      this.logger(`Failed to move Jira issue ${issueKey} to "${status}": ${error}`, 'error');
       return false;
     }
   }
@@ -244,21 +257,31 @@ export class JiraIssueTracker implements IssueTracker {
   }
 }
 
+/** Throws a library-facing message when `config` is missing a required field or carries an unusable auth shape. The env-flavoured operator message lives in ADW's wiring (`repoContext.ts`), not here. */
+function validateJiraConfig(config: JiraConfig): void {
+  if (!config.instanceUrl?.trim()) {
+    throw new Error('Jira issue tracker requires a non-empty instanceUrl');
+  }
+  if (!config.projectKey?.trim()) {
+    throw new Error('Jira issue tracker requires a non-empty projectKey');
+  }
+  if (isCloudAuth(config.auth)) {
+    if (!config.auth.email?.trim() || !config.auth.apiToken?.trim()) {
+      throw new Error('Jira Cloud auth requires email and apiToken');
+    }
+  } else if (!config.auth.pat?.trim()) {
+    throw new Error('Jira Data Center auth requires a pat');
+  }
+}
+
 /**
- * Factory function to create a JiraIssueTracker from environment variables.
+ * Creates a JiraIssueTracker from INJECTED configuration (#818). Reads no
+ * environment; the ADW wiring in `repoContext.ts` derives `auth` from
+ * JIRA_EMAIL + JIRA_API_TOKEN (Cloud) or JIRA_PAT (Data Center/Server).
+ * `deps.logger` defaults to `consoleLogger`, `deps.fetchFn` to global fetch.
  */
-export function createJiraIssueTracker(instanceUrl: string, projectKey: string): IssueTracker {
-  if (JIRA_EMAIL && JIRA_API_TOKEN) {
-    const client = new JiraApiClient(instanceUrl, { email: JIRA_EMAIL, apiToken: JIRA_API_TOKEN });
-    return new JiraIssueTracker(client, projectKey);
-  }
-
-  if (JIRA_PAT) {
-    const client = new JiraApiClient(instanceUrl, { pat: JIRA_PAT });
-    return new JiraIssueTracker(client, projectKey);
-  }
-
-  throw new Error(
-    'Jira authentication not configured. Set JIRA_EMAIL + JIRA_API_TOKEN (Cloud) or JIRA_PAT (Data Center/Server).',
-  );
+export function createJiraIssueTracker(config: JiraConfig, deps: JiraApiClientDeps = {}): IssueTracker {
+  validateJiraConfig(config);
+  const client = new JiraApiClient(config.instanceUrl, config.auth, deps);
+  return new JiraIssueTracker(client, config.projectKey, deps.logger ?? consoleLogger);
 }

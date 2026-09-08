@@ -45,13 +45,17 @@ export type ExtractionScopeEntry = { readonly path: string; readonly reason: str
  * clean: the whole git core, and the single dependency-free providers file.
  * #817 appended the GitHub adapter's domain modules and mappers — the raw
  * GitHub payload shapes and the pure GitHub→port mapping layer, both typed
- * only against the adapter domain and the ports.
+ * only against the adapter domain and the ports. #818 appended the GitLab
+ * and Jira adapter packages, whole directories, once both stopped reading
+ * process.env and importing adws/core.
  */
 export const EXTRACTION_SCOPE: readonly ExtractionScopeEntry[] = [
   { path: 'adws/gitContext', reason: 'git core — dependency-free since Phase A (#790–#797)', since: '#816' },
   { path: 'adws/providers/types.ts', reason: 'provider ports + domain shapes — zero imports', since: '#816' },
   { path: 'adws/providers/github/domain', reason: 'adapter-owned raw GitHub payload shapes — pure type declarations (#817)', since: '#817' },
   { path: 'adws/providers/github/mappers.ts', reason: 'GitHub→port mappers — typed only against the adapter domain and the ports (#817)', since: '#817' },
+  { path: 'adws/providers/gitlab', reason: 'GitLab adapter — injected config + Logger port, no environment reads (#818)', since: '#818' },
+  { path: 'adws/providers/jira', reason: 'Jira adapter — injected config + Logger port, no environment reads (#818)', since: '#818' },
 ] as const;
 
 /** True when `relPath` is one of EXTRACTABLE_SET's directories, or a path beneath one. */
@@ -173,10 +177,10 @@ function describeEscapingImport(specifier: string, target: string): string {
 /**
  * Flags every import in `sourceFile` that resolves outside EXTRACTABLE_SET.
  * Guard clause first: a file outside EXTRACTION_SCOPE is never inspected, so
- * the framework entanglements in the not-yet-widened providers files
- * (repoContext.ts, github/githubCodeHost.ts, github/githubIssueTracker.ts,
- * github/githubBoardManager.ts, gitlab/*, jira/*) produce zero violations
- * today, by design.
+ * the framework entanglements in the not-yet-widened providers files —
+ * repoContext.ts (framework wiring until #823), the GitHub adapter modules
+ * outside domain/ and mappers.ts (#819), and workspaceValidation.ts (clean,
+ * pending #819) — produce zero violations today, by design.
  */
 export function flagFrameworkImports(sourceFile: ts.SourceFile, relPath: string): Violation[] {
   if (!isInExtractionScope(relPath)) return [];
