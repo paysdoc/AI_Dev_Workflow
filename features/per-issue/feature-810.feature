@@ -321,7 +321,7 @@ Feature: Index health becomes a periodic whole-index property — a cron sweep t
   @adw-810 @adw-o0g36j-docs-index-health-cr
   Scenario: A tick that finds a dangling entry lands the pruned index on origin through a merged pull request
     Given a docs index on origin's default branch carrying an entry whose doc file is not tracked
-    And the cron host's local default branch is behind origin by a commit it has never fetched
+    And the cron host's local default branch is behind origin's docs index by a commit it has never fetched
     When the cron cycle runs the docs-index sweep
     Then origin carries a docs-index sweep branch whose index omits the dangling entry
     And a pull request is opened from the docs-index sweep branch into the default branch
@@ -343,7 +343,7 @@ Feature: Index health becomes a periodic whole-index property — a cron sweep t
   @adw-810 @adw-o0g36j-docs-index-health-cr
   Scenario: The repair never reaches the default branch except through the merged pull request
     Given a docs index on origin's default branch carrying an entry whose doc file is not tracked
-    And the cron host's local default branch is behind origin by a commit it has never fetched
+    And the cron host's local default branch is behind origin's docs index by a commit it has never fetched
     When the cron cycle runs the docs-index sweep
     Then the docs-index repair reaches origin's default branch only through the merged pull request
     And the cron host's local default branch carries no commit added by the pass
@@ -356,7 +356,7 @@ Feature: Index health becomes a periodic whole-index property — a cron sweep t
     Given a docs index on origin's default branch whose entries all have tracked doc files and live globs
     When the cron cycle runs the docs-index sweep
     Then the docs-index sweep opens no pull request
-    And origin's default branch tip is unchanged by the sweep
+    And origin's default branch tip is unchanged by the docs-index sweep
     And the cron host's local default branch carries no commit added by the pass
 
   # AC3, the sweep half: the June regression in miniature. Twenty dangling entries restored onto the
@@ -396,12 +396,12 @@ Feature: Index health becomes a periodic whole-index property — a cron sweep t
   Scenario: A target-repo cron tick repairs the target repository's index and leaves the framework repository's alone
     Given a target repository checkout whose docs index carries a dangling entry
     And a framework repository checkout whose docs index carries a dangling entry
-    And the cron process is working from the framework repository checkout
-    And the cron holds a launch context for the target repository
+    And the cron process for the docs-index sweep is working from the framework repository checkout
+    And the cron holds a docs-index-sweep launch context for the target repository
     When the cron cycle runs the docs-index sweep
     Then the sweep repairs the docs index of the target repository
     And the framework repository checkout's docs index still carries its dangling entry
-    And every repository operation the pass performed was issued through the cron's launch context
+    And every repository operation the docs-index sweep performed was issued through the cron's launch context
 
   # ══════ §4  JUDGEMENT FINDINGS FILE EXACTLY ONE OPEN HITL ISSUE (task 1b) ═══════════════
   #
@@ -473,8 +473,8 @@ Feature: Index health becomes a periodic whole-index property — a cron sweep t
   @adw-810 @adw-o0g36j-docs-index-health-cr
   Scenario: The hitl issue is filed in the launch-boundary repository, not the cron host's own
     Given a target repository checkout whose docs index carries overlapping entries
-    And the cron process is working from the framework repository checkout
-    And the cron holds a launch context for the target repository
+    And the cron process for the docs-index sweep is working from the framework repository checkout
+    And the cron holds a docs-index-sweep launch context for the target repository
     When the cron cycle runs the docs-index sweep
     Then the docs-index health issue is created in the target repository
     And the docs-index sweep creates no issue in the framework repository

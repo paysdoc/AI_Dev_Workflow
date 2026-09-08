@@ -139,6 +139,11 @@ export const PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES = parseInt(process.env.PER
  *  commit-to-default, issue creation) do not run every 20s tick. */
 export const PROMOTION_SWEEP_INTERVAL_CYCLES = parseInt(process.env.PROMOTION_SWEEP_INTERVAL_CYCLES || '4320', 10);
 
+/** Number of cron poll cycles between docs-index health sweep passes. Default 4320 ≈ once per day at
+ *  20s POLL_INTERVAL_MS. Generous so the sweep's git/gh actions (repair commit-and-PR, issue
+ *  file/refresh/close) do not run every 20s tick. */
+export const DOCS_INDEX_SWEEP_INTERVAL_CYCLES = parseInt(process.env.DOCS_INDEX_SWEEP_INTERVAL_CYCLES || '4320', 10);
+
 // ---------------------------------------------------------------------------
 // Agent watchdog timeout
 // ---------------------------------------------------------------------------
