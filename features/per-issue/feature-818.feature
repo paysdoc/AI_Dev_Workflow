@@ -106,8 +106,10 @@ Feature: The GitLab and Jira adapters take their credentials, endpoints and logg
 
     • THE RECORDER IS A REAL SERVER, NOT A SPY. `http.createServer` bound to `127.0.0.1:0`, recording
       `{ method, url, headers, body }` per request and replying with the canned JSON body the
-      scenario's Given selected (default `{}`). Both clients then run entirely unmodified — which is
-      the point, since neither takes an injectable transport and this issue does not add one.
+      scenario's Given selected (default `{}`). Both clients then run through their DEFAULT
+      transport — a real `curl`, a real `fetch` — which is the point: the vitest suites AC2 asks for
+      drive an injected `runCurl`/`fetchFn` seam, so these scenarios are the only place the shipped
+      transport is exercised end to end.
     • EVERY ADAPTER DRIVE RUNS IN A CHILD PROCESS. `execFileSync('bunx', ['tsx', driverPath], { cwd:
       repoRoot, env: { ...process.env, ...poison, NODE_OPTIONS: '' } })`, as feature-816.steps.ts
       established. The driver is written to `os.tmpdir()` — NOT under `adws/` — and imports the
