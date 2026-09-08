@@ -22,7 +22,8 @@ import type { LaunchGitContextDeps } from '../../../adws/core/launchGitContext.t
 import { parseTargetRepoArgs } from '../../../adws/core/orchestratorCli.ts';
 import { executeMerge } from '../../../adws/adwMerge.tsx';
 import type { MergeDeps } from '../../../adws/adwMerge.tsx';
-import type { RepoInfo } from '../../../adws/github/githubApi.ts';
+import type { RepoIdentifier } from '../../../adws/providers/types.ts';
+import { Platform } from '../../../adws/providers/types.ts';
 import type { AgentState } from '../../../adws/types/agentTypes.ts';
 
 // ── World state ──────────────────────────────────────────────────────────────
@@ -36,7 +37,7 @@ interface World660 {
   resolvedWorktreePath: string | null;
   mergeAdwId: string | null;
   mergeBranch: string | null;
-  recordedMergeRepoInfo: RepoInfo | null;
+  recordedMergeRepoInfo: RepoIdentifier | null;
   recordedEnsureWorktreeBase: string | null;
   worktreePath1: string | null;
   worktreePath2: string | null;
@@ -229,7 +230,7 @@ When(
         // findPRByBranch is bound to the context's identity — recorded here (not from
         // a call argument, since a bound provider takes none) to prove the merge still
         // resolves against ctx's repository, not the process cwd's local remote.
-        w.recordedMergeRepoInfo = { owner: ctx.owner, repo: ctx.repo };
+        w.recordedMergeRepoInfo = { owner: ctx.owner, repo: ctx.repo, platform: Platform.GitHub };
         return { number: 99, state: 'OPEN', sourceBranch: branchName, targetBranch: 'main', labels: [] };
       },
       issueHasLabel: () => false,
@@ -249,7 +250,7 @@ When(
       notifyBlockedTransition: async () => undefined,
     };
 
-    await executeMerge(issueNumber, adwId, { owner: ctx.owner, repo: ctx.repo }, ctx.basePath, recordingDeps);
+    await executeMerge(issueNumber, adwId, { owner: ctx.owner, repo: ctx.repo, platform: Platform.GitHub }, ctx.basePath, recordingDeps);
   },
 );
 

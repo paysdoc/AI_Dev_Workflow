@@ -8,12 +8,12 @@
  */
 
 import { log } from '../core';
-import type { RepoInfo } from './githubApi';
+import type { RepoIdentifier } from '../providers/types';
 import { bodyLinksIssue } from './issueLinkMarker';
 import { gitContextForRepo } from './gitContextFactory';
 import { createGhRepoApi } from '../providers/github/ghRepoApi';
 
-const gh = (repoInfo: RepoInfo) => createGhRepoApi(gitContextForRepo(repoInfo));
+const gh = (repoInfo: RepoIdentifier) => createGhRepoApi(gitContextForRepo(repoInfo));
 
 export interface LinkedPRRef {
   readonly number: number;
@@ -42,7 +42,7 @@ export function hasLinkedMergedOrClosedPR(
  * Fetches all PRs (open + closed + merged) for the repository.
  * Returns [] on error to allow callers to degrade gracefully.
  */
-export function fetchLinkedPRs(repoInfo: RepoInfo): LinkedPRRef[] {
+export function fetchLinkedPRs(repoInfo: RepoIdentifier): LinkedPRRef[] {
   try {
     const json = gh(repoInfo).fetchAllPRs();
     return JSON.parse(json) as LinkedPRRef[];

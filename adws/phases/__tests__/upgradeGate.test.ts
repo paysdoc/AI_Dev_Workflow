@@ -6,12 +6,12 @@ import {
   type UpgradeGateDeps,
   type UpgradeGateParams,
 } from '../upgradeGate';
-import { BoardStatus } from '../../providers/types';
-import type { RepoInfo } from '../../github/githubApi';
+import { BoardStatus, Platform } from '../../providers/types';
+import type { RepoIdentifier } from '../../providers/types';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const REPO_INFO: RepoInfo = { owner: 'acme', repo: 'myrepo' };
+const REPO_INFO: RepoIdentifier = { owner: 'acme', repo: 'myrepo', platform: Platform.GitHub };
 const CURRENT_HASH = 'deadbeef1234';
 const STORED_HASH = 'oldcafe5678';
 const BRANCH = `adw-upgrade-${CURRENT_HASH}`;

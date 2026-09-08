@@ -28,10 +28,11 @@ import {
   type ClassifyIssueForTriggerDeps,
   type IssueClassificationResult,
 } from '../../../adws/core/issueClassifier.ts';
-import type { GitHubIssue } from '../../../adws/types/issueTypes.ts';
+import type { GitHubIssue } from '../../../adws/providers/github/domain/issue.ts';
 import { VALID_ISSUE_TYPES } from '../../../adws/types/issueTypes.ts';
 import type { IssueClassSlashCommand } from '../../../adws/types/issueTypes.ts';
-import type { RepoInfo } from '../../../adws/github/githubApi.ts';
+import type { RepoIdentifier } from '../../../adws/providers/types.ts';
+import { Platform } from '../../../adws/providers/types.ts';
 import type { RegressionWorld } from '../../regression/step_definitions/world.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -70,7 +71,7 @@ After({ tags: '@adw-618' }, function () {
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
-const TEST_REPO: RepoInfo = { owner: 'paysdoc', repo: 'AI_Dev_Workflow' };
+const TEST_REPO: RepoIdentifier = { owner: 'paysdoc', repo: 'AI_Dev_Workflow', platform: Platform.GitHub };
 
 function makeIssue(number: number, labelNames: string[]): GitHubIssue {
   return {

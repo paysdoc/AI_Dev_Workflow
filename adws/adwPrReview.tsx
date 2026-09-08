@@ -25,6 +25,7 @@
 
 import { parseTargetRepoArgs, buildLaunchBoundary, MAX_REVIEW_RETRY_ATTEMPTS, AgentStateManager } from './core';
 import { defaultFindPRByBranch, getRepoInfo } from './github';
+import { Platform } from './providers/types';
 import { resolvePrReviewSpawn } from './triggers/webhookHandlers';
 import { CostTracker, runPhase } from './core/phaseRunner';
 import {
@@ -89,7 +90,7 @@ function resolvePrReviewInvocation(positionals: string[], repoInfo: ReturnType<t
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const targetRepo = parseTargetRepoArgs(args);
-  const repoInfo = targetRepo ? { owner: targetRepo.owner, repo: targetRepo.repo } : undefined;
+  const repoInfo = targetRepo ? { owner: targetRepo.owner, repo: targetRepo.repo, platform: Platform.GitHub } : undefined;
 
   if (args.length < 1) {
     console.error('Usage: bunx tsx adws/adwPrReview.tsx <issueNumber> <adwId>  (canonical)\n       bunx tsx adws/adwPrReview.tsx <pr-number>                     (manual fallback)');

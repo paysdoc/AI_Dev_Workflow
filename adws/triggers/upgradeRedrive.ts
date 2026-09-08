@@ -26,8 +26,7 @@ import { isProcessLive } from '../core/processLiveness';
 import { spawnDetached } from './webhookGatekeeper';
 import { log, type LogLevel } from '../core';
 import { ADW_UPGRADE_LABEL, ADW_BLOCKED_LABEL } from '../github/labelManager';
-import type { RepoInfo } from '../github/githubApi';
-import type { CodeHost } from '../providers/types';
+import type { CodeHost, RepoIdentifier } from '../providers/types';
 
 // ── Pure claim-branch parser ──────────────────────────────────────────────────
 
@@ -122,7 +121,7 @@ function deriveSignals(issue: UpgradeRedriveIssue, deps: UpgradeRedriveDeps): Up
  */
 export function findRedrivableUpgrades(
   issues: readonly UpgradeRedriveIssue[],
-  repoInfo: RepoInfo,
+  repoInfo: RepoIdentifier,
   deps: UpgradeRedriveDeps,
 ): number[] {
   const redrivable: number[] = [];
@@ -143,7 +142,7 @@ export function findRedrivableUpgrades(
  */
 export function runUpgradeRedriveScan(
   issues: readonly UpgradeRedriveIssue[],
-  repoInfo: RepoInfo,
+  repoInfo: RepoIdentifier,
   targetRepoArgs: readonly string[],
   deps: UpgradeRedriveDeps,
 ): void {
@@ -155,7 +154,7 @@ export function runUpgradeRedriveScan(
 
 // ── Default deps factory ──────────────────────────────────────────────────────
 
-export function buildDefaultUpgradeRedriveDeps(repoInfo: RepoInfo, codeHost: Pick<CodeHost, 'findPullRequestByBranch'>): UpgradeRedriveDeps {
+export function buildDefaultUpgradeRedriveDeps(repoInfo: RepoIdentifier, codeHost: Pick<CodeHost, 'findPullRequestByBranch'>): UpgradeRedriveDeps {
   return {
     findClaimPr: (issueBody) => {
       const branch = parseClaimBranch(issueBody);

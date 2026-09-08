@@ -28,11 +28,10 @@ export {
   findOpenUpgradeIssue,
   fetchIssueLabels,
   searchOpenIssues,
-  type RepoInfo,
 } from './githubApi';
 
 // PR utilities (shared between adwMerge and remoteReconcile)
-export { defaultFindPRByBranch, hasWontFixLabel, hasWontFixLabelName, type RawPR } from './prApi';
+export { defaultFindPRByBranch, hasWontFixLabel, hasWontFixLabelName } from './prApi';
 
 // Issue listing (shared behind IssueTracker.listIssues and repoInfo-only trigger helpers)
 export { listIssues, fetchIssueCommentBodies } from './issueListApi';

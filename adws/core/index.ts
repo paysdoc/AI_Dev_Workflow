@@ -14,14 +14,7 @@ export type { ReasoningEffort } from './config';
 export type {
   IssueClassSlashCommand,
   SlashCommand,
-  GitHubUser,
-  GitHubLabel,
-  GitHubMilestone,
-  GitHubComment,
-  GitHubIssueListItem,
-  GitHubIssue,
   PullRequestWebhookPayload,
-  IssueCommentSummary,
   TargetRepoInfo,
 } from '../types/issueTypes';
 export { VALID_ISSUE_TYPES } from '../types/issueTypes';
@@ -45,9 +38,6 @@ export { RateLimitError, AuthRequiredError, AgentTimeoutError } from '../types/a
 // Data types (from workflowTypes.ts)
 export type {
   WorkflowStage,
-  PRReviewComment,
-  PRDetails,
-  PRListItem,
   PRReviewWorkflowStage,
   RecoveryState,
 } from '../types/workflowTypes';

@@ -15,6 +15,7 @@ import type { LaunchGitContextDeps } from '../../core/launchGitContext';
 import { GitContext } from '../../gitContext';
 import type { ExecFn } from '../../gitContext/types';
 import { createLiteralTokenProvider } from '../../providers/github/githubTokenProvider';
+import { Platform } from '../../providers/types';
 
 const FRAMEWORK_ROOT = '/srv/adw/framework';
 const TARGET_REPOS_DIR = '/srv/adw/repos';
@@ -30,7 +31,7 @@ function baseDeps(
   overrides: Partial<LaunchGitContextDeps & { resolveToken: (owner: string, repo: string) => string }> = {},
 ): LaunchGitContextDeps {
   return {
-    getRepoInfo: () => ({ owner: 'paysdoc', repo: 'AI_Dev_Workflow' }),
+    getRepoInfo: () => ({ owner: 'paysdoc', repo: 'AI_Dev_Workflow', platform: Platform.GitHub }),
     resolveToken: () => 'test-gh-token',
     resolveGitIdentity: () => TEST_IDENTITY,
     frameworkRepoRoot: FRAMEWORK_ROOT,
@@ -124,7 +125,7 @@ describe('resolveWebhookRepo — parsing', () => {
   it('parses repoInfo from full_name', () => {
     const result = resolveWebhookRepo(makePayload('acme', 'webapp'));
     expect(result).not.toBeNull();
-    expect(result!.repoInfo).toEqual({ owner: 'acme', repo: 'webapp' });
+    expect(result!.repoInfo).toEqual({ owner: 'acme', repo: 'webapp', platform: Platform.GitHub });
   });
 
   it('builds targetRepo from full_name and clone_url', () => {

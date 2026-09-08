@@ -422,7 +422,7 @@ function buildRecordingBoundary(owner: string, repo: string): void {
     getRepoInfo: () => {
       w.remoteCallCount += 1;
       if (!w.remoteAnswer) throw new Error('local git remote not configured for this scenario');
-      return w.remoteAnswer;
+      return { ...w.remoteAnswer, platform: Platform.GitHub };
     },
     resolveToken: () => {
       w.tokenCallCount += 1;
@@ -772,7 +772,7 @@ When('the merge orchestrator runs for issue {int} under adw id {string}', async 
     branchName: w.mergeBranchName,
     mergeRetryCount: w.mergeRetryCount,
   });
-  const repoInfo = { owner: w.boundary.repoId.owner, repo: w.boundary.repoId.repo };
+  const repoInfo = { owner: w.boundary.repoId.owner, repo: w.boundary.repoId.repo, platform: w.boundary.repoId.platform };
   w.mergeResult = await executeMerge(issueNumber, adwId, repoInfo, '/tmp/adw-796-base-repo', w.mergeDeps);
 });
 
@@ -780,7 +780,7 @@ When('the upgrade orchestrator runs for issue {int} under adw id {string}', asyn
   assert.ok(w.upgradeDeps, 'Expected the upgrade orchestrator\'s production dependencies to have been built first');
   assert.ok(w.boundary, 'Expected a launch boundary to have been built');
   w.usedAdwIds.add(adwId);
-  const repoInfo = { owner: w.boundary.repoId.owner, repo: w.boundary.repoId.repo };
+  const repoInfo = { owner: w.boundary.repoId.owner, repo: w.boundary.repoId.repo, platform: w.boundary.repoId.platform };
   w.upgradeResult = await executeUpgrade(issueNumber, adwId, repoInfo, '/tmp/adw-796-base-repo', FRAMEWORK_REPO_ROOT, w.upgradeDeps);
 });
 

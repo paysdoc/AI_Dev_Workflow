@@ -22,6 +22,7 @@ import { resolveWebhookRepo } from '../../../adws/triggers/webhookRepoResolver.t
 import type { ExecFn } from '../../../adws/gitContext/types.ts';
 import { createGhRepoApi } from '../../../adws/providers/github/ghRepoApi.ts';
 import { createLiteralTokenProvider } from '../../../adws/providers/github/githubTokenProvider.ts';
+import { Platform } from '../../../adws/providers/types.ts';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -87,7 +88,7 @@ After(function () {
 function makeTestDeps(owner: string, repo: string): LaunchGitContextDeps {
   const repoKey = `${owner}/${repo}`;
   return {
-    getRepoInfo: () => ({ owner, repo }),
+    getRepoInfo: () => ({ owner, repo, platform: Platform.GitHub }),
     resolveToken: () => w.repoTokens.get(repoKey) ?? 'test-sentinel-token',
     resolveGitIdentity: () => TEST_IDENTITY,
     frameworkRepoRoot: w.frameworkRoot,

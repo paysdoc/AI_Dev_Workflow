@@ -46,8 +46,8 @@ import {
 import { AGENTS_STATE_DIR, AgentStateManager } from '../../../adws/core/index.ts';
 import { findOrchestratorStatePath } from '../../../adws/core/stateHelpers.ts';
 import { executeMerge, type MergeDeps } from '../../../adws/adwMerge.tsx';
-import type { RepoInfo } from '../../../adws/github/index.ts';
-import type { PullRequestSummary } from '../../../adws/providers/types.ts';
+import type { PullRequestSummary, RepoIdentifier } from '../../../adws/providers/types.ts';
+import { Platform } from '../../../adws/providers/types.ts';
 import type { RegressionWorld } from '../../regression/step_definitions/world.ts';
 
 // ---------------------------------------------------------------------------
@@ -243,7 +243,7 @@ When(
   async function (this: RegressionWorld, adwId: string, issueNumber: number) {
     assert.ok(this.mockContext, 'mockContext must be initialised in a Before hook');
     const serverUrl = this.mockContext.serverUrl;
-    const repoInfo: RepoInfo = { owner: 'test-owner', repo: 'test-repo' };
+    const repoInfo: RepoIdentifier = { owner: 'test-owner', repo: 'test-repo', platform: Platform.GitHub };
     const prsByBranch = this.prsByBranch;
     const worktreePaths = this.worktreePaths;
 

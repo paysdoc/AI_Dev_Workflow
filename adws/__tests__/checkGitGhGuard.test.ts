@@ -484,6 +484,42 @@ describe('scanExtractionScope — extraction-readiness rule (#816)', () => {
     expect(violations).toHaveLength(0);
   });
 
+  it('fails: adws/providers/github/mappers.ts importing ../../types/issueTypes (in scope since #817)', () => {
+    mockReadFileSync.mockReturnValue("import type { GitHubIssue } from '../../types/issueTypes';\n");
+
+    const { violations } = scanExtractionScope(['adws/providers/github/mappers.ts'], '/repo');
+
+    expect(violations).toHaveLength(1);
+    expect(violations[0].rule).toBe('extraction-readiness');
+  });
+
+  it('fails: a domain module importing ../../../github/prApi', () => {
+    mockReadFileSync.mockReturnValue("import type { RawPR } from '../../../github/prApi';\n");
+
+    const { violations } = scanExtractionScope(['adws/providers/github/domain/pullRequest.ts'], '/repo');
+
+    expect(violations).toHaveLength(1);
+    expect(violations[0].rule).toBe('extraction-readiness');
+  });
+
+  it('passes: domain/pullRequest.ts importing ./issue', () => {
+    mockReadFileSync.mockReturnValue("import type { GitHubUser } from './issue';\n");
+
+    const { violations } = scanExtractionScope(['adws/providers/github/domain/pullRequest.ts'], '/repo');
+
+    expect(violations).toHaveLength(0);
+  });
+
+  it('passes: mappers.ts importing ./domain/issue and ../types', () => {
+    mockReadFileSync.mockReturnValue(
+      "import type { GitHubIssue } from './domain/issue';\nimport type { RepoIdentifier } from '../types';\n",
+    );
+
+    const { violations } = scanExtractionScope(['adws/providers/github/mappers.ts'], '/repo');
+
+    expect(violations).toHaveLength(0);
+  });
+
   it('two escaping imports in one file are two violations, one per line', () => {
     mockReadFileSync.mockReturnValue(
       "import { log } from '../core';\nimport { getRepoInfo } from '../github/githubApi';\n",

@@ -14,7 +14,7 @@ import { isGitHubAppConfigured, getInstallationToken } from './githubAppAuth';
 import { createGitHubTokenProvider } from '../providers/github/githubTokenProvider';
 import { REPO_ROOT, TARGET_REPOS_DIR, GITHUB_PAT } from '../core/environment';
 import { log } from '../core/utils';
-import type { RepoInfo } from './githubApi';
+import type { RepoIdentifier } from '../providers/types';
 
 interface FactoryInput {
   owner: string;
@@ -110,7 +110,7 @@ export function gitContextForSync({ owner, repo, selfHost }: FactoryInput): GitC
 }
 
 /** Returns a fresh GitContext for the given repo. */
-export function gitContextForRepo(repoInfo: RepoInfo, opts?: { selfHost?: boolean }): GitContext {
+export function gitContextForRepo(repoInfo: RepoIdentifier, opts?: { selfHost?: boolean }): GitContext {
   const { owner, repo } = repoInfo;
   const gitIdentity = resolveBootstrapGitIdentity();
   const sh = getSelfHostIdentity();

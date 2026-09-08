@@ -766,7 +766,7 @@ Given('the recording code host holds a pull request {int} on branch {string} in 
 When('the remote reconcile derives the stage for adw id {string} from that boundary', function (adwId: string) {
   const boundary = requireBoundary();
   const deps = buildDefaultReconcileDeps(boundary);
-  bw.derivedStage = deriveStageFromRemote(0, adwId, { owner: boundary.repoId.owner, repo: boundary.repoId.repo }, deps);
+  bw.derivedStage = deriveStageFromRemote(0, adwId, boundary.repoId, deps);
 });
 
 Then('the derived stage is {string}', function (stage: string) {
@@ -836,7 +836,7 @@ Given('issue {int} carries an adw-id comment for {string} followed by one for {s
 
 When('the takeover handler resolves the adw id for issue {int} from that boundary', function (issueNumber: number) {
   const boundary = requireBoundary();
-  const repoInfo = { owner: boundary.repoId.owner, repo: boundary.repoId.repo };
+  const repoInfo = boundary.repoId;
   const deps = buildDefaultTakeoverDeps(repoInfo, boundary);
   bw.resolvedAdwId = deps.resolveAdwId(issueNumber, repoInfo);
 });

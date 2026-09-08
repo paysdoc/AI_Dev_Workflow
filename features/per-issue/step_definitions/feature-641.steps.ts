@@ -29,7 +29,8 @@ import {
 import { _resolveWorkflowBranchNameForTest } from '../../../adws/phases/branchNameResolution.ts';
 import { AgentStateManager, AGENTS_STATE_DIR } from '../../../adws/core/index.ts';
 import { generateBranchName } from '../../../adws/vcs/branchOperations.ts';
-import type { IssueClassSlashCommand, GitHubIssue, RecoveryState } from '../../../adws/core/index.ts';
+import type { IssueClassSlashCommand, RecoveryState } from '../../../adws/core/index.ts';
+import type { GitHubIssue } from '../../../adws/providers/github/domain/issue.ts';
 import type { RegressionWorld } from '../../regression/step_definitions/world.ts';
 
 const GIT = process.env['REAL_GIT_PATH'] ?? 'git';

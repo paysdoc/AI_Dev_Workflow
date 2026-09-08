@@ -9,7 +9,8 @@
  */
 
 import { log } from './core';
-import { fetchIssueCommentsRest, deleteIssueComment, getIssueTitleSync, getRepoInfoFromPayload, getRepoInfo, type RepoInfo } from './github';
+import { fetchIssueCommentsRest, deleteIssueComment, getIssueTitleSync, getRepoInfoFromPayload, getRepoInfo } from './github';
+import type { RepoIdentifier } from './providers/types';
 
 interface ClearCommentsResult {
   total: number;
@@ -34,7 +35,7 @@ function printUsageAndExit(): never {
 /**
  * Parses and validates the issue number and optional repo from CLI arguments.
  */
-function parseArguments(args: string[]): { issueNumber: number; repoInfo?: RepoInfo } {
+function parseArguments(args: string[]): { issueNumber: number; repoInfo?: RepoIdentifier } {
   if (args.length < 1) {
     printUsageAndExit();
   }
@@ -45,7 +46,7 @@ function parseArguments(args: string[]): { issueNumber: number; repoInfo?: RepoI
     process.exit(1);
   }
 
-  let repoInfo: RepoInfo | undefined;
+  let repoInfo: RepoIdentifier | undefined;
   const repoIndex = args.indexOf('--repo');
   if (repoIndex !== -1 && args[repoIndex + 1]) {
     repoInfo = getRepoInfoFromPayload(args[repoIndex + 1]);
@@ -60,7 +61,7 @@ function parseArguments(args: string[]): { issueNumber: number; repoInfo?: RepoI
  * @param issueNumber - The issue number to clear comments from
  * @param repoInfo - Optional repository info override for targeting external repositories.
  */
-export function clearIssueComments(issueNumber: number, repoInfo?: RepoInfo): ClearCommentsResult {
+export function clearIssueComments(issueNumber: number, repoInfo?: RepoIdentifier): ClearCommentsResult {
   const resolvedRepoInfo = repoInfo ?? getRepoInfo();
   const comments = fetchIssueCommentsRest(issueNumber, resolvedRepoInfo);
   const issueTitle = getIssueTitleSync(issueNumber, resolvedRepoInfo);

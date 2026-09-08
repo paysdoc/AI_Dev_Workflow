@@ -8,13 +8,13 @@ vi.mock('../../github', () => ({
 }));
 import { evaluateCandidate } from '../takeoverHandler';
 import type { TakeoverDeps, CandidateDecision } from '../takeoverHandler';
-import type { RepoInfo } from '../../github/githubApi';
+import { Platform, type RepoIdentifier } from '../../providers/types';
 import type { AgentState } from '../../types/agentTypes';
 import type { WorktreeProbe } from '../../vcs/worktreeReuseGate';
 import { GitContext } from '../../gitContext';
 import { createLiteralTokenProvider } from '../../providers/github/githubTokenProvider';
 
-const REPO: RepoInfo = { owner: 'acme', repo: 'widgets' };
+const REPO: RepoIdentifier = { owner: 'acme', repo: 'widgets', platform: Platform.GitHub };
 const ADW_ID = 'test-adwid-123';
 
 function healthyProbe(overrides: Partial<WorktreeProbe> = {}): WorktreeProbe {

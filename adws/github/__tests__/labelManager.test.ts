@@ -2,7 +2,8 @@ import { describe, it, expect, vi } from 'vitest';
 import { GitContext } from '../../gitContext';
 import type { GitContextOptions, ExecFn } from '../../gitContext/types';
 import { createLiteralTokenProvider } from '../../providers/github/githubTokenProvider';
-import type { GitHubLabel } from '../../types/issueTypes';
+import { Platform } from '../../providers/types';
+import type { GitHubLabel } from '../../providers/github/domain/issue';
 import type { LabelManagerDeps } from '../labelManager';
 import {
   readAdwLabels,
@@ -60,7 +61,7 @@ function makeIssue(...labelNames: string[]) {
   return { labels: labelNames.map(makeLabel) };
 }
 
-const REPO_INFO = { owner: 'acme', repo: 'widgets' };
+const REPO_INFO = { owner: 'acme', repo: 'widgets', platform: Platform.GitHub };
 
 function makeDeps(spyCalls: SpyCall[], exec: ExecFn): LabelManagerDeps {
   return {

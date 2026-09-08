@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { VALID_ISSUE_TYPES } from '../../types/issueTypes';
-import type { GitHubIssue, GitHubLabel } from '../../types/issueTypes';
+import type { GitHubIssue, GitHubLabel } from '../../providers/github/domain/issue';
+import { Platform } from '../../providers/types';
 
 vi.mock('../../agents/claudeAgent', async () => {
   const { AuthRequiredError: ARE, RateLimitError: RLE } = await import('../../types/agentTypes');
@@ -17,7 +18,7 @@ import type { ClassifyIssueForTriggerDeps } from '../issueClassifier';
 
 const mockRunAgent = vi.mocked(runClaudeAgentWithCommand);
 
-const TEST_REPO = { owner: 'paysdoc', repo: 'AI_Dev_Workflow' };
+const TEST_REPO = { owner: 'paysdoc', repo: 'AI_Dev_Workflow', platform: Platform.GitHub };
 
 function makeIssue(overrides?: Partial<GitHubIssue>): GitHubIssue {
   return {

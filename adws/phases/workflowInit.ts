@@ -11,7 +11,6 @@ import {
   generateAdwId,
   resolveClaudeCodePath,
   type IssueClassSlashCommand,
-  type GitHubIssue,
   AgentStateManager,
   type AgentState,
   type AgentIdentifier,
@@ -36,17 +35,18 @@ import {
 } from '../core';
 import type { RepoIdentity } from '../types/agentTypes';
 import type { GitContext } from '../gitContext';
+import type { GitHubIssue } from '../providers/github/domain/issue';
 import {
   fetchGitHubIssue,
   type WorkflowContext,
   detectRecoveryState,
   getRepoInfo,
-  type RepoInfo,
   isGitHubAppConfigured,
 } from '../github';
 import { GITHUB_PAT } from '../core/environment';
 import { gitContextForSync } from '../github';
 import type { BoundProviders, RepoContext, RepoIdentifier } from '../providers/types';
+import { Platform } from '../providers/types';
 import { classifyGitHubIssue } from '../core/issueClassifier';
 import { resolveWorkflowBranchName, readPersistedBranchName } from './branchNameResolution';
 import { findExistingBranchForIssue, recoverAdwIdForBranch } from './branchIdentityFallback';
@@ -145,8 +145,8 @@ export async function initializeWorkflow(
 
   // Resolve target repo context for API calls
   const targetRepo = options?.targetRepo;
-  const repoInfo: RepoInfo | undefined = targetRepo
-    ? { owner: targetRepo.owner, repo: targetRepo.repo }
+  const repoInfo: RepoIdentifier | undefined = targetRepo
+    ? { owner: targetRepo.owner, repo: targetRepo.repo, platform: Platform.GitHub }
     : undefined;
 
   const resolvedRepoForAuth = repoInfo ?? getRepoInfo();

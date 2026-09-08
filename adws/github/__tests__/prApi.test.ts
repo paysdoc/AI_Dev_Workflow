@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { RepoInfo } from '../githubApi';
+import { Platform, type RepoIdentifier } from '../../providers/types';
 
 vi.mock('../gitContextFactory', () => ({
   gitContextForRepo: vi.fn(),
@@ -23,7 +23,7 @@ import { log } from '../../core';
 
 const mockLog = vi.mocked(log);
 
-const repoInfo: RepoInfo = { owner: 'acme', repo: 'widgets' };
+const repoInfo: RepoIdentifier = { owner: 'acme', repo: 'widgets', platform: Platform.GitHub };
 
 function makeReview(
   login: string | null,

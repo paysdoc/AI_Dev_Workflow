@@ -19,7 +19,8 @@ import * as os from 'os';
 import * as path from 'path';
 import { execSync } from 'child_process';
 import { readLocalRepoInfo } from '../../../adws/providers/github/githubIdentity.ts';
-import type { RepoInfo } from '../../../adws/providers/github/githubIdentity.ts';
+import type { RepoIdentifier } from '../../../adws/providers/types.ts';
+import { Platform } from '../../../adws/providers/types.ts';
 import { getRepoInfo } from '../../../adws/github/githubApi.ts';
 import { resolveContextToken } from '../../../adws/providers/github/tokenResolver.ts';
 
@@ -34,9 +35,9 @@ interface MintCall {
 
 const state: {
   tempDir: string;
-  lastResult: RepoInfo | null;
+  lastResult: RepoIdentifier | null;
   lastError: Error | null;
-  bothEntryPoints: { readLocal: RepoInfo | null; getRepoInfo: RepoInfo | null };
+  bothEntryPoints: { readLocal: RepoIdentifier | null; getRepoInfo: RepoIdentifier | null };
   mintCalls: MintCall[];
 } = {
   tempDir: '',
@@ -148,8 +149,8 @@ Then('the resolved identity is owner {string} and repository {string}', function
 // ---------------------------------------------------------------------------
 
 Then('both cwd-derived entry points resolve the identity to owner {string} and repository {string}', function (owner: string, repo: string) {
-  assert.deepStrictEqual(state.bothEntryPoints.readLocal, { owner, repo });
-  assert.deepStrictEqual(state.bothEntryPoints.getRepoInfo, { owner, repo });
+  assert.deepStrictEqual(state.bothEntryPoints.readLocal, { owner, repo, platform: Platform.GitHub });
+  assert.deepStrictEqual(state.bothEntryPoints.getRepoInfo, { owner, repo, platform: Platform.GitHub });
 });
 
 // ---------------------------------------------------------------------------

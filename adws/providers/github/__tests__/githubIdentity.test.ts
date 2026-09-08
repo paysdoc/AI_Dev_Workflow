@@ -6,6 +6,7 @@ import { execSync } from 'child_process';
 import { resolveBootstrapGitIdentity, parseGitHubRemoteUrl, readLocalRepoInfo } from '../githubIdentity';
 import type { BootstrapIdentityDeps } from '../githubIdentity';
 import { getRepoInfo } from '../../../github/githubApi';
+import { Platform } from '../../types';
 
 // ---------------------------------------------------------------------------
 // parseGitHubRemoteUrl
@@ -18,7 +19,7 @@ describe('parseGitHubRemoteUrl', () => {
     ['https://github.com/octo/infra.git', 'octo', 'infra'],
     ['git@github.com:octo/infra.git', 'octo', 'infra'],
   ])('parses %s as owner/repo (dot-free regression)', (url, owner, repo) => {
-    expect(parseGitHubRemoteUrl(url)).toEqual({ owner, repo });
+    expect(parseGitHubRemoteUrl(url)).toEqual({ owner, repo, platform: Platform.GitHub });
   });
 
   it('returns null for a non-GitHub URL', () => {
@@ -34,7 +35,7 @@ describe('parseGitHubRemoteUrl', () => {
     ['https://github.com/paysdoc/paysdoc.nl.git', 'paysdoc', 'paysdoc.nl'],
     ['https://github.com/paysdoc/paysdoc.nl', 'paysdoc', 'paysdoc.nl'],
   ])('parses %s as the full dotted repository name', (url, owner, repo) => {
-    expect(parseGitHubRemoteUrl(url)).toEqual({ owner, repo });
+    expect(parseGitHubRemoteUrl(url)).toEqual({ owner, repo, platform: Platform.GitHub });
   });
 
   // The rest of the dotted family — multi-dot, GitHub Pages, trailing slash,
@@ -46,7 +47,7 @@ describe('parseGitHubRemoteUrl', () => {
     ['https://github.com/paysdoc/paysdoc.nl/', 'paysdoc', 'paysdoc.nl'],
     ['git@github.com:paysdoc/.github.git', 'paysdoc', '.github'],
   ])('parses %s as owner/repo (rest of the dotted family)', (url, owner, repo) => {
-    expect(parseGitHubRemoteUrl(url)).toEqual({ owner, repo });
+    expect(parseGitHubRemoteUrl(url)).toEqual({ owner, repo, platform: Platform.GitHub });
   });
 
   // Only the TRAILING .git is stripped — a repo whose real name ends in
@@ -55,6 +56,7 @@ describe('parseGitHubRemoteUrl', () => {
     expect(parseGitHubRemoteUrl('https://github.com/paysdoc/repo.git.git')).toEqual({
       owner: 'paysdoc',
       repo: 'repo.git',
+      platform: Platform.GitHub,
     });
   });
 
@@ -66,7 +68,7 @@ describe('parseGitHubRemoteUrl', () => {
     ['ssh://git@github.com/acme/webapp.git', 'acme', 'webapp'],
     ['https://x-access-token:TOK@github.com/acme/webapp.git', 'acme', 'webapp'],
   ])('tolerates %s', (url, owner, repo) => {
-    expect(parseGitHubRemoteUrl(url)).toEqual({ owner, repo });
+    expect(parseGitHubRemoteUrl(url)).toEqual({ owner, repo, platform: Platform.GitHub });
   });
 
   // Non-GitHub remotes still return null rather than a fabricated identity —
@@ -97,18 +99,18 @@ describe('readLocalRepoInfo — real git remote (issue #779 end-to-end proof)', 
 
   it('resolves a dotted-name SSH remote to the full repository name', () => {
     execSync('git remote add origin git@github.com:paysdoc/paysdoc.nl.git', { cwd: tempDir, stdio: 'pipe' });
-    expect(readLocalRepoInfo(tempDir)).toEqual({ owner: 'paysdoc', repo: 'paysdoc.nl' });
+    expect(readLocalRepoInfo(tempDir)).toEqual({ owner: 'paysdoc', repo: 'paysdoc.nl', platform: Platform.GitHub });
   });
 
   it('resolves a dotted-name HTTPS remote to the full repository name', () => {
     execSync('git remote add origin https://github.com/paysdoc/paysdoc.nl.git', { cwd: tempDir, stdio: 'pipe' });
-    expect(readLocalRepoInfo(tempDir)).toEqual({ owner: 'paysdoc', repo: 'paysdoc.nl' });
+    expect(readLocalRepoInfo(tempDir)).toEqual({ owner: 'paysdoc', repo: 'paysdoc.nl', platform: Platform.GitHub });
   });
 
   it('getRepoInfo agrees with readLocalRepoInfo on the dotted clone (one shared parse)', () => {
     execSync('git remote add origin git@github.com:paysdoc/paysdoc.nl.git', { cwd: tempDir, stdio: 'pipe' });
     expect(getRepoInfo(tempDir)).toEqual(readLocalRepoInfo(tempDir));
-    expect(getRepoInfo(tempDir)).toEqual({ owner: 'paysdoc', repo: 'paysdoc.nl' });
+    expect(getRepoInfo(tempDir)).toEqual({ owner: 'paysdoc', repo: 'paysdoc.nl', platform: Platform.GitHub });
   });
 
   it('throws with a "Failed to get repo info" message for a non-GitHub remote', () => {

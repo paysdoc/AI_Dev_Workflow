@@ -2,22 +2,13 @@
  * GitHub PR API functions using the gh CLI.
  */
 
-import { PRDetails, PRReviewComment, PRListItem, log } from '../core';
-import { type RepoInfo } from './githubApi';
+import { log } from '../core';
+import type { PRDetails, PRReviewComment, PRListItem, RawPR } from '../providers/github/domain/pullRequest';
+import type { RepoIdentifier } from '../providers/types';
 import { gitContextForRepo } from './gitContextFactory';
 import { createGhRepoApi } from '../providers/github/ghRepoApi';
 
-const gh = (repoInfo: RepoInfo) => createGhRepoApi(gitContextForRepo(repoInfo));
-
-/** Shape of a PR entry returned by `gh pr list --json ...` */
-export interface RawPR {
-  readonly number: number;
-  readonly state: string;
-  readonly headRefName: string;
-  readonly baseRefName: string;
-  /** Present when the lookup requested labels; absent for callers that don't. */
-  readonly labels?: readonly { readonly name: string }[];
-}
+const gh = (repoInfo: RepoIdentifier) => createGhRepoApi(gitContextForRepo(repoInfo));
 
 /**
  * True when `pr` carries a "won't fix" label (matched leniently: case- and
@@ -70,7 +61,7 @@ export function selectPreferredPR(prs: readonly RawPRListEntry[]): RawPRListEntr
  * Falls back to most-recently-updated PR overall when none are open.
  * Returns null if none found or on error.
  */
-export function defaultFindPRByBranch(branchName: string, repoInfo: RepoInfo): RawPR | null {
+export function defaultFindPRByBranch(branchName: string, repoInfo: RepoIdentifier): RawPR | null {
   try {
     const json = gh(repoInfo).findPRByBranch(branchName);
     const prs = JSON.parse(json) as RawPRListEntry[];
@@ -128,7 +119,7 @@ interface RawPRListItem {
  * @param prNumber - The PR number to fetch
  * @param repoInfo - Optional repository info override for targeting external repositories.
  */
-export function fetchPRDetails(prNumber: number, repoInfo: RepoInfo): PRDetails {
+export function fetchPRDetails(prNumber: number, repoInfo: RepoIdentifier): PRDetails {
   try {
     const json = gh(repoInfo).fetchPRDetails(prNumber);
     const raw = JSON.parse(json) as RawPRDetails;
@@ -159,9 +150,9 @@ export function fetchPRDetails(prNumber: number, repoInfo: RepoInfo): PRDetails 
  * Fetches PR review-body comments (top-level review submissions) using the GitHub API.
  * These are comments submitted via the "Submit review" dialog, not attached to specific code lines.
  */
-export function fetchPRReviews(owner: string, repo: string, prNumber: number): PRReviewComment[] {
+export function fetchPRReviews(prNumber: number, repoId: RepoIdentifier): PRReviewComment[] {
   try {
-    const json = gh({ owner, repo }).fetchPRReviews(prNumber);
+    const json = gh(repoId).fetchPRReviews(prNumber);
     const raw = JSON.parse(json) as RawPRReview[];
 
     return raw
@@ -190,7 +181,7 @@ export function fetchPRReviews(owner: string, repo: string, prNumber: number): P
  * @param prNumber - The PR number to fetch comments for
  * @param repoInfo - Optional repository info override for targeting external repositories.
  */
-export function fetchPRReviewComments(prNumber: number, repoInfo: RepoInfo): PRReviewComment[] {
+export function fetchPRReviewComments(prNumber: number, repoInfo: RepoIdentifier): PRReviewComment[] {
   const { owner, repo } = repoInfo;
   log(`Fetching PR review comments for ${owner}/${repo}#${prNumber}`);
 
@@ -218,7 +209,7 @@ export function fetchPRReviewComments(prNumber: number, repoInfo: RepoInfo): PRR
 
   log(`Fetched ${lineComments.length} line-level comments for ${owner}/${repo}#${prNumber}`);
 
-  const reviewBodyComments = fetchPRReviews(owner, repo, prNumber);
+  const reviewBodyComments = fetchPRReviews(prNumber, repoInfo);
   log(`Fetched ${reviewBodyComments.length} review-body comments for ${owner}/${repo}#${prNumber}`);
 
   const allComments = [...lineComments, ...reviewBodyComments];
@@ -232,7 +223,7 @@ export function fetchPRReviewComments(prNumber: number, repoInfo: RepoInfo): PRR
  * @param body - The comment body text
  * @param repoInfo - Optional repository info override for targeting external repositories.
  */
-export function commentOnPR(prNumber: number, body: string, repoInfo: RepoInfo): void {
+export function commentOnPR(prNumber: number, body: string, repoInfo: RepoIdentifier): void {
   try {
     gh(repoInfo).commentOnPR(prNumber, body);
     log(`Commented on PR #${prNumber}`, 'success');
@@ -247,7 +238,7 @@ export function commentOnPR(prNumber: number, body: string, repoInfo: RepoInfo):
  * @param repoInfo - Repository info (owner/repo)
  * @returns Success flag and optional error message
  */
-export function mergePR(prNumber: number, repoInfo: RepoInfo): { success: boolean; error?: string } {
+export function mergePR(prNumber: number, repoInfo: RepoIdentifier): { success: boolean; error?: string } {
   try {
     gh(repoInfo).mergePR(prNumber);
     log(`Merged PR #${prNumber} in ${repoInfo.owner}/${repoInfo.repo}`, 'success');
@@ -266,7 +257,7 @@ export function mergePR(prNumber: number, repoInfo: RepoInfo): { success: boolea
  * @param repoInfo - Repository info (owner/repo)
  * @returns Success flag and optional error message
  */
-export function approvePR(prNumber: number, repoInfo: RepoInfo): { success: boolean; error?: string } {
+export function approvePR(prNumber: number, repoInfo: RepoIdentifier): { success: boolean; error?: string } {
   try {
     gh(repoInfo).approvePR(prNumber);
     log(`Approved PR #${prNumber} in ${repoInfo.owner}/${repoInfo.repo}`, 'success');
@@ -336,7 +327,7 @@ export function isApprovedFromReviewsList(reviews: readonly PRReview[]): boolean
  * @param prNumber - The PR number to check
  * @param repoInfo - Repository owner and repo name
  */
-export function fetchPRApprovalState(prNumber: number, repoInfo: RepoInfo): boolean {
+export function fetchPRApprovalState(prNumber: number, repoInfo: RepoIdentifier): boolean {
   try {
     const json = gh(repoInfo).prApprovalState(prNumber);
     const result = JSON.parse(json) as {
@@ -360,7 +351,7 @@ export function fetchPRApprovalState(prNumber: number, repoInfo: RepoInfo): bool
  * Fetches open PRs for CRON trigger polling.
  * @param repoInfo - Optional repository info override for targeting external repositories.
  */
-export function fetchPRList(repoInfo: RepoInfo): PRListItem[] {
+export function fetchPRList(repoInfo: RepoIdentifier): PRListItem[] {
   try {
     const json = gh(repoInfo).fetchPRList();
     const raw = JSON.parse(json) as RawPRListItem[];

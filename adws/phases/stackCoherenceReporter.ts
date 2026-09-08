@@ -3,6 +3,7 @@ import { applyLabel, ADW_UNVERIFIED_LABEL } from '../github/labelManager';
 import { getRepoInfo } from '../github/githubApi';
 import { postIssueStageComment } from './phaseCommentHelpers';
 import type { WorkflowConfig } from './workflowInit';
+import { Platform } from '../providers/types';
 
 export function reportStackCoherence(config: WorkflowConfig): void {
   const commands = config.projectConfig.commands;
@@ -23,7 +24,7 @@ export function reportStackCoherence(config: WorkflowConfig): void {
 
   try {
     const repoInfo = config.targetRepo
-      ? { owner: config.targetRepo.owner, repo: config.targetRepo.repo }
+      ? { owner: config.targetRepo.owner, repo: config.targetRepo.repo, platform: Platform.GitHub }
       : getRepoInfo();
     applyLabel(config.issueNumber, ADW_UNVERIFIED_LABEL, repoInfo);
     config.ctx.coherenceWarnings = messages;

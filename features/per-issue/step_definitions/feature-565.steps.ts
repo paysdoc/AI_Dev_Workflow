@@ -42,7 +42,7 @@ import { resolveEntryRepoInfo } from '../../../adws/triggers/pauseQueueScanner.t
 import { resolveCronRepo } from '../../../adws/triggers/cronRepoResolver.ts';
 import { validateGitRemote } from '../../../adws/providers/repoContext.ts';
 import { Platform } from '../../../adws/providers/types.ts';
-import type { RepoInfo } from '../../../adws/github/githubApi.ts';
+import type { RepoIdentifier } from '../../../adws/providers/types.ts';
 import type { PausedWorkflow } from '../../../adws/core/pauseQueue.ts';
 import type { RegressionWorld } from '../../regression/step_definitions/world.ts';
 
@@ -68,8 +68,8 @@ interface IssueFetch {
 }
 
 interface Scenario565State {
-  targetRepo: RepoInfo | null;
-  hostRepo: RepoInfo | null;
+  targetRepo: RepoIdentifier | null;
+  hostRepo: RepoIdentifier | null;
   targetWorktreePath: string;
   hostWorktreePath: string;
   pauseQueueDir: string;
@@ -162,8 +162,8 @@ Given(
     const [targetOwner = '', targetRepo = ''] = targetRepoStr.split('/');
     const [hostOwner = '', hostRepo = ''] = hostRepoStr.split('/');
 
-    state565.targetRepo = { owner: targetOwner, repo: targetRepo };
-    state565.hostRepo = { owner: hostOwner, repo: hostRepo };
+    state565.targetRepo = { owner: targetOwner, repo: targetRepo, platform: Platform.GitHub };
+    state565.hostRepo = { owner: hostOwner, repo: hostRepo, platform: Platform.GitHub };
 
     state565.targetWorktreePath = mkdtempSync(path.join(tmpdir(), 'adw-565-target-'));
     state565.hostWorktreePath = mkdtempSync(path.join(tmpdir(), 'adw-565-host-'));
@@ -287,7 +287,7 @@ When('the cron poll batch runs', function (this: RegressionWorld) {
   // activation recorded earlier this tick instead of staying pinned to it.
   const { repoInfo: cronRepo } = resolveCronRepo(
     ['--target-repo', `${target.owner}/${target.repo}`],
-    () => state565.hostRepo as RepoInfo,
+    () => state565.hostRepo as RepoIdentifier,
   );
   state565.recordedAuthCalls.push({ owner: cronRepo.owner, repo: cronRepo.repo, phase: 'poll-reassert' });
 

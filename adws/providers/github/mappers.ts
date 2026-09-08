@@ -4,11 +4,9 @@
  * All functions are pure — no side effects, no imports of global state.
  */
 
-import type { GitHubIssue, GitHubComment, IssueCommentSummary } from '../../types/issueTypes';
-import type { PRDetails, PRReviewComment, PRListItem } from '../../types/workflowTypes';
-import type { Issue, IssueComment, PullRequest, PullRequestSummary, ReviewComment, RepoIdentifier } from '../types';
-import type { RepoInfo } from '../../github/githubApi';
-import type { RawPR } from '../../github/prApi';
+import type { GitHubIssue, GitHubComment, IssueCommentSummary } from './domain/issue';
+import type { PRDetails, PRReviewComment, PRListItem, RawPR } from './domain/pullRequest';
+import type { Issue, IssueComment, PullRequest, PullRequestSummary, ReviewComment } from '../types';
 
 // ── IssueTracker mappers ──────────────────────────────────────────────
 
@@ -50,13 +48,6 @@ export function mapIssueCommentSummaryToIssueComment(comment: IssueCommentSummar
     author: comment.authorLogin,
     createdAt: comment.createdAt,
   };
-}
-
-/**
- * Converts a provider RepoIdentifier to the RepoInfo format used by existing GitHub API functions.
- */
-export function toRepoInfo(repoId: RepoIdentifier): RepoInfo {
-  return { owner: repoId.owner, repo: repoId.repo };
 }
 
 // ── CodeHost mappers ──────────────────────────────────────────────────

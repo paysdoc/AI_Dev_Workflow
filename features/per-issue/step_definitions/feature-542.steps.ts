@@ -48,14 +48,15 @@ import {
 } from '../../../adws/triggers/issueOpenedRouter.ts';
 import { VALID_ISSUE_TYPES } from '../../../adws/types/issueTypes.ts';
 import { isAdwComment } from '../../../adws/core/workflowCommentParsing.ts';
-import type { RepoInfo } from '../../../adws/github/githubApi.ts';
+import type { RepoIdentifier } from '../../../adws/providers/types.ts';
+import { Platform } from '../../../adws/providers/types.ts';
 import type { RegressionWorld } from '../../regression/step_definitions/world.ts';
 import type { MockContext, RecordedRequest } from '../../../test/mocks/types.ts';
 
 // ── Per-scenario state ──────────────────────────────────────────────────────────
 
 interface Ctx542 {
-  repoInfo: RepoInfo;
+  repoInfo: RepoIdentifier;
   /** Synthetic GitHub API requests (comment posts + label applications). */
   recordedRequests: RecordedRequest[];
   /** Orchestrator spawns recorded by the classifyAndSpawn dep. */
@@ -66,7 +67,7 @@ interface Ctx542 {
 }
 
 const ctx: Ctx542 = {
-  repoInfo: { owner: 'test-owner', repo: 'test-repo' },
+  repoInfo: { owner: 'test-owner', repo: 'test-repo', platform: Platform.GitHub },
   recordedRequests: [],
   spawns: [],
   classifierInvocations: [],
@@ -74,7 +75,7 @@ const ctx: Ctx542 = {
 };
 
 function resetCtx(): void {
-  ctx.repoInfo = { owner: 'test-owner', repo: 'test-repo' };
+  ctx.repoInfo = { owner: 'test-owner', repo: 'test-repo', platform: Platform.GitHub };
   ctx.recordedRequests = [];
   ctx.spawns = [];
   ctx.classifierInvocations = [];

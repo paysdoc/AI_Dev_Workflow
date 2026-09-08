@@ -204,7 +204,7 @@ beforeEach(() => {
   mockAgent.mockReset();
   mockFetchIssue.mockResolvedValue(fakeIssue as never);
   mockDetectRecovery.mockReturnValue(nullRecoveryState);
-  mockGetRepoInfo.mockReturnValue({ owner: 'test-owner', repo: 'test-repo' });
+  mockGetRepoInfo.mockReturnValue({ owner: 'test-owner', repo: 'test-repo', platform: Platform.GitHub });
   mockClassify.mockResolvedValue({ issueType: '/feature', success: true } as never);
   mockGitCtx.getWorktreeForBranch.mockReturnValue(null);
   mockGitCtx.findWorktreeForIssue.mockReturnValue(null);

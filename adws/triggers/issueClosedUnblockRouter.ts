@@ -7,7 +7,7 @@
  * via a prose `- blocked by #N` declaration is unblocked when its blocker closes (issue #753).
  */
 
-import type { RepoInfo } from '../github/githubApi';
+import type { RepoIdentifier } from '../providers/types';
 import type { GitContext } from '../gitContext';
 import { log, LOGS_DIR } from '../core';
 import type { LogLevel } from '../core';
@@ -42,8 +42,8 @@ export function selectDependents(issues: IssueWithDeps[], closedIssueNumber: num
 export interface DependencyUnblockDeps {
   listOpenIssues: () => OpenIssue[];
   extractDependents: (issueBody: string, issueNumber: number) => Promise<number[]>;
-  checkEligibility: (issueNumber: number, issueBody: string, repoInfo: RepoInfo) => Promise<EligibilityResult>;
-  spawn: (issueNumber: number, repoInfo: RepoInfo, targetRepoArgs: string[], gitContext?: GitContext) => Promise<void>;
+  checkEligibility: (issueNumber: number, issueBody: string, repoInfo: RepoIdentifier) => Promise<EligibilityResult>;
+  spawn: (issueNumber: number, repoInfo: RepoIdentifier, targetRepoArgs: string[], gitContext?: GitContext) => Promise<void>;
   logger: (message: string, level?: LogLevel) => void;
 }
 
@@ -51,7 +51,7 @@ export interface DependencyUnblockDeps {
 // by repoInfo. The parameter stays so this function's signature keeps matching its call
 // site's (repoInfo, gitContext) default-parameter expression in handleIssueClosedDependencyUnblock;
 // that gitContext is threaded to `spawn` at call time, not through this closure.
-export function buildDefaultDependencyUnblockDeps(repoInfo: RepoInfo, _gitContext?: GitContext): DependencyUnblockDeps {
+export function buildDefaultDependencyUnblockDeps(repoInfo: RepoIdentifier, _gitContext?: GitContext): DependencyUnblockDeps {
   return {
     listOpenIssues: () => listIssues({ fields: ['number', 'body'], limit: 100 }, repoInfo) as OpenIssue[],
     extractDependents: (body, n) => extractDependencies(body, LOGS_DIR, undefined, undefined, n),
@@ -66,7 +66,7 @@ export function buildDefaultDependencyUnblockDeps(repoInfo: RepoInfo, _gitContex
 async function reEvaluateDependent(
   dependent: IssueWithDeps,
   closedIssueNumber: number,
-  repoInfo: RepoInfo,
+  repoInfo: RepoIdentifier,
   targetRepoArgs: string[],
   gitContext: GitContext | undefined,
   deps: DependencyUnblockDeps,
@@ -88,7 +88,7 @@ async function reEvaluateDependent(
  */
 export async function handleIssueClosedDependencyUnblock(
   closedIssueNumber: number,
-  repoInfo: RepoInfo,
+  repoInfo: RepoIdentifier,
   targetRepoArgs: string[],
   gitContext?: GitContext,
   deps: DependencyUnblockDeps = buildDefaultDependencyUnblockDeps(repoInfo, gitContext),

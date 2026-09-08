@@ -145,7 +145,7 @@ async function main(): Promise<void> {
       // hitl on the issue at this moment. Race accepted — a human can add hitl between this
       // approval and the next cron tick; the merge gate is permissive in that case (rule 3).
       if (config.repoContext && config.ctx.prUrl) {
-        const repoInfo = { owner: config.repoContext.repoId.owner, repo: config.repoContext.repoId.repo };
+        const repoInfo = config.repoContext.repoId;
         const prNumber = extractPrNumber(config.ctx.prUrl);
         if (prNumber && !issueHasLabel(issueNumber, 'hitl', repoInfo)) {
           log(`Chore: pre-approving PR #${prNumber} (no hitl on issue #${issueNumber})`, 'info');

@@ -49,7 +49,8 @@ import { executeScenarioPhase } from '../../../adws/phases/scenarioPhase.ts';
 import { executeAlignmentPhase } from '../../../adws/phases/alignmentPhase.ts';
 import { getPlanFilePath } from '../../../adws/agents/planAgent.ts';
 import type { WorkflowConfig } from '../../../adws/phases/workflowInit.ts';
-import type { GitHubIssue, RecoveryState } from '../../../adws/core/index.ts';
+import type { RecoveryState } from '../../../adws/core/index.ts';
+import type { GitHubIssue } from '../../../adws/providers/github/domain/issue.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '../../..');

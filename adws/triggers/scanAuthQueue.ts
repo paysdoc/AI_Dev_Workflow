@@ -16,7 +16,7 @@ import { evaluateCandidate } from './takeoverHandler';
 import type { TakeoverDeps } from './takeoverHandler';
 import { spawnDetached } from './webhookGatekeeper';
 import { releaseIssueSpawnLock } from './spawnGate';
-import type { RepoInfo } from '../github/githubApi';
+import type { RepoIdentifier } from '../providers/types';
 
 export interface ScanAuthQueueDeps {
   readAuthGate: () => ReturnType<typeof import('../core/authGate').readAuthGate>;
@@ -57,7 +57,7 @@ function buildDefaultDeps(): ScanAuthQueueDeps {
  * @returns count of orchestrators successfully re-triggered
  */
 export async function scanAuthQueue(
-  cronRepoInfo: RepoInfo,
+  cronRepoInfo: RepoIdentifier,
   targetRepoArgs: string[],
   takeoverDeps?: TakeoverDeps,
   deps?: ScanAuthQueueDeps,

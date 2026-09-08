@@ -16,7 +16,7 @@
 - Define `IssueClassSlashCommand` (`/chore`, `/bug`, `/feature`, `/pr_review`, `/adw_init`) and `SlashCommand` (all commands understood by the agent framework).
 - Define `VALID_ISSUE_TYPES` — the four issue types valid for automated workflow dispatch (`/adw_init` excluded).
 - Define `issueTypeToOrchestratorMap`, `commitPrefixMap`, `branchPrefixMap`, and `branchPrefixAliases` routing tables.
-- Define GitHub data models: `GitHubUser`, `GitHubLabel`, `GitHubMilestone`, `GitHubComment`, `GitHubIssue`, `GitHubIssueListItem`, `PullRequestWebhookPayload`, `TargetRepoInfo`, `IssueCommentSummary`.
+- GitHub payload shapes (`GitHubUser`, `GitHubLabel`, `GitHubMilestone`, `GitHubComment`, `GitHubIssue`, `GitHubIssueListItem`, `IssueCommentSummary`, `PRReviewComment`, `PRDetails`, `PRListItem`, `RawPR`) moved to `adws/providers/github/domain/` in #817 — `adws/types/` keeps `PullRequestWebhookPayload` and `TargetRepoInfo`, which are ADW-domain shapes, not raw forge payloads.
 - Define `RecoveryState` for resuming a workflow from a previous run.
 - Define `TokenUsageSnapshot` for token-limit interruption bookkeeping.
 

@@ -23,11 +23,12 @@ import {
   defaultPushClaimBranch,
   type UpgradeClaimDeps,
 } from '../upgradeClaim';
-import type { RepoInfo } from '../../github/githubApi';
+import type { RepoIdentifier } from '../../providers/types';
+import { Platform } from '../../providers/types';
 import { GitContext } from '../../gitContext';
 import { createLiteralTokenProvider } from '../../providers/github/githubTokenProvider';
 
-const REPO_INFO: RepoInfo = { owner: 'sandbox', repo: 'target' };
+const REPO_INFO: RepoIdentifier = { owner: 'sandbox', repo: 'target', platform: Platform.GitHub };
 const HASH = 'integ1234';
 const CLAIM_BRANCH = buildClaimBranchName(HASH);
 

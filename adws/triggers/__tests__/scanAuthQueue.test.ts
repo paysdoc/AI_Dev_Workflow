@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { scanAuthQueue } from '../scanAuthQueue';
 import type { ScanAuthQueueDeps } from '../scanAuthQueue';
-import type { RepoInfo } from '../../github/githubApi';
+import { Platform, type RepoIdentifier } from '../../providers/types';
 import type { AgentState } from '../../types/agentTypes';
 
-const REPO: RepoInfo = { owner: 'test', repo: 'repo' };
+const REPO: RepoIdentifier = { owner: 'test', repo: 'repo', platform: Platform.GitHub };
 const TARGET_ARGS: string[] = [];
 
 function makeState(adwId: string, workflowStage: string, issueNumber = 42): AgentState {
@@ -98,7 +98,7 @@ describe('scanAuthQueue', () => {
     const deps = makeDeps({
       listAgentDirs: vi.fn().mockReturnValue([adwId1, adwId2]),
       readTopLevelState: vi.fn().mockImplementation((id: string) => states[id] ?? null),
-      evaluateCandidate: vi.fn().mockImplementation((input: { issueNumber: number; repoInfo: RepoInfo }) => ({
+      evaluateCandidate: vi.fn().mockImplementation((input: { issueNumber: number; repoInfo: RepoIdentifier }) => ({
         kind: 'take_over_adwId',
         adwId: input.issueNumber === 11 ? adwId1 : adwId2,
         derivedStage: 'abandoned',

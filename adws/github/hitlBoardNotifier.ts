@@ -6,13 +6,13 @@
 
 import { log } from '../core';
 import { postSlack } from '../core/slackNotifier';
-import { type RepoInfo } from './githubApi';
 import { bodyLinksIssue } from './issueLinkMarker';
 import { selectPreferredPR } from './prApi';
 import { gitContextForRepo } from './gitContextFactory';
 import { createGhRepoApi } from '../providers/github/ghRepoApi';
+import type { RepoIdentifier } from '../providers/types';
 
-const gh = (repoInfo: RepoInfo) => createGhRepoApi(gitContextForRepo(repoInfo));
+const gh = (repoInfo: RepoIdentifier) => createGhRepoApi(gitContextForRepo(repoInfo));
 
 // ---------------------------------------------------------------------------
 // Types
@@ -35,18 +35,18 @@ interface HitlPREntry {
 
 /** Injected readers for testing — omit in production (defaults to real gh CLI calls). */
 export interface NotifierDeps {
-  readIssue?: (issueNumber: number, repoInfo: RepoInfo) => HitlIssueInfo | null;
-  listOpenPRs?: (repoInfo: RepoInfo) => HitlPREntry[] | null;
+  readIssue?: (issueNumber: number, repoInfo: RepoIdentifier) => HitlIssueInfo | null;
+  listOpenPRs?: (repoInfo: RepoIdentifier) => HitlPREntry[] | null;
 }
 
 export interface NotifyReviewArgs {
   issueNumber: number;
-  repoInfo: RepoInfo;
+  repoInfo: RepoIdentifier;
 }
 
 export interface NotifyBlockedArgs {
   issueNumber: number;
-  repoInfo: RepoInfo;
+  repoInfo: RepoIdentifier;
   source: 'discarded' | 'review_error';
   errorMessage?: string;
 }
@@ -55,7 +55,7 @@ export interface NotifyBlockedArgs {
 // Private defaults — real gh CLI reads
 // ---------------------------------------------------------------------------
 
-function defaultReadIssue(issueNumber: number, repoInfo: RepoInfo): HitlIssueInfo | null {
+function defaultReadIssue(issueNumber: number, repoInfo: RepoIdentifier): HitlIssueInfo | null {
   try {
     const raw = gh(repoInfo).fetchIssue(issueNumber);
     const parsed = JSON.parse(raw) as { title: string; labels: { name: string }[] };
@@ -65,7 +65,7 @@ function defaultReadIssue(issueNumber: number, repoInfo: RepoInfo): HitlIssueInf
   }
 }
 
-function defaultListOpenPRs(repoInfo: RepoInfo): HitlPREntry[] | null {
+function defaultListOpenPRs(repoInfo: RepoIdentifier): HitlPREntry[] | null {
   try {
     const raw = gh(repoInfo).fetchAllPRs();
     const allPrs = JSON.parse(raw) as Array<{
@@ -96,7 +96,7 @@ function defaultListOpenPRs(repoInfo: RepoInfo): HitlPREntry[] | null {
 
 function readIssueTitleAndHitl(
   issueNumber: number,
-  repoInfo: RepoInfo,
+  repoInfo: RepoIdentifier,
   deps?: NotifierDeps,
 ): { title: string; hasHitl: boolean } | null {
   const reader = deps?.readIssue ?? defaultReadIssue;
@@ -108,7 +108,7 @@ function readIssueTitleAndHitl(
 
 function findReviewPr(
   issueNumber: number,
-  repoInfo: RepoInfo,
+  repoInfo: RepoIdentifier,
   deps?: NotifierDeps,
 ): string | null {
   const lister = deps?.listOpenPRs ?? defaultListOpenPRs;

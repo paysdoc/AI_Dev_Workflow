@@ -31,12 +31,12 @@ import {
 // Maximum PR-resolution attempts before escalating to merge_blocked (#527)
 const MAX_PR_RESOLUTION_ATTEMPTS = 3;
 import { findOrchestratorStatePath } from './core/stateHelpers';
-import { commentOnPR, type RepoInfo } from './github';
+import { commentOnPR } from './github';
 import { notifyBlockedTransition } from './github/hitlBoardNotifier';
 import { mergeWithConflictResolution } from './triggers/autoMergeHandler';
 import { getPlanFilePath, planFileExists } from './agents';
 import type { AgentState } from './types/agentTypes';
-import { Platform, type PullRequestSummary } from './providers/types';
+import { Platform, type PullRequestSummary, type RepoIdentifier } from './providers/types';
 import type { LaunchBoundary } from './core/launchGitContext';
 export { handleWorkflowDiscarded } from './phases/workflowCompletion';
 
@@ -85,7 +85,7 @@ function buildMergeBlockedComment(cause: string, adwId: string): string {
 export async function executeMerge(
   issueNumber: number,
   adwId: string,
-  repoInfo: RepoInfo,
+  repoInfo: RepoIdentifier,
   baseRepoPath: string,
   deps: MergeDeps,
 ): Promise<MergeRunResult> {
@@ -266,7 +266,7 @@ async function main(): Promise<void> {
 
   const boundary = buildLaunchBoundary(targetRepo);
   const { gitContext } = boundary;
-  const repoInfo: RepoInfo = { owner: gitContext.owner, repo: gitContext.repo };
+  const repoInfo = boundary.repoId;
 
   if (targetRepo) ensureTargetRepoWorkspace(targetRepo, () => boundary.providers.codeHost.getDefaultBranch());
   const baseRepoPath = gitContext.basePath;

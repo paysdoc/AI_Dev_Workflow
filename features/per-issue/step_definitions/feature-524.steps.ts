@@ -35,7 +35,8 @@ import { AgentStateManager } from '../../../adws/core/agentState.ts';
 import { AGENTS_STATE_DIR } from '../../../adws/core/index.ts';
 import { _resolveWorkflowBranchNameForTest } from '../../../adws/phases/branchNameResolution.ts';
 import type { RegressionWorld } from '../../regression/step_definitions/world.ts';
-import type { IssueClassSlashCommand, GitHubIssue, RecoveryState } from '../../../adws/core/index.ts';
+import type { IssueClassSlashCommand, RecoveryState } from '../../../adws/core/index.ts';
+import type { GitHubIssue } from '../../../adws/providers/github/domain/issue.ts';
 
 // ---------------------------------------------------------------------------
 // Per-scenario mutable state (reset in Before hook for each @adw-524 scenario)

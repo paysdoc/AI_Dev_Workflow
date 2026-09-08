@@ -28,8 +28,9 @@ import assert from 'assert';
 import { GitContext } from '../../../adws/gitContext/index.ts';
 import type { ExecFn } from '../../../adws/gitContext/types.ts';
 import { createLiteralTokenProvider } from '../../../adws/providers/github/githubTokenProvider.ts';
-import type { RepoInfo } from '../../../adws/github/githubApi.ts';
-import type { GitHubLabel } from '../../../adws/types/issueTypes.ts';
+import type { RepoIdentifier } from '../../../adws/providers/types.ts';
+import { Platform } from '../../../adws/providers/types.ts';
+import type { GitHubLabel } from '../../../adws/providers/github/domain/issue.ts';
 import type { LabelManagerDeps, AdwLabelReading } from '../../../adws/github/labelManager.ts';
 import {
   ensureAdwLabelsExist,
@@ -42,7 +43,7 @@ import type { MockContext, RecordedRequest } from '../../../test/mocks/types.ts'
 // ── Per-scenario state ────────────────────────────────────────────────────────
 
 interface Ctx540 {
-  repoInfo: RepoInfo;
+  repoInfo: RepoIdentifier;
   execCalls: string[];
   labelsPresent: Set<string>;
   notFoundUntilCreated: Set<string>;
@@ -54,7 +55,7 @@ interface Ctx540 {
 }
 
 const ctx: Ctx540 = {
-  repoInfo: { owner: 'test-owner', repo: 'test-repo' },
+  repoInfo: { owner: 'test-owner', repo: 'test-repo', platform: Platform.GitHub },
   execCalls: [],
   labelsPresent: new Set(),
   notFoundUntilCreated: new Set(),
@@ -66,7 +67,7 @@ const ctx: Ctx540 = {
 };
 
 function resetCtx(): void {
-  ctx.repoInfo = { owner: 'test-owner', repo: 'test-repo' };
+  ctx.repoInfo = { owner: 'test-owner', repo: 'test-repo', platform: Platform.GitHub };
   ctx.execCalls = [];
   ctx.labelsPresent = new Set();
   ctx.notFoundUntilCreated = new Set();
@@ -159,7 +160,7 @@ function buildMockExec(): ExecFn {
 function buildMockDeps(): LabelManagerDeps {
   const exec = buildMockExec();
   return {
-    gitContextForRepo: (repoInfo: RepoInfo) => new GitContext(
+    gitContextForRepo: (repoInfo: RepoIdentifier) => new GitContext(
       {
         owner: repoInfo.owner,
         repo: repoInfo.repo,

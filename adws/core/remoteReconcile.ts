@@ -15,12 +15,11 @@
 import { AgentStateManager } from './agentState';
 import { log } from './utils';
 import { defaultFindPRByBranch } from '../github/prApi';
-import type { RepoInfo } from '../github/githubApi';
 import { gitContextForRepo } from '../github/gitContextFactory';
 import type { AgentState } from '../types/agentTypes';
 import type { WorkflowStage } from '../types/workflowTypes';
 import type { LaunchBoundary } from './launchGitContext';
-import type { PullRequestSummary } from '../providers/types';
+import type { PullRequestSummary, RepoIdentifier } from '../providers/types';
 import type { GitContext } from '../gitContext';
 
 export const MAX_RECONCILE_VERIFICATION_RETRIES = 3;
@@ -80,7 +79,7 @@ function defaultBranchExistsOnRemote(gitContext: Pick<GitContext, 'lsRemote'>, b
 export function deriveStageFromRemote(
   _issueNumber: number,
   adwId: string,
-  repoInfo: RepoInfo,
+  repoInfo: RepoIdentifier,
   deps?: ReconcileDeps,
 ): WorkflowStage {
   const effectiveDeps = deps ?? buildLegacyReconcileDeps(repoInfo);
@@ -111,7 +110,7 @@ export function deriveStageFromRemote(
  * legacy takeover callers (scanAuthQueue, webhookGatekeeper) that hold no
  * launch boundary.
  */
-function buildLegacyReconcileDeps(repoInfo: RepoInfo): ReconcileDeps {
+function buildLegacyReconcileDeps(repoInfo: RepoIdentifier): ReconcileDeps {
   return {
     readTopLevelState: (id) => AgentStateManager.readTopLevelState(id),
     branchExistsOnRemote: (branchName) => defaultBranchExistsOnRemote(gitContextForRepo(repoInfo), branchName),

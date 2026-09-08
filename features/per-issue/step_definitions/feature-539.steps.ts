@@ -37,15 +37,16 @@ import {
   type UpgradeClaimDeps,
   type UpgradeClaimResult,
 } from '../../../adws/core/upgradeClaim.ts';
-import type { RawPR } from '../../../adws/github/prApi.ts';
-import type { RepoInfo } from '../../../adws/github/githubApi.ts';
+import type { RawPR } from '../../../adws/providers/github/domain/pullRequest.ts';
+import type { RepoIdentifier } from '../../../adws/providers/types.ts';
+import { Platform } from '../../../adws/providers/types.ts';
 import type { RegressionWorld } from '../../regression/step_definitions/world.ts';
 
 // ---------------------------------------------------------------------------
 // Per-scenario mutable state (reset in Before hook for each @adw-539 scenario)
 // ---------------------------------------------------------------------------
 
-const REPO_INFO: RepoInfo = { owner: 'sandbox', repo: 'target' };
+const REPO_INFO: RepoIdentifier = { owner: 'sandbox', repo: 'target', platform: Platform.GitHub };
 
 /** The result from the last single claim (§1 / §2 scenarios). */
 let claimResult: UpgradeClaimResult | null = null;
@@ -97,7 +98,7 @@ After({ tags: '@adw-539' }, function (this: RegressionWorld) {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function makePushClaimBranch(): (branchName: string, hash: string, repoInfo: RepoInfo) => boolean {
+function makePushClaimBranch(): (branchName: string, hash: string, repoInfo: RepoIdentifier) => boolean {
   return function pushClaimBranch(branchName: string): boolean {
     if (claimedBranches.has(branchName)) return false;
     claimedBranches.add(branchName);
@@ -106,7 +107,7 @@ function makePushClaimBranch(): (branchName: string, hash: string, repoInfo: Rep
   };
 }
 
-function makeFindPRByBranch(): (branchName: string, repoInfo: RepoInfo) => RawPR | null {
+function makeFindPRByBranch(): (branchName: string, repoInfo: RepoIdentifier) => RawPR | null {
   return function findPRByBranch(branchName: string): RawPR | null {
     const entry = prsByBranch.get(branchName);
     if (!entry) return null;
@@ -119,7 +120,7 @@ function makeFindPRByBranch(): (branchName: string, repoInfo: RepoInfo) => RawPR
   };
 }
 
-function makeResolveIssueNumberFromPR(): (prNumber: number, repoInfo: RepoInfo) => number | null {
+function makeResolveIssueNumberFromPR(): (prNumber: number, repoInfo: RepoIdentifier) => number | null {
   return function resolveIssueNumberFromPR(prNumber: number): number | null {
     for (const entry of prsByBranch.values()) {
       if (entry.prNumber === prNumber) return entry.issueNumber;

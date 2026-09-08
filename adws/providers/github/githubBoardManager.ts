@@ -7,8 +7,6 @@
 import { log } from '../../core';
 import type { BoardManager, BoardColumnDefinition, RepoIdentifier } from '../types';
 import { BOARD_COLUMNS, validateRepoIdentifier } from '../types';
-import { toRepoInfo } from './mappers';
-import type { RepoInfo } from '../../github/githubApi';
 import { gitContextForRepo } from '../../github/gitContextFactory';
 import { createGhCommandRunner, type GhCommandRunner } from './ghCommandRunner';
 import { graphQLCmd, graphQLInputCmd } from './commands/boardCommands';
@@ -76,21 +74,18 @@ export function mergeStatusOptions(
  * Bound to a specific repository at construction time.
  */
 class GitHubBoardManager implements BoardManager {
-  private readonly repoInfo: RepoInfo;
-
   constructor(private readonly repoId: RepoIdentifier) {
     validateRepoIdentifier(repoId);
-    this.repoInfo = toRepoInfo(repoId);
   }
 
   /** The adapter's sole route to a gh command — feeds command strings into the core executor (#792). */
   private get gh(): GhCommandRunner {
-    return createGhCommandRunner(gitContextForRepo(this.repoInfo));
+    return createGhCommandRunner(gitContextForRepo(this.repoId));
   }
 
   /** Finds the first GitHub Projects V2 board linked to the repository. */
   async findBoard(): Promise<string | null> {
-    const { owner, repo } = this.repoInfo;
+    const { owner, repo } = this.repoId;
     try {
       const query = `query($owner:String!,$repo:String!){repository(owner:$owner,name:$repo){projectsV2(first:1){nodes{id}}}}`;
       const result = this.gh.run(graphQLCmd(query, { owner, repo }), { purpose: 'alternateIdentity' });
@@ -107,7 +102,7 @@ class GitHubBoardManager implements BoardManager {
 
   /** Creates a new GitHub Projects V2 board and links it to the repository. */
   async createBoard(name: string): Promise<string> {
-    const { owner, repo } = this.repoInfo;
+    const { owner, repo } = this.repoId;
 
     // Look up the owner node ID
     const ownerIdQuery = `query($owner:String!,$repo:String!){repository(owner:$owner,name:$repo){owner{id}}}`;

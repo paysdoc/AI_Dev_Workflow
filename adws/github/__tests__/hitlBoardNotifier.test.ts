@@ -4,9 +4,10 @@ import {
   notifyBlockedTransition,
   type NotifierDeps,
 } from '../hitlBoardNotifier';
+import { Platform } from '../../providers/types';
 
 const WEBHOOK_URL = 'https://hooks.slack.com/test';
-const REPO_INFO = { owner: 'acme', repo: 'myrepo' };
+const REPO_INFO = { owner: 'acme', repo: 'myrepo', platform: Platform.GitHub };
 
 function makeFetchMock(ok = true, status = 200) {
   return vi.fn().mockResolvedValue({ ok, status });

@@ -16,7 +16,8 @@ import { evaluateCandidate } from '../../../adws/triggers/takeoverHandler.ts';
 import type { CronIssue, FilterResult } from '../../../adws/triggers/cronIssueFilter.ts';
 import type { TakeoverDeps, CandidateDecision } from '../../../adws/triggers/takeoverHandler.ts';
 import type { AgentState } from '../../../adws/types/agentTypes.ts';
-import type { RepoInfo } from '../../../adws/github/githubApi.ts';
+import type { RepoIdentifier } from '../../../adws/providers/types.ts';
+import { Platform } from '../../../adws/providers/types.ts';
 import type { WorkflowStage } from '../../../adws/types/workflowTypes.ts';
 import { probeCtx, healthyProbe } from './takeover-probe-ctx.ts';
 
@@ -25,7 +26,7 @@ import { probeCtx, healthyProbe } from './takeover-probe-ctx.ts';
 // ---------------------------------------------------------------------------
 
 export const FIXED_ADW_ID = 'test-adwid-636';
-const REPO: RepoInfo = { owner: 'test-owner', repo: 'test-repo' };
+const REPO: RepoIdentifier = { owner: 'test-owner', repo: 'test-repo', platform: Platform.GitHub };
 
 interface CronCtx {
   issueNumber: number;

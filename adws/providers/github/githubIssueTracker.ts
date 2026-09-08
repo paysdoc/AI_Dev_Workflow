@@ -6,7 +6,6 @@
 
 import type { IssueTracker, RepoIdentifier, Issue, IssueComment, IssueSummary, IssueListQuery, IssueListEntry } from '../types';
 import { validateRepoIdentifier, BoardStatus } from '../types';
-import type { RepoInfo } from '../../github/githubApi';
 import {
   fetchGitHubIssue,
   commentOnIssue as ghCommentOnIssue,
@@ -27,87 +26,83 @@ import { moveIssueToStatus } from '../../github/projectBoardApi';
 import {
   mapGitHubIssueToIssue,
   mapIssueCommentSummaryToIssueComment,
-  toRepoInfo,
 } from './mappers';
 
 /**
  * IssueTracker implementation for GitHub Issues.
  * Bound to a specific repository at construction time — every method
- * passes the bound RepoInfo to the underlying function, never relying
+ * passes the bound RepoIdentifier to the underlying function, never relying
  * on the global getTargetRepo() registry.
  */
 export class GitHubIssueTracker implements IssueTracker {
-  private readonly repoInfo: RepoInfo;
-
   constructor(private readonly repoId: RepoIdentifier) {
     validateRepoIdentifier(repoId);
-    this.repoInfo = toRepoInfo(repoId);
   }
 
   async fetchIssue(issueNumber: number): Promise<Issue> {
-    const issue = await fetchGitHubIssue(issueNumber, this.repoInfo);
+    const issue = await fetchGitHubIssue(issueNumber, this.repoId);
     return mapGitHubIssueToIssue(issue);
   }
 
   commentOnIssue(issueNumber: number, body: string): void {
-    ghCommentOnIssue(issueNumber, body, this.repoInfo);
+    ghCommentOnIssue(issueNumber, body, this.repoId);
   }
 
   deleteComment(commentId: string): void {
-    deleteIssueComment(Number(commentId), this.repoInfo);
+    deleteIssueComment(Number(commentId), this.repoId);
   }
 
   async closeIssue(issueNumber: number, comment?: string): Promise<boolean> {
-    return ghCloseIssue(issueNumber, this.repoInfo, comment);
+    return ghCloseIssue(issueNumber, this.repoId, comment);
   }
 
   getIssueState(issueNumber: number): string {
-    return ghGetIssueState(issueNumber, this.repoInfo);
+    return ghGetIssueState(issueNumber, this.repoId);
   }
 
   fetchComments(issueNumber: number): IssueComment[] {
-    const comments = fetchIssueCommentsRest(issueNumber, this.repoInfo);
+    const comments = fetchIssueCommentsRest(issueNumber, this.repoId);
     return comments.map(mapIssueCommentSummaryToIssueComment);
   }
 
   async moveToStatus(issueNumber: number, status: BoardStatus): Promise<boolean> {
-    return moveIssueToStatus(issueNumber, status, this.repoInfo);
+    return moveIssueToStatus(issueNumber, status, this.repoId);
   }
 
   fetchLabels(issueNumber: number): readonly string[] {
-    return ghFetchIssueLabels(issueNumber, this.repoInfo);
+    return ghFetchIssueLabels(issueNumber, this.repoId);
   }
 
   addLabel(issueNumber: number, labelName: string): void {
-    ghAddIssueLabel(issueNumber, labelName, this.repoInfo);
+    ghAddIssueLabel(issueNumber, labelName, this.repoId);
   }
 
   applyLabel(issueNumber: number, labelName: string): void {
-    ghApplyLabel(issueNumber, labelName, this.repoInfo);
+    ghApplyLabel(issueNumber, labelName, this.repoId);
   }
 
   ensureLabel(name: string, color: string, description: string): void {
-    ghEnsureLabelExists(name, color, description, this.repoInfo);
+    ghEnsureLabelExists(name, color, description, this.repoId);
   }
 
   createIssue(title: string, body: string): number {
-    return ghCreateIssue(title, body, this.repoInfo);
+    return ghCreateIssue(title, body, this.repoId);
   }
 
   updateIssueBody(issueNumber: number, body: string): void {
-    ghUpdateIssueBody(issueNumber, body, this.repoInfo);
+    ghUpdateIssueBody(issueNumber, body, this.repoId);
   }
 
   searchOpenIssues(search: string, limit: number): readonly IssueSummary[] {
-    return ghSearchOpenIssues(search, limit, this.repoInfo);
+    return ghSearchOpenIssues(search, limit, this.repoId);
   }
 
   findOpenUpgradeIssue(): number | null {
-    return ghFindOpenUpgradeIssue(this.repoInfo);
+    return ghFindOpenUpgradeIssue(this.repoId);
   }
 
   listIssues(query: IssueListQuery): readonly IssueListEntry[] {
-    return ghListIssues(query, this.repoInfo);
+    return ghListIssues(query, this.repoId);
   }
 }
 

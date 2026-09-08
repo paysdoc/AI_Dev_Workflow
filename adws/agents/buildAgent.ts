@@ -4,7 +4,9 @@
  * or /implement-tdd when BDD scenarios tagged @adw-{issueNumber} are present.
  */
 
-import { GitHubIssue, PRDetails, log } from '../core';
+import { log } from '../core';
+import type { GitHubIssue } from '../providers/github/domain/issue';
+import type { PRDetails } from '../providers/github/domain/pullRequest';
 import { runCommandAgent, type CommandAgentConfig } from './commandAgent';
 import type { AgentResult, ProgressCallback } from './claudeAgent';
 import { findScenarioFiles } from './validationAgent';

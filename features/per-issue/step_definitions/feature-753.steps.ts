@@ -29,13 +29,14 @@ import {
   type OpenIssue,
 } from '../../../adws/triggers/issueClosedUnblockRouter.ts';
 import { parseKeywordProximityDependencies } from '../../../adws/triggers/issueDependencies.ts';
-import type { RepoInfo } from '../../../adws/github/githubApi.ts';
+import type { RepoIdentifier } from '../../../adws/providers/types.ts';
+import { Platform } from '../../../adws/providers/types.ts';
 import type { EligibilityResult } from '../../../adws/triggers/issueEligibility.ts';
 
 // ── Per-scenario state ──────────────────────────────────────────────────────────
 
 interface Ctx753 {
-  repoInfo: RepoInfo;
+  repoInfo: RepoIdentifier;
   /** Seeded open issues (injected listOpenIssues input). */
   issues: OpenIssue[];
   /** issueNumber → seeded eligibility verdict (injected checkEligibility input). */
@@ -47,7 +48,7 @@ interface Ctx753 {
 }
 
 const ctx: Ctx753 = {
-  repoInfo: { owner: 'test-owner', repo: 'test-repo' },
+  repoInfo: { owner: 'test-owner', repo: 'test-repo', platform: Platform.GitHub },
   issues: [],
   eligibilityVerdicts: new Map(),
   spawned: [],
@@ -55,7 +56,7 @@ const ctx: Ctx753 = {
 };
 
 function resetCtx(): void {
-  ctx.repoInfo = { owner: 'test-owner', repo: 'test-repo' };
+  ctx.repoInfo = { owner: 'test-owner', repo: 'test-repo', platform: Platform.GitHub };
   ctx.issues = [];
   ctx.eligibilityVerdicts.clear();
   ctx.spawned = [];

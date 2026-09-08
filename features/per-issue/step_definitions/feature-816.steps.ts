@@ -148,3 +148,28 @@ Then('the guard failure over the guard fixture tree reports line {int}', functio
     `Expected "${needle}" in guard output:\n${guardStdout}`,
   );
 });
+
+// ---------------------------------------------------------------------------
+// Cross-file seam (#817): feature-817.steps.ts reuses the Given/When/Then
+// above (never redefines them) but is NOT tagged @adw-816, so the Before/After
+// hooks above never run for its scenarios. These two exports let it force
+// isolation itself — resetting/removing the fixture tree between its own
+// scenarios, and reading the last guard run's stdout for its own assertions —
+// without touching any step text.
+// ---------------------------------------------------------------------------
+
+/** Removes the current guard fixture tree (if any) and clears run state. Safe to call with no prior fixture tree. */
+export function resetGuardFixtureTree(): void {
+  if (fixtureRoot) {
+    fs.rmSync(fixtureRoot, { recursive: true, force: true });
+  }
+  fixtureRoot = null;
+  guardStdout = '';
+  guardExitCode = 0;
+  lastNamedPath = null;
+}
+
+/** The last guard run's captured stdout (+ stderr on failure). */
+export function getGuardStdout(): string {
+  return guardStdout;
+}

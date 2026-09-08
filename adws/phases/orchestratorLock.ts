@@ -13,14 +13,14 @@
 
 import { acquireIssueSpawnLock, releaseIssueSpawnLock } from '../triggers/spawnGate';
 import { getRepoInfo } from '../github/githubApi';
-import type { RepoInfo } from '../github/githubApi';
+import { Platform, type RepoIdentifier } from '../providers/types';
 import type { WorkflowConfig } from './workflowInit';
 import { startHeartbeat, stopHeartbeat } from '../core/heartbeat';
 import { HEARTBEAT_TICK_INTERVAL_MS } from '../core/config';
 
-function resolveRepoInfo(config: WorkflowConfig): RepoInfo {
+function resolveRepoInfo(config: WorkflowConfig): RepoIdentifier {
   if (config.targetRepo) {
-    return { owner: config.targetRepo.owner, repo: config.targetRepo.repo };
+    return { owner: config.targetRepo.owner, repo: config.targetRepo.repo, platform: Platform.GitHub };
   }
   return getRepoInfo();
 }
@@ -65,7 +65,7 @@ export async function runWithOrchestratorLifecycle(
  * Same semantics as runWithOrchestratorLifecycle.
  */
 export async function runWithRawOrchestratorLifecycle(
-  repoInfo: RepoInfo,
+  repoInfo: RepoIdentifier,
   issueNumber: number,
   adwId: string,
   fn: () => Promise<void>,

@@ -8,6 +8,7 @@ import {
 } from '../issueClosedUnblockRouter';
 import { parseDependencies, parseKeywordProximityDependencies } from '../issueDependencies';
 import { listIssues } from '../../github/issueListApi';
+import { Platform } from '../../providers/types';
 
 vi.mock('../../github/issueListApi', () => ({ listIssues: vi.fn() }));
 vi.mock('../../core', () => ({
@@ -15,7 +16,7 @@ vi.mock('../../core', () => ({
   LOGS_DIR: '/logs',
 }));
 
-const REPO_INFO = { owner: 'acme', repo: 'target' };
+const REPO_INFO = { owner: 'acme', repo: 'target', platform: Platform.GitHub };
 const TARGET_ARGS = ['--target-repo', 'acme/target'];
 
 function makeDeps(overrides: Partial<DependencyUnblockDeps> = {}): DependencyUnblockDeps {

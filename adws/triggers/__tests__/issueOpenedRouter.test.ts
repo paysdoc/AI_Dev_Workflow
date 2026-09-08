@@ -7,10 +7,11 @@ import {
   type IssueOpenedRouterDeps,
 } from '../issueOpenedRouter';
 import type { AdwLabelReading } from '../../github/labelManager';
+import { Platform } from '../../providers/types';
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
-const REPO_INFO = { owner: 'acme', repo: 'widgets' };
+const REPO_INFO = { owner: 'acme', repo: 'widgets', platform: Platform.GitHub };
 
 function makeReading(overrides: Partial<AdwLabelReading> = {}): AdwLabelReading {
   return { optOut: false, classification: null, conflict: false, ...overrides };

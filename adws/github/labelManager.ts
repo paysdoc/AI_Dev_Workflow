@@ -9,8 +9,9 @@
  */
 
 import { log, type LogLevel } from '../core';
-import type { RepoInfo } from './githubApi';
-import type { GitHubIssue, GitHubLabel, IssueClassSlashCommand } from '../types/issueTypes';
+import type { RepoIdentifier } from '../providers/types';
+import type { GitHubIssue, GitHubLabel } from '../providers/github/domain/issue';
+import type { IssueClassSlashCommand } from '../types/issueTypes';
 import type { GitContext } from '../gitContext';
 import { gitContextForRepo } from './gitContextFactory';
 import { createGhRepoApi } from '../providers/github/ghRepoApi';
@@ -127,7 +128,7 @@ export function shouldSkipScenarioAuthoring(labels: readonly GitHubLabel[]): boo
 // ── DI scaffolding ────────────────────────────────────────────────────────────
 
 export interface LabelManagerDeps {
-  readonly gitContextForRepo: (repoInfo: RepoInfo) => GitContext;
+  readonly gitContextForRepo: (repoId: RepoIdentifier) => GitContext;
   readonly logger: (message: string, level?: LogLevel) => void;
 }
 
@@ -154,7 +155,7 @@ function isLabelNotFoundError(error: unknown): boolean {
  * A single label's failure does not abort provisioning of the rest.
  */
 export function ensureAdwLabelsExist(
-  repoInfo: RepoInfo,
+  repoInfo: RepoIdentifier,
   deps: LabelManagerDeps = buildDefaultLabelManagerDeps(),
 ): void {
   const gh = createGhRepoApi(deps.gitContextForRepo(repoInfo));
@@ -180,7 +181,7 @@ export function ensureLabelExists(
   name: string,
   color: string,
   description: string,
-  repoInfo: RepoInfo,
+  repoInfo: RepoIdentifier,
   deps: LabelManagerDeps = buildDefaultLabelManagerDeps(),
 ): void {
   createGhRepoApi(deps.gitContextForRepo(repoInfo)).createLabel(name, color, description);
@@ -194,7 +195,7 @@ export function ensureLabelExists(
 export function applyLabel(
   issueNumber: number,
   label: string,
-  repoInfo: RepoInfo,
+  repoInfo: RepoIdentifier,
   deps: LabelManagerDeps = buildDefaultLabelManagerDeps(),
 ): void {
   const gh = createGhRepoApi(deps.gitContextForRepo(repoInfo));

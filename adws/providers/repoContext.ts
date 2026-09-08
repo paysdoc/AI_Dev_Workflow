@@ -163,7 +163,7 @@ export function parseOwnerRepoFromUrl(
 export function validateGitRemote(cwd: string, repoId: RepoIdentifier): void {
   let remoteUrl: string;
   try {
-    remoteUrl = gitContextForRepo({ owner: repoId.owner, repo: repoId.repo }).remoteUrl(cwd);
+    remoteUrl = gitContextForRepo(repoId).remoteUrl(cwd);
   } catch {
     throw new Error(
       `Failed to get git remote URL in ${cwd}. Ensure the repository has an 'origin' remote configured.`,

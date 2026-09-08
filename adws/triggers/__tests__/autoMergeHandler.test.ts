@@ -23,8 +23,9 @@ import { isMergeConflictError, mergeWithConflictResolution } from '../autoMergeH
 import { GitContext } from '../../gitContext/gitContext';
 import type { ExecFn } from '../../gitContext/types';
 import { createLiteralTokenProvider } from '../../providers/github/githubTokenProvider';
+import { Platform } from '../../providers/types';
 
-const REPO_INFO = { owner: 'acme', repo: 'widgets' };
+const REPO_INFO = { owner: 'acme', repo: 'widgets', platform: Platform.GitHub };
 const HEAD_BRANCH = 'feature-issue-42';
 const BASE_BRANCH = 'main';
 const WORKTREE = '/worktrees/feature-issue-42';

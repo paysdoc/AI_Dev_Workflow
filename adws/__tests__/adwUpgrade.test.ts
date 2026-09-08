@@ -11,10 +11,11 @@ import {
 } from '../adwUpgrade';
 import { buildClaimBranchName, isAdwComment, parseAdwYml, isPushRejectionError, countUpgradeFailureComments, UPGRADE_FAILURE_SIGNATURE } from '../core';
 import type { CreatePROptions } from '../providers/types';
+import { Platform } from '../providers/types';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const REPO_INFO = { owner: 'acme', repo: 'target' };
+const REPO_INFO = { owner: 'acme', repo: 'target', platform: Platform.GitHub };
 const MOCK_HASH = 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2';
 const FRAMEWORK_ROOT = '/framework';
 const BASE_REPO = '/base/repo';

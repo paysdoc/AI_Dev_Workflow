@@ -6,13 +6,14 @@
  * is performed exclusively by the AI heuristic.
  */
 
-import { fetchGitHubIssue, RepoInfo } from '../github/githubApi';
+import { fetchGitHubIssue } from '../github/githubApi';
+import type { RepoIdentifier } from '../providers/types';
+import type { GitHubIssue } from '../providers/github/domain/issue';
 import { runClaudeAgentWithCommand } from '../agents/claudeAgent';
 import {
   IssueClassSlashCommand,
   VALID_ISSUE_TYPES,
   log,
-  GitHubIssue,
   getModelForCommand,
   getEffortForCommand,
 } from '.';
@@ -86,7 +87,7 @@ async function classifyWithIssueCommand(
  * tests inject vi.fn() / fake implementations via the optional third argument.
  */
 export interface ClassifyIssueForTriggerDeps {
-  fetchIssue: (issueNumber: number, repoInfo: RepoInfo) => Promise<GitHubIssue>;
+  fetchIssue: (issueNumber: number, repoInfo: RepoIdentifier) => Promise<GitHubIssue>;
   classifyWith: (
     issueContext: string,
     issueNumber: number,
@@ -112,7 +113,7 @@ export interface ClassifyIssueForTriggerDeps {
  */
 export async function classifyIssueForTrigger(
   issueNumber: number,
-  repoInfo: RepoInfo,
+  repoInfo: RepoIdentifier,
   deps?: ClassifyIssueForTriggerDeps,
 ): Promise<IssueClassificationResult> {
   const fetchIssue = deps?.fetchIssue ?? fetchGitHubIssue;

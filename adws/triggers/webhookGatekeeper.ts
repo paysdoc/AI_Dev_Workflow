@@ -9,7 +9,7 @@ import { spawn } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import { log, generateAdwId, REPO_ROOT, LOGS_DIR } from '../core';
-import type { RepoInfo } from '../github/githubApi';
+import type { RepoIdentifier } from '../providers/types';
 import { getRepoInfo } from '../github';
 import { closeIssue, issueHasLabel } from '../github/issueApi';
 import { classifyIssueForTrigger, getWorkflowScript } from '../core/issueClassifier';
@@ -67,7 +67,7 @@ export interface LabelRouting {
  */
 export async function classifyAndSpawnWorkflow(
   issueNumber: number,
-  repoInfo: RepoInfo | undefined,
+  repoInfo: RepoIdentifier | undefined,
   targetRepoArgs: string[],
   existingAdwId?: string,
   precomputedDecision?: CandidateDecision,
@@ -166,7 +166,7 @@ export async function classifyAndSpawnWorkflow(
 const cronSpawnedForRepo = new Set<string>();
 
 /** Spawns a cron trigger process for the repo if one isn't already running. */
-export function ensureCronProcess(repoInfo: RepoInfo, targetRepoArgs: string[]): void {
+export function ensureCronProcess(repoInfo: RepoIdentifier, targetRepoArgs: string[]): void {
   const repoKey = `${repoInfo.owner}/${repoInfo.repo}`;
   if (cronSpawnedForRepo.has(repoKey)) {
     if (isCronAliveForRepo(repoKey)) return;
@@ -197,7 +197,7 @@ export function ensureCronProcess(repoInfo: RepoInfo, targetRepoArgs: string[]):
  */
 export async function closeAbandonedDependents(
   closedIssueNumber: number,
-  repoInfo: RepoInfo,
+  repoInfo: RepoIdentifier,
 ): Promise<void> {
   try {
     const issues = listIssues({ fields: ['number', 'body'], limit: 100 }, repoInfo);

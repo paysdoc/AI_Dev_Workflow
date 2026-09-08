@@ -4,7 +4,8 @@
  */
 
 import * as path from 'path';
-import { GitHubIssue, IssueClassSlashCommand, log, getModelForCommand, getEffortForCommand, commitPrefixMap } from '../core';
+import { IssueClassSlashCommand, log, getModelForCommand, getEffortForCommand, commitPrefixMap } from '../core';
+import type { GitHubIssue } from '../providers/github/domain/issue';
 import { generateBranchName, validateSlug } from '../vcs/branchOperations';
 import { runClaudeAgentWithCommand, AgentResult, AuthRequiredError } from './claudeAgent';
 

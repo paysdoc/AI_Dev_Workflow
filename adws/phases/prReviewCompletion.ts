@@ -111,7 +111,7 @@ export async function handlePRReviewWorkflowError(config: PRReviewWorkflowConfig
       await notifyBlockedTransition(
         {
           issueNumber: config.base.issueNumber,
-          repoInfo: { owner: repoContext.repoId.owner, repo: repoContext.repoId.repo },
+          repoInfo: repoContext.repoId,
           source: 'review_error',
           errorMessage: ctx.errorMessage,
         },

@@ -43,10 +43,15 @@ export type ExtractionScopeEntry = { readonly path: string; readonly reason: str
  * The subset of EXTRACTABLE_SET this rule enforces today. WIDEN ONLY, NEVER
  * NARROW — see module docblock. Initial content is exactly what is already
  * clean: the whole git core, and the single dependency-free providers file.
+ * #817 appended the GitHub adapter's domain modules and mappers — the raw
+ * GitHub payload shapes and the pure GitHub→port mapping layer, both typed
+ * only against the adapter domain and the ports.
  */
 export const EXTRACTION_SCOPE: readonly ExtractionScopeEntry[] = [
   { path: 'adws/gitContext', reason: 'git core — dependency-free since Phase A (#790–#797)', since: '#816' },
   { path: 'adws/providers/types.ts', reason: 'provider ports + domain shapes — zero imports', since: '#816' },
+  { path: 'adws/providers/github/domain', reason: 'adapter-owned raw GitHub payload shapes — pure type declarations (#817)', since: '#817' },
+  { path: 'adws/providers/github/mappers.ts', reason: 'GitHub→port mappers — typed only against the adapter domain and the ports (#817)', since: '#817' },
 ] as const;
 
 /** True when `relPath` is one of EXTRACTABLE_SET's directories, or a path beneath one. */
@@ -168,9 +173,10 @@ function describeEscapingImport(specifier: string, target: string): string {
 /**
  * Flags every import in `sourceFile` that resolves outside EXTRACTABLE_SET.
  * Guard clause first: a file outside EXTRACTION_SCOPE is never inspected, so
- * the eight known framework entanglements in the not-yet-widened providers
- * package (repoContext.ts, github/*, gitlab/*, jira/*) produce zero
- * violations today, by design.
+ * the framework entanglements in the not-yet-widened providers files
+ * (repoContext.ts, github/githubCodeHost.ts, github/githubIssueTracker.ts,
+ * github/githubBoardManager.ts, gitlab/*, jira/*) produce zero violations
+ * today, by design.
  */
 export function flagFrameworkImports(sourceFile: ts.SourceFile, relPath: string): Violation[] {
   if (!isInExtractionScope(relPath)) return [];
