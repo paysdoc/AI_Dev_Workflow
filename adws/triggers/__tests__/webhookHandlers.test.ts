@@ -7,10 +7,11 @@ import {
 } from '../webhookHandlers';
 import type { AgentState } from '../../types/agentTypes';
 import type { PullRequestWebhookPayload } from '../../types/issueTypes';
+import { Platform } from '../../providers/types';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-const REPO_INFO = { owner: 'acme', repo: 'myrepo' };
+const REPO_INFO = { owner: 'acme', repo: 'myrepo', platform: Platform.GitHub };
 
 function makePayload(overrides: {
   merged?: boolean;

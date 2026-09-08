@@ -28,7 +28,7 @@ import type { CronIssue, EligibleIssue, OverlapDeferral } from '../../../adws/tr
 import type { OrderingRecommendation } from '../../../adws/triggers/regionOverlap.ts';
 import { registerRegionOverlapBlocker } from '../../../adws/triggers/regionOverlapSignals.ts';
 import { parseDependencies } from '../../../adws/triggers/issueDependencies.ts';
-import type { RepoInfo } from '../../../adws/github/githubApi.ts';
+import type { RepoIdentifier } from '../../../adws/providers/types.ts';
 import type { RegressionWorld } from '../../regression/step_definitions/world.ts';
 
 // ---------------------------------------------------------------------------
@@ -429,7 +429,7 @@ When(
       blockedBy,
       overlapPaths: [overlapPath],
     };
-    const repoInfo = { owner: 'o', repo: 'r' } as RepoInfo;
+    const repoInfo = { owner: 'o', repo: 'r' } as RepoIdentifier;
     registerRegionOverlapBlocker(deferral, ctx.regBodyInput, repoInfo, {
       updateIssueBody: (_n, body) => { ctx.regBody = body; },
       commentOnIssue: (_n, body) => { ctx.regComment = body; },

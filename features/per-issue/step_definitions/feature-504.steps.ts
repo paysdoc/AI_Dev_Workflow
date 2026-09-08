@@ -22,7 +22,8 @@ import { parseJsonlOutput, type JsonlParserState } from '../../../adws/core/clau
 import { writeAuthGate, readAuthGate, AUTH_GATE_PATH, type AuthGateRecord } from '../../../adws/core/authGate.ts';
 import { evaluateCandidate, type TakeoverDeps, type CandidateDecision } from '../../../adws/triggers/takeoverHandler.ts';
 import type { AgentState } from '../../../adws/types/agentTypes.ts';
-import type { RepoInfo } from '../../../adws/github/githubApi.ts';
+import type { RepoIdentifier } from '../../../adws/providers/types.ts';
+import { Platform } from '../../../adws/providers/types.ts';
 import { execSync } from 'child_process';
 
 // ---------------------------------------------------------------------------
@@ -903,7 +904,7 @@ When(
   function () {
     assert.ok(ctx.takeoverState, 'Expected takeoverState to be set');
     const state = ctx.takeoverState;
-    const repoInfo: RepoInfo = { owner: 'test-owner', repo: 'test-repo' };
+    const repoInfo: RepoIdentifier = { owner: 'test-owner', repo: 'test-repo', platform: Platform.GitHub };
 
     const deps: TakeoverDeps = {
       acquireIssueSpawnLock: () => true,

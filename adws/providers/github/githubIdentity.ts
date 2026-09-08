@@ -12,15 +12,11 @@
 import type { GitIdentity } from '../../gitContext/types';
 import { readOriginRemoteUrl, readEnvGitIdentity, readGitConfigIdentity } from '../../gitContext/bootstrapIdentity';
 import type { GitConfigIdentityDeps } from '../../gitContext/bootstrapIdentity';
+import { Platform, type RepoIdentifier } from '../types';
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
-
-export interface RepoInfo {
-  owner: string;
-  repo: string;
-}
 
 export interface BootstrapIdentityDeps extends GitConfigIdentityDeps {
   isAppConfigured?: () => boolean;
@@ -45,17 +41,17 @@ const HTTPS_REMOTE_RE = /github\.com\/([^/]+)\/([^/]+?)(?:\.git)?\/?$/;
 const SSH_REMOTE_RE = /git@github\.com:([^/]+)\/([^/]+?)(?:\.git)?$/;
 
 /**
- * Parses `{ owner, repo }` out of a GitHub remote URL (HTTPS or SSH).
+ * Parses a `RepoIdentifier` out of a GitHub remote URL (HTTPS or SSH).
  * Returns null when the URL is not a parseable GitHub remote, leaving the
  * error contract to each caller.
  *
  * Pure — the single source of truth for GitHub remote-URL parsing.
  */
-export function parseGitHubRemoteUrl(remoteUrl: string): RepoInfo | null {
+export function parseGitHubRemoteUrl(remoteUrl: string): RepoIdentifier | null {
   const url = remoteUrl.trim();
   const match = url.match(HTTPS_REMOTE_RE) ?? url.match(SSH_REMOTE_RE);
   if (!match) return null;
-  return { owner: match[1], repo: match[2] };
+  return { owner: match[1], repo: match[2], platform: Platform.GitHub };
 }
 
 // ---------------------------------------------------------------------------
@@ -72,7 +68,7 @@ export function parseGitHubRemoteUrl(remoteUrl: string): RepoInfo | null {
  * in the same outer `Failed to get repo info: …` a merged `@adw-779`
  * scenario asserts on.
  */
-export function readLocalRepoInfo(cwd?: string): RepoInfo {
+export function readLocalRepoInfo(cwd?: string): RepoIdentifier {
   try {
     const remoteUrl = readOriginRemoteUrl(cwd);
     const info = parseGitHubRemoteUrl(remoteUrl);

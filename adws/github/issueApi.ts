@@ -2,12 +2,13 @@
  * GitHub Issue API functions using the gh CLI.
  */
 
-import { GitHubIssue, IssueCommentSummary, log } from '../core';
-import { type RepoInfo } from './githubApi';
+import { log } from '../core';
+import type { GitHubIssue, IssueCommentSummary } from '../providers/github/domain/issue';
+import type { RepoIdentifier } from '../providers/types';
 import { gitContextForRepo } from './gitContextFactory';
 import { createGhRepoApi } from '../providers/github/ghRepoApi';
 
-const gh = (repoInfo: RepoInfo) => createGhRepoApi(gitContextForRepo(repoInfo));
+const gh = (repoInfo: RepoIdentifier) => createGhRepoApi(gitContextForRepo(repoInfo));
 
 interface RawGitHubUser {
   login?: string;
@@ -109,7 +110,7 @@ function transformIssueResponse(rawIssue: RawGitHubIssue): GitHubIssue {
  * @param issueNumber - The issue number to fetch
  * @param repoInfo - Optional repository info override for targeting external repositories. Falls back to local git remote when not provided.
  */
-export async function fetchGitHubIssue(issueNumber: number, repoInfo: RepoInfo): Promise<GitHubIssue> {
+export async function fetchGitHubIssue(issueNumber: number, repoInfo: RepoIdentifier): Promise<GitHubIssue> {
   try {
     const issueJson = gh(repoInfo).fetchIssue(issueNumber);
     const rawIssue = JSON.parse(issueJson) as RawGitHubIssue;
@@ -125,7 +126,7 @@ export async function fetchGitHubIssue(issueNumber: number, repoInfo: RepoInfo):
  * @param body - The comment body text
  * @param repoInfo - Optional repository info override for targeting external repositories.
  */
-export function commentOnIssue(issueNumber: number, body: string, repoInfo: RepoInfo): void {
+export function commentOnIssue(issueNumber: number, body: string, repoInfo: RepoIdentifier): void {
   try {
     gh(repoInfo).commentOnIssue(issueNumber, body);
     log(`Commented on issue #${issueNumber}`, 'success');
@@ -159,7 +160,7 @@ ${additionalInfo}
  * @param issueNumber - The issue number to check
  * @param repoInfo - Optional repository info override for targeting external repositories.
  */
-export function getIssueState(issueNumber: number, repoInfo: RepoInfo): string {
+export function getIssueState(issueNumber: number, repoInfo: RepoIdentifier): string {
   try {
     const json = gh(repoInfo).issueState(issueNumber);
     const result = JSON.parse(json);
@@ -177,7 +178,7 @@ export function getIssueState(issueNumber: number, repoInfo: RepoInfo): string {
  * @param repoInfo - Optional repository info override for targeting external repositories.
  * @returns true if the issue was closed, false if already closed or error occurred
  */
-export async function closeIssue(issueNumber: number, repoInfo: RepoInfo, comment?: string): Promise<boolean> {
+export async function closeIssue(issueNumber: number, repoInfo: RepoIdentifier, comment?: string): Promise<boolean> {
   try {
     // Check if issue is already closed
     const state = getIssueState(issueNumber, repoInfo);
@@ -207,7 +208,7 @@ export async function closeIssue(issueNumber: number, repoInfo: RepoInfo, commen
  * @param issueNumber - The issue number to fetch the title for
  * @param repoInfo - Optional repository info override for targeting external repositories.
  */
-export function getIssueTitleSync(issueNumber: number, repoInfo: RepoInfo): string {
+export function getIssueTitleSync(issueNumber: number, repoInfo: RepoIdentifier): string {
   try {
     const json = gh(repoInfo).issueTitle(issueNumber);
     const result = JSON.parse(json) as { title: string };
@@ -223,7 +224,7 @@ export function getIssueTitleSync(issueNumber: number, repoInfo: RepoInfo): stri
  * @param issueNumber - The issue number to fetch comments for
  * @param repoInfo - Optional repository info override for targeting external repositories.
  */
-export function fetchIssueCommentsRest(issueNumber: number, repoInfo: RepoInfo): IssueCommentSummary[] {
+export function fetchIssueCommentsRest(issueNumber: number, repoInfo: RepoIdentifier): IssueCommentSummary[] {
   try {
     const json = gh(repoInfo).fetchIssueComments(issueNumber);
     const raw = JSON.parse(json);
@@ -246,7 +247,7 @@ export function fetchIssueCommentsRest(issueNumber: number, repoInfo: RepoInfo):
  * @param labelName - The label name to look for (case-sensitive)
  * @param repoInfo - Repository owner and repo name
  */
-export function issueHasLabel(issueNumber: number, labelName: string, repoInfo: RepoInfo): boolean {
+export function issueHasLabel(issueNumber: number, labelName: string, repoInfo: RepoIdentifier): boolean {
   try {
     const json = gh(repoInfo).issueLabels(issueNumber);
     const result = JSON.parse(json) as { labels: { name: string }[] };
@@ -263,7 +264,7 @@ export function issueHasLabel(issueNumber: number, labelName: string, repoInfo: 
  * @param labelName - The label name to add
  * @param repoInfo - Repository owner and repo name
  */
-export function addIssueLabel(issueNumber: number, labelName: string, repoInfo: RepoInfo): void {
+export function addIssueLabel(issueNumber: number, labelName: string, repoInfo: RepoIdentifier): void {
   try {
     gh(repoInfo).addIssueLabel(issueNumber, labelName);
     log(`Added label "${labelName}" to issue #${issueNumber}`, 'success');
@@ -276,7 +277,7 @@ export function addIssueLabel(issueNumber: number, labelName: string, repoInfo: 
  * Creates a new GitHub issue and returns its number.
  * Throws if the issue number cannot be parsed from the response.
  */
-export function createIssue(title: string, body: string, repoInfo: RepoInfo): number {
+export function createIssue(title: string, body: string, repoInfo: RepoIdentifier): number {
   const output = gh(repoInfo).createIssue(title, body);
   const match = output.trim().match(/\/issues\/(\d+)$/);
   if (!match) {
@@ -291,7 +292,7 @@ export function createIssue(title: string, body: string, repoInfo: RepoInfo): nu
  * Replaces the body of an existing GitHub issue.
  * Rethrows on error — dependency registration is load-bearing for unblocking.
  */
-export function updateIssueBody(issueNumber: number, body: string, repoInfo: RepoInfo): void {
+export function updateIssueBody(issueNumber: number, body: string, repoInfo: RepoIdentifier): void {
   try {
     gh(repoInfo).updateIssueBody(issueNumber, body);
     log(`Updated body of issue #${issueNumber}`, 'success');
@@ -305,7 +306,7 @@ export function updateIssueBody(issueNumber: number, body: string, repoInfo: Rep
  * Returns the number of the first open issue with the `adw:upgrade` label, or null.
  * Best-effort: returns null on any error.
  */
-export function findOpenUpgradeIssue(repoInfo: RepoInfo): number | null {
+export function findOpenUpgradeIssue(repoInfo: RepoIdentifier): number | null {
   try {
     const json = gh(repoInfo).findOpenUpgradeIssue();
     const results = JSON.parse(json) as { number: number }[];
@@ -320,7 +321,7 @@ export function findOpenUpgradeIssue(repoInfo: RepoInfo): number | null {
  * @param issueNumber - The issue number to inspect
  * @param repoInfo - Repository owner and repo name
  */
-export function fetchIssueLabels(issueNumber: number, repoInfo: RepoInfo): string[] {
+export function fetchIssueLabels(issueNumber: number, repoInfo: RepoIdentifier): string[] {
   try {
     const json = gh(repoInfo).issueLabels(issueNumber);
     const result = JSON.parse(json) as { labels: { name: string }[] };
@@ -337,7 +338,7 @@ export function fetchIssueLabels(issueNumber: number, repoInfo: RepoInfo): strin
  * @param limit - Maximum number of results to return
  * @param repoInfo - Repository owner and repo name
  */
-export function searchOpenIssues(search: string, limit: number, repoInfo: RepoInfo): { number: number; title: string }[] {
+export function searchOpenIssues(search: string, limit: number, repoInfo: RepoIdentifier): { number: number; title: string }[] {
   try {
     const json = gh(repoInfo).listOpenIssues({ fields: ['number', 'title'], search, limit });
     return JSON.parse(json) as { number: number; title: string }[];
@@ -351,7 +352,7 @@ export function searchOpenIssues(search: string, limit: number, repoInfo: RepoIn
  * @param commentId - The numeric ID of the comment to delete
  * @param repoInfo - Optional repository info override for targeting external repositories.
  */
-export function deleteIssueComment(commentId: number, repoInfo: RepoInfo): void {
+export function deleteIssueComment(commentId: number, repoInfo: RepoIdentifier): void {
   try {
     gh(repoInfo).deleteIssueComment(commentId);
     log(`Deleted comment ${commentId}`, 'success');

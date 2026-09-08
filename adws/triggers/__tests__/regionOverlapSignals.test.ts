@@ -8,9 +8,9 @@ import {
 } from '../regionOverlapSignals';
 import { parseDependencies } from '../issueDependencies';
 import type { OverlapDeferral } from '../cronIssueFilter';
-import type { RepoInfo } from '../../github/githubApi';
+import { Platform, type RepoIdentifier } from '../../providers/types';
 
-const REPO: RepoInfo = { owner: 'o', repo: 'r' };
+const REPO: RepoIdentifier = { owner: 'o', repo: 'r', platform: Platform.GitHub };
 
 function makeDeferral(overrides: Partial<OverlapDeferral> = {}): OverlapDeferral {
   return {

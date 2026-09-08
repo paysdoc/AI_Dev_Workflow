@@ -7,7 +7,8 @@
 
 import { WorkflowStage, AgentStateManager } from '../core';
 import { parseWorkflowStageFromComment, extractAdwIdFromComment } from '../core/workflowCommentParsing';
-import { fetchGitHubIssue, type RepoInfo } from './githubApi';
+import { fetchGitHubIssue } from './githubApi';
+import type { RepoIdentifier } from '../providers/types';
 
 const TERMINAL_STAGES: ReadonlyArray<WorkflowStage> = ['completed', 'error'];
 
@@ -16,7 +17,7 @@ const TERMINAL_STAGES: ReadonlyArray<WorkflowStage> = ['completed', 'error'];
  * @param issueNumber - The issue number to check
  * @param repoInfo - Optional repository info override for targeting external repositories.
  */
-export async function isAdwRunningForIssue(issueNumber: number, repoInfo: RepoInfo): Promise<boolean> {
+export async function isAdwRunningForIssue(issueNumber: number, repoInfo: RepoIdentifier): Promise<boolean> {
   const issue = await fetchGitHubIssue(issueNumber, repoInfo);
 
   const stageComments = issue.comments

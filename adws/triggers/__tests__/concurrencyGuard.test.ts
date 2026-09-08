@@ -21,8 +21,9 @@ vi.mock('../../core/workflowCommentParsing', () => ({
 import { isConcurrencyLimitReached } from '../concurrencyGuard';
 import { listIssues } from '../../github/issueListApi';
 import { hasLinkedMergedOrClosedPR } from '../../github/linkedPrDetector';
+import { Platform } from '../../providers/types';
 
-const REPO_INFO = { owner: 'acme', repo: 'webapp' };
+const REPO_INFO = { owner: 'acme', repo: 'webapp', platform: Platform.GitHub };
 
 describe('isConcurrencyLimitReached — routes through issueListApi.listIssues', () => {
   beforeEach(() => {

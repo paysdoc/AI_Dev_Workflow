@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import type { RepoInfo } from '../../github/githubApi';
+import { Platform, type RepoIdentifier } from '../../providers/types';
 
 let tmpDir = '';
 
@@ -25,8 +25,8 @@ import { getProcessStartTime, isProcessLive } from '../../core/processLiveness';
 const mockGetProcessStartTime = vi.mocked(getProcessStartTime);
 const mockIsProcessLive = vi.mocked(isProcessLive);
 
-const repoWidgets: RepoInfo = { owner: 'acme', repo: 'widgets' };
-const repoGadgets: RepoInfo = { owner: 'acme', repo: 'gadgets' };
+const repoWidgets: RepoIdentifier = { owner: 'acme', repo: 'widgets', platform: Platform.GitHub };
+const repoGadgets: RepoIdentifier = { owner: 'acme', repo: 'gadgets', platform: Platform.GitHub };
 
 beforeEach(() => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'spawngate-test-'));

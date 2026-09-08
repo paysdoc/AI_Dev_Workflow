@@ -7,7 +7,7 @@
  */
 
 import { log, PullRequestWebhookPayload, GRACE_PERIOD_MS, generateAdwId } from '../core';
-import type { RepoInfo } from '../github/githubApi';
+import { Platform, type RepoIdentifier } from '../providers/types';
 import type { GitContext } from '../gitContext';
 import { closeIssue, fetchIssueCommentsRest } from '../github/issueApi';
 import { fetchPRDetails, gitContextForSync } from '../github';
@@ -33,20 +33,20 @@ export function extractIssueNumberFromBranch(branchName: string | null | undefin
 // ── Injectable dependencies ────────────────────────────────────────────────
 
 export interface PrClosedDeps {
-  fetchIssueComments: (issueNumber: number, repoInfo: RepoInfo) => { body: string }[];
+  fetchIssueComments: (issueNumber: number, repoInfo: RepoIdentifier) => { body: string }[];
   writeTopLevelState: (adwId: string, state: Partial<AgentState>) => void;
-  closeIssue: (issueNumber: number, repoInfo: RepoInfo, comment?: string) => Promise<boolean>;
+  closeIssue: (issueNumber: number, repoInfo: RepoIdentifier, comment?: string) => Promise<boolean>;
 }
 
 export interface IssueClosedDeps {
-  fetchIssueComments: (issueNumber: number, repoInfo: RepoInfo) => { body: string }[];
+  fetchIssueComments: (issueNumber: number, repoInfo: RepoIdentifier) => { body: string }[];
   readTopLevelState: (adwId: string) => AgentState | null;
   removeWorktreesForIssue: (issueNumber: number) => number;
   findOrchestratorStatePath: (adwId: string) => string | null;
   readOrchestratorState: (statePath: string) => AgentState | null;
   deleteRemoteBranch: (branchName: string, cwd?: string) => boolean;
-  closeAbandonedDependents: (closedIssueNumber: number, repoInfo: RepoInfo) => Promise<void>;
-  handleIssueClosedDependencyUnblock: (closedIssueNumber: number, repoInfo: RepoInfo, targetRepoArgs: string[], gitContext?: GitContext) => Promise<void>;
+  closeAbandonedDependents: (closedIssueNumber: number, repoInfo: RepoIdentifier) => Promise<void>;
+  handleIssueClosedDependencyUnblock: (closedIssueNumber: number, repoInfo: RepoIdentifier, targetRepoArgs: string[], gitContext?: GitContext) => Promise<void>;
 }
 
 function defaultPrClosedDeps(): PrClosedDeps {
@@ -57,7 +57,7 @@ function defaultPrClosedDeps(): PrClosedDeps {
   };
 }
 
-function defaultIssueClosedDeps(repoInfo?: RepoInfo, cwd?: string): IssueClosedDeps {
+function defaultIssueClosedDeps(repoInfo?: RepoIdentifier, cwd?: string): IssueClosedDeps {
   return {
     fetchIssueComments: fetchIssueCommentsRest,
     readTopLevelState: (adwId) => AgentStateManager.readTopLevelState(adwId),
@@ -108,7 +108,7 @@ export async function handlePullRequestEvent(
   }
 
   log(`PR #${pull_request.number} abandoned — linked to issue #${issueNumber}`);
-  const repoInfo: RepoInfo = { owner: repository.owner.login, repo: repository.name };
+  const repoInfo: RepoIdentifier = { owner: repository.owner.login, repo: repository.name, platform: Platform.GitHub };
 
   // Write discarded state — operator-closed PR is a terminal decision; issues.closed handler routes to the abandoned-dependents path.
   try {
@@ -155,7 +155,7 @@ export interface IssueClosedResult {
  */
 export async function handleIssueClosedEvent(
   issueNumber: number,
-  repoInfo: RepoInfo | undefined,
+  repoInfo: RepoIdentifier | undefined,
   cwd: string | undefined,
   targetRepoArgs: string[] = [],
   deps?: IssueClosedDeps,
@@ -231,7 +231,7 @@ export async function handleIssueClosedEvent(
  */
 export function resolvePrReviewSpawn(
   prNumber: number,
-  repoInfo: RepoInfo,
+  repoInfo: RepoIdentifier,
 ): { issueNumber: number; adwId: string } | null {
   const prDetails = fetchPRDetails(prNumber, repoInfo);
   const target = resolvePrReviewTarget(

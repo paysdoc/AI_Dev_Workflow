@@ -14,7 +14,7 @@
 
 import { createHash } from 'crypto';
 import { getIssueState } from '../github/issueApi';
-import type { RepoInfo } from '../github/githubApi';
+import type { RepoIdentifier } from '../providers/types';
 import { log } from '../core';
 import { runDependencyExtractionAgent } from '../agents/dependencyExtractionAgent';
 
@@ -184,7 +184,7 @@ export async function extractDependencies(
  */
 export async function findOpenDependencies(
   issueBody: string,
-  repoInfo: RepoInfo,
+  repoInfo: RepoIdentifier,
   logsDir: string = 'logs',
   statePath?: string,
   cwd?: string,

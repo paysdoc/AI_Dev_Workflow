@@ -22,7 +22,6 @@
 import { GitContext } from '../gitContext';
 import type { GitIdentity, TokenProvider } from '../gitContext';
 import type { TargetRepoInfo } from '../types/issueTypes';
-import type { RepoInfo } from '../github/githubApi';
 import { getRepoInfo } from '../github/githubApi';
 import { resolveBootstrapGitIdentity } from '../providers/github/githubIdentity';
 import { ghAuthToken } from '../providers/github/ghAuthToken';
@@ -43,8 +42,8 @@ import { sameRepoIdentity } from './repoIdentityCrossCheck';
  * production defaults are applied if omitted.
  */
 export interface LaunchGitContextDeps {
-  /** Returns the local git remote owner/repo. Defaults to getRepoInfo() from ../github. */
-  getRepoInfo?: (cwd?: string) => RepoInfo;
+  /** Returns the local git remote identity as a RepoIdentifier. Defaults to getRepoInfo() from ../github. */
+  getRepoInfo?: (cwd?: string) => RepoIdentifier;
   /**
    * Returns a non-empty GitHub token for the given owner/repo. Adapted into a
    * TokenProvider when `tokenProvider` is not supplied — so injecting this

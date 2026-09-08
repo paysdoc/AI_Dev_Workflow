@@ -233,7 +233,7 @@ export async function handleWorkflowDiscarded(
       await notifyBlockedTransition(
         {
           issueNumber,
-          repoInfo: { owner: repoContext.repoId.owner, repo: repoContext.repoId.repo },
+          repoInfo: repoContext.repoId,
           source: 'discarded',
         },
         notifierDeps,

@@ -38,7 +38,7 @@ const TEST_IDENTITY = {
 
 function baseDeps(overrides: Partial<LaunchGitContextDeps> = {}): LaunchGitContextDeps {
   return {
-    getRepoInfo: () => ({ owner: 'paysdoc', repo: 'AI_Dev_Workflow' }),
+    getRepoInfo: () => ({ owner: 'paysdoc', repo: 'AI_Dev_Workflow', platform: Platform.GitHub }),
     resolveToken: () => TEST_TOKEN,
     resolveGitIdentity: () => TEST_IDENTITY,
     frameworkRepoRoot: FRAMEWORK_ROOT,
@@ -80,7 +80,7 @@ describe('target context from --target-repo', () => {
 
   it('getRepoInfo is NOT consulted for a target context', () => {
     let consulted = false;
-    const deps = baseDeps({ getRepoInfo: () => { consulted = true; return { owner: 'should-not-be-used', repo: 'nope' }; } });
+    const deps = baseDeps({ getRepoInfo: () => { consulted = true; return { owner: 'should-not-be-used', repo: 'nope', platform: Platform.GitHub }; } });
     buildLaunchGitContext(makeTargetRepo('acme', 'webapp'), deps);
     expect(consulted).toBe(false);
   });
@@ -100,7 +100,7 @@ describe('self-host context (no --target-repo)', () => {
   });
 
   it('owner and repo come from getRepoInfo (local git remote fallback)', () => {
-    const deps = baseDeps({ getRepoInfo: () => ({ owner: 'paysdoc', repo: 'AI_Dev_Workflow' }) });
+    const deps = baseDeps({ getRepoInfo: () => ({ owner: 'paysdoc', repo: 'AI_Dev_Workflow', platform: Platform.GitHub }) });
     const ctx = buildLaunchGitContext(null, deps);
     expect(ctx.owner).toBe('paysdoc');
     expect(ctx.repo).toBe('AI_Dev_Workflow');
@@ -108,7 +108,7 @@ describe('self-host context (no --target-repo)', () => {
 
   it('getRepoInfo IS consulted for a self-host context', () => {
     let consulted = false;
-    const deps = baseDeps({ getRepoInfo: () => { consulted = true; return { owner: 'paysdoc', repo: 'AI_Dev_Workflow' }; } });
+    const deps = baseDeps({ getRepoInfo: () => { consulted = true; return { owner: 'paysdoc', repo: 'AI_Dev_Workflow', platform: Platform.GitHub }; } });
     buildLaunchGitContext(null, deps);
     expect(consulted).toBe(true);
   });
@@ -312,7 +312,7 @@ describe('buildLaunchBoundary: identity binding', () => {
 describe('buildLaunchBoundary: one identity read, not several', () => {
   it('a getRepoInfo seam answering differently on a second call cannot split a self-host boundary\'s identity', () => {
     let calls = 0;
-    const answers = [{ owner: 'acme', repo: 'webapp' }, { owner: 'octo', repo: 'infra' }];
+    const answers = [{ owner: 'acme', repo: 'webapp', platform: Platform.GitHub }, { owner: 'octo', repo: 'infra', platform: Platform.GitHub }];
     const getRepoInfo = () => { const a = answers[Math.min(calls, answers.length - 1)]; calls += 1; return a; };
     const { mintProviders } = makeRecordingMintProviders();
     const boundary = buildLaunchBoundary(null, baseDeps({ getRepoInfo, mintProviders }));
@@ -323,7 +323,7 @@ describe('buildLaunchBoundary: one identity read, not several', () => {
 
   it('getRepoInfo is never consulted for a target boundary, not even once for providers', () => {
     let calls = 0;
-    const getRepoInfo = () => { calls += 1; return { owner: 'should-not-be-used', repo: 'nope' }; };
+    const getRepoInfo = () => { calls += 1; return { owner: 'should-not-be-used', repo: 'nope', platform: Platform.GitHub }; };
     const { mintProviders } = makeRecordingMintProviders();
     const boundary = buildLaunchBoundary(makeTargetRepo('acme', 'webapp'), baseDeps({ getRepoInfo, mintProviders }));
     void boundary.providers;

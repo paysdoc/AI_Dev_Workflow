@@ -18,10 +18,10 @@ import * as os from 'os';
 import * as path from 'path';
 import { evaluateCandidate } from '../takeoverHandler';
 import type { TakeoverDeps, CandidateDecision } from '../takeoverHandler';
-import type { RepoInfo } from '../../github/githubApi';
+import { Platform, type RepoIdentifier } from '../../providers/types';
 import type { AgentState } from '../../types/agentTypes';
 
-const REPO: RepoInfo = { owner: 'acme', repo: 'widgets' };
+const REPO: RepoIdentifier = { owner: 'acme', repo: 'widgets', platform: Platform.GitHub };
 const FIXTURE_ADW_ID = 'fixture-adwid';
 const FIXTURE_BRANCH = 'feature/issue-999-fixture';
 const FIXTURE_ISSUE = 999;

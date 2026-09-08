@@ -62,6 +62,11 @@ describe('isInExtractionScope', () => {
     ['adws/providers/repoContext.ts', false],
     ['adws/providers/typesX.ts', false],
     ['adws/github/issueApi.ts', false],
+    ['adws/providers/github/mappers.ts', true],
+    ['adws/providers/github/domain/issue.ts', true],
+    ['adws/providers/github/domain/pullRequest.ts', true],
+    ['adws/providers/github/domainX.ts', false],
+    ['adws/providers/github/mappersX.ts', false],
   ])('isInExtractionScope(%s) -> %s', (relPath, expected) => {
     expect(isInExtractionScope(relPath)).toBe(expected);
   });
@@ -183,6 +188,12 @@ describe('scope-list invariants', () => {
     expect(paths).toContain('adws/providers/types.ts');
   });
 
+  it('the #817 entries are present — asserted as a superset, so further widening never breaks this test', () => {
+    const byPath = new Map(EXTRACTION_SCOPE.map((e) => [e.path, e.since]));
+    expect(byPath.get('adws/providers/github/domain')).toBe('#817');
+    expect(byPath.get('adws/providers/github/mappers.ts')).toBe('#817');
+  });
+
   it('EXTRACTABLE_SET is exactly the two directories', () => {
     expect(EXTRACTABLE_SET).toEqual(['adws/gitContext', 'adws/providers']);
   });
@@ -195,6 +206,9 @@ describe('real-tree: the initial scope is clean today', () => {
 
     expect(scopeFiles).toContain('adws/gitContext/gitContext.ts');
     expect(scopeFiles).toContain('adws/providers/types.ts');
+    expect(scopeFiles).toContain('adws/providers/github/mappers.ts');
+    expect(scopeFiles).toContain('adws/providers/github/domain/issue.ts');
+    expect(scopeFiles).toContain('adws/providers/github/domain/pullRequest.ts');
     for (const relPath of scopeFiles) {
       expect(relPath).not.toContain('/__tests__/');
       expect(relPath.endsWith('.test.ts')).toBe(false);

@@ -25,6 +25,7 @@ import { checkIssueEligibility } from './issueEligibility';
 import { spawnDetached, classifyAndSpawnWorkflow, ensureCronProcess, logDeferral } from './webhookGatekeeper';
 import { extractPayloadLabelNames, routeIssueOpened } from './issueOpenedRouter';
 import { resolveWebhookRepo } from './webhookRepoResolver';
+import { Platform } from '../providers/types';
 import { buildLaunchGitContext, REPO_ROOT } from '../core';
 import type { GitContext } from '../gitContext';
 import { checkEnvironmentVariables, checkGitRepository, checkClaudeCodeCLI, checkGitHubCLI, checkDirectoryStructure, type CheckResult } from '../healthCheckChecks';
@@ -301,7 +302,7 @@ function dispatchWebhookEvent(req: http.IncomingMessage, res: http.ServerRespons
           issueBody: (issue?.body as string) || '',
           issueTitle: (issue?.title as string) || undefined,
           labelNames,
-          repoInfo: webhookRepoInfo ?? { owner: '', repo: '' },
+          repoInfo: webhookRepoInfo ?? { owner: '', repo: '', platform: Platform.GitHub },
           targetRepoArgs: webhookTargetRepoArgs,
           gitContext: eventGitContext,
         });

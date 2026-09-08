@@ -36,18 +36,19 @@ import {
 } from '../../../adws/triggers/upgradeRedrive.ts';
 import { getSpawnLockFilePath } from '../../../adws/triggers/spawnGate.ts';
 import { ADW_UPGRADE_LABEL, ADW_BLOCKED_LABEL } from '../../../adws/github/labelManager.ts';
+import { Platform } from '../../../adws/providers/types.ts';
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-const REPO_INFO = { owner: 'acme', repo: 'target' };
+const REPO_INFO = { owner: 'acme', repo: 'target', platform: Platform.GitHub };
 const FRAMEWORK_ROOT = '/framework';
 const BASE_REPO = '/base/repo';
 const MOCK_HASH = 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2';
 const BOT_AUTHOR = 'adw-bot[bot]';
 
-const REDRIVE_REPO_INFO = { owner: 'adw-730-fixture', repo: 'upgrade-redrive' };
+const REDRIVE_REPO_INFO = { owner: 'adw-730-fixture', repo: 'upgrade-redrive', platform: Platform.GitHub };
 const LIVE_PID = 424242;
 const DEAD_PID = 99999;
 

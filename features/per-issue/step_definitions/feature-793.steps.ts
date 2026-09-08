@@ -35,7 +35,8 @@ import { GitContext, ensureRepoWorkspace, readEnvGitIdentity, readGitConfigIdent
 import { createLiteralTokenProvider } from '../../../adws/providers/github/githubTokenProvider.ts';
 import type { GitContextDeps, GitIdentity, LogLevel } from '../../../adws/gitContext/index.ts';
 import { resolveBootstrapGitIdentity, readLocalRepoInfo } from '../../../adws/providers/github/githubIdentity.ts';
-import type { RepoInfo } from '../../../adws/providers/github/githubIdentity.ts';
+import type { RepoIdentifier } from '../../../adws/providers/types.ts';
+import { Platform } from '../../../adws/providers/types.ts';
 import { convertToSshUrl } from '../../../adws/core/targetRepoManager.ts';
 import { buildLaunchGitContext } from '../../../adws/core/launchGitContext.ts';
 import { setLogAdwId, resetLogAdwId } from '../../../adws/core/logger.ts';
@@ -98,7 +99,7 @@ interface World793 {
   identityResult: GitIdentity | null;
   identityThrew: boolean;
   checkoutTempDir: string | null;
-  derivedRepoInfoResult: RepoInfo | null;
+  derivedRepoInfoResult: RepoIdentifier | null;
   derivedRepoInfoError: Error | null;
   originRemoteReadResult: string | null;
   originRemoteReadError: Error | null;
@@ -480,7 +481,7 @@ Given('a production-built git context over a real local repository', function ()
 
   w793.ctx = buildLaunchGitContext(null, {
     frameworkRepoRoot: w793.prodTempDir,
-    getRepoInfo: () => ({ owner: 'acme', repo: 'webapp' }),
+    getRepoInfo: () => ({ owner: 'acme', repo: 'webapp', platform: Platform.GitHub }),
     tokenProvider: { credentialEnv: () => ({ GH_TOKEN: 'fake-prod-token' }) },
   });
 });

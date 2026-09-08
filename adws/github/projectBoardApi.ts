@@ -4,12 +4,12 @@
  */
 
 import { log } from '../core';
-import { type RepoInfo } from './githubApi';
+import type { RepoIdentifier } from '../providers/types';
 import { gitContextForRepo } from './gitContextFactory';
 import { notifyReviewTransition } from './hitlBoardNotifier';
 import { createGhRepoApi } from '../providers/github/ghRepoApi';
 
-const gh = (repoInfo: RepoInfo) => createGhRepoApi(gitContextForRepo(repoInfo));
+const gh = (repoInfo: RepoIdentifier) => createGhRepoApi(gitContextForRepo(repoInfo));
 
 /**
  * Moves a GitHub issue to a target status on its project board.
@@ -23,7 +23,7 @@ const gh = (repoInfo: RepoInfo) => createGhRepoApi(gitContextForRepo(repoInfo));
 export async function moveIssueToStatus(
   issueNumber: number,
   targetStatus: string,
-  repoInfo: RepoInfo,
+  repoInfo: RepoIdentifier,
 ): Promise<boolean> {
   try {
     const repoApi = gh(repoInfo);

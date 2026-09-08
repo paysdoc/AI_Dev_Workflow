@@ -26,7 +26,7 @@ import {
   runUnitTestsWithRetry,
 } from '../agents';
 import type { WorkflowConfig } from './workflowInit';
-import { BoardStatus } from '../providers/types';
+import { BoardStatus, Platform } from '../providers/types';
 import { applyLabel, ADW_UNVERIFIED_LABEL } from '../github/labelManager';
 import { getRepoInfo } from '../github/githubApi';
 import { reportStackCoherence } from './stackCoherenceReporter';
@@ -133,7 +133,7 @@ export async function executeUnitTestPhase(config: WorkflowConfig): Promise<{
       // mirroring stackCoherenceReporter.
       try {
         const repoInfo = config.targetRepo
-          ? { owner: config.targetRepo.owner, repo: config.targetRepo.repo }
+          ? { owner: config.targetRepo.owner, repo: config.targetRepo.repo, platform: Platform.GitHub }
           : getRepoInfo();
         applyLabel(issueNumber, ADW_UNVERIFIED_LABEL, repoInfo);
         if (repoContext) {

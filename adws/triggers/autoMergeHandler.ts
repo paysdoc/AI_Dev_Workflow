@@ -7,7 +7,8 @@
 
 import * as path from 'path';
 import { log, MAX_AUTO_MERGE_ATTEMPTS } from '../core';
-import { mergePR, type RepoInfo } from '../github';
+import { mergePR } from '../github';
+import type { RepoIdentifier } from '../providers/types';
 import { runClaudeAgentWithCommand } from '../agents';
 import { gitContextForRepo } from '../github/gitContextFactory';
 import type { GitContext } from '../gitContext';
@@ -143,7 +144,7 @@ function syncWorktreeToOriginHead(headBranch: string, cwd: string, ctx: GitConte
  */
 export async function mergeWithConflictResolution(
   prNumber: number,
-  repoInfo: RepoInfo,
+  repoInfo: RepoIdentifier,
   headBranch: string,
   baseBranch: string,
   worktreePath: string,

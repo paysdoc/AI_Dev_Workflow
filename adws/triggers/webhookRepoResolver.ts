@@ -6,13 +6,13 @@
  * (HTTP server creation). Mirrors cronRepoResolver.ts.
  */
 
-import type { RepoInfo } from '../github/githubApi';
 import { getRepoInfoFromPayload } from '../github/githubApi';
 import type { TargetRepoInfo } from '../types/issueTypes';
+import type { RepoIdentifier } from '../providers/types';
 
 /** Resolution result for a webhook event payload. */
 export interface WebhookRepoResolution {
-  repoInfo: RepoInfo;
+  repoInfo: RepoIdentifier;
   targetRepo: TargetRepoInfo;
   targetRepoArgs: string[];
 }

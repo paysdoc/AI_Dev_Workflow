@@ -14,7 +14,8 @@ import { acquireIssueSpawnLock, releaseIssueSpawnLock } from '../../triggers/spa
 import { startHeartbeat, stopHeartbeat } from '../../core/heartbeat';
 import { runWithOrchestratorLifecycle, runWithRawOrchestratorLifecycle } from '../orchestratorLock';
 import type { WorkflowConfig } from '../workflowInit';
-import type { RepoInfo } from '../../github/githubApi';
+import type { RepoIdentifier } from '../../providers/types';
+import { Platform } from '../../providers/types';
 
 const mockAcquire = vi.mocked(acquireIssueSpawnLock);
 const mockRelease = vi.mocked(releaseIssueSpawnLock);
@@ -22,7 +23,7 @@ const mockStart = vi.mocked(startHeartbeat);
 const mockStop = vi.mocked(stopHeartbeat);
 
 const FAKE_HANDLE = { adwId: 'test-adw-id', timer: null as unknown as ReturnType<typeof setInterval> };
-const FAKE_REPO: RepoInfo = { owner: 'acme', repo: 'widgets' };
+const FAKE_REPO: RepoIdentifier = { owner: 'acme', repo: 'widgets', platform: Platform.GitHub };
 
 const fakeConfig = {
   issueNumber: 42,

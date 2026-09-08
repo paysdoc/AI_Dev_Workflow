@@ -4,10 +4,11 @@ import type { AgentState } from '../types/agentTypes';
 import { mergeWithConflictResolution } from '../triggers/autoMergeHandler';
 import { commentOnPR } from '../github';
 import { getPlanFilePath, planFileExists } from '../agents';
+import { Platform } from '../providers/types';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-const REPO_INFO = { owner: 'acme', repo: 'myrepo' };
+const REPO_INFO = { owner: 'acme', repo: 'myrepo', platform: Platform.GitHub };
 
 function makeState(overrides: Partial<AgentState> = {}): AgentState {
   return {

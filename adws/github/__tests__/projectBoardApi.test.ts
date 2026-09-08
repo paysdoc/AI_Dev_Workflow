@@ -15,8 +15,9 @@ vi.mock('../hitlBoardNotifier', () => ({ notifyReviewTransition: vi.fn() }));
 
 import { gitContextForRepo } from '../gitContextFactory';
 import { notifyReviewTransition } from '../hitlBoardNotifier';
+import { Platform } from '../../providers/types';
 
-const REPO_INFO = { owner: 'acme', repo: 'r' };
+const REPO_INFO = { owner: 'acme', repo: 'r', platform: Platform.GitHub };
 
 const mockMoveIssueToStatus = vi.fn();
 

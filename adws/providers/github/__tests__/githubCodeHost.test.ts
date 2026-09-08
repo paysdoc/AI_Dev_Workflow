@@ -40,7 +40,6 @@ import {
 } from '../../../github/prApi';
 
 const REPO_ID: RepoIdentifier = { owner: 'acme', repo: 'widget', platform: Platform.GitHub };
-const REPO_INFO = { owner: 'acme', repo: 'widget' };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -56,7 +55,7 @@ describe('GitHubCodeHost — new method delegation', () => {
     const result = codeHost.findPullRequestByBranch('feature-x');
 
     expect(defaultFindPRByBranch).toHaveBeenCalledTimes(1);
-    expect(defaultFindPRByBranch).toHaveBeenCalledWith('feature-x', REPO_INFO);
+    expect(defaultFindPRByBranch).toHaveBeenCalledWith('feature-x', REPO_ID);
     expect(result).toEqual({ number: 7, state: 'OPEN', sourceBranch: 'feature-x', targetBranch: 'main', labels: ['hitl'] });
   });
 
@@ -74,7 +73,7 @@ describe('GitHubCodeHost — new method delegation', () => {
     const result = codeHost.isPullRequestApproved(7);
 
     expect(fetchPRApprovalState).toHaveBeenCalledTimes(1);
-    expect(fetchPRApprovalState).toHaveBeenCalledWith(7, REPO_INFO);
+    expect(fetchPRApprovalState).toHaveBeenCalledWith(7, REPO_ID);
     expect(result).toBe(true);
   });
 
@@ -85,7 +84,7 @@ describe('GitHubCodeHost — new method delegation', () => {
     const result = codeHost.approvePullRequest(7);
 
     expect(approvePR).toHaveBeenCalledTimes(1);
-    expect(approvePR).toHaveBeenCalledWith(7, REPO_INFO);
+    expect(approvePR).toHaveBeenCalledWith(7, REPO_ID);
     expect(result).toEqual({ success: true });
   });
 
@@ -96,7 +95,7 @@ describe('GitHubCodeHost — new method delegation', () => {
     const result = codeHost.mergePullRequest(7);
 
     expect(mergePR).toHaveBeenCalledTimes(1);
-    expect(mergePR).toHaveBeenCalledWith(7, REPO_INFO);
+    expect(mergePR).toHaveBeenCalledWith(7, REPO_ID);
     expect(result).toEqual({ success: false, error: 'conflict' });
   });
 

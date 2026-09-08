@@ -21,7 +21,6 @@ import {
   emptyModelUsageMap,
 } from '../core';
 import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
-import type { RepoInfo } from '../github/githubApi';
 import { mergeWithConflictResolution } from '../triggers/autoMergeHandler';
 import { getPlanFilePath, planFileExists } from '../agents';
 import type { WorkflowConfig } from './workflowInit';
@@ -89,13 +88,12 @@ export async function executeAutoMergePhase(config: WorkflowConfig): Promise<{ c
     specPath = candidate;
   }
 
-  // Merge with conflict resolution retry loop. mergeWithConflictResolution and
-  // its RepoInfo parameter are #797's wave (adws/triggers/, adws/github/); build
-  // the RepoInfo from the phase's own repoContext at this one call site only.
-  const repoInfo: RepoInfo = { owner: repoContext.repoId.owner, repo: repoContext.repoId.repo };
+  // Merge with conflict resolution retry loop. mergeWithConflictResolution's
+  // RepoIdentifier parameter is #797's wave (adws/triggers/, adws/github/); the
+  // phase passes its own repoContext.repoId through at this one call site.
   const mergeOutcome = await mergeWithConflictResolution(
     prNumber,
-    repoInfo,
+    repoContext.repoId,
     headBranch,
     baseBranch,
     worktreePath,

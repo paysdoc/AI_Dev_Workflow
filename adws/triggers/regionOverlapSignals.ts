@@ -9,7 +9,7 @@
  * handleIssueClosedDependencyUnblock) then ride the existing declared-dependency
  * path — no new enforcement code.
  */
-import type { RepoInfo } from '../github/githubApi';
+import type { RepoIdentifier } from '../providers/types';
 import { updateIssueBody, commentOnIssue } from '../github/issueApi';
 import { log } from '../core';
 import type { OverlapDeferral } from './cronIssueFilter';
@@ -19,8 +19,8 @@ export const REGION_OVERLAP_MARKER = '<!-- adw:region-overlap -->';
 
 /** Injectable I/O so unit/BDD tests can spy without touching GitHub. */
 export interface RegionOverlapRegistrationDeps {
-  readonly updateIssueBody: (issueNumber: number, body: string, repoInfo: RepoInfo) => void;
-  readonly commentOnIssue: (issueNumber: number, body: string, repoInfo: RepoInfo) => void;
+  readonly updateIssueBody: (issueNumber: number, body: string, repoInfo: RepoIdentifier) => void;
+  readonly commentOnIssue: (issueNumber: number, body: string, repoInfo: RepoIdentifier) => void;
 }
 
 const defaultDeps: RegionOverlapRegistrationDeps = { updateIssueBody, commentOnIssue };
@@ -83,7 +83,7 @@ export function formatRegionOverlapComment(deferral: OverlapDeferral): string {
 export function registerRegionOverlapBlocker(
   deferral: OverlapDeferral,
   currentBody: string,
-  repoInfo: RepoInfo,
+  repoInfo: RepoIdentifier,
   deps: RegionOverlapRegistrationDeps = defaultDeps,
 ): boolean {
   if (currentBody.includes(blockedByRef(deferral.blockedBy))) {

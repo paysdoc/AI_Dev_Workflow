@@ -4,7 +4,7 @@
 
 import type { TagProofResult, ScenarioProofResult } from '../phases/scenarioProof';
 import type { UploadOptions, UploadResult } from '../r2/types';
-import type { RepoInfo } from '../github/githubApi';
+import type { RepoIdentifier } from '../providers/types';
 
 /** A single image artifact discovered in the proof directory. */
 export interface ProofArtifact {
@@ -47,7 +47,7 @@ export interface ProofCommentInput {
 export type UploaderFn = (options: UploadOptions) => Promise<UploadResult>;
 
 /** Injected commenter function (defaults to the real `commentOnPR`). */
-export type CommenterFn = (prNumber: number, body: string, repoInfo: RepoInfo) => void;
+export type CommenterFn = (prNumber: number, body: string, repoInfo: RepoIdentifier) => void;
 
 /** Everything `publishPrProof` needs — inject uploader/commenter to keep it testable. */
 export interface PublishDeps {
@@ -58,7 +58,7 @@ export interface PublishDeps {
   /** PR number to post the comment to. */
   readonly prNumber: number;
   /** Repository info for the PR. */
-  readonly repoInfo: RepoInfo;
+  readonly repoInfo: RepoIdentifier;
   /** ADW workflow ID (used as key namespace in R2). */
   readonly adwId: string;
   /** Injectable uploader (defaults to uploadToR2). */

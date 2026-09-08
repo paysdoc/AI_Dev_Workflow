@@ -50,11 +50,10 @@ import {
   type IssueCommentRecord,
 } from './core';
 import { ADW_BLOCKED_LABEL } from './github/labelManager';
-import type { RepoInfo } from './github';
 import { hasWontFixLabelName } from './github/prApi';
 import type { GitContext } from './gitContext';
 import { runClaudeAgentWithCommand } from './agents';
-import type { BoundProviders, CreatePROptions, ForgeActionResult, PullRequestResult, PullRequestSummary } from './providers/types';
+import type { BoundProviders, CreatePROptions, ForgeActionResult, PullRequestResult, PullRequestSummary, RepoIdentifier } from './providers/types';
 import { BoardStatus } from './providers/types';
 import {
   copyAdwInitCommandToWorktree,
@@ -222,7 +221,7 @@ export function buildUpgradeEscalationComment(adwId: string, issueNumber: number
 /**
  * Builds the escalation Slack alert.
  */
-export function buildUpgradeEscalationSlack(repoInfo: RepoInfo, issueNumber: number, failureCount: number, maxFailures: number): string {
+export function buildUpgradeEscalationSlack(repoInfo: RepoIdentifier, issueNumber: number, failureCount: number, maxFailures: number): string {
   return `:rotating_light: ADW upgrade escalated: *${repoInfo.owner}/${repoInfo.repo}* issue #${issueNumber} reached failure cap (${failureCount}/${maxFailures}). Remove \`adw:blocked\` label to re-arm.`;
 }
 
@@ -235,7 +234,7 @@ export function buildUpgradeEscalationSlack(repoInfo: RepoInfo, issueNumber: num
 export async function executeUpgrade(
   issueNumber: number,
   adwId: string,
-  repoInfo: RepoInfo,
+  repoInfo: RepoIdentifier,
   baseRepoPath: string,
   frameworkRepoRoot: string,
   deps: UpgradeDeps,
@@ -520,7 +519,7 @@ async function main(): Promise<void> {
 
   const adwId = parsedAdwId ?? generateAdwId('adwupgrade');
   const { gitContext, repoId, providers } = buildLaunchBoundary(targetRepo);
-  const repoInfo: RepoInfo = { owner: repoId.owner, repo: repoId.repo };
+  const repoInfo = repoId;
   const baseRepoPath = targetRepo ? ensureTargetRepoWorkspace(targetRepo, () => providers.codeHost.getDefaultBranch()) : process.cwd();
   const frameworkRepoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 

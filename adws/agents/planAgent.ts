@@ -5,7 +5,9 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { GitHubIssue, IssueClassSlashCommand, PRDetails, PRReviewComment, getModelForCommand, getEffortForCommand, log } from '../core';
+import { IssueClassSlashCommand, getModelForCommand, getEffortForCommand, log } from '../core';
+import type { GitHubIssue } from '../providers/github/domain/issue';
+import type { PRDetails, PRReviewComment } from '../providers/github/domain/pullRequest';
 import { runClaudeAgentWithCommand, AgentResult } from './claudeAgent';
 import { isAdwComment, extractActionableContent } from '../core/workflowCommentParsing';
 

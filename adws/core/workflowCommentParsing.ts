@@ -6,7 +6,8 @@
  * No GitHub API dependencies — those stay in github/workflowCommentsBase.ts.
  */
 
-import type { WorkflowStage, RecoveryState, GitHubComment } from './index';
+import type { WorkflowStage, RecoveryState } from './index';
+import type { GitHubComment } from '../providers/github/domain/issue';
 
 /** Stage order for determining recovery resume point. */
 export const STAGE_ORDER: WorkflowStage[] = [

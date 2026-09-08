@@ -5,7 +5,7 @@
 
 import { runCommandAgent, type CommandAgentConfig } from './commandAgent';
 import type { AgentResult } from './claudeAgent';
-import type { GitHubIssue } from '../core';
+import type { GitHubIssue } from '../providers/github/domain/issue';
 import { isAdwComment, extractActionableContent } from '../core/workflowCommentParsing';
 
 const scenarioAgentConfig: CommandAgentConfig<void> = {

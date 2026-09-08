@@ -5,7 +5,7 @@
  * eligibility result. Used by both webhook and cron triggers.
  */
 
-import type { RepoInfo } from '../github/githubApi';
+import type { RepoIdentifier } from '../providers/types';
 import { findOpenDependencies } from './issueDependencies';
 import { isConcurrencyLimitReached } from './concurrencyGuard';
 import { log } from '../core';
@@ -26,7 +26,7 @@ export interface EligibilityResult {
 export async function checkIssueEligibility(
   issueNumber: number,
   issueBody: string,
-  repoInfo: RepoInfo,
+  repoInfo: RepoIdentifier,
 ): Promise<EligibilityResult> {
   log(`Checking eligibility for issue #${issueNumber}`);
 

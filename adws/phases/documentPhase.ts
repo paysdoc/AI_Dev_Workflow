@@ -19,6 +19,7 @@ import {
 import type { WorkflowConfig } from './workflowInit';
 import { getRepoInfo, gitContextFor } from '../github';
 import { executeDocsPostWriteSelfCheck, buildDefaultDocsSelfCheckDeps } from './docsSelfCheck';
+import { Platform } from '../providers/types';
 
 /**
  * Executes the Document phase: generate feature documentation.
@@ -102,7 +103,7 @@ export async function executeDocumentPhase(
   if (repoContext) {
     try {
       const repoInfo = config.targetRepo
-        ? { owner: config.targetRepo.owner, repo: config.targetRepo.repo }
+        ? { owner: config.targetRepo.owner, repo: config.targetRepo.repo, platform: Platform.GitHub }
         : getRepoInfo(worktreePath);
       const selfCheck = executeDocsPostWriteSelfCheck(
         { worktreePath, producedDocPaths: [result.docPath], repoInfo },

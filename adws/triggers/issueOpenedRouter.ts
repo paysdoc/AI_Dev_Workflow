@@ -5,7 +5,7 @@
  * pure functions carry the decision logic; a DI wrapper owns the side effects.
  */
 
-import type { RepoInfo } from '../github/githubApi';
+import type { RepoIdentifier } from '../providers/types';
 import type { IssueClassSlashCommand } from '../types/issueTypes';
 import type { GitContext } from '../gitContext';
 import type { AdwLabelReading } from '../github/labelManager';
@@ -75,15 +75,15 @@ export function extractPayloadLabelNames(issue: Record<string, unknown> | undefi
 // ── DI interface ──────────────────────────────────────────────────────────────
 
 export interface IssueOpenedRouterDeps {
-  checkEligibility: (issueNumber: number, issueBody: string, repoInfo: RepoInfo) => Promise<EligibilityResult>;
+  checkEligibility: (issueNumber: number, issueBody: string, repoInfo: RepoIdentifier) => Promise<EligibilityResult>;
   classifyAndSpawn: (
     issueNumber: number,
-    repoInfo: RepoInfo | undefined,
+    repoInfo: RepoIdentifier | undefined,
     targetRepoArgs: string[],
     labelRouting?: { precomputedClassification?: IssueClassSlashCommand; issueTitle?: string; persistInferredLabel?: boolean },
     gitContext?: GitContext,
   ) => Promise<void>;
-  postComment: (issueNumber: number, body: string, repoInfo: RepoInfo) => void;
+  postComment: (issueNumber: number, body: string, repoInfo: RepoIdentifier) => void;
   logger: (message: string, level?: LogLevel) => void;
 }
 
@@ -104,7 +104,7 @@ export async function routeIssueOpened(
     issueBody: string;
     issueTitle?: string;
     labelNames: string[];
-    repoInfo: RepoInfo;
+    repoInfo: RepoIdentifier;
     targetRepoArgs: string[];
     gitContext?: GitContext;
   },

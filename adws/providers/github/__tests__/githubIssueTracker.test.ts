@@ -42,7 +42,6 @@ import { applyLabel, ensureLabelExists } from '../../../github/labelManager';
 import { listIssues } from '../../../github/issueListApi';
 
 const REPO_ID: RepoIdentifier = { owner: 'acme', repo: 'widget', platform: Platform.GitHub };
-const REPO_INFO = { owner: 'acme', repo: 'widget' };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -56,7 +55,7 @@ describe('GitHubIssueTracker — new method delegation', () => {
     const result = tracker.fetchLabels(42);
 
     expect(fetchIssueLabels).toHaveBeenCalledTimes(1);
-    expect(fetchIssueLabels).toHaveBeenCalledWith(42, REPO_INFO);
+    expect(fetchIssueLabels).toHaveBeenCalledWith(42, REPO_ID);
     expect(result).toEqual(['adw:bug', 'hitl']);
   });
 
@@ -66,7 +65,7 @@ describe('GitHubIssueTracker — new method delegation', () => {
     tracker.addLabel(42, 'hitl');
 
     expect(addIssueLabel).toHaveBeenCalledTimes(1);
-    expect(addIssueLabel).toHaveBeenCalledWith(42, 'hitl', REPO_INFO);
+    expect(addIssueLabel).toHaveBeenCalledWith(42, 'hitl', REPO_ID);
   });
 
   it('applyLabel delegates to labelManager.applyLabel with the bound repoInfo', () => {
@@ -75,7 +74,7 @@ describe('GitHubIssueTracker — new method delegation', () => {
     tracker.applyLabel(42, 'adw:blocked');
 
     expect(applyLabel).toHaveBeenCalledTimes(1);
-    expect(applyLabel).toHaveBeenCalledWith(42, 'adw:blocked', REPO_INFO);
+    expect(applyLabel).toHaveBeenCalledWith(42, 'adw:blocked', REPO_ID);
   });
 
   it('ensureLabel delegates to labelManager.ensureLabelExists with the bound repoInfo', () => {
@@ -84,7 +83,7 @@ describe('GitHubIssueTracker — new method delegation', () => {
     tracker.ensureLabel('adw:blocked', 'b60205', 'ADW lane escalated to human (terminal)');
 
     expect(ensureLabelExists).toHaveBeenCalledTimes(1);
-    expect(ensureLabelExists).toHaveBeenCalledWith('adw:blocked', 'b60205', 'ADW lane escalated to human (terminal)', REPO_INFO);
+    expect(ensureLabelExists).toHaveBeenCalledWith('adw:blocked', 'b60205', 'ADW lane escalated to human (terminal)', REPO_ID);
   });
 
   it('createIssue delegates to issueApi.createIssue and returns its value unchanged', () => {
@@ -94,7 +93,7 @@ describe('GitHubIssueTracker — new method delegation', () => {
     const result = tracker.createIssue('title', 'body');
 
     expect(createIssue).toHaveBeenCalledTimes(1);
-    expect(createIssue).toHaveBeenCalledWith('title', 'body', REPO_INFO);
+    expect(createIssue).toHaveBeenCalledWith('title', 'body', REPO_ID);
     expect(result).toBe(101);
   });
 
@@ -104,7 +103,7 @@ describe('GitHubIssueTracker — new method delegation', () => {
     tracker.updateIssueBody(42, 'new body');
 
     expect(updateIssueBody).toHaveBeenCalledTimes(1);
-    expect(updateIssueBody).toHaveBeenCalledWith(42, 'new body', REPO_INFO);
+    expect(updateIssueBody).toHaveBeenCalledWith(42, 'new body', REPO_ID);
   });
 
   it('searchOpenIssues delegates to issueApi.searchOpenIssues and returns its value unchanged', () => {
@@ -115,7 +114,7 @@ describe('GitHubIssueTracker — new method delegation', () => {
     const result = tracker.searchOpenIssues('docs-bloat: app_docs/foo.md', 5);
 
     expect(searchOpenIssues).toHaveBeenCalledTimes(1);
-    expect(searchOpenIssues).toHaveBeenCalledWith('docs-bloat: app_docs/foo.md', 5, REPO_INFO);
+    expect(searchOpenIssues).toHaveBeenCalledWith('docs-bloat: app_docs/foo.md', 5, REPO_ID);
     expect(result).toEqual(results);
   });
 
@@ -126,7 +125,7 @@ describe('GitHubIssueTracker — new method delegation', () => {
     const result = tracker.findOpenUpgradeIssue();
 
     expect(findOpenUpgradeIssue).toHaveBeenCalledTimes(1);
-    expect(findOpenUpgradeIssue).toHaveBeenCalledWith(REPO_INFO);
+    expect(findOpenUpgradeIssue).toHaveBeenCalledWith(REPO_ID);
     expect(result).toBe(55);
   });
 
@@ -139,7 +138,7 @@ describe('GitHubIssueTracker — new method delegation', () => {
     const result = tracker.listIssues(query);
 
     expect(listIssues).toHaveBeenCalledTimes(1);
-    expect(listIssues).toHaveBeenCalledWith(query, REPO_INFO);
+    expect(listIssues).toHaveBeenCalledWith(query, REPO_ID);
     expect(result).toEqual(entries);
   });
 

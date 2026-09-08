@@ -209,7 +209,7 @@ function makeNotifierDeps(): NotifierDeps {
 
 When('the review-transition notifier runs for issue {int}', async function (issueNumber: number) {
   if (!world.isGitHubPlatform) return; // models call-site Platform.GitHub guard
-  const repoInfo = { owner: 'test-owner', repo: 'test-repo' };
+  const repoInfo = { owner: 'test-owner', repo: 'test-repo', platform: Platform.GitHub };
   try {
     await notifyReviewTransition({ issueNumber, repoInfo }, makeNotifierDeps());
   } catch (err) {
@@ -222,7 +222,7 @@ When(
   'the blocked-transition notifier runs for issue {int} with source {string}',
   async function (issueNumber: number, source: string) {
     if (!world.isGitHubPlatform) return; // models call-site Platform.GitHub guard
-    const repoInfo = { owner: 'test-owner', repo: 'test-repo' };
+    const repoInfo = { owner: 'test-owner', repo: 'test-repo', platform: Platform.GitHub };
     await notifyBlockedTransition(
       { issueNumber, repoInfo, source: source as 'discarded' | 'review_error' },
       makeNotifierDeps(),
@@ -233,7 +233,7 @@ When(
 When(
   'the blocked-transition notifier runs for issue {int} with source {string} and error message {string}',
   async function (issueNumber: number, source: string, errorMessage: string) {
-    const repoInfo = { owner: 'test-owner', repo: 'test-repo' };
+    const repoInfo = { owner: 'test-owner', repo: 'test-repo', platform: Platform.GitHub };
     await notifyBlockedTransition(
       { issueNumber, repoInfo, source: source as 'discarded' | 'review_error', errorMessage },
       makeNotifierDeps(),
@@ -244,7 +244,7 @@ When(
 When(
   'the blocked-transition notifier runs for issue {int} with source "review_error" and that error message',
   async function (issueNumber: number) {
-    const repoInfo = { owner: 'test-owner', repo: 'test-repo' };
+    const repoInfo = { owner: 'test-owner', repo: 'test-repo', platform: Platform.GitHub };
     await notifyBlockedTransition(
       { issueNumber, repoInfo, source: 'review_error', errorMessage: world.longErrorMessage },
       makeNotifierDeps(),

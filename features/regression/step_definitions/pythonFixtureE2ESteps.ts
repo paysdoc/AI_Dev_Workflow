@@ -31,6 +31,7 @@ import { formatPrProofComment, publishPrProof } from '../../../adws/proof/prProo
 import { ADW_SIGNATURE } from '../../../adws/core/workflowCommentParsing.ts';
 import type { UploadedArtifact } from '../../../adws/proof/types.ts';
 import type { RegressionWorld } from './world.ts';
+import { Platform } from '../../../adws/providers/types.ts';
 
 const ADW_ID = 'x3qme8-python-fixture-targe';
 
@@ -191,7 +192,7 @@ Then(
       artifactsDir: this.scenarioProofResult.artifactsDir,
       scenarioProof: this.scenarioProofResult,
       prNumber: 583,
-      repoInfo: { owner: 'paysdoc', repo: 'python-app' },
+      repoInfo: { owner: 'paysdoc', repo: 'python-app', platform: Platform.GitHub },
       adwId: ADW_ID,
       commenter: (_n, body) => { this.capturedProofComment = body; },
     });

@@ -18,7 +18,8 @@ import {
   updatePauseQueueEntry,
   type PausedWorkflow,
 } from '../core/pauseQueue';
-import { getRepoInfo, type RepoInfo } from '../github';
+import { getRepoInfo } from '../github';
+import { Platform, type RepoIdentifier } from '../providers/types';
 import { postIssueStageComment } from '../phases/phaseCommentHelpers';
 import type { WorkflowContext } from '../github/workflowCommentsIssue';
 import { acquireIssueSpawnLock, releaseIssueSpawnLock } from './spawnGate';
@@ -48,10 +49,10 @@ function containsRateLimitText(text: string): boolean {
  * resume path from pinning the process-global GH_TOKEN to the cron host's own repo
  * (issue #565).
  */
-export function resolveEntryRepoInfo(entry: PausedWorkflow): RepoInfo {
+export function resolveEntryRepoInfo(entry: PausedWorkflow): RepoIdentifier {
   const targetRepo = parseTargetRepoArgs([...(entry.extraArgs ?? [])]);
   if (targetRepo) {
-    return { owner: targetRepo.owner, repo: targetRepo.repo };
+    return { owner: targetRepo.owner, repo: targetRepo.repo, platform: Platform.GitHub };
   }
   return getRepoInfo();
 }

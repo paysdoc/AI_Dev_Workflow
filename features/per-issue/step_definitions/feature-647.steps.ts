@@ -27,6 +27,7 @@ import {
   notifyReviewTransition,
   type NotifierDeps,
 } from '../../../adws/github/hitlBoardNotifier.ts';
+import { Platform } from '../../../adws/providers/types.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // features/per-issue/step_definitions → repo root
@@ -277,7 +278,7 @@ function makeNotifierDeps(): NotifierDeps {
 When(
   'the HITL review notification is sent for issue {int}',
   async function (issueNumber: number) {
-    const repoInfo = { owner: 'test-owner', repo: 'test-repo' };
+    const repoInfo = { owner: 'test-owner', repo: 'test-repo', platform: Platform.GitHub };
     try {
       await notifyReviewTransition({ issueNumber, repoInfo }, makeNotifierDeps());
     } catch {

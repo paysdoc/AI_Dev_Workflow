@@ -6,13 +6,9 @@ import { gitContextForRepo, readLocalRepoInfo } from './gitContextFactory';
 import { parseGitHubRemoteUrl } from '../providers/github/githubIdentity';
 import { REPO_ROOT } from '../core/environment';
 import { createGhRepoApi } from '../providers/github/ghRepoApi';
+import { Platform, type RepoIdentifier } from '../providers/types';
 
-export interface RepoInfo {
-  owner: string;
-  repo: string;
-}
-
-const gh = (repoInfo: RepoInfo) => createGhRepoApi(gitContextForRepo(repoInfo));
+const gh = (repoId: RepoIdentifier) => createGhRepoApi(gitContextForRepo(repoId));
 
 /**
  * Extracts owner and repo from the git remote URL.
@@ -20,14 +16,14 @@ const gh = (repoInfo: RepoInfo) => createGhRepoApi(gitContextForRepo(repoInfo));
  *
  * @param cwd - Optional working directory for the git command (defaults to process.cwd())
  */
-export function getRepoInfo(cwd?: string): RepoInfo {
+export function getRepoInfo(cwd?: string): RepoIdentifier {
   return readLocalRepoInfo(cwd);
 }
 
 /**
  * Parses owner and repo from a GitHub URL (HTTPS or SSH).
  */
-export function getRepoInfoFromUrl(repoUrl: string): RepoInfo {
+export function getRepoInfoFromUrl(repoUrl: string): RepoIdentifier {
   const info = parseGitHubRemoteUrl(repoUrl);
   if (!info) {
     throw new Error(`Could not parse GitHub URL: ${repoUrl}`);
@@ -38,12 +34,12 @@ export function getRepoInfoFromUrl(repoUrl: string): RepoInfo {
 /**
  * Parses owner and repo from a GitHub repository full name (e.g., "owner/repo").
  */
-export function getRepoInfoFromPayload(repoFullName: string): RepoInfo {
+export function getRepoInfoFromPayload(repoFullName: string): RepoIdentifier {
   const parts = repoFullName.split('/');
   if (parts.length !== 2 || !parts[0] || !parts[1]) {
     throw new Error(`Invalid repository full name: ${repoFullName}`);
   }
-  return { owner: parts[0], repo: parts[1] };
+  return { owner: parts[0], repo: parts[1], platform: Platform.GitHub };
 }
 
 /** Cached authenticated GitHub username. `undefined` = not yet fetched, `null` = fetch failed. */

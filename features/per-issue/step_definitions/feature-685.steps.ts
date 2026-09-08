@@ -22,6 +22,7 @@ import {
   countUpgradeFailureComments,
   type IssueCommentRecord,
 } from '../../../adws/core/upgradeFailureCap.ts';
+import { Platform } from '../../../adws/providers/types.ts';
 import {
   executeUpgrade,
   buildUpgradeFailureComment,
@@ -79,7 +80,7 @@ function seedAdwFilesAndVocab(dir: string): void {
   fs.writeFileSync(path.join(vocabDir, 'vocabulary.md'), '# Vocabulary\n\nFixture content.\n');
 }
 
-const REPO_INFO = { owner: 'acme', repo: 'target' };
+const REPO_INFO = { owner: 'acme', repo: 'target', platform: Platform.GitHub };
 const FRAMEWORK_ROOT = '/framework';
 const BASE_REPO = '/base/repo';
 const BOT_AUTHOR = 'adw-bot[bot]';

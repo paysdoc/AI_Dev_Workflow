@@ -6,13 +6,14 @@ import {
   buildDefaultUpgradeClaimDeps,
   type UpgradeClaimDeps,
 } from '../upgradeClaim';
-import type { RawPR } from '../../github/prApi';
-import type { RepoInfo } from '../../github/githubApi';
+import type { RawPR } from '../../providers/github/domain/pullRequest';
+import type { RepoIdentifier } from '../../providers/types';
+import { Platform } from '../../providers/types';
 import type { GitContext } from '../../gitContext';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const REPO_INFO: RepoInfo = { owner: 'acme', repo: 'myrepo' };
+const REPO_INFO: RepoIdentifier = { owner: 'acme', repo: 'myrepo', platform: Platform.GitHub };
 const HASH = 'abc123';
 const BRANCH = 'adw-upgrade-abc123';
 

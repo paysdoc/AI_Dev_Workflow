@@ -24,8 +24,9 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { defaultFindPRByBranch, fetchPRDetails, type RawPR } from '../github/prApi';
-import type { RepoInfo } from '../github/githubApi';
+import { defaultFindPRByBranch, fetchPRDetails } from '../github/prApi';
+import type { RawPR } from '../providers/github/domain/pullRequest';
+import type { RepoIdentifier } from '../providers/types';
 import { log, type LogLevel } from './utils';
 import type { GitContext } from '../gitContext';
 
@@ -36,9 +37,9 @@ export type UpgradeClaimResult =
   | { readonly won: false; readonly existingIssueNumber: number | null; readonly existingBranch: string };
 
 export interface UpgradeClaimDeps {
-  readonly pushClaimBranch: (branchName: string, hash: string, repoInfo: RepoInfo) => boolean;
-  readonly findPRByBranch: (branchName: string, repoInfo: RepoInfo) => RawPR | null;
-  readonly resolveIssueNumberFromPR: (prNumber: number, repoInfo: RepoInfo) => number | null;
+  readonly pushClaimBranch: (branchName: string, hash: string, repoInfo: RepoIdentifier) => boolean;
+  readonly findPRByBranch: (branchName: string, repoInfo: RepoIdentifier) => RawPR | null;
+  readonly resolveIssueNumberFromPR: (prNumber: number, repoInfo: RepoIdentifier) => number | null;
   readonly log: (message: string, level?: LogLevel) => void;
 }
 
@@ -64,7 +65,7 @@ export function buildClaimResult(
 
 export async function claimUpgradeOrFindExisting(
   hash: string,
-  repoInfo: RepoInfo,
+  repoInfo: RepoIdentifier,
   deps: UpgradeClaimDeps,
 ): Promise<UpgradeClaimResult> {
   const branch = buildClaimBranchName(hash);

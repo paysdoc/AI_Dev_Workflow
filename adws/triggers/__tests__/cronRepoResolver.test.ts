@@ -1,29 +1,30 @@
 import { describe, it, expect } from 'vitest';
 import { resolveCronRepo, buildCronTargetRepoArgs } from '../cronRepoResolver';
+import { Platform } from '../../providers/types';
 
 describe('resolveCronRepo', () => {
   it('returns target repo when --target-repo is provided', () => {
     const args = ['--target-repo', 'paysdoc/paysdoc.nl', '--clone-url', 'https://github.com/paysdoc/paysdoc.nl.git'];
-    const fallback = () => ({ owner: 'paysdoc', repo: 'AI_Dev_Workflow' });
+    const fallback = () => ({ owner: 'paysdoc', repo: 'AI_Dev_Workflow', platform: Platform.GitHub });
 
     const result = resolveCronRepo(args, fallback);
 
-    expect(result.repoInfo).toEqual({ owner: 'paysdoc', repo: 'paysdoc.nl' });
+    expect(result.repoInfo).toEqual({ owner: 'paysdoc', repo: 'paysdoc.nl', platform: Platform.GitHub });
   });
 
   it('falls back to local repo when --target-repo is not provided', () => {
     const args: string[] = [];
-    const fallback = () => ({ owner: 'paysdoc', repo: 'AI_Dev_Workflow' });
+    const fallback = () => ({ owner: 'paysdoc', repo: 'AI_Dev_Workflow', platform: Platform.GitHub });
 
     const result = resolveCronRepo(args, fallback);
 
-    expect(result.repoInfo).toEqual({ owner: 'paysdoc', repo: 'AI_Dev_Workflow' });
+    expect(result.repoInfo).toEqual({ owner: 'paysdoc', repo: 'AI_Dev_Workflow', platform: Platform.GitHub });
     expect(result.targetRepo).toBeNull();
   });
 
   it('preserves clone URL from --target-repo args', () => {
     const args = ['--target-repo', 'paysdoc/paysdoc.nl', '--clone-url', 'https://github.com/paysdoc/paysdoc.nl.git'];
-    const fallback = () => ({ owner: 'paysdoc', repo: 'AI_Dev_Workflow' });
+    const fallback = () => ({ owner: 'paysdoc', repo: 'AI_Dev_Workflow', platform: Platform.GitHub });
 
     const result = resolveCronRepo(args, fallback);
 
@@ -34,7 +35,7 @@ describe('resolveCronRepo', () => {
 
 describe('buildCronTargetRepoArgs', () => {
   it('uses clone URL from targetRepo when available', () => {
-    const repoInfo = { owner: 'paysdoc', repo: 'paysdoc.nl' };
+    const repoInfo = { owner: 'paysdoc', repo: 'paysdoc.nl', platform: Platform.GitHub };
     const targetRepo = { owner: 'paysdoc', repo: 'paysdoc.nl', cloneUrl: 'https://github.com/paysdoc/paysdoc.nl.git' };
 
     const result = buildCronTargetRepoArgs(repoInfo, targetRepo, () => null);
@@ -46,7 +47,7 @@ describe('buildCronTargetRepoArgs', () => {
   });
 
   it('uses fallback clone URL when targetRepo is null', () => {
-    const repoInfo = { owner: 'paysdoc', repo: 'AI_Dev_Workflow' };
+    const repoInfo = { owner: 'paysdoc', repo: 'AI_Dev_Workflow', platform: Platform.GitHub };
 
     const result = buildCronTargetRepoArgs(repoInfo, null, () => 'git@github.com:paysdoc/AI_Dev_Workflow.git');
 
@@ -57,7 +58,7 @@ describe('buildCronTargetRepoArgs', () => {
   });
 
   it('omits --clone-url when targetRepo is null and fallback returns null', () => {
-    const repoInfo = { owner: 'paysdoc', repo: 'AI_Dev_Workflow' };
+    const repoInfo = { owner: 'paysdoc', repo: 'AI_Dev_Workflow', platform: Platform.GitHub };
 
     const result = buildCronTargetRepoArgs(repoInfo, null, () => null);
 

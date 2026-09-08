@@ -6,16 +6,15 @@
  */
 
 import { MAX_CONCURRENT_PER_REPO, log } from '../core';
-import type { RepoInfo } from '../github/githubApi';
 import { isAdwComment } from '../core/workflowCommentParsing';
 import { fetchLinkedPRs, hasLinkedMergedOrClosedPR } from '../github/linkedPrDetector';
 import { listIssues } from '../github/issueListApi';
-import type { IssueListEntry } from '../providers/types';
+import type { IssueListEntry, RepoIdentifier } from '../providers/types';
 
 /**
  * Fetches open issues with their comments from the repository.
  */
-function fetchOpenIssuesWithComments(repoInfo: RepoInfo): IssueListEntry[] {
+function fetchOpenIssuesWithComments(repoInfo: RepoIdentifier): IssueListEntry[] {
   try {
     return listIssues({ fields: ['number', 'comments'], limit: 100 }, repoInfo);
   } catch (error) {
@@ -29,7 +28,7 @@ function fetchOpenIssuesWithComments(repoInfo: RepoInfo): IssueListEntry[] {
  * An issue is "in progress" when it has an ADW workflow comment and
  * does not yet have a linked merged/closed PR.
  */
-async function getInProgressIssueCount(repoInfo: RepoInfo): Promise<number> {
+async function getInProgressIssueCount(repoInfo: RepoIdentifier): Promise<number> {
   const issues = fetchOpenIssuesWithComments(repoInfo);
   const prs = fetchLinkedPRs(repoInfo);
 
@@ -49,7 +48,7 @@ async function getInProgressIssueCount(repoInfo: RepoInfo): Promise<number> {
 /**
  * Returns true if the per-repository concurrency limit has been reached or exceeded.
  */
-export async function isConcurrencyLimitReached(repoInfo: RepoInfo): Promise<boolean> {
+export async function isConcurrencyLimitReached(repoInfo: RepoIdentifier): Promise<boolean> {
   const count = await getInProgressIssueCount(repoInfo);
   const limitReached = count >= MAX_CONCURRENT_PER_REPO;
   if (limitReached) {

@@ -37,7 +37,6 @@ import { Platform } from '../../../adws/providers/types.ts';
 import { resolveCronRepo } from '../../../adws/triggers/cronRepoResolver.ts';
 import { parseTargetRepoArgs } from '../../../adws/core/orchestratorCli.ts';
 import type { TargetRepoInfo } from '../../../adws/types/issueTypes.ts';
-import type { RepoInfo } from '../../../adws/github/githubApi.ts';
 
 // ── World state ──────────────────────────────────────────────────────────────
 
@@ -49,7 +48,7 @@ interface MintedRecord {
 interface World794 {
   frameworkRoot: string;
   targetReposDir: string;
-  remoteAnswers: RepoInfo[];
+  remoteAnswers: RepoIdentifier[];
   remoteCallCount: number;
   remoteConfigured: boolean;
   mintedRecords: MintedRecord[];
@@ -64,6 +63,8 @@ interface World794 {
   repoContextError: Error | null;
   envs: NodeJS.ProcessEnv[];
   tempDirs: string[];
+  /** #817 seam: the boundary's declared platform, folded into LaunchGitContextDeps.platform by makeDeps(). Undeclared -> deps.platform is omitted, so the boundary defaults to Platform.GitHub. */
+  declaredPlatform: Platform | undefined;
 }
 
 const w: World794 = {
@@ -84,6 +85,7 @@ const w: World794 = {
   repoContextError: null,
   envs: [],
   tempDirs: [],
+  declaredPlatform: undefined,
 };
 
 function resetWorld(): void {
@@ -104,6 +106,7 @@ function resetWorld(): void {
   w.repoContextError = null;
   w.envs = [];
   w.tempDirs = [];
+  w.declaredPlatform = undefined;
 }
 
 // §11 exercises validateGitRemote -> gitContextForRepo — a non-injectable production
@@ -143,13 +146,13 @@ function makeTargetRepo(owner: string, repo: string): TargetRepoInfo {
   return { owner, repo, cloneUrl: `https://github.com/${owner}/${repo}.git` };
 }
 
-function splitRepo(repoStr: string): { owner: string; repo: string } {
+function splitRepo(repoStr: string): RepoIdentifier {
   const [owner, repo] = repoStr.split('/');
-  return { owner, repo };
+  return { owner, repo, platform: Platform.GitHub };
 }
 
 /** Records at most one read per call; the last configured answer repeats forever. */
-function fakeGetRepoInfo(): RepoInfo {
+function fakeGetRepoInfo(): RepoIdentifier {
   assert.ok(
     w.remoteConfigured,
     'getRepoInfo not configured — call "the local git remote at the launch boundary answers ..." first',
@@ -177,6 +180,9 @@ function makeDeps(): LaunchGitContextDeps {
     frameworkRepoRoot: w.frameworkRoot,
     targetReposDir: w.targetReposDir,
   };
+  if (w.declaredPlatform !== undefined) {
+    deps.platform = w.declaredPlatform;
+  }
   if (w.recordMinting) {
     deps.mintProviders = (options: MintProvidersOptions): BoundProviders => {
       w.mintedRecords.push({ kind: 'issue tracker', repoId: options.repoId });
@@ -487,3 +493,26 @@ Then('building the repo context failed naming the repository the remote actually
 
 // §12 reuses "the ADW codebase is checked out" (G18) and "the ADW TypeScript
 // type-check passes" (T22) — no new step definitions.
+
+// ---------------------------------------------------------------------------
+// Cross-file seam (#817): feature-817.steps.ts drives the platform-declaration
+// scenarios through the REUSED Given/When steps above, against this file's
+// module-private world — whose makeDeps() never set deps.platform before now.
+// Adding new Given/Then phrases for "declares the platform" here would be an
+// AmbiguousStepDefinition once feature-817.steps.ts also matched them, so the
+// declaration is a setter (folded into makeDeps() above) and the read is an
+// accessor, both exported instead. Resets to `undefined` per scenario are the
+// caller's responsibility (feature-817.steps.ts's own Before/After), so the
+// undeclared-platform row still exercises `deps.platform ?? Platform.GitHub`.
+// No `@adw-794` phrase text changes.
+// ---------------------------------------------------------------------------
+
+/** Sets (or clears, with `undefined`) the boundary's declared platform for the next `makeDeps()` call. */
+export function setDeclaredPlatform(platform: Platform | undefined): void {
+  w.declaredPlatform = platform;
+}
+
+/** The most recently built launch boundary, or null if none has been built yet this scenario. */
+export function getBuiltBoundary(): LaunchBoundary | null {
+  return w.boundary;
+}

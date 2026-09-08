@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { RepoInfo } from '../githubApi';
+import { Platform, type RepoIdentifier } from '../../providers/types';
 
 const fakeCtx = { marker: 'fake-context' };
 
@@ -17,7 +17,7 @@ import { listIssues, fetchIssueCommentBodies } from '../issueListApi';
 import { gitContextForRepo } from '../gitContextFactory';
 import { createGhRepoApi } from '../../providers/github/ghRepoApi';
 
-const repoInfo: RepoInfo = { owner: 'acme', repo: 'widgets' };
+const repoInfo: RepoIdentifier = { owner: 'acme', repo: 'widgets', platform: Platform.GitHub };
 
 beforeEach(() => {
   vi.clearAllMocks();

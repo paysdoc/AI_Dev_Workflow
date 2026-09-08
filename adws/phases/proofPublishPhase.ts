@@ -31,9 +31,7 @@ export async function executeProofPublishPhase(
     const scenarioProof = ctx.scenarioProof;
     const prNumber = extractPrNumber(ctx.prUrl);
 
-    const repoInfo = repoContext?.repoId
-      ? { owner: repoContext.repoId.owner, repo: repoContext.repoId.repo }
-      : getRepoInfo();
+    const repoInfo = repoContext?.repoId ?? getRepoInfo();
 
     await publishPrProof({
       artifactsDir: scenarioProof?.artifactsDir,

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { RepoInfo } from '../../github/githubApi';
+import { Platform, type RepoIdentifier } from '../../providers/types';
 
 // Mock all external dependencies before importing the module under test
 vi.mock('../../core/workflowCommentParsing', () => ({
@@ -46,7 +46,7 @@ const mockClearIssueComments = vi.mocked(clearIssueComments);
 const mockRmSync = vi.mocked(fs.rmSync);
 const mockReadFileSync = vi.mocked(fs.readFileSync);
 
-const repoInfo: RepoInfo = { owner: 'test-owner', repo: 'test-repo' };
+const repoInfo: RepoIdentifier = { owner: 'test-owner', repo: 'test-repo', platform: Platform.GitHub };
 
 beforeEach(() => {
   vi.clearAllMocks();

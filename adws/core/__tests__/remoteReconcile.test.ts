@@ -15,15 +15,15 @@ import {
 } from '../remoteReconcile';
 import { AgentStateManager } from '../agentState';
 import type { AgentState } from '../../types/agentTypes';
-import type { RawPR } from '../../github/prApi';
-import type { RepoInfo } from '../../github/githubApi';
+import type { RawPR } from '../../providers/github/domain/pullRequest';
 import type { LaunchBoundary } from '../launchGitContext';
 import type { GitContext } from '../../gitContext';
-import type { CodeHost, PullRequestSummary } from '../../providers/types';
+import type { CodeHost, PullRequestSummary, RepoIdentifier } from '../../providers/types';
+import { Platform } from '../../providers/types';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const REPO_INFO: RepoInfo = { owner: 'acme', repo: 'myrepo' };
+const REPO_INFO: RepoIdentifier = { owner: 'acme', repo: 'myrepo', platform: Platform.GitHub };
 
 function makeState(overrides: Partial<AgentState> = {}): AgentState {
   return {

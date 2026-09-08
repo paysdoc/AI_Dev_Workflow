@@ -4,8 +4,10 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { log, setLogAdwId, ensureLogsDirectory, type PRDetails, type PRReviewComment, AgentStateManager, type AgentState, type ModelUsageMap, allocateRandomPort, emptyModelUsageMap, OrchestratorId, type TargetRepoInfo, ensureTargetRepoWorkspace, loadProjectConfig, readAdwYmlConfig, type GitHubIssue, type IssueClassSlashCommand, type RecoveryState, bindWorkspaceContext, type LaunchBoundary } from '../core';
-import { fetchPRDetails, getUnaddressedComments, type PRReviewWorkflowContext, getRepoInfo, type RepoInfo, gitContextFor } from '../github';
+import { log, setLogAdwId, ensureLogsDirectory, AgentStateManager, type AgentState, type ModelUsageMap, allocateRandomPort, emptyModelUsageMap, OrchestratorId, type TargetRepoInfo, ensureTargetRepoWorkspace, loadProjectConfig, readAdwYmlConfig, type IssueClassSlashCommand, type RecoveryState, bindWorkspaceContext, type LaunchBoundary } from '../core';
+import type { GitHubIssue } from '../providers/github/domain/issue';
+import type { PRDetails, PRReviewComment } from '../providers/github/domain/pullRequest';
+import { fetchPRDetails, getUnaddressedComments, type PRReviewWorkflowContext, getRepoInfo, gitContextFor } from '../github';
 import type { WorkflowConfig } from './workflowInit';
 import { inferIssueTypeFromBranch } from '../vcs';
 import { BoardStatus, type RepoContext, type RepoIdentifier } from '../providers/types';
@@ -35,7 +37,7 @@ export interface PRReviewWorkflowConfig {
  * @param prNumber - The PR number to review
  * @param adwId - Optional ADW workflow ID (generated if not provided)
  */
-export async function initializePRReviewWorkflow(prNumber: number, adwId: string, repoInfo?: RepoInfo, repoId?: RepoIdentifier, targetRepo?: TargetRepoInfo, boundary?: LaunchBoundary): Promise<PRReviewWorkflowConfig> {
+export async function initializePRReviewWorkflow(prNumber: number, adwId: string, repoInfo?: RepoIdentifier, repoId?: RepoIdentifier, targetRepo?: TargetRepoInfo, boundary?: LaunchBoundary): Promise<PRReviewWorkflowConfig> {
   const resolvedRepoInfo = repoInfo ?? getRepoInfo();
   const prDetails = fetchPRDetails(prNumber, resolvedRepoInfo);
   log(`Fetched PR: ${prDetails.title}`, 'success');

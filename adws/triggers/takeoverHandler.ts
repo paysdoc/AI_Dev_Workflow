@@ -41,7 +41,7 @@ import { commentOnIssue } from '../github/githubApi';
 import { decideWorktreeReuse } from '../vcs/worktreeReuseGate';
 import { probeWorktree, clearOrphanedIndexLock, buildDefaultProbeDeps } from '../vcs/worktreeProbe';
 import type { WorktreeProbe } from '../vcs/worktreeReuseGate';
-import type { RepoInfo } from '../github/githubApi';
+import type { RepoIdentifier } from '../providers/types';
 import type { AgentState } from '../types/agentTypes';
 import type { WorkflowStage } from '../types/workflowTypes';
 import type { GitContext } from '../gitContext';
@@ -55,7 +55,7 @@ export type CandidateDecision =
 
 export interface EvaluateCandidateInput {
   readonly issueNumber: number;
-  readonly repoInfo: RepoInfo;
+  readonly repoInfo: RepoIdentifier;
   /** Launch-boundary GitContext. When provided, worktree paths are resolved via the
    *  context's base path (never from ambient cwd). Absent only in legacy callers. */
   readonly gitContext?: GitContext;
@@ -66,22 +66,22 @@ export interface EvaluateCandidateInput {
 }
 
 export interface TakeoverDeps {
-  readonly acquireIssueSpawnLock: (repoInfo: RepoInfo, issueNumber: number, ownPid: number) => boolean;
-  readonly releaseIssueSpawnLock: (repoInfo: RepoInfo, issueNumber: number) => void;
-  readonly readSpawnLockRecord: (repoInfo: RepoInfo, issueNumber: number) => { pid: number; pidStartedAt: string } | null;
-  readonly resolveAdwId: (issueNumber: number, repoInfo: RepoInfo) => string | null;
+  readonly acquireIssueSpawnLock: (repoInfo: RepoIdentifier, issueNumber: number, ownPid: number) => boolean;
+  readonly releaseIssueSpawnLock: (repoInfo: RepoIdentifier, issueNumber: number) => void;
+  readonly readSpawnLockRecord: (repoInfo: RepoIdentifier, issueNumber: number) => { pid: number; pidStartedAt: string } | null;
+  readonly resolveAdwId: (issueNumber: number, repoInfo: RepoIdentifier) => string | null;
   readonly readTopLevelState: (adwId: string) => AgentState | null;
   readonly isProcessLive: (pid: number, pidStartedAt: string) => boolean;
   readonly killProcess: (pid: number) => void;
   readonly resetWorktree: (worktreePath: string, branch: string) => void;
-  readonly deriveStageFromRemote: (issueNumber: number, adwId: string, repoInfo: RepoInfo) => WorkflowStage;
+  readonly deriveStageFromRemote: (issueNumber: number, adwId: string, repoInfo: RepoIdentifier) => WorkflowStage;
   readonly writeTopLevelState: (adwId: string, state: Partial<AgentState>) => void;
-  readonly commentOnIssue: (issueNumber: number, body: string, repoInfo: RepoInfo) => void;
+  readonly commentOnIssue: (issueNumber: number, body: string, repoInfo: RepoIdentifier) => void;
   readonly probeWorktree: (worktreePath: string, expectedBranch: string, recordedPid?: number, recordedPidStartedAt?: string) => WorktreeProbe;
   readonly clearOrphanedIndexLock: (worktreePath: string) => void;
 }
 
-export function buildDefaultTakeoverDeps(repoInfo?: RepoInfo, boundary?: LaunchBoundary): TakeoverDeps {
+export function buildDefaultTakeoverDeps(repoInfo?: RepoIdentifier, boundary?: LaunchBoundary): TakeoverDeps {
   return {
     acquireIssueSpawnLock: (repoInfo, issueNumber, ownPid) =>
       acquireIssueSpawnLock(repoInfo, issueNumber, ownPid),

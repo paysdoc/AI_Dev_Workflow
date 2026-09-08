@@ -39,7 +39,8 @@ import { AGENTS_STATE_DIR } from '../../../adws/core/index.ts';
 import type { AgentState } from '../../../adws/types/agentTypes.ts';
 import { nextResumeAction } from '../../../adws/core/resumePolicy.ts';
 import { formatHumanGatedComment } from '../../../adws/github/workflowCommentsIssue.ts';
-import type { RepoInfo } from '../../../adws/github/githubApi.ts';
+import type { RepoIdentifier } from '../../../adws/providers/types.ts';
+import { Platform } from '../../../adws/providers/types.ts';
 import type { RegressionWorld } from '../../regression/step_definitions/world.ts';
 import type { RecordedRequest } from '../../../test/mocks/types.ts';
 
@@ -63,7 +64,7 @@ const postedComments: { issueNumber: number; body: string }[] = [];
 // Helpers
 // ---------------------------------------------------------------------------
 
-const REPO: RepoInfo = { owner: 'test-owner', repo: 'test-repo' } as const;
+const REPO: RepoIdentifier = { owner: 'test-owner', repo: 'test-repo', platform: Platform.GitHub } as const;
 
 function readProductionState(adwId: string): Record<string, unknown> | null {
   const filePath = join(AGENTS_STATE_DIR, adwId, 'state.json');

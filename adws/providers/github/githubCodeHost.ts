@@ -3,7 +3,6 @@
  * Delegates to existing prApi and gitBranchOperations functions.
  */
 
-import type { RepoInfo } from '../../github/githubApi';
 import { log } from '../../core';
 import {
   fetchPRDetails,
@@ -42,11 +41,9 @@ import {
  */
 export class GitHubCodeHost implements CodeHost {
   private readonly repoId: RepoIdentifier;
-  private readonly repoInfo: RepoInfo;
 
   constructor(repoId: RepoIdentifier) {
     this.repoId = repoId;
-    this.repoInfo = { owner: repoId.owner, repo: repoId.repo };
   }
 
   /** Returns the bound RepoIdentifier. */
@@ -60,24 +57,24 @@ export class GitHubCodeHost implements CodeHost {
 
   /** Fetches PR details and maps to PullRequest. */
   fetchPullRequest(prNumber: number): PullRequest {
-    const pr = fetchPRDetails(prNumber, this.repoInfo);
+    const pr = fetchPRDetails(prNumber, this.repoId);
     return mapPRDetailsToPullRequest(pr);
   }
 
   /** Posts a comment on the specified PR. */
   commentOnPullRequest(prNumber: number, body: string): void {
-    commentOnPR(prNumber, body, this.repoInfo);
+    commentOnPR(prNumber, body, this.repoId);
   }
 
   /** Fetches review comments and maps to ReviewComment[]. */
   fetchReviewComments(prNumber: number): ReviewComment[] {
-    const comments = fetchPRReviewComments(prNumber, this.repoInfo);
+    const comments = fetchPRReviewComments(prNumber, this.repoId);
     return comments.map(mapPRReviewCommentToReviewComment);
   }
 
   /** Lists open PRs and maps to PullRequest[]. */
   listOpenPullRequests(): PullRequest[] {
-    const items = fetchPRList(this.repoInfo);
+    const items = fetchPRList(this.repoId);
     return items.map(mapPRListItemToPullRequest);
   }
 
@@ -86,7 +83,7 @@ export class GitHubCodeHost implements CodeHost {
    * Returns the PR URL and number.
    */
   createPullRequest(options: CreatePROptions): PullRequestResult {
-    const gh = createGhRepoApi(gitContextForRepo(this.repoInfo));
+    const gh = createGhRepoApi(gitContextForRepo(this.repoId));
 
     // Check for an existing open PR on this branch before creating a new one
     try {
@@ -95,7 +92,7 @@ export class GitHubCodeHost implements CodeHost {
       const open = parsed.filter((p) => p.state === 'OPEN');
       if (open.length > 0) {
         const pr = open[0];
-        const url = `https://github.com/${this.repoInfo.owner}/${this.repoInfo.repo}/pull/${pr.number}`;
+        const url = `https://github.com/${this.repoId.owner}/${this.repoId.repo}/pull/${pr.number}`;
         log(`Existing PR #${pr.number} found for branch ${options.sourceBranch}, reusing`, 'info');
         return { url, number: pr.number };
       }
@@ -115,33 +112,33 @@ export class GitHubCodeHost implements CodeHost {
 
   /** Finds the PR for a branch (open, or most-recently-updated when none are open); null if none. */
   findPullRequestByBranch(branchName: string): PullRequestSummary | null {
-    const pr = defaultFindPRByBranch(branchName, this.repoInfo);
+    const pr = defaultFindPRByBranch(branchName, this.repoId);
     return pr ? mapRawPRToSummary(pr) : null;
   }
 
   /** True when the PR has at least one qualifying approval. */
   isPullRequestApproved(prNumber: number): boolean {
-    return fetchPRApprovalState(prNumber, this.repoInfo);
+    return fetchPRApprovalState(prNumber, this.repoId);
   }
 
   /** Approves a PR under the bound identity. */
   approvePullRequest(prNumber: number): ForgeActionResult {
-    return approvePR(prNumber, this.repoInfo);
+    return approvePR(prNumber, this.repoId);
   }
 
   /** Merges a PR. */
   mergePullRequest(prNumber: number): ForgeActionResult {
-    return mergePR(prNumber, this.repoInfo);
+    return mergePR(prNumber, this.repoId);
   }
 
   /** Sets a repo secret (e.g. GitHub Actions). */
   setSecret(name: string, value: string): void {
-    createGhRepoApi(gitContextForRepo(this.repoInfo)).setSecret(name, value);
+    createGhRepoApi(gitContextForRepo(this.repoId)).setSecret(name, value);
   }
 
   /** Merged PRs, newest first, at most `limit`. Throws on failure. */
   listMergedPullRequests(limit: number): readonly MergedPullRequestRecord[] {
-    const json = createGhRepoApi(gitContextForRepo(this.repoInfo)).fetchMergedPRs(limit);
+    const json = createGhRepoApi(gitContextForRepo(this.repoId)).fetchMergedPRs(limit);
     return JSON.parse(json) as MergedPullRequestRecord[];
   }
 }

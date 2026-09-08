@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { findOpenDependencies } from '../triggers/issueDependencies';
+import { Platform } from '../providers/types';
 
 // Mock external dependencies
 vi.mock('../github/issueApi', () => ({
@@ -15,7 +16,7 @@ vi.mock('../core', async (importOriginal) => {
   return { ...actual, log: vi.fn() };
 });
 
-const REPO_INFO = { owner: 'test', repo: 'repo' };
+const REPO_INFO = { owner: 'test', repo: 'repo', platform: Platform.GitHub };
 
 // Re-import after mocking
 import { getIssueState } from '../github/issueApi';

@@ -155,6 +155,7 @@
     - When working with `adws/github/issueListApi.ts` (`listIssues`, `fetchIssueCommentBodies`) — the shared, throwing (no-swallow) implementation behind `IssueTracker.listIssues` and the `repoInfo`-only trigger callers (`concurrencyGuard.ts`, `webhookGatekeeper.ts`, `issueClosedUnblockRouter.ts`)
     - When `issueHasLabel(issueNumber, _labelName)` is referenced and not found — renamed to `issueLabels(issueNumber)` (same command, dead unused param dropped, #797)
     - When `postWorkflowComment`/`postPRWorkflowComment` are referenced and not found — deleted (#797), superseded by `adws/phases/phaseCommentHelpers.ts`; the comment formatters in `workflowComments.ts`/`workflowCommentsIssue.ts`/`workflowCommentsPR.ts` stay
+    - When a `adws/github/*` function's `repoInfo` parameter is typed `RepoIdentifier` (#817) — the name survived, the `RepoInfo` type did not
 
 - app_docs/feature-9gjajh-cron-triggers.md
   - Owns:
@@ -251,6 +252,8 @@
     - When working on multi-provider repo context, GitHub provider, GitLab provider, or Jira provider integration in `adws/providers/`
     - When adding or modifying `IssueTracker` or `CodeHost` methods in `adws/providers/types.ts` and their GitHub/GitLab/Jira implementations
     - When working on the GitHub forge adapter — command builders, token resolution (`appAuth.ts`/`tokenResolver.ts`/`githubTokenProvider.ts`), `ghCommandRunner.ts`, or the `ghIssueApi`/`ghPrApi`/`ghRepoApi` composition
+    - When working with the adapter-owned raw GitHub payload shapes in `adws/providers/github/domain/` (moved from `adws/types/` and `adws/github/prApi.ts`, #817)
+    - When `RepoInfo` or `toRepoInfo` is referenced and not found — collapsed into `RepoIdentifier` (#817); parsers stamp `platform: Platform.GitHub`
 
 - app_docs/feature-9gjajh-cost-tracking.md
   - Owns:
@@ -275,6 +278,7 @@
     - adws/types/**
   - Conditions:
     - When working on shared ADW type definitions: `AgentState`, workflow types, issue types, data types, issue routing, or the types module in `adws/types/`
+    - When `GitHubIssue`/`GitHubComment`/`PRDetails`/`PRReviewComment`/`PRListItem`/`IssueCommentSummary` are not found in `adws/types/` — moved to `adws/providers/github/domain/` (#817)
 
 - app_docs/feature-9gjajh-health-check.md
   - Owns:

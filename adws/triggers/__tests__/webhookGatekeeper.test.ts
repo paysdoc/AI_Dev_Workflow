@@ -51,8 +51,9 @@ vi.mock('../../core/agentState', () => ({
 import { classifyAndSpawnWorkflow, closeAbandonedDependents } from '../webhookGatekeeper';
 import { listIssues } from '../../github/issueListApi';
 import { parseDependencies } from '../issueDependencies';
+import { Platform } from '../../providers/types';
 
-const REPO_INFO = { owner: 'acme', repo: 'target' };
+const REPO_INFO = { owner: 'acme', repo: 'target', platform: Platform.GitHub };
 const TARGET_ARGS = ['--target-repo', 'acme/target'];
 
 function spawnedScripts(): string[] {

@@ -15,7 +15,7 @@ import { extractAdwIdFromComment } from '../core/workflowCommentParsing';
 import { findOrchestratorStatePath, isProcessAlive } from '../core/stateHelpers';
 import { clearIssueComments } from '../adwClearComments';
 import { gitContextForSync } from '../github';
-import type { RepoInfo } from '../github/githubApi';
+import type { RepoIdentifier } from '../providers/types';
 
 /** Mutable dedup sets passed in from the cron trigger so cancelled issues skip this cycle. */
 export interface MutableProcessedSets {
@@ -41,7 +41,7 @@ export interface MutableProcessedSets {
 export function handleCancelDirective(
   issueNumber: number,
   comments: readonly { body: string }[],
-  repoInfo: RepoInfo,
+  repoInfo: RepoIdentifier,
   cwd?: string,
   processedSets?: MutableProcessedSets,
 ): boolean {

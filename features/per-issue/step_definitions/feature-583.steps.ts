@@ -45,6 +45,7 @@ import { ADW_SIGNATURE } from '../../../adws/core/workflowCommentParsing.ts';
 import { ctx577 } from './feature-577.steps.ts';
 import { ctx579 } from './feature-579.steps.ts';
 import type { UploadedArtifact, ProofArtifact } from '../../../adws/proof/types.ts';
+import { Platform } from '../../../adws/providers/types.ts';
 import type { ScenarioProofResult } from '../../../adws/phases/scenarioProof.ts';
 import type { RegressionWorld } from '../../regression/step_definitions/world.ts';
 
@@ -231,7 +232,7 @@ Then(
       artifactsDir: ctx.scenarioProofResult.artifactsDir,
       scenarioProof: ctx.scenarioProofResult,
       prNumber: 583,
-      repoInfo: { owner: 'paysdoc', repo: 'python-app' },
+      repoInfo: { owner: 'paysdoc', repo: 'python-app', platform: Platform.GitHub },
       adwId: ADW_ID,
       commenter: (_n, body) => { ctx.capturedComment = body; },
     });
