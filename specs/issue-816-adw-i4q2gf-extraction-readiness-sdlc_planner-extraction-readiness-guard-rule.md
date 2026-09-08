@@ -1,0 +1,236 @@
+# Feature: Extraction-readiness guard rule — extractable packages import nothing from the framework
+
+## Metadata
+issueNumber: `816`
+adwId: `i4q2gf-extraction-readiness`
+issueJson: ``{"number":816,"title":"Extraction-readiness guard rule: extractable packages import nothing from the framework","body":"## Parent PRD\n\nspecs/prd/gitcontext-library-extraction.md\n\n## What to build\n\nA fourth rule in the CI git/gh guard runner: **extraction-readiness**. Any file inside an extractable package that imports from outside the extractable set (`adws/gitContext/` and `adws/providers/`) fails the build. The rule carries an explicit scope list of paths it currently enforces; the initial scope is what is already clean today — the whole of `adws/gitContext/` and `adws/providers/types.ts` — and every later de-tangling slice widens the scope by the package it cleaned. When both packages are fully in scope, extraction is machine-checked to be a pure file move.\n\nRelative imports that stay inside the extractable set (`adws/providers/github` → `adws/gitContext`) are allowed; imports of Node built-ins and npm packages are allowed; anything resolving under `adws/` but outside the two packages is a violation. Test files are excluded.\n\nSee PRD: Implementation Decisions (Extraction-readiness guard), Testing Decisions (Extraction-readiness guard).\n\n## Acceptance criteria\n\n- [ ] New rule lives beside the existing three in `adws/guard/` with its own violation type and is wired into `checkGitGhGuard.ts` and `bun run lint:git-guard`\n- [ ] Scope list is explicit and documented as \"widen only, never narrow\"; initial scope = `adws/gitContext/**` + `adws/providers/types.ts`\n- [ ] Guard test suite covers both directions: a fixture importing `../../core` from inside scope fails; a clean in-scope file and an intra-set import pass\n- [ ] `bun run lint:git-guard` green on the current tree with the initial scope\n- [ ] Living doc for the guard updated with the fourth rule\n\n## Blocked by\n\nNone - can start immediately\n\n## Touched Files\n\n- adws/guard/extractionRule.ts\n- adws/guard/violationTypes.ts\n- adws/checkGitGhGuard.ts\n- adws/__tests__/checkGitGhGuard.test.ts\n- .github/workflows/git-cli-guard.yml\n\n## User stories addressed\n\n- User story 11\n- User story 12\n","state":"OPEN","author":"paysdoc","labels":["adw:feature"],"createdAt":"2026-09-08T11:17:26Z","comments":[],"actionableComment":null}``
+
+## Feature Description
+
+The git/gh guard (`adws/checkGitGhGuard.ts`, run by `bun run lint:git-guard` and the `Git/GH CLI Guard` CI workflow) today enforces three AST rules: `git-gh-shellout`, `cwd-derived-identity`, and `unsanctioned-construction`. This feature adds a fourth, independent rule — **`extraction-readiness`** — that fails the build when a file inside an *extractable* package imports anything that lives outside the *extractable set*.
+
+The extractable set is the pair of directories that the gitContext library extraction PRD (`specs/prd/gitcontext-library-extraction.md`) will move to the `@paysdoc/gitcontext` repository in one motion: `adws/gitContext/` (the git core) and `adws/providers/` (ports, domain model, and the GitHub/GitLab/Jira adapters). The PRD's whole premise is that extraction must be a pure file move — so anything those directories still reach into the rest of the framework (`adws/core`, `adws/github`, `adws/types`, …) is a de-tangling defect. The rule turns that intention into a machine-checked invariant.
+
+Because the providers package is *not* clean yet (the GitHub adapter still delegates to `adws/github/*`, the GitLab/Jira adapters still import `log`/env constants from `adws/core`, `mappers.ts` types come from `adws/types/*`, and `repoContext.ts` reaches `adws/github/gitContextFactory` and `adws/core/projectConfig`), the rule carries an explicit **scope list** of paths it enforces right now. The initial scope is exactly what is already clean today — the whole of `adws/gitContext/` and the single file `adws/providers/types.ts` (verified: the non-test gitContext modules import only Node built-ins and `./` siblings; `types.ts` has no imports at all). Each later de-tangling slice (domain-model consolidation, GitHub-adapter absorption, GitLab/Jira config injection, the assembly function) appends the package it cleaned. The scope list is **widen only, never narrow**; when both directories are fully in scope, extraction is machine-checked to be a file move, and the rule is deleted together with the directories it guarded at switchover.
+
+## User Story
+
+As a CI pipeline (user story 11) and as a framework developer landing the de-tangling issues one by one (user story 12)
+I want an extraction-readiness rule in the existing guard runner that fails the build when an in-scope extractable file imports from the rest of the framework
+So that de-tangling regressions are caught the moment they are introduced, and completed de-tangling work cannot be quietly undone by later changes
+
+## Problem Statement
+
+Nothing structural today stops `adws/gitContext/` or `adws/providers/types.ts` from re-acquiring an import of `adws/core` or `adws/github`. The Phase A work (#790–#797) made the core forge-neutral and dependency-free by hand, but that state is protected only by code review. The de-tangling wave of the extraction PRD will land as separate issues over time; each one moves a package to "clean", and each subsequent change to the codebase can silently undo that (a convenient `import { log } from '../core'` compiles and passes every test). If any such regression survives until extraction day, the library repository would be seeded with code that does not compile in its new home — exactly the "design finished after publication" failure the PRD's refactor-before-extract principle exists to prevent. The existing guard cannot help: its file walk deliberately *prunes* both extractable packages (`isExemptPackage`) before any rule runs, so no current rule ever looks inside them.
+
+## Solution Statement
+
+Add `adws/guard/extractionRule.ts` beside the two existing rule modules, wired into `adws/checkGitGhGuard.ts` as a fourth rule with its own `ViolationRule` member `'extraction-readiness'`.
+
+- **Two lists with distinct roles.** `EXTRACTABLE_SET` (fixed until extraction: `adws/gitContext`, `adws/providers`) is the *allowed import target set*. `EXTRACTION_SCOPE` (initially `adws/gitContext` and `adws/providers/types.ts`) is the *enforced file set* — an `as const` array of `{ path, reason, since }` entries, documented as widen-only, matched by exact path or directory prefix exactly like `isExemptPackage`.
+- **Violation criterion.** For every in-scope file, every statically resolvable non-bare import specifier is resolved (POSIX join + normalize against the importer's directory; the `@adws/*` tsconfig alias maps to `adws/*`) to a repo-relative path. A target that is *not* inside `EXTRACTABLE_SET` is a violation. Bare specifiers (npm packages, Node built-ins with or without the `node:` prefix) are never resolved and never flagged. This is a superset of the issue's phrase "resolving under `adws/` but outside the two packages": a relative import that escapes `adws/` altogether (e.g. `../../core` from `adws/gitContext/x.ts` resolves to the repo-root `core/`) also breaks a pure file move, so it is a violation too — which is what makes the acceptance-criteria fixture fail from any in-scope depth.
+- **Every import shape counts.** `import … from`, `import type … from`, `export … from` / `export * from` re-exports, `import x = require('…')`, dynamic `import('…')`, and `require('…')` — all with string-literal specifiers, found by AST walk (comments and prose never match). Type-only imports are flagged deliberately: a moved file that cannot type-check is not a pure file move.
+- **Separate discovery, unchanged existing rules.** Scope files live *inside* the exempt packages that `collectTsFiles` prunes, so the entry point gains `collectExtractionScopeFiles(repoRoot)` (a walk over the scope entries that does not prune exempt packages but still applies `isScannable`, so `__tests__/` and `*.test.ts` are excluded) and `scanExtractionScope(relPaths, repoRoot)` (runs only the extraction rule). `collectTsFiles`, `scanFiles`, and the three existing rules are untouched — the git core keeps shelling out to git without tripping `git-gh-shellout`, and `scanFiles.length === 2` still holds.
+- **Reporting.** Extraction violations join the same `path:line  [rule]  command` FAIL listing with their own remedy line; `main()` prints an "Extraction-readiness scope — N entries, widen only (#816)" block listing each entry. The block never contains the substring "allowlisted" (the `(\d+)\s+allowlisted` BDD regex must keep matching only the capstone line). A scope entry missing from disk fails the run loudly instead of silently scanning nothing — a renamed package must not disarm the rule.
+- **Documentation.** The guard's living doc gains the fourth rule; the guard's `.adw/conditional_docs.md` entry gains ownership of the new module and the widening procedure.
+
+## Relevant Files
+
+Use these files to implement the feature:
+
+- `README.md` — project overview; confirms Bun/TypeScript runtime, `bun run lint:git-guard`, vitest unit tests, and the BDD scenario mechanism.
+- `.adw/coding_guidelines.md` — must be followed: files under 300 lines, max ~2 nesting levels, guard clauses, extract loop bodies, no `any`, JSDoc on public APIs. `adws/checkGitGhGuard.ts` is at 265 lines today — see Notes for the line budget.
+- `.adw/project.md` — declares `## Unit Tests: enabled` (unit-test tasks are therefore included) and the relevant-files list.
+- `.adw/commands.md` — validation commands (`bun run lint`, `bunx tsc --noEmit`, `bun run test:unit`, `bun run build`, `bunx tsc --noEmit -p adws/tsconfig.json`).
+- `adws/checkGitGhGuard.ts` — the guard entry point: `EXEMPT_DIR_NAMES`, `EXEMPT_PACKAGES`/`isExemptPackage`, `collectTsFiles`/`visitDir`/`isScannable`, the `git-gh-shellout` rule, `scanFiles`/`scanSource`, and `main()` (stdout, stale-entry ratchet, `process.exit`). Gains scope discovery, `scanExtractionScope`, the stdout block, and the remedy line.
+- `adws/guard/violationTypes.ts` — the `ViolationRule` union and `Violation` shape; gains `'extraction-readiness'`.
+- `adws/guard/identityRule.ts` — pattern to mirror: pure module, `import * as ts`, single exported `flag…(sourceFile)` entry point, JSDoc'd helpers.
+- `adws/guard/constructionRule.ts` — pattern to mirror for a file-scoped list (`SANCTIONED_CONSTRUCTION_SITES` as `as const` array of `{ file, reason, owner? }`, `isSanctionedConstructionSite` exact-match predicate, guard-clause-first `flagUnsanctionedConstruction(sourceFile, relPath)`), and for the docblock style that spells out near-misses that must NOT be caught.
+- `adws/__tests__/checkGitGhGuard.test.ts` — the guard's unit suite (60 tests, `vi.mock('fs')` + `mockReadFileSync` fixture pattern, `vi.importActual('fs')` for real reads). Gains the both-direction scan-level tests for the fourth rule.
+- `.github/workflows/git-cli-guard.yml` — the CI workflow; `run: bun run lint:git-guard` already covers the new rule; job/step names updated to name it.
+- `package.json` — `scripts.lint:git-guard` (`bunx tsx adws/checkGitGhGuard.ts`) — no change needed, referenced for validation.
+- `vitest.config.ts` — confirms `adws/**/__tests__/**/*.test.ts` is collected, so `adws/guard/__tests__/extractionRule.test.ts` runs under `bun run test:unit`.
+- `adws/tsconfig.json` — declares the `@adws/*` → `./*` path alias the resolver must honour (unused today; treating it closes a trivial bypass).
+- `adws/gitContext/index.ts`, `adws/gitContext/*.ts` — the initial scope; verified clean (only `child_process`, `fs`, `path`, and `./` sibling imports; barrel uses `export … from './…'` re-exports, which the rule must inspect and accept).
+- `adws/providers/types.ts` — the second initial-scope entry; has zero imports.
+- `adws/providers/repoContext.ts`, `adws/providers/github/*.ts`, `adws/providers/gitlab/*.ts`, `adws/providers/jira/*.ts` — deliberately OUT of the initial scope; their framework imports (`../../core`, `../../github/*`, `../../types/*`, `../core/projectConfig`, `../github/gitContextFactory`) are the de-tangling backlog and must produce zero violations today. Do not touch.
+- `features/per-issue/step_definitions/feature-691.steps.ts`, `feature-700.steps.ts`, `feature-792.steps.ts` — existing BDD steps that drive the guard: whole-repo runs spawn `bunx tsx adws/checkGitGhGuard.ts` (so the fourth rule is exercised by them automatically), the ratchet step parses the FIRST `(\d+)\s+allowlisted` match, and the fixture-repo step drives `collectTsFiles` → `scanFiles` in-process. None may change behaviour.
+- `app_docs/feature-bq1f45-git-gh-cli-guard.md` — the guard's living doc (conditional doc: "When working with `adws/checkGitGhGuard.ts`, `scanFiles`, or `scanSource`"); must be updated with the fourth rule (acceptance criterion 5).
+- `.adw/conditional_docs.md` — the guard doc's entry (`Owns:` list + `Conditions:`); extend with `adws/guard/extractionRule.ts` and widening conditions. Do NOT add a new entry (see Notes).
+- `app_docs/feature-oqb76h-gitcontext-base-path-authority.md` — conditional doc for `adws/gitContext/**` (the initial scope's package); read to confirm the package's dependency-free design and the `exec()`/guard coupling note.
+- `app_docs/feature-9gjajh-providers.md` — conditional doc for `adws/providers/**`; read to understand which provider files still delegate to `adws/github/*` (why only `types.ts` is in scope).
+- `app_docs/feature-e2er82-github-forge-adapter.md` — conditional doc describing the `EXEMPT_PACKAGES` contract the adapter relies on; the new rule must not alter that contract.
+- `specs/prd/gitcontext-library-extraction.md` — parent PRD: Implementation Decisions (Extraction-readiness guard) and Testing Decisions (Extraction-readiness guard: "both directions, per the guard suite's prior art").
+
+### New Files
+
+- `adws/guard/extractionRule.ts` — the `extraction-readiness` rule module: `EXTRACTABLE_SET`, `EXTRACTION_SCOPE`, `isInExtractableSet`, `isInExtractionScope`, `resolveImportTarget`, `collectImportSpecifiers`, `flagFrameworkImports`. Pure (no `fs`), like the other two rule modules.
+- `adws/guard/__tests__/extractionRule.test.ts` — rule-level unit tests (no `fs` mock): resolver table, predicates, specifier collection across all import shapes, scope-list invariants, and a real-tree assertion that the initial scope is clean.
+
+## Implementation Plan
+
+### Phase 1: Foundation
+
+Extend the shared violation vocabulary and build the rule as a pure module with no wiring yet. Add `'extraction-readiness'` to `ViolationRule` in `adws/guard/violationTypes.ts`. Create `adws/guard/extractionRule.ts` holding the two lists (`EXTRACTABLE_SET`, `EXTRACTION_SCOPE`), the two membership predicates, the pure import resolver, the AST specifier collector covering every import shape, and the single entry point `flagFrameworkImports(sourceFile, relPath)` that guard-clauses on scope membership first. Cover it with rule-level unit tests in `adws/guard/__tests__/extractionRule.test.ts` so the rule is proven before it touches the entry point.
+
+### Phase 2: Core Implementation
+
+Wire the rule into `adws/checkGitGhGuard.ts` without disturbing the existing three rules. Generalise `visitDir` with a descend predicate so the same walker serves both the existing pruning walk and a new scope walk that descends into the exempt packages. Add `collectExtractionScopeFiles(repoRoot)` (exported, fail-loud on a missing entry) and `scanExtractionScope(relPaths, repoRoot)` (exported, extraction rule only). In `main()`, run the scope scan, merge its violations into the single FAIL listing, add the remedy line, print the scope block (never containing "allowlisted"), and keep the `(0 allowlisted)` capstone and existing PASS line byte-identical. Condense the entry-point header docblock so the file stays under 300 lines.
+
+### Phase 3: Integration
+
+Add the both-direction scan-level tests to `adws/__tests__/checkGitGhGuard.test.ts` using the existing `mockReadFileSync` pattern (in-scope `../../core` fixture fails; clean in-scope file and intra-set import pass; out-of-scope providers file with a framework import passes today; a `git` string inside a scope file is NOT a shellout violation via the scope scan). Rename the CI job/step to name the fourth rule (the `run:` line is unchanged). Update the guard's living doc and its `.adw/conditional_docs.md` entry. Run the full validation set, including a negative end-to-end probe that proves `bun run lint:git-guard` exits 1 on a planted violation and returns to green once it is removed.
+
+## Step by Step Tasks
+
+Execute every step in order, top to bottom.
+
+### 1. Extend the shared violation type (`adws/guard/violationTypes.ts`)
+
+- Change `ViolationRule` to `'git-gh-shellout' | 'cwd-derived-identity' | 'unsanctioned-construction' | 'extraction-readiness'`.
+- Update the docblock: "The guard's four independent AST rules", and add `adws/guard/extractionRule.ts` to the list of rule modules named in the header comment.
+- `Violation` keeps its shape (`{ file, line, command, rule }`); for this rule `command` carries the import specifier and its resolved target, e.g. `import '../core' (resolves to adws/core)`.
+
+### 2. Create the rule module (`adws/guard/extractionRule.ts`)
+
+- Module docblock in the style of `constructionRule.ts`: what the rule asserts (PRD stories 11/12), the two lists and their different roles, the **WIDEN ONLY, NEVER NARROW** contract for the scope list (each de-tangling slice appends the package it cleaned; no entry is ever removed; the whole rule is deleted with the directories at the switchover issue), and the deliberate near-misses that must NOT be flagged (bare npm/Node specifiers, `node:`-prefixed built-ins, `./` siblings, intra-set `../gitContext` / `../providers/types` hops, test files, comment mentions).
+- `export const EXTRACTABLE_SET = ['adws/gitContext', 'adws/providers'] as const;` — the directories that move together; the only permitted targets for a non-bare import from an in-scope file.
+- `export const EXTRACTION_SCOPE = [ { path: 'adws/gitContext', reason: 'git core — dependency-free since Phase A (#790–#797)', since: '#816' }, { path: 'adws/providers/types.ts', reason: 'provider ports + domain shapes — zero imports', since: '#816' } ] as const;` — `path` is a repo-relative file or directory; `since` names the issue that widened the scope to include it, so the widen-only history is auditable in place.
+- `export function isInExtractableSet(relPath: string): boolean` and `export function isInExtractionScope(relPath: string): boolean` — both "exact path or `<path>/` prefix" matches (the `isExemptPackage` semantic), so `adws/gitContextExtra/x.ts` and `adws/providers/typesX.ts` never match by accident.
+- `export function resolveImportTarget(importerRelPath: string, specifier: string): string | null` — pure. Returns `null` for bare specifiers (anything that is not `.`, `..`, `./…`, `../…`, `/…`, or `@adws/…`): npm packages and Node built-ins are allowed without consulting a built-ins list. Maps `@adws/<rest>` to `adws/<rest>`. Resolves relative specifiers with `path.posix.join(path.posix.dirname(importerRelPath), specifier)` + `path.posix.normalize` (importer paths are already forward-slash repo-relative, as produced by `visitDir`). Returns a `/`-rooted specifier unchanged (it can never be inside the set, so it is reported as escaping). Extensions (`./types.ts`) and directory imports (`../gitContext` → the barrel) need no special handling because membership is prefix-based.
+- `export function collectImportSpecifiers(sourceFile: ts.SourceFile): ReadonlyArray<{ specifier: string; line: number }>` — one AST walk collecting string-literal specifiers from: `ts.isImportDeclaration` (covers `import type`), `ts.isExportDeclaration` with a `moduleSpecifier` (covers `export * from` and `export { x } from`), `ts.isImportEqualsDeclaration` whose `moduleReference` is an `ExternalModuleReference` (`import x = require('…')`), and `ts.isCallExpression` whose callee is `SyntaxKind.ImportKeyword` (dynamic `import('…')`) or the identifier `require`, with a string-literal or no-substitution-template first argument. Non-literal specifiers are ignored (cannot be resolved statically). Extract the per-node-kind logic into small named helpers (`specifierOfImportLike`, `specifierOfDynamicImport`) to honour the nesting guideline. Line numbers are 1-based via `getLineAndCharacterOfPosition(node.getStart(sourceFile))`, matching the other rules.
+- `export function flagFrameworkImports(sourceFile: ts.SourceFile, relPath: string): Violation[]` — guard clause first: `if (!isInExtractionScope(relPath)) return [];`. Then `collectImportSpecifiers(sourceFile)` → resolve each → keep those whose target is non-null and `!isInExtractableSet(target)` → map to `{ file: sourceFile.fileName, line, command: \`import '${specifier}' (resolves to ${target})\`, rule: 'extraction-readiness' }`. Declarative `map`/`filter`/`flatMap`, no nested loops.
+- Keep the module well under 300 lines; JSDoc every export.
+
+### 3. Rule-level unit tests (`adws/guard/__tests__/extractionRule.test.ts`)
+
+- No `vi.mock('fs')` here — everything is pure except the final real-tree test, which uses the real `fs`.
+- `resolveImportTarget` table (`it.each`): `('adws/gitContext/a.ts', 'typescript') → null`; `('adws/gitContext/a.ts', 'fs') → null`; `('adws/gitContext/a.ts', 'node:child_process') → null`; `('adws/gitContext/a.ts', '@types/node') → null`; `('adws/gitContext/a.ts', './types') → 'adws/gitContext/types'`; `('adws/gitContext/a.ts', './types.ts') → 'adws/gitContext/types.ts'`; `('adws/gitContext/a.ts', '../core') → 'adws/core'`; `('adws/gitContext/a.ts', '../../core') → 'core'`; `('adws/providers/types.ts', '../gitContext') → 'adws/gitContext'`; `('adws/providers/github/x.ts', '../../gitContext/types') → 'adws/gitContext/types'`; `('adws/providers/github/x.ts', '../../github/githubApi') → 'adws/github/githubApi'`; `('adws/gitContext/a.ts', '@adws/core/utils') → 'adws/core/utils'`; `('adws/gitContext/a.ts', '../gitContext/../gitContext/types') → 'adws/gitContext/types'`.
+- `isInExtractableSet`: true for `adws/gitContext`, `adws/gitContext/gitContext.ts`, `adws/providers/types.ts`, `adws/providers/gitlab/gitlabCodeHost.ts`; false for `adws/core/utils`, `adws/github/githubApi`, `core`, `adws/gitContextExtra/x.ts`, `adws/providersX/y.ts`.
+- `isInExtractionScope`: true for `adws/gitContext`, `adws/gitContext/worktreeCreateOps.ts`, `adws/providers/types.ts`; false for `adws/providers/github/githubCodeHost.ts`, `adws/providers/repoContext.ts`, `adws/providers/typesX.ts`, `adws/github/issueApi.ts`.
+- `collectImportSpecifiers` over one in-memory source (`ts.createSourceFile`) containing every shape — `import { a } from './a'`, `import type { B } from '../b'`, `export * from './c'`, `export { d } from '../d'`, `import e = require('./e')`, `const f = await import('../f')`, `const g = require('./g')`, a comment `// import x from '../../core'`, and `import(dynamicName)` — asserts exactly the seven literal specifiers with their correct lines; the comment and the non-literal dynamic import are absent.
+- `flagFrameworkImports` both directions at the rule level: an in-scope path with `import { log } from '../core'` → one violation whose `rule` is `'extraction-readiness'`, `line` is 1, and `command` contains both `'../core'` and `adws/core`; `import type` from `../../core/projectConfig` → violation (type-only still counts); `export * from '../github/githubApi'` → violation; an in-scope file with only `child_process`, `node:fs`, `typescript`, `./types` → zero; an in-scope `adws/gitContext/a.ts` importing `../providers/types` → zero (intra-set); the same framework-importing source at the out-of-scope path `adws/providers/github/githubCodeHost.ts` → zero (scope guard clause).
+- Scope-list invariants: every `EXTRACTION_SCOPE` entry has a non-empty `path`, `reason`, and `since`; every entry `path` satisfies `isInExtractableSet` (scope ⊆ set); the two initial entries (`adws/gitContext`, `adws/providers/types.ts`) are present — asserted as a superset, never as a count, so widening never breaks this test while narrowing always does; `EXTRACTABLE_SET` is exactly the two directories.
+- Real-tree test: import `collectExtractionScopeFiles` and `scanExtractionScope` from `../../checkGitGhGuard` (safe: `main()` only runs when `process.argv[1]` includes `checkGitGhGuard`); call them with `process.cwd()`; assert zero violations, that the collected list contains `adws/gitContext/gitContext.ts` and `adws/providers/types.ts`, and that no collected path contains `/__tests__/` or ends in `.test.ts`. This pins "green on the current tree with the initial scope" as a unit test as well as a CLI run.
+
+### 4. Wire the rule into the entry point (`adws/checkGitGhGuard.ts`)
+
+- Import `flagFrameworkImports` and `EXTRACTION_SCOPE` from `./guard/extractionRule`.
+- Refactor `visitDir(dir, repoRoot, acc)` to `visitDir(dir, repoRoot, acc, descend)` where `descend: (entryName: string, relPath: string) => boolean`. Define two named predicates: `pruneExemptPackages = (name, rel) => !EXEMPT_DIR_NAMES.has(name) && !isExemptPackage(rel)` (used by `collectTsFiles` — behaviour byte-identical to today) and `descendIntoScope = (name) => !EXEMPT_DIR_NAMES.has(name)` (used by the scope walk; `isScannable` still drops `__tests__/` and `*.test.ts`).
+- Add `export function collectExtractionScopeFiles(repoRoot: string): string[]` — `EXTRACTION_SCOPE.flatMap(({ path }) => collectScopeEntry(path, repoRoot))`. `collectScopeEntry` throws `Error('extraction-readiness: scope entry not found on disk — <path>. Was the package renamed? Update EXTRACTION_SCOPE in adws/guard/extractionRule.ts.')` when the entry does not exist, returns `[path]` when it is a file, and walks it with `visitDir(..., descendIntoScope)` when it is a directory. A missing entry must fail the run (non-zero exit), never silently scan nothing.
+- Add `export function scanExtractionScope(relPaths: readonly string[], repoRoot: string): ScanResult` — reads each file, `ts.createSourceFile(relPath, …)`, collects `flagFrameworkImports(sourceFile, relPath)`, returns `{ violations, scannedCount }`. It runs ONLY the extraction rule; `scanFiles`/`scanSource` are not modified and `scanFiles.length` stays 2.
+- In `main()`: after the existing scan, `const scopeFiles = collectExtractionScopeFiles(repoRoot); const extraction = scanExtractionScope(scopeFiles, repoRoot);` and treat `[...violations, ...extraction.violations]` as the violation list for the FAIL branch. Keep the capstone line `Git/GH CLI Guard — scanned ${scannedCount} files (0 allowlisted)` byte-identical (it still counts only the three-rule walk).
+- Add `printExtractionScope(scannedCount)` printing, after the sanctioned-construction block: `  Extraction-readiness scope — ${EXTRACTION_SCOPE.length} entries, widen only (#816), ${scannedCount} files scanned:` followed by one `    ${path} — ${reason} (since ${since})` line per entry and a blank line. This block must never contain the substring "allowlisted".
+- Keep the existing `✔ PASS  No direct git/gh shell-outs outside the exempt packages.` line unchanged; add a second additive pass line `  ✔ PASS  Extraction scope imports nothing outside adws/gitContext and adws/providers.` when there are no violations and no stale entries.
+- Add the remedy line to the FAIL block: `Remedy (extraction-readiness): an extractable package may import only Node built-ins, npm packages, and files inside adws/gitContext or adws/providers — inject the dependency through a port (TokenProvider/Logger/config) or move the needed shape into the extractable set; never narrow EXTRACTION_SCOPE.`
+- Update the header docblock: replace the three long per-rule paragraphs with one line each pointing at the owning module, and add the fourth line for `extraction-readiness` noting it is the only rule whose discovery walks *inside* the exempt packages. Adjust the "Three independent rules" wording to four.
+- Verify `wc -l adws/checkGitGhGuard.ts` is below 300 after the edit; if it is not, move `printSanctionedConstructionSites` and `printExtractionScope` into a small `adws/guard/guardReport.ts` (stdout-only helpers, no behaviour change) rather than trimming behaviour.
+
+### 5. Scan-level unit tests (`adws/__tests__/checkGitGhGuard.test.ts`)
+
+- Update the imports to add `scanExtractionScope` from `../checkGitGhGuard` and `EXTRACTION_SCOPE` from `../guard/extractionRule`; keep the existing `vi.mock('fs')`/`mockReadFileSync` pattern.
+- New `describe('scanExtractionScope — extraction-readiness rule (#816)')`:
+  - "fails: an in-scope gitContext file importing `../../core`" — `mockReadFileSync.mockReturnValue("import { log } from '../../core';\n")`, `scanExtractionScope(['adws/gitContext/newOp.ts'], '/repo')` → `scannedCount === 1`, one violation, `rule === 'extraction-readiness'`, `file === 'adws/gitContext/newOp.ts'`, `line === 1`, `command` contains `'../../core'`.
+  - "fails: `adws/providers/types.ts` importing `../core/projectConfig`" → one violation.
+  - "fails: a type-only import" (`import type { X } from '../github/githubApi'` at an in-scope path) → one violation.
+  - "passes: a clean in-scope file" (`import { execSync } from 'child_process'; import * as path from 'node:path'; import * as ts from 'typescript'; import type { Logger } from './types';`) → zero.
+  - "passes: an intra-set import" (`adws/gitContext/a.ts` importing `../providers/types`) → zero.
+  - "passes today: an out-of-scope providers file with a framework import" (`adws/providers/github/githubCodeHost.ts` importing `../../github/prApi`) → zero, with a comment that this test flips to a failure the moment `adws/providers/github` is appended to `EXTRACTION_SCOPE`, by design.
+  - "two escaping imports in one file are two violations, one per line" — mirrors the construction-rule test style.
+  - "the scope scan never runs the other three rules" — `mockReadFileSync.mockReturnValue('const x = execSync("git status");\n')` at `adws/gitContext/a.ts` through `scanExtractionScope` → zero violations (no `git-gh-shellout`), proving the rule sets are independent and the git core may still run git.
+  - "`scanFiles` is unchanged: `scanFiles.length` is still 2 and a non-scope file with a framework import is zero violations under `scanFiles`" — `scanFiles(['adws/phases/x.ts'], '/repo')` with `import { log } from '../core';` → zero.
+- Extend the existing rename-detection `it.each` table with `{ name: 'GitContext barrel', file: 'adws/gitContext/index.ts', declPattern: /export \{ GitContext \} from '\.\/gitContext'/ }` so a barrel rewrite that would change what the initial scope covers is noticed (keep the error message pointing at `EXTRACTION_SCOPE`).
+
+### 6. CI workflow (`.github/workflows/git-cli-guard.yml`)
+
+- Change the job `name` to `Fail on direct git/gh shell-outs, ad-hoc construction, or framework imports inside the extractable packages` and the last step name to `Run Git/GH CLI guard (4 rules incl. extraction-readiness)`.
+- Leave `run: bun run lint:git-guard`, triggers, and the setup steps unchanged — the script already runs the fourth rule.
+
+### 7. Living doc and conditional docs
+
+- `app_docs/feature-bq1f45-git-gh-cli-guard.md`:
+  - Overview: "four independent rules"; add the `extraction-readiness` sentence (#816) and the PRD it serves.
+  - Module layout: add `adws/guard/extractionRule.ts` with its exports; note the new entry-point exports `collectExtractionScopeFiles`/`scanExtractionScope` and that the re-export contract for `scanFiles`/`collectTsFiles` is untouched.
+  - Responsibilities: a fourth bullet describing discovery (separate walk inside the exempt packages, tests excluded), the import shapes inspected, the resolution semantic (bare → allowed; relative/alias → resolved; anything outside `EXTRACTABLE_SET` → violation), and the stdout block.
+  - Contracts & Invariants: **scope list is widen only, never narrow** (each de-tangling slice appends the package it cleaned in the same PR; the initial two entries are pinned by a unit test as a superset); `EXTRACTABLE_SET` is fixed until extraction; `import type` counts; a missing scope entry fails the run; the three existing rules never see scope files and `scanFiles.length === 2` still holds; the extraction block never contains "allowlisted".
+  - Configuration: `EXTRACTABLE_SET`, `EXTRACTION_SCOPE` (`{ path, reason, since }`).
+  - Gotchas: "widening is a deliberate act — the out-of-scope providers files import the framework today, and the moment a package is appended every remaining framework import in it fails CI, so widen in the same PR that cleans the package"; "this is the only rule that scans inside `EXEMPT_PACKAGES`"; "the rule is deleted with the directories at the switchover (PRD story 23)".
+- `.adw/conditional_docs.md` — in the existing `app_docs/feature-bq1f45-git-gh-cli-guard.md` entry only: add `adws/guard/extractionRule.ts` to `Owns:`; add conditions "When `bun run lint:git-guard` fails with `[extraction-readiness]` — an in-scope extractable file imports outside `adws/gitContext`/`adws/providers`; inject through a port or move the shape into the set, never narrow `EXTRACTION_SCOPE`", "When a de-tangling slice of the gitContext extraction PRD lands and `EXTRACTION_SCOPE` must be widened by the package it cleaned (widen only, never narrow)", and "When working with `collectExtractionScopeFiles`/`scanExtractionScope` — the only guard discovery that walks inside `EXEMPT_PACKAGES`". Do not add a new registry entry (see Notes).
+
+### 8. Run the Validation Commands
+
+- Run every command in `Validation Commands` below; all must succeed, and the negative probe must fail-then-pass exactly as described.
+
+## Testing Strategy
+
+### Unit Tests
+
+`.adw/project.md` declares `## Unit Tests: enabled`, so unit tests are part of this feature (vitest, `bun run test:unit`; `adws/**/__tests__/**/*.test.ts` is collected).
+
+- **Rule-level (`adws/guard/__tests__/extractionRule.test.ts`, new):** pure tests with no `fs` mock — the `resolveImportTarget` table (bare, `node:`, scoped npm, `./`, `./x.ts`, `../`, `../../`, alias, traversal-that-returns), both membership predicates including prefix near-misses, `collectImportSpecifiers` across all seven literal import shapes plus a comment and a non-literal dynamic import, `flagFrameworkImports` both directions (in-scope escape fails; type-only fails; re-export fails; clean passes; intra-set passes; out-of-scope passes), scope-list invariants (scope ⊆ set; initial entries present as a superset; every entry carries `reason`/`since`), and the real-tree assertion that the initial scope collects the expected files, excludes tests, and yields zero violations.
+- **Scan-level (`adws/__tests__/checkGitGhGuard.test.ts`, extended):** through `scanExtractionScope` with the suite's `mockReadFileSync` pattern — the acceptance-criteria fixture (`../../core` from inside scope fails), `adws/providers/types.ts` importing `../core/projectConfig` fails, type-only fails, clean in-scope passes, intra-set passes, out-of-scope providers file passes today, two escapes → two violations, a `git` string inside a scope file is not a shellout violation via the scope scan, and `scanFiles` is unchanged (`length === 2`, a non-scope framework import is not flagged by it). The rename-detection table gains the gitContext barrel line.
+
+### Edge Cases
+
+- `import type { X } from '../../core/…'` inside scope — flagged (a moved file that cannot type-check is not a pure file move).
+- `export * from '../github/…'` / `export { x } from '../../core'` re-exports inside scope — flagged; `export { GitContext } from './gitContext'` in the barrel — allowed.
+- Dynamic `import('../core/utils')` and `require('../core')` with literal specifiers — flagged; `import(someVariable)` — ignored (not statically resolvable; documented limitation).
+- `node:fs`, `fs`, `typescript`, `@types/node`, `@cucumber/cucumber` — bare, allowed without a built-ins list.
+- `@adws/core/utils` — alias resolved to `adws/core/utils`, flagged; `@adws/gitContext/types` — inside the set, allowed.
+- `../../core` from `adws/gitContext/x.ts` resolves to repo-root `core/` (outside `adws/` entirely) — still flagged, which is what makes the acceptance-criteria fixture fail at that depth.
+- `../providers/types` from `adws/gitContext/x.ts` and `../../gitContext` from `adws/providers/github/x.ts` — intra-set, allowed.
+- Specifiers with extensions (`./types.ts`, allowed by `allowImportingTsExtensions`) and directory/barrel imports (`../gitContext`) — handled by prefix membership.
+- Traversal that returns into the set (`../gitContext/../gitContext/types`) — normalised, allowed.
+- A `/`-rooted absolute specifier — reported as escaping (never inside the set; none exist today).
+- Scope prefix boundaries: `adws/gitContextExtra/x.ts`, `adws/providers/typesX.ts` — not in scope; `adws/providers/github/*` — not in scope until widened.
+- Test files inside scope (`adws/gitContext/__tests__/*.test.ts` import `../../providers/github/githubTokenProvider`, and vitest) — excluded by `isScannable`, never scanned.
+- Comment/JSDoc mentions of `../../core` — never flagged (AST only).
+- A scope entry missing from disk (package renamed) — the run fails loudly (non-zero exit) rather than silently scanning nothing.
+- Existing observables preserved: `(0 allowlisted)` capstone line byte-identical and the FIRST `(\d+)\s+allowlisted` match in stdout is still that line; the scope block contains no "allowlisted"; `scanFiles.length === 2`; `collectTsFiles` still prunes both exempt packages; the whole-repo BDD step (which spawns the CLI) now covers four rules and stays green.
+- The out-of-scope providers files (`repoContext.ts`, `github/*`, `gitlab/*`, `jira/*`) import `adws/core`, `adws/github/*`, `adws/types/*` today — zero violations with the initial scope; the plan must not "fix" them (that is the PRD's de-tangling backlog).
+
+## Acceptance Criteria
+
+- `adws/guard/extractionRule.ts` exists beside `identityRule.ts` and `constructionRule.ts`; `ViolationRule` includes `'extraction-readiness'`; the rule is wired into `adws/checkGitGhGuard.ts`'s `main()` and therefore into `bun run lint:git-guard` and the CI workflow.
+- `EXTRACTION_SCOPE` is an explicit `as const` list whose docblock and the living doc both state "widen only, never narrow"; its initial content is exactly `adws/gitContext` (directory) and `adws/providers/types.ts` (file); a unit test pins the two initial entries as a superset and asserts scope ⊆ `EXTRACTABLE_SET`.
+- Unit tests prove both directions at rule level and scan level: a fixture importing `../../core` from inside scope yields one `extraction-readiness` violation naming the file, line, and specifier; a clean in-scope file and an intra-set import yield zero; an out-of-scope providers file with a framework import yields zero today.
+- `bun run lint:git-guard` exits 0 on the current tree, prints the unchanged `(0 allowlisted)` capstone, prints an "Extraction-readiness scope" block that does not contain "allowlisted", and prints no `[extraction-readiness]` line.
+- Planting `import { log } from '../core';` in a new file under `adws/gitContext/` makes `bun run lint:git-guard` exit 1 with a `[extraction-readiness]` line naming that file; removing the file returns the guard to exit 0.
+- The three existing rules are behaviourally unchanged: all 60 pre-existing tests in `adws/__tests__/checkGitGhGuard.test.ts` still pass unmodified, `scanFiles.length === 2`, `collectTsFiles` still prunes `adws/gitContext` and `adws/providers/github`.
+- `app_docs/feature-bq1f45-git-gh-cli-guard.md` documents the fourth rule (module layout, responsibilities, contracts, configuration, gotchas) and `.adw/conditional_docs.md`'s guard entry owns `adws/guard/extractionRule.ts` with widening conditions.
+- `adws/checkGitGhGuard.ts` and `adws/guard/extractionRule.ts` are each under 300 lines; `bun run lint`, both type-checks, `bun run build`, and `bun run test:unit` are green.
+
+## Validation Commands
+
+Execute every command to validate the feature works correctly with zero regressions.
+
+- `bun install` — prepare the app (no new dependencies are added).
+- `bun run lint` — ESLint over the repo, including the new rule module and tests.
+- `bunx tsc --noEmit` — root type-check (features/, tests, adws/).
+- `bunx tsc --noEmit -p adws/tsconfig.json` — the additional adws type-check from `.adw/commands.md`.
+- `bun run build` — `tsc` build must succeed.
+- `bun run test:unit` — full vitest run; must include `adws/guard/__tests__/extractionRule.test.ts` and the extended `adws/__tests__/checkGitGhGuard.test.ts`, all green.
+- `bunx vitest run adws/__tests__/checkGitGhGuard.test.ts adws/guard/__tests__/extractionRule.test.ts` — the guard suites in isolation, all green.
+- `bun run lint:git-guard` — must exit 0 on the current tree; stdout must contain `(0 allowlisted)` and `Extraction-readiness scope` and must not contain `[extraction-readiness]`.
+- `bun run lint:git-guard | grep -c "allowlisted"` — must print `1` (only the capstone line carries the word; the new block must not).
+- Negative end-to-end probe, in order:
+  1. `printf "import { log } from '../core';\nexport const probe = log;\n" > adws/gitContext/zzExtractionProbe.ts`
+  2. `bun run lint:git-guard; echo "exit=$?"` — must print a line containing `adws/gitContext/zzExtractionProbe.ts:1  [extraction-readiness]` and `exit=1`.
+  3. `node -e "require('fs').unlinkSync('adws/gitContext/zzExtractionProbe.ts')"` — remove the probe (use `node` unlink rather than `rm` so the repo's PreToolUse `rm` hook cannot interfere).
+  4. `bun run lint:git-guard; echo "exit=$?"` — must print `exit=0` again.
+- `wc -l adws/checkGitGhGuard.ts adws/guard/extractionRule.ts` — both under 300 lines (coding guideline).
+- `git status --porcelain adws/gitContext adws/providers` — must be empty: no file inside the extractable set was modified by this issue.
+
+## Notes
+
+- If `.adw/coding_guidelines.md` exists in the target repository (or `guidelines/coding_guidelines.md` as a fallback), strictly adhere to those coding guidelines. If necessary, refactor existing code to meet the coding guidelines as part of implementing the feature.
+- **No new library is needed.** The rule uses the `typescript` compiler API already imported by the other rules and Node's `path.posix`. (If one were needed, `.adw/commands.md` says `bun add <package>`.)
+- **Line budget.** `adws/checkGitGhGuard.ts` is 265 lines today and gains roughly 45 lines (discovery, `scanExtractionScope`, the stdout block, `main()` wiring, remedy). Condensing the header docblock — the three rule paragraphs duplicate the rule modules' own docblocks — is the intended way to stay under 300; only if that is insufficient move the two stdout-block printers into `adws/guard/guardReport.ts`. `adws/__tests__/checkGitGhGuard.test.ts` was already 462 lines before this issue; keep the new scan-level block compact (about 80 lines) and put the bulk of the new coverage in the new rule-level test file.
+- **Why "escapes the extractable set" rather than "under `adws/` but outside the two packages".** The issue's phrase describes the common case, but a relative import that escapes `adws/` entirely (e.g. `../../core` from `adws/gitContext/x.ts` → repo-root `core/`) breaks a pure file move just the same, and the acceptance-criteria fixture only fails at gitContext depth under the broader reading. No legitimate relative import from the set to outside `adws/` exists today, so the broader criterion has zero false positives on the current tree.
+- **Why bare specifiers are allowed without a built-ins list.** Node built-ins and npm packages resolve identically in the library's new home; distinguishing them buys nothing and would require maintaining a list. The `@adws/*` alias is honoured because `adws/tsconfig.json` declares it — nobody uses it today, but leaving it unresolved would be a free bypass.
+- **Why discovery is a separate walk.** `collectTsFiles` must keep pruning `EXEMPT_PACKAGES` so `git-gh-shellout` never sees the git core; the extraction rule is the only rule that needs to look inside those packages. Routing scope files through `scanFiles` would either trip the shellout rule or require an allowlist-like skip that #701 deliberately removed. Keeping the two walks separate also leaves `scanFiles.length === 2` and the fixture-repo BDD step (`collectTsFiles` → `scanFiles`) untouched.
+- **Out-of-scope providers are the backlog, not a defect of this issue.** `adws/providers/repoContext.ts`, `github/*`, `gitlab/*`, and `jira/*` still import `adws/core`, `adws/github/*`, `adws/types/*`. They stay out of scope here; each de-tangling issue of the PRD cleans one package and appends it to `EXTRACTION_SCOPE` in the same PR. The dedicated "passes today" test documents this and flips red the moment the scope widens.
+- **Stdout contract.** `features/per-issue/step_definitions/feature-700.steps.ts` parses the FIRST `(\d+)\s+allowlisted` match in the guard's stdout, and `feature-691.steps.ts`/`feature-796`/`feature-797` spawn the CLI and check only the exit code. The capstone line stays byte-identical, the new block avoids the word "allowlisted", and the existing PASS line is kept with an additive second PASS line.
+- **Living-docs index gate is red on the base tree for unrelated reasons.** `bunx tsx adws/checkLivingDocsIndex.ts` currently fails (70 registry entries against a 60 cap, plus overlapping provider globs). It is therefore not a validation gate for this issue. To avoid worsening it, extend the existing guard entry in `.adw/conditional_docs.md` rather than adding a new one.
+- **BDD.** Scenarios for this issue (tagged `@adw-816`) are written later in the pipeline. Step definitions can drive the rule in-process via `scanExtractionScope([relPath], fixtureRoot)` over files written into a temp fixture tree (the feature-792 pattern) or via `collectExtractionScopeFiles(process.cwd())` + `scanExtractionScope` for the real tree, and the whole-repo phrases `the git/gh guard is run across the repository` / `the git/gh guard reports no violations` (feature-691.steps.ts) already exercise the fourth rule because they spawn the CLI.
+- **Future:** the switchover issue (PRD stories 23/25) deletes this rule together with the extracted directories and empties `EXEMPT_PACKAGES`; until then every de-tangling PR must append to `EXTRACTION_SCOPE`, never remove from it. A later hardening step could add a stale-ish ratchet in the opposite direction (fail when a fully clean package is *not yet* in scope), but that is out of scope for #816.
