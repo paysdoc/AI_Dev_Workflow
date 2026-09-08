@@ -428,6 +428,8 @@ Docker execution is entirely optional — the test suite runs identically on the
 │   ├── improve-codebase-architecture/
 │   │   ├── REFERENCE.md
 │   │   └── SKILL.md
+│   ├── pr-lens/
+│   │   └── SKILL.md
 │   ├── prd-to-issues/
 │   │   └── SKILL.md
 │   ├── promote-regression-vocabulary/
@@ -559,6 +561,8 @@ adws/                   # ADW workflow system
 │   ├── constants.ts    # Orchestrator ID constants
 │   ├── devServerLifecycle.ts  # Dev server spawn, health probe, and cleanup helpers
 │   ├── docsGuards.ts  # Post-write guards for app_docs/: bloat detection (line-count ceiling) and regrowth detection (overlapping Owns: globs between entries); runDocsGuards composes both
+│   ├── docsIndexHealth.ts  # Migration acceptance gate helpers for conditional_docs.md ↔ app_docs/ bijection health
+│   ├── docsIndexReportBody.ts  # Formats docs-index health findings into a report body
 │   ├── environment.ts  # Environment variable accessors
 │   ├── guardrailsGate.ts  # Pure gate deciding whether a target-repo spawn receives the guardrails `--settings` injection (kill switch, self-host, adw.yml canary, startup probe)
 │   ├── guardrailsPayload.ts  # Builds the injected `--settings` JSON: deny list from templates/claude-settings-starter.json + all five framework hooks at absolute paths
@@ -809,6 +813,9 @@ adws/                   # ADW workflow system
 │   │   │   ├── labelCommands.ts    # gh CLI command strings for label create/apply operations
 │   │   │   ├── prCommands.ts       # gh CLI command strings for PR list/create/merge/review operations
 │   │   │   └── secretCommands.ts   # gh CLI command strings for GitHub Actions secret operations
+│   │   ├── domain/      # GitHub-specific domain types
+│   │   │   ├── issue.ts
+│   │   │   └── pullRequest.ts
 │   │   ├── appAuth.ts  # GitHub App JWT dance and installation-token exchange — configuration is injected (GitHubAppConfig), never read from process.env (#792)
 │   │   ├── cloneUrl.ts  # GitHub clone-URL construction (convertToSshUrl) — the HTTPS→SSH rewrite moved out of the git core (#793)
 │   │   ├── ghAuthToken.ts  # `gh auth token` — moved out of the git core; the pre-context credential read only this adapter may issue (#793)
@@ -852,6 +859,7 @@ adws/                   # ADW workflow system
 │   │   ├── cronRepoResolver.test.ts
 │   │   ├── cronStageResolver.test.ts
 │   │   ├── devServerJanitor.test.ts
+│   │   ├── docsIndexSweep.test.ts
 │   │   ├── issueClosedUnblockRouter.test.ts
 │   │   ├── issueOpenedRouter.test.ts
 │   │   ├── mergeDispatchGate.test.ts
@@ -882,6 +890,8 @@ adws/                   # ADW workflow system
 │   ├── cronIssueListing.ts  # Cron's open-issue listing, extracted from trigger_cron (module-private functions there aren't step-def-drivable)
 │   ├── cronLabelEligibility.ts  # Pure label-recovery decision for cron backlog sweeper — spawns adw:*-labelled issues with no state
 │   ├── devServerJanitor.ts  # Janitor probe that kills stale dev server processes in ADW-managed (.adw-marked) target repo worktrees
+│   ├── docsIndexSweep.ts  # Cron probe for docs-index health sweep
+│   ├── docsIndexSweepDefaults.ts  # Production dependency defaults for docsIndexSweep
 │   ├── perIssueScenarioSweep.ts  # Cron probe: deletes features/per-issue/feature-{N}.feature 14 days after the issue's PR merges; acts on the injected launch boundary's repo (git ops on its GitContext, merged-PR lookups via its CodeHost), no identity resolution of its own (#797)
 │   ├── perIssueSweepPersist.ts  # Persists a sweep removal batch via a dedicated worktree/branch/immediately-merged PR, resolved from the passed launch boundary — worktree ops on its GitContext, PR ops on its CodeHost (#797)
 │   ├── cronProcessGuard.ts  # Duplicate cron process prevention
@@ -939,8 +949,12 @@ adws/                   # ADW workflow system
 │   └── types.ts
 ├── known_issues.md     # Known issues and workarounds
 ├── guard/              # Git/GH CLI Guard rule modules (#795)
+│   ├── __tests__/      # Vitest unit tests
+│   │   └── extractionRule.test.ts
 │   ├── violationTypes.ts    # Shared ViolationRule ('git-gh-shellout' | 'cwd-derived-identity' | 'unsanctioned-construction') / Violation types
 │   ├── identityRule.ts      # cwd-derived-identity rule (#769) — gitContextForRepo(getRepoInfo()) composites
+│   ├── extractionRule.ts    # Extraction-boundary guard rule
+│   ├── guardReport.ts       # Formats collected violations into a guard report
 │   └── constructionRule.ts  # unsanctioned-construction rule (#795) — ad-hoc provider/context construction outside the permanent+transitional launch-boundary allowlist
 ├── checkGitGhGuard.ts  # CI guard entry point: discovery + git-gh-shellout rule + composes the three rules; fails build if any bypass the chokepoint (`bun run lint:git-guard`)
 ├── checkLivingDocsIndex.ts  # Migration acceptance gate: validates conditional_docs.md ↔ app_docs/ bijection
@@ -1057,7 +1071,8 @@ specs/                  # Generated implementation specs
 ├── ADW_PYTHON_SUPPORT_RECOMMENDATION.md  # Standalone recommendation doc (Python stack support)
 ├── prd-cost-module-revamp.md  # Standalone PRD draft (cost module revamp)
 ├── patch/              # Generated patch specs
-└── prd/                # Product requirement documents
+├── prd/                # Product requirement documents
+└── runbooks/           # Standalone runbooks (e.g. gitcontext extraction)
 scripts/                # Standalone operational scripts
 └── guardrails-probe.ts # Startup probe run as a subprocess by guardrailsGate.ts to verify target-repo guardrails injection is safe before use
 .env.sample             # Environment variable template
