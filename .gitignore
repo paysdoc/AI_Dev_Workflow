@@ -39,3 +39,5 @@ output.jsonl
 .claude/commands/start.md
 .claude/commands/test_e2e.md
 .claude/commands/adw_init.md
+# ADW: copied slash commands (do not commit)
+.claude/skills/pr-lens/
