@@ -43,7 +43,7 @@ import { createGitLabBoardManager } from '../../../adws/providers/gitlab/gitlabB
 import { JiraIssueTracker } from '../../../adws/providers/jira/jiraIssueTracker.ts';
 import type { JiraApiClient } from '../../../adws/providers/jira/jiraApiClient.ts';
 import { createJiraBoardManager } from '../../../adws/providers/jira/jiraBoardManager.ts';
-import { Platform, type BoardManager, type IssueListQuery } from '../../../adws/providers/types.ts';
+import { Platform, type BoardManager } from '../../../adws/providers/types.ts';
 
 const REPO_ROOT = process.cwd();
 const FORGE_ENV_VAR_NAMES = ['GITLAB_TOKEN', 'GITLAB_INSTANCE_URL', 'JIRA_EMAIL', 'JIRA_API_TOKEN', 'JIRA_PAT'];
@@ -599,12 +599,12 @@ When('a GitLab code host is constructed with only a repository identifier and an
 
 Then('asking it to approve a pull request refuses naming {string}', function (name: string) {
   assert.ok(lastGitLabCodeHost, 'Expected a prior When to have constructed the GitLab code host');
-  expectThrows(() => lastGitLabCodeHost!.approvePullRequest(1), name);
+  expectThrows(() => lastGitLabCodeHost!.approvePullRequest(), name);
 });
 
 Then('asking it to list merged pull requests refuses naming {string}', function (name: string) {
   assert.ok(lastGitLabCodeHost, 'Expected a prior When to have constructed the GitLab code host');
-  expectThrows(() => lastGitLabCodeHost!.listMergedPullRequests(10), name);
+  expectThrows(() => lastGitLabCodeHost!.listMergedPullRequests(), name);
 });
 
 When('a Jira issue tracker is constructed with only an API client and the project key {string}', function (projectKey: string) {
@@ -613,13 +613,12 @@ When('a Jira issue tracker is constructed with only an API client and the projec
 
 Then('asking it to fetch labels refuses naming {string}', function (name: string) {
   assert.ok(lastJiraTracker, 'Expected a prior When to have constructed the Jira issue tracker');
-  expectThrows(() => lastJiraTracker!.fetchLabels(1), name);
+  expectThrows(() => lastJiraTracker!.fetchLabels(), name);
 });
 
 Then('asking it to list issues refuses naming {string}', function (name: string) {
   assert.ok(lastJiraTracker, 'Expected a prior When to have constructed the Jira issue tracker');
-  const query: IssueListQuery = { fields: [] };
-  expectThrows(() => lastJiraTracker!.listIssues(query), name);
+  expectThrows(() => lastJiraTracker!.listIssues(), name);
 });
 
 When('the {string} board manager is constructed with no arguments', function (platform: string) {

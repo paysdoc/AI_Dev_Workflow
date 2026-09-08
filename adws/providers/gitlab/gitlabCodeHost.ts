@@ -2,7 +2,7 @@
  * GitLab implementation of the CodeHost interface.
  * Delegates to GitLabApiClient for synchronous API calls via curl.
  *
- * The factory takes INJECTED configuration (#818) — never reads process.env.
+ * The factory takes INJECTED configuration (#818) — never reads the environment.
  */
 
 import {

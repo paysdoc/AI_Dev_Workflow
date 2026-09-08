@@ -2,7 +2,7 @@
  * Low-level GitLab REST API v4 client using synchronous HTTP calls.
  * Uses spawnSync with curl to match the synchronous CodeHost interface contract.
  *
- * Configuration is INJECTED (#818) — never read from process.env. Logs via the
+ * Configuration is INJECTED (#818) — never read from the environment. Logs via the
  * `Logger` port (adws/gitContext/types.ts), defaulting to `consoleLogger`.
  * `runCurl` is the hermetic transport test seam; production uses a real curl.
  */
@@ -18,7 +18,7 @@ import type {
   GitLabCreateMRPayload,
 } from './gitlabTypes';
 
-/** The injected configuration `createGitLabCodeHost` takes (#818): the personal access token (api scope) and the instance origin, e.g. `https://gitlab.com`. Never read from `process.env` inside the adapter. */
+/** The injected configuration `createGitLabCodeHost` takes (#818): the personal access token (api scope) and the instance origin, e.g. `https://gitlab.com`. Never read from the environment inside the adapter. */
 export interface GitLabConfig {
   readonly token: string;
   readonly instanceUrl: string;

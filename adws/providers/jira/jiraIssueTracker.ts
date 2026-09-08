@@ -2,7 +2,7 @@
  * Jira IssueTracker implementation.
  * Maps ADW's IssueTracker interface to Jira REST API v3 via JiraApiClient.
  *
- * Configuration is INJECTED (#818) — never read from process.env. Logs via
+ * Configuration is INJECTED (#818) — never read from the environment. Logs via
  * the `Logger` port, defaulting to `consoleLogger`.
  */
 

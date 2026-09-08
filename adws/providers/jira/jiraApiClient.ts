@@ -2,7 +2,7 @@
  * Low-level Jira REST API v3 client using native fetch().
  * Handles authentication, request building, and error handling.
  *
- * Configuration is INJECTED (#818) — never read from process.env. Logs via the
+ * Configuration is INJECTED (#818) — never read from the environment. Logs via the
  * `Logger` port (adws/gitContext/types.ts), defaulting to `consoleLogger`.
  * `fetchFn` is the hermetic transport test seam; production uses global fetch.
  */
