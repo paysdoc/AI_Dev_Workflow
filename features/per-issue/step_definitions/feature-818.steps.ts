@@ -193,41 +193,55 @@ function computeResponse(method: string, url: string): { status: number; body: s
   return { status: 200, body: '{}', headers: {} };
 }
 
-function startRecorder(): Promise<void> {
-  return new Promise((resolve, reject) => {
-    server = http.createServer((req, res) => {
-      const chunks: Buffer[] = [];
-      req.on('data', (c: Buffer) => chunks.push(c));
-      req.on('end', () => {
-        const body = Buffer.concat(chunks).toString('utf-8');
-        recordedRequests.push({
-          method: req.method ?? '',
-          url: req.url ?? '',
-          headers: { ...req.headers } as Record<string, string>,
-          body,
-        });
-        const resp = computeResponse(req.method ?? '', req.url ?? '');
-        res.writeHead(resp.status, { 'Content-Type': 'application/json', ...resp.headers });
-        res.end(resp.body);
-      });
-    });
-    server.listen(0, '127.0.0.1', () => {
-      const addr = server!.address();
-      serverPort = typeof addr === 'object' && addr ? addr.port : 0;
-      resolve();
-    });
-    server.once('error', reject);
+function finishRecorderRequest(req: http.IncomingMessage, res: http.ServerResponse, chunks: Buffer[]): void {
+  const body = Buffer.concat(chunks).toString('utf-8');
+  recordedRequests.push({
+    method: req.method ?? '',
+    url: req.url ?? '',
+    headers: { ...req.headers } as Record<string, string>,
+    body,
   });
+  const resp = computeResponse(req.method ?? '', req.url ?? '');
+  res.writeHead(resp.status, { 'Content-Type': 'application/json', ...resp.headers });
+  res.end(resp.body);
+}
+
+function handleRecorderRequest(req: http.IncomingMessage, res: http.ServerResponse): void {
+  const chunks: Buffer[] = [];
+  req.on('data', (c: Buffer) => chunks.push(c));
+  req.on('end', () => finishRecorderRequest(req, res, chunks));
+}
+
+function resolveRecorderStart(newServer: http.Server, resolve: () => void): void {
+  const addr = newServer.address();
+  serverPort = typeof addr === 'object' && addr ? addr.port : 0;
+  resolve();
+}
+
+function beginRecorderListen(resolve: () => void, reject: (reason?: unknown) => void): void {
+  const newServer = http.createServer(handleRecorderRequest);
+  server = newServer;
+  newServer.listen(0, '127.0.0.1', () => resolveRecorderStart(newServer, resolve));
+  newServer.once('error', reject);
+}
+
+function startRecorder(): Promise<void> {
+  return new Promise((resolve, reject) => beginRecorderListen(resolve, reject));
+}
+
+function performRecorderShutdown(resolve: () => void): void {
+  if (!server) {
+    resolve();
+    return;
+  }
+  const activeServer = server;
+  server = null;
+  activeServer.closeAllConnections?.();
+  activeServer.close(() => resolve());
 }
 
 function stopRecorder(): Promise<void> {
-  return new Promise((resolve) => {
-    if (!server) return resolve();
-    const s = server;
-    server = null;
-    s.closeAllConnections?.();
-    s.close(() => resolve());
-  });
+  return new Promise((resolve) => performRecorderShutdown(resolve));
 }
 
 // ---------------------------------------------------------------------------
@@ -525,8 +539,8 @@ Then('no recorded request carried the value {string}', function (value: string) 
 
 Then('the adapter refuses with an error', function () {
   assert.ok(lastResult, 'Expected a prior When to have driven the adapter');
-  assert.strictEqual(lastResult!.success, false, `Expected the adapter to refuse. Got: ${JSON.stringify(lastResult)}`);
-  assert.ok(lastResult!.errorMessage, 'Expected an error message');
+  assert.strictEqual(lastResult.success, false, `Expected the adapter to refuse. Got: ${JSON.stringify(lastResult)}`);
+  assert.ok(lastResult.errorMessage, 'Expected an error message');
 });
 
 Then("the adapter's refusal names no environment variable", function () {
@@ -538,10 +552,10 @@ Then("the adapter's refusal names no environment variable", function () {
 
 Then('the adapter refuses with an error naming {string}', function (name: string) {
   assert.ok(lastResult, 'Expected a prior When to have driven the adapter');
-  assert.strictEqual(lastResult!.success, false, `Expected the adapter to refuse. Got: ${JSON.stringify(lastResult)}`);
+  assert.strictEqual(lastResult.success, false, `Expected the adapter to refuse. Got: ${JSON.stringify(lastResult)}`);
   assert.ok(
-    lastResult!.errorMessage && lastResult!.errorMessage.includes(name),
-    `Expected refusal naming "${name}". Got: ${lastResult!.errorMessage}`,
+    lastResult.errorMessage && lastResult.errorMessage.includes(name),
+    `Expected refusal naming "${name}". Got: ${lastResult.errorMessage}`,
   );
 });
 
@@ -599,12 +613,14 @@ When('a GitLab code host is constructed with only a repository identifier and an
 
 Then('asking it to approve a pull request refuses naming {string}', function (name: string) {
   assert.ok(lastGitLabCodeHost, 'Expected a prior When to have constructed the GitLab code host');
-  expectThrows(() => lastGitLabCodeHost!.approvePullRequest(), name);
+  const codeHost = lastGitLabCodeHost;
+  expectThrows(() => codeHost.approvePullRequest(), name);
 });
 
 Then('asking it to list merged pull requests refuses naming {string}', function (name: string) {
   assert.ok(lastGitLabCodeHost, 'Expected a prior When to have constructed the GitLab code host');
-  expectThrows(() => lastGitLabCodeHost!.listMergedPullRequests(), name);
+  const codeHost = lastGitLabCodeHost;
+  expectThrows(() => codeHost.listMergedPullRequests(), name);
 });
 
 When('a Jira issue tracker is constructed with only an API client and the project key {string}', function (projectKey: string) {
@@ -613,12 +629,14 @@ When('a Jira issue tracker is constructed with only an API client and the projec
 
 Then('asking it to fetch labels refuses naming {string}', function (name: string) {
   assert.ok(lastJiraTracker, 'Expected a prior When to have constructed the Jira issue tracker');
-  expectThrows(() => lastJiraTracker!.fetchLabels(), name);
+  const tracker = lastJiraTracker;
+  expectThrows(() => tracker.fetchLabels(), name);
 });
 
 Then('asking it to list issues refuses naming {string}', function (name: string) {
   assert.ok(lastJiraTracker, 'Expected a prior When to have constructed the Jira issue tracker');
-  expectThrows(() => lastJiraTracker!.listIssues(), name);
+  const tracker = lastJiraTracker;
+  expectThrows(() => tracker.listIssues(), name);
 });
 
 When('the {string} board manager is constructed with no arguments', function (platform: string) {
@@ -633,5 +651,6 @@ When('the {string} board manager is constructed with no arguments', function (pl
 
 Then('asking it to find a board refuses naming {string}', async function (platform: string) {
   assert.ok(lastBoardManager, 'Expected a prior When to have constructed a board manager');
-  await expectRejects(() => lastBoardManager!.findBoard(), platform);
+  const boardManager = lastBoardManager;
+  await expectRejects(() => boardManager.findBoard(), platform);
 });
