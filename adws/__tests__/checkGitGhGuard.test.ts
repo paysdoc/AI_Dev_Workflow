@@ -12,7 +12,7 @@ import * as path from 'path';
 
 vi.mock('fs');
 
-import { scanFiles, EXEMPT_PACKAGES, isExemptPackage } from '../checkGitGhGuard';
+import { scanFiles, scanExtractionScope, EXEMPT_PACKAGES, isExemptPackage } from '../checkGitGhGuard';
 import { isSanctionedConstructionSite, findStaleSanctionedEntries, SANCTIONED_CONSTRUCTION_SITES } from '../guard/constructionRule';
 
 const mockReadFileSync = vi.mocked(fs.readFileSync);
@@ -425,6 +425,96 @@ describe('findStaleSanctionedEntries (#795)', () => {
   });
 });
 
+describe('scanExtractionScope — extraction-readiness rule (#816)', () => {
+  it('fails: an in-scope gitContext file importing ../../core', () => {
+    mockReadFileSync.mockReturnValue("import { log } from '../../core';\n");
+
+    const { violations, scannedCount } = scanExtractionScope(['adws/gitContext/newOp.ts'], '/repo');
+
+    expect(scannedCount).toBe(1);
+    expect(violations).toHaveLength(1);
+    expect(violations[0].rule).toBe('extraction-readiness');
+    expect(violations[0].file).toBe('adws/gitContext/newOp.ts');
+    expect(violations[0].line).toBe(1);
+    expect(violations[0].command).toContain('../../core');
+  });
+
+  it('fails: adws/providers/types.ts importing ../core/projectConfig', () => {
+    mockReadFileSync.mockReturnValue("import { CONFIG_PATH } from '../core/projectConfig';\n");
+
+    const { violations } = scanExtractionScope(['adws/providers/types.ts'], '/repo');
+
+    expect(violations).toHaveLength(1);
+    expect(violations[0].rule).toBe('extraction-readiness');
+  });
+
+  it('fails: a type-only import still counts', () => {
+    mockReadFileSync.mockReturnValue("import type { GitHubIssue } from '../github/githubApi';\n");
+
+    const { violations } = scanExtractionScope(['adws/gitContext/newOp.ts'], '/repo');
+
+    expect(violations).toHaveLength(1);
+  });
+
+  it('passes: a clean in-scope file', () => {
+    mockReadFileSync.mockReturnValue(
+      "import { execSync } from 'child_process';\nimport * as path from 'node:path';\nimport * as ts from 'typescript';\nimport type { Logger } from './types';\n",
+    );
+
+    const { violations } = scanExtractionScope(['adws/gitContext/newOp.ts'], '/repo');
+
+    expect(violations).toHaveLength(0);
+  });
+
+  it('passes: an intra-set import', () => {
+    mockReadFileSync.mockReturnValue("import type { RepoIdentifier } from '../providers/types';\n");
+
+    const { violations } = scanExtractionScope(['adws/gitContext/a.ts'], '/repo');
+
+    expect(violations).toHaveLength(0);
+  });
+
+  // This test flips to a failure the moment adws/providers/github is appended to
+  // EXTRACTION_SCOPE — by design (#816's de-tangling backlog).
+  it('passes today: an out-of-scope providers file with a framework import', () => {
+    mockReadFileSync.mockReturnValue("import { getRepoInfo } from '../../github/prApi';\n");
+
+    const { violations } = scanExtractionScope(['adws/providers/github/githubCodeHost.ts'], '/repo');
+
+    expect(violations).toHaveLength(0);
+  });
+
+  it('two escaping imports in one file are two violations, one per line', () => {
+    mockReadFileSync.mockReturnValue(
+      "import { log } from '../core';\nimport { getRepoInfo } from '../github/githubApi';\n",
+    );
+
+    const { violations } = scanExtractionScope(['adws/gitContext/newOp.ts'], '/repo');
+
+    expect(violations).toHaveLength(2);
+    expect(violations[0].line).toBe(1);
+    expect(violations[1].line).toBe(2);
+    expect(violations.every((v) => v.rule === 'extraction-readiness')).toBe(true);
+  });
+
+  it('the scope scan never runs the other three rules', () => {
+    mockReadFileSync.mockReturnValue('const x = execSync("git status");\n');
+
+    const { violations } = scanExtractionScope(['adws/gitContext/a.ts'], '/repo');
+
+    expect(violations).toHaveLength(0);
+  });
+
+  it('scanFiles is unchanged: length is still 2, and a non-scope framework import is zero violations under it', () => {
+    expect(scanFiles.length).toBe(2);
+
+    mockReadFileSync.mockReturnValue("import { log } from '../core';\n");
+    const { violations } = scanFiles(['adws/phases/x.ts'], '/repo');
+
+    expect(violations).toHaveLength(0);
+  });
+});
+
 describe('guarded factory names still exist (#795 / AC3)', () => {
   const cases: { name: string; file: string; declPattern: RegExp }[] = [
     { name: 'gitContextFor', file: 'adws/github/gitContextFactory.ts', declPattern: /export async function gitContextFor\(/ },
@@ -442,6 +532,7 @@ describe('guarded factory names still exist (#795 / AC3)', () => {
     { name: 'createJiraIssueTracker', file: 'adws/providers/jira/jiraIssueTracker.ts', declPattern: /export function createJiraIssueTracker\(/ },
     { name: 'createJiraBoardManager', file: 'adws/providers/jira/jiraBoardManager.ts', declPattern: /export function createJiraBoardManager\(/ },
     { name: 'GitContext', file: 'adws/gitContext/gitContext.ts', declPattern: /export class GitContext\b/ },
+    { name: 'GitContext barrel', file: 'adws/gitContext/index.ts', declPattern: /export \{ GitContext \} from '\.\/gitContext'/ },
   ];
 
   // fs is mocked at module scope (see `vi.mock('fs')` above) — the factory modules
@@ -455,8 +546,9 @@ describe('guarded factory names still exist (#795 / AC3)', () => {
     expect(
       declPattern.test(source),
       `Expected to find "${name}"'s declaration in ${file} — was it renamed? Update ` +
-      'CWD_DERIVED_IDENTITY_FNS/CONTEXT_CONSTRUCTOR_NAME (adws/guard/identityRule.ts) or ' +
-      'PROVIDER_CONSTRUCTORS/CONTEXT_CONSTRUCTORS/GIT_CONTEXT_CLASS_NAME (adws/guard/constructionRule.ts) accordingly.',
+      'CWD_DERIVED_IDENTITY_FNS/CONTEXT_CONSTRUCTOR_NAME (adws/guard/identityRule.ts), ' +
+      'PROVIDER_CONSTRUCTORS/CONTEXT_CONSTRUCTORS/GIT_CONTEXT_CLASS_NAME (adws/guard/constructionRule.ts), or ' +
+      'EXTRACTION_SCOPE (adws/guard/extractionRule.ts) accordingly.',
     ).toBe(true);
   });
 });

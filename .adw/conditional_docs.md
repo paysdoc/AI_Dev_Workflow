@@ -656,6 +656,8 @@
     - adws/guard/violationTypes.ts
     - adws/guard/identityRule.ts
     - adws/guard/constructionRule.ts
+    - adws/guard/extractionRule.ts
+    - adws/guard/guardReport.ts
   - Conditions:
     - When working with `adws/checkGitGhGuard.ts`, `scanFiles`, or `scanSource` — the AST-based git/gh/construction call scanner
     - When the CI `Git/GH CLI Guard` workflow (`.github/workflows/git-cli-guard.yml`) fails on a pull request or push
@@ -675,6 +677,9 @@
     - When a migration slice (#796) removes the last construction from a transitional entry's file — delete that entry from `SANCTIONED_CONSTRUCTION_SITES`, or the stale-entry ratchet fails the build
     - When `createGhRepoApi` is checked against the guard's near-miss set — deliberately NOT in `PROVIDER_CONSTRUCTORS`/`CONTEXT_CONSTRUCTORS` (a bound view over a caller-supplied `GitContext`, selecting no identity of its own), alongside `createGhCommandRunner`/`createGitHubTokenProvider`/`createIssueCmd` (#797)
     - When adding a brand-new provider/context construction site — it must call `buildLaunchBoundary(...)`; nothing may ever be added to the transitional half of the allowlist
+    - When `bun run lint:git-guard` fails with `[extraction-readiness]` — an in-scope extractable file imports outside `adws/gitContext`/`adws/providers`; inject through a port or move the shape into the set, never narrow `EXTRACTION_SCOPE`
+    - When a de-tangling slice of the gitContext extraction PRD lands and `EXTRACTION_SCOPE` must be widened by the package it cleaned (widen only, never narrow)
+    - When working with `collectExtractionScopeFiles`/`scanExtractionScope` — the only guard discovery that walks inside `EXEMPT_PACKAGES`
 
 - app_docs/feature-2ubuuc-rot-reuse-advisory-pr-comment.md
   - Owns:
