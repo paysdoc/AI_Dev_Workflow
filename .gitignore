@@ -39,3 +39,6 @@ output.jsonl
 .claude/commands/start.md
 .claude/commands/test_e2e.md
 .claude/commands/adw_init.md
+
+# PR Lens writes its previews here. They are rebuilt on demand.
+.pr-lens/
