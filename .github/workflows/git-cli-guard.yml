@@ -6,7 +6,7 @@ on:
 
 jobs:
   guard:
-    name: Fail on direct git/gh shell-outs outside GitContext
+    name: Fail on direct git/gh shell-outs, ad-hoc construction, or framework imports inside the extractable packages
     runs-on: ubuntu-latest
 
     steps:
@@ -19,7 +19,7 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: Run Git/GH CLI guard
+      - name: Run Git/GH CLI guard (4 rules incl. extraction-readiness)
         run: bun run lint:git-guard
 
   docs-index:

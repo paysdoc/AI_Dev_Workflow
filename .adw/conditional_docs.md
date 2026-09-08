@@ -409,8 +409,10 @@
     - When working on GitContext base-path resolution, per-command credential injection, worktree management, or the git-only bootstrap primitives in `adws/gitContext/`
     - When working on the launch-boundary constructor (`buildLaunchBoundary`, `adws/core/launchGitContext.ts`) that mints one GitContext and one bound provider triple per process
     - When working on resume-time repo-identity persistence or cross-check (`adws/core/repoIdentityCrossCheck.ts`)
-    - When working on the git/gh CLI guard (`adws/checkGitGhGuard.ts`, `adws/guard/`) — its three rules (shellout, cwd-derived-identity, unsanctioned-construction) or its sanctioned-construction-sites allowlist
+    - When working on the git/gh CLI guard (`adws/checkGitGhGuard.ts`, `adws/guard/`) — its four rules (shellout, cwd-derived-identity, unsanctioned-construction, extraction-readiness) or its sanctioned-construction-sites allowlist
     - When troubleshooting a wrong-repo worktree, `GH_TOKEN` bleed, or a construction site newly flagged by `lint:git-guard`
+    - When `bun run lint:git-guard` fails with `[extraction-readiness]` (`adws/guard/extractionRule.ts`, #816) — an in-scope extractable file imports outside `adws/gitContext`/`adws/providers`; inject through a port or move the shape into the set, never narrow `EXTRACTION_SCOPE`
+    - When a de-tangling slice of the gitContext extraction PRD lands and `EXTRACTION_SCOPE` must be widened by the package it cleaned (widen only, never narrow)
 
 - app_docs/feature-9gjajh-claude-agents-core.md
   - Owns:
