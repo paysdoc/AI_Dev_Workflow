@@ -15,6 +15,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { GitContext } from '../../gitContext';
 import type { GitContextOptions } from '../../gitContext/types';
+import { createLiteralTokenProvider } from '../../providers/github/githubTokenProvider';
 
 const BRANCH = 'feature-test-648';
 
@@ -27,7 +28,7 @@ function makeTestContext(workdir: string): GitContext {
     owner: 'test',
     repo: 'test',
     selfHost: true,
-    token: 'dummy-token-for-local-test',
+    tokenProvider: createLiteralTokenProvider('dummy-token-for-local-test'),
     gitIdentity: {
       authorName: 'ADW Test',
       authorEmail: 'test@adw.test',

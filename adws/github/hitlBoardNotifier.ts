@@ -10,6 +10,9 @@ import { type RepoInfo } from './githubApi';
 import { bodyLinksIssue } from './issueLinkMarker';
 import { selectPreferredPR } from './prApi';
 import { gitContextForRepo } from './gitContextFactory';
+import { createGhRepoApi } from '../providers/github/ghRepoApi';
+
+const gh = (repoInfo: RepoInfo) => createGhRepoApi(gitContextForRepo(repoInfo));
 
 // ---------------------------------------------------------------------------
 // Types
@@ -54,7 +57,7 @@ export interface NotifyBlockedArgs {
 
 function defaultReadIssue(issueNumber: number, repoInfo: RepoInfo): HitlIssueInfo | null {
   try {
-    const raw = gitContextForRepo(repoInfo).fetchIssue(issueNumber);
+    const raw = gh(repoInfo).fetchIssue(issueNumber);
     const parsed = JSON.parse(raw) as { title: string; labels: { name: string }[] };
     return { title: parsed.title, labels: parsed.labels };
   } catch {
@@ -64,7 +67,7 @@ function defaultReadIssue(issueNumber: number, repoInfo: RepoInfo): HitlIssueInf
 
 function defaultListOpenPRs(repoInfo: RepoInfo): HitlPREntry[] | null {
   try {
-    const raw = gitContextForRepo(repoInfo).fetchAllPRs();
+    const raw = gh(repoInfo).fetchAllPRs();
     const allPrs = JSON.parse(raw) as Array<{
       number: number;
       body: string;

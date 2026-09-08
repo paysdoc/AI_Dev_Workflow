@@ -157,13 +157,11 @@ export {
   getTargetRepoWorkspacePath,
   isRepoCloned,
   cloneTargetRepo,
-  fetchLatestRefs,
-  pullLatestDefaultBranch,
   ensureTargetRepoWorkspace,
 } from './targetRepoManager';
 
 // Launch-boundary GitContext adapter
-export { buildLaunchGitContext, buildLaunchBoundary, resolveLaunchToken, resolveLaunchGitIdentity } from './launchGitContext';
+export { buildLaunchGitContext, buildLaunchBoundary, bindWorkspaceContext, resolveLaunchToken, resolveLaunchGitIdentity } from './launchGitContext';
 export type { LaunchGitContextDeps, LaunchBoundary } from './launchGitContext';
 
 // Repo identity cross-check (launch-boundary persistence and resume tripwire)

@@ -20,6 +20,7 @@
 import { When } from '@cucumber/cucumber';
 import assert from 'assert';
 import { W } from './gitContextSharedWorld.ts';
+import { createGhRepoApi } from '../../../adws/providers/github/ghRepoApi.ts';
 
 // ── §1 — secret operation dispatcher ─────────────────────────────────────────
 //
@@ -29,12 +30,12 @@ import { W } from './gitContextSharedWorld.ts';
 
 When('the {string} secret operation runs through the context', function (opName: string) {
   assert.ok(W.ctx !== null, 'Expected a GitContext to be set up with a recording runner');
-  const ctx = W.ctx;
+  const gh = createGhRepoApi(W.ctx);
 
   switch (opName) {
     case 'set-secret':
       W.responseMap.set('secret set', '');
-      ctx.setSecret('SOCKET_API_TOKEN', 's3cr3t-value');
+      gh.setSecret('SOCKET_API_TOKEN', 's3cr3t-value');
       break;
     default:
       throw new Error(`Unknown secret op: "${opName}"`);

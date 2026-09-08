@@ -521,7 +521,7 @@ async function main(): Promise<void> {
   const adwId = parsedAdwId ?? generateAdwId('adwupgrade');
   const { gitContext, repoId, providers } = buildLaunchBoundary(targetRepo);
   const repoInfo: RepoInfo = { owner: repoId.owner, repo: repoId.repo };
-  const baseRepoPath = targetRepo ? ensureTargetRepoWorkspace(targetRepo) : process.cwd();
+  const baseRepoPath = targetRepo ? ensureTargetRepoWorkspace(targetRepo, () => providers.codeHost.getDefaultBranch()) : process.cwd();
   const frameworkRepoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
   let result: UpgradeRunResult | undefined;

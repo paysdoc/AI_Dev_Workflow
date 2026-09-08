@@ -111,6 +111,35 @@ export interface IssueSummary {
   title: string;
 }
 
+/** A forge-neutral projection field for {@link IssueListQuery}. */
+export type IssueListField = 'number' | 'title' | 'body' | 'state' | 'labels' | 'comments' | 'createdAt' | 'updatedAt';
+
+/** A listing request: which fields to project, and an optional search/state/limit narrowing. */
+export interface IssueListQuery {
+  readonly fields: readonly IssueListField[];
+  readonly limit?: number;
+  readonly search?: string;
+  readonly state?: 'open' | 'closed' | 'all';
+}
+
+/** One listed issue, projected to the fields the caller asked for — the rest are absent, not empty. */
+export interface IssueListEntry {
+  number: number;
+  title?: string;
+  body?: string;
+  state?: string;
+  labels?: readonly { name: string }[];
+  comments?: readonly { body: string }[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+/** A merged pull request's body (for client-side `Closes owner/repo#N` matching) and merge timestamp. */
+export interface MergedPullRequestRecord {
+  body: string;
+  mergedAt: string | null;
+}
+
 /**
  * Interface for issue tracking operations across platforms.
  * Maps 1:1 to existing GitHub issue operations for seamless migration.
@@ -139,6 +168,8 @@ export interface IssueTracker {
   searchOpenIssues(search: string, limit: number): readonly IssueSummary[];
   /** Returns the number of the first open `adw:upgrade` issue, or null. */
   findOpenUpgradeIssue(): number | null;
+  /** Issues matching `query` (open unless `state` says otherwise). Throws on failure — callers own the swallow policy. */
+  listIssues(query: IssueListQuery): readonly IssueListEntry[];
 }
 
 /**
@@ -222,6 +253,8 @@ export interface CodeHost {
   mergePullRequest(prNumber: number): ForgeActionResult;
   /** Sets a repo secret (e.g. GitHub Actions). */
   setSecret(name: string, value: string): void;
+  /** Merged PRs, newest first, at most `limit`. Throws on failure. */
+  listMergedPullRequests(limit: number): readonly MergedPullRequestRecord[];
 }
 
 /**

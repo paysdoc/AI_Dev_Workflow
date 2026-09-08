@@ -21,6 +21,7 @@
 import { When } from '@cucumber/cucumber';
 import assert from 'assert';
 import { W } from './gitContextSharedWorld.ts';
+import { createGhRepoApi } from '../../../adws/providers/github/ghRepoApi.ts';
 
 // ── §1 — identity-read operation dispatcher ───────────────────────────────────
 
@@ -36,7 +37,7 @@ When('the {string} identity-read operation runs through the context', function (
     case 'authenticated-user':
       // Seed parseable JSON so authenticatedUser() returns and callers can parse .login.
       W.responseMap.set('api user', '{"login":"acme-bot"}\n');
-      W.ctx.authenticatedUser();
+      createGhRepoApi(W.ctx).authenticatedUser();
       break;
     default:
       throw new Error(`Unknown identity-read op: "${opName}"`);

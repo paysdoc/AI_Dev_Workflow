@@ -31,11 +31,12 @@ import { resolveContextToken } from '../providers/github/tokenResolver';
 import { createGitHubTokenProvider } from '../providers/github/githubTokenProvider';
 // Deep imports only — never the `../providers` barrel, which re-exports the
 // GitHub adapter and closes an import cycle back through `../../core` (#792).
-import { mintBoundProviders, loadProviderConfig, type MintProvidersOptions, type ProviderConfig } from '../providers/repoContext';
-import type { BoundProviders, RepoIdentifier } from '../providers/types';
+import { mintBoundProviders, loadProviderConfig, createRepoContext, type MintProvidersOptions, type ProviderConfig } from '../providers/repoContext';
+import type { BoundProviders, RepoContext, RepoIdentifier } from '../providers/types';
 import { Platform } from '../providers/types';
 import { REPO_ROOT, TARGET_REPOS_DIR, GITHUB_PAT } from './environment';
 import { log } from './utils';
+import { sameRepoIdentity } from './repoIdentityCrossCheck';
 
 /**
  * Injectable seams for buildLaunchGitContext. All fields are optional;
@@ -224,4 +225,25 @@ export function buildLaunchGitContext(
   deps: LaunchGitContextDeps = {},
 ): GitContext {
   return buildLaunchBoundary(targetRepo, deps).gitContext;
+}
+
+/**
+ * Binds the boundary's providers to a validated workspace directory —
+ * `createRepoContext({ repoId, cwd, providers: boundary.providers })`, the
+ * same cwd/`origin` validation as today, from the one file the guard
+ * sanctions. `repoId` (default: the boundary's) must name the boundary's
+ * repository — a caller-supplied identity for a DIFFERENT repository is
+ * refused rather than silently handed providers bound to the wrong one.
+ */
+export function bindWorkspaceContext(
+  boundary: LaunchBoundary,
+  cwd: string,
+  repoId: RepoIdentifier = boundary.repoId,
+): RepoContext {
+  if (!sameRepoIdentity(repoId, boundary.repoId)) {
+    throw new Error(
+      `bindWorkspaceContext: ${repoId.owner}/${repoId.repo} does not match the launch boundary's ${boundary.repoId.owner}/${boundary.repoId.repo}`,
+    );
+  }
+  return createRepoContext({ repoId, cwd, providers: boundary.providers });
 }

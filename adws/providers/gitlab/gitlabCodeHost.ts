@@ -7,6 +7,7 @@ import {
   type CodeHost,
   type CreatePROptions,
   type ForgeActionResult,
+  type MergedPullRequestRecord,
   type PullRequest,
   type PullRequestResult,
   type PullRequestSummary,
@@ -100,6 +101,10 @@ export class GitLabCodeHost implements CodeHost {
 
   setSecret(): void {
     throw new Error('GitLabCodeHost.setSecret is not implemented');
+  }
+
+  listMergedPullRequests(): readonly MergedPullRequestRecord[] {
+    throw new Error('GitLabCodeHost.listMergedPullRequests is not implemented');
   }
 }
 

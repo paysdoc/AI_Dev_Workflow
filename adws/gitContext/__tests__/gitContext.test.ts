@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import { describe, it, expect, afterEach } from 'vitest';
 import { GitContext } from '../gitContext';
 import type { GitContextOptions, TokenProvider, CredentialRequest } from '../types';
+import { createLiteralTokenProvider } from '../../providers/github/githubTokenProvider';
 
 const FRAMEWORK_ROOT = '/srv/adw/framework';
 const TARGET_REPOS_DIR = '/srv/adw/repos';
@@ -13,7 +14,7 @@ function validOptions(overrides: Partial<GitContextOptions> = {}): GitContextOpt
     owner: 'acme',
     repo: 'webapp',
     selfHost: false,
-    token: 'gh-token-abc',
+    tokenProvider: createLiteralTokenProvider('gh-token-abc'),
     gitIdentity: {
       authorName: 'ADW Bot',
       authorEmail: 'bot@adw.dev',
@@ -70,8 +71,10 @@ describe('incomplete identity', () => {
     expect(() => new GitContext(validOptions({ selfHost: 'true' as unknown as boolean }))).toThrow(/GitContext/);
   });
 
-  it('throws on empty token', () => {
-    expect(() => new GitContext(validOptions({ token: '' }))).toThrow(/GitContext/);
+  it('throws when tokenProvider is absent', () => {
+    const opts = validOptions() as unknown as Record<string, unknown>;
+    delete opts['tokenProvider'];
+    expect(() => new GitContext(opts as unknown as GitContextOptions)).toThrow(/GitContext/);
   });
 
   it('throws on empty gitIdentity.authorName', () => {
@@ -168,8 +171,8 @@ describe('two-context isolation', () => {
   });
 
   it('two contexts with different tokens produce distinct commandEnv GH_TOKEN values', () => {
-    const ctx1 = new GitContext(validOptions({ token: 'token-1' }));
-    const ctx2 = new GitContext(validOptions({ token: 'token-2' }));
+    const ctx1 = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('token-1') }));
+    const ctx2 = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('token-2') }));
     expect(ctx1.commandEnv().GH_TOKEN).toBe('token-1');
     expect(ctx2.commandEnv().GH_TOKEN).toBe('token-2');
   });
@@ -188,7 +191,7 @@ describe('commandEnv', () => {
   });
 
   it('result carries GH_TOKEN from the stored token', () => {
-    const ctx = new GitContext(validOptions({ token: 'my-token' }));
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('my-token') }));
     expect(ctx.commandEnv().GH_TOKEN).toBe('my-token');
   });
 
@@ -210,7 +213,7 @@ describe('commandEnv', () => {
 
   it('does not mutate process.env', () => {
     const before = process.env['GH_TOKEN'];
-    const ctx = new GitContext(validOptions({ token: 'injected-token' }));
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('injected-token') }));
     ctx.commandEnv();
     expect(process.env['GH_TOKEN']).toBe(before);
   });
@@ -223,14 +226,14 @@ describe('commandEnv', () => {
   });
 
   it('preserves unrelated keys from the base object', () => {
-    const ctx = new GitContext(validOptions({ token: 'tok' }));
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('tok') }));
     const env = ctx.commandEnv({ UNRELATED: 'keep-me' });
     expect(env['UNRELATED']).toBe('keep-me');
     expect(env.GH_TOKEN).toBe('tok');
   });
 
   it('two calls return independent objects with no cross-contamination', () => {
-    const ctx = new GitContext(validOptions({ token: 'tok' }));
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('tok') }));
     const env1 = ctx.commandEnv();
     const env2 = ctx.commandEnv();
     expect(env1).not.toBe(env2);
@@ -279,7 +282,7 @@ describe('remotes()', () => {
 
   it('does not mutate process.env', () => {
     const before = process.env['GH_TOKEN'];
-    const ctx = new GitContext(validOptions({ token: 'remote-tok' }), {
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('remote-tok') }), {
       exec: () => 'origin\n' as never,
     });
     ctx.remotes();
@@ -353,7 +356,7 @@ describe('gitConfigUser()', () => {
 
   it('does not mutate process.env', () => {
     const before = process.env['GH_TOKEN'];
-    const ctx = new GitContext(validOptions({ token: 'config-tok' }), {
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('config-tok') }), {
       exec: () => 'value\n' as never,
     });
     ctx.gitConfigUser();
@@ -599,9 +602,7 @@ describe('exec() options admit no forge-specific parameter', () => {
 // ── TokenProvider port ───────────────────────────────────────────────────────
 
 function providerOptions(provider: TokenProvider, overrides: Partial<GitContextOptions> = {}): GitContextOptions {
-  const opts = validOptions(overrides) as unknown as Record<string, unknown>;
-  delete opts['token'];
-  return { ...(opts as unknown as GitContextOptions), tokenProvider: provider };
+  return { ...validOptions(overrides), tokenProvider: provider };
 }
 
 /** A provider whose credentialEnv logs every request and answers from a script. */
@@ -662,19 +663,18 @@ describe('TokenProvider port — per-command resolution', () => {
 });
 
 describe('TokenProvider port — purpose routing', () => {
-  it("approvePR and each board-status-move call reach the provider with purpose 'alternateIdentity'", () => {
+  it("commandEnv reaches the provider with purpose 'alternateIdentity' when explicitly asked — the adapter's seam for approvePR/board-status-move calls", () => {
     const { provider, requests } = makeRecordingProvider(() => ({ GH_TOKEN: 'tok' }));
-    const { exec } = makeSpyExec();
-    const ctx = new GitContext(providerOptions(provider), { exec });
-    ctx.approvePR(7);
+    const ctx = new GitContext(providerOptions(provider));
+    ctx.commandEnv({}, 'alternateIdentity');
     expect(requests[requests.length - 1].purpose).toBe('alternateIdentity');
   });
 
-  it("defaultBranch and an ordinary git op reach the provider with purpose 'default'", () => {
+  it("an ordinary git op reaches the provider with purpose 'default'", () => {
     const { provider, requests } = makeRecordingProvider(() => ({ GH_TOKEN: 'tok' }));
     const { exec } = makeSpyExec();
     const ctx = new GitContext(providerOptions(provider), { exec });
-    ctx.defaultBranch();
+    ctx.remotes();
     ctx.remoteUrl();
     const nonProbeRequests = requests.slice(1);
     for (const req of nonProbeRequests) {
@@ -696,14 +696,14 @@ describe('TokenProvider port — identity precedence', () => {
 });
 
 describe('TokenProvider port — construction validation', () => {
-  it('provider present and token absent constructs successfully', () => {
+  it('constructs successfully with a tokenProvider', () => {
     const { provider } = makeIncrementingProvider();
     expect(() => new GitContext(providerOptions(provider))).not.toThrow();
   });
 
-  it('neither provider nor token throws /GitContext/', () => {
+  it('no tokenProvider throws /GitContext/', () => {
     const opts = validOptions() as unknown as Record<string, unknown>;
-    delete opts['token'];
+    delete opts['tokenProvider'];
     expect(() => new GitContext(opts as unknown as GitContextOptions)).toThrow(/GitContext/);
   });
 
@@ -734,13 +734,3 @@ describe('TokenProvider port — the construction probe caches nothing', () => {
   });
 });
 
-describe('TokenProvider port — transitional literal-token path unchanged', () => {
-  it('a default op yields the token and approvePR yields the pat, restated at the port seam', () => {
-    const { exec, calls } = makeSpyExec();
-    const ctx = new GitContext(validOptions({ token: 'tok', pat: 'pat-tok' }), { exec });
-    ctx.remoteUrl();
-    ctx.approvePR(7);
-    expect(calls[0].env.GH_TOKEN).toBe('tok');
-    expect(calls[1].env.GH_TOKEN).toBe('pat-tok');
-  });
-});

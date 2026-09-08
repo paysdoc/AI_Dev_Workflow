@@ -38,7 +38,23 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { GitContext } from '../../../adws/gitContext/index.ts';
 import type { GitContextOptions } from '../../../adws/gitContext/types.ts';
+import { createLiteralTokenProvider } from '../../../adws/providers/github/githubTokenProvider.ts';
 import { runPerIssueScenarioSweep } from '../../../adws/triggers/perIssueScenarioSweep.ts';
+import { Platform, type BoundProviders } from '../../../adws/providers/types.ts';
+import type { LaunchBoundary } from '../../../adws/core/launchGitContext.ts';
+
+/**
+ * Every `runPerIssueScenarioSweep` call in this file fully overrides
+ * `listFeatures`/`getMergedAt`/`listStepDefSiblings`/`persistRemoval`/`readFeatureContent`,
+ * so `deps.boundary` is never dereferenced — this stand-in only needs to satisfy the type.
+ */
+function fakeBoundary(gitCtx: GitContext): LaunchBoundary {
+  return {
+    gitContext: gitCtx,
+    repoId: { owner: 'test', repo: 'test', platform: Platform.GitHub },
+    providers: {} as unknown as BoundProviders,
+  };
+}
 
 const DAY_MS = 86_400_000;
 const FIXED_NOW = new Date('2026-07-01T00:00:00Z');
@@ -55,7 +71,7 @@ function siblingRelPath(issueNum: number): string {
 function makeFixtureCtx(workdir: string): GitContext {
   const opts: GitContextOptions = {
     owner: 'test', repo: 'test', selfHost: true,
-    token: 'dummy-token-local-test',
+    tokenProvider: createLiteralTokenProvider('dummy-token-local-test'),
     gitIdentity: { authorName: 'ADW Test', authorEmail: 'test@adw.test', committerName: 'ADW Test', committerEmail: 'test@adw.test' },
     frameworkRepoRoot: workdir, targetReposDir: tmpdir(),
   };
@@ -136,7 +152,7 @@ When('the promotion-aware per-issue scenario sweep runs over the repository', as
   ctx.headBeforeSweep = git('git rev-parse HEAD', ctx.workdir);
 
   await runPerIssueScenarioSweep({
-    gitContext: gitCtx,
+    boundary: fakeBoundary(gitCtx),
     now: FIXED_NOW,
     listFeatures: () => listFixtureFeatures(gitCtx, ctx.workdir),
     getMergedAt: async (issueNum: number) => ctx.mergedAtByIssue.get(issueNum) ?? null,

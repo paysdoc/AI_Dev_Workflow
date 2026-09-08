@@ -13,6 +13,7 @@ import type { RepoInfo } from './githubApi';
 import type { GitHubIssue, GitHubLabel, IssueClassSlashCommand } from '../types/issueTypes';
 import type { GitContext } from '../gitContext';
 import { gitContextForRepo } from './gitContextFactory';
+import { createGhRepoApi } from '../providers/github/ghRepoApi';
 
 // ── Canonical label data ──────────────────────────────────────────────────────
 
@@ -156,11 +157,11 @@ export function ensureAdwLabelsExist(
   repoInfo: RepoInfo,
   deps: LabelManagerDeps = buildDefaultLabelManagerDeps(),
 ): void {
-  const ctx = deps.gitContextForRepo(repoInfo);
+  const gh = createGhRepoApi(deps.gitContextForRepo(repoInfo));
   let succeeded = 0;
   for (const def of ADW_LABEL_DEFINITIONS) {
     try {
-      ctx.createLabel(def.name, def.color, def.description);
+      gh.createLabel(def.name, def.color, def.description);
       succeeded++;
     } catch (error) {
       deps.logger(`ensureAdwLabelsExist: failed to create label "${def.name}": ${error}`, 'warn');
@@ -182,7 +183,7 @@ export function ensureLabelExists(
   repoInfo: RepoInfo,
   deps: LabelManagerDeps = buildDefaultLabelManagerDeps(),
 ): void {
-  deps.gitContextForRepo(repoInfo).createLabel(name, color, description);
+  createGhRepoApi(deps.gitContextForRepo(repoInfo)).createLabel(name, color, description);
 }
 
 /**
@@ -196,9 +197,9 @@ export function applyLabel(
   repoInfo: RepoInfo,
   deps: LabelManagerDeps = buildDefaultLabelManagerDeps(),
 ): void {
-  const ctx = deps.gitContextForRepo(repoInfo);
+  const gh = createGhRepoApi(deps.gitContextForRepo(repoInfo));
   try {
-    ctx.applyLabel(issueNumber, label);
+    gh.applyLabel(issueNumber, label);
     return;
   } catch (error) {
     if (!isLabelNotFoundError(error)) {
@@ -211,6 +212,6 @@ export function applyLabel(
   }
   deps.logger(`applyLabel: label "${label}" not found on repo, lazy-creating`, 'warn');
   const def = resolveLabelDefinition(label);
-  ctx.createLabel(def.name, def.color, def.description);
-  ctx.applyLabel(issueNumber, label);
+  gh.createLabel(def.name, def.color, def.description);
+  gh.applyLabel(issueNumber, label);
 }

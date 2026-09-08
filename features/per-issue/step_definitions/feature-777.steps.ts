@@ -31,6 +31,8 @@ import { Given, When, Then, After } from '@cucumber/cucumber';
 import assert from 'assert';
 import { GitContext, ensureRepoWorkspace } from '../../../adws/gitContext/index.ts';
 import type { ExecFn, WorktreeRegistration } from '../../../adws/gitContext/index.ts';
+import { createGhRepoApi } from '../../../adws/providers/github/ghRepoApi.ts';
+import { createLiteralTokenProvider } from '../../../adws/providers/github/githubTokenProvider.ts';
 
 interface RecordedCall {
   command: string;
@@ -121,7 +123,7 @@ function buildContext(exec?: ExecFn): GitContext {
       owner: w.owner,
       repo: w.repo,
       selfHost: w.selfHost,
-      token: w.token,
+      tokenProvider: createLiteralTokenProvider(w.token),
       gitIdentity: TEST_IDENTITY,
       frameworkRepoRoot: w.frameworkRepoRoot,
       targetReposDir: w.targetReposDir,
@@ -190,12 +192,13 @@ Given(
 // ── Operation dispatch ────────────────────────────────────────────────────────
 
 function runRepoApiOp(ctx: GitContext, opName: string): unknown {
+  const gh = createGhRepoApi(ctx);
   switch (opName) {
-    case 'fetch-issue-comments': return ctx.fetchIssueComments(28);
-    case 'default-branch': return ctx.defaultBranch();
-    case 'issue-comment': return ctx.commentOnIssue(28, 'body');
-    case 'apply-label': return ctx.applyLabel(28, 'adw:bug');
-    case 'authenticated-user': return ctx.authenticatedUser();
+    case 'fetch-issue-comments': return gh.fetchIssueComments(28);
+    case 'default-branch': return gh.defaultBranch();
+    case 'issue-comment': return gh.commentOnIssue(28, 'body');
+    case 'apply-label': return gh.applyLabel(28, 'adw:bug');
+    case 'authenticated-user': return gh.authenticatedUser();
     default: throw new Error(`Unknown repository-API operation: "${opName}"`);
   }
 }
@@ -233,7 +236,7 @@ When('the workspace-ensure flow runs for the repository', function () {
       targetReposDir: w.targetReposDir,
       getDefaultBranch: () => {
         assert.ok(w.ctx !== null, 'Expected a GitContext to be set up');
-        return w.ctx.defaultBranch();
+        return createGhRepoApi(w.ctx).defaultBranch();
       },
       exec: (command, opts) => {
         w.ensureWorkspaceRecordedCalls.push({ command, cwd: opts.cwd ?? '' });

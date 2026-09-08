@@ -5,11 +5,14 @@
 import { gitContextForRepo, readLocalRepoInfo } from './gitContextFactory';
 import { parseGitHubRemoteUrl } from '../providers/github/githubIdentity';
 import { REPO_ROOT } from '../core/environment';
+import { createGhRepoApi } from '../providers/github/ghRepoApi';
 
 export interface RepoInfo {
   owner: string;
   repo: string;
 }
+
+const gh = (repoInfo: RepoInfo) => createGhRepoApi(gitContextForRepo(repoInfo));
 
 /**
  * Extracts owner and repo from the git remote URL.
@@ -57,7 +60,7 @@ export function getAuthenticatedUser(): string | null {
   try {
     // The authenticated user is a process-level property, resolved against the
     // framework repo's installation, never cwd.
-    const json = gitContextForRepo(readLocalRepoInfo(REPO_ROOT)).authenticatedUser();
+    const json = gh(readLocalRepoInfo(REPO_ROOT)).authenticatedUser();
     const login = (JSON.parse(json) as { login?: string }).login;
     cachedAuthenticatedUser = login || null;
   } catch (error) {

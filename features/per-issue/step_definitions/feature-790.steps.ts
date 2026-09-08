@@ -36,6 +36,8 @@ import assert from 'assert';
 import { GitContext } from '../../../adws/gitContext/index.ts';
 import type { ExecFn, ExecOptions, ExecWorkingDirectory, FsDeps, GitContextOptions } from '../../../adws/gitContext/index.ts';
 import { W, makeSpyExec, makeFullOptions, makeNoOpFsDeps, FRAMEWORK_ROOT, TARGET_REPOS_ROOT, type SpyCall } from './gitContextSharedWorld.ts';
+import { createGhRepoApi } from '../../../adws/providers/github/ghRepoApi.ts';
+import { createLiteralTokenProvider } from '../../../adws/providers/github/githubTokenProvider.ts';
 
 interface MethodInvocation {
   method: string;
@@ -102,7 +104,7 @@ After(function () {
 function buildOptions(): GitContextOptions {
   return {
     ...makeFullOptions(w790.owner, w790.repo, w790.token, 'ADW Fixture Bot', 'fixture-bot@adw.dev'),
-    pat: w790.pat,
+    tokenProvider: createLiteralTokenProvider(w790.token, w790.pat),
   };
 }
 
@@ -219,12 +221,13 @@ function runThroughExecutor(
 // ── Context-method dispatch ───────────────────────────────────────────────────
 
 function runContextMethod(ctx: GitContext, method: string, worktreePath?: string): unknown {
+  const gh = createGhRepoApi(ctx);
   switch (method) {
-    case 'fetch-issue-comments': return ctx.fetchIssueComments(28);
-    case 'issue-comment': return ctx.commentOnIssue(28, 'issue comment body');
-    case 'approve-pr': ctx.approvePR(7); return undefined;
-    case 'authenticated-user': return ctx.authenticatedUser();
-    case 'board-status-move': return ctx.moveIssueToStatus(28, 'In Progress');
+    case 'fetch-issue-comments': return gh.fetchIssueComments(28);
+    case 'issue-comment': return gh.commentOnIssue(28, 'issue comment body');
+    case 'approve-pr': gh.approvePR(7); return undefined;
+    case 'authenticated-user': return gh.authenticatedUser();
+    case 'board-status-move': return gh.moveIssueToStatus(28, 'In Progress');
     case 'remote-url': return ctx.remoteUrl();
     case 'local-branches': return ctx.localBranches();
     case 'head-short': return ctx.headShort();

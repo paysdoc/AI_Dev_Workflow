@@ -4,7 +4,7 @@
  */
 
 import { log, JIRA_EMAIL, JIRA_API_TOKEN, JIRA_PAT } from '../../core';
-import type { IssueTracker, Issue, IssueComment, IssueSummary } from '../types';
+import type { IssueTracker, Issue, IssueComment, IssueSummary, IssueListEntry } from '../types';
 import { BoardStatus } from '../types';
 import { JiraApiClient } from './jiraApiClient';
 import type { JiraIssueResponse, JiraCommentResponse } from './jiraTypes';
@@ -237,6 +237,10 @@ export class JiraIssueTracker implements IssueTracker {
 
   findOpenUpgradeIssue(): number | null {
     throw new Error('JiraIssueTracker.findOpenUpgradeIssue is not implemented');
+  }
+
+  listIssues(): readonly IssueListEntry[] {
+    throw new Error('JiraIssueTracker.listIssues is not implemented');
   }
 }
 

@@ -19,7 +19,7 @@ const { spawnMock, issueHasLabelMock, evaluateCandidateMock, releaseIssueSpawnLo
 }));
 
 vi.mock('child_process', () => ({ spawn: spawnMock }));
-vi.mock('../../github/gitContextFactory', () => ({ gitContextForRepo: vi.fn() }));
+vi.mock('../../github/issueListApi', () => ({ listIssues: vi.fn() }));
 vi.mock('../issueDependencies', () => ({ parseDependencies: vi.fn() }));
 vi.mock('../../github/issueApi', () => ({ issueHasLabel: issueHasLabelMock, closeIssue: vi.fn() }));
 vi.mock('../../github/labelManager', () => ({
@@ -49,7 +49,7 @@ vi.mock('../../core/agentState', () => ({
 }));
 
 import { classifyAndSpawnWorkflow, closeAbandonedDependents } from '../webhookGatekeeper';
-import { gitContextForRepo } from '../../github/gitContextFactory';
+import { listIssues } from '../../github/issueListApi';
 import { parseDependencies } from '../issueDependencies';
 
 const REPO_INFO = { owner: 'acme', repo: 'target' };
@@ -105,19 +105,16 @@ describe('closeAbandonedDependents — listOpenIssues routing', () => {
     vi.mocked(parseDependencies).mockReturnValue([]);
   });
 
-  it('calls listOpenIssues with number+body fields via gitContextForRepo', async () => {
-    const issues: unknown[] = [];
-    const mockCtx = { listOpenIssues: vi.fn(() => JSON.stringify(issues)) };
-    vi.mocked(gitContextForRepo).mockReturnValue(mockCtx as never);
+  it('calls issueListApi.listIssues with number+body fields', async () => {
+    vi.mocked(listIssues).mockReturnValue([]);
 
     await closeAbandonedDependents(7, REPO_INFO);
 
-    expect(gitContextForRepo).toHaveBeenCalledWith(REPO_INFO);
-    expect(mockCtx.listOpenIssues).toHaveBeenCalledWith({ fields: ['number', 'body'], limit: 100 });
+    expect(listIssues).toHaveBeenCalledWith({ fields: ['number', 'body'], limit: 100 }, REPO_INFO);
   });
 
-  it('does not throw on listOpenIssues error', async () => {
-    vi.mocked(gitContextForRepo).mockReturnValue({ listOpenIssues: vi.fn(() => { throw new Error('gh failed'); }) } as never);
+  it('does not throw when listIssues throws', async () => {
+    vi.mocked(listIssues).mockImplementation(() => { throw new Error('gh failed'); });
 
     await expect(closeAbandonedDependents(7, REPO_INFO)).resolves.not.toThrow();
   });

@@ -15,7 +15,7 @@ import { extractDependencies } from './issueDependencies';
 import { checkIssueEligibility } from './issueEligibility';
 import type { EligibilityResult } from './issueEligibility';
 import { classifyAndSpawnWorkflow } from './webhookGatekeeper';
-import { gitContextForRepo } from '../github/gitContextFactory';
+import { listIssues } from '../github/issueListApi';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -47,10 +47,13 @@ export interface DependencyUnblockDeps {
   logger: (message: string, level?: LogLevel) => void;
 }
 
-export function buildDefaultDependencyUnblockDeps(repoInfo: RepoInfo, gitContext?: GitContext): DependencyUnblockDeps {
-  const ctx = gitContext ?? gitContextForRepo(repoInfo);
+// _gitContext is unused here — listing now always routes through issueListApi.listIssues
+// by repoInfo. The parameter stays so this function's signature keeps matching its call
+// site's (repoInfo, gitContext) default-parameter expression in handleIssueClosedDependencyUnblock;
+// that gitContext is threaded to `spawn` at call time, not through this closure.
+export function buildDefaultDependencyUnblockDeps(repoInfo: RepoInfo, _gitContext?: GitContext): DependencyUnblockDeps {
   return {
-    listOpenIssues: () => JSON.parse(ctx.listOpenIssues({ fields: ['number', 'body'], limit: 100 })) as OpenIssue[],
+    listOpenIssues: () => listIssues({ fields: ['number', 'body'], limit: 100 }, repoInfo) as OpenIssue[],
     extractDependents: (body, n) => extractDependencies(body, LOGS_DIR, undefined, undefined, n),
     checkEligibility: checkIssueEligibility,
     spawn: (n, r, a, gc) => classifyAndSpawnWorkflow(n, r, a, undefined, undefined, undefined, gc),

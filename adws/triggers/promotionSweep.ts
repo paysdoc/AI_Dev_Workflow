@@ -45,11 +45,11 @@ import { buildPromotionIssue } from '../core/promotionIssueBody';
 import type { PromotionIssueSpec } from '../core/promotionIssueBody';
 import { FEATURE_FILENAME_RE, makeDefaultDeps } from './promotionSweepDefaults';
 import type { ScenariosPaths } from './promotionSweepDefaults';
-import type { GitContext } from '../gitContext';
-import { buildLaunchGitContext, parseTargetRepoArgs } from '../core';
+import type { LaunchBoundary } from '../core';
+import { buildLaunchBoundary, parseTargetRepoArgs } from '../core';
 
 export interface PromotionSweepDeps {
-  gitContext: GitContext;
+  boundary: LaunchBoundary;
   now?: () => Date;
   listPerIssueFeatures?: () => string[];
   readFeatureContent?: (path: string) => string | null;
@@ -236,7 +236,7 @@ function processCandidate(
 export async function runPromotionSweep(deps: PromotionSweepDeps): Promise<PromotionSweepReport> {
   const now = deps.now ?? (() => new Date());
   const logger = deps.log ?? log;
-  const defaults = makeDefaultDeps(deps.gitContext);
+  const defaults = makeDefaultDeps(deps.boundary);
   const scenariosConfig = deps.scenariosConfig ?? defaults.scenariosConfig();
   const listPerIssueFeatures = deps.listPerIssueFeatures ?? defaults.listPerIssueFeatures;
   const readFeatureContent = deps.readFeatureContent ?? defaults.readFeatureContent;
@@ -280,7 +280,7 @@ export async function runPromotionSweep(deps: PromotionSweepDeps): Promise<Promo
 
 if (process.argv[1]?.replace(/\\/g, '/').includes('promotionSweep')) {
   const targetRepo = parseTargetRepoArgs(process.argv.slice(2));
-  runPromotionSweep({ gitContext: buildLaunchGitContext(targetRepo) })
+  runPromotionSweep({ boundary: buildLaunchBoundary(targetRepo) })
     .then(r => log(
       `promotionSweep: originated ${r.originated.length}, redrove ${r.redriven.length}, declined ${r.declined.length}, withdrew ${r.withdrawn.length}, left ${r.left.length} file(s) untouched`,
       'info',

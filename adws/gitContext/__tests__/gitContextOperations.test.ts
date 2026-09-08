@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { GitContext } from '../gitContext';
 import type { GitContextOptions, ExecFn } from '../types';
+import { createLiteralTokenProvider } from '../../providers/github/githubTokenProvider';
 
 const FRAMEWORK_ROOT = '/srv/adw/framework';
 const TARGET_REPOS_DIR = '/srv/adw/repos';
@@ -10,7 +11,7 @@ function validOptions(overrides: Partial<GitContextOptions> = {}): GitContextOpt
     owner: 'acme',
     repo: 'webapp',
     selfHost: false,
-    token: 'gh-token-abc',
+    tokenProvider: createLiteralTokenProvider('gh-token-abc'),
     gitIdentity: {
       authorName: 'ADW Bot',
       authorEmail: 'bot@adw.dev',
@@ -39,63 +40,6 @@ function makeSpyExec(stdout = 'main\n'): { exec: ExecFn; calls: SpyCall[] } {
   return { exec, calls };
 }
 
-// ── Env injection ────────────────────────────────────────────────────────────
-
-describe('defaultBranch() env injection', () => {
-  it('passes cwd equal to the framework repo root', () => {
-    const { exec, calls } = makeSpyExec();
-    const ctx = new GitContext(
-      validOptions({ owner: 'acme', repo: 'webapp', token: 'my-token' }),
-      { exec },
-    );
-    ctx.defaultBranch();
-    expect(calls[0].cwd).toBe(FRAMEWORK_ROOT);
-  });
-
-  it('passes GH_TOKEN from the context token in the child env', () => {
-    const { exec, calls } = makeSpyExec();
-    const ctx = new GitContext(validOptions({ token: 'secret-token' }), { exec });
-    ctx.defaultBranch();
-    expect(calls[0].env.GH_TOKEN).toBe('secret-token');
-  });
-
-  it('passes all four GIT_* identity vars in the child env', () => {
-    const { exec, calls } = makeSpyExec();
-    const ctx = new GitContext(
-      validOptions({
-        gitIdentity: {
-          authorName: 'Author Name',
-          authorEmail: 'author@test.com',
-          committerName: 'Committer Name',
-          committerEmail: 'committer@test.com',
-        },
-      }),
-      { exec },
-    );
-    ctx.defaultBranch();
-    expect(calls[0].env.GIT_AUTHOR_NAME).toBe('Author Name');
-    expect(calls[0].env.GIT_AUTHOR_EMAIL).toBe('author@test.com');
-    expect(calls[0].env.GIT_COMMITTER_NAME).toBe('Committer Name');
-    expect(calls[0].env.GIT_COMMITTER_EMAIL).toBe('committer@test.com');
-  });
-
-  it('spawns the expected gh repo view command with explicit owner/repo', () => {
-    const { exec, calls } = makeSpyExec();
-    const ctx = new GitContext(validOptions({ owner: 'myorg', repo: 'myrepo' }), { exec });
-    ctx.defaultBranch();
-    expect(calls[0].command).toBe(
-      'gh repo view myorg/myrepo --json defaultBranchRef --jq .defaultBranchRef.name',
-    );
-  });
-
-  it('inherits unrelated env keys (PATH survives in the child env)', () => {
-    const { exec, calls } = makeSpyExec();
-    const ctx = new GitContext(validOptions(), { exec });
-    ctx.defaultBranch();
-    expect(calls[0].env['PATH']).toBe(process.env['PATH']);
-  });
-});
-
 // ── remoteUrl() ─────────────────────────────────────────────────────────────
 
 describe('remoteUrl() command and env', () => {
@@ -122,7 +66,7 @@ describe('remoteUrl() command and env', () => {
 
   it('injects GH_TOKEN from the context token in the child env', () => {
     const { exec, calls } = makeSpyExec('git@github.com:acme/webapp.git\n');
-    const ctx = new GitContext(validOptions({ token: 'remote-token' }), { exec });
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('remote-token') }), { exec });
     ctx.remoteUrl();
     expect(calls[0].env.GH_TOKEN).toBe('remote-token');
   });
@@ -148,7 +92,7 @@ describe('remoteUrl() command and env', () => {
   it('does not mutate process.env', () => {
     const before = process.env.GH_TOKEN;
     const { exec } = makeSpyExec('git@github.com:acme/webapp.git\n');
-    const ctx = new GitContext(validOptions({ token: 'injected' }), { exec });
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('injected') }), { exec });
     ctx.remoteUrl();
     expect(process.env.GH_TOKEN).toBe(before);
   });
@@ -158,294 +102,32 @@ describe('remoteUrl() command and env', () => {
     const ctx = new GitContext(validOptions(), { exec });
     expect(ctx.remoteUrl()).toBe('git@github.com:acme/webapp.git');
   });
-});
 
-// ── listOpenIssues() ─────────────────────────────────────────────────────────
-
-describe('listOpenIssues() command and env', () => {
-  it('builds the exact command with required fields and limit', () => {
-    const { exec, calls } = makeSpyExec('[]');
-    const ctx = new GitContext(validOptions({ owner: 'acme', repo: 'webapp' }), { exec });
-    ctx.listOpenIssues({ fields: ['number', 'comments'], limit: 100 });
-    expect(calls[0].command).toBe(
-      'gh issue list --repo acme/webapp --state open --json number,comments --limit 100',
-    );
-  });
-
-  it('appends --search when provided', () => {
-    const { exec, calls } = makeSpyExec('[]');
-    const ctx = new GitContext(validOptions({ owner: 'acme', repo: 'webapp' }), { exec });
-    ctx.listOpenIssues({ fields: ['number', 'title'], search: 'docs-bloat: app_docs/foo.md', limit: 5 });
-    expect(calls[0].command).toBe(
-      'gh issue list --repo acme/webapp --state open --json number,title --search "docs-bloat: app_docs/foo.md" --limit 5',
-    );
-  });
-
-  it('omits --search and --limit when not provided', () => {
-    const { exec, calls } = makeSpyExec('[]');
-    const ctx = new GitContext(validOptions({ owner: 'acme', repo: 'webapp' }), { exec });
-    ctx.listOpenIssues({ fields: ['number'] });
-    expect(calls[0].command).toBe('gh issue list --repo acme/webapp --state open --json number');
-  });
-
-  it('passes cwd equal to the framework repo root', () => {
-    const { exec, calls } = makeSpyExec('[]');
+  it('inherits unrelated env keys (PATH survives in the child env)', () => {
+    const { exec, calls } = makeSpyExec('git@github.com:acme/webapp.git\n');
     const ctx = new GitContext(validOptions(), { exec });
-    ctx.listOpenIssues({ fields: ['number'] });
-    expect(calls[0].cwd).toBe(FRAMEWORK_ROOT);
-  });
-
-  it('injects GH_TOKEN from the context token in the child env', () => {
-    const { exec, calls } = makeSpyExec('[]');
-    const ctx = new GitContext(validOptions({ token: 'list-token' }), { exec });
-    ctx.listOpenIssues({ fields: ['number'] });
-    expect(calls[0].env.GH_TOKEN).toBe('list-token');
-  });
-
-  it('injects all four GIT_* identity vars', () => {
-    const { exec, calls } = makeSpyExec('[]');
-    const ctx = new GitContext(
-      validOptions({
-        gitIdentity: {
-          authorName: 'List Bot', authorEmail: 'list@bot.dev',
-          committerName: 'List Bot', committerEmail: 'list@bot.dev',
-        },
-      }),
-      { exec },
-    );
-    ctx.listOpenIssues({ fields: ['number'] });
-    expect(calls[0].env.GIT_AUTHOR_NAME).toBe('List Bot');
-    expect(calls[0].env.GIT_AUTHOR_EMAIL).toBe('list@bot.dev');
-  });
-
-  it('does not mutate process.env', () => {
-    const before = process.env.GH_TOKEN;
-    const { exec } = makeSpyExec('[]');
-    const ctx = new GitContext(validOptions({ token: 'injected' }), { exec });
-    ctx.listOpenIssues({ fields: ['number'] });
-    expect(process.env.GH_TOKEN).toBe(before);
-  });
-
-  it('returns trimmed stdout', () => {
-    const { exec } = makeSpyExec('[{"number":1}]\n');
-    const ctx = new GitContext(validOptions(), { exec });
-    expect(ctx.listOpenIssues({ fields: ['number'] })).toBe('[{"number":1}]');
-  });
-});
-
-// ── issueComments() ──────────────────────────────────────────────────────────
-
-describe('issueComments() command and env', () => {
-  it("builds the exact command with --jq '.comments'", () => {
-    const { exec, calls } = makeSpyExec('[]');
-    const ctx = new GitContext(validOptions({ owner: 'acme', repo: 'webapp' }), { exec });
-    ctx.issueComments(42);
-    expect(calls[0].command).toBe(
-      "gh issue view 42 --repo acme/webapp --json comments --jq '.comments'",
-    );
-  });
-
-  it('passes cwd equal to the framework repo root', () => {
-    const { exec, calls } = makeSpyExec('[]');
-    const ctx = new GitContext(validOptions(), { exec });
-    ctx.issueComments(1);
-    expect(calls[0].cwd).toBe(FRAMEWORK_ROOT);
-  });
-
-  it('injects GH_TOKEN from the context token', () => {
-    const { exec, calls } = makeSpyExec('[]');
-    const ctx = new GitContext(validOptions({ token: 'comments-token' }), { exec });
-    ctx.issueComments(1);
-    expect(calls[0].env.GH_TOKEN).toBe('comments-token');
-  });
-
-  it('injects GIT_* vars in the child env', () => {
-    const { exec, calls } = makeSpyExec('[]');
-    const ctx = new GitContext(
-      validOptions({
-        gitIdentity: {
-          authorName: 'Comments Bot', authorEmail: 'c@bot.dev',
-          committerName: 'Comments Bot', committerEmail: 'c@bot.dev',
-        },
-      }),
-      { exec },
-    );
-    ctx.issueComments(1);
-    expect(calls[0].env.GIT_AUTHOR_NAME).toBe('Comments Bot');
-  });
-
-  it('does not mutate process.env', () => {
-    const before = process.env.GH_TOKEN;
-    const { exec } = makeSpyExec('[]');
-    const ctx = new GitContext(validOptions({ token: 'injected' }), { exec });
-    ctx.issueComments(1);
-    expect(process.env.GH_TOKEN).toBe(before);
-  });
-
-  it('returns trimmed stdout', () => {
-    const { exec } = makeSpyExec('[{"body":"hello"}]\n');
-    const ctx = new GitContext(validOptions(), { exec });
-    expect(ctx.issueComments(1)).toBe('[{"body":"hello"}]');
-  });
-});
-
-// ── fetchMergedPRs() ─────────────────────────────────────────────────────────
-
-describe('fetchMergedPRs() command and env', () => {
-  it('defaults to --limit 200', () => {
-    const { exec, calls } = makeSpyExec('[]');
-    const ctx = new GitContext(validOptions({ owner: 'acme', repo: 'webapp' }), { exec });
-    ctx.fetchMergedPRs();
-    expect(calls[0].command).toBe(
-      'gh pr list --repo acme/webapp --state merged --json body,mergedAt --limit 200',
-    );
-  });
-
-  it('honors an explicit limit', () => {
-    const { exec, calls } = makeSpyExec('[]');
-    const ctx = new GitContext(validOptions({ owner: 'acme', repo: 'webapp' }), { exec });
-    ctx.fetchMergedPRs(50);
-    expect(calls[0].command).toBe(
-      'gh pr list --repo acme/webapp --state merged --json body,mergedAt --limit 50',
-    );
-  });
-
-  it('passes cwd equal to the framework repo root', () => {
-    const { exec, calls } = makeSpyExec('[]');
-    const ctx = new GitContext(validOptions(), { exec });
-    ctx.fetchMergedPRs();
-    expect(calls[0].cwd).toBe(FRAMEWORK_ROOT);
-  });
-
-  it('injects GH_TOKEN from the context token', () => {
-    const { exec, calls } = makeSpyExec('[]');
-    const ctx = new GitContext(validOptions({ token: 'prs-token' }), { exec });
-    ctx.fetchMergedPRs();
-    expect(calls[0].env.GH_TOKEN).toBe('prs-token');
-  });
-
-  it('injects GIT_* vars in the child env', () => {
-    const { exec, calls } = makeSpyExec('[]');
-    const ctx = new GitContext(
-      validOptions({
-        gitIdentity: {
-          authorName: 'PR Bot', authorEmail: 'pr@bot.dev',
-          committerName: 'PR Bot', committerEmail: 'pr@bot.dev',
-        },
-      }),
-      { exec },
-    );
-    ctx.fetchMergedPRs();
-    expect(calls[0].env.GIT_AUTHOR_NAME).toBe('PR Bot');
-  });
-
-  it('does not mutate process.env', () => {
-    const before = process.env.GH_TOKEN;
-    const { exec } = makeSpyExec('[]');
-    const ctx = new GitContext(validOptions({ token: 'injected' }), { exec });
-    ctx.fetchMergedPRs();
-    expect(process.env.GH_TOKEN).toBe(before);
-  });
-
-  it('returns trimmed stdout', () => {
-    const { exec } = makeSpyExec('[{"body":"Closes #1","mergedAt":"2024-01-01"}]\n');
-    const ctx = new GitContext(validOptions(), { exec });
-    expect(ctx.fetchMergedPRs()).toBe('[{"body":"Closes #1","mergedAt":"2024-01-01"}]');
-  });
-});
-
-// ── Return value ─────────────────────────────────────────────────────────────
-
-describe('defaultBranch() return value', () => {
-  it('returns the trimmed stdout', () => {
-    const { exec } = makeSpyExec('main\n');
-    const ctx = new GitContext(validOptions(), { exec });
-    expect(ctx.defaultBranch()).toBe('main');
-  });
-
-  it('trims leading and trailing whitespace', () => {
-    const { exec } = makeSpyExec('  dev  \n');
-    const ctx = new GitContext(validOptions(), { exec });
-    expect(ctx.defaultBranch()).toBe('dev');
-  });
-});
-
-// ── Parent-env non-mutation ──────────────────────────────────────────────────
-
-describe('defaultBranch() does not mutate process.env', () => {
-  const savedVars: Record<string, string | undefined> = {};
-  const watchKeys = [
-    'GH_TOKEN',
-    'GIT_AUTHOR_NAME',
-    'GIT_AUTHOR_EMAIL',
-    'GIT_COMMITTER_NAME',
-    'GIT_COMMITTER_EMAIL',
-  ];
-
-  afterEach(() => {
-    for (const key of watchKeys) {
-      if (savedVars[key] === undefined) {
-        delete process.env[key];
-      } else {
-        process.env[key] = savedVars[key];
-      }
-    }
-  });
-
-  it('leaves GH_TOKEN and all four GIT_* vars byte-identical after an operation', () => {
-    for (const key of watchKeys) {
-      savedVars[key] = process.env[key];
-    }
-    const before: Record<string, string | undefined> = {};
-    for (const key of watchKeys) {
-      before[key] = process.env[key];
-    }
-
-    const { exec } = makeSpyExec();
-    const ctx = new GitContext(validOptions({ token: 'injected-token' }), { exec });
-    ctx.defaultBranch();
-
-    for (const key of watchKeys) {
-      expect(process.env[key]).toBe(before[key]);
-    }
+    ctx.remoteUrl();
+    expect(calls[0].env['PATH']).toBe(process.env['PATH']);
   });
 });
 
 // ── Two-context isolation ────────────────────────────────────────────────────
+// The repo-API half of this contract (two contexts, two tokens, both at the
+// shared framework-rooted cwd) relocated to the adapter's own suite alongside
+// the methods that carried it — see `adws/providers/github/__tests__/ghRepoApi.test.ts`.
+// What remains is the git half: two contexts still isolate their own per-repo cwd.
 
 describe('two-context isolation', () => {
-  it('two contexts in one process each spawn their repo-API command with their own token, at the shared framework-rooted cwd', () => {
-    const { exec: spyA, calls: callsA } = makeSpyExec('main\n');
-    const { exec: spyB, calls: callsB } = makeSpyExec('main\n');
-
-    const ctxA = new GitContext(
-      validOptions({ owner: 'acme', repo: 'alpha', token: 'token-alpha' }),
-      { exec: spyA },
-    );
-    const ctxB = new GitContext(
-      validOptions({ owner: 'octo', repo: 'beta', token: 'token-beta' }),
-      { exec: spyB },
-    );
-
-    ctxA.defaultBranch();
-    ctxB.defaultBranch();
-
-    expect(callsA[0].cwd).toBe(FRAMEWORK_ROOT);
-    expect(callsA[0].env.GH_TOKEN).toBe('token-alpha');
-    expect(callsB[0].cwd).toBe(FRAMEWORK_ROOT);
-    expect(callsB[0].env.GH_TOKEN).toBe('token-beta');
-  });
-
   it('two contexts in one process each spawn their git command with their own per-repo cwd', () => {
     const { exec: spyA, calls: callsA } = makeSpyExec('main\n');
     const { exec: spyB, calls: callsB } = makeSpyExec('main\n');
 
     const ctxA = new GitContext(
-      validOptions({ owner: 'acme', repo: 'alpha', token: 'token-alpha' }),
+      validOptions({ owner: 'acme', repo: 'alpha', tokenProvider: createLiteralTokenProvider('token-alpha') }),
       { exec: spyA },
     );
     const ctxB = new GitContext(
-      validOptions({ owner: 'octo', repo: 'beta', token: 'token-beta' }),
+      validOptions({ owner: 'octo', repo: 'beta', tokenProvider: createLiteralTokenProvider('token-beta') }),
       { exec: spyB },
     );
 
@@ -456,31 +138,13 @@ describe('two-context isolation', () => {
     expect(callsB[0].cwd).toBe(ctxB.basePath);
     expect(callsA[0].cwd).not.toBe(callsB[0].cwd);
   });
-
-  it('neither context carries the other context token (shared spy)', () => {
-    const { exec: shared, calls } = makeSpyExec();
-
-    const ctxA = new GitContext(
-      validOptions({ owner: 'acme', repo: 'alpha', token: 'token-alpha' }),
-      { exec: shared },
-    );
-    const ctxB = new GitContext(
-      validOptions({ owner: 'octo', repo: 'beta', token: 'token-beta' }),
-      { exec: shared },
-    );
-
-    ctxA.defaultBranch();
-    ctxB.defaultBranch();
-
-    const [callA, callB] = calls;
-    expect(callA.env.GH_TOKEN).toBe('token-alpha');
-    expect(callB.env.GH_TOKEN).toBe('token-beta');
-    expect(Object.values(callA.env)).not.toContain('token-beta');
-    expect(Object.values(callB.env)).not.toContain('token-alpha');
-  });
 });
 
 // ── Ambient-bleed resistance ─────────────────────────────────────────────────
+// Vehicle swapped from the deleted defaultBranch() to getCurrentBranch(): the
+// property under test — the TokenProvider port's answer overrides a stale
+// process.env.GH_TOKEN, and the parent env is never mutated — is a `commandEnv()`
+// guarantee, not specific to any one operation.
 
 describe('ambient-bleed resistance', () => {
   const savedToken = process.env['GH_TOKEN'];
@@ -495,21 +159,23 @@ describe('ambient-bleed resistance', () => {
   it('context token overrides a stale process.env.GH_TOKEN in the child env', () => {
     process.env['GH_TOKEN'] = 'stale-global-token';
     const { exec, calls } = makeSpyExec();
-    const ctx = new GitContext(validOptions({ token: 'context-token' }), { exec });
-    ctx.defaultBranch();
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('context-token') }), { exec });
+    ctx.getCurrentBranch();
     expect(calls[0].env.GH_TOKEN).toBe('context-token');
   });
 
   it('parent process.env.GH_TOKEN remains the stale value after the op', () => {
     process.env['GH_TOKEN'] = 'stale-global-token';
     const { exec } = makeSpyExec();
-    const ctx = new GitContext(validOptions({ token: 'context-token' }), { exec });
-    ctx.defaultBranch();
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('context-token') }), { exec });
+    ctx.getCurrentBranch();
     expect(process.env['GH_TOKEN']).toBe('stale-global-token');
   });
 });
 
 // ── Error propagation ────────────────────────────────────────────────────────
+// Vehicle swapped from the deleted defaultBranch() to getCurrentBranch(): the
+// property under test is exec()'s own passthrough/non-mutation guarantee.
 
 describe('error propagation', () => {
   const savedToken = process.env['GH_TOKEN'];
@@ -522,34 +188,27 @@ describe('error propagation', () => {
   });
 
   it('surfaces exec errors at the system boundary', () => {
-    const exec: ExecFn = () => { throw new Error('gh: unauthenticated'); };
+    const exec: ExecFn = () => { throw new Error('git: not a repository'); };
     const ctx = new GitContext(validOptions(), { exec });
-    expect(() => ctx.defaultBranch()).toThrow('gh: unauthenticated');
+    expect(() => ctx.getCurrentBranch()).toThrow('git: not a repository');
   });
 
   it('does not mutate process.env when exec throws', () => {
     process.env['GH_TOKEN'] = 'before-throw';
     const exec: ExecFn = () => { throw new Error('spawn failed'); };
-    const ctx = new GitContext(validOptions({ token: 'ctx-token' }), { exec });
-    try { ctx.defaultBranch(); } catch { /* expected */ }
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('ctx-token') }), { exec });
+    try { ctx.getCurrentBranch(); } catch { /* expected */ }
     expect(process.env['GH_TOKEN']).toBe('before-throw');
   });
 });
 
 // ── cwd is explicit, not inherited from process.cwd() ───────────────────────
+// The repo-API half (frameworkRoot cwd survives process.chdir()) relocated to
+// `adws/gitContext/__tests__/repoApiCwd.test.ts`'s exec()-level suite.
 
 describe('explicit cwd (not process.cwd())', () => {
   const originalCwd = process.cwd();
   afterEach(() => process.chdir(originalCwd));
-
-  it('a repo-API command uses the framework repo root even after process.chdir()', () => {
-    const { exec, calls } = makeSpyExec();
-    const ctx = new GitContext(validOptions({ owner: 'acme', repo: 'webapp' }), { exec });
-    process.chdir('/tmp');
-    ctx.defaultBranch();
-    expect(calls[0].cwd).toBe(FRAMEWORK_ROOT);
-    expect(calls[0].cwd).not.toBe('/tmp');
-  });
 
   it('a git command uses the base path even after process.chdir()', () => {
     const { exec, calls } = makeSpyExec();
@@ -559,37 +218,6 @@ describe('explicit cwd (not process.cwd())', () => {
     ctx.getCurrentBranch();
     expect(calls[0].cwd).toBe(expectedBasePath);
     expect(calls[0].cwd).not.toBe('/tmp');
-  });
-});
-
-// ── createPR() head-branch contract ──────────────────────────────────────────
-// Regression guard: gh pr create must carry an explicit --head. Without it, gh
-// infers the head from the cwd's current branch (the context base path, on the
-// default branch), producing an empty-diff PR against the wrong head. The
-// GitContext gh-ops migration dropped --head and shipped exactly that bug
-// (PR opened with head=main → "0 files changed").
-describe('createPR() head-branch contract', () => {
-  it('includes an explicit --head set to the source branch', () => {
-    const { exec, calls } = makeSpyExec('https://github.com/acme/webapp/pull/12\n');
-    const ctx = new GitContext(validOptions({ owner: 'acme', repo: 'webapp' }), { exec });
-    ctx.createPR('My title', 'body text', 'feature-issue-7-do-thing', 'dev');
-    expect(calls[0].command).toContain('--head "feature-issue-7-do-thing"');
-  });
-
-  it('does not rely on the cwd-inferred head (head differs from base path branch)', () => {
-    // Spy returns 'main' for any command; the head must still be the passed branch.
-    const { exec, calls } = makeSpyExec('main\n');
-    const ctx = new GitContext(validOptions(), { exec });
-    ctx.createPR('T', 'b', 'feature-issue-99-x', 'dev');
-    expect(calls[0].command).toContain('--head "feature-issue-99-x"');
-    expect(calls[0].command).toContain('--base dev');
-  });
-
-  it('passes the PR body via --body-file - on stdin', () => {
-    const { exec, calls } = makeSpyExec('https://github.com/acme/webapp/pull/1\n');
-    const ctx = new GitContext(validOptions(), { exec });
-    ctx.createPR('T', 'the body', 'feature-issue-1-y');
-    expect(calls[0].command).toContain('--body-file -');
   });
 });
 
@@ -614,7 +242,7 @@ describe('resolveGitDir() command and env', () => {
 
   it('injects GH_TOKEN from the context token in the child env', () => {
     const { exec, calls } = makeSpyExec('/srv/adw/repos/acme/webapp/.git/worktrees/feat\n');
-    const ctx = new GitContext(validOptions({ token: 'probe-token' }), { exec });
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('probe-token') }), { exec });
     ctx.resolveGitDir(worktreePath);
     expect(calls[0].env.GH_TOKEN).toBe('probe-token');
   });
@@ -643,7 +271,7 @@ describe('resolveGitDir() command and env', () => {
   it('does not mutate process.env', () => {
     const before = process.env.GH_TOKEN;
     const { exec } = makeSpyExec('/abs/.git\n');
-    const ctx = new GitContext(validOptions({ token: 'inject' }), { exec });
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('inject') }), { exec });
     ctx.resolveGitDir(worktreePath);
     expect(process.env.GH_TOKEN).toBe(before);
   });
@@ -670,7 +298,7 @@ describe('currentBranchSymbolic() command and env', () => {
 
   it('injects GH_TOKEN from the context token in the child env', () => {
     const { exec, calls } = makeSpyExec('some-branch\n');
-    const ctx = new GitContext(validOptions({ token: 'sym-token' }), { exec });
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('sym-token') }), { exec });
     ctx.currentBranchSymbolic(worktreePath);
     expect(calls[0].env.GH_TOKEN).toBe('sym-token');
   });
@@ -684,7 +312,7 @@ describe('currentBranchSymbolic() command and env', () => {
   it('does not mutate process.env', () => {
     const before = process.env.GH_TOKEN;
     const { exec } = makeSpyExec('some-branch\n');
-    const ctx = new GitContext(validOptions({ token: 'inject' }), { exec });
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('inject') }), { exec });
     ctx.currentBranchSymbolic(worktreePath);
     expect(process.env.GH_TOKEN).toBe(before);
   });
@@ -713,7 +341,7 @@ describe('worktreeRegistration() command and env', () => {
 
   it('injects GH_TOKEN from the context token in the child env', () => {
     const { exec, calls } = makeSpyExec(porcelainFor(worktreePath));
-    const ctx = new GitContext(validOptions({ token: 'reg-token' }), { exec });
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('reg-token') }), { exec });
     ctx.worktreeRegistration(worktreePath);
     expect(calls[0].env.GH_TOKEN).toBe('reg-token');
   });
@@ -778,7 +406,7 @@ describe('worktreeBranches() command and env', () => {
 
   it('injects GH_TOKEN from the context token in the child env', () => {
     const { exec, calls } = makeSpyExec(porcelainWithBranches);
-    const ctx = new GitContext(validOptions({ token: 'wt-token' }), { exec });
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('wt-token') }), { exec });
     ctx.worktreeBranches();
     expect(calls[0].env.GH_TOKEN).toBe('wt-token');
   });
@@ -827,7 +455,7 @@ describe('localBranches() command and env', () => {
 
   it('injects GH_TOKEN from the context token in the child env', () => {
     const { exec, calls } = makeSpyExec(branchListOutput);
-    const ctx = new GitContext(validOptions({ token: 'lb-token' }), { exec });
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('lb-token') }), { exec });
     ctx.localBranches();
     expect(calls[0].env.GH_TOKEN).toBe('lb-token');
   });
@@ -846,95 +474,6 @@ describe('localBranches() command and env', () => {
     const exec: ExecFn = () => { throw new Error('not a git repo'); };
     const ctx = new GitContext(validOptions(), { exec });
     expect(ctx.localBranches()).toEqual([]);
-  });
-});
-
-// ── setSecret() ──────────────────────────────────────────────────────────────
-
-describe('setSecret() command and env', () => {
-  it('builds exactly gh secret set <NAME> --repo <owner>/<repo> --body -', () => {
-    const { exec, calls } = makeSpyExec('');
-    const ctx = new GitContext(validOptions({ owner: 'acme', repo: 'webapp' }), { exec });
-    ctx.setSecret('MY_SECRET', 'the-value');
-    expect(calls[0].command).toBe('gh secret set MY_SECRET --repo acme/webapp --body -');
-  });
-
-  it('uses the context primary token (not the PAT) even when a PAT is configured', () => {
-    const { exec, calls } = makeSpyExec('');
-    const ctx = new GitContext(validOptions({ token: 'primary-token', pat: 'pat-token' }), { exec });
-    ctx.setSecret('MY_SECRET', 'the-value');
-    expect(calls[0].env.GH_TOKEN).toBe('primary-token');
-  });
-
-  it('pipes the secret value via stdin input (not in the command string)', () => {
-    const { exec, calls } = makeSpyExec('');
-    const ctx = new GitContext(validOptions(), { exec });
-    ctx.setSecret('MY_SECRET', 'super-secret-value');
-    expect(calls[0].input).toBe('super-secret-value');
-    expect(calls[0].command).not.toContain('super-secret-value');
-  });
-
-  it('passes cwd equal to the framework repo root', () => {
-    const { exec, calls } = makeSpyExec('');
-    const ctx = new GitContext(validOptions(), { exec });
-    ctx.setSecret('MY_SECRET', 'val');
-    expect(calls[0].cwd).toBe(FRAMEWORK_ROOT);
-  });
-
-  it('does not mutate process.env.GH_TOKEN after the call', () => {
-    const before = process.env.GH_TOKEN;
-    const { exec } = makeSpyExec('');
-    const ctx = new GitContext(validOptions({ token: 'injected' }), { exec });
-    ctx.setSecret('MY_SECRET', 'val');
-    expect(process.env.GH_TOKEN).toBe(before);
-  });
-});
-
-// ── runGraphQLInput() ────────────────────────────────────────────────────────
-
-describe('runGraphQLInput() command and env', () => {
-  it('builds exactly gh api graphql --input -', () => {
-    const { exec, calls } = makeSpyExec('{}');
-    const ctx = new GitContext(validOptions(), { exec });
-    ctx.runGraphQLInput({ query: 'mutation{}', variables: { ids: ['a', 'b'] } });
-    expect(calls[0].command).toBe('gh api graphql --input -');
-  });
-
-  it('pipes JSON.stringify(body) via stdin input', () => {
-    const { exec, calls } = makeSpyExec('{}');
-    const ctx = new GitContext(validOptions(), { exec });
-    const body = { query: 'mutation{}', variables: { ids: ['a', 'b'] } };
-    ctx.runGraphQLInput(body);
-    expect(calls[0].input).toBe(JSON.stringify(body));
-  });
-
-  it('uses the PAT as GH_TOKEN when a pat is configured (usePat: true)', () => {
-    const { exec, calls } = makeSpyExec('{}');
-    const ctx = new GitContext(validOptions({ token: 'primary-token', pat: 'pat-token' }), { exec });
-    ctx.runGraphQLInput({ q: 'mutation{}' });
-    expect(calls[0].env.GH_TOKEN).toBe('pat-token');
-  });
-
-  it('falls back to the context primary token when no PAT is configured', () => {
-    const { exec, calls } = makeSpyExec('{}');
-    const ctx = new GitContext(validOptions({ token: 'primary-token' }), { exec });
-    ctx.runGraphQLInput({ q: 'mutation{}' });
-    expect(calls[0].env.GH_TOKEN).toBe('primary-token');
-  });
-
-  it('passes cwd equal to the framework repo root', () => {
-    const { exec, calls } = makeSpyExec('{}');
-    const ctx = new GitContext(validOptions(), { exec });
-    ctx.runGraphQLInput({ q: 'mutation{}' });
-    expect(calls[0].cwd).toBe(FRAMEWORK_ROOT);
-  });
-
-  it('does not mutate process.env', () => {
-    const before = process.env.GH_TOKEN;
-    const { exec } = makeSpyExec('{}');
-    const ctx = new GitContext(validOptions({ token: 'injected', pat: 'pat' }), { exec });
-    ctx.runGraphQLInput({ q: 'mutation{}' });
-    expect(process.env.GH_TOKEN).toBe(before);
   });
 });
 
@@ -967,7 +506,7 @@ describe('mainRepoPath() command and env', () => {
 
   it('injects GH_TOKEN from the context token in the child env', () => {
     const { exec, calls } = makeSpyExec(porcelainWithMain);
-    const ctx = new GitContext(validOptions({ token: 'mr-token' }), { exec });
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('mr-token') }), { exec });
     ctx.mainRepoPath();
     expect(calls[0].env.GH_TOKEN).toBe('mr-token');
   });
@@ -1013,7 +552,7 @@ describe('fetchRemote() command and env', () => {
 
   it('injects GH_TOKEN from the context token in the child env', () => {
     const { exec, calls } = makeSpyExec('');
-    const ctx = new GitContext(validOptions({ token: 'fetch-token' }), { exec });
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('fetch-token') }), { exec });
     ctx.fetchRemote('main', worktreePath);
     expect(calls[0].env.GH_TOKEN).toBe('fetch-token');
   });
@@ -1032,7 +571,7 @@ describe('fetchRemote() command and env', () => {
   it('does not mutate process.env', () => {
     const before = process.env.GH_TOKEN;
     const { exec } = makeSpyExec('');
-    const ctx = new GitContext(validOptions({ token: 'injected' }), { exec });
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('injected') }), { exec });
     ctx.fetchRemote('main', worktreePath);
     expect(process.env.GH_TOKEN).toBe(before);
   });
@@ -1073,7 +612,7 @@ describe('mergeBranch() command and env', () => {
 
   it('injects GH_TOKEN from the context token in the child env', () => {
     const { exec, calls } = makeSpyExec('');
-    const ctx = new GitContext(validOptions({ token: 'merge-token' }), { exec });
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('merge-token') }), { exec });
     ctx.mergeBranch('origin/main', worktreePath);
     expect(calls[0].env.GH_TOKEN).toBe('merge-token');
   });
@@ -1081,7 +620,7 @@ describe('mergeBranch() command and env', () => {
   it('does not mutate process.env', () => {
     const before = process.env.GH_TOKEN;
     const { exec } = makeSpyExec('');
-    const ctx = new GitContext(validOptions({ token: 'injected' }), { exec });
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('injected') }), { exec });
     ctx.mergeBranch('origin/main', worktreePath);
     expect(process.env.GH_TOKEN).toBe(before);
   });
@@ -1108,7 +647,7 @@ describe('abortMerge() command and env', () => {
 
   it('injects GH_TOKEN from the context token in the child env', () => {
     const { exec, calls } = makeSpyExec('');
-    const ctx = new GitContext(validOptions({ token: 'abort-token' }), { exec });
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('abort-token') }), { exec });
     ctx.abortMerge(worktreePath);
     expect(calls[0].env.GH_TOKEN).toBe('abort-token');
   });
@@ -1122,104 +661,9 @@ describe('abortMerge() command and env', () => {
   it('does not mutate process.env', () => {
     const before = process.env.GH_TOKEN;
     const { exec } = makeSpyExec('');
-    const ctx = new GitContext(validOptions({ token: 'injected' }), { exec });
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('injected') }), { exec });
     ctx.abortMerge(worktreePath);
     expect(process.env.GH_TOKEN).toBe(before);
-  });
-});
-
-// ── fetchPRChangedFiles() ─────────────────────────────────────────────────────
-
-describe('fetchPRChangedFiles() command and env', () => {
-  it('issues gh pr view <n> --repo <owner>/<repo> --json files', () => {
-    const { exec, calls } = makeSpyExec('{"files":[]}');
-    const ctx = new GitContext(validOptions({ owner: 'acme', repo: 'webapp' }), { exec });
-    ctx.fetchPRChangedFiles(7);
-    expect(calls[0].command).toBe('gh pr view 7 --repo acme/webapp --json files');
-  });
-
-  it('passes cwd equal to the framework repo root', () => {
-    const { exec, calls } = makeSpyExec('{"files":[]}');
-    const ctx = new GitContext(validOptions(), { exec });
-    ctx.fetchPRChangedFiles(7);
-    expect(calls[0].cwd).toBe(FRAMEWORK_ROOT);
-  });
-
-  it('injects GH_TOKEN from the context token in the child env', () => {
-    const { exec, calls } = makeSpyExec('{"files":[]}');
-    const ctx = new GitContext(validOptions({ token: 'token-acme' }), { exec });
-    ctx.fetchPRChangedFiles(7);
-    expect(calls[0].env.GH_TOKEN).toBe('token-acme');
-  });
-
-  it('injects all four GIT_* identity vars in the child env', () => {
-    const { exec, calls } = makeSpyExec('{"files":[]}');
-    const ctx = new GitContext(
-      validOptions({
-        gitIdentity: {
-          authorName: 'Acme Bot', authorEmail: 'bot@acme.dev',
-          committerName: 'Acme Bot', committerEmail: 'bot@acme.dev',
-        },
-      }),
-      { exec },
-    );
-    ctx.fetchPRChangedFiles(7);
-    expect(calls[0].env.GIT_AUTHOR_NAME).toBe('Acme Bot');
-    expect(calls[0].env.GIT_AUTHOR_EMAIL).toBe('bot@acme.dev');
-  });
-
-  it('does not mutate process.env', () => {
-    const before = process.env.GH_TOKEN;
-    const { exec } = makeSpyExec('{"files":[]}');
-    const ctx = new GitContext(validOptions({ token: 'injected' }), { exec });
-    ctx.fetchPRChangedFiles(7);
-    expect(process.env.GH_TOKEN).toBe(before);
-  });
-});
-
-// ── createPR() with optional labels ──────────────────────────────────────────
-
-describe('createPR() with labels', () => {
-  it('appends --label for each label in the command string', () => {
-    const { exec, calls } = makeSpyExec('https://github.com/acme/webapp/pull/12\n');
-    const ctx = new GitContext(validOptions({ owner: 'acme', repo: 'webapp' }), { exec });
-    ctx.createPR('My title', 'body text', 'feature-issue-7-do-thing', 'dev', ['regression-promotion']);
-    expect(calls[0].command).toContain("--label 'regression-promotion'");
-  });
-
-  it('emits no --label when labels array is empty', () => {
-    const { exec, calls } = makeSpyExec('https://github.com/acme/webapp/pull/12\n');
-    const ctx = new GitContext(validOptions(), { exec });
-    ctx.createPR('T', 'b', 'feature-issue-1-x', 'dev', []);
-    expect(calls[0].command).not.toContain('--label');
-  });
-
-  it('emits no --label when labels parameter is omitted (backward-compat)', () => {
-    const { exec, calls } = makeSpyExec('https://github.com/acme/webapp/pull/12\n');
-    const ctx = new GitContext(validOptions(), { exec });
-    ctx.createPR('T', 'b', 'feature-issue-1-x');
-    expect(calls[0].command).not.toContain('--label');
-  });
-
-  it('passes the PR body via stdin input', () => {
-    const { exec, calls } = makeSpyExec('https://github.com/acme/webapp/pull/12\n');
-    const ctx = new GitContext(validOptions(), { exec });
-    ctx.createPR('T', 'the body', 'feature-issue-1-y', undefined, ['regression-promotion']);
-    expect(calls[0].input).toBe('the body');
-  });
-
-  it('passes cwd equal to the framework repo root', () => {
-    const { exec, calls } = makeSpyExec('https://github.com/acme/webapp/pull/12\n');
-    const ctx = new GitContext(validOptions(), { exec });
-    ctx.createPR('T', 'b', 'feature-issue-1-y', undefined, ['regression-promotion']);
-    expect(calls[0].cwd).toBe(FRAMEWORK_ROOT);
-  });
-
-  it('injects GH_TOKEN from the context token', () => {
-    const { exec, calls } = makeSpyExec('https://github.com/acme/webapp/pull/12\n');
-    const ctx = new GitContext(validOptions({ token: 'token-acme' }), { exec });
-    ctx.createPR('T', 'b', 'feature-issue-1-y', undefined, ['regression-promotion']);
-    expect(calls[0].env.GH_TOKEN).toBe('token-acme');
   });
 });
 
@@ -1257,7 +701,7 @@ describe('logSince() command and env', () => {
 
   it('injects GH_TOKEN from the context token in the child env', () => {
     const { exec, calls } = makeSpyExec('');
-    const ctx = new GitContext(validOptions({ token: 'token-acme' }), { exec });
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('token-acme') }), { exec });
     ctx.logSince({ since: 'X', grep: '^regression-promotion:', oneline: true });
     expect(calls[0].env.GH_TOKEN).toBe('token-acme');
   });
@@ -1281,7 +725,7 @@ describe('logSince() command and env', () => {
   it('does not mutate process.env', () => {
     const before = process.env.GH_TOKEN;
     const { exec } = makeSpyExec('');
-    const ctx = new GitContext(validOptions({ token: 'injected' }), { exec });
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('injected') }), { exec });
     ctx.logSince({ since: 'X' });
     expect(process.env.GH_TOKEN).toBe(before);
   });
@@ -1315,7 +759,7 @@ describe('lsRemote() command and env', () => {
 
   it('injects GH_TOKEN from the context token in the child env', () => {
     const { exec, calls } = makeSpyExec('abc123\trefs/heads/main\n');
-    const ctx = new GitContext(validOptions({ token: 'ls-remote-token' }), { exec });
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('ls-remote-token') }), { exec });
     ctx.lsRemote('main', worktreePath);
     expect(calls[0].env.GH_TOKEN).toBe('ls-remote-token');
   });
@@ -1346,7 +790,7 @@ describe('lsRemote() command and env', () => {
   it('does not mutate process.env', () => {
     const before = process.env.GH_TOKEN;
     const { exec } = makeSpyExec('abc123\n');
-    const ctx = new GitContext(validOptions({ token: 'injected' }), { exec });
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('injected') }), { exec });
     ctx.lsRemote('main', worktreePath);
     expect(process.env.GH_TOKEN).toBe(before);
   });
@@ -1380,7 +824,7 @@ describe('addDetachedWorktree() command and env', () => {
 
   it('injects GH_TOKEN from the context token in the child env', () => {
     const { exec, calls } = makeSpyExec('');
-    const ctx = new GitContext(validOptions({ token: 'add-wt-token' }), { exec });
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('add-wt-token') }), { exec });
     ctx.addDetachedWorktree(tmpdir, 'origin/main', baseCwd);
     expect(calls[0].env.GH_TOKEN).toBe('add-wt-token');
   });
@@ -1401,7 +845,7 @@ describe('addDetachedWorktree() command and env', () => {
   it('does not mutate process.env', () => {
     const before = process.env.GH_TOKEN;
     const { exec } = makeSpyExec('');
-    const ctx = new GitContext(validOptions({ token: 'injected' }), { exec });
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('injected') }), { exec });
     ctx.addDetachedWorktree(tmpdir, 'origin/main', baseCwd);
     expect(process.env.GH_TOKEN).toBe(before);
   });
@@ -1428,7 +872,7 @@ describe('commitAllowEmpty() command and env', () => {
 
   it('injects GH_TOKEN from the context token in the child env', () => {
     const { exec, calls } = makeSpyExec('');
-    const ctx = new GitContext(validOptions({ token: 'commit-token' }), { exec });
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('commit-token') }), { exec });
     ctx.commitAllowEmpty('msg', tmpdir);
     expect(calls[0].env.GH_TOKEN).toBe('commit-token');
   });
@@ -1447,7 +891,7 @@ describe('commitAllowEmpty() command and env', () => {
   it('does not mutate process.env', () => {
     const before = process.env.GH_TOKEN;
     const { exec } = makeSpyExec('');
-    const ctx = new GitContext(validOptions({ token: 'injected' }), { exec });
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('injected') }), { exec });
     ctx.commitAllowEmpty('msg', tmpdir);
     expect(process.env.GH_TOKEN).toBe(before);
   });
@@ -1481,7 +925,7 @@ describe('pushHeadToBranch() command and env', () => {
 
   it('injects GH_TOKEN from the context token in the child env', () => {
     const { exec, calls } = makeSpyExec('');
-    const ctx = new GitContext(validOptions({ token: 'push-token' }), { exec });
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('push-token') }), { exec });
     ctx.pushHeadToBranch('adw-upgrade-deadbeef', tmpdir);
     expect(calls[0].env.GH_TOKEN).toBe('push-token');
   });
@@ -1500,7 +944,7 @@ describe('pushHeadToBranch() command and env', () => {
   it('does not mutate process.env', () => {
     const before = process.env.GH_TOKEN;
     const { exec } = makeSpyExec('');
-    const ctx = new GitContext(validOptions({ token: 'injected' }), { exec });
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('injected') }), { exec });
     ctx.pushHeadToBranch('adw-upgrade-deadbeef', tmpdir);
     expect(process.env.GH_TOKEN).toBe(before);
   });
@@ -1528,7 +972,7 @@ describe('removeDetachedWorktree() command and env', () => {
 
   it('injects GH_TOKEN from the context token in the child env', () => {
     const { exec, calls } = makeSpyExec('');
-    const ctx = new GitContext(validOptions({ token: 'remove-wt-token' }), { exec });
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('remove-wt-token') }), { exec });
     ctx.removeDetachedWorktree(tmpdir, baseCwd);
     expect(calls[0].env.GH_TOKEN).toBe('remove-wt-token');
   });
@@ -1553,7 +997,7 @@ describe('removeDetachedWorktree() command and env', () => {
   it('does not mutate process.env', () => {
     const before = process.env.GH_TOKEN;
     const { exec } = makeSpyExec('');
-    const ctx = new GitContext(validOptions({ token: 'injected' }), { exec });
+    const ctx = new GitContext(validOptions({ tokenProvider: createLiteralTokenProvider('injected') }), { exec });
     ctx.removeDetachedWorktree(tmpdir, baseCwd);
     expect(process.env.GH_TOKEN).toBe(before);
   });

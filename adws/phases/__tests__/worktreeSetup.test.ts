@@ -20,6 +20,7 @@ import {
   copyStarterSettingsToWorktree,
 } from '../worktreeSetup.ts';
 import { GitContext } from '../../gitContext/index.ts';
+import { createLiteralTokenProvider } from '../../providers/github/githubTokenProvider';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ADW_REPO_ROOT = resolve(__dirname, '../../..');
@@ -56,7 +57,7 @@ beforeEach(() => {
   tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'adw-ws-test-'));
   initGitRepo(tempDir);
   ctx = new GitContext({
-    owner: 'o', repo: 'r', selfHost: true, token: 't',
+    owner: 'o', repo: 'r', selfHost: true, tokenProvider: createLiteralTokenProvider('t'),
     gitIdentity: { authorName: 'T', authorEmail: 't@e.co', committerName: 'T', committerEmail: 't@e.co' },
     frameworkRepoRoot: tempDir, targetReposDir: tempDir,
   });

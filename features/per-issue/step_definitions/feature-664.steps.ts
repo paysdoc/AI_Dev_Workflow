@@ -20,6 +20,8 @@ import { buildLaunchGitContext } from '../../../adws/core/launchGitContext.ts';
 import type { LaunchGitContextDeps } from '../../../adws/core/launchGitContext.ts';
 import { resolveWebhookRepo } from '../../../adws/triggers/webhookRepoResolver.ts';
 import type { ExecFn } from '../../../adws/gitContext/types.ts';
+import { createGhRepoApi } from '../../../adws/providers/github/ghRepoApi.ts';
+import { createLiteralTokenProvider } from '../../../adws/providers/github/githubTokenProvider.ts';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -115,7 +117,7 @@ function buildContextWithExec(
       owner: params.owner,
       repo: params.repo,
       selfHost: false,
-      token: params.token,
+      tokenProvider: createLiteralTokenProvider(params.token),
       gitIdentity: TEST_IDENTITY,
       frameworkRepoRoot: w.frameworkRoot,
       targetReposDir: w.targetReposDir,
@@ -240,7 +242,7 @@ When(
   async function (opName: string) {
     assert.ok(w.currentCtx !== null, 'Expected a per-event GitContext to be set');
     if (opName === 'default-branch') {
-      await w.currentCtx.defaultBranch();
+      await createGhRepoApi(w.currentCtx).defaultBranch();
     } else if (opName === 'current-branch') {
       await w.currentCtx.getCurrentBranch();
     } else {

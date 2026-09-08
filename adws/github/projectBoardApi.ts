@@ -1,12 +1,15 @@
 /**
- * GitHub Projects V2 API — thin adapter over GitContext.
- * All project-board GraphQL is handled in GitContext.moveIssueToStatus().
+ * GitHub Projects V2 API — thin wrapper over the forge adapter's GhRepoApi.
+ * All project-board GraphQL is handled in GhRepoApi.moveIssueToStatus().
  */
 
 import { log } from '../core';
 import { type RepoInfo } from './githubApi';
 import { gitContextForRepo } from './gitContextFactory';
 import { notifyReviewTransition } from './hitlBoardNotifier';
+import { createGhRepoApi } from '../providers/github/ghRepoApi';
+
+const gh = (repoInfo: RepoInfo) => createGhRepoApi(gitContextForRepo(repoInfo));
 
 /**
  * Moves a GitHub issue to a target status on its project board.
@@ -23,8 +26,8 @@ export async function moveIssueToStatus(
   repoInfo: RepoInfo,
 ): Promise<boolean> {
   try {
-    const ctx = gitContextForRepo(repoInfo);
-    const moved = ctx.moveIssueToStatus(issueNumber, targetStatus);
+    const repoApi = gh(repoInfo);
+    const moved = repoApi.moveIssueToStatus(issueNumber, targetStatus);
     if (moved && targetStatus.toLowerCase() === 'review') {
       // Await delivery so the orchestrator process cannot exit before the Slack
       // POST settles (issue #647: the void-dispatched fetch was torn down on exit).

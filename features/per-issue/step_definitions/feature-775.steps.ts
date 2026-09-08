@@ -32,6 +32,8 @@ import { Given, When, Then, After } from '@cucumber/cucumber';
 import assert from 'assert';
 import { GitContext } from '../../../adws/gitContext/index.ts';
 import type { ExecFn } from '../../../adws/gitContext/index.ts';
+import { createGhRepoApi } from '../../../adws/providers/github/ghRepoApi.ts';
+import { createLiteralTokenProvider } from '../../../adws/providers/github/githubTokenProvider.ts';
 
 interface RecordedCall {
   command: string;
@@ -114,7 +116,7 @@ function buildContext(exec: ExecFn): GitContext {
       owner: w.owner,
       repo: w.repo,
       selfHost: w.selfHost,
-      token: w.token,
+      tokenProvider: createLiteralTokenProvider(w.token),
       gitIdentity: TEST_IDENTITY,
       frameworkRepoRoot: w.frameworkRepoRoot,
       targetReposDir: w.targetReposDir,
@@ -195,19 +197,20 @@ Given(
 // ── Operation dispatch ────────────────────────────────────────────────────────
 
 function runRepoApiOp(ctx: GitContext, opName: string): unknown {
+  const gh = createGhRepoApi(ctx);
   switch (opName) {
-    case 'fetch-issue-comments': return ctx.fetchIssueComments(28);
-    case 'issue-title': return ctx.issueTitle(28);
-    case 'issue-has-label': return ctx.issueHasLabel(28, 'adw:bug');
-    case 'default-branch': return ctx.defaultBranch();
-    case 'issue-state': return ctx.issueState(28);
-    case 'list-open-issues': return ctx.listOpenIssues({ fields: ['number'] });
-    case 'find-pr-by-branch': return ctx.findPRByBranch('feature/x');
-    case 'pr-changed-files': return ctx.fetchPRChangedFiles(7);
-    case 'issue-comment': return ctx.commentOnIssue(28, 'body');
-    case 'apply-label': return ctx.applyLabel(28, 'adw:bug');
-    case 'authenticated-user': return ctx.authenticatedUser();
-    case 'board-status-move': return ctx.moveIssueToStatus(28, 'In Progress');
+    case 'fetch-issue-comments': return gh.fetchIssueComments(28);
+    case 'issue-title': return gh.issueTitle(28);
+    case 'issue-has-label': return gh.issueLabels(28);
+    case 'default-branch': return gh.defaultBranch();
+    case 'issue-state': return gh.issueState(28);
+    case 'list-open-issues': return gh.listOpenIssues({ fields: ['number'] });
+    case 'find-pr-by-branch': return gh.findPRByBranch('feature/x');
+    case 'pr-changed-files': return gh.fetchPRChangedFiles(7);
+    case 'issue-comment': return gh.commentOnIssue(28, 'body');
+    case 'apply-label': return gh.applyLabel(28, 'adw:bug');
+    case 'authenticated-user': return gh.authenticatedUser();
+    case 'board-status-move': return gh.moveIssueToStatus(28, 'In Progress');
     default: throw new Error(`Unknown repo-API operation: "${opName}"`);
   }
 }
@@ -223,7 +226,7 @@ function runWorkspaceGitOp(ctx: GitContext, opName: string, worktreePath?: strin
 When('the issue comments for issue {int} are fetched through the context', function (issueNumber: number) {
   assert.ok(w.ctx !== null, 'Expected a GitContext to be set up');
   try {
-    w.lastResult = w.ctx.fetchIssueComments(issueNumber);
+    w.lastResult = createGhRepoApi(w.ctx).fetchIssueComments(issueNumber);
     w.lastError = null;
   } catch (err) {
     w.lastError = err as Error;

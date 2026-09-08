@@ -33,12 +33,10 @@ export {
   type WorkflowContext,
   formatResumingComment,
   formatWorkflowComment,
-  postWorkflowComment,
 } from './workflowCommentsIssue';
 
 // PR review workflow comments
 export {
   type PRReviewWorkflowContext,
   formatPRReviewWorkflowComment,
-  postPRWorkflowComment,
 } from './workflowCommentsPR';

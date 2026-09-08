@@ -268,7 +268,7 @@ async function main(): Promise<void> {
   const { gitContext } = boundary;
   const repoInfo: RepoInfo = { owner: gitContext.owner, repo: gitContext.repo };
 
-  if (targetRepo) ensureTargetRepoWorkspace(targetRepo);
+  if (targetRepo) ensureTargetRepoWorkspace(targetRepo, () => boundary.providers.codeHost.getDefaultBranch());
   const baseRepoPath = gitContext.basePath;
 
   let result: Awaited<ReturnType<typeof executeMerge>> | undefined;

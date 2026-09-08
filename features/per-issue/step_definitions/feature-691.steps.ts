@@ -18,6 +18,7 @@ import { When, Then } from '@cucumber/cucumber';
 import assert from 'assert';
 import { scanFiles } from '../../../adws/checkGitGhGuard.ts';
 import { W } from './gitContextSharedWorld.ts';
+import { createGhRepoApi } from '../../../adws/providers/github/ghRepoApi.ts';
 
 // ── Guard world state ─────────────────────────────────────────────────────────
 
@@ -38,15 +39,16 @@ When('the {string} gh-read operation runs through the context', function (opName
   W.responseMap.set('issue view', '[]');
   W.responseMap.set('pr list', '[]');
 
+  const gh = createGhRepoApi(W.ctx);
   switch (opName) {
     case 'list-open-issues':
-      W.ctx.listOpenIssues({ fields: ['number', 'comments'], limit: 100 });
+      gh.listOpenIssues({ fields: ['number', 'comments'], limit: 100 });
       break;
     case 'view-issue-comments':
-      W.ctx.issueComments(1);
+      gh.issueComments(1);
       break;
     case 'list-merged-prs':
-      W.ctx.fetchMergedPRs();
+      gh.fetchMergedPRs();
       break;
     default:
       throw new Error(`Unknown gh-read op: "${opName}"`);

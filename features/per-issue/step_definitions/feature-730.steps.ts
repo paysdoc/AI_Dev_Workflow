@@ -108,7 +108,7 @@ const writtenLockPaths = new Set<string>();
 
 function buildRedriveDeps730(): UpgradeRedriveDeps {
   return {
-    ...buildDefaultUpgradeRedriveDeps(REDRIVE_REPO_INFO),
+    ...buildDefaultUpgradeRedriveDeps(REDRIVE_REPO_INFO, { findPullRequestByBranch: () => null }),
     // No §5/§6 scenario constructs a claim-PR-present composing case (that signal
     // is pinned directly on the pure predicate in §4) — always "no PR" here.
     findClaimPr: () => null,

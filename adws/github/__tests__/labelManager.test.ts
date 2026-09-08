@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { GitContext } from '../../gitContext';
 import type { GitContextOptions, ExecFn } from '../../gitContext/types';
+import { createLiteralTokenProvider } from '../../providers/github/githubTokenProvider';
 import type { GitHubLabel } from '../../types/issueTypes';
 import type { LabelManagerDeps } from '../labelManager';
 import {
@@ -22,7 +23,7 @@ function validOptions(overrides: Partial<GitContextOptions> = {}): GitContextOpt
     owner: 'acme',
     repo: 'widgets',
     selfHost: false,
-    token: 'gh-token-test',
+    tokenProvider: createLiteralTokenProvider('gh-token-test'),
     gitIdentity: {
       authorName: 'ADW Bot',
       authorEmail: 'bot@adw.dev',

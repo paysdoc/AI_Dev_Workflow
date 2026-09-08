@@ -5,7 +5,9 @@
 import { GitHubIssue, IssueCommentSummary, log } from '../core';
 import { type RepoInfo } from './githubApi';
 import { gitContextForRepo } from './gitContextFactory';
+import { createGhRepoApi } from '../providers/github/ghRepoApi';
 
+const gh = (repoInfo: RepoInfo) => createGhRepoApi(gitContextForRepo(repoInfo));
 
 interface RawGitHubUser {
   login?: string;
@@ -109,7 +111,7 @@ function transformIssueResponse(rawIssue: RawGitHubIssue): GitHubIssue {
  */
 export async function fetchGitHubIssue(issueNumber: number, repoInfo: RepoInfo): Promise<GitHubIssue> {
   try {
-    const issueJson = gitContextForRepo(repoInfo).fetchIssue(issueNumber);
+    const issueJson = gh(repoInfo).fetchIssue(issueNumber);
     const rawIssue = JSON.parse(issueJson) as RawGitHubIssue;
     return transformIssueResponse(rawIssue);
   } catch (error) {
@@ -125,7 +127,7 @@ export async function fetchGitHubIssue(issueNumber: number, repoInfo: RepoInfo):
  */
 export function commentOnIssue(issueNumber: number, body: string, repoInfo: RepoInfo): void {
   try {
-    gitContextForRepo(repoInfo).commentOnIssue(issueNumber, body);
+    gh(repoInfo).commentOnIssue(issueNumber, body);
     log(`Commented on issue #${issueNumber}`, 'success');
   } catch (error) {
     log(`Failed to comment on issue: ${error}`, 'error');
@@ -159,7 +161,7 @@ ${additionalInfo}
  */
 export function getIssueState(issueNumber: number, repoInfo: RepoInfo): string {
   try {
-    const json = gitContextForRepo(repoInfo).issueState(issueNumber);
+    const json = gh(repoInfo).issueState(issueNumber);
     const result = JSON.parse(json);
     return result.state;
   } catch (error) {
@@ -190,7 +192,7 @@ export async function closeIssue(issueNumber: number, repoInfo: RepoInfo, commen
     }
 
     // Close the issue
-    gitContextForRepo(repoInfo).closeIssue(issueNumber);
+    gh(repoInfo).closeIssue(issueNumber);
     log(`Closed issue #${issueNumber}`, 'success');
     return true;
   } catch (error) {
@@ -207,7 +209,7 @@ export async function closeIssue(issueNumber: number, repoInfo: RepoInfo, commen
  */
 export function getIssueTitleSync(issueNumber: number, repoInfo: RepoInfo): string {
   try {
-    const json = gitContextForRepo(repoInfo).issueTitle(issueNumber);
+    const json = gh(repoInfo).issueTitle(issueNumber);
     const result = JSON.parse(json) as { title: string };
     return result.title;
   } catch {
@@ -223,7 +225,7 @@ export function getIssueTitleSync(issueNumber: number, repoInfo: RepoInfo): stri
  */
 export function fetchIssueCommentsRest(issueNumber: number, repoInfo: RepoInfo): IssueCommentSummary[] {
   try {
-    const json = gitContextForRepo(repoInfo).fetchIssueComments(issueNumber);
+    const json = gh(repoInfo).fetchIssueComments(issueNumber);
     const raw = JSON.parse(json);
     return (raw as Record<string, unknown>[]).map((c: Record<string, unknown>) => ({
       id: c.id as number,
@@ -246,7 +248,7 @@ export function fetchIssueCommentsRest(issueNumber: number, repoInfo: RepoInfo):
  */
 export function issueHasLabel(issueNumber: number, labelName: string, repoInfo: RepoInfo): boolean {
   try {
-    const json = gitContextForRepo(repoInfo).issueHasLabel(issueNumber, labelName);
+    const json = gh(repoInfo).issueLabels(issueNumber);
     const result = JSON.parse(json) as { labels: { name: string }[] };
     return (result.labels || []).some((l) => l.name === labelName);
   } catch (error) {
@@ -263,7 +265,7 @@ export function issueHasLabel(issueNumber: number, labelName: string, repoInfo: 
  */
 export function addIssueLabel(issueNumber: number, labelName: string, repoInfo: RepoInfo): void {
   try {
-    gitContextForRepo(repoInfo).addIssueLabel(issueNumber, labelName);
+    gh(repoInfo).addIssueLabel(issueNumber, labelName);
     log(`Added label "${labelName}" to issue #${issueNumber}`, 'success');
   } catch (error) {
     log(`Failed to add label "${labelName}" to issue #${issueNumber}: ${error}`, 'error');
@@ -275,7 +277,7 @@ export function addIssueLabel(issueNumber: number, labelName: string, repoInfo: 
  * Throws if the issue number cannot be parsed from the response.
  */
 export function createIssue(title: string, body: string, repoInfo: RepoInfo): number {
-  const output = gitContextForRepo(repoInfo).createIssue(title, body);
+  const output = gh(repoInfo).createIssue(title, body);
   const match = output.trim().match(/\/issues\/(\d+)$/);
   if (!match) {
     throw new Error(`createIssue: could not parse issue number from gh output: "${output.trim()}"`);
@@ -291,7 +293,7 @@ export function createIssue(title: string, body: string, repoInfo: RepoInfo): nu
  */
 export function updateIssueBody(issueNumber: number, body: string, repoInfo: RepoInfo): void {
   try {
-    gitContextForRepo(repoInfo).updateIssueBody(issueNumber, body);
+    gh(repoInfo).updateIssueBody(issueNumber, body);
     log(`Updated body of issue #${issueNumber}`, 'success');
   } catch (error) {
     log(`Failed to update body of issue #${issueNumber}: ${error}`, 'error');
@@ -305,7 +307,7 @@ export function updateIssueBody(issueNumber: number, body: string, repoInfo: Rep
  */
 export function findOpenUpgradeIssue(repoInfo: RepoInfo): number | null {
   try {
-    const json = gitContextForRepo(repoInfo).findOpenUpgradeIssue();
+    const json = gh(repoInfo).findOpenUpgradeIssue();
     const results = JSON.parse(json) as { number: number }[];
     return results.length > 0 ? results[0].number : null;
   } catch {
@@ -320,7 +322,7 @@ export function findOpenUpgradeIssue(repoInfo: RepoInfo): number | null {
  */
 export function fetchIssueLabels(issueNumber: number, repoInfo: RepoInfo): string[] {
   try {
-    const json = gitContextForRepo(repoInfo).issueHasLabel(issueNumber, '');
+    const json = gh(repoInfo).issueLabels(issueNumber);
     const result = JSON.parse(json) as { labels: { name: string }[] };
     return (result.labels || []).map((l) => l.name);
   } catch (error) {
@@ -337,7 +339,7 @@ export function fetchIssueLabels(issueNumber: number, repoInfo: RepoInfo): strin
  */
 export function searchOpenIssues(search: string, limit: number, repoInfo: RepoInfo): { number: number; title: string }[] {
   try {
-    const json = gitContextForRepo(repoInfo).listOpenIssues({ fields: ['number', 'title'], search, limit });
+    const json = gh(repoInfo).listOpenIssues({ fields: ['number', 'title'], search, limit });
     return JSON.parse(json) as { number: number; title: string }[];
   } catch {
     return [];
@@ -351,7 +353,7 @@ export function searchOpenIssues(search: string, limit: number, repoInfo: RepoIn
  */
 export function deleteIssueComment(commentId: number, repoInfo: RepoInfo): void {
   try {
-    gitContextForRepo(repoInfo).deleteIssueComment(commentId);
+    gh(repoInfo).deleteIssueComment(commentId);
     log(`Deleted comment ${commentId}`, 'success');
   } catch (error) {
     throw new Error(`Failed to delete comment ${commentId}: ${error}`);

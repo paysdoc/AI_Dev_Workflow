@@ -36,6 +36,8 @@ import {
   parseAuthor,
   TARGET_REPOS_ROOT,
 } from './gitContextSharedWorld.ts';
+import { createGhRepoApi } from '../../../adws/providers/github/ghRepoApi.ts';
+import { createLiteralTokenProvider } from '../../../adws/providers/github/githubTokenProvider.ts';
 
 // ── Self-host construction with recording runner ──────────────────────────────
 
@@ -49,7 +51,7 @@ Given(
         owner,
         repo,
         selfHost: true,
-        token,
+        tokenProvider: createLiteralTokenProvider(token),
         gitIdentity: {
           authorName: name,
           authorEmail: email,
@@ -79,12 +81,12 @@ When('the {string} self-host probe runs through the context', function (probeNam
     case 'gh-auth':
       // authenticatedUser routes through #run with gh api user
       W.responseMap.set('api user', '{"login":"bot","id":1}\n');
-      W.ctx.authenticatedUser();
+      createGhRepoApi(W.ctx).authenticatedUser();
       break;
     case 'gh-issue-view':
       // fetchIssue routes through #run with gh issue view --repo --json
       W.responseMap.set('issue view', '{"number":1,"title":"x","state":"OPEN","body":"","author":{"login":"bot"},"assignees":[],"labels":[],"createdAt":"2024-01-01T00:00:00Z","updatedAt":"2024-01-01T00:00:00Z"}\n');
-      W.ctx.fetchIssue(1);
+      createGhRepoApi(W.ctx).fetchIssue(1);
       break;
     default:
       throw new Error(`Unknown self-host probe: "${probeName}"`);

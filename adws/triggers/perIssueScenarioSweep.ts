@@ -8,9 +8,9 @@
  * dedicated sweep branch and landed via an immediately-merged pull request,
  * never a direct commit/push onto the shared default branch.
  *
- * Identity comes entirely from the caller's injected launch-boundary
- * GitContext (`deps.gitContext`) — this module performs no repo-identity
- * resolution of its own.
+ * Identity comes entirely from the caller's injected launch boundary
+ * (`deps.boundary`) — this module performs no repo-identity resolution of
+ * its own.
  */
 
 import * as fs from 'fs';
@@ -19,7 +19,8 @@ import { log, type LogLevel } from '../core';
 import { bodyLinksIssue } from '../github';
 import { parsePromotionTagState, isPromotionExempt } from '../core/promotionTagState';
 import { prepareSweepBase, persistRemovalViaPr, cleanupSweepBase, type SweepBase } from './perIssueSweepPersist';
-import type { GitContext } from '../gitContext';
+import type { LaunchBoundary } from '../core';
+import type { CodeHost } from '../providers/types';
 
 export const RETENTION_DAYS = 14;
 
@@ -46,7 +47,7 @@ export function isScenarioStale(
 }
 
 export interface PerIssueSweepDeps {
-  gitContext: GitContext;
+  boundary: LaunchBoundary;
   now?: Date;
   listFeatures?: () => string[];
   getMergedAt?: (issueNum: number) => Promise<Date | null>;
@@ -72,13 +73,18 @@ function defaultListFeatures(base: SweepBase): string[] {
   }
 }
 
-function defaultGetMergedAt(ctx: GitContext, issueNum: number): Promise<Date | null> {
+/**
+ * Finds the merge date of the most recent merged PR that closes `issueNum`,
+ * by scanning the code host's recent merged PRs and matching the canonical
+ * "Closes owner/repo#N" body marker. Returns null if no merged PR links the
+ * issue, or on any lookup failure.
+ */
+export function defaultGetMergedAt(codeHost: CodeHost, issueNum: number): Promise<Date | null> {
   try {
     // GitHub search can't reliably express the "Closes owner/repo#N" body marker,
     // so fetch merged PRs and filter client-side with the canonical matcher.
     // gh returns newest-first, so the first linked PR is the most recent merge.
-    const json = ctx.fetchMergedPRs(200);
-    const prs = JSON.parse(json) as Array<{ body: string; mergedAt: string | null }>;
+    const prs = codeHost.listMergedPullRequests(200);
     const linked = prs.find((pr) => bodyLinksIssue(pr.body, issueNum) && pr.mergedAt);
     if (!linked?.mergedAt) return Promise.resolve(null);
     const d = new Date(linked.mergedAt);
@@ -149,12 +155,12 @@ function shouldSkipForPromotionState(
  */
 export async function runPerIssueScenarioSweep(deps: PerIssueSweepDeps): Promise<string[]> {
   const now = deps.now ?? new Date();
-  const getMergedAt = deps.getMergedAt ?? ((issueNum: number) => defaultGetMergedAt(deps.gitContext, issueNum));
+  const getMergedAt = deps.getMergedAt ?? ((issueNum: number) => defaultGetMergedAt(deps.boundary.providers.codeHost, issueNum));
   const logger = deps.log ?? log;
 
   let cachedBase: SweepBase | null | undefined;
   const getBase = (): SweepBase | null => {
-    if (cachedBase === undefined) cachedBase = prepareSweepBase(deps.gitContext);
+    if (cachedBase === undefined) cachedBase = prepareSweepBase(deps.boundary);
     return cachedBase;
   };
 

@@ -34,6 +34,8 @@
     - When re-arming an escalated upgrade issue (removing `adw:blocked`, clearing failure comments, or posting `## Cancel`)
     - When step 6 (`commitChanges`/`pushBranch`) failures need to return a handled result instead of throwing (`commit_error` / `push_error`)
     - When working with `adws/triggers/upgradeRedrive.ts` (`parseClaimBranch`, `decideUpgradeRedrive`, `findRedrivableUpgrades`, `runUpgradeRedriveScan`)
+    - When `buildDefaultUpgradeRedriveDeps(repoInfo, codeHost)` builds `findClaimPr` as `codeHost.findPullRequestByBranch(branch)` — narrowed to `(issueBody) => {number: number} | null`; `runUpgradeRedriveScan`'s `deps` parameter is now required (its only production caller is the cron, which builds it from `cronBoundary.providers.codeHost`) (#797)
+    - When `upgradeClaim.ts`'s `ctx: GitContext` and `getDefaultBranch` are required parameters with no `gitContextForRepo(...)` fallback (#797, since `GitContext.defaultBranch()` was deleted); `upgradeGate.ts`'s `buildDefaultUpgradeGateDeps` sources `getDefaultBranch` from `providers.codeHost.getDefaultBranch()`
     - When troubleshooting a stranded `#UPG` tracking issue that never gets re-spawned after a failed upgrade
     - When the cron redrive scan wired into `trigger_cron.ts` `checkAndTrigger()` is relevant
     - When working with `decideStarterSettingsCopy` or `copyStarterSettingsToWorktree` in `worktreeSetup.ts`, or the starter-guardrails `settings.json` copy step (5c) in `executeUpgrade`
@@ -211,16 +213,23 @@
   - Conditions:
     - When working on GitHub REST/GraphQL API calls, GitHub App authentication, issue/PR APIs, project board API, workflow comments, HITL board notifier, label manager, PR comment detection, or linked PR detection
     - When working on any file in `adws/github/`
+    - When every op in `issueApi.ts`/`prApi.ts`/`projectBoardApi.ts`/`githubApi.ts`/`hitlBoardNotifier.ts`/`linkedPrDetector.ts` routes through `createGhRepoApi(gitContextForRepo(repoInfo)).<op>(…)` instead of a `GitContext` semantic method (#797); `labelManager.ts` keeps its injected `LabelManagerDeps.gitContextForRepo` seam and wraps it in `createGhRepoApi` internally
+    - When working with `adws/github/issueListApi.ts` (`listIssues`, `fetchIssueCommentBodies`) — the shared, throwing (no-swallow) implementation behind `IssueTracker.listIssues` and the `repoInfo`-only trigger callers (`concurrencyGuard.ts`, `webhookGatekeeper.ts`, `issueClosedUnblockRouter.ts`)
+    - When `issueHasLabel(issueNumber, _labelName)` is referenced and not found — renamed to `issueLabels(issueNumber)` (same command, dead unused param dropped, #797)
+    - When `postWorkflowComment`/`postPRWorkflowComment` are referenced and not found — deleted (#797), superseded by `adws/phases/phaseCommentHelpers.ts`; the comment formatters in `workflowComments.ts`/`workflowCommentsIssue.ts`/`workflowCommentsPR.ts` stay
 
 - app_docs/feature-9gjajh-cron-triggers.md
   - Owns:
     - adws/triggers/trigger_cron.ts
     - adws/triggers/cronIssueFilter.ts
+    - adws/triggers/cronIssueListing.ts
     - adws/triggers/cronLabelEligibility.ts
     - adws/triggers/cronProcessGuard.ts
     - adws/triggers/cronRepoResolver.ts
     - adws/triggers/cronStageResolver.ts
   - Conditions:
+    - When working with `listCronOpenIssues(issueTracker)` in `adws/triggers/cronIssueListing.ts` — the extraction of `trigger_cron.ts`'s former module-private `fetchOpenIssues` (#797), needed because the file's import-time side effects (`setInterval`, entry-script guard, boundary build) make a module-private function undrivable from a step definition; fail-soft `[]`-on-error policy, called as `cronBoundary.providers.issueTracker.listIssues({fields:[...], limit:100})`
+    - When `checkAndTrigger`'s top-of-function boundary-null guard (logs and returns; only reachable when the module is imported, never at tick time) or `trigger_cron.ts` constructing zero contexts (no `gitContextForRepo` import) is relevant
     - When working on the cron trigger loop, cron issue filtering, label eligibility for cron, cron process guard, repo resolver, or stage resolver
     - When working on `trigger_cron.ts`, `cronIssueFilter.ts`, `cronLabelEligibility.ts`, `cronProcessGuard.ts`, `cronRepoResolver.ts`, or `cronStageResolver.ts`
     - When working with `decideLabelRecovery`, `evaluateLabelRecovery`, or the `reserved_label` reason in `cronLabelEligibility.ts`
@@ -270,6 +279,9 @@
   - Conditions:
     - When working on orchestrator takeover, cross-trigger concurrency guards, spawn gating, pause queue scanning, or merge dispatch gating
     - When working on `takeoverHandler.ts`, `concurrencyGuard.ts`, `spawnGate.ts`, `pauseQueueScanner.ts`, or `mergeDispatchGate.ts`
+    - When `resolveAdwId`'s comment-fetch source or `EvaluateCandidateInput.boundary?: LaunchBoundary` is relevant (#797) — with a boundary, reads `boundary.providers.issueTracker.fetchComments(issueNumber)` (mapped to `{body}[]`, latest-`adwId`-match wins); without one (`scanAuthQueue`, `webhookGatekeeper`), falls back to `adws/github/issueListApi.ts`'s `fetchIssueCommentBodies` — byte-identical to the pre-#797 command
+    - When `deriveStageFromRemote`'s deps are built via `buildDefaultReconcileDeps(boundary)` (with a boundary) vs the legacy `repoInfo` wiring (without one) inside `takeoverHandler.ts`
+    - When `pauseQueueScanner.ts`'s `resolveEntryBoundary`/`postEntryStageComment` helper builds a `LaunchBoundary` from the entry's `extraArgs` inside the existing best-effort try/catch and posts via `postIssueStageComment(boundary.providers, …)` (#797) — fixes a latent wrong-repo bug where `createRepoContext({cwd: process.cwd()})` validated the cron host's own remote instead of the paused entry's `--target-repo`, silently swallowing the worktree-gone/claim-diverged/probe-failure comments for target-repo entries
 
 - app_docs/feature-9gjajh-issue-routing-and-eligibility.md
   - Owns:
@@ -291,7 +303,7 @@
     - When working with the sweep's persist orchestration (`prepareSweepBase`, `persistRemovalViaPr`, `cleanupSweepBase`, `SweepBase`) in `adws/triggers/perIssueSweepPersist.ts`
     - When troubleshooting a sweep removal that never reached `origin` (stranded local commit, lease-rejected push) or a duplicate sweep PR
     - When the sweep's dedicated `chore/scenario-sweep` branch, its PR-open/immediate-merge flow, or its `origin/<default>`-synced worktree needs context
-    - When working with `PerIssueSweepDeps.gitContext` (required, launch-boundary, no cwd fallback) or `prepareSweepBase(gitContext)`'s signature
+    - When working with `PerIssueSweepDeps.boundary: LaunchBoundary` (required, replaced `.gitContext`, #797) or `prepareSweepBase(boundary)`'s signature — `defaultGetMergedAt` reads `boundary.providers.codeHost.listMergedPullRequests(200)`, `findOpenSweepPr`/`openPr`/`mergePr` wrap `codeHost.findPullRequestByBranch`/`createPullRequest(...).number`/`mergePullRequest`; `SweepBase.repoInfo` was removed (forge ops moved to `codeHost`)
     - When troubleshooting a target-repo cron sweeping the wrong repo (e.g. the framework repo instead of `--target-repo`) — identity must come from the cron's threaded launch `GitContext`, never `getRepoInfo()`/`gitContextForRepo` re-derivation (#769)
     - When working with `runPerIssueScenarioSweepTick` in `trigger_cron.ts` (the cadence gate + null-launch-context skip + non-fatal swallow that dispatches the sweep)
     - When the janitor skips a repo (`Janitor: skipping owner/repo`), when the `.adw` marker gate / `hasAdwMarker` in `discoverTargetRepoWorktrees` is relevant, or when `TARGET_REPOS_DIR` holds non-ADW repos
@@ -323,7 +335,7 @@
     - When working with `ListOpenIssuesOptions.state` / `listOpenIssuesCmd` (`adws/gitContext/commands/issueCommands.ts`) or the all-state promotion-issue reconciliation query
     - When working with `adws/triggers/promotionSweepDefaults.ts` production deps (`GitContext`-backed listing, scoring, tag-and-commit, issue-filing)
     - When working with `runPromotionSweepTick` or `PROMOTION_SWEEP_INTERVAL_CYCLES` (the cron interval-gate + null-launch-context skip + non-fatal swallow that activates the sweep in `trigger_cron.ts`)
-    - When working with `PromotionSweepDeps.gitContext` (required, launch-boundary, no cwd fallback) or `makeDefaultDeps(ctx)` in `promotionSweepDefaults.ts`
+    - When working with `PromotionSweepDeps.boundary: LaunchBoundary` (required, one object for both git and forge halves — replaced the separate `.gitContext` field, #797) or `makeDefaultDeps(boundary)` in `promotionSweepDefaults.ts` — `listPromotionIssues` reads `boundary.providers.issueTracker.listIssues(...)`, `tagAndCommit`'s branch check reads `boundary.providers.codeHost.getDefaultBranch()`, `fileIssue` calls `issueTracker.createIssue(title, body)` (returns the issue number directly, no `extractIssueNumber`) then `issueTracker.applyLabel(n, label)`
     - When troubleshooting a target-repo cron scoring/mutating the wrong repo's promotion candidates — identity must come from the cron's threaded launch `GitContext`, never `getRepoInfo()`/`gitContextForRepo` re-derivation (#769)
     - When working with the `promotionSweep.ts` CLI entry guard as a real launch boundary (`buildLaunchGitContext(parseTargetRepoArgs(...))`, supports `--target-repo owner/repo`)
     - When troubleshooting the promotion sweep not firing on cron cadence, or a sweep failure that should be logged and swallowed rather than crashing the cron loop
@@ -338,6 +350,8 @@
     - When troubleshooting why `fetchComments` throws instead of returning `[]` on a malformed response
     - When adding a refusal-stub method to `GitLabCodeHost` or `JiraIssueTracker` for a port method neither platform supports yet
     - When mapping a raw GitHub PR/issue payload to `PullRequestSummary` or `IssueSummary` (see `adws/providers/github/mappers.ts`)
+    - When working with `IssueTracker.listIssues(query: IssueListQuery)` or `CodeHost.listMergedPullRequests(limit)` — both forge-neutral, both throw on failure (callers own the swallow policy); `IssueListField`/`IssueListQuery`/`IssueListEntry`/`MergedPullRequestRecord` are declared in `adws/providers/types.ts` (#797)
+    - When `GitHubIssueTracker.listIssues` delegates to `adws/github/issueListApi.ts`'s `listIssues`, or `GitHubCodeHost.listMergedPullRequests` calls `createGhRepoApi(gitContextForRepo(this.repoInfo)).fetchMergedPRs(limit)` directly
 
 - app_docs/feature-9gjajh-cost-tracking.md
   - Owns:
@@ -377,7 +391,7 @@
     - adws/healthCheckChecks.ts
   - Conditions:
     - When working on the ADW health check orchestrator or health check predicates in `adws/healthCheck.tsx` and `adws/healthCheckChecks.ts`
-    - When modifying `checkGitRepository`, `checkGitHubCLI`, or `checkIssueNumber` signatures or their `GitContext` parameter
+    - When modifying `checkGitRepository`, `checkGitHubCLI`, or `checkIssueNumber` signatures or their `GitContext` parameter — signatures are `(ctx: GitContext)` unchanged; internally they call `createGhRepoApi(ctx).authenticatedUser()` / `.fetchIssue(n)` (#797), not a deleted `GitContext` semantic method
     - When the self-host `GitContext` construction in `main()` or the webhook `/health` endpoint needs changes
     - When troubleshooting the mandatory-token construction failure path in the health check
     - When `healthCheck.tsx` or `healthCheckChecks.ts` appear in the git/gh guard ALLOWLIST (they must not — they are now scanned clean)
@@ -517,7 +531,7 @@
   - Conditions:
     - When working with `GitContext`, `GitContextOptions`, `GitIdentity`, `ExecFn`, or `GitContextDeps` in `adws/gitContext/`
     - When implementing or troubleshooting base-path resolution for self-host vs target repos (the single `resolveBasePath` authority)
-    - When `worktreePathFor`, `commandEnv`, `defaultBranch`, or construction-time identity validation of `GitContext` is relevant
+    - When `worktreePathFor`, `commandEnv`, or construction-time identity validation of `GitContext` is relevant
     - When working with `GitContext.exec`, `ExecOptions`, or `ExecWorkingDirectory` (issue #790) — the package's single public, forge-neutral spawn site: `command` first positional, `cwd` an explicit working-directory CLASS (`{kind: 'workspace'}` or `{kind: 'frameworkRoot'}`, never a bare path, never a `process.cwd()` fallback), `env` a per-command credential overlay, optional stdin `input`, trimmed stdout returned
     - When adding a new spawn path to the `adws/gitContext/` package — route it through `exec()`; do not add a second spawn site, and do not delete the private `#run`/`#runRepoApi` classifiers in favour of inlining `exec()` calls at all ~83 call sites (the classifiers are the deliberately-kept indirection, see issue #790's Solution Statement §2)
     - When changing `exec()`'s argument order or folding `command` into the options object — `adws/checkGitGhGuard.ts`'s `git-gh-shellout` rule only inspects a call's first argument, so an options-object form silently disables that guard for every consumer; the guard must be extended in the same commit if this ever changes
@@ -526,7 +540,7 @@
     - When working with the `TokenProvider` port, `CredentialRequest`, or `CredentialPurpose` types (declared in `adws/gitContext/types.ts`) — the seam the GitHub forge adapter's `createGitHubTokenProvider` (`adws/providers/github/githubTokenProvider.ts`, see `app_docs/feature-e2er82-github-forge-adapter.md`) implements; called once per command by `commandEnv`, never memoised by the core
     - When changing which credential an operation receives (ordinary vs. PR-approval/Projects-V2-board) — the decision lives in the GitHub provider's `'alternateIdentity'` branch, not in `gitContext.ts`; the core only ever declares a `CredentialPurpose`
     - When debugging an expired GitHub App installation token in a long-running orchestrator (`trigger_cron`, `trigger_webhook`) — since #791 the credential is resolved fresh on every command via the TokenProvider port, so `appAuth.ts`'s expiry-aware refresh (`REFRESH_BUFFER_MS`) is consulted on every call rather than replaying a token minted once at process launch
-    - When adding a new `GitContext` construction site — pass `tokenProvider` (the supported path), not `token`; `token`/`pat` are the TRANSITIONAL literal-credential path kept only for existing construction sites and are removed in #792/#796
+    - When adding a new `GitContext` construction site — `tokenProvider` is the only supported path; the TRANSITIONAL `token`/`pat` literal-credential path was removed in #797 (use `createLiteralTokenProvider` in the GitHub adapter for tests/fixtures instead)
     - When `assertCompleteIdentity`'s validate-and-discard probe is relevant — construction calls `tokenProvider.credentialEnv({...,purpose:'default'})` exactly once to fail loudly on a bad credential source, then discards the answer; the first real command still resolves the provider's SECOND answer, never the probe's
     - When working with `#runRepoApi` or the repo-API spawn-cwd rule (issue #775) — repo-independent `gh` commands (identity in the command string) run from the injected `frameworkRepoRoot`, never `basePath`, regardless of target-workspace clone state
     - When troubleshooting `spawnSync /bin/sh ENOENT` from a GitHub-API (`gh`) call — this is Node's error for a nonexistent SPAWN CWD, not a missing shell; check whether the failing call is still routed through `#run` (basePath) instead of `#runRepoApi` (frameworkRepoRoot)
@@ -541,7 +555,7 @@
     - When the GH_TOKEN-bleed class (vestmatic #143/#181/#187) or the `fetchLatestRefs` crash class is being addressed — `resolveContextToken` is the structural fix; never reads `process.env.GH_TOKEN`
     - When `launchGitContext.ts`, `gitContextFactory.ts`, `githubAppAuth.ts`, or `targetRepoManager.ts` contain zero raw git/gh strings — they are thin adapters delegating to package primitives (#700); as of #792, `adws/github/githubAppAuth.ts` is the sole environment-binding site (reads `GITHUB_APP_ID`/`GITHUB_APP_SLUG`/`GITHUB_APP_PRIVATE_KEY_PATH` fresh per call, passes a `GitHubAppConfig` into the forge adapter), not a pure re-export shim
     - When `activateGitHubAppAuth`, `refreshTokenIfNeeded`, or `configureGitIdentity` are referenced and not found — they were deleted in #701; the subprocess auth path is `subprocessEnv` overlay via `commandEnv()` in `claudeAgent.ts`/`commandAgent.ts`
-    - When `ensureTargetRepoWorkspace` / `ensureRepoWorkspace` uses a veracious `getDefaultBranch: () => ctx.defaultBranch()` thunk — the `gh repo view` under per-command auth fix
+    - When `ensureTargetRepoWorkspace` / `ensureRepoWorkspace` uses a veracious `getDefaultBranch` thunk — as of #797 callers build it as `() => boundary.providers.codeHost.getDefaultBranch()` (the `gh repo view` under per-command auth fix; `GitContext.defaultBranch()` no longer exists)
     - When `buildLaunchGitContext`, `LaunchGitContextDeps`, `resolveLaunchToken`, or `resolveLaunchGitIdentity` in `adws/core/launchGitContext.ts` is relevant
     - When `getCurrentBranch`, `mergeLatestFromDefaultBranch`, `fetchAndResetToRemote`, `deleteLocalBranch`, `deleteRemoteBranch` are GitContext methods
     - When `commitChanges`, `pushBranch`, `getHeadTreeHash`, or `hasUncommittedChanges` run through GitContext
@@ -550,15 +564,15 @@
     - When `gitContextFor`, `gitContextForSync`, or `gitContextForRepo` from `adws/github/gitContextFactory.ts` is used to construct a context at a call site
     - When `adws/vcs/worktreeCreation.ts`, `worktreeQuery.ts`, `worktreeCleanup.ts`, or `worktreeOperations.ts` are referenced and symbols appear to be missing (they migrated to GitContext in #661)
     - When `adws/vcs/branchOperations.ts`, `commitOperations.ts`, or `worktreeReset.ts` are referenced and I/O functions appear to be missing (they migrated to GitContext)
-    - When working with pure gh command builders or parsers (issue, PR, label, board) — as of #792 these live in `adws/providers/github/commands/`, not `adws/gitContext/commands/` (that directory no longer exists); `gitContext.ts` still imports them TRANSITIONALLY for its surviving semantic methods
+    - When working with pure gh command builders or parsers (issue, PR, label, board) — these live in `adws/providers/github/commands/`, not `adws/gitContext/commands/` (that directory no longer exists); as of #797 `gitContext.ts` imports nothing from that directory — the core has zero GitHub-specific imports
     - When implementing or troubleshooting `gitContextForRepo`, `clearSelfHostCache`, or `readLocalRepoInfo` in `adws/github/gitContextFactory.ts`
     - When the `activeRepo`/`ensureAppAuthForRepo` removal or the auth-bleed structural fix is relevant
     - When adding a new `gh` operation method or worktree method to `GitContext` (follow the thin-method + package-private-op pattern)
     - When `getWorktreesDir`, `getWorktreePath`, or `worktreeExists` are referenced and not found (deleted in #661 — use `ctx.worktreePathFor()`, `ctx.getWorktreeForBranch()`, or `ctx.listWorktrees()`)
     - When the "wrong-repo worktree" or `GH_TOKEN` bleed class of bugs is being addressed structurally
     - When adding unit tests for `adws/gitContext/` (env-injection, non-mutation, credential purpose routing, lease-rejection, two-context isolation, token veracity, bootstrap identity, workspace management)
-    - When working with `listOpenIssues`, `issueComments`, or `fetchMergedPRs` on `GitContext`
-    - When working with `remoteUrl(cwd?)` or `authenticatedUser()` as `GitContext` identity-read methods
+    - When `listOpenIssues`, `issueComments`, `fetchMergedPRs`, `authenticatedUser`, `defaultBranch`, `setSecret`, `runGraphQLInput`, `createPR`, or `fetchPRChangedFiles` are referenced and not found on `GitContext` — as of #797 all 35 forge-semantic methods were deleted from the core; they relocated to `createGhRepoApi(ctx)` in the GitHub adapter (see `app_docs/feature-e2er82-github-forge-adapter.md`)
+    - When working with `remoteUrl(cwd?)` as a `GitContext` identity-read method (git-only; forge identity reads moved to the adapter)
     - When `readLocalRepoInfo` in `bootstrapIdentity.ts` (package) is the bootstrap boundary for reading `git remote get-url origin` before a `GitContext` can be constructed — it is the only legitimate permanent exception
     - When working with `parseGitHubRemoteUrl` (`bootstrapIdentity.ts`) — the single source of truth for HTTPS/SSH GitHub remote-URL parsing, shared by `readLocalRepoInfo`, `convertToSshUrl` (`repoWorkspace.ts`), and `getRepoInfoFromUrl` (`adws/github/githubApi.ts`)
     - When troubleshooting a dotted repo name (e.g. `paysdoc.nl`) being truncated at the first `.` — `parseGitHubRemoteUrl` end-anchors the optional `.git` suffix with a lazy repo group instead of excluding dots from the repo name (#779)
@@ -568,12 +582,11 @@
     - When `gitReadOps.ts` (package-private read-ops module), its `Runner` seam, or error-propagation-by-design contract is relevant
     - When `copyClaudeAssetsToWorktree` is called without a `GitContext` second argument and fails to compile (signature changed in #694)
     - When `getLastAdwCommitTimestamp` is called without a `GitContext` second argument and fails to compile (signature changed in #694)
-    - When working with `setSecret(name, value)` or `runGraphQLInput(body)` as `GitContext` methods
     - When `labelManager.ts`, `githubBoardManager.ts`, or `depauditSetup.ts` are referenced as migrated files (no longer on the guard ALLOWLIST — the ALLOWLIST was deleted in #701)
     - When working with `fetchRemote`, `mergeBranch`, `abortMerge`, or `lsRemote` as `GitContext` methods
     - When `remoteOps.ts` (package-private remote-op module) or the `Runner` seam / `abortMerge` error-swallowing contract is relevant
     - When `mergeWithConflictResolution` optional `gitContext?` 9th parameter or its `gitContextForRepo` fallback is relevant
-    - When working with `fetchPRChangedFiles(prNumber)`, `createPR` with optional `labels?`, or `logSince(opts: LogSinceOptions, cwd?)` on `GitContext`
+    - When working with `logSince(opts: LogSinceOptions, cwd?)` on `GitContext`
     - When `gitReadOps.logSince` or `LogSinceOptions` is referenced (bounded `git log --since` vocabulary)
     - When working with `addDetachedWorktree`, `commitAllowEmpty`, `pushHeadToBranch`, or `removeDetachedWorktree` as `GitContext` methods (upgrade-claim distributed-lock verbs)
     - When `claimOps.ts` (package-private claim-op module) or the no-`--force` push invariant is relevant
@@ -584,8 +597,16 @@
     - When investigating why `/implement`, `/commit`, `/pull_request`, `/resolve_conflict`, or other subprocess commands have or lack the correct `GH_TOKEN`/`GIT_*` identity
 
 - app_docs/feature-e2er82-github-forge-adapter.md
+  - Owns:
+    - adws/providers/github/ghIssueApi.ts
+    - adws/providers/github/ghPrApi.ts
+    - adws/providers/github/ghRepoApi.ts
+    - adws/providers/github/__tests__/ghRepoApi.test.ts
+    - adws/providers/github/__tests__/ghRepoApiCwd.test.ts
   - Conditions:
     - When working with the GitHub forge adapter package (`adws/providers/github/`) as the consolidated home for gh command builders, GitHub App auth, token resolution, GitHub identity conventions, and clone-URL construction (issues #792, #793)
+    - When working with `ghIssueApi.ts`/`ghPrApi.ts`/`ghRepoApi.ts` or `createGhRepoApi(ctx)` — the relocation target of GitContext's former 35-operation semantic (`gh`) surface (#797); deep-import-only, deliberately absent from the guard's `PROVIDER_CONSTRUCTORS`/`CONTEXT_CONSTRUCTORS` (a bound view over a caller-supplied `GitContext` selects no identity)
+    - When working with `createLiteralTokenProvider` (`githubTokenProvider.ts`) — the adapter-side fixed-credential `TokenProvider` for tests/fixtures, the #797 replacement for the deleted core-side `token`/`pat` literal-credential construction path
     - When working with `githubIdentity.ts` (`RepoInfo`, `parseGitHubRemoteUrl`, `readLocalRepoInfo`, `resolveBootstrapGitIdentity`, `ADW_BOT_FALLBACK_IDENTITY`, `BootstrapIdentityDeps`) or `cloneUrl.ts` (`convertToSshUrl`) — the GitHub half of bootstrap identity/clone-URL resolution, split out of `adws/gitContext/bootstrapIdentity.ts`/`repoWorkspace.ts` in #793; both compose the core's generic readers (`readOriginRemoteUrl`, `readEnvGitIdentity`, `readGitConfigIdentity`) rather than shelling out
     - When troubleshooting why `ghAuthToken` lives in `adws/providers/github/ghAuthToken.ts` rather than the git core or the ADW boundary — a deliberate #793 decision (guard role fit; `adws/github/` is unprivileged under `EXEMPT_PACKAGES`; routing through `ghCommandRunner` would be circular since this read produces the credential the runner needs)
     - When `appAuth.ts`'s `isGitHubAppConfigured(config)`/`getInstallationToken(config, owner, repo, deps?)` need a `GitHubAppConfig` argument — this module reads zero `process.env`; the sole env-reading site is `adws/github/githubAppAuth.ts`'s `readAppConfig()`, called fresh per invocation
@@ -593,7 +614,7 @@
     - When working with `createGitHubTokenProvider` (`githubTokenProvider.ts`) — the `TokenProvider` port's GitHub implementation; owns the PAT-vs-installation-token decision for `'alternateIdentity'` requests; called once per command, never memoised (the only cache on this path is `appAuth.ts`'s expiry-aware installation-token cache)
     - When working with `ghCommandRunner.ts`'s `createGhCommandRunner(ctx: GitContext)` — the adapter's ONLY route to a child process; imports nothing from `child_process`; every command routes through `GitContext.exec` with `cwd: {kind: 'frameworkRoot'}` (mirrors the core's `#runRepoApi` classifier, issue #775's repo-API contract) and a credential env from `ctx.commandEnv({}, purpose)`
     - When working with `commands/issueCommands.ts`, `prCommands.ts`, `labelCommands.ts`, `boardCommands.ts`, or `secretCommands.ts` — the ~41 pure gh command-string builders and parsers, moved byte-for-byte from the former `adws/gitContext/commands/`
-    - When `adws/gitContext/gitContext.ts` imports these command builders — this is a deliberate TRANSITIONAL upward dependency (#792) kept only for the core's surviving semantic methods (`fetchIssue`, `createPR`, `setSecret`, etc.), pending migration to callers in future issues #796/#797
+    - When `adws/gitContext/gitContext.ts` is checked for an import of these command builders — as of #797 there is none; the core has zero GitHub-specific imports, and the five command-builder modules are consumed only from within this package by `ghIssueApi.ts`/`ghPrApi.ts`/`ghRepoApi.ts`
     - When `githubBoardManager.ts`'s GraphQL calls (`findBoard`, `createBoard`, `ensureColumns`/`updateStatusFieldOptions`, `getStatusFieldOptions`) are relevant — all route through `this.gh.run(...)` (a `GhCommandRunner`) with `{ purpose: 'alternateIdentity' }`, not the pre-#792 `GitContext.runGraphQL`/`runGraphQLInput` methods
     - When deciding where to import a command builder, `appAuth`, `tokenResolver`, or `githubTokenProvider` from — always deep-import the specific module, never the package barrel `adws/providers/github/index.ts`, from `gitContextFactory.ts`, `launchGitContext.ts`, or `githubAppAuth.ts` (the barrel pulls in `githubCodeHost.ts` and would close an import cycle); the barrel only re-exports `createGitHubIssueTracker`, `createGitHubCodeHost`/`GitHubCodeHost`, `createGitHubBoardManager`, and `mappers.ts`
     - When `adws/checkGitGhGuard.ts`'s `EXEMPT_PACKAGES` includes `adws/providers/github` as the second (and only other) structurally-exempt package, permitted to issue `gh` commands by feeding strings into the core's executor, never by spawning independently
@@ -617,7 +638,8 @@
     - adws/core/launchGitContext.ts
     - adws/core/__tests__/launchGitContext.test.ts
   - Conditions:
-    - When working with `buildLaunchGitContext`, `buildLaunchBoundary`, `LaunchBoundary`, `LaunchGitContextDeps`, `resolveLaunchToken`, or `resolveLaunchGitIdentity` in `adws/core/launchGitContext.ts`
+    - When working with `buildLaunchGitContext`, `buildLaunchBoundary`, `LaunchBoundary`, `LaunchGitContextDeps`, `resolveLaunchToken`, `resolveLaunchGitIdentity`, or `bindWorkspaceContext` in `adws/core/launchGitContext.ts`
+    - When binding a `LaunchBoundary`'s providers to a validated workspace directory (`workflowInit.ts`, `prReviewPhase.ts`) — `bindWorkspaceContext(boundary, cwd, repoId?)` refuses a `repoId` that contradicts the boundary's own (`sameRepoIdentity`) and otherwise calls `createRepoContext({repoId, cwd, providers: boundary.providers})`; it is the one file the guard sanctions for `createRepoContext` (#797)
     - When constructing a `GitContext` and its bound providers at a process launch boundary (cron entry-script guard, `adwMerge.main()`, `initializeWorkflow`) — `buildLaunchBoundary` resolves `{owner, repo}` exactly once and hands it to both artefacts in the same call (#794)
     - When `buildLaunchGitContext` is referenced as the context-only view — it is defined as `buildLaunchBoundary(...).gitContext`, unchanged in signature and behaviour for its existing six call sites
     - When troubleshooting the cron's module-scope `cronBoundary`/`cronGitContext`/`getCronProviders()` or the `process.argv[1]` entry-script guard
@@ -649,8 +671,9 @@
     - When troubleshooting why a `gitContextForRepo(x)` call was or wasn't flagged under `cwd-derived-identity` — check whether `x` traces to a zero-argument `getRepoInfo()`/`readLocalRepoInfo()` read (flagged) vs an argument-bearing call, a guarded fallback (`x ?? getRepoInfo()`), or a plain parameter (all legal) — but note ANY bare `gitContextForRepo(...)` call outside the allowlist is separately flagged by `unsanctioned-construction` regardless of its argument (#795); the two rules are independent
     - When a legitimate self-host `gitContextForRepo` construction needs to comply with the `cwd-derived-identity` rule — pass `readLocalRepoInfo(REPO_ROOT)` explicitly instead of a bare cwd read
     - When working with the `unsanctioned-construction` rule (#795, `adws/guard/constructionRule.ts`) — flags a bare-identifier `new GitContext(…)` or a bare-identifier call to `PROVIDER_CONSTRUCTORS` (the seven forge provider factories) or `CONTEXT_CONSTRUCTORS` (`createRepoContext`, `mintBoundProviders`, `gitContextFor`/`gitContextForSync`/`gitContextForRepo`) outside `SANCTIONED_CONSTRUCTION_SITES`; property-access callees (`deps.gitContextForRepo(…)`) and function declarations are deliberately never flagged
-    - When working with `SANCTIONED_CONSTRUCTION_SITES`, its PERMANENT (2, no `owner`) vs TRANSITIONAL (38, `owner: '#796'`/`'#797'`) split, `isSanctionedConstructionSite` (exact path match only, never a prefix), or the self-cleaning stale-entry ratchet in `main()` (`hasGuardedConstruction` + `findStaleSanctionedEntries` — fails the build when a transitional entry's file no longer constructs anything)
-    - When a migration slice (#796, #797) removes the last construction from a transitional entry's file — delete that entry from `SANCTIONED_CONSTRUCTION_SITES`, or the stale-entry ratchet fails the build
+    - When working with `SANCTIONED_CONSTRUCTION_SITES`, its PERMANENT (2, no `owner`) vs TRANSITIONAL (27, all `owner: '#796'`) split — every `createRepoContext`/forge-provider-factory construction site was migrated to the boundary by #797, so no transitional entry is owned by `#797` any longer — `isSanctionedConstructionSite` (exact path match only, never a prefix), or the self-cleaning stale-entry ratchet in `main()` (`hasGuardedConstruction` + `findStaleSanctionedEntries` — fails the build when a transitional entry's file no longer constructs anything)
+    - When a migration slice (#796) removes the last construction from a transitional entry's file — delete that entry from `SANCTIONED_CONSTRUCTION_SITES`, or the stale-entry ratchet fails the build
+    - When `createGhRepoApi` is checked against the guard's near-miss set — deliberately NOT in `PROVIDER_CONSTRUCTORS`/`CONTEXT_CONSTRUCTORS` (a bound view over a caller-supplied `GitContext`, selecting no identity of its own), alongside `createGhCommandRunner`/`createGitHubTokenProvider`/`createIssueCmd` (#797)
     - When adding a brand-new provider/context construction site — it must call `buildLaunchBoundary(...)`; nothing may ever be added to the transitional half of the allowlist
 
 - app_docs/feature-2ubuuc-rot-reuse-advisory-pr-comment.md
@@ -695,6 +718,10 @@
     - When a phase or orchestrator still holds a `GitContext` and needs to know whether that use is git-only (allowed) or forge-semantic (should route through the provider pair instead)
     - When troubleshooting `autoMergePhase.ts`'s `hitl` label gate, `depauditSetup.ts`'s secret propagation, or `docsSelfCheck.ts`'s open-issue search after this migration
     - When extending this migration to a module not yet covered (`adwChore.tsx`, `adwClearComments.tsx`, `unitTestPhase.ts`, `stackCoherenceReporter.ts`, `prReviewPhase.ts`'s `fetchPRDetails`/`getUnaddressedComments`, or `adws/github/hitlBoardNotifier`'s `notifyBlockedTransition` platform branch) — these were deliberately deferred to the next wave
+    - When `workflowInit.ts`/`prReviewPhase.ts` build a `RepoContext` via `bindWorkspaceContext(boundary, worktreePath, repoId?)` (`adws/core/launchGitContext.ts`) instead of calling `createRepoContext` directly (#797)
+    - When `targetRepoManager.ts`'s `ensureTargetRepoWorkspace(targetRepo, getDefaultBranch)` explicit-thunk signature, or its four call sites (`adwMerge.tsx`, `adwUpgrade.tsx`, `workflowInit.ts`, `prReviewPhase.ts`), is relevant
+    - When `upgradeGate.ts`'s `buildDefaultUpgradeGateDeps(providers, worktreePath, gitCtx)` derives `gitShow` internally from the passed `GitContext` instead of taking a pre-built thunk
+    - When `phaseCommentHelpers.ts`'s `postIssueStageComment` narrows its first parameter to `Pick<RepoContext, 'issueTracker'>` — lets `pauseQueueScanner.ts` post through a bare `BoundProviders` without minting a full `RepoContext`
 
 - app_docs/feature-9gjajh-build-and-plan-phases.md
   - Owns:

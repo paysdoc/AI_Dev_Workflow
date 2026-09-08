@@ -37,9 +37,9 @@ import { scanPauseQueue } from './pauseQueueScanner';
 import { runJanitorPass } from './devServerJanitor';
 import { runPerIssueScenarioSweep } from './perIssueScenarioSweep';
 import { runPromotionSweep } from './promotionSweep';
-import { runUpgradeRedriveScan } from './upgradeRedrive';
+import { runUpgradeRedriveScan, buildDefaultUpgradeRedriveDeps } from './upgradeRedrive';
 import { resolveCronRepo, buildCronTargetRepoArgs } from './cronRepoResolver';
-import { gitContextForRepo } from '../github/gitContextFactory';
+import { listCronOpenIssues } from './cronIssueListing';
 import { filterEligibleIssues, resolveTouchedFilesFromBody } from './cronIssueFilter';
 import { registerRegionOverlapBlocker } from './regionOverlapSignals';
 import { shouldDispatchMerge } from './mergeDispatchGate';
@@ -52,18 +52,6 @@ const PR_POLL_INTERVAL_MS = 60_000;
 const processedSpawns = new Set<number>();
 const processedPRs = new Set<number>();
 let cycleCount = 0;
-
-/** Raw issue data returned from the GitHub CLI. */
-interface RawIssue {
-  number: number;
-  title: string;
-  body: string;
-  comments: { body: string }[];
-  createdAt: string;
-  updatedAt: string;
-  labels: { name: string }[];
-}
-
 
 // Resolve repo identity from --target-repo CLI args (or fall back to local git remote).
 const { repoInfo: cronRepoInfo, targetRepo } = resolveCronRepo(process.argv.slice(2), getRepoInfo);
@@ -91,26 +79,12 @@ export function getCronProviders(): BoundProviders | null {
   return cronBoundary?.providers ?? null;
 }
 
-/** Fetches all open issues with body, comments, and timestamps. */
-function fetchOpenIssues(): RawIssue[] {
-  try {
-    const json = gitContextForRepo(cronRepoInfo).listOpenIssues({
-      fields: ['number', 'title', 'body', 'comments', 'createdAt', 'updatedAt', 'labels'],
-      limit: 100,
-    });
-    return JSON.parse(json);
-  } catch (error) {
-    log(`Failed to fetch issues: ${error}`, 'error');
-    return [];
-  }
-}
-
 /** Builds --target-repo args to pass to spawned workflows. */
 function buildTargetRepoArgs(): string[] {
   return buildCronTargetRepoArgs(
     cronRepoInfo,
     targetRepo,
-    () => { try { return gitContextForRepo(cronRepoInfo).remoteUrl(); } catch { return null; } },
+    () => { try { return cronGitContext?.remoteUrl() ?? null; } catch { return null; } },
   );
 }
 
@@ -146,14 +120,14 @@ export function runHungDetectorSweep(now: number, deps?: HungDetectorDeps): void
  * cwd-derived identity.
  */
 function boundPerIssueSweep(): (() => Promise<unknown>) | null {
-  const ctx = cronGitContext; // local const so TS narrows inside the closure
-  return ctx ? () => runPerIssueScenarioSweep({ gitContext: ctx }) : null;
+  const boundary = cronBoundary; // local const so TS narrows inside the closure
+  return boundary ? () => runPerIssueScenarioSweep({ boundary }) : null;
 }
 
 /** Same shape as boundPerIssueSweep, for the promotion sweep. */
 function boundPromotionSweep(): (() => Promise<unknown>) | null {
-  const ctx = cronGitContext;
-  return ctx ? () => runPromotionSweep({ gitContext: ctx }) : null;
+  const boundary = cronBoundary;
+  return boundary ? () => runPromotionSweep({ boundary }) : null;
 }
 
 /**
@@ -300,6 +274,12 @@ async function handleAuthGateTick(): Promise<boolean> {
 
 /** Checks for eligible issues and triggers ADW workflows for each. */
 async function checkAndTrigger(): Promise<void> {
+  const boundary = cronBoundary;
+  if (!boundary) {
+    log('checkAndTrigger: no launch boundary (module imported, not launched) — skipping tick', 'warn');
+    return;
+  }
+
   cycleCount += 1;
 
   if (await handleAuthGateTick()) return;
@@ -330,7 +310,7 @@ async function checkAndTrigger(): Promise<void> {
 
   const now = Date.now();
   const cancelledThisCycle = new Set<number>();
-  const issues = fetchOpenIssues();
+  const issues = listCronOpenIssues(boundary.providers.issueTracker);
   const linkedPrs = fetchLinkedPRs(cronRepoInfo);
   const labelRecovery = (issue: CronIssue) => evaluateLabelRecovery(issue, linkedPrs);
 
@@ -382,7 +362,7 @@ async function checkAndTrigger(): Promise<void> {
   // standard filter), so this cannot disturb the loop below. A scan failure must
   // never abort the tick.
   try {
-    runUpgradeRedriveScan(issues, repoInfo, targetRepoArgs);
+    runUpgradeRedriveScan(issues, repoInfo, targetRepoArgs, buildDefaultUpgradeRedriveDeps(repoInfo, boundary.providers.codeHost));
   } catch (error) {
     log(`upgradeRedrive: redrive scan failed (non-fatal): ${error}`, 'error');
   }
@@ -421,7 +401,7 @@ async function checkAndTrigger(): Promise<void> {
     // Enforce the takeover decision before any spawn. This is the sole gate
     // for all standard (non-merge) candidates so a future maintainer cannot
     // introduce a parallel pre-check that bypasses it.
-    const takeoverDecision = evaluateCandidate({ issueNumber: issue.number, repoInfo, gitContext: cronGitContext ?? undefined });
+    const takeoverDecision = evaluateCandidate({ issueNumber: issue.number, repoInfo, gitContext: boundary.gitContext, boundary });
 
     if (takeoverDecision.kind === 'defer_live_holder') {
       log(`Issue #${issue.number}: live holder (pid ${takeoverDecision.holderPid}) owns this issue, deferring`);

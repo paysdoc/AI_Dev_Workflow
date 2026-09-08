@@ -55,3 +55,16 @@ export function createGitHubTokenProvider(input: GitHubTokenProviderInput): Toke
     },
   };
 }
+
+/**
+ * A TokenProvider that serves a fixed credential — `alternateIdentityPat`
+ * (when given) for `'alternateIdentity'` requests, `token` otherwise. For
+ * tests and fixtures; production boundaries use {@link createGitHubTokenProvider}.
+ */
+export function createLiteralTokenProvider(token: string, alternateIdentityPat?: string): TokenProvider {
+  return {
+    credentialEnv({ purpose }: CredentialRequest): NodeJS.ProcessEnv {
+      return { GH_TOKEN: (purpose === 'alternateIdentity' && alternateIdentityPat) ? alternateIdentityPat : token };
+    },
+  };
+}

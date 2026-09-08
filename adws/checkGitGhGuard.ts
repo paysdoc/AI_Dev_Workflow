@@ -29,9 +29,11 @@
  *    RepoContext factory, or a GitContext factory, anywhere outside a
  *    file-scoped permanent+transitional allowlist. The launch boundary
  *    (`buildLaunchBoundary`) is the one permanent sanctioned site; the
- *    transitional entries are the not-yet-migrated call sites #796/#797 own,
- *    and a stale-entry ratchet fails the build once a transitional entry
- *    stops constructing anything.
+ *    transitional entries are the residual per-call `gitContextFor*`
+ *    constructions inside the GitHub API layer and worktree-owning phases
+ *    (#796's remit — #797 closed every provider/RepoContext construction
+ *    site), and a stale-entry ratchet fails the build once a transitional
+ *    entry stops constructing anything.
  *
  * The exempt set is closed and named (EXEMPT_PACKAGES, #792): exactly two
  * packages may shell out — the git core (`adws/gitContext`), which may run
@@ -206,7 +208,7 @@ function printSanctionedConstructionSites(): void {
   const transitional = SANCTIONED_CONSTRUCTION_SITES.filter((site) => 'owner' in site);
 
   console.log(
-    `  Sanctioned construction sites — ${permanent.length} permanent, ${transitional.length} transitional (#796/#797):`,
+    `  Sanctioned construction sites — ${permanent.length} permanent, ${transitional.length} transitional (#796):`,
   );
   for (const site of permanent) {
     console.log(`    ${site.file} — ${site.reason}`);
@@ -251,7 +253,7 @@ function main(): void {
   if (staleEntries.length > 0) {
     console.log(`  ✖ FAIL  ${staleEntries.length} stale transitional entr${staleEntries.length === 1 ? 'y' : 'ies'} in the sanctioned construction sites list:\n`);
     for (const file of staleEntries) {
-      console.log(`  Remove the stale transitional entry — ${file} no longer constructs a provider or context (#796/#797).`);
+      console.log(`  Remove the stale transitional entry — ${file} no longer constructs a provider or context (#796).`);
     }
     console.log('');
   }

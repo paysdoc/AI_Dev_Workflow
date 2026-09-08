@@ -7,14 +7,23 @@
 
 import * as path from 'path';
 import * as os from 'os';
-import { describe, it, expect, afterEach } from 'vitest';
-import { buildLaunchGitContext, buildLaunchBoundary } from '../launchGitContext';
+import { describe, it, expect, afterEach, vi, beforeEach } from 'vitest';
+
+vi.mock('../../providers/repoContext', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../providers/repoContext')>()),
+  createRepoContext: vi.fn(),
+}));
+
+import { buildLaunchGitContext, buildLaunchBoundary, bindWorkspaceContext } from '../launchGitContext';
 import type { LaunchGitContextDeps } from '../launchGitContext';
 import type { TargetRepoInfo } from '../../types/issueTypes';
 import type { TokenProvider, CredentialRequest } from '../../gitContext';
+import { createRepoContext } from '../../providers/repoContext';
 import type { MintProvidersOptions } from '../../providers/repoContext';
-import type { BoundProviders, RepoIdentifier } from '../../providers/types';
+import type { BoundProviders, RepoContext, RepoIdentifier } from '../../providers/types';
 import { Platform } from '../../providers/types';
+
+const mockCreateRepoContext = vi.mocked(createRepoContext);
 
 const FRAMEWORK_ROOT = '/srv/adw/framework';
 const TARGET_REPOS_DIR = '/srv/adw/repos';
@@ -443,5 +452,63 @@ describe('buildLaunchBoundary: RepoIdentifier platform', () => {
   it('honours an injected deps.platform override', () => {
     const boundary = buildLaunchBoundary(makeTargetRepo('acme', 'webapp'), baseDeps({ platform: Platform.GitLab }));
     expect(boundary.repoId.platform).toBe(Platform.GitLab);
+  });
+});
+
+// ── §15: bindWorkspaceContext ─────────────────────────────────────────────────
+
+describe('bindWorkspaceContext', () => {
+  beforeEach(() => {
+    mockCreateRepoContext.mockReset();
+  });
+
+  it('passes the boundary\'s providers and the given cwd to createRepoContext, defaulting repoId to the boundary\'s', () => {
+    const { mintProviders } = makeRecordingMintProviders();
+    const boundary = buildLaunchBoundary(makeTargetRepo('acme', 'webapp'), baseDeps({ mintProviders }));
+    const fakeRepoContext = { cwd: '/some/worktree' } as unknown as RepoContext;
+    mockCreateRepoContext.mockReturnValue(fakeRepoContext);
+
+    const result = bindWorkspaceContext(boundary, '/some/worktree');
+
+    expect(mockCreateRepoContext).toHaveBeenCalledTimes(1);
+    expect(mockCreateRepoContext).toHaveBeenCalledWith({
+      repoId: boundary.repoId,
+      cwd: '/some/worktree',
+      providers: boundary.providers,
+    });
+    expect(result).toBe(fakeRepoContext);
+  });
+
+  it('honours an explicitly-supplied repoId that matches the boundary\'s repository', () => {
+    const boundary = buildLaunchBoundary(makeTargetRepo('acme', 'webapp'), baseDeps());
+    mockCreateRepoContext.mockReturnValue({} as RepoContext);
+
+    const explicitRepoId: RepoIdentifier = { owner: 'acme', repo: 'webapp', platform: Platform.GitHub };
+    bindWorkspaceContext(boundary, '/some/worktree', explicitRepoId);
+
+    expect(mockCreateRepoContext).toHaveBeenCalledWith({
+      repoId: explicitRepoId,
+      cwd: '/some/worktree',
+      providers: boundary.providers,
+    });
+  });
+
+  it('accepts a case-variant repoId match', () => {
+    const boundary = buildLaunchBoundary(makeTargetRepo('acme', 'webapp'), baseDeps());
+    mockCreateRepoContext.mockReturnValue({} as RepoContext);
+
+    const variantRepoId: RepoIdentifier = { owner: 'ACME', repo: 'WebApp', platform: Platform.GitHub };
+    expect(() => bindWorkspaceContext(boundary, '/some/worktree', variantRepoId)).not.toThrow();
+    expect(mockCreateRepoContext).toHaveBeenCalledTimes(1);
+  });
+
+  it('refuses a mismatched repoId without calling createRepoContext', () => {
+    const boundary = buildLaunchBoundary(makeTargetRepo('acme', 'webapp'), baseDeps());
+
+    const otherRepoId: RepoIdentifier = { owner: 'octo', repo: 'infra', platform: Platform.GitHub };
+    expect(() => bindWorkspaceContext(boundary, '/some/worktree', otherRepoId)).toThrow(
+      /bindWorkspaceContext: octo\/infra does not match the launch boundary's acme\/webapp/,
+    );
+    expect(mockCreateRepoContext).not.toHaveBeenCalled();
   });
 });

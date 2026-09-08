@@ -17,6 +17,18 @@ vi.mock('../../../github/gitContextFactory', () => ({
   gitContextForRepo: vi.fn(() => ({ setSecret: mockSetSecret, findPRByBranch: vi.fn(), createPR: vi.fn() })),
 }));
 
+const mockFetchMergedPRs = vi.fn();
+vi.mock('../ghRepoApi', () => ({
+  // setSecret is included so the existing setSecret test below (which asserts on
+  // mockSetSecret) keeps passing now that GitHubCodeHost.setSecret routes through
+  // createGhRepoApi(gitContextForRepo(...)).setSecret(...) instead of calling
+  // gitContextForRepo(...).setSecret(...) directly (#797). createPullRequest and
+  // getDefaultBranch also now route through createGhRepoApi, but neither has test
+  // coverage in this file, so no fake methods are added for findPRByBranch/createPR/
+  // defaultBranch.
+  createGhRepoApi: vi.fn(() => ({ fetchMergedPRs: mockFetchMergedPRs, setSecret: mockSetSecret })),
+}));
+
 import { createGitHubCodeHost } from '../githubCodeHost';
 import { mapRawPRToSummary } from '../mappers';
 import { Platform, type RepoIdentifier } from '../../types';
@@ -88,13 +100,31 @@ describe('GitHubCodeHost — new method delegation', () => {
     expect(result).toEqual({ success: false, error: 'conflict' });
   });
 
-  it('setSecret delegates to gitContextForRepo(repoInfo).setSecret', () => {
+  it('setSecret delegates to createGhRepoApi(gitContextForRepo(repoInfo)).setSecret', () => {
     const codeHost = createGitHubCodeHost(REPO_ID);
 
     codeHost.setSecret('SOCKET_API_TOKEN', 'sktsec_abc');
 
     expect(mockSetSecret).toHaveBeenCalledTimes(1);
     expect(mockSetSecret).toHaveBeenCalledWith('SOCKET_API_TOKEN', 'sktsec_abc');
+  });
+
+  it('listMergedPullRequests parses createGhRepoApi(...).fetchMergedPRs(limit) and returns it unchanged', () => {
+    mockFetchMergedPRs.mockReturnValue(JSON.stringify([{ body: 'Closes #1', mergedAt: '2024-01-01' }]));
+    const codeHost = createGitHubCodeHost(REPO_ID);
+
+    const result = codeHost.listMergedPullRequests(200);
+
+    expect(mockFetchMergedPRs).toHaveBeenCalledTimes(1);
+    expect(mockFetchMergedPRs).toHaveBeenCalledWith(200);
+    expect(result).toEqual([{ body: 'Closes #1', mergedAt: '2024-01-01' }]);
+  });
+
+  it('listMergedPullRequests rethrows when fetchMergedPRs throws', () => {
+    mockFetchMergedPRs.mockImplementation(() => { throw new Error('gh: rate limited'); });
+    const codeHost = createGitHubCodeHost(REPO_ID);
+
+    expect(() => codeHost.listMergedPullRequests(200)).toThrow('gh: rate limited');
   });
 });
 

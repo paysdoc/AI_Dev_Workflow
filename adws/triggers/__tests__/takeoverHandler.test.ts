@@ -12,6 +12,7 @@ import type { RepoInfo } from '../../github/githubApi';
 import type { AgentState } from '../../types/agentTypes';
 import type { WorktreeProbe } from '../../vcs/worktreeReuseGate';
 import { GitContext } from '../../gitContext';
+import { createLiteralTokenProvider } from '../../providers/github/githubTokenProvider';
 
 const REPO: RepoInfo = { owner: 'acme', repo: 'widgets' };
 const ADW_ID = 'test-adwid-123';
@@ -709,7 +710,7 @@ function makeTestGitContext(base: string, selfHost: boolean): GitContext {
     owner: 'vestmatic',
     repo: 'vestmatic',
     selfHost,
-    token: 'test-token',
+    tokenProvider: createLiteralTokenProvider('test-token'),
     gitIdentity: {
       authorName: 'Bot',
       authorEmail: 'bot@test.dev',
@@ -778,36 +779,42 @@ describe('GitContext-based worktree path (phase_timeout)', () => {
   });
 });
 
-// ── buildDefaultTakeoverDeps — resolveAdwId routes through gitContextForRepo ─
+// ── buildDefaultTakeoverDeps — resolveAdwId routes through issueListApi (no boundary)
+// or the boundary's issue tracker (boundary provided) ────────────────────────
 
 import { buildDefaultTakeoverDeps } from '../takeoverHandler';
-import { gitContextForRepo } from '../../github/gitContextFactory';
+import { fetchIssueCommentBodies } from '../../github/issueListApi';
+import type { LaunchBoundary } from '../../core';
 
-vi.mock('../../github/gitContextFactory', () => ({
-  gitContextForRepo: vi.fn(),
+vi.mock('../../github/issueListApi', () => ({
+  fetchIssueCommentBodies: vi.fn(),
 }));
 
-describe('buildDefaultTakeoverDeps — resolveAdwId default path', () => {
+function makeFakeBoundary(fetchComments: (issueNumber: number) => { body: string }[]): LaunchBoundary {
+  return {
+    providers: { issueTracker: { fetchComments } },
+  } as unknown as LaunchBoundary;
+}
+
+describe('buildDefaultTakeoverDeps — resolveAdwId default path (no boundary)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('calls gitContextForRepo and issueComments then extracts the adwId', () => {
-    const comments = [
-      { body: '## ADW\n\nadwId: test-adwid-abc' },
-    ];
-    const mockCtx = { issueComments: vi.fn(() => JSON.stringify(comments)) };
-    vi.mocked(gitContextForRepo).mockReturnValue(mockCtx as never);
+  it('calls fetchIssueCommentBodies(issueNumber, repoInfo) then extracts the adwId', () => {
+    vi.mocked(fetchIssueCommentBodies).mockReturnValue([
+      { body: '## ADW\n\n**ADW ID:** `test-adwid-abc`' },
+    ]);
 
     const deps = buildDefaultTakeoverDeps(REPO);
-    deps.resolveAdwId(99, REPO);
+    const result = deps.resolveAdwId(99, REPO);
 
-    expect(gitContextForRepo).toHaveBeenCalledWith(REPO);
-    expect(mockCtx.issueComments).toHaveBeenCalledWith(99);
+    expect(fetchIssueCommentBodies).toHaveBeenCalledWith(99, REPO);
+    expect(result).toBe('test-adwid-abc');
   });
 
   it('returns null on throw (fail-safe)', () => {
-    vi.mocked(gitContextForRepo).mockReturnValue({ issueComments: vi.fn(() => { throw new Error('gh failed'); }) } as never);
+    vi.mocked(fetchIssueCommentBodies).mockImplementation(() => { throw new Error('gh failed'); });
 
     const deps = buildDefaultTakeoverDeps(REPO);
     const result = deps.resolveAdwId(99, REPO);
@@ -815,12 +822,85 @@ describe('buildDefaultTakeoverDeps — resolveAdwId default path', () => {
     expect(result).toBeNull();
   });
 
-  it('returns null when issueComments returns unparseable JSON', () => {
-    vi.mocked(gitContextForRepo).mockReturnValue({ issueComments: vi.fn(() => 'not json') } as never);
+  it('returns null when no comment carries an adwId', () => {
+    vi.mocked(fetchIssueCommentBodies).mockReturnValue([{ body: 'no adw id here' }]);
 
     const deps = buildDefaultTakeoverDeps(REPO);
     const result = deps.resolveAdwId(99, REPO);
 
     expect(result).toBeNull();
+  });
+});
+
+describe('buildDefaultTakeoverDeps — resolveAdwId with a boundary', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('reads comments through the boundary\'s issue tracker instead of fetchIssueCommentBodies, and the latest adw id wins', () => {
+    const fetchComments = vi.fn(() => [
+      { id: '1', body: '**ADW ID:** `aaaaaa-old`', author: 'bot', createdAt: '2024-01-01T00:00:00Z' },
+      { id: '2', body: '**ADW ID:** `zzzzzz-new`', author: 'bot', createdAt: '2024-01-02T00:00:00Z' },
+    ]);
+    const boundary = makeFakeBoundary(fetchComments);
+
+    const deps = buildDefaultTakeoverDeps(REPO, boundary);
+    const result = deps.resolveAdwId(99, REPO);
+
+    expect(fetchComments).toHaveBeenCalledWith(99);
+    expect(fetchIssueCommentBodies).not.toHaveBeenCalled();
+    expect(result).toBe('zzzzzz-new');
+  });
+
+  it('returns null on a boundary throw (fail-safe)', () => {
+    const boundary = makeFakeBoundary(() => { throw new Error('rest api failed'); });
+
+    const deps = buildDefaultTakeoverDeps(REPO, boundary);
+    const result = deps.resolveAdwId(99, REPO);
+
+    expect(result).toBeNull();
+  });
+});
+
+// ── buildDefaultTakeoverDeps — deriveStageFromRemote routes through
+// buildDefaultReconcileDeps(boundary) when a boundary is given, or the
+// legacy repoInfo-scoped wiring (deps: undefined) otherwise ─────────────────
+
+vi.mock('../../core/remoteReconcile', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../core/remoteReconcile')>();
+  return {
+    ...actual,
+    deriveStageFromRemote: vi.fn(),
+    buildDefaultReconcileDeps: vi.fn(),
+  };
+});
+
+import { deriveStageFromRemote as mockDeriveStageFromRemote, buildDefaultReconcileDeps as mockBuildDefaultReconcileDeps } from '../../core/remoteReconcile';
+
+describe('buildDefaultTakeoverDeps — deriveStageFromRemote boundary routing', () => {
+  beforeEach(() => {
+    vi.mocked(mockDeriveStageFromRemote).mockClear().mockReturnValue('abandoned');
+    vi.mocked(mockBuildDefaultReconcileDeps).mockClear();
+  });
+
+  it('passes buildDefaultReconcileDeps(boundary) as the 4th arg when a boundary is given', () => {
+    const fakeReconcileDeps = { readTopLevelState: vi.fn() } as unknown as ReturnType<typeof mockBuildDefaultReconcileDeps>;
+    vi.mocked(mockBuildDefaultReconcileDeps).mockReturnValue(fakeReconcileDeps);
+    const boundary = makeFakeBoundary(() => []);
+    const deps = buildDefaultTakeoverDeps(REPO, boundary);
+
+    deps.deriveStageFromRemote(99, 'adw-1', REPO);
+
+    expect(mockBuildDefaultReconcileDeps).toHaveBeenCalledWith(boundary);
+    expect(mockDeriveStageFromRemote).toHaveBeenCalledWith(99, 'adw-1', REPO, fakeReconcileDeps);
+  });
+
+  it('passes undefined as the 4th arg (the legacy repoInfo-scoped path) when no boundary is given', () => {
+    const deps = buildDefaultTakeoverDeps(REPO);
+
+    deps.deriveStageFromRemote(99, 'adw-1', REPO);
+
+    expect(mockBuildDefaultReconcileDeps).not.toHaveBeenCalled();
+    expect(mockDeriveStageFromRemote).toHaveBeenCalledWith(99, 'adw-1', REPO, undefined);
   });
 });

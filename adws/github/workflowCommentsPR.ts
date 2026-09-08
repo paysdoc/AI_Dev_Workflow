@@ -2,8 +2,7 @@
  * PR review workflow comment formatting and posting functions.
  */
 
-import { PRReviewWorkflowStage, log } from '../core';
-import { commentOnPR, type RepoInfo } from './githubApi';
+import { PRReviewWorkflowStage } from '../core';
 import { ADW_SIGNATURE, truncateText, formatRunningTokenFooter } from '../core/workflowCommentParsing';
 import { WorkflowContext, formatCostSection } from './workflowCommentsIssue';
 
@@ -76,15 +75,5 @@ export function formatPRReviewWorkflowComment(stage: PRReviewWorkflowStage, ctx:
 
     default:
       return `## ADW PR Review Update\n\n**Stage:** ${stage}\n**ADW ID:** \`${ctx.adwId}\`${tokenFooter}${ADW_SIGNATURE}`;
-  }
-}
-
-/** Posts a PR review workflow comment directly on the PR. */
-export function postPRWorkflowComment(prNumber: number, stage: PRReviewWorkflowStage, ctx: PRReviewWorkflowContext, repoInfo: RepoInfo): void {
-  try {
-    const comment = formatPRReviewWorkflowComment(stage, ctx);
-    commentOnPR(prNumber, comment, repoInfo);
-  } catch (error) {
-    log(`Failed to post PR workflow comment for stage '${stage}': ${error}`, 'error');
   }
 }

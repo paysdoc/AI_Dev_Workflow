@@ -18,6 +18,7 @@ import { BoardStatus, type BoundProviders } from '../providers/types';
 import { log, type LogLevel } from '../core/utils';
 import type { RepoInfo } from '../github/githubApi';
 import type { UpgradeClaimResult } from '../core/upgradeClaim';
+import type { GitContext } from '../gitContext';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -164,8 +165,9 @@ export async function runUpgradeGate(
 export function buildDefaultUpgradeGateDeps(
   providers: BoundProviders,
   worktreePath: string,
-  gitShow: (ref: string, filePath: string, cwd: string) => string,
+  gitCtx: GitContext,
 ): UpgradeGateDeps {
+  const gitShow = (ref: string, filePath: string, cwd: string) => gitCtx.show(ref, filePath, cwd);
   return {
     computeFrameworkHash,
     readAdwVersion: (defaultBranch, workspacePath) => readRemoteAdwVersion(gitShow, defaultBranch, workspacePath),
@@ -175,7 +177,7 @@ export function buildDefaultUpgradeGateDeps(
     // pushes the claim branch to the framework's own GitHub, scoping the winner/loser
     // election globally across every target repo instead of per-target.
     claimUpgrade: (hash, repoInfo) =>
-      claimUpgradeOrFindExisting(hash, repoInfo, buildDefaultUpgradeClaimDeps(worktreePath)),
+      claimUpgradeOrFindExisting(hash, repoInfo, buildDefaultUpgradeClaimDeps(worktreePath, gitCtx, () => providers.codeHost.getDefaultBranch())),
     createIssue: (title, body) => providers.issueTracker.createIssue(title, body),
     applyLabel: (issueNumber, label) => providers.issueTracker.applyLabel(issueNumber, label),
     updateIssueBody: (issueNumber, body) => providers.issueTracker.updateIssueBody(issueNumber, body),

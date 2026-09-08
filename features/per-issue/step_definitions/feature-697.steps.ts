@@ -22,6 +22,7 @@
 import { When } from '@cucumber/cucumber';
 import assert from 'assert';
 import { W } from './gitContextSharedWorld.ts';
+import { createGhRepoApi } from '../../../adws/providers/github/ghRepoApi.ts';
 
 // ── §1 — promotion PR operation dispatcher ────────────────────────────────────
 //
@@ -32,15 +33,16 @@ import { W } from './gitContextSharedWorld.ts';
 When('the {string} promotion PR operation runs through the context', function (opName: string) {
   assert.ok(W.ctx !== null, 'Expected a GitContext to be set up with a recording runner');
   const ctx = W.ctx;
+  const gh = createGhRepoApi(ctx);
 
   switch (opName) {
     case 'pr-changed-files':
       W.responseMap.set('gh pr view', '{"files":[]}');
-      ctx.fetchPRChangedFiles(7);
+      gh.fetchPRChangedFiles(7);
       break;
     case 'pr-create':
       W.responseMap.set('gh pr create', 'https://github.com/acme/webapp/pull/1\n');
-      ctx.createPR('Test PR', 'test body', 'feature-test-branch', undefined, ['regression-promotion']);
+      gh.createPR('Test PR', 'test body', 'feature-test-branch', undefined, ['regression-promotion']);
       break;
     case 'stats-log':
       W.responseMap.set('git log', '');

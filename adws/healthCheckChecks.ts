@@ -10,6 +10,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { CLAUDE_CODE_PATH, GITHUB_PAT, LOGS_DIR, SPECS_DIR, resolveClaudeCodePath } from './core';
 import type { GitContext } from './gitContext/gitContext';
+import { createGhRepoApi } from './providers/github/ghRepoApi';
 
 /**
  * Individual check result.
@@ -192,7 +193,7 @@ export function checkGitHubCLI(ctx: GitContext): CheckResult {
   // Check if authenticated via context
   let authenticated = false;
   try {
-    const user = ctx.authenticatedUser();
+    const user = createGhRepoApi(ctx).authenticatedUser();
     authenticated = Boolean(user && user.trim().length > 0);
   } catch {
     authenticated = false;
@@ -266,7 +267,7 @@ export function checkIssueNumber(issueNumber: number, ctx: GitContext): CheckRes
 
   let issueData: string;
   try {
-    issueData = ctx.fetchIssue(issueNumber);
+    issueData = createGhRepoApi(ctx).fetchIssue(issueNumber);
   } catch {
     return {
       success: false,

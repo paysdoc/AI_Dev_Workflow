@@ -5,6 +5,9 @@
 import { PRDetails, PRReviewComment, PRListItem, log } from '../core';
 import { type RepoInfo } from './githubApi';
 import { gitContextForRepo } from './gitContextFactory';
+import { createGhRepoApi } from '../providers/github/ghRepoApi';
+
+const gh = (repoInfo: RepoInfo) => createGhRepoApi(gitContextForRepo(repoInfo));
 
 /** Shape of a PR entry returned by `gh pr list --json ...` */
 export interface RawPR {
@@ -69,7 +72,7 @@ export function selectPreferredPR(prs: readonly RawPRListEntry[]): RawPRListEntr
  */
 export function defaultFindPRByBranch(branchName: string, repoInfo: RepoInfo): RawPR | null {
   try {
-    const json = gitContextForRepo(repoInfo).findPRByBranch(branchName);
+    const json = gh(repoInfo).findPRByBranch(branchName);
     const prs = JSON.parse(json) as RawPRListEntry[];
     return selectPreferredPR(prs);
   } catch {
@@ -127,7 +130,7 @@ interface RawPRListItem {
  */
 export function fetchPRDetails(prNumber: number, repoInfo: RepoInfo): PRDetails {
   try {
-    const json = gitContextForRepo(repoInfo).fetchPRDetails(prNumber);
+    const json = gh(repoInfo).fetchPRDetails(prNumber);
     const raw = JSON.parse(json) as RawPRDetails;
 
     // Extract issue number from PR body (e.g., "Implements #12"), falling back to branch name
@@ -158,7 +161,7 @@ export function fetchPRDetails(prNumber: number, repoInfo: RepoInfo): PRDetails 
  */
 export function fetchPRReviews(owner: string, repo: string, prNumber: number): PRReviewComment[] {
   try {
-    const json = gitContextForRepo({ owner, repo }).fetchPRReviews(prNumber);
+    const json = gh({ owner, repo }).fetchPRReviews(prNumber);
     const raw = JSON.parse(json) as RawPRReview[];
 
     return raw
@@ -193,7 +196,7 @@ export function fetchPRReviewComments(prNumber: number, repoInfo: RepoInfo): PRR
 
   let lineComments: PRReviewComment[] = [];
   try {
-    const json = gitContextForRepo(repoInfo).fetchPRReviewComments(prNumber);
+    const json = gh(repoInfo).fetchPRReviewComments(prNumber);
     const raw = JSON.parse(json) as RawPRLineComment[];
 
     lineComments = raw.map((c) => ({
@@ -231,7 +234,7 @@ export function fetchPRReviewComments(prNumber: number, repoInfo: RepoInfo): PRR
  */
 export function commentOnPR(prNumber: number, body: string, repoInfo: RepoInfo): void {
   try {
-    gitContextForRepo(repoInfo).commentOnPR(prNumber, body);
+    gh(repoInfo).commentOnPR(prNumber, body);
     log(`Commented on PR #${prNumber}`, 'success');
   } catch (error) {
     log(`Failed to comment on PR: ${error}`, 'error');
@@ -246,7 +249,7 @@ export function commentOnPR(prNumber: number, body: string, repoInfo: RepoInfo):
  */
 export function mergePR(prNumber: number, repoInfo: RepoInfo): { success: boolean; error?: string } {
   try {
-    gitContextForRepo(repoInfo).mergePR(prNumber);
+    gh(repoInfo).mergePR(prNumber);
     log(`Merged PR #${prNumber} in ${repoInfo.owner}/${repoInfo.repo}`, 'success');
     return { success: true };
   } catch (error) {
@@ -265,7 +268,7 @@ export function mergePR(prNumber: number, repoInfo: RepoInfo): { success: boolea
  */
 export function approvePR(prNumber: number, repoInfo: RepoInfo): { success: boolean; error?: string } {
   try {
-    gitContextForRepo(repoInfo).approvePR(prNumber);
+    gh(repoInfo).approvePR(prNumber);
     log(`Approved PR #${prNumber} in ${repoInfo.owner}/${repoInfo.repo}`, 'success');
     return { success: true };
   } catch (error) {
@@ -335,7 +338,7 @@ export function isApprovedFromReviewsList(reviews: readonly PRReview[]): boolean
  */
 export function fetchPRApprovalState(prNumber: number, repoInfo: RepoInfo): boolean {
   try {
-    const json = gitContextForRepo(repoInfo).prApprovalState(prNumber);
+    const json = gh(repoInfo).prApprovalState(prNumber);
     const result = JSON.parse(json) as {
       reviewDecision: string | null;
       reviews: PRReview[];
@@ -359,7 +362,7 @@ export function fetchPRApprovalState(prNumber: number, repoInfo: RepoInfo): bool
  */
 export function fetchPRList(repoInfo: RepoInfo): PRListItem[] {
   try {
-    const json = gitContextForRepo(repoInfo).fetchPRList();
+    const json = gh(repoInfo).fetchPRList();
     const raw = JSON.parse(json) as RawPRListItem[];
 
     return raw.map((pr) => ({

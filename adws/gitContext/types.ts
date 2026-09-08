@@ -140,17 +140,16 @@ export interface GitIdentity {
 /**
  * Construction options for GitContext.
  *
- * All fields are mandatory — any missing or empty field is a hard construction
- * error — except the credential fields: exactly one of `tokenProvider` (the
- * supported path) or `token` (the transitional literal-credential path) must
- * be supplied. There is no optional base-path parameter and no cwd fallback.
+ * All fields, including `tokenProvider`, are mandatory — any missing or empty
+ * field is a hard construction error. There is no optional base-path
+ * parameter and no cwd fallback.
  *
  * frameworkRepoRoot and targetReposDir are injected by the caller (e.g. from
  * environment.ts's REPO_ROOT and TARGET_REPOS_DIR) so this package depends on
  * no ADW globals and can be imported by other projects.
  */
 export interface GitContextOptions {
-  /** GitHub owner (organisation or user). */
+  /** Repository owner (organisation or user). */
   owner: string;
   /** Repository name (without the owner prefix). */
   repo: string;
@@ -160,16 +159,6 @@ export interface GitContextOptions {
    * this field is a hard construction error (story 23).
    */
   selfHost: boolean;
-  /**
-   * TRANSITIONAL literal-credential path. A resolved token, captured once and
-   * replayed for the life of the context — exactly the construction-time
-   * caching the TokenProvider port exists to remove. Kept only so the many
-   * existing construction sites that assert against a literal token continue
-   * to work unchanged; production callers supply `tokenProvider` instead and
-   * never this field. Exactly one of `token` or `tokenProvider` is required.
-   * Removed, along with `pat`, when the forge adapter lands (#792/#796).
-   */
-  token?: string;
   /** Author and committer identity for git operations. */
   gitIdentity: GitIdentity;
   /**
@@ -185,19 +174,8 @@ export interface GitContextOptions {
    */
   targetReposDir: string;
   /**
-   * The supported credential path: a port the core asks, once per command,
-   * for a credential environment overlay. When supplied, the core holds no
-   * token of its own — see {@link TokenProvider}. Exactly one of
-   * `tokenProvider` or `token` is required.
+   * A port the core asks, once per command, for a credential environment
+   * overlay. The core holds no token of its own — see {@link TokenProvider}.
    */
-  tokenProvider?: TokenProvider;
-  /**
-   * TRANSITIONAL Personal Access Token for operations that require a
-   * different identity than the primary token (e.g., PR approval, Projects
-   * V2) — only meaningful alongside the transitional `token` field. When
-   * `tokenProvider` is supplied, `pat` is ignored; the provider alone decides
-   * which credential an `'alternateIdentity'` request receives. Never
-   * mutates process.env. Removed alongside `token` in #792/#796.
-   */
-  pat?: string;
+  tokenProvider: TokenProvider;
 }

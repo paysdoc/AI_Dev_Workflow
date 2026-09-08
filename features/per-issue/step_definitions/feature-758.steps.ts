@@ -41,8 +41,24 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { GitContext } from '../../../adws/gitContext/index.ts';
 import type { GitContextOptions } from '../../../adws/gitContext/types.ts';
+import { createLiteralTokenProvider } from '../../../adws/providers/github/githubTokenProvider.ts';
 import { runPerIssueScenarioSweep } from '../../../adws/triggers/perIssueScenarioSweep.ts';
 import { persistRemovalViaPr, SWEEP_BRANCH, type SweepBase } from '../../../adws/triggers/perIssueSweepPersist.ts';
+import { Platform, type CodeHost, type BoundProviders } from '../../../adws/providers/types.ts';
+import type { LaunchBoundary } from '../../../adws/core/launchGitContext.ts';
+
+/**
+ * Every `runPerIssueScenarioSweep` call in this file fully overrides
+ * `listFeatures`/`getMergedAt`/`listStepDefSiblings`/`readFeatureContent`/`persistRemoval`,
+ * so `deps.boundary` is never dereferenced — this stand-in only needs to satisfy the type.
+ */
+function fakeBoundary(gitCtx: GitContext): LaunchBoundary {
+  return {
+    gitContext: gitCtx,
+    repoId: { owner: 'test', repo: 'test', platform: Platform.GitHub },
+    providers: {} as unknown as BoundProviders,
+  };
+}
 
 const DAY_MS = 86_400_000;
 const FIXED_NOW = new Date('2026-07-01T00:00:00Z');
@@ -89,7 +105,7 @@ class InjectablePushGitContext extends GitContext {
 function makeFixtureCtx(workdir: string, shouldThrowPush: () => boolean): GitContext {
   const opts: GitContextOptions = {
     owner: 'test', repo: 'test', selfHost: true,
-    token: 'dummy-token-local-test',
+    tokenProvider: createLiteralTokenProvider('dummy-token-local-test'),
     gitIdentity: { authorName: 'ADW Test', authorEmail: 'test@adw.test', committerName: 'ADW Test', committerEmail: 'test@adw.test' },
     frameworkRepoRoot: workdir, targetReposDir: tmpdir(),
   };
@@ -242,14 +258,14 @@ When('the per-issue scenario sweep runs on the cron host', async function () {
 
   const base: SweepBase = {
     ctx: gitCtx,
-    repoInfo: { owner: 'test', repo: 'test' },
+    codeHost: {} as unknown as CodeHost,
     defaultBranch: ctx.defaultBranchName,
     sweepBranch: SWEEP_BRANCH,
     worktreePath,
     findOpenSweepPr: () => null,
     openPr: (head, baseBranch) => {
       ctx.openPrCalls.push({ head, base: baseBranch });
-      return 'https://github.com/test/test/pull/1';
+      return 1;
     },
     mergePr: (n) => {
       ctx.mergePrCalls.push(n);
@@ -261,7 +277,7 @@ When('the per-issue scenario sweep runs on the cron host', async function () {
   };
 
   await runPerIssueScenarioSweep({
-    gitContext: gitCtx,
+    boundary: fakeBoundary(gitCtx),
     now: FIXED_NOW,
     listFeatures: () => listFixtureFeatures(gitCtx, worktreePath),
     getMergedAt: async (issueNum: number) => ctx.mergedAtByIssue.get(issueNum) ?? null,

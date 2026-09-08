@@ -27,6 +27,7 @@ import { Before, After, Given, When, Then } from '@cucumber/cucumber';
 import assert from 'assert';
 import { GitContext } from '../../../adws/gitContext/index.ts';
 import type { ExecFn } from '../../../adws/gitContext/types.ts';
+import { createLiteralTokenProvider } from '../../../adws/providers/github/githubTokenProvider.ts';
 import type { RepoInfo } from '../../../adws/github/githubApi.ts';
 import type { GitHubLabel } from '../../../adws/types/issueTypes.ts';
 import type { LabelManagerDeps, AdwLabelReading } from '../../../adws/github/labelManager.ts';
@@ -163,7 +164,7 @@ function buildMockDeps(): LabelManagerDeps {
         owner: repoInfo.owner,
         repo: repoInfo.repo,
         selfHost: false,
-        token: 'test-token',
+        tokenProvider: createLiteralTokenProvider('test-token'),
         gitIdentity: {
           authorName: 'Test Bot',
           authorEmail: 'test@bot.dev',

@@ -4,6 +4,13 @@ import { moveIssueToStatus } from '../projectBoardApi';
 vi.mock('../gitContextFactory', () => ({
   gitContextForRepo: vi.fn(),
 }));
+// Production code now calls createGhRepoApi(gitContextForRepo(repoInfo)).moveIssueToStatus(...)
+// rather than calling .moveIssueToStatus(...) straight off gitContextForRepo's return value.
+// Mock createGhRepoApi as an identity pass-through so the fake context object below is
+// returned unchanged.
+vi.mock('../../providers/github/ghRepoApi', () => ({
+  createGhRepoApi: vi.fn((ctx) => ctx),
+}));
 vi.mock('../hitlBoardNotifier', () => ({ notifyReviewTransition: vi.fn() }));
 
 import { gitContextForRepo } from '../gitContextFactory';

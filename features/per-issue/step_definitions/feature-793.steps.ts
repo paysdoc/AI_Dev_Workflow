@@ -32,6 +32,7 @@ import { Given, When, Then, After } from '@cucumber/cucumber';
 import type { DataTable } from '@cucumber/cucumber';
 import assert from 'assert';
 import { GitContext, ensureRepoWorkspace, readEnvGitIdentity, readGitConfigIdentity, readOriginRemoteUrl } from '../../../adws/gitContext/index.ts';
+import { createLiteralTokenProvider } from '../../../adws/providers/github/githubTokenProvider.ts';
 import type { GitContextDeps, GitIdentity, LogLevel } from '../../../adws/gitContext/index.ts';
 import { resolveBootstrapGitIdentity, readLocalRepoInfo } from '../../../adws/providers/github/githubIdentity.ts';
 import type { RepoInfo } from '../../../adws/providers/github/githubIdentity.ts';
@@ -362,7 +363,7 @@ When('the resolved identity is carried into a git command by a context', functio
     owner: 'acme',
     repo: 'webapp',
     selfHost: false,
-    token: 'token-793',
+    tokenProvider: createLiteralTokenProvider('token-793'),
     gitIdentity: w793.identityResult,
     frameworkRepoRoot: FRAMEWORK_ROOT,
     targetReposDir: TARGET_REPOS_ROOT,
