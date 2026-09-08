@@ -214,11 +214,11 @@ Required and optional environment variables (see `.env.sample` for full referenc
 - `SHOW_COST_IN_COMMENTS` - (Optional) Show cost breakdowns in GitHub issue/PR comments, defaults to `false`
 - `JIRA_BASE_URL` - (Optional) Jira instance URL, required only when using Jira as the issue tracker
 - `JIRA_PROJECT_KEY` - (Optional) Default Jira project key
-- `JIRA_EMAIL` - (Optional) Jira Cloud auth email
-- `JIRA_API_TOKEN` - (Optional) Jira Cloud API token
-- `JIRA_PAT` - (Optional) Jira Data Center/Server personal access token (use instead of email + API token)
-- `GITLAB_TOKEN` - (Optional) GitLab personal access token (needs api scope), required only when using GitLab
-- `GITLAB_INSTANCE_URL` - (Optional) GitLab instance URL, defaults to `https://gitlab.com`
+- `JIRA_EMAIL` - (Optional) Jira Cloud auth email; read by `adws/providers/repoContext.ts`'s wiring, never by the adapter (#818)
+- `JIRA_API_TOKEN` - (Optional) Jira Cloud API token; read by `adws/providers/repoContext.ts`'s wiring, never by the adapter (#818)
+- `JIRA_PAT` - (Optional) Jira Data Center/Server personal access token (use instead of email + API token); read by `adws/providers/repoContext.ts`'s wiring, never by the adapter (#818)
+- `GITLAB_TOKEN` - (Optional) GitLab personal access token (needs api scope), required only when using GitLab; read by `adws/providers/repoContext.ts`'s wiring, never by the adapter (#818)
+- `GITLAB_INSTANCE_URL` - (Optional) GitLab instance URL, defaults to `https://gitlab.com`; read by `adws/providers/repoContext.ts`'s wiring, never by the adapter (#818)
 - `CLOUDFLARE_ACCOUNT_ID` - (Optional) Cloudflare account ID, required only for screenshot upload functionality
 - `R2_ACCESS_KEY_ID` - (Optional) R2 access key ID, required only for screenshot upload functionality
 - `R2_SECRET_ACCESS_KEY` - (Optional) R2 secret access key, required only for screenshot upload functionality
@@ -832,21 +832,30 @@ adws/                   # ADW workflow system
 │   │   ├── mappers.ts
 │   │   └── tokenResolver.ts  # Veracious token resolver (resolveContextToken) — never reads process.env.GH_TOKEN; replaces the two prior resolvers that were the GH_TOKEN-bleed root (#700/#792)
 │   ├── gitlab/         # GitLab provider
-│   │   ├── gitlabApiClient.ts
+│   │   ├── __tests__/  # Vitest unit tests — fake config in, curl argv out (#818)
+│   │   │   ├── gitlabApiClient.test.ts
+│   │   │   └── gitlabCodeHost.test.ts
+│   │   ├── gitlabApiClient.ts  # Synchronous curl client — injected GitLabConfig, Logger port, runCurl seam (#818)
 │   │   ├── gitlabBoardManager.ts  # Stub (not implemented)
-│   │   ├── gitlabCodeHost.ts  # findPullRequestByBranch/isPullRequestApproved/approvePullRequest/mergePullRequest/setSecret are named refusal stubs, not new GitLab capability (#796)
+│   │   ├── gitlabCodeHost.ts  # findPullRequestByBranch/isPullRequestApproved/approvePullRequest/mergePullRequest/setSecret are named refusal stubs, not new GitLab capability (#796); factory takes injected { token, instanceUrl } — no environment reads (#818)
 │   │   ├── gitlabTypes.ts
 │   │   ├── index.ts
 │   │   └── mappers.ts
 │   ├── jira/           # Jira provider
+│   │   ├── __tests__/  # Vitest unit tests — fake config in, fetch call out (#818)
+│   │   │   ├── jiraApiClient.test.ts
+│   │   │   └── jiraIssueTracker.test.ts
 │   │   ├── adfConverter.ts
 │   │   ├── index.ts
-│   │   ├── jiraApiClient.ts
+│   │   ├── jiraApiClient.ts  # fetch-based client — injected auth, Logger port, fetchFn seam (#818)
 │   │   ├── jiraBoardManager.ts  # Stub (not implemented)
-│   │   ├── jiraIssueTracker.ts  # fetchLabels/addLabel/applyLabel/ensureLabel/createIssue/updateIssueBody/searchOpenIssues/findOpenUpgradeIssue are named refusal stubs, not new Jira capability (#796); unreachable from a boundary today — resolveIssueTracker accepts GitHub only
+│   │   ├── jiraIssueTracker.ts  # fetchLabels/addLabel/applyLabel/ensureLabel/createIssue/updateIssueBody/searchOpenIssues/findOpenUpgradeIssue are named refusal stubs, not new Jira capability (#796); unreachable from a boundary today — resolveIssueTracker accepts GitHub only; factory takes injected { instanceUrl, projectKey, auth } (#818)
 │   │   └── jiraTypes.ts
+│   ├── __tests__/
+│   │   └── forgeEnvWiring.test.ts  # gitLabConfigFromEnv/jiraAuthFromEnv over literal ForgeEnv values, plus the first positive GitLab mint (#818)
 │   ├── index.ts
-│   ├── repoContext.ts  # RepoContext factory; mintBoundProviders is the provider-minting logic shared with the launch boundary (adws/core/launchGitContext.ts, #794)
+│   ├── repoContext.ts  # RepoContext factory; mintBoundProviders is the provider-minting logic shared with the launch boundary (adws/core/launchGitContext.ts, #794); transitional home of the GitLab/Jira env→config wiring (#818)
+│   ├── workspaceValidation.ts  # validateWorkingDirectory/parseOwnerRepoFromUrl, moved out of repoContext.ts to keep it under the 300-line cap (#818)
 │   └── types.ts  # IssueTracker/CodeHost ports — widened (#796) with label ops (fetchLabels/addLabel/applyLabel/ensureLabel — two label methods on purpose, fail-open vs lazy-create-and-rethrow), createIssue/updateIssueBody/searchOpenIssues/findOpenUpgradeIssue, findPullRequestByBranch/isPullRequestApproved/approvePullRequest/mergePullRequest/setSecret, and the IssueSummary/PullRequestSummary/ForgeActionResult projections they return
 ├── triggers/           # Automation triggers
 │   ├── __tests__/      # Vitest unit tests

@@ -282,10 +282,11 @@ Feature: The provider package owns its own domain model — the raw GitHub shape
       | adws/providers/github/githubCodeHost.ts     | ../../core                   |
       | adws/providers/github/githubBoardManager.ts | ../../github/projectBoardApi |
 
-  # The rest of the extractable set is still out of scope too — `providers/gitlab`, `providers/jira`
-  # and `providers/repoContext.ts` carry framework imports that #818 and later slices remove. #816's
-  # §3 pinned this and it stays pinned: widening happens one reviewed slice at a time, and a slice
-  # that widens further than its own issue says is as much a defect as one that widens less.
+  # #818 cleaned `providers/gitlab` and `providers/jira` and widened the scope by both; only
+  # `providers/repoContext.ts` still carries a framework import that #823 removes when it replaces
+  # this file with `forgeProviders()`. #816's §3 pinned this and it stays pinned: widening happens one
+  # reviewed slice at a time, and a slice that widens further than its own issue says is as much a
+  # defect as one that widens less.
 
   @adw-817 @adw-6lqigx-consolidate-the-doma
   Scenario Outline: A package still awaiting its own de-tangling slice is not yet checked
@@ -301,10 +302,8 @@ Feature: The provider package owns its own domain model — the raw GitHub shape
     Then the guard run over the guard fixture tree passes
 
     Examples:
-      | path                                    | specifier             |
-      | adws/providers/gitlab/gitlabCodeHost.ts | ../../core            |
-      | adws/providers/jira/jiraIssueTracker.ts | ../../core            |
-      | adws/providers/repoContext.ts           | ../core/projectConfig |
+      | path                           | specifier             |
+      | adws/providers/repoContext.ts  | ../core/projectConfig |
 
   # WIDEN ONLY, NEVER NARROW — the machine-checkable half. #816 seeded the scope with two entries;
   # #817 appends to that list, it does not replace it. Both of #816's entries must still fire
