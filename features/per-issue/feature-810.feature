@@ -94,10 +94,11 @@ Feature: Index health becomes a periodic whole-index property — a cron sweep t
         `lint:git-guard` reports it stale and fails.
 
     §6  THE REAL INDEX IS GREEN (AC1, AC4 — task 3's only honest observable). The convergence pass
-        folds 24 post-migration feature docs into their owning `feature-9gjajh-*` module docs and
-        promotes `oqb76h` to the module doc for `adws/gitContext/`. The MERGED PROSE is LLM output
-        and is not assertable; what is assertable is what the fold is FOR — the gate, run over this
-        checkout, reporting zero overlaps, zero orphans and a count inside its band, and exiting 0.
+        folds 23 of the 24 post-migration feature docs the issue lists into their owning
+        `feature-9gjajh-*` module docs and promotes the 24th, `oqb76h`, to the module doc for
+        `adws/gitContext/`. The MERGED PROSE is LLM output and is not assertable; what is assertable
+        is what the fold is FOR — the gate, run over this checkout, reporting zero overlaps, zero
+        orphans and a count inside its band, and exiting 0.
         Three of those four are RED today (see the transcript above).
 
   How these scenarios observe the system. §1 drives the pure module in-process over throwaway fixture
@@ -538,7 +539,7 @@ Feature: Index health becomes a periodic whole-index property — a cron sweep t
   #
   # AC1, end to end, through the entry point CI invokes. This is the scenario the whole issue exists
   # to turn green, and it is RED today on three separate checks (header transcript). It is also the
-  # only assertion that task 3's fold — 24 feature docs into their owning module docs, `oqb76h`
+  # only assertion that task 3's fold — 23 feature docs into their owning module docs, `oqb76h`
   # promoted to the module doc for `adws/gitContext/` — can be measured by: the merged prose is LLM
   # output, the resulting index is not.
 
