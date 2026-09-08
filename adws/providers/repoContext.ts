@@ -3,9 +3,13 @@
  *
  * Constructs an immutable, validated RepoContext at workflow entry points,
  * replacing the mutable global singleton in targetRepoRegistry.ts.
+ *
+ * Also the transitional home of ADW's environment→config wiring for the
+ * GitLab and Jira adapters (#818); `forgeProviders()` (#823) replaces this
+ * file and moves that wiring to `adws/core/`.
  */
 
-import { existsSync, readFileSync, statSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { gitContextForRepo } from '../github/gitContextFactory';
 
@@ -23,7 +27,14 @@ import { createGitHubIssueTracker } from './github/githubIssueTracker';
 import { createGitHubCodeHost } from './github/githubCodeHost';
 import { createGitHubBoardManager } from './github/githubBoardManager';
 import { createGitLabCodeHost } from './gitlab/gitlabCodeHost';
+import type { GitLabConfig } from './gitlab/gitlabApiClient';
+import type { JiraAuth } from './jira/jiraApiClient';
 import type { ProvidersConfig } from '../core/projectConfig';
+import { GITLAB_TOKEN, GITLAB_INSTANCE_URL, JIRA_EMAIL, JIRA_API_TOKEN, JIRA_PAT } from '../core/environment';
+import { log } from '../core/logger';
+import { validateWorkingDirectory, parseOwnerRepoFromUrl } from './workspaceValidation';
+
+export { validateWorkingDirectory, parseOwnerRepoFromUrl } from './workspaceValidation';
 
 /** Options for creating a RepoContext. */
 export interface RepoContextOptions {
@@ -121,42 +132,6 @@ export function loadProviderConfig(cwd: string): ProviderConfig {
 }
 
 /**
- * Validates that the working directory exists and contains a `.git` directory.
- */
-export function validateWorkingDirectory(cwd: string): void {
-  if (!existsSync(cwd)) {
-    throw new Error(`Working directory does not exist: ${cwd}`);
-  }
-
-  const stat = statSync(cwd);
-  if (!stat.isDirectory()) {
-    throw new Error(`Working directory is not a directory: ${cwd}`);
-  }
-
-  if (!existsSync(join(cwd, '.git'))) {
-    throw new Error(
-      `Working directory is not a git repository (no .git found): ${cwd}`,
-    );
-  }
-}
-
-/**
- * Parses owner and repo from a git remote URL.
- * Supports HTTPS and SSH URLs for any host (GitHub, GitLab, Bitbucket, etc.).
- */
-export function parseOwnerRepoFromUrl(
-  remoteUrl: string,
-): { owner: string; repo: string } | null {
-  // HTTPS: https://hostname/owner/repo.git or https://hostname/owner/repo
-  const httpsMatch = remoteUrl.match(/https?:\/\/[^/]+\/([^/]+)\/([^/]+?)(?:\.git)?\/?$/);
-  // SSH: git@hostname:owner/repo.git or git@hostname:owner/repo
-  const sshMatch = remoteUrl.match(/git@[^:]+:([^/]+)\/([^/]+?)(?:\.git)?\/?$/);
-  const match = httpsMatch || sshMatch;
-  if (!match) return null;
-  return { owner: match[1], repo: match[2] };
-}
-
-/**
  * Validates that the git remote `origin` in the working directory matches
  * the declared RepoIdentifier (case-insensitive owner/repo comparison).
  */
@@ -203,6 +178,26 @@ export function resolveIssueTracker(
   throw new Error(`Unsupported issue tracker platform: ${platform}`);
 }
 
+/** The GitLab/Jira variables ADW's environment supplies (#818) — a value, so the wiring below is pure and testable without mocking. */
+export type ForgeEnv = Readonly<Record<'GITLAB_TOKEN' | 'GITLAB_INSTANCE_URL' | 'JIRA_EMAIL' | 'JIRA_API_TOKEN' | 'JIRA_PAT', string>>;
+
+const ADW_FORGE_ENV: ForgeEnv = { GITLAB_TOKEN, GITLAB_INSTANCE_URL, JIRA_EMAIL, JIRA_API_TOKEN, JIRA_PAT };
+
+/** ADW wiring (#818): the GitLab adapter's injected config from the environment; the operator-facing message stays here. Relocates to adws/core with #823. */
+export function gitLabConfigFromEnv(env: ForgeEnv = ADW_FORGE_ENV): GitLabConfig {
+  if (!env.GITLAB_TOKEN) {
+    throw new Error('GITLAB_TOKEN environment variable is required for GitLab code host. Set it in your .env file.');
+  }
+  return { token: env.GITLAB_TOKEN, instanceUrl: env.GITLAB_INSTANCE_URL };
+}
+
+/** ADW wiring (#818): Jira auth from the environment — Cloud (email + API token) first, then a Data Center PAT. No production caller until forgeProviders() (#823): Platform has no Jira member and adding one is new capability. */
+export function jiraAuthFromEnv(env: ForgeEnv = ADW_FORGE_ENV): JiraAuth {
+  if (env.JIRA_EMAIL && env.JIRA_API_TOKEN) return { email: env.JIRA_EMAIL, apiToken: env.JIRA_API_TOKEN };
+  if (env.JIRA_PAT) return { pat: env.JIRA_PAT };
+  throw new Error('Jira authentication not configured. Set JIRA_EMAIL + JIRA_API_TOKEN (Cloud) or JIRA_PAT (Data Center/Server).');
+}
+
 /**
  * Resolves a CodeHost implementation for the given platform.
  */
@@ -214,7 +209,7 @@ export function resolveCodeHost(
     return createGitHubCodeHost(repoId);
   }
   if (platform === Platform.GitLab) {
-    return createGitLabCodeHost(repoId);
+    return createGitLabCodeHost(repoId, gitLabConfigFromEnv(), { logger: log });
   }
   throw new Error(`Unsupported code host platform: ${platform}`);
 }

@@ -1,9 +1,14 @@
 /**
  * Low-level Jira REST API v3 client using native fetch().
  * Handles authentication, request building, and error handling.
+ *
+ * Configuration is INJECTED (#818) — never read from process.env. Logs via the
+ * `Logger` port (adws/gitContext/types.ts), defaulting to `consoleLogger`.
+ * `fetchFn` is the hermetic transport test seam; production uses global fetch.
  */
 
-import { log } from '../../core';
+import type { Logger } from '../../gitContext/types';
+import { consoleLogger } from '../../gitContext/consoleLogger';
 import type { JiraIssueResponse, JiraCommentResponse, JiraCommentPage, JiraTransition, JiraTransitionsResponse } from './jiraTypes';
 
 export interface JiraCloudAuth {
@@ -17,17 +22,32 @@ export interface JiraDataCenterAuth {
 
 export type JiraAuth = JiraCloudAuth | JiraDataCenterAuth;
 
-function isCloudAuth(auth: JiraAuth): auth is JiraCloudAuth {
+export function isCloudAuth(auth: JiraAuth): auth is JiraCloudAuth {
   return 'email' in auth && 'apiToken' in auth;
 }
+
+/** Runs a fetch request, returning its Response. Production default calls global fetch; tests inject a recorder. */
+export type FetchFn = (url: string, init: RequestInit) => Promise<Response>;
+
+/** Deps idiom: both optional so a consumer that injects nothing gets `consoleLogger` and real `fetch`. */
+export interface JiraApiClientDeps {
+  readonly logger?: Logger;
+  readonly fetchFn?: FetchFn;
+}
+
+const defaultFetch: FetchFn = (url, init) => fetch(url, init);
 
 export class JiraApiClient {
   private readonly instanceUrl: string;
   private readonly auth: JiraAuth;
+  private readonly logger: Logger;
+  private readonly fetchFn: FetchFn;
 
-  constructor(instanceUrl: string, auth: JiraAuth) {
+  constructor(instanceUrl: string, auth: JiraAuth, deps: JiraApiClientDeps = {}) {
     this.instanceUrl = instanceUrl.replace(/\/+$/, '');
     this.auth = auth;
+    this.logger = deps.logger ?? consoleLogger;
+    this.fetchFn = deps.fetchFn ?? defaultFetch;
   }
 
   private buildHeaders(): Record<string, string> {
@@ -55,7 +75,7 @@ export class JiraApiClient {
       options.body = JSON.stringify(body);
     }
 
-    const response = await fetch(url, options);
+    const response = await this.fetchFn(url, options);
 
     if (!response.ok) {
       const errorBody = await response.text().catch(() => '');
@@ -63,10 +83,10 @@ export class JiraApiClient {
 
       if (response.status === 429) {
         const retryAfter = response.headers.get('Retry-After');
-        log(`Jira API rate limited. Retry-After: ${retryAfter ?? 'unknown'}`, 'warn');
+        this.logger(`Jira API rate limited. Retry-After: ${retryAfter ?? 'unknown'}`, 'warn');
       }
 
-      log(message, 'error');
+      this.logger(message, 'error');
       throw new Error(message);
     }
 

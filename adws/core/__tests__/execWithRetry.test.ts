@@ -9,9 +9,13 @@ vi.mock('../logger', () => ({
   log: vi.fn(),
 }));
 
-vi.mock('../environment', () => ({
-  LOGS_DIR: '/tmp/test-logs',
-}));
+vi.mock('../environment', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../environment')>();
+  return {
+    ...actual,
+    LOGS_DIR: '/tmp/test-logs',
+  };
+});
 
 // Disable Atomics.wait so tests don't actually sleep
 vi.stubGlobal('Atomics', {

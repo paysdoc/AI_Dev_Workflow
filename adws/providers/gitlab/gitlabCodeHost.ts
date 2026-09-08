@@ -1,6 +1,8 @@
 /**
  * GitLab implementation of the CodeHost interface.
  * Delegates to GitLabApiClient for synchronous API calls via curl.
+ *
+ * The factory takes INJECTED configuration (#818) — never reads process.env.
  */
 
 import {
@@ -15,8 +17,7 @@ import {
   type ReviewComment,
   validateRepoIdentifier,
 } from '../types';
-import { GITLAB_TOKEN, GITLAB_INSTANCE_URL } from '../../core';
-import { GitLabApiClient } from './gitlabApiClient';
+import { GitLabApiClient, type GitLabConfig, type GitLabApiClientDeps } from './gitlabApiClient';
 import {
   mapGitLabMRToPullRequest,
   mapGitLabDiscussionsToReviewComments,
@@ -108,23 +109,24 @@ export class GitLabCodeHost implements CodeHost {
   }
 }
 
-/**
- * Factory function that creates a GitLabCodeHost bound to the given repository.
- * Validates the RepoIdentifier and requires GITLAB_TOKEN to be set.
- */
-export function createGitLabCodeHost(
-  repoId: RepoIdentifier,
-  instanceUrl?: string,
-): CodeHost {
-  validateRepoIdentifier(repoId);
-
-  if (!GITLAB_TOKEN) {
-    throw new Error(
-      'GITLAB_TOKEN environment variable is required for GitLab code host. Set it in your .env file.',
-    );
+/** Throws a library-facing message when `config` is missing a required field. The env-flavoured operator message lives in ADW's wiring (`repoContext.ts`), not here. */
+function validateGitLabConfig(config: GitLabConfig): void {
+  if (!config.token?.trim()) {
+    throw new Error('GitLab code host requires a non-empty token');
   }
+  if (!config.instanceUrl?.trim()) {
+    throw new Error('GitLab code host requires a non-empty instanceUrl');
+  }
+}
 
-  const url = instanceUrl ?? GITLAB_INSTANCE_URL;
-  const client = new GitLabApiClient(url, GITLAB_TOKEN);
-  return new GitLabCodeHost(repoId, client);
+/**
+ * Creates a GitLabCodeHost bound to `repoId` from INJECTED configuration (#818).
+ * Reads no environment; ADW's wiring (`repoContext.ts`) supplies `config`
+ * from GITLAB_TOKEN / GITLAB_INSTANCE_URL and its own logger. `deps.logger`
+ * defaults to `consoleLogger`, `deps.runCurl` to a real curl.
+ */
+export function createGitLabCodeHost(repoId: RepoIdentifier, config: GitLabConfig, deps: GitLabApiClientDeps = {}): CodeHost {
+  validateRepoIdentifier(repoId);
+  validateGitLabConfig(config);
+  return new GitLabCodeHost(repoId, new GitLabApiClient(config, deps));
 }
