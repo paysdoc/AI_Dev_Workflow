@@ -49,6 +49,7 @@ import { runPerIssueScenarioSweepTick, runPromotionSweepTick } from '../../../ad
 import { scanFiles } from '../../../adws/checkGitGhGuard.ts';
 import type { LaunchBoundary } from '../../../adws/core/launchGitContext.ts';
 import { Platform, type BoundProviders, type IssueTracker, type CodeHost } from '../../../adws/providers/types.ts';
+import { cronLaunchContextCtx, resetCronLaunchContext } from './cron-launch-context-ctx.ts';
 
 const DAY_MS = 86_400_000;
 
@@ -251,6 +252,7 @@ After({ tags: '@adw-769' }, function () {
   ctx.boundary = null;
   ctx.activeFixture = null;
   ctx.hasLaunchContext = false;
+  resetCronLaunchContext();
   ctx.removedPaths = null;
   ctx.promotionReport = null;
   ctx.fileIssueCalls = [];
@@ -297,6 +299,7 @@ Given('the cron holds a launch context for the target repository', function () {
   ctx.gitContext = recording.gitContext;
   ctx.boundary = recording.boundary;
   ctx.hasLaunchContext = true;
+  cronLaunchContextCtx.hasLaunchContext = true;
 });
 
 Given('the cron holds a self-host launch context for the framework repository', function () {
@@ -309,6 +312,7 @@ Given('the cron holds a self-host launch context for the framework repository', 
   ctx.gitContext = recording.gitContext;
   ctx.boundary = recording.boundary;
   ctx.hasLaunchContext = true;
+  cronLaunchContextCtx.hasLaunchContext = true;
 });
 
 Given('the cron holds no launch context', function () {
@@ -316,6 +320,9 @@ Given('the cron holds no launch context', function () {
   ctx.boundary = null;
   ctx.activeFixture = null;
   ctx.hasLaunchContext = false;
+  // Published for feature-810's docs-index-sweep dispatch, which shares this
+  // single registration of the phrase — see cron-launch-context-ctx.ts.
+  cronLaunchContextCtx.hasLaunchContext = false;
 });
 
 // ── When ──────────────────────────────────────────────────────────────────────

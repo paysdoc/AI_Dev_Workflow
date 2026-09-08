@@ -10,11 +10,14 @@ vi.mock('../../core', () => ({
 
 import {
   persistRemovalViaPr,
+  persistCommitViaPr,
   prepareSweepBase,
   cleanupSweepBase,
   SWEEP_BRANCH,
   SWEEP_COMMIT_MESSAGE,
+  PER_ISSUE_SWEEP_SPEC,
   type SweepBase,
+  type SweepPersistSpec,
 } from '../perIssueSweepPersist';
 import type { GitContext } from '../../gitContext';
 import type { LaunchBoundary } from '../../core';
@@ -248,6 +251,91 @@ describe('prepareSweepBase', () => {
 
     expect(codeHost.mergePullRequest).toHaveBeenCalledWith(99);
     expect(result).toEqual({ success: true });
+  });
+});
+
+// ── persistCommitViaPr (#810 generalisation) ────────────────────────────────
+
+describe('persistCommitViaPr', () => {
+  it('skips when an open sweep PR already exists — commit is never invoked', async () => {
+    const base = makeFakeBase({ findOpenSweepPr: vi.fn(() => 7) });
+    const commit = vi.fn(() => true);
+
+    await persistCommitViaPr(commit, base);
+
+    expect(commit).not.toHaveBeenCalled();
+    expect(base.log).toHaveBeenCalledWith(expect.stringContaining('#7'), 'info');
+  });
+
+  it('no-op when commit(base) returns false — no push, no PR', async () => {
+    const base = makeFakeBase();
+    const commit = vi.fn(() => false);
+
+    await persistCommitViaPr(commit, base);
+
+    expect(base.ctx.pushBranch).not.toHaveBeenCalled();
+    expect(base.openPr).not.toHaveBeenCalled();
+  });
+
+  it('happy path: invokes commit(base), pushes, opens a PR, and merges it', async () => {
+    const base = makeFakeBase();
+    const commit = vi.fn(() => true);
+
+    await persistCommitViaPr(commit, base);
+
+    expect(commit).toHaveBeenCalledWith(base);
+    expect(base.ctx.pushBranch).toHaveBeenCalledWith(base.sweepBranch, base.worktreePath);
+    expect(base.mergePr).toHaveBeenCalledWith(42);
+    expect(base.log).toHaveBeenCalledWith(expect.stringContaining('#42'), 'success');
+  });
+
+  it('prefixes log lines with the given label', async () => {
+    const base = makeFakeBase({ findOpenSweepPr: vi.fn(() => 9) });
+
+    await persistCommitViaPr(() => true, base, 'docsIndexSweep');
+
+    expect(base.log).toHaveBeenCalledWith(expect.stringContaining('docsIndexSweep:'), 'info');
+  });
+
+  it('a merge failure is logged at error, leaving the PR open', async () => {
+    const base = makeFakeBase({ mergePr: vi.fn(() => ({ success: false, error: 'required check pending' })) });
+
+    await persistCommitViaPr(() => true, base);
+
+    expect(base.log).toHaveBeenCalledWith(expect.stringContaining('required check pending'), 'error');
+  });
+});
+
+// ── prepareSweepBase with a custom SweepPersistSpec (#810 generalisation) ──
+
+describe('prepareSweepBase — custom spec', () => {
+  it('uses the given spec\'s branch for worktree creation and PR title for openPr', () => {
+    const customSpec: SweepPersistSpec = {
+      branch: 'chore/docs-index-sweep',
+      prTitle: 'chore: docs-index sweep',
+      prBody: 'Automated docs-index repair.',
+    };
+    const mockCtx = makeFakeGitContext({ createWorktreeForNewBranch: vi.fn(() => '/repo/.worktrees/chore-docs-index-sweep') });
+    const codeHost = makeFakeCodeHost({ getDefaultBranch: vi.fn(() => 'dev') });
+
+    const base = prepareSweepBase(makeFakeBoundary(mockCtx, codeHost), customSpec);
+
+    expect(mockCtx.removeWorktree).toHaveBeenCalledWith('chore/docs-index-sweep');
+    expect(mockCtx.createWorktreeForNewBranch).toHaveBeenCalledWith('chore/docs-index-sweep', 'dev');
+    expect(base?.sweepBranch).toBe('chore/docs-index-sweep');
+
+    base?.openPr('chore/docs-index-sweep', 'dev');
+    expect(codeHost.createPullRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'chore: docs-index sweep', body: 'Automated docs-index repair.' }),
+    );
+  });
+
+  it('defaults to PER_ISSUE_SWEEP_SPEC when no spec is given', () => {
+    const mockCtx = makeFakeGitContext();
+
+    const base = prepareSweepBase(makeFakeBoundary(mockCtx));
+
+    expect(base?.sweepBranch).toBe(PER_ISSUE_SWEEP_SPEC.branch);
   });
 });
 

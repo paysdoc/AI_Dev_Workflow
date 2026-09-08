@@ -9,7 +9,7 @@
 
 import { execSync, spawn } from 'child_process';
 import * as fs from 'fs';
-import { log, GRACE_PERIOD_MS, JANITOR_INTERVAL_CYCLES, HEARTBEAT_STALE_THRESHOLD_MS, HUNG_DETECTOR_INTERVAL_CYCLES, PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES, PROMOTION_SWEEP_INTERVAL_CYCLES, getTargetRepoWorkspacePath, resolveClaudeCodePath, REPO_ROOT, assertCwdIsRepoRoot, buildLaunchBoundary, getGuardrailsProbeVerdict } from '../core';
+import { log, GRACE_PERIOD_MS, JANITOR_INTERVAL_CYCLES, HEARTBEAT_STALE_THRESHOLD_MS, HUNG_DETECTOR_INTERVAL_CYCLES, PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES, PROMOTION_SWEEP_INTERVAL_CYCLES, DOCS_INDEX_SWEEP_INTERVAL_CYCLES, getTargetRepoWorkspacePath, resolveClaudeCodePath, REPO_ROOT, assertCwdIsRepoRoot, buildLaunchBoundary, getGuardrailsProbeVerdict } from '../core';
 import type { GitContext } from '../gitContext';
 import type { LaunchBoundary } from '../core';
 import type { BoundProviders } from '../providers/types';
@@ -37,6 +37,7 @@ import { scanPauseQueue } from './pauseQueueScanner';
 import { runJanitorPass } from './devServerJanitor';
 import { runPerIssueScenarioSweep } from './perIssueScenarioSweep';
 import { runPromotionSweep } from './promotionSweep';
+import { runDocsIndexSweep } from './docsIndexSweep';
 import { runUpgradeRedriveScan, buildDefaultUpgradeRedriveDeps } from './upgradeRedrive';
 import { resolveCronRepo, buildCronTargetRepoArgs } from './cronRepoResolver';
 import { listCronOpenIssues } from './cronIssueListing';
@@ -130,6 +131,12 @@ function boundPromotionSweep(): (() => Promise<unknown>) | null {
   return boundary ? () => runPromotionSweep({ boundary }) : null;
 }
 
+/** Same shape as boundPerIssueSweep, for the docs-index health sweep. */
+function boundDocsIndexSweep(): (() => Promise<unknown>) | null {
+  const boundary = cronBoundary;
+  return boundary ? () => runDocsIndexSweep({ boundary }) : null;
+}
+
 /**
  * Per-issue scenario sweep dispatch: on a cadence-eligible cron cycle
  * (cycleCount a multiple of PER_ISSUE_SCENARIO_SWEEP_INTERVAL_CYCLES) invokes
@@ -183,6 +190,35 @@ export async function runPromotionSweepTick(
     await sweep();
   } catch (error) {
     log(`promotionSweep: pass failed (non-fatal): ${error}`, 'error');
+  }
+}
+
+/**
+ * Docs-index health sweep dispatch: on a cadence-eligible cron cycle
+ * (cycleCount a multiple of DOCS_INDEX_SWEEP_INTERVAL_CYCLES) invokes the
+ * sweep, which repairs dangling entries/dead globs via a merged PR and
+ * reconciles overlap/orphan/count violations into at most one open `hitl`
+ * issue, against the repo of the cron's launch GitContext. Off-cadence
+ * cycles are a no-op (the generous-cadence guarantee — git/gh actions must
+ * not run every 20s tick). When no launch context is available the pass is
+ * skipped (logged), never falling back to a cwd-derived identity. Non-fatal
+ * — any escaped throw is logged and swallowed so it can never abort the cron
+ * tick. Exported (with an injectable sweep) so tests can drive the cadence
+ * gate, the skip, and the swallow directly.
+ */
+export async function runDocsIndexSweepTick(
+  cycleCount: number,
+  sweep: (() => Promise<unknown>) | null = boundDocsIndexSweep(),
+): Promise<void> {
+  if (cycleCount % DOCS_INDEX_SWEEP_INTERVAL_CYCLES !== 0) return;
+  if (sweep === null) {
+    log('docsIndexSweep: no launch GitContext available — skipping pass', 'warn');
+    return;
+  }
+  try {
+    await sweep();
+  } catch (error) {
+    log(`docsIndexSweep: pass failed (non-fatal): ${error}`, 'error');
   }
 }
 
@@ -307,6 +343,11 @@ async function checkAndTrigger(): Promise<void> {
   // cadence: git/gh actions must not run every 20s tick). The gate and the
   // non-fatal swallow both live inside runPromotionSweepTick.
   await runPromotionSweepTick(cycleCount);
+
+  // Run the docs-index health sweep every DOCS_INDEX_SWEEP_INTERVAL_CYCLES cycles
+  // (generous cadence, same reasoning as the promotion sweep). The gate and the
+  // non-fatal swallow both live inside runDocsIndexSweepTick.
+  await runDocsIndexSweepTick(cycleCount);
 
   const now = Date.now();
   const cancelledThisCycle = new Set<number>();
