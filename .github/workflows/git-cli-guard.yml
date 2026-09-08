@@ -21,3 +21,20 @@ jobs:
 
       - name: Run Git/GH CLI guard
         run: bun run lint:git-guard
+
+  docs-index:
+    name: Fail on a broken living-docs index
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Run docs-index gate
+        run: bun run lint:docs-index
