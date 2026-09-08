@@ -36,6 +36,7 @@ import { runDocsIndexSweep, type DocsIndexSweepReport } from '../../../adws/trig
 import { DOCS_INDEX_SWEEP_SPEC } from '../../../adws/triggers/docsIndexSweepDefaults.ts';
 import { Platform, type BoundProviders, type IssueTracker, type CodeHost } from '../../../adws/providers/types.ts';
 import type { LaunchBoundary } from '../../../adws/core/launchGitContext.ts';
+import { cronLaunchContextCtx, resetCronLaunchContext } from './cron-launch-context-ctx.ts';
 
 const REPO_ROOT = process.cwd();
 
@@ -439,7 +440,6 @@ interface DispatchCtx {
   invocationCount: number;
   sweepShouldThrow: boolean;
   dispatchThrew: boolean;
-  noLaunchContext: boolean;
   capturedStdout: string;
 }
 
@@ -447,7 +447,6 @@ const dispatchCtx: DispatchCtx = {
   invocationCount: 0,
   sweepShouldThrow: false,
   dispatchThrew: false,
-  noLaunchContext: false,
   capturedStdout: '',
 };
 
@@ -455,22 +454,18 @@ After({ tags: '@adw-810' }, function () {
   dispatchCtx.invocationCount = 0;
   dispatchCtx.sweepShouldThrow = false;
   dispatchCtx.dispatchThrew = false;
-  dispatchCtx.noLaunchContext = false;
   dispatchCtx.capturedStdout = '';
+  resetCronLaunchContext();
 });
 
-// TODO: scenario "A cron cycle with no launch context skips the docs-index sweep
-// instead of falling back to the working directory" could not be made to pass as a
-// distinct BDD scenario — its Given phrase "the cron holds no launch context" is
-// already registered verbatim by features/per-issue/step_definitions/feature-769.steps.ts
-// (a different, real-git-harness ctx). Cucumber flags two Given registrations with
-// identical literal text as globally ambiguous regardless of which feature file's
-// scenario invokes it, so a second registration here is not viable, and reaching into
-// feature-769.steps.ts's module-private ctx would break this file's (and that file's)
-// self-containment convention. The behavioural contract itself — the null-thunk warn-skip
-// log line, no dispatch, and no raised error — is fully covered by
-// adws/triggers/__tests__/trigger_cron.test.ts's runDocsIndexSweepTick unit tests
-// (mirroring the identical case already proven for runPromotionSweepTick/#769).
+// The Given "the cron holds no launch context" is registered ONCE, in
+// feature-769.steps.ts — Cucumber flags two registrations of identical literal text as
+// globally ambiguous regardless of which feature file's scenario invokes it, so a second
+// registration here is not viable. Rather than reaching into that file's module-private
+// ctx, both files share the tiny cron-launch-context-ctx.ts state module (the
+// takeover-probe-ctx.ts precedent): feature-769's launch-context Givens publish the flag,
+// the When below reads it to choose the sweep thunk or the `null` that models an absent
+// launch GitContext.
 
 /** Resolves a Gherkin cycle-position phrase to a cycleCount, relative to the imported constant. */
 function resolveDocsIndexCycleCount(cyclePosition: string): number {
@@ -514,10 +509,8 @@ async function captureDispatchStdout(fn: () => Promise<void>): Promise<void> {
 
 // ── Given ────────────────────────────────────────────────────────────────────
 //
-// "the cron holds no launch context" is deliberately NOT registered here — see the
-// TODO above. dispatchCtx.noLaunchContext therefore stays permanently false; kept as
-// a field (rather than removed) only so the type shape mirrors the sibling boolean
-// flags and the dead branch documents its own history.
+// "the cron holds no launch context" is deliberately NOT registered here — it arrives
+// through the shared cron-launch-context-ctx.ts flag described above.
 
 Given('the injected docs-index sweep is configured to throw a transient error', function () {
   dispatchCtx.sweepShouldThrow = true;
@@ -527,7 +520,7 @@ Given('the injected docs-index sweep is configured to throw a transient error', 
 
 When('the cron docs-index-sweep dispatch runs for a {string} cron cycle', async function (cyclePosition: string) {
   const cycleCount = resolveDocsIndexCycleCount(cyclePosition);
-  const sweep = dispatchCtx.noLaunchContext ? null : fakeDocsIndexSweep;
+  const sweep = cronLaunchContextCtx.hasLaunchContext === false ? null : fakeDocsIndexSweep;
   await captureDispatchStdout(async () => {
     try {
       await runDocsIndexSweepTick(cycleCount, sweep);
