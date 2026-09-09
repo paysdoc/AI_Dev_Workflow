@@ -467,6 +467,7 @@ adws/                   # ADW workflow system
 │   ├── adwMerge.test.ts
 │   ├── adwUpgrade.test.ts
 │   ├── checkGitGhGuard.test.ts
+│   ├── checkLivingDocsIndex.test.ts
 │   ├── depauditSetup.test.ts
 │   ├── healthCheckChecks.test.ts
 │   ├── issueDependencies.test.ts
@@ -515,6 +516,8 @@ adws/                   # ADW workflow system
 │   │   ├── conditionalDocsRegistry.test.ts
 │   │   ├── devServerLifecycle.test.ts
 │   │   ├── docsGuards.test.ts
+│   │   ├── docsIndexHealth.test.ts
+│   │   ├── docsIndexReportBody.test.ts
 │   │   ├── environment.test.ts
 │   │   ├── execWithRetry.test.ts
 │   │   ├── guardrailsGate.test.ts
@@ -527,6 +530,7 @@ adws/                   # ADW workflow system
 │   │   ├── phaseRunner.test.ts
 │   │   ├── processLiveness.test.ts
 │   │   ├── projectConfig.test.ts
+│   │   ├── providerConfig.test.ts
 │   │   ├── promotionReconcileLink.test.ts
 │   │   ├── promotionSweepDecider.test.ts
 │   │   ├── promotionTagState.test.ts
@@ -798,8 +802,12 @@ adws/                   # ADW workflow system
 │   │   │   ├── appAuth.test.ts
 │   │   │   ├── cloneUrl.test.ts
 │   │   │   ├── ghCommandRunner.test.ts
+│   │   │   ├── ghIssueParsers.test.ts
+│   │   │   ├── ghPrParsers.test.ts
 │   │   │   ├── ghRepoApi.test.ts  # GhRepoApi assembly coverage — the relocated gh semantic surface (#797)
 │   │   │   ├── ghRepoApiCwd.test.ts  # Framework-root cwd invariance for GhRepoApi commands (#797)
+│   │   │   ├── gitContextFixture.ts  # Shared fake-GitContext test fixture
+│   │   │   ├── githubBoardManager.test.ts
 │   │   │   ├── githubCodeHost.test.ts  # GithubCodeHost delegation coverage (#796)
 │   │   │   ├── githubIdentity.test.ts
 │   │   │   ├── githubIssueTracker.test.ts  # GithubIssueTracker delegation coverage (#796)
