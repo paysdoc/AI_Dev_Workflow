@@ -152,6 +152,8 @@ export {
   readAdwLabels,
   issueTypeToAdwLabel,
   shouldSkipScenarioAuthoring,
+  scenarioAuthoringSkipReason,
+  type ScenarioAuthoringSkipReason,
   resolveAdwLabelDefinition,
   hasWontFixLabelName,
 } from './adwLabels';

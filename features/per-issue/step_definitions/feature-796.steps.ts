@@ -490,13 +490,27 @@ function buildRecordingBoundary(owner: string, repo: string): void {
 }
 
 let cachedClaimBranch: string | null = null;
+let claimBranchOverride: string | null = null;
 
 /** The real upgrade claim branch for THIS repo's actual framework state — deterministic per run. */
 export function claimBranchName(): string {
+  if (claimBranchOverride) return claimBranchOverride;
   if (!cachedClaimBranch) {
     cachedClaimBranch = buildClaimBranchName(computeFrameworkHash(FRAMEWORK_REPO_ROOT));
   }
   return cachedClaimBranch;
+}
+
+/**
+ * Freezes the claim branch this harness seeds and reads, for scenarios that must NAME the
+ * branch literally in Gherkin (feature-820 §10). The real name embeds
+ * `computeFrameworkHash(FRAMEWORK_REPO_ROOT)`, which changes with every commit, so a literal
+ * Gherkin parameter can only match a frozen hash. Scenarios that drive the real upgrade
+ * orchestrator (this file's own, which recompute the hash inside production code) must leave
+ * the override unset; pass null to restore.
+ */
+export function setClaimBranchOverride(branchName: string | null): void {
+  claimBranchOverride = branchName;
 }
 
 function stubRegenDeps(worktreePath: string): Pick<

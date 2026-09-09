@@ -10,7 +10,7 @@ import {
   shouldExecuteStage,
   type ModelUsageMap,
   emptyModelUsageMap,
-  shouldSkipScenarioAuthoring,
+  scenarioAuthoringSkipReason,
 } from '../core';
 import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
 import { runScenarioAgent } from '../agents';
@@ -29,9 +29,12 @@ export async function executeScenarioPhase(
 
   // Promotion issues must never author scenarios: a junk feature-<promotionIssueN>.feature
   // would redden the run and become its own future promotion candidate. See PRD user story 11.
-  if (shouldSkipScenarioAuthoring(issue.labels)) {
-    log('Skipping scenario authoring: regression-promotion issue', 'info');
-    AgentStateManager.appendLog(orchestratorStatePath, 'Scenario phase skipped: regression-promotion label present (promotion issue)');
+  // An `adw:none` issue opted out of ADW automation, so it gets no authoring agent either.
+  // Both are pure label reads over `config.issue` — no forge call.
+  const skipReason = scenarioAuthoringSkipReason(issue.labels);
+  if (skipReason) {
+    log(`Skipping scenario authoring: ${skipReason} label present`, 'info');
+    AgentStateManager.appendLog(orchestratorStatePath, `Scenario phase skipped: ${skipReason} label present`);
     return { costUsd: 0, modelUsage: emptyModelUsageMap(), phaseCostRecords: [] };
   }
 

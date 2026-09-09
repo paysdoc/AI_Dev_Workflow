@@ -46,7 +46,7 @@ import { mkdtempSync } from 'fs';
 import { tmpdir } from 'os';
 import { fileURLToPath } from 'node:url';
 
-import { world796, splitRepo, resetWorld, claimBranchName } from './feature-796.steps.ts';
+import { world796, splitRepo, resetWorld, claimBranchName, setClaimBranchOverride } from './feature-796.steps.ts';
 import type { CallRecord } from './feature-796.steps.ts';
 
 import type { GitHubLabel } from '../../../adws/providers/github/domain/issue.ts';
@@ -63,7 +63,7 @@ import { acquireOrchestratorLock, releaseOrchestratorLock } from '../../../adws/
 import { getSpawnLockFilePath } from '../../../adws/triggers/spawnGate.ts';
 import { executeDepauditSetup } from '../../../adws/phases/depauditSetup.ts';
 import { resolveWorkflowRepoId } from '../../../adws/phases/workflowRepoIdentity.ts';
-import { buildDefaultUpgradeClaimDeps } from '../../../adws/core/upgradeClaim.ts';
+import { buildDefaultUpgradeClaimDeps, buildClaimBranchName } from '../../../adws/core/upgradeClaim.ts';
 import { resolvePrReviewInvocation } from '../../../adws/core/prReviewInvocation.ts';
 import type { PrReviewInvocation } from '../../../adws/core/prReviewInvocation.ts';
 import { deriveStageFromRemote, buildDefaultReconcileDeps } from '../../../adws/core/remoteReconcile.ts';
@@ -82,6 +82,15 @@ import type { GitLabApiClient } from '../../../adws/providers/gitlab/gitlabApiCl
 
 const FRAMEWORK_REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const CLAUDE_CLI_STUB_PATH = path.resolve(FRAMEWORK_REPO_ROOT, 'test/mocks/claude-cli-stub.ts');
+
+/**
+ * The frozen framework hash this file's §3/§10 upgrade-claim rows name literally in Gherkin
+ * ("adw-upgrade-abc123" — the same stub hash `upgradeClaim.test.ts` uses). The real hash is
+ * recomputed from the checkout on every commit, so freezing it is the only way a literal
+ * branch parameter can address the same branch the fixture seeds. Scoped to @adw-820 by the
+ * hooks below; feature-796's own rows keep the real computed hash.
+ */
+const FROZEN_CLAIM_BRANCH = buildClaimBranchName('abc123');
 const FIXED_ADW_ID = 'wgg98x-void';
 
 // ── §820-local world state — transient results not already on World796 ────────
@@ -199,9 +208,11 @@ function restoreClaudeCliStub(): void {
 Before({ tags: '@adw-820' }, function () {
   resetWorld();
   resetLocalState();
+  setClaimBranchOverride(FROZEN_CLAIM_BRANCH);
 });
 
 After({ tags: '@adw-820' }, function () {
+  setClaimBranchOverride(null);
   restoreClaudeCliStub();
   const w = world796();
   for (const dir of w.tempDirs) {
@@ -844,15 +855,6 @@ When('the scenario phase runs for that configuration', async function () {
   }
 });
 
-// TODO: scenario "Deciding to skip scenario authoring asks the forge for
-// nothing" could not be made to pass — `shouldSkipScenarioAuthoring`
-// (adws/core/adwLabels.ts) matches only the `regression-promotion` label
-// name; the Given step's literal "adw:none" label does not trigger it, and
-// this WorkflowConfig's fresh (non-resuming) recoveryState does not trigger
-// scenarioPhase's other early return either, so the phase proceeds to a real
-// (stubbed) scenario-agent call rather than skipping. The predicate itself
-// (unchanged by #820, still label-based, still forge-free) is exercised by
-// its own existing unit tests.
 Then('the scenario phase reported that it skipped scenario authoring', function () {
   assert.ok(s.scenarioPhaseResult, 'Expected the scenario phase to have run');
   assert.strictEqual(
@@ -876,7 +878,10 @@ When(
   function (_issueNumber: number) {
     const w = world796();
     assert.ok(w.boundary, 'Expected a launch boundary to have been built');
-    const pr = w.boundary.providers.codeHost.findPullRequestByBranch(claimBranchName());
+    const tmp = mkdtempSync(path.join(tmpdir(), 'adw-820-claim-'));
+    w.tempDirs.push(tmp);
+    const deps = buildDefaultUpgradeClaimDeps(tmp, w.boundary.gitContext, w.boundary.providers.codeHost);
+    const pr = deps.findPRByBranch(claimBranchName());
     s.retirementResult = pr ? hasWontFixLabelName(pr.labels) : false;
   },
 );
@@ -885,17 +890,6 @@ Then('the claim pull request is reported retired', function () {
   assert.strictEqual(s.retirementResult, true);
 });
 
-// TODO: scenario "Reading the wontfix escape hatch off a fetched pull
-// request asks the forge for nothing further" could not be made fully
-// green — its Given step ("the claim branch for issue 51 has a pull
-// request...", feature-796.steps.ts) seeds the fixture under
-// `claimBranchName()` (the REAL computed framework-hash branch for this
-// checkout), not the literal "adw-upgrade-abc123" this Then step names. The
-// retirement read above correctly looks the PR up by `claimBranchName()`
-// (matching the Given step, so "the claim pull request is reported
-// retired" passes), but this assertion's literal branch-name parameter
-// never matches the real call, since #820 must not invent a hash that spells
-// "abc123".
 Then('the boundary\'s code host was asked for the pull request on branch {string} exactly once', function (branchName: string) {
   const w = world796();
   const calls = w.activeCallLog.filter((c) => c.operation === 'findPullRequestByBranch' && c.args[0] === branchName);

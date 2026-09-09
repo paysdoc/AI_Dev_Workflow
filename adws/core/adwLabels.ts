@@ -105,15 +105,36 @@ export function issueTypeToAdwLabel(issueType: IssueClassSlashCommand): string |
   return entry ? entry[0] : null;
 }
 
+/** The label that decided scenario authoring must be skipped. */
+export type ScenarioAuthoringSkipReason = typeof ADW_REGRESSION_PROMOTION_LABEL | typeof ADW_NONE_LABEL;
+
 /**
- * True when scenario authoring must be skipped for this issue — i.e. the issue
- * carries the `regression-promotion` label. Promotion issues relocate an existing
- * per-issue scenario into the regression suite; authoring a fresh
- * feature-<promotionIssueN>.feature for them would redden the run and create a
- * promotion-of-a-promotion candidate. Pure — no I/O, no logging.
+ * The label that makes scenario authoring skip for this issue, or null when authoring
+ * runs. Two reasons, both pure reads of labels the caller already holds:
+ *
+ *   • `regression-promotion` — promotion issues relocate an EXISTING per-issue scenario
+ *     into the regression suite; authoring a fresh feature-<promotionIssueN>.feature for
+ *     them would redden the run and create a promotion-of-a-promotion candidate.
+ *   • `adw:none` — the issue opted out of ADW automation. The triggers already refuse to
+ *     start a run for it, so a phase only ever sees this label when the opt-out landed
+ *     mid-run or an orchestrator was hand-launched; either way no authoring agent may be
+ *     spent on an issue that asked ADW to stay out.
+ *
+ * Pure — no I/O, no logging, and (deliberately) no forge call: every caller already holds
+ * the labels on `config.issue`.
  */
+export function scenarioAuthoringSkipReason(
+  labels: readonly GitHubLabel[],
+): ScenarioAuthoringSkipReason | null {
+  const names = new Set(labels.map((l) => l.name));
+  if (names.has(ADW_REGRESSION_PROMOTION_LABEL)) return ADW_REGRESSION_PROMOTION_LABEL;
+  if (names.has(ADW_NONE_LABEL)) return ADW_NONE_LABEL;
+  return null;
+}
+
+/** Boolean face of {@link scenarioAuthoringSkipReason} for callers that need no reason. */
 export function shouldSkipScenarioAuthoring(labels: readonly GitHubLabel[]): boolean {
-  return labels.some((l) => l.name === ADW_REGRESSION_PROMOTION_LABEL);
+  return scenarioAuthoringSkipReason(labels) !== null;
 }
 
 /** Catalogue lookup with the `ededed`/"ADW label" fallback for a name outside the catalogue. */
