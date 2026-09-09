@@ -168,10 +168,17 @@ Feature: The triggers reach the forge through the boundary's providers alone —
       vocabulary drift. Which boundary is in play is already fixed by the `When` step. The two
       genuinely new nouns — `the cron tick was skipped …`, `the webhook event was not reported as
       triggered` — are new because the BEHAVIOUR is new, not because the subject renamed.
-    • `the mock harness recorded zero comment posts on issue {int}` (§6) is taken verbatim from the
-      regression registry (T14) even though that implementation lives in the regression world and
-      this file needs its own. Matching the registered wording exactly is deliberate: it keeps the
-      phrase canonical if this row is ever promoted.
+    • §6's no-comment assertion uses `the boundary's issue tracker recorded no comment`
+      (`feature-796.steps.ts:900`), NOT the regression registry's T14
+      `the mock harness recorded zero comment posts on issue {int}`. Two reasons, and the second is
+      the one that matters. First, T14 is currently orphaned: `thenSteps.ts:322` points at
+      `feature-509.steps.ts`, which commit `b221fac7` deleted, so nothing registers that phrase any
+      more — adopting it here would either land undefined or mint a duplicate of an assertion this
+      world already has. Second, and decisively, T14 asserts against RECORDED HTTP REQUESTS on the
+      regression mock server. These rows have no mock server; they have a recording tracker. Bound
+      to a mock server with zero traffic, T14 passes no matter what the region-overlap code does to
+      the tracker — a row that cannot fail is worse than no row. `assertNoCommentRecorded` reads the
+      same `activeCallLog` the rest of §6 asserts on, so it discriminates.
 
   Background:
     Given the ADW codebase is checked out
@@ -330,7 +337,7 @@ Feature: The triggers reach the forge through the boundary's providers alone —
   @adw-821 @adw-ciwxf3-migrate-trigger-call
   Scenario: An inferred classification is persisted as a label through the boundary's tracker
     Given a launch boundary for the repository "adw-fixture/void-821" whose providers record every call
-    And issue 42 in the recording tracker carries no labels
+    And issue 42 carries no labels
     And the trigger classifier will classify issue 42 as "/bug"
     When the gatekeeper resolves the spawn for issue 42 from that boundary with label persistence enabled
     Then the boundary's providers recorded the label "adw:bug" being applied to issue 42
@@ -363,7 +370,7 @@ Feature: The triggers reach the forge through the boundary's providers alone —
     And updating the body of issue 42 fails on the recording tracker
     When a region overlap deferring issue 42 behind issue 41 is registered from that boundary
     Then the region overlap was not reported as registered
-    And the mock harness recorded zero comment posts on issue 42
+    And the boundary's issue tracker recorded no comment
 
   # ── §7  THE LISTING CALLERS (AC1) ─────────────────────────────────────────────────────────
   #
@@ -524,8 +531,12 @@ Feature: The triggers reach the forge through the boundary's providers alone —
     When the git/gh guard is run across the repository
     Then the git/gh guard reports no violations
 
+  # The row asserts PROVIDERS only, not contexts: `gitContextFactory.ts` is explicitly excluded from
+  # AC2's deletion list and kept by AC3, so `cancelHandler`'s `gitContextForSync` construction is
+  # still legal here — retiring it is #822/#823, not this slice.
+
   @adw-821 @adw-ciwxf3-migrate-trigger-call
-  Scenario: No provider or context is constructed outside the launch boundary during a migrated trigger run
+  Scenario: No GitHub provider is constructed outside the launch boundary during a migrated trigger run
     Given a launch boundary for the repository "adw-fixture/void-821" whose providers record every call
     And issue 42 in the recording tracker has comments with ids "101"
     When the cancel directive runs for issue 42 from that boundary
