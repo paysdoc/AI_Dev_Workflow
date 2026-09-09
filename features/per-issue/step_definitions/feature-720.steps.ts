@@ -45,7 +45,7 @@ import { executeSdlcReviewFailedHandoff } from '../../../adws/phases/sdlcReviewH
 import { getLastPostReviewOutcome } from './feature-719.steps.ts';
 import { Platform } from '../../../adws/providers/types.ts';
 import type { RepoContext } from '../../../adws/providers/types.ts';
-import type { WorkflowContext } from '../../../adws/github/workflowCommentsIssue.ts';
+import type { WorkflowContext } from '../../../adws/forge/workflowCommentsIssue.ts';
 import type { RegressionWorld } from '../../regression/step_definitions/world.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));

@@ -24,7 +24,7 @@ import { Before, After, Given, When, Then } from '@cucumber/cucumber';
 import assert from 'assert';
 import { evaluateLabelRecovery } from '../../../adws/triggers/cronLabelEligibility.ts';
 import type { LabelRecoveryResult, LabelRecoveryIssue } from '../../../adws/triggers/cronLabelEligibility.ts';
-import type { LinkedPRRef } from '../../../adws/github/linkedPrDetector.ts';
+import type { LinkedPRRef } from '../../../adws/forge/linkedPrDetector.ts';
 
 // ── Per-scenario state ─────────────────────────────────────────────────────────
 

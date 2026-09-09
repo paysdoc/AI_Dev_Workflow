@@ -1,7 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { executeMerge, type MergeDeps, type MergeRunResult } from '../adwMerge';
 import type { AgentState } from '../types/agentTypes';
-import { mergeWithConflictResolution } from '../triggers/autoMergeHandler';
 import { getPlanFilePath, planFileExists } from '../agents';
 import { Platform } from '../providers/types';
 
@@ -47,7 +46,7 @@ function makeDeps(overrides: Partial<MergeDeps> = {}): MergeDeps {
     fetchPRApprovalState: vi.fn().mockReturnValue(true),
     ensureWorktree: vi.fn().mockReturnValue('/worktrees/feature-issue-42-abc'),
     ensureLogsDirectory: vi.fn().mockReturnValue('/logs/test-adw-id'),
-    mergeWithConflictResolution: vi.fn<typeof mergeWithConflictResolution>().mockResolvedValue({ success: true }),
+    mergeWithConflictResolution: vi.fn<MergeDeps['mergeWithConflictResolution']>().mockResolvedValue({ success: true }),
     writeTopLevelState: vi.fn(),
     commentOnIssue: vi.fn(),
     getPlanFilePath: vi.fn<typeof getPlanFilePath>().mockReturnValue('specs/issue-42-plan.md'),
@@ -215,7 +214,6 @@ describe('executeMerge — successful merge', () => {
     expect(result.reason).toBe('merged');
     expect(deps.mergeWithConflictResolution).toHaveBeenCalledWith(
       7,               // prNumber
-      REPO_INFO,
       'feature-issue-42-abc', // branchName (headBranch)
       'main',          // baseBranch
       '/worktrees/feature-issue-42-abc', // worktreePath
@@ -240,7 +238,6 @@ describe('executeMerge — successful merge', () => {
 
     expect(deps.mergeWithConflictResolution).toHaveBeenCalledWith(
       expect.any(Number),
-      REPO_INFO,
       expect.any(String),
       expect.any(String),
       expect.any(String),
@@ -256,7 +253,7 @@ describe('executeMerge — successful merge', () => {
 describe('executeMerge — failed merge', () => {
   it('writes merge_blocked and comments on issue when merge fails', async () => {
     const deps = makeDeps({
-      mergeWithConflictResolution: vi.fn<typeof mergeWithConflictResolution>().mockResolvedValue({
+      mergeWithConflictResolution: vi.fn<MergeDeps['mergeWithConflictResolution']>().mockResolvedValue({
         success: false,
         error: 'Conflict detected and could not be resolved',
       }),
@@ -279,7 +276,7 @@ describe('executeMerge — failed merge', () => {
 
   it('includes last error in the issue failure comment', async () => {
     const deps = makeDeps({
-      mergeWithConflictResolution: vi.fn<typeof mergeWithConflictResolution>().mockResolvedValue({
+      mergeWithConflictResolution: vi.fn<MergeDeps['mergeWithConflictResolution']>().mockResolvedValue({
         success: false,
         error: 'merge conflict in file.txt',
       }),
@@ -382,7 +379,7 @@ describe('executeMerge — branchName resolution (issue #530)', () => {
     expect(deps.findOrchestratorStatePath).not.toHaveBeenCalled();
     expect(deps.findPRByBranch).toHaveBeenCalledWith('feature-issue-530-top-level');
     expect(deps.mergeWithConflictResolution).toHaveBeenCalledWith(
-      expect.any(Number), REPO_INFO, 'feature-issue-530-top-level',
+      expect.any(Number), 'feature-issue-530-top-level',
       expect.any(String), expect.any(String), expect.any(String), expect.any(String), expect.any(String),
     );
   });
@@ -427,7 +424,7 @@ describe('executeMerge — branchName resolution (issue #530)', () => {
     expect(result.outcome).toBe('completed');
     expect(deps.findOrchestratorStatePath).toHaveBeenCalled();
     expect(deps.mergeWithConflictResolution).toHaveBeenCalledWith(
-      expect.any(Number), REPO_INFO, 'feature-issue-42-abc',
+      expect.any(Number), 'feature-issue-42-abc',
       expect.any(String), expect.any(String), expect.any(String), expect.any(String), expect.any(String),
     );
   });

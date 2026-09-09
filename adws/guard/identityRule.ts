@@ -17,7 +17,16 @@
 import * as ts from 'typescript';
 import type { Violation } from './violationTypes';
 
-/** The two legitimate pre-context cwd reads; a zero-argument call to either is cwd-derived identity. */
+/**
+ * The two legitimate pre-context cwd reads; a zero-argument call to either is
+ * cwd-derived identity. `getRepoInfo` stays in this set even after #821
+ * deletes its declaration (`adws/github/githubApi.ts`): this is a name-based
+ * AST match against identifier text, not a file reference, so retaining the
+ * name is what stops a cwd-derived identity fallback of that name being
+ * reintroduced later. Only `SANCTIONED_CONSTRUCTION_SITES` (constructionRule.ts)
+ * carries a stale-entry ratchet — nothing here fails because a guarded name
+ * has no declaration left.
+ */
 export const CWD_DERIVED_IDENTITY_FNS = new Set(['getRepoInfo', 'readLocalRepoInfo']);
 
 /** The boundary-free GitContext constructor whose argument the cwd-derived-identity rule inspects. */

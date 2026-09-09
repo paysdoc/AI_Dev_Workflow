@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Platform, type RepoIdentifier } from '../../providers/types';
+import type { LaunchBoundary } from '../../core';
 
 // Mock all external dependencies before importing the module under test
 vi.mock('../../core/workflowCommentParsing', () => ({
@@ -17,7 +18,7 @@ vi.mock('../../core/config', () => ({
 }));
 
 const mockRemoveWorktreesForIssue = vi.hoisted(() => vi.fn());
-vi.mock('../../github', () => ({
+vi.mock('../../github/gitContextFactory', () => ({
   gitContextForSync: vi.fn().mockReturnValue({ removeWorktreesForIssue: mockRemoveWorktreesForIssue }),
 }));
 
@@ -50,6 +51,8 @@ const mockRmSync = vi.mocked(fs.rmSync);
 const mockReadFileSync = vi.mocked(fs.readFileSync);
 
 const repoInfo: RepoIdentifier = { owner: 'test-owner', repo: 'test-repo', platform: Platform.GitHub };
+const fakeTracker = { fetchComments: vi.fn(), getIssueTitle: vi.fn(), deleteComment: vi.fn() };
+const boundary = { repoId: repoInfo, providers: { issueTracker: fakeTracker } } as unknown as LaunchBoundary;
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -63,7 +66,7 @@ describe('handleCancelDirective', () => {
   it('returns true on successful completion', () => {
     mockExtractAdwId.mockReturnValue(null);
 
-    const result = handleCancelDirective(42, [], repoInfo);
+    const result = handleCancelDirective(42, [], boundary);
 
     expect(result).toBe(true);
   });
@@ -72,7 +75,7 @@ describe('handleCancelDirective', () => {
     const comments = [{ body: 'comment-1' }, { body: 'comment-2' }, { body: 'comment-3' }];
     mockExtractAdwId.mockReturnValue(null);
 
-    handleCancelDirective(42, comments, repoInfo);
+    handleCancelDirective(42, comments, boundary);
 
     expect(mockExtractAdwId).toHaveBeenCalledTimes(3);
     expect(mockExtractAdwId).toHaveBeenCalledWith('comment-1');
@@ -91,7 +94,7 @@ describe('handleCancelDirective', () => {
     mockReadFileSync.mockReturnValue(JSON.stringify({ pid: 1234 }));
     mockIsProcessAlive.mockReturnValue(false);
 
-    handleCancelDirective(42, comments, repoInfo);
+    handleCancelDirective(42, comments, boundary);
 
     expect(mockFindOrchestratorStatePath).toHaveBeenCalledWith('adwid-1');
     expect(mockFindOrchestratorStatePath).toHaveBeenCalledWith('adwid-2');
@@ -105,7 +108,7 @@ describe('handleCancelDirective', () => {
     // First call: process is alive → send SIGTERM; second call: dead after SIGTERM → skip SIGKILL
     mockIsProcessAlive.mockReturnValueOnce(true).mockReturnValueOnce(false);
 
-    handleCancelDirective(42, [{ body: 'c1' }], repoInfo);
+    handleCancelDirective(42, [{ body: 'c1' }], boundary);
 
     expect(killSpy).toHaveBeenCalledWith(9999, 'SIGTERM');
     killSpy.mockRestore();
@@ -114,7 +117,7 @@ describe('handleCancelDirective', () => {
   it('calls removeWorktreesForIssue on the gitContext with correct issueNumber', () => {
     mockExtractAdwId.mockReturnValue(null);
 
-    handleCancelDirective(42, [], repoInfo, '/some/cwd');
+    handleCancelDirective(42, [], boundary, '/some/cwd');
 
     expect(mockRemoveWorktreesForIssue).toHaveBeenCalledWith(42);
   });
@@ -122,7 +125,7 @@ describe('handleCancelDirective', () => {
   it('calls removeWorktreesForIssue on the gitContext when no cwd provided', () => {
     mockExtractAdwId.mockReturnValue(null);
 
-    handleCancelDirective(42, [], repoInfo);
+    handleCancelDirective(42, [], boundary);
 
     expect(mockRemoveWorktreesForIssue).toHaveBeenCalledWith(42);
   });
@@ -134,21 +137,18 @@ describe('handleCancelDirective', () => {
       .mockReturnValueOnce('adwid-2');
     mockFindOrchestratorStatePath.mockReturnValue(null);
 
-    handleCancelDirective(42, comments, repoInfo);
+    handleCancelDirective(42, comments, boundary);
 
     expect(mockRmSync).toHaveBeenCalledWith('/mock/agents/adwid-1', { recursive: true, force: true });
     expect(mockRmSync).toHaveBeenCalledWith('/mock/agents/adwid-2', { recursive: true, force: true });
   });
 
-  it('calls clearIssueComments with the issue number and a legacy-backed tracker', () => {
+  it('calls clearIssueComments with the issue number and the boundary\'s issue tracker', () => {
     mockExtractAdwId.mockReturnValue(null);
 
-    handleCancelDirective(42, [], repoInfo);
+    handleCancelDirective(42, [], boundary);
 
-    expect(mockClearIssueComments).toHaveBeenCalledWith(
-      42,
-      expect.objectContaining({ fetchComments: expect.any(Function), getIssueTitle: expect.any(Function), deleteComment: expect.any(Function) }),
-    );
+    expect(mockClearIssueComments).toHaveBeenCalledWith(42, fakeTracker);
   });
 
   it('removes issue from processedSets when provided', () => {
@@ -157,7 +157,7 @@ describe('handleCancelDirective', () => {
       spawns: new Set([42, 99]),
     };
 
-    handleCancelDirective(42, [], repoInfo, undefined, processedSets);
+    handleCancelDirective(42, [], boundary, undefined, processedSets);
 
     expect(processedSets.spawns.has(42)).toBe(false);
     // Other entries untouched
@@ -168,13 +168,13 @@ describe('handleCancelDirective', () => {
     mockExtractAdwId.mockReturnValue(null);
 
     // Should not throw when processedSets is undefined
-    expect(() => handleCancelDirective(42, [], repoInfo)).not.toThrow();
+    expect(() => handleCancelDirective(42, [], boundary)).not.toThrow();
   });
 
   it('handles no adwIds gracefully (still clears comments and worktrees)', () => {
     mockExtractAdwId.mockReturnValue(null);
 
-    handleCancelDirective(42, [{ body: 'some comment' }], repoInfo);
+    handleCancelDirective(42, [{ body: 'some comment' }], boundary);
 
     expect(mockRemoveWorktreesForIssue).toHaveBeenCalled();
     expect(mockClearIssueComments).toHaveBeenCalled();
@@ -193,7 +193,7 @@ describe('handleCancelDirective', () => {
     mockReadFileSync.mockImplementation(() => { throw new Error('ENOENT'); });
 
     // Should complete without throwing
-    expect(() => handleCancelDirective(42, comments, repoInfo)).not.toThrow();
+    expect(() => handleCancelDirective(42, comments, boundary)).not.toThrow();
     // Both adwIds still had rmSync called
     expect(mockRmSync).toHaveBeenCalledWith('/mock/agents/adwid-1', { recursive: true, force: true });
     expect(mockRmSync).toHaveBeenCalledWith('/mock/agents/adwid-2', { recursive: true, force: true });
@@ -204,7 +204,7 @@ describe('handleCancelDirective', () => {
     mockExtractAdwId.mockReturnValue('same-adwid'); // all return same id
     mockFindOrchestratorStatePath.mockReturnValue(null);
 
-    handleCancelDirective(42, comments, repoInfo);
+    handleCancelDirective(42, comments, boundary);
 
     // rmSync called only once despite three comments returning the same adwId
     expect(mockRmSync).toHaveBeenCalledTimes(1);

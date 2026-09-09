@@ -31,12 +31,11 @@ import { createLiteralTokenProvider } from '../../../adws/providers/github/githu
 import type { RepoIdentifier } from '../../../adws/providers/types.ts';
 import { Platform } from '../../../adws/providers/types.ts';
 import type { GitHubLabel } from '../../../adws/providers/github/domain/issue.ts';
-import type { LabelManagerDeps, AdwLabelReading } from '../../../adws/github/labelManager.ts';
-import {
-  ensureAdwLabelsExist,
-  applyLabel,
-  readAdwLabels,
-} from '../../../adws/github/labelManager.ts';
+import type { AdwLabelReading } from '../../../adws/core/adwLabels.ts';
+import { readAdwLabels, resolveAdwLabelDefinition } from '../../../adws/core/adwLabels.ts';
+import { ensureAdwLabelsExist } from '../../../adws/forge/adwLabelProvisioning.ts';
+import { createGitHubIssueTracker } from '../../../adws/providers/github/githubIssueTracker.ts';
+import type { IssueTracker } from '../../../adws/providers/types.ts';
 import type { RegressionWorld } from '../../regression/step_definitions/world.ts';
 import type { MockContext, RecordedRequest } from '../../../test/mocks/types.ts';
 
@@ -157,28 +156,26 @@ function buildMockExec(): ExecFn {
   };
 }
 
-function buildMockDeps(): LabelManagerDeps {
+function buildMockTracker(): IssueTracker {
   const exec = buildMockExec();
-  return {
-    gitContextForRepo: (repoInfo: RepoIdentifier) => new GitContext(
-      {
-        owner: repoInfo.owner,
-        repo: repoInfo.repo,
-        selfHost: false,
-        tokenProvider: createLiteralTokenProvider('test-token'),
-        gitIdentity: {
-          authorName: 'Test Bot',
-          authorEmail: 'test@bot.dev',
-          committerName: 'Test Bot',
-          committerEmail: 'test@bot.dev',
-        },
-        frameworkRepoRoot: FRAMEWORK_ROOT,
-        targetReposDir: TARGET_REPOS_DIR,
+  const gitContext = new GitContext(
+    {
+      owner: ctx.repoInfo.owner,
+      repo: ctx.repoInfo.repo,
+      selfHost: false,
+      tokenProvider: createLiteralTokenProvider('test-token'),
+      gitIdentity: {
+        authorName: 'Test Bot',
+        authorEmail: 'test@bot.dev',
+        committerName: 'Test Bot',
+        committerEmail: 'test@bot.dev',
       },
-      { exec },
-    ),
-    logger: () => {},
-  };
+      frameworkRepoRoot: FRAMEWORK_ROOT,
+      targetReposDir: TARGET_REPOS_DIR,
+    },
+    { exec },
+  );
+  return createGitHubIssueTracker(gitContext, ctx.repoInfo, { logger: () => {}, resolveLabelDefinition: resolveAdwLabelDefinition });
 }
 
 // ── §1 Given steps ────────────────────────────────────────────────────────────
@@ -239,7 +236,7 @@ Given('an issue carrying the labels {string}', function (labelsStr: string) {
 
 When('ADW ensures the adw:* labels exist on the target repo', function () {
   try {
-    ensureAdwLabelsExist(ctx.repoInfo, buildMockDeps());
+    ensureAdwLabelsExist(ctx.repoInfo, buildMockTracker(), () => {});
   } catch (error) {
     ctx.ensureErrors.push(error as Error);
   }
@@ -247,7 +244,7 @@ When('ADW ensures the adw:* labels exist on the target repo', function () {
 
 When('ADW ensures the adw:* labels exist on the target repo again', function () {
   try {
-    ensureAdwLabelsExist(ctx.repoInfo, buildMockDeps());
+    ensureAdwLabelsExist(ctx.repoInfo, buildMockTracker(), () => {});
   } catch (error) {
     ctx.ensureErrors.push(error as Error);
   }
@@ -257,7 +254,7 @@ When('ADW ensures the adw:* labels exist on the target repo again', function () 
 
 When('ADW applies the {string} label to issue {int}', function (labelName: string, issueNumber: number) {
   try {
-    applyLabel(issueNumber, labelName, ctx.repoInfo, buildMockDeps());
+    buildMockTracker().applyLabel(issueNumber, labelName);
   } catch (error) {
     ctx.applyError = error as Error;
   }

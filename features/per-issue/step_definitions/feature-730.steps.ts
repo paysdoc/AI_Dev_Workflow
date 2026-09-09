@@ -35,7 +35,7 @@ import {
   type UpgradeRedriveIssue,
 } from '../../../adws/triggers/upgradeRedrive.ts';
 import { getSpawnLockFilePath } from '../../../adws/triggers/spawnGate.ts';
-import { ADW_UPGRADE_LABEL, ADW_BLOCKED_LABEL } from '../../../adws/github/labelManager.ts';
+import { ADW_UPGRADE_LABEL, ADW_BLOCKED_LABEL } from '../../../adws/core/adwLabels.ts';
 import { Platform } from '../../../adws/providers/types.ts';
 
 // ---------------------------------------------------------------------------

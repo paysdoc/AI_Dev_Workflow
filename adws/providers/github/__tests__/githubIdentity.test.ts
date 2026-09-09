@@ -5,7 +5,6 @@ import * as path from 'path';
 import { execSync } from 'child_process';
 import { resolveBootstrapGitIdentity, parseGitHubRemoteUrl, readLocalRepoInfo } from '../githubIdentity';
 import type { BootstrapIdentityDeps } from '../githubIdentity';
-import { getRepoInfo } from '../../../github/githubApi';
 import { Platform } from '../../types';
 
 // ---------------------------------------------------------------------------
@@ -107,10 +106,9 @@ describe('readLocalRepoInfo — real git remote (issue #779 end-to-end proof)', 
     expect(readLocalRepoInfo(tempDir)).toEqual({ owner: 'paysdoc', repo: 'paysdoc.nl', platform: Platform.GitHub });
   });
 
-  it('getRepoInfo agrees with readLocalRepoInfo on the dotted clone (one shared parse)', () => {
+  it('readLocalRepoInfo resolves the dotted clone (getRepoInfo was a pure alias, deleted in #821)', () => {
     execSync('git remote add origin git@github.com:paysdoc/paysdoc.nl.git', { cwd: tempDir, stdio: 'pipe' });
-    expect(getRepoInfo(tempDir)).toEqual(readLocalRepoInfo(tempDir));
-    expect(getRepoInfo(tempDir)).toEqual({ owner: 'paysdoc', repo: 'paysdoc.nl', platform: Platform.GitHub });
+    expect(readLocalRepoInfo(tempDir)).toEqual({ owner: 'paysdoc', repo: 'paysdoc.nl', platform: Platform.GitHub });
   });
 
   it('throws with a "Failed to get repo info" message for a non-GitHub remote', () => {

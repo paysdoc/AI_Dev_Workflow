@@ -21,7 +21,6 @@ import { execSync } from 'child_process';
 import { readLocalRepoInfo } from '../../../adws/providers/github/githubIdentity.ts';
 import type { RepoIdentifier } from '../../../adws/providers/types.ts';
 import { Platform } from '../../../adws/providers/types.ts';
-import { getRepoInfo } from '../../../adws/github/githubApi.ts';
 import { resolveContextToken } from '../../../adws/providers/github/tokenResolver.ts';
 
 // ---------------------------------------------------------------------------
@@ -105,9 +104,12 @@ When('reading the local repository identity from that clone is attempted', funct
 // ---------------------------------------------------------------------------
 
 When('the local repository identity is read from that clone through both cwd-derived entry points', function () {
+  // getRepoInfo was a pure alias of readLocalRepoInfo, deleted in #821 — both
+  // entry points now resolve through the one survivor (per-issue scenarios
+  // are retention-swept, not maintained, so the .feature file names both still).
   state.bothEntryPoints = {
     readLocal: readLocalRepoInfo(state.tempDir),
-    getRepoInfo: getRepoInfo(state.tempDir),
+    getRepoInfo: readLocalRepoInfo(state.tempDir),
   };
 });
 

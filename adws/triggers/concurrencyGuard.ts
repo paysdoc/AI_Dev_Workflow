@@ -15,7 +15,7 @@ type ConcurrencyProviders = Pick<BoundProviders, 'issueTracker' | 'codeHost'>;
 /**
  * Fetches open issues with their comments from the repository.
  */
-function fetchOpenIssuesWithComments(providers: ConcurrencyProviders): IssueListEntry[] {
+function fetchOpenIssuesWithComments(providers: ConcurrencyProviders): readonly IssueListEntry[] {
   try {
     return providers.issueTracker.listIssues({ fields: ['number', 'comments'], limit: 100 });
   } catch (error) {

@@ -53,7 +53,7 @@ import type { GitHubLabel } from '../../../adws/providers/github/domain/issue.ts
 import type { ReviewComment, RepoContext } from '../../../adws/providers/types.ts';
 import { Platform } from '../../../adws/providers/types.ts';
 import type { WorkflowConfig } from '../../../adws/phases/workflowInit.ts';
-import type { WorkflowContext } from '../../../adws/github/workflowCommentsIssue.ts';
+import type { WorkflowContext } from '../../../adws/forge/workflowCommentsIssue.ts';
 
 import { clearIssueComments } from '../../../adws/adwClearComments.tsx';
 import { publishPrProof } from '../../../adws/proof/prProofPublisher.ts';

@@ -7,7 +7,7 @@
 
 import { When, Then } from '@cucumber/cucumber';
 import assert from 'assert';
-import { formatWorkflowComment } from '../../../adws/github/workflowCommentsIssue.ts';
+import { formatWorkflowComment } from '../../../adws/forge/workflowCommentsIssue.ts';
 
 let phaseTimeoutCommentBody: string | null = null;
 
