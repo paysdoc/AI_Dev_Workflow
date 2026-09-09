@@ -744,7 +744,12 @@ Given('an auto-merge phase configuration for issue {int} whose pull request is {
     },
     branchName,
     repoContext: undefined,
-    gitContext: undefined,
+    // #821 (dcdd8622) made executeAutoMergePhase skip with no provider call at all when
+    // gitContext is falsy — every scenario built from this fixture stops at the hitl-label
+    // gate (no scenario here has an approved PR), so a non-functional stub is sufficient;
+    // scenarios that need to watch it override this via "the configuration's git context
+    // is watched for forge-semantic calls" below.
+    gitContext: makeStubGitContext(),
   } as unknown as WorkflowConfig;
 });
 

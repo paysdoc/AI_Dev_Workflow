@@ -803,7 +803,7 @@ Then('no orchestrator is spawned during the tick', function () {
     'utf-8',
   );
   assert.ok(
-    content.includes('if (await handleAuthGateTick()) return;'),
+    content.includes('if (await handleAuthGateTick(boundary)) return;'),
     'Expected early return on gate set in checkAndTrigger',
   );
 });
@@ -873,10 +873,10 @@ Then('scanAuthQueue does not run during the tick', function () {
     'utf-8',
   );
   assert.ok(
-    content.includes('if (await handleAuthGateTick()) return;'),
+    content.includes('if (await handleAuthGateTick(boundary)) return;'),
     'Expected early return guard before scanAuthQueue in checkAndTrigger',
   );
-  const earlyReturnIdx = content.indexOf('if (await handleAuthGateTick()) return;');
+  const earlyReturnIdx = content.indexOf('if (await handleAuthGateTick(boundary)) return;');
   const scanAuthIdx = content.indexOf('await scanAuthQueue(', earlyReturnIdx);
   assert.ok(
     scanAuthIdx > earlyReturnIdx,
