@@ -58,21 +58,24 @@ describe('isInExtractionScope', () => {
     ['adws/gitContext', true],
     ['adws/gitContext/worktreeCreateOps.ts', true],
     ['adws/providers/types.ts', true],
-    ['adws/providers/github/githubCodeHost.ts', false],
+    ['adws/providers/github/githubCodeHost.ts', true],
     ['adws/providers/repoContext.ts', false],
     ['adws/providers/typesX.ts', false],
     ['adws/github/issueApi.ts', false],
     ['adws/providers/github/mappers.ts', true],
     ['adws/providers/github/domain/issue.ts', true],
     ['adws/providers/github/domain/pullRequest.ts', true],
-    ['adws/providers/github/domainX.ts', false],
-    ['adws/providers/github/mappersX.ts', false],
+    ['adws/providers/github/domainX.ts', true],
+    ['adws/providers/github/mappersX.ts', true],
     ['adws/providers/gitlab/gitlabCodeHost.ts', true],
     ['adws/providers/jira/jiraIssueTracker.ts', true],
     ['adws/providers/jira/adfConverter.ts', true],
     ['adws/providers/gitlabX/y.ts', false],
     ['adws/providers/jiraX/y.ts', false],
-    ['adws/providers/workspaceValidation.ts', false],
+    ['adws/providers/workspaceValidation.ts', true],
+    ['adws/providers/index.ts', true],
+    ['adws/providers/github/ghIssueParsers.ts', true],
+    ['adws/providers/zzNew.ts', false],
   ])('isInExtractionScope(%s) -> %s', (relPath, expected) => {
     expect(isInExtractionScope(relPath)).toBe(expected);
   });
@@ -161,15 +164,36 @@ describe('flagFrameworkImports', () => {
   });
 
   it('passes an out-of-scope providers file with a framework import — the scope guard clause fires first', () => {
-    const source = "import { log } from '../../core';\n";
+    const source = "import { log } from '../core/logger';\n";
     const sourceFile = ts.createSourceFile(
-      'adws/providers/github/githubCodeHost.ts',
+      'adws/providers/repoContext.ts',
       source,
       ts.ScriptTarget.Latest,
       false,
     );
 
-    expect(flagFrameworkImports(sourceFile, 'adws/providers/github/githubCodeHost.ts')).toHaveLength(0);
+    expect(flagFrameworkImports(sourceFile, 'adws/providers/repoContext.ts')).toHaveLength(0);
+  });
+
+  it('flags an in-scope GitHub port file importing ../../github/issueApi (in scope since #819)', () => {
+    const source = "import { fetchGitHubIssue } from '../../github/issueApi';\n";
+    const sourceFile = ts.createSourceFile('adws/providers/github/githubIssueTracker.ts', source, ts.ScriptTarget.Latest, false);
+
+    const violations = flagFrameworkImports(sourceFile, 'adws/providers/github/githubIssueTracker.ts');
+
+    expect(violations).toHaveLength(1);
+    expect(violations[0].command).toContain('adws/github/issueApi');
+  });
+
+  it('passes a clean GitHub port file importing the executor, its own sibling modules, and the ports (in scope since #819)', () => {
+    const source =
+      "import type { GitContext } from '../../gitContext';\n" +
+      "import { createGhRepoApi } from './ghRepoApi';\n" +
+      "import { parseGitHubIssue } from './ghIssueParsers';\n" +
+      "import type { RepoIdentifier } from '../types';\n";
+    const sourceFile = ts.createSourceFile('adws/providers/github/githubIssueTracker.ts', source, ts.ScriptTarget.Latest, false);
+
+    expect(flagFrameworkImports(sourceFile, 'adws/providers/github/githubIssueTracker.ts')).toHaveLength(0);
   });
 
   it('flags an in-scope GitLab file importing a framework value (in scope since #818)', () => {
@@ -223,6 +247,13 @@ describe('scope-list invariants', () => {
     expect(byPath.get('adws/providers/jira')).toBe('#818');
   });
 
+  it('the #819 entries are present — asserted as a superset, so further widening never breaks this test', () => {
+    const byPath = new Map(EXTRACTION_SCOPE.map((e) => [e.path, e.since]));
+    expect(byPath.get('adws/providers/github')).toBe('#819');
+    expect(byPath.get('adws/providers/workspaceValidation.ts')).toBe('#819');
+    expect(byPath.get('adws/providers/index.ts')).toBe('#819');
+  });
+
   it('EXTRACTABLE_SET is exactly the two directories', () => {
     expect(EXTRACTABLE_SET).toEqual(['adws/gitContext', 'adws/providers']);
   });
@@ -242,6 +273,14 @@ describe('real-tree: the initial scope is clean today', () => {
     expect(scopeFiles).toContain('adws/providers/gitlab/gitlabApiClient.ts');
     expect(scopeFiles).toContain('adws/providers/jira/jiraIssueTracker.ts');
     expect(scopeFiles).toContain('adws/providers/jira/jiraApiClient.ts');
+    expect(scopeFiles).toContain('adws/providers/github/githubIssueTracker.ts');
+    expect(scopeFiles).toContain('adws/providers/github/githubCodeHost.ts');
+    expect(scopeFiles).toContain('adws/providers/github/githubBoardManager.ts');
+    expect(scopeFiles).toContain('adws/providers/github/ghIssueParsers.ts');
+    expect(scopeFiles).toContain('adws/providers/github/ghPrParsers.ts');
+    expect(scopeFiles).toContain('adws/providers/github/contextBinding.ts');
+    expect(scopeFiles).toContain('adws/providers/workspaceValidation.ts');
+    expect(scopeFiles).toContain('adws/providers/index.ts');
     for (const relPath of scopeFiles) {
       expect(relPath).not.toContain('/__tests__/');
       expect(relPath.endsWith('.test.ts')).toBe(false);

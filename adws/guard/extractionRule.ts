@@ -47,7 +47,10 @@ export type ExtractionScopeEntry = { readonly path: string; readonly reason: str
  * GitHub payload shapes and the pure GitHub→port mapping layer, both typed
  * only against the adapter domain and the ports. #818 appended the GitLab
  * and Jira adapter packages, whole directories, once both stopped reading
- * process.env and importing adws/core.
+ * process.env and importing adws/core. #819 appended the whole GitHub
+ * adapter package plus the two clean sibling files beside it — everything
+ * under adws/providers/** except repoContext.ts, which stays framework
+ * wiring until #823.
  */
 export const EXTRACTION_SCOPE: readonly ExtractionScopeEntry[] = [
   { path: 'adws/gitContext', reason: 'git core — dependency-free since Phase A (#790–#797)', since: '#816' },
@@ -56,6 +59,9 @@ export const EXTRACTION_SCOPE: readonly ExtractionScopeEntry[] = [
   { path: 'adws/providers/github/mappers.ts', reason: 'GitHub→port mappers — typed only against the adapter domain and the ports (#817)', since: '#817' },
   { path: 'adws/providers/gitlab', reason: 'GitLab adapter — injected config + Logger port, no environment reads (#818)', since: '#818' },
   { path: 'adws/providers/jira', reason: 'Jira adapter — injected config + Logger port, no environment reads (#818)', since: '#818' },
+  { path: 'adws/providers/github', reason: 'GitHub forge adapter — executor, ports and adapter-owned domain only; no legacy adws/github delegation, no adws/core logger, no context construction (#819)', since: '#819' },
+  { path: 'adws/providers/workspaceValidation.ts', reason: 'fs-only workspace validators split out of repoContext.ts (#818) — swept into scope (#819)', since: '#819' },
+  { path: 'adws/providers/index.ts', reason: 'provider package barrel — re-exports resolve inside the extractable set (#819)', since: '#819' },
 ] as const;
 
 /** True when `relPath` is one of EXTRACTABLE_SET's directories, or a path beneath one. */
@@ -177,10 +183,10 @@ function describeEscapingImport(specifier: string, target: string): string {
 /**
  * Flags every import in `sourceFile` that resolves outside EXTRACTABLE_SET.
  * Guard clause first: a file outside EXTRACTION_SCOPE is never inspected, so
- * the framework entanglements in the not-yet-widened providers files —
- * repoContext.ts (framework wiring until #823), the GitHub adapter modules
- * outside domain/ and mappers.ts (#819), and workspaceValidation.ts (clean,
- * pending #819) — produce zero violations today, by design.
+ * the only not-yet-widened providers file, `repoContext.ts` (framework
+ * wiring until #823 replaces it and the whole directory becomes one entry),
+ * produces zero violations today, by design. A new top-level
+ * `adws/providers/*.ts` file is likewise unchecked until then.
  */
 export function flagFrameworkImports(sourceFile: ts.SourceFile, relPath: string): Violation[] {
   if (!isInExtractionScope(relPath)) return [];

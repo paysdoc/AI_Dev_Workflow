@@ -255,13 +255,10 @@ Feature: The provider package owns its own domain model — the raw GitHub shape
     When the guard runner executes over the guard fixture tree
     Then the guard run over the guard fixture tree passes
 
-  # TRAP 4, in both directions. These three files sit in the same directory as `mappers.ts` and each
-  # reaches the framework at a line that exists right now — `githubIssueTracker.ts` into
-  # `../../github/issueApi`, `githubCodeHost.ts` into `../../core`, `githubBoardManager.ts` into
-  # `../../github/projectBoardApi`. They belong to later de-tangling slices. If #817 widens the scope
-  # to the package rather than to the two paths AC4 names, all three become build failures the moment
-  # this merges, and AC5 ("both guards green") is unsatisfiable without doing the rest of the wave in
-  # the same PR — the big-bang the PRD exists to avoid.
+  # TRAP 4, in both directions. #819 cleaned and widened the scope by the whole `adws/providers/github`
+  # directory, so `githubIssueTracker.ts`/`githubCodeHost.ts`/`githubBoardManager.ts` are no longer
+  # the still-entangled neighbours this scenario pins — the last remaining out-of-scope file beside
+  # the adapter package is `repoContext.ts`, which stays framework wiring until #823.
 
   @adw-817 @adw-6lqigx-consolidate-the-doma
   Scenario Outline: A still-entangled neighbour in the adapter package is not yet checked
@@ -277,10 +274,9 @@ Feature: The provider package owns its own domain model — the raw GitHub shape
     Then the guard run over the guard fixture tree passes
 
     Examples:
-      | path                                        | specifier                    |
-      | adws/providers/github/githubIssueTracker.ts | ../../github/issueApi        |
-      | adws/providers/github/githubCodeHost.ts     | ../../core                   |
-      | adws/providers/github/githubBoardManager.ts | ../../github/projectBoardApi |
+      | path                          | specifier                   |
+      | adws/providers/repoContext.ts | ../github/gitContextFactory |
+      | adws/providers/repoContext.ts | ../core/projectConfig       |
 
   # #818 cleaned `providers/gitlab` and `providers/jira` and widened the scope by both; only
   # `providers/repoContext.ts` still carries a framework import that #823 removes when it replaces

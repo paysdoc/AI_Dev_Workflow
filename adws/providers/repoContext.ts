@@ -9,9 +9,10 @@
  * file and moves that wiring to `adws/core/`.
  */
 
-import { existsSync, readFileSync } from 'fs';
-import { join } from 'path';
 import { gitContextForRepo } from '../github/gitContextFactory';
+import type { GitContext } from '../gitContext';
+import { notifyReviewTransition, type NotifierDeps } from '../github/hitlBoardNotifier';
+import { ADW_LABEL_DEFINITIONS, REGRESSION_PROMOTION_LABEL_DEFINITION } from '../github/labelManager';
 
 import {
   type BoardManager,
@@ -20,12 +21,14 @@ import {
   type IssueTracker,
   type RepoContext,
   type RepoIdentifier,
+  BoardStatus,
   Platform,
   validateRepoIdentifier,
 } from './types';
-import { createGitHubIssueTracker } from './github/githubIssueTracker';
+import { createGitHubIssueTracker, type GitHubIssueTrackerDeps, type GitHubLabelDefinition } from './github/githubIssueTracker';
 import { createGitHubCodeHost } from './github/githubCodeHost';
 import { createGitHubBoardManager } from './github/githubBoardManager';
+import { createGhRepoApi } from './github/ghRepoApi';
 import { createGitLabCodeHost } from './gitlab/gitlabCodeHost';
 import type { GitLabConfig } from './gitlab/gitlabApiClient';
 import type { JiraAuth } from './jira/jiraApiClient';
@@ -33,8 +36,11 @@ import type { ProvidersConfig } from '../core/projectConfig';
 import { GITLAB_TOKEN, GITLAB_INSTANCE_URL, JIRA_EMAIL, JIRA_API_TOKEN, JIRA_PAT } from '../core/environment';
 import { log } from '../core/logger';
 import { validateWorkingDirectory, parseOwnerRepoFromUrl } from './workspaceValidation';
+import { loadProviderConfig, parsePlatform } from '../core/providerConfig';
 
 export { validateWorkingDirectory, parseOwnerRepoFromUrl } from './workspaceValidation';
+export { loadProviderConfig } from '../core/providerConfig';
+export type { ProviderConfig } from '../core/providerConfig';
 
 /** Options for creating a RepoContext. */
 export interface RepoContextOptions {
@@ -50,85 +56,10 @@ export interface RepoContextOptions {
 /** Options for {@link mintBoundProviders}. */
 export interface MintProvidersOptions {
   repoId: RepoIdentifier;
+  /** The boundary's context — every GitHub provider runs its `gh` commands over this, never one it constructs itself. */
+  gitContext: GitContext;
   codeHostPlatform: Platform;
   issueTrackerPlatform: Platform;
-}
-
-/** Provider platform configuration read from `.adw/providers.md`. */
-export interface ProviderConfig {
-  codeHost: Platform;
-  codeHostUrl?: string;
-  issueTracker: Platform;
-  issueTrackerUrl?: string;
-  issueTrackerProjectKey?: string;
-}
-
-const PLATFORM_VALUES = new Map<string, Platform>(
-  Object.values(Platform).map((v) => [v.toLowerCase(), v]),
-);
-
-/**
- * Parses a platform string to its Platform enum value.
- * Case-insensitive. Throws on unknown values.
- */
-function parsePlatform(value: string, section: string): Platform {
-  const trimmed = value.trim().toLowerCase();
-  const platform = PLATFORM_VALUES.get(trimmed);
-  if (!platform) {
-    throw new Error(
-      `Unknown platform "${value.trim()}" in ${section} section of .adw/providers.md`,
-    );
-  }
-  return platform;
-}
-
-/**
- * Loads provider configuration from `.adw/providers.md` in the working directory.
- * Returns GitHub defaults when the file is absent or sections are missing.
- */
-export function loadProviderConfig(cwd: string): ProviderConfig {
-  const configPath = join(cwd, '.adw', 'providers.md');
-  const defaults: ProviderConfig = {
-    codeHost: Platform.GitHub,
-    issueTracker: Platform.GitHub,
-  };
-
-  if (!existsSync(configPath)) {
-    return defaults;
-  }
-
-  const content = readFileSync(configPath, 'utf-8');
-  const config = { ...defaults };
-
-  const codeHostMatch = content.match(/^## Code Host\s*\n+(.+)/m);
-  if (codeHostMatch) {
-    config.codeHost = parsePlatform(codeHostMatch[1], '## Code Host');
-  }
-
-  const issueTrackerMatch = content.match(/^## Issue Tracker\s*\n+(.+)/m);
-  if (issueTrackerMatch) {
-    config.issueTracker = parsePlatform(
-      issueTrackerMatch[1],
-      '## Issue Tracker',
-    );
-  }
-
-  const codeHostUrlMatch = content.match(/^## Code Host URL\s*\n+(.+)/m);
-  if (codeHostUrlMatch) {
-    config.codeHostUrl = codeHostUrlMatch[1].trim();
-  }
-
-  const issueTrackerUrlMatch = content.match(/^## Issue Tracker URL\s*\n+(.+)/m);
-  if (issueTrackerUrlMatch) {
-    config.issueTrackerUrl = issueTrackerUrlMatch[1].trim();
-  }
-
-  const projectKeyMatch = content.match(/^## Issue Tracker Project Key\s*\n+(.+)/m);
-  if (projectKeyMatch) {
-    config.issueTrackerProjectKey = projectKeyMatch[1].trim();
-  }
-
-  return config;
 }
 
 /**
@@ -165,15 +96,74 @@ export function validateGitRemote(cwd: string, repoId: RepoIdentifier): void {
   }
 }
 
+/** Injected reader/lister for the HITL Slack notifier, over the SAME context the tracker runs its `gh` commands on — ADW's wiring, not the adapter's; the notifier module stays untouched. */
+function buildNotifierDeps(ctx: GitContext, repoId: RepoIdentifier): NotifierDeps {
+  const gh = createGhRepoApi(ctx);
+  return {
+    readIssue: (issueNumber) => {
+      try {
+        const raw = JSON.parse(gh.fetchIssue(issueNumber)) as { title: string; labels: { name: string }[] };
+        return { title: raw.title, labels: raw.labels };
+      } catch {
+        return null;
+      }
+    },
+    listOpenPRs: () => {
+      try {
+        const allPrs = JSON.parse(gh.fetchAllPRs()) as Array<{ number: number; body: string; state: string }>;
+        return allPrs
+          .filter((p) => p.state === 'OPEN')
+          .map((p) => ({
+            number: p.number,
+            url: `https://github.com/${repoId.owner}/${repoId.repo}/pull/${p.number}`,
+            body: p.body,
+            state: p.state,
+            headRefName: '',
+            baseRefName: '',
+            updatedAt: '',
+          }));
+      } catch {
+        return null;
+      }
+    },
+  };
+}
+
+/** The exact fallback `labelManager`'s private `resolveLabelDefinition` applies; reproduced here since that helper is unexported and the legacy file is not edited by this slice. */
+export function resolveAdwLabelDefinition(label: string): GitHubLabelDefinition {
+  return [...ADW_LABEL_DEFINITIONS, REGRESSION_PROMOTION_LABEL_DEFINITION].find((d) => d.name === label)
+    ?? { name: label, color: 'ededed', description: 'ADW label' };
+}
+
+/**
+ * ADW wiring (#819): the HITL Slack ping on a move to Review, and the `adw:*`
+ * lazy-create catalogue, re-homed as injected seams so the adapter itself
+ * never learns about Slack or about ADW's label colours. Relocates to
+ * `adws/core/` with #823.
+ */
+export function adwGitHubIssueTrackerDeps(repoId: RepoIdentifier, ctx: GitContext): GitHubIssueTrackerDeps {
+  const notifierDeps = buildNotifierDeps(ctx, repoId);
+  return {
+    logger: log,
+    onStatusMoved: async (issueNumber, status) => {
+      if (status === BoardStatus.Review) {
+        await notifyReviewTransition({ issueNumber, repoInfo: repoId }, notifierDeps);
+      }
+    },
+    resolveLabelDefinition: resolveAdwLabelDefinition,
+  };
+}
+
 /**
  * Resolves an IssueTracker implementation for the given platform.
  */
 export function resolveIssueTracker(
   platform: Platform,
   repoId: RepoIdentifier,
+  ctx: GitContext,
 ): IssueTracker {
   if (platform === Platform.GitHub) {
-    return createGitHubIssueTracker(repoId);
+    return createGitHubIssueTracker(ctx, repoId, adwGitHubIssueTrackerDeps(repoId, ctx));
   }
   throw new Error(`Unsupported issue tracker platform: ${platform}`);
 }
@@ -199,14 +189,16 @@ export function jiraAuthFromEnv(env: ForgeEnv = ADW_FORGE_ENV): JiraAuth {
 }
 
 /**
- * Resolves a CodeHost implementation for the given platform.
+ * Resolves a CodeHost implementation for the given platform. GitLab's
+ * branch does not need `ctx` — its client carries its own injected config.
  */
 export function resolveCodeHost(
   platform: Platform,
   repoId: RepoIdentifier,
+  ctx: GitContext,
 ): CodeHost {
   if (platform === Platform.GitHub) {
-    return createGitHubCodeHost(repoId);
+    return createGitHubCodeHost(ctx, repoId, { logger: log });
   }
   if (platform === Platform.GitLab) {
     return createGitLabCodeHost(repoId, gitLabConfigFromEnv(), { logger: log });
@@ -221,9 +213,10 @@ export function resolveCodeHost(
 export function resolveBoardManager(
   platform: Platform,
   repoId: RepoIdentifier,
+  ctx: GitContext,
 ): BoardManager {
   if (platform === Platform.GitHub) {
-    return createGitHubBoardManager(repoId);
+    return createGitHubBoardManager(ctx, repoId, { logger: log });
   }
   throw new Error(`Unsupported board manager platform: ${platform}`);
 }
@@ -259,16 +252,16 @@ function resolvePlatformSelection(
  * implementation is refused BY NAME, never substituted with GitHub.
  */
 export function mintBoundProviders(options: MintProvidersOptions): BoundProviders {
-  const { repoId, codeHostPlatform, issueTrackerPlatform } = options;
+  const { repoId, gitContext, codeHostPlatform, issueTrackerPlatform } = options;
 
   validateRepoIdentifier(repoId);
 
-  const issueTracker = resolveIssueTracker(issueTrackerPlatform, repoId);
-  const codeHost = resolveCodeHost(codeHostPlatform, repoId);
+  const issueTracker = resolveIssueTracker(issueTrackerPlatform, repoId, gitContext);
+  const codeHost = resolveCodeHost(codeHostPlatform, repoId, gitContext);
 
   let boardManager: BoardManager | undefined;
   try {
-    boardManager = resolveBoardManager(codeHostPlatform, repoId);
+    boardManager = resolveBoardManager(codeHostPlatform, repoId, gitContext);
   } catch {
     // BoardManager is optional — platforms without support simply omit it
   }
@@ -289,7 +282,7 @@ export function createRepoContext(options: RepoContextOptions): RepoContext {
   validateGitRemote(cwd, repoId);
 
   const providers = options.providers
-    ?? mintBoundProviders({ repoId, ...resolvePlatformSelection(options, cwd) });
+    ?? mintBoundProviders({ repoId, gitContext: gitContextForRepo(repoId), ...resolvePlatformSelection(options, cwd) });
 
   return Object.freeze({ ...providers, cwd, repoId });
 }

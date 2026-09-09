@@ -61,10 +61,25 @@ describe('mintBoundProviders — the first positive GitLab mint (#818)', () => {
   it('mints a working GitLab code host from the (mocked) environment, with boardManager undefined', async () => {
     const { mintBoundProviders } = await import('../repoContext');
     const { Platform } = await import('../types');
+    const { GitContext } = await import('../../gitContext');
+    const { createLiteralTokenProvider } = await import('../github/githubTokenProvider');
     const repoId = { owner: 'acme', repo: 'widget', platform: Platform.GitLab };
+
+    // The GitHub issue tracker still needs a context bound to the same owner/repo,
+    // even though this mint's code host is GitLab.
+    const gitContext = new GitContext({
+      owner: 'acme',
+      repo: 'widget',
+      selfHost: false,
+      tokenProvider: createLiteralTokenProvider('gh-token-abc'),
+      gitIdentity: { authorName: 'ADW Bot', authorEmail: 'bot@adw.dev', committerName: 'ADW Bot', committerEmail: 'bot@adw.dev' },
+      frameworkRepoRoot: '/srv/adw/framework',
+      targetReposDir: '/srv/adw/repos',
+    });
 
     const providers = mintBoundProviders({
       repoId,
+      gitContext,
       codeHostPlatform: Platform.GitLab,
       issueTrackerPlatform: Platform.GitHub,
     });
