@@ -256,6 +256,10 @@
     - When `RepoInfo` or `toRepoInfo` is referenced and not found — collapsed into `RepoIdentifier` (#817); parsers stamp `platform: Platform.GitHub`
     - When `createGitLabCodeHost`/`createJiraIssueTracker` need credentials, an endpoint or a logger — injected `GitLabConfig`/`JiraConfig` plus the `Logger` port; the env→config wiring (`gitLabConfigFromEnv`/`jiraAuthFromEnv`) lives in `repoContext.ts` (#818)
     - When `bun run lint:git-guard` flags `[extraction-readiness]` under `adws/providers/gitlab/` or `adws/providers/jira/` — both adapter packages are in scope since #818
+    - When `createGitHubIssueTracker`/`createGitHubCodeHost`/`createGitHubBoardManager` need a `GitContext` first argument or a deps bag (#819) — the adapter constructs no context and reads no environment
+    - When `IssueTracker.moveToStatus` must trigger the HITL Slack notification — wired through `onStatusMoved` in `repoContext.ts`'s `adwGitHubIssueTrackerDeps`, not inside the adapter
+    - When a lazily-created label has the wrong colour — `resolveLabelDefinition`, wired to `repoContext.ts`'s `resolveAdwLabelDefinition`
+    - When `bun run lint:git-guard` flags `[extraction-readiness]` under `adws/providers/github/` — the whole adapter is in scope since #819
 
 - app_docs/feature-9gjajh-cost-tracking.md
   - Owns:
@@ -411,14 +415,19 @@
     - adws/phases/branchIdentityFallback.ts
     - adws/phases/__tests__/branchIdentityFallback.test.ts
     - adws/core/orchestratorNames.ts
+    - adws/core/providerConfig.ts
+    - adws/core/__tests__/providerConfig.test.ts
   - Conditions:
     - When working on GitContext base-path resolution, per-command credential injection, worktree management, or the git-only bootstrap primitives in `adws/gitContext/`
-    - When working on the launch-boundary constructor (`buildLaunchBoundary`, `adws/core/launchGitContext.ts`) that mints one GitContext and one bound provider triple per process
+    - When working on the launch-boundary constructor (`buildLaunchBoundary`, `adws/core/launchGitContext.ts`) that mints one GitContext and one bound provider triple per process, threaded into the mint via `MintProvidersOptions.gitContext` (#819)
     - When working on resume-time repo-identity persistence or cross-check (`adws/core/repoIdentityCrossCheck.ts`)
     - When working on the git/gh CLI guard (`adws/checkGitGhGuard.ts`, `adws/guard/`) — its four rules (shellout, cwd-derived-identity, unsanctioned-construction, extraction-readiness) or its sanctioned-construction-sites allowlist
     - When troubleshooting a wrong-repo worktree, `GH_TOKEN` bleed, or a construction site newly flagged by `lint:git-guard`
     - When `bun run lint:git-guard` fails with `[extraction-readiness]` (`adws/guard/extractionRule.ts`, #816) — an in-scope extractable file imports outside `adws/gitContext`/`adws/providers`; inject through a port or move the shape into the set, never narrow `EXTRACTION_SCOPE`
     - When a de-tangling slice of the gitContext extraction PRD lands and `EXTRACTION_SCOPE` must be widened by the package it cleaned (widen only, never narrow)
+    - When `bun run lint:git-guard` flags `[extraction-readiness]` under `adws/providers/github/` — the whole adapter is in scope since #819
+    - When `createLaunchTokenProvider`'s alternate-identity PAT is relevant — since #819 it serves `GITHUB_PAT` to `'alternateIdentity'` requests, parity with `gitContextForRepo`
+    - When working on the `.adw/providers.md` reader (`loadProviderConfig`/`parsePlatform`, `adws/core/providerConfig.ts`, moved out of `repoContext.ts` in #819)
 
 - app_docs/feature-9gjajh-claude-agents-core.md
   - Owns:

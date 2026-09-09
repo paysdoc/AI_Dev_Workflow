@@ -474,12 +474,19 @@ describe('scanExtractionScope — extraction-readiness rule (#816)', () => {
     expect(violations).toHaveLength(0);
   });
 
-  // This test flips to a failure the moment adws/providers/github is appended to
-  // EXTRACTION_SCOPE — by design (#816's de-tangling backlog).
-  it('passes today: an out-of-scope providers file with a framework import', () => {
+  it('fails: adws/providers/github/githubCodeHost.ts importing ../../github/prApi (in scope since #819)', () => {
     mockReadFileSync.mockReturnValue("import { getRepoInfo } from '../../github/prApi';\n");
 
     const { violations } = scanExtractionScope(['adws/providers/github/githubCodeHost.ts'], '/repo');
+
+    expect(violations).toHaveLength(1);
+    expect(violations[0].rule).toBe('extraction-readiness');
+  });
+
+  it('passes: adws/providers/repoContext.ts (the transitional wiring file) is still out of scope', () => {
+    mockReadFileSync.mockReturnValue("import { getRepoInfo } from '../github/githubApi';\n");
+
+    const { violations } = scanExtractionScope(['adws/providers/repoContext.ts'], '/repo');
 
     expect(violations).toHaveLength(0);
   });

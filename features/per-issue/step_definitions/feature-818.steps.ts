@@ -59,11 +59,16 @@ function buildGitLabDriverSource(repoRoot: string): string {
   const codeHostPath = JSON.stringify(path.join(repoRoot, 'adws/providers/gitlab/gitlabCodeHost'));
   const repoContextPath = JSON.stringify(path.join(repoRoot, 'adws/providers/repoContext'));
   const typesPath = JSON.stringify(path.join(repoRoot, 'adws/providers/types'));
+  const gitContextPath = JSON.stringify(path.join(repoRoot, 'adws/gitContext'));
+  const tokenProviderPath = JSON.stringify(path.join(repoRoot, 'adws/providers/github/githubTokenProvider'));
   return `
 import * as fs from 'fs';
+import * as os from 'os';
 import { createGitLabCodeHost } from ${codeHostPath};
 import { resolveCodeHost } from ${repoContextPath};
 import { Platform } from ${typesPath};
+import { GitContext } from ${gitContextPath};
+import { createLiteralTokenProvider } from ${tokenProviderPath};
 
 const specPath = process.argv[2];
 const outPath = process.argv[3];
@@ -89,7 +94,18 @@ try {
   const repoId = { owner: spec.owner, repo: spec.repo, platform: Platform.GitLab };
   let codeHost;
   if (spec.mode === 'wiring') {
-    codeHost = resolveCodeHost(Platform.GitLab, repoId);
+    // The GitHub port factories now take the caller's GitContext (#819); resolveCodeHost's
+    // signature grew a third parameter accordingly, even though the GitLab branch ignores it.
+    const gitContext = new GitContext({
+      owner: spec.owner,
+      repo: spec.repo,
+      selfHost: false,
+      tokenProvider: createLiteralTokenProvider('unused'),
+      gitIdentity: { authorName: 'ADW Test', authorEmail: 'adw-test@example.invalid', committerName: 'ADW Test', committerEmail: 'adw-test@example.invalid' },
+      frameworkRepoRoot: process.cwd(),
+      targetReposDir: os.tmpdir(),
+    });
+    codeHost = resolveCodeHost(Platform.GitLab, repoId, gitContext);
   } else {
     const config = { token: spec.hasToken ? spec.token : '', instanceUrl: spec.instanceUrl };
     const deps = spec.useCapturingLogger ? { logger: capturingLogger } : {};

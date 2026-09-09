@@ -30,7 +30,8 @@ import { resolveContextToken } from '../providers/github/tokenResolver';
 import { createGitHubTokenProvider } from '../providers/github/githubTokenProvider';
 // Deep imports only — never the `../providers` barrel, which re-exports the
 // GitHub adapter and closes an import cycle back through `../../core` (#792).
-import { mintBoundProviders, loadProviderConfig, createRepoContext, type MintProvidersOptions, type ProviderConfig } from '../providers/repoContext';
+import { mintBoundProviders, createRepoContext, type MintProvidersOptions } from '../providers/repoContext';
+import { loadProviderConfig, type ProviderConfig } from './providerConfig';
 import type { BoundProviders, RepoContext, RepoIdentifier } from '../providers/types';
 import { Platform } from '../providers/types';
 import { REPO_ROOT, TARGET_REPOS_DIR, GITHUB_PAT } from './environment';
@@ -96,14 +97,17 @@ export function resolveLaunchGitIdentity(): GitIdentity {
 
 /**
  * The production TokenProvider for the launch boundary — the GitHub
- * implementation of the port, resolved afresh on every command. Carries no
- * `alternateIdentityPat`: `buildLaunchGitContext` has never set a PAT on
- * `GitContextOptions.pat`, so adding one here would be a behaviour change,
- * not a refactor.
+ * implementation of the port, resolved afresh on every command. Since #819
+ * the providers minted at this boundary run the adapter's `'alternateIdentity'`
+ * operations (PR approval — GitHub forbids bot self-approval — and every
+ * Projects V2 write) over this context, so it serves `GITHUB_PAT` to those
+ * requests exactly as `gitContextForRepo`'s provider did; `'default'`
+ * requests are unchanged.
  */
 export function createLaunchTokenProvider(): TokenProvider {
   return createGitHubTokenProvider({
     pat: GITHUB_PAT,
+    alternateIdentityPat: GITHUB_PAT,
     isAppConfigured: isGitHubAppConfigured,
     mintInstallationToken: getInstallationToken,
     ghAuthToken,
@@ -209,7 +213,7 @@ export function buildLaunchBoundary(
 
   return freezeBoundary(gitContext, repoId, () => {
     const config = loadConfig(gitContext.basePath);
-    return mint({ repoId, codeHostPlatform: config.codeHost, issueTrackerPlatform: config.issueTracker });
+    return mint({ repoId, gitContext, codeHostPlatform: config.codeHost, issueTrackerPlatform: config.issueTracker });
   });
 }
 

@@ -14,7 +14,17 @@ vi.mock('../../providers/repoContext', async (importOriginal) => ({
   createRepoContext: vi.fn(),
 }));
 
-import { buildLaunchGitContext, buildLaunchBoundary, bindWorkspaceContext } from '../launchGitContext';
+vi.mock('../environment', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../environment')>()),
+  GITHUB_PAT: 'pat-xyz',
+}));
+
+vi.mock('../../github/githubAppAuth', () => ({
+  isGitHubAppConfigured: () => true,
+  getInstallationToken: () => 'app-token',
+}));
+
+import { buildLaunchGitContext, buildLaunchBoundary, bindWorkspaceContext, createLaunchTokenProvider } from '../launchGitContext';
 import type { LaunchGitContextDeps } from '../launchGitContext';
 import type { TargetRepoInfo } from '../../types/issueTypes';
 import type { TokenProvider, CredentialRequest } from '../../gitContext';
@@ -269,6 +279,22 @@ describe('TokenProvider port at the launch boundary', () => {
   });
 });
 
+// ── §7b: createLaunchTokenProvider — alternate-identity PAT parity (#819) ────
+
+describe('createLaunchTokenProvider: alternate-identity PAT parity with gitContextForRepo', () => {
+  it('serves GITHUB_PAT to alternateIdentity requests', () => {
+    const provider = createLaunchTokenProvider();
+    const env = provider.credentialEnv({ owner: 'acme', repo: 'webapp', purpose: 'alternateIdentity' });
+    expect(env.GH_TOKEN).toBe('pat-xyz');
+  });
+
+  it('serves the App installation token to default requests, unchanged', () => {
+    const provider = createLaunchTokenProvider();
+    const env = provider.credentialEnv({ owner: 'acme', repo: 'webapp', purpose: 'default' });
+    expect(env.GH_TOKEN).toBe('app-token');
+  });
+});
+
 // ── §8: buildLaunchBoundary — identity binding (AC1/AC4) ─────────────────────
 
 function makeFakeProviders(repoId: RepoIdentifier): BoundProviders {
@@ -343,6 +369,13 @@ describe('buildLaunchBoundary: all providers minted in one recorded call', () =>
     void boundary.providers.boardManager;
     expect(calls).toHaveLength(1);
     expect(calls[0].repoId).toEqual(boundary.repoId);
+  });
+
+  it('mintProviders receives the boundary\'s own GitContext — one construction per process, none inside the adapter', () => {
+    const { mintProviders, calls } = makeRecordingMintProviders();
+    const boundary = buildLaunchBoundary(makeTargetRepo('acme', 'webapp'), baseDeps({ mintProviders }));
+    void boundary.providers;
+    expect(calls[0].gitContext).toBe(boundary.gitContext);
   });
 });
 

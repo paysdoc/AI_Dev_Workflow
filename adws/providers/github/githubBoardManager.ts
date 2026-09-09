@@ -2,12 +2,16 @@
  * GitHub implementation of the BoardManager provider interface.
  * Ensures a GitHub Projects V2 board exists for the repository and
  * that all required ADW columns are present.
+ *
+ * Binds `createGhCommandRunner(ctx)` once at construction, over a
+ * `GitContext` the caller already holds, and logs through the injected
+ * `Logger` port instead of `adws/core`'s `log`.
  */
 
-import { log } from '../../core';
+import { consoleLogger, type GitContext, type Logger } from '../../gitContext';
 import type { BoardManager, BoardColumnDefinition, RepoIdentifier } from '../types';
 import { BOARD_COLUMNS, validateRepoIdentifier } from '../types';
-import { gitContextForRepo } from '../../github/gitContextFactory';
+import { assertContextBoundTo } from './contextBinding';
 import { createGhCommandRunner, type GhCommandRunner } from './ghCommandRunner';
 import { graphQLCmd, graphQLInputCmd } from './commands/boardCommands';
 
@@ -69,18 +73,23 @@ export function mergeStatusOptions(
   return { merged, changed, added };
 }
 
+export interface GitHubBoardManagerDeps {
+  readonly logger?: Logger;
+}
+
 /**
- * GitHub implementation of the BoardManager interface.
- * Bound to a specific repository at construction time.
+ * GitHub implementation of the BoardManager interface. Bound to a specific
+ * repository and `GitContext` at construction time.
  */
 class GitHubBoardManager implements BoardManager {
-  constructor(private readonly repoId: RepoIdentifier) {
-    validateRepoIdentifier(repoId);
-  }
+  private readonly gh: GhCommandRunner;
+  private readonly logger: Logger;
 
-  /** The adapter's sole route to a gh command — feeds command strings into the core executor (#792). */
-  private get gh(): GhCommandRunner {
-    return createGhCommandRunner(gitContextForRepo(this.repoId));
+  constructor(ctx: GitContext, private readonly repoId: RepoIdentifier, deps: GitHubBoardManagerDeps = {}) {
+    validateRepoIdentifier(repoId);
+    assertContextBoundTo(ctx, repoId, 'createGitHubBoardManager');
+    this.gh = createGhCommandRunner(ctx);
+    this.logger = deps.logger ?? consoleLogger;
   }
 
   /** Finds the first GitHub Projects V2 board linked to the repository. */
@@ -95,7 +104,7 @@ class GitHubBoardManager implements BoardManager {
       const nodes = parsed.data.repository.projectsV2.nodes;
       return nodes.length > 0 ? nodes[0].id : null;
     } catch (error) {
-      log(`Failed to find project for ${owner}/${repo}: ${error}`, 'warn');
+      this.logger(`Failed to find project for ${owner}/${repo}: ${error}`, 'warn');
       return null;
     }
   }
@@ -131,7 +140,7 @@ class GitHubBoardManager implements BoardManager {
     const linkMutation = `mutation($projectId:ID!,$repositoryId:ID!){linkProjectV2ToRepository(input:{projectId:$projectId,repositoryId:$repositoryId}){repository{id}}}`;
     this.gh.run(graphQLCmd(linkMutation, { projectId, repositoryId }), { purpose: 'alternateIdentity' });
 
-    log(`Created project board "${name}" (id: ${projectId})`, 'success');
+    this.logger(`Created project board "${name}" (id: ${projectId})`, 'success');
     return projectId;
   }
 
@@ -161,7 +170,7 @@ class GitHubBoardManager implements BoardManager {
   async ensureColumns(boardId: string): Promise<boolean> {
     const statusField = this.getStatusFieldOptions(boardId);
     if (!statusField) {
-      log('No Status field found on project board', 'warn');
+      this.logger('No Status field found on project board', 'warn');
       return false;
     }
 
@@ -170,7 +179,7 @@ class GitHubBoardManager implements BoardManager {
     if (!changed) return true;
 
     this.updateStatusFieldOptions(statusField.fieldId, merged);
-    added.forEach((name) => log(`Added board column "${name}"`, 'info'));
+    added.forEach((name) => this.logger(`Added board column "${name}"`, 'info'));
 
     return true;
   }
@@ -192,13 +201,13 @@ class GitHubBoardManager implements BoardManager {
       if (!field || !field.id) return null;
       return { fieldId: field.id, options: field.options };
     } catch (error) {
-      log(`Failed to get status field options: ${error}`, 'warn');
+      this.logger(`Failed to get status field options: ${error}`, 'warn');
       return null;
     }
   }
 }
 
-/** Factory function to create a GitHub BoardManager provider. */
-export function createGitHubBoardManager(repoId: RepoIdentifier): BoardManager {
-  return new GitHubBoardManager(repoId);
+/** Factory function to create a GitHub BoardManager provider, bound to the given `GitContext` and repository. */
+export function createGitHubBoardManager(ctx: GitContext, repoId: RepoIdentifier, deps: GitHubBoardManagerDeps = {}): BoardManager {
+  return new GitHubBoardManager(ctx, repoId, deps);
 }

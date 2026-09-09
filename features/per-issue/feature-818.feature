@@ -541,9 +541,11 @@ Feature: The GitLab and Jira adapters take their credentials, endpoints and logg
   # TRAP 5, too-wide edge, and the reason a one-line "widen to adws/providers" is the worst possible
   # answer. `repoContext.ts` is the file this very issue moves the environment reads INTO, and it
   # imports `../github/gitContextFactory` and `../core/projectConfig` at lines 10 and 26 by design.
-  # The three GitHub adapter modules belong to later de-tangling slices. Every row here must still
-  # pass on merge day, or AC4's "guard green" is unreachable without doing the rest of the wave in
-  # the same PR — the big-bang the PRD exists to avoid.
+  # #819 later cleaned and widened the scope by the whole `adws/providers/github` directory, so the
+  # three GitHub adapter modules this row used to pin are no longer out of scope; `repoContext.ts`
+  # remains the file outside the widened set. Every row here must still pass on merge day, or AC4's
+  # "guard green" is unreachable without doing the rest of the wave in the same PR — the big-bang the
+  # PRD exists to avoid.
 
   @adw-818 @adw-lzod6e-gitlab-and-jira-adap
   Scenario Outline: A file outside the two adapter directories is still not checked
@@ -557,12 +559,9 @@ Feature: The GitLab and Jira adapters take their credentials, endpoints and logg
     Then the guard run over the guard fixture tree passes
 
     Examples:
-      | path                                        | specifier                    |
-      | adws/providers/repoContext.ts               | ../github/gitContextFactory  |
-      | adws/providers/repoContext.ts               | ../core/projectConfig        |
-      | adws/providers/github/githubCodeHost.ts     | ../../core                   |
-      | adws/providers/github/githubIssueTracker.ts | ../../github/issueApi        |
-      | adws/providers/github/githubBoardManager.ts | ../../github/projectBoardApi |
+      | path                          | specifier                   |
+      | adws/providers/repoContext.ts | ../github/gitContextFactory |
+      | adws/providers/repoContext.ts | ../core/projectConfig       |
 
   # TRAP 6. AC2 puts the new unit tests inside the directories this section just put in scope, and
   # they will import `vitest` and — for the "no environment read remaining" assertions — very likely

@@ -4,6 +4,8 @@
 
 This module provides all GitHub API interactions used by ADW: `gh` CLI wrapping, GitHub App JWT authentication, issue and PR CRUD, workflow comment routing, and label lifecycle management. `GitContext` itself carries no forge semantics — every op in this layer resolves a `GitContext` (via `gitContextForRepo(repoInfo)`) purely for identity/auth, then hands it to `createGhRepoApi` (from `adws/providers/github/ghRepoApi.ts`) to obtain the actual forge operations. This module is the sole interface between ADW's orchestrators and the GitHub platform.
 
+**Since #819, nothing under `adws/providers/github/` imports this layer.** `issueApi.ts`, `prApi.ts`, `labelManager.ts`, `projectBoardApi.ts`, and `issueListApi.ts` are now framework-only wrappers for their ~60 remaining callers (workflow phases, triggers) — the GitHub adapter's three port classes absorbed a byte-for-byte copy of each function's parsing and error policy (`adws/providers/github/ghIssueParsers.ts`/`ghPrParsers.ts`) rather than importing these free functions. The duplication is deliberate and bounded: #820/#821 migrate the ~60 callers onto the ports and delete this layer's free functions (and their tests) once nothing calls them anymore.
+
 ## Responsibilities
 
 - `getRepoInfo`: parses `owner/repo` from the local git remote URL (HTTPS or SSH).
