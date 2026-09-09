@@ -359,13 +359,18 @@ Feature: The GitHub forge adapter reaches only the executor, the ports and its o
 
   # The lazy-create retry, and the colour that must survive it. `adw:blocked` is `b60205` in
   # `ADW_LABEL_DEFINITIONS`; a generic `ededed` fallback for every label is the tsc-green wrong answer
-  # TRAP 2 describes, and only the created label's colour makes it visible.
+  # TRAP 2 describes, and only the created label's colour makes it visible. AC1 forbids the adapter
+  # importing `adws/github/labelManager`, so the canonical colour cannot come from inside the package
+  # — it has to arrive as injected data from ADW's wiring. That is why this scenario drives the
+  # MINTED tracker rather than a bare factory: a bare adapter is entitled to its grey default, and
+  # asserting `b60205` against it would be asserting a rule AC1 makes unimplementable.
 
   @adw-819 @adw-3lvhoo-github-forge-adapter
   Scenario: An apply-label onto a repository missing the label creates it with its canonical colour and retries once
     Given a recording gh seam for the repository "acme/widget" serving the ordinary credential "credential-ordinary" and the elevated credential "credential-elevated"
+    And the GitHub providers are minted over the recording gh seam
     And the recording gh seam refuses the first command matching "gh issue edit 42 --repo acme/widget --add-label" with the message "label not found"
-    When the issue tracker operation "apply-label" is driven over the recording gh seam
+    When the minted issue tracker applies the label "adw:blocked" to issue 42
     Then the driven operation completed without throwing
     And the driven operation issued a command matching "gh label create"
     And the driven operation issued a command matching "b60205"
