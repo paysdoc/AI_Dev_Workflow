@@ -29,7 +29,7 @@ import {
 } from './spawnGate';
 import { isProcessLive } from '../core/processLiveness';
 import { AgentStateManager } from '../core/agentState';
-import { deriveStageFromRemote, buildDefaultReconcileDeps } from '../core/remoteReconcile';
+import { deriveStageFromRemote, buildDefaultReconcileDeps, type ReconcileDeps } from '../core/remoteReconcile';
 import { gitContextForSync } from '../github/gitContextFactory';
 import type { LaunchBoundary } from '../core';
 import { extractLatestAdwId } from './cronStageResolver';
@@ -72,7 +72,8 @@ export interface TakeoverDeps {
   readonly clearOrphanedIndexLock: (worktreePath: string) => void;
 }
 
-export function buildDefaultTakeoverDeps(boundary: LaunchBoundary): TakeoverDeps {
+/** `reconcileDeps` defaults to the boundary's own wiring; overridable so tests can pin `branchExistsOnRemote` without a real git remote (the fixture repo is deliberately non-existent). */
+export function buildDefaultTakeoverDeps(boundary: LaunchBoundary, reconcileDeps: ReconcileDeps = buildDefaultReconcileDeps(boundary)): TakeoverDeps {
   return {
     acquireIssueSpawnLock: (repoInfo, issueNumber, ownPid) =>
       acquireIssueSpawnLock(repoInfo, issueNumber, ownPid),
@@ -99,7 +100,7 @@ export function buildDefaultTakeoverDeps(boundary: LaunchBoundary): TakeoverDeps
     resetWorktree: (worktreePath, branch) => {
       gitContextForSync({ owner: boundary.repoId.owner, repo: boundary.repoId.repo, selfHost: false }).resetWorktree(worktreePath, branch);
     },
-    deriveStageFromRemote: (adwId) => deriveStageFromRemote(adwId, buildDefaultReconcileDeps(boundary)),
+    deriveStageFromRemote: (adwId) => deriveStageFromRemote(adwId, reconcileDeps),
     writeTopLevelState: (adwId, state) => AgentStateManager.writeTopLevelState(adwId, state),
     commentOnIssue: (issueNumber, body) => boundary.providers.issueTracker.commentOnIssue(issueNumber, body),
     probeWorktree: (worktreePath, expectedBranch, recordedPid, recordedPidStartedAt) => {
