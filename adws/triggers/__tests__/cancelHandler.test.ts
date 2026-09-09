@@ -8,6 +8,9 @@ vi.mock('../../core/workflowCommentParsing', () => ({
 vi.mock('../../core/stateHelpers', () => ({
   findOrchestratorStatePath: vi.fn(),
   isProcessAlive: vi.fn(),
+  createExecutionState: vi.fn(),
+  completeExecution: vi.fn(),
+  isAgentProcessRunning: vi.fn(),
 }));
 vi.mock('../../core/config', () => ({
   AGENTS_STATE_DIR: '/mock/agents',
@@ -51,7 +54,7 @@ const repoInfo: RepoIdentifier = { owner: 'test-owner', repo: 'test-repo', platf
 beforeEach(() => {
   vi.clearAllMocks();
   mockRemoveWorktreesForIssue.mockReturnValue(0);
-  mockClearIssueComments.mockReturnValue({ total: 0, deleted: 0, failed: 0 });
+  mockClearIssueComments.mockReturnValue({ total: 0, deleted: 0, failed: 0, issueTitle: '(unknown)' });
   mockIsProcessAlive.mockReturnValue(false);
   mockFindOrchestratorStatePath.mockReturnValue(null);
 });
@@ -137,12 +140,15 @@ describe('handleCancelDirective', () => {
     expect(mockRmSync).toHaveBeenCalledWith('/mock/agents/adwid-2', { recursive: true, force: true });
   });
 
-  it('calls clearIssueComments with correct issueNumber and repoInfo', () => {
+  it('calls clearIssueComments with the issue number and a legacy-backed tracker', () => {
     mockExtractAdwId.mockReturnValue(null);
 
     handleCancelDirective(42, [], repoInfo);
 
-    expect(mockClearIssueComments).toHaveBeenCalledWith(42, repoInfo);
+    expect(mockClearIssueComments).toHaveBeenCalledWith(
+      42,
+      expect.objectContaining({ fetchComments: expect.any(Function), getIssueTitle: expect.any(Function), deleteComment: expect.any(Function) }),
+    );
   });
 
   it('removes issue from processedSets when provided', () => {

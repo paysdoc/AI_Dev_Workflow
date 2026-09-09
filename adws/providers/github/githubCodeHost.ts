@@ -41,6 +41,8 @@ import {
 
 export interface GitHubCodeHostDeps {
   readonly logger?: Logger;
+  /** Consulted by `canApprovePullRequests()`; default answers `false`. ADW wires it to its GitHub-App + PAT configuration in `repoContext.ts`. */
+  readonly canApprovePullRequests?: () => boolean;
 }
 
 /** `error.stderr` when present (child-process failures), else `String(error)`. */
@@ -55,11 +57,15 @@ function stderrOf(error: unknown): string {
 export class GitHubCodeHost implements CodeHost {
   private readonly gh: GhRepoApi;
   private readonly logger: Logger;
+  private readonly canApprove?: () => boolean;
+  /** Memoised authenticated-user login: `undefined` = not yet asked, `null` = failed. */
+  private authenticatedUserMemo: string | null | undefined;
 
   constructor(ctx: GitContext, private readonly repoId: RepoIdentifier, deps: GitHubCodeHostDeps = {}) {
     assertContextBoundTo(ctx, repoId, 'createGitHubCodeHost');
     this.gh = createGhRepoApi(ctx);
     this.logger = deps.logger ?? consoleLogger;
+    this.canApprove = deps.canApprovePullRequests;
   }
 
   /** Returns the bound RepoIdentifier. */
@@ -218,6 +224,24 @@ export class GitHubCodeHost implements CodeHost {
   /** Merged PRs, newest first, at most `limit`. Throws on failure. */
   listMergedPullRequests(limit: number): readonly MergedPullRequestRecord[] {
     return JSON.parse(this.gh.fetchMergedPRs(limit)) as MergedPullRequestRecord[];
+  }
+
+  /** Login the code host's commands run as; memoised per instance, one warning on failure. */
+  getAuthenticatedUser(): string | null {
+    if (this.authenticatedUserMemo !== undefined) return this.authenticatedUserMemo;
+    try {
+      const login = (JSON.parse(this.gh.authenticatedUser()) as { login?: string }).login;
+      this.authenticatedUserMemo = login || null;
+    } catch (error) {
+      this.logger(`Could not determine authenticated GitHub user: ${error}`, 'warn');
+      this.authenticatedUserMemo = null;
+    }
+    return this.authenticatedUserMemo;
+  }
+
+  /** True when the injected capability seam says this identity can approve PRs; `false` by default. */
+  canApprovePullRequests(): boolean {
+    return this.canApprove?.() ?? false;
   }
 }
 

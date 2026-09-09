@@ -1,7 +1,7 @@
 import { execWithRetry as defaultExecWithRetry, log as defaultLog } from '../core';
 import type { LogLevel } from '../core';
 import type { WorkflowConfig } from './workflowInit';
-import { getRepoInfo } from '../github';
+import { resolveWorkflowRepoId } from './workflowRepoIdentity';
 import type { CodeHost } from '../providers/types';
 
 export interface DepauditSetupDeps {
@@ -34,7 +34,7 @@ async function propagateSecret(
 ): Promise<{ propagated: boolean; warning?: string }> {
   const envValue = deps.getEnv(envName);
   if (!envValue) {
-    return { propagated: false, warning: `${envName} not set — skipping gh secret set` };
+    return { propagated: false, warning: `${envName} not set — skipping gh secret set on ${ownerRepo}` };
   }
   if (!codeHost) {
     return { propagated: false, warning: `${envName} could not be propagated — no repo context for this run` };
@@ -66,9 +66,8 @@ export async function executeDepauditSetup(
     warnings.push(msg);
   }
 
-  const ownerRepo = config.targetRepo
-    ? `${config.targetRepo.owner}/${config.targetRepo.repo}`
-    : (() => { const info = getRepoInfo(); return `${info.owner}/${info.repo}`; })();
+  const { owner, repo } = resolveWorkflowRepoId(config);
+  const ownerRepo = `${owner}/${repo}`;
 
   for (const secretName of SECRET_NAMES) {
     const result = await propagateSecret(secretName, codeHost, ownerRepo, d);

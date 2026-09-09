@@ -13,9 +13,24 @@ import { log } from '../core/logger';
 import { AGENTS_STATE_DIR } from '../core/config';
 import { extractAdwIdFromComment } from '../core/workflowCommentParsing';
 import { findOrchestratorStatePath, isProcessAlive } from '../core/stateHelpers';
-import { clearIssueComments } from '../adwClearComments';
+import { clearIssueComments, type CommentClearingTracker } from '../adwClearComments';
 import { gitContextForSync } from '../github';
+import { fetchIssueCommentsRest, getIssueTitleSync, deleteIssueComment } from '../github/issueApi';
+import { mapIssueCommentSummaryToIssueComment } from '../providers/github/mappers';
 import type { RepoIdentifier } from '../providers/types';
+
+/**
+ * Legacy-backed adapter of the boundary-shaped `CommentClearingTracker` for
+ * this boundary-less trigger caller (#820, FINDING 3 pattern); #821 replaces
+ * this with `boundary.providers.issueTracker`.
+ */
+function legacyCommentClearingTracker(repoInfo: RepoIdentifier): CommentClearingTracker {
+  return {
+    fetchComments: (n) => fetchIssueCommentsRest(n, repoInfo).map(mapIssueCommentSummaryToIssueComment),
+    getIssueTitle: (n) => getIssueTitleSync(n, repoInfo),
+    deleteComment: (id) => deleteIssueComment(Number(id), repoInfo),
+  };
+}
 
 /** Mutable dedup sets passed in from the cron trigger so cancelled issues skip this cycle. */
 export interface MutableProcessedSets {
@@ -81,7 +96,7 @@ export function handleCancelDirective(
   // 5. Clear GitHub comments
   try {
     log(`Cancel #${issueNumber}: clearing GitHub comments`);
-    const result = clearIssueComments(issueNumber, repoInfo);
+    const result = clearIssueComments(issueNumber, legacyCommentClearingTracker(repoInfo));
     log(`Cancel #${issueNumber}: cleared ${result.deleted}/${result.total} comment(s)`);
   } catch (error) {
     log(`Cancel #${issueNumber}: comment clearing error (continuing): ${error}`, 'warn');

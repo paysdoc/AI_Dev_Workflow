@@ -2,7 +2,7 @@
 
 ## Overview
 
-The build and plan phases translate issue analysis into a committed implementation. The install phase primes agent context; the plan phase classifies the issue, produces the spec file, and builds the git-authoritative continuation prompt used to restart a build agent without redoing completed work; the plan validation phase aligns the spec with BDD scenarios; the build phase implements the spec with token-limit recovery and resume-in-place support.
+The build and plan phases translate issue analysis into a committed implementation. The install phase primes agent context; the plan phase classifies the issue, produces the spec file, and builds the git-authoritative continuation prompt used to restart a build agent without redoing completed work; the plan validation phase aligns the spec with BDD scenarios; the alignment phase runs a single-pass reconciliation of the plan against BDD scenarios; the build phase implements the spec with token-limit recovery and resume-in-place support.
 
 ## Responsibilities
 
@@ -13,6 +13,8 @@ The build and plan phases translate issue analysis into a committed implementati
 - `planPhase.ts` — `shouldResumeBuildInPlace(recoveryState)`: pure predicate (`recoveryState.canResume === true`) that determines whether `executeBuildPhase` seeds the first build-agent invocation with the resume-in-place framing rather than the raw plan. `buildResumeInPlacePrompt` and `shouldResumeBuildInPlace` are re-exported from `adws/phases/index.ts` and `adws/workflowPhases.ts` alongside `buildContinuationPrompt` and `MAX_CONTINUATION_OUTPUT_LENGTH`.
 - `planValidationPhase.ts` — discovers BDD scenario files tagged `@adw-{N}`; runs the validation agent to detect plan-scenario mismatches; enters a resolution loop (up to `MAX_VALIDATION_RETRY_ATTEMPTS`) where `runResolutionAgent` fixes mismatches then `runValidationAgent` re-validates; commits artifacts if any changes were made
 - `buildPhase.ts` — reads the plan file, seeds `currentPlanContent` with the resume-in-place prompt when `shouldResumeBuildInPlace(recoveryState)` is true (otherwise the raw plan), then enters a `while(!buildCompleted)` loop that respawns the build agent on token limit or compaction events, recomputing `currentPlanContent` from the raw plan on each in-loop restart; after `MAX_CONTEXT_RESETS` within a batch, commits a checkpoint and evaluates the progress gate; throws on progress gate abort; commits implementation after the loop
+- `alignmentPhase.ts` — single-pass reconciliation of the plan against BDD scenario files: reads the plan and every `@adw-{issueNumber}` scenario file, runs `runAlignmentAgent` once with the GitHub issue JSON as the source of truth, and folds any unresolvable conflicts into inline warnings on the plan rather than halting the workflow; commits updated plan/scenario artifacts via `runCommitAgent` when the agent reports changes
+- `alignmentPhase.ts` — skips (zero-cost, non-fatal) when the stage already completed on recovery, when `scenarioAuthoringSkipReason(issue.labels)` returns a reason (`adws/core/adwLabels.ts`, #820 — `regression-promotion` or `adw:none`), when no plan file exists yet, or when no `@adw-{issueNumber}` scenario files are found; the label-reason skip logs which label decided it and is defense-in-depth on top of the "no scenario files" skip, since a `shouldSkipScenarioAuthoring`-gated issue has no scenarios to discover anyway
 
 ## Contracts & Invariants
 
@@ -28,6 +30,8 @@ The build and plan phases translate issue analysis into a committed implementati
 - The progress gate in `buildPhase.ts` aborts when the worktree tree hash has not advanced after a full batch of `MAX_CONTEXT_RESETS` resets; this prevents infinite looping on a stuck agent
 - `planValidationPhase.ts` exits early (not an error) when no scenario files are tagged for the issue
 - `planValidationPhase.ts` degrades gracefully when `OutputValidationError` is thrown by either validation or resolution agent: it logs a warning and returns without throwing
+- `alignmentPhase.ts` never throws — an `OutputValidationError` (or any other alignment-agent failure) is caught, logged, and converted into an `aligned: true` result carrying a single warning, so a broken alignment agent never blocks the workflow
+- `alignmentPhase.ts` posts `plan_aligning`/`plan_aligned` stage comments only when `config.repoContext` is set; it never constructs its own forge context (the #796/#820 "skip when no repoContext" precedent)
 
 ## Configuration
 

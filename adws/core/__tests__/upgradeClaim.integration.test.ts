@@ -23,12 +23,9 @@ import {
   defaultPushClaimBranch,
   type UpgradeClaimDeps,
 } from '../upgradeClaim';
-import type { RepoIdentifier } from '../../providers/types';
-import { Platform } from '../../providers/types';
 import { GitContext } from '../../gitContext';
 import { createLiteralTokenProvider } from '../../providers/github/githubTokenProvider';
 
-const REPO_INFO: RepoIdentifier = { owner: 'sandbox', repo: 'target', platform: Platform.GitHub };
 const HASH = 'integ1234';
 const CLAIM_BRANCH = buildClaimBranchName(HASH);
 
@@ -127,7 +124,7 @@ describe('first claim wins against absent branch', () => {
     const clone1 = createClone('clone1');
     const deps = makePartialDeps(clone1);
 
-    const result = await claimUpgradeOrFindExisting(HASH, REPO_INFO, deps);
+    const result = await claimUpgradeOrFindExisting(HASH, deps);
 
     expect(result).toEqual({ won: true, branch: CLAIM_BRANCH });
 
@@ -140,7 +137,7 @@ describe('first claim wins against absent branch', () => {
     const clone1 = createClone('clone1');
     const deps = makePartialDeps(clone1);
 
-    await claimUpgradeOrFindExisting(HASH, REPO_INFO, deps);
+    await claimUpgradeOrFindExisting(HASH, deps);
 
     // Count commits on claim branch that are not on main
     const ahead = execSync(
@@ -159,10 +156,10 @@ describe('second claim loses when branch already exists', () => {
     const clone2 = createClone('clone2');
 
     // First claim wins
-    await claimUpgradeOrFindExisting(HASH, REPO_INFO, makePartialDeps(clone1));
+    await claimUpgradeOrFindExisting(HASH, makePartialDeps(clone1));
 
     // Second claim loses
-    const result = await claimUpgradeOrFindExisting(HASH, REPO_INFO, makePartialDeps(clone2));
+    const result = await claimUpgradeOrFindExisting(HASH, makePartialDeps(clone2));
 
     expect(result.won).toBe(false);
     if (!result.won) {
@@ -181,8 +178,8 @@ describe('race: exactly one winner out of two concurrent claims', () => {
 
     // Run both concurrently (Promise.all models simultaneous attempts)
     const [r1, r2] = await Promise.all([
-      claimUpgradeOrFindExisting(HASH, REPO_INFO, makePartialDeps(clone1)),
-      claimUpgradeOrFindExisting(HASH, REPO_INFO, makePartialDeps(clone2)),
+      claimUpgradeOrFindExisting(HASH, makePartialDeps(clone1)),
+      claimUpgradeOrFindExisting(HASH, makePartialDeps(clone2)),
     ]);
 
     const winners = [r1, r2].filter((r) => r.won === true);
@@ -197,8 +194,8 @@ describe('race: exactly one winner out of two concurrent claims', () => {
     const clone2 = createClone('clone2');
 
     const [r1, r2] = await Promise.all([
-      claimUpgradeOrFindExisting(HASH, REPO_INFO, makePartialDeps(clone1)),
-      claimUpgradeOrFindExisting(HASH, REPO_INFO, makePartialDeps(clone2)),
+      claimUpgradeOrFindExisting(HASH, makePartialDeps(clone1)),
+      claimUpgradeOrFindExisting(HASH, makePartialDeps(clone2)),
     ]);
 
     const loser = [r1, r2].find((r) => r.won === false);
@@ -213,8 +210,8 @@ describe('race: exactly one winner out of two concurrent claims', () => {
     const clone2 = createClone('clone2');
 
     await Promise.all([
-      claimUpgradeOrFindExisting(HASH, REPO_INFO, makePartialDeps(clone1)),
-      claimUpgradeOrFindExisting(HASH, REPO_INFO, makePartialDeps(clone2)),
+      claimUpgradeOrFindExisting(HASH, makePartialDeps(clone1)),
+      claimUpgradeOrFindExisting(HASH, makePartialDeps(clone2)),
     ]);
 
     // The bare repo should have exactly one commit ahead of main on the claim branch
@@ -231,7 +228,7 @@ describe('race: exactly one winner out of two concurrent claims', () => {
 describe('temp worktree cleanup', () => {
   it('leaves no dangling git worktrees in the clone after a winning claim', async () => {
     const clone1 = createClone('clone1');
-    await claimUpgradeOrFindExisting(HASH, REPO_INFO, makePartialDeps(clone1));
+    await claimUpgradeOrFindExisting(HASH, makePartialDeps(clone1));
 
     const worktrees = execSync(`git -C "${clone1}" worktree list`, { encoding: 'utf-8' });
     // Only the main worktree (the clone itself) should remain
@@ -243,8 +240,8 @@ describe('temp worktree cleanup', () => {
     const clone1 = createClone('clone1');
     const clone2 = createClone('clone2');
 
-    await claimUpgradeOrFindExisting(HASH, REPO_INFO, makePartialDeps(clone1));
-    await claimUpgradeOrFindExisting(HASH, REPO_INFO, makePartialDeps(clone2));
+    await claimUpgradeOrFindExisting(HASH, makePartialDeps(clone1));
+    await claimUpgradeOrFindExisting(HASH, makePartialDeps(clone2));
 
     const worktrees = execSync(`git -C "${clone2}" worktree list`, { encoding: 'utf-8' });
     const lines = worktrees.trim().split('\n').filter(Boolean);
@@ -264,7 +261,7 @@ describe('regression: pre-existing local claim branch does not crash the push (B
     // the local branch namespace, so this must just win.
     git(clone1, 'branch', CLAIM_BRANCH, 'origin/main');
 
-    const result = await claimUpgradeOrFindExisting(HASH, REPO_INFO, makePartialDeps(clone1));
+    const result = await claimUpgradeOrFindExisting(HASH, makePartialDeps(clone1));
 
     expect(result).toEqual({ won: true, branch: CLAIM_BRANCH });
     const refs = execSync(`git -C "${bareRepoPath}" branch`, { encoding: 'utf-8' }).trim();

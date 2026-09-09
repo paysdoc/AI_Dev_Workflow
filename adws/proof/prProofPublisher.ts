@@ -12,7 +12,6 @@ import * as path from 'path';
 import { log } from '../core/logger';
 import { CLOUDFLARE_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY } from '../core/environment';
 import { uploadToR2 } from '../r2/uploadService';
-import { commentOnPR } from '../github/prApi';
 import { ADW_SIGNATURE } from '../core/workflowCommentParsing';
 import { harvestProofArtifacts } from './proofArtifactHarvester';
 import type { ProofCommentInput, PublishDeps, TagProofResultLike, UploadedArtifact } from './types';
@@ -143,7 +142,7 @@ export async function publishPrProof(deps: PublishDeps): Promise<void> {
     repoInfo,
     adwId,
     uploader = uploadToR2,
-    commenter = commentOnPR,
+    commenter,
   } = deps;
 
   if (prNumber <= 0) {
@@ -185,7 +184,7 @@ export async function publishPrProof(deps: PublishDeps): Promise<void> {
       r2Configured,
     }) + ADW_SIGNATURE;
 
-    commenter(prNumber, body, repoInfo);
+    commenter(prNumber, body);
   } catch (err) {
     log(`publishPrProof: unexpected error — ${err}`, 'warn');
   }

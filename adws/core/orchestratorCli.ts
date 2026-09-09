@@ -11,7 +11,7 @@ import type { IssueClassSlashCommand, TargetRepoInfo } from '../types/issueTypes
 import { VALID_ISSUE_TYPES } from '../types/issueTypes';
 import type { RepoIdentifier } from '../providers/types';
 import { Platform } from '../providers/types';
-import { getRepoInfo } from '../github/githubApi';
+import { readLocalRepoInfo } from '../providers/github/githubIdentity';
 
 /**
  * Parsed orchestrator arguments returned by {@link parseOrchestratorArguments}.
@@ -140,7 +140,7 @@ export function buildRepoIdentifier(targetRepo: TargetRepoInfo | null): RepoIden
   if (targetRepo) {
     return { owner: targetRepo.owner, repo: targetRepo.repo, platform: Platform.GitHub };
   }
-  const localRepo = getRepoInfo();
+  const localRepo = readLocalRepoInfo();
   return { owner: localRepo.owner, repo: localRepo.repo, platform: Platform.GitHub };
 }
 

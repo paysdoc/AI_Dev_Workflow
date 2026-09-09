@@ -289,6 +289,10 @@ function makeRecordingIssueTracker(fixture: Fixture797, callLog: CallRecord[]): 
       callLog.push({ op: 'listIssues', args: [query] });
       return [...fixture.issues.values()].filter((e) => matchesState(e, query.state)).map(projectIssue);
     },
+    getIssueTitle(issueNumber) {
+      callLog.push({ op: 'getIssueTitle', args: [issueNumber] });
+      return fixture.issues.get(issueNumber)?.title ?? '(unknown)';
+    },
   };
 }
 
@@ -308,7 +312,7 @@ function makeRecordingCodeHost(fixture: Fixture797, callLog: CallRecord[], repoI
     },
     fetchPullRequest(prNumber) {
       callLog.push({ op: 'fetchPullRequest', args: [prNumber] });
-      return { number: prNumber, title: '', body: '', sourceBranch: '', targetBranch: '', url: '' };
+      return { number: prNumber, title: '', body: '', sourceBranch: '', targetBranch: '', url: '', state: 'OPEN' };
     },
     commentOnPullRequest(prNumber, body) {
       callLog.push({ op: 'commentOnPullRequest', args: [prNumber, body] });
@@ -347,6 +351,14 @@ function makeRecordingCodeHost(fixture: Fixture797, callLog: CallRecord[], repoI
     listMergedPullRequests(limit) {
       callLog.push({ op: 'listMergedPullRequests', args: [limit] });
       return fixture.mergedPRs;
+    },
+    getAuthenticatedUser() {
+      callLog.push({ op: 'getAuthenticatedUser', args: [] });
+      return null;
+    },
+    canApprovePullRequests() {
+      callLog.push({ op: 'canApprovePullRequests', args: [] });
+      return false;
     },
   };
 }

@@ -43,9 +43,12 @@
     - adws/phases/gherkinFreeze.ts
     - adws/phases/phaseCommentHelpers.ts
     - adws/phases/index.ts
+    - adws/phases/workflowRepoIdentity.ts
+    - adws/phases/__tests__/workflowRepoIdentity.test.ts
   - Conditions:
     - When working on workflow initialization, completion, upgrade gating, orchestrator locking, progress gating, branch name resolution, auth pause, depaudit setup, Gherkin freeze, or phase comment helpers in `adws/phases/`
     - When working on the branch-name resolution cascade or the `LaunchBoundary`/provider-resolution architecture underlying `initializeWorkflow`
+    - When working on `resolveWorkflowRepoId` (the `repoContext.repoId → gitContext → targetRepo` precedence that replaced every phase's own `?? getRepoInfo()` wrong-repo fallback, #820)
 
 - app_docs/feature-9gjajh-pr-and-merge-phases.md
   - Owns:
@@ -57,9 +60,14 @@
     - adws/phases/prReviewPhase.ts
     - adws/phases/prReviewCompletion.ts
     - adws/phases/autoMergePhase.ts
+    - adws/core/prReviewInvocation.ts
+    - adws/core/__tests__/prReviewInvocation.test.ts
+    - adws/core/unaddressedComments.ts
+    - adws/core/__tests__/unaddressedComments.test.ts
   - Conditions:
     - When working on PR creation, PR review, PR review completion, or auto-merge phases in `adws/phases/`
     - When working on post-review-outcome routing (`resolvePrReviewTarget`, `resolvePrReviewSpawn`, `decidePostReviewOutcome`, `executeSdlcReviewFailedHandoff`)
+    - When working on `resolvePrReviewInvocation` (the branch→PR/adwId resolution `adwPrReview.tsx` runs after the launch boundary exists) or `readUnaddressedComments` (the pr-review bot/self/ADW-signed comment filter, decomposed off the legacy `prCommentDetector` composite, #820)
 
 - app_docs/feature-9gjajh-issue-routing-and-eligibility.md
   - Owns:
@@ -417,7 +425,11 @@
     - adws/core/orchestratorNames.ts
     - adws/core/providerConfig.ts
     - adws/core/__tests__/providerConfig.test.ts
+    - adws/core/githubAppAuth.ts
+    - adws/core/issueRecord.ts
+    - adws/core/__tests__/issueRecord.test.ts
   - Conditions:
+    - When working on `fetchIssueRecord` (the boundary-context issue read that keeps `WorkflowConfig.issue`'s full `GitHubIssue` shape for prompt fidelity, #820) or the `GITHUB_APP_*` env wrapper (`adws/core/githubAppAuth.ts`, moved from `adws/github/githubAppAuth.ts` in #820, which is now a re-export shim)
     - When working on GitContext base-path resolution, per-command credential injection, worktree management, or the git-only bootstrap primitives in `adws/gitContext/`
     - When working on the launch-boundary constructor (`buildLaunchBoundary`, `adws/core/launchGitContext.ts`) that mints one GitContext and one bound provider triple per process, threaded into the mint via `MintProvidersOptions.gitContext` (#819)
     - When working on resume-time repo-identity persistence or cross-check (`adws/core/repoIdentityCrossCheck.ts`)
@@ -455,9 +467,11 @@
     - adws/core/__tests__/issueClassifier.test.ts
     - adws/core/__tests__/workflowCommentParsing.test.ts
     - adws/core/__tests__/workflowMapping.test.ts
+    - adws/core/adwLabels.ts
   - Conditions:
     - When working on issue classification (feature/bug/chore/etc.), model routing decisions, workflow-type-to-phase mapping, or workflow comment parsing
     - When working on `issueClassifier.ts`, `modelRouting.ts`, `workflowMapping.ts`, or `workflowCommentParsing.ts`
+    - When working on the pure ADW label vocabulary (`adwLabels.ts`: `ADW_*_LABEL` constants, `ADW_LABEL_DEFINITIONS`, `readAdwLabelNames`, `shouldSkipScenarioAuthoring`, `hasRegressionPromotionLabel`, `hasWontFixLabelName`, `resolveAdwLabelDefinition`, moved out of `adws/github/labelManager.ts`/`prApi.ts` in #820, which now re-export it)
 
 - app_docs/feature-9gjajh-claude-stream-parser.md
   - Owns:

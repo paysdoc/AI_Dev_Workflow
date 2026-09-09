@@ -37,13 +37,22 @@ const mockGitCtx = vi.hoisted(() => ({
   show: vi.fn(),
 }));
 
-vi.mock('../../github', () => ({
-  fetchGitHubIssue: vi.fn(),
+vi.mock('../../core/issueRecord', () => ({
+  fetchIssueRecord: vi.fn(),
+}));
+
+vi.mock('../../core/workflowCommentParsing', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../core/workflowCommentParsing')>()),
   detectRecoveryState: vi.fn(),
-  getRepoInfo: vi.fn(),
-  activateGitHubAppAuth: vi.fn(),
-  isGitHubAppConfigured: vi.fn().mockReturnValue(false),
+}));
+
+vi.mock('../../github/gitContextFactory', () => ({
   gitContextForSync: vi.fn().mockReturnValue(mockGitCtx),
+}));
+
+vi.mock('../../core/githubAppAuth', () => ({
+  isGitHubAppConfigured: vi.fn().mockReturnValue(false),
+  getInstallationToken: vi.fn(),
 }));
 
 vi.mock('../../core/environment', async (importOriginal) => {
@@ -122,11 +131,8 @@ import { AGENTS_STATE_DIR } from '../../core/config';
 import { existsSync, rmSync } from 'fs';
 import { join } from 'path';
 import { runGenerateBranchNameAgent } from '../../agents';
-import {
-  fetchGitHubIssue,
-  detectRecoveryState,
-  getRepoInfo,
-} from '../../github';
+import { fetchIssueRecord } from '../../core/issueRecord';
+import { detectRecoveryState } from '../../core/workflowCommentParsing';
 import { classifyGitHubIssue } from '../../core/issueClassifier';
 import { createRepoContext } from '../../providers/repoContext';
 import { buildLaunchBoundary } from '../../core/launchGitContext';
@@ -134,9 +140,8 @@ import type { LaunchBoundary } from '../../core/launchGitContext';
 import { Platform } from '../../providers/types';
 
 const mockAgent = vi.mocked(runGenerateBranchNameAgent);
-const mockFetchIssue = vi.mocked(fetchGitHubIssue);
+const mockFetchIssue = vi.mocked(fetchIssueRecord);
 const mockDetectRecovery = vi.mocked(detectRecoveryState);
-const mockGetRepoInfo = vi.mocked(getRepoInfo);
 const mockClassify = vi.mocked(classifyGitHubIssue);
 const mockCreateRepoContext = vi.mocked(createRepoContext);
 const mockBuildLaunchBoundary = vi.mocked(buildLaunchBoundary);
@@ -204,7 +209,6 @@ beforeEach(() => {
   mockAgent.mockReset();
   mockFetchIssue.mockResolvedValue(fakeIssue as never);
   mockDetectRecovery.mockReturnValue(nullRecoveryState);
-  mockGetRepoInfo.mockReturnValue({ owner: 'test-owner', repo: 'test-repo', platform: Platform.GitHub });
   mockClassify.mockResolvedValue({ issueType: '/feature', success: true } as never);
   mockGitCtx.getWorktreeForBranch.mockReturnValue(null);
   mockGitCtx.findWorktreeForIssue.mockReturnValue(null);

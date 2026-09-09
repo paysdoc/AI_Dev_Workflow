@@ -19,7 +19,7 @@ vi.mock('../environment', async (importOriginal) => ({
   GITHUB_PAT: 'pat-xyz',
 }));
 
-vi.mock('../../github/githubAppAuth', () => ({
+vi.mock('../githubAppAuth', () => ({
   isGitHubAppConfigured: () => true,
   getInstallationToken: () => 'app-token',
 }));

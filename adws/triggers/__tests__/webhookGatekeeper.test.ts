@@ -21,7 +21,7 @@ const { spawnMock, issueHasLabelMock, evaluateCandidateMock, releaseIssueSpawnLo
 vi.mock('child_process', () => ({ spawn: spawnMock }));
 vi.mock('../../github/issueListApi', () => ({ listIssues: vi.fn() }));
 vi.mock('../issueDependencies', () => ({ parseDependencies: vi.fn() }));
-vi.mock('../../github/issueApi', () => ({ issueHasLabel: issueHasLabelMock, closeIssue: vi.fn() }));
+vi.mock('../../github/issueApi', () => ({ issueHasLabel: issueHasLabelMock, closeIssue: vi.fn(), fetchGitHubIssue: vi.fn() }));
 vi.mock('../../github/labelManager', () => ({
   ADW_UPGRADE_LABEL: 'adw:upgrade',
   applyLabel: vi.fn(),

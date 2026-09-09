@@ -25,10 +25,7 @@ vi.mock('../../agents/gitAgent', () => ({
   runCommitAgent: vi.fn(),
 }));
 
-vi.mock('../../github', () => ({
-  approvePR: vi.fn(),
-  isGitHubAppConfigured: vi.fn(() => false),
-  getRepoInfo: vi.fn(() => ({ owner: 'test', repo: 'repo' })),
+vi.mock('../../github/gitContextFactory', () => ({
   gitContextFor: mockGitContextFor,
 }));
 
@@ -93,6 +90,7 @@ const baseConfig = {
   branchName: 'feature-issue-42-test',
   ctx: {},
   repoContext: undefined,
+  targetRepo: { owner: 'test', repo: 'repo', cloneUrl: '' },
 } as unknown as Parameters<typeof executeReviewPatchCycle>[0];
 
 const patchBlocker = {

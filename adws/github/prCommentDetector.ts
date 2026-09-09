@@ -5,88 +5,40 @@
  * on the branch to determine which comments still need to be addressed.
  */
 
-import { log } from '../core';
 import { fetchPRDetails, fetchPRReviewComments, getAuthenticatedUser } from './githubApi';
 import type { PRReviewComment } from '../providers/github/domain/pullRequest';
 import type { RepoIdentifier } from '../providers/types';
-import { isAdwComment } from '../core/workflowCommentParsing';
 import { gitContextForRepo } from './gitContextFactory';
-import type { GitContext } from '../gitContext';
+import { readUnaddressedComments, getLastAdwCommitTimestamp, type UnaddressedCommentCandidate } from '../core/unaddressedComments';
 
-/**
- * Structural regex matching the universal ADW commit format: `<agentName>: <issueClass>: <message>`.
- * The double colon-space prefix is distinctive to ADW commits — normal developer commits use a single
- * prefix like `feat: message`. This pattern is forward-compatible with new agents and issue types.
- */
-const ADW_COMMIT_PATTERN = /^[\w/-]+: \w+: /;
+// Re-exported: the git-only half of the composite lives in adws/core/unaddressedComments.ts (#820).
+export { getLastAdwCommitTimestamp };
 
-/**
- * Gets the timestamp of the last ADW commit on the given branch.
- * Matches commits using the structural ADW commit format `<agentName>: <issueClass>: <message>`.
- * Returns null if no ADW commits are found.
- */
-export function getLastAdwCommitTimestamp(branchName: string, gitContext: GitContext, cwd?: string): Date | null {
-  try {
-    const output = gitContext.log(branchName, cwd);
+/** Wraps a legacy `PRReviewComment` in the flat shape `readUnaddressedComments` filters on, carrying the original alongside so the wrapper below can return it unchanged. */
+interface WrappedComment extends UnaddressedCommentCandidate {
+  readonly original: PRReviewComment;
+}
 
-    for (const line of output.split('\n')) {
-      if (!line.trim()) continue;
-      const spaceIdx = line.indexOf(' ');
-      if (spaceIdx === -1) continue;
-      const timestamp = line.substring(0, spaceIdx);
-      const message = line.substring(spaceIdx + 1);
-
-      if (ADW_COMMIT_PATTERN.test(message)) {
-        return new Date(timestamp);
-      }
-    }
-
-    return null;
-  } catch (error) {
-    log(`Failed to get last ADW commit timestamp: ${error}`, 'error');
-    return null;
-  }
+function wrapComment(c: PRReviewComment): WrappedComment {
+  return { author: c.author.login, isBot: c.author.isBot, body: c.body, createdAt: c.createdAt, original: c };
 }
 
 /**
  * Gets unaddressed PR review comments — comments posted after the last ADW commit.
  * If no ADW commits are found, all non-bot comments are considered unaddressed.
+ *
+ * Thin legacy wrapper over `adws/core/unaddressedComments.ts`'s
+ * `readUnaddressedComments`, kept alive for `trigger_cron.ts`'s
+ * boundary-less call (#821 migrates that caller).
  */
 export function getUnaddressedComments(prNumber: number, repoInfo: RepoIdentifier): PRReviewComment[] {
-  log(`Fetching unaddressed comments for PR #${prNumber}`);
-  const prDetails = fetchPRDetails(prNumber, repoInfo);
-  const comments = fetchPRReviewComments(prNumber, repoInfo);
-  log(`Found ${comments.length} total comments on PR #${prNumber}`);
-
-  // Filter out bot, self-review, and ADW-signed comments
-  const authenticatedUser = getAuthenticatedUser();
-  const humanComments = comments.filter(c => {
-    if (c.author.isBot) return false;
-    if (authenticatedUser && c.author.login === authenticatedUser) return false;
-    if (isAdwComment(c.body)) return false;
-    return true;
+  const unaddressed = readUnaddressedComments<WrappedComment>(prNumber, {
+    fetchPullRequest: (n) => ({ sourceBranch: fetchPRDetails(n, repoInfo).headBranch }),
+    fetchReviewComments: (n) => fetchPRReviewComments(n, repoInfo).map(wrapComment),
+    getAuthenticatedUser,
+    lastAdwCommitTimestamp: (branchName) => getLastAdwCommitTimestamp(branchName, gitContextForRepo(repoInfo)),
   });
-  log(`Found ${humanComments.length} human comments (filtered ${comments.length - humanComments.length} bot/self/ADW comments)`);
-
-  if (humanComments.length === 0) {
-    log(`No human comments found on PR #${prNumber}, returning empty`);
-    return [];
-  }
-
-  const gitContext = gitContextForRepo(repoInfo);
-  const lastAdwCommit = getLastAdwCommitTimestamp(prDetails.headBranch, gitContext);
-  log(`Last ADW commit timestamp for branch ${prDetails.headBranch}: ${lastAdwCommit ?? 'none'}`);
-
-  if (!lastAdwCommit) {
-    // No ADW commits found — treat all human comments as unaddressed
-    log(`No ADW commits found, treating all ${humanComments.length} human comments as unaddressed`);
-    return humanComments;
-  }
-
-  // Return comments created after the last ADW commit
-  const unaddressed = humanComments.filter(c => new Date(c.createdAt) > lastAdwCommit);
-  log(`Found ${unaddressed.length} unaddressed comments (after ${lastAdwCommit.toISOString()})`);
-  return unaddressed;
+  return unaddressed.map((c) => c.original);
 }
 
 /**

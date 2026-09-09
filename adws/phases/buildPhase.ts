@@ -28,7 +28,8 @@ import {
 import type { WorkflowConfig } from './workflowInit';
 import { buildContinuationPrompt, buildResumeInPlacePrompt, shouldResumeBuildInPlace } from './planPhase';
 import { BoardStatus } from '../providers/types';
-import { getRepoInfo, gitContextFor } from '../github';
+import { gitContextFor } from '../github/gitContextFactory';
+import { resolveWorkflowRepoId } from './workflowRepoIdentity';
 
 /**
  * Executes the Build phase: read plan, run build agent, commit implementation.
@@ -41,9 +42,8 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
   const { recoveryState, orchestratorStatePath, orchestratorName, adwId, issueNumber, issue, issueType, ctx, worktreePath, logsDir, repoContext, defaultBranch } = config;
   const phaseStartTime = Date.now();
 
-  const ctxOwner = repoContext?.repoId.owner ?? getRepoInfo().owner;
-  const ctxRepo = repoContext?.repoId.repo ?? getRepoInfo().repo;
-  const gitCtx = await gitContextFor({ owner: ctxOwner, repo: ctxRepo, selfHost: !repoContext });
+  const { owner, repo } = resolveWorkflowRepoId(config);
+  const gitCtx = await gitContextFor({ owner, repo, selfHost: !repoContext });
 
   if (repoContext) {
     await repoContext.issueTracker.moveToStatus(issueNumber, BoardStatus.InProgress);

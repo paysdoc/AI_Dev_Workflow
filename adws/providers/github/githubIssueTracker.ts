@@ -20,6 +20,7 @@ import { assertContextBoundTo } from './contextBinding';
 import {
   parseGitHubIssue,
   parseIssueState,
+  parseIssueTitle,
   parseIssueCommentsRest,
   parseIssueLabelNames,
   parseCreatedIssueNumber,
@@ -223,6 +224,14 @@ export class GitHubIssueTracker implements IssueTracker {
 
   listIssues(query: IssueListQuery): readonly IssueListEntry[] {
     return parseIssueListEntries(this.gh.listOpenIssues(query));
+  }
+
+  getIssueTitle(issueNumber: number): string {
+    try {
+      return parseIssueTitle(this.gh.issueTitle(issueNumber));
+    } catch {
+      return '(unknown)';
+    }
   }
 }
 

@@ -133,8 +133,44 @@ export type { StackCoherenceInput, StackCoherenceResult, StackCoherenceWarning, 
 export { stackCoherenceCheck } from './stackCoherenceCheck';
 
 // Issue classifier
-export type { IssueClassificationResult } from './issueClassifier';
+export type { IssueClassificationResult, ClassifiableIssue, ClassifyIssueForTriggerDeps } from './issueClassifier';
 export { classifyIssueForTrigger, classifyGitHubIssue } from './issueClassifier';
+
+// ADW label vocabulary (pure)
+export type { AdwLabelDefinition, AdwLabelReading } from './adwLabels';
+export {
+  ADW_NONE_LABEL,
+  ADW_UPGRADE_LABEL,
+  ADW_UNVERIFIED_LABEL,
+  ADW_BLOCKED_LABEL,
+  ADW_REGRESSION_PROMOTION_LABEL,
+  hasRegressionPromotionLabel,
+  ADW_CLASSIFICATION_LABELS,
+  ADW_LABEL_DEFINITIONS,
+  REGRESSION_PROMOTION_LABEL_DEFINITION,
+  readAdwLabelNames,
+  readAdwLabels,
+  issueTypeToAdwLabel,
+  shouldSkipScenarioAuthoring,
+  scenarioAuthoringSkipReason,
+  type ScenarioAuthoringSkipReason,
+  resolveAdwLabelDefinition,
+  hasWontFixLabelName,
+} from './adwLabels';
+
+// GitHub-App environment wrapper (moved from adws/github/githubAppAuth.ts, #820)
+export { isGitHubAppConfigured, getInstallationToken } from './githubAppAuth';
+
+// Issue record — the full forge-shaped issue read over the boundary's GitContext
+export { fetchIssueRecord } from './issueRecord';
+
+// Unaddressed PR-review comment filter
+export { readUnaddressedComments, getLastAdwCommitTimestamp } from './unaddressedComments';
+export type { UnaddressedCommentCandidate, UnaddressedCommentReads } from './unaddressedComments';
+
+// PR-review invocation resolution (adwPrReview.tsx's branch→PR/adwId lookup)
+export { resolvePrReviewInvocation } from './prReviewInvocation';
+export type { PrReviewInvocationDeps, PrReviewInvocation } from './prReviewInvocation';
 
 // Workflow mapping
 export { getWorkflowScript } from './workflowMapping';

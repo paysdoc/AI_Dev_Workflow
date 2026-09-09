@@ -6,8 +6,7 @@
  * is performed exclusively by the AI heuristic.
  */
 
-import { fetchGitHubIssue } from '../github/githubApi';
-import type { RepoIdentifier } from '../providers/types';
+import type { Issue } from '../providers/types';
 import type { GitHubIssue } from '../providers/github/domain/issue';
 import { runClaudeAgentWithCommand } from '../agents/claudeAgent';
 import {
@@ -18,7 +17,7 @@ import {
   getEffortForCommand,
 } from '.';
 import { extractAdwIdFromComment } from './workflowCommentParsing';
-import { readAdwLabels } from '../github/labelManager';
+import { readAdwLabelNames } from './adwLabels';
 
 /**
  * Result of classifying an issue for trigger purposes.
@@ -83,12 +82,22 @@ async function classifyWithIssueCommand(
 }
 
 /**
- * Injectable deps for classifyIssueForTrigger. Production callers omit this;
- * tests inject vi.fn() / fake implementations via the optional third argument.
+ * The forge-neutral shape `classifyIssueForTrigger` needs: label *names*
+ * (`string[]`), not the GitHub-shaped label objects `readAdwLabels` used to
+ * read directly. Any `fetchIssue` implementation — a boundary's `IssueTracker`
+ * or a legacy adapter — satisfies this by construction.
+ */
+export type ClassifiableIssue = Pick<Issue, 'number' | 'title' | 'body' | 'labels' | 'comments'>;
+
+/**
+ * Injectable deps for classifyIssueForTrigger. `fetchIssue` is required — a
+ * bound provider has no repository parameter to get wrong, so there is no
+ * legacy default left to fall back to. `classifyWith` is optional, defaulting
+ * to the module-private `classifyWithIssueCommand`; tests inject a fake.
  */
 export interface ClassifyIssueForTriggerDeps {
-  fetchIssue: (issueNumber: number, repoInfo: RepoIdentifier) => Promise<GitHubIssue>;
-  classifyWith: (
+  fetchIssue: (issueNumber: number) => Promise<ClassifiableIssue>;
+  classifyWith?: (
     issueContext: string,
     issueNumber: number,
     agentName: string,
@@ -107,22 +116,19 @@ export interface ClassifyIssueForTriggerDeps {
  * through to the LLM on a labeled issue (#618).
  *
  * @param issueNumber - The GitHub issue number to classify
- * @param repoInfo - Repository coordinates
- * @param deps - Optional injectable deps (omit in production; inject fakes in tests)
+ * @param deps - Injectable deps; `fetchIssue` is required, `classifyWith` optional
  * @returns Classification result with issue type and success status
  */
 export async function classifyIssueForTrigger(
   issueNumber: number,
-  repoInfo: RepoIdentifier,
-  deps?: ClassifyIssueForTriggerDeps,
+  deps: ClassifyIssueForTriggerDeps,
 ): Promise<IssueClassificationResult> {
-  const fetchIssue = deps?.fetchIssue ?? fetchGitHubIssue;
-  const classifyWith = deps?.classifyWith ?? classifyWithIssueCommand;
+  const classifyWith = deps.classifyWith ?? classifyWithIssueCommand;
 
   try {
     log(`Classifying issue #${issueNumber} for trigger...`);
 
-    const issue = await fetchIssue(issueNumber, repoInfo);
+    const issue = await deps.fetchIssue(issueNumber);
     log(`classifyIssueForTrigger: issue #${issueNumber} title="${issue.title}", body length=${issue.body?.length ?? 0}`);
 
     // Deterministic adw:* label override — a single adw:<type> classification label
@@ -130,7 +136,7 @@ export async function classifyIssueForTrigger(
     // funnel through this chokepoint) so a caller that omits labelRouting cannot
     // silently fall through to the LLM. Multiple conflicting adw:<type> labels fall
     // through to the heuristic, unchanged.
-    const labelReading = readAdwLabels(issue);
+    const labelReading = readAdwLabelNames(issue.labels);
     if (labelReading.classification && !labelReading.conflict) {
       log(`Issue #${issueNumber}: adw:* label override -> ${labelReading.classification}, skipping AI classification`, 'success');
       return { issueType: labelReading.classification, success: true, issueTitle: issue.title };

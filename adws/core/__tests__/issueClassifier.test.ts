@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { VALID_ISSUE_TYPES } from '../../types/issueTypes';
-import type { GitHubIssue, GitHubLabel } from '../../providers/github/domain/issue';
-import { Platform } from '../../providers/types';
+import type { GitHubIssue } from '../../providers/github/domain/issue';
 
 vi.mock('../../agents/claudeAgent', async () => {
   const { AuthRequiredError: ARE, RateLimitError: RLE } = await import('../../types/agentTypes');
@@ -14,11 +13,9 @@ vi.mock('../../agents/claudeAgent', async () => {
 
 import { runClaudeAgentWithCommand } from '../../agents/claudeAgent';
 import { classifyGitHubIssue, classifyIssueForTrigger } from '../issueClassifier';
-import type { ClassifyIssueForTriggerDeps } from '../issueClassifier';
+import type { ClassifyIssueForTriggerDeps, ClassifiableIssue } from '../issueClassifier';
 
 const mockRunAgent = vi.mocked(runClaudeAgentWithCommand);
-
-const TEST_REPO = { owner: 'paysdoc', repo: 'AI_Dev_Workflow', platform: Platform.GitHub };
 
 function makeIssue(overrides?: Partial<GitHubIssue>): GitHubIssue {
   return {
@@ -37,8 +34,15 @@ function makeIssue(overrides?: Partial<GitHubIssue>): GitHubIssue {
   };
 }
 
-function label(name: string, id = '1', color = 'cccccc'): GitHubLabel {
-  return { id, name, color };
+function makeClassifiableIssue(overrides?: Partial<ClassifiableIssue>): ClassifiableIssue {
+  return {
+    number: 576,
+    title: 'durable unit-test gate for adw.yml',
+    body: 'Issue about ADW configuration — adw.yml bootstrap and unit-test coverage.',
+    labels: [],
+    comments: [],
+    ...overrides,
+  };
 }
 
 beforeEach(() => {
@@ -59,12 +63,12 @@ describe('VALID_ISSUE_TYPES domain invariant', () => {
 // Test D: classifyIssueForTrigger — adw:* label override at the chokepoint
 describe('classifyIssueForTrigger — adw:* label override', () => {
   it('single adw:bug label deterministically resolves to /bug without calling the LLM', async () => {
-    const issue = makeIssue({ number: 618, title: 'fix: some bug', labels: [label('adw:bug', '1', 'd73a4a')] });
+    const issue = makeClassifiableIssue({ number: 618, title: 'fix: some bug', labels: ['adw:bug'] });
     const mockFetchIssue = vi.fn().mockResolvedValue(issue);
     const mockClassify = vi.fn();
     const deps: ClassifyIssueForTriggerDeps = { fetchIssue: mockFetchIssue, classifyWith: mockClassify };
 
-    const result = await classifyIssueForTrigger(618, TEST_REPO, deps);
+    const result = await classifyIssueForTrigger(618, deps);
 
     expect(result.issueType).toBe('/bug');
     expect(result.success).toBe(true);
@@ -73,28 +77,28 @@ describe('classifyIssueForTrigger — adw:* label override', () => {
   });
 
   it('conflicting adw:bug + adw:feature labels fall through to the LLM', async () => {
-    const issue = makeIssue({
+    const issue = makeClassifiableIssue({
       number: 619,
       title: 'ambiguous issue',
-      labels: [label('adw:bug', '1'), label('adw:feature', '2')],
+      labels: ['adw:bug', 'adw:feature'],
     });
     const mockFetchIssue = vi.fn().mockResolvedValue(issue);
     const mockClassify = vi.fn().mockResolvedValue({ issueType: '/feature', success: true });
     const deps: ClassifyIssueForTriggerDeps = { fetchIssue: mockFetchIssue, classifyWith: mockClassify };
 
-    const result = await classifyIssueForTrigger(619, TEST_REPO, deps);
+    const result = await classifyIssueForTrigger(619, deps);
 
     expect(mockClassify).toHaveBeenCalledTimes(1);
     expect(result.issueType).toBe('/feature');
   });
 
   it('no adw:* labels fall through to the LLM', async () => {
-    const issue = makeIssue({ number: 620, title: 'unlabelled issue', labels: [] });
+    const issue = makeClassifiableIssue({ number: 620, title: 'unlabelled issue', labels: [] });
     const mockFetchIssue = vi.fn().mockResolvedValue(issue);
     const mockClassify = vi.fn().mockResolvedValue({ issueType: '/chore', success: true });
     const deps: ClassifyIssueForTriggerDeps = { fetchIssue: mockFetchIssue, classifyWith: mockClassify };
 
-    const result = await classifyIssueForTrigger(620, TEST_REPO, deps);
+    const result = await classifyIssueForTrigger(620, deps);
 
     expect(mockClassify).toHaveBeenCalledTimes(1);
     expect(result.issueType).toBe('/chore');

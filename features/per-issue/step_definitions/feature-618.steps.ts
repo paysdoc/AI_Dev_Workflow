@@ -26,13 +26,11 @@ import { fileURLToPath } from 'url';
 import {
   classifyIssueForTrigger,
   type ClassifyIssueForTriggerDeps,
+  type ClassifiableIssue,
   type IssueClassificationResult,
 } from '../../../adws/core/issueClassifier.ts';
-import type { GitHubIssue } from '../../../adws/providers/github/domain/issue.ts';
 import { VALID_ISSUE_TYPES } from '../../../adws/types/issueTypes.ts';
 import type { IssueClassSlashCommand } from '../../../adws/types/issueTypes.ts';
-import type { RepoIdentifier } from '../../../adws/providers/types.ts';
-import { Platform } from '../../../adws/providers/types.ts';
 import type { RegressionWorld } from '../../regression/step_definitions/world.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -42,7 +40,7 @@ const PAYLOAD_DIR = resolve(ROOT, 'test/fixtures/jsonl/payloads');
 // ── Per-scenario state ────────────────────────────────────────────────────────
 
 interface Ctx618 {
-  issues: Map<number, GitHubIssue>;
+  issues: Map<number, ClassifiableIssue>;
   classificationResults: Map<number, IssueClassificationResult>;
   classifierInvocations: Set<number>;
 }
@@ -71,21 +69,13 @@ After({ tags: '@adw-618' }, function () {
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
-const TEST_REPO: RepoIdentifier = { owner: 'paysdoc', repo: 'AI_Dev_Workflow', platform: Platform.GitHub };
-
-function makeIssue(number: number, labelNames: string[]): GitHubIssue {
+function makeIssue(number: number, labelNames: string[]): ClassifiableIssue {
   return {
     number,
     title: `Issue ${number}`,
     body: 'Test issue body for feature-618.',
-    state: 'open',
-    author: { login: 'paysdoc', isBot: false },
-    assignees: [],
-    labels: labelNames.map(name => ({ id: name, name, color: 'cccccc' })),
+    labels: labelNames,
     comments: [],
-    createdAt: '2026-06-17T00:00:00Z',
-    updatedAt: '2026-06-17T00:00:00Z',
-    url: `https://github.com/paysdoc/AI_Dev_Workflow/issues/${number}`,
   };
 }
 
@@ -129,7 +119,7 @@ async function runClassifier(world: RegressionWorld, issueNumber: number): Promi
     },
   };
 
-  const result = await classifyIssueForTrigger(issueNumber, TEST_REPO, deps);
+  const result = await classifyIssueForTrigger(issueNumber, deps);
   ctx.classificationResults.set(issueNumber, result);
 }
 

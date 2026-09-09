@@ -17,9 +17,9 @@ import {
   runCommitAgent,
 } from '../agents';
 import type { WorkflowConfig } from './workflowInit';
-import { getRepoInfo, gitContextFor } from '../github';
+import { gitContextFor } from '../github/gitContextFactory';
 import { executeDocsPostWriteSelfCheck, buildDefaultDocsSelfCheckDeps } from './docsSelfCheck';
-import { Platform } from '../providers/types';
+import { resolveWorkflowRepoId } from './workflowRepoIdentity';
 
 /**
  * Executes the Document phase: generate feature documentation.
@@ -34,9 +34,8 @@ export async function executeDocumentPhase(
 ): Promise<{ costUsd: number; modelUsage: ModelUsageMap; phaseCostRecords: PhaseCostRecord[] }> {
   const { orchestratorStatePath, adwId, issueNumber, issueType, issue, ctx, worktreePath, logsDir, repoContext, branchName } = config;
   const phaseStartTime = Date.now();
-  const ctxOwner = repoContext?.repoId.owner ?? getRepoInfo().owner;
-  const ctxRepo = repoContext?.repoId.repo ?? getRepoInfo().repo;
-  const gitCtx = await gitContextFor({ owner: ctxOwner, repo: ctxRepo, selfHost: !repoContext });
+  const { owner, repo } = resolveWorkflowRepoId(config);
+  const gitCtx = await gitContextFor({ owner, repo, selfHost: !repoContext });
 
   let costUsd = 0;
   let modelUsage = emptyModelUsageMap();
@@ -102,11 +101,8 @@ export async function executeDocumentPhase(
   // other migrated phases handle a missing boundary-minted provider set.
   if (repoContext) {
     try {
-      const repoInfo = config.targetRepo
-        ? { owner: config.targetRepo.owner, repo: config.targetRepo.repo, platform: Platform.GitHub }
-        : getRepoInfo(worktreePath);
       const selfCheck = executeDocsPostWriteSelfCheck(
-        { worktreePath, producedDocPaths: [result.docPath], repoInfo },
+        { worktreePath, producedDocPaths: [result.docPath] },
         buildDefaultDocsSelfCheckDeps(repoContext.issueTracker),
       );
       AgentStateManager.appendLog(

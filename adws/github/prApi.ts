@@ -7,6 +7,9 @@ import type { PRDetails, PRReviewComment, PRListItem, RawPR } from '../providers
 import type { RepoIdentifier } from '../providers/types';
 import { gitContextForRepo } from './gitContextFactory';
 import { createGhRepoApi } from '../providers/github/ghRepoApi';
+import { hasWontFixLabelName } from '../core/adwLabels';
+
+export { hasWontFixLabelName } from '../core/adwLabels';
 
 const gh = (repoInfo: RepoIdentifier) => createGhRepoApi(gitContextForRepo(repoInfo));
 
@@ -22,16 +25,6 @@ const gh = (repoInfo: RepoIdentifier) => createGhRepoApi(gitContextForRepo(repoI
  */
 export function hasWontFixLabel(pr: RawPR): boolean {
   return hasWontFixLabelName((pr.labels ?? []).map((l) => l.name));
-}
-
-/**
- * True when `labels` carries a "won't fix" name (matched leniently: case- and
- * punctuation-insensitive, so `wontfix`, `Won't fix`, `wont-fix` all count).
- * Pure sibling of {@link hasWontFixLabel} for callers holding a flat label-name list.
- */
-export function hasWontFixLabelName(labels: readonly string[]): boolean {
-  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
-  return labels.some((name) => norm(name) === 'wontfix');
 }
 
 /** Extends RawPR with updatedAt for PR selection logic. */

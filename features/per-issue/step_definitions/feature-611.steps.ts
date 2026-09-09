@@ -32,7 +32,6 @@ import {
   type DocsSelfCheckDeps,
   type RefactorFollowUp,
 } from '../../../adws/phases/docsSelfCheck.ts';
-import { Platform } from '../../../adws/providers/types.ts';
 
 // ---------------------------------------------------------------------------
 // Per-scenario state
@@ -226,7 +225,6 @@ When('the post-write self-check runs', function () {
     {
       worktreePath: state.fixtureDir,
       producedDocPaths: state.producedDocPaths,
-      repoInfo: { owner: 'test-owner', repo: 'test-repo', platform: Platform.GitHub },
     },
     deps,
   );

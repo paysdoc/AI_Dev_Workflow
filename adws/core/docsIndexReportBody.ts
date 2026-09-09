@@ -10,7 +10,7 @@
 
 import { createHash } from 'node:crypto';
 import { formatViolation, type DocsIndexViolation } from './docsIndexHealth';
-import { ADW_NONE_LABEL } from '../github/labelManager';
+import { ADW_NONE_LABEL } from './adwLabels';
 
 export const DOCS_INDEX_REPORT_MARKER = 'Reconciles: docs-index-health';
 

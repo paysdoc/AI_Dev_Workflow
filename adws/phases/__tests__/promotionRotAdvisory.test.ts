@@ -4,6 +4,8 @@ vi.mock('../../core', () => ({
   log: vi.fn(),
   emptyModelUsageMap: vi.fn(() => ({})),
   mergeModelUsageMaps: vi.fn((a: object, b: object) => ({ ...a, ...b })),
+  hasRegressionPromotionLabel: (labels: readonly { name: string }[]) =>
+    labels.some(l => l.name === 'regression-promotion'),
 }));
 
 vi.mock('../../cost', () => ({

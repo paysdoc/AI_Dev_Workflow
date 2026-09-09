@@ -3,10 +3,6 @@ import { executeDepauditSetup, type DepauditSetupDeps } from '../phases/depaudit
 import type { WorkflowConfig } from '../phases/workflowInit';
 import type { CodeHost } from '../providers/types';
 
-vi.mock('../github', () => ({
-  getRepoInfo: vi.fn().mockReturnValue({ owner: 'fallback-owner', repo: 'fallback-repo' }),
-}));
-
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function makeConfig(overrides: Partial<WorkflowConfig> = {}): WorkflowConfig {
@@ -174,11 +170,8 @@ describe('executeDepauditSetup — no repo context', () => {
   });
 });
 
-describe('executeDepauditSetup — getRepoInfo fallback', () => {
-  it('uses getRepoInfo fallback for the success log message when config.targetRepo is undefined', async () => {
-    const { getRepoInfo } = await import('../github');
-    (getRepoInfo as ReturnType<typeof vi.fn>).mockReturnValue({ owner: 'fallback-owner', repo: 'fallback-repo' });
-
+describe('executeDepauditSetup — repo identity fallback', () => {
+  it('uses the repoContext identity for the success log message when config.targetRepo is undefined', async () => {
     const codeHost = makeCodeHost();
     const config = makeConfig({ targetRepo: undefined, repoContext: makeRepoContext(codeHost, 'fallback-owner', 'fallback-repo') });
     const logSpy = vi.fn();

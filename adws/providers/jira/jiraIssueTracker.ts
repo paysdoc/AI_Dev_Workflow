@@ -255,6 +255,10 @@ export class JiraIssueTracker implements IssueTracker {
   listIssues(): readonly IssueListEntry[] {
     throw new Error('JiraIssueTracker.listIssues is not implemented');
   }
+
+  getIssueTitle(): string {
+    throw new Error('JiraIssueTracker.getIssueTitle is not implemented');
+  }
 }
 
 /** Throws a library-facing message when `config` is missing a required field or carries an unusable auth shape. The env-flavoured operator message lives in ADW's wiring (`repoContext.ts`), not here. */

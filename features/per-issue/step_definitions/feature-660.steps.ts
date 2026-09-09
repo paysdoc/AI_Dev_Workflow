@@ -244,7 +244,6 @@ When(
       mergeWithConflictResolution: async () => ({ success: true }),
       writeTopLevelState: () => undefined,
       commentOnIssue: () => undefined,
-      commentOnPR: () => undefined,
       getPlanFilePath: () => '',
       planFileExists: () => false,
       notifyBlockedTransition: async () => undefined,

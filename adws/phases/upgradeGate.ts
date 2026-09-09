@@ -11,10 +11,9 @@
 
 import { computeFrameworkHash } from '../core/hashComputer';
 import { readRemoteAdwVersion } from '../core/adwVersion';
-import { claimUpgradeOrFindExisting, buildDefaultUpgradeClaimDeps } from '../core/upgradeClaim';
-import { ADW_UPGRADE_LABEL } from '../github';
+import { claimUpgradeOrFindExisting, buildDefaultUpgradeClaimDeps, ADW_UPGRADE_LABEL } from '../core';
 import { spawnDetached } from '../triggers/webhookGatekeeper';
-import { BoardStatus, type BoundProviders, type RepoIdentifier } from '../providers/types';
+import { BoardStatus, type BoundProviders } from '../providers/types';
 import { log, type LogLevel } from '../core/utils';
 import type { UpgradeClaimResult } from '../core/upgradeClaim';
 import type { GitContext } from '../gitContext';
@@ -31,7 +30,6 @@ export interface UpgradeGateParams {
    *  `origin/<defaultBranch>:.adw-version` as the authoritative stored version. */
   defaultBranch: string;
   frameworkRepoRoot: string;
-  repoInfo: RepoIdentifier;
   targetRepoArgs: string[];
 }
 
@@ -40,7 +38,7 @@ export interface UpgradeGateDeps {
   /** Reads the stored ADW version from the remote default branch, not from a local file.
    *  This is the authoritative read: stale local worktrees cannot affect the result. */
   readAdwVersion: (defaultBranch: string, workspacePath: string) => string | null;
-  claimUpgrade: (hash: string, repoInfo: RepoIdentifier) => Promise<UpgradeClaimResult>;
+  claimUpgrade: (hash: string) => Promise<UpgradeClaimResult>;
   createIssue: (title: string, body: string) => number;
   applyLabel: (issueNumber: number, label: string) => void;
   updateIssueBody: (issueNumber: number, body: string) => void;
@@ -130,7 +128,7 @@ export async function runUpgradeGate(
     'info',
   );
 
-  const claim = await deps.claimUpgrade(currentHash, params.repoInfo);
+  const claim = await deps.claimUpgrade(currentHash);
 
   if (claim.won) {
     const title = `ADW framework upgrade ${currentHash.slice(0, 12)}`;
@@ -175,8 +173,8 @@ export function buildDefaultUpgradeGateDeps(
     // target remote) — otherwise it defaults to process.cwd() (the framework repo) and
     // pushes the claim branch to the framework's own GitHub, scoping the winner/loser
     // election globally across every target repo instead of per-target.
-    claimUpgrade: (hash, repoInfo) =>
-      claimUpgradeOrFindExisting(hash, repoInfo, buildDefaultUpgradeClaimDeps(worktreePath, gitCtx, () => providers.codeHost.getDefaultBranch())),
+    claimUpgrade: (hash) =>
+      claimUpgradeOrFindExisting(hash, buildDefaultUpgradeClaimDeps(worktreePath, gitCtx, providers.codeHost)),
     createIssue: (title, body) => providers.issueTracker.createIssue(title, body),
     applyLabel: (issueNumber, label) => providers.issueTracker.applyLabel(issueNumber, label),
     updateIssueBody: (issueNumber, body) => providers.issueTracker.updateIssueBody(issueNumber, body),

@@ -44,6 +44,7 @@ import type {
   BoardManager,
   IssueComment,
   PullRequestSummary,
+  ReviewComment,
 } from '../../../adws/providers/types.ts';
 import { Platform } from '../../../adws/providers/types.ts';
 import { GitHubCodeHost } from '../../../adws/providers/github/githubCodeHost.ts';
@@ -70,21 +71,31 @@ const FRAMEWORK_REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.
 
 // ── World state ──────────────────────────────────────────────────────────────
 
-interface CallRecord {
+export interface CallRecord {
   operation: string;
   args: unknown[];
 }
 
-interface Fixture {
+export interface Fixture {
   prByBranch: Map<string, PullRequestSummary>;
   issueLabels: Map<number, string[]>;
   prApproval: Map<number, boolean>;
   issueComments: Map<number, IssueComment[]>;
   defaultBranch: string;
   nextPrNumber: number;
+  issueTitles: Map<number, string>;
+  authenticatedUser: string | null;
+  canApprove: boolean;
+  prState: Map<number, string>;
+  prComments: Map<number, ReviewComment[]>;
+  lastAdwCommit: Map<string, Date | null>;
+  /** #820 §4: pull request number -> the issue it implements (PullRequest.linkedIssueNumber). */
+  prLinkedIssue: Map<number, number>;
+  /** #820 §7: label names NOT yet defined on the repo — applyLabel lazy-creates and records 'createLabel', then removes the entry (idempotent create). */
+  undefinedLabels: Set<string>;
 }
 
-interface World796 {
+export interface World796 {
   frameworkRoot: string;
   targetReposDir: string;
   tempDirs: string[];
@@ -146,7 +157,16 @@ const w: World796 = {
   resolveError: null,
 };
 
-function resetWorld(): void {
+/**
+ * Cross-file accessor for the live module world (#820), the same pattern as
+ * feature-816.steps.ts's `resetGuardFixtureTree`. Returns the SAME mutable
+ * object every call — callers read/write it directly, they never clone it.
+ */
+export function world796(): World796 {
+  return w;
+}
+
+export function resetWorld(): void {
   w.frameworkRoot = '';
   w.targetReposDir = '';
   w.tempDirs = [];
@@ -205,12 +225,12 @@ function makeTargetRepo(owner: string, repo: string): TargetRepoInfo {
   return { owner, repo, cloneUrl: `https://github.com/${owner}/${repo}.git` };
 }
 
-function splitRepo(repoStr: string): { owner: string; repo: string } {
+export function splitRepo(repoStr: string): { owner: string; repo: string } {
   const [owner, repo] = repoStr.split('/');
   return { owner, repo };
 }
 
-function makeFixture(): Fixture {
+export function makeFixture(): Fixture {
   return {
     prByBranch: new Map(),
     issueLabels: new Map(),
@@ -218,6 +238,14 @@ function makeFixture(): Fixture {
     issueComments: new Map(),
     defaultBranch: 'main',
     nextPrNumber: 100,
+    issueTitles: new Map(),
+    authenticatedUser: null,
+    canApprove: false,
+    prState: new Map(),
+    prComments: new Map(),
+    lastAdwCommit: new Map(),
+    prLinkedIssue: new Map(),
+    undefinedLabels: new Set(),
   };
 }
 
@@ -256,7 +284,7 @@ function makeStubGitContext(): GitContext {
   return stub as unknown as GitContext;
 }
 
-function record(callLog: CallRecord[], operation: string, ...args: unknown[]): void {
+export function record(callLog: CallRecord[], operation: string, ...args: unknown[]): void {
   callLog.push({ operation, args });
 }
 
@@ -301,6 +329,10 @@ function makeRecordingIssueTracker(fixture: Fixture, callLog: CallRecord[]): Iss
       if (!labels.includes(labelName)) fixture.issueLabels.set(issueNumber, [...labels, labelName]);
     },
     applyLabel(issueNumber, labelName) {
+      if (fixture.undefinedLabels.has(labelName)) {
+        record(callLog, 'createLabel', labelName);
+        fixture.undefinedLabels.delete(labelName);
+      }
       record(callLog, 'applyLabel', issueNumber, labelName);
       const labels = fixture.issueLabels.get(issueNumber) ?? [];
       if (!labels.includes(labelName)) fixture.issueLabels.set(issueNumber, [...labels, labelName]);
@@ -327,6 +359,10 @@ function makeRecordingIssueTracker(fixture: Fixture, callLog: CallRecord[]): Iss
       record(callLog, 'listIssues', query);
       return [];
     },
+    getIssueTitle(issueNumber) {
+      record(callLog, 'getIssueTitle', issueNumber);
+      return fixture.issueTitles.get(issueNumber) ?? '(unknown)';
+    },
   };
 }
 
@@ -343,14 +379,19 @@ function makeRecordingCodeHost(fixture: Fixture, callLog: CallRecord[], repoId: 
     },
     fetchPullRequest(prNumber) {
       record(callLog, 'fetchPullRequest', prNumber);
-      return { number: prNumber, title: '', body: '', sourceBranch: '', targetBranch: '', url: '' };
+      const branchName = [...fixture.prByBranch.entries()].find(([, pr]) => pr.number === prNumber)?.[0] ?? '';
+      return {
+        number: prNumber, title: '', body: '', sourceBranch: branchName, targetBranch: '', url: `https://github.com/${repoId.owner}/${repoId.repo}/pull/${prNumber}`,
+        state: fixture.prState.get(prNumber) ?? 'OPEN',
+        linkedIssueNumber: fixture.prLinkedIssue.get(prNumber),
+      };
     },
     commentOnPullRequest(prNumber, body) {
       record(callLog, 'commentOnPullRequest', prNumber, body);
     },
     fetchReviewComments(prNumber) {
       record(callLog, 'fetchReviewComments', prNumber);
-      return [];
+      return [...(fixture.prComments.get(prNumber) ?? [])];
     },
     listOpenPullRequests() {
       record(callLog, 'listOpenPullRequests');
@@ -378,6 +419,14 @@ function makeRecordingCodeHost(fixture: Fixture, callLog: CallRecord[], repoId: 
     },
     setSecret(name, value) {
       record(callLog, 'setSecret', name, value);
+    },
+    getAuthenticatedUser() {
+      record(callLog, 'getAuthenticatedUser');
+      return fixture.authenticatedUser;
+    },
+    canApprovePullRequests() {
+      record(callLog, 'canApprovePullRequests');
+      return fixture.canApprove;
     },
     listMergedPullRequests(limit) {
       record(callLog, 'listMergedPullRequests', limit);
@@ -441,13 +490,27 @@ function buildRecordingBoundary(owner: string, repo: string): void {
 }
 
 let cachedClaimBranch: string | null = null;
+let claimBranchOverride: string | null = null;
 
 /** The real upgrade claim branch for THIS repo's actual framework state — deterministic per run. */
-function claimBranchName(): string {
+export function claimBranchName(): string {
+  if (claimBranchOverride) return claimBranchOverride;
   if (!cachedClaimBranch) {
     cachedClaimBranch = buildClaimBranchName(computeFrameworkHash(FRAMEWORK_REPO_ROOT));
   }
   return cachedClaimBranch;
+}
+
+/**
+ * Freezes the claim branch this harness seeds and reads, for scenarios that must NAME the
+ * branch literally in Gherkin (feature-820 §10). The real name embeds
+ * `computeFrameworkHash(FRAMEWORK_REPO_ROOT)`, which changes with every commit, so a literal
+ * Gherkin parameter can only match a frozen hash. Scenarios that drive the real upgrade
+ * orchestrator (this file's own, which recompute the hash inside production code) must leave
+ * the override unset; pass null to restore.
+ */
+export function setClaimBranchOverride(branchName: string | null): void {
+  claimBranchOverride = branchName;
 }
 
 function stubRegenDeps(worktreePath: string): Pick<
@@ -571,6 +634,7 @@ Given('the branch {string} has a pull request numbered {int} in state {string}',
   assert.ok(w.activeFixture, 'Expected provider fixtures to have been set up first');
   w.mergeBranchName = branchName;
   w.activeFixture.prByBranch.set(branchName, { number: prNumber, state, sourceBranch: branchName, targetBranch: 'main', labels: [] });
+  w.activeFixture.prState.set(prNumber, state);
 });
 
 /**
@@ -604,6 +668,7 @@ Given(
     assert.ok(w.activeFixture, 'Expected provider fixtures to have been set up first');
     const branch = claimBranchName();
     w.activeFixture.prByBranch.set(branch, { number: prNumber, state, sourceBranch: branch, targetBranch: 'main', labels: [label] });
+    w.activeFixture.prState.set(prNumber, state);
   },
 );
 

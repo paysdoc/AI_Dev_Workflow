@@ -19,9 +19,8 @@
  *    do not exist earlier in the pipeline.
  */
 
-import { log, emptyModelUsageMap, mergeModelUsageMaps, type ModelUsageMap, type LogLevel } from '../core';
+import { log, emptyModelUsageMap, mergeModelUsageMaps, type ModelUsageMap, type LogLevel, hasRegressionPromotionLabel } from '../core';
 import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
-import { hasRegressionPromotionLabel } from '../github/labelManager';
 import { extractPrNumber } from '../adwBuildHelpers';
 import { parsePromotesMarker } from '../core/promotionReconcileLink';
 import { runRotAnalysisAgent, type RotVerdict } from '../agents/rotAnalysisAgent';

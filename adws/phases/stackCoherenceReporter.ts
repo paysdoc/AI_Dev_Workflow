@@ -1,9 +1,6 @@
-import { log, AgentStateManager, stackCoherenceCheck } from '../core';
-import { applyLabel, ADW_UNVERIFIED_LABEL } from '../github/labelManager';
-import { getRepoInfo } from '../github/githubApi';
+import { log, AgentStateManager, stackCoherenceCheck, ADW_UNVERIFIED_LABEL } from '../core';
 import { postIssueStageComment } from './phaseCommentHelpers';
 import type { WorkflowConfig } from './workflowInit';
-import { Platform } from '../providers/types';
 
 export function reportStackCoherence(config: WorkflowConfig): void {
   const commands = config.projectConfig.commands;
@@ -23,10 +20,11 @@ export function reportStackCoherence(config: WorkflowConfig): void {
   AgentStateManager.appendLog(config.orchestratorStatePath, `Stack coherence warning: ${messages.join('; ')}`);
 
   try {
-    const repoInfo = config.targetRepo
-      ? { owner: config.targetRepo.owner, repo: config.targetRepo.repo, platform: Platform.GitHub }
-      : getRepoInfo();
-    applyLabel(config.issueNumber, ADW_UNVERIFIED_LABEL, repoInfo);
+    if (config.repoContext) {
+      config.repoContext.issueTracker.applyLabel(config.issueNumber, ADW_UNVERIFIED_LABEL);
+    } else {
+      log('Stack coherence reporter: no repo context — adw:unverified not applied', 'warn');
+    }
     config.ctx.coherenceWarnings = messages;
     if (config.repoContext) {
       postIssueStageComment(config.repoContext, config.issueNumber, 'stack_incoherent', config.ctx);

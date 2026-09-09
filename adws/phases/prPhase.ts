@@ -20,7 +20,7 @@ import {
 } from '../agents';
 import { BoardStatus } from '../providers/types';
 import type { WorkflowConfig } from './workflowInit';
-import { gitContextFor } from '../github';
+import { gitContextFor } from '../github/gitContextFactory';
 
 /**
  * Executes the PR phase: generate PR title/body via agent, push branch, create PR via CodeHost.

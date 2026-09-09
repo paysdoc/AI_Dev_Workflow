@@ -10,7 +10,7 @@ import { GitContext } from '../gitContext';
 import type { GitContextOptions, TokenProvider } from '../gitContext/types';
 import { readLocalRepoInfo, resolveBootstrapGitIdentity } from '../providers/github/githubIdentity';
 import { ghAuthToken } from '../providers/github/ghAuthToken';
-import { isGitHubAppConfigured, getInstallationToken } from './githubAppAuth';
+import { isGitHubAppConfigured, getInstallationToken } from '../core/githubAppAuth';
 import { createGitHubTokenProvider } from '../providers/github/githubTokenProvider';
 import { REPO_ROOT, TARGET_REPOS_DIR, GITHUB_PAT } from '../core/environment';
 import { log } from '../core/utils';

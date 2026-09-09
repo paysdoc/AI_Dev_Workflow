@@ -12,25 +12,18 @@
  */
 
 import { acquireIssueSpawnLock, releaseIssueSpawnLock } from '../triggers/spawnGate';
-import { getRepoInfo } from '../github/githubApi';
-import { Platform, type RepoIdentifier } from '../providers/types';
+import type { RepoIdentifier } from '../providers/types';
 import type { WorkflowConfig } from './workflowInit';
+import { resolveWorkflowRepoId } from './workflowRepoIdentity';
 import { startHeartbeat, stopHeartbeat } from '../core/heartbeat';
 import { HEARTBEAT_TICK_INTERVAL_MS } from '../core/config';
 
-function resolveRepoInfo(config: WorkflowConfig): RepoIdentifier {
-  if (config.targetRepo) {
-    return { owner: config.targetRepo.owner, repo: config.targetRepo.repo, platform: Platform.GitHub };
-  }
-  return getRepoInfo();
-}
-
 export function acquireOrchestratorLock(config: WorkflowConfig): boolean {
-  return acquireIssueSpawnLock(resolveRepoInfo(config), config.issueNumber, process.pid);
+  return acquireIssueSpawnLock(resolveWorkflowRepoId(config), config.issueNumber, process.pid);
 }
 
 export function releaseOrchestratorLock(config: WorkflowConfig): void {
-  releaseIssueSpawnLock(resolveRepoInfo(config), config.issueNumber);
+  releaseIssueSpawnLock(resolveWorkflowRepoId(config), config.issueNumber);
 }
 
 /**
@@ -47,7 +40,7 @@ export async function runWithOrchestratorLifecycle(
   config: WorkflowConfig,
   fn: () => Promise<void>,
 ): Promise<boolean> {
-  if (!acquireIssueSpawnLock(resolveRepoInfo(config), config.issueNumber, process.pid)) {
+  if (!acquireIssueSpawnLock(resolveWorkflowRepoId(config), config.issueNumber, process.pid)) {
     return false;
   }
   const heartbeat = startHeartbeat(config.adwId, HEARTBEAT_TICK_INTERVAL_MS);
@@ -55,7 +48,7 @@ export async function runWithOrchestratorLifecycle(
     await fn();
   } finally {
     stopHeartbeat(heartbeat);
-    releaseIssueSpawnLock(resolveRepoInfo(config), config.issueNumber);
+    releaseIssueSpawnLock(resolveWorkflowRepoId(config), config.issueNumber);
   }
   return true;
 }
