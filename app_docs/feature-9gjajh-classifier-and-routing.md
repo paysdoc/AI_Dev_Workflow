@@ -6,7 +6,8 @@ This module classifies GitHub issues into ADW workflow types and routes them to 
 
 ## Responsibilities
 
-- Classifies issues via the `/classify_issue` AI skill (`classifyIssueForTrigger`, `classifyGitHubIssue`)
+- Classifies issues via the `/classify_issue` AI skill (`classifyIssueForTrigger`, `classifyGitHubIssue`). Since #820, `classifyIssueForTrigger(issueNumber, deps)` takes a required, port-shaped `deps.fetchIssue: (issueNumber) => Promise<ClassifiableIssue>` (`ClassifiableIssue` = `Pick<Issue, 'number'|'title'|'body'|'labels'|'comments'>`, forge-neutral string labels) — no `repoInfo` parameter and no legacy default; the trigger caller (`webhookGatekeeper.ts`) supplies its own legacy-backed `fetchIssue` closure until #821 replaces it with a boundary tracker
+- `adws/core/adwLabels.ts` (#820, moved from `adws/github/labelManager.ts`) holds the pure ADW label vocabulary the adw:* override reads: `ADW_*_LABEL` constants, `ADW_LABEL_DEFINITIONS`, `readAdwLabelNames`/`readAdwLabels`, `shouldSkipScenarioAuthoring`, `hasRegressionPromotionLabel`, `hasWontFixLabelName`, `resolveAdwLabelDefinition`, `issueTypeToAdwLabel` — no I/O, no forge operation; `labelManager.ts`/`prApi.ts` re-export it verbatim so trigger callers are unchanged
 - Enforces deterministic `adw:*` label overrides before falling through to AI classification
 - Scans existing issue comments for a previously-assigned ADW ID on retry paths
 - Maps every slash command to a Claude model tier (opus / sonnet / haiku) and reasoning effort level

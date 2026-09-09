@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { readUnaddressedComments, getLastAdwCommitTimestamp, type UnaddressedCommentReads, type UnaddressedCommentCandidate } from '../unaddressedComments';
 import type { GitContext } from '../../gitContext';
 
-interface TestComment extends UnaddressedCommentCandidate {}
+type TestComment = UnaddressedCommentCandidate;
 
 function makeReads(overrides: Partial<UnaddressedCommentReads<TestComment>> = {}): UnaddressedCommentReads<TestComment> {
   return {
