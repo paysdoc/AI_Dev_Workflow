@@ -14,8 +14,6 @@
 
 import { AgentStateManager } from './agentState';
 import { log } from './utils';
-import { defaultFindPRByBranch } from '../github/prApi';
-import { gitContextForRepo } from '../github/gitContextFactory';
 import type { AgentState } from '../types/agentTypes';
 import type { WorkflowStage } from '../types/workflowTypes';
 import type { LaunchBoundary } from './launchGitContext';
@@ -71,19 +69,21 @@ function defaultBranchExistsOnRemote(gitContext: Pick<GitContext, 'lsRemote'>, b
 /**
  * Derives the authoritative WorkflowStage for an ADW run from remote artifacts.
  *
- * The issueNumber parameter is reserved for future commits-ahead checks.
- * `deps` defaults to the legacy `repoInfo`-scoped wiring (`buildLegacyReconcileDeps`)
- * for the no-boundary takeover callers (scanAuthQueue, webhookGatekeeper); a
- * caller holding a launch boundary should pass `buildDefaultReconcileDeps(boundary)`.
+ * The issueNumber and repoInfo parameters are ignored by this function itself
+ * (kept, unused, so the boundary-less trigger callers' call shape is untouched
+ * until #821); `deps` carries the only wiring this function reads. A caller
+ * holding a launch boundary passes `buildDefaultReconcileDeps(boundary)`; a
+ * boundary-less caller (`takeoverHandler.ts`) builds its own legacy-backed
+ * `ReconcileDeps` — that wiring cannot run hermetically, so it stays at the
+ * caller rather than living here as a default.
  */
 export function deriveStageFromRemote(
   _issueNumber: number,
   adwId: string,
-  repoInfo: RepoIdentifier,
-  deps?: ReconcileDeps,
+  _repoInfo: RepoIdentifier,
+  deps: ReconcileDeps,
 ): WorkflowStage {
-  const effectiveDeps = deps ?? buildLegacyReconcileDeps(repoInfo);
-  const state = effectiveDeps.readTopLevelState(adwId);
+  const state = deps.readTopLevelState(adwId);
   const branchName = state?.branchName;
 
   if (!branchName) {
@@ -92,30 +92,17 @@ export function deriveStageFromRemote(
 
   const stateFallback: WorkflowStage = (state?.workflowStage as WorkflowStage | undefined) ?? 'starting';
 
-  let prev = readOnce(branchName, effectiveDeps);
+  let prev = readOnce(branchName, deps);
   if (prev === null) return stateFallback;
 
   for (let i = 0; i <= MAX_RECONCILE_VERIFICATION_RETRIES; i++) {
-    const next = readOnce(branchName, effectiveDeps);
+    const next = readOnce(branchName, deps);
     if (next === prev) return prev as WorkflowStage;
     prev = next;
     if (prev === null) return stateFallback;
   }
 
   return stateFallback;
-}
-
-/**
- * Today's `repoInfo`-scoped wiring, unchanged — the fallback for the two
- * legacy takeover callers (scanAuthQueue, webhookGatekeeper) that hold no
- * launch boundary.
- */
-function buildLegacyReconcileDeps(repoInfo: RepoIdentifier): ReconcileDeps {
-  return {
-    readTopLevelState: (id) => AgentStateManager.readTopLevelState(id),
-    branchExistsOnRemote: (branchName) => defaultBranchExistsOnRemote(gitContextForRepo(repoInfo), branchName),
-    findPRByBranch: (branchName) => defaultFindPRByBranch(branchName, repoInfo),
-  };
 }
 
 /**

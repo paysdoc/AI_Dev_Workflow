@@ -32,21 +32,17 @@ import {
   sameRepoIdentity,
   branchPrefixMap,
   branchPrefixAliases,
+  fetchIssueRecord,
+  detectRecoveryState,
+  isGitHubAppConfigured,
 } from '../core';
 import type { RepoIdentity } from '../types/agentTypes';
 import type { GitContext } from '../gitContext';
 import type { GitHubIssue } from '../providers/github/domain/issue';
-import {
-  fetchGitHubIssue,
-  type WorkflowContext,
-  detectRecoveryState,
-  getRepoInfo,
-  isGitHubAppConfigured,
-} from '../github';
+import type { WorkflowContext } from '../github/workflowCommentsIssue';
+import { gitContextForSync } from '../github/gitContextFactory';
 import { GITHUB_PAT } from '../core/environment';
-import { gitContextForSync } from '../github';
 import type { BoundProviders, RepoContext, RepoIdentifier } from '../providers/types';
-import { Platform } from '../providers/types';
 import { classifyGitHubIssue } from '../core/issueClassifier';
 import { resolveWorkflowBranchName, readPersistedBranchName } from './branchNameResolution';
 import { findExistingBranchForIssue, recoverAdwIdForBranch } from './branchIdentityFallback';
@@ -145,22 +141,20 @@ export async function initializeWorkflow(
 
   // Resolve target repo context for API calls
   const targetRepo = options?.targetRepo;
-  const repoInfo: RepoIdentifier | undefined = targetRepo
-    ? { owner: targetRepo.owner, repo: targetRepo.repo, platform: Platform.GitHub }
-    : undefined;
-
-  const resolvedRepoForAuth = repoInfo ?? getRepoInfo();
-  const gitCtx = gitContextForSync({ owner: resolvedRepoForAuth.owner, repo: resolvedRepoForAuth.repo, selfHost: !targetRepo });
 
   // Construct exactly one launch boundary for this orchestrator process — a GitContext
-  // and the forge providers bound to that same identity. Graceful fallback: if
-  // construction fails (e.g. test fixtures with fake git remotes), both remain
-  // undefined — phases that require them must check.
+  // and the forge providers bound to that same identity. It is now the SOLE identity
+  // source for this run: no repository parameter or local-remote read precedes it.
   let boundary: LaunchBoundary | undefined;
   try {
     boundary = buildLaunchBoundary(targetRepo ?? null);
-  } catch { /* non-fatal: phases inherit the context when available */ }
-  const gitContext: import('../gitContext').GitContext | undefined = boundary?.gitContext;
+  } catch { /* see the throw below */ }
+  if (!boundary) {
+    throw new Error('initializeWorkflow: launch boundary unavailable — providers cannot be resolved for this run');
+  }
+
+  const gitCtx = gitContextForSync({ owner: boundary.repoId.owner, repo: boundary.repoId.repo, selfHost: !targetRepo });
+  const gitContext: import('../gitContext').GitContext = boundary.gitContext;
 
   // Startup validation: GITHUB_PAT is required for PR approval when a GitHub App is configured.
   if (isGitHubAppConfigured() && !GITHUB_PAT) {
@@ -169,9 +163,9 @@ export async function initializeWorkflow(
     );
   }
 
-  // Fetch issue (targeting external repo if specified)
+  // Fetch issue (targeting external repo if specified) — over the boundary's own GitContext.
   log('Fetching GitHub issue...', 'info');
-  const issue = await fetchGitHubIssue(issueNumber, repoInfo ?? getRepoInfo());
+  const issue = await fetchIssueRecord(boundary.gitContext, issueNumber);
   log(`Fetched issue: ${issue.title}`, 'success');
 
   // Detect recovery state early to reuse existing ADW ID and branch name
@@ -229,17 +223,6 @@ export async function initializeWorkflow(
   // Initialize logs early so agents can use the directory
   const logsDir = ensureLogsDirectory(resolvedAdwId);
 
-  // The launch boundary is the only source of providers from this point on. It is
-  // unreachable in production for this call to fail here: buildLaunchBoundary (above)
-  // constructs its GitContext from the same owner/repo, git identity and token-provider
-  // composition that gitContextForSync just used to build gitCtx, and both run the
-  // identical validate-and-discard credential probe — so if gitCtx's construction
-  // succeeded, the boundary's could not have failed. The only way to reach this line
-  // with no boundary is a test that mocks gitContextForSync but not buildLaunchBoundary.
-  if (!boundary) {
-    throw new Error('initializeWorkflow: launch boundary unavailable — providers cannot be resolved for this run');
-  }
-
   // Setup target repo workspace if targeting an external repository
   let targetRepoWorkspacePath: string | undefined;
   if (targetRepo) {
@@ -259,7 +242,6 @@ export async function initializeWorkflow(
   // feature worktree; the winner's claim push uses a temp worktree created inside
   // targetRepoWorkspacePath (existing invariant from 94059b5, unchanged).
   if (targetRepo && targetRepoWorkspacePath) {
-    const repoInfoForGate = repoInfo ?? getRepoInfo();
     const targetRepoArgs = [
       '--target-repo', `${targetRepo.owner}/${targetRepo.repo}`,
       ...(targetRepo.cloneUrl ? ['--clone-url', targetRepo.cloneUrl] : []),
@@ -271,7 +253,6 @@ export async function initializeWorkflow(
         worktreePath: targetRepoWorkspacePath,
         defaultBranch,
         frameworkRepoRoot,
-        repoInfo: repoInfoForGate,
         targetRepoArgs,
       },
       buildDefaultUpgradeGateDeps(boundary.providers, targetRepoWorkspacePath, gitCtx),
@@ -343,11 +324,8 @@ export async function initializeWorkflow(
   log(`State: ${orchestratorStatePath}`, 'info');
   log(`Logs: ${logsDir}`, 'info');
 
-  // Derive launch identity from the boundary GitContext; fall back to the already-resolved
-  // launch repo info when the context is unavailable (e.g. test fixtures with fake remotes).
-  const launchRepoIdentity: RepoIdentity = gitContext
-    ? { owner: gitContext.owner, repo: gitContext.repo }
-    : { owner: resolvedRepoForAuth.owner, repo: resolvedRepoForAuth.repo };
+  // Derive launch identity from the boundary — the sole identity source for this run.
+  const launchRepoIdentity: RepoIdentity = { owner: boundary.repoId.owner, repo: boundary.repoId.repo };
 
   // Cross-check (not source of truth): if a prior run persisted a divergent identity for
   // this adwId, fail closed before any worktree/gh work rather than operate on the wrong repo.

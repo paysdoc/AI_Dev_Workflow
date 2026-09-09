@@ -10,10 +10,10 @@ import {
   shouldExecuteStage,
   type ModelUsageMap,
   emptyModelUsageMap,
+  shouldSkipScenarioAuthoring,
 } from '../core';
 import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from '../cost';
 import { runScenarioAgent } from '../agents';
-import { shouldSkipScenarioAuthoring } from '../github';
 import type { WorkflowConfig } from './workflowInit';
 
 /**

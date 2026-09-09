@@ -64,6 +64,7 @@ export function mapPRDetailsToPullRequest(pr: PRDetails): PullRequest {
     targetBranch: pr.baseBranch,
     url: pr.url,
     linkedIssueNumber: pr.issueNumber ?? undefined,
+    state: pr.state,
   };
 }
 
@@ -78,12 +79,14 @@ export function mapPRReviewCommentToReviewComment(comment: PRReviewComment): Rev
     createdAt: comment.createdAt,
     path: comment.path || undefined,
     line: comment.line ?? undefined,
+    isBot: comment.author.isBot,
   };
 }
 
 /**
  * Maps a GitHub PRListItem to a platform-agnostic PullRequest.
  * PRListItem carries only number and headBranch, so remaining fields are empty strings.
+ * The listing op returns open PRs only, so `state` is always `'OPEN'`.
  */
 export function mapPRListItemToPullRequest(item: PRListItem): PullRequest {
   return {
@@ -93,6 +96,7 @@ export function mapPRListItemToPullRequest(item: PRListItem): PullRequest {
     sourceBranch: item.headBranch,
     targetBranch: '',
     url: '',
+    state: 'OPEN',
   };
 }
 

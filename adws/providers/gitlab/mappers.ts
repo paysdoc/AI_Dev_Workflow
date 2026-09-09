@@ -38,6 +38,7 @@ export function mapGitLabMRToPullRequest(mr: GitLabMergeRequest): PullRequest {
     targetBranch: mr.target_branch,
     url: mr.web_url,
     linkedIssueNumber: mr.description ? extractLinkedIssueNumber(mr.description) : undefined,
+    state: mr.state,
   };
 }
 

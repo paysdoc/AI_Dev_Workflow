@@ -48,9 +48,9 @@ import {
   countUpgradeFailureComments,
   UPGRADE_FAILURE_SIGNATURE,
   type IssueCommentRecord,
+  ADW_BLOCKED_LABEL,
+  hasWontFixLabelName,
 } from './core';
-import { ADW_BLOCKED_LABEL } from './github/labelManager';
-import { hasWontFixLabelName } from './github/prApi';
 import type { GitContext } from './gitContext';
 import { runClaudeAgentWithCommand } from './agents';
 import type { BoundProviders, CreatePROptions, ForgeActionResult, PullRequestResult, PullRequestSummary, RepoIdentifier } from './providers/types';

@@ -22,10 +22,9 @@
 import { GitContext } from '../gitContext';
 import type { GitIdentity, TokenProvider } from '../gitContext';
 import type { TargetRepoInfo } from '../types/issueTypes';
-import { getRepoInfo } from '../github/githubApi';
-import { resolveBootstrapGitIdentity } from '../providers/github/githubIdentity';
+import { readLocalRepoInfo, resolveBootstrapGitIdentity } from '../providers/github/githubIdentity';
 import { ghAuthToken } from '../providers/github/ghAuthToken';
-import { isGitHubAppConfigured, getInstallationToken } from '../github/githubAppAuth';
+import { isGitHubAppConfigured, getInstallationToken } from './githubAppAuth';
 import { resolveContextToken } from '../providers/github/tokenResolver';
 import { createGitHubTokenProvider } from '../providers/github/githubTokenProvider';
 // Deep imports only — never the `../providers` barrel, which re-exports the
@@ -43,7 +42,7 @@ import { sameRepoIdentity } from './repoIdentityCrossCheck';
  * production defaults are applied if omitted.
  */
 export interface LaunchGitContextDeps {
-  /** Returns the local git remote identity as a RepoIdentifier. Defaults to getRepoInfo() from ../github. */
+  /** Returns the local git remote identity as a RepoIdentifier. Defaults to readLocalRepoInfo(). */
   getRepoInfo?: (cwd?: string) => RepoIdentifier;
   /**
    * Returns a non-empty GitHub token for the given owner/repo. Adapted into a
@@ -187,7 +186,7 @@ export function buildLaunchBoundary(
   targetRepo: TargetRepoInfo | null,
   deps: LaunchGitContextDeps = {},
 ): LaunchBoundary {
-  const getInfo = deps.getRepoInfo ?? getRepoInfo;
+  const getInfo = deps.getRepoInfo ?? readLocalRepoInfo;
   const resolveIdentity = deps.resolveGitIdentity ?? resolveLaunchGitIdentity;
   const frameworkRepoRoot = deps.frameworkRepoRoot ?? REPO_ROOT;
   const targetReposDir = deps.targetReposDir ?? TARGET_REPOS_DIR;

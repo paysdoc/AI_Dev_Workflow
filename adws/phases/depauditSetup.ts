@@ -1,7 +1,7 @@
 import { execWithRetry as defaultExecWithRetry, log as defaultLog } from '../core';
 import type { LogLevel } from '../core';
 import type { WorkflowConfig } from './workflowInit';
-import { getRepoInfo } from '../github';
+import { resolveWorkflowRepoId } from './workflowRepoIdentity';
 import type { CodeHost } from '../providers/types';
 
 export interface DepauditSetupDeps {
@@ -66,9 +66,8 @@ export async function executeDepauditSetup(
     warnings.push(msg);
   }
 
-  const ownerRepo = config.targetRepo
-    ? `${config.targetRepo.owner}/${config.targetRepo.repo}`
-    : (() => { const info = getRepoInfo(); return `${info.owner}/${info.repo}`; })();
+  const { owner, repo } = resolveWorkflowRepoId(config);
+  const ownerRepo = `${owner}/${repo}`;
 
   for (const secretName of SECRET_NAMES) {
     const result = await propagateSecret(secretName, codeHost, ownerRepo, d);

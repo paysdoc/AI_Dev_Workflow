@@ -170,6 +170,8 @@ export interface IssueTracker {
   findOpenUpgradeIssue(): number | null;
   /** Issues matching `query` (open unless `state` says otherwise). Throws on failure — callers own the swallow policy. */
   listIssues(query: IssueListQuery): readonly IssueListEntry[];
+  /** Returns the issue's title for log lines; `'(unknown)'` on any error (fail-open). */
+  getIssueTitle(issueNumber: number): string;
 }
 
 /**
@@ -182,6 +184,8 @@ export interface ReviewComment {
   createdAt: string;
   path?: string;
   line?: number;
+  /** True when the forge marks the author as a bot account; absent when the forge does not say. */
+  isBot?: boolean;
 }
 
 /**
@@ -195,6 +199,8 @@ export interface PullRequest {
   targetBranch: string;
   url: string;
   linkedIssueNumber?: number;
+  /** Forge-native state vocabulary (`'OPEN' | 'MERGED' | 'CLOSED'` on GitHub), the same vocabulary `PullRequestSummary.state` already carries. */
+  state: string;
 }
 
 /**
@@ -255,6 +261,16 @@ export interface CodeHost {
   setSecret(name: string, value: string): void;
   /** Merged PRs, newest first, at most `limit`. Throws on failure. */
   listMergedPullRequests(limit: number): readonly MergedPullRequestRecord[];
+  /** Login the code host's commands run as; `null` when it cannot be determined (best-effort, warns once per instance). */
+  getAuthenticatedUser(): string | null;
+  /**
+   * True when this code host holds a reviewer identity distinct from the one
+   * that authors pull requests, so an approval it submits is not a
+   * self-approval. An adapter that cannot express approval at all refuses by
+   * name, like every other stub; callers treat a refusal exactly as they
+   * treat `false`.
+   */
+  canApprovePullRequests(): boolean;
 }
 
 /**

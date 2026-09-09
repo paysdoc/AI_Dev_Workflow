@@ -107,6 +107,14 @@ export class GitLabCodeHost implements CodeHost {
   listMergedPullRequests(): readonly MergedPullRequestRecord[] {
     throw new Error('GitLabCodeHost.listMergedPullRequests is not implemented');
   }
+
+  getAuthenticatedUser(): string | null {
+    throw new Error('GitLabCodeHost.getAuthenticatedUser is not implemented');
+  }
+
+  canApprovePullRequests(): boolean {
+    throw new Error('GitLabCodeHost.canApprovePullRequests is not implemented');
+  }
 }
 
 /** Throws a library-facing message when `config` is missing a required field. The env-flavoured operator message lives in ADW's wiring (`repoContext.ts`), not here. */

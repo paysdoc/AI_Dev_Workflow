@@ -11,9 +11,10 @@ import * as path from 'path';
 import { log, generateAdwId, REPO_ROOT, LOGS_DIR } from '../core';
 import type { RepoIdentifier } from '../providers/types';
 import { getRepoInfo } from '../github';
-import { closeIssue, issueHasLabel } from '../github/issueApi';
+import { closeIssue, issueHasLabel, fetchGitHubIssue } from '../github/issueApi';
 import { classifyIssueForTrigger, getWorkflowScript } from '../core/issueClassifier';
 import { applyLabel, issueTypeToAdwLabel, ADW_UPGRADE_LABEL } from '../github/labelManager';
+import { mapGitHubIssueToIssue } from '../providers/github/mappers';
 import type { IssueClassSlashCommand } from '../types/issueTypes';
 import { AgentStateManager } from '../core/agentState';
 
@@ -131,7 +132,7 @@ export async function classifyAndSpawnWorkflow(
   try {
     const classification = labelRouting?.precomputedClassification
       ? { issueType: labelRouting.precomputedClassification, success: true as const, issueTitle: labelRouting.issueTitle, adwId: undefined }
-      : await classifyIssueForTrigger(issueNumber, resolvedRepoInfo);
+      : await classifyIssueForTrigger(issueNumber, { fetchIssue: async (n) => mapGitHubIssueToIssue(await fetchGitHubIssue(n, resolvedRepoInfo)) });
 
     if (await isAdwRunningForIssue(issueNumber, resolvedRepoInfo)) {
       log(`Issue #${issueNumber}: another ADW workflow started during classification, aborting spawn`);

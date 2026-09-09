@@ -7,7 +7,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { IssueClassSlashCommand, getModelForCommand, getEffortForCommand, log } from '../core';
 import type { GitHubIssue } from '../providers/github/domain/issue';
-import type { PRDetails, PRReviewComment } from '../providers/github/domain/pullRequest';
+import type { PullRequest, ReviewComment } from '../providers/types';
 import { runClaudeAgentWithCommand, AgentResult } from './claudeAgent';
 import { isAdwComment, extractActionableContent } from '../core/workflowCommentParsing';
 
@@ -165,16 +165,19 @@ export function correctPlanFileNaming(issueNumber: number, worktreePath?: string
   return null;
 }
 
+/** The port-typed PR fields the pr-review prompt needs. */
+export type PrReviewPullRequest = Pick<PullRequest, 'number' | 'title' | 'url' | 'sourceBranch'>;
+
 /**
  * Formats PR review comments for inclusion in a prompt.
  */
-function formatPrReviewComments(comments: PRReviewComment[]): string {
+function formatPrReviewComments(comments: readonly ReviewComment[]): string {
   return comments
     .map(c => {
       const location = c.path
         ? `**File:** \`${c.path}\`${c.line ? ` (line ${c.line})` : ''}`
         : '**General comment**';
-      return `${location}\n**Author:** ${c.author.login}\n**Comment:** ${c.body}`;
+      return `${location}\n**Author:** ${c.author}\n**Comment:** ${c.body}`;
     })
     .join('\n\n---\n\n');
 }
@@ -183,15 +186,15 @@ function formatPrReviewComments(comments: PRReviewComment[]): string {
  * Formats PR review context as arguments for the /pr_review command.
  */
 function formatPrReviewContextAsArgs(
-  prDetails: PRDetails,
-  comments: PRReviewComment[],
+  pr: PrReviewPullRequest,
+  comments: readonly ReviewComment[],
   existingPlanContent: string
 ): string {
   const commentsSection = formatPrReviewComments(comments);
 
-  return `## PR #${prDetails.number}: ${prDetails.title}
-**URL:** ${prDetails.url}
-**Branch:** ${prDetails.headBranch}
+  return `## PR #${pr.number}: ${pr.title}
+**URL:** ${pr.url}
+**Branch:** ${pr.sourceBranch}
 
 ## Original Implementation Plan
 ${existingPlanContent}
@@ -204,7 +207,7 @@ ${commentsSection}`;
  * Runs the Plan Agent to create a revision plan for PR review comments.
  * Uses the /pr_review slash command from .claude/commands/pr_review.md
  *
- * @param prDetails - PR details including number, title, branch, etc.
+ * @param pr - PR fields including number, title, branch, etc.
  * @param comments - PR review comments to address
  * @param existingPlanContent - Existing plan content or PR body for context
  * @param logsDir - Directory to write agent logs
@@ -212,8 +215,8 @@ ${commentsSection}`;
  * @param cwd - Optional working directory for the agent (defaults to process.cwd())
  */
 export async function runPrReviewPlanAgent(
-  prDetails: PRDetails,
-  comments: PRReviewComment[],
+  pr: PrReviewPullRequest,
+  comments: readonly ReviewComment[],
   existingPlanContent: string,
   logsDir: string,
   statePath?: string,
@@ -222,7 +225,7 @@ export async function runPrReviewPlanAgent(
   contextPreamble?: string,
   launchContext?: { selfHost: boolean; adwId: string },
 ): Promise<AgentResult> {
-  const args = formatPrReviewContextAsArgs(prDetails, comments, existingPlanContent);
+  const args = formatPrReviewContextAsArgs(pr, comments, existingPlanContent);
   const outputFile = path.join(logsDir, 'pr-review-plan-agent.jsonl');
 
   return runClaudeAgentWithCommand('/pr_review', args, 'PR Review Plan', outputFile, getModelForCommand('/pr_review', issueBody), getEffortForCommand('/pr_review', issueBody), undefined, statePath, cwd, contextPreamble, undefined, undefined, launchContext);

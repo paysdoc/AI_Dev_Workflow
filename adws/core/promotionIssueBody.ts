@@ -11,7 +11,7 @@
  * unit-tested in isolation.
  */
 
-import { ADW_CLASSIFICATION_LABELS, ADW_REGRESSION_PROMOTION_LABEL } from '../github/labelManager';
+import { ADW_CLASSIFICATION_LABELS, ADW_REGRESSION_PROMOTION_LABEL } from './adwLabels';
 
 const ADW_FEATURE_LABEL: keyof typeof ADW_CLASSIFICATION_LABELS = 'adw:feature';
 const HITL_LABEL = 'hitl';

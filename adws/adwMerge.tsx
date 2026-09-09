@@ -31,7 +31,6 @@ import {
 // Maximum PR-resolution attempts before escalating to merge_blocked (#527)
 const MAX_PR_RESOLUTION_ATTEMPTS = 3;
 import { findOrchestratorStatePath } from './core/stateHelpers';
-import { commentOnPR } from './github';
 import { notifyBlockedTransition } from './github/hitlBoardNotifier';
 import { mergeWithConflictResolution } from './triggers/autoMergeHandler';
 import { getPlanFilePath, planFileExists } from './agents';
@@ -59,7 +58,6 @@ export interface MergeDeps {
   readonly mergeWithConflictResolution: typeof mergeWithConflictResolution;
   readonly writeTopLevelState: (adwId: string, state: Partial<AgentState>) => void;
   readonly commentOnIssue: (issueNumber: number, body: string) => void;
-  readonly commentOnPR: typeof commentOnPR;
   readonly getPlanFilePath: typeof getPlanFilePath;
   readonly planFileExists: typeof planFileExists;
   readonly notifyBlockedTransition: (args: Parameters<typeof notifyBlockedTransition>[0]) => Promise<void>;
@@ -241,7 +239,6 @@ export function buildDefaultDeps(boundary: LaunchBoundary): MergeDeps {
     mergeWithConflictResolution: (pr, repoInfo, head, base, wt, id, logs, spec) => mergeWithConflictResolution(pr, repoInfo, head, base, wt, id, logs, spec, gitCtx),
     writeTopLevelState: (id, state) => AgentStateManager.writeTopLevelState(id, state),
     commentOnIssue: (issueNumber, body) => providers.issueTracker.commentOnIssue(issueNumber, body),
-    commentOnPR,
     getPlanFilePath,
     planFileExists,
     notifyBlockedTransition: repoId.platform === Platform.GitHub ? notifyBlockedTransition : async () => undefined,

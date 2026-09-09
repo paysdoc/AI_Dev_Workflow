@@ -113,6 +113,11 @@ export function parseIssueState(json: string): string {
   return (JSON.parse(json) as { state: string }).state;
 }
 
+/** Parses `gh issue view --json title` output. */
+export function parseIssueTitle(json: string): string {
+  return (JSON.parse(json) as { title: string }).title;
+}
+
 /** Parses `gh api .../issues/:number/comments` (REST) output — `user.login`/`created_at`, not the GraphQL shape. */
 export function parseIssueCommentsRest(json: string): IssueCommentSummary[] {
   const raw = JSON.parse(json) as Record<string, unknown>[];

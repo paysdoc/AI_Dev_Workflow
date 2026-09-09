@@ -6,7 +6,8 @@
  *        bunx tsx adws/adwPrReview.tsx <pr-number>              (manual fallback, routed through resolver)
  *
  * Workflow:
- * 1. Initialize: fetch PR details, detect unaddressed comments, setup worktree, initialize state
+ * 1. Initialize: build the launch boundary, resolve the invocation (branch→PR/adwId), fetch PR
+ *    details, detect unaddressed comments, setup worktree, initialize state
  * 2. Install Phase: install dependencies
  * 3. Plan Phase: read existing plan, run PR review plan agent
  * 4. Build Phase: run PR review build agent to implement revision plan
@@ -23,9 +24,7 @@
  * - MAX_REVIEW_RETRY_ATTEMPTS: Maximum retry attempts for review-patch loop (default: 3)
  */
 
-import { parseTargetRepoArgs, buildLaunchBoundary, MAX_REVIEW_RETRY_ATTEMPTS, AgentStateManager } from './core';
-import { defaultFindPRByBranch, getRepoInfo } from './github';
-import { Platform } from './providers/types';
+import { parseTargetRepoArgs, buildLaunchBoundary, MAX_REVIEW_RETRY_ATTEMPTS, AgentStateManager, resolvePrReviewInvocation } from './core';
 import { resolvePrReviewSpawn } from './triggers/webhookHandlers';
 import { CostTracker, runPhase } from './core/phaseRunner';
 import {
@@ -49,58 +48,33 @@ import { AuthRequiredError } from './types/agentTypes';
 import { handleAuthRequiredPause } from './phases/authPause';
 import { decidePostReviewOutcome } from './phases/decidePostReviewOutcome';
 
-interface PrReviewInvocation {
-  prNumber: number;
-  adwId: string;
-}
-
-function resolvePrReviewInvocation(positionals: string[], repoInfo: ReturnType<typeof getRepoInfo> | undefined): PrReviewInvocation {
-  // Canonical form: two positionals (issueNumber, adwId) — second arg is non-numeric adwId
-  if (positionals.length >= 2 && isNaN(parseInt(positionals[1], 10))) {
-    const adwId = positionals[1];
-    const state = AgentStateManager.readTopLevelState(adwId);
-    const branchName = state?.branchName;
-    if (!branchName) {
-      console.error(`Resume adwId ${adwId} has no persisted branchName in top-level state`);
-      process.exit(1);
-    }
-    const resolvedRepoInfo = repoInfo ?? getRepoInfo();
-    const pr = defaultFindPRByBranch(branchName, resolvedRepoInfo);
-    if (!pr) {
-      console.error(`Could not resolve PR for branch ${branchName} (adwId ${adwId})`);
-      process.exit(1);
-    }
-    return { prNumber: pr.number, adwId };
-  }
-  // Manual fallback: single positional <pr-number> — routed through resolver
-  const prNumber = parseInt(positionals[0], 10);
-  if (isNaN(prNumber)) {
-    console.error(`Invalid PR number: ${positionals[0]}`);
-    process.exit(1);
-  }
-  const resolvedRepoInfo = repoInfo ?? getRepoInfo();
-  const target = resolvePrReviewSpawn(prNumber, resolvedRepoInfo);
-  if (target === null) {
-    console.log(`PR #${prNumber} is not issue-linked — skipping`);
-    process.exit(0);
-  }
-  return { prNumber, adwId: target.adwId };
-}
-
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const targetRepo = parseTargetRepoArgs(args);
-  const repoInfo = targetRepo ? { owner: targetRepo.owner, repo: targetRepo.repo, platform: Platform.GitHub } : undefined;
 
   if (args.length < 1) {
     console.error('Usage: bunx tsx adws/adwPrReview.tsx <issueNumber> <adwId>  (canonical)\n       bunx tsx adws/adwPrReview.tsx <pr-number>                     (manual fallback)');
     process.exit(1);
   }
 
-  const { prNumber, adwId: resolvedAdwId } = resolvePrReviewInvocation(args, repoInfo);
-
   const boundary = buildLaunchBoundary(targetRepo);
-  const config = await initializePRReviewWorkflow(prNumber, resolvedAdwId, repoInfo, boundary.repoId, targetRepo ?? undefined, boundary);
+
+  const invocation = resolvePrReviewInvocation(args, {
+    readTopLevelState: (id) => AgentStateManager.readTopLevelState(id),
+    findPullRequestByBranch: (b) => boundary.providers.codeHost.findPullRequestByBranch(b),
+    resolveSpawn: (n) => resolvePrReviewSpawn(n, boundary.repoId),
+  });
+  if (invocation.kind === 'error') {
+    console.error(invocation.message);
+    process.exit(1);
+  }
+  if (invocation.kind === 'skip') {
+    console.log(invocation.message);
+    process.exit(0);
+  }
+  const { prNumber, adwId: resolvedAdwId } = invocation;
+
+  const config = await initializePRReviewWorkflow(prNumber, resolvedAdwId, boundary, targetRepo ?? undefined);
 
   AgentStateManager.writeTopLevelState(config.base.adwId, {
     adwId: config.base.adwId,

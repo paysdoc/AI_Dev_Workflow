@@ -91,7 +91,6 @@ export const SANCTIONED_CONSTRUCTION_SITES = [
   // ── Transitional (#796 — gitContextFor*/GitContext factory call sites) ──
   { file: 'adws/github/gitContextFactory.ts', reason: 'defines gitContextFor/gitContextForSync/gitContextForRepo via new GitContext(...)', owner: '#796' },
   { file: 'adws/core/orchestratorLib.ts', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },
-  { file: 'adws/core/remoteReconcile.ts', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },
   { file: 'adws/github/githubApi.ts', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },
   { file: 'adws/github/hitlBoardNotifier.ts', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },
   { file: 'adws/github/issueApi.ts', reason: 'non-boundary gitContextForRepo call site', owner: '#796' },

@@ -37,16 +37,12 @@ import {
   type UpgradeClaimDeps,
   type UpgradeClaimResult,
 } from '../../../adws/core/upgradeClaim.ts';
-import type { RawPR } from '../../../adws/providers/github/domain/pullRequest.ts';
-import type { RepoIdentifier } from '../../../adws/providers/types.ts';
-import { Platform } from '../../../adws/providers/types.ts';
+import type { PullRequestSummary } from '../../../adws/providers/types.ts';
 import type { RegressionWorld } from '../../regression/step_definitions/world.ts';
 
 // ---------------------------------------------------------------------------
 // Per-scenario mutable state (reset in Before hook for each @adw-539 scenario)
 // ---------------------------------------------------------------------------
-
-const REPO_INFO: RepoIdentifier = { owner: 'sandbox', repo: 'target', platform: Platform.GitHub };
 
 /** The result from the last single claim (§1 / §2 scenarios). */
 let claimResult: UpgradeClaimResult | null = null;
@@ -98,7 +94,7 @@ After({ tags: '@adw-539' }, function (this: RegressionWorld) {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function makePushClaimBranch(): (branchName: string, hash: string, repoInfo: RepoIdentifier) => boolean {
+function makePushClaimBranch(): (branchName: string, hash: string) => boolean {
   return function pushClaimBranch(branchName: string): boolean {
     if (claimedBranches.has(branchName)) return false;
     claimedBranches.add(branchName);
@@ -107,20 +103,21 @@ function makePushClaimBranch(): (branchName: string, hash: string, repoInfo: Rep
   };
 }
 
-function makeFindPRByBranch(): (branchName: string, repoInfo: RepoIdentifier) => RawPR | null {
-  return function findPRByBranch(branchName: string): RawPR | null {
+function makeFindPRByBranch(): (branchName: string) => PullRequestSummary | null {
+  return function findPRByBranch(branchName: string): PullRequestSummary | null {
     const entry = prsByBranch.get(branchName);
     if (!entry) return null;
     return {
       number: entry.prNumber,
       state: 'OPEN',
-      headRefName: branchName,
-      baseRefName: 'main',
+      sourceBranch: branchName,
+      targetBranch: 'main',
+      labels: [],
     };
   };
 }
 
-function makeResolveIssueNumberFromPR(): (prNumber: number, repoInfo: RepoIdentifier) => number | null {
+function makeResolveIssueNumberFromPR(): (prNumber: number) => number | null {
   return function resolveIssueNumberFromPR(prNumber: number): number | null {
     for (const entry of prsByBranch.values()) {
       if (entry.prNumber === prNumber) return entry.issueNumber;
@@ -181,7 +178,7 @@ When(
   'the upgrade claim runs for hash {string} against the target repo',
   async function (this: RegressionWorld, hash: string) {
     const deps = buildScenarioDeps();
-    claimResult = await claimUpgradeOrFindExisting(hash, REPO_INFO, deps);
+    claimResult = await claimUpgradeOrFindExisting(hash, deps);
 
     // Set targetBranch so T4 / T11 assertions pass for the winner path
     if (claimResult.won) {
@@ -200,8 +197,8 @@ When(
     const deps2 = buildScenarioDeps();
 
     const [r1, r2] = await Promise.all([
-      claimUpgradeOrFindExisting(hash, REPO_INFO, deps1),
-      claimUpgradeOrFindExisting(hash, REPO_INFO, deps2),
+      claimUpgradeOrFindExisting(hash, deps1),
+      claimUpgradeOrFindExisting(hash, deps2),
     ]);
 
     allClaimResults = [r1, r2];

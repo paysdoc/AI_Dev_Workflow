@@ -28,10 +28,13 @@ import {
   readSpawnLockRecord,
 } from './spawnGate';
 import { isProcessLive } from '../core/processLiveness';
+import { log } from '../core/utils';
 import { AgentStateManager } from '../core/agentState';
-import { deriveStageFromRemote, buildDefaultReconcileDeps } from '../core/remoteReconcile';
+import { deriveStageFromRemote, buildDefaultReconcileDeps, type ReconcileDeps } from '../core/remoteReconcile';
 import { gitContextForSync } from '../github';
 import { fetchIssueCommentBodies } from '../github/issueListApi';
+import { gitContextForRepo } from '../github/gitContextFactory';
+import { defaultFindPRByBranch } from '../github/prApi';
 import type { LaunchBoundary } from '../core';
 import { extractLatestAdwId } from './cronStageResolver';
 import { classifyStageString } from '../core/stageClassifier';
@@ -81,6 +84,27 @@ export interface TakeoverDeps {
   readonly clearOrphanedIndexLock: (worktreePath: string) => void;
 }
 
+/**
+ * The legacy `repoInfo`-scoped `ReconcileDeps` wiring that used to be
+ * `remoteReconcile.ts`'s own default (#820, FINDING 1): reached only when no
+ * launch boundary exists, which is exactly this file's boundary-less path.
+ * `#821` replaces this with the boundary's own wiring once triggers hold one.
+ */
+function buildBoundarylessReconcileDeps(repoInfo: RepoIdentifier): ReconcileDeps {
+  return {
+    readTopLevelState: (id) => AgentStateManager.readTopLevelState(id),
+    branchExistsOnRemote: (branchName) => {
+      try {
+        return gitContextForRepo(repoInfo).lsRemote(branchName).length > 0;
+      } catch (err) {
+        log(`remoteReconcile: git ls-remote failed for branch '${branchName}': ${err}`, 'warn');
+        return false;
+      }
+    },
+    findPRByBranch: (branchName) => defaultFindPRByBranch(branchName, repoInfo),
+  };
+}
+
 export function buildDefaultTakeoverDeps(repoInfo?: RepoIdentifier, boundary?: LaunchBoundary): TakeoverDeps {
   return {
     acquireIssueSpawnLock: (repoInfo, issueNumber, ownPid) =>
@@ -112,7 +136,7 @@ export function buildDefaultTakeoverDeps(repoInfo?: RepoIdentifier, boundary?: L
       gitContextForSync({ owner: repoInfo.owner, repo: repoInfo.repo, selfHost: false }).resetWorktree(worktreePath, branch);
     },
     deriveStageFromRemote: (issueNumber, adwId, repoInfo) =>
-      deriveStageFromRemote(issueNumber, adwId, repoInfo, boundary ? buildDefaultReconcileDeps(boundary) : undefined),
+      deriveStageFromRemote(issueNumber, adwId, repoInfo, boundary ? buildDefaultReconcileDeps(boundary) : buildBoundarylessReconcileDeps(repoInfo)),
     writeTopLevelState: (adwId, state) => AgentStateManager.writeTopLevelState(adwId, state),
     commentOnIssue: (issueNumber, body, repoInfo) => commentOnIssue(issueNumber, body, repoInfo),
     probeWorktree: (worktreePath, expectedBranch, recordedPid, recordedPidStartedAt) => {

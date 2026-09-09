@@ -895,12 +895,17 @@ describe('buildDefaultTakeoverDeps — deriveStageFromRemote boundary routing', 
     expect(mockDeriveStageFromRemote).toHaveBeenCalledWith(99, 'adw-1', REPO, fakeReconcileDeps);
   });
 
-  it('passes undefined as the 4th arg (the legacy repoInfo-scoped path) when no boundary is given', () => {
+  it('passes its own boundary-less ReconcileDeps as the 4th arg (the legacy repoInfo-scoped path) when no boundary is given', () => {
     const deps = buildDefaultTakeoverDeps(REPO);
 
     deps.deriveStageFromRemote(99, 'adw-1', REPO);
 
     expect(mockBuildDefaultReconcileDeps).not.toHaveBeenCalled();
-    expect(mockDeriveStageFromRemote).toHaveBeenCalledWith(99, 'adw-1', REPO, undefined);
+    expect(mockDeriveStageFromRemote).toHaveBeenCalledWith(
+      99, 'adw-1', REPO,
+      expect.objectContaining({ readTopLevelState: expect.any(Function), branchExistsOnRemote: expect.any(Function), findPRByBranch: expect.any(Function) }),
+    );
+    // Not the boundary's wiring — a distinct, boundary-less ReconcileDeps object.
+    expect(vi.mocked(mockDeriveStageFromRemote).mock.calls[0][3]).not.toBe(undefined);
   });
 });

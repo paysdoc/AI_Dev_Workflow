@@ -2,7 +2,6 @@ import { describe, it, expect, vi } from 'vitest';
 import { executeMerge, type MergeDeps, type MergeRunResult } from '../adwMerge';
 import type { AgentState } from '../types/agentTypes';
 import { mergeWithConflictResolution } from '../triggers/autoMergeHandler';
-import { commentOnPR } from '../github';
 import { getPlanFilePath, planFileExists } from '../agents';
 import { Platform } from '../providers/types';
 
@@ -51,7 +50,6 @@ function makeDeps(overrides: Partial<MergeDeps> = {}): MergeDeps {
     mergeWithConflictResolution: vi.fn<typeof mergeWithConflictResolution>().mockResolvedValue({ success: true }),
     writeTopLevelState: vi.fn(),
     commentOnIssue: vi.fn(),
-    commentOnPR: vi.fn<typeof commentOnPR>(),
     getPlanFilePath: vi.fn<typeof getPlanFilePath>().mockReturnValue('specs/issue-42-plan.md'),
     planFileExists: vi.fn<typeof planFileExists>().mockReturnValue(false),
     notifyBlockedTransition: vi.fn().mockResolvedValue(undefined),
@@ -277,7 +275,6 @@ describe('executeMerge — failed merge', () => {
       42,
       expect.stringContaining('## Retry'),
     );
-    expect(deps.commentOnPR).not.toHaveBeenCalled();
   });
 
   it('includes last error in the issue failure comment', async () => {
@@ -465,7 +462,6 @@ describe('executeMerge — hitl × approved gate matrix', () => {
     expect(deps.writeTopLevelState).not.toHaveBeenCalled();
     expect(deps.mergeWithConflictResolution).not.toHaveBeenCalled();
     expect(deps.commentOnIssue).not.toHaveBeenCalled();
-    expect(deps.commentOnPR).not.toHaveBeenCalled();
   });
 
   it('rule 3: hitl + approved → merge (gate satisfied by approval)', async () => {

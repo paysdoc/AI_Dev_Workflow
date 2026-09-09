@@ -6,12 +6,10 @@ import {
   type UpgradeGateDeps,
   type UpgradeGateParams,
 } from '../upgradeGate';
-import { BoardStatus, Platform } from '../../providers/types';
-import type { RepoIdentifier } from '../../providers/types';
+import { BoardStatus } from '../../providers/types';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const REPO_INFO: RepoIdentifier = { owner: 'acme', repo: 'myrepo', platform: Platform.GitHub };
 const CURRENT_HASH = 'deadbeef1234';
 const STORED_HASH = 'oldcafe5678';
 const BRANCH = `adw-upgrade-${CURRENT_HASH}`;
@@ -24,7 +22,6 @@ function makeParams(overrides: Partial<UpgradeGateParams> = {}): UpgradeGatePara
     worktreePath: '/tmp/workspace',
     defaultBranch: 'main',
     frameworkRepoRoot: '/tmp/framework',
-    repoInfo: REPO_INFO,
     targetRepoArgs: ['--target-repo', 'acme/myrepo'],
     ...overrides,
   };

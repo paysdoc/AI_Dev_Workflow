@@ -12,7 +12,8 @@
 import { gitContextForRepo } from '../github/gitContextFactory';
 import type { GitContext } from '../gitContext';
 import { notifyReviewTransition, type NotifierDeps } from '../github/hitlBoardNotifier';
-import { ADW_LABEL_DEFINITIONS, REGRESSION_PROMOTION_LABEL_DEFINITION } from '../github/labelManager';
+import { resolveAdwLabelDefinition } from '../core/adwLabels';
+import { isGitHubAppConfigured } from '../core/githubAppAuth';
 
 import {
   type BoardManager,
@@ -25,7 +26,7 @@ import {
   Platform,
   validateRepoIdentifier,
 } from './types';
-import { createGitHubIssueTracker, type GitHubIssueTrackerDeps, type GitHubLabelDefinition } from './github/githubIssueTracker';
+import { createGitHubIssueTracker, type GitHubIssueTrackerDeps } from './github/githubIssueTracker';
 import { createGitHubCodeHost } from './github/githubCodeHost';
 import { createGitHubBoardManager } from './github/githubBoardManager';
 import { createGhRepoApi } from './github/ghRepoApi';
@@ -33,7 +34,7 @@ import { createGitLabCodeHost } from './gitlab/gitlabCodeHost';
 import type { GitLabConfig } from './gitlab/gitlabApiClient';
 import type { JiraAuth } from './jira/jiraApiClient';
 import type { ProvidersConfig } from '../core/projectConfig';
-import { GITLAB_TOKEN, GITLAB_INSTANCE_URL, JIRA_EMAIL, JIRA_API_TOKEN, JIRA_PAT } from '../core/environment';
+import { GITLAB_TOKEN, GITLAB_INSTANCE_URL, JIRA_EMAIL, JIRA_API_TOKEN, JIRA_PAT, GITHUB_PAT } from '../core/environment';
 import { log } from '../core/logger';
 import { validateWorkingDirectory, parseOwnerRepoFromUrl } from './workspaceValidation';
 import { loadProviderConfig, parsePlatform } from '../core/providerConfig';
@@ -129,11 +130,8 @@ function buildNotifierDeps(ctx: GitContext, repoId: RepoIdentifier): NotifierDep
   };
 }
 
-/** The exact fallback `labelManager`'s private `resolveLabelDefinition` applies; reproduced here since that helper is unexported and the legacy file is not edited by this slice. */
-export function resolveAdwLabelDefinition(label: string): GitHubLabelDefinition {
-  return [...ADW_LABEL_DEFINITIONS, REGRESSION_PROMOTION_LABEL_DEFINITION].find((d) => d.name === label)
-    ?? { name: label, color: 'ededed', description: 'ADW label' };
-}
+/** Re-exported so `repoContext.test.ts` and `adwGitHubIssueTrackerDeps`'s existing callers keep resolving; the definition itself lives in `adws/core/adwLabels.ts` since #820. */
+export { resolveAdwLabelDefinition } from '../core/adwLabels';
 
 /**
  * ADW wiring (#819): the HITL Slack ping on a move to Review, and the `adw:*`
@@ -198,7 +196,10 @@ export function resolveCodeHost(
   ctx: GitContext,
 ): CodeHost {
   if (platform === Platform.GitHub) {
-    return createGitHubCodeHost(ctx, repoId, { logger: log });
+    return createGitHubCodeHost(ctx, repoId, {
+      logger: log,
+      canApprovePullRequests: () => isGitHubAppConfigured() && Boolean(GITHUB_PAT),
+    });
   }
   if (platform === Platform.GitLab) {
     return createGitLabCodeHost(repoId, gitLabConfigFromEnv(), { logger: log });

@@ -20,7 +20,8 @@ import { runResolveScenarioAgent } from '../agents/testAgent';
 import { runCommitAgent } from '../agents/gitAgent';
 import type { ScenarioProofResult } from './scenarioProof';
 import type { WorkflowConfig } from './workflowInit';
-import { getRepoInfo, gitContextFor } from '../github';
+import { gitContextFor } from '../github/gitContextFactory';
+import { resolveWorkflowRepoId } from './workflowRepoIdentity';
 import { captureGherkinSnapshot, collectChangedFeaturePaths, restoreGherkinSnapshot } from './gherkinFreeze';
 import { evaluateResolveEdit } from '../core/resolveFreezeGuard';
 
@@ -41,9 +42,8 @@ export async function executeScenarioFixPhase(
   gherkinFreezeViolations: string[];
 }> {
   const repoContext = config.repoContext;
-  const ctxOwner = repoContext?.repoId.owner ?? getRepoInfo().owner;
-  const ctxRepo = repoContext?.repoId.repo ?? getRepoInfo().repo;
-  const gitCtx = await gitContextFor({ owner: ctxOwner, repo: ctxRepo, selfHost: !repoContext });
+  const { owner, repo } = resolveWorkflowRepoId(config);
+  const gitCtx = await gitContextFor({ owner, repo, selfHost: !repoContext });
 
   const {
     orchestratorStatePath,

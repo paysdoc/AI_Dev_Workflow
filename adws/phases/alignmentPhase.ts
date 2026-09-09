@@ -24,7 +24,7 @@ import {
   runAlignmentAgent,
   OutputValidationError,
 } from "../agents";
-import { shouldSkipScenarioAuthoring } from "../github";
+import { shouldSkipScenarioAuthoring } from "../core";
 import { createPhaseCostRecords, PhaseCostStatus, type PhaseCostRecord } from "../cost";
 import type { WorkflowConfig } from "./workflowInit";
 
