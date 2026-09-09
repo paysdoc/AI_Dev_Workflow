@@ -4,11 +4,12 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { log, setLogAdwId, ensureLogsDirectory, AgentStateManager, type AgentState, type ModelUsageMap, allocateRandomPort, emptyModelUsageMap, OrchestratorId, type TargetRepoInfo, ensureTargetRepoWorkspace, loadProjectConfig, readAdwYmlConfig, type IssueClassSlashCommand, type RecoveryState, bindWorkspaceContext, type LaunchBoundary, readUnaddressedComments, getLastAdwCommitTimestamp } from '../core';
+import { log, setLogAdwId, ensureLogsDirectory, AgentStateManager, type AgentState, type ModelUsageMap, allocateRandomPort, emptyModelUsageMap, OrchestratorId, type TargetRepoInfo, ensureTargetRepoWorkspace, loadProjectConfig, readAdwYmlConfig, type IssueClassSlashCommand, type RecoveryState, bindWorkspaceContext, type LaunchBoundary, readUnaddressedComments } from '../core';
 import type { GitHubIssue } from '../providers/github/domain/issue';
 import type { PullRequest, ReviewComment, RepoContext } from '../providers/types';
 import { gitContextFor } from '../github/gitContextFactory';
-import type { PRReviewWorkflowContext } from '../github/workflowCommentsPR';
+import type { PRReviewWorkflowContext } from '../forge/workflowCommentsPR';
+import { buildUnaddressedCommentReads } from '../forge/prCommentDetector';
 import type { WorkflowConfig } from './workflowInit';
 import { resolveWorkflowRepoId } from './workflowRepoIdentity';
 import { inferIssueTypeFromBranch } from '../vcs';
@@ -55,12 +56,7 @@ export async function initializePRReviewWorkflow(prNumber: number, adwId: string
     log(`PR #${prNumber} is ${pr.state}, skipping`, 'info');
     process.exit(0);
   }
-  const unaddressedComments = readUnaddressedComments(prNumber, {
-    fetchPullRequest: (n) => codeHost.fetchPullRequest(n),
-    fetchReviewComments: (n) => codeHost.fetchReviewComments(n),
-    getAuthenticatedUser: () => codeHost.getAuthenticatedUser(),
-    lastAdwCommitTimestamp: (branchName) => getLastAdwCommitTimestamp(branchName, boundary.gitContext),
-  });
+  const unaddressedComments = readUnaddressedComments(prNumber, buildUnaddressedCommentReads(boundary));
   // A genuine resume means a prior PR-review run recorded phases for this adwId.
   // A fresh trigger-seed (from resolvePrReviewSpawn) writes branchName but no phases,
   // so it must NOT bypass the empty-comments early-exit.

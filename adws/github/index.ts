@@ -60,17 +60,15 @@ export {
   type LabelManagerDeps,
 } from './labelManager';
 
-// Project Board API
-export { moveIssueToStatus } from './projectBoardApi';
-
 // HITL Board Notifier
 export {
   notifyReviewTransition,
   notifyBlockedTransition,
+  buildNotifierDeps,
   type NotifierDeps,
   type NotifyReviewArgs,
   type NotifyBlockedArgs,
-} from './hitlBoardNotifier';
+} from '../forge/hitlBoardNotifier';
 
 // GitHub App Authentication
 export {

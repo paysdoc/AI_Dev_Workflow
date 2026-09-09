@@ -32,6 +32,7 @@ import {
   type ForgeActionResult,
   type MergedPullRequestRecord,
   type PullRequest,
+  type PullRequestRecord,
   type PullRequestResult,
   type PullRequestSummary,
   type RepoIdentifier,
@@ -224,6 +225,11 @@ export class GitHubCodeHost implements CodeHost {
   /** Merged PRs, newest first, at most `limit`. Throws on failure. */
   listMergedPullRequests(limit: number): readonly MergedPullRequestRecord[] {
     return JSON.parse(this.gh.fetchMergedPRs(limit)) as MergedPullRequestRecord[];
+  }
+
+  /** Every PR of the repository (open, closed and merged). Throws on failure — callers own the swallow policy. */
+  listPullRequests(): readonly PullRequestRecord[] {
+    return JSON.parse(this.gh.fetchAllPRs()) as PullRequestRecord[];
   }
 
   /** Login the code host's commands run as; memoised per instance, one warning on failure. */

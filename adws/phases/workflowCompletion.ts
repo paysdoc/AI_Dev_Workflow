@@ -17,7 +17,7 @@ import { postIssueStageComment } from './phaseCommentHelpers';
 import { BoardStatus, Platform } from '../providers/types';
 import { appendToPauseQueue } from '../core/pauseQueue';
 import { deriveOrchestratorScript } from '../core/orchestratorLib';
-import { notifyBlockedTransition, type NotifierDeps } from '../github/hitlBoardNotifier';
+import { notifyBlockedTransition, buildNotifierDeps, type NotifierDeps } from '../forge/hitlBoardNotifier';
 
 /**
  * Completes the workflow: writes final state, posts completion comment, prints banner.
@@ -230,14 +230,12 @@ export async function handleWorkflowDiscarded(
     postIssueStageComment(repoContext, issueNumber, 'discarded', ctx);
     repoContext.issueTracker.moveToStatus(issueNumber, BoardStatus.Blocked).catch(() => {});
     if (repoContext.repoId.platform === Platform.GitHub) {
-      await notifyBlockedTransition(
-        {
-          issueNumber,
-          repoInfo: repoContext.repoId,
-          source: 'discarded',
-        },
-        notifierDeps,
-      );
+      const deps = notifierDeps ?? (config.gitContext ? buildNotifierDeps(config.gitContext, repoContext.repoId) : undefined);
+      if (deps) {
+        await notifyBlockedTransition({ issueNumber, repoInfo: repoContext.repoId, source: 'discarded' }, deps);
+      } else {
+        log('hitlBoardNotifier: no GitContext on this workflow config — skipping HITL Slack notification', 'warn');
+      }
     }
   }
 

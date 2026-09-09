@@ -26,7 +26,7 @@ export {
 } from '../core/workflowCommentParsing';
 
 // GitHub-specific comment utilities
-export { isAdwRunningForIssue } from './workflowCommentsBase';
+export { isAdwRunningForIssue } from '../forge/workflowCommentsBase';
 
 // Issue workflow comments
 export {

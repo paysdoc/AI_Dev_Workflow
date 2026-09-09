@@ -31,7 +31,7 @@ import {
 // Maximum PR-resolution attempts before escalating to merge_blocked (#527)
 const MAX_PR_RESOLUTION_ATTEMPTS = 3;
 import { findOrchestratorStatePath } from './core/stateHelpers';
-import { notifyBlockedTransition } from './github/hitlBoardNotifier';
+import { notifyBlockedTransition, buildNotifierDeps } from './forge/hitlBoardNotifier';
 import { mergeWithConflictResolution } from './triggers/autoMergeHandler';
 import { getPlanFilePath, planFileExists } from './agents';
 import type { AgentState } from './types/agentTypes';
@@ -241,7 +241,9 @@ export function buildDefaultDeps(boundary: LaunchBoundary): MergeDeps {
     commentOnIssue: (issueNumber, body) => providers.issueTracker.commentOnIssue(issueNumber, body),
     getPlanFilePath,
     planFileExists,
-    notifyBlockedTransition: repoId.platform === Platform.GitHub ? notifyBlockedTransition : async () => undefined,
+    notifyBlockedTransition: repoId.platform === Platform.GitHub
+      ? (args) => notifyBlockedTransition(args, buildNotifierDeps(gitCtx, repoId))
+      : async () => undefined,
   };
 }
 

@@ -22,7 +22,7 @@ import {
   notifyReviewTransition,
   notifyBlockedTransition,
   type NotifierDeps,
-} from '../../../adws/github/hitlBoardNotifier.ts';
+} from '../../../adws/forge/hitlBoardNotifier.ts';
 import { handleWorkflowDiscarded, handleWorkflowError } from '../../../adws/phases/workflowCompletion.ts';
 import { handlePRReviewWorkflowError } from '../../../adws/phases/prReviewCompletion.ts';
 import { Platform, type RepoContext } from '../../../adws/providers/types.ts';

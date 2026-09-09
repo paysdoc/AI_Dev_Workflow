@@ -2,23 +2,22 @@
  * GitHub-specific workflow comment utilities.
  *
  * Platform-agnostic parsing has been moved to core/workflowCommentParsing.ts.
- * This file retains only functions that depend on GitHub API calls.
+ * This file retains only functions that depend on a forge read.
  */
 
 import { WorkflowStage, AgentStateManager } from '../core';
 import { parseWorkflowStageFromComment, extractAdwIdFromComment } from '../core/workflowCommentParsing';
-import { fetchGitHubIssue } from './githubApi';
-import type { RepoIdentifier } from '../providers/types';
+import type { IssueTracker } from '../providers/types';
 
 const TERMINAL_STAGES: ReadonlyArray<WorkflowStage> = ['completed', 'error'];
 
 /**
  * Returns true if an ADW workflow is currently active (not completed or errored) for the given issue.
  * @param issueNumber - The issue number to check
- * @param repoInfo - Optional repository info override for targeting external repositories.
+ * @param tracker - The bound issue tracker to read the issue's comments through
  */
-export async function isAdwRunningForIssue(issueNumber: number, repoInfo: RepoIdentifier): Promise<boolean> {
-  const issue = await fetchGitHubIssue(issueNumber, repoInfo);
+export async function isAdwRunningForIssue(issueNumber: number, tracker: Pick<IssueTracker, 'fetchIssue'>): Promise<boolean> {
+  const issue = await tracker.fetchIssue(issueNumber);
 
   const stageComments = issue.comments
     .map((c) => ({ stage: parseWorkflowStageFromComment(c.body), createdAt: c.createdAt, body: c.body }))

@@ -2,9 +2,11 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   notifyReviewTransition,
   notifyBlockedTransition,
+  buildNotifierDeps,
   type NotifierDeps,
 } from '../hitlBoardNotifier';
-import { Platform } from '../../providers/types';
+import { Platform, type RepoIdentifier } from '../../providers/types';
+import { makeCtx, makeSpyExec } from '../../providers/github/__tests__/gitContextFixture';
 
 const WEBHOOK_URL = 'https://hooks.slack.com/test';
 const REPO_INFO = { owner: 'acme', repo: 'myrepo', platform: Platform.GitHub };
@@ -189,7 +191,7 @@ describe('notifyReviewTransition', () => {
     const mockFetch = makeFetchMock();
     vi.stubGlobal('fetch', mockFetch);
 
-    const deps: NotifierDeps = { readIssue: () => null };
+    const deps: NotifierDeps = { readIssue: () => null, listOpenPRs: () => null };
 
     await expect(
       notifyReviewTransition({ issueNumber: 999, repoInfo: REPO_INFO }, deps),
@@ -210,6 +212,7 @@ describe('notifyBlockedTransition — discarded', () => {
 
     const deps: NotifierDeps = {
       readIssue: makeIssueReader('Wire the export endpoint', ['hitl']),
+      listOpenPRs: () => null,
     };
 
     await notifyBlockedTransition({ issueNumber: 130, repoInfo: REPO_INFO, source: 'discarded' }, deps);
@@ -230,6 +233,7 @@ describe('notifyBlockedTransition — discarded', () => {
 
     const deps: NotifierDeps = {
       readIssue: makeIssueReader('Bump lockfile', []),
+      listOpenPRs: () => null,
     };
 
     await notifyBlockedTransition({ issueNumber: 133, repoInfo: REPO_INFO, source: 'discarded' }, deps);
@@ -250,6 +254,7 @@ describe('notifyBlockedTransition — review_error', () => {
 
     const deps: NotifierDeps = {
       readIssue: makeIssueReader('Tighten the auth guard', ['hitl']),
+      listOpenPRs: () => null,
     };
 
     await notifyBlockedTransition(
@@ -285,6 +290,7 @@ describe('notifyBlockedTransition — review_error', () => {
 
     const deps: NotifierDeps = {
       readIssue: makeIssueReader('Refactor the merge gate', ['hitl']),
+      listOpenPRs: () => null,
     };
 
     await notifyBlockedTransition(
@@ -307,10 +313,51 @@ describe('notifyBlockedTransition — review_error', () => {
 
     const deps: NotifierDeps = {
       readIssue: makeIssueReader('Something', ['hitl']),
+      listOpenPRs: () => null,
     };
 
     await expect(
       notifyBlockedTransition({ issueNumber: 200, repoInfo: REPO_INFO, source: 'discarded' }, deps),
     ).resolves.toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildNotifierDeps — the one production reader set
+// ---------------------------------------------------------------------------
+
+describe('buildNotifierDeps', () => {
+  const REPO_ID: RepoIdentifier = { owner: 'acme', repo: 'widget', platform: Platform.GitHub };
+
+  it('readIssue parses title and labels from the fetchIssue JSON', () => {
+    const json = JSON.stringify({ title: 'Fix the retry budget', labels: [{ name: 'hitl' }] });
+    const { exec } = makeSpyExec(new Map([['gh issue view', json]]));
+    const deps = buildNotifierDeps(makeCtx({}, exec), REPO_ID);
+    expect(deps.readIssue(42, REPO_ID)).toEqual({ title: 'Fix the retry budget', labels: [{ name: 'hitl' }] });
+  });
+
+  it('readIssue returns null when exec throws', () => {
+    const throwingExec = (): string => { throw new Error('gh: not found'); };
+    const deps = buildNotifierDeps(makeCtx({}, throwingExec), REPO_ID);
+    expect(deps.readIssue(42, REPO_ID)).toBeNull();
+  });
+
+  it('listOpenPRs keeps only OPEN PRs and builds the pull URL', () => {
+    const json = JSON.stringify([
+      { number: 100, body: 'Implements #42', state: 'OPEN' },
+      { number: 101, body: 'Implements #43', state: 'CLOSED' },
+    ]);
+    const { exec } = makeSpyExec(new Map([['--state all', json]]));
+    const deps = buildNotifierDeps(makeCtx({}, exec), REPO_ID);
+    const prs = deps.listOpenPRs(REPO_ID);
+    expect(prs).toEqual([
+      { number: 100, url: 'https://github.com/acme/widget/pull/100', body: 'Implements #42', state: 'OPEN', headRefName: '', baseRefName: '', updatedAt: '' },
+    ]);
+  });
+
+  it('listOpenPRs returns null when exec throws', () => {
+    const throwingExec = (): string => { throw new Error('gh: rate limited'); };
+    const deps = buildNotifierDeps(makeCtx({}, throwingExec), REPO_ID);
+    expect(deps.listOpenPRs(REPO_ID)).toBeNull();
   });
 });

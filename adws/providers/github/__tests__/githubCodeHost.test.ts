@@ -154,6 +154,19 @@ describe('GitHubCodeHost — parse and map', () => {
     const result = createGitHubCodeHost(makeCtx({}, exec), REPO_ID).listMergedPullRequests(200);
     expect(result).toEqual([{ body: 'Closes #1', mergedAt: '2024-01-01' }]);
   });
+
+  it('listPullRequests spawns the exact all-state command and returns the parsed array unchanged', () => {
+    const raw = [{ number: 1, body: 'Closes #1', state: 'MERGED', mergedAt: '2024-01-01' }];
+    const { exec, calls } = makeSpyExec(new Map([['--state all', JSON.stringify(raw)]]));
+    const result = createGitHubCodeHost(makeCtx({}, exec), REPO_ID).listPullRequests();
+    expect(calls[0].command).toBe('gh pr list --repo acme/widget --state all --json number,body,state,mergedAt --limit 200');
+    expect(result).toEqual(raw);
+  });
+
+  it('listPullRequests propagates an exec failure', () => {
+    const throwingExec = (): string => { throw new Error('gh: rate limited'); };
+    expect(() => createGitHubCodeHost(makeCtx({}, throwingExec), REPO_ID).listPullRequests()).toThrow('gh: rate limited');
+  });
 });
 
 describe('mapRawPRToSummary', () => {

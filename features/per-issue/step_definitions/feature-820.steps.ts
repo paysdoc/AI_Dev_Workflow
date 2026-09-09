@@ -592,7 +592,7 @@ When(
     assert.ok(w.boundary, 'Expected a launch boundary to have been built');
     w.usedAdwIds.add(adwId);
     const deps = { ...buildDefaultReconcileDeps(w.boundary), branchExistsOnRemote: () => true };
-    s.reconciledStage = deriveStageFromRemote(0, adwId, w.boundary.repoId, deps);
+    s.reconciledStage = deriveStageFromRemote(adwId, deps);
   },
 );
 
