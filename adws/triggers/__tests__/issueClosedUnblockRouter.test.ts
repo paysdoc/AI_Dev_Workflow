@@ -7,10 +7,9 @@ import {
   type IssueWithDeps,
 } from '../issueClosedUnblockRouter';
 import { parseDependencies, parseKeywordProximityDependencies } from '../issueDependencies';
-import { listIssues } from '../../github/issueListApi';
 import { Platform } from '../../providers/types';
+import type { LaunchBoundary, IssueListEntry } from '../../providers/types';
 
-vi.mock('../../github/issueListApi', () => ({ listIssues: vi.fn() }));
 vi.mock('../../core', () => ({
   log: vi.fn(),
   LOGS_DIR: '/logs',
@@ -18,6 +17,15 @@ vi.mock('../../core', () => ({
 
 const REPO_INFO = { owner: 'acme', repo: 'target', platform: Platform.GitHub };
 const TARGET_ARGS = ['--target-repo', 'acme/target'];
+
+function makeBoundary(listIssuesImpl: () => IssueListEntry[]): LaunchBoundary {
+  return {
+    repoId: REPO_INFO,
+    providers: { issueTracker: { listIssues: vi.fn(listIssuesImpl) } },
+  } as unknown as LaunchBoundary;
+}
+
+const FAKE_BOUNDARY = makeBoundary(() => []);
 
 function makeDeps(overrides: Partial<DependencyUnblockDeps> = {}): DependencyUnblockDeps {
   return {
@@ -56,9 +64,9 @@ describe('handleIssueClosedDependencyUnblock — prose parity (AC1)', () => {
       extractDependents: vi.fn().mockResolvedValue([28]),
     });
 
-    await handleIssueClosedDependencyUnblock(28, REPO_INFO, TARGET_ARGS, undefined, deps);
+    await handleIssueClosedDependencyUnblock(28, FAKE_BOUNDARY, TARGET_ARGS, deps);
 
-    expect(deps.spawn).toHaveBeenCalledWith(29, REPO_INFO, TARGET_ARGS, undefined);
+    expect(deps.spawn).toHaveBeenCalledWith(29, TARGET_ARGS);
   });
 
   it('real-parser parity: the detection core (parseKeywordProximityDependencies) selects the prose dependent', async () => {
@@ -67,9 +75,9 @@ describe('handleIssueClosedDependencyUnblock — prose parity (AC1)', () => {
       extractDependents: (body) => Promise.resolve(parseKeywordProximityDependencies(body)),
     });
 
-    await handleIssueClosedDependencyUnblock(28, REPO_INFO, TARGET_ARGS, undefined, deps);
+    await handleIssueClosedDependencyUnblock(28, FAKE_BOUNDARY, TARGET_ARGS, deps);
 
-    expect(deps.spawn).toHaveBeenCalledWith(29, REPO_INFO, TARGET_ARGS, undefined);
+    expect(deps.spawn).toHaveBeenCalledWith(29, TARGET_ARGS);
   });
 
   it('pins why the swap matters: the narrow parseDependencies selects nothing for the same prose body', async () => {
@@ -78,7 +86,7 @@ describe('handleIssueClosedDependencyUnblock — prose parity (AC1)', () => {
       extractDependents: (body) => Promise.resolve(parseDependencies(body)),
     });
 
-    await handleIssueClosedDependencyUnblock(28, REPO_INFO, TARGET_ARGS, undefined, deps);
+    await handleIssueClosedDependencyUnblock(28, FAKE_BOUNDARY, TARGET_ARGS, deps);
 
     expect(deps.spawn).not.toHaveBeenCalled();
   });
@@ -93,9 +101,9 @@ describe('handleIssueClosedDependencyUnblock — heading no-regression (AC2)', (
       extractDependents: vi.fn().mockResolvedValue([2810]),
     });
 
-    await handleIssueClosedDependencyUnblock(2810, REPO_INFO, TARGET_ARGS, undefined, deps);
+    await handleIssueClosedDependencyUnblock(2810, FAKE_BOUNDARY, TARGET_ARGS, deps);
 
-    expect(deps.spawn).toHaveBeenCalledWith(2911, REPO_INFO, TARGET_ARGS, undefined);
+    expect(deps.spawn).toHaveBeenCalledWith(2911, TARGET_ARGS);
   });
 });
 
@@ -109,9 +117,9 @@ describe('handleIssueClosedDependencyUnblock — still-blocked gating', () => {
       checkEligibility: vi.fn().mockResolvedValue({ eligible: false, reason: 'open_dependencies', blockingIssues: [30] }),
     });
 
-    await handleIssueClosedDependencyUnblock(2830, REPO_INFO, TARGET_ARGS, undefined, deps);
+    await handleIssueClosedDependencyUnblock(2830, FAKE_BOUNDARY, TARGET_ARGS, deps);
 
-    expect(deps.checkEligibility).toHaveBeenCalledWith(2931, '- blocked by #2830', REPO_INFO);
+    expect(deps.checkEligibility).toHaveBeenCalledWith(2931, '- blocked by #2830');
     expect(deps.spawn).not.toHaveBeenCalled();
   });
 });
@@ -125,38 +133,28 @@ describe('handleIssueClosedDependencyUnblock — no dependents', () => {
       extractDependents: vi.fn().mockResolvedValue([]),
     });
 
-    await handleIssueClosedDependencyUnblock(28, REPO_INFO, TARGET_ARGS, undefined, deps);
+    await handleIssueClosedDependencyUnblock(28, FAKE_BOUNDARY, TARGET_ARGS, deps);
 
     expect(deps.spawn).not.toHaveBeenCalled();
     expect(deps.checkEligibility).not.toHaveBeenCalled();
   });
 });
 
-// ── buildDefaultDependencyUnblockDeps — issueListApi routing ───────────────────
+// ── buildDefaultDependencyUnblockDeps — routes through the boundary's tracker ──
 
-describe('buildDefaultDependencyUnblockDeps — issueListApi routing', () => {
+describe('buildDefaultDependencyUnblockDeps — issue tracker routing', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('listOpenIssues routes through issueListApi.listIssues with the bound repoInfo', () => {
-    vi.mocked(listIssues).mockReturnValue([{ number: 10, body: 'Blocked by #5' }]);
+  it('listOpenIssues routes through the boundary\'s issue tracker', () => {
+    const boundary = makeBoundary(() => [{ number: 10, body: 'Blocked by #5' }]);
 
-    const deps = buildDefaultDependencyUnblockDeps(REPO_INFO);
+    const deps = buildDefaultDependencyUnblockDeps(boundary);
     const result = deps.listOpenIssues();
 
-    expect(listIssues).toHaveBeenCalledWith({ fields: ['number', 'body'], limit: 100 }, REPO_INFO);
+    expect(boundary.providers.issueTracker.listIssues).toHaveBeenCalledWith({ fields: ['number', 'body'], limit: 100 });
     expect(result).toEqual([{ number: 10, body: 'Blocked by #5' }]);
-  });
-
-  it('listOpenIssues routes through issueListApi.listIssues regardless of whether a gitContext was passed (the gitContext parameter is threaded only to spawn)', () => {
-    vi.mocked(listIssues).mockReturnValue([]);
-    const fakeGitContext = { marker: 'unused-by-listing' };
-
-    const deps = buildDefaultDependencyUnblockDeps(REPO_INFO, fakeGitContext as never);
-    deps.listOpenIssues();
-
-    expect(listIssues).toHaveBeenCalledWith({ fields: ['number', 'body'], limit: 100 }, REPO_INFO);
   });
 });
 
@@ -172,7 +170,7 @@ describe('handleIssueClosedDependencyUnblock — no-throw on lister error', () =
       logger,
     });
 
-    await expect(handleIssueClosedDependencyUnblock(28, REPO_INFO, TARGET_ARGS, undefined, deps)).resolves.not.toThrow();
+    await expect(handleIssueClosedDependencyUnblock(28, FAKE_BOUNDARY, TARGET_ARGS, deps)).resolves.not.toThrow();
     expect(logger).toHaveBeenCalledWith(expect.stringContaining('Error checking dependents of closed issue #28'), 'error');
   });
 });

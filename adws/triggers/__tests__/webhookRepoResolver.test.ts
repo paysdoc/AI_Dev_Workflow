@@ -7,7 +7,7 @@
 
 import * as path from 'path';
 import * as os from 'os';
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { resolveWebhookRepo } from '../webhookRepoResolver';
 import type { WebhookRepoResolution } from '../webhookRepoResolver';
 import { buildLaunchGitContext } from '../../core/launchGitContext';
@@ -361,5 +361,56 @@ describe('incomplete identity surfaces the GitContext construction error', () =>
     expect(() =>
       buildLaunchGitContext(resolution.targetRepo, baseDeps({ resolveToken: () => '' })),
     ).toThrow(/GitContext/);
+  });
+});
+
+// ── buildEventBoundary / selfHostBoundary ────────────────────────────────────
+
+describe('buildEventBoundary', () => {
+  it('returns the boundary buildLaunchBoundary produces', async () => {
+    vi.resetModules();
+    const fakeBoundary = { repoId: { owner: 'acme', repo: 'webapp' } };
+    vi.doMock('../../core', async (importOriginal) => {
+      const actual = await importOriginal<typeof import('../../core')>();
+      return { ...actual, buildLaunchBoundary: vi.fn(() => fakeBoundary) };
+    });
+    const mod = await import('../webhookRepoResolver');
+    expect(mod.buildEventBoundary({ owner: 'acme', repo: 'webapp', cloneUrl: 'https://github.com/acme/webapp.git' })).toBe(fakeBoundary);
+    vi.doUnmock('../../core');
+    vi.resetModules();
+  });
+
+  it('warns naming the repository and returns undefined when construction throws', async () => {
+    vi.resetModules();
+    const logSpy = vi.fn();
+    vi.doMock('../../core', async (importOriginal) => {
+      const actual = await importOriginal<typeof import('../../core')>();
+      return { ...actual, log: logSpy, buildLaunchBoundary: vi.fn(() => { throw new Error('no token'); }) };
+    });
+    const mod = await import('../webhookRepoResolver');
+    const result = mod.buildEventBoundary({ owner: 'acme', repo: 'webapp', cloneUrl: 'https://github.com/acme/webapp.git' });
+    expect(result).toBeUndefined();
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('acme/webapp'), 'warn');
+    vi.doUnmock('../../core');
+    vi.resetModules();
+  });
+});
+
+describe('selfHostBoundary', () => {
+  it('builds at most once and memoises the result across repeated calls', async () => {
+    vi.resetModules();
+    const fakeBoundary = { repoId: { owner: 'self', repo: 'host' } };
+    const buildMock = vi.fn(() => fakeBoundary);
+    vi.doMock('../../core', async (importOriginal) => {
+      const actual = await importOriginal<typeof import('../../core')>();
+      return { ...actual, buildLaunchBoundary: buildMock };
+    });
+    const mod = await import('../webhookRepoResolver');
+    expect(mod.selfHostBoundary()).toBe(fakeBoundary);
+    expect(mod.selfHostBoundary()).toBe(fakeBoundary);
+    expect(buildMock).toHaveBeenCalledTimes(1);
+    expect(buildMock).toHaveBeenCalledWith(null);
+    vi.doUnmock('../../core');
+    vi.resetModules();
   });
 });

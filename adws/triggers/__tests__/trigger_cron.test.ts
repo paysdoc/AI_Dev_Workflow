@@ -25,15 +25,22 @@ vi.mock('../cronRepoResolver', () => ({
   buildCronTargetRepoArgs: vi.fn(() => []),
 }));
 
-vi.mock('../../github', () => ({
-  activateGitHubAppAuth: vi.fn(),
-  ensureAppAuthForRepo: vi.fn(),
-  getRepoInfo: vi.fn(() => ({ owner: 'test-owner', repo: 'test-repo' })),
-  fetchPRList: vi.fn(() => []),
-  hasUnaddressedComments: vi.fn(() => false),
-  isCancelComment: vi.fn(() => false),
-  refreshTokenIfNeeded: vi.fn(),
+vi.mock('../../providers/github/githubIdentity', () => ({
+  readLocalRepoInfo: vi.fn(() => ({ owner: 'test-owner', repo: 'test-repo' })),
 }));
+
+vi.mock('../../forge/linkedPrDetector', () => ({
+  fetchLinkedPRs: vi.fn(() => []),
+}));
+
+vi.mock('../../forge/prCommentDetector', () => ({
+  hasUnaddressedComments: vi.fn(() => false),
+}));
+
+vi.mock('../../core/workflowCommentParsing', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../core/workflowCommentParsing')>();
+  return { ...actual, isCancelComment: vi.fn(() => false) };
+});
 
 vi.mock('../cronProcessGuard', () => ({
   registerAndGuard: vi.fn(() => true),

@@ -6,12 +6,14 @@ import {
   MULTI_LABEL_REFUSAL_COMMENT,
   type IssueOpenedRouterDeps,
 } from '../issueOpenedRouter';
-import type { AdwLabelReading } from '../../github/labelManager';
+import type { AdwLabelReading } from '../../core/adwLabels';
 import { Platform } from '../../providers/types';
+import type { LaunchBoundary } from '../../core';
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 const REPO_INFO = { owner: 'acme', repo: 'widgets', platform: Platform.GitHub };
+const FAKE_BOUNDARY = { repoId: REPO_INFO, providers: {} } as unknown as LaunchBoundary;
 
 function makeReading(overrides: Partial<AdwLabelReading> = {}): AdwLabelReading {
   return { optOut: false, classification: null, conflict: false, ...overrides };
@@ -33,7 +35,7 @@ function makeParams(overrides: Partial<Parameters<typeof routeIssueOpened>[0]> =
     issueBody: 'body',
     issueTitle: 'Test Issue',
     labelNames: [] as string[],
-    repoInfo: REPO_INFO,
+    boundary: FAKE_BOUNDARY,
     targetRepoArgs: [] as string[],
     ...overrides,
   };
@@ -120,7 +122,7 @@ describe('routeIssueOpened', () => {
     const result = await routeIssueOpened(makeParams({ labelNames: ['adw:bug', 'adw:feature'] }), deps);
     expect(result.status).toBe('refused_multi_label');
     expect(deps.postComment).toHaveBeenCalledOnce();
-    expect(deps.postComment).toHaveBeenCalledWith(100, MULTI_LABEL_REFUSAL_COMMENT, REPO_INFO);
+    expect(deps.postComment).toHaveBeenCalledWith(100, MULTI_LABEL_REFUSAL_COMMENT);
     expect(deps.classifyAndSpawn).not.toHaveBeenCalled();
   });
 
@@ -129,7 +131,7 @@ describe('routeIssueOpened', () => {
     const result = await routeIssueOpened(makeParams({ labelNames: ['adw:bug'], issueTitle: 'Fix login' }), deps);
     expect(result.status).toBe('spawned_classified');
     expect(deps.classifyAndSpawn).toHaveBeenCalledOnce();
-    const [, , , labelRouting] = vi.mocked(deps.classifyAndSpawn).mock.calls[0]!;
+    const [, , labelRouting] = vi.mocked(deps.classifyAndSpawn).mock.calls[0]!;
     expect(labelRouting?.precomputedClassification).toBe('/bug');
     expect(labelRouting?.issueTitle).toBe('Fix login');
     expect(deps.postComment).not.toHaveBeenCalled();
@@ -140,7 +142,7 @@ describe('routeIssueOpened', () => {
     const result = await routeIssueOpened(makeParams({ labelNames: [] }), deps);
     expect(result.status).toBe('spawned_inferred');
     expect(deps.classifyAndSpawn).toHaveBeenCalledOnce();
-    const [, , , labelRouting] = vi.mocked(deps.classifyAndSpawn).mock.calls[0]!;
+    const [, , labelRouting] = vi.mocked(deps.classifyAndSpawn).mock.calls[0]!;
     expect(labelRouting?.persistInferredLabel).toBe(true);
   });
 

@@ -50,6 +50,7 @@ import { VALID_ISSUE_TYPES } from '../../../adws/types/issueTypes.ts';
 import { isAdwComment } from '../../../adws/core/workflowCommentParsing.ts';
 import type { RepoIdentifier } from '../../../adws/providers/types.ts';
 import { Platform } from '../../../adws/providers/types.ts';
+import type { LaunchBoundary } from '../../../adws/core/index.ts';
 import type { RegressionWorld } from '../../regression/step_definitions/world.ts';
 import type { MockContext, RecordedRequest } from '../../../test/mocks/types.ts';
 
@@ -174,7 +175,7 @@ function inferTypeFromFixture(world: RegressionWorld): string {
 function buildRecordingDeps(world: RegressionWorld): IssueOpenedRouterDeps {
   return {
     checkEligibility: async () => ({ eligible: true }),
-    classifyAndSpawn: async (issueNumber, _repoInfo, _targetRepoArgs, labelRouting) => {
+    classifyAndSpawn: async (issueNumber, _targetRepoArgs, labelRouting) => {
       if (labelRouting?.precomputedClassification) {
         ctx.spawns.push({ issueNumber, classification: stripSlash(labelRouting.precomputedClassification) });
         return;
@@ -208,7 +209,7 @@ When(
         issueBody: '',
         issueTitle: `Issue ${issueNumber}`,
         labelNames,
-        repoInfo: ctx.repoInfo,
+        boundary: { repoId: ctx.repoInfo, providers: {} } as unknown as LaunchBoundary,
         targetRepoArgs: [],
       },
       buildRecordingDeps(this),

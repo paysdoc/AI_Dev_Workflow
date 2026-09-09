@@ -1,5 +1,5 @@
 /**
- * Webhook per-event repo identity resolution.
+ * Webhook per-event repo identity resolution and boundary construction.
  *
  * Extracted from trigger_webhook.ts so the per-event boundary is testable
  * without triggering the webhook server's module-level side effects
@@ -8,6 +8,7 @@
 
 import type { TargetRepoInfo } from '../types/issueTypes';
 import { Platform, type RepoIdentifier } from '../providers/types';
+import { log, buildLaunchBoundary, type LaunchBoundary } from '../core';
 
 /** Resolution result for a webhook event payload. */
 export interface WebhookRepoResolution {
@@ -48,4 +49,27 @@ export function resolveWebhookRepo(body: Record<string, unknown>): WebhookRepoRe
   const targetRepoArgs = ['--target-repo', fullName, '--clone-url', cloneUrl];
 
   return { repoInfo, targetRepo, targetRepoArgs };
+}
+
+/** Builds a per-event launch boundary, warning (naming the repository) and answering undefined on failure — never throws. */
+export function buildEventBoundary(targetRepo: TargetRepoInfo | null): LaunchBoundary | undefined {
+  try {
+    return buildLaunchBoundary(targetRepo);
+  } catch (err) {
+    const label = targetRepo ? `${targetRepo.owner}/${targetRepo.repo}` : 'the self-host repository';
+    log(`Per-event launch boundary construction failed for ${label}: ${err}`, 'warn');
+    return undefined;
+  }
+}
+
+let selfHostBoundaryBuilt = false;
+let cachedSelfHostBoundary: LaunchBoundary | undefined;
+
+/** The local-remote identity `getRepoInfo()` used to resolve to, built once and memoised — only for payloads carrying no `repository` object (GitHub never sends one; defensive). */
+export function selfHostBoundary(): LaunchBoundary | undefined {
+  if (!selfHostBoundaryBuilt) {
+    selfHostBoundaryBuilt = true;
+    cachedSelfHostBoundary = buildEventBoundary(null);
+  }
+  return cachedSelfHostBoundary;
 }

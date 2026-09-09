@@ -15,19 +15,17 @@
 // implicit contract at the entrypoint (issue #647, fix #3 — defensive only).
 import '../core/environment';
 import * as http from 'http';
-import { log, PullRequestWebhookPayload, allocateRandomPort, isPortAvailable, getTargetRepoWorkspacePath, assertCwdIsRepoRoot, getGuardrailsProbeVerdict, type ProbeVerdict } from '../core';
-import { isActionableComment, isCancelComment, isRetryComment, isAdwRunningForIssue, truncateText, getRepoInfo, fetchIssueCommentsRest } from '../github';
+import { log, PullRequestWebhookPayload, allocateRandomPort, isPortAvailable, getTargetRepoWorkspacePath, assertCwdIsRepoRoot, getGuardrailsProbeVerdict, type ProbeVerdict, REPO_ROOT } from '../core';
+import { isActionableComment, isCancelComment, isRetryComment, truncateText } from '../core/workflowCommentParsing';
+import { isAdwRunningForIssue } from '../forge/workflowCommentsBase';
 import { handleCancelDirective } from './cancelHandler';
 import { handleRetryDirective } from './retryHandler';
-import { handlePullRequestEvent, handleIssueClosedEvent, resolvePrReviewSpawn } from './webhookHandlers';
+import { handlePullRequestEvent, handleIssueClosedEvent, resolvePrReviewSpawn, defaultPrClosedDeps } from './webhookHandlers';
 import { validateWebhookSignature } from './webhookSignature';
 import { checkIssueEligibility } from './issueEligibility';
 import { spawnDetached, classifyAndSpawnWorkflow, ensureCronProcess, logDeferral } from './webhookGatekeeper';
 import { extractPayloadLabelNames, routeIssueOpened } from './issueOpenedRouter';
-import { resolveWebhookRepo } from './webhookRepoResolver';
-import { Platform } from '../providers/types';
-import { buildLaunchGitContext, REPO_ROOT } from '../core';
-import type { GitContext } from '../gitContext';
+import { resolveWebhookRepo, buildEventBoundary, selfHostBoundary } from './webhookRepoResolver';
 import { checkEnvironmentVariables, checkGitRepository, checkClaudeCodeCLI, checkGitHubCLI, checkDirectoryStructure, type CheckResult } from '../healthCheckChecks';
 import { gitContextForRepo, readLocalRepoInfo } from '../github/gitContextFactory';
 import { readAuthGate, writeAuthGate } from '../core/authGate';
@@ -145,23 +143,19 @@ function dispatchWebhookEvent(req: http.IncomingMessage, res: http.ServerRespons
   const eventContext = describeWebhookEvent(event, body);
 
   const resolution = resolveWebhookRepo(body);
-  const webhookRepoInfo = resolution?.repoInfo;
   const webhookTargetRepoArgs = resolution?.targetRepoArgs ?? [];
 
-  // Per-event boundary constructor. Construct exactly one immutable GitContext per event,
-  // synchronously before any await/then, so auth and base path ride on the per-event
-  // context rather than the mutable process-global. buildLaunchGitContext also asserts
-  // process-global app auth internally (transitional, for not-yet-migrated gh calls —
-  // story 7), so there is no regression for legacy paths.
-  let eventGitContext: GitContext | undefined;
-  if (resolution) {
-    try {
-      eventGitContext = buildLaunchGitContext(resolution.targetRepo);
-    } catch (err) {
-      log(`Per-event GitContext construction failed for ${resolution.repoInfo.owner}/${resolution.repoInfo.repo}: ${err}`, 'warn');
-    }
-    ensureCronProcess(resolution.repoInfo, webhookTargetRepoArgs);
-  }
+  // Per-event boundary constructor. Construct exactly one immutable LaunchBoundary per
+  // event, synchronously before any await/then, so identity, GitContext and providers all
+  // ride on the per-event boundary rather than the mutable process-global — the only
+  // sanctioned construction site on this path.
+  const eventBoundary = resolution ? buildEventBoundary(resolution.targetRepo) : undefined;
+  if (resolution) ensureCronProcess(resolution.repoInfo, webhookTargetRepoArgs);
+  // The issue_comment path alone preserves the pre-boundary getRepoInfo() fallback: it
+  // fires only when the payload carried NO repository at all (resolution === null), never
+  // when a named repository's boundary failed to mint — that would silently redirect the
+  // event to the framework repo instead of reporting the failure (Finding 1).
+  const commentBoundary = eventBoundary ?? (resolution ? undefined : selfHostBoundary());
 
   if (event === 'pull_request_review_comment') {
     if (readAuthGate() !== null) {
@@ -172,7 +166,8 @@ function dispatchWebhookEvent(req: http.IncomingMessage, res: http.ServerRespons
     if (prNumber == null) { jsonResponse(res, 200, { status: 'ignored' }); return; }
     if ((body.action as string) !== 'created') { jsonResponse(res, 200, { status: 'ignored' }); return; }
     if (!shouldTriggerPrReview(prNumber)) { jsonResponse(res, 200, { status: 'ignored', reason: 'duplicate' }); return; }
-    const prrcTarget = webhookRepoInfo ? resolvePrReviewSpawn(prNumber, webhookRepoInfo) : null;
+    if (!eventBoundary) { jsonResponse(res, 200, { status: 'ignored', reason: 'no_repository' }); return; }
+    const prrcTarget = resolvePrReviewSpawn(prNumber, eventBoundary.providers);
     if (prrcTarget === null) { jsonResponse(res, 200, { status: 'ignored', reason: 'not_issue_linked' }); return; }
     spawnDetached('bunx', ['tsx', 'adws/adwPrReview.tsx', String(prrcTarget.issueNumber), prrcTarget.adwId, ...webhookTargetRepoArgs]);
     jsonResponse(res, 200, { status: 'triggered', pr: prNumber });
@@ -191,7 +186,8 @@ function dispatchWebhookEvent(req: http.IncomingMessage, res: http.ServerRespons
     // Approved reviews are no-ops: merge is handled by cron + adwMerge.tsx
     if (reviewState === 'approved') { jsonResponse(res, 200, { status: 'ignored' }); return; }
     if (!shouldTriggerPrReview(prNumber)) { jsonResponse(res, 200, { status: 'ignored', reason: 'duplicate' }); return; }
-    const prrTarget = webhookRepoInfo ? resolvePrReviewSpawn(prNumber, webhookRepoInfo) : null;
+    if (!eventBoundary) { jsonResponse(res, 200, { status: 'ignored', reason: 'no_repository' }); return; }
+    const prrTarget = resolvePrReviewSpawn(prNumber, eventBoundary.providers);
     if (prrTarget === null) { jsonResponse(res, 200, { status: 'ignored', reason: 'not_issue_linked' }); return; }
     spawnDetached('bunx', ['tsx', 'adws/adwPrReview.tsx', String(prrTarget.issueNumber), prrTarget.adwId, ...webhookTargetRepoArgs]);
     jsonResponse(res, 200, { status: 'triggered', pr: prNumber });
@@ -209,20 +205,24 @@ function dispatchWebhookEvent(req: http.IncomingMessage, res: http.ServerRespons
     const issueNumber = issue?.number as number | undefined;
     if (issueNumber == null) { jsonResponse(res, 200, { status: 'ignored' }); return; }
     log(`Checking comment on issue #${issueNumber}: "${truncateText(commentBody, 100)}"`);
+    if (!commentBoundary) {
+      // A repository was named but its boundary could not be minted — report it
+      // rather than silently redirecting to the self-host identity (Finding 1/2).
+      jsonResponse(res, 200, { status: 'ignored', reason: 'boundary_unavailable' });
+      return;
+    }
     if (isCancelComment(commentBody)) {
       const cancelParts = (webhookTargetRepoArgs.length >= 2 ? webhookTargetRepoArgs[1] : undefined)?.split('/');
       const cancelCwd = cancelParts?.length === 2
         ? getTargetRepoWorkspacePath(cancelParts[0], cancelParts[1])
         : undefined;
-      const allComments = webhookRepoInfo
-        ? fetchIssueCommentsRest(issueNumber, webhookRepoInfo)
-        : [];
-      handleCancelDirective(issueNumber, allComments, webhookRepoInfo ?? getRepoInfo(), cancelCwd);
+      const allComments = commentBoundary.providers.issueTracker.fetchComments(issueNumber);
+      handleCancelDirective(issueNumber, allComments, commentBoundary, cancelCwd);
       jsonResponse(res, 200, { status: 'cancelled', issue: issueNumber });
       return;
     }
     if (isRetryComment(commentBody)) {
-      const allComments = webhookRepoInfo ? fetchIssueCommentsRest(issueNumber, webhookRepoInfo) : [];
+      const allComments = commentBoundary.providers.issueTracker.fetchComments(issueNumber);
       handleRetryDirective(issueNumber, allComments);
       jsonResponse(res, 200, { status: 'retry_reset', issue: issueNumber });
       return;
@@ -233,15 +233,15 @@ function dispatchWebhookEvent(req: http.IncomingMessage, res: http.ServerRespons
       jsonResponse(res, 200, { status: 'ignored', reason: 'duplicate' });
       return;
     }
-    isAdwRunningForIssue(issueNumber, webhookRepoInfo ?? getRepoInfo())
+    isAdwRunningForIssue(issueNumber, commentBoundary.providers.issueTracker)
       .then(async (running) => {
         if (running) { log(`ADW already running for issue #${issueNumber}, deferring`); return; }
-        if (webhookRepoInfo) {
-          const eligibility = await checkIssueEligibility(issueNumber, (issue?.body as string) || '', webhookRepoInfo);
+        if (eventBoundary) {
+          const eligibility = await checkIssueEligibility(issueNumber, (issue?.body as string) || '', eventBoundary.providers);
           if (!eligibility.eligible) { logDeferral(issueNumber, eligibility); return; }
         }
         try {
-          await classifyAndSpawnWorkflow(issueNumber, webhookRepoInfo, webhookTargetRepoArgs, undefined, undefined, undefined, eventGitContext);
+          await classifyAndSpawnWorkflow(issueNumber, commentBoundary, webhookTargetRepoArgs);
         } catch (err) {
           if (err instanceof AuthRequiredError) {
             writeAuthGate({ adwId: null, issueNumber, agentName: err.agentName });
@@ -260,7 +260,8 @@ function dispatchWebhookEvent(req: http.IncomingMessage, res: http.ServerRespons
 
   if (event === 'pull_request') {
     if ((body.action as string) === 'closed') {
-      handlePullRequestEvent(body as unknown as PullRequestWebhookPayload).catch((e) => reportWebhookEventFailure(eventContext, e));
+      if (!eventBoundary) { jsonResponse(res, 200, { status: 'ignored', reason: 'no_repository' }); return; }
+      handlePullRequestEvent(body as unknown as PullRequestWebhookPayload, defaultPrClosedDeps(eventBoundary.providers.issueTracker)).catch((e) => reportWebhookEventFailure(eventContext, e));
       jsonResponse(res, 200, { status: 'processing' });
       return;
     }
@@ -277,7 +278,7 @@ function dispatchWebhookEvent(req: http.IncomingMessage, res: http.ServerRespons
   if (action === 'closed') {
     const parts = (webhookTargetRepoArgs.length >= 2 ? webhookTargetRepoArgs[1] : undefined)?.split('/');
     const cwd = parts?.length === 2 ? getTargetRepoWorkspacePath(parts[0], parts[1]) : undefined;
-    handleIssueClosedEvent(issueNumber, webhookRepoInfo, cwd, webhookTargetRepoArgs, undefined, eventGitContext)
+    handleIssueClosedEvent(issueNumber, eventBoundary, cwd, webhookTargetRepoArgs)
       .then((result) => log(`Issue #${issueNumber} closed: worktrees=${result.worktreesRemoved}, branch=${result.branchDeleted}, status=${result.status}`))
       .catch((e) => reportWebhookEventFailure(eventContext, e));
     jsonResponse(res, 200, { status: 'processing', issue: issueNumber });
@@ -289,6 +290,7 @@ function dispatchWebhookEvent(req: http.IncomingMessage, res: http.ServerRespons
       jsonResponse(res, 200, { status: 'ignored', reason: 'auth_gate_set' });
       return;
     }
+    if (!eventBoundary) { jsonResponse(res, 200, { status: 'ignored', reason: 'no_repository' }); return; }
     if (!shouldTriggerIssueWorkflow(issueNumber)) {
       jsonResponse(res, 200, { status: 'ignored', reason: 'duplicate' });
       return;
@@ -302,9 +304,8 @@ function dispatchWebhookEvent(req: http.IncomingMessage, res: http.ServerRespons
           issueBody: (issue?.body as string) || '',
           issueTitle: (issue?.title as string) || undefined,
           labelNames,
-          repoInfo: webhookRepoInfo ?? { owner: '', repo: '', platform: Platform.GitHub },
+          boundary: eventBoundary,
           targetRepoArgs: webhookTargetRepoArgs,
-          gitContext: eventGitContext,
         });
       } catch (error) {
         if (error instanceof AuthRequiredError) {
