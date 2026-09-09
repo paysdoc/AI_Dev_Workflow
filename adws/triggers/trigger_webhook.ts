@@ -26,6 +26,8 @@ import { checkIssueEligibility } from './issueEligibility';
 import { spawnDetached, classifyAndSpawnWorkflow, ensureCronProcess, logDeferral } from './webhookGatekeeper';
 import { extractPayloadLabelNames, routeIssueOpened } from './issueOpenedRouter';
 import { resolveWebhookRepo, buildEventBoundary, selfHostBoundary } from './webhookRepoResolver';
+import type { LaunchBoundary } from '../core';
+import type { TargetRepoInfo } from '../types/issueTypes';
 import { checkEnvironmentVariables, checkGitRepository, checkClaudeCodeCLI, checkGitHubCLI, checkDirectoryStructure, type CheckResult } from '../healthCheckChecks';
 import { gitContextForRepo, readLocalRepoInfo } from '../github/gitContextFactory';
 import { readAuthGate, writeAuthGate } from '../core/authGate';
@@ -126,12 +128,11 @@ const server = http.createServer((req, res) => {
   });
 });
 
-/**
- * Dispatches a single webhook delivery. Any throw is contained by the caller's
- * boundary (see containEventFailure) — never call this outside a try/catch.
- * Exported so BDD steps can drive one event in-process, no real HTTP server.
- */
-export function dispatchWebhookEvent(req: http.IncomingMessage, res: http.ServerResponse, rawBody: Buffer): void {
+/** Dispatches one webhook delivery — any throw must be caught by the caller (containEventFailure). Exported, with an injectable `mintEventBoundary` (default: the real `buildEventBoundary`), so BDD steps can drive it directly without a real HTTP server. */
+export function dispatchWebhookEvent(
+  req: http.IncomingMessage, res: http.ServerResponse, rawBody: Buffer,
+  mintEventBoundary: (targetRepo: TargetRepoInfo | null) => LaunchBoundary | undefined = buildEventBoundary,
+): void {
   const webhookSecret = process.env.GITHUB_WEBHOOK_SECRET;
   if (webhookSecret) {
     const sigResult = validateWebhookSignature(rawBody, webhookSecret, req.headers['x-hub-signature-256'] as string | undefined);
@@ -147,7 +148,7 @@ export function dispatchWebhookEvent(req: http.IncomingMessage, res: http.Server
 
   // Exactly one immutable LaunchBoundary per event, built synchronously before any
   // await — the only sanctioned construction site on this path (never the process-global).
-  const eventBoundary = resolution ? buildEventBoundary(resolution.targetRepo) : undefined;
+  const eventBoundary = resolution ? mintEventBoundary(resolution.targetRepo) : undefined;
   if (resolution) ensureCronProcess(resolution.repoInfo, webhookTargetRepoArgs);
   // issue_comment alone keeps the pre-boundary self-host fallback: only when the payload
   // named NO repository (resolution === null) — never when a named repo's boundary failed to mint.
@@ -355,8 +356,7 @@ async function startServer(): Promise<void> {
   server.listen(actualPort, '0.0.0.0', () => log(`Webhook server listening on 0.0.0.0:${actualPort}`));
 }
 
-// Entry-script guard (same process.argv[1] idiom as trigger_cron.ts's cronBoundary) —
-// keeps an uncontrolled real server from binding a port when imported by tests.
+// Entry-script guard (trigger_cron.ts's cronBoundary idiom) — no real port bind on test import.
 if (process.argv[1]?.replace(/\\/g, '/').includes('trigger_webhook')) {
   startServer().catch((error) => log(`Fatal error starting webhook server: ${error}`, 'error'));
 }
