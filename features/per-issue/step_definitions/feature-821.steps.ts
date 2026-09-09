@@ -37,7 +37,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type * as http from 'http';
 
-import { world796, splitRepo, resetWorld, record } from './feature-796.steps.ts';
+import { world796, resetWorld, record } from './feature-796.steps.ts';
 import { setReconciledStage, setClassificationResult, setUnaddressedComments } from './feature-820.steps.ts';
 
 import type { IssueTracker, IssueListEntry, ReviewComment } from '../../../adws/providers/types.ts';
@@ -65,7 +65,7 @@ import {
 import { classifyIssueForTrigger } from '../../../adws/core/issueClassifier.ts';
 import { AgentStateManager } from '../../../adws/core/agentState.ts';
 import type { IssueClassificationResult } from '../../../adws/core/issueClassifier.ts';
-import { deriveStageFromRemote, buildDefaultReconcileDeps } from '../../../adws/core/remoteReconcile.ts';
+import { buildDefaultReconcileDeps } from '../../../adws/core/remoteReconcile.ts';
 import { readUnaddressedComments } from '../../../adws/core/unaddressedComments.ts';
 import { ADW_CLASSIFICATION_LABELS } from '../../../adws/core/adwLabels.ts';
 import { bodyLinksIssue } from '../../../adws/forge/issueLinkMarker.ts';
