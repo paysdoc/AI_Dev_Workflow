@@ -47,14 +47,21 @@ async function getInProgressIssueCount(providers: ConcurrencyProviders): Promise
 }
 
 /**
- * Returns true if the per-repository concurrency limit has been reached or exceeded.
+ * Returns true if the in-progress issue count has reached or exceeded `limit`.
+ * Exported (with the production cap factored out) so tests can pin the threshold
+ * without depending on the frozen, env-derived MAX_CONCURRENT_PER_REPO constant.
  */
-export async function isConcurrencyLimitReached(providers: ConcurrencyProviders): Promise<boolean> {
+export async function isConcurrencyLimitReachedAt(providers: ConcurrencyProviders, limit: number): Promise<boolean> {
   const count = await getInProgressIssueCount(providers);
-  const limitReached = count >= MAX_CONCURRENT_PER_REPO;
+  const limitReached = count >= limit;
   if (limitReached) {
     const { owner, repo } = providers.codeHost.getRepoIdentifier();
-    log(`Concurrency limit reached for ${owner}/${repo}: ${count}/${MAX_CONCURRENT_PER_REPO} in-progress issues`);
+    log(`Concurrency limit reached for ${owner}/${repo}: ${count}/${limit} in-progress issues`);
   }
   return limitReached;
+}
+
+/** Returns true if the per-repository concurrency limit has been reached or exceeded. */
+export async function isConcurrencyLimitReached(providers: ConcurrencyProviders): Promise<boolean> {
+  return isConcurrencyLimitReachedAt(providers, MAX_CONCURRENT_PER_REPO);
 }

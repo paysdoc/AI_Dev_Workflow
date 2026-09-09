@@ -128,10 +128,10 @@ const server = http.createServer((req, res) => {
 
 /**
  * Dispatches a single webhook delivery. Any throw is contained by the caller's
- * boundary (see containEventFailure) — this function must never be called
- * outside a try/catch.
+ * boundary (see containEventFailure) — never call this outside a try/catch.
+ * Exported so BDD steps can drive one event in-process, no real HTTP server.
  */
-function dispatchWebhookEvent(req: http.IncomingMessage, res: http.ServerResponse, rawBody: Buffer): void {
+export function dispatchWebhookEvent(req: http.IncomingMessage, res: http.ServerResponse, rawBody: Buffer): void {
   const webhookSecret = process.env.GITHUB_WEBHOOK_SECRET;
   if (webhookSecret) {
     const sigResult = validateWebhookSignature(rawBody, webhookSecret, req.headers['x-hub-signature-256'] as string | undefined);
@@ -145,16 +145,12 @@ function dispatchWebhookEvent(req: http.IncomingMessage, res: http.ServerRespons
   const resolution = resolveWebhookRepo(body);
   const webhookTargetRepoArgs = resolution?.targetRepoArgs ?? [];
 
-  // Per-event boundary constructor. Construct exactly one immutable LaunchBoundary per
-  // event, synchronously before any await/then, so identity, GitContext and providers all
-  // ride on the per-event boundary rather than the mutable process-global — the only
-  // sanctioned construction site on this path.
+  // Exactly one immutable LaunchBoundary per event, built synchronously before any
+  // await — the only sanctioned construction site on this path (never the process-global).
   const eventBoundary = resolution ? buildEventBoundary(resolution.targetRepo) : undefined;
   if (resolution) ensureCronProcess(resolution.repoInfo, webhookTargetRepoArgs);
-  // The issue_comment path alone preserves the pre-boundary getRepoInfo() fallback: it
-  // fires only when the payload carried NO repository at all (resolution === null), never
-  // when a named repository's boundary failed to mint — that would silently redirect the
-  // event to the framework repo instead of reporting the failure (Finding 1).
+  // issue_comment alone keeps the pre-boundary self-host fallback: only when the payload
+  // named NO repository (resolution === null) — never when a named repo's boundary failed to mint.
   const commentBoundary = eventBoundary ?? (resolution ? undefined : selfHostBoundary());
 
   if (event === 'pull_request_review_comment') {
@@ -359,4 +355,8 @@ async function startServer(): Promise<void> {
   server.listen(actualPort, '0.0.0.0', () => log(`Webhook server listening on 0.0.0.0:${actualPort}`));
 }
 
-startServer().catch((error) => log(`Fatal error starting webhook server: ${error}`, 'error'));
+// Entry-script guard (same process.argv[1] idiom as trigger_cron.ts's cronBoundary) —
+// keeps an uncontrolled real server from binding a port when imported by tests.
+if (process.argv[1]?.replace(/\\/g, '/').includes('trigger_webhook')) {
+  startServer().catch((error) => log(`Fatal error starting webhook server: ${error}`, 'error'));
+}

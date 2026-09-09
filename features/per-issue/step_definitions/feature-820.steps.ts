@@ -170,6 +170,23 @@ function requireConfig(): WorkflowConfig {
   return s.workflowConfig!;
 }
 
+/**
+ * Cross-file setters (feature-796's `noteBranchHasNoPullRequest` precedent) so
+ * feature-821's own When steps can drive this file's Then phrases — "the
+ * reconciled stage is …", "the classification is …", "the unaddressed comments
+ * are exactly …" — through a takeover/gatekeeper/prCommentDetector entry point
+ * without redefining the (already-registered) Then steps that read `s`.
+ */
+export function setReconciledStage(stage: string | null): void {
+  s.reconciledStage = stage;
+}
+export function setClassificationResult(result: IssueClassificationResult): void {
+  s.classificationResult = result;
+}
+export function setUnaddressedComments(comments: ReviewComment[]): void {
+  s.unaddressedComments = comments;
+}
+
 function activateClaudeCliStub(): void {
   s.originalClaudeCodePath = process.env['CLAUDE_CODE_PATH'];
   process.env['CLAUDE_CODE_PATH'] = CLAUDE_CLI_STUB_PATH;

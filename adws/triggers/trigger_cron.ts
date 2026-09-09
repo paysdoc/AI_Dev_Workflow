@@ -306,9 +306,8 @@ async function handleAuthGateTick(boundary: LaunchBoundary): Promise<boolean> {
   return true;
 }
 
-/** Checks for eligible issues and triggers ADW workflows for each. */
-async function checkAndTrigger(): Promise<void> {
-  const boundary = cronBoundary;
+/** Checks for eligible issues and triggers ADW workflows for each. Boundary defaults to `cronBoundary` (same idiom as `runPerIssueScenarioSweepTick`); exported so tests can drive one tick against a fake boundary. */
+export async function checkAndTrigger(boundary: LaunchBoundary | null = cronBoundary): Promise<void> {
   if (!boundary) {
     log('checkAndTrigger: no launch boundary (module imported, not launched) — skipping tick', 'warn');
     return;

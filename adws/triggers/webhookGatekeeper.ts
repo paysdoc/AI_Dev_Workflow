@@ -17,6 +17,7 @@ import type { IssueClassSlashCommand } from '../types/issueTypes';
 import { AgentStateManager } from '../core/agentState';
 
 import { isAdwRunningForIssue } from '../forge/workflowCommentsBase';
+import type { IssueClassificationResult } from '../core/issueClassifier';
 import { parseDependencies } from './issueDependencies';
 import { isCronAliveForRepo } from './cronProcessGuard';
 import { releaseIssueSpawnLock } from './spawnGate';
@@ -144,20 +145,27 @@ export async function classifyAndSpawnWorkflow(
     log(`Issue #${issueNumber} classified as ${classification.issueType}, spawning ${workflowScript}`, 'success');
     spawnDetached('bunx', ['tsx', workflowScript, String(issueNumber), adwId, '--issue-type', classification.issueType, ...targetRepoArgs]);
     releaseIssueSpawnLock(repoId, issueNumber);
-
-    if (labelRouting?.persistInferredLabel && classification.success) {
-      const label = issueTypeToAdwLabel(classification.issueType);
-      if (label) {
-        try {
-          issueTracker.applyLabel(issueNumber, label);
-        } catch (labelErr) {
-          log(`Issue #${issueNumber}: failed to persist inferred label "${label}": ${labelErr}`, 'warn');
-        }
-      }
-    }
+    persistInferredLabel(issueNumber, classification, labelRouting, issueTracker);
   } catch (err) {
     releaseIssueSpawnLock(repoId, issueNumber);
     throw err;
+  }
+}
+
+/** Persists an inferred classification as an adw:* label when routing requests it. Isolated from its spawn so the write is exercisable on its own. */
+export function persistInferredLabel(
+  issueNumber: number,
+  classification: Pick<IssueClassificationResult, 'issueType' | 'success'>,
+  labelRouting: LabelRouting | undefined,
+  issueTracker: Pick<IssueTracker, 'applyLabel'>,
+): void {
+  if (!labelRouting?.persistInferredLabel || !classification.success) return;
+  const label = issueTypeToAdwLabel(classification.issueType);
+  if (!label) return;
+  try {
+    issueTracker.applyLabel(issueNumber, label);
+  } catch (labelErr) {
+    log(`Issue #${issueNumber}: failed to persist inferred label "${label}": ${labelErr}`, 'warn');
   }
 }
 
