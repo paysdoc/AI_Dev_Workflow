@@ -62,7 +62,7 @@ async function main(): Promise<void> {
   const invocation = resolvePrReviewInvocation(args, {
     readTopLevelState: (id) => AgentStateManager.readTopLevelState(id),
     findPullRequestByBranch: (b) => boundary.providers.codeHost.findPullRequestByBranch(b),
-    resolveSpawn: (n) => resolvePrReviewSpawn(n, boundary.repoId),
+    resolveSpawn: (n) => resolvePrReviewSpawn(n, boundary.providers),
   });
   if (invocation.kind === 'error') {
     console.error(invocation.message);

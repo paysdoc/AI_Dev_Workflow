@@ -9,16 +9,14 @@ import { spawn } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import { log, generateAdwId, REPO_ROOT, LOGS_DIR } from '../core';
-import type { RepoIdentifier } from '../providers/types';
-import { getRepoInfo } from '../github';
-import { closeIssue, issueHasLabel, fetchGitHubIssue } from '../github/issueApi';
+import type { LaunchBoundary } from '../core';
+import type { IssueTracker } from '../providers/types';
 import { classifyIssueForTrigger, getWorkflowScript } from '../core/issueClassifier';
-import { applyLabel, issueTypeToAdwLabel, ADW_UPGRADE_LABEL } from '../github/labelManager';
-import { mapGitHubIssueToIssue } from '../providers/github/mappers';
+import { issueTypeToAdwLabel, ADW_UPGRADE_LABEL } from '../core/adwLabels';
 import type { IssueClassSlashCommand } from '../types/issueTypes';
 import { AgentStateManager } from '../core/agentState';
 
-import { isAdwRunningForIssue } from '../github';
+import { isAdwRunningForIssue } from '../forge/workflowCommentsBase';
 import { parseDependencies } from './issueDependencies';
 import { isCronAliveForRepo } from './cronProcessGuard';
 import { releaseIssueSpawnLock } from './spawnGate';
@@ -26,8 +24,7 @@ import { releaseIssueSpawnLock } from './spawnGate';
 import { evaluateCandidate } from './takeoverHandler';
 import type { CandidateDecision } from './takeoverHandler';
 import { readAuthGate } from '../core/authGate';
-import type { GitContext } from '../gitContext';
-import { listIssues } from '../github/issueListApi';
+import type { RepoIdentifier } from '../providers/types';
 
 /**
  * Spawns a detached child process for running ADW orchestrator workflows.
@@ -68,18 +65,17 @@ export interface LabelRouting {
  */
 export async function classifyAndSpawnWorkflow(
   issueNumber: number,
-  repoInfo: RepoIdentifier | undefined,
+  boundary: LaunchBoundary,
   targetRepoArgs: string[],
   existingAdwId?: string,
   precomputedDecision?: CandidateDecision,
   labelRouting?: LabelRouting,
-  gitContext?: GitContext,
 ): Promise<void> {
-  const resolvedRepoInfo = repoInfo ?? getRepoInfo();
+  const { repoId, providers: { issueTracker } } = boundary;
 
   if (readAuthGate() !== null) {
     log(`Issue #${issueNumber}: auth gate set, skipping spawn`, 'warn');
-    releaseIssueSpawnLock(resolvedRepoInfo, issueNumber);
+    releaseIssueSpawnLock(repoId, issueNumber);
     return;
   }
 
@@ -90,17 +86,19 @@ export async function classifyAndSpawnWorkflow(
   // Routing it to adwUpgrade is also the self-heal: adwUpgrade's own per-issue lifecycle
   // lock makes re-dispatch idempotent (live → no-op, dead → resume), so no separate watchdog
   // is needed. We release the spawn lock here so adwUpgrade can acquire its lifecycle lock.
-  if (issueHasLabel(issueNumber, ADW_UPGRADE_LABEL, resolvedRepoInfo)) {
+  // fetchLabels is fail-open ([] on error) — the same "proceed when the check cannot
+  // complete" policy the legacy issueHasLabel had.
+  if (issueTracker.fetchLabels(issueNumber).includes(ADW_UPGRADE_LABEL)) {
     log(`Issue #${issueNumber}: adw:upgrade tracking issue, routing to adwUpgrade`, 'success');
     spawnDetached('bunx', ['tsx', 'adws/adwUpgrade.tsx', String(issueNumber), ...targetRepoArgs]);
-    releaseIssueSpawnLock(resolvedRepoInfo, issueNumber);
+    releaseIssueSpawnLock(repoId, issueNumber);
     return;
   }
 
   // Enforce the takeover decision before any spawn. When the cron trigger has
   // already called evaluateCandidate, it passes the pre-computed decision here
   // to avoid re-acquiring the spawn lock.
-  const decision = precomputedDecision ?? evaluateCandidate({ issueNumber, repoInfo: resolvedRepoInfo, gitContext });
+  const decision = precomputedDecision ?? evaluateCandidate({ issueNumber, boundary });
 
   if (decision.kind === 'defer_live_holder') {
     log(`Issue #${issueNumber}: live holder (pid ${decision.holderPid}) owns this issue, deferring`);
@@ -124,7 +122,7 @@ export async function classifyAndSpawnWorkflow(
     const workflowScript = state?.orchestratorScript ?? getWorkflowScript('/feature');
     log(`Issue #${issueNumber}: taking over adwId=${adwId} derivedStage=${derivedStage}, spawning ${workflowScript}`, 'success');
     spawnDetached('bunx', ['tsx', workflowScript, String(issueNumber), adwId, ...targetRepoArgs]);
-    releaseIssueSpawnLock(resolvedRepoInfo, issueNumber);
+    releaseIssueSpawnLock(repoId, issueNumber);
     return;
   }
 
@@ -132,11 +130,11 @@ export async function classifyAndSpawnWorkflow(
   try {
     const classification = labelRouting?.precomputedClassification
       ? { issueType: labelRouting.precomputedClassification, success: true as const, issueTitle: labelRouting.issueTitle, adwId: undefined }
-      : await classifyIssueForTrigger(issueNumber, { fetchIssue: async (n) => mapGitHubIssueToIssue(await fetchGitHubIssue(n, resolvedRepoInfo)) });
+      : await classifyIssueForTrigger(issueNumber, { fetchIssue: (n) => issueTracker.fetchIssue(n) });
 
-    if (await isAdwRunningForIssue(issueNumber, resolvedRepoInfo)) {
+    if (await isAdwRunningForIssue(issueNumber, issueTracker)) {
       log(`Issue #${issueNumber}: another ADW workflow started during classification, aborting spawn`);
-      releaseIssueSpawnLock(resolvedRepoInfo, issueNumber);
+      releaseIssueSpawnLock(repoId, issueNumber);
       return;
     }
 
@@ -145,20 +143,20 @@ export async function classifyAndSpawnWorkflow(
 
     log(`Issue #${issueNumber} classified as ${classification.issueType}, spawning ${workflowScript}`, 'success');
     spawnDetached('bunx', ['tsx', workflowScript, String(issueNumber), adwId, '--issue-type', classification.issueType, ...targetRepoArgs]);
-    releaseIssueSpawnLock(resolvedRepoInfo, issueNumber);
+    releaseIssueSpawnLock(repoId, issueNumber);
 
     if (labelRouting?.persistInferredLabel && classification.success) {
       const label = issueTypeToAdwLabel(classification.issueType);
       if (label) {
         try {
-          applyLabel(issueNumber, label, resolvedRepoInfo);
+          issueTracker.applyLabel(issueNumber, label);
         } catch (labelErr) {
           log(`Issue #${issueNumber}: failed to persist inferred label "${label}": ${labelErr}`, 'warn');
         }
       }
     }
   } catch (err) {
-    releaseIssueSpawnLock(resolvedRepoInfo, issueNumber);
+    releaseIssueSpawnLock(repoId, issueNumber);
     throw err;
   }
 }
@@ -198,10 +196,10 @@ export function ensureCronProcess(repoInfo: RepoIdentifier, targetRepoArgs: stri
  */
 export async function closeAbandonedDependents(
   closedIssueNumber: number,
-  repoInfo: RepoIdentifier,
+  tracker: Pick<IssueTracker, 'listIssues' | 'closeIssue'>,
 ): Promise<void> {
   try {
-    const issues = listIssues({ fields: ['number', 'body'], limit: 100 }, repoInfo);
+    const issues = tracker.listIssues({ fields: ['number', 'body'], limit: 100 });
 
     const dependents = issues.filter((issue) => {
       const deps = parseDependencies(issue.body || '');
@@ -223,7 +221,7 @@ export async function closeAbandonedDependents(
         '',
         'Reopen this issue and its parent if you want to retry.',
       ].join('\n');
-      await closeIssue(dependent.number, repoInfo, comment);
+      await tracker.closeIssue(dependent.number, comment);
       log(`Closed dependent issue #${dependent.number} due to abandoned parent #${closedIssueNumber}`);
     }
   } catch (error) {

@@ -3,7 +3,7 @@ import * as path from 'path';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const mockWorktreePathFor = vi.hoisted(() => vi.fn().mockReturnValue('/worktrees/feature-branch'));
-vi.mock('../../github', () => ({
+vi.mock('../../github/gitContextFactory', () => ({
   gitContextForSync: vi.fn().mockReturnValue({ worktreePathFor: mockWorktreePathFor }),
 }));
 import { evaluateCandidate } from '../takeoverHandler';
@@ -13,9 +13,15 @@ import type { AgentState } from '../../types/agentTypes';
 import type { WorktreeProbe } from '../../vcs/worktreeReuseGate';
 import { GitContext } from '../../gitContext';
 import { createLiteralTokenProvider } from '../../providers/github/githubTokenProvider';
+import type { LaunchBoundary } from '../../core';
 
 const REPO: RepoIdentifier = { owner: 'acme', repo: 'widgets', platform: Platform.GitHub };
 const ADW_ID = 'test-adwid-123';
+const FAKE_BOUNDARY: LaunchBoundary = {
+  repoId: REPO,
+  gitContext: { worktreePathFor: mockWorktreePathFor } as unknown as GitContext,
+  providers: {},
+} as unknown as LaunchBoundary;
 
 function healthyProbe(overrides: Partial<WorktreeProbe> = {}): WorktreeProbe {
   return {
@@ -78,7 +84,7 @@ describe('defer_live_holder', () => {
       acquireIssueSpawnLock: vi.fn().mockReturnValue(false),
       readSpawnLockRecord: vi.fn().mockReturnValue({ pid: 9999, pidStartedAt: 'live-era' }),
     });
-    const decision = evaluateCandidate({ issueNumber: 107, repoInfo: REPO }, deps);
+    const decision = evaluateCandidate({ issueNumber: 107, boundary: FAKE_BOUNDARY }, deps);
 
     expect(decision).toEqual({ kind: 'defer_live_holder', holderPid: 9999 });
     expect(deps.releaseIssueSpawnLock).not.toHaveBeenCalled();
@@ -92,7 +98,7 @@ describe('defer_live_holder', () => {
       acquireIssueSpawnLock: vi.fn().mockReturnValue(false),
       readSpawnLockRecord: vi.fn().mockReturnValue(null),
     });
-    const decision = evaluateCandidate({ issueNumber: 107, repoInfo: REPO }, deps);
+    const decision = evaluateCandidate({ issueNumber: 107, boundary: FAKE_BOUNDARY }, deps);
     expect(decision).toEqual({ kind: 'defer_live_holder', holderPid: 0 });
   });
 });
@@ -102,7 +108,7 @@ describe('defer_live_holder', () => {
 describe('spawn_fresh — no adwId', () => {
   it('returns spawn_fresh when resolveAdwId returns null', () => {
     const deps = makeDeps({ resolveAdwId: vi.fn().mockReturnValue(null) });
-    const decision = evaluateCandidate({ issueNumber: 101, repoInfo: REPO }, deps);
+    const decision = evaluateCandidate({ issueNumber: 101, boundary: FAKE_BOUNDARY }, deps);
 
     expect(decision).toEqual({ kind: 'spawn_fresh' });
     expect(deps.resetWorktree).not.toHaveBeenCalled();
@@ -112,7 +118,7 @@ describe('spawn_fresh — no adwId', () => {
 
   it('returns spawn_fresh when adwId resolves but state file is null', () => {
     const deps = makeDeps({ readTopLevelState: vi.fn().mockReturnValue(null) });
-    const decision = evaluateCandidate({ issueNumber: 101, repoInfo: REPO }, deps);
+    const decision = evaluateCandidate({ issueNumber: 101, boundary: FAKE_BOUNDARY }, deps);
 
     expect(decision).toEqual({ kind: 'spawn_fresh' });
     expect(deps.releaseIssueSpawnLock).not.toHaveBeenCalled();
@@ -124,7 +130,7 @@ describe('spawn_fresh — no adwId', () => {
 describe('skip_terminal', () => {
   it('returns skip_terminal for completed stage and releases lock', () => {
     const deps = makeDeps({ readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'completed' })) });
-    const decision = evaluateCandidate({ issueNumber: 102, repoInfo: REPO }, deps);
+    const decision = evaluateCandidate({ issueNumber: 102, boundary: FAKE_BOUNDARY }, deps);
 
     expect(decision).toEqual({ kind: 'skip_terminal', adwId: ADW_ID, terminalStage: 'completed' });
     expect(deps.releaseIssueSpawnLock).toHaveBeenCalledOnce();
@@ -135,7 +141,7 @@ describe('skip_terminal', () => {
 
   it('returns skip_terminal for discarded stage and releases lock', () => {
     const deps = makeDeps({ readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'discarded' })) });
-    const decision = evaluateCandidate({ issueNumber: 103, repoInfo: REPO }, deps);
+    const decision = evaluateCandidate({ issueNumber: 103, boundary: FAKE_BOUNDARY }, deps);
 
     expect(decision).toEqual({ kind: 'skip_terminal', adwId: ADW_ID, terminalStage: 'discarded' });
     expect(deps.releaseIssueSpawnLock).toHaveBeenCalledOnce();
@@ -148,7 +154,7 @@ describe('skip_terminal', () => {
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'completed', pid: 12345, pidStartedAt: 'live-era' })),
       isProcessLive: vi.fn().mockReturnValue(true),
     });
-    const decision = evaluateCandidate({ issueNumber: 102, repoInfo: REPO }, deps);
+    const decision = evaluateCandidate({ issueNumber: 102, boundary: FAKE_BOUNDARY }, deps);
     expect(decision.kind).toBe('skip_terminal');
     expect(deps.killProcess).not.toHaveBeenCalled();
   });
@@ -159,7 +165,7 @@ describe('skip_terminal', () => {
 describe('paused no-op', () => {
   it('returns skip_terminal with terminalStage paused and releases lock', () => {
     const deps = makeDeps({ readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'paused' })) });
-    const decision = evaluateCandidate({ issueNumber: 109, repoInfo: REPO }, deps);
+    const decision = evaluateCandidate({ issueNumber: 109, boundary: FAKE_BOUNDARY }, deps);
 
     expect(decision).toEqual({ kind: 'skip_terminal', adwId: ADW_ID, terminalStage: 'paused' });
     expect(deps.releaseIssueSpawnLock).toHaveBeenCalledOnce();
@@ -173,7 +179,7 @@ describe('paused no-op', () => {
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'paused', pid: 55555, pidStartedAt: 'live-era' })),
       isProcessLive: vi.fn().mockReturnValue(true),
     });
-    const decision = evaluateCandidate({ issueNumber: 109, repoInfo: REPO }, deps);
+    const decision = evaluateCandidate({ issueNumber: 109, boundary: FAKE_BOUNDARY }, deps);
     expect(decision.kind).toBe('skip_terminal');
     expect(deps.killProcess).not.toHaveBeenCalled();
   });
@@ -184,7 +190,7 @@ describe('paused no-op', () => {
 describe('paused_auth no-op', () => {
   it('returns skip_terminal with terminalStage paused_auth and releases lock', () => {
     const deps = makeDeps({ readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'paused_auth' })) });
-    const decision = evaluateCandidate({ issueNumber: 110, repoInfo: REPO }, deps);
+    const decision = evaluateCandidate({ issueNumber: 110, boundary: FAKE_BOUNDARY }, deps);
 
     expect(decision).toEqual({ kind: 'skip_terminal', adwId: ADW_ID, terminalStage: 'paused_auth' });
     expect(deps.releaseIssueSpawnLock).toHaveBeenCalledOnce();
@@ -198,7 +204,7 @@ describe('paused_auth no-op', () => {
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'paused_auth', pid: 66666, pidStartedAt: 'live-era' })),
       isProcessLive: vi.fn().mockReturnValue(true),
     });
-    const decision = evaluateCandidate({ issueNumber: 110, repoInfo: REPO }, deps);
+    const decision = evaluateCandidate({ issueNumber: 110, boundary: FAKE_BOUNDARY }, deps);
     expect(decision.kind).toBe('skip_terminal');
     expect(deps.killProcess).not.toHaveBeenCalled();
   });
@@ -215,7 +221,7 @@ describe('take_over_adwId from abandoned', () => {
       deriveStageFromRemote: vi.fn().mockReturnValue('awaiting_merge'),
       probeWorktree: vi.fn().mockReturnValue(healthyProbe()),
     });
-    const decision = evaluateCandidate({ issueNumber: 104, repoInfo: REPO }, deps) as Extract<CandidateDecision, { kind: 'take_over_adwId' }>;
+    const decision = evaluateCandidate({ issueNumber: 104, boundary: FAKE_BOUNDARY }, deps) as Extract<CandidateDecision, { kind: 'take_over_adwId' }>;
 
     expect(decision.kind).toBe('take_over_adwId');
     expect(decision.adwId).toBe(ADW_ID);
@@ -227,7 +233,7 @@ describe('take_over_adwId from abandoned', () => {
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'abandoned', branchName: 'feature-issue-104-x' })),
       probeWorktree: vi.fn().mockReturnValue(healthyProbe()),
     });
-    evaluateCandidate({ issueNumber: 104, repoInfo: REPO }, deps);
+    evaluateCandidate({ issueNumber: 104, boundary: FAKE_BOUNDARY }, deps);
 
     expect(deps.resetWorktree).not.toHaveBeenCalled();
     expect(deps.deriveStageFromRemote).toHaveBeenCalledOnce();
@@ -239,7 +245,7 @@ describe('take_over_adwId from abandoned', () => {
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'abandoned', branchName: 'feature-issue-104-x' })),
       probeWorktree: vi.fn().mockReturnValue(healthyProbe()),
     });
-    evaluateCandidate({ issueNumber: 104, repoInfo: REPO }, deps);
+    evaluateCandidate({ issueNumber: 104, boundary: FAKE_BOUNDARY }, deps);
 
     expect(deps.probeWorktree).toHaveBeenCalledWith('/wt/feature-issue-104-x', 'feature-issue-104-x', undefined, undefined);
   });
@@ -250,7 +256,7 @@ describe('take_over_adwId from abandoned', () => {
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'abandoned', branchName: 'feature-branch' })),
       probeWorktree: vi.fn().mockReturnValue(healthyProbe({ indexLock: 'orphaned' })),
     });
-    evaluateCandidate({ issueNumber: 104, repoInfo: REPO }, deps);
+    evaluateCandidate({ issueNumber: 104, boundary: FAKE_BOUNDARY }, deps);
 
     expect(deps.clearOrphanedIndexLock).toHaveBeenCalledWith('/wt/feature-branch');
     expect(deps.resetWorktree).not.toHaveBeenCalled();
@@ -261,7 +267,7 @@ describe('take_over_adwId from abandoned', () => {
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'abandoned', branchName: 'feature-branch' })),
       probeWorktree: vi.fn().mockReturnValue(healthyProbe({ indexLock: 'absent' })),
     });
-    evaluateCandidate({ issueNumber: 104, repoInfo: REPO }, deps);
+    evaluateCandidate({ issueNumber: 104, boundary: FAKE_BOUNDARY }, deps);
 
     expect(deps.clearOrphanedIndexLock).not.toHaveBeenCalled();
   });
@@ -276,7 +282,7 @@ describe('take_over_adwId from abandoned', () => {
       resetWorktree: vi.fn().mockImplementation(() => callOrder.push('reset')),
       deriveStageFromRemote: vi.fn().mockImplementation(() => { callOrder.push('reconcile'); return 'awaiting_merge'; }),
     });
-    evaluateCandidate({ issueNumber: 104, repoInfo: REPO }, deps);
+    evaluateCandidate({ issueNumber: 104, boundary: FAKE_BOUNDARY }, deps);
 
     expect(callOrder).toEqual(['reset', 'reconcile']);
   });
@@ -287,7 +293,7 @@ describe('take_over_adwId from abandoned', () => {
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'abandoned', branchName: 'feature-issue-104-whatever' })),
       probeWorktree: vi.fn().mockReturnValue(unhealthyProbe()),
     });
-    evaluateCandidate({ issueNumber: 104, repoInfo: REPO }, deps);
+    evaluateCandidate({ issueNumber: 104, boundary: FAKE_BOUNDARY }, deps);
 
     expect(deps.resetWorktree).toHaveBeenCalledWith('/wt/feature-issue-104-whatever', 'feature-issue-104-whatever');
   });
@@ -299,7 +305,7 @@ describe('take_over_adwId from abandoned', () => {
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'abandoned', branchName: undefined })),
       deriveStageFromRemote: vi.fn().mockReturnValue('abandoned'),
     });
-    evaluateCandidate({ issueNumber: 104, repoInfo: REPO }, deps);
+    evaluateCandidate({ issueNumber: 104, boundary: FAKE_BOUNDARY }, deps);
 
     expect(deps.probeWorktree).not.toHaveBeenCalled();
     expect(deps.resetWorktree).not.toHaveBeenCalled();
@@ -313,7 +319,7 @@ describe('take_over_adwId from abandoned', () => {
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'abandoned', branchName: 'feature-branch' })),
       probeWorktree: vi.fn().mockImplementation(() => { callOrder.push('probe'); return healthyProbe(); }),
     });
-    evaluateCandidate({ issueNumber: 104, repoInfo: REPO }, deps);
+    evaluateCandidate({ issueNumber: 104, boundary: FAKE_BOUNDARY }, deps);
 
     expect(callOrder.indexOf('acquire')).toBeLessThan(callOrder.indexOf('probe'));
   });
@@ -322,7 +328,7 @@ describe('take_over_adwId from abandoned', () => {
     const deps = makeDeps({
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'abandoned', branchName: 'feature-branch' })),
     });
-    evaluateCandidate({ issueNumber: 104, repoInfo: REPO }, deps);
+    evaluateCandidate({ issueNumber: 104, boundary: FAKE_BOUNDARY }, deps);
 
     expect(deps.releaseIssueSpawnLock).not.toHaveBeenCalled();
   });
@@ -331,7 +337,7 @@ describe('take_over_adwId from abandoned', () => {
     const deps = makeDeps({
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'abandoned', branchName: 'feature-branch' })),
     });
-    evaluateCandidate({ issueNumber: 104, repoInfo: REPO }, deps);
+    evaluateCandidate({ issueNumber: 104, boundary: FAKE_BOUNDARY }, deps);
     expect(deps.killProcess).not.toHaveBeenCalled();
   });
 });
@@ -349,7 +355,7 @@ describe('take_over_adwId from *_running with dead PID', () => {
       })),
       isProcessLive: vi.fn().mockReturnValue(false),
     });
-    const decision = evaluateCandidate({ issueNumber: 105, repoInfo: REPO }, deps);
+    const decision = evaluateCandidate({ issueNumber: 105, boundary: FAKE_BOUNDARY }, deps);
 
     expect(decision.kind).toBe('take_over_adwId');
     expect(deps.killProcess).not.toHaveBeenCalled();
@@ -365,7 +371,7 @@ describe('take_over_adwId from *_running with dead PID', () => {
       resetWorktree: vi.fn().mockImplementation(() => callOrder.push('reset')),
       deriveStageFromRemote: vi.fn().mockImplementation(() => { callOrder.push('reconcile'); return 'abandoned'; }),
     });
-    evaluateCandidate({ issueNumber: 105, repoInfo: REPO }, deps);
+    evaluateCandidate({ issueNumber: 105, boundary: FAKE_BOUNDARY }, deps);
     expect(callOrder).toEqual(['reset', 'reconcile']);
   });
 
@@ -374,7 +380,7 @@ describe('take_over_adwId from *_running with dead PID', () => {
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'starting', branchName: 'b', pid: 1, pidStartedAt: 'old' })),
       isProcessLive: vi.fn().mockReturnValue(false),
     });
-    const decision = evaluateCandidate({ issueNumber: 105, repoInfo: REPO }, deps);
+    const decision = evaluateCandidate({ issueNumber: 105, boundary: FAKE_BOUNDARY }, deps);
     expect(decision.kind).toBe('take_over_adwId');
   });
 
@@ -382,7 +388,7 @@ describe('take_over_adwId from *_running with dead PID', () => {
     const deps = makeDeps({
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'build_running', branchName: 'b', pid: undefined, pidStartedAt: undefined })),
     });
-    const decision = evaluateCandidate({ issueNumber: 105, repoInfo: REPO }, deps);
+    const decision = evaluateCandidate({ issueNumber: 105, boundary: FAKE_BOUNDARY }, deps);
     expect(decision.kind).toBe('take_over_adwId');
     expect(deps.killProcess).not.toHaveBeenCalled();
   });
@@ -394,7 +400,7 @@ describe('take_over_adwId from *_running with dead PID', () => {
       isProcessLive: vi.fn().mockReturnValue(false),
       probeWorktree: vi.fn().mockReturnValue(healthyProbe()),
     });
-    evaluateCandidate({ issueNumber: 105, repoInfo: REPO }, deps);
+    evaluateCandidate({ issueNumber: 105, boundary: FAKE_BOUNDARY }, deps);
     expect(deps.resetWorktree).toHaveBeenCalledOnce();
     expect(deps.probeWorktree).not.toHaveBeenCalled();
   });
@@ -411,7 +417,7 @@ describe('take_over_adwId from *_running with live PID not holding lock', () => 
       })),
       isProcessLive: vi.fn().mockReturnValue(true),
     });
-    const decision = evaluateCandidate({ issueNumber: 106, repoInfo: REPO }, deps);
+    const decision = evaluateCandidate({ issueNumber: 106, boundary: FAKE_BOUNDARY }, deps);
 
     expect(deps.killProcess).toHaveBeenCalledWith(12345);
     expect(decision.kind).toBe('take_over_adwId');
@@ -431,7 +437,7 @@ describe('take_over_adwId from *_running with live PID not holding lock', () => 
       resetWorktree: vi.fn().mockImplementation(() => callOrder.push('reset')),
       deriveStageFromRemote: vi.fn().mockImplementation(() => { callOrder.push('reconcile'); return 'abandoned'; }),
     });
-    evaluateCandidate({ issueNumber: 106, repoInfo: REPO }, deps);
+    evaluateCandidate({ issueNumber: 106, boundary: FAKE_BOUNDARY }, deps);
     expect(callOrder).toEqual(['kill', 'reset', 'reconcile']);
   });
 
@@ -446,7 +452,7 @@ describe('take_over_adwId from *_running with live PID not holding lock', () => 
       isProcessLive: vi.fn().mockReturnValue(true),
       killProcess: vi.fn().mockImplementation(() => { throw Object.assign(new Error('ESRCH'), { code: 'ESRCH' }); }),
     });
-    const decision = evaluateCandidate({ issueNumber: 106, repoInfo: REPO }, deps);
+    const decision = evaluateCandidate({ issueNumber: 106, boundary: FAKE_BOUNDARY }, deps);
     expect(decision.kind).toBe('take_over_adwId');
   });
 });
@@ -458,7 +464,7 @@ describe('defensive fallthrough', () => {
     const deps = makeDeps({
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'some_unknown_future_stage' as never })),
     });
-    const decision = evaluateCandidate({ issueNumber: 99, repoInfo: REPO }, deps);
+    const decision = evaluateCandidate({ issueNumber: 99, boundary: FAKE_BOUNDARY }, deps);
     expect(decision).toEqual({ kind: 'spawn_fresh' });
   });
 });
@@ -470,7 +476,7 @@ describe('paused — no side effects', () => {
     const deps = makeDeps({
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'paused' })),
     });
-    evaluateCandidate({ issueNumber: 109, repoInfo: REPO }, deps);
+    evaluateCandidate({ issueNumber: 109, boundary: FAKE_BOUNDARY }, deps);
 
     expect(deps.resetWorktree).not.toHaveBeenCalled();
     expect(deps.deriveStageFromRemote).not.toHaveBeenCalled();
@@ -483,7 +489,7 @@ describe('paused — no side effects', () => {
 describe('lock handoff semantics', () => {
   it('does not release lock on spawn_fresh (caller keeps lock for spawn)', () => {
     const deps = makeDeps({ resolveAdwId: vi.fn().mockReturnValue(null) });
-    evaluateCandidate({ issueNumber: 200, repoInfo: REPO }, deps);
+    evaluateCandidate({ issueNumber: 200, boundary: FAKE_BOUNDARY }, deps);
     expect(deps.releaseIssueSpawnLock).not.toHaveBeenCalled();
   });
 });
@@ -499,7 +505,7 @@ describe('take_over_adwId from phase_timeout', () => {
       deriveStageFromRemote: vi.fn().mockReturnValue('awaiting_merge'),
       probeWorktree: vi.fn().mockReturnValue(healthyProbe()),
     });
-    const decision = evaluateCandidate({ issueNumber: 637, repoInfo: REPO }, deps) as Extract<CandidateDecision, { kind: 'take_over_adwId' }>;
+    const decision = evaluateCandidate({ issueNumber: 637, boundary: FAKE_BOUNDARY }, deps) as Extract<CandidateDecision, { kind: 'take_over_adwId' }>;
 
     expect(decision.kind).toBe('take_over_adwId');
     expect(decision.adwId).toBe(ADW_ID);
@@ -512,7 +518,7 @@ describe('take_over_adwId from phase_timeout', () => {
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'phase_timeout', branchName: 'feature-issue-637-x', resumeAttempts: 2 })),
       deriveStageFromRemote: vi.fn().mockReturnValue('abandoned'),
     });
-    const decision = evaluateCandidate({ issueNumber: 637, repoInfo: REPO }, deps);
+    const decision = evaluateCandidate({ issueNumber: 637, boundary: FAKE_BOUNDARY }, deps);
 
     expect(decision.kind).toBe('take_over_adwId');
     expect(deps.writeTopLevelState).toHaveBeenCalledWith(ADW_ID, { resumeAttempts: 3 });
@@ -523,7 +529,7 @@ describe('take_over_adwId from phase_timeout', () => {
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'phase_timeout', branchName: 'feature-issue-637-x' })),
       probeWorktree: vi.fn().mockReturnValue(healthyProbe()),
     });
-    evaluateCandidate({ issueNumber: 637, repoInfo: REPO }, deps);
+    evaluateCandidate({ issueNumber: 637, boundary: FAKE_BOUNDARY }, deps);
 
     expect(deps.resetWorktree).not.toHaveBeenCalled();
     expect(deps.deriveStageFromRemote).toHaveBeenCalledOnce();
@@ -535,7 +541,7 @@ describe('take_over_adwId from phase_timeout', () => {
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'phase_timeout', branchName: 'feature-issue-637-x', pid: 77777, pidStartedAt: 'dead-era' })),
       probeWorktree: vi.fn().mockReturnValue(healthyProbe()),
     });
-    evaluateCandidate({ issueNumber: 637, repoInfo: REPO }, deps);
+    evaluateCandidate({ issueNumber: 637, boundary: FAKE_BOUNDARY }, deps);
 
     expect(deps.probeWorktree).toHaveBeenCalledWith('/wt/feature-issue-637-x', 'feature-issue-637-x', 77777, 'dead-era');
   });
@@ -546,7 +552,7 @@ describe('take_over_adwId from phase_timeout', () => {
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'phase_timeout', branchName: 'feature-branch' })),
       probeWorktree: vi.fn().mockReturnValue(healthyProbe({ indexLock: 'orphaned' })),
     });
-    evaluateCandidate({ issueNumber: 637, repoInfo: REPO }, deps);
+    evaluateCandidate({ issueNumber: 637, boundary: FAKE_BOUNDARY }, deps);
 
     expect(deps.clearOrphanedIndexLock).toHaveBeenCalledWith('/wt/feature-branch');
     expect(deps.resetWorktree).not.toHaveBeenCalled();
@@ -562,7 +568,7 @@ describe('take_over_adwId from phase_timeout', () => {
       resetWorktree: vi.fn().mockImplementation(() => callOrder.push('reset')),
       deriveStageFromRemote: vi.fn().mockImplementation(() => { callOrder.push('reconcile'); return 'abandoned'; }),
     });
-    evaluateCandidate({ issueNumber: 637, repoInfo: REPO }, deps);
+    evaluateCandidate({ issueNumber: 637, boundary: FAKE_BOUNDARY }, deps);
 
     expect(callOrder).toEqual(['reset', 'reconcile']);
   });
@@ -573,7 +579,7 @@ describe('take_over_adwId from phase_timeout', () => {
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'phase_timeout', branchName: 'feature-issue-637-whatever' })),
       probeWorktree: vi.fn().mockReturnValue(unhealthyProbe()),
     });
-    evaluateCandidate({ issueNumber: 637, repoInfo: REPO }, deps);
+    evaluateCandidate({ issueNumber: 637, boundary: FAKE_BOUNDARY }, deps);
 
     expect(deps.resetWorktree).toHaveBeenCalledWith('/wt/feature-issue-637-whatever', 'feature-issue-637-whatever');
   });
@@ -585,7 +591,7 @@ describe('take_over_adwId from phase_timeout', () => {
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'phase_timeout', branchName: undefined })),
       deriveStageFromRemote: vi.fn().mockReturnValue('abandoned'),
     });
-    evaluateCandidate({ issueNumber: 637, repoInfo: REPO }, deps);
+    evaluateCandidate({ issueNumber: 637, boundary: FAKE_BOUNDARY }, deps);
 
     expect(deps.probeWorktree).not.toHaveBeenCalled();
     expect(deps.resetWorktree).not.toHaveBeenCalled();
@@ -596,7 +602,7 @@ describe('take_over_adwId from phase_timeout', () => {
     const deps = makeDeps({
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'phase_timeout', branchName: 'feature-branch' })),
     });
-    evaluateCandidate({ issueNumber: 637, repoInfo: REPO }, deps);
+    evaluateCandidate({ issueNumber: 637, boundary: FAKE_BOUNDARY }, deps);
 
     expect(deps.releaseIssueSpawnLock).not.toHaveBeenCalled();
   });
@@ -613,7 +619,7 @@ describe('take_over_adwId from phase_timeout', () => {
       // liveOwner=false in the probe (dead pid verified at probe time), so gate passes
       probeWorktree: vi.fn().mockReturnValue(healthyProbe()),
     });
-    evaluateCandidate({ issueNumber: 637, repoInfo: REPO }, deps);
+    evaluateCandidate({ issueNumber: 637, boundary: FAKE_BOUNDARY }, deps);
 
     expect(deps.killProcess).not.toHaveBeenCalled();
   });
@@ -628,7 +634,7 @@ describe('take_over_adwId from phase_timeout', () => {
       })),
       probeWorktree: vi.fn().mockReturnValue(unhealthyProbe('live_owner')),
     });
-    evaluateCandidate({ issueNumber: 637, repoInfo: REPO }, deps);
+    evaluateCandidate({ issueNumber: 637, boundary: FAKE_BOUNDARY }, deps);
 
     expect(deps.killProcess).not.toHaveBeenCalled();
     expect(deps.resetWorktree).toHaveBeenCalledOnce();
@@ -643,7 +649,7 @@ describe('escalate_human_gated from phase_timeout at cap', () => {
     const deps = makeDeps({
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'phase_timeout', branchName: 'feature-branch', resumeAttempts: 3 })),
     });
-    const decision = evaluateCandidate({ issueNumber: 639, repoInfo: REPO }, deps) as Extract<CandidateDecision, { kind: 'escalate_human_gated' }>;
+    const decision = evaluateCandidate({ issueNumber: 639, boundary: FAKE_BOUNDARY }, deps) as Extract<CandidateDecision, { kind: 'escalate_human_gated' }>;
 
     expect(decision.kind).toBe('escalate_human_gated');
     expect(decision.adwId).toBe(ADW_ID);
@@ -653,7 +659,7 @@ describe('escalate_human_gated from phase_timeout at cap', () => {
     const deps = makeDeps({
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'phase_timeout', resumeAttempts: 3 })),
     });
-    evaluateCandidate({ issueNumber: 639, repoInfo: REPO }, deps);
+    evaluateCandidate({ issueNumber: 639, boundary: FAKE_BOUNDARY }, deps);
 
     expect(deps.writeTopLevelState).toHaveBeenCalledWith(ADW_ID, { workflowStage: 'human_gated' });
   });
@@ -662,7 +668,7 @@ describe('escalate_human_gated from phase_timeout at cap', () => {
     const deps = makeDeps({
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'phase_timeout', resumeAttempts: 3 })),
     });
-    evaluateCandidate({ issueNumber: 639, repoInfo: REPO }, deps);
+    evaluateCandidate({ issueNumber: 639, boundary: FAKE_BOUNDARY }, deps);
 
     expect(deps.commentOnIssue).toHaveBeenCalledOnce();
   });
@@ -671,7 +677,7 @@ describe('escalate_human_gated from phase_timeout at cap', () => {
     const deps = makeDeps({
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'phase_timeout', resumeAttempts: 3 })),
     });
-    evaluateCandidate({ issueNumber: 639, repoInfo: REPO }, deps);
+    evaluateCandidate({ issueNumber: 639, boundary: FAKE_BOUNDARY }, deps);
 
     expect(deps.releaseIssueSpawnLock).toHaveBeenCalledOnce();
   });
@@ -680,7 +686,7 @@ describe('escalate_human_gated from phase_timeout at cap', () => {
     const deps = makeDeps({
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'phase_timeout', resumeAttempts: 3 })),
     });
-    evaluateCandidate({ issueNumber: 639, repoInfo: REPO }, deps);
+    evaluateCandidate({ issueNumber: 639, boundary: FAKE_BOUNDARY }, deps);
 
     expect(deps.resetWorktree).not.toHaveBeenCalled();
     expect(deps.deriveStageFromRemote).not.toHaveBeenCalled();
@@ -690,7 +696,7 @@ describe('escalate_human_gated from phase_timeout at cap', () => {
     const deps = makeDeps({
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'phase_timeout', resumeAttempts: 5 })),
     });
-    const decision = evaluateCandidate({ issueNumber: 639, repoInfo: REPO }, deps);
+    const decision = evaluateCandidate({ issueNumber: 639, boundary: FAKE_BOUNDARY }, deps);
 
     expect(decision.kind).toBe('escalate_human_gated');
   });
@@ -731,7 +737,7 @@ describe('GitContext-based worktree path (abandoned)', () => {
       probeWorktree: vi.fn().mockReturnValue(healthyProbe()),
     });
 
-    evaluateCandidate({ issueNumber: 187, repoInfo: REPO, gitContext: fakeCtx }, deps);
+    evaluateCandidate({ issueNumber: 187, boundary: { repoId: REPO, gitContext: fakeCtx, providers: {} } as unknown as LaunchBoundary }, deps);
 
     expect(deps.probeWorktree).toHaveBeenCalledWith(expectedWtPath, 'feature-issue-187-x', undefined, undefined);
   });
@@ -744,7 +750,7 @@ describe('GitContext-based worktree path (abandoned)', () => {
       probeWorktree: vi.fn().mockReturnValue(unhealthyProbe()),
     });
 
-    evaluateCandidate({ issueNumber: 187, repoInfo: REPO, gitContext: fakeCtx }, deps);
+    evaluateCandidate({ issueNumber: 187, boundary: { repoId: REPO, gitContext: fakeCtx, providers: {} } as unknown as LaunchBoundary }, deps);
 
     expect(deps.resetWorktree).toHaveBeenCalledWith(expectedWtPath, 'feature-issue-187-x');
   });
@@ -756,7 +762,7 @@ describe('GitContext-based worktree path (abandoned)', () => {
       probeWorktree: vi.fn().mockReturnValue(healthyProbe()),
     });
 
-    evaluateCandidate({ issueNumber: 187, repoInfo: REPO, gitContext: fakeCtx }, deps);
+    evaluateCandidate({ issueNumber: 187, boundary: { repoId: REPO, gitContext: fakeCtx, providers: {} } as unknown as LaunchBoundary }, deps);
 
     const probeCall = (deps.probeWorktree as ReturnType<typeof vi.fn>).mock.calls[0] as string[];
     expect(probeCall[0]).not.toContain(FRAMEWORK_ROOT);
@@ -773,22 +779,15 @@ describe('GitContext-based worktree path (phase_timeout)', () => {
       probeWorktree: vi.fn().mockReturnValue(healthyProbe()),
     });
 
-    evaluateCandidate({ issueNumber: 187, repoInfo: REPO, gitContext: fakeCtx }, deps);
+    evaluateCandidate({ issueNumber: 187, boundary: { repoId: REPO, gitContext: fakeCtx, providers: {} } as unknown as LaunchBoundary }, deps);
 
     expect(deps.probeWorktree).toHaveBeenCalledWith(expectedWtPath, 'feature-issue-187-x', undefined, undefined);
   });
 });
 
-// ── buildDefaultTakeoverDeps — resolveAdwId routes through issueListApi (no boundary)
-// or the boundary's issue tracker (boundary provided) ────────────────────────
+// ── buildDefaultTakeoverDeps — resolveAdwId routes through the boundary's issue tracker ──
 
 import { buildDefaultTakeoverDeps } from '../takeoverHandler';
-import { fetchIssueCommentBodies } from '../../github/issueListApi';
-import type { LaunchBoundary } from '../../core';
-
-vi.mock('../../github/issueListApi', () => ({
-  fetchIssueCommentBodies: vi.fn(),
-}));
 
 function makeFakeBoundary(fetchComments: (issueNumber: number) => { body: string }[]): LaunchBoundary {
   return {
@@ -796,75 +795,45 @@ function makeFakeBoundary(fetchComments: (issueNumber: number) => { body: string
   } as unknown as LaunchBoundary;
 }
 
-describe('buildDefaultTakeoverDeps — resolveAdwId default path (no boundary)', () => {
+describe('buildDefaultTakeoverDeps — resolveAdwId', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('calls fetchIssueCommentBodies(issueNumber, repoInfo) then extracts the adwId', () => {
-    vi.mocked(fetchIssueCommentBodies).mockReturnValue([
-      { body: '## ADW\n\n**ADW ID:** `test-adwid-abc`' },
-    ]);
-
-    const deps = buildDefaultTakeoverDeps(REPO);
-    const result = deps.resolveAdwId(99, REPO);
-
-    expect(fetchIssueCommentBodies).toHaveBeenCalledWith(99, REPO);
-    expect(result).toBe('test-adwid-abc');
-  });
-
-  it('returns null on throw (fail-safe)', () => {
-    vi.mocked(fetchIssueCommentBodies).mockImplementation(() => { throw new Error('gh failed'); });
-
-    const deps = buildDefaultTakeoverDeps(REPO);
-    const result = deps.resolveAdwId(99, REPO);
-
-    expect(result).toBeNull();
-  });
-
-  it('returns null when no comment carries an adwId', () => {
-    vi.mocked(fetchIssueCommentBodies).mockReturnValue([{ body: 'no adw id here' }]);
-
-    const deps = buildDefaultTakeoverDeps(REPO);
-    const result = deps.resolveAdwId(99, REPO);
-
-    expect(result).toBeNull();
-  });
-});
-
-describe('buildDefaultTakeoverDeps — resolveAdwId with a boundary', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it('reads comments through the boundary\'s issue tracker instead of fetchIssueCommentBodies, and the latest adw id wins', () => {
+  it('reads comments through the boundary\'s issue tracker, and the latest adw id wins', () => {
     const fetchComments = vi.fn(() => [
       { id: '1', body: '**ADW ID:** `aaaaaa-old`', author: 'bot', createdAt: '2024-01-01T00:00:00Z' },
       { id: '2', body: '**ADW ID:** `zzzzzz-new`', author: 'bot', createdAt: '2024-01-02T00:00:00Z' },
     ]);
     const boundary = makeFakeBoundary(fetchComments);
 
-    const deps = buildDefaultTakeoverDeps(REPO, boundary);
+    const deps = buildDefaultTakeoverDeps(boundary);
     const result = deps.resolveAdwId(99, REPO);
 
     expect(fetchComments).toHaveBeenCalledWith(99);
-    expect(fetchIssueCommentBodies).not.toHaveBeenCalled();
     expect(result).toBe('zzzzzz-new');
   });
 
   it('returns null on a boundary throw (fail-safe)', () => {
     const boundary = makeFakeBoundary(() => { throw new Error('rest api failed'); });
 
-    const deps = buildDefaultTakeoverDeps(REPO, boundary);
+    const deps = buildDefaultTakeoverDeps(boundary);
+    const result = deps.resolveAdwId(99, REPO);
+
+    expect(result).toBeNull();
+  });
+
+  it('returns null when no comment carries an adwId', () => {
+    const boundary = makeFakeBoundary(() => [{ id: '1', body: 'no adw id here', author: 'bot', createdAt: '2024-01-01T00:00:00Z' }]);
+
+    const deps = buildDefaultTakeoverDeps(boundary);
     const result = deps.resolveAdwId(99, REPO);
 
     expect(result).toBeNull();
   });
 });
 
-// ── buildDefaultTakeoverDeps — deriveStageFromRemote routes through
-// buildDefaultReconcileDeps(boundary) when a boundary is given, or the
-// legacy repoInfo-scoped wiring (deps: undefined) otherwise ─────────────────
+// ── buildDefaultTakeoverDeps — deriveStageFromRemote routes through buildDefaultReconcileDeps(boundary) ──
 
 vi.mock('../../core/remoteReconcile', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../core/remoteReconcile')>();
@@ -883,29 +852,15 @@ describe('buildDefaultTakeoverDeps — deriveStageFromRemote boundary routing', 
     vi.mocked(mockBuildDefaultReconcileDeps).mockClear();
   });
 
-  it('passes buildDefaultReconcileDeps(boundary) as the 4th arg when a boundary is given', () => {
+  it('passes buildDefaultReconcileDeps(boundary) as the 2nd arg', () => {
     const fakeReconcileDeps = { readTopLevelState: vi.fn() } as unknown as ReturnType<typeof mockBuildDefaultReconcileDeps>;
     vi.mocked(mockBuildDefaultReconcileDeps).mockReturnValue(fakeReconcileDeps);
     const boundary = makeFakeBoundary(() => []);
-    const deps = buildDefaultTakeoverDeps(REPO, boundary);
+    const deps = buildDefaultTakeoverDeps(boundary);
 
-    deps.deriveStageFromRemote(99, 'adw-1', REPO);
+    deps.deriveStageFromRemote('adw-1');
 
     expect(mockBuildDefaultReconcileDeps).toHaveBeenCalledWith(boundary);
-    expect(mockDeriveStageFromRemote).toHaveBeenCalledWith(99, 'adw-1', REPO, fakeReconcileDeps);
-  });
-
-  it('passes its own boundary-less ReconcileDeps as the 4th arg (the legacy repoInfo-scoped path) when no boundary is given', () => {
-    const deps = buildDefaultTakeoverDeps(REPO);
-
-    deps.deriveStageFromRemote(99, 'adw-1', REPO);
-
-    expect(mockBuildDefaultReconcileDeps).not.toHaveBeenCalled();
-    expect(mockDeriveStageFromRemote).toHaveBeenCalledWith(
-      99, 'adw-1', REPO,
-      expect.objectContaining({ readTopLevelState: expect.any(Function), branchExistsOnRemote: expect.any(Function), findPRByBranch: expect.any(Function) }),
-    );
-    // Not the boundary's wiring — a distinct, boundary-less ReconcileDeps object.
-    expect(vi.mocked(mockDeriveStageFromRemote).mock.calls[0][3]).not.toBe(undefined);
+    expect(mockDeriveStageFromRemote).toHaveBeenCalledWith('adw-1', fakeReconcileDeps);
   });
 });

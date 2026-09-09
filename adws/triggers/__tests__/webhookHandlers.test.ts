@@ -8,10 +8,12 @@ import {
 import type { AgentState } from '../../types/agentTypes';
 import type { PullRequestWebhookPayload } from '../../types/issueTypes';
 import { Platform } from '../../providers/types';
+import type { LaunchBoundary } from '../../core';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 const REPO_INFO = { owner: 'acme', repo: 'myrepo', platform: Platform.GitHub };
+const BOUNDARY = { repoId: REPO_INFO, providers: {} } as unknown as LaunchBoundary;
 
 function makePayload(overrides: {
   merged?: boolean;
@@ -100,7 +102,7 @@ describe('handlePullRequestEvent — discarded PR with adw-id', () => {
     expect(result.status).toBe('abandoned');
     expect(result.issue).toBe(42);
     expect(deps.writeTopLevelState).toHaveBeenCalledWith('abc123', { workflowStage: 'discarded' });
-    expect(deps.closeIssue).toHaveBeenCalledWith(42, REPO_INFO, expect.stringContaining('PR Abandoned'));
+    expect(deps.closeIssue).toHaveBeenCalledWith(42, expect.stringContaining('PR Abandoned'));
   });
 });
 
@@ -113,7 +115,7 @@ describe('handlePullRequestEvent — abandoned PR without adw-id', () => {
 
     expect(result.status).toBe('abandoned');
     expect(deps.writeTopLevelState).not.toHaveBeenCalled();
-    expect(deps.closeIssue).toHaveBeenCalledWith(42, REPO_INFO, expect.any(String));
+    expect(deps.closeIssue).toHaveBeenCalledWith(42, expect.any(String));
   });
 });
 
@@ -143,12 +145,12 @@ describe('handlePullRequestEvent — non-closed action', () => {
 describe('handleIssueClosedEvent — normal closure (completed workflow)', () => {
   it('cleans up worktree, deletes branch, and unblocks dependents', async () => {
     const deps = makeIssueDeps();
-    const result = await handleIssueClosedEvent(42, REPO_INFO, undefined, [], deps);
+    const result = await handleIssueClosedEvent(42, BOUNDARY, undefined, [], deps);
 
     expect(result.status).toBe('cleaned');
     expect(deps.removeWorktreesForIssue).toHaveBeenCalledWith(42);
     expect(deps.deleteRemoteBranch).toHaveBeenCalledWith('feature/issue-42-some-feature', undefined);
-    expect(deps.handleIssueClosedDependencyUnblock).toHaveBeenCalledWith(42, REPO_INFO, [], undefined);
+    expect(deps.handleIssueClosedDependencyUnblock).toHaveBeenCalledWith(42, []);
     expect(deps.closeAbandonedDependents).not.toHaveBeenCalled();
     expect(result.worktreesRemoved).toBe(1);
     expect(result.branchDeleted).toBe(true);
@@ -160,10 +162,10 @@ describe('handleIssueClosedEvent — abandoned closure', () => {
     const deps = makeIssueDeps({
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'abandoned' })),
     });
-    const result = await handleIssueClosedEvent(42, REPO_INFO, undefined, [], deps);
+    const result = await handleIssueClosedEvent(42, BOUNDARY, undefined, [], deps);
 
     expect(result.status).toBe('cleaned');
-    expect(deps.closeAbandonedDependents).toHaveBeenCalledWith(42, REPO_INFO);
+    expect(deps.closeAbandonedDependents).toHaveBeenCalledWith(42);
     expect(deps.handleIssueClosedDependencyUnblock).not.toHaveBeenCalled();
   });
 });
@@ -173,10 +175,10 @@ describe('handleIssueClosedEvent — discarded closure', () => {
     const deps = makeIssueDeps({
       readTopLevelState: vi.fn().mockReturnValue(makeState({ workflowStage: 'discarded' })),
     });
-    const result = await handleIssueClosedEvent(42, REPO_INFO, undefined, [], deps);
+    const result = await handleIssueClosedEvent(42, BOUNDARY, undefined, [], deps);
 
     expect(result.status).toBe('cleaned');
-    expect(deps.closeAbandonedDependents).toHaveBeenCalledWith(42, REPO_INFO);
+    expect(deps.closeAbandonedDependents).toHaveBeenCalledWith(42);
     expect(deps.handleIssueClosedDependencyUnblock).not.toHaveBeenCalled();
   });
 });
@@ -192,7 +194,7 @@ describe('handleIssueClosedEvent — active stage within grace period', () => {
         },
       })),
     });
-    const result = await handleIssueClosedEvent(42, REPO_INFO, undefined, [], deps);
+    const result = await handleIssueClosedEvent(42, BOUNDARY, undefined, [], deps);
 
     expect(result.status).toBe('skipped');
     expect(result.reason).toBe('active_within_grace_period');
@@ -212,7 +214,7 @@ describe('handleIssueClosedEvent — active stage outside grace period', () => {
         },
       })),
     });
-    const result = await handleIssueClosedEvent(42, REPO_INFO, undefined, [], deps);
+    const result = await handleIssueClosedEvent(42, BOUNDARY, undefined, [], deps);
 
     expect(result.status).toBe('cleaned');
     expect(deps.removeWorktreesForIssue).toHaveBeenCalled();
@@ -224,13 +226,13 @@ describe('handleIssueClosedEvent — no adw-id found', () => {
     const deps = makeIssueDeps({
       fetchIssueComments: vi.fn().mockReturnValue([{ body: 'no adw comment here' }]),
     });
-    const result = await handleIssueClosedEvent(42, REPO_INFO, undefined, [], deps);
+    const result = await handleIssueClosedEvent(42, BOUNDARY, undefined, [], deps);
 
     expect(result.status).toBe('cleaned');
     expect(deps.removeWorktreesForIssue).toHaveBeenCalledWith(42);
     expect(deps.readTopLevelState).not.toHaveBeenCalled();
     expect(deps.deleteRemoteBranch).not.toHaveBeenCalled();
-    expect(deps.handleIssueClosedDependencyUnblock).toHaveBeenCalledWith(42, REPO_INFO, [], undefined);
+    expect(deps.handleIssueClosedDependencyUnblock).toHaveBeenCalledWith(42, []);
   });
 });
 
@@ -240,12 +242,12 @@ describe('handleIssueClosedEvent — no state file', () => {
       readTopLevelState: vi.fn().mockReturnValue(null),
       findOrchestratorStatePath: vi.fn().mockReturnValue(null),
     });
-    const result = await handleIssueClosedEvent(42, REPO_INFO, undefined, [], deps);
+    const result = await handleIssueClosedEvent(42, BOUNDARY, undefined, [], deps);
 
     expect(result.status).toBe('cleaned');
     expect(deps.removeWorktreesForIssue).toHaveBeenCalledWith(42);
     expect(deps.deleteRemoteBranch).not.toHaveBeenCalled();
-    expect(deps.handleIssueClosedDependencyUnblock).toHaveBeenCalledWith(42, REPO_INFO, [], undefined);
+    expect(deps.handleIssueClosedDependencyUnblock).toHaveBeenCalledWith(42, []);
   });
 });
 
@@ -254,7 +256,7 @@ describe('handleIssueClosedEvent — fetchIssueComments fails', () => {
     const deps = makeIssueDeps({
       fetchIssueComments: vi.fn().mockImplementation(() => { throw new Error('network timeout'); }),
     });
-    const result = await handleIssueClosedEvent(42, REPO_INFO, undefined, [], deps);
+    const result = await handleIssueClosedEvent(42, BOUNDARY, undefined, [], deps);
 
     expect(result.status).toBe('cleaned');
     expect(deps.removeWorktreesForIssue).toHaveBeenCalledWith(42);
@@ -262,7 +264,7 @@ describe('handleIssueClosedEvent — fetchIssueComments fails', () => {
     expect(deps.readTopLevelState).not.toHaveBeenCalled();
     expect(deps.deleteRemoteBranch).not.toHaveBeenCalled();
     // Dependency unblock still runs (treats as normal closure)
-    expect(deps.handleIssueClosedDependencyUnblock).toHaveBeenCalledWith(42, REPO_INFO, [], undefined);
+    expect(deps.handleIssueClosedDependencyUnblock).toHaveBeenCalledWith(42, []);
   });
 });
 
@@ -272,7 +274,7 @@ describe('handleIssueClosedEvent — top-level branchName used for deletion (iss
       readTopLevelState: vi.fn().mockReturnValue(makeState({ branchName: 'feature-issue-42-top-level' })),
       readOrchestratorState: vi.fn().mockReturnValue(makeState()), // no branchName
     });
-    const result = await handleIssueClosedEvent(42, REPO_INFO, undefined, [], deps);
+    const result = await handleIssueClosedEvent(42, BOUNDARY, undefined, [], deps);
 
     expect(result.status).toBe('cleaned');
     expect(deps.deleteRemoteBranch).toHaveBeenCalledWith('feature-issue-42-top-level', undefined);
@@ -281,8 +283,8 @@ describe('handleIssueClosedEvent — top-level branchName used for deletion (iss
   });
 });
 
-describe('handleIssueClosedEvent — no repoInfo', () => {
-  it('cleans up worktrees only when repoInfo is undefined', async () => {
+describe('handleIssueClosedEvent — no boundary', () => {
+  it('cleans up worktrees only when boundary is undefined', async () => {
     const deps = makeIssueDeps();
     const result = await handleIssueClosedEvent(42, undefined, '/some/cwd', [], deps);
 

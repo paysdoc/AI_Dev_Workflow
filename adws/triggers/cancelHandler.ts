@@ -13,24 +13,9 @@ import { log } from '../core/logger';
 import { AGENTS_STATE_DIR } from '../core/config';
 import { extractAdwIdFromComment } from '../core/workflowCommentParsing';
 import { findOrchestratorStatePath, isProcessAlive } from '../core/stateHelpers';
-import { clearIssueComments, type CommentClearingTracker } from '../adwClearComments';
-import { gitContextForSync } from '../github';
-import { fetchIssueCommentsRest, getIssueTitleSync, deleteIssueComment } from '../github/issueApi';
-import { mapIssueCommentSummaryToIssueComment } from '../providers/github/mappers';
-import type { RepoIdentifier } from '../providers/types';
-
-/**
- * Legacy-backed adapter of the boundary-shaped `CommentClearingTracker` for
- * this boundary-less trigger caller (#820, FINDING 3 pattern); #821 replaces
- * this with `boundary.providers.issueTracker`.
- */
-function legacyCommentClearingTracker(repoInfo: RepoIdentifier): CommentClearingTracker {
-  return {
-    fetchComments: (n) => fetchIssueCommentsRest(n, repoInfo).map(mapIssueCommentSummaryToIssueComment),
-    getIssueTitle: (n) => getIssueTitleSync(n, repoInfo),
-    deleteComment: (id) => deleteIssueComment(Number(id), repoInfo),
-  };
-}
+import { clearIssueComments } from '../adwClearComments';
+import { gitContextForSync } from '../github/gitContextFactory';
+import type { LaunchBoundary } from '../core';
 
 /** Mutable dedup sets passed in from the cron trigger so cancelled issues skip this cycle. */
 export interface MutableProcessedSets {
@@ -48,7 +33,7 @@ export interface MutableProcessedSets {
  *
  * @param issueNumber - The GitHub issue number to cancel
  * @param comments - All comments on the issue (used to extract adwIds)
- * @param repoInfo - Repository identity for the GitHub API calls
+ * @param boundary - The launch boundary naming the repository and its providers
  * @param cwd - Working directory for worktree operations (undefined = local repo)
  * @param processedSets - Cron dedup sets to clean; omit on webhook path
  * @returns true on completion (errors are logged but do not throw)
@@ -56,7 +41,7 @@ export interface MutableProcessedSets {
 export function handleCancelDirective(
   issueNumber: number,
   comments: readonly { body: string }[],
-  repoInfo: RepoIdentifier,
+  boundary: LaunchBoundary,
   cwd?: string,
   processedSets?: MutableProcessedSets,
 ): boolean {
@@ -77,7 +62,7 @@ export function handleCancelDirective(
   // 3. Remove worktrees and local branches
   try {
     log(`Cancel #${issueNumber}: removing worktrees`);
-    gitContextForSync({ owner: repoInfo.owner, repo: repoInfo.repo, selfHost: !cwd }).removeWorktreesForIssue(issueNumber);
+    gitContextForSync({ owner: boundary.repoId.owner, repo: boundary.repoId.repo, selfHost: !cwd }).removeWorktreesForIssue(issueNumber);
   } catch (error) {
     log(`Cancel #${issueNumber}: worktree removal error (continuing): ${error}`, 'warn');
   }
@@ -96,7 +81,7 @@ export function handleCancelDirective(
   // 5. Clear GitHub comments
   try {
     log(`Cancel #${issueNumber}: clearing GitHub comments`);
-    const result = clearIssueComments(issueNumber, legacyCommentClearingTracker(repoInfo));
+    const result = clearIssueComments(issueNumber, boundary.providers.issueTracker);
     log(`Cancel #${issueNumber}: cleared ${result.deleted}/${result.total} comment(s)`);
   } catch (error) {
     log(`Cancel #${issueNumber}: comment clearing error (continuing): ${error}`, 'warn');

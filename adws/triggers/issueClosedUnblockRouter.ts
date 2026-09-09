@@ -7,15 +7,13 @@
  * via a prose `- blocked by #N` declaration is unblocked when its blocker closes (issue #753).
  */
 
-import type { RepoIdentifier } from '../providers/types';
-import type { GitContext } from '../gitContext';
+import type { LaunchBoundary } from '../core';
 import { log, LOGS_DIR } from '../core';
 import type { LogLevel } from '../core';
 import { extractDependencies } from './issueDependencies';
 import { checkIssueEligibility } from './issueEligibility';
 import type { EligibilityResult } from './issueEligibility';
 import { classifyAndSpawnWorkflow } from './webhookGatekeeper';
-import { listIssues } from '../github/issueListApi';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -42,21 +40,17 @@ export function selectDependents(issues: IssueWithDeps[], closedIssueNumber: num
 export interface DependencyUnblockDeps {
   listOpenIssues: () => OpenIssue[];
   extractDependents: (issueBody: string, issueNumber: number) => Promise<number[]>;
-  checkEligibility: (issueNumber: number, issueBody: string, repoInfo: RepoIdentifier) => Promise<EligibilityResult>;
-  spawn: (issueNumber: number, repoInfo: RepoIdentifier, targetRepoArgs: string[], gitContext?: GitContext) => Promise<void>;
+  checkEligibility: (issueNumber: number, issueBody: string) => Promise<EligibilityResult>;
+  spawn: (issueNumber: number, targetRepoArgs: string[]) => Promise<void>;
   logger: (message: string, level?: LogLevel) => void;
 }
 
-// _gitContext is unused here — listing now always routes through issueListApi.listIssues
-// by repoInfo. The parameter stays so this function's signature keeps matching its call
-// site's (repoInfo, gitContext) default-parameter expression in handleIssueClosedDependencyUnblock;
-// that gitContext is threaded to `spawn` at call time, not through this closure.
-export function buildDefaultDependencyUnblockDeps(repoInfo: RepoIdentifier, _gitContext?: GitContext): DependencyUnblockDeps {
+export function buildDefaultDependencyUnblockDeps(boundary: LaunchBoundary): DependencyUnblockDeps {
   return {
-    listOpenIssues: () => listIssues({ fields: ['number', 'body'], limit: 100 }, repoInfo) as OpenIssue[],
+    listOpenIssues: () => boundary.providers.issueTracker.listIssues({ fields: ['number', 'body'], limit: 100 }) as OpenIssue[],
     extractDependents: (body, n) => extractDependencies(body, LOGS_DIR, undefined, undefined, n),
-    checkEligibility: checkIssueEligibility,
-    spawn: (n, r, a, gc) => classifyAndSpawnWorkflow(n, r, a, undefined, undefined, undefined, gc),
+    checkEligibility: (n, body) => checkIssueEligibility(n, body, boundary.providers),
+    spawn: (n, args) => classifyAndSpawnWorkflow(n, boundary, args),
     logger: log,
   };
 }
@@ -66,18 +60,16 @@ export function buildDefaultDependencyUnblockDeps(repoInfo: RepoIdentifier, _git
 async function reEvaluateDependent(
   dependent: IssueWithDeps,
   closedIssueNumber: number,
-  repoInfo: RepoIdentifier,
   targetRepoArgs: string[],
-  gitContext: GitContext | undefined,
   deps: DependencyUnblockDeps,
 ): Promise<void> {
-  const eligibility = await deps.checkEligibility(dependent.number, dependent.body, repoInfo);
+  const eligibility = await deps.checkEligibility(dependent.number, dependent.body);
   if (!eligibility.eligible) {
     deps.logger(`Issue #${dependent.number} still ineligible after #${closedIssueNumber} closed: ${eligibility.reason}`);
     return;
   }
   deps.logger(`Issue #${dependent.number} unblocked by closure of #${closedIssueNumber}, spawning workflow`);
-  await deps.spawn(dependent.number, repoInfo, targetRepoArgs, gitContext);
+  await deps.spawn(dependent.number, targetRepoArgs);
 }
 
 // ── DI orchestration ──────────────────────────────────────────────────────────
@@ -88,10 +80,9 @@ async function reEvaluateDependent(
  */
 export async function handleIssueClosedDependencyUnblock(
   closedIssueNumber: number,
-  repoInfo: RepoIdentifier,
+  boundary: LaunchBoundary,
   targetRepoArgs: string[],
-  gitContext?: GitContext,
-  deps: DependencyUnblockDeps = buildDefaultDependencyUnblockDeps(repoInfo, gitContext),
+  deps: DependencyUnblockDeps = buildDefaultDependencyUnblockDeps(boundary),
 ): Promise<void> {
   try {
     const issues = deps.listOpenIssues();
@@ -109,7 +100,7 @@ export async function handleIssueClosedDependencyUnblock(
 
     deps.logger(`Found ${dependents.length} issue(s) depending on closed issue #${closedIssueNumber}`);
     for (const dependent of dependents) {
-      await reEvaluateDependent(dependent, closedIssueNumber, repoInfo, targetRepoArgs, gitContext, deps);
+      await reEvaluateDependent(dependent, closedIssueNumber, targetRepoArgs, deps);
     }
   } catch (error) {
     deps.logger(`Error checking dependents of closed issue #${closedIssueNumber}: ${error}`, 'error');

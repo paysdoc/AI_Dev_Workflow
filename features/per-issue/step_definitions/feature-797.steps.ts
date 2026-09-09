@@ -848,9 +848,8 @@ Given('issue {int} carries an adw-id comment for {string} followed by one for {s
 
 When('the takeover handler resolves the adw id for issue {int} from that boundary', function (issueNumber: number) {
   const boundary = requireBoundary();
-  const repoInfo = boundary.repoId;
-  const deps = buildDefaultTakeoverDeps(repoInfo, boundary);
-  bw.resolvedAdwId = deps.resolveAdwId(issueNumber, repoInfo);
+  const deps = buildDefaultTakeoverDeps(boundary);
+  bw.resolvedAdwId = deps.resolveAdwId(issueNumber, boundary.repoId);
 });
 
 Then('the resolved adw id is {string}', function (adwId: string) {
