@@ -89,6 +89,10 @@ export interface Fixture {
   prState: Map<number, string>;
   prComments: Map<number, ReviewComment[]>;
   lastAdwCommit: Map<string, Date | null>;
+  /** #820 §4: pull request number -> the issue it implements (PullRequest.linkedIssueNumber). */
+  prLinkedIssue: Map<number, number>;
+  /** #820 §7: label names NOT yet defined on the repo — applyLabel lazy-creates and records 'createLabel', then removes the entry (idempotent create). */
+  undefinedLabels: Set<string>;
 }
 
 export interface World796 {
@@ -240,6 +244,8 @@ export function makeFixture(): Fixture {
     prState: new Map(),
     prComments: new Map(),
     lastAdwCommit: new Map(),
+    prLinkedIssue: new Map(),
+    undefinedLabels: new Set(),
   };
 }
 
@@ -323,6 +329,10 @@ function makeRecordingIssueTracker(fixture: Fixture, callLog: CallRecord[]): Iss
       if (!labels.includes(labelName)) fixture.issueLabels.set(issueNumber, [...labels, labelName]);
     },
     applyLabel(issueNumber, labelName) {
+      if (fixture.undefinedLabels.has(labelName)) {
+        record(callLog, 'createLabel', labelName);
+        fixture.undefinedLabels.delete(labelName);
+      }
       record(callLog, 'applyLabel', issueNumber, labelName);
       const labels = fixture.issueLabels.get(issueNumber) ?? [];
       if (!labels.includes(labelName)) fixture.issueLabels.set(issueNumber, [...labels, labelName]);
@@ -373,6 +383,7 @@ function makeRecordingCodeHost(fixture: Fixture, callLog: CallRecord[], repoId: 
       return {
         number: prNumber, title: '', body: '', sourceBranch: branchName, targetBranch: '', url: `https://github.com/${repoId.owner}/${repoId.repo}/pull/${prNumber}`,
         state: fixture.prState.get(prNumber) ?? 'OPEN',
+        linkedIssueNumber: fixture.prLinkedIssue.get(prNumber),
       };
     },
     commentOnPullRequest(prNumber, body) {
