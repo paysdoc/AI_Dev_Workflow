@@ -14,7 +14,7 @@ vi.mock('../../core', () => ({
   log: vi.fn(),
 }));
 
-vi.mock('../../github', () => ({
+vi.mock('../../forge/issueLinkMarker', () => ({
   bodyLinksIssue: vi.fn((body: string, num: number) => body.includes(`#${num}`)),
 }));
 

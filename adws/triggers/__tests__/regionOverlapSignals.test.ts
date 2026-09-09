@@ -8,9 +8,6 @@ import {
 } from '../regionOverlapSignals';
 import { parseDependencies } from '../issueDependencies';
 import type { OverlapDeferral } from '../cronIssueFilter';
-import { Platform, type RepoIdentifier } from '../../providers/types';
-
-const REPO: RepoIdentifier = { owner: 'o', repo: 'r', platform: Platform.GitHub };
 
 function makeDeferral(overrides: Partial<OverlapDeferral> = {}): OverlapDeferral {
   return {
@@ -101,7 +98,7 @@ describe('registerRegionOverlapBlocker', () => {
     const deferral = makeDeferral({ issueNumber: 100, blockedBy: 700 });
     const body = '## Blocked by\nNone - can start immediately\n';
 
-    const result = registerRegionOverlapBlocker(deferral, body, REPO, { updateIssueBody, commentOnIssue });
+    const result = registerRegionOverlapBlocker(deferral, body, { updateIssueBody, commentOnIssue });
 
     expect(result).toBe(true);
     expect(updateIssueBody).toHaveBeenCalledOnce();
@@ -124,7 +121,7 @@ describe('registerRegionOverlapBlocker', () => {
     // Body already has the marker
     const body = `## Blocked by\n#700 ${REGION_OVERLAP_MARKER}\nNone\n`;
 
-    const result = registerRegionOverlapBlocker(deferral, body, REPO, { updateIssueBody, commentOnIssue });
+    const result = registerRegionOverlapBlocker(deferral, body, { updateIssueBody, commentOnIssue });
 
     expect(result).toBe(false);
     expect(updateIssueBody).not.toHaveBeenCalled();
@@ -137,7 +134,7 @@ describe('registerRegionOverlapBlocker', () => {
     const deferral = makeDeferral({ issueNumber: 100, blockedBy: 700 });
 
     const result = registerRegionOverlapBlocker(
-      deferral, '## Blocked by\nNone\n', REPO, { updateIssueBody, commentOnIssue },
+      deferral, '## Blocked by\nNone\n', { updateIssueBody, commentOnIssue },
     );
 
     expect(result).toBe(false);

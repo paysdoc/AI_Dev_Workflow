@@ -7,16 +7,17 @@
 
 import { MAX_CONCURRENT_PER_REPO, log } from '../core';
 import { isAdwComment } from '../core/workflowCommentParsing';
-import { fetchLinkedPRs, hasLinkedMergedOrClosedPR } from '../github/linkedPrDetector';
-import { listIssues } from '../github/issueListApi';
-import type { IssueListEntry, RepoIdentifier } from '../providers/types';
+import { fetchLinkedPRs, hasLinkedMergedOrClosedPR } from '../forge/linkedPrDetector';
+import type { BoundProviders, IssueListEntry } from '../providers/types';
+
+type ConcurrencyProviders = Pick<BoundProviders, 'issueTracker' | 'codeHost'>;
 
 /**
  * Fetches open issues with their comments from the repository.
  */
-function fetchOpenIssuesWithComments(repoInfo: RepoIdentifier): IssueListEntry[] {
+function fetchOpenIssuesWithComments(providers: ConcurrencyProviders): IssueListEntry[] {
   try {
-    return listIssues({ fields: ['number', 'comments'], limit: 100 }, repoInfo);
+    return providers.issueTracker.listIssues({ fields: ['number', 'comments'], limit: 100 });
   } catch (error) {
     log(`Failed to fetch open issues for concurrency check: ${error}`, 'error');
     return [];
@@ -28,9 +29,9 @@ function fetchOpenIssuesWithComments(repoInfo: RepoIdentifier): IssueListEntry[]
  * An issue is "in progress" when it has an ADW workflow comment and
  * does not yet have a linked merged/closed PR.
  */
-async function getInProgressIssueCount(repoInfo: RepoIdentifier): Promise<number> {
-  const issues = fetchOpenIssuesWithComments(repoInfo);
-  const prs = fetchLinkedPRs(repoInfo);
+async function getInProgressIssueCount(providers: ConcurrencyProviders): Promise<number> {
+  const issues = fetchOpenIssuesWithComments(providers);
+  const prs = fetchLinkedPRs(providers.codeHost);
 
   let count = 0;
   for (const issue of issues) {
@@ -48,11 +49,12 @@ async function getInProgressIssueCount(repoInfo: RepoIdentifier): Promise<number
 /**
  * Returns true if the per-repository concurrency limit has been reached or exceeded.
  */
-export async function isConcurrencyLimitReached(repoInfo: RepoIdentifier): Promise<boolean> {
-  const count = await getInProgressIssueCount(repoInfo);
+export async function isConcurrencyLimitReached(providers: ConcurrencyProviders): Promise<boolean> {
+  const count = await getInProgressIssueCount(providers);
   const limitReached = count >= MAX_CONCURRENT_PER_REPO;
   if (limitReached) {
-    log(`Concurrency limit reached for ${repoInfo.owner}/${repoInfo.repo}: ${count}/${MAX_CONCURRENT_PER_REPO} in-progress issues`);
+    const { owner, repo } = providers.codeHost.getRepoIdentifier();
+    log(`Concurrency limit reached for ${owner}/${repo}: ${count}/${MAX_CONCURRENT_PER_REPO} in-progress issues`);
   }
   return limitReached;
 }

@@ -59,6 +59,12 @@ export async function executeAutoMergePhase(config: WorkflowConfig): Promise<{ c
     return { costUsd: 0, modelUsage: emptyModelUsageMap(), phaseCostRecords: [] };
   }
 
+  if (!gitContext) {
+    log('executeAutoMergePhase: no git context, skipping auto-merge', 'warn');
+    writeFileSync(path.join(logsDir, 'skip_reason.txt'), 'No git context available, skipping auto-merge');
+    return { costUsd: 0, modelUsage: emptyModelUsageMap(), phaseCostRecords: [] };
+  }
+
   // Gate: if the issue has the `hitl` label, silently skip — no comment.
   // Prevents comment floods on every cron re-entry while awaiting human review.
   if (repoContext.issueTracker.fetchLabels(issueNumber).includes('hitl')) {
@@ -88,12 +94,10 @@ export async function executeAutoMergePhase(config: WorkflowConfig): Promise<{ c
     specPath = candidate;
   }
 
-  // Merge with conflict resolution retry loop. mergeWithConflictResolution's
-  // RepoIdentifier parameter is #797's wave (adws/triggers/, adws/github/); the
-  // phase passes its own repoContext.repoId through at this one call site.
+  // Merge with conflict resolution retry loop, over the phase's own bound code host.
   const mergeOutcome = await mergeWithConflictResolution(
     prNumber,
-    repoContext.repoId,
+    repoContext.codeHost,
     headBranch,
     baseBranch,
     worktreePath,

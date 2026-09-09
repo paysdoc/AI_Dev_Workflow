@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { decideLabelRecovery, evaluateLabelRecovery } from '../cronLabelEligibility';
 import type { LabelRecoveryIssue } from '../cronLabelEligibility';
-import type { AdwLabelReading } from '../../github/labelManager';
-import type { LinkedPRRef } from '../../github/linkedPrDetector';
+import type { AdwLabelReading } from '../../core/adwLabels';
+import type { LinkedPRRef } from '../../forge/linkedPrDetector';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 

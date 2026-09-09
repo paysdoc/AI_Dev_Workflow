@@ -13,8 +13,7 @@
  */
 
 import { createHash } from 'crypto';
-import { getIssueState } from '../github/issueApi';
-import type { RepoIdentifier } from '../providers/types';
+import type { IssueTracker } from '../providers/types';
 import { log } from '../core';
 import { runDependencyExtractionAgent } from '../agents/dependencyExtractionAgent';
 
@@ -172,11 +171,11 @@ export async function extractDependencies(
 
 /**
  * Finds open (blocking) dependencies for an issue.
- * Calls `getIssueState()` for each dependency to check if it is still open.
+ * Calls `tracker.getIssueState()` for each dependency to check if it is still open.
  * Does NOT resolve transitive dependencies.
  *
  * @param issueBody - Raw issue body text to analyze
- * @param repoInfo - GitHub repository context for checking issue states
+ * @param tracker - The bound issue tracker to check dependency states through
  * @param logsDir - Directory to write agent logs (default: 'logs')
  * @param statePath - Optional path to agent's state directory for state tracking
  * @param cwd - Optional working directory for the agent
@@ -184,7 +183,7 @@ export async function extractDependencies(
  */
 export async function findOpenDependencies(
   issueBody: string,
-  repoInfo: RepoIdentifier,
+  tracker: Pick<IssueTracker, 'getIssueState'>,
   logsDir: string = 'logs',
   statePath?: string,
   cwd?: string,
@@ -202,7 +201,7 @@ export async function findOpenDependencies(
   const openDeps: number[] = [];
   for (const dep of deps) {
     try {
-      const state = getIssueState(dep, repoInfo);
+      const state = tracker.getIssueState(dep);
       log(`Dependency #${dep}: ${state}`);
       if (state === 'OPEN') {
         openDeps.push(dep);
