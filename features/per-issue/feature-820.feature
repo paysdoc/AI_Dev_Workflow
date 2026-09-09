@@ -42,7 +42,11 @@ Feature: The orchestrators, phases, core utilities and the proof publisher reach
   injection". §10's rows pin the (b)/(c) behaviours so a migration cannot quietly take either wrong
   turn. `adwUpgrade.tsx`, `promotionIssueBody.ts`, `promotionReconcileLink.ts`, `upgradeGate.ts`,
   `alignmentPhase.ts`, `scenarioPhase.ts` and `promotionRotAdvisory.ts` import ONLY (b)/(c) — they
-  already satisfy AC1 and need no code change at all.
+  already satisfy AC1 behaviourally: nothing they do reaches the forge. Their import PATH still
+  moves — the (b)/(c) vocabulary leaves `labelManager.ts`/`prApi.ts` for `adws/core/adwLabels.ts`
+  (the home #821 already assigns it), with both legacy modules re-exporting it so the trigger
+  callers, the barrel and every existing test are untouched. §10's rows assert the behaviour, which
+  must not change either way.
 
   ── FIVE FINDINGS THE TOUCHED-FILES LIST DOES NOT CARRY ───────────────────────────────────────
 
@@ -54,11 +58,14 @@ Feature: The orchestrators, phases, core utilities and the proof publisher reach
   boundary-less trigger path, which is #821's remit. Identically, `core/issueClassifier.ts`'s
   `fetchGitHubIssue` is the `deps?.fetchIssue ?? ` default of `classifyIssueForTrigger` (`:119`),
   whose only production caller is `triggers/webhookGatekeeper.ts:134`. Deleting either default in
-  this slice breaks a caller #820 is not allowed to touch. The plan must choose:
-    (i) leave both defaults and scope AC1 to the boundary-holding paths, or
-    (ii) push the legacy wiring DOWN into the two trigger files now, so `core/` is clean immediately
-         and #821 deletes it from its own callers.
-  §4 and §5 assert the BEHAVIOUR that must survive either choice — they do not pick one.
+  this slice breaks a caller #820 is not allowed to touch. AC1 covers `adws/core/`, so the choice is
+  settled: the legacy wiring is pushed DOWN into the trigger files now (`takeoverHandler.ts`,
+  `webhookGatekeeper.ts`, and `cancelHandler.ts` for §1's tracker), leaving `core/` clean
+  immediately, and #821 replaces those adapters from its own callers. The legacy MODULES themselves
+  stay in place for the triggers, exactly as the issue requires. §4 and §5 therefore assert the
+  behaviour over the BOUNDARY's wiring; the boundary-less trigger path keeps its cover in
+  `remoteReconcile.test.ts` and `takeoverHandler`'s unit tests, which can drive it hermetically —
+  a row here could not, because that path reads through the legacy free functions for real.
 
   FINDING 2 — `adwMerge.tsx`'s LEGACY IMPORT IS DEAD. `commentOnPR` is declared on `MergeDeps`
   (`:62`) and wired in `buildDefaultDeps` (`:244`) and NEVER CALLED — `deps.commentOnPR` appears
@@ -87,9 +94,14 @@ Feature: The orchestrators, phases, core utilities and the proof publisher reach
   scope: `core/remoteReconcile.ts`, `phases/buildPhase.ts`, `documentPhase.ts`, `prPhase.ts`,
   `prReviewPhase.ts`, `reviewPhase.ts`, `scenarioFixPhase.ts`, `workflowInit.ts` and
   `core/orchestratorLib.ts`. Dropping `gitContextFor`/`gitContextForSync` from a phase without
-  deleting its entry fails the guard as a stale entry; keeping the call while claiming migration
-  leaves the entry live and AC1 unmet. AC2 also forbids ADDING entries — a phase that needs a
-  context must take `config.gitContext` (already on `WorkflowConfig:56`), never mint one.
+  deleting its entry fails the guard as a stale entry. KEEPING the call is NOT an AC1 violation:
+  AC1 names seven modules and the barrel, and `github/gitContextFactory.ts` is not among them, so
+  the worktree-owning phases and `workflowInit` keep their construction — deep-imported instead of
+  through the barrel — and their entries stay live. Retiring those calls is #822's explicitly
+  enumerated scope. Exactly ONE entry stops constructing in this slice, `core/remoteReconcile.ts`,
+  and it must be deleted or the ratchet fails. AC2 also forbids ADDING entries — a phase that needs
+  a context it does not already build must take `config.gitContext` (already on
+  `WorkflowConfig:56`), never mint a new site.
   NOTE: `core/orchestratorLib.ts:35` constructs for `hasUncommittedChanges` — a GIT operation, not a
   forge one — and is not in the Touched Files list. Leaving it alone keeps its entry live and the
   guard green; that is the correct outcome, not an oversight.
@@ -296,12 +308,14 @@ Feature: The orchestrators, phases, core utilities and the proof publisher reach
     And the boundary's code host was asked for the pull request on branch "feature-issue-42-void"
     And the local git remote was never read
 
-  # `core/remoteReconcile.ts` — FINDING 1. Whatever the plan does with `buildLegacyReconcileDeps`,
-  # the boundary-less takeover path must derive the same stage it derives today. This row is the
-  # invariant, not the implementation.
+  # `core/remoteReconcile.ts` — FINDING 1. With `buildLegacyReconcileDeps` pushed down into
+  # `takeoverHandler.ts`, `deriveStageFromRemote` takes its wiring from the caller, and the stage it
+  # derives over the boundary's wiring must be the stage it derives today. This row is the
+  # invariant, not the implementation; the boundary-less trigger path is covered by
+  # `remoteReconcile.test.ts` and `takeoverHandler`'s unit tests, which can drive it hermetically.
 
   @adw-820 @adw-wgg98x-migrate-orchestrator
-  Scenario Outline: The remote reconcile derives the same stage whether or not its caller holds a boundary
+  Scenario Outline: The remote reconcile derives today's stage from the boundary's wiring
     Given a launch boundary for the repository "adw-fixture/void-820" whose providers record every call
     And a state file for adw id "wgg98x-void" recording branch "feature-issue-42-void"
     And the branch "feature-issue-42-void" has a pull request numbered 7 in state "<state>"
@@ -309,11 +323,9 @@ Feature: The orchestrators, phases, core utilities and the proof publisher reach
     Then the reconciled stage is "<stage>"
 
     Examples:
-      | state  | wiring                    | stage          |
-      | OPEN   | the boundary's wiring     | awaiting_merge |
-      | OPEN   | no caller-supplied wiring | awaiting_merge |
-      | MERGED | the boundary's wiring     | completed      |
-      | MERGED | no caller-supplied wiring | completed      |
+      | state  | wiring                | stage          |
+      | OPEN   | the boundary's wiring | awaiting_merge |
+      | MERGED | the boundary's wiring | completed      |
 
   # ── §5  THE LABEL-OVERRIDE CHOKEPOINT (AC1, FINDING 1) ────────────────────────────────────
   #
@@ -362,8 +374,10 @@ Feature: The orchestrators, phases, core utilities and the proof publisher reach
   # keeping it means `phases/` still imports `githubAppAuth` — exactly what AC1 forbids.
   #
   # The forge-neutral shape is a capability question on the port, answered by the adapter that knows:
-  # GitHub answers from its own app/PAT configuration, GitLab and Jira answer no (or refuse by name,
-  # per §9). Approval failure is documented non-fatal, and both rows keep it that way.
+  # GitHub answers from its own app/PAT configuration; a forge that cannot express approval refuses
+  # by name (§9), as the issue's "named refusal stubs on GitLab/Jira, exactly as #796 did" requires.
+  # Approval failure is documented non-fatal (`reviewPhase.ts:109`), and so is a refused capability
+  # probe — a passing review stays passed on every forge. Both rows keep it that way.
 
   @adw-820 @adw-wgg98x-migrate-orchestrator
   Scenario: A passing review approves the pull request when the code host reports it can
@@ -426,9 +440,11 @@ Feature: The orchestrators, phases, core utilities and the proof publisher reach
   # THE PORT CANNOT EXPRESS THE FILTER TODAY. `ReviewComment` carries `author: string` — there is no
   # `isBot` and no authenticated-user identity — so decomposing into `fetchPullRequest` +
   # `fetchReviewComments` + framework-side filtering silently drops the bot and self-review
-  # exclusions, and the pr-review workflow starts replying to its own comments in a loop. Whether the
-  # plan widens the port with a composite read or widens `ReviewComment` enough to filter outside it,
-  # these two rows must hold.
+  # exclusions, and the pr-review workflow starts replying to its own comments in a loop. The settled
+  # shape is decomposition, not a composite port method: `ReviewComment` grows `isBot` and `CodeHost`
+  # grows `getAuthenticatedUser`, and the filter itself becomes `readUnaddressedComments` in
+  # `adws/core/` over those two reads plus the branch's last ADW commit. Either way these two rows
+  # must hold — they assert the filter's outcome, not where it lives.
 
   @adw-820 @adw-wgg98x-migrate-orchestrator
   Scenario: The pr-review workflow sees only human comments posted after the last ADW commit
@@ -462,8 +478,12 @@ Feature: The orchestrators, phases, core utilities and the proof publisher reach
   # silent `return undefined` turns a missing capability into a mystery at 3am, and a stub that
   # returns a plausible falsy value turns it into a wrong answer that never surfaces at all.
   #
-  # The Examples rows below name the widenings §1, §6 and §8 imply. Whichever subset the plan
-  # actually adds, each added method needs its row here and each row must fail with its own name.
+  # The rows below are the three METHODS this slice adds: `getIssueTitle` (§1), the capability probe
+  # (§6), and the authenticated-user read §8's filter needs. §8's composite is NOT a port method —
+  # the port grows `getAuthenticatedUser` plus an `isBot` flag on `ReviewComment` and the filter is
+  # composed framework-side — so there is no `fetchUnaddressedReviewComments` row. The two FIELD
+  # widenings (`PullRequest.state`, `ReviewComment.isBot`) are data, not methods, and get no row
+  # here. Each added method must fail with its own name.
 
   @adw-820 @adw-wgg98x-migrate-orchestrator
   Scenario Outline: A widened port method refuses by name on a forge that does not implement it
@@ -471,16 +491,18 @@ Feature: The orchestrators, phases, core utilities and the proof publisher reach
     Then it fails with a message naming "<provider>.<method>"
 
     Examples:
-      | provider           | method                     |
-      | JiraIssueTracker   | getIssueTitle              |
-      | GitLabCodeHost     | canApprovePullRequests     |
-      | GitLabCodeHost     | fetchUnaddressedReviewComments |
+      | provider         | method                 |
+      | JiraIssueTracker | getIssueTitle          |
+      | GitLabCodeHost   | canApprovePullRequests |
+      | GitLabCodeHost   | getAuthenticatedUser   |
 
   # ── §10  WHAT DOES NOT MOVE (AC1's "for forge operations" qualifier) ──────────────────────
   #
-  # The scope note's (b)/(c) categories, as behaviour rather than as an argument. These three rows
-  # are GREEN TODAY and must stay green: they are the alarm for a migration that over-reaches and
-  # relocates pure predicates or label constants out from under the trigger callers #821 owns.
+  # The scope note's (b)/(c) categories, as behaviour rather than as an argument. These two rows are
+  # GREEN TODAY and must stay green: they are the alarm for a migration that over-reaches and turns a
+  # pure predicate or a label constant into a forge call. Moving the vocabulary itself to
+  # `adws/core/adwLabels.ts` is expected (see the scope note) and invisible here, as long as
+  # `labelManager.ts`/`prApi.ts` keep re-exporting it for the trigger callers #821 owns.
   #
   # `shouldSkipScenarioAuthoring` reads labels the phase already holds on `config.issue` — no forge
   # traffic at all, which is exactly why the assertion is "asked for nothing".
