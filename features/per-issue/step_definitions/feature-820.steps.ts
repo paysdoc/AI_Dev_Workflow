@@ -507,18 +507,6 @@ When('the dependency-audit setup runs for that configuration', async function ()
   });
 });
 
-// TODO: scenario "The dependency-audit setup names the repository its code
-// host is bound to" could not be made to pass — the "not set — skipping gh
-// secret set" warning `propagateSecret` returns when getEnv() is empty has
-// never included ownerRepo, in this implementation OR the pre-#820 legacy
-// code (verified via `git show origin/dev:adws/phases/depauditSetup.ts`):
-// only the "Failed to set X on {ownerRepo}: error" branch (a codeHost.setSecret
-// throw) names the repository. The scenario's "no secrets are available to
-// propagate" Given step selects the one warning path that never names the
-// repo, so this Then assertion is unreachable without changing behaviour
-// (#820 requires "no behaviour change"). The wrong-repo identity fix itself
-// (ownerRepo sourced from resolveWorkflowRepoId, not getRepoInfo()) is real
-// and covered by "the local git remote was never read" below.
 Then('the reported skipped-secret warnings name the repository {string}', function (repoStr: string) {
   assert.ok(s.depauditResult, 'Expected the dependency-audit setup to have run');
   const { owner, repo } = splitRepo(repoStr);

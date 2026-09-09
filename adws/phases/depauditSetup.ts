@@ -34,7 +34,7 @@ async function propagateSecret(
 ): Promise<{ propagated: boolean; warning?: string }> {
   const envValue = deps.getEnv(envName);
   if (!envValue) {
-    return { propagated: false, warning: `${envName} not set — skipping gh secret set` };
+    return { propagated: false, warning: `${envName} not set — skipping gh secret set on ${ownerRepo}` };
   }
   if (!codeHost) {
     return { propagated: false, warning: `${envName} could not be propagated — no repo context for this run` };
