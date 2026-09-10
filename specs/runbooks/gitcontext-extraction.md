@@ -72,6 +72,9 @@ is set in step 4 after L1 merges.
 ## 3. Filter and seed history
 
 Work in a throwaway clone; never run filter-repo in the working checkout.
+Clone `main` only: ADW's default branch is `dev`, and a default clone leaves
+HEAD on `dev`, so later commits silently land on the wrong branch (this
+happened on 2026-09-10).
 
 There is no rename map. Every surviving file either has always lived under
 one of the two directories or was created there fresh (verified 2026-09-10:
@@ -81,66 +84,104 @@ on its own). The vcs modules those files were modelled on still exist as live
 files in ADW and are not part of the library. History before 2026-06-22
 (#658, the GitContext package's creation) stays in ADW.
 
+The filtered history contains merge commits (76 of 158 on 2026-09-10), so it
+cannot be rebased onto the LICENSE commit; `git rebase --root` replays every
+commit and conflicts on the first merge. Instead the filtered root is
+**grafted** onto the LICENSE commit and the graft is baked in by a second
+filter-repo pass restricted to the filtered range, which leaves the LICENSE
+commit itself (GitHub-signed) untouched so the push is a fast-forward.
+
 ```bash
-git clone --no-local https://github.com/paysdoc/AI_Dev_Workflow /tmp/dp-extract
+git clone --no-local --branch main --single-branch https://github.com/paysdoc/AI_Dev_Workflow /tmp/dp-extract
 cd /tmp/dp-extract
-pip install git-filter-repo   # or brew install git-filter-repo
+brew install git-filter-repo   # or pip install git-filter-repo
 git filter-repo \
   --path adws/gitContext/ \
   --path adws/providers/ \
   --path-rename adws/gitContext/:src/git/ \
   --path-rename adws/providers/:src/providers/
+ROOT=$(git rev-list --max-parents=0 main)
 git remote add origin https://github.com/paysdoc/devplatform
 git fetch origin main
-git rebase --onto origin/main --root main
-git push -u origin main
+LIC=$(git rev-parse origin/main)
+git replace --graft "$ROOT" "$LIC"
+git filter-repo --force --refs "$LIC..main"
+git replace -d "$ROOT"
 ```
 
-Sanity checks before pushing: `git log --oneline | wc -l` is in the hundreds,
-not single digits; `git log --follow --format=%h src/git/gitContext.ts | tail -1`
-is the #658 creation commit (2026-06-22, `add GitContext package with
-base-path authority`); the rebase reported no conflicts (the LICENSE commit
-touches no path the filtered history touches).
+Sanity checks before pushing, all of which must hold **with replace refs
+disabled** (`GIT_NO_REPLACE_OBJECTS=1`) to prove the graft is baked into real
+objects and not merely honoured locally:
+
+```bash
+GIT_NO_REPLACE_OBJECTS=1 git rev-list --max-parents=0 main            # == $LIC
+GIT_NO_REPLACE_OBJECTS=1 git merge-base --is-ancestor "$LIC" main     # exit 0 → fast-forward push
+git rev-list --count main                                             # hundreds, not single digits
+git log --follow --format='%h %ad %s' --date=short main -- src/git/gitContext.ts | tail -1
+#   → the 2026-06-22 #658 creation commit
+git ls-files | grep -vE '^src/'                                       # prints nothing
+```
+
+Then `git push -u origin main`.
+
+Two consequences of the directory rename to fix immediately after the push,
+as one commit each:
+
+1. **Provider imports.** `src/providers/**` reaches the git core through
+   relative paths that still spell `../gitContext`; rewrite the directory
+   segment to `../git` (23 files on 2026-09-10; leave the local
+   `gitContextFixture` test file alone). The reverse direction needs nothing:
+   `src/git/__tests__` reaching `../../providers` still resolves.
+2. **LICENSE.** The graft keeps LICENSE only in the root commit's tree; the
+   first filtered commit's tree "deletes" it. Re-add it in the bootstrap
+   commit (step 4).
 
 ## 4. Bootstrap and register with ADW
 
-Order matters. The filtered tree is `src/` only: no manifest, no tsconfig, no
-test config. `/adw_init` on a manifest-less repo classifies it as a fallback
-stack, and a CI check turned on before the build config exists blocks the
-very PR that adds it.
+The filtered tree is `src/` only: no manifest, no tsconfig, no test config.
 
 1. **Bootstrap commit, by hand, on `main`:**
+   - `LICENSE` (copy from the root commit: `git show "$LIC":LICENSE`).
    - `package.json` skeleton: `"name": "@paysdoc/devplatform"`,
      `"version": "0.0.0-development"`, `"type": "module"`, `"license": "MIT"`,
-     `vitest` and `typescript` as devDependencies, `"test:unit": "vitest run"`,
-     `"typecheck": "tsc --noEmit"`. The real build/exports configuration is
-     issue L1.
-   - `tsconfig.json` and `vitest.config.ts` (may be copied from ADW and
-     trimmed to `src/`).
+     `repository`, scripts `typecheck` (`tsc --noEmit`), `test:unit`
+     (`vitest run`), `test`; devDependencies `typescript`, `vitest`,
+     `@types/node`, and `tsx` (the `.claude/hooks` run `bunx tsx …`). The
+     build/exports configuration is issue L1.
+   - `tsconfig.json` (noEmit, `include: ["src/**/*.ts"]`) and
+     `vitest.config.ts` (`include: ['src/**/__tests__/**/*.test.ts']`).
    - `.github/adw.yml` containing `guardrails: true`.
-   - `.github/workflows/ci.yml`: typecheck and vitest. **It may be red until
-     L1 merges.** The guard is added to CI by L3, not here.
-   - `.github/workflows/release.yml`: semantic-release on push to `main`
-     (configuration is issue L2; the file may be a stub that L2 fills in).
-2. Open a Claude Code session in the clone and run `/adw_init`. It writes
-   `.adw/`, `.adw-version`, the starter guardrail `settings.json`, runs
-   `depaudit setup`, and propagates `SOCKET_API_TOKEN` and
-   `SLACK_WEBHOOK_URL` secrets. Running it now, rather than letting the first
-   issue's upgrade gate do it, avoids parking that issue behind a `#UPG`
-   tracking issue. (The upgrade path commits only `.adw/`, `.adw-version`,
-   and the starter settings; it cannot clobber the bootstrap files.)
-3. Register with the ADW host: start a cron process for the new repo
-   (`bunx tsx adws/triggers/trigger_cron.ts --target-repo paysdoc/devplatform`)
-   and add the repository to the webhook's GitHub App installation. Respect
-   the single-host constraint. Cron PID files and spawn locks are keyed per
+   - `.github/workflows/ci.yml`: typecheck and vitest. With the import fix
+     from step 3 it is **green from this commit** (verified 2026-09-10:
+     36 test files, 834 tests). The guard is added to CI by L3.
+   - `.github/workflows/release.yml`: placeholder that L2 replaces. The
+     filename is what the npm trusted publisher links to.
+   - `.gitignore` (`node_modules/`, `dist/`, `.env*`), `README.md`, `bun.lock`.
+2. **No `/adw_init` by hand.** It does not write `.adw-version` (only
+   `adwUpgrade.tsx` does), so a missing `.adw-version` still triggers the
+   upgrade gate on the first issue. Filing L1 (step 4.5) parks it behind a
+   `#UPG` tracking issue whose regen run executes `/adw_init` in a worktree,
+   writes `.adw/`, `.adw-version`, the starter guardrail `settings.json`,
+   runs `depaudit setup`, propagates `SOCKET_API_TOKEN` and
+   `SLACK_WEBHOOK_URL`, and opens a PR that auto-merges (`hitl` unset). L1
+   re-queues on the next tick.
+3. **Register with the ADW host.** Add the repository to the `paysdoc-adw`
+   GitHub App installation (github.com/settings/installations). Nothing
+   else: the webhook calls `ensureCronProcess` on the first event for the
+   repo, which spawns `trigger_cron.ts --target-repo paysdoc/devplatform`
+   (verify: `Spawning cron trigger for paysdoc/devplatform` in the webhook
+   log, and `agents/cron/paysdoc_devplatform.json`). Respect the
+   single-host constraint. Cron PID files and spawn locks are keyed per
    repo, so a second cron process on the same host is supported.
-4. Set repository secrets: `NPM_TOKEN` (only if not using OIDC),
-   `SOCKET_API_TOKEN`, `SLACK_WEBHOOK_URL`.
-5. Create the `hitl` label on the repository.
-6. File L1, L2, L3 (bodies below) on `paysdoc/devplatform`. ADW picks them
-   up automatically.
-7. **After L1 merges and CI is green:** enable branch protection on `main`
-   requiring the CI job.
+4. Create the `hitl` label (`--color ee35f5 --description "Human in the loop"`).
+5. File L1, L2, L3 (bodies below). L1 first; L2 and L3 carry a
+   `## Blocked by` section naming L1's number.
+6. Secrets: none by hand under OIDC. `NPM_TOKEN` only on the token fallback.
+7. **No branch protection.** ADW's merge path is a bare `gh pr merge --merge`
+   with no `--auto` and no status-check polling, so required checks would
+   reject every ADW merge while CI is pending, starting with the upgrade
+   regen PR. ADW's own `dev` and `main` are unprotected for the same reason.
+   Revisit if the merge path ever learns to wait for checks.
 
 ## 5. Add the Forge glossary entry (ADW side, any time before A1)
 
@@ -155,7 +196,7 @@ set locally and discarded, and the release tag is written by hand so
 semantic-release has a baseline to count from.
 
 ```bash
-cd /tmp/devplatform && git checkout main && git pull
+cd /tmp/dp-extract && git checkout main && git pull   # any clone of paysdoc/devplatform
 bun install && bun run build
 npm version 1.0.0 --no-git-tag-version
 npm publish --access public
