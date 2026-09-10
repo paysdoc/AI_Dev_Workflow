@@ -225,12 +225,12 @@ export function buildLaunchBoundary(
   }, { logger: log });
   const repoId: RepoIdentifier = { owner, repo, platform };
 
-  // Declared before assignment so assembleProviders can close over a thunk
-  // (`() => boundary.providers`) that resolves only once minting has
-  // completed — the notifier deps built by buildForgeDeps need to read
-  // through the very providers this function is still assembling.
-  let boundary: LaunchBoundary;
-
+  // assembleProviders closes over a thunk (`() => boundary.providers`) that
+  // resolves only once minting has completed — the notifier deps built by
+  // buildForgeDeps need to read through the very providers this function is
+  // still assembling. Safe: the closure is only invoked later (at
+  // notification time), long after the `const boundary` below has
+  // initialized.
   const assembleProviders = (): BoundProviders => {
     const config = loadConfig(gitContext.basePath);
     return assemble({
@@ -242,7 +242,7 @@ export function buildLaunchBoundary(
     });
   };
 
-  boundary = freezeBoundary(gitContext, repoId, assembleProviders);
+  const boundary = freezeBoundary(gitContext, repoId, assembleProviders);
   return boundary;
 }
 

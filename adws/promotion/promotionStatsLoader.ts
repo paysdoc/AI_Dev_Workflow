@@ -1,5 +1,5 @@
 import type { PromotionStats } from './types.ts';
-import type { LogSinceOptions } from '../gitContext/index.ts';
+import type { LogSinceOptions } from '../gitContext';
 
 export interface PromotionStatsLoaderDeps {
   gitLogSince: (opts: LogSinceOptions) => string;

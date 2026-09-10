@@ -88,16 +88,18 @@ const server = http.createServer((req, res) => {
   if (req.url === '/health' && req.method === 'GET') {
     (async () => {
       const result: HealthCheckResult = { success: true, timestamp: new Date().toISOString(), checks: {}, warnings: [], errors: [] };
-      // Construct a self-host GitContext for git/gh probes; degrade gracefully on failure.
-      let healthCtx: import('../gitContext').GitContext | undefined;
+      // Construct a self-host boundary for git and forge probes; degrade gracefully on failure.
+      const boundary = selfHostBoundary();
+      const healthCtx = boundary?.gitContext;
+      let codeHost: import('../providers/types').CodeHost | undefined;
       try {
-        healthCtx = selfHostBoundary()?.gitContext;
-      } catch { /* token unavailable — context-dependent checks get a failure result */ }
+        codeHost = boundary?.providers.codeHost;
+      } catch { /* lazy provider mint failed — the forge probe gets a failure result */ }
       const ctxFailure: CheckResult = { success: false, error: 'GitContext construction failed', details: {} };
       result.checks.environmentVariables = checkEnvironmentVariables();
       result.checks.gitRepository = healthCtx ? checkGitRepository(healthCtx) : ctxFailure;
       result.checks.claudeCodeCLI = checkClaudeCodeCLI();
-      result.checks.gitHubCLI = healthCtx ? checkGitHubCLI(healthCtx) : ctxFailure;
+      result.checks.gitHubCLI = codeHost ? checkGitHubCLI(codeHost) : ctxFailure;
       result.checks.directoryStructure = checkDirectoryStructure();
       result.checks.guardrailsProbe = guardrailsProbeCheckResult(await getGuardrailsProbeVerdict());
       for (const [name, check] of Object.entries(result.checks)) {

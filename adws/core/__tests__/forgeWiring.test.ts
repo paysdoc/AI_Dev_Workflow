@@ -199,8 +199,7 @@ describe('adwGitHubForgeDeps — Review-transition notification wiring, via forg
   it('a successful move to Review calls notifyReviewTransition once, awaited', async () => {
     const repoId = makeRepoId();
     const ctx = makeCtx({}, makeMoveExec('Review'));
-    let providers!: BoundProviders;
-    providers = forgeProviders({
+    const providers: BoundProviders = forgeProviders({
       forge: { codeHost: 'github', issueTracker: 'github' },
       identity: repoId,
       tokenProvider: createLiteralTokenProvider('gh-token-abc'),
@@ -218,8 +217,7 @@ describe('adwGitHubForgeDeps — Review-transition notification wiring, via forg
   it('a move to a non-Review status does not call notifyReviewTransition', async () => {
     const repoId = makeRepoId();
     const ctx = makeCtx({}, makeMoveExec('In Progress'));
-    let providers!: BoundProviders;
-    providers = forgeProviders({
+    const providers: BoundProviders = forgeProviders({
       forge: { codeHost: 'github', issueTracker: 'github' },
       identity: repoId,
       tokenProvider: createLiteralTokenProvider('gh-token-abc'),
@@ -244,8 +242,7 @@ describe('adwGitHubForgeDeps — Review-transition notification wiring, via forg
       return '';
     };
     const ctx = makeCtx({}, exec);
-    let providers!: BoundProviders;
-    providers = forgeProviders({
+    const providers: BoundProviders = forgeProviders({
       forge: { codeHost: 'github', issueTracker: 'github' },
       identity: repoId,
       tokenProvider: createLiteralTokenProvider('gh-token-abc'),
