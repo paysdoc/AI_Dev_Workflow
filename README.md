@@ -19,7 +19,7 @@ ADW is an agentic SDLC framework: it turns issues on GitHub, GitLab, or Jira int
 - **Docs-index health gate and sweep** — `checkLivingDocsIndex.ts` (`bun run lint:docs-index`, wired into `.github/workflows/git-cli-guard.yml`) is a credential-free CI gate over `.adw/conditional_docs.md`: a filesystem walk (no `GitContext`, no forge access) feeds `adws/core/docsIndexHealth.ts`'s pure checks, failing the build on a dangling entry, an orphaned doc, an overlapping `Owns:` glob, or an entry count outside its band, and warning (non-fatally) on a dead glob. The same health module backs a daily cron sweep (`adws/triggers/docsIndexSweep.ts`) that auto-repairs dangling entries and dead globs through a merged `chore/docs-index-sweep` pull request — never a direct commit — and reconciles overlap/orphan/count violations into at most one open `hitl`-labelled issue, refreshed only when the violation set changes; both the gate and the sweep act only on the launch-boundary repo. This backstops the write-time `/document` convergence path, whose blind spot (no notion of a "dangling entry", touches only the current change's area) let a 2026-06-19 migration silently regress to 217 dangling entries within 48 hours and stay broken for two months.
 - **Target-repo agent guardrails injection** — `resolveGuardrailsDecision` (`guardrailsGate.ts`) opt-in-gates a `--settings` injection onto every target-repo `claude` spawn: `.github/adw.yml`'s `guardrails: true` canary, an `ADW_TARGET_GUARDRAILS=off` kill switch, self-host exclusion, and a memoized startup probe (`scripts/guardrails-probe.ts`) that fails OPEN (no injection + one Slack alert) rather than blocking. The injected payload (`guardrailsPayload.ts`) combines the `templates/claude-settings-starter.json` deny list with all five framework hooks re-registered at absolute paths and an absolute per-adwId `CLAUDE_HOOKS_LOG_DIR`, so hook logs never leak into the target worktree.
 - **Stateless pipeline agents** — every `claude` spawn in `adws/agents/claudeAgent.ts` sets `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1` after the env overlay, so no agent ever loads the operator's Claude Code auto-memory (`~/.claude/projects/<key>/memory/`). Worktrees resolve to the same project key as the checkout, so without this an interactive-session memory note is read by the planner as an instruction (issue #797 incident: the plan agent re-ran `/install` on top of its injected install preamble and timed out at ~600k context tokens). Auto-memory stays available to interactive sessions.
-- **Multi-provider abstraction** — pluggable `IssueTracker` and `CodeHost` interfaces (`RepoContext`) covering labels, issue creation/body edit, open-issue search, PR-by-branch, approval, merge, repo secrets, issue-title reads, authenticated-user reads, and an approval-capability probe, with GitHub, GitLab, and Jira issue trackers and GitHub/GitLab code hosts (GitLab/Jira satisfy the newer methods with named refusal stubs, not new capabilities). Orchestrators and phases (#796) receive their provider instances from the process's launch boundary rather than constructing them — no call site addresses a repository other than the one the process was launched for; since #820 no orchestrator, phase, core utility or proof module imports the legacy `adws/github/*` free functions to get there — the triggers follow in #821.
+- **Multi-provider abstraction** — pluggable `IssueTracker` and `CodeHost` interfaces (`RepoContext`) covering labels, issue creation/body edit, open-issue search, PR-by-branch, approval, merge, repo secrets, issue-title reads, authenticated-user reads, and an approval-capability probe, with GitHub, GitLab, and Jira issue trackers and GitHub/GitLab code hosts (GitLab/Jira satisfy the newer methods with named refusal stubs, not new capabilities). Orchestrators and phases (#796) receive their provider instances from the process's launch boundary rather than constructing them — no call site addresses a repository other than the one the process was launched for; since #820 no orchestrator, phase, core utility or proof module imports the legacy `adws/github/*` free functions to get there, and #821 deleted that layer outright (`githubApi.ts`, `issueApi.ts`, `prApi.ts`, `projectBoardApi.ts`, `issueListApi.ts`, `labelManager.ts`'s gh-issuing half, `workflowComments.ts`, `index.ts`) — every caller, triggers (cron, webhook, handlers, sweeps) included, now reaches the forge exclusively through `IssueTracker`/`CodeHost` ports resolved from the process's `LaunchBoundary`. The ADW-application helpers that sat atop the old layer (workflow-comment formatters, `proofCommentFormatter`, `hitlBoardNotifier`, `prCommentDetector`, `linkedPrDetector`, `issueLinkMarker`, ADW label provisioning) relocated to `adws/forge/`; `adws/github/` now holds only the `GitContext` factory and an App-auth re-export shim, staying until #823.
 - **Project board automation** — `BoardManager` provider drives GitHub Projects V2 column transitions as a workflow progresses.
 - **Two automation triggers** — `trigger_cron.ts` polls every 20 s; `trigger_webhook.ts` receives HMAC-signed GitHub webhooks for instant pickup, with optional Cloudflare tunnel lifecycle.
 - **Per-event webhook crash isolation** — `trigger_webhook.ts` wraps each event's dispatch in a try/catch around `dispatchWebhookEvent()`; a synchronous throw is contained (`webhookEventBoundary.ts`) rather than crashing the process, answers HTTP 500 only if headers are unsent, and reports failures via a no-throw, best-effort Slack alert (`reportWebhookEventFailure`) so one bad event can't take the trigger down.
@@ -624,35 +624,27 @@ adws/                   # ADW workflow system
 │   ├── utils.ts
 │   ├── workflowCommentParsing.ts  # Comment parsing utilities
 │   └── workflowMapping.ts  # Issue type → orchestrator mapping
-├── github/             # GitHub API operations
+├── forge/              # ADW-application helpers over the forge provider ports (#821)
 │   ├── __tests__/      # Vitest unit tests
-│   │   ├── githubAppAuth.test.ts
+│   │   ├── adwLabelProvisioning.test.ts
 │   │   ├── hitlBoardNotifier.test.ts
 │   │   ├── issueLinkMarker.test.ts
-│   │   ├── issueListApi.test.ts
-│   │   ├── labelManager.test.ts
 │   │   ├── linkedPrDetector.test.ts
-│   │   ├── prApi.test.ts
-│   │   ├── projectBoardApi.test.ts
+│   │   ├── prCommentDetector.test.ts
+│   │   ├── workflowCommentsBase.test.ts
 │   │   └── workflowCommentsIssue.test.ts
-│   ├── githubApi.ts
-│   ├── githubAppAuth.ts  # GitHub App authentication
-│   ├── hitlBoardNotifier.ts  # HITL board-event notifier — PR/issue lookup, message building, and Slack delivery for Review and Blocked transitions
-│   ├── index.ts
-│   ├── issueApi.ts  # + fetchIssueLabels, searchOpenIssues (#796) — thin wrappers GitHubIssueTracker delegates to; every op routes through createGhRepoApi(gitContextForRepo(repoInfo)) (#797)
+│   ├── adwLabelProvisioning.ts  # Idempotently ensures the six adw:* labels exist on a repo (ensureAdwLabelsExist) — the one piece of label-provisioning policy kept from the deleted labelManager.ts
+│   ├── hitlBoardNotifier.ts  # HITL board-event notifier — PR/issue lookup, message building, and Slack delivery for Review and Blocked transitions; readers injected via required NotifierDeps, built by buildNotifierDeps(ctx, repoId) (moved from adws/providers/repoContext.ts)
 │   ├── issueLinkMarker.ts  # Canonical issue-link marker contract for PR bodies (bodyLinksIssue, closing-keyword conventions)
-│   ├── issueListApi.ts  # listIssues/fetchIssueCommentBodies — the shared IssueTracker.listIssues implementation and the repoInfo-only trigger helpers' comment reader, both over createGhRepoApi (#797)
-│   ├── labelManager.ts  # adw:* label lifecycle management and label-based issue classification. + ensureLabelExists (#796) — thin wrapper GitHubIssueTracker.ensureLabel delegates to
-│   ├── linkedPrDetector.ts  # Detects linked merged or closed PRs for an issue via "Implements #N" body scan
-│   ├── prApi.ts  # + hasWontFixLabelName(labels) (#796) — pure predicate extracted from hasWontFixLabel(pr), which now delegates to it; consumed directly by adwUpgrade's PullRequestSummary idempotency guard
+│   ├── linkedPrDetector.ts  # Detects linked merged or closed PRs for an issue via "Closes"/"Implements #N" body scan; fetchLinkedPRs(codeHost) now reads via the CodeHost.listPullRequests() port method instead of a repoInfo-based free function
+│   ├── prCommentDetector.ts  # buildUnaddressedCommentReads/hasUnaddressedComments — the pr-review unaddressed-comment read wired to a launch boundary's codeHost/gitContext; shared by prReviewPhase.ts and trigger_cron.ts
+│   ├── proofCommentFormatter.ts  # Pure functions transforming structured scenario-proof data into rich markdown for GitHub issue comments — no side effects, no I/O
+│   ├── workflowCommentsBase.ts  # isAdwRunningForIssue(issueNumber, tracker) — GitHub-specific workflow comment utilities over an injected IssueTracker
+│   ├── workflowCommentsIssue.ts  # Issue workflow comment formatting and posting functions (WorkflowContext, formatWorkflowComment, formatResumingComment, formatHumanGatedComment)
+│   └── workflowCommentsPR.ts  # PR review workflow comment formatting functions (PRReviewWorkflowContext, formatPRReviewWorkflowComment)
+├── github/             # Context factory + App-auth shim only — rest moved to forge/ or deleted (#821)
 │   ├── gitContextFactory.ts  # Per-repo GitContext factory (`gitContextForRepo`, `gitContextForSync`, `readLocalRepoInfo`, `deriveGitIdentity`); `readLocalRepoInfo` is the permanently-allowlisted bootstrap git-remote read
-│   ├── prCommentDetector.ts
-│   ├── projectBoardApi.ts
-│   ├── proofCommentFormatter.ts
-│   ├── workflowComments.ts
-│   ├── workflowCommentsBase.ts
-│   ├── workflowCommentsIssue.ts
-│   └── workflowCommentsPR.ts
+│   └── githubAppAuth.ts  # Re-export shim over adws/core/githubAppAuth.ts (isGitHubAppConfigured, getInstallationToken) — moved there in #820; deleted alongside gitContextFactory.ts in #823
 ├── gitContext/         # Repo-context authority deep module (GitContext)
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── bootstrapIdentity.test.ts

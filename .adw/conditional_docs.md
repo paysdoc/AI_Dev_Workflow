@@ -156,14 +156,16 @@
 - app_docs/feature-9gjajh-github-api.md
   - Owns:
     - adws/github/**
+    - adws/forge/**
   - Conditions:
-    - When working on GitHub REST/GraphQL API calls, GitHub App authentication, issue/PR APIs, project board API, workflow comments, HITL board notifier, label manager, PR comment detection, or linked PR detection
-    - When working on any file in `adws/github/`
-    - When every op in `issueApi.ts`/`prApi.ts`/`projectBoardApi.ts`/`githubApi.ts`/`hitlBoardNotifier.ts`/`linkedPrDetector.ts` routes through `createGhRepoApi(gitContextForRepo(repoInfo)).<op>(…)` instead of a `GitContext` semantic method (#797); `labelManager.ts` keeps its injected `LabelManagerDeps.gitContextForRepo` seam and wraps it in `createGhRepoApi` internally
-    - When working with `adws/github/issueListApi.ts` (`listIssues`, `fetchIssueCommentBodies`) — the shared, throwing (no-swallow) implementation behind `IssueTracker.listIssues` and the `repoInfo`-only trigger callers (`concurrencyGuard.ts`, `webhookGatekeeper.ts`, `issueClosedUnblockRouter.ts`)
-    - When `issueHasLabel(issueNumber, _labelName)` is referenced and not found — renamed to `issueLabels(issueNumber)` (same command, dead unused param dropped, #797)
-    - When `postWorkflowComment`/`postPRWorkflowComment` are referenced and not found — deleted (#797), superseded by `adws/phases/phaseCommentHelpers.ts`; the comment formatters in `workflowComments.ts`/`workflowCommentsIssue.ts`/`workflowCommentsPR.ts` stay
-    - When a `adws/github/*` function's `repoInfo` parameter is typed `RepoIdentifier` (#817) — the name survived, the `RepoInfo` type did not
+    - When working on the ADW-application forge helpers in `adws/forge/`: comment formatting (`workflowCommentsIssue.ts`, `workflowCommentsPR.ts`, `workflowCommentsBase.ts`, `proofCommentFormatter.ts`), the HITL board notifier (`hitlBoardNotifier.ts`), linked-PR detection (`linkedPrDetector.ts`), PR review comment detection (`prCommentDetector.ts`), the issue-link marker (`issueLinkMarker.ts`), or adw:* label provisioning (`adwLabelProvisioning.ts`)
+    - When working on the two remaining files in `adws/github/` — `gitContextFactory.ts` (the `gitContextFor`/`gitContextForSync`/`gitContextForRepo` factories) and `githubAppAuth.ts` (a re-export shim for `adws/core/githubAppAuth.ts`) — both retired by #823
+    - When `notifyReviewTransition`/`notifyBlockedTransition` are referenced — they take a required `NotifierDeps` (no more optional/defaulted internal readers); `buildNotifierDeps(ctx, repoId)` moved to `hitlBoardNotifier.ts` from `adws/providers/repoContext.ts`, which now imports it
+    - When `fetchLinkedPRs(codeHost)` is referenced — it now takes a `Pick<CodeHost, 'listPullRequests'>` instead of a `repoInfo`, reading `CodeHost.listPullRequests()` (every PR of the repo — open/closed/merged; new port method, #821)
+    - When `buildUnaddressedCommentReads(boundary)`/`hasUnaddressedComments(prNumber, boundary)` are referenced — rewritten around `Pick<LaunchBoundary, 'providers' | 'gitContext'>`, shared by `adws/phases/prReviewPhase.ts` and `adws/triggers/trigger_cron.ts`
+    - When `isAdwRunningForIssue(issueNumber, tracker)` is referenced — takes `Pick<IssueTracker, 'fetchIssue'>` instead of a repoInfo
+    - When `ensureAdwLabelsExist(repoInfo, tracker, logger?)` is referenced — the one piece of label-provisioning policy kept from the deleted `labelManager.ts`, over `Pick<IssueTracker, 'ensureLabel'>`
+    - When `getRepoInfo`, `fetchGitHubIssue`, `commentOnIssue` (the free function; `IssueTracker.commentOnIssue` the port method still exists), `issueApi.ts`, `prApi.ts`, `projectBoardApi.ts`, `issueListApi.ts`, `labelManager.ts`, `activateGitHubAppAuth`, or `activeRepo` are referenced and not found — the entire legacy free-function GitHub API layer was deleted in #821; every op now routes through a forge provider port (`IssueTracker`/`CodeHost`) reached via a `LaunchBoundary`. `getRepoInfo` survives only as a name-based reintroduction guard in `adws/guard/identityRule.ts`'s `CWD_DERIVED_IDENTITY_FNS` set
 
 - app_docs/feature-9gjajh-cron-triggers.md
   - Owns:
@@ -426,6 +428,7 @@
     - adws/core/providerConfig.ts
     - adws/core/__tests__/providerConfig.test.ts
     - adws/core/githubAppAuth.ts
+    - adws/core/__tests__/githubAppAuth.test.ts
     - adws/core/issueRecord.ts
     - adws/core/__tests__/issueRecord.test.ts
   - Conditions:
@@ -468,6 +471,7 @@
     - adws/core/__tests__/workflowCommentParsing.test.ts
     - adws/core/__tests__/workflowMapping.test.ts
     - adws/core/adwLabels.ts
+    - adws/core/__tests__/adwLabels.test.ts
   - Conditions:
     - When working on issue classification (feature/bug/chore/etc.), model routing decisions, workflow-type-to-phase mapping, or workflow comment parsing
     - When working on `issueClassifier.ts`, `modelRouting.ts`, `workflowMapping.ts`, or `workflowCommentParsing.ts`
