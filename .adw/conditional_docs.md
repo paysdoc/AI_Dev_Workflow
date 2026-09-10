@@ -68,6 +68,7 @@
     - When working on PR creation, PR review, PR review completion, or auto-merge phases in `adws/phases/`
     - When working on post-review-outcome routing (`resolvePrReviewTarget`, `resolvePrReviewSpawn`, `decidePostReviewOutcome`, `executeSdlcReviewFailedHandoff`)
     - When working on `resolvePrReviewInvocation` (the branch→PR/adwId resolution `adwPrReview.tsx` runs after the launch boundary exists) or `readUnaddressedComments` (the pr-review bot/self/ADW-signed comment filter, decomposed off the legacy `prCommentDetector` composite, #820)
+    - When working on `handlePRReviewWorkflowError`'s HITL Blocked notification — since #844 its notifier deps default to `buildNotifierDeps(() => repoContext, repoContext.repoId)`, not a `config.base.gitContext` read
 
 - app_docs/feature-9gjajh-issue-routing-and-eligibility.md
   - Owns:
@@ -272,6 +273,7 @@
     - When `bun run lint:git-guard` flags `[extraction-readiness]` under `adws/providers/github/` — the whole adapter is in scope since #819
     - When `mintBoundProviders`, `createRepoContext`, `resolveIssueTracker`/`resolveCodeHost`/`resolveBoardManager`, `MintProvidersOptions` or `repoContext.ts` are referenced and not found — replaced by `forgeProviders()` (#823)
     - When `forgeProviders` refuses a forge name, a mismatched `gitContext`, or a missing `deps.gitlab`/`deps.jira` — see `adws/providers/forgeProviders.ts`'s `UnknownForgeError` and its per-port `CodeHostForge`/`IssueTrackerForge` unions
+    - When `Issue.createdAt`/`Issue.url` or `PullRequestRecord.updatedAt`/`PullRequestRecord.url` are missing, wrong, or need populating in a new adapter — widened in `adws/providers/types.ts` (#844); the GitHub mapper copies them off `GitHubIssue`, `JiraIssueTracker.toIssue` synthesises `url` from its constructor's `instanceUrl` param, and `fetchAllPRsCmd`'s `--json` projection must list `updatedAt,url` or the bare-cast `listPullRequests()` silently produces `undefined` values
 
 - app_docs/feature-9gjajh-cost-tracking.md
   - Owns:
@@ -449,6 +451,7 @@
     - When `buildLaunchBoundary`'s `forgeProviders`/`forgeDeps` seams or `buildAdwForgeDeps` (`adws/core/forgeWiring.ts`) are relevant (#823)
     - When `bindWorkspaceContext`/`validateGitRemote` (`adws/core/workspaceBinding.ts`) are referenced — the remote is read through the boundary's own context, `createRepoContext` is gone (#823)
     - When `bun run lint:git-guard` reports `Extraction-readiness scope — 10 entries` / `2 permanent, 0 sunset` — scope == extractable set since #823
+    - When `unsanctioned-construction` and `cwd-derived-identity` disagree on a context constructor fed a direct identity-read call (`gitContextForRepo(readLocalRepoIdentity(root))`) — since #844, `isIdentityReadComposite` (`identityRule.ts`) is the sole adjudicator of that composite and `constructionRule.ts` defers to it; every other construction shape is still flagged by callee name alone
 
 - app_docs/feature-9gjajh-claude-agents-core.md
   - Owns:
