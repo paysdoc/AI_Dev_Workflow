@@ -666,7 +666,7 @@ Then('asking it to list merged pull requests refuses naming {string}', function 
 });
 
 When('a Jira issue tracker is constructed with only an API client and the project key {string}', function (projectKey: string) {
-  lastJiraTracker = new JiraIssueTracker({} as JiraApiClient, projectKey);
+  lastJiraTracker = new JiraIssueTracker({} as JiraApiClient, projectKey, 'https://acme.atlassian.net');
 });
 
 Then('asking it to fetch labels refuses naming {string}', function (name: string) {

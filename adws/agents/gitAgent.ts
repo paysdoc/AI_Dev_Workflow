@@ -5,7 +5,7 @@
 
 import * as path from 'path';
 import { IssueClassSlashCommand, log, getModelForCommand, getEffortForCommand, commitPrefixMap } from '../core';
-import type { GitHubIssue } from '../providers/github/domain/issue';
+import type { Issue } from '../providers/types';
 import { generateBranchName, validateSlug } from '../vcs/branchOperations';
 import { runClaudeAgentWithCommand, AgentResult, AuthRequiredError, AgentLaunchContext } from './claudeAgent';
 
@@ -16,7 +16,7 @@ import { runClaudeAgentWithCommand, AgentResult, AuthRequiredError, AgentLaunchC
  */
 export function formatBranchNameArgs(
   issueClass: IssueClassSlashCommand,
-  issue: GitHubIssue
+  issue: Issue
 ): string[] {
   void issueClass;
   return [JSON.stringify(issue)];
@@ -48,7 +48,7 @@ export const extractBranchNameFromOutput = extractSlugFromOutput;
  */
 export async function runGenerateBranchNameAgent(
   issueType: IssueClassSlashCommand,
-  issue: GitHubIssue,
+  issue: Issue,
   logsDir: string,
   statePath?: string,
   launchContext?: AgentLaunchContext,

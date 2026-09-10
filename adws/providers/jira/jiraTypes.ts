@@ -41,6 +41,8 @@ export interface JiraIssueFields {
   readonly creator: JiraUser;
   readonly labels: readonly string[];
   readonly comment?: JiraCommentPage;
+  /** ISO 8601 creation timestamp. */
+  readonly created: string;
 }
 
 export interface JiraIssueResponse {

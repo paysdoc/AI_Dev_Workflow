@@ -37,10 +37,9 @@ import {
 } from '../core';
 import type { RepoIdentity } from '../types/agentTypes';
 import type { GitContext } from '../gitContext';
-import type { GitHubIssue } from '../providers/github/domain/issue';
 import type { WorkflowContext } from '../forge/workflowCommentsIssue';
 import { GITHUB_PAT } from '../core/environment';
-import type { BoundProviders, RepoContext, RepoIdentifier } from '../providers/types';
+import type { BoundProviders, Issue, RepoContext, RepoIdentifier } from '../providers/types';
 import { classifyGitHubIssue } from '../core/issueClassifier';
 import { resolveWorkflowBranchName, readPersistedBranchName } from './branchNameResolution';
 import { findExistingBranchForIssue, recoverAdwIdForBranch, buildDefaultBranchIdentityFallbackDeps } from './branchIdentityFallback';
@@ -61,7 +60,7 @@ export { ensureGitignoreEntry, ensureGitignoreEntries, copyClaudeAssetsToWorktre
 export interface WorkflowConfig {
   issueNumber: number;
   adwId: string;
-  issue: GitHubIssue;
+  issue: Issue;
   issueType: IssueClassSlashCommand;
   worktreePath: string;
   defaultBranch: string;
@@ -162,9 +161,25 @@ export async function initializeWorkflow(
     );
   }
 
-  // Fetch issue (targeting external repo if specified) — over the boundary's own GitContext.
-  log('Fetching GitHub issue...', 'info');
-  const issue = await fetchIssueRecord(boundary.gitContext, issueNumber);
+  // Setup target repo workspace if targeting an external repository. This runs BEFORE
+  // the issue fetch below: the boundary's provider mint is lazy and reads
+  // .adw/providers.md from the workspace path (gitContext.basePath), so on a
+  // first-clone target run nothing may touch boundary.providers before the clone
+  // exists — doing so would silently default to GitHub and memoise that choice for
+  // the whole run. ensureTargetRepoWorkspace's own getDefaultBranch thunk is safe
+  // here: it is only invoked on the already-cloned (fetch) branch, never on a first
+  // clone, where the workspace does not exist yet.
+  let targetRepoWorkspacePath: string | undefined;
+  if (targetRepo) {
+    log(`Setting up target repo workspace for ${targetRepo.owner}/${targetRepo.repo}...`, 'info');
+    targetRepoWorkspacePath = ensureTargetRepoWorkspace(targetRepo, () => boundary.providers.codeHost.getDefaultBranch());
+    targetRepo.workspacePath = targetRepoWorkspacePath;
+    log(`Target repo workspace: ${targetRepoWorkspacePath}`, 'success');
+  }
+
+  // Fetch issue (targeting external repo if specified) — through the boundary's IssueTracker.
+  log('Fetching issue...', 'info');
+  const issue = await fetchIssueRecord(boundary.providers.issueTracker, issueNumber);
   log(`Fetched issue: ${issue.title}`, 'success');
 
   // Detect recovery state early to reuse existing ADW ID and branch name
@@ -221,15 +236,6 @@ export async function initializeWorkflow(
 
   // Initialize logs early so agents can use the directory
   const logsDir = ensureLogsDirectory(resolvedAdwId);
-
-  // Setup target repo workspace if targeting an external repository
-  let targetRepoWorkspacePath: string | undefined;
-  if (targetRepo) {
-    log(`Setting up target repo workspace for ${targetRepo.owner}/${targetRepo.repo}...`, 'info');
-    targetRepoWorkspacePath = ensureTargetRepoWorkspace(targetRepo, () => boundary.providers.codeHost.getDefaultBranch());
-    targetRepo.workspacePath = targetRepoWorkspacePath;
-    log(`Target repo workspace: ${targetRepoWorkspacePath}`, 'success');
-  }
 
   // Resolve default branch early — used by both the upgrade gate (below) and worktree setup.
   const defaultBranch = boundary.providers.codeHost.getDefaultBranch();

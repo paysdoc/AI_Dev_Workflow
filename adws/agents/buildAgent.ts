@@ -5,7 +5,7 @@
  */
 
 import { log } from '../core';
-import type { GitHubIssue } from '../providers/github/domain/issue';
+import type { Issue } from '../providers/types';
 import type { PrReviewPullRequest } from './planAgent';
 import { runCommandAgent, type CommandAgentConfig } from './commandAgent';
 import type { AgentResult, ProgressCallback, AgentLaunchContext } from './claudeAgent';
@@ -90,7 +90,7 @@ ${revisionPlan}`;
  * @param cwd - Optional working directory for the agent and scenario detection (defaults to process.cwd())
  */
 export async function runBuildAgent(
-  issue: GitHubIssue,
+  issue: Issue,
   logsDir: string,
   planContent: string,
   onProgress?: ProgressCallback,

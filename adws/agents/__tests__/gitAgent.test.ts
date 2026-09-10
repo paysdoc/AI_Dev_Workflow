@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { runCommitAgent, runGenerateBranchNameAgent, extractSlugFromOutput } from '../gitAgent';
 import { AuthRequiredError } from '../../types/agentTypes';
+import type { Issue } from '../../providers/types';
 
 // Mock all imports that gitAgent depends on to avoid filesystem/network side effects
 vi.mock('../claudeAgent', async () => {
@@ -126,16 +127,18 @@ describe('runCommitAgent — result.success guard', () => {
   });
 });
 
-const mockIssue = {
+const mockIssue: Issue = {
+  id: '42',
   number: 42,
   title: 'Test issue',
   body: 'Test body',
   state: 'OPEN',
-  author: { login: 'test' },
+  author: 'test',
   labels: [],
   comments: [],
   createdAt: '2026-01-01T00:00:00Z',
-} as never;
+  url: 'https://github.com/acme/widget/issues/42',
+};
 
 describe('extractSlugFromOutput', () => {
   it('extracts a clean slug from plain output', () => {

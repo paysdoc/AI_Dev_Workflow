@@ -299,6 +299,7 @@ function makeRecordingIssueTracker(fixture: Fixture, callLog: CallRecord[]): Iss
       return {
         id: String(issueNumber), number: issueNumber, title: '', body: '', state: 'open',
         author: '', labels: fixture.issueLabels.get(issueNumber) ?? [], comments: [],
+        createdAt: '', url: '',
       };
     },
     commentOnIssue(issueNumber, body) {

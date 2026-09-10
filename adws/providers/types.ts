@@ -59,6 +59,10 @@ export interface Issue {
   author: string;
   labels: string[];
   comments: IssueComment[];
+  /** ISO 8601 creation timestamp — read by the plan/scenario agent prompts (#844). */
+  createdAt: string;
+  /** The forge-published issue URL — read by the build agent prompt (#844). */
+  url: string;
 }
 
 /**

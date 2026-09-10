@@ -820,7 +820,7 @@ Then('the unaddressed comments are empty', function () {
 const REFUSAL_REPO_ID = { owner: 'acme', repo: 'widget', platform: Platform.GitLab };
 
 function buildRefusalProvider(providerName: string): JiraIssueTracker | GitLabCodeHost {
-  if (providerName === 'JiraIssueTracker') return new JiraIssueTracker({} as JiraApiClient, 'ADW');
+  if (providerName === 'JiraIssueTracker') return new JiraIssueTracker({} as JiraApiClient, 'ADW', 'https://acme.atlassian.net');
   if (providerName === 'GitLabCodeHost') return new GitLabCodeHost(REFUSAL_REPO_ID, {} as GitLabApiClient);
   throw new Error(`Unknown refusal-stub provider: "${providerName}"`);
 }
