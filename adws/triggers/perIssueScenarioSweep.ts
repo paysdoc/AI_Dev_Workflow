@@ -16,7 +16,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { log, type LogLevel } from '../core';
-import { bodyLinksIssue } from '../github';
+import { bodyLinksIssue } from '../forge/issueLinkMarker';
 import { parsePromotionTagState, isPromotionExempt } from '../core/promotionTagState';
 import { prepareSweepBase, persistRemovalViaPr, cleanupSweepBase, type SweepBase } from './perIssueSweepPersist';
 import type { LaunchBoundary } from '../core';

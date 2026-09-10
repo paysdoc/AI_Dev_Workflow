@@ -599,7 +599,6 @@ describe('guarded factory names still exist (#795 / AC3)', () => {
     { name: 'gitContextFor', file: 'adws/github/gitContextFactory.ts', declPattern: /export async function gitContextFor\(/ },
     { name: 'gitContextForSync', file: 'adws/github/gitContextFactory.ts', declPattern: /export function gitContextForSync\(/ },
     { name: 'gitContextForRepo', file: 'adws/github/gitContextFactory.ts', declPattern: /export function gitContextForRepo\(/ },
-    { name: 'getRepoInfo', file: 'adws/github/githubApi.ts', declPattern: /export function getRepoInfo\(/ },
     { name: 'readLocalRepoInfo', file: 'adws/providers/github/githubIdentity.ts', declPattern: /export function readLocalRepoInfo\(/ },
     { name: 'createRepoContext', file: 'adws/providers/repoContext.ts', declPattern: /export function createRepoContext\(/ },
     { name: 'mintBoundProviders', file: 'adws/providers/repoContext.ts', declPattern: /export function mintBoundProviders\(/ },

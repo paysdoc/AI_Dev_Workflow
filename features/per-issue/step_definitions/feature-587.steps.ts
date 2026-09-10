@@ -22,14 +22,14 @@ import {
   notifyReviewTransition,
   notifyBlockedTransition,
   type NotifierDeps,
-} from '../../../adws/github/hitlBoardNotifier.ts';
+} from '../../../adws/forge/hitlBoardNotifier.ts';
 import { handleWorkflowDiscarded, handleWorkflowError } from '../../../adws/phases/workflowCompletion.ts';
 import { handlePRReviewWorkflowError } from '../../../adws/phases/prReviewCompletion.ts';
 import { Platform, type RepoContext } from '../../../adws/providers/types.ts';
 import type { WorkflowConfig } from '../../../adws/phases/workflowInit.ts';
 import type { PRReviewWorkflowConfig } from '../../../adws/phases/prReviewPhase.ts';
-import type { WorkflowContext } from '../../../adws/github/workflowCommentsIssue.ts';
-import type { PRReviewWorkflowContext } from '../../../adws/github/workflowCommentsPR.ts';
+import type { WorkflowContext } from '../../../adws/forge/workflowCommentsIssue.ts';
+import type { PRReviewWorkflowContext } from '../../../adws/forge/workflowCommentsPR.ts';
 import { AGENTS_STATE_DIR } from '../../../adws/core/config.ts';
 
 // ---------------------------------------------------------------------------

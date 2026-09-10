@@ -15,7 +15,9 @@ import type { LaunchBoundary } from '../core';
 import type { BoundProviders } from '../providers/types';
 import { findHungOrchestrators, type HungDetectorDeps } from '../core/hungOrchestratorDetector';
 import { AgentStateManager } from '../core/agentState';
-import { getRepoInfo, fetchPRList, hasUnaddressedComments, isCancelComment, isRetryComment } from '../github';
+import { readLocalRepoInfo } from '../providers/github/githubIdentity';
+import { isCancelComment, isRetryComment } from '../core/workflowCommentParsing';
+import { hasUnaddressedComments } from '../forge/prCommentDetector';
 import { readAuthGate, writeAuthGate, clearAuthGate, markGateSlackNotified, shouldSendDetectionSlack } from '../core/authGate';
 import { sendSlackDetectionNotification, sendSlackRecoveryNotification } from '../core/slackNotifier';
 import { markStatePausedAuthForLiveOrchestrator } from '../phases/authPause';
@@ -44,7 +46,8 @@ import { listCronOpenIssues } from './cronIssueListing';
 import { filterEligibleIssues, resolveTouchedFilesFromBody } from './cronIssueFilter';
 import { registerRegionOverlapBlocker } from './regionOverlapSignals';
 import { shouldDispatchMerge } from './mergeDispatchGate';
-import { fetchLinkedPRs, readAdwLabelNames } from '../github';
+import { fetchLinkedPRs } from '../forge/linkedPrDetector';
+import { readAdwLabelNames } from '../core/adwLabels';
 import { evaluateLabelRecovery } from './cronLabelEligibility';
 import type { CronIssue } from './cronIssueFilter';
 
@@ -55,7 +58,7 @@ const processedPRs = new Set<number>();
 let cycleCount = 0;
 
 // Resolve repo identity from --target-repo CLI args (or fall back to local git remote).
-const { repoInfo: cronRepoInfo, targetRepo } = resolveCronRepo(process.argv.slice(2), getRepoInfo);
+const { repoInfo: cronRepoInfo, targetRepo } = resolveCronRepo(process.argv.slice(2), readLocalRepoInfo);
 
 // Module-scope launch boundary — built exactly once under the entry-script guard.
 // Null when this module is imported by tests (guard does not fire).
@@ -70,12 +73,7 @@ if (process.argv[1]?.replace(/\\/g, '/').includes('trigger_cron')) {
 // Context-only view — every existing cronGitContext use is unchanged (#794).
 const cronGitContext: GitContext | null = cronBoundary?.gitContext ?? null;
 
-/**
- * The boundary-minted provider triple, bound to the same identity as
- * `cronGitContext`. Receiving end for the semantic-caller migration (#797) —
- * cron has no provider-shaped call site of its own yet. Null under the same
- * conditions as `cronGitContext` (module-import guard not fired).
- */
+/** The boundary-minted provider triple, bound to the same identity as `cronGitContext`. Null under the same conditions (module-import guard not fired). */
 export function getCronProviders(): BoundProviders | null {
   return cronBoundary?.providers ?? null;
 }
@@ -246,7 +244,7 @@ export async function runGuardedTick(tick: () => Promise<void> = checkAndTrigger
  * Returns true if the gate was set (caller should return early from checkAndTrigger).
  * Returns false if the gate is absent (normal operation continues).
  */
-async function handleAuthGateTick(): Promise<boolean> {
+async function handleAuthGateTick(boundary: LaunchBoundary): Promise<boolean> {
   const gate = readAuthGate();
   if (gate === null) return false;
 
@@ -266,7 +264,7 @@ async function handleAuthGateTick(): Promise<boolean> {
 
   if (loggedIn) {
     clearAuthGate();
-    const resumedCount = await scanAuthQueue(cronRepoInfo, targetRepoArgs);
+    const resumedCount = await scanAuthQueue(boundary, targetRepoArgs);
     await sendSlackRecoveryNotification({
       host: gate.host,
       clearedAt: new Date().toISOString(),
@@ -308,9 +306,8 @@ async function handleAuthGateTick(): Promise<boolean> {
   return true;
 }
 
-/** Checks for eligible issues and triggers ADW workflows for each. */
-async function checkAndTrigger(): Promise<void> {
-  const boundary = cronBoundary;
+/** Checks for eligible issues and triggers ADW workflows for each. Boundary defaults to `cronBoundary` (same idiom as `runPerIssueScenarioSweepTick`); exported so tests can drive one tick against a fake boundary. */
+export async function checkAndTrigger(boundary: LaunchBoundary | null = cronBoundary): Promise<void> {
   if (!boundary) {
     log('checkAndTrigger: no launch boundary (module imported, not launched) — skipping tick', 'warn');
     return;
@@ -318,11 +315,11 @@ async function checkAndTrigger(): Promise<void> {
 
   cycleCount += 1;
 
-  if (await handleAuthGateTick()) return;
+  if (await handleAuthGateTick(boundary)) return;
 
   // Scan pause queue every PROBE_INTERVAL_CYCLES cycles
   await scanPauseQueue(cycleCount);
-  await scanAuthQueue(cronRepoInfo, buildTargetRepoArgs());
+  await scanAuthQueue(boundary, buildTargetRepoArgs());
 
   // Detect and abandon hung orchestrators every HUNG_DETECTOR_INTERVAL_CYCLES cycles
   if (cycleCount % HUNG_DETECTOR_INTERVAL_CYCLES === 0) {
@@ -352,7 +349,7 @@ async function checkAndTrigger(): Promise<void> {
   const now = Date.now();
   const cancelledThisCycle = new Set<number>();
   const issues = listCronOpenIssues(boundary.providers.issueTracker);
-  const linkedPrs = fetchLinkedPRs(cronRepoInfo);
+  const linkedPrs = fetchLinkedPRs(boundary.providers.codeHost);
   const labelRecovery = (issue: CronIssue) => evaluateLabelRecovery(issue, linkedPrs);
 
   // Scan all fetched issues for ## Cancel before filterEligibleIssues.
@@ -364,7 +361,7 @@ async function checkAndTrigger(): Promise<void> {
   for (const issue of issues) {
     const latestComment = issue.comments.length > 0 ? issue.comments[issue.comments.length - 1] : null;
     if (latestComment && isCancelComment(latestComment.body)) {
-      handleCancelDirective(issue.number, issue.comments, cronRepoInfo, cancelCwd, { spawns: processedSpawns });
+      handleCancelDirective(issue.number, issue.comments, boundary, cancelCwd, { spawns: processedSpawns });
       cancelledThisCycle.add(issue.number);
     } else if (latestComment && isRetryComment(latestComment.body)) {
       handleRetryDirective(issue.number, issue.comments);
@@ -391,7 +388,7 @@ async function checkAndTrigger(): Promise<void> {
   for (const deferral of overlapDeferrals) {
     log(`Issue #${deferral.issueNumber} deferred: region overlap with #${deferral.blockedBy} [${deferral.overlapPaths.join(', ')}]`);
     const deferredBody = issues.find(i => i.number === deferral.issueNumber)?.body ?? '';
-    registerRegionOverlapBlocker(deferral, deferredBody, cronRepoInfo);
+    registerRegionOverlapBlocker(deferral, deferredBody, boundary.providers.issueTracker);
   }
 
   const repoInfo = cronRepoInfo;
@@ -428,7 +425,7 @@ async function checkAndTrigger(): Promise<void> {
     }
 
     // Standard spawn path: check eligibility (dependencies + concurrency)
-    const eligibility = await checkIssueEligibility(issue.number, issue.body || '', repoInfo);
+    const eligibility = await checkIssueEligibility(issue.number, issue.body || '', boundary.providers);
     if (!eligibility.eligible) {
       if (eligibility.reason === 'open_dependencies') {
         log(`Issue #${issue.number} deferred: open dependencies [${eligibility.blockingIssues?.join(', ')}]`);
@@ -442,7 +439,7 @@ async function checkAndTrigger(): Promise<void> {
     // Enforce the takeover decision before any spawn. This is the sole gate
     // for all standard (non-merge) candidates so a future maintainer cannot
     // introduce a parallel pre-check that bypasses it.
-    const takeoverDecision = evaluateCandidate({ issueNumber: issue.number, repoInfo, gitContext: boundary.gitContext, boundary });
+    const takeoverDecision = evaluateCandidate({ issueNumber: issue.number, boundary });
 
     if (takeoverDecision.kind === 'defer_live_holder') {
       log(`Issue #${issue.number}: live holder (pid ${takeoverDecision.holderPid}) owns this issue, deferring`);
@@ -492,7 +489,7 @@ async function checkAndTrigger(): Promise<void> {
       : undefined;
     log(`Triggering ADW workflow for backlog issue #${issue.number}${adwId ? ` (resuming adwId=${adwId})` : ''}`, 'success');
     try {
-      await classifyAndSpawnWorkflow(issue.number, repoInfo, targetRepoArgs, adwId, takeoverDecision, labelRouting);
+      await classifyAndSpawnWorkflow(issue.number, boundary, targetRepoArgs, adwId, takeoverDecision, labelRouting);
     } catch (err) {
       if (err instanceof AuthRequiredError) {
         writeAuthGate({ adwId: adwId ?? null, issueNumber: issue.number, agentName: err.agentName });
@@ -506,15 +503,18 @@ async function checkAndTrigger(): Promise<void> {
 
 /** Checks open PRs for actionable review comments and triggers PR review workflows. */
 function checkPRsForReviewComments(): void {
+  const boundary = cronBoundary;
+  if (!boundary) { log('checkPRsForReviewComments: no launch boundary (module imported, not launched) — skipping poll', 'warn'); return; }
+
   log('Polling for PRs with unaddressed review comments...');
-  const prs = fetchPRList(cronRepoInfo);
+  const prs = boundary.providers.codeHost.listOpenPullRequests();
 
   for (const pr of prs) {
     if (processedPRs.has(pr.number)) continue;
     try {
-      if (hasUnaddressedComments(pr.number, cronRepoInfo)) {
+      if (hasUnaddressedComments(pr.number, boundary)) {
         processedPRs.add(pr.number);
-        const target = resolvePrReviewSpawn(pr.number, cronRepoInfo);
+        const target = resolvePrReviewSpawn(pr.number, boundary.providers);
         if (target === null) {
           log(`Skipping issue-less PR #${pr.number} (no ADW review)`);
           continue;

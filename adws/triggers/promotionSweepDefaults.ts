@@ -19,7 +19,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { log, loadProjectConfig } from '../core';
-import { ADW_REGRESSION_PROMOTION_LABEL } from '../github/labelManager';
+import { ADW_REGRESSION_PROMOTION_LABEL } from '../core/adwLabels';
 import { loadPromotionStats } from '../promotion';
 import type { PromotionStats } from '../promotion';
 import type { PromotionIssueRef } from '../core/promotionReconcileLink';

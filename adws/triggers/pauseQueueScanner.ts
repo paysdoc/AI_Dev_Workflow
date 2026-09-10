@@ -18,10 +18,10 @@ import {
   updatePauseQueueEntry,
   type PausedWorkflow,
 } from '../core/pauseQueue';
-import { getRepoInfo } from '../github';
+import { readLocalRepoInfo } from '../providers/github/githubIdentity';
 import { Platform, type RepoIdentifier } from '../providers/types';
 import { postIssueStageComment } from '../phases/phaseCommentHelpers';
-import type { WorkflowContext } from '../github/workflowCommentsIssue';
+import type { WorkflowContext } from '../forge/workflowCommentsIssue';
 import { acquireIssueSpawnLock, releaseIssueSpawnLock } from './spawnGate';
 import { AgentStateManager } from '../core/agentState';
 
@@ -54,7 +54,7 @@ export function resolveEntryRepoInfo(entry: PausedWorkflow): RepoIdentifier {
   if (targetRepo) {
     return { owner: targetRepo.owner, repo: targetRepo.repo, platform: Platform.GitHub };
   }
-  return getRepoInfo();
+  return readLocalRepoInfo();
 }
 
 /** Builds a launch boundary for the paused entry's own repo — the same `--target-repo` resolution as `resolveEntryRepoInfo`. */

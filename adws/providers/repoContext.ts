@@ -11,7 +11,7 @@
 
 import { gitContextForRepo } from '../github/gitContextFactory';
 import type { GitContext } from '../gitContext';
-import { notifyReviewTransition, type NotifierDeps } from '../github/hitlBoardNotifier';
+import { notifyReviewTransition, buildNotifierDeps } from '../forge/hitlBoardNotifier';
 import { resolveAdwLabelDefinition } from '../core/adwLabels';
 import { isGitHubAppConfigured } from '../core/githubAppAuth';
 
@@ -29,7 +29,6 @@ import {
 import { createGitHubIssueTracker, type GitHubIssueTrackerDeps } from './github/githubIssueTracker';
 import { createGitHubCodeHost } from './github/githubCodeHost';
 import { createGitHubBoardManager } from './github/githubBoardManager';
-import { createGhRepoApi } from './github/ghRepoApi';
 import { createGitLabCodeHost } from './gitlab/gitlabCodeHost';
 import type { GitLabConfig } from './gitlab/gitlabApiClient';
 import type { JiraAuth } from './jira/jiraApiClient';
@@ -95,39 +94,6 @@ export function validateGitRemote(cwd: string, repoId: RepoIdentifier): void {
       `Git remote does not match declared repo. Remote repo "${parsed.repo}" !== declared repo "${repoId.repo}"`,
     );
   }
-}
-
-/** Injected reader/lister for the HITL Slack notifier, over the SAME context the tracker runs its `gh` commands on — ADW's wiring, not the adapter's; the notifier module stays untouched. */
-function buildNotifierDeps(ctx: GitContext, repoId: RepoIdentifier): NotifierDeps {
-  const gh = createGhRepoApi(ctx);
-  return {
-    readIssue: (issueNumber) => {
-      try {
-        const raw = JSON.parse(gh.fetchIssue(issueNumber)) as { title: string; labels: { name: string }[] };
-        return { title: raw.title, labels: raw.labels };
-      } catch {
-        return null;
-      }
-    },
-    listOpenPRs: () => {
-      try {
-        const allPrs = JSON.parse(gh.fetchAllPRs()) as Array<{ number: number; body: string; state: string }>;
-        return allPrs
-          .filter((p) => p.state === 'OPEN')
-          .map((p) => ({
-            number: p.number,
-            url: `https://github.com/${repoId.owner}/${repoId.repo}/pull/${p.number}`,
-            body: p.body,
-            state: p.state,
-            headRefName: '',
-            baseRefName: '',
-            updatedAt: '',
-          }));
-      } catch {
-        return null;
-      }
-    },
-  };
 }
 
 /** Re-exported so `repoContext.test.ts` and `adwGitHubIssueTrackerDeps`'s existing callers keep resolving; the definition itself lives in `adws/core/adwLabels.ts` since #820. */

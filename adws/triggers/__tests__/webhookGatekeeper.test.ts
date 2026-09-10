@@ -11,26 +11,16 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // vi.mock factories are hoisted above the module body, so any mock fns they reference must
 // be created via vi.hoisted (also hoisted) rather than as plain top-level consts.
-const { spawnMock, issueHasLabelMock, evaluateCandidateMock, releaseIssueSpawnLockMock } = vi.hoisted(() => ({
+const { spawnMock, evaluateCandidateMock, releaseIssueSpawnLockMock, isAdwRunningForIssueMock } = vi.hoisted(() => ({
   spawnMock: vi.fn(() => ({ unref: () => {} })),
-  issueHasLabelMock: vi.fn(),
   evaluateCandidateMock: vi.fn(),
   releaseIssueSpawnLockMock: vi.fn(),
+  isAdwRunningForIssueMock: vi.fn(() => Promise.resolve(false)),
 }));
 
 vi.mock('child_process', () => ({ spawn: spawnMock }));
-vi.mock('../../github/issueListApi', () => ({ listIssues: vi.fn() }));
 vi.mock('../issueDependencies', () => ({ parseDependencies: vi.fn() }));
-vi.mock('../../github/issueApi', () => ({ issueHasLabel: issueHasLabelMock, closeIssue: vi.fn(), fetchGitHubIssue: vi.fn() }));
-vi.mock('../../github/labelManager', () => ({
-  ADW_UPGRADE_LABEL: 'adw:upgrade',
-  applyLabel: vi.fn(),
-  issueTypeToAdwLabel: vi.fn(),
-}));
-vi.mock('../../github', () => ({
-  getRepoInfo: vi.fn(() => ({ owner: 'acme', repo: 'target' })),
-  isAdwRunningForIssue: vi.fn(() => Promise.resolve(false)),
-}));
+vi.mock('../../forge/workflowCommentsBase', () => ({ isAdwRunningForIssue: isAdwRunningForIssueMock }));
 vi.mock('../takeoverHandler', () => ({ evaluateCandidate: evaluateCandidateMock }));
 vi.mock('../spawnGate', () => ({ releaseIssueSpawnLock: releaseIssueSpawnLockMock }));
 vi.mock('../../core/authGate', () => ({ readAuthGate: vi.fn(() => null) }));
@@ -49,9 +39,10 @@ vi.mock('../../core/agentState', () => ({
 }));
 
 import { classifyAndSpawnWorkflow, closeAbandonedDependents } from '../webhookGatekeeper';
-import { listIssues } from '../../github/issueListApi';
 import { parseDependencies } from '../issueDependencies';
 import { Platform } from '../../providers/types';
+import type { LaunchBoundary } from '../../core';
+import type { IssueTracker } from '../../providers/types';
 
 const REPO_INFO = { owner: 'acme', repo: 'target', platform: Platform.GitHub };
 const TARGET_ARGS = ['--target-repo', 'acme/target'];
@@ -60,20 +51,31 @@ function spawnedScripts(): string[] {
   return (spawnMock.mock.calls as unknown as unknown[][]).flatMap((call) => (call[1] as string[]) ?? []);
 }
 
+function makeBoundary(overrides: Partial<Pick<IssueTracker, 'fetchLabels' | 'listIssues' | 'closeIssue' | 'applyLabel' | 'fetchIssue'>> = {}): LaunchBoundary {
+  const issueTracker = {
+    fetchLabels: vi.fn(() => [] as readonly string[]),
+    listIssues: vi.fn(() => []),
+    closeIssue: vi.fn(async () => true),
+    applyLabel: vi.fn(),
+    fetchIssue: vi.fn(),
+    ...overrides,
+  } as unknown as IssueTracker;
+  return { repoId: REPO_INFO, providers: { issueTracker } } as unknown as LaunchBoundary;
+}
+
 describe('classifyAndSpawnWorkflow — adw:upgrade short-circuit (Bug C′)', () => {
   beforeEach(() => {
     spawnMock.mockClear();
     evaluateCandidateMock.mockClear();
     releaseIssueSpawnLockMock.mockClear();
-    issueHasLabelMock.mockReset();
   });
 
   it('routes an adw:upgrade issue to adwUpgrade.tsx and never calls evaluateCandidate', async () => {
-    issueHasLabelMock.mockReturnValue(true);
+    const boundary = makeBoundary({ fetchLabels: vi.fn(() => ['adw:upgrade']) });
 
-    await classifyAndSpawnWorkflow(132, REPO_INFO, TARGET_ARGS);
+    await classifyAndSpawnWorkflow(132, boundary, TARGET_ARGS);
 
-    expect(issueHasLabelMock).toHaveBeenCalledWith(132, 'adw:upgrade', REPO_INFO);
+    expect(boundary.providers.issueTracker.fetchLabels).toHaveBeenCalledWith(132);
     expect(spawnedScripts().some((a) => a.endsWith('adws/adwUpgrade.tsx'))).toBe(true);
     expect(spawnedScripts()).toContain('132');
     expect(evaluateCandidateMock).not.toHaveBeenCalled();
@@ -81,42 +83,45 @@ describe('classifyAndSpawnWorkflow — adw:upgrade short-circuit (Bug C′)', ()
   });
 
   it('does NOT spawn a normal workflow script for an adw:upgrade issue', async () => {
-    issueHasLabelMock.mockReturnValue(true);
+    const boundary = makeBoundary({ fetchLabels: vi.fn(() => ['adw:upgrade']) });
 
-    await classifyAndSpawnWorkflow(132, REPO_INFO, TARGET_ARGS);
+    await classifyAndSpawnWorkflow(132, boundary, TARGET_ARGS);
 
     expect(spawnedScripts().some((a) => a.endsWith('adws/adwChore.tsx'))).toBe(false);
     expect(spawnedScripts().some((a) => a.endsWith('adws/adwSdlc.tsx'))).toBe(false);
   });
 
   it('falls through to evaluateCandidate for a non-upgrade issue', async () => {
-    issueHasLabelMock.mockReturnValue(false);
+    const boundary = makeBoundary({ fetchLabels: vi.fn(() => []) });
     evaluateCandidateMock.mockReturnValue({ kind: 'skip_terminal', terminalStage: 'completed' });
 
-    await classifyAndSpawnWorkflow(200, REPO_INFO, TARGET_ARGS);
+    await classifyAndSpawnWorkflow(200, boundary, TARGET_ARGS);
 
     expect(evaluateCandidateMock).toHaveBeenCalledTimes(1);
     expect(spawnedScripts().some((a) => a.endsWith('adws/adwUpgrade.tsx'))).toBe(false);
   });
 });
 
-describe('closeAbandonedDependents — listOpenIssues routing', () => {
+describe('closeAbandonedDependents — tracker routing', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(parseDependencies).mockReturnValue([]);
   });
 
-  it('calls issueListApi.listIssues with number+body fields', async () => {
-    vi.mocked(listIssues).mockReturnValue([]);
+  it('calls tracker.listIssues with number+body fields', async () => {
+    const tracker = { listIssues: vi.fn(() => []), closeIssue: vi.fn(async () => true) } as unknown as Pick<IssueTracker, 'listIssues' | 'closeIssue'>;
 
-    await closeAbandonedDependents(7, REPO_INFO);
+    await closeAbandonedDependents(7, tracker);
 
-    expect(listIssues).toHaveBeenCalledWith({ fields: ['number', 'body'], limit: 100 }, REPO_INFO);
+    expect(tracker.listIssues).toHaveBeenCalledWith({ fields: ['number', 'body'], limit: 100 });
   });
 
   it('does not throw when listIssues throws', async () => {
-    vi.mocked(listIssues).mockImplementation(() => { throw new Error('gh failed'); });
+    const tracker = {
+      listIssues: vi.fn(() => { throw new Error('gh failed'); }),
+      closeIssue: vi.fn(async () => true),
+    } as unknown as Pick<IssueTracker, 'listIssues' | 'closeIssue'>;
 
-    await expect(closeAbandonedDependents(7, REPO_INFO)).resolves.not.toThrow();
+    await expect(closeAbandonedDependents(7, tracker)).resolves.not.toThrow();
   });
 });

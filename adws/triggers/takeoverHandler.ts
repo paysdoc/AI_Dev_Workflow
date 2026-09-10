@@ -28,26 +28,20 @@ import {
   readSpawnLockRecord,
 } from './spawnGate';
 import { isProcessLive } from '../core/processLiveness';
-import { log } from '../core/utils';
 import { AgentStateManager } from '../core/agentState';
 import { deriveStageFromRemote, buildDefaultReconcileDeps, type ReconcileDeps } from '../core/remoteReconcile';
-import { gitContextForSync } from '../github';
-import { fetchIssueCommentBodies } from '../github/issueListApi';
-import { gitContextForRepo } from '../github/gitContextFactory';
-import { defaultFindPRByBranch } from '../github/prApi';
+import { gitContextForSync } from '../github/gitContextFactory';
 import type { LaunchBoundary } from '../core';
 import { extractLatestAdwId } from './cronStageResolver';
 import { classifyStageString } from '../core/stageClassifier';
 import { nextResumeAction, MAX_RESUME_ATTEMPTS } from '../core/resumePolicy';
-import { formatHumanGatedComment } from '../github/workflowCommentsIssue';
-import { commentOnIssue } from '../github/githubApi';
+import { formatHumanGatedComment } from '../forge/workflowCommentsIssue';
 import { decideWorktreeReuse } from '../vcs/worktreeReuseGate';
 import { probeWorktree, clearOrphanedIndexLock, buildDefaultProbeDeps } from '../vcs/worktreeProbe';
 import type { WorktreeProbe } from '../vcs/worktreeReuseGate';
 import type { RepoIdentifier } from '../providers/types';
 import type { AgentState } from '../types/agentTypes';
 import type { WorkflowStage } from '../types/workflowTypes';
-import type { GitContext } from '../gitContext';
 
 export type CandidateDecision =
   | { readonly kind: 'spawn_fresh' }
@@ -56,16 +50,10 @@ export type CandidateDecision =
   | { readonly kind: 'skip_terminal'; readonly adwId: string; readonly terminalStage: 'completed' | 'discarded' | 'paused' | 'paused_auth' }
   | { readonly kind: 'escalate_human_gated'; readonly adwId: string };
 
+/** Identity, worktree base path and providers all come from the boundary — there are no boundary-less callers any more. */
 export interface EvaluateCandidateInput {
   readonly issueNumber: number;
-  readonly repoInfo: RepoIdentifier;
-  /** Launch-boundary GitContext. When provided, worktree paths are resolved via the
-   *  context's base path (never from ambient cwd). Absent only in legacy callers. */
-  readonly gitContext?: GitContext;
-  /** The launch boundary. When provided, resolveAdwId reads comments through its issue
-   *  tracker instead of a fresh gitContextForRepo(...)-backed gh call. Absent only in
-   *  legacy callers. */
-  readonly boundary?: LaunchBoundary;
+  readonly boundary: LaunchBoundary;
 }
 
 export interface TakeoverDeps {
@@ -77,35 +65,15 @@ export interface TakeoverDeps {
   readonly isProcessLive: (pid: number, pidStartedAt: string) => boolean;
   readonly killProcess: (pid: number) => void;
   readonly resetWorktree: (worktreePath: string, branch: string) => void;
-  readonly deriveStageFromRemote: (issueNumber: number, adwId: string, repoInfo: RepoIdentifier) => WorkflowStage;
+  readonly deriveStageFromRemote: (adwId: string) => WorkflowStage;
   readonly writeTopLevelState: (adwId: string, state: Partial<AgentState>) => void;
-  readonly commentOnIssue: (issueNumber: number, body: string, repoInfo: RepoIdentifier) => void;
+  readonly commentOnIssue: (issueNumber: number, body: string) => void;
   readonly probeWorktree: (worktreePath: string, expectedBranch: string, recordedPid?: number, recordedPidStartedAt?: string) => WorktreeProbe;
   readonly clearOrphanedIndexLock: (worktreePath: string) => void;
 }
 
-/**
- * The legacy `repoInfo`-scoped `ReconcileDeps` wiring that used to be
- * `remoteReconcile.ts`'s own default (#820, FINDING 1): reached only when no
- * launch boundary exists, which is exactly this file's boundary-less path.
- * `#821` replaces this with the boundary's own wiring once triggers hold one.
- */
-function buildBoundarylessReconcileDeps(repoInfo: RepoIdentifier): ReconcileDeps {
-  return {
-    readTopLevelState: (id) => AgentStateManager.readTopLevelState(id),
-    branchExistsOnRemote: (branchName) => {
-      try {
-        return gitContextForRepo(repoInfo).lsRemote(branchName).length > 0;
-      } catch (err) {
-        log(`remoteReconcile: git ls-remote failed for branch '${branchName}': ${err}`, 'warn');
-        return false;
-      }
-    },
-    findPRByBranch: (branchName) => defaultFindPRByBranch(branchName, repoInfo),
-  };
-}
-
-export function buildDefaultTakeoverDeps(repoInfo?: RepoIdentifier, boundary?: LaunchBoundary): TakeoverDeps {
+/** `reconcileDeps` defaults to the boundary's own wiring; overridable so tests can pin `branchExistsOnRemote` without a real git remote (the fixture repo is deliberately non-existent). */
+export function buildDefaultTakeoverDeps(boundary: LaunchBoundary, reconcileDeps: ReconcileDeps = buildDefaultReconcileDeps(boundary)): TakeoverDeps {
   return {
     acquireIssueSpawnLock: (repoInfo, issueNumber, ownPid) =>
       acquireIssueSpawnLock(repoInfo, issueNumber, ownPid),
@@ -113,11 +81,9 @@ export function buildDefaultTakeoverDeps(repoInfo?: RepoIdentifier, boundary?: L
       releaseIssueSpawnLock(repoInfo, issueNumber),
     readSpawnLockRecord: (repoInfo, issueNumber) =>
       readSpawnLockRecord(repoInfo, issueNumber),
-    resolveAdwId: (issueNumber, repoInfo) => {
+    resolveAdwId: (issueNumber) => {
       try {
-        return boundary
-          ? extractLatestAdwId(boundary.providers.issueTracker.fetchComments(issueNumber).map((c) => ({ body: c.body })))
-          : extractLatestAdwId(fetchIssueCommentBodies(issueNumber, repoInfo));
+        return extractLatestAdwId(boundary.providers.issueTracker.fetchComments(issueNumber).map((c) => ({ body: c.body })));
       } catch {
         return null;
       }
@@ -132,21 +98,17 @@ export function buildDefaultTakeoverDeps(repoInfo?: RepoIdentifier, boundary?: L
       }
     },
     resetWorktree: (worktreePath, branch) => {
-      if (!repoInfo) throw new Error('takeoverHandler: repoInfo required for resetWorktree');
-      gitContextForSync({ owner: repoInfo.owner, repo: repoInfo.repo, selfHost: false }).resetWorktree(worktreePath, branch);
+      gitContextForSync({ owner: boundary.repoId.owner, repo: boundary.repoId.repo, selfHost: false }).resetWorktree(worktreePath, branch);
     },
-    deriveStageFromRemote: (issueNumber, adwId, repoInfo) =>
-      deriveStageFromRemote(issueNumber, adwId, repoInfo, boundary ? buildDefaultReconcileDeps(boundary) : buildBoundarylessReconcileDeps(repoInfo)),
+    deriveStageFromRemote: (adwId) => deriveStageFromRemote(adwId, reconcileDeps),
     writeTopLevelState: (adwId, state) => AgentStateManager.writeTopLevelState(adwId, state),
-    commentOnIssue: (issueNumber, body, repoInfo) => commentOnIssue(issueNumber, body, repoInfo),
+    commentOnIssue: (issueNumber, body) => boundary.providers.issueTracker.commentOnIssue(issueNumber, body),
     probeWorktree: (worktreePath, expectedBranch, recordedPid, recordedPidStartedAt) => {
-      if (!repoInfo) throw new Error('takeoverHandler: repoInfo required for probeWorktree');
-      const ctx = gitContextForSync({ owner: repoInfo.owner, repo: repoInfo.repo, selfHost: false });
+      const ctx = gitContextForSync({ owner: boundary.repoId.owner, repo: boundary.repoId.repo, selfHost: false });
       return probeWorktree({ worktreePath, expectedBranch, recordedPid, recordedPidStartedAt }, buildDefaultProbeDeps(ctx));
     },
     clearOrphanedIndexLock: (worktreePath) => {
-      if (!repoInfo) throw new Error('takeoverHandler: repoInfo required for clearOrphanedIndexLock');
-      const ctx = gitContextForSync({ owner: repoInfo.owner, repo: repoInfo.repo, selfHost: false });
+      const ctx = gitContextForSync({ owner: boundary.repoId.owner, repo: boundary.repoId.repo, selfHost: false });
       clearOrphanedIndexLock(worktreePath, buildDefaultProbeDeps(ctx));
     },
   };
@@ -155,16 +117,14 @@ export function buildDefaultTakeoverDeps(repoInfo?: RepoIdentifier, boundary?: L
 
 function takeOverWithDerivedStage(
   d: TakeoverDeps,
-  input: EvaluateCandidateInput,
   adwId: string,
 ): CandidateDecision {
-  const derivedStage = d.deriveStageFromRemote(input.issueNumber, adwId, input.repoInfo);
+  const derivedStage = d.deriveStageFromRemote(adwId);
   return { kind: 'take_over_adwId', adwId, derivedStage };
 }
 
 function resolveWorktreePath(input: EvaluateCandidateInput, branchName: string): string {
-  const ctx = input.gitContext ?? gitContextForSync({ owner: input.repoInfo.owner, repo: input.repoInfo.repo, selfHost: false });
-  return ctx.worktreePathFor(branchName);
+  return input.boundary.gitContext.worktreePathFor(branchName);
 }
 
 function recoverViaResetFromRemote(
@@ -177,7 +137,7 @@ function recoverViaResetFromRemote(
     const wtPath = resolveWorktreePath(input, state.branchName);
     d.resetWorktree(wtPath, state.branchName);
   }
-  return takeOverWithDerivedStage(d, input, adwId);
+  return takeOverWithDerivedStage(d, adwId);
 }
 
 // For abandoned + phase_timeout: probe the worktree and reuse if healthy, else reset.
@@ -189,7 +149,7 @@ function recoverViaResumeInPlaceOrReset(
   adwId: string,
   state: AgentState,
 ): CandidateDecision {
-  if (!state.branchName) return takeOverWithDerivedStage(d, input, adwId);
+  if (!state.branchName) return takeOverWithDerivedStage(d, adwId);
 
   const wtPath = resolveWorktreePath(input, state.branchName);
   const probe = d.probeWorktree(wtPath, state.branchName, state.pid, state.pidStartedAt);
@@ -199,15 +159,16 @@ function recoverViaResumeInPlaceOrReset(
 
   // Healthy: resume in place — clear orphaned lock if present so the first git op succeeds.
   if (probe.indexLock === 'orphaned') d.clearOrphanedIndexLock(wtPath);
-  return takeOverWithDerivedStage(d, input, adwId);
+  return takeOverWithDerivedStage(d, adwId);
 }
 
 export function evaluateCandidate(
   input: EvaluateCandidateInput,
   deps?: TakeoverDeps,
 ): CandidateDecision {
-  const d = deps ?? buildDefaultTakeoverDeps(input.repoInfo, input.boundary);
-  const { issueNumber, repoInfo } = input;
+  const d = deps ?? buildDefaultTakeoverDeps(input.boundary);
+  const { issueNumber, boundary } = input;
+  const repoInfo = boundary.repoId;
 
   // Branch 1: attempt to acquire the per-issue spawn lock.
   // If another live process holds it, defer immediately.
@@ -261,7 +222,6 @@ export function evaluateCandidate(
       d.commentOnIssue(
         input.issueNumber,
         formatHumanGatedComment(adwId, attempts, MAX_RESUME_ATTEMPTS),
-        input.repoInfo,
       );
       releaseLock();
       return { kind: 'escalate_human_gated', adwId };

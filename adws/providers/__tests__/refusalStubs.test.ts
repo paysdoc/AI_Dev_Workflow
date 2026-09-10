@@ -23,6 +23,11 @@ describe('GitLabCodeHost — refusal stubs', () => {
     const codeHost = new GitLabCodeHost(REPO_ID, {} as GitLabApiClient);
     expect(() => codeHost.listMergedPullRequests()).toThrow('GitLabCodeHost.listMergedPullRequests is not implemented');
   });
+
+  it('listPullRequests throws naming the method', () => {
+    const codeHost = new GitLabCodeHost(REPO_ID, {} as GitLabApiClient);
+    expect(() => codeHost.listPullRequests()).toThrow('GitLabCodeHost.listPullRequests is not implemented');
+  });
 });
 
 describe('JiraIssueTracker — refusal stubs', () => {

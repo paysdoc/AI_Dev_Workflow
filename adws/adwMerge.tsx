@@ -31,7 +31,7 @@ import {
 // Maximum PR-resolution attempts before escalating to merge_blocked (#527)
 const MAX_PR_RESOLUTION_ATTEMPTS = 3;
 import { findOrchestratorStatePath } from './core/stateHelpers';
-import { notifyBlockedTransition } from './github/hitlBoardNotifier';
+import { notifyBlockedTransition, buildNotifierDeps } from './forge/hitlBoardNotifier';
 import { mergeWithConflictResolution } from './triggers/autoMergeHandler';
 import { getPlanFilePath, planFileExists } from './agents';
 import type { AgentState } from './types/agentTypes';
@@ -55,7 +55,15 @@ export interface MergeDeps {
   readonly fetchPRApprovalState: (prNumber: number) => boolean;
   readonly ensureWorktree: (branchName: string, baseBranch: string) => string;
   readonly ensureLogsDirectory: (adwId: string) => string;
-  readonly mergeWithConflictResolution: typeof mergeWithConflictResolution;
+  readonly mergeWithConflictResolution: (
+    prNumber: number,
+    headBranch: string,
+    baseBranch: string,
+    worktreePath: string,
+    adwId: string,
+    logsDir: string,
+    specPath: string,
+  ) => ReturnType<typeof mergeWithConflictResolution>;
   readonly writeTopLevelState: (adwId: string, state: Partial<AgentState>) => void;
   readonly commentOnIssue: (issueNumber: number, body: string) => void;
   readonly getPlanFilePath: typeof getPlanFilePath;
@@ -187,7 +195,6 @@ export async function executeMerge(
 
   const mergeOutcome = await deps.mergeWithConflictResolution(
     prNumber,
-    repoInfo,
     branchName,
     baseBranch,
     worktreePath,
@@ -236,12 +243,14 @@ export function buildDefaultDeps(boundary: LaunchBoundary): MergeDeps {
     fetchPRApprovalState: (prNumber) => providers.codeHost.isPullRequestApproved(prNumber),
     ensureWorktree: (branch, base) => gitCtx.ensureWorktree(branch, base),
     ensureLogsDirectory,
-    mergeWithConflictResolution: (pr, repoInfo, head, base, wt, id, logs, spec) => mergeWithConflictResolution(pr, repoInfo, head, base, wt, id, logs, spec, gitCtx),
+    mergeWithConflictResolution: (pr, head, base, wt, id, logs, spec) => mergeWithConflictResolution(pr, providers.codeHost, head, base, wt, id, logs, spec, gitCtx),
     writeTopLevelState: (id, state) => AgentStateManager.writeTopLevelState(id, state),
     commentOnIssue: (issueNumber, body) => providers.issueTracker.commentOnIssue(issueNumber, body),
     getPlanFilePath,
     planFileExists,
-    notifyBlockedTransition: repoId.platform === Platform.GitHub ? notifyBlockedTransition : async () => undefined,
+    notifyBlockedTransition: repoId.platform === Platform.GitHub
+      ? (args) => notifyBlockedTransition(args, buildNotifierDeps(gitCtx, repoId))
+      : async () => undefined,
   };
 }
 

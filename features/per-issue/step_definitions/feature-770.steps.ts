@@ -27,7 +27,7 @@ import { computeTestVerdict } from '../../../adws/core/testVerdict.ts';
 import { isAdwComment, extractAdwIdFromComment } from '../../../adws/core/index.ts';
 import type { WorkflowStage } from '../../../adws/core/index.ts';
 import { postIssueStageComment } from '../../../adws/phases/phaseCommentHelpers.ts';
-import type { WorkflowContext } from '../../../adws/github/workflowCommentsIssue.ts';
+import type { WorkflowContext } from '../../../adws/forge/workflowCommentsIssue.ts';
 import type { RepoContext } from '../../../adws/providers/types.ts';
 
 const ISSUE_NUMBER = 770;

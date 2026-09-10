@@ -11,6 +11,7 @@ import {
   type ForgeActionResult,
   type MergedPullRequestRecord,
   type PullRequest,
+  type PullRequestRecord,
   type PullRequestResult,
   type PullRequestSummary,
   type RepoIdentifier,
@@ -106,6 +107,10 @@ export class GitLabCodeHost implements CodeHost {
 
   listMergedPullRequests(): readonly MergedPullRequestRecord[] {
     throw new Error('GitLabCodeHost.listMergedPullRequests is not implemented');
+  }
+
+  listPullRequests(): readonly PullRequestRecord[] {
+    throw new Error('GitLabCodeHost.listPullRequests is not implemented');
   }
 
   getAuthenticatedUser(): string | null {

@@ -7,13 +7,9 @@
  * qualifier and the digit-boundary guard).
  */
 
-import { log } from '../core';
-import type { RepoIdentifier } from '../providers/types';
+import { log } from '../core/logger';
+import type { CodeHost } from '../providers/types';
 import { bodyLinksIssue } from './issueLinkMarker';
-import { gitContextForRepo } from './gitContextFactory';
-import { createGhRepoApi } from '../providers/github/ghRepoApi';
-
-const gh = (repoInfo: RepoIdentifier) => createGhRepoApi(gitContextForRepo(repoInfo));
 
 export interface LinkedPRRef {
   readonly number: number;
@@ -39,13 +35,13 @@ export function hasLinkedMergedOrClosedPR(
 }
 
 /**
- * Fetches all PRs (open + closed + merged) for the repository.
- * Returns [] on error to allow callers to degrade gracefully.
+ * Fetches all PRs (open + closed + merged) for the repository via the
+ * boundary's code host. Returns [] on error to allow callers to degrade
+ * gracefully.
  */
-export function fetchLinkedPRs(repoInfo: RepoIdentifier): LinkedPRRef[] {
+export function fetchLinkedPRs(codeHost: Pick<CodeHost, 'listPullRequests'>): LinkedPRRef[] {
   try {
-    const json = gh(repoInfo).fetchAllPRs();
-    return JSON.parse(json) as LinkedPRRef[];
+    return [...codeHost.listPullRequests()];
   } catch (error) {
     log(`Failed to fetch PRs for linked-PR detection: ${error}`, 'error');
     return [];

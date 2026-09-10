@@ -1,6 +1,9 @@
-import { describe, it, expect } from 'vitest';
-import { hasLinkedMergedOrClosedPR } from '../linkedPrDetector';
+import { describe, it, expect, vi } from 'vitest';
+import { hasLinkedMergedOrClosedPR, fetchLinkedPRs } from '../linkedPrDetector';
 import type { LinkedPRRef } from '../linkedPrDetector';
+import type { CodeHost, PullRequestRecord } from '../../providers/types';
+
+vi.mock('../../core/logger', () => ({ log: vi.fn() }));
 
 function makePR(overrides: Partial<LinkedPRRef> & { number: number; body: string }): LinkedPRRef {
   return {
@@ -69,5 +72,22 @@ describe('hasLinkedMergedOrClosedPR', () => {
   it('matches Implements #12 correctly when checking issue #12', () => {
     const prs = [makePR({ number: 23, body: 'Implements #12 some text', mergedAt: '2024-01-01T00:00:00Z' })];
     expect(hasLinkedMergedOrClosedPR(12, prs)).toBe(true);
+  });
+});
+
+describe('fetchLinkedPRs', () => {
+  it('returns the code host\'s records unchanged', () => {
+    const records: PullRequestRecord[] = [{ number: 1, body: 'Implements #42', state: 'MERGED', mergedAt: '2024-01-01T00:00:00Z' }];
+    const codeHost: Pick<CodeHost, 'listPullRequests'> = { listPullRequests: () => records };
+    expect(fetchLinkedPRs(codeHost)).toEqual(records);
+  });
+
+  it('returns [] and logs an error when listPullRequests throws', async () => {
+    const { log } = await import('../../core/logger');
+    const codeHost: Pick<CodeHost, 'listPullRequests'> = {
+      listPullRequests: () => { throw new Error('rate limited'); },
+    };
+    expect(fetchLinkedPRs(codeHost)).toEqual([]);
+    expect(log).toHaveBeenCalledWith(expect.stringContaining('Failed to fetch PRs for linked-PR detection'), 'error');
   });
 });

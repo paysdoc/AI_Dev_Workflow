@@ -24,6 +24,8 @@ import { evaluateCandidate, type TakeoverDeps, type CandidateDecision } from '..
 import type { AgentState } from '../../../adws/types/agentTypes.ts';
 import type { RepoIdentifier } from '../../../adws/providers/types.ts';
 import { Platform } from '../../../adws/providers/types.ts';
+import type { LaunchBoundary } from '../../../adws/core/index.ts';
+import type { GitContext } from '../../../adws/gitContext/index.ts';
 import { execSync } from 'child_process';
 
 // ---------------------------------------------------------------------------
@@ -801,7 +803,7 @@ Then('no orchestrator is spawned during the tick', function () {
     'utf-8',
   );
   assert.ok(
-    content.includes('if (await handleAuthGateTick()) return;'),
+    content.includes('if (await handleAuthGateTick(boundary)) return;'),
     'Expected early return on gate set in checkAndTrigger',
   );
 });
@@ -871,10 +873,10 @@ Then('scanAuthQueue does not run during the tick', function () {
     'utf-8',
   );
   assert.ok(
-    content.includes('if (await handleAuthGateTick()) return;'),
+    content.includes('if (await handleAuthGateTick(boundary)) return;'),
     'Expected early return guard before scanAuthQueue in checkAndTrigger',
   );
-  const earlyReturnIdx = content.indexOf('if (await handleAuthGateTick()) return;');
+  const earlyReturnIdx = content.indexOf('if (await handleAuthGateTick(boundary)) return;');
   const scanAuthIdx = content.indexOf('await scanAuthQueue(', earlyReturnIdx);
   assert.ok(
     scanAuthIdx > earlyReturnIdx,
@@ -905,6 +907,11 @@ When(
     assert.ok(ctx.takeoverState, 'Expected takeoverState to be set');
     const state = ctx.takeoverState;
     const repoInfo: RepoIdentifier = { owner: 'test-owner', repo: 'test-repo', platform: Platform.GitHub };
+    const boundary: LaunchBoundary = {
+      repoId: repoInfo,
+      gitContext: { worktreePathFor: () => '/tmp/feature-504-worktree' } as unknown as GitContext,
+      providers: {},
+    } as unknown as LaunchBoundary;
 
     const deps: TakeoverDeps = {
       acquireIssueSpawnLock: () => true,
@@ -929,7 +936,7 @@ When(
     };
 
     ctx.takeoverDecision = evaluateCandidate(
-      { issueNumber: state.issueNumber ?? 42, repoInfo },
+      { issueNumber: state.issueNumber ?? 42, boundary },
       deps,
     );
   },

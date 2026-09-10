@@ -39,7 +39,7 @@ import {
 import type { RepoIdentity } from '../types/agentTypes';
 import type { GitContext } from '../gitContext';
 import type { GitHubIssue } from '../providers/github/domain/issue';
-import type { WorkflowContext } from '../github/workflowCommentsIssue';
+import type { WorkflowContext } from '../forge/workflowCommentsIssue';
 import { gitContextForSync } from '../github/gitContextFactory';
 import { GITHUB_PAT } from '../core/environment';
 import type { BoundProviders, RepoContext, RepoIdentifier } from '../providers/types';

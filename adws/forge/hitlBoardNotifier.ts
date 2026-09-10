@@ -1,18 +1,18 @@
 /**
  * HITL board-event notifier — owns PR/issue lookup, message building, and Slack delivery.
- * No-throw at boundary. GitHub-layer: no providers/ import.
+ * No-throw at boundary. Nothing here constructs a GitContext or a provider: every
+ * reader is injected via `NotifierDeps`, and the one production reader set
+ * (`buildNotifierDeps`) is built over a `GitContext` the caller already holds.
  * Non-GitHub no-op is enforced by callers via Platform.GitHub guards.
  */
 
 import { log } from '../core';
 import { postSlack } from '../core/slackNotifier';
 import { bodyLinksIssue } from './issueLinkMarker';
-import { selectPreferredPR } from './prApi';
-import { gitContextForRepo } from './gitContextFactory';
+import { selectPreferredPR } from '../providers/github/ghPrParsers';
 import { createGhRepoApi } from '../providers/github/ghRepoApi';
 import type { RepoIdentifier } from '../providers/types';
-
-const gh = (repoInfo: RepoIdentifier) => createGhRepoApi(gitContextForRepo(repoInfo));
+import type { GitContext } from '../gitContext';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -33,10 +33,10 @@ interface HitlPREntry {
   readonly updatedAt: string;
 }
 
-/** Injected readers for testing — omit in production (defaults to real gh CLI calls). */
+/** Injected readers — the two forge reads a notification needs. */
 export interface NotifierDeps {
-  readIssue?: (issueNumber: number, repoInfo: RepoIdentifier) => HitlIssueInfo | null;
-  listOpenPRs?: (repoInfo: RepoIdentifier) => HitlPREntry[] | null;
+  readIssue: (issueNumber: number, repoInfo: RepoIdentifier) => HitlIssueInfo | null;
+  listOpenPRs: (repoInfo: RepoIdentifier) => HitlPREntry[] | null;
 }
 
 export interface NotifyReviewArgs {
@@ -52,42 +52,41 @@ export interface NotifyBlockedArgs {
 }
 
 // ---------------------------------------------------------------------------
-// Private defaults — real gh CLI reads
+// The one production reader set — over `createGhRepoApi(ctx)`, a bound view
+// of a context the caller already holds (never a construction): the same
+// `fetchIssue`/`fetchAllPRs` commands the legacy defaults issued.
 // ---------------------------------------------------------------------------
 
-function defaultReadIssue(issueNumber: number, repoInfo: RepoIdentifier): HitlIssueInfo | null {
-  try {
-    const raw = gh(repoInfo).fetchIssue(issueNumber);
-    const parsed = JSON.parse(raw) as { title: string; labels: { name: string }[] };
-    return { title: parsed.title, labels: parsed.labels };
-  } catch {
-    return null;
-  }
-}
-
-function defaultListOpenPRs(repoInfo: RepoIdentifier): HitlPREntry[] | null {
-  try {
-    const raw = gh(repoInfo).fetchAllPRs();
-    const allPrs = JSON.parse(raw) as Array<{
-      number: number;
-      body: string;
-      state: string;
-      mergedAt: string | null;
-    }>;
-    return allPrs
-      .filter((p) => p.state === 'OPEN')
-      .map((p) => ({
-        number: p.number,
-        url: `https://github.com/${repoInfo.owner}/${repoInfo.repo}/pull/${p.number}`,
-        body: p.body,
-        state: p.state,
-        headRefName: '',
-        baseRefName: '',
-        updatedAt: '',
-      }));
-  } catch {
-    return null;
-  }
+export function buildNotifierDeps(ctx: GitContext, repoId: RepoIdentifier): NotifierDeps {
+  const gh = createGhRepoApi(ctx);
+  return {
+    readIssue: (issueNumber) => {
+      try {
+        const raw = JSON.parse(gh.fetchIssue(issueNumber)) as { title: string; labels: { name: string }[] };
+        return { title: raw.title, labels: raw.labels };
+      } catch {
+        return null;
+      }
+    },
+    listOpenPRs: () => {
+      try {
+        const allPrs = JSON.parse(gh.fetchAllPRs()) as Array<{ number: number; body: string; state: string }>;
+        return allPrs
+          .filter((p) => p.state === 'OPEN')
+          .map((p) => ({
+            number: p.number,
+            url: `https://github.com/${repoId.owner}/${repoId.repo}/pull/${p.number}`,
+            body: p.body,
+            state: p.state,
+            headRefName: '',
+            baseRefName: '',
+            updatedAt: '',
+          }));
+      } catch {
+        return null;
+      }
+    },
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -97,10 +96,9 @@ function defaultListOpenPRs(repoInfo: RepoIdentifier): HitlPREntry[] | null {
 function readIssueTitleAndHitl(
   issueNumber: number,
   repoInfo: RepoIdentifier,
-  deps?: NotifierDeps,
+  deps: NotifierDeps,
 ): { title: string; hasHitl: boolean } | null {
-  const reader = deps?.readIssue ?? defaultReadIssue;
-  const info = reader(issueNumber, repoInfo);
+  const info = deps.readIssue(issueNumber, repoInfo);
   if (!info) return null;
   const hasHitl = info.labels.some((l) => l.name === 'hitl');
   return { title: info.title, hasHitl };
@@ -109,10 +107,9 @@ function readIssueTitleAndHitl(
 function findReviewPr(
   issueNumber: number,
   repoInfo: RepoIdentifier,
-  deps?: NotifierDeps,
+  deps: NotifierDeps,
 ): string | null {
-  const lister = deps?.listOpenPRs ?? defaultListOpenPRs;
-  const prs = lister(repoInfo);
+  const prs = deps.listOpenPRs(repoInfo);
   if (!prs) return null;
   const matched = prs.filter((pr) => bodyLinksIssue(pr.body, issueNumber));
   const chosen = selectPreferredPR(matched) as HitlPREntry | null;
@@ -129,7 +126,7 @@ function buildSnippet(errorMessage: string | undefined): string {
 
 export async function notifyReviewTransition(
   args: NotifyReviewArgs,
-  deps?: NotifierDeps,
+  deps: NotifierDeps,
 ): Promise<void> {
   const { issueNumber, repoInfo } = args;
   try {
@@ -147,7 +144,7 @@ export async function notifyReviewTransition(
 
 export async function notifyBlockedTransition(
   args: NotifyBlockedArgs,
-  deps?: NotifierDeps,
+  deps: NotifierDeps,
 ): Promise<void> {
   const { issueNumber, repoInfo, source, errorMessage } = args;
   try {

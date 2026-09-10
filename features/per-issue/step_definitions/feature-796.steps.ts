@@ -44,6 +44,7 @@ import type {
   BoardManager,
   IssueComment,
   PullRequestSummary,
+  PullRequestRecord,
   ReviewComment,
 } from '../../../adws/providers/types.ts';
 import { Platform } from '../../../adws/providers/types.ts';
@@ -93,6 +94,8 @@ export interface Fixture {
   prLinkedIssue: Map<number, number>;
   /** #820 §7: label names NOT yet defined on the repo — applyLabel lazy-creates and records 'createLabel', then removes the entry (idempotent create). */
   undefinedLabels: Set<string>;
+  /** #821: every PR of the repository (open, closed, merged) — CodeHost.listPullRequests()'s backing store. */
+  allPRs: PullRequestRecord[];
 }
 
 export interface World796 {
@@ -246,6 +249,7 @@ export function makeFixture(): Fixture {
     lastAdwCommit: new Map(),
     prLinkedIssue: new Map(),
     undefinedLabels: new Set(),
+    allPRs: [],
   };
 }
 
@@ -431,6 +435,10 @@ function makeRecordingCodeHost(fixture: Fixture, callLog: CallRecord[], repoId: 
     listMergedPullRequests(limit) {
       record(callLog, 'listMergedPullRequests', limit);
       return [];
+    },
+    listPullRequests() {
+      record(callLog, 'listPullRequests');
+      return fixture.allPRs;
     },
   };
 }
@@ -736,7 +744,12 @@ Given('an auto-merge phase configuration for issue {int} whose pull request is {
     },
     branchName,
     repoContext: undefined,
-    gitContext: undefined,
+    // #821 (dcdd8622) made executeAutoMergePhase skip with no provider call at all when
+    // gitContext is falsy — every scenario built from this fixture stops at the hitl-label
+    // gate (no scenario here has an approved PR), so a non-functional stub is sufficient;
+    // scenarios that need to watch it override this via "the configuration's git context
+    // is watched for forge-semantic calls" below.
+    gitContext: makeStubGitContext(),
   } as unknown as WorkflowConfig;
 });
 

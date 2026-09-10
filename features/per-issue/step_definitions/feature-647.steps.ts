@@ -26,7 +26,7 @@ import { postSlack } from '../../../adws/core/slackNotifier.ts';
 import {
   notifyReviewTransition,
   type NotifierDeps,
-} from '../../../adws/github/hitlBoardNotifier.ts';
+} from '../../../adws/forge/hitlBoardNotifier.ts';
 import { Platform } from '../../../adws/providers/types.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));

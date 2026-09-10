@@ -19,6 +19,8 @@ import type { AgentState } from '../../../adws/types/agentTypes.ts';
 import type { RepoIdentifier } from '../../../adws/providers/types.ts';
 import { Platform } from '../../../adws/providers/types.ts';
 import type { WorkflowStage } from '../../../adws/types/workflowTypes.ts';
+import type { LaunchBoundary } from '../../../adws/core/index.ts';
+import type { GitContext } from '../../../adws/gitContext/index.ts';
 import { probeCtx, healthyProbe } from './takeover-probe-ctx.ts';
 
 // ---------------------------------------------------------------------------
@@ -27,6 +29,11 @@ import { probeCtx, healthyProbe } from './takeover-probe-ctx.ts';
 
 export const FIXED_ADW_ID = 'test-adwid-636';
 const REPO: RepoIdentifier = { owner: 'test-owner', repo: 'test-repo', platform: Platform.GitHub };
+const FAKE_BOUNDARY: LaunchBoundary = {
+  repoId: REPO,
+  gitContext: { worktreePathFor: () => '/tmp/feature-636-worktree' } as unknown as GitContext,
+  providers: {},
+} as unknown as LaunchBoundary;
 
 interface CronCtx {
   issueNumber: number;
@@ -246,7 +253,7 @@ When('the takeover handler evaluates the candidate', function () {
   };
 
   takeoverCtx.decision = evaluateCandidate(
-    { issueNumber: takeoverCtx.issueNumber, repoInfo: REPO },
+    { issueNumber: takeoverCtx.issueNumber, boundary: FAKE_BOUNDARY },
     deps,
   );
   takeoverCtx.resetCalls = resets;

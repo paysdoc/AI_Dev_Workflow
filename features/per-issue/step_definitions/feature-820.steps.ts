@@ -53,7 +53,7 @@ import type { GitHubLabel } from '../../../adws/providers/github/domain/issue.ts
 import type { ReviewComment, RepoContext } from '../../../adws/providers/types.ts';
 import { Platform } from '../../../adws/providers/types.ts';
 import type { WorkflowConfig } from '../../../adws/phases/workflowInit.ts';
-import type { WorkflowContext } from '../../../adws/github/workflowCommentsIssue.ts';
+import type { WorkflowContext } from '../../../adws/forge/workflowCommentsIssue.ts';
 
 import { clearIssueComments } from '../../../adws/adwClearComments.tsx';
 import { publishPrProof } from '../../../adws/proof/prProofPublisher.ts';
@@ -168,6 +168,23 @@ function resetLocalState(): void {
 function requireConfig(): WorkflowConfig {
   assert.ok(s.workflowConfig, 'Expected a workflow configuration to have been built first');
   return s.workflowConfig!;
+}
+
+/**
+ * Cross-file setters (feature-796's `noteBranchHasNoPullRequest` precedent) so
+ * feature-821's own When steps can drive this file's Then phrases — "the
+ * reconciled stage is …", "the classification is …", "the unaddressed comments
+ * are exactly …" — through a takeover/gatekeeper/prCommentDetector entry point
+ * without redefining the (already-registered) Then steps that read `s`.
+ */
+export function setReconciledStage(stage: string | null): void {
+  s.reconciledStage = stage;
+}
+export function setClassificationResult(result: IssueClassificationResult): void {
+  s.classificationResult = result;
+}
+export function setUnaddressedComments(comments: ReviewComment[]): void {
+  s.unaddressedComments = comments;
 }
 
 function activateClaudeCliStub(): void {
@@ -592,7 +609,7 @@ When(
     assert.ok(w.boundary, 'Expected a launch boundary to have been built');
     w.usedAdwIds.add(adwId);
     const deps = { ...buildDefaultReconcileDeps(w.boundary), branchExistsOnRemote: () => true };
-    s.reconciledStage = deriveStageFromRemote(0, adwId, w.boundary.repoId, deps);
+    s.reconciledStage = deriveStageFromRemote(adwId, deps);
   },
 );
 

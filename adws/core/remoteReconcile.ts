@@ -17,7 +17,7 @@ import { log } from './utils';
 import type { AgentState } from '../types/agentTypes';
 import type { WorkflowStage } from '../types/workflowTypes';
 import type { LaunchBoundary } from './launchGitContext';
-import type { PullRequestSummary, RepoIdentifier } from '../providers/types';
+import type { PullRequestSummary } from '../providers/types';
 import type { GitContext } from '../gitContext';
 
 export const MAX_RECONCILE_VERIFICATION_RETRIES = 3;
@@ -69,18 +69,11 @@ function defaultBranchExistsOnRemote(gitContext: Pick<GitContext, 'lsRemote'>, b
 /**
  * Derives the authoritative WorkflowStage for an ADW run from remote artifacts.
  *
- * The issueNumber and repoInfo parameters are ignored by this function itself
- * (kept, unused, so the boundary-less trigger callers' call shape is untouched
- * until #821); `deps` carries the only wiring this function reads. A caller
- * holding a launch boundary passes `buildDefaultReconcileDeps(boundary)`; a
- * boundary-less caller (`takeoverHandler.ts`) builds its own legacy-backed
- * `ReconcileDeps` — that wiring cannot run hermetically, so it stays at the
- * caller rather than living here as a default.
+ * `deps` carries the only wiring this function reads. A caller holding a
+ * launch boundary passes `buildDefaultReconcileDeps(boundary)`.
  */
 export function deriveStageFromRemote(
-  _issueNumber: number,
   adwId: string,
-  _repoInfo: RepoIdentifier,
   deps: ReconcileDeps,
 ): WorkflowStage {
   const state = deps.readTopLevelState(adwId);

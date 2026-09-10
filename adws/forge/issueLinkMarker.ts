@@ -1,4 +1,10 @@
 /**
+ * adws/forge/ — ADW application helpers built ON TOP of the forge providers
+ * (comment formatting, HITL notification, issue-link detection, label
+ * provisioning). Nothing here constructs a `GitContext` or a provider: every
+ * helper takes a port, a `LaunchBoundary`, or a `GitContext` the caller
+ * already holds (#821). Not extractable — this is ADW, not the library.
+ *
  * Canonical issue-link marker contract for PR bodies.
  *
  * ADW PR bodies reference their originating issue with GitHub closing keywords.

@@ -31,6 +31,16 @@ export {
   shouldExecuteStage,
   hasUncommittedChanges,
   getNextStage,
+  // Unaddressed PR-review comment filter
+  getLastAdwCommitTimestamp,
+  // Workflow comment parsing (platform-agnostic)
+  STAGE_ORDER,
+  parseWorkflowStageFromComment,
+  extractAdwIdFromComment,
+  extractBranchNameFromComment,
+  extractPrUrlFromComment,
+  extractPlanPathFromComment,
+  detectRecoveryState,
 } from './core';
 
 // Agents module - Claude Code agent runners
@@ -59,34 +69,16 @@ export {
   generateBranchName,
 } from './vcs';
 
-// GitHub module - GitHub API and workflow comments
+// Forge helpers - workflow comment formatters
 export {
-  getRepoInfo,
-  fetchGitHubIssue,
-  fetchPRDetails,
-  fetchPRReviews,
-  fetchPRReviewComments,
-  commentOnPR,
-  fetchPRList,
-  commentOnIssue,
-  fetchIssueCommentsRest,
-  deleteIssueComment,
-  getLastAdwCommitTimestamp,
-  getUnaddressedComments,
-  hasUnaddressedComments,
-  STAGE_ORDER,
-  parseWorkflowStageFromComment,
-  extractAdwIdFromComment,
-  extractBranchNameFromComment,
-  extractPrUrlFromComment,
-  extractPlanPathFromComment,
-  detectRecoveryState,
   formatResumingComment,
   formatWorkflowComment,
-  formatPRReviewWorkflowComment,
   type WorkflowContext,
+} from './forge/workflowCommentsIssue';
+export {
+  formatPRReviewWorkflowComment,
   type PRReviewWorkflowContext,
-} from './github';
+} from './forge/workflowCommentsPR';
 
 // Workflow Phases - Composable orchestrator phase functions
 export {

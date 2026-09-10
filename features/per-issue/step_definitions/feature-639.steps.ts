@@ -38,7 +38,7 @@ import {
 import { AGENTS_STATE_DIR } from '../../../adws/core/index.ts';
 import type { AgentState } from '../../../adws/types/agentTypes.ts';
 import { nextResumeAction } from '../../../adws/core/resumePolicy.ts';
-import { formatHumanGatedComment } from '../../../adws/github/workflowCommentsIssue.ts';
+import { formatHumanGatedComment } from '../../../adws/forge/workflowCommentsIssue.ts';
 import type { RepoIdentifier } from '../../../adws/providers/types.ts';
 import { Platform } from '../../../adws/providers/types.ts';
 import type { RegressionWorld } from '../../regression/step_definitions/world.ts';

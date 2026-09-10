@@ -140,6 +140,14 @@ export interface MergedPullRequestRecord {
   mergedAt: string | null;
 }
 
+/** Every PR of the repository — open, closed or merged — projected to what issue-link detection needs. `state` is the forge-native vocabulary `PullRequestSummary.state` already carries. */
+export interface PullRequestRecord {
+  number: number;
+  body: string;
+  state: string;
+  mergedAt: string | null;
+}
+
 /**
  * Interface for issue tracking operations across platforms.
  * Maps 1:1 to existing GitHub issue operations for seamless migration.
@@ -261,6 +269,8 @@ export interface CodeHost {
   setSecret(name: string, value: string): void;
   /** Merged PRs, newest first, at most `limit`. Throws on failure. */
   listMergedPullRequests(limit: number): readonly MergedPullRequestRecord[];
+  /** Every PR of the repository (open, closed and merged), newest first, at most the forge's page cap. Throws on failure — callers own the swallow policy. */
+  listPullRequests(): readonly PullRequestRecord[];
   /** Login the code host's commands run as; `null` when it cannot be determined (best-effort, warns once per instance). */
   getAuthenticatedUser(): string | null;
   /**

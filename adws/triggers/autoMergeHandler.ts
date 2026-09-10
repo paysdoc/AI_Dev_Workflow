@@ -7,10 +7,8 @@
 
 import * as path from 'path';
 import { log, MAX_AUTO_MERGE_ATTEMPTS } from '../core';
-import { mergePR } from '../github';
-import type { RepoIdentifier } from '../providers/types';
+import type { CodeHost } from '../providers/types';
 import { runClaudeAgentWithCommand } from '../agents';
-import { gitContextForRepo } from '../github/gitContextFactory';
 import type { GitContext } from '../gitContext';
 
 const maxAttempts = MAX_AUTO_MERGE_ATTEMPTS;
@@ -144,16 +142,16 @@ function syncWorktreeToOriginHead(headBranch: string, cwd: string, ctx: GitConte
  */
 export async function mergeWithConflictResolution(
   prNumber: number,
-  repoInfo: RepoIdentifier,
+  codeHost: Pick<CodeHost, 'mergePullRequest'>,
   headBranch: string,
   baseBranch: string,
   worktreePath: string,
   adwId: string,
   logsDir: string,
   specPath: string,
-  gitContext?: GitContext,
+  gitContext: GitContext,
 ): Promise<{ success: boolean; error?: string }> {
-  const ctx = gitContext ?? gitContextForRepo(repoInfo);
+  const ctx = gitContext;
   let lastMergeError = '';
 
   // Pull origin's view of the head branch into the worktree so checkMergeConflicts and resolveConflictsViaAgent reason about the same commit GitHub will merge.
@@ -179,7 +177,7 @@ export async function mergeWithConflictResolution(
       continue;
     }
 
-    const mergeResult = mergePR(prNumber, repoInfo);
+    const mergeResult = codeHost.mergePullRequest(prNumber);
     if (mergeResult.success) {
       log(`PR #${prNumber} merged successfully on attempt ${attempt}`, 'success');
       return { success: true };

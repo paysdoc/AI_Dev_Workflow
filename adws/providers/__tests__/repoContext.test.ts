@@ -1,13 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('../../github/hitlBoardNotifier', () => ({ notifyReviewTransition: vi.fn() }));
+vi.mock('../../forge/hitlBoardNotifier', () => ({
+  notifyReviewTransition: vi.fn(),
+  buildNotifierDeps: vi.fn(() => ({ readIssue: vi.fn(), listOpenPRs: vi.fn() })),
+}));
 
 import { parseOwnerRepoFromUrl, mintBoundProviders, resolveAdwLabelDefinition } from '../repoContext';
 import { Platform, BoardStatus, type RepoIdentifier } from '../types';
 import { GitContext } from '../../gitContext';
 import type { GitContextOptions, ExecFn } from '../../gitContext';
 import { createLiteralTokenProvider } from '../github/githubTokenProvider';
-import { notifyReviewTransition } from '../../github/hitlBoardNotifier';
+import { notifyReviewTransition } from '../../forge/hitlBoardNotifier';
 
 const notifyMock = vi.mocked(notifyReviewTransition);
 

@@ -47,6 +47,7 @@ import type { WorkflowConfig } from './phases';
 import { AuthRequiredError } from './types/agentTypes';
 import { handleAuthRequiredPause } from './phases/authPause';
 import { decidePostReviewOutcome } from './phases/decidePostReviewOutcome';
+import { buildNotifierDeps } from './forge/hitlBoardNotifier';
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
@@ -62,7 +63,7 @@ async function main(): Promise<void> {
   const invocation = resolvePrReviewInvocation(args, {
     readTopLevelState: (id) => AgentStateManager.readTopLevelState(id),
     findPullRequestByBranch: (b) => boundary.providers.codeHost.findPullRequestByBranch(b),
-    resolveSpawn: (n) => resolvePrReviewSpawn(n, boundary.repoId),
+    resolveSpawn: (n) => resolvePrReviewSpawn(n, boundary.providers),
   });
   if (invocation.kind === 'error') {
     console.error(invocation.message);
@@ -126,7 +127,13 @@ async function main(): Promise<void> {
     if (error instanceof AuthRequiredError) {
       handleAuthRequiredPause(config.base, error, tracker.totalCostUsd, tracker.totalModelUsage);
     }
-    await handlePRReviewWorkflowError(config, error, tracker.totalCostUsd, tracker.totalModelUsage);
+    await handlePRReviewWorkflowError(
+      config,
+      error,
+      tracker.totalCostUsd,
+      tracker.totalModelUsage,
+      buildNotifierDeps(boundary.gitContext, boundary.repoId),
+    );
   }
 }
 

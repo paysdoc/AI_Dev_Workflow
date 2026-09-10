@@ -27,7 +27,7 @@ import {
 } from '../../../adws/triggers/cronIssueFilter.ts';
 import { evaluateLabelRecovery } from '../../../adws/triggers/cronLabelEligibility.ts';
 import type { LabelRecoveryResult } from '../../../adws/triggers/cronLabelEligibility.ts';
-import type { LinkedPRRef } from '../../../adws/github/linkedPrDetector.ts';
+import type { LinkedPRRef } from '../../../adws/forge/linkedPrDetector.ts';
 import type { StageResolution } from '../../../adws/triggers/cronStageResolver.ts';
 import type { RegressionWorld } from '../../regression/step_definitions/world.ts';
 import type { MockContext, RecordedRequest } from '../../../test/mocks/types.ts';

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { formatRotAdvisoryComment } from '../rotAdvisoryFormat';
-import { hasRegressionPromotionLabel } from '../../github/labelManager';
+import { hasRegressionPromotionLabel } from '../../core/adwLabels';
 import type { RotVerdict } from '../../agents/rotAnalysisAgent';
 
 describe('formatRotAdvisoryComment', () => {

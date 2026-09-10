@@ -52,8 +52,8 @@ vi.mock('../../core/pauseQueue', () => ({
   updatePauseQueueEntry: vi.fn(),
 }));
 
-vi.mock('../../github', () => ({
-  getRepoInfo: vi.fn(() => ({ owner: 'test-owner', repo: 'test-repo' })),
+vi.mock('../../providers/github/githubIdentity', () => ({
+  readLocalRepoInfo: vi.fn(() => ({ owner: 'test-owner', repo: 'test-repo' })),
 }));
 
 vi.mock('../../phases/phaseCommentHelpers', () => ({

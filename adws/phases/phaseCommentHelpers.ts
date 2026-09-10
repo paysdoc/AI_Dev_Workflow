@@ -7,8 +7,8 @@
  */
 
 import { type WorkflowStage, type PRReviewWorkflowStage, log } from '../core';
-import { formatWorkflowComment, type WorkflowContext } from '../github/workflowCommentsIssue';
-import { formatPRReviewWorkflowComment, type PRReviewWorkflowContext } from '../github/workflowCommentsPR';
+import { formatWorkflowComment, type WorkflowContext } from '../forge/workflowCommentsIssue';
+import { formatPRReviewWorkflowComment, type PRReviewWorkflowContext } from '../forge/workflowCommentsPR';
 import type { RepoContext } from '../providers/types';
 
 /**

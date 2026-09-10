@@ -90,7 +90,7 @@ import { defaultGetMergedAt } from '../../../adws/triggers/perIssueScenarioSweep
 import { prepareSweepBase, persistRemovalViaPr } from '../../../adws/triggers/perIssueSweepPersist.ts';
 import { buildDefaultReconcileDeps, deriveStageFromRemote } from '../../../adws/core/remoteReconcile.ts';
 import { postIssueStageComment } from '../../../adws/phases/phaseCommentHelpers.ts';
-import { formatWorkflowComment, type WorkflowContext } from '../../../adws/github/workflowCommentsIssue.ts';
+import { formatWorkflowComment, type WorkflowContext } from '../../../adws/forge/workflowCommentsIssue.ts';
 import { buildDefaultTakeoverDeps } from '../../../adws/triggers/takeoverHandler.ts';
 
 import { scanFiles, collectTsFiles } from '../../../adws/checkGitGhGuard.ts';
@@ -351,6 +351,10 @@ function makeRecordingCodeHost(fixture: Fixture797, callLog: CallRecord[], repoI
     listMergedPullRequests(limit) {
       callLog.push({ op: 'listMergedPullRequests', args: [limit] });
       return fixture.mergedPRs;
+    },
+    listPullRequests() {
+      callLog.push({ op: 'listPullRequests', args: [] });
+      return [];
     },
     getAuthenticatedUser() {
       callLog.push({ op: 'getAuthenticatedUser', args: [] });
@@ -778,7 +782,7 @@ Given('the recording code host holds a pull request {int} on branch {string} in 
 When('the remote reconcile derives the stage for adw id {string} from that boundary', function (adwId: string) {
   const boundary = requireBoundary();
   const deps = buildDefaultReconcileDeps(boundary);
-  bw.derivedStage = deriveStageFromRemote(0, adwId, boundary.repoId, deps);
+  bw.derivedStage = deriveStageFromRemote(adwId, deps);
 });
 
 Then('the derived stage is {string}', function (stage: string) {
@@ -848,9 +852,8 @@ Given('issue {int} carries an adw-id comment for {string} followed by one for {s
 
 When('the takeover handler resolves the adw id for issue {int} from that boundary', function (issueNumber: number) {
   const boundary = requireBoundary();
-  const repoInfo = boundary.repoId;
-  const deps = buildDefaultTakeoverDeps(repoInfo, boundary);
-  bw.resolvedAdwId = deps.resolveAdwId(issueNumber, repoInfo);
+  const deps = buildDefaultTakeoverDeps(boundary);
+  bw.resolvedAdwId = deps.resolveAdwId(issueNumber, boundary.repoId);
 });
 
 Then('the resolved adw id is {string}', function (adwId: string) {

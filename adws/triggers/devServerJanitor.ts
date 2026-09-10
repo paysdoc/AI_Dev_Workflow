@@ -25,7 +25,7 @@ import { AgentStateManager } from '../core/agentState';
 import { isAgentProcessRunning } from '../core/stateHelpers';
 import { isActiveStage } from './cronStageResolver';
 import { killProcessesInDirectory } from '../gitContext';
-import { gitContextForSync } from '../github';
+import { gitContextForSync } from '../github/gitContextFactory';
 import type { AgentState } from '../types/agentTypes';
 
 // ---------------------------------------------------------------------------

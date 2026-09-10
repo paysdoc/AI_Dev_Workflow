@@ -32,6 +32,7 @@ import { parseKeywordProximityDependencies } from '../../../adws/triggers/issueD
 import type { RepoIdentifier } from '../../../adws/providers/types.ts';
 import { Platform } from '../../../adws/providers/types.ts';
 import type { EligibilityResult } from '../../../adws/triggers/issueEligibility.ts';
+import type { LaunchBoundary } from '../../../adws/core/index.ts';
 
 // ── Per-scenario state ──────────────────────────────────────────────────────────
 
@@ -134,7 +135,8 @@ Given(
 When(
   'the issue-closed dependency unblock runs for closed issue {int}',
   async function (closedIssueNumber: number) {
-    await handleIssueClosedDependencyUnblock(closedIssueNumber, ctx.repoInfo, [], undefined, buildRecordingDeps());
+    const fakeBoundary = { repoId: ctx.repoInfo, providers: {} } as unknown as LaunchBoundary;
+    await handleIssueClosedDependencyUnblock(closedIssueNumber, fakeBoundary, [], buildRecordingDeps());
   },
 );
 
