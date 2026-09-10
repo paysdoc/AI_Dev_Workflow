@@ -16,7 +16,7 @@
  * §2-§6 share ONE "world": `bw` (boundary world). Its Given —
  * "the repository {string} is launched with recording providers" — builds a
  * REAL `LaunchBoundary` via the production `buildLaunchBoundary`, injecting
- * `mintProviders` so `.providers` resolves to this file's own recording
+ * `forgeProviders` so `.providers` resolves to this file's own recording
  * `IssueTracker`/`CodeHost` stand-ins (a fixture-backed fake, never a hand-typed
  * deps bag) and wrapping `.gitContext` in a forge-semantic-access watcher
  * (this file's own copy of feature-796's Proxy pattern, one step further:
@@ -76,7 +76,7 @@ import {
 } from '../../../adws/providers/types.ts';
 import { buildLaunchBoundary } from '../../../adws/core/launchGitContext.ts';
 import type { LaunchBoundary, LaunchGitContextDeps } from '../../../adws/core/launchGitContext.ts';
-import type { MintProvidersOptions } from '../../../adws/providers/repoContext.ts';
+import type { ForgeProvidersOptions } from '../../../adws/providers/forgeProviders.ts';
 import { AgentStateManager } from '../../../adws/core/agentState.ts';
 import { AGENTS_STATE_DIR, LOGS_DIR } from '../../../adws/core/config.ts';
 import type { WorkflowStage } from '../../../adws/types/workflowTypes.ts';
@@ -442,13 +442,13 @@ function seedRealBoundaryRepo(targetReposDir: string, owner: string, repo: strin
   return { bareRemote, workdir };
 }
 
-/** `mintProviders` for the recording boundary — counts the call and hands back this file's recording tracker/host over `bw.fixture`. */
-function mintRecordingProviders(options: MintProvidersOptions): BoundProviders {
+/** `forgeProviders` seam for the recording boundary — counts the call and hands back this file's recording tracker/host over `bw.fixture`. */
+function mintRecordingProviders(options: ForgeProvidersOptions): BoundProviders {
   bw.mintCallCount += 1;
   assert.ok(bw.fixture, 'Expected a fixture to have been created before minting providers');
   return {
     issueTracker: makeRecordingIssueTracker(bw.fixture, bw.callLog),
-    codeHost: makeRecordingCodeHost(bw.fixture, bw.callLog, options.repoId),
+    codeHost: makeRecordingCodeHost(bw.fixture, bw.callLog, options.identity),
   };
 }
 
@@ -474,7 +474,7 @@ function buildRecordingBoundary(owner: string, repo: string): void {
     resolveGitIdentity: () => FIXED_IDENTITY,
     frameworkRepoRoot: bw.frameworkRoot,
     targetReposDir: bw.targetReposDir,
-    mintProviders: mintRecordingProviders,
+    forgeProviders: mintRecordingProviders,
   };
 
   const raw = buildLaunchBoundary({ owner, repo, cloneUrl: `https://example.invalid/${owner}/${repo}.git` }, deps);

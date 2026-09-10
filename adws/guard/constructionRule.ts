@@ -45,13 +45,21 @@ export const PROVIDER_CONSTRUCTORS: ReadonlySet<string> = new Set([
   'createJiraBoardManager',
 ]);
 
-/** The RepoContext factory and the GitContext factories. */
+/**
+ * The RepoContext factory, the GitContext factories, and the assembly
+ * function — the retired names (`createRepoContext`, `mintBoundProviders`,
+ * `gitContextFor*`) stay after #823 deletes their declarations: this is a
+ * NAME-based AST match, not a file reference, and keeping them is what stops
+ * a boundary-free construction path reintroduced under a familiar name
+ * (PRD story 24; see `identityRule.ts`'s `getRepoInfo` precedent).
+ */
 export const CONTEXT_CONSTRUCTORS: ReadonlySet<string> = new Set([
   'createRepoContext',
   'mintBoundProviders',
   'gitContextFor',
   'gitContextForSync',
   'gitContextForRepo',
+  'forgeProviders',
 ]);
 
 /** Matched only as a `ts.NewExpression` callee — `new GitContext(…)`. */
@@ -63,41 +71,26 @@ export const GIT_CONTEXT_CLASS_NAME = 'GitContext';
 
 /**
  * The file-scoped allowlist of sites permitted to construct a provider or a
- * context, split into two halves:
+ * context — exactly two PERMANENT entries (no `owner`), the launch boundary
+ * and the assembly module it calls. Nothing will ever remove these, and
+ * NOTHING MAY EVER BE ADDED TO THIS LIST — a new construction site must call
+ * `buildLaunchBoundary`, not join it.
  *
- *  - PERMANENT (2, no `owner`) — the launch boundary and the mint
- *    implementation it delegates to. Nothing will ever remove these.
- *  - SUNSET (owned by #823) — #822 retired every #796-migration-wave entry:
- *    the worktree-owning phases, `orchestratorLib`, `healthCheck`,
- *    `worktreeOperations`, and the five trigger files that used to call
- *    `gitContextForSync`/`gitContextForRepo` directly (`takeoverHandler`,
- *    `cancelHandler`, `devServerJanitor`, `trigger_webhook`,
- *    `webhookHandlers`) all take a threaded GitContext now — none of them
- *    construct one. The single entry left is the file that DEFINES the
- *    retired factories, `adws/github/gitContextFactory.ts`; #823 deletes
- *    that file outright and takes this half to zero. NOTHING MAY EVER BE
- *    ADDED TO THIS HALF — a new construction site must call
- *    `buildLaunchBoundary`, not join this list.
- *
- * #821 deleted the legacy `adws/github/*` free-function layer outright —
- * `issueApi.ts`, `prApi.ts`, `projectBoardApi.ts`, `issueListApi.ts`,
- * `githubApi.ts`, `hitlBoardNotifier.ts`, `linkedPrDetector.ts` and
- * `prCommentDetector.ts` no longer exist, and the ADW-application survivors
- * relocated to `adws/forge/` construct nothing — so their transitional
- * entries are gone, not migrated. `autoMergeHandler.ts` lost its fallback
- * construction the same way. #797 closed every provider/RepoContext
- * construction site — `createRepoContext` and the forge provider factories
- * (`createGitHubCodeHost` and siblings) are now called only from
- * `adws/providers/repoContext.ts` and `adws/core/launchGitContext.ts`, so no
- * entry in this list is owned by #797 any longer.
+ * #823 took the SUNSET half to zero: `adws/providers/repoContext.ts` (the
+ * mint implementation) and `adws/github/gitContextFactory.ts` (the last
+ * `gitContextFor*`/`GitContext` factory definition) are both deleted, their
+ * construction role absorbed into `adws/providers/forgeProviders.ts`. Before
+ * that, #822 had already retired every #796-migration-wave transitional
+ * entry — the worktree-owning phases, `orchestratorLib`, `healthCheck`,
+ * `worktreeOperations`, and the five trigger files that used to call
+ * `gitContextForSync`/`gitContextForRepo` directly all take a threaded
+ * GitContext now — and #821 deleted the legacy `adws/github/*` free-function
+ * layer outright, so no entry in this list is owned by #821, #822 or #797
+ * any longer.
  */
 export const SANCTIONED_CONSTRUCTION_SITES = [
-  // ── Permanent (2) ──────────────────────────────────────────────────────
-  { file: 'adws/core/launchGitContext.ts', reason: 'the launch boundary: the one sanctioned construction site (PRD story 6)' },
-  { file: 'adws/providers/repoContext.ts', reason: 'the mint implementation the boundary delegates to' },
-
-  // ── Sunset (#823 — the last gitContextFor*/GitContext factory definition) ──
-  { file: 'adws/github/gitContextFactory.ts', reason: 'defines gitContextFor/gitContextForSync/gitContextForRepo via new GitContext(...); #823 deletes this file with the boundary rewire', owner: '#823' },
+  { file: 'adws/core/launchGitContext.ts', reason: 'the launch boundary: constructs the one GitContext and calls forgeProviders (PRD story 6)' },
+  { file: 'adws/providers/forgeProviders.ts', reason: 'the assembly module: the only site that calls the adapter factories' },
 ] as const;
 
 /** True when `relPath` exactly matches a sanctioned site. Exact path match only — a directory prefix is never sanctioned. */

@@ -14,7 +14,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { log, REPO_ROOT, buildLaunchBoundary } from './core';
-import { readLocalRepoInfo } from './github/gitContextFactory';
+import { readLocalRepoInfo } from './providers/github/githubIdentity';
 import type { GitContext } from './gitContext/gitContext';
 import {
   checkEnvironmentVariables,

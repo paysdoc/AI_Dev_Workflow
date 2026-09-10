@@ -2,8 +2,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { loadProviderConfig, parsePlatform } from '../providerConfig';
-import { Platform } from '../../providers/types';
+import { loadProviderConfig, parseCodeHostForge, parseIssueTrackerForge } from '../providerConfig';
 
 let tempDir: string | null = null;
 
@@ -20,9 +19,9 @@ function makeWorkspace(): string {
 }
 
 describe('loadProviderConfig', () => {
-  it('defaults to GitHub for both platforms when .adw/providers.md is absent', () => {
+  it('defaults to github for both forges when .adw/providers.md is absent', () => {
     const cwd = makeWorkspace();
-    expect(loadProviderConfig(cwd)).toEqual({ codeHost: Platform.GitHub, issueTracker: Platform.GitHub });
+    expect(loadProviderConfig(cwd)).toEqual({ codeHost: 'github', issueTracker: 'github' });
   });
 
   it('parses a Code Host section and an Issue Tracker URL section', () => {
@@ -35,24 +34,66 @@ describe('loadProviderConfig', () => {
 
     const config = loadProviderConfig(cwd);
 
-    expect(config.codeHost).toBe(Platform.GitLab);
-    expect(config.issueTracker).toBe(Platform.GitHub);
+    expect(config.codeHost).toBe('gitlab');
+    expect(config.issueTracker).toBe('github');
     expect(config.issueTrackerUrl).toBe('https://example.atlassian.net');
   });
 
-  it('throws naming the section and the unknown platform', () => {
+  it('accepts jira under Issue Tracker', () => {
     const cwd = makeWorkspace();
     mkdirSync(join(cwd, '.adw'), { recursive: true });
-    writeFileSync(join(cwd, '.adw', 'providers.md'), '## Code Host\nbitbucketX\n');
+    writeFileSync(
+      join(cwd, '.adw', 'providers.md'),
+      '## Issue Tracker\njira\n\n## Issue Tracker URL\nhttps://example.atlassian.net\n\n## Issue Tracker Project Key\nADW\n',
+    );
+
+    const config = loadProviderConfig(cwd);
+
+    expect(config.issueTracker).toBe('jira');
+    expect(config.issueTrackerProjectKey).toBe('ADW');
+  });
+
+  it('refuses gitlab under Issue Tracker, naming the section and the value', () => {
+    const cwd = makeWorkspace();
+    mkdirSync(join(cwd, '.adw'), { recursive: true });
+    writeFileSync(join(cwd, '.adw', 'providers.md'), '## Issue Tracker\ngitlab\n');
 
     expect(() => loadProviderConfig(cwd)).toThrow(
-      'Unknown platform "bitbucketX" in ## Code Host section of .adw/providers.md',
+      'Unsupported issue tracker "gitlab" in ## Issue Tracker section of .adw/providers.md (expected one of: github, jira)',
+    );
+  });
+
+  it('refuses bitbucket under Code Host, naming the section and the value', () => {
+    const cwd = makeWorkspace();
+    mkdirSync(join(cwd, '.adw'), { recursive: true });
+    writeFileSync(join(cwd, '.adw', 'providers.md'), '## Code Host\nbitbucket\n');
+
+    expect(() => loadProviderConfig(cwd)).toThrow(
+      'Unsupported code host "bitbucket" in ## Code Host section of .adw/providers.md (expected one of: github, gitlab)',
+    );
+  });
+
+  it('refuses an unrecognised value under Code Host', () => {
+    const cwd = makeWorkspace();
+    mkdirSync(join(cwd, '.adw'), { recursive: true });
+    writeFileSync(join(cwd, '.adw', 'providers.md'), '## Code Host\nbananas\n');
+
+    expect(() => loadProviderConfig(cwd)).toThrow(
+      'Unsupported code host "bananas" in ## Code Host section of .adw/providers.md (expected one of: github, gitlab)',
     );
   });
 });
 
-describe('parsePlatform', () => {
+describe('parseCodeHostForge', () => {
   it('is case-insensitive', () => {
-    expect(parsePlatform('GitHub', '## Code Host')).toBe(Platform.GitHub);
+    expect(parseCodeHostForge('GitHub', '## Code Host')).toBe('github');
+    expect(parseCodeHostForge('GITLAB', '## Code Host')).toBe('gitlab');
+  });
+});
+
+describe('parseIssueTrackerForge', () => {
+  it('is case-insensitive', () => {
+    expect(parseIssueTrackerForge('GitHub', '## Issue Tracker')).toBe('github');
+    expect(parseIssueTrackerForge('JIRA', '## Issue Tracker')).toBe('jira');
   });
 });

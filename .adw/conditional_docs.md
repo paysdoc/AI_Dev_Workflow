@@ -155,12 +155,11 @@
 
 - app_docs/feature-9gjajh-github-api.md
   - Owns:
-    - adws/github/**
     - adws/forge/**
   - Conditions:
     - When working on the ADW-application forge helpers in `adws/forge/`: comment formatting (`workflowCommentsIssue.ts`, `workflowCommentsPR.ts`, `workflowCommentsBase.ts`, `proofCommentFormatter.ts`), the HITL board notifier (`hitlBoardNotifier.ts`), linked-PR detection (`linkedPrDetector.ts`), PR review comment detection (`prCommentDetector.ts`), the issue-link marker (`issueLinkMarker.ts`), or adw:* label provisioning (`adwLabelProvisioning.ts`)
-    - When working on the two remaining files in `adws/github/` — `gitContextFactory.ts` (the `gitContextFor`/`gitContextForSync`/`gitContextForRepo` factories) and `githubAppAuth.ts` (a re-export shim for `adws/core/githubAppAuth.ts`) — both retired by #823
-    - When `notifyReviewTransition`/`notifyBlockedTransition` are referenced — they take a required `NotifierDeps` (no more optional/defaulted internal readers); `buildNotifierDeps(ctx, repoId)` moved to `hitlBoardNotifier.ts` from `adws/providers/repoContext.ts`, which now imports it
+    - When `adws/github/`, `gitContextFactory.ts`, `gitContextFor`/`gitContextForSync`/`gitContextForRepo`, or the `githubAppAuth.ts` re-export shim are referenced and not found — the whole directory was deleted in #823; `readLocalRepoInfo` lives in `adws/providers/github/githubIdentity.ts`, the App-auth env wrapper in `adws/core/githubAppAuth.ts`
+    - When `notifyReviewTransition`/`notifyBlockedTransition` are referenced — they take a required `NotifierDeps` (no more optional/defaulted internal readers); `buildNotifierDeps(ctx, repoId)` lives in `hitlBoardNotifier.ts` and is consumed by `adws/core/forgeWiring.ts`'s `adwGitHubForgeDeps` (#823; formerly `adws/providers/repoContext.ts`)
     - When `fetchLinkedPRs(codeHost)` is referenced — it now takes a `Pick<CodeHost, 'listPullRequests'>` instead of a `repoInfo`, reading `CodeHost.listPullRequests()` (every PR of the repo — open/closed/merged; new port method, #821)
     - When `buildUnaddressedCommentReads(boundary)`/`hasUnaddressedComments(prNumber, boundary)` are referenced — rewritten around `Pick<LaunchBoundary, 'providers' | 'gitContext'>`, shared by `adws/phases/prReviewPhase.ts` and `adws/triggers/trigger_cron.ts`
     - When `isAdwRunningForIssue(issueNumber, tracker)` is referenced — takes `Pick<IssueTracker, 'fetchIssue'>` instead of a repoInfo
@@ -264,12 +263,14 @@
     - When working on the GitHub forge adapter — command builders, token resolution (`appAuth.ts`/`tokenResolver.ts`/`githubTokenProvider.ts`), `ghCommandRunner.ts`, or the `ghIssueApi`/`ghPrApi`/`ghRepoApi` composition
     - When working with the adapter-owned raw GitHub payload shapes in `adws/providers/github/domain/` (moved from `adws/types/` and `adws/github/prApi.ts`, #817)
     - When `RepoInfo` or `toRepoInfo` is referenced and not found — collapsed into `RepoIdentifier` (#817); parsers stamp `platform: Platform.GitHub`
-    - When `createGitLabCodeHost`/`createJiraIssueTracker` need credentials, an endpoint or a logger — injected `GitLabConfig`/`JiraConfig` plus the `Logger` port; the env→config wiring (`gitLabConfigFromEnv`/`jiraAuthFromEnv`) lives in `repoContext.ts` (#818)
+    - When `createGitLabCodeHost`/`createJiraIssueTracker` need credentials, an endpoint or a logger — injected `GitLabConfig`/`JiraConfig` plus the `Logger` port; the env→config wiring (`gitLabConfigFromEnv`/`jiraAuthFromEnv`/`jiraConfigFrom`) lives in `adws/core/forgeWiring.ts` (#818; relocated from `repoContext.ts` in #823)
     - When `bun run lint:git-guard` flags `[extraction-readiness]` under `adws/providers/gitlab/` or `adws/providers/jira/` — both adapter packages are in scope since #818
     - When `createGitHubIssueTracker`/`createGitHubCodeHost`/`createGitHubBoardManager` need a `GitContext` first argument or a deps bag (#819) — the adapter constructs no context and reads no environment
-    - When `IssueTracker.moveToStatus` must trigger the HITL Slack notification — wired through `onStatusMoved` in `repoContext.ts`'s `adwGitHubIssueTrackerDeps`, not inside the adapter
-    - When a lazily-created label has the wrong colour — `resolveLabelDefinition`, wired to `repoContext.ts`'s `resolveAdwLabelDefinition`
+    - When `IssueTracker.moveToStatus` must trigger the HITL Slack notification — wired through `onStatusMoved` in `adws/core/forgeWiring.ts`'s `adwGitHubForgeDeps` (#823; formerly `repoContext.ts`'s `adwGitHubIssueTrackerDeps`), not inside the adapter
+    - When a lazily-created label has the wrong colour — `resolveLabelDefinition`, wired to `adws/core/forgeWiring.ts`'s `adwGitHubForgeDeps` (which delegates to `adwLabels.ts`'s `resolveAdwLabelDefinition`)
     - When `bun run lint:git-guard` flags `[extraction-readiness]` under `adws/providers/github/` — the whole adapter is in scope since #819
+    - When `mintBoundProviders`, `createRepoContext`, `resolveIssueTracker`/`resolveCodeHost`/`resolveBoardManager`, `MintProvidersOptions` or `repoContext.ts` are referenced and not found — replaced by `forgeProviders()` (#823)
+    - When `forgeProviders` refuses a forge name, a mismatched `gitContext`, or a missing `deps.gitlab`/`deps.jira` — see `adws/providers/forgeProviders.ts`'s `UnknownForgeError` and its per-port `CodeHostForge`/`IssueTrackerForge` unions
 
 - app_docs/feature-9gjajh-cost-tracking.md
   - Owns:
@@ -424,18 +425,25 @@
     - adws/core/__tests__/githubAppAuth.test.ts
     - adws/core/issueRecord.ts
     - adws/core/__tests__/issueRecord.test.ts
+    - adws/core/forgeWiring.ts
+    - adws/core/__tests__/forgeWiring.test.ts
+    - adws/core/workspaceBinding.ts
+    - adws/core/__tests__/workspaceBinding.test.ts
   - Conditions:
-    - When working on `fetchIssueRecord` (the boundary-context issue read that keeps `WorkflowConfig.issue`'s full `GitHubIssue` shape for prompt fidelity, #820) or the `GITHUB_APP_*` env wrapper (`adws/core/githubAppAuth.ts`, moved from `adws/github/githubAppAuth.ts` in #820, which is now a re-export shim)
+    - When working on `fetchIssueRecord` (the boundary-context issue read that keeps `WorkflowConfig.issue`'s full `GitHubIssue` shape for prompt fidelity, #820) or the `GITHUB_APP_*` env wrapper (`adws/core/githubAppAuth.ts`, moved from `adws/github/githubAppAuth.ts` in #820, which no longer exists — deleted in #823)
     - When working on GitContext base-path resolution, per-command credential injection, worktree management, or the git-only bootstrap primitives in `adws/gitContext/`
-    - When working on the launch-boundary constructor (`buildLaunchBoundary`, `adws/core/launchGitContext.ts`) that mints one GitContext and one bound provider triple per process, threaded into the mint via `MintProvidersOptions.gitContext` (#819)
+    - When working on the launch-boundary constructor (`buildLaunchBoundary`, `adws/core/launchGitContext.ts`) that mints one GitContext and one bound provider triple per process, threaded into the assembly via `ForgeProvidersOptions.gitContext` (#823; formerly `MintProvidersOptions.gitContext`, #819)
     - When working on resume-time repo-identity persistence or cross-check (`adws/core/repoIdentityCrossCheck.ts`)
     - When working on the git/gh CLI guard (`adws/checkGitGhGuard.ts`, `adws/guard/`) — its four rules (shellout, cwd-derived-identity, unsanctioned-construction, extraction-readiness) or its sanctioned-construction-sites allowlist
     - When troubleshooting a wrong-repo worktree, `GH_TOKEN` bleed, or a construction site newly flagged by `lint:git-guard`
     - When `bun run lint:git-guard` fails with `[extraction-readiness]` (`adws/guard/extractionRule.ts`, #816) — an in-scope extractable file imports outside `adws/gitContext`/`adws/providers`; inject through a port or move the shape into the set, never narrow `EXTRACTION_SCOPE`
     - When a de-tangling slice of the gitContext extraction PRD lands and `EXTRACTION_SCOPE` must be widened by the package it cleaned (widen only, never narrow)
     - When `bun run lint:git-guard` flags `[extraction-readiness]` under `adws/providers/github/` — the whole adapter is in scope since #819
-    - When `createLaunchTokenProvider`'s alternate-identity PAT is relevant — since #819 it serves `GITHUB_PAT` to `'alternateIdentity'` requests, parity with `gitContextForRepo`
-    - When working on the `.adw/providers.md` reader (`loadProviderConfig`/`parsePlatform`, `adws/core/providerConfig.ts`, moved out of `repoContext.ts` in #819)
+    - When `createLaunchTokenProvider`'s alternate-identity PAT is relevant — since #819 it serves `GITHUB_PAT` to `'alternateIdentity'` requests, parity with the former `gitContextForRepo`
+    - When working on the `.adw/providers.md` reader (`loadProviderConfig`/`parseCodeHostForge`/`parseIssueTrackerForge`, `adws/core/providerConfig.ts`, moved out of `repoContext.ts` in #819; forge-name shape since #823)
+    - When `buildLaunchBoundary`'s `forgeProviders`/`forgeDeps` seams or `buildAdwForgeDeps` (`adws/core/forgeWiring.ts`) are relevant (#823)
+    - When `bindWorkspaceContext`/`validateGitRemote` (`adws/core/workspaceBinding.ts`) are referenced — the remote is read through the boundary's own context, `createRepoContext` is gone (#823)
+    - When `bun run lint:git-guard` reports `Extraction-readiness scope — 10 entries` / `2 permanent, 0 sunset` — scope == extractable set since #823
 
 - app_docs/feature-9gjajh-claude-agents-core.md
   - Owns:

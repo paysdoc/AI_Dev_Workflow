@@ -687,7 +687,7 @@ app_docs/                         # Generated documentation
 - `workflowCommentsIssue.ts` - Issue-specific workflow comments
 - `workflowCommentsPR.ts` - PR-specific workflow comments
 
-`adws/github/` is now just the context-factory + App-auth shim (`gitContextFactory.ts`, `githubAppAuth.ts`); `adws/forge/` above is the ADW-application layer built on top of the provider ports. `adws/github/` stays until a future issue (#823) retires it.
+`adws/github/` was deleted in #823. `adws/forge/` above is the ADW-application layer built on top of the provider ports; the launch boundary now constructs its `GitContext` directly and assembles providers through `adws/providers/forgeProviders.ts`.
 
 **VCS** (`vcs/`):
 - `branchOperations.ts` - Branch management (create, checkout, delete, default branch detection)

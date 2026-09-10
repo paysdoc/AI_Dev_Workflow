@@ -49,8 +49,10 @@ export type ExtractionScopeEntry = { readonly path: string; readonly reason: str
  * and Jira adapter packages, whole directories, once both stopped reading
  * process.env and importing adws/core. #819 appended the whole GitHub
  * adapter package plus the two clean sibling files beside it — everything
- * under adws/providers/** except repoContext.ts, which stays framework
- * wiring until #823.
+ * under adws/providers/** except repoContext.ts, which stayed framework
+ * wiring until #823 replaced it with `forgeProviders()` and appended the
+ * whole `adws/providers` directory — the fifth and final widening, after
+ * which EXTRACTION_SCOPE == EXTRACTABLE_SET.
  */
 export const EXTRACTION_SCOPE: readonly ExtractionScopeEntry[] = [
   { path: 'adws/gitContext', reason: 'git core — dependency-free since Phase A (#790–#797)', since: '#816' },
@@ -62,6 +64,7 @@ export const EXTRACTION_SCOPE: readonly ExtractionScopeEntry[] = [
   { path: 'adws/providers/github', reason: 'GitHub forge adapter — executor, ports and adapter-owned domain only; no legacy adws/github delegation, no adws/core logger, no context construction (#819)', since: '#819' },
   { path: 'adws/providers/workspaceValidation.ts', reason: 'fs-only workspace validators split out of repoContext.ts (#818) — swept into scope (#819)', since: '#819' },
   { path: 'adws/providers/index.ts', reason: 'provider package barrel — re-exports resolve inside the extractable set (#819)', since: '#819' },
+  { path: 'adws/providers', reason: 'the whole provider package — forgeProviders() assembly module and every future top-level provider file; ADW wiring moved to adws/core (#823). EXTRACTION_SCOPE now equals EXTRACTABLE_SET', since: '#823' },
 ] as const;
 
 /** True when `relPath` is one of EXTRACTABLE_SET's directories, or a path beneath one. */
@@ -182,11 +185,9 @@ function describeEscapingImport(specifier: string, target: string): string {
 
 /**
  * Flags every import in `sourceFile` that resolves outside EXTRACTABLE_SET.
- * Guard clause first: a file outside EXTRACTION_SCOPE is never inspected, so
- * the only not-yet-widened providers file, `repoContext.ts` (framework
- * wiring until #823 replaces it and the whole directory becomes one entry),
- * produces zero violations today, by design. A new top-level
- * `adws/providers/*.ts` file is likewise unchecked until then.
+ * Guard clause first: a file outside EXTRACTION_SCOPE is never inspected —
+ * since #823 the `adws/providers` entry covers the whole directory, so every
+ * top-level provider file (present or future) is in scope.
  */
 export function flagFrameworkImports(sourceFile: ts.SourceFile, relPath: string): Violation[] {
   if (!isInExtractionScope(relPath)) return [];

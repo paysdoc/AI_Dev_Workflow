@@ -14,7 +14,7 @@ export function printSanctionedConstructionSites(): void {
   const sunset = SANCTIONED_CONSTRUCTION_SITES.filter((site) => 'owner' in site);
 
   console.log(
-    `  Sanctioned construction sites — ${permanent.length} permanent, ${sunset.length} sunset (#823):`,
+    `  Sanctioned construction sites — ${permanent.length} permanent, ${sunset.length} sunset:`,
   );
   for (const site of permanent) {
     console.log(`    ${site.file} — ${site.reason}`);

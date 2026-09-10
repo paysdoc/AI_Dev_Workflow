@@ -19,9 +19,9 @@
  * in the agent chokepoints (claudeAgent.ts / commandAgent.ts) — the PRD
  * Auth-model contract.
  *
- * Moved verbatim from `adws/github/githubAppAuth.ts` (#820); that path is now
- * a re-export shim kept alive for `gitContextFactory.ts` and the barrel until
- * #823 retires them.
+ * Moved verbatim from `adws/github/githubAppAuth.ts` (#820); that path — and
+ * the `adws/github/` directory itself — no longer exist, deleted in #823
+ * along with `gitContextFactory.ts`, their last importer.
  */
 
 import {

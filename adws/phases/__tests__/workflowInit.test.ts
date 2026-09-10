@@ -72,8 +72,8 @@ vi.mock('../branchIdentityFallback', () => ({
   }),
 }));
 
-vi.mock('../../providers/repoContext', () => ({
-  createRepoContext: vi.fn().mockReturnValue(undefined),
+vi.mock('../../core/workspaceBinding', () => ({
+  bindWorkspaceContext: vi.fn().mockReturnValue(undefined),
 }));
 
 // Real implementation by default (preserves existing tests' behaviour exactly);
@@ -135,7 +135,7 @@ import { runGenerateBranchNameAgent } from '../../agents';
 import { fetchIssueRecord } from '../../core/issueRecord';
 import { detectRecoveryState } from '../../core/workflowCommentParsing';
 import { classifyGitHubIssue } from '../../core/issueClassifier';
-import { createRepoContext } from '../../providers/repoContext';
+import { bindWorkspaceContext } from '../../core/workspaceBinding';
 import { buildLaunchBoundary } from '../../core/launchGitContext';
 import type { LaunchBoundary } from '../../core/launchGitContext';
 import { Platform } from '../../providers/types';
@@ -144,7 +144,7 @@ const mockAgent = vi.mocked(runGenerateBranchNameAgent);
 const mockFetchIssue = vi.mocked(fetchIssueRecord);
 const mockDetectRecovery = vi.mocked(detectRecoveryState);
 const mockClassify = vi.mocked(classifyGitHubIssue);
-const mockCreateRepoContext = vi.mocked(createRepoContext);
+const mockBindWorkspaceContext = vi.mocked(bindWorkspaceContext);
 const mockBuildLaunchBoundary = vi.mocked(buildLaunchBoundary);
 
 function makeFakeBoundary(owner: string, repo: string): LaunchBoundary {
@@ -320,23 +320,24 @@ describe('initializeWorkflow determinism — criterion 3 (issue #524)', () => {
 // Boundary-providers passthrough (issue #794, AC3 — workflow-init half)
 // ---------------------------------------------------------------------------
 
-describe('initializeWorkflow: boundary-providers passthrough to createRepoContext', () => {
+describe('initializeWorkflow: boundary-providers passthrough to bindWorkspaceContext', () => {
   const adwId = `${BASE_ADW_ID}-boundary`;
 
   afterEach(() => cleanupAdwId(adwId));
 
-  it('passes the boundary\'s providers when the resolved repoId matches the boundary identity', async () => {
+  it('passes the fake boundary and the worktree path to bindWorkspaceContext', async () => {
     const boundary = makeFakeBoundary('test-owner', 'test-repo');
     mockBuildLaunchBoundary.mockReturnValueOnce(boundary);
     mockAgent.mockResolvedValueOnce({ ...baseAgentResult, branchName: 'feature-issue-9000-boundary-match' });
 
     await initializeWorkflow(ISSUE_NUMBER, adwId, 'orchestrator', { issueType: '/feature' });
 
-    expect(mockCreateRepoContext).toHaveBeenCalledTimes(1);
-    expect(mockCreateRepoContext.mock.calls[0][0].providers).toBe(boundary.providers);
+    expect(mockBindWorkspaceContext).toHaveBeenCalledTimes(1);
+    expect(mockBindWorkspaceContext.mock.calls[0][0]).toBe(boundary);
+    expect(mockBindWorkspaceContext.mock.calls[0][1]).toBe(FAKE_WORKTREE_PATH);
   });
 
-  it('refuses to mint a second provider set when a caller-supplied repoId names a different repository — repoContext falls back to undefined', async () => {
+  it('refuses to mint a second provider set when a caller-supplied repoId names a different repository — bindWorkspaceContext is never reached', async () => {
     const boundary = makeFakeBoundary('test-owner', 'test-repo');
     mockBuildLaunchBoundary.mockReturnValueOnce(boundary);
     mockAgent.mockResolvedValueOnce({ ...baseAgentResult, branchName: 'feature-issue-9000-boundary-mismatch' });
@@ -348,9 +349,9 @@ describe('initializeWorkflow: boundary-providers passthrough to createRepoContex
 
     // #796 hardens the wrong-repo invariant: a contradicting caller-supplied identity is
     // refused (resolveWorkflowProviders throws, caught by initializeWorkflow's surrounding
-    // try/catch) rather than served a second, ad-hoc-minted provider set — supersedes the
-    // #794 expectation that createRepoContext still ran with providers: undefined.
-    expect(mockCreateRepoContext).not.toHaveBeenCalled();
+    // try/catch) rather than served a second, ad-hoc-bound workspace — bindWorkspaceContext
+    // is never called and cfg.repoContext falls back to undefined.
+    expect(mockBindWorkspaceContext).not.toHaveBeenCalled();
     expect(cfg.repoContext).toBeUndefined();
   });
 });

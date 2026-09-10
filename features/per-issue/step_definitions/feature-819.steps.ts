@@ -26,7 +26,8 @@ import { createLiteralTokenProvider } from '../../../adws/providers/github/githu
 import { createGitHubIssueTracker } from '../../../adws/providers/github/githubIssueTracker.ts';
 import { createGitHubCodeHost } from '../../../adws/providers/github/githubCodeHost.ts';
 import { createGitHubBoardManager } from '../../../adws/providers/github/githubBoardManager.ts';
-import { mintBoundProviders } from '../../../adws/providers/repoContext.ts';
+import { forgeProviders } from '../../../adws/providers/forgeProviders.ts';
+import { buildAdwForgeDeps } from '../../../adws/core/forgeWiring.ts';
 import {
   Platform,
   BoardStatus,
@@ -36,6 +37,7 @@ import {
   type BoardManager,
   type BoundProviders,
 } from '../../../adws/providers/types.ts';
+import type { TokenProvider } from '../../../adws/gitContext/index.ts';
 
 const FRAMEWORK_ROOT = '/srv/adw/framework';
 const TARGET_REPOS_DIR = '/srv/adw/repos';
@@ -66,6 +68,7 @@ interface CapturedLog {
 
 let repoId: RepoIdentifier | null = null;
 let ctx: GitContext | null = null;
+let seamTokenProvider: TokenProvider | null = null;
 let rules: ScriptedRule[] = [];
 let calls: SpyCall[] = [];
 let driveResult: unknown;
@@ -108,6 +111,11 @@ function requireRepoId(): RepoIdentifier {
   return repoId;
 }
 
+function requireTokenProvider(): TokenProvider {
+  assert.ok(seamTokenProvider, 'Expected "a recording gh seam for the repository ..." to have run first');
+  return seamTokenProvider;
+}
+
 function getIssueTracker(): IssueTracker {
   if (!issueTracker) issueTracker = createGitHubIssueTracker(requireCtx(), requireRepoId());
   return issueTracker;
@@ -131,6 +139,7 @@ Before({ tags: '@adw-819' }, function () {
   resetGuardFixtureTree();
   repoId = null;
   ctx = null;
+  seamTokenProvider = null;
   rules = [];
   calls = [];
   driveResult = undefined;
@@ -159,12 +168,13 @@ Given(
     repoId = { owner, repo, platform: Platform.GitHub };
     rules = [];
     calls = [];
+    seamTokenProvider = createLiteralTokenProvider(ordinary, elevated);
     ctx = new GitContext(
       {
         owner,
         repo,
         selfHost: false,
-        tokenProvider: createLiteralTokenProvider(ordinary, elevated),
+        tokenProvider: seamTokenProvider,
         gitIdentity: {
           authorName: 'ADW Test', authorEmail: 'adw-test@example.invalid',
           committerName: 'ADW Test', committerEmail: 'adw-test@example.invalid',
@@ -249,11 +259,13 @@ Given('the recording gh seam is configured for a successful board move of issue 
 // ---------------------------------------------------------------------------
 
 Given('the GitHub providers are minted over the recording gh seam', function () {
-  const providers = mintBoundProviders({
-    repoId: requireRepoId(),
+  const forge = { codeHost: 'github' as const, issueTracker: 'github' as const };
+  const providers = forgeProviders({
+    forge,
+    identity: requireRepoId(),
+    tokenProvider: requireTokenProvider(),
     gitContext: requireCtx(),
-    codeHostPlatform: Platform.GitHub,
-    issueTrackerPlatform: Platform.GitHub,
+    deps: buildAdwForgeDeps({ codeHost: 'github', issueTracker: 'github' }, requireRepoId(), requireCtx()),
   });
   mintedProviders = providers;
   issueTracker = providers.issueTracker;
@@ -495,6 +507,41 @@ Then('no ADW-decorated log line was written to standard output', function () {
   const decorated = capturedStdoutLines.filter((l) => ADW_DECORATION_RE.test(l));
   assert.deepStrictEqual(decorated, [], `Expected no ADW-decorated stdout lines. Got: ${JSON.stringify(capturedStdoutLines)}`);
 });
+
+// ---------------------------------------------------------------------------
+// Cross-file seam (#823): feature-823.steps.ts reuses this file's recording
+// gh seam (never redefining its Given/When/Then phrases) and needs its own
+// accessors, since this file's own Before/After (tag-scoped to @adw-819)
+// never run for @adw-823 scenarios.
+// ---------------------------------------------------------------------------
+
+/** The recording gh seam's current context, repoId, tokenProvider and recorded calls. Throws if no seam has been set up yet this scenario. */
+export function getRecordingSeam(): { ctx: GitContext; repoId: RepoIdentifier; tokenProvider: TokenProvider; calls: SpyCall[] } {
+  return { ctx: requireCtx(), repoId: requireRepoId(), tokenProvider: requireTokenProvider(), calls };
+}
+
+/** The most recently minted provider set, or null if none has been minted yet this scenario. */
+export function getMintedProviders(): BoundProviders | null {
+  return mintedProviders;
+}
+
+/** Resets this file's module-private recording-seam state (mirrors this file's own `Before` body) for reuse from another file's hooks. */
+export function resetRecordingSeam(): void {
+  repoId = null;
+  ctx = null;
+  seamTokenProvider = null;
+  rules = [];
+  calls = [];
+  driveResult = undefined;
+  driveError = null;
+  capturedStdoutLines = [];
+  capturingLoggerLogs = [];
+  lastMatchedCapturedLog = null;
+  issueTracker = null;
+  codeHost = null;
+  boardManager = null;
+  mintedProviders = null;
+}
 
 Then('an undecorated log line naming {string} was written to standard output', function (needle: string) {
   const found = capturedStdoutLines.some((l) => l.includes(needle) && !ADW_DECORATION_RE.test(l));

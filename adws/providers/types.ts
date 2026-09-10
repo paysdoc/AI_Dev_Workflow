@@ -285,9 +285,8 @@ export interface CodeHost {
 
 /**
  * The provider triple — issue tracker, code host, and (optional) board manager —
- * bound to one `RepoIdentifier` at construction. Minted by `mintBoundProviders`
- * (`repoContext.ts`), either directly at a launch boundary or as part of
- * `createRepoContext`'s workspace-validated construction.
+ * bound to one `RepoIdentifier` at construction. Assembled by `forgeProviders`
+ * (`forgeProviders.ts`) at a launch boundary.
  */
 export type BoundProviders = Readonly<{
   issueTracker: IssueTracker;

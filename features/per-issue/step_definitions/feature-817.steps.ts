@@ -177,3 +177,20 @@ Then('the guard failure over the guard fixture tree cites the {string} rule', fu
     `Expected "[${ruleName}]" in guard output:\n${stdout}`,
   );
 });
+
+// ---------------------------------------------------------------------------
+// Cross-file seam (#823): feature-823.steps.ts reuses this file's type-probe
+// harness (never redefining its Given/When/Then phrases) and needs its own
+// accessor/reset, since this file's own Before/After (tag-scoped to @adw-817)
+// never run for @adw-823 scenarios.
+// ---------------------------------------------------------------------------
+
+/** The last type-probe compile's exit code and captured stdout (+ stderr on failure). */
+export function getTypeProbeResult(): { exitCode: number; stdout: string } {
+  return { exitCode: probeExitCode, stdout: probeStdout };
+}
+
+/** Removes the current probe directory/tsconfig (if any) and clears run state — mirrors this file's own `cleanupProbe`. */
+export function resetTypeProbe(): void {
+  cleanupProbe();
+}

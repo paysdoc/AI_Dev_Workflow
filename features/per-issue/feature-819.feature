@@ -727,29 +727,12 @@ Feature: The GitHub forge adapter reaches only the executor, the ports and its o
       | adws/providers/workspaceValidation.ts | ../core           |
       | adws/providers/index.ts               | ../github/prApi   |
 
-  # TRAP 5, too-wide edge, and the reason a one-line "widen to adws/providers" is the worst possible
-  # answer. `repoContext.ts` is the file this whole wave parks ADW's wiring in until #823; it imports
-  # the framework at four lines by design. This row must still pass on merge day, or AC4's "guard
-  # green" is unreachable without doing the rest of the wave in the same PR — the big-bang the PRD
-  # exists to avoid.
-
-  @adw-819 @adw-3lvhoo-github-forge-adapter
-  Scenario Outline: The transitional wiring file is still not checked
-    Given a guard fixture tree holding the file "adws/providers/repoContext.ts":
-      """
-      import { helper } from '<specifier>';
-
-      export const value = helper;
-      """
-    When the guard runner executes over the guard fixture tree
-    Then the guard run over the guard fixture tree passes
-
-    Examples:
-      | specifier                   |
-      | ../github/gitContextFactory |
-      | ../core/environment         |
-      | ../core/projectConfig       |
-      | ../core/logger              |
+  # TRAP 5, too-wide edge. This section used to pin `repoContext.ts` — the file this whole wave parked
+  # ADW's wiring in — as "still not checked" while it carried a framework import by design. #823
+  # retired that row: it replaced `repoContext.ts` with `forgeProviders()` and widened
+  # EXTRACTION_SCOPE to the whole `adws/providers` directory, so the identical fixture now FAILS the
+  # guard instead of passing it — see #823's "The last unchecked provider file is now in scope and
+  # fails on a framework import" outline, this row's exact inversion.
 
   # The other direction, and the exact shape the de-tangled adapter takes: the executor and the
   # `Logger` port from `adws/gitContext/`, the ports from `adws/providers/types.ts`, the raw shapes
