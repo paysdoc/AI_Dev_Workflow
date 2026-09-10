@@ -28,8 +28,7 @@ import {
 import type { WorkflowConfig } from './workflowInit';
 import { buildContinuationPrompt, buildResumeInPlacePrompt, shouldResumeBuildInPlace } from './planPhase';
 import { BoardStatus } from '../providers/types';
-import { gitContextFor } from '../github/gitContextFactory';
-import { resolveWorkflowRepoId } from './workflowRepoIdentity';
+import { requireWorkflowGitContext } from './workflowRepoIdentity';
 
 /**
  * Executes the Build phase: read plan, run build agent, commit implementation.
@@ -42,8 +41,7 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
   const { recoveryState, orchestratorStatePath, orchestratorName, adwId, issueNumber, issue, issueType, ctx, worktreePath, logsDir, repoContext, defaultBranch } = config;
   const phaseStartTime = Date.now();
 
-  const { owner, repo } = resolveWorkflowRepoId(config);
-  const gitCtx = await gitContextFor({ owner, repo, selfHost: !repoContext });
+  const gitCtx = requireWorkflowGitContext(config);
 
   if (repoContext) {
     await repoContext.issueTracker.moveToStatus(issueNumber, BoardStatus.InProgress);
@@ -154,7 +152,7 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
         }
       };
 
-      const buildResult = await runBuildAgent(issue, logsDir, currentPlanContent, buildProgressCallback, buildAgentStatePath, worktreePath, gitCtx.commandEnv(), { selfHost: gitCtx.selfHost, adwId });
+      const buildResult = await runBuildAgent(issue, logsDir, currentPlanContent, buildProgressCallback, buildAgentStatePath, worktreePath, gitCtx.commandEnv(), { selfHost: !repoContext, adwId, gitContext: gitCtx });
 
       // Accumulate cost and model usage across continuations
       costUsd += buildResult.totalCostUsd || 0;
@@ -232,7 +230,7 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
 
         // Batch boundary: commit if dirty, then evaluate the progress gate
         if (gitCtx.hasUncommittedChanges(worktreePath)) {
-          await runCommitAgent('build-agent', issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body, gitCtx.commandEnv(), { selfHost: gitCtx.selfHost, adwId });
+          await runCommitAgent('build-agent', issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body, gitCtx.commandEnv(), { selfHost: !repoContext, adwId, gitContext: gitCtx });
         }
         const headTreeHash = gitCtx.getHeadTreeHash(worktreePath);
         const decision = evaluateProgressGate({ headTreeHash, seen: seenTreeHashes, checkpointCount, maxCheckpoints: MAX_PROGRESS_CHECKPOINTS });
@@ -286,7 +284,7 @@ export async function executeBuildPhase(config: WorkflowConfig): Promise<{ costU
     if (repoContext) {
       postIssueStageComment(repoContext, issueNumber, 'build_committing', ctx);
     }
-    await runCommitAgent('build-agent', issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body, undefined, { selfHost: gitCtx.selfHost, adwId });
+    await runCommitAgent('build-agent', issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body, undefined, { selfHost: !repoContext, adwId, gitContext: gitCtx });
   } else {
     log('Skipping implementation commit (already completed)', 'info');
   }

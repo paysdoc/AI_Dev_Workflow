@@ -22,8 +22,15 @@ import {
 } from '../branchNameResolution';
 import { runGenerateBranchNameAgent } from '../../agents';
 import { AuthRequiredError } from '../../types/agentTypes';
+import type { BranchIdentityFallbackDeps } from '../branchIdentityFallback';
 
 const mockAgent = vi.mocked(runGenerateBranchNameAgent);
+
+const fakeDeps: BranchIdentityFallbackDeps = {
+  listCandidateBranches: () => [],
+  listAdwIds: () => [],
+  readTopLevelState: () => null,
+};
 
 const BASE_ADW_ID = `test-bname-res-${Date.now()}`;
 
@@ -123,18 +130,18 @@ describe('_resolveWorkflowBranchNameForTest — deterministic identity fallback 
     const existingBranch = 'feature-issue-1-existing-branch';
     const finderFn = vi.fn().mockReturnValue(existingBranch);
 
-    const result = await _resolveWorkflowBranchNameForTest(makeArgs(adwId), mockAgent, finderFn);
+    const result = await _resolveWorkflowBranchNameForTest(makeArgs(adwId), fakeDeps, mockAgent, finderFn);
 
     expect(result).toBe(existingBranch);
     expect(mockAgent).not.toHaveBeenCalled();
-    expect(finderFn).toHaveBeenCalledWith('/feature', 1);
+    expect(finderFn).toHaveBeenCalledWith('/feature', 1, fakeDeps);
   });
 
   it('persists the finder-returned branch so subsequent calls skip the finder', async () => {
     const existingBranch = 'feature-issue-1-existing-branch';
     const finderFn = vi.fn().mockReturnValue(existingBranch);
 
-    await _resolveWorkflowBranchNameForTest(makeArgs(adwId), mockAgent, finderFn);
+    await _resolveWorkflowBranchNameForTest(makeArgs(adwId), fakeDeps, mockAgent, finderFn);
 
     expect(AgentStateManager.readTopLevelState(adwId)?.branchName).toBe(existingBranch);
   });
@@ -144,7 +151,7 @@ describe('_resolveWorkflowBranchNameForTest — deterministic identity fallback 
     mockAgent.mockResolvedValueOnce({ ...baseAgentResult, branchName });
     const finderFn = vi.fn().mockReturnValue(null);
 
-    const result = await _resolveWorkflowBranchNameForTest(makeArgs(adwId), mockAgent, finderFn);
+    const result = await _resolveWorkflowBranchNameForTest(makeArgs(adwId), fakeDeps, mockAgent, finderFn);
 
     expect(result).toBe(branchName);
     expect(mockAgent).toHaveBeenCalledTimes(1);
@@ -166,7 +173,7 @@ describe('_resolveWorkflowBranchNameForTest — strand-proof fallback on agent f
     );
     const finderFn = vi.fn().mockReturnValue(null);
 
-    const result = await _resolveWorkflowBranchNameForTest(makeArgs(adwId), mockAgent, finderFn);
+    const result = await _resolveWorkflowBranchNameForTest(makeArgs(adwId), fakeDeps, mockAgent, finderFn);
 
     // deterministicBranchName('/feature', 1) === 'feature-issue-1'
     expect(result).toBe('feature-issue-1');
@@ -178,7 +185,7 @@ describe('_resolveWorkflowBranchNameForTest — strand-proof fallback on agent f
     const finderFn = vi.fn().mockReturnValue(null);
 
     await expect(
-      _resolveWorkflowBranchNameForTest(makeArgs(adwId), mockAgent, finderFn),
+      _resolveWorkflowBranchNameForTest(makeArgs(adwId), fakeDeps, mockAgent, finderFn),
     ).rejects.toBeInstanceOf(AuthRequiredError);
 
     // No branch name should be persisted on an auth failure.
@@ -199,7 +206,7 @@ describe('_resolveWorkflowBranchNameForTest — happy-path precedence (criterion
     AgentStateManager.writeTopLevelState(adwId, { branchName: persistedName });
     const finderFn = vi.fn().mockReturnValue('feature-issue-1-fallback-branch');
 
-    const result = await _resolveWorkflowBranchNameForTest(makeArgs(adwId), mockAgent, finderFn);
+    const result = await _resolveWorkflowBranchNameForTest(makeArgs(adwId), fakeDeps, mockAgent, finderFn);
 
     expect(result).toBe(persistedName);
     expect(finderFn).not.toHaveBeenCalled();
@@ -214,7 +221,7 @@ describe('_resolveWorkflowBranchNameForTest — happy-path precedence (criterion
     };
     const finderFn = vi.fn().mockReturnValue('feature-issue-1-fallback-branch');
 
-    const result = await _resolveWorkflowBranchNameForTest(args, mockAgent, finderFn);
+    const result = await _resolveWorkflowBranchNameForTest(args, fakeDeps, mockAgent, finderFn);
 
     expect(result).toBe(recoveryBranch);
     expect(finderFn).not.toHaveBeenCalled();
@@ -237,7 +244,7 @@ describe('_resolveWorkflowBranchNameForTest (resolveWorkflowBranchName core logi
       const branchName = 'feature-issue-1-new-feature';
       mockAgent.mockResolvedValueOnce({ ...baseAgentResult, branchName });
 
-      const result = await _resolveWorkflowBranchNameForTest(makeArgs(adwId), mockAgent);
+      const result = await _resolveWorkflowBranchNameForTest(makeArgs(adwId), fakeDeps, mockAgent);
 
       expect(result).toBe(branchName);
       expect(mockAgent).toHaveBeenCalledTimes(1);
@@ -255,7 +262,7 @@ describe('_resolveWorkflowBranchNameForTest (resolveWorkflowBranchName core logi
       const persistedName = 'feature-issue-1-already-persisted';
       AgentStateManager.writeTopLevelState(adwId, { branchName: persistedName });
 
-      const result = await _resolveWorkflowBranchNameForTest(makeArgs(adwId), mockAgent);
+      const result = await _resolveWorkflowBranchNameForTest(makeArgs(adwId), fakeDeps, mockAgent);
 
       expect(result).toBe(persistedName);
       expect(mockAgent).not.toHaveBeenCalled();
@@ -275,7 +282,7 @@ describe('_resolveWorkflowBranchNameForTest (resolveWorkflowBranchName core logi
         recoveryState: { ...makeArgs(adwId).recoveryState, branchName: recoveryName },
       };
 
-      const result = await _resolveWorkflowBranchNameForTest(args, mockAgent);
+      const result = await _resolveWorkflowBranchNameForTest(args, fakeDeps, mockAgent);
 
       expect(result).toBe(recoveryName);
       expect(mockAgent).not.toHaveBeenCalled();
@@ -296,8 +303,8 @@ describe('_resolveWorkflowBranchNameForTest (resolveWorkflowBranchName core logi
         .mockResolvedValueOnce({ ...baseAgentResult, branchName: nameA })
         .mockResolvedValueOnce({ ...baseAgentResult, branchName: nameB });
 
-      const result1 = await _resolveWorkflowBranchNameForTest(makeArgs(adwId), mockAgent);
-      const result2 = await _resolveWorkflowBranchNameForTest(makeArgs(adwId), mockAgent);
+      const result1 = await _resolveWorkflowBranchNameForTest(makeArgs(adwId), fakeDeps, mockAgent);
+      const result2 = await _resolveWorkflowBranchNameForTest(makeArgs(adwId), fakeDeps, mockAgent);
 
       expect(result1).toBe(nameA);
       // Second call reuses persisted name A, never reaching the agent
@@ -323,7 +330,7 @@ describe('_resolveWorkflowBranchNameForTest (resolveWorkflowBranchName core logi
         return { ...baseAgentResult, branchName: agentResultName };
       });
 
-      const error = await _resolveWorkflowBranchNameForTest(makeArgs(adwId), mockAgent).catch(e => e);
+      const error = await _resolveWorkflowBranchNameForTest(makeArgs(adwId), fakeDeps, mockAgent).catch(e => e);
       expect(error).toBeInstanceOf(Error);
       expect((error as Error).message).toMatch(/Refusing to fork/);
       expect((error as Error).message).toContain(concurrentlyPersistedName);
@@ -337,7 +344,7 @@ describe('_resolveWorkflowBranchNameForTest (resolveWorkflowBranchName core logi
       });
 
       await expect(
-        _resolveWorkflowBranchNameForTest(makeArgs(adwId), mockAgent),
+        _resolveWorkflowBranchNameForTest(makeArgs(adwId), fakeDeps, mockAgent),
       ).rejects.toThrow(adwId);
     });
 
@@ -349,7 +356,7 @@ describe('_resolveWorkflowBranchNameForTest (resolveWorkflowBranchName core logi
       });
 
       await expect(
-        _resolveWorkflowBranchNameForTest(makeArgs(adwId), mockAgent),
+        _resolveWorkflowBranchNameForTest(makeArgs(adwId), fakeDeps, mockAgent),
       ).rejects.toThrow();
 
       expect(AgentStateManager.readTopLevelState(adwId)?.branchName).toBe(concurrentlyPersistedName);

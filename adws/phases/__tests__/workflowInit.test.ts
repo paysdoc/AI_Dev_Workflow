@@ -34,6 +34,7 @@ const mockGitCtx = vi.hoisted(() => ({
   copyEnvToWorktree: vi.fn(),
   findWorktreeForIssue: vi.fn().mockReturnValue(null),
   headShort: vi.fn().mockReturnValue('abc1234'),
+  hasUncommittedChanges: vi.fn().mockReturnValue(false),
   show: vi.fn(),
 }));
 
@@ -44,10 +45,6 @@ vi.mock('../../core/issueRecord', () => ({
 vi.mock('../../core/workflowCommentParsing', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../core/workflowCommentParsing')>()),
   detectRecoveryState: vi.fn(),
-}));
-
-vi.mock('../../github/gitContextFactory', () => ({
-  gitContextForSync: vi.fn().mockReturnValue(mockGitCtx),
 }));
 
 vi.mock('../../core/githubAppAuth', () => ({
@@ -68,7 +65,11 @@ vi.mock('../../vcs', () => ({}));
 vi.mock('../branchIdentityFallback', () => ({
   findExistingBranchForIssue: vi.fn().mockReturnValue(null),
   recoverAdwIdForBranch: vi.fn().mockReturnValue(null),
-  defaultDeps: { listCandidateBranches: vi.fn().mockReturnValue([]), listAdwIds: vi.fn().mockReturnValue([]) },
+  buildDefaultBranchIdentityFallbackDeps: vi.fn().mockReturnValue({
+    listCandidateBranches: vi.fn().mockReturnValue([]),
+    listAdwIds: vi.fn().mockReturnValue([]),
+    readTopLevelState: vi.fn().mockReturnValue(null),
+  }),
 }));
 
 vi.mock('../../providers/repoContext', () => ({
@@ -154,7 +155,7 @@ function makeFakeBoundary(owner: string, repo: string): LaunchBoundary {
     boardManager: {},
   };
   return {
-    gitContext: { owner, repo } as unknown as LaunchBoundary['gitContext'],
+    gitContext: { owner, repo, ...mockGitCtx } as unknown as LaunchBoundary['gitContext'],
     repoId,
     providers,
   } as unknown as LaunchBoundary;

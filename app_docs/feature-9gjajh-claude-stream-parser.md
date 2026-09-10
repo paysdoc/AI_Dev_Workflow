@@ -11,7 +11,7 @@ This module is the shared core layer for parsing Claude Code agent output and dr
 - **State file output**: Appends raw JSONL events and tool-use log lines to the agent state directory when a `statePath` is provided.
 - **JSON extraction** (`jsonParser.ts`): Extracts and parses JSON objects or arrays from raw agent output strings, tolerating surrounding prose by regex-matching the first `{...}` or `[...]` block on parse failure.
 - **Orchestrator CLI parsing** (`orchestratorCli.ts`): Provides composable helpers for all orchestrator entry points — extracts `--cwd`, `--issue-type`, `--target-repo`, and `--clone-url` flags (mutating the args array in place), validates issue numbers and type values, and prints standardised usage messages. Resolves a `RepoIdentifier` from either CLI-provided target-repo info or local git remote.
-- **Orchestrator script mapping** (`orchestratorLib.ts`): Maps named orchestrator identifiers (e.g. `sdlc-orchestrator`, `build-orchestrator`) to script paths, and provides the inverse lookup. Detects uncommitted working-tree changes via `git status --porcelain`. Computes which workflow stage to resume from using a canonical `STAGE_ORDER` array.
+- **Orchestrator script mapping** (`orchestratorLib.ts`): Maps named orchestrator identifiers (e.g. `sdlc-orchestrator`, `build-orchestrator`) to script paths, and provides the inverse lookup. Computes which workflow stage to resume from using a canonical `STAGE_ORDER` array. #822 deleted this module's `hasUncommittedChanges` free function (a non-boundary `gitContextForRepo` construction) — it now constructs nothing; every former caller calls `gitCtx.hasUncommittedChanges(cwd)` directly on its own threaded `GitContext` instead.
 - **Phase runner** (`phaseRunner.ts`): `CostTracker` accumulates `costUsd` and `ModelUsageMap` across phases. `runPhase()` wraps each phase function with skip-on-resume logic (consulting the top-level phases map, falling back to the legacy `completedPhases` string array), writes `running`/`completed`/`failed` status to the top-level state, persists token counts, posts cost records to D1, and delegates `RateLimitError` and `AgentTimeoutError` to workflow-completion handlers. `runPhasesSequential()` and `runPhasesParallel()` compose `runPhase()` for ordered and concurrent execution.
 
 ## Contracts & Invariants
@@ -23,7 +23,7 @@ This module is the shared core layer for parsing Claude Code agent output and dr
 - `runPhase` skips a phase whose top-level `phases` map entry has `status === 'completed'`. Entries with `status === 'failed'` or `'running'` are NOT skipped and will re-execute. The legacy `completedPhases` string array is only consulted when no `phases` map entry exists, preserving in-flight workflow compatibility.
 - D1 cost-record posting is fire-and-forget: errors are logged but never propagate to callers.
 - `deriveOrchestratorScript` falls back to `adwSdlc.tsx` for any name not in its explicit map; `orchestratorNamesForScript` does NOT apply this fallback, so unmapped names (e.g. `init-orchestrator`) return no matches.
-- `hasUncommittedChanges` returns `false` on git errors rather than throwing.
+- `orchestratorLib.ts`'s `hasUncommittedChanges` free function (which returned `false` on git errors rather than throwing) is gone (#822). Its replacement, `GitContext.hasUncommittedChanges` called directly on a threaded context, propagates errors like every other `GitContext` method — there is no more construction step whose failure needed swallowing.
 
 ## Configuration
 

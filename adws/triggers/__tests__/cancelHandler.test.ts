@@ -18,9 +18,6 @@ vi.mock('../../core/config', () => ({
 }));
 
 const mockRemoveWorktreesForIssue = vi.hoisted(() => vi.fn());
-vi.mock('../../github/gitContextFactory', () => ({
-  gitContextForSync: vi.fn().mockReturnValue({ removeWorktreesForIssue: mockRemoveWorktreesForIssue }),
-}));
 
 vi.mock('../../adwClearComments', () => ({
   clearIssueComments: vi.fn(),
@@ -52,7 +49,11 @@ const mockReadFileSync = vi.mocked(fs.readFileSync);
 
 const repoInfo: RepoIdentifier = { owner: 'test-owner', repo: 'test-repo', platform: Platform.GitHub };
 const fakeTracker = { fetchComments: vi.fn(), getIssueTitle: vi.fn(), deleteComment: vi.fn() };
-const boundary = { repoId: repoInfo, providers: { issueTracker: fakeTracker } } as unknown as LaunchBoundary;
+const boundary = {
+  repoId: repoInfo,
+  providers: { issueTracker: fakeTracker },
+  gitContext: { removeWorktreesForIssue: mockRemoveWorktreesForIssue },
+} as unknown as LaunchBoundary;
 
 beforeEach(() => {
   vi.clearAllMocks();

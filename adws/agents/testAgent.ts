@@ -5,7 +5,7 @@
 
 import * as path from 'path';
 import { getModelForCommand, getEffortForCommand } from '../core';
-import { runClaudeAgentWithCommand, AgentResult } from './claudeAgent';
+import { runClaudeAgentWithCommand, AgentResult, AgentLaunchContext } from './claudeAgent';
 import { runCommandAgent, type CommandAgentConfig, type ExtractionResult } from './commandAgent';
 import { extractJsonArray } from '../core/jsonParser';
 import type { TestCaseResult } from '../core/testReportParser';
@@ -114,7 +114,7 @@ export async function runTestAgent(
   statePath?: string,
   cwd?: string,
   issueBody?: string,
-  launchContext?: { selfHost: boolean; adwId: string },
+  launchContext?: AgentLaunchContext,
 ): Promise<TestAgentResult> {
   const result = await runCommandAgent(testAgentConfig, {
     args: '',
@@ -155,7 +155,7 @@ export async function runResolveTestAgent(
   statePath?: string,
   cwd?: string,
   issueBody?: string,
-  launchContext?: { selfHost: boolean; adwId: string },
+  launchContext?: AgentLaunchContext,
 ): Promise<AgentResult> {
   const outputFile = path.join(logsDir, `resolve-test-${failedTest.test_name}.jsonl`);
 
@@ -196,7 +196,7 @@ export async function runResolveScenarioAgent(
   cwd?: string,
   applicationUrl?: string,
   issueBody?: string,
-  launchContext?: { selfHost: boolean; adwId: string },
+  launchContext?: AgentLaunchContext,
 ): Promise<AgentResult> {
   // Handle undefined or invalid testName gracefully
   const rawTestName = failedE2ETest.testName;

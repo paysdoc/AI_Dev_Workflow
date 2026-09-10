@@ -29,7 +29,6 @@ export {
   type RecoveryState,
   // Orchestrator shared utilities
   shouldExecuteStage,
-  hasUncommittedChanges,
   getNextStage,
   // Unaddressed PR-review comment filter
   getLastAdwCommitTimestamp,

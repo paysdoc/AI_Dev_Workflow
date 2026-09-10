@@ -21,10 +21,9 @@ import { runReviewAgent, type ReviewIssue } from '../agents/reviewAgent';
 import { runCommitAgent } from '../agents/gitAgent';
 import { applyPatchBlocker, applyRefactorBlockers } from './reviewPatchHelpers';
 import { getPlanFilePath } from '../agents/planAgent';
-import { gitContextFor } from '../github/gitContextFactory';
 import type { CodeHost } from '../providers/types';
 import type { WorkflowConfig } from './workflowInit';
-import { resolveWorkflowRepoId } from './workflowRepoIdentity';
+import { requireWorkflowGitContext } from './workflowRepoIdentity';
 import { postIssueStageComment } from './phaseCommentHelpers';
 import { extractPrNumber } from '../adwBuildHelpers';
 
@@ -98,7 +97,7 @@ export async function executeReviewPhase(
     issue.body,
     scenarioProofPath || undefined,
     config.gitContext?.commandEnv(),
-    { selfHost: !repoContext, adwId },
+    { selfHost: !repoContext, adwId, gitContext: config.gitContext },
   );
 
   const costUsd = reviewAgentResult.totalCostUsd || 0;
@@ -192,8 +191,7 @@ export async function executeReviewPatchCycle(
     repoContext,
   } = config;
 
-  const { owner, repo } = resolveWorkflowRepoId(config);
-  const gitCtx = await gitContextFor({ owner, repo, selfHost: !repoContext });
+  const gitCtx = requireWorkflowGitContext(config);
 
   const phaseStartTime = Date.now();
   let costUsd = 0;
@@ -211,7 +209,7 @@ export async function executeReviewPatchCycle(
   );
 
   const subprocessEnv = gitCtx.commandEnv();
-  const launchContext = { selfHost: gitCtx.selfHost, adwId };
+  const launchContext = { selfHost: !repoContext, adwId, gitContext: gitCtx };
 
   for (const blocker of patchBlockers) {
     const result = await applyPatchBlocker(blocker, {

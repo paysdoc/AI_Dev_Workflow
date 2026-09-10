@@ -20,12 +20,11 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
-import { log, TARGET_REPOS_DIR, AGENTS_STATE_DIR, type LogLevel } from '../core';
+import { log, TARGET_REPOS_DIR, AGENTS_STATE_DIR, buildLaunchBoundary, type LogLevel } from '../core';
 import { AgentStateManager } from '../core/agentState';
 import { isAgentProcessRunning } from '../core/stateHelpers';
 import { isActiveStage } from './cronStageResolver';
 import { killProcessesInDirectory } from '../gitContext';
-import { gitContextForSync } from '../github/gitContextFactory';
 import type { AgentState } from '../types/agentTypes';
 
 // ---------------------------------------------------------------------------
@@ -263,7 +262,7 @@ const defaultDeps: JanitorDeps = {
   readdirTargetRepos: defaultReaddirTargetRepos,
   isGitRepo: defaultIsGitRepo,
   hasAdwMarker: defaultHasAdwMarker,
-  listWorktrees: (owner, repo) => gitContextForSync({ owner, repo, selfHost: false }).listWorktrees(),
+  listWorktrees: (owner, repo) => buildLaunchBoundary({ owner, repo, cloneUrl: '' }).gitContext.listWorktrees(),
   readTopLevelState: AgentStateManager.readTopLevelState,
   readTopLevelStateRaw: AgentStateManager.readTopLevelState,
   listAdwStateDirs: defaultListAdwStateDirs,

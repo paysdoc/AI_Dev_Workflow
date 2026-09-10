@@ -17,9 +17,8 @@ import {
   runCommitAgent,
 } from '../agents';
 import type { WorkflowConfig } from './workflowInit';
-import { gitContextFor } from '../github/gitContextFactory';
 import { executeDocsPostWriteSelfCheck, buildDefaultDocsSelfCheckDeps } from './docsSelfCheck';
-import { resolveWorkflowRepoId } from './workflowRepoIdentity';
+import { requireWorkflowGitContext } from './workflowRepoIdentity';
 
 /**
  * Executes the Document phase: generate feature documentation.
@@ -34,8 +33,7 @@ export async function executeDocumentPhase(
 ): Promise<{ costUsd: number; modelUsage: ModelUsageMap; phaseCostRecords: PhaseCostRecord[] }> {
   const { orchestratorStatePath, adwId, issueNumber, issueType, issue, ctx, worktreePath, logsDir, repoContext, branchName } = config;
   const phaseStartTime = Date.now();
-  const { owner, repo } = resolveWorkflowRepoId(config);
-  const gitCtx = await gitContextFor({ owner, repo, selfHost: !repoContext });
+  const gitCtx = requireWorkflowGitContext(config);
 
   let costUsd = 0;
   let modelUsage = emptyModelUsageMap();
@@ -66,7 +64,7 @@ export async function executeDocumentPhase(
     worktreePath,
     issue.body,
     gitCtx.commandEnv(),
-    { selfHost: gitCtx.selfHost, adwId },
+    { selfHost: !repoContext, adwId, gitContext: gitCtx },
   );
 
   costUsd = result.totalCostUsd || 0;
@@ -115,7 +113,7 @@ export async function executeDocumentPhase(
   }
 
   // Commit documentation
-  await runCommitAgent('document-agent', issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body, gitCtx.commandEnv(), { selfHost: gitCtx.selfHost, adwId });
+  await runCommitAgent('document-agent', issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body, gitCtx.commandEnv(), { selfHost: !repoContext, adwId, gitContext: gitCtx });
 
   // Push documentation commit to remote
   gitCtx.pushBranch(branchName, worktreePath);

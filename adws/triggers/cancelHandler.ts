@@ -14,7 +14,6 @@ import { AGENTS_STATE_DIR } from '../core/config';
 import { extractAdwIdFromComment } from '../core/workflowCommentParsing';
 import { findOrchestratorStatePath, isProcessAlive } from '../core/stateHelpers';
 import { clearIssueComments } from '../adwClearComments';
-import { gitContextForSync } from '../github/gitContextFactory';
 import type { LaunchBoundary } from '../core';
 
 /** Mutable dedup sets passed in from the cron trigger so cancelled issues skip this cycle. */
@@ -62,7 +61,9 @@ export function handleCancelDirective(
   // 3. Remove worktrees and local branches
   try {
     log(`Cancel #${issueNumber}: removing worktrees`);
-    gitContextForSync({ owner: boundary.repoId.owner, repo: boundary.repoId.repo, selfHost: !cwd }).removeWorktreesForIssue(issueNumber);
+    // boundary.gitContext.selfHost (targetRepo === null) equals today's !cwd: cancelCwd is the
+    // target-repo workspace path when targetRepo is set, undefined otherwise (#822).
+    boundary.gitContext.removeWorktreesForIssue(issueNumber);
   } catch (error) {
     log(`Cancel #${issueNumber}: worktree removal error (continuing): ${error}`, 'warn');
   }

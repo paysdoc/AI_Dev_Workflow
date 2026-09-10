@@ -10,9 +10,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const mockWorktreePathFor = vi.hoisted(() => vi.fn().mockReturnValue('/tmp/integ-worktree'));
-vi.mock('../../github/gitContextFactory', () => ({
-  gitContextForSync: vi.fn().mockReturnValue({ worktreePathFor: mockWorktreePathFor }),
-}));
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';

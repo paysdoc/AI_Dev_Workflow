@@ -9,7 +9,6 @@
 import { log, PullRequestWebhookPayload, GRACE_PERIOD_MS, generateAdwId } from '../core';
 import type { BoundProviders, IssueTracker } from '../providers/types';
 import type { LaunchBoundary } from '../core';
-import { gitContextForSync } from '../github/gitContextFactory';
 import { AgentStateManager } from '../core/agentState';
 import { findOrchestratorStatePath } from '../core/stateHelpers';
 import { extractLatestAdwId, isActiveStage, getLastActivityFromState } from './cronStageResolver';
@@ -56,18 +55,19 @@ export function defaultPrClosedDeps(tracker: Pick<IssueTracker, 'fetchComments' 
   };
 }
 
-function defaultIssueClosedDeps(boundary: LaunchBoundary | undefined, cwd?: string): IssueClosedDeps {
+function defaultIssueClosedDeps(boundary: LaunchBoundary | undefined): IssueClosedDeps {
   return {
     fetchIssueComments: (n) => boundary!.providers.issueTracker.fetchComments(n),
     readTopLevelState: (adwId) => AgentStateManager.readTopLevelState(adwId),
     removeWorktreesForIssue: (issueNumber) =>
-      boundary
-        ? gitContextForSync({ owner: boundary.repoId.owner, repo: boundary.repoId.repo, selfHost: !cwd }).removeWorktreesForIssue(issueNumber)
-        : 0,
+      boundary ? boundary.gitContext.removeWorktreesForIssue(issueNumber) : 0,
     findOrchestratorStatePath,
     readOrchestratorState: (statePath) => AgentStateManager.readState(statePath),
+    // Threading boundary.gitContext (rather than the old hardcoded selfHost: false) is a
+    // genuine fix: on a self-host issues.closed event this now resolves from REPO_ROOT
+    // instead of a TARGET_REPOS_DIR path that doesn't exist for the framework repo (#822).
     deleteRemoteBranch: boundary
-      ? (branchName, cwd) => gitContextForSync({ owner: boundary.repoId.owner, repo: boundary.repoId.repo, selfHost: false }).deleteRemoteBranch(branchName, cwd)
+      ? (branchName, cwd) => boundary.gitContext.deleteRemoteBranch(branchName, cwd)
       : () => false,
     closeAbandonedDependents: (n) => closeAbandonedDependents(n, boundary!.providers.issueTracker),
     handleIssueClosedDependencyUnblock: (n, args) => handleIssueClosedDependencyUnblock(n, boundary!, args),
@@ -158,7 +158,7 @@ export async function handleIssueClosedEvent(
   targetRepoArgs: string[] = [],
   deps?: IssueClosedDeps,
 ): Promise<IssueClosedResult> {
-  const d = deps ?? defaultIssueClosedDeps(boundary, cwd);
+  const d = deps ?? defaultIssueClosedDeps(boundary);
   let adwId: string | null = null;
   let workflowStage: string | undefined;
   let state: AgentState | null = null;

@@ -4,7 +4,7 @@
  */
 
 import { runCommandAgent, type CommandAgentConfig } from './commandAgent';
-import type { AgentResult } from './claudeAgent';
+import type { AgentResult, AgentLaunchContext } from './claudeAgent';
 
 const installAgentConfig: CommandAgentConfig<void> = {
   command: '/install',
@@ -31,7 +31,7 @@ export async function runInstallAgent(
   cwd?: string,
   issueBody?: string,
   subprocessEnv?: NodeJS.ProcessEnv,
-  launchContext?: { selfHost: boolean; adwId: string },
+  launchContext?: AgentLaunchContext,
 ): Promise<AgentResult> {
   return runCommandAgent(installAgentConfig, {
     args: [String(issueNumber), adwId],

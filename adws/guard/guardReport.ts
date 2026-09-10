@@ -11,15 +11,17 @@ import { EXTRACTION_SCOPE } from './extractionRule';
 /** Prints the sanctioned-construction-sites block. Must never contain the substring "allowlisted" — see the (0 allowlisted) capstone regex this guard's stdout must preserve. */
 export function printSanctionedConstructionSites(): void {
   const permanent = SANCTIONED_CONSTRUCTION_SITES.filter((site) => !('owner' in site));
-  const transitional = SANCTIONED_CONSTRUCTION_SITES.filter((site) => 'owner' in site);
+  const sunset = SANCTIONED_CONSTRUCTION_SITES.filter((site) => 'owner' in site);
 
   console.log(
-    `  Sanctioned construction sites — ${permanent.length} permanent, ${transitional.length} transitional (#796):`,
+    `  Sanctioned construction sites — ${permanent.length} permanent, ${sunset.length} sunset (#823):`,
   );
   for (const site of permanent) {
     console.log(`    ${site.file} — ${site.reason}`);
   }
-  console.log(`    …${transitional.length} transitional entries pending migration`);
+  for (const site of sunset) {
+    console.log(`    ${site.file} — ${site.reason}`);
+  }
   console.log('');
 }
 

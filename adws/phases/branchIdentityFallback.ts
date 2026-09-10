@@ -16,7 +16,7 @@ import { AgentStateManager } from '../core/agentState';
 import type { AgentState } from '../types/agentTypes';
 import { branchMatchesIssue } from '../vcs/branchIdentity';
 import { getLastActivityFromState } from '../triggers/cronStageResolver';
-import { gitContextForRepo, readLocalRepoInfo } from '../github/gitContextFactory';
+import type { GitContext } from '../gitContext';
 
 /** Injectable dependencies for the identity-recovery helpers. */
 export interface BranchIdentityFallbackDeps {
@@ -28,9 +28,8 @@ export interface BranchIdentityFallbackDeps {
   readTopLevelState(adwId: string): AgentState | null;
 }
 
-function defaultListCandidateBranches(cwd?: string): string[] {
-  const ctx = gitContextForRepo(readLocalRepoInfo(cwd));
-  return [...new Set([...ctx.worktreeBranches(cwd), ...ctx.localBranches(cwd)])];
+function defaultListCandidateBranches(gitContext: Pick<GitContext, 'worktreeBranches' | 'localBranches'>, cwd?: string): string[] {
+  return [...new Set([...gitContext.worktreeBranches(cwd), ...gitContext.localBranches(cwd)])];
 }
 
 function defaultListAdwIds(): string[] {
@@ -45,11 +44,19 @@ function defaultListAdwIds(): string[] {
   }
 }
 
-const defaultDeps: BranchIdentityFallbackDeps = {
-  listCandidateBranches: defaultListCandidateBranches,
-  listAdwIds: defaultListAdwIds,
-  readTopLevelState: (adwId) => AgentStateManager.readTopLevelState(adwId),
-};
+/**
+ * Builds the default identity-recovery deps bound to an injected GitContext —
+ * mirrors buildDefaultUpgradeGateDeps / buildDefaultDocsSelfCheckDeps (#822).
+ */
+export function buildDefaultBranchIdentityFallbackDeps(
+  gitContext: Pick<GitContext, 'worktreeBranches' | 'localBranches'>,
+): BranchIdentityFallbackDeps {
+  return {
+    listCandidateBranches: (cwd) => defaultListCandidateBranches(gitContext, cwd),
+    listAdwIds: defaultListAdwIds,
+    readTopLevelState: (adwId) => AgentStateManager.readTopLevelState(adwId),
+  };
+}
 
 function branchBelongsToIssue(
   branch: string,
@@ -70,7 +77,7 @@ function branchBelongsToIssue(
 export function findExistingBranchForIssue(
   issueType: IssueClassSlashCommand,
   issueNumber: number,
-  deps: BranchIdentityFallbackDeps = defaultDeps,
+  deps: BranchIdentityFallbackDeps,
 ): string | null {
   const candidates = deps.listCandidateBranches();
   for (const branch of candidates) {
@@ -92,7 +99,7 @@ export function findExistingBranchForIssue(
  */
 export function recoverAdwIdForBranch(
   branchName: string,
-  deps: BranchIdentityFallbackDeps = defaultDeps,
+  deps: BranchIdentityFallbackDeps,
 ): string | null {
   const adwIds = deps.listAdwIds();
   if (adwIds.length === 0) return null;

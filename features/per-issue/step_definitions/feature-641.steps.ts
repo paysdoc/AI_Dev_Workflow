@@ -354,6 +354,7 @@ When(
         logsDir: tmpdir(),
         recoveryState: ctx.recoveryState,
       },
+      deps,
       agentFn,
       finderFn,
     );

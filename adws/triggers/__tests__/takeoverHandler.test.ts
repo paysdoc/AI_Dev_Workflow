@@ -3,9 +3,6 @@ import * as path from 'path';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const mockWorktreePathFor = vi.hoisted(() => vi.fn().mockReturnValue('/worktrees/feature-branch'));
-vi.mock('../../github/gitContextFactory', () => ({
-  gitContextForSync: vi.fn().mockReturnValue({ worktreePathFor: mockWorktreePathFor }),
-}));
 import { evaluateCandidate } from '../takeoverHandler';
 import type { TakeoverDeps, CandidateDecision } from '../takeoverHandler';
 import { Platform, type RepoIdentifier } from '../../providers/types';
@@ -729,7 +726,7 @@ function makeTestGitContext(base: string, selfHost: boolean): GitContext {
 }
 
 describe('GitContext-based worktree path (abandoned)', () => {
-  it('abandoned: worktree path resolves under context base, not gitContextForSync fallback', () => {
+  it('abandoned: worktree path resolves under context base (boundary.gitContext is the only source, #822)', () => {
     const fakeCtx = makeTestGitContext(TARGET_BASE, false);
     const expectedWtPath = path.join(TARGET_BASE, '.worktrees', 'feature-issue-187-x');
     const deps = makeDeps({
@@ -771,7 +768,7 @@ describe('GitContext-based worktree path (abandoned)', () => {
 });
 
 describe('GitContext-based worktree path (phase_timeout)', () => {
-  it('phase_timeout: worktree path resolves under context base, not gitContextForSync fallback', () => {
+  it('phase_timeout: worktree path resolves under context base (boundary.gitContext is the only source, #822)', () => {
     const fakeCtx = makeTestGitContext(TARGET_BASE, false);
     const expectedWtPath = path.join(TARGET_BASE, '.worktrees', 'feature-issue-187-x');
     const deps = makeDeps({

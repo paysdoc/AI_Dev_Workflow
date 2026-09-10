@@ -15,7 +15,6 @@ import {
   type AgentState,
   type AgentIdentifier,
   type RecoveryState,
-  hasUncommittedChanges,
   getNextStage,
   allocateRandomPort,
   type TargetRepoInfo,
@@ -40,12 +39,11 @@ import type { RepoIdentity } from '../types/agentTypes';
 import type { GitContext } from '../gitContext';
 import type { GitHubIssue } from '../providers/github/domain/issue';
 import type { WorkflowContext } from '../forge/workflowCommentsIssue';
-import { gitContextForSync } from '../github/gitContextFactory';
 import { GITHUB_PAT } from '../core/environment';
 import type { BoundProviders, RepoContext, RepoIdentifier } from '../providers/types';
 import { classifyGitHubIssue } from '../core/issueClassifier';
 import { resolveWorkflowBranchName, readPersistedBranchName } from './branchNameResolution';
-import { findExistingBranchForIssue, recoverAdwIdForBranch } from './branchIdentityFallback';
+import { findExistingBranchForIssue, recoverAdwIdForBranch, buildDefaultBranchIdentityFallbackDeps } from './branchIdentityFallback';
 import { deriveOrchestratorScript } from '../core/orchestratorLib';
 import { copyClaudeAssetsToWorktree } from './worktreeSetup';
 import { postIssueStageComment } from './phaseCommentHelpers';
@@ -84,8 +82,9 @@ export interface WorkflowConfig {
   completedPhases?: string[];
   /** Absolute path to the top-level workflow state file: agents/{adwId}/state.json */
   topLevelStatePath: string;
-  /** Launch-boundary GitContext for this orchestrator process. Optional to avoid
-   *  breaking existing phase-test fixtures; always present for new orchestrators. */
+  /** Launch-boundary GitContext for this orchestrator process. Always set in
+   *  production by initializeWorkflow/initializePRReviewWorkflow; optional only
+   *  so phase-test fixtures using `as unknown as WorkflowConfig` keep compiling. */
   gitContext?: GitContext;
 }
 
@@ -153,8 +152,8 @@ export async function initializeWorkflow(
     throw new Error('initializeWorkflow: launch boundary unavailable — providers cannot be resolved for this run');
   }
 
-  const gitCtx = gitContextForSync({ owner: boundary.repoId.owner, repo: boundary.repoId.repo, selfHost: !targetRepo });
-  const gitContext: import('../gitContext').GitContext = boundary.gitContext;
+  const gitCtx = boundary.gitContext;
+  const branchIdentityDeps = buildDefaultBranchIdentityFallbackDeps(boundary.gitContext);
 
   // Startup validation: GITHUB_PAT is required for PR approval when a GitHub App is configured.
   if (isGitHubAppConfigured() && !GITHUB_PAT) {
@@ -195,8 +194,8 @@ export async function initializeWorkflow(
   } else {
     // Deterministic-branch fallback: find an existing branch for this issue/classifier
     // and recover the adwId from the persisted state store.
-    const existingBranch = findExistingBranchForIssue(issueType, issueNumber);
-    const recoveredId = existingBranch ? recoverAdwIdForBranch(existingBranch) : null;
+    const existingBranch = findExistingBranchForIssue(issueType, issueNumber, branchIdentityDeps);
+    const recoveredId = existingBranch ? recoverAdwIdForBranch(existingBranch, branchIdentityDeps) : null;
     if (recoveredId) {
       log(`Recovered adwId "${recoveredId}" from existing branch "${existingBranch}" (deterministic fallback)`, 'info');
       resolvedAdwId = recoveredId;
@@ -275,7 +274,7 @@ export async function initializeWorkflow(
     log('Using provided worktree (merged latest code)', 'info');
   } else if (targetRepoWorkspacePath) {
     // For external repos, create worktrees within the target repo workspace
-    branchName = await resolveWorkflowBranchName({ adwId: resolvedAdwId, issueType, issue, logsDir, recoveryState });
+    branchName = await resolveWorkflowBranchName({ adwId: resolvedAdwId, issueType, issue, logsDir, recoveryState }, branchIdentityDeps);
     worktreePath = gitCtx.ensureWorktree(branchName, defaultBranch);
     copyClaudeAssetsToWorktree(worktreePath, gitCtx);
     log(`Worktree path (target repo): ${worktreePath}`, 'info');
@@ -290,7 +289,7 @@ export async function initializeWorkflow(
       gitCtx.copyEnvToWorktree(worktreePath);
       log(`Reusing existing worktree found by issue pattern at ${worktreePath}`, 'info');
     } else {
-      branchName = await resolveWorkflowBranchName({ adwId: resolvedAdwId, issueType, issue, logsDir, recoveryState });
+      branchName = await resolveWorkflowBranchName({ adwId: resolvedAdwId, issueType, issue, logsDir, recoveryState }, branchIdentityDeps);
       const existingWorktree = gitCtx.getWorktreeForBranch(branchName);
       if (existingWorktree) {
         log(`Reusing existing worktree at ${existingWorktree}`, 'info');
@@ -413,7 +412,7 @@ export async function initializeWorkflow(
   // Handle recovery mode
   if (recoveryState.canResume && recoveryState.lastCompletedStage) {
     log(`Recovery mode active: last completed stage was '${recoveryState.lastCompletedStage}'`, 'info');
-    if (hasUncommittedChanges(worktreePath)) {
+    if (gitCtx.hasUncommittedChanges(worktreePath)) {
       log('Warning: There are uncommitted changes in the working directory', 'info');
     }
     if (recoveryState.branchName) ctx.branchName = recoveryState.branchName;
@@ -468,6 +467,6 @@ export async function initializeWorkflow(
     adwYmlConfig,
     completedPhases,
     topLevelStatePath,
-    gitContext,
+    gitContext: gitCtx,
   };
 }

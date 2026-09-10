@@ -60,7 +60,7 @@ export async function executeScenarioPhase(
       execution: AgentStateManager.createExecutionState('running'),
     });
 
-    const result = await runScenarioAgent(issue, logsDir, scenarioAgentStatePath, worktreePath, adwId, config.installContext, { selfHost: !repoContext, adwId });
+    const result = await runScenarioAgent(issue, logsDir, scenarioAgentStatePath, worktreePath, adwId, config.installContext, { selfHost: !repoContext, adwId, gitContext: config.gitContext });
 
     costUsd = result.totalCostUsd || 0;
     if (result.modelUsage) modelUsage = result.modelUsage;

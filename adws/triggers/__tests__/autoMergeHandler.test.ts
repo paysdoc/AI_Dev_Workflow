@@ -136,7 +136,7 @@ describe('mergeWithConflictResolution', () => {
       undefined,
       undefined,
       undefined,
-      { selfHost: false, adwId: ADW_ID },
+      { selfHost: false, adwId: ADW_ID, gitContext: ctx },
     );
   });
 
@@ -173,7 +173,7 @@ describe('mergeWithConflictResolution', () => {
       undefined,
       undefined,
       undefined,
-      { selfHost: false, adwId: ADW_ID },
+      { selfHost: false, adwId: ADW_ID, gitContext: ctx },
     );
   });
 

@@ -2,7 +2,7 @@
  * Resolution Agent - Reconciles mismatches between an implementation plan and BDD scenarios.
  * Output validation retries are delegated to the commandAgent retry loop.
  */
-import type { AgentResult } from "./claudeAgent";
+import type { AgentResult, AgentLaunchContext } from "./claudeAgent";
 import { runCommandAgent, type CommandAgentConfig, type ExtractionResult } from "./commandAgent";
 import { extractJson } from "../core/jsonParser";
 import type { MismatchItem } from "./validationAgent";
@@ -97,7 +97,7 @@ export async function runResolutionAgent(
   statePath?: string,
   cwd?: string,
   subprocessEnv?: NodeJS.ProcessEnv,
-  launchContext?: { selfHost: boolean; adwId: string },
+  launchContext?: AgentLaunchContext,
 ): Promise<AgentResult & { resolutionResult: ResolutionResult }> {
   const result = await runCommandAgent(resolutionAgentConfig, {
     args: formatResolutionArgs(adwId, issueNumber, planFilePath, scenarioGlob, issueJson, mismatches),
