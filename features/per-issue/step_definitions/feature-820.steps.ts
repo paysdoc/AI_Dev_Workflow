@@ -49,9 +49,10 @@ import { fileURLToPath } from 'node:url';
 import { world796, splitRepo, resetWorld, claimBranchName, setClaimBranchOverride } from './feature-796.steps.ts';
 import type { CallRecord } from './feature-796.steps.ts';
 
-import type { GitHubLabel } from '../../../adws/providers/github/domain/issue.ts';
-import type { ReviewComment, RepoContext } from '../../../adws/providers/types.ts';
+import type { ReviewComment, RepoContext, IssueTracker, CodeHost } from '../../../adws/providers/types.ts';
 import { Platform } from '../../../adws/providers/types.ts';
+import { forgeProviders } from '../../../adws/providers/forgeProviders.ts';
+import { GitContext } from '../../../adws/gitContext/index.ts';
 import type { WorkflowConfig } from '../../../adws/phases/workflowInit.ts';
 import type { WorkflowContext } from '../../../adws/forge/workflowCommentsIssue.ts';
 
@@ -75,10 +76,6 @@ import { executeScenarioPhase } from '../../../adws/phases/scenarioPhase.ts';
 import { AgentStateManager, ADW_UNVERIFIED_LABEL, hasWontFixLabelName, detectRecoveryState } from '../../../adws/core/index.ts';
 import { AGENTS_STATE_DIR, LOGS_DIR } from '../../../adws/core/config.ts';
 import { clearClaudeCodePathCache } from '../../../adws/core/environment.ts';
-import { JiraIssueTracker } from '../../../adws/providers/jira/jiraIssueTracker.ts';
-import type { JiraApiClient } from '../../../adws/providers/jira/jiraApiClient.ts';
-import { GitLabCodeHost } from '../../../adws/providers/gitlab/gitlabCodeHost.ts';
-import type { GitLabApiClient } from '../../../adws/providers/gitlab/gitlabApiClient.ts';
 
 const FRAMEWORK_REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const CLAUDE_CLI_STUB_PATH = path.resolve(FRAMEWORK_REPO_ROOT, 'test/mocks/claude-cli-stub.ts');
@@ -254,7 +251,7 @@ After({ tags: '@adw-820' }, function () {
 // 'no GitHub provider was constructed during the phase' assertion (which
 // reads that field) is meaningful for §11's backstop row.
 
-function buildWorkflowConfig(issueNumber: number, overrides: { prUrl?: string; labels?: GitHubLabel[] } = {}): WorkflowConfig {
+function buildWorkflowConfig(issueNumber: number, overrides: { prUrl?: string; labels?: string[] } = {}): WorkflowConfig {
   const w = world796();
   assert.ok(w.boundary, 'Expected a launch boundary to have been built first');
   const boundary = w.boundary;
@@ -276,16 +273,15 @@ function buildWorkflowConfig(issueNumber: number, overrides: { prUrl?: string; l
   };
 
   const issue = {
+    id: String(issueNumber),
     number: issueNumber,
     title: 'Test issue',
     body: 'Test issue body',
     state: 'open',
-    author: { login: 'tester', isBot: false },
-    assignees: [],
+    author: 'tester',
     labels: overrides.labels ?? [],
     comments: [],
     createdAt: new Date(0).toISOString(),
-    updatedAt: new Date(0).toISOString(),
     url: `https://github.com/${boundary.repoId.owner}/${boundary.repoId.repo}/issues/${issueNumber}`,
   };
 
@@ -816,12 +812,43 @@ Then('the unaddressed comments are empty', function () {
 });
 
 // ── §9 A FORGE THAT IS NOT GITHUB REFUSES BY NAME ──────────────────────────────
+//
+// The GitLab/Jira ports are obtained the sanctioned way — through
+// forgeProviders() — rather than constructing an adapter class directly, over
+// a fixture GitContext whose exec is never actually invoked: every refusal
+// below throws before any client or executor is touched.
 
 const REFUSAL_REPO_ID = { owner: 'acme', repo: 'widget', platform: Platform.GitLab };
 
-function buildRefusalProvider(providerName: string): JiraIssueTracker | GitLabCodeHost {
-  if (providerName === 'JiraIssueTracker') return new JiraIssueTracker({} as JiraApiClient, 'ADW', 'https://acme.atlassian.net');
-  if (providerName === 'GitLabCodeHost') return new GitLabCodeHost(REFUSAL_REPO_ID, {} as GitLabApiClient);
+function buildRefusalProviders(): { issueTracker: IssueTracker; codeHost: CodeHost } {
+  const gitContext = new GitContext(
+    {
+      owner: REFUSAL_REPO_ID.owner,
+      repo: REFUSAL_REPO_ID.repo,
+      selfHost: false,
+      tokenProvider: { credentialEnv: () => ({}) },
+      gitIdentity: { authorName: 'ADW Bot', authorEmail: 'bot@adw.dev', committerName: 'ADW Bot', committerEmail: 'bot@adw.dev' },
+      frameworkRepoRoot: '/srv/adw/framework',
+      targetReposDir: '/srv/adw/repos',
+    },
+    { exec: () => { throw new Error('unexpected exec on the §9 refusal fixture context'); } },
+  );
+  return forgeProviders({
+    forge: { codeHost: 'gitlab', issueTracker: 'jira' },
+    identity: REFUSAL_REPO_ID,
+    tokenProvider: { credentialEnv: () => ({}) },
+    gitContext,
+    deps: {
+      gitlab: { token: 'unused', instanceUrl: 'http://127.0.0.1:9' },
+      jira: { instanceUrl: 'http://127.0.0.1:9', projectKey: 'ADW', auth: { pat: 'unused' } },
+    },
+  });
+}
+
+function buildRefusalProvider(providerName: string): IssueTracker | CodeHost {
+  const providers = buildRefusalProviders();
+  if (providerName === 'JiraIssueTracker') return providers.issueTracker;
+  if (providerName === 'GitLabCodeHost') return providers.codeHost;
   throw new Error(`Unknown refusal-stub provider: "${providerName}"`);
 }
 
@@ -831,13 +858,13 @@ When('the {string} method is called on the {string} provider', function (method:
   try {
     switch (method) {
       case 'getIssueTitle':
-        (target as JiraIssueTracker).getIssueTitle();
+        (target as IssueTracker).getIssueTitle(1);
         break;
       case 'canApprovePullRequests':
-        (target as GitLabCodeHost).canApprovePullRequests();
+        (target as CodeHost).canApprovePullRequests();
         break;
       case 'getAuthenticatedUser':
-        (target as GitLabCodeHost).getAuthenticatedUser();
+        (target as CodeHost).getAuthenticatedUser();
         break;
       default:
         throw new Error(`Unknown refusal-stub method: "${method}"`);
@@ -859,7 +886,7 @@ Then('it fails with a message naming {string}', function (qualifiedName: string)
 
 Given('the configuration\'s issue carries the label {string}', function (label: string) {
   const config = requireConfig();
-  (config.issue.labels as unknown as GitHubLabel[]).push({ id: label, name: label, color: 'ededed' });
+  config.issue.labels.push(label);
 });
 
 When('the scenario phase runs for that configuration', async function () {

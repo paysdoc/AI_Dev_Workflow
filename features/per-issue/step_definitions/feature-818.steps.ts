@@ -37,14 +37,6 @@ import { resetGuardFixtureTree } from './feature-816.steps.ts';
 
 const execFileAsync = promisify(execFile);
 
-import { GitLabCodeHost } from '../../../adws/providers/gitlab/gitlabCodeHost.ts';
-import type { GitLabApiClient } from '../../../adws/providers/gitlab/gitlabApiClient.ts';
-import { createGitLabBoardManager } from '../../../adws/providers/gitlab/gitlabBoardManager.ts';
-import { JiraIssueTracker } from '../../../adws/providers/jira/jiraIssueTracker.ts';
-import type { JiraApiClient } from '../../../adws/providers/jira/jiraApiClient.ts';
-import { createJiraBoardManager } from '../../../adws/providers/jira/jiraBoardManager.ts';
-import { Platform, type BoardManager } from '../../../adws/providers/types.ts';
-
 const REPO_ROOT = process.cwd();
 const FORGE_ENV_VAR_NAMES = ['GITLAB_TOKEN', 'GITLAB_INSTANCE_URL', 'JIRA_EMAIL', 'JIRA_API_TOKEN', 'JIRA_PAT'];
 const ADW_LOG_DECORATION_RE = /\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\]/;
@@ -286,9 +278,6 @@ let jiraConfig: JiraConfigState | null = null;
 let useCapturingLoggerGitLab = false;
 let useCapturingLoggerJira = false;
 let lastResult: DriverOutput | null = null;
-let lastGitLabCodeHost: GitLabCodeHost | null = null;
-let lastJiraTracker: JiraIssueTracker | null = null;
-let lastBoardManager: BoardManager | null = null;
 
 /** Resets this file's module-private recorder/driver state (mirrors this file's own `Before` body); exported for #823's own hooks, since this file's `Before`/`After` are tag-scoped to `@adw-818`. */
 async function resetRecorderState(): Promise<void> {
@@ -302,9 +291,6 @@ async function resetRecorderState(): Promise<void> {
   useCapturingLoggerGitLab = false;
   useCapturingLoggerJira = false;
   lastResult = null;
-  lastGitLabCodeHost = null;
-  lastJiraTracker = null;
-  lastBoardManager = null;
 }
 
 Before({ tags: '@adw-818' }, async function () {
@@ -623,76 +609,3 @@ Then("no line the adapter wrote to stdout carries ADW's timestamped log decorati
   }
 });
 
-// ---------------------------------------------------------------------------
-// §7 — existing suites and the ratchet (in-process; no child process needed)
-// ---------------------------------------------------------------------------
-
-function expectThrows(fn: () => void, expectedSubstring: string): void {
-  try {
-    fn();
-  } catch (err) {
-    assert.ok(String((err as Error).message).includes(expectedSubstring), `Expected error message to include "${expectedSubstring}". Got: ${(err as Error).message}`);
-    return;
-  }
-  assert.fail(`Expected function to throw containing "${expectedSubstring}"`);
-}
-
-async function expectRejects(promiseFactory: () => Promise<unknown>, expectedSubstring: string): Promise<void> {
-  try {
-    await promiseFactory();
-  } catch (err) {
-    assert.ok(String((err as Error).message).includes(expectedSubstring), `Expected rejection message to include "${expectedSubstring}". Got: ${(err as Error).message}`);
-    return;
-  }
-  assert.fail(`Expected promise to reject containing "${expectedSubstring}"`);
-}
-
-const REPO_ID_ACME_WIDGET_GITLAB = { owner: 'acme', repo: 'widget', platform: Platform.GitLab };
-
-When('a GitLab code host is constructed with only a repository identifier and an API client', function () {
-  lastGitLabCodeHost = new GitLabCodeHost(REPO_ID_ACME_WIDGET_GITLAB, {} as GitLabApiClient);
-});
-
-Then('asking it to approve a pull request refuses naming {string}', function (name: string) {
-  assert.ok(lastGitLabCodeHost, 'Expected a prior When to have constructed the GitLab code host');
-  const codeHost = lastGitLabCodeHost;
-  expectThrows(() => codeHost.approvePullRequest(), name);
-});
-
-Then('asking it to list merged pull requests refuses naming {string}', function (name: string) {
-  assert.ok(lastGitLabCodeHost, 'Expected a prior When to have constructed the GitLab code host');
-  const codeHost = lastGitLabCodeHost;
-  expectThrows(() => codeHost.listMergedPullRequests(), name);
-});
-
-When('a Jira issue tracker is constructed with only an API client and the project key {string}', function (projectKey: string) {
-  lastJiraTracker = new JiraIssueTracker({} as JiraApiClient, projectKey, 'https://acme.atlassian.net');
-});
-
-Then('asking it to fetch labels refuses naming {string}', function (name: string) {
-  assert.ok(lastJiraTracker, 'Expected a prior When to have constructed the Jira issue tracker');
-  const tracker = lastJiraTracker;
-  expectThrows(() => tracker.fetchLabels(), name);
-});
-
-Then('asking it to list issues refuses naming {string}', function (name: string) {
-  assert.ok(lastJiraTracker, 'Expected a prior When to have constructed the Jira issue tracker');
-  const tracker = lastJiraTracker;
-  expectThrows(() => tracker.listIssues(), name);
-});
-
-When('the {string} board manager is constructed with no arguments', function (platform: string) {
-  if (platform === 'GitLab') {
-    lastBoardManager = createGitLabBoardManager();
-  } else if (platform === 'Jira') {
-    lastBoardManager = createJiraBoardManager();
-  } else {
-    throw new Error(`Unknown platform: ${platform}`);
-  }
-});
-
-Then('asking it to find a board refuses naming {string}', async function (platform: string) {
-  assert.ok(lastBoardManager, 'Expected a prior When to have constructed a board manager');
-  const boardManager = lastBoardManager;
-  await expectRejects(() => boardManager.findBoard(), platform);
-});
