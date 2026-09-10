@@ -80,6 +80,13 @@ Feature: The last three raw-GitHub call sites answer through the forge ports, lo
   `NaN`, the comparator returns `NaN` for every pair, and `Array.prototype.sort` leaves the forge's
   own order untouched. Type-check green, unit suite green, wrong pull request announced. §2's
   two-open-PRs row is the only thing in the repository that fails on it.
+  AND THAT NaN IS ALREADY THE STATUS QUO — verified. `buildNotifierDeps` (`hitlBoardNotifier.ts:73`)
+  casts `fetchAllPRs()` to `{number, body, state}` with NO `updatedAt` at all, so `selectPreferredPR`
+  already sorts on `undefined` today: feed it the same two open PRs in either order and it returns
+  whichever came first. So the two-open-PRs row does NOT preserve today's behaviour — it asserts the
+  FIX the issue asks for ("add the missing field to the domain model … and both adapters"). It is the
+  one deliberate behaviour change in §2, and it only lands if BOTH the type and the `--json`
+  projection are widened. Half the fix leaves the row failing exactly as it fails now.
 
   FINDING 3 — THE NOTIFIER FILTERS TO OPEN *BEFORE* PREFERRING OPEN. `buildNotifierDeps.listOpenPRs`
   reads `fetchAllPRs` and keeps `state === 'OPEN'`; `selectPreferredPR` then prefers open and falls
@@ -90,13 +97,18 @@ Feature: The last three raw-GitHub call sites answer through the forge ports, lo
   merged last week. §2 pins both halves.
 
   FINDING 4 — `parseOwnerRepoFromUrl` IS NOT A SUPERSET OF `parseGitHubRemoteUrl`. Item 2 composes
-  `readLocalRepoIdentity` from `readOriginRemoteUrl` + `parseOwnerRepoFromUrl`. Three divergences:
+  `readLocalRepoIdentity` from `readOriginRemoteUrl` + `parseOwnerRepoFromUrl`. First, a location
+  correction the build needs: the issue calls `parseOwnerRepoFromUrl` a "provider types" export, but
+  it lives in `adws/providers/workspaceValidation.ts`, NOT `adws/providers/types.ts`. Import it from
+  where it is. Four divergences, all four verified by running both parsers over the same remotes:
     • `ssh://git@github.com/owner/repo[.git]` RESOLVES today (`parseGitHubRemoteUrl`'s HTTPS pattern
       is unanchored and matches the `github.com/…` tail) and returns NULL under
       `parseOwnerRepoFromUrl` (its HTTPS branch needs `https?://`; its SSH branch needs a colon after
       the host). A clone made with the `ssh://` scheme stops resolving its own identity.
     • `https://gitlab.com/acme/widget.git` THROWS today and RESOLVES under the neutral parser. The
       issue asks for the same error message on failure; it does not say the set of failures shrinks.
+    • `git@gitlab.com:acme/widget.git` THROWS today and RESOLVES under the neutral parser too — the
+      SCP-style half of the same widening, which the issue body does not mention at all.
     • `parseOwnerRepoFromUrl` returns `{owner, repo}` with NO `platform`, and `RepoIdentifier`
       requires one. Stamping `Platform.GitHub` unconditionally is what every current caller expects
       (`buildRepoIdentifier`, `resolveEntryRepoInfo` and `buildLaunchBoundary`'s default all already
@@ -287,10 +299,13 @@ Feature: The last three raw-GitHub call sites answer through the forge ports, lo
     When the review-transition notification is raised for issue 42 from that boundary
     Then no review-transition notification was announced
 
-  # FINDING 2's discriminating row. Both candidates are OPEN, so the open-preference cannot decide
-  # and the `updatedAt` sort is the only thing left. A `PullRequestRecord` widened in the type but not
-  # in `fetchAllPRsCmd`'s `--json` list yields `NaN` comparisons, a no-op sort, and whichever pull
-  # request the forge happened to list first.
+  # FINDING 2's discriminating row, and the one row in §2 that asserts a CHANGE rather than a
+  # preservation. Both candidates are OPEN, so the open-preference cannot decide and the `updatedAt`
+  # sort is the only thing left. Today that sort is already a no-op — the notifier's own cast carries
+  # no `updatedAt` — so this row fails RED against current behaviour on purpose. It goes green only
+  # when `updatedAt` is added to `PullRequestRecord` AND to `fetchAllPRsCmd`'s `--json` list AND to
+  # both adapters. A type widened without the projection yields `NaN` comparisons, a no-op sort, and
+  # whichever pull request the forge happened to list first — i.e. no movement at all.
 
   @adw-844 @adw-ejnsio-route-adw-callers-th
   Scenario: Two open linked pull requests resolve to the one the forge updated most recently
