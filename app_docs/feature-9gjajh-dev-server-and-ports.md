@@ -15,7 +15,7 @@ This module manages the full lifecycle of development server processes needed du
 - Derives the authoritative `WorkflowStage` for an ADW run from remote GitHub artifacts (branch existence, PR state) rather than trusting potentially-stale local state files (`remoteReconcile.ts`)
 - Applies a mandatory double-read verification against the GitHub API to guard against read-your-write lag, retrying up to 3 times on divergence before falling back to the state-file value
 - Clones external target repositories to `~/.adw/repos/{owner}/{repo}/` on first use and fetches latest refs on subsequent uses (`targetRepoManager.ts`)
-- Converts HTTPS GitHub clone URLs to SSH format before cloning
+- Converts HTTPS clone URLs to SSH format before cloning — host-neutral and ADW-owned (`convertToSshUrl`, `adws/core/sshCloneUrl.ts`, #844), re-exported at the stable `targetRepoManager.ts` import path
 
 ## Contracts & Invariants
 
@@ -44,3 +44,4 @@ This module manages the full lifecycle of development server processes needed du
 - `remoteReconcile` uses `execWithRetry` (a shell call to `git ls-remote`) for branch checks; this requires the ADW process to have network access and a configured `origin` remote pointing to GitHub
 - `fetchLatestRefs` shells out to `gh repo view` to determine the default branch name, meaning a valid `gh` CLI session is required in the working directory's context
 - HTTPS clone URLs are silently converted to SSH; if SSH keys are not configured, the clone will fail with an opaque git error
+- **`convertToSshUrl` is host-neutral (#844), not GitHub-only** — any `https://<host>/<owner>/<repo>[.git]` two-segment URL converts to `git@<host>:<owner>/<repo>.git` (a GitLab or self-hosted target now converts too, needing an SSH key on the box HTTPS did not); anything else (`ssh://`, an explicit port, a three-segment path, `http://`, a non-URL string) passes through unchanged. Lives in `adws/core/sshCloneUrl.ts`, not the GitHub adapter.
