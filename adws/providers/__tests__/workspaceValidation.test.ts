@@ -108,13 +108,15 @@ describe('validateWorkingDirectory', () => {
   });
 
   it('throws when the directory has no .git', () => {
-    tempDir = mkdtempSync(join(tmpdir(), 'adw-wsval-'));
-    expect(() => validateWorkingDirectory(tempDir!)).toThrow(/not a git repository/);
+    const dir = mkdtempSync(join(tmpdir(), 'adw-wsval-'));
+    tempDir = dir;
+    expect(() => validateWorkingDirectory(dir)).toThrow(/not a git repository/);
   });
 
   it('passes when the directory contains a .git directory', () => {
-    tempDir = mkdtempSync(join(tmpdir(), 'adw-wsval-'));
-    mkdirSync(join(tempDir, '.git'));
-    expect(() => validateWorkingDirectory(tempDir!)).not.toThrow();
+    const dir = mkdtempSync(join(tmpdir(), 'adw-wsval-'));
+    tempDir = dir;
+    mkdirSync(join(dir, '.git'));
+    expect(() => validateWorkingDirectory(dir)).not.toThrow();
   });
 });

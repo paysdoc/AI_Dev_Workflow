@@ -1,7 +1,8 @@
 /**
  * extractionRule.test.ts — rule-level unit tests for the 'extraction-readiness'
- * rule (#816). Pure tests only — no `fs` mock — except the final real-tree
- * test, which reads the actual repository via the real `fs`.
+ * rule (#816). Pure tests only — no `fs` mock. The real-tree test, which reads
+ * the actual repository via the real `fs`, lives in
+ * extractionRule.integration.test.ts.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -15,7 +16,6 @@ import {
   collectImportSpecifiers,
   flagFrameworkImports,
 } from '../extractionRule';
-import { collectExtractionScopeFiles, scanExtractionScope } from '../../checkGitGhGuard';
 
 describe('resolveImportTarget', () => {
   it.each([
@@ -275,39 +275,5 @@ describe('scope-list invariants', () => {
 
   it('EXTRACTABLE_SET is exactly the two directories', () => {
     expect(EXTRACTABLE_SET).toEqual(['adws/gitContext', 'adws/providers']);
-  });
-});
-
-describe('real-tree: the initial scope is clean today', () => {
-  it('collects the expected files, excludes tests, and yields zero violations', () => {
-    const repoRoot = process.cwd();
-    const scopeFiles = collectExtractionScopeFiles(repoRoot);
-
-    expect(scopeFiles).toContain('adws/gitContext/gitContext.ts');
-    expect(scopeFiles).toContain('adws/providers/types.ts');
-    expect(scopeFiles).toContain('adws/providers/github/mappers.ts');
-    expect(scopeFiles).toContain('adws/providers/github/domain/issue.ts');
-    expect(scopeFiles).toContain('adws/providers/github/domain/pullRequest.ts');
-    expect(scopeFiles).toContain('adws/providers/gitlab/gitlabCodeHost.ts');
-    expect(scopeFiles).toContain('adws/providers/gitlab/gitlabApiClient.ts');
-    expect(scopeFiles).toContain('adws/providers/jira/jiraIssueTracker.ts');
-    expect(scopeFiles).toContain('adws/providers/jira/jiraApiClient.ts');
-    expect(scopeFiles).toContain('adws/providers/github/githubIssueTracker.ts');
-    expect(scopeFiles).toContain('adws/providers/github/githubCodeHost.ts');
-    expect(scopeFiles).toContain('adws/providers/github/githubBoardManager.ts');
-    expect(scopeFiles).toContain('adws/providers/github/ghIssueParsers.ts');
-    expect(scopeFiles).toContain('adws/providers/github/ghPrParsers.ts');
-    expect(scopeFiles).toContain('adws/providers/github/contextBinding.ts');
-    expect(scopeFiles).toContain('adws/providers/workspaceValidation.ts');
-    expect(scopeFiles).toContain('adws/providers/index.ts');
-    expect(scopeFiles).toContain('adws/providers/forgeProviders.ts');
-    for (const relPath of scopeFiles) {
-      expect(relPath).not.toContain('/__tests__/');
-      expect(relPath.endsWith('.test.ts')).toBe(false);
-    }
-    expect(new Set(scopeFiles).size).toBe(scopeFiles.length);
-
-    const { violations } = scanExtractionScope(scopeFiles, repoRoot);
-    expect(violations).toEqual([]);
   });
 });
