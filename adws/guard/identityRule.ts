@@ -105,6 +105,33 @@ function identityArgumentOf(calleeName: string, node: ts.CallExpression): ts.Exp
   return calleeName === 'forgeProviders' ? identityPropertyOf(firstArg) : firstArg;
 }
 
+/**
+ * True when `node` is a context-constructor call whose identity argument is a
+ * direct identity READ — `gitContextForRepo(readLocalRepoIdentity(…))` or
+ * `forgeProviders({ identity: getRepoInfo(…) })`, with or without arguments.
+ *
+ * This composite is adjudicated by THIS rule alone, and `constructionRule.ts`
+ * defers on it (that module's only import from here). Both rules inspect the
+ * same argument position, but only this one reads the argument: an identity
+ * read taking no argument is cwd-derived and fails; one given an explicit
+ * root is the sanctioned pre-context read that entry points make
+ * (`healthCheck.tsx`'s `readLocalRepoIdentity(REPO_ROOT)`, #844) and passes.
+ * Were the construction rule to flag the composite regardless — as it does
+ * every other construction, by callee name alone — the passing half would be
+ * unwritable anywhere except the two sanctioned files, and this rule's "an
+ * explicit root is legal" verdict would be unobservable outside them.
+ *
+ * Deferral costs the construction rule nothing it was holding alone: the
+ * failing half still fails here, under the rule that names the actual defect.
+ */
+export function isIdentityReadComposite(node: ts.CallExpression): boolean {
+  const calleeName = contextConstructorCalleeName(node.expression);
+  if (!calleeName) return false;
+  const identityArg = identityArgumentOf(calleeName, node);
+  if (!identityArg || !ts.isCallExpression(identityArg)) return false;
+  return ts.isIdentifier(identityArg.expression) && CWD_DERIVED_IDENTITY_FNS.has(identityArg.expression.text);
+}
+
 /** Readable shape string for the violation's `command` field. */
 function describeCwdDerivedArg(arg: ts.Node): string {
   if (isZeroArgCwdDerivedCall(arg) && ts.isIdentifier(arg.expression)) return `${arg.expression.text}()`;

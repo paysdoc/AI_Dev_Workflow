@@ -25,10 +25,21 @@
  * the whole-repo walk before any file is handed to `scanFiles`, so the
  * adapter package that DEFINES the provider factories needs no allowlist
  * entry of its own.
+ *
+ * ONE SHAPE IS NOT THIS RULE'S TO JUDGE (#844): a context constructor whose
+ * identity argument is a direct identity read —
+ * `gitContextForRepo(readLocalRepoIdentity(root))` — belongs to
+ * `cwd-derived-identity`, which inspects that argument rather than the callee
+ * name and fails a zero-argument read while passing an explicit root. This
+ * rule defers via `isIdentityReadComposite` (identityRule.ts) so that
+ * verdict stands either way; nothing else about the callee-name match
+ * changes, and a construction fed anything but an identity read is flagged
+ * exactly as before.
  */
 
 import * as ts from 'typescript';
 import type { Violation } from './violationTypes';
+import { isIdentityReadComposite } from './identityRule';
 
 // ---------------------------------------------------------------------------
 // Flagged callee name sets
@@ -115,10 +126,15 @@ function describeUnsanctionedConstructionNode(node: ts.Node): string | null {
   if (ts.isNewExpression(node) && isGitContextClassCallee(node.expression)) {
     return 'new GitContext(…)';
   }
-  if (ts.isCallExpression(node) && isFlaggedProviderOrContextCallee(node.expression)) {
-    return `${(node.expression as ts.Identifier).text}(…)`;
-  }
-  return null;
+  if (!ts.isCallExpression(node) || !isFlaggedProviderOrContextCallee(node.expression)) return null;
+  // A context constructor fed a direct identity READ is the one composite this
+  // rule does not adjudicate: `cwd-derived-identity` inspects the same argument
+  // and decides it by arity — no argument fails there, an explicit root passes.
+  // See `isIdentityReadComposite`'s docblock for why flagging it here too would
+  // make the passing half unwritable. Every other construction, including
+  // `gitContextForRepo(threadedIdentity)`, is flagged by callee name alone.
+  if (isIdentityReadComposite(node)) return null;
+  return `${(node.expression as ts.Identifier).text}(…)`;
 }
 
 /**

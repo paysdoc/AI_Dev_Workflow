@@ -487,41 +487,17 @@ Then('the issue-accessibility health check fails with the error {string}', funct
 // readLocalRepoIdentity) reuse feature-816.steps.ts's Given/When/Then verbatim
 // — no step definitions of this file's own back them.
 //
-// KNOWN-RED, CONTRACT DEFECT: scenario "An identity read given an explicit root
-// is not flagged as cwd-derived" (feature-844.feature:541) cannot pass as
-// written, and the behaviour it names is nevertheless CORRECT.
-//
-// What the rule under test does: running checkGitGhGuard.ts over that exact
-// fixture emits ONE line, and it is not this rule's —
-//   adws/core/probeOps.ts:5  [unsanctioned-construction]  gitContextForRepo(…)
-// No [cwd-derived-identity] line appears, i.e. readLocalRepoIdentity(root) with
-// an explicit root IS permitted, which is precisely the scenario's title. Drop
-// the gitContextForRepo call from the fixture and the same tree is a clean
-// ✔ PASS.
-//
-// Why the extra line is unavoidable: 'unsanctioned-construction' (#795) flags a
-// bare gitContextForRepo(...) callee at any path outside constructionRule.ts's
-// two SANCTIONED_CONSTRUCTION_SITES (adws/core/launchGitContext.ts,
-// adws/providers/forgeProviders.ts), independent of its argument — a fixture
-// calling gitContextForRepo(id) on an unrelated threaded `id` fires identically.
-// That independence is deliberate and pinned twice: checkGitGhGuard.test.ts
-// ("the identical source is ZERO violations under cwd-derived-identity …,
-// proving the two rules are independent") and feature-823's §6 construction
-// rows. The cwd-derived-identity unit tests avoid the collision by siting their
-// fixtures at the sanctioned adws/core/launchGitContext.ts; this scenario sites
-// its fixture at a non-sanctioned path and then asserts a whole-guard pass.
-//
-// So the only ways to green it are to sanction adws/core/probeOps.ts or to drop
-// gitContextForRepo from CONTEXT_CONSTRUCTORS — both gut the #795 ratchet that
-// PRD story 24 and feature-823 FINDING 6 exist to hold (a boundary-free
-// construction path reintroduced under a familiar name, e.g. imported from
-// @paysdoc/devplatform in #840, would then be flagged by nothing). Not done.
-//
-// Remedy is a .feature amendment, which this workflow may not make: the Then
-// should assert the rule the scenario names, not a whole-guard pass — register
-// `the guard failure over the guard fixture tree cites no {string} rule`
-// (the parameterised twin of feature-816.steps.ts:129's extraction-readiness
-// form) and pair it with `… fails naming "adws/core/probeOps.ts"`.
+// The pair is a jurisdiction test between two rules that inspect the SAME
+// argument position. `unsanctioned-construction` (#795) matches on the callee
+// name and would flag `gitContextForRepo(...)` at this non-sanctioned path
+// whatever it is passed; `cwd-derived-identity` (#769) reads the argument and
+// decides by arity. Both firing meant the explicit-root half could never be
+// written outside the two sanctioned files, so the construction rule now
+// defers on this one composite — `isIdentityReadComposite`, the only import
+// `constructionRule.ts` takes from `identityRule.ts`. The zero-arg row above
+// still goes red under the rule that names the actual defect; every other
+// construction, `gitContextForRepo(threadedIdentity)` included, is flagged by
+// callee name exactly as before.
 // ---------------------------------------------------------------------------
 
 Given('a checkout whose origin remote is {string}', function (remote: string) {
