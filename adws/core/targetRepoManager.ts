@@ -10,9 +10,9 @@
  * crash in the old `fetchLatestRefs`.
  *
  * Since #793 the core clones exactly the URL it is handed, so this shim is
- * the site that hands it a ready one: it converts a published GitHub HTTPS
- * clone URL to SSH (`convertToSshUrl`, now owned by the GitHub forge
- * adapter) before calling into the core.
+ * the site that hands it a ready one: it converts a published HTTPS clone
+ * URL to SSH (`convertToSshUrl`, ADW-owned and host-neutral since #844)
+ * before calling into the core.
  *
  * Zero raw git/gh strings remain in this file.
  */
@@ -26,7 +26,7 @@ import {
   cloneRepo,
   ensureRepoWorkspace,
 } from '../gitContext';
-import { convertToSshUrl } from '../providers/github/cloneUrl';
+import { convertToSshUrl } from './sshCloneUrl';
 
 // ---------------------------------------------------------------------------
 // Path helpers — bind TARGET_REPOS_DIR at the shim boundary

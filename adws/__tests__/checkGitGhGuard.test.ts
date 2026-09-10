@@ -236,6 +236,52 @@ describe('scanFiles — cwd-derived-identity rule follows forgeProviders (#823)'
   });
 });
 
+describe('scanFiles — cwd-derived-identity rule follows readLocalRepoIdentity (#844)', () => {
+  it('flags an inline gitContextForRepo(readLocalRepoIdentity()) composite', () => {
+    mockReadFileSync.mockReturnValue(
+      'const ctx = gitContextForRepo(readLocalRepoIdentity());\n',
+    );
+
+    const { violations } = scanFiles(['adws/core/launchGitContext.ts'], '/repo');
+
+    expect(violations).toHaveLength(1);
+    expect(violations[0].rule).toBe('cwd-derived-identity');
+    expect(violations[0].command).toBe('gitContextForRepo(readLocalRepoIdentity())');
+  });
+
+  it('flags an inline forgeProviders({ identity: readLocalRepoIdentity() }) composite', () => {
+    mockReadFileSync.mockReturnValue(
+      'const p = forgeProviders({ identity: readLocalRepoIdentity(), tokenProvider, gitContext, forge });\n',
+    );
+
+    const { violations } = scanFiles(['adws/core/launchGitContext.ts'], '/repo');
+
+    expect(violations).toHaveLength(1);
+    expect(violations[0].rule).toBe('cwd-derived-identity');
+  });
+
+  it('flags a local-variable composite: const info = readLocalRepoIdentity(); … gitContextForRepo(info)', () => {
+    mockReadFileSync.mockReturnValue(
+      'const info = readLocalRepoIdentity();\nconst ctx = gitContextForRepo(info);\n',
+    );
+
+    const { violations } = scanFiles(['adws/core/launchGitContext.ts'], '/repo');
+
+    expect(violations).toHaveLength(1);
+    expect(violations[0].rule).toBe('cwd-derived-identity');
+  });
+
+  it('permits gitContextForRepo(readLocalRepoIdentity(REPO_ROOT)) — an explicit argument is not cwd-derived', () => {
+    mockReadFileSync.mockReturnValue(
+      'const ctx = gitContextForRepo(readLocalRepoIdentity(REPO_ROOT));\n',
+    );
+
+    const { violations } = scanFiles(['adws/core/launchGitContext.ts'], '/repo');
+
+    expect(violations).toHaveLength(0);
+  });
+});
+
 describe('EXEMPT_PACKAGES — the closed, named, two-entry exempt set (#792)', () => {
   it('names exactly two packages: the git core and the GitHub forge adapter', () => {
     expect(EXEMPT_PACKAGES).toHaveLength(2);
@@ -691,6 +737,7 @@ describe('guarded factory names still exist (#795 / AC3)', () => {
   const cases: { name: string; file: string; declPattern: RegExp }[] = [
     { name: 'forgeProviders', file: 'adws/providers/forgeProviders.ts', declPattern: /export function forgeProviders\(/ },
     { name: 'readLocalRepoInfo', file: 'adws/providers/github/githubIdentity.ts', declPattern: /export function readLocalRepoInfo\(/ },
+    { name: 'readLocalRepoIdentity', file: 'adws/core/localRepoIdentity.ts', declPattern: /export function readLocalRepoIdentity\(/ },
     { name: 'createGitHubIssueTracker', file: 'adws/providers/github/githubIssueTracker.ts', declPattern: /export function createGitHubIssueTracker\(/ },
     { name: 'createGitHubCodeHost', file: 'adws/providers/github/githubCodeHost.ts', declPattern: /export function createGitHubCodeHost\(/ },
     { name: 'createGitHubBoardManager', file: 'adws/providers/github/githubBoardManager.ts', declPattern: /export function createGitHubBoardManager\(/ },

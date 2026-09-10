@@ -25,7 +25,8 @@
 import { GitContext } from '../gitContext';
 import type { GitIdentity, TokenProvider } from '../gitContext';
 import type { TargetRepoInfo } from '../types/issueTypes';
-import { readLocalRepoInfo, resolveBootstrapGitIdentity } from '../providers/github/githubIdentity';
+import { resolveBootstrapGitIdentity } from '../providers/github/githubIdentity';
+import { readLocalRepoIdentity } from './localRepoIdentity';
 import { ghAuthToken } from '../providers/github/ghAuthToken';
 import { isGitHubAppConfigured, getInstallationToken } from './githubAppAuth';
 import { resolveContextToken } from '../providers/github/tokenResolver';
@@ -45,7 +46,7 @@ import { log } from './utils';
  * production defaults are applied if omitted.
  */
 export interface LaunchGitContextDeps {
-  /** Returns the local git remote identity as a RepoIdentifier. Defaults to readLocalRepoInfo(). */
+  /** Returns the local git remote identity as a RepoIdentifier. Defaults to readLocalRepoIdentity(). */
   getRepoInfo?: (cwd?: string) => RepoIdentifier;
   /**
    * Returns a non-empty GitHub token for the given owner/repo. Adapted into a
@@ -192,7 +193,7 @@ export function buildLaunchBoundary(
   targetRepo: TargetRepoInfo | null,
   deps: LaunchGitContextDeps = {},
 ): LaunchBoundary {
-  const getInfo = deps.getRepoInfo ?? readLocalRepoInfo;
+  const getInfo = deps.getRepoInfo ?? readLocalRepoIdentity;
   const resolveIdentity = deps.resolveGitIdentity ?? resolveLaunchGitIdentity;
   const frameworkRepoRoot = deps.frameworkRepoRoot ?? REPO_ROOT;
   const targetReposDir = deps.targetReposDir ?? TARGET_REPOS_DIR;
