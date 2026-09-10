@@ -140,9 +140,16 @@ function collectScopeEntry(entryPath: string, repoRoot: string): string[] {
   return acc;
 }
 
-/** Exported for tests: collects every scannable file under EXTRACTION_SCOPE's entries. The only discovery that walks inside EXEMPT_PACKAGES; a missing entry contributes no files rather than throwing. */
+/**
+ * Exported for tests: collects every scannable file under EXTRACTION_SCOPE's
+ * entries, each counted once. The only discovery that walks inside
+ * EXEMPT_PACKAGES; a missing entry contributes no files rather than
+ * throwing. De-duplicated because scope entries can overlap (since #823,
+ * `adws/providers` is a superset of nine earlier `adws/providers/*` entries)
+ * and a file must be scanned — and counted in `printExtractionScope` — once.
+ */
 export function collectExtractionScopeFiles(repoRoot: string): string[] {
-  return EXTRACTION_SCOPE.flatMap(({ path: entryPath }) => collectScopeEntry(entryPath, repoRoot));
+  return [...new Set(EXTRACTION_SCOPE.flatMap(({ path: entryPath }) => collectScopeEntry(entryPath, repoRoot)))];
 }
 
 // ---------------------------------------------------------------------------

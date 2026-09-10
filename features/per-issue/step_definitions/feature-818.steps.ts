@@ -57,7 +57,8 @@ const ADW_LOG_DECORATION_RE = /\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\]/;
 
 function buildGitLabDriverSource(repoRoot: string): string {
   const codeHostPath = JSON.stringify(path.join(repoRoot, 'adws/providers/gitlab/gitlabCodeHost'));
-  const repoContextPath = JSON.stringify(path.join(repoRoot, 'adws/providers/repoContext'));
+  const forgeProvidersPath = JSON.stringify(path.join(repoRoot, 'adws/providers/forgeProviders'));
+  const forgeWiringPath = JSON.stringify(path.join(repoRoot, 'adws/core/forgeWiring'));
   const typesPath = JSON.stringify(path.join(repoRoot, 'adws/providers/types'));
   const gitContextPath = JSON.stringify(path.join(repoRoot, 'adws/gitContext'));
   const tokenProviderPath = JSON.stringify(path.join(repoRoot, 'adws/providers/github/githubTokenProvider'));
@@ -65,7 +66,8 @@ function buildGitLabDriverSource(repoRoot: string): string {
 import * as fs from 'fs';
 import * as os from 'os';
 import { createGitLabCodeHost } from ${codeHostPath};
-import { resolveCodeHost } from ${repoContextPath};
+import { forgeProviders } from ${forgeProvidersPath};
+import { buildAdwForgeDeps } from ${forgeWiringPath};
 import { Platform } from ${typesPath};
 import { GitContext } from ${gitContextPath};
 import { createLiteralTokenProvider } from ${tokenProviderPath};
@@ -94,18 +96,27 @@ try {
   const repoId = { owner: spec.owner, repo: spec.repo, platform: Platform.GitLab };
   let codeHost;
   if (spec.mode === 'wiring') {
-    // The GitHub port factories now take the caller's GitContext (#819); resolveCodeHost's
-    // signature grew a third parameter accordingly, even though the GitLab branch ignores it.
+    // The GitHub port factories now take the caller's GitContext (#819); forgeProviders'
+    // signature carries the executor and a tokenProvider accordingly, even though the
+    // GitLab branch draws its credentials from deps.gitlab, not from either of them.
+    const tokenProvider = createLiteralTokenProvider('unused');
     const gitContext = new GitContext({
       owner: spec.owner,
       repo: spec.repo,
       selfHost: false,
-      tokenProvider: createLiteralTokenProvider('unused'),
+      tokenProvider,
       gitIdentity: { authorName: 'ADW Test', authorEmail: 'adw-test@example.invalid', committerName: 'ADW Test', committerEmail: 'adw-test@example.invalid' },
       frameworkRepoRoot: process.cwd(),
       targetReposDir: os.tmpdir(),
     });
-    codeHost = resolveCodeHost(Platform.GitLab, repoId, gitContext);
+    const forge = { codeHost: 'gitlab', issueTracker: 'github' };
+    codeHost = forgeProviders({
+      forge,
+      identity: repoId,
+      tokenProvider,
+      gitContext,
+      deps: buildAdwForgeDeps(forge, repoId, gitContext),
+    }).codeHost;
   } else {
     const config = { token: spec.hasToken ? spec.token : '', instanceUrl: spec.instanceUrl };
     const deps = spec.useCapturingLogger ? { logger: capturingLogger } : {};
@@ -125,11 +136,11 @@ fs.writeFileSync(outPath, JSON.stringify(output));
 
 function buildJiraDriverSource(repoRoot: string): string {
   const trackerPath = JSON.stringify(path.join(repoRoot, 'adws/providers/jira/jiraIssueTracker'));
-  const repoContextPath = JSON.stringify(path.join(repoRoot, 'adws/providers/repoContext'));
+  const forgeWiringPath = JSON.stringify(path.join(repoRoot, 'adws/core/forgeWiring'));
   return `
 import * as fs from 'fs';
 import { createJiraIssueTracker } from ${trackerPath};
-import { jiraAuthFromEnv } from ${repoContextPath};
+import { jiraAuthFromEnv } from ${forgeWiringPath};
 
 const specPath = process.argv[2];
 const outPath = process.argv[3];
@@ -279,7 +290,8 @@ let lastGitLabCodeHost: GitLabCodeHost | null = null;
 let lastJiraTracker: JiraIssueTracker | null = null;
 let lastBoardManager: BoardManager | null = null;
 
-Before({ tags: '@adw-818' }, async function () {
+/** Resets this file's module-private recorder/driver state (mirrors this file's own `Before` body); exported for #823's own hooks, since this file's `Before`/`After` are tag-scoped to `@adw-818`. */
+async function resetRecorderState(): Promise<void> {
   await stopRecorder();
   recordedRequests = [];
   responseMode = 'default';
@@ -293,13 +305,27 @@ Before({ tags: '@adw-818' }, async function () {
   lastGitLabCodeHost = null;
   lastJiraTracker = null;
   lastBoardManager = null;
+}
+
+Before({ tags: '@adw-818' }, async function () {
+  await resetRecorderState();
   resetGuardFixtureTree();
 });
 
 After({ tags: '@adw-818' }, async function () {
-  await stopRecorder();
+  await resetRecorderState();
   resetGuardFixtureTree();
 });
+
+/** Stops the recording forge endpoint — exported for #823's own hooks. */
+export function stopRecordingForgeEndpoint(): Promise<void> {
+  return stopRecorder();
+}
+
+/** Resets this file's recorder/driver state without touching the guard fixture tree — exported for #823's own hooks. */
+export function resetRecorder(): Promise<void> {
+  return resetRecorderState();
+}
 
 // ---------------------------------------------------------------------------
 // Driving the adapters in a child process

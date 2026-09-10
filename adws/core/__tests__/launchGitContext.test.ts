@@ -7,12 +7,7 @@
 
 import * as path from 'path';
 import * as os from 'os';
-import { describe, it, expect, afterEach, vi, beforeEach } from 'vitest';
-
-vi.mock('../../providers/repoContext', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../providers/repoContext')>()),
-  createRepoContext: vi.fn(),
-}));
+import { describe, it, expect, afterEach, vi } from 'vitest';
 
 vi.mock('../environment', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../environment')>()),
@@ -24,16 +19,13 @@ vi.mock('../githubAppAuth', () => ({
   getInstallationToken: () => 'app-token',
 }));
 
-import { buildLaunchGitContext, buildLaunchBoundary, bindWorkspaceContext, createLaunchTokenProvider } from '../launchGitContext';
+import { buildLaunchGitContext, buildLaunchBoundary, createLaunchTokenProvider } from '../launchGitContext';
 import type { LaunchGitContextDeps } from '../launchGitContext';
 import type { TargetRepoInfo } from '../../types/issueTypes';
 import type { TokenProvider, CredentialRequest } from '../../gitContext';
-import { createRepoContext } from '../../providers/repoContext';
-import type { MintProvidersOptions } from '../../providers/repoContext';
-import type { BoundProviders, RepoContext, RepoIdentifier } from '../../providers/types';
+import type { ForgeProvidersOptions, ForgeProviderDeps } from '../../providers/forgeProviders';
+import type { BoundProviders, RepoIdentifier } from '../../providers/types';
 import { Platform } from '../../providers/types';
-
-const mockCreateRepoContext = vi.mocked(createRepoContext);
 
 const FRAMEWORK_ROOT = '/srv/adw/framework';
 const TARGET_REPOS_DIR = '/srv/adw/repos';
@@ -297,36 +289,37 @@ describe('createLaunchTokenProvider: alternate-identity PAT parity with gitConte
 
 // ── §8: buildLaunchBoundary — identity binding (AC1/AC4) ─────────────────────
 
-function makeFakeProviders(repoId: RepoIdentifier): BoundProviders {
+function makeFakeProviders(identity: RepoIdentifier): BoundProviders {
   return {
     issueTracker: {} as BoundProviders['issueTracker'],
-    codeHost: { getRepoIdentifier: () => repoId } as unknown as BoundProviders['codeHost'],
+    codeHost: { getRepoIdentifier: () => identity } as unknown as BoundProviders['codeHost'],
     boardManager: {} as BoundProviders['boardManager'],
   };
 }
 
-function makeRecordingMintProviders(): { mintProviders: (o: MintProvidersOptions) => BoundProviders; calls: MintProvidersOptions[] } {
-  const calls: MintProvidersOptions[] = [];
+function makeRecordingForgeProviders(): { forgeProviders: (o: ForgeProvidersOptions) => BoundProviders; calls: ForgeProvidersOptions[] } {
+  const calls: ForgeProvidersOptions[] = [];
   return {
-    mintProviders: (o: MintProvidersOptions) => { calls.push(o); return makeFakeProviders(o.repoId); },
+    forgeProviders: (o: ForgeProvidersOptions) => { calls.push(o); return makeFakeProviders(o.identity); },
     calls,
   };
 }
 
-const GITHUB_CONFIG = { codeHost: Platform.GitHub, issueTracker: Platform.GitHub };
+const GITHUB_CONFIG = { codeHost: 'github' as const, issueTracker: 'github' as const };
+const NO_ENV_FORGE_DEPS = (): ForgeProviderDeps => ({});
 
 describe('buildLaunchBoundary: identity binding', () => {
   it('target boundary: repoId and gitContext report the same owner/repo, and providers.codeHost carries repoId', () => {
-    const { mintProviders } = makeRecordingMintProviders();
-    const boundary = buildLaunchBoundary(makeTargetRepo('acme', 'webapp'), baseDeps({ mintProviders }));
+    const { forgeProviders } = makeRecordingForgeProviders();
+    const boundary = buildLaunchBoundary(makeTargetRepo('acme', 'webapp'), baseDeps({ forgeProviders, forgeDeps: NO_ENV_FORGE_DEPS }));
     expect(boundary.repoId.owner).toBe(boundary.gitContext.owner);
     expect(boundary.repoId.repo).toBe(boundary.gitContext.repo);
     expect(boundary.providers.codeHost.getRepoIdentifier()).toEqual(boundary.repoId);
   });
 
   it('self-host boundary: repoId and gitContext report the same owner/repo, and providers.codeHost carries repoId', () => {
-    const { mintProviders } = makeRecordingMintProviders();
-    const boundary = buildLaunchBoundary(null, baseDeps({ mintProviders }));
+    const { forgeProviders } = makeRecordingForgeProviders();
+    const boundary = buildLaunchBoundary(null, baseDeps({ forgeProviders, forgeDeps: NO_ENV_FORGE_DEPS }));
     expect(boundary.repoId.owner).toBe(boundary.gitContext.owner);
     expect(boundary.repoId.repo).toBe(boundary.gitContext.repo);
     expect(boundary.providers.codeHost.getRepoIdentifier()).toEqual(boundary.repoId);
@@ -340,8 +333,8 @@ describe('buildLaunchBoundary: one identity read, not several', () => {
     let calls = 0;
     const answers = [{ owner: 'acme', repo: 'webapp', platform: Platform.GitHub }, { owner: 'octo', repo: 'infra', platform: Platform.GitHub }];
     const getRepoInfo = () => { const a = answers[Math.min(calls, answers.length - 1)]; calls += 1; return a; };
-    const { mintProviders } = makeRecordingMintProviders();
-    const boundary = buildLaunchBoundary(null, baseDeps({ getRepoInfo, mintProviders }));
+    const { forgeProviders } = makeRecordingForgeProviders();
+    const boundary = buildLaunchBoundary(null, baseDeps({ getRepoInfo, forgeProviders, forgeDeps: NO_ENV_FORGE_DEPS }));
     expect(boundary.gitContext.owner).toBe('acme');
     expect(boundary.providers.codeHost.getRepoIdentifier().owner).toBe('acme');
     expect(calls).toBe(1);
@@ -350,8 +343,8 @@ describe('buildLaunchBoundary: one identity read, not several', () => {
   it('getRepoInfo is never consulted for a target boundary, not even once for providers', () => {
     let calls = 0;
     const getRepoInfo = () => { calls += 1; return { owner: 'should-not-be-used', repo: 'nope', platform: Platform.GitHub }; };
-    const { mintProviders } = makeRecordingMintProviders();
-    const boundary = buildLaunchBoundary(makeTargetRepo('acme', 'webapp'), baseDeps({ getRepoInfo, mintProviders }));
+    const { forgeProviders } = makeRecordingForgeProviders();
+    const boundary = buildLaunchBoundary(makeTargetRepo('acme', 'webapp'), baseDeps({ getRepoInfo, forgeProviders, forgeDeps: NO_ENV_FORGE_DEPS }));
     void boundary.providers;
     expect(calls).toBe(0);
   });
@@ -360,20 +353,20 @@ describe('buildLaunchBoundary: one identity read, not several', () => {
 // ── §10: buildLaunchBoundary — all providers minted from one identity ────────
 
 describe('buildLaunchBoundary: all providers minted in one recorded call', () => {
-  it('mintProviders is invoked exactly once, with the boundary\'s repoId', () => {
-    const { mintProviders, calls } = makeRecordingMintProviders();
-    const boundary = buildLaunchBoundary(makeTargetRepo('acme', 'webapp'), baseDeps({ mintProviders }));
+  it('forgeProviders is invoked exactly once, with the boundary\'s repoId as identity', () => {
+    const { forgeProviders, calls } = makeRecordingForgeProviders();
+    const boundary = buildLaunchBoundary(makeTargetRepo('acme', 'webapp'), baseDeps({ forgeProviders, forgeDeps: NO_ENV_FORGE_DEPS }));
     // Touch all three — a boundary that minted per-kind would multiply this call count.
     void boundary.providers.issueTracker;
     void boundary.providers.codeHost;
     void boundary.providers.boardManager;
     expect(calls).toHaveLength(1);
-    expect(calls[0].repoId).toEqual(boundary.repoId);
+    expect(calls[0].identity).toEqual(boundary.repoId);
   });
 
-  it('mintProviders receives the boundary\'s own GitContext — one construction per process, none inside the adapter', () => {
-    const { mintProviders, calls } = makeRecordingMintProviders();
-    const boundary = buildLaunchBoundary(makeTargetRepo('acme', 'webapp'), baseDeps({ mintProviders }));
+  it('forgeProviders receives the boundary\'s own GitContext — one construction per process, none inside the adapter', () => {
+    const { forgeProviders, calls } = makeRecordingForgeProviders();
+    const boundary = buildLaunchBoundary(makeTargetRepo('acme', 'webapp'), baseDeps({ forgeProviders, forgeDeps: NO_ENV_FORGE_DEPS }));
     void boundary.providers;
     expect(calls[0].gitContext).toBe(boundary.gitContext);
   });
@@ -382,22 +375,20 @@ describe('buildLaunchBoundary: all providers minted in one recorded call', () =>
 // ── §11: buildLaunchBoundary — config-driven selection unchanged (AC2) ───────
 
 describe('buildLaunchBoundary: provider selection stays config-driven', () => {
-  it('an injected loadProviderConfig reaches mintProviders as exactly the selected platforms', () => {
-    const { mintProviders, calls } = makeRecordingMintProviders();
-    const loadProviderConfig = () => ({ codeHost: Platform.GitLab, issueTracker: Platform.GitHub });
-    const boundary = buildLaunchBoundary(makeTargetRepo('acme', 'webapp'), baseDeps({ loadProviderConfig, mintProviders }));
+  it('an injected loadProviderConfig reaches forgeProviders as exactly the selected forge names', () => {
+    const { forgeProviders, calls } = makeRecordingForgeProviders();
+    const loadProviderConfig = () => ({ codeHost: 'gitlab' as const, issueTracker: 'github' as const });
+    const boundary = buildLaunchBoundary(makeTargetRepo('acme', 'webapp'), baseDeps({ loadProviderConfig, forgeProviders, forgeDeps: NO_ENV_FORGE_DEPS }));
     void boundary.providers;
-    expect(calls[0].codeHostPlatform).toBe(Platform.GitLab);
-    expect(calls[0].issueTrackerPlatform).toBe(Platform.GitHub);
+    expect(calls[0].forge).toEqual({ codeHost: 'gitlab', issueTracker: 'github' });
   });
 
-  it('a loader returning GitHub defaults yields GitHub for both platforms', () => {
-    const { mintProviders, calls } = makeRecordingMintProviders();
+  it('a loader returning GitHub defaults yields GitHub for both forges', () => {
+    const { forgeProviders, calls } = makeRecordingForgeProviders();
     const loadProviderConfig = () => GITHUB_CONFIG;
-    const boundary = buildLaunchBoundary(makeTargetRepo('acme', 'webapp'), baseDeps({ loadProviderConfig, mintProviders }));
+    const boundary = buildLaunchBoundary(makeTargetRepo('acme', 'webapp'), baseDeps({ loadProviderConfig, forgeProviders, forgeDeps: NO_ENV_FORGE_DEPS }));
     void boundary.providers;
-    expect(calls[0].codeHostPlatform).toBe(Platform.GitHub);
-    expect(calls[0].issueTrackerPlatform).toBe(Platform.GitHub);
+    expect(calls[0].forge).toEqual({ codeHost: 'github', issueTracker: 'github' });
   });
 
   it('target boundary: the loader is called with the target workspace path (join(targetReposDir, owner, repo))', () => {
@@ -417,25 +408,59 @@ describe('buildLaunchBoundary: provider selection stays config-driven', () => {
   });
 });
 
+// ── §11b: buildLaunchBoundary — the assembly seams (#823) ────────────────────
+
+describe('buildLaunchBoundary: the default assembly path (no seam injected)', () => {
+  it('yields a frozen set whose codeHost.getRepoIdentifier() equals boundary.repoId, with no I/O at construction', () => {
+    const boundary = buildLaunchBoundary(makeTargetRepo('acme', 'webapp'), baseDeps());
+    const providers = boundary.providers;
+    expect(Object.isFrozen(providers)).toBe(true);
+    expect(providers.codeHost.getRepoIdentifier()).toEqual(boundary.repoId);
+  });
+});
+
+describe('buildLaunchBoundary: forgeProviders receives the boundary\'s own context, tokenProvider and deps', () => {
+  it('a config naming gitlab reaches the seam as forge.codeHost === "gitlab", carrying the boundary\'s own gitContext and tokenProvider', () => {
+    const { forgeProviders, calls } = makeRecordingForgeProviders();
+    const tokenProvider: TokenProvider = { credentialEnv: () => ({ GH_TOKEN: 'sentinel' }) };
+    const loadProviderConfig = () => ({ codeHost: 'gitlab' as const, issueTracker: 'github' as const });
+    const boundary = buildLaunchBoundary(makeTargetRepo('acme', 'webapp'), baseDeps({
+      loadProviderConfig, forgeProviders, forgeDeps: NO_ENV_FORGE_DEPS, tokenProvider,
+    }));
+    void boundary.providers;
+    expect(calls[0].forge.codeHost).toBe('gitlab');
+    expect(calls[0].gitContext).toBe(boundary.gitContext);
+    expect(calls[0].tokenProvider).toBe(tokenProvider);
+  });
+
+  it('the assembly seam receives the deps the forgeDeps seam built', () => {
+    const { forgeProviders, calls } = makeRecordingForgeProviders();
+    const sentinelDeps: ForgeProviderDeps = { logger: () => {} };
+    const boundary = buildLaunchBoundary(makeTargetRepo('acme', 'webapp'), baseDeps({ forgeProviders, forgeDeps: () => sentinelDeps }));
+    void boundary.providers;
+    expect(calls[0].deps).toBe(sentinelDeps);
+  });
+});
+
 // ── §12: buildLaunchBoundary — deferred, memoised minting ─────────────────────
 
 describe('buildLaunchBoundary: deferred, memoised minting', () => {
-  it('building the boundary calls neither the config loader nor the mint seam', () => {
+  it('building the boundary calls neither the config loader nor the assembly seam', () => {
     let loadCalls = 0;
     let mintCalls = 0;
     const loadProviderConfig = () => { loadCalls += 1; return GITHUB_CONFIG; };
-    const mintProviders = (o: MintProvidersOptions) => { mintCalls += 1; return makeFakeProviders(o.repoId); };
-    buildLaunchBoundary(makeTargetRepo('acme', 'webapp'), baseDeps({ loadProviderConfig, mintProviders }));
+    const forgeProviders = (o: ForgeProvidersOptions) => { mintCalls += 1; return makeFakeProviders(o.identity); };
+    buildLaunchBoundary(makeTargetRepo('acme', 'webapp'), baseDeps({ loadProviderConfig, forgeProviders, forgeDeps: NO_ENV_FORGE_DEPS }));
     expect(loadCalls).toBe(0);
     expect(mintCalls).toBe(0);
   });
 
-  it('the first .providers access calls the loader and the mint seam exactly once each', () => {
+  it('the first .providers access calls the loader and the assembly seam exactly once each', () => {
     let loadCalls = 0;
     let mintCalls = 0;
     const loadProviderConfig = () => { loadCalls += 1; return GITHUB_CONFIG; };
-    const mintProviders = (o: MintProvidersOptions) => { mintCalls += 1; return makeFakeProviders(o.repoId); };
-    const boundary = buildLaunchBoundary(makeTargetRepo('acme', 'webapp'), baseDeps({ loadProviderConfig, mintProviders }));
+    const forgeProviders = (o: ForgeProvidersOptions) => { mintCalls += 1; return makeFakeProviders(o.identity); };
+    const boundary = buildLaunchBoundary(makeTargetRepo('acme', 'webapp'), baseDeps({ loadProviderConfig, forgeProviders, forgeDeps: NO_ENV_FORGE_DEPS }));
     void boundary.providers;
     expect(loadCalls).toBe(1);
     expect(mintCalls).toBe(1);
@@ -445,8 +470,8 @@ describe('buildLaunchBoundary: deferred, memoised minting', () => {
     let loadCalls = 0;
     let mintCalls = 0;
     const loadProviderConfig = () => { loadCalls += 1; return GITHUB_CONFIG; };
-    const mintProviders = (o: MintProvidersOptions) => { mintCalls += 1; return makeFakeProviders(o.repoId); };
-    const boundary = buildLaunchBoundary(makeTargetRepo('acme', 'webapp'), baseDeps({ loadProviderConfig, mintProviders }));
+    const forgeProviders = (o: ForgeProvidersOptions) => { mintCalls += 1; return makeFakeProviders(o.identity); };
+    const boundary = buildLaunchBoundary(makeTargetRepo('acme', 'webapp'), baseDeps({ loadProviderConfig, forgeProviders, forgeDeps: NO_ENV_FORGE_DEPS }));
     const first = boundary.providers;
     const second = boundary.providers;
     expect(loadCalls).toBe(1);
@@ -485,63 +510,5 @@ describe('buildLaunchBoundary: RepoIdentifier platform', () => {
   it('honours an injected deps.platform override', () => {
     const boundary = buildLaunchBoundary(makeTargetRepo('acme', 'webapp'), baseDeps({ platform: Platform.GitLab }));
     expect(boundary.repoId.platform).toBe(Platform.GitLab);
-  });
-});
-
-// ── §15: bindWorkspaceContext ─────────────────────────────────────────────────
-
-describe('bindWorkspaceContext', () => {
-  beforeEach(() => {
-    mockCreateRepoContext.mockReset();
-  });
-
-  it('passes the boundary\'s providers and the given cwd to createRepoContext, defaulting repoId to the boundary\'s', () => {
-    const { mintProviders } = makeRecordingMintProviders();
-    const boundary = buildLaunchBoundary(makeTargetRepo('acme', 'webapp'), baseDeps({ mintProviders }));
-    const fakeRepoContext = { cwd: '/some/worktree' } as unknown as RepoContext;
-    mockCreateRepoContext.mockReturnValue(fakeRepoContext);
-
-    const result = bindWorkspaceContext(boundary, '/some/worktree');
-
-    expect(mockCreateRepoContext).toHaveBeenCalledTimes(1);
-    expect(mockCreateRepoContext).toHaveBeenCalledWith({
-      repoId: boundary.repoId,
-      cwd: '/some/worktree',
-      providers: boundary.providers,
-    });
-    expect(result).toBe(fakeRepoContext);
-  });
-
-  it('honours an explicitly-supplied repoId that matches the boundary\'s repository', () => {
-    const boundary = buildLaunchBoundary(makeTargetRepo('acme', 'webapp'), baseDeps());
-    mockCreateRepoContext.mockReturnValue({} as RepoContext);
-
-    const explicitRepoId: RepoIdentifier = { owner: 'acme', repo: 'webapp', platform: Platform.GitHub };
-    bindWorkspaceContext(boundary, '/some/worktree', explicitRepoId);
-
-    expect(mockCreateRepoContext).toHaveBeenCalledWith({
-      repoId: explicitRepoId,
-      cwd: '/some/worktree',
-      providers: boundary.providers,
-    });
-  });
-
-  it('accepts a case-variant repoId match', () => {
-    const boundary = buildLaunchBoundary(makeTargetRepo('acme', 'webapp'), baseDeps());
-    mockCreateRepoContext.mockReturnValue({} as RepoContext);
-
-    const variantRepoId: RepoIdentifier = { owner: 'ACME', repo: 'WebApp', platform: Platform.GitHub };
-    expect(() => bindWorkspaceContext(boundary, '/some/worktree', variantRepoId)).not.toThrow();
-    expect(mockCreateRepoContext).toHaveBeenCalledTimes(1);
-  });
-
-  it('refuses a mismatched repoId without calling createRepoContext', () => {
-    const boundary = buildLaunchBoundary(makeTargetRepo('acme', 'webapp'), baseDeps());
-
-    const otherRepoId: RepoIdentifier = { owner: 'octo', repo: 'infra', platform: Platform.GitHub };
-    expect(() => bindWorkspaceContext(boundary, '/some/worktree', otherRepoId)).toThrow(
-      /bindWorkspaceContext: octo\/infra does not match the launch boundary's acme\/webapp/,
-    );
-    expect(mockCreateRepoContext).not.toHaveBeenCalled();
   });
 });

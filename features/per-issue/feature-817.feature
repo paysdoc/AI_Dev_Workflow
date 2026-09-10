@@ -257,11 +257,15 @@ Feature: The provider package owns its own domain model — the raw GitHub shape
 
   # TRAP 4, in both directions. #819 cleaned and widened the scope by the whole `adws/providers/github`
   # directory, so `githubIssueTracker.ts`/`githubCodeHost.ts`/`githubBoardManager.ts` are no longer
-  # the still-entangled neighbours this scenario pins — the last remaining out-of-scope file beside
-  # the adapter package is `repoContext.ts`, which stays framework wiring until #823.
+  # the still-entangled neighbours this scenario pinned. #823 went further still: it replaced the last
+  # out-of-scope provider file, `repoContext.ts`, with `forgeProviders()` and widened EXTRACTION_SCOPE
+  # to the whole `adws/providers` directory, so there is no longer any file inside the extractable set
+  # that this rule does not check. What remains provable here is the other side of that same boundary
+  # — a framework file BESIDE the extractable set, in `adws/core/`, is never checked regardless of what
+  # it imports.
 
   @adw-817 @adw-6lqigx-consolidate-the-doma
-  Scenario Outline: A still-entangled neighbour in the adapter package is not yet checked
+  Scenario Outline: A framework file beside the extractable set is never checked
     Given a guard fixture tree holding the file "<path>":
       """
       import { helper } from '<specifier>';
@@ -274,18 +278,19 @@ Feature: The provider package owns its own domain model — the raw GitHub shape
     Then the guard run over the guard fixture tree passes
 
     Examples:
-      | path                          | specifier                   |
-      | adws/providers/repoContext.ts | ../github/gitContextFactory |
-      | adws/providers/repoContext.ts | ../core/projectConfig       |
+      | path                          | specifier      |
+      | adws/core/forgeWiring.ts      | ./environment  |
+      | adws/core/launchGitContext.ts | ./providerConfig |
 
-  # #818 cleaned `providers/gitlab` and `providers/jira` and widened the scope by both; only
-  # `providers/repoContext.ts` still carries a framework import that #823 removes when it replaces
-  # this file with `forgeProviders()`. #816's §3 pinned this and it stays pinned: widening happens one
-  # reviewed slice at a time, and a slice that widens further than its own issue says is as much a
-  # defect as one that widens less.
+  # #818 cleaned `providers/gitlab` and `providers/jira` and widened the scope by both; #823 finished
+  # the job by replacing `providers/repoContext.ts` with `forgeProviders()` and widening the scope to
+  # the whole provider package (EXTRACTION_SCOPE == EXTRACTABLE_SET). #816's §3 pinned the
+  # not-yet-widened case and it has been retired in turn now that there is nothing left un-widened;
+  # this row keeps proving the boundary from the other side — a framework file's own package is never
+  # in scope, however similarly it is imported.
 
   @adw-817 @adw-6lqigx-consolidate-the-doma
-  Scenario Outline: A package still awaiting its own de-tangling slice is not yet checked
+  Scenario Outline: A framework file beside the extractable set is never checked
     Given a guard fixture tree holding the file "<path>":
       """
       import { CONFIG } from '<specifier>';
@@ -299,7 +304,8 @@ Feature: The provider package owns its own domain model — the raw GitHub shape
 
     Examples:
       | path                           | specifier             |
-      | adws/providers/repoContext.ts  | ../core/projectConfig |
+      | adws/core/forgeWiring.ts       | ./environment         |
+      | adws/core/launchGitContext.ts  | ./providerConfig      |
 
   # WIDEN ONLY, NEVER NARROW — the machine-checkable half. #816 seeded the scope with two entries;
   # #817 appends to that list, it does not replace it. Both of #816's entries must still fire
@@ -325,11 +331,9 @@ Feature: The provider package owns its own domain model — the raw GitHub shape
 
   # ── §2 `RepoInfo` IS GONE FROM THE TREE, IN BOTH OF ITS HOMES (AC2) ────────────────────
   #
-  # The headline of the second group, and the assertion no other instrument can make. The probe
-  # compiles today — `adws/github/githubApi.ts:10` exports the interface — so this is a genuine RED.
-  # It stays red under a surviving `export type RepoInfo = RepoIdentifier;` alias, which is the only
-  # reason it is worth writing: every other check in this file, and every existing suite, is green
-  # under that alias.
+  # The headline of the second group, and the assertion no other instrument can make. `adws/github/`
+  # was deleted outright in #821 (it no longer holds even a lightened `githubApi.ts`), so the module
+  # itself — not merely the `RepoInfo` member — is what is now gone; the probe pins the stronger claim.
 
   @adw-817 @adw-6lqigx-consolidate-the-doma
   Scenario: A module importing RepoInfo from the framework GitHub API no longer compiles
@@ -340,7 +344,7 @@ Feature: The provider package owns its own domain model — the raw GitHub shape
       export const probe: RepoInfo = { owner: 'acme', repo: 'widget' };
       """
     When the type probe is compiled against the ADW project
-    Then the type probe fails to compile naming the missing member "RepoInfo"
+    Then the type probe fails to compile reporting the unresolvable module "../github/githubApi"
 
   # TRAP 1. `adws/providers/github/githubIdentity.ts:20` declares the SECOND `RepoInfo`, and it is
   # the live one — `parseGitHubRemoteUrl` and `readLocalRepoInfo` both return it, and
@@ -462,14 +466,28 @@ Feature: The provider package owns its own domain model — the raw GitHub shape
       | PRDetails            | ../types/workflowTypes     |
       | PRReviewComment      | ../types/workflowTypes     |
       | PRListItem           | ../types/workflowTypes     |
-      | RawPR                | ../github/prApi            |
 
-  # The over-move controls. The three modules are lightened, not emptied: `issueTypes.ts` keeps the
-  # slash-command union, the webhook payload and `TargetRepoInfo`; `workflowTypes.ts` keeps the
-  # workflow-stage vocabulary and `RecoveryState`; `prApi.ts` keeps the PR functions that merely
-  # CONSUME `RawPR` and now import it from the adapter. An implementation that relocates whole files
-  # rather than the eleven named shapes passes every scenario above and takes the framework's own
-  # vocabulary into the library with it.
+  # `RawPR`'s old home, `adws/github/prApi.ts`, does not merely lack the member — #821 deleted the
+  # whole file (and the rest of `adws/github/`) once every caller had walked onto the launch boundary.
+  # The module-not-found diagnostic is the stronger, now-accurate form of the same claim.
+
+  @adw-817 @adw-6lqigx-consolidate-the-doma
+  Scenario: RawPR is no longer available from the module it left
+    Given a type probe module that reads:
+      """
+      import type { RawPR } from '../github/prApi';
+
+      export type Alias = RawPR;
+      """
+    When the type probe is compiled against the ADW project
+    Then the type probe fails to compile reporting the unresolvable module "../github/prApi"
+
+  # The over-move control. `issueTypes.ts` and `workflowTypes.ts` are lightened, not emptied:
+  # `issueTypes.ts` keeps the slash-command union, the webhook payload and `TargetRepoInfo`;
+  # `workflowTypes.ts` keeps the workflow-stage vocabulary and `RecoveryState`. `prApi.ts`'s half of
+  # this control (the PR functions that merely consumed `RawPR`) is moot since #821 deleted that
+  # module outright rather than merely lightening it — there is no bare-function home left to over-move
+  # framework vocabulary out of.
 
   @adw-817 @adw-6lqigx-consolidate-the-doma
   Scenario: The framework vocabulary sharing those modules stays where it is
@@ -477,10 +495,8 @@ Feature: The provider package owns its own domain model — the raw GitHub shape
       """
       import type { IssueClassSlashCommand, PullRequestWebhookPayload } from '../types/issueTypes';
       import type { WorkflowStage, RecoveryState } from '../types/workflowTypes';
-      import { hasWontFixLabel, defaultFindPRByBranch } from '../github/prApi';
 
       export type Kept = [IssueClassSlashCommand, PullRequestWebhookPayload, WorkflowStage, RecoveryState];
-      export const fns = [hasWontFixLabel, defaultFindPRByBranch];
       """
     When the type probe is compiled against the ADW project
     Then the type probe compiles

@@ -195,8 +195,11 @@ export {
 } from './targetRepoManager';
 
 // Launch-boundary GitContext adapter
-export { buildLaunchGitContext, buildLaunchBoundary, bindWorkspaceContext, resolveLaunchToken, resolveLaunchGitIdentity } from './launchGitContext';
+export { buildLaunchGitContext, buildLaunchBoundary, resolveLaunchToken, resolveLaunchGitIdentity } from './launchGitContext';
 export type { LaunchGitContextDeps, LaunchBoundary } from './launchGitContext';
+
+// Workspace binding over the caller's own context (moved out of launchGitContext.ts, #823)
+export { bindWorkspaceContext, validateGitRemote } from './workspaceBinding';
 
 // Repo identity cross-check (launch-boundary persistence and resume tripwire)
 export { crossCheckRepoIdentity, sameRepoIdentity, RepoIdentityMismatchError } from './repoIdentityCrossCheck';

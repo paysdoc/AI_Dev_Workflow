@@ -35,7 +35,7 @@ import { fileURLToPath } from 'node:url';
 
 import { buildLaunchBoundary } from '../../../adws/core/launchGitContext.ts';
 import type { LaunchBoundary, LaunchGitContextDeps } from '../../../adws/core/launchGitContext.ts';
-import type { MintProvidersOptions } from '../../../adws/providers/repoContext.ts';
+import type { ForgeProvidersOptions } from '../../../adws/providers/forgeProviders.ts';
 import type {
   BoundProviders,
   RepoIdentifier,
@@ -488,10 +488,10 @@ function buildRecordingBoundary(owner: string, repo: string): void {
     resolveGitIdentity: () => FIXED_IDENTITY,
     frameworkRepoRoot: w.frameworkRoot,
     targetReposDir: w.targetReposDir,
-    mintProviders: (options: MintProvidersOptions): BoundProviders => {
+    forgeProviders: (options: ForgeProvidersOptions): BoundProviders => {
       w.mintCallCount += 1;
-      w.mintedRepoId = options.repoId;
-      return makeRecordingProviders(w.activeFixture!, w.activeCallLog, options.repoId);
+      w.mintedRepoId = options.identity;
+      return makeRecordingProviders(w.activeFixture!, w.activeCallLog, options.identity);
     },
   };
   w.boundary = buildLaunchBoundary(makeTargetRepo(owner, repo), deps);

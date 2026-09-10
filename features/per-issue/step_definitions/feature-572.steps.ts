@@ -52,7 +52,7 @@ import {
   teardownMockInfrastructure,
 } from '../../../test/mocks/test-harness.ts';
 import { copyClaudeAssetsToWorktree } from '../../../adws/phases/worktreeSetup.ts';
-import { gitContextForRepo, readLocalRepoInfo } from '../../../adws/github/gitContextFactory.ts';
+import { buildLaunchGitContext } from '../../../adws/core/launchGitContext.ts';
 import type { RegressionWorld } from '../../regression/step_definitions/world.ts';
 import type { RecordedRequest } from '../../../test/mocks/types.ts';
 
@@ -217,7 +217,7 @@ When(
       );
       return;
     }
-    const gitContext = gitContextForRepo(readLocalRepoInfo());
+    const gitContext = buildLaunchGitContext(null);
     copyClaudeAssetsToWorktree(worktreePath, gitContext);
   },
 );

@@ -59,8 +59,13 @@ describe('isInExtractionScope', () => {
     ['adws/gitContext/worktreeCreateOps.ts', true],
     ['adws/providers/types.ts', true],
     ['adws/providers/github/githubCodeHost.ts', true],
-    ['adws/providers/repoContext.ts', false],
-    ['adws/providers/typesX.ts', false],
+    // #823 widened the scope entry to the whole `adws/providers` directory —
+    // every path nested under it is in scope now, including the retired
+    // repoContext.ts path and any future top-level provider file.
+    ['adws/providers/repoContext.ts', true],
+    ['adws/providers/forgeProviders.ts', true],
+    ['adws/providers/someLaterFile.ts', true],
+    ['adws/providers/typesX.ts', true],
     ['adws/github/issueApi.ts', false],
     ['adws/providers/github/mappers.ts', true],
     ['adws/providers/github/domain/issue.ts', true],
@@ -70,12 +75,17 @@ describe('isInExtractionScope', () => {
     ['adws/providers/gitlab/gitlabCodeHost.ts', true],
     ['adws/providers/jira/jiraIssueTracker.ts', true],
     ['adws/providers/jira/adfConverter.ts', true],
-    ['adws/providers/gitlabX/y.ts', false],
-    ['adws/providers/jiraX/y.ts', false],
+    ['adws/providers/gitlabX/y.ts', true],
+    ['adws/providers/jiraX/y.ts', true],
     ['adws/providers/workspaceValidation.ts', true],
     ['adws/providers/index.ts', true],
     ['adws/providers/github/ghIssueParsers.ts', true],
-    ['adws/providers/zzNew.ts', false],
+    ['adws/providers/zzNew.ts', true],
+    // Genuinely outside both extractable directories — a same-prefix
+    // different-directory name is not a nested path, and framework files
+    // never enter scope regardless of naming similarity.
+    ['adws/providersOther/y.ts', false],
+    ['adws/core/launchGitContext.ts', false],
   ])('isInExtractionScope(%s) -> %s', (relPath, expected) => {
     expect(isInExtractionScope(relPath)).toBe(expected);
   });
@@ -163,16 +173,20 @@ describe('flagFrameworkImports', () => {
     expect(flagFrameworkImports(sourceFile, 'adws/gitContext/a.ts')).toHaveLength(0);
   });
 
-  it('passes an out-of-scope providers file with a framework import — the scope guard clause fires first', () => {
-    const source = "import { log } from '../core/logger';\n";
+  it('passes an out-of-scope framework file with a framework import — the scope guard clause fires first', () => {
+    // #823 widened EXTRACTION_SCOPE to the whole `adws/providers` directory, so
+    // every provider file is now in scope; a genuinely out-of-scope path (a
+    // framework file beside the extractable set) is what proves the guard
+    // clause, not the collection itself, is why this passes.
+    const source = "import type { LogEntry } from '../types/logTypes';\n";
     const sourceFile = ts.createSourceFile(
-      'adws/providers/repoContext.ts',
+      'adws/core/launchGitContext.ts',
       source,
       ts.ScriptTarget.Latest,
       false,
     );
 
-    expect(flagFrameworkImports(sourceFile, 'adws/providers/repoContext.ts')).toHaveLength(0);
+    expect(flagFrameworkImports(sourceFile, 'adws/core/launchGitContext.ts')).toHaveLength(0);
   });
 
   it('flags an in-scope GitHub port file importing ../../github/issueApi (in scope since #819)', () => {
@@ -254,6 +268,11 @@ describe('scope-list invariants', () => {
     expect(byPath.get('adws/providers/index.ts')).toBe('#819');
   });
 
+  it('the #823 entry is present — the whole provider package, scope == extractable set', () => {
+    const byPath = new Map(EXTRACTION_SCOPE.map((e) => [e.path, e.since]));
+    expect(byPath.get('adws/providers')).toBe('#823');
+  });
+
   it('EXTRACTABLE_SET is exactly the two directories', () => {
     expect(EXTRACTABLE_SET).toEqual(['adws/gitContext', 'adws/providers']);
   });
@@ -281,10 +300,12 @@ describe('real-tree: the initial scope is clean today', () => {
     expect(scopeFiles).toContain('adws/providers/github/contextBinding.ts');
     expect(scopeFiles).toContain('adws/providers/workspaceValidation.ts');
     expect(scopeFiles).toContain('adws/providers/index.ts');
+    expect(scopeFiles).toContain('adws/providers/forgeProviders.ts');
     for (const relPath of scopeFiles) {
       expect(relPath).not.toContain('/__tests__/');
       expect(relPath.endsWith('.test.ts')).toBe(false);
     }
+    expect(new Set(scopeFiles).size).toBe(scopeFiles.length);
 
     const { violations } = scanExtractionScope(scopeFiles, repoRoot);
     expect(violations).toEqual([]);

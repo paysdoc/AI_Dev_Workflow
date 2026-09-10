@@ -3,8 +3,8 @@
  *
  * Extracted from orchestratorLib.ts so that stateHelpers.ts can import
  * these pure functions without pulling in orchestratorLib's transitive
- * dependencies (gitContextFactory), which would create a circular
- * import through the core barrel.
+ * dependencies (the launch-boundary construction path), which would create
+ * a circular import through the core barrel.
  */
 
 const ORCHESTRATOR_SCRIPT_BY_NAME: Record<string, string> = {

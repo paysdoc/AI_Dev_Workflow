@@ -16,7 +16,10 @@
  * Since #794, the boundary also mints the forge provider triple (IssueTracker /
  * CodeHost / BoardManager) bound to the SAME identity the GitContext receives, in
  * the same call — see `buildLaunchBoundary`. `buildLaunchGitContext` is now the
- * context-only view of that one call.
+ * context-only view of that one call. Since #823 the boundary constructs its one
+ * `GitContext` directly and assembles the providers through the library's
+ * `forgeProviders()` — ADW's own wiring (environment reads, the GitHub Slack/label
+ * seams) lives in `forgeWiring.ts`; workspace binding lives in `workspaceBinding.ts`.
  */
 
 import { GitContext } from '../gitContext';
@@ -29,13 +32,13 @@ import { resolveContextToken } from '../providers/github/tokenResolver';
 import { createGitHubTokenProvider } from '../providers/github/githubTokenProvider';
 // Deep imports only — never the `../providers` barrel, which re-exports the
 // GitHub adapter and closes an import cycle back through `../../core` (#792).
-import { mintBoundProviders, createRepoContext, type MintProvidersOptions } from '../providers/repoContext';
+import { forgeProviders, type ForgeProvidersOptions, type ForgeProviderDeps } from '../providers/forgeProviders';
+import { buildAdwForgeDeps } from './forgeWiring';
 import { loadProviderConfig, type ProviderConfig } from './providerConfig';
-import type { BoundProviders, RepoContext, RepoIdentifier } from '../providers/types';
+import type { BoundProviders, RepoIdentifier } from '../providers/types';
 import { Platform } from '../providers/types';
 import { REPO_ROOT, TARGET_REPOS_DIR, GITHUB_PAT } from './environment';
 import { log } from './utils';
-import { sameRepoIdentity } from './repoIdentityCrossCheck';
 
 /**
  * Injectable seams for buildLaunchGitContext. All fields are optional;
@@ -61,10 +64,12 @@ export interface LaunchGitContextDeps {
   targetReposDir?: string;
   /** The RepoIdentifier's declared platform. Defaults to Platform.GitHub (matches buildRepoIdentifier). */
   platform?: Platform;
-  /** Loads provider platform selection for a workspace directory. Defaults to loadProviderConfig from providers/repoContext. */
+  /** Loads provider forge selection for a workspace directory. Defaults to loadProviderConfig from ./providerConfig. */
   loadProviderConfig?: (dir: string) => ProviderConfig;
-  /** Mints the bound provider triple. Defaults to mintBoundProviders from providers/repoContext. */
-  mintProviders?: (options: MintProvidersOptions) => BoundProviders;
+  /** Assembles the bound provider triple. Defaults to the library's forgeProviders(). Deliberately a property-access seam, unflagged by the construction rule. */
+  forgeProviders?: (options: ForgeProvidersOptions) => BoundProviders;
+  /** Builds ADW's ForgeProviderDeps (logger, GitHub seams, GitLab/Jira config) for the selected forges. Defaults to buildAdwForgeDeps from ./forgeWiring. */
+  forgeDeps?: (config: ProviderConfig, repoId: RepoIdentifier, ctx: GitContext) => ForgeProviderDeps;
 }
 
 /**
@@ -171,16 +176,17 @@ function freezeBoundary(gitContext: GitContext, repoId: RepoIdentifier, mint: ()
  * construction-time validating probe — its answer is discarded, and every
  * command the returned context runs resolves a fresh credential.
  *
- * Providers are minted LAZILY, on first access to `.providers`, and memoised:
- * building the boundary performs no provider-config read and cannot fail
- * because of one. Provider platform selection still comes from
+ * Providers are assembled LAZILY, on first access to `.providers`, and
+ * memoised: building the boundary performs no provider-config read and
+ * cannot fail because of one. Provider forge selection still comes from
  * `.adw/providers.md`, read from `gitContext.basePath` — the identity-derived
  * workspace path, never a caller-supplied `cwd` — via `deps.loadProviderConfig`
- * (defaults to `loadProviderConfig`). Selection is then handed to
- * `deps.mintProviders` (defaults to `mintBoundProviders`), which refuses an
- * unimplemented or unparseable platform BY NAME rather than substituting
- * GitHub — the same refusal `createRepoContext` raises today, surfacing at the
- * same moment: the first provider request, not the boundary call.
+ * (defaults to `loadProviderConfig`). Selection is handed to `deps.forgeProviders`
+ * (defaults to the library's `forgeProviders`), together with ADW's own wiring
+ * built by `deps.forgeDeps` (defaults to `buildAdwForgeDeps`) — which refuses
+ * an unimplemented or unparseable forge name BY NAME rather than substituting
+ * GitHub, surfacing at the same moment as before: the first provider request,
+ * not the boundary call.
  */
 export function buildLaunchBoundary(
   targetRepo: TargetRepoInfo | null,
@@ -193,7 +199,8 @@ export function buildLaunchBoundary(
   const tokenProvider = deps.tokenProvider
     ?? (deps.resolveToken ? tokenProviderFromResolver(deps.resolveToken) : createLaunchTokenProvider());
   const loadConfig = deps.loadProviderConfig ?? loadProviderConfig;
-  const mint = deps.mintProviders ?? mintBoundProviders;
+  const assemble = deps.forgeProviders ?? forgeProviders;
+  const buildForgeDeps = deps.forgeDeps ?? buildAdwForgeDeps;
   const platform = deps.platform ?? Platform.GitHub;
 
   const selfHost = targetRepo === null;
@@ -212,7 +219,13 @@ export function buildLaunchBoundary(
 
   return freezeBoundary(gitContext, repoId, () => {
     const config = loadConfig(gitContext.basePath);
-    return mint({ repoId, gitContext, codeHostPlatform: config.codeHost, issueTrackerPlatform: config.issueTracker });
+    return assemble({
+      forge: { codeHost: config.codeHost, issueTracker: config.issueTracker },
+      identity: repoId,
+      tokenProvider,
+      gitContext,
+      deps: buildForgeDeps(config, repoId, gitContext),
+    });
   });
 }
 
@@ -227,25 +240,4 @@ export function buildLaunchGitContext(
   deps: LaunchGitContextDeps = {},
 ): GitContext {
   return buildLaunchBoundary(targetRepo, deps).gitContext;
-}
-
-/**
- * Binds the boundary's providers to a validated workspace directory —
- * `createRepoContext({ repoId, cwd, providers: boundary.providers })`, the
- * same cwd/`origin` validation as today, from the one file the guard
- * sanctions. `repoId` (default: the boundary's) must name the boundary's
- * repository — a caller-supplied identity for a DIFFERENT repository is
- * refused rather than silently handed providers bound to the wrong one.
- */
-export function bindWorkspaceContext(
-  boundary: LaunchBoundary,
-  cwd: string,
-  repoId: RepoIdentifier = boundary.repoId,
-): RepoContext {
-  if (!sameRepoIdentity(repoId, boundary.repoId)) {
-    throw new Error(
-      `bindWorkspaceContext: ${repoId.owner}/${repoId.repo} does not match the launch boundary's ${boundary.repoId.owner}/${boundary.repoId.repo}`,
-    );
-  }
-  return createRepoContext({ repoId, cwd, providers: boundary.providers });
 }

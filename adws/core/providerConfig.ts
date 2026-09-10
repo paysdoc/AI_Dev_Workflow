@@ -1,42 +1,58 @@
 /**
  * ADW's consumer-side provider-config parser — reads `.adw/providers.md` in a
  * workspace directory. The PRD says the extractable library never reads
- * consumer config files, which is why this lives in `adws/core/` (#823's
- * designated home for it) rather than in the provider package. Moved
- * verbatim out of `adws/providers/repoContext.ts` (#819) to keep that file
- * under the 300-line cap; re-exported there so no importer changed.
+ * consumer config files, which is why this lives in `adws/core/` rather than
+ * in the provider package. Moved out of the now-deleted `adws/providers/repoContext.ts`
+ * (#819); its output changed from `Platform` to per-port forge names and its
+ * re-export shim there dropped when that file was deleted (#823).
  */
 
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
-import { Platform } from '../providers/types';
+import {
+  CODE_HOST_FORGES,
+  ISSUE_TRACKER_FORGES,
+  isCodeHostForge,
+  isIssueTrackerForge,
+  type CodeHostForge,
+  type IssueTrackerForge,
+} from '../providers/forgeProviders';
 
-/** Provider platform configuration read from `.adw/providers.md`. */
+/** Provider forge configuration read from `.adw/providers.md`. */
 export interface ProviderConfig {
-  codeHost: Platform;
+  codeHost: CodeHostForge;
   codeHostUrl?: string;
-  issueTracker: Platform;
+  issueTracker: IssueTrackerForge;
   issueTrackerUrl?: string;
   issueTrackerProjectKey?: string;
 }
 
-const PLATFORM_VALUES = new Map<string, Platform>(
-  Object.values(Platform).map((v) => [v.toLowerCase(), v]),
-);
-
 /**
- * Parses a platform string to its Platform enum value.
- * Case-insensitive. Throws on unknown values.
+ * Parses a code-host forge name. Case-insensitive. Throws, naming the
+ * section and the value, when the name is outside the code-host union.
  */
-export function parsePlatform(value: string, section: string): Platform {
+export function parseCodeHostForge(value: string, section: string): CodeHostForge {
   const trimmed = value.trim().toLowerCase();
-  const platform = PLATFORM_VALUES.get(trimmed);
-  if (!platform) {
+  if (!isCodeHostForge(trimmed)) {
     throw new Error(
-      `Unknown platform "${value.trim()}" in ${section} section of .adw/providers.md`,
+      `Unsupported code host "${value.trim()}" in ${section} section of .adw/providers.md (expected one of: ${CODE_HOST_FORGES.join(', ')})`,
     );
   }
-  return platform;
+  return trimmed;
+}
+
+/**
+ * Parses an issue-tracker forge name. Case-insensitive. Throws, naming the
+ * section and the value, when the name is outside the issue-tracker union.
+ */
+export function parseIssueTrackerForge(value: string, section: string): IssueTrackerForge {
+  const trimmed = value.trim().toLowerCase();
+  if (!isIssueTrackerForge(trimmed)) {
+    throw new Error(
+      `Unsupported issue tracker "${value.trim()}" in ${section} section of .adw/providers.md (expected one of: ${ISSUE_TRACKER_FORGES.join(', ')})`,
+    );
+  }
+  return trimmed;
 }
 
 /**
@@ -46,8 +62,8 @@ export function parsePlatform(value: string, section: string): Platform {
 export function loadProviderConfig(cwd: string): ProviderConfig {
   const configPath = join(cwd, '.adw', 'providers.md');
   const defaults: ProviderConfig = {
-    codeHost: Platform.GitHub,
-    issueTracker: Platform.GitHub,
+    codeHost: 'github',
+    issueTracker: 'github',
   };
 
   if (!existsSync(configPath)) {
@@ -59,12 +75,12 @@ export function loadProviderConfig(cwd: string): ProviderConfig {
 
   const codeHostMatch = content.match(/^## Code Host\s*\n+(.+)/m);
   if (codeHostMatch) {
-    config.codeHost = parsePlatform(codeHostMatch[1], '## Code Host');
+    config.codeHost = parseCodeHostForge(codeHostMatch[1], '## Code Host');
   }
 
   const issueTrackerMatch = content.match(/^## Issue Tracker\s*\n+(.+)/m);
   if (issueTrackerMatch) {
-    config.issueTracker = parsePlatform(
+    config.issueTracker = parseIssueTrackerForge(
       issueTrackerMatch[1],
       '## Issue Tracker',
     );

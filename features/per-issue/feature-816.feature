@@ -284,29 +284,13 @@ Feature: A fourth guard rule makes "extraction is a file move" machine-checked �
 
   # ── §3 THE SCOPE LIST IS EXPLICIT AND ONLY WIDENS (AC2, AC4) ───────────────────────────
   #
-  # The complement of §1, and the reason `bun run lint:git-guard` can be green tomorrow morning: a
-  # package inside the extractable SET but outside the current SCOPE is not checked yet. #818 cleaned
-  # `providers/gitlab` and `providers/jira` and widened the scope by both — the visible, reviewed
-  # widening event this scenario's original GitLab fixture predicted, and the reason that fixture is
-  # rewritten here rather than left to rot pinned green for the wrong reason. The fixture is now
-  # `adws/providers/repoContext.ts` reaching `../core/projectConfig` — not invented, but the exact
-  # import that sits at that file today, and the last out-of-scope providers file. If the rule
-  # enforced the whole extractable set on day one this scenario goes red, and so does AC4 and the
-  # build with it. When #823 replaces `repoContext.ts` with `forgeProviders()`, this scenario is the
-  # one that is rewritten or retired in turn.
-
-  @adw-816 @adw-i4q2gf-extraction-readiness
-  Scenario: A package in the extractable set but outside the current scope is not yet checked
-    Given a guard fixture tree holding the file "adws/providers/repoContext.ts":
-      """
-      import type { ProvidersConfig } from '../core/projectConfig';
-
-      export function endpoint(config: ProvidersConfig): string {
-        return config.codeHost;
-      }
-      """
-    When the guard runner executes over the guard fixture tree
-    Then the guard run over the guard fixture tree passes
+  # The complement of §1, and the reason `bun run lint:git-guard` can be green tomorrow morning. This
+  # section used to pin a package inside the extractable SET but outside the current SCOPE — the last
+  # such file was `adws/providers/repoContext.ts`, which #823 replaced with `forgeProviders()` and
+  # widened EXTRACTION_SCOPE to the whole `adws/providers` directory (scope == set). With no file left
+  # inside the set and outside the scope, that scenario is retired rather than rewritten against an
+  # invented fixture — the remaining row below still proves the scope list is a real boundary, not a
+  # tautology, against a file that is genuinely outside the extractable set.
 
   # A framework file is not in the extractable set at all and is never checked by this rule, however
   # much it looks like the ones that are. `adws/github/gitContextFactory.ts` carries the word, sits

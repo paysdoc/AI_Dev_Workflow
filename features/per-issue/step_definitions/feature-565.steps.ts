@@ -40,7 +40,8 @@ import {
 } from '../../../test/mocks/test-harness.ts';
 import { resolveEntryRepoInfo } from '../../../adws/triggers/pauseQueueScanner.ts';
 import { resolveCronRepo } from '../../../adws/triggers/cronRepoResolver.ts';
-import { validateGitRemote } from '../../../adws/providers/repoContext.ts';
+import { validateGitRemote } from '../../../adws/core/workspaceBinding.ts';
+import { readOriginRemoteUrl } from '../../../adws/gitContext/bootstrapIdentity.ts';
 import { Platform } from '../../../adws/providers/types.ts';
 import type { RepoIdentifier } from '../../../adws/providers/types.ts';
 import type { PausedWorkflow } from '../../../adws/core/pauseQueue.ts';
@@ -262,7 +263,7 @@ When('the pause-queue resume scan runs', function (this: RegressionWorld) {
     // With the fix it matches (target ≡ target); a host identity would throw the
     // "Remote owner X !== declared owner Y" mismatch the bug produced.
     try {
-      validateGitRemote(entry.worktreePath, {
+      validateGitRemote({ remoteUrl: readOriginRemoteUrl }, entry.worktreePath, {
         owner: repoInfo.owner,
         repo: repoInfo.repo,
         platform: Platform.GitHub,

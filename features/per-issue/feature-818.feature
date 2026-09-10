@@ -538,17 +538,18 @@ Feature: The GitLab and Jira adapters take their credentials, endpoints and logg
     When the guard runner executes over the guard fixture tree
     Then the guard run over the guard fixture tree passes
 
-  # TRAP 5, too-wide edge, and the reason a one-line "widen to adws/providers" is the worst possible
-  # answer. `repoContext.ts` is the file this very issue moves the environment reads INTO, and it
-  # imports `../github/gitContextFactory` and `../core/projectConfig` at lines 10 and 26 by design.
-  # #819 later cleaned and widened the scope by the whole `adws/providers/github` directory, so the
-  # three GitHub adapter modules this row used to pin are no longer out of scope; `repoContext.ts`
-  # remains the file outside the widened set. Every row here must still pass on merge day, or AC4's
-  # "guard green" is unreachable without doing the rest of the wave in the same PR — the big-bang the
-  # PRD exists to avoid.
+  # TRAP 5, too-wide edge, and the reason a one-line "widen to adws/providers" was, at the time, the
+  # worst possible answer. `repoContext.ts` was the file this very issue moved the environment reads
+  # INTO, importing `../github/gitContextFactory` and `../core/projectConfig` by design. #819 later
+  # cleaned and widened the scope by the whole `adws/providers/github` directory, so the three GitHub
+  # adapter modules this row used to pin were no longer out of scope; #823 then replaced
+  # `repoContext.ts` itself with `forgeProviders()` and widened the scope to the whole `adws/providers`
+  # directory, closing the gap this row used to prove. What remains provable is the boundary from
+  # outside the extractable set entirely — a framework file in `adws/core/` is still not checked,
+  # however it is imported.
 
   @adw-818 @adw-lzod6e-gitlab-and-jira-adap
-  Scenario Outline: A file outside the two adapter directories is still not checked
+  Scenario Outline: A framework file beside the extractable set is still not checked
     Given a guard fixture tree holding the file "<path>":
       """
       import { helper } from '<specifier>';
@@ -559,9 +560,9 @@ Feature: The GitLab and Jira adapters take their credentials, endpoints and logg
     Then the guard run over the guard fixture tree passes
 
     Examples:
-      | path                          | specifier                   |
-      | adws/providers/repoContext.ts | ../github/gitContextFactory |
-      | adws/providers/repoContext.ts | ../core/projectConfig       |
+      | path                          | specifier         |
+      | adws/core/forgeWiring.ts      | ./environment     |
+      | adws/core/launchGitContext.ts | ./providerConfig  |
 
   # TRAP 6. AC2 puts the new unit tests inside the directories this section just put in scope, and
   # they will import `vitest` and — for the "no environment read remaining" assertions — very likely

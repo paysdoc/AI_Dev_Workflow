@@ -456,11 +456,14 @@ Feature: The cron sweep probes act on the repository the cron was launched for �
   # "`bun run lint:git-guard` … passes on the guarded-fallback sites (`repoInfo ?? getRepoInfo()`)".
   # A caller that PREFERS a threaded identity and only falls back when none was supplied is the
   # legal shape used across adwPrReview, webhookGatekeeper and trigger_webhook; a rule that flagged
-  # it would be un-shippable. Guards the fix against over-firing.
+  # it would be un-shippable. Guards the fix against over-firing. Written at the permanent launch-
+  # boundary path (#823 retired `adws/providers/repoContext.ts`'s own sanctioned-site standing, which
+  # this fixture never meant to exercise — this row is about the guarded-fallback shape, not about
+  # which file it lives in).
 
   @adw-769 @adw-5k8n5z-cron-sweep-probes-re
   Scenario: The guard permits a threaded identity with a guarded fallback
-    When the git/gh guard scans a fixture source at "adws/providers/repoContext.ts" containing:
+    When the git/gh guard scans a fixture source at "adws/core/launchGitContext.ts" containing:
       """
       import { getRepoInfo, type RepoInfo } from '../github';
       import { gitContextForRepo } from '../github/gitContextFactory';

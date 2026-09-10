@@ -2,16 +2,21 @@
  * identityRule.ts — the 'cwd-derived-identity' rule (#769), extracted from
  * `adws/checkGitGhGuard.ts` verbatim during the #795 module split.
  *
- * Flags `gitContextForRepo(…)` calls whose first argument is cwd-derived
- * identity: either an inline zero-argument `getRepoInfo()` /
- * `readLocalRepoInfo()` call, or a local variable initialized from one. This
- * is a COMPOSITION of two individually-legal calls that the shellout rule
- * cannot see (no raw git/gh string), and which re-derives identity instead
- * of threading a launch-boundary GitContext. No path allowlist: legitimate
- * self-host sites pass an explicit REPO_ROOT argument instead, and launch
- * boundaries resolve identity only into a guarded-fallback local
- * (`x ?? getRepoInfo()`), which is a BinaryExpression initializer and so is
- * never collected.
+ * Flags a context-constructor call whose identity argument is cwd-derived:
+ * either an inline zero-argument `getRepoInfo()` / `readLocalRepoInfo()`
+ * call, or a local variable initialized from one. This is a COMPOSITION of
+ * two individually-legal calls that the shellout rule cannot see (no raw
+ * git/gh string), and which re-derives identity instead of threading a
+ * launch-boundary GitContext. No path allowlist: legitimate self-host sites
+ * pass an explicit REPO_ROOT argument instead, and launch boundaries resolve
+ * identity only into a guarded-fallback local (`x ?? getRepoInfo()`), which
+ * is a BinaryExpression initializer and so is never collected.
+ *
+ * Two constructor shapes are inspected (#823): `gitContextForRepo(x)` — the
+ * first positional argument — and `forgeProviders({ identity: x })` — the
+ * `identity` property of a first-argument object literal, bare or shorthand.
+ * Both retired-or-not names stay in `CONTEXT_CONSTRUCTOR_NAMES` regardless of
+ * whether a declaration still exists for them (PRD story 24).
  */
 
 import * as ts from 'typescript';
@@ -29,8 +34,8 @@ import type { Violation } from './violationTypes';
  */
 export const CWD_DERIVED_IDENTITY_FNS = new Set(['getRepoInfo', 'readLocalRepoInfo']);
 
-/** The boundary-free GitContext constructor whose argument the cwd-derived-identity rule inspects. */
-export const CONTEXT_CONSTRUCTOR_NAME = 'gitContextForRepo';
+/** The context constructors whose identity argument this rule inspects — name-based, surviving both retired declarations (PRD story 24). */
+export const CONTEXT_CONSTRUCTOR_NAMES: ReadonlySet<string> = new Set(['gitContextForRepo', 'forgeProviders']);
 
 /** A zero-argument getRepoInfo()/readLocalRepoInfo() call — the two legitimate cwd reads. */
 function isZeroArgCwdDerivedCall(node: ts.Node): node is ts.CallExpression {
@@ -61,11 +66,37 @@ function collectCwdDerivedIdentityNames(sourceFile: ts.SourceFile): Set<string> 
   return names;
 }
 
-/** True when `expression` resolves to the identifier `gitContextForRepo`, bare or as a property access. */
-function isContextConstructorCallee(expression: ts.Expression): boolean {
-  if (ts.isIdentifier(expression)) return expression.text === CONTEXT_CONSTRUCTOR_NAME;
-  if (ts.isPropertyAccessExpression(expression)) return expression.name.text === CONTEXT_CONSTRUCTOR_NAME;
-  return false;
+/** The matched constructor name when `expression` resolves to one of `CONTEXT_CONSTRUCTOR_NAMES`, bare or as a property access (an injected seam, e.g. `deps.forgeProviders(…)`); else null. */
+function contextConstructorCalleeName(expression: ts.Expression): string | null {
+  if (ts.isIdentifier(expression) && CONTEXT_CONSTRUCTOR_NAMES.has(expression.text)) return expression.text;
+  if (ts.isPropertyAccessExpression(expression) && CONTEXT_CONSTRUCTOR_NAMES.has(expression.name.text)) return expression.name.text;
+  return null;
+}
+
+/**
+ * `forgeProviders({ identity: <expr> })` / `forgeProviders({ identity })` —
+ * returns `<expr>` (or the shorthand identifier itself, for `{ identity }`);
+ * null when `firstArg` is not an object literal or carries no `identity`
+ * property.
+ */
+function identityPropertyOf(firstArg: ts.Node): ts.Expression | null {
+  if (!ts.isObjectLiteralExpression(firstArg)) return null;
+  for (const prop of firstArg.properties) {
+    if (ts.isPropertyAssignment(prop) && ts.isIdentifier(prop.name) && prop.name.text === 'identity') {
+      return prop.initializer;
+    }
+    if (ts.isShorthandPropertyAssignment(prop) && prop.name.text === 'identity') {
+      return prop.name;
+    }
+  }
+  return null;
+}
+
+/** The expression this rule inspects for `calleeName`'s call: `gitContextForRepo`'s first positional argument, or `forgeProviders`'s `identity` property. */
+function identityArgumentOf(calleeName: string, node: ts.CallExpression): ts.Expression | null {
+  const [firstArg] = node.arguments;
+  if (!firstArg) return null;
+  return calleeName === 'forgeProviders' ? identityPropertyOf(firstArg) : firstArg;
 }
 
 /** Readable shape string for the violation's `command` field. */
@@ -75,11 +106,17 @@ function describeCwdDerivedArg(arg: ts.Node): string {
   return 'getRepoInfo()';
 }
 
+/** Builds the violation's `command` field for the matched constructor shape. */
+function describeViolation(calleeName: string, arg: ts.Node): string {
+  const argText = describeCwdDerivedArg(arg);
+  return calleeName === 'forgeProviders' ? `forgeProviders({ identity: ${argText} })` : `${calleeName}(${argText})`;
+}
+
 /**
- * Flags gitContextForRepo(…) calls whose first argument is cwd-derived
- * identity: an inline zero-argument read, or an identifier bound to one
- * earlier in the file. The local-variable form is essential — it is the
- * shape most call sites actually use.
+ * Flags context-constructor calls whose identity argument is cwd-derived: an
+ * inline zero-argument read, or an identifier bound to one earlier in the
+ * file. The local-variable form is essential — it is the shape most call
+ * sites actually use.
  *
  * Single entry point: collects cwd-derived names itself, so callers need
  * only one call per file.
@@ -88,18 +125,21 @@ export function flagCwdDerivedIdentityUses(sourceFile: ts.SourceFile): Violation
   const cwdDerivedNames = collectCwdDerivedIdentityNames(sourceFile);
   const violations: Violation[] = [];
   const visit = (node: ts.Node): void => {
-    if (ts.isCallExpression(node) && node.arguments.length > 0 && isContextConstructorCallee(node.expression)) {
-      const [firstArg] = node.arguments;
-      const isInlineRead = isZeroArgCwdDerivedCall(firstArg);
-      const isCollectedIdentifier = ts.isIdentifier(firstArg) && cwdDerivedNames.has(firstArg.text);
-      if (isInlineRead || isCollectedIdentifier) {
-        const { line } = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile));
-        violations.push({
-          file: sourceFile.fileName,
-          line: line + 1,
-          command: `${CONTEXT_CONSTRUCTOR_NAME}(${describeCwdDerivedArg(firstArg)})`,
-          rule: 'cwd-derived-identity',
-        });
+    if (ts.isCallExpression(node) && node.arguments.length > 0) {
+      const calleeName = contextConstructorCalleeName(node.expression);
+      const identityArg = calleeName ? identityArgumentOf(calleeName, node) : null;
+      if (calleeName && identityArg) {
+        const isInlineRead = isZeroArgCwdDerivedCall(identityArg);
+        const isCollectedIdentifier = ts.isIdentifier(identityArg) && cwdDerivedNames.has(identityArg.text);
+        if (isInlineRead || isCollectedIdentifier) {
+          const { line } = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile));
+          violations.push({
+            file: sourceFile.fileName,
+            line: line + 1,
+            command: describeViolation(calleeName, identityArg),
+            rule: 'cwd-derived-identity',
+          });
+        }
       }
     }
     ts.forEachChild(node, visit);

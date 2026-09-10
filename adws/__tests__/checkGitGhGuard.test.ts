@@ -170,6 +170,72 @@ describe('scanFiles — cwd-derived-identity rule (#769)', () => {
   });
 });
 
+describe('scanFiles — cwd-derived-identity rule follows forgeProviders (#823)', () => {
+  it('flags an inline forgeProviders({ identity: readLocalRepoInfo() }) composite', () => {
+    mockReadFileSync.mockReturnValue(
+      "const p = forgeProviders({ identity: readLocalRepoInfo(), tokenProvider, gitContext, forge });\n",
+    );
+
+    const { violations } = scanFiles(['adws/core/launchGitContext.ts'], '/repo');
+
+    expect(violations).toHaveLength(1);
+    expect(violations[0].rule).toBe('cwd-derived-identity');
+  });
+
+  it('flags a local-variable composite: const info = getRepoInfo(); … forgeProviders({ identity: info })', () => {
+    mockReadFileSync.mockReturnValue(
+      'const info = getRepoInfo();\nconst p = forgeProviders({ identity: info, tokenProvider, gitContext, forge });\n',
+    );
+
+    const { violations } = scanFiles(['adws/core/launchGitContext.ts'], '/repo');
+
+    expect(violations).toHaveLength(1);
+    expect(violations[0].rule).toBe('cwd-derived-identity');
+  });
+
+  it('flags the shorthand form: const identity = getRepoInfo(); … forgeProviders({ identity })', () => {
+    mockReadFileSync.mockReturnValue(
+      'const identity = getRepoInfo();\nconst p = forgeProviders({ identity, tokenProvider, gitContext, forge });\n',
+    );
+
+    const { violations } = scanFiles(['adws/core/launchGitContext.ts'], '/repo');
+
+    expect(violations).toHaveLength(1);
+    expect(violations[0].rule).toBe('cwd-derived-identity');
+  });
+
+  it('flags deps.forgeProviders({ identity: getRepoInfo() }) — an injected seam still carries a cwd-derived identity', () => {
+    mockReadFileSync.mockReturnValue(
+      'function a(deps) { return deps.forgeProviders({ identity: getRepoInfo(), tokenProvider, gitContext, forge }); }\n',
+    );
+
+    const { violations } = scanFiles(['adws/phases/someNewPhase.ts'], '/repo');
+
+    expect(violations).toHaveLength(1);
+    expect(violations[0].rule).toBe('cwd-derived-identity');
+  });
+
+  it('permits forgeProviders({ identity: repoIdParam }) — an unrelated identifier is never collected', () => {
+    mockReadFileSync.mockReturnValue(
+      'function handle(repoIdParam) {\n  return forgeProviders({ identity: repoIdParam, tokenProvider, gitContext, forge });\n}\n',
+    );
+
+    const { violations } = scanFiles(['adws/core/launchGitContext.ts'], '/repo');
+
+    expect(violations.filter((v) => v.rule === 'cwd-derived-identity')).toHaveLength(0);
+  });
+
+  it('permits forgeProviders({ identity: readLocalRepoInfo(REPO_ROOT) }) — an explicit argument is not cwd-derived', () => {
+    mockReadFileSync.mockReturnValue(
+      'const p = forgeProviders({ identity: readLocalRepoInfo(REPO_ROOT), tokenProvider, gitContext, forge });\n',
+    );
+
+    const { violations } = scanFiles(['adws/core/launchGitContext.ts'], '/repo');
+
+    expect(violations.filter((v) => v.rule === 'cwd-derived-identity')).toHaveLength(0);
+  });
+});
+
 describe('EXEMPT_PACKAGES — the closed, named, two-entry exempt set (#792)', () => {
   it('names exactly two packages: the git core and the GitHub forge adapter', () => {
     expect(EXEMPT_PACKAGES).toHaveLength(2);
@@ -301,6 +367,31 @@ describe('scanFiles — unsanctioned-construction rule (#795)', () => {
       expect(violations[1].line).toBe(2);
       expect(violations.every((v) => v.rule === 'unsanctioned-construction')).toBe(true);
     });
+
+    it('flags a bare forgeProviders(...) call in a non-allowlisted file', () => {
+      mockReadFileSync.mockReturnValue(
+        "const p = forgeProviders({ forge, identity, tokenProvider, gitContext });\n",
+      );
+
+      const { violations } = scanFiles(['adws/phases/someNewPhase.ts'], '/repo');
+
+      expect(violations).toHaveLength(1);
+      expect(violations[0].rule).toBe('unsanctioned-construction');
+    });
+
+    it('flags createGitHubIssueTracker(...) at the now-retired mint file and factory-definition file — neither is sanctioned any longer', () => {
+      mockReadFileSync.mockReturnValue(
+        "const t = createGitHubIssueTracker({ owner: 'acme', repo: 'typo', platform: Platform.GitHub });\n",
+      );
+
+      const atRepoContext = scanFiles(['adws/providers/repoContext.ts'], '/repo');
+      const atGitContextFactory = scanFiles(['adws/github/gitContextFactory.ts'], '/repo');
+
+      expect(atRepoContext.violations).toHaveLength(1);
+      expect(atRepoContext.violations[0].rule).toBe('unsanctioned-construction');
+      expect(atGitContextFactory.violations).toHaveLength(1);
+      expect(atGitContextFactory.violations[0].rule).toBe('unsanctioned-construction');
+    });
   });
 
   describe('does not flag sanctioned sites or legal shapes', () => {
@@ -314,22 +405,22 @@ describe('scanFiles — unsanctioned-construction rule (#795)', () => {
       expect(violations).toHaveLength(0);
     });
 
-    it('permits createGitHubIssueTracker(...) at the permanent mint-implementation file', () => {
+    it('permits createGitHubIssueTracker(...) at the permanent assembly-module file', () => {
       mockReadFileSync.mockReturnValue(
         "const t = createGitHubIssueTracker({ owner: 'acme', repo: 'typo', platform: Platform.GitHub });\n",
       );
 
-      const { violations } = scanFiles(['adws/providers/repoContext.ts'], '/repo');
+      const { violations } = scanFiles(['adws/providers/forgeProviders.ts'], '/repo');
 
       expect(violations).toHaveLength(0);
     });
 
-    it('permits createGitHubIssueTracker(...) at a sunset entry', () => {
+    it('permits deps.forgeProviders(...) — an injected seam, not a bypass', () => {
       mockReadFileSync.mockReturnValue(
-        "const t = createGitHubIssueTracker({ owner: 'acme', repo: 'typo', platform: Platform.GitHub });\n",
+        'function a(deps) { return deps.forgeProviders({ forge, identity, tokenProvider, gitContext }); }\n',
       );
 
-      const { violations } = scanFiles(['adws/github/gitContextFactory.ts'], '/repo');
+      const { violations } = scanFiles(['adws/phases/someNewPhase.ts'], '/repo');
 
       expect(violations).toHaveLength(0);
     });
@@ -375,14 +466,15 @@ describe('scanFiles — unsanctioned-construction rule (#795)', () => {
   });
 });
 
-describe('isSanctionedConstructionSite — permanent/transitional allowlist (#795)', () => {
+describe('isSanctionedConstructionSite — the two-entry permanent allowlist (#795, #823)', () => {
   it('is true for both permanent paths', () => {
     expect(isSanctionedConstructionSite('adws/core/launchGitContext.ts')).toBe(true);
-    expect(isSanctionedConstructionSite('adws/providers/repoContext.ts')).toBe(true);
+    expect(isSanctionedConstructionSite('adws/providers/forgeProviders.ts')).toBe(true);
   });
 
-  it('is true for the sampled sunset path', () => {
-    expect(isSanctionedConstructionSite('adws/github/gitContextFactory.ts')).toBe(true);
+  it('is false for the retired mint file and factory-definition file — #823 took the sunset half to zero', () => {
+    expect(isSanctionedConstructionSite('adws/providers/repoContext.ts')).toBe(false);
+    expect(isSanctionedConstructionSite('adws/github/gitContextFactory.ts')).toBe(false);
   });
 
   it('is false for an unlisted file', () => {
@@ -393,35 +485,24 @@ describe('isSanctionedConstructionSite — permanent/transitional allowlist (#79
     expect(isSanctionedConstructionSite('adws/core/somethingElse.ts')).toBe(false);
   });
 
-  it('every transitional entry carries a non-empty owner naming an issue; both permanent entries carry none', () => {
+  it('the allowlist is exactly two permanent entries and no transitional entry', () => {
     const permanent = SANCTIONED_CONSTRUCTION_SITES.filter((site) => !('owner' in site));
     const transitional = SANCTIONED_CONSTRUCTION_SITES.filter((site) => 'owner' in site);
 
     expect(permanent).toHaveLength(2);
-    expect(transitional.length).toBeGreaterThan(0);
-    for (const site of transitional) {
-      const owner = (site as { owner?: string }).owner;
-      expect(typeof owner).toBe('string');
-      expect(owner!.length).toBeGreaterThan(0);
-    }
+    expect(transitional).toHaveLength(0);
   });
 });
 
-describe('findStaleSanctionedEntries (#795)', () => {
-  it('with an empty seen-set, returns all transitional entries and no permanent ones', () => {
-    const transitionalFiles = SANCTIONED_CONSTRUCTION_SITES.filter((site) => 'owner' in site).map((site) => site.file);
-
+describe('findStaleSanctionedEntries (#795, #823)', () => {
+  it('with an empty seen-set, returns [] — nothing transitional is left to go stale', () => {
     const stale = findStaleSanctionedEntries(new Set());
 
-    expect(new Set(stale)).toEqual(new Set(transitionalFiles));
-    expect(stale).not.toContain('adws/core/launchGitContext.ts');
-    expect(stale).not.toContain('adws/providers/repoContext.ts');
+    expect(stale).toEqual([]);
   });
 
-  it('with every transitional path seen, returns []', () => {
-    const transitionalFiles = SANCTIONED_CONSTRUCTION_SITES.filter((site) => 'owner' in site).map((site) => site.file);
-
-    const stale = findStaleSanctionedEntries(new Set(transitionalFiles));
+  it('with both permanent paths seen, returns []', () => {
+    const stale = findStaleSanctionedEntries(new Set(['adws/core/launchGitContext.ts', 'adws/providers/forgeProviders.ts']));
 
     expect(stale).toEqual([]);
   });
@@ -485,12 +566,22 @@ describe('scanExtractionScope — extraction-readiness rule (#816)', () => {
     expect(violations[0].rule).toBe('extraction-readiness');
   });
 
-  it('passes: adws/providers/repoContext.ts (the transitional wiring file) is still out of scope', () => {
+  it('fails: adws/providers/forgeProviders.ts importing ../core/logger (the whole provider package is in scope since #823)', () => {
+    mockReadFileSync.mockReturnValue("import { log } from '../core/logger';\n");
+
+    const { violations } = scanExtractionScope(['adws/providers/forgeProviders.ts'], '/repo');
+
+    expect(violations).toHaveLength(1);
+    expect(violations[0].rule).toBe('extraction-readiness');
+  });
+
+  it('fails: adws/providers/repoContext.ts importing ../github/githubApi (in scope since #823)', () => {
     mockReadFileSync.mockReturnValue("import { getRepoInfo } from '../github/githubApi';\n");
 
     const { violations } = scanExtractionScope(['adws/providers/repoContext.ts'], '/repo');
 
-    expect(violations).toHaveLength(0);
+    expect(violations).toHaveLength(1);
+    expect(violations[0].rule).toBe('extraction-readiness');
   });
 
   it('fails: adws/providers/github/mappers.ts importing ../../types/issueTypes (in scope since #817)', () => {
@@ -598,12 +689,8 @@ describe('scanExtractionScope — extraction-readiness rule (#816)', () => {
 
 describe('guarded factory names still exist (#795 / AC3)', () => {
   const cases: { name: string; file: string; declPattern: RegExp }[] = [
-    { name: 'gitContextFor', file: 'adws/github/gitContextFactory.ts', declPattern: /export async function gitContextFor\(/ },
-    { name: 'gitContextForSync', file: 'adws/github/gitContextFactory.ts', declPattern: /export function gitContextForSync\(/ },
-    { name: 'gitContextForRepo', file: 'adws/github/gitContextFactory.ts', declPattern: /export function gitContextForRepo\(/ },
+    { name: 'forgeProviders', file: 'adws/providers/forgeProviders.ts', declPattern: /export function forgeProviders\(/ },
     { name: 'readLocalRepoInfo', file: 'adws/providers/github/githubIdentity.ts', declPattern: /export function readLocalRepoInfo\(/ },
-    { name: 'createRepoContext', file: 'adws/providers/repoContext.ts', declPattern: /export function createRepoContext\(/ },
-    { name: 'mintBoundProviders', file: 'adws/providers/repoContext.ts', declPattern: /export function mintBoundProviders\(/ },
     { name: 'createGitHubIssueTracker', file: 'adws/providers/github/githubIssueTracker.ts', declPattern: /export function createGitHubIssueTracker\(/ },
     { name: 'createGitHubCodeHost', file: 'adws/providers/github/githubCodeHost.ts', declPattern: /export function createGitHubCodeHost\(/ },
     { name: 'createGitHubBoardManager', file: 'adws/providers/github/githubBoardManager.ts', declPattern: /export function createGitHubBoardManager\(/ },
@@ -626,7 +713,7 @@ describe('guarded factory names still exist (#795 / AC3)', () => {
     expect(
       declPattern.test(source),
       `Expected to find "${name}"'s declaration in ${file} — was it renamed? Update ` +
-      'CWD_DERIVED_IDENTITY_FNS/CONTEXT_CONSTRUCTOR_NAME (adws/guard/identityRule.ts), ' +
+      'CWD_DERIVED_IDENTITY_FNS/CONTEXT_CONSTRUCTOR_NAMES (adws/guard/identityRule.ts), ' +
       'PROVIDER_CONSTRUCTORS/CONTEXT_CONSTRUCTORS/GIT_CONTEXT_CLASS_NAME (adws/guard/constructionRule.ts), or ' +
       'EXTRACTION_SCOPE (adws/guard/extractionRule.ts) accordingly.',
     ).toBe(true);

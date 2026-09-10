@@ -14,7 +14,7 @@ import { JiraApiClient, isCloudAuth, type JiraAuth, type JiraApiClientDeps } fro
 import type { JiraIssueResponse, JiraCommentResponse } from './jiraTypes';
 import { markdownToAdf, adfToPlainText } from './adfConverter';
 
-/** The injected configuration `createJiraIssueTracker` takes (#818); ADW's wiring supplies `auth` from `jiraAuthFromEnv()`; `instanceUrl`/`projectKey` come from the caller's own configuration (`.adw/providers.md` sections, wired by #823). */
+/** The injected configuration `createJiraIssueTracker` takes (#818); ADW's wiring supplies `auth` from `jiraAuthFromEnv()`; `instanceUrl`/`projectKey` come from the caller's own configuration, wired by `adws/core/forgeWiring.ts`. */
 export interface JiraConfig {
   readonly instanceUrl: string;
   readonly projectKey: string;

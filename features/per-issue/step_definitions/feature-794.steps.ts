@@ -30,8 +30,9 @@ import { tmpdir } from 'os';
 import { execSync } from 'child_process';
 import { buildLaunchBoundary } from '../../../adws/core/launchGitContext.ts';
 import type { LaunchBoundary, LaunchGitContextDeps } from '../../../adws/core/launchGitContext.ts';
-import { createRepoContext } from '../../../adws/providers/repoContext.ts';
-import type { MintProvidersOptions } from '../../../adws/providers/repoContext.ts';
+import { bindWorkspaceContext } from '../../../adws/core/workspaceBinding.ts';
+import { forgeProviders } from '../../../adws/providers/forgeProviders.ts';
+import type { ForgeProvidersOptions, ForgeProviderDeps } from '../../../adws/providers/forgeProviders.ts';
 import type { BoundProviders, RepoIdentifier, RepoContext } from '../../../adws/providers/types.ts';
 import { Platform } from '../../../adws/providers/types.ts';
 import { resolveCronRepo } from '../../../adws/triggers/cronRepoResolver.ts';
@@ -109,24 +110,18 @@ function resetWorld(): void {
   w.declaredPlatform = undefined;
 }
 
-// §11 exercises validateGitRemote -> gitContextForRepo — a non-injectable production
-// factory that resolves a REAL credential for whatever owner/repo it is given. This
-// file's fixture identities ("acme/webapp", "octo/infra") are not real GitHub App
-// installations, so the App-mint path 404s. Clearing the App gate for each scenario's
-// duration lets resolution fall through to `gh auth token` (already-authenticated in
-// this environment) for the LOCAL git remote read validateGitRemote performs — no
-// GitHub API call is made against the fake repo. Saved and restored per scenario.
-let savedGithubAppId: string | undefined;
+// §11's workspace-remote read now runs through validateGitRemote(boundary.gitContext, …)
+// (adws/core/workspaceBinding.ts, #823) — the caller's OWN context, never a second,
+// differently-credentialed one built for the check. No fresh credential is resolved for
+// the fixture identities ("acme/webapp", "octo/infra") any more, so the App-mint 404
+// workaround this file used to need (clearing GITHUB_APP_ID for the scenario's duration)
+// is dead and has been removed.
 
 Before({ tags: '@adw-794' }, function () {
   resetWorld();
-  savedGithubAppId = process.env.GITHUB_APP_ID;
-  delete process.env.GITHUB_APP_ID;
 });
 
 After({ tags: '@adw-794' }, function () {
-  if (savedGithubAppId === undefined) delete process.env.GITHUB_APP_ID;
-  else process.env.GITHUB_APP_ID = savedGithubAppId;
   for (const dir of w.tempDirs) {
     if (dir && fs.existsSync(dir)) rmSync(dir, { recursive: true, force: true });
   }
@@ -163,15 +158,6 @@ function fakeGetRepoInfo(): RepoIdentifier {
   return answer;
 }
 
-/** Stand-in provider triple for the recording mintProviders seam — never used for its own behaviour. */
-function makeStandInProviders(): BoundProviders {
-  return {
-    issueTracker: {} as BoundProviders['issueTracker'],
-    codeHost: {} as BoundProviders['codeHost'],
-    boardManager: {} as BoundProviders['boardManager'],
-  };
-}
-
 function makeDeps(): LaunchGitContextDeps {
   const deps: LaunchGitContextDeps = {
     getRepoInfo: fakeGetRepoInfo,
@@ -184,13 +170,20 @@ function makeDeps(): LaunchGitContextDeps {
     deps.platform = w.declaredPlatform;
   }
   if (w.recordMinting) {
-    deps.mintProviders = (options: MintProvidersOptions): BoundProviders => {
-      w.mintedRecords.push({ kind: 'issue tracker', repoId: options.repoId });
-      w.mintedRecords.push({ kind: 'code host', repoId: options.repoId });
-      w.mintedRecords.push({ kind: 'board manager', repoId: options.repoId });
-      return makeStandInProviders();
+    // Records AND delegates to the real assembly — recording alone would blind #823's
+    // "no board manager for a gitlab code host" row to the library's actual shape.
+    deps.forgeProviders = (options: ForgeProvidersOptions): BoundProviders => {
+      const set = forgeProviders(options);
+      w.mintedRecords.push({ kind: 'issue tracker', repoId: options.identity });
+      w.mintedRecords.push({ kind: 'code host', repoId: options.identity });
+      if (set.boardManager) w.mintedRecords.push({ kind: 'board manager', repoId: options.identity });
+      return set;
     };
   }
+  // Never reads the environment — a fixture-supplied GitLab config keeps every scenario
+  // free of real GITLAB_TOKEN/GITLAB_INSTANCE_URL reads.
+  deps.forgeDeps = (config): ForgeProviderDeps =>
+    (config.codeHost === 'gitlab' ? { gitlab: { token: 'fixture-token', instanceUrl: 'https://gitlab.example.invalid' } } : {});
   return deps;
 }
 
@@ -447,11 +440,7 @@ Given('a cloned workspace whose origin remote names the repository {string}', fu
 When('a repo context is built for that workspace from the boundary\'s providers', function () {
   assert.ok(w.boundary !== null, 'Expected a launch boundary to have been built');
   assert.ok(w.fixtureWorkspace !== null, 'Expected a fixture workspace to have been set up');
-  w.repoContext = createRepoContext({
-    repoId: w.boundary.repoId,
-    cwd: w.fixtureWorkspace,
-    providers: w.boundary.providers,
-  });
+  w.repoContext = bindWorkspaceContext(w.boundary, w.fixtureWorkspace);
 });
 
 When(
@@ -461,11 +450,7 @@ When(
     assert.ok(w.fixtureWorkspace !== null, 'Expected a fixture workspace to have been set up');
     w.repoContextError = null;
     try {
-      w.repoContext = createRepoContext({
-        repoId: w.boundary.repoId,
-        cwd: w.fixtureWorkspace,
-        providers: w.boundary.providers,
-      });
+      w.repoContext = bindWorkspaceContext(w.boundary, w.fixtureWorkspace);
     } catch (err) {
       w.repoContextError = err instanceof Error ? err : new Error(String(err));
     }
@@ -515,4 +500,21 @@ export function setDeclaredPlatform(platform: Platform | undefined): void {
 /** The most recently built launch boundary, or null if none has been built yet this scenario. */
 export function getBuiltBoundary(): LaunchBoundary | null {
   return w.boundary;
+}
+
+// ---------------------------------------------------------------------------
+// Cross-file seam (#823): feature-823.steps.ts reuses this file's launch-
+// boundary world (never redefining its Given/When phrases) and needs its own
+// reset/accessor, since this file's own Before/After (tag-scoped to @adw-794)
+// never run for @adw-823 scenarios.
+// ---------------------------------------------------------------------------
+
+/** Resets this file's module-private world (mirrors this file's own `Before` body) for reuse from another file's hooks. */
+export function resetBoundaryWorld(): void {
+  resetWorld();
+}
+
+/** The most recently captured provider set (via "the boundary's providers are requested … and any failure is captured"), or null if none has been captured yet this scenario. */
+export function getCapturedProviders(): BoundProviders | null {
+  return w.capturedProviders;
 }
