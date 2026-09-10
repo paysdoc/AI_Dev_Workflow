@@ -210,6 +210,7 @@ Required and optional environment variables (see `.env.sample` for full referenc
 - `GITHUB_WEBHOOK_SECRET` - (Optional) Required only for webhook trigger
 - `TARGET_REPOS_DIR` - (Optional) Directory for storing cloned target repository workspaces, defaults to `~/.adw/repos`
 - `MAX_CONCURRENT_PER_REPO` - (Optional) Maximum concurrent in-progress issues per repository, defaults to `5`
+- `MAX_FAILURES` - (Optional) Max upgrade-lane regeneration failures before escalating to a human, defaults to `3`
 - `RUNNING_TOKENS` - (Optional) Show running token totals in issue comments, defaults to `false`
 - `SHOW_COST_IN_COMMENTS` - (Optional) Show cost breakdowns in GitHub issue/PR comments, defaults to `false`
 - `JIRA_BASE_URL` - (Optional) Jira instance URL, required only when using Jira as the issue tracker
@@ -801,7 +802,10 @@ adws/                   # ADW workflow system
 ├── providers/          # Provider interfaces and implementations
 │   ├── __tests__/      # Vitest unit tests
 │   │   ├── boardManager.test.ts
-│   │   ├── forgeProviders.test.ts  # The critical suite (#823) — one identity in, every member bound to it; mismatched context/unknown forge name refused before construction; GitLab/Jira selection; the board-manager omission
+│   │   ├── forgeProviders.test.ts  # The critical suite (#823) — one identity in, every member bound to it; mismatched context/unknown forge name refused before construction; the board-manager omission
+│   │   ├── forgeProviders.deps.test.ts  # deps.github seams (onStatusMoved, resolveLabelDefinition, canApprovePullRequests) and deps.logger threading — split out of forgeProviders.test.ts
+│   │   ├── forgeProviders.selection.test.ts  # GitLab code host and Jira issue tracker forge selection — split out of forgeProviders.test.ts
+│   │   ├── forgeProvidersFixture.ts  # Shared fixture (repo identity builder, real GitContext over a spy exec, default assembly options) for the three forgeProviders.*.test.ts suites
 │   │   ├── refusalStubs.test.ts  # Asserts GitLab/Jira named-refusal-stub methods reject rather than silently no-op
 │   │   └── workspaceValidation.test.ts  # parseOwnerRepoFromUrl + validateWorkingDirectory, relocated from repoContext.test.ts (#823)
 │   ├── github/         # GitHub forge adapter — the only package (besides the git core) exempt from the git/gh CLI guard; its gh call sites feed command strings into the core's executor, never spawning a process itself (#792)
@@ -976,7 +980,8 @@ adws/                   # ADW workflow system
 ├── known_issues.md     # Known issues and workarounds
 ├── guard/              # Git/GH CLI Guard rule modules (#795)
 │   ├── __tests__/      # Vitest unit tests
-│   │   └── extractionRule.test.ts
+│   │   ├── extractionRule.test.ts
+│   │   └── extractionRule.integration.test.ts  # Real-tree check for the extraction-readiness rule (#816) — reads the actual repo via real fs; split out of extractionRule.test.ts to keep it pure/mock-free
 │   ├── violationTypes.ts    # Shared ViolationRule ('git-gh-shellout' | 'cwd-derived-identity' | 'unsanctioned-construction') / Violation types
 │   ├── identityRule.ts      # cwd-derived-identity rule (#769) — gitContextForRepo(getRepoInfo())/forgeProviders({ identity: getRepoInfo() }) composites (CONTEXT_CONSTRUCTOR_NAMES, since #823)
 │   ├── extractionRule.ts    # Extraction-boundary guard rule — EXTRACTION_SCOPE == EXTRACTABLE_SET since #823 (ten entries, the whole of adws/gitContext + adws/providers)
