@@ -7,7 +7,7 @@ This module provides the foundational layer for spawning and managing Claude Cod
 ## Responsibilities
 
 - Spawns Claude Code CLI processes via `spawn()` with `--print --verbose --dangerously-skip-permissions --output-format stream-json` flags
-- Injects `ADW_WORKTREE_PATH` and `ADW_MAIN_REPO_PATH` environment variables when the working directory is inside a worktree
+- Injects `ADW_WORKTREE_PATH` and `ADW_MAIN_REPO_PATH` environment variables when the working directory is inside a worktree **and** the caller threads a `launchContext.gitContext` (the launch boundary's `GitContext`, narrowed to `mainRepoPath` — `claudeAgent` no longer constructs one, #822). An un-threaded worktree spawn sets neither variable, which silently disables `.claude/hooks/pre-tool-use.ts` path rewriting, so every worktree-cwd spawn site must carry `gitContext`.
 - Attaches a per-phase watchdog timer (via `getAgentTimeoutForPhase`) and kills the process group on expiry, throwing `AgentTimeoutError`
 - Streams stdout through `parseJsonlOutput` to extract turn counts, tool call counts, and the final result message
 - Extracts real-time token usage via `AnthropicTokenUsageExtractor` and injects it into progress callbacks

@@ -87,7 +87,7 @@ export async function executePlanPhase(config: WorkflowConfig): Promise<{ costUs
       execution: AgentStateManager.createExecutionState('running'),
     });
 
-    const planResult = await runPlanAgent(issue, logsDir, issueType, planAgentStatePath, worktreePath, adwId, config.installContext, { selfHost: !repoContext, adwId });
+    const planResult = await runPlanAgent(issue, logsDir, issueType, planAgentStatePath, worktreePath, adwId, config.installContext, { selfHost: !repoContext, adwId, gitContext: config.gitContext });
 
     if (!planResult.success) {
       AgentStateManager.writeState(planAgentStatePath, {
@@ -139,7 +139,7 @@ export async function executePlanPhase(config: WorkflowConfig): Promise<{ costUs
     if (repoContext) {
       postIssueStageComment(repoContext, issueNumber, 'plan_committing', ctx);
     }
-    await runCommitAgent(OrchestratorId.Plan, issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body, undefined, { selfHost: !repoContext, adwId });
+    await runCommitAgent(OrchestratorId.Plan, issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body, undefined, { selfHost: !repoContext, adwId, gitContext: config.gitContext });
   } else {
     log('Skipping plan commit (already completed)', 'info');
   }

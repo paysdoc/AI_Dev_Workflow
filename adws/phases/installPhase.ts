@@ -120,7 +120,7 @@ export async function executeInstallPhase(
       execution: AgentStateManager.createExecutionState('running'),
     });
 
-    const result = await runInstallAgent(issueNumber, adwId, logsDir, installAgentStatePath, worktreePath, issue.body, undefined, { selfHost: !repoContext, adwId });
+    const result = await runInstallAgent(issueNumber, adwId, logsDir, installAgentStatePath, worktreePath, issue.body, undefined, { selfHost: !repoContext, adwId, gitContext: config.gitContext });
 
     costUsd = result.totalCostUsd || 0;
     if (result.modelUsage) modelUsage = result.modelUsage;

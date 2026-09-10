@@ -145,7 +145,7 @@ export async function executeAlignmentPhase(
       logsDir,
       alignmentAgentStatePath,
       worktreePath,
-      { selfHost: !repoContext, adwId },
+      { selfHost: !repoContext, adwId, gitContext: config.gitContext },
     );
     costUsd += alignmentResult.totalCostUsd || 0;
     if (alignmentResult.modelUsage) {
@@ -203,7 +203,7 @@ export async function executeAlignmentPhase(
   // Step 7: Commit updated artifacts if changes were made
   if (changes.length > 0) {
     log("Committing updated plan/scenario artifacts...", "info");
-    await runCommitAgent("alignment-agent", issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body, undefined, { selfHost: !repoContext, adwId });
+    await runCommitAgent("alignment-agent", issueType, JSON.stringify(issue), logsDir, undefined, worktreePath, issue.body, undefined, { selfHost: !repoContext, adwId, gitContext: config.gitContext });
   }
 
   const phaseCostRecords = createPhaseCostRecords({

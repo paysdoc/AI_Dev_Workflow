@@ -76,7 +76,7 @@ async function resolveConflictsViaAgent(
     undefined,
     undefined,
     undefined,
-    { selfHost: ctx.selfHost, adwId }
+    { selfHost: ctx.selfHost, adwId, gitContext: ctx }
   );
 
   if (result.success) {

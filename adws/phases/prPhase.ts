@@ -67,7 +67,7 @@ export async function executePRPhase(config: WorkflowConfig): Promise<{ costUsd:
       repoName,
       resolvedDefaultBranch,
       requireWorkflowGitContext(config).commandEnv(),
-      { selfHost: !repoContext, adwId },
+      { selfHost: !repoContext, adwId, gitContext: config.gitContext },
     );
 
     costUsd = result.totalCostUsd || 0;

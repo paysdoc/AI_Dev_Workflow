@@ -130,7 +130,7 @@ export async function executePromotionRotAdvisory(
             issueBody: issue.body,
             subprocessEnv: config.gitContext?.commandEnv(),
             phaseName: 'promotionRotAdvisory',
-            launchContext: { selfHost: !repoContext, adwId },
+            launchContext: { selfHost: !repoContext, adwId, gitContext: config.gitContext },
           });
           costUsd += result.totalCostUsd || 0;
           modelUsage = mergeModelUsageMaps(modelUsage, result.modelUsage ?? emptyModelUsageMap());

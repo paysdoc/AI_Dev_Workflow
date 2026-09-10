@@ -22,6 +22,7 @@ import {
   AgentStateManager,
   type AgentState,
   OrchestratorId,
+  buildLaunchBoundary,
 } from './core';
 import { extractCwdOption, printUsageAndExit } from './core/orchestratorCli';
 import { runDocumentAgent } from './agents';
@@ -74,6 +75,8 @@ async function main(): Promise<void> {
   AgentStateManager.appendLog(orchestratorStatePath, 'Starting ADW Document workflow');
 
   try {
+    // selfHost pinned to true = the un-threaded default this call had before #822; only gitContext is new, so the guardrails decision is unchanged.
+    const boundary = buildLaunchBoundary(null);
     const result = await runDocumentAgent(
       adwId,
       logsDir,
@@ -81,6 +84,9 @@ async function main(): Promise<void> {
       undefined,
       undefined,
       cwd || undefined,
+      undefined,
+      undefined,
+      { selfHost: true, adwId, gitContext: boundary.gitContext },
     );
 
     const totalCostUsd = result.totalCostUsd || 0;
